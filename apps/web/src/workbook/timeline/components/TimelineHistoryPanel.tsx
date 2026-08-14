@@ -22,8 +22,16 @@ import type {
   RecordHistoryState,
   RowHistoryPendingAction,
 } from "../models/timelineHistoryModel";
+import {
+  actionButtonStyle,
+  bodyStyle,
+  inlineButtonRowStyle,
+  inspectorSectionStyle,
+  secondaryActionButtonStyle,
+  sectionTitleStyle,
+} from "./TimelineWorkbookStyles";
 
-export type TimelineHistoryPanelProps = {
+type TimelineHistoryPanelProps = {
   readonly currentRecordId: string | null | undefined;
   readonly history: RecordHistoryState;
   readonly pendingAction: RowHistoryPendingAction | null;
@@ -341,27 +349,6 @@ function formatHistoryTimestamp(value: string): string {
   return date.toISOString();
 }
 
-const bodyStyle = {
-  margin: 0,
-  lineHeight: 1.5,
-  color: "var(--ct-colors-ink-muted)",
-};
-
-const actionButtonStyle = {
-  borderRadius: "var(--ct-component-button-secondary-rounded)",
-  border: "var(--ct-component-button-secondary-border)",
-  background: "var(--ct-component-button-secondary-backgroundColor)",
-  color: "var(--ct-component-button-secondary-textColor)",
-  padding: "0.55rem 0.9rem",
-  font: "inherit",
-  cursor: "pointer",
-};
-
-const secondaryActionButtonStyle = {
-  ...actionButtonStyle,
-  background: "var(--ct-colors-surface-3)",
-};
-
 const destructiveActionButtonStyle = {
   ...actionButtonStyle,
   borderColor: "var(--ct-colors-semantic-destructive)",
@@ -373,12 +360,6 @@ const genericErrorTextStyle = {
   margin: 0,
   color: "var(--ct-colors-semantic-conflict)",
   fontWeight: 700,
-};
-
-const inspectorSectionStyle = {
-  display: "grid",
-  gap: "0.75rem",
-  marginBottom: "1rem",
 };
 
 const historySectionHeaderStyle = {
@@ -436,11 +417,6 @@ const historyConfirmPanelStyle = {
   background: "var(--ct-colors-surface-2)",
 };
 
-const sectionTitleStyle = {
-  margin: 0,
-  fontSize: "1rem",
-};
-
 const emptyRelationshipStyle = {
   color: "var(--ct-colors-ink-tertiary)",
   fontSize: "0.9rem",
@@ -461,10 +437,4 @@ const detailTermStyle = {
 
 const detailValueStyle = {
   margin: "0.2rem 0 0",
-};
-
-const inlineButtonRowStyle = {
-  display: "flex",
-  gap: "0.5rem",
-  flexWrap: "wrap" as const,
 };

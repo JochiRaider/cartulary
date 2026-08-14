@@ -9,8 +9,19 @@ import {
 } from "@cartulary/ui-contracts";
 import type { CSSProperties, ReactNode } from "react";
 import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
-import type { InspectorMention } from "../models/workbookMentionChips";
-import { RelationshipChip, relationshipItemLabel } from "./TimelineCellEditors";
+import { WorkbookRelationshipChip } from "../../components/WorkbookRelationshipChip";
+import {
+  type InspectorMention,
+  relationshipItemLabel,
+  timelineRelationshipChipPresentation,
+} from "../models/workbookMentionChips";
+import {
+  inputStyle,
+  inspectorSectionStyle,
+  labelStyle,
+  secondaryActionButtonStyle,
+  sectionTitleStyle,
+} from "./TimelineWorkbookStyles";
 
 export type MentionEntityOption = {
   readonly label: string;
@@ -25,7 +36,7 @@ const mentionStatuses = [
   "dismissed",
 ] as const satisfies readonly MentionStatus[];
 
-export type TimelineMentionsPanelProps = {
+type TimelineMentionsPanelProps = {
   readonly canManageMentions: boolean;
   readonly entityIndex: Record<string, { label: string }>;
   readonly getRelationshipLabel: (
@@ -139,10 +150,12 @@ function MentionGroups({
                       onSelectMention(item.rowRecordId, item.itemRef);
                     }}
                   >
-                    <RelationshipChip
-                      entityIndex={entityIndex}
-                      item={item}
-                      selected={selectedMention?.itemRef === item.itemRef}
+                    <WorkbookRelationshipChip
+                      presentation={timelineRelationshipChipPresentation({
+                        entityIndex,
+                        item,
+                        selected: selectedMention?.itemRef === item.itemRef,
+                      })}
                     />
                   </button>
                 ))
@@ -391,50 +404,9 @@ function statusLabel(status: MentionStatus) {
       : "Unresolved";
 }
 
-const inputStyle = {
-  boxSizing: "border-box",
-  display: "block",
-  minWidth: 0,
-  width: "100%",
-  borderRadius: "var(--ct-component-text-input-rounded)",
-  border: "var(--ct-component-text-input-border)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  padding: "0.65rem 0.75rem",
-  font: "inherit",
-  color: "var(--ct-component-text-input-textColor)",
-} satisfies CSSProperties;
-
 const selectStyle = {
   ...inputStyle,
   appearance: "auto",
-} satisfies CSSProperties;
-
-const secondaryActionButtonStyle = {
-  borderRadius: "var(--ct-component-button-secondary-rounded)",
-  border: "var(--ct-component-button-secondary-border)",
-  background: "var(--ct-colors-surface-3)",
-  color: "var(--ct-component-button-secondary-textColor)",
-  padding: "0.55rem 0.9rem",
-  font: "inherit",
-  cursor: "pointer",
-} satisfies CSSProperties;
-
-const labelStyle = {
-  display: "grid",
-  gap: "0.4rem",
-  fontSize: "0.95rem",
-  color: "var(--ct-colors-ink-muted)",
-} satisfies CSSProperties;
-
-const inspectorSectionStyle = {
-  display: "grid",
-  gap: "0.75rem",
-  marginBottom: "1rem",
-} satisfies CSSProperties;
-
-const sectionTitleStyle = {
-  margin: 0,
-  fontSize: "1rem",
 } satisfies CSSProperties;
 
 const emptyRelationshipStyle = {

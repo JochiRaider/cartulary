@@ -102,7 +102,7 @@ import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
-import { RelationshipChip } from "../timeline/components/TimelineCellEditors";
+import { timelineRelationshipChipPresentation } from "../timeline/models/workbookMentionChips";
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
 import { GenericMutationControl } from "./GenericMutationControl";
 import { workbookGridEditorAdapter } from "./WorkbookGridEditorControl";
@@ -111,6 +111,7 @@ import {
   WorkbookInspectorPanelSection,
 } from "./WorkbookInspectorFeatureGroups";
 import { WorkbookCellPresenceMarker } from "./WorkbookPresenceMarkers";
+import { WorkbookRelationshipChip } from "./WorkbookRelationshipChip";
 import { WorkbookSurfaceStatusStrip } from "./WorkbookStatusStrip";
 import { WorkbookViewBar } from "./WorkbookViewBar";
 
@@ -1310,10 +1311,11 @@ export function EntityWorkbookSurface({
                                 ? "hostRefs"
                                 : "identityRefs"
                             ].map((item) => (
-                              <RelationshipChip
+                              <WorkbookRelationshipChip
                                 key={item.itemRef}
-                                entityIndex={entityIndex}
-                                item={item}
+                                presentation={timelineRelationshipChipPresentation(
+                                  { entityIndex, item },
+                                )}
                               />
                             ))}
                           </div>

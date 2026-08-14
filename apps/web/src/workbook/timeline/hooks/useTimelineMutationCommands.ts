@@ -75,9 +75,9 @@ export function useTimelineMutationCommands({
   finishSave,
   incidentId,
   latestCommittedTimelineRow,
-  loadRowsRef,
+  loadRows,
   nextClientTxnId,
-  pendingSavesRefsRef,
+  pendingSavesRefs,
   recordActionPort,
   resolvePendingSocketTxn,
   rowsRef,
@@ -106,11 +106,9 @@ export function useTimelineMutationCommands({
   readonly finishSave: (result: "Conflict" | "Saved" | "Syncing") => void;
   readonly incidentId: string;
   readonly latestCommittedTimelineRow: (recordId: string) => WorkbookRow | null;
-  readonly loadRowsRef: TimelineMutableRef<LoadRowsForMutation>;
+  readonly loadRows: LoadRowsForMutation;
   readonly nextClientTxnId: () => string;
-  readonly pendingSavesRefsRef: TimelineMutableRef<
-    WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>
-  >;
+  readonly pendingSavesRefs: WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>;
   readonly recordActionPort: TimelineRecordActionPort;
   readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
@@ -164,7 +162,7 @@ export function useTimelineMutationCommands({
         | ((outcome: GridEditCommitOutcome) => void)
         | undefined;
     }) => {
-      pendingSavesRefsRef.current.pendingSignaturesRef.current.set(
+      pendingSavesRefs.pendingSignaturesRef.current.set(
         rowKey,
         mutationSignature,
       );
@@ -222,8 +220,7 @@ export function useTimelineMutationCommands({
             rowSnapshot.recordId === null
               ? `draft:${rowKey}`
               : `record:${rowSnapshot.recordId}`,
-          enqueueOrder:
-            pendingSavesRefsRef.current.pendingReplayOrderRef.current,
+          enqueueOrder: pendingSavesRefs.pendingReplayOrderRef.current,
           operationClass: "hot_path",
           status: "queued",
           ...(visibleEdit === undefined ? {} : { visibleEdit }),
@@ -235,13 +232,13 @@ export function useTimelineMutationCommands({
         },
         onSettled,
       );
-      pendingSavesRefsRef.current.pendingReplayOrderRef.current += 1;
+      pendingSavesRefs.pendingReplayOrderRef.current += 1;
     },
     [
       clientInstanceId,
       enqueuePendingReplayUnit,
       incidentId,
-      pendingSavesRefsRef,
+      pendingSavesRefs,
       rowsRef,
       setRows,
     ],
@@ -312,9 +309,8 @@ export function useTimelineMutationCommands({
 
       const mutationSignature = buildStableMutationSignature(payload);
       if (
-        pendingSavesRefsRef.current.pendingSignaturesRef.current.get(
-          effectiveRowKey,
-        ) === mutationSignature
+        pendingSavesRefs.pendingSignaturesRef.current.get(effectiveRowKey) ===
+        mutationSignature
       ) {
         onSettled?.({ kind: "accepted" });
         return;
@@ -364,7 +360,7 @@ export function useTimelineMutationCommands({
       editorDraftRegistry,
       enqueueAutosaveReplayForPendingMutation,
       nextClientTxnId,
-      pendingSavesRefsRef,
+      pendingSavesRefs,
       rowsRef,
     ],
   );
@@ -409,18 +405,14 @@ export function useTimelineMutationCommands({
       const draftValue =
         draftValueOverride ?? rowSnapshot.collectionDrafts[focusField];
       const priorKeyboardCommitValue =
-        pendingSavesRefsRef.current.collectionKeyboardCommitRef.current.get(
-          focusKey,
-        );
+        pendingSavesRefs.collectionKeyboardCommitRef.current.get(focusKey);
       if (source === "blur") {
-        pendingSavesRefsRef.current.collectionKeyboardCommitRef.current.delete(
-          focusKey,
-        );
+        pendingSavesRefs.collectionKeyboardCommitRef.current.delete(focusKey);
         if (priorKeyboardCommitValue === draftValue) {
           return;
         }
       } else {
-        pendingSavesRefsRef.current.collectionKeyboardCommitRef.current.set(
+        pendingSavesRefs.collectionKeyboardCommitRef.current.set(
           focusKey,
           draftValue,
         );
@@ -452,7 +444,7 @@ export function useTimelineMutationCommands({
 
       const mutationSignature = buildStableMutationSignature(payload);
       if (
-        pendingSavesRefsRef.current.pendingSignaturesRef.current.get(rowKey) ===
+        pendingSavesRefs.pendingSignaturesRef.current.get(rowKey) ===
         mutationSignature
       ) {
         return;
@@ -493,7 +485,7 @@ export function useTimelineMutationCommands({
       enqueueAutosaveReplayForPendingMutation,
       latestCommittedTimelineRow,
       nextClientTxnId,
-      pendingSavesRefsRef,
+      pendingSavesRefs,
       rowsRef,
     ],
   );
@@ -546,7 +538,7 @@ export function useTimelineMutationCommands({
         }
 
         acceptTimelineActionResult(result.value);
-        await loadRowsRef.current({
+        await loadRows({
           showLoading: false,
           viewportContinuityToken,
         });
@@ -560,7 +552,7 @@ export function useTimelineMutationCommands({
       clearViewportContinuity,
       enqueueSaveWork,
       finishSave,
-      loadRowsRef,
+      loadRows,
       nextClientTxnId,
       recordActionPort,
       replacementDrafts,

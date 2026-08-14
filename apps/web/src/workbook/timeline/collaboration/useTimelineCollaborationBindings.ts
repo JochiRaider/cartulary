@@ -42,7 +42,7 @@ type TimelineRowAdmission = {
   ) => boolean;
 };
 
-export type TimelineCollaborationBinding = {
+type TimelineCollaborationBinding = {
   readonly commands: {
     readonly publishPresence: (presence: WorkbookPresenceDraft) => void;
     readonly requestAuthorizationRecovery: () => void;

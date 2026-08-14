@@ -2,19 +2,29 @@
 
 ## 1. Scope and Source Posture
 
-- **Target path:** `apps/web/src/workbook/timeline/components/TimelineWorkbook.tsx`
+- **Original target path:**
+  `apps/web/src/workbook/timeline/components/TimelineWorkbook.tsx`
+- **Current planning scope:** `apps/web/src/workbook/timeline/**`, plus only the
+  workbook-runtime and common-component consumers named by Section 13.
 - **Target label:** `TimelineWorkbook-tsx`
 - **Normalized identifier:** `timeline-workbook-tsx`
 - **Output path:** `docs/handoffs/TimelineWorkbook-tsx-refactor-tracker.md`
-- **Status:** Implementation complete; S-00 through S-08 pass with no open
-  remediation blocker.
-- **Allowed change:** The bounded artifacts recorded in the implementation
-  authority contract below.
+- **Status:** S-00 through S-08 are complete historical evidence. PR-00 through
+  PR-04 are complete, and PR-05 through PR-06 are authorized sequentially by
+  the production-readiness remediation task recorded in Section 13.
+- **Allowed change in the current task:** The bounded production, test,
+  ownership, verification, implementation-support documentation, generated
+  topology, and tracker artifacts recorded in Section 13.
 - **Non-goals:** Public-contract, backend, dependency, deployment, migration,
   generated-root, transport, persistence, authorization, and unrelated runtime
   behavior changes.
-- **Implementation authorization:** User task
-  `user-timeline-workbook-remediation-2026-08-14` authorizes S-00 through S-08.
+- **Current task authorization:** User task
+  `user-timeline-workbook-production-readiness-remediation-2026-08-14`
+  authorizes PR-00 through PR-06 sequentially with the mandatory tracker
+  checkpoints in Section 15.
+- **Completed implementation authorization:** User task
+  `user-timeline-workbook-remediation-2026-08-14` authorized the historical
+  S-00 through S-08 iteration.
 
 Normative terms in this tracker have the following meanings:
 
@@ -26,14 +36,20 @@ Normative terms in this tracker have the following meanings:
   different choices cannot affect callers, tests, ownership, or interoperability.
 
 `docs/research/nlspec-spec.md` supplies writing doctrine for this tracker, and
-`temp/analysis-notes.md` supplies review evidence. Neither document owns product
-behavior. Core 00 through Core 04 and adopted subsystem owners remain the
-authorities for every preserved observable behavior.
+`temp/analysis-notes.md` supplied review evidence for the completed iteration.
+Neither document owns product behavior. Core 00 through Core 04 and adopted
+subsystem owners remain the authorities for every preserved observable
+behavior. The research document is not changed by this planning task.
 
-The target exists and was inspected directly in full. It is a single 2,176-line
-TypeScript React file, so the inventory in Section 2 has one in-scope row. The
-safe identifier `timeline-workbook-tsx` is a planning label, not an assertion
-that the component is or should become a permanent module boundary.
+The completed S iteration began from a 2,176-line target; Sections 2 through 12
+retain that iteration's inventory, decisions, commands, and evidence as an
+auditable historical record. At planning baseline
+`98082ac04c2a4e8a03df3a0982e30a7de12680f5`, the target is 1,619 lines and the
+next material risks are package-wide duplication, cross-surface UI ownership,
+and render-order-dependent runtime callback bridges. Section 13 is the
+controlling plan for that next iteration. The safe identifier
+`timeline-workbook-tsx` remains a planning label, not a permanent module
+boundary.
 
 The source hierarchy used for this tracker was:
 
@@ -45,10 +61,10 @@ The source hierarchy used for this tracker was:
 5. Current repository code and tests as current-state evidence.
 6. The planning framework and prior handoffs as evidence and doctrine only.
 
-### Implementation authority contract
+### Completed S-iteration implementation authority contract
 
-This tracker records implementation authority supplied by the user task named
-below. Every implementation checkpoint MUST remain within this complete record.
+This historical contract records the authority used by the completed S
+iteration. It does not authorize PR-00 through PR-06.
 
 | Authority field | Required value | Current value |
 | --- | --- | --- |
@@ -1137,6 +1153,869 @@ Every row is binary and has final evidence in the originating slice or S-08.
 | DOD-011 | Sections 1 and 11 | No owner contradiction remains unresolved. Any discovered contradiction stopped its slice and was resolved by the applicable owner before work resumed. | Owner-resolution reference or explicit `no contradiction found` record | PASS; no contradiction found |
 | DOD-012 | Entire tracker | No behavior-changing work was smuggled into the refactor. Any required new route, schema, error, state, default, permission, dependency, package export, feature tuple, or permanent cross-owner boundary was separately planned and authorized. | Final diff classification and owner approval for every authorized exception | PASS in S-08 |
 
-This refactor and tracker are complete when the final post-handoff
-`make lint-markdown` passes. DOD-001 through DOD-012 have passing implementation
-evidence, and no further remediation work is deferred from this task.
+The S iteration is complete: its final post-handoff `make lint-markdown` passed,
+and DOD-001 through DOD-012 have passing implementation evidence. Sections 13
+through 17 define a separate, not-yet-authorized production-readiness
+iteration; they do not alter the completed S dispositions.
+
+## 13. Controlling Production-Readiness Iteration
+
+PR-00 through PR-06 are the controlling plan for the next iteration. Their goal
+is to remove proven dead code, duplicated projections, cross-surface UI
+ownership, and hidden render-order dependencies without preserving an internal
+shape solely because it exists. The completed S evidence remains valid history;
+it is not implementation authority for this iteration.
+
+### Planning and future implementation authority
+
+| Authority field | Required value | Current value |
+| --- | --- | --- |
+| Planning task ID | Stable identifier for this document update | `user-timeline-workbook-production-readiness-plan-2026-08-14` |
+| Planning baseline | Exact source revision inspected while defining the iteration | `98082ac04c2a4e8a03df3a0982e30a7de12680f5` |
+| Current authorized artifacts | Exact files this task may change | The allowed artifacts in the next row, adopted for PR-00 through PR-06 |
+| Implementation authorization | A later user task adopting an exact PR-00 through PR-06 range | `GRANTED` by `user-timeline-workbook-production-readiness-remediation-2026-08-14` for PR-00 through PR-06 sequentially |
+| Implementation starting identity | Live revision recorded before the first authorized production or test write | `98082ac04c2a4e8a03df3a0982e30a7de12680f5`; the only pre-existing worktree change was the staged planning update to this tracker |
+| Future allowed artifacts | Timeline package source; the narrow workbook pending-runtime and common relationship-chip boundaries named by PR-02 and PR-04; direct production consumers needed to remove a reversed dependency; focused tests; `tools/frontend_import_boundaries.json`; authored source-ownership and test-family inputs; `apps/web/src/README.md`; Make-generated test topology when its authored input changes; this tracker | Adopted for the authorized PR-00 through PR-06 range |
+| Future prohibited artifacts | Core and domain specifications; backend, protocol, persistence, projection, authorization, deployment, dependency, route, wire, selector, public-package, or unrelated workbook behavior; hand-edited generated roots | Binding default; a required exception stops the affected slice and reopens planning |
+| Characterization prerequisite | Stable pre-change evidence for every behavior adjacent to a deletion or runtime-graph change | PASS in PR-00; retained roots are recorded below |
+
+The future implementation MUST preserve `TimelineWorkbookProps`,
+`TimelineWorkbook`, the sole supported production-facade import path, current
+callers, routes, envelopes, selectors, `view_schema_id`, `sheet_ref`,
+`record_id`, `row_version`, field keys, authorization outcomes, accessibility
+semantics, and package exports. No compatibility wrapper, dual path, feature
+flag, dependency, data migration, or generalized cross-workbook dispatcher is
+planned.
+
+### Deletion standard
+
+A production path MAY be deleted only when PR-00 records all of the following:
+
+- no adopted owner requires the behavior;
+- no production caller or stable contract depends on it;
+- it supplies no security, authorization, accessibility, recovery, or
+  interoperability property;
+- it has no demonstrated continuing user value; and
+- its removal does not make an authorized future phase more brittle.
+
+Test-only use does not create production ownership. A test that exists only to
+exercise an unused production export MUST be removed or rewritten around the
+surviving semantic owner. Missing evidence is not proof that behavior is dead.
+
+The following are active semantics, not legacy-removal candidates:
+
+- stale conflict-token refresh that preserves the current draft;
+- fail-closed handling of unsupported or mismatched feature identities;
+- authentication and authorization recovery and cleanup;
+- saved-view versus base-surface `sheet_ref` and presence distinctions; and
+- conflict, pending-replay, focus, keyboard, and accessibility outcomes owned by
+  adopted specifications.
+
+No literal obsolete Timeline protocol path was found at the planning baseline.
+For this iteration, legacy burden means unused exports, duplicated semantic
+projections, reversed package dependencies, placeholder callback bridges, and
+forwarding layers without a continuing invariant.
+
+## 14. PR Workstreams
+
+The slices are sequential and independently reversible:
+
+`PR-00 -> PR-01 -> PR-02 -> PR-03 -> PR-04 -> PR-05 -> PR-06`
+
+### PR-00 - Baseline and deletion-proof gate
+
+- **Areas:** Read-only production/reference inventory, characterization tests,
+  ownership and verification planning, and tracker evidence.
+- **Remediation:** Record the later implementation task, authorized slice range,
+  live revision, artifact bounds, and prohibited changes. Inventory production
+  references, test-only exports, duplicate helpers and labels, mutable callback
+  bridges, cross-surface imports, lifecycle fallbacks, and orphan files.
+  Characterize draft-row continuity, width measurement, row refresh and bounded
+  stale retry, pending replay, conflict recovery, inspector reset, scalar and
+  collection editing, and Entity-dependent Timeline previews. Add focused tests
+  only where existing evidence cannot distinguish supported behavior from an
+  implementation detail selected for deletion.
+- **Rationale and benefit:** Deletion becomes evidence-based and cannot
+  accidentally remove recovery, accessibility, or future-facing behavior.
+- **Compatibility and migration:** Tests, authored verification metadata, and
+  the tracker only. There is no product or data migration.
+- **Risk if unresolved:** Active behavior can be mislabeled as legacy, while
+  genuinely dead compatibility burden remains unmeasured.
+- **Exit criteria:** Every PR-01 through PR-04 candidate has an owner, caller,
+  deletion, preservation, or relocation disposition. Applicable pre-change
+  tests pass with exact owner rows, titles, results, and retained roots. The
+  implementation authority record is complete.
+
+#### PR-00 implementation checkpoint
+
+- **Status and dependency:** COMPLETE at source identity
+  `98082ac04c2a4e8a03df3a0982e30a7de12680f5`; PR-01 is unblocked.
+- **Authority:**
+  `user-timeline-workbook-production-readiness-remediation-2026-08-14`,
+  PR-00 through PR-06 sequentially.
+- **Files changed:** This tracker only. No production, test, owner, catalog, or
+  generated artifact changed in PR-00.
+- **Deletion-proof dispositions:** Duplicate draft allocation, the second
+  width effect, test-only focus/draft helpers, the identity normalizer, copied
+  Indicator field labels, the local editor-surface type, repeated identical
+  styles, unused `useTimelineSaveStatePresentation` callback refs, callback
+  mirrors, and forwarding-only imports are implementation details with no
+  public caller or owner requirement. Conflict recovery, bounded stale retry,
+  draft preservation, pending FIFO replay, inspector focus/reset semantics,
+  relationship-chip accessibility, Entity Timeline previews, and width
+  measurement remain active behavior and MUST be preserved.
+- **Ownership and selectors:** Existing source paths have the single live owner
+  `web.workbook`. Existing characterization rows remain singly owned by
+  `web.workbook`, `web.architecture`, `module.workbook`, or `module.timeline` as
+  recorded in their authored family manifests. No selector changed.
+- **Commands:** `make frontend-typecheck` PASS at
+  `.cartulary/test-results/20260814T145146Z-p3737270`;
+  `make frontend-import-boundary-check` PASS at
+  `.cartulary/test-results/20260814T145146Z-p3737295`;
+  `make test-slice OWNER=web.architecture` PASS, 12/12 units, at
+  `.cartulary/test-results/20260814T145146Z-p3737188`;
+  `make json-shape-check` PASS at
+  `.cartulary/test-results/20260814T145155Z-p3738254`;
+  `make test-slice OWNER=web.workbook` PASS, 127/127 units, at
+  `.cartulary/test-results/20260814T145155Z-p3738334`; and
+  `make test-catalog-check` PASS.
+- **Generation impact:** `none`; no authored generator input changed.
+- **Deviation and rollback:** No deviation and no owner contradiction. Rollback
+  is this checkpoint's tracker diff only.
+- **Next action:** Implement PR-01, reconcile its source/test accounting, then
+  update this tracker and pass Markdown lint before PR-02.
+
+### PR-01 - Proven dead and duplicate code removal
+
+- **Areas:** Timeline model, facade, editor/rendering support, focused tests,
+  ownership/catalog inputs when selectors or paths change, and tracker.
+- **Remediation:** Delete the second identical grid-width layout effect and
+  forwarding lambdas that add no event or lifecycle behavior. Replace both
+  private `ensureDraftRowWithFreshIndex` implementations and the test-only
+  `ensureDraftRow` export with one production-used pure model command returning
+  the rows plus an optional draft focus key. Delete the test-only
+  `timelineFocusFieldForFieldKey` function and identity `normalizeValue`
+  function. Derive Indicator observation source fields from the canonical
+  Timeline bindings and immutable contract labels. Import the canonical
+  `TimelineScalarEditorSurface` type in all components. Consolidate identical
+  Timeline body, input, and button style primitives without changing tokens or
+  rendered structure. Delete the unused callback-ref return surface from
+  `useTimelineSaveStatePresentation`.
+- **Rationale and benefit:** One owner remains for draft insertion, field
+  identity, labels, editor surfaces, and reusable style primitives. Future
+  contract additions cannot drift across copied lists.
+- **Compatibility and migration:** Private TypeScript imports and tests change;
+  public, persisted, wire, selector, and visual-token contracts do not. The old
+  helper exports are deleted in the same slice with no alias.
+- **Risk if unresolved:** Duplicate invariants and test-only APIs continue to
+  create false compatibility obligations and divergent future behavior.
+- **Exit criteria:** Removed symbols and hard-coded projections have no
+  references; draft allocation happens at most once and preserves the expected
+  focus key; contract-derived source fields retain order and labels; exactly one
+  width-measurement effect remains; focused model and UI evidence passes.
+
+#### PR-01 implementation checkpoint
+
+- **Status and dependency:** COMPLETE on the authorized PR-00 baseline; PR-02
+  is unblocked.
+- **Files changed:** App mock cleanup in `App.auth.test.tsx`,
+  `App.auth.support.test.tsx`, and `App.landing.test.tsx`; autosave
+  characterization cleanup; Timeline cell, evidence, history, mentions, row
+  action, workbook, inspector, notices, renderer, and shared-style components;
+  Timeline row loader, save-state presentation, row model, Timeline model, and
+  mutation coordinator source/tests; `tools/test_families/web.workbook.json`;
+  Make-generated `tools/execution_topology_render_index.json`; and this tracker.
+- **Substantive edits:** `ensureTimelineDraftRow` is the single production draft
+  allocator and returns rows plus an optional focus key. The test-only draft and
+  focus exports, identity normalizer, duplicate width effect, copied Indicator
+  source labels, local editor-surface type, unused save-state callback refs, and
+  byte-identical component style declarations were removed without aliases.
+- **Deletion proof:** Removed exports had no production caller and supplied no
+  security, recovery, accessibility, or interoperability property. One active
+  width observer, contract-derived labels, draft continuity, autosave, and
+  focus behavior remain.
+- **Ownership and selectors:** All changed sources remain owned by
+  `web.workbook`. New selector row
+  `web.workbook.regression.timeline_rows_model_allocates_exactly_one_draft_8a23914036`
+  owns the exact draft-allocation title. Existing titles retain their prior
+  owners.
+- **Commands:** `make format` PASS at
+  `.cartulary/test-results/20260814T145943Z-p3757964`; `make generate` PASS at
+  `.cartulary/test-results/20260814T145955Z-p3761488`;
+  `make frontend-typecheck` PASS at
+  `.cartulary/test-results/20260814T150013Z-p3764857`;
+  `make frontend-import-boundary-check` PASS at
+  `.cartulary/test-results/20260814T150013Z-p3764883`;
+  `make json-shape-check` PASS at
+  `.cartulary/test-results/20260814T150013Z-p3764666`;
+  `make test-catalog-check` PASS;
+  `make test-slice OWNER=web.architecture` PASS, 12/12 units, at
+  `.cartulary/test-results/20260814T150029Z-p3766317`;
+  `make test-slice OWNER=web.workbook` PASS, 128/128 units, at
+  `.cartulary/test-results/20260814T150128Z-p3785024`;
+  `make generate-drift` PASS at
+  `.cartulary/test-results/20260814T150029Z-p3766237`;
+  `make generated-artifact-policy-check` PASS at
+  `.cartulary/test-results/20260814T150029Z-p3766263`; and
+  `make browser-e2e-measurement` PASS, 27/27 units, at
+  `.cartulary/test-results/20260814T150215Z-p3798980`.
+- **Failure disposition:** The first post-catalog workbook slice exposed only a
+  missing `vi` import in the new focused test. Adding the explicit import fixed
+  the change-related test failure; the rerun passed all 128 units.
+- **Generation impact:** Authored test-family input changed, so Make regenerated
+  the execution-topology render index. Drift and protected-artifact policy pass.
+- **Deviation and rollback:** No behavior or owner deviation. Rollback is the
+  full PR-01 source, test, catalog, generated-index, and tracker unit.
+- **Next action:** Implement PR-02's concrete runtime graph, then checkpoint it
+  before PR-03.
+
+### PR-02 - Explicit query, replay, and mutation runtime graph
+
+- **Areas:** Timeline row loading, pending-save/replay controllers, mutation
+  coordination and runtime bindings, workbook pending-runtime types, focused
+  tests, ownership/catalog inputs, and tracker.
+- **Remediation:** Make `useTimelineRowsLoader` own its bounded recursive retry
+  and return `loadRows` directly. Remove the facade-owned no-op `loadRowsRef`.
+  Move committed-record idle waiting into a focused hook that consumes the real
+  load command and current pending/conflict state. Make the pending-replay
+  controller register its real drainer with `WorkbookMutationRuntime`. After a
+  refresh block settles, call `mutationRuntime.requestDrain()` rather than a
+  scheduled-callback ref. Add a Timeline runtime-binding hook that registers
+  surface refresh, accepted conflict resolution, focus restoration, and blocked
+  edit discard only after all real callbacks exist. Remove
+  `discardBlockedEditRef`, `schedulePendingReplayRuntimeRef`, and
+  `schedulePendingReplayRef`. Make `useTimelinePendingSaves` expose one stable
+  ref bundle and pass it directly instead of mirroring it through
+  `pendingSavesRefsRef`.
+- **Private interfaces:** `useTimelineRowsLoader` returns a semantic
+  `loadRows(options)` command; the committed-record-idle hook returns
+  `waitForCommittedRecordIdle(recordId, options)`; the runtime-binding hook
+  receives concrete load, apply, discard, editor, and focus commands and owns
+  registration cleanup. None is exported from a package.
+- **Rationale and benefit:** The dependency graph becomes explicit and
+  lifecycle-safe. Calling a command can no longer silently hit a placeholder
+  because a later hook has not assigned its ref during render.
+- **Compatibility and migration:** Private runtime interfaces only. Queue
+  ordering, retry limits, row-version admission, refresh behavior, draft
+  preservation, conflict outcomes, save-state presentation, and focus recovery
+  remain unchanged.
+- **Risk if unresolved:** Correctness continues to depend on hook order and
+  render-time assignment, making teardown, concurrent rendering, and future
+  replay expansion fragile.
+- **Exit criteria:** The facade has no placeholder callback initialization or
+  callback-assignment bridge. Runtime drainer and surface registrations use
+  concrete commands and unregister on lifecycle change. Tests cover bounded
+  stale retry, refresh-if-missing once, refresh unblock and drain, conflict
+  resolution, blocked-edit discard, unmount cleanup, and replay ordering.
+
+#### PR-02 implementation checkpoint
+
+- **Status and dependency:** COMPLETE at immutable source revision
+  `98082ac04c2a4e8a03df3a0982e30a7de12680f5` plus the completed PR-00 and
+  PR-01 rollback units. PR-03 is unblocked.
+- **Authority:**
+  `user-timeline-workbook-production-readiness-remediation-2026-08-14`,
+  PR-00 through PR-06 sequentially.
+- **Files added:**
+  `hooks/useTimelineCommittedRecordIdle.ts`,
+  `hooks/useTimelineMutationRuntimeBindings.ts`, and their two focused tests at
+  the Timeline package root. The tests live outside `hooks/` to satisfy the
+  controller-isolation import boundary.
+- **Files changed:** `TimelineWorkbook.tsx`, the Timeline clipboard, mutation,
+  pending-replay, pending-save, row-loader, save-state, and mutation-coordinator
+  hooks/tests; `workbookPendingReplayRuntime.ts`;
+  `tools/frontend_source_ownership.json`;
+  `tools/test_families/web.workbook.json`; Make-generated
+  `tools/execution_topology_render_index.json`; and this tracker.
+- **Substantive edits:** The stable `WorkbookPendingSavesRefs` bundle is passed
+  directly. The loader performs bounded recursive retry through its concrete
+  named command. Committed-record idle waiting has one focused owner. Refresh
+  settlement and completed replay units request the shared mutation runtime.
+  The replay controller lifecycle-registers its concrete drainer, and the new
+  runtime-binding hook registers concrete refresh, conflict-apply,
+  focus-restoration, and blocked-edit-discard commands with effect cleanup.
+- **Deletion proof:** `loadRowsRef`, `discardBlockedEditRef`, both scheduled
+  replay bridges, `replayPendingQueueRef`, the outer pending-ref mirror, and
+  `schedulePendingReplayRef` have zero live references. They were private
+  render-order adapters with no owner, security, recovery, accessibility, or
+  interoperability value. Retry backoff, FIFO ordering, refresh blocking,
+  row-version admission, conflict recovery, draft retention, focus recovery,
+  and save-state copy remain active.
+- **Ownership and selectors:** Both new source/test pairs have the single live
+  source owner `web.workbook`. Exact selector
+  `useTimelineCommittedRecordIdle refreshes a missing committed version at most
+  once` is row
+  `web.workbook.regression.timeline_committed_idle_refreshes_once_19e6098c0e`;
+  exact selector `useTimelineMutationRuntimeBindings registers concrete
+  commands and cleans up on change and unmount` is row
+  `web.workbook.regression.timeline_runtime_bindings_cleanup_f184aff191`.
+  Existing coordinator evidence remains row
+  `module.timeline.frontend.timeline_row_mutation_coordinator_1a7e2c9b44`.
+- **Focused and broad results:** The two new `web.workbook` rows PASS at
+  `.cartulary/test-results/20260814T152210Z-p3848562`; the exact
+  `module.timeline` coordinator row PASS, 2/2 units, at
+  `.cartulary/test-results/20260814T152814Z-p3901144`; `web.workbook` PASS,
+  130/130 units, at
+  `.cartulary/test-results/20260814T152603Z-p3876976`; and
+  `web.architecture` PASS, 12/12 units, at
+  `.cartulary/test-results/20260814T152647Z-p3890978`.
+- **Static results:** `make format` PASS at
+  `.cartulary/test-results/20260814T152716Z-p3896553`;
+  `make frontend-typecheck` PASS at
+  `.cartulary/test-results/20260814T152720Z-p3900018`;
+  `make frontend-import-boundary-check` PASS at
+  `.cartulary/test-results/20260814T152341Z-p3860726`;
+  `make json-shape-check` PASS at
+  `.cartulary/test-results/20260814T152655Z-p3892770`;
+  `make test-catalog-check` PASS; and `git diff --check` PASS.
+- **Failure disposition:** Intermediate typecheck failures identified stale
+  coordinator-test parameters and incomplete mock typing. The first format
+  attempt identified catalog ordering and callback dependencies. The first
+  import-boundary run required relocating focused controller tests to the
+  Timeline package root. The first broad workbook run exposed a real immediate
+  replay-order regression at
+  `.cartulary/test-results/20260814T152347Z-p3861132`; the registered drainer
+  now executes ready work immediately while retaining the one-second retry
+  backoff, and the exact failed row PASS at
+  `.cartulary/test-results/20260814T152554Z-p3876458` before the broad rerun.
+- **Generation impact:** Authored source ownership and test-family inputs
+  changed. `make generate` PASS at
+  `.cartulary/test-results/20260814T152332Z-p3857847`;
+  `make generate-drift` PASS at
+  `.cartulary/test-results/20260814T152658Z-p3893160`; and
+  `make generated-artifact-policy-check` PASS at
+  `.cartulary/test-results/20260814T152706Z-p3895995`. Only the declared
+  execution-topology render index changed; no protected generated source was
+  hand-edited.
+- **Browser and service disposition:** No transport, protocol, persistence, or
+  service behavior changed, so service-backed `module.timeline` and its
+  webserver-backed replay rows are inapplicable under the Section 16 stop rule.
+  The owner-routed frontend replay, stale-version, conflict, discard, refresh,
+  and FIFO evidence passed.
+- **Deviation and rollback:** Test relocation was required by the existing
+  controller-isolation policy and did not change ownership or behavior. No
+  owner contradiction or public-contract deviation occurred. Rollback is the
+  full PR-02 source, tests, owner/catalog inputs, generated index, and tracker
+  unit.
+- **Next action:** Implement PR-03's row and inspector state ownership moves,
+  then checkpoint it and pass Markdown lint before PR-04.
+
+### PR-03 - Cohesive state ownership and facade cleanup
+
+- **Areas:** Timeline row and inspector state hooks, facade composition,
+  inspector lifecycle tests, ownership/catalog inputs, and tracker.
+- **Remediation:** Make `useTimelineRows` own its initial draft, row ref, and
+  draft counter, and expose semantic row state, `setRows`, and
+  `nextDraftIndex`. Move `inspectorMessage` into the existing Timeline inspector
+  state owner and delete `useTimelineEvidenceActions`. Retain
+  `useTimelineMentions` as the cohesive owner of mention-specific local state.
+  Add one semantic close command shared by explicit inspector and layout-close
+  requests while leaving Escape-specific selection clearing and focus recovery
+  with the keyboard/lifecycle owner. Remove obsolete imports, mirrors, and
+  callback adapters exposed by PR-02.
+- **Rationale and benefit:** State and lifecycle rules are colocated with their
+  semantic owners instead of being represented by one-field wrappers or
+  facade-owned refs.
+- **Compatibility and migration:** Private hook shapes only; inspector messages,
+  focus behavior, mention state, selectors, and callers remain stable.
+- **Risk if unresolved:** The facade remains the implicit owner of initialization
+  and close sequencing, and later inspector features can introduce divergent
+  reset paths.
+- **Exit criteria:** `TimelineWorkbookContent` contains controller/runtime
+  composition, collaboration-boundary wiring, legitimate layout state, and
+  rendering only. It owns no retry/replay policy or duplicated inspector-close
+  sequence. Inspector lifecycle and row-state tests pass.
+
+#### PR-03 implementation checkpoint
+
+- **Status and dependency:** COMPLETE at immutable revision
+  `98082ac04c2a4e8a03df3a0982e30a7de12680f5` plus the completed PR-00 through
+  PR-02 rollback units. PR-04 is unblocked.
+- **Files added:** `useTimelineRows.test.tsx` and
+  `useTimelineInspectorLifecycle.test.tsx` at the Timeline package root.
+- **Files changed:** `TimelineWorkbook.tsx`, `useTimelineRows.ts`,
+  `useTimelineInspectorSelection.ts`, `apps/web/src/README.md`, source-owner and
+  `web.workbook` test-family inputs, Make-generated execution-topology render
+  index, and this tracker.
+- **File deleted:** `hooks/useTimelineEvidenceActions.ts`. Its only state was
+  `inspectorMessage`; it did not own evidence attachment, preview, download,
+  security, recovery, or accessibility behavior, and it had one facade caller.
+  No forwarding alias remains.
+- **Substantive edits:** `useTimelineRows` now owns the initial draft, stable row
+  ref, and monotonic draft counter and returns `rows`, `rowsRef`, `setRows`, and
+  `nextDraftIndex`. Inspector selection/state owns feedback state. Inspector
+  lifecycle returns one `closeInspector` command used by the inspector close
+  button and responsive layout close request. Escape retains its separate
+  selection clearing and focus restoration sequence.
+- **Ownership and selectors:** Deleted source ownership for the one-field hook;
+  both new tests and all surviving sources remain singly owned by
+  `web.workbook`. Exact selector `useTimelineRows owns the initial draft row ref
+  and monotonic draft index` is row
+  `web.workbook.regression.timeline_rows_owner_initialization_ccdda85db3`;
+  exact selector `useTimelineInspectorLifecycle shares one close command across
+  explicit and layout requests` is row
+  `web.workbook.regression.timeline_inspector_lifecycle_close_71780eefa1`.
+- **Results:** The two focused rows PASS, 3/3 units, at
+  `.cartulary/test-results/20260814T153331Z-p3918166`;
+  `web.workbook` PASS, 132/132 units, at
+  `.cartulary/test-results/20260814T153356Z-p3921467`;
+  `web.architecture` PASS, 12/12 units, at
+  `.cartulary/test-results/20260814T153347Z-p3919945`;
+  `make frontend-typecheck` PASS at
+  `.cartulary/test-results/20260814T153452Z-p3938843`;
+  `make frontend-import-boundary-check` PASS at
+  `.cartulary/test-results/20260814T153340Z-p3918909`;
+  `make json-shape-check` PASS at
+  `.cartulary/test-results/20260814T153344Z-p3919534`;
+  `make test-catalog-check` PASS; and `git diff --check` PASS.
+- **Failure disposition:** The first format attempt at
+  `.cartulary/test-results/20260814T153212Z-p3904047` found dependency arrays
+  exposed by moving stable refs into `useTimelineRows`. The dependencies were
+  expressed at their true owner and `make format` PASS at
+  `.cartulary/test-results/20260814T153256Z-p3911323`. No product test failed.
+- **Generation impact:** Authored source/test ownership changed. `make generate`
+  PASS at `.cartulary/test-results/20260814T153322Z-p3915312`;
+  `make generate-drift` PASS at
+  `.cartulary/test-results/20260814T153442Z-p3935526`; and protected generated
+  artifact policy PASS at
+  `.cartulary/test-results/20260814T153450Z-p3938387`.
+- **Browser and service disposition:** This private state-ownership slice did
+  not cross transport or service behavior. The owner-routed workbook inspector,
+  Escape/focus, lifecycle invalidation, row mutation, and rendering tests are
+  the applicable evidence; service-backed `module.timeline` is inapplicable.
+- **Deviation and rollback:** No owner, behavior, selector, public-contract, or
+  accessibility deviation. `apps/web/src/README.md` now describes the live
+  PR-02/PR-03 hook ownership and removes the misleading evidence-action entry.
+  Rollback is the complete PR-03 source, tests, README, owner/catalog,
+  generated-index, and tracker unit.
+- **Next action:** Implement PR-04's workbook-owned relationship chip and
+  focused editor/renderer boundaries, then checkpoint it before PR-05.
+
+### PR-04 - Renderer and cross-surface boundary cleanup
+
+- **Areas:** Timeline editors/renderers, a workbook-owned relationship-chip
+  component, the Entity surface's direct import, focused component/integration
+  tests, ownership/catalog inputs, and tracker.
+- **Remediation:** Replace the Entity surface's import from
+  `timeline/components/TimelineCellEditors` with a workbook-owned relationship
+  chip accepting an explicit presentation model: label, state, optional detail,
+  selected state, selection command, and stable selector identity. Timeline
+  mention/entity interpretation remains in Timeline models. Split
+  `TimelineCellEditors.tsx` into focused scalar-editor and draft-row-action
+  components, then delete the mixed file. Split
+  `TimelineWorkbookRenderers.tsx` into scalar rendering, collection rendering,
+  and column assembly while preserving the existing private renderer facade.
+  Delete an optional prop or branch only when PR-00 proves it has no supported
+  caller; do not retain forwarding wrappers.
+- **Rationale and benefit:** Common UI no longer depends on a Timeline-owned
+  component, and editor, collection, and column responsibilities can evolve
+  independently without a universal workbook renderer.
+- **Compatibility and migration:** Private source moves and imports only.
+  Relationship-chip accessibility names, state semantics, selectors, Timeline
+  field order, grid/editor behavior, and Entity preview behavior remain stable.
+- **Risk if unresolved:** Cross-surface imports continue to invert ownership,
+  while large renderer/editor files accumulate unrelated future features.
+- **Exit criteria:** No non-Timeline production surface imports a Timeline UI
+  component. The mixed editor file is removed. Focused tests cover relationship
+  chip states and selection, scalar controlled/uncontrolled editing, read-only
+  and presence behavior, collection draft/overflow/conflict presentation, and
+  column order/width. Entity-dependent Timeline previews still render.
+
+#### PR-04 implementation checkpoint
+
+- **Status and dependency:** COMPLETE at immutable revision
+  `98082ac04c2a4e8a03df3a0982e30a7de12680f5` plus the completed PR-00 through
+  PR-03 rollback units. PR-05 is unblocked.
+- **Files added:** Common `WorkbookRelationshipChip.tsx`, its focused test, and
+  `workbookRelationshipChip.ts`; Timeline `TimelineDraftRowActions.tsx`,
+  `TimelineScalarEditor.tsx` and its test,
+  `TimelineWorkbookRendererTypes.ts`, `useTimelineScalarRenderers.tsx`,
+  `useTimelineCollectionRenderer.tsx`, and
+  `useTimelineColumnAssembly.tsx`.
+- **Files changed:** `EntityWorkbookSurface.tsx`,
+  `TimelineMentionsPanel.tsx`, `TimelineWorkbook.tsx`, the private
+  `TimelineWorkbookRenderers.tsx` facade, `workbookMentionChips.ts`,
+  `tools/frontend_import_boundaries.json`, source-owner and `web.workbook` plus
+  `module.timeline` test-family inputs, `apps/web/src/README.md`, the
+  Make-generated execution-topology render index, and this tracker.
+- **File deleted:** `TimelineCellEditors.tsx`. All scalar-editor, draft-action,
+  relationship-model, common-chip, style, and caller ownership moved in the
+  same slice. The mixed file has zero references and no forwarding alias.
+- **Substantive edits:** The common chip accepts only stable selector identity,
+  label, state, optional accessible detail, selected state, and optional
+  selection command. Timeline mention/entity interpretation maps into that
+  model in `workbookMentionChips.ts`. Entity-dependent Timeline previews and
+  Timeline surfaces render the common component. The unchanged private
+  `useTimelineWorkbookRenderers` facade now composes focused scalar,
+  collection, and column-assembly owners.
+- **Boundary:** Rule
+  `frontend-workbook-common-presentation-no-timeline-presentation` prevents
+  `workbook/components/**` from importing Timeline presentation components.
+  No non-Timeline production component imports `timeline/components/**`.
+- **Ownership and selectors:** Every added path has source owner
+  `web.workbook`; deleted `TimelineCellEditors.tsx` was removed from ownership.
+  Exact selector `WorkbookRelationshipChip preserves state details selectors
+  and optional selection` is row
+  `web.workbook.regression.workbook_relationship_chip_presentation_f96d227ab5`.
+  Exact selector `TimelineScalarEditor preserves controlled draft read-only
+  presence and commit behavior` is row
+  `module.timeline.frontend.timeline_scalar_editor_e5035bb033` with
+  collaborator `web.workbook`.
+- **Focused and broad results:** Common chip PASS at
+  `.cartulary/test-results/20260814T160117Z-p4071528`; scalar editor PASS at
+  `.cartulary/test-results/20260814T160041Z-p4066225`; seven applicable
+  `module.timeline` scalar, draft, autosave, grid identity/order, and editor
+  rows PASS, 8/8 units, at
+  `.cartulary/test-results/20260814T154825Z-p3957211`;
+  `web.workbook` PASS, 133/133 units, at
+  `.cartulary/test-results/20260814T154835Z-p3958293`; and
+  `web.architecture` PASS, 12/12 units, at
+  `.cartulary/test-results/20260814T155028Z-p3982737`. The broad workbook run
+  includes the Entity dependent-Timeline-preview selector.
+- **Static results:** `make format` PASS at
+  `.cartulary/test-results/20260814T155014Z-p3978843`;
+  `make frontend-typecheck` PASS at
+  `.cartulary/test-results/20260814T160113Z-p4070843`;
+  import-boundary PASS at
+  `.cartulary/test-results/20260814T160114Z-p4071193`;
+  JSON shape PASS at
+  `.cartulary/test-results/20260814T160046Z-p4067006`;
+  test catalog PASS; and `git diff --check` PASS.
+- **Browser results:** Measurement PASS, 27/27 units, at
+  `.cartulary/test-results/20260814T155040Z-p3984350`; accessibility PASS,
+  14/14 units, at
+  `.cartulary/test-results/20260814T155727Z-p4016471`; and visual PASS, 14/14
+  units, at `.cartulary/test-results/20260814T155848Z-p4041076`. No golden or
+  visual artifact changed.
+- **Failure disposition:** The first typecheck found only unsupported DOM
+  matcher typings in new tests. The pre-generation JSON-shape run at
+  `.cartulary/test-results/20260814T154722Z-p3952545` correctly reported stale
+  topology inputs. The first architecture run at
+  `.cartulary/test-results/20260814T154920Z-p3972640` found a raw test-ID
+  consumer literal in the scalar test; using the shared selector builder fixed
+  it. No production behavior, accessibility, or visual regression failed.
+- **Generation impact:** Both authored test-family inputs and source ownership
+  changed. `make generate` PASS at
+  `.cartulary/test-results/20260814T154743Z-p3953112`;
+  `make generate-drift` PASS at
+  `.cartulary/test-results/20260814T160049Z-p4067402`; and protected generated
+  artifact policy PASS at
+  `.cartulary/test-results/20260814T160057Z-p4070247`.
+- **Deviation and rollback:** No public, selector, accessibility, token,
+  rendering, owner, or behavior deviation. Relationship presentation moved to
+  the common owner without moving Timeline semantics. Rollback is the complete
+  PR-04 common/Timeline source, callers, tests, import policy, README,
+  owner/catalog, generated-index, and tracker unit.
+- **Next action:** Perform PR-05's full structural audit, remove any remaining
+  obsolete path with its last caller, and checkpoint before final accounting.
+
+### PR-05 - Production-readiness closure
+
+- **Areas:** Full Timeline package source audit, facade import policy, focused
+  regressions, tracker, and conditional ownership/catalog cleanup.
+- **Remediation:** Audit for orphan files, production exports used only by
+  tests, duplicate semantic maps, no-op callback initialization, direct
+  HTTP/WebSocket or grid-vendor imports, reversed cross-owner imports, stale
+  adapters, and obsolete forwarding files. Delete an obsolete file in the same
+  slice as its final consumer migration. Confirm the Timeline facade remains the
+  only supported production entry point and viewport measurement exists once.
+- **Rationale and benefit:** The iteration closes structural debt rather than
+  stopping after individual moves leave aliases or dual ownership behind.
+- **Compatibility and migration:** No compatibility layer or migration is
+  retained. Owner-required recovery and unsupported paths remain.
+- **Risk if unresolved:** New files coexist with old paths, recreating the
+  coupling and false API surface the iteration was intended to remove.
+- **Exit criteria:** Source and import review finds no unexplained compatibility
+  path, duplicate owner, hidden initialization dependency, orphan source, dead
+  production export, transport leakage, vendor leakage, or unintended facade
+  caller. Focused and browser regressions pass.
+
+#### PR-05 implementation checkpoint
+
+- **Status and dependency:** COMPLETE at immutable revision
+  `98082ac04c2a4e8a03df3a0982e30a7de12680f5` plus the completed PR-00 through
+  PR-04 rollback units. PR-06 is unblocked.
+- **Files changed:** `TimelineWorkbook.tsx`; Timeline fill, collaboration,
+  evidence, history, mentions, row-action, row-loading, workbook-runtime,
+  history-model, row-model, viewport-continuity, feature-policy,
+  relationship-chip, record-freshness, Timeline-model, and mention-port source;
+  `tools/frontend_source_ownership.json`; `apps/web/src/README.md`; and this
+  tracker.
+- **File deleted:** `TimelineGridSurface.tsx`. Its sole caller now renders
+  `TimelineWorkbookGrid` directly, and its README and source-owner entries were
+  removed in the same slice. No forwarding alias remains.
+- **Deletion proof:** The deleted surface forwarded every input and ref without
+  adding policy, lifecycle, accessibility, recovery, or interoperability
+  behavior. Same-file-only exported types and the relationship-chip state
+  helper were made private; the liveness audit found no caller outside their
+  defining files and no public package export.
+- **Audit results:** The Timeline package contains no orphan production file,
+  test-only production export, duplicate draft/field/width owner, render-time
+  placeholder callback bridge, stale deleted name, reversed common-to-Timeline
+  presentation import, or direct transport/grid-vendor use outside the named
+  adapter/grid boundaries. Timeline viewport measurement has one observer
+  effect. `WorkbookSurfacesFacade.tsx` remains the sole production importer of
+  `TimelineWorkbook`; test fixtures remain test-only callers.
+- **Ownership and selectors:** Every surviving Timeline source remains singly
+  owned by `web.workbook`; deleted `TimelineGridSurface.tsx` was removed from
+  authored ownership. No test title or semantic row changed in PR-05.
+- **Results:** `make format` PASS at
+  `.cartulary/test-results/20260814T160543Z-p4080004`;
+  `make frontend-typecheck` PASS at
+  `.cartulary/test-results/20260814T160614Z-p4089822`;
+  import-boundary PASS at
+  `.cartulary/test-results/20260814T160614Z-p4089830`; JSON shape PASS at
+  `.cartulary/test-results/20260814T160614Z-p4089587`; test catalog PASS;
+  `web.architecture` PASS, 12/12 units, at
+  `.cartulary/test-results/20260814T160630Z-p4091166`; `web.workbook` PASS,
+  133/133 units, at `.cartulary/test-results/20260814T160630Z-p4091172`; and
+  `git diff --check` PASS. PR-04's retained measurement, accessibility, and
+  visual browser evidence remains applicable because this slice removed only a
+  behavior-free forwarding component and changed no rendered branch or token.
+- **Generation impact:** `none` in PR-05. No authored test-family input changed,
+  and no generated output was edited.
+- **Deviation and rollback:** No public, behavior, selector, accessibility,
+  owner, or package-export deviation. Rollback is the PR-05 direct-grid caller,
+  private-export narrowing, README, source-owner, and tracker unit.
+- **Next action:** Perform PR-06 final owner/selector accounting, generation and
+  protected-root checks, finalization, broad verification, worktree review,
+  Definition-of-Done closure, and implementation handoff.
+
+### PR-06 - Final accounting and handoff
+
+- **Areas:** Authored source ownership, test-family and verification accounting,
+  conditional generated topology, final validation, tracker, and handoff.
+- **Remediation:** Reconcile every added, moved, and deleted path in
+  `tools/frontend_source_ownership.json`. Give every exact test title one active
+  semantic row in the correct `tools/test_families/*.json` owner. Generate test
+  topology through Make only when its authored input changed. Record the final
+  file list, commands, retained roots, failures, deviations, generation impact,
+  rollback posture, risks, and PR Definition of Done.
+- **Rationale and benefit:** The production-ready structure is reproducible and
+  remains selectable through the repository's owner-based verification system.
+- **Compatibility and migration:** Verification metadata and documentation only
+  except for a conditional Make-generated topology projection. Product
+  contracts remain unchanged.
+- **Risk if unresolved:** Deleted paths remain cataloged, new paths are unowned,
+  tests select no row or multiple owners, or the handoff falsely reports a
+  completed package.
+- **Exit criteria:** Ownership, exact selectors, owner explanations, generation
+  disposition, final diffs, retained evidence, and PR-DOD-001 through
+  PR-DOD-010 are complete. Final Markdown validation passes.
+
+#### PR-06 implementation checkpoint
+
+- **Status and dependency:** COMPLETE at immutable revision
+  `98082ac04c2a4e8a03df3a0982e30a7de12680f5` plus the independently
+  reversible PR-00 through PR-05 units. The production-readiness iteration has
+  no remaining implementation workstream.
+- **Files added:**
+  `workbook/components/WorkbookRelationshipChip.tsx` and its test;
+  `workbook/models/workbookRelationshipChip.ts`; Timeline
+  `TimelineDraftRowActions.tsx`, `TimelineScalarEditor.tsx` and its test,
+  `TimelineWorkbookRendererTypes.ts`, `useTimelineScalarRenderers.tsx`,
+  `useTimelineCollectionRenderer.tsx`, `useTimelineColumnAssembly.tsx`,
+  `useTimelineCommittedRecordIdle.ts`, `useTimelineMutationRuntimeBindings.ts`,
+  and the four focused row, inspector-lifecycle, idle, and runtime-binding test
+  files.
+- **Files deleted:** `TimelineCellEditors.tsx`, `TimelineGridSurface.tsx`, and
+  `useTimelineEvidenceActions.ts`. Their last callers, source ownership, source
+  documentation, tests, and generated selector projection were migrated in the
+  originating slices; none has a live reference or forwarding alias.
+- **Files changed:** `apps/web/src/README.md`; three App test mocks and the
+  workbook autosave test; `EntityWorkbookSurface.tsx`;
+  `workbookPendingReplayRuntime.ts`; Timeline fill and collaboration owners;
+  Timeline evidence, history, mentions, row-action, workbook, inspector,
+  notices, renderer-facade, and style components; Timeline clipboard,
+  inspector-selection, mutation-command, replay, pending-save, row,
+  row-loader, save-state, and workbook-runtime hooks; Timeline history, row,
+  viewport-continuity, feature-policy, relationship-chip, record-freshness,
+  and workbook models plus focused model tests; the row-mutation coordinator
+  and its test; `TimelineMentionPort.ts`; authored frontend import and source
+  ownership policy; `module.timeline` and `web.workbook` test-family inputs;
+  the Make-generated execution-topology render index; and this tracker.
+- **Ownership and selectors:** The source-ownership policy accounts for every
+  live TypeScript path exactly once. The final authored catalogs give each new
+  exact title one active row: draft allocation and row ownership, committed
+  idle refresh, runtime-binding cleanup, inspector lifecycle closure, common
+  relationship-chip presentation, and Timeline scalar-editor behavior. Owner
+  explanations report 132 `web.workbook`, 11 `web.architecture`, 65
+  `module.timeline`, and 89 `module.workbook` semantic rows. Test-catalog and
+  architecture policy checks report no unknown, duplicate, zero-row, or
+  cross-owner selection.
+- **Public and behavioral comparison:** `TimelineWorkbookProps` and
+  `TimelineWorkbook` retain their declarations and production-facade caller;
+  package entry points and generated protocol/UI contracts have no diff.
+  Retained focused, workbook, architecture, measurement, accessibility, visual,
+  and broad-check evidence preserves routes, wires, selectors, identities,
+  authorization, conflict/replay, focus, Entity-preview, and accessible chip
+  behavior. No visual golden changed.
+- **Generation:** `make generate` PASS at
+  `.cartulary/test-results/20260814T160830Z-p4109291`; generation drift PASS at
+  `.cartulary/test-results/20260814T160839Z-p4112270`; generated-artifact policy
+  PASS at `.cartulary/test-results/20260814T160839Z-p4112296`; and JSON shape
+  PASS at `.cartulary/test-results/20260814T160839Z-p4112313`. The only changed
+  generated projection is the Make-owned execution-topology render index.
+  Protected `internal/gen`, protocol TypeScript, and UI-contract generated
+  roots have zero changed paths.
+- **Final validation:** All four applicable owner explanations PASS;
+  `make test-catalog-check` PASS; `make agent-finalize` PASS at
+  `.cartulary/test-results/20260814T160850Z-p4116223`; and `make check` PASS,
+  761/761 units, at
+  `.cartulary/test-results/20260814T160908Z-p4119063`; and final checkpoint
+  Markdown lint PASS at
+  `.cartulary/test-results/20260814T161836Z-p91552`. Final source review,
+  `git diff --check`, authored JSON parsing, deleted-name search, placeholder
+  callback search, facade-caller inventory, and protected-root inspection all
+  PASS. Retained-run maintenance was skipped because `RESULTS_DIR` was unset;
+  finalization itself completed normally before the broad check.
+- **Browser and service disposition:** PR-04 retained measurement 27/27,
+  accessibility 14/14, and visual 14/14 evidence with no golden change. The
+  iteration did not cross service, transport, protocol, backend, or persistence
+  behavior, so service-backed `module.timeline` and `module.workbook` runs are
+  inapplicable under the controlling stop conditions.
+- **Deviation, risks, and rollback:** No specification, public contract,
+  dependency, selector, accessibility, authorization, behavior, or migration
+  deviation occurred; Core 00 through Core 04 and `docs/domain.md` remain
+  unchanged. No known production-readiness gap from this iteration remains.
+  Rollback remains PR-slice atomic; the original staged tracker update remains
+  preserved separately from the implementation worktree changes.
+- **Next action:** Review and commit the complete PR-00 through PR-06 worktree as
+  intentional rollback units. No compatibility cleanup or follow-on migration
+  is required.
+
+## 15. Sequencing and Mandatory Tracker Checkpoints
+
+PR-00 through PR-06 MUST execute serially. After completing each slice and
+before beginning the next, update this tracker with:
+
+- the live source revision, authorizing task, completed status, and dependency
+  state;
+- exact files added, changed, moved, and deleted;
+- deletion-proof dispositions for every removed behavior or symbol;
+- source owner, semantic test row, and exact selector for each changed test or
+  source path;
+- commands, terminal results, failures, and retained result roots;
+- generation impact, deviations, rollback posture, and next action; and
+- updated PR risk and Definition-of-Done dispositions.
+
+Run `make lint-markdown` after every checkpoint. The next slice MUST NOT begin
+until the tracker reflects the live worktree and Markdown validation passes.
+Semantic ownership or selector debt MUST be repaired in the originating slice;
+PR-06 MUST NOT hide it as final mechanical accounting.
+
+Each slice is rolled back as one unit with its source moves, callers, tests,
+ownership entries, test-family entries, conditional generated topology, and
+tracker checkpoint. A later failure does not require rolling back an earlier
+slice that remains independently complete.
+
+## 16. Validation and Stop Conditions
+
+### Future implementation validation
+
+Every authorized slice runs the applicable focused selectors plus:
+
+- `make frontend-typecheck`
+- `make frontend-import-boundary-check`
+- `make test-catalog-check`
+- `make json-shape-check`
+- `make test-slice OWNER=web.architecture`
+- `make test-slice OWNER=web.workbook`
+- `make test-slice OWNER=module.workbook` when its independently owned
+  postconditions are exercised
+- relevant webserver-backed Timeline, keyboard, inspector, conflict, and
+  measurement browser evidence
+- `make lint-markdown` after its tracker checkpoint
+
+`module.timeline` service-backed validation is not a default because this plan
+does not change transport, replay protocol, persistence, or service behavior.
+If a slice requires one of those changes, the slice stops and planning reopens.
+
+PR-06 additionally runs all applicable `make explain-test-owner` commands,
+conditional Make generation and drift checks, `make agent-finalize`,
+`make check`, `git diff --check`, and final worktree/generated-root inspection.
+A skipped conditional target requires an explicit inapplicability reason.
+
+### Current documentation-step validation
+
+This task changes this tracker only and runs:
+
+- `make lint-markdown`
+- `git diff --check`
+- `git status --short`
+
+Product tests, generation, source ownership, test-family metadata, and
+production source are intentionally unchanged in this documentation step.
+
+### Stop conditions
+
+The affected PR slice MUST stop and reopen planning if implementation discovers:
+
+- an adopted-owner contradiction or uncharacterizable required behavior;
+- a required public, route, wire, selector, backend, protocol, persistence,
+  projection, authorization, dependency, deployment, or package-export change;
+- a need to preserve both old and new internal paths;
+- a need for transport or service-backed behavior changes; or
+- a deletion whose continuing product, recovery, security, or accessibility
+  value cannot be disproved.
+
+## 17. Production-Readiness Definition of Done and Handoff
+
+| ID | Acceptance criterion | Required evidence | Current disposition |
+| --- | --- | --- | --- |
+| PR-DOD-001 | A later task records the exact authorized PR range, live starting revision, artifact bounds, and PR-00 prerequisite before implementation writes. | Completed Section 13 authority record | PASS in PR-00 |
+| PR-DOD-002 | Every deletion has a complete owner/caller/value disposition and required behavior has pre-change evidence. | PR-00 inventory and selector map | PASS in PR-00 |
+| PR-DOD-003 | Duplicate width measurement, draft insertion, identity normalization, editor-surface typing, contract labels, and style primitives have one surviving owner. | PR-01 diff and focused tests | PASS in PR-01 |
+| PR-DOD-004 | The facade contains no placeholder load, replay, drain, or discard callback and no outer ref mirror. | PR-02 source review and runtime tests | PASS in PR-02 |
+| PR-DOD-005 | Row initialization, inspector feedback, and inspector close sequencing have cohesive semantic owners with no obsolete one-field wrapper. | PR-03 source review and lifecycle tests | PASS in PR-03 |
+| PR-DOD-006 | No non-Timeline surface imports a Timeline UI component; scalar, collection, column, and shared relationship-chip responsibilities have explicit boundaries. | PR-04 import review and component/integration tests | PASS in PR-04 |
+| PR-DOD-007 | `TimelineWorkbookProps`, `TimelineWorkbook`, callers, selectors, routes, wires, identities, authorization, accessibility, conflict/replay semantics, and package exports are unchanged. | Public-contract comparison, import checks, focused and browser evidence | PASS in PR-06 |
+| PR-DOD-008 | Every final source path and exact test selector has one correct live owner/row, and no deleted path remains in authored accounting. | Catalog checks, owner explanations, final path inventory | PASS in PR-06 |
+| PR-DOD-009 | Generation impact is `none` or every changed authored input is regenerated through Make with clean drift and protected generated roots untouched. | Generation disposition and applicable command artifacts | PASS in PR-06 |
+| PR-DOD-010 | Applicable focused, browser, finalization, broad-check, diff, worktree, and Markdown gates pass with failures and retained roots recorded. | PR-06 final handoff | PASS in PR-06 |
+
+### Historical planning-session handoff
+
+- **Planning source revision:**
+  `98082ac04c2a4e8a03df3a0982e30a7de12680f5`.
+- **Files changed by this task:** This tracker only.
+- **Specification disposition:** Core 00 through Core 04 and
+  `docs/domain.md` remain unchanged; no owner contradiction was found.
+- **Generation impact:** `none`.
+- **Documentation validation:** `make lint-markdown` passed at retained root
+  `.cartulary/test-results/20260814T143807Z-p3729334`;
+  `git diff --check` passed; `git status --short` reported only this tracker as
+  modified before the validation record was added.
+- **Product validation:** Not run because this is a documentation-only task and
+  repository policy prohibits product checks from depending on Markdown.
+- **Historical blocker:** PR-00 through PR-06 originally lacked a later
+  implementation task adopting their exact range and live source identity.
+  Section 13 records the subsequent authorization that resolved this gate.
+- **Historical next action:** The planned bounded implementation sequence was
+  completed in the checkpoints above.
+
+### Production-readiness implementation handoff
+
+- **Authority and source:**
+  `user-timeline-workbook-production-readiness-remediation-2026-08-14`, PR-00
+  through PR-06, from immutable source
+  `98082ac04c2a4e8a03df3a0982e30a7de12680f5`.
+- **Outcome:** The Timeline workbook now has one draft allocator, one width
+  measurement owner, explicit query/replay/mutation commands, cohesive row and
+  inspector lifecycle owners, a common relationship presentation boundary,
+  focused scalar/collection/column renderer owners, and no obsolete forwarding
+  path or mutable placeholder bridge.
+- **Specifications and migration:** No Core/domain specification changed, no
+  owner contradiction was found, and no public, backend, protocol, persistence,
+  dependency, package-export, data, or compatibility migration is required.
+- **Verification:** PR-00 through PR-06 checkpoints contain exact focused and
+  browser roots. Final generation, finalization, broad-check, worktree, diff,
+  ownership, selector, and protected-root evidence is recorded in PR-06.
+- **Worktree posture:** The pre-existing staged tracker update remains staged
+  and preserved; implementation and checkpoint additions remain reviewable in
+  the working tree. No commit, push, or external state change was requested or
+  performed.
+- **Residual risk:** No known gap remains within the authorized iteration.
+  Future work should extend the explicit private commands and common
+  presentation model directly rather than recreating callback mirrors,
+  forwarding facades, or Timeline-to-common presentation back-edges.

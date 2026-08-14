@@ -23,6 +23,19 @@ export const actionButtonStyle = {
   cursor: "pointer",
 };
 
+export const inputStyle = {
+  boxSizing: "border-box" as const,
+  display: "block",
+  minWidth: 0,
+  width: "100%",
+  borderRadius: "var(--ct-component-text-input-rounded)",
+  border: "var(--ct-component-text-input-border)",
+  background: "var(--ct-component-text-input-backgroundColor)",
+  padding: "0.65rem 0.75rem",
+  font: "inherit",
+  color: "var(--ct-component-text-input-textColor)",
+};
+
 export const secondaryActionButtonStyle = {
   ...actionButtonStyle,
   background: "var(--ct-colors-surface-3)",

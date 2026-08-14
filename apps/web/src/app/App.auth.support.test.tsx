@@ -21,7 +21,6 @@ vi.mock("../workbook/WorkbookShell", () => ({
   WorkbookShell: vi.fn(),
   buildCreatePayload: vi.fn(),
   createDraftRow: vi.fn(),
-  ensureDraftRow: vi.fn(),
   TimelineWorkbook: vi.fn(),
 }));
 

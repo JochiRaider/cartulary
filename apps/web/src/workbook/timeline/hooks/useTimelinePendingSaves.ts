@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import {
   type WorkbookPendingQueueRuntime,
@@ -24,7 +24,19 @@ export function useTimelinePendingSaves<TMeta>({
   }
   const pendingReplayOrderRef = useRef(1);
   const pendingReplayTimerRef = useRef<number | null>(null);
-  const schedulePendingReplayRef = useRef<() => void>(() => undefined);
+  const refs = useMemo(
+    () => ({
+      collectionKeyboardCommitRef,
+      pendingOpsRef,
+      pendingQueueRef,
+      pendingReplayOrderRef,
+      pendingReplayTimerRef,
+      pendingSignaturesRef,
+      pendingSocketTxnTimeoutsRef,
+      saveQueueRef,
+    }),
+    [],
+  );
   const [pendingQueueSnapshot, setPendingQueueSnapshot] =
     useState<WorkbookPendingQueueSnapshot>(() =>
       workbookPendingQueueSnapshot(sharedPendingRuntime),
@@ -37,17 +49,7 @@ export function useTimelinePendingSaves<TMeta>({
     commands: {
       setPendingQueueSnapshot,
     },
-    refs: {
-      collectionKeyboardCommitRef,
-      pendingOpsRef,
-      pendingQueueRef,
-      pendingReplayOrderRef,
-      pendingReplayTimerRef,
-      pendingSignaturesRef,
-      pendingSocketTxnTimeoutsRef,
-      saveQueueRef,
-      schedulePendingReplayRef,
-    },
+    refs,
     snapshot: {
       pendingQueueSnapshot,
     },

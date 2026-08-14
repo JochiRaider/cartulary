@@ -712,6 +712,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.timeline.frontend.timeline_scalar_editor_e5035bb033",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/components/TimelineScalarEditor.test.tsx",
+        "titles": [
+          "TimelineScalarEditor preserves controlled draft read-only presence and commit behavior"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.timeline.integration.create_patch_mark_reviewed_supersede_query_and_w_90276912d7",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.integration",

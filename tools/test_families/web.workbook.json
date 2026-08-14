@@ -518,6 +518,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.timeline_committed_idle_refreshes_once_19e6098c0e",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineCommittedRecordIdle.test.tsx",
+        "titles": [
+          "useTimelineCommittedRecordIdle refreshes a missing committed version at most once"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.timeline_feature_policy_closed_semantic_routing_bbd0ade7b2",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -587,6 +611,30 @@
           "useTimelineInspectorFeatureController fails closed while owning cancellation, unavailable messages, and mutually exclusive selection",
           "useTimelineInspectorFeatureController resets Indicator and generic workflows on subject, version, surface, lifecycle, and authorization changes",
           "useTimelineInspectorFeatureController routes canonical features with Indicator precedence and no generic fallback"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_inspector_lifecycle_close_71780eefa1",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineInspectorLifecycle.test.tsx",
+        "titles": [
+          "useTimelineInspectorLifecycle shares one close command across explicit and layout requests"
         ]
       },
       "evidence_class": "unit",
@@ -679,6 +727,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.timeline_rows_model_allocates_exactly_one_draft_8a23914036",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineRowsModel.test.ts",
+        "titles": [
+          "timelineRowsModel allocates one draft row only when the Timeline row set needs one"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.timeline_rows_model_builds_draft_and_committed_r_3a1e389d14",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -691,6 +763,54 @@
         "file": "apps/web/src/workbook/timeline/models/timelineRowsModel.test.ts",
         "titles": [
           "timelineRowsModel builds draft and committed rows with stable semantic identities"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_rows_owner_initialization_ccdda85db3",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineRows.test.tsx",
+        "titles": [
+          "useTimelineRows owns the initial draft row ref and monotonic draft index"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_runtime_bindings_cleanup_f184aff191",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineMutationRuntimeBindings.test.tsx",
+        "titles": [
+          "useTimelineMutationRuntimeBindings registers concrete commands and cleans up on change and unmount"
         ]
       },
       "evidence_class": "unit",
@@ -1127,6 +1247,30 @@
         "file": "apps/web/src/workbook/timeline/models/workbookRecordFreshness.test.ts",
         "titles": [
           "workbookRecordFreshness classifies stale row-version updates only when durable identity is comparable"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.workbook_relationship_chip_presentation_f96d227ab5",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/components/WorkbookRelationshipChip.test.tsx",
+        "titles": [
+          "WorkbookRelationshipChip preserves state details selectors and optional selection"
         ]
       },
       "evidence_class": "unit",

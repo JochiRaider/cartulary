@@ -1,5 +1,5 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { TimelineMutationIdentityPort } from "../../mutations/workbookMutationCommandPorts";
 import type {
   WorkbookOperationFailure,
@@ -52,10 +52,10 @@ export function useTimelinePendingReplayController({
   conflictQueueRef,
   registerMutationConflict,
   latestCommittedTimelineRow,
-  loadRowsRef,
+  loadRows,
   mutationCommands,
   mutationRuntime,
-  pendingSavesRefsRef,
+  pendingSavesRefs,
   postMutationQueryRefreshRequired,
   publishPendingQueueState,
   reconcileDiscardedPendingUnit,
@@ -96,14 +96,12 @@ export function useTimelinePendingReplayController({
     refresh: () => Promise<WorkbookOperationOutcome<unknown>>,
   ) => boolean;
   readonly latestCommittedTimelineRow: (recordId: string) => WorkbookRow | null;
-  readonly loadRowsRef: TimelineMutableRef<
-    (options: { readonly showLoading: boolean }) => Promise<void>
-  >;
+  readonly loadRows: (options: {
+    readonly showLoading: boolean;
+  }) => Promise<void>;
   readonly mutationCommands: TimelineMutationIdentityPort;
   readonly mutationRuntime: WorkbookMutationRuntime;
-  readonly pendingSavesRefsRef: TimelineMutableRef<
-    WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>
-  >;
+  readonly pendingSavesRefs: WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>;
   readonly postMutationQueryRefreshRequired: boolean;
   readonly publishPendingQueueState: () => void;
   readonly reconcileDiscardedPendingUnit: (
@@ -142,13 +140,10 @@ export function useTimelinePendingReplayController({
         return;
       }
       if (
-        pendingSavesRefsRef.current.pendingSignaturesRef.current.get(
-          unit.rowKey,
-        ) === unit.mutationSignature
+        pendingSavesRefs.pendingSignaturesRef.current.get(unit.rowKey) ===
+        unit.mutationSignature
       ) {
-        pendingSavesRefsRef.current.pendingSignaturesRef.current.delete(
-          unit.rowKey,
-        );
+        pendingSavesRefs.pendingSignaturesRef.current.delete(unit.rowKey);
       }
       const nextRows = rowsRef.current.map((row) =>
         row.key === unit.rowKey &&
@@ -159,42 +154,23 @@ export function useTimelinePendingReplayController({
       rowsRef.current = nextRows;
       setRows(nextRows);
     },
-    [pendingSavesRefsRef, rowsRef, setRows],
+    [pendingSavesRefs, rowsRef, setRows],
   );
-
-  const replayPendingQueueRef = useRef<() => Promise<void>>(async () => {
-    return undefined;
-  });
-
-  const schedulePendingReplayAfter = useCallback(
-    (delayMs: number) => {
-      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
-      if (pending.replayScheduled) {
-        return;
-      }
-      pending.replayScheduled = true;
-      pendingSavesRefsRef.current.pendingReplayTimerRef.current =
-        window.setTimeout(() => {
-          pendingSavesRefsRef.current.pendingReplayTimerRef.current = null;
-          void replayPendingQueueRef.current();
-        }, delayMs);
-    },
-    [pendingSavesRefsRef],
-  );
-
-  const schedulePendingReplay = useCallback(() => {
-    schedulePendingReplayAfter(0);
-  }, [schedulePendingReplayAfter]);
-  pendingSavesRefsRef.current.schedulePendingReplayRef.current =
-    schedulePendingReplay;
 
   const schedulePendingReplayRetry = useCallback(() => {
-    schedulePendingReplayAfter(1000);
-  }, [schedulePendingReplayAfter]);
+    const pending = pendingSavesRefs.pendingQueueRef.current;
+    if (pending.replayScheduled) return;
+    pending.replayScheduled = true;
+    pendingSavesRefs.pendingReplayTimerRef.current = window.setTimeout(() => {
+      pendingSavesRefs.pendingReplayTimerRef.current = null;
+      pending.replayScheduled = false;
+      mutationRuntime.requestDrain();
+    }, 1000);
+  }, [mutationRuntime, pendingSavesRefs]);
 
   const requestPendingReplay = useCallback(
     (reason: string) => {
-      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
+      const pending = pendingSavesRefs.pendingQueueRef.current;
       const snapshot = pending.model.snapshot();
       const candidate = pending.model.peekNextQueued();
       const readyForImmediateDrain =
@@ -206,26 +182,20 @@ export function useTimelinePendingReplayController({
         Object.keys(conflictQueueRef.current).length === 0 &&
         snapshot.inFlightCount === 0 &&
         snapshot.queuedCount > 0;
-      if (!readyForImmediateDrain) {
-        schedulePendingReplay();
-        return;
+      if (
+        readyForImmediateDrain &&
+        pendingSavesRefs.pendingReplayTimerRef.current !== null
+      ) {
+        window.clearTimeout(pendingSavesRefs.pendingReplayTimerRef.current);
+        pendingSavesRefs.pendingReplayTimerRef.current = null;
+        pending.replayScheduled = false;
       }
-      if (pendingSavesRefsRef.current.pendingReplayTimerRef.current !== null) {
-        window.clearTimeout(
-          pendingSavesRefsRef.current.pendingReplayTimerRef.current,
-        );
-        pendingSavesRefsRef.current.pendingReplayTimerRef.current = null;
+      if (readyForImmediateDrain) {
+        recordWorkbookTiming("pending_replay_drain_immediate", { reason });
       }
-      pending.replayScheduled = false;
-      recordWorkbookTiming("pending_replay_drain_immediate", { reason });
-      void replayPendingQueueRef.current();
+      mutationRuntime.requestDrain();
     },
-    [
-      conflictQueueRef,
-      pendingSavesRefsRef,
-      recordWorkbookTiming,
-      schedulePendingReplay,
-    ],
+    [conflictQueueRef, mutationRuntime, pendingSavesRefs, recordWorkbookTiming],
   );
 
   const enqueuePendingReplayUnit = useCallback(
@@ -233,7 +203,7 @@ export function useTimelinePendingReplayController({
       unit: TimelinePendingReplayControllerAdmission,
       onSettled?: ((outcome: GridEditCommitOutcome) => void) | undefined,
     ) => {
-      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
+      const pending = pendingSavesRefs.pendingQueueRef.current;
       const snapshotBeforeAdmission = pending.model.snapshot();
       const admissionIsBacklogged =
         snapshotBeforeAdmission.inFlightCount > 0 ||
@@ -291,7 +261,7 @@ export function useTimelinePendingReplayController({
       if (admissionIsBacklogged) onSettled?.({ kind: "accepted" });
 
       pending.metaByUnitId.set(admission.unit.id, meta);
-      pendingSavesRefsRef.current.pendingSignaturesRef.current.set(
+      pendingSavesRefs.pendingSignaturesRef.current.set(
         admission.unit.rowKey,
         admission.unit.mutationSignature,
       );
@@ -308,7 +278,7 @@ export function useTimelinePendingReplayController({
     [
       clearPendingSignatureForUnit,
       clearViewportContinuity,
-      pendingSavesRefsRef,
+      pendingSavesRefs,
       publishPendingQueueState,
       recordWorkbookTiming,
       requestPendingReplay,
@@ -317,7 +287,7 @@ export function useTimelinePendingReplayController({
 
   const retryBlockedEdit = useCallback(
     (unitId: string): boolean => {
-      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
+      const pending = pendingSavesRefs.pendingQueueRef.current;
       let replacementClientTxnId: string;
       try {
         replacementClientTxnId = mutationCommands.createConflictRecoveryId();
@@ -345,7 +315,7 @@ export function useTimelinePendingReplayController({
     },
     [
       mutationCommands,
-      pendingSavesRefsRef,
+      pendingSavesRefs,
       publishPendingQueueState,
       requestPendingReplay,
       setRefreshError,
@@ -354,7 +324,7 @@ export function useTimelinePendingReplayController({
 
   const discardBlockedEdit = useCallback(
     (unitId: string): boolean => {
-      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
+      const pending = pendingSavesRefs.pendingQueueRef.current;
       const recovery = pending.model.discardHaltedUnit(unitId);
       if (!recovery.recovered) {
         publishPendingQueueState();
@@ -379,7 +349,7 @@ export function useTimelinePendingReplayController({
     [
       clearPendingSignatureForUnit,
       clearViewportContinuity,
-      pendingSavesRefsRef,
+      pendingSavesRefs,
       publishPendingQueueState,
       reconcileDiscardedPendingUnit,
       requestPendingReplay,
@@ -388,8 +358,8 @@ export function useTimelinePendingReplayController({
     ],
   );
 
-  replayPendingQueueRef.current = async () => {
-    const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
+  const replayPendingQueue = useCallback(async () => {
+    const pending = pendingSavesRefs.pendingQueueRef.current;
     pending.replayScheduled = false;
     const snapshot = pending.model.snapshot();
     if (
@@ -685,7 +655,7 @@ export function useTimelinePendingReplayController({
     }
     if (postMutationQueryRefreshRequired) {
       try {
-        await loadRowsRef.current({ showLoading: false });
+        await loadRows({ showLoading: false });
       } catch {
         setRefreshError("Timeline projection refresh failed.");
       }
@@ -710,12 +680,46 @@ export function useTimelinePendingReplayController({
     }
     publishPendingQueueState();
     requestPendingReplay("unit_completed");
-  };
+  }, [
+    applyAcceptedRowMutation,
+    clearPendingSignatureForUnit,
+    clearSubmittedScalarEditorDraftValuesForRow,
+    clearViewportContinuity,
+    conflictQueueRef,
+    latestCommittedTimelineRow,
+    loadRows,
+    mutationCommands,
+    mutationRuntime,
+    pendingMutationPort,
+    pendingSavesRefs,
+    postMutationQueryRefreshRequired,
+    publishPendingQueueState,
+    recordWorkbookTiming,
+    registerMutationConflict,
+    requestAuthorizationRecovery,
+    requestPendingReplay,
+    resolvePendingSocketTxn,
+    rowsRef,
+    schedulePendingReplayRetry,
+    setRefreshError,
+    settleCompletionCallbacks,
+    trackPendingSocketTxn,
+  ]);
+
+  useEffect(
+    () =>
+      mutationRuntime.registerDrainer(() => {
+        const pending = pendingSavesRefs.pendingQueueRef.current;
+        if (pending.replayScheduled) return;
+        pending.replayScheduled = true;
+        void replayPendingQueue();
+      }),
+    [mutationRuntime, pendingSavesRefs, replayPendingQueue],
+  );
 
   return {
     discardBlockedEdit,
     enqueuePendingReplayUnit,
     retryBlockedEdit,
-    schedulePendingReplay,
   };
 }

@@ -10,7 +10,6 @@ import { sameFieldConflictQueueKey } from "../../utils/workbookPendingQueue";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type {
   PendingReplayRuntimeMeta,
-  TimelineMutableRef,
   TimelinePasteTargetResolution,
   TimelineScalarSaveOptions,
 } from "../models/timelineControllerPorts";
@@ -51,9 +50,9 @@ export function useTimelineClipboardPasteController({
   clearViewportContinuity,
   editorDraftRegistry,
   finishSave,
-  loadRowsRef,
+  loadRows,
   nextClientTxnId,
-  pendingSavesRefsRef,
+  pendingSavesRefs,
   queueScalarSave,
   registerSameFieldConflict,
   resolvePendingSocketTxn,
@@ -76,11 +75,9 @@ export function useTimelineClipboardPasteController({
   readonly clearViewportContinuity: (token: number) => void;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly finishSave: (nextState: "Conflict" | "Saved" | "Syncing") => void;
-  readonly loadRowsRef: TimelineMutableRef<TimelineLoadRowsForPaste>;
+  readonly loadRows: TimelineLoadRowsForPaste;
   readonly nextClientTxnId: () => string;
-  readonly pendingSavesRefsRef: TimelineMutableRef<
-    WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>
-  >;
+  readonly pendingSavesRefs: WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>;
   readonly queueScalarSave: TimelineQueueScalarSave;
   readonly registerSameFieldConflict: (
     conflict: SameFieldConflictPayload,
@@ -147,8 +144,8 @@ export function useTimelineClipboardPasteController({
                 },
           );
           beginSave();
-          pendingSavesRefsRef.current.saveQueueRef.current =
-            pendingSavesRefsRef.current.saveQueueRef.current
+          pendingSavesRefs.saveQueueRef.current =
+            pendingSavesRefs.saveQueueRef.current
               .catch(() => undefined)
               .then(async () => {
                 const rowTargetPayload: TimelineClipboardPasteTarget[] = [];
@@ -213,7 +210,7 @@ export function useTimelineClipboardPasteController({
                   setPasteConflictGroup(null);
                 }
                 applyResponseRows(result.value.rows);
-                await loadRowsRef.current({
+                await loadRows({
                   showLoading: false,
                   viewportContinuityToken,
                 });
@@ -256,9 +253,9 @@ export function useTimelineClipboardPasteController({
       clearViewportContinuity,
       editorDraftRegistry,
       finishSave,
-      loadRowsRef,
+      loadRows,
       nextClientTxnId,
-      pendingSavesRefsRef,
+      pendingSavesRefs,
       queueScalarSave,
       registerSameFieldConflict,
       resolvePendingSocketTxn,

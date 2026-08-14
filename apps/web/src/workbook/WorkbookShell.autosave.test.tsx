@@ -25,7 +25,6 @@ import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import {
   buildCreatePayload,
   createDraftRow,
-  ensureDraftRow,
 } from "./timeline/models/workbookTimelineModel";
 
 vi.mock(
@@ -151,56 +150,6 @@ describe("Timeline workbook autosave coverage", () => {
       client_txn_id: "timeline-client-1",
       "timeline.activity_synopsis_text": "First timeline fact",
     });
-
-    const continuedRows = ensureDraftRow(
-      [
-        {
-          ...createDraftRow(99),
-          key: "20000000-0000-4000-8000-000000000001",
-          recordId: "20000000-0000-4000-8000-000000000001",
-          rowVersion: 1,
-          captureState: "rough",
-          values: {
-            dateEnteredText: "",
-            analystText: "",
-            mitreStageText: "",
-            deviceObjectText: "",
-            ipAddressText: "",
-            activityUTCText: "",
-            activityLocalText: "",
-            rawActivityText: "",
-            activitySynopsisText: "First timeline fact",
-            dataSourceText: "",
-          },
-          committedValues: {
-            dateEnteredText: "",
-            analystText: "",
-            mitreStageText: "",
-            deviceObjectText: "",
-            ipAddressText: "",
-            activityUTCText: "",
-            activityLocalText: "",
-            rawActivityText: "",
-            activitySynopsisText: "First timeline fact",
-            dataSourceText: "",
-          },
-          collectionValues: {
-            hostRefs: [],
-            identityRefs: [],
-            tags: [],
-          },
-          collectionDrafts: {
-            hostRefs: "",
-            identityRefs: "",
-            tags: "",
-          },
-        },
-      ],
-      2,
-    );
-    expect(continuedRows).toHaveLength(2);
-    expect(continuedRows[1]?.recordId).toBeNull();
-    expect(continuedRows[1]?.values.activitySynopsisText).toBe("");
 
     mockInitialTimelineRow();
     mockSummaryPatchResponse("Updated via enter");

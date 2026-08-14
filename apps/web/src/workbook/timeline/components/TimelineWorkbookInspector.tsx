@@ -22,6 +22,7 @@ import {
   type MentionEntityOption,
   TimelineMentionsPanel,
 } from "./TimelineMentionsPanel";
+import { bodyStyle } from "./TimelineWorkbookStyles";
 
 export function TimelineWorkbookInspector({
   canManageMentions,
@@ -234,12 +235,6 @@ const eyebrowStyle = {
   letterSpacing: "0.12em",
   textTransform: "uppercase",
   color: "var(--ct-colors-accent)",
-} satisfies CSSProperties;
-
-const bodyStyle = {
-  margin: 0,
-  lineHeight: 1.5,
-  color: "var(--ct-colors-ink-muted)",
 } satisfies CSSProperties;
 
 const inspectorShellStyle = {

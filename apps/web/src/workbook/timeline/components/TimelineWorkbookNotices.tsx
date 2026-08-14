@@ -8,6 +8,7 @@ import {
 import type { CSSProperties, RefObject } from "react";
 import type { WorkbookPendingQueueSnapshot } from "../../runtime/workbookPendingReplayRuntime";
 import type { AutoResolutionNotice } from "../models/workbookMentionChips";
+import { actionButtonStyle } from "./TimelineWorkbookStyles";
 
 export function timelinePendingQueueMessage(
   pendingQueueSnapshot: WorkbookPendingQueueSnapshot,
@@ -169,16 +170,6 @@ const queueCountStyle = {
   ...bodyStyle,
   flex: "0 0 auto",
   whiteSpace: "nowrap" as const,
-} satisfies CSSProperties;
-
-const actionButtonStyle = {
-  borderRadius: "var(--ct-component-button-secondary-rounded)",
-  border: "var(--ct-component-button-secondary-border)",
-  background: "var(--ct-component-button-secondary-backgroundColor)",
-  color: "var(--ct-component-button-secondary-textColor)",
-  padding: "0.55rem 0.9rem",
-  font: "inherit",
-  cursor: "pointer",
 } satisfies CSSProperties;
 
 const secondaryActionButtonStyle = {

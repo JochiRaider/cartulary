@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { buildTimelineGridRows } from "./timelineRowsModel";
+import { describe, expect, it, vi } from "vitest";
+import {
+  buildTimelineGridRows,
+  ensureTimelineDraftRow,
+} from "./timelineRowsModel";
 import type { WorkbookRow } from "./workbookTimelineModel";
 
 function workbookRow(
@@ -31,6 +34,30 @@ function workbookRow(
 }
 
 describe("timelineRowsModel", () => {
+  it("allocates one draft row only when the Timeline row set needs one", () => {
+    const nextDraftIndex = vi.fn(() => 7);
+    const committedRows = [workbookRow("row-a", "record-a", 2)];
+    const added = ensureTimelineDraftRow({
+      nextDraftIndex,
+      rows: committedRows,
+    });
+
+    expect(nextDraftIndex).toHaveBeenCalledOnce();
+    expect(added.rows.map((row) => row.key)).toEqual(["row-a", "draft-7"]);
+    expect(added.draftFocusKey).toBe("draft-7:activitySynopsisText:grid");
+
+    const existingRows = [
+      ...committedRows,
+      workbookRow("draft-existing", null, 0),
+    ];
+    const retained = ensureTimelineDraftRow({
+      nextDraftIndex,
+      rows: existingRows,
+    });
+    expect(nextDraftIndex).toHaveBeenCalledOnce();
+    expect(retained).toEqual({ rows: existingRows, draftFocusKey: null });
+  });
+
   it("builds draft and committed rows with stable semantic identities", () => {
     const rows = [
       workbookRow("draft", null, 0),

@@ -13,7 +13,7 @@ import {
 } from "./workbookMentionChips";
 import type { WorkbookVersionedRecord } from "./workbookRecordFreshness";
 
-export type EditableField =
+type EditableField =
   | "timeline.date_entered_text"
   | "timeline.analyst_text"
   | "timeline.mitre_stage_text"
@@ -25,7 +25,7 @@ export type EditableField =
   | "timeline.activity_synopsis_text"
   | "timeline.data_source_text";
 
-export type RelationshipDraftKey = "hostRefs" | "identityRefs";
+type RelationshipDraftKey = "hostRefs" | "identityRefs";
 export type CollectionFieldKey = RelationshipFieldKey | "timeline.tags";
 export type CollectionDraftKey = RelationshipDraftKey | "tags";
 export type FocusFieldKey = keyof RowValues | CollectionDraftKey;
@@ -43,7 +43,7 @@ export type RowValues = {
   dataSourceText: string;
 };
 
-export type CollectionDrafts = {
+type CollectionDrafts = {
   hostRefs: string;
   identityRefs: string;
   tags: string;
@@ -126,12 +126,12 @@ export type TimelineCollectionBinding = {
   entityType?: "host" | "identity";
 };
 
-export type TimelineReadonlyBinding = {
+type TimelineReadonlyBinding = {
   kind: "readonly";
   fieldKey: string;
 };
 
-export type TimelineFieldBinding =
+type TimelineFieldBinding =
   | TimelineScalarBinding
   | TimelineCollectionBinding
   | TimelineReadonlyBinding;
@@ -226,6 +226,14 @@ const timelineCollectionBindingIndex: Record<
 export const timelineScalarBindings: readonly TimelineScalarBinding[] =
   Object.values(timelineScalarBindingIndex);
 
+export const timelineObservationSourceFields = timelineScalarBindings.map(
+  (binding) => ({
+    fieldKey: binding.fieldKey,
+    label:
+      timelineContract.fieldMap[binding.fieldKey]?.label ?? binding.fieldKey,
+  }),
+);
+
 export const timelineCollectionBindings: readonly TimelineCollectionBinding[] =
   Object.values(timelineCollectionBindingIndex);
 
@@ -260,19 +268,6 @@ export function timelineScalarBindingForField(
 ): TimelineScalarBinding | null {
   const binding = timelineFieldBinding(fieldKey);
   return binding.kind === "scalar" ? binding : null;
-}
-
-export function timelineFocusFieldForFieldKey(
-  fieldKey: string,
-): FocusFieldKey | null {
-  const binding = timelineFieldBinding(fieldKey);
-  if (binding.kind === "scalar") {
-    return binding.key;
-  }
-  if (binding.kind === "collection") {
-    return binding.draftKey;
-  }
-  return null;
 }
 
 export function timelineColumnWidth(fieldKey: string): number {
@@ -398,20 +393,6 @@ export function createDraftRow(index: number): WorkbookRow {
     pendingSignature: null,
     rawRow: null,
   };
-}
-
-export function ensureDraftRow(
-  rows: WorkbookRow[],
-  nextDraftIndex: number,
-): WorkbookRow[] {
-  if (rows.some((row) => row.recordId === null)) {
-    return rows;
-  }
-  return [...rows, createDraftRow(nextDraftIndex)];
-}
-
-function normalizeValue(value: string): string {
-  return value;
 }
 
 function readTimelineStringCell(
@@ -637,8 +618,8 @@ function buildCollectionActions(
 export function buildScalarPatchIntent(row: WorkbookRow, clientTxnId: string) {
   const changes = Object.values(timelineScalarBindingIndex)
     .map((field) => {
-      const current = normalizeValue(row.values[field.key]);
-      const committed = normalizeValue(row.committedValues[field.key]);
+      const current = row.values[field.key];
+      const committed = row.committedValues[field.key];
       if (current === committed) {
         return null;
       }
@@ -759,7 +740,7 @@ export function buildCreatePayload(
   };
 
   for (const field of Object.values(timelineScalarBindingIndex)) {
-    const normalized = normalizeValue(row.values[field.key]);
+    const normalized = row.values[field.key];
     if (normalized !== "") {
       payload[field.fieldKey] = normalized;
     }

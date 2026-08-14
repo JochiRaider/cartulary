@@ -4,13 +4,20 @@ import {
   timelineInspectorSectionTestId,
 } from "@cartulary/ui-contracts";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
+import {
+  bodyStyle,
+  inputStyle,
+  inspectorSectionStyle,
+  labelStyle,
+  sectionTitleStyle,
+} from "./TimelineWorkbookStyles";
 
-export type TimelineEvidenceCountDisplay = {
+type TimelineEvidenceCountDisplay = {
   readonly displayCount: string;
   readonly stateKey: string;
 };
 
-export type TimelineEvidencePanelProps = {
+type TimelineEvidencePanelProps = {
   readonly countDisplay: TimelineEvidenceCountDisplay;
   readonly row: WorkbookRow;
   readonly onFilesSelected: (
@@ -71,40 +78,3 @@ export function TimelineEvidencePanel({
     </section>
   );
 }
-
-const bodyStyle = {
-  margin: 0,
-  lineHeight: 1.5,
-  color: "var(--ct-colors-ink-muted)",
-};
-
-const inputStyle = {
-  boxSizing: "border-box" as const,
-  display: "block",
-  minWidth: 0,
-  width: "100%",
-  borderRadius: "var(--ct-component-text-input-rounded)",
-  border: "var(--ct-component-text-input-border)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  padding: "0.65rem 0.75rem",
-  font: "inherit",
-  color: "var(--ct-component-text-input-textColor)",
-};
-
-const labelStyle = {
-  display: "grid",
-  gap: "0.4rem",
-  fontSize: "0.95rem",
-  color: "var(--ct-colors-ink-muted)",
-};
-
-const inspectorSectionStyle = {
-  display: "grid",
-  gap: "0.75rem",
-  marginBottom: "1rem",
-};
-
-const sectionTitleStyle = {
-  margin: 0,
-  fontSize: "1rem",
-};

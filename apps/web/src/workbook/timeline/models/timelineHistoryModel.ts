@@ -66,7 +66,7 @@ export type TimelineInspectorHistorySubject =
   | { readonly kind: "draft" }
   | { readonly kind: "none" };
 
-export type TimelineHistoryStateLike = {
+type TimelineHistoryStateLike = {
   readonly recordId: string | null;
   readonly data: {
     readonly deleted?: boolean | undefined;

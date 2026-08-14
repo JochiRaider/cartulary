@@ -21,6 +21,7 @@ import type {
   PendingReplayRuntimeMeta,
   TimelineMutableRef,
 } from "../models/timelineControllerPorts";
+import { ensureTimelineDraftRow } from "../models/timelineRowsModel";
 import type {
   TimelineSourceRecordEvidence,
   TimelineSourceRecordRequirement,
@@ -29,14 +30,12 @@ import { timelineSourceRecordRequirementSatisfied } from "../models/timelineView
 import type { DismissedMention } from "../models/workbookMentionChips";
 import { decideWorkbookRecordFreshness } from "../models/workbookRecordFreshness";
 import {
-  createDraftRow,
-  inputFocusKey,
   normalizeTimelineFullRow,
   rowFromApi,
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
 
-export type LoadRowsOptions = {
+type LoadRowsOptions = {
   afterProjectionCommit?: () => void;
   showLoading: boolean;
   freshnessRetryDepth?: number;
@@ -59,11 +58,10 @@ export function useTimelineRowsLoader({
   hasLoadedRows,
   isCurrentLoadSequence,
   knownTimelineRowVersion,
-  loadRowsRef,
   markRowsLoaded,
   nextDraftIndex,
   onIncidentAccessLost,
-  pendingSavesRefsRef,
+  pendingSavesRefs,
   pruneAutoResolutionNoticesForRows,
   pruneDismissedMentionsForRow,
   publishSaveStatePresentation,
@@ -105,15 +103,10 @@ export function useTimelineRowsLoader({
   readonly knownTimelineRowVersion: (
     recordId: string,
   ) => number | null | undefined;
-  readonly loadRowsRef: TimelineMutableRef<
-    (options: LoadRowsOptions) => Promise<void>
-  >;
   readonly markRowsLoaded: () => void;
   readonly nextDraftIndex: () => number;
   readonly onIncidentAccessLost?: (() => void) | undefined;
-  readonly pendingSavesRefsRef: TimelineMutableRef<
-    WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>
-  >;
+  readonly pendingSavesRefs: WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>;
   readonly pruneAutoResolutionNoticesForRows: (
     rows: readonly WorkbookRow[],
   ) => void;
@@ -152,7 +145,10 @@ export function useTimelineRowsLoader({
   );
 
   const refreshTimelineRowsAfterStaleResult = useCallback(
-    async (options: LoadRowsOptions) => {
+    async (
+      options: LoadRowsOptions,
+      retryLoadRows: (options: LoadRowsOptions) => Promise<void>,
+    ) => {
       const nextDepth = (options.freshnessRetryDepth ?? 0) + 1;
       if (nextDepth > maxTimelineFreshnessRetryDepth) {
         if (options.viewportContinuityToken !== undefined) {
@@ -179,18 +175,13 @@ export function useTimelineRowsLoader({
           retryOptions.viewportContinuityToken =
             options.viewportContinuityToken;
         }
-        await loadRowsRef.current(retryOptions);
+        await retryLoadRows(retryOptions);
       } finally {
         finishRefreshInFlight(refreshScope);
       }
       return true;
     },
-    [
-      beginRefreshInFlight,
-      failViewportContinuity,
-      finishRefreshInFlight,
-      loadRowsRef,
-    ],
+    [beginRefreshInFlight, failViewportContinuity, finishRefreshInFlight],
   );
 
   const freshTimelineRowsForQueryResult = useCallback(
@@ -277,7 +268,7 @@ export function useTimelineRowsLoader({
   );
 
   const loadRows = useCallback(
-    async (options: LoadRowsOptions) => {
+    async function loadTimelineRows(options: LoadRowsOptions) {
       const { queryStartEpoch, requestSequence } = beginTimelineRowsLoad();
 
       if (options.showLoading && !hasLoadedRows()) {
@@ -304,7 +295,7 @@ export function useTimelineRowsLoader({
           return;
         }
         if (options.sourceRecordRequirement !== undefined) {
-          await refreshTimelineRowsAfterStaleResult(options);
+          await refreshTimelineRowsAfterStaleResult(options, loadTimelineRows);
         }
         return;
       }
@@ -314,7 +305,10 @@ export function useTimelineRowsLoader({
         if (settleProjectionObligationsFromCurrentRows(options)) {
           return;
         }
-        const refreshed = await refreshTimelineRowsAfterStaleResult(options);
+        const refreshed = await refreshTimelineRowsAfterStaleResult(
+          options,
+          loadTimelineRows,
+        );
         if (!refreshed && !hasLoadedRows()) {
           setIsInitialLoading(false);
         }
@@ -383,7 +377,10 @@ export function useTimelineRowsLoader({
         options.sourceRecordRequirement,
       );
       if (incomingFreshness.hasStaleRows) {
-        const refreshed = await refreshTimelineRowsAfterStaleResult(options);
+        const refreshed = await refreshTimelineRowsAfterStaleResult(
+          options,
+          loadTimelineRows,
+        );
         if (refreshed) {
           return;
         }
@@ -421,9 +418,7 @@ export function useTimelineRowsLoader({
           return next;
         });
         pruneAutoResolutionNoticesForRows(committedRows);
-        publishSaveStatePresentation(
-          pendingSavesRefsRef.current.pendingQueueRef.current,
-        );
+        publishSaveStatePresentation(pendingSavesRefs.pendingQueueRef.current);
         markRowsLoaded();
         setIsRefreshing(false);
         setLoadError(null);
@@ -473,7 +468,7 @@ export function useTimelineRowsLoader({
       markRowsLoaded,
       nextDraftIndex,
       onIncidentAccessLost,
-      pendingSavesRefsRef,
+      pendingSavesRefs,
       pruneAutoResolutionNoticesForRows,
       pruneDismissedMentionsForRow,
       publishSaveStatePresentation,
@@ -493,8 +488,6 @@ export function useTimelineRowsLoader({
       viewQuery,
     ],
   );
-
-  loadRowsRef.current = loadRows;
 
   return { loadRows };
 }
@@ -552,33 +545,9 @@ function reconcileCommittedRowsWithLocalDrafts({
 
   return {
     committedRows,
-    rows: ensureDraftRowWithFreshIndex(
-      [...committedRows, ...localDraftRows],
+    rows: ensureTimelineDraftRow({
       nextDraftIndex,
-    ).rows,
-  };
-}
-
-function ensureDraftRowWithFreshIndex(
-  rows: WorkbookRow[],
-  nextDraftIndex: () => number,
-): {
-  rows: WorkbookRow[];
-  draftSummaryKey: string | null;
-} {
-  if (rows.some((row) => row.recordId === null)) {
-    return {
-      rows,
-      draftSummaryKey: null,
-    };
-  }
-
-  const draftIndex = nextDraftIndex();
-  return {
-    rows: [...rows, createDraftRow(draftIndex)],
-    draftSummaryKey: inputFocusKey(
-      `draft-${draftIndex}`,
-      "activitySynopsisText",
-    ),
+      rows: [...committedRows, ...localDraftRows],
+    }).rows,
   };
 }

@@ -1,14 +1,16 @@
+import type { WorkbookRelationshipChipPresentation } from "../../models/workbookRelationshipChip";
+
 export type RelationshipFieldKey =
   | "timeline.host_refs"
   | "timeline.identity_refs";
 
-export type MentionChipState =
+type MentionChipState =
   | "unresolved"
   | "resolved"
   | "auto_resolved"
   | "dismissed";
 
-export type MentionChipAnchor = {
+type MentionChipAnchor = {
   recordId: string;
   fieldKey: RelationshipFieldKey;
   itemRef: string;
@@ -70,6 +72,54 @@ export type AutoResolutionNotice = {
   resolvedRecordId: string;
   matchedAliasText: string | null;
 };
+
+export function relationshipItemLabel(
+  item: CollectionItem | InspectorMention,
+  entityIndex: Record<string, { label: string }>,
+) {
+  if ("status" in item && item.status === "dismissed") {
+    return item.displayText || item.rawText;
+  }
+  if (item.resolvedRecordId) {
+    const resolvedEntity = entityIndex[item.resolvedRecordId];
+    if (resolvedEntity) return resolvedEntity.label;
+  }
+  return item.displayText || item.rawText;
+}
+
+function mentionChipStateForItem(
+  item: CollectionItem | InspectorMention,
+): MentionChipState {
+  if ("chipState" in item) return item.chipState;
+  if (item.itemKind !== "resolved_ref") return "unresolved";
+  if (item.autoResolved) return "auto_resolved";
+  return "resolved";
+}
+
+export function timelineRelationshipChipPresentation({
+  entityIndex,
+  item,
+  selected = false,
+}: {
+  readonly entityIndex: Record<string, { label: string }>;
+  readonly item: CollectionItem | InspectorMention;
+  readonly selected?: boolean;
+}): WorkbookRelationshipChipPresentation {
+  const state = mentionChipStateForItem(item);
+  const accessibleDetail =
+    state === "resolved" && item.resolutionMethod === "explicit_resolve_route"
+      ? "manual resolution"
+      : state === "auto_resolved" && item.matchedAliasText
+        ? `matched ${item.matchedAliasText}`
+        : undefined;
+  return {
+    ...(accessibleDetail === undefined ? {} : { accessibleDetail }),
+    label: relationshipItemLabel(item, entityIndex),
+    selected,
+    selectorIdentity: item.itemRef,
+    state,
+  };
+}
 
 type TimelineApiRowLike = {
   cells: Record<string, { value: unknown }>;

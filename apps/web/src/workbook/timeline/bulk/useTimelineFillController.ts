@@ -16,7 +16,7 @@ import {
 export const timelineFillRejectedMessage =
   "Fill was rejected because one or more targets are unavailable or stale.";
 
-export type TimelineFillCommand = {
+type TimelineFillCommand = {
   readonly fieldKey: string;
   readonly sourceAnchor: GridCellAnchor;
   readonly targets: readonly {
@@ -26,7 +26,7 @@ export type TimelineFillCommand = {
   readonly value: string;
 };
 
-export type TimelineFillPlan =
+type TimelineFillPlan =
   | { readonly kind: "accepted"; readonly command: TimelineFillCommand }
   | { readonly kind: "rejected"; readonly message: string };
 

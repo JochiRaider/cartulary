@@ -289,6 +289,24 @@
       ]
     },
     {
+      "id": "frontend-workbook-common-presentation-no-timeline-presentation",
+      "level": "error",
+      "message": "Common Workbook presentation must not import Timeline presentation components.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/workbook/components/**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/components"
+        }
+      ]
+    },
+    {
       "id": "frontend-workbook-continuity-port-semantic-boundary",
       "level": "error",
       "message": "The Workbook continuity port may expose only semantic identities; grid-vendor and presentation translation belongs to private adapters.",

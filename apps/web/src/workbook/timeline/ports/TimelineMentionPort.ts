@@ -5,7 +5,7 @@ export type TimelineMentionEntityCreated = {
   readonly recordId: string;
 };
 
-export type TimelineMentionActionAccepted = {
+type TimelineMentionActionAccepted = {
   readonly entityMention: {
     readonly entityType: "host" | "identity" | null;
     readonly rawText: string | null;

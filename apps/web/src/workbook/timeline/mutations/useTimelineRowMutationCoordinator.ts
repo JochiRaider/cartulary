@@ -9,13 +9,11 @@ import type {
   WorkbookPendingQueueSnapshot,
   WorkbookPendingSavesRefs,
 } from "../../runtime/workbookPendingReplayRuntime";
-import { refreshBlocksWorkbookPendingRecord } from "../../runtime/workbookPendingReplayRuntime";
 import type { PendingReplayUnitState } from "../../utils/workbookPendingQueue";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows";
 import { useTimelineConflictProjectionAdapter } from "../hooks/useTimelineConflictProjectionAdapter";
 import { useTimelineConflicts } from "../hooks/useTimelineConflicts";
-import type { LoadRowsOptions } from "../hooks/useTimelineRowsLoader";
 import { useTimelineSaveStatePresentation } from "../hooks/useTimelineSaveStatePresentation";
 import type { TimelineViewportContinuityTarget } from "../hooks/useTimelineViewportContinuityController";
 import type {
@@ -23,6 +21,7 @@ import type {
   TimelineMutableRef,
   TimelineRowMutationEditorPort,
 } from "../models/timelineControllerPorts";
+import { ensureTimelineDraftRow } from "../models/timelineRowsModel";
 import type { DismissedMention } from "../models/workbookMentionChips";
 import {
   type AutoResolutionNotice,
@@ -33,13 +32,10 @@ import {
   type CollectionDraftKey,
   createDraftRow,
   type FocusFieldKey,
-  inputFocusKey,
   type LocalConflictState,
-  normalizeTimelineFullRow,
   rowFromApi,
   type TimelineApiRow,
   timelineFieldBinding,
-  timelineScalarBindingForField,
   timelineScalarBindings,
   validateTimelineViewSchemaId,
   type WorkbookRow,
@@ -61,25 +57,6 @@ function recordWorkbookTiming(
   performance.mark(`cartulary.workbook.${name}`, { detail: details });
 }
 
-function normalizeResolvedTimelineMutation(input: {
-  readonly expectedRecordId: string;
-  readonly row: unknown;
-  readonly viewSchemaId: string;
-}): Pick<WorkbookPendingMutationAccepted, "row" | "viewSchemaId"> | null {
-  if (input.viewSchemaId !== timelineViewSchemaId) return null;
-  try {
-    const row = normalizeTimelineFullRow(
-      input.row,
-      "conflict resolution response row",
-    );
-    return row.record_id === input.expectedRecordId
-      ? { row, viewSchemaId: input.viewSchemaId }
-      : null;
-  } catch {
-    return null;
-  }
-}
-
 function rowStillHasAutoResolvedNotice(
   row: WorkbookRow,
   notice: AutoResolutionNotice,
@@ -96,23 +73,6 @@ function rowStillHasAutoResolvedNotice(
   );
 }
 
-function ensureDraftRowWithFreshIndex(
-  rows: WorkbookRow[],
-  nextDraftIndex: () => number,
-) {
-  if (rows.some((row) => row.recordId === null)) {
-    return { rows, draftSummaryKey: null };
-  }
-  const draftIndex = nextDraftIndex();
-  return {
-    rows: [...rows, createDraftRow(draftIndex)],
-    draftSummaryKey: inputFocusKey(
-      `draft-${draftIndex}`,
-      "activitySynopsisText",
-    ),
-  };
-}
-
 function isCollectionDraftKey(
   field: FocusFieldKey,
 ): field is CollectionDraftKey {
@@ -126,16 +86,13 @@ function isCollectionDraftKey(
 export function useTimelineRowMutationCoordinator({
   advanceViewportContinuity,
   clearViewportContinuity,
-  discardBlockedEditRef,
   editorDraftRegistry,
   editorPort,
-  loadRowsRef,
   mutationRuntime,
   nextDraftIndex,
   pendingQueueSnapshot,
-  pendingSavesRefsRef,
+  pendingSavesRefs,
   rowsRef,
-  schedulePendingReplayRef,
   selectedRowId,
   setActiveCollectionInputKey,
   setAutoResolutionNotices,
@@ -149,22 +106,13 @@ export function useTimelineRowMutationCoordinator({
     options?: { readonly target?: TimelineViewportContinuityTarget | null },
   ) => void;
   readonly clearViewportContinuity: (token: number) => void;
-  readonly discardBlockedEditRef: TimelineMutableRef<
-    (unitId: string) => boolean
-  >;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly editorPort: TimelineRowMutationEditorPort;
-  readonly loadRowsRef: TimelineMutableRef<
-    (options: LoadRowsOptions) => Promise<void>
-  >;
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly nextDraftIndex: () => number;
   readonly pendingQueueSnapshot: WorkbookPendingQueueSnapshot;
-  readonly pendingSavesRefsRef: TimelineMutableRef<
-    WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>
-  >;
+  readonly pendingSavesRefs: WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
-  readonly schedulePendingReplayRef: TimelineMutableRef<() => void>;
   readonly selectedRowId: string | null;
   readonly setActiveCollectionInputKey: Dispatch<SetStateAction<string | null>>;
   readonly setAutoResolutionNotices: Dispatch<
@@ -215,7 +163,7 @@ export function useTimelineRowMutationCoordinator({
     conflictQueueRef,
     mutationRuntime,
     pendingQueueSnapshot,
-    pendingSavesRefsRef,
+    pendingSavesRefs,
     setPendingQueueSnapshot,
   });
   const {
@@ -315,11 +263,11 @@ export function useTimelineRowMutationCoordinator({
                     ...nextRows.slice(draftIndex),
                   ];
           }
-          const hydrated = ensureDraftRowWithFreshIndex(
-            nextRows,
+          const hydrated = ensureTimelineDraftRow({
             nextDraftIndex,
-          );
-          draftSummaryKey = hydrated.draftSummaryKey;
+            rows: nextRows,
+          });
+          draftSummaryKey = hydrated.draftFocusKey;
           rowsRef.current = hydrated.rows;
           return hydrated.rows;
         });
@@ -417,63 +365,9 @@ export function useTimelineRowMutationCoordinator({
     [applyAcceptedRowMutation],
   );
 
-  const waitForCommittedRecordIdle = useCallback(
-    async (
-      recordId: string,
-      options: {
-        readonly fallbackRowVersion?: number | null | undefined;
-        readonly refreshIfMissing?: boolean;
-      } = {},
-    ): Promise<{ row: WorkbookRow | null; rowVersion: number } | null> => {
-      let attemptedRefresh = false;
-      for (;;) {
-        const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
-        const snapshot = pending.model.snapshot();
-        const hasPendingRecordWork = snapshot.units.some(
-          (unit) => unit.recordId === recordId,
-        );
-        if (
-          snapshot.authPaused ||
-          snapshot.halted !== null ||
-          snapshot.overflow !== null ||
-          snapshot.sameFieldConflicts.length > 0 ||
-          Object.keys(conflictQueueRef.current).length > 0
-        ) {
-          return null;
-        }
-        if (
-          !hasPendingRecordWork &&
-          !refreshBlocksWorkbookPendingRecord(pending, recordId)
-        ) {
-          const row = latestCommittedTimelineRow(recordId);
-          const rowVersion =
-            latestCommittedRowVersion(recordId) ?? options.fallbackRowVersion;
-          if (typeof rowVersion === "number") return { row, rowVersion };
-          if (
-            options.refreshIfMissing !== false &&
-            attemptedRefresh === false
-          ) {
-            attemptedRefresh = true;
-            await loadRowsRef.current({ showLoading: false });
-            continue;
-          }
-          return null;
-        }
-        await new Promise((resolve) => window.setTimeout(resolve, 16));
-      }
-    },
-    [
-      latestCommittedRowVersion,
-      latestCommittedTimelineRow,
-      loadRowsRef,
-      pendingSavesRefsRef,
-    ],
-  );
-
   const trackPendingSocketTxn = useCallback(
     (clientTxnId: string) => {
-      const timeouts =
-        pendingSavesRefsRef.current.pendingSocketTxnTimeoutsRef.current;
+      const timeouts = pendingSavesRefs.pendingSocketTxnTimeoutsRef.current;
       const existingTimeout = timeouts.get(clientTxnId);
       if (existingTimeout !== undefined) window.clearTimeout(existingTimeout);
       const timeoutId = window.setTimeout(() => {
@@ -481,31 +375,28 @@ export function useTimelineRowMutationCoordinator({
       }, 30_000);
       timeouts.set(clientTxnId, timeoutId);
     },
-    [pendingSavesRefsRef],
+    [pendingSavesRefs],
   );
 
   const resolvePendingSocketTxn = useCallback(
     (clientTxnId: string | null | undefined) => {
       if (!clientTxnId) return false;
-      const timeouts =
-        pendingSavesRefsRef.current.pendingSocketTxnTimeoutsRef.current;
+      const timeouts = pendingSavesRefs.pendingSocketTxnTimeoutsRef.current;
       const timeoutId = timeouts.get(clientTxnId);
       if (timeoutId === undefined) return false;
       window.clearTimeout(timeoutId);
       timeouts.delete(clientTxnId);
       return true;
     },
-    [pendingSavesRefsRef],
+    [pendingSavesRefs],
   );
 
   const enqueueSaveWork = useCallback(
     (work: () => Promise<void>) => {
-      pendingSavesRefsRef.current.saveQueueRef.current =
-        pendingSavesRefsRef.current.saveQueueRef.current
-          .catch(() => undefined)
-          .then(work);
+      pendingSavesRefs.saveQueueRef.current =
+        pendingSavesRefs.saveQueueRef.current.catch(() => undefined).then(work);
     },
-    [pendingSavesRefsRef],
+    [pendingSavesRefs],
   );
 
   const reconcileDiscardedPendingUnit = useCallback(
@@ -513,7 +404,7 @@ export function useTimelineRowMutationCoordinator({
       discardedUnit: PendingReplayUnitState,
       remainingUnits: readonly PendingReplayUnitState[],
     ) => {
-      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
+      const pending = pendingSavesRefs.pendingQueueRef.current;
       const discardedMeta = pending.metaByUnitId.get(discardedUnit.id);
       const remainingForRow = remainingUnits
         .filter(
@@ -658,7 +549,7 @@ export function useTimelineRowMutationCoordinator({
       editorPort,
       latestCommittedTimelineRow,
       nextDraftIndex,
-      pendingSavesRefsRef,
+      pendingSavesRefs,
       rowsRef,
       setRows,
     ],
@@ -666,7 +557,7 @@ export function useTimelineRowMutationCoordinator({
 
   useEffect(
     () => () => {
-      const pendingRefs = pendingSavesRefsRef.current;
+      const pendingRefs = pendingSavesRefs;
       for (const timeoutId of pendingRefs.pendingSocketTxnTimeoutsRef.current.values()) {
         window.clearTimeout(timeoutId);
       }
@@ -676,13 +567,7 @@ export function useTimelineRowMutationCoordinator({
         pendingRefs.pendingReplayTimerRef.current = null;
       }
     },
-    [pendingSavesRefsRef],
-  );
-
-  useEffect(
-    () =>
-      mutationRuntime.registerDrainer(() => schedulePendingReplayRef.current()),
-    [mutationRuntime, schedulePendingReplayRef],
+    [pendingSavesRefs],
   );
 
   const conflictProjection = useTimelineConflictProjectionAdapter({
@@ -698,73 +583,6 @@ export function useTimelineRowMutationCoordinator({
   });
   const { activeConflict } = conflictProjection.snapshot;
   const { registerSameFieldConflict } = conflictProjection.commands;
-
-  useEffect(
-    () =>
-      mutationRuntime.registerSurface(
-        timelineViewSchemaId,
-        () => loadRowsRef.current({ showLoading: false }),
-        async (mutation, conflict) => {
-          const recordId = conflict.conflict.record_id;
-          const binding = timelineScalarBindingForField(
-            conflict.conflict.field_key,
-          );
-          if (binding !== null) {
-            editorDraftRegistry.clearScalarDraftsForField(
-              recordId,
-              binding.key,
-            );
-            editorPort.cancelEdit({
-              fieldKey: binding.fieldKey,
-              recordId,
-            });
-          }
-          const outcome = normalizeResolvedTimelineMutation({
-            expectedRecordId: recordId,
-            row: mutation.row,
-            viewSchemaId: mutation.viewSchemaId,
-          });
-          if (outcome !== null) {
-            applyAcceptedRowMutation(recordId, outcome);
-          } else {
-            await loadRowsRef.current({ showLoading: false });
-          }
-          if (binding !== null) {
-            window.setTimeout(() => {
-              editorPort.focus({ fieldKey: binding.fieldKey, recordId });
-            }, 0);
-          }
-        },
-        (conflict) => {
-          window.setTimeout(() => {
-            const existingEditor =
-              conflict.focusKey === null
-                ? null
-                : editorDraftRegistry.inputElementForFocusKey(
-                    conflict.focusKey,
-                  );
-            if (existingEditor !== null) {
-              existingEditor.focus({ preventScroll: true });
-              return;
-            }
-            editorPort.activateEdit({
-              fieldKey: conflict.conflict.field_key,
-              recordId: conflict.conflict.record_id,
-              value: conflict.localValue,
-            });
-          }, 0);
-        },
-        (unitId) => discardBlockedEditRef.current(unitId),
-      ),
-    [
-      applyAcceptedRowMutation,
-      discardBlockedEditRef,
-      editorDraftRegistry,
-      editorPort,
-      loadRowsRef,
-      mutationRuntime,
-    ],
-  );
 
   const collaborationAdmission = useMemo(
     () => ({
@@ -818,7 +636,6 @@ export function useTimelineRowMutationCoordinator({
       setActiveConflictKey,
       setPasteConflictGroup,
       trackPendingSocketTxn,
-      waitForCommittedRecordIdle,
     },
     ports: {
       collaborationAdmission,

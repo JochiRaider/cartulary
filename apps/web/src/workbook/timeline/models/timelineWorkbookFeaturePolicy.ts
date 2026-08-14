@@ -10,7 +10,7 @@ import {
 } from "../../features/indicators/indicatorInspectorHandlers";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 
-export type TimelineWorkbookFeatureResolution =
+type TimelineWorkbookFeatureResolution =
   | {
       readonly kind: "indicator";
       readonly handler: IndicatorInspectorHandler;

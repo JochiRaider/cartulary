@@ -16,13 +16,14 @@ import {
 import { workbookViewportOverlayScrollableStyle } from "../../layout/workbookShellStyles";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
+import { actionButtonStyle, inputStyle } from "./TimelineWorkbookStyles";
 
 export type TimelineRowContextMenuPosition = {
   readonly x: number;
   readonly y: number;
 };
 
-export type TimelineRowContextMenuProps = {
+type TimelineRowContextMenuProps = {
   readonly position: TimelineRowContextMenuPosition;
   readonly replacementDraft: string;
   readonly row: WorkbookRow | null;
@@ -227,34 +228,11 @@ const contextMenuWidthPx = 240;
 const contextMenuHeightPx = 248;
 const contextMenuMarginPx = 8;
 
-const inputStyle = {
-  boxSizing: "border-box" as const,
-  display: "block",
-  minWidth: 0,
-  width: "100%",
-  borderRadius: "var(--ct-component-text-input-rounded)",
-  border: "var(--ct-component-text-input-border)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  padding: "0.65rem 0.75rem",
-  font: "inherit",
-  color: "var(--ct-component-text-input-textColor)",
-};
-
 const timelineReplacementInputStyle = {
   ...inputStyle,
   boxSizing: "border-box" as const,
   fontSize: "0.82rem",
   width: "100%",
-};
-
-const actionButtonStyle = {
-  borderRadius: "var(--ct-component-button-secondary-rounded)",
-  border: "var(--ct-component-button-secondary-border)",
-  background: "var(--ct-component-button-secondary-backgroundColor)",
-  color: "var(--ct-component-button-secondary-textColor)",
-  padding: "0.55rem 0.9rem",
-  font: "inherit",
-  cursor: "pointer",
 };
 
 const actionPopoverStyle = {

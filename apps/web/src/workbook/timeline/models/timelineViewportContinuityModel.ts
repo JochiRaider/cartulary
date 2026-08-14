@@ -7,10 +7,7 @@ export type TimelineContinuityRequirementName =
   | "entity-refresh"
   | "row-projection";
 
-export type TimelineContinuityRequirementState =
-  | "pending"
-  | "settled"
-  | "terminal";
+type TimelineContinuityRequirementState = "pending" | "settled" | "terminal";
 
 export type TimelineSourceRecordRequirement = {
   readonly recordId: string;
@@ -22,7 +19,7 @@ export type TimelineSourceRecordEvidence = {
   readonly rowVersion: number;
 };
 
-export type TimelineContinuityLifecycleState =
+type TimelineContinuityLifecycleState =
   | "pending"
   | "completed"
   | "cancelled"

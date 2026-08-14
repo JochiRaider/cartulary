@@ -3,7 +3,7 @@ export type WorkbookVersionedRecord = {
   readonly rowVersion: number | null;
 };
 
-export type WorkbookRecordFreshnessDecision = {
+type WorkbookRecordFreshnessDecision = {
   readonly comparable: boolean;
   readonly stale: boolean;
 };

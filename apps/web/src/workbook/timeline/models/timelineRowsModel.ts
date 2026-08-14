@@ -7,12 +7,38 @@ import {
 import type { ReactNode } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookVersionedRecord } from "./workbookRecordFreshness";
-import type { WorkbookRow } from "./workbookTimelineModel";
+import {
+  createDraftRow,
+  inputFocusKey,
+  type WorkbookRow,
+} from "./workbookTimelineModel";
 
-export type TimelineGridRows = {
+type TimelineGridRows = {
   readonly draftRow?: GridDraftRow<WorkbookRow> | undefined;
   readonly recordRows: readonly GridDataRow<WorkbookRow>[];
 };
+
+type EnsureTimelineDraftRowResult = {
+  readonly rows: WorkbookRow[];
+  readonly draftFocusKey: string | null;
+};
+
+export function ensureTimelineDraftRow({
+  nextDraftIndex,
+  rows,
+}: {
+  readonly nextDraftIndex: () => number;
+  readonly rows: WorkbookRow[];
+}): EnsureTimelineDraftRowResult {
+  if (rows.some((row) => row.recordId === null)) {
+    return { rows, draftFocusKey: null };
+  }
+  const draftIndex = nextDraftIndex();
+  return {
+    rows: [...rows, createDraftRow(draftIndex)],
+    draftFocusKey: inputFocusKey(`draft-${draftIndex}`, "activitySynopsisText"),
+  };
+}
 
 function requireCommittedRowVersion(row: WorkbookVersionedRecord): number {
   if (row.rowVersion === null) {

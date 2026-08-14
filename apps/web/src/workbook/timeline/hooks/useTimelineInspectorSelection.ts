@@ -58,6 +58,7 @@ export function useTimelineInspectorSelection({
   readonly selectedMentionRef: string | null;
 }) {
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [inspectorMessage, setInspectorMessage] = useState<string | null>(null);
   const selectedRow = useMemo(
     () =>
       rows.find(
@@ -92,6 +93,7 @@ export function useTimelineInspectorSelection({
 
   return {
     commands: {
+      setInspectorMessage,
       setSelectedRowId,
     },
     snapshot: {
@@ -99,6 +101,7 @@ export function useTimelineInspectorSelection({
       draftRow,
       dismissedForSelectedRow,
       inspectorMentions,
+      inspectorMessage,
       selectedMention,
       selectedRow,
       selectedRowId,
@@ -303,6 +306,7 @@ export function useTimelineInspectorRowInteractions({
 }
 
 export function useTimelineInspectorLifecycle({
+  cancelInspectorFeatureAction,
   cancelRowHistoryRequests,
   clearRowHistory,
   gridShellRef,
@@ -315,6 +319,7 @@ export function useTimelineInspectorLifecycle({
   selectedMentionRef,
   selectedRowId,
   setInspectorMessage,
+  setIsInspectorOpen,
   setRowHistory,
   setRowHistoryPendingAction,
   setSelectedMentionRef,
@@ -322,6 +327,7 @@ export function useTimelineInspectorLifecycle({
   setSelectedRowId,
   workbookFocusAnchorRef,
 }: {
+  readonly cancelInspectorFeatureAction: () => void;
   readonly cancelRowHistoryRequests: () => void;
   readonly clearRowHistory: () => void;
   readonly gridShellRef: MutableRefObject<HTMLDivElement | null>;
@@ -336,6 +342,7 @@ export function useTimelineInspectorLifecycle({
   readonly selectedMentionRef: string | null;
   readonly selectedRowId: string | null;
   readonly setInspectorMessage: (message: string | null) => void;
+  readonly setIsInspectorOpen: Dispatch<SetStateAction<boolean>>;
   readonly setRowHistory: Dispatch<SetStateAction<RecordHistoryState>>;
   readonly setRowHistoryPendingAction: Dispatch<
     SetStateAction<RowHistoryPendingAction | null>
@@ -345,6 +352,12 @@ export function useTimelineInspectorLifecycle({
   readonly setSelectedRowId: Dispatch<SetStateAction<string | null>>;
   readonly workbookFocusAnchorRef: MutableRefObject<WorkbookContinuityAnchor | null>;
 }) {
+  const closeInspector = useCallback(() => {
+    setIsInspectorOpen(false);
+    clearRowHistory();
+    cancelInspectorFeatureAction();
+  }, [cancelInspectorFeatureAction, clearRowHistory, setIsInspectorOpen]);
+
   useEffect(() => {
     if (selectedRowId === null) {
       return;
@@ -476,6 +489,8 @@ export function useTimelineInspectorLifecycle({
     setSelectedMentionRef,
     setSelectedResolveTargetId,
   ]);
+
+  return { closeInspector };
 }
 
 export function useTimelineInspectorEscape({

@@ -1,3 +1,4 @@
+import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
@@ -16,9 +17,9 @@ import {
   rowFromApi,
   timelineColumnWidth,
   timelineFieldBinding,
-  timelineFocusFieldForFieldKey,
   timelineGroupLabel,
   timelineInspectorBindings,
+  timelineObservationSourceFields,
   timelineRelationshipLabel,
   timelineScalarBindings,
   timelineVisibleBindings,
@@ -41,6 +42,7 @@ const timelineWidthFixedChrome = {
   actionsColumnWidth: 0,
   rowGutterWidth: 58,
 };
+const timelineContract = requireViewContract(timelineViewSchemaId);
 const timelineBaseDataWidth = timelineWidthFieldKeys.reduce(
   (sum, fieldKey) => sum + timelineColumnWidth(fieldKey),
   0,
@@ -115,9 +117,6 @@ describe("workbookTimelineModel", () => {
     expect(timelineFieldBinding("timeline.row_version")).toMatchObject({
       kind: "readonly",
     });
-    expect(timelineFocusFieldForFieldKey("timeline.identity_refs")).toBe(
-      "identityRefs",
-    );
     expect(timelineScalarBindings.map((binding) => binding.fieldKey)).toEqual([
       "timeline.date_entered_text",
       "timeline.analyst_text",
@@ -130,6 +129,14 @@ describe("workbookTimelineModel", () => {
       "timeline.activity_synopsis_text",
       "timeline.data_source_text",
     ]);
+    expect(timelineObservationSourceFields).toEqual(
+      timelineScalarBindings.map((binding) => ({
+        fieldKey: binding.fieldKey,
+        label:
+          timelineContract.fieldMap[binding.fieldKey]?.label ??
+          binding.fieldKey,
+      })),
+    );
     expect(timelineInspectorBindings.map((binding) => binding.key)).toEqual([
       "rawActivityText",
       "activitySynopsisText",

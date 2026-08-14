@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import {
   beginWorkbookPendingRefreshBlock,
@@ -31,7 +31,7 @@ export function useTimelineSaveStatePresentation<TMeta>({
   conflictQueueRef,
   mutationRuntime,
   pendingQueueSnapshot,
-  pendingSavesRefsRef,
+  pendingSavesRefs,
   setPendingQueueSnapshot,
 }: {
   readonly conflictQueue: Record<string, LocalConflictState>;
@@ -40,9 +40,7 @@ export function useTimelineSaveStatePresentation<TMeta>({
   >;
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly pendingQueueSnapshot: WorkbookPendingQueueSnapshot;
-  readonly pendingSavesRefsRef: TimelineMutableRef<
-    WorkbookPendingSavesRefs<TMeta>
-  >;
+  readonly pendingSavesRefs: WorkbookPendingSavesRefs<TMeta>;
   readonly setPendingQueueSnapshot: TimelineSetState<WorkbookPendingQueueSnapshot>;
 }) {
   const computeSaveStatePresentation = useCallback(
@@ -61,10 +59,10 @@ export function useTimelineSaveStatePresentation<TMeta>({
         queuedCount: snapshot.queuedCount,
         inFlightCount: snapshot.inFlightCount,
         refreshPaused: pending.resetRefreshInFlight,
-        pendingMutationCount: pendingSavesRefsRef.current.pendingOpsRef.current,
+        pendingMutationCount: pendingSavesRefs.pendingOpsRef.current,
       });
     },
-    [conflictQueueRef, pendingSavesRefsRef],
+    [conflictQueueRef, pendingSavesRefs],
   );
 
   const publishSaveStatePresentation = useCallback(
@@ -86,55 +84,45 @@ export function useTimelineSaveStatePresentation<TMeta>({
     (
       conflicts: Record<string, LocalConflictState> = conflictQueueRef.current,
     ) => {
-      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
+      const pending = pendingSavesRefs.pendingQueueRef.current;
       setPendingQueueSnapshot(workbookPendingQueueSnapshot(pending));
       publishSaveStatePresentation(pending, conflicts);
     },
     [
       conflictQueueRef,
-      pendingSavesRefsRef,
+      pendingSavesRefs,
       publishSaveStatePresentation,
       setPendingQueueSnapshot,
     ],
   );
-  const publishPendingQueueStateRef = useRef(publishPendingQueueState);
-  publishPendingQueueStateRef.current = publishPendingQueueState;
-
   const beginRefreshInFlight = useCallback(
     (scope: WorkbookPendingRefreshBlockScope) => {
-      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
+      const pending = pendingSavesRefs.pendingQueueRef.current;
       beginWorkbookPendingRefreshBlock(pending, scope);
       publishPendingQueueState();
     },
-    [pendingSavesRefsRef, publishPendingQueueState],
+    [pendingSavesRefs, publishPendingQueueState],
   );
 
   const finishRefreshInFlight = useCallback(
     (scope: WorkbookPendingRefreshBlockScope) => {
-      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
+      const pending = pendingSavesRefs.pendingQueueRef.current;
       finishWorkbookPendingRefreshBlock(pending, scope);
       publishPendingQueueState();
-      pendingSavesRefsRef.current.schedulePendingReplayRef.current();
+      mutationRuntime.requestDrain();
     },
-    [pendingSavesRefsRef, publishPendingQueueState],
+    [mutationRuntime, pendingSavesRefs, publishPendingQueueState],
   );
-  const beginRefreshInFlightRef = useRef(beginRefreshInFlight);
-  beginRefreshInFlightRef.current = beginRefreshInFlight;
-  const finishRefreshInFlightRef = useRef(finishRefreshInFlight);
-  finishRefreshInFlightRef.current = finishRefreshInFlight;
-
   const beginSave = useCallback(() => {
-    pendingSavesRefsRef.current.pendingOpsRef.current += 1;
-    publishSaveStatePresentation(
-      pendingSavesRefsRef.current.pendingQueueRef.current,
-    );
-  }, [pendingSavesRefsRef, publishSaveStatePresentation]);
+    pendingSavesRefs.pendingOpsRef.current += 1;
+    publishSaveStatePresentation(pendingSavesRefs.pendingQueueRef.current);
+  }, [pendingSavesRefs, publishSaveStatePresentation]);
 
   const finishSave = useCallback(
     (nextState: TimelineSaveStateLabel) => {
-      pendingSavesRefsRef.current.pendingOpsRef.current = Math.max(
+      pendingSavesRefs.pendingOpsRef.current = Math.max(
         0,
-        pendingSavesRefsRef.current.pendingOpsRef.current - 1,
+        pendingSavesRefs.pendingOpsRef.current - 1,
       );
       if (nextState === "Conflict") {
         mutationRuntime.projectSurfaceSaveState("cartulary.view.timeline.v2", {
@@ -143,11 +131,9 @@ export function useTimelineSaveStatePresentation<TMeta>({
         });
         return;
       }
-      publishSaveStatePresentation(
-        pendingSavesRefsRef.current.pendingQueueRef.current,
-      );
+      publishSaveStatePresentation(pendingSavesRefs.pendingQueueRef.current);
     },
-    [mutationRuntime, pendingSavesRefsRef, publishSaveStatePresentation],
+    [mutationRuntime, pendingSavesRefs, publishSaveStatePresentation],
   );
 
   useEffect(
@@ -188,11 +174,6 @@ export function useTimelineSaveStatePresentation<TMeta>({
       finishSave,
       publishPendingQueueState,
       publishSaveStatePresentation,
-    },
-    refs: {
-      beginRefreshInFlightRef,
-      finishRefreshInFlightRef,
-      publishPendingQueueStateRef,
     },
   };
 }

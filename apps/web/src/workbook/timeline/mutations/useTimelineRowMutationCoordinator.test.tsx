@@ -7,6 +7,7 @@ import { createWorkbookPendingMutationAdapter } from "../../adapters/createWorkb
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { useTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
+import { useTimelineCommittedRecordIdle } from "../hooks/useTimelineCommittedRecordIdle";
 import { useTimelinePendingSaves } from "../hooks/useTimelinePendingSaves";
 import type { PendingReplayRuntimeMeta } from "../models/timelineControllerPorts";
 import type {
@@ -77,19 +78,15 @@ function renderCoordinator(
     const pending = useTimelinePendingSaves<PendingReplayRuntimeMeta>({
       mutationRuntime: runtime,
     });
-    const pendingRefsRef = useRef(pending.refs);
-    pendingRefsRef.current = pending.refs;
     const editorDraftRegistry =
       useTimelineEditorDraftRegistry(timelineViewSchemaId);
-    const loadRowsRef = useRef(async () => undefined);
+    const loadRows = async () => undefined;
     const nextDraftIndexRef = useRef(2);
     const coordinator = useTimelineRowMutationCoordinator({
       advanceViewportContinuity,
       clearViewportContinuity,
-      discardBlockedEditRef: { current: () => false },
       editorDraftRegistry,
       editorPort,
-      loadRowsRef,
       mutationRuntime: runtime,
       nextDraftIndex: () => {
         const next = nextDraftIndexRef.current;
@@ -97,9 +94,8 @@ function renderCoordinator(
         return next;
       },
       pendingQueueSnapshot: pending.snapshot.pendingQueueSnapshot,
-      pendingSavesRefsRef: pendingRefsRef,
+      pendingSavesRefs: pending.refs,
       rowsRef,
-      schedulePendingReplayRef: { current: () => undefined },
       selectedRowId,
       setActiveCollectionInputKey,
       setAutoResolutionNotices,
@@ -108,7 +104,15 @@ function renderCoordinator(
       setRows,
       setSelectedRowId,
     });
-    return { coordinator, rows };
+    const waitForCommittedRecordIdle = useTimelineCommittedRecordIdle({
+      conflictQueueRef: coordinator.refs.conflictQueueRef,
+      latestCommittedRowVersion: coordinator.commands.latestCommittedRowVersion,
+      latestCommittedTimelineRow:
+        coordinator.commands.latestCommittedTimelineRow,
+      loadRows,
+      pendingSavesRefs: pending.refs,
+    });
+    return { coordinator, rows, waitForCommittedRecordIdle };
   });
   return {
     ...rendered,
@@ -282,7 +286,7 @@ describe("useTimelineRowMutationCoordinator", () => {
       ),
     ).toBe(6);
     await expect(
-      result.current.coordinator.commands.waitForCommittedRecordIdle(recordId),
+      result.current.waitForCommittedRecordIdle(recordId),
     ).resolves.toBeNull();
     unmount();
     runtime.invalidate({ kind: "runtime_disposed" });

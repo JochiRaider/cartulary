@@ -23,7 +23,7 @@ const timelineRuntimeContract = requireViewContract(timelineViewSchemaId);
 type FilterDraftSetter = Dispatch<SetStateAction<FilterDraft>>;
 type WorkbookQueryStateSetter = Dispatch<SetStateAction<WorkbookQueryState>>;
 
-export type TimelineWorkbookRuntimeInput = {
+type TimelineWorkbookRuntimeInput = {
   readonly filterDraft: FilterDraft;
   readonly queryState: WorkbookQueryState;
   readonly setFilterDraft: FilterDraftSetter;

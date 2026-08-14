@@ -56,7 +56,6 @@ export type WorkbookPendingSavesRefs<TMeta> = {
   readonly pendingSignaturesRef: WorkbookMutableRef<Map<string, string>>;
   readonly pendingSocketTxnTimeoutsRef: WorkbookMutableRef<Map<string, number>>;
   readonly saveQueueRef: WorkbookMutableRef<Promise<void>>;
-  readonly schedulePendingReplayRef: WorkbookMutableRef<() => void>;
 };
 
 export function createWorkbookPendingQueueRuntime<TMeta>(
