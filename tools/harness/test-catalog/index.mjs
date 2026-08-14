@@ -1,5 +1,6 @@
 export {
   loadTestCatalog,
+  validateFixtureProfile,
   validateTestCatalog,
 } from "./test-catalog.mjs";
 export {

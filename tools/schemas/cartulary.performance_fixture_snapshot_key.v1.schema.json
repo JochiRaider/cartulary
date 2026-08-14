@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_fixture_snapshot_key.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "migration_digest", "source_contract_digest", "fixture_version", "seed"],
+  "properties": {
+    "schema_id": { "const": "cartulary.performance_fixture_snapshot_key.v1" },
+    "migration_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "source_contract_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "fixture_version": { "const": "cartulary.perf.large_grid.v1" },
+    "seed": { "const": 20260405 }
+  }
+}

@@ -2,6 +2,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { loadBrowserBatchStages } from "../adapters/browser.mjs";
+import {
+  loadPerformanceFixtureSnapshotRegistry,
+  postgresMigrationDigest,
+  snapshotKey,
+} from "../../performance-fixture/index.mjs";
+import { loadTestCatalog } from "../../test-catalog/index.mjs";
 import { buildWorkGraph } from "./model.mjs";
 import {
   assertFixtureServiceDependencies,
@@ -79,6 +85,82 @@ function command(executable, args, environment = {}) {
   return { executable, args, environment };
 }
 
+function resolvedFixtureProfile(root, group) {
+  if (!group.fixtureProfileID) return null;
+  const registry = loadPerformanceFixtureSnapshotRegistry(root);
+  const profile = registry.profiles.get(group.fixtureProfileID);
+  if (!profile || profile.status !== "active") {
+    throw new Error("browser group " + group.name + " has unresolved fixture profile");
+  }
+  const migrationDigest = postgresMigrationDigest(root);
+  const key = snapshotKey(profile, migrationDigest);
+  if (group.selectedRowIDs.length !== 1) {
+    throw new Error("profiled browser group " + group.name + " must select exactly one row");
+  }
+  const rowID = group.selectedRowIDs[0];
+  const row = loadTestCatalog(root).rows.find((entry) => entry.row_id === rowID);
+  const bindings = row?.verification_ids
+    ?.map((verificationID) => profile.verification_bindings.find(
+      (entry) => entry.verification_id === verificationID,
+    ))
+    .filter(Boolean) ?? [];
+  if (bindings.length !== 1) {
+    throw new Error("profiled browser row " + rowID + " must resolve exactly one predicate binding");
+  }
+  return {
+    profile,
+    migrationDigest,
+    snapshotKey: key,
+    builderUnitID:
+      "fixture_snapshot:" + group.runtimeProfileID + ":" +
+      group.fixtureProfileID + ":" + key,
+    rowID,
+    predicateID: bindings[0].predicate_id,
+  };
+}
+
+function snapshotBuilderUnit(root, group, fixture, owner) {
+  return {
+    unit_id: fixture.builderUnitID,
+    owner_id: "harness.browser",
+    kind: "fixture_builder",
+    command: command(
+      "node",
+      [
+        "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
+        "--fixture-profile",
+        group.fixtureProfileID,
+        "--snapshot-key",
+        fixture.snapshotKey,
+      ],
+      {
+        CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
+        CARTULARY_FIXTURE_PROFILE_ID: group.fixtureProfileID,
+        CARTULARY_FIXTURE_SNAPSHOT_KEY: fixture.snapshotKey,
+        CARTULARY_FIXTURE_MIGRATION_DIGEST: fixture.migrationDigest,
+        CARTULARY_FIXTURE_SOURCE_CONTRACT_DIGEST:
+          fixture.profile.source_contract_digest,
+        CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID: fixture.builderUnitID,
+      },
+    ),
+    needs: [],
+    resource_claims: resourceClaims(root, group),
+    shared_locks: ["host_activity"],
+    exclusive_locks: [],
+    fixture_profile_id: group.fixtureProfileID,
+    snapshot_key: fixture.snapshotKey,
+    fixture_lease: "postgres_dedicated",
+    service_dependencies: group.serviceDependencies,
+    cache_policy: "none",
+    timeout_ms: owner.default_timeout_ms,
+    evidence_outputs: [
+      "performance-fixtures/" + fixture.snapshotKey + "/snapshot-build.json",
+    ],
+    failure_policy: requiredFailurePolicy(),
+    estimated_work_ms: 120000,
+  };
+}
+
 function lifecycleKey(stage, group) {
   if (group.kind === "stateful_partition") {
     return `${stage.name}-${group.browserSessionGroup}-${group.runtimeProfileID}`;
@@ -86,7 +168,7 @@ function lifecycleKey(stage, group) {
   return `${stage.name}-${group.name}-${group.runtimeProfileID}`;
 }
 
-function lifecycleUnit(root, stage, group, owner) {
+function lifecycleUnit(root, stage, group, owner, fixture) {
   const key = safeID(lifecycleKey(stage, group));
   const locks = hostLocks(group);
   return {
@@ -100,12 +182,27 @@ function lifecycleUnit(root, stage, group, owner) {
       CARTULARY_HARNESS_SERVICE_DEPENDENCIES: group.serviceDependencies.join(","),
       CARTULARY_BROWSER_SESSION_CONTRACT: group.browserSessionGroup,
       CARTULARY_BROWSER_SESSION_GROUP: key,
+      ...(fixture
+        ? {
+            CARTULARY_FIXTURE_PROFILE_ID: group.fixtureProfileID,
+            CARTULARY_FIXTURE_SNAPSHOT_KEY: fixture.snapshotKey,
+            CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID: fixture.builderUnitID,
+            CARTULARY_FIXTURE_ROW_ID: fixture.rowID,
+            CARTULARY_FIXTURE_PREDICATE_ID: fixture.predicateID,
+          }
+        : {}),
     }),
-    needs: [],
+    needs: fixture ? [fixture.builderUnitID] : [],
     resource_claims: resourceClaims(root, group),
     shared_locks: locks.shared,
     exclusive_locks: locks.exclusive,
     affinity_key: key,
+    ...(fixture
+      ? {
+          fixture_profile_id: group.fixtureProfileID,
+          snapshot_key: fixture.snapshotKey,
+        }
+      : {}),
     fixture_lease: "browser_stack",
     service_dependencies: group.serviceDependencies,
     cache_policy: "none",
@@ -116,7 +213,7 @@ function lifecycleUnit(root, stage, group, owner) {
   };
 }
 
-function resetUnit(root, stage, group, previousID, owner) {
+function resetUnit(root, stage, group, previousID, owner, fixture) {
   const key = safeID(lifecycleKey(stage, group));
   const locks = hostLocks(group);
   return {
@@ -130,12 +227,27 @@ function resetUnit(root, stage, group, previousID, owner) {
       CARTULARY_HARNESS_SERVICE_DEPENDENCIES: group.serviceDependencies.join(","),
       CARTULARY_BROWSER_SESSION_CONTRACT: group.browserSessionGroup,
       CARTULARY_BROWSER_SESSION_GROUP: key,
+      ...(fixture
+        ? {
+            CARTULARY_FIXTURE_PROFILE_ID: group.fixtureProfileID,
+            CARTULARY_FIXTURE_SNAPSHOT_KEY: fixture.snapshotKey,
+            CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID: fixture.builderUnitID,
+            CARTULARY_FIXTURE_ROW_ID: fixture.rowID,
+            CARTULARY_FIXTURE_PREDICATE_ID: fixture.predicateID,
+          }
+        : {}),
     }),
     needs: [previousID],
     resource_claims: resourceClaims(root, group),
     shared_locks: locks.shared,
     exclusive_locks: [...locks.exclusive, `browser_session:${key}`].sort(compareASCII),
     affinity_key: key,
+    ...(fixture
+      ? {
+          fixture_profile_id: group.fixtureProfileID,
+          snapshot_key: fixture.snapshotKey,
+        }
+      : {}),
     fixture_lease: "browser_stack",
     service_dependencies: group.serviceDependencies,
     cache_policy: "none",
@@ -163,7 +275,7 @@ function groupLocks(group, mode) {
   };
 }
 
-function groupUnit(root, stage, group, dependencyID, owner, mode) {
+function groupUnit(root, stage, group, dependencyID, owner, mode, fixture) {
   const key = safeID(lifecycleKey(stage, group));
   const locks = groupLocks(group, mode);
   const target = mode === "snapshot_update" ? "browser-e2e-visual-update" : group.target;
@@ -192,6 +304,15 @@ function groupUnit(root, stage, group, dependencyID, owner, mode) {
         CARTULARY_BROWSER_SESSION_CONTRACT: group.browserSessionGroup,
         CARTULARY_BROWSER_SESSION_GROUP: key,
         CARTULARY_TEST_TARGET: target,
+        ...(fixture
+          ? {
+              CARTULARY_FIXTURE_PROFILE_ID: group.fixtureProfileID,
+              CARTULARY_FIXTURE_SNAPSHOT_KEY: fixture.snapshotKey,
+              CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID: fixture.builderUnitID,
+              CARTULARY_FIXTURE_ROW_ID: fixture.rowID,
+              CARTULARY_FIXTURE_PREDICATE_ID: fixture.predicateID,
+            }
+          : {}),
         ...(mode === "snapshot_update"
           ? {
               CARTULARY_BROWSER_MAINTENANCE_MODE: "snapshot_update",
@@ -205,6 +326,12 @@ function groupUnit(root, stage, group, dependencyID, owner, mode) {
     shared_locks: locks.shared,
     exclusive_locks: [...locks.exclusive, `browser_session:${key}`].sort(compareASCII),
     affinity_key: key,
+    ...(fixture
+      ? {
+          fixture_profile_id: group.fixtureProfileID,
+          snapshot_key: fixture.snapshotKey,
+        }
+      : {}),
     fixture_lease: "browser_stack",
     service_dependencies: group.serviceDependencies,
     cache_policy: "none",
@@ -218,6 +345,51 @@ function groupUnit(root, stage, group, dependencyID, owner, mode) {
     estimated_work_ms:
       owner.evidence_estimates_ms[group.kind === "a11y" ? "accessibility" : group.kind] ??
       owner.evidence_estimates_ms.browser,
+  };
+}
+
+function measurementSummaryUnit(root, stage, group, runner, owner, fixture, mode) {
+  const target = mode === "snapshot_update" ? "browser-e2e-visual-update" : group.target;
+  return {
+    unit_id: `browser_measurement_summary:${safeID(stage.name)}:${safeID(group.name)}`,
+    owner_id: "harness.browser",
+    kind: "finalizer",
+    command: command(
+      "node",
+      [
+        "tools/harness/browser/browser-measurement-finalizer-cli.mjs",
+        "--target",
+        target,
+        "--stage",
+        stage.name,
+        "--group",
+        group.name,
+        "--row",
+        fixture.rowID,
+        "--predicate",
+        fixture.predicateID,
+      ],
+    ),
+    needs: [runner.unit_id],
+    resource_claims: topologyResourceClaims(
+      topology(root),
+      "standard",
+      [],
+      `browser measurement row finalizer ${fixture.rowID}`,
+    ),
+    shared_locks: ["host_activity"],
+    exclusive_locks: [],
+    fixture_profile_id: group.fixtureProfileID,
+    snapshot_key: fixture.snapshotKey,
+    fixture_lease: "none",
+    service_dependencies: [],
+    cache_policy: "none",
+    timeout_ms: owner.default_timeout_ms,
+    evidence_outputs: [
+      `${target}/browser-groups/${safeID(group.name)}/frontend-measurement-summary.v2.json`,
+    ],
+    failure_policy: requiredFailurePolicy(),
+    estimated_work_ms: 500,
   };
 }
 
@@ -293,12 +465,19 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
   const units = [];
   const lifecycleIDs = new Map();
   const previousByLifecycle = new Map();
+  const snapshotBuilderIDs = new Set();
   const groupUnits = [];
+  const measurementSummaryUnits = [];
   for (const group of stage.groups) {
+    const fixture = resolvedFixtureProfile(root, group);
+    if (fixture && !snapshotBuilderIDs.has(fixture.builderUnitID)) {
+      units.push(snapshotBuilderUnit(root, group, fixture, owner));
+      snapshotBuilderIDs.add(fixture.builderUnitID);
+    }
     const key = safeID(lifecycleKey(stage, group));
     let lifecycleID = lifecycleIDs.get(key);
     if (!lifecycleID) {
-      const lifecycle = lifecycleUnit(root, stage, group, owner);
+      const lifecycle = lifecycleUnit(root, stage, group, owner, fixture);
       lifecycleID = lifecycle.unit_id;
       lifecycleIDs.set(key, lifecycleID);
       previousByLifecycle.set(key, lifecycleID);
@@ -306,13 +485,26 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
     }
     let dependencyID = previousByLifecycle.get(key);
     if (group.resetBefore) {
-      const reset = resetUnit(root, stage, group, dependencyID, owner);
+      const reset = resetUnit(root, stage, group, dependencyID, owner, fixture);
       units.push(reset);
       dependencyID = reset.unit_id;
     }
-    const runner = groupUnit(root, stage, group, dependencyID, owner, mode);
+    const runner = groupUnit(root, stage, group, dependencyID, owner, mode, fixture);
     units.push(runner);
     groupUnits.push(runner);
+    if (fixture) {
+      const summary = measurementSummaryUnit(
+        root,
+        stage,
+        group,
+        runner,
+        owner,
+        fixture,
+        mode,
+      );
+      units.push(summary);
+      measurementSummaryUnits.push(summary);
+    }
     previousByLifecycle.set(key, runner.unit_id);
   }
 
@@ -328,7 +520,10 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
       stage,
       target,
       groupUnits,
-      groupUnits.map((unit) => unit.unit_id),
+      [
+        ...groupUnits.map((unit) => unit.unit_id),
+        ...measurementSummaryUnits.map((unit) => unit.unit_id),
+      ],
       owner,
     ),
   );

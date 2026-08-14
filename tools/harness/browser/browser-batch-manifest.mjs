@@ -11,7 +11,7 @@ import {
   validateObjectShape,
 } from "../contract/json-shape.mjs";
 
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v9";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v10";
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const browserBatchKeys = new Set(["schema_id", "runtime_profiles", "stages"]);
@@ -40,6 +40,7 @@ const browserGroupKeys = new Set([
   "browser_session_isolation_reason",
   "runtime_profile_id",
   "resource_profile_id",
+  "fixture_profile_id",
   "service_dependencies",
   "service_requirement",
   "specs",
@@ -112,6 +113,11 @@ export function validateBrowserBatchManifestShape(fileOrManifest, label = fileOr
           requireString(group.target, `${groupLabel}.target`, {
             pattern: makeTargetPattern,
           });
+          if (group.fixture_profile_id !== undefined) {
+            requireString(group.fixture_profile_id, `${groupLabel}.fixture_profile_id`, {
+              pattern: /^[a-z][a-z0-9_]*_v[1-9][0-9]*$/u,
+            });
+          }
         },
       );
     },
@@ -297,6 +303,7 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
     );
   }
   const resourceProfileID = normalizeOptionalString(group.resource_profile_id);
+  const fixtureProfileID = normalizeOptionalString(group.fixture_profile_id);
   if (!resourceProfileID) {
     throw new Error(`browser E2E batch group ${group.name} must declare resource_profile_id`);
   }
@@ -353,6 +360,7 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
     browserSessionIsolationReason,
     runtimeProfileID,
     resourceProfileID,
+    fixtureProfileID,
     serviceDependencies,
     serviceRequirement,
   };

@@ -8,10 +8,18 @@ import {
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
+import { tmpdir } from "node:os";
 import test from "node:test";
 
 import { planGoLPTShards } from "../backend/go-lpt-shards.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
+import {
+  canonicalSnapshotKeyInput,
+  loadPerformanceFixtureSnapshotRegistry,
+  postgresMigrationDigest,
+  snapshotKey,
+  snapshotKeyEnvelope,
+} from "../performance-fixture/index.mjs";
 import {
   buildWorkGraph,
   captureCapabilitySnapshot,
@@ -24,7 +32,7 @@ import {
   WorkGraphCache,
   WorkGraphCompiler,
 } from "../scheduler/work-graph/index.mjs";
-import { loadTestCatalog } from "../test-catalog/index.mjs";
+import { loadTestCatalog, validateFixtureProfile } from "../test-catalog/index.mjs";
 import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
@@ -49,6 +57,123 @@ const retiredTargets = [
 ];
 const tiers = ["fast", "standard", "full", "release"];
 
+function assertPerformanceFixtureSnapshotContract() {
+  const fixtureProfiles = catalog.fixtureProfiles;
+  const profile = fixtureProfiles.profiles.get("ac043_large_grid_snapshot_v1");
+  assert.ok(profile);
+  assert.match(profile.source_contract_digest, /^[a-f0-9]{64}$/u);
+  const migrationDigest = postgresMigrationDigest(root);
+  const envelope = snapshotKeyEnvelope(profile, migrationDigest);
+  validateSchemaSync(envelope.schema_id, envelope);
+  assert.match(snapshotKey(profile, migrationDigest), /^[a-f0-9]{64}$/u);
+  assert.notEqual(
+    snapshotKey(profile, migrationDigest),
+    snapshotKey(profile, "f".repeat(64)),
+  );
+  const vectors = readJSON("tools/performance_fixture_snapshot_key_vectors.json");
+  for (const vector of vectors.vectors) {
+    const vectorProfile = {
+      ...profile,
+      status: "active",
+      source_contract_digest: vector.input.source_contract_digest,
+      fixture_version: vector.input.fixture_version,
+      seed: vector.input.seed,
+    };
+    assert.equal(
+      canonicalSnapshotKeyInput(vectorProfile, vector.input.migration_digest),
+      vector.canonical_json,
+    );
+    assert.equal(
+      snapshotKey(vectorProfile, vector.input.migration_digest),
+      vector.snapshot_key,
+    );
+  }
+
+  const row = catalog.rows.find((entry) => entry.fixture_profile_id);
+  assert.ok(row);
+  validateFixtureProfile({ row, fixtureProfiles, label: "valid_row" });
+  assert.throws(
+    () => validateFixtureProfile({
+      row: { ...row, fixture_profile_id: undefined },
+      fixtureProfiles,
+      label: "missing_profile",
+    }),
+    /fixture_profile_id is required/u,
+  );
+  assert.throws(
+    () => validateFixtureProfile({
+      row: { ...row, fixture_profile_id: "unknown_fixture_profile_v1" },
+      fixtureProfiles,
+      label: "unknown_profile",
+    }),
+    /unknown or inactive/u,
+  );
+  assert.throws(
+    () => validateFixtureProfile({
+      row: { ...row, runtime_profile_id: "none" },
+      fixtureProfiles,
+      label: "incompatible_profile",
+    }),
+    /incompatible/u,
+  );
+  assert.throws(
+    () => validateSchemaSync(
+      "cartulary.performance_fixture_snapshot_key.v1",
+      { ...envelope, schema_id: "cartulary.performance_fixture_snapshot_key.v2" },
+    ),
+    /schema_id/u,
+  );
+  assert.throws(
+    () => validateSchemaSync(
+      "cartulary.performance_fixture_snapshot_key.v1",
+      { ...envelope, migration_digest: "sha256:" + migrationDigest },
+    ),
+    /migration_digest/u,
+  );
+
+  const fixtureRoot = mkdtempSync(path.join(tmpdir(), "cartulary-fixture-registry."));
+  const registryFile = path.join(fixtureRoot, "registry.json");
+  const original = readJSON("tools/performance_fixture_snapshot_owner.json");
+  const expectRegistryFailure = (mutate, pattern) => {
+    const candidate = structuredClone(original);
+    mutate(candidate.profiles[0]);
+    writeFileSync(registryFile, JSON.stringify(candidate));
+    assert.throws(
+      () => loadPerformanceFixtureSnapshotRegistry(root, { registryPath: registryFile }),
+      pattern,
+    );
+  };
+  try {
+    expectRegistryFailure(
+      (candidate) => candidate.verification_bindings.push(
+        structuredClone(candidate.verification_bindings[0]),
+      ),
+      /duplicate-free/u,
+    );
+    expectRegistryFailure(
+      (candidate) => candidate.contributions.reverse(),
+      /must precede/u,
+    );
+    expectRegistryFailure(
+      (candidate) => candidate.contributions[0].dependencies.push("unknown.owner.v1"),
+      /unknown dependency/u,
+    );
+    expectRegistryFailure(
+      (candidate) => { candidate.status = "inactive"; },
+      /status/u,
+    );
+    expectRegistryFailure(
+      (candidate) => {
+        candidate.source_contract_refs[0].contract_id =
+          "cartulary.performance.route_divergence.v1";
+      },
+      /contract identity does not match/u,
+    );
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
 function assertGeneralContract(index) {
   switch (index % 8) {
     case 0:
@@ -65,7 +190,13 @@ function assertGeneralContract(index) {
       break;
     case 3:
       assert.ok(catalog.rows.every((row) => typeof row.fixture_capability === "string"));
-      assert.ok(catalog.rows.every((row) => !("fixture_profile_id" in row) && !("default_check" in row)));
+      assert.equal(catalog.rows.filter((row) => row.fixture_profile_id).length, 4);
+      assert.ok(
+        catalog.rows
+          .filter((row) => row.fixture_profile_id)
+          .every((row) => row.fixture_profile_id === "ac043_large_grid_snapshot_v1"),
+      );
+      assert.ok(catalog.rows.every((row) => !("default_check" in row)));
       break;
     case 4:
       assert.ok(retiredTargets.every((target) => !taskSurface.targets.some((entry) => entry.name === target)));
@@ -86,14 +217,18 @@ function assertGeneralContract(index) {
   }
 }
 
-function assertBoundaryContract(index) {
+function assertBoundaryContract(index, entry) {
+  if (entry.legacy_name === "owner catalog closes identities, selectors, profiles, and routing digests") {
+    assertPerformanceFixtureSnapshotContract();
+    return;
+  }
   if (index % 5 === 0) {
     const attachments = readJSON("tools/harness_schema_attachments.json");
     const ids = attachments.attachments.map((entry) => entry.schema_id);
     assert.equal(new Set(ids).size, ids.length);
   } else if (index % 5 === 1) {
     for (const schema of [
-      "cartulary.harness_work_graph.v2.schema.json",
+      "cartulary.harness_work_graph.v3.schema.json",
       "cartulary.harness_run_manifest.v1.schema.json",
       "cartulary.harness_unit_event.v1.schema.json",
       "cartulary.harness_run_summary.v1.schema.json",
@@ -106,6 +241,7 @@ function assertBoundaryContract(index) {
       "cartulary.harness_sequence_event.v1.schema.json",
       "cartulary.task_surface_owner.v1.schema.json",
       "cartulary.test_family_manifest.v2.schema.json",
+      "cartulary.test_family_manifest.v4.schema.json",
       "cartulary.scheduler_manifest.v2.schema.json",
     ]) assert.equal(existsSync(path.join(root, "tools/schemas", oldSchema)), false);
   } else if (index % 5 === 3) {

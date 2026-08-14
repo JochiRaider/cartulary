@@ -13,15 +13,88 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
+
+type PerformanceFixtureOwners struct {
+	Entities    *hostidentity.Store
+	Timeline    *timeline.Facade
+	Projections *projectionassembly.Runtime
+}
+
+// NewPerformanceFixtureOwners composes owner mutation and query facades for a
+// harness-owned database. It uses the same provider, revision, projection,
+// and conflict boundaries as server assembly without starting HTTP transport.
+func NewPerformanceFixtureOwners(
+	pool postgres.DB,
+	conflictTokens conflicttokens.ConflictTokenCodec,
+) (*PerformanceFixtureOwners, error) {
+	intents := collaboration.NewIntentAppender()
+	contributions, err := revisionassembly.CurrentProviderContributions()
+	if err != nil {
+		return nil, err
+	}
+	revisionRuntime, err := revisionassembly.Build(
+		revisionassembly.Dependencies{
+			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
+			IntentAppender:         intents,
+		},
+		contributions...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	projectionRuntime, err := projectionassembly.Build(pool)
+	if err != nil {
+		return nil, err
+	}
+	appender := revisionRuntime.Appender()
+	conflictFields := revisionRuntime.ConflictFieldResolver()
+	evidenceOwner := NewEvidenceOwnerRuntime(
+		pool,
+		conflictTokens,
+		appender,
+		intents,
+		UnavailableEvidenceObjectStore(),
+		conflictFields,
+		workbookassembly.NewConflictIdempotencyPort(pool),
+		projectionRuntime,
+	)
+	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
+		Postgres:            pool,
+		ConflictTokens:      conflictTokens,
+		Revisions:           appender,
+		Collaboration:       intents,
+		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
+		TimelineProjection:  projectionRuntime.TimelinePorts().Writer,
+		EntityProjection:    projectionRuntime.EntityPorts().Writer,
+		AssessmentRows:      projectionRuntime.AssessmentPorts().Rows,
+	})
+	if err != nil {
+		return nil, err
+	}
+	entityPorts := projectionRuntime.EntityPorts()
+	return &PerformanceFixtureOwners{
+		Entities: hostidentity.NewStore(
+			pool,
+			appender,
+			workbookassembly.NewConflictIdempotencyPort(pool),
+			entityPorts.Writer,
+			hostidentity.WithProjectionReader(entityPorts.Reader),
+		),
+		Timeline:    timelineBundle.Facade,
+		Projections: projectionRuntime,
+	}, nil
+}
 
 var errUnavailableEvidenceObjectStore = errors.New("test Evidence object store is unavailable")
 

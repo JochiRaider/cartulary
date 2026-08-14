@@ -38,7 +38,7 @@ function planFor(target) {
     [target]: compiled.graph.units.map((unit) => unit.unit_id),
   };
   const plan = {
-    schema_id: "cartulary.harness_target_plan.v2",
+    schema_id: "cartulary.harness_target_plan.v3",
     target,
     graph_digest: compiled.graph.graph_digest,
     projections,
@@ -49,6 +49,12 @@ function planFor(target) {
       needs: unit.needs,
       resource_claims: unit.resource_claims,
       fixture_capability: unit.fixture_lease,
+      ...(unit.fixture_profile_id
+        ? {
+            fixture_profile_id: unit.fixture_profile_id,
+            snapshot_key: unit.snapshot_key,
+          }
+        : {}),
       service_dependencies: unit.service_dependencies,
       cache_policy: unit.cache_policy,
       estimated_work_ms: unit.estimated_work_ms,

@@ -11,6 +11,7 @@
   "harness_entrypoints": {
     "files": [
       "tools/harness/backend/go-lpt-shards.mjs",
+      "tools/harness/browser/browser-measurement-finalizer-cli.mjs",
       "tools/harness/browser/browser-runtime-profile.mjs",
       "tools/harness/browser/browser-session-evidence.mjs",
       "tools/harness/browser/browser-target-finalizer-cli.mjs",

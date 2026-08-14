@@ -255,6 +255,7 @@ export function productionFixtureProviders({
   selectionEnvironment = {},
   suiteController,
 }) {
+  const cloneOrdinals = new Map();
   const sharedProviders = Object.fromEntries(
     [
       "postgres_transaction",
@@ -271,7 +272,16 @@ export function productionFixtureProviders({
     ...sharedProviders,
     object_store_namespace: objectStoreNamespaceProvider({ root, runRoot, suiteController }),
     browser_stack: {
-      async acquire({ affinityKey, runtimeProfileID = "default" }) {
+      async acquire({
+        affinityKey,
+        runtimeProfileID = "default",
+        fixtureProfileID,
+        snapshotKey,
+        builderUnitID,
+        rowID,
+        predicateID,
+        leaseID,
+      }) {
         const suite = suiteController.ensure();
         const suiteEnvironment = suite.environment;
         const safeAffinity = String(affinityKey).replaceAll(/[^A-Za-z0-9_.-]+/gu, "-");
@@ -280,6 +290,16 @@ export function productionFixtureProviders({
         const envFile = path.join(sessionRoot, "stack.env");
         const leaseFile = path.join(sessionRoot, "stack.lease");
         const lifecycle = path.join(root, "tools/harness/browser/start-web-e2e.sh");
+        const profiled = Boolean(fixtureProfileID || snapshotKey || builderUnitID);
+        if (
+          profiled &&
+          ![fixtureProfileID, snapshotKey, builderUnitID, rowID, predicateID, leaseID].every(Boolean)
+        ) {
+          throw new Error("profiled browser stack requires complete snapshot lease identity");
+        }
+        const ordinalKey = `${runtimeProfileID}:${fixtureProfileID}:${snapshotKey}`;
+        const cloneOrdinal = profiled ? (cloneOrdinals.get(ordinalKey) ?? 0) + 1 : 0;
+        if (profiled) cloneOrdinals.set(ordinalKey, cloneOrdinal);
         const environment = {
           ...suiteEnvironment,
           ...selectionEnvironment,
@@ -287,6 +307,17 @@ export function productionFixtureProviders({
           CARTULARY_BROWSER_SERVICE_REQUIREMENT: "test-services",
           CARTULARY_BROWSER_SESSION_GROUP: safeAffinity,
           CARTULARY_TEST_SUITE_ID: suiteEnvironment.CARTULARY_TEST_SUITE_ID || `work-graph-${safeAffinity}`,
+          ...(profiled
+            ? {
+                CARTULARY_FIXTURE_PROFILE_ID: fixtureProfileID,
+                CARTULARY_FIXTURE_SNAPSHOT_KEY: snapshotKey,
+                CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID: builderUnitID,
+                CARTULARY_FIXTURE_ROW_ID: rowID,
+                CARTULARY_FIXTURE_PREDICATE_ID: predicateID,
+                CARTULARY_FIXTURE_CLONE_LEASE_ID: leaseID,
+                CARTULARY_FIXTURE_CLONE_ORDINAL: String(cloneOrdinal),
+              }
+            : {}),
         };
         run(lifecycle, ["--session-start", "--env-file", envFile, "--lease-file", leaseFile], {
           cwd: root,
@@ -305,7 +336,18 @@ export function productionFixtureProviders({
           });
         return {
           ownership: "owned",
-          resource_ids: [`browser-stack:${safeAffinity}`],
+          resource_ids: [
+            `browser-stack:${safeAffinity}`,
+            ...(profiled ? [`fixture-clone:${snapshotKey}:${cloneOrdinal}`] : []),
+          ],
+          ...(profiled
+            ? {
+                fixture_profile_id: fixtureProfileID,
+                snapshot_key: snapshotKey,
+                builder_unit_id: builderUnitID,
+                clone_ordinal: cloneOrdinal,
+              }
+            : {}),
           resource: { environment: unitEnvironment },
           environment: unitEnvironment,
           release: close,

@@ -21,7 +21,7 @@ function requireValidatedAttachment(): void {
     apiOrigin === ""
   ) {
     throw new Error(
-      "Playwright requires a Make-owned, validated cartulary.web_e2e_stack.v4 attachment",
+      "Playwright requires a Make-owned, validated cartulary.web_e2e_stack.v5 attachment",
     );
   }
 }

@@ -173,7 +173,7 @@ prepare_runtime_root() {
   SERVER_LOG="${TARGET_ARTIFACT_DIR}/logs/server.log"
   WEB_LOG="${TARGET_ARTIFACT_DIR}/logs/web.log"
   STACK_ENV_FILE="${TARGET_ARTIFACT_DIR}/stack.env"
-  STACK_JSON_FILE="${TARGET_ARTIFACT_DIR}/stack-v4.json"
+  STACK_JSON_FILE="${TARGET_ARTIFACT_DIR}/stack-v5.json"
   STARTUP_DIAGNOSTIC_FILE="${TARGET_ARTIFACT_DIR}/startup-diagnostics.json"
   STARTUP_EVENTS_FILE="${TARGET_ARTIFACT_DIR}/startup-events.jsonl"
   STACK_LEASE_FILE="${TARGET_ARTIFACT_DIR}/browser-stack-lease.json"
@@ -248,7 +248,7 @@ write_stack_metadata() {
     return 0
   fi
   if [[ ! -f "${STARTUP_DIAGNOSTIC_FILE}" ]]; then
-    echo "v4 browser stack publication requires terminal startup diagnostics" >&2
+    echo "v5 browser stack publication requires terminal startup diagnostics" >&2
     return 1
   fi
   if [[ ! -x "${node_bin}" ]]; then
@@ -479,6 +479,7 @@ cleanup() {
   local step_end_ms
   local step_duration_ms
   local cleanup_status=0
+  local process_cleanup_complete=0
   local step_status=0
   local step_span_status="pass"
 
@@ -499,9 +500,16 @@ cleanup() {
     step_span_status="fail"
   fi
   emit_target_timing_span "teardown" "browser-e2e stop owned processes" "${step_start_time}" "${step_end_time}" "${step_duration_ms}" "${step_span_status}" "${cleanup_status}"
+  if [[ "${cleanup_status}" -eq 0 ]]; then
+    process_cleanup_complete=1
+  fi
 
   if [[ -x "${TEST_SERVICES_BIN}" && -f "${TEST_SERVICES_METADATA_FILE}" ]]; then
-    "${TEST_SERVICES_BIN}" cleanup-web-e2e --metadata-file "${TEST_SERVICES_METADATA_FILE}" || cleanup_status=$?
+    CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE="${process_cleanup_complete}" \
+      "${TEST_SERVICES_BIN}" cleanup-web-e2e --metadata-file "${TEST_SERVICES_METADATA_FILE}" || cleanup_status=$?
+    if [[ "${cleanup_status}" -eq 0 ]]; then
+      rm -f -- "${TEST_SERVICES_METADATA_FILE}" || cleanup_status=$?
+    fi
   fi
   remove_retained_secret_material || cleanup_status=$?
   if [[ "${KEEP_RUNTIME_ROOT}" -ne 1 ]]; then
@@ -573,6 +581,14 @@ write_session_files() {
   CARTULARY_WEB_E2E_S3_ENDPOINT="${CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT}" \
   CARTULARY_WEB_E2E_S3_SECURE="${CARTULARY_S3_OBJECT_PRIMARY_SECURE}" \
   CARTULARY_WEB_E2E_S3_BUCKET="${CARTULARY_S3_OBJECT_PRIMARY_BUCKET}" \
+  CARTULARY_WEB_E2E_FIXTURE_PROFILE_ID="${CARTULARY_FIXTURE_PROFILE_ID:-}" \
+  CARTULARY_WEB_E2E_FIXTURE_SNAPSHOT_KEY="${CARTULARY_FIXTURE_SNAPSHOT_KEY:-}" \
+  CARTULARY_WEB_E2E_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID="${CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID:-}" \
+  CARTULARY_WEB_E2E_FIXTURE_ROW_ID="${CARTULARY_FIXTURE_ROW_ID:-}" \
+  CARTULARY_WEB_E2E_FIXTURE_PREDICATE_ID="${CARTULARY_FIXTURE_PREDICATE_ID:-}" \
+  CARTULARY_WEB_E2E_FIXTURE_CLONE_LEASE_ID="${CARTULARY_FIXTURE_CLONE_LEASE_ID:-}" \
+  CARTULARY_WEB_E2E_FIXTURE_CLONE_ORDINAL="${CARTULARY_FIXTURE_CLONE_ORDINAL:-}" \
+  CARTULARY_WEB_E2E_PERFORMANCE_FIXTURE_RUNTIME_BUNDLE="${CARTULARY_PERFORMANCE_FIXTURE_RUNTIME_BUNDLE:-}" \
     "${node_bin}" <<'EOF'
 const fs = require("node:fs");
 
@@ -599,7 +615,18 @@ const env = {
   CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT: process.env.CARTULARY_WEB_E2E_S3_ENDPOINT,
   CARTULARY_S3_OBJECT_PRIMARY_SECURE: process.env.CARTULARY_WEB_E2E_S3_SECURE,
   CARTULARY_S3_OBJECT_PRIMARY_BUCKET: process.env.CARTULARY_WEB_E2E_S3_BUCKET,
+  CARTULARY_FIXTURE_PROFILE_ID: process.env.CARTULARY_WEB_E2E_FIXTURE_PROFILE_ID,
+  CARTULARY_FIXTURE_SNAPSHOT_KEY: process.env.CARTULARY_WEB_E2E_FIXTURE_SNAPSHOT_KEY,
+  CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID: process.env.CARTULARY_WEB_E2E_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID,
+  CARTULARY_FIXTURE_ROW_ID: process.env.CARTULARY_WEB_E2E_FIXTURE_ROW_ID,
+  CARTULARY_FIXTURE_PREDICATE_ID: process.env.CARTULARY_WEB_E2E_FIXTURE_PREDICATE_ID,
+  CARTULARY_FIXTURE_CLONE_LEASE_ID: process.env.CARTULARY_WEB_E2E_FIXTURE_CLONE_LEASE_ID,
+  CARTULARY_FIXTURE_CLONE_ORDINAL: process.env.CARTULARY_WEB_E2E_FIXTURE_CLONE_ORDINAL,
+  CARTULARY_PERFORMANCE_FIXTURE_RUNTIME_BUNDLE: process.env.CARTULARY_WEB_E2E_PERFORMANCE_FIXTURE_RUNTIME_BUNDLE,
 };
+for (const [key, value] of Object.entries(env)) {
+  if (value === undefined || value === "") delete env[key];
+}
 const lease = {
   schema_id: "cartulary.web_e2e_session_lease.v1",
   env,
@@ -1171,7 +1198,7 @@ main() {
   CARTULARY_STEP_TIMING_BUCKET=server_startup run_step_command "browser-e2e startup backend ready" browser_wait_backend_ready
   CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e startup frontend ready" start_frontend_preview_ready "${pnpm_bin}"
   run_timing_span "setup" "browser-e2e finalize startup diagnostics" finalize_startup_ready
-  run_timing_span "setup" "browser-e2e publish immutable v4 stack" write_stack_metadata
+  run_timing_span "setup" "browser-e2e publish immutable v5 stack" write_stack_metadata
 
   if [[ "${SESSION_MODE}" == "start" ]]; then
     run_timing_span "setup" "browser-e2e write session lease" write_session_files

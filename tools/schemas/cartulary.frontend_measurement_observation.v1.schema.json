@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_measurement_observation.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id", "criterion_id", "predicate_id", "fixture_id", "fixture_digest",
+    "measurement_policy_id", "threshold_ms", "warmup_samples", "measured_samples",
+    "percentile", "p50_ms", "p95_ms", "outcome", "traffic", "samples"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.frontend_measurement_observation.v1" },
+    "criterion_id": { "const": "AC-043" },
+    "predicate_id": { "type": "string", "pattern": "^perf\\.[a-z0-9_.]+\\.v[1-9][0-9]*$" },
+    "fixture_id": { "const": "cartulary.perf.large_grid.v1" },
+    "fixture_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "measurement_policy_id": { "const": "cartulary.measurement.interactive_p95.v1" },
+    "threshold_ms": { "type": "number", "minimum": 0 },
+    "warmup_samples": { "type": "integer", "minimum": 0, "maximum": 1 },
+    "measured_samples": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "percentile": { "const": 95 },
+    "p50_ms": { "type": ["number", "null"], "minimum": 0 },
+    "p95_ms": { "type": ["number", "null"], "minimum": 0 },
+    "outcome": { "enum": ["passed", "threshold_failed", "incomplete", "environment_not_qualified"] },
+    "traffic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["analyst_sessions", "background_sessions", "background_update_interval_ms", "background_updates_per_second", "target_row_excluded", "presence_enabled"],
+      "properties": {
+        "analyst_sessions": { "const": 25 },
+        "background_sessions": { "const": 24 },
+        "background_update_interval_ms": { "const": 5000 },
+        "background_updates_per_second": { "const": 4.8 },
+        "target_row_excluded": { "const": true },
+        "presence_enabled": { "const": true }
+      }
+    },
+    "samples": {
+      "type": "array",
+      "maxItems": 101,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sample_index", "warmup", "total_ms", "stages_ms"],
+        "properties": {
+          "sample_index": { "type": "integer", "minimum": 0 },
+          "warmup": { "type": "boolean" },
+          "total_ms": { "type": "number", "minimum": 0 },
+          "stages_ms": { "type": "object", "additionalProperties": { "type": "number", "minimum": 0 } }
+        }
+      }
+    },
+    "failure_reason": { "type": "string", "minLength": 1, "maxLength": 512 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "outcome": { "enum": ["passed", "threshold_failed"] } }, "required": ["outcome"] },
+      "then": {
+        "properties": {
+          "warmup_samples": { "const": 1 },
+          "measured_samples": { "const": 100 },
+          "samples": { "minItems": 101, "maxItems": 101 }
+        }
+      }
+    }
+  ]
+}

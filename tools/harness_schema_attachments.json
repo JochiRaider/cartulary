@@ -23,15 +23,15 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.browser_e2e_batch_manifest.v9",
-      "path": "tools/schemas/cartulary.browser_e2e_batch_manifest.v9.schema.json",
+      "schema_id": "cartulary.browser_e2e_batch_manifest.v10",
+      "path": "tools/schemas/cartulary.browser_e2e_batch_manifest.v10.schema.json",
       "classification": "public_contract",
       "producer": "execution topology generator",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.browser_group_result.v4",
-      "path": "tools/schemas/cartulary.browser_group_result.v4.schema.json",
+      "schema_id": "cartulary.browser_group_result.v5",
+      "path": "tools/schemas/cartulary.browser_group_result.v5.schema.json",
       "classification": "public_contract",
       "producer": "browser evidence adapter",
       "validation": "json-shape-check"
@@ -58,8 +58,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.browser_target_result.v1",
-      "path": "tools/schemas/cartulary.browser_target_result.v1.schema.json",
+      "schema_id": "cartulary.browser_target_result.v2",
+      "path": "tools/schemas/cartulary.browser_target_result.v2.schema.json",
       "classification": "public_contract",
       "producer": "browser evidence finalizer",
       "validation": "json-shape-check"
@@ -142,10 +142,31 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.frontend_measurement_aggregate.v2",
+      "path": "tools/schemas/cartulary.frontend_measurement_aggregate.v2.schema.json",
+      "classification": "public_contract",
+      "producer": "browser measurement target finalizer",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.frontend_measurement_observation.v1",
+      "path": "tools/schemas/cartulary.frontend_measurement_observation.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "browser measurement runner",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.frontend_measurement_summary.v1",
       "path": "tools/schemas/cartulary.frontend_measurement_summary.v1.schema.json",
       "classification": "public_contract",
-      "producer": "browser measurement evidence",
+      "producer": "historical browser measurement evidence",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.frontend_measurement_summary.v2",
+      "path": "tools/schemas/cartulary.frontend_measurement_summary.v2.schema.json",
+      "classification": "public_contract",
+      "producer": "browser measurement row finalizer",
       "validation": "json-shape-check"
     },
     {
@@ -254,8 +275,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_fixture_lease.v1",
-      "path": "tools/schemas/cartulary.harness_fixture_lease.v1.schema.json",
+      "schema_id": "cartulary.harness_fixture_lease.v2",
+      "path": "tools/schemas/cartulary.harness_fixture_lease.v2.schema.json",
       "classification": "public_contract",
       "producer": "harness fixture broker",
       "validation": "json-shape-check"
@@ -317,8 +338,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_target_plan.v2",
-      "path": "tools/schemas/cartulary.harness_target_plan.v2.schema.json",
+      "schema_id": "cartulary.harness_target_plan.v3",
+      "path": "tools/schemas/cartulary.harness_target_plan.v3.schema.json",
       "classification": "public_contract",
       "producer": "work graph target plan",
       "validation": "json-shape-check"
@@ -352,8 +373,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_work_graph.v2",
-      "path": "tools/schemas/cartulary.harness_work_graph.v2.schema.json",
+      "schema_id": "cartulary.harness_work_graph.v3",
+      "path": "tools/schemas/cartulary.harness_work_graph.v3.schema.json",
       "classification": "public_contract",
       "producer": "harness graph compiler",
       "validation": "json-shape-check"
@@ -503,6 +524,48 @@
       "path": "tools/schemas/cartulary.otel_conformance_summary.v1.schema.json",
       "classification": "public_contract",
       "producer": "OpenTelemetry conformance",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.performance_fixture_runtime.v1",
+      "path": "tools/schemas/cartulary.performance_fixture_runtime.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "performance fixture snapshot builder",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.performance_fixture_snapshot.v1",
+      "path": "tools/schemas/cartulary.performance_fixture_snapshot.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "performance fixture snapshot builder",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.performance_fixture_snapshot_key.v1",
+      "path": "tools/schemas/cartulary.performance_fixture_snapshot_key.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "performance fixture snapshot owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.performance_fixture_snapshot_key_vectors.v1",
+      "path": "tools/schemas/cartulary.performance_fixture_snapshot_key_vectors.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "performance fixture snapshot owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.performance_fixture_snapshot_lease.v1",
+      "path": "tools/schemas/cartulary.performance_fixture_snapshot_lease.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "performance fixture snapshot lease finalizer",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.performance_fixture_snapshot_owner.v1",
+      "path": "tools/schemas/cartulary.performance_fixture_snapshot_owner.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "performance fixture snapshot owner",
       "validation": "json-shape-check"
     },
     {
@@ -667,8 +730,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_family_manifest.v4",
-      "path": "tools/schemas/cartulary.test_family_manifest.v4.schema.json",
+      "schema_id": "cartulary.test_family_manifest.v5",
+      "path": "tools/schemas/cartulary.test_family_manifest.v5.schema.json",
       "classification": "owner_input",
       "producer": "test family owner",
       "validation": "json-shape-check"
@@ -794,8 +857,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.web_e2e_stack.v4",
-      "path": "tools/schemas/cartulary.web_e2e_stack.v4.schema.json",
+      "schema_id": "cartulary.web_e2e_stack.v5",
+      "path": "tools/schemas/cartulary.web_e2e_stack.v5.schema.json",
       "classification": "public_contract",
       "producer": "browser session lifecycle",
       "validation": "json-shape-check"

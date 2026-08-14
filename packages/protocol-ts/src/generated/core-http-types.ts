@@ -1272,6 +1272,21 @@ export interface IncidentLifecycleRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentListEnvelope".
+ */
+export interface IncidentListEnvelope {
+  data: IncidentListData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentListData".
+ */
+export interface IncidentListData {
+  incidents: IncidentResource[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "IncidentMembershipEnvelope".
  */
 export interface IncidentMembershipEnvelope {

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.web_e2e_stack.v4",
+  "$id": "cartulary.web_e2e_stack.v5",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -24,7 +24,7 @@
     "ready_at"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.web_e2e_stack.v4" },
+    "schema_id": { "const": "cartulary.web_e2e_stack.v5" },
     "suite_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
     "browser_session_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
     "service_mode": { "enum": ["owned", "attach"] },
@@ -106,6 +106,20 @@
         "fixture_capability": { "const": "browser_stack" },
         "fixture_id": { "$ref": "#/$defs/digest" },
         "scenario_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" }
+      }
+    },
+    "performance_fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixture_profile_id", "snapshot_key", "builder_unit_id", "build_artifact_ref", "build_artifact_sha256", "clone_ordinal", "runtime_bundle_copied"],
+      "properties": {
+        "fixture_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*_v[1-9][0-9]*$" },
+        "snapshot_key": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "builder_unit_id": { "type": "string", "minLength": 1 },
+        "build_artifact_ref": { "$ref": "#/$defs/run_relative_path" },
+        "build_artifact_sha256": { "$ref": "#/$defs/digest" },
+        "clone_ordinal": { "type": "integer", "minimum": 1 },
+        "runtime_bundle_copied": { "const": true }
       }
     },
     "startup_diagnostics_ref": { "$ref": "#/$defs/run_relative_path" },

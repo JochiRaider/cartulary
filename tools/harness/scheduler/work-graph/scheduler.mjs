@@ -419,6 +419,15 @@ export async function runWorkGraph({
                     unitID: unit.unit_id,
                     runtimeProfileID:
                       unit.command.environment.CARTULARY_BROWSER_RUNTIME_PROFILE_ID,
+                    fixtureProfileID:
+                      unit.command.environment.CARTULARY_FIXTURE_PROFILE_ID,
+                    snapshotKey:
+                      unit.command.environment.CARTULARY_FIXTURE_SNAPSHOT_KEY,
+                    builderUnitID:
+                      unit.command.environment.CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID,
+                    rowID: unit.command.environment.CARTULARY_FIXTURE_ROW_ID,
+                    predicateID:
+                      unit.command.environment.CARTULARY_FIXTURE_PREDICATE_ID,
                   })
                 : null;
               if (lease) {

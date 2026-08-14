@@ -11,20 +11,17 @@ import {
 import type { Locator, Page, TestInfo } from "@playwright/test";
 
 import { expect, test } from "../fixtures";
-import { createIncident } from "../support/incidents/fixtures";
+import type { WorkerAdminEntry } from "../support/auth/workerAdmin";
 import {
-  type Ac043Fixture,
+  type Ac043Snapshot,
   type Ac043TrafficDriver,
-  assembleAc043Fixture,
-  startAc043Traffic,
-} from "../support/performance/ac043Fixture";
-import {
-  uniqueIncidentKey,
-  uniqueTxn,
-} from "../support/runtime/fixtureIdentity";
+  prepareAc043Snapshot,
+  startAc043SnapshotTraffic,
+} from "../support/performance/ac043Snapshot";
+import { uniqueTxn } from "../support/runtime/fixtureIdentity";
 import {
   ac043FixtureDigest,
-  attachMeasurementSummary,
+  attachMeasurementObservation,
   interactiveMeasurementSamplePolicy,
   type MeasurementSample,
   measureBlankRowCreate,
@@ -37,7 +34,7 @@ import {
 test.describe.configure({ mode: "serial", timeout: 30 * 60 * 1_000 });
 
 type PreparedMeasurement = {
-  fixture: Ac043Fixture;
+  snapshot: Ac043Snapshot;
   fixtureDigest: string;
   incidentId: string;
   visibleRecordIds: readonly [string, string];
@@ -45,14 +42,10 @@ type PreparedMeasurement = {
 
 async function prepareMeasurement(
   page: Page,
-  label: string,
+  workerAdmin: WorkerAdminEntry,
 ): Promise<PreparedMeasurement> {
-  const incidentId = await createIncident(
-    page,
-    uniqueIncidentKey(`AC043-${label}`),
-    `AC-043 supported envelope ${label}`,
-  );
-  const fixture = await assembleAc043Fixture(page, incidentId);
+  const snapshot = await prepareAc043Snapshot(page, workerAdmin);
+  const incidentId = snapshot.incidentId;
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
@@ -84,7 +77,7 @@ async function prepareMeasurement(
     );
   }
   return {
-    fixture,
+    snapshot,
     fixtureDigest: ac043FixtureDigest(),
     incidentId,
     visibleRecordIds: [
@@ -105,7 +98,7 @@ async function activateSemanticGridCell(content: Locator) {
   await cell.focus();
 }
 
-async function attachSummary(
+async function attachObservation(
   testInfo: TestInfo,
   input: {
     fixtureDigest: string;
@@ -113,11 +106,11 @@ async function attachSummary(
     samples: MeasurementSample[];
   },
 ) {
-  return attachMeasurementSummary(testInfo, input);
+  return attachMeasurementObservation(testInfo, input);
 }
 
-function assertSummary(
-  summary: Awaited<ReturnType<typeof attachMeasurementSummary>>,
+function assertObservation(
+  summary: Awaited<ReturnType<typeof attachMeasurementObservation>>,
   predicateId: Parameters<typeof performancePredicate>[0],
 ) {
   const predicate = performancePredicate(predicateId);
@@ -130,6 +123,7 @@ test("measures paint-qualified Timeline summary ArrowDown selection within AC-04
   browser,
   page,
   sessionTracker,
+  workerAdmin,
 }, testInfo) => {
   const samples: MeasurementSample[] = [];
   const fixtureDigest = ac043FixtureDigest();
@@ -137,20 +131,20 @@ test("measures paint-qualified Timeline summary ArrowDown selection within AC-04
   let traffic: Ac043TrafficDriver | null = null;
   try {
     const prepared =
-      await test.step("assemble and validate the supported-envelope fixture", () =>
-        prepareMeasurement(page, "selection"));
+      await test.step("validate the sealed supported-envelope snapshot", () =>
+        prepareMeasurement(page, workerAdmin));
     const [fromRecordId, toRecordId] = prepared.visibleRecordIds;
     const excluded = new Set(prepared.visibleRecordIds);
     traffic =
       await test.step("establish and qualify 25-session background traffic", () =>
-        startAc043Traffic(
+        startAc043SnapshotTraffic(
           browser,
           sessionTracker,
-          page,
           prepared.incidentId,
-          prepared.fixture.timelineRows.filter(
+          prepared.snapshot.timelineRows.filter(
             (row) => !excluded.has(row.record_id),
           ),
+          prepared.snapshot.runtime.backgroundAccounts,
           "perf.timeline_summary_selection_down.v1",
         ));
     expect(traffic.sessionCount).toBe(
@@ -188,16 +182,16 @@ test("measures paint-qualified Timeline summary ArrowDown selection within AC-04
     });
     await test.step("stop background traffic", () => traffic?.stop());
     traffic = null;
-    const summary = await attachSummary(testInfo, {
+    const summary = await attachObservation(testInfo, {
       fixtureDigest: prepared.fixtureDigest,
       predicateId: "perf.timeline_summary_selection_down.v1",
       samples,
     });
     attached = true;
-    assertSummary(summary, "perf.timeline_summary_selection_down.v1");
+    assertObservation(summary, "perf.timeline_summary_selection_down.v1");
   } catch (error) {
     if (!attached) {
-      await attachMeasurementSummary(testInfo, {
+      await attachMeasurementObservation(testInfo, {
         failureReason: error instanceof Error ? error.message : String(error),
         fixtureDigest,
         predicateId: "perf.timeline_summary_selection_down.v1",
@@ -214,6 +208,7 @@ test("measures paint-qualified Timeline summary Enter focus within AC-043", asyn
   browser,
   page,
   sessionTracker,
+  workerAdmin,
 }, testInfo) => {
   const samples: MeasurementSample[] = [];
   const fixtureDigest = ac043FixtureDigest();
@@ -221,20 +216,20 @@ test("measures paint-qualified Timeline summary Enter focus within AC-043", asyn
   let traffic: Ac043TrafficDriver | null = null;
   try {
     const prepared =
-      await test.step("assemble and validate the supported-envelope fixture", () =>
-        prepareMeasurement(page, "focus"));
+      await test.step("validate the sealed supported-envelope snapshot", () =>
+        prepareMeasurement(page, workerAdmin));
     const recordId = prepared.visibleRecordIds[0];
     const excluded = new Set(prepared.visibleRecordIds);
     traffic =
       await test.step("establish and qualify 25-session background traffic", () =>
-        startAc043Traffic(
+        startAc043SnapshotTraffic(
           browser,
           sessionTracker,
-          page,
           prepared.incidentId,
-          prepared.fixture.timelineRows.filter(
+          prepared.snapshot.timelineRows.filter(
             (row) => !excluded.has(row.record_id),
           ),
+          prepared.snapshot.runtime.backgroundAccounts,
           "perf.timeline_summary_focus_edit.v1",
         ));
     const content = page.getByTestId(
@@ -264,16 +259,16 @@ test("measures paint-qualified Timeline summary Enter focus within AC-043", asyn
     }
     await traffic.stop();
     traffic = null;
-    const summary = await attachSummary(testInfo, {
+    const summary = await attachObservation(testInfo, {
       fixtureDigest: prepared.fixtureDigest,
       predicateId: "perf.timeline_summary_focus_edit.v1",
       samples,
     });
     attached = true;
-    assertSummary(summary, "perf.timeline_summary_focus_edit.v1");
+    assertObservation(summary, "perf.timeline_summary_focus_edit.v1");
   } catch (error) {
     if (!attached) {
-      await attachMeasurementSummary(testInfo, {
+      await attachMeasurementObservation(testInfo, {
         failureReason: error instanceof Error ? error.message : String(error),
         fixtureDigest,
         predicateId: "perf.timeline_summary_focus_edit.v1",
@@ -290,6 +285,7 @@ test("measures paint-qualified committed Timeline summary typing acknowledgment 
   browser,
   page,
   sessionTracker,
+  workerAdmin,
 }, testInfo) => {
   const samples: MeasurementSample[] = [];
   const fixtureDigest = ac043FixtureDigest();
@@ -297,20 +293,20 @@ test("measures paint-qualified committed Timeline summary typing acknowledgment 
   let traffic: Ac043TrafficDriver | null = null;
   try {
     const prepared =
-      await test.step("assemble and validate the supported-envelope fixture", () =>
-        prepareMeasurement(page, "typing"));
+      await test.step("validate the sealed supported-envelope snapshot", () =>
+        prepareMeasurement(page, workerAdmin));
     const recordId = prepared.visibleRecordIds[0];
     const excluded = new Set(prepared.visibleRecordIds);
     traffic =
       await test.step("establish and qualify 25-session background traffic", () =>
-        startAc043Traffic(
+        startAc043SnapshotTraffic(
           browser,
           sessionTracker,
-          page,
           prepared.incidentId,
-          prepared.fixture.timelineRows.filter(
+          prepared.snapshot.timelineRows.filter(
             (row) => !excluded.has(row.record_id),
           ),
+          prepared.snapshot.runtime.backgroundAccounts,
           "perf.typing_ack.v1",
         ));
     const content = page.getByTestId(
@@ -333,16 +329,16 @@ test("measures paint-qualified committed Timeline summary typing acknowledgment 
     }
     await traffic.stop();
     traffic = null;
-    const summary = await attachSummary(testInfo, {
+    const summary = await attachObservation(testInfo, {
       fixtureDigest: prepared.fixtureDigest,
       predicateId: "perf.typing_ack.v1",
       samples,
     });
     attached = true;
-    assertSummary(summary, "perf.typing_ack.v1");
+    assertObservation(summary, "perf.typing_ack.v1");
   } catch (error) {
     if (!attached) {
-      await attachMeasurementSummary(testInfo, {
+      await attachMeasurementObservation(testInfo, {
         failureReason: error instanceof Error ? error.message : String(error),
         fixtureDigest,
         predicateId: "perf.typing_ack.v1",
@@ -359,6 +355,7 @@ test("measures paint-qualified Timeline blank-row creation within AC-043", async
   browser,
   page,
   sessionTracker,
+  workerAdmin,
 }, testInfo) => {
   const samples: MeasurementSample[] = [];
   const fixtureDigest = ac043FixtureDigest();
@@ -366,19 +363,19 @@ test("measures paint-qualified Timeline blank-row creation within AC-043", async
   let traffic: Ac043TrafficDriver | null = null;
   try {
     const prepared =
-      await test.step("assemble and validate the supported-envelope fixture", () =>
-        prepareMeasurement(page, "blank-row"));
+      await test.step("validate the sealed supported-envelope snapshot", () =>
+        prepareMeasurement(page, workerAdmin));
     const excluded = new Set(prepared.visibleRecordIds);
     traffic =
       await test.step("establish and qualify 25-session background traffic", () =>
-        startAc043Traffic(
+        startAc043SnapshotTraffic(
           browser,
           sessionTracker,
-          page,
           prepared.incidentId,
-          prepared.fixture.timelineRows.filter(
+          prepared.snapshot.timelineRows.filter(
             (row) => !excluded.has(row.record_id),
           ),
+          prepared.snapshot.runtime.backgroundAccounts,
           "perf.timeline_blank_row_create.v1",
         ));
     const draft = page.getByTestId(
@@ -397,16 +394,16 @@ test("measures paint-qualified Timeline blank-row creation within AC-043", async
     }
     await traffic.stop();
     traffic = null;
-    const summary = await attachSummary(testInfo, {
+    const summary = await attachObservation(testInfo, {
       fixtureDigest: prepared.fixtureDigest,
       predicateId: "perf.timeline_blank_row_create.v1",
       samples,
     });
     attached = true;
-    assertSummary(summary, "perf.timeline_blank_row_create.v1");
+    assertObservation(summary, "perf.timeline_blank_row_create.v1");
   } catch (error) {
     if (!attached) {
-      await attachMeasurementSummary(testInfo, {
+      await attachMeasurementObservation(testInfo, {
         failureReason: error instanceof Error ? error.message : String(error),
         fixtureDigest,
         predicateId: "perf.timeline_blank_row_create.v1",

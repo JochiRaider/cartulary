@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_fixture_snapshot_owner.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "profiles"],
+  "properties": {
+    "schema_id": { "const": "cartulary.performance_fixture_snapshot_owner.v1" },
+    "profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/profile" }
+    }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*_v[1-9][0-9]*$" },
+    "contract_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "schema_id", "contract_id"],
+      "properties": {
+        "path": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/repo_path" },
+        "schema_id": { "type": "string", "pattern": "^cartulary\\.[a-z0-9_.]+\\.v[1-9][0-9]*$" },
+        "contract_id": { "type": "string", "pattern": "^cartulary\\.[a-z0-9_.]+\\.v[1-9][0-9]*$" }
+      }
+    },
+    "contribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contribution_id", "owner_id", "version", "dependencies", "source_contract_ids", "expected_receipt"],
+      "properties": {
+        "contribution_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.v[1-9][0-9]*$" },
+        "owner_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/owner_id" },
+        "version": { "type": "string", "pattern": "^[a-z][a-z0-9_.]+\\.v[1-9][0-9]*$" },
+        "dependencies": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.v[1-9][0-9]*$" }
+        },
+        "source_contract_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^cartulary\\.[a-z0-9_.]+\\.v[1-9][0-9]*$" }
+        },
+        "expected_receipt": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verification_id", "predicate_id"],
+      "properties": {
+        "verification_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/verification_id" },
+        "predicate_id": { "type": "string", "pattern": "^perf\\.[a-z0-9_.]+\\.v[1-9][0-9]*$" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_profile_id", "status", "fixture_version", "seed", "compatibility",
+        "verification_bindings", "source_contract_refs", "contributions", "validation_rules",
+        "cleanup_policy", "artifact_policy", "redaction_policy"
+      ],
+      "properties": {
+        "fixture_profile_id": { "$ref": "#/$defs/profile_id" },
+        "status": { "const": "active" },
+        "fixture_version": { "const": "cartulary.perf.large_grid.v1" },
+        "seed": { "const": 20260405 },
+        "compatibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["runner", "evidence_class", "selector_stage", "runtime_profile_id", "resource_profile_id", "fixture_capability", "service_dependencies"],
+          "properties": {
+            "runner": { "const": "playwright" },
+            "evidence_class": { "const": "measurement" },
+            "selector_stage": { "const": "measurement" },
+            "runtime_profile_id": { "const": "default" },
+            "resource_profile_id": { "const": "browser_measurement_quiet" },
+            "fixture_capability": { "const": "browser_stack" },
+            "service_dependencies": { "const": ["object_store", "postgres"] }
+          }
+        },
+        "verification_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/binding" }
+        },
+        "source_contract_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/contract_ref" }
+        },
+        "contributions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/contribution" }
+        },
+        "validation_rules": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["timeline_rows", "host_rows", "identity_rows", "tag_assignments", "mention_assignments", "link_assignments", "background_analysts", "active_sessions", "default_view_required", "projection_ready_required"],
+          "properties": {
+            "timeline_rows": { "const": 20000 },
+            "host_rows": { "const": 1000 },
+            "identity_rows": { "const": 1000 },
+            "tag_assignments": { "const": 1000 },
+            "mention_assignments": { "const": 1000 },
+            "link_assignments": { "const": 1000 },
+            "background_analysts": { "const": 24 },
+            "active_sessions": { "const": 0 },
+            "default_view_required": { "const": true },
+            "projection_ready_required": { "const": true }
+          }
+        },
+        "cleanup_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["template_owner", "clone_owner", "bucket_owner", "active_cleanup", "janitor_fallback"],
+          "properties": {
+            "template_owner": { "const": "suite" },
+            "clone_owner": { "const": "predicate_lease" },
+            "bucket_owner": { "const": "predicate_lease" },
+            "active_cleanup": { "const": true },
+            "janitor_fallback": { "const": "lease_scoped_bounded" }
+          }
+        },
+        "artifact_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["snapshot_key_schema_id", "build_schema_id", "lease_schema_id", "runtime_schema_id", "observation_schema_id", "summary_schema_id", "aggregate_schema_id"],
+          "properties": {
+            "snapshot_key_schema_id": { "const": "cartulary.performance_fixture_snapshot_key.v1" },
+            "build_schema_id": { "const": "cartulary.performance_fixture_snapshot.v1" },
+            "lease_schema_id": { "const": "cartulary.performance_fixture_snapshot_lease.v1" },
+            "runtime_schema_id": { "const": "cartulary.performance_fixture_runtime.v1" },
+            "observation_schema_id": { "const": "cartulary.frontend_measurement_observation.v1" },
+            "summary_schema_id": { "const": "cartulary.frontend_measurement_summary.v2" },
+            "aggregate_schema_id": { "const": "cartulary.frontend_measurement_aggregate.v2" }
+          }
+        },
+        "redaction_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["policy_id", "forbidden_fields"],
+          "properties": {
+            "policy_id": { "const": "cartulary.performance_fixture_redaction.v1" },
+            "forbidden_fields": {
+              "const": ["bucket_name", "cookie", "database_name", "dsn", "email", "password", "record_id", "runtime_path", "session", "token", "transaction_id", "user_id"]
+            }
+          }
+        }
+      }
+    }
+  }
+}

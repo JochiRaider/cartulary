@@ -9,6 +9,14 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+func (sourceRepository) lockDedupeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorType string, dedupeKey string) error {
+	identity := incidentID.String() + ":" + indicatorType + ":" + dedupeKey
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, identity); err != nil {
+		return fmt.Errorf("lock indicator dedupe identity: %w", err)
+	}
+	return nil
+}
+
 func (sourceRepository) loadByDedupeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorType string, dedupeKey string) (indicatorRecord, bool, error) {
 	record, err := scanIndicatorRecord(tx.QueryRow(ctx, `
 SELECT

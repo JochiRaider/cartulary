@@ -11,7 +11,7 @@ export const executionTopologySchemaID = "cartulary.execution_topology.v7";
 export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v2";
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
 export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v3";
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v9";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v10";
 export const defaultExecutionTopologyManifestPath = path.join(
   repoRoot,
   "tools",
@@ -293,6 +293,13 @@ export function renderBrowserBatchManifest(topology) {
             ? fileRows.map((row) => [row])
             : [fileRows];
           return rowPartitions.map((partition) => {
+            const fixtureProfileIDs = new Set(
+              partition.map((row) => row.fixture_profile_id ?? null),
+            );
+            if (fixtureProfileIDs.size !== 1) {
+              throw new Error(`browser selector file ${file} mixes fixture profiles`);
+            }
+            const fixtureProfileID = [...fixtureProfileIDs][0];
             const quietIdentity = resourceProfileID === "browser_measurement_quiet"
               ? partition[0].row_id.slice(-10)
               : "";
@@ -310,6 +317,9 @@ export function renderBrowserBatchManifest(topology) {
                 quietIdentity,
               ].filter(Boolean).join("-"),
             };
+            if (fixtureProfileID) {
+              group.fixture_profile_id = fixtureProfileID;
+            }
             if (resourceProfileID === "browser_measurement_quiet" && group.reset_before) {
               group.reset_before = `${group.reset_before}-${quietIdentity}`;
             } else if (selectorStage === "stateful" && fileIndex > 0 && !group.reset_before) {

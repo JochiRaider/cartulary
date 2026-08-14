@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_measurement_summary.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id", "row_id", "observation", "fixture_profile_id", "snapshot_key",
+    "build_artifact", "lease_artifact", "clone_ordinal", "isolation_result",
+    "credential_copy_cleanup", "database_cleanup", "bucket_cleanup",
+    "scheduler_overlap_count", "qualification_outcome"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.frontend_measurement_summary.v2" },
+    "row_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/row_id" },
+    "observation": { "$ref": "cartulary.frontend_measurement_observation.v1" },
+    "fixture_profile_id": { "const": "ac043_large_grid_snapshot_v1" },
+    "snapshot_key": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "build_artifact": { "$ref": "cartulary.harness_artifact_ref.v1#/$defs/digested_artifact_ref" },
+    "lease_artifact": { "$ref": "cartulary.harness_artifact_ref.v1#/$defs/digested_artifact_ref" },
+    "clone_ordinal": { "type": "integer", "minimum": 1 },
+    "isolation_result": { "const": "isolated" },
+    "credential_copy_cleanup": { "const": true },
+    "database_cleanup": { "const": true },
+    "bucket_cleanup": { "const": true },
+    "scheduler_overlap_count": { "const": 0 },
+    "qualification_outcome": { "enum": ["qualified", "threshold_failed", "environment_not_qualified"] }
+  }
+}

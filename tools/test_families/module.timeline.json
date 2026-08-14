@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v4",
+  "schema_id": "cartulary.test_family_manifest.v5",
   "owner_id": "module.timeline",
   "rows": [
     {
@@ -353,33 +353,6 @@
       ]
     },
     {
-      "row_id": "module.timeline.frontend.ac043_fixture_supported_envelope_shape_1cc29c4d92",
-      "owner_id": "module.timeline",
-      "family_id": "module.timeline.frontend",
-      "collaborator_ids": [
-        "harness.browser",
-        "web.application"
-      ],
-      "verification_ids": [
-        "module.timeline.verification.ac043_fixture_shape"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/e2e/support/performance/ac043Fixture.test.ts",
-        "titles": [
-          "defines the deterministic supported-envelope shape and cache invalidation key"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
       "row_id": "module.timeline.frontend.ac043_paint_qualification_rejects_invalid_state_0a20837e7b",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.frontend",
@@ -395,6 +368,33 @@
         "file": "apps/web/e2e/measurement/timingSupport.test.ts",
         "titles": [
           "rejects wrong, hidden, offscreen, unfocused, unstable, and pre-acceptance states"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.frontend.ac043_snapshot_supported_envelope_shape_cbe446f6e6",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac043_fixture_shape"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/performance/ac043Snapshot.test.ts",
+        "titles": [
+          "preserves the typed supported-envelope fixture and traffic shape"
         ]
       },
       "evidence_class": "unit",
@@ -984,6 +984,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
+      "fixture_profile_id": "ac043_large_grid_snapshot_v1",
       "minimum_tier": "release",
       "service_dependencies": [
         "object_store",
@@ -1019,6 +1020,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
+      "fixture_profile_id": "ac043_large_grid_snapshot_v1",
       "minimum_tier": "release",
       "service_dependencies": [
         "object_store",
@@ -1054,6 +1056,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
+      "fixture_profile_id": "ac043_large_grid_snapshot_v1",
       "minimum_tier": "release",
       "service_dependencies": [
         "object_store",
@@ -1089,6 +1092,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
+      "fixture_profile_id": "ac043_large_grid_snapshot_v1",
       "minimum_tier": "release",
       "service_dependencies": [
         "object_store",

@@ -60,7 +60,7 @@ assert_file_contains "$START_SCRIPT" 'CARTULARY_TEST_SERVICES_ACTIVE:-}" != "1"'
 # shellcheck disable=SC2016
 assert_file_contains "$START_SCRIPT" '_shared/test-services/${SUITE_ID}/browser-sessions/${BROWSER_SESSION_ID}' "session artifact cardinality"
 assert_file_contains "$START_SCRIPT" 'finalize startup diagnostics' "terminal diagnostic precedes publication"
-assert_file_contains "$START_SCRIPT" 'publish immutable v4 stack' "v4 publication"
+assert_file_contains "$START_SCRIPT" 'publish immutable v5 stack' "v4 publication"
 # shellcheck disable=SC2016
 assert_file_contains "$START_SCRIPT" 'vite preview --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort' "strict preview"
 assert_file_contains "$START_SCRIPT" 'TEST_SERVICE_FRONTEND_PORT_START=19000' "service-backed frontend range starts below the default ephemeral range"
@@ -187,12 +187,12 @@ export CARTULARY_S3_OBJECT_PRIMARY_BUCKET=ct-web-test
 stack_file="$("$NODE_BIN" "$EVIDENCE_HELPER" stack)"
 export CARTULARY_WEB_E2E_STACK_JSON_FILE="$stack_file"
 
-assert_json "$stack_file" 'value.schema_id === "cartulary.web_e2e_stack.v4"' "v4 schema identity"
+assert_json "$stack_file" 'value.schema_id === "cartulary.web_e2e_stack.v5"' "v4 schema identity"
 assert_json "$stack_file" 'value.suite_id === "suite-test" && value.browser_session_id === "session-default"' "v4 suite/session identity"
 assert_json "$stack_file" 'value.postgres_identity.database_name === "ct_web_test" && value.object_store_identity.bucket === "ct-web-test"' "v4 isolated resource identity"
 assert_json "$stack_file" 'value.frontend.frontend_command_kind === "vite-preview"' "v4 preview identity"
 if grep -Eq 'access_key|secret|postgres://' "$stack_file"; then
-  fail "v4 stack must not contain credentials or DSNs"
+  fail "v5 stack must not contain credentials or DSNs"
 fi
 
 attachment_exports="$("$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file")"
@@ -236,7 +236,7 @@ if CARTULARY_BROWSER_RUNTIME_PROFILE_ID=network_flow_claimed \
   fail "profile-mismatched v4 attachment must fail"
 fi
 if "$NODE_BIN" "$EVIDENCE_HELPER" stack >/dev/null 2>&1; then
-  fail "v4 stack publication must be immutable"
+  fail "v5 stack publication must be immutable"
 fi
 printf '\n' >>"$session_root/startup-diagnostics.json"
 if "$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file" >/dev/null 2>&1; then

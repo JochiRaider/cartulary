@@ -237,10 +237,18 @@ async function assertFixtures() {
       }),
     },
     browser_stack: {
-      acquire: async ({ affinityKey }) => ({
+      acquire: async ({ affinityKey, fixtureProfileID, snapshotKey, builderUnitID }) => ({
         ownership: "owned",
         resource_ids: [`browser:${affinityKey}`],
         resource: { affinityKey },
+        ...(fixtureProfileID
+          ? {
+              fixture_profile_id: fixtureProfileID,
+              snapshot_key: snapshotKey,
+              builder_unit_id: builderUnitID,
+              clone_ordinal: 1,
+            }
+          : {}),
         release: async () => released.push(affinityKey),
       }),
     },
@@ -254,8 +262,42 @@ async function assertFixtures() {
   assert.equal(first.resource, second.resource, "browser affinity must reuse one stack lease");
   await first.release();
   await second.release();
+  const profile = {
+    fixtureProfileID: "ac043_large_grid_snapshot_v1",
+    snapshotKey: "a".repeat(64),
+    builderUnitID: `fixture_snapshot:default:ac043_large_grid_snapshot_v1:${"a".repeat(64)}`,
+    rowID: "module.timeline.measurement.row",
+    predicateID: "perf.typing_ack.v1",
+  };
+  const profiled = await broker.acquire("browser_stack", {
+    unitID: "profiled-a",
+    affinityKey: "profiled-a",
+    ...profile,
+  });
+  assert.equal(profiled.record.fixture_profile_id, profile.fixtureProfileID);
+  assert.equal(profiled.record.snapshot_key, profile.snapshotKey);
+  assert.equal(profiled.record.builder_unit_id, profile.builderUnitID);
+  assert.equal(profiled.record.clone_ordinal, 1);
+  const sameProfile = await broker.acquire("browser_stack", {
+    unitID: "profiled-b",
+    affinityKey: "profiled-a",
+    ...profile,
+  });
+  assert.equal(profiled.resource, sameProfile.resource, "same key and affinity must join one allocation");
+  const otherKey = "b".repeat(64);
+  const differentProfile = await broker.acquire("browser_stack", {
+    unitID: "profiled-c",
+    affinityKey: "profiled-a",
+    ...profile,
+    snapshotKey: otherKey,
+    builderUnitID: `fixture_snapshot:default:ac043_large_grid_snapshot_v1:${otherKey}`,
+  });
+  assert.notEqual(profiled.resource, differentProfile.resource, "different keys must never share a browser allocation");
+  await profiled.release();
+  await sameProfile.release();
+  await differentProfile.release();
   await broker.close();
-  assert.deepEqual(released.sort(), ["chain-a", "row-a"]);
+  assert.deepEqual(released.sort(), ["chain-a", "profiled-a", "profiled-a", "row-a"]);
 
 }
 

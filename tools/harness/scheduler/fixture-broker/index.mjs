@@ -169,17 +169,29 @@ export class FixtureBroker {
 
   async acquire(
     capability,
-    { affinityKey, unitID = "unit", digest, runtimeProfileID } = {},
+    {
+      affinityKey,
+      unitID = "unit",
+      digest,
+      runtimeProfileID,
+      fixtureProfileID,
+      snapshotKey,
+      builderUnitID,
+      rowID,
+      predicateID,
+    } = {},
   ) {
     if (this.closed) throw new Error("fixture broker is closed");
     if (!capabilities.has(capability)) throw new Error(`unknown fixture capability ${capability}`);
     if (capability === "postgres_group" && !affinityKey) {
       throw new Error("postgres_group requires an affinity key");
     }
-    const sharedKey =
-      capability === "postgres_group" || capability === "browser_stack"
-        ? `${capability}:${affinityKey ?? unitID}`
+    const sharedKey = capability === "postgres_group"
+      ? `${capability}:${affinityKey ?? unitID}`
+      : capability === "browser_stack"
+        ? `${capability}:${affinityKey ?? unitID}:${fixtureProfileID ?? "none"}:${snapshotKey ?? "none"}`
         : "";
+    const leaseID = this.idFactory();
     let shared = sharedKey ? this.shared.get(sharedKey) : null;
     let allocation;
     if (shared) {
@@ -199,6 +211,12 @@ export class FixtureBroker {
         unitID,
         digest,
         runtimeProfileID,
+        fixtureProfileID,
+        snapshotKey,
+        builderUnitID,
+        rowID,
+        predicateID,
+        leaseID,
       });
       if (!allocation || !["owned", "borrowed"].includes(allocation.ownership)) {
         throw new Error(`${capability} provider returned invalid ownership`);
@@ -213,13 +231,23 @@ export class FixtureBroker {
       }
     }
     const record = {
-      schema_id: "cartulary.harness_fixture_lease.v1",
-      lease_id: this.idFactory(),
+      schema_id: "cartulary.harness_fixture_lease.v2",
+      lease_id: leaseID,
       capability,
       ownership: allocation.ownership,
       state: "leased",
       resource_ids: allocation.resource_ids,
       ...(affinityKey ? { affinity_key: affinityKey } : {}),
+      ...(allocation.fixture_profile_id
+        ? { fixture_profile_id: allocation.fixture_profile_id }
+        : {}),
+      ...(allocation.snapshot_key ? { snapshot_key: allocation.snapshot_key } : {}),
+      ...(allocation.builder_unit_id
+        ? { builder_unit_id: allocation.builder_unit_id }
+        : {}),
+      ...(allocation.clone_ordinal
+        ? { clone_ordinal: allocation.clone_ordinal }
+        : {}),
       created_at: this.clock().toISOString(),
     };
     validateSchemaSync(record.schema_id, record);

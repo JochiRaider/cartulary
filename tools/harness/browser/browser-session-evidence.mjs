@@ -27,7 +27,7 @@ const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const identityPattern = /^[a-zA-Z0-9_.-]+$/u;
 
 function usage() {
-  return "usage: browser-session-evidence.mjs event <state> <message> [failure-class failure-reason] | terminal <ready|failed> <message> [failure-class failure-reason] | snapshot-service-scope | lease | stack | attach <stack-v4.json> | attach-json <stack-v4.json>";
+  return "usage: browser-session-evidence.mjs event <state> <message> [failure-class failure-reason] | terminal <ready|failed> <message> [failure-class failure-reason] | snapshot-service-scope | lease | stack | attach <stack-v5.json> | attach-json <stack-v5.json>";
 }
 
 function requiredEnv(name) {
@@ -363,6 +363,55 @@ function canonicalDigest(value) {
   return sha256Bytes(Buffer.from(JSON.stringify(value)));
 }
 
+function performanceFixtureEvidence(fixture) {
+  const profileID = String(process.env.CARTULARY_FIXTURE_PROFILE_ID ?? "").trim();
+  if (!profileID) return null;
+  const snapshotKey = requiredEnv("CARTULARY_FIXTURE_SNAPSHOT_KEY");
+  const builderUnitID = requiredEnv("CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID");
+  const cloneOrdinal = Number.parseInt(requiredEnv("CARTULARY_FIXTURE_CLONE_ORDINAL"), 10);
+  if (
+    fixture.fixture_profile_id !== profileID ||
+    fixture.snapshot_key !== snapshotKey ||
+    fixture.builder_unit_id !== builderUnitID ||
+    fixture.clone_ordinal !== cloneOrdinal
+  ) {
+    throw new Error("browser fixture metadata diverges from admitted snapshot lease");
+  }
+  const buildArtifact = path.join(
+    runRoot(),
+    "performance-fixtures",
+    snapshotKey,
+    "snapshot-build.json",
+  );
+  requireRegularNoSymlink(buildArtifact, "performance fixture build artifact");
+  const build = JSON.parse(readFileSync(buildArtifact, "utf8"));
+  validateSchemaSync(build.schema_id, build);
+  if (
+    build.state !== "sealed" ||
+    build.fixture_profile_id !== profileID ||
+    build.snapshot_key !== snapshotKey ||
+    build.builder_unit_id !== builderUnitID
+  ) {
+    throw new Error("browser stack requires its exact sealed snapshot build artifact");
+  }
+  const runtimeBundle = requiredEnv("CARTULARY_PERFORMANCE_FIXTURE_RUNTIME_BUNDLE");
+  requireRegularNoSymlink(runtimeBundle, "private performance fixture runtime bundle");
+  const bundle = JSON.parse(readFileSync(runtimeBundle, "utf8"));
+  validateSchemaSync(bundle.schema_id, bundle);
+  if (bundle.fixture_profile_id !== profileID || bundle.snapshot_key !== snapshotKey) {
+    throw new Error("private runtime bundle diverges from admitted snapshot lease");
+  }
+  return {
+    fixture_profile_id: profileID,
+    snapshot_key: snapshotKey,
+    builder_unit_id: builderUnitID,
+    build_artifact_ref: relativeToRun(buildArtifact),
+    build_artifact_sha256: sha256File(buildArtifact),
+    clone_ordinal: cloneOrdinal,
+    runtime_bundle_copied: true,
+  };
+}
+
 function writeStack() {
   const diagnostic = diagnosticPath();
   const lease = path.join(sessionRoot(), "browser-stack-lease.json");
@@ -381,7 +430,7 @@ function writeStack() {
     terminalDiagnostic.schema_id !== "cartulary.browser_startup_diagnostics.v2" ||
     terminalDiagnostic.status !== "ready"
   ) {
-    throw new Error("v4 stack publication requires a terminal ready diagnostic");
+    throw new Error("v5 stack publication requires a terminal ready diagnostic");
   }
   const fixture = JSON.parse(readFileSync(metadataFile, "utf8"));
   const buildDirectory = path.join(repoRoot, "apps", "web", "dist");
@@ -396,8 +445,9 @@ function writeStack() {
     database_name: fixture.database_name,
     bucket: fixture.bucket,
   });
+  const performanceFixture = performanceFixtureEvidence(fixture);
   const payload = {
-    schema_id: "cartulary.web_e2e_stack.v4",
+    schema_id: "cartulary.web_e2e_stack.v5",
     suite_id: identityEnv("CARTULARY_TEST_SUITE_ID"),
     browser_session_id: identityEnv("CARTULARY_BROWSER_SESSION_GROUP"),
     service_mode: requiredEnv("CARTULARY_TEST_SERVICES_CALL_MODE"),
@@ -449,6 +499,7 @@ function writeStack() {
       fixture_id: sha256File(metadataFile),
       scenario_id: identityEnv("CARTULARY_BROWSER_SESSION_GROUP"),
     },
+    ...(performanceFixture ? { performance_fixture: performanceFixture } : {}),
     startup_diagnostics_ref: relativeToRun(diagnostic),
     startup_diagnostics_sha256: sha256File(diagnostic),
     lease_ref: relativeToRun(lease),
@@ -456,8 +507,8 @@ function writeStack() {
     ready_at: new Date().toISOString(),
   };
   validateSchemaSync(payload.schema_id, payload);
-  const output = path.join(sessionRoot(), "stack-v4.json");
-  if (existsSync(output)) throw new Error("v4 browser stack evidence is immutable");
+  const output = path.join(sessionRoot(), "stack-v5.json");
+  if (existsSync(output)) throw new Error("v5 browser stack evidence is immutable");
   atomicWrite(output, `${JSON.stringify(payload, null, 2)}\n`);
   return output;
 }
@@ -475,7 +526,7 @@ function verifyProcessProof(proof, label) {
     "executable_sha256",
   ]) {
     if (current[key] !== proof[key]) {
-      throw new Error(`browser v4 attachment ${label} process proof mismatch`);
+      throw new Error(`browser v5 attachment ${label} process proof mismatch`);
     }
   }
 }
@@ -502,12 +553,12 @@ function attachmentAssignments(stackPath) {
     "playwright-state",
   );
   if (
-    resolvedStack !== path.join(expectedRoot, "stack-v4.json") ||
+    resolvedStack !== path.join(expectedRoot, "stack-v5.json") ||
     !resolvedStack.startsWith(`${runRoot()}${path.sep}`)
   ) {
     throw new Error("browser stack path does not identify the current session");
   }
-  requireRegularNoSymlink(resolvedStack, "v4 browser stack");
+  requireRegularNoSymlink(resolvedStack, "v5 browser stack");
   const stack = JSON.parse(readFileSync(resolvedStack, "utf8"));
   validateSchemaSync(stack.schema_id, stack);
   const expected = {
@@ -517,7 +568,7 @@ function attachmentAssignments(stackPath) {
   };
   for (const [key, value] of Object.entries(expected)) {
     if (stack[key] !== value) {
-      throw new Error(`browser v4 attachment ${key} mismatch`);
+      throw new Error(`browser v5 attachment ${key} mismatch`);
     }
   }
   for (const [referenceKey, digestKey] of [
@@ -527,7 +578,42 @@ function attachmentAssignments(stackPath) {
   ]) {
     const artifact = resolveRunArtifact(stack[referenceKey]);
     if (sha256File(artifact) !== stack[digestKey]) {
-      throw new Error(`browser v4 attachment ${referenceKey} digest mismatch`);
+      throw new Error(`browser v5 attachment ${referenceKey} digest mismatch`);
+    }
+  }
+  if (stack.performance_fixture) {
+    const active = stack.performance_fixture;
+    if (
+      active.fixture_profile_id !== requiredEnv("CARTULARY_FIXTURE_PROFILE_ID") ||
+      active.snapshot_key !== requiredEnv("CARTULARY_FIXTURE_SNAPSHOT_KEY") ||
+      active.builder_unit_id !== requiredEnv("CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID") ||
+      active.clone_ordinal !== Number.parseInt(requiredEnv("CARTULARY_FIXTURE_CLONE_ORDINAL"), 10)
+    ) {
+      throw new Error("browser v5 attachment performance fixture identity mismatch");
+    }
+    const buildArtifact = resolveRunArtifact(active.build_artifact_ref);
+    if (sha256File(buildArtifact) !== active.build_artifact_sha256) {
+      throw new Error("browser v5 attachment performance fixture build digest mismatch");
+    }
+    const build = JSON.parse(readFileSync(buildArtifact, "utf8"));
+    validateSchemaSync(build.schema_id, build);
+    if (
+      build.state !== "sealed" ||
+      build.fixture_profile_id !== active.fixture_profile_id ||
+      build.snapshot_key !== active.snapshot_key ||
+      build.builder_unit_id !== active.builder_unit_id
+    ) {
+      throw new Error("browser v5 attachment does not reference its exact sealed build");
+    }
+    const runtimeBundle = requiredEnv("CARTULARY_PERFORMANCE_FIXTURE_RUNTIME_BUNDLE");
+    requireRegularNoSymlink(runtimeBundle, "private performance fixture runtime bundle");
+    const bundle = JSON.parse(readFileSync(runtimeBundle, "utf8"));
+    validateSchemaSync(bundle.schema_id, bundle);
+    if (
+      bundle.fixture_profile_id !== active.fixture_profile_id ||
+      bundle.snapshot_key !== active.snapshot_key
+    ) {
+      throw new Error("browser v5 attachment runtime bundle identity mismatch");
     }
   }
   const serviceScope = JSON.parse(
@@ -539,7 +625,7 @@ function attachmentAssignments(stackPath) {
       normalizeDigest(serviceScope.schema_hash, "service scope schema hash") !==
         stack.postgres_identity.schema_hash)
   ) {
-    throw new Error("browser v4 attachment service-scope identity mismatch");
+    throw new Error("browser v5 attachment service-scope identity mismatch");
   }
   const diagnostic = JSON.parse(
     readFileSync(resolveRunArtifact(stack.startup_diagnostics_ref), "utf8"),
@@ -551,7 +637,7 @@ function attachmentAssignments(stackPath) {
     diagnostic.browser_session_id !== stack.browser_session_id ||
     diagnostic.runtime_profile_id !== stack.runtime_profile_id
   ) {
-    throw new Error("browser v4 attachment diagnostic identity mismatch");
+    throw new Error("browser v5 attachment diagnostic identity mismatch");
   }
   if (
     stack.postgres_identity.schema_hash !==
@@ -569,13 +655,13 @@ function attachmentAssignments(stackPath) {
         requiredEnv("CARTULARY_S3_OBJECT_PRIMARY_SECURE"),
       )
   ) {
-    throw new Error("browser v4 attachment active service identity mismatch");
+    throw new Error("browser v5 attachment active service identity mismatch");
   }
   if (
     directoryDigest(path.join(repoRoot, stack.frontend.build_artifact_ref)) !==
     stack.frontend.build_artifact_sha256
   ) {
-    throw new Error("browser v4 attachment frontend build digest mismatch");
+    throw new Error("browser v5 attachment frontend build digest mismatch");
   }
   verifyProcessProof(stack.backend, "backend");
   verifyProcessProof(stack.frontend, "frontend");
@@ -583,7 +669,7 @@ function attachmentAssignments(stackPath) {
   const stateDirInfo = lstatSync(playwrightStateDir);
   if (!stateDirInfo.isDirectory() || stateDirInfo.isSymbolicLink()) {
     throw new Error(
-      "browser v4 attachment Playwright state path must be a non-symlink directory",
+      "browser v5 attachment Playwright state path must be a non-symlink directory",
     );
   }
   return {
@@ -603,6 +689,19 @@ function attachmentAssignments(stackPath) {
     CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS_SHA256:
       stack.startup_diagnostics_sha256,
     CARTULARY_WEB_E2E_STACK_SHA256: sha256File(resolvedStack),
+    ...(stack.performance_fixture
+      ? {
+          CARTULARY_FIXTURE_PROFILE_ID: stack.performance_fixture.fixture_profile_id,
+          CARTULARY_FIXTURE_SNAPSHOT_KEY: stack.performance_fixture.snapshot_key,
+          CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID:
+            stack.performance_fixture.builder_unit_id,
+          CARTULARY_FIXTURE_CLONE_ORDINAL: String(
+            stack.performance_fixture.clone_ordinal,
+          ),
+          CARTULARY_PERFORMANCE_FIXTURE_RUNTIME_BUNDLE:
+            requiredEnv("CARTULARY_PERFORMANCE_FIXTURE_RUNTIME_BUNDLE"),
+        }
+      : {}),
   };
 }
 

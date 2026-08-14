@@ -1,0 +1,17 @@
+{
+  "schema_id": "cartulary.performance_fixture_snapshot_key_vectors.v1",
+  "vectors": [
+    {
+      "name": "synthetic_lowercase_digests",
+      "input": {
+        "schema_id": "cartulary.performance_fixture_snapshot_key.v1",
+        "migration_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "source_contract_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "fixture_version": "cartulary.perf.large_grid.v1",
+        "seed": 20260405
+      },
+      "canonical_json": "{\"fixture_version\":\"cartulary.perf.large_grid.v1\",\"migration_digest\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"schema_id\":\"cartulary.performance_fixture_snapshot_key.v1\",\"seed\":20260405,\"source_contract_digest\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"}",
+      "snapshot_key": "8cff12932730a18d2d21dc020a2d46a26894497d6a1bc7f28e576c684b77aef5"
+    }
+  ]
+}

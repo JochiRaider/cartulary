@@ -44,6 +44,8 @@
     "go.sum",
     "tools/otel/generate-otel-contracts.mjs",
     "tools/measurement_policy_owner.json",
+    "tools/performance_fixture_snapshot_key_vectors.json",
+    "tools/performance_fixture_snapshot_owner.json",
     "tools/protocol-ts",
     "tools/harness",
     "tools/harness_cache_registry.json",

@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.browser_group_result.v4",
+  "$id": "cartulary.browser_group_result.v5",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_id", "target_id", "stage_id", "group_id", "browser_session_id", "runtime_profile_id", "service_requirement", "fixture_capabilities", "service_dependencies", "resource_profile_ids", "selected_rows", "started_at", "finished_at", "duration_ms", "status", "exit_code", "row_results", "session_artifacts", "artifacts"],
   "properties": {
-    "schema_id": { "const": "cartulary.browser_group_result.v4" },
+    "schema_id": { "const": "cartulary.browser_group_result.v5" },
     "target_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
     "stage_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
     "group_id": { "type": "string", "minLength": 1 },
@@ -15,6 +15,8 @@
     "fixture_capabilities": { "$ref": "#/$defs/unique_strings" },
     "service_dependencies": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies" },
     "resource_profile_ids": { "$ref": "#/$defs/unique_strings" },
+    "fixture_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*_v[1-9][0-9]*$" },
+    "snapshot_key": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "selected_rows": { "$ref": "#/$defs/row_ids" },
     "started_at": { "$ref": "#/$defs/timestamp" },
     "finished_at": { "$ref": "#/$defs/timestamp" },
@@ -53,7 +55,7 @@
     "artifact": {
       "type": "object", "additionalProperties": false, "required": ["kind", "ref", "sha256"],
       "properties": {
-        "kind": { "enum": ["stack_v4", "startup_diagnostics_v2"] },
+        "kind": { "enum": ["stack_v5", "startup_diagnostics_v2"] },
         "ref": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
         "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
       }

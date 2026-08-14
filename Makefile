@@ -4,7 +4,7 @@ SHELL := /bin/bash
 .SECONDEXPANSION:
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
-override GO_TOOLCHAIN := go1.26.5
+override GO_TOOLCHAIN := go1.26.6
 override GOTOOLCHAIN := $(GO_TOOLCHAIN)
 override GO_TOOLCHAIN_READY :=
 CONFIG_FILE ?= $(CURDIR)/configs/dev/config.toml

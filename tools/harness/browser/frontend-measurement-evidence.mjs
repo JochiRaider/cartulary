@@ -1,10 +1,12 @@
-import { existsSync, readFileSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { createInterface } from "node:readline";
 
 import { validateSchemaSync } from "../contract/index.mjs";
+import { loadPerformanceFixtureSnapshotRegistry } from "../performance-fixture/index.mjs";
 
-const attachmentPrefix = "cartulary.frontend_measurement_summary.v1.";
-const forbiddenKey = /(?:credential|entered|password|payload|record_id|secret|token|transaction_id|txn_id)/iu;
+const attachmentPrefix = "cartulary.frontend_measurement_observation.v1.";
+const forbiddenKey = /^(?:bucket_name|credential|credentials|database_name|dsn|email|entered_text|password|payload|record_id|runtime_path|secret|token|transaction_id|txn_id|user_id)$/iu;
 
 function flattenSuites(suites, output = []) {
   for (const suite of suites ?? []) {
@@ -78,7 +80,7 @@ function validateSampleCardinality(summary) {
   });
 }
 
-export function collectFrontendMeasurementSummaries({
+export function collectFrontendMeasurementObservations({
   expectedPredicateIDs,
   reportPaths,
   runRoot,
@@ -97,15 +99,9 @@ export function collectFrontendMeasurementSummaries({
               continue;
             }
             const summary = parseAttachment(runRoot, reportPath, attachment);
-            validateSchemaSync("cartulary.frontend_measurement_summary.v1", summary);
+            validateSchemaSync("cartulary.frontend_measurement_observation.v1", summary);
             rejectSensitiveKeys(summary);
             validateSampleCardinality(summary);
-            if (
-              summary.qualification.quiet_profile_id !== "browser_measurement_quiet" ||
-              summary.qualification.scheduler_overlap_count !== 0
-            ) {
-              throw new Error(`${summary.predicate_id} is environment_not_qualified`);
-            }
             summaries.push(summary);
           }
         }
@@ -118,7 +114,7 @@ export function collectFrontendMeasurementSummaries({
   const expected = [...expectedPredicateIDs].sort();
   if (JSON.stringify(actualPredicateIDs) !== JSON.stringify(expected)) {
     throw new Error(
-      `frontend measurement summaries differ: expected=${expected.join(",")} actual=${actualPredicateIDs.join(",")}`,
+      `frontend measurement observations differ: expected=${expected.join(",")} actual=${actualPredicateIDs.join(",")}`,
     );
   }
   return summaries.sort((left, right) =>
@@ -126,21 +122,74 @@ export function collectFrontendMeasurementSummaries({
   );
 }
 
+export function collectFinalizedMeasurementSummaries({
+  expectedPredicateIDs,
+  summaryPaths,
+}) {
+  if (new Set(summaryPaths).size !== summaryPaths.length) {
+    throw new Error("finalized measurement summary paths are duplicated");
+  }
+  const summaries = summaryPaths.map((summaryPath) => {
+    if (!existsSync(summaryPath)) {
+      throw new Error("finalized measurement summary is missing");
+    }
+    const summary = JSON.parse(readFileSync(summaryPath, "utf8"));
+    validateSchemaSync("cartulary.frontend_measurement_summary.v2", summary);
+    rejectSensitiveKeys(summary);
+    validateSampleCardinality(summary.observation);
+    if (
+      summary.scheduler_overlap_count !== 0 ||
+      summary.isolation_result !== "isolated" ||
+      !summary.credential_copy_cleanup ||
+      !summary.database_cleanup ||
+      !summary.bucket_cleanup
+    ) {
+      throw new Error(summary.observation.predicate_id + " is environment_not_qualified");
+    }
+    const expectedQualification =
+      summary.observation.outcome === "passed"
+        ? "qualified"
+        : summary.observation.outcome === "threshold_failed"
+          ? "threshold_failed"
+          : "environment_not_qualified";
+    if (summary.qualification_outcome !== expectedQualification) {
+      throw new Error(
+        summary.observation.predicate_id + " has inconsistent qualification outcome",
+      );
+    }
+    if (expectedQualification === "environment_not_qualified") {
+      throw new Error(
+        summary.observation.predicate_id + " is not eligible for active qualification",
+      );
+    }
+    return summary;
+  });
+  const actualPredicateIDs = summaries
+    .map((summary) => summary.observation.predicate_id)
+    .sort();
+  const expected = [...expectedPredicateIDs].sort();
+  if (JSON.stringify(actualPredicateIDs) !== JSON.stringify(expected)) {
+    throw new Error(
+      "frontend measurement summaries differ: expected=" + expected.join(",") +
+      " actual=" + actualPredicateIDs.join(","),
+    );
+  }
+  return summaries.sort((left, right) =>
+    left.observation.predicate_id.localeCompare(right.observation.predicate_id),
+  );
+}
+
 export function ac043PredicateIDsForRows(root, rows) {
   const contract = JSON.parse(
     readFileSync(path.join(root, "contracts/performance/ac043.v1.json"), "utf8"),
   );
-  const byVerificationID = new Map([
-    ["module.timeline.verification.ac043_blank_row_create", "perf.timeline_blank_row_create.v1"],
-    ["module.timeline.verification.ac043_focus_edit", "perf.timeline_summary_focus_edit.v1"],
-    ["module.timeline.verification.ac043_selection_down", "perf.timeline_summary_selection_down.v1"],
-    ["module.timeline.verification.ac043_typing_ack", "perf.typing_ack.v1"],
-  ]);
+  const fixtureProfiles = loadPerformanceFixtureSnapshotRegistry(root);
   const contractIDs = new Set(contract.predicates.map((entry) => entry.predicate_id));
   return rows.flatMap((row) =>
     row.verification_ids.flatMap((verificationID) => {
-      const predicateID = byVerificationID.get(verificationID);
-      if (predicateID === undefined) return [];
+      const binding = fixtureProfiles.verificationBindings.get(verificationID);
+      if (binding === undefined) return [];
+      const predicateID = binding.predicate_id;
       if (!contractIDs.has(predicateID)) {
         throw new Error(`${verificationID} maps to a predicate absent from the AC-043 contract`);
       }
@@ -164,9 +213,10 @@ export function measurementSchedulerOverlapCount(events, groupResults) {
     if (!groupStart || !groupEnd) {
       throw new Error(`measurement group ${result.group_id} lacks a closed scheduler interval`);
     }
-    // The group runner owns fixture assembly, traffic stabilization, warm-up,
-    // samples, evidence attachment, and cleanup. Its exclusive host_activity
-    // claim is therefore the interval that must be proven quiet.
+    // The admitted snapshot builder completes before this interval. The group
+    // unit then owns clone preparation, traffic stabilization, warm-up,
+    // samples, observation attachment, and lease cleanup. Its exclusive
+    // host_activity claim is therefore the interval that must be proven quiet.
     overlaps += events.filter(
       (event) =>
         event.event === "started" &&
@@ -176,4 +226,79 @@ export function measurementSchedulerOverlapCount(events, groupResults) {
     ).length;
   }
   return overlaps;
+}
+
+export async function readMeasurementSchedulerEvidence(eventFile, groupResult) {
+  if (!existsSync(eventFile)) {
+    throw new Error("measurement finalizer requires unit-events.ndjson");
+  }
+  const groupUnitID = `browser_group:${groupResult.stage_id}:${groupResult.group_id}`;
+  const input = createReadStream(eventFile, { encoding: "utf8" });
+  const lines = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY });
+  let previousSeq = 0;
+  let groupStartSeq = null;
+  let overlapCount = 0;
+  let lineNumber = 0;
+  try {
+    for await (const line of lines) {
+      lineNumber += 1;
+      if (line === "") continue;
+      let event;
+      try {
+        event = JSON.parse(line);
+      } catch (error) {
+        throw new Error(
+          `unit-events.ndjson line ${lineNumber} is invalid JSON: ${error.message}`,
+        );
+      }
+      if (!Number.isSafeInteger(event.seq) || event.seq !== previousSeq + 1) {
+        throw new Error(
+          `unit-events.ndjson sequence ${event.seq} is not contiguous at line ${lineNumber}`,
+        );
+      }
+      previousSeq = event.seq;
+      if (event.unit_id === groupUnitID) {
+        if (event.event === "started") {
+          if (groupStartSeq !== null) {
+            throw new Error(`measurement group ${groupResult.group_id} starts more than once`);
+          }
+          groupStartSeq = event.seq;
+          continue;
+        }
+        if (event.event === "skipped" && event.failure_reason === "dependency_failure") {
+          if (groupStartSeq !== null) {
+            throw new Error(`measurement group ${groupResult.group_id} is skipped after starting`);
+          }
+          return {
+            dependency_skipped: true,
+            overlap_count: 0,
+            start_seq: null,
+            end_seq: event.seq,
+          };
+        }
+        if (["completed", "failed", "cancelled"].includes(event.event)) {
+          if (groupStartSeq === null) {
+            throw new Error(`measurement group ${groupResult.group_id} terminates before starting`);
+          }
+          return {
+            dependency_skipped: false,
+            overlap_count: overlapCount,
+            start_seq: groupStartSeq,
+            end_seq: event.seq,
+          };
+        }
+      }
+      if (
+        groupStartSeq !== null &&
+        event.event === "started" &&
+        event.unit_id !== groupUnitID
+      ) {
+        overlapCount += 1;
+      }
+    }
+  } finally {
+    lines.close();
+    input.destroy();
+  }
+  throw new Error(`measurement group ${groupResult.group_id} lacks a closed scheduler interval`);
 }

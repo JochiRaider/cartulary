@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_fixture_snapshot_lease.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id", "fixture_profile_id", "snapshot_key", "builder_unit_id", "row_id",
+    "predicate_id", "lease_id", "clone_ordinal", "creation_state", "isolation_result",
+    "credential_copy_cleanup", "database_cleanup", "bucket_cleanup", "session_cleanup",
+    "process_cleanup", "cleanup_state", "redaction_policy_id", "finalized_at"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.performance_fixture_snapshot_lease.v1" },
+    "fixture_profile_id": { "const": "ac043_large_grid_snapshot_v1" },
+    "snapshot_key": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "builder_unit_id": { "type": "string", "pattern": "^fixture_snapshot:default:ac043_large_grid_snapshot_v1:[a-f0-9]{64}$" },
+    "row_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/row_id" },
+    "predicate_id": { "type": "string", "pattern": "^perf\\.[a-z0-9_.]+\\.v[1-9][0-9]*$" },
+    "lease_id": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "clone_ordinal": { "type": "integer", "minimum": 1 },
+    "creation_state": { "enum": ["created", "failed"] },
+    "isolation_result": { "enum": ["isolated", "not_checked", "failed"] },
+    "credential_copy_cleanup": { "type": "boolean" },
+    "database_cleanup": { "type": "boolean" },
+    "bucket_cleanup": { "type": "boolean" },
+    "session_cleanup": { "type": "boolean" },
+    "process_cleanup": { "type": "boolean" },
+    "cleanup_state": { "enum": ["complete", "failed"] },
+    "failure_code": {
+      "enum": ["clone_failed", "isolation_failed", "credential_cleanup_failed", "database_cleanup_failed", "bucket_cleanup_failed", "session_cleanup_failed", "process_cleanup_failed"]
+    },
+    "redaction_policy_id": { "const": "cartulary.performance_fixture_redaction.v1" },
+    "finalized_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "cleanup_state": { "const": "complete" } }, "required": ["cleanup_state"] },
+      "then": {
+        "properties": {
+          "creation_state": { "const": "created" },
+          "isolation_result": { "const": "isolated" },
+          "credential_copy_cleanup": { "const": true },
+          "database_cleanup": { "const": true },
+          "bucket_cleanup": { "const": true },
+          "session_cleanup": { "const": true },
+          "process_cleanup": { "const": true }
+        },
+        "not": { "required": ["failure_code"] }
+      }
+    },
+    {
+      "if": { "properties": { "cleanup_state": { "const": "failed" } }, "required": ["cleanup_state"] },
+      "then": { "required": ["failure_code"] }
+    }
+  ]
+}

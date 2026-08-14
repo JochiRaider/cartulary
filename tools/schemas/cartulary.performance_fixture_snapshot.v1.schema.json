@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_fixture_snapshot.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id", "fixture_profile_id", "fixture_version", "seed", "snapshot_key_schema_id",
+    "snapshot_key", "migration_digest", "source_contract_digest", "builder_unit_id",
+    "build_ordinal", "state", "contribution_receipts", "semantic_validation_digest",
+    "validation", "redaction_policy_id", "created_at"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.performance_fixture_snapshot.v1" },
+    "fixture_profile_id": { "const": "ac043_large_grid_snapshot_v1" },
+    "fixture_version": { "const": "cartulary.perf.large_grid.v1" },
+    "seed": { "const": 20260405 },
+    "snapshot_key_schema_id": { "const": "cartulary.performance_fixture_snapshot_key.v1" },
+    "snapshot_key": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "migration_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "source_contract_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "builder_unit_id": { "type": "string", "pattern": "^fixture_snapshot:default:ac043_large_grid_snapshot_v1:[a-f0-9]{64}$" },
+    "build_ordinal": { "const": 1 },
+    "state": { "enum": ["sealed", "failed"] },
+    "contribution_receipts": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["contribution_id", "version", "owner_id", "counts"],
+        "properties": {
+          "contribution_id": { "type": "string", "minLength": 1 },
+          "version": { "type": "string", "minLength": 1 },
+          "owner_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/owner_id" },
+          "counts": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "semantic_validation_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exact_counts", "relationship_distribution", "default_view", "authorization", "projection_readiness", "no_active_sessions", "connections_closed"],
+      "properties": {
+        "exact_counts": { "type": "boolean" },
+        "relationship_distribution": { "type": "boolean" },
+        "default_view": { "type": "boolean" },
+        "authorization": { "type": "boolean" },
+        "projection_readiness": { "type": "boolean" },
+        "no_active_sessions": { "type": "boolean" },
+        "connections_closed": { "type": "boolean" }
+      }
+    },
+    "failure_code": {
+      "enum": ["contribution_invalid", "semantic_validation_failed", "connection_closure_failed", "sealing_failed"]
+    },
+    "redaction_policy_id": { "const": "cartulary.performance_fixture_redaction.v1" },
+    "created_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "state": { "const": "failed" } }, "required": ["state"] },
+      "then": { "required": ["failure_code"] }
+    },
+    {
+      "if": { "properties": { "state": { "const": "sealed" } }, "required": ["state"] },
+      "then": {
+        "properties": {
+          "contribution_receipts": { "minItems": 1 },
+          "validation": {
+            "properties": {
+              "exact_counts": { "const": true },
+              "relationship_distribution": { "const": true },
+              "default_view": { "const": true },
+              "authorization": { "const": true },
+              "projection_readiness": { "const": true },
+              "no_active_sessions": { "const": true },
+              "connections_closed": { "const": true }
+            }
+          }
+        },
+        "not": { "required": ["failure_code"] }
+      }
+    }
+  ]
+}

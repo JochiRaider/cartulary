@@ -234,6 +234,9 @@ func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.Us
 	if err != nil {
 		return indicatorRecord{}, nil, "", 0, err
 	}
+	if err := s.sources.lockDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey); err != nil {
+		return indicatorRecord{}, nil, "", 0, err
+	}
 	current, matched, err := s.sources.loadByDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return indicatorRecord{}, nil, "", 0, err

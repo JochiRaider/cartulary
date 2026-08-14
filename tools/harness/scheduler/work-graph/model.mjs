@@ -7,7 +7,7 @@ import {
   semanticJSONDigest,
 } from "../../test-catalog/index.mjs";
 
-const graphSchemaID = "cartulary.harness_work_graph.v2";
+const graphSchemaID = "cartulary.harness_work_graph.v3";
 
 export function loadWorkGraphOwner(root) {
   const owner = JSON.parse(

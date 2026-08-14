@@ -1,7 +1,15 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  writeSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -10,8 +18,10 @@ import {
   resolveRegisteredFixtures,
 } from "../frontend-visual-reconciliation.mjs";
 import {
-  collectFrontendMeasurementSummaries,
+  collectFinalizedMeasurementSummaries,
+  collectFrontendMeasurementObservations,
   measurementSchedulerOverlapCount,
+  readMeasurementSchedulerEvidence,
 } from "../frontend-measurement-evidence.mjs";
 import { WorkGraphCompiler } from "../../scheduler/work-graph/index.mjs";
 
@@ -37,12 +47,12 @@ assert.doesNotMatch(
   "AC-043 scenarios must not substitute a local sample policy or retry path",
 );
 
-function measurementSummary(overrides = {}) {
+function measurementObservation(overrides = {}) {
   return {
-    schema_id: "cartulary.frontend_measurement_summary.v1",
+    schema_id: "cartulary.frontend_measurement_observation.v1",
     criterion_id: "AC-043",
     predicate_id: "perf.timeline_summary_selection_down.v1",
-    fixture_id: "cartulary.perf.timeline_supported_envelope.v1",
+    fixture_id: "cartulary.perf.large_grid.v1",
     fixture_digest: `sha256:${"a".repeat(64)}`,
     measurement_policy_id: "cartulary.measurement.interactive_p95.v1",
     threshold_ms: 100,
@@ -52,11 +62,13 @@ function measurementSummary(overrides = {}) {
     p50_ms: 10,
     p95_ms: 20,
     outcome: "passed",
-    qualification: {
-      quiet_profile_id: "browser_measurement_quiet",
-      scheduler_overlap_count: 0,
+    traffic: {
       analyst_sessions: 25,
+      background_sessions: 24,
+      background_update_interval_ms: 5000,
       background_updates_per_second: 4.8,
+      target_row_excluded: true,
+      presence_enabled: true,
     },
     samples: Array.from({ length: 101 }, (_, sampleIndex) => ({
       sample_index: sampleIndex,
@@ -75,13 +87,46 @@ function measurementReport(summary) {
         tests: [{
           results: [{
             attachments: [{
-              name: `cartulary.frontend_measurement_summary.v1.${summary.predicate_id}`,
+              name: `cartulary.frontend_measurement_observation.v1.${summary.predicate_id}`,
               body: Buffer.from(JSON.stringify(summary)).toString("base64"),
             }],
           }],
         }],
       }],
     }],
+  };
+}
+
+function finalizedMeasurementSummary(overrides = {}) {
+  return {
+    schema_id: "cartulary.frontend_measurement_summary.v2",
+    row_id:
+      "module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
+    observation: measurementObservation(),
+    fixture_profile_id: "ac043_large_grid_snapshot_v1",
+    snapshot_key: "b".repeat(64),
+    build_artifact: {
+      role: "performance_fixture_snapshot_build",
+      path_kind: "file",
+      format: "json",
+      path: `performance-fixtures/${"b".repeat(64)}/snapshot-build.json`,
+      sha256: `sha256:${"c".repeat(64)}`,
+    },
+    lease_artifact: {
+      role: "performance_fixture_snapshot_lease",
+      path_kind: "file",
+      format: "json",
+      path: `performance-fixtures/${"b".repeat(64)}/leases/row.json`,
+      sha256: `sha256:${"d".repeat(64)}`,
+    },
+    clone_ordinal: 1,
+    isolation_result: "isolated",
+    credential_copy_cleanup: true,
+    database_cleanup: true,
+    bucket_cleanup: true,
+    scheduler_overlap_count: 0,
+    qualification_outcome: "qualified",
+    ...overrides,
   };
 }
 
@@ -92,20 +137,20 @@ try {
   const reportPath = path.join(measurementEvidenceRoot, "playwright-report.json");
   const collect = (summary, expected = [summary.predicate_id]) => {
     writeFileSync(reportPath, `${JSON.stringify(measurementReport(summary))}\n`);
-    return collectFrontendMeasurementSummaries({
+    return collectFrontendMeasurementObservations({
       expectedPredicateIDs: expected,
       reportPaths: [reportPath],
       runRoot: measurementEvidenceRoot,
     });
   };
-  assert.equal(collect(measurementSummary()).length, 1);
+  assert.equal(collect(measurementObservation()).length, 1);
   assert.equal(
-    collect(measurementSummary({ outcome: "threshold_failed", p95_ms: 101 }))[0].outcome,
+    collect(measurementObservation({ outcome: "threshold_failed", p95_ms: 101 }))[0].outcome,
     "threshold_failed",
     "threshold failures must remain valid diagnostic evidence",
   );
   assert.equal(
-    collect(measurementSummary({
+    collect(measurementObservation({
       failure_reason: "setup failed",
       measured_samples: 0,
       outcome: "incomplete",
@@ -118,7 +163,7 @@ try {
     "setup failures must retain safe partial evidence",
   );
   assert.throws(
-    () => collect(measurementSummary({
+    () => collect(measurementObservation({
       measured_samples: 99,
       outcome: "incomplete",
       p50_ms: null,
@@ -128,31 +173,91 @@ try {
     "summary cardinality must match its retained samples",
   );
   assert.throws(
-    () => collect(measurementSummary({
-      qualification: {
-        quiet_profile_id: "browser_measurement_quiet",
-        scheduler_overlap_count: 1,
+    () => collect(measurementObservation({
+      traffic: {
         analyst_sessions: 25,
+        background_sessions: 24,
+        background_update_interval_ms: 5000,
         background_updates_per_second: 4.8,
+        target_row_excluded: false,
+        presence_enabled: true,
       },
     })),
-    /environment_not_qualified/u,
+    /target_row_excluded/u,
   );
   assert.throws(
-    () => collect(measurementSummary({
-      samples: [{
-        sample_index: 0,
-        warmup: true,
-        total_ms: 10,
-        stages_ms: { record_id: 1 },
-      }],
+    () => collect(measurementObservation({
+      samples: measurementObservation().samples.map((sample, sampleIndex) =>
+        sampleIndex === 0
+          ? { ...sample, stages_ms: { record_id: 1 } }
+          : sample),
     })),
     /forbidden key record_id/u,
   );
   assert.throws(
-    () => collect(measurementSummary(), []),
-    /summaries differ/u,
+    () => collect(measurementObservation(), []),
+    /observations differ/u,
     "missing expected evidence must fail closed",
+  );
+  const finalizedPath = path.join(
+    measurementEvidenceRoot,
+    "frontend-measurement-summary.v2.json",
+  );
+  const collectFinalized = (summary) => {
+    writeFileSync(finalizedPath, `${JSON.stringify(summary)}\n`);
+    return collectFinalizedMeasurementSummaries({
+      expectedPredicateIDs: [
+        "perf.timeline_summary_selection_down.v1",
+      ],
+      summaryPaths: [finalizedPath],
+    });
+  };
+  assert.equal(collectFinalized(finalizedMeasurementSummary()).length, 1);
+  assert.throws(
+    () =>
+      collectFinalized(
+        finalizedMeasurementSummary({
+          observation: measurementObservation({
+            failure_reason: "setup failed",
+            measured_samples: 0,
+            outcome: "incomplete",
+            p50_ms: null,
+            p95_ms: null,
+            warmup_samples: 0,
+            samples: [],
+          }),
+          qualification_outcome: "environment_not_qualified",
+        }),
+      ),
+    /not eligible for active qualification/u,
+  );
+  assert.throws(
+    () =>
+      collectFinalized(
+        finalizedMeasurementSummary({
+          qualification_outcome: "threshold_failed",
+        }),
+      ),
+    /inconsistent qualification outcome/u,
+  );
+  assert.throws(
+    () =>
+      collectFinalizedMeasurementSummaries({
+        expectedPredicateIDs: [
+          "perf.timeline_summary_selection_down.v1",
+        ],
+        summaryPaths: [finalizedPath, finalizedPath],
+      }),
+    /paths are duplicated/u,
+  );
+  assert.throws(
+    () =>
+      collectFinalized({
+        ...finalizedMeasurementSummary(),
+        schema_id: "cartulary.frontend_measurement_summary.v1",
+      }),
+    /cartulary.frontend_measurement_summary.v2/u,
+    "historical summary v1 must not qualify current source",
   );
 } finally {
   rmSync(measurementEvidenceRoot, { force: true, recursive: true });
@@ -193,6 +298,75 @@ assert.throws(
   /lacks a closed scheduler interval/u,
   "incomplete scheduler proof must fail closed",
 );
+
+const schedulerStreamRoot = mkdtempSync(
+  path.join(os.tmpdir(), "cartulary-measurement-scheduler-stream-"),
+);
+try {
+  const eventFile = path.join(schedulerStreamRoot, "unit-events.ndjson");
+  const file = openSync(eventFile, "w", 0o600);
+  let seq = 0;
+  const writeEvent = (event) => {
+    seq += 1;
+    writeSync(file, `${JSON.stringify({
+      schema_id: "cartulary.harness_unit_event.v1",
+      seq,
+      monotonic_ms: seq,
+      resource_claims: {},
+      service_dependencies: [],
+      status: "running",
+      ...event,
+    })}\n`);
+  };
+  for (let index = 0; index < 20_000; index += 1) {
+    writeEvent({ event: "queued", unit_id: `row:release-prefix-${index}` });
+  }
+  writeEvent({ event: "started", unit_id: measurementUnitID });
+  for (let index = 0; index < 20_000; index += 1) {
+    writeEvent({ event: "completed", unit_id: `row:release-prefix-${index}` });
+  }
+  writeEvent({ event: "completed", unit_id: measurementUnitID, status: "passed" });
+  closeSync(file);
+  const streamedEvidence = await readMeasurementSchedulerEvidence(
+    eventFile,
+    measurementGroupResult,
+  );
+  assert.equal(streamedEvidence.dependency_skipped, false);
+  assert.equal(streamedEvidence.overlap_count, 0);
+  assert.equal(streamedEvidence.start_seq, 20_001);
+  assert.equal(streamedEvidence.end_seq, 40_002);
+
+  const skippedFile = path.join(schedulerStreamRoot, "skipped-events.ndjson");
+  writeFileSync(
+    skippedFile,
+    `${JSON.stringify({
+      event: "skipped",
+      failure_reason: "dependency_failure",
+      seq: 1,
+      unit_id: measurementUnitID,
+    })}\n`,
+  );
+  const skippedEvidence = await readMeasurementSchedulerEvidence(
+    skippedFile,
+    measurementGroupResult,
+  );
+  assert.equal(skippedEvidence.dependency_skipped, true);
+
+  const invalidSequenceFile = path.join(
+    schedulerStreamRoot,
+    "invalid-sequence-events.ndjson",
+  );
+  writeFileSync(
+    invalidSequenceFile,
+    `${JSON.stringify({ event: "started", seq: 2, unit_id: measurementUnitID })}\n`,
+  );
+  await assert.rejects(
+    readMeasurementSchedulerEvidence(invalidSequenceFile, measurementGroupResult),
+    /sequence 2 is not contiguous/u,
+  );
+} finally {
+  rmSync(schedulerStreamRoot, { force: true, recursive: true });
+}
 for (const target of [
   "browser-e2e-functional",
   "browser-e2e-stateful",
@@ -241,6 +415,65 @@ const measurement = compiler.compile({
   kind: "target",
   target: "browser-e2e-measurement",
 });
+const snapshotBuilders = measurement.units.filter((entry) =>
+  entry.unit_id.startsWith("fixture_snapshot:default:ac043_large_grid_snapshot_v1:"),
+);
+assert.equal(snapshotBuilders.length, 1, "the four AC-043 rows must share one builder");
+assert.equal(snapshotBuilders[0].kind, "fixture_builder");
+assert.equal(snapshotBuilders[0].fixture_lease, "postgres_dedicated");
+assert.deepEqual(snapshotBuilders[0].shared_locks, ["host_activity"]);
+assert.deepEqual(snapshotBuilders[0].exclusive_locks, []);
+assert.match(snapshotBuilders[0].snapshot_key, /^[a-f0-9]{64}$/u);
+const measurementSummaries = measurement.units.filter((entry) =>
+  entry.unit_id.startsWith("browser_measurement_summary:measurement:"),
+);
+assert.equal(
+  measurementSummaries.length,
+  4,
+  "each AC-043 row must have one post-cleanup summary finalizer",
+);
+for (const summary of measurementSummaries) {
+  assert.equal(summary.kind, "finalizer");
+  assert.equal(summary.fixture_lease, "none");
+  assert.ok(Object.keys(summary.resource_claims).length > 0);
+  assert.deepEqual(summary.shared_locks, ["host_activity"]);
+  assert.deepEqual(summary.exclusive_locks, []);
+  assert.equal(summary.needs.length, 1);
+  assert.ok(summary.needs[0].startsWith("browser_group:measurement:"));
+  assert.match(
+    summary.evidence_outputs[0],
+    /frontend-measurement-summary\.v2\.json$/u,
+  );
+}
+const measurementTargetFinalizer = measurement.units.find(
+  (entry) =>
+    entry.unit_id === "browser_target_summary:browser-e2e-measurement",
+);
+assert.ok(measurementTargetFinalizer);
+for (const summary of measurementSummaries) {
+  assert.ok(
+    measurementTargetFinalizer.needs.includes(summary.unit_id),
+    "the aggregate must wait for every row finalizer",
+  );
+}
+for (const lifecycle of measurement.units.filter((entry) =>
+  entry.unit_id.startsWith("browser_lifecycle:measurement-measurement-measurement-timeline-grid-"),
+)) {
+  assert.ok(
+    lifecycle.needs.includes(snapshotBuilders[0].unit_id),
+    lifecycle.unit_id + " must depend on the shared snapshot builder",
+  );
+  assert.equal(lifecycle.fixture_profile_id, "ac043_large_grid_snapshot_v1");
+  assert.equal(lifecycle.snapshot_key, snapshotBuilders[0].snapshot_key);
+  assert.match(
+    lifecycle.command.environment.CARTULARY_FIXTURE_ROW_ID,
+    /^module\.timeline\.measurement\./u,
+  );
+  assert.match(
+    lifecycle.command.environment.CARTULARY_FIXTURE_PREDICATE_ID,
+    /^perf\./u,
+  );
+}
 for (const unit of measurement.units) {
   if (Object.keys(unit.resource_claims).length === 0) continue;
   assert.equal(

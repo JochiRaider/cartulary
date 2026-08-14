@@ -195,7 +195,7 @@ export function nearestRankPercentile(
   return sorted[Math.ceil((percentile / 100) * sorted.length) - 1] as number;
 }
 
-export async function attachMeasurementSummary(
+export async function attachMeasurementObservation(
   testInfo: TestInfo,
   options: {
     failureReason?: string;
@@ -241,8 +241,8 @@ export async function attachMeasurementSummary(
     interactiveMeasurementSamplePolicy.warmupPasses,
   );
   const measuredSamples = Math.max(0, options.samples.length - warmupSamples);
-  const summary = {
-    schema_id: "cartulary.frontend_measurement_summary.v1",
+  const observation = {
+    schema_id: "cartulary.frontend_measurement_observation.v1",
     criterion_id: cartularyAc043PerformanceContract.criterionId,
     predicate_id: predicate.predicateId,
     fixture_id: cartularyAc043PerformanceContract.fixture.fixtureId,
@@ -256,13 +256,17 @@ export async function attachMeasurementSummary(
     p50_ms: p50,
     p95_ms: p95,
     outcome,
-    qualification: {
-      quiet_profile_id: "browser_measurement_quiet",
-      scheduler_overlap_count: quietQualified ? 0 : null,
+    traffic: {
       analyst_sessions:
         cartularyAc043PerformanceContract.fixture.analystSessions,
+      background_sessions:
+        cartularyAc043PerformanceContract.fixture.backgroundSessions,
+      background_update_interval_ms:
+        cartularyAc043PerformanceContract.fixture.backgroundUpdateIntervalMs,
       background_updates_per_second:
         cartularyAc043PerformanceContract.fixture.backgroundUpdatesPerSecond,
+      target_row_excluded: true,
+      presence_enabled: true,
     },
     samples: options.samples.map((sample, sampleIndex) => ({
       sample_index: sampleIndex,
@@ -275,14 +279,14 @@ export async function attachMeasurementSummary(
       : { failure_reason: options.failureReason.slice(0, 512) }),
   };
   await testInfo.attach(
-    `cartulary.frontend_measurement_summary.v1.${predicate.predicateId}`,
+    `cartulary.frontend_measurement_observation.v1.${predicate.predicateId}`,
     {
-      body: Buffer.from(`${JSON.stringify(summary)}\n`, "utf8"),
+      body: Buffer.from(`${JSON.stringify(observation)}\n`, "utf8"),
       contentType:
-        "application/vnd.cartulary.frontend-measurement-summary+json",
+        "application/vnd.cartulary.frontend-measurement-observation+json",
     },
   );
-  return summary;
+  return observation;
 }
 
 type PaintCompletion = {

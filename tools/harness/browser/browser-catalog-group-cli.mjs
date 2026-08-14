@@ -19,7 +19,7 @@ import { resolveBrowserBatchStage } from "./browser-batch-manifest.mjs";
 import { selectedBrowserGroupRowIDs } from "./browser-group-selection.mjs";
 import {
   ac043PredicateIDsForRows,
-  collectFrontendMeasurementSummaries,
+  collectFrontendMeasurementObservations,
 } from "./frontend-measurement-evidence.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -88,7 +88,7 @@ function sessionArtifacts() {
   }
   return [
     {
-      kind: "stack_v4",
+      kind: "stack_v5",
       ref: path.relative(runRoot(), stackPath).replaceAll("\\", "/"),
       sha256: stackDigest,
     },
@@ -126,7 +126,7 @@ function validateCurrentSessionAttachment() {
   );
   if (validation.status !== 0) {
     throw new Error(
-      `browser v4 attachment validation failed: ${(validation.stderr || validation.stdout || "unknown validation failure").trim()}`,
+      `browser v5 attachment validation failed: ${(validation.stderr || validation.stdout || "unknown validation failure").trim()}`,
     );
   }
   const assignments = JSON.parse(validation.stdout);
@@ -136,7 +136,7 @@ function validateCurrentSessionAttachment() {
     Array.isArray(assignments) ||
     Object.values(assignments).some((value) => typeof value !== "string")
   ) {
-    throw new Error("browser v4 attachment validator returned invalid environment");
+    throw new Error("browser v5 attachment validator returned invalid environment");
   }
   Object.assign(process.env, assignments);
 }
@@ -162,6 +162,11 @@ function groupRows(catalog, group) {
     }
     if (row.runtime_profile_id !== group.runtimeProfileID) {
       throw new Error(`browser group ${group.name} mixes runtime profile ${row.runtime_profile_id}`);
+    }
+    if ((row.fixture_profile_id ?? "") !== group.fixtureProfileID) {
+      throw new Error(
+        `browser group ${group.name} fixture profile diverges for ${rowID}`,
+      );
     }
     if (!group.specs.includes(row.selector.file)) {
       throw new Error(`browser group ${group.name} omits selector file for ${rowID}`);
@@ -239,6 +244,16 @@ function main() {
   }
   const catalog = loadTestCatalog(root);
   const rows = groupRows(catalog, group);
+  const snapshotKey = process.env.CARTULARY_FIXTURE_SNAPSHOT_KEY?.trim() ?? "";
+  if (
+    group.fixtureProfileID &&
+    (
+      process.env.CARTULARY_FIXTURE_PROFILE_ID !== group.fixtureProfileID ||
+      !/^[a-f0-9]{64}$/u.test(snapshotKey)
+    )
+  ) {
+    throw new Error(`browser group ${group.name} snapshot identity is missing or inconsistent`);
+  }
   const target = executionTarget(group);
   const artifactRoot = groupArtifactRoot(target, group.name);
   secureMkdir(artifactRoot);
@@ -280,7 +295,7 @@ function main() {
   const expectedMeasurementPredicates = ac043PredicateIDsForRows(root, rows);
   if (expectedMeasurementPredicates.length > 0) {
     try {
-      collectFrontendMeasurementSummaries({
+      collectFrontendMeasurementObservations({
         expectedPredicateIDs: expectedMeasurementPredicates,
         reportPaths: [reportPath],
         runRoot: runRoot(),
@@ -300,7 +315,7 @@ function main() {
   const wallDurationMs = Date.now() - started;
   writeRowResults(rowResults, "playwright", startedAt, finishedAt, wallDurationMs);
   const result = {
-    schema_id: "cartulary.browser_group_result.v4",
+    schema_id: "cartulary.browser_group_result.v5",
     target_id: target,
     stage_id: stage.name,
     group_id: group.name,
@@ -314,6 +329,12 @@ function main() {
     fixture_capabilities: [...new Set(rows.map((row) => row.fixture_capability))].sort(),
     service_dependencies: [...new Set(rows.flatMap((row) => row.service_dependencies))].sort(),
     resource_profile_ids: [...new Set(rows.map((row) => row.resource_profile_id))].sort(),
+    ...(group.fixtureProfileID
+      ? {
+          fixture_profile_id: group.fixtureProfileID,
+          snapshot_key: snapshotKey,
+        }
+      : {}),
     selected_rows: rows.map((row) => row.row_id).sort(),
     started_at: startedAt,
     finished_at: finishedAt,

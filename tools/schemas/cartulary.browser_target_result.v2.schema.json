@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.browser_target_result.v1",
+  "$id": "cartulary.browser_target_result.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,7 +12,7 @@
     "generated_at"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.browser_target_result.v1" },
+    "schema_id": { "const": "cartulary.browser_target_result.v2" },
     "target_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
     "status": { "enum": ["pass", "fail"] },
     "generated_at": { "type": "string", "format": "date-time" },
@@ -51,7 +51,7 @@
             "type": "array",
             "minItems": 2,
             "maxItems": 2,
-            "items": { "$ref": "cartulary.browser_group_result.v4#/$defs/artifact" }
+            "items": { "$ref": "cartulary.browser_group_result.v5#/$defs/artifact" }
           }
         }
       }
@@ -65,7 +65,7 @@
         "required": ["kind", "ref", "sha256"],
         "properties": {
           "kind": {
-            "enum": ["frontend_measurement_aggregate_v1", "frontend_visual_reconciliation_v1"]
+            "enum": ["frontend_measurement_aggregate_v2", "frontend_visual_reconciliation_v1"]
           },
           "ref": {
             "$ref": "#/$defs/run_relative_path"

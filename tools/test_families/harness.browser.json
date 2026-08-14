@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v4",
+  "schema_id": "cartulary.test_family_manifest.v5",
   "owner_id": "harness.browser",
   "rows": [
     {
@@ -477,6 +477,76 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.integration.performance_fixture_snapshot_lifecycle",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [
+        "module.auth",
+        "module.entities",
+        "module.incidents",
+        "module.links",
+        "module.projections",
+        "module.timeline",
+        "platform.objectstore",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./tools/testservices",
+        "tests": [
+          "TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "harness.browser.integration.performance_fixture_source_owner_assembly",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [
+        "module.auth",
+        "module.entities",
+        "module.incidents",
+        "module.links",
+        "module.projections",
+        "module.timeline",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/performancefixtureassembly",
+        "tests": [
+          "TestProductionClosedAssemblerBuildsExactDeterministicFixture_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "harness.browser.integration.runtime_reset_recovery_purpose_contract",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.integration",
@@ -552,6 +622,95 @@
       ]
     },
     {
+      "row_id": "harness.browser.unit.performance_fixture_runtime_and_assembler",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/performancefixture",
+        "tests": [
+          "TestAssemblerDigestIsDeterministicAndRedacted",
+          "TestAssemblerPropagatesContributionFailure",
+          "TestAssemblerRejectsInvalidClosureBeforeMutation",
+          "TestAssemblerRejectsReceiptAndSemanticMutation",
+          "TestRuntimeBundleIsSuiteRandomPrivateCopiedAndRemoved",
+          "TestRuntimeBundleRejectsInsecureAndUnknownContent"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.unit.performance_fixture_snapshot_key",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [
+        "module.database_migrations"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/performancefixture",
+        "tests": [
+          "TestSnapshotKeyMatchesCrossLanguageVectors",
+          "TestSnapshotKeyRejectsNonCanonicalOrUnsupportedInput"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.unit.source_owner_contribution_assembler",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [
+        "module.auth",
+        "module.entities",
+        "module.incidents",
+        "module.links",
+        "module.projections",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/performancefixtureassembly",
+        "tests": [
+          "TestClosedAssemblerProducesExactDeterministicRedactedSemantics",
+          "TestClosedAssemblerPropagatesOwnerFailure",
+          "TestClosedDescriptorsMatchAuthoredRegistry"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.unit.testservices_lifecycle_contract",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",
@@ -577,6 +736,12 @@
           "TestCleanupPreviousSuiteServiceContainersTimeoutThenGone",
           "TestCleanupPreviousSuiteServiceContainersTimeoutThenRemovingOrDead",
           "TestCleanupWebE2ERetiresFixtureWithoutImmediateCleanup",
+          "TestPerformanceFixtureArtifactsAreImmutableAndRedacted",
+          "TestPerformanceFixtureBuildArgumentsRequireCanonicalClosedIdentity",
+          "TestPerformanceFixtureCleanupIsActiveCompleteAndIdempotentlyOwned",
+          "TestPerformanceFixtureCleanupRetainsFailureAndContinuesIndependentCleanup",
+          "TestPerformanceFixtureOwnedNamesAreDeterministicAndBounded",
+          "TestPerformanceFixtureRuntimeJanitorIsBoundedAndIdentityScoped",
           "TestPrepareWebE2ECleansFixtureWhenEnvWriteFails",
           "TestPrepareWebE2ERequiresActiveSuiteAndTemplate",
           "TestPrepareWebE2EWritesShellEnvAndMetadata",

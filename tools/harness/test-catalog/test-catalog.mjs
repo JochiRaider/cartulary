@@ -8,6 +8,7 @@ import {
 import path from "node:path";
 
 import { validateSchemaSync } from "../contract/index.mjs";
+import { loadPerformanceFixtureSnapshotRegistry } from "./performance-fixture-snapshot.mjs";
 import { loadVerificationContracts } from "./verification-contracts.mjs";
 import { assertSortedUnique, resolveRowSelector } from "./selector-resolution.mjs";
 import { assertFixtureServiceDependencies } from "./service-dependencies.mjs";
@@ -18,7 +19,7 @@ import {
 } from "./semantic-json.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
-const familyManifestSchemaID = "cartulary.test_family_manifest.v4";
+const familyManifestSchemaID = "cartulary.test_family_manifest.v5";
 const rowMigrationSchemaID = "cartulary.test_catalog_row_migration.v1";
 const runnerRegistrySchemaID = "cartulary.test_runner_registry.v1";
 export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";
@@ -207,7 +208,52 @@ function loadRunnerRegistry(root) {
   return { registry, byID };
 }
 
-function validateRowSemantics({ row, manifest, verification, runners, profiles, label }) {
+export function validateFixtureProfile({ row, fixtureProfiles, label }) {
+  const requiredBindings = row.verification_ids
+    .map((verificationID) => fixtureProfiles.verificationBindings.get(verificationID))
+    .filter(Boolean);
+  const requiredProfileIDs = new Set(requiredBindings.map((entry) => entry.fixture_profile_id));
+  if (requiredProfileIDs.size > 1) {
+    throw new Error(label + ".verification_ids require incompatible fixture profiles");
+  }
+  if (requiredProfileIDs.size === 1 && !row.fixture_profile_id) {
+    throw new Error(label + ".fixture_profile_id is required by its verification binding");
+  }
+  if (!row.fixture_profile_id) return;
+  const profile = fixtureProfiles.profiles.get(row.fixture_profile_id);
+  if (!profile || profile.status !== "active") {
+    throw new Error(label + ".fixture_profile_id is unknown or inactive");
+  }
+  if (requiredProfileIDs.size === 0) {
+    throw new Error(label + ".fixture_profile_id has no verification binding");
+  }
+  if (!requiredProfileIDs.has(row.fixture_profile_id)) {
+    throw new Error(label + ".fixture_profile_id diverges from its verification binding");
+  }
+  const compatibility = profile.compatibility;
+  const actual = {
+    runner: row.runner,
+    evidence_class: row.evidence_class,
+    selector_stage: row.selector.stage,
+    runtime_profile_id: row.runtime_profile_id,
+    resource_profile_id: row.resource_profile_id,
+    fixture_capability: row.fixture_capability,
+    service_dependencies: row.service_dependencies,
+  };
+  if (canonicalJSONString(actual) !== canonicalJSONString(compatibility)) {
+    throw new Error(label + ".fixture_profile_id is incompatible with the catalog row");
+  }
+}
+
+function validateRowSemantics({
+  row,
+  manifest,
+  verification,
+  runners,
+  profiles,
+  fixtureProfiles,
+  label,
+}) {
   if (row.owner_id !== manifest.owner_id) {
     throw new Error(`${label}.owner_id must equal ${manifest.owner_id}`);
   }
@@ -304,6 +350,7 @@ function validateRowSemantics({ row, manifest, verification, runners, profiles, 
   ) {
     throw new Error(`${label}.resource_profile_id requires a postgres runtime profile`);
   }
+  validateFixtureProfile({ row, fixtureProfiles, label });
 }
 
 export function loadTestCatalog(root) {
@@ -319,6 +366,7 @@ export function loadTestCatalog(root) {
   const knownOwnerIDs = new Set(verification.registry.owners.map((entry) => entry.owner_id));
   const runners = loadRunnerRegistry(root);
   const profiles = loadTopologyProfiles(root);
+  const fixtureProfiles = loadPerformanceFixtureSnapshotRegistry(root);
   const taskSurface = readStrictJSON(path.join(root, "tools/task_surface_owner.json"));
   const taskSurfaceCommandIDs = new Set(taskSurface.targets.map((entry) => entry.command_id));
   const manifests = [];
@@ -346,7 +394,15 @@ export function loadTestCatalog(root) {
     assertSortedUnique(manifestRowIDs, `${owner.manifest_path}.rows.row_id`);
     for (const [index, row] of manifest.rows.entries()) {
       const label = `${owner.manifest_path}.rows[${index + 1}]`;
-      validateRowSemantics({ row, manifest, verification, runners, profiles, label });
+      validateRowSemantics({
+        row,
+        manifest,
+        verification,
+        runners,
+        profiles,
+        fixtureProfiles,
+        label,
+      });
       if (rowIDs.has(row.row_id)) {
         throw new Error(`duplicate row_id ${row.row_id}`);
       }
@@ -413,6 +469,18 @@ export function loadTestCatalog(root) {
       rows.filter((row) => row.runner === runner).length,
     ]),
   );
+  for (const [verificationID, binding] of fixtureProfiles.verificationBindings) {
+    const matchingRows = rows.filter((row) =>
+      row.verification_ids.includes(verificationID) &&
+      row.fixture_profile_id === binding.fixture_profile_id,
+    );
+    if (matchingRows.length !== 1) {
+      throw new Error(
+        "fixture verification binding " + verificationID +
+        " must resolve to exactly one catalog row",
+      );
+    }
+  }
   const catalogSemanticDigest = semanticJSONDigest({
     schema_id: registry.schema_id,
     owners: registry.owners.map((owner, index) => ({
@@ -427,6 +495,7 @@ export function loadTestCatalog(root) {
     })),
     runner_registry: runners.registry,
     profiles: profiles.semantic,
+    fixture_profiles: fixtureProfiles.semantic_projection,
     row_migrations: rowMigrations,
   });
   const summary = {
@@ -463,6 +532,7 @@ export function loadTestCatalog(root) {
     verification,
     runners: runners.registry,
     profiles,
+    fixtureProfiles,
     rowMigrations,
     summary,
     test_catalog_digest: catalogSemanticDigest,

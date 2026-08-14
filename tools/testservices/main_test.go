@@ -1765,12 +1765,13 @@ func defaultTestDependencies(t testing.TB) testDeps {
 			preflightSuite: func(context.Context, map[string]string) (suitePreflightResult, error) {
 				return suitePreflightResult{DockerEndpoint: "unix:///var/run/docker.sock", DockerOK: true, ReaperReady: true}, nil
 			},
-			createTemplate:      func(context.Context, string, string) error { return nil },
-			prepareWebE2E:       func(context.Context, map[string]string) (webE2EFixture, error) { return webE2EFixture{}, nil },
-			resetWebE2EDB:       func(context.Context, string, string) error { return nil },
-			cleanupWebE2EDB:     func(context.Context, webE2EMetadata, map[string]string) error { return nil },
-			cleanupWebE2EBucket: func(context.Context, webE2EMetadata, map[string]string) error { return nil },
-			detectWebE2ELeaks:   func(context.Context, []webE2EMetadata, map[string]string) error { return nil },
+			createTemplate:        func(context.Context, string, string) error { return nil },
+			prepareWebE2E:         func(context.Context, map[string]string) (webE2EFixture, error) { return webE2EFixture{}, nil },
+			resetWebE2EDB:         func(context.Context, string, string) error { return nil },
+			cleanupWebE2EDB:       func(context.Context, webE2EMetadata, map[string]string) error { return nil },
+			cleanupWebE2EBucket:   func(context.Context, webE2EMetadata, map[string]string) error { return nil },
+			cleanupWebE2ESessions: func(context.Context, map[string]string, string) error { return nil },
+			detectWebE2ELeaks:     func(context.Context, []webE2EMetadata, map[string]string) error { return nil },
 			recordEvent: func(env map[string]string, event suiteservices.Event) {
 				_ = suiteservices.RecordEvent(env, event)
 			},

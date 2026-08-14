@@ -27,7 +27,7 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 export const renderIndexSchemaID = "cartulary.execution_topology_render_index.v1";
-const generatorVersion = 2;
+const generatorVersion = 3;
 const renderedOutputKeys = [
   "task_surface_manifest",
   "browser_e2e_batch_manifest",
@@ -188,6 +188,23 @@ function collectCatalogInputs(inputs, seen, catalogRoot) {
       "verification_owner_contract",
       path.join(catalogRoot, owner.contract_path),
     );
+  }
+  const fixtureRegistryPath = path.join(
+    catalogRoot,
+    "tools",
+    "performance_fixture_snapshot_owner.json",
+  );
+  addFileInput(inputs, seen, "performance_fixture_snapshot_owner", fixtureRegistryPath);
+  const fixtureRegistry = readJSON(fixtureRegistryPath);
+  for (const profile of fixtureRegistry.profiles ?? []) {
+    for (const ref of profile.source_contract_refs ?? []) {
+      addFileInput(
+        inputs,
+        seen,
+        "performance_fixture_source_contract",
+        path.join(catalogRoot, ref.path),
+      );
+    }
   }
 }
 
