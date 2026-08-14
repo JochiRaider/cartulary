@@ -10,7 +10,7 @@ const concreteSurfacePaths = [
   "components/AssessmentWorkbookSurface.tsx",
   "components/EntityWorkbookSurface.tsx",
   "components/GenericWorkbookSurface.tsx",
-  "timeline/components/TimelineWorkbook.tsx",
+  "timeline/presentation/TimelineWorkbookView.tsx",
 ] as const;
 
 function productionTypeScriptPaths(directory: string): string[] {

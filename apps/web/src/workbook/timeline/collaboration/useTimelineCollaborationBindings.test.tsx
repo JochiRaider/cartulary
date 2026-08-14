@@ -84,7 +84,7 @@ describe("useTimelineCollaborationBindings", () => {
     const rowsRef = {
       current: [committedRow("record-1", 1, "Before"), draft],
     };
-    const setRows = vi.fn();
+    const replaceRows = vi.fn();
     const beginRowsLoad = vi.fn();
     const refreshRows = vi.fn(async () => undefined);
     let knownVersion = 1;
@@ -110,7 +110,10 @@ describe("useTimelineCollaborationBindings", () => {
           refreshRows,
           resolveClientTxn,
           rowsRef,
-          setRows,
+          rowStoreCommands: {
+            replaceRows,
+            updateRows: vi.fn(),
+          },
         }),
       { initialProps: { sheetId: "saved-view-1" } },
     );
@@ -171,7 +174,7 @@ describe("useTimelineCollaborationBindings", () => {
 
     fixture.activeSurface()?.invalidate({ kind: "incident_access_lost" });
     expect(rowsRef.current).toEqual([draft]);
-    expect(setRows).toHaveBeenLastCalledWith([draft]);
+    expect(replaceRows).toHaveBeenLastCalledWith([draft]);
 
     act(() => {
       result.current.commands.publishPresence({
@@ -214,7 +217,10 @@ describe("useTimelineCollaborationBindings", () => {
         refreshRows: async () => undefined,
         resolveClientTxn: () => false,
         rowsRef,
-        setRows: () => undefined,
+        rowStoreCommands: {
+          replaceRows: () => undefined,
+          updateRows: () => undefined,
+        },
       }),
     );
 

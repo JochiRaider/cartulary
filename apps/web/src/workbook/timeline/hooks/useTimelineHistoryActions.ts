@@ -5,6 +5,7 @@ import {
   useEffect,
 } from "react";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
+import type { TimelineCommittedRecordIdleResult } from "../models/timelineControllerPorts";
 import type {
   RecordHistoryData,
   RecordHistoryItem,
@@ -26,11 +27,6 @@ type TimelineHistoryLoadRowsOptions = {
   showLoading: boolean;
   freshnessRetryDepth?: number;
   viewportContinuityToken?: number;
-};
-
-type TimelineCommittedRecordIdleResult = {
-  row: unknown;
-  rowVersion: number;
 };
 
 export function buildRecordRollbackTargetFromHistoryAction(

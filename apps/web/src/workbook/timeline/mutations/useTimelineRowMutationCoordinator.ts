@@ -20,6 +20,7 @@ import type {
   PendingReplayRuntimeMeta,
   TimelineMutableRef,
   TimelineRowMutationEditorPort,
+  TimelineRowStoreCommands,
 } from "../models/timelineControllerPorts";
 import { ensureTimelineDraftRow } from "../models/timelineRowsModel";
 import type { DismissedMention } from "../models/workbookMentionChips";
@@ -85,6 +86,7 @@ function isCollectionDraftKey(
  */
 export function useTimelineRowMutationCoordinator({
   advanceViewportContinuity,
+  clearActiveCollectionInputKey,
   clearViewportContinuity,
   editorDraftRegistry,
   editorPort,
@@ -94,17 +96,17 @@ export function useTimelineRowMutationCoordinator({
   pendingSavesRefs,
   rowsRef,
   selectedRowId,
-  setActiveCollectionInputKey,
   setAutoResolutionNotices,
   setDismissedMentionsByRow,
   setPendingQueueSnapshot,
-  setRows,
+  rowStoreCommands,
   setSelectedRowId,
 }: {
   readonly advanceViewportContinuity: (
     token?: number,
     options?: { readonly target?: TimelineViewportContinuityTarget | null },
   ) => void;
+  readonly clearActiveCollectionInputKey: (focusKey: string) => void;
   readonly clearViewportContinuity: (token: number) => void;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly editorPort: TimelineRowMutationEditorPort;
@@ -114,7 +116,6 @@ export function useTimelineRowMutationCoordinator({
   readonly pendingSavesRefs: WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
   readonly selectedRowId: string | null;
-  readonly setActiveCollectionInputKey: Dispatch<SetStateAction<string | null>>;
   readonly setAutoResolutionNotices: Dispatch<
     SetStateAction<AutoResolutionNotice[]>
   >;
@@ -124,9 +125,10 @@ export function useTimelineRowMutationCoordinator({
   readonly setPendingQueueSnapshot: (
     snapshot: WorkbookPendingQueueSnapshot,
   ) => void;
-  readonly setRows: Dispatch<SetStateAction<WorkbookRow[]>>;
+  readonly rowStoreCommands: TimelineRowStoreCommands;
   readonly setSelectedRowId: (recordId: string | null) => void;
 }) {
+  const { replaceRows, updateRows } = rowStoreCommands;
   const conflictQueueRef = useRef<Record<string, LocalConflictState>>({});
   const conflicts = useTimelineConflicts({ conflictQueueRef });
   const commonMutationSnapshot = useWorkbookMutationRuntime(
@@ -231,7 +233,7 @@ export function useTimelineRowMutationCoordinator({
       const committed = accepted.row;
       let draftSummaryKey: string | null = null;
       flushSync(() => {
-        setRows((current) => {
+        updateRows((current) => {
           previousRow =
             current.find((candidate) => candidate.key === rowKey) ??
             current.find(
@@ -272,9 +274,7 @@ export function useTimelineRowMutationCoordinator({
           return hydrated.rows;
         });
         if (options.clearActiveCollectionFocusKey !== undefined) {
-          setActiveCollectionInputKey((current) =>
-            current === options.clearActiveCollectionFocusKey ? null : current,
-          );
+          clearActiveCollectionInputKey(options.clearActiveCollectionFocusKey);
         }
       });
 
@@ -345,10 +345,10 @@ export function useTimelineRowMutationCoordinator({
       pruneAutoResolutionNoticesForRows,
       rowsRef,
       selectedRowId,
-      setActiveCollectionInputKey,
+      clearActiveCollectionInputKey,
       setAutoResolutionNotices,
       setDismissedMentionsByRow,
-      setRows,
+      updateRows,
       setSelectedRowId,
     ],
   );
@@ -456,7 +456,7 @@ export function useTimelineRowMutationCoordinator({
           nextRows.push(createDraftRow(nextDraftIndex()));
         }
         rowsRef.current = nextRows;
-        setRows(nextRows);
+        replaceRows(nextRows);
         return;
       }
 
@@ -542,7 +542,7 @@ export function useTimelineRowMutationCoordinator({
           : row,
       );
       rowsRef.current = nextRows;
-      setRows(nextRows);
+      replaceRows(nextRows);
     },
     [
       editorDraftRegistry,
@@ -551,7 +551,7 @@ export function useTimelineRowMutationCoordinator({
       nextDraftIndex,
       pendingSavesRefs,
       rowsRef,
-      setRows,
+      replaceRows,
     ],
   );
 
@@ -577,9 +577,9 @@ export function useTimelineRowMutationCoordinator({
     editorDraftRegistry,
     mutationRuntime,
     rowsRef,
+    rowStoreCommands,
     setActiveConflictKey,
     setConflictQueueState,
-    setRows,
   });
   const { activeConflict } = conflictProjection.snapshot;
   const { registerSameFieldConflict } = conflictProjection.commands;

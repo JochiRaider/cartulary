@@ -20,7 +20,10 @@ import type {
   PendingReplayUnitInput,
   PendingReplayUnitState,
 } from "../../utils/workbookPendingQueue";
-import type { PendingReplayRuntimeMeta } from "../models/timelineControllerPorts";
+import type {
+  PendingReplayRuntimeMeta,
+  TimelineRowStoreCommands,
+} from "../models/timelineControllerPorts";
 import type {
   FocusFieldKey,
   RowValues,
@@ -64,7 +67,7 @@ export function useTimelinePendingReplayController({
   rowsRef,
   requestAuthorizationRecovery,
   setRefreshError,
-  setRows,
+  rowStoreCommands,
   pendingMutationPort,
   trackPendingSocketTxn,
 }: {
@@ -116,10 +119,11 @@ export function useTimelinePendingReplayController({
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
   readonly requestAuthorizationRecovery: () => void;
   readonly setRefreshError: (message: string | null) => void;
-  readonly setRows: (rows: WorkbookRow[]) => void;
+  readonly rowStoreCommands: TimelineRowStoreCommands;
   readonly pendingMutationPort: WorkbookPendingMutationPort;
   readonly trackPendingSocketTxn: (clientTxnId: string) => void;
 }) {
+  const { replaceRows } = rowStoreCommands;
   const completionCallbacksRef = useRef(
     new Map<string, Array<(outcome: GridEditCommitOutcome) => void>>(),
   );
@@ -152,9 +156,9 @@ export function useTimelinePendingReplayController({
           : row,
       );
       rowsRef.current = nextRows;
-      setRows(nextRows);
+      replaceRows(nextRows);
     },
-    [pendingSavesRefs, rowsRef, setRows],
+    [pendingSavesRefs, replaceRows, rowsRef],
   );
 
   const schedulePendingReplayRetry = useCallback(() => {

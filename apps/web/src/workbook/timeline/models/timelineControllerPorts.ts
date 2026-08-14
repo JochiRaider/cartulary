@@ -12,6 +12,23 @@ export type TimelineMutableRef<T> = {
   current: T;
 };
 
+export type TimelineRowsUpdater = (current: WorkbookRow[]) => WorkbookRow[];
+
+export type TimelineCommittedRecordIdleResult = {
+  readonly row: WorkbookRow | null;
+  readonly rowVersion: number;
+};
+
+export type TimelineRowContextMenuPosition = {
+  readonly x: number;
+  readonly y: number;
+};
+
+export type TimelineRowStoreCommands = {
+  readonly replaceRows: (rows: WorkbookRow[]) => void;
+  readonly updateRows: (updater: TimelineRowsUpdater) => void;
+};
+
 export type TimelinePasteTargetResolution = {
   readonly anchor: GridCellAnchor | null;
   readonly targetResolution: GridPasteTargetResolution;

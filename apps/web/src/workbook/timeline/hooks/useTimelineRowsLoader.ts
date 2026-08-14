@@ -20,6 +20,7 @@ import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDr
 import type {
   PendingReplayRuntimeMeta,
   TimelineMutableRef,
+  TimelineRowStoreCommands,
 } from "../models/timelineControllerPorts";
 import { ensureTimelineDraftRow } from "../models/timelineRowsModel";
 import type {
@@ -75,7 +76,7 @@ export function useTimelineRowsLoader({
   setLoadAccessLost,
   setLoadError,
   setRefreshError,
-  setRows,
+  rowStoreCommands,
   viewQuery,
 }: {
   readonly acceptCommittedTimelineRows: (rows: readonly WorkbookRow[]) => void;
@@ -129,9 +130,10 @@ export function useTimelineRowsLoader({
   readonly setLoadAccessLost: (lost: boolean) => void;
   readonly setLoadError: (message: string | null) => void;
   readonly setRefreshError: (message: string | null) => void;
-  readonly setRows: Dispatch<SetStateAction<WorkbookRow[]>>;
+  readonly rowStoreCommands: TimelineRowStoreCommands;
   readonly viewQuery: WorkbookViewQueryPort;
 }) {
+  const { replaceRows } = rowStoreCommands;
   const queryRuntimeRef = useRef<LatestQueryRuntime>({
     controller: null,
     sequence: 0,
@@ -332,7 +334,7 @@ export function useTimelineRowsLoader({
         ) {
           editorDraftRegistry.clearAll();
           rowsRef.current = [];
-          setRows([]);
+          replaceRows([]);
           setLoadAccessLost(true);
           setLoadError(message);
           setIsInitialLoading(false);
@@ -405,7 +407,7 @@ export function useTimelineRowsLoader({
       );
       rowsRef.current = hydratedRows;
       const commitProjectionAndFollowUps = () => {
-        setRows(hydratedRows);
+        replaceRows(hydratedRows);
         options.afterProjectionCommit?.();
         setDismissedMentionsByRow((current) => {
           let next = current;
@@ -484,7 +486,7 @@ export function useTimelineRowsLoader({
       setLoadAccessLost,
       setLoadError,
       setRefreshError,
-      setRows,
+      replaceRows,
       viewQuery,
     ],
   );

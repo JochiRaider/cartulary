@@ -19,6 +19,7 @@ import {
 import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
 import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { TimelineRowContextMenuPosition } from "../models/timelineControllerPorts";
 import type {
   RecordHistoryState,
   RowHistoryPendingAction,
@@ -34,11 +35,6 @@ import type {
 
 type TimelineRowsRef = {
   readonly current: readonly WorkbookRow[];
-};
-
-type TimelineRowContextMenuPosition = {
-  readonly x: number;
-  readonly y: number;
 };
 
 type TimelineRowContextMenuState = {

@@ -88,7 +88,7 @@ export function useTimelineGridAnchorController({
   readonly updateWorkbookFocusAnchor: (anchor: null) => void;
 }) {
   const restoreTimelineFocusAnchor = useCallback(
-    (anchor: GridCellAnchor | WorkbookContinuityAnchor) => {
+    (anchor: GridCellAnchor | WorkbookContinuityAnchor): boolean => {
       const semanticAnchor: WorkbookContinuityAnchor | null =
         "rowIdentity" in anchor
           ? anchor.rowIdentity.kind === "core_record"
@@ -103,8 +103,7 @@ export function useTimelineGridAnchorController({
             : null
           : anchor;
       return semanticAnchor === null
-        ? (gridHandleRef.current?.focusAnchor(anchor as GridCellAnchor) ??
-            false)
+        ? gridHandleRef.current?.focusAnchor(anchor as GridCellAnchor) === true
         : continuityPort.focus(semanticAnchor);
     },
     [continuityPort, gridHandleRef],

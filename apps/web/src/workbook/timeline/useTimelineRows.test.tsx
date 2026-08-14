@@ -12,7 +12,7 @@ it("useTimelineRows owns the initial draft row ref and monotonic draft index", (
   expect(result.current.nextDraftIndex()).toBe(3);
 
   act(() => {
-    result.current.setRows([]);
+    result.current.commands.replaceRows([]);
   });
   expect(result.current.rows).toEqual([]);
   expect(result.current.rowsRef.current).toBe(result.current.rows);

@@ -5,6 +5,7 @@ import {
 } from "../../runtime/workbookPendingReplayRuntime";
 import type {
   PendingReplayRuntimeMeta,
+  TimelineCommittedRecordIdleResult,
   TimelineMutableRef,
 } from "../models/timelineControllerPorts";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
@@ -12,11 +13,6 @@ import type { WorkbookRow } from "../models/workbookTimelineModel";
 type TimelineCommittedRecordIdleOptions = {
   readonly fallbackRowVersion?: number | null | undefined;
   readonly refreshIfMissing?: boolean;
-};
-
-export type TimelineCommittedRecordIdleResult = {
-  readonly row: WorkbookRow | null;
-  readonly rowVersion: number;
 };
 
 export function useTimelineCommittedRecordIdle({

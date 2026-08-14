@@ -1,5 +1,4 @@
 import type { ViewContract } from "@cartulary/view-contracts";
-import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import type { PresenceRecord } from "../../utils/workbookPresence";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
@@ -24,6 +23,8 @@ import { useTimelineScalarRenderers } from "./useTimelineScalarRenderers";
 export type { TimelineWorkbookRenderers } from "./TimelineWorkbookRendererTypes";
 
 export function useTimelineWorkbookRenderers({
+  activateCollectionInput,
+  activateConflictCell,
   activeCollectionInputKey,
   conflictQueue,
   commitScalarGridEdit,
@@ -43,11 +44,12 @@ export function useTimelineWorkbookRenderers({
   queueCollectionSave,
   readOnly,
   rowGutterWidth,
-  setActiveCollectionInputKey,
-  setActiveConflictKey,
+  deactivateCollectionInput,
   timelineContract,
   updateTimelineSurfaceFocusAnchor,
 }: {
+  readonly activateCollectionInput: (focusKey: string) => void;
+  readonly activateConflictCell: (key: string | null) => void;
   readonly activeCollectionInputKey: string | null;
   readonly conflictQueue: Record<string, { readonly key: string }>;
   readonly commitScalarGridEdit: TimelineScalarGridCommit;
@@ -77,8 +79,7 @@ export function useTimelineWorkbookRenderers({
   readonly queueCollectionSave: TimelineCollectionSave;
   readonly readOnly: boolean;
   readonly rowGutterWidth: number;
-  readonly setActiveCollectionInputKey: Dispatch<SetStateAction<string | null>>;
-  readonly setActiveConflictKey: Dispatch<SetStateAction<string | null>>;
+  readonly deactivateCollectionInput: (focusKey: string) => void;
   readonly timelineContract: ViewContract;
   readonly updateTimelineSurfaceFocusAnchor: (
     recordId: string | null,
@@ -122,11 +123,12 @@ export function useTimelineWorkbookRenderers({
     handleSelectRow,
     readOnly,
     registerInput,
-    setActiveConflictKey,
+    setActiveConflictKey: activateConflictCell,
     timelineBindingLabel,
     updateTimelineSurfaceFocusAnchor,
   });
   const renderTimelineCollectionInput = useTimelineCollectionRenderer({
+    activateCollectionInput,
     activeCollectionInputKey,
     entityIndex,
     handleCollectionInputChange,
@@ -137,7 +139,7 @@ export function useTimelineWorkbookRenderers({
     queueCollectionSave,
     readOnly,
     registerInput,
-    setActiveCollectionInputKey,
+    deactivateCollectionInput,
     timelineBindingLabel,
     updateTimelineSurfaceFocusAnchor,
   });

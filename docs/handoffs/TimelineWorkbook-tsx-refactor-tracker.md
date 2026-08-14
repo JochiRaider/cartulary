@@ -2019,3 +2019,1117 @@ The affected PR slice MUST stop and reopen planning if implementation discovers:
   Future work should extend the explicit private commands and common
   presentation model directly rather than recreating callback mirrors,
   forwarding facades, or Timeline-to-common presentation back-edges.
+
+## 18. Controlling Composition-Decomposition Iteration
+
+DX-00 through DX-07 define the next planned Timeline Workbook refactoring
+iteration. Sections 1 through 17 remain historical evidence for the completed S
+and PR iterations. They do not authorize this new iteration and MUST NOT be
+rewritten to describe future DX work as completed history.
+
+The live planning baseline leaves `TimelineWorkbook.tsx` as a 1,568-line
+composition root with 70 import declarations, 16 `useCallback` calls, 12
+`useMemo` calls, eight `useRef` references, two effects, and two layout effects.
+Its remaining size is predominantly orchestration: semantic adapter creation,
+query and row state, mutation admission, pending replay, collaboration,
+continuity, inspector workflows, editing interactions, presentation derivation,
+and shell rendering still meet in one component.
+
+This is an implementation-structure concern. Core 00 through Core 04,
+`docs/domain.md`, and `docs/research/nlspec-spec.md` expose no behavioral,
+vocabulary, or ownership contradiction requiring specification repair.
+Components, hooks, composition folders, and package paths remain
+implementation-support details. Domain vocabulary is unchanged.
+
+### Planning and future implementation authority
+
+| Authority field | Required value | Current value |
+| --- | --- | --- |
+| Planning task ID | Stable identifier for this documentation update | `user-timeline-workbook-composition-decomposition-plan-2026-08-14` |
+| Planning baseline | Exact clean source revision inspected for the plan | `09604d144662fca71583ebb4eafdd71d6d671521` |
+| Baseline worktree | Tracked and untracked state before this documentation write | Clean |
+| Current-step authorization | Exact artifacts allowed to change now | The implementation artifacts in the next row, adopted for DX-00 through DX-07 |
+| Implementation authorization | Later user task adopting an exact DX range and live source identity | `GRANTED` by `user-timeline-workbook-composition-remediation-2026-08-14` for DX-00 through DX-07 sequentially |
+| Implementation starting identity | Immutable live revision and pre-existing worktree state before the first implementation write | `09604d144662fca71583ebb4eafdd71d6d671521`; the only pre-existing change was the staged Sections 18 through 22 planning update to this tracker |
+| Authorized artifacts | Timeline composition, component, hook, model, and focused-test sources; `apps/web/src/README.md`; frontend import/source-ownership policy; authored test-family inputs; Make-generated test topology when an authored input changes; and this tracker | Adopted for DX-00 through DX-07 |
+| Prohibited artifacts | Public API, selector, route, protocol, persistence, backend, dependency, package-export, Core/domain/NLSpec, unrelated workbook, compatibility-wrapper, and hand-edited generated changes | Binding default; any required exception stops the affected slice |
+| Current public contract | `TimelineWorkbookProps`, `TimelineWorkbook`, `TimelineWorkbookSurfaceRuntime`, the private `useTimelineWorkbookRenderers` facade, the sole production-facade caller, and all observable behavior | Frozen for DX-00 through DX-07 |
+
+The implementation task recorded above is the sole authority for DX-00 through
+DX-07. The immutable starting identity and pre-existing staged tracker change
+were recorded before any production, test, ownership, catalog, README, or
+generated-artifact write.
+
+### Current ownership and caller posture
+
+- `WorkbookSurfacesFacade.tsx` remains the sole production importer of
+  `TimelineWorkbook`; `TimelineWorkbookRuntimeFixture.tsx` is retained test
+  composition.
+- The Timeline package remains owned by `web.workbook`, with independent
+  `module.timeline`, `module.workbook`, and `web.architecture` semantic evidence
+  where the applicable postcondition belongs to those owners.
+- Protocol translation remains in Timeline adapters. Composition and
+  presentation MUST consume semantic ports and MUST NOT import generated
+  protocol envelopes or browser services.
+- The completed PR iteration already removed callback mirrors, forwarding
+  surfaces, duplicated draft allocation, and reversed common-presentation
+  imports. DX work MUST extend those boundaries, not recreate them under new
+  names.
+
+### Behavior and compatibility freeze
+
+DX work MUST preserve routes, envelopes, `view_schema_id`, `sheet_ref`,
+`record_id`, `row_version`, field keys, authorization outcomes, selector
+identities, accessibility semantics, draft continuity, row-version admission,
+stale retry bounds, FIFO pending replay, conflict recovery, focus restoration,
+presence publication, inspector reset and Escape priority, field order and
+widths, clipboard and fill behavior, bulk action behavior, Entity-dependent
+Timeline previews, package exports, and persisted data.
+
+No compatibility alias, dual composition path, React Context registry, service
+locator, feature flag, dependency, generalized workbook abstraction, or data
+migration is planned. A private symbol moves with all callers in its originating
+slice; the superseded inline path is removed in that same rollback unit.
+
+## 19. Target Architecture and Private Contracts
+
+The final dependency direction is:
+
+`TimelineWorkbook -> root composition -> presentation model -> stateless view`
+
+Lower-level Timeline adapters, models, ports, mutation owners, collaboration
+owners, editing owners, bulk owners, and leaf hooks remain below the new private
+composition layer. Presentation remains above composition and receives only
+grouped render-ready state and semantic commands.
+
+### Composition owners
+
+| Owner | Required responsibility | Required output boundary | Prohibited responsibility |
+| --- | --- | --- | --- |
+| `useTimelineSurfaceFoundation` | Construct semantic Timeline adapters and own query lifecycle, row, mention, pending-save, and editor-draft-registry foundations. | Grouped `snapshot`, `commands`, `ports`, and `refs` for base state only. | Grid DOM behavior, mutation/replay policy, inspector workflows, JSX, or transport envelopes. |
+| `useTimelineGridEnvironment` | Own grid/shell refs, width observation, visible-column registration, focus anchors, grid continuity, viewport continuity, and the row-mutation editor adapter. | Measured width, semantic refs, continuity ports, and focus/anchor commands. | Query, replay, inspector feature, mutation outcome, or presentation policy. |
+| `useTimelineInspectorStateComposition` | Own selected-row derivation, inspector feedback, open/close continuity capture, invalidation, and row-history state. | Inspector state snapshot plus semantic selection/open/history commands. | Network actions, feature execution, renderer construction, or shell JSX. |
+| `useTimelineMutationComposition` | Compose row admission, loading, committed-idle waiting, collaboration, presence, pending replay, runtime registration, and scalar/collection/action mutation commands. | Nested query, save, conflict, replay, collaboration, and presence capabilities. | Inspector-specific presentation, grid JSX, or mutable callback bridges. |
+| `useTimelineInspectorWorkflowComposition` | Compose related-record workflows, feature routing, member options, history actions, mention actions, evidence attachment, row menus, close, and Escape behavior. | Inspector workflow snapshot and semantic commands suitable for presentation. | Scalar/collection renderer construction or transport calls. |
+| `useTimelineInteractionComposition` | Compose bulk tagging, keyboard commands, clipboard paste, fill, draft creation, scalar/collection commits, and accessible conflict/draft focus commands. | Grid/editor/bulk snapshots and semantic interaction commands. | Shell JSX, query admission, replay registration, or inspector state ownership. |
+| `useTimelineWorkbookComposition` | Invoke the six composition owners above in the declared order and expose one grouped Timeline composition result. | Foundation, grid, inspector, mutation, workflow, and interaction groups without flattening them into a service locator. | Domain behavior, JSX, DOM queries, transport, duplicate state, or compatibility forwarding. |
+
+The root invocation order is fixed:
+
+1. surface foundation;
+2. grid environment;
+3. inspector state;
+4. mutation/query/collaboration composition;
+5. inspector workflows; and
+6. editing and grid interactions.
+
+This ordering reflects real data dependencies. It MUST NOT be implemented with
+conditional hook calls, render-time registration, callback placeholders, or
+cross-composer mutable refs.
+
+### Presentation owners
+
+| Owner | Required responsibility | Prohibited responsibility |
+| --- | --- | --- |
+| `useTimelineWorkbookPresentation` | Convert the root composition result into grouped grid, inspector, status, view-bar, overlay, and work-area models; invoke the retained renderer facade and inspector-section factories; derive visible columns, grid rows, load/empty state, and actionable conflict state. | Mutation execution policy, transport, lifecycle registration, raw query admission, or ownership of authoritative state. |
+| `TimelineWorkbookView` | Render `WorkbookSurfaceLayout` from the grouped presentation model. | State, refs, effects, adapter construction, domain decisions, or direct composition-hook calls. |
+| Timeline inspector region | Render the Timeline inspector and Indicator supplement from inspector presentation state. | Feature routing, history execution, or load policy. |
+| Timeline view bar and bulk controls | Render inline/saved query controls and the selected-row bulk tag UI. | Query reduction, eligibility calculation, or mutation submission policy. |
+| Timeline overlays | Render notices and the row context menu from explicit state and commands. | Pending queue, conflict, history, or row-action ownership. |
+
+`TimelineWorkbook.tsx` retains the public prop type, keyed inner component, and
+collaboration session boundary. Its inner component calls only
+`useTimelineWorkbookComposition`, `useTimelineWorkbookPresentation`, and
+`TimelineWorkbookView`. The final file owns no direct `useState`, `useRef`,
+`useEffect`, `useLayoutEffect`, DOM-global access, adapter construction, leaf
+controller call, mutation policy, feature policy, or inline shell region.
+
+### Private contract rules
+
+- Composition results use explicit grouped `snapshot`, `commands`, `ports`,
+  and `refs` objects. They MUST NOT expose a flat bag of unrelated callbacks.
+- Raw React setters remain private to their semantic owner unless an existing
+  shell-owned query or layout contract requires the setter shape.
+- Shared composition types live in a neutral Timeline model/port source and
+  MUST NOT import hooks, components, or transport DTOs.
+- The root composer is the only composition source allowed to import sibling
+  composition sources. Other composers communicate through explicit inputs and
+  neutral private contracts.
+- Leaf hooks remain independently testable and MUST NOT import the composition
+  layer. Composition coordinates leaf owners; it does not replace them.
+- Presentation components MUST NOT invoke composition hooks directly or receive
+  mutation-runtime, pending-runtime, transport, or collaboration-coordinator
+  objects.
+- Extraction is rejected when it merely moves the current body into one opaque
+  mega-hook or creates an equally broad view-model file without distinct
+  reasons to change.
+
+### Planned import-boundary enforcement
+
+Future implementation adds authored policy that enforces all of the following:
+
+- Timeline adapters, bulk, collaboration, editing, hooks, models, mutations,
+  and ports do not import `timeline/composition/**`.
+- `timeline/composition/**` does not import Timeline components, protocol
+  packages, or browser-service implementations.
+- Composition sources do not import sibling composition sources except for
+  `useTimelineWorkbookComposition`.
+- Timeline components do not import composition hooks except for
+  `TimelineWorkbook.tsx`.
+- Existing common-workbook-to-Timeline presentation prohibitions and Timeline
+  workflow transport prohibitions remain active.
+
+### Baseline-to-target responsibility map
+
+| Baseline region in `TimelineWorkbook.tsx` | Current responsibility | Target owner |
+| --- | --- | --- |
+| Lines 139-303 | Contract selection, adapter construction, layout/query lifecycle, rows, mentions, pending saves | Surface foundation |
+| Lines 304-388 and 477-631 | Grid refs, measurement, focus anchors, viewport continuity, editor adapter, anchor commands | Grid environment |
+| Lines 389-476 | Selection, inspector coordination, continuity capture, history state | Inspector state composition |
+| Lines 526-670 and 725-917 | Row admission, loading, collaboration, replay, runtime binding, presence, mutation commands | Mutation composition |
+| Lines 671-769 and 862-987 | Related workflows, feature routing, inspector lifecycle, row actions, history, mentions, evidence | Inspector workflow composition |
+| Lines 770-838 and 988-1146 | Bulk tagging, keyboard, paste, fill, draft and editor commands, accessible focus actions | Interaction composition |
+| Lines 1147-1318 | Renderers, visible columns, grid rows, inspector sections, load and conflict presentation | Workbook presentation owner |
+| Lines 1320-1553 | Inspector, grid, status, view bar, notices, context menu, work-area shell | Stateless view and focused regions |
+| Lines 1555-1568 | Public export and collaboration session boundary | Remains in `TimelineWorkbook.tsx` |
+
+Line ranges describe the immutable planning baseline only. Future
+implementation records exact symbol/file operations rather than treating these
+line numbers as durable ownership.
+
+## 20. DX Workstreams
+
+The planned implementation sequence is:
+
+`DX-00 -> DX-01 -> DX-02 -> DX-03 -> DX-04 -> DX-05 -> DX-06 -> DX-07`
+
+Each slice is independently reversible and MUST complete its source, tests,
+ownership, catalog, conditional generated topology, README, and tracker
+checkpoint before the next begins.
+
+### DX-00 - Authority and characterization gate
+
+- **Areas:** Tracker authority, live source/caller inventory, responsibility
+  map, import graph, and focused pre-move evidence.
+- **Remediation:** Record the implementation task, exact authorized DX range,
+  immutable live revision, artifact boundaries, source snapshot, and rollback
+  posture. Map every inline responsibility to one target owner and every moved
+  behavior to an existing or new exact selector. Characterize reload/access
+  loss, width observation and cleanup, focus/viewport continuity, inspector
+  lifecycle, replay/conflict recovery, collaboration/presence, keyboard,
+  clipboard, fill, bulk actions, load/empty/error state, notices, context menu,
+  and Entity-dependent Timeline previews.
+- **Rationale and benefit:** Hook ordering and lifecycle effects are observable
+  indirectly; evidence must distinguish required sequencing from incidental
+  source layout before code moves.
+- **Compatibility and migration:** Tests, verification metadata, and tracker
+  evidence only. No product or data migration.
+- **Risk if unresolved:** A structural move can silently change cleanup,
+  authorization recovery, focus priority, or replay order while appearing
+  behavior-neutral.
+- **Exit:** Every responsibility has one current owner, target owner, caller,
+  value disposition, selector, and rollback boundary. No owner contradiction or
+  uncharacterizable required behavior remains.
+
+#### DX-00 implementation checkpoint
+
+- **Status and dependency:** COMPLETE at immutable source revision
+  `09604d144662fca71583ebb4eafdd71d6d671521`; DX-01 is unblocked.
+- **Authority:** User task
+  `user-timeline-workbook-composition-remediation-2026-08-14` authorizes
+  DX-00 through DX-07 sequentially. The only pre-existing worktree change was
+  the staged Sections 18 through 22 planning update to this tracker.
+- **Files changed:** This tracker only. No production, test, ownership,
+  catalog, README, or generated artifact changed in DX-00.
+- **Responsibility and caller map:** The Section 19 baseline-to-target map is
+  complete for the 1,568-line source. `WorkbookSurfacesFacade.tsx` remains the
+  sole production caller and `TimelineWorkbookRuntimeFixture.tsx` remains a
+  test-only composition caller. Every moved responsibility retains continuing
+  value and moves rather than being deleted; the rollback boundary is the
+  originating DX slice. Core/domain behavior, routes, selectors, security, and
+  persisted state remain out of scope.
+- **Characterization map:** Query/runtime and access-loss behavior is owned by
+  the existing `web.workbook` runtime, WorkbookShell query, collaboration, and
+  public-route rows. Grid continuity is owned by the three
+  `timelineviewportcontinuitymodel_*` rows and the five
+  `workbookshell__sentinel_grid_anchor_shell_support_*` rows. Inspector
+  lifecycle and routing are owned by
+  `timeline_inspector_lifecycle_close_71780eefa1`,
+  `timeline_inspector_feature_controller_a38c2d6f71`, and the existing
+  `module.workbook` inspector rows. Replay/conflict and runtime cleanup are
+  owned by `timeline_runtime_bindings_cleanup_f184aff191`, the WorkbookShell
+  collaboration/action-sequencing rows, and the pending-queue model rows.
+  Presence, fill, keyboard, mention undo, bulk tag, paste, autosave, and Entity
+  preview behavior retain their existing exact rows recorded in the live
+  `web.workbook`, `module.timeline`, and `module.workbook` manifests. PR-04's
+  retained measurement, accessibility, and visual roots remain applicable
+  because production source is unchanged.
+- **Ownership and private contracts:** Every live Timeline source path has the
+  single owner `web.workbook`. The six target composers, root composer,
+  presentation hook, and stateless view use the Section 19 grouped private
+  contracts. No raw transport, generated protocol, grid vendor, credential,
+  or server-authorization responsibility is admitted.
+- **Commands:** `make frontend-typecheck` PASS at
+  `.cartulary/test-results/20260814T170122Z-p111504`;
+  `make frontend-import-boundary-check` PASS at
+  `.cartulary/test-results/20260814T170122Z-p111528`;
+  `make json-shape-check` PASS at
+  `.cartulary/test-results/20260814T170122Z-p111290`;
+  `make test-catalog-check` PASS; `make test-slice OWNER=web.architecture`
+  PASS, 12/12 units, at
+  `.cartulary/test-results/20260814T170133Z-p112722`; and
+  `make test-slice OWNER=web.workbook` PASS, 133/133 units, at
+  `.cartulary/test-results/20260814T170133Z-p112724`.
+- **Generation, deviation, and rollback:** Generation impact is `none`; no
+  authored generator input changed. No owner contradiction, missing behavior,
+  public-contract deviation, or migration was found. Rollback is this
+  checkpoint's tracker diff only.
+- **Next action:** Pass the tracker Markdown checkpoint, then implement DX-01's
+  foundation, neutral contracts, root composer, and import policy as one
+  rollback unit.
+
+### DX-01 - Composition layer and surface foundation
+
+- **Areas:** New private composition layer, neutral private contracts, adapter
+  construction, base query/row/mention/pending/editor state, import policy,
+  focused tests, README, ownership/catalog metadata, and tracker.
+- **Remediation:** Add `useTimelineSurfaceFoundation` and the root
+  `useTimelineWorkbookComposition`. Move semantic adapter construction,
+  `useTimelineWorkbookRuntime`, rows, mentions, pending saves, and editor-draft
+  registry ownership from the component. Add root-only sibling-composition and
+  lower-layer-no-composition boundary rules. Delete the migrated inline path in
+  the same slice.
+- **Rationale and benefit:** Later composers receive stable semantic
+  foundations without constructing transports, duplicating state, or importing
+  presentation.
+- **Compatibility and migration:** Private imports and types only; no shim or
+  package export.
+- **Risk if unresolved:** Later slices either duplicate foundation state or
+  create a hidden service locator around the existing component body.
+- **Exit:** Foundation state has one owner; lower layers cannot import
+  composition; only the root composer can import sibling composers; no adapter,
+  query lifecycle, row, mention, pending-save, or editor-registry construction
+  remains inline.
+
+#### DX-01 implementation checkpoint
+
+- **Status and dependency:** COMPLETE against starting revision
+  `09604d144662fca71583ebb4eafdd71d6d671521`; DX-02 is unblocked after this
+  checkpoint passes Markdown validation.
+- **Production files:** Added
+  `composition/useTimelineSurfaceFoundation.ts` and
+  `composition/useTimelineWorkbookComposition.ts`. Updated
+  `TimelineWorkbook.tsx`, `useTimelineRows.ts`, the neutral
+  `timelineControllerPorts.ts` contract, and the existing row consumers in the
+  loader, conflict, replay, collaboration, and mutation coordinator/command
+  owners. Updated `apps/web/src/README.md` with the private composition owners.
+- **Moved and deleted responsibility:** Adapter construction, guarded timing,
+  query lifecycle, Timeline rows, mentions, pending saves, and editor-draft
+  registry now have one foundation owner. Their former construction path was
+  deleted from `TimelineWorkbook.tsx`. Raw `setRows` no longer crosses the row
+  owner; callers receive stable semantic `replaceRows` and `updateRows`
+  commands plus a stable read ref. No alias, forwarding facade, duplicate
+  state, feature flag, or transport dependency was introduced.
+- **Private-contract and dependency review:** The root returns the named
+  `foundation` group. Its output is grouped as `snapshot`, `commands`, `ports`,
+  and `refs`; it accepts the narrow query and mutation identities needed to
+  construct the foundation. New import rules prohibit lower Timeline layers
+  from importing composition, prohibit presentation/protocol/service imports
+  from composition, restrict sibling-composer imports to the root, and
+  restrict composition-hook callers under components to
+  `TimelineWorkbook.tsx`.
+- **Tests, ownership, and catalog:** Added the exact selector
+  `useTimelineSurfaceFoundation owns stable adapter row query and pending
+  foundations` as row
+  `web.workbook.regression.timeline_surface_foundation_owns_stable_adapter_02f2dc6f6f`.
+  It proves stable adapter, row/ref, pending-ref, semantic replacement, and
+  query-state behavior. Updated the affected row-consumer tests, authored
+  source ownership, `web.workbook` test-family input, and the Make-generated
+  execution-topology index.
+- **Commands:** `make format` PASS at
+  `.cartulary/test-results/20260814T171132Z-p119268`; `make generate` PASS at
+  `.cartulary/test-results/20260814T171327Z-p133273`; `make generate-drift`
+  PASS at `.cartulary/test-results/20260814T171336Z-p136141`;
+  `make generated-artifact-policy-check` PASS at
+  `.cartulary/test-results/20260814T171344Z-p138998`; the new exact row PASS at
+  `.cartulary/test-results/20260814T171218Z-p125863`;
+  `make frontend-typecheck` PASS at
+  `.cartulary/test-results/20260814T171236Z-p129751`;
+  `make frontend-import-boundary-check` PASS at
+  `.cartulary/test-results/20260814T171246Z-p130234`;
+  `make test-catalog-check` PASS; `make json-shape-check` PASS at
+  `.cartulary/test-results/20260814T171251Z-p130902`;
+  `make test-slice OWNER=web.architecture` PASS, 12/12 units, at
+  `.cartulary/test-results/20260814T171345Z-p139412`; and
+  `make test-slice OWNER=web.workbook` PASS, 134/134 units, at
+  `.cartulary/test-results/20260814T171350Z-p139964`.
+- **Failures and correction:** The first post-extraction typecheck failed at
+  `.cartulary/test-results/20260814T170707Z-p116133` because three test fixtures
+  still supplied the removed raw setter; all were converted to the semantic
+  row-store contract. The first architecture slice failed at
+  `.cartulary/test-results/20260814T171254Z-p131325` because the two new source
+  paths were not ASCII-sorted in their ownership entry; the authored entry was
+  reordered and the full owner slice passed. Neither failure exposed a product
+  behavior change.
+- **Compatibility, risk, and rollback:** Public props, facade caller, runtime,
+  selectors, routes, wires, authorization, accessibility, and persisted data
+  are unchanged. No specification, backend, package-export, dependency, or data
+  migration was needed. DX-01 is one rollback unit comprising the new
+  composition sources, semantic row-store conversion, tests, policies,
+  ownership/catalog inputs, generated projection, README, and this checkpoint.
+- **Next action:** Pass `make lint-markdown`, then begin DX-02 by moving grid
+  environment and inspector state lifecycle into their two explicit owners.
+
+### DX-02 - Grid environment and inspector state
+
+- **Areas:** Grid/DOM environment, width measurement, focus and viewport
+  continuity, inspector selection/open/history state, import ownership, focused
+  lifecycle tests, README, metadata, and tracker.
+- **Remediation:** Add `useTimelineGridEnvironment` and
+  `useTimelineInspectorStateComposition`. Move grid, shell, anchor, focus,
+  continuity, and inspector refs; the width observer and fallback cleanup;
+  visible-column registration; the row-mutation editor adapter; selected-row
+  derivation; inspector continuity capture; invalidation; and row-history state.
+- **Rationale and benefit:** DOM lifecycle and inspector lifecycle gain explicit
+  owners and cannot be reassembled differently by future features.
+- **Compatibility and migration:** Private ref and command migration. Preserve
+  measurement rounding, resize/visual-viewport behavior, animation-frame
+  follow-up, focus restoration, selected-row semantics, and reset keys.
+- **Risk if unresolved:** Ref bundles and capture order remain implicit global
+  state in the composition root, making concurrent rendering and future grid or
+  inspector work brittle.
+- **Exit:** `TimelineWorkbook.tsx` owns no grid/inspector ref, measurement
+  effect, continuity token, selection state, inspector open-state adapter, or
+  history state. Focused tests prove observer cleanup/fallback, width updates,
+  column registration, continuity reset, selection, close, and focus restore.
+
+#### DX-02 implementation checkpoint
+
+- **Status and dependency:** COMPLETE against starting revision
+  `09604d144662fca71583ebb4eafdd71d6d671521`; DX-03 is unblocked after this
+  checkpoint passes Markdown validation.
+- **Production files:** Added `composition/useTimelineGridEnvironment.ts` and
+  `composition/useTimelineInspectorStateComposition.ts`; updated the root
+  composer, `TimelineWorkbook.tsx`, and the Timeline composition README table.
+- **Moved and deleted responsibility:** The grid environment now owns the grid,
+  shell, recovery, focus-anchor, visible-column, and viewport-token refs;
+  rounded shell measurement; resize, visual-viewport, animation-frame, and
+  observer cleanup; focus/anchor/viewport commands; and row-mutation editor
+  adaptation. Inspector state composition now owns selected/draft-row
+  derivation, feedback, open/close continuity capture, reset/invalidation, and
+  row-history state. The corresponding refs, state, measurement effect,
+  coordinator, continuity adapter, history hook, and editor-adapter
+  construction were deleted from the component.
+- **Private-contract review:** The root invokes foundation, grid, then inspector
+  in dependency order. Grid consumes only reset identity, the editor registry,
+  and the row read ref. Inspector consumes only semantic continuity, mention
+  state, role, rows, reset identity, and the focus-anchor ref. DOM focus and
+  measurement remain inside the grid owner and are exposed through semantic
+  commands. The component temporarily performs only the planned
+  presentation-side visible-column registration effect; the grid owns the sole
+  registration command, and DX-06 moves that synchronization with
+  presentation.
+- **Tests, ownership, and catalog:** Added
+  `useTimelineCompositionLifecycle.test.tsx` with exact rows
+  `timeline_grid_environment_owns_rounded_measureme_98b38c69d0` and
+  `timeline_inspector_state_preserves_continuity_an_39d7b2c152`. They prove
+  width flooring, resize response, observer cleanup, selection/open state,
+  continuity capture, close focus capture, and reset-key selection cleanup.
+  Updated authored source ownership and `web.workbook` test-family input, then
+  regenerated the execution-topology index.
+- **Commands:** `make format` PASS at
+  `.cartulary/test-results/20260814T172141Z-p159018`; `make generate` PASS at
+  `.cartulary/test-results/20260814T172205Z-p163402`; both new exact rows PASS,
+  3/3 units including prerequisite, at
+  `.cartulary/test-results/20260814T172214Z-p166276`;
+  `make frontend-typecheck` PASS at
+  `.cartulary/test-results/20260814T172147Z-p162555`;
+  `make frontend-import-boundary-check` PASS at
+  `.cartulary/test-results/20260814T172157Z-p163031`;
+  `make generate-drift` PASS at
+  `.cartulary/test-results/20260814T172225Z-p166956`;
+  `make generated-artifact-policy-check` PASS at
+  `.cartulary/test-results/20260814T172233Z-p169834`;
+  `make test-catalog-check` PASS; `make json-shape-check` PASS at
+  `.cartulary/test-results/20260814T172235Z-p170543`;
+  `make test-slice OWNER=web.architecture` PASS, 12/12 units, at
+  `.cartulary/test-results/20260814T172238Z-p170972`;
+  `make test-slice OWNER=web.workbook` PASS, 136/136 units, at
+  `.cartulary/test-results/20260814T172244Z-p172460`; and
+  `make browser-e2e-measurement` PASS, 27/27 units, at
+  `.cartulary/test-results/20260814T172326Z-p187086`.
+- **Failures and correction:** The first extraction typecheck failed at
+  `.cartulary/test-results/20260814T171929Z-p156993` only for three obsolete
+  component aliases left after ownership moved. Removing those aliases produced
+  the passing typecheck above; no runtime or contract failure occurred.
+- **Compatibility, risk, and rollback:** Width rounding, resize fallback,
+  visual-viewport response, follow-up frame, continuity reset, selected-row
+  semantics, inspector close, focus restoration, public contracts, selectors,
+  and visual behavior are retained. No golden, specification, backend,
+  protocol, dependency, or data migration changed. DX-02 is one rollback unit
+  comprising the two composers, root/component wiring, direct tests,
+  ownership/catalog inputs, generated projection, README, and this checkpoint.
+- **Next action:** Pass `make lint-markdown`, then compose the explicit query,
+  mutation, replay, collaboration, presence, and runtime-registration graph in
+  DX-03.
+
+### DX-03 - Query, mutation, replay, and collaboration graph
+
+- **Areas:** Row mutation coordination, query loading, pending replay,
+  collaboration/presence, runtime binding, semantic mutation commands, focused
+  runtime tests, metadata, README, and tracker.
+- **Remediation:** Add `useTimelineMutationComposition`. Move the row mutation
+  coordinator, loader and reload effect, committed-record-idle command,
+  collaboration binding, pending replay, runtime registration, presence
+  controller, and scalar/collection/action mutation command composition. Return
+  nested query, save, conflict, replay, collaboration, and presence capabilities
+  rather than a flat callback bag.
+- **Rationale and benefit:** The state-changing dependency graph becomes one
+  lifecycle-owned unit while leaf controllers remain isolated and independently
+  testable.
+- **Compatibility and migration:** Private wiring only. Preserve query
+  generation admission, bounded stale retry, draft retention, row-version high
+  watermarks, FIFO replay, authorization recovery, presence reset, save-state
+  copy, and conflict outcomes.
+- **Risk if unresolved:** The public component continues to encode execution
+  ordering across independently named hooks, so a future feature can reorder a
+  correctness dependency accidentally.
+- **Exit:** No query admission, refresh/retry, replay, conflict, save-state,
+  collaboration, presence, socket-resolution, or authorization-recovery policy
+  remains in the component. Mount/change/unmount tests prove concrete command
+  registration and cleanup without callback placeholders.
+
+#### DX-03 implementation checkpoint
+
+- **Status and dependency:** COMPLETE against starting revision
+  `09604d144662fca71583ebb4eafdd71d6d671521`; DX-04 is unblocked after this
+  checkpoint passes Markdown validation.
+- **Production files:** Added
+  `composition/useTimelineMutationComposition.ts`; updated the root composer,
+  `TimelineWorkbook.tsx`, and the Timeline composition README table.
+- **Moved and deleted responsibility:** Row-version admission, conflict/save
+  projection, query loading and reload observation, committed-record idle
+  waiting, collaboration admission/binding, pending replay, runtime command
+  registration, presence reset/publication, authorization recovery, and
+  scalar/collection/action mutation commands now form one explicit mutation
+  composition graph. Every corresponding leaf-hook call, callback bridge,
+  derived conflict-cell map, reload effect, and assembly block was deleted from
+  the component.
+- **Private-contract review:** The composer accepts explicit runtime ports plus
+  narrow foundation row/pending/lifecycle capabilities, grid continuity/editor
+  capabilities, and inspector selection commands. It does not receive the
+  complete surface runtime or either preceding group. It returns nested
+  collaboration, editor, identity, mutation, presence, query, replay, save,
+  conflict, and registration capabilities. Leaf hooks remain independent;
+  registration uses the concrete final commands in one render path, with no
+  placeholder callbacks, mutable callback bridge, service locator, transport
+  DTO, or presentation import.
+- **Behavior and evidence disposition:** Existing exact rows continue to own
+  query freshness, high-water admission, conflict recovery, pending FIFO,
+  save-state copy, collaboration invalidation/teardown, presence reset, and
+  runtime registration. Focused rows passed for the row coordinator at
+  `.cartulary/test-results/20260814T173715Z-p230402`, collaboration at
+  `.cartulary/test-results/20260814T173719Z-p230919`, presence and runtime
+  cleanup at `.cartulary/test-results/20260814T173723Z-p231435`, and pending
+  ordering/save presentation at
+  `.cartulary/test-results/20260814T173727Z-p232037`.
+- **Ownership and generation:** Added the composer to authored frontend source
+  ownership and ran `make generate` PASS at
+  `.cartulary/test-results/20260814T173706Z-p227528`. No test selector changed;
+  the existing exact rows remained the correct semantic owners.
+- **Commands:** `make format` PASS at
+  `.cartulary/test-results/20260814T173652Z-p224015`;
+  `make frontend-typecheck` PASS at
+  `.cartulary/test-results/20260814T173738Z-p232736`;
+  `make frontend-import-boundary-check` PASS at
+  `.cartulary/test-results/20260814T173748Z-p233221`;
+  `make test-catalog-check` PASS; `make json-shape-check` PASS at
+  `.cartulary/test-results/20260814T173752Z-p233871`;
+  `make generate-drift` PASS at
+  `.cartulary/test-results/20260814T173755Z-p234278`;
+  `make generated-artifact-policy-check` PASS at
+  `.cartulary/test-results/20260814T173803Z-p237155`;
+  `make test-slice OWNER=web.architecture` PASS, 12/12 units, at
+  `.cartulary/test-results/20260814T173804Z-p237569`;
+  `make test-slice OWNER=web.workbook` PASS, 136/136 units, at
+  `.cartulary/test-results/20260814T173810Z-p239073`;
+  `make test-slice OWNER=module.timeline` PASS, 82/82 units, at
+  `.cartulary/test-results/20260814T173851Z-p253622`; and
+  `make browser-e2e-stateful` PASS, 36/36 units, at
+  `.cartulary/test-results/20260814T174517Z-p294275`.
+- **Failures and correction:** The first extraction typecheck failed at
+  `.cartulary/test-results/20260814T173525Z-p222193` for obsolete imports and
+  aliases after the inline graph was deleted. Removing them produced the
+  passing typecheck above; no behavior or contract assertion failed.
+- **Compatibility, risk, and rollback:** Latest-query admission, stale retry,
+  draft retention, FIFO replay, high-water row versions, conflict recovery,
+  presence authorization reset, access-loss recovery, public contracts,
+  selectors, routes, wires, and persisted data are unchanged. No golden,
+  specification, backend, protocol, dependency, or data migration changed.
+  DX-03 is one rollback unit comprising the mutation composer, root/component
+  wiring, ownership/generation, README, and this checkpoint.
+- **Next action:** Pass `make lint-markdown`, then move related-record,
+  Indicator, history, mention, Evidence, row-menu, close, and Escape workflows
+  into the cohesive DX-04 inspector workflow owner.
+
+### DX-04 - Inspector workflows
+
+- **Areas:** Related-record and Indicator workflows, reference options, history,
+  mentions, evidence, row interactions, close/Escape behavior, inspector tests,
+  README, metadata, and tracker.
+- **Remediation:** Add `useTimelineInspectorWorkflowComposition`. Move
+  create-related state/actions, fail-closed feature routing, incident-member
+  options, history actions, mention actions, evidence attachment, row selection
+  interactions and context menu, shared close behavior, and Escape priority.
+  Expose presentation-neutral inspector workflow state and commands.
+- **Rationale and benefit:** New inspector panels can extend one explicit
+  workflow contract without importing mutation internals or adding another
+  lifecycle path to the public component.
+- **Compatibility and migration:** Private composition only. Preserve feature
+  tuple validation, messages, selected mention/entity identity, evidence and
+  history semantics, row-menu actions, inspector closure, and focus behavior.
+- **Risk if unresolved:** Inspector features remain coupled through incidental
+  hook order and acquire inconsistent reset, cancellation, or focus rules as
+  future panels are added.
+- **Exit:** Inspector behavior has one grouped state/workflow boundary; no
+  presentation-to-mutation back-edge exists; feature, history, mention,
+  evidence, close, Escape, context-menu, accessibility, and Entity-preview
+  evidence passes.
+
+#### DX-04 implementation checkpoint
+
+- **Status and dependency:** COMPLETE against starting revision
+  `09604d144662fca71583ebb4eafdd71d6d671521`; DX-05 is unblocked after this
+  checkpoint passes Markdown validation.
+- **Production files:** Added
+  `composition/useTimelineInspectorWorkflowComposition.ts`; updated the root
+  composer, `TimelineWorkbook.tsx`, and the Timeline composition README table.
+- **Moved and deleted responsibility:** Related-record workflow state,
+  fail-closed feature routing, incident-member reference options, row
+  selection/context-menu interactions, shared close lifecycle, row-history
+  actions, mention resolution and undo, Evidence attachment, resolve-target
+  feedback, and Escape priority now have one inspector workflow owner. All
+  corresponding hook calls, feature lifecycle tuple construction, reference
+  assembly, and callbacks were deleted from the component.
+- **Private-contract review:** The composer consumes explicit semantic
+  foundation ports/state, grid continuity/focus capabilities, inspector
+  selection/lifecycle/history capabilities, mutation commands, and incident
+  identities. It does not import presentation or receive the complete runtime,
+  mutation runtime, collaboration coordinator, pending runtime, generated
+  protocol, or transport DTO. Its output is grouped into workflow, feature,
+  history, mention, Evidence, row-interaction, close, and resolve-target
+  commands plus presentation-neutral snapshots.
+- **Focused evidence:** Feature routing, lifecycle close/reset, mention
+  auto-resolution/undo, and accessibility-name behavior passed together at
+  `.cartulary/test-results/20260814T175432Z-p335330`; the exact
+  `module.workbook` inspector-selection row passed at
+  `.cartulary/test-results/20260814T175436Z-p336064`. Existing Evidence,
+  history, row-menu, Entity-preview, and Indicator selectors remained unchanged
+  and passed in the full owner/browser evidence below.
+- **Ownership and generation:** Added the workflow composer to authored source
+  ownership and ran `make generate` PASS at
+  `.cartulary/test-results/20260814T175416Z-p332443`. No test selector changed;
+  existing exact semantic rows remained authoritative.
+- **Commands:** `make format` PASS at
+  `.cartulary/test-results/20260814T175345Z-p328084`;
+  `make frontend-typecheck` PASS at
+  `.cartulary/test-results/20260814T175448Z-p336659`;
+  `make frontend-import-boundary-check` PASS at
+  `.cartulary/test-results/20260814T175458Z-p337146`;
+  `make test-catalog-check` PASS; `make json-shape-check` PASS at
+  `.cartulary/test-results/20260814T175503Z-p337780`;
+  `make generate-drift` PASS at
+  `.cartulary/test-results/20260814T175506Z-p338182`;
+  `make generated-artifact-policy-check` PASS at
+  `.cartulary/test-results/20260814T175514Z-p341028`;
+  `make test-slice OWNER=web.architecture` PASS, 12/12 units, at
+  `.cartulary/test-results/20260814T175515Z-p341448`;
+  `make test-slice OWNER=web.workbook` PASS, 136/136 units, at
+  `.cartulary/test-results/20260814T175521Z-p342930`; and
+  `make browser-e2e-a11y` PASS, 14/14 units, at
+  `.cartulary/test-results/20260814T175605Z-p357415`.
+- **Failures and correction:** The first workflow extraction typecheck failed
+  at `.cartulary/test-results/20260814T175217Z-p327062` for obsolete component
+  aliases and an overly broad generic committed-record-idle return type. The
+  input contract was narrowed to the Evidence/Timeline row result and obsolete
+  aliases were removed. No behavior, security, accessibility, or contract
+  assertion failed.
+- **Compatibility, risk, and rollback:** Stable feature tuples, fail-closed
+  unsupported actions, messages, selected identities, history and Evidence
+  semantics, Entity previews, context-menu behavior, close/Escape priority,
+  focus restoration, selectors, and accessible names are unchanged. No golden,
+  specification, backend, protocol, dependency, or data migration changed.
+  DX-04 is one rollback unit comprising the workflow composer, root/component
+  wiring, ownership/generation, README, and this checkpoint.
+- **Next action:** Pass `make lint-markdown`, then move bulk, keyboard,
+  clipboard, fill, draft, commit, collection-input, and conflict/recovery focus
+  behavior into the DX-05 interaction owner.
+
+### DX-05 - Editing and grid interactions
+
+- **Areas:** Bulk tag, keyboard, clipboard, fill, draft creation,
+  scalar/collection commits, accessible focus actions, focused interaction
+  tests, README, metadata, and tracker.
+- **Remediation:** Add `useTimelineInteractionComposition`. Move bulk selection
+  and submission, keyboard controller wiring, scalar and multi-cell paste,
+  fill, blur and key commits, collection input tracking, explicit blank-draft
+  creation, draft focus, and conflict/recovery focus commands. Consume only the
+  semantic mutation, inspector, and grid-environment capabilities.
+- **Rationale and benefit:** All user-originated grid/editor commands share one
+  interaction boundary without owning mutation admission or presentation.
+- **Compatibility and migration:** Private command migration. Preserve stable
+  record/field targeting, quote-aware paste, fill rejection rules, current-value
+  commits, read-only behavior, bulk eligibility, focus order, and selectors.
+- **Risk if unresolved:** New editing modes must coordinate several unrelated
+  inline callbacks and can bypass conflict, continuity, or authorization rules.
+- **Exit:** No editor or grid command is assembled inline. Focused keyboard,
+  paste, fill, bulk, draft, conflict-focus, and autosave evidence passes.
+
+#### DX-05 implementation checkpoint
+
+- **Status and dependency:** COMPLETE against starting revision
+  `09604d144662fca71583ebb4eafdd71d6d671521`; DX-06 is unblocked after this
+  checkpoint passes Markdown validation.
+- **Production files:** Added
+  `composition/useTimelineInteractionComposition.ts`; updated the foundation,
+  mutation and root composers, semantic row-mutation input, grid-anchor return
+  contract, renderer facade, collection renderer, `TimelineWorkbook.tsx`, and
+  the Timeline composition README table.
+- **Moved and deleted responsibility:** Bulk tag eligibility/state/submission,
+  keyboard ownership, scalar/tabular paste, fill, scalar blur/key commits,
+  collection keyboard tracking, blank-draft creation, and conflict/recovery
+  focus activation now have one interaction owner. Their hook calls and inline
+  callbacks were deleted from the component. Mutation admission remains in
+  DX-03; DOM focus execution remains in the grid environment.
+- **Semantic collection-focus contract:** Collection focus state now lives
+  beside the editor registry in the foundation and crosses boundaries only as
+  `activateCollectionInput` and conditional `deactivateCollectionInput`
+  commands. The mutation coordinator consumes the conditional semantic clear
+  command; renderers no longer receive a raw React setter. This removes the
+  final raw row/editor setter crossing without changing focus behavior.
+- **Private-contract review:** The interaction composer consumes narrow
+  foundation editor/pending capabilities, grid navigation/focus commands,
+  inspector state commands, DX-03 mutation commands, DX-04 row/history
+  commands, query state, interaction mode, and role. It returns grouped bulk,
+  editor, grid, and conflict-focus models. It owns no query admission,
+  collaboration, replay, inspector workflow, DOM query, JSX, transport, or
+  presentation policy.
+- **Focused evidence:** The expanded foundation row plus fill, keyboard, and
+  quote-aware clipboard rows passed, 5/5 units including prerequisite, at
+  `.cartulary/test-results/20260814T180819Z-p406314`; the exact
+  `module.timeline` bulk-tag row passed at
+  `.cartulary/test-results/20260814T180824Z-p407139`.
+- **Ownership and generation:** Added the interaction composer to authored
+  source ownership and ran `make generate` PASS at
+  `.cartulary/test-results/20260814T180758Z-p403385`. No selector changed; the
+  existing exact behavior rows remained authoritative.
+- **Commands:** `make format` PASS at
+  `.cartulary/test-results/20260814T180754Z-p399985`;
+  `make frontend-typecheck` PASS at
+  `.cartulary/test-results/20260814T180836Z-p407724`;
+  `make frontend-import-boundary-check` PASS at
+  `.cartulary/test-results/20260814T180847Z-p408197`;
+  `make test-catalog-check` PASS; `make json-shape-check` PASS at
+  `.cartulary/test-results/20260814T180851Z-p408831`;
+  `make generate-drift` PASS at
+  `.cartulary/test-results/20260814T180854Z-p409238`;
+  `make generated-artifact-policy-check` PASS at
+  `.cartulary/test-results/20260814T180902Z-p412094`;
+  `make test-slice OWNER=web.architecture` PASS, 12/12 units, at
+  `.cartulary/test-results/20260814T180903Z-p412508`;
+  `make test-slice OWNER=web.workbook` PASS, 136/136 units, at
+  `.cartulary/test-results/20260814T180909Z-p413996`; and
+  `make browser-e2e-stateful` PASS, 36/36 units, at
+  `.cartulary/test-results/20260814T180950Z-p428316`.
+- **Failures and correction:** Intermediate gates exposed only extraction
+  mechanics: a misplaced patch line caused the format failure at
+  `.cartulary/test-results/20260814T180436Z-p386362`; typechecks at
+  `.cartulary/test-results/20260814T180505Z-p393505`,
+  `.cartulary/test-results/20260814T180607Z-p397723`, and
+  `.cartulary/test-results/20260814T180632Z-p398288` identified an imprecise
+  grid-commit result type, stale bulk identifier, nested keyboard result, test
+  fixture rename, and an insufficiently precise focus-return contract. Each was
+  corrected structurally before the passing gates. No product assertion
+  failed.
+- **Compatibility, risk, and rollback:** Stable record/field targeting,
+  quote-aware paste, fill rejection, current-value commits, read-only behavior,
+  bulk eligibility, event consumption, selectors, and focus ordering are
+  unchanged. No golden, specification, backend, protocol, dependency, or data
+  migration changed. DX-05 is one rollback unit comprising the interaction and
+  semantic focus changes, root/component wiring, focused test update,
+  ownership/generation, README, and this checkpoint.
+- **Next action:** Pass `make lint-markdown`, then build the presentation model
+  and stateless regions, move visible-column synchronization, and reduce the
+  public root to its required DX-06 boundary.
+
+### DX-06 - Presentation decomposition and slim public root
+
+- **Areas:** Presentation model, grid/inspector/status/view-bar/overlay regions,
+  `TimelineWorkbook.tsx`, visual and accessibility tests, README, import/source
+  ownership, catalog metadata, conditional topology, and tracker.
+- **Remediation:** Add `useTimelineWorkbookPresentation`, a stateless
+  `TimelineWorkbookView`, and focused inspector-region, view-bar/bulk-controls,
+  and overlay components. Move renderer and inspector-section invocation,
+  visible columns, grid rows, row gutter, load/empty/error state, conflict status,
+  notices, context menu, and `WorkbookSurfaceLayout` JSX. Delete superseded
+  inline branches without forwarding files.
+- **Rationale and benefit:** Presentation becomes render-only, future UI regions
+  have narrow props, and the public source reveals the subsystem architecture at
+  a glance.
+- **Compatibility and migration:** Private component/import migration. Preserve
+  rendered structure, field order, widths, test IDs, accessible names/live
+  regions, visual tokens, grid/editor behavior, and Entity previews.
+- **Risk if unresolved:** The large file survives as a presentation monolith or
+  the same complexity moves into one unbounded view-model hook.
+- **Exit:** `TimelineWorkbook.tsx` contains only the public contract,
+  collaboration boundary, keyed inner component, root composition call,
+  presentation call, and view render. It has no direct state/ref/effect,
+  DOM-global, adapter, leaf-controller, mutation, feature-policy, or inline shell
+  region. Measurement, accessibility, and visual suites pass with no golden
+  change unless separately authorized.
+
+#### DX-06 implementation checkpoint
+
+- **Status and dependency:** COMPLETE against starting revision
+  `09604d144662fca71583ebb4eafdd71d6d671521`; DX-07 is unblocked after this
+  checkpoint passes Markdown validation.
+- **Production files:** Added
+  `presentation/useTimelineWorkbookPresentation.tsx`,
+  `presentation/TimelineWorkbookView.tsx`, and focused inspector, view-bar, and
+  overlay region components. Updated the root composer, public component,
+  Timeline README, import policy, and the existing workbook layout-policy
+  fixture.
+- **Moved and deleted responsibility:** Renderer and inspector-section
+  invocation, visible-column derivation/synchronization, grid-row/gutter and
+  load-state derivation, conflict/status projection, and inspector, view-bar,
+  bulk, notice, and context-menu models moved into the presentation hook.
+  `WorkbookSurfaceLayout` and every former inline region moved into stateless
+  view components. All superseded JSX, callbacks, memo/effect calls, constants,
+  and presentation imports were deleted from `TimelineWorkbook.tsx`; no
+  forwarding component or alternate rendering path remains.
+- **Public-root disposition:** `TimelineWorkbook.tsx` is 50 lines and retains
+  only `TimelineWorkbookProps`, `TimelineWorkbook`, the keyed inner component,
+  collaboration boundary, root-composition call, presentation call, narrow
+  render-data projection, and view render. It contains no direct React state,
+  ref, effect, memo, callback, DOM global, leaf hook, adapter construction,
+  mutation policy, feature routing, or inline shell region.
+- **Private-contract review:** The root composer returns all required named
+  groups plus an explicit presentation projection. That projection contains
+  only display snapshots, semantic UI commands, structural grid refs, and the
+  editor-draft registry needed by renderer construction. The component creates
+  exact entity and query-control objects rather than passing their wider
+  runtime owners. Presentation therefore cannot receive pending-save runtime
+  refs, adapters, mutation runtime, pending mutation port, collaboration
+  coordinator, authorization-recovery callback, replay/registration ports,
+  generated protocol, or browser service. Composition imports neither
+  presentation nor components.
+- **Cohesion review:** The presentation hook is a bounded derivation owner: it
+  invokes the existing renderer and inspector-section facades, performs the
+  sole visible-column layout synchronization, and returns named `grid`,
+  `inspector`, `layout`, `overlays`, `status`, and `viewBar` models. Rendering is
+  split among four stateless regions; mutation, query admission, collaboration,
+  replay, authorization, and lifecycle policy remain in their composition
+  owners. This is neither a service locator nor an opaque replacement hook.
+- **Tests, ownership, and catalog:** Added
+  `timelineCompositionArchitecture.test.ts` with exact rows
+  `timeline_workbook_presentation_regions_remain_st_f91e14f779` and
+  `timeline_workbook_public_root_remains_slim_and_i_72f70cc3fc`. They prove
+  stateless regions, forbidden-capability exclusion, the sole visible-column
+  synchronization, the slim root, and its sole production composition-hook
+  call. Updated source ownership and the `web.workbook` authored family, then
+  regenerated the execution-topology index. The existing layout-policy test
+  now checks the stateless Timeline view as the concrete geometry owner.
+- **Focused and static commands:** Both new rows PASS, 3/3 units including the
+  prerequisite, at
+  `.cartulary/test-results/20260814T183524Z-p582200`; `make format` PASS at
+  `.cartulary/test-results/20260814T183507Z-p577949`;
+  `make frontend-typecheck` PASS at
+  `.cartulary/test-results/20260814T183511Z-p581421`;
+  `make frontend-import-boundary-check` PASS at
+  `.cartulary/test-results/20260814T183521Z-p581859`; `make generate` PASS at
+  `.cartulary/test-results/20260814T182244Z-p470996`; `make json-shape-check`
+  PASS at `.cartulary/test-results/20260814T182308Z-p475004`;
+  `make test-catalog-check` PASS; `make generate-drift` PASS at
+  `.cartulary/test-results/20260814T182311Z-p475400`; and
+  `make generated-artifact-policy-check` PASS at
+  `.cartulary/test-results/20260814T182319Z-p478254`.
+- **Owner and browser commands:** `make test-slice OWNER=web.architecture`
+  PASS, 12/12 units, at
+  `.cartulary/test-results/20260814T183549Z-p582948`; `make test-slice
+  OWNER=web.workbook` PASS, 138/138 units, at
+  `.cartulary/test-results/20260814T183554Z-p584435`;
+  `make browser-e2e-measurement` PASS, 27/27 units, at
+  `.cartulary/test-results/20260814T183637Z-p599401`;
+  `make browser-e2e-a11y` PASS, 14/14 units, at
+  `.cartulary/test-results/20260814T184318Z-p631643`; and
+  `make browser-e2e-visual` PASS, 14/14 units with no golden change, at
+  `.cartulary/test-results/20260814T184437Z-p656393`.
+- **Failures and correction:** The first direct architecture run at
+  `.cartulary/test-results/20260814T182132Z-p464974` correctly found that its
+  caller scan also matched the root composer's declaration. Narrowing the scan
+  to the invocation shape fixed that assertion. The next run at
+  `.cartulary/test-results/20260814T182202Z-p466041` exposed an invalid unescaped
+  brace in that scan's regular expression; escaping the literal braces produced
+  the passing exact rows above. No product, component, browser, accessibility,
+  measurement, or visual assertion failed.
+- **Compatibility, generation, and rollback:** Public props/exports, the
+  renderer facade, structure, field order/widths, selectors, accessibility
+  semantics, live regions, visual tokens, grid behavior, Entity previews,
+  routes, wires, authorization outcomes, and persisted data are unchanged. No
+  golden, specification, backend, protocol, dependency, package export, or data
+  migration changed. DX-06 is one rollback unit comprising the presentation
+  files, root/composer wiring, direct and layout-policy tests, README,
+  ownership/import/catalog inputs, generated topology, and this checkpoint.
+- **Next action:** Pass `make lint-markdown`, then perform DX-07 structural
+  closure, source/selector accounting, finalization, broad verification, and
+  handoff.
+
+### DX-07 - Structural closure, accounting, and handoff
+
+- **Areas:** Full Timeline/direct-consumer audit, source ownership, test-family
+  accounting, conditional generated topology, final validation, tracker, and
+  handoff.
+- **Remediation:** Audit for orphan files, oversized replacement owners, dead or
+  test-only exports, raw setters, hidden hook-order dependencies, mutable
+  callback wiring, duplicate semantic maps, transport/vendor leakage, reversed
+  imports, stale README entries, forwarding files, and unintended facade
+  callers. Reconcile every path and exact selector, then complete the DX
+  Definition of Done.
+- **Rationale and benefit:** Production readiness requires removal of the old
+  composition path and proof that decomposition did not merely redistribute the
+  same coupling.
+- **Compatibility and migration:** Accounting and cleanup only. No
+  compatibility layer or product migration.
+- **Risk if unresolved:** The package gains more files without gaining clearer
+  ownership, or verification/catalog drift makes the new structure difficult to
+  extend safely.
+- **Exit:** Every file has one reason to change and one source owner; every exact
+  selector has one active semantic row; no obsolete path or unexplained
+  dependency remains; generation, finalization, broad verification, diff,
+  worktree, and protected-root inspections pass.
+
+#### DX-07 implementation checkpoint
+
+- **Status and dependency:** COMPLETE against starting revision
+  `09604d144662fca71583ebb4eafdd71d6d671521`. DX-00 through DX-07 are complete;
+  no further implementation slice is pending.
+- **Closure cleanup:** Consolidated the duplicated context-menu position and
+  committed-record-idle result contracts into
+  `models/timelineControllerPorts.ts`, then changed both consumers to import the
+  neutral types. Updated the stale Timeline root description in the source
+  README. No compatibility alias, suppression, or forwarding export was added.
+- **Canonical test identity:** Reallocated the two DX-06 architecture rows with
+  `make author-test-row-id` before final handoff. Their final IDs are
+  `timeline_workbook_presentation_regions_remain_st_f91e14f779` and
+  `timeline_workbook_public_root_remains_slim_and_i_72f70cc3fc`; both exact
+  selectors PASS, 3/3 units including the prerequisite, at
+  `.cartulary/test-results/20260814T185214Z-p698637`. The earlier provisional
+  IDs existed only in this uncommitted iteration and require no migration row.
+- **Structural audit:** The final Timeline scope has no Fallow-reported unused
+  file, export, or type and no duplication group involving composition or
+  presentation. Every new source is reachable, substantive, and owner-listed.
+  No raw row setter, React setter contract, mutable callback bridge, lower-layer
+  composition/presentation import, protocol/vendor/service import, duplicate
+  semantic contract, alternate inline leaf-hook path, forwarding file, or
+  composition-to-presentation back-edge remains. The presentation owner is a
+  bounded derivation hook with six named output models and four stateless view
+  regions, not an opaque replacement monolith or service locator.
+- **Caller and public-contract audit:** `WorkbookSurfacesFacade.tsx` remains the
+  sole production importer/caller of `TimelineWorkbook`; the separate runtime
+  fixture remains test-only. `TimelineWorkbook.tsx` is the sole production
+  caller of the root composition hook, and the presentation hook is the sole
+  production caller of the renderer facade. `TimelineWorkbookProps`,
+  `TimelineWorkbook`, `TimelineWorkbookSurfaceRuntime`, the renderer facade,
+  selectors, routes, wire shapes, authorization outcomes, accessibility
+  semantics, package exports, and persisted data are unchanged.
+- **Ownership and selector accounting:** `make explain-test-owner` resolves
+  `web.architecture` to 11 static rows, `web.workbook` to 137 rows,
+  `module.timeline` to 65 rows, and `module.workbook` to 89 rows, with the
+  expected focused and service-backed routes. Source ownership covers every
+  final path exactly once, and `make test-catalog-check` confirms every exact
+  title has one active semantic row.
+- **Generation and protected roots:** `make generate` PASS at
+  `.cartulary/test-results/20260814T185142Z-p691710`;
+  `make generate-drift` PASS at
+  `.cartulary/test-results/20260814T185151Z-p694543`;
+  `make generated-artifact-policy-check` PASS at
+  `.cartulary/test-results/20260814T185159Z-p697437`; and
+  `make json-shape-check` PASS at
+  `.cartulary/test-results/20260814T185202Z-p698145`. The Make-generated
+  execution-topology render index is the only generated projection changed;
+  protected `internal/gen`, protocol-ts, and ui-contracts roots are untouched.
+- **Focused and module validation:** `make format` PASS at
+  `.cartulary/test-results/20260814T185055Z-p686560`;
+  `make frontend-typecheck` PASS at
+  `.cartulary/test-results/20260814T185058Z-p690033`;
+  `make frontend-import-boundary-check` PASS at
+  `.cartulary/test-results/20260814T185109Z-p690486`; and final
+  `make frontend-fallow-static` PASS at
+  `.cartulary/test-results/20260814T185117Z-p690937`. Full non-service owner
+  slices PASS for `module.timeline`, 82/82 units, at
+  `.cartulary/test-results/20260814T185236Z-p700178`, and `module.workbook`,
+  100/100 units, at
+  `.cartulary/test-results/20260814T185901Z-p740389`.
+- **Finalization and broad verification:** `make agent-finalize` PASS, 1/1, at
+  `.cartulary/test-results/20260814T190136Z-p781611`; retained-run maintenance
+  was intentionally skipped because `RESULTS_DIR` was unset and no prior full
+  warm-check root existed. The required subsequent `make check` PASS, 766/766,
+  at `.cartulary/test-results/20260814T190155Z-p784467`. Final
+  checkpoint `make lint-markdown` PASS at
+  `.cartulary/test-results/20260814T191001Z-p956808`; `git diff --check` passes;
+  tracked/untracked inspection shows only the authorized DX implementation,
+  authored metadata/documentation, the Make-generated topology projection, and
+  the controlling tracker. No visual golden or protected generated-root file
+  changed.
+- **Failures and correction:** The first DX-07 `make format` preflight rejected
+  the newly canonical row IDs because they had not yet been moved to ASCII
+  order. Reordering the authored family produced the passing format and catalog
+  gates above. One read-only facade scan contained invalid shell quoting; a
+  simplified rerun confirmed one production facade importer plus the test-only
+  fixture. Neither failure changed product state or exposed a product defect.
+- **Compatibility, residual risk, and rollback:** This closure slice changes
+  only private type ownership, final test identity/accounting, README wording,
+  and generated topology. No specification, backend, protocol, service,
+  dependency, package export, selector, golden, authorization, persistence, or
+  data migration changed. Service-backed owner slices were not run because no
+  transport/service postcondition changed; the full non-service owners, all
+  assigned browser suites, and broad check passed. No known remediation risk
+  remains. DX-07 rolls back as one unit with its neutral-contract imports,
+  canonical row IDs/topology, README, and this checkpoint; DX-00 through DX-06
+  retain their independent rollback units.
+- **Handoff:** The remediation is production-ready for review. Preserve the
+  existing user-staged Sections 18 through 22 tracker change when committing;
+  all implementation and checkpoint edits currently remain unstaged.
+
+## 21. Validation, Checkpoints, and Stop Conditions
+
+### Mandatory DX checkpoint protocol
+
+After each authorized DX slice and before starting the next, update this
+tracker with:
+
+- implementation authority, immutable source identity, completed status, and
+  dependency state;
+- exact files added, changed, moved, and deleted;
+- responsibility/caller/value disposition for every move or deletion;
+- private input/output contract and prohibited dependency review;
+- source owner, semantic row, and exact selector for each affected source/test;
+- commands, terminal results, failures, and retained result roots;
+- generation impact, deviations, residual risks, rollback posture, and next
+  action; and
+- current DX risk and Definition-of-Done dispositions.
+
+Reconcile source ownership and test-family inputs in the originating slice. If
+an authored test-family input changes, run `make generate` and the applicable
+drift, protected-artifact, and JSON-shape checks; never hand-edit generated
+outputs. Run `make lint-markdown` after every checkpoint. The next slice does
+not begin until its predecessor is complete and Markdown-clean.
+
+### Per-slice validation
+
+Run the narrowest applicable focused selectors plus:
+
+- `make frontend-typecheck`
+- `make frontend-import-boundary-check`
+- `make test-catalog-check`
+- `make json-shape-check`
+- `make test-slice OWNER=web.architecture`
+- `make test-slice OWNER=web.workbook`
+- exact `module.timeline` and `module.workbook` rows when their independent
+  postconditions are exercised
+- `make lint-markdown` after the tracker checkpoint
+
+Additional required evidence by slice:
+
+| Slice | Required behavioral evidence |
+| --- | --- |
+| DX-00 | Pre-move characterization for every responsibility in Section 19. |
+| DX-01 | Foundation identity/reset behavior, architecture policy, and existing broad workbook behavior. |
+| DX-02 | Width measurement/fallback/cleanup, focus and viewport continuity, inspector selection/reset/close, keyboard focus, and measurement browser rows. |
+| DX-03 | Query freshness, pending replay, conflict recovery, collaboration invalidation, presence reset, authorization recovery, and public-route browser rows. |
+| DX-04 | Inspector lifecycle, fail-closed feature routing, history, mention, Evidence, context menu, Entity-preview, and accessibility rows. |
+| DX-05 | Keyboard, autosave, scalar/collection edit, clipboard, fill, bulk tag, conflict focus, and relevant grid/browser rows. |
+| DX-06 | Grid/column/load-state, inspector, view bar, overlays, Entity preview, measurement, accessibility, and visual rows; any golden change is a regression unless separately authorized. |
+| DX-07 | All applicable owner explanations, generation/drift policy, finalization, broad check, diff, worktree, generated-root, facade-caller, and orphan/dead-export audits. |
+
+DX-07 additionally runs `make agent-finalize` before `make check`, followed by
+`git diff --check` and final tracked/untracked plus protected-generated-root
+inspection.
+
+Service-backed `module.timeline` and `module.workbook` validation is not a
+default because this iteration does not plan transport, service, protocol,
+backend, or persistence behavior. Crossing any of those boundaries stops the
+slice and reopens planning.
+
+### Documentation-only planning-step validation
+
+This planning step changes this tracker only and runs:
+
+- `make lint-markdown`
+- `git diff --check`
+- `git status --short`
+
+It does not run product tests, generation, source-ownership mutation, or
+test-family mutation because repository verification and product behavior MUST
+NOT depend on Markdown planning artifacts.
+
+### Stop conditions
+
+An authorized DX slice MUST stop and reopen planning if it discovers:
+
+- an adopted-owner contradiction or required behavior that cannot be
+  characterized;
+- a required public API, selector, route, wire, backend, protocol, persistence,
+  projection, authorization, deployment, dependency, or package-export change;
+- a need for dual internal composition paths, a compatibility wrapper, or a
+  feature flag;
+- a need for transport or service-backed behavior changes;
+- a composition contract that exposes unrelated state as a service locator;
+- a presentation model that owns mutation or lifecycle policy;
+- a lower-layer import of composition or a composition-to-presentation back-edge;
+  or
+- an extraction that only replaces `TimelineWorkbook.tsx` with an equally broad
+  opaque hook or component.
+
+## 22. Composition Definition of Done and Handoff
+
+| ID | Acceptance criterion | Required evidence | Current disposition |
+| --- | --- | --- | --- |
+| DX-DOD-001 | A later implementation task records the exact authorized DX range, immutable live starting identity, artifact bounds, and DX-00 prerequisite before implementation writes. | Completed Section 18 authority record | PASS in DX-00 |
+| DX-DOD-002 | Every moved responsibility has one current owner, target owner, caller/value disposition, rollback boundary, and pre-move behavior selector. | DX-00 inventory and characterization map | PASS in DX-00 |
+| DX-DOD-003 | Foundation state and adapters have one composition owner without duplicate state, transport leakage, compatibility aliases, or lower-layer back-edges. | DX-01 source/import review and focused evidence | PASS in DX-01 |
+| DX-DOD-004 | Grid environment and inspector state own all refs, measurement, continuity, selection, open/reset, and history lifecycle with cleanup evidence. | DX-02 focused lifecycle, measurement, focus, and inspector results | PASS in DX-02 |
+| DX-DOD-005 | Query, mutation, replay, collaboration, presence, and runtime registration form one explicit command graph without placeholders or hidden render-order dependencies. | DX-03 runtime graph tests and source review | PASS in DX-03 |
+| DX-DOD-006 | Inspector workflows consume semantic capabilities through one grouped boundary and preserve feature, history, mention, Evidence, row-menu, close, Escape, accessibility, and Entity-preview behavior. | DX-04 focused and browser evidence | PASS in DX-04 |
+| DX-DOD-007 | Editing and grid interactions consume semantic capabilities without owning mutation admission or presentation and preserve keyboard, paste, fill, bulk, autosave, draft, and focus behavior. | DX-05 focused and browser evidence | PASS in DX-05 |
+| DX-DOD-008 | `TimelineWorkbook.tsx` owns only the public/collaboration boundary and high-level composition/presentation/view calls; stateless presentation regions own existing JSX without policy. | DX-06 source review, import policy, component tests, and browser evidence | PASS in DX-06 |
+| DX-DOD-009 | No extracted owner is an opaque replacement monolith, service locator, forwarding file, duplicate owner, dead export, reversed import, hidden lifecycle path, or unintended facade caller. | DX-07 structural audit | PASS in DX-07 |
+| DX-DOD-010 | `TimelineWorkbookProps`, `TimelineWorkbook`, `TimelineWorkbookSurfaceRuntime`, renderer facade, public behavior, selectors, package exports, routes, wires, authorization, accessibility, and persisted data are unchanged. | Public-contract comparison and retained focused/browser evidence | PASS in DX-07 |
+| DX-DOD-011 | Every final source path and exact selector has one correct owner/row, and all authored generator inputs have clean Make-generated projections and protected roots. | Catalog, owner explanations, generation/drift, and protected-root results | PASS in DX-07 |
+| DX-DOD-012 | All applicable focused, browser, Markdown, finalization, broad-check, diff, worktree, and handoff gates have terminal evidence with failures and deviations recorded. | DX-07 final handoff | PASS in DX-07 |
+
+### Composition-decomposition planning handoff
+
+- **Planning task:**
+  `user-timeline-workbook-composition-decomposition-plan-2026-08-14`.
+- **Planning source revision:**
+  `09604d144662fca71583ebb4eafdd71d6d671521` from a clean worktree.
+- **Implementation range:** DX-00 through DX-07 completed serially with a
+  tracker and Markdown checkpoint between every workstream. Sections 1 through
+  17 remain historical evidence.
+- **Specification disposition:** Core 00 through Core 04, `docs/domain.md`, and
+  `docs/research/nlspec-spec.md` remain unchanged. No owner or vocabulary
+  contradiction was found; domain vocabulary is unchanged.
+- **Implementation status:** `COMPLETE`. All DX Definition-of-Done rows pass;
+  no planned implementation work remains.
+- **Generation and product validation:** Authored ownership, import policy, and
+  test-family inputs are reconciled; generated topology is current; focused,
+  owner, measurement, stateful, accessibility, visual, finalization, and broad
+  verification evidence is recorded in the per-slice checkpoints above.
+- **Documentation validation:** Every intermediate checkpoint passed
+  `make lint-markdown`; final checkpoint lint passed at
+  `.cartulary/test-results/20260814T191001Z-p956808`, and `git diff --check`
+  passed.
+- **Next action:** Review and commit the completed remediation as the recorded
+  serial rollback units. No specification adoption, compatibility migration,
+  backend rollout, protocol deployment, or data migration is required.

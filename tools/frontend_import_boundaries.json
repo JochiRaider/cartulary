@@ -578,6 +578,96 @@
       ]
     },
     {
+      "id": "frontend-timeline-lower-layers-no-composition",
+      "level": "error",
+      "message": "Timeline lower layers must not depend back on the private composition layer.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/workbook/timeline/adapters/**",
+          "apps/web/src/workbook/timeline/bulk/**",
+          "apps/web/src/workbook/timeline/collaboration/**",
+          "apps/web/src/workbook/timeline/editing/**",
+          "apps/web/src/workbook/timeline/hooks/**",
+          "apps/web/src/workbook/timeline/models/**",
+          "apps/web/src/workbook/timeline/mutations/**",
+          "apps/web/src/workbook/timeline/ports/**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/composition"
+        }
+      ]
+    },
+    {
+      "id": "frontend-timeline-composition-no-presentation-or-transport",
+      "level": "error",
+      "message": "Timeline composition consumes semantic owners and must not import presentation, generated protocol, or browser services.",
+      "applies_to": {
+        "include": ["apps/web/src/workbook/timeline/composition/**"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/components"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/presentation"
+        },
+        {
+          "kind": "package",
+          "name": "@cartulary/protocol-ts",
+          "include_subpaths": true
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/services"
+        }
+      ]
+    },
+    {
+      "id": "frontend-timeline-composition-root-only-sibling-imports",
+      "level": "error",
+      "message": "Only the Timeline root composer may import sibling composition owners.",
+      "applies_to": {
+        "include": ["apps/web/src/workbook/timeline/composition/**"],
+        "exclude": [
+          "apps/web/src/workbook/timeline/composition/useTimelineWorkbookComposition.ts"
+        ]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/composition"
+        }
+      ]
+    },
+    {
+      "id": "frontend-timeline-components-root-only-composition",
+      "level": "error",
+      "message": "Timeline presentation components must not invoke composition hooks outside the public Timeline root.",
+      "applies_to": {
+        "include": ["apps/web/src/workbook/timeline/components/**"],
+        "exclude": [
+          "apps/web/src/workbook/timeline/components/TimelineWorkbook.tsx"
+        ]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/composition"
+        }
+      ]
+    },
+    {
       "id": "frontend-timeline-workflow-transport-boundary",
       "level": "error",
       "message": "Timeline presentation and workflow owners must consume semantic ports instead of browser services or protocol envelopes.",
@@ -585,10 +675,12 @@
         "include": [
           "apps/web/src/workbook/timeline/bulk/**",
           "apps/web/src/workbook/timeline/collaboration/**",
+          "apps/web/src/workbook/timeline/composition/**",
           "apps/web/src/workbook/timeline/components/**",
           "apps/web/src/workbook/timeline/editing/**",
           "apps/web/src/workbook/timeline/hooks/**",
-          "apps/web/src/workbook/timeline/mutations/**"
+          "apps/web/src/workbook/timeline/mutations/**",
+          "apps/web/src/workbook/timeline/presentation/**"
         ],
         "exclude": [
           "apps/web/src/**/*.test.ts",
@@ -630,6 +722,10 @@
         {
           "kind": "path_prefix",
           "path": "apps/web/src/workbook/timeline/components"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/presentation"
         }
       ]
     },

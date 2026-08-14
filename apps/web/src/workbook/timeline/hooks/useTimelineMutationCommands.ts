@@ -1,11 +1,5 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
-import {
-  type Dispatch,
-  type SetStateAction,
-  startTransition,
-  useCallback,
-  useState,
-} from "react";
+import { startTransition, useCallback, useState } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type {
   WorkbookPendingReplayAdmissionRequest,
@@ -19,6 +13,7 @@ import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDr
 import type {
   PendingReplayRuntimeMeta,
   TimelineMutableRef,
+  TimelineRowStoreCommands,
   TimelineScalarSaveOptions,
 } from "../models/timelineControllerPorts";
 import {
@@ -81,7 +76,7 @@ export function useTimelineMutationCommands({
   recordActionPort,
   resolvePendingSocketTxn,
   rowsRef,
-  setRows,
+  rowStoreCommands,
   trackPendingSocketTxn,
   waitForCommittedRecordIdle,
 }: {
@@ -112,12 +107,13 @@ export function useTimelineMutationCommands({
   readonly recordActionPort: TimelineRecordActionPort;
   readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
-  readonly setRows: Dispatch<SetStateAction<WorkbookRow[]>>;
+  readonly rowStoreCommands: TimelineRowStoreCommands;
   readonly trackPendingSocketTxn: (clientTxnId: string) => void;
   readonly waitForCommittedRecordIdle: (
     recordId: string,
   ) => Promise<CommittedRecordIdle | null>;
 }) {
+  const { updateRows } = rowStoreCommands;
   const [replacementDrafts, setReplacementDrafts] = useState<
     Record<string, string>
   >({});
@@ -167,7 +163,7 @@ export function useTimelineMutationCommands({
         mutationSignature,
       );
       startTransition(() => {
-        setRows((current) => {
+        updateRows((current) => {
           const nextRows = current.map((row) =>
             row.key === rowKey
               ? {
@@ -240,7 +236,7 @@ export function useTimelineMutationCommands({
       incidentId,
       pendingSavesRefs,
       rowsRef,
-      setRows,
+      updateRows,
     ],
   );
 

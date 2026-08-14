@@ -11,7 +11,10 @@ import {
   workbookConflictQueueKey,
 } from "../../runtime/workbookConflictModel";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
-import type { TimelineMutableRef } from "../models/timelineControllerPorts";
+import type {
+  TimelineMutableRef,
+  TimelineRowStoreCommands,
+} from "../models/timelineControllerPorts";
 import {
   type FocusFieldKey,
   inputFocusKey,
@@ -39,7 +42,7 @@ export function useTimelineConflictProjectionAdapter({
   rowsRef,
   setActiveConflictKey,
   setConflictQueueState,
-  setRows,
+  rowStoreCommands,
 }: {
   readonly acceptCommittedRow: (row: WorkbookRow) => {
     readonly accepted: boolean;
@@ -57,8 +60,9 @@ export function useTimelineConflictProjectionAdapter({
       current: Record<string, LocalConflictState>,
     ) => Record<string, LocalConflictState>,
   ) => void;
-  readonly setRows: Dispatch<SetStateAction<WorkbookRow[]>>;
+  readonly rowStoreCommands: TimelineRowStoreCommands;
 }) {
+  const { updateRows } = rowStoreCommands;
   const registerSameFieldConflict = useCallback(
     (
       conflict: SameFieldConflictPayload,
@@ -83,7 +87,7 @@ export function useTimelineConflictProjectionAdapter({
         );
       }
       if (binding !== null) {
-        setRows((current) => {
+        updateRows((current) => {
           const nextRows = current.map((row) => {
             if (row.recordId !== conflict.record_id) return row;
             const serverText =
@@ -133,7 +137,7 @@ export function useTimelineConflictProjectionAdapter({
       rowsRef,
       setActiveConflictKey,
       setConflictQueueState,
-      setRows,
+      updateRows,
     ],
   );
 

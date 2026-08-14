@@ -595,6 +595,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.timeline_grid_environment_owns_rounded_measureme_98b38c69d0",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineCompositionLifecycle.test.tsx",
+        "titles": [
+          "useTimelineGridEnvironment owns rounded measurement and observer cleanup"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.timeline_inspector_feature_controller_a38c2d6f71",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -635,6 +659,30 @@
         "file": "apps/web/src/workbook/timeline/useTimelineInspectorLifecycle.test.tsx",
         "titles": [
           "useTimelineInspectorLifecycle shares one close command across explicit and layout requests"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_inspector_state_preserves_continuity_an_39d7b2c152",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineCompositionLifecycle.test.tsx",
+        "titles": [
+          "useTimelineInspectorStateComposition preserves continuity and resets selection lifecycle"
         ]
       },
       "evidence_class": "unit",
@@ -814,6 +862,78 @@
         ]
       },
       "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_surface_foundation_owns_stable_adapter_02f2dc6f6f",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineSurfaceFoundation.test.tsx",
+        "titles": [
+          "useTimelineSurfaceFoundation owns stable adapter row query and pending foundations"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_workbook_presentation_regions_remain_st_f91e14f779",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/timelineCompositionArchitecture.test.ts",
+        "titles": [
+          "Timeline workbook composition architecture keeps presentation regions stateless and excludes privileged runtime capabilities"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_workbook_public_root_remains_slim_and_i_72f70cc3fc",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/timelineCompositionArchitecture.test.ts",
+        "titles": [
+          "Timeline workbook composition architecture keeps the public root slim and makes it the sole composition-hook caller"
+        ]
+      },
+      "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",

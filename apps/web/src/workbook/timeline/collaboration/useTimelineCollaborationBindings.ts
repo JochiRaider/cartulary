@@ -1,4 +1,3 @@
-import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo } from "react";
 import type { SheetRef } from "../../../shared/sheetRef";
 import { useWorkbookCollaborationCoordinator } from "../../collaboration/useWorkbookCollaborationCoordinator";
@@ -10,6 +9,7 @@ import type { WorkbookPresenceDraft } from "../../collaboration/workbookCollabor
 import type { WorkbookActiveSurfacePort } from "../../collaboration/workbookSurfacePort";
 import type { WorkbookQueryInvalidationReason } from "../../lifecycle/workbookInvalidation";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { TimelineRowStoreCommands } from "../models/timelineControllerPorts";
 import {
   applyViewRowPatch,
   normalizeTimelinePatchCells,
@@ -63,7 +63,7 @@ export function useTimelineCollaborationBindings({
   refreshRows,
   resolveClientTxn,
   rowsRef,
-  setRows,
+  rowStoreCommands,
 }: {
   readonly activeSheetRef: SheetRef;
   readonly admission: TimelineRowAdmission;
@@ -74,8 +74,9 @@ export function useTimelineCollaborationBindings({
     clientTxnId: string | null | undefined,
   ) => boolean;
   readonly rowsRef: { current: WorkbookRow[] };
-  readonly setRows: Dispatch<SetStateAction<WorkbookRow[]>>;
+  readonly rowStoreCommands: TimelineRowStoreCommands;
 }): TimelineCollaborationBinding {
+  const { replaceRows } = rowStoreCommands;
   const snapshot = useWorkbookCollaborationCoordinator(collaborationProjection);
 
   useEffect(
@@ -138,10 +139,10 @@ export function useTimelineCollaborationBindings({
         return { kind: "refresh_required" };
       }
       rowsRef.current = nextRows;
-      setRows(nextRows);
+      replaceRows(nextRows);
       return { kind: "applied" };
     },
-    [admission, rowsRef, setRows],
+    [admission, replaceRows, rowsRef],
   );
 
   const activeSurface = useMemo<WorkbookActiveSurfacePort>(
@@ -163,7 +164,7 @@ export function useTimelineCollaborationBindings({
           (row) => row.recordId === null,
         );
         rowsRef.current = localDrafts;
-        setRows(localDrafts);
+        replaceRows(localDrafts);
       },
       refresh: async () => {
         await refreshRows();
@@ -175,7 +176,7 @@ export function useTimelineCollaborationBindings({
       beginRowsLoad,
       refreshRows,
       rowsRef,
-      setRows,
+      replaceRows,
     ],
   );
 

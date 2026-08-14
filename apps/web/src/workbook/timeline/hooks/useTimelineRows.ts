@@ -1,4 +1,5 @@
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { TimelineRowStoreCommands } from "../models/timelineControllerPorts";
 import {
   createDraftRow,
   type WorkbookRow,
@@ -15,9 +16,23 @@ export function useTimelineRows() {
     return value;
   }, []);
 
+  const replaceRows = useCallback((nextRows: WorkbookRow[]) => {
+    setRows(nextRows);
+  }, []);
+  const updateRows = useCallback<TimelineRowStoreCommands["updateRows"]>(
+    (updater) => {
+      setRows((current) => updater(current));
+    },
+    [],
+  );
+  const commands = useMemo<TimelineRowStoreCommands>(
+    () => ({ replaceRows, updateRows }),
+    [replaceRows, updateRows],
+  );
+
   useLayoutEffect(() => {
     rowsRef.current = rows;
   }, [rows]);
 
-  return { nextDraftIndex, rows, rowsRef, setRows };
+  return { commands, nextDraftIndex, rows, rowsRef };
 }

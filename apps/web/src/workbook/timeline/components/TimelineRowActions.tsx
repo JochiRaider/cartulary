@@ -15,13 +15,9 @@ import {
 } from "react";
 import { workbookViewportOverlayScrollableStyle } from "../../layout/workbookShellStyles";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { TimelineRowContextMenuPosition } from "../models/timelineControllerPorts";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 import { actionButtonStyle, inputStyle } from "./TimelineWorkbookStyles";
-
-export type TimelineRowContextMenuPosition = {
-  readonly x: number;
-  readonly y: number;
-};
 
 type TimelineRowContextMenuProps = {
   readonly position: TimelineRowContextMenuPosition;

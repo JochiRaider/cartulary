@@ -1,6 +1,6 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook } from "@testing-library/react";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import { createWorkbookPendingMutationAdapter } from "../../adapters/createWorkbookPendingMutationAdapter";
@@ -67,10 +67,18 @@ function renderCoordinator(
   const clearViewportContinuity = vi.fn();
   const rendered = renderHook(() => {
     const [rows, setRows] = useState(initialRows);
+    const replaceRows = useCallback((nextRows: WorkbookRow[]) => {
+      setRows(nextRows);
+    }, []);
+    const updateRows = useCallback(
+      (updater: (current: WorkbookRow[]) => WorkbookRow[]) => {
+        setRows((current) => updater(current));
+      },
+      [],
+    );
     const rowsRef = useRef(rows);
     rowsRef.current = rows;
     const [selectedRowId, setSelectedRowId] = useState<string | null>(recordId);
-    const [, setActiveCollectionInputKey] = useState<string | null>(null);
     const [, setAutoResolutionNotices] = useState<AutoResolutionNotice[]>([]);
     const [, setDismissedMentionsByRow] = useState<
       Record<string, DismissedMention[]>
@@ -97,11 +105,11 @@ function renderCoordinator(
       pendingSavesRefs: pending.refs,
       rowsRef,
       selectedRowId,
-      setActiveCollectionInputKey,
+      clearActiveCollectionInputKey: () => undefined,
       setAutoResolutionNotices,
       setDismissedMentionsByRow,
       setPendingQueueSnapshot: pending.commands.setPendingQueueSnapshot,
-      setRows,
+      rowStoreCommands: { replaceRows, updateRows },
       setSelectedRowId,
     });
     const waitForCommittedRecordIdle = useTimelineCommittedRecordIdle({

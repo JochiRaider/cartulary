@@ -6,7 +6,6 @@ import {
   relationshipOverflowButtonTestId,
   timelineCollectionInputTestId,
 } from "@cartulary/ui-contracts";
-import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import {
   WorkbookRelationshipChip,
@@ -33,7 +32,9 @@ import type {
 import { inputStyle } from "./TimelineWorkbookStyles";
 
 export function useTimelineCollectionRenderer({
+  activateCollectionInput,
   activeCollectionInputKey,
+  deactivateCollectionInput,
   entityIndex,
   handleCollectionInputChange,
   handleCollectionKeyDown,
@@ -43,11 +44,12 @@ export function useTimelineCollectionRenderer({
   queueCollectionSave,
   readOnly,
   registerInput,
-  setActiveCollectionInputKey,
   timelineBindingLabel,
   updateTimelineSurfaceFocusAnchor,
 }: {
+  readonly activateCollectionInput: (focusKey: string) => void;
   readonly activeCollectionInputKey: string | null;
+  readonly deactivateCollectionInput: (focusKey: string) => void;
   readonly entityIndex: TimelineEntityIndex;
   readonly handleCollectionInputChange: (
     focusKey: string,
@@ -60,7 +62,6 @@ export function useTimelineCollectionRenderer({
   readonly queueCollectionSave: TimelineCollectionSave;
   readonly readOnly: boolean;
   readonly registerInput: RegisterTimelineInput;
-  readonly setActiveCollectionInputKey: Dispatch<SetStateAction<string | null>>;
   readonly timelineBindingLabel: (fieldKey: string) => string;
   readonly updateTimelineSurfaceFocusAnchor: (
     recordId: string | null,
@@ -86,9 +87,9 @@ export function useTimelineCollectionRenderer({
       const visibleItems = items.slice(0, 1);
       const hiddenItems = items.slice(1);
       const hiddenItemCount = Math.max(0, items.length - visibleItems.length);
-      const activateCollectionInput = () => {
+      const activateCurrentCollectionInput = () => {
         if (readOnly) return;
-        setActiveCollectionInputKey(collectionFocusKey);
+        activateCollectionInput(collectionFocusKey);
         window.requestAnimationFrame(() => {
           document
             .querySelector<HTMLInputElement>(
@@ -112,14 +113,14 @@ export function useTimelineCollectionRenderer({
             ) {
               return;
             }
-            activateCollectionInput();
+            activateCurrentCollectionInput();
           }}
           onKeyDown={(event) => {
             if (readOnly || (event.key !== "Enter" && event.key !== "F2")) {
               return;
             }
             event.preventDefault();
-            activateCollectionInput();
+            activateCurrentCollectionInput();
           }}
         >
           <div
@@ -256,13 +257,11 @@ export function useTimelineCollectionRenderer({
                 event.currentTarget.value,
               );
               if (event.currentTarget.value.trim() === "") {
-                setActiveCollectionInputKey((current) =>
-                  current === collectionFocusKey ? null : current,
-                );
+                deactivateCollectionInput(collectionFocusKey);
               }
             }}
             onFocus={() => {
-              setActiveCollectionInputKey(collectionFocusKey);
+              activateCollectionInput(collectionFocusKey);
               updateTimelineSurfaceFocusAnchor(row.recordId, binding.fieldKey);
               if (row.recordId) handleSelectRow(row.recordId);
             }}
@@ -287,6 +286,8 @@ export function useTimelineCollectionRenderer({
     },
     [
       activeCollectionInputKey,
+      activateCollectionInput,
+      deactivateCollectionInput,
       entityIndex,
       handleCollectionInputChange,
       handleCollectionKeyDown,
@@ -296,7 +297,6 @@ export function useTimelineCollectionRenderer({
       queueCollectionSave,
       readOnly,
       registerInput,
-      setActiveCollectionInputKey,
       timelineBindingLabel,
       updateTimelineSurfaceFocusAnchor,
     ],
