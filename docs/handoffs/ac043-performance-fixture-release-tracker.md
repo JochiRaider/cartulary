@@ -715,3 +715,442 @@ Every future entry includes:
 This tracker is complete only after AC043-001 through AC043-010 are `DONE`, all binary acceptance criteria are checked, the final current-source release root is retained and green, and cleanup is proven. The final entry records that result without deleting or diminishing the failed `20260813T194448Z-p3008841` release or the narrow `20260813T212600Z-p3589519` corroboration.
 
 If the planned release fails, the tracker remains open. The handoff records the failure as product, harness, infrastructure, evidence-integrity, or cleanup work according to retained evidence; assigns it to the owning workstream; and does not authorize retries, threshold changes, percentile slack, failure reclassification, Core 05 promotion, or fallback fixture assembly.
+
+## 14. Iteration 2: production-readiness refactor
+
+### 14.1 Purpose and baseline
+
+The completed AC043-001 through AC043-010 remediation remains closed historical
+work. This section opens a separate refactoring iteration whose purpose is to
+remove legacy and dead surfaces, make the fixture subsystem profile-neutral at
+its generic boundaries, eliminate secret-capable runtime residue, and leave a
+smaller package structure that can accept future performance profiles without
+copying AC-043-specific infrastructure.
+
+The planning baseline is `main` at
+`e20d06007af19a53f9a702ed7729fdef53249a1d` with a clean worktree. The final
+AC-043 release remains `20260814T064307Z-p2281367` at 934/934. All historical
+result roots remain immutable; this iteration does not clean, rewrite, or
+reclassify their contents.
+
+This is a documentation-only checkpoint. It changes this tracker and no
+specification, contract, generated artifact, implementation, test, retained
+result, `docs/domain.md`, Core 04 requirement, public API, production storage,
+or database migration.
+
+### 14.2 Governing decisions
+
+- Generic fixture infrastructure MUST be profile-neutral. AC-043 fixture
+  counts, traffic, predicate identities, and validation remain profile-owned at
+  the Core 04 and profile-adapter edge.
+- `tools/performance_fixture_snapshot_owner.json` remains the sole authored
+  profile registry. Go profile descriptors become generated projections of
+  that registry; handwritten Go and JavaScript copies of registry facts are
+  removed.
+- Secret-bearing or secret-capable runtime inputs MUST live outside retained
+  result roots. Retained evidence contains allowlisted proofs and redacted
+  diagnostics only.
+- All production-sized NDJSON consumers use one bounded streaming primitive.
+  Whole-file reads of canonical unit events are unsupported even when a
+  particular target currently produces a small file.
+- Active qualification supports exactly one current contract generation.
+  Historical evidence support is isolated from active schema attachments and
+  cannot become a dual-read, dual-write, translation, or fallback path.
+- Composition belongs in application test support, lifecycle mechanics belong
+  in a cohesive lifecycle package, and `tools/testservices` remains a thin CLI
+  composition root.
+- Compatibility wrappers, re-export-only modules, test-only exported helpers,
+  AC-043-named generic functions, and superseded active schemas are deleted in
+  the same slice that removes their final consumer.
+- Profile-specific behavior is retained only where it continues to express
+  real Core 04 semantics. In particular, the AC-043 browser snapshot validator,
+  six owner contribution implementations, predicates, counts, traffic, and
+  thresholds are not generalized into weaker policies.
+
+## 15. Iteration 2 work tracker
+
+Allowed statuses and append-only transition rules remain those in section 2.
+At most one RF2 item may be `IN_PROGRESS`. Implementation proceeds serially,
+and the tracker is updated to `DONE` with evidence after each workstream and
+before the next workstream begins.
+
+| ID | Work item | Workstream | Status | Depends on | Primary owner | Exit evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| RF2-000 | Audit, target architecture, and execution plan | RF2-00 | DONE | AC043-010 | Testing Harness | This plan, Markdown lint, clean planning baseline, and diff review |
+| RF2-001 | Profile-neutral authority and contract generation | RF2-01 | TODO | RF2-000 | Testing Harness | Owner amendments, generic schemas, generated Go descriptors, cross-language contract tests |
+| RF2-002 | Secret-free runtime and retained-evidence boundary | RF2-02 | TODO | RF2-001 | Testing Harness, testservices, security review | Zero secret-capable runtime files in successful and failed retained roots |
+| RF2-003 | Go package cohesion and lifecycle extraction | RF2-03 | TODO | RF2-002 | Testing Harness, owner test support | Thin CLI root, cohesive packages, no duplicate facts or compatibility wrappers |
+| RF2-004 | JavaScript ownership and bounded evidence pipeline | RF2-04 | TODO | RF2-003 | Testing Harness | Canonical fixture module, registry-driven finalizers, streaming event consumers |
+| RF2-005 | Evidence cutover and legacy/dead-code deletion | RF2-05 | TODO | RF2-004 | Testing Harness | One active contract generation, isolated history support, deletion manifest and reachability proof |
+| RF2-006 | Full qualification, release, and final handoff | RF2-06 | TODO | RF2-005 | Release operator | Green current-source check, four-row qualification, finalizer, one planned release, cleanup proof |
+
+The required sequence is:
+
+`RF2-00 → RF2-01 → RF2-02 → RF2-03 → RF2-04 → RF2-05 → RF2-06`
+
+## 16. Audited gaps and remediation decisions
+
+| Gap and current evidence | Remediation and affected areas | Rationale and long-term benefit | Compatibility or migration impact | Risk if unresolved | Completion validation |
+| --- | --- | --- | --- | --- | --- |
+| Generic contracts and code encode `ac043_large_grid_snapshot_v1`, `cartulary.perf.large_grid.v1`, seed `20260405`, 24 analysts, and exact AC-043 counts. Examples include the snapshot, lease, runtime, observation, summary, aggregate, and registry schemas; `LargeGrid*` Go constants; testservices; and browser finalizers. | Make generic schemas structural rather than AC-043-constant-bearing. Project profile-specific facts from the authored registry into a generated Go catalog and load the same registry through the canonical JavaScript fixture package. Keep exact AC-043 checks in its profile adapter and Core 04 projection. Areas: specification, contracts, generation, Go, JavaScript, tests. | A second profile becomes an additive registry plus profile-adapter change instead of a cross-cutting schema and finalizer rewrite. Requirements remain exact without coupling generic mechanics to one fixture. | Coordinated internal contract cutover. Current artifacts become historical; active consumers move once with no aliases. | Future profiles would duplicate constants, drift across languages, and force version churn through unrelated generic layers. | A scratch two-profile registry compiles in Go and JavaScript with identical keys and routes; changing any profile fact changes only its descriptor and key; AC-043 exact semantics remain unchanged. |
+| Profile facts are copied among the registry, JSON Schemas, Go constants, semantic expectation helpers, runtime-bundle validation, testservices, and tests. Exported `ExpectedDescriptors`, `ExpectedSemanticCounts`, and `ExpectedSemantics` primarily support tests. | Generate immutable typed Go profile descriptors from the registry; make assemblers and runtime bundles accept a descriptor; delete handwritten copies and test-only exported helpers. Areas: registry generator, generated Go, core fixture package, composition, tests. | Establishes one authored source and makes drift detectable mechanically. | Internal constructor signatures change atomically. No wrapper preserves the old constant-based API. | A count or seed can be updated in one language but not another, producing invalid snapshots or misleading evidence. | Repository search finds no handwritten AC-043 fact in generic packages; generation drift catches registry/projection mismatch; mutation tests prove descriptor validation fails closed. |
+| `internal/testutil/performancefixtureassembly` is a cross-owner composition package beside the generic contract, while `tools/testservices/performance_fixture.go` contains 844 lines spanning CLI parsing, build orchestration, PostgreSQL template lifecycle, artifact writing, cleanup, and janitor behavior. | Move cross-owner assembly to `internal/testutil/appsupport/performancefixture`; extract reusable build/seal/clone/cleanup mechanics to `internal/testutil/performancefixturelifecycle`; keep `internal/testutil/performancefixture` as the small owner-neutral model/key/runtime contract; reduce `tools/testservices` to argument and dependency wiring. Areas: Go packages, imports, tests. | Aligns ownership with repository boundaries, isolates platform mechanics, and reduces reasons for each package to change. | Internal imports and tests move once. Delete the old package; do not leave forwarding packages or type aliases. | New profiles or lifecycle backends would deepen an already broad CLI file and create cycles or bypass owner construction. | Import-boundary tests pass; no old package import exists; package APIs expose only production-used symbols; focused and service-backed lifecycle tests preserve behavior. |
+| JavaScript ownership is inverted: `tools/harness/performance-fixture/index.mjs` only re-exports a registry implementation from `test-catalog`, and generic browser code imports `ac043PredicateIDsForRows`. | Move registry loading, keying, profile/predicate lookup, and validation under `tools/harness/performance-fixture`; make test-catalog a consumer; replace AC-043-named generic helpers with registry-driven profile selection; delete the re-export seam and old module. Areas: harness modules, topology inputs, tests. | Creates one obvious owner for fixture mechanics and removes filename-level coupling to the first profile. | Internal module paths change atomically. No re-export compatibility file remains. | Catalog, compiler, and finalizers can diverge or require AC-043 conditionals for every future profile. | Reachability and import scans show one fixture owner; direct, slice, aggregate, and release plans resolve profiles through the same API; synthetic second-profile tests do not add active product behavior. |
+| The row finalizer streams scheduler events, but browser target finalization, retained-run finalization, observability, scheduler drift diagnostics, and `explain-run` still materialize complete `unit-events.ndjson` files. Several child runners also use large fixed `maxBuffer` values. | Add one validated async NDJSON iterator and bounded unit-interval accumulator under the harness evidence owner. Migrate every canonical event consumer and stream child stdout/stderr to owned files where complete buffering is unnecessary. Areas: harness evidence, browser finalization, diagnostics, observability, finalization, execution runners, tests. | Removes file-size-dependent correctness and makes release growth linear in time with bounded memory. | Output schemas and diagnostics remain stable; internal functions become async. No synchronous whole-file compatibility helper remains. | The 641 MiB release failure can recur in another finalizer or diagnostic as suite size grows. | Static scan finds no whole-file canonical event read; large sparse and malformed-stream tests cover sequence, cancellation, early termination, and memory bounds; the immutable 641 MiB failed root is inspectable without exhaustion. |
+| Successful release root `20260814T064307Z-p2281367` contains 88 secret-capable `_shared` files named `stack.env`, `postgres.recovery.dsn`, or token-key-ring files. Performance credential bundles were cleaned, but the broader browser runtime/evidence boundary still retains sensitive configuration material. | Create runtime roots outside result directories, pass only handles to child processes, securely delete transient env/DSN/key material on every terminal path, and copy only schema-validated allowlisted diagnostics into results. Add a final retained-root secret-path and content-policy scan. Areas: Testing Harness requirements, testservices, browser lifecycle, recovery support, evidence policy, security tests. | Makes retention and artifact upload safe by construction instead of relying on publication filters or filename conventions. | Debugging loses direct access to raw env/DSN files; replace it with redacted readiness and connection-class diagnostics. Existing historical roots remain untouched. | Local archives, CI uploads, or support bundles may disclose database or signing credentials despite green cleanup claims. | Success, failure, cancellation, and process-crash roots contain zero forbidden filenames or values; processes still start through ephemeral handles; cleanup and redaction failures fail the owning target. |
+| Active schema attachments still include frontend summary/aggregate v1 for historical inspection, while current v2 artifacts embed full summary objects in the aggregate. Historical and active responsibilities remain coupled and aggregate size grows with every sample and predicate. | Introduce one current profile-neutral evidence generation. Make the aggregate reference immutable summary artifacts by path and digest and retain only bounded qualification rollups. Move schemas required solely for historical inspection to an explicit read-only historical registry consumed only by diagnostics; remove them from active compilation and qualification. Areas: NLSpec, schemas, attachments, finalizers, diagnostics, tests. | Keeps active contracts small and forward-compatible while preserving the continuing audit value of immutable historical roots. | Current qualification cuts to observation v2, summary v3, and aggregate v3. Existing observation v1, summary v1/v2, and aggregate v1/v2 remain historical bytes; no translation or dual write is provided. | Active validators carry indefinite compatibility burden, and future profile growth duplicates large sample arrays across aggregate evidence. | Active attachment inventory contains only current schemas; historical command validates representative old roots but cannot qualify them; aggregate size is bounded by predicate references rather than sample payload size. |
+| Empty runtime identity directories, re-export-only modules, superseded schema files, AC-043-named generic helpers, and test-only exports remain discoverable after their functional replacement. | Maintain a deletion manifest in RF2-05 and remove each obsolete path or symbol with its last consumer. Require reachability, generated-artifact, import-boundary, and stale-symbol scans. Areas: source cleanup, schemas, generation, tests, tracker. | Reduces conceptual surface and prevents developers from choosing obsolete paths. | No compatibility aliases. Retained result roots are never deletion targets. | Dead code becomes accidental precedent and later work revives unsupported behavior. | Every deletion has zero active references; generated outputs are clean; no fallback or alias symbol remains; package and command inventories contain only the new surface. |
+
+## 17. Target architecture and cutover
+
+### 17.1 Go ownership target
+
+| Target package | Responsibility | Explicit exclusions |
+| --- | --- | --- |
+| `internal/testutil/performancefixture` | Profile-neutral contribution contracts, typed profile descriptor, canonical key input, safe receipts, and ephemeral runtime-bundle model | Owner application construction, PostgreSQL lifecycle, CLI parsing, AC-043 constants |
+| `internal/testutil/appsupport/performancefixture` | Closed source-owner composition and profile-adapter registration using owner-created providers | Generic lifecycle, CLI flags, raw SQL mutation |
+| `internal/testutil/performancefixturelifecycle` | Template build/seal, single flight, clone lease, artifact emission, active cleanup, and bounded janitor ports | Owner semantics, browser predicates, command dispatch |
+| `internal/modules/*/testsupport/performancefixture` | Owner-local contribution construction through production applications and validators | Cross-owner ordering or lifecycle coordination |
+| `tools/testservices` | CLI parsing, dependency injection, command dispatch, and process exit mapping | Fixture business logic, duplicated profile facts, reusable lifecycle mechanics |
+
+The generated Go catalog is placed under a generated root and is downstream of
+`tools/performance_fixture_snapshot_owner.json`. It contains safe descriptors
+only; credentials, paths, runtime identities, and result data are never
+generated.
+
+### 17.2 JavaScript ownership target
+
+- `tools/harness/performance-fixture` owns strict registry loading, source
+  contract closure, key calculation, profile lookup, and profile/predicate
+  selection.
+- Test catalog, work-graph compilation, broker providers, browser lifecycle,
+  row finalization, and target finalization consume that package.
+- A shared harness-evidence module owns streaming validation of canonical unit
+  events and bounded interval/accounting reducers.
+- Browser finalizers select every profiled measurement row through the registry
+  and group qualification by profile/key. No generic module names AC-043.
+- AC-043 browser validation remains in `ac043Snapshot.ts` because it expresses
+  profile semantics rather than generic harness mechanics.
+
+### 17.3 Planned contract generation
+
+RF2-01 fixes the exact shapes before implementation. The coordinated active
+cutover target is:
+
+- `cartulary.performance_fixture_snapshot_owner.v2`;
+- `cartulary.performance_fixture_snapshot_key.v2`;
+- `cartulary.performance_fixture_snapshot.v2`;
+- `cartulary.performance_fixture_snapshot_lease.v2`;
+- `cartulary.performance_fixture_runtime.v2`;
+- `cartulary.frontend_measurement_observation.v2`;
+- `cartulary.frontend_measurement_summary.v3`; and
+- `cartulary.frontend_measurement_aggregate.v3`.
+
+These versions are profile-neutral structurally. Exact fixture counts,
+predicates, traffic, sampling, and thresholds remain validated by the selected
+profile descriptor and Core 04 projection. Active producers and consumers cut
+once. Old schemas are not accepted by active qualification.
+
+### 17.4 Planned removal inventory
+
+The following are deletion candidates, not compatibility surfaces:
+
+- `internal/testutil/performancefixtureassembly/**` after composition moves;
+- `tools/harness/test-catalog/performance-fixture-snapshot.mjs` after ownership
+  moves;
+- the re-export-only contents of
+  `tools/harness/performance-fixture/index.mjs`, replaced by the real owner
+  facade;
+- handwritten `LargeGrid*`, `ExpectedDescriptors`,
+  `ExpectedSemanticCounts`, and `ExpectedSemantics` facts after generated
+  descriptors land;
+- `ac043PredicateIDsForRows` and hardcoded profile filters in generic browser
+  finalizers;
+- synchronous whole-file canonical event readers and buffer-only child-output
+  paths in the migrated scope;
+- active attachment entries for historical measurement schemas; and
+- superseded current schema files after the explicit historical registry owns
+  every old schema that still has retained audit value.
+
+The following continue to provide value and are retained:
+
+- immutable historical result roots;
+- explicit historical inspection without qualification or translation;
+- the AC-043 profile, snapshot validator, owner contributions, and unchanged
+  Core 04 behavior;
+- non-profile browser rows using the migrated-template lifecycle; and
+- lease-scoped bounded janitor recovery.
+
+## 18. Ordered refactoring workstreams
+
+### RF2-00: Audit and plan
+
+**Status:** `DONE`
+
+**Scope:** This tracker only.
+
+**Actions:** Record the current reachability, hardcoded-fact, package-size,
+event-I/O, historical-schema, and retained-runtime audit; define the target
+packages, contract generation, deletion posture, workstreams, risks, and
+binary exits.
+
+**Validation:** `make lint-markdown`, `git diff --check`, and final status/diff
+review.
+
+**Exit:** Planning baseline and evidence are recorded with no executable change.
+
+### RF2-01: Profile-neutral authority and generated contracts
+
+**Depends on:** RF2-00.
+
+**Actions:**
+
+1. Mark RF2-001 `IN_PROGRESS` before edits.
+2. Amend TH-HARNESS-REQ-812..815 and AC-096..099 so generic mechanics are
+   profile-neutral while Core 04 and selected profile adapters remain exact.
+3. Version the registry and artifact schemas once, define the active versus
+   historical validation boundary, and add an authored generator input for the
+   Go profile catalog.
+4. Generate safe Go descriptors and cross-language key vectors from the sole
+   registry; prohibit handwritten profile facts in generic packages.
+5. Add missing, duplicate, incompatible, reordered, unsupported-version,
+   second-profile, and cross-language drift cases.
+
+**Validation:** Owner review; task guides for `harness.browser` and
+`module.timeline`; focused schema/catalog/generator tests; `make generate`,
+`make generate-drift`, `make generated-artifact-policy-check`,
+`make json-shape-check`, and `make harness-contract`.
+
+**Risks:** Moving profile facts into generic schemas again, generating secret
+data, or accepting two active contract generations.
+
+**Exit:** One authored registry projects identical profile descriptors and keys
+to Go and JavaScript; a synthetic second profile compiles without an AC-043
+conditional; active and historical schema ownership is explicit. Mark RF2-001
+`DONE`, append evidence, run tracker hygiene, then begin RF2-02.
+
+### RF2-02: Secret-free runtime and retained evidence
+
+**Depends on:** RF2-01.
+
+**Actions:**
+
+1. Mark RF2-002 `IN_PROGRESS`.
+2. Move browser stack env, PostgreSQL recovery DSNs, token-key rings, fixture
+   credentials, and equivalent runtime secrets to suite-private ephemeral
+   roots outside retained results.
+3. Replace retained raw configuration with allowlisted, schema-validated,
+   redacted readiness and cleanup diagnostics.
+4. Delete secret inputs immediately after their last consumer and on every
+   failure, cancellation, signal, finalizer failure, and suite termination.
+5. Extend bounded janitor identity to orphaned runtime roots and remove empty
+   suite identity directories without broad namespace deletion.
+6. Add final retained-root filename and content-policy enforcement before
+   success can be reported.
+
+**Validation:** Focused and service-backed testservices/browser slices;
+permission, symlink, crash, cancellation, partial-start, finalizer-failure,
+janitor-scope, and redaction negatives; scans of both passing and injected
+failure roots proving zero forbidden files and values.
+
+**Risks:** Deleting a runtime input before a child has consumed it, weakening
+debuggability, or letting cleanup target an unproven path.
+
+**Exit:** New result roots retain no env, DSN, credential, token, cookie, key
+ring, or runtime-bundle material; redacted diagnostics remain sufficient to
+route failures. Mark RF2-002 `DONE`, append evidence, run tracker hygiene, then
+begin RF2-03.
+
+### RF2-03: Go package cohesion and lifecycle extraction
+
+**Depends on:** RF2-02.
+
+**Actions:**
+
+1. Mark RF2-003 `IN_PROGRESS`.
+2. Move cross-owner assembly to
+   `internal/testutil/appsupport/performancefixture` and extract lifecycle
+   mechanics from `tools/testservices/performance_fixture.go` into
+   `internal/testutil/performancefixturelifecycle` behind narrow PostgreSQL,
+   artifact, clock, and filesystem ports.
+3. Consume generated profile descriptors in key, runtime-bundle, assembly,
+   validation, build, and lease paths.
+4. Keep owner providers responsible for constructing their production
+   applications; keep generic coordination owner-neutral.
+5. Delete the old assembly package, duplicated constants, test-only exports,
+   and obsolete fakes. Add import-cycle and public-surface reachability tests.
+
+**Validation:** Focused Go tests; service-backed Auth, Incidents, Entities,
+Timeline, Links, Projections, testservices, and harness slices; deterministic
+two-build proof; lifecycle failure matrix; `make lint-go` and applicable
+boundary checks.
+
+**Risks:** Import cycles, leaking storage details into the generic contract, or
+moving profile behavior into lifecycle mechanics.
+
+**Exit:** The CLI root only wires dependencies and dispatches commands; generic
+packages contain no AC-043 constants; the old package path and forwarding
+symbols do not exist. Mark RF2-003 `DONE`, append evidence, run tracker hygiene,
+then begin RF2-04.
+
+### RF2-04: JavaScript ownership and bounded evidence processing
+
+**Depends on:** RF2-03.
+
+**Actions:**
+
+1. Mark RF2-004 `IN_PROGRESS`.
+2. Move registry/key/profile selection into the canonical
+   `tools/harness/performance-fixture` owner and make catalog/graph/finalizers
+   consumers.
+3. Replace AC-043-named generic helpers and hardcoded profile filters with
+   registry-driven selection supporting multiple independent profile groups.
+4. Introduce one streaming canonical-event reader with sequence, schema,
+   monotonic-time, terminal, dependency, cancellation, and early-stop
+   validation.
+5. Migrate browser target finalization, retained-run finalization,
+   observability, scheduler drift checks, `explain-run`, and other canonical
+   event consumers. Replace unnecessary fixed `maxBuffer` collection with
+   owned output files and bounded diagnostics.
+6. Delete the old test-catalog module and re-export seam with their final
+   imports.
+
+**Validation:** Unit and integration tests using malformed streams, 40,002-line
+streams, sparse large lines, multiple profile groups, dependency skips, and
+cancellation; inspect the immutable 641 MiB failed release without V8 string
+allocation; direct, slice, aggregate, and release topology parity.
+
+**Risks:** Async conversion changing error order, losing exact scheduler
+accounting, or mixing profile groups in one aggregate.
+
+**Exit:** Static scans find no whole-file canonical event reader or generic
+AC-043 helper; one fixture owner supplies every route; large evidence remains
+bounded-memory and causally correct. Mark RF2-004 `DONE`, append evidence, run
+tracker hygiene, then begin RF2-05.
+
+### RF2-05: Evidence cutover and legacy deletion
+
+**Depends on:** RF2-04.
+
+**Actions:**
+
+1. Mark RF2-005 `IN_PROGRESS`.
+2. Cut active producers, schemas, attachments, generated validators, and
+   consumers to the contract generation in section 17.3 exactly once.
+3. Make aggregate v3 reference immutable summary v3 artifacts and retain only
+   bounded rollups required for cross-row qualification.
+4. Create an explicitly read-only historical schema registry for retained
+   evidence with continuing audit value; it is unavailable to active
+   qualification and performs no translation.
+5. Use reachability and retained-root inventories to delete superseded schemas
+   without audit value, old module paths, aliases, obsolete tests, stale
+   generated inputs, and every deletion candidate in section 17.4 whose last
+   consumer is gone.
+6. Generate and review all downstream projections; do not hand-edit generated
+   roots.
+
+**Validation:** Active/historical separation tests; v1/v2 rejection from active
+qualification; representative historical-root inspection; artifact digest
+tamper tests; aggregate-size bound; `make generate`, `make generate-drift`,
+`make generated-artifact-policy-check`, `make json-shape-check`,
+`make harness-contract`, import boundaries, stale-symbol scans, and complete
+diff review.
+
+**Risks:** Accidentally deleting the only schema needed to audit a retained
+root, accepting old evidence in the active path, or leaving a hidden alias.
+
+**Exit:** One active contract generation exists, historical support is isolated
+and read-only, aggregate growth is bounded, and the deletion manifest has no
+unresolved active reference. Mark RF2-005 `DONE`, append evidence, run tracker
+hygiene, then begin RF2-06.
+
+### RF2-06: Qualification, release, and handoff
+
+**Depends on:** RF2-05.
+
+**Actions:**
+
+1. Mark RF2-006 `IN_PROGRESS` and refresh task guides, owner explanations,
+   direct/aggregate/release plans, source digest, and worktree state.
+2. Run focused and service-backed slices for every changed owner, the complete
+   lifecycle/security failure matrix, frontend type/unit/import checks,
+   generation/drift/schema/contract checks, and static dead-code/secret/event
+   reader scans.
+3. Run the four AC-043 rows in one current-source selection and require one
+   builder, four isolated clones, exact unchanged semantics, qualified current
+   evidence, zero overlap, and zero secret-capable retained files.
+4. Run a canonical full warm `make check`, then
+   `make agent-finalize RESULTS_DIR=<green-check-root>`.
+5. Record and run one planned `make release-check`; preserve and route any
+   failure without automatic retry.
+6. Review the complete authored/generated/deletion diff and close every binary
+   criterion before final handoff.
+
+**Validation:** At minimum `make test-fast`, required owner slices,
+`make frontend-typecheck`, `make frontend-unit`,
+`make frontend-import-boundary-check`, `make harness-contract`,
+`make browser-e2e-measurement`, generation and drift targets, security/lint
+targets selected by task guides, `make check`, `make agent-finalize`, one
+planned `make release-check`, `make lint-markdown`, and `git diff --check`.
+
+**Risks:** Treating structural tests as release proof, weakening exact AC-043
+semantics during generalization, or preserving a legacy path because a test
+still exercises it.
+
+**Exit:** All RF2 items and criteria are `DONE`; current-source release is
+green; retained roots contain only allowlisted evidence; no obsolete package,
+schema attachment, helper, alias, whole-file event reader, or secret runtime
+file remains; historical evidence stays immutable.
+
+## 19. Iteration 2 binary acceptance criteria
+
+- [ ] RF2-AC-001: Generic schemas, Go packages, and JavaScript modules contain
+  no AC-043 profile ID, fixture version, seed, count, predicate, traffic, or
+  threshold constant.
+- [ ] RF2-AC-002: The sole authored registry generates the Go descriptor and is
+  loaded by the canonical JavaScript fixture owner; cross-language keys match.
+- [ ] RF2-AC-003: A synthetic second profile compiles and routes through
+  contract tests without adding active product behavior or an AC-043 branch.
+- [ ] RF2-AC-004: Result roots from success, failure, cancellation, and crash
+  contain no env, DSN, credential, session, token, cookie, key-ring, runtime
+  bundle, or forbidden secret value.
+- [ ] RF2-AC-005: `tools/testservices` is a thin composition root; assembly and
+  lifecycle responsibilities reside in the target packages with no forwarding
+  compatibility package.
+- [ ] RF2-AC-006: Owner-local providers still construct production applications
+  and exact deterministic AC-043 builds retain all semantic invariants.
+- [ ] RF2-AC-007: Every canonical unit-event consumer uses the shared bounded
+  stream and the immutable 641 MiB failed release can be inspected without
+  whole-file allocation.
+- [ ] RF2-AC-008: Browser row and target finalizers resolve profiled rows from
+  the registry and keep independent profile/key groups separate.
+- [ ] RF2-AC-009: Aggregate evidence references immutable summaries and remains
+  bounded independently of raw sample-array size.
+- [ ] RF2-AC-010: Active qualification accepts exactly one current contract
+  generation; historical evidence is read-only, isolated, untranslated, and
+  unable to qualify current source.
+- [ ] RF2-AC-011: The deletion manifest closes every old package, re-export,
+  test-only export, hardcoded generic helper, superseded attachment, dead test,
+  and stale generated input with zero active reference.
+- [ ] RF2-AC-012: Direct row, row slice, owner slice, aggregate, and release
+  plans preserve identical profile/key/builder identity.
+- [ ] RF2-AC-013: AC-043 keeps exact Core 04 counts, predicates, one warm-up,
+  100 measured samples, thresholds, 25 analysts, 4.8 updates/s, target
+  exclusion, presence, and zero scheduler overlap.
+- [ ] RF2-AC-014: Focused, service-backed, frontend, contract, generation,
+  drift, security, cleanup, and full warm checks pass on one source digest.
+- [ ] RF2-AC-015: `make agent-finalize` and one planned current-source
+  `make release-check` pass without automatic retry.
+- [ ] RF2-AC-016: The final handoff records changed and deleted paths, contract
+  versions, migration impact, commands, roots, failures, skipped checks,
+  cleanup, security scans, and remaining risks.
+
+## 20. Iteration 2 handoff log
+
+This log uses the column and evidence requirements in section 12.1. Historical
+AC-043 rows above are never edited or removed.
+
+| Date | Checkpoint | Status change | Branch and commit | Work completed | Validation and evidence | Risks, blockers, and cleanup | Next action and owner |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-08-14 | RF2-00 | RF2-000 `TODO` to `IN_PROGRESS`; RF2-001..006 initialized `TODO` | `main` at `e20d06007af19a53f9a702ed7729fdef53249a1d`; worktree clean before this documentation edit | Audited generic hardcoded facts, Go and JavaScript ownership, package sizes and reachability, active historical schemas, canonical event readers, planned deletion candidates, and retained browser runtime paths; defined the serial production-readiness plan. | Final AC-043 release `20260814T064307Z-p2281367` remains immutable at 934/934. Read-only audit found an 844-line testservices fixture file, a re-export-only fixture module, multiple generic AC-043 conditionals, several whole-file event consumers, and 88 secret-capable `_shared` runtime files in that successful root. Documentation checks are pending. | No retained root or executable file was changed. The secret-capable files are a forward security-remediation input; this planning step does not expose values or mutate historical evidence. | Validate this document-only checkpoint, mark RF2-000 `DONE`, and hand off RF2-01 to the Testing Harness owner. |
+| 2026-08-14 | RF2-00 | RF2-000 `IN_PROGRESS` to `DONE`; RF2-001 remains `TODO` | `main` at `e20d06007af19a53f9a702ed7729fdef53249a1d`; only this tracker modified | Completed the production-readiness planning checkpoint and reviewed the complete documentation diff. No implementation workstream was opened. | `make lint-markdown` passed at `20260814T162618Z-p95698`; `git diff --check` passed; `git status --short` and `git diff --stat` showed one modified tracker with 438 inserted planning lines before this evidence row; `git diff -- docs/domain.md` was empty. | No executable source, generated file, domain vocabulary, retained root, database, bucket, process, session, runtime file, or secret value was changed. RF2-001 through RF2-006 remain unstarted. | Begin RF2-01 only in a new implementation checkpoint, mark it `IN_PROGRESS`, and preserve the serial tracker-update rule. |
