@@ -52,6 +52,7 @@
       "selector": {
         "package": "./internal/app/recoveryassembly",
         "tests": [
+          "TestGraphRestoreAcceptanceGPRA18RecoveryAssemblyUsesNarrowParticipant_Integration",
           "TestRecoveryCompletionRecordsCloseEveryOperationAndFailureTiming_Unit",
           "TestRecoveryEvidenceCompletionIsTypedEncryptedAndAtomic_Integration",
           "TestRecoveryTerminalEvidenceRollsBackJournalWhenAuditFails_Integration"
@@ -643,7 +644,9 @@
       "selector": {
         "package": "./internal/modules/recovery/application",
         "tests": [
+          "TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit",
           "TestRestoreTargetBindingDigestsExcludeCredentials_Unit",
+          "TestRestoreTargetMarkerAdmissionReturnsValidatedGeneration_Unit",
           "TestRestoreTargetMarkerV2Admission_Unit"
         ]
       },
@@ -725,7 +728,8 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
-          "TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit"
+          "TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit",
+          "TestVNextGraphRestoreArtifactsFailClosedAndSelectExactLegacyBinding_Unit"
         ]
       },
       "evidence_class": "unit",

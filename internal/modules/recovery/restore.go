@@ -70,13 +70,16 @@ type RestoreRunner struct {
 }
 
 type RestoreTarget struct {
-	Postgres        postgres.DB
-	ObjectStore     objectstore.Store
-	EvidenceObjects EvidenceRecoveryProvider
-	Projections     restorecontract.ProjectionRebuilder
-	Readiness       RestoreReadinessGate
-	Failure         RestoreFailureGate
-	Observer        RestoreStepObserver
+	RestoreOperationID uuid.UUID
+	TargetGenerationID uuid.UUID
+	Postgres           postgres.DB
+	ObjectStore        objectstore.Store
+	EvidenceObjects    EvidenceRecoveryProvider
+	GraphProjection    restorecontract.GraphProjectionParticipant
+	Projections        restorecontract.ProjectionRebuilder
+	Readiness          RestoreReadinessGate
+	Failure            RestoreFailureGate
+	Observer           RestoreStepObserver
 }
 
 type RestoreReadinessGate interface {
@@ -96,6 +99,8 @@ type RestoreResult struct {
 	ConsistencyReport         RestoreConsistencyReport
 	ObjectStoreBackupManifest ObjectStoreBackupManifest
 	ProjectionRebuildResult   restorecontract.ProjectionRebuildResult
+	GraphProjectionResult     restorecontract.GraphProjectionRebuildResult
+	GraphProjectionCompletion *restorecontract.GraphProjectionCompletionEvidence
 	ExtensionBindings         []ExtensionBindingProof
 	SelectedIncidentID        *string
 	WorkbookProbe             *workbookprobe.Result
@@ -225,7 +230,7 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 	}
 
 	recordStep(target.Observer, RestoreStepProjectionRebuild)
-	projectionResult, err := target.Projections.RebuildRestoreProjections(ctx, restoreProjectionRebuildRequest(backupSet))
+	projectionResult, err := target.Projections.RebuildRestoreProjections(ctx, restoreProjectionRebuildRequest(target, backupSet))
 	partialResult.ProjectionRebuildResult = projectionResult
 	if err != nil {
 		return partialResult, restoreStageFailure(RestoreStepProjectionRebuild, err)
@@ -269,6 +274,9 @@ func (runner *RestoreRunner) restoreVNextBackupSet(
 	if runner.stateCatalog == nil {
 		return RestoreResult{}, fmt.Errorf("%w: current recovery-state catalog is required", ErrVNextBackup)
 	}
+	if target.RestoreOperationID == uuid.Nil || target.TargetGenerationID == uuid.Nil {
+		return RestoreResult{}, fmt.Errorf("%w: admitted restore operation and target generation are required", ErrInvalidBackupArtifact)
+	}
 	streaming, err := RequireStreamingBackupStorage(runner.storage)
 	if err != nil {
 		return RestoreResult{}, err
@@ -306,20 +314,18 @@ func (runner *RestoreRunner) restoreVNextBackupSet(
 	if err != nil {
 		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepConsistencyCheck, err)
 	}
-	recordStep(target.Observer, RestoreStepProjectionRebuild)
-	projectionResult, err := target.Projections.RebuildRestoreProjections(
-		ctx,
-		restoreProjectionRebuildRequest(backupSet),
-	)
-	if err != nil {
-		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepProjectionRebuild, err)
-	}
-	if !projectionResult.ReadinessSatisfied() {
+	if target.GraphProjection == nil {
 		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(
 			RestoreStepProjectionRebuild,
-			fmt.Errorf("%w: projection rebuild did not produce ready restore state", ErrInvalidBackupArtifact),
+			fmt.Errorf("%w: Graph Projection restore participant is required", ErrInvalidBackupArtifact),
 		)
 	}
+	recordStep(target.Observer, RestoreStepProjectionRebuild)
+	graphResult, projectionResult, err := runner.runVNextProjectionRebuilds(ctx, target, backupSet, verificationEvidence)
+	if err != nil {
+		return RestoreResult{BackupSet: backupSet, GraphProjectionResult: graphResult, ProjectionRebuildResult: projectionResult}, restoreStageFailure(RestoreStepProjectionRebuild, err)
+	}
+	graphCompletion := graphProjectionCompletion(target, backupSet, runner.stateCatalog.DigestSHA256(), graphResult)
 	recordStep(target.Observer, RestoreStepConsistencyCheck)
 	report, err := vNextConsistencyReport(ctx, target, runner.stateCatalog, backupSet)
 	if err != nil {
@@ -327,9 +333,10 @@ func (runner *RestoreRunner) restoreVNextBackupSet(
 	}
 	result := RestoreResult{
 		BackupSet: backupSet, ConsistencyReport: report,
-		ProjectionRebuildResult: projectionResult,
-		IntegrityManifestSHA256: verificationEvidence.ManifestSHA256,
-		RestoredObjectCount:     verificationEvidence.RestoredObjectCount,
+		ProjectionRebuildResult: projectionResult, GraphProjectionResult: graphResult,
+		GraphProjectionCompletion: &graphCompletion,
+		IntegrityManifestSHA256:   verificationEvidence.ManifestSHA256,
+		RestoredObjectCount:       verificationEvidence.RestoredObjectCount,
 	}
 	if target.Readiness != nil {
 		recordStep(target.Observer, RestoreStepReadiness)
@@ -338,6 +345,116 @@ func (runner *RestoreRunner) restoreVNextBackupSet(
 		}
 	}
 	return result, nil
+}
+
+func (runner *RestoreRunner) runVNextProjectionRebuilds(
+	ctx context.Context,
+	target RestoreTarget,
+	backupSet BackupSet,
+	verification VNextRestoreVerificationEvidence,
+) (restorecontract.GraphProjectionRebuildResult, restorecontract.ProjectionRebuildResult, error) {
+	graphTables := make([]string, 0, len(restorecontract.GraphProjectionTableIDs()))
+	for _, table := range runner.stateCatalog.Document().Tables {
+		if table.AlgorithmID != nil && *table.AlgorithmID == restorecontract.GraphProjectionRestoreAlgorithmID {
+			graphTables = append(graphTables, table.TableName)
+		}
+	}
+	sort.Strings(graphTables)
+	if !equalStringSlices(graphTables, restorecontract.GraphProjectionTableIDs()) {
+		return restorecontract.GraphProjectionRebuildResult{}, restorecontract.ProjectionRebuildResult{}, fmt.Errorf("%w: Graph Projection catalog tables mismatch", ErrInvalidBackupArtifact)
+	}
+
+	algorithmIDs := []string{restorecontract.GraphProjectionRestoreAlgorithmID, "workbook.restore_projections.v1"}
+	sort.Strings(algorithmIDs)
+	required := RequiredVNextRestoreAlgorithmIDs(runner.stateCatalog)
+	for _, algorithmID := range algorithmIDs {
+		index := sort.SearchStrings(required, algorithmID)
+		if index == len(required) || required[index] != algorithmID {
+			return restorecontract.GraphProjectionRebuildResult{}, restorecontract.ProjectionRebuildResult{}, fmt.Errorf("%w: projection rebuild algorithm is unavailable", ErrInvalidBackupArtifact)
+		}
+	}
+
+	var graphResult restorecontract.GraphProjectionRebuildResult
+	var workbookResult restorecontract.ProjectionRebuildResult
+	for _, algorithmID := range algorithmIDs {
+		switch algorithmID {
+		case restorecontract.GraphProjectionRestoreAlgorithmID:
+			var err error
+			registry := restorecontract.CurrentGraphProjectionSourceRegistryRef()
+			binding := restorecontract.CurrentGraphProjectionImplementationBinding()
+			if verification.GraphRestoreArtifacts.LegacyEmptyRegistryBinding {
+				binding = restorecontract.LegacyGraphProjectionImplementationBinding()
+			}
+			if registry.SHA256 != verification.GraphRestoreArtifacts.SourceRegistrySHA256 ||
+				binding.SHA256 != verification.GraphRestoreArtifacts.ImplementationBindingSHA256 {
+				return graphResult, workbookResult, fmt.Errorf("%w: Graph Projection frozen artifacts mismatch", ErrInvalidBackupArtifact)
+			}
+			graphResult, err = target.GraphProjection.Rebuild(ctx, restorecontract.GraphProjectionRebuildRequest{
+				Context:             ctx,
+				RestoreOperationID:  target.RestoreOperationID,
+				RestoredSourceState: restorecontract.RestoredGraphProjectionSourceState{},
+				BackupSetID:         backupSet.BackupSetID,
+				ConsistencyPointAt:  backupSet.ConsistencyPointAt,
+				TargetGenerationID:  target.TargetGenerationID,
+				RecoveryStateCatalog: restorecontract.GraphProjectionRecoveryCatalogRef{
+					DigestSHA256: runner.stateCatalog.DigestSHA256(), AlgorithmID: algorithmID, GraphTableIDs: graphTables,
+				},
+				SourceRegistry:        registry,
+				ImplementationBinding: binding,
+			})
+			if err != nil {
+				return graphResult, workbookResult, err
+			}
+			if !graphResult.ReadinessSatisfied() {
+				return graphResult, workbookResult, fmt.Errorf("%w: Graph Projection rebuild did not produce ready restore state", ErrInvalidBackupArtifact)
+			}
+		case "workbook.restore_projections.v1":
+			var err error
+			workbookResult, err = target.Projections.RebuildRestoreProjections(ctx, restoreProjectionRebuildRequest(target, backupSet))
+			if err != nil {
+				return graphResult, workbookResult, err
+			}
+			if !workbookResult.ReadinessSatisfied() {
+				return graphResult, workbookResult, fmt.Errorf("%w: projection rebuild did not produce ready restore state", ErrInvalidBackupArtifact)
+			}
+		}
+	}
+	return graphResult, workbookResult, nil
+}
+
+func graphProjectionCompletion(
+	target RestoreTarget,
+	backupSet BackupSet,
+	catalogSHA256 string,
+	result restorecontract.GraphProjectionRebuildResult,
+) restorecontract.GraphProjectionCompletionEvidence {
+	postcondition := ""
+	if result.PostconditionSHA256 != nil {
+		postcondition = *result.PostconditionSHA256
+	}
+	return restorecontract.GraphProjectionCompletionEvidence{
+		TargetGenerationID:          target.TargetGenerationID,
+		RestoreOperationID:          target.RestoreOperationID,
+		BackupSetID:                 backupSet.BackupSetID,
+		ConsistencyPointAt:          backupSet.ConsistencyPointAt.UTC(),
+		RecoveryStateCatalogSHA256:  catalogSHA256,
+		SourceRegistrySHA256:        result.SourceRegistrySHA256,
+		ImplementationBindingSHA256: result.ImplementationBindingSHA256,
+		PostconditionSHA256:         postcondition,
+		ParticipantResult:           result,
+	}
+}
+
+func equalStringSlices(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 type vNextRestoreTarget struct {
@@ -494,9 +611,16 @@ SELECT (SELECT COUNT(*) FROM change_sets)
 	}, nil
 }
 
-func restoreProjectionRebuildRequest(backupSet BackupSet) restorecontract.ProjectionRebuildRequest {
+func restoreProjectionRebuildRequest(target RestoreTarget, backupSet BackupSet) restorecontract.ProjectionRebuildRequest {
+	operationID := target.RestoreOperationID
+	if operationID == uuid.Nil {
+		// Historical direct RestoreRunner callers predate admitted Recovery
+		// operation identities. Preserve that workbook-only compatibility path;
+		// vNext recovery requires and propagates the admitted identity above.
+		operationID = uuid.New()
+	}
 	return restorecontract.ProjectionRebuildRequest{
-		RestoreOperationID:     uuid.New(),
+		RestoreOperationID:     operationID,
 		RestoredSourceStateRef: restoreProjectionSourceStateRef(backupSet),
 		RebuildScope:           restorecontract.ProjectionRebuildScopeAllActiveProviders,
 		ProviderRegistryRef:    restorecontract.ProviderRegistryRefCodeBacked,

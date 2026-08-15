@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.graph_projection_restore_rebuild_result.v1",
+  "$defs": {
+    "safe_message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code"],
+      "properties": {
+        "code": {
+          "enum": [
+            "implementation_binding_unavailable",
+            "invalid_restore_candidate",
+            "invalid_restore_request",
+            "recovery_catalog_mismatch",
+            "restore_outcome_indeterminate",
+            "restore_postcondition_failed",
+            "restore_publication_failed",
+            "restore_resource_overflow",
+            "source_enumeration_failed",
+            "source_registry_mismatch"
+          ]
+        }
+      }
+    },
+    "rebuilt_view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_registration_id",
+        "candidate_id",
+        "graph_view_id",
+        "projection_run_id",
+        "source_snapshot_id",
+        "projection_version",
+        "normalized_configuration_sha256",
+        "normalized_source_sha256",
+        "vertex_count",
+        "edge_count",
+        "canonical_output_sha256"
+      ],
+      "properties": {
+        "source_registration_id": {
+          "$ref": "common.v1.schema.json#/$defs/identifier"
+        },
+        "candidate_id": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+        "graph_view_id": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+        "projection_run_id": {
+          "$ref": "common.v1.schema.json#/$defs/identifier"
+        },
+        "source_snapshot_id": {
+          "$ref": "common.v1.schema.json#/$defs/identifier"
+        },
+        "projection_version": {
+          "$ref": "common.v1.schema.json#/$defs/identifier"
+        },
+        "normalized_configuration_sha256": {
+          "$ref": "common.v1.schema.json#/$defs/sha256"
+        },
+        "normalized_source_sha256": {
+          "$ref": "common.v1.schema.json#/$defs/sha256"
+        },
+        "vertex_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500000
+        },
+        "edge_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "canonical_output_sha256": {
+          "$ref": "common.v1.schema.json#/$defs/sha256"
+        }
+      }
+    },
+    "skipped_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_registration_id", "candidate_id", "reason"],
+      "properties": {
+        "source_registration_id": {
+          "$ref": "common.v1.schema.json#/$defs/identifier"
+        },
+        "candidate_id": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+        "reason": {
+          "enum": [
+            "declaration_expired_at_consistency_point",
+            "registration_not_yet_active",
+            "registration_retired_before_consistency_point"
+          ]
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "restore_operation_id",
+    "target_generation_id",
+    "status",
+    "readiness_outcome",
+    "algorithm_id",
+    "implementation_binding_sha256",
+    "source_registry_sha256",
+    "cleared_table_ids",
+    "rebuilt_views",
+    "skipped_candidates",
+    "postcondition_sha256",
+    "warnings",
+    "errors"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.graph_projection_restore_rebuild_result.v1"
+    },
+    "restore_operation_id": {
+      "$ref": "common.v1.schema.json#/$defs/identifier"
+    },
+    "target_generation_id": {
+      "$ref": "common.v1.schema.json#/$defs/uuid"
+    },
+    "status": { "enum": ["succeeded", "failed"] },
+    "readiness_outcome": { "enum": ["ready", "incomplete"] },
+    "algorithm_id": { "const": "graphprojection.restore_rebuild.v1" },
+    "implementation_binding_sha256": {
+      "$ref": "common.v1.schema.json#/$defs/sha256"
+    },
+    "source_registry_sha256": {
+      "$ref": "common.v1.schema.json#/$defs/sha256"
+    },
+    "cleared_table_ids": {
+      "type": "array",
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": { "$ref": "common.v1.schema.json#/$defs/identifier" }
+    },
+    "rebuilt_views": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": { "$ref": "#/$defs/rebuilt_view" }
+    },
+    "skipped_candidates": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": { "$ref": "#/$defs/skipped_candidate" }
+    },
+    "postcondition_sha256": {
+      "oneOf": [
+        { "$ref": "common.v1.schema.json#/$defs/sha256" },
+        { "type": "null" }
+      ]
+    },
+    "warnings": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/safe_message" }
+    },
+    "errors": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/safe_message" }
+    }
+  }
+}

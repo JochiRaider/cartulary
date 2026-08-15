@@ -15,6 +15,7 @@ import (
 
 func TestRecoveryCLIParserAndInvalidInvocationContract(t *testing.T) {
 	const backupID = "00000000-0000-0000-0000-000000000428"
+	const operationID = "00000000-0000-0000-0000-000000000429"
 	t.Run("canonical operations use current defaults", func(t *testing.T) {
 		tests := []struct {
 			name      string
@@ -46,6 +47,17 @@ func TestRecoveryCLIParserAndInvalidInvocationContract(t *testing.T) {
 					t.Fatalf("canonical target fields mismatch: %#v", parsed)
 				}
 			})
+		}
+	})
+
+	t.Run("exact retry operation identity", func(t *testing.T) {
+		parsed := parseCommand([]string{"restore", "latest", "--target-config-file", "/tmp/cartulary-target.toml", "--confirm-backup-set-id", backupID, "--operation-id", operationID})
+		if parsed.Invalid || parsed.OperationID != operationID {
+			t.Fatalf("exact retry operation identity was not retained: %#v", parsed)
+		}
+		for _, invalid := range []string{"not-a-uuid", "00000000-0000-0000-0000-000000000000", "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA"} {
+			parsed = parseCommand([]string{"restore", "latest", "--target-config-file", "/tmp/cartulary-target.toml", "--confirm-backup-set-id", backupID, "--operation-id", invalid})
+			assertInvalidRecoveryCommand(t, parsed, "invalid_flag_value")
 		}
 	})
 

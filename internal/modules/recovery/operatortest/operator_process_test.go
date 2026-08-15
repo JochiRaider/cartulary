@@ -528,6 +528,28 @@ func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 	requireOperatorRecoverySafeOutput(t, stdout, stderr, sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
 	requireOperatorRecoveryJournalAndAudit(t, sourceDB.DSN, payload, "restore_latest", "succeeded", sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
 
+	// The target is no longer fresh, so this exact-identity retry can succeed
+	// only by replaying durable terminal evidence before preflight and without a
+	// second Graph or workbook rebuild.
+	replayStdout, replayStderr, replayExit := runOperatorBinaryWithTimeout(t, 30*time.Second, operatorBin, operatorRecoveryEnv(),
+		"restore", "latest",
+		"--source-config-file", sourceConfig.path,
+		"--target-config-file", targetConfig.path,
+		"--confirm-backup-set-id", backupSetID.String(),
+		"--operation-id", payload.OperationID,
+		"--progress", "jsonl",
+	)
+	if replayExit != 0 {
+		t.Fatalf("terminal restore replay failed: exit=%d stdout=%s stderr=%s", replayExit, replayStdout, replayStderr)
+	}
+	replayPayload := decodeOperatorRecoveryResult(t, replayStdout)
+	requireOperatorRecoverySuccess(t, replayPayload, "restore_latest", backupSetID.String())
+	if replayPayload.OperationID != payload.OperationID {
+		t.Fatalf("terminal replay changed operation identity: first=%s replay=%s", payload.OperationID, replayPayload.OperationID)
+	}
+	requireOperatorRecoveryProgress(t, replayStderr, payload.OperationID, []string{"preflight", "journal_write", "finalize"})
+	requireOperatorRecoverySafeOutput(t, replayStdout, replayStderr, sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
+
 	targetSQL, err := sql.Open("pgx", targetDB.DSN)
 	if err != nil {
 		t.Fatalf("open target sql: %v", err)

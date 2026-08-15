@@ -16,8 +16,11 @@
         "tests": [
           "TestAdmissionAndNormalization",
           "TestAdmissionRejectsInvalidGraphViewID",
+          "TestAdmissionRejectsNestedUnknownMemberWithClosedDetails",
+          "TestAdmissionRejectsVirtualOversizedInputBeforeRead",
           "TestCanonicalDigestAndIDs",
           "TestCanonicalJSON",
+          "TestDuplicateIdentifiersUseOwnerCodeAndStableOrder",
           "TestDuplicateObjectMembersRejected",
           "TestFailedRunInspectionShape",
           "TestFilterTruthTable",
@@ -26,13 +29,31 @@
           "TestGraphProjectionInboundConsumersUseApprovedFacades",
           "TestGraphProjectionProductionImportBoundaries",
           "TestGraphProjectionUnitBehaviorFixtures_Unit",
+          "TestGraphRestoreAcceptanceGPRA01EmptyRegistryClearOnly",
+          "TestGraphRestoreAcceptanceGPRA02Through05CandidateAndSkipSemantics",
+          "TestGraphRestoreAcceptanceGPRA06And10SourceFailuresBeforeMutation",
+          "TestGraphRestoreAcceptanceGPRA06Through11PreflightFailsBeforeMutation",
+          "TestGraphRestoreAcceptanceGPRA11OperationWideResourceLimits",
+          "TestGraphRestoreAcceptanceGPRA13And17IndeterminateFailureIsClosed",
+          "TestGraphRestoreAcceptanceGPRA15RetryPreservesDeterministicOutput",
+          "TestGraphRestoreCurrentRegistryAndBindingsAreExact",
+          "TestGraphRestoreResultContractClosesStatesAndSafeErrors",
+          "TestGraphViewIDMismatchDoesNotExposeDerivedIdentity",
+          "TestIdempotencyKeyUsesUnicodeScalarContract",
+          "TestIdempotencyPresenceDistinguishesOmittedNullAndEmpty",
+          "TestMalformedJSONIsNotMisclassifiedAsDuplicateMember",
           "TestNoPublicGraphProjectionRoutes",
           "TestOperationErrorsDoNotEchoSourceAuthoredValues",
           "TestProjectDirectReverseAndAggregation",
           "TestProjectEphemeralReturnsFullNonRetainedResult",
+          "TestProjectedSystemMetadataFieldPathRejected",
           "TestProjectionCancellationNonceAndOutputValidationBoundaries",
           "TestProjectionRunInspectionDoesNotExposeRetainedInternals",
+          "TestRepresentableScalarViolationIsAdmittedThenFails",
+          "TestResourceRegistryCollectionOverflow",
+          "TestRetainedGraphProjectionProductionCompositionIsDormant",
           "TestScalarAndFieldPathValidation",
+          "TestServiceWrapsRepositorySentinelsInContractErrors",
           "TestStoreSQLStaysWithinGraphProjectionTables",
           "TestValidationRegistryRejectsInvalidConstructionAndHashesRequiredDetailsOnly",
           "TestWorkbookProjectionsAndPublicRoutesDoNotImportGraphProjection"
@@ -129,6 +150,36 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.graphprojection.storage.restore_publication",
+      "owner_id": "module.graphprojection",
+      "family_id": "module.graphprojection.storage",
+      "collaborator_ids": [
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/graphprojection/postgresrestore",
+        "tests": [
+          "TestGraphRestoreAcceptanceGPRA01And16ClearsAllDerivedHistory_Integration",
+          "TestGraphRestoreAcceptanceGPRA02PublishesOneFreshAvailableRun_Integration",
+          "TestGraphRestoreAcceptanceGPRA12PublicationFailureRollsBackClear_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
       "minimum_tier": "standard",
       "service_dependencies": [
         "postgres"

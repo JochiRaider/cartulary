@@ -14,6 +14,7 @@
     "internal/gen/contractnetworkflow",
     "internal/gen/contractopenapi",
     "internal/gen/contractperformance",
+    "internal/gen/contractrecovery",
     "internal/gen/contractviewschemas",
     "internal/gen/contractws",
     "internal/gen/importtargetregistry",

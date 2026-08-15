@@ -11,9 +11,9 @@ or release checks.
 
 ## I.1 Authority Posture
 
-`docs/graph_projection_nlspec.md` currently declares `status: adopted/current` and is an adopted projections-specific subsystem NLSpec for graph-oriented projection behavior only. It does not govern workbook-grid projection tables, `view_row_v1`, workbook query routes, saved views, import owner facades, provider descriptors for workbook projections, or restore projection rebuild behavior. Research reports R01 through R09 remain informative unless a finding is explicitly promoted into Core, ADR, SPEC, or adopted NLSpec material.
+`docs/graph_projection_nlspec.md` declares `status: adopted/current` and version 1.2.0. It governs graph-oriented projection behavior and the distinct Graph-owned `graphprojection.restore_rebuild.v1` participant. It does not govern workbook-grid projection tables, `view_row_v1`, workbook query routes, saved views, import owner facades, workbook provider descriptors, or the workbook `RestoreProjectionRebuilder`. Research reports R01 through R09 remain informative unless a finding is explicitly promoted into Core, ADR, SPEC, or adopted NLSpec material.
 
-Core 00 REQ-00-062 is the authority rule for projections. Adoption or substantive revision of a projections-specific NLSpec requires projection-related Core sections, implementation trackers, provider descriptors, rebuild behavior, query behavior, and boundary guard tests to be re-audited before accepting new projection changes.
+Core 00 REQ-00-062 is the authority rule for projections. The 1.2.0 re-audit found the workbook and Graph restore paths complementary and distinct: Recovery coordinates both, the workbook provider registry remains unchanged, and Graph owns its typed source registry, five-table clear/rebuild, implementation binding, and participant result.
 
 Accepted workbook projection boundary: each named source owner owns authoritative
 source semantics, canonical source snapshots, typed projection inputs, semantic
@@ -24,7 +24,8 @@ restore rebuild mechanics. Source enumeration remains source-owner supplied and
 deterministic; projection storage never becomes source authority. Core 01 and
 Core 03 explain observable workbook query and startup behavior. Graph Projection
 NLSpec rules remain out of scope for workbook-grid projection tables, workbook
-query routes, saved views, restore rebuilds, and `view_row_v1`.
+query routes, saved views, workbook restore rebuilds, and `view_row_v1`. The
+Graph restore participant never enters the workbook provider registry.
 
 ## I.2 R01 Through R09 Evidence Crosswalk
 
@@ -66,7 +67,7 @@ Keyset continuation preserves the normalized sort tuple, default sort tail, fina
 
 ## I.4 Restore Rebuild Characterization
 
-Recovery owns restore orchestration. Projection modules own projection rebuild mechanics. The current implementation path delegates through a narrow projections restore rebuilder adapter rather than using the full projection store as the recovery-facing interface.
+Recovery owns restore orchestration. Projection modules own projection rebuild mechanics. The workbook path delegates through its narrow projections restore rebuilder adapter. Graph Projection has a separate narrow borrowed-Postgres restore adapter; it is not the full retained Graph store and is not a workbook provider.
 
 | Restore condition | Characterized default | Evidence to preserve |
 | ----------------- | --------------------- | -------------------- |
@@ -78,6 +79,13 @@ Recovery owns restore orchestration. Projection modules own projection rebuild m
 | Retry | Rebuild is idempotent for the same restored source state and scope. | Rebuild tests should compare provider results and row counts when available. |
 | Existing projection data | Derived state is replaced or reconciled deterministically, not silently merged with stale rows. | Restore/rebuild tests should run against preexisting projection rows. |
 | Missing restored source-state reference | Rebuild fails before touching projection state. | Recovery adapter tests must assert fail-before-touch behavior. |
+
+The Graph participant independently freezes its source registry and
+implementation binding, always clears exactly its five derived tables, and
+rebuilds only typed owner candidates. Its current empty registry therefore
+produces successful clear-only behavior. Workbook provider results and Graph
+participant results remain separate durable evidence and are aggregated by
+Recovery in ASCII algorithm-ID order.
 
 ## I.5 Provider Descriptor Manifest Design
 

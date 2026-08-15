@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.graph_projection_restore_source_registry.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "entries"],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.graph_projection_restore_source_registry.v1"
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_registration_id",
+          "source_owner_id",
+          "enumerator_binding_id",
+          "validity_binding_id",
+          "projection_input_contract_id",
+          "implementation_binding_id",
+          "status",
+          "introduced_at",
+          "retired_at"
+        ],
+        "properties": {
+          "source_registration_id": {
+            "$ref": "common.v1.schema.json#/$defs/identifier"
+          },
+          "source_owner_id": {
+            "$ref": "common.v1.schema.json#/$defs/identifier"
+          },
+          "enumerator_binding_id": {
+            "$ref": "common.v1.schema.json#/$defs/identifier"
+          },
+          "validity_binding_id": {
+            "$ref": "common.v1.schema.json#/$defs/identifier"
+          },
+          "projection_input_contract_id": {
+            "$ref": "common.v1.schema.json#/$defs/schema_id"
+          },
+          "implementation_binding_id": {
+            "$ref": "common.v1.schema.json#/$defs/identifier"
+          },
+          "status": { "enum": ["active", "retired"] },
+          "introduced_at": {
+            "$ref": "common.v1.schema.json#/$defs/timestamp"
+          },
+          "retired_at": {
+            "$ref": "common.v1.schema.json#/$defs/nullable_timestamp"
+          }
+        }
+      }
+    }
+  }
+}

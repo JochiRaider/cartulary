@@ -219,6 +219,9 @@ Recommended backup inspection practice:
 Recommended restore confirmation practice:
 
 - use `operator restore latest --confirm-backup-set-id <exact-id>` with the ID selected by the latest inspect result;
+- after response loss, retry with the exact prior `--operation-id`; never mint a
+  replacement identity for an operation whose terminal outcome may already be
+  durable;
 - do not substitute an interactive `yes`, a timestamp, a local note, or a guessed backup identifier for the confirmation ID;
 - keep the source and target configuration files visible in the runbook step so an operator can verify they are distinct before invocation.
 

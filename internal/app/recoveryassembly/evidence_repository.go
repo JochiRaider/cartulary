@@ -1,9 +1,12 @@
 package recoveryassembly
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,19 +36,20 @@ type recoveryJournalAdmissionPayload struct {
 }
 
 type recoveryJournalCompletionPayload struct {
-	SchemaID           string                      `json:"schema_id"`
-	RecordKind         string                      `json:"record_kind"`
-	OperationID        uuid.UUID                   `json:"operation_id"`
-	Operation          application.Operation       `json:"operation"`
-	AttemptID          *string                     `json:"attempt_id"`
-	StartedAt          time.Time                   `json:"started_at"`
-	CompletedAt        time.Time                   `json:"completed_at"`
-	Result             application.ResultStatus    `json:"result"`
-	BackupSetID        *uuid.UUID                  `json:"backup_set_id"`
-	ConsistencyPointAt *time.Time                  `json:"consistency_point_at"`
-	ArtifactCounts     []application.ArtifactCount `json:"artifact_counts"`
-	ErrorCode          *string                     `json:"error_code"`
-	ErrorReason        *string                     `json:"error_reason"`
+	SchemaID                  string                                         `json:"schema_id"`
+	RecordKind                string                                         `json:"record_kind"`
+	OperationID               uuid.UUID                                      `json:"operation_id"`
+	Operation                 application.Operation                          `json:"operation"`
+	AttemptID                 *string                                        `json:"attempt_id"`
+	StartedAt                 time.Time                                      `json:"started_at"`
+	CompletedAt               time.Time                                      `json:"completed_at"`
+	Result                    application.ResultStatus                       `json:"result"`
+	BackupSetID               *uuid.UUID                                     `json:"backup_set_id"`
+	ConsistencyPointAt        *time.Time                                     `json:"consistency_point_at"`
+	ArtifactCounts            []application.ArtifactCount                    `json:"artifact_counts"`
+	ErrorCode                 *string                                        `json:"error_code"`
+	ErrorReason               *string                                        `json:"error_reason"`
+	GraphProjectionCompletion *application.GraphProjectionCompletionEvidence `json:"graph_projection_completion"`
 }
 
 type recoveryAuditSummary struct {
@@ -123,19 +127,20 @@ func (repository *recoveryEvidenceRepository) AppendCompletion(ctx context.Conte
 		return err
 	}
 	payload := recoveryJournalCompletionPayload{
-		SchemaID:           application.RecoveryJournalPayloadSchemaID,
-		RecordKind:         "completion",
-		OperationID:        record.OperationID,
-		Operation:          record.Operation,
-		AttemptID:          record.AttemptID,
-		StartedAt:          record.StartedAt,
-		CompletedAt:        record.CompletedAt,
-		Result:             record.Result,
-		BackupSetID:        record.BackupSetID,
-		ConsistencyPointAt: record.ConsistencyPointAt,
-		ArtifactCounts:     record.ArtifactCounts,
-		ErrorCode:          record.ErrorCode,
-		ErrorReason:        record.ErrorReason,
+		SchemaID:                  application.RecoveryJournalPayloadSchemaID,
+		RecordKind:                "completion",
+		OperationID:               record.OperationID,
+		Operation:                 record.Operation,
+		AttemptID:                 record.AttemptID,
+		StartedAt:                 record.StartedAt,
+		CompletedAt:               record.CompletedAt,
+		Result:                    record.Result,
+		BackupSetID:               record.BackupSetID,
+		ConsistencyPointAt:        record.ConsistencyPointAt,
+		ArtifactCounts:            record.ArtifactCounts,
+		ErrorCode:                 record.ErrorCode,
+		ErrorReason:               record.ErrorReason,
+		GraphProjectionCompletion: record.GraphProjectionCompletion,
 	}
 	envelope, err := repository.encryptPayload(record.OperationID, record.Operation, "completion", payload)
 	if err != nil {
@@ -180,6 +185,94 @@ func (repository *recoveryEvidenceRepository) AppendCompletion(ctx context.Conte
 		return fmt.Errorf("commit recovery terminal evidence transaction: %w", err)
 	}
 	return nil
+}
+
+func (repository *recoveryEvidenceRepository) FindSuccessfulCompletion(
+	ctx context.Context,
+	operationID uuid.UUID,
+	operation application.Operation,
+	attemptID *string,
+	backupSetID uuid.UUID,
+) (*application.RecoveryCompletionRecord, error) {
+	if repository == nil || repository.db == nil || operationID == uuid.Nil || backupSetID == uuid.Nil {
+		return nil, fmt.Errorf("successful Recovery completion lookup requires exact identities")
+	}
+	rows, err := repository.db.Query(ctx, `
+SELECT envelope_schema_id, encryption_mode, key_fingerprint_sha256,
+       payload_sha256, nonce, ciphertext
+  FROM operator_recovery_journal
+ WHERE operation_id = $1
+   AND operation = $2
+   AND backup_set_id = $3
+   AND result = 'succeeded'
+ ORDER BY created_at DESC, operator_recovery_journal_id ASC
+`, operationID, operation, backupSetID)
+	if err != nil {
+		return nil, fmt.Errorf("query successful Recovery completion: %w", err)
+	}
+	defer rows.Close()
+	key, err := repository.loadKey()
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var envelope recovery.OperatorRecoveryJournalEnvelope
+		if err := rows.Scan(
+			&envelope.SchemaID,
+			&envelope.EncryptionMode,
+			&envelope.KeyFingerprintSHA256,
+			&envelope.PayloadSHA256,
+			&envelope.Nonce,
+			&envelope.Ciphertext,
+		); err != nil {
+			return nil, fmt.Errorf("scan successful Recovery completion: %w", err)
+		}
+		body, err := recovery.DecryptOperatorRecoveryJournalPayload(
+			key,
+			recoveryEvidenceAAD(operationID, operation, "completion"),
+			envelope,
+		)
+		if err != nil {
+			return nil, err
+		}
+		var payload recoveryJournalCompletionPayload
+		decoder := json.NewDecoder(bytes.NewReader(body))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			return nil, fmt.Errorf("decode successful Recovery completion: %w", err)
+		}
+		if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+			return nil, fmt.Errorf("successful Recovery completion has trailing content")
+		}
+		if payload.SchemaID != application.RecoveryJournalPayloadSchemaID || payload.RecordKind != "completion" ||
+			payload.OperationID != operationID || payload.Operation != operation || payload.Result != application.ResultSucceeded ||
+			payload.BackupSetID == nil || *payload.BackupSetID != backupSetID || !sameOptionalString(payload.AttemptID, attemptID) ||
+			payload.GraphProjectionCompletion == nil {
+			continue
+		}
+		record, err := application.NormalizeCompletionRecord(application.RecoveryCompletionRecord{
+			OperationID: payload.OperationID, Operation: payload.Operation, AttemptID: payload.AttemptID,
+			StartedAt: payload.StartedAt, CompletedAt: payload.CompletedAt, Result: payload.Result,
+			BackupSetID: payload.BackupSetID, ConsistencyPointAt: payload.ConsistencyPointAt,
+			ArtifactCounts: payload.ArtifactCounts, ErrorCode: payload.ErrorCode, ErrorReason: payload.ErrorReason,
+			GraphProjectionCompletion: payload.GraphProjectionCompletion,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &record, nil
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate successful Recovery completions: %w", err)
+	}
+	return nil, nil
+}
+
+func sameOptionalString(left *string, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func (repository *recoveryEvidenceRepository) encryptPayload(

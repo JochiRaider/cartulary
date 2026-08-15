@@ -110,7 +110,7 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	if snapshots.transactions != 1 {
 		t.Fatalf("snapshot transactions = %d, want 1", snapshots.transactions)
 	}
-	wantArtifactProofs := len(stateCatalog.RequiredTableNames()) + 3
+	wantArtifactProofs := len(stateCatalog.RequiredTableNames()) + 5
 	if got := len(captured.IntegrityManifest.Artifacts); got != wantArtifactProofs {
 		t.Fatalf("integrity artifact proofs = %d, want %d", got, wantArtifactProofs)
 	}
@@ -118,6 +118,16 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 		recovery.BackupIntegrityManifestSchemaID != "cartulary.backup_integrity_manifest.v2" ||
 		recovery.PostgresSnapshotArtifactSchemaID != "cartulary.postgres_snapshot_artifact.v1" {
 		t.Fatalf("vNext capture changed historical writer schema identities")
+	}
+	graphArtifactCounts := map[string]int{}
+	for _, proof := range captured.IntegrityManifest.Artifacts {
+		if proof.Kind == "graph_projection_restore_implementation_binding" || proof.Kind == "graph_projection_restore_source_registry" {
+			graphArtifactCounts[proof.Kind]++
+		}
+	}
+	if graphArtifactCounts["graph_projection_restore_implementation_binding"] != 1 ||
+		graphArtifactCounts["graph_projection_restore_source_registry"] != 1 {
+		t.Fatalf("Graph Projection restore artifacts must occur exactly once: %#v", graphArtifactCounts)
 	}
 
 	algorithmIDs := recovery.RequiredVNextRestoreAlgorithmIDs(stateCatalog)

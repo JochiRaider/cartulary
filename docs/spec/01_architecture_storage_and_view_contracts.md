@@ -6879,6 +6879,34 @@ Provider-level result status values are exactly `succeeded`, `skipped_nonpartici
 Profiles: base
 Verified by: AC-472
 
+**REQ-01-625A**
+Core 01's `RestoreProjectionRebuilder`,
+`restore_projection_rebuild_request_v1`,
+`restore_projection_rebuild_result_v1`, and provider registry govern workbook
+projection rebuild only. The Graph Projection owner MUST NOT be registered as
+a workbook provider and MUST NOT receive an unrestricted workbook source
+reference through those contracts.
+
+When the frozen Recovery catalog contains
+`graphprojection.restore_rebuild.v1`, Recovery MUST resolve it to the distinct
+Graph-owned restore participant defined by Graph Projection NLSpec §11.9.
+Recovery MUST propagate the admitted Recovery operation identity and validated
+Core 04 target-generation identity into that participant rather than minting a
+second identity. After authoritative Postgres and object data are restored,
+Recovery MUST invoke all required catalog rebuild algorithms in ascending ASCII
+algorithm-ID order. Graph and workbook results remain distinct participant
+results whose readiness is aggregated by Recovery.
+
+Catalog, source-registry, or implementation-binding admission failure occurs
+before Graph mutation and produces no Graph participant result. An admitted
+Graph failure maps through the existing `projection_rebuild_failed` family by
+typed classification, never error-message inspection. Recovery MUST persist
+the Graph completion tuple and durable participant result before overall
+readiness and MUST replay matching terminal evidence without invoking Graph a
+second time.
+Profiles: base
+Verified by: AC-472
+
 **REQ-01-576**
 If the selected `backup_set` is missing a required Postgres artifact, required object-store artifact, or required checksum or integrity proof for the deployment's chosen backup mechanism, restore MUST fail before the environment is exposed as ready.
 Profiles: base
@@ -6968,6 +6996,14 @@ The source deployment is the deployment identified by the effective deployment c
 
 For `operator restore latest`, `operator restore-verify latest`, and `operator restore-verify due`, `--target-config-file <absolute-path>` is required. The path MUST be an absolute path in the runtime where interpreted; omission, an empty value, a relative path, `~`, shell-variable expansion syntax, NUL, or lexical `.` or `..` segments are invalid. `operator restore latest` also requires `--confirm-backup-set-id <exact-id>`.
 
+`--operation-id <canonical-uuid>` is optional. Omission creates a fresh
+server-owned operation ID. An exact retry after response loss MUST supply the
+operation ID from the prior final result or retained progress record so
+Recovery can select only matching terminal evidence. The supplied value does
+not authorize a different operation, backup, attempt, consistency point,
+catalog, or target generation; any mismatch fails closed and executes no
+replay.
+
 Unknown flags, missing flag values, unsupported output modes, unsupported progress modes, non-integer timeouts, out-of-range timeouts, interactive confirmation prompts, interactive `yes` substitutes, operator-supplied timestamp restore, and operator-supplied backup selectors other than the `restore_latest` confirmation ID are invalid. The current profile provides no operator-supplied timestamp point-in-time restore.
 Profiles: base
 Verified by: AC-428
@@ -6978,7 +7014,7 @@ The final result object schema ID MUST be exactly `cartulary.operator_recovery_r
 | Member | Contract |
 | --- | --- |
 | `schema_id` | Exact string `cartulary.operator_recovery_result.v1`. |
-| `operation_id` | Stable non-secret operation identifier for this invocation. |
+| `operation_id` | Stable non-secret operation identifier, retained across an exact retry when `--operation-id` is supplied. |
 | `operation` | One of `backup_inspect_latest`, `backup_create`, `restore_latest`, `restore_verify_latest`, `restore_verify_due`, or `unknown`. `unknown` is valid only for unparsable invocations. |
 | `result` | One of `succeeded`, `no_op`, or `failed`. |
 | `started_at` | RFC 3339 UTC timestamp for operation start. |

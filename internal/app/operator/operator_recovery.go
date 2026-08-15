@@ -68,6 +68,7 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 			NewProjectionServices: func(db postgres.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error) {
 				return projectionassembly.NewRecoveryServices(db)
 			},
+			NewGraphProjectionRestore: recoveryassembly.NewGraphProjectionRestoreParticipant,
 			NewEvidenceProvider: func(db postgres.DB) recovery.EvidenceRecoveryProvider {
 				return recoveryprovider.New(db)
 			},

@@ -66,54 +66,59 @@ func TargetBindingDigestsFor(deployment Deployment) TargetBindingDigests {
 }
 
 func ValidateRestoreTargetMarker(material TargetMarkerMaterial, purpose string, expected TargetBindingDigests, now time.Time) error {
+	_, err := AdmitRestoreTargetMarker(material, purpose, expected, now)
+	return err
+}
+
+func AdmitRestoreTargetMarker(material TargetMarkerMaterial, purpose string, expected TargetBindingDigests, now time.Time) (uuid.UUID, error) {
 	if purpose != RestoreTargetPurpose && purpose != RestoreVerificationTargetPurpose {
-		return fmt.Errorf("restore target marker purpose %q is invalid", purpose)
+		return uuid.Nil, fmt.Errorf("restore target marker purpose %q is invalid", purpose)
 	}
 	if err := strictjson.ValidateObject(material.MarkerBody); err != nil {
-		return fmt.Errorf("restore target marker is not strict JSON: %w", err)
+		return uuid.Nil, fmt.Errorf("restore target marker is not strict JSON: %w", err)
 	}
 	decoder := json.NewDecoder(bytes.NewReader(material.MarkerBody))
 	decoder.DisallowUnknownFields()
 	var marker RestoreTargetMarker
 	if err := decoder.Decode(&marker); err != nil {
-		return fmt.Errorf("decode restore target marker: %w", err)
+		return uuid.Nil, fmt.Errorf("decode restore target marker: %w", err)
 	}
 	if marker.SchemaID != RestoreTargetMarkerSchemaID || marker.Purpose != purpose {
-		return errors.New("restore target marker has the wrong schema or purpose")
+		return uuid.Nil, errors.New("restore target marker has the wrong schema or purpose")
 	}
 	generationText := strings.TrimSpace(string(material.GenerationBody))
 	generationID, err := uuid.Parse(generationText)
 	if err != nil || generationID == uuid.Nil || generationText != generationID.String() {
-		return errors.New("restore target generation proof is invalid")
+		return uuid.Nil, errors.New("restore target generation proof is invalid")
 	}
 	markerGenerationID, err := uuid.Parse(marker.TargetGenerationID)
 	if err != nil || markerGenerationID == uuid.Nil ||
 		marker.TargetGenerationID != markerGenerationID.String() ||
 		markerGenerationID != generationID {
-		return errors.New("restore target marker has the wrong target generation")
+		return uuid.Nil, errors.New("restore target marker has the wrong target generation")
 	}
 	if marker.BindingDigests != expected ||
 		!isLowerSHA256(marker.BindingDigests.DatabaseSHA256) ||
 		!isLowerSHA256(marker.BindingDigests.ObjectStoreSHA256) {
-		return errors.New("restore target marker has the wrong target binding")
+		return uuid.Nil, errors.New("restore target marker has the wrong target binding")
 	}
 	issuedAt, err := parseCanonicalMarkerTime(marker.IssuedAt)
 	if err != nil {
-		return fmt.Errorf("restore target marker issued_at: %w", err)
+		return uuid.Nil, fmt.Errorf("restore target marker issued_at: %w", err)
 	}
 	expiresAt, err := parseCanonicalMarkerTime(marker.ExpiresAt)
 	if err != nil {
-		return fmt.Errorf("restore target marker expires_at: %w", err)
+		return uuid.Nil, fmt.Errorf("restore target marker expires_at: %w", err)
 	}
 	now = now.UTC()
 	lifetime := expiresAt.Sub(issuedAt)
 	if lifetime <= 0 || lifetime > RestoreTargetMarkerMaximumLifetime {
-		return errors.New("restore target marker lifetime is invalid")
+		return uuid.Nil, errors.New("restore target marker lifetime is invalid")
 	}
 	if issuedAt.After(now) || !expiresAt.After(now) {
-		return errors.New("restore target marker is not currently valid")
+		return uuid.Nil, errors.New("restore target marker is not currently valid")
 	}
-	return nil
+	return markerGenerationID, nil
 }
 
 func bindingDigest(identity string) string {

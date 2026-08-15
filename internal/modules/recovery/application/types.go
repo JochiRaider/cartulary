@@ -68,10 +68,11 @@ const (
 )
 
 type Result struct {
-	BackupSetID        *uuid.UUID
-	ConsistencyPointAt *time.Time
-	ArtifactRefs       []ArtifactRef
-	Status             ResultStatus
+	BackupSetID               *uuid.UUID
+	ConsistencyPointAt        *time.Time
+	ArtifactRefs              []ArtifactRef
+	Status                    ResultStatus
+	graphProjectionCompletion *GraphProjectionCompletionEvidence
 }
 
 type ArtifactRef struct {

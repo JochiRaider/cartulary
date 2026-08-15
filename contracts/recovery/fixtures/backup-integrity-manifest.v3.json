@@ -10,6 +10,26 @@
   "object_store_manifest_ref": "backup/00000000-0000-0000-0000-000000000201/objects/manifest",
   "artifacts": [
     {
+      "kind": "graph_projection_restore_implementation_binding",
+      "schema_id": "cartulary.graph_projection_restore_implementation_binding.v1",
+      "logical_ref": "backup/00000000-0000-0000-0000-000000000201/graph/implementation-binding",
+      "content_type": "application/json",
+      "plaintext_bytes": 1283,
+      "plaintext_sha256": "91f2cc442c9957b27f7e9afa2a41d1fd300e924b133031de5f1168ed3e39aca3",
+      "envelope_ref": "backup/00000000-0000-0000-0000-000000000201/envelopes/graph-implementation-binding",
+      "envelope_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+    },
+    {
+      "kind": "graph_projection_restore_source_registry",
+      "schema_id": "cartulary.graph_projection_restore_source_registry.v1",
+      "logical_ref": "backup/00000000-0000-0000-0000-000000000201/graph/source-registry",
+      "content_type": "application/json",
+      "plaintext_bytes": 82,
+      "plaintext_sha256": "2d3718cc1f88f809ca4ea5c4efedc1a8108c8ef28b95ad939b0f7666429f7fe1",
+      "envelope_ref": "backup/00000000-0000-0000-0000-000000000201/envelopes/graph-source-registry",
+      "envelope_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+    },
+    {
       "kind": "object_store_manifest",
       "schema_id": "cartulary.object_store_backup_manifest.v2",
       "logical_ref": "backup/00000000-0000-0000-0000-000000000201/objects/manifest",

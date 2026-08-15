@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,35 +28,43 @@ var (
 		"canonical_fixtures",
 	)
 	recoverySchemaIDsByPath = map[string]string{
-		"backup-artifact-envelope.v2.schema.json":            "cartulary.backup_artifact_envelope.v2",
-		"backup-integrity-manifest.v3.schema.json":           "cartulary.backup_integrity_manifest.v3",
-		"common.v1.schema.json":                              "cartulary.recovery_common.v1",
-		"object-store-backup-manifest.v2.schema.json":        "cartulary.object_store_backup_manifest.v2",
-		"object-store-backup-summary.v2.schema.json":         "cartulary.object_store_backup_summary.v2",
-		"operator-recovery-audit-summary.v2.schema.json":     "cartulary.operator_recovery_audit_summary.v2",
-		"operator-recovery-journal-payload.v2.schema.json":   "cartulary.operator_recovery_journal_payload.v2",
-		"postgres-snapshot-artifact.v2.schema.json":          "cartulary.postgres_snapshot_artifact.v2",
-		"postgres-snapshot-unit.v1.schema.json":              "cartulary.postgres_snapshot_unit.v1",
-		"recovery-state-catalog.v1.schema.json":              recoveryCatalogSchemaID,
-		"recovery-state-contribution.v1.schema.json":         "cartulary.recovery_state_contribution.v1",
-		"restore-target-marker.v2.schema.json":               "cartulary.restore_target_marker.v2",
-		"restore-verification.v2.schema.json":                "cartulary.restore_verification.v2",
-		"restore-workbook-probe-registration.v1.schema.json": "cartulary.restore_workbook_probe_registration.v1",
+		"backup-artifact-envelope.v2.schema.json":                        "cartulary.backup_artifact_envelope.v2",
+		"backup-integrity-manifest.v3.schema.json":                       "cartulary.backup_integrity_manifest.v3",
+		"common.v1.schema.json":                                          "cartulary.recovery_common.v1",
+		"graph-projection-restore-implementation-binding.v1.schema.json": "cartulary.graph_projection_restore_implementation_binding.v1",
+		"graph-projection-restore-rebuild-result.v1.schema.json":         "cartulary.graph_projection_restore_rebuild_result.v1",
+		"graph-projection-restore-source-registry.v1.schema.json":        "cartulary.graph_projection_restore_source_registry.v1",
+		"object-store-backup-manifest.v2.schema.json":                    "cartulary.object_store_backup_manifest.v2",
+		"object-store-backup-summary.v2.schema.json":                     "cartulary.object_store_backup_summary.v2",
+		"operator-recovery-audit-summary.v2.schema.json":                 "cartulary.operator_recovery_audit_summary.v2",
+		"operator-recovery-journal-payload.v2.schema.json":               "cartulary.operator_recovery_journal_payload.v2",
+		"operator-recovery-journal-payload.v3.schema.json":               "cartulary.operator_recovery_journal_payload.v3",
+		"postgres-snapshot-artifact.v2.schema.json":                      "cartulary.postgres_snapshot_artifact.v2",
+		"postgres-snapshot-unit.v1.schema.json":                          "cartulary.postgres_snapshot_unit.v1",
+		"recovery-state-catalog.v1.schema.json":                          recoveryCatalogSchemaID,
+		"recovery-state-contribution.v1.schema.json":                     "cartulary.recovery_state_contribution.v1",
+		"restore-target-marker.v2.schema.json":                           "cartulary.restore_target_marker.v2",
+		"restore-verification.v2.schema.json":                            "cartulary.restore_verification.v2",
+		"restore-workbook-probe-registration.v1.schema.json":             "cartulary.restore_workbook_probe_registration.v1",
 	}
 	recoveryFixtureIDsByPath = map[string]string{
-		"fixtures/backup-artifact-envelope.v2.json":            "cartulary.backup_artifact_envelope.v2",
-		"fixtures/backup-integrity-manifest.v3.json":           "cartulary.backup_integrity_manifest.v3",
-		"fixtures/object-store-backup-manifest.v2.json":        "cartulary.object_store_backup_manifest.v2",
-		"fixtures/object-store-backup-summary.v2.json":         "cartulary.object_store_backup_summary.v2",
-		"fixtures/operator-recovery-audit-summary.v2.json":     "cartulary.operator_recovery_audit_summary.v2",
-		"fixtures/operator-recovery-journal-payload.v2.json":   "cartulary.operator_recovery_journal_payload.v2",
-		"fixtures/postgres-snapshot-artifact.v2.json":          "cartulary.postgres_snapshot_artifact.v2",
-		"fixtures/postgres-snapshot-unit.v1.json":              "cartulary.postgres_snapshot_unit.v1",
-		"fixtures/recovery-state-catalog.v1.json":              recoveryCatalogSchemaID,
-		"fixtures/recovery-state-contribution.v1.json":         "cartulary.recovery_state_contribution.v1",
-		"fixtures/restore-target-marker.v2.json":               "cartulary.restore_target_marker.v2",
-		"fixtures/restore-verification.v2.json":                "cartulary.restore_verification.v2",
-		"fixtures/restore-workbook-probe-registration.v1.json": "cartulary.restore_workbook_probe_registration.v1",
+		"fixtures/backup-artifact-envelope.v2.json":                        "cartulary.backup_artifact_envelope.v2",
+		"fixtures/backup-integrity-manifest.v3.json":                       "cartulary.backup_integrity_manifest.v3",
+		"fixtures/graph-projection-restore-implementation-binding.v1.json": "cartulary.graph_projection_restore_implementation_binding.v1",
+		"fixtures/graph-projection-restore-rebuild-result.v1.json":         "cartulary.graph_projection_restore_rebuild_result.v1",
+		"fixtures/graph-projection-restore-source-registry.v1.json":        "cartulary.graph_projection_restore_source_registry.v1",
+		"fixtures/object-store-backup-manifest.v2.json":                    "cartulary.object_store_backup_manifest.v2",
+		"fixtures/object-store-backup-summary.v2.json":                     "cartulary.object_store_backup_summary.v2",
+		"fixtures/operator-recovery-audit-summary.v2.json":                 "cartulary.operator_recovery_audit_summary.v2",
+		"fixtures/operator-recovery-journal-payload.v2.json":               "cartulary.operator_recovery_journal_payload.v2",
+		"fixtures/operator-recovery-journal-payload.v3.json":               "cartulary.operator_recovery_journal_payload.v3",
+		"fixtures/postgres-snapshot-artifact.v2.json":                      "cartulary.postgres_snapshot_artifact.v2",
+		"fixtures/postgres-snapshot-unit.v1.json":                          "cartulary.postgres_snapshot_unit.v1",
+		"fixtures/recovery-state-catalog.v1.json":                          recoveryCatalogSchemaID,
+		"fixtures/recovery-state-contribution.v1.json":                     "cartulary.recovery_state_contribution.v1",
+		"fixtures/restore-target-marker.v2.json":                           "cartulary.restore_target_marker.v2",
+		"fixtures/restore-verification.v2.json":                            "cartulary.restore_verification.v2",
+		"fixtures/restore-workbook-probe-registration.v1.json":             "cartulary.restore_workbook_probe_registration.v1",
 	}
 	createTablePattern = regexp.MustCompile(`(?i)\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:public\.)?([a-z][a-z0-9_]*)`)
 )
@@ -171,6 +181,9 @@ func validateRecoveryContractFamily(root string) error {
 	if err := validateRecoveryRegistryPaths(base, registry); err != nil {
 		return err
 	}
+	if err := validateGraphProjectionRestoreContracts(base); err != nil {
+		return err
+	}
 
 	catalog, err := readRecoveryObject(base, "fixtures/recovery-state-catalog.v1.json")
 	if err != nil {
@@ -185,6 +198,102 @@ func validateRecoveryContractFamily(root string) error {
 		return err
 	}
 	return validateRecoverySnapshotFixture(snapshot, requiredTables)
+}
+
+func validateGraphProjectionRestoreContracts(base string) error {
+	registry, err := readRecoveryObject(base, "fixtures/graph-projection-restore-source-registry.v1.json")
+	if err != nil {
+		return err
+	}
+	if err := requireAllowedKeys(registry, stringSet("schema_id", "entries"), "Graph Projection restore source registry"); err != nil {
+		return err
+	}
+	entries, err := objectArrayAllowEmpty(registry["entries"], "Graph Projection restore source registry entries")
+	if err != nil {
+		return err
+	}
+	if len(registry) != 2 || len(entries) != 0 {
+		return fmt.Errorf("current Graph Projection restore source registry must be the exact empty-registry posture")
+	}
+	registryJSON, err := canonicalizeDecoded(registry)
+	if err != nil {
+		return err
+	}
+	registrySum := sha256.Sum256([]byte(registryJSON))
+	registrySHA256 := hex.EncodeToString(registrySum[:])
+
+	binding, err := readRecoveryObject(base, "fixtures/graph-projection-restore-implementation-binding.v1.json")
+	if err != nil {
+		return err
+	}
+	bindingKeys := stringSet(
+		"schema_id", "algorithm_id", "binding_id", "graph_projection_contract_id",
+		"recovery_state_catalog_sha256", "source_registry_sha256", "graph_table_ids",
+		"graph_engine_algorithm_ids", "graph_engine_algorithm_digests", "database_schema_lineage",
+		"database_schema_head", "packaged_subject_sha256", "build_provenance_sha256",
+	)
+	if err := requireAllowedKeys(binding, bindingKeys, "Graph Projection restore implementation binding"); err != nil {
+		return err
+	}
+	if len(binding) != len(bindingKeys) ||
+		binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v1" ||
+		binding["algorithm_id"] != "graphprojection.restore_rebuild.v1" ||
+		binding["binding_id"] != "graphprojection.restore_rebuild.current_empty_registry.v1" ||
+		binding["graph_projection_contract_id"] != "cartulary.graph_projection_nlspec.v1.2.0" ||
+		binding["recovery_state_catalog_sha256"] != "45beccfad63570a6590269da09ca135b791faa07c550586e2dcd7df5fc3243f8" ||
+		binding["source_registry_sha256"] != registrySHA256 ||
+		binding["database_schema_lineage"] != "cartulary.prod_ddl_rebaseline.v2" {
+		return fmt.Errorf("current Graph Projection restore implementation binding has drifted from its authored source set")
+	}
+	graphTables, err := stringArray(binding["graph_table_ids"], "Graph Projection restore graph_table_ids", true)
+	if err != nil {
+		return err
+	}
+	wantGraphTables := []string{
+		"graph_projection_edges",
+		"graph_projection_idempotency",
+		"graph_projection_runs",
+		"graph_projection_vertices",
+		"graph_projection_views",
+	}
+	if err := compareStringSlices(wantGraphTables, graphTables, "Graph Projection restore graph tables"); err != nil {
+		return err
+	}
+	algorithmIDs, err := stringArray(binding["graph_engine_algorithm_ids"], "Graph Projection restore algorithm IDs", true)
+	if err != nil {
+		return err
+	}
+	if err := requireSortedUniqueStrings(algorithmIDs, "Graph Projection restore algorithm IDs"); err != nil {
+		return err
+	}
+	algorithmDigests, err := stringArray(binding["graph_engine_algorithm_digests"], "Graph Projection restore algorithm digests", true)
+	if err != nil {
+		return err
+	}
+	if len(algorithmIDs) != len(algorithmDigests) {
+		return fmt.Errorf("graph-projection restore algorithm identities and digests must align one-to-one")
+	}
+
+	result, err := readRecoveryObject(base, "fixtures/graph-projection-restore-rebuild-result.v1.json")
+	if err != nil {
+		return err
+	}
+	resultKeys := stringSet(
+		"schema_id", "restore_operation_id", "target_generation_id", "status", "readiness_outcome",
+		"algorithm_id", "implementation_binding_sha256", "source_registry_sha256", "cleared_table_ids",
+		"rebuilt_views", "skipped_candidates", "postcondition_sha256", "warnings", "errors",
+	)
+	if err := requireAllowedKeys(result, resultKeys, "Graph Projection restore result"); err != nil {
+		return err
+	}
+	if len(result) != len(resultKeys) || result["status"] != "succeeded" || result["readiness_outcome"] != "ready" {
+		return fmt.Errorf("graph-projection restore result fixture must be the exact successful empty-registry result shape")
+	}
+	cleared, err := stringArray(result["cleared_table_ids"], "Graph Projection restore cleared tables", true)
+	if err != nil {
+		return err
+	}
+	return compareStringSlices(wantGraphTables, cleared, "Graph Projection restore cleared tables")
 }
 
 func readRecoveryObject(base, relativePath string) (map[string]any, error) {

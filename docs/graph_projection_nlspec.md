@@ -3,7 +3,7 @@ title: Graph Projection NLSpec
 status: adopted/current
 document_class: nlspec
 created_at: 2026-05-30
-document_version: 1.1.0
+document_version: 1.2.0
 ---
 
 ## 1. Status, scope, and authority
@@ -57,7 +57,7 @@ Adjacent concerns outside this NLSpec are boundary concerns only.
 
 | Concern | Boundary |
 | --- | --- |
-| Workbook-grid projections | Workbook projection tables, workbook row refreshes, `view_row_v1`, workbook query/sort/filter/group semantics, saved views, import owner facades, and restore projection rebuilds remain governed by Core 01/Core 03 and their generated view-schema contracts. |
+| Workbook-grid projections | Workbook projection tables, workbook row refreshes, `view_row_v1`, workbook query/sort/filter/group semantics, saved views, import owner facades, and workbook restore rebuilds remain governed by Core 01/Core 03 and their generated view-schema contracts. The distinct Graph restore participant is governed by §11.9. |
 | Authoritative source-data schema | This NLSpec consumes source entities and source relationships through the input contract. It does not define the source system's internal schema. |
 | Source-data mutation | Projection is read-derived. This NLSpec does not define create, update, delete, merge, or authorization behavior for source data. |
 | Storage layout | Implementations MAY store projection inputs, outputs, indexes, and caches in any layout that preserves the observable contract. |
@@ -2473,16 +2473,292 @@ Graph Projection MUST publish one
 `graph_projection_runs`, `graph_projection_vertices`, and
 `graph_projection_views` are derived state with
 `backup_inclusion='excluded_rebuildable'`. They MUST NOT be authoritative
-Postgres snapshot units.
+Postgres snapshot units or reconstruction authority.
 
-After Recovery restores authoritative source state, the Graph Projection owner
-MUST deterministically clear stale graph-projection state for the new restore
-generation and rebuild only graph views whose owner-declared source inputs and
-retention state remain valid. A run or idempotency record from the prior
-generation MUST NOT be accepted as current completion evidence. The rebuild
-algorithm identity and implementation digest are part of the frozen recovery
-catalog. Missing or mismatched bindings fail before readiness; Recovery MUST
-NOT reimplement Graph Projection storage or rebuild semantics.
+Recovery MUST resolve `graphprojection.restore_rebuild.v1` to the distinct
+Graph-owned participant defined here. This participant is separate from Core
+01's workbook `RestoreProjectionRebuilder`, request, result, and provider
+registry. Graph Projection MUST NOT be added to that workbook provider
+registry, and Recovery MUST NOT reimplement Graph storage or rebuild
+semantics.
+
+#### 11.9.1 Intentional retained-store dormancy
+
+The full retained Graph store is intentionally dormant in ordinary
+current-profile production composition. Its implementation and conformance
+tests remain required, but ordinary startup MUST NOT construct it, resolve a
+Graph cursor key, start a retained Graph worker or lifecycle hook, publish a
+Graph route or WebSocket message, create retained views, provide a retained
+writer, or expose a configuration or feature flag that activates those
+behaviors. Network Flow uses only the non-retained ephemeral facade. Reporting
+uses only its caller-transaction projection-binding reader. Recovery uses only
+the narrow Graph restore participant and MUST NOT construct the full retained
+store.
+
+Dormancy does not exempt the five Graph tables from restore clearing. Future
+retained activation requires one separately adopted change that supplies all
+of the following:
+
+1. named retained producers and consumers;
+2. reconstructable authoritative declaration state outside Graph-derived
+   tables;
+3. typed source registrations, validity rules, input contracts, and packaged
+   implementation bindings;
+4. explicit application construction, resource ownership, startup, shutdown,
+   and dependency-cleanup rules;
+5. caller-owned authorization and, only if needed, an explicitly owned
+   transport or job;
+6. concurrency, transaction, backpressure, retention-work, and resource-limit
+   controls;
+7. a dedicated secret-referenced cursor key contract with purpose isolation,
+   bounded rotation, authenticated key and algorithm identity, unique nonces,
+   fail-closed resolution, and a new wire version if the current envelope
+   cannot carry those facts;
+8. complete backup, restore, historical-binding, and recovery evidence; and
+9. startup, shutdown, cancellation, key-rotation, recovery, and failure-path
+   tests.
+
+A future worker MUST borrow its database capability, MUST NOT close it, MUST
+start no hidden goroutine in a constructor, and MUST expose bounded explicit
+start and stop operations.
+
+#### 11.9.2 Restore request and admission
+
+`cartulary.graph_projection_restore_rebuild_request.v1` is a Graph-owned
+internal Go contract, not an HTTP, WebSocket, serialized public protocol, or
+extension-capability object. It carries exactly these semantic members:
+
+| Member | Requirement |
+| --- | --- |
+| `restore_operation_id` | Required non-empty opaque Recovery operation identity. |
+| `restored_source_state_ref` | Required immutable Recovery-owned typed capability over restored authoritative state. A raw DSN, schema scanner, or unrestricted query handle is invalid. |
+| `backup_set_id` | Required exact selected backup identity. |
+| `consistency_point_at` | Required exact backup consistency point. Registration, declaration, and retention validity are evaluated at this instant. |
+| `target_generation_id` | Required exact validated Core 04 target-generation identity. Graph MUST NOT mint another operation or generation identity. |
+| `recovery_state_catalog_ref` | Required exact frozen catalog selected from the backup. |
+| `source_registry_ref` | Required exact Graph source-registry artifact selected from the backup. |
+| `implementation_binding_ref` | Required exact packaged Graph implementation binding selected from the backup. |
+| `context` | Required Recovery cancellation and deadline capability; it is not a serialized member. |
+
+Recovery MAY construct this request only after the admitted operation resolves
+the exact Graph algorithm from the frozen catalog. Catalog, registry,
+implementation-binding, and typed-capability validation are pre-admission.
+Failure before their admission returns one typed safe error and no participant
+result. Persistent Graph state MUST remain untouched.
+
+The closed safe error codes are
+`invalid_restore_request`, `recovery_catalog_mismatch`,
+`source_registry_mismatch`, `implementation_binding_unavailable`,
+`source_enumeration_failed`, `invalid_restore_candidate`,
+`restore_resource_overflow`, `restore_publication_failed`,
+`restore_postcondition_failed`, and `restore_outcome_indeterminate`. Error
+details MUST be fixed safe values selected by typed classification. Error
+strings MUST NOT be inspected to select a code.
+
+#### 11.9.3 Source registry and implementation binding
+
+`cartulary.graph_projection_restore_source_registry.v1` is a closed,
+code-backed registry assembled from typed source-owner contributions. Its JSON
+projection contains exactly `schema_id` and `entries`. Each entry contains
+exactly `source_registration_id`, `source_owner_id`,
+`enumerator_binding_id`, `validity_binding_id`,
+`projection_input_contract_id`, `implementation_binding_id`, `status`,
+`introduced_at`, and nullable `retired_at`. `status` is exactly `active` or
+`retired`. Entries are unique and sorted by ascending ASCII
+`source_registration_id`. A JSON projection supports validation and drift
+review only; it MUST NOT load callbacks or replace the executable registry.
+
+The current-profile registry is exactly:
+
+```json
+{"schema_id":"cartulary.graph_projection_restore_source_registry.v1","entries":[]}
+```
+
+An empty registry is not `not_applicable`. The participant MUST clear all five
+tables, prove the committed empty postconditions, and succeed with empty
+rebuilt and skipped arrays.
+
+`cartulary.graph_projection_restore_implementation_binding.v1` is a closed
+canonical object with exactly these required members:
+`schema_id`, `algorithm_id`, `binding_id`,
+`graph_projection_contract_id`, `recovery_state_catalog_sha256`,
+`source_registry_sha256`, `graph_table_ids[]`,
+`graph_engine_algorithm_ids[]`, `graph_engine_algorithm_digests[]`,
+`database_schema_lineage`, `database_schema_head`,
+`packaged_subject_sha256`, and `build_provenance_sha256`. Its schema and
+algorithm IDs are exactly
+`cartulary.graph_projection_restore_implementation_binding.v1` and
+`graphprojection.restore_rebuild.v1`. Graph table IDs use the five-table ASCII
+order in §11.9.6. Algorithm identities are unique and ASCII-sorted, and the
+digest array aligns one-to-one.
+
+The binding digest is SHA-256 over canonical JSON for that object. It MUST NOT
+include Markdown, repository paths, source-line locations, branch names,
+`current` or `latest` aliases, mutable build logs, or secrets. The backup
+integrity manifest retains exactly one source-registry artifact and one
+implementation-binding artifact and binds both digests.
+
+New backups use the current binding. Exactly one packaged historical binding
+MAY read a pre-1.2 backup whose frozen recovery catalog proves the dormant
+empty-registry posture; it performs clear-only. Any other missing, unknown, or
+mismatched historical registry, binding, or codec digest fails closed. A
+historical backup MUST NOT be reinterpreted with current code.
+
+#### 11.9.4 Candidate enumeration, validity, and limits
+
+Typed source owners enumerate declarations through the immutable restored
+source-state capability. Registrations and candidates are unique and emitted
+in ascending ASCII stable-ID order. Duplicate registrations, candidate IDs,
+or graph-view identities, an unknown binding, or unstable enumeration fails
+before mutation.
+
+A candidate is rebuildable only when, at `consistency_point_at`, its
+registration was active, its authoritative retained-view declaration existed
+and was valid, all required authoritative inputs are present, its exact
+historical registry and binding are packaged, its normalized input passes the
+selected historical contract, and its owner retention boundary has not
+elapsed. Candidate projection inputs set `requested_at` to
+`consistency_point_at` and `requested_by` to `recovery_restore`; fresh run
+nonces and lifecycle timestamps remain server-owned.
+
+The only skip reasons are `registration_not_yet_active`,
+`registration_retired_before_consistency_point`, and
+`declaration_expired_at_consistency_point`. Missing inputs, unresolved
+declarations, schema or digest mismatch, unavailable bindings, invalid
+normalized input, or resource overflow are failures, not skips.
+
+One invocation admits at most 128 source registrations, 1,024 candidates,
+268,435,456 normalized input bytes, 500,000 vertices, and 1,000,000 edges.
+Every limit is operation-wide across all registrations and candidates.
+Overflow fails before persistent Graph mutation.
+
+#### 11.9.5 Restore result
+
+The result contract
+`cartulary.graph_projection_restore_rebuild_result.v1` has exactly these
+members in this order:
+
+| Member | Requirement |
+| --- | --- |
+| `schema_id` | Exact result schema ID. |
+| `restore_operation_id` | Exact admitted request value. |
+| `target_generation_id` | Exact admitted request value. |
+| `status` | Exactly `succeeded` or `failed`. |
+| `readiness_outcome` | Exactly `ready` or `incomplete`. |
+| `algorithm_id` | Exactly `graphprojection.restore_rebuild.v1`. |
+| `implementation_binding_sha256` | Exact admitted binding digest. |
+| `source_registry_sha256` | Exact admitted registry digest. |
+| `cleared_table_ids[]` | On success, the exact five table IDs in §11.9.6 order; on failure, empty. |
+| `rebuilt_views[]` | Successful results in registration-ID then candidate-ID ASCII order. |
+| `skipped_candidates[]` | Skips in the same canonical order with one closed skip reason. |
+| `postcondition_sha256` | Non-null canonical committed-summary digest on success; `null` on failure. |
+| `warnings[]` | Closed safe warnings; empty by default. |
+| `errors[]` | Empty on success; non-empty closed safe errors on failure. |
+
+Only `succeeded` with `ready`, all five cleared tables, non-null postcondition
+digest, and no errors is valid success. Only `failed` with `incomplete`, empty
+cleared/rebuilt/skipped arrays, null postcondition digest, and non-empty errors
+is valid failure. The result contract applies only after request, catalog,
+registry, and binding inputs are admitted. A rollback or indeterminate outcome
+MUST NOT claim committed facts.
+
+Each rebuilt-view item contains exactly `source_registration_id`,
+`candidate_id`, `graph_view_id`, `projection_run_id`, `source_snapshot_id`,
+`projection_version`, `normalized_configuration_sha256`,
+`normalized_source_sha256`, `vertex_count`, `edge_count`, and
+`canonical_output_sha256`. For this restore result only,
+`canonical_output_sha256` is the SHA-256 digest of the canonical graph resource
+after normalizing the server-owned `projection_run_id` and `generated_at`
+members to empty strings. The stored Graph resource and its ordinary
+`projection_output_digest` remain unchanged. This restore-normalized digest
+proves that a retry reconstructed the same semantic graph while permitting a
+fresh run nonce and lifecycle timestamps. Result data, logs, telemetry,
+journal evidence, and audit summaries MUST NOT contain source or configuration values, SQL, database
+errors, secrets, object keys, raw capabilities, unrestricted references, or
+stack text. Safe telemetry MAY expose participant outcome, duration, and
+aggregate candidate, rebuilt, and skipped counts only.
+
+#### 11.9.6 Clear, rebuild, and completion proof
+
+Preflight validates the request, cancellation state, frozen catalog, exact
+five tables, source registry, implementation binding, historical availability,
+enumeration order, duplicates, candidate validity, normalized inputs,
+operation-wide limits, derived outputs, references, counts, and digests before
+opening the publication transaction. It performs no persistent Graph write.
+
+Publication uses a narrow borrowed-Postgres adapter distinct from the retained
+store. In one transaction it executes exactly:
+
+```sql
+TRUNCATE TABLE
+  graph_projection_edges,
+  graph_projection_idempotency,
+  graph_projection_runs,
+  graph_projection_vertices,
+  graph_projection_views
+RESTRICT
+```
+
+It then inserts exactly one fresh selected `available` run for every valid
+candidate and its matching view, vertices, and edges. It inserts no historical,
+`accepted`, `computing`, `failed`, `replaced`, invalidated, active, or
+idempotency rows. Before commit it verifies counts, digests, references,
+selected-run invariants, table scope, and empty idempotency. After commit it
+re-reads the committed postconditions before returning success.
+
+The protected completion tuple is, in order,
+`target_generation_id`, `restore_operation_id`, `backup_set_id`,
+`consistency_point_at`, `recovery_state_catalog_sha256`,
+`source_registry_sha256`, `implementation_binding_sha256`, and
+`postcondition_sha256`. Recovery persists this tuple and the durable
+participant result before overall readiness. Matching terminal evidence is
+replayed without invoking Graph again.
+
+A preflight failure touches no Graph row. A known rollback commits no partial
+new state and permits a corrected retry while Recovery admission remains
+valid. Commit uncertainty, loss of post-commit proof, cancellation or timeout
+during mutation, exclusive serving-lease loss, or failure to durably bind an
+unprovable commit leaves readiness false and requires target reinitialization.
+A retry after known rollback may create a different run ID; deterministic
+graph IDs and normalized and canonical output digests remain equal.
+
+#### 11.9.7 Recovery coordination
+
+Recovery restores authoritative Postgres and object data before rebuild. It
+resolves required rebuild participants from the frozen catalog and invokes
+Graph and workbook algorithms in ascending ASCII algorithm-ID order without
+changing the workbook rebuilder contract. It supplies the admitted Recovery
+operation ID and validated target generation and checks exclusive serving-lease
+ownership through mutation, validation, journal, and readiness decisions.
+
+Every typed Graph failure maps to Recovery's existing
+`projection_rebuild_failed` family without error-string inspection. Recovery
+does not publish readiness until all required participants and protected
+terminal evidence succeed. An indeterminate Graph outcome triggers the
+existing mandatory target-reinitialization behavior.
+
+#### 11.9.8 Restore acceptance criteria
+
+| ID | Scenario and pass condition |
+| --- | --- |
+| `GP-RA-01` | An empty registry clears stale rows from all five tables and returns ready with empty rebuilt and skipped arrays. |
+| `GP-RA-02` | One active valid declaration yields exactly one fresh selected available run and deterministic graph output. |
+| `GP-RA-03` | A declaration expired at the consistency point is skipped with the exact expiration reason. |
+| `GP-RA-04` | A registration introduced after the consistency point is skipped with the exact not-yet-active reason. |
+| `GP-RA-05` | A registration retired before the consistency point is skipped with the exact retired reason. |
+| `GP-RA-06` | A required authoritative input missing from an active declaration fails before clearing. |
+| `GP-RA-07` | A source-registry digest mismatch fails before clearing. |
+| `GP-RA-08` | A binding mismatch or unavailable historical binding fails before clearing. |
+| `GP-RA-09` | A catalog, algorithm, or five-table mismatch fails before clearing. |
+| `GP-RA-10` | Invalid normalized input or a schema mismatch fails before clearing. |
+| `GP-RA-11` | Every operation-wide resource overflow fails before clearing. |
+| `GP-RA-12` | Failure after clear but before commit rolls back the complete transaction. |
+| `GP-RA-13` | Commit uncertainty, cancellation or timeout during mutation, or lease loss leaves the target not ready and requires reinitialization. |
+| `GP-RA-14` | Durable success followed by response loss replays terminal evidence without a second Graph invocation. |
+| `GP-RA-15` | Retry after known rollback preserves deterministic graph identities and output digest even if the run ID changes. |
+| `GP-RA-16` | Prior historical runs and idempotency rows are not reconstructed. |
+| `GP-RA-17` | Source and dependency failures expose only closed safe classifications in results, logs, telemetry, journal, and audit. |
+| `GP-RA-18` | Recovery imports only the Graph restore port, Graph uses typed source capabilities, SQL is restricted to the five Graph tables, and no unrestricted cross-owner query or schema scan exists. |
 
 ## 12. Intentional implementation latitude
 

@@ -96,6 +96,9 @@ func (runner runner) run(ctx context.Context, args []string) (bool, int) {
 
 	now := runner.now()
 	operationID := uuid.New()
+	if parsed.OperationID != "" {
+		operationID = uuid.MustParse(parsed.OperationID)
+	}
 	startedAt := now().UTC()
 	parsed.OperationID = operationID.String()
 	if parsed.Invalid {
@@ -213,6 +216,7 @@ func parseFlags(operation string, args []string, requiresTarget bool, requiresCo
 	sourceConfig := flags.String("source-config-file", "", "source config file")
 	targetConfig := flags.String("target-config-file", "", "target config file")
 	confirmBackupSetID := flags.String("confirm-backup-set-id", "", "confirmed backup set id")
+	operationIDRaw := flags.String("operation-id", "", "stable operation id for an exact retry")
 	if err := flags.Parse(args); err != nil {
 		return invalidCommand(operation, "invalid_flag_value", "invalid recovery flag")
 	}
@@ -247,9 +251,17 @@ func parseFlags(operation string, args []string, requiresTarget bool, requiresCo
 			return invalidCommand(operation, "invalid_flag_value", "confirm-backup-set-id must be an exact UUID")
 		}
 	}
+	operationID := strings.TrimSpace(*operationIDRaw)
+	if operationID != "" {
+		parsedOperationID, err := uuid.Parse(operationID)
+		if err != nil || parsedOperationID == uuid.Nil || parsedOperationID.String() != operationID {
+			return invalidCommand(operation, "invalid_flag_value", "operation-id must be an exact canonical UUID")
+		}
+	}
 	return command{
 		Handled:            true,
 		Operation:          operation,
+		OperationID:        operationID,
 		SourceConfigPath:   strings.TrimSpace(*sourceConfig),
 		TargetConfigPath:   target,
 		ConfirmBackupSetID: confirm,

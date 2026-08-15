@@ -57,6 +57,7 @@ type Deployment struct {
 
 type DeploymentLoader func(string) (Deployment, error)
 type ProjectionServicesFactory func(postgres.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error)
+type GraphProjectionRestoreFactory func(postgres.DB) (restorecontract.GraphProjectionParticipant, error)
 type EvidenceRecoveryProviderFactory func(postgres.DB) recovery.EvidenceRecoveryProvider
 type FailureEvidenceProjector func(FailureKind) (code string, reasonCode string)
 type RecoveryStateCoverageValidator func(context.Context, PostgresPool, *recoverystate.Catalog) error
@@ -68,18 +69,19 @@ type VNextCaptureFactory func(
 ) (*recovery.VNextCaptureService, error)
 
 type Service struct {
-	LoadDeployment         DeploymentLoader
-	ReadTargetMarker       TargetMarkerReader
-	NewProjectionServices  ProjectionServicesFactory
-	NewEvidenceProvider    EvidenceRecoveryProviderFactory
-	NewEvidenceRepository  RecoveryEvidenceRepositoryFactory
-	NewTargetAdmission     TargetServingAdmissionFactory
-	ProjectFailureEvidence FailureEvidenceProjector
-	ExtensionBackups       *recovery.ExtensionBackupCatalog
-	RecoveryStateCatalog   *recoverystate.Catalog
-	ValidateStateCoverage  RecoveryStateCoverageValidator
-	NewVNextCapture        VNextCaptureFactory
-	Now                    func() time.Time
+	LoadDeployment            DeploymentLoader
+	ReadTargetMarker          TargetMarkerReader
+	NewProjectionServices     ProjectionServicesFactory
+	NewGraphProjectionRestore GraphProjectionRestoreFactory
+	NewEvidenceProvider       EvidenceRecoveryProviderFactory
+	NewEvidenceRepository     RecoveryEvidenceRepositoryFactory
+	NewTargetAdmission        TargetServingAdmissionFactory
+	ProjectFailureEvidence    FailureEvidenceProjector
+	ExtensionBackups          *recovery.ExtensionBackupCatalog
+	RecoveryStateCatalog      *recoverystate.Catalog
+	ValidateStateCoverage     RecoveryStateCoverageValidator
+	NewVNextCapture           VNextCaptureFactory
+	Now                       func() time.Time
 }
 
 var _ Facade = Service{}
@@ -286,10 +288,24 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 	if err != nil {
 		return ResultForStoredBackupSet(backupSet), err
 	}
+	targetGenerationID, ok := admittedTargetGenerationID(admission)
+	if !ok {
+		return ResultForStoredBackupSet(backupSet), NewFailure(FailureTargetMarkerInvalid, errors.New("restore target generation was not retained after admission"))
+	}
+	if replay, found, replayErr := service.replaySuccessfulRestore(ctx, sourcePool, parsed, backupSet, targetGenerationID); replayErr != nil {
+		return ResultForStoredBackupSet(backupSet), NewFailure(FailureRestoreJournalWrite, replayErr)
+	} else if found {
+		if admissionErr := admission.AssertHeld(); admissionErr != nil {
+			return ResultForStoredBackupSet(backupSet), NewFailure(FailureTargetServingTraffic, admissionErr)
+		}
+		ReportProgress(progress, "journal_write", 0, nil)
+		ReportProgress(progress, "finalize", 1, IntPtr(1))
+		return replay, nil
+	}
 	if err := service.preflightRestoreTarget(admission.Context(), parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
 		return ResultForStoredBackupSet(backupSet), err
 	}
-	target, err := service.restoreTarget(targetPool, targetObjectStore)
+	target, err := service.restoreTarget(targetPool, targetObjectStore, parsed.OperationID, targetGenerationID)
 	if err != nil {
 		return ResultForStoredBackupSet(backupSet), NewFailure(FailureRestoreProjectionRebuild, err)
 	}
@@ -311,7 +327,9 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 	}
 	ReportProgress(progress, "journal_write", 0, nil)
 	ReportProgress(progress, "finalize", 1, IntPtr(1))
-	return ResultForBackupSet(result.BackupSet, "restore_operation", "cartulary.restore_operation.v1"), nil
+	outcome = ResultForBackupSet(result.BackupSet, "restore_operation", "cartulary.restore_operation.v1")
+	outcome.graphProjectionCompletion = result.GraphProjectionCompletion
+	return outcome, nil
 }
 
 func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operationRequest, progress ProgressSink) (outcome Result, err error) {
@@ -355,7 +373,11 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 	if err != nil {
 		return Result{}, NewFailure(FailureVerificationInvariantCheck, err)
 	}
-	target, err := service.restoreVerificationTarget(targetPool, targetObjectStore)
+	targetGenerationID, ok := admittedTargetGenerationID(admission)
+	if !ok {
+		return Result{}, NewFailure(FailureTargetMarkerInvalid, errors.New("restore target generation was not retained after admission"))
+	}
+	target, err := service.restoreVerificationTarget(targetPool, targetObjectStore, parsed.OperationID, targetGenerationID)
 	if err != nil {
 		return Result{}, NewFailure(FailureVerificationProjectionRebuild, err)
 	}
@@ -376,6 +398,7 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 	)
 	result, err := verify.VerifyLatestSuccessfulRetained(admission.Context(), target, service.now(), basis)
 	outcome = ResultForStoredBackupSet(result.BackupSet)
+	outcome.graphProjectionCompletion = result.RestoreResult.GraphProjectionCompletion
 	if result.Run.RestoreVerificationRunID != uuid.Nil {
 		outcome.ArtifactRefs = append(outcome.ArtifactRefs, ArtifactRefFor("restore_verification", recovery.RestoreVerificationArtifactSchemaID, "restore_verification:"+result.Run.RestoreVerificationRunID.String(), outcome.BackupSetID))
 	}
@@ -535,7 +558,11 @@ func (service Service) runRestoreVerifyDueAttempt(
 	); attemptErr != nil {
 		return outcome, dueAttemptContextFailure(admission.Context(), attemptErr), true
 	}
-	target, attemptErr := service.restoreVerificationTarget(targetPool, targetObjectStore)
+	targetGenerationID, ok := admittedTargetGenerationID(admission)
+	if !ok {
+		return outcome, NewFailure(FailureTargetMarkerInvalid, errors.New("restore target generation was not retained after admission")), true
+	}
+	target, attemptErr := service.restoreVerificationTarget(targetPool, targetObjectStore, parsed.OperationID, targetGenerationID)
 	if attemptErr != nil {
 		attemptErr = NewFailure(FailureVerificationProjectionRebuild, attemptErr)
 		return outcome, attemptErr, true
@@ -547,6 +574,7 @@ func (service Service) runRestoreVerifyDueAttempt(
 	ReportProgress(progress, "invariant_check", 0, nil)
 	ReportProgress(progress, "workbook_probe", 0, nil)
 	result, verifyErr := verify.VerifyBackupSetAttempt(admission.Context(), target, backupSet, basis, attemptID)
+	outcome.graphProjectionCompletion = result.RestoreResult.GraphProjectionCompletion
 	if result.ArtifactProof.Key != "" && result.Run.RestoreVerificationRunID == attemptID {
 		outcome.ArtifactRefs = append(outcome.ArtifactRefs, ArtifactRefFor(
 			"restore_verification",
@@ -643,8 +671,17 @@ func (service Service) openRestoreRuntime(ctx context.Context, parsed operationR
 	return sourceDeployment, targetDeployment, sourcePool, targetPool, sourceObjectStore, targetObjectStore, backupStorage, nil
 }
 
-func (service Service) restoreTarget(targetPool postgres.DB, targetObjectStore objectstore.Store) (recovery.RestoreTarget, error) {
+func (service Service) restoreTarget(
+	targetPool postgres.DB,
+	targetObjectStore objectstore.Store,
+	restoreOperationID uuid.UUID,
+	targetGenerationID uuid.UUID,
+) (recovery.RestoreTarget, error) {
 	rebuilder, _, err := service.newProjectionServices(targetPool)
+	if err != nil {
+		return recovery.RestoreTarget{}, err
+	}
+	graphRestore, err := service.newGraphProjectionRestore(targetPool)
 	if err != nil {
 		return recovery.RestoreTarget{}, err
 	}
@@ -653,15 +690,27 @@ func (service Service) restoreTarget(targetPool postgres.DB, targetObjectStore o
 		return recovery.RestoreTarget{}, err
 	}
 	return recovery.RestoreTarget{
-		Postgres:        targetPool,
-		ObjectStore:     targetObjectStore,
-		EvidenceObjects: evidenceProvider,
-		Projections:     rebuilder,
+		RestoreOperationID: restoreOperationID,
+		TargetGenerationID: targetGenerationID,
+		Postgres:           targetPool,
+		ObjectStore:        targetObjectStore,
+		EvidenceObjects:    evidenceProvider,
+		GraphProjection:    graphRestore,
+		Projections:        rebuilder,
 	}, nil
 }
 
-func (service Service) restoreVerificationTarget(targetPool postgres.DB, targetObjectStore objectstore.Store) (recovery.RestoreVerificationTarget, error) {
+func (service Service) restoreVerificationTarget(
+	targetPool postgres.DB,
+	targetObjectStore objectstore.Store,
+	restoreOperationID uuid.UUID,
+	targetGenerationID uuid.UUID,
+) (recovery.RestoreVerificationTarget, error) {
 	rebuilder, query, err := service.newProjectionServices(targetPool)
+	if err != nil {
+		return recovery.RestoreVerificationTarget{}, err
+	}
+	graphRestore, err := service.newGraphProjectionRestore(targetPool)
 	if err != nil {
 		return recovery.RestoreVerificationTarget{}, err
 	}
@@ -671,10 +720,13 @@ func (service Service) restoreVerificationTarget(targetPool postgres.DB, targetO
 	}
 	return recovery.RestoreVerificationTarget{
 		RestoreTarget: recovery.RestoreTarget{
-			Postgres:        targetPool,
-			ObjectStore:     targetObjectStore,
-			EvidenceObjects: evidenceProvider,
-			Projections:     rebuilder,
+			RestoreOperationID: restoreOperationID,
+			TargetGenerationID: targetGenerationID,
+			Postgres:           targetPool,
+			ObjectStore:        targetObjectStore,
+			EvidenceObjects:    evidenceProvider,
+			GraphProjection:    graphRestore,
+			Projections:        rebuilder,
 		},
 		Probe: recovery.RestoreVerificationWorkbookProbe{Executor: query},
 	}, nil
@@ -774,7 +826,8 @@ func (service Service) acquireTargetAdmission(
 		}
 		return nil, NewFailure(FailureTargetMarkerInvalid, fmt.Errorf("read restore target marker: %w", err))
 	}
-	if err := ValidateRestoreTargetMarker(material, purpose, TargetBindingDigestsFor(targetDeployment), service.now()); err != nil {
+	targetGenerationID, err := AdmitRestoreTargetMarker(material, purpose, TargetBindingDigestsFor(targetDeployment), service.now())
+	if err != nil {
 		releaseOnError()
 		return nil, NewFailure(FailureTargetMarkerInvalid, err)
 	}
@@ -782,7 +835,24 @@ func (service Service) acquireTargetAdmission(
 		releaseOnError()
 		return nil, NewFailure(FailureTargetServingTraffic, err)
 	}
-	return admission, nil
+	return targetServingAdmissionWithGeneration{TargetServingAdmission: admission, targetGenerationID: targetGenerationID}, nil
+}
+
+type targetServingAdmissionWithGeneration struct {
+	TargetServingAdmission
+	targetGenerationID uuid.UUID
+}
+
+func (admission targetServingAdmissionWithGeneration) TargetGenerationID() uuid.UUID {
+	return admission.targetGenerationID
+}
+
+func admittedTargetGenerationID(admission TargetServingAdmission) (uuid.UUID, bool) {
+	typed, ok := admission.(interface{ TargetGenerationID() uuid.UUID })
+	if !ok || typed.TargetGenerationID() == uuid.Nil {
+		return uuid.Nil, false
+	}
+	return typed.TargetGenerationID(), true
 }
 
 func minPositiveDuration(configured time.Duration, maximum time.Duration) time.Duration {
@@ -889,17 +959,18 @@ func (service Service) finishJournalAndAudit(ctx context.Context, pool PostgresP
 	evidenceCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), terminalEvidenceTimeout)
 	defer cancel()
 	if err := repository.AppendCompletion(evidenceCtx, RecoveryCompletionRecord{
-		OperationID:        parsed.OperationID,
-		Operation:          parsed.Operation,
-		AttemptID:          parsed.AttemptID,
-		StartedAt:          parsed.StartedAt,
-		CompletedAt:        service.now(),
-		Result:             result,
-		BackupSetID:        outcome.BackupSetID,
-		ConsistencyPointAt: outcome.ConsistencyPointAt,
-		ArtifactCounts:     ArtifactCountsFor(outcome.ArtifactRefs),
-		ErrorCode:          errorCode,
-		ErrorReason:        reasonCode,
+		OperationID:               parsed.OperationID,
+		Operation:                 parsed.Operation,
+		AttemptID:                 parsed.AttemptID,
+		StartedAt:                 parsed.StartedAt,
+		CompletedAt:               service.now(),
+		Result:                    result,
+		BackupSetID:               outcome.BackupSetID,
+		ConsistencyPointAt:        outcome.ConsistencyPointAt,
+		ArtifactCounts:            ArtifactCountsFor(outcome.ArtifactRefs),
+		ErrorCode:                 errorCode,
+		ErrorReason:               reasonCode,
+		GraphProjectionCompletion: outcome.graphProjectionCompletion,
 	}); err != nil {
 		replaceWithJournalFailure(operationErr, parsed.Operation, err)
 	}
@@ -910,6 +981,38 @@ func (service Service) evidenceRepository(pool PostgresPool) (RecoveryEvidenceRe
 		return nil, errors.New("operator recovery requires evidence repository factory")
 	}
 	return service.NewEvidenceRepository(pool)
+}
+
+func (service Service) replaySuccessfulRestore(
+	ctx context.Context,
+	pool PostgresPool,
+	parsed operationRequest,
+	backupSet recovery.BackupSet,
+	targetGenerationID uuid.UUID,
+) (Result, bool, error) {
+	repository, err := service.evidenceRepository(pool)
+	if err != nil {
+		return Result{}, false, err
+	}
+	reader, ok := repository.(RecoveryEvidenceReplayReader)
+	if !ok {
+		return Result{}, false, nil
+	}
+	record, err := reader.FindSuccessfulCompletion(ctx, parsed.OperationID, parsed.Operation, parsed.AttemptID, backupSet.BackupSetID)
+	if err != nil || record == nil {
+		return Result{}, false, err
+	}
+	completion := record.GraphProjectionCompletion
+	if completion == nil || completion.TargetGenerationID != targetGenerationID ||
+		completion.RestoreOperationID != parsed.OperationID || completion.BackupSetID != backupSet.BackupSetID ||
+		!completion.ConsistencyPointAt.Equal(backupSet.ConsistencyPointAt) || service.RecoveryStateCatalog == nil ||
+		completion.RecoveryStateCatalogSHA256 != service.RecoveryStateCatalog.DigestSHA256() ||
+		!completion.ParticipantResult.ReadinessSatisfied() {
+		return Result{}, false, nil
+	}
+	result := ResultForBackupSet(backupSet, "restore_operation", "cartulary.restore_operation.v1")
+	result.graphProjectionCompletion = completion
+	return result, true, nil
 }
 
 func (service Service) restoreVerificationBasisForConfigs(
@@ -1150,6 +1253,20 @@ func (service Service) newProjectionServices(db postgres.DB) (restorecontract.Pr
 		return nil, nil, errors.New("operator recovery requires projection query")
 	}
 	return rebuilder, query, nil
+}
+
+func (service Service) newGraphProjectionRestore(db postgres.DB) (restorecontract.GraphProjectionParticipant, error) {
+	if service.NewGraphProjectionRestore == nil {
+		return nil, errors.New("operator recovery requires Graph Projection restore participant")
+	}
+	participant, err := service.NewGraphProjectionRestore(db)
+	if err != nil {
+		return nil, err
+	}
+	if participant == nil {
+		return nil, errors.New("operator recovery Graph Projection restore participant is unavailable")
+	}
+	return participant, nil
 }
 
 func (service Service) newEvidenceProvider(db postgres.DB) (recovery.EvidenceRecoveryProvider, error) {

@@ -453,6 +453,25 @@ append safe admission and terminal evidence for the scheduler invocation but
 need not acquire a mutating-operation lock. Journal records are append-only;
 terminal state is a new row rather than an overwrite.
 
+When an admitted restore includes the Graph participant, the implementation
+MUST propagate the admitted operation ID and the target-generation ID parsed
+from the validated v2 target marker. Recovery and Graph MUST NOT mint a second
+operation or generation identity. Exclusive serving-lease ownership MUST be
+proved continuously through Graph mutation, committed-postcondition
+validation, terminal journal publication, readiness aggregation, and any
+reset. Loss or uncertainty at any point after Graph mutation begins is an
+indeterminate target outcome and requires target reinitialization.
+
+The encrypted terminal evidence format MUST be versioned to retain the Graph
+completion tuple and durable participant result from Graph Projection NLSpec
+§11.9. Historical v2 journal payloads remain readable only through their
+strict historical decoder and MUST NOT be rewritten or interpreted as Graph
+completion evidence. Matching current terminal evidence MUST support response
+replay without a second Graph mutation. The safe administrative-audit summary
+shape below remains unchanged; it MUST NOT expose Graph digests, identifiers
+beyond its existing identities, source values, configuration, SQL, database
+errors, capabilities, or stack text.
+
 The typed admission record contains exactly schema ID, record kind, operation
 ID, operation token, attempt ID, started timestamp, nullable backup ID, nullable
 consistency point, and sorted admitted artifact kinds. The typed terminal

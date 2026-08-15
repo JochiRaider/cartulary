@@ -9,11 +9,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 )
 
 const graphCursorVersion = "graphprojection.cursor.v1"
+
+type listCursor struct {
+	Operation             string    `json:"operation"`
+	AfterGraphViewID      string    `json:"after_graph_view_id"`
+	IssuedAt              time.Time `json:"issued_at"`
+	QueryShapeDigest      string    `json:"query_shape_digest"`
+	VisibilityScopeDigest string    `json:"visibility_scope_digest"`
+}
+
+func cursorInvalid(reason string) error {
+	return graphprojection.NewQueryError("cursor_invalid", reason, map[string]any{"reason_code": reason}, graphprojection.ErrCursorInvalid)
+}
 
 type graphCursorCodec struct {
 	aead cipher.AEAD
