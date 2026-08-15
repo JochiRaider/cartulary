@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 )
-
-const ContributionID = "timeline.large_grid.v1"
 
 type Row struct {
 	Summary     string
@@ -24,38 +24,38 @@ type Application interface {
 
 type Provider struct {
 	application Application
+	descriptor  fixture.Descriptor
 }
 
-func New(application Application) (*Provider, error) {
+func New(application Application, descriptor fixture.Descriptor) (*Provider, error) {
 	if application == nil {
 		return nil, errors.New("timeline performance fixture application is required")
 	}
-	return &Provider{application: application}, nil
-}
-
-func Descriptor() fixture.Descriptor {
-	return fixture.Descriptor{
-		ContributionID: ContributionID,
-		Version:        ContributionID,
-		OwnerID:        "module.timeline",
-		Dependencies:   []string{"entities.hosts_identities.v1"},
-		ExpectedCounts: map[string]int{"timeline_rows": 20000},
+	if descriptor.ExpectedCounts["timeline_rows"] < 1 {
+		return nil, errors.New("timeline performance fixture descriptor is incompatible")
 	}
+	descriptor.Dependencies = slices.Clone(descriptor.Dependencies)
+	descriptor.ExpectedCounts = maps.Clone(descriptor.ExpectedCounts)
+	return &Provider{application: application, descriptor: descriptor}, nil
 }
 
-func (p *Provider) Descriptor() fixture.Descriptor { return Descriptor() }
+func (p *Provider) Descriptor() fixture.Descriptor {
+	result := p.descriptor
+	result.Dependencies = slices.Clone(result.Dependencies)
+	result.ExpectedCounts = maps.Clone(result.ExpectedCounts)
+	return result
+}
 
 func (p *Provider) Apply(ctx context.Context, state *fixture.BuildState) (fixture.Receipt, error) {
 	if state.IncidentID == "" {
 		return fixture.Receipt{}, errors.New("timeline performance fixture requires an Incidents workspace")
 	}
-	const (
-		rowCount  = 20000
-		batchSize = 500
-	)
+	const batchSize = 500
+	rowCount := p.descriptor.ExpectedCounts["timeline_rows"]
 	for start := 0; start < rowCount; start += batchSize {
-		rows := make([]Row, batchSize)
-		for offset := range batchSize {
+		end := min(start+batchSize, rowCount)
+		rows := make([]Row, end-start)
+		for offset := range rows {
 			index := start + offset
 			row := Row{Summary: fmt.Sprintf("Performance Timeline %05d", index)}
 			if index%20 == 0 {
@@ -73,9 +73,9 @@ func (p *Provider) Apply(ctx context.Context, state *fixture.BuildState) (fixtur
 		}
 	}
 	return fixture.Receipt{
-		ContributionID: ContributionID,
-		Version:        ContributionID,
-		OwnerID:        "module.timeline",
-		Counts:         map[string]int{"timeline_rows": 20000},
+		ContributionID: p.descriptor.ContributionID,
+		Version:        p.descriptor.Version,
+		OwnerID:        p.descriptor.OwnerID,
+		Counts:         maps.Clone(p.descriptor.ExpectedCounts),
 	}, nil
 }

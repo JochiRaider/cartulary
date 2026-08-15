@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { validateSchemaSync } from "../contract/index.mjs";
+import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs";
 import {
   loadPerformanceFixtureSnapshotRegistry,
   postgresMigrationDigest,
@@ -58,7 +58,7 @@ function validateExisting(file, expected) {
   if (artifact.state !== "sealed") throw new Error("existing snapshot build is not sealed");
 }
 
-export function runSnapshotBuilder(argv) {
+export async function runSnapshotBuilder(argv) {
   const args = parseArgs(argv);
   const registry = loadPerformanceFixtureSnapshotRegistry(repoRoot);
   const profile = registry.profiles.get(args.fixtureProfileID);
@@ -80,7 +80,7 @@ export function runSnapshotBuilder(argv) {
     return artifact;
   }
   const executable = requiredEnv("CARTULARY_TEST_SERVICES_BIN");
-  const result = spawnSync(executable, [
+  const result = await runPrivateCapturedProcess(executable, [
     "build-performance-fixture",
     "--fixture-profile", profile.fixture_profile_id,
     "--snapshot-key", expectedKey,
@@ -89,14 +89,18 @@ export function runSnapshotBuilder(argv) {
     "--builder-unit-id", builderUnitID,
     "--artifact-file", artifact,
   ], {
+    captureID: `snapshot-builder-${expectedKey.slice(0, 16)}`,
     cwd: repoRoot,
     env: process.env,
-    encoding: "utf8",
-    maxBuffer: 32 * 1024 * 1024,
+    repoRoot,
+    runRoot: runRoot(),
   });
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    throw new Error((result.stderr || result.stdout || `snapshot builder exited ${result.status}`).trim());
+  try {
+    if (result.status !== 0) {
+      throw new Error((result.stderr || result.stdout || `snapshot builder exited ${result.status}`).trim());
+    }
+  } finally {
+    result.cleanup();
   }
   validateExisting(artifact, expected);
   return artifact;
@@ -104,7 +108,7 @@ export function runSnapshotBuilder(argv) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    process.stdout.write(`${runSnapshotBuilder(process.argv.slice(2))}\n`);
+    process.stdout.write(`${await runSnapshotBuilder(process.argv.slice(2))}\n`);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

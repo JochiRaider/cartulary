@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -11,11 +11,14 @@ import {
   secureWriteFile,
   validateSchemaSync,
 } from "../contract/index.mjs";
+import {
+  groupRowsByPerformanceFixture,
+  validateProfileMeasurementObservation,
+} from "../performance-fixture/index.mjs";
 import { buildFrontendVisualReconciliation } from "./frontend-visual-reconciliation.mjs";
 import {
-  ac043PredicateIDsForRows,
   collectFinalizedMeasurementSummaries,
-  measurementSchedulerOverlapCount as measurementSchedulerOverlapCountFromEvents,
+  readMeasurementSchedulerEvidenceForGroups,
 } from "./frontend-measurement-evidence.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
 
@@ -54,6 +57,10 @@ function runRoot() {
 function groupResult(base, groupID, target) {
   const file = path.join(base, target, "browser-groups", groupID, "browser-group-result.json");
   if (!existsSync(file)) return null;
+  const stat = lstatSync(file);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 16 * 1024 * 1024) {
+    throw new Error(`browser group result exceeds its bounded JSON contract: ${file}`);
+  }
   const bytes = readFileSync(file);
   const result = JSON.parse(bytes.toString("utf8"));
   validateSchemaSync("cartulary.browser_group_result.v5", result);
@@ -76,22 +83,19 @@ function relativeToRun(base, file) {
   return relative;
 }
 
-function measurementSchedulerOverlapCount(base, groups) {
+async function measurementSchedulerOverlapCount(base, groups) {
   const eventsFile = path.join(base, "unit-events.ndjson");
   if (!existsSync(eventsFile)) {
     throw new Error("measurement qualification requires unit-events.ndjson");
   }
-  const events = readFileSync(eventsFile, "utf8")
-    .split(/\r?\n/u)
-    .filter(Boolean)
-    .map((line) => JSON.parse(line));
-  return measurementSchedulerOverlapCountFromEvents(
-    events,
+  const states = await readMeasurementSchedulerEvidenceForGroups(
+    eventsFile,
     groups.map((group) => group.result),
   );
+  return [...states.values()].reduce((total, state) => total + state.overlap_count, 0);
 }
 
-function writeTargetResult(base, options, groups) {
+async function writeTargetResult(base, options, groups) {
   const targetDirectory = path.join(base, options.target);
   const output = path.join(targetDirectory, "browser-target-result.json");
   if (existsSync(output)) {
@@ -110,87 +114,130 @@ function writeTargetResult(base, options, groups) {
         return row;
       }),
     );
-    const expectedPredicateIDs = ac043PredicateIDsForRows(root, selectedRows);
-    if (expectedPredicateIDs.length > 0) {
-      const profiledGroups = groups.filter((group) =>
-        group.result.selected_rows.some((rowID) =>
-          selectedRows.some((row) =>
-            row.row_id === rowID && row.fixture_profile_id === "ac043_large_grid_snapshot_v1",
-          ),
+    const fixtureGroups = groupRowsByPerformanceFixture(root, selectedRows);
+    if (fixtureGroups.length > 0) {
+      const aggregateSchemaIDs = new Set(
+        fixtureGroups.map(
+          (fixtureGroup) => fixtureGroup.profile.artifact_policy.aggregate_schema_id,
         ),
       );
-      const reportPaths = profiledGroups.map((group) =>
-        path.join(path.dirname(group.file), "playwright-report.json"),
-      );
-      const schedulerOverlapCount = measurementSchedulerOverlapCount(base, groups);
-      if (schedulerOverlapCount !== 0) {
-        throw new Error(`measurement quiet interval overlapped ${schedulerOverlapCount} ordinary units`);
+      if (aggregateSchemaIDs.size !== 1) {
+        throw new Error("measurement profile groups select mixed aggregate generations");
       }
-      const summaryPaths = profiledGroups
-        .map((group) =>
-          path.join(
-            path.dirname(group.file),
-            "frontend-measurement-summary.v2.json",
+      const profileGroups = [];
+      for (const fixtureGroup of fixtureGroups) {
+        const profiledGroups = groups.filter((group) =>
+          group.result.selected_rows.some((rowID) =>
+            fixtureGroup.row_ids.includes(rowID),
           ),
         );
-      const summaries = collectFinalizedMeasurementSummaries({
-        expectedPredicateIDs,
-        summaryPaths,
-      });
-      const expectedRowIDs = selectedRows
-        .filter((row) => row.fixture_profile_id === "ac043_large_grid_snapshot_v1")
-        .map((row) => row.row_id)
-        .sort();
-      const actualRowIDs = summaries.map((summary) => summary.row_id).sort();
-      if (JSON.stringify(actualRowIDs) !== JSON.stringify(expectedRowIDs)) {
-        throw new Error("measurement summaries have inconsistent row provenance");
-      }
-      const fixtureProfileIDs = new Set(
-        summaries.map((summary) => summary.fixture_profile_id),
-      );
-      const snapshotKeys = new Set(
-        summaries.map((summary) => summary.snapshot_key),
-      );
-      const buildArtifacts = new Map(
-        summaries.map((summary) => [
-          JSON.stringify(summary.build_artifact),
-          summary.build_artifact,
-        ]),
-      );
-      const leaseArtifactPaths = new Set(
-        summaries.map((summary) => summary.lease_artifact.path),
-      );
-      const leaseArtifactDigests = new Set(
-        summaries.map((summary) => summary.lease_artifact.sha256),
-      );
-      const cloneOrdinals = new Set(
-        summaries.map((summary) => summary.clone_ordinal),
-      );
-      if (
-        fixtureProfileIDs.size !== 1 ||
-        snapshotKeys.size !== 1 ||
-        buildArtifacts.size !== 1 ||
-        leaseArtifactPaths.size !== summaries.length ||
-        leaseArtifactDigests.size !== summaries.length ||
-        cloneOrdinals.size !== summaries.length ||
-        summaries.length !== expectedRowIDs.length
-      ) {
-        throw new Error("measurement summaries have inconsistent snapshot provenance");
+        const schedulerOverlapCount = await measurementSchedulerOverlapCount(
+          base,
+          profiledGroups,
+        );
+        if (schedulerOverlapCount !== 0) {
+          throw new Error(
+            `measurement quiet interval overlapped ${schedulerOverlapCount} ordinary units`,
+          );
+        }
+        const summaryPaths = profiledGroups.map((group) =>
+          path.join(
+            path.dirname(group.file),
+            `frontend-measurement-summary.${fixtureGroup.profile.artifact_policy.summary_schema_id.split(".").at(-1)}.json`,
+          ),
+        );
+        const summaries = collectFinalizedMeasurementSummaries({
+          buildSchemaID: fixtureGroup.profile.artifact_policy.build_schema_id,
+          expectedPredicateIDs: fixtureGroup.predicate_ids,
+          leaseSchemaID: fixtureGroup.profile.artifact_policy.lease_schema_id,
+          observationSchemaID:
+            fixtureGroup.profile.artifact_policy.observation_schema_id,
+          runRoot: base,
+          summarySchemaID: fixtureGroup.profile.artifact_policy.summary_schema_id,
+          summaryPaths,
+          validateObservation(observation) {
+            validateProfileMeasurementObservation(
+              root,
+              fixtureGroup.profile,
+              observation,
+            );
+          },
+        });
+        const actualRowIDs = summaries
+          .map((entry) => entry.summary.row_id)
+          .sort();
+        if (JSON.stringify(actualRowIDs) !== JSON.stringify(fixtureGroup.row_ids)) {
+          throw new Error("measurement summaries have inconsistent row provenance");
+        }
+        const fixtureProfileIDs = new Set(
+          summaries.map((entry) => entry.summary.fixture_profile_id),
+        );
+        const snapshotKeys = new Set(
+          summaries.map((entry) => entry.summary.snapshot_key),
+        );
+        const buildArtifacts = new Map(
+          summaries.map((entry) => [
+            JSON.stringify(entry.summary.build_artifact),
+            entry.summary.build_artifact,
+          ]),
+        );
+        const leaseArtifactPaths = new Set(
+          summaries.map((entry) => entry.summary.lease_artifact.path),
+        );
+        const cloneOrdinals = new Set(
+          summaries.map((entry) => entry.summary.clone_ordinal),
+        );
+        if (
+          fixtureProfileIDs.size !== 1 ||
+          snapshotKeys.size !== 1 ||
+          buildArtifacts.size !== 1 ||
+          leaseArtifactPaths.size !== summaries.length ||
+          cloneOrdinals.size !== summaries.length ||
+          summaries.length !== fixtureGroup.row_ids.length
+        ) {
+          throw new Error("measurement summaries have inconsistent snapshot provenance");
+        }
+        profileGroups.push({
+          fixture_profile_id: [...fixtureProfileIDs][0],
+          snapshot_key: [...snapshotKeys][0],
+          builder_count: 1,
+          clone_count: summaries.length,
+          scheduler_overlap_count: schedulerOverlapCount,
+          build_artifact: [...buildArtifacts.values()][0],
+          summary_artifacts: summaries
+            .map((entry) => ({
+              role: "frontend_measurement_summary",
+              path_kind: "file",
+              format: "json",
+              path: relativeToRun(base, entry.file),
+              sha256: sha256(entry.bytes),
+            }))
+            .sort((left, right) => left.path.localeCompare(right.path)),
+          rollups: summaries
+            .map((entry) => ({
+              predicate_id: entry.summary.rollup.predicate_id,
+              sample_count: entry.summary.rollup.sample_count,
+              p95_ms: entry.summary.rollup.p95_ms,
+              threshold_ms: entry.summary.rollup.threshold_ms,
+              outcome: entry.summary.rollup.outcome,
+            }))
+            .sort((left, right) =>
+              left.predicate_id.localeCompare(right.predicate_id),
+            ),
+        });
       }
       measurementAggregate = {
-        schema_id: "cartulary.frontend_measurement_aggregate.v2",
+        schema_id: [...aggregateSchemaIDs][0],
         target_id: options.target,
-        status: "qualified",
-        fixture_profile_id: [...fixtureProfileIDs][0],
-        snapshot_key: [...snapshotKeys][0],
-        builder_count: 1,
-        clone_count: summaries.length,
-        scheduler_overlap_count: schedulerOverlapCount,
-        build_artifact: [...buildArtifacts.values()][0],
-        source_report_refs: reportPaths
-          .map((reportPath) => relativeToRun(base, reportPath))
-          .sort(),
-        summaries,
+        status: profileGroups.some((group) =>
+          group.rollups.some((rollup) => rollup.outcome === "threshold_failed"),
+        )
+          ? "threshold_failed"
+          : "qualified",
+        profile_groups: profileGroups.sort((left, right) =>
+          left.fixture_profile_id.localeCompare(right.fixture_profile_id) ||
+          left.snapshot_key.localeCompare(right.snapshot_key),
+        ),
       };
       validateSchemaSync(measurementAggregate.schema_id, measurementAggregate);
       const aggregateOutput = path.join(
@@ -203,7 +250,7 @@ function writeTargetResult(base, options, groups) {
       );
       secureWriteFile(aggregateOutput, aggregateBytes);
       artifacts.push({
-        kind: "frontend_measurement_aggregate_v2",
+        kind: `frontend_measurement_aggregate_${measurementAggregate.schema_id.split(".").at(-1)}`,
         ref: relativeToRun(base, aggregateOutput),
         sha256: sha256(aggregateBytes),
       });
@@ -255,7 +302,7 @@ function writeTargetResult(base, options, groups) {
     sessionsByID.set(group.result.browser_session_id, session);
   }
   const payload = {
-    schema_id: "cartulary.browser_target_result.v2",
+    schema_id: "cartulary.browser_target_result.v3",
     target_id: options.target,
     status:
       groups.every((group) => group.result.status === "pass") &&
@@ -290,7 +337,7 @@ const groups = options.groups
   )
   .filter((group) => group !== null);
 const complete = groups.length === options.groups.length;
-const targetResult = complete ? writeTargetResult(base, options, groups) : null;
+const targetResult = complete ? await writeTargetResult(base, options, groups) : null;
 if (!complete) {
   process.stderr.write(`browser target ${options.target} is missing group results\n`);
   process.exitCode = 11;

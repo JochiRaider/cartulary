@@ -5,7 +5,10 @@ import path from "node:path";
 import { replaceFileAtomically } from "../design-tokens/design-tokens.mjs";
 import {
   loadPerformanceContracts,
+  loadPerformanceFixtureProfiles,
   renderPerformanceContractsTypeScript,
+  renderPerformanceFixtureKeyVectors,
+  renderPerformanceFixtureProfilesGo,
 } from "./performance-contracts.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
@@ -18,21 +21,50 @@ const outputPath = path.join(
   root,
   "packages/ui-contracts/src/generated/performance-contracts.ts",
 );
+const fixtureCatalogOutputPath = path.join(
+  root,
+  "internal/gen/performancefixtureprofile/catalog_gen.go",
+);
+const fixtureKeyVectorsOutputPath = path.join(
+  root,
+  "tools/performance_fixture_snapshot_key_vectors.json",
+);
 
 try {
-  const output = renderPerformanceContractsTypeScript(
-    loadPerformanceContracts(performancePath, policyPath),
-  );
+  const outputs = [
+    {
+      path: outputPath,
+      content: renderPerformanceContractsTypeScript(
+        loadPerformanceContracts(performancePath, policyPath),
+      ),
+    },
+    {
+      path: fixtureCatalogOutputPath,
+      content: renderPerformanceFixtureProfilesGo(
+        loadPerformanceFixtureProfiles(root),
+      ),
+    },
+    {
+      path: fixtureKeyVectorsOutputPath,
+      content: renderPerformanceFixtureKeyVectors(
+        loadPerformanceFixtureProfiles(root),
+      ),
+    },
+  ];
   if (process.argv.slice(2).includes("--check")) {
-    if (readFileSync(outputPath, "utf8") !== output) {
-      throw new Error(
-        `${path.relative(root, outputPath)} is stale; run make generate`,
-      );
+    for (const output of outputs) {
+      if (readFileSync(output.path, "utf8") !== output.content) {
+        throw new Error(
+          `${path.relative(root, output.path)} is stale; run make generate`,
+        );
+      }
     }
     console.log("performance contract validation passed: generated artifact is current");
   } else {
-    replaceFileAtomically(outputPath, output);
-    console.log(`generated ${path.relative(root, outputPath)}`);
+    for (const output of outputs) {
+      replaceFileAtomically(output.path, output.content);
+      console.log(`generated ${path.relative(root, output.path)}`);
+    }
   }
 } catch (error) {
   console.error(

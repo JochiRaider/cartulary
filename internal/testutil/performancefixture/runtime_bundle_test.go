@@ -5,42 +5,45 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 )
 
 func TestRuntimeBundleIsSuiteRandomPrivateCopiedAndRemoved(t *testing.T) {
 	t.Parallel()
+	profile := runtimeTestProfile()
 	snapshotKey := "abababababababababababababababababababababababababababababababab"
-	first, err := generateRuntimeBundle(snapshotKey, bytes.NewReader(entropySequence(0x11)))
+	first, err := generateRuntimeBundle(profile, snapshotKey, bytes.NewReader(entropySequence(0x11)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := generateRuntimeBundle(snapshotKey, bytes.NewReader(entropySequence(0x22)))
+	second, err := generateRuntimeBundle(profile, snapshotKey, bytes.NewReader(entropySequence(0x22)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.BackgroundAccounts[0] == second.BackgroundAccounts[0] {
+	if first.CredentialSets[0].Credentials[0] == second.CredentialSets[0].Credentials[0] {
 		t.Fatal("independent suite entropy produced the same credential")
 	}
 	base := t.TempDir()
 	sourceRoot := filepath.Join(base, "source")
-	sourcePath, err := WriteRuntimeBundle(sourceRoot, first)
+	sourcePath, err := WriteRuntimeBundle(profile, sourceRoot, first)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertMode(t, sourceRoot, 0o700)
 	assertMode(t, sourcePath, 0o600)
 	destinationRoot := filepath.Join(base, "predicate")
-	destinationPath, err := CopyRuntimeBundle(sourcePath, destinationRoot)
+	destinationPath, err := CopyRuntimeBundle(profile, sourcePath, destinationRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertMode(t, destinationRoot, 0o700)
 	assertMode(t, destinationPath, 0o600)
-	copied, err := ReadRuntimeBundle(destinationPath)
+	copied, err := ReadRuntimeBundle(profile, destinationPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if copied.BackgroundAccounts[23] != first.BackgroundAccounts[23] {
+	if copied.CredentialSets[0].Credentials[23] != first.CredentialSets[0].Credentials[23] {
 		t.Fatal("predicate runtime copy changed credential material")
 	}
 	if err := RemoveRuntimeBundle(destinationRoot); err != nil {
@@ -64,27 +67,41 @@ func entropySequence(seed byte) []byte {
 
 func TestRuntimeBundleRejectsInsecureAndUnknownContent(t *testing.T) {
 	t.Parallel()
+	profile := runtimeTestProfile()
 	root := filepath.Join(t.TempDir(), "insecure")
 	if err := os.Mkdir(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	bundle, err := GenerateRuntimeBundle("cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd")
+	bundle, err := GenerateRuntimeBundle(profile, "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := WriteRuntimeBundle(root, bundle); err == nil {
+	if _, err := WriteRuntimeBundle(profile, root, bundle); err == nil {
 		t.Fatal("expected existing runtime root to fail closed")
 	}
 	privateRoot := filepath.Join(t.TempDir(), "private")
-	path, err := WriteRuntimeBundle(privateRoot, bundle)
+	path, err := WriteRuntimeBundle(profile, privateRoot, bundle)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Chmod(path, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReadRuntimeBundle(path); err == nil {
+	if _, err := ReadRuntimeBundle(profile, path); err == nil {
 		t.Fatal("expected insecure runtime bundle mode to fail closed")
+	}
+}
+
+func runtimeTestProfile() performancefixtureprofile.Profile {
+	return performancefixtureprofile.Profile{
+		FixtureProfileID: "synthetic_profile_v1",
+		Status:           "active",
+		ArtifactPolicy: performancefixtureprofile.ArtifactPolicy{
+			RuntimeSchemaID: "cartulary.performance_fixture_runtime.v2",
+		},
+		RuntimeCredentialSets: []performancefixtureprofile.RuntimeCredentialSet{{
+			SetID: "analysts", CredentialKind: "email_password", AccountCount: 24,
+		}},
 	}
 }
 

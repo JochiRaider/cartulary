@@ -49,7 +49,7 @@ func (a *ProductionApplication) apply(ctx context.Context, incidentID string, vi
 	if err != nil {
 		return err
 	}
-	clientTxnID := fmt.Sprintf("ac043-%s-%s", strings.TrimPrefix(viewSchemaID, "cartulary.view."), rows[0][1])
+	clientTxnID := fmt.Sprintf("performance-fixture-%s-%s", strings.TrimPrefix(viewSchemaID, "cartulary.view."), rows[0][1])
 	request := hostidentity.ClipboardPasteRequest{
 		ViewSchemaID: viewSchemaID, ClientTxnID: clientTxnID, ClipboardText: encodeTSV(rows),
 		Format: "tsv", StartFieldKey: startField, Columns: columns, CreateOnlyRows: len(rows),

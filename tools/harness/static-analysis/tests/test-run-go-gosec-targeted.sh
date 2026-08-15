@@ -69,6 +69,7 @@ assert_contains "$output" "run make go-security-toolchain before go-gosec-target
 fake_gosec="$scratch/gosec"
 args_log="$scratch/gosec-args.log"
 env_log="$scratch/gosec-env.log"
+artifact_dir="$scratch/targeted-artifacts"
 cat >"$fake_gosec" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "--call--" "$@" >>"${FAKE_GOSEC_ARGS_LOG:?}"
@@ -80,6 +81,7 @@ fi
 EOF
 chmod +x "$fake_gosec"
 
+umask 022
 output="$(
   GO="$fake_go" \
     GO_CACHE_DIR="$scratch/go-cache" \
@@ -91,6 +93,7 @@ output="$(
     GOSEC_PATTERNS="./cmd/... ./internal/..." \
     GOSEC_TARGETED_RUNTIME_RULES="G122,G301,G302,G303,G304,G305,G306,G307" \
     GOSEC_TARGETED_RUNTIME_PATTERNS="./cmd/... ./internal/..." \
+    CARTULARY_STEP_ARTIFACT_DIR="$artifact_dir" \
     FAKE_GOSEC_ARGS_LOG="$args_log" \
     FAKE_GOSEC_ENV_LOG="$env_log" \
     "$SCRIPT" 2>&1
@@ -98,6 +101,9 @@ output="$(
 
 assert_contains "$output" "go-gosec-targeted general profile rules=G602,G124,G112,G114 patterns=./cmd/... ./internal/..." "general targeted profile label"
 assert_contains "$output" "go-gosec-targeted runtime profile rules=G122,G301,G302,G303,G304,G305,G306,G307 patterns=./cmd/... ./internal/..." "runtime targeted profile label"
+assert_equals "$(stat -c '%a' "$artifact_dir")" "700" "targeted Gosec artifact directory owner-only mode"
+assert_equals "$(stat -c '%a' "$artifact_dir/security-profiles.jsonl")" "600" "targeted Gosec profile artifact owner-only mode"
+assert_equals "$(wc -l <"$artifact_dir/security-profiles.jsonl")" "2" "targeted Gosec profile artifact count"
 
 args="$(cat "$args_log")"
 assert_equals "$(grep -c '^--call--$' "$args_log")" "2" "gosec invocation count"

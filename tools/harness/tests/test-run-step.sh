@@ -128,6 +128,20 @@ assert_equals() {
   fi
 }
 
+secure_mkdir_root="$(cartulary_harness_mktemp_dir "run-step-secure-mkdir.XXXXXX")"
+cleanup_paths+=("$secure_mkdir_root")
+secure_mkdir_umask="$(
+  bash -c 'umask 022; source "$1"; step_secure_mkdir "$2/first/second/leaf"; umask' \
+    bash "$STEP_RUNTIME" "$secure_mkdir_root"
+)"
+assert_matches "$secure_mkdir_umask" '^0?022$' "secure mkdir restores caller umask"
+for secure_mkdir_dir in \
+  "$secure_mkdir_root/first" \
+  "$secure_mkdir_root/first/second" \
+  "$secure_mkdir_root/first/second/leaf"; do
+  assert_equals "$(stat -c '%a' "$secure_mkdir_dir")" "700" "secure mkdir owner-only mode for $secure_mkdir_dir"
+done
+
 assert_not_negative() {
   local actual="$1"
   local label="$2"

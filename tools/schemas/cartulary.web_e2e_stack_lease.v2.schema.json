@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.web_e2e_stack_lease.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "suite_id",
+    "browser_session_id",
+    "runtime_profile_id",
+    "lease_identity",
+    "resource_classes",
+    "created_at"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.web_e2e_stack_lease.v2" },
+    "suite_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "browser_session_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "runtime_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "lease_identity": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "resource_classes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["backend_process", "frontend_process", "runtime_directory"]
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

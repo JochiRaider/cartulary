@@ -7,16 +7,16 @@ import {
 } from "node:fs";
 import path from "node:path";
 
-import { validateSchemaSync } from "../contract/index.mjs";
-import { loadPerformanceFixtureSnapshotRegistry } from "./performance-fixture-snapshot.mjs";
-import { loadVerificationContracts } from "./verification-contracts.mjs";
-import { assertSortedUnique, resolveRowSelector } from "./selector-resolution.mjs";
-import { assertFixtureServiceDependencies } from "./service-dependencies.mjs";
 import {
   canonicalJSONString,
   parseStrictJSON,
   semanticJSONDigest,
-} from "./semantic-json.mjs";
+  validateSchemaSync,
+} from "../contract/index.mjs";
+import { loadPerformanceFixtureSnapshotRegistry } from "../performance-fixture/index.mjs";
+import { loadVerificationContracts } from "./verification-contracts.mjs";
+import { assertSortedUnique, resolveRowSelector } from "./selector-resolution.mjs";
+import { assertFixtureServiceDependencies } from "./service-dependencies.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
 const familyManifestSchemaID = "cartulary.test_family_manifest.v5";

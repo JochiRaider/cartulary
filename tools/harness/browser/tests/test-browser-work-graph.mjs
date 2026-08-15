@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import {
   closeSync,
   mkdtempSync,
@@ -20,13 +21,20 @@ import {
 import {
   collectFinalizedMeasurementSummaries,
   collectFrontendMeasurementObservations,
-  measurementSchedulerOverlapCount,
   readMeasurementSchedulerEvidence,
 } from "../frontend-measurement-evidence.mjs";
+import {
+  activePerformanceFixtureProfile,
+  loadPerformanceFixtureSnapshotRegistry,
+} from "../../performance-fixture/index.mjs";
 import { WorkGraphCompiler } from "../../scheduler/work-graph/index.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const compiler = new WorkGraphCompiler(root);
+const fixtureProfile = activePerformanceFixtureProfile(
+  loadPerformanceFixtureSnapshotRegistry(root),
+  "ac043_large_grid_snapshot_v1",
+);
 const timelineMeasurementSource = readFileSync(
   path.join(root, "apps/web/e2e/measurement/timeline-grid.spec.ts"),
   "utf8",
@@ -49,7 +57,8 @@ assert.doesNotMatch(
 
 function measurementObservation(overrides = {}) {
   return {
-    schema_id: "cartulary.frontend_measurement_observation.v1",
+    schema_id: "cartulary.frontend_measurement_observation.v2",
+    fixture_profile_id: "ac043_large_grid_snapshot_v1",
     criterion_id: "AC-043",
     predicate_id: "perf.timeline_summary_selection_down.v1",
     fixture_id: "cartulary.perf.large_grid.v1",
@@ -63,18 +72,21 @@ function measurementObservation(overrides = {}) {
     p95_ms: 20,
     outcome: "passed",
     traffic: {
-      analyst_sessions: 25,
-      background_sessions: 24,
-      background_update_interval_ms: 5000,
-      background_updates_per_second: 4.8,
-      target_row_excluded: true,
-      presence_enabled: true,
+      counts: [
+        { fact_id: "analyst_sessions", value: 25 },
+        { fact_id: "background_sessions", value: 24 },
+      ],
+      rates: [{ fact_id: "background_updates_per_second", value: 4.8 }],
+      conditions: [
+        { fact_id: "presence_enabled", value: true },
+        { fact_id: "target_row_excluded", value: true },
+      ],
     },
     samples: Array.from({ length: 101 }, (_, sampleIndex) => ({
       sample_index: sampleIndex,
       warmup: sampleIndex === 0,
       total_ms: 10,
-      stages_ms: { apply_to_visible_paint: 10 },
+      stages_ms: [{ fact_id: "apply_to_visible_paint", value: 10 }],
     })),
     ...overrides,
   };
@@ -87,7 +99,7 @@ function measurementReport(summary) {
         tests: [{
           results: [{
             attachments: [{
-              name: `cartulary.frontend_measurement_observation.v1.${summary.predicate_id}`,
+              name: `cartulary.frontend_measurement_observation.v2.${summary.predicate_id}`,
               body: Buffer.from(JSON.stringify(summary)).toString("base64"),
             }],
           }],
@@ -97,36 +109,129 @@ function measurementReport(summary) {
   };
 }
 
-function finalizedMeasurementSummary(overrides = {}) {
+function artifactDigest(bytes) {
+  return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
+
+function writeMeasurementArtifact(rootDirectory, name, role, value) {
+  const file = path.join(rootDirectory, name);
+  const bytes = Buffer.from(`${JSON.stringify(value)}\n`);
+  writeFileSync(file, bytes);
   return {
-    schema_id: "cartulary.frontend_measurement_summary.v2",
-    row_id:
-      "module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
-    observation: measurementObservation(),
+    ref: {
+      role,
+      path_kind: "file",
+      format: "json",
+      path: name,
+      sha256: artifactDigest(bytes),
+    },
+    value,
+  };
+}
+
+function finalizedMeasurementSummary(rootDirectory, options = {}) {
+  const observation = measurementObservation(options.observationOverrides);
+  const rowID =
+    "module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3";
+  const snapshotKey = "b".repeat(64);
+  const builderUnitID = `fixture_snapshot:default:ac043_large_grid_snapshot_v1:${snapshotKey}`;
+  const observationArtifact = writeMeasurementArtifact(
+    rootDirectory,
+    "frontend-measurement-observation.v2.json",
+    "frontend_measurement_observation",
+    observation,
+  );
+  const buildArtifact = writeMeasurementArtifact(
+    rootDirectory,
+    "snapshot-build.json",
+    "performance_fixture_snapshot_build",
+    {
+      schema_id: "cartulary.performance_fixture_snapshot.v2",
+      fixture_profile_id: fixtureProfile.fixture_profile_id,
+      fixture_version: fixtureProfile.fixture_version,
+      seed: fixtureProfile.seed,
+      snapshot_key_schema_id: "cartulary.performance_fixture_snapshot_key.v2",
+      snapshot_key: snapshotKey,
+      migration_digest: "a".repeat(64),
+      source_contract_digest: fixtureProfile.source_contract_digest,
+      builder_unit_id: builderUnitID,
+      build_ordinal: 1,
+      state: "sealed",
+      contribution_receipts: fixtureProfile.contributions.map((contribution) => ({
+        contribution_id: contribution.contribution_id,
+        version: contribution.version,
+        owner_id: contribution.owner_id,
+        counts: contribution.expected_receipt_counts.map((count) => ({
+          count_id: count.count_id,
+          actual: count.exact,
+        })),
+      })),
+      semantic_validation_digest: `sha256:${"c".repeat(64)}`,
+      validation: {
+        counts: fixtureProfile.semantic_expectations.counts.map((expectation) => ({
+          expectation_id: expectation.expectation_id,
+          actual: expectation.exact,
+          passed: true,
+        })),
+        conditions: fixtureProfile.semantic_expectations.conditions.map((expectation) => ({
+          expectation_id: expectation.expectation_id,
+          actual: expectation.required,
+          passed: true,
+        })),
+        connections_closed: true,
+      },
+      redaction_policy_id: fixtureProfile.redaction_policy.policy_id,
+      created_at: "2026-08-14T00:00:00.000Z",
+    },
+  );
+  const leaseArtifact = writeMeasurementArtifact(
+    rootDirectory,
+    "snapshot-lease.json",
+    "performance_fixture_snapshot_lease",
+    {
+      schema_id: "cartulary.performance_fixture_snapshot_lease.v2",
+      fixture_profile_id: "ac043_large_grid_snapshot_v1",
+      snapshot_key: snapshotKey,
+      builder_unit_id: builderUnitID,
+      row_id: rowID,
+      predicate_id: observation.predicate_id,
+      lease_identity: `sha256:${"d".repeat(64)}`,
+      clone_ordinal: 1,
+      creation_state: "created",
+      isolation_result: "isolated",
+      cleanup_results: [
+        "bucket",
+        "credential_copy",
+        "database",
+        "process",
+        "session",
+      ].map((resource_class) => ({ resource_class, outcome: "complete" })),
+      cleanup_state: "complete",
+      redaction_policy_id: "cartulary.performance_fixture_redaction.v1",
+      finalized_at: "2026-08-14T00:01:00.000Z",
+      ...options.leaseOverrides,
+    },
+  );
+  return {
+    schema_id: "cartulary.frontend_measurement_summary.v3",
+    row_id: rowID,
     fixture_profile_id: "ac043_large_grid_snapshot_v1",
-    snapshot_key: "b".repeat(64),
-    build_artifact: {
-      role: "performance_fixture_snapshot_build",
-      path_kind: "file",
-      format: "json",
-      path: `performance-fixtures/${"b".repeat(64)}/snapshot-build.json`,
-      sha256: `sha256:${"c".repeat(64)}`,
-    },
-    lease_artifact: {
-      role: "performance_fixture_snapshot_lease",
-      path_kind: "file",
-      format: "json",
-      path: `performance-fixtures/${"b".repeat(64)}/leases/row.json`,
-      sha256: `sha256:${"d".repeat(64)}`,
-    },
+    snapshot_key: snapshotKey,
+    observation_artifact: observationArtifact.ref,
+    build_artifact: buildArtifact.ref,
+    lease_artifact: leaseArtifact.ref,
     clone_ordinal: 1,
-    isolation_result: "isolated",
-    credential_copy_cleanup: true,
-    database_cleanup: true,
-    bucket_cleanup: true,
     scheduler_overlap_count: 0,
+    rollup: {
+      predicate_id: observation.predicate_id,
+      sample_count: observation.measured_samples,
+      p50_ms: observation.p50_ms,
+      p95_ms: observation.p95_ms,
+      threshold_ms: observation.threshold_ms,
+      outcome: observation.outcome,
+    },
     qualification_outcome: "qualified",
-    ...overrides,
+    ...options.summaryOverrides,
   };
 }
 
@@ -139,6 +244,7 @@ try {
     writeFileSync(reportPath, `${JSON.stringify(measurementReport(summary))}\n`);
     return collectFrontendMeasurementObservations({
       expectedPredicateIDs: expected,
+      observationSchemaID: "cartulary.frontend_measurement_observation.v2",
       reportPaths: [reportPath],
       runRoot: measurementEvidenceRoot,
     });
@@ -174,25 +280,17 @@ try {
   );
   assert.throws(
     () => collect(measurementObservation({
-      traffic: {
-        analyst_sessions: 25,
-        background_sessions: 24,
-        background_update_interval_ms: 5000,
-        background_updates_per_second: 4.8,
-        target_row_excluded: false,
-        presence_enabled: true,
-      },
-    })),
-    /target_row_excluded/u,
-  );
-  assert.throws(
-    () => collect(measurementObservation({
       samples: measurementObservation().samples.map((sample, sampleIndex) =>
         sampleIndex === 0
-          ? { ...sample, stages_ms: { record_id: 1 } }
+          ? {
+              ...sample,
+              stages_ms: [
+                { fact_id: "apply_to_visible_paint", value: 1, record_id: 1 },
+              ],
+            }
           : sample),
     })),
-    /forbidden key record_id/u,
+    /additional properties/u,
   );
   assert.throws(
     () => collect(measurementObservation(), []),
@@ -201,23 +299,34 @@ try {
   );
   const finalizedPath = path.join(
     measurementEvidenceRoot,
-    "frontend-measurement-summary.v2.json",
+    "frontend-measurement-summary.v3.json",
   );
-  const collectFinalized = (summary) => {
+  const collectWrittenSummary = (summary) => {
     writeFileSync(finalizedPath, `${JSON.stringify(summary)}\n`);
     return collectFinalizedMeasurementSummaries({
+      buildSchemaID: "cartulary.performance_fixture_snapshot.v2",
       expectedPredicateIDs: [
         "perf.timeline_summary_selection_down.v1",
       ],
+      leaseSchemaID: "cartulary.performance_fixture_snapshot_lease.v2",
+      observationSchemaID: "cartulary.frontend_measurement_observation.v2",
+      runRoot: measurementEvidenceRoot,
+      summarySchemaID: "cartulary.frontend_measurement_summary.v3",
       summaryPaths: [finalizedPath],
     });
   };
-  assert.equal(collectFinalized(finalizedMeasurementSummary()).length, 1);
+  const collectFinalized = (options = {}) => {
+    const summary = finalizedMeasurementSummary(
+      measurementEvidenceRoot,
+      options,
+    );
+    return collectWrittenSummary(summary);
+  };
+  assert.equal(collectFinalized().length, 1);
   assert.throws(
     () =>
-      collectFinalized(
-        finalizedMeasurementSummary({
-          observation: measurementObservation({
+      collectFinalized({
+        observationOverrides: {
             failure_reason: "setup failed",
             measured_samples: 0,
             outcome: "incomplete",
@@ -225,39 +334,85 @@ try {
             p95_ms: null,
             warmup_samples: 0,
             samples: [],
-          }),
+        },
+        summaryOverrides: {
+          rollup: {
+            predicate_id: "perf.timeline_summary_selection_down.v1",
+            sample_count: 0,
+            p50_ms: null,
+            p95_ms: null,
+            threshold_ms: 100,
+            outcome: "incomplete",
+          },
           qualification_outcome: "environment_not_qualified",
-        }),
-      ),
+        },
+      }),
     /not eligible for active qualification/u,
   );
   assert.throws(
     () =>
-      collectFinalized(
-        finalizedMeasurementSummary({
+      collectFinalized({
+        summaryOverrides: {
           qualification_outcome: "threshold_failed",
-        }),
-      ),
+        },
+      }),
     /inconsistent qualification outcome/u,
   );
   assert.throws(
     () =>
       collectFinalizedMeasurementSummaries({
+        buildSchemaID: "cartulary.performance_fixture_snapshot.v2",
         expectedPredicateIDs: [
           "perf.timeline_summary_selection_down.v1",
         ],
+        leaseSchemaID: "cartulary.performance_fixture_snapshot_lease.v2",
+        observationSchemaID: "cartulary.frontend_measurement_observation.v2",
+        runRoot: measurementEvidenceRoot,
+        summarySchemaID: "cartulary.frontend_measurement_summary.v3",
         summaryPaths: [finalizedPath, finalizedPath],
       }),
     /paths are duplicated/u,
   );
   assert.throws(
-    () =>
-      collectFinalized({
-        ...finalizedMeasurementSummary(),
+    () => collectFinalized({
+      summaryOverrides: {
         schema_id: "cartulary.frontend_measurement_summary.v1",
-      }),
-    /cartulary.frontend_measurement_summary.v2/u,
+      },
+    }),
+    /cartulary.frontend_measurement_summary.v3/u,
     "historical summary v1 must not qualify current source",
+  );
+  const tamperedReference = finalizedMeasurementSummary(
+    measurementEvidenceRoot,
+  );
+  tamperedReference.observation_artifact.sha256 = `sha256:${"e".repeat(64)}`;
+  assert.throws(
+    () => collectWrittenSummary(tamperedReference),
+    /digest or size is invalid/u,
+    "a mutated referenced artifact digest must fail qualification",
+  );
+  const wrongRole = finalizedMeasurementSummary(measurementEvidenceRoot);
+  wrongRole.observation_artifact.role = "diagnostic_observation";
+  assert.throws(
+    () => collectWrittenSummary(wrongRole),
+    /artifact reference is malformed/u,
+    "artifact references must retain their exact provenance role",
+  );
+  assert.throws(
+    () => collectFinalized({
+      leaseOverrides: {
+        cleanup_results: [
+          "bucket",
+          "bucket",
+          "credential_copy",
+          "database",
+          "process",
+          "session",
+        ].map((resource_class) => ({ resource_class, outcome: "complete" })),
+      },
+    }),
+    /duplicates cleanup class bucket/u,
+    "duplicate cleanup classes must not make lease evidence ambiguous",
   );
 } finally {
   rmSync(measurementEvidenceRoot, { force: true, recursive: true });
@@ -268,37 +423,6 @@ const measurementGroupResult = {
   stage_id: "measurement",
 };
 const measurementUnitID = "browser_group:measurement:measurement-timeline-grid";
-const quietEvents = [
-  { event: "started", monotonic_ms: 100, seq: 1, unit_id: measurementUnitID },
-  { event: "completed", monotonic_ms: 200, seq: 3, unit_id: measurementUnitID },
-  {
-    event: "started",
-    monotonic_ms: 200,
-    seq: 4,
-    unit_id: "browser_target_summary:browser-e2e-measurement",
-  },
-];
-assert.equal(
-  measurementSchedulerOverlapCount(quietEvents, [measurementGroupResult]),
-  0,
-);
-assert.equal(
-  measurementSchedulerOverlapCount(
-    [
-      ...quietEvents,
-      { event: "started", monotonic_ms: 150, seq: 2, unit_id: "row:ordinary" },
-    ],
-    [measurementGroupResult],
-  ),
-  1,
-  "ordinary work beginning inside a measurement session must disqualify it",
-);
-assert.throws(
-  () => measurementSchedulerOverlapCount(quietEvents.slice(0, 1), [measurementGroupResult]),
-  /lacks a closed scheduler interval/u,
-  "incomplete scheduler proof must fail closed",
-);
-
 const schedulerStreamRoot = mkdtempSync(
   path.join(os.tmpdir(), "cartulary-measurement-scheduler-stream-"),
 );
@@ -323,7 +447,7 @@ try {
   }
   writeEvent({ event: "started", unit_id: measurementUnitID });
   for (let index = 0; index < 20_000; index += 1) {
-    writeEvent({ event: "completed", unit_id: `row:release-prefix-${index}` });
+    writeEvent({ event: "completed", status: "passed", unit_id: `row:release-prefix-${index}` });
   }
   writeEvent({ event: "completed", unit_id: measurementUnitID, status: "passed" });
   closeSync(file);
@@ -336,13 +460,55 @@ try {
   assert.equal(streamedEvidence.start_seq, 20_001);
   assert.equal(streamedEvidence.end_seq, 40_002);
 
+  const overlapFile = path.join(schedulerStreamRoot, "overlap-events.ndjson");
+  const overlapEvents = [
+    {
+      event: "started",
+      status: "running",
+      unit_id: measurementUnitID,
+    },
+    { event: "started", status: "running", unit_id: "row:ordinary" },
+    { event: "completed", status: "passed", unit_id: "row:ordinary" },
+    { event: "completed", status: "passed", unit_id: measurementUnitID },
+  ].map((entry, index) => ({
+    schema_id: "cartulary.harness_unit_event.v1",
+    seq: index + 1,
+    monotonic_ms: index + 1,
+    resource_claims: {},
+    service_dependencies: [],
+    ...entry,
+  }));
+  writeFileSync(
+    overlapFile,
+    `${overlapEvents.map((entry) => JSON.stringify(entry)).join("\n")}\n`,
+  );
+  assert.equal(
+    (await readMeasurementSchedulerEvidence(overlapFile, measurementGroupResult))
+      .overlap_count,
+    1,
+    "ordinary work beginning inside a measurement session must disqualify it",
+  );
+
+  const incompleteFile = path.join(schedulerStreamRoot, "incomplete-events.ndjson");
+  writeFileSync(incompleteFile, `${JSON.stringify(overlapEvents[0])}\n`);
+  await assert.rejects(
+    readMeasurementSchedulerEvidence(incompleteFile, measurementGroupResult),
+    /lacks a closed scheduler interval/u,
+    "incomplete scheduler proof must fail closed",
+  );
+
   const skippedFile = path.join(schedulerStreamRoot, "skipped-events.ndjson");
   writeFileSync(
     skippedFile,
     `${JSON.stringify({
+      schema_id: "cartulary.harness_unit_event.v1",
       event: "skipped",
       failure_reason: "dependency_failure",
+      monotonic_ms: 1,
+      resource_claims: {},
       seq: 1,
+      service_dependencies: [],
+      status: "skipped",
       unit_id: measurementUnitID,
     })}\n`,
   );
@@ -358,7 +524,16 @@ try {
   );
   writeFileSync(
     invalidSequenceFile,
-    `${JSON.stringify({ event: "started", seq: 2, unit_id: measurementUnitID })}\n`,
+    `${JSON.stringify({
+      schema_id: "cartulary.harness_unit_event.v1",
+      event: "started",
+      monotonic_ms: 1,
+      resource_claims: {},
+      seq: 2,
+      service_dependencies: [],
+      status: "running",
+      unit_id: measurementUnitID,
+    })}\n`,
   );
   await assert.rejects(
     readMeasurementSchedulerEvidence(invalidSequenceFile, measurementGroupResult),
@@ -424,6 +599,32 @@ assert.equal(snapshotBuilders[0].fixture_lease, "postgres_dedicated");
 assert.deepEqual(snapshotBuilders[0].shared_locks, ["host_activity"]);
 assert.deepEqual(snapshotBuilders[0].exclusive_locks, []);
 assert.match(snapshotBuilders[0].snapshot_key, /^[a-f0-9]{64}$/u);
+const profiledRowIDs = compiler.catalog.rows
+  .filter((row) => row.fixture_profile_id === snapshotBuilders[0].fixture_profile_id)
+  .map((row) => row.row_id)
+  .sort();
+const fixtureIdentity = (graph) => {
+  const builders = graph.units.filter((unit) => unit.kind === "fixture_builder");
+  assert.equal(builders.length, 1, "profiled route must resolve one fixture builder");
+  return {
+    builder_unit_id: builders[0].unit_id,
+    fixture_profile_id: builders[0].fixture_profile_id,
+    snapshot_key: builders[0].snapshot_key,
+  };
+};
+const expectedFixtureIdentity = fixtureIdentity(measurement);
+for (const graph of [
+  compiler.compile({ kind: "rows", row_ids: [profiledRowIDs[0]] }),
+  compiler.compile({ kind: "rows", row_ids: profiledRowIDs }),
+  compiler.compile({ kind: "owner", owner_id: "module.timeline" }),
+  compiler.compile({ kind: "aggregate", target: "release-check" }),
+]) {
+  assert.deepEqual(
+    fixtureIdentity(graph),
+    expectedFixtureIdentity,
+    "direct, row, owner, aggregate, and release routes must share fixture identity",
+  );
+}
 const measurementSummaries = measurement.units.filter((entry) =>
   entry.unit_id.startsWith("browser_measurement_summary:measurement:"),
 );
@@ -442,7 +643,7 @@ for (const summary of measurementSummaries) {
   assert.ok(summary.needs[0].startsWith("browser_group:measurement:"));
   assert.match(
     summary.evidence_outputs[0],
-    /frontend-measurement-summary\.v2\.json$/u,
+    /frontend-measurement-summary\.v3\.json$/u,
   );
 }
 const measurementTargetFinalizer = measurement.units.find(

@@ -40,6 +40,7 @@ export type MeasurementSample = {
 
 type CommittedRowSummaryMatch = { recordId: string; rowVersion: number };
 const workbookTimingMarkPrefix = "cartulary.workbook.";
+const fixtureProfileId = "ac043_large_grid_snapshot_v1";
 
 export function performancePredicate(predicateId: CartularyAc043PredicateId) {
   const predicate = cartularyAc043PerformanceContract.predicates.find(
@@ -242,7 +243,8 @@ export async function attachMeasurementObservation(
   );
   const measuredSamples = Math.max(0, options.samples.length - warmupSamples);
   const observation = {
-    schema_id: "cartulary.frontend_measurement_observation.v1",
+    schema_id: "cartulary.frontend_measurement_observation.v2",
+    fixture_profile_id: fixtureProfileId,
     criterion_id: cartularyAc043PerformanceContract.criterionId,
     predicate_id: predicate.predicateId,
     fixture_id: cartularyAc043PerformanceContract.fixture.fixtureId,
@@ -257,29 +259,43 @@ export async function attachMeasurementObservation(
     p95_ms: p95,
     outcome,
     traffic: {
-      analyst_sessions:
-        cartularyAc043PerformanceContract.fixture.analystSessions,
-      background_sessions:
-        cartularyAc043PerformanceContract.fixture.backgroundSessions,
-      background_update_interval_ms:
-        cartularyAc043PerformanceContract.fixture.backgroundUpdateIntervalMs,
-      background_updates_per_second:
-        cartularyAc043PerformanceContract.fixture.backgroundUpdatesPerSecond,
-      target_row_excluded: true,
-      presence_enabled: true,
+      counts: [
+        {
+          fact_id: "analyst_sessions",
+          value: cartularyAc043PerformanceContract.fixture.analystSessions,
+        },
+        {
+          fact_id: "background_sessions",
+          value: cartularyAc043PerformanceContract.fixture.backgroundSessions,
+        },
+      ],
+      rates: [
+        {
+          fact_id: "background_updates_per_second",
+          value:
+            cartularyAc043PerformanceContract.fixture
+              .backgroundUpdatesPerSecond,
+        },
+      ],
+      conditions: [
+        { fact_id: "presence_enabled", value: true },
+        { fact_id: "target_row_excluded", value: true },
+      ],
     },
     samples: options.samples.map((sample, sampleIndex) => ({
       sample_index: sampleIndex,
       warmup: sampleIndex < interactiveMeasurementSamplePolicy.warmupPasses,
       total_ms: sample.totalMs,
-      stages_ms: sample.stagesMs,
+      stages_ms: Object.entries(sample.stagesMs)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([fact_id, value]) => ({ fact_id, value })),
     })),
     ...(options.failureReason === undefined
       ? {}
       : { failure_reason: options.failureReason.slice(0, 512) }),
   };
   await testInfo.attach(
-    `cartulary.frontend_measurement_observation.v1.${predicate.predicateId}`,
+    `cartulary.frontend_measurement_observation.v2.${predicate.predicateId}`,
     {
       body: Buffer.from(`${JSON.stringify(observation)}\n`, "utf8"),
       contentType:

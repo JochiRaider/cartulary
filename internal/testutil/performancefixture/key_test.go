@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 )
 
 type keyVectors struct {
@@ -34,14 +36,25 @@ func TestSnapshotKeyMatchesCrossLanguageVectors(t *testing.T) {
 	for _, vector := range fixture.Vectors {
 		vector := vector
 		t.Run(vector.Name, func(t *testing.T) {
-			canonical, canonicalErr := CanonicalSnapshotKeyInput(vector.Input)
+			profile, ok := performancefixtureprofile.Lookup(vector.Name)
+			if !ok {
+				t.Fatalf("generated fixture profile %q is missing", vector.Name)
+			}
+			profile.SourceContractDigest = vector.Input.SourceContractDigest
+			profile.FixtureVersion = vector.Input.FixtureVersion
+			profile.Seed = vector.Input.Seed
+			profile.ArtifactPolicy.SnapshotKeySchemaID = vector.Input.SchemaID
+			if vector.Input.FixtureProfileID != "" {
+				profile.FixtureProfileID = vector.Input.FixtureProfileID
+			}
+			canonical, canonicalErr := CanonicalSnapshotKeyInput(profile, vector.Input.MigrationDigest)
 			if canonicalErr != nil {
 				t.Fatal(canonicalErr)
 			}
 			if string(canonical) != vector.CanonicalJSON {
 				t.Fatalf("canonical input mismatch:\n got %s\nwant %s", canonical, vector.CanonicalJSON)
 			}
-			key, keyErr := SnapshotKey(vector.Input)
+			key, keyErr := SnapshotKey(profile, vector.Input.MigrationDigest)
 			if keyErr != nil {
 				t.Fatal(keyErr)
 			}
@@ -54,31 +67,84 @@ func TestSnapshotKeyMatchesCrossLanguageVectors(t *testing.T) {
 
 func TestSnapshotKeyRejectsNonCanonicalOrUnsupportedInput(t *testing.T) {
 	t.Parallel()
-	valid := SnapshotKeyInput{
-		SchemaID:             SnapshotKeySchemaID,
-		MigrationDigest:      strings.Repeat("e", 64),
-		SourceContractDigest: strings.Repeat("f", 64),
-		FixtureVersion:       LargeGridVersion,
-		Seed:                 LargeGridSeed,
-	}
-	cases := []SnapshotKeyInput{
-		func() SnapshotKeyInput { value := valid; value.SchemaID += ".next"; return value }(),
-		func() SnapshotKeyInput {
+	valid := activeTestProfile(t)
+	cases := []performancefixtureprofile.Profile{
+		func() performancefixtureprofile.Profile { value := valid; value.Status = "inactive"; return value }(),
+		func() performancefixtureprofile.Profile {
 			value := valid
-			value.MigrationDigest = "sha256:" + value.MigrationDigest
+			value.FixtureProfileID = "invalid"
 			return value
 		}(),
-		func() SnapshotKeyInput {
+		func() performancefixtureprofile.Profile {
+			value := valid
+			value.FixtureVersion = "invalid"
+			return value
+		}(),
+		func() performancefixtureprofile.Profile { value := valid; value.Seed = -1; return value }(),
+		func() performancefixtureprofile.Profile {
 			value := valid
 			value.SourceContractDigest = strings.Repeat("F", 64)
 			return value
 		}(),
-		func() SnapshotKeyInput { value := valid; value.FixtureVersion += ".next"; return value }(),
-		func() SnapshotKeyInput { value := valid; value.Seed++; return value }(),
+		func() performancefixtureprofile.Profile {
+			value := valid
+			value.ArtifactPolicy.SnapshotKeySchemaID += ".next"
+			return value
+		}(),
 	}
-	for _, input := range cases {
-		if _, err := SnapshotKey(input); err == nil {
-			t.Fatalf("SnapshotKey(%+v) succeeded, want error", input)
+	for _, profile := range cases {
+		if _, err := SnapshotKey(profile, strings.Repeat("e", 64)); err == nil {
+			t.Fatalf("SnapshotKey(%+v) succeeded, want error", profile)
 		}
 	}
+	if _, err := SnapshotKey(valid, "sha256:"+strings.Repeat("e", 64)); err == nil {
+		t.Fatal("SnapshotKey accepted a prefixed migration digest")
+	}
+}
+
+func TestSnapshotKeyIsProfileExplicit(t *testing.T) {
+	t.Parallel()
+	profile := activeTestProfile(t)
+	profile.FixtureProfileID = "synthetic_grid_snapshot_v1"
+	profile.FixtureVersion = "cartulary.perf.synthetic_grid.v1"
+	profile.Seed++
+	profile.SourceContractDigest = strings.Repeat("a", 64)
+	profile.ArtifactPolicy.SnapshotKeySchemaID = SnapshotKeySchemaID
+	canonical, err := CanonicalSnapshotKeyInput(profile, strings.Repeat("e", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(canonical), `"fixture_profile_id":"synthetic_grid_snapshot_v1"`) {
+		t.Fatalf("v2 canonical key input is not profile-explicit: %s", canonical)
+	}
+}
+
+func TestGeneratedProfileLookupReturnsDefensiveCopies(t *testing.T) {
+	t.Parallel()
+	profile := activeTestProfile(t)
+	profileID := profile.FixtureProfileID
+	profile.Contributions[0].ExpectedReceiptCounts[0].Exact = -1
+	profile.VerificationBindings[0].PredicateID = "mutated"
+	profile.RedactionPolicy.ForbiddenFields[0] = "mutated"
+	again, ok := performancefixtureprofile.Lookup(profileID)
+	if !ok {
+		t.Fatal("generated large-grid fixture profile disappeared")
+	}
+	if again.Contributions[0].ExpectedReceiptCounts[0].Exact < 0 ||
+		again.VerificationBindings[0].PredicateID == "mutated" ||
+		again.RedactionPolicy.ForbiddenFields[0] == "mutated" {
+		t.Fatal("generated fixture profile lookup leaked mutable catalog state")
+	}
+}
+
+func activeTestProfile(t *testing.T) performancefixtureprofile.Profile {
+	t.Helper()
+	profiles := performancefixtureprofile.Profiles()
+	for _, profile := range profiles {
+		if profile.Status == "active" {
+			return profile
+		}
+	}
+	t.Fatal("generated active fixture profile is missing")
+	return performancefixtureprofile.Profile{}
 }

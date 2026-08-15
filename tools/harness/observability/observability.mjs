@@ -81,16 +81,14 @@ export function resolveExactRunDir(resultsDir, runID = "") {
   return resolveRunDir(resultsDir, runID, { allowNewest: false });
 }
 
-function eventIntervals(events) {
-  const starts = new Map();
+function eventIntervals(run) {
   const intervals = [];
-  for (const event of events) {
-    if (event.event === "started") starts.set(event.unit_id, event.monotonic_ms);
+  for (const [unitID, event] of run.terminal) {
     if (["completed", "failed", "cancelled"].includes(event.event)) {
-      const start = starts.get(event.unit_id);
+      const start = run.started.get(unitID);
       if (start !== undefined) {
         intervals.push({
-          unit_id: event.unit_id,
+          unit_id: unitID,
           start_ms: start,
           end_ms: event.monotonic_ms,
           status: event.status,
@@ -105,7 +103,7 @@ function eventIntervals(events) {
 }
 
 function otlpProjection(run) {
-  const intervals = eventIntervals(run.events);
+  const intervals = eventIntervals(run);
   const startedNs = BigInt(Date.parse(run.manifest.started_at)) * 1_000_000n;
   const attributes = [
     { key: "cartulary.run.id", value: { stringValue: run.manifest.run_id } },
@@ -157,8 +155,8 @@ function otlpProjection(run) {
   };
 }
 
-function retainedProjection(runDir) {
-  const run = validateCanonicalRun(runDir);
+async function retainedProjection(runDir) {
+  const run = await validateCanonicalRun(runDir);
   const sourceDigests = [
     run.manifest.source_digest,
     run.manifest.toolchain_digest,
@@ -183,20 +181,20 @@ function retainedProjection(runDir) {
   };
 }
 
-export function captureExecutionContext(runDir, metadata = {}) {
-  const retained = retainedProjection(runDir);
+export async function captureExecutionContext(runDir, metadata = {}) {
+  const retained = await retainedProjection(runDir);
   return { manifest: retained.run.manifest, metadata };
 }
 
-export function loadRetainedExecutionContext(runDir) {
+export async function loadRetainedExecutionContext(runDir) {
   return captureExecutionContext(runDir);
 }
 
-export function reconstructObservability(runDir) {
+export async function reconstructObservability(runDir) {
   return retainedProjection(runDir);
 }
 
-export function loadRetainedObservability(runDir) {
+export async function loadRetainedObservability(runDir) {
   return retainedProjection(runDir);
 }
 
@@ -207,9 +205,9 @@ export function writePartialObservability(_runDir, error) {
   };
 }
 
-export function finalizeObservabilitySafely(runDir) {
+export async function finalizeObservabilitySafely(runDir) {
   try {
-    const retained = retainedProjection(runDir);
+    const retained = await retainedProjection(runDir);
     return { status: "complete", retained };
   } catch (error) {
     // Step and target wrappers can finish before the graph scheduler publishes
@@ -225,8 +223,8 @@ export function deterministicBytes(result) {
   return `${JSON.stringify(result, null, 2)}\n`;
 }
 
-export function printObservabilityPerformance(runDir, target = "") {
-  const retained = retainedProjection(runDir);
+export async function printObservabilityPerformance(runDir, target = "") {
+  const retained = await retainedProjection(runDir);
   const summary = target
     ? retained.run.targetSummaries.get(target)
     : retained.run.targetSummaries.get(retained.run.manifest.target);

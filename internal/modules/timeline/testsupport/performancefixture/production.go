@@ -36,7 +36,7 @@ func (a *ProductionApplication) CreateFixtureTimelineRows(ctx context.Context, i
 		return err
 	}
 	a.batch++
-	clientTxnID := fmt.Sprintf("ac043-timeline-batch-%02d", a.batch)
+	clientTxnID := fmt.Sprintf("performance-fixture-timeline-batch-%02d", a.batch)
 	targets := make([]workbook.TimelineBatchTarget, len(rows))
 	ownerTargets := make([]timeline.OwnerBatchTargetV1, len(rows))
 	for index := range rows {

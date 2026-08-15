@@ -45,7 +45,7 @@ try {
 
 if (runDir) {
   try {
-    const retained = loadRetainedObservability(runDir);
+    const retained = await loadRetainedObservability(runDir);
     const invocations = retained.index.invocations.length;
     const sources = retained.index.invocations.reduce(
       (total, item) => total + item.source_digests.length,

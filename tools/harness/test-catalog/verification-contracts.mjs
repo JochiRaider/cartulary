@@ -1,8 +1,11 @@
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 
-import { validateSchemaSync } from "../contract/index.mjs";
-import { parseStrictJSON, semanticJSONDigest } from "./semantic-json.mjs";
+import {
+  parseStrictJSON,
+  semanticJSONDigest,
+  validateSchemaSync,
+} from "../contract/index.mjs";
 
 const registrySchemaID = "cartulary.verification_registry.v3";
 const contractSchemaID = "cartulary.verification_contract.v3";

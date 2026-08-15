@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 )
 
 const SemanticReceiptSchemaID = "cartulary.performance_fixture_semantic_receipt.v1"
@@ -31,6 +33,7 @@ type Receipt struct {
 }
 
 type BuildState struct {
+	FixtureProfileID  string
 	SnapshotKey       string
 	Seed              int
 	RuntimeBundle     RuntimeBundle
@@ -44,12 +47,8 @@ type Contribution interface {
 }
 
 type SemanticValidation struct {
-	Counts                   map[string]int `json:"counts"`
-	RelationshipDistribution bool           `json:"relationship_distribution"`
-	DefaultView              bool           `json:"default_view"`
-	Authorization            bool           `json:"authorization"`
-	ProjectionReadiness      bool           `json:"projection_readiness"`
-	NoActiveSessions         bool           `json:"no_active_sessions"`
+	Counts     map[string]int  `json:"counts"`
+	Conditions map[string]bool `json:"conditions"`
 }
 
 type Validator interface {
@@ -63,15 +62,23 @@ type Result struct {
 }
 
 type Assembler struct {
-	contributions    []Contribution
-	expected         []Descriptor
-	expectedSemantic map[string]int
-	validator        Validator
+	contributions      []Contribution
+	expected           []Descriptor
+	expectedSemantic   map[string]int
+	expectedConditions map[string]bool
+	profileID          string
+	seed               int
+	runtimeSchemaID    string
+	validator          Validator
 }
 
-func NewAssembler(expected []Descriptor, expectedSemantic map[string]int, validator Validator, contributions ...Contribution) (*Assembler, error) {
+func NewAssembler(profile performancefixtureprofile.Profile, validator Validator, contributions ...Contribution) (*Assembler, error) {
 	if validator == nil {
 		return nil, errors.New("performance fixture semantic validator is required")
+	}
+	expected, expectedSemantic, expectedConditions, err := expectationsFromProfile(profile)
+	if err != nil {
+		return nil, err
 	}
 	if err := validateDescriptorClosure(expected); err != nil {
 		return nil, fmt.Errorf("validate expected performance fixture contribution closure: %w", err)
@@ -93,10 +100,14 @@ func NewAssembler(expected []Descriptor, expectedSemantic map[string]int, valida
 		return nil, errors.New("performance fixture semantic expectations are required")
 	}
 	return &Assembler{
-		contributions:    slices.Clone(contributions),
-		expected:         cloneDescriptors(expected),
-		expectedSemantic: maps.Clone(expectedSemantic),
-		validator:        validator,
+		contributions:      slices.Clone(contributions),
+		expected:           cloneDescriptors(expected),
+		expectedSemantic:   maps.Clone(expectedSemantic),
+		expectedConditions: maps.Clone(expectedConditions),
+		profileID:          profile.FixtureProfileID,
+		seed:               profile.Seed,
+		runtimeSchemaID:    profile.ArtifactPolicy.RuntimeSchemaID,
+		validator:          validator,
 	}, nil
 }
 
@@ -110,8 +121,13 @@ func (a *Assembler) Assemble(ctx context.Context, state *BuildState) (Result, er
 	if err := validateSnapshotKey(state.SnapshotKey); err != nil {
 		return Result{}, err
 	}
-	if state.Seed <= 0 {
-		return Result{}, errors.New("performance fixture seed must be positive")
+	if state.FixtureProfileID != a.profileID || state.Seed != a.seed {
+		return Result{}, errors.New("performance fixture build state diverges from its generated profile")
+	}
+	if state.RuntimeBundle.SchemaID != a.runtimeSchemaID ||
+		state.RuntimeBundle.FixtureProfileID != a.profileID ||
+		state.RuntimeBundle.SnapshotKey != state.SnapshotKey {
+		return Result{}, errors.New("performance fixture runtime bundle diverges from its generated profile")
 	}
 	receipts := make([]Receipt, 0, len(a.contributions))
 	for index, contribution := range a.contributions {
@@ -131,7 +147,7 @@ func (a *Assembler) Assemble(ctx context.Context, state *BuildState) (Result, er
 	if err != nil {
 		return Result{}, fmt.Errorf("validate performance fixture semantics: %w", err)
 	}
-	if err := validateSemanticResult(validation, a.expectedSemantic); err != nil {
+	if err := validateSemanticResult(validation, a.expectedSemantic, a.expectedConditions); err != nil {
 		return Result{}, err
 	}
 	digest, err := semanticDigest(receipts, validation)
@@ -143,6 +159,57 @@ func (a *Assembler) Assemble(ctx context.Context, state *BuildState) (Result, er
 		Validation:               cloneSemanticValidation(validation),
 		SemanticValidationDigest: digest,
 	}, nil
+}
+
+func expectationsFromProfile(profile performancefixtureprofile.Profile) ([]Descriptor, map[string]int, map[string]bool, error) {
+	if profile.Status != "active" || strings.TrimSpace(profile.FixtureProfileID) == "" ||
+		strings.TrimSpace(profile.FixtureVersion) == "" || profile.Seed <= 0 ||
+		strings.TrimSpace(profile.ArtifactPolicy.RuntimeSchemaID) == "" {
+		return nil, nil, nil, errors.New("performance fixture generated profile is incomplete or inactive")
+	}
+	descriptors := make([]Descriptor, len(profile.Contributions))
+	for index, contribution := range profile.Contributions {
+		counts := make(map[string]int, len(contribution.ExpectedReceiptCounts))
+		for _, expectation := range contribution.ExpectedReceiptCounts {
+			if _, duplicate := counts[expectation.CountID]; duplicate {
+				return nil, nil, nil, fmt.Errorf("performance fixture profile contribution %s duplicates count %s", contribution.ContributionID, expectation.CountID)
+			}
+			counts[expectation.CountID] = expectation.Exact
+		}
+		descriptors[index] = Descriptor{
+			ContributionID: contribution.ContributionID,
+			Version:        contribution.Version,
+			OwnerID:        contribution.OwnerID,
+			Dependencies:   slices.Clone(contribution.Dependencies),
+			ExpectedCounts: counts,
+		}
+	}
+	semanticCounts := make(map[string]int, len(profile.SemanticExpectations.Counts))
+	for _, expectation := range profile.SemanticExpectations.Counts {
+		if _, duplicate := semanticCounts[expectation.ExpectationID]; duplicate {
+			return nil, nil, nil, fmt.Errorf("performance fixture profile duplicates semantic count %s", expectation.ExpectationID)
+		}
+		semanticCounts[expectation.ExpectationID] = expectation.Exact
+	}
+	semanticConditions := make(map[string]bool, len(profile.SemanticExpectations.Conditions))
+	for _, expectation := range profile.SemanticExpectations.Conditions {
+		if _, duplicate := semanticConditions[expectation.ExpectationID]; duplicate {
+			return nil, nil, nil, fmt.Errorf("performance fixture profile duplicates semantic condition %s", expectation.ExpectationID)
+		}
+		semanticConditions[expectation.ExpectationID] = expectation.Required
+	}
+	if len(semanticCounts) == 0 || len(semanticConditions) == 0 {
+		return nil, nil, nil, errors.New("performance fixture semantic expectations are required")
+	}
+	return descriptors, semanticCounts, semanticConditions, nil
+}
+
+func Descriptors(profile performancefixtureprofile.Profile) ([]Descriptor, error) {
+	descriptors, _, _, err := expectationsFromProfile(profile)
+	if err != nil {
+		return nil, err
+	}
+	return cloneDescriptors(descriptors), nil
 }
 
 func validateDescriptorClosure(descriptors []Descriptor) error {
@@ -200,18 +267,12 @@ func validateReceipt(receipt Receipt, descriptor Descriptor) error {
 	return nil
 }
 
-func validateSemanticResult(validation SemanticValidation, expected map[string]int) error {
-	if !reflect.DeepEqual(validation.Counts, expected) {
-		return fmt.Errorf("performance fixture semantic counts mismatch: got %#v want %#v", validation.Counts, expected)
+func validateSemanticResult(validation SemanticValidation, expectedCounts map[string]int, expectedConditions map[string]bool) error {
+	if !reflect.DeepEqual(validation.Counts, expectedCounts) {
+		return fmt.Errorf("performance fixture semantic counts mismatch: got %#v want %#v", validation.Counts, expectedCounts)
 	}
-	if !validation.RelationshipDistribution || !validation.DefaultView || !validation.Authorization || !validation.ProjectionReadiness || !validation.NoActiveSessions {
-		return fmt.Errorf("performance fixture semantic predicates failed: relationships=%t default_view=%t authorization=%t projection_readiness=%t no_active_sessions=%t",
-			validation.RelationshipDistribution,
-			validation.DefaultView,
-			validation.Authorization,
-			validation.ProjectionReadiness,
-			validation.NoActiveSessions,
-		)
+	if !reflect.DeepEqual(validation.Conditions, expectedConditions) {
+		return fmt.Errorf("performance fixture semantic conditions mismatch: got %#v want %#v", validation.Conditions, expectedConditions)
 	}
 	return nil
 }
@@ -264,5 +325,6 @@ func cloneReceipt(receipt Receipt) Receipt {
 
 func cloneSemanticValidation(validation SemanticValidation) SemanticValidation {
 	validation.Counts = maps.Clone(validation.Counts)
+	validation.Conditions = maps.Clone(validation.Conditions)
 	return validation
 }

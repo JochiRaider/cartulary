@@ -1,0 +1,66 @@
+{
+  "schema_id": "cartulary.harness_historical_schema_registry.v1",
+  "scope": "diagnostic_inspection_only",
+  "schemas": [
+    {
+      "schema_id": "cartulary.browser_target_result.v2",
+      "path": "tools/historical-schemas/performance/cartulary.browser_target_result.v2.schema.json",
+      "sha256": "297d92f960373fed1d08ce037a1cadf951a8ae8f0c2fe07ecfb06e30aaa87ebb"
+    },
+    {
+      "schema_id": "cartulary.frontend_measurement_aggregate.v1",
+      "path": "tools/historical-schemas/performance/cartulary.frontend_measurement_aggregate.v1.schema.json",
+      "sha256": "7365f72275da574c044e6d248cffa0f812677eaf7601148e3326ec7c9691482d"
+    },
+    {
+      "schema_id": "cartulary.frontend_measurement_aggregate.v2",
+      "path": "tools/historical-schemas/performance/cartulary.frontend_measurement_aggregate.v2.schema.json",
+      "sha256": "a466abf9794e9101bc4390d29bf0302e5e6cf87470d9d9d9e407cadb4dd6de24"
+    },
+    {
+      "schema_id": "cartulary.frontend_measurement_observation.v1",
+      "path": "tools/historical-schemas/performance/cartulary.frontend_measurement_observation.v1.schema.json",
+      "sha256": "5984abc49b1a1db03d5cae4a802a851e1f4216822b8e7874386055cd16bf21d7"
+    },
+    {
+      "schema_id": "cartulary.frontend_measurement_summary.v1",
+      "path": "tools/historical-schemas/performance/cartulary.frontend_measurement_summary.v1.schema.json",
+      "sha256": "e21150ae9947f420358a815d310b3c51bafec52d0e8210616ef89d3cac61babc"
+    },
+    {
+      "schema_id": "cartulary.frontend_measurement_summary.v2",
+      "path": "tools/historical-schemas/performance/cartulary.frontend_measurement_summary.v2.schema.json",
+      "sha256": "8f339a964f679ba741ec30eab7379d4bad728388adccbe6122e59c57ecf8cce1"
+    },
+    {
+      "schema_id": "cartulary.performance_fixture_runtime.v1",
+      "path": "tools/historical-schemas/performance/cartulary.performance_fixture_runtime.v1.schema.json",
+      "sha256": "94392d418e396230380280f793374cc2c4061b978c3bdb7c0e8ef3991ebb8fc2"
+    },
+    {
+      "schema_id": "cartulary.performance_fixture_snapshot.v1",
+      "path": "tools/historical-schemas/performance/cartulary.performance_fixture_snapshot.v1.schema.json",
+      "sha256": "3524faff5460b1aafbc4ddc230cb1d9d43f2890963fad2ecb3bc2cdf816fed78"
+    },
+    {
+      "schema_id": "cartulary.performance_fixture_snapshot_key.v1",
+      "path": "tools/historical-schemas/performance/cartulary.performance_fixture_snapshot_key.v1.schema.json",
+      "sha256": "81d0d6374b2275c68feeb60615c994875e86005b0c7ac5ef585b588ebf66c20d"
+    },
+    {
+      "schema_id": "cartulary.performance_fixture_snapshot_lease.v1",
+      "path": "tools/historical-schemas/performance/cartulary.performance_fixture_snapshot_lease.v1.schema.json",
+      "sha256": "7c8d5e74ab97b80b50619f07d95712954c6b01ecd2a0ae0592c3a907b216cbf7"
+    },
+    {
+      "schema_id": "cartulary.performance_fixture_snapshot_owner.v1",
+      "path": "tools/historical-schemas/performance/cartulary.performance_fixture_snapshot_owner.v1.schema.json",
+      "sha256": "39a9446948f143ad1ed685d826c61d051bd64ddc719615943d91f99591dbfdc7"
+    },
+    {
+      "schema_id": "cartulary.web_e2e_stack_lease.v1",
+      "path": "tools/historical-schemas/performance/cartulary.web_e2e_stack_lease.v1.schema.json",
+      "sha256": "9ba0bbd53cd8f22aa9c111451322dd2f9f86ce80917b33a5492327521e74da87"
+    }
+  ]
+}

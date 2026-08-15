@@ -1,4 +1,4 @@
-import { semanticJSONSHA256 } from "./semantic-json.mjs";
+import { semanticJSONSHA256 } from "../contract/index.mjs";
 
 const familyIDPattern =
   /^(?:module|platform|app|web|package|harness)\.[a-z][a-z0-9_]{0,62}\.[a-z][a-z0-9_]{0,62}$/u;

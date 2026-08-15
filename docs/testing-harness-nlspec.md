@@ -459,12 +459,32 @@ Verified by: TH-HARNESS-AC-095
 **TH-HARNESS-REQ-812**
 `tools/performance_fixture_snapshot_owner.json` is the sole authored harness
 registry for populated performance-fixture profiles and MUST validate as
-`cartulary.performance_fixture_snapshot_owner.v1`. Each active profile closes
+`cartulary.performance_fixture_snapshot_owner.v2`. Each active profile closes
 its stable profile ID, fixture version and seed, compatible runner, evidence
 class, selector stage, runtime profile, resource profile, fixture capability
 and services, verification-to-predicate bindings, source-contract identities,
-ordered source-owner contributions, semantic validation, cleanup, artifact,
-and redaction policies.
+ordered source-owner contributions and receipt-count expectations, semantic
+count and condition expectations, runtime credential sets, compatibility,
+cleanup, artifact, and redaction policies. These collections are structural:
+generic schemas and lifecycle code MUST NOT encode a particular profile's
+identities, counts, conditions, or credentials.
+
+The registry MUST generate the immutable Go descriptor catalog and the
+cross-language snapshot-key vectors through the canonical generation target.
+Generated lookup returns defensive copies. JavaScript and Go consumers MUST
+resolve the same descriptor and MUST NOT maintain handwritten profile-fact
+mirrors. Generated descriptors and key vectors MUST contain no credential,
+runtime identity, or runtime path values. A synthetic second active profile
+MUST render and route without a profile-specific generic-code branch.
+
+`tools/harness/performance-fixture` is the JavaScript owner for strict registry
+loading, active-profile lookup, verification-to-predicate mapping, canonical
+snapshot keying, and independent profile grouping. Test-catalog, graph,
+broker, browser, finalizer, diagnostic, and release code are consumers of that
+owner and MUST NOT implement, re-export, or conditionally reinterpret those
+mechanics. RFC 8785 canonical JSON and semantic digest primitives belong to the
+neutral harness contract owner; fixture and catalog modules MUST consume them
+without a compatibility re-export.
 
 An active catalog row MAY declare `fixture_profile_id`. Every verification
 bound by the registry MUST declare its exact active profile, and an unbound row
@@ -473,13 +493,15 @@ divergent profile routing MUST fail before child work. File names, titles,
 scenario IDs, predicate IDs, constructor names, targets, and resource profiles
 MUST NOT infer a fixture profile.
 
-The snapshot-key input is exactly
-`cartulary.performance_fixture_snapshot_key.v1` with lowercase raw
-64-character `migration_digest` and `source_contract_digest`,
-`fixture_version`, and integer `seed`. `snapshot_key` is the raw lowercase
-SHA-256 of RFC 8785 canonical JSON for that envelope. Artifact-reference
-digests retain the separate `sha256:<hex>` convention. Go and JavaScript
-consumers MUST pass the same checked-in key vectors.
+The snapshot-key input schema is selected only by the active profile's artifact
+policy. Its structural envelope contains the selected schema identity,
+lowercase raw 64-character migration and source-contract digests, fixture
+version, integer seed, and any profile identity required by that schema
+generation. `snapshot_key` is the raw lowercase SHA-256 of RFC 8785 canonical
+JSON for the exact envelope. Artifact-reference digests retain the separate
+`sha256:<hex>` convention. Go and JavaScript consumers MUST pass the generated
+key vectors for every active profile. An unselected key-schema version is not
+valid current evidence.
 Verified by: TH-HARNESS-AC-096
 
 **TH-HARNESS-REQ-813**
@@ -498,6 +520,13 @@ produce equal semantic digests. Missing, duplicate, reordered, cyclic,
 incompatible, unauthorized, partially valid, or post-build mutated input MUST
 fail before sealing and MUST be cleaned. Raw browser fixture SQL and a
 monolithic cross-owner loader are unsupported.
+
+Generic contribution and validation mechanics MUST consume the selected
+generated profile descriptor. Exact expectation interpretation belongs to the
+named profile adapter and its source-owner tests. Adding a profile MUST require
+only a registry entry, its explicit adapter, and owner-specific validation; it
+MUST NOT require modifying a generic schema or adding a profile conditional to
+generic construction, keying, lifecycle, or evidence code.
 Verified by: TH-HARNESS-AC-097
 
 **TH-HARNESS-REQ-814**
@@ -512,7 +541,8 @@ dependent predicate requests its exclusive quiet session.
 The builder clones the migrated template, runs the closed contribution graph,
 performs exact semantic validation, closes its own connections, rejects unknown
 open connections, seals the populated database, and emits one immutable
-`cartulary.performance_fixture_snapshot.v1` build artifact. Concurrent
+build artifact whose schema is selected by the resolved profile's active
+artifact policy. Concurrent
 same-key requests join one suite-local build; different keys remain separate.
 Each dependent predicate receives one isolated database clone, one empty
 object-store bucket, explicit lease identity and clone ordinal, and a private
@@ -530,27 +560,56 @@ an unproven resource.
 Verified by: TH-HARNESS-AC-098
 
 **TH-HARNESS-REQ-815**
-Background credentials MUST be suite-random and stored only in an ephemeral
-`0700` runtime root containing a `0600`
-`cartulary.performance_fixture_runtime.v1` bundle. The populated template
+Background credentials MUST be suite-random and stored only in the suite's
+external private `0700` runtime root in a `0600` bundle of the active
+profile-selected runtime schema. The populated template
 contains accounts and required memberships but no sessions, tokens, cookies,
 browser state, traffic, object payloads, or predicate-local mutations. Each
 predicate receives its own private bundle copy, authenticates through the
 ordinary login path, and deletes that copy before its snapshot lease finalizes.
 The suite bundle is deleted during suite cleanup.
 
+The private root is the one suite-runtime boundary defined by
+TH-HARNESS-REQ-603. Template bundles, clone copies, browser state, stack
+environments, recovery DSNs, key material, service leases, and raw child
+captures MUST NOT be created below a result root. Retained lease evidence is a
+separate immutable projection containing opaque identity, resource classes,
+and cleanup outcomes; it MUST NOT contain runtime paths, process handles,
+ports, credentials, or resource administration identities.
+
 Snapshot evidence is immutable and two-stage. The shared build artifact proves
 construction and sealing. After cleanup, one
-`cartulary.performance_fixture_snapshot_lease.v1` artifact proves a
+artifact of the active profile-selected lease schema proves a
 predicate's creation, isolation, credential-copy deletion, session and process
-shutdown, and database and bucket cleanup. A v2 measurement summary MUST
+shutdown, and database and bucket cleanup. A summary of the active
+profile-selected schema MUST
 reference both immutable artifacts with run-relative paths and
 `sha256:<hex>` digests; no producer may mutate an artifact after another
-artifact references its digest. Aggregate v2 MUST prove one builder, distinct
+artifact references its digest. The active profile-selected aggregate MUST
+prove one builder, distinct
 clone ordinals, one key, zero cross-clone visibility, complete cleanup, zero
 scheduler overlap, exact traffic and sampling, and redaction. Historical v1
-summaries remain inspectable bytes but cannot qualify current source and MUST
-NOT be dual-written or translated.
+summaries and any superseded evidence generations remain inspectable bytes but
+cannot qualify current source and MUST NOT be dual-written or translated.
+
+The sole active populated-fixture evidence generation is selected by the v2
+profile registry and consists of snapshot-key v2, snapshot v2, snapshot-lease
+v2, runtime v2, frontend-measurement-observation v2,
+frontend-measurement-summary v3, and frontend-measurement-aggregate v3. A
+summary v3 contains bounded qualification rollups and immutable run-relative
+references with digests to its observation, build, and retained lease
+artifacts; it MUST NOT embed any of those artifacts. An aggregate v3 contains
+independent profile groups, immutable summary references, and bounded
+cross-row rollups; it MUST NOT embed observations or complete summaries. The
+browser target result wrapper is v3 and the retained browser-stack lease is v2.
+
+Superseded performance evidence schemas live outside the active schema root in
+one digest-pinned, read-only historical registry. Only diagnostic and schema
+integrity tools may load that registry. Graph compilation, producers,
+finalizers, qualification, release evidence, and active schema attachment
+resolution MUST reject historical identities. Historical validation proves
+only that retained bytes match their former shape; it MUST NOT translate those
+bytes, synthesize current evidence, or qualify current source.
 Verified by: TH-HARNESS-AC-099
 
 ## 3. Terminology
@@ -1982,6 +2041,7 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-002, TH-HARNESS-AC-003
 | Object-store runtime env                                                                        | app runtime             | `CARTULARY_S3_OBJECT_PRIMARY_*` endpoint, credentials, secure bool, bucket                                            | browser/dev SeaweedFS S3 local values                                                     | Make variable, env, config binding, default     | invalid for required members                            | endpoint normalized; credentials redacted                                                                     | app startup/reset failure according to Section 12                                  | redacted credential fields                         |
 | Runtime root envs                                                                               | app runtime             | `CARTULARY__ROOTS__*__PATH` filesystem paths                                                                          | browser stack creates under runtime root                                                  | Make variable, env, config binding, default     | invalid                                                 | path normalization                                                                                            | invalid/unwritable path: `configuration_error` or app startup failure              | normalized path                                    |
 | `CARTULARY_HARNESS_REPO_ROOT`, `CARTULARY_HARNESS_SCRATCH_ROOT`, `TMPDIR`                       | harness scratch         | filesystem path                                                                                                       | `${TMPDIR:-/tmp}/cartulary-harness-scratch`                                               | env, default                                    | invalid for explicit scratch                            | path normalization; scratch root must be outside repo                                                         | in-repo scratch root: `configuration_error`, exit `2`                              | normalized scratch root                            |
+| `CARTULARY_HARNESS_SUITE_RUNTIME_ROOT`, `CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID`, `CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID` | private suite runtime | absolute owner-only external directory plus opaque lease and owning-run identities | scheduler-created below the validated harness scratch namespace | internal scheduler projection only | invalid or omitted for managed service/browser work | realpath, owner, mode, containment, symlink-component, and exact ownership-marker validation | `configuration_error` before child use; cleanup proof mismatch is `cleanup_error` | opaque lease identity and cleanup result only |
 | `CARTULARY_CLEANUP_DRY_RUN`                                                                     | cleanup                 | exact `1`                                                                                                             | false                                                                                     | Make variable, env, default                     | false                                                   | exact string compare                                                                                          | non-`1` false                                                                      | dry-run boolean                                    |
 | `CARTULARY_DESTRUCTIVE_CONFIRM`                                                                 | destructive local reset | enum equal to the target name, currently `db-reset` or `object-store-reset`                                            | none                                                                                      | Make command line only                          | invalid when supplied empty; omitted allowed only for dry-run | trim exact token                                                                                              | wrong Make command-line token is `usage_error`; inherited-env-only confirmation is ignored and cannot satisfy reset confirmation; missing token on real reset fails before mutation | selected target token                            |
 | `LINT_SHELL_STRICT`                                                                             | lint                    | exact `1`; public Make lint targets force strict blocking behavior                                                    | `1` for public Make targets; raw script fallback may default false                       | Make recipe                                      | false outside public Make                            | exact string compare                                                                                          | public Make target overrides ignored by recipe-owned strict value                   | boolean when true                                  |
@@ -2580,6 +2640,18 @@ has no gaps. Events cover run start, eligibility and waits, unit start and
 terminal state, resource and fixture ownership, cache disposition, cancellation,
 and run completion. Aggregate target summaries are projections of these events;
 they MUST NOT emit a second sequence-local timing authority.
+
+Every production reader MUST consume this stream through the evidence-accounting
+owner's validated asynchronous NDJSON iterator. The iterator MUST reject a
+missing, empty, non-regular, symlinked, malformed, oversized-line,
+non-contiguous, time-reversing, or cancelled input and MUST release its file
+handle when a consumer terminates early. Unit interval, terminal-roster,
+measurement-quietness, observability, retained-run, drift, and diagnostic
+projections MUST retain only the bounded unit state needed by that projection;
+they MUST NOT materialize the complete event file, provide a synchronous
+whole-file compatibility reader, or rely on a JavaScript string-size or child
+`maxBuffer` estimate. A line-size bound protects the closed event schema and is
+not permission to omit any valid canonical event from the projection.
 Verified by: TH-HARNESS-AC-074, TH-HARNESS-AC-077
 
 **TH-HARNESS-REQ-282**
@@ -4531,10 +4603,25 @@ Harness diagnostics MAY report Linux inotify `max_user_watches`, `max_user_insta
 
 **TH-HARNESS-REQ-600**
 Centralized summaries, machine output, and retained logs captured by harness wrappers MUST be redacted before retention and before stdout emission.
+
+Retained result roots MUST also be free of secret-capable runtime files by
+construction. Every terminal work-graph path MUST run the schema-validated
+forbidden-filename, symlink, and bounded streaming content scan before it can
+report success. The scan MUST compare against the actual suite-generated
+credential values while those values remain available in private memory.
 Verified by: TH-HARNESS-AC-011
 
 **TH-HARNESS-REQ-601**
-Redaction MUST be applied to captured stdout, stderr, wrapper diagnostics, machine JSON, retained logs, service env dumps, and summary artifacts before those bytes are written outside a private runtime working file or emitted to stdout/stderr. A redaction failure MUST fail the public target with `failure_class=artifact`, `failure_reason=artifact_error`, and public exit code `11` unless an earlier primary failure is preserved by Section 9.1.
+Redaction MUST be applied to captured stdout, stderr, wrapper diagnostics,
+machine JSON, bounded retained diagnostic tails, and summary artifacts before
+those bytes are written outside a private runtime working file or emitted to
+stdout/stderr. Full service environments, DSNs, private leases, key rings,
+Playwright state, fixture credential bundles, and raw child captures are
+private runtime material and MUST NOT be projected into retained logs or
+service env dumps. A redaction failure or retained-boundary scan failure MUST
+fail the public target with `failure_class=artifact`,
+`failure_reason=artifact_error`, and public exit code `11` unless an earlier
+primary failure is preserved by Section 9.1.
 Verified by: TH-HARNESS-AC-011
 
 **TH-HARNESS-REQ-602**
@@ -4547,6 +4634,12 @@ The redaction algorithm MUST apply to both keys and values after decoding struct
 Verified by: TH-HARNESS-AC-011
 
 Structured redaction MUST preserve schema-owned container shapes and scalar types unless the value itself is secret. Object and array fields such as `service_sessions`, `browser_stage_sessions`, `session_target`, `cleanup_status`, `lease_file`, and timing fields MUST NOT be replaced merely because their names contain a secret-related substring. Secret key matching MUST use exact or anchored credential-name patterns rather than broad substring matching that can redact structural diagnostics.
+
+Redaction is defense in depth and MUST NOT be used to justify retaining a
+secret-capable runtime file. Replacement diagnostics are closed,
+schema-validated projections that may retain phase, failure class and reason,
+readiness state, connection and resource class, and cleanup outcome without
+retaining operational values.
 Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-011
 
 **TH-HARNESS-REQ-604**
@@ -4598,6 +4691,26 @@ Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-015
 
 **TH-HARNESS-REQ-603**
 Retained run roots and target artifact directories MUST be created with owner-only permissions on POSIX conformance hosts unless the caller explicitly supplied a custom result root whose permissions cannot be narrowed without changing ownership. Required summary artifacts and retained logs MUST be written with owner-read/write permissions. A custom result root that is world-writable without the sticky bit, or that cannot protect newly created files from other users on the host, MUST fail preflight with `configuration_error`.
+
+Each scheduler invocation that may create runtime material MUST allocate one
+suite-private runtime root below the validated external harness scratch
+namespace. The suite root and every owned directory MUST be non-symlink,
+current-user-owned `0700`; private files MUST be regular non-symlink `0600`
+files. The canonicalized suite root MUST be outside both the repository and
+the current result/run roots, and every consumer MUST reject containment
+failure, symlink traversal, ownership mismatch, permissive modes, or an
+incomplete ownership marker before opening private material. A private runtime
+lease carries process and path handles; retained cleanup evidence carries only
+opaque lease identity, bounded resource classes, and cleanup proof.
+
+Private files MUST be unlinked after their last consumer closes them and on
+setup failure, cancellation, signal, finalizer failure, and suite termination.
+The root is removed only after service, process, database, bucket, session, and
+open-handle cleanup. Bounded stale cleanup may remove only roots inside the
+exact suite-runtime namespace whose private ownership marker validates and is
+older than the specified lease age; any unowned, malformed, symlinked, or
+out-of-scope entry fails closed. Cleanup claims handle closure, unlink, and
+owned-directory removal; it MUST NOT claim physical-media sanitization.
 
 Ephemeral browser state that contains credentials or authentication secrets
 MUST be published through one private-state primitive. The producer MUST
@@ -5013,7 +5126,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-000 | Section 8          | Schema validation                | Any public target that emits required JSON                                   | Target named by the fixture                                                               | Success only if JSON validates                                 | Per Section 7                                          | Per Section 7                                                | Every emitted required JSON artifact validates against Section 8 schema attachments                | Inject schema-invalid required summary                                       | No extra cleanup beyond target contract                 |
 | TH-HARNESS-AC-001 | Sections 1, 4      | Command registry                 | Current tree                                                                 | `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all` plus registry parity checker    | `0` when registry matches exactly                              | Bounded report                                         | Empty on success                                             | Public target registry parity report                                                               | Extra/missing public target fails                                            | none                                                    |
 | TH-HARNESS-AC-002 | Section 5          | Config precedence                | Fixture target with CLI, Make var, env, manifest, config, default candidates | Dedicated config resolver test target or unit harness                                     | `0`                                                            | Machine or bounded summary                             | Empty on success                                             | Resolver summary showing CLI > Make var > env > manifest > config file > default                   | Non-positive scheduler limit exits `2` with `configuration_error`            | no child work                                           |
-| TH-HARNESS-AC-003 | Sections 5, 6      | Result root, run ID, and prepared identity | No child work required                                                       | Invalid result root, invalid run ID, unsafe custom result root, and complete/partial prepared-identity fixtures | `2` for invalid or partial identity; `0` for complete prepared reuse | Empty or failure JSON according to target output class | Bounded config diagnostic                                    | Failure summary when wrapper starts; retained root preflight rejects unsafe custom permissions and partial prepared identity before writes | Slash, backslash, whitespace, `.`, `..`, existing non-empty unprepared run dir, world-writable custom root, partial prepared tuple, non-`1` marker, and target mismatch all fail | no child work and no artifact creation for rejected identity |
+| TH-HARNESS-AC-003 | Sections 5, 6      | Result root, run ID, prepared identity, and private suite-runtime boundary | No child work required                                                       | Invalid result root, invalid run ID, unsafe custom result root, complete/partial prepared identity, runtime containment, symlink, ownership, and permission fixtures | `2` for invalid or partial identity; `0` for complete prepared reuse | Empty or failure JSON according to target output class | Bounded config diagnostic                                    | Failure summary when wrapper starts; retained root and private runtime preflight reject unsafe permissions, containment, symlinks, and partial prepared identity before private-file use | Slash, backslash, whitespace, `.`, `..`, existing non-empty unprepared run dir, world-writable custom root, repository/result-contained runtime, symlink traversal, permissive runtime root, partial prepared tuple, non-`1` marker, and target mismatch all fail | no child work and no artifact creation for rejected identity |
 | TH-HARNESS-AC-004 | Sections 7, 8      | Machine output accepted          | Toolchain ready; explicit result root/run ID                                 | `CARTULARY_OUTPUT_MODE=machine make backend-unit`; `... make test-fast`; `... make check` | Target status                                                  | Exactly one JSON object plus LF                        | Empty after wrapper starts                                   | `cartulary.tool_run_summary.v5` and target artifacts                                               | Progress prose or duplicate JSON fails                                       | normal target cleanup                                   |
 | TH-HARNESS-AC-005 | Section 7          | Machine output rejected          | No child work                                                                | `CARTULARY_OUTPUT_MODE=machine make clean`; `... make dev`; `... make help`               | `2`                                                            | Empty                                                  | Bounded `usage_error` diagnostic                             | None required                                                                                      | Child work starts despite rejection                                          | no deletion or service start                            |
 | TH-HARNESS-AC-006 | Section 10         | Scheduler determinism            | Controlled manifest with simultaneous child completions and scheduled browser groups | Run scheduler fixture twice with same manifest; validate generated browser worker-admin slot ranges | `0`                                                            | Bounded summary or machine object                      | Empty on success                                             | Byte-identical scheduler events after dynamic timestamp normalization allowed only by schema rules; browser group worker slots are explicit, contiguous, and non-overlapping | Event sequence differs; browser worker slot env is missing or overlaps       | finalizers run                                          |
@@ -5021,11 +5134,11 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-008 | Section 12         | Test-only harness routes         | Browser test runtime with test route token and saved-view fixture inputs     | Reset route success, saved-view system fixture success, auth rejection, origin/host rejection, concurrent reset, timeout, partial failure fixtures | Expected HTTP statuses from Section 12                         | HTTP JSON response                                     | n/a                                                          | Reset response validates schema; saved-view fixture response is a normal saved-view resource with `scope='system'`; tainted stack marker on partial failure; no permissive CORS headers | Default runtime exposes any test route, wrong host/origin reaches mutation, product auth bypasses the test token, saved-view fixture accepts caller-supplied scope/owner/identity, or wildcard CORS is emitted | tainted stack restarted before further work             |
 | TH-HARNESS-AC-009 | Section 13         | Cleanup and destructive reset guard | Synthetic registry with safe and unsafe paths; fake Compose, database, migration, and object-store commands | Cleanup guard unit; `CARTULARY_CLEANUP_DRY_RUN=1 make clean`; dry-run and missing-confirmation invocations for `services-down`, `db-reset`, and `object-store-reset` | `0` for safe dry-run; nonzero for unsafe synthetic path or missing destructive confirmation | Dry-run lines match format                             | Bounded guard or confirmation diagnostic before mutation      | Candidate list, guard evidence, and command-shape evidence for confirmed local resets                              | Empty path, `/`, `.`, `..`, traversal, protected root, outside-repo path, symlink-following, inherited-env-only destructive confirmation, object-store reset touching another bucket, or `services-down` removing volumes accepted | no deletion, service start, or service stop in dry-run  |
 | TH-HARNESS-AC-010 | Section 13         | Stale janitor proof gates        | Fake DB, bucket, container, and browser fixtures with/without proof          | Focused stale-janitor tests                                                               | `0`                                                            | Bounded summary                                        | Empty on success                                             | Evidence that unproven resources retained and proven stale fixtures deleted only outside dry-run   | Resource lacking generated name/proof deleted                                | unproven resources retained                             |
-| TH-HARNESS-AC-011 | Section 15         | Redaction                        | Fake DSN, object-store secret, token, header, cookie, CLI arg, nested JSON, structural session fields, and private-key fixtures | Redaction unit plus one wrapper log capture                                               | `0`; redaction/write failure exits `11` unless Section 9.1 preserves an earlier primary failure | No unredacted secret in machine JSON                   | No unredacted secret in captured stderr                      | Summaries/logs contain required redaction tokens, preserve schema-owned object/array fields, and use owner-read/write file modes | Any secret pattern appears unredacted, required structural fields are replaced by redaction tokens, or required retained log is group/world-readable | none                                                    |
+| TH-HARNESS-AC-011 | Section 15         | Redaction and secret-free retention | Fake DSN, object-store secret, token, header, cookie, CLI arg, nested JSON, structural session fields, private key, forbidden filename, symlink, injected-value, early-delete, permission, and process-crash fixtures | Redaction unit, wrapper capture, private-runtime lifecycle, and terminal retained-root scan | `0`; redaction/write/scan failure exits `11` unless Section 9.1 preserves an earlier primary failure | No unredacted secret in machine JSON                   | No unredacted secret in captured stderr                      | Summaries and bounded tails contain required redaction tokens; retained roots contain no secret-capable filename, symlink, or injected value; private files and roots are removed after cleanup | Any runtime file is retained, any injected value or secret syntax survives, required structural fields are redacted, cleanup removes an unproven root, or a retained file is group/world-readable | exact private files and directories removed; no physical-media sanitization claim |
 | TH-HARNESS-AC-012 | Section 14         | Platform matrix                  | Platform claim checker fixture                                               | Platform matrix checker                                                                   | `0` for allowed profiles; nonzero for unsupported claim        | Bounded summary                                        | Diagnostic on unsupported claim                              | Matrix report                                                                                      | macOS/Windows-native/Podman claimed as current conformance                   | none                                                    |
 | TH-HARNESS-AC-013 | Sections 9, 16     | Product versus harness failure   | One known failing assertion, one harness setup failure, and one browser strict-port conflict fixture | Canonical test target under each fixture                                                  | Product failure exits `10`; setup failure exits Section 9 code; strict-port conflict retains its existing resource-conflict exit | Failure headline names class and reason                | Bounded diagnostic                                           | Target/tool, owner, and scheduler summaries agree on `resource_conflict` | Setup failure classified as product, or strict-port conflict classified as `service_start_error` | harness cleanup attempted                               |
 | TH-HARNESS-AC-014 | Section 9          | Exit-code matrix                 | Controlled failure fixtures                                                  | Exit matrix test target                                                                   | Exact Section 9 code for every class                           | Per output mode                                        | Per output mode                                              | Failure summaries with primary failure selection                                                   | Cleanup failure overrides earlier product failure                            | cleanup failure recorded but primary exit preserved     |
-| TH-HARNESS-AC-015 | Sections 6, 8      | Retained artifact identity       | Explicit result root/run ID plus generated default identity fixtures for public node-tool and owner-slice targets | `CARTULARY_TEST_RESULTS_DIR=<dir> CARTULARY_TEST_RUN_ID=<id> make backend-unit`; direct generated-ID public targets | `0`                                                            | Summary names run root                                 | Empty                                                        | Artifacts under one `<dir>/<id>` with target, run ID, run root, invocation marker, and terminal summary; retained run roots and target dirs are owner-only on POSIX hosts | Preflight marker and summary use sibling generated IDs, newest-run fallback is accepted as proof, or retained directories are group/world-accessible | custom absolute result root not removed by `make clean` |
+| TH-HARNESS-AC-015 | Sections 6, 8      | Retained artifact identity       | Explicit result root/run ID plus generated default identity fixtures for public node-tool and owner-slice targets | `CARTULARY_TEST_RESULTS_DIR=<dir> CARTULARY_TEST_RUN_ID=<id> make backend-unit`; direct generated-ID public targets | `0`                                                            | Summary names run root                                 | Empty                                                        | Artifacts under one `<dir>/<id>` with target, run ID, run root, invocation marker, terminal summary, and passing retained-secret scan; retained run roots and target dirs are owner-only on POSIX hosts; external suite runtime is absent after exit | Preflight marker and summary use sibling generated IDs, newest-run fallback is accepted as proof, retained directories are group/world-accessible, or a secret-capable runtime file exists below the run root | custom absolute result root not removed by `make clean`; owned external suite runtime removed |
 | TH-HARNESS-AC-016 | Sections 1, 2, 18, 19 | Editorial and boundary closure | Revised document                                                             | Human owner review; `make lint-markdown` checks Markdown quality only                      | Review complete; Markdown lint `0`                             | Existing Markdown-lint output                         | Existing Markdown-lint diagnostic                            | Human review records owner conflicts or open decisions; no executable artifact consumes this document | A specification conflict is silently resolved by a machine projection or Markdown lint is cited as product conformance | none                                                    |
 | TH-HARNESS-AC-017 | Section 11         | Lifecycle-machine conformance    | Service-suite fixtures for happy path, startup failure, interrupted child, cleanup failure, illegal transition, and crash/rerun | Lifecycle-machine conformance target or unit harness                                      | Happy path `0`; failure fixtures use exact Section 9 code      | Bounded summary or machine object                      | Empty on happy path; bounded diagnostic on failure fixture | `cartulary.test_services.lifecycle.v2` stream with sequential events, valid transitions, terminal state, Section 9 failure mapping, and cleanup proof behavior | Unlisted `(state,event)` mutates state, terminal state accepts later event, or lifecycle stream validates with a sequence gap | normal suite cleanup; unproven resources retained       |
 | TH-HARNESS-AC-018 | Sections 4, 10, 11 | Warm graph health | Retained warm-ready `check` fixture plus cold-provisioning, measurement-quietness, holder, contamination, cache, and event-closure fixtures | `make scheduler-summary-timing-drift RESULTS_DIR=<dir> TARGET=check` | Success only for warm-eligible canonical evidence with exact interval, holder, lease, cache, row, and target closure | Bounded summary | Bounded diagnostic on failure fixture | Run manifest, unit events, run summary, and `check` target summary identify readiness, queue, holders, leases, cache accounting, and projection closure | Hidden provisioning, measurement overlap, missing holder, contaminated lease, unexplained cache state, or incomplete event projection passes unnoticed | none |
@@ -5107,10 +5220,10 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-094 | Sections 2.1, 9 | Disposable targeted migration capability | Harness-issued migration scratch databases; arbitrary database/source construction attempts; apply targets `-1`, `0`, and positive versions; rollback targets `-1`, `0`, and positive versions; preparation success/failure/cleanup | pgtest capability unit and service-backed fixtures plus affected source-owner slices | Only the opaque harness-issued capability performs canonical-source targeted execution; invalid targets fail before source/database access; preparation events exactly describe the outcome | Existing bounded row and lease summaries | Exact capability, target-validation, fixture, or cleanup diagnostic | Migration lease identity, preparation lifecycle events, and selected row outcomes | A free production helper survives, an arbitrary handle/source is accepted, invalid input touches source/database state, duplicate status conflicts with events, or borrowed state is closed | owned scratch database destroyed; borrowed database unchanged |
 | TH-HARNESS-AC-095 | Sections 2.1, 9 | Production DDL Rebaseline v2 isolation and residue | Pristine, contaminated, prerequisite, lineage, purpose, role, ACL/default, recycled-connection, profile-claim, and rollback-through-zero PostgreSQL 16 fixtures | Database Migrations, PostgreSQL, Recovery, pgtest, testservices, dev-stack, and owner-routed unit/service-backed slices | Only versions 1..29 apply; incompatible state fails before v2 DDL; exact roles and purpose credentials are isolated; runtime and Recovery positive/negative operations match the object manifest; rollback residue is exact; physical extension state does not claim a profile | Existing bounded row, run, and lease summaries | Closed migration, binding, role, ACL, prerequisite, claim-state, or residue diagnostic | Manifest parity, PostgreSQL catalog facts, role identity, allow/deny/default matrices, remediation object, and cleanup evidence | Legacy SQL, compatibility credential, wrong extension, contamination, mixed role, excess privilege, incomplete Recovery, claimed-by-table profile, or undeclared rollback residue passes | owned scratch database destroyed; borrowed database unchanged |
 
-| TH-HARNESS-AC-096 | Sections 2.1, 3.2 | Populated fixture profile and key closure | Valid registry and catalog plus missing, unknown, inactive, duplicate, incompatible, divergent, malformed-digest, unsupported-version, and reordered-map fixtures | Registry, catalog, schema, generator, direct-plan, aggregate-plan, and Go/JavaScript key-vector validation | Exactly four AC-043 rows resolve one profile; every route resolves the same raw key and builder identity; invalid routing fails before child work | Bounded profile/key summary | Exact registry, row, field, digest, or compatibility diagnostic | Registry digest, key vector, generated group, graph unit, and target-plan projection | Filename inference, default profile, prefixed raw key, duplicated binding, route divergence, or cross-language mismatch passes | no child work; scratch registry removed |
-| TH-HARNESS-AC-097 | Section 2.1 | Source-owner contribution closure | Exact six-owner graph plus missing, duplicate, reordered, cyclic, incompatible, authorization, injected mutation, entropy, session, and redaction fixtures | Focused and service-backed owner slices plus repeated independent builds | Exact Core 04 counts and distribution, production invariants, no active sessions, identical semantic digests, and safe receipts | Bounded contribution receipts | Owner-qualified contribution or validation diagnostic | Ordered receipts and semantic validation digest | Raw browser SQL, cross-owner loader, secret field, unstable ID, or partial seal passes | partial database and secret bundle removed |
-| TH-HARNESS-AC-098 | Sections 2.1, 5, 9 | Snapshot builder, clone, and cleanup lifecycle | Same-key concurrency, different-key, four-clone, connection race, corruption, partial build, clone failure, cancellation, finalizer failure, credential cleanup, and stale-resource fixtures | Graph, broker, testservices, PostgreSQL support, browser lifecycle, and janitor tests | One shared builder precedes quiet sessions; clones are isolated; all owned resources clean idempotently on every terminal path | Bounded build/lease/cleanup summary | Builder, lease, isolation, or cleanup diagnostic | Immutable build artifact, distinct lease artifacts, lifecycle events, and cleanup proof | Builder enters quiet session, live fallback, unknown connection termination, clone aliasing, or unproven janitor deletion passes | zero owned database, bucket, runtime-bundle, session, or process residue |
-| TH-HARNESS-AC-099 | Sections 2.1, 8, 15 | Immutable post-cleanup measurement provenance | Four observations plus valid, missing, stale, inconsistent, unredacted, v1-only, digest-tampered, overlap, cleanup-failed, and secret-bearing fixtures | Row and target finalizers, schema validation, redaction scan, direct and aggregate measurement routing | Every current summary links immutable build and lease bytes after cleanup; aggregate proves one build, distinct clones, exact policy, zero overlap, cleanup, and redaction | Bounded v2 qualification summary | Evidence-integrity, environment, cleanup, or security diagnostic | Observation v1, build v1, lease v1, summary v2, aggregate v2, and digested refs | Observation qualifies directly, referenced artifact mutates, v1 translates, cleanup is claimed early, or secret material is retained | secret copies and owned resources removed before lease finalization |
+| TH-HARNESS-AC-096 | Sections 2.1, 3.2 | Populated fixture profile and key closure | Valid v2 registry and catalog plus a synthetic second profile and missing, unknown, inactive, duplicate, incompatible, divergent, malformed-digest, unsupported-version, contract-drift, and reordered fixtures | Registry, catalog, schema, generator, direct-plan, aggregate-plan, and generated Go/JavaScript key-vector validation | Every bound row resolves its explicit profile; every route resolves the same raw key and builder identity; a second profile renders and routes without an AC-043 generic branch; invalid routing fails before child work | Bounded profile/key summary | Exact registry, row, field, digest, version, or compatibility diagnostic | Registry digest, defensive generated descriptor, key vector, generated profile group, graph unit, and target-plan projection | Filename inference, default profile, handwritten profile mirror, prefixed raw key, duplicated binding, route divergence, unsupported current version, or cross-language mismatch passes | no child work; scratch registry removed |
+| TH-HARNESS-AC-097 | Section 2.1 | Source-owner contribution closure | Registered contribution graph plus missing, duplicate, reordered, cyclic, incompatible, authorization, descriptor mutation, entropy, session, and redaction fixtures | Focused and service-backed owner slices plus repeated independent builds | The selected profile adapter proves its exact source-owner counts and conditions, production invariants, inactive sessions, identical semantic digests, and safe structural receipts | Bounded contribution receipts | Owner-qualified contribution, descriptor, or validation diagnostic | Ordered structural receipts, selected profile descriptor, and semantic validation digest | A generic schema embeds profile facts, raw browser SQL, cross-owner loader, secret field, unstable ID, or partial seal passes | partial database and secret bundle removed |
+| TH-HARNESS-AC-098 | Sections 2.1, 5, 9 | Snapshot builder, clone, private runtime, and cleanup lifecycle | Same-key concurrency, different-profile and different-key, four-clone, connection race, corruption, partial build, clone failure, cancellation, finalizer failure, credential cleanup, stale-resource, ownership-marker, permission, symlink, and early-delete fixtures | Graph, broker, testservices, PostgreSQL support, browser lifecycle, generated descriptor, private-runtime boundary, and janitor tests | One shared builder per profile and key precedes quiet sessions; clones are isolated; private handles remain until their consumers close; all proved owned resources clean idempotently on every terminal path | Bounded build/lease/cleanup summary | Builder, descriptor, private lease, isolation, or cleanup diagnostic | Active-policy immutable build artifact, opaque retained lease evidence, lifecycle events, cleanup proof, and absent external runtime root | Generic lifecycle code branches on AC-043, builder enters quiet session, live fallback, unknown connection termination, clone aliasing, early private-file deletion, retained private handle, or unproven janitor deletion passes | zero owned database, bucket, runtime-bundle, private file, session, process, or directory residue |
+| TH-HARNESS-AC-099 | Sections 2.1, 8, 15 | Immutable post-cleanup measurement provenance | Current-policy observations plus valid, missing, stale, inconsistent, unredacted, superseded-generation-only, digest-tampered, overlap, cleanup-failed, secret-bearing, forbidden-path, and injected-value fixtures | Row and target finalizers, schema validation, retained-root scan, direct and aggregate measurement routing | Every current summary links immutable observation, build, and retained cleanup-evidence bytes after private cleanup; independent profile groups prove builder and clone closure, exact policy, zero overlap, cleanup, redaction, and secret-free retention | Bounded active-generation qualification summary | Evidence-integrity, environment, cleanup, compatibility, or security diagnostic | Active registry policy, observation, build, opaque lease evidence, summary, aggregate, digested references, and retained-secret scan | Embedded observation qualifies as a summary, referenced artifact mutates, historical evidence translates or qualifies, cleanup is claimed early, a private lease is retained, or secret material/value is retained | secret copies, private runtime tree, and owned resources removed before retained lease finalization |
 
 ### 17.1 Requirement-to-Acceptance Traceability
 

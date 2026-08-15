@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -10,9 +10,14 @@ import {
   secureWriteFile,
   validateSchemaSync,
 } from "../contract/index.mjs";
+import {
+  activePerformanceFixtureProfile,
+  loadPerformanceFixtureSnapshotRegistry,
+  performanceFixturePredicateIDsForRows,
+  validateProfileMeasurementObservation,
+} from "../performance-fixture/index.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
 import {
-  ac043PredicateIDsForRows,
   collectFrontendMeasurementObservations,
   readMeasurementSchedulerEvidence,
 } from "./frontend-measurement-evidence.mjs";
@@ -67,6 +72,10 @@ function readArtifact(base, relative, schemaID) {
   if (!existsSync(file)) {
     throw new Error(`measurement artifact is missing: ${relative}`);
   }
+  const stat = lstatSync(file);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 8 * 1024 * 1024) {
+    throw new Error(`measurement artifact exceeds its bounded JSON contract: ${relative}`);
+  }
   const bytes = readFileSync(file);
   const artifact = JSON.parse(bytes.toString("utf8"));
   validateSchemaSync(schemaID, artifact);
@@ -100,6 +109,17 @@ function artifactRef(role, artifact) {
     path: artifact.relative,
     sha256: digest(artifact.bytes),
   };
+}
+
+function cleanupOutcomes(lease) {
+  const outcomes = new Map();
+  for (const result of lease.cleanup_results) {
+    if (outcomes.has(result.resource_class)) {
+      throw new Error(`measurement lease duplicates cleanup class ${result.resource_class}`);
+    }
+    outcomes.set(result.resource_class, result.outcome);
+  }
+  return outcomes;
 }
 
 async function main() {
@@ -140,10 +160,12 @@ async function main() {
   }
   const catalog = loadTestCatalog(root);
   const row = catalog.rowByID.get(options.row);
-  if (!row || row.fixture_profile_id !== "ac043_large_grid_snapshot_v1") {
-    throw new Error("measurement finalizer row lacks the active AC-043 fixture profile");
+  if (!row || !row.fixture_profile_id) {
+    throw new Error("measurement finalizer row lacks an active fixture profile");
   }
-  const expectedPredicates = ac043PredicateIDsForRows(root, [row]);
+  const registry = loadPerformanceFixtureSnapshotRegistry(root);
+  const profile = activePerformanceFixtureProfile(registry, row.fixture_profile_id);
+  const expectedPredicates = performanceFixturePredicateIDsForRows(root, [row], { registry });
   if (
     expectedPredicates.length !== 1 ||
     expectedPredicates[0] !== options.predicate
@@ -161,12 +183,12 @@ async function main() {
   const build = readArtifact(
     base,
     path.join("performance-fixtures", snapshotKey, "snapshot-build.json"),
-    "cartulary.performance_fixture_snapshot.v1",
+    profile.artifact_policy.build_schema_id,
   );
   const lease = readArtifact(
     base,
     path.join("performance-fixtures", snapshotKey, "leases", `${options.row}.json`),
-    "cartulary.performance_fixture_snapshot_lease.v1",
+    profile.artifact_policy.lease_schema_id,
   );
   const builderUnitID = `fixture_snapshot:default:${profileID}:${snapshotKey}`;
   if (
@@ -182,15 +204,16 @@ async function main() {
   ) {
     throw new Error("measurement build and lease provenance is inconsistent");
   }
+  const cleanup = cleanupOutcomes(lease.artifact);
   if (
     lease.artifact.creation_state !== "created" ||
     lease.artifact.isolation_result !== "isolated" ||
     lease.artifact.cleanup_state !== "complete" ||
-    !lease.artifact.credential_copy_cleanup ||
-    !lease.artifact.database_cleanup ||
-    !lease.artifact.bucket_cleanup ||
-    !lease.artifact.session_cleanup ||
-    !lease.artifact.process_cleanup
+    cleanup.get("bucket") !== "complete" ||
+    cleanup.get("credential_copy") !== "complete" ||
+    cleanup.get("database") !== "complete" ||
+    cleanup.get("process") !== "complete" ||
+    cleanup.get("session") !== "complete"
   ) {
     throw new Error("measurement clone cleanup is incomplete");
   }
@@ -204,6 +227,7 @@ async function main() {
   const report = contained(base, reportRelative);
   const observations = collectFrontendMeasurementObservations({
     expectedPredicateIDs: [options.predicate],
+    observationSchemaID: profile.artifact_policy.observation_schema_id,
     reportPaths: [report],
     runRoot: base,
   });
@@ -211,24 +235,51 @@ async function main() {
   if (!observation) {
     throw new Error("measurement observation is missing");
   }
+  validateProfileMeasurementObservation(root, profile, observation);
   const overlapCount = schedulerEvidence.overlap_count;
   if (overlapCount !== 0) {
     throw new Error(`measurement quiet interval overlapped ${overlapCount} ordinary units`);
   }
+  const observationOutput = contained(
+    base,
+    path.join(
+      groupRelative,
+      `frontend-measurement-observation.${profile.artifact_policy.observation_schema_id.split(".").at(-1)}.json`,
+    ),
+  );
+  if (existsSync(observationOutput)) {
+    throw new Error(`measurement observation is immutable: ${observationOutput}`);
+  }
+  const observationBytes = Buffer.from(
+    `${JSON.stringify(observation, null, 2)}\n`,
+    "utf8",
+  );
+  secureWriteFile(observationOutput, observationBytes);
+  const observationArtifact = {
+    bytes: observationBytes,
+    relative: path.relative(base, observationOutput).replaceAll("\\", "/"),
+  };
   const summary = {
-    schema_id: "cartulary.frontend_measurement_summary.v2",
+    schema_id: profile.artifact_policy.summary_schema_id,
     row_id: options.row,
-    observation,
     fixture_profile_id: profileID,
     snapshot_key: snapshotKey,
+    observation_artifact: artifactRef(
+      "frontend_measurement_observation",
+      observationArtifact,
+    ),
     build_artifact: artifactRef("performance_fixture_snapshot_build", build),
     lease_artifact: artifactRef("performance_fixture_snapshot_lease", lease),
     clone_ordinal: lease.artifact.clone_ordinal,
-    isolation_result: lease.artifact.isolation_result,
-    credential_copy_cleanup: lease.artifact.credential_copy_cleanup,
-    database_cleanup: lease.artifact.database_cleanup,
-    bucket_cleanup: lease.artifact.bucket_cleanup,
     scheduler_overlap_count: overlapCount,
+    rollup: {
+      predicate_id: observation.predicate_id,
+      sample_count: observation.measured_samples,
+      p50_ms: observation.p50_ms,
+      p95_ms: observation.p95_ms,
+      threshold_ms: observation.threshold_ms,
+      outcome: observation.outcome,
+    },
     qualification_outcome:
       observation.outcome === "passed"
         ? "qualified"
@@ -240,7 +291,10 @@ async function main() {
   rejectSensitiveKeys(summary, summary.schema_id);
   const output = contained(
     base,
-    path.join(groupRelative, "frontend-measurement-summary.v2.json"),
+    path.join(
+      groupRelative,
+      `frontend-measurement-summary.${profile.artifact_policy.summary_schema_id.split(".").at(-1)}.json`,
+    ),
   );
   if (existsSync(output)) {
     throw new Error(`measurement summary is immutable: ${output}`);

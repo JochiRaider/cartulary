@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
@@ -17,16 +17,17 @@ import (
 const performanceFixtureTestKey = "85a9ceb4cc34f66356baa07b68bf7f3636844beef90aa51ad8b1751d4b046c72"
 
 func TestPerformanceFixtureBuildArgumentsRequireCanonicalClosedIdentity(t *testing.T) {
-	builder := "fixture_snapshot:default:ac043_large_grid_snapshot_v1:" + performanceFixtureTestKey
+	profile := performanceFixtureTestProfile(t)
+	builder := "fixture_snapshot:default:" + profile.FixtureProfileID + ":" + performanceFixtureTestKey
 	args := []string{
-		"--fixture-profile", "ac043_large_grid_snapshot_v1",
+		"--fixture-profile", profile.FixtureProfileID,
 		"--snapshot-key", performanceFixtureTestKey,
 		"--migration-digest", strings.Repeat("a", 64),
-		"--source-contract-digest", strings.Repeat("b", 64),
+		"--source-contract-digest", profile.SourceContractDigest,
 		"--builder-unit-id", builder,
 		"--artifact-file", filepath.Join(t.TempDir(), "snapshot-build.json"),
 	}
-	parsed, err := parsePerformanceFixtureBuildArgs(args)
+	parsed, _, err := parsePerformanceFixtureBuildArgs(args)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,58 +42,8 @@ func TestPerformanceFixtureBuildArgumentsRequireCanonicalClosedIdentity(t *testi
 	} {
 		candidate := append([]string(nil), args...)
 		mutation(candidate)
-		if _, err := parsePerformanceFixtureBuildArgs(candidate); err == nil {
+		if _, _, err := parsePerformanceFixtureBuildArgs(candidate); err == nil {
 			t.Fatalf("invalid build identity was accepted: %#v", candidate)
-		}
-	}
-}
-
-func TestPerformanceFixtureOwnedNamesAreDeterministicAndBounded(t *testing.T) {
-	suiteID := "suite-performance-fixture"
-	name := performanceFixtureTemplateName(suiteID, performanceFixtureTestKey)
-	if !safePostgresIdentifier(name) || len(name) > 63 {
-		t.Fatalf("unsafe template name %q", name)
-	}
-	wantPrefix := "ct_pfs_" + suiteservices.ShortHash(suiteID, 8) + "_"
-	if !strings.HasPrefix(name, wantPrefix) || !strings.HasSuffix(name, performanceFixtureTestKey[:12]) {
-		t.Fatalf("template name is not bound to suite and snapshot: %q", name)
-	}
-	clone, err := newPerformanceFixtureCloneName()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !generatedWebE2EDatabaseName(clone) {
-		t.Fatalf("profile clone does not satisfy the bounded janitor grammar: %q", clone)
-	}
-}
-
-func TestPerformanceFixtureArtifactsAreImmutableAndRedacted(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "artifact.json")
-	value := map[string]any{"schema_id": "example", "snapshot_key": performanceFixtureTestKey}
-	if err := writeImmutableJSON(file, value); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeImmutableJSON(file, value); err == nil {
-		t.Fatal("immutable artifact accepted a second write")
-	}
-	info, err := os.Lstat(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 {
-		t.Fatalf("immutable artifact mode is %v", info.Mode())
-	}
-	failed := failedPerformanceFixtureBuild(performanceFixtureBuildArgs{
-		FixtureProfileID:     "ac043_large_grid_snapshot_v1",
-		SnapshotKey:          performanceFixtureTestKey,
-		MigrationDigest:      strings.Repeat("a", 64),
-		SourceContractDigest: strings.Repeat("b", 64),
-		BuilderUnitID:        "fixture_snapshot:default:ac043_large_grid_snapshot_v1:" + performanceFixtureTestKey,
-	}, "contribution_invalid")
-	raw := string(mustJSON(t, failed))
-	for _, forbidden := range []string{"database_name", "bucket_name", "password", "email", "runtime_path", "user_id"} {
-		if strings.Contains(raw, forbidden) {
-			t.Fatalf("failed build artifact contains forbidden field %q", forbidden)
 		}
 	}
 }
@@ -104,21 +55,22 @@ func TestPerformanceFixtureCleanupIsActiveCompleteAndIdempotentlyOwned(t *testin
 	env[suiteservices.SuiteIDEnv] = "suite-performance-cleanup"
 	env[suiteservices.TargetEnv] = "browser-e2e-measurement"
 	env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] = "1"
+	profile := performanceFixtureTestProfile(t)
 	runtimeRoot := filepath.Join(t.TempDir(), "private-runtime")
-	bundle, err := fixture.GenerateRuntimeBundle(performanceFixtureTestKey)
+	bundle, err := fixture.GenerateRuntimeBundle(profile, performanceFixtureTestKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.WriteRuntimeBundle(runtimeRoot, bundle); err != nil {
+	if _, err := fixture.WriteRuntimeBundle(profile, runtimeRoot, bundle); err != nil {
 		t.Fatal(err)
 	}
 	metadata := webE2EMetadata{
 		DatabaseName:      "ct_0123456789abcdef_web_e2e",
 		Bucket:            "ct-0123456789abcdef-web-e2e",
 		Target:            "browser-e2e-measurement",
-		FixtureProfileID:  "ac043_large_grid_snapshot_v1",
+		FixtureProfileID:  profile.FixtureProfileID,
 		SnapshotKey:       performanceFixtureTestKey,
-		BuilderUnitID:     "fixture_snapshot:default:ac043_large_grid_snapshot_v1:" + performanceFixtureTestKey,
+		BuilderUnitID:     "fixture_snapshot:default:" + profile.FixtureProfileID + ":" + performanceFixtureTestKey,
 		RowID:             "module.timeline.measurement.test_row",
 		PredicateID:       "perf.typing_ack.v1",
 		CloneLeaseID:      "lease-000001",
@@ -162,11 +114,11 @@ func TestPerformanceFixtureCleanupIsActiveCompleteAndIdempotentlyOwned(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	var artifact performanceFixtureLeaseArtifact
+	var artifact leaseArtifactEvidence
 	if err := json.Unmarshal(raw, &artifact); err != nil {
 		t.Fatal(err)
 	}
-	if artifact.CleanupState != "complete" || !artifact.CredentialCopyCleanup || !artifact.DatabaseCleanup || !artifact.BucketCleanup || !artifact.SessionCleanup || !artifact.ProcessCleanup {
+	if artifact.CleanupState != "complete" || !artifact.cleanupComplete("credential_copy") || !artifact.cleanupComplete("database") || !artifact.cleanupComplete("bucket") || !artifact.cleanupComplete("session") || !artifact.cleanupComplete("process") {
 		t.Fatalf("incomplete lease artifact: %#v", artifact)
 	}
 }
@@ -177,20 +129,21 @@ func TestPerformanceFixtureCleanupRetainsFailureAndContinuesIndependentCleanup(t
 	env[suiteservices.ActiveEnv] = "1"
 	env[suiteservices.SuiteIDEnv] = "suite-performance-cleanup-failure"
 	env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] = "1"
+	profile := performanceFixtureTestProfile(t)
 	runtimeRoot := filepath.Join(t.TempDir(), "private-runtime")
-	bundle, err := fixture.GenerateRuntimeBundle(performanceFixtureTestKey)
+	bundle, err := fixture.GenerateRuntimeBundle(profile, performanceFixtureTestKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.WriteRuntimeBundle(runtimeRoot, bundle); err != nil {
+	if _, err := fixture.WriteRuntimeBundle(profile, runtimeRoot, bundle); err != nil {
 		t.Fatal(err)
 	}
 	metadata := webE2EMetadata{
 		DatabaseName:      "ct_fedcba9876543210_web_e2e",
 		Bucket:            "ct-fedcba9876543210-web-e2e",
-		FixtureProfileID:  "ac043_large_grid_snapshot_v1",
+		FixtureProfileID:  profile.FixtureProfileID,
 		SnapshotKey:       performanceFixtureTestKey,
-		BuilderUnitID:     "fixture_snapshot:default:ac043_large_grid_snapshot_v1:" + performanceFixtureTestKey,
+		BuilderUnitID:     "fixture_snapshot:default:" + profile.FixtureProfileID + ":" + performanceFixtureTestKey,
 		RowID:             "module.timeline.measurement.failure_row",
 		PredicateID:       "perf.timeline_summary_focus_edit.v1",
 		CloneLeaseID:      "lease-failure",
@@ -219,55 +172,40 @@ func TestPerformanceFixtureCleanupRetainsFailureAndContinuesIndependentCleanup(t
 	if err != nil {
 		t.Fatal(err)
 	}
-	var artifact performanceFixtureLeaseArtifact
+	var artifact leaseArtifactEvidence
 	if err := json.Unmarshal(raw, &artifact); err != nil {
 		t.Fatal(err)
 	}
-	if artifact.CleanupState != "failed" || artifact.FailureCode != "database_cleanup_failed" || !artifact.CredentialCopyCleanup || !artifact.BucketCleanup {
+	if artifact.CleanupState != "failed" || artifact.FailureCode != "database_cleanup_failed" || !artifact.cleanupComplete("credential_copy") || !artifact.cleanupComplete("bucket") {
 		t.Fatalf("cleanup failure artifact lost causal state: %#v", artifact)
 	}
 }
 
-func TestPerformanceFixtureRuntimeJanitorIsBoundedAndIdentityScoped(t *testing.T) {
-	base := t.TempDir()
-	stale := filepath.Join(base, strings.Repeat("a", 16))
-	recent := filepath.Join(base, strings.Repeat("b", 16))
-	invalid := filepath.Join(base, "not-owned")
-	for _, directory := range []string{stale, recent, invalid} {
-		if err := os.Mkdir(directory, 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(directory, "credential"), []byte("private"), 0o600); err != nil {
-			t.Fatal(err)
+func performanceFixtureTestProfile(t *testing.T) performancefixtureprofile.Profile {
+	t.Helper()
+	for _, profile := range performancefixtureprofile.Profiles() {
+		if profile.Status == "active" {
+			return profile
 		}
 	}
-	now := time.Now().UTC()
-	old := now.Add(-performanceFixtureRuntimeStaleAge - time.Hour)
-	if err := os.Chtimes(stale, old, old); err != nil {
-		t.Fatal(err)
-	}
-	if err := cleanupStalePerformanceFixtureRuntimeRootsUnder(now, []string{base}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Lstat(stale); !os.IsNotExist(err) {
-		t.Fatalf("stale owned runtime root remains: %v", err)
-	}
-	for _, directory := range []string{recent, invalid} {
-		if _, err := os.Lstat(directory); err != nil {
-			t.Fatalf("janitor removed non-stale or unowned root %s: %v", directory, err)
-		}
-	}
+	t.Fatal("generated active performance fixture profile is missing")
+	return performancefixtureprofile.Profile{}
 }
 
-func mustJSON(t *testing.T, value any) []byte {
-	t.Helper()
-	file := filepath.Join(t.TempDir(), "value.json")
-	if err := writeImmutableJSON(file, value); err != nil {
-		t.Fatal(err)
+type leaseArtifactEvidence struct {
+	CleanupResults []struct {
+		ResourceClass string `json:"resource_class"`
+		Outcome       string `json:"outcome"`
+	} `json:"cleanup_results"`
+	CleanupState string `json:"cleanup_state"`
+	FailureCode  string `json:"failure_code"`
+}
+
+func (artifact leaseArtifactEvidence) cleanupComplete(resourceClass string) bool {
+	for _, result := range artifact.CleanupResults {
+		if result.ResourceClass == resourceClass {
+			return result.Outcome == "complete"
+		}
 	}
-	raw, err := os.ReadFile(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return raw
+	return false
 }

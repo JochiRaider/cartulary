@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { validateSchemaSync } from "../contract/index.mjs";
+import { readCanonicalUnitEvents } from "../evidence-accounting/canonical-unit-events.mjs";
 
 function usage() {
   throw new Error("usage: scheduler-event-order-drift-cli.mjs [--target <target>] <run-dir>");
@@ -33,19 +34,10 @@ try {
   if (options.target && manifest.target !== options.target) {
     throw new Error(`${manifestFile} target ${manifest.target} does not match ${options.target}`);
   }
-  const lines = readFileSync(eventsFile, "utf8").split(/\r?\n/u).filter(Boolean);
-  if (lines.length === 0) throw new Error(`${eventsFile} is empty`);
-  let monotonicMs = 0;
-  for (const [index, line] of lines.entries()) {
-    const event = JSON.parse(line);
-    validateSchemaSync("cartulary.harness_unit_event.v1", event);
-    if (event.seq !== index + 1) throw new Error(`${eventsFile} sequence is not contiguous at line ${index + 1}`);
-    if (event.monotonic_ms < monotonicMs) throw new Error(`${eventsFile} monotonic time regresses at line ${index + 1}`);
-    monotonicMs = event.monotonic_ms;
-  }
-  process.stdout.write(`[EVENT-ORDER] target=${manifest.target} status=pass events=${lines.length}\n`);
+  let eventCount = 0;
+  for await (const _event of readCanonicalUnitEvents(eventsFile)) eventCount += 1;
+  process.stdout.write(`[EVENT-ORDER] target=${manifest.target} status=pass events=${eventCount}\n`);
 } catch (error) {
   process.stderr.write(`${error.message}\n`);
   process.exitCode = 1;
 }
-

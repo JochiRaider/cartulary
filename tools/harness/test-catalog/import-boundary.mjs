@@ -5,6 +5,10 @@ const importPattern = /(?:^|\n)\s*(?:import|export)\s+(?:[^"'\n]*?\s+from\s+)?["
 
 export function collectTestCatalogImportViolations(root) {
   const catalogRoot = path.join(root, "tools/harness/test-catalog");
+  const allowedOwnerRoots = [
+    path.join(root, "tools/harness/contract"),
+    path.join(root, "tools/harness/performance-fixture"),
+  ];
   const violations = [];
   for (const entry of readdirSync(catalogRoot, { withFileTypes: true })) {
     if (!entry.isFile() || !entry.name.endsWith(".mjs")) continue;
@@ -14,12 +18,13 @@ export function collectTestCatalogImportViolations(root) {
       const specifier = match[1];
       if (!specifier.startsWith(".")) continue;
       const resolved = path.resolve(catalogRoot, specifier);
-      const contractRoot = path.join(root, "tools/harness/contract");
       if (
         resolved !== catalogRoot &&
         !resolved.startsWith(`${catalogRoot}${path.sep}`) &&
-        resolved !== contractRoot &&
-        !resolved.startsWith(`${contractRoot}${path.sep}`)
+        !allowedOwnerRoots.some(
+          (allowedRoot) =>
+            resolved === allowedRoot || resolved.startsWith(`${allowedRoot}${path.sep}`),
+        )
       ) {
         violations.push({
           file: path.relative(root, file).split(path.sep).join("/"),

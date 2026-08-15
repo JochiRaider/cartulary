@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -14,13 +13,14 @@ import {
   validateSchemaSync,
 } from "../contract/index.mjs";
 import { adaptPlaywrightReport } from "../execution/runners/playwright.mjs";
+import { groupRowsByPerformanceFixture } from "../performance-fixture/index.mjs";
+import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs";
+import { enforcePrivateProcessUmask } from "../runtime/private-process.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
 import { resolveBrowserBatchStage } from "./browser-batch-manifest.mjs";
 import { selectedBrowserGroupRowIDs } from "./browser-group-selection.mjs";
-import {
-  ac043PredicateIDsForRows,
-  collectFrontendMeasurementObservations,
-} from "./frontend-measurement-evidence.mjs";
+import { attachmentAssignments } from "./browser-session-evidence.mjs";
+import { collectFrontendMeasurementObservations } from "./frontend-measurement-evidence.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
@@ -107,29 +107,7 @@ function validateCurrentSessionAttachment() {
       "browser group requires CARTULARY_WEB_E2E_STACK_JSON_FILE",
     );
   }
-  const validation = spawnSync(
-    process.env.NODE_BIN || process.execPath,
-    [
-      path.join(
-        root,
-        "tools/harness/browser/browser-session-evidence.mjs",
-      ),
-      "attach-json",
-      stackPath,
-    ],
-    {
-      cwd: root,
-      env: process.env,
-      encoding: "utf8",
-      maxBuffer: 8 * 1024 * 1024,
-    },
-  );
-  if (validation.status !== 0) {
-    throw new Error(
-      `browser v5 attachment validation failed: ${(validation.stderr || validation.stdout || "unknown validation failure").trim()}`,
-    );
-  }
-  const assignments = JSON.parse(validation.stdout);
+  const assignments = attachmentAssignments(stackPath);
   if (
     !assignments ||
     typeof assignments !== "object" ||
@@ -151,6 +129,14 @@ function executionTarget(group) {
     throw new Error("snapshot_update mode requires CARTULARY_TEST_TARGET=browser-e2e-visual-update");
   }
   return process.env.CARTULARY_TEST_TARGET;
+}
+
+function readPlaywrightReport(reportPath) {
+  const stat = lstatSync(reportPath);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 32 * 1024 * 1024) {
+    throw new Error("Playwright JSON report exceeds the 32 MiB selected-group contract");
+  }
+  return JSON.parse(readFileSync(reportPath, "utf8"));
 }
 
 function groupRows(catalog, group) {
@@ -220,7 +206,8 @@ function exitCodeForRows(rowResults, child) {
   return child.status === 0 ? 0 : 11;
 }
 
-function main() {
+async function main() {
+  enforcePrivateProcessUmask();
   const options = parseArgs(process.argv.slice(2));
   const manifest = path.resolve(root, options.manifest);
   const stage = resolveBrowserBatchStage(manifest, options.stage);
@@ -263,7 +250,8 @@ function main() {
   const invocation = commandForGroup(rows, group, artifactRoot);
   const startedAt = new Date().toISOString();
   const started = Date.now();
-  const child = spawnSync(invocation.command, invocation.args, {
+  const child = await runPrivateCapturedProcess(invocation.command, invocation.args, {
+    captureID: `browser-${stage.name}-${group.name}`.replaceAll(/[^A-Za-z0-9_.-]+/gu, "-"),
     cwd: root,
     env: {
       ...process.env,
@@ -278,28 +266,35 @@ function main() {
       CARTULARY_FRONTEND_ACCESSIBILITY_CONTRAST_DIR:
         group.kind === "a11y" ? path.join(artifactRoot, "contrast-checks") : "",
     },
-    encoding: "utf8",
-    maxBuffer: 128 * 1024 * 1024,
+    repoRoot: root,
+    runRoot: runRoot(),
   });
-  secureWriteFile(stdoutPath, redactString(child.stdout ?? ""));
-  secureWriteFile(stderrPath, redactString(child.stderr ?? ""));
+  try {
+    secureWriteFile(stdoutPath, redactString(child.stdout ?? ""));
+    secureWriteFile(stderrPath, redactString(child.stderr ?? ""));
+  } finally {
+    child.cleanup();
+  }
   let report = null;
   try {
-    report = JSON.parse(readFileSync(reportPath, "utf8"));
+    report = readPlaywrightReport(reportPath);
     secureWriteFile(reportPath, `${JSON.stringify(redactValue(report), null, 2)}\n`);
   } catch {
     report = null;
   }
   const rowResults = adaptPlaywrightReport(rows, report, child.status ?? 11);
   let measurementEvidenceError = null;
-  const expectedMeasurementPredicates = ac043PredicateIDsForRows(root, rows);
-  if (expectedMeasurementPredicates.length > 0) {
+  const fixtureGroups = groupRowsByPerformanceFixture(root, rows);
+  if (fixtureGroups.length > 0) {
     try {
-      collectFrontendMeasurementObservations({
-        expectedPredicateIDs: expectedMeasurementPredicates,
-        reportPaths: [reportPath],
-        runRoot: runRoot(),
-      });
+      for (const fixtureGroup of fixtureGroups) {
+        collectFrontendMeasurementObservations({
+          expectedPredicateIDs: fixtureGroup.predicate_ids,
+          observationSchemaID: fixtureGroup.profile.artifact_policy.observation_schema_id,
+          reportPaths: [reportPath],
+          runRoot: runRoot(),
+        });
+      }
     } catch (error) {
       measurementEvidenceError = error instanceof Error ? error : new Error(String(error));
       secureWriteFile(
@@ -360,7 +355,7 @@ function main() {
 }
 
 try {
-  process.exitCode = main();
+  process.exitCode = await main();
 } catch (error) {
   process.stderr.write(`${error.message}\n`);
   process.exitCode = error.message === usage() ? 2 : 11;

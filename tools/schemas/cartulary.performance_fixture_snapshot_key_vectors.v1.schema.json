@@ -15,7 +15,7 @@
         "required": ["name", "input", "canonical_json", "snapshot_key"],
         "properties": {
           "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-          "input": { "$ref": "cartulary.performance_fixture_snapshot_key.v1" },
+          "input": { "$ref": "cartulary.performance_fixture_snapshot_key.v2" },
           "canonical_json": { "type": "string", "minLength": 1 },
           "snapshot_key": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
         }

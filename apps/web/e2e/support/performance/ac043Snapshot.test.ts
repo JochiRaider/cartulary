@@ -7,13 +7,19 @@ const snapshotKey = "a".repeat(64);
 
 function runtimeBundle() {
   return {
-    schema_id: "cartulary.performance_fixture_runtime.v1",
+    schema_id: "cartulary.performance_fixture_runtime.v2",
     fixture_profile_id: "ac043_large_grid_snapshot_v1",
     snapshot_key: snapshotKey,
-    background_accounts: Array.from({ length: 24 }, (_, index) => ({
-      email: `private-${index}@example.test`,
-      password: `private-runtime-password-${String(index).padStart(2, "0")}`,
-    })),
+    credential_sets: [
+      {
+        set_id: "background_analysts",
+        credential_kind: "email_password",
+        credentials: Array.from({ length: 24 }, (_, index) => ({
+          principal: `private-${index}@example.test`,
+          secret: `private-runtime-password-${String(index).padStart(2, "0")}`,
+        })),
+      },
+    ],
   };
 }
 
@@ -58,9 +64,14 @@ describe("AC-043 snapshot runtime bundle", () => {
     ).toThrow(/identity is inconsistent/u);
 
     const duplicate = runtimeBundle();
-    duplicate.background_accounts[1] = duplicate.background_accounts[0] as {
-      email: string;
-      password: string;
+    const credentialSet = duplicate.credential_sets.at(0);
+    const firstCredential = credentialSet?.credentials.at(0);
+    if (!credentialSet || !firstCredential) {
+      throw new Error("runtime bundle fixture is incomplete");
+    }
+    credentialSet.credentials[1] = firstCredential as {
+      principal: string;
+      secret: string;
     };
     expect(() =>
       parseAc043RuntimeBundle(JSON.stringify(duplicate), {

@@ -1128,7 +1128,7 @@ harness-contract:
 	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
 	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "harness-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" \
 	  CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" $(NODE_BIN) --test ./tools/harness/tests/test-harness-boundary-contracts.mjs ./tools/harness/tests/test-harness-command-surface-contracts.mjs ./tools/harness/tests/test-harness-evidence-contracts.mjs ./tools/harness/tests/test-harness-graph-contracts.mjs \
-	  ./tools/harness/tests/test-harness-scheduler-contracts.mjs ./tools/harness/observability/tests/test-observability.mjs
+	  ./tools/harness/tests/test-harness-scheduler-contracts.mjs ./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs ./tools/harness/observability/tests/test-observability.mjs
 	$(call RUN_TARGET_SUMMARY,harness-contract,pass)
 else
 harness-contract: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)

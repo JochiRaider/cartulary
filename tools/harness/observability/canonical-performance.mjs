@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { validateSchemaSync } from "../contract/index.mjs";
-import { canonicalJSONString } from "../test-catalog/index.mjs";
+import { canonicalJSONString, validateSchemaSync } from "../contract/index.mjs";
+import { reduceCanonicalUnitIntervals } from "../evidence-accounting/canonical-unit-events.mjs";
 
 export const evidenceSchemaID = "cartulary.harness_performance_evidence_roots.v3";
 export const baselineSchemaID = "cartulary.harness_public_target_duration_baselines.v3";
@@ -107,23 +107,7 @@ function rootReference(repositoryRoot, runRoot, fallback) {
     : fallback;
 }
 
-function unitIntervals(events) {
-  const starts = new Map();
-  const terminals = new Map();
-  for (const event of events) {
-    if (event.event === "started") {
-      if (starts.has(event.unit_id)) throw new Error(`${event.unit_id} has duplicate start events`);
-      starts.set(event.unit_id, event.monotonic_ms);
-    }
-    if (["completed", "failed", "skipped", "cancelled"].includes(event.event)) {
-      if (terminals.has(event.unit_id)) throw new Error(`${event.unit_id} has duplicate terminal events`);
-      terminals.set(event.unit_id, event);
-    }
-  }
-  return { starts, terminals };
-}
-
-function readCanonicalRoot(repositoryRoot, baseDirectory, reference, target, expectedCacheMode) {
+async function readCanonicalRoot(repositoryRoot, baseDirectory, reference, target, expectedCacheMode) {
   const runRoot = resolveRoot(baseDirectory, reference);
   const files = {
     manifest: path.join(runRoot, "run-manifest.json"),
@@ -147,26 +131,15 @@ function readCanonicalRoot(repositoryRoot, baseDirectory, reference, target, exp
   if (summary.status !== "pass" || targetSummary.status !== "pass") {
     throw new Error(`${reference} does not contain successful ${target} evidence`);
   }
-  const events = readFileSync(files.events, "utf8")
-    .split(/\r?\n/u)
-    .filter(Boolean)
-    .map((line, index) => {
-      const event = JSON.parse(line);
-      validateSchemaSync("cartulary.harness_unit_event.v1", event);
-      if (event.seq !== index + 1) throw new Error(`${reference} has non-contiguous event sequence`);
-      return event;
-    });
-  for (let index = 1; index < events.length; index += 1) {
-    if (events[index].monotonic_ms < events[index - 1].monotonic_ms) {
-      throw new Error(`${reference} has non-monotonic unit events`);
-    }
-  }
-  const runStarted = events.filter((event) => event.event === "run_started");
-  const runCompleted = events.filter((event) => event.event === "run_completed");
-  if (runStarted.length !== 1 || runCompleted.length !== 1) {
+  const eventState = await reduceCanonicalUnitIntervals(files.events);
+  if (eventState.runStarted === null || eventState.runCompleted === null) {
     throw new Error(`${reference} does not have one run envelope`);
   }
-  if (runCompleted[0].status !== "passed" || runCompleted[0].monotonic_ms !== summary.wall_duration_ms) {
+  if (
+    eventState.runCompleted.status !== "passed" ||
+    eventState.runCompleted.monotonic_ms !== summary.wall_duration_ms ||
+    eventState.runCompleted.seq !== eventState.eventCount
+  ) {
     throw new Error(`${reference} run envelope does not close its summary`);
   }
   const accounted = ["setup_ms", "fixture_ms", "execution_ms", "collation_ms", "wrapper_ms", "unattributed_ms"]
@@ -174,7 +147,7 @@ function readCanonicalRoot(repositoryRoot, baseDirectory, reference, target, exp
   if (accounted !== summary.wall_duration_ms) {
     throw new Error(`${reference} timing buckets do not close the invocation envelope`);
   }
-  const { starts, terminals } = unitIntervals(events);
+  const { starts, terminals } = eventState;
   const terminalCounts = { passed: 0, failed: 0, skipped: 0, cancelled: 0 };
   for (const event of terminals.values()) terminalCounts[event.status] += 1;
   if (
@@ -202,7 +175,7 @@ function readCanonicalRoot(repositoryRoot, baseDirectory, reference, target, exp
     manifest,
     summary,
     targetSummary,
-    events,
+    eventCount: eventState.eventCount,
     inclusive_wall_ms: inclusiveWallMs,
   };
 }
@@ -315,7 +288,7 @@ function assertUnique(items, key, label) {
   if (new Set(values).size !== values.length) throw new Error(`${label} contains duplicate ${key}`);
 }
 
-export function buildQualifiedBaseline({
+export async function buildQualifiedBaseline({
   repositoryRoot,
   baseDirectory,
   surface,
@@ -331,9 +304,9 @@ export function buildQualifiedBaseline({
   assertUnique(bindings, "target", `${role} bindings`);
   const byWindow = new Map(windows.map((window) => [window.window_id, window]));
   const referenced = new Set();
-  const buildRows = (selectedBindings, selectedWindows, diagnostic) => {
+  const buildRows = async (selectedBindings, selectedWindows, diagnostic) => {
     const selectedByWindow = new Map(selectedWindows.map((window) => [window.window_id, window]));
-    return selectedBindings.map((binding) => {
+    return Promise.all(selectedBindings.map(async (binding) => {
       const window = selectedByWindow.get(binding.window_id);
       if (!window) throw new Error(`${role} ${binding.target} references unknown window ${binding.window_id}`);
       referenced.add(window.window_id);
@@ -350,11 +323,11 @@ export function buildQualifiedBaseline({
       if (effective.observation_eligibility === "direct_only" && window.provider_target !== binding.target) {
         throw new Error(`${binding.target} requires a direct performance provider`);
       }
-      const cold = readCanonicalRoot(repositoryRoot, baseDirectory, window.cold_root, binding.target, "cold");
-      const warmup = readCanonicalRoot(repositoryRoot, baseDirectory, window.warmup_root, binding.target, "normal");
-      const samples = window.measured_roots.map((rootRef) =>
+      const cold = await readCanonicalRoot(repositoryRoot, baseDirectory, window.cold_root, binding.target, "cold");
+      const warmup = await readCanonicalRoot(repositoryRoot, baseDirectory, window.warmup_root, binding.target, "normal");
+      const samples = await Promise.all(window.measured_roots.map((rootRef) =>
         readCanonicalRoot(repositoryRoot, baseDirectory, rootRef, binding.target, "normal"),
-      );
+      ));
       const records = [cold, warmup, ...samples];
       if (records.some((record) => record.manifest.target !== window.provider_target)) {
         throw new Error(`${binding.target} window provider does not match retained manifests`);
@@ -413,10 +386,10 @@ export function buildQualifiedBaseline({
         mad_ms: mad,
         timing_accounting: timingAccounting(samples),
       };
-    }).sort((left, right) => compareASCII(left.target, right.target));
+    })).then((rows) => rows.sort((left, right) => compareASCII(left.target, right.target)));
   };
-  const targets = buildRows(bindings, windows, false);
-  const diagnostics = buildRows(internalBindings, internalWindows, true);
+  const targets = await buildRows(bindings, windows, false);
+  const diagnostics = await buildRows(internalBindings, internalWindows, true);
   const expected = [...roster.keys()];
   if (!sameJSON(targets.map((row) => row.target), expected)) {
     throw new Error(`${role} does not contain the exact ${expected.length}-target public roster`);
@@ -602,11 +575,11 @@ export function compareQualifiedBaselines(reference, candidate, surface) {
   };
 }
 
-export function buildFromManifest(repositoryRoot, manifestFile, surface) {
+export async function buildFromManifest(repositoryRoot, manifestFile, surface) {
   const manifest = readJSON(manifestFile);
   validateSchemaSync(evidenceSchemaID, manifest);
   const baseDirectory = path.dirname(manifestFile);
-  const reference = buildQualifiedBaseline({
+  const reference = await buildQualifiedBaseline({
     repositoryRoot,
     baseDirectory,
     surface,
@@ -618,7 +591,7 @@ export function buildFromManifest(repositoryRoot, manifestFile, surface) {
     role: "reference",
   });
   if (manifest.mode === "baseline") return { manifest, reference };
-  const candidate = buildQualifiedBaseline({
+  const candidate = await buildQualifiedBaseline({
     repositoryRoot,
     baseDirectory,
     surface,

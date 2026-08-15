@@ -39,7 +39,6 @@ import {
   validStepCountingModes,
 } from "../../contract/test-output-context.mjs";
 import { loadGovulncheckFindingsFile } from "./security-diagnostics.mjs";
-import { finalizeObservabilitySafely, observabilityRequiredTarget } from "../../observability/observability.mjs";
 
 const resultsRoot = resolveResultsRoot();
 
@@ -517,24 +516,6 @@ export function writeStepArtifacts(context, details) {
     },
   });
   writeToolSummary(toolSummaryFile, toolSummary);
-  if (!suppressChildSuccess() && observabilityRequiredTarget(context.target)) {
-    const observability = finalizeObservabilitySafely(path.dirname(targetRunRoot), {
-      target: context.target,
-      status: details.status === "pass" ? "passed" : "failed",
-    });
-    if (observability.status === "partial") {
-      toolSummary.warnings = [
-        ...(toolSummary.warnings ?? []),
-        {
-          kind: "harness_observability",
-          status: "partial",
-          diagnostic: observability.diagnostic,
-        },
-      ];
-      writeToolSummary(toolSummaryFile, toolSummary);
-    }
-  }
-
   if (details.status !== "pass" && !suppressChildSuccess()) {
     if (machineOutput()) {
       process.stdout.write(compactJSONString(toolSummary));

@@ -459,9 +459,19 @@ step_secure_mkdir() {
     echo "step_secure_mkdir requires <dir...>" >&2
     return 2
   fi
-  local dir
+  local dir previous_umask status
   for dir in "$@"; do
-    mkdir -p "$dir"
+    previous_umask="$(umask)"
+    umask 077
+    if mkdir -p "$dir"; then
+      status=0
+    else
+      status=$?
+    fi
+    umask "$previous_umask"
+    if [[ "$status" -ne 0 ]]; then
+      return "$status"
+    fi
     chmod 700 "$dir" 2>/dev/null || true
   done
 }

@@ -1,3 +1,4 @@
+import { lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 export const runnerContract = Object.freeze({
@@ -94,5 +95,16 @@ export function adaptVitestInvocation(invocation, result) {
             : null,
       failure_diagnostic: null,
     };
+  });
+}
+
+export function adaptVitestInvocationFile(invocation, result) {
+  const stat = lstatSync(result.stdoutPath);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 16 * 1024 * 1024) {
+    throw new Error("Vitest JSON report exceeds the 16 MiB selected-row contract");
+  }
+  return adaptVitestInvocation(invocation, {
+    ...result,
+    stdout: readFileSync(result.stdoutPath, "utf8"),
   });
 }

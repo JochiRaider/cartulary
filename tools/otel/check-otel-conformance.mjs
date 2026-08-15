@@ -5,12 +5,18 @@ import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "n
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { enforcePrivateProcessUmask } from "../harness/runtime/private-process.mjs";
 import {
   expectedBrowserRuntimeProbe,
   otelGeneratorSourceRef,
   validateOtelGeneratorReference,
   validateOtelImportBoundaryContractShape,
 } from "./generate-otel-contracts.mjs";
+
+// This process writes only conformance evidence below its result subtree; it
+// never generates repository source. Raw captures, normalized captures,
+// comparison evidence, and the summary therefore inherit owner-only modes.
+enforcePrivateProcessUmask();
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const snapshotPath = "contracts/otel/otel_source_snapshot.v1.json";

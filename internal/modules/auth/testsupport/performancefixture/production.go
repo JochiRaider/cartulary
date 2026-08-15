@@ -45,7 +45,7 @@ func (a *ProductionApplication) CreateBackgroundAnalyst(ctx context.Context, req
 		return Account{}, err
 	}
 	fingerprint := sha256.Sum256([]byte(email))
-	clientTxnID := "ac043-background-user-" + hex.EncodeToString(fingerprint[:8])
+	clientTxnID := "performance-fixture-background-user-" + hex.EncodeToString(fingerprint[:8])
 	payload, err := json.Marshal(map[string]any{
 		"auth_kind":           "local",
 		"display_name":        displayName,

@@ -488,7 +488,6 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	janitorStart := time.Now().UTC()
 	err = errors.Join(
 		cleanupStaleWebE2EFixtures(janitorCtx, deps, serviceBackedCleanupEnv(ownedEnv, postgresSvc, objectStoreSvc)),
-		cleanupStalePerformanceFixtureRuntimeRoots(time.Now().UTC()),
 	)
 	recordTimingSpanStatus(deps, ownedEnv, bucketSetup, "test-services janitor stale browser fixtures", janitorStart, err)
 	cancelJanitor()
@@ -1201,12 +1200,12 @@ func runSuiteStartupPreflight(ctx context.Context, env map[string]string) (suite
 }
 
 func verifySuiteReaperArtifactPath(env map[string]string) error {
-	suiteDir, ok, err := suiteservices.ResolveSuiteArtifactDir(env)
+	suiteDir, ok, err := suiteservices.ResolveSuiteRuntimeDir(env)
 	if err != nil {
 		return err
 	}
 	if !ok {
-		return errors.New("suite reaper preflight requires an active suite artifact directory")
+		return errors.New("suite reaper preflight requires an active private suite runtime directory")
 	}
 	if err := os.MkdirAll(suiteDir, 0o700); err != nil {
 		return fmt.Errorf("create suite service artifact dir: %w", err)
@@ -1233,12 +1232,12 @@ func suiteServiceLabels(env map[string]string, service string) map[string]string
 }
 
 func writeServiceLease(env map[string]string, postgresSvc postgresService, objectStoreSvc objectStoreService) (string, error) {
-	suiteDir, ok, err := suiteservices.ResolveSuiteArtifactDir(env)
+	suiteDir, ok, err := suiteservices.ResolveSuiteRuntimeDir(env)
 	if err != nil {
 		return "", err
 	}
 	if !ok {
-		return "", errors.New("suite service lease requires an active suite artifact directory")
+		return "", errors.New("suite service lease requires an active private suite runtime directory")
 	}
 	if err := os.MkdirAll(suiteDir, 0o700); err != nil {
 		return "", fmt.Errorf("create suite service artifact dir: %w", err)
@@ -3134,7 +3133,7 @@ func startChildProcess(argv []string, env map[string]string) (childProcess, erro
 	cmd.Env = envSlice(env)
 	captureChild := suiteservices.LookupEnvValue(env, "CARTULARY_SUPPRESS_CHILD_SUCCESS") == "1"
 	if captureChild {
-		suiteDir, ok, err := suiteservices.ResolveSuiteArtifactDir(env)
+		suiteDir, ok, err := suiteservices.ResolveSuiteRuntimeDir(env)
 		if err != nil {
 			return nil, err
 		}

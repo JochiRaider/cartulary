@@ -61,6 +61,7 @@ import { validateVerificationContracts } from "../test-catalog/verification-cont
 import { validateTestCatalog } from "../test-catalog/test-catalog.mjs";
 import { validateTestCatalogImportBoundary } from "../test-catalog/import-boundary.mjs";
 import { validateExecutableInputPolicy } from "../test-catalog/restricted-input-boundary.mjs";
+import { loadHistoricalPerformanceSchemaRegistry } from "../diagnostics/historical-performance-evidence.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -3378,6 +3379,7 @@ function validateKind(kind, file, root = repoRoot) {
 
 function validateAll(root) {
   validateSchemaAttachmentPolicy(root);
+  loadHistoricalPerformanceSchemaRegistry(root);
   validateHarnessHelperOwnership(root);
   validateVerificationContracts(root);
   const testCatalog = validateTestCatalog(root);

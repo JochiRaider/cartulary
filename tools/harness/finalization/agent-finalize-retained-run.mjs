@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { validateSchemaSync } from "../contract/index.mjs";
+import { reduceCanonicalUnitIntervals } from "../evidence-accounting/canonical-unit-events.mjs";
 import { buildSourceSnapshot } from "../test-catalog/source-snapshot.mjs";
 
 function preflightFailure(actionID, reason, failureClass = "artifact") {
@@ -25,24 +26,6 @@ function canonicalFiles(root) {
   };
 }
 
-function readEvents(file) {
-  const lines = readFileSync(file, "utf8").split(/\r?\n/u).filter(Boolean);
-  if (lines.length === 0) throw new Error("unit-events.ndjson is empty");
-  return lines.map((line, index) => {
-    let event;
-    try {
-      event = JSON.parse(line);
-    } catch (error) {
-      throw new Error(`unit-events.ndjson line ${index + 1} is invalid JSON: ${error.message}`);
-    }
-    validateSchemaSync("cartulary.harness_unit_event.v1", event);
-    if (event.seq !== index + 1) {
-      throw new Error(`unit-events.ndjson sequence ${event.seq} is not contiguous at line ${index + 1}`);
-    }
-    return event;
-  });
-}
-
 export function createRetainedRunPreflight({
   allowOlderResultsDir,
   readJSON,
@@ -53,7 +36,7 @@ export function createRetainedRunPreflight({
   const sourceSnapshot = buildSourceSnapshot(repoRoot);
   const currentIdentity = { source_snapshot_digest: sourceSnapshot.digest };
 
-  function validateRetainedRunArtifacts(resolved, resultsDir, actionID) {
+  async function validateRetainedRunArtifacts(resolved, resultsDir, actionID) {
     if (!existsSync(resolved)) {
       return {
         ok: false,
@@ -86,7 +69,7 @@ export function createRetainedRunPreflight({
       validateSchemaSync("cartulary.harness_run_manifest.v1", manifest);
       validateSchemaSync("cartulary.harness_run_summary.v1", summary);
       validateSchemaSync("cartulary.harness_target_summary.v1", target);
-      const events = readEvents(files.events);
+      const eventState = await reduceCanonicalUnitIntervals(files.events);
       if (manifest.target !== "check" || summary.target !== "check" || target.target !== "check") {
         throw new Error("canonical retained root must identify check in manifest, run summary, and target summary");
       }
@@ -109,14 +92,10 @@ export function createRetainedRunPreflight({
       if (new Set(target.unit_ids).size !== counts.total) {
         throw new Error("canonical retained check projection does not cover the complete run roster");
       }
-      const terminal = new Map();
-      for (const event of events) {
-        if (["completed", "failed", "skipped", "cancelled"].includes(event.event)) {
-          if (terminal.has(event.unit_id)) throw new Error(`duplicate terminal event for ${event.unit_id}`);
-          terminal.set(event.unit_id, event.event);
-        }
-      }
-      if (terminal.size !== counts.total || [...terminal.values()].some((event) => event !== "completed")) {
+      if (
+        eventState.terminals.size !== counts.total ||
+        [...eventState.terminals.values()].some((event) => event.event !== "completed")
+      ) {
         throw new Error("canonical retained event roster does not close as successful");
       }
       for (const artifact of ["run-manifest.json", "unit-events.ndjson"]) {
@@ -140,13 +119,13 @@ export function createRetainedRunPreflight({
     return readJSON(canonicalFiles(runRoot).manifest).started_at ?? path.basename(runRoot);
   }
 
-  function latestSuccessfulCheckRun(parentDir, actionID) {
+  async function latestSuccessfulCheckRun(parentDir, actionID) {
     if (!existsSync(parentDir) || !statSync(parentDir).isDirectory()) return null;
     const candidates = [];
     for (const entry of readdirSync(parentDir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
       const candidate = path.join(parentDir, entry.name);
-      if (!validateRetainedRunArtifacts(candidate, candidate, actionID).ok) continue;
+      if (!(await validateRetainedRunArtifacts(candidate, candidate, actionID)).ok) continue;
       candidates.push({ resolved: candidate, completed_at: completedAt(candidate) });
     }
     candidates.sort((left, right) =>
@@ -166,11 +145,11 @@ export function createRetainedRunPreflight({
     };
   }
 
-  function validate(resultsDir, actionID) {
+  async function validate(resultsDir, actionID) {
     const resolved = path.resolve(resultsDir);
-    const validation = validateRetainedRunArtifacts(resolved, resultsDir, actionID);
+    const validation = await validateRetainedRunArtifacts(resolved, resultsDir, actionID);
     if (!validation.ok) return { ...validation, selection: baseSelection() };
-    const latest = latestSuccessfulCheckRun(path.dirname(resolved), actionID);
+    const latest = await latestSuccessfulCheckRun(path.dirname(resolved), actionID);
     const latestResolved = latest?.resolved ?? resolved;
     const suppliedIsLatest = path.resolve(latestResolved) === resolved;
     const selection = {

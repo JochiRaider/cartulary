@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadTestCatalog, targetForCatalogRow } from "../../test-catalog/index.mjs";
-import { validateSchemaSync } from "../../contract/index.mjs";
-import { adaptGoInvocation, buildGoInvocations } from "./go.mjs";
+import { redactString, validateSchemaSync } from "../../contract/index.mjs";
+import { runPrivateCapturedProcess } from "../../runtime/private-child-process.mjs";
+import { adaptGoInvocationFile, buildGoInvocations } from "./go.mjs";
 import { adaptShellInvocation, buildShellInvocations } from "./shell.mjs";
-import { adaptVitestInvocation, buildVitestInvocations } from "./vitest.mjs";
+import { adaptVitestInvocationFile, buildVitestInvocations } from "./vitest.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 
@@ -56,20 +56,15 @@ function writeResult(result) {
   writeFileSync(output, `${JSON.stringify(result, null, 2)}\n`, { mode: 0o600 });
 }
 
-function execute(invocation) {
-  const child = spawnSync(invocation.command, invocation.args, {
+async function execute(invocation, index) {
+  return runPrivateCapturedProcess(invocation.command, invocation.args, {
+    captureID: `row-runner-${process.pid}-${index}`,
     cwd: root,
     env: process.env,
-    encoding: "utf8",
-    maxBuffer: 128 * 1024 * 1024,
+    repoRoot: root,
+    runRoot: runRoot(),
+    tailBytes: 1024 * 1024,
   });
-  if (child.error) throw child.error;
-  return {
-    status: child.status ?? 11,
-    signal: child.signal,
-    stdout: child.stdout ?? "",
-    stderr: child.stderr ?? "",
-  };
 }
 
 function invocationsForRows(rows) {
@@ -88,14 +83,14 @@ function invocationsForRows(rows) {
   if (runner === "go") {
     return {
       invocations: buildGoInvocations(rows, workers, process.env.GO || "go"),
-      adapt: adaptGoInvocation,
+      adapt: adaptGoInvocationFile,
     };
   }
   if (runner === "vitest") {
     const command = process.env.PNPM || path.join(root, "tmp/node-runtime/bin/pnpm");
     return {
       invocations: buildVitestInvocations(root, rows, workers, command),
-      adapt: adaptVitestInvocation,
+      adapt: adaptVitestInvocationFile,
     };
   }
   if (runner === "shell") {
@@ -156,7 +151,7 @@ function canonicalFailure(result) {
   }
 }
 
-function main() {
+async function main() {
   const rowIDs = parseArgs(process.argv.slice(2));
   const catalog = loadTestCatalog(root);
   const rows = rowIDs.map((rowID) => {
@@ -171,12 +166,16 @@ function main() {
   const startedAt = new Date().toISOString();
   const started = Date.now();
   const results = [];
-  for (const invocation of invocations) {
-    const execution = execute(invocation);
-    results.push(...adapt(invocation, execution));
-    if (execution.status !== 0) {
-      if (execution.stdout) process.stderr.write(execution.stdout);
-      if (execution.stderr) process.stderr.write(execution.stderr);
+  for (const [index, invocation] of invocations.entries()) {
+    const execution = await execute(invocation, index);
+    try {
+      results.push(...await adapt(invocation, execution));
+      if (execution.status !== 0) {
+        if (execution.stdout) process.stderr.write(redactString(execution.stdout));
+        if (execution.stderr) process.stderr.write(redactString(execution.stderr));
+      }
+    } finally {
+      execution.cleanup();
     }
   }
   for (const result of results) {
@@ -207,7 +206,7 @@ function main() {
 }
 
 try {
-  process.exitCode = main();
+  process.exitCode = await main();
 } catch (error) {
   process.stderr.write(`${error.message}\n`);
   process.exitCode = error.message === usage() ? 2 : 11;

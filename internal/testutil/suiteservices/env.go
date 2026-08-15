@@ -3,11 +3,15 @@ package suiteservices
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 )
 
 const (
@@ -15,6 +19,9 @@ const (
 	SuiteIDEnv                    = "CARTULARY_TEST_SUITE_ID"
 	TargetEnv                     = "CARTULARY_TEST_TARGET"
 	HarnessServiceDependenciesEnv = "CARTULARY_HARNESS_SERVICE_DEPENDENCIES"
+	SuiteRuntimeRootEnv           = "CARTULARY_HARNESS_SUITE_RUNTIME_ROOT"
+	SuiteRuntimeLeaseIDEnv        = "CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID"
+	SuiteRuntimeRunIDEnv          = "CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID"
 
 	PGAdminDSNEnv    = "CARTULARY_PGTEST_ADMIN_DSN"
 	PGDSNTemplateEnv = "CARTULARY_PGTEST_DSN_TEMPLATE"
@@ -158,6 +165,114 @@ func ResolveSuiteArtifactDir(env map[string]string) (string, bool, error) {
 	}
 
 	return artifactDir, true, nil
+}
+
+// ResolveSuiteRuntimeDir returns the private, external directory used for
+// secret-capable suite state. It intentionally has no fallback beneath the
+// repository or retained result tree.
+func ResolveSuiteRuntimeDir(env map[string]string) (string, bool, error) {
+	suiteID := SuiteID(env)
+	if suiteID == "" {
+		return "", false, nil
+	}
+	configured := strings.TrimSpace(LookupEnvValue(env, SuiteRuntimeRootEnv))
+	if configured == "" || !filepath.IsAbs(configured) {
+		return "", false, fmt.Errorf("%s must name an absolute external directory", SuiteRuntimeRootEnv)
+	}
+	root := filepath.Clean(configured)
+	canonical, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", false, fmt.Errorf("resolve suite runtime root: %w", err)
+	}
+	if canonical != root {
+		return "", false, fmt.Errorf("suite runtime root must not traverse symlinks")
+	}
+	info, err := os.Lstat(root)
+	if err != nil {
+		return "", false, fmt.Errorf("inspect suite runtime root: %w", err)
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o700 {
+		return "", false, fmt.Errorf("suite runtime root must be a non-symlink owner-only 0700 directory")
+	}
+	if stat, ok := info.Sys().(*syscall.Stat_t); ok && int(stat.Uid) != os.Getuid() {
+		return "", false, fmt.Errorf("suite runtime root must be owned by the current user")
+	}
+	repoRoot, err := FindRepoRoot()
+	if err != nil {
+		return "", false, err
+	}
+	resultsRoot, err := ResolveResultsRoot(env)
+	if err != nil {
+		return "", false, err
+	}
+	if pathContained(repoRoot, root) || pathContained(resultsRoot, root) {
+		return "", false, fmt.Errorf("suite runtime root must be outside repository and retained result roots")
+	}
+	if err := validateSuiteRuntimeOwner(root, env); err != nil {
+		return "", false, err
+	}
+	privateDir := filepath.Join(root, "test-services")
+	if _, err := os.Lstat(privateDir); errors.Is(err, os.ErrNotExist) {
+		if err := os.Mkdir(privateDir, 0o700); err != nil {
+			return "", false, fmt.Errorf("create private suite service directory: %w", err)
+		}
+	} else if err != nil {
+		return "", false, fmt.Errorf("inspect private suite service directory: %w", err)
+	}
+	privateInfo, err := os.Lstat(privateDir)
+	if err != nil || !privateInfo.IsDir() || privateInfo.Mode()&os.ModeSymlink != 0 || privateInfo.Mode().Perm() != 0o700 {
+		return "", false, fmt.Errorf("private suite service directory must be a non-symlink owner-only 0700 directory")
+	}
+	if stat, ok := privateInfo.Sys().(*syscall.Stat_t); ok && int(stat.Uid) != os.Getuid() {
+		return "", false, fmt.Errorf("private suite service directory must be owned by the current user")
+	}
+	return privateDir, true, nil
+}
+
+func validateSuiteRuntimeOwner(root string, env map[string]string) error {
+	ownerPath := filepath.Join(root, "runtime-owner.json")
+	info, err := os.Lstat(ownerPath)
+	if err != nil {
+		return fmt.Errorf("inspect suite runtime owner marker: %w", err)
+	}
+	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o600 {
+		return fmt.Errorf("suite runtime owner marker must be a non-symlink owner-only 0600 file")
+	}
+	if stat, ok := info.Sys().(*syscall.Stat_t); ok && int(stat.Uid) != os.Getuid() {
+		return fmt.Errorf("suite runtime owner marker must be owned by the current user")
+	}
+	file, err := os.Open(ownerPath) // #nosec G304 -- ownerPath is contained below the validated non-symlink suite root.
+	if err != nil {
+		return fmt.Errorf("open suite runtime owner marker: %w", err)
+	}
+	defer file.Close()
+	var owner struct {
+		SchemaID  string `json:"schema_id"`
+		LeaseID   string `json:"lease_id"`
+		RunID     string `json:"run_id"`
+		OwnerUID  int    `json:"owner_uid"`
+		CreatedAt string `json:"created_at"`
+	}
+	decoder := json.NewDecoder(file)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&owner); err != nil {
+		return fmt.Errorf("decode suite runtime owner marker: %w", err)
+	}
+	expectedLease := strings.TrimSpace(LookupEnvValue(env, SuiteRuntimeLeaseIDEnv))
+	if owner.SchemaID != "cartulary.harness_suite_runtime_owner.v1" ||
+		expectedLease == "" || owner.LeaseID != expectedLease ||
+		owner.RunID != strings.TrimSpace(LookupEnvValue(env, SuiteRuntimeRunIDEnv)) || owner.OwnerUID != os.Getuid() {
+		return fmt.Errorf("suite runtime owner marker does not match the active lease")
+	}
+	if _, err := time.Parse(time.RFC3339Nano, owner.CreatedAt); err != nil {
+		return fmt.Errorf("suite runtime owner marker has invalid creation time: %w", err)
+	}
+	return nil
+}
+
+func pathContained(parent string, child string) bool {
+	relative, err := filepath.Rel(filepath.Clean(parent), filepath.Clean(child))
+	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
 func resultsRootSubdir(resultsRoot string, parts ...string) (string, error) {

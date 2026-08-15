@@ -54,11 +54,12 @@ assert_equals() {
 }
 
 make_fixture_repo() {
+  local output_name="$1"
   local dir
   dir="$(cartulary_harness_mktemp_dir lint-shell-fixture.XXXXXX)"
   cleanup_paths+=("$dir")
   git -C "$dir" init -q
-  printf '%s\n' "$dir"
+  printf -v "$output_name" '%s' "$dir"
 }
 
 track_all() {
@@ -121,7 +122,9 @@ count_shellcheck_runs() {
   grep -c '^RUN$' "$log_file" || true
 }
 
-inventory_repo="$(make_fixture_repo)"
+declare inventory_repo empty_repo warning_repo cache_repo make_strict_repo real_repo
+
+make_fixture_repo inventory_repo
 mkdir -p \
   "$inventory_repo/bin" \
   "$inventory_repo/scripts" \
@@ -177,7 +180,7 @@ artifact_output="$(
 assert_equals "$artifact_output" "4 files checked" "artifact-mode lint-shell output"
 assert_equals "$(cat "$artifact_dir/shellcheck-inventory.txt")" "$expected_args" "artifact-mode lint-shell inventory"
 
-empty_repo="$(make_fixture_repo)"
+make_fixture_repo empty_repo
 mkdir -p "$empty_repo/scripts"
 printf '%s\n' '#!/usr/bin/env python3' 'print("not shell")' >"$empty_repo/scripts/not-shell"
 track_all "$empty_repo"
@@ -189,7 +192,7 @@ empty_output="$(
 )"
 assert_equals "$empty_output" "0 files checked" "empty lint-shell output"
 
-warning_repo="$(make_fixture_repo)"
+make_fixture_repo warning_repo
 mkdir -p "$warning_repo/scripts"
 printf '%s\n' "echo \"\$HOME\"" >"$warning_repo/scripts/warn.sh"
 track_all "$warning_repo"
@@ -229,7 +232,7 @@ if [[ "$strict_status" -eq 0 ]]; then
 fi
 assert_contains "$strict_output" "SC2086 simulated finding" "strict mode finding output"
 
-cache_repo="$(make_fixture_repo)"
+make_fixture_repo cache_repo
 mkdir -p "$cache_repo/scripts"
 printf '%s\n' '#!/usr/bin/env bash' 'echo ok' >"$cache_repo/scripts/good.sh"
 track_all "$cache_repo"
@@ -277,7 +280,7 @@ cache_missing_output="$(run_cached_shellcheck)"
 assert_contains "$cache_missing_output" "1 files checked" "lint-shell cache missing-output output"
 assert_equals "$(count_shellcheck_runs "$cache_run_log")" "4" "lint-shell cache missing output executes shellcheck"
 
-make_strict_repo="$(make_fixture_repo)"
+make_fixture_repo make_strict_repo
 mkdir -p "$make_strict_repo/scripts"
 printf '%s\n' "echo \"\$HOME\"" >"$make_strict_repo/scripts/warn.sh"
 track_all "$make_strict_repo"
@@ -325,7 +328,7 @@ elif command -v shellcheck >/dev/null 2>&1; then
 fi
 
 if [[ -n "$real_shellcheck" ]]; then
-  real_repo="$(make_fixture_repo)"
+  make_fixture_repo real_repo
   mkdir -p "$real_repo/scripts"
   printf '%s\n' "#!/usr/bin/env bash" "name=\"\${1:-world}\"" "echo \${name}" >"$real_repo/scripts/unsafe.sh"
   track_all "$real_repo"

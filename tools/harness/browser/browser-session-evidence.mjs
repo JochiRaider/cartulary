@@ -110,13 +110,7 @@ function atomicWrite(file, contents) {
 }
 
 function artifactRefs() {
-  return [
-    process.env.CARTULARY_WEB_E2E_SERVER_LOG,
-    process.env.CARTULARY_WEB_E2E_WEB_LOG,
-  ]
-    .filter((value) => typeof value === "string" && value.trim() !== "")
-    .map(relativeToRun)
-    .sort();
+  return [];
 }
 
 function eventPath() {
@@ -296,16 +290,18 @@ function processProof(pidValue, processGroupID) {
 }
 
 function writeLease() {
+  const suiteRuntimeLeaseID = identityEnv("CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID");
   const payload = {
-    schema_id: "cartulary.web_e2e_stack_lease.v1",
+    schema_id: "cartulary.web_e2e_stack_lease.v2",
     suite_id: identityEnv("CARTULARY_TEST_SUITE_ID"),
     browser_session_id: identityEnv("CARTULARY_BROWSER_SESSION_GROUP"),
     runtime_profile_id: identityEnv("CARTULARY_BROWSER_RUNTIME_PROFILE_ID"),
-    backend_process_group_id: Number.parseInt(requiredEnv("CARTULARY_WEB_E2E_SERVER_PGID"), 10),
-    frontend_process_group_id: Number.parseInt(requiredEnv("CARTULARY_WEB_E2E_VITE_PGID"), 10),
-    backend_port: Number.parseInt(requiredEnv("CARTULARY_WEB_E2E_BACKEND_PORT"), 10),
-    frontend_port: Number.parseInt(requiredEnv("CARTULARY_WEB_E2E_FRONTEND_PORT"), 10),
-    runtime_root: requiredEnv("CARTULARY_WEB_E2E_RUNTIME_ROOT"),
+    lease_identity: sha256Bytes(
+      Buffer.from(
+        `${suiteRuntimeLeaseID}\0${process.env.CARTULARY_TEST_SUITE_ID}\0${process.env.CARTULARY_BROWSER_SESSION_GROUP}`,
+      ),
+    ),
+    resource_classes: ["backend_process", "frontend_process", "runtime_directory"],
     created_at: new Date().toISOString(),
   };
   validateSchemaSync(payload.schema_id, payload);
@@ -544,14 +540,14 @@ function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\"'\"'")}'`;
 }
 
-function attachmentAssignments(stackPath) {
+export function attachmentAssignments(stackPath) {
   const resolvedStack = path.resolve(stackPath);
   const expectedRoot = sessionRoot();
-  const playwrightStateDir = path.join(
-    expectedRoot,
-    "runtime-root",
-    "playwright-state",
-  );
+  const runtimeRoot = path.resolve(requiredEnv("CARTULARY_WEB_E2E_RUNTIME_ROOT"));
+  const playwrightStateDir = path.resolve(requiredEnv("CARTULARY_PLAYWRIGHT_STATE_DIR"));
+  if (!playwrightStateDir.startsWith(`${runtimeRoot}${path.sep}`)) {
+    throw new Error("Playwright state must be beneath the private browser runtime root");
+  }
   if (
     resolvedStack !== path.join(expectedRoot, "stack-v5.json") ||
     !resolvedStack.startsWith(`${runRoot()}${path.sep}`)
@@ -580,6 +576,18 @@ function attachmentAssignments(stackPath) {
     if (sha256File(artifact) !== stack[digestKey]) {
       throw new Error(`browser v5 attachment ${referenceKey} digest mismatch`);
     }
+  }
+  const retainedLease = JSON.parse(
+    readFileSync(resolveRunArtifact(stack.lease_ref), "utf8"),
+  );
+  validateSchemaSync(retainedLease.schema_id, retainedLease);
+  if (
+    retainedLease.schema_id !== "cartulary.web_e2e_stack_lease.v2" ||
+    retainedLease.suite_id !== expected.suite_id ||
+    retainedLease.browser_session_id !== expected.browser_session_id ||
+    retainedLease.runtime_profile_id !== expected.runtime_profile_id
+  ) {
+    throw new Error("browser v5 attachment retained lease identity mismatch");
   }
   if (stack.performance_fixture) {
     const active = stack.performance_fixture;

@@ -1,3 +1,6 @@
+import { createReadStream } from "node:fs";
+import { createInterface } from "node:readline";
+
 import { validateSchemaSync } from "../../contract/index.mjs";
 
 export const runnerContract = Object.freeze({
@@ -48,6 +51,31 @@ export function buildGoInvocations(rows, workers, command = process.env.GO || "g
 
 const failureMarker = "CARTULARY_HARNESS_TEST_FAILURE=";
 
+function observeEvent(event, terminal, markers) {
+  if (
+    typeof event.Test === "string" &&
+    ["pass", "fail", "skip"].includes(event.Action)
+  ) {
+    terminal.set(event.Test, {
+      action: event.Action,
+      duration_ms: Math.max(0, Math.round(Number(event.Elapsed ?? 0) * 1000)),
+    });
+  }
+  if (typeof event.Test === "string" && typeof event.Output === "string") {
+    const markerIndex = event.Output.indexOf(failureMarker);
+    if (markerIndex >= 0) {
+      const encoded = event.Output.slice(markerIndex + failureMarker.length).trim();
+      try {
+        const envelope = JSON.parse(encoded);
+        validateSchemaSync("cartulary.harness_test_failure.v1", envelope);
+        markers.push({ test: event.Test, envelope, malformed: false });
+      } catch {
+        markers.push({ test: event.Test, envelope: null, malformed: true });
+      }
+    }
+  }
+}
+
 function parseEvents(stdout) {
   const terminal = new Map();
   const markers = [];
@@ -59,28 +87,33 @@ function parseEvents(stdout) {
     } catch {
       continue;
     }
-    if (
-      typeof event.Test === "string" &&
-      ["pass", "fail", "skip"].includes(event.Action)
-    ) {
-      terminal.set(event.Test, {
-        action: event.Action,
-        duration_ms: Math.max(0, Math.round(Number(event.Elapsed ?? 0) * 1000)),
-      });
-    }
-    if (typeof event.Test === "string" && typeof event.Output === "string") {
-      const markerIndex = event.Output.indexOf(failureMarker);
-      if (markerIndex >= 0) {
-        const encoded = event.Output.slice(markerIndex + failureMarker.length).trim();
-        try {
-          const envelope = JSON.parse(encoded);
-          validateSchemaSync("cartulary.harness_test_failure.v1", envelope);
-          markers.push({ test: event.Test, envelope, malformed: false });
-        } catch {
-          markers.push({ test: event.Test, envelope: null, malformed: true });
-        }
+    observeEvent(event, terminal, markers);
+  }
+  return { terminal, markers };
+}
+
+async function parseEventsFile(file) {
+  const terminal = new Map();
+  const markers = [];
+  const input = createReadStream(file, { encoding: "utf8" });
+  const lines = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY });
+  try {
+    for await (const line of lines) {
+      if (line.trim() === "") continue;
+      if (Buffer.byteLength(line, "utf8") > 1024 * 1024) {
+        throw new Error("Go JSON event exceeds the 1 MiB line contract");
+      }
+      try {
+        observeEvent(JSON.parse(line), terminal, markers);
+      } catch {
+        // `go test -json` may relay non-JSON process diagnostics. Selector
+        // closure below classifies missing terminal events without retaining
+        // the unbounded raw stream.
       }
     }
+  } finally {
+    lines.close();
+    input.destroy();
   }
   return { terminal, markers };
 }
@@ -130,8 +163,7 @@ function markerFailure(selectors, markers) {
   };
 }
 
-export function adaptGoInvocation(invocation, result) {
-  const { terminal, markers } = parseEvents(result.stdout);
+function adaptParsedGoInvocation(invocation, result, { terminal, markers }) {
   return invocation.rows.map((row) => {
     const observations = row.selectors.map((selector) => terminal.get(selector));
     const missing = observations.some((entry) => entry === undefined);
@@ -163,4 +195,12 @@ export function adaptGoInvocation(invocation, result) {
       failure_diagnostic: typedFailure?.failure_diagnostic ?? null,
     };
   });
+}
+
+export function adaptGoInvocation(invocation, result) {
+  return adaptParsedGoInvocation(invocation, result, parseEvents(result.stdout));
+}
+
+export async function adaptGoInvocationFile(invocation, result) {
+  return adaptParsedGoInvocation(invocation, result, await parseEventsFile(result.stdoutPath));
 }

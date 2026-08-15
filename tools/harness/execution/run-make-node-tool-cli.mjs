@@ -40,6 +40,8 @@ import {
   toolSummaryPath,
 } from "../output/index.mjs";
 import { finalizeObservabilitySafely, observabilityRequiredTarget } from "../observability/observability.mjs";
+import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs";
+import { createSuiteRuntime } from "../runtime/suite-runtime.mjs";
 
 function nowUTC() {
   return new Date().toISOString();
@@ -152,14 +154,41 @@ async function runWrapped(target, invocation) {
   const stderrLog = path.join(targetRootAbs, "stderr.log");
   const startedAt = nowUTC();
   const startedMs = monotonicMs();
-  const child = spawnSync(process.execPath, [invocation.script, ...invocation.args], {
-    env: buildMakeNodeToolChildEnv(target, process.env),
-    encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-    stdio: quietLikeOutput() ? ["ignore", "pipe", "pipe"] : "inherit",
-  });
-  if (child.error) {
-    throw child.error;
+  const childEnvironment = buildMakeNodeToolChildEnv(target, process.env);
+  let child;
+  if (quietLikeOutput()) {
+    const suiteRuntime = createSuiteRuntime({
+      repoRoot: process.cwd(),
+      runRoot: runRootAbs,
+      runID,
+    });
+    Object.assign(childEnvironment, {
+      CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: suiteRuntime.root,
+      CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
+      CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: suiteRuntime.runID,
+    });
+    try {
+      child = await runPrivateCapturedProcess(
+        process.execPath,
+        [invocation.script, ...invocation.args],
+        {
+          captureID: `make-node-tool-${target}`,
+          cwd: process.cwd(),
+          env: childEnvironment,
+          repoRoot: process.cwd(),
+          runRoot: runRootAbs,
+        },
+      );
+      child.cleanup();
+    } finally {
+      suiteRuntime.close();
+    }
+  } else {
+    child = spawnSync(process.execPath, [invocation.script, ...invocation.args], {
+      env: childEnvironment,
+      stdio: "inherit",
+    });
+    if (child.error) throw child.error;
   }
   const status = child.status ?? 1;
   const stdoutFile = quietLikeOutput()
@@ -228,7 +257,7 @@ async function runWrapped(target, invocation) {
   await validateSchema(toolRunSummarySchemaID, summary);
   secureWriteFile(summaryFile, prettyJSONString(summary));
   if (!suppressChildSuccess() && observabilityRequiredTarget(target)) {
-    const observability = finalizeObservabilitySafely(runRootAbs, {
+    const observability = await finalizeObservabilitySafely(runRootAbs, {
       target,
       status: summary.status === "pass" ? "passed" : "failed",
     });

@@ -2,7 +2,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { canonicalJSONString } from "../../test-catalog/index.mjs";
+import { canonicalJSONString } from "../../contract/index.mjs";
 import { WorkGraphCompiler } from "./compiler.mjs";
 
 function usage() {

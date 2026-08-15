@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { lstatSync, readFileSync, readlinkSync } from "node:fs";
 import path from "node:path";
 
-import { canonicalJSONString } from "./semantic-json.mjs";
+import { canonicalJSONString } from "../contract/index.mjs";
 import { restrictedExecutableInputRoots } from "./restricted-input-boundary.mjs";
 
 function asciiCompare(left, right) {
@@ -96,4 +96,3 @@ export function buildSourceSnapshot(root, options = {}) {
     file_count: entries.length,
   };
 }
-

@@ -43,6 +43,16 @@ assert_not_contains() {
   fi
 }
 
+assert_equals() {
+  local actual="$1"
+  local expected="$2"
+  local label="$3"
+
+  if [[ "$actual" != "$expected" ]]; then
+    fail "$label: expected [$expected], got [$actual]"
+  fi
+}
+
 scratch="$(cartulary_harness_mktemp_dir go-govulncheck.XXXXXX)"
 export GO_CACHE_DIR="$scratch/go-cache"
 export GO_MOD_CACHE_DIR="$scratch/go-mod-cache"
@@ -218,6 +228,7 @@ assert_contains "$env_output" "PATH=$scratch:" "govulncheck PATH includes GO dir
 
 step_artifact_dir="$scratch/step-artifacts"
 status=0
+umask 022
 output="$(
   GO="$fake_go" \
     GO_CACHE_DIR="$scratch/go-cache" \
@@ -240,6 +251,9 @@ findings_json="$(cat "$step_artifact_dir/govulncheck-findings.json")"
 assert_contains "$findings_json" '"schema_id": "cartulary.govulncheck_findings.v1"' "Govulncheck findings schema"
 assert_contains "$findings_json" '"blocking_count": 1' "Govulncheck blocking count"
 assert_contains "$findings_json" '"reachability": "symbol"' "Govulncheck symbol reachability"
+assert_equals "$(stat -c '%a' "$step_artifact_dir")" "700" "Govulncheck artifact directory owner-only mode"
+assert_equals "$(stat -c '%a' "$step_artifact_dir/govulncheck-output.jsonstream")" "600" "Govulncheck raw artifact owner-only mode"
+assert_equals "$(stat -c '%a' "$step_artifact_dir/govulncheck-findings.json")" "600" "Govulncheck findings artifact owner-only mode"
 
 malformed_artifact_dir="$scratch/malformed-step-artifacts"
 status=0

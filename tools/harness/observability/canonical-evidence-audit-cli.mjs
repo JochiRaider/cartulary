@@ -41,7 +41,7 @@ try {
     if (entryTargets.has(entry.target)) throw new Error(`duplicate evidence target ${entry.target}`);
     entryTargets.add(entry.target);
     const runRoot = path.resolve(path.dirname(manifestFile), entry.run_root);
-    const run = validateCanonicalRun(runRoot);
+    const run = await validateCanonicalRun(runRoot);
     const targetSummary = run.targetSummaries.get(entry.target);
     if (!targetSummary) throw new Error(`${runRoot} has no canonical projection for ${entry.target}`);
     for (const rowID of required.keys()) {

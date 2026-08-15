@@ -33,7 +33,6 @@ import {
   summaryProjectionChildren,
 } from "../../execution/summary-topology.mjs";
 import { defaultTaskSurfaceManifestPath } from "../../generated-artifacts/task-surface/model.mjs";
-import { finalizeObservabilitySafely, observabilityRequiredTarget } from "../../observability/observability.mjs";
 import {
   artifactLine,
   directoryArtifactRef,
@@ -1459,10 +1458,7 @@ function serviceSharedSummaryArtifacts(runRunRoot) {
     .sort((left, right) => left.localeCompare(right))
     .flatMap((suiteID) => {
       const suiteRoot = path.join(serviceRoot, suiteID);
-      return [
-        ["service_lease", "service-lease.json"],
-        ["service_scope", "service-scope.json"],
-      ]
+      return [["service_scope", "service-scope.json"]]
         .map(([role, filename]) => {
           const file = path.join(suiteRoot, filename);
           return existsSync(file) ? fileArtifactRef(role, relToRepo(file)) : null;
@@ -2125,29 +2121,6 @@ export function handleTargetSummary(args) {
   }
   const shouldSuppressMachineOutput =
     suppressMachineOutput || suppressChildSuccess();
-  if (
-    !suppressChildSuccess() &&
-    process.env.CARTULARY_DEFER_OBSERVABILITY_FINALIZE !== "1" &&
-    observabilityRequiredTarget(targetSummary.target)
-  ) {
-    const observability = finalizeObservabilitySafely(path.join(resultsRoot, runId), {
-      target: targetSummary.target,
-      status: targetSummary.status === "pass" ? "passed" : "failed",
-    });
-    if (observability.status === "partial") {
-      const toolSummary = JSON.parse(readFileSync(targetToolSummaryFile, "utf8"));
-      toolSummary.warnings = [
-        ...(toolSummary.warnings ?? []),
-        {
-          kind: "harness_observability",
-          status: "partial",
-          diagnostic: observability.diagnostic,
-        },
-      ];
-      writeToolSummary(targetToolSummaryFile, toolSummary);
-    }
-  }
-
   if (finalStatus === "PASS") {
     if (machineOutput()) {
       if (!shouldSuppressMachineOutput) {

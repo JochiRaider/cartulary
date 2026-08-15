@@ -88,30 +88,48 @@ export function parseAc043RuntimeBundle(
   const bundle = requireRecord(decoded, "AC-043 private runtime bundle");
   requireExactKeys(
     bundle,
-    ["schema_id", "fixture_profile_id", "snapshot_key", "background_accounts"],
+    ["schema_id", "fixture_profile_id", "snapshot_key", "credential_sets"],
     "AC-043 private runtime bundle",
   );
   if (
-    bundle.schema_id !== "cartulary.performance_fixture_runtime.v1" ||
+    bundle.schema_id !== "cartulary.performance_fixture_runtime.v2" ||
     bundle.fixture_profile_id !== expected.fixtureProfileId ||
     bundle.snapshot_key !== expected.snapshotKey ||
     !/^[a-f0-9]{64}$/u.test(expected.snapshotKey)
   ) {
     throw new Error("AC-043 private runtime bundle identity is inconsistent");
   }
-  if (!Array.isArray(bundle.background_accounts)) {
-    throw new Error("AC-043 private runtime bundle accounts must be an array");
+  if (
+    !Array.isArray(bundle.credential_sets) ||
+    bundle.credential_sets.length !== 1
+  ) {
+    throw new Error(
+      "AC-043 private runtime bundle credential sets are inconsistent",
+    );
+  }
+  const credentialSet = requireRecord(
+    bundle.credential_sets[0],
+    "AC-043 private runtime credential set",
+  );
+  requireExactKeys(
+    credentialSet,
+    ["set_id", "credential_kind", "credentials"],
+    "AC-043 private runtime credential set",
+  );
+  if (
+    credentialSet.set_id !== "background_analysts" ||
+    credentialSet.credential_kind !== "email_password" ||
+    !Array.isArray(credentialSet.credentials)
+  ) {
+    throw new Error("AC-043 private runtime credential set is incompatible");
   }
   const emails = new Set<string>();
-  const accounts = bundle.background_accounts.map((rawAccount, index) => {
+  const accounts = credentialSet.credentials.map((rawAccount, index) => {
     const label = `AC-043 private runtime account ${index + 1}`;
     const account = requireRecord(rawAccount, label);
-    requireExactKeys(account, ["email", "password"], label);
-    const email = requirePrivateString(account.email, `${label} email`);
-    const password = requirePrivateString(
-      account.password,
-      `${label} password`,
-    );
+    requireExactKeys(account, ["principal", "secret"], label);
+    const email = requirePrivateString(account.principal, `${label} email`);
+    const password = requirePrivateString(account.secret, `${label} password`);
     if (!email.includes("@") || email.length > 254) {
       throw new Error(`${label} email is invalid`);
     }

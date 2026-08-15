@@ -2,13 +2,10 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { validateSchemaSync } from "../contract/index.mjs";
+import { reduceCanonicalUnitIntervals } from "../evidence-accounting/canonical-unit-events.mjs";
 
 function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
-}
-
-function loadEvents(file) {
-  return readFileSync(file, "utf8").split(/\r?\n/u).filter(Boolean).map(JSON.parse);
 }
 
 function containedArtifact(runRoot, relative) {
@@ -36,7 +33,7 @@ function intervalUnion(intervals) {
   return total;
 }
 
-export function validateCanonicalRun(runRoot, expectedTarget = "") {
+export async function validateCanonicalRun(runRoot, expectedTarget = "") {
   const files = {
     manifest: path.join(runRoot, "run-manifest.json"),
     summary: path.join(runRoot, "run-summary.json"),
@@ -55,41 +52,28 @@ export function validateCanonicalRun(runRoot, expectedTarget = "") {
   if (expectedTarget && manifest.target !== expectedTarget) {
     throw new Error(`${runRoot} target ${manifest.target} does not match ${expectedTarget}`);
   }
-  const events = loadEvents(files.events);
-  if (events.length === 0) throw new Error(`${files.events} is empty`);
-  const terminal = new Map();
-  const started = new Map();
-  let runStarted = null;
-  let runCompleted = null;
-  let previousMs = 0;
-  for (const [index, event] of events.entries()) {
-    validateSchemaSync("cartulary.harness_unit_event.v1", event);
-    if (event.seq !== index + 1 || event.monotonic_ms < previousMs) {
-      throw new Error(`${files.events} is not a contiguous monotonic event stream`);
-    }
-    previousMs = event.monotonic_ms;
-    if (event.event === "run_started") {
-      if (runStarted) throw new Error(`${files.events} has duplicate run_started events`);
-      runStarted = event;
-    }
-    if (event.event === "run_completed") {
-      if (runCompleted) throw new Error(`${files.events} has duplicate run_completed events`);
-      runCompleted = event;
-    }
-    if (event.event === "started") started.set(event.unit_id, event.monotonic_ms);
-    if (["completed", "failed", "skipped", "cancelled"].includes(event.event)) {
-      if (terminal.has(event.unit_id)) throw new Error(`${files.events} has duplicate terminal event for ${event.unit_id}`);
-      terminal.set(event.unit_id, event);
-    }
-  }
+  const eventState = await reduceCanonicalUnitIntervals(files.events);
+  const terminal = eventState.terminals;
+  const started = eventState.starts;
+  const runStarted = eventState.runStarted;
+  const runCompleted = eventState.runCompleted;
   const counts = summary.unit_counts;
-  if (terminal.size !== counts.total || counts.passed + counts.failed + counts.skipped + counts.cancelled !== counts.total) {
+  const terminalCounts = { passed: 0, failed: 0, skipped: 0, cancelled: 0 };
+  for (const event of terminal.values()) terminalCounts[event.status] += 1;
+  if (
+    terminal.size !== counts.total ||
+    counts.passed + counts.failed + counts.skipped + counts.cancelled !== counts.total ||
+    Object.entries(terminalCounts).some(([status, count]) => counts[status] !== count)
+  ) {
     throw new Error(`${files.summary} unit roster does not close against terminal events`);
   }
   if (!runStarted || !runCompleted || runStarted.monotonic_ms !== 0) {
     throw new Error(`${files.events} does not close the canonical run interval`);
   }
-  if (summary.wall_duration_ms !== runCompleted.monotonic_ms || runCompleted !== events.at(-1)) {
+  if (
+    summary.wall_duration_ms !== runCompleted.monotonic_ms ||
+    runCompleted.seq !== eventState.eventCount
+  ) {
     throw new Error(`${files.summary} wall duration does not equal the canonical run interval`);
   }
   for (const artifact of summary.artifact_refs) {
@@ -115,5 +99,12 @@ export function validateCanonicalRun(runRoot, expectedTarget = "") {
     }
     targetSummaries.set(targetSummary.target, targetSummary);
   }
-  return { manifest, summary, events, terminal, started, targetSummaries };
+  return {
+    eventCount: eventState.eventCount,
+    manifest,
+    summary,
+    terminal,
+    started,
+    targetSummaries,
+  };
 }

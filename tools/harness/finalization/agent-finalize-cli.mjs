@@ -554,7 +554,7 @@ function runMakeSubstep(definition, substep) {
   ], {
     cwd: repoRoot,
     env: childEnv,
-    encoding: "utf8",
+    stdio: "ignore",
   });
   const completedAt = now();
   const summaryFile = childSummaryPath(definition.target);
@@ -660,10 +660,10 @@ function finalizeActionStatus(action, actionStartedMs) {
   action.duration_ms = durationMs(actionStartedMs);
 }
 
-function runPreflightSubstep(action, substep) {
+async function runPreflightSubstep(action, substep) {
   substep.started_at = now();
   const stepStartMs = Date.now();
-  const result = retainedRunPreflight.validate(resultsDirInput, action.action_id);
+  const result = await retainedRunPreflight.validate(resultsDirInput, action.action_id);
   substep.completed_at = now();
   substep.duration_ms = durationMs(stepStartMs);
   substep.exit_code = result.ok ? 0 : 1;
@@ -671,7 +671,7 @@ function runPreflightSubstep(action, substep) {
   return result;
 }
 
-function main() {
+async function main() {
   const startedAt = now();
   const startedMs = Date.now();
   const beforeStatus = gitStatusMap();
@@ -706,7 +706,7 @@ function main() {
 
     if (action.substeps[0]?.id === preflightSubstep.id) {
       const substep = action.substeps[0];
-      const result = runPreflightSubstep(action, substep);
+      const result = await runPreflightSubstep(action, substep);
       if (result.selection) {
         retainedRunSelection = result.selection;
       }
@@ -792,10 +792,8 @@ function main() {
   }
 }
 
-try {
-  main();
-} catch (error) {
+main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   process.stderr.write(`agent-finalize: ${message}\n`);
   process.exit(1);
-}
+});

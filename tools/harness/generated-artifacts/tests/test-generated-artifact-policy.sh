@@ -224,6 +224,7 @@ JSON
 }
 
 make_policy_repo() {
+  local output_name="$1"
   local repo
   repo="$(cartulary_harness_mktemp_dir generated-policy.XXXXXX)"
   cleanup_paths+=("$repo")
@@ -231,7 +232,7 @@ make_policy_repo() {
   write_support_files "$repo"
   write_policy "$repo"
   git -C "$repo" add -A
-  printf '%s\n' "$repo"
+  printf -v "$output_name" '%s' "$repo"
 }
 
 run_policy() {
@@ -256,30 +257,34 @@ expect_policy_failure() {
   assert_contains "$output" "$expected" "$label"
 }
 
-valid_repo="$(make_policy_repo)"
+declare valid_repo deleted_root_artifact_repo missing_marker_repo untracked_repo
+declare unsupported_repo make_marker_repo biome_repo shell_scope_repo go_scope_repo
+declare broad_policy_repo escaping_policy_repo duplicate_policy_repo
+
+make_policy_repo valid_repo
 run_policy "$valid_repo" >/dev/null
 
-deleted_root_artifact_repo="$(make_policy_repo)"
+make_policy_repo deleted_root_artifact_repo
 rm "$deleted_root_artifact_repo/internal/gen/contracts/contracts_gen.go"
 run_policy "$deleted_root_artifact_repo" >/dev/null
 
-missing_marker_repo="$(make_policy_repo)"
+make_policy_repo missing_marker_repo
 printf '%s\n' 'package contracts' >"$missing_marker_repo/internal/gen/contracts/contracts_gen.go"
 expect_policy_failure "$missing_marker_repo" "internal/gen/contracts/contracts_gen.go: missing required generated marker" "missing generated marker"
 
-untracked_repo="$(make_policy_repo)"
+make_policy_repo untracked_repo
 printf '%s\n' 'package contracts' >"$untracked_repo/internal/gen/contracts/untracked.go"
 expect_policy_failure "$untracked_repo" "internal/gen/contracts/untracked.go: missing required generated marker" "untracked generated file marker"
 
-unsupported_repo="$(make_policy_repo)"
+make_policy_repo unsupported_repo
 printf '%s\n' 'generated text' >"$unsupported_repo/internal/gen/contracts/readme.txt"
 expect_policy_failure "$unsupported_repo" "internal/gen/contracts/readme.txt: unsupported generated extension .txt" "unsupported generated extension"
 
-make_marker_repo="$(make_policy_repo)"
+make_policy_repo make_marker_repo
 printf '%s\n' '.PHONY: help' >"$make_marker_repo/tools/task_surface.generated.mk"
 expect_policy_failure "$make_marker_repo" "tools/task_surface.generated.mk: missing required generated marker" "generated Make marker"
 
-biome_repo="$(make_policy_repo)"
+make_policy_repo biome_repo
 cat >"$biome_repo/biome.json" <<'JSON'
 {
   "files": {
@@ -297,7 +302,7 @@ cat >"$biome_repo/biome.json" <<'JSON'
 JSON
 expect_policy_failure "$biome_repo" "biome.json: files.includes must exclude !packages/protocol-ts/src/generated/**" "Biome recursive generated exclusion"
 
-shell_scope_repo="$(make_policy_repo)"
+make_policy_repo shell_scope_repo
 cat >"$shell_scope_repo/tools/harness/static-analysis/shellcheck.sh" <<'EOF'
 source tools/harness/generated-artifacts/generated-artifacts.sh
 cartulary_is_generated_artifact_path
@@ -307,14 +312,14 @@ esac
 EOF
 expect_policy_failure "$shell_scope_repo" "tools/harness/static-analysis/shellcheck.sh: forbidden broad generated exclusion \"*/generated/*\"" "ShellCheck broad generated exclusion"
 
-go_scope_repo="$(make_policy_repo)"
+make_policy_repo go_scope_repo
 cat >"$go_scope_repo/tools/harness/static-analysis/go-vet.sh" <<'EOF'
 source tools/harness/generated-artifacts/generated-artifacts.sh
 go list ./internal/...
 EOF
 expect_policy_failure "$go_scope_repo" "tools/harness/static-analysis/go-vet.sh: missing lint scope guard \"cartulary_filter_authored_go_packages\"" "go vet generated package filter"
 
-broad_policy_repo="$(make_policy_repo)"
+make_policy_repo broad_policy_repo
 cat >"$broad_policy_repo/tools/generated_artifact_policy.json" <<'JSON'
 {
   "schema_id": "cartulary.generated_artifact_policy.v1",
@@ -330,7 +335,7 @@ cat >"$broad_policy_repo/tools/generated_artifact_policy.json" <<'JSON'
 JSON
 expect_policy_failure "$broad_policy_repo" "generated_roots[1].path is too broad for a generated root" "broad generated root"
 
-escaping_policy_repo="$(make_policy_repo)"
+make_policy_repo escaping_policy_repo
 cat >"$escaping_policy_repo/tools/generated_artifact_policy.json" <<'JSON'
 {
   "schema_id": "cartulary.generated_artifact_policy.v1",
@@ -346,7 +351,7 @@ cat >"$escaping_policy_repo/tools/generated_artifact_policy.json" <<'JSON'
 JSON
 expect_policy_failure "$escaping_policy_repo" "generated_roots[1].path must stay under the repository root" "escaping generated root"
 
-duplicate_policy_repo="$(make_policy_repo)"
+make_policy_repo duplicate_policy_repo
 cat >"$duplicate_policy_repo/tools/generated_artifact_policy.json" <<'JSON'
 {
   "schema_id": "cartulary.generated_artifact_policy.v1",

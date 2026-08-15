@@ -69,6 +69,7 @@ assert_contains "$output" "run make go-security-toolchain before go-gosec-audit"
 fake_gosec="$scratch/gosec"
 args_log="$scratch/gosec-args.log"
 env_log="$scratch/gosec-env.log"
+artifact_dir="$scratch/audit-artifacts"
 cat >"$fake_gosec" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "--call--" "$@" >>"${FAKE_GOSEC_ARGS_LOG:?}"
@@ -82,6 +83,7 @@ EOF
 chmod +x "$fake_gosec"
 
 status=0
+umask 022
 output="$(
   GO="$fake_go" \
     GO_CACHE_DIR="$scratch/go-cache" \
@@ -93,6 +95,7 @@ output="$(
     GOSEC_AUDIT_SUPPORT_RULES="G122,G301,G302,G303,G304,G305,G306,G307" \
     GOSEC_AUDIT_SUPPORT_FLAGS="-exclude-generated -no-fail -terse" \
     CARTULARY_SEQUENCE_HOST_CPU_LIMIT=4 \
+    CARTULARY_STEP_ARTIFACT_DIR="$artifact_dir" \
     FAKE_GOSEC_ARGS_LOG="$args_log" \
     FAKE_GOSEC_ENV_LOG="$env_log" \
     "$SCRIPT" 2>&1
@@ -103,6 +106,9 @@ fi
 
 assert_contains "$output" "go-gosec-audit advisory repository profile rules=G118,G122,G301,G302,G303,G304,G305,G306,G307 patterns=./cmd/... ./internal/... ./tools/..." "repository advisory profile label"
 assert_contains "$output" "simulated gosec finding" "advisory finding output"
+assert_equals "$(stat -c '%a' "$artifact_dir")" "700" "audit Gosec artifact directory owner-only mode"
+assert_equals "$(stat -c '%a' "$artifact_dir/security-profiles.jsonl")" "600" "audit Gosec profile artifact owner-only mode"
+assert_equals "$(wc -l <"$artifact_dir/security-profiles.jsonl")" "1" "audit Gosec profile artifact count"
 
 args="$(cat "$args_log")"
 assert_equals "$(grep -c '^--call--$' "$args_log")" "1" "gosec invocation count"

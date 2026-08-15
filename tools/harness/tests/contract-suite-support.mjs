@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import {
+  chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
+  symlinkSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
@@ -14,12 +19,21 @@ import test from "node:test";
 import { planGoLPTShards } from "../backend/go-lpt-shards.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
 import {
+  loadHistoricalPerformanceSchemaRegistry,
+  validateHistoricalPerformanceEvidence,
+} from "../diagnostics/historical-performance-evidence.mjs";
+import {
   canonicalSnapshotKeyInput,
+  groupRowsByPerformanceFixture,
   loadPerformanceFixtureSnapshotRegistry,
   postgresMigrationDigest,
   snapshotKey,
   snapshotKeyEnvelope,
 } from "../performance-fixture/index.mjs";
+import {
+  renderPerformanceFixtureKeyVectors,
+  renderPerformanceFixtureProfilesGo,
+} from "../generated-artifacts/performance/performance-contracts.mjs";
 import {
   buildWorkGraph,
   captureCapabilitySnapshot,
@@ -34,6 +48,12 @@ import {
 } from "../scheduler/work-graph/index.mjs";
 import { loadTestCatalog, validateFixtureProfile } from "../test-catalog/index.mjs";
 import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
+import {
+  cleanupStaleSuiteRuntimeRoots,
+  createSuiteRuntime,
+  scanRetainedRoot,
+} from "../runtime/suite-runtime.mjs";
+import { enforcePrivateProcessUmask } from "../runtime/private-process.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 
@@ -57,6 +77,88 @@ const retiredTargets = [
 ];
 const tiers = ["fast", "standard", "full", "release"];
 
+function assertPerformanceEvidenceGenerationBoundary() {
+  const historical = loadHistoricalPerformanceSchemaRegistry(root);
+  const historicalIDs = new Set(historical.schemas.keys());
+  const attachments = readJSON("tools/harness_schema_attachments.json");
+  const activeIDs = new Set(attachments.attachments.map((entry) => entry.schema_id));
+  for (const schemaID of historicalIDs) {
+    assert.equal(activeIDs.has(schemaID), false);
+    assert.equal(
+      existsSync(path.join(root, "tools/schemas", `${schemaID}.schema.json`)),
+      false,
+    );
+  }
+  for (const schemaID of [
+    "cartulary.browser_target_result.v3",
+    "cartulary.frontend_measurement_aggregate.v3",
+    "cartulary.frontend_measurement_observation.v2",
+    "cartulary.frontend_measurement_summary.v3",
+    "cartulary.performance_fixture_runtime.v2",
+    "cartulary.performance_fixture_snapshot.v2",
+    "cartulary.performance_fixture_snapshot_key.v2",
+    "cartulary.performance_fixture_snapshot_lease.v2",
+    "cartulary.performance_fixture_snapshot_owner.v2",
+    "cartulary.web_e2e_stack_lease.v2",
+  ]) {
+    assert.equal(activeIDs.has(schemaID), true);
+    assert.equal(historicalIDs.has(schemaID), false);
+  }
+  const historicalKey = {
+    schema_id: "cartulary.performance_fixture_snapshot_key.v1",
+    migration_digest: "e".repeat(64),
+    source_contract_digest: "f".repeat(64),
+    fixture_version: "cartulary.perf.large_grid.v1",
+    seed: 20260405,
+  };
+  validateHistoricalPerformanceEvidence(
+    root,
+    historicalKey.schema_id,
+    historicalKey,
+  );
+  assert.throws(
+    () => validateSchemaSync(historicalKey.schema_id, historicalKey),
+    /missing schema attachment/u,
+  );
+  const reference = (role, name) => ({
+    role,
+    path_kind: "file",
+    format: "json",
+    path: `browser-e2e-measurement/${name}.json`,
+    sha256: `sha256:${"a".repeat(64)}`,
+  });
+  const aggregate = {
+    schema_id: "cartulary.frontend_measurement_aggregate.v3",
+    target_id: "browser-e2e-measurement",
+    status: "qualified",
+    profile_groups: [{
+      fixture_profile_id: "synthetic_grid_snapshot_v1",
+      snapshot_key: "b".repeat(64),
+      builder_count: 1,
+      clone_count: 1,
+      scheduler_overlap_count: 0,
+      build_artifact: reference("performance_fixture_snapshot_build", "build"),
+      summary_artifacts: [reference("frontend_measurement_summary", "summary")],
+      rollups: [{
+        predicate_id: "perf.synthetic.fixture_profile.v1",
+        sample_count: 100,
+        p95_ms: 20,
+        threshold_ms: 100,
+        outcome: "passed",
+      }],
+    }],
+  };
+  validateSchemaSync(aggregate.schema_id, aggregate);
+  assert.throws(
+    () => validateSchemaSync(aggregate.schema_id, {
+      ...aggregate,
+      summaries: [{ samples: Array.from({ length: 100_000 }, () => 1) }],
+    }),
+    /additional properties/u,
+    "aggregate v3 must grow by immutable summary references, not raw samples",
+  );
+}
+
 function assertPerformanceFixtureSnapshotContract() {
   const fixtureProfiles = catalog.fixtureProfiles;
   const profile = fixtureProfiles.profiles.get("ac043_large_grid_snapshot_v1");
@@ -72,8 +174,10 @@ function assertPerformanceFixtureSnapshotContract() {
   );
   const vectors = readJSON("tools/performance_fixture_snapshot_key_vectors.json");
   for (const vector of vectors.vectors) {
+    const selectedProfile = fixtureProfiles.profiles.get(vector.name);
+    assert.ok(selectedProfile);
     const vectorProfile = {
-      ...profile,
+      ...selectedProfile,
       status: "active",
       source_contract_digest: vector.input.source_contract_digest,
       fixture_version: vector.input.fixture_version,
@@ -89,8 +193,71 @@ function assertPerformanceFixtureSnapshotContract() {
     );
   }
 
+  const syntheticProfile = structuredClone(profile);
+  syntheticProfile.fixture_profile_id = "synthetic_grid_snapshot_v1";
+  syntheticProfile.fixture_version = "cartulary.perf.synthetic_grid.v1";
+  syntheticProfile.seed += 1;
+  syntheticProfile.source_contract_digest = "a".repeat(64);
+  syntheticProfile.artifact_policy.snapshot_key_schema_id =
+    "cartulary.performance_fixture_snapshot_key.v2";
+  const syntheticVectors = JSON.parse(
+    renderPerformanceFixtureKeyVectors([profile, syntheticProfile]),
+  );
+  assert.deepEqual(
+    syntheticVectors.vectors.map((entry) => entry.name),
+    ["ac043_large_grid_snapshot_v1", "synthetic_grid_snapshot_v1"],
+  );
+  validateSchemaSync(
+    "cartulary.performance_fixture_snapshot_key.v2",
+    syntheticVectors.vectors[1].input,
+  );
+  assert.equal(
+    syntheticVectors.vectors[1].input.fixture_profile_id,
+    syntheticProfile.fixture_profile_id,
+  );
+  const syntheticGo = renderPerformanceFixtureProfilesGo([profile, syntheticProfile]);
+  assert.match(syntheticGo, /synthetic_grid_snapshot_v1/u);
+  assert.doesNotMatch(
+    syntheticGo,
+    /profile\.FixtureProfileID == "ac043_large_grid_snapshot_v1"/u,
+  );
+  assert.doesNotMatch(
+    syntheticGo,
+    /contracts\/|RuntimeProfileID|ResourceProfileID|runtime_profile_id|resource_profile_id/u,
+    "generated Go descriptors must not contain source paths or runtime routing identities",
+  );
+
   const row = catalog.rows.find((entry) => entry.fixture_profile_id);
   assert.ok(row);
+  const syntheticVerificationID = "module.synthetic.verification.fixture_profile";
+  const syntheticRegistry = {
+    profiles: new Map([
+      [profile.fixture_profile_id, profile],
+      [syntheticProfile.fixture_profile_id, syntheticProfile],
+    ]),
+    verificationBindings: new Map([
+      ...fixtureProfiles.verificationBindings,
+      [syntheticVerificationID, {
+        fixture_profile_id: syntheticProfile.fixture_profile_id,
+        predicate_id: "perf.synthetic.fixture_profile.v1",
+      }],
+    ]),
+  };
+  const grouped = groupRowsByPerformanceFixture(root, [
+    row,
+    {
+      ...row,
+      fixture_profile_id: syntheticProfile.fixture_profile_id,
+      row_id: "module.synthetic.measurement.fixture_profile",
+      verification_ids: [syntheticVerificationID],
+    },
+  ], { registry: syntheticRegistry });
+  assert.deepEqual(
+    grouped.map((entry) => entry.fixture_profile_id),
+    ["ac043_large_grid_snapshot_v1", "synthetic_grid_snapshot_v1"],
+  );
+  assert.deepEqual(grouped[1].predicate_ids, ["perf.synthetic.fixture_profile.v1"]);
+  assert.deepEqual(grouped[1].row_ids, ["module.synthetic.measurement.fixture_profile"]);
   validateFixtureProfile({ row, fixtureProfiles, label: "valid_row" });
   assert.throws(
     () => validateFixtureProfile({
@@ -118,14 +285,14 @@ function assertPerformanceFixtureSnapshotContract() {
   );
   assert.throws(
     () => validateSchemaSync(
-      "cartulary.performance_fixture_snapshot_key.v1",
-      { ...envelope, schema_id: "cartulary.performance_fixture_snapshot_key.v2" },
+      "cartulary.performance_fixture_snapshot_key.v2",
+      { ...envelope, schema_id: "cartulary.performance_fixture_snapshot_key.v1" },
     ),
     /schema_id/u,
   );
   assert.throws(
     () => validateSchemaSync(
-      "cartulary.performance_fixture_snapshot_key.v1",
+      "cartulary.performance_fixture_snapshot_key.v2",
       { ...envelope, migration_digest: "sha256:" + migrationDigest },
     ),
     /migration_digest/u,
@@ -159,8 +326,29 @@ function assertPerformanceFixtureSnapshotContract() {
       /unknown dependency/u,
     );
     expectRegistryFailure(
-      (candidate) => { candidate.status = "inactive"; },
+      (candidate) => { candidate.status = "retired"; },
       /status/u,
+    );
+    expectRegistryFailure(
+      (candidate) => candidate.contributions[0].expected_receipt_counts.reverse(),
+      /ASCII-sorted/u,
+    );
+    expectRegistryFailure(
+      (candidate) => candidate.semantic_expectations.counts.reverse(),
+      /ASCII-sorted/u,
+    );
+    expectRegistryFailure(
+      (candidate) => candidate.runtime_credential_sets.push(
+        structuredClone(candidate.runtime_credential_sets[0]),
+      ),
+      /duplicate-free/u,
+    );
+    expectRegistryFailure(
+      (candidate) => {
+        candidate.artifact_policy.summary_schema_id =
+          "cartulary.frontend_measurement_summary.v99";
+      },
+      /unsupported or mixed evidence generation/u,
     );
     expectRegistryFailure(
       (candidate) => {
@@ -168,6 +356,27 @@ function assertPerformanceFixtureSnapshotContract() {
           "cartulary.performance.route_divergence.v1";
       },
       /contract identity does not match/u,
+    );
+
+    const inactive = structuredClone(original);
+    inactive.profiles[0].status = "inactive";
+    writeFileSync(registryFile, JSON.stringify(inactive));
+    const inactiveProfiles = loadPerformanceFixtureSnapshotRegistry(root, {
+      registryPath: registryFile,
+    });
+    assert.throws(
+      () => validateFixtureProfile({ row, fixtureProfiles: inactiveProfiles, label: "inactive_profile" }),
+      /unknown or inactive/u,
+    );
+    assert.throws(
+      () => snapshotKey({
+        ...profile,
+        artifact_policy: {
+          ...profile.artifact_policy,
+          snapshot_key_schema_id: "cartulary.performance_fixture_snapshot_key.v99",
+        },
+      }, migrationDigest),
+      /unsupported/u,
     );
   } finally {
     rmSync(fixtureRoot, { recursive: true, force: true });
@@ -217,9 +426,155 @@ function assertGeneralContract(index) {
   }
 }
 
-function assertBoundaryContract(index, entry) {
+async function assertSuiteRuntimeBoundary() {
+  const fixtureRoot = mkdtempSync(path.join(tmpdir(), "cartulary-suite-runtime-contract."));
+  const repo = path.join(fixtureRoot, "repo");
+  const runRoot = path.join(fixtureRoot, "results", "run-runtime-contract");
+  const scratch = path.join(fixtureRoot, "scratch");
+  mkdirSync(repo, { recursive: true, mode: 0o700 });
+  mkdirSync(runRoot, { recursive: true, mode: 0o700 });
+  try {
+    const priorUmask = process.umask(0o022);
+    try {
+      enforcePrivateProcessUmask();
+      const descendantRoot = path.join(fixtureRoot, "descendant-output", "nested", "leaf");
+      mkdirSync(descendantRoot, { recursive: true });
+      for (const directory of [
+        path.join(fixtureRoot, "descendant-output"),
+        path.join(fixtureRoot, "descendant-output", "nested"),
+        descendantRoot,
+      ]) {
+        assert.equal(lstatSync(directory).mode & 0o777, 0o700);
+      }
+    } finally {
+      process.umask(priorUmask);
+    }
+
+    const runtime = createSuiteRuntime({
+      repoRoot: repo,
+      runRoot,
+      runID: "run-runtime-contract",
+      scratchRoot: scratch,
+    });
+    assert.equal(lstatSync(runtime.root).mode & 0o777, 0o700);
+    runtime.registerSecret("injected-secret-value");
+    writeFileSync(path.join(runRoot, "safe.json"), '{"status":"pass"}\n', { mode: 0o600 });
+    assert.equal((await scanRetainedRoot(runRoot)).status, "pass");
+
+    const forbiddenFile = path.join(runRoot, "suite-environment.json");
+    writeFileSync(forbiddenFile, "{}\n", { mode: 0o600 });
+    await assert.rejects(
+      () => scanRetainedRoot(runRoot, { removeUnsafe: true }),
+      /forbidden runtime filename/u,
+    );
+    assert.equal(existsSync(forbiddenFile), false);
+
+    const secretFile = path.join(runRoot, "diagnostic.log");
+    writeFileSync(secretFile, "injected-secret-value\n", { mode: 0o600 });
+    await assert.rejects(
+      () => scanRetainedRoot(runRoot, {
+        forbiddenValues: runtime.forbiddenValues(),
+        removeUnsafe: true,
+      }),
+      /registered runtime secret/u,
+    );
+    assert.equal(existsSync(secretFile), false);
+
+    const link = path.join(runRoot, "unsafe-link");
+    symlinkSync(path.join(runRoot, "safe.json"), link);
+    await assert.rejects(
+      () => scanRetainedRoot(runRoot, { removeUnsafe: true }),
+      /symlink/u,
+    );
+    assert.equal(existsSync(link), false);
+
+    const permissive = path.join(runRoot, "permissive.log");
+    writeFileSync(permissive, "bounded diagnostic\n", { mode: 0o600 });
+    chmodSync(permissive, 0o644);
+    await assert.rejects(
+      () => scanRetainedRoot(runRoot, { removeUnsafe: true }),
+      /not owner-only/u,
+    );
+    assert.equal(lstatSync(permissive).mode & 0o777, 0o600);
+    rmSync(permissive);
+
+    const runtimeBase = path.join(scratch, "suite-runtime");
+    const inFlight = mkdtempSync(path.join(runtimeBase, ".creating-suite-race-contract-"));
+    chmodSync(inFlight, 0o700);
+    const concurrent = createSuiteRuntime({
+      repoRoot: repo,
+      runRoot,
+      runID: "concurrent-runtime-contract",
+      scratchRoot: scratch,
+    });
+    concurrent.close();
+    assert.equal(existsSync(inFlight), true);
+    const old = new Date("2000-01-01T00:00:00.000Z");
+    utimesSync(inFlight, old, old);
+    const stagedCleanup = cleanupStaleSuiteRuntimeRoots({
+      repoRoot: repo,
+      runRoot,
+      scratchRoot: scratch,
+    });
+    assert.equal(stagedCleanup.removed, 1);
+    assert.equal(existsSync(inFlight), false);
+
+    const published = runtime.root;
+    const disappearing = path.join(runtimeBase, ".creating-suite-publish-contract");
+    renameSync(published, disappearing);
+    const concurrentPublication = cleanupStaleSuiteRuntimeRoots({
+      repoRoot: repo,
+      runRoot,
+      scratchRoot: scratch,
+      beforeCandidateInspection(candidate) {
+        if (candidate === disappearing) renameSync(disappearing, published);
+      },
+    });
+    assert.ok(concurrentPublication.scanned >= 1);
+    assert.equal(concurrentPublication.removed, 0);
+    assert.equal(existsSync(disappearing), false);
+    assert.equal(existsSync(published), true);
+    runtime.close();
+    assert.equal(existsSync(runtime.root), false);
+
+    const stale = createSuiteRuntime({
+      repoRoot: repo,
+      runRoot,
+      runID: "stale-runtime-contract",
+      scratchRoot: scratch,
+    });
+    const ownerPath = path.join(stale.root, "runtime-owner.json");
+    const owner = JSON.parse(readFileSync(ownerPath, "utf8"));
+    owner.created_at = "2000-01-01T00:00:00.000Z";
+    writeFileSync(ownerPath, `${JSON.stringify(owner)}\n`, { mode: 0o600 });
+    chmodSync(ownerPath, 0o600);
+    const cleanup = cleanupStaleSuiteRuntimeRoots({
+      repoRoot: repo,
+      runRoot,
+      scratchRoot: scratch,
+    });
+    assert.equal(cleanup.removed, 1);
+    assert.equal(existsSync(stale.root), false);
+
+    assert.throws(
+      () => createSuiteRuntime({
+        repoRoot: repo,
+        runRoot,
+        runID: "contained-runtime-contract",
+        scratchRoot: path.join(repo, "scratch"),
+      }),
+      /outside repository/u,
+    );
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
+async function assertBoundaryContract(index, entry) {
   if (entry.legacy_name === "owner catalog closes identities, selectors, profiles, and routing digests") {
     assertPerformanceFixtureSnapshotContract();
+    assertPerformanceEvidenceGenerationBoundary();
+    await assertSuiteRuntimeBoundary();
     return;
   }
   if (index % 5 === 0) {

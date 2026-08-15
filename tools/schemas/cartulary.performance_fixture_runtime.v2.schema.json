@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_fixture_runtime.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "fixture_profile_id", "snapshot_key", "credential_sets"],
+  "properties": {
+    "schema_id": { "const": "cartulary.performance_fixture_runtime.v2" },
+    "fixture_profile_id": { "$ref": "cartulary.performance_fixture_snapshot_key.v2#/properties/fixture_profile_id" },
+    "snapshot_key": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "credential_sets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["set_id", "credential_kind", "credentials"],
+        "properties": {
+          "set_id": { "type": "string", "pattern": "^[a-z][a-z0-9_.]*$" },
+          "credential_kind": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "credentials": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10000,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["principal", "secret"],
+              "properties": {
+                "principal": { "type": "string", "minLength": 1, "maxLength": 512 },
+                "secret": { "type": "string", "minLength": 24, "maxLength": 4096 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

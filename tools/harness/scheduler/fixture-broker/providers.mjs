@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { closeSync, mkdirSync, openSync, readFileSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
 
@@ -8,13 +8,12 @@ function run(command, args, { cwd, environment }) {
   const result = spawnSync(command, args, {
     cwd,
     env: { ...process.env, ...environment },
-    encoding: "utf8",
-    maxBuffer: 32 * 1024 * 1024,
+    stdio: "ignore",
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
     throw new Error(
-      `${path.basename(command)} ${args[0] ?? ""} failed: ${(result.stderr || result.stdout || `exit ${result.status}`).trim()}`,
+      `${path.basename(command)} ${args[0] ?? ""} failed with exit ${result.status}`,
     );
   }
 }
@@ -35,6 +34,30 @@ function readEnvironmentFile(file) {
   return environment;
 }
 
+function readSuiteEnvironmentFile(file) {
+  const environment = JSON.parse(readFileSync(file, "utf8"));
+  if (!environment || typeof environment !== "object" || Array.isArray(environment)) {
+    throw new Error(`invalid environment object in ${file}`);
+  }
+  const admitted = Object.fromEntries(
+    Object.entries(environment).filter(([name]) =>
+      name === "CARTULARY_TEST_SUITE_ID" ||
+      name === "CARTULARY_HARNESS_SUITE_RUNTIME_ROOT" ||
+      name === "CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID" ||
+      name === "CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID" ||
+      name.startsWith("CARTULARY_TEST_SERVICES_") ||
+      name.startsWith("CARTULARY_PGTEST_") ||
+      name.startsWith("CARTULARY_S3TEST_"),
+    ),
+  );
+  for (const [name, value] of Object.entries(admitted)) {
+    if (typeof value !== "string") {
+      throw new Error(`invalid environment value for ${name} in ${file}`);
+    }
+  }
+  return admitted;
+}
+
 function availableLoopbackPort() {
   return new Promise((resolve, reject) => {
     const server = createServer();
@@ -53,8 +76,7 @@ function availableLoopbackPort() {
 function commandSucceeded(command, args, options) {
   const result = spawnSync(command, args, {
     ...options,
-    encoding: "utf8",
-    maxBuffer: 32 * 1024 * 1024,
+    stdio: "ignore",
   });
   return !result.error && result.status === 0;
 }
@@ -67,8 +89,8 @@ function requiredEnvironment(name) {
   return value;
 }
 
-function objectStoreNamespaceProvider({ root, runRoot, suiteController }) {
-  const proxyRoot = path.join(runRoot, "_shared", "object-store-proxy");
+function objectStoreNamespaceProvider({ root, suiteController, suiteRuntime }) {
+  const proxyRoot = suiteRuntime.privatePath("object-store-proxy");
   const proxyBinary = path.join(proxyRoot, "s3corsproxy");
   let binaryReady = false;
   return {
@@ -182,8 +204,8 @@ function objectStoreNamespaceProvider({ root, runRoot, suiteController }) {
   };
 }
 
-export function startManagedSuite({ root, runRoot, target, environment = {} }) {
-  const suiteRoot = path.join(runRoot, "_shared", "work-graph-suite");
+export function startManagedSuite({ root, target, suiteRuntime, environment = {} }) {
+  const suiteRoot = suiteRuntime.privatePath("test-services");
   mkdirSync(suiteRoot, { recursive: true, mode: 0o700 });
   const envFile = path.join(suiteRoot, "suite-environment.json");
   const leaseFile = path.join(suiteRoot, "suite-lease.json");
@@ -198,21 +220,33 @@ export function startManagedSuite({ root, runRoot, target, environment = {} }) {
       ...environment,
       CARTULARY_TEST_SUITE_ID: suiteID,
       CARTULARY_TEST_TARGET: target,
+      CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: suiteRuntime.root,
+      CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
+      CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: suiteRuntime.runID,
     },
   });
-  const suiteEnvironment = JSON.parse(readFileSync(envFile, "utf8"));
+  const suiteEnvironment = readSuiteEnvironmentFile(envFile);
   if (!suiteEnvironment || typeof suiteEnvironment !== "object" || Array.isArray(suiteEnvironment)) {
     throw new Error("test-services suite environment is invalid");
   }
+  suiteRuntime.registerEnvironment(suiteEnvironment);
+  rmSync(envFile, { force: true });
+  let closed = false;
   return {
     environment: suiteEnvironment,
     leaseFile,
     executable,
     close() {
-      run(executable, ["terminate-suite", "--lease", leaseFile], {
-        cwd: root,
-        environment: { ...environment, ...suiteEnvironment },
-      });
+      if (closed) return;
+      closed = true;
+      try {
+        run(executable, ["terminate-suite", "--lease", leaseFile], {
+          cwd: root,
+          environment: { ...environment, ...suiteEnvironment },
+        });
+      } finally {
+        rmSync(leaseFile, { force: true });
+      }
     },
   };
 }
@@ -251,9 +285,10 @@ function browserSuiteEnvironment(environment) {
 
 export function productionFixtureProviders({
   root,
-  runRoot,
   selectionEnvironment = {},
+  runtimeEnvironment = {},
   suiteController,
+  suiteRuntime,
 }) {
   const cloneOrdinals = new Map();
   const sharedProviders = Object.fromEntries(
@@ -270,7 +305,7 @@ export function productionFixtureProviders({
   );
   return {
     ...sharedProviders,
-    object_store_namespace: objectStoreNamespaceProvider({ root, runRoot, suiteController }),
+    object_store_namespace: objectStoreNamespaceProvider({ root, suiteController, suiteRuntime }),
     browser_stack: {
       async acquire({
         affinityKey,
@@ -285,7 +320,7 @@ export function productionFixtureProviders({
         const suite = suiteController.ensure();
         const suiteEnvironment = suite.environment;
         const safeAffinity = String(affinityKey).replaceAll(/[^A-Za-z0-9_.-]+/gu, "-");
-        const sessionRoot = path.join(runRoot, "_shared", "browser-stack-leases", safeAffinity);
+        const sessionRoot = suiteRuntime.privatePath("browser-stack-leases", safeAffinity);
         mkdirSync(sessionRoot, { recursive: true, mode: 0o700 });
         const envFile = path.join(sessionRoot, "stack.env");
         const leaseFile = path.join(sessionRoot, "stack.lease");
@@ -302,10 +337,15 @@ export function productionFixtureProviders({
         if (profiled) cloneOrdinals.set(ordinalKey, cloneOrdinal);
         const environment = {
           ...suiteEnvironment,
+          ...runtimeEnvironment,
           ...selectionEnvironment,
           CARTULARY_BROWSER_RUNTIME_PROFILE_ID: runtimeProfileID,
           CARTULARY_BROWSER_SERVICE_REQUIREMENT: "test-services",
           CARTULARY_BROWSER_SESSION_GROUP: safeAffinity,
+          CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT: sessionRoot,
+          CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: suiteRuntime.root,
+          CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
+          CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: suiteRuntime.runID,
           CARTULARY_TEST_SUITE_ID: suiteEnvironment.CARTULARY_TEST_SUITE_ID || `work-graph-${safeAffinity}`,
           ...(profiled
             ? {
@@ -324,6 +364,8 @@ export function productionFixtureProviders({
           environment,
         });
         const stackEnvironment = readEnvironmentFile(envFile);
+        suiteRuntime.registerEnvironment(stackEnvironment);
+        rmSync(envFile, { force: true });
         const unitEnvironment = {
           ...browserSuiteEnvironment(suiteEnvironment),
           ...selectionEnvironment,

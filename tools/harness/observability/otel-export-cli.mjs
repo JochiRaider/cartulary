@@ -133,11 +133,11 @@ export async function deliver(
   if (!response.ok) throw new Error(`collector rejected payload with HTTP ${response.status}`);
 }
 
-export function loadExporterInput(options) {
+export async function loadExporterInput(options) {
   const endpoint = validatedEndpoint(options.endpoint);
   const headers = headersFromFile(options.headersFile);
   const runDir = resolveExactRunDir(options.resultsDir, options.runID);
-  const retained = loadRetainedObservability(runDir);
+  const retained = await loadRetainedObservability(runDir);
   return { endpoint, headers, retained };
 }
 
@@ -170,7 +170,7 @@ export async function exportRetainedObservability(
 async function main() {
   let input;
   try {
-    input = loadExporterInput(parseExporterArgs(process.argv.slice(2)));
+    input = await loadExporterInput(parseExporterArgs(process.argv.slice(2)));
   } catch {
     process.stderr.write("harness-otel-export FAIL failure_class=config reason=configuration_error diagnostic=invalid-export-configuration\n");
     process.exitCode = 2;

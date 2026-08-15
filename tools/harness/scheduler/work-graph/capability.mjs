@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { validateSchemaSync } from "../../contract/index.mjs";
-import { semanticJSONDigest } from "../../test-catalog/index.mjs";
+import { semanticJSONDigest } from "../../contract/index.mjs";
 
 function readPositiveInteger(file) {
   try {

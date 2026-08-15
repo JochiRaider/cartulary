@@ -1,4 +1,4 @@
-package main
+package performancefixturelifecycle
 
 import (
 	"context"
@@ -12,15 +12,19 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
+	appfixture "github.com/JochiRaider/cartulary/internal/testutil/appsupport/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
+const performanceFixtureTestKey = "85a9ceb4cc34f66356baa07b68bf7f3636844beef90aa51ad8b1751d4b046c72"
+
 func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Integration(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	objectStoreHarness := s3test.Start(t)
-	env := envMap(os.Environ())
+	env := testEnvironment(os.Environ())
 	templateDB := strings.TrimSpace(env[suiteservices.PGTemplateDBEnv])
 	if templateDB == "" {
 		t.Fatal("service-backed performance fixture integration requires the suite migrated template")
@@ -36,24 +40,25 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 	env["CARTULARY_TEST_RESULTS_DIR"] = t.TempDir()
 	env["CARTULARY_TEST_RUN_ID"] = "performance-fixture-integration"
 	env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] = "1"
-	args := performanceFixtureBuildArgs{
-		FixtureProfileID:     "ac043_large_grid_snapshot_v1",
+	profile := lifecycleTestProfile(t)
+	args := BuildArgs{
+		FixtureProfileID:     profile.FixtureProfileID,
 		SnapshotKey:          performanceFixtureTestKey,
 		MigrationDigest:      strings.Repeat("a", 64),
-		SourceContractDigest: strings.Repeat("b", 64),
-		BuilderUnitID:        "fixture_snapshot:default:ac043_large_grid_snapshot_v1:" + performanceFixtureTestKey,
+		SourceContractDigest: profile.SourceContractDigest,
+		BuilderUnitID:        "fixture_snapshot:default:" + profile.FixtureProfileID + ":" + performanceFixtureTestKey,
 		ArtifactFile:         filepath.Join(t.TempDir(), "snapshot-build.json"),
 	}
 	ctx := context.Background()
-	build, err := buildPerformanceFixture(ctx, env, args)
+	build, err := Build(ctx, env, profile, args, appfixture.NewProduction)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if build.State != "sealed" || len(build.ContributionReceipts) != 6 || !build.Validation.ConnectionsClosed {
+	if build.State != "sealed" || len(build.ContributionReceipts) != 6 || !build.Validation.ConnectionsClosed || len(build.Validation.Counts) == 0 || len(build.Validation.Conditions) == 0 {
 		t.Fatalf("builder did not produce one closed sealed contribution set: %#v", build)
 	}
 	t.Cleanup(func() {
-		if err := cleanupPerformanceFixtureSuite(context.Background(), env); err != nil {
+		if err := CleanupSuite(context.Background(), env); err != nil {
 			t.Errorf("cleanup performance fixture suite: %v", err)
 		}
 	})
@@ -64,9 +69,9 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 		{"module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3", "perf.timeline_summary_selection_down.v1"},
 		{"module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95", "perf.timeline_summary_focus_edit.v1"},
 	}
-	fixtures := make([]webE2EFixture, 0, len(rows))
+	fixtures := make([]PreparedFixture, 0, len(rows))
 	for index, binding := range rows {
-		cloneEnv := cloneEnv(env)
+		cloneEnv := cloneEnvironment(env)
 		cloneEnv["CARTULARY_FIXTURE_PROFILE_ID"] = args.FixtureProfileID
 		cloneEnv["CARTULARY_FIXTURE_SNAPSHOT_KEY"] = args.SnapshotKey
 		cloneEnv["CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID"] = args.BuilderUnitID
@@ -75,7 +80,7 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 		cloneEnv["CARTULARY_FIXTURE_CLONE_LEASE_ID"] = "lease-" + binding.predicate
 		cloneEnv["CARTULARY_FIXTURE_CLONE_ORDINAL"] = strconv.Itoa(index + 1)
 		cloneEnv["CARTULARY_WEB_E2E_RUNTIME_ROOT"] = filepath.Join(t.TempDir(), "predicate-runtime")
-		prepared, err := preparePerformanceWebE2EFixture(ctx, cloneEnv)
+		prepared, err := Prepare(ctx, cloneEnv)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -99,7 +104,7 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 			t.Fatal(err)
 		}
 		pool.Close()
-		if timelineRows != 20000 {
+		if timelineRows != semanticCount(profile, "timeline_rows") {
 			t.Fatalf("clone %d has %d timeline rows", prepared.CloneOrdinal, timelineRows)
 		}
 	}
@@ -110,13 +115,13 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 	if err != nil {
 		t.Fatal(err)
 	}
-	templateName := performanceFixtureTemplateName(env[suiteservices.SuiteIDEnv], performanceFixtureTestKey)
-	quotedTemplateName := pgx.Identifier{templateName}.Sanitize()
+	templateDBName := templateName(env[suiteservices.SuiteIDEnv], performanceFixtureTestKey)
+	quotedTemplateName := pgx.Identifier{templateDBName}.Sanitize()
 	if _, err := admin.ExecContext(ctx, `ALTER DATABASE `+quotedTemplateName+` WITH ALLOW_CONNECTIONS true`); err != nil {
 		_ = admin.Close()
 		t.Fatal(err)
 	}
-	if err := validatePerformanceFixtureTemplate(ctx, postgresHarness.AdminDSN(), templateName, performanceFixtureTemplateOwner(env[suiteservices.SuiteIDEnv], performanceFixtureTestKey)); err == nil {
+	if err := validateTemplate(ctx, postgresHarness.AdminDSN(), templateDBName, templateOwner(env[suiteservices.SuiteIDEnv], performanceFixtureTestKey)); err == nil {
 		_ = admin.Close()
 		t.Fatal("corrupt unsealed performance fixture template was accepted")
 	}
@@ -151,12 +156,10 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 			t.Fatalf("clone %d observed another clone's mutation", prepared.CloneOrdinal)
 		}
 	}
-	deps := defaultDependencies()
 	for index, prepared := range fixtures {
-		metadata := webE2EMetadata{
+		metadata := LeaseMetadata{
 			DatabaseName:      prepared.DatabaseName,
 			Bucket:            prepared.Bucket,
-			Target:            "browser-e2e-measurement",
 			FixtureProfileID:  prepared.FixtureProfileID,
 			SnapshotKey:       prepared.SnapshotKey,
 			BuilderUnitID:     prepared.BuilderUnitID,
@@ -166,7 +169,16 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 			CloneOrdinal:      prepared.CloneOrdinal,
 			RuntimeBundleRoot: prepared.RuntimeBundleRoot,
 		}
-		if err := cleanupPerformanceFixtureLease(ctx, deps, env, metadata); err != nil {
+		if err := CleanupLease(ctx, env, metadata, CleanupPorts{
+			CleanupSessions: RevokeSessions,
+			DetectLeaks:     func(context.Context, LeaseMetadata, map[string]string) error { return nil },
+			CleanupDatabase: func(ctx context.Context, metadata LeaseMetadata, _ map[string]string) error {
+				return dropDatabase(ctx, postgresHarness.AdminDSN(), metadata.DatabaseName)
+			},
+			CleanupBucket: func(ctx context.Context, metadata LeaseMetadata, _ map[string]string) error {
+				return objectStoreHarness.CleanupBucket(ctx, metadata.Bucket)
+			},
+		}); err != nil {
 			t.Fatalf("cleanup clone %d: %v", index+1, err)
 		}
 		if _, err := os.Lstat(prepared.RuntimeBundleRoot); !os.IsNotExist(err) {
@@ -188,21 +200,21 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 		t.Fatalf("got %d immutable clone lease artifacts, want four", len(leaseFiles))
 	}
 	partialKey := strings.Repeat("c", 64)
-	partialTemplate := performanceFixtureTemplateName(env[suiteservices.SuiteIDEnv], partialKey)
+	partialTemplate := templateName(env[suiteservices.SuiteIDEnv], partialKey)
 	if err := cloneDatabase(ctx, postgresHarness.AdminDSN(), templateDB, partialTemplate); err != nil {
 		t.Fatal(err)
 	}
-	if err := markPerformanceFixtureTemplateOwned(ctx, postgresHarness.AdminDSN(), partialTemplate, performanceFixtureTemplateOwner(env[suiteservices.SuiteIDEnv], partialKey)); err != nil {
+	if err := markTemplateOwned(ctx, postgresHarness.AdminDSN(), partialTemplate, templateOwner(env[suiteservices.SuiteIDEnv], partialKey)); err != nil {
 		t.Fatal(err)
 	}
-	if err := cleanupPerformanceFixtureSuite(ctx, env); err != nil {
+	if err := CleanupSuite(ctx, env); err != nil {
 		t.Fatal(err)
 	}
 	admin, err = sql.Open("pgx", postgresHarness.AdminDSN())
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, database := range []string{templateName, partialTemplate} {
+	for _, database := range []string{templateDBName, partialTemplate} {
 		var exists bool
 		if err := admin.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)`, database).Scan(&exists); err != nil {
 			_ = admin.Close()
@@ -216,12 +228,55 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 	if err := admin.Close(); err != nil {
 		t.Fatal(err)
 	}
+	privateRoot, ok, err := suiteservices.ResolveSuiteRuntimeDir(env)
+	if err != nil || !ok {
+		t.Fatalf("resolve private suite runtime: ok=%v err=%v", ok, err)
+	}
 	for _, runtimeRoot := range []string{
-		filepath.Join(os.TempDir(), "cartulary-performance-fixture-runtime", suiteservices.ShortHash(env[suiteservices.SuiteIDEnv], 16)),
-		filepath.Join(os.TempDir(), "cartulary-performance-fixture-clones", suiteservices.ShortHash(env[suiteservices.SuiteIDEnv], 16)),
+		filepath.Join(privateRoot, "performance-fixtures", "templates", suiteservices.ShortHash(env[suiteservices.SuiteIDEnv], 16)),
+		filepath.Join(privateRoot, "performance-fixtures", "clones", suiteservices.ShortHash(env[suiteservices.SuiteIDEnv], 16)),
 	} {
 		if _, err := os.Lstat(runtimeRoot); !os.IsNotExist(err) {
 			t.Fatalf("suite cleanup retained runtime root %s: %v", runtimeRoot, err)
 		}
 	}
+}
+
+func testEnvironment(values []string) map[string]string {
+	result := make(map[string]string, len(values))
+	for _, value := range values {
+		key, item, ok := strings.Cut(value, "=")
+		if ok {
+			result[key] = item
+		}
+	}
+	return result
+}
+
+func cloneEnvironment(source map[string]string) map[string]string {
+	result := make(map[string]string, len(source))
+	for key, value := range source {
+		result[key] = value
+	}
+	return result
+}
+
+func lifecycleTestProfile(t *testing.T) performancefixtureprofile.Profile {
+	t.Helper()
+	for _, profile := range performancefixtureprofile.Profiles() {
+		if profile.Status == "active" {
+			return profile
+		}
+	}
+	t.Fatal("generated active performance fixture profile is missing")
+	return performancefixtureprofile.Profile{}
+}
+
+func semanticCount(profile performancefixtureprofile.Profile, expectationID string) int {
+	for _, expectation := range profile.SemanticExpectations.Counts {
+		if expectation.ExpectationID == expectationID {
+			return expectation.Exact
+		}
+	}
+	return -1
 }

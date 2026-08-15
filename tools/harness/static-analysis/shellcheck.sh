@@ -92,12 +92,14 @@ mapfile -d '' -t shell_files < <(discover_shell_files)
 inventory_artifact=""
 if [[ -n "${CARTULARY_STEP_ARTIFACT_DIR:-}" ]]; then
   mkdir -p "$CARTULARY_STEP_ARTIFACT_DIR"
+  chmod 700 "$CARTULARY_STEP_ARTIFACT_DIR"
   inventory_artifact="${CARTULARY_STEP_ARTIFACT_DIR}/shellcheck-inventory.txt"
 fi
 
 if [[ "${#shell_files[@]}" -eq 0 ]]; then
   if [[ -n "$inventory_artifact" ]]; then
     : >"$inventory_artifact"
+    chmod 600 "$inventory_artifact"
   fi
   printf '0 files checked\n'
   exit 0
@@ -105,6 +107,7 @@ fi
 
 if [[ -n "$inventory_artifact" ]]; then
   printf '%s\n' "${shell_files[@]}" >"$inventory_artifact"
+  chmod 600 "$inventory_artifact"
 else
   printf '%s\n' "${shell_files[@]}"
 fi

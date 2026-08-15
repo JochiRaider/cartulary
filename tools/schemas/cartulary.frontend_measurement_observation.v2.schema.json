@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_measurement_observation.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "fixture_profile_id",
+    "criterion_id",
+    "predicate_id",
+    "fixture_id",
+    "fixture_digest",
+    "measurement_policy_id",
+    "threshold_ms",
+    "warmup_samples",
+    "measured_samples",
+    "percentile",
+    "p50_ms",
+    "p95_ms",
+    "outcome",
+    "traffic",
+    "samples"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.frontend_measurement_observation.v2" },
+    "fixture_profile_id": { "$ref": "cartulary.performance_fixture_snapshot_key.v2#/properties/fixture_profile_id" },
+    "criterion_id": { "type": "string", "pattern": "^AC-[0-9]{3}$" },
+    "predicate_id": { "type": "string", "pattern": "^perf\\.[a-z0-9_.]+\\.v[1-9][0-9]*$" },
+    "fixture_id": { "type": "string", "pattern": "^cartulary\\.[a-z0-9_.]+\\.v[1-9][0-9]*$" },
+    "fixture_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "measurement_policy_id": { "type": "string", "pattern": "^cartulary\\.[a-z0-9_.]+\\.v[1-9][0-9]*$" },
+    "threshold_ms": { "type": "number", "minimum": 0 },
+    "warmup_samples": { "type": "integer", "minimum": 0, "maximum": 10000 },
+    "measured_samples": { "type": "integer", "minimum": 0, "maximum": 100000 },
+    "percentile": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
+    "p50_ms": { "type": ["number", "null"], "minimum": 0 },
+    "p95_ms": { "type": ["number", "null"], "minimum": 0 },
+    "outcome": { "enum": ["passed", "threshold_failed", "incomplete", "environment_not_qualified"] },
+    "traffic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["counts", "rates", "conditions"],
+      "properties": {
+        "counts": { "$ref": "#/$defs/numeric_facts" },
+        "rates": { "$ref": "#/$defs/numeric_facts" },
+        "conditions": { "$ref": "#/$defs/boolean_facts" }
+      }
+    },
+    "samples": {
+      "type": "array",
+      "maxItems": 100001,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sample_index", "warmup", "total_ms", "stages_ms"],
+        "properties": {
+          "sample_index": { "type": "integer", "minimum": 0 },
+          "warmup": { "type": "boolean" },
+          "total_ms": { "type": "number", "minimum": 0 },
+          "stages_ms": { "$ref": "#/$defs/numeric_facts" }
+        }
+      }
+    },
+    "failure_reason": { "type": "string", "minLength": 1, "maxLength": 512 }
+  },
+  "$defs": {
+    "numeric_facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fact_id", "value"],
+        "properties": {
+          "fact_id": { "type": "string", "pattern": "^[a-z][a-z0-9_.]*$" },
+          "value": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "boolean_facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fact_id", "value"],
+        "properties": {
+          "fact_id": { "type": "string", "pattern": "^[a-z][a-z0-9_.]*$" },
+          "value": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

@@ -1,11 +1,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { validateSchemaSync } from "../../contract/index.mjs";
 import {
   canonicalJSONString,
   semanticJSONDigest,
-} from "../../test-catalog/index.mjs";
+  validateSchemaSync,
+} from "../../contract/index.mjs";
 
 const graphSchemaID = "cartulary.harness_work_graph.v3";
 

@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { validateSchemaSync } from "../../contract/index.mjs";
-import { semanticJSONSHA256 } from "../../test-catalog/index.mjs";
+import { semanticJSONSHA256 } from "../../contract/index.mjs";
 import {
   assertBaselineClosure,
   compareQualifiedBaselines,

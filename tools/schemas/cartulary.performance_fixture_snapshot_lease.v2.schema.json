@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_fixture_snapshot_lease.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "fixture_profile_id",
+    "snapshot_key",
+    "builder_unit_id",
+    "row_id",
+    "predicate_id",
+    "lease_identity",
+    "clone_ordinal",
+    "creation_state",
+    "isolation_result",
+    "cleanup_results",
+    "cleanup_state",
+    "redaction_policy_id",
+    "finalized_at"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.performance_fixture_snapshot_lease.v2" },
+    "fixture_profile_id": { "$ref": "cartulary.performance_fixture_snapshot_key.v2#/properties/fixture_profile_id" },
+    "snapshot_key": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "builder_unit_id": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "row_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/row_id" },
+    "predicate_id": { "type": "string", "pattern": "^perf\\.[a-z0-9_.]+\\.v[1-9][0-9]*$" },
+    "lease_identity": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "clone_ordinal": { "type": "integer", "minimum": 1 },
+    "creation_state": { "enum": ["created", "failed"] },
+    "isolation_result": { "enum": ["isolated", "not_checked", "failed"] },
+    "cleanup_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["resource_class", "outcome"],
+        "properties": {
+          "resource_class": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "outcome": { "enum": ["complete", "failed", "not_acquired"] }
+        }
+      }
+    },
+    "cleanup_state": { "enum": ["complete", "failed"] },
+    "failure_code": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "redaction_policy_id": { "type": "string", "pattern": "^cartulary\\.[a-z0-9_.]+\\.v[1-9][0-9]*$" },
+    "finalized_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "cleanup_state": { "const": "complete" } }, "required": ["cleanup_state"] },
+      "then": {
+        "properties": {
+          "creation_state": { "const": "created" },
+          "isolation_result": { "const": "isolated" },
+          "cleanup_results": {
+            "items": { "properties": { "outcome": { "enum": ["complete", "not_acquired"] } } }
+          }
+        },
+        "not": { "required": ["failure_code"] }
+      }
+    },
+    {
+      "if": { "properties": { "cleanup_state": { "const": "failed" } }, "required": ["cleanup_state"] },
+      "then": { "required": ["failure_code"] }
+    }
+  ]
+}

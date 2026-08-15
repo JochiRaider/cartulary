@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.performance_fixture_snapshot_owner.v1",
+  "schema_id": "cartulary.performance_fixture_snapshot_owner.v2",
   "profiles": [
     {
       "fixture_profile_id": "ac043_large_grid_snapshot_v1",
@@ -72,10 +72,10 @@
           "source_contract_ids": [
             "cartulary.performance.ac043.v1"
           ],
-          "expected_receipt": {
-            "accounts": 24,
-            "sessions": 0
-          }
+          "expected_receipt_counts": [
+            { "count_id": "accounts", "exact": 24 },
+            { "count_id": "sessions", "exact": 0 }
+          ]
         },
         {
           "contribution_id": "incidents.workspace.v1",
@@ -87,11 +87,11 @@
           "source_contract_ids": [
             "cartulary.performance.ac043.v1"
           ],
-          "expected_receipt": {
-            "incidents": 1,
-            "memberships": 24,
-            "workspaces": 1
-          }
+          "expected_receipt_counts": [
+            { "count_id": "incidents", "exact": 1 },
+            { "count_id": "memberships", "exact": 24 },
+            { "count_id": "workspaces", "exact": 1 }
+          ]
         },
         {
           "contribution_id": "entities.hosts_identities.v1",
@@ -105,10 +105,10 @@
             "cartulary.view.hosts.v1",
             "cartulary.view.identities.v1"
           ],
-          "expected_receipt": {
-            "hosts": 1000,
-            "identities": 1000
-          }
+          "expected_receipt_counts": [
+            { "count_id": "hosts", "exact": 1000 },
+            { "count_id": "identities", "exact": 1000 }
+          ]
         },
         {
           "contribution_id": "timeline.large_grid.v1",
@@ -121,9 +121,9 @@
             "cartulary.performance.ac043.v1",
             "cartulary.view.timeline.v2"
           ],
-          "expected_receipt": {
-            "timeline_rows": 20000
-          }
+          "expected_receipt_counts": [
+            { "count_id": "timeline_rows", "exact": 20000 }
+          ]
         },
         {
           "contribution_id": "links.timeline_associations.v1",
@@ -135,11 +135,11 @@
           "source_contract_ids": [
             "cartulary.performance.ac043.v1"
           ],
-          "expected_receipt": {
-            "links": 1000,
-            "mentions": 1000,
-            "tags": 1000
-          }
+          "expected_receipt_counts": [
+            { "count_id": "links", "exact": 1000 },
+            { "count_id": "mentions", "exact": 1000 },
+            { "count_id": "tags", "exact": 1000 }
+          ]
         },
         {
           "contribution_id": "projections.timeline_entities.v1",
@@ -154,23 +154,37 @@
             "cartulary.view.identities.v1",
             "cartulary.view.timeline.v2"
           ],
-          "expected_receipt": {
-            "projection_sets": 3
-          }
+          "expected_receipt_counts": [
+            { "count_id": "projection_sets", "exact": 3 }
+          ]
         }
       ],
-      "validation_rules": {
-        "timeline_rows": 20000,
-        "host_rows": 1000,
-        "identity_rows": 1000,
-        "tag_assignments": 1000,
-        "mention_assignments": 1000,
-        "link_assignments": 1000,
-        "background_analysts": 24,
-        "active_sessions": 0,
-        "default_view_required": true,
-        "projection_ready_required": true
+      "semantic_expectations": {
+        "counts": [
+          { "expectation_id": "active_sessions", "exact": 0 },
+          { "expectation_id": "background_analysts", "exact": 24 },
+          { "expectation_id": "host_rows", "exact": 1000 },
+          { "expectation_id": "identity_rows", "exact": 1000 },
+          { "expectation_id": "link_assignments", "exact": 1000 },
+          { "expectation_id": "mention_assignments", "exact": 1000 },
+          { "expectation_id": "tag_assignments", "exact": 1000 },
+          { "expectation_id": "timeline_rows", "exact": 20000 }
+        ],
+        "conditions": [
+          { "expectation_id": "authorization", "required": true },
+          { "expectation_id": "default_view", "required": true },
+          { "expectation_id": "no_active_sessions", "required": true },
+          { "expectation_id": "projection_ready", "required": true },
+          { "expectation_id": "relationship_distribution", "required": true }
+        ]
       },
+      "runtime_credential_sets": [
+        {
+          "set_id": "background_analysts",
+          "credential_kind": "email_password",
+          "account_count": 24
+        }
+      ],
       "cleanup_policy": {
         "template_owner": "suite",
         "clone_owner": "predicate_lease",
@@ -179,13 +193,13 @@
         "janitor_fallback": "lease_scoped_bounded"
       },
       "artifact_policy": {
-        "snapshot_key_schema_id": "cartulary.performance_fixture_snapshot_key.v1",
-        "build_schema_id": "cartulary.performance_fixture_snapshot.v1",
-        "lease_schema_id": "cartulary.performance_fixture_snapshot_lease.v1",
-        "runtime_schema_id": "cartulary.performance_fixture_runtime.v1",
-        "observation_schema_id": "cartulary.frontend_measurement_observation.v1",
-        "summary_schema_id": "cartulary.frontend_measurement_summary.v2",
-        "aggregate_schema_id": "cartulary.frontend_measurement_aggregate.v2"
+        "snapshot_key_schema_id": "cartulary.performance_fixture_snapshot_key.v2",
+        "build_schema_id": "cartulary.performance_fixture_snapshot.v2",
+        "lease_schema_id": "cartulary.performance_fixture_snapshot_lease.v2",
+        "runtime_schema_id": "cartulary.performance_fixture_runtime.v2",
+        "observation_schema_id": "cartulary.frontend_measurement_observation.v2",
+        "summary_schema_id": "cartulary.frontend_measurement_summary.v3",
+        "aggregate_schema_id": "cartulary.frontend_measurement_aggregate.v3"
       },
       "redaction_policy": {
         "policy_id": "cartulary.performance_fixture_redaction.v1",

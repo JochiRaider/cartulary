@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 START_SCRIPT="$ROOT_DIR/tools/harness/browser/start-web-e2e.sh"
+RESET_SCRIPT="$ROOT_DIR/tools/harness/browser/reset-web-e2e-stack.sh"
 ATTACH_SCRIPT="$ROOT_DIR/tools/harness/browser/playwright-owned-stack.sh"
 EVIDENCE_HELPER="$ROOT_DIR/tools/harness/browser/browser-session-evidence.mjs"
 PLAYWRIGHT_CONFIG="$ROOT_DIR/apps/web/playwright.shared.config.ts"
@@ -51,8 +52,7 @@ cleanup() {
 }
 
 [[ -x "$NODE_BIN" ]] || NODE_BIN=node
-mkdir -p "$ROOT_DIR/tmp"
-tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/web-e2e-lifecycle-smoke.XXXXXX")"
+tmp_dir="$(mktemp -d)"
 trap cleanup EXIT
 
 # The managed lifecycle is session-owned and has no development-stack route.
@@ -77,6 +77,80 @@ assert_file_contains "$ATTACH_SCRIPT" 'browser-session-evidence.mjs' "Playwright
 # Source the adapter only for fail-closed entrypoint checks.
 # shellcheck source=tools/harness/browser/start-web-e2e.sh
 source "$START_SCRIPT"
+
+# Parent graph selection and scheduling inputs must not leak into the nested
+# readiness Make target, whose public contract does not declare them.
+fake_make_dir="$tmp_dir/fake-make"
+fake_make_log="$tmp_dir/fake-make.log"
+mkdir -p "$fake_make_dir"
+cat >"$fake_make_dir/make" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+for name in \
+  CARTULARY_HARNESS_IDENTITY_PREPARED \
+  CARTULARY_TEST_RUN_ID \
+  CARTULARY_TEST_TARGET \
+  CARTULARY_MAKE_INPUT_SOURCES \
+  CARTULARY_HARNESS_CACHE_MODE \
+  CARTULARY_HARNESS_CAPACITY_OVERRIDE \
+  JSON \
+  OWNER \
+  ROWS \
+  SERVICE_BACKED_ONLY \
+  PLAYWRIGHT_WORKERS \
+  VITEST_MAX_WORKERS; do
+  if [[ -n "${!name+x}" ]]; then
+    printf 'leaked %s\n' "$name" >&2
+    exit 91
+  fi
+done
+printf '%s\n' "$*" >"${CARTULARY_FAKE_MAKE_LOG:?}"
+EOF
+chmod 700 "$fake_make_dir/make"
+export CARTULARY_HARNESS_IDENTITY_PREPARED=1
+export CARTULARY_TEST_RUN_ID=parent-run
+export CARTULARY_TEST_TARGET=test-slice
+export CARTULARY_MAKE_INPUT_SOURCES='CARTULARY_HARNESS_CACHE_MODE=cli OWNER=cli ROWS=cli'
+export CARTULARY_HARNESS_CACHE_MODE=off
+export CARTULARY_HARNESS_CAPACITY_OVERRIDE=cpu_tokens=1
+export JSON=1
+export OWNER=module.timeline
+export ROWS=module.timeline.measurement.timeline_virtualized_grid_render_latency_961a4ec1d3
+export SERVICE_BACKED_ONLY=1
+export PLAYWRIGHT_WORKERS=1
+export VITEST_MAX_WORKERS=1
+CARTULARY_FAKE_MAKE_LOG="$fake_make_log" PATH="$fake_make_dir:$PATH" \
+  browser_prepare_frontend_toolchain || fail "nested frontend toolchain public-input isolation"
+assert_file_contains "$fake_make_log" 'frontend-toolchain' "nested frontend toolchain invocation"
+unset \
+  CARTULARY_HARNESS_IDENTITY_PREPARED \
+  CARTULARY_TEST_RUN_ID \
+  CARTULARY_TEST_TARGET \
+  CARTULARY_MAKE_INPUT_SOURCES \
+  CARTULARY_HARNESS_CACHE_MODE \
+  CARTULARY_HARNESS_CAPACITY_OVERRIDE \
+  JSON \
+  OWNER \
+  ROWS \
+  SERVICE_BACKED_ONLY \
+  PLAYWRIGHT_WORKERS \
+  VITEST_MAX_WORKERS
+
+private_failure_log="$tmp_dir/private-failure.log"
+private_failure_token=opaque-runtime-token-that-must-not-survive
+printf 'startup failed with postgres://user:password@localhost/db and token %s\n' \
+  "$private_failure_token" >"$private_failure_log"
+TEST_ROUTE_TOKEN="$private_failure_token"
+private_failure_message="$(bounded_private_failure_message "backend" "$private_failure_log")"
+if [[ "$private_failure_message" == *"postgres://"* ]]; then
+  fail "bounded private failure diagnostic retained a DSN"
+fi
+if [[ "$private_failure_message" == *"$private_failure_token"* ]]; then
+  fail "bounded private failure diagnostic retained the test route token"
+fi
+[[ "$private_failure_message" == backend\ process\ failed\ to\ establish\ a\ session:* ]] ||
+  fail "bounded private failure diagnostic lost its safe failure class"
+TEST_ROUTE_TOKEN=""
 
 # A launcher may exit before a reporter descendant in the same process group.
 # Group liveness and cleanup must follow the whole group, not the leader PID.
@@ -122,6 +196,44 @@ if browser_start_services >/dev/null 2>&1; then
   fail "browser lifecycle must reject shared development services"
 fi
 
+# The private browser runtime is admitted only with an exact external suite
+# ownership marker and never projects its env/lease/log paths below results.
+security_results_root="$tmp_dir/security-results"
+security_run_id="security-run"
+security_suite_root="$tmp_dir/security-suite-runtime"
+security_session_root="$security_suite_root/browser-stack-leases/security-session"
+mkdir -p "$security_results_root/$security_run_id" "$security_session_root"
+chmod 700 "$security_suite_root" "$security_session_root"
+security_lease_id="00000000-0000-4000-8000-000000000002"
+printf '{"schema_id":"cartulary.harness_suite_runtime_owner.v1","lease_id":"%s","run_id":"%s","owner_uid":%s,"created_at":"2026-08-14T00:00:00Z"}\n' \
+  "$security_lease_id" "$security_run_id" "$(id -u)" >"$security_suite_root/runtime-owner.json"
+chmod 600 "$security_suite_root/runtime-owner.json"
+export CARTULARY_TEST_SERVICES_ACTIVE=1
+export CARTULARY_TEST_RESULTS_DIR="$security_results_root"
+export CARTULARY_TEST_RUN_ID="$security_run_id"
+export CARTULARY_HARNESS_SUITE_RUNTIME_ROOT="$security_suite_root"
+export CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID="$security_lease_id"
+export CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID="$security_run_id"
+PRIVATE_SESSION_ROOT="$security_session_root"
+BROWSER_SESSION_ID=security-session
+prepare_runtime_root || fail "valid external private browser runtime admission"
+[[ "$RUNTIME_ROOT_BASE" == "$security_session_root/runtime-root" ]] ||
+  fail "browser runtime root must be external to retained results"
+[[ "$STACK_ENV_FILE" == "$security_session_root/stack.env" ]] ||
+  fail "browser stack environment must remain private"
+if find "$security_results_root/$security_run_id" -type f \( -name '*.env' -o -name '*.lease' -o -name '*.dsn' \) -print -quit | grep -q .; then
+  fail "private browser runtime filename appeared below retained results"
+fi
+
+contained_suite_root="$security_results_root/$security_run_id/contained-runtime"
+mkdir -p "$contained_suite_root/browser-stack-leases/contained-session"
+chmod 700 "$contained_suite_root" "$contained_suite_root/browser-stack-leases/contained-session"
+export CARTULARY_HARNESS_SUITE_RUNTIME_ROOT="$contained_suite_root"
+PRIVATE_SESSION_ROOT="$contained_suite_root/browser-stack-leases/contained-session"
+if prepare_runtime_root >/dev/null 2>&1; then
+  fail "browser runtime must reject result-root containment"
+fi
+
 # Build one complete session artifact chain with live process proofs.
 results_root="$tmp_dir/results"
 run_id="run-test"
@@ -130,13 +242,16 @@ session_id="session-default"
 run_root="$results_root/$run_id"
 suite_root="$run_root/_shared/test-services/$suite_id"
 session_root="$suite_root/browser-sessions/$session_id"
-runtime_root="$session_root/runtime-root"
-mkdir -p "$session_root/logs" "$runtime_root"
+private_suite_root="$tmp_dir/private-suite-runtime"
+private_session_root="$private_suite_root/browser-stack-leases/$session_id"
+runtime_root="$private_session_root/runtime-root"
+mkdir -p "$session_root" "$private_session_root/logs" "$runtime_root/playwright-state"
+chmod 700 "$private_suite_root" "$private_session_root" "$runtime_root" "$runtime_root/playwright-state"
 printf '{"schema_id":"cartulary.test_services.scope.v1","suite_id":"%s","run_id":"%s"}\n' \
   "$suite_id" "$run_id" >"$suite_root/service-scope.json"
 printf '{"database_name":"ct_web_test","bucket":"ct-web-test"}\n' >"$runtime_root/test-services-web-e2e.json"
-printf 'backend\n' >"$session_root/logs/server.log"
-printf 'frontend\n' >"$session_root/logs/web.log"
+printf 'backend\n' >"$private_session_root/logs/server.log"
+printf 'frontend\n' >"$private_session_root/logs/web.log"
 
 setsid sleep 120 &
 backend_pid=$!
@@ -155,8 +270,10 @@ export CARTULARY_TEST_SERVICES_ACTIVE=1
 export CARTULARY_TEST_SERVICES_CALL_MODE=owned
 export CARTULARY_WEB_E2E_SESSION_ARTIFACT_DIR="$session_root"
 export CARTULARY_WEB_E2E_RUNTIME_ROOT="$runtime_root"
-export CARTULARY_WEB_E2E_SERVER_LOG="$session_root/logs/server.log"
-export CARTULARY_WEB_E2E_WEB_LOG="$session_root/logs/web.log"
+export CARTULARY_PLAYWRIGHT_STATE_DIR="$runtime_root/playwright-state"
+export CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID=00000000-0000-4000-8000-000000000001
+export CARTULARY_WEB_E2E_SERVER_LOG="$private_session_root/logs/server.log"
+export CARTULARY_WEB_E2E_WEB_LOG="$private_session_root/logs/web.log"
 export CARTULARY_WEB_E2E_API_ORIGIN=http://127.0.0.1:38080
 export CARTULARY_WEB_E2E_PUBLIC_ORIGIN=http://127.0.0.1:34173
 export CARTULARY_WEB_E2E_BACKEND_PORT=38080
@@ -201,7 +318,7 @@ eval "$attachment_exports"
   fail "valid v4 attachment must set the admission marker"
 [[ "$CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER" == "1" ]] ||
   fail "valid v4 attachment must select external-server lifecycle semantics"
-[[ "$CARTULARY_PLAYWRIGHT_STATE_DIR" == "$session_root/runtime-root/playwright-state" ]] ||
+[[ "$CARTULARY_PLAYWRIGHT_STATE_DIR" == "$runtime_root/playwright-state" ]] ||
   fail "Playwright state must be scoped to the attached browser session"
 attachment_json="$("$NODE_BIN" "$EVIDENCE_HELPER" attach-json "$stack_file")"
 printf '%s\n' "$attachment_json" |
@@ -228,7 +345,7 @@ printf '%s\n' "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" |
   grep -Fq 'CARTULARY_WEB_E2E_ATTACHMENT_VALIDATED=1' ||
   fail "Playwright environment must carry the v4 admission marker"
 printf '%s\n' "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" |
-  grep -Fq "CARTULARY_PLAYWRIGHT_STATE_DIR=$session_root/runtime-root/playwright-state" ||
+  grep -Fq "CARTULARY_PLAYWRIGHT_STATE_DIR=$runtime_root/playwright-state" ||
   fail "Playwright environment must carry session-scoped shared state"
 
 if CARTULARY_BROWSER_RUNTIME_PROFILE_ID=network_flow_claimed \
@@ -246,11 +363,9 @@ fi
 # A failed terminal state cannot regress to ready or accept more events.
 failed_session_id="session-failed"
 failed_session_root="$suite_root/browser-sessions/$failed_session_id"
-mkdir -p "$failed_session_root/logs"
+mkdir -p "$failed_session_root"
 export CARTULARY_BROWSER_SESSION_GROUP="$failed_session_id"
 export CARTULARY_WEB_E2E_SESSION_ARTIFACT_DIR="$failed_session_root"
-export CARTULARY_WEB_E2E_SERVER_LOG="$failed_session_root/logs/server.log"
-export CARTULARY_WEB_E2E_WEB_LOG="$failed_session_root/logs/web.log"
 "$NODE_BIN" "$EVIDENCE_HELPER" event initializing "initializing failed session"
 "$NODE_BIN" "$EVIDENCE_HELPER" terminal failed "configuration rejected" config configuration_error
 if "$NODE_BIN" "$EVIDENCE_HELPER" terminal ready "must not regress" >/dev/null 2>&1; then
@@ -262,5 +377,60 @@ fi
 assert_json "$failed_session_root/startup-diagnostics.json" \
   'value.schema_id === "cartulary.browser_startup_diagnostics.v2" && value.status === "failed"' \
   "failed v2 terminal diagnostic"
+
+# The reset entrypoint owns every retained reset-boundary writer. Prove a
+# caller's ambient 022 cannot weaken response, normalized-data, status, or
+# Playwright-state evidence.
+reset_fake_bin="$tmp_dir/reset-fake-bin"
+reset_results_root="$tmp_dir/reset-results"
+reset_runtime_root="$tmp_dir/reset-runtime"
+reset_state_root="$tmp_dir/reset-state"
+mkdir -p "$reset_fake_bin" "$reset_runtime_root" "$reset_state_root"
+cat >"$reset_fake_bin/testservices" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+EOF
+cat >"$reset_fake_bin/curl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+output_file=""
+while [[ "$#" -gt 0 ]]; do
+  if [[ "$1" == "-o" ]]; then
+    output_file="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+[[ -n "$output_file" ]]
+printf '%s\n' '{"data":{"schema_id":"cartulary.test.runtime_reset.v1","reset_id":"ambient-022","tables_reset":["records"],"mutable_table_count":1,"object_count_removed":0,"object_count_after":0,"migration_metadata_preserved":true,"bootstrap_admin_restored":true,"partial_failure":false,"post_reset_counts":{"active_deployment_admins":1,"bootstrap_markers":1,"incidents":0,"records":0,"user_sessions":0,"route_idempotency":0}}}' >"$output_file"
+printf '200'
+EOF
+chmod 700 "$reset_fake_bin/testservices" "$reset_fake_bin/curl"
+(
+  umask 022
+  unset CARTULARY_HARNESS_IDENTITY_PREPARED
+  CARTULARY_TEST_TARGET=adhoc \
+    CARTULARY_TEST_RESULTS_DIR="$reset_results_root" \
+    CARTULARY_TEST_RUN_ID=ambient-reset \
+    CARTULARY_TEST_ROUTE_TOKEN=opaque-reset-token \
+    CARTULARY_TEST_SERVICES_BIN="$reset_fake_bin/testservices" \
+    CARTULARY_WEB_E2E_RUNTIME_ROOT="$reset_runtime_root" \
+    CARTULARY_PLAYWRIGHT_STATE_DIR="$reset_state_root" \
+    NODE_BIN="$NODE_BIN" \
+    PATH="$reset_fake_bin:$PATH" \
+    "$RESET_SCRIPT" --label ambient-022
+)
+reset_support_root="$reset_results_root/ambient-reset/adhoc/reset-boundary"
+for reset_artifact in \
+  "$reset_support_root/ambient-022.json" \
+  "$reset_support_root/ambient-022.data.json" \
+  "$reset_support_root/ambient-022.status" \
+  "$reset_support_root/ambient-022.state-reset"; do
+  [[ -f "$reset_artifact" ]] || fail "reset ambient-022 artifact missing: $reset_artifact"
+  [[ "$(stat -c '%a' "$reset_artifact")" == "600" ]] ||
+    fail "reset ambient-022 artifact must be 0600: $reset_artifact"
+done
 
 printf '%s\n' "test-web-e2e-lifecycle: pass"

@@ -29,6 +29,7 @@ STARTUP_EVENTS_FILE=""
 STACK_LEASE_FILE=""
 SERVICE_SCOPE_SNAPSHOT_FILE=""
 RUN_ROOT=""
+PRIVATE_SESSION_ROOT="${CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT:-}"
 SUITE_ID="${CARTULARY_TEST_SUITE_ID:-}"
 BROWSER_SESSION_ID="${CARTULARY_BROWSER_SESSION_GROUP:-}"
 PLAYWRIGHT_STATE_DIR=""
@@ -141,6 +142,12 @@ parse_child_command() {
 prepare_runtime_root() {
   local results_root="${CARTULARY_TEST_RESULTS_DIR:-}"
   local run_id="${CARTULARY_TEST_RUN_ID:-}"
+  local suite_runtime_root="${CARTULARY_HARNESS_SUITE_RUNTIME_ROOT:-}"
+  local suite_runtime_real=""
+  local private_session_real=""
+  local suite_runtime_lease_id="${CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID:-}"
+  local suite_runtime_run_id="${CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID:-}"
+  local owner_marker=""
 
   if [[ "${CARTULARY_TEST_SERVICES_ACTIVE:-}" != "1" ]]; then
     echo "managed browser sessions require CARTULARY_TEST_SERVICES_ACTIVE=1" >&2
@@ -167,12 +174,53 @@ prepare_runtime_root() {
   else
     RUN_ROOT="${ROOT_DIR}/${results_root}/${run_id}"
   fi
+  if [[ -z "${suite_runtime_root}" || -z "${PRIVATE_SESSION_ROOT}" || -z "${suite_runtime_lease_id}" || -z "${suite_runtime_run_id}" ]]; then
+    echo "managed browser session requires an external suite runtime root and private session root" >&2
+    return 2
+  fi
+  if [[ ! -d "${suite_runtime_root}" || ! -d "${PRIVATE_SESSION_ROOT}" || -L "${suite_runtime_root}" || -L "${PRIVATE_SESSION_ROOT}" ]]; then
+    echo "browser private runtime roots must be existing non-symlink directories" >&2
+    return 2
+  fi
+  suite_runtime_real="$(realpath "${suite_runtime_root}")"
+  private_session_real="$(realpath "${PRIVATE_SESSION_ROOT}")"
+  case "${private_session_real}/" in
+    "${suite_runtime_real}/"*) ;;
+    *)
+      echo "browser private session root must be beneath the suite runtime root" >&2
+      return 2
+      ;;
+  esac
+  case "${suite_runtime_real}/" in
+    "${ROOT_DIR}/"*|"${RUN_ROOT}/"*)
+      echo "suite runtime root must be outside repository and retained result roots" >&2
+      return 2
+      ;;
+  esac
+  if [[ "$(stat -c '%a' "${suite_runtime_real}")" != "700" || "$(stat -c '%a' "${private_session_real}")" != "700" ]]; then
+    echo "browser private runtime roots must be owner-only 0700 directories" >&2
+    return 2
+  fi
+  if [[ "$(stat -c '%u' "${suite_runtime_real}")" != "$(id -u)" || "$(stat -c '%u' "${private_session_real}")" != "$(id -u)" ]]; then
+    echo "browser private runtime roots must be owned by the current user" >&2
+    return 2
+  fi
+  owner_marker="${suite_runtime_real}/runtime-owner.json"
+  if [[ ! -f "${owner_marker}" || -L "${owner_marker}" || "$(stat -c '%a' "${owner_marker}")" != "600" || "$(stat -c '%u' "${owner_marker}")" != "$(id -u)" ]]; then
+    echo "suite runtime owner marker must be an owner-only 0600 regular file" >&2
+    return 2
+  fi
+  if ! grep -Fq "\"lease_id\":\"${suite_runtime_lease_id}\"" "${owner_marker}" || ! grep -Fq "\"run_id\":\"${suite_runtime_run_id}\"" "${owner_marker}"; then
+    echo "suite runtime owner marker does not match the active browser lease" >&2
+    return 2
+  fi
+  PRIVATE_SESSION_ROOT="${private_session_real}"
   TARGET_ARTIFACT_DIR="${RUN_ROOT}/_shared/test-services/${SUITE_ID}/browser-sessions/${BROWSER_SESSION_ID}"
-  step_secure_mkdir "${TARGET_ARTIFACT_DIR}" "${TARGET_ARTIFACT_DIR}/logs"
-  RUNTIME_ROOT_BASE="${TARGET_ARTIFACT_DIR}/runtime-root"
-  SERVER_LOG="${TARGET_ARTIFACT_DIR}/logs/server.log"
-  WEB_LOG="${TARGET_ARTIFACT_DIR}/logs/web.log"
-  STACK_ENV_FILE="${TARGET_ARTIFACT_DIR}/stack.env"
+  step_secure_mkdir "${TARGET_ARTIFACT_DIR}" "${PRIVATE_SESSION_ROOT}/logs"
+  RUNTIME_ROOT_BASE="${PRIVATE_SESSION_ROOT}/runtime-root"
+  SERVER_LOG="${PRIVATE_SESSION_ROOT}/logs/server.log"
+  WEB_LOG="${PRIVATE_SESSION_ROOT}/logs/web.log"
+  STACK_ENV_FILE="${PRIVATE_SESSION_ROOT}/stack.env"
   STACK_JSON_FILE="${TARGET_ARTIFACT_DIR}/stack-v5.json"
   STARTUP_DIAGNOSTIC_FILE="${TARGET_ARTIFACT_DIR}/startup-diagnostics.json"
   STARTUP_EVENTS_FILE="${TARGET_ARTIFACT_DIR}/startup-events.jsonl"
@@ -180,8 +228,6 @@ prepare_runtime_root() {
   SERVICE_SCOPE_SNAPSHOT_FILE="${TARGET_ARTIFACT_DIR}/service-scope-admission.json"
   rm -rf "${RUNTIME_ROOT_BASE}"
   rm -f \
-    "${SERVER_LOG}" \
-    "${WEB_LOG}" \
     "${STACK_ENV_FILE}" \
     "${STACK_JSON_FILE}" \
     "${STARTUP_DIAGNOSTIC_FILE}" \
@@ -354,6 +400,64 @@ require_frontend_preview_artifacts() {
   return 2
 }
 
+browser_prepare_frontend_toolchain() {
+  env \
+    -u CARTULARY_HARNESS_IDENTITY_PREPARED \
+    -u CARTULARY_TEST_RUN_ID \
+    -u CARTULARY_TEST_TARGET \
+    -u CARTULARY_MAKE_INPUT_SOURCES \
+    -u CARTULARY_HARNESS_CACHE_MODE \
+    -u CARTULARY_HARNESS_CAPACITY_OVERRIDE \
+    -u JSON \
+    -u OWNER \
+    -u ROWS \
+    -u SERVICE_BACKED_ONLY \
+    -u PLAYWRIGHT_WORKERS \
+    -u VITEST_MAX_WORKERS \
+    MAKEFLAGS= \
+    CARTULARY_FRONTEND_TOOLCHAIN_QUIET=1 \
+    CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+    make -s -C "${ROOT_DIR}" --no-print-directory frontend-toolchain
+}
+
+bounded_private_failure_message() {
+  local label="$1"
+  local log_file="$2"
+  local redacted=""
+
+  if [[ ! -s "${log_file}" ]]; then
+    printf '%s process failed to establish a session\n' "${label}"
+    return 0
+  fi
+
+  redacted="$(tail -c 4096 "${log_file}" | step_redact_stream)"
+  CARTULARY_PRIVATE_FAILURE_TEXT="${redacted}" \
+  CARTULARY_PRIVATE_FAILURE_LABEL="${label}" \
+  CARTULARY_PRIVATE_FAILURE_TEST_ROUTE_TOKEN="${TEST_ROUTE_TOKEN:-}" \
+  CARTULARY_PRIVATE_FAILURE_REVISIONS_TOKEN="${REVISIONS_CONFLICT_TOKEN_SECRET:-}" \
+  CARTULARY_PRIVATE_FAILURE_DSN="${E2E_DSN:-}" \
+  CARTULARY_PRIVATE_FAILURE_S3_ACCESS_KEY="${CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID:-}" \
+  CARTULARY_PRIVATE_FAILURE_S3_SECRET_KEY="${CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY:-}" \
+    "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" <<'EOF'
+const secrets = [
+  process.env.CARTULARY_PRIVATE_FAILURE_TEST_ROUTE_TOKEN,
+  process.env.CARTULARY_PRIVATE_FAILURE_REVISIONS_TOKEN,
+  process.env.CARTULARY_PRIVATE_FAILURE_DSN,
+  process.env.CARTULARY_PRIVATE_FAILURE_S3_ACCESS_KEY,
+  process.env.CARTULARY_PRIVATE_FAILURE_S3_SECRET_KEY,
+].filter((value) => typeof value === "string" && value.length >= 8);
+let text = process.env.CARTULARY_PRIVATE_FAILURE_TEXT ?? "";
+for (const secret of secrets) text = text.replaceAll(secret, "[REDACTED]");
+text = text.replace(
+  /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s]+/giu,
+  "[REDACTED]",
+);
+text = text.replace(/[\u0000-\u001f\u007f]+/gu, " ").trim();
+if (text.length > 1500) text = text.slice(-1500);
+process.stdout.write(`${process.env.CARTULARY_PRIVATE_FAILURE_LABEL} process failed to establish a session: ${text}\n`);
+EOF
+}
+
 using_test_services_stack() {
   [[ "${CARTULARY_TEST_SERVICES_ACTIVE:-}" == "1" ]]
 }
@@ -387,6 +491,34 @@ resolve_runtime_command() {
   fi
   # shellcheck disable=SC2034
   resolved_ref=("${configured_path}")
+}
+
+backend_start_input_failure() {
+  local name=""
+  local value=""
+  local -a missing=()
+  for name in \
+    SERVER_HARNESS_BIN \
+    CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT \
+    CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID \
+    CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY \
+    CARTULARY_S3_OBJECT_PRIMARY_SECURE \
+    CARTULARY_S3_OBJECT_PRIMARY_BUCKET \
+    GO_CACHE_DIR \
+    GO_MOD_CACHE_DIR \
+    GO_TMP_DIR; do
+    value="${!name:-}"
+    if [[ -z "${value}" ]]; then
+      missing+=("${name}")
+    fi
+  done
+  if [[ "${#missing[@]}" -gt 0 ]]; then
+    printf 'backend start inputs are missing: %s\n' "$(IFS=,; printf '%s' "${missing[*]}")"
+    return 0
+  fi
+  if [[ ! -x "${SERVER_HARNESS_BIN}" ]]; then
+    printf 'backend scheduler-produced runtime binary is not executable\n'
+  fi
 }
 
 port_in_use() {
@@ -435,7 +567,7 @@ stop_owned_process_group() {
   return "${status}"
 }
 
-remove_retained_secret_material() {
+remove_private_runtime_material() {
   local candidate=""
   local status=0
   local -a candidates=()
@@ -462,7 +594,7 @@ remove_retained_secret_material() {
     fi
   done
   if [[ "${status}" -ne 0 ]]; then
-    echo "browser e2e cleanup could not remove retained secret material" >&2
+    echo "browser e2e cleanup could not remove private runtime material" >&2
   fi
   return "${status}"
 }
@@ -511,7 +643,7 @@ cleanup() {
       rm -f -- "${TEST_SERVICES_METADATA_FILE}" || cleanup_status=$?
     fi
   fi
-  remove_retained_secret_material || cleanup_status=$?
+  remove_private_runtime_material || cleanup_status=$?
   if [[ "${KEEP_RUNTIME_ROOT}" -ne 1 ]]; then
     step_start_time="$(step_now_utc)"
     step_start_ms="$(step_now_monotonic_ms)"
@@ -699,6 +831,7 @@ stop_session() {
     return 1
   fi
   load_session_lease "${SESSION_LEASE_FILE}"
+  KEEP_RUNTIME_ROOT=0
   cleanup || status=$?
   if ! rm -f -- "${SESSION_LEASE_FILE}" >/dev/null 2>&1; then
     status=1
@@ -937,14 +1070,24 @@ browser_wait_backend_ready() {
     fi
     if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
       echo "backend exited before readiness" >&2
-      write_startup_diagnostics "fail" "backend_readiness" "infra" "service_start_error" "backend exited before readiness" || true
+      write_startup_diagnostics \
+        "fail" \
+        "backend_readiness" \
+        "infra" \
+        "service_start_error" \
+        "$(bounded_private_failure_message "backend" "${SERVER_LOG}")" || true
       cat "${SERVER_LOG}" >&2 || true
       return 1
     fi
     if port_owned_by_process_group "${BACKEND_PORT}" "${SERVER_PGID}" && identity_pid="$(probe_backend_identity 2>/dev/null)"; then
       if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
         echo "backend exited immediately after readiness identity probe" >&2
-        write_startup_diagnostics "fail" "backend_readiness" "infra" "service_start_error" "backend exited immediately after readiness identity probe" || true
+        write_startup_diagnostics \
+          "fail" \
+          "backend_readiness" \
+          "infra" \
+          "service_start_error" \
+          "$(bounded_private_failure_message "backend" "${SERVER_LOG}")" || true
         cat "${SERVER_LOG}" >&2 || true
         return 1
       fi
@@ -1133,7 +1276,7 @@ main() {
     "initializing browser session ${BROWSER_SESSION_ID} for runtime profile ${RUNTIME_PROFILE_ID}"
 
   run_timing_span "setup" "browser-e2e frontend toolchain" \
-    env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET MAKEFLAGS= CARTULARY_FRONTEND_TOOLCHAIN_QUIET=1 CARTULARY_SUPPRESS_CHILD_SUCCESS=1 make -s -C "${ROOT_DIR}" --no-print-directory frontend-toolchain
+    browser_prepare_frontend_toolchain
   local pnpm_bin="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
   if [[ ! -x "${pnpm_bin}" ]]; then
     echo "repo-local pnpm was not found at ${pnpm_bin}; run make frontend-toolchain" >&2
@@ -1147,6 +1290,18 @@ main() {
 
   CARTULARY_STEP_TIMING_BUCKET=service_wait run_step_command "browser-e2e startup services" browser_start_services
   CARTULARY_STEP_TIMING_BUCKET=migration run_step_command "browser-e2e startup database" browser_prepare_database
+
+  local backend_input_error=""
+  backend_input_error="$(backend_start_input_failure)"
+  if [[ -n "${backend_input_error}" ]]; then
+    write_startup_diagnostics \
+      "fail" \
+      "backend_startup" \
+      "infra" \
+      "service_start_error" \
+      "${backend_input_error}" || true
+    return 1
+  fi
 
   local -a server_command=()
   resolve_runtime_command server_command "backend" "${SERVER_HARNESS_BIN}"
@@ -1166,34 +1321,46 @@ main() {
     )
   fi
 
-  run_timing_span "server_startup" "browser-e2e start backend process" \
-  start_process_group SERVER_PGID "${SERVER_LOG}" \
-    env \
-    CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
-    CARTULARY__APPLICATION__PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
-    CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
-    CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
-    CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
-    CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH="${ROOT_DIR}/configs/dev/revisions-conflict-token-key-ring.json" \
-    CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_DEV_ACTIVE="${REVISIONS_CONFLICT_TOKEN_SECRET}" \
-    CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN="${E2E_DSN}" \
-    CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT="${CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT:?}" \
-    CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID="${CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID:?}" \
-    CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY="${CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY:?}" \
-    CARTULARY_S3_OBJECT_PRIMARY_SECURE="${CARTULARY_S3_OBJECT_PRIMARY_SECURE:?}" \
-    CARTULARY_S3_OBJECT_PRIMARY_BUCKET="${CARTULARY_S3_OBJECT_PRIMARY_BUCKET:?}" \
-    CARTULARY_ENABLE_TEST_ROUTES=1 \
-    CARTULARY_TEST_RUNTIME_MARKER=harness-owned \
-    CARTULARY_TEST_ROUTE_TOKEN="${TEST_ROUTE_TOKEN}" \
-    CARTULARY__ROOTS__BACKUP_STORAGE__PATH="${RUNTIME_ROOT_BASE}/backup-storage" \
-    CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH="${RUNTIME_ROOT_BASE}/reference-pack-storage" \
-    CARTULARY__ROOTS__TEMPORARY_WORK__PATH="${RUNTIME_ROOT_BASE}/temporary-work" \
-    CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH="${RUNTIME_ROOT_BASE}/export-outputs" \
-    "${runtime_profile_env[@]}" \
-    GOCACHE="${GO_CACHE_DIR:?GO_CACHE_DIR is required}" \
-    GOMODCACHE="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" \
-    GOTMPDIR="${GO_TMP_DIR:?GO_TMP_DIR is required}" \
-    "${backend_listen_command[@]}"
+  local backend_start_status=0
+  if run_timing_span "server_startup" "browser-e2e start backend process" \
+    start_process_group SERVER_PGID "${SERVER_LOG}" \
+      env \
+      CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
+      CARTULARY__APPLICATION__PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
+      CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
+      CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
+      CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
+      CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH="${ROOT_DIR}/configs/dev/revisions-conflict-token-key-ring.json" \
+      CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_DEV_ACTIVE="${REVISIONS_CONFLICT_TOKEN_SECRET}" \
+      CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN="${E2E_DSN}" \
+      CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT="${CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT:?}" \
+      CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID="${CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID:?}" \
+      CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY="${CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY:?}" \
+      CARTULARY_S3_OBJECT_PRIMARY_SECURE="${CARTULARY_S3_OBJECT_PRIMARY_SECURE:?}" \
+      CARTULARY_S3_OBJECT_PRIMARY_BUCKET="${CARTULARY_S3_OBJECT_PRIMARY_BUCKET:?}" \
+      CARTULARY_ENABLE_TEST_ROUTES=1 \
+      CARTULARY_TEST_RUNTIME_MARKER=harness-owned \
+      CARTULARY_TEST_ROUTE_TOKEN="${TEST_ROUTE_TOKEN}" \
+      CARTULARY__ROOTS__BACKUP_STORAGE__PATH="${RUNTIME_ROOT_BASE}/backup-storage" \
+      CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH="${RUNTIME_ROOT_BASE}/reference-pack-storage" \
+      CARTULARY__ROOTS__TEMPORARY_WORK__PATH="${RUNTIME_ROOT_BASE}/temporary-work" \
+      CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH="${RUNTIME_ROOT_BASE}/export-outputs" \
+      "${runtime_profile_env[@]}" \
+      GOCACHE="${GO_CACHE_DIR:?GO_CACHE_DIR is required}" \
+      GOMODCACHE="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" \
+      GOTMPDIR="${GO_TMP_DIR:?GO_TMP_DIR is required}" \
+      "${backend_listen_command[@]}"; then
+    :
+  else
+    backend_start_status=$?
+    write_startup_diagnostics \
+      "fail" \
+      "backend_startup" \
+      "infra" \
+      "service_start_error" \
+      "$(bounded_private_failure_message "backend" "${SERVER_LOG}")" || true
+    return "${backend_start_status}"
+  fi
 
   CARTULARY_STEP_TIMING_BUCKET=server_startup run_step_command "browser-e2e startup backend ready" browser_wait_backend_ready
   CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e startup frontend ready" start_frontend_preview_ready "${pnpm_bin}"

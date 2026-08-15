@@ -1,11 +1,13 @@
-package performancefixtureassembly
+package performancefixture
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 	authfixture "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/performancefixture"
 	entitiesfixture "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport/performancefixture"
 	incidentsfixture "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/performancefixture"
@@ -14,13 +16,22 @@ import (
 	timelinefixture "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 )
 
-func NewProduction(pool postgres.DB, actor authn.UserRecord, owners *appsupport.PerformanceFixtureOwners) (*fixture.Assembler, error) {
-	if owners == nil {
-		return nil, fmt.Errorf("performance fixture owner applications are required")
+func NewProduction(
+	pool postgres.DB,
+	actor authn.UserRecord,
+	conflictTokenSeed string,
+	profile performancefixtureprofile.Profile,
+) (*fixture.Assembler, error) {
+	if len(conflictTokenSeed) < 16 {
+		return nil, errors.New("performance fixture conflict token seed is incomplete")
+	}
+	owners, err := NewOwners(pool, conflicttest.NewCodec(conflictTokenSeed[:16]))
+	if err != nil {
+		return nil, err
 	}
 	authApplication, err := authfixture.NewProductionApplication(pool, actor)
 	if err != nil {
@@ -46,19 +57,20 @@ func NewProduction(pool postgres.DB, actor authn.UserRecord, owners *appsupport.
 	if err != nil {
 		return nil, err
 	}
-	return New(Dependencies{
+	return New(profile, Dependencies{
 		Auth:        authApplication,
 		Incidents:   incidentApplication,
 		Entities:    entityApplication,
 		Timeline:    timelineApplication,
 		Links:       linkApplication,
 		Projections: projectionApplication,
-		Validation:  &productionSemanticValidator{pool: pool},
+		Validation:  &productionSemanticValidator{pool: pool, profile: profile},
 	})
 }
 
 type productionSemanticValidator struct {
-	pool postgres.DB
+	pool    postgres.DB
+	profile performancefixtureprofile.Profile
 }
 
 func (v *productionSemanticValidator) ValidateFixtureSemantics(ctx context.Context, incidentID string, expected SemanticExpectations) (fixture.SemanticValidation, error) {
@@ -79,7 +91,7 @@ func (v *productionSemanticValidator) ValidateFixtureSemantics(ctx context.Conte
 		{key: "mention_assignments", query: `SELECT COUNT(*) FROM entity_mentions m JOIN records r ON r.record_id = m.source_record_id WHERE r.incident_id = $1 AND m.source_field_key = 'timeline.identity_refs'`, args: []any{incidentUUID}},
 		{key: "link_assignments", query: `SELECT COUNT(*) FROM record_links WHERE incident_id = $1 AND link_type = 'observed_on_host' AND deleted_at IS NULL`, args: []any{incidentUUID}},
 		{key: "background_analysts", query: `SELECT COUNT(*) FROM incident_memberships m JOIN users u ON u.id = m.user_id WHERE m.incident_id = $1 AND m.role = 'editor' AND u.is_active AND NOT u.is_deployment_admin AND NOT u.mfa_required`, args: []any{incidentUUID}},
-		{key: "active_sessions", query: `SELECT COUNT(*) FROM user_sessions WHERE revoked_at IS NULL`, args: nil},
+		{key: "active_sessions", query: `SELECT COUNT(*) FROM user_sessions WHERE revoked_at IS NULL`},
 	}
 	for _, query := range queries {
 		var count int
@@ -101,13 +113,18 @@ SELECT COUNT(*)
    AND t.data_source_text LIKE 'https://fixture-%'`, incidentUUID).Scan(&distributedRows); err != nil {
 		return fixture.SemanticValidation{}, fmt.Errorf("query performance fixture relationship distribution: %w", err)
 	}
-	want := ExpectedSemanticCounts()
+	generated, err := semanticExpectations(v.profile)
+	if err != nil {
+		return fixture.SemanticValidation{}, err
+	}
 	return fixture.SemanticValidation{
-		Counts:                   counts,
-		RelationshipDistribution: distributedRows == expected.LinkAssignments,
-		DefaultView:              expected.DefaultView && defaultViewCount == 1,
-		Authorization:            counts["background_analysts"] == want["background_analysts"],
-		ProjectionReadiness:      expected.ProjectionReady,
-		NoActiveSessions:         counts["active_sessions"] == expected.ActiveSessions,
+		Counts: counts,
+		Conditions: map[string]bool{
+			"authorization":             counts["background_analysts"] == generated.BackgroundAnalysts,
+			"default_view":              expected.DefaultView && defaultViewCount == 1,
+			"no_active_sessions":        counts["active_sessions"] == expected.ActiveSessions,
+			"projection_ready":          expected.ProjectionReady,
+			"relationship_distribution": distributedRows == expected.LinkAssignments,
+		},
 	}, nil
 }

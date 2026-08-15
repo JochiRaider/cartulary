@@ -16,9 +16,3 @@ export {
   goTargetForFamily,
   targetForCatalogRow,
 } from "./target-routing.mjs";
-export {
-  canonicalJSONString,
-  parseStrictJSON,
-  semanticJSONDigest,
-  semanticJSONSHA256,
-} from "./semantic-json.mjs";

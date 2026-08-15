@@ -11,31 +11,44 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 )
 
-const (
-	RuntimeSchemaID    = "cartulary.performance_fixture_runtime.v1"
-	LargeGridProfileID = "ac043_large_grid_snapshot_v1"
-	RuntimeBundleName  = "performance-fixture-runtime.json"
-)
+const RuntimeBundleName = "performance-fixture-runtime.json"
 
-type BackgroundAccount struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+type RuntimeCredential struct {
+	Principal string `json:"principal"`
+	Secret    string `json:"secret"`
+}
+
+type RuntimeCredentialSet struct {
+	SetID          string              `json:"set_id"`
+	CredentialKind string              `json:"credential_kind"`
+	Credentials    []RuntimeCredential `json:"credentials"`
 }
 
 type RuntimeBundle struct {
-	SchemaID           string              `json:"schema_id"`
-	FixtureProfileID   string              `json:"fixture_profile_id"`
-	SnapshotKey        string              `json:"snapshot_key"`
-	BackgroundAccounts []BackgroundAccount `json:"background_accounts"`
+	SchemaID         string                 `json:"schema_id"`
+	FixtureProfileID string                 `json:"fixture_profile_id"`
+	SnapshotKey      string                 `json:"snapshot_key"`
+	CredentialSets   []RuntimeCredentialSet `json:"credential_sets"`
 }
 
-func GenerateRuntimeBundle(snapshotKey string) (RuntimeBundle, error) {
-	return generateRuntimeBundle(snapshotKey, rand.Reader)
+func (bundle RuntimeBundle) Credentials(setID string) ([]RuntimeCredential, bool) {
+	for _, set := range bundle.CredentialSets {
+		if set.SetID == setID {
+			return append([]RuntimeCredential(nil), set.Credentials...), true
+		}
+	}
+	return nil, false
 }
 
-func generateRuntimeBundle(snapshotKey string, entropy io.Reader) (RuntimeBundle, error) {
+func GenerateRuntimeBundle(profile performancefixtureprofile.Profile, snapshotKey string) (RuntimeBundle, error) {
+	return generateRuntimeBundle(profile, snapshotKey, rand.Reader)
+}
+
+func generateRuntimeBundle(profile performancefixtureprofile.Profile, snapshotKey string, entropy io.Reader) (RuntimeBundle, error) {
 	if err := validateSnapshotKey(snapshotKey); err != nil {
 		return RuntimeBundle{}, err
 	}
@@ -43,30 +56,41 @@ func generateRuntimeBundle(snapshotKey string, entropy io.Reader) (RuntimeBundle
 		return RuntimeBundle{}, errors.New("performance fixture credential entropy is required")
 	}
 	bundle := RuntimeBundle{
-		SchemaID:           RuntimeSchemaID,
-		FixtureProfileID:   LargeGridProfileID,
-		SnapshotKey:        snapshotKey,
-		BackgroundAccounts: make([]BackgroundAccount, 24),
+		SchemaID:         profile.ArtifactPolicy.RuntimeSchemaID,
+		FixtureProfileID: profile.FixtureProfileID,
+		SnapshotKey:      snapshotKey,
+		CredentialSets:   make([]RuntimeCredentialSet, len(profile.RuntimeCredentialSets)),
 	}
-	for index := range bundle.BackgroundAccounts {
-		emailEntropy := make([]byte, 16)
-		passwordEntropy := make([]byte, 32)
-		if _, err := io.ReadFull(entropy, emailEntropy); err != nil {
-			return RuntimeBundle{}, fmt.Errorf("read performance fixture email entropy: %w", err)
+	for setIndex, descriptor := range profile.RuntimeCredentialSets {
+		if descriptor.CredentialKind != "email_password" || strings.TrimSpace(descriptor.SetID) == "" || descriptor.AccountCount < 1 {
+			return RuntimeBundle{}, errors.New("performance fixture runtime credential set is unsupported")
 		}
-		if _, err := io.ReadFull(entropy, passwordEntropy); err != nil {
-			return RuntimeBundle{}, fmt.Errorf("read performance fixture password entropy: %w", err)
+		set := RuntimeCredentialSet{
+			SetID:          descriptor.SetID,
+			CredentialKind: descriptor.CredentialKind,
+			Credentials:    make([]RuntimeCredential, descriptor.AccountCount),
 		}
-		bundle.BackgroundAccounts[index] = BackgroundAccount{
-			Email:    fmt.Sprintf("ac043-%s@example.test", hex.EncodeToString(emailEntropy)),
-			Password: "Ac043!" + base64.RawURLEncoding.EncodeToString(passwordEntropy),
+		for credentialIndex := range set.Credentials {
+			principalEntropy := make([]byte, 16)
+			secretEntropy := make([]byte, 32)
+			if _, err := io.ReadFull(entropy, principalEntropy); err != nil {
+				return RuntimeBundle{}, fmt.Errorf("read performance fixture principal entropy: %w", err)
+			}
+			if _, err := io.ReadFull(entropy, secretEntropy); err != nil {
+				return RuntimeBundle{}, fmt.Errorf("read performance fixture secret entropy: %w", err)
+			}
+			set.Credentials[credentialIndex] = RuntimeCredential{
+				Principal: fmt.Sprintf("fixture-%s@example.test", hex.EncodeToString(principalEntropy)),
+				Secret:    "Fixture!" + base64.RawURLEncoding.EncodeToString(secretEntropy),
+			}
 		}
+		bundle.CredentialSets[setIndex] = set
 	}
 	return bundle, nil
 }
 
-func WriteRuntimeBundle(root string, bundle RuntimeBundle) (string, error) {
-	if err := validateRuntimeBundle(bundle); err != nil {
+func WriteRuntimeBundle(profile performancefixtureprofile.Profile, root string, bundle RuntimeBundle) (string, error) {
+	if err := ValidateRuntimeBundle(profile, bundle); err != nil {
 		return "", err
 	}
 	if err := createPrivateRoot(root); err != nil {
@@ -80,7 +104,7 @@ func WriteRuntimeBundle(root string, bundle RuntimeBundle) (string, error) {
 	return path, nil
 }
 
-func ReadRuntimeBundle(path string) (RuntimeBundle, error) {
+func ReadRuntimeBundle(profile performancefixtureprofile.Profile, path string) (RuntimeBundle, error) {
 	info, err := os.Lstat(path)
 	if err != nil {
 		return RuntimeBundle{}, fmt.Errorf("inspect performance fixture runtime bundle: %w", err)
@@ -98,18 +122,18 @@ func ReadRuntimeBundle(path string) (RuntimeBundle, error) {
 	if err := decoder.Decode(&bundle); err != nil {
 		return RuntimeBundle{}, fmt.Errorf("decode performance fixture runtime bundle: %w", err)
 	}
-	if err := validateRuntimeBundle(bundle); err != nil {
+	if err := ValidateRuntimeBundle(profile, bundle); err != nil {
 		return RuntimeBundle{}, err
 	}
 	return bundle, nil
 }
 
-func CopyRuntimeBundle(sourcePath string, destinationRoot string) (string, error) {
-	bundle, err := ReadRuntimeBundle(sourcePath)
+func CopyRuntimeBundle(profile performancefixtureprofile.Profile, sourcePath string, destinationRoot string) (string, error) {
+	bundle, err := ReadRuntimeBundle(profile, sourcePath)
 	if err != nil {
 		return "", err
 	}
-	return WriteRuntimeBundle(destinationRoot, bundle)
+	return WriteRuntimeBundle(profile, destinationRoot, bundle)
 }
 
 func RemoveRuntimeBundle(root string) error {
@@ -133,10 +157,12 @@ func ValidateReceiptRedaction(result Result, state *BuildState) error {
 		return err
 	}
 	text := string(payload)
-	for _, account := range state.RuntimeBundle.BackgroundAccounts {
-		for _, secret := range []string{account.Email, account.Password} {
-			if secret != "" && strings.Contains(text, secret) {
-				return errors.New("performance fixture semantic receipt contains runtime credential material")
+	for _, set := range state.RuntimeBundle.CredentialSets {
+		for _, credential := range set.Credentials {
+			for _, secret := range []string{credential.Principal, credential.Secret} {
+				if secret != "" && strings.Contains(text, secret) {
+					return errors.New("performance fixture semantic receipt contains runtime credential material")
+				}
 			}
 		}
 	}
@@ -151,25 +177,36 @@ func ValidateReceiptRedaction(result Result, state *BuildState) error {
 	return nil
 }
 
-func validateRuntimeBundle(bundle RuntimeBundle) error {
-	if bundle.SchemaID != RuntimeSchemaID || bundle.FixtureProfileID != LargeGridProfileID {
+func ValidateRuntimeBundle(profile performancefixtureprofile.Profile, bundle RuntimeBundle) error {
+	if bundle.SchemaID != profile.ArtifactPolicy.RuntimeSchemaID || bundle.FixtureProfileID != profile.FixtureProfileID {
 		return errors.New("performance fixture runtime bundle identity is unsupported")
 	}
 	if err := validateSnapshotKey(bundle.SnapshotKey); err != nil {
 		return err
 	}
-	if len(bundle.BackgroundAccounts) != 24 {
-		return fmt.Errorf("performance fixture runtime bundle has %d background accounts, want 24", len(bundle.BackgroundAccounts))
+	if len(bundle.CredentialSets) != len(profile.RuntimeCredentialSets) {
+		return fmt.Errorf("performance fixture runtime bundle has %d credential sets, want %d", len(bundle.CredentialSets), len(profile.RuntimeCredentialSets))
 	}
-	seen := map[string]struct{}{}
-	for index, account := range bundle.BackgroundAccounts {
-		if !strings.Contains(account.Email, "@") || len(account.Email) > 254 || len(account.Password) < 24 || len(account.Password) > 256 {
-			return fmt.Errorf("performance fixture runtime account %d is malformed", index)
+	seenPrincipals := map[string]struct{}{}
+	seenSets := map[string]struct{}{}
+	for setIndex, set := range bundle.CredentialSets {
+		descriptor := profile.RuntimeCredentialSets[setIndex]
+		if set.SetID != descriptor.SetID || set.CredentialKind != descriptor.CredentialKind || len(set.Credentials) != descriptor.AccountCount {
+			return fmt.Errorf("performance fixture runtime credential set %d is inconsistent", setIndex)
 		}
-		if _, exists := seen[account.Email]; exists {
-			return fmt.Errorf("performance fixture runtime account %d duplicates an email", index)
+		if _, exists := seenSets[set.SetID]; exists {
+			return fmt.Errorf("performance fixture runtime credential set %d is duplicated", setIndex)
 		}
-		seen[account.Email] = struct{}{}
+		seenSets[set.SetID] = struct{}{}
+		for credentialIndex, credential := range set.Credentials {
+			if !strings.Contains(credential.Principal, "@") || len(credential.Principal) > 254 || len(credential.Secret) < 24 || len(credential.Secret) > 4096 {
+				return fmt.Errorf("performance fixture runtime credential %d in set %d is malformed", credentialIndex, setIndex)
+			}
+			if _, exists := seenPrincipals[credential.Principal]; exists {
+				return fmt.Errorf("performance fixture runtime credential %d in set %d duplicates a principal", credentialIndex, setIndex)
+			}
+			seenPrincipals[credential.Principal] = struct{}{}
+		}
 	}
 	return nil
 }

@@ -495,7 +495,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./tools/testservices",
+        "package": "./internal/testutil/performancefixturelifecycle",
         "tests": [
           "TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Integration"
         ]
@@ -530,7 +530,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/testutil/performancefixtureassembly",
+        "package": "./internal/testutil/appsupport/performancefixture",
         "tests": [
           "TestProductionClosedAssemblerBuildsExactDeterministicFixture_Integration"
         ]
@@ -622,6 +622,31 @@
       ]
     },
     {
+      "row_id": "harness.browser.unit.performance_fixture_lifecycle",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/performancefixturelifecycle",
+        "tests": [
+          "TestArtifactsAreImmutableAndRedacted",
+          "TestOwnedNamesAreDeterministicAndBounded"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.unit.performance_fixture_runtime_and_assembler",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",
@@ -694,11 +719,11 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/testutil/performancefixtureassembly",
+        "package": "./internal/testutil/appsupport/performancefixture",
         "tests": [
+          "TestClosedAssemblerConsumesGeneratedDescriptor",
           "TestClosedAssemblerProducesExactDeterministicRedactedSemantics",
-          "TestClosedAssemblerPropagatesOwnerFailure",
-          "TestClosedDescriptorsMatchAuthoredRegistry"
+          "TestClosedAssemblerPropagatesOwnerFailure"
         ]
       },
       "evidence_class": "unit",
@@ -736,12 +761,9 @@
           "TestCleanupPreviousSuiteServiceContainersTimeoutThenGone",
           "TestCleanupPreviousSuiteServiceContainersTimeoutThenRemovingOrDead",
           "TestCleanupWebE2ERetiresFixtureWithoutImmediateCleanup",
-          "TestPerformanceFixtureArtifactsAreImmutableAndRedacted",
           "TestPerformanceFixtureBuildArgumentsRequireCanonicalClosedIdentity",
           "TestPerformanceFixtureCleanupIsActiveCompleteAndIdempotentlyOwned",
           "TestPerformanceFixtureCleanupRetainsFailureAndContinuesIndependentCleanup",
-          "TestPerformanceFixtureOwnedNamesAreDeterministicAndBounded",
-          "TestPerformanceFixtureRuntimeJanitorIsBoundedAndIdentityScoped",
           "TestPrepareWebE2ECleansFixtureWhenEnvWriteFails",
           "TestPrepareWebE2ERequiresActiveSuiteAndTemplate",
           "TestPrepareWebE2EWritesShellEnvAndMetadata",

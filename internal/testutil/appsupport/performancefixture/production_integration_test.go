@@ -1,4 +1,4 @@
-package performancefixtureassembly
+package performancefixture
 
 import (
 	"context"
@@ -8,8 +8,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -19,6 +17,7 @@ func TestProductionClosedAssemblerBuildsExactDeterministicFixture_Integration(t 
 	postgresHarness := pgtest.Start(t)
 	build := func(prefix string) fixture.Result {
 		t.Helper()
+		profile := profileForTest(t)
 		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix)
 		pool, err := pgxpool.New(context.Background(), testDB.DSN)
 		if err != nil {
@@ -34,22 +33,19 @@ func TestProductionClosedAssemblerBuildsExactDeterministicFixture_Integration(t 
 		if err != nil {
 			t.Fatal(err)
 		}
-		owners, err := appsupport.NewPerformanceFixtureOwners(pool, conflicttest.NewCodec(prefix))
+		assembler, err := NewProduction(pool, actor, prefix, profile)
 		if err != nil {
 			t.Fatal(err)
 		}
-		assembler, err := NewProduction(pool, actor, owners)
-		if err != nil {
-			t.Fatal(err)
-		}
-		bundle, err := fixture.GenerateRuntimeBundle(fixtureKey)
+		bundle, err := fixture.GenerateRuntimeBundle(profile, fixtureKey)
 		if err != nil {
 			t.Fatal(err)
 		}
 		state := &fixture.BuildState{
-			SnapshotKey:   fixtureKey,
-			Seed:          20260405,
-			RuntimeBundle: bundle,
+			FixtureProfileID: profile.FixtureProfileID,
+			SnapshotKey:      fixtureKey,
+			Seed:             profile.Seed,
+			RuntimeBundle:    bundle,
 		}
 		result, err := assembler.Assemble(context.Background(), state)
 		if err != nil {

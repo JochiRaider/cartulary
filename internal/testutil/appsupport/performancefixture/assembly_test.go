@@ -1,16 +1,13 @@
-package performancefixtureassembly
+package performancefixture
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"reflect"
-	"runtime"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 	authfixture "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/performancefixture"
 	entitiesfixture "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport/performancefixture"
 	linksfixture "github.com/JochiRaider/cartulary/internal/modules/links/testsupport/performancefixture"
@@ -22,8 +19,9 @@ func TestClosedAssemblerProducesExactDeterministicRedactedSemantics(t *testing.T
 	t.Parallel()
 	assemble := func(marker string) (fixture.Result, *fixture.BuildState, *fakeApplications) {
 		t.Helper()
+		profile := profileForTest(t)
 		applications := &fakeApplications{}
-		assembler, err := New(Dependencies{
+		assembler, err := New(profile, Dependencies{
 			Auth: applications, Incidents: applications, Entities: applications,
 			Timeline: applications, Links: applications, Projections: applications,
 			Validation: applications,
@@ -32,9 +30,10 @@ func TestClosedAssemblerProducesExactDeterministicRedactedSemantics(t *testing.T
 			t.Fatal(err)
 		}
 		state := &fixture.BuildState{
-			SnapshotKey:   fixtureKey,
-			Seed:          20260405,
-			RuntimeBundle: runtimeBundle(marker),
+			FixtureProfileID: profile.FixtureProfileID,
+			SnapshotKey:      fixtureKey,
+			Seed:             profile.Seed,
+			RuntimeBundle:    runtimeBundle(marker, profile),
 		}
 		result, err := assembler.Assemble(context.Background(), state)
 		if err != nil {
@@ -47,8 +46,9 @@ func TestClosedAssemblerProducesExactDeterministicRedactedSemantics(t *testing.T
 	if first.SemanticValidationDigest != second.SemanticValidationDigest {
 		t.Fatalf("suite-random credentials changed semantic digest: %s != %s", first.SemanticValidationDigest, second.SemanticValidationDigest)
 	}
-	if !reflect.DeepEqual(first.Validation.Counts, ExpectedSemanticCounts()) {
-		t.Fatalf("semantic counts=%#v want=%#v", first.Validation.Counts, ExpectedSemanticCounts())
+	wantCounts := semanticCountsForTest(profileForTest(t))
+	if !reflect.DeepEqual(first.Validation.Counts, wantCounts) {
+		t.Fatalf("semantic counts=%#v want=%#v", first.Validation.Counts, wantCounts)
 	}
 	if got := len(first.Receipts); got != 6 {
 		t.Fatalf("receipt count=%d want=6", got)
@@ -69,8 +69,9 @@ func TestClosedAssemblerProducesExactDeterministicRedactedSemantics(t *testing.T
 
 func TestClosedAssemblerPropagatesOwnerFailure(t *testing.T) {
 	t.Parallel()
+	profile := profileForTest(t)
 	applications := &fakeApplications{failureAt: "timeline"}
-	assembler, err := New(Dependencies{
+	assembler, err := New(profile, Dependencies{
 		Auth: applications, Incidents: applications, Entities: applications,
 		Timeline: applications, Links: applications, Projections: applications,
 		Validation: applications,
@@ -78,7 +79,7 @@ func TestClosedAssemblerPropagatesOwnerFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state := &fixture.BuildState{SnapshotKey: fixtureKey, Seed: 20260405, RuntimeBundle: runtimeBundle("failure")}
+	state := &fixture.BuildState{FixtureProfileID: profile.FixtureProfileID, SnapshotKey: fixtureKey, Seed: profile.Seed, RuntimeBundle: runtimeBundle("failure", profile)}
 	if _, err := assembler.Assemble(context.Background(), state); err == nil {
 		t.Fatal("expected injected owner failure")
 	}
@@ -87,66 +88,38 @@ func TestClosedAssemblerPropagatesOwnerFailure(t *testing.T) {
 	}
 }
 
-func TestClosedDescriptorsMatchAuthoredRegistry(t *testing.T) {
+func TestClosedAssemblerConsumesGeneratedDescriptor(t *testing.T) {
 	t.Parallel()
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("resolve test source path")
-	}
-	registryPath := filepath.Clean(filepath.Join(filepath.Dir(file), "../../../tools/performance_fixture_snapshot_owner.json"))
-	raw, err := os.ReadFile(registryPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var registry struct {
-		Profiles []struct {
-			FixtureProfileID string `json:"fixture_profile_id"`
-			Contributions    []struct {
-				ContributionID  string         `json:"contribution_id"`
-				OwnerID         string         `json:"owner_id"`
-				Version         string         `json:"version"`
-				Dependencies    []string       `json:"dependencies"`
-				ExpectedReceipt map[string]int `json:"expected_receipt"`
-			} `json:"contributions"`
-			ValidationRules map[string]any `json:"validation_rules"`
-		} `json:"profiles"`
-	}
-	if err := json.Unmarshal(raw, &registry); err != nil {
-		t.Fatal(err)
-	}
-	if len(registry.Profiles) != 1 || registry.Profiles[0].FixtureProfileID != fixture.LargeGridProfileID {
-		t.Fatalf("unexpected authored fixture profiles: %#v", registry.Profiles)
-	}
-	got := make([]fixture.Descriptor, len(registry.Profiles[0].Contributions))
-	for index, contribution := range registry.Profiles[0].Contributions {
-		got[index] = fixture.Descriptor{
-			ContributionID: contribution.ContributionID,
-			Version:        contribution.Version,
-			OwnerID:        contribution.OwnerID,
-			Dependencies:   contribution.Dependencies,
-			ExpectedCounts: contribution.ExpectedReceipt,
-		}
-	}
-	if !reflect.DeepEqual(got, ExpectedDescriptors()) {
-		t.Fatalf("authored registry contribution drift:\ngot  %#v\nwant %#v", got, ExpectedDescriptors())
+	profile := profileForTest(t)
+	applications := &fakeApplications{}
+	if _, err := New(profile, Dependencies{
+		Auth: applications, Incidents: applications, Entities: applications,
+		Timeline: applications, Links: applications, Projections: applications,
+		Validation: applications,
+	}); err != nil {
+		t.Fatalf("generated descriptor did not admit the owner-local providers: %v", err)
 	}
 }
 
 const fixtureKey = "85a9ceb4cc34f66356baa07b68bf7f3636844beef90aa51ad8b1751d4b046c72"
 
-func runtimeBundle(marker string) fixture.RuntimeBundle {
-	accounts := make([]fixture.BackgroundAccount, 24)
-	for index := range accounts {
-		accounts[index] = fixture.BackgroundAccount{
-			Email:    fmt.Sprintf("%s-%02d@example.test", marker, index),
-			Password: fmt.Sprintf("Ac043-%s-%02d-password-material", marker, index),
+func runtimeBundle(marker string, profile performancefixtureprofile.Profile) fixture.RuntimeBundle {
+	credentials := make([]fixture.RuntimeCredential, profile.RuntimeCredentialSets[0].AccountCount)
+	for index := range credentials {
+		credentials[index] = fixture.RuntimeCredential{
+			Principal: fmt.Sprintf("%s-%02d@example.test", marker, index),
+			Secret:    fmt.Sprintf("Ac043-%s-%02d-password-material", marker, index),
 		}
 	}
 	return fixture.RuntimeBundle{
-		SchemaID:           fixture.RuntimeSchemaID,
-		FixtureProfileID:   fixture.LargeGridProfileID,
-		SnapshotKey:        fixtureKey,
-		BackgroundAccounts: accounts,
+		SchemaID:         profile.ArtifactPolicy.RuntimeSchemaID,
+		FixtureProfileID: profile.FixtureProfileID,
+		SnapshotKey:      fixtureKey,
+		CredentialSets: []fixture.RuntimeCredentialSet{{
+			SetID:          profile.RuntimeCredentialSets[0].SetID,
+			CredentialKind: profile.RuntimeCredentialSets[0].CredentialKind,
+			Credentials:    credentials,
+		}},
 	}
 }
 
@@ -260,11 +233,41 @@ func (f *fakeApplications) ValidateFixtureSemantics(_ context.Context, incidentI
 		return fixture.SemanticValidation{}, errors.New("fixture semantic validation failed")
 	}
 	return fixture.SemanticValidation{
-		Counts:                   ExpectedSemanticCounts(),
-		RelationshipDistribution: true,
-		DefaultView:              expected.DefaultView,
-		Authorization:            true,
-		ProjectionReadiness:      expected.ProjectionReady,
-		NoActiveSessions:         expected.ActiveSessions == 0,
+		Counts: map[string]int{
+			"active_sessions":     f.sessions,
+			"background_analysts": f.accounts,
+			"host_rows":           f.hosts,
+			"identity_rows":       f.identities,
+			"link_assignments":    f.links,
+			"mention_assignments": f.mentions,
+			"tag_assignments":     f.tags,
+			"timeline_rows":       f.timelineRows,
+		},
+		Conditions: map[string]bool{
+			"authorization":             expected.Authorization,
+			"default_view":              expected.DefaultView,
+			"no_active_sessions":        expected.NoActiveSessions,
+			"projection_ready":          expected.ProjectionReady,
+			"relationship_distribution": expected.RelationshipDistribution,
+		},
 	}, nil
+}
+
+func profileForTest(t *testing.T) performancefixtureprofile.Profile {
+	t.Helper()
+	for _, profile := range performancefixtureprofile.Profiles() {
+		if profile.Status == "active" {
+			return profile
+		}
+	}
+	t.Fatal("generated active fixture profile is missing")
+	return performancefixtureprofile.Profile{}
+}
+
+func semanticCountsForTest(profile performancefixtureprofile.Profile) map[string]int {
+	result := make(map[string]int, len(profile.SemanticExpectations.Counts))
+	for _, expectation := range profile.SemanticExpectations.Counts {
+		result[expectation.ExpectationID] = expectation.Exact
+	}
+	return result
 }

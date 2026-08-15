@@ -34,11 +34,11 @@ func NewProductionApplication(pool postgres.DB, actor authn.UserRecord) (*Produc
 }
 
 func (a *ProductionApplication) CreateFixtureWorkspaceIncident(ctx context.Context, seed int) (string, error) {
-	clientTxnID := fmt.Sprintf("ac043-fixture-incident-%d", seed)
+	clientTxnID := fmt.Sprintf("performance-fixture-incident-%d", seed)
 	request := incidents.CreateIncidentRequest{
 		ClientTxnID: clientTxnID,
 		IncidentKey: fmt.Sprintf("AC043-PERF-%d", seed),
-		Title:       "AC-043 large-grid performance fixture",
+		Title:       "Large-grid performance fixture",
 	}
 	payload, err := json.Marshal(request)
 	if err != nil {
@@ -65,7 +65,7 @@ func (a *ProductionApplication) AddFixtureMembership(ctx context.Context, incide
 	if err != nil {
 		return err
 	}
-	clientTxnID := "ac043-fixture-membership-" + userUUID.String()
+	clientTxnID := "performance-fixture-membership-" + userUUID.String()
 	request := incidents.MembershipCreateRequest{ClientTxnID: clientTxnID, Role: role}
 	payload, err := json.Marshal(request)
 	if err != nil {

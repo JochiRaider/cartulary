@@ -61,6 +61,13 @@
         ".cjs"
       ],
       "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "tools/performance_fixture_snapshot_key_vectors.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{\\n  \\\"schema_id\\\": \\\"cartulary\\.performance_fixture_snapshot_key_vectors\\.v1\\\""
     }
   ],
   "lint_scope_checks": {

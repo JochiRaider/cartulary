@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { loadTestCatalog, targetForCatalogRow } from "../test-catalog/index.mjs";
-import { parseStrictJSON } from "../test-catalog/semantic-json.mjs";
+import { parseStrictJSON } from "../contract/index.mjs";
 
 const ownerIDPattern = /^(?:module|platform|app|web|package|harness)\.[a-z][a-z0-9_]{0,62}$/u;
 

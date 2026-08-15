@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { parseStrictJSON } from "../contract/index.mjs";
+
+import { parseStrictJSON } from "./strict-json.mjs";
 
 function rejectUnpairedSurrogates(value, label) {
   for (let index = 0; index < value.length; index += 1) {
@@ -22,9 +23,7 @@ export { parseStrictJSON };
 
 export function canonicalJSONString(value) {
   if (value === null || typeof value === "boolean" || typeof value === "string") {
-    if (typeof value === "string") {
-      rejectUnpairedSurrogates(value, "semantic JSON string");
-    }
+    if (typeof value === "string") rejectUnpairedSurrogates(value, "semantic JSON string");
     return JSON.stringify(value);
   }
   if (typeof value === "number") {

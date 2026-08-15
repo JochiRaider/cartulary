@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_measurement_aggregate.v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "target_id", "status", "profile_groups"],
+  "properties": {
+    "schema_id": { "const": "cartulary.frontend_measurement_aggregate.v3" },
+    "target_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "status": { "enum": ["qualified", "threshold_failed", "environment_not_qualified"] },
+    "profile_groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fixture_profile_id",
+          "snapshot_key",
+          "builder_count",
+          "clone_count",
+          "scheduler_overlap_count",
+          "build_artifact",
+          "summary_artifacts",
+          "rollups"
+        ],
+        "properties": {
+          "fixture_profile_id": { "$ref": "cartulary.performance_fixture_snapshot_key.v2#/properties/fixture_profile_id" },
+          "snapshot_key": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "builder_count": { "type": "integer", "minimum": 1 },
+          "clone_count": { "type": "integer", "minimum": 1 },
+          "scheduler_overlap_count": { "type": "integer", "minimum": 0 },
+          "build_artifact": { "$ref": "cartulary.harness_artifact_ref.v1#/$defs/digested_artifact_ref" },
+          "summary_artifacts": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "cartulary.harness_artifact_ref.v1#/$defs/digested_artifact_ref" }
+          },
+          "rollups": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["predicate_id", "sample_count", "p95_ms", "threshold_ms", "outcome"],
+              "properties": {
+                "predicate_id": { "type": "string", "pattern": "^perf\\.[a-z0-9_.]+\\.v[1-9][0-9]*$" },
+                "sample_count": { "type": "integer", "minimum": 0 },
+                "p95_ms": { "type": ["number", "null"], "minimum": 0 },
+                "threshold_ms": { "type": "number", "minimum": 0 },
+                "outcome": { "enum": ["passed", "threshold_failed", "incomplete", "environment_not_qualified"] }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

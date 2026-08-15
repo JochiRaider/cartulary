@@ -63,13 +63,13 @@ try {
   const surface = readJSON(path.join(root, "tools/task_surface_owner.json"));
   if (options.mode === "publish") {
     if (!options.evidence) throw new Error("publish requires --evidence-roots-file");
-    const built = buildFromManifest(root, path.resolve(options.evidence), surface);
+    const built = await buildFromManifest(root, path.resolve(options.evidence), surface);
     if (built.manifest.mode !== "baseline") throw new Error("baseline publication requires mode=baseline evidence");
     const disposition = publish(prettyJSONString(built.reference));
     process.stdout.write(`[BASELINE] status=${disposition} targets=${built.reference.targets.length}\n`);
   } else if (options.mode === "check") {
     if (!options.evidence) throw new Error("check requires --evidence-roots-file");
-    const built = buildFromManifest(root, path.resolve(options.evidence), surface);
+    const built = await buildFromManifest(root, path.resolve(options.evidence), surface);
     if (built.manifest.mode !== "comparison") throw new Error("performance check requires mode=comparison evidence");
     if (built.comparison.failures.length > 0) {
       throw new Error(`performance acceptance failed ${built.comparison.failures.join(",")}`);

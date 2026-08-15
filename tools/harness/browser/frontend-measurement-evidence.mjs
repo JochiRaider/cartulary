@@ -1,12 +1,21 @@
-import { createReadStream, existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { createInterface } from "node:readline";
 
 import { validateSchemaSync } from "../contract/index.mjs";
-import { loadPerformanceFixtureSnapshotRegistry } from "../performance-fixture/index.mjs";
+import { readCanonicalUnitEvents } from "../evidence-accounting/canonical-unit-events.mjs";
 
-const attachmentPrefix = "cartulary.frontend_measurement_observation.v1.";
 const forbiddenKey = /^(?:bucket_name|credential|credentials|database_name|dsn|email|entered_text|password|payload|record_id|runtime_path|secret|token|transaction_id|txn_id|user_id)$/iu;
+const reportByteLimit = 32 * 1024 * 1024;
+const attachmentByteLimit = 8 * 1024 * 1024;
+
+function readBoundedJSON(file, label, maxBytes) {
+  const stat = lstatSync(file);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > maxBytes) {
+    throw new Error(`${label} must be a non-symlink regular file of at most ${maxBytes} bytes`);
+  }
+  return JSON.parse(readFileSync(file, "utf8"));
+}
 
 function flattenSuites(suites, output = []) {
   for (const suite of suites ?? []) {
@@ -33,14 +42,20 @@ function containedAttachment(runRoot, reportPath, attachmentPath) {
 
 function parseAttachment(runRoot, reportPath, attachment) {
   if (typeof attachment.path === "string" && attachment.path !== "") {
-    return JSON.parse(
-      readFileSync(containedAttachment(runRoot, reportPath, attachment.path), "utf8"),
+    return readBoundedJSON(
+      containedAttachment(runRoot, reportPath, attachment.path),
+      "measurement attachment",
+      attachmentByteLimit,
     );
   }
   if (typeof attachment.body !== "string" || attachment.body === "") {
     throw new Error(`${attachment.name} has neither a path nor a body`);
   }
-  return JSON.parse(Buffer.from(attachment.body, "base64").toString("utf8"));
+  const bytes = Buffer.from(attachment.body, "base64");
+  if (bytes.length > attachmentByteLimit) {
+    throw new Error(`measurement attachment exceeds ${attachmentByteLimit} bytes`);
+  }
+  return JSON.parse(bytes.toString("utf8"));
 }
 
 function rejectSensitiveKeys(value, location = "summary") {
@@ -82,12 +97,14 @@ function validateSampleCardinality(summary) {
 
 export function collectFrontendMeasurementObservations({
   expectedPredicateIDs,
+  observationSchemaID,
   reportPaths,
   runRoot,
 }) {
+  const attachmentPrefix = `${observationSchemaID}.`;
   const summaries = [];
   for (const reportPath of reportPaths) {
-    const report = JSON.parse(readFileSync(reportPath, "utf8"));
+    const report = readBoundedJSON(reportPath, "Playwright JSON report", reportByteLimit);
     for (const spec of flattenSuites(report.suites)) {
       for (const playwrightTest of spec.tests ?? []) {
         for (const result of playwrightTest.results ?? []) {
@@ -99,7 +116,7 @@ export function collectFrontendMeasurementObservations({
               continue;
             }
             const summary = parseAttachment(runRoot, reportPath, attachment);
-            validateSchemaSync("cartulary.frontend_measurement_observation.v1", summary);
+            validateSchemaSync(observationSchemaID, summary);
             rejectSensitiveKeys(summary);
             validateSampleCardinality(summary);
             summaries.push(summary);
@@ -122,9 +139,55 @@ export function collectFrontendMeasurementObservations({
   );
 }
 
+function digest(bytes) {
+  return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
+
+function readReferencedArtifact(runRoot, reference, schemaID, expectedRole) {
+  if (
+    reference?.role !== expectedRole ||
+    reference?.path_kind !== "file" ||
+    reference?.format !== "json" ||
+    typeof reference.path !== "string" ||
+    typeof reference.sha256 !== "string"
+  ) {
+    throw new Error("measurement artifact reference is malformed");
+  }
+  const file = containedAttachment(runRoot, path.join(runRoot, "reference.json"), reference.path);
+  const stat = lstatSync(file);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > attachmentByteLimit) {
+    throw new Error(`measurement artifact is not a bounded regular file: ${reference.path}`);
+  }
+  const bytes = readFileSync(file);
+  if (digest(bytes) !== reference.sha256) {
+    throw new Error(`measurement artifact digest or size is invalid: ${reference.path}`);
+  }
+  const artifact = JSON.parse(bytes.toString("utf8"));
+  validateSchemaSync(schemaID, artifact);
+  rejectSensitiveKeys(artifact, schemaID);
+  return { artifact, bytes, file, reference };
+}
+
+function cleanupOutcomes(lease) {
+  const outcomes = new Map();
+  for (const result of lease.cleanup_results) {
+    if (outcomes.has(result.resource_class)) {
+      throw new Error(`measurement lease duplicates cleanup class ${result.resource_class}`);
+    }
+    outcomes.set(result.resource_class, result.outcome);
+  }
+  return outcomes;
+}
+
 export function collectFinalizedMeasurementSummaries({
+  buildSchemaID,
   expectedPredicateIDs,
+  leaseSchemaID,
+  observationSchemaID,
+  runRoot,
+  summarySchemaID,
   summaryPaths,
+  validateObservation,
 }) {
   if (new Set(summaryPaths).size !== summaryPaths.length) {
     throw new Error("finalized measurement summary paths are duplicated");
@@ -133,39 +196,85 @@ export function collectFinalizedMeasurementSummaries({
     if (!existsSync(summaryPath)) {
       throw new Error("finalized measurement summary is missing");
     }
-    const summary = JSON.parse(readFileSync(summaryPath, "utf8"));
-    validateSchemaSync("cartulary.frontend_measurement_summary.v2", summary);
+    const stat = lstatSync(summaryPath);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > attachmentByteLimit) {
+      throw new Error("measurement summary is not a bounded regular file");
+    }
+    const bytes = readFileSync(summaryPath);
+    const summary = JSON.parse(bytes.toString("utf8"));
+    validateSchemaSync(summarySchemaID, summary);
     rejectSensitiveKeys(summary);
-    validateSampleCardinality(summary.observation);
+    const observation = readReferencedArtifact(
+      runRoot,
+      summary.observation_artifact,
+      observationSchemaID,
+      "frontend_measurement_observation",
+    );
+    const build = readReferencedArtifact(
+      runRoot,
+      summary.build_artifact,
+      buildSchemaID,
+      "performance_fixture_snapshot_build",
+    );
+    const lease = readReferencedArtifact(
+      runRoot,
+      summary.lease_artifact,
+      leaseSchemaID,
+      "performance_fixture_snapshot_lease",
+    );
+    const cleanup = cleanupOutcomes(lease.artifact);
+    validateSampleCardinality(observation.artifact);
+    validateObservation?.(observation.artifact);
     if (
       summary.scheduler_overlap_count !== 0 ||
-      summary.isolation_result !== "isolated" ||
-      !summary.credential_copy_cleanup ||
-      !summary.database_cleanup ||
-      !summary.bucket_cleanup
+      build.artifact.state !== "sealed" ||
+      lease.artifact.isolation_result !== "isolated" ||
+      lease.artifact.cleanup_state !== "complete" ||
+      cleanup.get("bucket") !== "complete" ||
+      cleanup.get("credential_copy") !== "complete" ||
+      cleanup.get("database") !== "complete" ||
+      cleanup.get("process") !== "complete" ||
+      cleanup.get("session") !== "complete"
     ) {
-      throw new Error(summary.observation.predicate_id + " is environment_not_qualified");
+      throw new Error(observation.artifact.predicate_id + " is environment_not_qualified");
     }
     const expectedQualification =
-      summary.observation.outcome === "passed"
+      observation.artifact.outcome === "passed"
         ? "qualified"
-        : summary.observation.outcome === "threshold_failed"
+        : observation.artifact.outcome === "threshold_failed"
           ? "threshold_failed"
           : "environment_not_qualified";
     if (summary.qualification_outcome !== expectedQualification) {
       throw new Error(
-        summary.observation.predicate_id + " has inconsistent qualification outcome",
+        observation.artifact.predicate_id + " has inconsistent qualification outcome",
       );
     }
     if (expectedQualification === "environment_not_qualified") {
       throw new Error(
-        summary.observation.predicate_id + " is not eligible for active qualification",
+        observation.artifact.predicate_id + " is not eligible for active qualification",
       );
     }
-    return summary;
+    if (
+      summary.fixture_profile_id !== observation.artifact.fixture_profile_id ||
+      summary.snapshot_key !== build.artifact.snapshot_key ||
+      summary.snapshot_key !== lease.artifact.snapshot_key ||
+      summary.fixture_profile_id !== build.artifact.fixture_profile_id ||
+      summary.fixture_profile_id !== lease.artifact.fixture_profile_id ||
+      summary.row_id !== lease.artifact.row_id ||
+      summary.clone_ordinal !== lease.artifact.clone_ordinal ||
+      summary.rollup.predicate_id !== observation.artifact.predicate_id ||
+      summary.rollup.sample_count !== observation.artifact.measured_samples ||
+      summary.rollup.p50_ms !== observation.artifact.p50_ms ||
+      summary.rollup.p95_ms !== observation.artifact.p95_ms ||
+      summary.rollup.threshold_ms !== observation.artifact.threshold_ms ||
+      summary.rollup.outcome !== observation.artifact.outcome
+    ) {
+      throw new Error("measurement summary referenced provenance is inconsistent");
+    }
+    return { build, bytes, file: summaryPath, lease, observation, summary };
   });
   const actualPredicateIDs = summaries
-    .map((summary) => summary.observation.predicate_id)
+    .map((entry) => entry.observation.artifact.predicate_id)
     .sort();
   const expected = [...expectedPredicateIDs].sort();
   if (JSON.stringify(actualPredicateIDs) !== JSON.stringify(expected)) {
@@ -175,130 +284,75 @@ export function collectFinalizedMeasurementSummaries({
     );
   }
   return summaries.sort((left, right) =>
-    left.observation.predicate_id.localeCompare(right.observation.predicate_id),
+    left.observation.artifact.predicate_id.localeCompare(
+      right.observation.artifact.predicate_id,
+    ),
   );
 }
 
-export function ac043PredicateIDsForRows(root, rows) {
-  const contract = JSON.parse(
-    readFileSync(path.join(root, "contracts/performance/ac043.v1.json"), "utf8"),
-  );
-  const fixtureProfiles = loadPerformanceFixtureSnapshotRegistry(root);
-  const contractIDs = new Set(contract.predicates.map((entry) => entry.predicate_id));
-  return rows.flatMap((row) =>
-    row.verification_ids.flatMap((verificationID) => {
-      const binding = fixtureProfiles.verificationBindings.get(verificationID);
-      if (binding === undefined) return [];
-      const predicateID = binding.predicate_id;
-      if (!contractIDs.has(predicateID)) {
-        throw new Error(`${verificationID} maps to a predicate absent from the AC-043 contract`);
-      }
-      return [predicateID];
-    }),
-  );
-}
-
-export function measurementSchedulerOverlapCount(events, groupResults) {
-  let overlaps = 0;
-  for (const result of groupResults) {
-    const groupUnitID = `browser_group:${result.stage_id}:${result.group_id}`;
-    const groupStart = events.find(
-      (event) => event.event === "started" && event.unit_id === groupUnitID,
-    );
-    const groupEnd = events.find(
-      (event) =>
-        ["completed", "failed", "cancelled"].includes(event.event) &&
-        event.unit_id === groupUnitID,
-    );
-    if (!groupStart || !groupEnd) {
-      throw new Error(`measurement group ${result.group_id} lacks a closed scheduler interval`);
-    }
-    // The admitted snapshot builder completes before this interval. The group
-    // unit then owns clone preparation, traffic stabilization, warm-up,
-    // samples, observation attachment, and lease cleanup. Its exclusive
-    // host_activity claim is therefore the interval that must be proven quiet.
-    overlaps += events.filter(
-      (event) =>
-        event.event === "started" &&
-        event.seq > groupStart.seq &&
-        event.seq < groupEnd.seq &&
-        event.unit_id !== groupUnitID,
-    ).length;
-  }
-  return overlaps;
-}
-
-export async function readMeasurementSchedulerEvidence(eventFile, groupResult) {
+export async function readMeasurementSchedulerEvidenceForGroups(eventFile, groupResults) {
   if (!existsSync(eventFile)) {
     throw new Error("measurement finalizer requires unit-events.ndjson");
   }
-  const groupUnitID = `browser_group:${groupResult.stage_id}:${groupResult.group_id}`;
-  const input = createReadStream(eventFile, { encoding: "utf8" });
-  const lines = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY });
-  let previousSeq = 0;
-  let groupStartSeq = null;
-  let overlapCount = 0;
-  let lineNumber = 0;
-  try {
-    for await (const line of lines) {
-      lineNumber += 1;
-      if (line === "") continue;
-      let event;
-      try {
-        event = JSON.parse(line);
-      } catch (error) {
-        throw new Error(
-          `unit-events.ndjson line ${lineNumber} is invalid JSON: ${error.message}`,
-        );
-      }
-      if (!Number.isSafeInteger(event.seq) || event.seq !== previousSeq + 1) {
-        throw new Error(
-          `unit-events.ndjson sequence ${event.seq} is not contiguous at line ${lineNumber}`,
-        );
-      }
-      previousSeq = event.seq;
-      if (event.unit_id === groupUnitID) {
+  const states = new Map(groupResults.map((groupResult) => [
+    `browser_group:${groupResult.stage_id}:${groupResult.group_id}`,
+    {
+      dependency_skipped: false,
+      end_seq: null,
+      group_id: groupResult.group_id,
+      overlap_count: 0,
+      start_seq: null,
+    },
+  ]));
+  if (states.size !== groupResults.length) {
+    throw new Error("measurement scheduler groups are duplicated");
+  }
+  for await (const event of readCanonicalUnitEvents(eventFile)) {
+    const state = states.get(event.unit_id);
+    if (state !== undefined) {
         if (event.event === "started") {
-          if (groupStartSeq !== null) {
-            throw new Error(`measurement group ${groupResult.group_id} starts more than once`);
+          if (state.start_seq !== null) {
+            throw new Error(`measurement group ${state.group_id} starts more than once`);
           }
-          groupStartSeq = event.seq;
+          state.start_seq = event.seq;
           continue;
         }
         if (event.event === "skipped" && event.failure_reason === "dependency_failure") {
-          if (groupStartSeq !== null) {
-            throw new Error(`measurement group ${groupResult.group_id} is skipped after starting`);
+          if (state.start_seq !== null) {
+            throw new Error(`measurement group ${state.group_id} is skipped after starting`);
           }
-          return {
-            dependency_skipped: true,
-            overlap_count: 0,
-            start_seq: null,
-            end_seq: event.seq,
-          };
+          state.dependency_skipped = true;
+          state.end_seq = event.seq;
+          continue;
         }
         if (["completed", "failed", "cancelled"].includes(event.event)) {
-          if (groupStartSeq === null) {
-            throw new Error(`measurement group ${groupResult.group_id} terminates before starting`);
+          if (state.start_seq === null) {
+            throw new Error(`measurement group ${state.group_id} terminates before starting`);
           }
-          return {
-            dependency_skipped: false,
-            overlap_count: overlapCount,
-            start_seq: groupStartSeq,
-            end_seq: event.seq,
-          };
+          if (state.end_seq !== null) {
+            throw new Error(`measurement group ${state.group_id} terminates more than once`);
+          }
+          state.end_seq = event.seq;
+          continue;
+        }
+    }
+    if (event.event === "started") {
+      for (const [unitID, active] of states) {
+        if (event.unit_id !== unitID && active.start_seq !== null && active.end_seq === null) {
+          active.overlap_count += 1;
         }
       }
-      if (
-        groupStartSeq !== null &&
-        event.event === "started" &&
-        event.unit_id !== groupUnitID
-      ) {
-        overlapCount += 1;
-      }
     }
-  } finally {
-    lines.close();
-    input.destroy();
   }
-  throw new Error(`measurement group ${groupResult.group_id} lacks a closed scheduler interval`);
+  for (const state of states.values()) {
+    if (state.end_seq === null) {
+      throw new Error(`measurement group ${state.group_id} lacks a closed scheduler interval`);
+    }
+  }
+  return states;
+}
+
+export async function readMeasurementSchedulerEvidence(eventFile, groupResult) {
+  const states = await readMeasurementSchedulerEvidenceForGroups(eventFile, [groupResult]);
+  return states.get(`browser_group:${groupResult.stage_id}:${groupResult.group_id}`);
 }

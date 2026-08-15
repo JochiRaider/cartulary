@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  chmodSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -12,7 +13,7 @@ import {
 import path from "node:path";
 
 import { validateSchemaSync } from "../../contract/index.mjs";
-import { semanticJSONDigest } from "../../test-catalog/index.mjs";
+import { semanticJSONDigest } from "../../contract/index.mjs";
 
 const modes = new Set(["normal", "cold", "off"]);
 
@@ -230,7 +231,8 @@ export class WorkGraphCache {
   publish(snapshots) {
     for (const snapshot of snapshots) {
       const output = containedFile(this.runRoot, snapshot.path);
-      mkdirSync(path.dirname(output), { recursive: true });
+      mkdirSync(path.dirname(output), { recursive: true, mode: 0o700 });
+      chmodSync(path.dirname(output), 0o700);
       const temporary = `${output}.cache-${process.pid}`;
       writeFileSync(temporary, snapshot.bytes, { mode: 0o600 });
       renameSync(temporary, output);
@@ -254,7 +256,7 @@ export class WorkGraphCache {
     const directory = this.entryDirectory(context.profile, context.inputDigest);
     const temporary = `${directory}.tmp-${process.pid}-${Date.now()}`;
     rmSync(temporary, { recursive: true, force: true });
-    mkdirSync(path.join(temporary, "artifacts"), { recursive: true });
+    mkdirSync(path.join(temporary, "artifacts"), { recursive: true, mode: 0o700 });
     snapshots.forEach((snapshot, index) => {
       writeFileSync(path.join(temporary, "artifacts", String(index)), snapshot.bytes, { mode: 0o600 });
     });
@@ -277,7 +279,7 @@ export class WorkGraphCache {
     };
     validateSchemaSync(record.schema_id, record);
     writeFileSync(path.join(temporary, "record.json"), `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
-    mkdirSync(path.dirname(directory), { recursive: true });
+    mkdirSync(path.dirname(directory), { recursive: true, mode: 0o700 });
     rmSync(directory, { recursive: true, force: true });
     renameSync(temporary, directory);
     return { stored: true, output_digest: digest };

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 )
 
 type testContribution struct {
@@ -52,7 +54,7 @@ func TestAssemblerRejectsInvalidClosureBeforeMutation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			calls := 0
-			_, err := NewAssembler(descriptors, map[string]int{"rows": 1}, testValidator{}, testContribution{calls: &calls})
+			_, err := NewAssembler(testProfile(descriptors, map[string]int{"rows": 1}), testValidator{}, testContribution{calls: &calls})
 			if err == nil {
 				t.Fatal("expected invalid closure to fail")
 			}
@@ -78,8 +80,7 @@ func TestAssemblerRejectsReceiptAndSemanticMutation(t *testing.T) {
 		},
 	}
 	assembler, err := NewAssembler(
-		[]Descriptor{descriptor},
-		map[string]int{"rows": 1},
+		testProfile([]Descriptor{descriptor}, map[string]int{"rows": 1}),
 		testValidator{result: passingValidation(map[string]int{"rows": 1})},
 		contribution,
 	)
@@ -92,8 +93,7 @@ func TestAssemblerRejectsReceiptAndSemanticMutation(t *testing.T) {
 	}
 	contribution.receipt.Counts["rows"] = 1
 	assembler, err = NewAssembler(
-		[]Descriptor{descriptor},
-		map[string]int{"rows": 1},
+		testProfile([]Descriptor{descriptor}, map[string]int{"rows": 1}),
 		testValidator{result: passingValidation(map[string]int{"rows": 2})},
 		contribution,
 	)
@@ -113,8 +113,7 @@ func TestAssemblerDigestIsDeterministicAndRedacted(t *testing.T) {
 		t.Helper()
 		calls := 0
 		assembler, err := NewAssembler(
-			[]Descriptor{descriptor},
-			map[string]int{"rows": 1},
+			testProfile([]Descriptor{descriptor}, map[string]int{"rows": 1}),
 			testValidator{result: passingValidation(map[string]int{"rows": 1})},
 			testContribution{
 				descriptor: descriptor,
@@ -138,8 +137,8 @@ func TestAssemblerDigestIsDeterministicAndRedacted(t *testing.T) {
 	}
 	firstState := testState()
 	secondState := testState()
-	secondState.RuntimeBundle.BackgroundAccounts[0].Email = "other@example.test"
-	secondState.RuntimeBundle.BackgroundAccounts[0].Password = "different-password-material-1234"
+	secondState.RuntimeBundle.CredentialSets[0].Credentials[0].Principal = "other@example.test"
+	secondState.RuntimeBundle.CredentialSets[0].Credentials[0].Secret = "different-password-material-1234"
 	first := assemble(firstState)
 	second := assemble(secondState)
 	if first.SemanticValidationDigest != second.SemanticValidationDigest {
@@ -158,8 +157,7 @@ func TestAssemblerPropagatesContributionFailure(t *testing.T) {
 	descriptor := testDescriptor("one.v1", nil)
 	calls := 0
 	assembler, err := NewAssembler(
-		[]Descriptor{descriptor},
-		map[string]int{"rows": 1},
+		testProfile([]Descriptor{descriptor}, map[string]int{"rows": 1}),
 		testValidator{result: passingValidation(map[string]int{"rows": 1})},
 		testContribution{descriptor: descriptor, calls: &calls, err: errors.New("injected mutation failure")},
 	)
@@ -183,15 +181,20 @@ func testDescriptor(id string, dependencies []string) Descriptor {
 
 func testState() *BuildState {
 	return &BuildState{
-		SnapshotKey: "a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6",
-		Seed:        20260405,
+		FixtureProfileID: "synthetic_profile_v1",
+		SnapshotKey:      "a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6",
+		Seed:             7,
 		RuntimeBundle: RuntimeBundle{
-			SchemaID:         RuntimeSchemaID,
-			FixtureProfileID: LargeGridProfileID,
+			SchemaID:         "cartulary.performance_fixture_runtime.v2",
+			FixtureProfileID: "synthetic_profile_v1",
 			SnapshotKey:      "a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6",
-			BackgroundAccounts: []BackgroundAccount{{
-				Email:    "secret@example.test",
-				Password: "secret-password-material-1234",
+			CredentialSets: []RuntimeCredentialSet{{
+				SetID:          "analysts",
+				CredentialKind: "email_password",
+				Credentials: []RuntimeCredential{{
+					Principal: "secret@example.test",
+					Secret:    "secret-password-material-1234",
+				}},
 			}},
 		},
 		BackgroundUserIDs: []string{"secret-user-id"},
@@ -201,11 +204,40 @@ func testState() *BuildState {
 
 func passingValidation(counts map[string]int) SemanticValidation {
 	return SemanticValidation{
-		Counts:                   counts,
-		RelationshipDistribution: true,
-		DefaultView:              true,
-		Authorization:            true,
-		ProjectionReadiness:      true,
-		NoActiveSessions:         true,
+		Counts:     counts,
+		Conditions: map[string]bool{"ready": true},
+	}
+}
+
+func testProfile(descriptors []Descriptor, semanticCounts map[string]int) performancefixtureprofile.Profile {
+	contributions := make([]performancefixtureprofile.Contribution, len(descriptors))
+	for index, descriptor := range descriptors {
+		counts := make([]performancefixtureprofile.CountExpectation, 0, len(descriptor.ExpectedCounts))
+		for countID, exact := range descriptor.ExpectedCounts {
+			counts = append(counts, performancefixtureprofile.CountExpectation{CountID: countID, Exact: exact})
+		}
+		contributions[index] = performancefixtureprofile.Contribution{
+			ContributionID:        descriptor.ContributionID,
+			Version:               descriptor.Version,
+			OwnerID:               descriptor.OwnerID,
+			Dependencies:          descriptor.Dependencies,
+			ExpectedReceiptCounts: counts,
+		}
+	}
+	counts := make([]performancefixtureprofile.SemanticCountExpectation, 0, len(semanticCounts))
+	for expectationID, exact := range semanticCounts {
+		counts = append(counts, performancefixtureprofile.SemanticCountExpectation{ExpectationID: expectationID, Exact: exact})
+	}
+	return performancefixtureprofile.Profile{
+		FixtureProfileID: "synthetic_profile_v1",
+		Status:           "active",
+		FixtureVersion:   "cartulary.perf.synthetic.v1",
+		Seed:             7,
+		Contributions:    contributions,
+		SemanticExpectations: performancefixtureprofile.SemanticExpectations{
+			Counts:     counts,
+			Conditions: []performancefixtureprofile.SemanticConditionExpectation{{ExpectationID: "ready", Required: true}},
+		},
+		ArtifactPolicy: performancefixtureprofile.ArtifactPolicy{RuntimeSchemaID: "cartulary.performance_fixture_runtime.v2"},
 	}
 }

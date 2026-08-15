@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Raw scanner output and its parsed findings are retained security evidence. Keep
+# their creation private even when this wrapper is invoked below an ambient 022
+# umask; source generation does not occur in this process.
+umask 077
+
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 GO_BIN="${GO:-go}"
 GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"

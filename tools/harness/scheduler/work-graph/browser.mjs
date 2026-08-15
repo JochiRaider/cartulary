@@ -3,7 +3,9 @@ import path from "node:path";
 
 import { loadBrowserBatchStages } from "../adapters/browser.mjs";
 import {
+  activePerformanceFixtureProfile,
   loadPerformanceFixtureSnapshotRegistry,
+  performanceFixtureBindingsForRows,
   postgresMigrationDigest,
   snapshotKey,
 } from "../../performance-fixture/index.mjs";
@@ -88,22 +90,17 @@ function command(executable, args, environment = {}) {
 function resolvedFixtureProfile(root, group) {
   if (!group.fixtureProfileID) return null;
   const registry = loadPerformanceFixtureSnapshotRegistry(root);
-  const profile = registry.profiles.get(group.fixtureProfileID);
-  if (!profile || profile.status !== "active") {
-    throw new Error("browser group " + group.name + " has unresolved fixture profile");
-  }
+  const profile = activePerformanceFixtureProfile(registry, group.fixtureProfileID);
   const migrationDigest = postgresMigrationDigest(root);
   const key = snapshotKey(profile, migrationDigest);
   if (group.selectedRowIDs.length !== 1) {
     throw new Error("profiled browser group " + group.name + " must select exactly one row");
   }
   const rowID = group.selectedRowIDs[0];
-  const row = loadTestCatalog(root).rows.find((entry) => entry.row_id === rowID);
-  const bindings = row?.verification_ids
-    ?.map((verificationID) => profile.verification_bindings.find(
-      (entry) => entry.verification_id === verificationID,
-    ))
-    .filter(Boolean) ?? [];
+  const row = loadTestCatalog(root).rowByID.get(rowID);
+  const bindings = row === undefined
+    ? []
+    : performanceFixtureBindingsForRows(root, [row], { registry });
   if (bindings.length !== 1) {
     throw new Error("profiled browser row " + rowID + " must resolve exactly one predicate binding");
   }
@@ -386,7 +383,7 @@ function measurementSummaryUnit(root, stage, group, runner, owner, fixture, mode
     cache_policy: "none",
     timeout_ms: owner.default_timeout_ms,
     evidence_outputs: [
-      `${target}/browser-groups/${safeID(group.name)}/frontend-measurement-summary.v2.json`,
+      `${target}/browser-groups/${safeID(group.name)}/frontend-measurement-summary.${fixture.profile.artifact_policy.summary_schema_id.split(".").at(-1)}.json`,
     ],
     failure_policy: requiredFailurePolicy(),
     estimated_work_ms: 500,
@@ -400,9 +397,7 @@ function targetFinalizer(root, stage, target, groupUnits, needs, owner) {
   const quiet = stage.groups.every(
     (group) => group.resourceProfileID === "browser_measurement_quiet",
   );
-  const includesAc043 = stage.groups.some((group) =>
-    group.specs.includes("apps/web/e2e/measurement/timeline-grid.spec.ts"),
-  );
+  const includesFixtureMeasurements = stage.groups.some((group) => group.fixtureProfileID);
   return {
     unit_id: `browser_target_summary:${safeID(target)}`,
     owner_id: "harness.browser",
@@ -437,7 +432,7 @@ function targetFinalizer(root, stage, target, groupUnits, needs, owner) {
     timeout_ms: owner.default_timeout_ms,
     evidence_outputs: [
       `${target}/browser-target-result.json`,
-      ...(target === "browser-e2e-measurement" && includesAc043
+      ...(target === "browser-e2e-measurement" && includesFixtureMeasurements
         ? [`${target}/frontend-measurement-aggregate.json`]
         : []),
       ...(target === "browser-e2e-visual"

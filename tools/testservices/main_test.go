@@ -1745,9 +1745,30 @@ func defaultTestDependencies(t testing.TB) testDeps {
 	t.Helper()
 
 	resultsDir := t.TempDir()
+	runtimeRoot := t.TempDir()
+	if err := os.Chmod(runtimeRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	owner := map[string]any{
+		"schema_id":  "cartulary.harness_suite_runtime_owner.v1",
+		"lease_id":   "00000000-0000-4000-8000-000000000001",
+		"run_id":     "wrapper-tests",
+		"owner_uid":  os.Getuid(),
+		"created_at": "2026-08-14T00:00:00Z",
+	}
+	ownerBytes, err := json.Marshal(owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(runtimeRoot, "runtime-owner.json"), append(ownerBytes, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	env := map[string]string{
-		"CARTULARY_TEST_RESULTS_DIR": resultsDir,
-		"CARTULARY_TEST_RUN_ID":      "wrapper-tests",
+		"CARTULARY_TEST_RESULTS_DIR":         resultsDir,
+		"CARTULARY_TEST_RUN_ID":              "wrapper-tests",
+		suiteservices.SuiteRuntimeRootEnv:    runtimeRoot,
+		suiteservices.SuiteRuntimeLeaseIDEnv: "00000000-0000-4000-8000-000000000001",
+		suiteservices.SuiteRuntimeRunIDEnv:   "wrapper-tests",
 	}
 
 	return testDeps{

@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 )
-
-const ContributionID = "incidents.workspace.v1"
 
 type Application interface {
 	CreateFixtureWorkspaceIncident(context.Context, int) (string, error)
@@ -17,30 +17,32 @@ type Application interface {
 
 type Provider struct {
 	application Application
+	descriptor  fixture.Descriptor
 }
 
-func New(application Application) (*Provider, error) {
+func New(application Application, descriptor fixture.Descriptor) (*Provider, error) {
 	if application == nil {
 		return nil, errors.New("incidents performance fixture application is required")
 	}
-	return &Provider{application: application}, nil
-}
-
-func Descriptor() fixture.Descriptor {
-	return fixture.Descriptor{
-		ContributionID: ContributionID,
-		Version:        ContributionID,
-		OwnerID:        "module.incidents",
-		Dependencies:   []string{"auth.background_analysts.v1"},
-		ExpectedCounts: map[string]int{"incidents": 1, "memberships": 24, "workspaces": 1},
+	if descriptor.ExpectedCounts["incidents"] != 1 || descriptor.ExpectedCounts["workspaces"] != 1 || descriptor.ExpectedCounts["memberships"] < 1 {
+		return nil, errors.New("incidents performance fixture descriptor is incompatible")
 	}
+	descriptor.Dependencies = slices.Clone(descriptor.Dependencies)
+	descriptor.ExpectedCounts = maps.Clone(descriptor.ExpectedCounts)
+	return &Provider{application: application, descriptor: descriptor}, nil
 }
 
-func (p *Provider) Descriptor() fixture.Descriptor { return Descriptor() }
+func (p *Provider) Descriptor() fixture.Descriptor {
+	result := p.descriptor
+	result.Dependencies = slices.Clone(result.Dependencies)
+	result.ExpectedCounts = maps.Clone(result.ExpectedCounts)
+	return result
+}
 
 func (p *Provider) Apply(ctx context.Context, state *fixture.BuildState) (fixture.Receipt, error) {
-	if len(state.BackgroundUserIDs) != 24 {
-		return fixture.Receipt{}, fmt.Errorf("incidents performance fixture requires 24 Auth identities, got %d", len(state.BackgroundUserIDs))
+	wantMemberships := p.descriptor.ExpectedCounts["memberships"]
+	if len(state.BackgroundUserIDs) != wantMemberships {
+		return fixture.Receipt{}, fmt.Errorf("incidents performance fixture requires %d Auth identities, got %d", wantMemberships, len(state.BackgroundUserIDs))
 	}
 	incidentID, err := p.application.CreateFixtureWorkspaceIncident(ctx, state.Seed)
 	if err != nil {
@@ -56,9 +58,9 @@ func (p *Provider) Apply(ctx context.Context, state *fixture.BuildState) (fixtur
 	}
 	state.IncidentID = incidentID
 	return fixture.Receipt{
-		ContributionID: ContributionID,
-		Version:        ContributionID,
-		OwnerID:        "module.incidents",
-		Counts:         map[string]int{"incidents": 1, "memberships": 24, "workspaces": 1},
+		ContributionID: p.descriptor.ContributionID,
+		Version:        p.descriptor.Version,
+		OwnerID:        p.descriptor.OwnerID,
+		Counts:         maps.Clone(p.descriptor.ExpectedCounts),
 	}, nil
 }

@@ -6,17 +6,21 @@ import { appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdir
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { validateSchemaSync } from "../../contract/index.mjs";
+import {
+  canonicalJSONString,
+  semanticJSONDigest,
+  validateSchemaSync,
+} from "../../contract/index.mjs";
+import {
+  createSuiteRuntime,
+  scanRetainedRoot,
+} from "../../runtime/suite-runtime.mjs";
 import { buildSourceSnapshot } from "../../test-catalog/source-snapshot.mjs";
 import { FixtureBroker } from "../fixture-broker/index.mjs";
 import {
   productionFixtureProviders,
   startManagedSuite,
 } from "../fixture-broker/providers.mjs";
-import {
-  canonicalJSONString,
-  semanticJSONDigest,
-} from "../../test-catalog/index.mjs";
 import { WorkGraphCache } from "./cache.mjs";
 import { writeAtomicNDJSON } from "./atomic-ndjson.mjs";
 import {
@@ -456,6 +460,16 @@ function writeJSON(file, value) {
   writeAtomicText(file, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function boundedRedactedDiagnostic(value, forbiddenValues) {
+  let text = String(value ?? "").slice(-(64 * 1024));
+  for (const secret of forbiddenValues) {
+    text = text.replaceAll(secret, "<redacted>");
+  }
+  return text
+    .replaceAll(/((?:PASSWORD|SECRET|TOKEN|COOKIE|SESSION|DSN|ACCESS_KEY|PRIVATE_KEY)=)[^\s]+/giu, "$1<redacted>")
+    .replaceAll(/((?:postgres|postgresql):\/\/[^\s/:]+:)[^\s/@]+(@)/giu, "$1<redacted>$2");
+}
+
 function containedRunFile(runRoot, relative) {
   if (path.isAbsolute(relative) || relative.split(/[\\/]/u).includes("..")) {
     throw new Error(`unit evidence path escapes the run root: ${relative}`);
@@ -715,9 +729,11 @@ async function main() {
   validateSchemaSync(manifest.schema_id, manifest);
   writeJSON(path.join(runRoot, "run-manifest.json"), manifest);
 
+  const suiteRuntime = createSuiteRuntime({ repoRoot: root, runRoot, runID });
+  const runtimeEnvironment = resolvedRuntimeEnvironment(compiler);
   const baseEnvironment = {
     ...graphChildEnvironment(options),
-    ...resolvedRuntimeEnvironment(compiler),
+    ...runtimeEnvironment,
     CARTULARY_HARNESS_GRAPH_CHILD: "1",
     CARTULARY_HARNESS_IDENTITY_PREPARED: "1",
     CARTULARY_HARNESS_SKIP_PREREQUISITES: "1",
@@ -725,32 +741,57 @@ async function main() {
     CARTULARY_TEST_RESULTS_DIR: resultsDir,
     CARTULARY_TEST_RUN_ID: runID,
     CARTULARY_UNIT_CPU_TOKENS: String(snapshot.cpu_tokens),
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: suiteRuntime.root,
+    CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID,
   };
   let suite = null;
   let suiteClosed = false;
+  let suiteCloseError = null;
   const suiteController = {
     ensure() {
       if (suiteClosed) throw new Error("managed suite is closed");
       suite ??= startManagedSuite({
         root,
-        runRoot,
         target: options.target,
+        suiteRuntime,
         environment: baseEnvironment,
       });
       return suite;
     },
     close() {
-      if (suiteClosed) return;
+      if (suiteClosed) {
+        if (suiteCloseError) throw suiteCloseError;
+        return;
+      }
       suiteClosed = true;
-      suite?.close();
+      try {
+        suite?.close();
+      } catch (error) {
+        suiteCloseError = error;
+        throw error;
+      }
     },
   };
+  let retainedScanAttempted = false;
+  let primaryError = null;
+  const publishRetainedScan = async () => {
+    retainedScanAttempted = true;
+    const retainedScan = await scanRetainedRoot(runRoot, {
+      forbiddenValues: suiteRuntime.forbiddenValues(),
+      removeUnsafe: true,
+    });
+    validateSchemaSync(retainedScan.schema_id, retainedScan);
+    writeJSON(path.join(runRoot, "retained-secret-scan.json"), retainedScan);
+  };
+  try {
   const broker = new FixtureBroker({
     providers: productionFixtureProviders({
       root,
-      runRoot,
       selectionEnvironment: fixtureSelectionEnvironment(options),
+      runtimeEnvironment,
       suiteController,
+      suiteRuntime,
     }),
     recordSink(record) {
       writeJSON(
@@ -790,10 +831,22 @@ async function main() {
         CARTULARY_STEP_ARTIFACT_DIR: unitArtifactRoot,
       },
     });
+    const privateLogRoot = suiteRuntime.privatePath("unit-output", safeID);
+    mkdirSync(privateLogRoot, { recursive: true, mode: 0o700 });
+    writeFileSync(path.join(privateLogRoot, "stdout.log"), result.stdout ?? "", { mode: 0o600 });
+    writeFileSync(path.join(privateLogRoot, "stderr.log"), result.stderr ?? "", { mode: 0o600 });
     const logRoot = path.join(runRoot, "unit-logs", safeID);
     mkdirSync(logRoot, { recursive: true, mode: 0o700 });
-    writeFileSync(path.join(logRoot, "stdout.log"), result.stdout ?? "", { mode: 0o600 });
-    writeFileSync(path.join(logRoot, "stderr.log"), result.stderr ?? "", { mode: 0o600 });
+    writeFileSync(
+      path.join(logRoot, "stdout.log"),
+      boundedRedactedDiagnostic(result.stdout, suiteRuntime.forbiddenValues()),
+      { mode: 0o600 },
+    );
+    writeFileSync(
+      path.join(logRoot, "stderr.log"),
+      boundedRedactedDiagnostic(result.stderr, suiteRuntime.forbiddenValues()),
+      { mode: 0o600 },
+    );
     const missingOutputs = result.status === "passed" ? missingUnitOutputs(runRoot, unit) : [];
     if (missingOutputs.length > 0) {
       result = {
@@ -802,7 +855,11 @@ async function main() {
         failure_class: "artifact",
         stderr: `${result.stderr ?? ""}${result.stderr ? "\n" : ""}missing declared unit evidence: ${missingOutputs.join(", ")}\n`,
       };
-      writeFileSync(path.join(logRoot, "stderr.log"), result.stderr, { mode: 0o600 });
+      writeFileSync(
+        path.join(logRoot, "stderr.log"),
+        boundedRedactedDiagnostic(result.stderr, suiteRuntime.forbiddenValues()),
+        { mode: 0o600 },
+      );
     }
     // Publish the canonical unit result at terminal-unit time. Downstream graph
     // units may consume exact producer evidence before whole-run projections
@@ -846,6 +903,7 @@ async function main() {
     runID,
     snapshot,
   });
+  await publishRetainedScan();
   const line = `[GRAPH] target=${options.target} status=${summary.status} units=${summary.unit_counts.passed}/${summary.unit_counts.total} duration_ms=${summary.wall_duration_ms} run_root=${path.relative(root, runRoot)}\n`;
   const outputMode = process.env.CARTULARY_OUTPUT_MODE || "summary";
   if (outputMode === "machine") {
@@ -865,6 +923,32 @@ async function main() {
     timing: 13,
     interrupted: 130,
   }[summary.failure_class] ?? 11;
+  } catch (error) {
+    primaryError = error;
+    throw error;
+  } finally {
+    let boundaryError = null;
+    if (!retainedScanAttempted) {
+      try {
+        await publishRetainedScan();
+      } catch (error) {
+        boundaryError = error;
+      }
+    }
+    try {
+      suiteController.close();
+    } catch (error) {
+      boundaryError ??= error;
+    }
+    if (!suiteCloseError) {
+      try {
+        suiteRuntime.close();
+      } catch (error) {
+        boundaryError ??= error;
+      }
+    }
+    if (!primaryError && boundaryError) throw boundaryError;
+  }
 }
 
 try {

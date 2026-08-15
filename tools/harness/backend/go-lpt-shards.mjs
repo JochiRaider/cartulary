@@ -1,5 +1,5 @@
 import { validateSchemaSync } from "../contract/index.mjs";
-import { semanticJSONDigest } from "../test-catalog/index.mjs";
+import { semanticJSONDigest } from "../contract/index.mjs";
 
 function compareASCII(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;

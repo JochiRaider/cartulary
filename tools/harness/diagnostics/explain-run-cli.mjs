@@ -1,12 +1,18 @@
 #!/usr/bin/env node
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { failureHeadlineForSummary } from "../contract/index.mjs";
+import {
+  failureHeadlineForSummary,
+  validateSchemaSync,
+} from "../contract/index.mjs";
+import { readCanonicalUnitEvents } from "../evidence-accounting/canonical-unit-events.mjs";
 import { printObservabilityPerformance } from "../observability/observability.mjs";
 import { resolveRetainedLogArtifacts } from "./retained-artifact-resolver.mjs";
+import { validateHistoricalPerformanceEvidence } from "./historical-performance-evidence.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
@@ -242,26 +248,23 @@ function retainedRunInvestigation(runDir) {
   ) ?? null;
 }
 
-function measurementInterval(runDir) {
+async function measurementInterval(runDir) {
   const eventsFile = path.join(runDir, "unit-events.ndjson");
   if (!existsSync(eventsFile)) return null;
-  const events = readFileSync(eventsFile, "utf8")
-    .split(/\r?\n/u)
-    .filter(Boolean)
-    .map((line) => JSON.parse(line));
-  const starts = events.filter(
-    (event) =>
-      event.event === "started" &&
-      event.unit_id === "browser_group:measurement:measurement-measurement-timeline-grid",
-  );
-  const start = starts.at(-1);
+  const unitID = "browser_group:measurement:measurement-measurement-timeline-grid";
+  let start = null;
+  let end = null;
+  for await (const event of readCanonicalUnitEvents(eventsFile)) {
+    if (event.unit_id !== unitID) continue;
+    if (event.event === "started") start = event;
+    if (
+      start !== null &&
+      ["completed", "failed", "cancelled"].includes(event.event)
+    ) {
+      end = event;
+    }
+  }
   if (!start) return null;
-  const end = events.find(
-    (event) =>
-      event.monotonic_ms >= start.monotonic_ms &&
-      event.unit_id === start.unit_id &&
-      ["completed", "failed", "cancelled"].includes(event.event),
-  );
   if (!end) return null;
   return {
     durationMs: end.monotonic_ms - start.monotonic_ms,
@@ -270,7 +273,7 @@ function measurementInterval(runDir) {
   };
 }
 
-function writeRetainedRunRelationship(runDir) {
+async function writeRetainedRunRelationship(runDir) {
   const investigation = retainedRunInvestigation(runDir);
   if (!investigation) return;
   process.stdout.write(
@@ -278,7 +281,7 @@ function writeRetainedRunRelationship(runDir) {
   );
   for (const run of investigation.runs) {
     const candidateDir = path.join(path.dirname(runDir), run.run_id);
-    const interval = measurementInterval(candidateDir);
+    const interval = await measurementInterval(candidateDir);
     const intervalFields = interval
       ? ` interval_start_ms=${interval.startMs} interval_end_ms=${interval.endMs} interval_duration=${formatDuration(interval.durationMs)}`
       : " interval=unavailable";
@@ -752,7 +755,77 @@ function measurementAggregate(runDir) {
     runDir,
     "browser-e2e-measurement/frontend-measurement-aggregate.json",
   );
-  return existsSync(file) ? { file, value: readJSON(file) } : null;
+  if (!existsSync(file)) return null;
+  const info = lstatSync(file);
+  if (!info.isFile() || info.isSymbolicLink() || info.size > 32 * 1024 * 1024) {
+    throw new Error(`measurement aggregate is not a bounded regular file: ${file}`);
+  }
+  const value = readJSON(file);
+  if (value.schema_id === "cartulary.frontend_measurement_aggregate.v3") {
+    validateSchemaSync(value.schema_id, value);
+    const measurements = value.profile_groups.flatMap((group) =>
+      group.summary_artifacts.map((reference) => {
+        const summary = readMeasurementReference(runDir, reference);
+        validateSchemaSync("cartulary.frontend_measurement_summary.v3", summary.value);
+        const observation = readMeasurementReference(
+          runDir,
+          summary.value.observation_artifact,
+        );
+        validateSchemaSync(
+          "cartulary.frontend_measurement_observation.v2",
+          observation.value,
+        );
+        const build = readMeasurementReference(runDir, summary.value.build_artifact);
+        validateSchemaSync("cartulary.performance_fixture_snapshot.v2", build.value);
+        const lease = readMeasurementReference(runDir, summary.value.lease_artifact);
+        validateSchemaSync(
+          "cartulary.performance_fixture_snapshot_lease.v2",
+          lease.value,
+        );
+        return {
+          generation: "current",
+          observation: observation.value,
+          overlap: summary.value.scheduler_overlap_count,
+        };
+      }),
+    );
+    return { file, generation: "current", measurements, value };
+  }
+  validateHistoricalPerformanceEvidence(repoRoot, value.schema_id, value);
+  const measurements = value.summaries.map((summary) => ({
+    generation: "historical",
+    observation: summary.observation ?? summary,
+    overlap:
+      summary.scheduler_overlap_count ??
+      summary.qualification?.scheduler_overlap_count ??
+      null,
+  }));
+  return { file, generation: "historical", measurements, value };
+}
+
+function readMeasurementReference(runDir, reference) {
+  if (
+    reference?.path_kind !== "file" ||
+    reference?.format !== "json" ||
+    typeof reference.path !== "string"
+  ) {
+    throw new Error("measurement reference is not a JSON file artifact");
+  }
+  const file = path.resolve(runDir, reference.path);
+  const relative = path.relative(runDir, file);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(`measurement reference escapes its run root: ${reference.path}`);
+  }
+  const info = lstatSync(file);
+  if (!info.isFile() || info.isSymbolicLink() || info.size > 8 * 1024 * 1024) {
+    throw new Error(`measurement reference is not a bounded regular file: ${reference.path}`);
+  }
+  const bytes = readFileSync(file);
+  const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+  if (digest !== reference.sha256) {
+    throw new Error(`measurement reference digest mismatch: ${reference.path}`);
+  }
+  return { bytes, file, value: JSON.parse(bytes.toString("utf8")) };
 }
 
 function nearestRank(samples, percentile) {
@@ -761,31 +834,48 @@ function nearestRank(samples, percentile) {
   return sorted[Math.ceil((percentile / 100) * sorted.length) - 1];
 }
 
-function measurementCompatibilityKey(summary) {
+function measurementFact(observation, collection, factID) {
+  const facts = observation.traffic?.[collection];
+  if (Array.isArray(facts)) {
+    return facts.find((fact) => fact.fact_id === factID)?.value ?? null;
+  }
+  return observation.traffic?.[factID] ?? observation.qualification?.[factID] ?? null;
+}
+
+function measurementCompatibilityKey(observation) {
   return JSON.stringify({
-    analyst_sessions: summary.qualification.analyst_sessions,
+    analyst_sessions: measurementFact(observation, "counts", "analyst_sessions"),
     background_updates_per_second:
-      summary.qualification.background_updates_per_second,
-    criterion_id: summary.criterion_id,
-    fixture_digest: summary.fixture_digest,
-    fixture_id: summary.fixture_id,
-    measured_samples: summary.measured_samples,
-    measurement_policy_id: summary.measurement_policy_id,
-    percentile: summary.percentile,
-    predicate_id: summary.predicate_id,
-    threshold_ms: summary.threshold_ms,
-    warmup_samples: summary.warmup_samples,
+      measurementFact(observation, "rates", "background_updates_per_second"),
+    criterion_id: observation.criterion_id,
+    fixture_digest: observation.fixture_digest,
+    fixture_id: observation.fixture_id,
+    measured_samples: observation.measured_samples,
+    measurement_policy_id: observation.measurement_policy_id,
+    percentile: observation.percentile,
+    predicate_id: observation.predicate_id,
+    threshold_ms: observation.threshold_ms,
+    warmup_samples: observation.warmup_samples,
   });
 }
 
-function measurementStages(summary) {
-  const measured = summary.samples.filter((sample) => !sample.warmup);
+function stageValue(sample, stage) {
+  if (Array.isArray(sample.stages_ms)) {
+    return sample.stages_ms.find((fact) => fact.fact_id === stage)?.value;
+  }
+  return sample.stages_ms[stage];
+}
+
+function measurementStages(observation) {
+  const measured = observation.samples.filter((sample) => !sample.warmup);
   const stageNames = [...new Set(measured.flatMap((sample) =>
-    Object.keys(sample.stages_ms),
+    Array.isArray(sample.stages_ms)
+      ? sample.stages_ms.map((fact) => fact.fact_id)
+      : Object.keys(sample.stages_ms),
   ))].sort((left, right) => left.localeCompare(right));
   return stageNames.map((stage) => {
     const samples = measured
-      .map((sample) => sample.stages_ms[stage])
+      .map((sample) => stageValue(sample, stage))
       .filter((sample) => Number.isFinite(sample));
     return {
       name: stage,
@@ -796,22 +886,27 @@ function measurementStages(summary) {
   });
 }
 
-function compatibleMeasurementRuns(runDir, currentSummary) {
+function compatibleMeasurementRuns(runDir, currentObservation) {
   const resultsRoot = path.dirname(runDir);
   if (!existsSync(resultsRoot)) return [];
-  const compatibilityKey = measurementCompatibilityKey(currentSummary);
+  const compatibilityKey = measurementCompatibilityKey(currentObservation);
   return readdirSync(resultsRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && entry.name !== path.basename(runDir))
     .map((entry) => {
       const candidateDir = path.join(resultsRoot, entry.name);
-      const aggregate = measurementAggregate(candidateDir);
+      let aggregate;
+      try {
+        aggregate = measurementAggregate(candidateDir);
+      } catch {
+        return null;
+      }
       if (!aggregate) return null;
-      const summary = aggregate.value.summaries.find(
-        (entrySummary) =>
-          measurementCompatibilityKey(entrySummary) === compatibilityKey,
+      const measurement = aggregate.measurements.find(
+        (entry) =>
+          measurementCompatibilityKey(entry.observation) === compatibilityKey,
       );
-      if (!summary) return null;
-      return { runID: entry.name, summary };
+      if (!measurement) return null;
+      return { measurement, runID: entry.name };
     })
     .filter(Boolean)
     .sort((left, right) => right.runID.localeCompare(left.runID))
@@ -827,9 +922,10 @@ function writeMeasurementDetail(runDir) {
     return;
   }
   const runID = path.basename(runDir);
-  for (const summary of aggregate.value.summaries) {
+  for (const measurement of aggregate.measurements) {
+    const summary = measurement.observation;
     process.stdout.write(
-      `[MEASUREMENT] run_id=${runID} predicate_id=${summary.predicate_id} outcome=${summary.outcome} threshold_ms=${summary.threshold_ms} p50_ms=${summary.p50_ms ?? "none"} p95_ms=${summary.p95_ms ?? "none"} samples=${summary.samples.length} fixture_digest=${summary.fixture_digest} policy_id=${summary.measurement_policy_id} overlap=${summary.qualification.scheduler_overlap_count}\n`,
+      `[MEASUREMENT] run_id=${runID} generation=${measurement.generation} predicate_id=${summary.predicate_id} outcome=${summary.outcome} threshold_ms=${summary.threshold_ms} p50_ms=${summary.p50_ms ?? "none"} p95_ms=${summary.p95_ms ?? "none"} samples=${summary.samples.length} fixture_digest=${summary.fixture_digest} policy_id=${summary.measurement_policy_id} overlap=${measurement.overlap ?? "none"}\n`,
     );
     for (const stage of measurementStages(summary)) {
       process.stdout.write(
@@ -838,17 +934,17 @@ function writeMeasurementDetail(runDir) {
     }
     for (const compatible of compatibleMeasurementRuns(runDir, summary)) {
       const p95Delta =
-        summary.p95_ms === null || compatible.summary.p95_ms === null
+        summary.p95_ms === null || compatible.measurement.observation.p95_ms === null
           ? "none"
-          : summary.p95_ms - compatible.summary.p95_ms;
+          : summary.p95_ms - compatible.measurement.observation.p95_ms;
       process.stdout.write(
-        `[MEASUREMENT-COMPARE] predicate_id=${summary.predicate_id} current_run=${runID} compatible_run=${compatible.runID} current_outcome=${summary.outcome} compatible_outcome=${compatible.summary.outcome} current_p95_ms=${summary.p95_ms ?? "none"} compatible_p95_ms=${compatible.summary.p95_ms ?? "none"} p95_delta_ms=${p95Delta}\n`,
+        `[MEASUREMENT-COMPARE] predicate_id=${summary.predicate_id} current_run=${runID} compatible_run=${compatible.runID} current_outcome=${summary.outcome} compatible_outcome=${compatible.measurement.observation.outcome} current_p95_ms=${summary.p95_ms ?? "none"} compatible_p95_ms=${compatible.measurement.observation.p95_ms ?? "none"} p95_delta_ms=${p95Delta}\n`,
       );
     }
   }
 }
 
-function main() {
+async function main() {
   const options = parseArgs(process.argv.slice(2));
   const { runDir, targetFromPath } = resolveRunContext(options);
   const runSummary = loadRunSummary(runDir);
@@ -866,7 +962,7 @@ function main() {
 
   if (options.detail === "summary") {
     writeRunIdentity(runDir);
-    writeRetainedRunRelationship(runDir);
+    await writeRetainedRunRelationship(runDir);
     if (runSummary) {
       writeRunSummary(runDir, runSummary);
     } else if (toolSummary) {
@@ -904,14 +1000,7 @@ function main() {
     return;
   }
   if (options.detail === "performance") {
-    for (const item of printObservabilityPerformance(runDir, target)) {
-      process.stdout.write(
-        `[PERFORMANCE] target=${item.target} duration=${formatDuration(item.duration_ms)} scheduler_envelope=${formatDuration(item.scheduler_envelope_critical_path_ms)} actual_dependency_critical_path=${formatDuration(item.actual_dependency_critical_path_ms)} queue_wait=${formatDuration(item.queue_wait_ms)} resource_blocking=${formatDuration(item.resource_blocking_ms)} attributed_union=${formatDuration(item.attributed_union_ms)} unattributed_envelope=${formatDuration(item.unattributed_envelope_ms)}\n`,
-      );
-      for (const hotspot of item.hotspots.slice(0, 10)) {
-        process.stdout.write(`[HOTSPOT] rank=${hotspot.rank} phase=${hotspot.phase} name=${hotspot.name} duration=${formatDuration(hotspot.duration_ms)}\n`);
-      }
-    }
+    await printObservabilityPerformance(runDir, target);
     return;
   }
   if (options.detail === "measurement") {
@@ -925,9 +1014,7 @@ function main() {
   writeLogs(runDir, target, runSummary);
 }
 
-try {
-  main();
-} catch (error) {
+main().catch((error) => {
   process.stderr.write(`${error.message}\n`);
   process.exit(error.exit_code ?? 1);
-}
+});

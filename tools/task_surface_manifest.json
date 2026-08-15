@@ -2267,6 +2267,7 @@
         "./tools/harness/tests/test-harness-evidence-contracts.mjs",
         "./tools/harness/tests/test-harness-graph-contracts.mjs",
         "./tools/harness/tests/test-harness-scheduler-contracts.mjs",
+        "./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
         "./tools/harness/observability/tests/test-observability.mjs"
       ],
       "test_target": "self",
@@ -7227,7 +7228,8 @@
               "logs",
               "progress",
               "accounting",
-              "performance"
+              "performance",
+              "measurement"
             ]
           }
         ]
