@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -43,6 +45,81 @@ func TestNetworkFlowRoutesRemainUnclaimedByDefault(t *testing.T) {
 	details := body["error"].(map[string]any)["details"].(map[string]any)
 	if details["profile_id"] != ProfileID {
 		t.Fatalf("unexpected unclaimed extension details: %#v", details)
+	}
+}
+
+func TestNetworkFlowEffectiveResourceLimitsReachDiscovery_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness := claimedNetworkFlowServerWithLimitsForRouteTest(
+		t,
+		runtime,
+		"network-flow-effective-limits",
+		`{"max_graph_vertices":7000,"max_graph_edges":0,"max_query_limit":750,"max_time_buckets_per_graph":64}`,
+	)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-network-flow-effective-limits-incident",
+		"incident_key":  "IR-NF-LIMITS",
+		"title":         "Network Flow configured limits",
+	})
+	incidentID := incident["incident_id"].(string)
+
+	response := httptestx.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/network-flow/source-profiles",
+		nil,
+		httptestx.WithCookies(adminLogin.SessionCookie),
+	)
+	data := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
+	limits := data["effective_limits"].(map[string]any)
+	if len(limits) != 23 || limits["network_flow.max_graph_vertices"] != float64(7000) ||
+		limits["network_flow.max_graph_edges"] != float64(0) ||
+		limits["network_flow.max_query_limit"] != float64(750) ||
+		limits["network_flow.max_time_buckets_per_graph"] != float64(64) ||
+		limits["network_flow.max_header_scalar_length"] != float64(256) {
+		t.Fatalf("configured effective-limit discovery = %#v", limits)
+	}
+}
+
+func TestNetworkFlowStreamingGraphContributingRowLimit_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness := claimedNetworkFlowServerWithLimitsForRouteTest(
+		t,
+		runtime,
+		"network-flow-contributing-row-limit",
+		`{"max_contributing_rows_per_graph":1}`,
+	)
+	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminID := uuid.MustParse(adminIDText)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-network-flow-contributing-limit-incident",
+		"incident_key":  "IR-NF-CONTRIBUTING-LIMIT",
+		"title":         "Network Flow contributing limit",
+	})
+	incidentID := uuid.MustParse(incident["incident_id"].(string))
+	store := newTestNetworkFlowStore(t, harness.Pool, harness.Revisions.Appender())
+	sessionID, unitID := seedImportSessionUnit(t, harness.Pool, incidentID, adminID, "contributing-limit.csv")
+	table, err := store.CreateTable(context.Background(), CreateTableParams{
+		IncidentID: incidentID, ActorUserID: adminID, ImportSessionID: sessionID, ImportUnitID: unitID,
+		SourceContentSHA256: testSHA1, OriginalFilename: "contributing-limit.csv",
+		SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "route-test-key",
+		MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV,
+		ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []FlowRow{testFlowRow(2, "b"), testFlowRow(1, "a")},
+		Now: time.Date(2026, 7, 10, 13, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("create contributing-limit table: %v", err)
+	}
+	response := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/graphs/query", map[string]any{
+		"schema_id":   "cartulary.network_flow.graph_query_request.v2",
+		"table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID},
+		"aggregation": map[string]any{"mode": "default_flow_edge_v1"},
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	body := httptestx.RequireErrorEnvelope(t, response, http.StatusRequestEntityTooLarge, "network_flow_graph_limit_exceeded")
+	details := body["error"].(map[string]any)["details"].(map[string]any)
+	if details["reason_code"] != "contributing_row_limit_exceeded" || details["limit"] != float64(1) || details["actual"] != float64(2) {
+		t.Fatalf("contributing-row limit details = %#v", details)
 	}
 }
 
@@ -91,8 +168,15 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 
 	sourceProfilesResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/source-profiles", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	sourceProfiles := httptestx.RequireSuccessEnvelope(t, sourceProfilesResp, http.StatusOK)["data"].(map[string]any)
-	if sourceProfiles["schema_id"] != "cartulary.network_flow.source_profile_list.v1" {
+	if sourceProfiles["schema_id"] != "cartulary.network_flow.source_profile_list.v2" {
 		t.Fatalf("unexpected source profiles payload: %#v", sourceProfiles)
+	}
+	effectiveLimits := sourceProfiles["effective_limits"].(map[string]any)
+	if len(effectiveLimits) != 23 || effectiveLimits["network_flow.max_header_scalar_length"] != float64(256) ||
+		effectiveLimits["network_flow.max_contributing_rows_per_graph"] != float64(250000) ||
+		effectiveLimits["network_flow.max_time_buckets_per_graph"] != float64(256) ||
+		effectiveLimits["network_flow.graph_materialization_timeout_seconds"] != float64(300) {
+		t.Fatalf("source-profile effective limits = %#v", effectiveLimits)
 	}
 
 	listResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/tables", nil, httptestx.WithCookies(adminLogin.SessionCookie))
@@ -347,17 +431,58 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create network flow table for graph routes: %v", err)
 	}
+	secondSessionID, secondUnitID := seedImportSessionUnit(t, harness.Pool, incidentID, adminID, "graph-flows-second.csv")
+	secondTableRow := testFlowRow(3, "c")
+	secondTable, err := store.CreateTable(context.Background(), CreateTableParams{
+		IncidentID:                incidentID,
+		ActorUserID:               adminID,
+		ImportSessionID:           secondSessionID,
+		ImportUnitID:              secondUnitID,
+		SourceContentSHA256:       testSHA4,
+		OriginalFilename:          "graph-flows-second.csv",
+		SourceFilenameDigest:      strings.Repeat("5", 64),
+		SourceFilenameDigestKeyID: "route-test-key",
+		MappingFingerprint:        strings.Repeat("6", 64),
+		SourceProfileID:           SourceProfileCiscoSNANetFlowCSV,
+		ParserProfileID:           ParserProfileRFC4180HeaderedCSV,
+		Rows:                      []FlowRow{secondTableRow},
+		Now:                       time.Date(2026, 7, 10, 13, 1, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("create second network flow table for ordered iteration: %v", err)
+	}
+	visited := make([]string, 0, 3)
+	if err := store.IterateRowsForTables(context.Background(), incidentID, []string{secondTable.TableID, table.TableID}, func(row FlowRow) error {
+		visited = append(visited, row.NetworkFlowTableID+"/"+row.RowID)
+		return nil
+	}); err != nil {
+		t.Fatalf("iterate ordered graph rows: %v", err)
+	}
+	if len(visited) != 3 || !strings.HasPrefix(visited[0], secondTable.TableID+"/") || !strings.HasPrefix(visited[1], table.TableID+"/") || !strings.HasSuffix(visited[1], strings.Repeat("a", 64)) || !strings.HasSuffix(visited[2], strings.Repeat("b", 64)) {
+		t.Fatalf("ordered graph iteration = %#v", visited)
+	}
+	cancelContext, cancelIteration := context.WithCancel(context.Background())
+	visitedBeforeCancel := 0
+	err = store.IterateRowsForTables(cancelContext, incidentID, []string{table.TableID}, func(FlowRow) error {
+		visitedBeforeCancel++
+		cancelIteration()
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) || visitedBeforeCancel != 1 {
+		t.Fatalf("cancelled graph iteration visits=%d err=%v", visitedBeforeCancel, err)
+	}
 
 	graphPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graphs/query"
 	graphResp := httptestx.DoJSON(t, http.MethodPost, graphPath, map[string]any{
-		"schema_id": "cartulary.network_flow.graph_query_request.v1",
+		"schema_id": "cartulary.network_flow.graph_query_request.v2",
 		"table_scope": map[string]any{
 			"mode":            "active_table",
 			"active_table_id": table.TableID,
 		},
+		"aggregation": map[string]any{"mode": "default_flow_edge_v1"},
 	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	graph := httptestx.RequireSuccessEnvelope(t, graphResp, http.StatusOK)["data"].(map[string]any)
-	if graph["schema_id"] != "cartulary.network_flow.graph_query_result.v1" {
+	if graph["schema_id"] != "cartulary.network_flow.graph_query_result.v2" {
 		t.Fatalf("unexpected graph schema: %#v", graph)
 	}
 	graphDigest := graph["graph_query_digest"].(string)
@@ -367,7 +492,8 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		t.Fatalf("expected one aggregate edge annotation, got %#v", edgeAnnotations)
 	}
 	edge := edgeAnnotations[0].(map[string]any)
-	edgeID := edge["edge_id"].(string)
+	canonicalSelector := edge["selector"].(map[string]any)
+	edgeID := canonicalSelector["source_edge_id"].(string)
 	examples := edge["example_row_refs"].([]any)
 	if len(examples) != 2 || edge["example_refs_truncated"] != false || edge["example_refs_total_count"] != float64(2) {
 		t.Fatalf("unexpected edge examples: %#v", edge)
@@ -386,16 +512,20 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 			t.Fatalf("graph projection result retained operational field %s: %#v", removed, projection)
 		}
 	}
+	if selectors := graph["vertex_selectors"].([]any); len(selectors) != 2 {
+		t.Fatalf("default graph omitted canonical vertex selectors: %#v", selectors)
+	}
+	if variant := graph["result_variant"].(map[string]any); variant["kind"] != "default_flow_edge_v1" {
+		t.Fatalf("default graph result variant = %#v", variant)
+	}
 
 	contributorPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graphs/contributors/query"
 	contributorResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
-		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v1",
+		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
 		"graph_query":        semanticQuery,
 		"graph_query_digest": graphDigest,
-		"selector": map[string]any{
-			"kind":    "edge",
-			"edge_id": edgeID,
-		},
+		"selector":           canonicalSelector,
+		"limit":              10,
 	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	contributorResult := httptestx.RequireSuccessEnvelope(t, contributorResp, http.StatusOK)["data"].(map[string]any)
 	contributors := contributorResult["contributors"].([]any)
@@ -405,6 +535,156 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	firstContributor := contributors[0].(map[string]any)["row"].(map[string]any)
 	if firstContributor["source_row_number"] != float64(1) {
 		t.Fatalf("contributors not ordered by source row: %#v", contributors)
+	}
+
+	canonicalResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
+		"graph_query":        semanticQuery,
+		"graph_query_digest": graphDigest,
+		"selector":           canonicalSelector,
+		"limit":              1,
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	canonicalResult := httptestx.RequireSuccessEnvelope(t, canonicalResp, http.StatusOK)["data"].(map[string]any)
+	canonicalContributors := canonicalResult["contributors"].([]any)
+	paging := canonicalResult["meta"].(map[string]any)["paging"].(map[string]any)
+	if len(canonicalContributors) != 1 || canonicalResult["selector"].(map[string]any)["source_edge_id"] != edgeID || paging["next_cursor_token"] == nil {
+		t.Fatalf("canonical contributor first page = %#v", canonicalResult)
+	}
+	continuationResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+		"schema_id":    "cartulary.network_flow.graph_contributor_query_continuation.v1",
+		"cursor_token": paging["next_cursor_token"],
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	continuationResult := httptestx.RequireSuccessEnvelope(t, continuationResp, http.StatusOK)["data"].(map[string]any)
+	if continued := continuationResult["contributors"].([]any); len(continued) != 1 || continued[0].(map[string]any)["row"].(map[string]any)["source_row_number"] != float64(2) {
+		t.Fatalf("canonical contributor continuation = %#v", continuationResult)
+	}
+
+	vertexSelector := map[string]any{
+		"kind":             "vertex",
+		"source_vertex_id": EndpointID(incidentID, "ip", first.SrcIP),
+		"endpoint_value":   first.SrcIP,
+	}
+	vertexResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
+		"graph_query":        semanticQuery,
+		"graph_query_digest": graphDigest,
+		"selector":           vertexSelector,
+		"limit":              10,
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	if vertexResult := httptestx.RequireSuccessEnvelope(t, vertexResp, http.StatusOK)["data"].(map[string]any); len(vertexResult["contributors"].([]any)) != 2 {
+		t.Fatalf("canonical vertex contributors = %#v", vertexResult)
+	}
+
+	tamperedSelector := map[string]any{}
+	for key, value := range canonicalSelector {
+		tamperedSelector[key] = value
+	}
+	tamperedSelector["source_edge_id"] = FlowEdgeID(incidentID, EndpointID(incidentID, "ip", first.DstIP), EndpointID(incidentID, "ip", first.SrcIP), first.IPProtocol, first.DstPort)
+	tamperedResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
+		"graph_query":        semanticQuery,
+		"graph_query_digest": graphDigest,
+		"selector":           tamperedSelector,
+		"limit":              1,
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	tamperedError := httptestx.RequireErrorEnvelope(t, tamperedResp, http.StatusBadRequest, "network_flow_invalid_request")
+	if tamperedError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "id_key_mismatch" {
+		t.Fatalf("tampered selector error = %#v", tamperedError)
+	}
+	staleDigestResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
+		"graph_query":        semanticQuery,
+		"graph_query_digest": strings.Repeat("0", 64),
+		"selector":           canonicalSelector,
+		"limit":              1,
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	staleDigestError := httptestx.RequireErrorEnvelope(t, staleDigestResp, http.StatusConflict, "network_flow_graph_query_stale")
+	if staleDigestError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "digest_mismatch" {
+		t.Fatalf("stale contributor digest error = %#v", staleDigestError)
+	}
+
+	temporalResp := httptestx.DoJSON(t, http.MethodPost, graphPath, map[string]any{
+		"schema_id": "cartulary.network_flow.graph_query_request.v2",
+		"table_scope": map[string]any{
+			"mode":            "active_table",
+			"active_table_id": table.TableID,
+		},
+		"time_range": map[string]any{
+			"start_utc": "2026-07-10T09:00:00Z",
+			"end_utc":   "2026-07-10T09:04:00Z",
+		},
+		"aggregation": map[string]any{"mode": "time_bucket_v1", "bucket_width_seconds": 60},
+		"limit_overrides": map[string]any{
+			"max_vertices": 2, "max_edges": 2, "max_contributing_rows_per_graph": 2, "max_time_buckets_per_graph": 4,
+		},
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	temporal := httptestx.RequireSuccessEnvelope(t, temporalResp, http.StatusOK)["data"].(map[string]any)
+	if temporal["schema_id"] != "cartulary.network_flow.graph_query_result.v2" || temporal["graph_query_digest"] == graphDigest {
+		t.Fatalf("temporal graph did not use the v2 identity boundary: %#v", temporal)
+	}
+	temporalWithoutOverridesResp := httptestx.DoJSON(t, http.MethodPost, graphPath, map[string]any{
+		"schema_id": "cartulary.network_flow.graph_query_request.v2",
+		"table_scope": map[string]any{
+			"mode":            "active_table",
+			"active_table_id": table.TableID,
+		},
+		"time_range": map[string]any{
+			"start_utc": "2026-07-10T09:00:00Z",
+			"end_utc":   "2026-07-10T09:04:00Z",
+		},
+		"aggregation": map[string]any{"mode": "time_bucket_v1", "bucket_width_seconds": 60},
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	temporalWithoutOverrides := httptestx.RequireSuccessEnvelope(t, temporalWithoutOverridesResp, http.StatusOK)["data"].(map[string]any)
+	if temporalWithoutOverrides["graph_query_digest"] != temporal["graph_query_digest"] ||
+		temporalWithoutOverrides["graph_projection_result"].(map[string]any)["projection_result_id"] != temporal["graph_projection_result"].(map[string]any)["projection_result_id"] {
+		t.Fatalf("lower limits entered temporal identity: lowered=%#v effective=%#v", temporal, temporalWithoutOverrides)
+	}
+	temporalVariant := temporal["result_variant"].(map[string]any)
+	bucketSummaries := temporalVariant["time_buckets"].([]any)
+	if temporalVariant["kind"] != "time_bucket_v1" || len(bucketSummaries) != 4 {
+		t.Fatalf("temporal result variant = %#v", temporalVariant)
+	}
+	wantRows := []float64{0, 1, 1, 0}
+	for index, raw := range bucketSummaries {
+		bucket := raw.(map[string]any)
+		if bucket["contributing_row_count"] != wantRows[index] {
+			t.Fatalf("temporal bucket %d = %#v", index, bucket)
+		}
+	}
+	temporalAnnotations := temporal["edge_annotations"].([]any)
+	if len(temporalAnnotations) != 2 {
+		t.Fatalf("temporal graph edge annotations = %#v", temporalAnnotations)
+	}
+	temporalSelector := temporalAnnotations[0].(map[string]any)["selector"].(map[string]any)
+	if temporalSelector["kind"] != "time_bucket_edge" || !strings.HasPrefix(temporalSelector["source_edge_id"].(string), "nfbe_") {
+		t.Fatalf("temporal graph selector = %#v", temporalSelector)
+	}
+	temporalContributorResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
+		"graph_query":        temporal["semantic_query"],
+		"graph_query_digest": temporal["graph_query_digest"],
+		"selector":           temporalSelector,
+		"limit":              10,
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	temporalContributors := httptestx.RequireSuccessEnvelope(t, temporalContributorResp, http.StatusOK)["data"].(map[string]any)["contributors"].([]any)
+	if len(temporalContributors) != 1 {
+		t.Fatalf("temporal selector admitted rows outside its bucket: %#v", temporalContributors)
+	}
+	tamperedTemporalSelector := make(map[string]any, len(temporalSelector))
+	for key, value := range temporalSelector {
+		tamperedTemporalSelector[key] = value
+	}
+	tamperedTemporalSelector["bucket_end_utc"] = "2026-07-10T09:06:00Z"
+	tamperedTemporalResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
+		"graph_query":        temporal["semantic_query"],
+		"graph_query_digest": temporal["graph_query_digest"],
+		"selector":           tamperedTemporalSelector,
+		"limit":              10,
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	badTemporal := httptestx.RequireErrorEnvelope(t, tamperedTemporalResp, http.StatusBadRequest, "network_flow_invalid_request")
+	if badTemporal["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "id_key_mismatch" {
+		t.Fatalf("tampered temporal selector error = %#v", badTemporal)
 	}
 
 	linkPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/indicator-links"
@@ -475,6 +755,151 @@ SELECT COUNT(*)
 `, incidentID); got != 1 {
 		t.Fatalf("expected one binding-reused audit event for new txn duplicate, got %d", got)
 	}
+	if _, err := store.SoftDeleteTable(context.Background(), SoftDeleteTableParams{
+		IncidentID: incidentID, ActorUserID: adminID, TableID: table.TableID,
+		BaseTableVersion: table.TableVersion, ClientTxnID: "txn-network-flow-contributor-source-delete",
+		RequestID: "req-network-flow-contributor-source-delete", Now: time.Date(2026, 7, 10, 14, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("soft-delete contributor source table: %v", err)
+	}
+	deletedSourceResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
+		"graph_query":        semanticQuery,
+		"graph_query_digest": graphDigest,
+		"selector":           canonicalSelector,
+		"limit":              1,
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	deletedSourceError := httptestx.RequireErrorEnvelope(t, deletedSourceResp, http.StatusConflict, "network_flow_table_not_active")
+	if deletedSourceError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "soft_deleted" {
+		t.Fatalf("deleted contributor source error = %#v", deletedSourceError)
+	}
+	if _, err := harness.Pool.Exec(context.Background(), `
+DELETE FROM incident_memberships
+ WHERE incident_id = $1
+   AND user_id = $2
+`, incidentID, adminID); err != nil {
+		t.Fatalf("revoke contributor incident membership: %v", err)
+	}
+	deniedResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
+		"graph_query":        semanticQuery,
+		"graph_query_digest": graphDigest,
+		"selector":           canonicalSelector,
+		"limit":              1,
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, deniedResp, http.StatusNotFound, "incident_not_found")
+}
+
+func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-temporal-saved-graph")
+	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminID := uuid.MustParse(adminIDText)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-network-flow-temporal-saved-incident",
+		"incident_key":  "IR-NF-TEMPORAL-SAVED",
+		"title":         "Network Flow temporal saved graph",
+	})
+	incidentID := uuid.MustParse(incident["incident_id"].(string))
+	store := newTestNetworkFlowStore(t, harness.Pool, harness.Revisions.Appender())
+	sessionID, unitID := seedImportSessionUnit(t, harness.Pool, incidentID, adminID, "temporal-saved.csv")
+	first := testFlowRow(1, "a")
+	second := testFlowRow(2, "b")
+	third := testFlowRow(3, "c")
+	third.FlowStartUTC = first.FlowStartUTC
+	third.FlowEndUTC = first.FlowEndUTC
+	table, err := store.CreateTable(context.Background(), CreateTableParams{
+		IncidentID: incidentID, ActorUserID: adminID, ImportSessionID: sessionID, ImportUnitID: unitID,
+		SourceContentSHA256: testSHA1, OriginalFilename: "temporal-saved.csv",
+		SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "route-test-key",
+		MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV,
+		ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []FlowRow{third, second, first},
+		Now: time.Date(2026, 7, 10, 12, 30, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("create temporal saved-graph source table: %v", err)
+	}
+
+	collectionPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graph-views"
+	mutationOptions := []func(*http.Request){
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	}
+	legacyCreate := map[string]any{
+		"schema_id": "cartulary.network_flow.graph_view_create_request.v1", "client_txn_id": "txn-temporal-legacy-rejected", "display_name": "Legacy graph",
+		"semantic_query": map[string]any{"schema_id": "cartulary.network_flow.graph_semantic_query.v1"},
+	}
+	legacyResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, legacyCreate, mutationOptions...)
+	httptestx.RequireErrorEnvelope(t, legacyResp, http.StatusBadRequest, "network_flow_invalid_request")
+
+	createBody := map[string]any{
+		"schema_id": "cartulary.network_flow.graph_view_create_request.v2", "client_txn_id": "txn-temporal-saved-create", "display_name": "Temporal graph",
+		"semantic_query": map[string]any{
+			"schema_id": "cartulary.network_flow.graph_semantic_query.v2", "selected_table_ids": []string{table.TableID}, "filters": []any{},
+			"time_range":  map[string]any{"start_utc": "2026-07-10T09:00:00Z", "end_utc": "2026-07-10T09:04:00Z"},
+			"aggregation": map[string]any{"mode": "time_bucket_v1", "bucket_width_seconds": 60, "include_example_row_refs": true},
+		},
+	}
+	createResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
+	created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusAccepted)["data"].(map[string]any)
+	graphViewID := created["graph_view"].(map[string]any)["graph_view_id"].(string)
+	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, created["job_id"].(string), "succeeded")
+
+	resourcePath := collectionPath + "/" + graphViewID
+	resultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	resource := httptestx.RequireSuccessEnvelope(t, resultResp, http.StatusOK)["data"].(map[string]any)
+	result := resource["result"].(map[string]any)
+	projection := result["graph_projection_result"].(map[string]any)
+	if resource["schema_id"] != "cartulary.network_flow.graph_view_result.v2" || result["schema_id"] != "cartulary.network_flow.graph_query_result.v2" || projection["projection_version"] != "network_flow_activity.time_bucket.v1" {
+		t.Fatalf("temporal saved result contract = %#v", resource)
+	}
+	buckets := result["result_variant"].(map[string]any)["time_buckets"].([]any)
+	if len(buckets) != 4 || buckets[0].(map[string]any)["contributing_row_count"] != float64(0) || buckets[3].(map[string]any)["contributing_row_count"] != float64(0) {
+		t.Fatalf("temporal saved bucket index = %#v", buckets)
+	}
+	annotations := result["edge_annotations"].([]any)
+	if len(annotations) != 2 {
+		t.Fatalf("temporal saved annotations = %#v", annotations)
+	}
+	var selector map[string]any
+	for _, raw := range annotations {
+		candidate := raw.(map[string]any)["selector"].(map[string]any)
+		if candidate["bucket_start_utc"] == "2026-07-10T09:01:00Z" {
+			selector = candidate
+			break
+		}
+	}
+	if selector == nil {
+		t.Fatalf("temporal saved result omitted the populated 09:01 bucket selector: %#v", annotations)
+	}
+	contributorsResp := httptestx.DoJSON(t, http.MethodPost, resourcePath+"/contributors/query", map[string]any{
+		"schema_id": "cartulary.network_flow.graph_view_contributor_query_request.v2", "projection_result_id": projection["projection_result_id"],
+		"selector": selector, "limit": 1,
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	contributorResult := httptestx.RequireSuccessEnvelope(t, contributorsResp, http.StatusOK)["data"].(map[string]any)
+	contributors := contributorResult["contributors"].([]any)
+	page := contributorResult["meta"].(map[string]any)["paging"].(map[string]any)
+	if len(contributors) != 1 || page["next_cursor_token"] == nil {
+		t.Fatalf("temporal saved contributor first page = %#v", contributorResult)
+	}
+	continuationResp := httptestx.DoJSON(t, http.MethodPost, resourcePath+"/contributors/query", map[string]any{
+		"schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v1", "cursor_token": page["next_cursor_token"],
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	continuationResult := httptestx.RequireSuccessEnvelope(t, continuationResp, http.StatusOK)["data"].(map[string]any)
+	if continued := continuationResult["contributors"].([]any); len(continued) != 1 || continuationResult["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor_token"] != nil {
+		t.Fatalf("temporal saved contributor continuation = %#v", continuationResult)
+	}
+
+	refreshResp := httptestx.DoJSON(t, http.MethodPost, resourcePath+"/refresh", map[string]any{
+		"schema_id": "cartulary.network_flow.graph_view_refresh_request.v1", "client_txn_id": "txn-temporal-saved-refresh", "base_graph_view_version": 1,
+	}, mutationOptions...)
+	refreshed := httptestx.RequireSuccessEnvelope(t, refreshResp, http.StatusAccepted)["data"].(map[string]any)
+	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, refreshed["job_id"].(string), "succeeded")
+	refreshedResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	refreshedProjection := httptestx.RequireSuccessEnvelope(t, refreshedResp, http.StatusOK)["data"].(map[string]any)["result"].(map[string]any)["graph_projection_result"].(map[string]any)
+	if refreshedProjection["projection_result_id"] != projection["projection_result_id"] {
+		t.Fatalf("temporal saved retry changed deterministic identity: first=%v refreshed=%v", projection["projection_result_id"], refreshedProjection["projection_result_id"])
+	}
 }
 
 func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
@@ -504,15 +929,14 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 
 	collectionPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graph-views"
 	createBody := map[string]any{
-		"schema_id":     "cartulary.network_flow.graph_view_create_request.v1",
+		"schema_id":     "cartulary.network_flow.graph_view_create_request.v2",
 		"client_txn_id": "txn-network-flow-graph-create",
 		"display_name":  "Shared flow graph",
 		"semantic_query": map[string]any{
-			"schema_id":          "cartulary.network_flow.graph_semantic_query.v1",
+			"schema_id":          "cartulary.network_flow.graph_semantic_query.v2",
 			"selected_table_ids": []string{table.TableID}, "filters": []any{},
-			"time_range":    map[string]any{"start_utc": nil, "end_utc": nil},
-			"aggregation":   map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true},
-			"result_limits": map[string]any{"max_vertices": 100, "max_edges": 100, "max_example_row_refs_per_edge": 10, "max_aggregate_counter_digits": 39},
+			"time_range":  map[string]any{"start_utc": nil, "end_utc": nil},
+			"aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true},
 		},
 	}
 	mutationOptions := []func(*http.Request){
@@ -542,7 +966,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	resourcePath := collectionPath + "/" + graphViewID
 	resultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	result := httptestx.RequireSuccessEnvelope(t, resultResp, http.StatusOK)["data"].(map[string]any)
-	projection := result["projection_result"].(map[string]any)
+	projection := result["result"].(map[string]any)["graph_projection_result"].(map[string]any)
 	if projection["projection_result_id"] == "" || projection["graph_view_id"] != graphViewID || projection["source_owner_id"] != ProfileID {
 		t.Fatalf("saved graph result binding drifted: %#v", projection)
 	}
@@ -551,6 +975,37 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 		t.Fatalf("saved graph result omitted vertices: %#v", projection)
 	}
 	beforeVertexIDs, beforeEdgeIDs := projectionObjectIDs(t, projection)
+	legacyGraphViewID := "nfgv_00000000000000000000000000000090"
+	legacySemanticQuery := []byte(`{"aggregation":{"include_example_row_refs":true,"mode":"default_flow_edge_v1"},"filters":[],"result_limits":{"max_aggregate_counter_digits":39,"max_edges":10000,"max_example_row_refs_per_edge":10,"max_vertices":5000},"schema_id":"cartulary.network_flow.graph_semantic_query.v1","selected_table_ids":["` + table.TableID + `"],"time_range":{"end_utc":null,"start_utc":null}}`)
+	legacyDeclaration := graphViewDeclarationFixture(legacyGraphViewID, incidentID, adminID, time.Date(2026, 7, 10, 12, 31, 0, 0, time.UTC))
+	legacyDeclaration.DisplayName = "Installed v1 flow graph"
+	legacyDeclaration.NormalizedDisplayName = "installed v1 flow graph"
+	legacyDeclaration.SemanticQueryJSON = legacySemanticQuery
+	legacyDeclaration.SemanticQuerySHA256 = GraphViewSemanticQuerySHA256(legacySemanticQuery)
+	legacyDeclaration.DesiredSourceSnapshotID = "pre-refresh-v1-placeholder"
+	legacyTx, err := harness.Pool.Begin(context.Background())
+	if err != nil {
+		t.Fatalf("begin installed-v1 declaration transaction: %v", err)
+	}
+	if err := store.InsertGraphViewDeclarationTx(context.Background(), legacyTx, legacyDeclaration); err != nil {
+		_ = legacyTx.Rollback(context.Background())
+		t.Fatalf("insert installed-v1 declaration: %v", err)
+	}
+	if err := legacyTx.Commit(context.Background()); err != nil {
+		t.Fatalf("commit installed-v1 declaration: %v", err)
+	}
+	legacyResourcePath := collectionPath + "/" + legacyGraphViewID
+	legacyRefreshResp := httptestx.DoJSON(t, http.MethodPost, legacyResourcePath+"/refresh", map[string]any{
+		"schema_id": "cartulary.network_flow.graph_view_refresh_request.v1", "client_txn_id": "txn-installed-v1-refresh", "base_graph_view_version": 1,
+	}, mutationOptions...)
+	legacyRefresh := httptestx.RequireSuccessEnvelope(t, legacyRefreshResp, http.StatusAccepted)["data"].(map[string]any)
+	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, legacyRefresh["job_id"].(string), "succeeded")
+	legacyResultResp := httptestx.DoJSON(t, http.MethodGet, legacyResourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	legacyProjection := httptestx.RequireSuccessEnvelope(t, legacyResultResp, http.StatusOK)["data"].(map[string]any)["result"].(map[string]any)["graph_projection_result"].(map[string]any)
+	legacyVertexIDs, legacyEdgeIDs := projectionObjectIDs(t, legacyProjection)
+	if legacyProjection["projection_result_id"] == projection["projection_result_id"] {
+		t.Fatalf("installed v1 and new v2 declarations shared an identity: %v", projection["projection_result_id"])
+	}
 	reportingJobID := seedRestoredReportingGraphJob(t, harness, incidentID, adminID, projection)
 	networkFlowJobID := seedRestoredNetworkFlowGraphJob(t, harness, incidentID, adminID, projection)
 	restoreParticipant, err := recoveryassembly.NewGraphProjectionRestoreParticipant(harness.Pool)
@@ -563,6 +1018,11 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	}
 	registryRef := restorecontract.CurrentGraphProjectionSourceRegistryRef()
 	bindingRef := restorecontract.CurrentGraphProjectionImplementationBinding()
+	if recoveryCatalog.DigestSHA256() != bindingRef.Binding.RecoveryStateCatalogSHA256 ||
+		bindingRef.Binding.AlgorithmID != restorecontract.GraphProjectionRestoreAlgorithmID ||
+		!slices.Equal(bindingRef.Binding.GraphTableIDs, restorecontract.GraphProjectionTableIDs()) {
+		t.Fatalf("current Graph restore catalog/binding tuple drifted: catalog=%s binding=%#v", recoveryCatalog.DigestSHA256(), bindingRef.Binding)
+	}
 	restoreResult, err := restoreParticipant.Rebuild(context.Background(), restorecontract.GraphProjectionRebuildRequest{
 		Context:             context.Background(),
 		RestoreOperationID:  uuid.MustParse("00000000-0000-0000-0000-000000009101"),
@@ -576,9 +1036,10 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 		},
 		SourceRegistry: registryRef, ImplementationBinding: bindingRef,
 	})
-	if err != nil || !restoreResult.ReadinessSatisfied() || len(restoreResult.RebuiltViews) != 1 ||
+	if err != nil || !restoreResult.ReadinessSatisfied() || len(restoreResult.RebuiltViews) != 2 ||
 		restoreResult.ReconciledNonterminalJobCount != 2 || restoreResult.ReconciledLeaseCount != 1 ||
-		restoreResult.RebuiltViews[0].ProjectionResultID != projection["projection_result_id"] {
+		!restoreContainsExactGraphBinding(restoreResult.RebuiltViews, graphViewID, projection["projection_result_id"].(string)) ||
+		!restoreContainsExactGraphBinding(restoreResult.RebuiltViews, legacyGraphViewID, legacyProjection["projection_result_id"].(string)) {
 		t.Fatalf("active saved-graph restore did not reproduce exact identity: result=%#v err=%v", restoreResult, err)
 	}
 	var restoredLeaseCount int
@@ -598,17 +1059,26 @@ SELECT
 		t.Fatalf("restore did not reconcile Network Flow Common Job attempt: attempt=%v err=%v", restoredAttemptID, err)
 	}
 	restoredResultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
-	restoredProjection := httptestx.RequireSuccessEnvelope(t, restoredResultResp, http.StatusOK)["data"].(map[string]any)["projection_result"].(map[string]any)
+	restoredProjection := httptestx.RequireSuccessEnvelope(t, restoredResultResp, http.StatusOK)["data"].(map[string]any)["result"].(map[string]any)["graph_projection_result"].(map[string]any)
 	afterVertexIDs, afterEdgeIDs := projectionObjectIDs(t, restoredProjection)
 	if restoredProjection["projection_result_id"] != projection["projection_result_id"] ||
 		strings.Join(afterVertexIDs, ",") != strings.Join(beforeVertexIDs, ",") || strings.Join(afterEdgeIDs, ",") != strings.Join(beforeEdgeIDs, ",") {
 		t.Fatalf("restored saved graph object identity drifted: before=%v/%v after=%v/%v", beforeVertexIDs, beforeEdgeIDs, afterVertexIDs, afterEdgeIDs)
 	}
-	sourceEndpointID := vertices[0].(map[string]any)["source_entity_ref"].(map[string]any)["source_entity_id"].(string)
+	restoredLegacyResp := httptestx.DoJSON(t, http.MethodGet, legacyResourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	restoredLegacyProjection := httptestx.RequireSuccessEnvelope(t, restoredLegacyResp, http.StatusOK)["data"].(map[string]any)["result"].(map[string]any)["graph_projection_result"].(map[string]any)
+	restoredLegacyVertexIDs, restoredLegacyEdgeIDs := projectionObjectIDs(t, restoredLegacyProjection)
+	if restoredLegacyProjection["projection_result_id"] != legacyProjection["projection_result_id"] ||
+		strings.Join(restoredLegacyVertexIDs, ",") != strings.Join(legacyVertexIDs, ",") || strings.Join(restoredLegacyEdgeIDs, ",") != strings.Join(legacyEdgeIDs, ",") {
+		t.Fatalf("restored installed-v1 saved graph identity drifted: before=%v/%v after=%v/%v", legacyVertexIDs, legacyEdgeIDs, restoredLegacyVertexIDs, restoredLegacyEdgeIDs)
+	}
+	selectedVertex := vertices[0].(map[string]any)
+	sourceEndpointID := selectedVertex["source_entity_ref"].(map[string]any)["source_entity_id"].(string)
+	sourceEndpointValue := selectedVertex["properties"].(map[string]any)["endpoint_value"].(string)
 	contributorsResp := httptestx.DoJSON(t, http.MethodPost, resourcePath+"/contributors/query", map[string]any{
-		"schema_id":            "cartulary.network_flow.graph_view_contributor_query_request.v1",
+		"schema_id":            "cartulary.network_flow.graph_view_contributor_query_request.v2",
 		"projection_result_id": projection["projection_result_id"],
-		"selector":             map[string]any{"kind": "vertex", "vertex_id": sourceEndpointID}, "limit": 10,
+		"selector":             map[string]any{"kind": "vertex", "source_vertex_id": sourceEndpointID, "endpoint_value": sourceEndpointValue}, "limit": 10,
 	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	contributors := httptestx.RequireSuccessEnvelope(t, contributorsResp, http.StatusOK)["data"].(map[string]any)["contributors"].([]any)
 	if len(contributors) != 1 {
@@ -637,7 +1107,7 @@ SELECT
 	}
 	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, refreshed["job_id"].(string), "succeeded")
 	refreshedResultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
-	refreshedResult := httptestx.RequireSuccessEnvelope(t, refreshedResultResp, http.StatusOK)["data"].(map[string]any)["projection_result"].(map[string]any)
+	refreshedResult := httptestx.RequireSuccessEnvelope(t, refreshedResultResp, http.StatusOK)["data"].(map[string]any)["result"].(map[string]any)["graph_projection_result"].(map[string]any)
 	if refreshedResult["projection_result_id"] != projection["projection_result_id"] {
 		t.Fatalf("semantic retry produced a different immutable result: first=%v refreshed=%v", projection["projection_result_id"], refreshedResult["projection_result_id"])
 	}
@@ -694,6 +1164,15 @@ func projectionObjectIDs(t testing.TB, projection map[string]any) ([]string, []s
 		edgeIDs = append(edgeIDs, edge["edge_id"].(string))
 	}
 	return vertexIDs, edgeIDs
+}
+
+func restoreContainsExactGraphBinding(views []graphprojection.RestoreRebuiltView, graphViewID string, projectionResultID string) bool {
+	for _, view := range views {
+		if view.GraphViewID == graphViewID && view.ProjectionResultID == projectionResultID {
+			return true
+		}
+	}
+	return false
 }
 
 func seedRestoredReportingGraphJob(
@@ -829,6 +1308,15 @@ func claimedNetworkFlowServerForRouteTest(
 	runtime *appsupport.Runtime,
 	prefix string,
 ) *appsupport.ServerHarness {
+	return claimedNetworkFlowServerWithLimitsForRouteTest(t, runtime, prefix, "")
+}
+
+func claimedNetworkFlowServerWithLimitsForRouteTest(
+	t testing.TB,
+	runtime *appsupport.Runtime,
+	prefix string,
+	resourceLimits string,
+) *appsupport.ServerHarness {
 	t.Helper()
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	rings, err := ParseKeyRings([]byte(`{
@@ -842,14 +1330,18 @@ func claimedNetworkFlowServerForRouteTest(
 	if err != nil {
 		t.Fatalf("parse Network Flow route-test key rings: %v", err)
 	}
+	environment := map[string]string{
+		"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
+		"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": fixtures.Path("network-flow", "key-rings.json"),
+		"CARTULARY_SECRET_TEST_NETWORK_FLOW_CURSOR":                "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+		"CARTULARY_SECRET_TEST_NETWORK_FLOW_SAFE_DIGEST":           "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+	}
+	if resourceLimits != "" {
+		environment["CARTULARY__NETWORK_FLOW_ACTIVITY__RESOURCE_LIMITS"] = resourceLimits
+	}
 	return runtime.StartServer(t, appsupport.ServerOptions{
 		Prefix: prefix,
-		Env: map[string]string{
-			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
-			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": fixtures.Path("network-flow", "key-rings.json"),
-			"CARTULARY_SECRET_TEST_NETWORK_FLOW_CURSOR":                "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
-			"CARTULARY_SECRET_TEST_NETWORK_FLOW_SAFE_DIGEST":           "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
-		},
+		Env:    environment,
 		Dependencies: httpapi.DependencySet{
 			ModuleOverrides: map[string]any{KeyRingsOverrideKey: rings},
 			Now:             func() time.Time { return now },

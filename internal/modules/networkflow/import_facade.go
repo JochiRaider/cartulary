@@ -20,15 +20,15 @@ import (
 type importFacade struct {
 	store        *Store
 	sourceStore  ImportSourcePort
-	limits       Limits
+	limits       EffectiveLimits
 	now          func() time.Time
 	safeDigester SafeDigester
 }
 
 const importPreviewResultSchemaID = "cartulary.network_flow.import_preview_result.v1"
 
-func newImportFacade(store *Store, sourceStore ImportSourcePort, limits Limits, now func() time.Time, safeDigester SafeDigester) *importFacade {
-	return &importFacade{store: store, sourceStore: sourceStore, limits: limits.normalized(), now: now, safeDigester: safeDigester}
+func newImportFacade(store *Store, sourceStore ImportSourcePort, limits EffectiveLimits, now func() time.Time, safeDigester SafeDigester) *importFacade {
+	return &importFacade{store: store, sourceStore: sourceStore, limits: limits, now: now, safeDigester: safeDigester}
 }
 
 func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imports.ExtensionImportMappingRequest) (imports.ExtensionImportMappingResult, error) {

@@ -199,6 +199,41 @@ test("Network Analysis saved graphs complete exact-result lifecycle through the 
   });
   await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
   await expect(page.getByTestId(/^network-flow-vertex-/).first()).toBeVisible();
+  await page.getByLabel("Time buckets").check();
+  await expect(page.getByRole("alert")).toContainText(
+    "require both UTC range bounds",
+  );
+  await page.getByLabel("Flow overlap starts at").fill("2026-07-10T12:00:00Z");
+  await page
+    .getByLabel("Flow overlap ends before")
+    .fill("2026-07-10T14:00:00Z");
+  const temporalGraphRequest = page.waitForRequest(
+    (request) =>
+      request.url().endsWith("/network-flow/graphs/query") &&
+      request.method() === "POST" &&
+      requestJSON(request).schema_id ===
+        "cartulary.network_flow.graph_query_request.v2",
+  );
+  await page.getByTestId(networkAnalysisTestId("accepted-query-apply")).click();
+  const temporalBody = requestJSON(await temporalGraphRequest);
+  expect(temporalBody.aggregation).toMatchObject({
+    mode: "time_bucket_v1",
+    bucket_width_seconds: 3600,
+  });
+  const bucketNavigation = page.getByRole("navigation", {
+    name: "Time bucket navigation",
+  });
+  await expect(bucketNavigation).toContainText("Bucket 1 of 2");
+  await expect(page.getByTestId(/^network-flow-edge-/).first()).toBeVisible();
+  await bucketNavigation.getByRole("button", { name: "Next bucket" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(bucketNavigation).toContainText("0 vertices · 0 edges · 0 rows");
+  await expect(page.getByTestId(/^network-flow-edge-/)).toHaveCount(0);
+  await bucketNavigation
+    .getByRole("button", { name: "Previous bucket" })
+    .focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId(/^network-flow-edge-/).first()).toBeVisible();
   await page.getByRole("button", { name: "Saved graphs" }).click();
 
   const panel = page.getByRole("region", {

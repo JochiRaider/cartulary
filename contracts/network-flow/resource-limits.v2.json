@@ -1,0 +1,45 @@
+{
+  "schema_id": "cartulary.network_flow_resource_limits.v2",
+  "profile_id": "network_flow_activity",
+  "configuration_contract_major": 2,
+  "configuration_key": "network_flow_activity.resource_limits",
+  "unknown_member_policy": "reject",
+  "explicit_null_policy": "reject",
+  "resolution_policy": "resolve_once_before_runtime_start",
+  "limits": [
+    { "config_key": "max_active_tables_per_incident", "discovery_key": "network_flow.max_active_tables_per_incident", "minimum": 1, "default": 128, "maximum": 128 },
+    { "config_key": "max_retained_tables_per_incident", "discovery_key": "network_flow.max_retained_tables_per_incident", "minimum": 1, "default": 512, "maximum": 512 },
+    { "config_key": "max_selected_tables_per_query", "discovery_key": "network_flow.max_selected_tables_per_query", "minimum": 1, "default": 16, "maximum": 64 },
+    { "config_key": "max_columns_per_csv", "discovery_key": "network_flow.max_columns_per_csv", "minimum": 1, "default": 256, "maximum": 512 },
+    { "config_key": "max_header_scalar_length", "discovery_key": "network_flow.max_header_scalar_length", "minimum": 1, "default": 256, "maximum": 256 },
+    { "config_key": "max_raw_cell_scalar_length", "discovery_key": "network_flow.max_raw_cell_scalar_length", "minimum": 1, "default": 4096, "maximum": 16384 },
+    { "config_key": "max_rows_per_csv", "discovery_key": "network_flow.max_rows_per_csv", "minimum": 1, "default": 250000, "maximum": 5000000 },
+    { "config_key": "max_accepted_rows_per_table", "discovery_key": "network_flow.max_accepted_rows_per_table", "minimum": 1, "default": 250000, "maximum": 5000000 },
+    { "config_key": "max_rejected_row_diagnostics", "discovery_key": "network_flow.max_rejected_row_diagnostics", "minimum": 0, "default": 10000, "maximum": 100000 },
+    { "config_key": "max_filters_per_query", "discovery_key": "network_flow.max_filters_per_query", "minimum": 0, "default": 16, "maximum": 16 },
+    { "config_key": "max_sorts_per_query", "discovery_key": "network_flow.max_sorts_per_query", "minimum": 0, "default": 8, "maximum": 8 },
+    { "config_key": "max_query_limit", "discovery_key": "network_flow.max_query_limit", "minimum": 1, "default": 500, "maximum": 1000 },
+    { "config_key": "max_graph_vertices", "discovery_key": "network_flow.max_graph_vertices", "minimum": 1, "default": 5000, "maximum": 100000 },
+    { "config_key": "max_graph_edges", "discovery_key": "network_flow.max_graph_edges", "minimum": 0, "default": 10000, "maximum": 250000 },
+    { "config_key": "max_active_graph_views_per_incident", "discovery_key": "network_flow.max_active_graph_views_per_incident", "minimum": 1, "default": 32, "maximum": 32 },
+    { "config_key": "max_retained_graph_views_per_incident", "discovery_key": "network_flow.max_retained_graph_views_per_incident", "minimum": 1, "default": 128, "maximum": 128 },
+    { "config_key": "max_nonterminal_graph_jobs_per_incident", "discovery_key": "network_flow.max_nonterminal_graph_jobs_per_incident", "minimum": 1, "default": 4, "maximum": 4 },
+    { "config_key": "max_example_row_refs_per_edge", "discovery_key": "network_flow.max_example_row_refs_per_edge", "minimum": 0, "default": 10, "maximum": 100 },
+    { "config_key": "max_binding_source_row_refs", "discovery_key": "network_flow.max_binding_source_row_refs", "minimum": 1, "default": 16, "maximum": 1000 },
+    { "config_key": "max_aggregate_counter_digits", "discovery_key": "network_flow.max_aggregate_counter_digits", "minimum": 1, "default": 39, "maximum": 128 },
+    { "config_key": "max_contributing_rows_per_graph", "discovery_key": "network_flow.max_contributing_rows_per_graph", "minimum": 1, "default": 250000, "maximum": 5000000 },
+    { "config_key": "max_time_buckets_per_graph", "discovery_key": "network_flow.max_time_buckets_per_graph", "minimum": 1, "default": 256, "maximum": 1024 },
+    { "config_key": "graph_materialization_timeout_seconds", "discovery_key": "network_flow.graph_materialization_timeout_seconds", "minimum": 30, "default": 300, "maximum": 3600 }
+  ],
+  "cross_limit_constraints": [
+    { "less_than_or_equal": "max_active_tables_per_incident", "greater_than_or_equal": "max_retained_tables_per_incident" },
+    { "less_than_or_equal": "max_active_graph_views_per_incident", "greater_than_or_equal": "max_retained_graph_views_per_incident" }
+  ],
+  "request_lowerable_limits": [
+    "max_graph_vertices",
+    "max_graph_edges",
+    "max_example_row_refs_per_edge",
+    "max_contributing_rows_per_graph",
+    "max_time_buckets_per_graph"
+  ]
+}

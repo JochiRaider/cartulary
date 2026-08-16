@@ -101,7 +101,7 @@ SELECT response_json->>'status'
 		t.Fatalf("final idempotency status = %q", replayStatus)
 	}
 
-	canceledJobID := enqueueExtensionFinalizerTestJob(t, pool, now.Add(time.Second), "cancel-race")
+	canceledJobID := enqueueExtensionFinalizerTestJob(t, pool, now, "cancel-race")
 	canceledExecution, claimed, err := manager.Claim(context.Background(), canceledJobID)
 	if err != nil || !claimed {
 		t.Fatalf("claim canceled execution = %v/%v", claimed, err)
@@ -148,7 +148,7 @@ SELECT response_json->>'status'
 		t.Fatalf("cancel-wins side effects=%d proofs=%d observations=%d", effectCount, proofCount, cancellationCount)
 	}
 
-	failedJobID := enqueueExtensionFinalizerTestJob(t, pool, now.Add(2*time.Second), "proof-failure")
+	failedJobID := enqueueExtensionFinalizerTestJob(t, pool, now, "proof-failure")
 	failedExecution, claimed, err := manager.Claim(context.Background(), failedJobID)
 	if err != nil || !claimed {
 		t.Fatalf("claim failed execution = %v/%v", claimed, err)
@@ -182,7 +182,7 @@ SELECT response_json->>'status'
 		t.Fatalf("failed finalization leaked effect=%d proof=%d", effectCount, proofCount)
 	}
 
-	indeterminateJobID := enqueueExtensionFinalizerTestJob(t, pool, now.Add(3*time.Second), "indeterminate")
+	indeterminateJobID := enqueueExtensionFinalizerTestJob(t, pool, now, "indeterminate")
 	indeterminateExecution, claimed, err := manager.Claim(context.Background(), indeterminateJobID)
 	if err != nil || !claimed {
 		t.Fatalf("claim indeterminate execution = %v/%v", claimed, err)

@@ -1,0 +1,47 @@
+{
+  "schema_id": "cartulary.operator_recovery_journal_payload.v4",
+  "record_kind": "completion",
+  "operation_id": "recovery-operation-v3-0001",
+  "operation": "restore_latest",
+  "attempt_id": null,
+  "started_at": "2026-08-16T12:00:00Z",
+  "completed_at": "2026-08-16T12:05:00Z",
+  "result": "succeeded",
+  "backup_set_id": "00000000-0000-0000-0000-000000000203",
+  "consistency_point_at": "2026-08-16T11:00:00Z",
+  "artifact_counts": [],
+  "error_code": null,
+  "error_reason": null,
+  "graph_projection_completion": {
+    "target_generation_id": "00000000-0000-0000-0000-000000000303",
+    "restore_operation_id": "recovery-operation-v3-0001",
+    "backup_set_id": "00000000-0000-0000-0000-000000000203",
+    "consistency_point_at": "2026-08-16T11:00:00Z",
+    "recovery_state_catalog_sha256": "04174fbf70585af5afb5ace702b797f7512f655005b8502b02f4b41700a966a6",
+    "source_registry_sha256": "61c3f7348c4df2bee3e969c905c91c9857082cf2839a0b57104e40339e3e16d3",
+    "implementation_binding_sha256": "6ec244d0b82466a18adbdb82554be29f5e4baac384175538acbc92e56f14b8d5",
+    "postcondition_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+    "participant_result": {
+      "schema_id": "cartulary.graph_projection_restore_rebuild_result.v3",
+      "restore_operation_id": "recovery-operation-v3-0001",
+      "target_generation_id": "00000000-0000-0000-0000-000000000303",
+      "status": "succeeded",
+      "readiness_outcome": "ready",
+      "algorithm_id": "graphprojection.restore_rebuild.v3",
+      "implementation_binding_sha256": "6ec244d0b82466a18adbdb82554be29f5e4baac384175538acbc92e56f14b8d5",
+      "source_registry_sha256": "61c3f7348c4df2bee3e969c905c91c9857082cf2839a0b57104e40339e3e16d3",
+      "cleared_table_ids": [
+        "graph_projection_result_edges",
+        "graph_projection_result_leases",
+        "graph_projection_result_vertices",
+        "graph_projection_results"
+      ],
+      "rebuilt_views": [],
+      "reconciled_nonterminal_job_count": 0,
+      "reconciled_lease_count": 0,
+      "postcondition_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "warnings": [],
+      "errors": []
+    }
+  }
+}

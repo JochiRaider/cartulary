@@ -46,13 +46,19 @@ func safeAttribute(attr attribute.KeyValue) bool {
 	case "cartulary.profile.claims":
 		return safeString(attr, safeProfileClaims)
 	case "cartulary.module":
-		return safeStringIn(attr, "httpapi", "workbook", "collaboration", "evidence", "jobs", "postgres", "objectstore", "telemetry")
+		return safeStringIn(attr, "httpapi", "workbook", "collaboration", "evidence", "jobs", "network_flow", "postgres", "objectstore", "telemetry")
 	case "cartulary.route_family":
 		return safeStringIn(attr, "web.root", "health", "readiness", "web.asset", "auth", "incidents", "records", "jobs", "view_schemas", "api", "websocket", "unmatched")
 	case "cartulary.view_schema_id", "cartulary.record_type", "cartulary.error_code":
 		return safeString(attr, safeAttributeTokenNoForbiddenID)
 	case "cartulary.operation":
 		return safeString(attr, safeOperation)
+	case "cartulary.phase":
+		return safeStringIn(attr, "source_validation", "source_scan", "projection", "publication", "cleanup_sweep")
+	case "cartulary.graph_mode":
+		return safeStringIn(attr, "default_flow_edge_v1", "time_bucket_v1")
+	case "cartulary.graph_object_kind":
+		return safeStringIn(attr, "vertex", "edge", "time_bucket", "contributing_row", "lease", "projection_result")
 	case "cartulary.result":
 		return safeStringIn(attr, "success", "rejected", "conflict", "canceled", "failed", "timeout", "dropped")
 	case "cartulary.error_class":
@@ -170,7 +176,8 @@ func safeOperation(value string) bool {
 	switch value {
 	case "connect", "query", "create", "patch", "enqueue", "run", "exec", "query_row", "begin_tx",
 		"create_upload_target", "complete_upload_target", "put_object", "get_object", "get_object_range",
-		"head_object", "list_prefix", "delete_object", "ensure_bucket_for_dev_test", "rebuild", "cleanup_sweep", "unknown":
+		"head_object", "list_prefix", "delete_object", "ensure_bucket_for_dev_test", "rebuild", "cleanup_sweep",
+		"graph_materialization", "unknown":
 		return true
 	default:
 		return false

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/graphsourcecontract"
 )
 
 func TestGraphResultSelectionRulesPreserveExactProjectionOrder_Unit(t *testing.T) {
@@ -79,10 +80,11 @@ func TestGraphResultSelectionBoundsAndActualTopologyRendering_Unit(t *testing.T)
 	ref := testSourceProjectionRef("gv-render", "gpres_"+strings.Repeat("d", 64))
 	result := reportingGraphSelectionFixture()
 	result.Binding = ref.binding()
+	resolved := resolvedGraphResult{Ref: ref, Result: result, LabelCandidates: graphLabelCandidatesForResult(result)}
 	diagram, err := graphDiagramFromResult(compositionDiagramDecl{
 		DeclID: "diagram-graph", DiagramSourceKind: "graph",
 		SelectionRule: diagramSelectionRule{SchemaID: "diagram_selection_rule.v1", RuleID: "explicit_refs", VertexRefs: []string{"v1", "v2"}, EdgeRefs: []string{"e12"}, OverflowPolicy: "fail"},
-	}, ref, result, ReleaseScopeInternalReview)
+	}, ref, resolved, ReleaseScopeInternalReview)
 	if err != nil {
 		t.Fatalf("derive exact graph diagram: %v", err)
 	}
@@ -90,13 +92,44 @@ func TestGraphResultSelectionBoundsAndActualTopologyRendering_Unit(t *testing.T)
 	if err != nil {
 		t.Fatalf("serialize exact graph topology: %v", err)
 	}
-	if len(diagram.Nodes) != 2 || len(diagram.Edges) != 1 || !strings.Contains(string(source), "n0001 --> n0002") || strings.Contains(string(source), "gv-render") {
+	if len(diagram.Nodes) != 2 || len(diagram.Edges) != 1 || diagram.Nodes[0].Label != "192.0.2.1" ||
+		diagram.Edges[0].Label != "protocol=6 port=443" || !strings.Contains(string(source), "n0001 --> n0002") || strings.Contains(string(source), "gv-render") {
 		t.Fatalf("rendered graph topology is not exact or disclosed identity: diagram=%#v source=%s", diagram, source)
+	}
+	redacted := resolved
+	redacted.LabelCandidates = graphLabelCandidatesForResult(result)
+	redacted.LabelCandidates.VertexLabelCandidates[0].Endpoint.State = graphsourcecontract.ComponentStateRemoved
+	redacted.LabelCandidates.VertexLabelCandidates[0].Endpoint.StringValue = ""
+	redacted.LabelCandidates.EdgeLabelCandidates[0].Protocol.State = graphsourcecontract.ComponentStateMissing
+	redacted.LabelCandidates.EdgeLabelCandidates[0].Protocol.IntegerValue = 0
+	redacted.LabelCandidates.EdgeLabelCandidates[0].DestinationPort.State = graphsourcecontract.ComponentStateRemoved
+	redacted.LabelCandidates.EdgeLabelCandidates[0].DestinationPort.IntegerValue = 0
+	redactedDiagram, err := graphDiagramFromResult(compositionDiagramDecl{
+		DeclID: "diagram-redacted", DiagramSourceKind: "graph",
+		SelectionRule: diagramSelectionRule{SchemaID: "diagram_selection_rule.v1", RuleID: "explicit_refs", VertexRefs: []string{"v1", "v2"}, EdgeRefs: []string{"e12"}, OverflowPolicy: "fail"},
+	}, ref, redacted, ReleaseScopeInternalReview)
+	if err != nil || redactedDiagram.Nodes[0].Label != "Vertex 0001" || redactedDiagram.Edges[0].Label != "Edge 0001" {
+		t.Fatalf("removed graph labels did not use ordinals: diagram=%#v err=%v", redactedDiagram, err)
+	}
+	temporal := resolved
+	temporal.LabelCandidates = graphLabelCandidatesForResult(result)
+	temporalEdge := &temporal.LabelCandidates.EdgeLabelCandidates[0]
+	temporalEdge.Kind = "time_bucket_v1"
+	start := testGraphLabelComponent("bucket_start_utc", "/graph/edges/0001/bucket_start_utc", graphsourcecontract.ValueKindString, "2026-08-16T12:00:00Z", 0)
+	end := testGraphLabelComponent("bucket_end_utc", "/graph/edges/0001/bucket_end_utc", graphsourcecontract.ValueKindString, "2026-08-16T12:05:00Z", 0)
+	temporalEdge.BucketStartUTC = &start
+	temporalEdge.BucketEndUTC = &end
+	temporalDiagram, err := graphDiagramFromResult(compositionDiagramDecl{
+		DeclID: "diagram-temporal", DiagramSourceKind: "graph",
+		SelectionRule: diagramSelectionRule{SchemaID: "diagram_selection_rule.v1", RuleID: "explicit_refs", VertexRefs: []string{"v1", "v2"}, EdgeRefs: []string{"e12"}, OverflowPolicy: "fail"},
+	}, ref, temporal, ReleaseScopeInternalReview)
+	if err != nil || temporalDiagram.Edges[0].Label != "[2026-08-16T12:00:00Z,2026-08-16T12:05:00Z) protocol=6 port=443" {
+		t.Fatalf("temporal graph label = %#v err=%v", temporalDiagram.Edges, err)
 	}
 	_, err = graphDiagramFromResult(compositionDiagramDecl{
 		DeclID: "diagram-external", DiagramSourceKind: "graph",
 		SelectionRule: diagramSelectionRule{SchemaID: "diagram_selection_rule.v1", RuleID: "all_with_bounds", OverflowPolicy: "fail"},
-	}, ref, result, ReleaseScopeExternal)
+	}, ref, resolved, ReleaseScopeExternal)
 	if !errors.As(err, &renderErr) || renderErr.ReasonCode != "redaction_action_unresolved" {
 		t.Fatalf("unclassified external graph values must fail closed, got %#v", err)
 	}
@@ -128,6 +161,42 @@ func reportingGraphSelectionFixture() graphprojection.CompletedResultV2 {
 			{EdgeID: "e23", EdgeKind: "dns", SrcVertexID: "v2", DstVertexID: "v3"},
 			{EdgeID: "e34", EdgeKind: "flow", SrcVertexID: "v3", DstVertexID: "v4"},
 		},
+	}
+}
+
+func graphLabelCandidatesForResult(result graphprojection.CompletedResultV2) graphsourcecontract.LabelCandidates {
+	candidates := graphsourcecontract.LabelCandidates{
+		SchemaID: resultLabelSchemaID(), SourceProjectionRef: result.Binding,
+		VertexLabelCandidates: make([]graphsourcecontract.VertexLabelCandidate, 0, len(result.Vertices)),
+		EdgeLabelCandidates:   make([]graphsourcecontract.EdgeLabelCandidate, 0, len(result.Edges)),
+	}
+	for index, vertex := range result.Vertices {
+		candidates.VertexLabelCandidates = append(candidates.VertexLabelCandidates, graphsourcecontract.VertexLabelCandidate{
+			ProjectedVertexID: vertex.VertexID,
+			Endpoint:          testGraphLabelComponent("endpoint_value", fmt.Sprintf("/graph/vertices/%04d/endpoint_value", index+1), graphsourcecontract.ValueKindString, fmt.Sprintf("192.0.2.%d", index+1), 0),
+		})
+	}
+	for index, edge := range result.Edges {
+		port := testGraphLabelComponent("destination_port", fmt.Sprintf("/graph/edges/%04d/destination_port", index+1), graphsourcecontract.ValueKindInteger, "", 443)
+		candidates.EdgeLabelCandidates = append(candidates.EdgeLabelCandidates, graphsourcecontract.EdgeLabelCandidate{
+			Kind: "default_flow_edge_v1", ProjectedEdgeID: edge.EdgeID,
+			Protocol:        testGraphLabelComponent("protocol", fmt.Sprintf("/graph/edges/%04d/protocol", index+1), graphsourcecontract.ValueKindInteger, "", 6),
+			DestinationPort: port,
+		})
+	}
+	return candidates
+}
+
+func resultLabelSchemaID() string { return graphsourcecontract.SchemaID }
+
+func testGraphLabelComponent(kind, path, valueKind, stringValue string, integerValue int64) graphsourcecontract.LabelComponent {
+	return graphsourcecontract.LabelComponent{
+		ComponentKind: kind, FieldPath: path, SourceObjectRef: "network-flow-source-object",
+		Classification:       graphsourcecontract.ClassificationDerivedAnalytic,
+		DisclosurePartitions: []string{graphsourcecontract.DisclosurePartitionInternal},
+		RedactionBehavior:    graphsourcecontract.RedactionInternalOnly,
+		State:                graphsourcecontract.ComponentStatePresent, ValueKind: valueKind,
+		StringValue: stringValue, IntegerValue: integerValue,
 	}
 }
 

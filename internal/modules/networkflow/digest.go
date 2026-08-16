@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -169,6 +170,13 @@ func SafeDigest(keyID string, key []byte, valueClass string, canonicalValue stri
 func writeDigestPart(b *bytes.Buffer, value string) {
 	b.WriteString(value)
 	b.WriteByte(0)
+}
+
+func writeLengthFramedPart(b *bytes.Buffer, value string) {
+	var length [8]byte
+	binary.BigEndian.PutUint64(length[:], uint64(len([]byte(value))))
+	b.Write(length[:])
+	b.WriteString(value)
 }
 
 func canonicalJSON(value any) []byte {

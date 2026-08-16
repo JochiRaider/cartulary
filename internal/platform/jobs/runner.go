@@ -48,6 +48,7 @@ type Runner struct {
 	notified         map[uuid.UUID]struct{}
 	inFlight         map[uuid.UUID]struct{}
 	attemptSlots     chan int
+	workerActive     map[string]int
 	onComponentLoss  func()
 	lossOnce         sync.Once
 	shutdownCtx      context.Context
@@ -87,6 +88,7 @@ func NewRunner(options RunnerOptions) (*Runner, error) {
 		notified:        map[uuid.UUID]struct{}{},
 		inFlight:        map[uuid.UUID]struct{}{},
 		attemptSlots:    make(chan int, options.Policy.HandlerConcurrency),
+		workerActive:    map[string]int{},
 		onComponentLoss: options.OnComponentLoss,
 		renewalTicks: func(interval time.Duration) (<-chan time.Time, func()) {
 			ticker := time.NewTicker(interval)
@@ -185,14 +187,25 @@ func (r *Runner) Activate(ctx context.Context) error {
 }
 
 func (r *Runner) scan(ctx context.Context) error {
-	jobIDs, err := r.manager.recoverableJobsForSelection(ctx, r.policy.RecoveryBatch, r.selection)
-	if err != nil {
-		return err
+	previousSelection := ""
+	for {
+		jobKinds := r.unsaturatedJobKinds()
+		selectionKey := strings.Join(jobKinds, "\x00")
+		if len(jobKinds) == 0 || selectionKey == previousSelection {
+			return nil
+		}
+		candidates, err := r.manager.recoverableCandidatesForSelection(ctx, r.policy.RecoveryBatch, r.selection, jobKinds)
+		if err != nil {
+			return err
+		}
+		if len(candidates) == 0 {
+			return nil
+		}
+		for _, candidate := range candidates {
+			r.schedule(candidate)
+		}
+		previousSelection = selectionKey
 	}
-	for _, jobID := range jobIDs {
-		r.schedule(jobID)
-	}
-	return nil
 }
 
 func (r *Runner) supervise() {
@@ -214,7 +227,10 @@ func (r *Runner) supervise() {
 			r.mu.Lock()
 			delete(r.notified, jobID)
 			r.mu.Unlock()
-			r.schedule(jobID)
+			candidate, present, err := r.manager.runnerCandidateForSelection(r.ctx, jobID, r.selection)
+			if err == nil && present {
+				r.schedule(candidate)
+			}
 		case <-ticker.C:
 			// A transient scan failure leaves the supervisor alive. The next
 			// fixed-cadence scan retries from durable state.
@@ -227,8 +243,25 @@ func (r *Runner) supervise() {
 	}
 }
 
-func (r *Runner) schedule(jobID uuid.UUID) {
-	if jobID == uuid.Nil {
+func (r *Runner) unsaturatedJobKinds() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closed || !r.activated || len(r.attemptSlots) == 0 {
+		return nil
+	}
+	result := make([]string, 0, len(r.selection.byKind))
+	for _, jobKind := range r.selection.jobKinds() {
+		workerKind, present := r.selection.workerKindForJob(jobKind)
+		contract, valid := r.selection.workerContract(workerKind)
+		if present && valid && r.workerActive[workerKind] < contract.MaxActiveAttemptsPerProcess {
+			result = append(result, jobKind)
+		}
+	}
+	return result
+}
+
+func (r *Runner) schedule(candidate runnerCandidate) {
+	if candidate.JobID == uuid.Nil || candidate.JobKind == "" || candidate.HandlerName == "" {
 		return
 	}
 	r.mu.Lock()
@@ -236,7 +269,14 @@ func (r *Runner) schedule(jobID uuid.UUID) {
 		r.mu.Unlock()
 		return
 	}
-	if _, present := r.inFlight[jobID]; present {
+	if _, present := r.inFlight[candidate.JobID]; present {
+		r.mu.Unlock()
+		return
+	}
+	workerKind, assigned := r.selection.workerKindForJob(candidate.JobKind)
+	workerContract, valid := r.selection.workerContract(workerKind)
+	if !assigned || !valid || workerKind != candidate.HandlerName ||
+		r.workerActive[workerKind] >= workerContract.MaxActiveAttemptsPerProcess {
 		r.mu.Unlock()
 		return
 	}
@@ -247,22 +287,31 @@ func (r *Runner) schedule(jobID uuid.UUID) {
 		r.mu.Unlock()
 		return
 	}
-	r.inFlight[jobID] = struct{}{}
+	r.inFlight[candidate.JobID] = struct{}{}
+	r.workerActive[workerKind]++
 	r.wg.Add(1)
 	r.mu.Unlock()
-	go r.execute(jobID, attemptSlot)
+	go r.execute(candidate, attemptSlot)
 }
 
-func (r *Runner) execute(jobID uuid.UUID, attemptSlot int) {
+func (r *Runner) execute(candidate runnerCandidate, attemptSlot int) {
 	defer func() {
-		r.attemptSlots <- attemptSlot
 		r.mu.Lock()
-		delete(r.inFlight, jobID)
+		delete(r.inFlight, candidate.JobID)
+		r.workerActive[candidate.HandlerName]--
+		r.attemptSlots <- attemptSlot
 		r.mu.Unlock()
 		r.wg.Done()
 	}()
-	execution, handlerName, jobKind, claimed, err := r.manager.claimForRunnerSelection(r.ctx, jobID, r.selection)
+	execution, handlerName, jobKind, claimed, err := r.manager.claimForRunnerSelection(r.ctx, candidate.JobID, r.selection)
 	if err != nil || !claimed {
+		return
+	}
+	if handlerName != candidate.HandlerName || jobKind != candidate.JobKind {
+		r.signalComponentLoss()
+		r.withAttemptTimeout(func(ctx context.Context) {
+			_ = r.releaseExecution(ctx, execution)
+		})
 		return
 	}
 	r.mu.Lock()

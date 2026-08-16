@@ -196,7 +196,8 @@
       "selector": {
         "package": "./internal/platform/jobs",
         "tests": [
-          "TestJobAttemptTelemetryUsesCatalogKindsAndClosedOutcomes_Integration"
+          "TestJobAttemptTelemetryUsesCatalogKindsAndClosedOutcomes_Integration",
+          "TestJobQueuedAndQueueWaitTelemetryUsesDurableEligibility_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -305,6 +306,7 @@
       "selector": {
         "package": "./internal/platform/jobs",
         "tests": [
+          "TestRunnerWorkerCapacityAndMixedKindFairness_Integration",
           "TestSupervisedRunnerContract_Integration"
         ]
       },

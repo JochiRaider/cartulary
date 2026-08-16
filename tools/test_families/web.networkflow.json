@@ -673,7 +673,7 @@
       "service_dependencies": []
     },
     {
-      "row_id": "web.networkflow.regression.saved_graph_major3_decoder_and_lifecycle",
+      "row_id": "web.networkflow.regression.saved_graph_major4_decoder_and_lifecycle",
       "owner_id": "web.networkflow",
       "family_id": "web.networkflow.regression",
       "collaborator_ids": [
@@ -687,7 +687,7 @@
       "selector": {
         "file": "apps/web/src/services/networkFlowContractAdapter.test.ts",
         "titles": [
-          "networkFlowContractAdapter decodes saved graphs only through the generated major-3 contract"
+          "networkFlowContractAdapter decodes saved graphs only through the generated major-4 contract"
         ]
       },
       "evidence_class": "unit",
@@ -769,6 +769,33 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace completes the saved graph lifecycle with exact results, last-safe refresh, contributors, bounded rendering, and role-aware controls"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.temporal_graph_controls_bucket_navigation",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [
+        "module.graphprojection",
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+        "titles": [
+          "NetworkAnalysisWorkspace validates temporal ranges, echoes canonical bucket selectors, and navigates empty buckets without mounting unrelated objects"
         ]
       },
       "evidence_class": "unit",

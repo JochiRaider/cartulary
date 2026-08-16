@@ -1,0 +1,70 @@
+{
+  "schema_id": "cartulary.network_flow_graph_semantics.v2",
+  "profile_id": "network_flow_activity",
+  "graph_projection_schema_id": "graph_projection.v2",
+  "semantic_query_schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+  "graph_query_digest_algorithm": {
+    "algorithm_id": "network_flow_graph_query_digest_v2",
+    "domain": "cartulary.network_flow.graph_query_digest.v2",
+    "framing": "uint64_be_byte_length_then_utf8_bytes_v1",
+    "ordered_fields": [
+      "domain",
+      "incident_id",
+      "resolved_table_ids",
+      "normalized_filters",
+      "normalized_time_range",
+      "semantic_query_schema_id",
+      "normalized_aggregation"
+    ],
+    "excluded_fields": ["effective_limits", "limit_overrides"]
+  },
+  "bucket_edge_identity": {
+    "algorithm_id": "network_flow_bucket_edge_id_v1",
+    "domain": "cartulary.network_flow.bucket_edge_id.v1",
+    "id_prefix": "nfbe_",
+    "digest": "sha256_lower_hex",
+    "framing": "uint64_be_byte_length_then_utf8_bytes_v1",
+    "ordered_fields": [
+      "domain",
+      "incident_id",
+      "bucket_start_utc",
+      "bucket_end_utc",
+      "source_endpoint_id",
+      "destination_endpoint_id",
+      "ip_protocol_decimal",
+      "destination_port_presence",
+      "destination_port_decimal_when_present"
+    ]
+  },
+  "time_bucket": {
+    "mode": "time_bucket_v1",
+    "relationship_kind": "network_flow.bucketed_flow_edge.v1",
+    "projection_version": "network_flow_activity.time_bucket.v1",
+    "allowed_width_seconds": [60, 300, 900, 3600, 21600, 86400],
+    "interval": "start_inclusive_end_exclusive",
+    "alignment": "unix_epoch_utc",
+    "division": "mathematical_floor",
+    "row_timestamp": "network_flow.flow_start_utc",
+    "counter_policy": "single_bucket_no_proration",
+    "grouping_fields": [
+      "bucket_start_utc",
+      "bucket_end_utc",
+      "source_endpoint_id",
+      "destination_endpoint_id",
+      "ip_protocol",
+      "destination_port_presence",
+      "destination_port_value"
+    ]
+  },
+  "arithmetic_fixtures": [
+    { "fixture_id": "negative_epoch_crossing", "start_epoch_microseconds": -1000000, "end_epoch_microseconds": 1000000, "width_seconds": 60, "first_bucket_start_epoch_seconds": -60, "bucket_end_exclusive_epoch_seconds": 60, "bucket_count": 2 },
+    { "fixture_id": "negative_epoch_single", "start_epoch_microseconds": -61000000, "end_epoch_microseconds": -60000000, "width_seconds": 60, "first_bucket_start_epoch_seconds": -120, "bucket_end_exclusive_epoch_seconds": -60, "bucket_count": 1 },
+    { "fixture_id": "exact_boundary_end", "start_epoch_microseconds": 0, "end_epoch_microseconds": 60000000, "width_seconds": 60, "first_bucket_start_epoch_seconds": 0, "bucket_end_exclusive_epoch_seconds": 60, "bucket_count": 1 },
+    { "fixture_id": "fractional_bounds", "start_epoch_microseconds": 500000, "end_epoch_microseconds": 60000001, "width_seconds": 60, "first_bucket_start_epoch_seconds": 0, "bucket_end_exclusive_epoch_seconds": 120, "bucket_count": 2 }
+  ],
+  "row_assignment_fixtures": [
+    { "fixture_id": "start_included", "range_start_epoch_microseconds": 0, "range_end_epoch_microseconds": 60000000, "row_start_epoch_microseconds": 0, "included": true, "bucket_start_epoch_seconds": 0 },
+    { "fixture_id": "end_excluded", "range_start_epoch_microseconds": 0, "range_end_epoch_microseconds": 60000000, "row_start_epoch_microseconds": 60000000, "included": false, "bucket_start_epoch_seconds": null },
+    { "fixture_id": "negative_floor", "range_start_epoch_microseconds": -1000000, "range_end_epoch_microseconds": 1000000, "row_start_epoch_microseconds": -1, "included": true, "bucket_start_epoch_seconds": -60 }
+  ]
+}

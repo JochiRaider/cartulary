@@ -13,6 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/graphsourcecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
@@ -25,7 +26,7 @@ const reportingGraphLeasePurpose = "render"
 type GraphSourceProvider interface {
 	SourceOwnerID() string
 	ValidateAndLeaseResultTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, graphprojection.ResultBindingV2, time.Time, time.Time) (graphprojection.ResultLeaseV2, error)
-	ReadAndRenewLeasedResult(context.Context, uuid.UUID, graphprojection.ResultBindingV2, time.Time, time.Time) (graphprojection.CompletedResultV2, error)
+	ReadAndRenewLeasedResult(context.Context, uuid.UUID, graphprojection.ResultBindingV2, time.Time, time.Time) (graphsourcecontract.Result, error)
 	ReleaseJobLeasesTx(context.Context, pgx.Tx, uuid.UUID) error
 	ReleaseJobLeases(context.Context, uuid.UUID) error
 }
@@ -35,8 +36,9 @@ type GraphSourceRegistry struct {
 }
 
 type resolvedGraphResult struct {
-	Ref    sourceProjectionRef
-	Result graphprojection.CompletedResultV2
+	Ref             sourceProjectionRef
+	Result          graphprojection.CompletedResultV2
+	LabelCandidates graphsourcecontract.LabelCandidates
 }
 
 func NewGraphSourceRegistry(providers ...GraphSourceProvider) (*GraphSourceRegistry, error) {
@@ -89,17 +91,77 @@ func (registry *GraphSourceRegistry) ReadAndRenew(ctx context.Context, jobID uui
 		if provider == nil {
 			return nil, newRenderValidationError("graph_projection_unavailable", "graph_projection_not_bound")
 		}
-		result, err := provider.ReadAndRenewLeasedResult(ctx, jobID, ref.binding(), observedAt.UTC(), observedAt.UTC().Add(reportingGraphLeaseDuration))
+		sourceResult, err := provider.ReadAndRenewLeasedResult(ctx, jobID, ref.binding(), observedAt.UTC(), observedAt.UTC().Add(reportingGraphLeaseDuration))
 		if err != nil {
 			return nil, graphSourceRenderError(err)
 		}
-		if result.Binding != ref.binding() {
+		if sourceResult.Projection.Binding != ref.binding() || !validGraphLabelCandidates(sourceResult) {
 			return nil, newRenderValidationError("graph_projection_unavailable", "graph_projection_digest_mismatch")
 		}
-		results = append(results, resolvedGraphResult{Ref: ref, Result: result})
+		results = append(results, resolvedGraphResult{
+			Ref: ref, Result: sourceResult.Projection, LabelCandidates: sourceResult.LabelCandidates,
+		})
 	}
 	sort.Slice(results, func(i, j int) bool { return results[i].Ref.GraphViewID < results[j].Ref.GraphViewID })
 	return results, nil
+}
+
+func validGraphLabelCandidates(result graphsourcecontract.Result) bool {
+	candidates := result.LabelCandidates
+	if candidates.SchemaID != graphsourcecontract.SchemaID ||
+		candidates.SourceProjectionRef != result.Projection.Binding ||
+		len(candidates.VertexLabelCandidates) != len(result.Projection.Vertices) ||
+		len(candidates.EdgeLabelCandidates) != len(result.Projection.Edges) {
+		return false
+	}
+	for index, candidate := range candidates.VertexLabelCandidates {
+		if candidate.ProjectedVertexID != result.Projection.Vertices[index].VertexID ||
+			!validGraphLabelComponent(candidate.Endpoint, "endpoint_value") {
+			return false
+		}
+	}
+	for index, candidate := range candidates.EdgeLabelCandidates {
+		if candidate.ProjectedEdgeID != result.Projection.Edges[index].EdgeID ||
+			!validGraphLabelComponent(candidate.Protocol, "protocol") ||
+			!validGraphLabelComponent(candidate.DestinationPort, "destination_port") {
+			return false
+		}
+		switch candidate.Kind {
+		case "default_flow_edge_v1":
+			if candidate.BucketStartUTC != nil || candidate.BucketEndUTC != nil {
+				return false
+			}
+		case "time_bucket_v1":
+			if candidate.BucketStartUTC == nil || candidate.BucketEndUTC == nil ||
+				!validGraphLabelComponent(*candidate.BucketStartUTC, "bucket_start_utc") ||
+				!validGraphLabelComponent(*candidate.BucketEndUTC, "bucket_end_utc") {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func validGraphLabelComponent(component graphsourcecontract.LabelComponent, kind string) bool {
+	if component.ComponentKind != kind || component.FieldPath == "" || component.SourceObjectRef == "" ||
+		component.Classification != graphsourcecontract.ClassificationDerivedAnalytic ||
+		len(component.DisclosurePartitions) != 1 || component.DisclosurePartitions[0] != graphsourcecontract.DisclosurePartitionInternal ||
+		component.RedactionBehavior != graphsourcecontract.RedactionInternalOnly {
+		return false
+	}
+	switch component.State {
+	case graphsourcecontract.ComponentStatePresent:
+		if component.ValueKind == graphsourcecontract.ValueKindString {
+			return component.StringValue != ""
+		}
+		return component.ValueKind == graphsourcecontract.ValueKindInteger
+	case graphsourcecontract.ComponentStateAbsent, graphsourcecontract.ComponentStateRemoved, graphsourcecontract.ComponentStateMissing:
+		return component.StringValue == "" && component.IntegerValue == 0
+	default:
+		return false
+	}
 }
 
 func (registry *GraphSourceRegistry) ReleaseJobLeasesTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) error {

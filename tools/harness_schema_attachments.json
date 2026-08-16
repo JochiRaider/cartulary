@@ -450,8 +450,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.network_flow_contract_index.v2",
-      "path": "tools/schemas/cartulary.network_flow_contract_index.v2.schema.json",
+      "schema_id": "cartulary.network_flow_contract_index.v3",
+      "path": "tools/schemas/cartulary.network_flow_contract_index.v3.schema.json",
       "classification": "owner_input",
       "producer": "Network Flow owner",
       "validation": "json-shape-check"
@@ -471,10 +471,24 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.network_flow_frontend_entrypoints.v3",
-      "path": "tools/schemas/cartulary.network_flow_frontend_entrypoints.v3.schema.json",
+      "schema_id": "cartulary.network_flow_frontend_entrypoints.v4",
+      "path": "tools/schemas/cartulary.network_flow_frontend_entrypoints.v4.schema.json",
       "classification": "owner_input",
       "producer": "Network Flow frontend contract owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.network_flow_graph_semantics.v2",
+      "path": "tools/schemas/cartulary.network_flow_graph_semantics.v2.schema.json",
+      "classification": "owner_input",
+      "producer": "Network Flow graph semantic contract owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.network_flow_resource_limits.v2",
+      "path": "tools/schemas/cartulary.network_flow_resource_limits.v2.schema.json",
+      "classification": "owner_input",
+      "producer": "Network Flow resource limit contract owner",
       "validation": "json-shape-check"
     },
     {
@@ -524,6 +538,13 @@
       "path": "tools/schemas/cartulary.otel_conformance_summary.v1.schema.json",
       "classification": "public_contract",
       "producer": "OpenTelemetry conformance",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.otel_signal_registry.v1",
+      "path": "tools/schemas/cartulary.otel_signal_registry.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "OpenTelemetry instrumentation owner",
       "validation": "json-shape-check"
     },
     {

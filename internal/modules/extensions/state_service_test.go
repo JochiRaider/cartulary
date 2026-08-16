@@ -329,6 +329,42 @@ func TestStateRuntimeAdmit_ServiceBacked_AlreadyCurrentValidation(t *testing.T) 
 	}
 }
 
+func TestStateRuntimeAdmit_ServiceBacked_NetworkFlowStateTwoToThreeIsBytePreserving(t *testing.T) {
+	fixture := newNetworkFlowStateFixture(t, nil)
+	if len(fixture.plan.MigrationDefinitions) != 2 {
+		t.Fatalf("Network Flow migration count = %d, want 2", len(fixture.plan.MigrationDefinitions))
+	}
+	first := fixture.plan.MigrationDefinitions[0]
+	now := time.Date(2026, 7, 24, 11, 0, 0, 0, time.UTC)
+	if _, err := fixture.pool.Exec(context.Background(), `
+INSERT INTO extension_state_metadata (
+    profile_id, migration_lineage_id, state_version, last_migration_id,
+    metadata_version, created_at, updated_at
+) VALUES ($1, $2, 2, $3, 2, $4, $4)
+`, fixture.plan.ProfileID, fixture.plan.MigrationLineageID, first.MigrationID, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.pool.Exec(context.Background(), `
+INSERT INTO extension_migration_ledger (
+    profile_id, migration_lineage_id, migration_id, from_state_version,
+    to_state_version, migration_definition_sha256, committed_at,
+    resulting_state_version
+) VALUES ($1, $2, $3, $5, $6, $7, $4, $6)
+`, fixture.plan.ProfileID, fixture.plan.MigrationLineageID, first.MigrationID, now,
+		first.FromVersion, first.ToVersion, first.DefinitionSHA256); err != nil {
+		t.Fatal(err)
+	}
+	validationCalls := 0
+	runtime := newNetworkFlowStateRuntime(t, fixture.store, &validationCalls)
+	if err := runtime.Admit(context.Background(), fixture.plan); err != nil {
+		t.Fatalf("Network Flow state 2 to 3 admission: %v", err)
+	}
+	metadata := readStateMetadata(t, fixture.pool, fixture.plan.ProfileID)
+	if metadata.StateVersion != 3 || metadata.MetadataVersion != 3 || ledgerCount(t, fixture.pool, fixture.plan.ProfileID) != 2 || validationCalls != 1 {
+		t.Fatalf("state 2 to 3 result = %#v ledger=%d validation=%d", metadata, ledgerCount(t, fixture.pool, fixture.plan.ProfileID), validationCalls)
+	}
+}
+
 func TestStateRuntimeAdmit_ServiceBacked_ConcurrentAdmissionAndLockLifetime(t *testing.T) {
 	testCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	t.Cleanup(cancel)
@@ -343,9 +379,15 @@ func TestStateRuntimeAdmit_ServiceBacked_ConcurrentAdmissionAndLockLifetime(t *t
 			"network_flow_activity.migrate_state_1_to_2_v1": func(context.Context, MigrationContext, StateWriteCapability) (MigrationApplyResult, error) {
 				return readyMigration(), nil
 			},
+			"network_flow_activity.migrate_state_2_to_3_v1": func(context.Context, MigrationContext, StateWriteCapability) (MigrationApplyResult, error) {
+				return readyMigration(), nil
+			},
 		},
 		PendingValidators: map[string]PendingStateValidator{
 			"network_flow_activity.validate_state_v2": func(context.Context, MigrationValidationContext, StateReadCapability) (StateValidationResult, error) {
+				return ValidMigrationValidationResult(), nil
+			},
+			"network_flow_activity.validate_state_v3": func(context.Context, MigrationValidationContext, StateReadCapability) (StateValidationResult, error) {
 				return ValidMigrationValidationResult(), nil
 			},
 		},
@@ -696,6 +738,9 @@ func newNetworkFlowStateRuntime(t testing.TB, store StateStore, validationCalls 
 			"network_flow_activity.migrate_state_1_to_2_v1": func(context.Context, MigrationContext, StateWriteCapability) (MigrationApplyResult, error) {
 				return readyMigration(), nil
 			},
+			"network_flow_activity.migrate_state_2_to_3_v1": func(context.Context, MigrationContext, StateWriteCapability) (MigrationApplyResult, error) {
+				return readyMigration(), nil
+			},
 		},
 		PendingValidators: map[string]PendingStateValidator{
 			"network_flow_activity.validate_state_v2": func(ctx context.Context, _ MigrationValidationContext, reader StateReadCapability) (StateValidationResult, error) {
@@ -708,9 +753,30 @@ func newNetworkFlowStateRuntime(t testing.TB, store StateStore, validationCalls 
 				}
 				return ValidMigrationValidationResult(), nil
 			},
+			"network_flow_activity.validate_state_v3": func(ctx context.Context, _ MigrationValidationContext, reader StateReadCapability) (StateValidationResult, error) {
+				if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
+					return StateValidationResult{
+						SchemaID: "cartulary.extension_migration_validation_result.v1",
+						Status:   "invalid",
+						Findings: []StateFinding{{Code: "network_flow_activity_state_invalid", Path: "/"}},
+					}, nil
+				}
+				return ValidMigrationValidationResult(), nil
+			},
 		},
 		FinalValidators: map[string]FinalStateValidator{
 			"network_flow_activity.validate_state_v2": func(ctx context.Context, _ FinalStateValidationContext, reader StateReadCapability) (StateValidationResult, error) {
+				(*validationCalls)++
+				if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
+					return StateValidationResult{
+						SchemaID: "cartulary.extension_final_state_validation_result.v1",
+						Status:   "invalid",
+						Findings: []StateFinding{{Code: "network_flow_activity_state_invalid", Path: "/"}},
+					}, nil
+				}
+				return ValidFinalStateValidationResult(), nil
+			},
+			"network_flow_activity.validate_state_v3": func(ctx context.Context, _ FinalStateValidationContext, reader StateReadCapability) (StateValidationResult, error) {
 				(*validationCalls)++
 				if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
 					return StateValidationResult{

@@ -18,6 +18,8 @@ func TestSpanRegistryClosed(t *testing.T) {
 		"websocket_event_send",
 		"job_enqueue",
 		"job_run",
+		"network_flow_graph_phase",
+		"network_flow_cleanup",
 		"postgres_dependency",
 		"objectstore_dependency",
 	}
@@ -65,10 +67,20 @@ func TestMetricRegistryClosed(t *testing.T) {
 		EvidenceCleanupOverdueMetricName,
 		EvidenceCleanupOldestAgeMetricName,
 		"cartulary.jobs.active",
+		JobsQueuedMetricName,
+		JobsQueueWaitDurationMetricName,
 		"cartulary.jobs.duration",
 		"cartulary.jobs.attempts",
 		"cartulary.jobs.expired",
 		"cartulary.jobs.lease_renewal.failures",
+		NetworkFlowGraphPhaseDurationMetricName,
+		NetworkFlowGraphRowsMetricName,
+		NetworkFlowGraphObjectsMetricName,
+		NetworkFlowCleanupOperationsMetricName,
+		NetworkFlowCleanupDurationMetricName,
+		NetworkFlowCleanupDeletedMetricName,
+		NetworkFlowCleanupEligibleMetricName,
+		NetworkFlowCleanupOldestAgeMetricName,
 		"cartulary.postgres.operation.duration",
 		"cartulary.objectstore.operation.duration",
 		"cartulary.objectstore.transfer.bytes",
@@ -111,6 +123,12 @@ func TestMetricRegistryClosed(t *testing.T) {
 	if row := seen["cartulary.jobs.active"]; row.InstrumentKind != "ObservableGauge" || row.Unit != "{job}" || !slices.Equal(row.AllowedAttributes, []string{"cartulary.job_kind"}) {
 		t.Fatalf("jobs active metric row mismatch: %#v", row)
 	}
+	if row := seen[JobsQueuedMetricName]; row.InstrumentKind != "ObservableGauge" || row.Unit != "{job}" || !slices.Equal(row.AllowedAttributes, []string{"cartulary.job_kind"}) {
+		t.Fatalf("jobs queued metric row mismatch: %#v", row)
+	}
+	if row := seen[JobsQueueWaitDurationMetricName]; row.InstrumentKind != "Histogram" || row.Unit != "s" || !slices.Equal(row.AllowedAttributes, []string{"cartulary.job_kind"}) {
+		t.Fatalf("jobs queue-wait metric row mismatch: %#v", row)
+	}
 	if row := seen["cartulary.jobs.attempts"]; row.InstrumentKind != "Counter" || row.Unit != "{attempt}" || !slices.Equal(row.AllowedAttributes, []string{"cartulary.job_kind", "cartulary.result"}) {
 		t.Fatalf("jobs attempts metric row mismatch: %#v", row)
 	}
@@ -129,6 +147,20 @@ func TestMetricRegistryClosed(t *testing.T) {
 		if row := seen[name]; row.InstrumentKind != "ObservableGauge" || len(row.AllowedAttributes) != 0 || len(row.OptionalAttributes) != 0 {
 			t.Fatalf("Evidence cleanup gauge row mismatch for %s: %#v", name, row)
 		}
+	}
+	for _, name := range []string{NetworkFlowCleanupEligibleMetricName, NetworkFlowCleanupOldestAgeMetricName} {
+		if row := seen[name]; row.InstrumentKind != "ObservableGauge" || len(row.AllowedAttributes) != 0 || len(row.OptionalAttributes) != 0 {
+			t.Fatalf("Network Flow cleanup gauge row mismatch for %s: %#v", name, row)
+		}
+	}
+	if row := seen[NetworkFlowGraphPhaseDurationMetricName]; row.InstrumentKind != "Histogram" ||
+		!slices.Equal(row.AllowedAttributes, []string{"cartulary.phase", "cartulary.graph_mode", "cartulary.result"}) ||
+		!slices.Equal(row.OptionalAttributes, []string{"cartulary.error_class"}) {
+		t.Fatalf("Network Flow graph phase metric row mismatch: %#v", row)
+	}
+	if row := seen[NetworkFlowCleanupDeletedMetricName]; row.InstrumentKind != "Counter" ||
+		!slices.Equal(row.AllowedAttributes, []string{"cartulary.graph_object_kind", "cartulary.result"}) {
+		t.Fatalf("Network Flow cleanup deleted metric row mismatch: %#v", row)
 	}
 }
 

@@ -325,7 +325,12 @@ func (runner *RestoreRunner) restoreVNextBackupSet(
 	if err != nil {
 		return RestoreResult{BackupSet: backupSet, GraphProjectionResult: graphResult, ProjectionRebuildResult: projectionResult}, restoreStageFailure(RestoreStepProjectionRebuild, err)
 	}
-	graphCompletion := graphProjectionCompletion(target, backupSet, runner.stateCatalog.DigestSHA256(), graphResult)
+	graphCompletion := graphProjectionCompletion(
+		target,
+		backupSet,
+		verificationEvidence.GraphRestoreArtifacts.RecoveryStateCatalogSHA256,
+		graphResult,
+	)
 	recordStep(target.Observer, RestoreStepConsistencyCheck)
 	report, err := vNextConsistencyReport(ctx, target, runner.stateCatalog, backupSet)
 	if err != nil {
@@ -355,7 +360,7 @@ func (runner *RestoreRunner) runVNextProjectionRebuilds(
 ) (restorecontract.GraphProjectionRebuildResult, restorecontract.ProjectionRebuildResult, error) {
 	graphTables := make([]string, 0, len(restorecontract.GraphProjectionTableIDs()))
 	for _, table := range runner.stateCatalog.Document().Tables {
-		if table.AlgorithmID != nil && *table.AlgorithmID == restorecontract.GraphProjectionRestoreAlgorithmID {
+		if table.OwnerID == "module.graphprojection" && table.RestoreAction == recoverystate.RebuildState {
 			graphTables = append(graphTables, table.TableName)
 		}
 	}
@@ -364,10 +369,18 @@ func (runner *RestoreRunner) runVNextProjectionRebuilds(
 		return restorecontract.GraphProjectionRebuildResult{}, restorecontract.ProjectionRebuildResult{}, fmt.Errorf("%w: Graph Projection catalog tables mismatch", ErrInvalidBackupArtifact)
 	}
 
-	algorithmIDs := []string{restorecontract.GraphProjectionRestoreAlgorithmID, "workbook.restore_projections.v1"}
+	graphAlgorithmID := verification.GraphRestoreArtifacts.AlgorithmID
+	if graphAlgorithmID != restorecontract.GraphProjectionRestoreAlgorithmID &&
+		graphAlgorithmID != restorecontract.HistoricalGraphProjectionRestoreAlgorithmIDV2 {
+		return restorecontract.GraphProjectionRebuildResult{}, restorecontract.ProjectionRebuildResult{}, fmt.Errorf("%w: Graph Projection restore dispatch is unavailable", ErrInvalidBackupArtifact)
+	}
+	algorithmIDs := []string{graphAlgorithmID, "workbook.restore_projections.v1"}
 	sort.Strings(algorithmIDs)
 	required := RequiredVNextRestoreAlgorithmIDs(runner.stateCatalog)
 	for _, algorithmID := range algorithmIDs {
+		if algorithmID == restorecontract.HistoricalGraphProjectionRestoreAlgorithmIDV2 {
+			continue
+		}
 		index := sort.SearchStrings(required, algorithmID)
 		if index == len(required) || required[index] != algorithmID {
 			return restorecontract.GraphProjectionRebuildResult{}, restorecontract.ProjectionRebuildResult{}, fmt.Errorf("%w: projection rebuild algorithm is unavailable", ErrInvalidBackupArtifact)
@@ -378,10 +391,14 @@ func (runner *RestoreRunner) runVNextProjectionRebuilds(
 	var workbookResult restorecontract.ProjectionRebuildResult
 	for _, algorithmID := range algorithmIDs {
 		switch algorithmID {
-		case restorecontract.GraphProjectionRestoreAlgorithmID:
+		case restorecontract.GraphProjectionRestoreAlgorithmID, restorecontract.HistoricalGraphProjectionRestoreAlgorithmIDV2:
 			var err error
 			registry := restorecontract.CurrentGraphProjectionSourceRegistryRef()
 			binding := restorecontract.CurrentGraphProjectionImplementationBinding()
+			if algorithmID == restorecontract.HistoricalGraphProjectionRestoreAlgorithmIDV2 {
+				registry = restorecontract.HistoricalGraphProjectionSourceRegistryV2Ref()
+				binding = restorecontract.HistoricalGraphProjectionImplementationBindingV2()
+			}
 			if registry.SHA256 != verification.GraphRestoreArtifacts.SourceRegistrySHA256 ||
 				binding.SHA256 != verification.GraphRestoreArtifacts.ImplementationBindingSHA256 {
 				return graphResult, workbookResult, fmt.Errorf("%w: Graph Projection frozen artifacts mismatch", ErrInvalidBackupArtifact)
@@ -394,7 +411,8 @@ func (runner *RestoreRunner) runVNextProjectionRebuilds(
 				ConsistencyPointAt:  backupSet.ConsistencyPointAt,
 				TargetGenerationID:  target.TargetGenerationID,
 				RecoveryStateCatalog: restorecontract.GraphProjectionRecoveryCatalogRef{
-					DigestSHA256: runner.stateCatalog.DigestSHA256(), AlgorithmID: algorithmID, GraphTableIDs: graphTables,
+					DigestSHA256: verification.GraphRestoreArtifacts.RecoveryStateCatalogSHA256,
+					AlgorithmID:  algorithmID, GraphTableIDs: graphTables,
 				},
 				SourceRegistry:        registry,
 				ImplementationBinding: binding,

@@ -40,8 +40,10 @@ import {
 import type {
   NetworkFlowContributor,
   NetworkFlowDiagnostic,
+  NetworkFlowEdgeAnnotation,
   NetworkFlowGraphEdge,
   NetworkFlowGraphResult,
+  NetworkFlowGraphSelector,
   NetworkFlowGraphVertex,
   NetworkFlowIndicatorTarget,
   NetworkFlowRow,
@@ -67,6 +69,8 @@ import type {
 } from "./networkFlowQueryModel";
 import { useNetworkFlowCollaborationController } from "./useNetworkFlowCollaborationController";
 import {
+  type NetworkFlowGraphAggregationMode,
+  type NetworkFlowGraphBucketWidth,
   type NetworkFlowGraphScopeMode,
   useNetworkFlowGraphController,
 } from "./useNetworkFlowGraphController";
@@ -605,6 +609,8 @@ function NetworkAnalysisWorkspaceContent({
               />
             ) : (
               <GraphPanel
+                aggregationMode={graphController.aggregationMode}
+                bucketWidthSeconds={graphController.bucketWidthSeconds}
                 canLink={canLink}
                 canNextContributorPage={graphController.canNextContributorPage}
                 canPreviousContributorPage={
@@ -624,6 +630,7 @@ function NetworkAnalysisWorkspaceContent({
                 selectedTableIds={graphController.selectedTableIds}
                 selectedVertex={graphController.selectedVertex}
                 tables={tableController.tables}
+                validationMessage={graphController.validationMessage}
                 onCloseDrawer={() => graphController.selectGraphObject(null)}
                 onLinkEdge={(fieldKey) => {
                   const candidate = networkFlowEdgeLinkCandidate({
@@ -648,20 +655,12 @@ function NetworkAnalysisWorkspaceContent({
                 }
                 onRefreshGraph={graphController.refreshGraph}
                 onRetryContributors={graphController.retryContributorPage}
+                onAggregationModeChange={graphController.setAggregationMode}
+                onBucketWidthChange={graphController.setBucketWidthSeconds}
                 onScopeModeChange={graphController.setScopeMode}
-                onSelectEdge={(edgeId) =>
-                  graphController.selectGraphObject({
-                    kind: "edge",
-                    edge_id: edgeId,
-                  })
-                }
+                onSelectEdge={graphController.selectGraphObject}
                 onSelectTable={graphController.setTableSelected}
-                onSelectVertex={(vertexId) =>
-                  graphController.selectGraphObject({
-                    kind: "vertex",
-                    vertex_id: vertexId,
-                  })
-                }
+                onSelectVertex={graphController.selectGraphObject}
               />
             )}
           </section>
@@ -1369,6 +1368,8 @@ function QueryPagination({
 }
 
 function GraphPanel({
+  aggregationMode,
+  bucketWidthSeconds,
   canLink,
   canNextContributorPage,
   canPreviousContributorPage,
@@ -1384,6 +1385,7 @@ function GraphPanel({
   selectedTableIds,
   selectedVertex,
   tables,
+  validationMessage,
   onCloseDrawer,
   onLinkEdge,
   onLinkVertex,
@@ -1391,11 +1393,15 @@ function GraphPanel({
   onPreviousContributorPage,
   onRefreshGraph,
   onRetryContributors,
+  onAggregationModeChange,
+  onBucketWidthChange,
   onScopeModeChange,
   onSelectEdge,
   onSelectTable,
   onSelectVertex,
 }: {
+  readonly aggregationMode: NetworkFlowGraphAggregationMode;
+  readonly bucketWidthSeconds: NetworkFlowGraphBucketWidth;
   readonly canLink: boolean;
   readonly canNextContributorPage: boolean;
   readonly canPreviousContributorPage: boolean;
@@ -1411,6 +1417,7 @@ function GraphPanel({
   readonly selectedTableIds: readonly string[];
   readonly selectedVertex: NetworkFlowGraphVertex | null;
   readonly tables: readonly NetworkFlowTable[];
+  readonly validationMessage: string | null;
   readonly onCloseDrawer: () => void;
   readonly onLinkEdge: (
     fieldKey: "network_flow.src_ip" | "network_flow.dst_ip",
@@ -1420,21 +1427,62 @@ function GraphPanel({
   readonly onPreviousContributorPage: () => void;
   readonly onRefreshGraph: () => void;
   readonly onRetryContributors: () => void;
+  readonly onAggregationModeChange: (
+    mode: NetworkFlowGraphAggregationMode,
+  ) => void;
+  readonly onBucketWidthChange: (width: NetworkFlowGraphBucketWidth) => void;
   readonly onScopeModeChange: (mode: NetworkFlowGraphScopeMode) => void;
-  readonly onSelectEdge: (edgeId: string) => void;
+  readonly onSelectEdge: (selector: NetworkFlowGraphSelector) => void;
   readonly onSelectTable: (tableId: string, selected: boolean) => void;
-  readonly onSelectVertex: (vertexId: string) => void;
+  readonly onSelectVertex: (selector: NetworkFlowGraphSelector) => void;
 }) {
   const selectedGraphButtonRef = useRef<HTMLButtonElement | null>(null);
   const [vertexPage, setVertexPage] = useState(0);
   const [edgePage, setEdgePage] = useState(0);
+  const [bucketIndex, setBucketIndex] = useState(0);
   const selectedObject = selectedVertex ?? selectedEdge;
+  const timeBuckets =
+    graph?.result_variant.kind === "time_bucket_v1"
+      ? graph.result_variant.time_buckets
+      : [];
+  const selectedBucket = timeBuckets[bucketIndex] ?? null;
+  const visibleTemporalEdgeIDs = useMemo(
+    () =>
+      new Set(
+        graph?.edge_annotations.flatMap((annotation) =>
+          annotation.selector.kind === "time_bucket_edge" &&
+          selectedBucket !== null &&
+          annotation.selector.bucket_start_utc === selectedBucket.start_utc &&
+          annotation.selector.bucket_end_utc === selectedBucket.end_utc
+            ? [annotation.projected_edge_id]
+            : [],
+        ) ?? [],
+      ),
+    [graph, selectedBucket],
+  );
+  const visibleTemporalVertexIDs = useMemo(() => {
+    const ids = new Set<string>();
+    if (selectedBucket === null) return ids;
+    for (const edge of graph?.graph_projection_result.edges ?? []) {
+      if (visibleTemporalEdgeIDs.has(edge.edge_id)) {
+        ids.add(edge.src_vertex_id);
+        ids.add(edge.dst_vertex_id);
+      }
+    }
+    return ids;
+  }, [graph, selectedBucket, visibleTemporalEdgeIDs]);
   const graphAllVertices = useMemo(
     () =>
-      [...(graph?.graph_projection_result.vertices ?? [])].sort((left, right) =>
-        graphVertexLabel(left).localeCompare(graphVertexLabel(right)),
-      ),
-    [graph],
+      [...(graph?.graph_projection_result.vertices ?? [])]
+        .filter(
+          (vertex) =>
+            selectedBucket === null ||
+            visibleTemporalVertexIDs.has(vertex.vertex_id),
+        )
+        .sort((left, right) =>
+          graphVertexLabel(left).localeCompare(graphVertexLabel(right)),
+        ),
+    [graph, selectedBucket, visibleTemporalVertexIDs],
   );
   const graphVertices = graphAllVertices.slice(
     vertexPage * graphVertexRenderLimit,
@@ -1444,22 +1492,27 @@ function GraphPanel({
     () =>
       new Map(
         graphAllVertices.flatMap((vertex) => {
-          const endpointId = semanticGraphVertexId(vertex);
+          const endpointId = semanticGraphVertexId(graph, vertex);
           return endpointId === null
             ? []
             : ([[endpointId, graphVertexLabel(vertex)]] as const);
         }),
       ),
-    [graphAllVertices],
+    [graph, graphAllVertices],
   );
   const graphAllEdges = useMemo(
     () =>
-      [...(graph?.graph_projection_result.edges ?? [])].sort((left, right) =>
-        graphEdgeLabel(left, graphEndpointLabels).localeCompare(
-          graphEdgeLabel(right, graphEndpointLabels),
+      [...(graph?.graph_projection_result.edges ?? [])]
+        .filter(
+          (edge) =>
+            selectedBucket === null || visibleTemporalEdgeIDs.has(edge.edge_id),
+        )
+        .sort((left, right) =>
+          graphEdgeLabel(left, graphEndpointLabels).localeCompare(
+            graphEdgeLabel(right, graphEndpointLabels),
+          ),
         ),
-      ),
-    [graph, graphEndpointLabels],
+    [graph, graphEndpointLabels, selectedBucket, visibleTemporalEdgeIDs],
   );
   const graphEdges = graphAllEdges.slice(
     edgePage * graphEdgeRenderLimit,
@@ -1469,7 +1522,13 @@ function GraphPanel({
   useEffect(() => {
     setVertexPage(0);
     setEdgePage(0);
+    setBucketIndex(0);
   }, [graph?.graph_projection_result.projection_result_id]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: bucket navigation resets bounded object pages.
+  useEffect(() => {
+    setVertexPage(0);
+    setEdgePage(0);
+  }, [bucketIndex]);
   const graphTableLabels = useMemo(
     () =>
       new Map(
@@ -1539,6 +1598,85 @@ function GraphPanel({
             </div>
           ) : null}
         </fieldset>
+        <fieldset style={graphScopeStyle}>
+          <legend>Graph aggregation</legend>
+          <label style={inlineControlStyle}>
+            <input
+              checked={aggregationMode === "default_flow_edge_v1"}
+              name="network-flow-graph-aggregation"
+              type="radio"
+              onChange={() => onAggregationModeChange("default_flow_edge_v1")}
+            />
+            Default flow edges
+          </label>
+          <label style={inlineControlStyle}>
+            <input
+              checked={aggregationMode === "time_bucket_v1"}
+              name="network-flow-graph-aggregation"
+              type="radio"
+              onChange={() => onAggregationModeChange("time_bucket_v1")}
+            />
+            Time buckets
+          </label>
+          {aggregationMode === "time_bucket_v1" ? (
+            <label style={fieldLabelStyle}>
+              Bucket width
+              <select
+                aria-label="Bucket width"
+                value={bucketWidthSeconds}
+                onChange={(event) =>
+                  onBucketWidthChange(
+                    Number(
+                      event.currentTarget.value,
+                    ) as NetworkFlowGraphBucketWidth,
+                  )
+                }
+              >
+                <option value={60}>1 minute</option>
+                <option value={300}>5 minutes</option>
+                <option value={900}>15 minutes</option>
+                <option value={3600}>1 hour</option>
+                <option value={21600}>6 hours</option>
+                <option value={86400}>1 day</option>
+              </select>
+            </label>
+          ) : null}
+          {validationMessage === null ? null : (
+            <p role="alert" style={errorTextStyle}>
+              {validationMessage}
+            </p>
+          )}
+        </fieldset>
+        {selectedBucket === null ? null : (
+          <nav
+            aria-label="Time bucket navigation"
+            style={boundedNavigationStyle}
+          >
+            <button
+              disabled={bucketIndex === 0}
+              type="button"
+              onClick={() => setBucketIndex((current) => current - 1)}
+            >
+              Previous bucket
+            </button>
+            <strong>
+              Bucket {bucketIndex + 1} of {timeBuckets.length}
+            </strong>
+            <span>
+              [{selectedBucket.start_utc}, {selectedBucket.end_utc}) ·{" "}
+              {selectedBucket.unique_vertex_count} vertices ·{" "}
+              {selectedBucket.edge_count} edges ·{" "}
+              {selectedBucket.contributing_row_count} rows
+            </span>
+            <button
+              disabled={bucketIndex + 1 >= timeBuckets.length}
+              type="button"
+              onClick={() => setBucketIndex((current) => current + 1)}
+            >
+              Next bucket
+            </button>
+          </nav>
+        )}
         <div style={graphSummaryStyle}>
           <Network aria-hidden="true" size={18} />
           <span>
@@ -1553,6 +1691,13 @@ function GraphPanel({
             {graph?.graph_projection_result.vertices.length ?? 0} vertices ·{" "}
             {graph?.graph_projection_result.edges.length ?? 0} edges
           </span>
+          {graphAllVertices.length > graphVertexRenderLimit ||
+          graphAllEdges.length > graphEdgeRenderLimit ? (
+            <span style={mutedTextStyle}>
+              Large results are paged: at most {graphVertexRenderLimit} vertices
+              and {graphEdgeRenderLimit} edges are mounted at once.
+            </span>
+          ) : null}
           {graphAllVertices.length > graphVertexRenderLimit ? (
             <BoundedGraphNavigation
               itemLabel="vertices"
@@ -1590,14 +1735,16 @@ function GraphPanel({
             </thead>
             <tbody>
               {graphVertices.map((vertex) => {
-                const vertexId = semanticGraphVertexId(vertex);
-                if (vertexId === null) {
+                const selector = graphVertexSelector(graph, vertex);
+                if (selector === null) {
                   return null;
                 }
                 return (
                   <tr
                     key={vertex.vertex_id}
-                    data-testid={networkAnalysisVertexTestId(vertexId)}
+                    data-testid={networkAnalysisVertexTestId(
+                      selector.source_vertex_id,
+                    )}
                   >
                     <td style={tdMonoStyle}>
                       {graphScalar(vertex.properties.endpoint_value)}
@@ -1620,7 +1767,7 @@ function GraphPanel({
                         }
                         aria-pressed={selectedVertex === vertex}
                         type="button"
-                        onClick={() => onSelectVertex(vertexId)}
+                        onClick={() => onSelectVertex(selector)}
                       >
                         Select vertex
                       </button>
@@ -1643,13 +1790,11 @@ function GraphPanel({
             </thead>
             <tbody>
               {graphEdges.map((edge) => {
-                const edgeId = semanticGraphEdgeId(edge);
-                if (edgeId === null) {
+                const annotation = graphEdgeAnnotation(graph, edge);
+                if (annotation === null) {
                   return null;
                 }
-                const annotation = graph?.edge_annotations.find(
-                  (candidate) => candidate.edge_id === edgeId,
-                );
+                const edgeId = annotation.selector.source_edge_id;
                 return (
                   <tr
                     key={edge.edge_id}
@@ -1671,7 +1816,7 @@ function GraphPanel({
                       {graphScalar(edge.properties.ip_protocol)}
                     </td>
                     <td style={tdMonoStyle}>
-                      {annotation?.example_refs_total_count ??
+                      {annotation.example_refs_total_count ??
                         graphScalar(edge.properties.flow_row_count)}
                     </td>
                     <td style={tdStyle}>
@@ -1683,7 +1828,7 @@ function GraphPanel({
                         }
                         aria-pressed={selectedEdge === edge}
                         type="button"
-                        onClick={() => onSelectEdge(edgeId)}
+                        onClick={() => onSelectEdge(annotation.selector)}
                       >
                         Select edge
                       </button>
@@ -1841,7 +1986,8 @@ function networkFlowVertexLinkCandidate(
   graph: NetworkFlowGraphResult | null,
   vertex: NetworkFlowGraphVertex | null,
 ): NetworkFlowIndicatorLinkCandidate | null {
-  const vertexId = vertex === null ? null : semanticGraphVertexId(vertex);
+  const vertexId =
+    vertex === null ? null : semanticGraphVertexId(graph, vertex);
   const candidateValue =
     vertex === null
       ? null
@@ -1869,7 +2015,9 @@ function networkFlowEdgeLinkCandidate(options: {
   readonly graph: NetworkFlowGraphResult | null;
 }): NetworkFlowIndicatorLinkCandidate | null {
   const edgeId =
-    options.edge === null ? null : semanticGraphEdgeId(options.edge);
+    options.edge === null
+      ? null
+      : semanticGraphEdgeId(options.graph, options.edge);
   const candidateValue =
     options.firstContributor?.row[options.fieldKey] ?? null;
   if (
@@ -1893,16 +2041,40 @@ function networkFlowEdgeLinkCandidate(options: {
   };
 }
 
-function semanticGraphVertexId(vertex: NetworkFlowGraphVertex): string | null {
-  return vertex.source_entity_ref?.source_entity_id ?? null;
+function graphVertexSelector(
+  graph: NetworkFlowGraphResult | null,
+  vertex: NetworkFlowGraphVertex,
+): Extract<NetworkFlowGraphSelector, { readonly kind: "vertex" }> | null {
+  return (
+    graph?.vertex_selectors.find(
+      (binding) => binding.projected_vertex_id === vertex.vertex_id,
+    )?.selector ?? null
+  );
 }
 
-function semanticGraphEdgeId(edge: NetworkFlowGraphEdge): string | null {
+function graphEdgeAnnotation(
+  graph: NetworkFlowGraphResult | null,
+  edge: NetworkFlowGraphEdge,
+): NetworkFlowEdgeAnnotation | null {
   return (
-    graphString(edge.properties.edge_id) ??
-    edge.source_relationship_ref?.source_relationship_id ??
-    null
+    graph?.edge_annotations.find(
+      (annotation) => annotation.projected_edge_id === edge.edge_id,
+    ) ?? null
   );
+}
+
+function semanticGraphVertexId(
+  graph: NetworkFlowGraphResult | null,
+  vertex: NetworkFlowGraphVertex,
+): string | null {
+  return graphVertexSelector(graph, vertex)?.source_vertex_id ?? null;
+}
+
+function semanticGraphEdgeId(
+  graph: NetworkFlowGraphResult | null,
+  edge: NetworkFlowGraphEdge,
+): string | null {
+  return graphEdgeAnnotation(graph, edge)?.selector.source_edge_id ?? null;
 }
 
 function graphString(value: unknown): string | null {

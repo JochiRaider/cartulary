@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -122,14 +123,70 @@ func TestEvidenceCleanupDispatcherStartsOnlyAfterServingReadiness(t *testing.T) 
 	}
 }
 
+func TestNetworkFlowCleanupDispatcherStartsAfterReadinessAndStopsInReverseOrder(t *testing.T) {
+	controller, _, lifecycle := preparedPublicationController(t)
+	if err := controller.commit(); err != nil {
+		t.Fatal(err)
+	}
+	acknowledgeAllPublicationComponents(t, controller)
+	events := make(chan string, 8)
+	evidenceDispatcher := &serverCleanupLifecycle{name: "evidence", events: events, readiness: lifecycle.AdmissionOpen}
+	networkFlowDispatcher := &serverCleanupLifecycle{name: "network_flow", events: events, readiness: lifecycle.AdmissionOpen}
+	runtime := &Runtime{
+		publication:                  controller,
+		lifecycle:                    lifecycle,
+		evidenceCleanupDispatcher:    evidenceDispatcher,
+		networkFlowCleanupDispatcher: networkFlowDispatcher,
+	}
+	runtime.own(func() { _ = evidenceDispatcher.Close(context.Background()) })
+	runtime.own(func() { _ = networkFlowDispatcher.Close(context.Background()) })
+	if err := runtime.ActivatePublication(); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"start:evidence:true", "start:network_flow:true"} {
+		select {
+		case got := <-events:
+			if got != want {
+				t.Fatalf("cleanup activation event=%q want=%q", got, want)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("cleanup activation omitted %q", want)
+		}
+	}
+	runtime.Close()
+	for _, want := range []string{"close:network_flow", "close:evidence"} {
+		select {
+		case got := <-events:
+			if got != want {
+				t.Fatalf("cleanup shutdown event=%q want=%q", got, want)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("cleanup shutdown omitted %q", want)
+		}
+	}
+}
+
 type serverCleanupLifecycle struct {
 	started   chan bool
 	readiness func() bool
+	name      string
+	events    chan string
 }
 
 func (lifecycle *serverCleanupLifecycle) Start(context.Context) error {
-	lifecycle.started <- lifecycle.readiness()
+	ready := lifecycle.readiness()
+	if lifecycle.started != nil {
+		lifecycle.started <- ready
+	}
+	if lifecycle.events != nil {
+		lifecycle.events <- fmt.Sprintf("start:%s:%t", lifecycle.name, ready)
+	}
 	return nil
 }
 
-func (*serverCleanupLifecycle) Close(context.Context) error { return nil }
+func (lifecycle *serverCleanupLifecycle) Close(context.Context) error {
+	if lifecycle.events != nil {
+		lifecycle.events <- "close:" + lifecycle.name
+	}
+	return nil
+}

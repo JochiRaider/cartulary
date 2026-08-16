@@ -27,7 +27,8 @@ const ownerByVersion = new Map([
   [21, "projections"], [22, "graphprojection"], [23, "reporting"],
   [24, "reportcomposition"], [25, "incidentbundles"], [26, "reference_data"],
   [27, "extensions"], [28, "audit"], [29, "collaboration"], [30, "evidence"],
-  [31, "evidence"], [32, "networkflow"],
+  [31, "evidence"], [32, "networkflow"], [33, "networkflow"],
+  [34, "graphprojection"],
 ]);
 const manifestKeys = new Set([
   "schema_id", "migration_root", "supported_postgres_major", "application_schemas",

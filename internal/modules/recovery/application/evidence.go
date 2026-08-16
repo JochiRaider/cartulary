@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	RecoveryJournalPayloadSchemaID   = "cartulary.operator_recovery_journal_payload.v3"
+	RecoveryJournalPayloadSchemaID   = "cartulary.operator_recovery_journal_payload.v4"
+	RecoveryJournalPayloadV3SchemaID = "cartulary.operator_recovery_journal_payload.v3"
 	RecoveryJournalPayloadV2SchemaID = "cartulary.operator_recovery_journal_payload.v2"
 	RecoveryAuditSummarySchemaID     = "cartulary.operator_recovery_audit_summary.v2"
 )
@@ -182,11 +183,17 @@ func DecodeRecoveryJournalPayload(body []byte) (DecodedRecoveryJournalPayload, e
 		} else if selector.RecordKind == "completion" {
 			destination = &recoveryJournalCompletionPayloadV2{}
 		}
-	case RecoveryJournalPayloadSchemaID:
+	case RecoveryJournalPayloadV3SchemaID:
 		if selector.RecordKind == "admission" {
 			destination = &recoveryJournalAdmissionPayloadV3{}
 		} else if selector.RecordKind == "completion" {
 			destination = &recoveryJournalCompletionPayloadV3{}
+		}
+	case RecoveryJournalPayloadSchemaID:
+		if selector.RecordKind == "admission" {
+			destination = &recoveryJournalAdmissionPayloadV4{}
+		} else if selector.RecordKind == "completion" {
+			destination = &recoveryJournalCompletionPayloadV4{}
 		}
 	}
 	if destination == nil {
@@ -202,6 +209,9 @@ func DecodeRecoveryJournalPayload(body []byte) (DecodedRecoveryJournalPayload, e
 	}
 	decoded := DecodedRecoveryJournalPayload{SchemaID: selector.SchemaID, RecordKind: selector.RecordKind}
 	if completion, ok := destination.(*recoveryJournalCompletionPayloadV3); ok {
+		decoded.GraphProjectionCompletion = completion.GraphProjectionCompletion
+	}
+	if completion, ok := destination.(*recoveryJournalCompletionPayloadV4); ok {
 		decoded.GraphProjectionCompletion = completion.GraphProjectionCompletion
 	}
 	return decoded, nil
@@ -238,6 +248,13 @@ type recoveryJournalCompletionPayloadV2 struct {
 type recoveryJournalAdmissionPayloadV3 = recoveryJournalAdmissionPayloadV2
 
 type recoveryJournalCompletionPayloadV3 struct {
+	recoveryJournalCompletionPayloadV2
+	GraphProjectionCompletion *GraphProjectionCompletionEvidence `json:"graph_projection_completion"`
+}
+
+type recoveryJournalAdmissionPayloadV4 = recoveryJournalAdmissionPayloadV2
+
+type recoveryJournalCompletionPayloadV4 struct {
 	recoveryJournalCompletionPayloadV2
 	GraphProjectionCompletion *GraphProjectionCompletionEvidence `json:"graph_projection_completion"`
 }

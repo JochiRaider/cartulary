@@ -16,27 +16,50 @@ import (
 )
 
 const (
-	graphRestoreSourceRegistrationID = "network_flow_activity.graph_views.v1"
-	graphRestoreAuthoritativeFamily  = "network_flow_activity.graph_views"
-	graphRestoreEnumeratorBindingID  = "network_flow_activity.graph_view_restore_enumerator_v1"
-	graphRestoreValidityBindingID    = "network_flow_activity.graph_view_restore_validity_v1"
+	graphRestoreSourceRegistrationID            = "network_flow_activity.graph_views.v1"
+	graphRestoreAuthoritativeFamily             = "network_flow_activity.graph_views"
+	graphRestoreEnumeratorBindingID             = "network_flow_activity.graph_view_restore_enumerator_v2"
+	graphRestoreValidityBindingID               = "network_flow_activity.graph_view_restore_validity_v2"
+	graphRestoreHistoricalEnumeratorBindingIDV1 = "network_flow_activity.graph_view_restore_enumerator_v1"
+	graphRestoreHistoricalValidityBindingIDV1   = "network_flow_activity.graph_view_restore_validity_v1"
 )
 
 // NewGraphRestoreSourceRegistration constructs Network Flow's source-owned
 // Recovery contribution. Graph sees only deterministic v2 semantic inputs and
 // the exact immutable result bindings selected by authoritative declarations.
 func NewGraphRestoreSourceRegistration(db postgres.DB) (graphprojection.RestoreSourceRegistration, error) {
+	return newGraphRestoreSourceRegistration(db, false)
+}
+
+// NewHistoricalGraphRestoreSourceRegistrationV2 retains the exact v2 restore
+// dispatcher for still-supported pre-GP3 backups. It admits persisted semantic
+// query v1 only and cannot be selected by current backup creation.
+func NewHistoricalGraphRestoreSourceRegistrationV2(db postgres.DB) (graphprojection.RestoreSourceRegistration, error) {
+	return newGraphRestoreSourceRegistration(db, true)
+}
+
+func newGraphRestoreSourceRegistration(db postgres.DB, historicalV2 bool) (graphprojection.RestoreSourceRegistration, error) {
 	if db == nil {
 		return graphprojection.RestoreSourceRegistration{}, fmt.Errorf("network flow graph restore source requires PostgreSQL")
 	}
-	store := NewStore(db)
+	limits := DefaultEffectiveLimits()
+	store := NewStore(db, limits)
+	enumeratorBindingID := graphRestoreEnumeratorBindingID
+	validityBindingID := graphRestoreValidityBindingID
+	semanticQuerySchemaIDs := []string{schemaGraphSemanticQueryV1, schemaGraphSemanticQueryV2}
+	if historicalV2 {
+		enumeratorBindingID = graphRestoreHistoricalEnumeratorBindingIDV1
+		validityBindingID = graphRestoreHistoricalValidityBindingIDV1
+		semanticQuerySchemaIDs = nil
+	}
 	return graphprojection.RestoreSourceRegistration{
 		Entry: graphprojection.RestoreSourceRegistryEntry{
 			SourceRegistrationID:       graphRestoreSourceRegistrationID,
 			SourceOwnerID:              graphSourceOwnerID,
 			AuthoritativeFamilyID:      graphRestoreAuthoritativeFamily,
-			EnumeratorBindingID:        graphRestoreEnumeratorBindingID,
-			ValidityBindingID:          graphRestoreValidityBindingID,
+			EnumeratorBindingID:        enumeratorBindingID,
+			ValidityBindingID:          validityBindingID,
+			SemanticQuerySchemaIDs:     semanticQuerySchemaIDs,
 			ProjectionInputContractID:  graphprojection.ProjectionSchemaIDV2,
 			ProjectionResultContractID: "graph_projection_result.v2",
 			Status:                     "active",
@@ -71,9 +94,12 @@ func NewGraphRestoreSourceRegistration(db postgres.DB) (graphprojection.RestoreS
 				if declaration.SelectedResult == nil {
 					return nil, fmt.Errorf("active selected Network Flow saved graph has no result binding")
 				}
-				semantic, apiErr := decodeGraphSemanticRequest(declaration.SemanticQueryJSON, DefaultLimits())
+				semantic, apiErr := decodeGraphSemanticRequest(declaration.SemanticQueryJSON, limits)
 				if apiErr != nil {
 					return nil, fmt.Errorf("decode Network Flow saved graph %s for restore", declaration.GraphViewID)
+				}
+				if historicalV2 && semantic.SchemaID != schemaGraphSemanticQueryV1 {
+					return nil, graphprojection.NewRestoreError(graphprojection.RestoreErrorUnsupportedSemantic)
 				}
 				composition, apiErr := composer.composeGraphSourceFromSemantic(ctx, declaration.IncidentID, semantic)
 				if apiErr != nil {
@@ -85,9 +111,10 @@ func NewGraphRestoreSourceRegistration(db postgres.DB) (graphprojection.RestoreS
 				}
 				selected := declaration.SelectedResult
 				candidates = append(candidates, graphprojection.RestoreCandidate{
-					CandidateID:   declaration.GraphViewID,
-					GraphViewID:   declaration.GraphViewID,
-					SemanticInput: canonicalJSON(networkFlowProjectionInput(sourceSnapshotID, composition)),
+					CandidateID:           declaration.GraphViewID,
+					GraphViewID:           declaration.GraphViewID,
+					SemanticQuerySchemaID: semantic.SchemaID,
+					SemanticInput:         canonicalJSON(networkFlowProjectionInput(sourceSnapshotID, composition)),
 					ExpectedBinding: graphprojection.ResultBindingV2{
 						ProjectionResultID: selected.ProjectionResultID, GraphViewID: declaration.GraphViewID,
 						SourceOwnerID: graphSourceOwnerID, SourceSnapshotID: selected.SourceSnapshotID,

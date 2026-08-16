@@ -167,6 +167,97 @@ func TestGraphRestoreAcceptanceGPRA15RetryPreservesDeterministicOutput(t *testin
 	}
 }
 
+func TestGraphRestoreV3MixedDeclarationsAndHistoricalV2DispatchRemainExact(t *testing.T) {
+	_, currentRegistration, first := restoreV2Fixture(t)
+	secondInput := twoEntityProjectionInputV2(false)
+	secondBody, err := json.Marshal(secondInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondResult, err := NewEngineV2().Project(context.Background(), InvocationContextV2{
+		GraphViewID: "nfgv_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", SourceOwnerID: "network_flow_activity",
+	}, secondBody)
+	if err != nil {
+		t.Fatalf("project second mixed-generation fixture: %v", err)
+	}
+	second := secondResult.ResultBindingV2()
+	currentRegistration.Enumerate = func(context.Context, RestoreSourceState, time.Time) ([]RestoreCandidate, error) {
+		firstCandidate := restoreCandidate(t, first)
+		secondCandidate := restoreCandidate(t, second)
+		secondCandidate.SemanticQuerySchemaID = "cartulary.network_flow.graph_semantic_query.v2"
+		return []RestoreCandidate{firstCandidate, secondCandidate}, nil
+	}
+	currentRegistry, err := NewCurrentRestoreSourceRegistry(currentRegistration)
+	if err != nil {
+		t.Fatalf("construct mixed current registry: %v", err)
+	}
+	historicalRegistration := currentRegistration
+	historicalRegistration.Entry.EnumeratorBindingID = "network_flow_activity.graph_view_restore_enumerator_v1"
+	historicalRegistration.Entry.ValidityBindingID = "network_flow_activity.graph_view_restore_validity_v1"
+	historicalRegistration.Entry.SemanticQuerySchemaIDs = nil
+	historicalRegistration.Enumerate = func(context.Context, RestoreSourceState, time.Time) ([]RestoreCandidate, error) {
+		return []RestoreCandidate{restoreCandidate(t, first)}, nil
+	}
+	historicalRegistry, err := NewHistoricalRestoreSourceRegistryV2(historicalRegistration)
+	if err != nil {
+		t.Fatalf("construct exact historical registry: %v", err)
+	}
+	publisher := &recordingRestorePublisher{}
+	service, err := NewRestoreService(publisher, currentRegistry, RestoreServiceOptions{
+		SupportedBindings: []RestoreImplementationBindingRef{
+			CurrentRestoreImplementationBinding(), HistoricalRestoreImplementationBindingV2(),
+		},
+		SupportedRegistries: []*RestoreSourceRegistry{currentRegistry, historicalRegistry},
+	})
+	if err != nil {
+		t.Fatalf("construct mixed-generation restore service: %v", err)
+	}
+	currentRequest := restoreV2Request(context.Background(), currentRegistry, CurrentRestoreImplementationBinding())
+	currentResult, err := service.Rebuild(currentRequest.Context, currentRequest)
+	if err != nil || currentResult.SchemaID != RestoreRebuildResultSchemaID || currentResult.AlgorithmID != RestoreAlgorithmID ||
+		len(currentResult.RebuiltViews) != 2 || currentResult.RebuiltViews[0].SemanticQuerySchemaID == "" ||
+		currentResult.RebuiltViews[1].SemanticQuerySchemaID != "cartulary.network_flow.graph_semantic_query.v2" {
+		t.Fatalf("current mixed restore result = %#v err=%v", currentResult, err)
+	}
+
+	historicalBinding := HistoricalRestoreImplementationBindingV2()
+	historicalRequest := restoreV2Request(context.Background(), historicalRegistry, historicalBinding)
+	historicalRequest.RecoveryStateCatalog = RestoreRecoveryCatalogRef{
+		DigestSHA256:  historicalBinding.Binding.RecoveryStateCatalogSHA256,
+		AlgorithmID:   historicalBinding.Binding.AlgorithmID,
+		GraphTableIDs: RestoreGraphTableIDs(),
+	}
+	historicalResult, err := service.Rebuild(historicalRequest.Context, historicalRequest)
+	if err != nil || historicalResult.SchemaID != HistoricalRestoreRebuildResultSchemaIDV2 ||
+		historicalResult.AlgorithmID != HistoricalRestoreAlgorithmIDV2 || len(historicalResult.RebuiltViews) != 1 ||
+		historicalResult.RebuiltViews[0].SemanticQuerySchemaID != "" ||
+		historicalResult.RebuiltViews[0].ProjectionResultID != first.ProjectionResultID {
+		t.Fatalf("historical exact restore result = %#v err=%v", historicalResult, err)
+	}
+
+	historicalRegistration.Enumerate = func(context.Context, RestoreSourceState, time.Time) ([]RestoreCandidate, error) {
+		candidate := restoreCandidate(t, second)
+		candidate.SemanticQuerySchemaID = "cartulary.network_flow.graph_semantic_query.v2"
+		return []RestoreCandidate{candidate}, nil
+	}
+	rejectedRegistry, err := NewHistoricalRestoreSourceRegistryV2(historicalRegistration)
+	if err != nil {
+		t.Fatalf("construct historical rejection registry: %v", err)
+	}
+	rejectService, err := NewRestoreService(publisher, currentRegistry, RestoreServiceOptions{
+		SupportedBindings:   []RestoreImplementationBindingRef{CurrentRestoreImplementationBinding(), historicalBinding},
+		SupportedRegistries: []*RestoreSourceRegistry{currentRegistry, rejectedRegistry},
+	})
+	if err != nil {
+		t.Fatalf("construct historical rejection service: %v", err)
+	}
+	historicalRequest.SourceRegistry = RestoreSourceRegistryRef{Registry: rejectedRegistry, SHA256: rejectedRegistry.DigestSHA256()}
+	_, err = rejectService.Rebuild(historicalRequest.Context, historicalRequest)
+	if code, ok := RestoreErrorCodeOf(err); !ok || code != RestoreErrorInvalidCandidate {
+		t.Fatalf("historical v2 admitted a v2 semantic declaration: code=%q err=%v", code, err)
+	}
+}
+
 func TestGraphRestoreAcceptanceGPRA13And17IndeterminateFailureIsClosed(t *testing.T) {
 	registry, _, _ := restoreV2Fixture(t)
 	publisher := &recordingRestorePublisher{err: &RestorePublicationError{Indeterminate: true, Cause: errors.New("database SECRET")}}
@@ -198,8 +289,10 @@ func restoreV2Fixture(t *testing.T) (*RestoreSourceRegistry, RestoreSourceRegist
 	registration := RestoreSourceRegistration{
 		Entry: RestoreSourceRegistryEntry{
 			SourceRegistrationID: "network_flow_activity.graph_views.v1", SourceOwnerID: "network_flow_activity",
-			AuthoritativeFamilyID: "network_flow_activity.graph_views", EnumeratorBindingID: "network_flow_activity.graph_view_restore_enumerator_v1",
-			ValidityBindingID: "network_flow_activity.graph_view_restore_validity_v1", ProjectionInputContractID: ProjectionSchemaIDV2,
+			AuthoritativeFamilyID: "network_flow_activity.graph_views", EnumeratorBindingID: "network_flow_activity.graph_view_restore_enumerator_v2",
+			ValidityBindingID:          "network_flow_activity.graph_view_restore_validity_v2",
+			SemanticQuerySchemaIDs:     []string{"cartulary.network_flow.graph_semantic_query.v1", "cartulary.network_flow.graph_semantic_query.v2"},
+			ProjectionInputContractID:  ProjectionSchemaIDV2,
 			ProjectionResultContractID: "graph_projection_result.v2", Status: "active",
 		},
 		Enumerate: func(context.Context, RestoreSourceState, time.Time) ([]RestoreCandidate, error) {
@@ -222,7 +315,11 @@ func restoreCandidate(t *testing.T, expected ResultBindingV2) RestoreCandidate {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return RestoreCandidate{CandidateID: expected.GraphViewID, GraphViewID: expected.GraphViewID, SemanticInput: body, ExpectedBinding: expected}
+	return RestoreCandidate{
+		CandidateID: expected.GraphViewID, GraphViewID: expected.GraphViewID,
+		SemanticQuerySchemaID: "cartulary.network_flow.graph_semantic_query.v1",
+		SemanticInput:         body, ExpectedBinding: expected,
+	}
 }
 
 func restoreV2Request(ctx context.Context, registry *RestoreSourceRegistry, binding RestoreImplementationBindingRef) RestoreRebuildRequest {

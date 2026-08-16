@@ -17,6 +17,7 @@ import {
   NetworkFlowRejectedGrid,
 } from "./NetworkFlowSemanticGrid";
 import type {
+  NetworkFlowGraphResult,
   NetworkFlowSavedGraph,
   NetworkFlowSavedGraphResult,
 } from "./networkFlowClient";
@@ -348,8 +349,18 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
       sort_key: `nff_${identity}`,
     };
   });
+  const semanticQuery = {
+    schema_id: "cartulary.network_flow.graph_semantic_query.v2" as const,
+    selected_table_ids: ["nft_load_1"] as [string],
+    filters: [] as [],
+    time_range: { start_utc: null, end_utc: null },
+    aggregation: {
+      mode: "default_flow_edge_v1" as const,
+      include_example_row_refs: false,
+    },
+  };
   const graph = {
-    schema_id: "cartulary.network_flow.graph_view.v1",
+    schema_id: "cartulary.network_flow.graph_view.v2",
     graph_view_id: "nfgv_load_fixture_0000000000000001",
     incident_id: "00000000-0000-0000-0000-000000000000",
     display_name: "Supported-load saved graph",
@@ -357,22 +368,7 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
     graph_view_version: 1,
     materialization_generation: 1,
     state: "active",
-    semantic_query: {
-      schema_id: "cartulary.network_flow.graph_semantic_query.v1",
-      selected_table_ids: ["nft_load_1"],
-      filters: [],
-      time_range: { start_utc: null, end_utc: null },
-      aggregation: {
-        mode: "default_flow_edge_v1",
-        include_example_row_refs: false,
-      },
-      result_limits: {
-        max_vertices: 100_000,
-        max_edges: 250_000,
-        max_example_row_refs_per_edge: 10,
-        max_aggregate_counter_digits: 20,
-      },
-    },
+    semantic_query: semanticQuery,
     selected_result: {
       projection_result_id: `gpres_${"1".repeat(64)}`,
       source_snapshot_id: "supported-load-snapshot",
@@ -388,47 +384,99 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
     created_at: "2026-07-16T00:00:00Z",
     updated_at: "2026-07-16T00:00:00Z",
   } as NetworkFlowSavedGraph;
+  const projectionResult: NetworkFlowGraphResult["graph_projection_result"] = {
+    projection_schema_id: "graph_projection.v2" as const,
+    projection_result_id: graph.selected_result?.projection_result_id ?? "",
+    graph_view_id: graph.graph_view_id,
+    source_owner_id: "network_flow_activity" as const,
+    source_snapshot_id: "supported-load-snapshot",
+    projection_version: "network_flow_activity.v1",
+    normalized_configuration_sha256: "2".repeat(64),
+    normalized_source_sha256: "3".repeat(64),
+    canonical_output_sha256: "4".repeat(64),
+    properties: {},
+    mapped_metadata: {},
+    schema_registry: {
+      vertex_kinds: [],
+      edge_kinds: [],
+      property_keys: [],
+      metadata_keys: [],
+    },
+    vertices,
+    edges,
+    validation_summary: {
+      status: "passed",
+      fatal_count: 0,
+      error_count: 0,
+      warning_count: 0,
+      info_count: 0,
+      issues: [],
+    },
+    consumer_capabilities: {
+      query_shapes: [],
+      supports_direct_vertex_lookup: false,
+      supports_direct_edge_lookup: false,
+      supports_breadth_first_traversal: false,
+      supports_alternate_traversal_order: [],
+      max_traversal_depth: 0,
+      max_traversal_seed_vertices: 0,
+      max_kind_filters: 0,
+    },
+  };
   return {
-    schema_id: "cartulary.network_flow.graph_view_result.v1",
+    schema_id: "cartulary.network_flow.graph_view_result.v2",
     graph_view: graph,
-    projection_result: {
-      projection_schema_id: "graph_projection.v2",
-      projection_result_id: graph.selected_result?.projection_result_id ?? "",
-      graph_view_id: graph.graph_view_id,
-      source_owner_id: "network_flow_activity",
-      source_snapshot_id: "supported-load-snapshot",
-      projection_version: "network_flow_activity.v1",
-      normalized_configuration_sha256: "2".repeat(64),
-      normalized_source_sha256: "3".repeat(64),
-      canonical_output_sha256: "4".repeat(64),
-      properties: {},
-      mapped_metadata: {},
-      schema_registry: {
-        vertex_kinds: [],
-        edge_kinds: [],
-        property_keys: [],
-        metadata_keys: [],
+    result: {
+      schema_id: "cartulary.network_flow.graph_query_result.v2",
+      graph_query_digest: "6".repeat(64),
+      semantic_query: semanticQuery,
+      graph_projection_result: projectionResult,
+      vertex_selectors: vertices.map((vertex) => ({
+        projected_vertex_id: vertex.vertex_id,
+        selector: {
+          kind: "vertex" as const,
+          source_vertex_id: vertex.source_entity_ref.source_entity_id,
+          endpoint_value: String(vertex.properties.endpoint_value),
+        },
+      })),
+      edge_annotations: edges.map((edge) => ({
+        projected_edge_id: edge.edge_id,
+        selector: {
+          kind: "default_edge" as const,
+          source_edge_id: edge.source_relationship_ref.source_relationship_id,
+          source_endpoint_value: String(
+            vertices.find((vertex) => vertex.vertex_id === edge.src_vertex_id)
+              ?.properties.endpoint_value,
+          ),
+          destination_endpoint_value: String(
+            vertices.find((vertex) => vertex.vertex_id === edge.dst_vertex_id)
+              ?.properties.endpoint_value,
+          ),
+          protocol: 6,
+          destination_port_present: false as const,
+        },
+        example_row_refs: [],
+        example_refs_truncated: false,
+        example_refs_total_count: 1,
+      })),
+      source_table_refs: [
+        {
+          network_flow_table_id: "nft_load_1",
+          table_version: 1,
+          mapping_fingerprint: "5".repeat(64),
+          row_count_accepted: 1_001,
+          row_count_rejected: 0,
+        },
+      ],
+      result_limits: {
+        max_vertices: 5_000,
+        max_edges: 10_000,
+        max_example_row_refs_per_edge: 10,
+        max_aggregate_counter_digits: 39,
+        max_contributing_rows_per_graph: 250_000,
+        max_time_buckets_per_graph: 256,
       },
-      vertices,
-      edges,
-      validation_summary: {
-        status: "passed",
-        fatal_count: 0,
-        error_count: 0,
-        warning_count: 0,
-        info_count: 0,
-        issues: [],
-      },
-      consumer_capabilities: {
-        query_shapes: [],
-        supports_direct_vertex_lookup: false,
-        supports_direct_edge_lookup: false,
-        supports_breadth_first_traversal: false,
-        supports_alternate_traversal_order: [],
-        max_traversal_depth: 0,
-        max_traversal_seed_vertices: 0,
-        max_kind_filters: 0,
-      },
+      result_variant: { kind: "default_flow_edge_v1" },
     },
   } as NetworkFlowSavedGraphResult;
 }

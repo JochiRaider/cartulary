@@ -23,6 +23,7 @@ const snapshotPath = "contracts/otel/otel_source_snapshot.v1.json";
 const generatedConstantsManifestPath = "contracts/otel/generated_constants_manifest.json";
 const importBoundaryPath = "contracts/otel/import_boundary.json";
 const errorClassRegistryPath = "contracts/otel/error_class_registry.json";
+const cartularySignalRegistryPath = "contracts/otel/cartulary_signal_registry.v1.json";
 const telemetryConfigSchemaPath = "contracts/otel/telemetry_config_schema.v2.json";
 const configHazardMatrixPath = "contracts/otel/config_hazard_fixture_matrix.v2.json";
 const corpusManifestPath = "internal/testutil/golden/otel/corpus_manifest.json";
@@ -87,6 +88,7 @@ const expectedCorpusCases = [
   ["OTEL-CORPUS-016", "Exporter"],
   ["OTEL-CORPUS-017", "Product-boundary runtime invariance"],
   ["OTEL-CORPUS-018", "Redaction"],
+  ["OTEL-CORPUS-019", "Jobs queue and Network Flow graphs"],
 ];
 
 const expectedSpanFamilies = [
@@ -98,6 +100,8 @@ const expectedSpanFamilies = [
   "websocket_event_send",
   "job_enqueue",
   "job_run",
+  "network_flow_graph_phase",
+  "network_flow_cleanup",
   "postgres_dependency",
   "objectstore_dependency",
 ];
@@ -109,14 +113,29 @@ const expectedMetricNames = [
   "cartulary.workbook.rows.returned",
   "cartulary.collaboration.connections.active",
   "cartulary.collaboration.events.sent",
+  "cartulary.evidence.cleanup.operations",
+  "cartulary.evidence.cleanup.sweep.duration",
+  "cartulary.evidence.cleanup.overdue",
+  "cartulary.evidence.cleanup.oldest_eligible.age",
   "cartulary.jobs.active",
+  "cartulary.jobs.queued",
+  "cartulary.jobs.queue_wait.duration",
   "cartulary.jobs.duration",
   "cartulary.jobs.attempts",
   "cartulary.jobs.expired",
   "cartulary.jobs.lease_renewal.failures",
+  "cartulary.network_flow.graph.phase.duration",
+  "cartulary.network_flow.graph.contributing_rows",
+  "cartulary.network_flow.graph.result.objects",
+  "cartulary.network_flow.cleanup.operations",
+  "cartulary.network_flow.cleanup.sweep.duration",
+  "cartulary.network_flow.cleanup.deleted",
+  "cartulary.network_flow.cleanup.eligible",
+  "cartulary.network_flow.cleanup.oldest_eligible_result.age",
   "cartulary.postgres.operation.duration",
   "cartulary.objectstore.operation.duration",
   "cartulary.objectstore.transfer.bytes",
+  "cartulary.incident_bundle.v1_import",
   "cartulary.telemetry.export.failure",
   "cartulary.telemetry.item.dropped",
   "cartulary.telemetry.queue.depth",
@@ -411,6 +430,52 @@ function canonicalize(value) {
 
 function canonicalJSON(value) {
   return `${JSON.stringify(canonicalize(value))}\n`;
+}
+
+function validateCartularySignalRegistry(registry, checks) {
+  const expectedAttributes = ["error_class", "graph_mode", "graph_object_kind", "job_kind", "operation", "phase", "result"];
+  const expectedMetrics = [
+    "cartulary.jobs.queue_wait.duration",
+    "cartulary.jobs.queued",
+    "cartulary.network_flow.graph.phase.duration",
+    "cartulary.network_flow.graph.contributing_rows",
+    "cartulary.network_flow.graph.result.objects",
+    "cartulary.network_flow.cleanup.operations",
+    "cartulary.network_flow.cleanup.sweep.duration",
+    "cartulary.network_flow.cleanup.deleted",
+    "cartulary.network_flow.cleanup.eligible",
+    "cartulary.network_flow.cleanup.oldest_eligible_result.age",
+  ];
+  assert(
+    registry.schema_id === "cartulary.otel_signal_registry.v1" &&
+      JSON.stringify(registry.attribute_vocabulary) === JSON.stringify(expectedAttributes),
+    "Cartulary signal registry binds the closed safe attribute vocabulary",
+    checks,
+    "signals.attribute_vocabulary",
+  );
+  const scopes = new Map((registry.scopes ?? []).map((scope) => [scope.scope_name, scope]));
+  const metricNames = [...scopes.values()].flatMap((scope) => (scope.metrics ?? []).map((metric) => metric.metric_name));
+  assert(
+    scopes.size === 2 && scopes.has("cartulary.jobs") && scopes.has("cartulary.network_flow") &&
+      JSON.stringify(metricNames) === JSON.stringify(expectedMetrics),
+    "Jobs and Network Flow expose the complete ordered GP3 metric registry",
+    checks,
+    "signals.metric_registry",
+  );
+  const vocabulary = new Set(expectedAttributes);
+  const attributesAreClosed = [...scopes.values()].every((scope) =>
+    (scope.metrics ?? []).every((metric) =>
+      (metric.attributes ?? []).every((attribute) => vocabulary.has(attribute)),
+    ),
+  );
+  assert(
+    attributesAreClosed &&
+      registry.failure_policy === "telemetry_failure_never_changes_product_behavior" &&
+      registry.cleanup_age_source === "published_at",
+    "GP3 signals use only safe closed attributes, fail open, and measure cleanup age from published_at",
+    checks,
+    "signals.safety_and_age",
+  );
 }
 
 function sha256Text(text) {
@@ -1402,6 +1467,8 @@ function validateGoldenCorpus(manifest, classification, checks) {
             JSON.stringify(jobSignals.span_kinds ?? []) === JSON.stringify(["internal"]) &&
             JSON.stringify(jobSignals.metrics ?? []) === JSON.stringify([
               "cartulary.jobs.active",
+              "cartulary.jobs.queued",
+              "cartulary.jobs.queue_wait.duration",
               "cartulary.jobs.duration",
               "cartulary.jobs.attempts",
               "cartulary.jobs.expired",
@@ -1440,7 +1507,7 @@ function validateGoldenCorpus(manifest, classification, checks) {
       if (caseID === "OTEL-CORPUS-010") {
         const postgresSignals = input.postgres_dependency_assertions ?? {};
         assert(
-          JSON.stringify(postgresSignals.span_families ?? []) === JSON.stringify(expectedSpanFamilies.slice(8, 9)) &&
+          JSON.stringify(postgresSignals.span_families ?? []) === JSON.stringify(expectedSpanFamilies.slice(10, 11)) &&
             JSON.stringify(postgresSignals.span_names ?? []) === JSON.stringify(["cartulary.postgres.operation"]) &&
             JSON.stringify(postgresSignals.span_kinds ?? []) === JSON.stringify(["client"]) &&
             JSON.stringify(postgresSignals.metrics ?? []) === JSON.stringify(["cartulary.postgres.operation.duration"]) &&
@@ -1466,7 +1533,7 @@ function validateGoldenCorpus(manifest, classification, checks) {
       if (caseID === "OTEL-CORPUS-011") {
         const objectStoreSignals = input.objectstore_dependency_assertions ?? {};
         assert(
-          JSON.stringify(objectStoreSignals.span_families ?? []) === JSON.stringify(expectedSpanFamilies.slice(9, 10)) &&
+          JSON.stringify(objectStoreSignals.span_families ?? []) === JSON.stringify(expectedSpanFamilies.slice(11, 12)) &&
             JSON.stringify(objectStoreSignals.span_names ?? []) === JSON.stringify(["cartulary.objectstore.operation"]) &&
             JSON.stringify(objectStoreSignals.span_kinds ?? []) === JSON.stringify(["client"]) &&
             JSON.stringify(objectStoreSignals.metrics ?? []) ===
@@ -1747,6 +1814,44 @@ function validateGoldenCorpus(manifest, classification, checks) {
           "golden.corpus.OTEL-CORPUS-018.forbidden_value_action_matrix",
         );
       }
+      if (caseID === "OTEL-CORPUS-019") {
+        const gp3 = input.gp3_signal_assertions ?? {};
+        assert(
+          JSON.stringify(gp3.jobs_metrics ?? []) ===
+            JSON.stringify(["cartulary.jobs.queued", "cartulary.jobs.queue_wait.duration"]) &&
+            JSON.stringify(gp3.network_flow_spans ?? []) ===
+              JSON.stringify(["cartulary.network_flow.graph.phase", "cartulary.network_flow.cleanup"]) &&
+            JSON.stringify(gp3.network_flow_metrics ?? []) ===
+              JSON.stringify([
+                "cartulary.network_flow.graph.phase.duration",
+                "cartulary.network_flow.graph.contributing_rows",
+                "cartulary.network_flow.graph.result.objects",
+                "cartulary.network_flow.cleanup.operations",
+                "cartulary.network_flow.cleanup.sweep.duration",
+                "cartulary.network_flow.cleanup.deleted",
+                "cartulary.network_flow.cleanup.eligible",
+                "cartulary.network_flow.cleanup.oldest_eligible_result.age",
+              ]) &&
+            gp3.queue_wait_source === "COALESCE(handler_next_attempt_at, submitted_at)" &&
+            gp3.queue_wait_event === "successful_durable_claim_only" &&
+            gp3.cleanup_age_source === "published_at" &&
+            gp3.cleanup_age_forbidden_name === "time_unreachable" &&
+            gp3.telemetry_failure_changes_product_behavior === false &&
+            ["identifier", "digest", "label", "row", "property", "sql", "raw_error"].every((entry) =>
+              (gp3.forbidden_values_absent ?? []).includes(entry),
+            ) &&
+            evidenceOK(gp3.evidence, [
+              "internal/platform/jobs/telemetry_integration_test.go::TestJobQueuedAndQueueWaitTelemetryUsesDurableEligibility_Integration",
+              "internal/modules/networkflow/graph_telemetry_test.go::TestNetworkFlowGraphTelemetryBoundaryContainsObserverFailure_Unit",
+              "internal/modules/networkflow/graph_result_cleanup_integration_test.go::TestNetworkFlowGraphResultCleanupIsOwnerScopedSelectedSafeAndBounded_Integration",
+              "internal/app/server/network_flow_telemetry_test.go::TestNetworkFlowTelemetryUsesClosedSignalsAndPublishedAtAge_Unit",
+              "internal/platform/telemetry/registry_test.go::TestMetricRegistryClosed",
+            ]),
+          "OTEL-CORPUS-019 records Jobs queue and privacy-safe Network Flow graph and cleanup telemetry invariants",
+          checks,
+          "golden.corpus.OTEL-CORPUS-019.gp3_signal_assertions",
+        );
+      }
     }
 
     for (const [field, schemaID] of Object.entries(normalizedSignalSchemas)) {
@@ -1838,6 +1943,7 @@ function validateNoRepoAdoptionTODOs(checks) {
     generatedConstantsManifestPath,
     importBoundaryPath,
     errorClassRegistryPath,
+    cartularySignalRegistryPath,
     telemetryConfigSchemaPath,
     configHazardMatrixPath,
     "contracts/otel/semantic_conventions_constants.v1.json",
@@ -2006,6 +2112,7 @@ function main() {
     validateNoRepoAdoptionTODOs(checks);
     validateErrorMapping(checks);
     validateErrorClassRegistry(readJSON(errorClassRegistryPath), checks);
+    validateCartularySignalRegistry(readJSON(cartularySignalRegistryPath), checks);
   } catch (error) {
     checks.push({ id: "otel_conformance.exception", status: "fail", message: error.message });
   }

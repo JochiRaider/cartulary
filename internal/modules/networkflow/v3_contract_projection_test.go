@@ -7,23 +7,25 @@ import (
 	contractnetworkflow "github.com/JochiRaider/cartulary/internal/gen/contractnetworkflow"
 )
 
-func TestNetworkFlowV3SavedGraphContractProjection_Unit(t *testing.T) {
+func TestNetworkFlowV4GraphContractProjection_Unit(t *testing.T) {
 	t.Parallel()
 
 	index := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/index.json")
-	if index["contract_major"] != float64(3) {
-		t.Fatalf("Network Flow contract major = %v; want 3", index["contract_major"])
+	if index["contract_major"] != float64(4) || index["schema_id"] != "cartulary.network_flow_contract_index.v3" {
+		t.Fatalf("Network Flow contract identity = %#v; want major 4/index v3", index)
 	}
 	publicSchemas := anyStringBoolSet(index["public_schema_ids"].([]any))
 	for _, schemaID := range []string{
-		"cartulary.network_flow.graph_view_list.v1",
-		"cartulary.network_flow.graph_view_create_request.v1",
-		"cartulary.network_flow.graph_view_accepted.v1",
-		"cartulary.network_flow.graph_view_result.v1",
-		"cartulary.network_flow.graph_view_contributor_query_result.v1",
+		"cartulary.network_flow.graph_semantic_query.v1",
+		"cartulary.network_flow.graph_semantic_query.v2",
+		"cartulary.network_flow.graph_view_list.v2",
+		"cartulary.network_flow.graph_view_create_request.v2",
+		"cartulary.network_flow.graph_view_accepted.v2",
+		"cartulary.network_flow.graph_view_result.v2",
+		"cartulary.network_flow.graph_view_contributor_query_result.v2",
 	} {
 		if !publicSchemas[schemaID] {
-			t.Fatalf("Network Flow v3 public schema registry omits %q", schemaID)
+			t.Fatalf("Network Flow v4 public schema registry omits %q", schemaID)
 		}
 	}
 
@@ -49,7 +51,7 @@ func TestNetworkFlowV3SavedGraphContractProjection_Unit(t *testing.T) {
 		assertNetworkFlowGraphRoute(t, graphRoutes, routeID, "viewer", "read_route", 200)
 	}
 
-	schemas := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/schemas.v1.json")
+	schemas := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/schemas.v2.json")
 	definitions := schemas["$defs"].(map[string]any)
 	graphResult := definitions["GraphProjectionResultV2"].(map[string]any)
 	if graphResult["additionalProperties"] != false {
@@ -59,19 +61,41 @@ func TestNetworkFlowV3SavedGraphContractProjection_Unit(t *testing.T) {
 	if properties["projection_schema_id"].(map[string]any)["const"] != "graph_projection.v2" {
 		t.Fatalf("ephemeral graph result did not cut directly to v2: %#v", properties["projection_schema_id"])
 	}
-	for _, definitionName := range []string{"GraphViewCreateRequest", "GraphViewRenameRequest", "GraphViewRefreshRequest", "GraphViewRetireRequest"} {
+	for _, definitionName := range []string{"GraphViewCreateRequestV2", "GraphViewRenameRequest", "GraphViewRefreshRequest", "GraphViewRetireRequest"} {
 		definition := definitions[definitionName].(map[string]any)
 		required := anyStringBoolSet(definition["required"].([]any))
 		if !required["client_txn_id"] {
 			t.Fatalf("%s omits owner-required client_txn_id", definitionName)
 		}
 	}
-	limits := definitions["EffectiveLimits"].(map[string]any)["properties"].(map[string]any)
-	if limits["network_flow.max_nonterminal_graph_jobs_per_incident"].(map[string]any)["const"] != float64(4) {
-		t.Fatalf("saved-graph job limit projection drifted: %#v", limits)
+	limits := definitions["EffectiveLimitsV2"].(map[string]any)["properties"].(map[string]any)
+	for _, limitName := range []string{
+		"network_flow.max_nonterminal_graph_jobs_per_incident",
+		"network_flow.max_contributing_rows_per_graph",
+		"network_flow.max_time_buckets_per_graph",
+		"network_flow.graph_materialization_timeout_seconds",
+	} {
+		if _, present := limits[limitName]; !present {
+			t.Fatalf("effective-limit projection omits %q: %#v", limitName, limits)
+		}
 	}
 	if _, stale := limits["network_flow.max_nonterminal_graph_view_jobs_per_incident"]; stale {
 		t.Fatal("legacy saved-graph job limit name remains projected")
+	}
+
+	semantics := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/graph-semantics.v2.json")
+	if semantics["graph_projection_schema_id"] != "graph_projection.v2" {
+		t.Fatalf("Network Flow graph semantics changed Graph Projection ownership: %#v", semantics)
+	}
+	timeBucket := semantics["time_bucket"].(map[string]any)
+	if timeBucket["mode"] != "time_bucket_v1" ||
+		timeBucket["projection_version"] != "network_flow_activity.time_bucket.v1" ||
+		timeBucket["relationship_kind"] != "network_flow.bucketed_flow_edge.v1" {
+		t.Fatalf("Network Flow time-bucket semantics drifted: %#v", timeBucket)
+	}
+	resourceLimits := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/resource-limits.v2.json")
+	if len(resourceLimits["limits"].([]any)) != 23 {
+		t.Fatalf("effective-limit registry count = %d; want 23", len(resourceLimits["limits"].([]any)))
 	}
 }
 

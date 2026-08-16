@@ -14,17 +14,26 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 )
 
-func (m *Manager) registerActiveGauge() {
-	if m == nil || m.pool == nil || strings.TrimSpace(m.serviceVersion) == "" || m.activeGaugeRegistered {
+func (m *Manager) registerJobGauges() {
+	if m == nil || m.pool == nil || strings.TrimSpace(m.serviceVersion) == "" || m.jobGaugesRegistered {
 		return
 	}
-	m.activeGaugeRegistered = true
-	_, _ = telemetry.Meter(telemetry.ScopeJobs, m.telemetryServiceVersion()).Int64ObservableGauge(
+	m.jobGaugesRegistered = true
+	meter := telemetry.Meter(telemetry.ScopeJobs, m.telemetryServiceVersion())
+	_, _ = meter.Int64ObservableGauge(
 		"cartulary.jobs.active",
 		metric.WithUnit("{job}"),
 		metric.WithDescription("Active background jobs by kind."),
 		metric.WithInt64Callback(func(ctx context.Context, observer metric.Int64Observer) error {
 			return m.observeActiveJobs(ctx, observer)
+		}),
+	)
+	_, _ = meter.Int64ObservableGauge(
+		telemetry.JobsQueuedMetricName,
+		metric.WithUnit("{job}"),
+		metric.WithDescription("Queued background jobs, including retry-delayed jobs, by kind."),
+		metric.WithInt64Callback(func(ctx context.Context, observer metric.Int64Observer) error {
+			return m.observeQueuedJobs(ctx, observer)
 		}),
 	)
 }
@@ -84,6 +93,67 @@ SELECT job_kind, COUNT(*)::bigint
 	return nil
 }
 
+func (m *Manager) observeQueuedJobs(ctx context.Context, observer metric.Int64Observer) error {
+	if m == nil || m.pool == nil {
+		return nil
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 500*time.Millisecond)
+		defer cancel()
+	}
+	counts, kinds := m.emptyCatalogJobCounts()
+	rows, err := m.pool.Query(ctx, `
+SELECT job_kind, COUNT(*)::bigint
+  FROM jobs
+ WHERE status IN ('queued', 'running')
+   AND handler_attempt_id IS NULL
+   AND handler_failure_count < $1
+ GROUP BY job_kind
+`, m.policy.MaximumFailures)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var storedKind *string
+		var count int64
+		if err := rows.Scan(&storedKind, &count); err != nil {
+			return err
+		}
+		kind := "unknown"
+		if storedKind != nil {
+			kind = m.catalogJobKind(*storedKind)
+		}
+		if count < 0 {
+			return ErrInvalidTransition
+		}
+		counts[kind] += count
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, kind := range kinds {
+		observer.Observe(counts[kind], metric.WithAttributes(telemetry.SafeAttributes(attribute.String("cartulary.job_kind", kind))...))
+	}
+	return nil
+}
+
+func (m *Manager) emptyCatalogJobCounts() (map[string]int64, []string) {
+	counts := map[string]int64{"unknown": 0}
+	definitions := map[string]Definition(nil)
+	if m != nil && m.catalog != nil {
+		definitions = m.catalog.byKind
+	}
+	kinds := make([]string, 0, len(definitions)+1)
+	for kind := range definitions {
+		counts[kind] = 0
+		kinds = append(kinds, kind)
+	}
+	sort.Strings(kinds)
+	return counts, append(kinds, "unknown")
+}
+
 func (m *Manager) startJobSpan(ctx context.Context, name string, jobKind string, operation string) (context.Context, trace.Span) {
 	ctx, span := telemetry.Tracer(telemetry.ScopeJobs, m.telemetryServiceVersion()).Start(
 		ctx,
@@ -132,6 +202,20 @@ func (m *Manager) recordJobDuration(ctx context.Context, resource Resource, jobK
 		attrs = telemetry.SafeAttributes(append(attrs, attribute.String("cartulary.error_code", resource.ErrorSummary.Code))...)
 	}
 	duration.Record(ctx, resource.FinishedAt.Sub(*resource.StartedAt).Seconds(), metric.WithAttributes(attrs...))
+}
+
+func (m *Manager) recordQueueWait(ctx context.Context, jobKind string, duration time.Duration) {
+	if duration < 0 {
+		return
+	}
+	histogram, _ := telemetry.Meter(telemetry.ScopeJobs, m.telemetryServiceVersion()).Float64Histogram(
+		telemetry.JobsQueueWaitDurationMetricName,
+		metric.WithUnit("s"),
+		metric.WithDescription("Eligibility-to-successful-claim duration."),
+	)
+	histogram.Record(ctx, duration.Seconds(), metric.WithAttributes(telemetry.SafeAttributes(
+		attribute.String("cartulary.job_kind", m.catalogJobKind(jobKind)),
+	)...))
 }
 
 func (m *Manager) recordAttempt(ctx context.Context, jobKind string, result string) {

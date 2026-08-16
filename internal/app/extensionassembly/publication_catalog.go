@@ -66,12 +66,19 @@ func NewPublicationCatalog(plan extensions.PublicationPlan, participantContracts
 		}
 	}
 	for _, worker := range plan.Workers() {
-		if worker.ProfileID == "" || worker.WorkerKind == "" {
+		if worker.ProfileID == "" || worker.WorkerKind == "" || len(worker.JobKinds) == 0 ||
+			worker.MaxActiveAttemptsPerProcess < 1 || worker.MaxActiveAttemptsPerProcess > 8 {
 			return PublicationCatalog{}, fmt.Errorf("extension publication worker identity is incomplete")
+		}
+		for index, jobKind := range worker.JobKinds {
+			if jobKind == "" || index > 0 && worker.JobKinds[index-1] >= jobKind {
+				return PublicationCatalog{}, fmt.Errorf("extension publication worker %q job assignments are invalid", worker.WorkerKind)
+			}
 		}
 		if _, duplicate := catalog.workers[worker.WorkerKind]; duplicate {
 			return PublicationCatalog{}, fmt.Errorf("duplicate extension publication worker %q", worker.WorkerKind)
 		}
+		worker.JobKinds = append([]string(nil), worker.JobKinds...)
 		catalog.workers[worker.WorkerKind] = worker
 	}
 	for _, binding := range plan.ImplementationBindings() {
@@ -108,6 +115,22 @@ func NewPublicationCatalog(plan extensions.PublicationPlan, participantContracts
 			return PublicationCatalog{}, fmt.Errorf("extension job %q has no implementation binding", jobKind)
 		}
 	}
+	assignedJobs := make(map[string]string, len(catalog.jobs))
+	for workerKind, worker := range catalog.workers {
+		for _, jobKind := range worker.JobKinds {
+			job, present := catalog.jobs[jobKind]
+			if !present || job.ProfileID != worker.ProfileID {
+				return PublicationCatalog{}, fmt.Errorf("extension worker %q has an unknown or cross-profile job %q", workerKind, jobKind)
+			}
+			if _, duplicate := assignedJobs[jobKind]; duplicate {
+				return PublicationCatalog{}, fmt.Errorf("extension job %q has duplicate worker assignments", jobKind)
+			}
+			assignedJobs[jobKind] = workerKind
+		}
+	}
+	if len(assignedJobs) != len(catalog.jobs) {
+		return PublicationCatalog{}, fmt.Errorf("extension worker assignments are incomplete")
+	}
 	return catalog, nil
 }
 
@@ -118,6 +141,7 @@ func (catalog PublicationCatalog) Contribution(contributionID string) (extension
 
 func (catalog PublicationCatalog) Worker(workerKind string) (extensions.WorkerPublication, bool) {
 	worker, present := catalog.workers[workerKind]
+	worker.JobKinds = append([]string(nil), worker.JobKinds...)
 	return worker, present
 }
 

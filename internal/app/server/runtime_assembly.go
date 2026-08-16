@@ -71,17 +71,18 @@ import (
 )
 
 type Options struct {
-	Env                    map[string]string
-	HTTP                   httpapi.Options
-	Postgres               *pgxpool.Pool
-	ObjectStore            objectstore.Store
-	Now                    func() time.Time
-	ObserveJobs            func(*jobs.Manager, *jobs.TransactionService, *jobs.Runner, *pgxpool.Pool)
-	ObserveCollaboration   func(*collaboration.Hub, *collaboration.Dispatcher, collaboration.IntentAppender)
-	ObserveEvidenceCleanup func(*evidence.CleanupDispatcher)
-	ObserveProjections     func(*projectionassembly.Runtime)
-	ObserveTimeline        func(*timelineassembly.Bundle)
-	ObserveRevisions       func(*revisionassembly.Runtime)
+	Env                       map[string]string
+	HTTP                      httpapi.Options
+	Postgres                  *pgxpool.Pool
+	ObjectStore               objectstore.Store
+	Now                       func() time.Time
+	ObserveJobs               func(*jobs.Manager, *jobs.TransactionService, *jobs.Runner, *pgxpool.Pool)
+	ObserveCollaboration      func(*collaboration.Hub, *collaboration.Dispatcher, collaboration.IntentAppender)
+	ObserveEvidenceCleanup    func(*evidence.CleanupDispatcher)
+	ObserveNetworkFlowCleanup func(*networkflow.GraphResultCleanupDispatcher)
+	ObserveProjections        func(*projectionassembly.Runtime)
+	ObserveTimeline           func(*timelineassembly.Bundle)
+	ObserveRevisions          func(*revisionassembly.Runtime)
 }
 
 type evidenceCleanupLifecycle interface {
@@ -90,19 +91,20 @@ type evidenceCleanupLifecycle interface {
 }
 
 type Runtime struct {
-	handler                   http.Handler
-	stagedJanitor             *stagedobjects.Janitor
-	jobRunner                 *jobs.Runner
-	collaborationDispatcher   *collaboration.Dispatcher
-	evidenceCleanupDispatcher evidenceCleanupLifecycle
-	processLease              *processlease.ApplicationProcessLease
-	servingLease              *processlease.ApplicationRecoveryServingLease
-	lifecycle                 *processlifecycle.Controller
-	publication               *publicationController
-	publicHTTP                httpapi.RouteDiagnostics
-	shutdownDrainTimeout      time.Duration
-	reconciliationTimeout     time.Duration
-	stagedObjectSweepPeriod   time.Duration
+	handler                      http.Handler
+	stagedJanitor                *stagedobjects.Janitor
+	jobRunner                    *jobs.Runner
+	collaborationDispatcher      *collaboration.Dispatcher
+	evidenceCleanupDispatcher    evidenceCleanupLifecycle
+	networkFlowCleanupDispatcher evidenceCleanupLifecycle
+	processLease                 *processlease.ApplicationProcessLease
+	servingLease                 *processlease.ApplicationRecoveryServingLease
+	lifecycle                    *processlifecycle.Controller
+	publication                  *publicationController
+	publicHTTP                   httpapi.RouteDiagnostics
+	shutdownDrainTimeout         time.Duration
+	reconciliationTimeout        time.Duration
+	stagedObjectSweepPeriod      time.Duration
 
 	closeOnce            sync.Once
 	publicationOnce      sync.Once
@@ -446,6 +448,12 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 						Status:   "ready_to_validate",
 					}, nil
 				},
+				"network_flow_activity.migrate_state_2_to_3_v1": func(context.Context, extensions.MigrationContext, extensions.StateWriteCapability) (extensions.MigrationApplyResult, error) {
+					return extensions.MigrationApplyResult{
+						SchemaID: "cartulary.extension_migration_apply_result.v1",
+						Status:   "ready_to_validate",
+					}, nil
+				},
 			},
 			PendingValidators: map[string]extensions.PendingStateValidator{
 				"network_flow_activity.validate_state_v2": func(ctx context.Context, _ extensions.MigrationValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
@@ -458,9 +466,32 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 					}
 					return extensions.ValidMigrationValidationResult(), nil
 				},
+				"network_flow_activity.validate_state_v3": func(ctx context.Context, _ extensions.MigrationValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
+					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
+						return extensions.StateValidationResult{
+							SchemaID: "cartulary.extension_migration_validation_result.v1",
+							Status:   "invalid",
+							Findings: []extensions.StateFinding{{Code: "network_flow_activity_state_invalid", Path: "/"}},
+						}, nil
+					}
+					return extensions.ValidMigrationValidationResult(), nil
+				},
 			},
 			FinalValidators: map[string]extensions.FinalStateValidator{
 				"network_flow_activity.validate_state_v2": func(ctx context.Context, _ extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
+					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
+						return extensions.StateValidationResult{
+							SchemaID: "cartulary.extension_final_state_validation_result.v1",
+							Status:   "invalid",
+							Findings: []extensions.StateFinding{{
+								Code: "network_flow_activity_state_invalid",
+								Path: "/",
+							}},
+						}, nil
+					}
+					return extensions.ValidFinalStateValidationResult(), nil
+				},
+				"network_flow_activity.validate_state_v3": func(ctx context.Context, _ extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
 					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
 						return extensions.StateValidationResult{
 							SchemaID: "cartulary.extension_final_state_validation_result.v1",
@@ -643,7 +674,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose extension job definitions: %w", err)
 	}
-	recognizedJobDefinitions, err := extensionassembly.RecognizedJobDefinitions(extensionCoordinator.JobKindContracts())
+	recognizedJobDefinitions, err := extensionassembly.RecognizedJobDefinitions(extensionCoordinator.JobKindContracts(), extensionCoordinator.WorkerRuntimeContracts())
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose recognized extension job definitions: %w", err)
@@ -653,7 +684,12 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Jobs catalog: %w", err)
 	}
-	jobSelection, err := jobs.NewRuntimeSelection(jobCatalog, extensionassembly.JobKinds(extensionJobDefinitions))
+	workerRuntimeContracts, err := extensionassembly.WorkerRuntimeContracts(publicationCatalog)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Jobs worker runtime contracts: %w", err)
+	}
+	jobSelection, err := jobs.NewRuntimeSelection(jobCatalog, extensionassembly.JobKinds(extensionJobDefinitions), workerRuntimeContracts)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Jobs runtime selection: %w", err)
@@ -878,10 +914,15 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		jobTransactions,
 	)
 	timelineFacade := timelineBundle.Facade
+	var networkFlowTelemetry networkflow.GraphTelemetryObserver
+	if networkFlowRouteAdmitted {
+		networkFlowTelemetry = newNetworkFlowTelemetryObserver(normalizedCfg.Telemetry.Resource.ServiceVersion)
+	}
 	networkFlowModule, err := networkflow.NewModule(networkflow.ModuleDependencies{
 		Postgres:        postgresHandle,
 		ImportSources:   importStore,
 		KeyRings:        networkFlowKeyRings,
+		EffectiveLimits: networkFlowConfiguration.EffectiveResourceLimits(),
 		Now:             now,
 		IncidentLocks:   incidents.NewTransactionParticipant(),
 		AuditAppender:   authn.NewAdministrativeAuditAppender(),
@@ -891,6 +932,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		JobManager:      jobManager,
 		JobRunner:       runtime.jobRunner,
 		JobFinalizer:    extensionassembly.NewNetworkFlowGraphViewJobFinalizer(extensionJobFinalizer),
+		GraphTelemetry:  networkFlowTelemetry,
 	})
 	if err != nil {
 		runtime.Close()
@@ -931,6 +973,23 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	if err := networkFlowModule.InstallCrossOwnerCoordinator(crossOwnerCoordinator); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("install Network Flow cross-owner transactions: %w", err)
+	}
+	var networkFlowCleanupDispatcher *networkflow.GraphResultCleanupDispatcher
+	if networkFlowRouteAdmitted {
+		var cleanupErr error
+		networkFlowCleanupDispatcher, cleanupErr = networkFlowModule.NewGraphResultCleanupDispatcher(func() {
+			runtime.publication.componentLost("network_flow_graph_result_cleanup_dispatcher")
+		})
+		if cleanupErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose Network Flow graph-result cleanup dispatcher: %w", cleanupErr)
+		}
+		runtime.networkFlowCleanupDispatcher = networkFlowCleanupDispatcher
+		runtime.own(func() {
+			closeCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+			_ = networkFlowCleanupDispatcher.Close(closeCtx)
+		})
 	}
 	if _, graphViewJobsAdmitted := publicationCatalog.Job(networkflow.GraphViewMaterializationJobKind); graphViewJobsAdmitted {
 		if err := networkFlowModule.RegisterGraphViewWorker(); err != nil {
@@ -1296,6 +1355,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	if options.ObserveEvidenceCleanup != nil {
 		options.ObserveEvidenceCleanup(cleanupDispatcher)
 	}
+	if options.ObserveNetworkFlowCleanup != nil && networkFlowCleanupDispatcher != nil {
+		options.ObserveNetworkFlowCleanup(networkFlowCleanupDispatcher)
+	}
 	if options.ObserveProjections != nil {
 		options.ObserveProjections(projectionRuntime)
 	}
@@ -1634,6 +1696,12 @@ func (r *Runtime) ActivatePublication() error {
 		if err := r.evidenceCleanupDispatcher.Start(context.Background()); err != nil {
 			r.publication.componentLost("evidence_cleanup_dispatcher")
 			return fmt.Errorf("activate Evidence cleanup dispatcher: %w", err)
+		}
+	}
+	if r.networkFlowCleanupDispatcher != nil {
+		if err := r.networkFlowCleanupDispatcher.Start(context.Background()); err != nil {
+			r.publication.componentLost("network_flow_graph_result_cleanup_dispatcher")
+			return fmt.Errorf("activate Network Flow graph-result cleanup dispatcher: %w", err)
 		}
 	}
 	r.publicationOnce.Do(func() {

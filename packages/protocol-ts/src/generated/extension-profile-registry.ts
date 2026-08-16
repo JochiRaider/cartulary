@@ -138,14 +138,14 @@ const value = {
     {
       "admission_validation": {
         "dependency_probes": [],
-        "post_migration_algorithmid": "network_flow_activity.validate_state_v2",
+        "post_migration_algorithmid": "network_flow_activity.validate_state_v3",
         "preflight_algorithmid": null,
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "capability_ids": [],
       "claim_config_key": "network_flow_activity.claimed",
       "claimable": true,
-      "contract_major": 3,
+      "contract_major": 4,
       "contributions": [
         {
           "contribution_id": "network_flow_activity.backup_restore",
@@ -156,7 +156,7 @@ const value = {
         {
           "contribution_id": "network_flow_activity.graph_projection_rebuild",
           "kind": "derived_state_rebuild",
-          "rebuild_algorithm_id": "graphprojection.restore_rebuild.v2",
+          "rebuild_algorithm_id": "graphprojection.restore_rebuild.v3",
           "state_family_ids": [
             "graph_projection_result_edges",
             "graph_projection_result_leases",
@@ -205,7 +205,7 @@ const value = {
         {
           "contribution_id": "network_flow_activity.reporting_graph_source",
           "kind": "snapshot_reporting_participant",
-          "participant_contract_sha256": "27a94644e0b1da3a5418a443e0e8268fb9224e107b25242270edfc78e95c74b9",
+          "participant_contract_sha256": "9ba5ca3a046fdb9d7907116d2244cd6f76cf44a61cd78cf4745cef4c48597271",
           "participant_id": "network_flow_activity.reporting_graph_source_v1"
         },
         {
@@ -241,10 +241,10 @@ const value = {
       "schema_id": "cartulary.extension_profile_descriptor.v3",
       "snapshot_reporting_mode": "participant",
       "state_ownership": {
-        "current_state_version": 2,
+        "current_state_version": 3,
         "empty_state_policy": "allowed",
-        "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v2",
-        "final_state_validation_algorithmid": "network_flow_activity.validate_state_v2",
+        "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v3",
+        "final_state_validation_algorithmid": "network_flow_activity.validate_state_v3",
         "initialization_definition_sha256": "b962240fa32fb6ad3a78acc400f839b3bcf573b75df22c90d9ff2f96c1d9c784",
         "initialization_schema_id": "cartulary.extension_state_initialization_definition.v1",
         "kind": "extension_versioned",

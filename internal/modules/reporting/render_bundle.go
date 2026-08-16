@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/graphsourcecontract"
 )
 
 const (
@@ -729,20 +730,20 @@ func deriveDiagramModels(model RedactedExportModel, graphProjectionRefs json.Raw
 	return diagrams, nil
 }
 
-func resolveLoadedGraphResult(results []resolvedGraphResult, ref sourceProjectionRef) (graphprojection.CompletedResultV2, error) {
+func resolveLoadedGraphResult(results []resolvedGraphResult, ref sourceProjectionRef) (resolvedGraphResult, error) {
 	for _, result := range results {
 		if result.Ref.GraphViewID == ref.GraphViewID && result.Ref.ProjectionResultID == ref.ProjectionResultID {
 			if result.Result.Binding != ref.binding() {
-				return graphprojection.CompletedResultV2{}, newRenderValidationError("graph_projection_unavailable", "graph_projection_digest_mismatch")
+				return resolvedGraphResult{}, newRenderValidationError("graph_projection_unavailable", "graph_projection_digest_mismatch")
 			}
-			return result.Result, nil
+			return result, nil
 		}
 	}
-	return graphprojection.CompletedResultV2{}, newRenderValidationError("graph_projection_unavailable", "graph_projection_not_completed")
+	return resolvedGraphResult{}, newRenderValidationError("graph_projection_unavailable", "graph_projection_not_completed")
 }
 
-func graphDiagramFromResult(decl compositionDiagramDecl, ref sourceProjectionRef, result graphprojection.CompletedResultV2, releaseScope string) (reportingDiagramModel, error) {
-	vertices, edges, overflow, err := selectGraphDiagramObjects(result, decl.SelectionRule)
+func graphDiagramFromResult(decl compositionDiagramDecl, ref sourceProjectionRef, resolved resolvedGraphResult, releaseScope string) (reportingDiagramModel, error) {
+	vertices, edges, overflow, err := selectGraphDiagramObjects(resolved.Result, decl.SelectionRule)
 	if err != nil {
 		return reportingDiagramModel{}, err
 	}
@@ -753,13 +754,22 @@ func graphDiagramFromResult(decl compositionDiagramDecl, ref sourceProjectionRef
 		return reportingDiagramModel{}, newRenderValidationError("redaction_manifest_invalid", "redaction_action_unresolved")
 	}
 	vertexNodeIDs := make(map[string]string, len(vertices))
+	vertexLabels := make(map[string]graphsourcecontract.VertexLabelCandidate, len(resolved.LabelCandidates.VertexLabelCandidates))
+	for _, candidate := range resolved.LabelCandidates.VertexLabelCandidates {
+		vertexLabels[candidate.ProjectedVertexID] = candidate
+	}
+	edgeLabels := make(map[string]graphsourcecontract.EdgeLabelCandidate, len(resolved.LabelCandidates.EdgeLabelCandidates))
+	for _, candidate := range resolved.LabelCandidates.EdgeLabelCandidates {
+		edgeLabels[candidate.ProjectedEdgeID] = candidate
+	}
 	nodes := make([]reportingDiagramNode, 0, len(vertices))
 	includedVertices := make([]string, 0, len(vertices))
 	for index, vertex := range vertices {
 		nodeID := fmt.Sprintf("n%04d", index+1)
 		vertexNodeIDs[vertex.VertexID] = nodeID
 		includedVertices = append(includedVertices, vertex.VertexID)
-		nodes = append(nodes, reportingDiagramNode{NodeID: nodeID, Label: fmt.Sprintf("Vertex %04d", index+1)})
+		label := graphVertexLabel(vertexLabels[vertex.VertexID], index+1)
+		nodes = append(nodes, reportingDiagramNode{NodeID: nodeID, Label: label})
 	}
 	diagramEdges := make([]reportingDiagramEdge, 0, len(edges))
 	includedEdges := make([]string, 0, len(edges))
@@ -772,7 +782,7 @@ func graphDiagramFromResult(decl compositionDiagramDecl, ref sourceProjectionRef
 		includedEdges = append(includedEdges, edge.EdgeID)
 		diagramEdges = append(diagramEdges, reportingDiagramEdge{
 			EdgeID: fmt.Sprintf("e%04d", index+1), From: from, To: to,
-			Label: fmt.Sprintf("Edge %04d", index+1),
+			Label: graphEdgeLabel(edgeLabels[edge.EdgeID], index+1),
 		})
 	}
 	refCopy := ref
@@ -790,6 +800,48 @@ func graphDiagramFromResult(decl compositionDiagramDecl, ref sourceProjectionRef
 		Nodes:               nodes,
 		Edges:               diagramEdges,
 	}, nil
+}
+
+func graphVertexLabel(candidate graphsourcecontract.VertexLabelCandidate, ordinal int) string {
+	if value, ok := retainedGraphStringComponent(candidate.Endpoint); ok {
+		return value
+	}
+	return fmt.Sprintf("Vertex %04d", ordinal)
+}
+
+func graphEdgeLabel(candidate graphsourcecontract.EdgeLabelCandidate, ordinal int) string {
+	parts := make([]string, 0, 3)
+	if candidate.Kind == "time_bucket_v1" && candidate.BucketStartUTC != nil && candidate.BucketEndUTC != nil {
+		start, startOK := retainedGraphStringComponent(*candidate.BucketStartUTC)
+		end, endOK := retainedGraphStringComponent(*candidate.BucketEndUTC)
+		if startOK && endOK {
+			parts = append(parts, "["+start+","+end+")")
+		}
+	}
+	if protocol, ok := retainedGraphIntegerComponent(candidate.Protocol); ok {
+		parts = append(parts, fmt.Sprintf("protocol=%d", protocol))
+	}
+	if port, ok := retainedGraphIntegerComponent(candidate.DestinationPort); ok {
+		parts = append(parts, fmt.Sprintf("port=%d", port))
+	}
+	if len(parts) == 0 {
+		return fmt.Sprintf("Edge %04d", ordinal)
+	}
+	return strings.Join(parts, " ")
+}
+
+func retainedGraphStringComponent(component graphsourcecontract.LabelComponent) (string, bool) {
+	if component.State != graphsourcecontract.ComponentStatePresent || component.ValueKind != graphsourcecontract.ValueKindString || component.StringValue == "" {
+		return "", false
+	}
+	return component.StringValue, true
+}
+
+func retainedGraphIntegerComponent(component graphsourcecontract.LabelComponent) (int64, bool) {
+	if component.State != graphsourcecontract.ComponentStatePresent || component.ValueKind != graphsourcecontract.ValueKindInteger {
+		return 0, false
+	}
+	return component.IntegerValue, true
 }
 
 func selectGraphDiagramObjects(result graphprojection.CompletedResultV2, rule diagramSelectionRule) ([]graphprojection.ResultVertexV2, []graphprojection.ResultEdgeV2, *diagramOverflowSummary, error) {

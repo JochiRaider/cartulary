@@ -1,0 +1,38 @@
+{
+  "schema_id": "cartulary.graph_projection_storage_maintenance.v1",
+  "owner_id": "module.graphprojection",
+  "transaction_ownership": "borrowed",
+  "lock_order": ["projection_result", "source_declaration"],
+  "operations": [
+    {
+      "operation_id": "delete_expired_leases_tx_v1",
+      "maximum_rows": 1000,
+      "requires_transaction": true
+    },
+    {
+      "operation_id": "lock_cleanup_candidate_tx_v1",
+      "source_owner_scope": "exact_required",
+      "candidate_order": ["published_at", "projection_result_id"],
+      "locking": "for_update_skip_locked",
+      "maximum_rows": 1,
+      "requires_transaction": true
+    },
+    {
+      "operation_id": "has_unexpired_lease_tx_v1",
+      "requires_locked_result": true,
+      "requires_transaction": true
+    },
+    {
+      "operation_id": "delete_locked_result_tx_v1",
+      "cascade_policy": "result_envelope_owned_rows_only",
+      "maximum_rows": 1,
+      "requires_transaction": true
+    }
+  ],
+  "sweep_bounds": {
+    "maximum_results": 8,
+    "maximum_duration_seconds": 30,
+    "continuation_delay_seconds": 5,
+    "base_cadence_seconds": 300
+  }
+}

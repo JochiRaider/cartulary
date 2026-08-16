@@ -21,10 +21,11 @@
           "TestGraphRestoreAcceptanceGPRA06And10SourceFailuresBeforeMutation",
           "TestGraphRestoreAcceptanceGPRA06Through11PreflightFailsBeforeMutation",
           "TestGraphRestoreAcceptanceGPRA11OperationWideResourceLimits",
-          "TestGraphRestoreAcceptanceGPRA13And17IndeterminateFailureIsClosed",
-          "TestGraphRestoreAcceptanceGPRA15RetryPreservesDeterministicOutput",
-          "TestGraphRestoreCurrentRegistryAndBindingsAreExact",
-          "TestGraphRestoreResultContractClosesStatesAndSafeErrors"
+        "TestGraphRestoreAcceptanceGPRA13And17IndeterminateFailureIsClosed",
+        "TestGraphRestoreAcceptanceGPRA15RetryPreservesDeterministicOutput",
+        "TestGraphRestoreCurrentRegistryAndBindingsAreExact",
+        "TestGraphRestoreResultContractClosesStatesAndSafeErrors",
+        "TestGraphRestoreV3MixedDeclarationsAndHistoricalV2DispatchRemainExact"
         ]
       },
       "evidence_class": "unit",
@@ -108,6 +109,7 @@
       "selector": {
         "package": "./internal/modules/graphprojection",
         "tests": [
+          "TestGraphProjectionCleanupIndexMigrationAndRollback_Integration",
           "TestGraphProjectionV1RemovalEmptyPreflightAndMechanicalRollback_Integration",
           "TestGraphProjectionV1RemovalRejectsLegacyTableRows_Integration",
           "TestGraphProjectionV1RemovalRejectsReportingJobV1AndMalformedReferences_Integration",
@@ -179,6 +181,35 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.graphprojection.storage.result_v2_cleanup_locking",
+      "owner_id": "module.graphprojection",
+      "family_id": "module.graphprojection.storage",
+      "collaborator_ids": [
+        "module.networkflow",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/graphprojection/postgresresult",
+        "tests": [
+          "TestResultV2CleanupBoundIsolationLockingAndRollback_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard",
       "service_dependencies": [
         "postgres"

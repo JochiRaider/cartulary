@@ -105,12 +105,13 @@ func cloneDescriptor(descriptor Descriptor) Descriptor {
 }
 
 type profileRecord struct {
-	descriptor       Descriptor
-	descriptorObject map[string]any
-	descriptorSHA256 string
-	bindingObject    map[string]any
-	bindingSHA256    string
-	jobContracts     []JobKindContract
+	descriptor             Descriptor
+	descriptorObject       map[string]any
+	descriptorSHA256       string
+	bindingObject          map[string]any
+	bindingSHA256          string
+	jobContracts           []JobKindContract
+	workerRuntimeContracts []WorkerPublication
 }
 
 // Coordinator is an immutable coordination facade over generated build inputs.
@@ -206,6 +207,11 @@ func NewCoordinator(source ArtifactSource) (*Coordinator, error) {
 		if parseErr != nil {
 			return nil, unavailableBinding(descriptor.ProfileID, parseErr.Error())
 		}
+		workerKinds, _ := stringSlice(bindingObject["worker_kinds"])
+		workerContracts, parseErr := parseWorkerRuntimeContracts(descriptor.ProfileID, bindingObject["worker_runtime_contracts"], workerKinds, jobContracts)
+		if parseErr != nil {
+			return nil, unavailableBinding(descriptor.ProfileID, parseErr.Error())
+		}
 		for _, jobContract := range jobContracts {
 			artifactID := "job-contracts/" + descriptor.ProfileID + "/" + jobContract.JobKind
 			jobObject, jobArtifact, readErr := readArtifactObject(source, generatedExtensionsRoot+artifactID+".json")
@@ -218,12 +224,13 @@ func NewCoordinator(source ArtifactSource) (*Coordinator, error) {
 			}
 		}
 		coordinator.profiles[descriptor.ProfileID] = profileRecord{
-			descriptor:       descriptor,
-			descriptorObject: cloneObject(profileObject),
-			descriptorSHA256: descriptorArtifact.SHA256,
-			bindingObject:    cloneObject(bindingObject),
-			bindingSHA256:    bindingArtifact.SHA256,
-			jobContracts:     cloneJobKindContracts(jobContracts),
+			descriptor:             descriptor,
+			descriptorObject:       cloneObject(profileObject),
+			descriptorSHA256:       descriptorArtifact.SHA256,
+			bindingObject:          cloneObject(bindingObject),
+			bindingSHA256:          bindingArtifact.SHA256,
+			jobContracts:           cloneJobKindContracts(jobContracts),
+			workerRuntimeContracts: cloneWorkerPublications(workerContracts),
 		}
 		coordinator.orderedProfileIDs = append(coordinator.orderedProfileIDs, descriptor.ProfileID)
 	}
@@ -406,8 +413,10 @@ type WorkspacePublication struct {
 }
 
 type WorkerPublication struct {
-	ProfileID  string
-	WorkerKind string
+	ProfileID                   string
+	WorkerKind                  string
+	JobKinds                    []string
+	MaxActiveAttemptsPerProcess int
 }
 
 type ContributionPublication struct {
@@ -479,6 +488,19 @@ func cloneJobKindContracts(source []JobKindContract) []JobKindContract {
 	return result
 }
 
+func cloneWorkerPublication(source WorkerPublication) WorkerPublication {
+	source.JobKinds = append([]string(nil), source.JobKinds...)
+	return source
+}
+
+func cloneWorkerPublications(source []WorkerPublication) []WorkerPublication {
+	result := make([]WorkerPublication, len(source))
+	for index, worker := range source {
+		result[index] = cloneWorkerPublication(worker)
+	}
+	return result
+}
+
 // JobKindContracts returns the exact generated job catalog in profile and job
 // identity order. Internal ownership metadata is not part of the public job
 // resource and remains confined to this application-facing contract.
@@ -489,6 +511,20 @@ func (c *Coordinator) JobKindContracts() []JobKindContract {
 	result := []JobKindContract{}
 	for _, profileID := range c.orderedProfileIDs {
 		result = append(result, cloneJobKindContracts(c.profiles[profileID].jobContracts)...)
+	}
+	return result
+}
+
+// WorkerRuntimeContracts returns every packaged worker contract in profile and
+// worker identity order, independent of claim state. Jobs uses this set to
+// construct the recognized durable catalog without a handwritten mapping.
+func (c *Coordinator) WorkerRuntimeContracts() []WorkerPublication {
+	if c == nil {
+		return nil
+	}
+	result := []WorkerPublication{}
+	for _, profileID := range c.orderedProfileIDs {
+		result = append(result, cloneWorkerPublications(c.profiles[profileID].workerRuntimeContracts)...)
 	}
 	return result
 }
@@ -574,7 +610,7 @@ func (p PublicationPlan) Workspaces() []WorkspacePublication {
 }
 
 func (p PublicationPlan) Workers() []WorkerPublication {
-	return append([]WorkerPublication(nil), p.workers...)
+	return cloneWorkerPublications(p.workers)
 }
 
 func (p PublicationPlan) JobKindContracts() []JobKindContract {
@@ -716,10 +752,13 @@ func (c *Coordinator) BuildPublicationPlan(resolution ClaimResolution) (Publicat
 			workspaceItems = append(workspaceItems, map[string]any{"profile_id": profileID, "workspace_key": workspaceKey, "contribution_id": contributionID})
 			workspaces = append(workspaces, WorkspacePublication{ProfileID: profileID, WorkspaceKey: workspaceKey, ContributionID: contributionID})
 		}
-		workerKinds, _ := stringSlice(record.bindingObject["worker_kinds"])
-		for _, workerKind := range workerKinds {
-			workerItems = append(workerItems, map[string]any{"profile_id": profileID, "worker_kind": workerKind})
-			workers = append(workers, WorkerPublication{ProfileID: profileID, WorkerKind: workerKind})
+		for _, worker := range record.workerRuntimeContracts {
+			workerItems = append(workerItems, map[string]any{
+				"profile_id": profileID, "worker_kind": worker.WorkerKind,
+				"job_kinds":                       append([]string(nil), worker.JobKinds...),
+				"max_active_attempts_per_process": worker.MaxActiveAttemptsPerProcess,
+			})
+			workers = append(workers, cloneWorkerPublication(worker))
 		}
 		jobContracts = append(jobContracts, cloneJobKindContracts(record.jobContracts)...)
 		bindingItems = append(bindingItems, map[string]any{"profile_id": profileID, "binding_sha256": record.bindingSHA256})
@@ -908,13 +947,13 @@ func parseDescriptor(object map[string]any) (Descriptor, error) {
 }
 
 func validateBinding(descriptor Descriptor, descriptorDigest string, binding map[string]any) error {
-	requiredKeys := []string{"schema_id", "profile_id", "contract_major", "descriptor_sha256", "implemented_contribution_ids", "supported_capability_ids", "state_ownership_kind", "preflight_algorithm_id", "post_migration_algorithm_id", "initialization_definition_sha256", "initialization_algorithm_id", "final_state_validation_algorithm_id", "dependency_probe_ids", "migration_definitions", "physical_state_binding_sha256", "backup_codec_bindings", "rebuild_algorithm_ids", "transaction_participant_limits", "supporting_schema_ids", "worker_kinds", "job_kind_contracts", "participant_contracts"}
+	requiredKeys := []string{"schema_id", "profile_id", "contract_major", "descriptor_sha256", "implemented_contribution_ids", "supported_capability_ids", "state_ownership_kind", "preflight_algorithm_id", "post_migration_algorithm_id", "initialization_definition_sha256", "initialization_algorithm_id", "final_state_validation_algorithm_id", "dependency_probe_ids", "migration_definitions", "physical_state_binding_sha256", "backup_codec_bindings", "rebuild_algorithm_ids", "transaction_participant_limits", "supporting_schema_ids", "worker_kinds", "worker_runtime_contracts", "job_kind_contracts", "participant_contracts"}
 	if err := requireExactKeys(binding, requiredKeys...); err != nil {
 		return err
 	}
 	major, ok := integerValue(binding["contract_major"])
 	capabilities, capabilitiesOK := stringSlice(binding["supported_capability_ids"])
-	if binding["schema_id"] != "cartulary.extension_implementation_binding.v1" || stringValue(binding["profile_id"]) != descriptor.ProfileID || !ok || major != descriptor.ContractMajor || stringValue(binding["descriptor_sha256"]) != descriptorDigest || !capabilitiesOK || len(capabilities) != 0 {
+	if binding["schema_id"] != "cartulary.extension_implementation_binding.v2" || stringValue(binding["profile_id"]) != descriptor.ProfileID || !ok || major != descriptor.ContractMajor || stringValue(binding["descriptor_sha256"]) != descriptorDigest || !capabilitiesOK || len(capabilities) != 0 {
 		return errors.New("binding identity, major, descriptor digest, or capability parity is invalid")
 	}
 	for _, key := range []string{"implemented_contribution_ids", "dependency_probe_ids", "rebuild_algorithm_ids", "supporting_schema_ids", "worker_kinds"} {
@@ -923,10 +962,61 @@ func validateBinding(descriptor Descriptor, descriptorDigest string, binding map
 			return fmt.Errorf("binding %s is malformed", key)
 		}
 	}
-	if _, err := parseJobKindContracts(descriptor.ProfileID, binding["job_kind_contracts"]); err != nil {
+	jobContracts, err := parseJobKindContracts(descriptor.ProfileID, binding["job_kind_contracts"])
+	if err != nil {
+		return err
+	}
+	workerKinds, _ := stringSlice(binding["worker_kinds"])
+	if err := validateWorkerRuntimeContracts(descriptor.ProfileID, binding["worker_runtime_contracts"], workerKinds, jobContracts); err != nil {
 		return err
 	}
 	return nil
+}
+
+func validateWorkerRuntimeContracts(profileID string, value any, workerKinds []string, jobContracts []JobKindContract) error {
+	_, err := parseWorkerRuntimeContracts(profileID, value, workerKinds, jobContracts)
+	return err
+}
+
+func parseWorkerRuntimeContracts(profileID string, value any, workerKinds []string, jobContracts []JobKindContract) ([]WorkerPublication, error) {
+	rows, ok := objectSlice(value)
+	if !ok || len(rows) != len(workerKinds) {
+		return nil, errors.New("binding worker runtime contracts are incomplete")
+	}
+	knownJobs := make(map[string]bool, len(jobContracts))
+	for _, contract := range jobContracts {
+		knownJobs[contract.JobKind] = true
+	}
+	assignedJobs := make(map[string]bool, len(jobContracts))
+	result := make([]WorkerPublication, 0, len(rows))
+	for index, row := range rows {
+		if err := requireExactKeys(row, "schema_id", "profile_id", "worker_kind", "job_kinds", "max_active_attempts_per_process"); err != nil {
+			return nil, err
+		}
+		maximum, maximumOK := integerValue(row["max_active_attempts_per_process"])
+		jobs, jobsOK := stringSlice(row["job_kinds"])
+		if row["schema_id"] != "cartulary.extension_worker_runtime_contract.v1" ||
+			stringValue(row["profile_id"]) != profileID ||
+			stringValue(row["worker_kind"]) != workerKinds[index] ||
+			!maximumOK || maximum < 1 || maximum > 8 ||
+			!jobsOK || len(jobs) == 0 || !strictlySortedUnique(jobs) {
+			return nil, errors.New("binding worker runtime contract is malformed")
+		}
+		for _, jobKind := range jobs {
+			if !knownJobs[jobKind] || assignedJobs[jobKind] {
+				return nil, errors.New("binding worker runtime job assignment is invalid")
+			}
+			assignedJobs[jobKind] = true
+		}
+		result = append(result, WorkerPublication{
+			ProfileID: profileID, WorkerKind: workerKinds[index],
+			JobKinds: jobs, MaxActiveAttemptsPerProcess: maximum,
+		})
+	}
+	if len(assignedJobs) != len(knownJobs) {
+		return nil, errors.New("binding worker runtime job assignment is incomplete")
+	}
+	return result, nil
 }
 
 func parseJobKindContracts(profileID string, value any) ([]JobKindContract, error) {

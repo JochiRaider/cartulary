@@ -69,6 +69,7 @@ func TestJobTelemetryNoSDK(t *testing.T) {
 		StartedAt:  &startedAt,
 		FinishedAt: &finishedAt,
 	}, ScopeKindIncident, "success")
+	manager.recordQueueWait(context.Background(), ScopeKindIncident, 2*time.Second)
 	manager.recordAttempt(context.Background(), ScopeKindIncident, "failed")
 	manager.recordLeaseRenewalFailure(context.Background(), ScopeKindIncident, "conflict")
 	manager.recordExpiredJobs(context.Background(), map[string]int64{ScopeKindIncident: 1})

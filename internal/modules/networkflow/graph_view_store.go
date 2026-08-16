@@ -17,6 +17,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 )
 
 const (
@@ -290,6 +293,28 @@ func (s *Store) PublishGraphViewResultTx(ctx context.Context, tx pgx.Tx, inciden
 	if s == nil || tx == nil || incidentID == uuid.Nil || jobID == uuid.Nil || generation < 1 || !validSelectedGraphViewResult(selected) {
 		return GraphViewDeclaration{}, ErrGraphViewDeclarationInvalid
 	}
+	reader, err := postgresresult.NewReader(tx)
+	if err != nil {
+		return GraphViewDeclaration{}, err
+	}
+	storedBinding, err := reader.LockResultEnvelope(ctx, selected.ProjectionResultID)
+	if err != nil {
+		return GraphViewDeclaration{}, err
+	}
+	wantBinding := graphprojection.ResultBindingV2{
+		ProjectionResultID:            selected.ProjectionResultID,
+		GraphViewID:                   graphViewID,
+		SourceOwnerID:                 ProfileID,
+		SourceSnapshotID:              selected.SourceSnapshotID,
+		ProjectionSchemaID:            selected.ProjectionSchemaID,
+		ProjectionVersion:             selected.ProjectionVersion,
+		NormalizedConfigurationSHA256: selected.NormalizedConfigurationSHA256,
+		NormalizedSourceSHA256:        selected.NormalizedSourceSHA256,
+		CanonicalOutputSHA256:         selected.CanonicalOutputSHA256,
+	}
+	if storedBinding != wantBinding {
+		return GraphViewDeclaration{}, graphprojection.ErrResultV2BindingMismatch
+	}
 	row := tx.QueryRow(ctx, `
 UPDATE network_flow_graph_views
    SET selected_projection_result_id = $6,
@@ -316,6 +341,38 @@ RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, generation, so
 		return GraphViewDeclaration{}, ErrGraphViewPublicationStale
 	}
 	return declaration, err
+}
+
+// LockGraphViewDeclarationsSelectingResultTx checks Network Flow's
+// authoritative selected bindings while locking every matching declaration.
+// The caller must already hold the immutable result-envelope lock.
+func (s *Store) LockGraphViewDeclarationsSelectingResultTx(ctx context.Context, tx pgx.Tx, projectionResultID string) (bool, error) {
+	if s == nil || tx == nil || !graphProjectionResultIDPattern.MatchString(projectionResultID) {
+		return false, ErrGraphViewDeclarationInvalid
+	}
+	rows, err := tx.Query(ctx, `
+SELECT graph_view_id
+  FROM network_flow_graph_views
+ WHERE selected_projection_result_id = $1
+ ORDER BY graph_view_id
+ FOR UPDATE
+`, projectionResultID)
+	if err != nil {
+		return false, fmt.Errorf("lock Network Flow selected graph declarations: %w", err)
+	}
+	defer rows.Close()
+	selected := false
+	for rows.Next() {
+		var graphViewID string
+		if err := rows.Scan(&graphViewID); err != nil {
+			return false, fmt.Errorf("scan Network Flow selected graph declaration: %w", err)
+		}
+		selected = true
+	}
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("iterate Network Flow selected graph declarations: %w", err)
+	}
+	return selected, nil
 }
 
 func (s *Store) RecordGraphViewMaterializationFailureTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, generation int64, jobID uuid.UUID, failureCode string, now time.Time) error {

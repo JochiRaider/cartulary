@@ -63,8 +63,34 @@ func TestPublicationCatalog_ExactGeneratedSets_Unit(t *testing.T) {
 		}
 		gotJobWorkers[contract.JobKind] = contract.HandlerName
 	}
-	if !reflect.DeepEqual(gotJobWorkers, canonicalWorkerByJobKind) {
-		t.Fatalf("job/worker catalog = %v; want %v", gotJobWorkers, canonicalWorkerByJobKind)
+	wantJobWorkers := map[string]string{
+		"import.discovery_v1":                             "import.discovery_worker_v1",
+		"import.apply_v1":                                 "import.apply_worker_v1",
+		"incident_portability.export_v1":                  "incident_portability.bundle_worker_v1",
+		"incident_portability.import_v1":                  "incident_portability.bundle_worker_v1",
+		"reference_pack.import_v1":                        "reference_pack.lifecycle_worker_v1",
+		"reference_pack.reverify_v1":                      "reference_pack.lifecycle_worker_v1",
+		"reference_pack.refresh_v1":                       "reference_pack.lifecycle_worker_v1",
+		"snapshot_reporting.snapshot_create_v1":           "snapshot_reporting.job_worker_v1",
+		"snapshot_reporting.release_create_v1":            "snapshot_reporting.job_worker_v1",
+		"snapshot_reporting.composition_preview_v1":       "snapshot_reporting.job_worker_v1",
+		"network_flow_activity.graph_view_materialize_v1": "network_flow_activity.graph_view_worker_v1",
+	}
+	if !reflect.DeepEqual(gotJobWorkers, wantJobWorkers) {
+		t.Fatalf("job/worker catalog = %v; want %v", gotJobWorkers, wantJobWorkers)
+	}
+	workerContracts, err := WorkerRuntimeContracts(catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, worker := range workerContracts {
+		wantMaximum := 8
+		if worker.WorkerKind == "network_flow_activity.graph_view_worker_v1" {
+			wantMaximum = 1
+		}
+		if worker.MaxActiveAttemptsPerProcess != wantMaximum {
+			t.Fatalf("worker capacity = %#v; want %d", worker, wantMaximum)
+		}
 	}
 	if got, want := catalog.ParticipantIDs(), []string{
 		"network_flow_activity.backup_restore_v1",

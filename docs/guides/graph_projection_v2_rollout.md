@@ -3,6 +3,9 @@
 This guide supports the adopted Graph Projection, Network Flow, Reporting, and
 Recovery owners. It does not define product behavior.
 
+For the additive GP3/state-3 rollout that follows this v2 cutover, use
+`docs/guides/network_flow_gp3_rollout_and_rollback.md`.
+
 ## Rollout order
 
 1. Deploy code that understands additive migration `00032` while retaining the

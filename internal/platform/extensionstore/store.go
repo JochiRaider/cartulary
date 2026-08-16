@@ -31,6 +31,7 @@ type Querier interface {
 type FamilyCounter struct {
 	FamilyID string
 	Count    func(context.Context, Querier) (int64, error)
+	Validate func(context.Context, Querier) error
 }
 
 type FamilyCountReader interface {
@@ -162,6 +163,26 @@ func (t *Tx) FamilyCounts(ctx context.Context, familyIDs []string) (map[string]i
 		result[familyID] = count
 	}
 	return result, nil
+}
+
+// ValidateFamilyState invokes the named owner's read-only semantic validator
+// inside the same transaction and profile lock used by extension migration.
+// The generic store does not receive owner table names or interpret owner data.
+func (t *Tx) ValidateFamilyState(ctx context.Context, familyID string) error {
+	if t == nil || t.tx == nil || t.closed {
+		return errors.New("extension state transaction unavailable")
+	}
+	counter, ok := t.counters[familyID]
+	if !ok {
+		return fmt.Errorf("extension family validator unavailable: %s", familyID)
+	}
+	if counter.Validate == nil {
+		return nil
+	}
+	if err := counter.Validate(ctx, t.tx); err != nil {
+		return fmt.Errorf("validate extension family %s: %w", familyID, err)
+	}
+	return nil
 }
 
 type StateMetadata struct {

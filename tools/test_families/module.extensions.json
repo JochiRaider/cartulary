@@ -245,7 +245,7 @@
       ]
     },
     {
-      "row_id": "module.extensions.integration.network_flow_state_v2",
+      "row_id": "module.extensions.integration.network_flow_state_v3",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.integration",
       "collaborator_ids": [
@@ -259,7 +259,8 @@
       "selector": {
         "package": "./internal/modules/extensions",
         "tests": [
-          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowFinalValidator"
+          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowFinalValidator",
+          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowStateTwoToThreeIsBytePreserving"
         ]
       },
       "evidence_class": "integration",
@@ -794,7 +795,7 @@
       "service_dependencies": []
     },
     {
-      "row_id": "module.extensions.unit.network_flow_v3_state_jobs_reporting_projection",
+      "row_id": "module.extensions.unit.network_flow_v4_state_jobs_reporting_projection",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
       "collaborator_ids": [
@@ -808,7 +809,7 @@
       "selector": {
         "package": "./internal/modules/extensions",
         "tests": [
-          "TestNetworkFlowV3StateJobsAndReportingProjection_Unit"
+          "TestNetworkFlowV4StateJobsAndReportingProjection_Unit"
         ]
       },
       "evidence_class": "unit",

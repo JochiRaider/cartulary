@@ -61,6 +61,7 @@ func deploymentFromSnapshot(snapshot config.Snapshot) (Deployment, error) {
 
 func cloneDeployment(source Deployment) Deployment {
 	cloned := source
+	cloned.NetworkFlowActivity = networkflow.CloneConfiguration(source.NetworkFlowActivity)
 	cloned.Telemetry = telemetryconfiguration.Clone(source.Telemetry)
 	return cloned
 }

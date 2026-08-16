@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.network_flow_public_schemas.v1",
-  "schema_id": "cartulary.network_flow_public_schemas.v1",
+  "$id": "cartulary.network_flow_public_schemas.v2",
+  "schema_id": "cartulary.network_flow_public_schemas.v2",
   "profile_id": "network_flow_activity",
-  "contract_major": 3,
+  "contract_major": 4,
   "$defs": {
     "TimestampProfile": {
       "x_schema_id": "cartulary.network_flow.timestamp_profile.v1",
@@ -1101,7 +1101,7 @@
           "required": ["kind", "graph_query", "graph_query_digest", "vertex_id"],
           "properties": {
             "kind": { "const": "graph_vertex" },
-            "graph_query": { "$ref": "#/$defs/GraphSemanticQuery" },
+            "graph_query": { "$ref": "#/$defs/GraphSemanticQueryV2" },
             "graph_query_digest": { "$ref": "#/$defs/SHA256" },
             "vertex_id": { "$ref": "#/$defs/EndpointID" }
           }
@@ -1112,9 +1112,9 @@
           "required": ["kind", "graph_query", "graph_query_digest", "edge_id", "field_key"],
           "properties": {
             "kind": { "const": "graph_edge" },
-            "graph_query": { "$ref": "#/$defs/GraphSemanticQuery" },
+            "graph_query": { "$ref": "#/$defs/GraphSemanticQueryV2" },
             "graph_query_digest": { "$ref": "#/$defs/SHA256" },
-            "edge_id": { "$ref": "#/$defs/FlowEdgeID" },
+            "edge_id": { "oneOf": [{ "$ref": "#/$defs/FlowEdgeID" }, { "$ref": "#/$defs/BucketEdgeID" }] },
             "field_key": { "enum": ["network_flow.src_ip", "network_flow.dst_ip"] }
           }
         }
@@ -1411,6 +1411,476 @@
         "network_flow_table_id"
       ]
     },
+    "GraphQueryRequestV2": {
+      "x_schema_id": "cartulary.network_flow.graph_query_request.v2",
+      "oneOf": [
+        { "$ref": "#/$defs/DefaultGraphQueryRequestV2" },
+        { "$ref": "#/$defs/TimeBucketGraphQueryRequestV2" }
+      ]
+    },
+    "GraphQueryResultV2": {
+      "x_schema_id": "cartulary.network_flow.graph_query_result.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_query_digest", "semantic_query", "graph_projection_result", "vertex_selectors", "edge_annotations", "source_table_refs", "result_limits", "result_variant"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_query_result.v2" },
+        "graph_query_digest": { "$ref": "#/$defs/SHA256" },
+        "semantic_query": { "$ref": "#/$defs/GraphSemanticQueryV2" },
+        "graph_projection_result": { "$ref": "#/$defs/GraphProjectionResultV2" },
+        "vertex_selectors": { "type": "array", "items": { "$ref": "#/$defs/GraphVertexSelectorBindingV2" } },
+        "edge_annotations": { "type": "array", "items": { "$ref": "#/$defs/EdgeAnnotationV2" } },
+        "source_table_refs": { "type": "array", "items": { "$ref": "#/$defs/GraphSourceTableRef" } },
+        "result_limits": { "$ref": "#/$defs/GraphResultLimitsV2" },
+        "result_variant": { "$ref": "#/$defs/GraphResultVariantV2" }
+      }
+    },
+    "GraphSemanticQueryV2": {
+      "x_schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+      "oneOf": [
+        { "$ref": "#/$defs/DefaultGraphSemanticQueryV2" },
+        { "$ref": "#/$defs/TimeBucketGraphSemanticQueryV2" }
+      ]
+    },
+    "GraphContributorQueryRequestV2": {
+      "x_schema_id": "cartulary.network_flow.graph_contributor_query_request.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_query", "graph_query_digest", "selector", "limit"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_contributor_query_request.v2" },
+        "graph_query": { "$ref": "#/$defs/GraphSemanticQueryV2" },
+        "graph_query_digest": { "$ref": "#/$defs/SHA256" },
+        "selector": { "$ref": "#/$defs/GraphSelectorV2" },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 1000 }
+      }
+    },
+    "GraphContributorQueryResultV2": {
+      "x_schema_id": "cartulary.network_flow.graph_contributor_query_result.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_query_digest", "selector", "contributors", "meta"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_contributor_query_result.v2" },
+        "graph_query_digest": { "$ref": "#/$defs/SHA256" },
+        "selector": { "$ref": "#/$defs/GraphSelectorV2" },
+        "contributors": { "type": "array", "maxItems": 1000, "items": { "$ref": "#/$defs/Contributor" } },
+        "meta": { "$ref": "#/$defs/ContributorMeta" }
+      }
+    },
+    "SourceProfileListV2": {
+      "x_schema_id": "cartulary.network_flow.source_profile_list.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "source_profiles", "effective_limits", "meta"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.source_profile_list.v2" },
+        "source_profiles": { "type": "array", "items": { "$ref": "#/$defs/SourceProfile" } },
+        "effective_limits": { "$ref": "#/$defs/EffectiveLimitsV2" },
+        "meta": { "$ref": "#/$defs/CountMeta" }
+      }
+    },
+    "GraphViewV2": {
+      "x_schema_id": "cartulary.network_flow.graph_view.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_view_id", "incident_id", "display_name", "normalized_display_name", "graph_view_version", "materialization_generation", "state", "semantic_query", "selected_result", "last_materialization_job_id", "last_materialization_status", "last_failure_code", "created_at", "updated_at"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view.v2" },
+        "graph_view_id": { "$ref": "#/$defs/GraphViewID" },
+        "incident_id": { "$ref": "#/$defs/UUID" },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "normalized_display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "graph_view_version": { "$ref": "#/$defs/PositiveInt" },
+        "materialization_generation": { "$ref": "#/$defs/PositiveInt" },
+        "state": { "enum": ["active", "retired"] },
+        "semantic_query": { "oneOf": [{ "$ref": "#/$defs/GraphSemanticQuery" }, { "$ref": "#/$defs/GraphSemanticQueryV2" }] },
+        "selected_result": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/GraphViewSelectedResult" }] },
+        "last_materialization_job_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 160 },
+        "last_materialization_status": { "enum": ["not_started", "queued", "running", "succeeded", "failed", "cancelled"] },
+        "last_failure_code": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$" },
+        "created_at": { "$ref": "#/$defs/TimestampUTC" },
+        "updated_at": { "$ref": "#/$defs/TimestampUTC" }
+      }
+    },
+    "GraphViewListV2": {
+      "x_schema_id": "cartulary.network_flow.graph_view_list.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_views"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_list.v2" },
+        "graph_views": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/GraphViewV2" } }
+      }
+    },
+    "GraphViewGetV2": {
+      "x_schema_id": "cartulary.network_flow.graph_view_get.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_view"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_get.v2" },
+        "graph_view": { "$ref": "#/$defs/GraphViewV2" }
+      }
+    },
+    "GraphViewCreateRequestV2": {
+      "x_schema_id": "cartulary.network_flow.graph_view_create_request.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "client_txn_id", "display_name", "semantic_query"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_create_request.v2" },
+        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "semantic_query": { "$ref": "#/$defs/GraphSemanticQueryV2" }
+      }
+    },
+    "GraphViewAcceptedV2": {
+      "x_schema_id": "cartulary.network_flow.graph_view_accepted.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_view", "job_id", "job_kind"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_accepted.v2" },
+        "graph_view": { "$ref": "#/$defs/GraphViewV2" },
+        "job_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "job_kind": { "const": "network_flow_activity.graph_view_materialize_v1" }
+      }
+    },
+    "GraphViewMutationResultV2": {
+      "x_schema_id": "cartulary.network_flow.graph_view_mutation_result.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_view"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_mutation_result.v2" },
+        "graph_view": { "$ref": "#/$defs/GraphViewV2" }
+      }
+    },
+    "GraphViewResultV2": {
+      "x_schema_id": "cartulary.network_flow.graph_view_result.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_view", "result"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_result.v2" },
+        "graph_view": { "$ref": "#/$defs/GraphViewV2" },
+        "result": { "oneOf": [{ "$ref": "#/$defs/GraphQueryResult" }, { "$ref": "#/$defs/GraphQueryResultV2" }] }
+      }
+    },
+    "GraphViewContributorQueryRequestV2": {
+      "x_schema_id": "cartulary.network_flow.graph_view_contributor_query_request.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "projection_result_id", "selector", "limit"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_contributor_query_request.v2" },
+        "projection_result_id": { "$ref": "#/$defs/ProjectionResultID" },
+        "selector": { "$ref": "#/$defs/GraphSelectorV2" },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 1000 }
+      }
+    },
+    "GraphViewContributorQueryResultV2": {
+      "x_schema_id": "cartulary.network_flow.graph_view_contributor_query_result.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_view_id", "projection_result_id", "selector", "contributors", "meta"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_contributor_query_result.v2" },
+        "graph_view_id": { "$ref": "#/$defs/GraphViewID" },
+        "projection_result_id": { "$ref": "#/$defs/ProjectionResultID" },
+        "selector": { "$ref": "#/$defs/GraphSelectorV2" },
+        "contributors": { "type": "array", "maxItems": 1000, "items": { "$ref": "#/$defs/Contributor" } },
+        "meta": { "$ref": "#/$defs/ContributorMeta" }
+      }
+    },
+    "TimeRangeV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_utc", "end_utc"],
+      "properties": {
+        "start_utc": { "oneOf": [{ "$ref": "#/$defs/TimestampUTC" }, { "type": "null" }] },
+        "end_utc": { "oneOf": [{ "$ref": "#/$defs/TimestampUTC" }, { "type": "null" }] }
+      }
+    },
+    "CompleteTimeRangeV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_utc", "end_utc"],
+      "properties": {
+        "start_utc": { "$ref": "#/$defs/TimestampUTC" },
+        "end_utc": { "$ref": "#/$defs/TimestampUTC" }
+      }
+    },
+    "GraphAggregationV2": {
+      "oneOf": [
+        { "$ref": "#/$defs/DefaultGraphAggregationV2" },
+        { "$ref": "#/$defs/TimeBucketGraphAggregationV2" }
+      ]
+    },
+    "DefaultGraphAggregationV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "const": "default_flow_edge_v1" },
+        "include_example_row_refs": { "type": "boolean" }
+      }
+    },
+    "TimeBucketGraphAggregationV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "bucket_width_seconds"],
+      "properties": {
+        "mode": { "const": "time_bucket_v1" },
+        "bucket_width_seconds": { "enum": [60, 300, 900, 3600, 21600, 86400] },
+        "include_example_row_refs": { "type": "boolean" }
+      }
+    },
+    "DefaultGraphQueryRequestV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "table_scope", "aggregation"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_query_request.v2" },
+        "table_scope": { "$ref": "#/$defs/TableScope" },
+        "filters": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/Filter" } },
+        "time_range": { "$ref": "#/$defs/TimeRangeV2" },
+        "aggregation": { "$ref": "#/$defs/DefaultGraphAggregationV2" },
+        "limit_overrides": { "$ref": "#/$defs/LimitOverridesV2" }
+      }
+    },
+    "TimeBucketGraphQueryRequestV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "table_scope", "time_range", "aggregation"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_query_request.v2" },
+        "table_scope": { "$ref": "#/$defs/TableScope" },
+        "filters": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/Filter" } },
+        "time_range": { "$ref": "#/$defs/CompleteTimeRangeV2" },
+        "aggregation": { "$ref": "#/$defs/TimeBucketGraphAggregationV2" },
+        "limit_overrides": { "$ref": "#/$defs/LimitOverridesV2" }
+      }
+    },
+    "DefaultGraphSemanticQueryV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "selected_table_ids", "filters", "time_range", "aggregation"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_semantic_query.v2" },
+        "selected_table_ids": { "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/TableID" } },
+        "filters": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/Filter" } },
+        "time_range": { "$ref": "#/$defs/TimeRangeV2" },
+        "aggregation": { "$ref": "#/$defs/DefaultGraphAggregationV2" }
+      }
+    },
+    "TimeBucketGraphSemanticQueryV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "selected_table_ids", "filters", "time_range", "aggregation"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_semantic_query.v2" },
+        "selected_table_ids": { "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/TableID" } },
+        "filters": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/Filter" } },
+        "time_range": { "$ref": "#/$defs/CompleteTimeRangeV2" },
+        "aggregation": { "$ref": "#/$defs/TimeBucketGraphAggregationV2" }
+      }
+    },
+    "LimitOverridesV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_vertices": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "max_edges": { "type": "integer", "minimum": 0, "maximum": 250000 },
+        "max_example_row_refs_per_edge": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "max_contributing_rows_per_graph": { "type": "integer", "minimum": 1, "maximum": 5000000 },
+        "max_time_buckets_per_graph": { "type": "integer", "minimum": 1, "maximum": 1024 }
+      }
+    },
+    "GraphSelectorV2": {
+      "oneOf": [
+        { "$ref": "#/$defs/GraphVertexSelectorV2" },
+        { "$ref": "#/$defs/GraphDefaultEdgeSelectorV2" },
+        { "$ref": "#/$defs/GraphTemporalEdgeSelectorV2" }
+      ]
+    },
+    "GraphVertexSelectorV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "source_vertex_id", "endpoint_value"],
+      "properties": {
+        "kind": { "const": "vertex" },
+        "source_vertex_id": { "$ref": "#/$defs/EndpointID" },
+        "endpoint_value": { "$ref": "#/$defs/IPLiteral" }
+      }
+    },
+    "GraphDefaultEdgeSelectorV2": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "source_edge_id", "source_endpoint_value", "destination_endpoint_value", "protocol", "destination_port_present"],
+          "properties": {
+            "kind": { "const": "default_edge" },
+            "source_edge_id": { "$ref": "#/$defs/FlowEdgeID" },
+            "source_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
+            "destination_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
+            "protocol": { "$ref": "#/$defs/IPProtocol" },
+            "destination_port_present": { "const": false }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "source_edge_id", "source_endpoint_value", "destination_endpoint_value", "protocol", "destination_port_present", "destination_port"],
+          "properties": {
+            "kind": { "const": "default_edge" },
+            "source_edge_id": { "$ref": "#/$defs/FlowEdgeID" },
+            "source_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
+            "destination_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
+            "protocol": { "$ref": "#/$defs/IPProtocol" },
+            "destination_port_present": { "const": true },
+            "destination_port": { "$ref": "#/$defs/Port" }
+          }
+        }
+      ]
+    },
+    "GraphTemporalEdgeSelectorV2": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "source_edge_id", "bucket_start_utc", "bucket_end_utc", "source_endpoint_value", "destination_endpoint_value", "protocol", "destination_port_present"],
+          "properties": {
+            "kind": { "const": "time_bucket_edge" },
+            "source_edge_id": { "$ref": "#/$defs/BucketEdgeID" },
+            "bucket_start_utc": { "$ref": "#/$defs/TimestampUTC" },
+            "bucket_end_utc": { "$ref": "#/$defs/TimestampUTC" },
+            "source_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
+            "destination_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
+            "protocol": { "$ref": "#/$defs/IPProtocol" },
+            "destination_port_present": { "const": false }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "source_edge_id", "bucket_start_utc", "bucket_end_utc", "source_endpoint_value", "destination_endpoint_value", "protocol", "destination_port_present", "destination_port"],
+          "properties": {
+            "kind": { "const": "time_bucket_edge" },
+            "source_edge_id": { "$ref": "#/$defs/BucketEdgeID" },
+            "bucket_start_utc": { "$ref": "#/$defs/TimestampUTC" },
+            "bucket_end_utc": { "$ref": "#/$defs/TimestampUTC" },
+            "source_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
+            "destination_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
+            "protocol": { "$ref": "#/$defs/IPProtocol" },
+            "destination_port_present": { "const": true },
+            "destination_port": { "$ref": "#/$defs/Port" }
+          }
+        }
+      ]
+    },
+    "GraphVertexSelectorBindingV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projected_vertex_id", "selector"],
+      "properties": {
+        "projected_vertex_id": { "$ref": "#/$defs/GraphProjectionVertexID" },
+        "selector": { "$ref": "#/$defs/GraphVertexSelectorV2" }
+      }
+    },
+    "EdgeAnnotationV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projected_edge_id", "selector", "example_row_refs", "example_refs_truncated", "example_refs_total_count"],
+      "properties": {
+        "projected_edge_id": { "$ref": "#/$defs/GraphProjectionEdgeID" },
+        "selector": { "oneOf": [{ "$ref": "#/$defs/GraphDefaultEdgeSelectorV2" }, { "$ref": "#/$defs/GraphTemporalEdgeSelectorV2" }] },
+        "example_row_refs": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/NetworkFlowRowRef" } },
+        "example_refs_truncated": { "type": "boolean" },
+        "example_refs_total_count": { "$ref": "#/$defs/NonNegativeInt" }
+      }
+    },
+    "GraphResultLimitsV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_vertices", "max_edges", "max_example_row_refs_per_edge", "max_aggregate_counter_digits", "max_contributing_rows_per_graph", "max_time_buckets_per_graph"],
+      "properties": {
+        "max_vertices": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "max_edges": { "type": "integer", "minimum": 0, "maximum": 250000 },
+        "max_example_row_refs_per_edge": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "max_aggregate_counter_digits": { "type": "integer", "minimum": 1, "maximum": 128 },
+        "max_contributing_rows_per_graph": { "type": "integer", "minimum": 1, "maximum": 5000000 },
+        "max_time_buckets_per_graph": { "type": "integer", "minimum": 1, "maximum": 1024 }
+      }
+    },
+    "GraphResultVariantV2": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": { "kind": { "const": "default_flow_edge_v1" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "time_buckets"],
+          "properties": {
+            "kind": { "const": "time_bucket_v1" },
+            "time_buckets": { "type": "array", "minItems": 1, "maxItems": 1024, "items": { "$ref": "#/$defs/TimeBucketSummaryV1" } }
+          }
+        }
+      ]
+    },
+    "TimeBucketSummaryV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_utc", "end_utc", "unique_vertex_count", "edge_count", "contributing_row_count"],
+      "properties": {
+        "start_utc": { "$ref": "#/$defs/TimestampUTC" },
+        "end_utc": { "$ref": "#/$defs/TimestampUTC" },
+        "unique_vertex_count": { "$ref": "#/$defs/NonNegativeInt" },
+        "edge_count": { "$ref": "#/$defs/NonNegativeInt" },
+        "contributing_row_count": { "$ref": "#/$defs/NonNegativeInt" }
+      }
+    },
+    "EffectiveLimitsV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["network_flow.max_active_tables_per_incident", "network_flow.max_retained_tables_per_incident", "network_flow.max_selected_tables_per_query", "network_flow.max_columns_per_csv", "network_flow.max_header_scalar_length", "network_flow.max_raw_cell_scalar_length", "network_flow.max_rows_per_csv", "network_flow.max_accepted_rows_per_table", "network_flow.max_rejected_row_diagnostics", "network_flow.max_filters_per_query", "network_flow.max_sorts_per_query", "network_flow.max_query_limit", "network_flow.max_graph_vertices", "network_flow.max_graph_edges", "network_flow.max_active_graph_views_per_incident", "network_flow.max_retained_graph_views_per_incident", "network_flow.max_nonterminal_graph_jobs_per_incident", "network_flow.max_example_row_refs_per_edge", "network_flow.max_binding_source_row_refs", "network_flow.max_aggregate_counter_digits", "network_flow.max_contributing_rows_per_graph", "network_flow.max_time_buckets_per_graph", "network_flow.graph_materialization_timeout_seconds"],
+      "properties": {
+        "network_flow.max_active_tables_per_incident": { "type": "integer", "minimum": 1, "maximum": 128 },
+        "network_flow.max_retained_tables_per_incident": { "type": "integer", "minimum": 1, "maximum": 512 },
+        "network_flow.max_selected_tables_per_query": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "network_flow.max_columns_per_csv": { "type": "integer", "minimum": 1, "maximum": 512 },
+        "network_flow.max_header_scalar_length": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "network_flow.max_raw_cell_scalar_length": { "type": "integer", "minimum": 1, "maximum": 16384 },
+        "network_flow.max_rows_per_csv": { "type": "integer", "minimum": 1, "maximum": 5000000 },
+        "network_flow.max_accepted_rows_per_table": { "type": "integer", "minimum": 1, "maximum": 5000000 },
+        "network_flow.max_rejected_row_diagnostics": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "network_flow.max_filters_per_query": { "type": "integer", "minimum": 0, "maximum": 16 },
+        "network_flow.max_sorts_per_query": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "network_flow.max_query_limit": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "network_flow.max_graph_vertices": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "network_flow.max_graph_edges": { "type": "integer", "minimum": 0, "maximum": 250000 },
+        "network_flow.max_active_graph_views_per_incident": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "network_flow.max_retained_graph_views_per_incident": { "type": "integer", "minimum": 1, "maximum": 128 },
+        "network_flow.max_nonterminal_graph_jobs_per_incident": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "network_flow.max_example_row_refs_per_edge": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "network_flow.max_binding_source_row_refs": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "network_flow.max_aggregate_counter_digits": { "type": "integer", "minimum": 1, "maximum": 128 },
+        "network_flow.max_contributing_rows_per_graph": { "type": "integer", "minimum": 1, "maximum": 5000000 },
+        "network_flow.max_time_buckets_per_graph": { "type": "integer", "minimum": 1, "maximum": 1024 },
+        "network_flow.graph_materialization_timeout_seconds": { "type": "integer", "minimum": 30, "maximum": 3600 }
+      }
+    },
+    "BucketEdgeID": { "type": "string", "pattern": "^nfbe_[a-f0-9]{64}$" },
+    "GraphProjectionVertexID": { "type": "string", "pattern": "^vx_[a-f0-9]{64}$" },
+    "GraphProjectionEdgeID": { "type": "string", "pattern": "^ed_[a-f0-9]{64}$" },
+    "IPProtocol": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "Port": { "type": "integer", "minimum": 0, "maximum": 65535 },
     "ErrorCode": { "type": "string", "pattern": "^network_flow_[a-z0-9_]+$" },
     "ReasonCode": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
   }

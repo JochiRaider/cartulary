@@ -35,6 +35,26 @@ SELECT count(*)
 	}
 }
 
+func TestGraphProjectionCleanupIndexMigrationAndRollback_Integration(t *testing.T) {
+	harness := pgtest.Start(t)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 33)
+	ctx := context.Background()
+
+	assertCleanupCandidateIndex(t, ctx, migrationDB.SQL(), false)
+	if err := migrationDB.ApplyThrough(ctx, 34); err != nil {
+		t.Fatalf("apply Graph Projection cleanup index: %v", err)
+	}
+	assertCleanupCandidateIndex(t, ctx, migrationDB.SQL(), true)
+	if err := migrationDB.RollbackThrough(ctx, 33); err != nil {
+		t.Fatalf("roll back Graph Projection cleanup index: %v", err)
+	}
+	assertCleanupCandidateIndex(t, ctx, migrationDB.SQL(), false)
+	if err := migrationDB.ApplyThrough(ctx, 34); err != nil {
+		t.Fatalf("reapply Graph Projection cleanup index: %v", err)
+	}
+	assertCleanupCandidateIndex(t, ctx, migrationDB.SQL(), true)
+}
+
 func TestGraphProjectionV1RemovalEmptyPreflightAndMechanicalRollback_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
 	migrationDB := harness.MigrationDatabaseThroughT(t, 32)
@@ -256,5 +276,26 @@ SELECT count(*)
 	}
 	if got != want {
 		t.Fatalf("legacy Graph Projection table count = %d; want %d", got, want)
+	}
+}
+
+func assertCleanupCandidateIndex(t testing.TB, ctx context.Context, db *sql.DB, want bool) {
+	t.Helper()
+	var definition sql.NullString
+	if err := db.QueryRowContext(ctx, `
+SELECT indexdef
+  FROM pg_catalog.pg_indexes
+ WHERE schemaname = 'public'
+   AND indexname = 'graph_projection_results_cleanup_candidate_idx'
+`).Scan(&definition); err != nil && err != sql.ErrNoRows {
+		t.Fatalf("inspect cleanup candidate index: %v", err)
+	}
+	if definition.Valid != want {
+		t.Fatalf("cleanup candidate index present=%t want=%t", definition.Valid, want)
+	}
+	if want && (!strings.Contains(definition.String, "source_owner_id") ||
+		!strings.Contains(definition.String, "published_at") ||
+		!strings.Contains(definition.String, "projection_result_id")) {
+		t.Fatalf("cleanup candidate index definition drifted: %q", definition.String)
 	}
 }

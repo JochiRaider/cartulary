@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.network_flow_contract_index.v2",
+  "$id": "cartulary.network_flow_contract_index.v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,13 +19,13 @@
       "const": "https://json-schema.org/draft/2020-12/schema"
     },
     "schema_id": {
-      "const": "cartulary.network_flow_contract_index.v2"
+      "const": "cartulary.network_flow_contract_index.v3"
     },
     "profile_id": {
       "const": "network_flow_activity"
     },
     "contract_major": {
-      "const": 3
+      "const": 4
     },
     "family_id": {
       "const": "network-flow"
@@ -42,7 +42,11 @@
         "timezone_provenance",
         "key_rings",
         "mapping_registry",
-        "presentation"
+        "presentation",
+        "reporting_graph_source",
+        "resource_limits",
+        "resource_limits_configuration_schema",
+        "graph_semantics"
       ],
       "properties": {
         "routes": {
@@ -71,6 +75,18 @@
         },
         "presentation": {
           "$ref": "#/$defs/repo_json_path"
+        },
+        "reporting_graph_source": {
+          "const": "contracts/network-flow/reporting-graph-source.v2.schema.json"
+        },
+        "resource_limits": {
+          "const": "contracts/network-flow/resource-limits.v2.json"
+        },
+        "resource_limits_configuration_schema": {
+          "const": "contracts/network-flow/resource-limits-config.v2.schema.json"
+        },
+        "graph_semantics": {
+          "const": "contracts/network-flow/graph-semantics.v2.json"
         }
       }
     },
@@ -80,7 +96,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^cartulary\\.network_flow[.a-z0-9_]+\\.v1$"
+        "pattern": "^cartulary\\.network_flow[.a-z0-9_]+\\.v[12]$"
       }
     },
     "closure_policy": {

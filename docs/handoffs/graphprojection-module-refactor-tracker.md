@@ -1,33 +1,35 @@
-# Graph Projection Production Activation Tracker and Handoff
+# GP3 — Production Readiness and Time-Bucketed Graphs
 
 ## 1. Controlling Posture
 
 - **Target subsystem:** `internal/modules/graphprojection`
 - **Controlling artifact:** `docs/handoffs/graphprojection-module-refactor-tracker.md`
-- **Iteration:** GP2, production retained-Graph activation and v1 retirement
-- **Status:** `COMPLETE`; GP2-S00 through GP2-S11 are complete and no slice is
-  active
-- **Planning baseline:** clean commit
-  `df30974f44b18f0667498ef90555fd17846444b9`
-- **Prior iteration:** GP-S00 through GP-S08 completed at `df30974f`
-- **Implementation baseline:** commit
-  `df30974f44b18f0667498ef90555fd17846444b9` plus the pre-existing staged
-  tracker revision; no other worktree change existed when GP2-S00 began
-- **Executed order:**
-  `GP2-S00 → GP2-S01 → GP2-S02 → GP2-S03 → GP2-S04 → GP2-S05 → GP2-S06 → GP2-S07 → GP2-S08 → GP2-S09 → GP2-S10 → GP2-S11`
+- **Current posture:** GP3 — Production Readiness and Time-Bucketed Graphs
+- **Status:** `GP3-S00` through `GP3-S12` are `DONE`; GP3 is complete and there
+  is no active workstream
+- **GP3 planning baseline:** clean commit
+  `d5b5d4fd3d4e8d046fb375e1b9225e4d496e519d`
+- **Completed iteration:** GP2-S00 through GP2-S11 completed at `d5b5d4fd`
+- **Earlier completed iteration:** GP-S00 through GP-S08 completed at
+  `df30974f`
+- **Planned GP3 order:**
+  `GP3-S00 → GP3-S01 → GP3-S02 → GP3-S03 → GP3-S04 → GP3-S05 → GP3-S06 → GP3-S07 → GP3-S08 → GP3-S09 → GP3-S10 → GP3-S11 → GP3-S12`
 
 This tracker controls the user-authorized implementation. Planned behavior does
 not become conformance authority until its applicable owner is adopted. Every
 slice is a separate workstream, and the tracker checkpoint for one slice MUST
 complete before the next slice begins.
 
-The authority order remains:
+The authority order is:
 
 1. Adopted subsystem NLSpecs within their named scopes.
 2. Core 00 through Core 04 within their named scopes.
-3. Versioned machine projections of those owners.
-4. Current repository implementation and tests as evidence.
-5. This tracker as sequencing, decision, validation, and handoff control only.
+3. `docs/domain.md` for vocabulary and owner navigation within its stated
+   boundary.
+4. Versioned machine projections of adopted owners.
+5. Current repository implementation and tests as evidence.
+6. This tracker as sequencing, decision, validation, and handoff control only;
+   it is not product or conformance authority.
 
 `docs/research/nlspec-spec.md` supplied writing guidance for behavioral
 completeness, unambiguous interfaces, explicit defaults, conceptual fidelity,
@@ -39,12 +41,17 @@ or runtime authority.
 
 | Class | Meaning | Effect in this tracker |
 | --- | --- | --- |
-| Current fact | Verified owner or repository state at `df30974f` | Baseline evidence; changes require an adopted owner and passing implementation evidence |
-| Planned decision | User-authorized target for GP2 | Directs owner drafting and slice design but is not conformance authority before adoption |
+| Current fact | Verified owner or repository state at the stated iteration baseline | Baseline evidence; changes require an adopted owner and passing implementation evidence |
+| Planned decision | User-authorized target for the current iteration | Directs owner drafting and slice design but is not conformance authority before adoption |
 | Adopted requirement | Text later accepted in a named owner | Governs implementation and machine projections after its adoption slice |
 | Completion evidence | Terminal command result, run root, artifact, or operational proof | Permits a slice to move from `IN PROGRESS` to `DONE` |
 
-## 2. Prior Iteration Baseline
+Sections 2 through 9 are the frozen GP2 completion record. They retain GP2's
+commands, run roots, compatibility decisions, risks, and handoff evidence and
+must not be reinterpreted as active GP3 requirements. Section 10 is the active
+GP3 plan.
+
+## 2. Frozen GP2 — Prior Iteration Baseline
 
 GP-S00 through GP-S08 completed the first Graph Projection remediation. That
 history is frozen at commit `df30974f` and is summarized here instead of being
@@ -67,7 +74,7 @@ producer, Graph route, Graph cursor configuration, Graph worker, or database
 migration. Its current source registry is exactly empty, so current restore
 behavior is successful clear-only.
 
-## 3. Current Facts and Production Gaps
+## 3. Frozen GP2 — Facts and Production Gaps
 
 | ID | Current fact | Production or maintenance risk | GP2 disposition |
 | --- | --- | --- | --- |
@@ -100,7 +107,7 @@ behavior is successful clear-only.
 | Exact pre-activation backup bridge | Temporarily preserve | Protects the bounded empty-registry backup posture during rollout | Delete only after GP2-S10 operational evidence passes |
 | v1 source and fixtures | Delete after cutover | Git retains historical evidence | No build, test, generator, or runtime dependency |
 
-## 4. Planned Product and Architecture Contract
+## 4. Frozen GP2 — Product and Architecture Contract
 
 Everything in this section is a planned GP2 decision until GP2-S01 adopts it in
 the applicable owner documents.
@@ -304,7 +311,7 @@ after all of these are recorded:
 4. The rollback decision for the prior binary/backup pair is explicit.
 5. The regenerated recovery binding and post-removal restore evidence pass.
 
-## 5. Workstream and Slice Plan
+## 5. Frozen GP2 — Workstream and Slice Plan
 
 ### Workstream dependencies
 
@@ -1348,7 +1355,7 @@ Exit: GP2-S00 through GP2-S11 are `DONE`, all binary criteria pass, no v1
 runtime or historical Graph binding remains, and this tracker is the complete
 handoff rather than an alternate owner specification.
 
-## 6. Validation Matrix
+## 6. Frozen GP2 — Validation Matrix
 
 ### Required public targets
 
@@ -1408,7 +1415,7 @@ Make; generated topology MUST NOT be hand-edited.
 - Safe errors, logs, telemetry, audits, cursors, job evidence, and Recovery
   evidence under sensitive source and dependency failures.
 
-## 7. Tracker Update Protocol
+## 7. Frozen GP2 — Tracker Update Protocol
 
 After every future slice, before the next slice begins:
 
@@ -1426,7 +1433,7 @@ Allowed statuses are `PLANNED`, `IN PROGRESS`, `BLOCKED`, and `DONE`.
 gate. `DONE` requires all exit criteria and terminal evidence; implementation
 presence alone is insufficient.
 
-## 8. Binary Completion Criteria
+## 8. Frozen GP2 — Binary Completion Criteria
 
 The GP2 iteration is complete only when all conditions are true:
 
@@ -1457,7 +1464,7 @@ The GP2 iteration is complete only when all conditions are true:
 - `make agent-finalize` and the final `make check` pass.
 - The final tracker handoff contains exact evidence and no unclassified risk.
 
-## 9. Current Slice Handoff
+## 9. Frozen GP2 — Final Slice Handoff
 
 ### GP2-S11 and iteration result
 
@@ -1522,8 +1529,2774 @@ maintenance, and final compatibility classification. Terminal broad evidence
 is `make check` 776/776 at `20260816T060753Z-p1052302` and
 `make release-check` 965/965 at `20260816T061242Z-p1197640`.
 
-### Current next action
+### GP2 closeout next action
 
 None. Preserve this tracker as the final handoff record. Any future Graph
 Projection or saved-graph phase begins with a new owner-first plan and must not
 reopen v1 compatibility implicitly.
+
+## 10. GP3 — Production Readiness and Time-Bucketed Graphs
+
+Everything in Sections 10.2 through 10.7 is a planned GP3 decision until the
+applicable owner adopts it in GP3-S01. Current owners and implementation remain
+the conformance baseline until then. GP3 does not reopen Graph Projection v1 or
+change the completed GP2 evidence above.
+
+### 10.1 GP3-S00 baseline and inventory
+
+GP3 planning began from clean commit
+`d5b5d4fd3d4e8d046fb375e1b9225e4d496e519d`. `git status --short` emitted no
+paths before this tracker edit. The planning inspection covered:
+
+```text
+docs/handoffs/graphprojection-module-refactor-tracker.md
+docs/domain.md
+docs/research/nlspec-spec.md
+docs/graph_projection_nlspec.md
+docs/network-flow-activity-nlspec.md
+docs/opentelemetry-instrumentation-nlspec.md
+docs/extension-subsystem-nlspec.md
+docs/guides/graph_projection_v2_rollout.md
+internal/modules/graphprojection/postgresresult/store.go
+internal/modules/networkflow/{api.go,graph.go,graph_view_jobs.go,module.go,reporting_graph_source.go}
+internal/platform/jobs/{manager.go,runner.go,telemetry.go}
+internal/app/server/runtime_assembly.go
+db/migrations/00032_graph_projection_v2.sql
+```
+
+`docs/domain.md` was used only for current vocabulary and owner navigation.
+`docs/research/nlspec-spec.md` was used only for specification-writing guidance:
+behavioral completeness, explicit defaults, conceptual fidelity, spec economy,
+recreatability, and testable completion. Neither document supplied unadopted
+GP3 product behavior.
+
+| Verified current fact | Production or expansion consequence |
+| --- | --- |
+| `postgresresult.Cleaner.DeleteUnreachableResults` has unit/service evidence but production has no constructor or scheduled caller | Superseded results and expired leases can accumulate indefinitely |
+| The cleanup method accepts one caller-supplied global reachable-ID list and does not scope deletion by source owner | A future producer could have its results deleted by another owner's incomplete reachability set |
+| Graph composition calls `ListRowsForTables`, filters and sorts a complete row slice, and retains contributing rows on vertices and edges | Memory grows with selected source rows rather than bounded result size; contributor lookup repeats the same construction |
+| Common Jobs provides eight global attempt slots and has no per-worker active-attempt limit | Multiple maximum graph jobs can run concurrently and starve unrelated job kinds despite one registered graph handler |
+| Generic Jobs telemetry exposes running count, duration, attempts, expiry, and lease-renewal failures | Queue wait, graph phase cost, result volume, cleanup progress, and cleanup backlog are not observable |
+| Network Flow owner Table 20-A says omitted limits use default-and-maximum values, while runtime defaults are generally lower and the claimed configuration namespace has no resource-limit member | Owner, discovery, runtime, and deployment capacity policy disagree |
+| The maximum Graph Projection fixture proves semantic completion at 100,000 vertices and 250,000 edges but publishes no retained deployment hardware envelope | Semantic correctness is proven; production capacity remains environment-specific |
+| Network Flow's only explicit Graph product backlog item is time-bucketed output | Temporal growth has an owner-recognized boundary but no current schema, identity, limit, Recovery, Reporting, or UI contract |
+
+### 10.2 Target ownership and interfaces
+
+| Surface | GP3 planned decision |
+| --- | --- |
+| Graph Projection | Retain `graph_projection.v2`; add no temporal product semantics, transport, configuration, public route, or worker. Replace cleanup's global reachability input with source-owner-scoped transaction-safe capabilities. |
+| Network Flow | Advance to public contract major `4`, state version `3`, and configuration contract major `2`. Own temporal graph semantics, effective resource policy, source iteration, result cleanup orchestration, and product UI. |
+| Semantic queries | Introduce `cartulary.network_flow.graph_semantic_query.v2` with default and `time_bucket_v1` variants. New ephemeral queries and saved-graph creates accept v2 only. |
+| Existing declarations | Continue to read, refresh, back up, restore, and return persisted semantic-query v1 declarations and their exact results. They remain a justified state-compatibility variant, not a public new-write protocol. |
+| State migration | `network_flow_activity.state_2_to_3_v1` expands the admitted declaration union while preserving all five authoritative families byte-for-byte. It creates no job, rewrites no query, and changes no result identity. |
+| Public routes | Retain the existing `/api/v1/incidents/{incident_id}/network-flow` route root and saved-graph paths. Generate only a major-4 client for current browser use. Add no operator route. |
+| Reporting | Keep exact `source_projection_ref.v2`; route typed Network Flow graph label components through Reporting redaction. Internal output uses deterministic post-redaction labels, while external Graph release remains fail-closed without a separately adopted allow rule. |
+| Recovery | Publish `graphprojection.restore_rebuild.v3`, which rebuilds admitted v1 default and v2 default/temporal Network Flow declarations into Graph Projection v2 results. Retain the exact v2 dispatcher read-only while a supported retained pre-GP3 backup references it. |
+| Persistence | Add only `00034_graph_projection_cleanup_indexes.sql`. Migrations `00032` and `00033` remain immutable. |
+| Worker control | Add a generated worker-runtime contract with `max_active_attempts_per_process`. The graph worker declares `1`; every existing worker explicitly declares the limit preserving its current effective behavior. |
+
+#### 10.2.1 Time-bucket contract
+
+`time_bucket_v1` has the following exact semantics:
+
+- Both `time_range.start_utc` and `time_range.end_utc` are required and define
+  the half-open interval `[start,end)`; `start` must be earlier than `end`.
+- `bucket_width_seconds` is exactly one of `60`, `300`, `900`, `3600`,
+  `21600`, or `86400`.
+- Bucket boundaries are UTC instants aligned to the Unix epoch. Implementations
+  use mathematical floor division for negative epochs and never use local time,
+  locale, DST rules, or calendar-month arithmetic.
+- With width `W`, `first_bucket_start=floor(start/W)*W`,
+  `bucket_end_exclusive=ceil(end/W)*W`, and
+  `bucket_count=(bucket_end_exclusive-first_bucket_start)/W`. An `end` exactly
+  on a boundary does not create an extra bucket.
+- A source row participates exactly when
+  `flow_start_utc >= start && flow_start_utc < end`. It belongs to the bucket
+  containing `flow_start_utc`; counters are never duplicated or prorated.
+- Bucketed edges group by bucket start followed by the existing default key:
+  source endpoint, destination endpoint, IP protocol, destination-port
+  presence, and destination-port value.
+- `network_flow_bucket_edge_id_v1` returns `nfbe_` plus 64 lowercase SHA-256
+  hex characters over a length-framed transcript containing the algorithm
+  domain, incident ID, canonical bucket start and end, endpoint IDs, protocol,
+  and the existing destination-port presence/value pair. Including the end
+  prevents equal-start buckets of different widths from sharing an identity.
+- The Graph Projection adapter uses source relationship kind
+  `network_flow.bucketed_flow_edge.v1` and projection version
+  `network_flow_activity.time_bucket.v1`. Each edge contains canonical
+  `bucket_start_utc` and `bucket_end_utc` properties.
+- `time_buckets[]` is Network Flow response metadata, never Graph Projection
+  result state or a new persistence family. It appears only on the temporal
+  result variant, is ordered by bucket start, and includes every intersecting
+  bucket including empty buckets. Each item contains its bounds and aggregate
+  unique-vertex, edge, and contributing-row counts without duplicating edge
+  payloads.
+- A bucket-edge contributor selector returns only rows assigned to the exact
+  bucket and edge key. A vertex selector returns the qualifying rows touching
+  that endpoint across the requested interval.
+- Total result vertices and edges remain subject to effective Network Flow
+  limits and Graph Projection's immutable maxima. No partial bucket or graph is
+  returned on a limit failure.
+
+The v2 graph-query digest uses a new length-framed
+`cartulary.network_flow.graph_query_digest.v2` transcript that binds the v2
+semantic-query schema and complete normalized aggregation variant. Deployment
+limits and lower per-request overrides remain excluded. The existing source
+snapshot algorithm may continue to bind the new graph digest without changing
+its own version because the graph digest is already an explicit framed input.
+
+Major-4 contributor selectors always use Network Flow source IDs, never
+projected `ed_` IDs. Responses provide canonical selector objects: vertex ID
+plus endpoint value; default edge ID plus both endpoint values, protocol, and
+destination-port presence/value; or bucket edge ID plus that key and bucket
+bounds. The server recomputes the supplied ID and binds the complete selector
+into cursor identity before using fixed selector-aware SQL predicates.
+
+#### 10.2.2 Resource configuration
+
+Configuration contract major 2 adds optional
+`network_flow_activity.resource_limits`. It is forbidden for an unclaimed
+profile. Unknown members, explicit null, non-integers, out-of-range values, and
+invalid active/retained relationships fail before any listener or worker
+starts. Omitted members use the defaults below. Runtime receives one immutable
+effective set and MUST NOT clamp or repair invalid values. Public source-profile
+discovery returns every effective limit. Request overrides may only lower
+vertices, edges, example references, contributing rows, and time buckets and do
+not enter semantic identity.
+
+| Limit | Minimum | Default | Maximum |
+| --- | ---: | ---: | ---: |
+| Active tables per incident | 1 | 128 | 128 |
+| Retained tables per incident | 1 | 512 | 512 |
+| Selected tables per query | 1 | 16 | 64 |
+| CSV columns | 1 | 256 | 512 |
+| Header scalar bytes | 1 | 256 | 256 |
+| Raw cell scalar bytes | 1 | 4,096 | 16,384 |
+| Rows per CSV | 1 | 250,000 | 5,000,000 |
+| Accepted rows per table | 1 | 250,000 | 5,000,000 |
+| Retained rejected-row diagnostics | 0 | 10,000 | 100,000 |
+| Filters per query | 0 | 16 | 16 |
+| Sorts per query | 0 | 8 | 8 |
+| Query page limit | 1 | 500 | 1,000 |
+| Graph vertices | 1 | 5,000 | 100,000 |
+| Graph edges | 0 | 10,000 | 250,000 |
+| Active graph views per incident | 1 | 32 | 32 |
+| Retained graph views per incident | 1 | 128 | 128 |
+| Nonterminal graph jobs per incident | 1 | 4 | 4 |
+| Example row references per edge | 0 | 10 | 100 |
+| Binding source-row references | 1 | 16 | 1,000 |
+| Aggregate counter digits | 1 | 39 | 128 |
+| Contributing graph rows | 1 | 250,000 | 5,000,000 |
+| Time buckets | 1 | 256 | 1,024 |
+| Materialization timeout seconds | 30 | 300 | 3,600 |
+
+The materialization deadline starts when the saved-graph handler begins and
+covers source validation, scanning, aggregation, and projection. Expiry before
+final publication produces a terminal safe timeout and preserves the prior
+selected result. Once final transactional publication begins before the
+deadline, existing indeterminate-commit reconciliation governs the outcome;
+timeout MUST NOT reverse a possibly committed result. Raising a deployment
+above the conservative defaults requires retained GP3 capacity evidence;
+configuration acceptance is not a hardware-independent performance claim.
+
+### 10.3 Compatibility and rollback policy
+
+| Surface | Classification | GP3 outcome |
+| --- | --- | --- |
+| Graph Projection v2 engine/result identity | Preserve | Temporal behavior is expressed through Network Flow input and projection-version selection; no Graph v3 protocol is introduced |
+| Network Flow public major 3 | Replace for current clients | Current browser and generated consumers move directly to major 4; no dual generated client or response parser is retained |
+| Persisted semantic-query v1 declarations | Preserve with continuing value | Read, refresh, return, back up, restore, and rebuild; reject for new creates and remove only after a later zero-inventory gate |
+| New semantic-query v2 | Add | Required for new ephemeral queries and saved-graph creates; supports default and time-bucket variants |
+| Network Flow state v2 | Migrate without rewriting | State `2 -> 3` preserves all authoritative bytes and expands validation to the v1/v2 query union |
+| Reporting exact references v2 | Preserve | Full Graph binding already distinguishes temporal results through projection version and digests |
+| Graph Recovery v2 algorithm | Preserve narrowly while referenced | Current rebuild registration becomes v3; retain the exact v2 dispatcher read-only until no supported retained pre-GP3 backup references it |
+| Database migrations `00032` and `00033` | Preserve | Add `00034`; perform no destructive GP3 schema operation |
+| Runtime limit constants | Replace as authority | Validated effective configuration becomes the runtime source; constants provide only owner-declared defaults and maxima |
+
+Before rollout, capture and verify an exact pre-GP3 backup with the old binary,
+state version, schema head, and artifact digests. Migration `00034` is additive,
+but an old binary cannot interpret state version 3 or v2 semantic queries. After
+any v2 declaration is persisted, rollback uses the exact pre-GP3 backup in a
+replacement target with the prior binary; it is not an in-place binary
+rollback. V1 declaration support is justified by authoritative installed state
+and must not expand into Graph Projection v1 or a v1 new-write API.
+
+### 10.4 GP3 gap remediation register
+
+#### GP3-G01 — Limit owner/runtime contradiction
+
+- **Remediation:** Separate conservative defaults from immutable maxima, add
+  the typed resource-limit configuration above, inject it through application
+  assembly, and correct the header default that currently exceeds the adopted
+  ceiling.
+- **Areas:** Specification, configuration contracts, implementation, tests,
+  generated discovery, and operational documentation.
+- **Rationale:** Undocumented hardcoded reductions and an impossible owner
+  configuration promise prevent operators from knowing the actual envelope.
+- **Long-term benefit:** One explicit capacity boundary supports safe tuning and
+  later resource dimensions without scattered constants.
+- **Compatibility:** Network Flow public major 4 and configuration major 2 make
+  the changed effective-default contract explicit. Conservative runtime values
+  remain defaults rather than being silently raised.
+- **Unresolved risk:** Deployments may unknowingly underdeliver owner behavior or
+  raise workloads beyond proven capacity.
+- **Validation:** Startup, inactive-profile, null, unknown-key, minimum,
+  maximum, cross-limit, discovery, request-override, and assembly tests agree on
+  every effective value.
+
+#### GP3-G02 — Whole-scope row materialization
+
+- **Remediation:** Replace `ListRowsForTables` on Graph paths with an ordered,
+  cancellation-aware iterator and incremental aggregation. Enforce contributing
+  rows, vertices, edges, counter digits, examples, and cancellation while
+  streaming.
+- **Areas:** Network Flow specification, implementation, persistence adapters,
+  and tests.
+- **Rationale:** Result bounds do not protect memory when millions of source
+  rows are first loaded, copied, sorted, and retained.
+- **Long-term benefit:** Memory follows admitted aggregate/result state instead
+  of total table scope and can support later aggregation modes.
+- **Compatibility:** Streaming preserves exact persisted-v1 bytes, ordering,
+  IDs, digests, examples, and errors below limits. New v2 default queries retain
+  default meaning but intentionally receive v2 digest, source-snapshot, and
+  result identities. Contributing-row rejection is a major-4 behavior.
+- **Unresolved risk:** A permitted query can exhaust process memory before
+  existing result limits execute.
+- **Validation:** Golden equivalence, skew, multi-table order, maximum-row,
+  `limit+1`, cancellation, allocation-shape, and database-error tests pass.
+
+#### GP3-G03 — Contributor queries rebuild entire graphs
+
+- **Remediation:** Revalidate the semantic digest and tables, validate the
+  canonical source-ID-plus-key selector returned by major-4 responses, then use
+  a selector-aware ordered scan/page path. Retain only one page and cursor
+  state; do not construct unrelated graph objects or store all contributing
+  rows.
+- **Areas:** Network Flow specification, implementation, cursor behavior, and
+  tests.
+- **Rationale:** Contributor navigation is a bounded read and should not repeat
+  full graph memory cost.
+- **Long-term benefit:** Stable contributor latency and a reusable selection
+  boundary for default and temporal edges.
+- **Compatibility:** Major-4 replaces the public selector shape while retaining
+  authorization, contributor ordering, and cursor behavior. Vertex, default
+  edge, and temporal edge selectors bind the complete canonical key.
+- **Unresolved risk:** A small contributor page can require maximum graph memory
+  and fail independently of its requested limit.
+- **Validation:** Vertex, default-edge, bucket-edge, continuation, stale digest,
+  source deletion, authorization loss, and bounded-memory tests pass.
+
+#### GP3-G04 — Global concurrency admits multiple large Graph jobs
+
+- **Remediation:** Project a worker-runtime contract, acquire both global and
+  per-worker capacity before claiming an execution, and continue scanning past
+  saturated worker kinds. Declare one active graph attempt per process.
+- **Areas:** Common Jobs, Extensions and owner specifications, generated
+  contracts, implementation, and tests.
+- **Rationale:** Registration count does not constrain active attempts; waiting
+  inside a handler would still consume scarce global slots.
+- **Long-term benefit:** Explicit resource isolation and fair future worker
+  expansion without module-local semaphores.
+- **Compatibility:** No public job state changes. Existing workers explicitly
+  retain their effective concurrency; the Graph limit corrects an ambiguous GP2
+  operational claim.
+- **Unresolved risk:** Graph jobs can multiply peak memory and starve imports,
+  Reporting, or other background work.
+- **Validation:** Same-kind saturation, mixed-kind fairness, notifications,
+  recovery scans, retry, lease renewal, shutdown, and component-loss tests pass.
+
+#### GP3-G05 — Result cleanup is dormant
+
+- **Remediation:** Network Flow owns a private
+  `network_flow_activity.graph_result_cleanup.v1` dispatcher. Application
+  assembly starts it only after readiness, runs one immediate sweep and then a
+  five-minute base cadence, coalesces ticks, and closes it during ordered
+  shutdown. `has_more` schedules a non-overlapping five-second paced
+  continuation; transient failure uses bounded retry rather than a busy loop.
+- **Areas:** Network Flow and application lifecycle specifications,
+  implementation, tests, and operations.
+- **Rationale:** A tested port without a production caller provides no storage
+  lifecycle.
+- **Long-term benefit:** Derived storage remains self-maintaining without a
+  public route, Common Job, or Graph-owned hidden worker.
+- **Compatibility:** No route or result behavior changes. Cleanup affects only
+  unreachable derived rows.
+- **Unresolved risk:** Refreshes and retirement grow result/object storage
+  indefinitely.
+- **Validation:** Readiness ordering, immediate/cadenced execution, paced drain,
+  transient failure, unexpected dispatcher termination, clean shutdown, and
+  restart pass.
+
+#### GP3-G06 — Cleanup is not future-owner-safe
+
+- **Remediation:** Select candidates by exact `source_owner_id`; lock result
+  rows, query Network Flow selected bindings in the same borrowed transaction,
+  recheck unexpired leases, then atomically delete only unselected candidates.
+  Use `FOR UPDATE SKIP LOCKED` and enforce result-before-declaration lock order
+  for cleanup, publication replay, and Reporting lease admission.
+- **Areas:** Graph port specification, Network Flow implementation, PostgreSQL
+  adapter, migration, and tests.
+- **Rationale:** A deployment-wide caller-supplied reachable list is unbounded,
+  race-prone, and unsafe when another producer is added.
+- **Long-term benefit:** Each future source owner can clean only its own derived
+  results through the same narrow protocol.
+- **Compatibility:** Replace the unused cleanup signature directly; no
+  production caller requires an adapter.
+- **Unresolved risk:** A future owner can suffer cross-owner deletion, or a
+  concurrent publication/lease can race cleanup.
+- **Validation:** Cross-owner isolation, publication races, selected-result
+  preservation, new/renewed lease races, multi-instance exclusion, and rollback
+  pass.
+
+#### GP3-G07 — Lease and deletion maintenance is insufficiently bounded
+
+- **Remediation:** Delete at most 1,000 expired leases per transaction and one
+  result envelope plus its cascading objects per result transaction. A sweep
+  drains at most eight results or 30 seconds, whichever comes first, and reports
+  remaining work for a paced continuation.
+- **Areas:** Graph storage contract, implementation, migration/indexing, tests,
+  and operations.
+- **Rationale:** One unbounded expired-lease statement or multi-result cascade
+  can create long locks and unpredictable shutdown.
+- **Long-term benefit:** Restart-safe, measurable maintenance with bounded
+  transaction scope.
+- **Compatibility:** Leases retain their existing expiry semantics; no semantic
+  result retention interval is introduced.
+- **Unresolved risk:** Cleanup itself can become a database pressure event.
+- **Validation:** Batch boundaries, `has_more`, large cascades, statement
+  failure, cancellation, crash rollback, and eventual drain pass.
+
+#### GP3-G08 — Operational visibility is incomplete
+
+- **Remediation:** Add Common Jobs queued-count and queue-wait-duration signals;
+  add a Network Flow instrumentation scope for materialization phase duration,
+  source rows, result vertices/edges/buckets, cleanup outcome/duration/deletion,
+  eligible backlog, and oldest eligible result age measured from `published_at`.
+  The signal MUST NOT claim to measure time since a result became unreachable,
+  because that transition is not persisted.
+- **Areas:** OpenTelemetry and Common Jobs specifications, registries,
+  application observers, implementation, tests, and operational guidance.
+- **Rationale:** Generic terminal duration cannot distinguish queue pressure,
+  source composition, projection, publication, or failed maintenance.
+- **Long-term benefit:** Capacity and failure diagnosis remain vendor-neutral and
+  safe as graph modes grow.
+- **Compatibility:** Additive internal telemetry only. Closed attributes are
+  operation, phase, graph mode, result, job kind, and safe error class; no
+  incident, graph, result, digest, row, label, property, SQL, or raw error value
+  is emitted.
+- **Unresolved risk:** Operators cannot distinguish slow computation, queue
+  starvation, database publication, or cleanup lag.
+- **Validation:** Registry, signal shape, disabled exporter, error mapping,
+  cardinality, sentinel privacy, and telemetry self-failure tests pass.
+
+#### GP3-G09 — Capacity evidence is not deployment-calibrated
+
+- **Remediation:** Define reproducible default, raised, semantic-maximum,
+  high-cardinality, dense-edge, single-edge-skew, maximum-bucket, cancellation,
+  cleanup, and mixed-job workloads. Retain wall time, allocations, peak RSS,
+  database work, output bytes, and environment identity.
+- **Areas:** Testing Harness inputs, tests, operational documentation, and
+  handoff evidence.
+- **Rationale:** A functional maximum-size test is not a hardware capacity
+  claim.
+- **Long-term benefit:** Deployments can select effective limits from evidence
+  without weakening stable semantic maxima.
+- **Compatibility:** No project-wide SLO is invented. A deployment that fails a
+  raised profile lowers effective configuration rather than changing identity
+  or output semantics.
+- **Unresolved risk:** Operators may choose limits that cause OOM, excessive
+  queueing, or shutdown overruns.
+- **Validation:** Retained artifacts are reproducible and bind commit,
+  toolchain, workload, hardware/runtime profile, effective limits, and terminal
+  outcome.
+
+#### GP3-G10 — Time-bucketed graph behavior is undefined
+
+- **Remediation:** Adopt and implement the complete §10.2.1 query, digest,
+  bucket, edge identity, result, contributor, error, and limit contract in
+  Network Flow.
+- **Areas:** Network Flow specification, contracts, implementation, tests, and
+  domain documentation.
+- **Rationale:** Temporal grouping is source-owner product meaning, not a reason
+  to make the pure Graph engine time-aware.
+- **Long-term benefit:** One explicit temporal model can grow to later graph
+  analysis without corrupting default edge identity.
+- **Compatibility:** Contract major 4 and schema/digest v2 make the new semantics
+  explicit. Default v1 persisted results remain exact.
+- **Unresolved risk:** Local bucket interpretations would diverge across saved
+  graphs, contributors, Reporting, and Recovery.
+- **Validation:** Boundary alignment, negative epochs, exact-boundary end,
+  empty buckets, row assignment, no counter duplication, limits, IDs, digests,
+  examples, cancellation, and property tests pass.
+
+#### GP3-G11 — Temporal persistence and exact consumers lack migration rules
+
+- **Remediation:** Adopt Network Flow state 3's v1/v2 declaration union,
+  Recovery v3 mixed rebuild, exact read-only v2 dispatch for still-supported
+  backups, and Reporting redaction candidates while preserving exact reference
+  v2.
+- **Areas:** Network Flow, Extensions, Recovery, Reporting, contracts,
+  implementation, tests, and backup guidance.
+- **Rationale:** Temporal output is not production-ready if authoritative
+  declarations outlive their parser or restored results change identity.
+- **Long-term benefit:** Exact mixed-generation restore and consumer reuse with
+  no Graph v1 resurrection or heuristic translation.
+- **Compatibility:** Read-old/write-new is intentional. Later v1 declaration or
+  Recovery v2 removal needs both zero installed v1 declarations and zero
+  supported retained backup references.
+- **Unresolved risk:** Upgrades can strand saved graphs or reports, and restores
+  can claim readiness with different objects.
+- **Validation:** State `2 -> 3`, mixed list/read/refresh, backup, isolated
+  restore, exact result/object identity, Reporting lease, and readiness pass.
+
+#### GP3-G12 — No complete temporal and operational workflow
+
+- **Remediation:** Add major-4 default/time-bucket controls, complete-range and
+  width validation, bucket navigation, saved graph lifecycle integration,
+  contributor pivots, bounded visualization, capacity guidance, cleanup
+  response, and rollout/rollback procedures.
+- **Areas:** Web implementation, public contracts, browser tests, design/domain
+  documentation, and operations.
+- **Rationale:** Backend semantics and maintenance without discoverable user and
+  operator workflows remain incomplete product behavior.
+- **Long-term benefit:** Temporal analysis fits the existing Network Analysis
+  workspace and production operations remain repeatable.
+- **Compatibility:** Consume only the major-4 client. Do not retain a major-3
+  browser decoder, parallel application shell, or public cleanup control.
+- **Unresolved risk:** Users cannot understand temporal scope, large results, or
+  stale state, and operators cannot deploy or recover the feature safely.
+- **Validation:** Unit, stateful browser, accessibility, measurement, visual,
+  backup/restore, rollout, and rollback drills pass.
+
+### 10.5 Linear workstream plan
+
+All workstreams are strictly linear. A slice begins only after its predecessor
+passes narrow validation and this tracker contains the predecessor's completed
+checkpoint.
+
+| Slice | Status | Depends on | Exit outcome | Next action |
+| --- | --- | --- | --- | --- |
+| GP3-S00 | `DONE` | GP2 complete | GP3 plan, inventory, decisions, and document validation are recorded | GP3-S01 |
+| GP3-S01 | `DONE` | GP3-S00 | Every affected owner adopts a complete, contradiction-free contract | GP3-S02 |
+| GP3-S02 | `DONE` | GP3-S01 | Contracts, generated artifacts, and verification routing reproduce owners without drift | GP3-S03 |
+| GP3-S03 | `DONE` | GP3-S02 | Effective resource configuration and discovery are exact and fail closed | GP3-S04 |
+| GP3-S04 | `DONE` | GP3-S03 | Graph and contributor source processing is ordered, streaming, and bounded | GP3-S05 |
+| GP3-S05 | `DONE` | GP3-S04 | Per-worker admission isolates Graph jobs without starving other work | GP3-S06 |
+| GP3-S06 | `DONE` | GP3-S05 | Production result/lease cleanup is source-safe, bounded, and lifecycle-composed | GP3-S07 |
+| GP3-S07 | `DONE` | GP3-S06 | Queue, materialization, and cleanup signals are complete and privacy-safe | GP3-S08 |
+| GP3-S08 | `DONE` | GP3-S07 | Default and temporal Graph backend behavior passes exact conformance | GP3-S09 |
+| GP3-S09 | `DONE` | GP3-S08 | Mixed declaration Recovery and temporal Reporting pass exact-result gates | GP3-S10 |
+| GP3-S10 | `DONE` | GP3-S09 | Major-4 temporal workflow passes frontend and browser gates | GP3-S11 |
+| GP3-S11 | `DONE` | GP3-S10 | Retained capacity and rollout evidence supports the selected production profile | GP3-S12 |
+| GP3-S12 | `DONE` | GP3-S11 | All GP3 gaps close and final narrow, broad, and release gates pass | None |
+
+#### GP3-S00 — Baseline and tracker control
+
+- Reconcile the completed GP2 handoff with the GP3 plan without deleting or
+  rewriting GP2 evidence.
+- Record current implementation seams, owner contradictions, compatibility
+  decisions, migration number, slice ordering, and validation policy.
+- Change only this tracker during the document-update step.
+
+Exit: this tracker is the complete controlling plan; Markdown validation and
+diff hygiene pass; GP3-S00 is `DONE`; only GP3-S01 is next.
+
+#### GP3-S01 — Owner adoption
+
+- Adopt Network Flow major 4, state 3, configuration 2, semantic-query v2,
+  temporal identities, effective limits, streaming behavior, cleanup ownership,
+  telemetry, and rollback semantics.
+- Adopt source-owner-scoped cleanup in Graph Projection without changing the
+  semantic `graph_projection.v2` engine contract.
+- Adopt worker runtime capacity in the appropriate Core/Common Jobs and
+  Extensions owners; adopt the OpenTelemetry signals, Reporting temporal
+  behavior, Recovery v3, and affected Core owner facts.
+- Update `docs/domain.md` only for the adopted temporal-graph vocabulary while
+  preserving saved declaration, immutable result, job attempt, and Reporting
+  diagram distinctions.
+
+Exit: owner review and Markdown validation prove a complete, non-contradictory
+requirements chain. No machine projection is treated as authority.
+
+#### GP3-S02 — Contract projection and verification routing
+
+- Author v2 public and semantic schemas, v1/v2 persisted unions, major-4 routes
+  and errors, state `2 -> 3`, configuration major 2, worker runtime contracts,
+  telemetry registries, Recovery v3 artifacts, and temporal fixtures.
+- Update Core recognition, Extensions fragments/bindings, client support, and
+  all affected verification rows.
+- Regenerate Go, TypeScript, OpenAPI, topology, schedules, and other managed
+  outputs only through Make-owned workflows.
+
+Exit: generation, generated drift, JSON shape, generated-artifact policy,
+contract shape, and import-boundary checks pass.
+
+#### GP3-S03 — Resource configuration
+
+- Resolve the configuration before runtime composition and inject one immutable
+  effective Network Flow limit set through application assembly.
+- Enforce inactive-profile, explicit-null, type, minimum, maximum, unknown-key,
+  and cross-limit failures before listeners or workers start.
+- Return the complete effective limits from source-profile discovery and apply
+  lower request overrides without changing graph identity.
+
+Exit: Network Flow, Extensions, platform configuration, application startup,
+and discovery tests pass for defaults, valid overrides, and every failure class.
+
+#### GP3-S04 — Bounded source and contributor pipeline
+
+- Replace complete source-row slices with stable ordered iteration and
+  incremental default aggregation.
+- Store aggregate counts and bounded example refs rather than contributing row
+  slices on every vertex and edge.
+- Return canonical contributor selector objects, recompute their source IDs,
+  and implement selector-aware iteration and page construction without
+  reconstructing unrelated graph objects.
+
+Exit: persisted-v1 output/digest equivalence, intentional v2 identity fixtures,
+multi-table ordering, selector validation, cursor, authorization, stale-source,
+maximum-row, allocation, limit, and cancellation evidence passes.
+
+#### GP3-S05 — Worker isolation and backpressure
+
+- Project per-worker capacity into runtime selection and acquire worker plus
+  global capacity before execution claim.
+- Continue durable selection past a saturated worker kind and keep notification
+  delivery best-effort while periodic scans remain authoritative.
+- Preserve existing job state, lease, retry, shutdown, and fatal component-loss
+  semantics.
+
+Exit: graph concurrency is exactly one per serving process; mixed workers make
+progress; restart, retry, renewal, cancellation, and shutdown tests pass.
+
+#### GP3-S06 — Durable result and lease cleanup
+
+- Add migration `00034` with only owner-approved candidate-selection indexes.
+- Implement source-owner candidate selection, selected-binding checks, lease
+  rechecks, bounded expired-lease deletion, one-result atomic cascades, and the
+  shared result-before-declaration lock order.
+- Compose the private dispatcher after serving readiness and stop it in reverse
+  application lifecycle order. Use five-minute base cadence and paced
+  five-second continuations only while bounded work reports `has_more`.
+
+Exit: migration drift, transaction invariants, cross-owner isolation,
+publication/lease races, multi-instance exclusion, bounded work, crash rollback,
+readiness, and shutdown pass.
+
+#### GP3-S07 — Operational telemetry
+
+- Add `cartulary.jobs.queued` and queue-wait duration by closed job kind.
+- Add Network Flow materialization phase duration and source/result volume
+  signals plus cleanup operation, duration, deletion, backlog, and oldest-age
+  signals.
+- Keep the pure Graph engine free of telemetry dependencies; application
+  composition injects observers.
+
+Exit: signal registry, exact attributes, success/failure/cancel/timeout,
+export-disabled behavior, bounded cardinality, and privacy sentinel tests pass.
+
+#### GP3-S08 — Time-bucket backend
+
+- Implement v2 admission/normalization, digest v2, bucket arithmetic, bucket
+  edge identity including both bucket bounds, streaming temporal aggregation,
+  Network Flow response-owned bucket summaries, saved materialization,
+  contributors, limits, and safe errors.
+- Use the unchanged Graph Projection v2 engine with mode-specific Network Flow
+  mapping, relationship kind, properties, and projection version.
+- Preserve internal v1 declaration execution and prohibit v1 new creates.
+
+Exit: golden, boundary, empty-bucket, negative-epoch, DST-independence,
+maximum-bucket, identity, property, retry, stale-generation, cancellation, and
+fuzz/property tests pass.
+
+#### GP3-S09 — Recovery and Reporting
+
+- Publish the Recovery v3 registration and rebuild mixed v1/v2 declarations
+  from authoritative Network Flow state while workers remain quiescent.
+- Retain exact Recovery v2 dispatch read-only while supported retained backups
+  reference it; do not translate or rewrite its artifacts.
+- Require exact result, vertex, edge, bucket, digest, job, and lease
+  reconciliation before readiness.
+- Route typed Network Flow graph label components through Reporting redaction.
+  Internal labels are deterministic post-redaction values with ordinal fallback;
+  external Graph release remains fail-closed without a separately adopted rule.
+
+Exit: state migration, mixed backup, isolated restore, exact identity,
+readiness, selection, redaction, render bounds, retry, and lease reconciliation
+pass.
+
+#### GP3-S10 — Web product completion
+
+- Regenerate and consume only the major-4 client.
+- Add default/time-bucket selection, complete-range validation, fixed width
+  choices, ordered bucket navigation, empty-bucket state, saved lifecycle,
+  job/failure state, and contributor pivots inside Network Analysis.
+- Mount no more than 500 vertices and 1,000 edges and expose a selected bucket
+  or bounded summary for larger exact results.
+
+Exit: frontend type/unit/import-boundary, stateful browser, keyboard,
+accessibility, measurement, and visual checks pass for all roles and lifecycle
+states.
+
+#### GP3-S11 — Capacity and rollout certification
+
+- Run the adopted default, raised, semantic-maximum, skew, dense, temporal,
+  cleanup, cancellation, crash, queue-pressure, and shutdown workloads.
+- Retain measurements with commit, toolchain, workload, hardware/runtime
+  profile, effective limits, artifacts, and outcome. Lower deployment limits
+  when a raised profile fails; do not change stable Graph semantics to make a
+  benchmark pass.
+- Produce a fresh state-v3 backup, restore mixed v1/v2 declarations in
+  isolation, and exercise major-4 rollout plus replacement-target rollback.
+
+Exit: retained evidence supports the selected deployment limits; restore and
+rollback drills pass; no hardware-independent SLO or unclassified operational
+risk is claimed.
+
+#### GP3-S12 — Final validation and handoff
+
+- Run affected owner guides and narrow slices before formatting, generation,
+  drift, configuration, migration, generated-artifact, JSON-shape, security,
+  telemetry, frontend, and browser gates.
+- Run `make agent-finalize` before broad verification, passing a retained
+  successful `RESULTS_DIR` when available and recording the unset case
+  otherwise.
+- Run `make check` and `make release-check` and complete every gap, file,
+  command, run root, compatibility, rollback, residual-risk, and skipped-check
+  disposition in this tracker.
+
+Exit: GP3-G01 through GP3-G12 are closed with evidence, every slice is `DONE`,
+no temporary compatibility path is unclassified, and this tracker is the final
+handoff.
+
+### 10.6 GP3 validation and checkpoint policy
+
+After GP3-S00, every slice begins with:
+
+```text
+make task-guide ROLE=module-author OWNER=<affected-owner>
+make explain-test-owner OWNER=<affected-owner>
+```
+
+The implementer then runs the narrowest routed `make test-slice` or
+`make service-backed-test-slice` rows for every affected owner. Required owner
+families across GP3 are `module.graphprojection`, `module.networkflow`,
+`platform.jobs`, `module.extensions`, `platform.config`, `platform.telemetry`,
+`module.reporting`, `module.recovery`, `app.server`, and `web.networkflow` as
+their slices become affected.
+
+| Validation layer | Required point |
+| --- | --- |
+| `git diff --check` and `make lint-markdown` | Every checkpoint |
+| `make format` | Every implementation slice with authored Go or frontend changes |
+| `make generate`, `make generate-drift`, `make generated-artifact-policy-check`, `make json-shape-check` | Contract/projection changes and final gate |
+| `make migration-drift` | GP3-S06 and final gate |
+| Backend/frontend import-boundary checks | Every affected implementation slice |
+| Owner unit/service-backed slices | Before advancing every affected owner |
+| Frontend type/unit plus browser/stateful/a11y/measurement/visual | GP3-S10 onward as routed |
+| Capacity and retained-run explanation | GP3-S11 |
+| `make agent-finalize`, `make check`, `make release-check` | GP3-S12 in that order |
+
+After each slice and before the next begins, record status, files, substantive
+changes, exact commands, run roots/artifacts, failures and relatedness,
+compatibility impact, residual risks, skipped conditional checks, and the one
+next action. Allowed statuses remain `PLANNED`, `IN PROGRESS`, `BLOCKED`, and
+`DONE`. An owner, configuration, migration, privacy, restore, rollback, or final
+gate failure marks the slice `BLOCKED` rather than advancing.
+
+### 10.7 GP3 binary completion criteria
+
+GP3 is complete only when all of the following are true:
+
+- Network Flow major 4, state 3, and configuration major 2 are adopted and
+  projected without drift.
+- Graph Projection remains a pure v2 engine with source-owner-scoped cleanup
+  ports and no temporal product policy or hidden worker.
+- Effective Network Flow resource limits are validated, discoverable, injected,
+  and bounded by immutable maxima.
+- Default and contributor Graph processing is streaming and does not retain
+  whole-scope contributing-row collections.
+- The graph worker has exactly one active attempt per process without consuming
+  waiting global job slots or starving other workers.
+- Expired leases and unreachable Network Flow results are cleaned in bounded,
+  multi-instance-safe transactions after readiness and before shutdown.
+- Queue, materialization, and cleanup health are observable through closed,
+  privacy-safe telemetry.
+- V2 default and time-bucket queries have exact schemas, digests, identities,
+  limits, contributors, saved materialization, and deterministic results.
+- V1 declarations remain supported only for installed authoritative state and
+  cannot be created through the current public write contract.
+- Recovery v3 reconstructs mixed v1/v2 results exactly before readiness, and
+  Reporting renders classified/redacted temporal edges through unchanged exact
+  references v2.
+- The major-4 browser workflow is complete, accessible, stateful, and bounded.
+- Retained capacity evidence supports the selected deployment profile without
+  claiming a universal SLO.
+- Fresh backup, isolated restore, rollout, and replacement-target rollback
+  drills pass.
+- Final narrow, broad, and release gates pass and every gap has a terminal
+  disposition.
+
+### 10.8 GP3-S00 completion checkpoint
+
+GP3-S00 changed only this tracker. It preserved the GP2 completion record,
+established the owner-first GP3 plan, classified existing semantic-query v1
+state as justified read/refresh/restore compatibility, reserved migration
+`00034`, and fixed strict slice sequencing through the final handoff.
+
+The final reconciliation distinguishes exact persisted-v1 identity from
+intentional v2 identity, keeps `time_buckets[]` in the Network Flow response
+instead of Graph result state, includes both bucket bounds in temporal-edge
+identity, closes major-4 contributor selector keys, uses paced cleanup drain,
+names only measurable cleanup eligibility age, and retains exact Recovery v2
+dispatch solely while supported retained backups reference it.
+
+#### Files changed
+
+```text
+docs/handoffs/graphprojection-module-refactor-tracker.md
+```
+
+#### Explicitly unchanged
+
+- Adopted owner specifications, including `docs/domain.md`
+- Contracts, generated roots, migrations, implementation, tests, and lockfiles
+- Graph Projection v2 behavior and the GP2 production database state
+- GP2 commands, run roots, compatibility outcomes, and release evidence
+
+#### Validation
+
+- `git diff --check` and `git diff --cached --check` — PASS with no output.
+- `make lint-markdown` — PASS. Final reconciliation run root:
+  `.cartulary/test-results/20260816T125233Z-p1539914`; summary:
+  `adhoc/lint-markdown/tool-run-summary.json`.
+- Broader product, generation, migration, service-backed, frontend, browser,
+  security, and release checks were not run because GP3-S00 is intentionally a
+  tracker-only planning checkpoint and changes no governing or executable
+  artifact.
+
+#### Current next action
+
+Begin GP3-S01 owner adoption. Do not author contracts, migrations, generated
+artifacts, or implementation until every affected owner accepts the complete
+major-4/state-3/configuration-2, cleanup, concurrency, telemetry, temporal,
+Reporting, Recovery, and rollback contract.
+
+### 10.9 GP3-S01 completion checkpoint
+
+Status: `DONE`.
+
+GP3-S01 adopted one coherent owner chain before changing any machine
+projection. Network Flow is now public major 4, durable state 3, and
+configuration major 2. Its owner defines semantic-query v2, exact epoch-aligned
+temporal aggregation and identity, canonical Network Flow selectors, ordered
+streaming and contributor paging, immutable effective limits, materialization
+timeout, bounded cleanup, privacy-safe telemetry, mixed-generation Recovery,
+Reporting redaction, the bounded browser workflow, and replacement-target
+rollback.
+
+The companion owners now agree that Graph Projection remains a pure v2 engine;
+cleanup uses borrowed source-owner-scoped transactions; Jobs consumes generated
+per-worker capacity and reserves global plus worker slots before claim;
+Extensions publishes the runtime mapping; Core owns current recognition,
+discovery, client support, Recovery dispatch, and private dispatcher lifecycle;
+OpenTelemetry owns the closed Jobs and Network Flow signals; and Reporting
+keeps `source_projection_ref.v2` while treating Network Flow label components
+as redaction candidates. The former resource table contradiction was removed:
+Table 20-A is the single min/default/max registry and its header scalar default
+is exactly 256.
+
+#### Files changed
+
+```text
+docs/domain.md
+docs/extension-subsystem-nlspec.md
+docs/graph_projection_nlspec.md
+docs/network-flow-activity-nlspec.md
+docs/opentelemetry-instrumentation-nlspec.md
+docs/reporting-subsystem-nlspec.md
+docs/spec/00_document_set_status_and_precedence.md
+docs/spec/01_architecture_storage_and_view_contracts.md
+docs/spec/03_workbook_interaction_collaboration_and_workflows.md
+docs/spec/04_security_deployment_and_conformance.md
+docs/spec/I_projection_authority_boundary_and_characterization.md
+docs/handoffs/graphprojection-module-refactor-tracker.md
+```
+
+#### Compatibility and migration impact
+
+- New public Network Flow graph writes are major-4 semantic-query v2 only.
+  Persisted v1 declarations retain exact read, refresh, backup, restore,
+  rebuild, source-snapshot, result, and byte compatibility.
+- V2 default queries intentionally cross the digest-v2 identity boundary even
+  though their default graph meaning matches v1.
+- State `2 -> 3` is byte-preserving. Recovery v3 is current; the exact v2
+  dispatcher is retained read-only only for supported retained pre-GP3 backup
+  catalogs.
+- Graph Projection remains `graph_projection.v2`, Reporting references remain
+  `source_projection_ref.v2`, migrations `00032` and `00033` remain immutable,
+  and GP3 reserves only additive migration `00034`.
+- After the first v2 declaration, rollback is replacement-target restore from
+  the exact pre-GP3 backup with the prior binary; in-place old-binary rollback
+  is unsupported.
+
+#### Validation
+
+- `make task-guide ROLE=module-author OWNER=<owner-id>` — PASS for
+  `module.networkflow`, `module.graphprojection`, `platform.jobs`,
+  `module.extensions`, `platform.telemetry`, `module.reporting`,
+  `module.recovery`, and `app.server`.
+- `make explain-test-owner OWNER=<owner-id>` — PASS for the same eight owners;
+  every owner resolved to its current manifest and focused target.
+- `git diff --check` and `git diff --cached --check` — PASS with no output.
+- `make lint-markdown` — PASS. Owner-adoption run root:
+  `.cartulary/test-results/20260816T131042Z-p1551964`; summary:
+  `adhoc/lint-markdown/tool-run-summary.json`. Tracker-checkpoint follow-up root:
+  `.cartulary/test-results/20260816T131232Z-p1553347`.
+- Product unit, service-backed, generation, migration, frontend, browser,
+  security, broad, and release checks were intentionally not run in this
+  owner-only slice. They cannot validate the newly adopted behavior before the
+  downstream contracts and implementation exist; S02 through S12 own those
+  gates.
+
+No owner, configuration, migration, privacy, restore, rollback, or release gate
+failed. No generated root, contract, migration, implementation source, test,
+lockfile, or retained runtime artifact changed in S01. The only residual risk is
+the expected temporary projection lag between the newly adopted owners and the
+pre-S02 machine artifacts; it is classified and bounded by the strict linear
+sequence.
+
+#### Current next action
+
+Execute GP3-S02 contract projection and verification routing. Do not begin
+resource-configuration implementation until all affected schemas, owner facts,
+generated outputs, fixtures, and test routes reproduce the adopted owners
+without drift.
+
+### 10.10 GP3-S02 completion checkpoint
+
+Status: `DONE`.
+
+GP3-S02 projected the adopted GP3 owner chain without moving temporal policy
+into Graph Projection. Network Flow is represented as public major 4 with a
+closed semantic-query v2 union, mixed persisted v1/v2 declaration reads,
+canonical Network Flow contributor selectors, response-owned temporal bucket
+summaries, the complete configuration-major-2 effective-limit registry, and
+the new safe error reasons. The unchanged Graph Projection v2 contract now has
+a separate source-owner-scoped borrowed-transaction maintenance projection.
+
+Extensions generates an exact worker-runtime artifact for every worker kind,
+including a limit of one for the graph worker and eight for existing workers.
+Its Network Flow descriptor, client support, state-3 admission/migration,
+implementation binding, Reporting participant, and Recovery contribution are
+version-closed. Recovery publishes the current mixed-query v3 source registry,
+binding, result, and terminal journal evidence while retaining the exact v2
+artifacts and journal v3 as historical readers. The Jobs and Network Flow
+signal inventory is projected through a closed OpenTelemetry registry. All
+managed Go, TypeScript, import, topology, and contract outputs were regenerated
+through `make generate`.
+
+#### Files changed
+
+Authored projection inputs and schemas:
+
+```text
+contracts/extensions/{build,fragments,profiles,specification}/**
+contracts/extensions/dependencies.json
+contracts/graph-projection/{index.json,storage-maintenance.v1.json}
+contracts/imports/index.json
+contracts/network-flow/{index.json,routes.v1.json,errors.v1.json}
+contracts/network-flow/{schemas.v2.json,frontend-entrypoints.v4.json}
+contracts/network-flow/{graph-semantics.v2.json,resource-limits.v2.json}
+contracts/network-flow/{resource-limits-config.v2.schema.json,reporting-graph-source.v2.schema.json}
+contracts/otel/cartulary_signal_registry.v1.json
+contracts/protocol-ts/frontend-entrypoints.v2.json
+contracts/recovery/{index.json,graph-projection-restore-*.v3.schema.json}
+contracts/recovery/operator-recovery-journal-payload.v4.schema.json
+contracts/recovery/fixtures/{graph-projection-restore-*.v3.json,operator-recovery-journal-payload.v4.json,recovery-state-catalog.v1.json}
+tools/contractgen/{extensions_generation.go,extensions_validation.go,main.go,recovery_validation.go}
+tools/harness/generated-artifacts/check-json-shapes.mjs
+tools/otel/check-otel-conformance.mjs
+tools/schemas/cartulary.network_flow_*.schema.json
+tools/schemas/cartulary.otel_signal_registry.v1.schema.json
+tools/harness_schema_attachments.json
+```
+
+Verification routing and assertions:
+
+```text
+internal/modules/extensions/contract_test.go
+internal/modules/graphprojection/v2_contract_projection_test.go
+internal/modules/networkflow/v3_contract_projection_test.go
+internal/modules/recovery/vnext_graph_restore_artifacts_test.go
+tools/test_families/module.extensions.json
+tools/test_families/module.networkflow.json
+tools/test_families/module.recovery.json
+```
+
+Generated outputs changed only through the Make-owned generator:
+
+```text
+internal/gen/contract{extensions,graphprojection,imports,networkflow,recovery}/**
+internal/gen/importtargetregistry/registry_gen.go
+packages/protocol-ts/src/generated/**
+tools/execution_topology_render_index.json
+```
+
+The S01 owner documents and this tracker remain part of the cumulative GP3
+worktree. Removed v1/index-v2/frontend-v3 source paths were replaced by their
+new current versions rather than edited as generated compatibility aliases.
+No lockfile, migration, product database schema, or Graph Projection engine
+algorithm changed in S02.
+
+#### Compatibility and migration impact
+
+- Public major-4 graph requests and creates project semantic-query v2 only;
+  v1 schemas remain registered for exact installed declaration reads,
+  refreshes, results, backup, restore, and rebuild.
+- Unchanged rename, refresh, and retire request shapes keep their v1 schema
+  identities while their enclosing routes and results are projected into
+  major 4. Current browser support points only to
+  `network_flow_activity.standard.v4`.
+- V2 default queries intentionally use digest v2 and therefore new source
+  snapshot/result identities. Persisted v1 declarations retain their original
+  digest, projection version `network_flow_activity.v1`, and result bytes.
+- Recovery v3 accepts semantic-query v1 and v2. Exact v2 binding, registry, and
+  result artifacts plus journal payload v3 remain strict historical readers;
+  current terminal evidence uses journal payload v4 and rebuild result v3.
+- State migration `2 -> 3` is projected as byte-preserving. Runtime migration,
+  configuration, worker admission, temporal execution, Recovery dispatch, and
+  Reporting consumption remain deliberately assigned to S03 through S09.
+
+#### Validation
+
+- All ten affected owner guides and test-owner explanations passed for
+  `module.graphprojection`, `module.networkflow`, `platform.jobs`,
+  `module.extensions`, `platform.config`, `platform.telemetry`,
+  `module.reporting`, `module.recovery`, `app.server`, and `web.networkflow`.
+- `make format` — PASS. Latest S02 formatting root:
+  `.cartulary/test-results/20260816T135309Z-p1635842`.
+- `make generate` — PASS. Final S02 generation root:
+  `.cartulary/test-results/20260816T135412Z-p1642298`.
+- `make generate-drift` — PASS, 4/4 units, root
+  `.cartulary/test-results/20260816T135446Z-p1645861`.
+- `make generated-artifact-policy-check` — PASS, 3/3 units, root
+  `.cartulary/test-results/20260816T135446Z-p1645880`.
+- `make json-shape-check` — PASS, 3/3 units, root
+  `.cartulary/test-results/20260816T135446Z-p1645897`.
+- `make frontend-import-boundary-check` — PASS, 2/2 units, root
+  `.cartulary/test-results/20260816T135446Z-p1646151`.
+- `git diff --check` and `git diff --cached --check` — PASS with no output.
+- `make lint-markdown` — PASS. Completion-content run root:
+  `.cartulary/test-results/20260816T135607Z-p1650243`; summary:
+  `adhoc/lint-markdown/tool-run-summary.json`.
+- `make test-slice OWNER=module.extensions
+  ROWS=module.extensions.unit.network_flow_v4_state_jobs_reporting_projection`
+  — PASS, root `.cartulary/test-results/20260816T135222Z-p1631866`.
+- `make test-slice OWNER=module.graphprojection
+  ROWS=module.graphprojection.storage.v2_contract_projection` — PASS, root
+  `.cartulary/test-results/20260816T135319Z-p1639395`.
+- `make test-slice OWNER=module.networkflow
+  ROWS=module.networkflow.unit.network_flow_selector_covers_selecting_multiple_861eb26e58`
+  — PASS, root `.cartulary/test-results/20260816T135319Z-p1639396`.
+- `make test-slice OWNER=module.recovery
+  ROWS=module.recovery.unit.graph_restore_v3_contract_projection` — PASS, root
+  `.cartulary/test-results/20260816T135426Z-p1645264`.
+
+Early generation failures at
+`.cartulary/test-results/20260816T134127Z-p1598056`,
+`.cartulary/test-results/20260816T134203Z-p1600147`, and
+`.cartulary/test-results/20260816T134257Z-p1602224` respectively exposed a
+missing major-4 import owner, Recovery canonical-byte hash handling, and an
+overly open conditional schema. The first JSON-shape run at
+`.cartulary/test-results/20260816T134408Z-p1610636` then rejected that
+conditional object. The sources were corrected to exact catalog references,
+canonical hashes, and closed default/temporal union variants; the final
+generation and JSON-shape runs above supersede all four failures.
+
+Initial Graph Projection and Network Flow assertion runs at
+`.cartulary/test-results/20260816T135222Z-p1631854` and
+`.cartulary/test-results/20260816T135222Z-p1631859` found assertion-key errors
+in the new tests, not contract defects. Corrected assertions pass in the final
+narrow roots above. The broader pre-S09 Recovery runtime row failed at
+`.cartulary/test-results/20260816T135329Z-p1640382` because runtime assembly
+still constructs the old restore catalog; its v3 contract assertion passed in
+that run and in the dedicated final row. This is expected implementation lag,
+not an S02 restore gate: S09 owns current/historical dispatcher execution and
+must supersede the retained failure before any restore, broad, or release gate.
+
+Service-backed, migration, security, browser, capacity, backup/restore drill,
+broad `make check`, and release checks were skipped because S02 changes only
+machine projections, generated artifacts, and their narrow contract evidence.
+Their mandatory owning slices remain S03 through S12. No owner,
+configuration, migration, privacy, restore, rollback, or release gate required
+for S02 failed.
+
+The residual risk is explicit transitional projection lag: generated current
+contracts now lead product implementation until the strictly ordered S03-S10
+slices consume them. The v1 and Recovery-v2 readers are the only classified
+compatibility paths; no major-3 browser client, Graph Projection v1 surface,
+public cleanup route, or alternative temporal persistence was introduced.
+
+#### Current next action
+
+Execute GP3-S03 resource configuration. Do not begin streaming,
+worker-admission, cleanup, telemetry, temporal, Recovery/Reporting, or web
+implementation early.
+
+### 10.11 GP3-S03 completion checkpoint
+
+Status: `DONE`.
+
+GP3-S03 makes configuration major 2 the only runtime defaulting boundary for
+Network Flow capacity policy. Application assembly now injects one validated,
+immutable `EffectiveLimits` value containing all 23 adopted limits. Network
+Flow runtime paths no longer normalize, clamp, or repair partial limit values;
+the module rejects an invalid injected value. The header-scalar default is now
+the adopted 256-byte value rather than the contradictory 1,024-byte value.
+
+The closed `network_flow_activity.resource_limits` table supports TOML and
+environment-object projection, distinguishes omitted members from legitimate
+zero minima, and rejects explicit null, non-object and non-integer values,
+unknown keys, values outside every adopted range, and active/retained
+relationship violations. Configuration snapshots deep-copy pointer-backed
+overrides, and source-profile discovery returns every resolved value. Existing
+Graph request overrides are checked against the injected deployment value,
+including the adopted zero minima for edges and example references; they
+remain outside Graph identity. The contributing-row and time-bucket override
+members are projected and injected now and become executable only with the
+semantic-query-v2 decoder in GP3-S08.
+
+Current state-3 startup also registers the byte-preserving
+`network_flow_activity.migrate_state_2_to_3_v1` step and v3 validators required
+by the generated current profile binding. This admits the new state version
+without rewriting authoritative bytes. Mixed declaration validation, Recovery
+v3 execution, and Reporting consumption remain in GP3-S09.
+
+#### Files changed
+
+Runtime policy and composition:
+
+```text
+internal/modules/networkflow/{api.go,configuration.go,module.go,store.go}
+internal/modules/networkflow/{csv_parser.go,import_facade.go,query.go,query_filter.go}
+internal/modules/networkflow/{indicator_link.go,graph.go,graph_view_routes.go}
+internal/modules/networkflow/{resources.go,routes.go,graph_restore_source.go}
+internal/app/configassembly/{configuration.go,deployment.go}
+internal/app/server/runtime_assembly.go
+internal/modules/extensions/coordinator.go
+```
+
+Verification and routing:
+
+```text
+internal/modules/networkflow/{configuration_test.go,network_flow_contract_test.go}
+internal/modules/networkflow/{network_flow_unit_test.go,routes_integration_test.go,store_test.go}
+internal/app/configassembly/configuration_test.go
+internal/app/server/runtime_test.go
+tools/test_families/module.networkflow.json
+tools/execution_topology_render_index.json
+```
+
+Generated roots changed only through `make generate`; no generated file,
+lockfile, migration, Graph Projection engine algorithm, or public cleanup
+surface was hand-edited.
+
+#### Compatibility and migration impact
+
+- Configuration major 2 makes the 256-byte header default and all deployment
+  overrides explicit. An invalid formerly repaired partial runtime value now
+  fails closed, which is the intentional compatibility break.
+- Public discovery advances to the projected v2 response and exposes all 23
+  effective values. Effective deployment limits and lower request overrides do
+  not enter Graph query identity.
+- Existing persisted semantic-query-v1 declarations and result bytes are not
+  rewritten. State `2 -> 3` is byte-preserving and creates no job or result.
+- The internal store constructor now requires an explicit effective value.
+  Test and restore composition choose defaults explicitly rather than relying
+  on hidden fallback behavior.
+- A zero-edge or zero-example request override is now accepted as required by
+  the adopted minima. No legacy positive-only behavior is retained because it
+  had no continuing semantic value.
+
+#### Validation
+
+- Required `make task-guide ROLE=module-author OWNER=...` and
+  `make explain-test-owner OWNER=...` probes passed for
+  `module.networkflow`, `module.extensions`, `platform.config`, and
+  `app.server` before implementation.
+- Network Flow configuration, effective-limit, current Graph override, and v4
+  contract rows — PASS, 3/3, root
+  `.cartulary/test-results/20260816T141711Z-p1705560`.
+- Platform configuration claim, owner projection, and inactive-profile rows —
+  PASS, 3/3, root `.cartulary/test-results/20260816T141711Z-p1705578`.
+- Full `platform.config` owner slice — PASS, 15/15, root
+  `.cartulary/test-results/20260816T141848Z-p1716477`.
+- Extensions inactive-configuration and generated-binding admission rows —
+  PASS, 2/2, root `.cartulary/test-results/20260816T141724Z-p1707415`.
+- Application startup and runner-assembly rows — PASS, 2/2, root
+  `.cartulary/test-results/20260816T141711Z-p1705598`.
+- Configured effective-limit discovery through the service-backed application
+  runtime — PASS, 3/3 units, root
+  `.cartulary/test-results/20260816T141532Z-p1696967`.
+- `make format` — PASS. Final pre-checkpoint root
+  `.cartulary/test-results/20260816T141756Z-p1708328`.
+- `make generate` — PASS, root
+  `.cartulary/test-results/20260816T141654Z-p1702445`.
+- `make generate-drift` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T141804Z-p1712128`.
+- `make generated-artifact-policy-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T141804Z-p1712137`.
+- `make json-shape-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T141804Z-p1712192`.
+- `make backend-module-boundary-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T141804Z-p1712447`.
+- `git diff --check` and `git diff --cached --check` — PASS before this
+  checkpoint edit.
+- `make lint-markdown` — PASS, root
+  `.cartulary/test-results/20260816T142250Z-p1766362`.
+
+Early related failures were resolved without weakening the owner policy.
+Formatting root `.cartulary/test-results/20260816T140540Z-p1657291` exposed a
+syntax error; Network Flow root
+`.cartulary/test-results/20260816T140612Z-p1664534` exposed a duplicate test
+binding; platform-config root
+`.cartulary/test-results/20260816T140649Z-p1666002` exposed the coordinator's
+stale implementation-binding-v1 parser; Network Flow root
+`.cartulary/test-results/20260816T141106Z-p1683556` exposed a boundary test that
+did not keep paired active/retained limits valid; and service-backed root
+`.cartulary/test-results/20260816T141418Z-p1691466` exposed missing runtime
+registration for the adopted byte-preserving state-3 migration. The final
+narrow roots above supersede each failure. Two attempted commands used
+nonexistent row IDs and stopped at catalog admission without test execution or
+a retained run root; both were immediately replaced by generated row IDs.
+
+The broadened `module.networkflow` diagnostic at
+`.cartulary/test-results/20260816T141848Z-p1716476` passed 75/79 units. Its
+three product-test failures are classified predecessor projection lag outside
+the S03 gate: the saved lifecycle still constructs the pre-GP3 Recovery source
+registry assigned to S09, while the frontend integration and visual golden
+still consume the major-3 discovery shape assigned to S10. No S03 resource
+configuration, discovery, startup, request-limit, or assembly row failed in
+that run. S09 and S10 must supersede this diagnostic before their respective
+owner gates and before final validation.
+
+Migration, security, telemetry, cleanup, temporal, capacity, backup/restore,
+rollback, broad `make check`, and release checks were not S03 gates and remain
+assigned to S06 through S12. The only S03 residual is deliberate sequencing:
+the two temporal-specific lower overrides cannot execute until S08 installs
+semantic-query v2; there is no alternative decoder or compatibility path.
+
+#### Current next action
+
+Execute GP3-S04 bounded source and contributor pipeline. Do not begin worker
+admission, cleanup, telemetry, temporal execution, Recovery/Reporting, web, or
+capacity work before S04 is `DONE`.
+
+### 10.12 GP3-S04 completion checkpoint
+
+Status: `DONE`.
+
+GP3-S04 replaces whole-scope Graph source materialization with one canonical,
+cancellation-aware database iterator. The iterator preserves caller-supplied
+table order through `unnest(... WITH ORDINALITY)` and then orders rows by the
+existing contributor keyset. Default aggregation now retains vertices, edges,
+aggregate counts, contributing table/fingerprint sets, counter sums, and only
+the configured number of example rows. Contributing-row, vertex, edge, and
+counter limits stop iteration at the first disallowed row rather than after a
+complete source copy.
+
+Contributor queries now accept only canonical Network Flow source selectors.
+The service recomputes `nff_...` vertex and edge identities from their complete
+source key, rejects ID/key mismatches, resolves active source tables and the
+query digest on every page, and applies a fixed selector predicate in SQL.
+Only `limit + 1` matching rows and cursor state are retained. Cursor identity
+binds the canonical selector, graph digest, actor, session, incident, order,
+and page limit. The old ID-only contributor fallback and complete graph
+reconstruction path were removed because neither offers continuing value in
+the major-4 contract.
+
+Indicator linking still accepts its separately owned persisted-v1 graph
+selector. It uses the bounded aggregate only to validate that existing
+selector identity, then scans the fixed source predicate and retains no more
+than `max_binding_source_row_refs`. Explicit `row_refs` remain bounded by that
+same deployment limit. Graph Projection remains an unchanged pure v2 engine.
+
+The semantic-query-v2 default-mode digest foundation is length-framed and has
+a frozen identity fixture. It is intentionally not selected by a public route
+until GP3-S08 admits semantic-query v2 and its temporal variant. Request limits
+remain excluded from both identities.
+
+#### Files changed
+
+Runtime and persistence:
+
+```text
+internal/modules/networkflow/digest.go
+internal/modules/networkflow/graph.go
+internal/modules/networkflow/indicator_link.go
+internal/modules/networkflow/store.go
+```
+
+Verification and routing:
+
+```text
+internal/modules/networkflow/graph_streaming_test.go
+internal/modules/networkflow/routes_integration_test.go
+tools/test_families/module.networkflow.json
+tools/execution_topology_render_index.json
+```
+
+Generated topology changed only through `make generate`. No generated root,
+lockfile, migration, Graph Projection engine algorithm, cleanup surface, job
+admission policy, telemetry path, or frontend file was hand-edited in S04.
+
+#### Compatibility and migration impact
+
+- Existing persisted semantic-query-v1 declarations continue to use the v1
+  digest, source-snapshot identity, projection identity, ordering, aggregate
+  meaning, and canonical output bytes. The streaming v1 aggregate is frozen by
+  a golden fixture.
+- The canonical contributor selector is an intentional major-4 break. The
+  prior ID-only request is not retained as a fallback because it requires full
+  graph reconstruction and cannot provide a durable selection key for temporal
+  edges. The public schema constants advance in S08 and the browser advances
+  in S10; the intermediate worktree is not a releasable compatibility point.
+- Default semantic-query-v2 uses a distinct digest and therefore distinct
+  downstream snapshot/result identities when S08 activates it. That boundary
+  is deliberate even though default graph meaning is unchanged.
+- No persisted declaration or result is rewritten, and no database migration
+  is required by this slice.
+
+#### Validation
+
+- Required `make task-guide ROLE=module-author OWNER=...` and
+  `make explain-test-owner OWNER=...` probes passed for
+  `module.networkflow` and `module.graphprojection` before implementation.
+- Streaming aggregate, retained-cardinality, v1 golden, v2 digest, limit+1,
+  canonical-selector, and database-error tests — PASS, root
+  `.cartulary/test-results/20260816T145239Z-p1863247`.
+- Ordered multi-table source iteration, cancellation, contributing-row limit,
+  vertex/default-edge selectors, continuation, stale digest, ID/key mismatch,
+  source removal, and authorization-loss integration — PASS, 3/3, root
+  `.cartulary/test-results/20260816T144828Z-p1840198`.
+- Adjacent Network Flow unit and graph-view store rows — PASS, 4/4, root
+  `.cartulary/test-results/20260816T144910Z-p1841798`; service-backed
+  graph-view persistence — PASS, 3/3, root
+  `.cartulary/test-results/20260816T144940Z-p1843309`.
+- All unaffected Graph Projection engine and storage rows — PASS, 8/8, root
+  `.cartulary/test-results/20260816T145038Z-p1846934`; the service-backed
+  storage subset — PASS, 5/5, root
+  `.cartulary/test-results/20260816T145046Z-p1848292`.
+- `make format` — PASS, final root
+  `.cartulary/test-results/20260816T145220Z-p1856754`.
+- `make generate` — PASS, final root
+  `.cartulary/test-results/20260816T145226Z-p1860252`.
+- `make generate-drift` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T145305Z-p1864245`.
+- `make generated-artifact-policy-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T145305Z-p1864247`.
+- `make json-shape-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T145305Z-p1864249`.
+- `make backend-module-boundary-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T145305Z-p1864309`.
+- `git diff --check` and `git diff --cached --check` — PASS.
+- `make lint-markdown` — PASS, root
+  `.cartulary/test-results/20260816T145427Z-p1868455`.
+
+Early S04 failures were resolved without retaining compatibility shortcuts.
+Unit roots `.cartulary/test-results/20260816T143655Z-p1792807` and
+`.cartulary/test-results/20260816T144431Z-p1824036` recorded the deliberately
+unfrozen v1 and v2 fixture digests before they were reviewed and fixed.
+Service-backed root `.cartulary/test-results/20260816T144541Z-p1829457`
+showed that a removed source correctly returns the more precise existing
+`network_flow_table_not_active/soft_deleted` result; the assertion was
+corrected and the final service-backed root supersedes it. One combined
+`make format generate test-slice ...` invocation failed at task-surface
+admission because `OWNER` is invalid for `format`; each public target was then
+run separately and passed.
+
+The broadened Graph Projection diagnostic at
+`.cartulary/test-results/20260816T144947Z-p1844465` passed 8/9 units. Its only
+failed row is the already classified GP3-S09 `source_registry_mismatch`: the
+generated current Recovery source registry is v3 while runtime exact mixed
+declaration dispatch remains v2. No Graph engine, Graph storage, streaming,
+selector, or contributor row failed; the explicit unaffected roots above
+supersede the diagnostic for S04. S09 must supersede the Recovery row before
+its owner gate and final validation.
+
+Temporal selector/result wiring, time-bucket aggregation, and public
+semantic-query-v2 activation remain solely in S08. Mixed saved-declaration
+Recovery remains in S09, browser consumption remains in S10, and environment
+capacity/RSS evidence remains in S11. These are sequenced dependencies rather
+than alternative S04 paths. Migration, cleanup, worker isolation, telemetry,
+security, backup/restore, rollback, broad `make check`, and release checks were
+not S04 gates and remain assigned to S05 through S12.
+
+#### Current next action
+
+Execute GP3-S05 worker isolation and backpressure. Do not begin cleanup,
+telemetry, temporal execution, Recovery/Reporting, web, or capacity work before
+S05 is `DONE`.
+
+### 10.13 GP3-S05 completion checkpoint
+
+Status: `DONE`.
+
+GP3-S05 removes the handwritten job-kind-to-worker switch from application
+assembly. The Extensions coordinator now parses, retains, copy-projects, and
+publishes each generated `cartulary.extension_worker_runtime_contract.v1` with
+its profile ID, worker kind, sorted job-kind set, and exact process maximum.
+Both the complete recognized Jobs catalog and the claim-filtered runnable
+selection are derived from those generated contracts. Startup rejects missing,
+duplicate, unsorted, unknown, cross-profile, cross-handler, zero-capacity, and
+incomplete assignments rather than inferring or defaulting them.
+
+Jobs recovery candidates now carry job ID, job kind, and the catalog-derived
+handler identity. The runner asks persistence only for job kinds whose worker
+has capacity in the current process. It reserves a numbered global attempt slot
+and the generated worker slot together under one lock before durable claim,
+then releases both exactly once on claim miss, claim error, identity mismatch,
+handler completion, failure, cancellation, ownership loss, or graceful
+conditional release. Notification hints resolve the same catalog candidate and
+remain best-effort; initial and periodic durable scans remain authoritative.
+
+Recovery scanning continues after one worker becomes saturated. This is
+important when an older full recovery batch contains only Graph jobs: the
+runner recomputes the non-saturated job-kind set and performs a bounded follow-
+up query so another worker is not hidden behind that batch. Production global
+concurrency remains `8`, existing worker maxima remain `8`, and
+`network_flow_activity.graph_view_worker_v1` is exactly `1` per serving
+process. No handler-local semaphore or deployment configuration was added.
+
+#### Files changed
+
+Generated-contract admission and application projection:
+
+```text
+internal/modules/extensions/coordinator.go
+internal/app/extensionassembly/{jobs.go,publication_catalog.go}
+internal/app/server/runtime_assembly.go
+```
+
+Jobs runtime:
+
+```text
+internal/platform/jobs/definition_catalog.go
+internal/platform/jobs/durable_persistence.go
+internal/platform/jobs/runner.go
+```
+
+Verification and harness support:
+
+```text
+internal/modules/extensions/{coordinator_test.go,contract_test.go}
+internal/app/extensionassembly/publication_catalog_test.go
+internal/app/server/extensions_publication_characterization_test.go
+internal/platform/jobs/{composition_test.go,jobs_test.go,runner_supervision_test.go}
+internal/testutil/collaborationsupport/intents.go
+tools/test_families/platform.jobs.json
+tools/execution_topology_render_index.json
+```
+
+The generated worker contracts themselves were adopted and produced in S01
+and S02. S05 consumes them without editing generated roots, lockfiles,
+migrations, product schemas, public job state, or Network Flow handlers.
+
+#### Compatibility and migration impact
+
+- Public and durable job resource shapes, statuses, retry accounting, leases,
+  progress, cancellation, and terminal results are unchanged.
+- Existing workers retain effective process capacity `8`; only the Graph-view
+  worker receives its adopted isolation maximum `1`. The global maximum stays
+  `8`, so non-Graph throughput is not reduced by a waiting Graph handler.
+- Candidate discovery is a private persistence/runner contract change. Stored
+  handler identity is still validated against the immutable recognized catalog
+  before claim, and no job row is rewritten.
+- Test composition must now provide explicit worker runtime contracts. This is
+  an intentional fail-closed constructor change; hidden test or production
+  defaults would conceal incomplete packaging.
+
+#### Validation
+
+- Required `make task-guide ROLE=module-author OWNER=...` and
+  `make explain-test-owner OWNER=...` probes passed for `platform.jobs`,
+  `module.extensions`, `module.networkflow`, and `app.server` before
+  implementation.
+- Complete Jobs owner slice — PASS, 18/18, root
+  `.cartulary/test-results/20260816T151357Z-p1954095`.
+- Complete service-backed Jobs owner slice — PASS, 14/14, root
+  `.cartulary/test-results/20260816T151435Z-p1956975`.
+- The focused supervised-runner row proves exact Graph capacity one, existing
+  global concurrency, mixed-kind progress behind 101 older Graph jobs,
+  notification recovery after slot release, retry/renewal, claim/recovery,
+  shutdown, and fatal-loss invariants — PASS, 3/3, root
+  `.cartulary/test-results/20260816T151134Z-p1941740`.
+- Extensions registry, worker publication, immutability, Network Flow v4, and
+  generated-capacity rows — PASS, 3/3, root
+  `.cartulary/test-results/20260816T151747Z-p1973343`.
+- Application publication and exact policy catalog rows — PASS, 2/2, root
+  `.cartulary/test-results/20260816T151346Z-p1953505`.
+- Claimed Network Flow server composition and contributor workflow — PASS,
+  3/3, root `.cartulary/test-results/20260816T150830Z-p1930299`.
+- Unclaimed optional-profile server composition remains quiescent — PASS,
+  3/3, root `.cartulary/test-results/20260816T151602Z-p1963483`.
+- Inactive extension job reconciliation with the explicit worker selection —
+  PASS, 3/3, root `.cartulary/test-results/20260816T151450Z-p1958162`.
+- `make format` — PASS, final root
+  `.cartulary/test-results/20260816T151738Z-p1969815`.
+- `make generate` — PASS, root
+  `.cartulary/test-results/20260816T150439Z-p1887403`.
+- `make generate-drift` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T151810Z-p1974129`.
+- `make generated-artifact-policy-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T151810Z-p1974131`.
+- `make json-shape-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T151810Z-p1974133`.
+- `make backend-module-boundary-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T151810Z-p1974193`.
+- `git diff --check` and `git diff --cached --check` passed before this
+  checkpoint edit.
+- Final `git diff --check` and `git diff --cached --check` — PASS.
+- Final `make lint-markdown` — PASS, root
+  `.cartulary/test-results/20260816T152010Z-p1978352`.
+
+Focused service-backed root
+`.cartulary/test-results/20260816T150453Z-p1890383` exposed that the first
+runner revision skipped the synchronous storage probe while the dequeue gate
+was closed. Recovery selection now validates storage regardless of gate state;
+claim scheduling remains gated, and the final runner root supersedes the
+failure. Root `.cartulary/test-results/20260816T150958Z-p1936149` exposed a
+test notification sent in the small interval after the handler became inactive
+but before its runner reservation was released. The final test retries the
+best-effort hint while durable recovery remains authoritative and proves the
+successor is admitted; no wait or semaphore was added to product handlers.
+
+The broadened Extensions diagnostic at
+`.cartulary/test-results/20260816T150716Z-p1902556` passed 35/40 units. Its
+stale major-3 and two-entry inactive-configuration expectations were corrected
+and now pass in the explicit Extensions root above. Its remaining failures are
+strictly sequenced: generic state-runtime fixtures do not yet install Network
+Flow state-3 final validation and concurrent migration behavior assigned to
+S09, while the stateful browser still consumes major 3 and is assigned to S10.
+No worker contract, Jobs claim, runner, server composition, or mixed-kind row
+failed in the final S05 evidence.
+
+Jobs queued/queue-wait telemetry remains in S07. Cleanup, temporal execution,
+mixed Recovery/Reporting, browser completion, capacity certification,
+backup/restore, rollback, broad `make check`, and release checks were not S05
+gates and remain assigned to S06 through S12. No alternative worker mapping or
+compatibility path remains.
+
+#### Current next action
+
+Execute GP3-S06 durable cleanup. Begin with the required owner routing, then
+add only migration `00034`, replace global reachability cleanup with the
+borrowed-transaction source-owner protocol, repair the shared lock order, and
+compose the private bounded Network Flow dispatcher. Do not begin telemetry,
+temporal execution, Recovery/Reporting, web, or capacity work before S06 is
+`DONE`.
+
+### 10.14 GP3-S06 completion checkpoint
+
+Status: `DONE`.
+
+GP3-S06 replaces the unbounded global reachability-cleanup seam with a narrow
+borrowed-transaction maintenance contract. Graph Projection now deletes at
+most 1,000 expired leases in one transaction, locks one oldest candidate for
+one exact source owner using `(published_at, projection_result_id)` and
+`FOR UPDATE SKIP LOCKED`, permits a live-lease recheck, and deletes at most the
+locked result envelope plus its owned cascades. A private continuation key
+allows one source owner to traverse selected results without turning an
+unbounded reachable-ID set into an application input.
+
+Network Flow owns the policy and orchestration. One sweep captures a single
+observation time, drains one bounded lease batch, and processes at most eight
+result transactions or 30 seconds. Each result transaction locks the result
+first, locks and checks all Network Flow declarations selecting it, rechecks
+live leases, and deletes only when both authoritative reachability tests are
+empty. The graph-view publication store and Reporting lease admission now
+enforce the same result-before-declaration order. Publication replay also
+handles the legal race in which a conflicting result vanishes while an
+`ON CONFLICT DO NOTHING` insertion waits: it performs one bounded reinsertion
+only after an exact locked read proves absence, without weakening digest,
+binding, or byte-equivalence checks.
+
+The private dispatcher is constructed only for the claimed Network Flow
+profile, starts after serving readiness, runs an immediate sweep, uses the
+adopted five-minute cadence, paces continuation at five seconds while work
+reports `has_more`, retries transient failures after a bounded 30 seconds,
+coalesces ticks through one serialized loop, and cancels in-flight work during
+reverse-order shutdown. Restart is supported. A panic or other unexpected loop
+loss reaches the fatal component-loss sink, and its completion channel closes
+even if that sink panics. No public cleanup route, operator command, common job,
+retention interval, or Graph worker was added.
+
+#### Files changed
+
+Migration and generated database projections:
+
+```text
+db/migrations/00034_graph_projection_cleanup_indexes.sql
+tools/database-migrations/generate-catalog-projections.mjs
+tools/harness/generated-artifacts/database-contract-drift/schema-object-ownership.mjs
+tools/migration_history_manifest.json
+tools/schema_object_ownership_manifest.json
+```
+
+Graph Projection maintenance boundary and PostgreSQL implementation:
+
+```text
+internal/modules/graphprojection/result_v2_ports.go
+internal/modules/graphprojection/postgresresult/store.go
+internal/modules/graphprojection/postgresresult/store_test.go
+internal/modules/graphprojection/postgresresult/cleanup_test.go
+internal/modules/graphprojection/graph_projection_migration_test.go
+```
+
+Network Flow cleanup policy, dispatcher, lock ordering, and verification:
+
+```text
+internal/modules/networkflow/graph_result_cleanup.go
+internal/modules/networkflow/graph_result_cleanup_dispatcher.go
+internal/modules/networkflow/graph_result_cleanup_dispatcher_test.go
+internal/modules/networkflow/graph_result_cleanup_integration_test.go
+internal/modules/networkflow/graph_result_cleanup_race_integration_test.go
+internal/modules/networkflow/graph_result_cleanup_test_bridge_test.go
+internal/modules/networkflow/graph_view_store.go
+internal/modules/networkflow/reporting_graph_source.go
+```
+
+Application lifecycle and routed verification:
+
+```text
+internal/app/server/runtime_assembly.go
+internal/app/server/evidence_cleanup_telemetry_test.go
+internal/app/server/evidence_composition_characterization_test.go
+internal/app/server/runtime_integration_test.go
+tools/test_families/module.graphprojection.json
+tools/test_families/module.networkflow.json
+tools/test_families/app.server.json
+tools/execution_topology_render_index.json
+```
+
+The topology and database manifests changed only through `make generate` after
+their authored catalogs were updated. Generated roots and lockfiles were not
+hand-edited. Migrations `00032_graph_projection_v2.sql` and
+`00033_graph_projection_v1_removal.sql` are byte-unchanged.
+
+#### Compatibility and migration impact
+
+- Migration `00034_graph_projection_cleanup_indexes.sql` is additive and adds
+  only the owner/order candidate index. Its rollback drops only that index.
+- Persisted query declarations, result identities, canonical result bytes,
+  lease expiry meaning, publication selection, and exact v1 execution remain
+  unchanged. Cleanup affects only expired leases and unselected, unleased
+  derived results owned by `network_flow_activity`.
+- The unused global `ReachabilityCleanerV2` signature is intentionally removed.
+  Retaining it would preserve a cross-owner, unbounded, race-prone API with no
+  continuing value. Future source owners can use the same narrow Graph
+  maintenance primitives while owning their own authoritative selection test.
+- Publication's bounded vanished-conflict retry is an internal race repair, not
+  an identity or overwrite compatibility path. Any surviving row with unequal
+  binding, digest, or bytes remains an invariant conflict.
+- Application composition gains a private claimed-profile lifecycle component.
+  Unclaimed deployments remain quiescent, and there is no externally callable
+  cleanup behavior to migrate.
+
+#### Validation
+
+- Required `make task-guide ROLE=module-author OWNER=...` and
+  `make explain-test-owner OWNER=...` probes passed for
+  `module.graphprojection`, `module.networkflow`, `module.reporting`, and
+  `app.server` before implementation.
+- Complete focused Graph Projection cleanup and storage slice — PASS, 6/6,
+  root `.cartulary/test-results/20260816T155711Z-p2110516`; corresponding
+  service-backed slice — PASS, 5/5, root
+  `.cartulary/test-results/20260816T155835Z-p2113720`.
+- Network Flow cleanup, bounded sweep, lifecycle, and adjacent unit rows —
+  PASS, 7/7, final root
+  `.cartulary/test-results/20260816T155911Z-p2116293`; corresponding
+  service-backed rows — PASS, 5/5, root
+  `.cartulary/test-results/20260816T155844Z-p2114899`.
+- The dispatcher lifecycle row after completion-channel hardening — PASS, 1/1,
+  root `.cartulary/test-results/20260816T160154Z-p2128502`.
+- Reporting exact-result lease admission and lock-order rows — PASS, 3/3, root
+  `.cartulary/test-results/20260816T155919Z-p2117461`; service-backed Reporting
+  rows — PASS, 3/3, root
+  `.cartulary/test-results/20260816T155210Z-p2056589`.
+- Application readiness and reverse-shutdown lifecycle rows — PASS, 5/5, root
+  `.cartulary/test-results/20260816T155949Z-p2118861`; unclaimed-profile
+  service-backed composition — PASS, 3/3, root
+  `.cartulary/test-results/20260816T155327Z-p2063773`; claimed Network Flow
+  actual-server composition — PASS, 3/3, root
+  `.cartulary/test-results/20260816T155757Z-p2112284`.
+- The race-focused source-owner cleanup row — PASS, root
+  `.cartulary/test-results/20260816T154745Z-p2043614`; the bounded cleanup
+  integration row — PASS, root
+  `.cartulary/test-results/20260816T154540Z-p2034630`.
+- `make format` — PASS, final root
+  `.cartulary/test-results/20260816T160150Z-p2125013`.
+- `make generate` — PASS, final root
+  `.cartulary/test-results/20260816T155514Z-p2100558`.
+- `make generate-drift` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T160206Z-p2129477`.
+- `make generated-artifact-policy-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T160206Z-p2129503`.
+- `make json-shape-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T160206Z-p2129527`.
+- `make migration-drift` — PASS, 5/5, root
+  `.cartulary/test-results/20260816T160206Z-p2129581`.
+- `make backend-module-boundary-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T160206Z-p2129964`.
+- `make go-gosec-targeted` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T160206Z-p2130164`.
+- `git diff --check` and `git diff --cached --check` passed before this
+  checkpoint edit.
+- Mandatory checkpoint `git diff --check` and `git diff --cached --check` —
+  PASS.
+- Mandatory checkpoint `make lint-markdown` — PASS, root
+  `.cartulary/test-results/20260816T160332Z-p2163635`.
+
+Focused roots `.cartulary/test-results/20260816T153015Z-p1989818`,
+`.cartulary/test-results/20260816T153015Z-p1989823`, and
+`.cartulary/test-results/20260816T153015Z-p1989830` exposed a removed import and
+stale interface assertion during the cleanup-port replacement; both were
+corrected before behavioral validation. Race root
+`.cartulary/test-results/20260816T154300Z-p2023372` exposed the legal vanished
+`ON CONFLICT` row and led to the bounded exact-read/reinsert repair. Reporting
+root `.cartulary/test-results/20260816T154617Z-p2036563` exposed a stale-source
+classification-order regression; the result-first locking path now preserves
+the adopted stale-source-before-digest result.
+
+The first generation attempt at
+`.cartulary/test-results/20260816T153744Z-p2005906`, with diagnostic root
+`.cartulary/test-results/20260816T153827Z-p2007804`, correctly rejected
+migration 34 without a catalog owner. The authored migration owner was added.
+JSON root `.cartulary/test-results/20260816T155421Z-p2099099` then exposed the
+drift validator's incomplete owner map; after that authored validator was
+updated, root `.cartulary/test-results/20260816T155503Z-p2100042` reported only
+the expected stale generated topology. The final `make generate` and passing
+JSON-shape root supersede all three failures.
+
+The tests cover exact 1,000-plus-one lease batches, active-lease exclusion,
+source-owner isolation, oldest ordering, cursor continuation, concurrent
+`SKIP LOCKED` selection, selected-result preservation, large cascades, rollback,
+eight-result and elapsed-time sweep bounds, cancellation, eventual drain,
+publication and Reporting lease races, immediate/cadenced/continued/retried
+dispatch, non-overlap, restart, shutdown cancellation, and fatal loop loss.
+
+S07 telemetry is deliberately absent from these new operations until its
+registry and privacy workstream. S08 temporal results, S09 mixed Recovery and
+Reporting label semantics, S10 browser behavior, S11 retained capacity and
+rollout drills, and S12 broad `make check`, release, full security, backup,
+restore, and rollback gates were not S06 gates. They remain sequenced work,
+not unclassified cleanup risk.
+
+#### Current next action
+
+Execute GP3-S07 operational telemetry. Begin with the required owner routing,
+then project Jobs queued/queue-wait and Network Flow materialization and cleanup
+signals through privacy-safe observers. Do not begin temporal execution,
+Recovery/Reporting, web, or capacity work before S07 is `DONE`.
+
+### 10.15 GP3-S07 completion checkpoint
+
+Status: `DONE`.
+
+GP3-S07 adds the missing operational boundaries without coupling the pure
+Graph Projection engine to telemetry. Jobs now exposes current queued work by
+the immutable catalog-backed job kind and records queue wait exactly once,
+after a durable claim commits, from
+`COALESCE(handler_next_attempt_at, submitted_at)` to the claim instant. Claim
+misses and errors emit no wait. An impossible future eligibility timestamp is
+an invariant violation rather than a clamped measurement. The queued gauge
+includes retry-delayed work and emits the complete closed catalog plus
+`unknown`, so absent kinds remain observable as zero without exposing raw
+stored values.
+
+Network Flow now owns a small semantic observer port containing only closed
+operation, phase, graph mode, outcome, safe error class, aggregate counts, and
+durations. Ephemeral and saved graph composition report source validation,
+source scan, Graph Projection, and final publication at the boundaries where
+those outcomes become known. Successful compositions report contributing-row,
+vertex, and edge counts; S08 will populate the already-projected temporal
+bucket count. Cleanup reports operation outcome, duration, expired-lease and
+projection-result deletions, and a post-sweep health snapshot derived from the
+same exact source-owner selection-and-lease predicate used for deletion. The
+oldest age is measured from `published_at`; no signal calls it time
+unreachable.
+
+Application assembly adapts the semantic port to the
+`cartulary.network_flow` OpenTelemetry scope. The adapter owns instruments,
+spans, static safe logs, attribute filtering, and last-valid cleanup gauges.
+It is composed only for the claimed profile. Network Flow invokes the port
+through panic-contained wrappers, and instrument-construction, no-SDK,
+observer, collection, logger, or exporter failure has no product return path.
+No identifier, source-owner token, cursor, digest, endpoint, label, row,
+property, SQL, database object name, or raw error is representable in the
+semantic observations.
+
+The S02 OpenTelemetry registry projection had used draft signal names and
+vocabularies that disagreed with the adopted OpenTelemetry owner. This slice
+repairs that downstream artifact and its conformance expectations to the exact
+owner names, units, instrument kinds, attributes, scopes, and closed values.
+`OTEL-CORPUS-019` now binds the Jobs queue and Network Flow graph/cleanup
+requirements, including disabled-export and product-invariance assertions.
+
+#### Files changed
+
+Jobs queue telemetry and verification:
+
+```text
+internal/platform/jobs/{manager.go,telemetry.go,durable_persistence.go}
+internal/platform/jobs/{telemetry_test.go,telemetry_integration_test.go}
+tools/test_families/platform.jobs.json
+```
+
+Network Flow semantic boundaries, cleanup health, and verification:
+
+```text
+internal/modules/networkflow/{graph.go,graph_view_jobs.go,module.go,routes.go}
+internal/modules/networkflow/{graph_telemetry.go,graph_telemetry_test.go}
+internal/modules/networkflow/{graph_result_cleanup.go,graph_result_cleanup_dispatcher.go}
+internal/modules/networkflow/graph_result_cleanup_integration_test.go
+tools/test_families/module.networkflow.json
+```
+
+Application and platform OpenTelemetry projection:
+
+```text
+internal/app/server/{runtime_assembly.go,network_flow_telemetry.go,network_flow_telemetry_test.go}
+internal/platform/telemetry/{accessors.go,privacy.go,registry.go}
+internal/platform/telemetry/{accessors_test.go,privacy_test.go,registry_test.go}
+internal/platform/telemetry/testsupport/capture.go
+contracts/otel/cartulary_signal_registry.v1.json
+tools/otel/check-otel-conformance.mjs
+internal/testutil/golden/otel/corpus_manifest.json
+internal/testutil/golden/otel/cases/OTEL-CORPUS-009/input.json
+internal/testutil/golden/otel/cases/OTEL-CORPUS-015/input.json
+internal/testutil/golden/otel/cases/OTEL-CORPUS-019/**
+tools/test_families/app.server.json
+tools/execution_topology_render_index.json
+```
+
+The topology projection changed only through `make generate`. No generated
+Go or TypeScript product contract, migration, lockfile, Graph Projection
+engine code, public response, or persistence identity changed in S07.
+
+#### Compatibility and migration impact
+
+- The changes are additive internal telemetry. Public APIs, job state,
+  retries, selected graph results, cleanup eligibility, declaration bytes, and
+  Graph Projection v2 behavior are unchanged.
+- Existing worker kinds retain their closed job-kind identities. The new
+  queued and wait measurements consume the generated runtime catalog and add
+  no hardcoded compatibility map.
+- Deployments with telemetry disabled or no SDK retain identical product
+  behavior. Telemetry consumers must adopt the owner-exact signal names and
+  `canceled` spelling; the discarded draft names never formed an adopted or
+  released compatibility surface.
+- Cleanup health is a current observation, not persisted state. A failed or
+  invalid health read leaves the prior valid gauges intact and cannot fail a
+  sweep.
+
+#### Validation
+
+- Required `make task-guide ROLE=module-author OWNER=...` and
+  `make explain-test-owner OWNER=...` probes passed for `platform.jobs`,
+  `module.networkflow`, `platform.telemetry`, and `app.server` before
+  implementation.
+- Complete Jobs unit slice — PASS, 18/18, root
+  `.cartulary/test-results/20260816T162731Z-p2221219`; complete Jobs
+  service-backed slice — PASS, 14/14, root
+  `.cartulary/test-results/20260816T162759Z-p2226169`. The final queue-focused
+  unit and service rows pass at
+  `.cartulary/test-results/20260816T163005Z-p2234789` and
+  `.cartulary/test-results/20260816T163014Z-p2241301`.
+- Complete platform telemetry slice — PASS, 10/10, root
+  `.cartulary/test-results/20260816T162731Z-p2221243`.
+- Network Flow aggregation, cleanup lifecycle, and telemetry unit rows — PASS,
+  3/3, root `.cartulary/test-results/20260816T162731Z-p2221224`; the expanded
+  semantic telemetry boundary passes at
+  `.cartulary/test-results/20260816T163005Z-p2234799`.
+- Network Flow bounded contributor, cleanup, cleanup-race, and graph-view
+  persistence service rows — PASS, 6/6, root
+  `.cartulary/test-results/20260816T163221Z-p2312404`.
+- Complete application server unit slice — PASS, 45/45, root
+  `.cartulary/test-results/20260816T163049Z-p2245330`; the telemetry and cleanup
+  lifecycle row also passes independently at
+  `.cartulary/test-results/20260816T163005Z-p2234808`.
+- `make otel-conformance` — PASS, 14/14, root
+  `.cartulary/test-results/20260816T163005Z-p2234635`.
+- `make format` — PASS, root
+  `.cartulary/test-results/20260816T162947Z-p2228262`.
+- `make generate` — PASS, root
+  `.cartulary/test-results/20260816T162950Z-p2231714`.
+- `make generate-drift` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T163049Z-p2245221`.
+- `make generated-artifact-policy-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T163049Z-p2245262`.
+- `make json-shape-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T163050Z-p2246608`.
+- `make backend-module-boundary-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T163049Z-p2245493`.
+- `make go-gosec-targeted` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T163051Z-p2247452`.
+- `git diff --check` and `git diff --cached --check` passed before this
+  checkpoint edit.
+- Mandatory checkpoint `git diff --check` and `git diff --cached --check` —
+  PASS.
+- Mandatory checkpoint `make lint-markdown` — PASS, root
+  `.cartulary/test-results/20260816T163509Z-p2314648`.
+
+The first OpenTelemetry conformance run at
+`.cartulary/test-results/20260816T162323Z-p2200159` and its immediate rerun at
+`.cartulary/test-results/20260816T162510Z-p2205723` rejected only non-canonical
+serialization/key order in the newly authored empty normalized corpus files.
+Canonical one-line serialization corrected the authored fixtures; the final
+14/14 root above supersedes both failures.
+
+A combined Network Flow service run at
+`.cartulary/test-results/20260816T162731Z-p2221234` passed all six S07/S04/S06
+rows and failed only
+`module.networkflow.integration.saved_graph_lifecycle_v2` while constructing
+the not-yet-implemented current Recovery-v3 source registry. This is the same
+explicit S02-to-S09 projection lag recorded in §10.10, not an S07 telemetry
+gate. S09 must supersede it before any restore, broad, or release gate; the
+passing six-row root above is the final S07 service evidence.
+
+S08 temporal execution, S09 Recovery/Reporting, S10 browser behavior, S11
+capacity and rollout drills, and S12 broad `make check`, release, backup,
+restore, and rollback gates were skipped because their strictly ordered owning
+slices have not begun. No S07 owner, security, privacy, migration, or telemetry
+gate failed. The only residual telemetry work is S08 supplying exact temporal
+bucket cardinality and timeout outcomes through the already-closed observer
+boundary when those semantics exist.
+
+#### Current next action
+
+Execute GP3-S08 time-bucket backend. Begin with required Network Flow and Graph
+Projection owner routing, then implement v2 admission, identity, arithmetic,
+streaming aggregation, response-owned bucket summaries, saved materialization,
+contributors, limits, and errors. Do not begin Recovery/Reporting, web, or
+capacity work before S08 is `DONE`.
+
+### 10.16 GP3-S08 completion checkpoint
+
+Status: `DONE`.
+
+GP3-S08 implements time-bucketed graphs as Network Flow semantics while keeping
+Graph Projection v2 unchanged and policy-free. Current public graph writes now
+accept only the closed semantic-query-v2 union. Its default variant preserves
+the existing overlap meaning behind the intentional graph-query-digest-v2
+identity boundary; its temporal variant requires a complete half-open range and
+one of the six adopted widths. Persisted v1 declarations retain their exact v1
+decoder, digest, source snapshot, result bytes, refresh, contributor, and
+rebuild behavior. They cannot be created through the current public API.
+
+Temporal arithmetic uses Unix-epoch-aligned UTC buckets, mathematical floor
+division before the epoch, exact-boundary exclusive ends, and one
+`flow_start_utc` assignment per accepted row. Network Flow streams rows into
+incremental aggregates, preserves bounded examples, enforces contributing-row,
+bucket, vertex, edge, example, and counter-digit limits, and gives temporal
+edges `nfbe_` identities that bind both bucket bounds and the complete default
+edge key. It sends Graph Projection the adopted relationship kind, projection
+version, and canonical bucket properties; the engine remains the unchanged
+`graph_projection.v2` implementation.
+
+V2 responses expose canonical Network Flow vertex, default-edge, and temporal
+edge selectors. The server recomputes every source ID, applies fixed
+selector-aware SQL, and binds the complete selector, digest, authorization
+scope, order, and page limit into contributor cursors. Saved-result reads derive
+`time_buckets[]` from the exact stored projection result and declaration rather
+than persisting a second result index. Empty buckets remain present, while
+bucket vertex, edge, and contributing-row counts are reconstructed exactly.
+Saved contributor continuation additionally binds the graph view, selected
+result, actor, session, and incident, so a refresh or authorization change
+fails closed.
+
+The materialization deadline now starts when the saved-graph handler begins and
+covers validation, scanning, aggregation, and projection. Expiry before final
+publication produces a terminal canonical timeout without changing the prior
+selected result. Once final transactional publication begins before the
+deadline, the deadline is detached and the existing indeterminate-commit
+reconciliation remains authoritative.
+
+#### Files changed
+
+Network Flow execution and persistence adapters:
+
+```text
+internal/modules/networkflow/{graph.go,graph_temporal.go,graph_response_v2.go}
+internal/modules/networkflow/{store.go,indicator_link.go,graph_view_jobs.go}
+internal/modules/networkflow/{graph_view_routes.go,graph_telemetry.go}
+```
+
+Temporal, saved lifecycle, contributor, cancellation, and timeout evidence:
+
+```text
+internal/modules/networkflow/{graph_temporal_test.go,graph_materialization_timeout_test.go}
+internal/modules/networkflow/{routes_integration_test.go,graph_view_store_test.go}
+internal/modules/networkflow/{network_flow_unit_test.go,network_flow_contract_test.go}
+internal/modules/networkflow/v3_contract_projection_test.go
+tools/test_families/module.networkflow.json
+```
+
+Contract closure and generated projections:
+
+```text
+contracts/network-flow/{schemas.v2.json,routes.v1.json}
+tools/harness/generated-artifacts/check-json-shapes.mjs
+tools/execution_topology_render_index.json
+internal/gen/contractnetworkflow/artifacts_gen.go
+packages/protocol-ts/src/generated/{network-flow-types.ts,network-flow-validators.ts}
+```
+
+Generated files changed only through `make generate`. No Graph Projection
+engine algorithm, migration, lockfile, cleanup schedule, public cleanup route,
+or persisted bucket table was introduced by S08.
+
+#### Compatibility and migration impact
+
+- Current public graph query, saved-create, result, and contributor payloads
+  move to their adopted major-4 schema variants. Unchanged rename, refresh, and
+  retire request shapes retain their existing schema identities.
+- New default and temporal writes use digest v2 and intentionally receive new
+  source-snapshot and result identities. Default graph meaning is preserved,
+  but v1 and v2 result identity is deliberately not conflated.
+- Installed v1 declarations remain byte-exact executable state. The public v2
+  decoder rejects new v1 writes, avoiding a permanent dual-write surface.
+- Contributor clients must echo the canonical Network Flow selector returned
+  by the result. Graph Projection `ed_` values are never accepted as source
+  selectors; default and temporal source edge IDs are `nff_` and `nfbe_`.
+- Request overrides may only lower deployment limits and remain outside graph
+  identity. Temporal bucket width and normalized range remain inside identity.
+- No schema migration is required. Network Flow extension-state admission and
+  mixed-generation Recovery remain S09 work, so broad restore and release
+  compatibility are not yet claimed.
+
+#### Validation
+
+- Required `make task-guide ROLE=module-author OWNER=...` and
+  `make explain-test-owner OWNER=...` probes passed for
+  `module.networkflow` and `module.graphprojection` before implementation.
+- Focused Network Flow temporal arithmetic, streaming, canonical selector,
+  effective-limit, and telemetry unit rows — PASS, 5/5, root
+  `.cartulary/test-results/20260816T172918Z-p2486547`.
+- Bounded contributor, time-bucket saved lifecycle, and graph-view declaration
+  persistence service rows — PASS, 5/5 execution units, root
+  `.cartulary/test-results/20260816T172927Z-p2488738`.
+- Graph Projection v2 maximum-bound, pure-determinism, and contract-projection
+  rows — PASS, 3/3, root
+  `.cartulary/test-results/20260816T173020Z-p2491030`.
+- Earlier focused temporal and saved-lifecycle roots passed at
+  `.cartulary/test-results/20260816T172622Z-p2477116`,
+  `.cartulary/test-results/20260816T172627Z-p2477826`, and
+  `.cartulary/test-results/20260816T172318Z-p2463191` after the relevant
+  arithmetic, exact-result reconstruction, cursor, cancellation, and limit
+  changes.
+- `make format` — PASS, root
+  `.cartulary/test-results/20260816T172857Z-p2480043`.
+- `make generate` — PASS, root
+  `.cartulary/test-results/20260816T172903Z-p2483571`.
+- `make generate-drift` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T173037Z-p2491666`.
+- `make generated-artifact-policy-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T173051Z-p2494608`.
+- `make json-shape-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T173055Z-p2495059`.
+- `make frontend-import-boundary-check` — PASS, 2/2, root
+  `.cartulary/test-results/20260816T173101Z-p2495583`.
+- `make backend-module-boundary-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T173120Z-p2523105`.
+- `make go-gosec-targeted` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T173104Z-p2496010`.
+- Pre-checkpoint `git diff --check` and `git diff --cached --check` — PASS.
+- Pre-checkpoint `make lint-markdown` — PASS, root
+  `.cartulary/test-results/20260816T173137Z-p2523664`.
+
+The first temporal fixture attempts failed at
+`.cartulary/test-results/20260816T165626Z-p2334878` because the authored harness
+selector does not admit active `Fuzz*` execution, at
+`.cartulary/test-results/20260816T165729Z-p2344902` because a test used the
+wrong actor field, and at
+`.cartulary/test-results/20260816T165815Z-p2349666` because the deliberately
+empty edge-ID golden had not yet been captured. The routed deterministic
+property-seed test plus the compiled fuzz target, corrected field, and fixed
+`nfbe_` fixture supersede those failures.
+
+The initial bounded integration run at
+`.cartulary/test-results/20260816T170105Z-p2356035` found one old public v1 test
+request; the major-4 request correction passes in the final focused roots. The
+generation/shape attempts at
+`.cartulary/test-results/20260816T172359Z-p2467907` and
+`.cartulary/test-results/20260816T172429Z-p2468623` exposed a stale continuation
+expectation and then its expected generated topology drift; the final
+generation, drift, and JSON-shape roots supersede both. A final Graph Projection
+probe first used three nonexistent row aliases and failed as an artifact-routing
+error; `make explain-test-owner` identified the owned row IDs and the final 3/3
+root above supersedes that invocation.
+
+The broad Network Flow attempt at
+`.cartulary/test-results/20260816T171143Z-p2394741` passed 75/87 rows. Its
+backend contract failures were corrected and pass in the final focused roots;
+the remaining failures are the explicitly sequenced S09 Recovery registration
+and S10 browser/client work, not S08 gates. The existing saved-graph lifecycle
+also reaches only the same S09 `source_registry_mismatch` gate at
+`.cartulary/test-results/20260816T170548Z-p2375539`.
+
+Active fuzz execution, mixed-generation restore, Reporting redaction, browser,
+capacity, rollout/rollback, broad `make check`, and release verification were
+not run because the harness exposes deterministic property evidence for this
+slice and the other gates belong to S09 through S12. There is no unresolved S08
+owner, implementation, security, privacy, identity, or persistence failure.
+
+Post-checkpoint `git diff --check` and `git diff --cached --check` — PASS.
+Post-checkpoint `make lint-markdown` — PASS, root
+`.cartulary/test-results/20260816T173249Z-p2524866`.
+
+#### Current next action
+
+Execute GP3-S09 Recovery and Reporting. Begin with the required Recovery,
+Reporting, Network Flow, Graph Projection, and application owner routing; then
+admit mixed v1/v2 declarations through state 3, publish exact Recovery v3 while
+retaining read-only historical v2 dispatch, and route temporal labels only
+through typed Reporting redaction. Do not begin web, capacity, or final handoff
+work before S09 is `DONE`.
+
+### 10.17 GP3-S09 completion checkpoint
+
+Status: `DONE`.
+
+GP3-S09 advances Network Flow extension state from 2 to 3 with a byte-preserving
+admission step. The owner validator now scans saved declarations in stable ID
+order, admits only canonical semantic-query v1 or v2 bytes, recomputes their
+digests, and checks that any selected projection version agrees with the saved
+aggregation mode. The generic Extensions coordinator invokes that validation
+through a narrow read-only family capability and remains unaware of Network
+Flow tables or graph semantics.
+
+Recovery now publishes `graphprojection.restore_rebuild.v3`, a v3 source
+registry, and a v3 implementation binding that admit mixed v1/v2 declarations.
+Fresh backup artifacts carry the v3 contract. The exact v2 registry, binding,
+algorithm, result schema, and artifact decoder remain available only as a
+read-only historical dispatcher for supported retained backup sets; no v2
+artifact is translated or widened. Restore completion records the catalog
+digest from the exact dispatched graph artifact, so current and historical
+evidence reconcile against their own immutable generation before readiness.
+
+Reporting retains `source_projection_ref.v2` and now receives a typed,
+owner-neutral label-candidate contract from Network Flow. The source validates
+and renews the exact selected result lease before deriving components solely
+from exact result object state. Internal rendering applies retained redaction
+components to endpoint labels and to default or canonical temporal edge labels.
+Removed or missing components use deterministic ordinals; external Network
+Flow graph release remains fail-closed. No identifier, digest, property bag, or
+raw source value bypasses Reporting redaction.
+
+#### Files changed
+
+Recovery contracts, generation, dispatch, and evidence:
+
+```text
+contracts/recovery/{index.json,operator-recovery-journal-payload.v4.schema.json}
+contracts/recovery/fixtures/{recovery-state-catalog.v1.json,graph-projection-restore-implementation-binding.v3.json}
+contracts/recovery/fixtures/{graph-projection-restore-rebuild-result.v3.json,graph-projection-restore-source-registry.v3.json}
+contracts/recovery/fixtures/operator-recovery-journal-payload.v4.json
+internal/gen/contractrecovery/{artifacts_gen.go,graph_projection_restore_binding_gen.go}
+internal/modules/graphprojection/{restore_contract.go,restore_service.go,recovery_state.go}
+internal/modules/recovery/{restore.go,vnext_codec.go}
+internal/modules/recovery/application/evidence.go
+internal/modules/recovery/restorecontract/graphprojection.go
+internal/app/recoveryassembly/{graphprojection_restore.go,state_catalog_test.go}
+tools/contractgen/{main.go,recovery_validation.go}
+```
+
+State-3 and mixed-declaration admission:
+
+```text
+internal/platform/extensionstore/store.go
+internal/modules/extensions/{state.go,state_service_test.go,state_test_adapter_test.go}
+internal/app/extensionassembly/state_store.go
+internal/modules/networkflow/{extension_state.go,extension_state_v3_integration_test.go}
+internal/modules/networkflow/{graph_restore_source.go,graph_view_store_test.go}
+tools/test_families/{module.extensions.json,module.networkflow.json}
+```
+
+Reporting typed candidates and redacted rendering:
+
+```text
+contracts/network-flow/reporting-graph-source.v2.schema.json
+internal/modules/reporting/graphsourcecontract/contract.go
+internal/modules/networkflow/{reporting_graph_source.go,reporting_graph_source_integration_test.go}
+internal/modules/reporting/{graph_source.go,render_bundle.go,graph_result_render_test.go}
+tools/test_families/{module.graphprojection.json,module.recovery.json}
+```
+
+Generated files changed only through `make generate`. S09 adds no database
+migration, public route, Graph Projection engine policy, persisted bucket index,
+external Reporting allow rule, or compatibility write path.
+
+#### Compatibility and migration impact
+
+- State `2 -> 3` is an admission migration: it validates the expanded persisted
+  query union and does not rewrite declaration JSON, digests, selected result
+  bindings, or result envelopes.
+- Persisted v1 and v2 declarations rebuild through the current v3 dispatcher.
+  Exact pre-GP3 v2 backup artifacts remain readable only through their frozen
+  v2 catalog/binding/algorithm combination and continue to emit the v2 closed
+  error vocabulary.
+- Fresh backups and restore journals move to the v3 graph rebuild and v4 journal
+  contracts. A catalog and codec from different generations cannot be mixed.
+- Internal report diagrams gain deterministic redacted endpoint and temporal
+  labels. External graph release remains unavailable, so S09 introduces no new
+  disclosure compatibility surface.
+- Historical v2 removal remains conditioned on zero supported retained backup
+  sets. Persisted v1 removal separately requires zero installed v1 declarations
+  and a new owner decision.
+
+#### Validation
+
+- Required `make task-guide ROLE=module-author OWNER=...` and
+  `make explain-test-owner OWNER=...` probes passed for `module.recovery`,
+  `module.reporting`, `module.networkflow`, `module.graphprojection`, and
+  `app.server` before implementation.
+- Graph Projection mixed v1/v2 rebuild and exact historical-v2 dispatch row —
+  PASS, 1/1, root
+  `.cartulary/test-results/20260816T181444Z-p2625125`.
+- Recovery v3 projection, historical artifact dispatch, exact state catalog,
+  and frozen-catalog rows — PASS, 4/4, root
+  `.cartulary/test-results/20260816T182131Z-p2649466`; the focused v3/historical
+  pair also passed 2/2 at
+  `.cartulary/test-results/20260816T181444Z-p2625130`.
+- Extensions state `2 -> 3` admission and final validation — PASS, 3/3, root
+  `.cartulary/test-results/20260816T181815Z-p2639900`.
+- Network Flow mixed v1/v2 saved-declaration validation and byte-preservation —
+  PASS, 3/3, root
+  `.cartulary/test-results/20260816T182040Z-p2647738`.
+- Reporting exact selection, typed candidate validation, internal redaction,
+  temporal rendering, ordinal fallback, and external fail-closed unit row —
+  PASS, 1/1, root
+  `.cartulary/test-results/20260816T182131Z-p2649461`.
+- Reporting exact-result lease lifecycle — PASS, 3/3, root
+  `.cartulary/test-results/20260816T182139Z-p2650824`.
+- Network Flow default and temporal saved-graph lifecycle, including mixed
+  restore and exact result/object reconciliation — PASS, 4/4, root
+  `.cartulary/test-results/20260816T182207Z-p2652166`.
+- Recovery typed terminal evidence and narrow restore participant — PASS, 3/3,
+  root `.cartulary/test-results/20260816T182237Z-p2653673`.
+- Application extension-readiness admission gate — PASS, 1/1, root
+  `.cartulary/test-results/20260816T182306Z-p2655018`.
+- `make format` — PASS, root
+  `.cartulary/test-results/20260816T182505Z-p2723038`.
+- `make generate` — PASS, root
+  `.cartulary/test-results/20260816T181947Z-p2643161`.
+- `make generate-drift` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T182325Z-p2655619`.
+- `make generated-artifact-policy-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T182325Z-p2655540`.
+- `make json-shape-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T182325Z-p2655662`.
+- `make migration-drift` — PASS, 5/5, root
+  `.cartulary/test-results/20260816T182340Z-p2659393`.
+- `make frontend-import-boundary-check` — PASS, 2/2, root
+  `.cartulary/test-results/20260816T182340Z-p2659625`.
+- `make backend-module-boundary-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T182433Z-p2689528`.
+- `make go-gosec-targeted` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T182433Z-p2689583`.
+- Pre-checkpoint `git diff --check` and `git diff --cached --check` — PASS.
+- Pre-checkpoint `make lint-markdown` — PASS, root
+  `.cartulary/test-results/20260816T182514Z-p2726650`.
+
+The first current-binding generation at
+`.cartulary/test-results/20260816T175223Z-p2570679` exposed the intended
+Recovery catalog digest change; the v3 binding and fixtures were regenerated
+against that exact catalog and the final generation root supersedes it. The
+first Graph Projection restore row at
+`.cartulary/test-results/20260816T181237Z-p2623625` exposed a test expectation
+that would have widened the frozen v2 error union; the corrected exact-v2
+assertion passes in the final restore root.
+
+Concurrent state-row attempts at
+`.cartulary/test-results/20260816T181504Z-p2629023` and
+`.cartulary/test-results/20260816T181504Z-p2629026`, followed by focused roots
+`.cartulary/test-results/20260816T181705Z-p2637956`,
+`.cartulary/test-results/20260816T181841Z-p2641288`, and
+`.cartulary/test-results/20260816T181959Z-p2646121`, exposed only fixture and
+routing defects: a multi-command prepared statement, an out-of-order synthetic
+timestamp, the wrong Postgres fixture capability, and an overlong synthetic row
+ID. The final state roots supersede them. The first security closure root
+`.cartulary/test-results/20260816T182340Z-p2659807` reported a bounds-analysis
+false positive in a hand-written equal-slice loop; using the standard-library
+equality primitive removed the ambiguity and the final security root passes.
+An attempted nonexistent `backend-import-boundary-check` target was corrected
+through `make help-all` to the canonical backend target recorded above.
+
+Capacity workloads, browser workflows, rollout/rollback drills, broad
+`make check`, and release verification were skipped because they belong to the
+strictly subsequent S10 through S12 workstreams. No S09 owner, compatibility,
+readiness, identity, lease, privacy, security, migration, or restore gate is
+unresolved.
+
+Post-checkpoint `git diff --check` and `git diff --cached --check` — PASS.
+Post-checkpoint `make lint-markdown` — PASS, root
+`.cartulary/test-results/20260816T182626Z-p2727838`.
+
+#### Current next action
+
+Execute GP3-S10 Web product completion. Begin with required
+`web.networkflow`, Network Flow, and application owner routing; then consume
+only major 4, add accessible temporal controls and bucket navigation, preserve
+the saved lifecycle and contributor pivots, and bound mounted graph objects to
+500 vertices and 1,000 edges. Do not begin capacity or final handoff work before
+S10 is `DONE`.
+
+### 10.18 GP3-S10 completion checkpoint
+
+Status: `DONE`.
+
+GP3-S10 moves the browser to the Network Flow major-4 boundary without a
+parallel major-3 client. Ephemeral Graph queries, saved-graph creates, and
+initial contributor requests now write semantic-query v2 and echo the canonical
+Network Flow selectors supplied by the server. Unchanged rename, refresh,
+retire, and cursor-continuation shapes retain their owner-approved schema IDs.
+The adapter reads current v2 Graph responses and the mixed saved-result union,
+so exact retained v1 results remain displayable while all new writes use v2.
+
+Unsaved exploration now exposes the closed default/time-bucket choice, all six
+allowed widths, and complete-range validation before transport. Temporal
+results navigate the response-owned bucket summaries, show canonical
+`[start,end)` bounds and per-bucket counts, and mount no objects for an empty
+bucket. Vertex, default-edge, and temporal-edge contributor pivots use the
+canonical selector objects rather than Graph Projection `ed_...` identities.
+
+Saved Graph results support the same temporal bucket navigation and canonical
+contributor selection while preserving rename, refresh, last-safe result,
+failure, retire, and role behavior. Both exploration and saved results page
+large selections and mount at most 500 vertices and 1,000 edges at once, with
+explicit capacity guidance. A real application browser scenario now creates a
+two-bucket temporal graph, navigates its empty bucket by keyboard, saves it,
+waits for materialization, opens contributors, renames, refreshes while retaining
+the prior result, and retires the declaration.
+
+#### Files changed
+
+Major-4 browser boundary and controllers:
+
+```text
+packages/protocol-ts/src/entrypoints/network-flow.ts
+packages/protocol-ts/src/entrypoints/entrypoints.test.ts
+packages/protocol-ts/src/index.test.ts
+apps/web/src/services/{networkFlowContractAdapter.ts,networkFlowContractAdapter.test.ts}
+apps/web/src/extensions/extensionAvailability.test.ts
+apps/web/src/testing/extensionAvailabilityTestSupport.ts
+apps/web/src/networkFlow/{networkFlowClient.ts,networkFlowClient.test.ts}
+apps/web/src/networkFlow/useNetworkFlowGraphController.ts
+```
+
+Temporal, saved-result, bounded-rendering, and load-fixture behavior:
+
+```text
+apps/web/src/networkFlow/NetworkAnalysisWorkspace.tsx
+apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx
+apps/web/src/networkFlow/NetworkFlowSavedGraphPanel.tsx
+apps/web/src/networkFlow/NetworkFlowGridLoadFixture.tsx
+```
+
+Browser, visual, and routed evidence:
+
+```text
+apps/web/e2e/{network-flow.spec.ts,extensions.stateful.spec.ts}
+apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-graph-contributors-linux.png
+tools/test_families/web.networkflow.json
+tools/execution_topology_render_index.json
+```
+
+The topology projection changed only through `make generate`. No generated
+protocol source, lockfile, backend route, database schema, Graph Projection
+engine policy, cleanup control, or alternate application shell was hand-edited
+in S10.
+
+#### Compatibility and migration impact
+
+- The browser advertises and accepts only Network Flow contract major 4. A
+  major-3 discovery response is intentionally unsupported; no hidden dual
+  decoder or content negotiation remains.
+- New Graph and saved-Graph writes use semantic-query v2 and therefore the
+  intentional v2 digest/identity boundary. Current v2 saved results and exact
+  historical v1 saved results are both readable through the major-4 response
+  union; authoritative persisted bytes are not translated.
+- Contributor requests now echo complete canonical source selectors and bind
+  page limits. Graph Projection edge IDs are no longer sent as Network Flow
+  selector identities.
+- Rendering caps bound mounted browser objects, not server result identity or
+  deployment policy. Operators choose deployable backend limits from S11
+  evidence; the UI does not silently clamp an accepted query.
+- The visual refresh changed exactly
+  `network-flow-analysis-graph-contributors-linux.png`. Its accepted trigger is
+  the adopted major-4 aggregation control block; owner row
+  `module.networkflow.visual.capture_deterministic_claimed_network_analysis_a_47b1c2cce6`
+  and fixture `visual.fixture.claimed_network_analysis_workspace_states` own the
+  capture. Viewport, zoom, masks, scroll normalization, and screenshot scope are
+  unchanged. Review found no unexpected clipping, overflow, typography, or
+  contributor-drawer change.
+
+#### Validation
+
+- Required `make task-guide ROLE=module-author OWNER=...` and
+  `make explain-test-owner OWNER=...` probes passed for `web.networkflow`,
+  `module.networkflow`, and `app.server` before implementation.
+- `make frontend-typecheck` — PASS, 2/2, root
+  `.cartulary/test-results/20260816T185001Z-p2814181`.
+- `make frontend-unit` — PASS, 390/390, root
+  `.cartulary/test-results/20260816T185016Z-p2814764`.
+- `make frontend-import-boundary-check` — PASS, 2/2, root
+  `.cartulary/test-results/20260816T185215Z-p2856656`.
+- Full routed `web.networkflow` slice, including the new temporal controls,
+  canonical bucket selector, empty bucket, saved lifecycle, role, and render
+  bound rows — PASS, 37/37, root
+  `.cartulary/test-results/20260816T185251Z-p2860981`.
+- `make browser-e2e-stateful` — PASS, 36/36, root
+  `.cartulary/test-results/20260816T185845Z-p2927705`.
+- Real-browser keyboard bucket navigation is included in that stateful result;
+  focused unit keyboard and focus-restoration coverage also passed within the
+  390/390 frontend root.
+- `make browser-e2e-a11y` — PASS, 14/14, root
+  `.cartulary/test-results/20260816T190130Z-p2959211`.
+- `make browser-e2e-measurement` — PASS, 29/29, root
+  `.cartulary/test-results/20260816T191643Z-p3111057`. The retained rows include
+  ordinary Network Flow DOM growth and saved-result object-model ceiling
+  evidence.
+- `make browser-e2e-visual-update` — PASS, 14/14, root
+  `.cartulary/test-results/20260816T191213Z-p3054964`; the refreshed Network
+  Flow image was inspected against its prior image and failed-run diff.
+- `make browser-e2e-visual` after review — PASS, 14/14, root
+  `.cartulary/test-results/20260816T191457Z-p3082826`.
+- `make format` — PASS, final root
+  `.cartulary/test-results/20260816T192335Z-p3150980`.
+- `make generate` — PASS, root
+  `.cartulary/test-results/20260816T184938Z-p2811056`.
+- `make generate-drift` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T185223Z-p2857048`.
+- `make generated-artifact-policy-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T185236Z-p2860011`.
+- `make json-shape-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T185242Z-p2860485`.
+- Pre-checkpoint `git diff --check` and `git diff --cached --check` — PASS.
+- Pre-checkpoint `make lint-markdown` — PASS, root
+  `.cartulary/test-results/20260816T192346Z-p3154610`.
+
+The initial full web owner run at
+`.cartulary/test-results/20260816T182819Z-p2731626` failed 21 of 36 rows because
+the browser still consumed major 3, which was the intended S10 starting gap.
+The major-4 cutover passed 36/36 before the temporal row was added at
+`.cartulary/test-results/20260816T183932Z-p2752897`, and the final 37/37 root
+supersedes it. Typecheck root
+`.cartulary/test-results/20260816T184419Z-p2758682` exposed three test-fixture
+narrowing errors; the final typecheck root supersedes it. An initial
+`frontend-unit` invocation stopped before tests because the new catalog row was
+not ASCII-sorted; the row was reordered and both complete 390/390 runs passed.
+
+Stateful browser root
+`.cartulary/test-results/20260816T185302Z-p2861515` proved the major-4 temporal
+request and response but exposed pointer interception at the viewport edge; the
+scenario now activates the native button through focus and Enter, adding real
+keyboard coverage without forcing a click. Root
+`.cartulary/test-results/20260816T185603Z-p2895005` then passed the complete
+temporal lifecycle and exposed only one separate stale major-3 packaged-client
+expectation; the final 36/36 root supersedes both.
+
+The first measurement root
+`.cartulary/test-results/20260816T190256Z-p2986305` passed all three Network
+Flow rows but failed an unrelated Timeline blank-row paint observation. The
+clean 29/29 retry supersedes it. Initial visual root
+`.cartulary/test-results/20260816T190959Z-p3026990` failed only the expected
+major-4 control-block screenshot delta. Reconciliation reported the capture as
+active and unambiguous with no missing golden. The update target also produced
+one unrelated nondeterministic public-error image change; review showed only an
+unmasked synthetic actor digit and that file was restored, leaving exactly the
+accepted Network Flow golden change. Final visual validation supersedes the
+failed comparison.
+
+The browser umbrella, capacity workloads, fresh backup/restore/rollback drills,
+`make check`, and `make release-check` were not duplicated in S10 because they
+belong to S11 and S12. No S10 contract, compatibility, accessibility,
+measurement, visual, or product-workflow risk remains unclassified.
+
+#### Current next action
+
+Execute GP3-S11 capacity and rollout certification. Begin with required owner
+routing, then retain default, raised, semantic-maximum diagnostic,
+dense/skewed/temporal, cleanup, cancellation, crash, mixed-queue,
+browser-response, and shutdown evidence. Capture a fresh state-3 backup and run
+isolated restore plus replacement-target rollback drills. Do not begin final
+handoff before S11 is `DONE`.
+
+### 10.19 GP3-S11 completion checkpoint
+
+GP3-S11 selects the conservative configuration-major-2 defaults for the GP3
+reference deployment. The retained backend capacity artifact binds the dirty
+source snapshot, baseline commit, toolchain, system, execution graph, Go
+runtime, host CPU/memory profile, every effective limit, workload cardinality,
+wall time, allocations, process peak RSS, projection input/result bytes, and
+outcome. Raised and semantic-maximum observations are explicitly diagnostic;
+they do not publish a portable capacity claim or select an override.
+
+The release-tier capacity row runs the default skew and exact default-dense
+limits, a raised dense profile, the full five-million contributing-row maximum,
+the default 256-bucket temporal maximum, and the 1,024-bucket semantic maximum.
+The first retained run showed that a raised dense workload could exceed the
+generic 256 MiB scheduler declaration even while passing. S11 therefore adds
+the honest `backend_capacity_isolated` profile with a 1 GiB memory claim and a
+one-hour runner timeout. It does not raise any product limit. The final run
+observed:
+
+| Workload | Rows | Vertices | Edges | Buckets | Wall ms | Allocated bytes | Process peak RSS | Result bytes | Selection |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| default skew | 250,000 | 2 | 1 | 0 | 350 | 505,674,056 | 39,038,976 | 12,948 | selected default |
+| default dense | 250,000 | 5,000 | 10,000 | 0 | 1,674 | 1,811,564,240 | 307,978,240 | 21,694,707 | selected default |
+| raised dense | 500,000 | 10,000 | 20,000 | 0 | 3,500 | 3,624,492,608 | 604,905,472 | 43,385,475 | diagnostic only |
+| temporal default | 250,000 | 2 | 256 | 256 | 489 | 730,758,568 | 604,905,472 | 468,829 | selected default |
+| maximum rows | 5,000,000 | 2 | 1 | 0 | 7,121 | 10,128,069,528 | 604,905,472 | 12,957 | diagnostic only |
+| maximum buckets | 1,024 | 2 | 1,024 | 1,024 | 120 | 120,598,136 | 604,905,472 | 1,829,713 | diagnostic only |
+
+Peak RSS is the process high-water mark and is therefore cumulative within the
+single isolated row. Database statements and rows are recorded as zero for
+these in-memory ordered-iterator/Graph-engine measurements; the separately
+routed service-backed rows below supply the PostgreSQL scan, cleanup, race, and
+publication evidence. This separation prevents an in-memory metric from being
+misrepresented as database work.
+
+#### S11 implementation, Recovery, and operations
+
+- Added `internal/modules/networkflow/graph_capacity_test.go`. It streams rows
+  without retaining a source slice, projects every workload through the real
+  Graph Projection v2 adapter, validates exact result cardinality and effective
+  limits, and writes a private `0600` capacity artifact only beneath the
+  Make-owned step artifact directory.
+- Added the release-tier informative row
+  `module.networkflow.measurement.backend_graph_capacity_certification`, the
+  `backend_capacity_isolated` topology resource profile, and the matching
+  closed schema/catalog admission updates. Generated topology was refreshed
+  through `make generate`.
+- Corrected the bounded contributor integration row from a transaction fixture
+  to the dedicated PostgreSQL fixture its application runtime actually owns.
+  This is verification-routing repair, not a product behavior change.
+- Extended the saved-graph lifecycle integration to install a persisted v1
+  declaration, materialize it through the supported compatibility refresh
+  path, retain a new v2 declaration beside it, and prove Recovery v3 rebuilds
+  both result and object identities exactly. New public v1 creation remains
+  rejected.
+- Extended the vNext capture/restore codec drill with exact mixed v1/v2 Network
+  Flow declaration rows. Its fresh state-3 backup uses the v3 Graph source
+  registry and implementation binding, restores into a fresh isolated atomic
+  target, and writes a private `0600` proof containing the backup identity,
+  integrity digest, catalog/codec digests, and both semantic-query digests.
+- Added `docs/guides/network_flow_gp3_rollout_and_rollback.md` and linked it
+  from the Graph Projection v2 rollout guide. It selects defaults, defines
+  evidence requirements, gives the additive `00034`/state-3/major-4 rollout
+  order, and makes replacement-target restoration mandatory after state 3 or
+  any v2 declaration. It forbids in-place downgrade, translation, identity
+  reverse-mapping, migration-history edits, and manual Graph reconstruction.
+- The operator restore row exercises the production backup command, fresh
+  isolated replacement target, exact confirmed backup identity, Graph and
+  workbook rebuild, readiness, and durable terminal replay. Exact historical
+  Recovery v2 artifact dispatch remains separately proven and read-only. A
+  deployment's exact old binary and pre-GP3 database/object-store backup are
+  necessarily rollout inputs; the guide makes their capture and isolated
+  verification a fail-closed prerequisite rather than inventing repository
+  evidence for an external target.
+
+Files added or substantively changed by S11 are:
+
+- `internal/modules/networkflow/graph_capacity_test.go`;
+- `internal/modules/networkflow/routes_integration_test.go`;
+- `internal/modules/recovery/vnext_codec_test.go`;
+- `tools/execution_topology_manifest.json`;
+- `tools/execution_topology_render_index.json`;
+- `tools/harness/test-catalog/test-catalog.mjs`;
+- `tools/schemas/cartulary.harness_work_graph_owner.v1.schema.json`;
+- `tools/schemas/cartulary.test_family_manifest.v5.schema.json`;
+- `tools/test_families/module.networkflow.json`;
+- `docs/guides/graph_projection_v2_rollout.md`; and
+- `docs/guides/network_flow_gp3_rollout_and_rollback.md`.
+
+#### S11 validation and retained evidence
+
+- Required `module.networkflow`, `module.recovery`, `platform.jobs`, and
+  `app.server` task guides and owner explanations — PASS before implementation;
+  Network Flow reported 74 rows/33 service-backed, Recovery 27/14, Jobs 16/12,
+  and application server 34/22.
+- Final backend capacity certification — PASS, 1/1, root
+  `.cartulary/test-results/20260816T194200Z-p3179780`; retained artifact
+  `unit-artifacts/go-5e69a7753cb72544-263e427db896-001/network-flow-capacity-evidence.json`.
+- Network Flow PostgreSQL cleanup, cleanup races, contributor cancellation and
+  paging, mixed v1/v2 saved lifecycle, and temporal saved lifecycle — PASS,
+  7/7, root `.cartulary/test-results/20260816T194347Z-p3182930`.
+- Network Flow bounded aggregation, cleanup dispatcher scheduling/fatal-loss,
+  temporal arithmetic/identity, timeout, conservation, and property rows —
+  PASS, 3/3, root
+  `.cartulary/test-results/20260816T194416Z-p3184717`.
+- Jobs durable claim recovery, cancellation lifecycle, exact per-worker
+  capacity, mixed-kind fairness, retry, renewal, recovery scan, and supervised
+  shutdown — PASS, 5/5, root
+  `.cartulary/test-results/20260816T194431Z-p3185394`.
+- Application-server cleanup readiness/reverse shutdown, telemetry containment,
+  lease loss, fatal loop loss, and admission drain — PASS, 2/2, root
+  `.cartulary/test-results/20260816T194502Z-p3187307`.
+- Fresh vNext state-3 mixed-generation backup, exact atomic restore, current v3
+  artifact closure, and exact historical v2 dispatch — PASS, 1/1, root
+  `.cartulary/test-results/20260816T194034Z-p3172243`; retained drill proof
+  `unit-artifacts/go-33e24180c636aff8-37c4cb98f9a4-001/gp3-mixed-graph-backup-restore-drill.json`.
+- Production operator backup/create/inspect, isolated replacement-target
+  restore, Graph/workbook rebuild, restore verification, target admission, and
+  terminal replay — PASS, 8/8, root
+  `.cartulary/test-results/20260816T194518Z-p3188238`.
+- Focused real-browser saved-graph response/render ceiling — PASS, 12/12 work
+  units, root `.cartulary/test-results/20260816T194617Z-p3220401`. The complete
+  S10 measurement result remains
+  `.cartulary/test-results/20260816T191643Z-p3111057` and final browser gates
+  repeat in S12.
+- `make format` — PASS, root
+  `.cartulary/test-results/20260816T194123Z-p3173057`.
+- Final `make generate` — PASS, root
+  `.cartulary/test-results/20260816T194732Z-p3247905`.
+- Final `make generate-drift` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T194746Z-p3250875`.
+- `make test-catalog-check` — PASS with no separate run root emitted.
+- `make generated-artifact-policy-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T194811Z-p3254288`.
+- `make json-shape-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T194815Z-p3254733`.
+
+The first Recovery codec run at
+`.cartulary/test-results/20260816T194017Z-p3169788` failed during compilation
+because the new proof writer omitted the `strings` import; the final codec root
+supersedes it. The first combined Network Flow service run at
+`.cartulary/test-results/20260816T194248Z-p3180543` exposed the pre-existing
+transaction/dedicated-fixture routing mismatch for the application-runtime
+contributor row. The catalog was repaired and the final 7/7 root supersedes it.
+The first post-repair drift root
+`.cartulary/test-results/20260816T194715Z-p3244743` correctly reported the stale
+generated topology index; the final generation and 4/4 drift roots supersede
+it. The initial passing capacity root
+`.cartulary/test-results/20260816T193501Z-p3162862` was retained but superseded
+after its 569 MiB high-water observation motivated the honest isolated
+scheduler profile.
+
+No public response, Graph Projection v2 behavior, database migration, or
+selected deployment limit changes in S11. Persisted v1 execution and exact
+Recovery v2 dispatch remain deliberate compatibility paths with explicit
+zero-inventory retirement conditions. Raised profiles remain configurable but
+unselected. Capacity evidence is host-specific; the guide forbids treating it
+as a universal SLO. Full browser umbrellas, broad validation, security, final
+backup evidence reconciliation, `make agent-finalize`, `make check`, and
+`make release-check` remain assigned to S12.
+
+#### Current next action
+
+Post-checkpoint `git diff --check` and `git diff --cached --check` passed.
+`make lint-markdown` passed at
+`.cartulary/test-results/20260816T194944Z-p3255693`. GP3-S11 is `DONE`; no
+capacity, backup, restore, replacement-target, compatibility, or operational
+risk is unclassified.
+
+Execute GP3-S12 validation and handoff. Begin with every affected owner guide
+and narrow slice, then run the mandated formatting, generation, drift,
+migration, security, telemetry, frontend, browser, boundary, finalizer, broad
+check, and release sequence. Reconcile all gaps and conditional deployment
+evidence in this tracker before marking the iteration complete.
+
+### 10.20 GP3-S12 final validation and handoff
+
+GP3-S12 and the complete GP3 iteration are `DONE`. Network Flow major 4, state
+3, and configuration major 2 now own temporal semantics and production policy;
+Graph Projection remains a pure deterministic v2 engine. Every GP3 workstream
+is complete, every final gate passes, and no active slice remains.
+
+#### Gap closure
+
+| Gap | Status | Final disposition and evidence |
+| --- | --- | --- |
+| GP3-G01 | `CLOSED` | S03 established one immutable, fail-closed effective-limit value across configuration, startup, discovery, and request overrides; final configuration and server owner slices pass. |
+| GP3-G02 | `CLOSED` | S04 replaced whole-scope graph reads with ordered cancellation-aware iteration and bounded incremental aggregates; final Network Flow unit and PostgreSQL slices pass. |
+| GP3-G03 | `CLOSED` | S04 added canonical source selectors and selector-aware ordered paging with cursor binding and one-page retention; final Network Flow slices pass. |
+| GP3-G04 | `CLOSED` | S05 generated worker runtime mappings and atomically reserves global and per-worker capacity; final Jobs unit and PostgreSQL slices pass. |
+| GP3-G05 | `CLOSED` | S06 composes the private cleanup dispatcher after readiness with immediate, cadenced, paced, retry, fatal-loss, and reverse-shutdown behavior; final Network Flow and server slices pass. |
+| GP3-G06 | `CLOSED` | S06 uses exact source-owner candidate locking and transaction-local selected-binding and lease checks with the common result-first lock order; migration and race gates pass. |
+| GP3-G07 | `CLOSED` | S06 bounds lease batches, result cascades, sweep count, duration, and continuation; batch, rollback, multi-instance, and eventual-drain evidence passes. |
+| GP3-G08 | `CLOSED` | S07 adds closed, privacy-safe Jobs queue and Network Flow materialization/cleanup telemetry; owner, conformance, privacy, no-export, and self-failure gates pass. |
+| GP3-G09 | `CLOSED` | S11 retains reproducible default, raised, semantic-maximum, skew, dense, temporal, cleanup, cancellation, queue, and shutdown evidence and selects only conservative defaults. |
+| GP3-G10 | `CLOSED` | S08 implements the adopted half-open range, epoch-aligned buckets, negative-epoch arithmetic, exact edge/digest identity, metadata, limits, contributors, and failures; temporal unit, integration, fuzz, and property evidence passes. |
+| GP3-G11 | `CLOSED` | S09/S11 prove byte-preserving state 3 admission, exact mixed v1/v2 Recovery v3 rebuild, historical v2 dispatch, Reporting redaction, leases, fresh backup, isolated restore, and replacement-target rollback. |
+| GP3-G12 | `CLOSED` | S10 completes the major-4 temporal controls, bucket navigation, bounded rendering, saved lifecycle, contributor pivots, failures, accessibility, measurement, visual behavior, and operator guidance; final frontend and browser gates pass. |
+
+#### S12 implementation and compatibility reconciliation
+
+The first broad gate exposed final verification debt that narrow GP3 owners did
+not own. S12 corrected it structurally:
+
+- Extension characterization now counts both state-3 proofs, the concurrent
+  admission fixture registers the complete `1 -> 2 -> 3` migration chain, and
+  the fixed-clock finalizer fixture no longer submits jobs in its own future.
+- The intended additive `00034` migration is reflected in the canonical
+  migration-schema hash and exact operator evidence digest.
+- Static analysis removed obsolete whole-slice filtering, semantic-composition,
+  worker-listing, and restore-test assignments left behind by the streaming,
+  generated-runtime, and Recovery refactors. New error text follows the Go
+  error contract rather than suppressing diagnostics.
+
+Files substantively changed by S12, beyond the implementation already recorded
+in S00 through S11, are:
+
+```text
+internal/app/operator/operator_migration_evidence_test.go
+internal/modules/database_migrations/catalog_characterization_test.go
+internal/modules/extensions/contract_test.go
+internal/modules/extensions/state_service_test.go
+internal/modules/graphprojection/restore_service_test.go
+internal/modules/networkflow/graph.go
+internal/modules/networkflow/graph_result_cleanup.go
+internal/modules/networkflow/graph_result_cleanup_dispatcher.go
+internal/modules/networkflow/query.go
+internal/platform/extensionstore/finalizer_integration_test.go
+internal/platform/jobs/definition_catalog.go
+internal/testutil/pgtest/pgtest_test.go
+tools/contractgen/recovery_validation.go
+docs/handoffs/graphprojection-module-refactor-tracker.md
+```
+
+The compatibility posture is final and explicit:
+
+- New public writes use semantic-query v2 and contract major 4. Persisted v1
+  declarations remain readable, refreshable, returnable, back-up-able,
+  restorable, and rebuildable without byte or identity translation.
+- Exact Recovery v2 dispatch remains read-only for supported pre-GP3 backups.
+  Removing either compatibility path requires zero installed v1 declarations,
+  zero supported retained backup references, and a new owner decision.
+- Migration `00034` is the only GP3 database migration; `00032` and `00033`
+  remain immutable. After state 3 or a v2 declaration, rollback is an exact
+  pre-GP3 backup restored into a replacement target with the prior binary.
+- The selected deployment profile remains the conservative defaults. Raised
+  and semantic-maximum evidence is diagnostic and is not a portable SLO.
+- External Network Flow graph release remains fail-closed. GP3 adds no public
+  cleanup route, Graph temporal protocol, dual browser client, or in-place
+  downgrade path.
+
+#### Final affected-owner evidence
+
+Every affected owner guide and explanation passed before its S12 slice. The
+final routed owner results are:
+
+| Owner | Unit/static result | Service-backed result |
+| --- | --- | --- |
+| `module.graphprojection` | 10/10, `.cartulary/test-results/20260816T195137Z-p3261971` | 6/6, `.cartulary/test-results/20260816T195219Z-p3264428` |
+| `module.networkflow` | 89/89, `.cartulary/test-results/20260816T195230Z-p3265609` | 47/47, `.cartulary/test-results/20260816T195511Z-p3311962` |
+| `platform.jobs` | 18/18, `.cartulary/test-results/20260816T195738Z-p3352647` | 14/14, `.cartulary/test-results/20260816T195811Z-p3355211` |
+| `module.extensions` | 40/40, `.cartulary/test-results/20260816T200134Z-p3386666` | 26/26, `.cartulary/test-results/20260816T200224Z-p3413459` |
+| `platform.config` | 15/15, `.cartulary/test-results/20260816T200311Z-p3438190` | No service-backed rows |
+| `platform.telemetry` | 10/10, `.cartulary/test-results/20260816T200319Z-p3439819` | No service-backed rows |
+| `module.reporting` | 16/16, `.cartulary/test-results/20260816T200333Z-p3445880` | 8/8, `.cartulary/test-results/20260816T200404Z-p3450858` |
+| `module.recovery` | 39/39, `.cartulary/test-results/20260816T200414Z-p3452026` | 26/26, `.cartulary/test-results/20260816T200525Z-p3491056` |
+| `app.server` | 45/45, `.cartulary/test-results/20260816T200616Z-p3526497` | 33/33, `.cartulary/test-results/20260816T200714Z-p3554818` |
+| `web.networkflow` | 37/37, `.cartulary/test-results/20260816T200804Z-p3578949` | No service-backed rows |
+| `module.database_migrations` | 17/17, `.cartulary/test-results/20260816T204656Z-p4139962` | 8/8, `.cartulary/test-results/20260816T204738Z-p4143604` |
+| `app.operator` | 17/17, `.cartulary/test-results/20260816T204821Z-p4145525` | 9/9, `.cartulary/test-results/20260816T204903Z-p4167505` |
+
+#### Final cross-cutting evidence
+
+- `make format` — PASS, final root
+  `.cartulary/test-results/20260816T204552Z-p4122953`.
+- `make generate` — PASS, root
+  `.cartulary/test-results/20260816T200829Z-p3586877`.
+- `make generate-drift` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T200840Z-p3589821`.
+- `make generated-artifact-policy-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T200850Z-p3592752`.
+- `make json-shape-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T200854Z-p3593197`.
+- `make migration-drift` — PASS, 5/5, root
+  `.cartulary/test-results/20260816T200903Z-p3593686`.
+- `make go-vulncheck` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T200915Z-p3596520`.
+- `make go-gosec-targeted` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T200939Z-p3597389`.
+- `make go-gosec-audit` — PASS, 4/4, root
+  `.cartulary/test-results/20260816T200951Z-p3623596`.
+- `make otel-conformance` — PASS, 14/14, root
+  `.cartulary/test-results/20260816T201001Z-p3638753`.
+- `make frontend-typecheck` — PASS, 2/2, root
+  `.cartulary/test-results/20260816T201011Z-p3642892`.
+- `make frontend-unit` — PASS, 390/390, root
+  `.cartulary/test-results/20260816T201023Z-p3643438`.
+- `make frontend-import-boundary-check` — PASS, 2/2, root
+  `.cartulary/test-results/20260816T201213Z-p3681344`.
+- `make lint-biome` — PASS, 2/2, root
+  `.cartulary/test-results/20260816T201220Z-p3681798`.
+- `make browser-e2e` — PASS, 67/67, root
+  `.cartulary/test-results/20260816T201227Z-p3682320`.
+- `make browser-e2e-webserver-backed` — PASS, 62/62, root
+  `.cartulary/test-results/20260816T202002Z-p3739653`.
+- `make browser-e2e-stateful` — PASS, 36/36, root
+  `.cartulary/test-results/20260816T202455Z-p3821599`.
+- `make browser-e2e-a11y` — PASS, 14/14, root
+  `.cartulary/test-results/20260816T202718Z-p3850837`.
+- `make browser-e2e-measurement` — PASS, 29/29, final root
+  `.cartulary/test-results/20260816T212622Z-p449485`.
+- `make browser-e2e-visual` — PASS, 14/14, root
+  `.cartulary/test-results/20260816T203531Z-p3917617`.
+- `make backend-module-boundary-check` — PASS, 3/3, root
+  `.cartulary/test-results/20260816T203715Z-p3944854`.
+- Final `make agent-finalize
+  RESULTS_DIR=.cartulary/test-results/20260816T204956Z-p4190652` — PASS, 1/1,
+  root `.cartulary/test-results/20260816T213326Z-p489247`.
+- `make check` — PASS, 784/784, root
+  `.cartulary/test-results/20260816T204956Z-p4190652`.
+- `make release-check` — PASS, 974/974, root
+  `.cartulary/test-results/20260816T213414Z-p492324`.
+
+The first S12 Extension owner root
+`.cartulary/test-results/20260816T195823Z-p3356392` failed 3 of 40 rows and
+exposed the fixture/characterization drift corrected above. The focused repair
+root `.cartulary/test-results/20260816T200103Z-p3384915` passed 5/5 before the
+complete owner rerun. The first broad root
+`.cartulary/test-results/20260816T203739Z-p3948125` failed five work units: four
+new static-analysis findings plus the additive-migration hash/evidence changes,
+with the migration test repeated by the raw integration sweep. Final lint,
+owner, and broad results supersede it.
+
+The first release root
+`.cartulary/test-results/20260816T205838Z-p187726` passed 972/974 but an
+unrelated Timeline blank-row paint predicate did not qualify before timeout.
+Its committed row existed; only the versioned/visible summary match was late.
+The canonical measurement retry passed 29/29 and the complete release retry
+passed 974/974, so the failure is classified as transient environment
+qualification and is superseded without a product or threshold change.
+
+The first two S12 finalizer invocations used no `RESULTS_DIR` because a
+qualifying successful full warm check did not yet exist; retained-run
+maintenance was therefore skipped as required. After the successful full check
+existed, the final invocation bound that run and passed. No visual-update gate
+was run in S12 because S12 introduced no intentional visual delta; the final
+visual comparison passed against the reviewed S10 golden. No external
+production deployment or customer backup was fabricated: the exact old binary,
+pre-GP3 backup, environment-specific limit selection, and replacement target
+remain fail-closed deployment prerequisites in the rollout guide.
+
+#### Final residual-risk and next-action disposition
+
+Capacity measurements remain environment-specific, persisted-v1 and Recovery
+v2 compatibility remain inventory-gated, and production rollout requires an
+operator-controlled pre-GP3 backup and replacement target. These are explicit
+operational constraints, not unclassified remediation gaps. There is no
+remaining temporary path, failed correctness/security/privacy/restore/rollback
+gate, or deferred GP3 implementation.
+
+Final checkpoint `git diff --check` and `git diff --cached --check` passed.
+`make lint-markdown` passed at
+`.cartulary/test-results/20260816T215251Z-p721352`. The next action is none.
+Preserve this tracker as the final GP3 handoff; any later temporal mode or
+compatibility removal begins with a new owner decision and plan.

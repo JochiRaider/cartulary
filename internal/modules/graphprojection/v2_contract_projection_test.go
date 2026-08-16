@@ -11,7 +11,7 @@ func TestGraphProjectionV2ContractProjection_Unit(t *testing.T) {
 	t.Parallel()
 
 	index := decodeGraphProjectionContractArtifact(t, "contracts/graph-projection/index.json")
-	if index["contract_id"] != "cartulary.graph_projection_nlspec.v2.0.0" ||
+	if index["contract_id"] != "cartulary.graph_projection_nlspec.v2.1.0" ||
 		index["projection_schema_id"] != "graph_projection.v2" {
 		t.Fatalf("Graph Projection v2 index identity drifted: %#v", index)
 	}
@@ -52,6 +52,13 @@ func TestGraphProjectionV2ContractProjection_Unit(t *testing.T) {
 	semanticInput := fixture["input"].(map[string]any)
 	if trusted["source_owner_id"] != "network_flow_activity" || semanticInput["projection_schema_id"] != "graph_projection.v2" {
 		t.Fatalf("Graph Projection v2 fixture does not separate trusted context: %#v", fixture)
+	}
+
+	maintenance := decodeGraphProjectionContractArtifact(t, "contracts/graph-projection/storage-maintenance.v1.json")
+	lockOrder := maintenance["lock_order"].([]any)
+	if maintenance["transaction_ownership"] != "borrowed" || len(lockOrder) != 2 ||
+		lockOrder[0] != "projection_result" || lockOrder[1] != "source_declaration" {
+		t.Fatalf("Graph Projection storage-maintenance projection drifted: %#v", maintenance)
 	}
 }
 

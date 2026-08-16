@@ -30,18 +30,21 @@ var networkFlowExtensionFamilies = []string{
 // this semantic validation boundary.
 type ExtensionStateReader interface {
 	FamilyCounts(context.Context, []string) (map[string]int64, error)
+	ValidateFamilyState(context.Context, string) error
 }
 
 // ExtensionStateFamilyCounters is the Network Flow owner's physical adapter for
 // the generated logical-family identities. The generic Extensions coordinator
 // never receives table names or unrestricted SQL.
 func ExtensionStateFamilyCounters() []extensionstore.FamilyCounter {
+	graphViews := countExtensionFamily(ExtensionFamilyGraphViews, `SELECT COUNT(*) FROM network_flow_graph_views`)
+	graphViews.Validate = validatePersistedGraphViewFamily
 	return []extensionstore.FamilyCounter{
 		countExtensionFamily(ExtensionFamilyIndicatorBindings, `SELECT COUNT(*) FROM network_flow_indicator_bindings`),
 		countExtensionFamily(ExtensionFamilyRejectedRowDiagnostics, `SELECT COUNT(*) FROM network_flow_rejected_row_diagnostics`),
 		countExtensionFamily(ExtensionFamilyRows, `SELECT COUNT(*) FROM network_flow_rows`),
 		countExtensionFamily(ExtensionFamilyTables, `SELECT COUNT(*) FROM network_flow_tables`),
-		countExtensionFamily(ExtensionFamilyGraphViews, `SELECT COUNT(*) FROM network_flow_graph_views`),
+		graphViews,
 	}
 }
 
@@ -56,6 +59,51 @@ func countExtensionFamily(familyID, query string) extensionstore.FamilyCounter {
 			return count, nil
 		},
 	}
+}
+
+func validatePersistedGraphViewFamily(ctx context.Context, querier extensionstore.Querier) error {
+	rows, err := querier.Query(ctx, `
+SELECT graph_view_id, semantic_query_json, semantic_query_sha256,
+       COALESCE(selected_projection_version, '')
+  FROM network_flow_graph_views
+ ORDER BY graph_view_id ASC
+`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	limits := DefaultEffectiveLimits()
+	limits.MaxSelectedTablesPerQuery = 64
+	limits.MaxGraphVertices = 100000
+	limits.MaxGraphEdges = 250000
+	limits.MaxExampleRowRefsPerEdge = 100
+	limits.MaxContributingRowsPerGraph = 5000000
+	limits.MaxTimeBucketsPerGraph = 1024
+	for rows.Next() {
+		var graphViewID string
+		var semanticQuery []byte
+		var semanticDigest string
+		var selectedProjectionVersion string
+		if err := rows.Scan(&graphViewID, &semanticQuery, &semanticDigest, &selectedProjectionVersion); err != nil {
+			return err
+		}
+		semantic, apiErr := decodeGraphSemanticRequest(semanticQuery, limits)
+		if apiErr != nil {
+			return fmt.Errorf("saved graph %s has an unsupported semantic query", graphViewID)
+		}
+		canonical := canonicalJSON(semantic.Raw)
+		if GraphViewSemanticQuerySHA256(canonical) != semanticDigest {
+			return fmt.Errorf("saved graph %s semantic query digest mismatch", graphViewID)
+		}
+		wantProjectionVersion := "network_flow_activity.v1"
+		if semantic.SchemaID == schemaGraphSemanticQueryV2 && semantic.Aggregation.Mode == "time_bucket_v1" {
+			wantProjectionVersion = "network_flow_activity.time_bucket.v1"
+		}
+		if selectedProjectionVersion != "" && selectedProjectionVersion != wantProjectionVersion {
+			return fmt.Errorf("saved graph %s selected projection version does not match its semantic query", graphViewID)
+		}
+	}
+	return rows.Err()
 }
 
 // ValidateExtensionState is the digest-bound Network Flow final validator. The
@@ -81,5 +129,5 @@ func ValidateExtensionState(ctx context.Context, reader ExtensionStateReader) er
 			counts[ExtensionFamilyGraphViews] != 0) {
 		return fmt.Errorf("network flow dependent state exists without table state")
 	}
-	return nil
+	return reader.ValidateFamilyState(ctx, ExtensionFamilyGraphViews)
 }

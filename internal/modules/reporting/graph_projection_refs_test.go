@@ -11,11 +11,12 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/graphsourcecontract"
 )
 
 type fakeGraphSourceProvider struct {
 	ownerID string
-	result  graphprojection.CompletedResultV2
+	result  graphsourcecontract.Result
 	err     error
 }
 
@@ -25,7 +26,7 @@ func (provider *fakeGraphSourceProvider) ValidateAndLeaseResultTx(context.Contex
 	return graphprojection.ResultLeaseV2{}, provider.err
 }
 
-func (provider *fakeGraphSourceProvider) ReadAndRenewLeasedResult(context.Context, uuid.UUID, graphprojection.ResultBindingV2, time.Time, time.Time) (graphprojection.CompletedResultV2, error) {
+func (provider *fakeGraphSourceProvider) ReadAndRenewLeasedResult(context.Context, uuid.UUID, graphprojection.ResultBindingV2, time.Time, time.Time) (graphsourcecontract.Result, error) {
 	return provider.result, provider.err
 }
 
@@ -38,7 +39,9 @@ func (*fakeGraphSourceProvider) ReleaseJobLeases(context.Context, uuid.UUID) err
 func TestGraphSourceRegistryReadsExactResultAndOwnsReasonMapping(t *testing.T) {
 	ref := testSourceProjectionRef("gv_valid", "gpr_valid")
 	result := graphprojection.CompletedResultV2{Binding: ref.binding()}
-	registry, err := NewGraphSourceRegistry(&fakeGraphSourceProvider{ownerID: ref.SourceOwnerID, result: result})
+	registry, err := NewGraphSourceRegistry(&fakeGraphSourceProvider{ownerID: ref.SourceOwnerID, result: graphsourcecontract.Result{
+		Projection: result, LabelCandidates: graphLabelCandidatesForResult(result),
+	}})
 	if err != nil {
 		t.Fatalf("new graph source registry: %v", err)
 	}

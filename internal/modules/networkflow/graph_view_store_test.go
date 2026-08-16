@@ -177,17 +177,37 @@ INSERT INTO jobs (
 	if published.GraphViewVersion != 2 || published.MaterializationGeneration != 1 || published.SelectedResult == nil || published.SelectedResult.ProjectionResultID != result.Binding.ProjectionResultID {
 		t.Fatalf("renamed publication drifted: %#v", published)
 	}
+
+	tx, err = harness.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin timeout failure transaction: %v", err)
+	}
+	if err := store.RecordGraphViewMaterializationFailureTx(
+		ctx, tx, incidentID, graphViewID, 1, jobID,
+		"network_flow_graph_materialization_timeout", now.Add(3*time.Second),
+	); err != nil {
+		t.Fatalf("record terminal timeout failure: %v", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("commit terminal timeout failure: %v", err)
+	}
+	afterTimeout, err := store.GetGraphViewDeclaration(ctx, incidentID, graphViewID)
+	if err != nil || afterTimeout.SelectedResult == nil || afterTimeout.SelectedResult.ProjectionResultID != result.Binding.ProjectionResultID ||
+		afterTimeout.LastFailureCode == nil || *afterTimeout.LastFailureCode != "network_flow_graph_materialization_timeout" {
+		t.Fatalf("terminal timeout did not preserve prior selected result: declaration=%#v err=%v", afterTimeout, err)
+	}
 }
 
 func graphViewDeclarationFixture(graphViewID string, incidentID, actorID uuid.UUID, now time.Time) GraphViewDeclaration {
+	semanticQuery := []byte(`{"aggregation":{"include_example_row_refs":true,"mode":"default_flow_edge_v1"},"filters":[],"result_limits":{"max_aggregate_counter_digits":39,"max_edges":10000,"max_example_row_refs_per_edge":10,"max_vertices":5000},"schema_id":"cartulary.network_flow.graph_semantic_query.v1","selected_table_ids":["nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"time_range":{"end_utc":null,"start_utc":null}}`)
 	return GraphViewDeclaration{
 		GraphViewID:               graphViewID,
 		IncidentID:                incidentID,
 		DisplayName:               "Shared graph",
 		NormalizedDisplayName:     "shared graph",
 		DeclarationState:          GraphViewDeclarationStateActive,
-		SemanticQueryJSON:         []byte(`{"schema_id":"cartulary.network_flow.graph_semantic_query.v1","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]}}`),
-		SemanticQuerySHA256:       testSHA4,
+		SemanticQueryJSON:         semanticQuery,
+		SemanticQuerySHA256:       GraphViewSemanticQuerySHA256(semanticQuery),
 		DesiredSourceSnapshotID:   "network-flow-source-1",
 		GraphViewVersion:          1,
 		MaterializationGeneration: 1,

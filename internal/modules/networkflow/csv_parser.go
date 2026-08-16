@@ -42,15 +42,15 @@ const (
 	parseModeApply
 )
 
-func ParseCSVPreview(reader io.Reader, expectedSHA256 string, limits Limits) (ParsedCSV, error) {
-	return parseCSV(reader, expectedSHA256, limits.normalized(), parseModePreview)
+func ParseCSVPreview(reader io.Reader, expectedSHA256 string, limits EffectiveLimits) (ParsedCSV, error) {
+	return parseCSV(reader, expectedSHA256, limits, parseModePreview)
 }
 
-func ParseCSVApply(reader io.Reader, expectedSHA256 string, limits Limits) (ParsedCSV, error) {
-	return parseCSV(reader, expectedSHA256, limits.normalized(), parseModeApply)
+func ParseCSVApply(reader io.Reader, expectedSHA256 string, limits EffectiveLimits) (ParsedCSV, error) {
+	return parseCSV(reader, expectedSHA256, limits, parseModeApply)
 }
 
-func parseCSV(reader io.Reader, expectedSHA256 string, limits Limits, mode parseMode) (ParsedCSV, error) {
+func parseCSV(reader io.Reader, expectedSHA256 string, limits EffectiveLimits, mode parseMode) (ParsedCSV, error) {
 	sourceBytes, err := io.ReadAll(reader)
 	if err != nil {
 		return ParsedCSV{}, err
@@ -139,7 +139,7 @@ func normalizeCSVBytes(sourceBytes []byte) ([]byte, error) {
 	return sourceBytes, nil
 }
 
-func sourceColumnsFromHeader(header []string, limits Limits) ([]SourceColumnDescriptor, error) {
+func sourceColumnsFromHeader(header []string, limits EffectiveLimits) ([]SourceColumnDescriptor, error) {
 	columns := make([]SourceColumnDescriptor, 0, len(header))
 	for index, value := range header {
 		if invalidHeaderText(value, limits) {
@@ -156,7 +156,7 @@ func sourceColumnsFromHeader(header []string, limits Limits) ([]SourceColumnDesc
 	return columns, nil
 }
 
-func invalidHeaderText(value string, limits Limits) bool {
+func invalidHeaderText(value string, limits EffectiveLimits) bool {
 	if int64(utf8.RuneCountInString(value)) > limits.MaxHeaderScalarLength {
 		return true
 	}
@@ -192,12 +192,11 @@ func csvParseError(err error) error {
 	return err
 }
 
-func ValidateRows(parsed ParsedCSV, mapping ApprovedMapping, mappingFingerprint string, limits Limits) ([]FlowRow, []RejectedRowDiagnostic, bool, error) {
+func ValidateRows(parsed ParsedCSV, mapping ApprovedMapping, mappingFingerprint string, limits EffectiveLimits) ([]FlowRow, []RejectedRowDiagnostic, bool, error) {
 	fieldMappings := sourceFieldMappings(mapping)
 	accepted := []FlowRow{}
 	diagnostics := append([]RejectedRowDiagnostic(nil), parsed.Diagnostics...)
 	diagnosticsTruncated := parsed.DiagnosticsTruncated
-	limits = limits.normalized()
 	for _, record := range parsed.Records {
 		if !record.FieldCountOK {
 			continue
@@ -503,7 +502,7 @@ func diagnostic(sourceRowNumber int64, sourceColumnOrdinal *int64, rawHeaderSHA2
 	return diagnostic
 }
 
-func appendDiagnostic(diagnostics []RejectedRowDiagnostic, limits Limits, diagnostic RejectedRowDiagnostic) []RejectedRowDiagnostic {
+func appendDiagnostic(diagnostics []RejectedRowDiagnostic, limits EffectiveLimits, diagnostic RejectedRowDiagnostic) []RejectedRowDiagnostic {
 	if limits.MaxRejectedRowDiagnostics >= 0 && int64(len(diagnostics)) >= limits.MaxRejectedRowDiagnostics {
 		return diagnostics
 	}

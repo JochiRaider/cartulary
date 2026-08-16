@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -200,6 +201,13 @@ func (t *liveStateTestTransaction) FamilyCounts(ctx context.Context, familyIDs [
 		return nil, errors.New("test state family scope violation")
 	}
 	return t.tx.FamilyCounts(ctx, families)
+}
+
+func (t *liveStateTestTransaction) ValidateFamilyState(ctx context.Context, familyID string) error {
+	if !slices.Contains(t.familyIDs, familyID) {
+		return errors.New("test state family scope violation")
+	}
+	return t.tx.ValidateFamilyState(ctx, familyID)
 }
 
 func (t *liveStateTestTransaction) StateMetadata(ctx context.Context, profileID string) (*StateMetadata, error) {

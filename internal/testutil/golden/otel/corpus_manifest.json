@@ -168,6 +168,14 @@
       "normalized_traces": "cases/OTEL-CORPUS-018/normalized_traces.json",
       "normalized_metrics": "cases/OTEL-CORPUS-018/normalized_metrics.json",
       "normalized_logs": "cases/OTEL-CORPUS-018/normalized_logs.json"
+    },
+    {
+      "case_id": "OTEL-CORPUS-019",
+      "title": "Jobs queue and Network Flow graphs",
+      "input": "cases/OTEL-CORPUS-019/input.json",
+      "normalized_traces": "cases/OTEL-CORPUS-019/normalized_traces.json",
+      "normalized_metrics": "cases/OTEL-CORPUS-019/normalized_metrics.json",
+      "normalized_logs": "cases/OTEL-CORPUS-019/normalized_logs.json"
     }
   ]
 }

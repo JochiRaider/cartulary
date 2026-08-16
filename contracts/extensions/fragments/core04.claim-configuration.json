@@ -20,7 +20,7 @@
     },
     {
       "claim_config_key": "network_flow_activity.claimed",
-      "configuration_contract_sha256": "87120eca07a31d0fc78ba73821683b9ca9962112f0ecc92280359b427e84af49",
+      "configuration_contract_sha256": "16460b2877ff79218d5f95050da1111852b015f69030fee09e575f8c575fd77a",
       "fact_kind": "claim_configuration",
       "profile_id": "network_flow_activity"
     },

@@ -3,14 +3,14 @@ title: Graph Projection NLSpec
 status: adopted/current
 document_class: nlspec
 created_at: 2026-05-30
-document_version: 2.0.0
+document_version: 2.1.0
 ---
 
 ## 1. Status, scope, and authority
 
 Status: `adopted/current` (`Adopted`).
 
-This NLSpec defines Graph Projection 2.0: deterministic, side-effect-free
+This NLSpec defines Graph Projection 2.x: deterministic, side-effect-free
 derivation of a graph representation from an explicit immutable source. It
 replaces Graph Projection 1.2.0 in full. Version 1 lifecycle, query, retention,
 cursor, idempotency, invalidation, run-history, and five-table Recovery behavior
@@ -350,8 +350,15 @@ implement only these typed capabilities:
   bounds, breaking ties by output order;
 - `AcquireLeaseTx`, `RenewLease`, and `ReleaseLease`: protect an exact result for
   an owner/purpose until a server-owned expiry;
-- `DeleteUnreachableResults`: delete only unleased results not selected by an
-  active authoritative declaration.
+- `DeleteExpiredLeasesTx`: delete at most a caller-supplied bound of expired
+  leases at one captured observation time and report whether eligible work
+  remains;
+- `LockCleanupCandidateTx`: lock at most one oldest result for an exact
+  `source_owner_id` by `published_at`, then result ID, using skip-locked
+  semantics inside a caller-owned transaction;
+- `HasUnexpiredLeaseTx` and `DeleteLockedResultTx`: recheck reachability and
+  delete at most the locked result envelope plus its cascading objects inside
+  that same transaction.
 
 Publication validates all digests, counts, IDs, endpoints, and order before the
 caller transaction commits. Partial envelope/object publication is forbidden.
@@ -359,10 +366,26 @@ Leases are operational rows and do not enter result identity. Adapters accept
 borrowed database/transaction handles, start no hidden worker, and close no
 borrowed resource.
 
+Cleanup capabilities MUST NOT accept a deployment-wide reachable-ID list or
+query a source owner's declaration table. The caller supplies one exact source
+owner and performs its selected-binding check through that owner's adapter in
+the same borrowed transaction. Candidate selection uses
+`FOR UPDATE SKIP LOCKED`; one result transaction deletes at most one envelope.
+Expired-lease deletion is bounded at 1,000 rows per transaction. Result,
+publication-replay, and lease-admission paths that can race cleanup acquire the
+result row before any source-owner declaration row. This lock order plus the
+same-transaction selected-binding and lease rechecks is mandatory.
+
 ## 9. Recovery
 
-Graph Projection publishes algorithm `graphprojection.restore_rebuild.v2` and
-result schema `cartulary.graph_projection_restore_rebuild_result.v2`. The
+Graph Projection publishes current algorithm
+`graphprojection.restore_rebuild.v3` and result schema
+`cartulary.graph_projection_restore_rebuild_result.v3`. It rebuilds admitted
+Network Flow semantic-query v1 and v2 declarations into Graph Projection v2
+results. The exact v2 algorithm and result schema remain read-only only while a
+supported retained pre-GP3 backup references them; they MUST NOT accept v2
+semantic queries, translate artifacts, or act as the current catalog entry.
+Their later removal requires a proven zero supported-backup inventory. The
 current Recovery catalog contains exactly these derived tables in ASCII order:
 
 ```text
@@ -386,10 +409,10 @@ The result status is `succeeded/ready` or `failed/incomplete`. Failure claims no
 committed cleared/rebuilt facts and returns only closed safe errors. An
 indeterminate commit requires target reinitialization under Core 04.
 
-The current binary packages and accepts only the v2 source registry and v2
-implementation binding. The rollout-only historical empty-registry v1 binding
-is retired after fresh-v2 backup and isolated-restore evidence; no backup
-version, digest dispatcher, generated artifact, or runtime branch may admit it.
+The current source registry and implementation binding are v3. The retired
+empty-registry v1 binding remains absent. Current dispatch accepts v3 and the
+exact evidence-gated historical v2 artifact pair only; no digest heuristic,
+version translation, or fallback registry is permitted.
 
 ## 10. Security and operational invariants
 
@@ -425,8 +448,9 @@ Graph Projection v2 is conformant only when all criteria pass:
 8. Current runtime contains no v1 parser, run state, retention, cursor,
    idempotency, invalidation, broad repository, public Graph route, or hidden
    worker.
-9. Recovery reconstructs exact selected results before readiness and the rollout
-   bridge is absent from the final current binary.
+9. Recovery v3 reconstructs exact mixed-v1/v2 selected results before readiness;
+   exact v2 dispatch is reachable only for supported retained backups, and the
+   retired v1 rollout bridge remains absent.
 
 ## Appendix A. Design rationale
 

@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
@@ -38,6 +39,9 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 	}
 	if catalog.DigestSHA256() == "" {
 		t.Fatal("catalog digest is empty")
+	}
+	if want := restorecontract.CurrentGraphProjectionImplementationBinding().Binding.RecoveryStateCatalogSHA256; catalog.DigestSHA256() != want {
+		t.Fatalf("current Graph restore binding recovery catalog digest = %s, want %s", want, catalog.DigestSHA256())
 	}
 
 	reversed := cloneRecoveryStateContributions(contributions)

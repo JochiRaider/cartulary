@@ -16,6 +16,8 @@
     ],
     "metrics": [
       "cartulary.jobs.active",
+      "cartulary.jobs.queued",
+      "cartulary.jobs.queue_wait.duration",
       "cartulary.jobs.duration",
       "cartulary.jobs.attempts",
       "cartulary.jobs.expired",

@@ -20,13 +20,13 @@ const (
 
 	DefaultMaxActiveTablesPerIncident         = 128
 	DefaultMaxRetainedTablesPerIncident       = 512
+	DefaultMaxSelectedTablesPerQuery          = 16
 	DefaultMaxColumnsPerCSV                   = 256
+	DefaultMaxHeaderScalarLength              = 256
+	DefaultMaxRawCellScalarLength             = 4096
 	DefaultMaxRowsPerCSV                      = 250000
 	DefaultMaxAcceptedRowsPerTable            = 250000
 	DefaultMaxRejectedRowDiagnostics          = 10000
-	DefaultMaxHeaderScalarLength              = 1024
-	DefaultMaxRawCellScalarLength             = 4096
-	DefaultMaxSelectedTablesPerQuery          = 16
 	DefaultMaxFiltersPerQuery                 = 16
 	DefaultMaxSortsPerQuery                   = 8
 	DefaultMaxQueryLimit                      = 500
@@ -38,6 +38,9 @@ const (
 	DefaultMaxExampleRowRefsPerEdge           = 10
 	DefaultMaxBindingSourceRowRefs            = 16
 	DefaultMaxAggregateCounterDigits          = 39
+	DefaultMaxContributingRowsPerGraph        = 250000
+	DefaultMaxTimeBucketsPerGraph             = 256
+	DefaultGraphMaterializationTimeoutSeconds = 300
 )
 
 var (
@@ -132,16 +135,20 @@ func (e *TableLimitError) Unwrap() error {
 	return ErrTableLimitExceeded
 }
 
-type Limits struct {
+// EffectiveLimits is the fully resolved, immutable Network Flow resource
+// policy injected by application composition. Zero values are meaningful for
+// the owner-approved limits whose minima are zero, so runtime code must never
+// infer defaults from individual fields.
+type EffectiveLimits struct {
 	MaxActiveTablesPerIncident         int64
 	MaxRetainedTablesPerIncident       int64
+	MaxSelectedTablesPerQuery          int64
 	MaxColumnsPerCSV                   int64
+	MaxHeaderScalarLength              int64
+	MaxRawCellScalarLength             int64
 	MaxRowsPerCSV                      int64
 	MaxAcceptedRowsPerTable            int64
 	MaxRejectedRowDiagnostics          int64
-	MaxHeaderScalarLength              int64
-	MaxRawCellScalarLength             int64
-	MaxSelectedTablesPerQuery          int64
 	MaxFiltersPerQuery                 int64
 	MaxSortsPerQuery                   int64
 	MaxQueryLimit                      int64
@@ -153,19 +160,22 @@ type Limits struct {
 	MaxExampleRowRefsPerEdge           int64
 	MaxBindingSourceRowRefs            int64
 	MaxAggregateCounterDigits          int64
+	MaxContributingRowsPerGraph        int64
+	MaxTimeBucketsPerGraph             int64
+	GraphMaterializationTimeoutSeconds int64
 }
 
-func DefaultLimits() Limits {
-	return Limits{
+func DefaultEffectiveLimits() EffectiveLimits {
+	return EffectiveLimits{
 		MaxActiveTablesPerIncident:         DefaultMaxActiveTablesPerIncident,
 		MaxRetainedTablesPerIncident:       DefaultMaxRetainedTablesPerIncident,
+		MaxSelectedTablesPerQuery:          DefaultMaxSelectedTablesPerQuery,
 		MaxColumnsPerCSV:                   DefaultMaxColumnsPerCSV,
+		MaxHeaderScalarLength:              DefaultMaxHeaderScalarLength,
+		MaxRawCellScalarLength:             DefaultMaxRawCellScalarLength,
 		MaxRowsPerCSV:                      DefaultMaxRowsPerCSV,
 		MaxAcceptedRowsPerTable:            DefaultMaxAcceptedRowsPerTable,
 		MaxRejectedRowDiagnostics:          DefaultMaxRejectedRowDiagnostics,
-		MaxHeaderScalarLength:              DefaultMaxHeaderScalarLength,
-		MaxRawCellScalarLength:             DefaultMaxRawCellScalarLength,
-		MaxSelectedTablesPerQuery:          DefaultMaxSelectedTablesPerQuery,
 		MaxFiltersPerQuery:                 DefaultMaxFiltersPerQuery,
 		MaxSortsPerQuery:                   DefaultMaxSortsPerQuery,
 		MaxQueryLimit:                      DefaultMaxQueryLimit,
@@ -177,78 +187,16 @@ func DefaultLimits() Limits {
 		MaxExampleRowRefsPerEdge:           DefaultMaxExampleRowRefsPerEdge,
 		MaxBindingSourceRowRefs:            DefaultMaxBindingSourceRowRefs,
 		MaxAggregateCounterDigits:          DefaultMaxAggregateCounterDigits,
+		MaxContributingRowsPerGraph:        DefaultMaxContributingRowsPerGraph,
+		MaxTimeBucketsPerGraph:             DefaultMaxTimeBucketsPerGraph,
+		GraphMaterializationTimeoutSeconds: DefaultGraphMaterializationTimeoutSeconds,
 	}
 }
 
-func (l Limits) normalized() Limits {
-	defaults := DefaultLimits()
-	if l.MaxActiveTablesPerIncident <= 0 {
-		l.MaxActiveTablesPerIncident = defaults.MaxActiveTablesPerIncident
-	}
-	if l.MaxRetainedTablesPerIncident <= 0 {
-		l.MaxRetainedTablesPerIncident = defaults.MaxRetainedTablesPerIncident
-	}
-	if l.MaxActiveTablesPerIncident > l.MaxRetainedTablesPerIncident {
-		l.MaxActiveTablesPerIncident = l.MaxRetainedTablesPerIncident
-	}
-	if l.MaxColumnsPerCSV <= 0 {
-		l.MaxColumnsPerCSV = defaults.MaxColumnsPerCSV
-	}
-	if l.MaxRowsPerCSV <= 0 {
-		l.MaxRowsPerCSV = defaults.MaxRowsPerCSV
-	}
-	if l.MaxAcceptedRowsPerTable <= 0 {
-		l.MaxAcceptedRowsPerTable = defaults.MaxAcceptedRowsPerTable
-	}
-	if l.MaxRejectedRowDiagnostics < 0 {
-		l.MaxRejectedRowDiagnostics = defaults.MaxRejectedRowDiagnostics
-	}
-	if l.MaxHeaderScalarLength <= 0 {
-		l.MaxHeaderScalarLength = defaults.MaxHeaderScalarLength
-	}
-	if l.MaxRawCellScalarLength <= 0 {
-		l.MaxRawCellScalarLength = defaults.MaxRawCellScalarLength
-	}
-	if l.MaxSelectedTablesPerQuery <= 0 {
-		l.MaxSelectedTablesPerQuery = defaults.MaxSelectedTablesPerQuery
-	}
-	if l.MaxFiltersPerQuery <= 0 {
-		l.MaxFiltersPerQuery = defaults.MaxFiltersPerQuery
-	}
-	if l.MaxSortsPerQuery <= 0 {
-		l.MaxSortsPerQuery = defaults.MaxSortsPerQuery
-	}
-	if l.MaxQueryLimit <= 0 {
-		l.MaxQueryLimit = defaults.MaxQueryLimit
-	}
-	if l.MaxGraphVertices <= 0 {
-		l.MaxGraphVertices = defaults.MaxGraphVertices
-	}
-	if l.MaxGraphEdges <= 0 {
-		l.MaxGraphEdges = defaults.MaxGraphEdges
-	}
-	if l.MaxActiveGraphViewsPerIncident <= 0 {
-		l.MaxActiveGraphViewsPerIncident = defaults.MaxActiveGraphViewsPerIncident
-	}
-	if l.MaxRetainedGraphViewsPerIncident <= 0 {
-		l.MaxRetainedGraphViewsPerIncident = defaults.MaxRetainedGraphViewsPerIncident
-	}
-	if l.MaxActiveGraphViewsPerIncident > l.MaxRetainedGraphViewsPerIncident {
-		l.MaxActiveGraphViewsPerIncident = l.MaxRetainedGraphViewsPerIncident
-	}
-	if l.MaxNonterminalGraphJobsPerIncident <= 0 {
-		l.MaxNonterminalGraphJobsPerIncident = defaults.MaxNonterminalGraphJobsPerIncident
-	}
-	if l.MaxExampleRowRefsPerEdge < 0 {
-		l.MaxExampleRowRefsPerEdge = defaults.MaxExampleRowRefsPerEdge
-	}
-	if l.MaxBindingSourceRowRefs <= 0 {
-		l.MaxBindingSourceRowRefs = defaults.MaxBindingSourceRowRefs
-	}
-	if l.MaxAggregateCounterDigits <= 0 {
-		l.MaxAggregateCounterDigits = defaults.MaxAggregateCounterDigits
-	}
-	return l
+// DefaultLimits is retained as the explicit constructor for callers that need
+// the adopted default policy. It performs no normalization of caller input.
+func DefaultLimits() EffectiveLimits {
+	return DefaultEffectiveLimits()
 }
 
 func LifecycleStates() []string {

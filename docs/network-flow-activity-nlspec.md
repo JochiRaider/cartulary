@@ -1,8 +1,8 @@
 ---
 title: Network Flow Activity NLSpec
 status: adopted/current
-document_version: 3.0.0
-contract_major: 3
+document_version: 4.0.0
+contract_major: 4
 profile_id: network_flow_activity
 document_class: nlspec
 ---
@@ -11,16 +11,19 @@ document_class: nlspec
 
 Status: `adopted/current`.
 
-This NLSpec defines the implementation-conformance contract for the `network_flow_activity`
-extension profile. Version `3.0.0` adopts incident-shared saved graph
-declarations, Graph Projection v2, Common Jobs materialization, exact Reporting
-participation, deterministic Recovery reconstruction, and the complete saved
-graph workspace. It replaces contract major `2`; no dual decoder or profile
+This NLSpec defines the implementation-conformance contract for the
+`network_flow_activity` extension profile. Version `4.0.0` adds fail-closed
+effective resource configuration, ordered streaming graph construction,
+source-key contributor paging, bounded result cleanup, operational telemetry,
+and time-bucketed graphs while retaining Graph Projection v2 as a pure engine.
+It replaces public contract major `3`; no dual browser decoder or profile
 compatibility surface is current.
 
-Document version: `3.0.0`. Contract major: `3`. Durable state version is `2`
-with an exact `1 -> 2` migration. Clients that support only major `2` omit the
-workspace through Core discovery and continue to use Base behavior.
+Document version: `4.0.0`. Contract major: `4`. Durable state version is `3`
+with exact `1 -> 2` and `2 -> 3` migrations. The second migration rewrites no
+authoritative bytes and expands saved-query admission to the v1/v2 union.
+Clients that do not support major `4` omit the workspace through Core discovery
+and continue to use Base behavior.
 
 **NF-REQ-001**
 The `network_flow_activity` extension profile MUST own only the following behavior families:
@@ -59,7 +62,7 @@ Omission behavior: an implementation that ignores research reports, UI guides, i
 ### 1.1 Version and compatibility
 
 **NF-REQ-006a**
-Network Flow MUST NOT define or emit profile-local contract-discovery metadata. Core 01 `GET /api/v1/extensions` is the sole discovery owner and emits this profile through the generic seven-member item with `profile_id='network_flow_activity'`, `claimable=true`, `contract_major=3`, reserved route family `/api/v1/incidents/{incident_id}/network-flow`, `workspace_keys=['network_analysis']`, and `capabilities=[]`; only `claimed` varies with the published resolved claim set. `document_version`, singular `route_root`, a profile-local item, a second decoder, and a compatibility alias are forbidden. A client that does not support major `3` omits the workspace without affecting Base behavior.
+Network Flow MUST NOT define or emit profile-local contract-discovery metadata. Core 01 `GET /api/v1/extensions` is the sole discovery owner and emits this profile through the generic seven-member item with `profile_id='network_flow_activity'`, `claimable=true`, `contract_major=4`, reserved route family `/api/v1/incidents/{incident_id}/network-flow`, `workspace_keys=['network_analysis']`, and `capabilities=[]`; only `claimed` varies with the published resolved claim set. `document_version`, singular `route_root`, a profile-local item, a second decoder, and a compatibility alias are forbidden. A client that does not support major `4` omits the workspace without affecting Base behavior.
 
 **Table 1-A. Contract version-change registry**
 
@@ -67,12 +70,12 @@ Network Flow MUST NOT define or emit profile-local contract-discovery metadata. 
 | --- | --- |
 | Editorial correction that changes no observable behavior | Increment patch version only. |
 | New immutable source profile advertised through discovery | Increment minor version. |
-| New additive capability | Requires a later adopted Extensions capability contract and the version action that contract assigns; contract major `3` advertises none. |
+| New additive capability | Requires a later adopted Extensions capability contract and the version action that contract assigns; contract major `4` advertises none. |
 | New public route, request member, response member, error code, or closed token not explicitly reserved as additive | Increment contract major and affected schema IDs. |
 | Changed default, limit, ordering, normalization, identity, digest, lifecycle, authorization, disclosure, or audit behavior | Increment contract major and every affected schema or algorithm ID. |
 | Changed source aliases, requiredness, transform, empty-value policy, or timestamp interpretation | Introduce a new immutable `source_profile_id`; do not mutate the prior profile. |
 
-Patch-version changes MUST NOT alter canonical bytes, identifiers, persisted resources, route status codes, error selection, audit output, fixture output, or caller-visible UI semantic state. Capability facts and nonempty capability arrays are invalid in contract major `3`; attempted activation fails with `extension_capability_not_supported`.
+Patch-version changes MUST NOT alter canonical bytes, identifiers, persisted resources, route status codes, error selection, audit output, fixture output, or caller-visible UI semantic state. Capability facts and nonempty capability arrays are invalid in contract major `4`; attempted activation fails with `extension_capability_not_supported`.
 
 ### 1.2 Normative dependency registry
 
@@ -135,7 +138,7 @@ This NLSpec may be marked `status: adopted/current` only while every adoption ga
 | Gate ID | Owner artifact | Required adoption change | Required evidence before adoption |
 | --- | --- | --- | --- |
 | `NF-GATE-001` | Core 00 | Add `network_flow_activity` to the extension-profile model and adopted-subsystem map. | Core 00 lists this NLSpec as adopted for the extension boundary only. |
-| `NF-GATE-002` | Core 01 | Add `network_flow_activity` to the sole generic extension discovery producer with major `3`, its reserved route family, `workspace_keys=['network_analysis']`, and `capabilities=[]`. | Both claimed and unclaimed fixtures contain the same reserved route/workspace facts; only `claimed` changes, and no profile-local producer or decoder exists. |
+| `NF-GATE-002` | Core 01 | Add `network_flow_activity` to the sole generic extension discovery producer with major `4`, its reserved route family, `workspace_keys=['network_analysis']`, and `capabilities=[]`. | Both claimed and unclaimed fixtures contain the same reserved route/workspace facts; only `claimed` changes, and no profile-local producer or decoder exists. |
 | `NF-GATE-003` | Core 01 | Extend import apply to permit extension-owned analytical import targets that produce durable extension resources rather than Core `record_id` rows. | Import contract names `target_kind='network_flow_table'` as an extension result target. |
 | `NF-GATE-004` | Core 01 | Permit terminal import results to reference `network_flow_table` resources when `target_kind='network_flow_table'`. | Import result schema accepts extension resource references without treating them as saved views or record-envelope rows. |
 | `NF-GATE-005` | Core 03 | Admit extension-contributed top-level incident tabs without adding `Network Analysis` to the Base Profile built-in tab list. | Base built-in tabs remain Timeline, Hosts, Identities, Evidence, and Notes; `Network Analysis` appears only when the extension is claimed. |
@@ -1278,7 +1281,7 @@ The Network Flow import target MUST contribute this exact
 | `schema_id` | `cartulary.imports.analytical_facade_binding.v1` |
 | `target_kind` | `network_flow_table` |
 | `extension_profile_id` | `network_flow_activity` |
-| `owner_contract_ref` | `network_flow_activity@2` |
+| `owner_contract_ref` | `network_flow_activity@4` |
 | `facade_id` | `network_flow_import_facade_v1` |
 | `contract_major` | `2` |
 | `mapping_schema_id` | `cartulary.network_flow.approved_mapping.v1` |
@@ -2836,34 +2839,49 @@ snapshots merely to satisfy this participation.
 ## 20. Resource limits
 
 **NF-REQ-171**
-Network Flow resource limits MUST use Table 20-A. Deployments MAY lower limits to the lowerable minimum. Omission behavior: deployments that omit a limit use the default. Deployments MUST NOT raise a limit above the default in this revision.
+Network Flow resource limits MUST use Table 20-A. Omitted deployment members
+use the default. A deployment MAY select any integer from minimum through
+maximum, but raising a value above its conservative default requires retained
+environment-specific capacity evidence before that profile is selected for
+production. The limit remains structurally valid without such evidence; no
+hardware-independent SLO follows from the maximum.
 
-Limit configuration MUST be validated at process configuration load before serving Network Flow routes or import facade calls. A configured value that is absent uses the default. A configured value that is not an integer, is below the lowerable minimum, or is above the default-and-maximum value is invalid configuration. The effective `network_flow.max_active_tables_per_incident` MUST NOT exceed `network_flow.max_retained_tables_per_incident`. The implementation MUST fail configuration validation and MUST NOT silently clamp, ignore, round, or repair an invalid value or cross-limit relationship.
+Limit configuration MUST be validated at process configuration load before
+serving Network Flow routes or import facade calls. Explicit null, an unknown
+member, a non-integer, a value below minimum or above maximum, active tables
+above retained tables, or active graph views above retained graph views is
+invalid configuration. The implementation MUST fail validation before any
+listener or worker starts and MUST NOT silently clamp, ignore, round, default
+an explicit invalid value, or repair a cross-limit relationship. Runtime code
+receives one immutable complete effective value and performs no defaulting.
 
 **Table 20-A. Resource limit registry**
 
-| Limit key | Default and maximum | Lowerable minimum | Enforcement phase | Exceeded behavior |
-| --- | ---: | ---: | --- | --- |
-| `network_flow.max_active_tables_per_incident` | 128 | 1 | Final import commit. | Fail with `network_flow_table_limit_exceeded`; commit no table. |
-| `network_flow.max_retained_tables_per_incident` | 512 | 1 | Final import commit. | Fail with `network_flow_table_limit_exceeded`; commit no table. |
-| `network_flow.max_selected_tables_per_query` | 64 | 1 | Cross-table row, graph, and contributor query admission. | Fail with `network_flow_invalid_table_scope` and `reason_code='selected_table_limit_exceeded'`; emit no result data. |
-| `network_flow.max_columns_per_csv` | 512 | 1 | Header decode. | Fail import unit with `network_flow_resource_limit_exceeded`; allocate no table. |
-| `network_flow.max_header_scalar_length` | 256 | 1 | Header decode. | Fail import unit with `network_flow_resource_limit_exceeded`; allocate no table. |
-| `network_flow.max_raw_cell_scalar_length` | 16384 | 1 | Field decode. | Reject the affected row with `network_flow_resource_limit_exceeded`; do not retain the oversized raw value. |
-| `network_flow.max_rows_per_csv` | 5000000 | 1 | CSV streaming. | Fail import unit with `network_flow_resource_limit_exceeded`; activate no table. |
-| `network_flow.max_accepted_rows_per_table` | 5000000 | 1 | Row validation. | Fail import unit with `network_flow_resource_limit_exceeded` when the next accepted row would exceed the limit; activate no table. |
-| `network_flow.max_rejected_row_diagnostics` | 100000 | 0 | Diagnostic retention. | Retain only the first `N` diagnostics under §12.4 ordering and set `diagnostics_truncated=true`; not an error by itself. |
-| `network_flow.max_filters_per_query` | 16 | 0 | Query admission. | Fail with `network_flow_invalid_filter` and `reason_code='too_many_filters'`; return no rows. |
-| `network_flow.max_sorts_per_query` | 8 | 0 | Query admission. | Fail with `network_flow_invalid_sort` and `reason_code='too_many_sorts'`; return no rows. |
-| `network_flow.max_query_limit` | 1000 | 1 | Query admission. | Fail explicit out-of-range query limit with `network_flow_invalid_limit`; omitted limit materializes to §13.1 default. |
-| `network_flow.max_graph_vertices` | 100000 | 1 | Graph construction before response. | Fail with `network_flow_graph_limit_exceeded`; return no partial graph. |
-| `network_flow.max_graph_edges` | 250000 | 0 | Graph construction before response. | Fail with `network_flow_graph_limit_exceeded`; return no partial graph. |
-| `network_flow.max_active_graph_views_per_incident` | 32 | 1 | Saved graph create commit. | Fail with `network_flow_graph_view_limit_exceeded`; create no declaration or job. |
-| `network_flow.max_retained_graph_views_per_incident` | 128 | 1 | Saved graph create commit. | Fail with `network_flow_graph_view_limit_exceeded`; create no declaration or job. |
-| `network_flow.max_nonterminal_graph_jobs_per_incident` | 4 | 1 | Create/refresh job admission. | Fail with `network_flow_graph_materialization_limit_exceeded`; enqueue no job. |
-| `network_flow.max_example_row_refs_per_edge` | 100 | 0 | Graph response construction. | Truncate `example_row_refs[]` and set `example_refs_truncated`; not an error by itself. |
-| `network_flow.max_binding_source_row_refs` | 1000 | 1 | Indicator-link commit. | Truncate binding `source_row_refs[]` and set `source_row_refs_truncated`; not an error by itself. |
-| `network_flow.max_aggregate_counter_digits` | 128 | 1 | Aggregation. | Fail with `network_flow_counter_sum_limit_exceeded`; return no partial graph. |
+| Limit key | Minimum | Default | Maximum | Enforcement phase and outcome |
+| --- | ---: | ---: | ---: | --- |
+| `network_flow.max_active_tables_per_incident` | 1 | 128 | 128 | Final import commit; table-limit failure commits no table. |
+| `network_flow.max_retained_tables_per_incident` | 1 | 512 | 512 | Final import commit; table-limit failure commits no table. |
+| `network_flow.max_selected_tables_per_query` | 1 | 16 | 64 | Query admission; invalid-table-scope failure emits no result. |
+| `network_flow.max_columns_per_csv` | 1 | 256 | 512 | Header decode; resource-limit failure allocates no table. |
+| `network_flow.max_header_scalar_length` | 1 | 256 | 256 | Header decode; resource-limit failure allocates no table. |
+| `network_flow.max_raw_cell_scalar_length` | 1 | 4,096 | 16,384 | Field decode; reject the row and retain no oversized value. |
+| `network_flow.max_rows_per_csv` | 1 | 250,000 | 5,000,000 | CSV streaming; resource-limit failure activates no table. |
+| `network_flow.max_accepted_rows_per_table` | 1 | 250,000 | 5,000,000 | Row validation; resource-limit failure activates no table. |
+| `network_flow.max_rejected_row_diagnostics` | 0 | 10,000 | 100,000 | Diagnostic retention; truncate under §12.4 and set the truncation flag. |
+| `network_flow.max_filters_per_query` | 0 | 16 | 16 | Query admission; invalid-filter failure returns no rows. |
+| `network_flow.max_sorts_per_query` | 0 | 8 | 8 | Query admission; invalid-sort failure returns no rows. |
+| `network_flow.max_query_limit` | 1 | 500 | 1,000 | Query admission; invalid explicit limit fails and omission materializes the §13.1 request default. |
+| `network_flow.max_graph_vertices` | 1 | 5,000 | 100,000 | Graph iteration; graph-limit failure returns no partial graph. |
+| `network_flow.max_graph_edges` | 0 | 10,000 | 250,000 | Graph iteration; graph-limit failure returns no partial graph. |
+| `network_flow.max_active_graph_views_per_incident` | 1 | 32 | 32 | Saved create commit; graph-view-limit failure creates no declaration or job. |
+| `network_flow.max_retained_graph_views_per_incident` | 1 | 128 | 128 | Saved create commit; graph-view-limit failure creates no declaration or job. |
+| `network_flow.max_nonterminal_graph_jobs_per_incident` | 1 | 4 | 4 | Create/refresh admission; materialization-limit failure enqueues no job. |
+| `network_flow.max_example_row_refs_per_edge` | 0 | 10 | 100 | Graph aggregation; retain the bounded prefix and set truncation metadata. |
+| `network_flow.max_binding_source_row_refs` | 1 | 16 | 1,000 | Indicator-link commit; retain the bounded prefix and set truncation metadata. |
+| `network_flow.max_aggregate_counter_digits` | 1 | 39 | 128 | Graph aggregation; counter-limit failure returns no partial graph. |
+| `network_flow.max_contributing_rows_per_graph` | 1 | 250,000 | 5,000,000 | Graph iteration; graph-limit failure stops at `limit+1`. |
+| `network_flow.max_time_buckets_per_graph` | 1 | 256 | 1,024 | Temporal admission; graph-limit failure runs no source scan. |
+| `network_flow.graph_materialization_timeout_seconds` | 30 | 300 | 3,600 | Saved-handler deadline; terminal timeout preserves the prior selected result. |
 
 **NF-REQ-172**
 Every limit-exceeded error MUST include `limit_key`, `limit`, `actual`, and `phase` in `error.details`. Count-based streaming enforcement MUST stop after proving one excess item and set `actual=limit+1`; it MUST NOT scan further merely to disclose a total. Scalar-length and aggregate-digit errors MUST report the exact observed scalar or digit length. These values are available only on incident-authorized routes; logs and telemetry MUST omit `actual` unless Core policy permits it.
@@ -3004,9 +3022,10 @@ Network Flow errors MUST use Table 21-A where route-local errors are required.
 | `network_flow_invalid_sort` | 400 | Sort invalid. |
 | `network_flow_invalid_limit` | 400 | Query limit invalid. |
 | `network_flow_cursor_invalid` | 400 | Cursor invalid, stale, wrong scope, expired, or malformed. |
-| `network_flow_invalid_time_range` | 400 | Time range invalid or empty. |
+| `network_flow_invalid_time_range` | 400 | Time range invalid, empty, or incomplete for the selected aggregation. |
+| `network_flow_invalid_graph_aggregation` | 400 | Semantic graph aggregation union is invalid. |
 | `network_flow_invalid_limit_override` | 400 | Graph limit override invalid. |
-| `network_flow_graph_limit_exceeded` | 413 | Graph exceeds vertex or edge limit. |
+| `network_flow_graph_limit_exceeded` | 413 | Graph exceeds a vertex, edge, contributing-row, or time-bucket limit. |
 | `network_flow_counter_sum_limit_exceeded` | 413 | Aggregated counter sum exceeds digit limit. |
 | `network_flow_graph_projection_failed` | 502 | Ephemeral Graph Projection adapter could not produce a conformant result. |
 | `network_flow_graph_query_stale` | 409 | Graph digest or selected graph object no longer matches current authorized composition. |
@@ -3023,7 +3042,7 @@ Network Flow errors MUST use Table 21-A where route-local errors are required.
 | `network_flow_external_enrichment_forbidden` | 400 | Request attempts forbidden third-party enrichment. |
 | `network_flow_id_generation_failed` | 500 | Eight CSPRNG identifier collision attempts failed. |
 
-No code omitted from Table 21-A is a Network Flow route-local error in v1. Row-diagnostic entries MUST NOT be emitted as top-level route errors except when another Table 21-A import-unit error, including `network_flow_all_rows_rejected`, carries them as bounded diagnostic data.
+No code omitted from Table 21-A is a current Network Flow route-local error. Row-diagnostic entries MUST NOT be emitted as top-level route errors except when another Table 21-A import-unit error, including `network_flow_all_rows_rejected`, carries them as bounded diagnostic data.
 
 **Table 21-A1. Exhaustive reason-code registry**
 
@@ -3057,8 +3076,9 @@ No code omitted from Table 21-A is a Network Flow route-local error in v1. Row-d
 | `network_flow_invalid_sort` | `unknown_field`, `field_not_sortable`, `invalid_direction`, `duplicate_sort_field`, `too_many_sorts` |
 | `network_flow_invalid_limit`, `network_flow_invalid_limit_override` | `not_integer`, `below_minimum`, `above_maximum`, `unknown_limit_key` |
 | `network_flow_cursor_invalid` | `mixed_initial_and_continuation`, `malformed`, `too_long`, `expired`, `actor_mismatch`, `route_mismatch`, `semantic_query_mismatch`, `scope_stale`, `authorization_lost` |
-| `network_flow_invalid_time_range` | `both_bounds_null`, `empty_range`, `invalid_bound` |
-| `network_flow_graph_limit_exceeded` | `vertex_limit_exceeded`, `edge_limit_exceeded` |
+| `network_flow_invalid_time_range` | `both_bounds_null`, `empty_range`, `invalid_bound`, `complete_range_required` |
+| `network_flow_invalid_graph_aggregation` | `unknown_mode`, `variant_member_conflict`, `missing_width`, `unsupported_width` |
+| `network_flow_graph_limit_exceeded` | `vertex_limit_exceeded`, `edge_limit_exceeded`, `contributing_row_limit_exceeded`, `time_bucket_limit_exceeded` |
 | `network_flow_counter_sum_limit_exceeded` | `bytes_sum_digit_limit_exceeded`, `packets_sum_digit_limit_exceeded` |
 | `network_flow_graph_projection_failed` | `adapter_contract_rejected`, `projection_cancelled`, `projection_timeout`, `projection_unavailable` |
 | `network_flow_graph_query_stale` | `digest_mismatch`, `vertex_not_found`, `edge_not_found`, `scope_stale` |
@@ -3067,7 +3087,7 @@ No code omitted from Table 21-A is a Network Flow route-local error in v1. Row-d
 | `network_flow_graph_view_version_conflict` | `stale_version` |
 | `network_flow_graph_view_limit_exceeded` | `active_graph_view_limit_exceeded`, `retained_graph_view_limit_exceeded` |
 | `network_flow_graph_materialization_limit_exceeded` | `nonterminal_job_limit_exceeded` |
-| `network_flow_graph_materialization_failed` | `source_invalid`, `projection_rejected`, `projection_unavailable`, `publication_conflict`, `cancelled`, `retry_exhausted` |
+| `network_flow_graph_materialization_failed` | `source_invalid`, `projection_rejected`, `projection_unavailable`, `publication_conflict`, `cancelled`, `timeout`, `retry_exhausted` |
 | Indicator-link errors | `unknown_selector_kind`, `variant_member_conflict`, `field_not_linkable`, `row_not_accepted`, `candidate_mismatch`, `target_not_visible`, `target_value_mismatch`, `target_type_mismatch`, `core_ip_indicator_type_unavailable` |
 | `network_flow_table_limit_exceeded`, `network_flow_resource_limit_exceeded` | `active_table_limit_exceeded`, `retained_table_limit_exceeded`, `column_limit_exceeded`, `header_scalar_limit_exceeded`, `cell_scalar_limit_exceeded`, `row_limit_exceeded`, `accepted_row_limit_exceeded` |
 | `network_flow_external_enrichment_forbidden` | `capability_unavailable` |
@@ -3271,7 +3291,7 @@ require one row, selector, or fixture annotation per criterion.
 | `NF-AC-054` | Appendices, research reports, UI guides, implementation guides, and vendor documentation do not define runtime behavior. |
 | `NF-AC-055` | Executable validation resolves only versioned typed contracts and fixture bytes; it does not resolve prose sections, requirement IDs, or acceptance IDs. |
 | `NF-AC-056` | `network_flow_flow_edge_id_v1` produces exact fixture edge IDs, and null destination ports form a distinct aggregation and edge-ID key. |
-| `NF-AC-057` | Request members `time_range.bucket` and `aggregation.include_time_buckets` fail as unknown members in v1; no time-bucket error code is exposed. |
+| `NF-AC-057` | Semantic-query v2 rejects legacy ad hoc members such as `time_range.bucket` and `aggregation.include_time_buckets`; temporal behavior is admitted only through the closed `time_bucket_v1` variant and its current error reasons. |
 | `NF-AC-058` | `observation_mode` values other than `binding_only` fail, and `created_observation_refs[]` is always `[]` in binding resources and link responses. |
 | `NF-AC-059` | Graph query digests and source snapshot IDs remain unchanged when deployment graph limits or caller `limit_overrides` change without changing query semantics. |
 | `NF-AC-060` | Timestamp profile precision rejects finer source resolution, epoch modes reject fractional values, and sys-uptime parsing uses export time, exporter uptime-at-export, and per-field event uptime exactly as §9.7 specifies. |
@@ -3322,13 +3342,13 @@ require one row, selector, or fixture annotation per criterion.
 | `NF-AC-105` | Every route returns its exact success status, exact closed data schema, Table 21-A status, exhaustive reason code, safe details, and retry action. |
 | `NF-AC-106` | Every typed dependency required by execution has a resolvable versioned contract, every blocker in §24 is closed, and every Table 22-A fixture has concrete immutable bytes before adopted/current status is claimed. |
 | `NF-AC-107` | Import cancellation before commit leaves no table, while cancellation or worker failure after commit recovers and publishes the one committed success without duplicate table creation. |
-| `NF-AC-108` | The owner fragment resolves contract major `3`, Import major `1`, the reserved route/workspace, empty capabilities, and no competing discovery fact; runtime descriptors contain no source-document version. |
+| `NF-AC-108` | The owner fragment resolves contract major `4`, Import major `1`, the reserved route/workspace, empty capabilities, and no competing discovery fact; runtime descriptors contain no source-document version. |
 | `NF-AC-109` | State presence uses exactly the five authoritative logical families, including saved graph declarations, and never treats jobs, ledgers, derived Graph results, leases, caches, or staged objects as authoritative state. |
-| `NF-AC-110` | Fresh initialization targets state version `2`; the exact digest-bound `1 -> 2` migration adds no synthetic declaration and the final validator runs once. |
+| `NF-AC-110` | Fresh initialization targets state version `3`; the exact digest-bound `1 -> 2 -> 3` chain adds no synthetic declaration, rewrites no saved query in `2 -> 3`, and the final validator runs once. |
 | `NF-AC-111` | Inactive Network Flow configuration rejects `key_ring_manifest_path` with top-level `invalid_deployment_config`, reason `extension_config_without_claim`, the generic Extensions message, profile ID, extension JSON path, deployment-config item path, and no `profile_incompatible_binding` alias; rejection occurs without defaulting, retaining, resolving, reading, invoking profile code, or performing DNS, connection, or other egress. |
 | `NF-AC-112` | Every authoritative family has one required PostgreSQL backup binding and digest-bound codec; restore is stopped-empty, group-ordered, sequential, validated before advance, and invokes no inactive profile code. |
 | `NF-AC-113` | Import apply, indicator link, invalidation, backup/restore, saved graph materialization, Reporting participation, and Graph rebuild use only their exact typed contributions. |
-| `NF-AC-114` | A standard client renders `network_analysis` only for major `3` at the current authorized availability generation; all capability facts and nonempty capability arrays fail with `extension_capability_not_supported`. |
+| `NF-AC-114` | A standard client renders `network_analysis` only for major `4` at the current authorized availability generation; all capability facts and nonempty capability arrays fail with `extension_capability_not_supported`. |
 | `NF-AC-115` | Saved graph create, rename, refresh, retire, read, result, contributor, authorization, idempotency, optimistic concurrency, and quota behavior matches §19.1. |
 | `NF-AC-116` | Materialization retry, cancellation, crash, stale generation, concurrent rename, and lost terminal response converge without partial or duplicate publication. |
 | `NF-AC-117` | Failed refresh preserves the prior selected result, while initial failure produces `network_flow_graph_view_not_materialized`. |
@@ -3346,7 +3366,7 @@ This NLSpec may remain `adopted/current` only while the adoption checklist in Ta
 | Blocker ID | Required closure |
 | --- | --- |
 | `NF-BLOCK-001` | Core 00 recognizes `network_flow_activity` as an adopted extension profile. |
-| `NF-BLOCK-002` | Core 01 generic discovery always reserves the route family and `network_analysis` workspace for this recognized profile, emits major `3` and `capabilities=[]`, and varies only `claimed`; no profile-local discovery item or compatibility reader exists. |
+| `NF-BLOCK-002` | Core 01 generic discovery always reserves the route family and `network_analysis` workspace for this recognized profile, emits major `4` and `capabilities=[]`, and varies only `claimed`; no profile-local discovery item or compatibility reader exists. |
 | `NF-BLOCK-003` | Core 01 import terminal result references admit `kind='network_flow_table'`. |
 | `NF-BLOCK-004` | Core 03 admits extension-contributed top-level incident tabs without expanding base built-in tabs. |
 | `NF-BLOCK-005` | Core 04 adds Network Flow route-family authorization/conformance hooks. |
@@ -3368,11 +3388,11 @@ This NLSpec may remain `adopted/current` only while the adoption checklist in Ta
 
 **NF-REQ-181**
 The primary owner document identity is
-`cartulary.network_flow_activity.current.v3`, version `3.0.0`. Its runtime
+`cartulary.network_flow_activity.current.v4`, version `4.0.0`. Its runtime
 dependency is `profile_id='import'`, `required_contract_major=1`, bound to the
 exact Import owner manifest version and digest selected by the Extensions
 dependency declaration set. The recognized profile is claimable at contract
-major `3`; it declares exactly route family
+major `4`; it declares exactly route family
 `/api/v1/incidents/{incident_id}/network-flow`, workspace key
 `network_analysis`, and no capability. The claim key is
 `network_flow_activity.claimed`. Those facts come only from the Core 00 owner
@@ -3382,7 +3402,7 @@ configuration, tests, and prose search are forbidden fact sources.
 **NF-REQ-182**
 The `cartulary.extension_state_presence_manifest.v1` owner declaration for this
 profile uses `migration_lineage_id='network_flow_activity.state_v1'`, current
-state version `2`, minimum migratable version `1`, and
+state version `3`, minimum migratable version `1`, and
 `empty_state_policy='allowed'`. Its authoritative logical families are exactly,
 in ascending UTF-8 order:
 
@@ -3403,18 +3423,21 @@ policy is `allowed`; it is not synthetic state.
 The `cartulary.extension_state_initialization_definition.v1` declaration has
 `kind='empty'`. It invokes no Network Flow code, constructs no authoritative
 member, and then invokes exactly
-`network_flow_activity.validate_state_v2` through its digest-bound packaged
-algorithm reference. Exactly one
-`cartulary.extension_migration_definition.v1` migrates state `1 -> 2`. It
-preserves the four existing families byte-for-byte, creates an empty
-`network_flow_activity.graph_views` family, invokes no jobs or Graph code, and
-then invokes the final v2 validator. An omitted, extra, or code-inferred
-migration is invalid.
+`network_flow_activity.validate_state_v3` through its digest-bound packaged
+algorithm reference. Exactly two ordered
+`cartulary.extension_migration_definition.v1` values migrate state
+`1 -> 2 -> 3`. The first preserves the four existing families byte-for-byte,
+creates an empty `network_flow_activity.graph_views` family, invokes no jobs or
+Graph code, and invokes the v2 validator. The second expands the admitted
+graph-view semantic-query union without rewriting any family, creating a job,
+or changing result identity, and invokes the final v3 validator. An omitted,
+extra, or code-inferred migration is invalid.
 
 **NF-REQ-183**
-The `cartulary.extension_profile_configuration_contract.v1` declaration contains
-exactly `network_flow_activity.claimed` and
-`network_flow_activity.key_ring_manifest_path`. The claim row is Core 04 owned.
+The configuration contract major 2 declaration contains exactly
+`network_flow_activity.claimed`,
+`network_flow_activity.key_ring_manifest_path`, and
+`network_flow_activity.resource_limits`. The claim row is Core 04 owned.
 The path row has `inactive_policy='forbidden'` and
 `inactive_value_schema_ref=null`; `syntax_only` is not selected and there is no
 inactive-value schema for this profile. Its active `value_schema_ref` is the
@@ -3431,7 +3454,10 @@ deployment-config item path
 `profile_incompatible_binding`. Rejection occurs before any
 default, configuration view, value retention, reference or secret resolution,
 file access, DNS lookup, connection, egress, or Network Flow invocation. While
-claimed, §20.1 is the sole value and secret-handling contract.
+claimed, §20.1 is the sole key-ring value and secret-handling contract. The
+`resource_limits` row is optional while claimed, forbidden while unclaimed,
+uses the closed schema and defaults in NF-REQ-193, and performs no secret or
+file resolution.
 
 **NF-REQ-184**
 The `cartulary.extension_physical_state_binding.v1` declaration contains exactly
@@ -3443,7 +3469,7 @@ order groups are `100` for `tables`, `200` for `rows`, `300` for
 `rejected_row_diagnostics`, `400` for `indicator_bindings`, and `500` for
 `graph_views`; bindings within
 a group execute sequentially by binding ID. Historical authoritative codecs are
-empty in version `3.0.0`. Backup/restore operates on a stopped empty target,
+empty in version `4.0.0`. Backup/restore operates on a stopped empty target,
 validates each binding before advancing, never invokes Network Flow code while
 inactive, and never serves a failed target. The Graph v2 derived binding is
 excluded/rebuildable and executes only after authoritative restore.
@@ -3478,7 +3504,7 @@ generator must reject inferred, missing, or extra entries.
 
 **NF-REQ-186**
 The profile admission-validation declaration has no preflight algorithm, exactly
-`network_flow_activity.validate_state_v2` as the post-migration algorithm, and
+`network_flow_activity.validate_state_v3` as the post-migration algorithm, and
 `dependency_probes=[]`. Schema-validation conditions are supplied only by
 annotated owner schemas. Procedural conditions are supplied by the closed
 Network Flow validation decision tables in this document. Every reachable
@@ -3491,7 +3517,7 @@ violation.
 
 **NF-REQ-187**
 The only supported browser build class is `standard`. Its generated support row
-must name profile `network_flow_activity`, contract major `3`, workspace
+must name profile `network_flow_activity`, contract major `4`, workspace
 `network_analysis`, and an empty capability set. Browser eligibility is the
 intersection of generic discovery, that exact packaged support row, current
 authorization/availability, and the current local epoch/generation. A stale,
@@ -3500,6 +3526,272 @@ must not render. All nonempty capability facts and arrays are invalid, and every
 attempted activation returns `extension_capability_not_supported`. Base workbook
 state and stable client/WebSocket identities survive every Network Flow
 availability transition.
+
+## 26. GP3 production-readiness and temporal graph contract
+
+This section is normative for document version `4.0.0`. Where it conflicts
+with the major-3 graph, limit, saved-view, error, fixture, acceptance, state, or
+owner-declaration text above, this section governs. Unchanged major-3 behavior
+remains current only when this section preserves it explicitly.
+
+**NF-REQ-188**
+
+The current public graph write contract uses
+`cartulary.network_flow.graph_semantic_query.v2`. Its `aggregation` member is a
+closed union with discriminator `mode`:
+
+| Mode | Additional members | Time-range behavior |
+| --- | --- | --- |
+| `default_flow_edge_v1` | `include_example_row_refs`, default `true` | Preserves the overlap behavior in §14.2 and permits the existing unbounded range forms. |
+| `time_bucket_v1` | `include_example_row_refs`, default `true`; required `bucket_width_seconds` | Requires non-null `start_utc` and `end_utc` with `start_utc < end_utc`. |
+
+Major-4 ephemeral queries and saved-graph creates accept semantic-query v2
+only. Existing persisted semantic-query v1 declarations remain readable,
+listable, refreshable, returnable, back-up-able, restorable, and rebuildable.
+They MUST NOT be accepted for a new public create. A v1 declaration continues
+to use `network_flow_graph_query_digest_v1` and reproduces its exact source
+snapshot, projection result, vertices, edges, annotations, and digests. A new
+v2 default query preserves default graph meaning but uses
+`network_flow_graph_query_digest_v2`, so its source-snapshot and result
+identities intentionally differ from v1.
+
+Only changed graph query, contributor, graph-view create/resource/result, and
+source-profile discovery schemas advance. Rename, refresh, and retire request
+schemas retain their current IDs when their wire shape is unchanged. The route
+root and saved-graph paths do not change. The generated standard browser client
+supports major 4 only; no major-3 browser response parser is current.
+
+**NF-REQ-189**
+
+`time_bucket_v1` uses exactly these widths in seconds:
+`60`, `300`, `900`, `3600`, `21600`, and `86400`. For width `W` and requested
+half-open interval `[start,end)`:
+
+```text
+first_bucket_start = floor(start / W) * W
+bucket_end_exclusive = ceil(end / W) * W
+bucket_count = (bucket_end_exclusive - first_bucket_start) / W
+```
+
+The arithmetic uses UTC instants aligned to the Unix epoch and mathematical
+floor division for instants before the epoch. An end exactly on a boundary adds
+no bucket. Local time, locale, daylight-saving rules, and calendar arithmetic
+MUST NOT participate.
+
+A row contributes exactly when `flow_start_utc >= start_utc` and
+`flow_start_utc < end_utc`. It belongs only to the bucket containing
+`flow_start_utc`; counters are never duplicated or prorated. Bucketed edges
+group by bucket start, bucket end, source endpoint, destination endpoint, IP
+protocol, and destination-port presence/value. Total vertices and edges are
+bounded across the complete result, not independently per bucket. Any failure
+returns no partial bucket or graph.
+
+**NF-REQ-190**
+
+`network_flow_bucket_edge_id_v1` is `nfbe_` plus lowercase SHA-256 hex over a
+length-framed transcript containing, in order, the algorithm domain, incident
+ID, canonical bucket start, canonical bucket end, source endpoint ID,
+destination endpoint ID, IP protocol, destination-port presence, and the port
+value when present. Both bounds participate so equal-start buckets of different
+widths cannot share identity.
+
+The Graph Projection adapter remains `graph_projection.v2`, uses source
+relationship kind `network_flow.bucketed_flow_edge.v1`, and uses projection
+version `network_flow_activity.time_bucket.v1`. Temporal edge properties
+contain canonical `bucket_start_utc` and `bucket_end_utc` plus the existing
+aggregate properties. Vertex identity remains endpoint-based.
+
+`network_flow_graph_query_digest_v2` uses the existing unsigned length framing
+with domain `cartulary.network_flow.graph_query_digest.v2` and binds incident,
+resolved table IDs, normalized filters, normalized time range, semantic-query
+schema ID, and the complete normalized aggregation variant. Effective limits
+and lower request overrides are excluded. `network_flow_source_snapshot_digest_v1`
+continues to frame this graph digest and does not change version.
+
+**NF-REQ-191**
+
+The major-4 temporal graph result contains `time_buckets[]` as Network
+Flow-owned response metadata. It MUST NOT be inserted into Graph Projection
+result properties, Graph storage, or authoritative Network Flow state. The
+field appears only on the temporal response variant and contains every
+intersecting bucket in start order, including empty buckets. Each closed item
+contains canonical start/end, unique vertex count, edge count, and contributing
+row count and never duplicates edge payloads. Saved-result reads derive the
+same index deterministically from the declaration and exact result.
+
+Major-4 responses supply canonical contributor selectors that clients echo.
+Selectors always name Network Flow source object IDs, never projected `ed_`
+IDs:
+
+| Variant | Required identity material |
+| --- | --- |
+| `vertex` | Source vertex ID and canonical endpoint value. |
+| `default_edge` | `nff_` edge ID, both canonical endpoint values, protocol, and destination-port presence/value. |
+| `time_bucket_edge` | `nfbe_` edge ID, both bucket bounds, and the complete default-edge key. |
+
+The server MUST recompute and compare the supplied ID, revalidate table scope,
+query digest, source state, and authorization, and bind the complete selector
+into cursor identity. Contributor output remains ordered by selected-table
+ordinal, `flow_start_utc`, `flow_end_utc`, `source_row_number`, and row ID. A
+temporal edge returns only rows assigned to its exact bucket and edge key; a
+vertex returns qualifying rows touching that endpoint across the query range.
+
+**NF-REQ-192**
+
+Graph construction MUST read accepted source rows through a stable,
+cancellation-aware iterator ordered by selected-table ordinal and the
+contributor comparator. It MUST aggregate incrementally and retain only
+aggregate counts, ordered table and mapping-fingerprint sets, bounded example
+references, vertices, and edges. It MUST NOT first load, copy, or sort the
+complete table-scope row set or retain contributing row slices on graph
+objects.
+
+Contributing-row, vertex, edge, counter-digit, example-reference, and
+cancellation checks occur during iteration. Count-based rejection stops after
+proving `limit+1`. Cancellation is checked before the scan, at least every
+1,024 examined rows, before projection, and before publication. Contributor
+queries use fixed selector-aware predicates and keyset paging, retain at most
+one result page plus cursor state, and do not reconstruct unrelated graph
+objects.
+
+**NF-REQ-193**
+
+Configuration contract major 2 adds optional
+`network_flow_activity.resource_limits`. It is forbidden when the profile is
+unclaimed. Explicit null, unknown members, non-integers, values outside the
+table range, active-table count above retained-table count, or active-graph-view
+count above retained-graph-view count fail startup before listeners or workers.
+Omitted members use the Table 20-A default. The closed object contains exactly
+the Table 20-A key suffixes with the same minimum, default, maximum,
+cross-limit, enforcement, and failure semantics; no second limit registry is
+permitted. Runtime receives one immutable effective set and MUST NOT clamp,
+round, ignore, or repair invalid input.
+
+`GET /source-profiles` returns every effective key exactly once. Request
+overrides may lower graph vertices, edges, example references, contributing
+rows, and time buckets within the effective range; they never raise a value or
+enter graph identity. Raising deployment configuration above a conservative
+default requires retained deployment capacity evidence but configuration
+validation itself makes no hardware-independent performance claim.
+
+**NF-REQ-194**
+
+The saved-graph materialization deadline starts at handler invocation and
+covers declaration/source validation, source scanning, aggregation, and Graph
+projection. Expiry before the final publication transaction produces terminal
+safe reason `timeout`, publishes no new selected result, and preserves a prior
+selected result. If final publication begins before the deadline, Common Jobs'
+transaction and indeterminate-commit rules decide the outcome; timeout cannot
+reverse a possibly committed result.
+
+The generated worker runtime contract maps
+`network_flow_activity.graph_view_materialize_v1` to
+`network_flow_activity.graph_view_worker_v1` with
+`max_active_attempts_per_process=1`. Registration count is not a concurrency
+limit, and waiting inside a handler is forbidden. The Jobs runtime reserves
+global and per-worker capacity before claim and must continue durable selection
+past a saturated worker kind so other work can progress.
+
+**NF-REQ-195**
+
+Network Flow owns private dispatcher
+`network_flow_activity.graph_result_cleanup.v1`; it is not a route, operator
+command, Common Job, or Graph-owned worker. Application assembly starts it only
+after readiness, performs one immediate sweep, uses a five-minute base cadence,
+coalesces ticks, permits no overlap, and stops it in reverse lifecycle order.
+A sweep reporting `has_more` schedules a five-second paced continuation;
+transient failure uses bounded retry and never a busy loop. Unexpected loop
+termination is required-component loss.
+
+Each sweep captures one observation time, deletes at most 1,000 expired leases
+in one transaction, and processes at most eight result candidates or 30
+seconds. Each result transaction selects the oldest candidate for exact
+`source_owner_id='network_flow_activity'` by `published_at` and result ID using
+`FOR UPDATE SKIP LOCKED`, checks authoritative selected bindings and unexpired
+leases in the same borrowed transaction, and deletes at most one unselected,
+unleased envelope with cascades. Cleanup, publication replay, and Reporting
+lease admission lock the result before the declaration. No retention interval
+or cross-owner reachable-ID list is admitted.
+
+GP3 adds only migration `00034_graph_projection_cleanup_indexes.sql`. It adds
+the owner/order candidate index and any exact supporting cleanup index required
+by the adopted query shape; it creates no retention state or bucket table.
+Migrations `00032` and `00033` are immutable and MUST NOT be amended or
+replaced.
+
+**NF-REQ-196**
+
+Network Flow emits telemetry only through the adopted
+`cartulary.network_flow` instrumentation scope. Required coverage is source
+validation, source scan, projection, and publication duration; contributing
+rows; result vertices, edges, and buckets; cleanup operation, duration,
+deleted leases/results, eligible backlog, and oldest eligible result age from
+`published_at`. It MUST NOT describe the latter as time since becoming
+unreachable because that transition is not stored.
+
+Allowed attributes are closed operation, phase, graph mode, result,
+graph-object kind, and safe error class. Incident, graph, result, row, job,
+user, digest, label, property, SQL, and raw error values are forbidden.
+Telemetry failure cannot alter route, job, publication, cleanup, or shutdown
+behavior.
+
+**NF-REQ-197**
+
+Network Flow state version 3 admits the exact union of persisted semantic-query
+v1 and v2 declarations. `network_flow_activity.state_2_to_3_v1` rewrites no
+declaration, creates no job, and changes no result identity. Fresh state starts
+at 3; minimum migratable state remains 1 through the exact `1 -> 2 -> 3` chain.
+
+Recovery publishes `graphprojection.restore_rebuild.v3` for mixed v1/v2
+declarations and must reconstruct exact result, vertex, edge, digest, job, and
+Reporting lease state before readiness. The exact v2 rebuild dispatcher remains
+read-only only while a supported retained pre-GP3 backup references it and is
+removed only after that inventory reaches zero; its artifacts are never
+translated or rewritten.
+
+Reporting retains `source_projection_ref.v2`. Network Flow supplies typed graph
+label candidates to Reporting redaction instead of treating Graph properties as
+release-safe. Internal output uses deterministic post-redaction endpoint and
+temporal-edge labels with ordinal fallback when a value is removed. GP3 adds no
+external allow rule; unresolved external Network Flow graph content fails
+closed.
+
+**NF-REQ-198**
+
+Major 4 adds error `network_flow_invalid_graph_aggregation` with exact reasons
+`unknown_mode`, `variant_member_conflict`, `missing_width`, and
+`unsupported_width`. `network_flow_invalid_time_range` adds
+`complete_range_required`; `network_flow_graph_limit_exceeded` adds
+`contributing_row_limit_exceeded` and `time_bucket_limit_exceeded`; and
+`network_flow_graph_materialization_failed` adds `timeout`. Limit failures use
+the existing exact `limit_key`, `limit`, `actual`, and `phase` details and emit
+no partial result.
+
+Current fixtures add v1 streaming equivalence, v2 default identity, temporal
+boundaries before and after the epoch, fractional/exact boundary ends, empty
+buckets, counter conservation, selector mismatch, limit+1, cancellation,
+mixed-state Recovery, Reporting redaction, cleanup races, worker fairness,
+telemetry privacy, and the complete browser workflow. The former future-only
+time-bucket backlog row is retired by this section.
+
+**NF-REQ-199**
+
+The major-4 Network Analysis workspace provides default/time-bucket mode,
+complete-range validation, fixed-width selection, ordered bucket navigation,
+empty-bucket state, saved lifecycle, job/failure state, and contributor pivots.
+It mounts at most 500 vertices and 1,000 edges and shows a selected bucket or
+bounded summary when the exact result is larger. Keyboard, focus, accessible
+names, status announcements, stale-response rejection, and role-aware controls
+remain mandatory.
+
+Before v2 writes, deployment captures a verified pre-GP3 backup with prior
+binary, state, schema, and artifact digests. Rollout order is additive cleanup
+index migration, new binary/config validation, state migration, major-4
+browser, then v2 writes. After a v2 declaration exists, rollback uses that
+exact backup in a replacement target with the prior binary; in-place old-binary
+rollback is unsupported. Removal of v1 declaration support requires zero
+installed v1 declarations, zero supported retained backup references, and a
+later owner revision.
 
 ## Appendix E. Future-only decision backlog and rationale
 
@@ -3511,7 +3803,6 @@ This appendix is non-normative. It records deferred work and rationale for reade
 | --- | --- | --- |
 | Core 02 observation-source amendment | Core 02 would need to admit extension-sourced `indicator_observation` rows through a closed `origin_kind` extension token and a non-record extension source reference. | Network Flow v1 supports `observation_mode='binding_only'` only and always returns `created_observation_refs[]=[]`. |
 | Binding list/read routes | A later Network Flow revision would need route inventory, authorization, pagination, filters, response schemas, and audit behavior for binding reads. | Bindings are observable only through link-route responses and created/reused audit events. |
-| Time-bucketed graph output | A later Network Flow revision would need UTC-epoch bucket alignment, bucket-count formula, bucketed response schema, limits, errors, fixtures, and a new graph-query digest version. | Bucket request members are unknown members and fail admission in v1. |
 
 **Table E-B. Rationale notes**
 

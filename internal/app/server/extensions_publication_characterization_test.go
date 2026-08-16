@@ -265,6 +265,13 @@ func TestRuntime_ExtensionPublication_WorkspaceAndWorkerClaimFiltering(t *testin
 		if !claimed[worker.ProfileID] {
 			t.Fatalf("unclaimed worker published: %#v", worker)
 		}
+		wantMaximum := 8
+		if worker.WorkerKind == "network_flow_activity.graph_view_worker_v1" {
+			wantMaximum = 1
+		}
+		if len(worker.JobKinds) == 0 || worker.MaxActiveAttemptsPerProcess != wantMaximum {
+			t.Fatalf("worker runtime contract = %#v; want maximum %d and a non-empty job set", worker, wantMaximum)
+		}
 	}
 	routes := plan.Routes()
 	if len(routes) == 0 {

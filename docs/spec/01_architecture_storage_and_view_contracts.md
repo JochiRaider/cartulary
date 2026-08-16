@@ -6888,8 +6888,16 @@ a workbook provider and MUST NOT receive an unrestricted workbook source
 reference through those contracts.
 
 When the frozen Recovery catalog contains
-`graphprojection.restore_rebuild.v2`, Recovery MUST resolve it to the distinct
-Graph-owned restore participant defined by Graph Projection NLSpec §9.
+`graphprojection.restore_rebuild.v3`, Recovery MUST resolve it to the distinct
+Graph-owned restore participant defined by Graph Projection NLSpec §9. The v3
+participant MUST admit the exact mixed persisted Network Flow graph-declaration
+union selected by the restored state-3 catalog and MUST preserve every admitted
+declaration's authoritative bytes. Recovery MUST retain the exact
+`graphprojection.restore_rebuild.v2` dispatcher only as a read-only historical
+path for a supported retained backup set whose frozen catalog names v2. A live
+state-3 restore, new backup, or ordinary startup MUST NOT select v2. Removal of
+that historical dispatcher requires a separately adopted owner decision after
+the supported retained-backup inventory reaches zero.
 Recovery MUST propagate the admitted Recovery operation identity and validated
 Core 04 target-generation identity into that participant rather than minting a
 second identity. After authoritative Postgres and object data are restored,
@@ -8213,6 +8221,34 @@ is independent of lease-renewal cadence and bounds attempt persistence and
 observation operations. Tests MAY inject shorter values through harness-owned
 composition; deployment configuration MUST NOT redefine these values in the
 current profile.
+
+The runnable job selection MUST also contain one generated, immutable worker
+runtime contract for every admitted handler identity. Each contract contains
+exactly the extension profile ID or `base`, worker kind, sorted non-empty job
+kind set, and `max_active_attempts_per_process`. The complete runnable selection
+MUST assign every admitted job kind to exactly one worker contract and MUST
+reject a missing, duplicate, empty, unknown, or cross-handler assignment before
+readiness. Existing non-graph workers have a per-process maximum of `8` active
+attempts; `network_flow_activity.graph_materialization` has a maximum of `1`.
+These values are packaging facts, not deployment configuration. A hardcoded
+job-to-worker switch or a handler-local semaphore is not conformant.
+
+Recovery candidate discovery MUST return job ID, job kind, and the catalog-
+derived handler identity, and MUST exclude candidates whose worker kind is
+saturated in the discovering process. Before a durable claim, the runner MUST
+atomically reserve both one global attempt slot and one slot for that worker
+kind. A claim miss, claim error, ownership loss, terminal observation, handler
+completion, or graceful conditional release MUST release both reservations
+exactly once. Saturation of one worker kind MUST NOT prevent discovery or claim
+of an eligible job assigned to another non-saturated worker. Notification hints
+remain non-authoritative; the initial and periodic recovery scans remain the
+source of eventual progress.
+
+Jobs telemetry MUST report current queued count by closed catalog-backed job
+kind and queue-wait duration for each successful durable claim. Queue wait is
+measured from `COALESCE(handler_next_attempt_at, submitted_at)` to the successful
+claim instant and is clamped only by rejecting impossible negative persisted
+state as an invariant violation; it is not inferred from worker start time.
 
 Handler error, recovered panic, incomplete nil return, or expiry of an attempt
 not conditionally released during graceful shutdown consumes one failure. A

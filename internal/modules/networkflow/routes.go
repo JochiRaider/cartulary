@@ -39,6 +39,7 @@ type Service struct {
 	graphViewJobs   GraphViewJobTransactions
 	jobManager      GraphViewJobManager
 	jobRunner       GraphViewJobRunner
+	graphTelemetry  GraphTelemetryObserver
 }
 
 func newRouteService(deps httpapi.DependencySet, module *Module) (*Service, error) {
@@ -66,6 +67,7 @@ func newRouteService(deps httpapi.DependencySet, module *Module) (*Service, erro
 		graphViewJobs:   module.graphViewJobs,
 		jobManager:      module.jobManager,
 		jobRunner:       module.jobRunner,
+		graphTelemetry:  module.graphTelemetry,
 	}, nil
 }
 
@@ -92,7 +94,7 @@ func (s *Service) handleSourceProfiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-		"schema_id":        "cartulary.network_flow.source_profile_list.v1",
+		"schema_id":        "cartulary.network_flow.source_profile_list.v2",
 		"source_profiles":  []any{sourceProfileResource()},
 		"effective_limits": effectiveLimitsResource(s.store.limits),
 		"meta":             map[string]any{"count": 1},

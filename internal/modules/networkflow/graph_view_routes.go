@@ -21,10 +21,11 @@ import (
 )
 
 const (
-	routeKeyGraphViewsCreate  = "nf.graph_views.create"
-	routeKeyGraphViewsPatch   = "nf.graph_views.patch"
-	routeKeyGraphViewsDelete  = "nf.graph_views.delete"
-	routeKeyGraphViewsRefresh = "nf.graph_views.refresh"
+	routeKeyGraphViewsCreate           = "nf.graph_views.create"
+	routeKeyGraphViewsPatch            = "nf.graph_views.patch"
+	routeKeyGraphViewsDelete           = "nf.graph_views.delete"
+	routeKeyGraphViewsRefresh          = "nf.graph_views.refresh"
+	routeKeyGraphViewContributorsQuery = "nf.graph_views.contributors.query"
 )
 
 type graphViewCreateRequest struct {
@@ -47,6 +48,8 @@ type graphViewContributorRequest struct {
 	ProjectionResultID string
 	Selector           graphSelector
 	Limit              int
+	Continuation       bool
+	CursorToken        string
 }
 
 func (s *Service) handleGraphViewsCollection(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +92,7 @@ func (s *Service) handleGraphViewsCollection(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-			"schema_id": "cartulary.network_flow.graph_view_list.v1", "graph_views": resources,
+			"schema_id": "cartulary.network_flow.graph_view_list.v2", "graph_views": resources,
 		})
 	case http.MethodPost:
 		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "admin"); apiErr != nil {
@@ -158,7 +161,7 @@ func (s *Service) handleGraphViewResource(w http.ResponseWriter, r *http.Request
 			return
 		}
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-			"schema_id":  "cartulary.network_flow.graph_view_get.v1",
+			"schema_id":  "cartulary.network_flow.graph_view_get.v2",
 			"graph_view": graphViewResource(declaration, status),
 		})
 	case http.MethodPatch:
@@ -292,13 +295,43 @@ func (s *Service) handleGraphViewResult(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
+	semantic, apiErr := decodeGraphSemanticRequest(declaration.SemanticQueryJSON, s.store.limits)
+	if apiErr != nil {
+		writeAPIError(w, r, malformedStoredGraphResult())
+		return
+	}
+	readerService := *s
+	readerService.graphTelemetry = nil
+	composition, apiErr := readerService.composeGraphSourceFromSemantic(r.Context(), incidentID, semantic)
+	if apiErr != nil || graphSourceSnapshotDigest(incidentID, composition.SourceTables, composition.Digest) != declaration.SelectedResult.SourceSnapshotID {
+		writeAPIError(w, r, malformedStoredGraphResult())
+		return
+	}
+	composition.GraphProjection = result
+	if semantic.SchemaID == schemaGraphSemanticQueryV2 {
+		if semantic.Aggregation.Mode == "time_bucket_v1" {
+			composition.TimeBuckets, apiErr = deriveTimeBucketIndexFromExactResult(
+				semantic.TimeRange, semantic.Aggregation.BucketWidthSeconds, composition.ResultLimits.MaxTimeBuckets, result,
+			)
+			if apiErr != nil {
+				writeAPIError(w, r, apiErr)
+				return
+			}
+		}
+		if apiErr := bindGraphV2ResponseMetadata(&composition); apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+	} else {
+		composition.EdgeAnnotations = graphEdgeAnnotations(composition)
+	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-		"schema_id":  "cartulary.network_flow.graph_view_result.v1",
-		"graph_view": graphViewResource(declaration, status), "projection_result": result,
+		"schema_id":  "cartulary.network_flow.graph_view_result.v2",
+		"graph_view": graphViewResource(declaration, status), "result": graphQueryResultResource(composition),
 	})
 }
 
@@ -335,44 +368,124 @@ func (s *Service) handleGraphViewContributorsQuery(w http.ResponseWriter, r *htt
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if request.ProjectionResultID != declaration.SelectedResult.ProjectionResultID {
-		writeAPIError(w, r, graphQueryStale("projection_result_mismatch", request.ProjectionResultID))
-		return
-	}
 	semantic, apiErr := decodeGraphSemanticRequest(declaration.SemanticQueryJSON, s.store.limits)
 	if apiErr != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(errors.New("stored graph semantic query invalid")))
 		return
 	}
-	composition, apiErr := s.composeGraphSourceFromSemantic(r.Context(), incidentID, semantic)
+	digest := graphQueryDigestForSemantic(incidentID, semantic.SelectedTableIDs, semantic)
+	result, apiErr := s.querySavedGraphContributors(
+		r.Context(), principal.User.ID.String(), principal.Session.ID.String(), incidentID, graphViewID,
+		declaration.SelectedResult.ProjectionResultID, semantic, digest, request,
+	)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
-	}
-	rows, apiErr := graphContributorRows(composition, request.Selector)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if len(rows) > request.Limit {
-		rows = rows[:request.Limit]
-	}
-	contributors := make([]any, 0, len(rows))
-	for _, row := range rows {
-		contributors = append(contributors, map[string]any{"row_ref": rowRefResource(row), "row": rowResource(row)})
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-		"schema_id":     "cartulary.network_flow.graph_view_contributor_query_result.v1",
-		"graph_view_id": graphViewID, "projection_result_id": request.ProjectionResultID,
-		"contributors": contributors,
-	})
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result)
 }
 
-func decodeGraphViewCreateRequest(r *http.Request, limits Limits) (graphViewCreateRequest, *httpapi.APIError) {
+func (s *Service) querySavedGraphContributors(
+	ctx context.Context,
+	actorID string,
+	sessionID string,
+	incidentID uuid.UUID,
+	graphViewID string,
+	selectedResultID string,
+	semantic graphSemanticRequest,
+	digest string,
+	request graphViewContributorRequest,
+) (map[string]any, *httpapi.APIError) {
+	var position *contributorCursorPosition
+	limit := request.Limit
+	if request.Continuation {
+		payload, reason := s.cursorProtector.Decode(request.CursorToken)
+		if reason != "" {
+			return nil, cursorInvalid(reason)
+		}
+		if payload.Route != routeKeyGraphViewContributorsQuery || payload.ActorUserID != actorID || payload.SessionID != sessionID || payload.IncidentID != incidentID.String() {
+			return nil, cursorInvalid(payloadMismatchReason(payload, routeKeyGraphViewContributorsQuery, actorID, incidentID.String()))
+		}
+		if payload.Scope["graph_view_id"] != graphViewID || payload.Scope["projection_result_id"] != selectedResultID || payload.Scope["graph_query_digest"] != digest {
+			return nil, cursorInvalid("scope_stale")
+		}
+		if payload.PositionKind != "contributor_keyset_v1" {
+			return nil, cursorInvalid("malformed")
+		}
+		decodedPosition, err := decodeContributorCursorPosition(payload.Position)
+		if err != nil || !sameSortSpecs(decodedPosition.Row.EffectiveSort, effectiveSort(nil)) {
+			return nil, cursorInvalid("semantic_query_mismatch")
+		}
+		position = &decodedPosition
+		limit = payload.Limit
+		var echo struct {
+			GraphViewID        string          `json:"graph_view_id"`
+			ProjectionResultID string          `json:"projection_result_id"`
+			GraphQueryDigest   string          `json:"graph_query_digest"`
+			Selector           json.RawMessage `json:"selector"`
+		}
+		if err := json.Unmarshal(payload.QueryEcho, &echo); err != nil || echo.GraphViewID != graphViewID || echo.ProjectionResultID != selectedResultID || echo.GraphQueryDigest != digest {
+			return nil, cursorInvalid("semantic_query_mismatch")
+		}
+		selector, apiErr := decodeGraphSelector(echo.Selector)
+		if apiErr != nil {
+			return nil, cursorInvalid("malformed")
+		}
+		request.ProjectionResultID = echo.ProjectionResultID
+		request.Selector = selector
+		request.Limit = limit
+		if payload.QueryHash != queryHash(savedGraphContributorQueryEcho(graphViewID, digest, request)) {
+			return nil, cursorInvalid("semantic_query_mismatch")
+		}
+	} else if request.ProjectionResultID != selectedResultID {
+		return nil, graphQueryStale("projection_result_mismatch", request.ProjectionResultID)
+	}
+
+	rows, hasMore, tableRanks, apiErr := s.queryGraphContributorPage(ctx, incidentID, semantic, digest, request.Selector, position, limit)
+	if apiErr != nil {
+		return nil, apiErr
+	}
+	contributors := make([]any, 0, len(rows))
+	for _, row := range rows {
+		contributors = append(contributors, map[string]any{"row_ref": rowRefResource(row), "row": rowResource(row)})
+	}
+	echo := savedGraphContributorQueryEcho(graphViewID, digest, request)
+	echoRaw, _ := json.Marshal(echo)
+	var nextToken *string
+	if hasMore && len(rows) > 0 {
+		token, err := s.cursorProtector.Encode(CursorBinding{
+			Route: routeKeyGraphViewContributorsQuery, ActorUserID: actorID, SessionID: sessionID, IncidentID: incidentID.String(),
+			Scope: map[string]string{
+				"graph_view_id": graphViewID, "projection_result_id": selectedResultID, "graph_query_digest": digest,
+			},
+			QueryHash: queryHash(echo), QueryEcho: echoRaw, Limit: limit,
+		}, "contributor_keyset_v1", newContributorCursorPosition(rows[len(rows)-1], tableRanks))
+		if err != nil {
+			return nil, httpapi.InternalAPIError(err)
+		}
+		nextToken = &token
+	}
+	return map[string]any{
+		"schema_id": "cartulary.network_flow.graph_view_contributor_query_result.v2", "graph_view_id": graphViewID,
+		"projection_result_id": selectedResultID, "selector": graphSelectorResource(request.Selector), "contributors": contributors,
+		"meta": map[string]any{"paging": map[string]any{
+			"limit": limit, "returned_count": len(contributors), "next_cursor_token": nextToken,
+		}},
+	}, nil
+}
+
+func savedGraphContributorQueryEcho(graphViewID string, digest string, request graphViewContributorRequest) map[string]any {
+	return map[string]any{
+		"graph_view_id": graphViewID, "projection_result_id": request.ProjectionResultID,
+		"graph_query_digest": digest, "selector": graphSelectorResource(request.Selector),
+	}
+}
+
+func decodeGraphViewCreateRequest(r *http.Request, limits EffectiveLimits) (graphViewCreateRequest, *httpapi.APIError) {
 	raw, apiErr := decodeNetworkFlowObject(r.Body)
 	if apiErr != nil {
 		return graphViewCreateRequest{}, apiErr
@@ -380,7 +493,7 @@ func decodeGraphViewCreateRequest(r *http.Request, limits Limits) (graphViewCrea
 	if apiErr := ensureAllowedMembers(raw, "schema_id", "client_txn_id", "display_name", "semantic_query"); apiErr != nil {
 		return graphViewCreateRequest{}, apiErr
 	}
-	if schemaID, err := requiredJSONString(raw, "schema_id"); err != nil || schemaID != "cartulary.network_flow.graph_view_create_request.v1" {
+	if schemaID, err := requiredJSONString(raw, "schema_id"); err != nil || schemaID != "cartulary.network_flow.graph_view_create_request.v2" {
 		return graphViewCreateRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
 	}
 	clientTxnID, apiErr := requiredJSONString(raw, "client_txn_id")
@@ -394,6 +507,9 @@ func decodeGraphViewCreateRequest(r *http.Request, limits Limits) (graphViewCrea
 	semantic, apiErr := decodeGraphSemanticRequest(raw["semantic_query"], limits)
 	if apiErr != nil {
 		return graphViewCreateRequest{}, apiErr
+	}
+	if semantic.SchemaID != schemaGraphSemanticQueryV2 {
+		return graphViewCreateRequest{}, invalidNetworkFlowRequest("semantic_query.schema_id", "invalid_schema_id")
 	}
 	return graphViewCreateRequest{ClientTxnID: clientTxnID, DisplayName: displayName, Semantic: semantic}, nil
 }
@@ -446,15 +562,29 @@ func decodeGraphViewVersionRequest(r *http.Request, schemaID string) (graphViewV
 	return graphViewVersionRequest{ClientTxnID: clientTxnID, BaseGraphViewVersion: int64(version)}, nil
 }
 
-func decodeSavedGraphContributorRequest(r *http.Request, limits Limits) (graphViewContributorRequest, *httpapi.APIError) {
+func decodeSavedGraphContributorRequest(r *http.Request, limits EffectiveLimits) (graphViewContributorRequest, *httpapi.APIError) {
 	raw, apiErr := decodeNetworkFlowObject(r.Body)
 	if apiErr != nil {
 		return graphViewContributorRequest{}, apiErr
 	}
+	schemaID, schemaErr := requiredJSONString(raw, "schema_id")
+	if schemaErr != nil {
+		return graphViewContributorRequest{}, schemaErr
+	}
+	if schemaID == schemaGraphContributorQueryContinuation {
+		if apiErr := ensureAllowedMembers(raw, "schema_id", "cursor_token"); apiErr != nil {
+			return graphViewContributorRequest{}, apiErr
+		}
+		token, tokenErr := requiredJSONString(raw, "cursor_token")
+		if tokenErr != nil {
+			return graphViewContributorRequest{}, tokenErr
+		}
+		return graphViewContributorRequest{Continuation: true, CursorToken: token}, nil
+	}
 	if apiErr := ensureAllowedMembers(raw, "schema_id", "projection_result_id", "selector", "limit"); apiErr != nil {
 		return graphViewContributorRequest{}, apiErr
 	}
-	if schemaID, err := requiredJSONString(raw, "schema_id"); err != nil || schemaID != "cartulary.network_flow.graph_view_contributor_query_request.v1" {
+	if schemaID != "cartulary.network_flow.graph_view_contributor_query_request.v2" {
 		return graphViewContributorRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
 	}
 	resultID, apiErr := requiredJSONString(raw, "projection_result_id")
@@ -465,8 +595,17 @@ func decodeSavedGraphContributorRequest(r *http.Request, limits Limits) (graphVi
 	if apiErr != nil {
 		return graphViewContributorRequest{}, apiErr
 	}
+	if _, present := raw["limit"]; !present {
+		return graphViewContributorRequest{}, invalidNetworkFlowRequest("limit", "missing_member")
+	}
 	limit, apiErr := decodePositiveInt(raw["limit"], "limit")
-	if apiErr != nil || limit < 1 || limit > 1000 || int64(limit) > limits.MaxQueryLimit {
+	if apiErr != nil {
+		return graphViewContributorRequest{}, invalidLimit("limit", "not_integer")
+	}
+	if limit < 1 {
+		return graphViewContributorRequest{}, invalidLimit("limit", "below_minimum")
+	}
+	if limit > 1000 || int64(limit) > limits.MaxQueryLimit {
 		return graphViewContributorRequest{}, invalidLimit("limit", "above_maximum")
 	}
 	return graphViewContributorRequest{ProjectionResultID: resultID, Selector: selector, Limit: limit}, nil
@@ -515,7 +654,7 @@ func (s *Service) commitGraphViewCreate(ctx context.Context, incidentID, actorUs
 		}
 		semantic := request.Semantic
 		semantic.SelectedTableIDs = selectedTableIDs
-		semantic.Raw = graphSemanticQueryResource(selectedTableIDs, semantic.Filters, semantic.TimeRange, semantic.Aggregation, semantic.ResultLimits)
+		semantic.Raw = graphSemanticQueryResource(semantic.SchemaID, selectedTableIDs, semantic.Filters, semantic.TimeRange, semantic.Aggregation, semantic.ResultLimits)
 		semanticJSON := canonicalJSON(semantic.Raw)
 		snapshotID, err := graphViewSourceSnapshotTx(ctx, tx, incidentID, semantic)
 		if err != nil {
@@ -853,7 +992,7 @@ func graphViewResource(declaration GraphViewDeclaration, status string) map[stri
 		failure = *declaration.LastFailureCode
 	}
 	return map[string]any{
-		"schema_id": "cartulary.network_flow.graph_view.v1", "graph_view_id": declaration.GraphViewID,
+		"schema_id": "cartulary.network_flow.graph_view.v2", "graph_view_id": declaration.GraphViewID,
 		"incident_id": declaration.IncidentID.String(), "display_name": declaration.DisplayName,
 		"normalized_display_name": declaration.NormalizedDisplayName,
 		"graph_view_version":      declaration.GraphViewVersion, "materialization_generation": declaration.MaterializationGeneration,
@@ -871,14 +1010,14 @@ func graphViewAcceptedPayload(declaration GraphViewDeclaration, status string, j
 		materializationStatus = graphViewStatusFromJobStatus(status)
 	}
 	return map[string]any{
-		"schema_id":  "cartulary.network_flow.graph_view_accepted.v1",
+		"schema_id":  "cartulary.network_flow.graph_view_accepted.v2",
 		"graph_view": graphViewResource(declaration, materializationStatus),
 		"job_id":     jobID.String(), "job_kind": GraphViewMaterializationJobKind,
 	}
 }
 
 func graphViewMutationPayload(declaration GraphViewDeclaration, status string) map[string]any {
-	return map[string]any{"schema_id": "cartulary.network_flow.graph_view_mutation_result.v1", "graph_view": graphViewResource(declaration, status)}
+	return map[string]any{"schema_id": "cartulary.network_flow.graph_view_mutation_result.v2", "graph_view": graphViewResource(declaration, status)}
 }
 
 func graphViewResultBinding(declaration GraphViewDeclaration) graphprojection.ResultBindingV2 {

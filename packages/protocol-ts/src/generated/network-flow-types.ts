@@ -300,17 +300,27 @@ export type IndicatorSelector =
     }
   | {
       kind: "graph_vertex";
-      graph_query: GraphSemanticQuery;
+      graph_query: GraphSemanticQueryV2;
       graph_query_digest: SHA256;
       vertex_id: EndpointID;
     }
   | {
       kind: "graph_edge";
-      graph_query: GraphSemanticQuery;
+      graph_query: GraphSemanticQueryV2;
       graph_query_digest: SHA256;
-      edge_id: FlowEdgeID;
+      edge_id: FlowEdgeID | BucketEdgeID;
       field_key: "network_flow.src_ip" | "network_flow.dst_ip";
     };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphSemanticQueryV2".
+ */
+export type GraphSemanticQueryV2 = DefaultGraphSemanticQueryV2 | TimeBucketGraphSemanticQueryV2;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "BucketEdgeID".
+ */
+export type BucketEdgeID = string;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "IndicatorTarget".
@@ -334,6 +344,105 @@ export type BindingID = string;
  * via the `definition` "GraphViewID".
  */
 export type GraphViewID = string;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphQueryRequestV2".
+ */
+export type GraphQueryRequestV2 = DefaultGraphQueryRequestV2 | TimeBucketGraphQueryRequestV2;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionVertexID".
+ */
+export type GraphProjectionVertexID = string;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionEdgeID".
+ */
+export type GraphProjectionEdgeID = string;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphDefaultEdgeSelectorV2".
+ */
+export type GraphDefaultEdgeSelectorV2 =
+  | {
+      kind: "default_edge";
+      source_edge_id: FlowEdgeID;
+      source_endpoint_value: IPLiteral;
+      destination_endpoint_value: IPLiteral;
+      protocol: IPProtocol;
+      destination_port_present: false;
+    }
+  | {
+      kind: "default_edge";
+      source_edge_id: FlowEdgeID;
+      source_endpoint_value: IPLiteral;
+      destination_endpoint_value: IPLiteral;
+      protocol: IPProtocol;
+      destination_port_present: true;
+      destination_port: Port;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "IPProtocol".
+ */
+export type IPProtocol = number;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "Port".
+ */
+export type Port = number;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphTemporalEdgeSelectorV2".
+ */
+export type GraphTemporalEdgeSelectorV2 =
+  | {
+      kind: "time_bucket_edge";
+      source_edge_id: BucketEdgeID;
+      bucket_start_utc: TimestampUTC;
+      bucket_end_utc: TimestampUTC;
+      source_endpoint_value: IPLiteral;
+      destination_endpoint_value: IPLiteral;
+      protocol: IPProtocol;
+      destination_port_present: false;
+    }
+  | {
+      kind: "time_bucket_edge";
+      source_edge_id: BucketEdgeID;
+      bucket_start_utc: TimestampUTC;
+      bucket_end_utc: TimestampUTC;
+      source_endpoint_value: IPLiteral;
+      destination_endpoint_value: IPLiteral;
+      protocol: IPProtocol;
+      destination_port_present: true;
+      destination_port: Port;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphResultVariantV2".
+ */
+export type GraphResultVariantV2 =
+  | {
+      kind: "default_flow_edge_v1";
+    }
+  | {
+      kind: "time_bucket_v1";
+      /**
+       * @minItems 1
+       * @maxItems 1024
+       */
+      time_buckets: [TimeBucketSummaryV1, ...TimeBucketSummaryV1[]];
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphSelectorV2".
+ */
+export type GraphSelectorV2 = GraphVertexSelectorV2 | GraphDefaultEdgeSelectorV2 | GraphTemporalEdgeSelectorV2;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphAggregationV2".
+ */
+export type GraphAggregationV2 = DefaultGraphAggregationV2 | TimeBucketGraphAggregationV2;
 
 export interface HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1 {
   [k: string]: unknown;
@@ -1132,6 +1241,175 @@ export interface IndicatorLinkRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "DefaultGraphSemanticQueryV2".
+ */
+export interface DefaultGraphSemanticQueryV2 {
+  schema_id: "cartulary.network_flow.graph_semantic_query.v2";
+  /**
+   * @minItems 1
+   * @maxItems 64
+   */
+  selected_table_ids: [TableID, ...TableID[]];
+  /**
+   * @maxItems 16
+   */
+  filters:
+    | []
+    | [Filter]
+    | [Filter, Filter]
+    | [Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter
+      ]
+    | [
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter
+      ];
+  time_range: TimeRangeV2;
+  aggregation: DefaultGraphAggregationV2;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "TimeRangeV2".
+ */
+export interface TimeRangeV2 {
+  start_utc: TimestampUTC | null;
+  end_utc: TimestampUTC | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "DefaultGraphAggregationV2".
+ */
+export interface DefaultGraphAggregationV2 {
+  mode: "default_flow_edge_v1";
+  include_example_row_refs?: boolean;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "TimeBucketGraphSemanticQueryV2".
+ */
+export interface TimeBucketGraphSemanticQueryV2 {
+  schema_id: "cartulary.network_flow.graph_semantic_query.v2";
+  /**
+   * @minItems 1
+   * @maxItems 64
+   */
+  selected_table_ids: [TableID, ...TableID[]];
+  /**
+   * @maxItems 16
+   */
+  filters:
+    | []
+    | [Filter]
+    | [Filter, Filter]
+    | [Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter
+      ]
+    | [
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter
+      ];
+  time_range: CompleteTimeRangeV2;
+  aggregation: TimeBucketGraphAggregationV2;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "CompleteTimeRangeV2".
+ */
+export interface CompleteTimeRangeV2 {
+  start_utc: TimestampUTC;
+  end_utc: TimestampUTC;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "TimeBucketGraphAggregationV2".
+ */
+export interface TimeBucketGraphAggregationV2 {
+  mode: "time_bucket_v1";
+  bucket_width_seconds: 60 | 300 | 900 | 3600 | 21600 | 86400;
+  include_example_row_refs?: boolean;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "IndicatorBinding".
  */
 export interface IndicatorBinding {
@@ -1411,4 +1689,380 @@ export interface GraphViewContributorQueryResult {
    * @maxItems 1000
    */
   contributors: Contributor[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "DefaultGraphQueryRequestV2".
+ */
+export interface DefaultGraphQueryRequestV2 {
+  schema_id: "cartulary.network_flow.graph_query_request.v2";
+  table_scope: TableScope;
+  /**
+   * @maxItems 16
+   */
+  filters?:
+    | []
+    | [Filter]
+    | [Filter, Filter]
+    | [Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter
+      ]
+    | [
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter
+      ];
+  time_range?: TimeRangeV2;
+  aggregation: DefaultGraphAggregationV2;
+  limit_overrides?: LimitOverridesV2;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "LimitOverridesV2".
+ */
+export interface LimitOverridesV2 {
+  max_vertices?: number;
+  max_edges?: number;
+  max_example_row_refs_per_edge?: number;
+  max_contributing_rows_per_graph?: number;
+  max_time_buckets_per_graph?: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "TimeBucketGraphQueryRequestV2".
+ */
+export interface TimeBucketGraphQueryRequestV2 {
+  schema_id: "cartulary.network_flow.graph_query_request.v2";
+  table_scope: TableScope;
+  /**
+   * @maxItems 16
+   */
+  filters?:
+    | []
+    | [Filter]
+    | [Filter, Filter]
+    | [Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter, Filter]
+    | [
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter
+      ]
+    | [
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter,
+        Filter
+      ];
+  time_range: CompleteTimeRangeV2;
+  aggregation: TimeBucketGraphAggregationV2;
+  limit_overrides?: LimitOverridesV2;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphQueryResultV2".
+ */
+export interface GraphQueryResultV2 {
+  schema_id: "cartulary.network_flow.graph_query_result.v2";
+  graph_query_digest: SHA256;
+  semantic_query: GraphSemanticQueryV2;
+  graph_projection_result: GraphProjectionResultV2;
+  vertex_selectors: GraphVertexSelectorBindingV2[];
+  edge_annotations: EdgeAnnotationV2[];
+  source_table_refs: GraphSourceTableRef[];
+  result_limits: GraphResultLimitsV2;
+  result_variant: GraphResultVariantV2;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphVertexSelectorBindingV2".
+ */
+export interface GraphVertexSelectorBindingV2 {
+  projected_vertex_id: GraphProjectionVertexID;
+  selector: GraphVertexSelectorV2;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphVertexSelectorV2".
+ */
+export interface GraphVertexSelectorV2 {
+  kind: "vertex";
+  source_vertex_id: EndpointID;
+  endpoint_value: IPLiteral;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "EdgeAnnotationV2".
+ */
+export interface EdgeAnnotationV2 {
+  projected_edge_id: GraphProjectionEdgeID;
+  selector: GraphDefaultEdgeSelectorV2 | GraphTemporalEdgeSelectorV2;
+  /**
+   * @maxItems 100
+   */
+  example_row_refs: NetworkFlowRowRef[];
+  example_refs_truncated: boolean;
+  example_refs_total_count: NonNegativeInt;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphResultLimitsV2".
+ */
+export interface GraphResultLimitsV2 {
+  max_vertices: number;
+  max_edges: number;
+  max_example_row_refs_per_edge: number;
+  max_aggregate_counter_digits: number;
+  max_contributing_rows_per_graph: number;
+  max_time_buckets_per_graph: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "TimeBucketSummaryV1".
+ */
+export interface TimeBucketSummaryV1 {
+  start_utc: TimestampUTC;
+  end_utc: TimestampUTC;
+  unique_vertex_count: NonNegativeInt;
+  edge_count: NonNegativeInt;
+  contributing_row_count: NonNegativeInt;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphContributorQueryRequestV2".
+ */
+export interface GraphContributorQueryRequestV2 {
+  schema_id: "cartulary.network_flow.graph_contributor_query_request.v2";
+  graph_query: GraphSemanticQueryV2;
+  graph_query_digest: SHA256;
+  selector: GraphSelectorV2;
+  limit: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphContributorQueryResultV2".
+ */
+export interface GraphContributorQueryResultV2 {
+  schema_id: "cartulary.network_flow.graph_contributor_query_result.v2";
+  graph_query_digest: SHA256;
+  selector: GraphSelectorV2;
+  /**
+   * @maxItems 1000
+   */
+  contributors: Contributor[];
+  meta: ContributorMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "SourceProfileListV2".
+ */
+export interface SourceProfileListV2 {
+  schema_id: "cartulary.network_flow.source_profile_list.v2";
+  source_profiles: SourceProfile[];
+  effective_limits: EffectiveLimitsV2;
+  meta: CountMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "EffectiveLimitsV2".
+ */
+export interface EffectiveLimitsV2 {
+  "network_flow.max_active_tables_per_incident": number;
+  "network_flow.max_retained_tables_per_incident": number;
+  "network_flow.max_selected_tables_per_query": number;
+  "network_flow.max_columns_per_csv": number;
+  "network_flow.max_header_scalar_length": number;
+  "network_flow.max_raw_cell_scalar_length": number;
+  "network_flow.max_rows_per_csv": number;
+  "network_flow.max_accepted_rows_per_table": number;
+  "network_flow.max_rejected_row_diagnostics": number;
+  "network_flow.max_filters_per_query": number;
+  "network_flow.max_sorts_per_query": number;
+  "network_flow.max_query_limit": number;
+  "network_flow.max_graph_vertices": number;
+  "network_flow.max_graph_edges": number;
+  "network_flow.max_active_graph_views_per_incident": number;
+  "network_flow.max_retained_graph_views_per_incident": number;
+  "network_flow.max_nonterminal_graph_jobs_per_incident": number;
+  "network_flow.max_example_row_refs_per_edge": number;
+  "network_flow.max_binding_source_row_refs": number;
+  "network_flow.max_aggregate_counter_digits": number;
+  "network_flow.max_contributing_rows_per_graph": number;
+  "network_flow.max_time_buckets_per_graph": number;
+  "network_flow.graph_materialization_timeout_seconds": number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphViewV2".
+ */
+export interface GraphViewV2 {
+  schema_id: "cartulary.network_flow.graph_view.v2";
+  graph_view_id: GraphViewID;
+  incident_id: UUID;
+  display_name: string;
+  normalized_display_name: string;
+  graph_view_version: PositiveInt;
+  materialization_generation: PositiveInt;
+  state: "active" | "retired";
+  semantic_query: GraphSemanticQuery | GraphSemanticQueryV2;
+  selected_result: null | GraphViewSelectedResult;
+  last_materialization_job_id: string | null;
+  last_materialization_status: "not_started" | "queued" | "running" | "succeeded" | "failed" | "cancelled";
+  last_failure_code: string | null;
+  created_at: TimestampUTC;
+  updated_at: TimestampUTC;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphViewListV2".
+ */
+export interface GraphViewListV2 {
+  schema_id: "cartulary.network_flow.graph_view_list.v2";
+  /**
+   * @maxItems 128
+   */
+  graph_views: GraphViewV2[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphViewGetV2".
+ */
+export interface GraphViewGetV2 {
+  schema_id: "cartulary.network_flow.graph_view_get.v2";
+  graph_view: GraphViewV2;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphViewCreateRequestV2".
+ */
+export interface GraphViewCreateRequestV2 {
+  schema_id: "cartulary.network_flow.graph_view_create_request.v2";
+  client_txn_id: OpaqueID;
+  display_name: string;
+  semantic_query: GraphSemanticQueryV2;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphViewAcceptedV2".
+ */
+export interface GraphViewAcceptedV2 {
+  schema_id: "cartulary.network_flow.graph_view_accepted.v2";
+  graph_view: GraphViewV2;
+  job_id: string;
+  job_kind: "network_flow_activity.graph_view_materialize_v1";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphViewMutationResultV2".
+ */
+export interface GraphViewMutationResultV2 {
+  schema_id: "cartulary.network_flow.graph_view_mutation_result.v2";
+  graph_view: GraphViewV2;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphViewResultV2".
+ */
+export interface GraphViewResultV2 {
+  schema_id: "cartulary.network_flow.graph_view_result.v2";
+  graph_view: GraphViewV2;
+  result: GraphQueryResult | GraphQueryResultV2;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphViewContributorQueryRequestV2".
+ */
+export interface GraphViewContributorQueryRequestV2 {
+  schema_id: "cartulary.network_flow.graph_view_contributor_query_request.v2";
+  projection_result_id: ProjectionResultID;
+  selector: GraphSelectorV2;
+  limit: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphViewContributorQueryResultV2".
+ */
+export interface GraphViewContributorQueryResultV2 {
+  schema_id: "cartulary.network_flow.graph_view_contributor_query_result.v2";
+  graph_view_id: GraphViewID;
+  projection_result_id: ProjectionResultID;
+  selector: GraphSelectorV2;
+  /**
+   * @maxItems 1000
+   */
+  contributors: Contributor[];
+  meta: ContributorMeta;
 }

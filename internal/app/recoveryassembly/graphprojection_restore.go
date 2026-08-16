@@ -49,6 +49,14 @@ func NewGraphProjectionRestoreParticipant(db postgres.DB) (restorecontract.Graph
 	if err != nil {
 		return nil, err
 	}
+	historicalRegistration, err := networkflow.NewHistoricalGraphRestoreSourceRegistrationV2(db)
+	if err != nil {
+		return nil, err
+	}
+	historicalRegistry, err := graphprojection.NewHistoricalRestoreSourceRegistryV2(historicalRegistration)
+	if err != nil {
+		return nil, err
+	}
 	writer, err := postgresrestore.NewWithReconciler(db, graphProjectionDerivedStateReconciler{})
 	if err != nil {
 		return nil, err
@@ -56,6 +64,12 @@ func NewGraphProjectionRestoreParticipant(db postgres.DB) (restorecontract.Graph
 	return graphprojection.NewRestoreService(
 		writer,
 		registry,
-		graphprojection.RestoreServiceOptions{},
+		graphprojection.RestoreServiceOptions{
+			SupportedBindings: []graphprojection.RestoreImplementationBindingRef{
+				graphprojection.CurrentRestoreImplementationBinding(),
+				graphprojection.HistoricalRestoreImplementationBindingV2(),
+			},
+			SupportedRegistries: []*graphprojection.RestoreSourceRegistry{registry, historicalRegistry},
+		},
 	)
 }

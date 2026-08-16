@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -68,6 +69,37 @@ func TestJobDefinitions() []jobs.Definition {
 	return definitions
 }
 
+func TestWorkerRuntimeContracts(definitions []jobs.Definition) []jobs.WorkerRuntimeContract {
+	byWorker := map[string]*jobs.WorkerRuntimeContract{}
+	for _, definition := range definitions {
+		profileID := "base"
+		if definition.Extension != nil {
+			profileID = definition.Extension.OwnerProfileID
+		}
+		contract := byWorker[definition.HandlerName]
+		if contract == nil {
+			contract = &jobs.WorkerRuntimeContract{
+				ProfileID: profileID, WorkerKind: definition.HandlerName,
+				MaxActiveAttemptsPerProcess: 8,
+			}
+			byWorker[definition.HandlerName] = contract
+		}
+		contract.JobKinds = append(contract.JobKinds, definition.JobKind)
+	}
+	workerKinds := make([]string, 0, len(byWorker))
+	for workerKind := range byWorker {
+		workerKinds = append(workerKinds, workerKind)
+	}
+	sort.Strings(workerKinds)
+	result := make([]jobs.WorkerRuntimeContract, 0, len(workerKinds))
+	for _, workerKind := range workerKinds {
+		contract := *byWorker[workerKind]
+		sort.Strings(contract.JobKinds)
+		result = append(result, contract)
+	}
+	return result
+}
+
 // IntentAdapters supplies the same narrow source-to-Collaboration translation
 // used by application composition to service-backed tests.
 type IntentAdapters struct {
@@ -90,9 +122,13 @@ func NewJobCatalog() *jobs.Catalog {
 	return catalog
 }
 
-func NewJobTransactionsForCatalog(catalog *jobs.Catalog) *jobs.TransactionService {
+func NewJobTransactionsForCatalog(catalog *jobs.Catalog, workerContractSets ...[]jobs.WorkerRuntimeContract) *jobs.TransactionService {
 	ownerPorts := NewJobOwnerTransactionAdapters()
-	selection, err := jobs.FullRuntimeSelection(catalog)
+	workerContracts := TestWorkerRuntimeContracts(TestJobDefinitions())
+	if len(workerContractSets) > 0 {
+		workerContracts = workerContractSets[0]
+	}
+	selection, err := jobs.FullRuntimeSelection(catalog, workerContracts)
 	if err != nil {
 		panic(err)
 	}

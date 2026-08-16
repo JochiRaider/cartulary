@@ -20,7 +20,7 @@ import (
 
 type Store struct {
 	pool            postgres.DB
-	limits          Limits
+	limits          EffectiveLimits
 	incidentLocks   IncidentLockPort
 	auditAppender   AdministrativeAuditPort
 	indicators      IndicatorParticipationPort
@@ -30,9 +30,9 @@ type Store struct {
 
 type StoreOption func(*Store)
 
-func WithLimits(limits Limits) StoreOption {
+func WithEffectiveLimits(limits EffectiveLimits) StoreOption {
 	return func(s *Store) {
-		s.limits = limits.normalized()
+		s.limits = limits
 	}
 }
 
@@ -170,15 +170,14 @@ type RetainedCounts struct {
 	Retained int64
 }
 
-func NewStore(pool postgres.DB, options ...StoreOption) *Store {
+func NewStore(pool postgres.DB, limits EffectiveLimits, options ...StoreOption) *Store {
 	store := &Store{
 		pool:   pool,
-		limits: DefaultLimits(),
+		limits: limits,
 	}
 	for _, option := range options {
 		option(store)
 	}
-	store.limits = store.limits.normalized()
 	return store
 }
 
@@ -508,33 +507,123 @@ SELECT `+flowRowColumnList()+`
 	return records, nil
 }
 
-func (s *Store) ListRowsForTables(ctx context.Context, incidentID uuid.UUID, tableIDs []string) ([]FlowRow, error) {
+// IterateRowsForTables visits accepted rows in the canonical contributor
+// order without retaining the selected scope in memory. Table order is the
+// caller-supplied workspace order, followed by the default row keyset.
+func (s *Store) IterateRowsForTables(ctx context.Context, incidentID uuid.UUID, tableIDs []string, visit func(FlowRow) error) error {
 	if len(tableIDs) == 0 {
-		return []FlowRow{}, nil
+		return nil
 	}
 	rows, err := s.pool.Query(ctx, `
 SELECT `+flowRowColumnList()+`
-  FROM network_flow_rows
- WHERE incident_id = $1
-   AND network_flow_table_id = ANY($2::text[])
- ORDER BY source_row_number ASC, network_flow_table_id ASC, network_flow_row_id ASC
+  FROM unnest($2::text[]) WITH ORDINALITY AS selected(selected_table_id, table_rank)
+  JOIN network_flow_rows
+    ON incident_id = $1
+   AND network_flow_table_id = selected.selected_table_id
+ ORDER BY selected.table_rank ASC, flow_start_utc ASC, flow_end_utc ASC,
+          source_row_number ASC, network_flow_row_id ASC
 `, incidentID, tableIDs)
 	if err != nil {
-		return nil, fmt.Errorf("list network flow rows for tables: %w", err)
+		return fmt.Errorf("iterate network flow rows for tables: %w", err)
 	}
 	defer rows.Close()
-	records := []FlowRow{}
 	for rows.Next() {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		record, err := scanFlowRow(rows)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		records = append(records, record)
+		if err := visit(record); err != nil {
+			return fmt.Errorf("visit network flow table row: %w", err)
+		}
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("scan network flow table rows: %w", err)
+		return fmt.Errorf("scan network flow table rows: %w", err)
 	}
-	return records, nil
+	return ctx.Err()
+}
+
+type graphContributorPredicate struct {
+	Kind                     string
+	EndpointValue            string
+	SourceEndpointValue      string
+	DestinationEndpointValue string
+	Protocol                 int32
+	DestinationPort          *int32
+	BucketStartUTC           *time.Time
+	BucketEndUTC             *time.Time
+}
+
+// IterateGraphContributorRows applies only the closed source-key selector in
+// SQL. Semantic filters and the owner time predicate remain shared Go policy
+// and are evaluated by the caller while the ordered database cursor is open.
+func (s *Store) IterateGraphContributorRows(ctx context.Context, incidentID uuid.UUID, tableIDs []string, predicate graphContributorPredicate, visit func(FlowRow) error) error {
+	if len(tableIDs) == 0 {
+		return nil
+	}
+	base := `
+SELECT ` + flowRowColumnList() + `
+  FROM unnest($2::text[]) WITH ORDINALITY AS selected(selected_table_id, table_rank)
+  JOIN network_flow_rows
+    ON incident_id = $1
+   AND network_flow_table_id = selected.selected_table_id
+ WHERE `
+	var query string
+	var args []any
+	switch predicate.Kind {
+	case "vertex":
+		query = base + `(src_ip = $3 OR dst_ip = $3)`
+		args = []any{incidentID, tableIDs, predicate.EndpointValue}
+	case "default_edge":
+		query = base + `src_ip = $3
+   AND dst_ip = $4
+   AND ip_protocol = $5
+   AND (($6::boolean AND dst_port = $7) OR (NOT $6::boolean AND dst_port IS NULL))`
+		args = []any{incidentID, tableIDs, predicate.SourceEndpointValue, predicate.DestinationEndpointValue, predicate.Protocol, predicate.DestinationPort != nil, predicate.DestinationPort}
+	case "time_bucket_edge":
+		if predicate.BucketStartUTC == nil || predicate.BucketEndUTC == nil {
+			return fmt.Errorf("incomplete time-bucket graph contributor predicate")
+		}
+		query = base + `src_ip = $3
+   AND dst_ip = $4
+   AND ip_protocol = $5
+   AND (($6::boolean AND dst_port = $7) OR (NOT $6::boolean AND dst_port IS NULL))
+   AND flow_start_utc >= $8
+   AND flow_start_utc < $9`
+		args = []any{
+			incidentID, tableIDs, predicate.SourceEndpointValue, predicate.DestinationEndpointValue,
+			predicate.Protocol, predicate.DestinationPort != nil, predicate.DestinationPort,
+			predicate.BucketStartUTC.UTC(), predicate.BucketEndUTC.UTC(),
+		}
+	default:
+		return fmt.Errorf("unknown graph contributor predicate")
+	}
+	query += `
+ ORDER BY selected.table_rank ASC, flow_start_utc ASC, flow_end_utc ASC,
+          source_row_number ASC, network_flow_row_id ASC`
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("iterate graph contributor rows: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		record, err := scanFlowRow(rows)
+		if err != nil {
+			return err
+		}
+		if err := visit(record); err != nil {
+			return fmt.Errorf("visit graph contributor row: %w", err)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("scan graph contributor rows: %w", err)
+	}
+	return ctx.Err()
 }
 
 func (s *Store) ListRejectedRowDiagnostics(ctx context.Context, incidentID uuid.UUID, tableID string) ([]RejectedRowDiagnostic, error) {

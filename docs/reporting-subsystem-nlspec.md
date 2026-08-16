@@ -1599,6 +1599,13 @@ a durable result lease before the render job can observe the payload. An
 implementation MUST NOT validate through an independent pool read or re-read a
 mutable latest declaration after tuple admission.
 
+For Network Flow bindings, lease admission MUST lock the immutable projection
+result before locking or validating the saved declaration. Cleanup and Network
+Flow publication replay MUST use the same result-before-declaration lock order.
+Reporting MUST NOT reverse that order, admit a lease from an unlocked latest-
+result lookup, or treat declaration reachability as a substitute for the
+durable result lease.
+
 **REQ-RPT-077**
 `source_projection_ref.v2` MUST use Table 15-A.
 
@@ -1687,6 +1694,33 @@ transformed identifier is used consistently for its vertex and remaining edge
 endpoints. External release fails closed when any selected source value lacks a
 classification or supported redaction action. Raw graph values and replacement
 values MUST NOT appear in safe details or the redaction manifest.
+
+The Network Flow source-owner adapter MUST provide graph label inputs only as
+typed redaction candidates. A vertex candidate contains the source endpoint
+component and its source classification. A default-edge candidate contains
+protocol and destination-port presence/value components. A temporal-edge
+candidate additionally contains canonical bucket start and end components.
+Each component MUST carry a stable field path, source object reference,
+classification, disclosure partitions, and applicable redaction behavior.
+Graph properties, Graph Projection labels, canonical selectors, and Network
+Flow source values MUST NOT be marked release-safe merely because they were
+admitted to a graph result.
+
+For internal diagrams, `derive_diagram_label_v1` MUST construct endpoint labels
+from deterministic post-redaction endpoint components. A temporal edge label
+MUST contain canonical `[start_utc,end_utc)`, post-redaction protocol, and
+post-redaction destination port only; an absent port remains a typed absence
+and is not rendered as a raw sentinel. A component removed by disclosure or
+redaction is omitted, and an item with no remaining label component uses the
+deterministic ordinal fallback from Table 15-C4. It MUST NOT fall back to an
+unredacted source value, Graph property, selector field, digest, or raw Graph
+label.
+
+GP3 adds no external Network Flow graph allow rule. An external release that
+selects any Network Flow graph field MUST fail closed through the existing
+unresolved-redaction failure unless a separately adopted Reporting policy
+classifies and resolves every selected field. Internal-policy success MUST NOT
+be reused as external admission.
 
 Reporting renews the lease while the render attempt can still read the result
 and releases it only after a durable terminal outcome no longer depends on Graph
@@ -3133,6 +3167,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-DECK-003` | Deck title defaulting and validation follow REQ-RPT-087c, and `field_value_to_text_v1` stringifies every valid scalar and scalar array while rejecting objects and nested arrays. |
 | `RPT-AC-MMD-004` | Mermaid node and participant IDs are ordinal, independent of source vertex-ref characters, and dangling edge endpoints fail. |
 | `RPT-AC-GRAPH-003` | Graph-derived diagrams consume only exact leased `source_projection_ref.v2`; Reporting does not construct ad hoc projection input during materialization or render execution. |
+| `RPT-AC-GRAPH-004` | Network Flow label components enter typed disclosure and redaction; internal endpoint and temporal labels use only deterministic post-redaction components or ordinals, external release remains fail-closed without a separately adopted allow rule, and lease admission uses result-before-declaration lock order. |
 | `RPT-AC-GRAPH-004` | `diagram_selection_rule.v1`, overflow summaries, duplicate handling, missing-ref handling, traversal order, and label-source priority match §15 goldens. |
 | `RPT-AC-GRAPH-005` | Graph-derived diagrams resolve `source_graph_view_id` through release tuple `graph_projection_refs[]` to exactly one completed digest-bound projection; no-match, duplicate-match, incomplete, stale, and digest-mismatch cases use exact reason codes. |
 | `RPT-AC-ERR-002` | Every normative `failure_code` and `reason_code` literal appears in the Table 23-E or Table 23-F registry with the correct mapping. |

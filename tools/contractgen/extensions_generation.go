@@ -112,6 +112,17 @@ func deriveExtensionArtifacts(root string) ([]artifact, error) {
 				return nil, err
 			}
 		}
+		for _, contract := range bindings {
+			if contract["profile_id"] != profileID {
+				continue
+			}
+			for _, rawRuntime := range contract["worker_runtime_contracts"].([]any) {
+				runtimeContract := rawRuntime.(map[string]any)
+				if err := appendGenerated("worker-runtime-contracts/"+profileID+"/"+stringValue(runtimeContract["worker_kind"])+".json", runtimeContract); err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 	if err := appendGenerated("state-registry.json", stateRegistry); err != nil {
 		return nil, err
@@ -645,6 +656,10 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 		}
 		workerKinds := extensionFactStringsByKind(factsByProfile[profileID], "worker_kind", "worker_kind")
 		jobContracts := extensionJobKindContracts(factsByProfile[profileID])
+		workerRuntimeContracts, err := extensionWorkerRuntimeContracts(factsByProfile[profileID], jobContracts)
+		if err != nil {
+			return nil, err
+		}
 		jobKinds := make([]string, len(jobContracts))
 		for index, contract := range jobContracts {
 			jobKinds[index] = stringValue(contract["job_kind"])
@@ -656,7 +671,7 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 			return nil, fmt.Errorf("profile %s implementation job set is incomplete or extra", profileID)
 		}
 		bindings = append(bindings, map[string]any{
-			"schema_id":                           "cartulary.extension_implementation_binding.v1",
+			"schema_id":                           "cartulary.extension_implementation_binding.v2",
 			"profile_id":                          profileID,
 			"contract_major":                      descriptor["contract_major"],
 			"descriptor_sha256":                   descriptorDigests[profileID],
@@ -681,10 +696,11 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 				"result_bytes":                       1048576,
 				"validation_findings":                256,
 			},
-			"supporting_schema_ids": stringsToAny(extensionSupportingSchemas(profileID, indexed, participantBindings, jobContracts)),
-			"worker_kinds":          stringsToAny(workerKinds),
-			"job_kind_contracts":    objectsToAny(jobContracts),
-			"participant_contracts": objectsToAny(participantBindings),
+			"supporting_schema_ids":    stringsToAny(extensionSupportingSchemas(profileID, indexed, participantBindings, jobContracts)),
+			"worker_kinds":             stringsToAny(workerKinds),
+			"job_kind_contracts":       objectsToAny(jobContracts),
+			"participant_contracts":    objectsToAny(participantBindings),
+			"worker_runtime_contracts": objectsToAny(workerRuntimeContracts),
 		})
 	}
 	return bindings, nil
@@ -713,6 +729,53 @@ func extensionJobKindContracts(facts []map[string]any) []map[string]any {
 	}
 	sortObjectRows(contracts, "job_kind")
 	return contracts
+}
+
+func extensionWorkerRuntimeContracts(facts []map[string]any, jobContracts []map[string]any) ([]map[string]any, error) {
+	declaredJobs := make(map[string]struct{}, len(jobContracts))
+	for _, contract := range jobContracts {
+		declaredJobs[stringValue(contract["job_kind"])] = struct{}{}
+	}
+	assignedJobs := make(map[string]string, len(jobContracts))
+	runtimeContracts := []map[string]any{}
+	for _, fact := range facts {
+		if fact["fact_kind"] != "worker_kind" {
+			continue
+		}
+		workerKind := stringValue(fact["worker_kind"])
+		jobKinds, err := sortedUniqueStringArray(fact["job_kinds"], workerKind+".job_kinds", true)
+		if err != nil {
+			return nil, err
+		}
+		for _, jobKind := range jobKinds {
+			if _, ok := declaredJobs[jobKind]; !ok {
+				return nil, fmt.Errorf("worker %s maps undeclared job kind %s", workerKind, jobKind)
+			}
+			if prior, duplicate := assignedJobs[jobKind]; duplicate {
+				return nil, fmt.Errorf("job kind %s is mapped to both %s and %s", jobKind, prior, workerKind)
+			}
+			assignedJobs[jobKind] = workerKind
+		}
+		runtimeContracts = append(runtimeContracts, map[string]any{
+			"schema_id":                       "cartulary.extension_worker_runtime_contract.v1",
+			"profile_id":                      fact["profile_id"],
+			"worker_kind":                     workerKind,
+			"job_kinds":                       stringsToAny(jobKinds),
+			"max_active_attempts_per_process": fact["max_active_attempts_per_process"],
+		})
+	}
+	if len(assignedJobs) != len(declaredJobs) {
+		missing := []string{}
+		for jobKind := range declaredJobs {
+			if _, ok := assignedJobs[jobKind]; !ok {
+				missing = append(missing, jobKind)
+			}
+		}
+		sort.Strings(missing)
+		return nil, fmt.Errorf("worker runtime contracts omit job kinds %s", strings.Join(missing, ", "))
+	}
+	sortObjectRows(runtimeContracts, "worker_kind")
+	return runtimeContracts, nil
 }
 
 func extensionSpecializationAlgorithmIDs(contract map[string]any) []string {

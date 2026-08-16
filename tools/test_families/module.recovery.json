@@ -602,6 +602,33 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.recovery.unit.graph_restore_v3_contract_projection",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [
+        "module.graphprojection",
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestVNextGraphRestoreV3ProjectionContract_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.recovery.unit.owner_registered_workbook_probe_and_v2_artifact_a881cb6053",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.unit",
@@ -728,9 +755,9 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
-          "TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit",
-          "TestVNextGraphRestoreArtifactsFailClosedAndRejectRetiredRegistry_Unit",
-          "TestVNextGraphRestoreV2ProjectionContract_Unit"
+        "TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit",
+        "TestVNextGraphRestoreArtifactsFailClosedAndRejectRetiredRegistry_Unit",
+        "TestVNextGraphRestoreArtifactsRetainExactHistoricalV2Dispatch_Unit"
         ]
       },
       "evidence_class": "unit",

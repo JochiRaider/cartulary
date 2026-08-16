@@ -60,6 +60,7 @@ const expectedRunnerDefinitions = Object.freeze({
 const expectedProfiles = Object.freeze({
   runtime_profiles: ["default", "network_flow_claimed", "none"],
   resource_profiles: [
+    "backend_capacity_isolated",
     "browser_isolated",
     "browser_measurement_quiet",
     "io_heavy",

@@ -59,12 +59,16 @@
     {
       "fact_kind": "worker_kind",
       "profile_id": "import",
-      "worker_kind": "import.apply_worker_v1"
+      "worker_kind": "import.apply_worker_v1",
+      "job_kinds": ["import.apply_v1"],
+      "max_active_attempts_per_process": 8
     },
     {
       "fact_kind": "worker_kind",
       "profile_id": "import",
-      "worker_kind": "import.discovery_worker_v1"
+      "worker_kind": "import.discovery_worker_v1",
+      "job_kinds": ["import.discovery_v1"],
+      "max_active_attempts_per_process": 8
     },
     {
       "fact_kind": "job_kind",
@@ -117,7 +121,9 @@
     {
       "fact_kind": "worker_kind",
       "profile_id": "incident_portability",
-      "worker_kind": "incident_portability.bundle_worker_v1"
+      "worker_kind": "incident_portability.bundle_worker_v1",
+      "job_kinds": ["incident_portability.export_v1", "incident_portability.import_v1"],
+      "max_active_attempts_per_process": 8
     },
     {
       "fact_kind": "job_kind",
@@ -146,7 +152,9 @@
     {
       "fact_kind": "worker_kind",
       "profile_id": "network_flow_activity",
-      "worker_kind": "network_flow_activity.graph_view_worker_v1"
+      "worker_kind": "network_flow_activity.graph_view_worker_v1",
+      "job_kinds": ["network_flow_activity.graph_view_materialize_v1"],
+      "max_active_attempts_per_process": 1
     },
     {
       "fact_kind": "job_kind",
@@ -223,7 +231,9 @@
     {
       "fact_kind": "worker_kind",
       "profile_id": "reference_pack",
-      "worker_kind": "reference_pack.lifecycle_worker_v1"
+      "worker_kind": "reference_pack.lifecycle_worker_v1",
+      "job_kinds": ["reference_pack.import_v1", "reference_pack.refresh_v1", "reference_pack.reverify_v1"],
+      "max_active_attempts_per_process": 8
     }
   ]
 }

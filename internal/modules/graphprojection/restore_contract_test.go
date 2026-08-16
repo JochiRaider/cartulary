@@ -15,7 +15,7 @@ func TestGraphRestoreCurrentRegistryAndBindingsAreExact(t *testing.T) {
 	if registry.DigestSHA256() != contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256 ||
 		registry.DigestSHA256() != CurrentRestoreSourceRegistry().DigestSHA256() ||
 		len(registry.Document().Entries) != 1 {
-		t.Fatalf("current v2 restore source registry drifted: %#v", registry.Document())
+		t.Fatalf("current v3 restore source registry drifted: %#v", registry.Document())
 	}
 	current := CurrentRestoreImplementationBinding()
 	if current.Binding.SchemaID != RestoreImplementationBindingSchemaID ||
@@ -26,8 +26,16 @@ func TestGraphRestoreCurrentRegistryAndBindingsAreExact(t *testing.T) {
 		t.Fatalf("current restore implementation binding drifted: %#v", current)
 	}
 	var canonical map[string]any
-	if err := json.Unmarshal([]byte(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON), &canonical); err != nil || len(canonical) != 13 {
+	if err := json.Unmarshal([]byte(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON), &canonical); err != nil || len(canonical) != 15 {
 		t.Fatalf("generated implementation binding is not a closed canonical object: fields=%d err=%v", len(canonical), err)
+	}
+	historicalRegistry := HistoricalRestoreSourceRegistryV2()
+	historicalBinding := HistoricalRestoreImplementationBindingV2()
+	if historicalRegistry == nil || historicalRegistry.Document().SchemaID != HistoricalRestoreSourceRegistrySchemaIDV2 ||
+		historicalRegistry.DigestSHA256() != contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2SHA256 ||
+		historicalBinding.Binding.AlgorithmID != HistoricalRestoreAlgorithmIDV2 ||
+		historicalBinding.SHA256 != contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2SHA256 {
+		t.Fatalf("historical v2 restore dispatch drifted: registry=%#v binding=%#v", historicalRegistry, historicalBinding)
 	}
 	for path := range contractrecovery.Index {
 		if strings.Contains(path, "graph-projection-restore-") && strings.Contains(path, ".v1") {

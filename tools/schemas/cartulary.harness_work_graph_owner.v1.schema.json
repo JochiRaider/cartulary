@@ -64,7 +64,7 @@
             "enum": ["none", "postgres_transaction", "postgres_group", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"]
           },
           "service_dependencies": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies" },
-          "resource_profile_id": { "enum": ["browser_isolated", "browser_measurement_quiet", "io_heavy", "managed_process", "standard"] },
+          "resource_profile_id": { "enum": ["backend_capacity_isolated", "browser_isolated", "browser_measurement_quiet", "io_heavy", "managed_process", "standard"] },
           "cache_policy": { "enum": ["none", "same_run", "content_addressed"] },
           "estimated_work_ms": { "type": "integer", "minimum": 1 }
         }

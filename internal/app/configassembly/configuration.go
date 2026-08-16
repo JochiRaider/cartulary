@@ -171,6 +171,7 @@ func registerNetworkFlowConfigurationContribution(builder *config.CatalogBuilder
 		Paths: []string{
 			"network_flow_activity.claimed",
 			"network_flow_activity.key_ring_manifest_path",
+			"network_flow_activity.resource_limits",
 		},
 		Decode: func(decoder config.NamespaceDecoder) (networkflow.Configuration, []config.Diagnostic) {
 			var configuration networkflow.Configuration
@@ -203,7 +204,7 @@ func registerNetworkFlowConfigurationContribution(builder *config.CatalogBuilder
 			return normalized, diagnostics
 		},
 		Clone: func(configuration networkflow.Configuration) networkflow.Configuration {
-			return configuration
+			return networkflow.CloneConfiguration(configuration)
 		},
 	})
 }

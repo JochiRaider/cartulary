@@ -7,53 +7,83 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
-var canonicalWorkerByJobKind = map[string]string{
-	"import.discovery_v1":                             "import.discovery_worker_v1",
-	"import.apply_v1":                                 "import.apply_worker_v1",
-	"incident_portability.export_v1":                  "incident_portability.bundle_worker_v1",
-	"incident_portability.import_v1":                  "incident_portability.bundle_worker_v1",
-	"reference_pack.import_v1":                        "reference_pack.lifecycle_worker_v1",
-	"reference_pack.reverify_v1":                      "reference_pack.lifecycle_worker_v1",
-	"reference_pack.refresh_v1":                       "reference_pack.lifecycle_worker_v1",
-	"snapshot_reporting.snapshot_create_v1":           "snapshot_reporting.job_worker_v1",
-	"snapshot_reporting.release_create_v1":            "snapshot_reporting.job_worker_v1",
-	"snapshot_reporting.composition_preview_v1":       "snapshot_reporting.job_worker_v1",
-	"network_flow_activity.graph_view_materialize_v1": "network_flow_activity.graph_view_worker_v1",
-}
-
 func JobDefinitions(catalog PublicationCatalog) ([]jobs.Definition, error) {
-	jobKinds := catalog.JobKinds()
-	result := make([]jobs.Definition, 0, len(jobKinds))
-	for _, jobKind := range jobKinds {
+	workers := make([]extensions.WorkerPublication, 0, len(catalog.WorkerKinds()))
+	for _, workerKind := range catalog.WorkerKinds() {
+		worker, present := catalog.Worker(workerKind)
+		if !present {
+			return nil, fmt.Errorf("extension worker catalog lost %q", workerKind)
+		}
+		workers = append(workers, worker)
+	}
+	contracts := make([]extensions.JobKindContract, 0, len(catalog.JobKinds()))
+	for _, jobKind := range catalog.JobKinds() {
 		contract, present := catalog.Job(jobKind)
 		if !present {
 			return nil, fmt.Errorf("extension job catalog lost %q", jobKind)
 		}
-		workerKind, present := canonicalWorkerByJobKind[jobKind]
-		if !present {
-			return nil, fmt.Errorf("extension job %q has no canonical worker", jobKind)
-		}
-		worker, present := catalog.Worker(workerKind)
-		if !present || worker.ProfileID != contract.ProfileID {
-			return nil, fmt.Errorf("extension job %q has no exact claimed worker", jobKind)
-		}
-		result = append(result, jobDefinition(contract, workerKind))
+		contracts = append(contracts, contract)
 	}
-	return result, nil
+	return jobDefinitions(contracts, workers)
 }
 
 // RecognizedJobDefinitions projects every packaged current contract into the
 // one durable Jobs catalog. Claim state is applied later by RuntimeSelection.
-func RecognizedJobDefinitions(contracts []extensions.JobKindContract) ([]jobs.Definition, error) {
-	result := make([]jobs.Definition, 0, len(contracts))
+func RecognizedJobDefinitions(contracts []extensions.JobKindContract, workers []extensions.WorkerPublication) ([]jobs.Definition, error) {
+	return jobDefinitions(contracts, workers)
+}
+
+func jobDefinitions(contracts []extensions.JobKindContract, workers []extensions.WorkerPublication) ([]jobs.Definition, error) {
+	contractsByKind := make(map[string]extensions.JobKindContract, len(contracts))
 	for _, contract := range contracts {
-		workerKind, present := canonicalWorkerByJobKind[contract.JobKind]
-		if !present {
-			return nil, fmt.Errorf("extension job %q has no canonical worker", contract.JobKind)
+		if _, duplicate := contractsByKind[contract.JobKind]; duplicate {
+			return nil, fmt.Errorf("duplicate extension job contract %q", contract.JobKind)
 		}
-		result = append(result, jobDefinition(contract, workerKind))
+		contractsByKind[contract.JobKind] = contract
+	}
+	result := make([]jobs.Definition, 0, len(contracts))
+	assigned := make(map[string]struct{}, len(contracts))
+	for _, worker := range workers {
+		for _, jobKind := range worker.JobKinds {
+			contract, present := contractsByKind[jobKind]
+			if !present || contract.ProfileID != worker.ProfileID {
+				return nil, fmt.Errorf("extension job %q has no exact generated worker", jobKind)
+			}
+			if _, duplicate := assigned[jobKind]; duplicate {
+				return nil, fmt.Errorf("extension job %q has duplicate generated workers", jobKind)
+			}
+			assigned[jobKind] = struct{}{}
+			result = append(result, jobDefinition(contract, worker.WorkerKind))
+		}
+	}
+	if len(assigned) != len(contractsByKind) {
+		return nil, fmt.Errorf("generated worker runtime contracts omit extension jobs")
 	}
 	return result, nil
+}
+
+func WorkerRuntimeContracts(catalog PublicationCatalog) ([]jobs.WorkerRuntimeContract, error) {
+	workers := make([]extensions.WorkerPublication, 0, len(catalog.WorkerKinds()))
+	for _, workerKind := range catalog.WorkerKinds() {
+		worker, present := catalog.Worker(workerKind)
+		if !present {
+			return nil, fmt.Errorf("extension worker catalog lost %q", workerKind)
+		}
+		workers = append(workers, worker)
+	}
+	return workerRuntimeContracts(workers), nil
+}
+
+func workerRuntimeContracts(workers []extensions.WorkerPublication) []jobs.WorkerRuntimeContract {
+	result := make([]jobs.WorkerRuntimeContract, 0, len(workers))
+	for _, worker := range workers {
+		result = append(result, jobs.WorkerRuntimeContract{
+			ProfileID: worker.ProfileID, WorkerKind: worker.WorkerKind,
+			JobKinds:                    append([]string(nil), worker.JobKinds...),
+			MaxActiveAttemptsPerProcess: worker.MaxActiveAttemptsPerProcess,
+		})
+	}
+	return result
 }
 
 func JobKinds(definitions []jobs.Definition) []string {

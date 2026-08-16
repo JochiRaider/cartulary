@@ -28,6 +28,16 @@
   ],
   "resource_profiles": [
     {
+      "id": "backend_capacity_isolated",
+      "resource_claims": {
+        "cpu": 1,
+        "io": 1,
+        "memory_mb": 1024,
+        "process": 1
+      },
+      "runner_timeout_ms": 3600000
+    },
+    {
       "id": "browser_isolated",
       "resource_claims": {
         "browser_stack": 1,

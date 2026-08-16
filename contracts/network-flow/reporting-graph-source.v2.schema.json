@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.network_flow.reporting_graph_source.v2",
+  "schema_id": "cartulary.network_flow.reporting_graph_source.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "source_projection_ref", "vertex_label_candidates", "edge_label_candidates"],
+  "properties": {
+    "schema_id": { "const": "cartulary.network_flow.reporting_graph_source.v2" },
+    "source_projection_ref": { "$ref": "#/$defs/SourceProjectionRefV2" },
+    "vertex_label_candidates": { "type": "array", "maxItems": 100000, "items": { "$ref": "#/$defs/VertexLabelCandidateV1" } },
+    "edge_label_candidates": { "type": "array", "maxItems": 250000, "items": { "$ref": "#/$defs/EdgeLabelCandidateV1" } }
+  },
+  "$defs": {
+    "SourceProjectionRefV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_owner_id", "graph_view_id", "projection_result_id", "source_snapshot_id", "projection_schema_id", "projection_version", "normalized_configuration_sha256", "normalized_source_sha256", "canonical_output_sha256"],
+      "properties": {
+        "source_owner_id": { "const": "network_flow_activity" },
+        "graph_view_id": { "type": "string", "pattern": "^nfgv_[0-9a-f]{32}$" },
+        "projection_result_id": { "type": "string", "pattern": "^gpres_[0-9a-f]{64}$" },
+        "source_snapshot_id": { "type": "string", "pattern": "^nfsnap_[0-9a-f]{64}$" },
+        "projection_schema_id": { "const": "graph_projection.v2" },
+        "projection_version": { "enum": ["network_flow_activity.v1", "network_flow_activity.time_bucket.v1"] },
+        "normalized_configuration_sha256": { "$ref": "#/$defs/SHA256" },
+        "normalized_source_sha256": { "$ref": "#/$defs/SHA256" },
+        "canonical_output_sha256": { "$ref": "#/$defs/SHA256" }
+      }
+    },
+    "VertexLabelCandidateV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projected_vertex_id", "endpoint"],
+      "properties": {
+        "projected_vertex_id": { "type": "string", "pattern": "^vx_[0-9a-f]{64}$" },
+        "endpoint": { "$ref": "#/$defs/LabelComponentV1" }
+      }
+    },
+    "EdgeLabelCandidateV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "projected_edge_id", "protocol", "destination_port", "bucket_start_utc", "bucket_end_utc"],
+      "properties": {
+        "kind": { "enum": ["default_flow_edge_v1", "time_bucket_v1"] },
+        "projected_edge_id": { "type": "string", "pattern": "^ed_[0-9a-f]{64}$" },
+        "protocol": { "$ref": "#/$defs/LabelComponentV1" },
+        "destination_port": { "$ref": "#/$defs/LabelComponentV1" },
+        "bucket_start_utc": { "oneOf": [{ "$ref": "#/$defs/LabelComponentV1" }, { "type": "null" }] },
+        "bucket_end_utc": { "oneOf": [{ "$ref": "#/$defs/LabelComponentV1" }, { "type": "null" }] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "default_flow_edge_v1" } } },
+          "then": { "properties": { "bucket_start_utc": { "type": "null" }, "bucket_end_utc": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "time_bucket_v1" } } },
+          "then": { "properties": { "bucket_start_utc": { "$ref": "#/$defs/LabelComponentV1" }, "bucket_end_utc": { "$ref": "#/$defs/LabelComponentV1" } } }
+        }
+      ]
+    },
+    "LabelComponentV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component_kind", "field_path", "source_object_ref", "classification", "disclosure_partition_refs", "redaction_behavior", "state", "value_kind", "string_value", "integer_value"],
+      "properties": {
+        "component_kind": { "enum": ["endpoint_value", "protocol", "destination_port", "bucket_start_utc", "bucket_end_utc"] },
+        "field_path": { "type": "string", "pattern": "^/graph/(vertices|edges)/[0-9]{4}/[a-z_]+$" },
+        "source_object_ref": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "classification": { "const": "derived_analytic" },
+        "disclosure_partition_refs": { "type": "array", "prefixItems": [{ "const": "internal_only" }], "items": false, "minItems": 1, "maxItems": 1 },
+        "redaction_behavior": { "const": "allow_internal_only" },
+        "state": { "enum": ["present", "absent", "removed", "missing"] },
+        "value_kind": { "enum": ["string", "integer"] },
+        "string_value": { "type": ["string", "null"], "maxLength": 64 },
+        "integer_value": { "type": ["integer", "null"], "minimum": 0, "maximum": 65535 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "state": { "const": "present" }, "value_kind": { "const": "string" } }, "required": ["state", "value_kind"] },
+          "then": { "properties": { "string_value": { "type": "string", "minLength": 1 }, "integer_value": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "state": { "const": "present" }, "value_kind": { "const": "integer" } }, "required": ["state", "value_kind"] },
+          "then": { "properties": { "string_value": { "type": "null" }, "integer_value": { "type": "integer" } } }
+        },
+        {
+          "if": { "properties": { "state": { "enum": ["absent", "removed", "missing"] } }, "required": ["state"] },
+          "then": { "properties": { "string_value": { "type": "null" }, "integer_value": { "type": "null" } } }
+        }
+      ]
+    },
+    "SHA256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

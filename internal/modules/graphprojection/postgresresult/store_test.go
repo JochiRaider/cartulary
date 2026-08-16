@@ -137,9 +137,13 @@ func TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration(t *testing.
 	if err != nil {
 		t.Fatalf("construct protected cleaner: %v", err)
 	}
-	deleted, err := cleaner.DeleteUnreachableResults(ctx, []string{}, now.Add(30*time.Minute), 10)
-	if err != nil || len(deleted) != 0 {
-		t.Fatalf("active lease did not protect result: deleted=%#v err=%v", deleted, err)
+	deletedLeases, hasMore, err := cleaner.DeleteExpiredLeases(ctx, now.Add(30*time.Minute), 1000)
+	if err != nil || deletedLeases != 0 || hasMore {
+		t.Fatalf("active lease cleanup got deleted=%d has_more=%t err=%v", deletedLeases, hasMore, err)
+	}
+	candidate, err := cleaner.LockCleanupCandidate(ctx, "network_flow_activity", nil)
+	if err != nil || candidate != nil {
+		t.Fatalf("active lease did not exclude result candidate: candidate=%#v err=%v", candidate, err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatalf("commit protected cleanup: %v", err)
@@ -153,9 +157,21 @@ func TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration(t *testing.
 	if err != nil {
 		t.Fatalf("construct expired cleaner: %v", err)
 	}
-	deleted, err = cleaner.DeleteUnreachableResults(ctx, []string{}, now.Add(2*time.Hour), 10)
-	if err != nil || len(deleted) != 1 || deleted[0] != resultIDA {
-		t.Fatalf("expired lease cleanup got deleted=%#v err=%v", deleted, err)
+	deletedLeases, hasMore, err = cleaner.DeleteExpiredLeases(ctx, now.Add(2*time.Hour), 1000)
+	if err != nil || deletedLeases != 1 || hasMore {
+		t.Fatalf("expired lease cleanup got deleted=%d has_more=%t err=%v", deletedLeases, hasMore, err)
+	}
+	candidate, err = cleaner.LockCleanupCandidate(ctx, "network_flow_activity", nil)
+	if err != nil || candidate == nil || candidate.ProjectionResultID != resultIDA || !candidate.PublishedAt.Equal(now) {
+		t.Fatalf("oldest source-owner cleanup candidate got %#v err=%v", candidate, err)
+	}
+	leased, err := cleaner.HasUnexpiredLease(ctx, resultIDA, now.Add(2*time.Hour))
+	if err != nil || leased {
+		t.Fatalf("expired result lease recheck got leased=%t err=%v", leased, err)
+	}
+	deleted, err := cleaner.DeleteLockedResult(ctx, resultIDA)
+	if err != nil || !deleted {
+		t.Fatalf("locked result deletion got deleted=%t err=%v", deleted, err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatalf("commit expired cleanup: %v", err)

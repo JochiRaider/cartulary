@@ -351,8 +351,8 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 			break
 		}
 	}
-	if networkFlow == nil || networkFlow["claimable"] != true || networkFlow["contract_major"] != float64(3) {
-		t.Fatalf("Network Flow browser descriptor is not claimable major 3: %#v", networkFlow)
+	if networkFlow == nil || networkFlow["claimable"] != true || networkFlow["contract_major"] != float64(4) {
+		t.Fatalf("Network Flow browser descriptor is not claimable major 4: %#v", networkFlow)
 	}
 	requireJSONStrings(t, networkFlow["workspace_keys"], []string{"network_analysis"}, "Network Flow workspace keys")
 	requireJSONStrings(t, networkFlow["capability_ids"], []string{}, "Network Flow capabilities")
@@ -380,8 +380,9 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 	requireJSONStrings(t, importRow["public_schema_ids"], []string{}, "Import client support public schemas")
 
 	row := rowsByProfile["network_flow_activity"]
-	if row == nil || row["profile_id"] != "network_flow_activity" || row["contract_major"] != float64(3) {
-		t.Fatalf("client support row does not select Network Flow major 3: %#v", row)
+	if row == nil || row["profile_id"] != "network_flow_activity" || row["contract_major"] != float64(4) ||
+		row["client_asset_set_id"] != "network_flow_activity.standard.v4" {
+		t.Fatalf("client support row does not select Network Flow major 4: %#v", row)
 	}
 	requireJSONStrings(t, row["workspace_keys"], []string{"network_analysis"}, "client support workspaces")
 	requireJSONStrings(t, row["capability_ids"], []string{}, "client support capabilities")
@@ -407,7 +408,7 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 	}
 }
 
-func TestNetworkFlowV3StateJobsAndReportingProjection_Unit(t *testing.T) {
+func TestNetworkFlowV4StateJobsAndReportingProjection_Unit(t *testing.T) {
 	jobsDocument := readGeneratedExtensionObject(t, "contracts/extensions/fragments/core01.profile-jobs.json")
 	var graphJob map[string]any
 	var graphWorker map[string]any
@@ -431,8 +432,14 @@ func TestNetworkFlowV3StateJobsAndReportingProjection_Unit(t *testing.T) {
 	if len(resourceRefs) != 1 || resourceRefs[0].(map[string]any)["resource_ref_kind"] != "network_flow_graph_view" {
 		t.Fatalf("Network Flow graph materialization resource binding drifted: %#v", resourceRefs)
 	}
-	if graphWorker == nil || graphWorker["worker_kind"] != "network_flow_activity.graph_view_worker_v1" {
+	if graphWorker == nil || graphWorker["worker_kind"] != "network_flow_activity.graph_view_worker_v1" ||
+		graphWorker["max_active_attempts_per_process"] != float64(1) {
 		t.Fatalf("Network Flow graph materialization worker contract drifted: %#v", graphWorker)
+	}
+	workerRuntime := readGeneratedExtensionObject(t, "contracts/extensions/generated/worker-runtime-contracts/network_flow_activity/network_flow_activity.graph_view_worker_v1.json")
+	if workerRuntime["schema_id"] != "cartulary.extension_worker_runtime_contract.v1" ||
+		workerRuntime["max_active_attempts_per_process"] != float64(1) {
+		t.Fatalf("Network Flow generated worker runtime contract drifted: %#v", workerRuntime)
 	}
 
 	profile := readGeneratedExtensionObject(t, "contracts/extensions/fragments/network_flow_activity.profile.json")
@@ -451,13 +458,14 @@ func TestNetworkFlowV3StateJobsAndReportingProjection_Unit(t *testing.T) {
 			contributionKinds[contribution["contribution_id"].(string)] = true
 		}
 	}
-	if stateOwnership == nil || stateOwnership["current_state_version"] != float64(2) ||
+	if stateOwnership == nil || stateOwnership["current_state_version"] != float64(3) ||
 		stateOwnership["minimum_migratable_state_version"] != float64(1) {
-		t.Fatalf("Network Flow state ownership is not version 2 with a 1-to-2 migration: %#v", stateOwnership)
+		t.Fatalf("Network Flow state ownership is not version 3 with migration from state 1: %#v", stateOwnership)
 	}
-	if migration == nil || migration["from_state_version"] != float64(1) || migration["to_state_version"] != float64(2) ||
-		migration["new_family_policy"] != "create_empty_graph_views" {
-		t.Fatalf("Network Flow state 1-to-2 migration drifted: %#v", migration)
+	if migration == nil || migration["from_state_version"] != float64(2) || migration["to_state_version"] != float64(3) ||
+		migration["source_family_policy"] != "preserve_all_authoritative_bytes" ||
+		migration["new_family_policy"] != "admit_semantic_query_v2_without_rewrite" {
+		t.Fatalf("Network Flow state 2-to-3 migration drifted: %#v", migration)
 	}
 	for _, contributionID := range []string{
 		"network_flow_activity.graph_projection_rebuild",
@@ -465,7 +473,7 @@ func TestNetworkFlowV3StateJobsAndReportingProjection_Unit(t *testing.T) {
 		"network_flow_activity.reporting_graph_source",
 	} {
 		if !contributionKinds[contributionID] {
-			t.Fatalf("Network Flow v3 profile omits contribution %q", contributionID)
+			t.Fatalf("Network Flow v4 profile omits contribution %q", contributionID)
 		}
 	}
 
@@ -477,7 +485,7 @@ func TestNetworkFlowV3StateJobsAndReportingProjection_Unit(t *testing.T) {
 	participant := readGeneratedExtensionObject(t, "contracts/extensions/profiles/network_flow_activity/reporting-participant.json")
 	operations := participant["operations"].([]any)
 	if participant["participant_id"] != "network_flow_activity.reporting_graph_source_v1" || len(operations) != 1 ||
-		operations[0].(map[string]any)["output_schema_id"] != "cartulary.network_flow.reporting_graph_source.v1" {
+		operations[0].(map[string]any)["output_schema_id"] != "cartulary.network_flow.reporting_graph_source.v2" {
 		t.Fatalf("Network Flow Reporting participant drifted: %#v", participant)
 	}
 }
@@ -703,7 +711,7 @@ func TestExtensionBehaviorRouting_Static(t *testing.T) {
 		requireExactStrings(t, row.Selector.Tests, testNames, rowID+" selector.tests")
 	}
 	characterizationRows := map[string]int{
-		"module.extensions.integration.network_flow_state_v2":             1,
+		"module.extensions.integration.network_flow_state_v3":             2,
 		"module.extensions.integration.state_admission_matrix_7f6ad80724": 19,
 		"module.extensions.integration.state_concurrent_admission":        1,
 	}
@@ -773,12 +781,12 @@ func TestExtensionBehaviorRouting_Static(t *testing.T) {
 	}
 	requireExactStrings(t, inactiveConfiguration.VerificationIDs, []string{extensionsBehaviorVerification}, "inactive configuration verification_ids")
 	requireExactStrings(t, inactiveConfiguration.Selector.Tests, []string{"TestInactiveConfigurationCatalog_Unit"}, "inactive configuration selector.tests")
-	networkFlowV3Projection, exists := rows["module.extensions.unit.network_flow_v3_state_jobs_reporting_projection"]
+	networkFlowV3Projection, exists := rows["module.extensions.unit.network_flow_v4_state_jobs_reporting_projection"]
 	if !exists {
-		t.Fatal("Network Flow v3 extension projection row is missing")
+		t.Fatal("Network Flow v4 extension projection row is missing")
 	}
-	requireExactStrings(t, networkFlowV3Projection.VerificationIDs, []string{extensionsBehaviorVerification}, "Network Flow v3 projection verification_ids")
-	requireExactStrings(t, networkFlowV3Projection.Selector.Tests, []string{"TestNetworkFlowV3StateJobsAndReportingProjection_Unit"}, "Network Flow v3 projection selector.tests")
+	requireExactStrings(t, networkFlowV3Projection.VerificationIDs, []string{extensionsBehaviorVerification}, "Network Flow v4 projection verification_ids")
+	requireExactStrings(t, networkFlowV3Projection.Selector.Tests, []string{"TestNetworkFlowV4StateJobsAndReportingProjection_Unit"}, "Network Flow v4 projection selector.tests")
 	if got, want := len(rows), len(extensionBoundaryExpectations)+5+len(coordinatorRows)+len(characterizationRows)+len(jobRows); got != want {
 		t.Fatalf("Extensions manifest has %d rows; want exactly %d", got, want)
 	}

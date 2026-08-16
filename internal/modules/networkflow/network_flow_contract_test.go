@@ -170,7 +170,8 @@ func AssertQueryAndTableScopeBoundary(t *testing.T) {
 	requireAPIError(t, apiErr, "network_flow_invalid_filter", "duplicate_in_value")
 	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","sort":[{"field_key":"network_flow.endpoint_ip","direction":"asc"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_sort", "unknown_field")
-	request, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, Limits{MaxQueryLimit: 50})
+	limits.MaxQueryLimit = 50
+	request, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	if apiErr != nil || request.Limit != 50 {
 		t.Fatalf("default query limit got request=%#v err=%v", request, apiErr)
 	}
@@ -230,24 +231,6 @@ func AssertKeysetAndCursorRuntime(t *testing.T) {
 	clause, err := appendRowKeysetSQL(position.EffectiveSort, *position, &args)
 	if err != nil || !strings.Contains(clause, "$1::") || strings.Contains(clause, position.NetworkFlowRowID) {
 		t.Fatalf("keyset SQL must be whitelisted and parameterized: clause=%q args=%#v err=%v", clause, args, err)
-	}
-
-	tableRanks := map[string]int{"nft_a": 0, "nft_b": 1}
-	contributors := append([]FlowRow(nil), rows...)
-	sort.Slice(contributors, func(i, j int) bool {
-		if tableRanks[contributors[i].NetworkFlowTableID] != tableRanks[contributors[j].NetworkFlowTableID] {
-			return tableRanks[contributors[i].NetworkFlowTableID] < tableRanks[contributors[j].NetworkFlowTableID]
-		}
-		return compareRowToPosition(contributors[i], newRowCursorPosition(contributors[j], nil)) < 0
-	})
-	firstContributorPage, more := pageContributorRowsAfter(contributors, tableRanks, nil, 1)
-	if len(firstContributorPage) != 1 || !more {
-		t.Fatalf("contributor first keyset page got %#v more=%t", firstContributorPage, more)
-	}
-	contributorPosition := newContributorCursorPosition(firstContributorPage[0], tableRanks)
-	remainingContributors, more := pageContributorRowsAfter(contributors, tableRanks, &contributorPosition, len(contributors))
-	if len(remainingContributors) != len(contributors)-1 || more {
-		t.Fatalf("contributor continuation got %d rows more=%t", len(remainingContributors), more)
 	}
 
 	AssertCursorCryptoRuntime(t, newRowCursorPosition(sorted[0], nil))
@@ -429,16 +412,16 @@ func mapFromStrings(values []string) map[string]struct{} {
 func AssertGraphContractBoundary(t *testing.T) {
 	t.Helper()
 	limits := DefaultLimits()
-	_, apiErr := decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v1","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]}}`)), limits)
+	_, apiErr := decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]},"aggregation":{"mode":"default_flow_edge_v1"}}`)), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_table_scope", "empty_resolved_scope")
-	_, apiErr = decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v1","table_scope":{"mode":"all_active_tables"},"time_range":{"bucket":"hour"}}`)), limits)
+	_, apiErr = decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"time_range":{"bucket":"hour"},"aggregation":{"mode":"default_flow_edge_v1"}}`)), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_request", "unknown_member")
-	_, apiErr = decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v1","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"time_bucket_v1"}}`)), limits)
-	requireAPIError(t, apiErr, "network_flow_invalid_request", "invalid_value")
-	_, apiErr = decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v1","table_scope":{"mode":"all_active_tables"},"limit_overrides":{"max_vertices":999999}}`)), limits)
+	_, apiErr = decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"time_bucket_v1"}}`)), limits)
+	requireAPIError(t, apiErr, "network_flow_invalid_graph_aggregation", "missing_width")
+	_, apiErr = decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":999999}}`)), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_limit_override", "above_maximum")
-	first := graphQueryDigest(IncidentID(), []string{"nft_b", "nft_a"}, nil, graphTimeRange{Omitted: true}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true})
-	second := graphQueryDigest(IncidentID(), []string{"nft_a", "nft_b"}, nil, graphTimeRange{Omitted: true}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true})
+	first := graphQueryDigestV2(IncidentID(), []string{"nft_b", "nft_a"}, nil, graphTimeRange{Omitted: true}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true})
+	second := graphQueryDigestV2(IncidentID(), []string{"nft_a", "nft_b"}, nil, graphTimeRange{Omitted: true}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true})
 	if first != second || !hex64(first) {
 		t.Fatalf("graph query digest must be stable across table order: first=%q second=%q", first, second)
 	}
@@ -536,6 +519,9 @@ func AssertResourceLimitBoundary(t *testing.T) {
 		"network_flow.max_graph_vertices",
 		"network_flow.max_graph_edges",
 		"network_flow.max_aggregate_counter_digits",
+		"network_flow.max_contributing_rows_per_graph",
+		"network_flow.max_time_buckets_per_graph",
+		"network_flow.graph_materialization_timeout_seconds",
 	} {
 		if resource[key] == nil {
 			t.Fatalf("effective limit resource missing %q in %#v", key, resource)
@@ -543,6 +529,16 @@ func AssertResourceLimitBoundary(t *testing.T) {
 	}
 	_, apiErr := decodeLowerableGraphLimit([]byte("0"), "max_vertices", 1, int(limits.MaxGraphVertices))
 	requireAPIError(t, apiErr, "network_flow_invalid_limit_override", "below_minimum")
+	configured := limits
+	configured.MaxGraphVertices = 7000
+	configured.MaxGraphEdges = 0
+	configured.MaxExampleRowRefsPerEdge = 20
+	request, apiErr := decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":6000,"max_edges":0,"max_example_row_refs_per_edge":0}}`)), configured)
+	if apiErr != nil || request.Limits.MaxVertices != 6000 || request.Limits.MaxEdges != 0 || request.Limits.MaxExampleRowRefsPerEdge != 0 {
+		t.Fatalf("lower request overrides = %#v / %v", request.Limits, apiErr)
+	}
+	_, apiErr = decodeGraphQueryRequest(httptest.NewRequest("POST", "/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":7001}}`)), configured)
+	requireAPIError(t, apiErr, "network_flow_invalid_limit_override", "above_maximum")
 }
 
 func AssertUnmappedRawInert(t *testing.T) {

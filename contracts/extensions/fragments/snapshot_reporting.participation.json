@@ -141,7 +141,9 @@
     {
       "fact_kind": "worker_kind",
       "profile_id": "snapshot_reporting",
-      "worker_kind": "snapshot_reporting.job_worker_v1"
+      "worker_kind": "snapshot_reporting.job_worker_v1",
+      "job_kinds": ["snapshot_reporting.composition_preview_v1", "snapshot_reporting.release_create_v1", "snapshot_reporting.snapshot_create_v1"],
+      "max_active_attempts_per_process": 8
     }
   ],
   "owner_fragment_id": "snapshot_reporting.participation.v1",

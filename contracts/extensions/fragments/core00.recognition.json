@@ -23,7 +23,7 @@
     },
     {
       "claimable": true,
-      "contract_major": 3,
+      "contract_major": 4,
       "fact_kind": "recognized_profile",
       "primary_owner_id": "network_flow_activity",
       "profile_id": "network_flow_activity"

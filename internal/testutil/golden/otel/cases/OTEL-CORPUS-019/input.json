@@ -1,0 +1,46 @@
+{
+  "schema_id": "cartulary.otel_corpus_input.v2",
+  "case_id": "OTEL-CORPUS-019",
+  "title": "Jobs queue and Network Flow graphs",
+  "gp3_signal_assertions": {
+    "jobs_metrics": [
+      "cartulary.jobs.queued",
+      "cartulary.jobs.queue_wait.duration"
+    ],
+    "network_flow_spans": [
+      "cartulary.network_flow.graph.phase",
+      "cartulary.network_flow.cleanup"
+    ],
+    "network_flow_metrics": [
+      "cartulary.network_flow.graph.phase.duration",
+      "cartulary.network_flow.graph.contributing_rows",
+      "cartulary.network_flow.graph.result.objects",
+      "cartulary.network_flow.cleanup.operations",
+      "cartulary.network_flow.cleanup.sweep.duration",
+      "cartulary.network_flow.cleanup.deleted",
+      "cartulary.network_flow.cleanup.eligible",
+      "cartulary.network_flow.cleanup.oldest_eligible_result.age"
+    ],
+    "queue_wait_source": "COALESCE(handler_next_attempt_at, submitted_at)",
+    "queue_wait_event": "successful_durable_claim_only",
+    "cleanup_age_source": "published_at",
+    "cleanup_age_forbidden_name": "time_unreachable",
+    "telemetry_failure_changes_product_behavior": false,
+    "forbidden_values_absent": [
+      "identifier",
+      "digest",
+      "label",
+      "row",
+      "property",
+      "sql",
+      "raw_error"
+    ],
+    "evidence": [
+      "internal/platform/jobs/telemetry_integration_test.go::TestJobQueuedAndQueueWaitTelemetryUsesDurableEligibility_Integration",
+      "internal/modules/networkflow/graph_telemetry_test.go::TestNetworkFlowGraphTelemetryBoundaryContainsObserverFailure_Unit",
+      "internal/modules/networkflow/graph_result_cleanup_integration_test.go::TestNetworkFlowGraphResultCleanupIsOwnerScopedSelectedSafeAndBounded_Integration",
+      "internal/app/server/network_flow_telemetry_test.go::TestNetworkFlowTelemetryUsesClosedSignalsAndPublishedAtAge_Unit",
+      "internal/platform/telemetry/registry_test.go::TestMetricRegistryClosed"
+    ]
+  }
+}

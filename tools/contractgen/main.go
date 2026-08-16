@@ -486,11 +486,15 @@ func contractFamilyPackage(familyDir string) string {
 
 func writeGraphProjectionRestoreBindingGo(root string, families []family) error {
 	const (
-		registryPath = "contracts/recovery/fixtures/graph-projection-restore-source-registry.v2.json"
-		bindingPath  = "contracts/recovery/fixtures/graph-projection-restore-implementation-binding.v2.json"
+		registryPath           = "contracts/recovery/fixtures/graph-projection-restore-source-registry.v3.json"
+		bindingPath            = "contracts/recovery/fixtures/graph-projection-restore-implementation-binding.v3.json"
+		historicalRegistryPath = "contracts/recovery/fixtures/graph-projection-restore-source-registry.v2.json"
+		historicalBindingPath  = "contracts/recovery/fixtures/graph-projection-restore-implementation-binding.v2.json"
 	)
 	var registryArtifact artifact
 	var bindingArtifact artifact
+	var historicalRegistryArtifact artifact
+	var historicalBindingArtifact artifact
 	for _, current := range families {
 		if current.Dir != "recovery" {
 			continue
@@ -501,10 +505,15 @@ func writeGraphProjectionRestoreBindingGo(root string, families []family) error 
 				registryArtifact = currentArtifact
 			case bindingPath:
 				bindingArtifact = currentArtifact
+			case historicalRegistryPath:
+				historicalRegistryArtifact = currentArtifact
+			case historicalBindingPath:
+				historicalBindingArtifact = currentArtifact
 			}
 		}
 	}
-	if registryArtifact.Path == "" || bindingArtifact.Path == "" {
+	if registryArtifact.Path == "" || bindingArtifact.Path == "" ||
+		historicalRegistryArtifact.Path == "" || historicalBindingArtifact.Path == "" {
 		return fmt.Errorf("missing current Graph Projection restore binding artifact")
 	}
 
@@ -514,7 +523,11 @@ func writeGraphProjectionRestoreBindingGo(root string, families []family) error 
 	fmt.Fprintf(&buffer, "const CurrentGraphProjectionRestoreSourceRegistryJSON = %s\n", strconv.Quote(registryArtifact.JSON))
 	fmt.Fprintf(&buffer, "const CurrentGraphProjectionRestoreSourceRegistrySHA256 = %s\n\n", strconv.Quote(registryArtifact.SHA256))
 	fmt.Fprintf(&buffer, "const CurrentGraphProjectionRestoreImplementationBindingJSON = %s\n", strconv.Quote(bindingArtifact.JSON))
-	fmt.Fprintf(&buffer, "const CurrentGraphProjectionRestoreImplementationBindingSHA256 = %s\n", strconv.Quote(bindingArtifact.SHA256))
+	fmt.Fprintf(&buffer, "const CurrentGraphProjectionRestoreImplementationBindingSHA256 = %s\n\n", strconv.Quote(bindingArtifact.SHA256))
+	fmt.Fprintf(&buffer, "const HistoricalGraphProjectionRestoreSourceRegistryV2JSON = %s\n", strconv.Quote(historicalRegistryArtifact.JSON))
+	fmt.Fprintf(&buffer, "const HistoricalGraphProjectionRestoreSourceRegistryV2SHA256 = %s\n\n", strconv.Quote(historicalRegistryArtifact.SHA256))
+	fmt.Fprintf(&buffer, "const HistoricalGraphProjectionRestoreImplementationBindingV2JSON = %s\n", strconv.Quote(historicalBindingArtifact.JSON))
+	fmt.Fprintf(&buffer, "const HistoricalGraphProjectionRestoreImplementationBindingV2SHA256 = %s\n", strconv.Quote(historicalBindingArtifact.SHA256))
 
 	formatted, err := format.Source(buffer.Bytes())
 	if err != nil {

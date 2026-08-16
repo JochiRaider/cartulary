@@ -11,7 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
-func decodeAndNormalizeFilters(raw json.RawMessage, limits Limits) ([]Filter, *httpapi.APIError) {
+func decodeAndNormalizeFilters(raw json.RawMessage, limits EffectiveLimits) ([]Filter, *httpapi.APIError) {
 	if len(raw) == 0 {
 		return nil, nil
 	}

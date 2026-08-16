@@ -157,8 +157,7 @@ func sourceProfileResource() map[string]any {
 	}
 }
 
-func effectiveLimitsResource(limits Limits) map[string]any {
-	l := limits.normalized()
+func effectiveLimitsResource(l EffectiveLimits) map[string]any {
 	return map[string]any{
 		"network_flow.max_active_tables_per_incident":          l.MaxActiveTablesPerIncident,
 		"network_flow.max_retained_tables_per_incident":        l.MaxRetainedTablesPerIncident,
@@ -180,6 +179,9 @@ func effectiveLimitsResource(limits Limits) map[string]any {
 		"network_flow.max_example_row_refs_per_edge":           l.MaxExampleRowRefsPerEdge,
 		"network_flow.max_binding_source_row_refs":             l.MaxBindingSourceRowRefs,
 		"network_flow.max_aggregate_counter_digits":            l.MaxAggregateCounterDigits,
+		"network_flow.max_contributing_rows_per_graph":         l.MaxContributingRowsPerGraph,
+		"network_flow.max_time_buckets_per_graph":              l.MaxTimeBucketsPerGraph,
+		"network_flow.graph_materialization_timeout_seconds":   l.GraphMaterializationTimeoutSeconds,
 	}
 }
 

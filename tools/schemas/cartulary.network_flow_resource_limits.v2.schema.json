@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.network_flow_resource_limits.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "profile_id", "configuration_contract_major", "configuration_key", "unknown_member_policy", "explicit_null_policy", "resolution_policy", "limits", "cross_limit_constraints", "request_lowerable_limits"],
+  "properties": {
+    "schema_id": { "const": "cartulary.network_flow_resource_limits.v2" },
+    "profile_id": { "const": "network_flow_activity" },
+    "configuration_contract_major": { "const": 2 },
+    "configuration_key": { "const": "network_flow_activity.resource_limits" },
+    "unknown_member_policy": { "const": "reject" },
+    "explicit_null_policy": { "const": "reject" },
+    "resolution_policy": { "const": "resolve_once_before_runtime_start" },
+    "limits": {
+      "type": "array",
+      "minItems": 23,
+      "maxItems": 23,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["config_key", "discovery_key", "minimum", "default", "maximum"],
+        "properties": {
+          "config_key": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "discovery_key": { "type": "string", "pattern": "^network_flow\\.[a-z][a-z0-9_]*$" },
+          "minimum": { "type": "integer", "minimum": 0 },
+          "default": { "type": "integer", "minimum": 0 },
+          "maximum": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "cross_limit_constraints": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["less_than_or_equal", "greater_than_or_equal"],
+        "properties": {
+          "less_than_or_equal": { "type": "string" },
+          "greater_than_or_equal": { "type": "string" }
+        }
+      }
+    },
+    "request_lowerable_limits": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": { "type": "string" }
+    }
+  }
+}

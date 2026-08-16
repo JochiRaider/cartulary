@@ -841,6 +841,7 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 			},
 		},
 	}
+	graphRenderResult.LabelCandidates = graphLabelCandidatesForResult(graphRenderResult.Result)
 	reasonCases := []struct {
 		name         string
 		request      CreateReleaseRequest

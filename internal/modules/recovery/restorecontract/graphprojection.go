@@ -20,6 +20,7 @@ type GraphProjectionSourceRegistryRef = graphprojection.RestoreSourceRegistryRef
 type GraphProjectionImplementationBindingRef = graphprojection.RestoreImplementationBindingRef
 
 const GraphProjectionRestoreAlgorithmID = graphprojection.RestoreAlgorithmID
+const HistoricalGraphProjectionRestoreAlgorithmIDV2 = graphprojection.HistoricalRestoreAlgorithmIDV2
 
 func GraphProjectionTableIDs() []string {
 	return graphprojection.RestoreGraphTableIDs()
@@ -32,6 +33,15 @@ func CurrentGraphProjectionSourceRegistryRef() GraphProjectionSourceRegistryRef 
 
 func CurrentGraphProjectionImplementationBinding() GraphProjectionImplementationBindingRef {
 	return graphprojection.CurrentRestoreImplementationBinding()
+}
+
+func HistoricalGraphProjectionSourceRegistryV2Ref() GraphProjectionSourceRegistryRef {
+	registry := graphprojection.HistoricalRestoreSourceRegistryV2()
+	return graphprojection.RestoreSourceRegistryRef{Registry: registry, SHA256: registry.DigestSHA256()}
+}
+
+func HistoricalGraphProjectionImplementationBindingV2() GraphProjectionImplementationBindingRef {
+	return graphprojection.HistoricalRestoreImplementationBindingV2()
 }
 
 // RestoredGraphProjectionSourceState is an opaque Recovery-owned capability;

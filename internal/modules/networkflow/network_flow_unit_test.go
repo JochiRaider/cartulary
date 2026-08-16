@@ -141,7 +141,7 @@ func AssertGraphProjectionSemanticInputExcludesOperationalFields(t *testing.T) {
 
 func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 	t.Helper()
-	semanticQuery := graphSemanticQueryResource([]string{"nft_" + strings.Repeat("a", 64)}, nil, graphTimeRange{}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true}, graphResultLimits{})
+	semanticQuery := graphSemanticQueryResource(schemaGraphSemanticQueryV1, []string{"nft_" + strings.Repeat("a", 64)}, nil, graphTimeRange{}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true}, graphResultLimits{})
 	if encoded := string(canonicalJSON(semanticQuery)); !strings.Contains(encoded, `"filters":[]`) {
 		t.Fatalf("default-materialized semantic graph filters = %s, want empty array", encoded)
 	}
@@ -187,9 +187,11 @@ func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 			MaxEdges:                  int(limits.MaxGraphEdges),
 			MaxExampleRowRefsPerEdge:  int(limits.MaxExampleRowRefsPerEdge),
 			MaxAggregateCounterDigits: int(limits.MaxAggregateCounterDigits),
+			MaxContributingRows:       int(limits.MaxContributingRowsPerGraph),
 		},
+		IncludeExamples: true,
 	}
-	if apiErr := composeGraphObjects(incidentID, rows, map[string]TableRecord{tableID: table}, &composition); apiErr != nil {
+	if apiErr := composeGraphObjectsForTest(incidentID, rows, map[string]TableRecord{tableID: table}, &composition); apiErr != nil {
 		t.Fatalf("compose canonical Network Flow graph: %#v", apiErr)
 	}
 	adapter := newGraphProjectionAdapter()

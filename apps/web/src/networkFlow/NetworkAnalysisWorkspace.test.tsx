@@ -36,6 +36,8 @@ const rowId =
   "nfr_1111111111111111111111111111111111111111111111111111111111111111";
 const edgeId =
   "nff_2222222222222222222222222222222222222222222222222222222222222222";
+const temporalEdgeId =
+  "nfbe_9999999999999999999999999999999999999999999999999999999999999999";
 const srcEndpointId =
   "nfe_4444444444444444444444444444444444444444444444444444444444444444";
 const dstEndpointId =
@@ -233,7 +235,7 @@ describe("NetworkAnalysisWorkspace", () => {
       ),
     );
     expect(JSON.parse(String(graphCall?.[1]?.body))).toEqual({
-      schema_id: "cartulary.network_flow.graph_query_request.v1",
+      schema_id: "cartulary.network_flow.graph_query_request.v2",
       table_scope: { mode: "active_table", active_table_id: tableId },
       filters: [
         {
@@ -285,10 +287,11 @@ describe("NetworkAnalysisWorkspace", () => {
       ),
     );
     expect(JSON.parse(String(contributorCall?.[1]?.body))).toEqual({
-      schema_id: "cartulary.network_flow.graph_contributor_query_request.v1",
+      schema_id: "cartulary.network_flow.graph_contributor_query_request.v2",
       graph_query: graphSemanticQueryResource(),
       graph_query_digest: graphDigest,
-      selector: { kind: "edge", edge_id: edgeId },
+      selector: graphDefaultEdgeSelectorResource(),
+      limit: 500,
     });
     fireEvent.click(screen.getByTestId(networkAnalysisTestId("page-next")));
     await waitFor(() => {
@@ -301,10 +304,11 @@ describe("NetworkAnalysisWorkspace", () => {
     fireEvent.click(screen.getByTestId(networkAnalysisTestId("page-previous")));
     await waitFor(() => {
       expect(contributorRequestBodies(fetchSpy).at(-1)).toEqual({
-        schema_id: "cartulary.network_flow.graph_contributor_query_request.v1",
+        schema_id: "cartulary.network_flow.graph_contributor_query_request.v2",
         graph_query: graphSemanticQueryResource(),
         graph_query_digest: graphDigest,
-        selector: { kind: "edge", edge_id: edgeId },
+        selector: graphDefaultEdgeSelectorResource(),
+        limit: 500,
       });
     });
 
@@ -948,6 +952,88 @@ describe("NetworkAnalysisWorkspace", () => {
     );
   });
 
+  it("validates temporal ranges, echoes canonical bucket selectors, and navigates empty buckets without mounting unrelated objects", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = installNetworkFlowFetchMock();
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="editor"
+        incidentId="incident-1"
+      />,
+    );
+
+    await screen.findByTestId(networkAnalysisTableTabTestId(tableId));
+    await user.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
+    await user.click(screen.getByLabelText("Time buckets"));
+    expect(
+      screen.getByRole("alert", {
+        name: "",
+      }).textContent,
+    ).toContain("require both UTC range bounds");
+
+    await user.type(
+      screen.getByLabelText("Flow overlap starts at"),
+      "2026-07-10T00:00:00Z",
+    );
+    await user.type(
+      screen.getByLabelText("Flow overlap ends before"),
+      "2026-07-10T02:00:00Z",
+    );
+    await user.click(
+      screen.getByTestId(networkAnalysisTestId("accepted-query-apply")),
+    );
+
+    expect(
+      await screen.findByRole("navigation", {
+        name: "Time bucket navigation",
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText("Bucket 1 of 2")).toBeTruthy();
+    expect(
+      screen.getByTestId(networkAnalysisEdgeTestId(temporalEdgeId)),
+    ).toBeTruthy();
+    expect(graphRequestBodies(fetchSpy).at(-1)).toMatchObject({
+      schema_id: "cartulary.network_flow.graph_query_request.v2",
+      aggregation: {
+        mode: "time_bucket_v1",
+        bucket_width_seconds: 3600,
+      },
+      time_range: {
+        start_utc: "2026-07-10T00:00:00Z",
+        end_utc: "2026-07-10T02:00:00Z",
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Select edge" }));
+    await waitFor(() => {
+      expect(contributorRequestBodies(fetchSpy).at(-1)).toMatchObject({
+        schema_id: "cartulary.network_flow.graph_contributor_query_request.v2",
+        selector: {
+          kind: "time_bucket_edge",
+          source_edge_id: temporalEdgeId,
+          bucket_start_utc: "2026-07-10T00:00:00.000Z",
+          bucket_end_utc: "2026-07-10T01:00:00.000Z",
+        },
+      });
+    });
+    await user.click(screen.getByRole("button", { name: "Next bucket" }));
+    expect(screen.getByText("Bucket 2 of 2")).toBeTruthy();
+    expect(screen.getByText(/0 vertices · 0 edges · 0 rows/u)).toBeTruthy();
+    expect(
+      screen.queryByTestId(networkAnalysisEdgeTestId(temporalEdgeId)),
+    ).toBeNull();
+
+    await user.selectOptions(screen.getByLabelText("Bucket width"), "300");
+    await waitFor(() => {
+      expect(graphRequestBodies(fetchSpy).at(-1)).toMatchObject({
+        aggregation: {
+          mode: "time_bucket_v1",
+          bucket_width_seconds: 300,
+        },
+      });
+    });
+  });
+
   it("enforces viewer, editor, reviewer, and administrator controls for saved graphs", async () => {
     const user = userEvent.setup();
     installNetworkFlowFetchMock({ savedGraphs: [savedGraphResource()] });
@@ -1063,6 +1149,11 @@ describe("NetworkAnalysisWorkspace", () => {
     expect(
       screen.getAllByTestId(/^network-flow-saved-graph-edge-/u),
     ).toHaveLength(1_000);
+    expect(
+      screen.getByText(
+        "Large results are paged: at most 500 vertices and 1000 edges are mounted at once.",
+      ),
+    ).toBeTruthy();
     await user.click(
       within(
         screen.getByRole("navigation", { name: "vertices navigation" }),
@@ -1409,7 +1500,9 @@ function installNetworkFlowFetchMock(
     readonly rowFailureCode?: string;
     readonly rowFailureReason?: string;
     readonly rowFailureStatus?: number;
-    readonly savedGraphProjectionResult?: Record<string, unknown>;
+    readonly savedGraphProjectionResult?: ReturnType<
+      typeof graphResource
+    >["graph_projection_result"];
     readonly savedGraphs?: Array<Record<string, unknown>>;
     readonly tables?: Array<Record<string, unknown>>;
   } = {},
@@ -1418,11 +1511,8 @@ function installNetworkFlowFetchMock(
   let savedGraphs = options.savedGraphs ?? [];
   let renameConflictUsed = false;
   let rowQueryCount = 0;
-  let contributorSelector: {
-    kind: "edge" | "vertex";
-    edge_id?: string;
-    vertex_id?: string;
-  } = { kind: "edge", edge_id: edgeId };
+  let contributorSelector: Record<string, unknown> =
+    graphDefaultEdgeSelectorResource();
   const fetchSpy = vi.fn(
     async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = requestURL(input);
@@ -1442,7 +1532,7 @@ function installNetworkFlowFetchMock(
         url.endsWith("/api/v1/incidents/incident-1/network-flow/graph-views")
       ) {
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_list.v1",
+          schema_id: "cartulary.network_flow.graph_view_list.v2",
           graph_views: savedGraphs,
         });
       }
@@ -1464,7 +1554,7 @@ function installNetworkFlowFetchMock(
         savedGraphs = [...savedGraphs, created];
         return jsonResponse(
           {
-            schema_id: "cartulary.network_flow.graph_view_accepted.v1",
+            schema_id: "cartulary.network_flow.graph_view_accepted.v2",
             graph_view: created,
             job_id: "graph-job-create",
             job_kind: "network_flow_activity.graph_view_materialize_v1",
@@ -1481,14 +1571,15 @@ function installNetworkFlowFetchMock(
         const graphView = savedGraphs.find(
           (candidate) => candidate.graph_view_id === graphViewId,
         );
+        const projection = {
+          ...(options.savedGraphProjectionResult ??
+            graphResource().graph_projection_result),
+          graph_view_id: graphViewId,
+        };
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_result.v1",
+          schema_id: "cartulary.network_flow.graph_view_result.v2",
           graph_view: graphView,
-          projection_result: {
-            ...(options.savedGraphProjectionResult ??
-              graphResource().graph_projection_result),
-            graph_view_id: graphViewId,
-          },
+          result: graphResultForProjection(projection),
         });
       }
       if (
@@ -1497,12 +1588,23 @@ function installNetworkFlowFetchMock(
           `/api/v1/incidents/incident-1/network-flow/graph-views/${graphViewId}/contributors/query`,
         )
       ) {
+        const request = JSON.parse(String(init?.body)) as {
+          selector: Record<string, unknown>;
+        };
         return jsonResponse({
           schema_id:
-            "cartulary.network_flow.graph_view_contributor_query_result.v1",
+            "cartulary.network_flow.graph_view_contributor_query_result.v2",
           graph_view_id: graphViewId,
           projection_result_id: projectionResultId,
+          selector: request.selector,
           contributors: [{ row_ref: rowRefResource(), row: rowResource() }],
+          meta: {
+            paging: {
+              limit: 100,
+              returned_count: 1,
+              next_cursor_token: null,
+            },
+          },
         });
       }
       if (
@@ -1527,7 +1629,7 @@ function installNetworkFlowFetchMock(
           candidate.graph_view_id === graphViewId ? renamed : candidate,
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_mutation_result.v1",
+          schema_id: "cartulary.network_flow.graph_view_mutation_result.v2",
           graph_view: renamed,
         });
       }
@@ -1553,7 +1655,7 @@ function installNetworkFlowFetchMock(
         );
         return jsonResponse(
           {
-            schema_id: "cartulary.network_flow.graph_view_accepted.v1",
+            schema_id: "cartulary.network_flow.graph_view_accepted.v2",
             graph_view: refreshing,
             job_id: "graph-job-refresh",
             job_kind: "network_flow_activity.graph_view_materialize_v1",
@@ -1582,7 +1684,7 @@ function installNetworkFlowFetchMock(
           (candidate) => candidate.graph_view_id !== graphViewId,
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_mutation_result.v1",
+          schema_id: "cartulary.network_flow.graph_view_mutation_result.v2",
           graph_view: retired,
         });
       }
@@ -1777,6 +1879,9 @@ function installNetworkFlowFetchMock(
         url.endsWith("/api/v1/incidents/incident-1/network-flow/graphs/query")
       ) {
         const request = JSON.parse(String(init?.body)) as {
+          aggregation: ReturnType<
+            typeof graphSemanticQueryResource
+          >["aggregation"];
           filters?: ReturnType<typeof graphSemanticQueryResource>["filters"];
           table_scope:
             | { mode: "active_table"; active_table_id: string }
@@ -1794,6 +1899,7 @@ function installNetworkFlowFetchMock(
               : tables.map((table) => String(table.network_flow_table_id));
         return jsonResponse(
           graphResource({
+            aggregation: request.aggregation,
             filters: request.filters ?? [],
             selectedTableIds,
             timeRange: request.time_range ?? {
@@ -1811,17 +1917,13 @@ function installNetworkFlowFetchMock(
       ) {
         const request = JSON.parse(String(init?.body)) as {
           schema_id: string;
-          selector?: {
-            kind: "edge" | "vertex";
-            edge_id?: string;
-            vertex_id?: string;
-          };
+          selector?: Record<string, unknown>;
         };
         if (request.selector !== undefined) {
           contributorSelector = request.selector;
         }
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_contributor_query_result.v1",
+          schema_id: "cartulary.network_flow.graph_contributor_query_result.v2",
           graph_query_digest: graphDigest,
           selector: contributorSelector,
           contributors: [{ row_ref: rowRefResource(), row: rowResource() }],
@@ -1831,7 +1933,7 @@ function installNetworkFlowFetchMock(
               returned_count: 1,
               next_cursor_token:
                 request.schema_id ===
-                "cartulary.network_flow.graph_contributor_query_request.v1"
+                "cartulary.network_flow.graph_contributor_query_request.v2"
                   ? (options.contributorNextCursor ?? null)
                   : null,
             },
@@ -1975,6 +2077,16 @@ function diagnosticResource() {
 
 function graphResource(
   options: {
+    readonly aggregation?:
+      | {
+          readonly mode: "default_flow_edge_v1";
+          readonly include_example_row_refs?: boolean;
+        }
+      | {
+          readonly mode: "time_bucket_v1";
+          readonly bucket_width_seconds: 60 | 300 | 900 | 3600 | 21600 | 86400;
+          readonly include_example_row_refs?: boolean;
+        };
     readonly filters?: ReturnType<typeof graphSemanticQueryResource>["filters"];
     readonly selectedTableIds?: readonly string[];
     readonly timeRange?: ReturnType<
@@ -1982,10 +2094,36 @@ function graphResource(
     >["time_range"];
   } = {},
 ) {
+  const semanticQuery = graphSemanticQueryResource(options);
+  const aggregation = semanticQuery.aggregation;
+  const temporal = aggregation.mode === "time_bucket_v1";
+  const buckets =
+    aggregation.mode === "time_bucket_v1"
+      ? timeBucketResources(
+          semanticQuery.time_range.start_utc as string,
+          semanticQuery.time_range.end_utc as string,
+          aggregation.bucket_width_seconds,
+        )
+      : [];
+  const firstBucket = buckets[0];
+  const sourceEdgeId = temporal ? temporalEdgeId : edgeId;
+  const edgeSelector =
+    temporal && firstBucket !== undefined
+      ? {
+          kind: "time_bucket_edge" as const,
+          source_edge_id: temporalEdgeId,
+          bucket_start_utc: firstBucket.start_utc,
+          bucket_end_utc: firstBucket.end_utc,
+          source_endpoint_value: "192.0.2.10",
+          destination_endpoint_value: "198.51.100.20",
+          protocol: 6,
+          destination_port_present: false as const,
+        }
+      : graphDefaultEdgeSelectorResource();
   return {
-    schema_id: "cartulary.network_flow.graph_query_result.v1",
+    schema_id: "cartulary.network_flow.graph_query_result.v2",
     graph_query_digest: graphDigest,
-    semantic_query: graphSemanticQueryResource(options),
+    semantic_query: semanticQuery,
     graph_projection_result: {
       projection_schema_id: "graph_projection.v2",
       projection_result_id:
@@ -1994,7 +2132,9 @@ function graphResource(
         "gv_0000000000000000000000000000000000000000000000000000000000000000",
       source_owner_id: "network_flow_activity",
       source_snapshot_id: "snapshot-1",
-      projection_version: "network_flow_activity.v1",
+      projection_version: temporal
+        ? "network_flow_activity.time_bucket.v1"
+        : "network_flow_activity.v1",
       normalized_configuration_sha256: graphDigest,
       normalized_source_sha256: sourceDigest,
       canonical_output_sha256:
@@ -2022,18 +2162,26 @@ function graphResource(
       edges: [
         {
           edge_id: projectedEdgeId,
-          edge_kind: "network_flow.flow_edge.v1",
+          edge_kind: temporal
+            ? "network_flow.bucketed_flow_edge.v1"
+            : "network_flow.flow_edge.v1",
           edge_family: "direct",
           src_vertex_id: projectedSrcVertexId,
           dst_vertex_id: projectedDstVertexId,
           direction: "directed",
           labels: [],
           properties: {
-            edge_id: edgeId,
+            edge_id: sourceEdgeId,
             src_endpoint_id: srcEndpointId,
             dst_endpoint_id: dstEndpointId,
             ip_protocol: 6,
             flow_row_count: 1,
+            ...(firstBucket === undefined
+              ? {}
+              : {
+                  bucket_start_utc: firstBucket.start_utc,
+                  bucket_end_utc: firstBucket.end_utc,
+                }),
           },
           metadata: {
             mapping_rule_id: "nf.map.flow_edge.v1",
@@ -2044,11 +2192,13 @@ function graphResource(
             mapped_metadata: {},
           },
           source_relationship_ref: {
-            source_relationship_id: edgeId,
-            source_relationship_kind: "network_flow.flow_edge.v1",
+            source_relationship_id: sourceEdgeId,
+            source_relationship_kind: temporal
+              ? "network_flow.bucketed_flow_edge.v1"
+              : "network_flow.flow_edge.v1",
             mapping_rule_id: "nf.map.flow_edge.v1",
           },
-          sort_key: edgeId,
+          sort_key: sourceEdgeId,
         },
       ],
       validation_summary: {
@@ -2072,7 +2222,8 @@ function graphResource(
     },
     edge_annotations: [
       {
-        edge_id: edgeId,
+        projected_edge_id: projectedEdgeId,
+        selector: edgeSelector,
         example_row_refs: [rowRefResource()],
         example_refs_truncated: false,
         example_refs_total_count: 1,
@@ -2092,7 +2243,26 @@ function graphResource(
       max_edges: 1000,
       max_example_row_refs_per_edge: 10,
       max_aggregate_counter_digits: 20,
+      max_contributing_rows_per_graph: 250000,
+      max_time_buckets_per_graph: 256,
     },
+    vertex_selectors: [
+      {
+        projected_vertex_id: projectedSrcVertexId,
+        selector: graphVertexSelectorResource(),
+      },
+      {
+        projected_vertex_id: projectedDstVertexId,
+        selector: {
+          kind: "vertex",
+          source_vertex_id: dstEndpointId,
+          endpoint_value: "198.51.100.20",
+        },
+      },
+    ],
+    result_variant: temporal
+      ? { kind: "time_bucket_v1", time_buckets: buckets }
+      : { kind: "default_flow_edge_v1" },
   };
 }
 
@@ -2113,7 +2283,7 @@ function savedGraphResource(
 ) {
   const selected = options.selected ?? true;
   return {
-    schema_id: "cartulary.network_flow.graph_view.v1",
+    schema_id: "cartulary.network_flow.graph_view.v2",
     graph_view_id: options.graphViewID ?? graphViewId,
     incident_id: incidentResourceId,
     display_name: options.displayName ?? "Investigation graph",
@@ -2145,8 +2315,66 @@ function savedGraphResource(
   };
 }
 
-function largeSavedGraphProjectionResult(): Record<string, unknown> {
+function graphResultForProjection(
+  projection: ReturnType<typeof graphResource>["graph_projection_result"],
+) {
+  const base = graphResource();
+  const endpointByProjectedVertex = new Map(
+    projection.vertices.map((vertex) => [
+      vertex.vertex_id,
+      {
+        value: vertex.properties.endpoint_value,
+      },
+    ]),
+  );
+  return {
+    ...base,
+    graph_projection_result: projection,
+    vertex_selectors: projection.vertices.map((vertex) => ({
+      projected_vertex_id: vertex.vertex_id,
+      selector: {
+        kind: "vertex" as const,
+        source_vertex_id: vertex.source_entity_ref.source_entity_id,
+        endpoint_value: vertex.properties.endpoint_value,
+      },
+    })),
+    edge_annotations: projection.edges.map((edge) => {
+      const source = endpointByProjectedVertex.get(edge.src_vertex_id);
+      const destination = endpointByProjectedVertex.get(edge.dst_vertex_id);
+      if (source === undefined || destination === undefined) {
+        throw new Error("saved graph fixture edge has an unknown endpoint");
+      }
+      const destinationPort = (edge.properties as Record<string, unknown>)
+        .dst_port;
+      return {
+        projected_edge_id: edge.edge_id,
+        selector: {
+          kind: "default_edge" as const,
+          source_edge_id: edge.source_relationship_ref.source_relationship_id,
+          source_endpoint_value: source.value,
+          destination_endpoint_value: destination.value,
+          protocol: edge.properties.ip_protocol,
+          ...(typeof destinationPort === "number"
+            ? {
+                destination_port_present: true as const,
+                destination_port: destinationPort,
+              }
+            : { destination_port_present: false as const }),
+        },
+        example_row_refs: [],
+        example_refs_truncated: false,
+        example_refs_total_count: edge.properties.flow_row_count,
+      };
+    }),
+  };
+}
+
+function largeSavedGraphProjectionResult() {
   const base = graphResource().graph_projection_result;
+  const baseEdge = base.edges[0];
+  if (baseEdge === undefined) {
+    throw new Error("saved graph fixture requires one base edge");
+  }
   const vertices = Array.from({ length: 501 }, (_, index) => {
     const identity = index.toString(16).padStart(64, "0");
     return graphVertexResource({
@@ -2164,18 +2392,18 @@ function largeSavedGraphProjectionResult(): Record<string, unknown> {
       .toString(16)
       .padStart(64, "0");
     return {
-      ...base.edges[0],
+      ...baseEdge,
       edge_id: `ed_${identity}`,
       src_vertex_id: `vx_${sourceIdentity}`,
       dst_vertex_id: `vx_${destinationIdentity}`,
       properties: {
-        ...base.edges[0]?.properties,
+        ...baseEdge.properties,
         edge_id: `nff_${identity}`,
         src_endpoint_id: `nfe_${sourceIdentity}`,
         dst_endpoint_id: `nfe_${destinationIdentity}`,
       },
       source_relationship_ref: {
-        ...base.edges[0]?.source_relationship_ref,
+        ...baseEdge.source_relationship_ref,
         source_relationship_id: `nff_${identity}`,
       },
       sort_key: `nff_${identity}`,
@@ -2186,6 +2414,16 @@ function largeSavedGraphProjectionResult(): Record<string, unknown> {
 
 function graphSemanticQueryResource(
   options: {
+    readonly aggregation?:
+      | {
+          readonly mode: "default_flow_edge_v1";
+          readonly include_example_row_refs?: boolean;
+        }
+      | {
+          readonly mode: "time_bucket_v1";
+          readonly bucket_width_seconds: 60 | 300 | 900 | 3600 | 21600 | 86400;
+          readonly include_example_row_refs?: boolean;
+        };
     readonly filters?: readonly Record<string, unknown>[];
     readonly selectedTableIds?: readonly string[];
     readonly timeRange?: {
@@ -2195,7 +2433,7 @@ function graphSemanticQueryResource(
   } = {},
 ) {
   return {
-    schema_id: "cartulary.network_flow.graph_semantic_query.v1" as const,
+    schema_id: "cartulary.network_flow.graph_semantic_query.v2" as const,
     selected_table_ids: [...(options.selectedTableIds ?? [tableId])],
     filters: [
       ...(options.filters ?? [
@@ -2210,16 +2448,53 @@ function graphSemanticQueryResource(
       start_utc: "2026-07-10T00:00:00Z",
       end_utc: "2026-07-11T00:00:00Z",
     },
-    aggregation: {
-      mode: "default_flow_edge_v1" as const,
-      include_example_row_refs: true,
-    },
-    result_limits: {
-      max_vertices: 1000,
-      max_edges: 1000,
-      max_example_row_refs_per_edge: 10,
-      max_aggregate_counter_digits: 20,
-    },
+    aggregation:
+      options.aggregation ??
+      ({
+        mode: "default_flow_edge_v1" as const,
+        include_example_row_refs: true,
+      } as const),
+  };
+}
+
+function timeBucketResources(
+  startUTC: string,
+  endUTC: string,
+  widthSeconds: number,
+) {
+  const widthMilliseconds = widthSeconds * 1000;
+  const first =
+    Math.floor(Date.parse(startUTC) / widthMilliseconds) * widthMilliseconds;
+  const endExclusive =
+    Math.ceil(Date.parse(endUTC) / widthMilliseconds) * widthMilliseconds;
+  return Array.from(
+    { length: (endExclusive - first) / widthMilliseconds },
+    (_, index) => ({
+      start_utc: new Date(first + index * widthMilliseconds).toISOString(),
+      end_utc: new Date(first + (index + 1) * widthMilliseconds).toISOString(),
+      unique_vertex_count: index === 0 ? 2 : 0,
+      edge_count: index === 0 ? 1 : 0,
+      contributing_row_count: index === 0 ? 1 : 0,
+    }),
+  );
+}
+
+function graphVertexSelectorResource() {
+  return {
+    kind: "vertex" as const,
+    source_vertex_id: srcEndpointId,
+    endpoint_value: "192.0.2.10",
+  };
+}
+
+function graphDefaultEdgeSelectorResource() {
+  return {
+    kind: "default_edge" as const,
+    source_edge_id: edgeId,
+    source_endpoint_value: "192.0.2.10",
+    destination_endpoint_value: "198.51.100.20",
+    protocol: 6,
+    destination_port_present: false as const,
   };
 }
 
@@ -2257,14 +2532,14 @@ function graphVertexResource(options: {
 
 function sourceProfileListResource() {
   return {
-    schema_id: "cartulary.network_flow.source_profile_list.v1",
+    schema_id: "cartulary.network_flow.source_profile_list.v2",
     source_profiles: [],
     effective_limits: {
       "network_flow.max_active_tables_per_incident": 8,
       "network_flow.max_retained_tables_per_incident": 32,
       "network_flow.max_selected_tables_per_query": 8,
       "network_flow.max_columns_per_csv": 128,
-      "network_flow.max_header_scalar_length": 1024,
+      "network_flow.max_header_scalar_length": 256,
       "network_flow.max_raw_cell_scalar_length": 8192,
       "network_flow.max_rows_per_csv": 100000,
       "network_flow.max_accepted_rows_per_table": 100000,
@@ -2280,6 +2555,9 @@ function sourceProfileListResource() {
       "network_flow.max_active_graph_views_per_incident": 32,
       "network_flow.max_retained_graph_views_per_incident": 128,
       "network_flow.max_nonterminal_graph_jobs_per_incident": 4,
+      "network_flow.max_contributing_rows_per_graph": 250000,
+      "network_flow.max_time_buckets_per_graph": 256,
+      "network_flow.graph_materialization_timeout_seconds": 300,
     },
     meta: { count: 0 },
   };

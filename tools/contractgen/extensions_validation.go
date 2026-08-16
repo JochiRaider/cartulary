@@ -594,9 +594,25 @@ func validateExtensionOwnerFragment(object map[string]any, relativePath string) 
 				return err
 			}
 		case "worker_kind":
+			if err := requireExtensionExactKeys(fact, stringSet("fact_kind", "profile_id", "worker_kind", "job_kinds", "max_active_attempts_per_process"), label); err != nil {
+				return err
+			}
 			workerKind, err := requiredString(fact, "worker_kind", label)
 			if err != nil || !strings.HasPrefix(workerKind, stringValue(fact["profile_id"])+".") {
 				return fmt.Errorf("%s.worker_kind must use the profile prefix", label)
+			}
+			jobKinds, err := sortedUniqueStringArray(fact["job_kinds"], label+".job_kinds", true)
+			if err != nil || len(jobKinds) == 0 {
+				return fmt.Errorf("%s.job_kinds must be a nonempty sorted unique array", label)
+			}
+			for _, jobKind := range jobKinds {
+				if !strings.HasPrefix(jobKind, stringValue(fact["profile_id"])+".") {
+					return fmt.Errorf("%s.job_kinds must use the profile prefix", label)
+				}
+			}
+			maximum, err := positiveJSONInt(fact["max_active_attempts_per_process"], label+".max_active_attempts_per_process")
+			if err != nil || maximum > 8 {
+				return fmt.Errorf("%s.max_active_attempts_per_process must be in 1..8", label)
 			}
 		}
 	}

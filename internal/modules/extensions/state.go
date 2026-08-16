@@ -102,6 +102,7 @@ type StateReadCapability interface {
 	CapabilityID() string
 	StateFamilyIDs() []string
 	FamilyCounts(context.Context, []string) (map[string]int64, error)
+	ValidateFamilyState(context.Context, string) error
 }
 
 // StateWriteCapability is transaction-scoped. Profile owners extend this

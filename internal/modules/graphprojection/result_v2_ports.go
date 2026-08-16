@@ -119,6 +119,17 @@ type ResultLeaseWriterV2 interface {
 	ReleaseLease(context.Context, string) error
 }
 
-type ReachabilityCleanerV2 interface {
-	DeleteUnreachableResults(context.Context, []string, time.Time, int) ([]string, error)
+type ResultCleanupCandidateV2 struct {
+	ProjectionResultID string
+	PublishedAt        time.Time
+}
+
+// ResultMaintenanceV2 exposes only borrowed-transaction maintenance
+// primitives. Source owners remain responsible for checking their own
+// authoritative declarations between candidate locking and deletion.
+type ResultMaintenanceV2 interface {
+	DeleteExpiredLeases(context.Context, time.Time, int) (int, bool, error)
+	LockCleanupCandidate(context.Context, string, *ResultCleanupCandidateV2) (*ResultCleanupCandidateV2, error)
+	HasUnexpiredLease(context.Context, string, time.Time) (bool, error)
+	DeleteLockedResult(context.Context, string) (bool, error)
 }

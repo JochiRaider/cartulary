@@ -733,6 +733,7 @@
       "family_id": "app.server.unit",
       "collaborator_ids": [
         "module.evidence",
+        "module.networkflow",
         "platform.objectstore",
         "platform.telemetry"
       ],
@@ -744,7 +745,10 @@
         "package": "./internal/app/server",
         "tests": [
           "TestEvidenceCleanupDispatcherStartsOnlyAfterServingReadiness",
-          "TestEvidenceCleanupTelemetryUsesClosedMetricsAndLogFields"
+          "TestEvidenceCleanupTelemetryUsesClosedMetricsAndLogFields",
+          "TestNetworkFlowCleanupDispatcherStartsAfterReadinessAndStopsInReverseOrder",
+          "TestNetworkFlowTelemetryNoSDKAndInvalidHealthAreNonDisruptive_Unit",
+          "TestNetworkFlowTelemetryUsesClosedSignalsAndPublishedAtAge_Unit"
         ]
       },
       "evidence_class": "security",

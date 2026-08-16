@@ -11,7 +11,7 @@ function deepFreeze<Value>(value: Value): Value {
 }
 
 const value = {
-  "contract_major": 3,
+  "contract_major": 4,
   "errors": [
     {
       "code": "network_flow_invalid_request",
@@ -200,6 +200,12 @@ const value = {
       "scope": "route"
     },
     {
+      "code": "network_flow_invalid_graph_aggregation",
+      "http_status": 400,
+      "retry_action": "correct_request",
+      "scope": "route"
+    },
+    {
       "code": "network_flow_invalid_limit_override",
       "http_status": 400,
       "retry_action": "correct_request",
@@ -264,6 +270,12 @@ const value = {
       "http_status": 409,
       "retry_action": "retry_with_backoff",
       "scope": "route"
+    },
+    {
+      "code": "network_flow_graph_materialization_failed",
+      "http_status": 500,
+      "retry_action": "do_not_retry",
+      "scope": "route_or_job"
     },
     {
       "code": "network_flow_indicator_link_ambiguous",
@@ -546,14 +558,26 @@ const value = {
       "reason_codes": [
         "both_bounds_null",
         "empty_range",
-        "invalid_bound"
+        "invalid_bound",
+        "complete_range_required"
+      ]
+    },
+    {
+      "error_code": "network_flow_invalid_graph_aggregation",
+      "reason_codes": [
+        "unknown_mode",
+        "variant_member_conflict",
+        "missing_width",
+        "unsupported_width"
       ]
     },
     {
       "error_code": "network_flow_graph_limit_exceeded",
       "reason_codes": [
         "vertex_limit_exceeded",
-        "edge_limit_exceeded"
+        "edge_limit_exceeded",
+        "contributing_row_limit_exceeded",
+        "time_bucket_limit_exceeded"
       ]
     },
     {
@@ -597,10 +621,8 @@ const value = {
     {
       "error_code": "network_flow_graph_view_not_materialized",
       "reason_codes": [
-        "cancelled_without_prior_result",
-        "failed_without_prior_result",
-        "materialization_pending",
-        "never_materialized"
+        "initial_materialization_pending",
+        "initial_materialization_failed"
       ]
     },
     {
@@ -612,14 +634,26 @@ const value = {
     {
       "error_code": "network_flow_graph_view_limit_exceeded",
       "reason_codes": [
-        "active_declaration_limit_exceeded",
-        "retained_declaration_limit_exceeded"
+        "active_graph_view_limit_exceeded",
+        "retained_graph_view_limit_exceeded"
       ]
     },
     {
       "error_code": "network_flow_graph_materialization_limit_exceeded",
       "reason_codes": [
-        "incident_nonterminal_job_limit_exceeded"
+        "nonterminal_job_limit_exceeded"
+      ]
+    },
+    {
+      "error_code": "network_flow_graph_materialization_failed",
+      "reason_codes": [
+        "source_invalid",
+        "projection_rejected",
+        "projection_unavailable",
+        "publication_conflict",
+        "cancelled",
+        "timeout",
+        "retry_exhausted"
       ]
     },
     {

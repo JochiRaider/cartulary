@@ -77,8 +77,15 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 	if m == nil || m.store == nil || m.jobManager == nil || m.jobFinalizer == nil || m.graphProjection == nil {
 		return errors.New("network flow graph materialization unavailable")
 	}
+	materializationCtx, cancel := context.WithTimeout(ctx, time.Duration(m.limits.GraphMaterializationTimeoutSeconds)*time.Second)
+	defer cancel()
+	ctx = materializationCtx
+	var payload graphViewMaterializationPayload
 	job, err := m.jobManager.ObserveExecution(ctx, execution)
 	if err != nil {
+		if graphViewMaterializationTimedOut(ctx) {
+			return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "timeout", false)
+		}
 		return err
 	}
 	if job.Status == jobs.StatusCancelRequested {
@@ -86,32 +93,47 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 	}
 	rawPayload, err := m.jobManager.HandlerPayload(ctx, execution)
 	if err != nil {
+		if graphViewMaterializationTimedOut(ctx) {
+			return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "timeout", false)
+		}
 		return err
 	}
-	var payload graphViewMaterializationPayload
 	if err := json.Unmarshal(rawPayload, &payload); err != nil || !payload.valid() {
-		return m.failGraphViewMaterialization(ctx, execution, payload, "network_flow_graph_materialization_payload_invalid", false)
+		return m.failGraphViewMaterialization(ctx, execution, payload, "source_invalid", false)
 	}
 	declaration, err := m.store.GetGraphViewDeclaration(ctx, payload.IncidentID, payload.GraphViewID)
+	if graphViewMaterializationTimedOut(ctx) {
+		return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "timeout", false)
+	}
 	if err != nil || declaration.DeclarationState != GraphViewDeclarationStateActive ||
 		declaration.MaterializationGeneration != payload.MaterializationGeneration ||
 		declaration.DesiredSourceSnapshotID != payload.SourceSnapshotID || declaration.LatestJobID == nil ||
 		*declaration.LatestJobID != execution.JobID() {
-		return m.failGraphViewMaterialization(ctx, execution, payload, "network_flow_graph_materialization_stale", false)
+		return m.failGraphViewMaterialization(ctx, execution, payload, "publication_conflict", false)
 	}
 	semantic, apiErr := decodeGraphSemanticRequest(declaration.SemanticQueryJSON, m.limits)
 	if apiErr != nil {
-		return m.failGraphViewMaterialization(ctx, execution, payload, "network_flow_graph_materialization_query_invalid", false)
+		return m.failGraphViewMaterialization(ctx, execution, payload, "source_invalid", false)
 	}
-	composer := &Service{store: m.store, graphProjection: m.graphProjection, now: m.now}
+	composer := &Service{store: m.store, graphProjection: m.graphProjection, now: m.now, graphTelemetry: m.graphTelemetry}
 	composition, apiErr := composer.composeGraphSourceFromSemantic(ctx, payload.IncidentID, semantic)
+	if graphViewMaterializationTimedOut(ctx) {
+		return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "timeout", false)
+	}
 	if apiErr != nil {
-		return m.failGraphViewMaterialization(ctx, execution, payload, "network_flow_graph_materialization_source_unavailable", false)
+		return m.failGraphViewMaterialization(ctx, execution, payload, "source_invalid", false)
 	}
 	sourceSnapshotID := graphSourceSnapshotDigest(payload.IncidentID, composition.SourceTables, composition.Digest)
 	if sourceSnapshotID != payload.SourceSnapshotID {
-		return m.failGraphViewMaterialization(ctx, execution, payload, "network_flow_graph_materialization_source_changed", false)
+		return m.failGraphViewMaterialization(ctx, execution, payload, "source_invalid", false)
 	}
+	if graphViewMaterializationTimedOut(ctx) {
+		return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "timeout", false)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	projectionStarted := time.Now()
 	projection, err := m.graphProjection.ProjectSaved(ctx, payload.GraphViewID, canonicalJSON(networkFlowProjectionInput(sourceSnapshotID, composition)), func(checkCtx context.Context) error {
 		observed, observeErr := m.jobManager.ObserveExecution(checkCtx, execution)
 		if observeErr != nil {
@@ -123,6 +145,10 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 		return nil
 	})
 	if err != nil {
+		m.observeGraphPhase(ctx, graphTelemetryPhaseProjection, semantic.Aggregation.Mode, projectionStarted, err)
+		if graphViewMaterializationTimedOut(ctx) {
+			return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "timeout", false)
+		}
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			if observed, observeErr := m.jobManager.ObserveExecution(context.WithoutCancel(ctx), execution); observeErr == nil && observed.Status == jobs.StatusCancelRequested {
 				return m.cancelGraphViewMaterialization(context.WithoutCancel(ctx), execution)
@@ -130,18 +156,27 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 		}
 		return err
 	}
+	completed, err := projection.CompletedResult()
+	m.observeGraphPhase(ctx, graphTelemetryPhaseProjection, semantic.Aggregation.Mode, projectionStarted, err)
+	if err != nil {
+		return m.failGraphViewMaterialization(ctx, execution, payload, "projection_rejected", false)
+	}
+	m.observeGraphComposition(ctx, composition)
 	if observed, observeErr := m.jobManager.ObserveExecution(ctx, execution); observeErr != nil {
+		if graphViewMaterializationTimedOut(ctx) {
+			return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "timeout", false)
+		}
 		return observeErr
 	} else if observed.Status == jobs.StatusCancelRequested {
 		return m.cancelGraphViewMaterialization(context.WithoutCancel(ctx), execution)
 	}
-	completed, err := projection.CompletedResult()
-	if err != nil {
-		return m.failGraphViewMaterialization(ctx, execution, payload, "network_flow_graph_materialization_result_invalid", false)
+	if graphViewMaterializationTimedOut(ctx) {
+		return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "timeout", false)
 	}
 	completed.PublishedAt = m.now().UTC()
 	selected := graphViewSelectedResultFromBinding(completed.Binding)
 	total := 1
+	publicationStarted := time.Now()
 	_, err = m.jobFinalizer.FinalizeGraphViewJobSuccess(context.WithoutCancel(ctx), GraphViewJobSuccessFinalization{
 		Execution: execution,
 		Completion: jobs.SuccessCompletion{
@@ -177,11 +212,12 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 			return publisherErr
 		},
 	})
+	m.observeGraphPhase(context.WithoutCancel(ctx), graphTelemetryPhasePublication, semantic.Aggregation.Mode, publicationStarted, err)
 	if errors.Is(err, jobs.ErrCancellationRequested) {
 		return m.cancelGraphViewMaterialization(context.WithoutCancel(ctx), execution)
 	}
 	if errors.Is(err, ErrGraphViewPublicationStale) {
-		return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "network_flow_graph_materialization_stale", false)
+		return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "publication_conflict", false)
 	}
 	return err
 }
@@ -195,7 +231,7 @@ func graphViewSourceSnapshotTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 	if err != nil {
 		return "", err
 	}
-	digest := graphQueryDigest(incidentID, semantic.SelectedTableIDs, semantic.Filters, semantic.TimeRange, semantic.Aggregation)
+	digest := graphQueryDigestForSemantic(incidentID, semantic.SelectedTableIDs, semantic)
 	return graphSourceSnapshotDigest(incidentID, tables, digest), nil
 }
 
@@ -235,7 +271,7 @@ func graphViewSourceTablesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUI
 	return tables, nil
 }
 
-func (m *Module) failGraphViewMaterialization(ctx context.Context, execution jobs.Execution, payload graphViewMaterializationPayload, failureCode string, retryable bool) error {
+func (m *Module) failGraphViewMaterialization(ctx context.Context, execution jobs.Execution, payload graphViewMaterializationPayload, reasonCode string, retryable bool) error {
 	if m.jobFinalizer == nil {
 		return errors.New("network flow graph materialization finalizer unavailable")
 	}
@@ -245,7 +281,8 @@ func (m *Module) failGraphViewMaterialization(ctx context.Context, execution job
 		Completion: jobs.FailureCompletion{
 			Progress: jobs.Progress{Completed: 0, Total: &total},
 			ErrorSummary: jobs.ErrorSummary{
-				Code: failureCode, Message: "Saved graph materialization failed.", Retryable: retryable,
+				Code: "network_flow_graph_materialization_failed", Message: "Saved graph materialization failed.", Retryable: retryable,
+				Details: map[string]any{"reason_code": reasonCode},
 			},
 		},
 		Mutate: func(finalizeCtx context.Context, tx pgx.Tx) error {
@@ -254,11 +291,19 @@ func (m *Module) failGraphViewMaterialization(ctx context.Context, execution job
 			}
 			return m.store.RecordGraphViewMaterializationFailureTx(
 				finalizeCtx, tx, payload.IncidentID, payload.GraphViewID,
-				payload.MaterializationGeneration, execution.JobID(), failureCode, m.now().UTC(),
+				payload.MaterializationGeneration, execution.JobID(), graphViewMaterializationFailureCode(reasonCode), m.now().UTC(),
 			)
 		},
 	})
 	return err
+}
+
+func graphViewMaterializationTimedOut(ctx context.Context) bool {
+	return errors.Is(ctx.Err(), context.DeadlineExceeded)
+}
+
+func graphViewMaterializationFailureCode(reasonCode string) string {
+	return "network_flow_graph_materialization_" + reasonCode
 }
 
 func (m *Module) cancelGraphViewMaterialization(ctx context.Context, execution jobs.Execution) error {

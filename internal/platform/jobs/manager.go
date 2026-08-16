@@ -69,13 +69,13 @@ type ManagerOptions struct {
 // Manager is the immutable Jobs facade. Persistence and policy remain private
 // package concerns; consumers receive narrower interfaces during assembly.
 type Manager struct {
-	pool                  *pgxpool.Pool
-	now                   func() time.Time
-	transactions          *TransactionService
-	serviceVersion        string
-	activeGaugeRegistered bool
-	catalog               *Catalog
-	policy                RuntimePolicy
+	pool                *pgxpool.Pool
+	now                 func() time.Time
+	transactions        *TransactionService
+	serviceVersion      string
+	jobGaugesRegistered bool
+	catalog             *Catalog
+	policy              RuntimePolicy
 }
 
 func NewManager(options ManagerOptions) (*Manager, error) {
@@ -100,7 +100,7 @@ func NewManager(options ManagerOptions) (*Manager, error) {
 		now:            now,
 		serviceVersion: strings.TrimSpace(options.TelemetryServiceVersion),
 	}
-	manager.registerActiveGauge()
+	manager.registerJobGauges()
 	return manager, nil
 }
 

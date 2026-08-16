@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/bootstraptest"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -214,11 +215,15 @@ func TestAllOptionalProfilesUnclaimedPublishesQuiescentJobs_Integration(t *testi
 	)), testDB.Env())
 
 	var jobTransactions *jobs.TransactionService
+	networkFlowCleanupComposed := false
 	runtime, err := NewRuntime(ctx, cfg, Options{
 		Postgres:    pool,
 		ObjectStore: store,
 		ObserveJobs: func(_ *jobs.Manager, transactions *jobs.TransactionService, _ *jobs.Runner, _ *pgxpool.Pool) {
 			jobTransactions = transactions
+		},
+		ObserveNetworkFlowCleanup: func(*networkflow.GraphResultCleanupDispatcher) {
+			networkFlowCleanupComposed = true
 		},
 	})
 	if err != nil {
@@ -251,6 +256,9 @@ func TestAllOptionalProfilesUnclaimedPublishesQuiescentJobs_Integration(t *testi
 	}
 	if jobTransactions == nil {
 		t.Fatal("all-unclaimed runtime did not expose Jobs composition")
+	}
+	if networkFlowCleanupComposed || runtime.networkFlowCleanupDispatcher != nil {
+		t.Fatal("unclaimed Network Flow composed a graph-result cleanup dispatcher")
 	}
 	if _, err := jobTransactions.CreateQueuedTx(ctx, nil, jobs.EnqueueParams{
 		JobKind: "import.discovery_v1",

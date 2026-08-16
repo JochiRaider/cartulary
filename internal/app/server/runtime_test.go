@@ -101,6 +101,28 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		}
 	})
 
+	t.Run("invalid Network Flow resource limits stop before dependency wiring", func(t *testing.T) {
+		jobsCalls = 0
+		postgresCalls = 0
+		objectStoreCalls = 0
+		wsHubCalls = 0
+		handlerCalls = 0
+		err := RuntimeConfigError(t, configtest.Overlay(
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED", "true",
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH", "/etc/cartulary/network-flow-key-rings.json",
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__RESOURCE_LIMITS", `{"max_active_tables_per_incident":2,"max_retained_tables_per_incident":1}`,
+		))
+		diagnostics, ok := config.DiagnosticsFromError(err)
+		if !ok || len(diagnostics) != 1 ||
+			diagnostics[0].Path != "network_flow_activity.resource_limits.max_active_tables_per_incident" ||
+			diagnostics[0].ReasonCode != "invalid_limit_relationship" {
+			t.Fatalf("resource-limit diagnostics = %#v / %v", diagnostics, err)
+		}
+		if jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
+			t.Fatalf("invalid Network Flow resource limits reached dependency wiring: jobs=%d postgres=%d object_store=%d websocket=%d handler=%d", jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls)
+		}
+	})
+
 	t.Run("cross-purpose Revisions key reuse stops before listener publication", func(t *testing.T) {
 		cfg := RuntimeConfig(t)
 		t.Setenv(authn.AuthMasterKeyEnv, "pVldGSpD5oEmYa9F85d3/iL2lzBgkyfiWcoJDhsSGpk=")

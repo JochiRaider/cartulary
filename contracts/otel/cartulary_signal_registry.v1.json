@@ -1,0 +1,38 @@
+{
+  "schema_id": "cartulary.otel_signal_registry.v1",
+  "attribute_vocabulary": ["error_class", "graph_mode", "graph_object_kind", "job_kind", "operation", "phase", "result"],
+  "forbidden_attribute_classes": ["authorization_scope", "cursor", "digest", "identifier", "label", "property", "raw_error", "row", "sql"],
+  "scopes": [
+    {
+      "scope_name": "cartulary.jobs",
+      "metrics": [
+        { "metric_name": "cartulary.jobs.queue_wait.duration", "instrument_kind": "histogram", "unit": "s", "attributes": ["job_kind"] },
+        { "metric_name": "cartulary.jobs.queued", "instrument_kind": "observable_gauge", "unit": "{job}", "attributes": ["job_kind"] }
+      ]
+    },
+    {
+      "scope_name": "cartulary.network_flow",
+      "metrics": [
+        { "metric_name": "cartulary.network_flow.graph.phase.duration", "instrument_kind": "histogram", "unit": "s", "attributes": ["phase", "graph_mode", "result", "error_class"] },
+        { "metric_name": "cartulary.network_flow.graph.contributing_rows", "instrument_kind": "histogram", "unit": "{row}", "attributes": ["graph_mode", "result"] },
+        { "metric_name": "cartulary.network_flow.graph.result.objects", "instrument_kind": "histogram", "unit": "{object}", "attributes": ["graph_mode", "graph_object_kind", "result"] },
+        { "metric_name": "cartulary.network_flow.cleanup.operations", "instrument_kind": "counter", "unit": "{operation}", "attributes": ["operation", "result", "error_class"] },
+        { "metric_name": "cartulary.network_flow.cleanup.sweep.duration", "instrument_kind": "histogram", "unit": "s", "attributes": ["operation", "result", "error_class"] },
+        { "metric_name": "cartulary.network_flow.cleanup.deleted", "instrument_kind": "counter", "unit": "{object}", "attributes": ["graph_object_kind", "result"] },
+        { "metric_name": "cartulary.network_flow.cleanup.eligible", "instrument_kind": "observable_gauge", "unit": "{result}", "attributes": [] },
+        { "metric_name": "cartulary.network_flow.cleanup.oldest_eligible_result.age", "instrument_kind": "observable_gauge", "unit": "s", "attributes": [] }
+      ]
+    }
+  ],
+  "closed_values": {
+    "operation": ["graph_materialization", "cleanup_sweep"],
+    "phase": ["source_validation", "source_scan", "projection", "publication", "cleanup_sweep"],
+    "graph_mode": ["default_flow_edge_v1", "time_bucket_v1"],
+    "result": ["success", "rejected", "conflict", "canceled", "failed", "timeout", "dropped"],
+    "job_kind": ["import.apply_v1", "import.discovery_v1", "incident_portability.export_v1", "incident_portability.import_v1", "network_flow_activity.graph_view_materialize_v1", "reference_pack.import_v1", "reference_pack.refresh_v1", "reference_pack.reverify_v1", "snapshot_reporting.composition_preview_v1", "snapshot_reporting.release_create_v1", "snapshot_reporting.snapshot_create_v1"],
+    "graph_object_kind": ["vertex", "edge", "time_bucket", "contributing_row", "lease", "projection_result"],
+    "error_class": ["request_invalid", "concurrency_conflict", "lifecycle_conflict", "not_found", "policy_rejected", "dependency_unavailable", "invariant_violation", "timeout", "serialization_conflict", "constraint_violation", "internal_error"]
+  },
+  "failure_policy": "telemetry_failure_never_changes_product_behavior",
+  "cleanup_age_source": "published_at"
+}

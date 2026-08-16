@@ -33,7 +33,7 @@ type ModuleDependencies struct {
 	Postgres        postgres.DB
 	ImportSources   ImportSourcePort
 	KeyRings        *KeyRings
-	Limits          Limits
+	EffectiveLimits EffectiveLimits
 	Now             func() time.Time
 	IncidentLocks   IncidentLockPort
 	AuditAppender   AdministrativeAuditPort
@@ -43,6 +43,7 @@ type ModuleDependencies struct {
 	JobManager      GraphViewJobManager
 	JobRunner       GraphViewJobRunner
 	JobFinalizer    GraphViewJobFinalizer
+	GraphTelemetry  GraphTelemetryObserver
 }
 
 // Module is the single Network Flow composition facade. Transport and generic
@@ -56,22 +57,23 @@ type Module struct {
 	transactions    *crossownertransaction.Coordinator
 	cursorProtector CursorProtector
 	safeDigester    SafeDigester
-	limits          Limits
+	limits          EffectiveLimits
 	now             func() time.Time
 	graphProjection graphProjectionPort
 	graphViewJobs   GraphViewJobTransactions
 	jobManager      GraphViewJobManager
 	jobRunner       GraphViewJobRunner
 	jobFinalizer    GraphViewJobFinalizer
+	graphTelemetry  GraphTelemetryObserver
 }
 
 func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	if dependencies.Postgres == nil {
 		return nil, errors.New("network flow module requires PostgreSQL")
 	}
-	limits := dependencies.Limits.normalized()
-	if dependencies.Limits == (Limits{}) {
-		limits = DefaultLimits()
+	limits := dependencies.EffectiveLimits
+	if err := ValidateEffectiveLimits(limits); err != nil {
+		return nil, fmt.Errorf("network flow module effective limits: %w", err)
 	}
 	now := dependencies.Now
 	if now == nil {
@@ -95,7 +97,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	}
 	store := NewStore(
 		dependencies.Postgres,
-		WithLimits(limits),
+		limits,
 		WithOwnerParticipants(dependencies.IncidentLocks, dependencies.AuditAppender, dependencies.Indicators),
 		WithSafeDigester(safeDigester),
 		WithResourceIntentAppender(dependencies.ResourceIntents),
@@ -106,6 +108,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		limits: limits, now: now, graphProjection: newGraphProjectionAdapter(),
 		graphViewJobs: dependencies.GraphViewJobs, jobManager: dependencies.JobManager,
 		jobRunner: dependencies.JobRunner, jobFinalizer: dependencies.JobFinalizer,
+		graphTelemetry: dependencies.GraphTelemetry,
 	}
 	if physical, ok := dependencies.ImportSources.(importTransactionPort); ok {
 		module.importTx = physical

@@ -76,7 +76,10 @@ func TestReportingGraphSourceValidatesLeasesReadsAndReleasesExactResult_Integrat
 	if err != nil {
 		t.Fatalf("read and renew leased result: %v", err)
 	}
-	if loaded.Binding != result.Binding || len(loaded.Vertices) != 2 || len(loaded.Edges) != 1 {
+	if loaded.Projection.Binding != result.Binding || len(loaded.Projection.Vertices) != 2 || len(loaded.Projection.Edges) != 1 ||
+		len(loaded.LabelCandidates.VertexLabelCandidates) != 2 || len(loaded.LabelCandidates.EdgeLabelCandidates) != 1 ||
+		loaded.LabelCandidates.VertexLabelCandidates[0].Endpoint.StringValue != "192.0.2.1" ||
+		loaded.LabelCandidates.EdgeLabelCandidates[0].Protocol.IntegerValue != 6 {
 		t.Fatalf("exact ordered result drifted: %#v", loaded)
 	}
 
@@ -116,18 +119,18 @@ func graphResultForReportingSource(graphViewID string, now time.Time) graphproje
 			SourceOwnerID:                 ProfileID,
 			SourceSnapshotID:              "network-flow-source-1",
 			ProjectionSchemaID:            graphprojection.ProjectionSchemaIDV2,
-			ProjectionVersion:             "network-flow-graph-v1",
+			ProjectionVersion:             "network_flow_activity.v1",
 			NormalizedConfigurationSHA256: testSHA1,
 			NormalizedSourceSHA256:        testSHA2,
 			CanonicalOutputSHA256:         testSHA3,
 		},
 		ResultJSON: []byte(`{"projection_schema_id":"graph_projection.v2"}`),
 		Vertices: []graphprojection.ResultVertexV2{
-			{VertexID: "vx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", VertexKind: "network_flow.ip_endpoint.v1", SortKey: "a", JSON: []byte(`{"vertex_id":"vx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`)},
-			{VertexID: "vx_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", VertexKind: "network_flow.ip_endpoint.v1", SortKey: "b", JSON: []byte(`{"vertex_id":"vx_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}`)},
+			{VertexID: "vx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", VertexKind: "network_flow.ip_endpoint.v1", SortKey: "a", JSON: []byte(`{"vertex_id":"vx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","source_entity_ref":{"source_entity_id":"nfe_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"properties":{"endpoint_value":"192.0.2.1"}}`)},
+			{VertexID: "vx_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", VertexKind: "network_flow.ip_endpoint.v1", SortKey: "b", JSON: []byte(`{"vertex_id":"vx_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","source_entity_ref":{"source_entity_id":"nfe_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"properties":{"endpoint_value":"192.0.2.2"}}`)},
 		},
 		Edges: []graphprojection.ResultEdgeV2{
-			{EdgeID: "ed_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", EdgeKind: "network_flow.flow_edge.v1", SrcVertexID: "vx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", DstVertexID: "vx_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", Direction: "directed", SortKey: "a", JSON: []byte(`{"edge_id":"ed_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`)},
+			{EdgeID: "ed_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", EdgeKind: "network_flow.flow_edge.v1", SrcVertexID: "vx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", DstVertexID: "vx_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", Direction: "directed", SortKey: "a", JSON: []byte(`{"edge_id":"ed_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","source_relationship_ref":{"source_relationship_id":"nff_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"properties":{"ip_protocol":6,"dst_port":443}}`)},
 		},
 		PublishedAt: now,
 	}

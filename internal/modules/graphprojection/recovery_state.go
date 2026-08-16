@@ -4,7 +4,7 @@ import recoverystate "github.com/JochiRaider/cartulary/internal/platform/recover
 
 func RecoveryStateContribution() recoverystate.Contribution {
 	tables := recoverystate.RebuildableTables(
-		"graphprojection.restore_rebuild.v2",
+		RestoreAlgorithmID,
 		"graph_projection_result_edges",
 		"graph_projection_result_leases",
 		"graph_projection_result_vertices",

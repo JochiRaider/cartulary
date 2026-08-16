@@ -86,7 +86,7 @@ type RejectedRowsQueryRequest struct {
 	Limit        int
 }
 
-func decodeAcceptedRowQueryRequest(reader io.Reader, expectedSchemaID string, continuationSchemaID string, limits Limits) (RowQueryRequest, *httpapi.APIError) {
+func decodeAcceptedRowQueryRequest(reader io.Reader, expectedSchemaID string, continuationSchemaID string, limits EffectiveLimits) (RowQueryRequest, *httpapi.APIError) {
 	raw, apiErr := decodeNetworkFlowObject(reader)
 	if apiErr != nil {
 		return RowQueryRequest{}, apiErr
@@ -150,7 +150,7 @@ func decodeAcceptedRowQueryRequest(reader io.Reader, expectedSchemaID string, co
 	return request, nil
 }
 
-func decodeRejectedRowsQueryRequest(reader io.Reader, limits Limits) (RejectedRowsQueryRequest, *httpapi.APIError) {
+func decodeRejectedRowsQueryRequest(reader io.Reader, limits EffectiveLimits) (RejectedRowsQueryRequest, *httpapi.APIError) {
 	raw, apiErr := decodeNetworkFlowObject(reader)
 	if apiErr != nil {
 		return RejectedRowsQueryRequest{}, apiErr
@@ -254,7 +254,7 @@ func ensureAllowedMembers(raw map[string]json.RawMessage, allowed ...string) *ht
 	return nil
 }
 
-func requiredTableScope(raw json.RawMessage, limits Limits) (TableScope, *httpapi.APIError) {
+func requiredTableScope(raw json.RawMessage, limits EffectiveLimits) (TableScope, *httpapi.APIError) {
 	if len(raw) == 0 {
 		return TableScope{}, invalidNetworkFlowRequest("table_scope", "missing_member")
 	}
@@ -301,11 +301,11 @@ func requiredTableScope(raw json.RawMessage, limits Limits) (TableScope, *httpap
 	}
 }
 
-func decodeFilters(raw json.RawMessage, limits Limits) ([]Filter, *httpapi.APIError) {
+func decodeFilters(raw json.RawMessage, limits EffectiveLimits) ([]Filter, *httpapi.APIError) {
 	return decodeAndNormalizeFilters(raw, limits)
 }
 
-func decodeSort(raw json.RawMessage, limits Limits) ([]SortSpec, *httpapi.APIError) {
+func decodeSort(raw json.RawMessage, limits EffectiveLimits) ([]SortSpec, *httpapi.APIError) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
@@ -362,30 +362,6 @@ func strictSortString(object map[string]json.RawMessage, member string) (string,
 		return "", errors.New("invalid sort member")
 	}
 	return value, nil
-}
-
-func filterRows(rows []FlowRow, filters []Filter) ([]FlowRow, *httpapi.APIError) {
-	if len(filters) == 0 {
-		return rows, nil
-	}
-	out := make([]FlowRow, 0, len(rows))
-	for _, row := range rows {
-		matched := true
-		for _, filter := range filters {
-			ok, apiErr := rowMatchesFilter(row, filter)
-			if apiErr != nil {
-				return nil, apiErr
-			}
-			if !ok {
-				matched = false
-				break
-			}
-		}
-		if matched {
-			out = append(out, row)
-		}
-	}
-	return out, nil
 }
 
 func sortRows(rows []FlowRow, specs []SortSpec) []FlowRow {
@@ -835,27 +811,6 @@ func decodeContributorCursorPosition(raw json.RawMessage) (contributorCursorPosi
 	return position, nil
 }
 
-func pageContributorRowsAfter(rows []FlowRow, tableRanks map[string]int, position *contributorCursorPosition, limit int) ([]FlowRow, bool) {
-	start := 0
-	if position != nil {
-		start = sort.Search(len(rows), func(index int) bool {
-			rank := tableRanks[rows[index].NetworkFlowTableID]
-			if rank != position.WorkspaceTableOrder {
-				return rank > position.WorkspaceTableOrder
-			}
-			return compareRowToPosition(rows[index], position.Row) > 0
-		})
-	}
-	if start >= len(rows) {
-		return []FlowRow{}, false
-	}
-	end := start + limit
-	if end >= len(rows) {
-		return rows[start:], false
-	}
-	return rows[start:end], true
-}
-
 func mustMarshalJSON(value any) json.RawMessage {
 	encoded, _ := json.Marshal(value)
 	return encoded
@@ -972,7 +927,7 @@ func decodeIntegerRange(raw json.RawMessage) (*int64, *int64, *httpapi.APIError)
 	return gte, lte, nil
 }
 
-func defaultQueryLimit(limits Limits) int {
+func defaultQueryLimit(limits EffectiveLimits) int {
 	if limits.MaxQueryLimit <= 0 || limits.MaxQueryLimit > DefaultMaxQueryLimit {
 		return 100
 	}

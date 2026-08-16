@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.network_flow_resource_limits_configuration.v2",
+  "schema_id": "cartulary.network_flow_resource_limits_configuration.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "max_active_tables_per_incident": { "type": "integer", "minimum": 1, "maximum": 128 },
+    "max_retained_tables_per_incident": { "type": "integer", "minimum": 1, "maximum": 512 },
+    "max_selected_tables_per_query": { "type": "integer", "minimum": 1, "maximum": 64 },
+    "max_columns_per_csv": { "type": "integer", "minimum": 1, "maximum": 512 },
+    "max_header_scalar_length": { "type": "integer", "minimum": 1, "maximum": 256 },
+    "max_raw_cell_scalar_length": { "type": "integer", "minimum": 1, "maximum": 16384 },
+    "max_rows_per_csv": { "type": "integer", "minimum": 1, "maximum": 5000000 },
+    "max_accepted_rows_per_table": { "type": "integer", "minimum": 1, "maximum": 5000000 },
+    "max_rejected_row_diagnostics": { "type": "integer", "minimum": 0, "maximum": 100000 },
+    "max_filters_per_query": { "type": "integer", "minimum": 0, "maximum": 16 },
+    "max_sorts_per_query": { "type": "integer", "minimum": 0, "maximum": 8 },
+    "max_query_limit": { "type": "integer", "minimum": 1, "maximum": 1000 },
+    "max_graph_vertices": { "type": "integer", "minimum": 1, "maximum": 100000 },
+    "max_graph_edges": { "type": "integer", "minimum": 0, "maximum": 250000 },
+    "max_active_graph_views_per_incident": { "type": "integer", "minimum": 1, "maximum": 32 },
+    "max_retained_graph_views_per_incident": { "type": "integer", "minimum": 1, "maximum": 128 },
+    "max_nonterminal_graph_jobs_per_incident": { "type": "integer", "minimum": 1, "maximum": 4 },
+    "max_example_row_refs_per_edge": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "max_binding_source_row_refs": { "type": "integer", "minimum": 1, "maximum": 1000 },
+    "max_aggregate_counter_digits": { "type": "integer", "minimum": 1, "maximum": 128 },
+    "max_contributing_rows_per_graph": { "type": "integer", "minimum": 1, "maximum": 5000000 },
+    "max_time_buckets_per_graph": { "type": "integer", "minimum": 1, "maximum": 1024 },
+    "graph_materialization_timeout_seconds": { "type": "integer", "minimum": 30, "maximum": 3600 }
+  }
+}

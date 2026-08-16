@@ -32,6 +32,16 @@ type Definition struct {
 	Extension      *ExtensionPolicy
 }
 
+// WorkerRuntimeContract is the immutable process-capacity projection for one
+// handler identity. Packaging owners provide these values; Jobs validates and
+// consumes them without applying defaults.
+type WorkerRuntimeContract struct {
+	ProfileID                   string
+	WorkerKind                  string
+	JobKinds                    []string
+	MaxActiveAttemptsPerProcess int
+}
+
 // Catalog is an immutable definition catalog shared by every Jobs service.
 type Catalog struct {
 	byKind map[string]Definition
@@ -41,8 +51,10 @@ type Catalog struct {
 // execution by the resolved deployment profile. Unlike Catalog, it may be
 // empty.
 type RuntimeSelection struct {
-	catalog *Catalog
-	byKind  map[string]Definition
+	catalog     *Catalog
+	byKind      map[string]Definition
+	workers     map[string]WorkerRuntimeContract
+	workerByJob map[string]string
 }
 
 func NewCatalog(definitions []Definition) (*Catalog, error) {
@@ -68,7 +80,7 @@ func NewCatalog(definitions []Definition) (*Catalog, error) {
 	return &Catalog{byKind: indexed}, nil
 }
 
-func NewRuntimeSelection(catalog *Catalog, jobKinds []string) (*RuntimeSelection, error) {
+func NewRuntimeSelection(catalog *Catalog, jobKinds []string, workerContracts []WorkerRuntimeContract) (*RuntimeSelection, error) {
 	if catalog == nil {
 		return nil, ErrNotConfigured
 	}
@@ -83,14 +95,49 @@ func NewRuntimeSelection(catalog *Catalog, jobKinds []string) (*RuntimeSelection
 		}
 		selected[jobKind] = definition
 	}
-	return &RuntimeSelection{catalog: catalog, byKind: selected}, nil
+	workers := make(map[string]WorkerRuntimeContract, len(workerContracts))
+	workerByJob := make(map[string]string, len(selected))
+	for _, contract := range workerContracts {
+		if contract.ProfileID == "" || !safeJobToken(contract.ProfileID) ||
+			contract.WorkerKind == "" || len(contract.WorkerKind) > 191 || !safeJobToken(contract.WorkerKind) ||
+			contract.MaxActiveAttemptsPerProcess < 1 || contract.MaxActiveAttemptsPerProcess > 8 ||
+			len(contract.JobKinds) == 0 || len(contract.JobKinds) > 64 {
+			return nil, fmt.Errorf("%w: invalid worker runtime contract %q", ErrInvalidJobDefinition, contract.WorkerKind)
+		}
+		if _, duplicate := workers[contract.WorkerKind]; duplicate {
+			return nil, fmt.Errorf("%w: duplicate worker runtime contract %q", ErrInvalidJobDefinition, contract.WorkerKind)
+		}
+		clone := contract
+		clone.JobKinds = append([]string(nil), contract.JobKinds...)
+		previous := ""
+		for _, jobKind := range clone.JobKinds {
+			definition, present := selected[jobKind]
+			expectedProfileID := "base"
+			if present && definition.Extension != nil {
+				expectedProfileID = definition.Extension.OwnerProfileID
+			}
+			if !present || jobKind <= previous || definition.HandlerName != clone.WorkerKind || expectedProfileID != clone.ProfileID {
+				return nil, fmt.Errorf("%w: invalid worker assignment %q", ErrInvalidJobDefinition, jobKind)
+			}
+			if _, duplicate := workerByJob[jobKind]; duplicate {
+				return nil, fmt.Errorf("%w: duplicate worker assignment %q", ErrInvalidJobDefinition, jobKind)
+			}
+			workerByJob[jobKind] = clone.WorkerKind
+			previous = jobKind
+		}
+		workers[clone.WorkerKind] = clone
+	}
+	if len(workerByJob) != len(selected) {
+		return nil, fmt.Errorf("%w: incomplete worker runtime selection", ErrInvalidJobDefinition)
+	}
+	return &RuntimeSelection{catalog: catalog, byKind: selected, workers: workers, workerByJob: workerByJob}, nil
 }
 
-func FullRuntimeSelection(catalog *Catalog) (*RuntimeSelection, error) {
+func FullRuntimeSelection(catalog *Catalog, workerContracts []WorkerRuntimeContract) (*RuntimeSelection, error) {
 	if catalog == nil {
 		return nil, ErrNotConfigured
 	}
-	return NewRuntimeSelection(catalog, catalog.jobKinds())
+	return NewRuntimeSelection(catalog, catalog.jobKinds(), workerContracts)
 }
 
 func cloneDefinition(definition Definition) (Definition, error) {
@@ -195,6 +242,23 @@ func (selection *RuntimeSelection) containsJobKind(jobKind string) bool {
 	}
 	_, present := selection.byKind[jobKind]
 	return present
+}
+
+func (selection *RuntimeSelection) workerContract(workerKind string) (WorkerRuntimeContract, bool) {
+	if selection == nil {
+		return WorkerRuntimeContract{}, false
+	}
+	contract, present := selection.workers[workerKind]
+	contract.JobKinds = append([]string(nil), contract.JobKinds...)
+	return contract, present
+}
+
+func (selection *RuntimeSelection) workerKindForJob(jobKind string) (string, bool) {
+	if selection == nil {
+		return "", false
+	}
+	workerKind, present := selection.workerByJob[jobKind]
+	return workerKind, present
 }
 
 // ValidateStorageCatalog is the startup compatibility gate. It reports only

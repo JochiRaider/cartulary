@@ -4,6 +4,7 @@ import type {
   NetworkFlowContributor,
   NetworkFlowContributorPageRequest,
   NetworkFlowGraphEdge,
+  NetworkFlowGraphQueryRequest,
   NetworkFlowGraphResult,
   NetworkFlowGraphSelector,
   NetworkFlowGraphVertex,
@@ -33,6 +34,12 @@ export type NetworkFlowGraphScopeMode =
   | "all_active_tables";
 
 export type NetworkFlowGraphSelection = NetworkFlowGraphSelector;
+export type NetworkFlowGraphAggregationMode =
+  NetworkFlowGraphQueryRequest["aggregation"]["mode"];
+export type NetworkFlowGraphBucketWidth = Extract<
+  NetworkFlowGraphQueryRequest["aggregation"],
+  { readonly mode: "time_bucket_v1" }
+>["bucket_width_seconds"];
 
 export function useNetworkFlowGraphController({
   availability,
@@ -61,6 +68,10 @@ export function useNetworkFlowGraphController({
   );
   const [scopeMode, setScopeModeState] =
     useState<NetworkFlowGraphScopeMode>("active_table");
+  const [aggregationMode, setAggregationMode] =
+    useState<NetworkFlowGraphAggregationMode>("default_flow_edge_v1");
+  const [bucketWidthSeconds, setBucketWidthSeconds] =
+    useState<NetworkFlowGraphBucketWidth>(3600);
   const [selectedTableIds, setSelectedTableIds] = useState<readonly string[]>(
     () => (activeTableId === null ? [] : [activeTableId]),
   );
@@ -125,6 +136,12 @@ export function useNetworkFlowGraphController({
       : { mode: "active_table", active_table_id: activeTableId };
   }, [activeTableId, scopeMode, selectedTableIds, tableIds]);
   const tableScopeKey = JSON.stringify(tableScope);
+  const completeTemporalRange =
+    query.timeWindow?.startUTC != null && query.timeWindow.endUTC != null;
+  const validationMessage =
+    aggregationMode === "time_bucket_v1" && !completeTemporalRange
+      ? "Time-bucketed graphs require both UTC range bounds. Apply a start and end before querying."
+      : null;
 
   useEffect(() => {
     void graphGeneration;
@@ -139,7 +156,7 @@ export function useNetworkFlowGraphController({
       setPageIndex: setContributorPageIndex,
       setPaging: setContributorPaging,
     });
-    if (!enabled || tableScope === null) {
+    if (!enabled || tableScope === null || validationMessage !== null) {
       setGraph(null);
       setGraphLoadState("idle");
       return;
@@ -151,6 +168,17 @@ export function useNetworkFlowGraphController({
     onError(null);
     void queryNetworkFlowGraph({
       availability,
+      aggregation:
+        aggregationMode === "time_bucket_v1"
+          ? {
+              mode: "time_bucket_v1",
+              bucket_width_seconds: bucketWidthSeconds,
+              include_example_row_refs: true,
+            }
+          : {
+              mode: "default_flow_edge_v1",
+              include_example_row_refs: true,
+            },
       apiBase,
       filters: [...query.filters],
       incidentId,
@@ -190,6 +218,7 @@ export function useNetworkFlowGraphController({
     return () => controller.abort();
   }, [
     availability,
+    aggregationMode,
     apiBase,
     enabled,
     graphGeneration,
@@ -197,29 +226,40 @@ export function useNetworkFlowGraphController({
     onError,
     onIncidentAccessLost,
     query,
+    bucketWidthSeconds,
     tableScope,
     tableScopeKey,
+    validationMessage,
   ]);
 
   const selectedVertex = useMemo<NetworkFlowGraphVertex | null>(() => {
     if (selection?.kind !== "vertex") {
       return null;
     }
-    return (
-      graph?.graph_projection_result.vertices.find(
-        (vertex) => semanticVertexId(vertex) === selection.vertex_id,
-      ) ?? null
+    const binding = graph?.vertex_selectors.find((candidate) =>
+      graphSelectionEqual(candidate.selector, selection),
     );
+    return binding === undefined
+      ? null
+      : (graph?.graph_projection_result.vertices.find(
+          (vertex) => vertex.vertex_id === binding.projected_vertex_id,
+        ) ?? null);
   }, [graph, selection]);
   const selectedEdge = useMemo<NetworkFlowGraphEdge | null>(() => {
-    if (selection?.kind !== "edge") {
+    if (
+      selection?.kind !== "default_edge" &&
+      selection?.kind !== "time_bucket_edge"
+    ) {
       return null;
     }
-    return (
-      graph?.graph_projection_result.edges.find(
-        (edge) => semanticEdgeId(edge) === selection.edge_id,
-      ) ?? null
+    const annotation = graph?.edge_annotations.find((candidate) =>
+      graphSelectionEqual(candidate.selector, selection),
     );
+    return annotation === undefined
+      ? null
+      : (graph?.graph_projection_result.edges.find(
+          (edge) => edge.edge_id === annotation.projected_edge_id,
+        ) ?? null);
   }, [graph, selection]);
 
   const executeContributorRequest = useCallback(
@@ -311,10 +351,11 @@ export function useNetworkFlowGraphController({
       return;
     }
     const initialRequest: NetworkFlowContributorPageRequest = {
-      schema_id: "cartulary.network_flow.graph_contributor_query_request.v1",
+      schema_id: "cartulary.network_flow.graph_contributor_query_request.v2",
       graph_query: graph.semantic_query,
       graph_query_digest: graph.graph_query_digest,
       selector: selection,
+      limit: 500,
     };
     contributorHistoryRef.current = [initialRequest];
     void executeContributorRequest(initialRequest, selectionKey);
@@ -428,6 +469,8 @@ export function useNetworkFlowGraphController({
   }, []);
 
   return {
+    aggregationMode,
+    bucketWidthSeconds,
     canNextContributorPage:
       contributorPaging?.next_cursor_token !== null &&
       contributorPaging !== null,
@@ -452,19 +495,11 @@ export function useNetworkFlowGraphController({
     selectedVertex,
     selection,
     setScopeMode,
+    setAggregationMode,
+    setBucketWidthSeconds,
     setTableSelected,
+    validationMessage,
   };
-}
-
-function semanticVertexId(vertex: NetworkFlowGraphVertex): string | null {
-  return vertex.source_entity_ref?.source_entity_id ?? null;
-}
-
-function semanticEdgeId(edge: NetworkFlowGraphEdge): string | null {
-  const propertyEdgeId = edge.properties.edge_id;
-  return typeof propertyEdgeId === "string"
-    ? propertyEdgeId
-    : (edge.source_relationship_ref?.source_relationship_id ?? null);
 }
 
 function resetContributors(options: {
@@ -489,9 +524,7 @@ function graphSelectionEqual(
   if (left === null || right === null || left.kind !== right.kind) {
     return false;
   }
-  return left.kind === "vertex"
-    ? left.vertex_id === (right as { readonly vertex_id: string }).vertex_id
-    : left.edge_id === (right as { readonly edge_id: string }).edge_id;
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function equalStrings(

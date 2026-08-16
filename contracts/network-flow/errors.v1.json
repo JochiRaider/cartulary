@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow_error_contracts.v1",
   "profile_id": "network_flow_activity",
-  "contract_major": 3,
+  "contract_major": 4,
   "errors": [
     { "code": "network_flow_invalid_request", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
     { "code": "network_flow_unsupported_source_profile", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
@@ -34,6 +34,7 @@
     { "code": "network_flow_invalid_limit", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
     { "code": "network_flow_cursor_invalid", "scope": "route", "http_status": 400, "retry_action": "restart_query" },
     { "code": "network_flow_invalid_time_range", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
+    { "code": "network_flow_invalid_graph_aggregation", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
     { "code": "network_flow_invalid_limit_override", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
     { "code": "network_flow_graph_limit_exceeded", "scope": "route", "http_status": 413, "retry_action": "reduce_scope_or_limits" },
     { "code": "network_flow_counter_sum_limit_exceeded", "scope": "route", "http_status": 413, "retry_action": "reduce_scope_or_limits" },
@@ -45,6 +46,7 @@
     { "code": "network_flow_graph_view_version_conflict", "scope": "route", "http_status": 409, "retry_action": "refresh_resource" },
     { "code": "network_flow_graph_view_limit_exceeded", "scope": "route", "http_status": 409, "retry_action": "reduce_scope_or_limits" },
     { "code": "network_flow_graph_materialization_limit_exceeded", "scope": "route", "http_status": 409, "retry_action": "retry_with_backoff" },
+    { "code": "network_flow_graph_materialization_failed", "scope": "route_or_job", "http_status": 500, "retry_action": "do_not_retry" },
     { "code": "network_flow_indicator_link_ambiguous", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
     { "code": "network_flow_invalid_indicator_selector", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
     { "code": "network_flow_invalid_indicator_target", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
@@ -167,11 +169,15 @@
     },
     {
       "error_code": "network_flow_invalid_time_range",
-      "reason_codes": ["both_bounds_null", "empty_range", "invalid_bound"]
+      "reason_codes": ["both_bounds_null", "empty_range", "invalid_bound", "complete_range_required"]
+    },
+    {
+      "error_code": "network_flow_invalid_graph_aggregation",
+      "reason_codes": ["unknown_mode", "variant_member_conflict", "missing_width", "unsupported_width"]
     },
     {
       "error_code": "network_flow_graph_limit_exceeded",
-      "reason_codes": ["vertex_limit_exceeded", "edge_limit_exceeded"]
+      "reason_codes": ["vertex_limit_exceeded", "edge_limit_exceeded", "contributing_row_limit_exceeded", "time_bucket_limit_exceeded"]
     },
     {
       "error_code": "network_flow_counter_sum_limit_exceeded",
@@ -195,7 +201,7 @@
     },
     {
       "error_code": "network_flow_graph_view_not_materialized",
-      "reason_codes": ["cancelled_without_prior_result", "failed_without_prior_result", "materialization_pending", "never_materialized"]
+      "reason_codes": ["initial_materialization_pending", "initial_materialization_failed"]
     },
     {
       "error_code": "network_flow_graph_view_version_conflict",
@@ -203,11 +209,15 @@
     },
     {
       "error_code": "network_flow_graph_view_limit_exceeded",
-      "reason_codes": ["active_declaration_limit_exceeded", "retained_declaration_limit_exceeded"]
+      "reason_codes": ["active_graph_view_limit_exceeded", "retained_graph_view_limit_exceeded"]
     },
     {
       "error_code": "network_flow_graph_materialization_limit_exceeded",
-      "reason_codes": ["incident_nonterminal_job_limit_exceeded"]
+      "reason_codes": ["nonterminal_job_limit_exceeded"]
+    },
+    {
+      "error_code": "network_flow_graph_materialization_failed",
+      "reason_codes": ["source_invalid", "projection_rejected", "projection_unavailable", "publication_conflict", "cancelled", "timeout", "retry_exhausted"]
     },
     {
       "error_code": "indicator-link errors",

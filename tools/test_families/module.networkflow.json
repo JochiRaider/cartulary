@@ -513,6 +513,156 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.networkflow.integration.bounded_graph_contributor_pipeline",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.graphprojection",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes",
+          "TestNetworkFlowStreamingGraphContributingRowLimit_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.networkflow.integration.effective_resource_limit_discovery",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "platform.config"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowEffectiveResourceLimitsReachDiscovery_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.networkflow.integration.extension_state_v3_mixed_graph_admission",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "module.extensions",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowExtensionStateV3AdmitsMixedGraphQueriesWithoutRewritingBytes_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.networkflow.integration.graph_result_cleanup",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "module.graphprojection",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowGraphResultCleanupIsOwnerScopedSelectedSafeAndBounded_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.networkflow.integration.graph_result_cleanup_races",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "module.graphprojection",
+        "module.reporting",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowGraphCleanupPublicationAndLeaseRaces_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.networkflow.integration.resource_change_intent_replay_and_privacy_f1a2b3c4d5",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.integration",
@@ -601,6 +751,64 @@
         "object_store",
         "postgres"
       ]
+    },
+    {
+      "row_id": "module.networkflow.integration.time_bucket_saved_graph_lifecycle",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.graphprojection",
+        "platform.jobs"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.networkflow.measurement.backend_graph_capacity_certification",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.measurement",
+      "collaborator_ids": [
+        "harness.evidence_accounting",
+        "module.graphprojection"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowGraphCapacityCertification_Integration"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "backend_capacity_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "release",
+      "service_dependencies": []
     },
     {
       "row_id": "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
@@ -924,6 +1132,63 @@
       ]
     },
     {
+      "row_id": "module.networkflow.unit.bounded_graph_aggregation_and_selectors",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [
+        "module.graphprojection"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestDefaultGraphV2IdentityFixture_Unit",
+          "TestStreamingDefaultGraphV1Golden_Unit",
+          "TestStreamingGraphDatabaseErrorsRemainVisible_Unit",
+          "TestStreamingGraphLimitsAndCanonicalSelectors_Unit",
+          "TestStreamingGraphRetainedStateFollowsAggregateCardinality_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.networkflow.unit.cleanup_dispatcher_lifecycle",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [
+        "app.server",
+        "module.graphprojection"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestGraphResultCleanupDispatcherLifecycleSchedulingAndFatalLoss_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.networkflow.unit.configuration_claim_and_manifest_admission",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.unit",
@@ -940,10 +1205,39 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
-          "TestNetworkFlowConfigurationContribution_Unit"
+          "TestNetworkFlowConfigurationContribution_Unit",
+          "TestNetworkFlowEffectiveResourceLimits_Unit"
         ]
       },
       "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.networkflow.unit.graph_telemetry_boundary",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [
+        "platform.telemetry"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowGraphTelemetryBoundaryContainsObserverFailure_Unit",
+          "TestNetworkFlowGraphTelemetryOutcomeVocabulary_Unit",
+          "TestNetworkFlowGraphTelemetrySemanticBoundaries_Unit"
+        ]
+      },
+      "evidence_class": "security",
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -1542,7 +1836,7 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
-          "TestNetworkFlowV3SavedGraphContractProjection_Unit",
+          "TestNetworkFlowV4GraphContractProjection_Unit",
           "TestNetworkFlow_CrossTableGraphEvidence_Integration"
         ]
       },
@@ -1736,6 +2030,38 @@
         "package": "./internal/modules/networkflow",
         "tests": [
           "TestNetworkFlow_UnmappedRawInertEvidence_Integration"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.networkflow.unit.time_bucket_graph_backend",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [
+        "module.graphprojection"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestGraphViewMaterializationDeadlineIsTerminalBeforePublication_Unit",
+          "TestStreamingTimeBucketAggregationConservesRowsAndCounters_Unit",
+          "TestTimeBucketAdmissionAndCanonicalTimestampErrors_Unit",
+          "TestTimeBucketArithmeticFixturesAndLimit_Unit",
+          "TestTimeBucketArithmeticPropertySeeds_Unit",
+          "TestTimeBucketIdentityProjectionAndResponseMetadata_Unit",
+          "TestTimeBucketV2DigestFixture_Unit"
         ]
       },
       "evidence_class": "unit",

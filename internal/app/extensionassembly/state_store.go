@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"sync/atomic"
 	"time"
@@ -142,6 +143,16 @@ func (t *stateTransaction) FamilyCounts(ctx context.Context, familyIDs []string)
 		return nil, errors.New("extension state capability family scope violation")
 	}
 	return t.tx.FamilyCounts(ctx, normalized)
+}
+
+func (t *stateTransaction) ValidateFamilyState(ctx context.Context, familyID string) error {
+	if t == nil || t.tx == nil {
+		return errors.New("extension state capability is unavailable")
+	}
+	if !slices.Contains(t.familyIDs, familyID) {
+		return errors.New("extension state capability family scope violation")
+	}
+	return t.tx.ValidateFamilyState(ctx, familyID)
 }
 
 func (t *stateTransaction) StateMetadata(ctx context.Context, profileID string) (*extensions.StateMetadata, error) {

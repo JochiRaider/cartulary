@@ -193,7 +193,7 @@ func TestManagerProgressIntentFailureRollsBackJobMutation_Integration(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	selection, err := jobs.FullRuntimeSelection(catalog)
+	selection, err := jobs.FullRuntimeSelection(catalog, collaborationsupport.TestWorkerRuntimeContracts([]jobs.Definition{definitions[0]}))
 	if err != nil {
 		t.Fatal(err)
 	}

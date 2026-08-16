@@ -56,8 +56,8 @@
     },
     {
       "profile_id": "network_flow_activity",
-      "contract_major": 3,
-      "implementation_id": "cartulary.network_flow_activity.builtin.v3",
+      "contract_major": 4,
+      "implementation_id": "cartulary.network_flow_activity.builtin.v4",
       "state_ownership_kind": "extension_versioned",
       "implemented_contribution_ids": [
         "network_flow_activity.backup_restore",
@@ -87,6 +87,7 @@
         "network_flow_activity.indicator_link_validate_v1",
         "network_flow_activity.indicator_link_write_v1",
         "network_flow_activity.migrate_state_1_to_2_v1",
+        "network_flow_activity.migrate_state_2_to_3_v1",
         "network_flow_activity.rejected_row_diagnostics_identity_v1",
         "network_flow_activity.reporting_graph_order_v1",
         "network_flow_activity.reporting_graph_source_v1",
@@ -94,7 +95,8 @@
         "network_flow_activity.restore_validate_v1",
         "network_flow_activity.rows_identity_v1",
         "network_flow_activity.tables_identity_v1",
-        "network_flow_activity.validate_state_v2"
+        "network_flow_activity.validate_state_v2",
+        "network_flow_activity.validate_state_v3"
       ],
       "participant_implementations": [
         {

@@ -51,6 +51,31 @@ func (publisher *Publisher) PublishResult(ctx context.Context, result graphproje
 		return err
 	}
 
+	inserted, err := publisher.insertResultEnvelope(ctx, result)
+	if err != nil {
+		return err
+	}
+	if !inserted {
+		err = publisher.requireExactExistingResult(ctx, result)
+		if !errors.Is(err, graphprojection.ErrResultV2NotFound) {
+			return err
+		}
+		// A cleanup transaction can delete the conflicting row after this
+		// transaction's INSERT began but before ON CONFLICT resolves. Retry the
+		// insert exactly once after the vanished conflict; a new insert remains
+		// locked until the caller publishes its source declaration.
+		inserted, err = publisher.insertResultEnvelope(ctx, result)
+		if err != nil {
+			return err
+		}
+		if !inserted {
+			return publisher.requireExactExistingResult(ctx, result)
+		}
+	}
+	return publisher.insertResultObjects(ctx, result)
+}
+
+func (publisher *Publisher) insertResultEnvelope(ctx context.Context, result graphprojection.CompletedResultV2) (bool, error) {
 	binding := result.Binding
 	tag, err := publisher.tx.Exec(ctx, `
 INSERT INTO graph_projection_results (
@@ -65,12 +90,13 @@ ON CONFLICT (projection_result_id) DO NOTHING
 		binding.NormalizedConfigurationSHA256, binding.NormalizedSourceSHA256,
 		binding.CanonicalOutputSHA256, len(result.Vertices), len(result.Edges), []byte(result.ResultJSON), result.PublishedAt.UTC())
 	if err != nil {
-		return fmt.Errorf("insert Graph Projection result envelope: %w", err)
+		return false, fmt.Errorf("insert Graph Projection result envelope: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
-		return publisher.requireExactExistingResult(ctx, result)
-	}
+	return tag.RowsAffected() == 1, nil
+}
 
+func (publisher *Publisher) insertResultObjects(ctx context.Context, result graphprojection.CompletedResultV2) error {
+	binding := result.Binding
 	for ordinal, vertex := range result.Vertices {
 		if _, err := publisher.tx.Exec(ctx, `
 INSERT INTO graph_projection_result_vertices (
@@ -99,9 +125,12 @@ func (publisher *Publisher) requireExactExistingResult(ctx context.Context, want
 	if err != nil {
 		return err
 	}
-	got, err := reader.ReadExactResult(ctx, want.Binding)
+	got, err := reader.ReadExactResultForUpdate(ctx, want.Binding)
 	if err != nil {
-		if errors.Is(err, graphprojection.ErrResultV2BindingMismatch) || errors.Is(err, graphprojection.ErrResultV2NotFound) {
+		if errors.Is(err, graphprojection.ErrResultV2NotFound) {
+			return graphprojection.ErrResultV2NotFound
+		}
+		if errors.Is(err, graphprojection.ErrResultV2BindingMismatch) {
 			return graphprojection.ErrResultV2IdentityConflict
 		}
 		return err
@@ -124,20 +153,65 @@ func NewReader(db queryer) (*Reader, error) {
 	return &Reader{db: db}, nil
 }
 
+// LockResultEnvelope locks one immutable result and returns its stored binding
+// without interpreting a source owner's declaration. Source-owner adapters use
+// it before taking their declaration lock, then apply their own error ordering.
+func (reader *Reader) LockResultEnvelope(ctx context.Context, projectionResultID string) (graphprojection.ResultBindingV2, error) {
+	if reader == nil || reader.db == nil || !resultIDPattern.MatchString(projectionResultID) {
+		return graphprojection.ResultBindingV2{}, graphprojection.ErrResultV2Invalid
+	}
+	binding := graphprojection.ResultBindingV2{ProjectionResultID: projectionResultID}
+	err := reader.db.QueryRow(ctx, `
+SELECT graph_view_id, source_owner_id, source_snapshot_id, projection_schema_id,
+       projection_version, normalized_configuration_sha256, normalized_source_sha256,
+       canonical_output_sha256
+  FROM graph_projection_results
+ WHERE projection_result_id = $1
+ FOR UPDATE
+`, projectionResultID).Scan(
+		&binding.GraphViewID, &binding.SourceOwnerID, &binding.SourceSnapshotID,
+		&binding.ProjectionSchemaID, &binding.ProjectionVersion,
+		&binding.NormalizedConfigurationSHA256, &binding.NormalizedSourceSHA256,
+		&binding.CanonicalOutputSHA256,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return graphprojection.ResultBindingV2{}, graphprojection.ErrResultV2NotFound
+	}
+	if err != nil {
+		return graphprojection.ResultBindingV2{}, fmt.Errorf("lock Graph Projection result envelope: %w", err)
+	}
+	return binding, nil
+}
+
 func (reader *Reader) ReadExactResult(ctx context.Context, binding graphprojection.ResultBindingV2) (graphprojection.CompletedResultV2, error) {
+	return reader.readExactResult(ctx, binding, false)
+}
+
+// ReadExactResultForUpdate locks the immutable result envelope before reading
+// its owned objects. Callers that subsequently lock source declarations use
+// this path to preserve the cross-owner result-before-declaration order.
+func (reader *Reader) ReadExactResultForUpdate(ctx context.Context, binding graphprojection.ResultBindingV2) (graphprojection.CompletedResultV2, error) {
+	return reader.readExactResult(ctx, binding, true)
+}
+
+func (reader *Reader) readExactResult(ctx context.Context, binding graphprojection.ResultBindingV2, lock bool) (graphprojection.CompletedResultV2, error) {
 	if err := validateBinding(binding); err != nil {
 		return graphprojection.CompletedResultV2{}, err
 	}
 	var result graphprojection.CompletedResultV2
 	var vertexCount, edgeCount int
 	result.Binding.ProjectionResultID = binding.ProjectionResultID
-	err := reader.db.QueryRow(ctx, `
+	query := `
 SELECT graph_view_id, source_owner_id, source_snapshot_id, projection_schema_id,
        projection_version, normalized_configuration_sha256, normalized_source_sha256,
        canonical_output_sha256, vertex_count, edge_count, result_json, published_at
   FROM graph_projection_results
  WHERE projection_result_id = $1
-`, binding.ProjectionResultID).Scan(
+`
+	if lock {
+		query += ` FOR UPDATE`
+	}
+	err := reader.db.QueryRow(ctx, query, binding.ProjectionResultID).Scan(
 		&result.Binding.GraphViewID, &result.Binding.SourceOwnerID, &result.Binding.SourceSnapshotID,
 		&result.Binding.ProjectionSchemaID, &result.Binding.ProjectionVersion,
 		&result.Binding.NormalizedConfigurationSHA256, &result.Binding.NormalizedSourceSHA256,
@@ -399,7 +473,8 @@ func (writer *LeaseWriter) ReleaseLease(ctx context.Context, leaseID string) err
 }
 
 type Cleaner struct {
-	tx pgx.Tx
+	tx             pgx.Tx
+	lockedResultID string
 }
 
 func NewCleaner(tx pgx.Tx) (*Cleaner, error) {
@@ -409,59 +484,110 @@ func NewCleaner(tx pgx.Tx) (*Cleaner, error) {
 	return &Cleaner{tx: tx}, nil
 }
 
-func (cleaner *Cleaner) DeleteUnreachableResults(ctx context.Context, reachableResultIDs []string, observedAt time.Time, maximum int) ([]string, error) {
-	if observedAt.IsZero() || maximum < 1 || maximum > 10000 || !slices.IsSorted(reachableResultIDs) {
+func (cleaner *Cleaner) DeleteExpiredLeases(ctx context.Context, observedAt time.Time, maximum int) (int, bool, error) {
+	if cleaner == nil || cleaner.tx == nil || observedAt.IsZero() || maximum < 1 || maximum > 1000 {
+		return 0, false, graphprojection.ErrResultV2Invalid
+	}
+	var deleted int
+	err := cleaner.tx.QueryRow(ctx, `
+WITH candidates AS (
+    SELECT lease_id
+      FROM graph_projection_result_leases
+     WHERE leased_until <= $1
+     ORDER BY leased_until, lease_id
+     LIMIT $2
+     FOR UPDATE SKIP LOCKED
+), deleted AS (
+    DELETE FROM graph_projection_result_leases lease
+     USING candidates
+     WHERE lease.lease_id = candidates.lease_id
+     RETURNING lease.lease_id
+)
+SELECT count(*) FROM deleted
+`, observedAt.UTC(), maximum).Scan(&deleted)
+	if err != nil {
+		return 0, false, fmt.Errorf("delete expired Graph Projection result leases: %w", err)
+	}
+	return deleted, deleted == maximum, nil
+}
+
+func (cleaner *Cleaner) LockCleanupCandidate(
+	ctx context.Context,
+	sourceOwnerID string,
+	after *graphprojection.ResultCleanupCandidateV2,
+) (*graphprojection.ResultCleanupCandidateV2, error) {
+	if cleaner == nil || cleaner.tx == nil || !leaseTokenPattern.MatchString(sourceOwnerID) || cleaner.lockedResultID != "" {
 		return nil, graphprojection.ErrResultV2Invalid
 	}
-	for index, resultID := range reachableResultIDs {
-		if !resultIDPattern.MatchString(resultID) || (index > 0 && resultID == reachableResultIDs[index-1]) {
+	query := `
+SELECT result.projection_result_id, result.published_at
+  FROM graph_projection_results result
+ WHERE result.source_owner_id = $1
+   AND NOT EXISTS (
+       SELECT 1
+         FROM graph_projection_result_leases lease
+        WHERE lease.projection_result_id = result.projection_result_id
+   )`
+	args := []any{sourceOwnerID}
+	if after != nil {
+		if !resultIDPattern.MatchString(after.ProjectionResultID) || after.PublishedAt.IsZero() {
 			return nil, graphprojection.ErrResultV2Invalid
 		}
+		query += `
+   AND (result.published_at, result.projection_result_id) > ($2, $3)`
+		args = append(args, after.PublishedAt.UTC(), after.ProjectionResultID)
 	}
-	if _, err := cleaner.tx.Exec(ctx, `
-DELETE FROM graph_projection_result_leases
- WHERE leased_until <= $1
-`, observedAt.UTC()); err != nil {
-		return nil, fmt.Errorf("delete expired Graph Projection result leases: %w", err)
+	query += `
+ ORDER BY result.published_at, result.projection_result_id
+ FOR UPDATE SKIP LOCKED
+ LIMIT 1`
+	var candidate graphprojection.ResultCleanupCandidateV2
+	err := cleaner.tx.QueryRow(ctx, query, args...).Scan(&candidate.ProjectionResultID, &candidate.PublishedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
 	}
-	rows, err := cleaner.tx.Query(ctx, `
-WITH candidates AS (
-    SELECT result.projection_result_id
-      FROM graph_projection_results result
-     WHERE NOT (result.projection_result_id = ANY($1::text[]))
-       AND NOT EXISTS (
-            SELECT 1
-              FROM graph_projection_result_leases lease
-             WHERE lease.projection_result_id = result.projection_result_id
-               AND lease.leased_until > $2
-       )
-     ORDER BY result.projection_result_id ASC
-     LIMIT $3
-     FOR UPDATE
-), deleted AS (
-    DELETE FROM graph_projection_results result
-     USING candidates
-     WHERE result.projection_result_id = candidates.projection_result_id
-     RETURNING result.projection_result_id
-)
-SELECT projection_result_id FROM deleted ORDER BY projection_result_id ASC
-`, reachableResultIDs, observedAt.UTC(), maximum)
 	if err != nil {
-		return nil, fmt.Errorf("delete unreachable Graph Projection results: %w", err)
+		return nil, fmt.Errorf("lock Graph Projection cleanup candidate: %w", err)
 	}
-	defer rows.Close()
-	deleted := make([]string, 0)
-	for rows.Next() {
-		var resultID string
-		if err := rows.Scan(&resultID); err != nil {
-			return nil, fmt.Errorf("scan deleted Graph Projection result: %w", err)
-		}
-		deleted = append(deleted, resultID)
+	candidate.PublishedAt = candidate.PublishedAt.UTC()
+	cleaner.lockedResultID = candidate.ProjectionResultID
+	return &candidate, nil
+}
+
+func (cleaner *Cleaner) HasUnexpiredLease(ctx context.Context, projectionResultID string, observedAt time.Time) (bool, error) {
+	if cleaner == nil || cleaner.tx == nil || cleaner.lockedResultID != projectionResultID || observedAt.IsZero() {
+		return false, graphprojection.ErrResultV2Invalid
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("delete unreachable Graph Projection results: %w", err)
+	var present bool
+	if err := cleaner.tx.QueryRow(ctx, `
+SELECT EXISTS (
+    SELECT 1
+      FROM graph_projection_result_leases
+     WHERE projection_result_id = $1
+       AND leased_until > $2
+)
+`, projectionResultID, observedAt.UTC()).Scan(&present); err != nil {
+		return false, fmt.Errorf("recheck Graph Projection result leases: %w", err)
 	}
-	return deleted, nil
+	return present, nil
+}
+
+func (cleaner *Cleaner) DeleteLockedResult(ctx context.Context, projectionResultID string) (bool, error) {
+	if cleaner == nil || cleaner.tx == nil || cleaner.lockedResultID != projectionResultID {
+		return false, graphprojection.ErrResultV2Invalid
+	}
+	tag, err := cleaner.tx.Exec(ctx, `
+DELETE FROM graph_projection_results
+ WHERE projection_result_id = $1
+`, projectionResultID)
+	if err != nil {
+		return false, fmt.Errorf("delete locked Graph Projection result: %w", err)
+	}
+	cleaner.lockedResultID = ""
+	if tag.RowsAffected() > 1 {
+		return false, graphprojection.ErrResultV2IdentityConflict
+	}
+	return tag.RowsAffected() == 1, nil
 }
 
 func validateCompletedResult(result graphprojection.CompletedResultV2) error {
@@ -616,4 +742,4 @@ func kindAllowed(value string, allowed map[string]struct{}) bool {
 var _ graphprojection.ResultPublisherV2 = (*Publisher)(nil)
 var _ graphprojection.ExactResultReaderV2 = (*Reader)(nil)
 var _ graphprojection.ResultLeaseWriterV2 = (*LeaseWriter)(nil)
-var _ graphprojection.ReachabilityCleanerV2 = (*Cleaner)(nil)
+var _ graphprojection.ResultMaintenanceV2 = (*Cleaner)(nil)

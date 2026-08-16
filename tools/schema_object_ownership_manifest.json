@@ -20227,6 +20227,25 @@
       "approval": null
     },
     {
+      "object_id": "index.public.graph-projection-results-cleanup-candidate-idx",
+      "object_kind": "index",
+      "qualified_name": "public.graph_projection_results_cleanup_candidate_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "graphprojection",
+      "migration_version": 34,
+      "migration_file": "00034_graph_projection_cleanup_indexes.sql",
+      "dependency_object_ids": [
+        "table.public.graph-projection-results"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "index.public.graph-projection-results-pkey",
       "object_kind": "index",
       "qualified_name": "public.graph_projection_results_pkey",

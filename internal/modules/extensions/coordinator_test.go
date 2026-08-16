@@ -27,11 +27,13 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 		t.Fatalf("descriptors are not canonical: %#v", descriptors)
 	}
 	inactivePolicies := coordinator.InactiveConfigurationPolicies()
-	if len(inactivePolicies) != 2 ||
+	if len(inactivePolicies) != 3 ||
 		inactivePolicies[0].Key != "enterprise_authentication.provider_manifest_path" ||
 		inactivePolicies[0].Kind != "forbidden" ||
 		inactivePolicies[1].Key != "network_flow_activity.key_ring_manifest_path" ||
-		inactivePolicies[1].Kind != "forbidden" {
+		inactivePolicies[1].Kind != "forbidden" ||
+		inactivePolicies[2].Key != "network_flow_activity.resource_limits" ||
+		inactivePolicies[2].Kind != "forbidden" {
 		t.Fatalf("inactive configuration policies = %#v", inactivePolicies)
 	}
 	descriptors[0].RouteFamilies[0] = "mutated"
@@ -58,7 +60,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 		"enterprise_authentication": 1,
 		"import":                    1,
 		"incident_portability":      1,
-		"network_flow_activity":     3,
+		"network_flow_activity":     4,
 		"reference_pack":            1,
 		"snapshot_reporting":        1,
 	}
@@ -170,9 +172,16 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 		if !workerKinds[liveWorker.WorkerKind] {
 			t.Fatalf("unexpected live worker %#v", liveWorker)
 		}
+		wantMaximum := 8
+		if liveWorker.WorkerKind == "network_flow_activity.graph_view_worker_v1" {
+			wantMaximum = 1
+		}
+		if len(liveWorker.JobKinds) == 0 || liveWorker.MaxActiveAttemptsPerProcess != wantMaximum {
+			t.Fatalf("invalid live worker runtime contract %#v", liveWorker)
+		}
 	}
-	if networkFlow, ok := byProfile["network_flow_activity"]; !ok || !networkFlow.Claimable || networkFlow.ContractMajor != 3 {
-		t.Fatalf("Network Flow v3 adopted profile = %#v/%t", networkFlow, ok)
+	if networkFlow, ok := byProfile["network_flow_activity"]; !ok || !networkFlow.Claimable || networkFlow.ContractMajor != 4 {
+		t.Fatalf("Network Flow v4 adopted profile = %#v/%t", networkFlow, ok)
 	}
 
 	var participant *ParticipantContract
@@ -333,6 +342,14 @@ func TestCoordinatorPublicationPlan_Unit(t *testing.T) {
 	discovery[0].RouteFamilies[0] = "mutated"
 	if plan.Discovery()[0].RouteFamilies[0] == "mutated" {
 		t.Fatal("publication plan leaked mutable discovery rows")
+	}
+	workers := plan.Workers()
+	if len(workers) == 0 || len(workers[0].JobKinds) == 0 {
+		t.Fatalf("publication plan omitted worker runtime contracts: %#v", workers)
+	}
+	workers[0].JobKinds[0] = "mutated.run_v1"
+	if plan.Workers()[0].JobKinds[0] == "mutated.run_v1" {
+		t.Fatal("publication plan leaked mutable worker job assignments")
 	}
 	if len(plan.Listeners()) != 3 {
 		t.Fatalf("publication listener projection = %#v", plan.Listeners())

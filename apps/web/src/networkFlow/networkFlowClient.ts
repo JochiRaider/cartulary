@@ -8,6 +8,7 @@ import type {
   NetworkFlowContributorPageRequest,
   NetworkFlowContributorResult,
   NetworkFlowDiagnostic,
+  NetworkFlowFilter,
   NetworkFlowGraphQueryRequest,
   NetworkFlowGraphResult,
   NetworkFlowIndicatorLinkRequest,
@@ -62,6 +63,7 @@ export type {
   NetworkFlowDiagnostic,
   NetworkFlowEdgeAnnotation,
   NetworkFlowGraphEdge,
+  NetworkFlowGraphQueryRequest,
   NetworkFlowGraphResult,
   NetworkFlowGraphSelector,
   NetworkFlowGraphSemanticQuery,
@@ -237,24 +239,28 @@ export async function queryNetworkFlowRejectedRows(options: {
 export async function queryNetworkFlowGraph(options: {
   readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
-  readonly filters: NonNullable<NetworkFlowGraphQueryRequest["filters"]>;
+  readonly filters: readonly NetworkFlowFilter[];
   readonly incidentId: string;
+  readonly aggregation: NetworkFlowGraphQueryRequest["aggregation"];
   readonly tableScope: NetworkFlowTableScope;
   readonly timeRange: NonNullable<
     NetworkFlowGraphQueryRequest["time_range"]
   > | null;
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowGraphResult> {
-  const request: NetworkFlowGraphQueryRequest = {
-    schema_id: "cartulary.network_flow.graph_query_request.v1",
+  if (
+    options.aggregation.mode === "time_bucket_v1" &&
+    (options.timeRange?.start_utc == null || options.timeRange.end_utc == null)
+  ) {
+    throw new Error("network_flow_complete_graph_time_range_required");
+  }
+  const request = {
+    schema_id: "cartulary.network_flow.graph_query_request.v2",
     table_scope: options.tableScope,
     ...(options.filters.length === 0 ? {} : { filters: [...options.filters] }),
     ...(options.timeRange === null ? {} : { time_range: options.timeRange }),
-    aggregation: {
-      mode: "default_flow_edge_v1",
-      include_example_row_refs: true,
-    },
-  };
+    aggregation: options.aggregation,
+  } as NetworkFlowGraphQueryRequest;
   const result = await fetchNetworkFlowJSON<unknown>(
     options.availability,
     apiPath(
@@ -331,7 +337,7 @@ export async function createNetworkFlowSavedGraph(options: {
   readonly semanticQuery: NetworkFlowGraphResult["semantic_query"];
 }): Promise<NetworkFlowSavedGraphAccepted> {
   const request: NetworkFlowSavedGraphCreateRequest = {
-    schema_id: "cartulary.network_flow.graph_view_create_request.v1",
+    schema_id: "cartulary.network_flow.graph_view_create_request.v2",
     client_txn_id: clientTxnID("nf-graph-view-create"),
     display_name: options.displayName,
     semantic_query: options.semanticQuery,
@@ -456,7 +462,7 @@ export async function queryNetworkFlowSavedGraphContributors(options: {
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowSavedGraphContributorResult> {
   const request: NetworkFlowSavedGraphContributorQueryRequest = {
-    schema_id: "cartulary.network_flow.graph_view_contributor_query_request.v1",
+    schema_id: "cartulary.network_flow.graph_view_contributor_query_request.v2",
     projection_result_id: options.projectionResultId,
     selector: options.selector,
     limit: 100,

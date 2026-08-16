@@ -88,7 +88,7 @@ func (s *Service) handleIndicatorLinks(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, status, payload)
 }
 
-func decodeIndicatorLinkRequest(r *http.Request, limits Limits) (indicatorLinkRequest, *httpapi.APIError) {
+func decodeIndicatorLinkRequest(r *http.Request, limits EffectiveLimits) (indicatorLinkRequest, *httpapi.APIError) {
 	raw, apiErr := decodeNetworkFlowObject(r.Body)
 	if apiErr != nil {
 		return indicatorLinkRequest{}, apiErr
@@ -129,7 +129,7 @@ func decodeIndicatorLinkRequest(r *http.Request, limits Limits) (indicatorLinkRe
 	return indicatorLinkRequest{ClientTxnID: clientTxnID, Selector: selector, Target: target, ConfirmExactValue: confirm}, nil
 }
 
-func decodeIndicatorSelector(raw json.RawMessage, limits Limits) (indicatorLinkSelector, *httpapi.APIError) {
+func decodeIndicatorSelector(raw json.RawMessage, limits EffectiveLimits) (indicatorLinkSelector, *httpapi.APIError) {
 	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
 		return indicatorLinkSelector{}, invalidIndicatorSelector("", "missing_member")
 	}
@@ -199,6 +199,9 @@ func decodeIndicatorSelector(raw json.RawMessage, limits Limits) (indicatorLinkS
 		if apiErr != nil {
 			return indicatorLinkSelector{}, apiErr
 		}
+		if graphQuery.SchemaID != schemaGraphSemanticQueryV2 {
+			return indicatorLinkSelector{}, invalidNetworkFlowRequest("selector.graph_query.schema_id", "invalid_schema_id")
+		}
 		digest, apiErr := requiredJSONString(object, "graph_query_digest")
 		if apiErr != nil {
 			return indicatorLinkSelector{}, apiErr
@@ -215,6 +218,9 @@ func decodeIndicatorSelector(raw json.RawMessage, limits Limits) (indicatorLinkS
 		graphQuery, apiErr := decodeGraphSemanticRequest(object["graph_query"], limits)
 		if apiErr != nil {
 			return indicatorLinkSelector{}, apiErr
+		}
+		if graphQuery.SchemaID != schemaGraphSemanticQueryV2 {
+			return indicatorLinkSelector{}, invalidNetworkFlowRequest("selector.graph_query.schema_id", "invalid_schema_id")
 		}
 		digest, apiErr := requiredJSONString(object, "graph_query_digest")
 		if apiErr != nil {
@@ -446,7 +452,8 @@ func (s *Service) resolveRowRefsSelector(ctx context.Context, incidentID uuid.UU
 }
 
 func (s *Service) resolveGraphSelector(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, selector indicatorLinkSelector) (resolvedIndicatorLinkSelector, *httpapi.APIError) {
-	composition, apiErr := s.composeGraphFromSemantic(ctx, incidentID, actorUserID, selector.GraphQuery)
+	_ = actorUserID
+	composition, apiErr := s.composeGraphSourceFromSemantic(ctx, incidentID, selector.GraphQuery)
 	if apiErr != nil {
 		return resolvedIndicatorLinkSelector{}, apiErr
 	}
@@ -454,7 +461,7 @@ func (s *Service) resolveGraphSelector(ctx context.Context, incidentID uuid.UUID
 		return resolvedIndicatorLinkSelector{}, graphQueryStale("digest_mismatch", selector.GraphQueryDigest)
 	}
 	var candidate string
-	var rows []FlowRow
+	var predicate graphContributorPredicate
 	switch selector.Kind {
 	case "graph_vertex":
 		vertex := composition.Vertices[selector.VertexID]
@@ -462,7 +469,7 @@ func (s *Service) resolveGraphSelector(ctx context.Context, incidentID uuid.UUID
 			return resolvedIndicatorLinkSelector{}, graphQueryStale("vertex_not_found", selector.GraphQueryDigest)
 		}
 		candidate = vertex.EndpointValue
-		rows = append([]FlowRow(nil), vertex.Rows...)
+		predicate = graphContributorPredicate{Kind: "vertex", EndpointValue: vertex.EndpointValue}
 	case "graph_edge":
 		edge := composition.Edges[selector.EdgeID]
 		if edge == nil {
@@ -476,29 +483,52 @@ func (s *Service) resolveGraphSelector(ctx context.Context, incidentID uuid.UUID
 		default:
 			return resolvedIndicatorLinkSelector{}, invalidIndicatorSelector("field_key", "field_not_linkable")
 		}
-		rows = append([]FlowRow(nil), edge.Rows...)
+		predicate = graphContributorPredicate{
+			Kind:                     "default_edge",
+			SourceEndpointValue:      edge.SrcEndpointValue,
+			DestinationEndpointValue: edge.DstEndpointValue,
+			Protocol:                 edge.IPProtocol,
+			DestinationPort:          cloneInt32(edge.DstPort),
+		}
 	default:
 		return resolvedIndicatorLinkSelector{}, invalidIndicatorSelector("kind", "unknown_selector_kind")
 	}
-	sortContributorRows(rows, composition.TableRanks)
-	total := len(rows)
 	limit := int(s.store.limits.MaxBindingSourceRowRefs)
-	if limit > total {
-		limit = total
-	}
-	if limit == 0 {
-		return resolvedIndicatorLinkSelector{}, invalidIndicatorSelector("selector", "row_not_accepted")
-	}
 	refs := make([]NetworkFlowRowRef, 0, limit)
-	for _, row := range rows[:limit] {
-		refs = append(refs, rowRefFromRow(row))
+	var total int64
+	err := s.store.IterateGraphContributorRows(ctx, incidentID, composition.SelectedTableIDs, predicate, func(row FlowRow) error {
+		matched, matchErr := rowMatchesGraphQuery(row, selector.GraphQuery.Filters, selector.GraphQuery.TimeRange, selector.GraphQuery.Aggregation)
+		if matchErr != nil {
+			apiErr = matchErr
+			return errStopGraphIteration
+		}
+		if !matched {
+			return nil
+		}
+		total++
+		if len(refs) < limit {
+			refs = append(refs, rowRefFromRow(row))
+		}
+		return nil
+	})
+	if apiErr != nil {
+		return resolvedIndicatorLinkSelector{}, apiErr
+	}
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return resolvedIndicatorLinkSelector{}, graphProjectionFailedForContext(err)
+		}
+		return resolvedIndicatorLinkSelector{}, httpapi.InternalAPIError(err)
+	}
+	if total == 0 {
+		return resolvedIndicatorLinkSelector{}, invalidIndicatorSelector("selector", "row_not_accepted")
 	}
 	return resolvedIndicatorLinkSelector{
 		SelectorKind:            selector.Kind,
 		CandidateValue:          candidate,
 		SourceRowRefs:           refs,
-		SourceRowRefsTruncated:  limit < total,
-		SourceRowRefsTotalCount: int64(total),
+		SourceRowRefsTruncated:  int64(len(refs)) < total,
+		SourceRowRefsTotalCount: total,
 	}, nil
 }
 

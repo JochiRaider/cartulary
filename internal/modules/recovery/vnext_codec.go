@@ -28,6 +28,8 @@ const (
 	BackupIntegrityManifestV3SchemaID                     = "cartulary.backup_integrity_manifest.v3"
 	GraphProjectionRestoreSourceRegistryV2SchemaID        = "cartulary.graph_projection_restore_source_registry.v2"
 	GraphProjectionRestoreImplementationBindingV2SchemaID = "cartulary.graph_projection_restore_implementation_binding.v2"
+	GraphProjectionRestoreSourceRegistryV3SchemaID        = "cartulary.graph_projection_restore_source_registry.v3"
+	GraphProjectionRestoreImplementationBindingV3SchemaID = "cartulary.graph_projection_restore_implementation_binding.v3"
 	VNextTransactionIsolation                             = "repeatable_read_read_only"
 	vNextCodecRegistryDomain                              = "CARTULARY-RECOVERY-CODEC-REGISTRY-VNEXT\n"
 	vNextPostgresSnapshotDigestDomain                     = "CARTULARY-POSTGRES-SNAPSHOT-ARTIFACT-V2\n"
@@ -303,6 +305,8 @@ type VNextCapturedBackup struct {
 }
 
 type VNextGraphProjectionRestoreArtifacts struct {
+	AlgorithmID                 string
+	RecoveryStateCatalogSHA256  string
 	SourceRegistryJSON          []byte
 	SourceRegistrySHA256        string
 	ImplementationBindingJSON   []byte
@@ -451,8 +455,8 @@ func (service *VNextCaptureService) Capture(
 
 	artifacts := append([]VNextArtifactProof(nil), unitProofs...)
 	artifacts = append(artifacts,
-		vNextArtifactProof("graph_projection_restore_implementation_binding", GraphProjectionRestoreImplementationBindingV2SchemaID, graphImplementationBindingProof),
-		vNextArtifactProof("graph_projection_restore_source_registry", GraphProjectionRestoreSourceRegistryV2SchemaID, graphSourceRegistryProof),
+		vNextArtifactProof("graph_projection_restore_implementation_binding", GraphProjectionRestoreImplementationBindingV3SchemaID, graphImplementationBindingProof),
+		vNextArtifactProof("graph_projection_restore_source_registry", GraphProjectionRestoreSourceRegistryV3SchemaID, graphSourceRegistryProof),
 		vNextArtifactProof("postgres_snapshot", PostgresSnapshotArtifactV2SchemaID, postgresProof),
 		vNextArtifactProof("object_store_manifest", ObjectStoreBackupManifestV2SchemaID, objectManifestProof),
 		vNextArtifactProof("object_store_summary", ObjectStoreBackupSummaryV2SchemaID, objectSummaryProof),
@@ -755,6 +759,22 @@ func buildVNextObjectSummary(
 }
 
 func VNextCodecRegistrySHA256() string {
+	codecs := []string{
+		BackupArtifactEnvelopeV2SchemaID,
+		BackupIntegrityManifestV3SchemaID,
+		GraphProjectionRestoreImplementationBindingV3SchemaID,
+		GraphProjectionRestoreSourceRegistryV3SchemaID,
+		ObjectStoreBackupManifestV2SchemaID,
+		ObjectStoreBackupSummaryV2SchemaID,
+		PostgresSnapshotArtifactV2SchemaID,
+		PostgresSnapshotUnitV1SchemaID,
+	}
+	sort.Strings(codecs)
+	sum := sha256.Sum256([]byte(vNextCodecRegistryDomain + strings.Join(codecs, "\n") + "\n"))
+	return hex.EncodeToString(sum[:])
+}
+
+func historicalV2CodecRegistrySHA256() string {
 	codecs := []string{
 		BackupArtifactEnvelopeV2SchemaID,
 		BackupIntegrityManifestV3SchemaID,
@@ -1287,8 +1307,7 @@ func (service *VNextRestoreService) validateIntegrityManifest(
 	manifest VNextBackupIntegrityManifest,
 ) error {
 	if manifest.SchemaID != BackupIntegrityManifestV3SchemaID ||
-		manifest.RecoveryStateCatalogSHA256 != service.state.DigestSHA256() ||
-		manifest.CodecRegistrySHA256 != VNextCodecRegistrySHA256() ||
+		!service.admitsRecoveryGeneration(manifest.RecoveryStateCatalogSHA256, manifest.CodecRegistrySHA256) ||
 		len(manifest.Artifacts) < 3 || len(manifest.Artifacts) > 4096 {
 		return fmt.Errorf("%w: integrity manifest facts mismatch", ErrVNextBackup)
 	}
@@ -1301,6 +1320,27 @@ func (service *VNextRestoreService) validateIntegrityManifest(
 	return nil
 }
 
+func (service *VNextRestoreService) admitsRecoveryGeneration(catalogSHA256, codecRegistrySHA256 string) bool {
+	if service == nil || service.state == nil {
+		return false
+	}
+	if catalogSHA256 == service.state.DigestSHA256() && codecRegistrySHA256 == VNextCodecRegistrySHA256() {
+		return true
+	}
+	return catalogSHA256 == historicalGraphProjectionRecoveryCatalogSHA256V2() &&
+		codecRegistrySHA256 == historicalV2CodecRegistrySHA256()
+}
+
+func historicalGraphProjectionRecoveryCatalogSHA256V2() string {
+	var binding struct {
+		RecoveryStateCatalogSHA256 string `json:"recovery_state_catalog_sha256"`
+	}
+	if err := json.Unmarshal([]byte(contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2JSON), &binding); err != nil {
+		return ""
+	}
+	return binding.RecoveryStateCatalogSHA256
+}
+
 func (service *VNextRestoreService) resolveGraphProjectionRestoreArtifacts(
 	ctx context.Context,
 	integrity VNextBackupIntegrityManifest,
@@ -1310,23 +1350,44 @@ func (service *VNextRestoreService) resolveGraphProjectionRestoreArtifacts(
 	var bindingProofs []VNextArtifactProof
 	for _, proof := range proofs {
 		switch {
-		case proof.Kind == "graph_projection_restore_source_registry" || proof.SchemaID == GraphProjectionRestoreSourceRegistryV2SchemaID:
+		case proof.Kind == "graph_projection_restore_source_registry" ||
+			proof.SchemaID == GraphProjectionRestoreSourceRegistryV2SchemaID ||
+			proof.SchemaID == GraphProjectionRestoreSourceRegistryV3SchemaID:
 			registryProofs = append(registryProofs, proof)
-		case proof.Kind == "graph_projection_restore_implementation_binding" || proof.SchemaID == GraphProjectionRestoreImplementationBindingV2SchemaID:
+		case proof.Kind == "graph_projection_restore_implementation_binding" ||
+			proof.SchemaID == GraphProjectionRestoreImplementationBindingV2SchemaID ||
+			proof.SchemaID == GraphProjectionRestoreImplementationBindingV3SchemaID:
 			bindingProofs = append(bindingProofs, proof)
 		}
 	}
-	if integrity.CodecRegistrySHA256 != VNextCodecRegistrySHA256() || len(registryProofs) != 1 || len(bindingProofs) != 1 {
+	if !service.admitsRecoveryGeneration(integrity.RecoveryStateCatalogSHA256, integrity.CodecRegistrySHA256) ||
+		len(registryProofs) != 1 || len(bindingProofs) != 1 {
 		return VNextGraphProjectionRestoreArtifacts{}, fmt.Errorf("%w: Graph Projection restore artifacts are missing or duplicated", ErrVNextBackup)
 	}
 	registryProof := registryProofs[0]
 	bindingProof := bindingProofs[0]
 	if registryProof.Kind != "graph_projection_restore_source_registry" ||
-		registryProof.SchemaID != GraphProjectionRestoreSourceRegistryV2SchemaID ||
-		registryProof.PlaintextSHA256 != contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256 ||
-		bindingProof.Kind != "graph_projection_restore_implementation_binding" ||
-		bindingProof.SchemaID != GraphProjectionRestoreImplementationBindingV2SchemaID ||
-		bindingProof.PlaintextSHA256 != contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256 {
+		bindingProof.Kind != "graph_projection_restore_implementation_binding" {
+		return VNextGraphProjectionRestoreArtifacts{}, fmt.Errorf("%w: Graph Projection restore artifact binding mismatch", ErrVNextBackup)
+	}
+	algorithmID := "graphprojection.restore_rebuild.v3"
+	expectedRegistrySchemaID := GraphProjectionRestoreSourceRegistryV3SchemaID
+	expectedBindingSchemaID := GraphProjectionRestoreImplementationBindingV3SchemaID
+	expectedRegistryJSON := contractrecovery.CurrentGraphProjectionRestoreSourceRegistryJSON
+	expectedRegistrySHA256 := contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256
+	expectedBindingJSON := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON
+	expectedBindingSHA256 := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256
+	if integrity.CodecRegistrySHA256 == historicalV2CodecRegistrySHA256() {
+		algorithmID = "graphprojection.restore_rebuild.v2"
+		expectedRegistrySchemaID = GraphProjectionRestoreSourceRegistryV2SchemaID
+		expectedBindingSchemaID = GraphProjectionRestoreImplementationBindingV2SchemaID
+		expectedRegistryJSON = contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2JSON
+		expectedRegistrySHA256 = contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2SHA256
+		expectedBindingJSON = contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2JSON
+		expectedBindingSHA256 = contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2SHA256
+	}
+	if registryProof.SchemaID != expectedRegistrySchemaID || registryProof.PlaintextSHA256 != expectedRegistrySHA256 ||
+		bindingProof.SchemaID != expectedBindingSchemaID || bindingProof.PlaintextSHA256 != expectedBindingSHA256 {
 		return VNextGraphProjectionRestoreArtifacts{}, fmt.Errorf("%w: Graph Projection restore artifact binding mismatch", ErrVNextBackup)
 	}
 	registryBody, err := service.readJSONArtifact(ctx, streamProof(registryProof), 1<<20)
@@ -1337,11 +1398,13 @@ func (service *VNextRestoreService) resolveGraphProjectionRestoreArtifacts(
 	if err != nil {
 		return VNextGraphProjectionRestoreArtifacts{}, err
 	}
-	if !bytes.Equal(registryBody, []byte(contractrecovery.CurrentGraphProjectionRestoreSourceRegistryJSON)) ||
-		!bytes.Equal(bindingBody, []byte(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON)) {
+	if !bytes.Equal(registryBody, []byte(expectedRegistryJSON)) ||
+		!bytes.Equal(bindingBody, []byte(expectedBindingJSON)) {
 		return VNextGraphProjectionRestoreArtifacts{}, fmt.Errorf("%w: Graph Projection restore artifact canonical bytes mismatch", ErrVNextBackup)
 	}
 	return VNextGraphProjectionRestoreArtifacts{
+		AlgorithmID:                 algorithmID,
+		RecoveryStateCatalogSHA256:  integrity.RecoveryStateCatalogSHA256,
 		SourceRegistryJSON:          append([]byte(nil), registryBody...),
 		SourceRegistrySHA256:        registryProof.PlaintextSHA256,
 		ImplementationBindingJSON:   append([]byte(nil), bindingBody...),
@@ -1357,7 +1420,7 @@ func (service *VNextRestoreService) validatePostgresArtifact(
 	if artifact.SchemaID != PostgresSnapshotArtifactV2SchemaID ||
 		artifact.BackupSetID != integrity.BackupSetID ||
 		!artifact.ConsistencyPointAt.Equal(integrity.ConsistencyPointAt) ||
-		artifact.RecoveryStateCatalogSHA256 != service.state.DigestSHA256() ||
+		artifact.RecoveryStateCatalogSHA256 != integrity.RecoveryStateCatalogSHA256 ||
 		artifact.TransactionIsolation != VNextTransactionIsolation ||
 		len(artifact.Units) != recoverystate.RequiredTableCount {
 		return fmt.Errorf("%w: postgres snapshot facts mismatch", ErrVNextBackup)

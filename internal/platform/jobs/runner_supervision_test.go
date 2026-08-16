@@ -713,6 +713,164 @@ SELECT handler_attempt_id, handler_failure_count, handler_next_attempt_at
 	})
 }
 
+func TestRunnerWorkerCapacityAndMixedKindFairness_Integration(t *testing.T) {
+	base := time.Date(2026, 8, 16, 15, 0, 0, 0, time.UTC)
+	_, actorID, incidentID, pool := newJobsHarnessWithPool(t, "jobs-worker-capacity", func() time.Time { return base })
+	graphDefinition := jobs.Definition{
+		JobKind: "test_platform.graph_materialize_v1", ProgressUnitID: "test_platform.graph.attempt.v1",
+		HandlerName: "test_platform.graph_worker_v1",
+	}
+	regularDefinition := jobs.Definition{
+		JobKind: "test_platform.regular_v1", ProgressUnitID: "test_platform.regular.attempt.v1",
+		HandlerName: "test_platform.regular_worker_v1",
+	}
+	definitions := []jobs.Definition{graphDefinition, regularDefinition}
+	workerContracts := []jobs.WorkerRuntimeContract{
+		{ProfileID: "base", WorkerKind: graphDefinition.HandlerName, JobKinds: []string{graphDefinition.JobKind}, MaxActiveAttemptsPerProcess: 1},
+		{ProfileID: "base", WorkerKind: regularDefinition.HandlerName, JobKinds: []string{regularDefinition.JobKind}, MaxActiveAttemptsPerProcess: 8},
+	}
+	catalog, err := jobs.NewCatalog(definitions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transactions := collaborationsupport.NewJobTransactionsForCatalog(catalog, workerContracts)
+	clock := base
+	policy := jobs.ProductionRuntimePolicy()
+	policy.HandlerConcurrency = 4
+	policy.RecoveryScan = time.Hour
+	manager, err := jobs.NewManager(jobs.ManagerOptions{
+		Postgres: pool, Transactions: transactions, Catalog: catalog, Policy: policy,
+		Now: func() time.Time { return clock },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	testJobCompositions.Store(manager, testJobComposition{
+		catalog: catalog, transactions: transactions, pool: pool, now: func() time.Time { return clock },
+	})
+	t.Cleanup(func() { testJobCompositions.Delete(manager) })
+	graphJobIDs := make([]uuid.UUID, 0, policy.RecoveryBatch+1)
+	for range policy.RecoveryBatch + 1 {
+		resource, err := enqueueTestJob(t, manager, jobs.EnqueueParams{
+			JobKind: graphDefinition.JobKind, Scope: jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
+			SubmittedByUserID: actorID, Cancelable: true, Progress: jobs.Progress{Completed: 0},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		graphJobIDs = append(graphJobIDs, uuid.MustParse(resource.JobID))
+	}
+	clock = base.Add(time.Minute)
+	regularResource, err := enqueueTestJob(t, manager, jobs.EnqueueParams{
+		JobKind: regularDefinition.JobKind, Scope: jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
+		SubmittedByUserID: actorID, Cancelable: true, Progress: jobs.Progress{Completed: 0},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gate := &dequeueGate{}
+	gate.open.Store(true)
+	runner, err := jobs.NewRunner(jobs.RunnerOptions{Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { closeRunner(t, runner) })
+	graphEntered := make(chan uuid.UUID, 3)
+	allowGraphCompletion := make(chan struct{})
+	var graphActive atomic.Int32
+	var graphMaximum atomic.Int32
+	if err := runner.RegisterHandler(graphDefinition.HandlerName, func(ctx context.Context, execution jobs.Execution) error {
+		active := graphActive.Add(1)
+		defer graphActive.Add(-1)
+		for {
+			observed := graphMaximum.Load()
+			if active <= observed || graphMaximum.CompareAndSwap(observed, active) {
+				break
+			}
+		}
+		graphEntered <- execution.JobID()
+		select {
+		case <-allowGraphCompletion:
+			total := 1
+			_, err := manager.CompleteSucceeded(ctx, execution, jobs.SuccessCompletion{
+				Progress:      jobs.Progress{Completed: 1, Total: &total},
+				ResultSummary: jobs.ResultSummary{Code: "worker_capacity_complete", Message: "Worker capacity complete."},
+			})
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	regularCompleted := make(chan struct{}, 1)
+	if err := runner.RegisterHandler(regularDefinition.HandlerName, func(ctx context.Context, execution jobs.Execution) error {
+		total := 1
+		if _, err := manager.CompleteSucceeded(ctx, execution, jobs.SuccessCompletion{
+			Progress:      jobs.Progress{Completed: 1, Total: &total},
+			ResultSummary: jobs.ResultSummary{Code: "worker_fairness_complete", Message: "Worker fairness complete."},
+		}); err != nil {
+			return err
+		}
+		regularCompleted <- struct{}{}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := runner.Activate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var firstGraphJobID uuid.UUID
+	select {
+	case firstGraphJobID = <-graphEntered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("graph worker did not claim its one process slot")
+	}
+	select {
+	case <-regularCompleted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("regular worker was starved behind a full graph recovery batch")
+	}
+	select {
+	case <-graphEntered:
+		t.Fatal("graph worker exceeded its generated process capacity")
+	case <-time.After(100 * time.Millisecond):
+	}
+	if graphMaximum.Load() != 1 {
+		t.Fatalf("graph maximum active attempts = %d; want 1", graphMaximum.Load())
+	}
+	close(allowGraphCompletion)
+	deadline := time.Now().Add(2 * time.Second)
+	for graphActive.Load() != 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if graphActive.Load() != 0 {
+		t.Fatal("completed graph attempt did not release its worker reservation")
+	}
+	successorJobID := graphJobIDs[0]
+	if successorJobID == firstGraphJobID {
+		successorJobID = graphJobIDs[1]
+	}
+	successorDeadline := time.Now().Add(2 * time.Second)
+	successorAdmitted := false
+	for !successorAdmitted {
+		runner.Notify(successorJobID)
+		select {
+		case <-graphEntered:
+			successorAdmitted = true
+		case <-time.After(10 * time.Millisecond):
+		}
+		if !successorAdmitted && time.Now().After(successorDeadline) {
+			t.Fatal("released graph worker reservation did not admit a notified successor")
+		}
+	}
+	regular, err := manager.Get(context.Background(), uuid.MustParse(regularResource.JobID))
+	if err != nil || regular.Status != jobs.StatusSucceeded {
+		t.Fatalf("regular worker result = %#v/%v", regular, err)
+	}
+}
+
 func newSupervisedJobsHarness(
 	t testing.TB,
 	name string,
@@ -728,7 +886,7 @@ func newSupervisedJobsHarness(
 	if err != nil {
 		t.Fatal(err)
 	}
-	transactions := collaborationsupport.NewJobTransactionsForCatalog(catalog)
+	transactions := collaborationsupport.NewJobTransactionsForCatalog(catalog, collaborationsupport.TestWorkerRuntimeContracts([]jobs.Definition{definition}))
 	policy := jobs.ProductionRuntimePolicy()
 	policy.HandlerLease = 120 * time.Millisecond
 	policy.LeaseRenewal = 30 * time.Millisecond

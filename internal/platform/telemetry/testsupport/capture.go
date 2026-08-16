@@ -109,6 +109,10 @@ func (capture *Capture) MetricPoints(ctx context.Context) ([]MetricPoint, error)
 				for _, point := range data.DataPoints {
 					result = append(result, MetricPoint{Name: measurement.Name, FloatValue: point.Sum, IsFloat: true, Attributes: stringAttributes(point.Attributes.ToSlice())})
 				}
+			case metricdata.Histogram[int64]:
+				for _, point := range data.DataPoints {
+					result = append(result, MetricPoint{Name: measurement.Name, Value: point.Sum, Attributes: stringAttributes(point.Attributes.ToSlice())})
+				}
 			}
 		}
 	}

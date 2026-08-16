@@ -57,7 +57,7 @@ func newTestNetworkFlowStore(
 		authn.NewAdministrativeAuditAppender(),
 		indicatorOwner,
 	), WithSafeDigester(testNetworkFlowSafeDigester{}), WithResourceIntentAppender(networkflowsupport.NewResourceIntentAppender())}
-	return NewStore(db, append(defaults, options...)...)
+	return NewStore(db, DefaultEffectiveLimits(), append(defaults, options...)...)
 }
 
 type testNetworkFlowSafeDigester struct{}
@@ -264,7 +264,12 @@ func TestNetworkFlowStoreLimitsUseActiveAndRetainedCounts(t *testing.T) {
 		t,
 		harness.DB,
 		revisionsupport.MustAppender(t),
-		WithLimits(Limits{MaxActiveTablesPerIncident: 1, MaxRetainedTablesPerIncident: 2}),
+		WithEffectiveLimits(func() EffectiveLimits {
+			limits := DefaultEffectiveLimits()
+			limits.MaxActiveTablesPerIncident = 1
+			limits.MaxRetainedTablesPerIncident = 2
+			return limits
+		}()),
 	)
 	first := createTestTable(t, harness.DB, store, actor.ID, incidentID, "one.csv", nil, 1)
 

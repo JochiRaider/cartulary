@@ -200,6 +200,12 @@
       "filename": "00033_graph_projection_v1_removal.sql",
       "sha256": "ca2d578d53768dda6219afe2de5010b33b3a2540a3793af7a646426c5ceb5f43",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 34,
+      "filename": "00034_graph_projection_cleanup_indexes.sql",
+      "sha256": "615624aeb979fe3d376a8b013666ac5f175e9c343147baf0f714bfc006e81ca3",
+      "historical_phase_shaped": false
     }
   ]
 }

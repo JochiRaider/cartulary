@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -196,22 +197,34 @@ func (m *Manager) RecoverableJobs(ctx context.Context, limit int) ([]uuid.UUID, 
 	if err := m.ensureConfigured(); err != nil {
 		return nil, err
 	}
-	return m.recoverableJobsForSelection(ctx, limit, m.transactions.selection)
+	candidates, err := m.recoverableCandidatesForSelection(ctx, limit, m.transactions.selection, m.transactions.selection.jobKinds())
+	if err != nil {
+		return nil, err
+	}
+	jobIDs := make([]uuid.UUID, 0, len(candidates))
+	for _, candidate := range candidates {
+		jobIDs = append(jobIDs, candidate.JobID)
+	}
+	return jobIDs, nil
 }
 
-func (m *Manager) recoverableJobsForSelection(ctx context.Context, limit int, selection *RuntimeSelection) ([]uuid.UUID, error) {
+type runnerCandidate struct {
+	JobID       uuid.UUID
+	JobKind     string
+	HandlerName string
+}
+
+func (m *Manager) recoverableCandidatesForSelection(ctx context.Context, limit int, selection *RuntimeSelection, jobKinds []string) ([]runnerCandidate, error) {
 	if err := m.ensureConfigured(); err != nil {
 		return nil, err
 	}
 	if selection == nil || selection.catalog != m.catalog {
 		return nil, ErrNotConfigured
 	}
-	return m.recoverableJobs(ctx, limit, selection.jobKinds())
-}
-
-func (m *Manager) recoverableJobs(ctx context.Context, limit int, jobKinds []string) ([]uuid.UUID, error) {
-	if err := m.ensureConfigured(); err != nil {
-		return nil, err
+	for _, jobKind := range jobKinds {
+		if !selection.containsJobKind(jobKind) {
+			return nil, ErrInvalidJobDefinition
+		}
 	}
 	if len(jobKinds) == 0 {
 		return nil, nil
@@ -223,7 +236,7 @@ func (m *Manager) recoverableJobs(ctx context.Context, limit int, jobKinds []str
 		return nil, err
 	}
 	rows, err := m.pool.Query(ctx, `
-SELECT job_id
+SELECT job_id, job_kind
   FROM jobs
  WHERE status IN ('queued', 'running', 'cancel_requested')
    AND handler_failure_count < $1
@@ -237,15 +250,44 @@ SELECT job_id
 		return nil, err
 	}
 	defer rows.Close()
-	var jobIDs []uuid.UUID
+	var candidates []runnerCandidate
 	for rows.Next() {
-		var jobID uuid.UUID
-		if err := rows.Scan(&jobID); err != nil {
+		var candidate runnerCandidate
+		if err := rows.Scan(&candidate.JobID, &candidate.JobKind); err != nil {
 			return nil, err
 		}
-		jobIDs = append(jobIDs, jobID)
+		definition, present := m.catalog.definition(candidate.JobKind)
+		workerKind, assigned := selection.workerKindForJob(candidate.JobKind)
+		if !present || !assigned || definition.HandlerName != workerKind {
+			return nil, ErrInvalidJobDefinition
+		}
+		candidate.HandlerName = definition.HandlerName
+		candidates = append(candidates, candidate)
 	}
-	return jobIDs, rows.Err()
+	return candidates, rows.Err()
+}
+
+func (m *Manager) runnerCandidateForSelection(ctx context.Context, jobID uuid.UUID, selection *RuntimeSelection) (runnerCandidate, bool, error) {
+	if err := m.ensureConfigured(); err != nil {
+		return runnerCandidate{}, false, err
+	}
+	if selection == nil || selection.catalog != m.catalog || jobID == uuid.Nil {
+		return runnerCandidate{}, false, ErrNotConfigured
+	}
+	var jobKind string
+	err := m.pool.QueryRow(ctx, `SELECT job_kind FROM jobs WHERE job_id = $1`, jobID).Scan(&jobKind)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return runnerCandidate{}, false, nil
+	}
+	if err != nil {
+		return runnerCandidate{}, false, err
+	}
+	definition, present := m.catalog.definition(jobKind)
+	workerKind, assigned := selection.workerKindForJob(jobKind)
+	if !present || !assigned || definition.HandlerName != workerKind {
+		return runnerCandidate{}, false, nil
+	}
+	return runnerCandidate{JobID: jobID, JobKind: jobKind, HandlerName: definition.HandlerName}, true, nil
 }
 
 func (m *Manager) Claim(ctx context.Context, jobID uuid.UUID) (Execution, bool, error) {
@@ -277,15 +319,15 @@ func (m *Manager) claimForRunnerSelection(ctx context.Context, jobID uuid.UUID, 
 			return Execution{}, "", "", false, nil
 		}
 	}
-	execution, claimed, err := m.claimExecution(ctx, jobID, definition.HandlerName)
+	execution, claimed, err := m.claimExecution(ctx, jobID, definition.JobKind, definition.HandlerName)
 	return execution, definition.HandlerName, definition.JobKind, claimed, err
 }
 
-func (m *Manager) claimExecution(ctx context.Context, jobID uuid.UUID, handlerName string) (Execution, bool, error) {
+func (m *Manager) claimExecution(ctx context.Context, jobID uuid.UUID, jobKind string, handlerName string) (Execution, bool, error) {
 	if err := m.ensureConfigured(); err != nil {
 		return Execution{}, false, err
 	}
-	if jobID == uuid.Nil || handlerName == "" {
+	if jobID == uuid.Nil || jobKind == "" || handlerName == "" {
 		return Execution{}, false, ErrInvalidJobDefinition
 	}
 	now := m.now().UTC()
@@ -339,6 +381,13 @@ SELECT handler_name, handler_failure_count, handler_attempt_id,
 	if failureCount >= m.policy.MaximumFailures || (nextAttemptAt != nil && nextAttemptAt.After(now)) {
 		return Execution{}, false, tx.Commit(ctx)
 	}
+	eligibleAt := current.SubmittedAt.UTC()
+	if nextAttemptAt != nil {
+		eligibleAt = nextAttemptAt.UTC()
+	}
+	if eligibleAt.After(now) {
+		return Execution{}, false, fmt.Errorf("%w: job queue eligibility is after claim time", ErrInvalidTransition)
+	}
 	newAttemptID := uuid.New()
 	resource, err := scanJob(tx.QueryRow(ctx, `
 UPDATE jobs
@@ -374,6 +423,7 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 	if err := tx.Commit(ctx); err != nil {
 		return Execution{}, false, err
 	}
+	m.recordQueueWait(ctx, jobKind, now.Sub(eligibleAt))
 	return newExecution(jobID, newAttemptID), true, nil
 }
 

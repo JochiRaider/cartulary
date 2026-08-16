@@ -215,6 +215,97 @@ INSERT INTO jobs (
 	assertJobTelemetryMetrics(t, metrics, activeKinds)
 }
 
+func TestJobQueuedAndQueueWaitTelemetryUsesDurableEligibility_Integration(t *testing.T) {
+	ctx := context.Background()
+	base := time.Date(2026, 8, 16, 18, 0, 0, 0, time.UTC)
+	clock := base
+	capture := telemetrytest.StartCapture()
+	t.Cleanup(func() { capture.Close(context.Background()) })
+	manager, actorID, incidentID, pool := newJobsHarnessWithPool(t, "jobs-queue-telemetry", func() time.Time { return clock })
+
+	claimable, err := enqueueTestJob(t, manager, jobs.EnqueueParams{
+		JobKind:           collaborationsupport.TestJobKindForHandler("test.complete"),
+		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
+		SubmittedByUserID: actorID, Cancelable: true, Progress: jobs.Progress{Completed: 0},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	retryDelayed, err := enqueueTestJob(t, manager, jobs.EnqueueParams{
+		JobKind:           collaborationsupport.TestJobKindForHandler("test.error"),
+		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
+		SubmittedByUserID: actorID, Cancelable: true, Progress: jobs.Progress{Completed: 0},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+UPDATE jobs
+   SET status = 'running',
+       handler_failure_count = 1,
+       handler_next_attempt_at = $2
+ WHERE job_id = $1
+`, uuid.MustParse(retryDelayed.JobID), base.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+
+	clock = base.Add(30 * time.Second)
+	if _, claimed, err := manager.Claim(ctx, uuid.MustParse(claimable.JobID)); err != nil || !claimed {
+		t.Fatalf("claim queue-wait fixture = %t, %v", claimed, err)
+	}
+	if _, claimed, err := manager.Claim(ctx, uuid.MustParse(claimable.JobID)); err != nil || claimed {
+		t.Fatalf("duplicate claim emitted = %t, %v", claimed, err)
+	}
+	if _, claimed, err := manager.Claim(ctx, uuid.MustParse(retryDelayed.JobID)); err != nil || claimed {
+		t.Fatalf("retry-delayed claim emitted = %t, %v", claimed, err)
+	}
+
+	points, err := capture.MetricPoints(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	queueWaitKind := collaborationsupport.TestJobKindForHandler("test.complete")
+	queuedKind := collaborationsupport.TestJobKindForHandler("test.error")
+	queueWaitCount := 0
+	queuedCount := int64(-1)
+	for _, point := range points {
+		switch point.Name {
+		case "cartulary.jobs.queue_wait.duration":
+			if point.Attributes["cartulary.job_kind"] == queueWaitKind {
+				queueWaitCount++
+				if !point.IsFloat || point.FloatValue != 30 || len(point.Attributes) != 1 {
+					t.Fatalf("queue-wait point = %#v", point)
+				}
+			}
+		case "cartulary.jobs.queued":
+			if point.Attributes["cartulary.job_kind"] == queuedKind {
+				queuedCount = point.Value
+			}
+		}
+	}
+	if queueWaitCount != 1 {
+		t.Fatalf("successful claim queue-wait points = %d want 1: %#v", queueWaitCount, points)
+	}
+	if queuedCount != 1 {
+		t.Fatalf("retry-delayed queued gauge = %d want 1: %#v", queuedCount, points)
+	}
+
+	invalid, err := enqueueTestJob(t, manager, jobs.EnqueueParams{
+		JobKind:           collaborationsupport.TestJobKindForHandler("test.nil"),
+		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
+		SubmittedByUserID: actorID, Cancelable: true, Progress: jobs.Progress{Completed: 0},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE jobs SET submitted_at = $2 WHERE job_id = $1`, uuid.MustParse(invalid.JobID), clock.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if _, claimed, err := manager.Claim(ctx, uuid.MustParse(invalid.JobID)); !errors.Is(err, jobs.ErrInvalidTransition) || claimed {
+		t.Fatalf("negative queue wait invariant = claimed %t err %v", claimed, err)
+	}
+}
+
 func jobExpired(t testing.TB, pool *pgxpool.Pool, ctx context.Context) bool {
 	t.Helper()
 	var count int

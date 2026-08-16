@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   NetworkFlowGraphEdge,
   NetworkFlowGraphResult,
+  NetworkFlowGraphSelector,
   NetworkFlowGraphVertex,
 } from "./networkFlowClient";
 import { useNetworkFlowModalFocus } from "./useNetworkFlowModalFocus";
@@ -18,6 +19,9 @@ const edgePageSize = 1_000;
 export type NetworkFlowSavedGraphPanelController = ReturnType<
   typeof useNetworkFlowSavedGraphController
 >;
+type SavedGraphQueryResult = NonNullable<
+  NetworkFlowSavedGraphPanelController["result"]
+>["result"];
 
 export function NetworkFlowSavedGraphPanel({
   canCreate,
@@ -36,14 +40,57 @@ export function NetworkFlowSavedGraphPanel({
   const [displayName, setDisplayName] = useState("");
   const [vertexPage, setVertexPage] = useState(0);
   const [edgePage, setEdgePage] = useState(0);
+  const [bucketIndex, setBucketIndex] = useState(0);
   const selectedObjectButtonRef = useRef<HTMLButtonElement | null>(null);
-  const result = controller.result?.projection_result ?? null;
+  const graphResult = controller.result?.result ?? null;
+  const result = graphResult?.graph_projection_result ?? null;
+  const timeBuckets =
+    graphResult?.schema_id === "cartulary.network_flow.graph_query_result.v2" &&
+    graphResult.result_variant.kind === "time_bucket_v1"
+      ? graphResult.result_variant.time_buckets
+      : [];
+  const selectedBucket = timeBuckets[bucketIndex] ?? null;
+  const visibleTemporalEdgeIDs = useMemo(
+    () =>
+      new Set(
+        graphResult?.schema_id ===
+          "cartulary.network_flow.graph_query_result.v2" &&
+          selectedBucket !== null
+          ? graphResult.edge_annotations.flatMap((annotation) =>
+              annotation.selector.kind === "time_bucket_edge" &&
+              annotation.selector.bucket_start_utc ===
+                selectedBucket.start_utc &&
+              annotation.selector.bucket_end_utc === selectedBucket.end_utc
+                ? [annotation.projected_edge_id]
+                : [],
+            )
+          : [],
+      ),
+    [graphResult, selectedBucket],
+  );
+  const visibleTemporalVertexIDs = useMemo(() => {
+    const ids = new Set<string>();
+    if (selectedBucket === null) return ids;
+    for (const edge of result?.edges ?? []) {
+      if (visibleTemporalEdgeIDs.has(edge.edge_id)) {
+        ids.add(edge.src_vertex_id);
+        ids.add(edge.dst_vertex_id);
+      }
+    }
+    return ids;
+  }, [result, selectedBucket, visibleTemporalEdgeIDs]);
   const vertices = useMemo(
     () =>
-      [...(result?.vertices ?? [])].sort((left, right) =>
-        savedVertexLabel(left).localeCompare(savedVertexLabel(right)),
-      ),
-    [result],
+      [...(result?.vertices ?? [])]
+        .filter(
+          (vertex) =>
+            selectedBucket === null ||
+            visibleTemporalVertexIDs.has(vertex.vertex_id),
+        )
+        .sort((left, right) =>
+          savedVertexLabel(left).localeCompare(savedVertexLabel(right)),
+        ),
+    [result, selectedBucket, visibleTemporalVertexIDs],
   );
   const endpointLabels = useMemo(
     () =>
@@ -56,12 +103,17 @@ export function NetworkFlowSavedGraphPanel({
   );
   const edges = useMemo(
     () =>
-      [...(result?.edges ?? [])].sort((left, right) =>
-        savedEdgeLabel(left, endpointLabels).localeCompare(
-          savedEdgeLabel(right, endpointLabels),
+      [...(result?.edges ?? [])]
+        .filter(
+          (edge) =>
+            selectedBucket === null || visibleTemporalEdgeIDs.has(edge.edge_id),
+        )
+        .sort((left, right) =>
+          savedEdgeLabel(left, endpointLabels).localeCompare(
+            savedEdgeLabel(right, endpointLabels),
+          ),
         ),
-      ),
-    [endpointLabels, result],
+    [endpointLabels, result, selectedBucket, visibleTemporalEdgeIDs],
   );
   const visibleVertices = vertices.slice(
     vertexPage * vertexPageSize,
@@ -76,7 +128,14 @@ export function NetworkFlowSavedGraphPanel({
   useEffect(() => {
     setVertexPage(0);
     setEdgePage(0);
+    setBucketIndex(0);
   }, [result?.projection_result_id]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: bucket navigation resets bounded object pages.
+  useEffect(() => {
+    setVertexPage(0);
+    setEdgePage(0);
+  }, [bucketIndex]);
 
   useEffect(() => {
     if (
@@ -280,6 +339,43 @@ export function NetworkFlowSavedGraphPanel({
                     Result {shortIdentity(result.projection_result_id)} ·{" "}
                     {vertices.length} vertices · {edges.length} edges
                   </p>
+                  {vertices.length > vertexPageSize ||
+                  edges.length > edgePageSize ? (
+                    <p style={mutedStyle}>
+                      Large results are paged: at most {vertexPageSize} vertices
+                      and {edgePageSize} edges are mounted at once.
+                    </p>
+                  ) : null}
+                  {selectedBucket === null ? null : (
+                    <nav
+                      aria-label="Saved graph time bucket navigation"
+                      style={pagerStyle}
+                    >
+                      <button
+                        disabled={bucketIndex === 0}
+                        type="button"
+                        onClick={() => setBucketIndex((current) => current - 1)}
+                      >
+                        Previous bucket
+                      </button>
+                      <strong>
+                        Bucket {bucketIndex + 1} of {timeBuckets.length}
+                      </strong>
+                      <span>
+                        [{selectedBucket.start_utc}, {selectedBucket.end_utc}) ·{" "}
+                        {selectedBucket.unique_vertex_count} vertices ·{" "}
+                        {selectedBucket.edge_count} edges ·{" "}
+                        {selectedBucket.contributing_row_count} rows
+                      </span>
+                      <button
+                        disabled={bucketIndex + 1 >= timeBuckets.length}
+                        type="button"
+                        onClick={() => setBucketIndex((current) => current + 1)}
+                      >
+                        Next bucket
+                      </button>
+                    </nav>
+                  )}
                   <BoundedPager
                     itemLabel="vertices"
                     page={vertexPage}
@@ -289,7 +385,7 @@ export function NetworkFlowSavedGraphPanel({
                   />
                   <ul aria-label="Saved graph vertices" style={objectListStyle}>
                     {visibleVertices.map((vertex) => {
-                      const selectorID = savedVertexSelectorID(vertex);
+                      const selector = savedVertexSelector(graphResult, vertex);
                       return (
                         <li
                           data-testid={networkAnalysisSavedGraphVertexTestId(
@@ -298,16 +394,12 @@ export function NetworkFlowSavedGraphPanel({
                           key={vertex.vertex_id}
                         >
                           <button
-                            disabled={selectorID === null}
+                            disabled={selector === null}
                             type="button"
                             onClick={(event) => {
                               selectedObjectButtonRef.current =
                                 event.currentTarget;
-                              void controller.selectObject(
-                                selectorID === null
-                                  ? null
-                                  : { kind: "vertex", vertex_id: selectorID },
-                              );
+                              void controller.selectObject(selector);
                             }}
                           >
                             {savedVertexLabel(vertex)}
@@ -325,7 +417,11 @@ export function NetworkFlowSavedGraphPanel({
                   />
                   <ul aria-label="Saved graph edges" style={objectListStyle}>
                     {visibleEdges.map((edge) => {
-                      const selectorID = savedEdgeSelectorID(edge);
+                      const selector = savedEdgeSelector(
+                        graphResult,
+                        edge,
+                        endpointLabels,
+                      );
                       return (
                         <li
                           data-testid={networkAnalysisSavedGraphEdgeTestId(
@@ -334,16 +430,12 @@ export function NetworkFlowSavedGraphPanel({
                           key={edge.edge_id}
                         >
                           <button
-                            disabled={selectorID === null}
+                            disabled={selector === null}
                             type="button"
                             onClick={(event) => {
                               selectedObjectButtonRef.current =
                                 event.currentTarget;
-                              void controller.selectObject(
-                                selectorID === null
-                                  ? null
-                                  : { kind: "edge", edge_id: selectorID },
-                              );
+                              void controller.selectObject(selector);
                             }}
                           >
                             {savedEdgeLabel(edge, endpointLabels)}
@@ -553,15 +645,76 @@ function savedGraphStatusMessage(
   }
 }
 
-function savedVertexSelectorID(vertex: NetworkFlowGraphVertex): string | null {
-  return vertex.source_entity_ref?.source_entity_id ?? null;
+function savedVertexSelector(
+  graph: SavedGraphQueryResult | null,
+  vertex: NetworkFlowGraphVertex,
+): Extract<NetworkFlowGraphSelector, { readonly kind: "vertex" }> | null {
+  if (graph?.schema_id === "cartulary.network_flow.graph_query_result.v2") {
+    return (
+      graph.vertex_selectors.find(
+        (binding) => binding.projected_vertex_id === vertex.vertex_id,
+      )?.selector ?? null
+    );
+  }
+  const sourceVertexID = vertex.source_entity_ref?.source_entity_id;
+  const endpointValue = vertex.properties.endpoint_value;
+  return typeof sourceVertexID === "string" &&
+    typeof endpointValue === "string" &&
+    endpointValue !== ""
+    ? {
+        kind: "vertex",
+        source_vertex_id: sourceVertexID,
+        endpoint_value: endpointValue,
+      }
+    : null;
 }
 
-function savedEdgeSelectorID(edge: NetworkFlowGraphEdge): string | null {
-  const propertyID = edge.properties.edge_id;
-  return typeof propertyID === "string"
-    ? propertyID
-    : (edge.source_relationship_ref?.source_relationship_id ?? null);
+function savedEdgeSelector(
+  graph: SavedGraphQueryResult | null,
+  edge: NetworkFlowGraphEdge,
+  endpointLabels: ReadonlyMap<string, string>,
+): Exclude<NetworkFlowGraphSelector, { readonly kind: "vertex" }> | null {
+  if (graph?.schema_id === "cartulary.network_flow.graph_query_result.v2") {
+    return (
+      graph.edge_annotations.find(
+        (annotation) => annotation.projected_edge_id === edge.edge_id,
+      )?.selector ?? null
+    );
+  }
+  const sourceEdgeID =
+    typeof edge.properties.edge_id === "string"
+      ? edge.properties.edge_id
+      : edge.source_relationship_ref?.source_relationship_id;
+  const sourceEndpoint = endpointLabels.get(edge.src_vertex_id);
+  const destinationEndpoint = endpointLabels.get(edge.dst_vertex_id);
+  const protocol = edge.properties.ip_protocol;
+  const destinationPort = edge.properties.dst_port;
+  if (
+    typeof sourceEdgeID !== "string" ||
+    typeof sourceEndpoint !== "string" ||
+    typeof destinationEndpoint !== "string" ||
+    typeof protocol !== "number"
+  ) {
+    return null;
+  }
+  return typeof destinationPort === "number"
+    ? {
+        kind: "default_edge",
+        source_edge_id: sourceEdgeID,
+        source_endpoint_value: sourceEndpoint,
+        destination_endpoint_value: destinationEndpoint,
+        protocol,
+        destination_port_present: true,
+        destination_port: destinationPort,
+      }
+    : {
+        kind: "default_edge",
+        source_edge_id: sourceEdgeID,
+        source_endpoint_value: sourceEndpoint,
+        destination_endpoint_value: destinationEndpoint,
+        protocol,
+        destination_port_present: false,
+      };
 }
 
 function savedVertexLabel(vertex: NetworkFlowGraphVertex): string {

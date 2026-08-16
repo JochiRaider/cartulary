@@ -314,6 +314,7 @@ Instrumentation ownership MUST follow this table:
 | Postgres access | Platform/Postgres instrumentation | Standard database client spans and duration metrics without SQL text, bind values, table names, projection names, or connection endpoints. | Workbook modules MUST NOT directly emit raw database query text. |
 | Object storage | Platform/object-store instrumentation | Cartulary object-store dependency spans and byte/duration metrics without bucket names, keys, hashes, filenames, upload IDs, copy sources, or handles. | Object-store implementation details MUST NOT leak into evidence telemetry. |
 | Evidence cleanup | Evidence-owned cleanup observer bound by application assembly | Sweep result/duration, overdue count, oldest eligible age, and bounded static logs. | Incident, record, blob, object-key, filename, hash, capability, and raw-error values MUST NOT enter telemetry. |
+| Network Flow graph materialization and cleanup | Network Flow-owned observer bound by application assembly | Phase duration, bounded volume, cleanup outcome/deletions/backlog, and bounded static logs. | Incident, table, declaration, result, selector, digest, label, row, property, SQL, and raw-error values MUST NOT enter telemetry. |
 | Workbook query and mutation | Workbook/projection instrumentation | Query, create, patch, conflict, projection-maintenance, and refresh spans. | Projection table names and visible row positions MUST NOT become telemetry identity. |
 | Browser UI | Browser controller instrumentation | Local performance marks MAY exist. | Browser direct OTLP, vendor-native, or third-party telemetry export is forbidden. |
 | Telemetry bootstrap | Server-side telemetry boundary | SDK provider setup, processors, exporters, metric readers, samplers, shutdown, and self-diagnostics. | Ordinary instrumentation units MUST NOT configure SDK, exporter, processor, reader, sampler, propagator, or Collector behavior. |
@@ -330,6 +331,7 @@ Each tracer, meter, or logger MUST be created with one of the following instrume
 | `cartulary.collaboration` | WebSocket subscription and server-to-client events | traces, metrics, logs |
 | `cartulary.evidence` | Failed unattached Evidence cleanup | metrics, logs |
 | `cartulary.jobs` | Background-job enqueue and execution | traces, metrics, logs |
+| `cartulary.network_flow` | Network Flow graph materialization and result cleanup | traces, metrics, logs |
 | `cartulary.postgres` | Postgres dependency spans and pool/dependency metrics | traces, metrics |
 | `cartulary.objectstore` | S3-compatible object storage abstraction | traces, metrics |
 | `cartulary.telemetry` | Telemetry self-metrics and bounded diagnostics | metrics, logs |
@@ -720,11 +722,14 @@ The current profile permits only the custom attributes in this registry:
 | --- | --- | --- | --- | --- |
 | `cartulary.deployment.profile` | string | Active deployment profile token | Deployment profile vocabulary | resource |
 | `cartulary.profile.claims` | string | ASCII-sorted comma-delimited set containing `base` plus claimed extension `profile_id` tokens | Current profile vocabulary combinations | resource |
-| `cartulary.module` | string | `httpapi`, `workbook`, `collaboration`, `evidence`, `jobs`, `postgres`, `objectstore`, `telemetry` | 8 | spans, metrics, logs |
+| `cartulary.module` | string | `httpapi`, `workbook`, `collaboration`, `evidence`, `jobs`, `network_flow`, `postgres`, `objectstore`, `telemetry` | 9 | spans, metrics, logs |
 | `cartulary.route_family` | string | Closed route-family token, not a route path | Route-family registry count | spans, metrics, logs |
 | `cartulary.view_schema_id` | string | Standardized `view_schema_id` token only | Current profile view-schema count | spans, metrics |
 | `cartulary.record_type` | string | Closed record-type vocabulary | Current profile record-type count | spans, metrics |
 | `cartulary.operation` | string | Closed operation token owned by signal registry | Operation registry count | spans, metrics, logs |
+| `cartulary.phase` | string | `source_validation`, `source_scan`, `projection`, `publication`, `cleanup_sweep` | 5 | spans, metrics, logs |
+| `cartulary.graph_mode` | string | `default_flow_edge_v1`, `time_bucket_v1` | 2 | spans, metrics |
+| `cartulary.graph_object_kind` | string | `vertex`, `edge`, `time_bucket`, `contributing_row`, `lease`, `projection_result` | 6 | metrics |
 | `cartulary.result` | string | `success`, `rejected`, `conflict`, `canceled`, `failed`, `timeout`, `dropped` | 7 | spans, metrics, logs |
 | `cartulary.error_code` | string | Public error-code token or `internal_error` | Public error-code registry count | spans, logs |
 | `cartulary.error_class` | string | Closed low-cardinality implementation or dependency class | Error-class registry count | spans, metrics, logs |
@@ -757,6 +762,16 @@ eligible for retry emits `cartulary.result='failed'` and omits
 `cartulary.result='failed'`. Ordinary user-requested terminal cancellation
 emits `cartulary.result='canceled'`. These signals MUST NOT change retry,
 transition, or shutdown behavior when telemetry is disabled or unavailable.
+
+The `cartulary.jobs.queued` observation MUST count currently queued durable
+jobs by the same closed catalog-backed job kind, including retry-delayed jobs.
+`cartulary.jobs.queue_wait.duration` MUST be recorded exactly once when a
+durable execution claim succeeds and MUST measure seconds from
+`COALESCE(handler_next_attempt_at, submitted_at)` to the successful claim
+instant. Claim misses, failed claims, notification receipt, candidate
+discovery, and handler start MUST NOT emit queue wait. An impossible negative
+duration is an invariant violation and MUST NOT be clamped into valid
+telemetry.
 
 #### 8.5.1 Error code and error class registry
 
@@ -922,6 +937,8 @@ The implementation MUST emit spans for the following families when tracing is en
 | WebSocket event send | `cartulary.collaboration.event_send` | `cartulary.websocket.event_type`, `cartulary.result`. | Event payload, record ID, user ID, connection ID. |
 | Job enqueue | `cartulary.jobs.enqueue` | `cartulary.job_kind`, `cartulary.operation='enqueue'`, `cartulary.result`. | Job ID, incident ID, request body. |
 | Job run | `cartulary.jobs.run` | `cartulary.job_kind`, `cartulary.result`; `cartulary.job_terminal_status` only when the attempt causes or observes terminal job state. | Job ID, attempt ID, progress-unit ID, artifact path, incident ID, evidence ID. |
+| Network Flow graph phase | `cartulary.network_flow.graph.phase` | `cartulary.operation='graph_materialization'`, `cartulary.phase`, `cartulary.graph_mode`, `cartulary.result`; optional `cartulary.error_class`. | Incident, table, declaration, job, result, selector, digest, endpoint, label, row, property, SQL, or raw error. |
+| Network Flow cleanup sweep | `cartulary.network_flow.cleanup` | `cartulary.operation='cleanup_sweep'`, `cartulary.phase='cleanup_sweep'`, `cartulary.result`; optional `cartulary.error_class`. | Source owner, incident, declaration, result, lease, digest, SQL, or raw error. |
 | Postgres dependency | `cartulary.postgres.operation` | `db.system.name='postgresql'`, `cartulary.operation`, `cartulary.result`. | SQL text, query summary, bind values, table names, database name, server address, port. |
 | Object-store dependency | `cartulary.objectstore.operation` | `cartulary.operation`, `cartulary.result`. | Bucket, key, filename, object hash, upload ID, copy source, storage ref. |
 
@@ -1059,10 +1076,20 @@ When metrics are enabled, the implementation MUST emit only the metric instrumen
 | `cartulary.evidence.cleanup.overdue` | ObservableGauge | `{blob}` | Current failed unattached Evidence blobs beyond the deletion deadline. | No attributes. |
 | `cartulary.evidence.cleanup.oldest_eligible.age` | ObservableGauge | `s` | Age of the oldest currently eligible failed unattached Evidence blob. | No attributes. |
 | `cartulary.jobs.active` | ObservableGauge | `{job}` | Active background jobs by kind. | `cartulary.job_kind`. |
+| `cartulary.jobs.queued` | ObservableGauge | `{job}` | Queued background jobs, including retry-delayed jobs, by kind. | `cartulary.job_kind`. |
+| `cartulary.jobs.queue_wait.duration` | Histogram | `s` | Eligibility-to-successful-claim duration. | `cartulary.job_kind`. |
 | `cartulary.jobs.duration` | Histogram | `s` | Background job runtime duration. | `cartulary.job_kind`, `cartulary.job_terminal_status`, `cartulary.result`, optional `cartulary.error_code`. |
 | `cartulary.jobs.attempts` | Counter | `{attempt}` | Completed handler attempts by kind and closed outcome. | `cartulary.job_kind`, `cartulary.result`. |
 | `cartulary.jobs.expired` | Counter | `{job}` | Job resources compacted after logical expiry. | `cartulary.job_kind`. |
 | `cartulary.jobs.lease_renewal.failures` | Counter | `{failure}` | Failed lease renewals by kind and closed outcome. | `cartulary.job_kind`, `cartulary.result`. |
+| `cartulary.network_flow.graph.phase.duration` | Histogram | `s` | Network Flow graph source-validation, scan, projection, or publication phase duration. | `cartulary.phase`, `cartulary.graph_mode`, `cartulary.result`, optional `cartulary.error_class`. |
+| `cartulary.network_flow.graph.contributing_rows` | Histogram | `{row}` | Accepted source rows contributing to one graph result. | `cartulary.graph_mode`, `cartulary.result`. |
+| `cartulary.network_flow.graph.result.objects` | Histogram | `{object}` | Vertices, edges, or time buckets in one graph result. | `cartulary.graph_mode`, `cartulary.graph_object_kind`, `cartulary.result`. |
+| `cartulary.network_flow.cleanup.operations` | Counter | `{operation}` | Network Flow cleanup sweeps by closed outcome. | `cartulary.operation='cleanup_sweep'`, `cartulary.result`, optional `cartulary.error_class`. |
+| `cartulary.network_flow.cleanup.sweep.duration` | Histogram | `s` | Network Flow cleanup sweep duration. | `cartulary.operation='cleanup_sweep'`, `cartulary.result`, optional `cartulary.error_class`. |
+| `cartulary.network_flow.cleanup.deleted` | Counter | `{object}` | Expired leases and eligible projection results deleted by cleanup. | `cartulary.graph_object_kind`, `cartulary.result`. |
+| `cartulary.network_flow.cleanup.eligible` | ObservableGauge | `{result}` | Current eligible projection-result backlog. | No attributes. |
+| `cartulary.network_flow.cleanup.oldest_eligible_result.age` | ObservableGauge | `s` | Age from `published_at` of the oldest currently eligible projection result. | No attributes. |
 | `cartulary.postgres.operation.duration` | Histogram | `s` | Postgres dependency operation duration. | `db.system.name`, `cartulary.operation`, `cartulary.result`, optional `cartulary.error_class`. |
 | `cartulary.objectstore.operation.duration` | Histogram | `s` | Object-store dependency operation duration. | `cartulary.operation`, `cartulary.result`, optional `cartulary.error_class`. |
 | `cartulary.objectstore.transfer.bytes` | Histogram | `By` | Safe object-store transfer size. | `cartulary.operation`, `cartulary.result`; no object labels. |
@@ -1072,6 +1099,33 @@ When metrics are enabled, the implementation MUST emit only the metric instrumen
 
 **OTEL-REQ-079**
 Unknown metrics MUST NOT be emitted. Adding a metric, changing an instrument kind, changing a unit, changing allowed attributes, changing temporality, or changing aggregation MUST be classified under §4.5.
+
+**OTEL-REQ-152**
+Network Flow graph telemetry MUST be emitted only through the
+`cartulary.network_flow` scope and the registry rows above. A materialization
+records phase duration at each completed or failed boundary for source
+validation, source scan, Graph Projection, and final publication. It records
+contributing rows and result vertices, edges, and buckets only after the
+corresponding count is known; a failed pre-count phase emits no invented zero.
+A timeout uses `cartulary.result='timeout'` and
+`cartulary.error_class='timeout'` without changing the owner-defined timeout or
+indeterminate-commit outcome.
+
+Cleanup backlog and oldest age MUST be observed from the same source-owner-
+scoped eligibility predicate used by cleanup. Oldest eligible age is
+`observation_time - published_at` for the oldest eligible result and is absent
+when none is eligible. It MUST NOT be named, described, or interpreted as
+"time unreachable" because no authoritative unreachable transition is
+persisted. Deleted-object counts distinguish only the closed
+`cartulary.graph_object_kind` values `lease` and `projection_result`.
+
+Network Flow telemetry MUST NOT emit identifiers, source-owner tokens,
+declaration or result references, digests, selectors, endpoint values, labels,
+rows, properties, SQL text, database object names, cursor contents, or raw
+errors. Observer, API, SDK, processor, reader, logger, or exporter failure MUST
+be contained by the telemetry boundary and MUST NOT change graph output,
+publication, cleanup, retry, cancellation, timeout, readiness, or shutdown
+behavior.
 
 ### 10.5 Metric view and attribute-filter contract
 
@@ -1428,6 +1482,7 @@ The corpus is closed by this fixture table. Every fixture ID is required; suppor
 | `OTEL-CORPUS-016` | Exporter | Export disabled, OTLP/HTTP URL construction, OTLP/gRPC target and channel security, header secret references, User-Agent grammar, retry, timeout, and shutdown match §12. |
 | `OTEL-CORPUS-017` | Product-boundary runtime invariance | HTTP request, workbook query, workbook mutation, WebSocket send, evidence access, and background-job transition outputs and committed state match the no-export baseline under exporter failure, timeout, queue overflow, and redaction rejection. |
 | `OTEL-CORPUS-018` | Redaction | Owner-listed forbidden literals from every family in §8.4 are absent from spans, metrics, logs, resource attributes, self-diagnostics, retained artifacts, and exporter attempts. |
+| `OTEL-CORPUS-019` | Jobs queue and Network Flow graphs | Queue count/wait, graph phase/volume, cleanup outcome/deletion/backlog/oldest-age, cancellation, timeout, no-export, telemetry-self-failure, closed cardinality, and privacy sentinels match the registries and leave product behavior unchanged. |
 
 ### 14.2 Canonical telemetry-shape normalization
 
@@ -1515,6 +1570,7 @@ owner-requirement prose and static conformance or acceptance status fields.
 - **OTEL-AC-025:** The conformance corpus emits no `otel.metric.overflow=true` datapoint except an explicit overflow-negative test, and that negative test records `cartulary.drop_reason='metric_overflow'` when non-recursive.
 - **OTEL-AC-026:** Metric temporality is cumulative for every current-profile instrument.
 - **OTEL-AC-026A:** Metric `Bind` or pre-bound attribute paths are absent from Cartulary instrumentation or are proven unable to bypass §8 and §10.4 validation.
+- **OTEL-AC-026B:** `OTEL-CORPUS-019` proves exact Jobs queued and queue-wait measurements plus Network Flow phase, volume, cleanup, backlog, and `published_at` age semantics; disabled export, observer failure, exporter failure, cancellation, and timeout leave product state and responses unchanged, and privacy sentinels never enter signals.
 
 ### 15.6 Logs criteria
 

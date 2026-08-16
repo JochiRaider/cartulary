@@ -25,6 +25,7 @@ const (
 	ScopeCollaboration Scope = "cartulary.collaboration"
 	ScopeEvidence      Scope = "cartulary.evidence"
 	ScopeJobs          Scope = "cartulary.jobs"
+	ScopeNetworkFlow   Scope = "cartulary.network_flow"
 	ScopePortability   Scope = "cartulary.incident_portability"
 	ScopePostgres      Scope = "cartulary.postgres"
 	ScopeObjectStore   Scope = "cartulary.objectstore"
@@ -37,6 +38,7 @@ var registeredScopes = map[Scope]struct{}{
 	ScopeCollaboration: {},
 	ScopeEvidence:      {},
 	ScopeJobs:          {},
+	ScopeNetworkFlow:   {},
 	ScopePortability:   {},
 	ScopePostgres:      {},
 	ScopeObjectStore:   {},
