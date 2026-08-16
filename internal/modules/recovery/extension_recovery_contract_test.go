@@ -47,8 +47,8 @@ func TestExtensionBackupManifestRecordsCanonicalBindingProofs_Integration(t *tes
 		t.Fatalf("manifest schema got %q want %q", manifest.SchemaID, recovery.BackupIntegrityManifestSchemaID)
 	}
 	bindings := catalog.Bindings()
-	if len(manifest.ExtensionBindings) != len(bindings) || len(bindings) != 4 {
-		t.Fatalf("extension binding proof count got %d catalog=%d want 4", len(manifest.ExtensionBindings), len(bindings))
+	if len(manifest.ExtensionBindings) != len(bindings) || len(bindings) != 5 {
+		t.Fatalf("extension binding proof count got %d catalog=%d want 5", len(manifest.ExtensionBindings), len(bindings))
 	}
 	for index, proof := range manifest.ExtensionBindings {
 		binding := bindings[index]

@@ -11,31 +11,28 @@ import (
 )
 
 func TestGraphRestoreCurrentRegistryAndBindingsAreExact(t *testing.T) {
-	registry, err := NewRestoreSourceRegistry()
-	if err != nil {
-		t.Fatalf("construct empty restore source registry: %v", err)
-	}
+	registry := CurrentRestoreSourceRegistry()
 	if registry.DigestSHA256() != contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256 ||
 		registry.DigestSHA256() != CurrentRestoreSourceRegistry().DigestSHA256() ||
-		len(registry.Document().Entries) != 0 {
-		t.Fatalf("current empty restore source registry drifted: %#v", registry.Document())
+		len(registry.Document().Entries) != 1 {
+		t.Fatalf("current v2 restore source registry drifted: %#v", registry.Document())
 	}
 	current := CurrentRestoreImplementationBinding()
-	legacy := LegacyEmptyRegistryRestoreImplementationBinding()
 	if current.Binding.SchemaID != RestoreImplementationBindingSchemaID ||
-		current.Binding.AlgorithmID != RestoreAlgorithmID || current.Legacy ||
+		current.Binding.AlgorithmID != RestoreAlgorithmID ||
 		current.Binding.SourceRegistrySHA256 != registry.DigestSHA256() ||
 		!equalStrings(current.Binding.GraphTableIDs, RestoreGraphTableIDs()) ||
 		current.SHA256 != contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256 {
 		t.Fatalf("current restore implementation binding drifted: %#v", current)
 	}
-	if !legacy.Legacy || legacy.Binding.BindingID == current.Binding.BindingID ||
-		legacy.Binding.SourceRegistrySHA256 != registry.DigestSHA256() || legacy.SHA256 == current.SHA256 {
-		t.Fatalf("historical empty-registry binding is not exact and distinct: %#v", legacy)
-	}
 	var canonical map[string]any
 	if err := json.Unmarshal([]byte(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON), &canonical); err != nil || len(canonical) != 13 {
 		t.Fatalf("generated implementation binding is not a closed canonical object: fields=%d err=%v", len(canonical), err)
+	}
+	for path := range contractrecovery.Index {
+		if strings.Contains(path, "graph-projection-restore-") && strings.Contains(path, ".v1") {
+			t.Fatalf("retired Graph restore v1 artifact remains packaged: %s", path)
+		}
 	}
 }
 
@@ -45,10 +42,11 @@ func TestGraphRestoreResultContractClosesStatesAndSafeErrors(t *testing.T) {
 		SchemaID: RestoreRebuildResultSchemaID, RestoreOperationID: uuid.NewString(),
 		TargetGenerationID: uuid.NewString(), Status: RestoreStatusSucceeded,
 		ReadinessOutcome: RestoreReadinessReady, AlgorithmID: RestoreAlgorithmID,
-		ImplementationBindingSHA256: strings.Repeat("b", 64),
-		SourceRegistrySHA256:        strings.Repeat("c", 64),
-		ClearedTableIDs:             RestoreGraphTableIDs(),
-		RebuiltViews:                []RestoreRebuiltView{}, SkippedCandidates: []RestoreSkippedCandidate{},
+		ImplementationBindingSHA256:   strings.Repeat("b", 64),
+		SourceRegistrySHA256:          strings.Repeat("c", 64),
+		ClearedTableIDs:               RestoreGraphTableIDs(),
+		RebuiltViews:                  []RestoreRebuiltView{},
+		ReconciledNonterminalJobCount: 0, ReconciledLeaseCount: 0,
 		PostconditionSHA256: &postcondition, Warnings: []RestoreSafeMessage{}, Errors: []RestoreSafeMessage{},
 	}
 	if err := result.Validate(); err != nil || !result.ReadinessSatisfied() {

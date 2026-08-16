@@ -138,20 +138,36 @@ const value = {
     {
       "admission_validation": {
         "dependency_probes": [],
-        "post_migration_algorithmid": "network_flow_activity.validate_state_v1",
+        "post_migration_algorithmid": "network_flow_activity.validate_state_v2",
         "preflight_algorithmid": null,
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "capability_ids": [],
       "claim_config_key": "network_flow_activity.claimed",
       "claimable": true,
-      "contract_major": 2,
+      "contract_major": 3,
       "contributions": [
         {
           "contribution_id": "network_flow_activity.backup_restore",
           "kind": "backup_restore_participant",
           "participant_contract_sha256": "b9e5a9ac55176dd464d7370f4099c1d37a192c772a3e02eee7a67a70661e4b19",
           "participant_id": "network_flow_activity.backup_restore_v1"
+        },
+        {
+          "contribution_id": "network_flow_activity.graph_projection_rebuild",
+          "kind": "derived_state_rebuild",
+          "rebuild_algorithm_id": "graphprojection.restore_rebuild.v2",
+          "state_family_ids": [
+            "graph_projection_result_edges",
+            "graph_projection_result_leases",
+            "graph_projection_result_vertices",
+            "graph_projection_results"
+          ]
+        },
+        {
+          "contribution_id": "network_flow_activity.graph_view_resource",
+          "kind": "extension_resource_kind",
+          "resource_kind": "network_flow_graph_view"
         },
         {
           "contribution_id": "network_flow_activity.import_apply",
@@ -164,6 +180,11 @@ const value = {
           "facade_binding_id": "network_flow_activity.import_facade.v1",
           "kind": "import_target",
           "target_kind": "network_flow_table"
+        },
+        {
+          "contribution_id": "network_flow_activity.indicator_binding_resource",
+          "kind": "extension_resource_kind",
+          "resource_kind": "network_flow_indicator_binding"
         },
         {
           "contribution_id": "network_flow_activity.indicator_link",
@@ -182,9 +203,24 @@ const value = {
           "resource_kind": "network_flow_table"
         },
         {
+          "contribution_id": "network_flow_activity.reporting_graph_source",
+          "kind": "snapshot_reporting_participant",
+          "participant_contract_sha256": "27a94644e0b1da3a5418a443e0e8268fb9224e107b25242270edfc78e95c74b9",
+          "participant_id": "network_flow_activity.reporting_graph_source_v1"
+        },
+        {
           "contribution_id": "network_flow_activity.route_family",
           "kind": "http_route_family",
           "route_family": "/api/v1/incidents/{incident_id}/network-flow"
+        },
+        {
+          "contribution_id": "network_flow_activity.websocket_invalidation",
+          "kind": "websocket_invalidation",
+          "resource_kinds": [
+            "network_flow_graph_view",
+            "network_flow_indicator_binding",
+            "network_flow_table"
+          ]
         }
       ],
       "egress_mode": "none",
@@ -203,13 +239,13 @@ const value = {
         }
       ],
       "schema_id": "cartulary.extension_profile_descriptor.v3",
-      "snapshot_reporting_mode": "no_participation",
+      "snapshot_reporting_mode": "participant",
       "state_ownership": {
-        "current_state_version": 1,
+        "current_state_version": 2,
         "empty_state_policy": "allowed",
-        "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v1",
-        "final_state_validation_algorithmid": "network_flow_activity.validate_state_v1",
-        "initialization_definition_sha256": "ce2880c81cbd633e07efc6906b80820f648237d2200693e7a8076cd484a85cda",
+        "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v2",
+        "final_state_validation_algorithmid": "network_flow_activity.validate_state_v2",
+        "initialization_definition_sha256": "b962240fa32fb6ad3a78acc400f839b3bcf573b75df22c90d9ff2f96c1d9c784",
         "initialization_schema_id": "cartulary.extension_state_initialization_definition.v1",
         "kind": "extension_versioned",
         "migration_lineage_id": "network_flow_activity.state_v1",

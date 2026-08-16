@@ -204,7 +204,7 @@ func assertRecoveryCardinality(t testing.TB, manifest schemaObjectManifest) {
 			revisionConflictFacts++
 		}
 	}
-	if authoritative != 83 || revisionConflictFacts != 1 || len(manifestTables) != 113 {
+	if authoritative != 84 || revisionConflictFacts != 1 || len(manifestTables) != 113 {
 		t.Fatalf("Recovery facts = tables %d/%d, authoritative %d, revision conflict facts %d", len(recovery.Tables), len(manifestTables), authoritative, revisionConflictFacts)
 	}
 }

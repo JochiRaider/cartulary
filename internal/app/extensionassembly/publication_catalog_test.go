@@ -36,20 +36,21 @@ func TestPublicationCatalog_ExactGeneratedSets_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := catalog.ContributionIDs(""); len(got) != 18 {
-		t.Fatalf("contribution catalog = %d; want 18: %v", len(got), got)
+	if got := catalog.ContributionIDs(""); len(got) != 23 {
+		t.Fatalf("contribution catalog = %d; want 23: %v", len(got), got)
 	}
 	if got, want := catalog.WorkerKinds(), []string{
 		"import.apply_worker_v1",
 		"import.discovery_worker_v1",
 		"incident_portability.bundle_worker_v1",
+		"network_flow_activity.graph_view_worker_v1",
 		"reference_pack.lifecycle_worker_v1",
 		"snapshot_reporting.job_worker_v1",
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("worker catalog = %v; want %v", got, want)
 	}
-	if got := catalog.JobKinds(); len(got) != 10 {
-		t.Fatalf("job catalog = %d; want 10: %v", len(got), got)
+	if got := catalog.JobKinds(); len(got) != 11 {
+		t.Fatalf("job catalog = %d; want 11: %v", len(got), got)
 	}
 	jobContracts, err := JobDefinitions(catalog)
 	if err != nil {
@@ -69,6 +70,7 @@ func TestPublicationCatalog_ExactGeneratedSets_Unit(t *testing.T) {
 		"network_flow_activity.backup_restore_v1",
 		"network_flow_activity.import_apply_v1",
 		"network_flow_activity.indicator_link_v1",
+		"network_flow_activity.reporting_graph_source_v1",
 		"snapshot_reporting.render_export_v1",
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("participant catalog = %v; want %v", got, want)

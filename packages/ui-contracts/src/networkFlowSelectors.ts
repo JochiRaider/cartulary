@@ -58,6 +58,13 @@ export type NetworkAnalysisSelector =
   | "rejected-grid"
   | "rejected-query-apply"
   | "rejected-query-clear"
+  | "saved-graph-contributors"
+  | "saved-graph-create"
+  | "saved-graph-dialog"
+  | "saved-graph-heading"
+  | "saved-graph-name"
+  | "saved-graph-result"
+  | "saved-graphs"
   | "stale-state"
   | "status-strip"
   | "table-panel"
@@ -86,6 +93,22 @@ export function networkAnalysisEdgeTestId(edgeId: string): StableTestId {
 export function networkAnalysisVertexTestId(vertexId: string): StableTestId {
   return stableTestId(
     encodedTestId("network-flow-vertex", vertexId, "vertex_id"),
+  );
+}
+
+export function networkAnalysisSavedGraphEdgeTestId(
+  edgeId: string,
+): StableTestId {
+  return stableTestId(
+    encodedTestId("network-flow-saved-graph-edge", edgeId, "edge_id"),
+  );
+}
+
+export function networkAnalysisSavedGraphVertexTestId(
+  vertexId: string,
+): StableTestId {
+  return stableTestId(
+    encodedTestId("network-flow-saved-graph-vertex", vertexId, "vertex_id"),
   );
 }
 

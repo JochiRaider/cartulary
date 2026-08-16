@@ -1,0 +1,12 @@
+{
+  "schema_id": "cartulary.extension_backup_binding_codec.v3",
+  "backup_codec_id": "network_flow_activity.graph_views_codec.v1",
+  "binding_id": "network_flow_activity.graph_views",
+  "storage_kind": "postgres",
+  "logical_identity_algorithm_id": "network_flow_activity.graph_views_identity_v1",
+  "content_encoding_algorithm_id": "extension_registry_canonical_json_v1",
+  "max_items": 128,
+  "max_entry_bytes": 1048576,
+  "max_binding_bytes": 134217728,
+  "historical_restore_codecs": []
+}

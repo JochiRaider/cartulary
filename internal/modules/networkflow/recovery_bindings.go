@@ -8,6 +8,8 @@ import "fmt"
 // safe for stopped-target backup and restore composition.
 func RecoveryPostgresTables(bindingID string) ([]string, error) {
 	switch bindingID {
+	case "network_flow_activity.graph_views":
+		return []string{"network_flow_graph_views"}, nil
 	case "network_flow_activity.tables":
 		return []string{"network_flow_tables"}, nil
 	case "network_flow_activity.rows":

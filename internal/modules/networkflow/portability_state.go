@@ -3,6 +3,7 @@ package networkflow
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -26,7 +27,7 @@ func NewPortabilityStateBinding(database postgres.DB) (*PortabilityStateBinding,
 
 func (b *PortabilityStateBinding) RetainedAuthoritativeStatePresent(ctx context.Context, incidentID uuid.UUID, familyIDs []string) (bool, error) {
 	if b == nil || b.database == nil || incidentID == uuid.Nil ||
-		len(familyIDs) != 1 || familyIDs[0] != ExtensionFamilyTables {
+		!slices.Equal(familyIDs, networkFlowExtensionFamilies) {
 		return false, errors.New("network flow portability family scope invalid")
 	}
 	var present bool
@@ -34,6 +35,22 @@ func (b *PortabilityStateBinding) RetainedAuthoritativeStatePresent(ctx context.
 SELECT EXISTS (
     SELECT 1
       FROM network_flow_tables
+     WHERE incident_id = $1
+    UNION ALL
+    SELECT 1
+      FROM network_flow_rows
+     WHERE incident_id = $1
+    UNION ALL
+    SELECT 1
+      FROM network_flow_rejected_row_diagnostics
+     WHERE incident_id = $1
+    UNION ALL
+    SELECT 1
+      FROM network_flow_indicator_bindings
+     WHERE incident_id = $1
+    UNION ALL
+    SELECT 1
+      FROM network_flow_graph_views
      WHERE incident_id = $1
 )
 `, incidentID).Scan(&present)

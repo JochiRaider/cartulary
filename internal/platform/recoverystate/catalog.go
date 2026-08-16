@@ -18,7 +18,7 @@ const (
 	PostgresUnitCodecID  = "cartulary.postgres_snapshot_unit.v1"
 
 	AuthoredTableCount  = 113
-	RequiredTableCount  = 83
+	RequiredTableCount  = 84
 	ContributionCount   = 29
 	ObjectFamilyCount   = 6
 	catalogFixturePath  = "contracts/recovery/fixtures/recovery-state-catalog.v1.json"
@@ -356,11 +356,6 @@ func (catalog *Catalog) ValidateLegacyShadowTables(actual []string) error {
 		"collaboration_replay_events",
 		"collaboration_resume_tokens",
 		"enterprise_auth_transactions",
-		"graph_projection_edges",
-		"graph_projection_idempotency",
-		"graph_projection_runs",
-		"graph_projection_vertices",
-		"graph_projection_views",
 	)
 	sort.Strings(expected)
 	actual = append([]string(nil), actual...)

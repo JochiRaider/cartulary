@@ -50,7 +50,6 @@
   author-test-row-id \
   test-slice \
   service-backed-test-slice \
-  graph-projection-fixture-candidate \
   backend-unit \
   backend-store \
   backend-integration \
@@ -756,10 +755,6 @@ service-backed-test-slice:
 	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory go-toolchain-readiness; fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE PLAYWRIGHT_WORKERS VITEST_MAX_WORKERS)" MAKE="$(MAKE)" \
 	  NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection owner --target service-backed-test-slice --owner "$(OWNER)" $(if $(strip $(ROWS)),--rows "$(ROWS)",) --service-backed-only
-
-graph-projection-fixture-candidate: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-graph-projection-fixture-candidate: go-toolchain-readiness
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" FIXTURE="$(FIXTURE)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" bash ./tools/harness/execution/run-graph-projection-fixture-candidate.sh
 
 backend-unit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 backend-unit: export CARTULARY_TEST_TARGET ?= backend-unit

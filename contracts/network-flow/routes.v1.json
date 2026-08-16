@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow_route_contracts.v1",
   "profile_id": "network_flow_activity",
-  "contract_major": 2,
+  "contract_major": 3,
   "route_root": "/api/v1/incidents/{incident_id}/network-flow",
   "import_integration": {
     "target_kind": "network_flow_table",
@@ -185,6 +185,139 @@
         "network_flow_graph_query_stale",
         "network_flow_invalid_table_scope",
         "network_flow_cursor_invalid",
+        "network_flow_invalid_limit"
+      ],
+      "audit_event": null
+    },
+    {
+      "route_id": "nf.graph_views.list",
+      "method": "GET",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/graph-views",
+      "auth_context": "viewer",
+      "request_schema_id": null,
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.graph_view_list.v1",
+      "success_http_statuses": [200],
+      "idempotency": "read_route",
+      "primary_errors": ["network_flow_invalid_request"],
+      "audit_event": null
+    },
+    {
+      "route_id": "nf.graph_views.create",
+      "method": "POST",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/graph-views",
+      "auth_context": "editor",
+      "request_schema_id": "cartulary.network_flow.graph_view_create_request.v1",
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.graph_view_accepted.v1",
+      "success_http_statuses": [202],
+      "idempotency": "client_txn_id_required",
+      "primary_errors": [
+        "network_flow_graph_view_limit_exceeded",
+        "network_flow_graph_materialization_limit_exceeded",
+        "network_flow_invalid_display_name",
+        "network_flow_invalid_request"
+      ],
+      "audit_event": "network_flow_graph_view_created"
+    },
+    {
+      "route_id": "nf.graph_views.get",
+      "method": "GET",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}",
+      "auth_context": "viewer",
+      "request_schema_id": null,
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.graph_view_get.v1",
+      "success_http_statuses": [200],
+      "idempotency": "read_route",
+      "primary_errors": ["network_flow_graph_view_not_found"],
+      "audit_event": null
+    },
+    {
+      "route_id": "nf.graph_views.patch",
+      "method": "PATCH",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}",
+      "auth_context": "editor",
+      "request_schema_id": "cartulary.network_flow.graph_view_rename_request.v1",
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.graph_view_mutation_result.v1",
+      "success_http_statuses": [200],
+      "idempotency": "client_txn_id_required",
+      "primary_errors": [
+        "network_flow_graph_view_not_found",
+        "network_flow_graph_view_not_active",
+        "network_flow_graph_view_version_conflict",
+        "network_flow_invalid_display_name"
+      ],
+      "audit_event": "network_flow_graph_view_renamed"
+    },
+    {
+      "route_id": "nf.graph_views.delete",
+      "method": "DELETE",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}",
+      "auth_context": "reviewer",
+      "request_schema_id": "cartulary.network_flow.graph_view_retire_request.v1",
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.graph_view_mutation_result.v1",
+      "success_http_statuses": [200],
+      "idempotency": "client_txn_id_required",
+      "primary_errors": [
+        "network_flow_graph_view_not_found",
+        "network_flow_graph_view_not_active",
+        "network_flow_graph_view_version_conflict"
+      ],
+      "audit_event": "network_flow_graph_view_retired"
+    },
+    {
+      "route_id": "nf.graph_views.refresh",
+      "method": "POST",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/refresh",
+      "auth_context": "editor",
+      "request_schema_id": "cartulary.network_flow.graph_view_refresh_request.v1",
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.graph_view_accepted.v1",
+      "success_http_statuses": [202],
+      "idempotency": "client_txn_id_required",
+      "primary_errors": [
+        "network_flow_graph_view_not_found",
+        "network_flow_graph_view_not_active",
+        "network_flow_graph_view_version_conflict",
+        "network_flow_graph_materialization_limit_exceeded"
+      ],
+      "audit_event": "network_flow_graph_view_refresh_requested"
+    },
+    {
+      "route_id": "nf.graph_views.result",
+      "method": "GET",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/result",
+      "auth_context": "viewer",
+      "request_schema_id": null,
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.graph_view_result.v1",
+      "success_http_statuses": [200],
+      "idempotency": "read_route",
+      "primary_errors": [
+        "network_flow_graph_view_not_found",
+        "network_flow_graph_view_not_active",
+        "network_flow_graph_view_not_materialized"
+      ],
+      "audit_event": null
+    },
+    {
+      "route_id": "nf.graph_views.contributors.query",
+      "method": "POST",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/contributors/query",
+      "auth_context": "viewer",
+      "request_schema_id": "cartulary.network_flow.graph_view_contributor_query_request.v1",
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.graph_view_contributor_query_result.v1",
+      "success_http_statuses": [200],
+      "idempotency": "read_route",
+      "primary_errors": [
+        "network_flow_graph_view_not_found",
+        "network_flow_graph_view_not_active",
+        "network_flow_graph_view_not_materialized",
+        "network_flow_graph_query_stale",
         "network_flow_invalid_limit"
       ],
       "audit_event": null

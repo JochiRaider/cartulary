@@ -86,6 +86,48 @@ test("Measure the 1000-resource all-column production Network Flow grid envelope
   }
 });
 
+test("measures the saved graph viewer 500-vertex and 1000-edge DOM ceiling", async ({
+  page,
+}, testInfo) => {
+  await page.goto(
+    "/?debug=harness&fixture=network-flow-grid-load&fixture_rows=1000",
+  );
+  await page.getByRole("button", { name: "Saved graph result" }).click();
+  const vertices = page.getByTestId(/^network-flow-saved-graph-vertex-/u);
+  const edges = page.getByTestId(/^network-flow-saved-graph-edge-/u);
+  await expect(vertices).toHaveCount(500);
+  await expect(edges).toHaveCount(1_000);
+
+  await page
+    .getByRole("navigation", { name: "vertices navigation" })
+    .getByRole("button", { name: "Next" })
+    .click();
+  await expect(vertices).toHaveCount(1);
+  await page
+    .getByRole("navigation", { name: "edges navigation" })
+    .getByRole("button", { name: "Next" })
+    .click();
+  await expect(edges).toHaveCount(1);
+
+  await testInfo.attach("network-flow-saved-graph-dom-ceiling.json", {
+    body: Buffer.from(
+      JSON.stringify(
+        {
+          edge_page_size: 1_000,
+          edge_second_page_mounted: 1,
+          logical_edges: 1_001,
+          logical_vertices: 501,
+          vertex_page_size: 500,
+          vertex_second_page_mounted: 1,
+        },
+        null,
+        2,
+      ),
+    ),
+    contentType: "application/json",
+  });
+});
+
 async function measureFixture(page: Page, logicalRows: 100 | 1_000) {
   await page.goto(
     `/?debug=harness&fixture=network-flow-grid-load&fixture_rows=${logicalRows}`,

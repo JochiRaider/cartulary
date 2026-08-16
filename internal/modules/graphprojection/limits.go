@@ -25,11 +25,9 @@ type resourceLimits struct {
 	MaxStringPropertyValueLength       int
 	MaxMetadataKeysPerObject           int
 	MaxPropertiesPerObject             int
-	MaxCustomConfigKeys                int
 	MaxValidationIssues                int
 	MaxValidationMessageLength         int
 	MaxFailureReasonLength             int
-	MaxQueryErrorMessageLength         int
 	MaxCursorTokenLength               int
 	MaxProjectedVertices               int
 	MaxProjectedEdges                  int
@@ -61,11 +59,9 @@ var graphProjectionLimits = resourceLimits{
 	MaxStringPropertyValueLength:       16384,
 	MaxMetadataKeysPerObject:           1024,
 	MaxPropertiesPerObject:             1024,
-	MaxCustomConfigKeys:                256,
 	MaxValidationIssues:                100000,
 	MaxValidationMessageLength:         1024,
 	MaxFailureReasonLength:             4096,
-	MaxQueryErrorMessageLength:         1024,
 	MaxCursorTokenLength:               4096,
 	MaxProjectedVertices:               500000,
 	MaxProjectedEdges:                  1000000,

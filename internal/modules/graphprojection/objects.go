@@ -1,11 +1,11 @@
 package graphprojection
 
-func entityMappingsObject(mappings []EntityMapping) []any {
+func entityMappingsObject(mappings []entityMapping) []any {
 	out := make([]any, 0, len(mappings))
 	for _, mapping := range mappings {
 		inclusion := any(mapping.InclusionPredicate)
 		if mapping.InclusionFilter != nil {
-			inclusion = filterPredicatesObject([]FilterPredicate{*mapping.InclusionFilter})[0]
+			inclusion = filterPredicatesObject([]filterPredicate{*mapping.InclusionFilter})[0]
 		}
 		out = append(out, canonicalFields(
 			canonicalMember{Name: "mapping_rule_id", Value: mapping.MappingRuleID},
@@ -21,12 +21,12 @@ func entityMappingsObject(mappings []EntityMapping) []any {
 	return out
 }
 
-func relationshipMappingsObject(mappings []RelationshipMapping) []any {
+func relationshipMappingsObject(mappings []relationshipMapping) []any {
 	out := make([]any, 0, len(mappings))
 	for _, mapping := range mappings {
 		inclusion := any(mapping.InclusionPredicate)
 		if mapping.InclusionFilter != nil {
-			inclusion = filterPredicatesObject([]FilterPredicate{*mapping.InclusionFilter})[0]
+			inclusion = filterPredicatesObject([]filterPredicate{*mapping.InclusionFilter})[0]
 		}
 		out = append(out, canonicalFields(
 			canonicalMember{Name: "mapping_rule_id", Value: mapping.MappingRuleID},
@@ -45,7 +45,7 @@ func relationshipMappingsObject(mappings []RelationshipMapping) []any {
 	return out
 }
 
-func metadataMappingsObject(mappings []MetadataMapping) []any {
+func metadataMappingsObject(mappings []metadataMapping) []any {
 	out := make([]any, 0, len(mappings))
 	for _, mapping := range mappings {
 		entry := canonicalFields(
@@ -71,7 +71,7 @@ func metadataMappingsObject(mappings []MetadataMapping) []any {
 	return out
 }
 
-func aggregationRulesObject(rules []AggregationRule) []any {
+func aggregationRulesObject(rules []aggregationRule) []any {
 	out := make([]any, 0, len(rules))
 	for _, rule := range rules {
 		entry := map[string]any{
@@ -85,13 +85,13 @@ func aggregationRulesObject(rules []AggregationRule) []any {
 			"property_merge_behavior":       rule.PropertyMergeBehavior,
 			"edge_direction":                rule.EdgeDirection,
 		}
-		if rule.EndpointGrouping != nil {
+		if rule.endpointGrouping != nil {
 			entry["endpoint_grouping"] = map[string]any{
-				"src_vertex_aggregation_rule_id": rule.EndpointGrouping.SourceVertexAggregationRuleID,
-				"src_grouping_keys":              rule.EndpointGrouping.SourceGroupingKeys,
-				"dst_vertex_aggregation_rule_id": rule.EndpointGrouping.DestinationVertexAggregationRuleID,
-				"dst_grouping_keys":              rule.EndpointGrouping.DestinationGroupingKeys,
-				"missing_endpoint_behavior":      rule.EndpointGrouping.MissingEndpointBehavior,
+				"src_vertex_aggregation_rule_id": rule.endpointGrouping.SourceVertexAggregationRuleID,
+				"src_grouping_keys":              rule.endpointGrouping.SourceGroupingKeys,
+				"dst_vertex_aggregation_rule_id": rule.endpointGrouping.DestinationVertexAggregationRuleID,
+				"dst_grouping_keys":              rule.endpointGrouping.DestinationGroupingKeys,
+				"missing_endpoint_behavior":      rule.endpointGrouping.MissingEndpointBehavior,
 			}
 		} else {
 			entry["endpoint_grouping"] = nil
@@ -101,7 +101,7 @@ func aggregationRulesObject(rules []AggregationRule) []any {
 	return out
 }
 
-func propertyDefinitionsObject(definitions []PropertyDefinition) []any {
+func propertyDefinitionsObject(definitions []propertyDefinition) []any {
 	out := make([]any, 0, len(definitions))
 	for _, definition := range definitions {
 		entry := canonicalFields(
@@ -127,7 +127,7 @@ func propertyDefinitionsObject(definitions []PropertyDefinition) []any {
 	return out
 }
 
-func sourceEntitiesObject(entities []SourceEntity) []any {
+func sourceEntitiesObject(entities []sourceEntity) []any {
 	out := make([]any, 0, len(entities))
 	for _, entity := range entities {
 		out = append(out, canonicalFields(
@@ -141,7 +141,7 @@ func sourceEntitiesObject(entities []SourceEntity) []any {
 	return out
 }
 
-func sourceRelationshipsObject(relationships []SourceRelationship) []any {
+func sourceRelationshipsObject(relationships []sourceRelationship) []any {
 	out := make([]any, 0, len(relationships))
 	for _, relationship := range relationships {
 		out = append(out, canonicalFields(
@@ -158,7 +158,7 @@ func sourceRelationshipsObject(relationships []SourceRelationship) []any {
 	return out
 }
 
-func filtersObject(filters Filters) canonicalObject {
+func filtersObject(filters filters) canonicalObject {
 	return canonicalFields(
 		canonicalMember{Name: "entity_filters", Value: filterPredicatesObject(filters.EntityFilters)},
 		canonicalMember{Name: "relationship_filters", Value: filterPredicatesObject(filters.RelationshipFilters)},
@@ -166,7 +166,7 @@ func filtersObject(filters Filters) canonicalObject {
 	)
 }
 
-func filterPredicatesObject(predicates []FilterPredicate) []any {
+func filterPredicatesObject(predicates []filterPredicate) []any {
 	out := make([]any, 0, len(predicates))
 	for _, predicate := range predicates {
 		entry := canonicalFields(

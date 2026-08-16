@@ -1,5 +1,6 @@
 {
   "database_family_ids": [
+    "network_flow_activity.graph_views",
     "network_flow_activity.indicator_bindings",
     "network_flow_activity.rejected_row_diagnostics",
     "network_flow_activity.rows",
@@ -11,5 +12,5 @@
   "presence_mode": "any_authoritative_member",
   "profile_id": "network_flow_activity",
   "schema_id": "cartulary.extension_state_presence_manifest.v1",
-  "state_presence_manifest_id": "network_flow_activity.state_presence.v1"
+  "state_presence_manifest_id": "network_flow_activity.state_presence.v2"
 }

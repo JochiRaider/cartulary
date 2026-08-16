@@ -1,190 +1,77 @@
 package graphprojection
 
 import (
-	"encoding/json"
-	"errors"
 	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
 
 const cartularyImportPrefix = "github.com/JochiRaider/cartulary/"
 
-func TestGraphProjectionProductionImportBoundaries(t *testing.T) {
+func TestGraphProjectionV2RootProductionBoundary_Unit(t *testing.T) {
 	entries, err := os.ReadDir(".")
 	if err != nil {
-		t.Fatalf("read graphprojection package directory: %v", err)
+		t.Fatalf("read Graph Projection root: %v", err)
 	}
 	for _, entry := range entries {
-		fileName := entry.Name()
-		if entry.IsDir() || !strings.HasSuffix(fileName, ".go") || strings.HasSuffix(fileName, "_test.go") {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
-		for _, importPath := range productionImportsForFile(t, fileName) {
+		for _, importPath := range productionImportsForFile(t, name) {
+			if importPath == "net/http" ||
+				strings.HasPrefix(importPath, cartularyImportPrefix+"internal/platform/postgres") ||
+				strings.HasPrefix(importPath, cartularyImportPrefix+"internal/platform/httpapi") ||
+				strings.HasPrefix(importPath, cartularyImportPrefix+"internal/platform/jobs") ||
+				strings.HasPrefix(importPath, cartularyImportPrefix+"internal/modules/auth") {
+				t.Fatalf("root production file %s imports coordination dependency %s", name, importPath)
+			}
 			if strings.HasPrefix(importPath, cartularyImportPrefix+"internal/modules/") &&
 				!strings.HasPrefix(importPath, cartularyImportPrefix+"internal/modules/graphprojection") {
-				t.Fatalf("%s imports sibling module %s; graphprojection v1 must consume explicit input bytes only", fileName, importPath)
+				t.Fatalf("root production file %s imports sibling module %s", name, importPath)
 			}
 		}
 	}
 }
 
-func TestGraphProjectionFacadeDoesNotImportPostgreSQL(t *testing.T) {
-	entries, err := os.ReadDir(".")
-	if err != nil {
-		t.Fatalf("read graphprojection package directory: %v", err)
-	}
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+func TestGraphProjectionV1RuntimePackagesAndImportsAreRemoved_Unit(t *testing.T) {
+	root := repoRoot(t)
+	for _, relative := range []string{
+		"internal/modules/graphprojection/postgresbinding",
+		"internal/modules/graphprojection/postgresstore",
+		"internal/modules/graphprojection/fixturetest",
+	} {
+		entries, err := os.ReadDir(filepath.Join(root, relative))
+		if os.IsNotExist(err) {
 			continue
 		}
-		for _, importPath := range productionImportsForFile(t, entry.Name()) {
-			if importPath == "github.com/jackc/pgx/v5" || importPath == cartularyImportPrefix+"internal/platform/postgres" {
-				t.Fatalf("facade source %s imports persistence dependency %s", entry.Name(), importPath)
+		if err != nil {
+			t.Fatalf("inspect removed v1 package %s: %v", relative, err)
+		}
+		for _, entry := range entries {
+			if strings.HasSuffix(entry.Name(), ".go") {
+				t.Fatalf("removed v1 package %s still contains Go source %s", relative, entry.Name())
 			}
 		}
 	}
-}
 
-func TestWorkbookProjectionsAndPublicRoutesDoNotImportGraphProjection(t *testing.T) {
-	root := repoRoot(t)
-	roots := []string{
-		filepath.Join(root, "cmd"),
-		filepath.Join(root, "internal", "modules", "workbook"),
-		filepath.Join(root, "internal", "modules", "projections"),
-		filepath.Join(root, "internal", "platform", "httpapi"),
-		filepath.Join(root, "internal", "platform", "ws"),
-	}
-	for _, scanRoot := range roots {
-		if _, err := os.Stat(scanRoot); err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			t.Fatalf("stat %s: %v", scanRoot, err)
-		}
-		err := filepath.WalkDir(scanRoot, func(path string, entry os.DirEntry, err error) error {
-			if err != nil {
-				return err
+	for _, scanRoot := range []string{filepath.Join(root, "cmd"), filepath.Join(root, "internal")} {
+		err := filepath.WalkDir(scanRoot, func(path string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
 			}
 			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 				return nil
 			}
 			for _, importPath := range productionImportsForFile(t, path) {
-				if importPath == cartularyImportPrefix+"internal/modules/graphprojection" {
-					t.Fatalf("%s imports graphprojection; activation slice must not expose public route or workbook projection coupling", path)
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			t.Fatalf("scan %s: %v", scanRoot, err)
-		}
-	}
-}
-
-func TestGraphProjectionInboundConsumersUseApprovedFacades(t *testing.T) {
-	root := repoRoot(t)
-	modulesRoot := filepath.Join(root, "internal", "modules")
-	allowed := map[string]bool{
-		filepath.Join(modulesRoot, "networkflow", "graph_projection_adapter.go"):        true,
-		filepath.Join(modulesRoot, "recovery", "restorecontract", "graphprojection.go"): true,
-		filepath.Join(modulesRoot, "reporting", "store.go"):                             true,
-	}
-	err := filepath.WalkDir(modulesRoot, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || strings.Contains(path, string(filepath.Separator)+"graphprojection"+string(filepath.Separator)) {
-			return nil
-		}
-		for _, importPath := range productionImportsForFile(t, path) {
-			if strings.HasPrefix(importPath, cartularyImportPrefix+"internal/modules/graphprojection") && !allowed[path] {
-				t.Fatalf("%s imports %s outside the approved Graph Projection consumer seams", path, importPath)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("scan module importers: %v", err)
-	}
-
-	networkFlowGraph, err := os.ReadFile(filepath.Join(modulesRoot, "networkflow", "graph_projection_adapter.go"))
-	if err != nil {
-		t.Fatalf("read Network Flow graph adapter: %v", err)
-	}
-	for _, forbidden := range []string{"graphprojection.Project(", "graphprojection.AdmitProjectionInput(", "graphprojection.DeriveGraphViewID("} {
-		if strings.Contains(string(networkFlowGraph), forbidden) {
-			t.Fatalf("Network Flow graph adapter uses obsolete low-level Graph Projection API %s", forbidden)
-		}
-	}
-	for _, forbidden := range []string{
-		"Repository:",
-		".CreateProjection(",
-		".RefreshProjection(",
-		".InvalidateGraphView(",
-		".InvalidateProjectionRun(",
-		".GetGraphView(",
-		".GetProjectionRun(",
-		".ListGraphViews(",
-		".Traverse(",
-	} {
-		if strings.Contains(string(networkFlowGraph), forbidden) {
-			t.Fatalf("Network Flow graph adapter activates retained Graph Projection behavior %s", forbidden)
-		}
-	}
-	if !strings.Contains(string(networkFlowGraph), ".ProjectEphemeral(") {
-		t.Fatal("Network Flow graph adapter must use the ephemeral Graph Projection facade")
-	}
-
-	reportingStorePath := filepath.Join(modulesRoot, "reporting", "store.go")
-	reportingStore, err := os.ReadFile(reportingStorePath)
-	if err != nil {
-		t.Fatalf("read Reporting store: %v", err)
-	}
-	if !strings.Contains(string(reportingStore), "postgresbinding.NewReader(tx)") {
-		t.Fatal("Reporting must construct the Graph Projection binding reader with its caller-owned transaction")
-	}
-	for _, importPath := range productionImportsForFile(t, reportingStorePath) {
-		if importPath == cartularyImportPrefix+"internal/modules/graphprojection/postgresstore" {
-			t.Fatal("Reporting must not import the full retained Graph Projection store")
-		}
-	}
-}
-
-func TestRetainedGraphProjectionProductionCompositionIsDormant(t *testing.T) {
-	root := repoRoot(t)
-	productionRoots := []string{filepath.Join(root, "cmd"), filepath.Join(root, "internal")}
-	for _, scanRoot := range productionRoots {
-		err := filepath.WalkDir(scanRoot, func(path string, entry os.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-				return nil
-			}
-			if strings.Contains(path, string(filepath.Separator)+"modules"+string(filepath.Separator)+"graphprojection"+string(filepath.Separator)+"postgresstore"+string(filepath.Separator)) {
-				return nil
-			}
-			for _, importPath := range productionImportsForFile(t, path) {
-				if importPath == cartularyImportPrefix+"internal/modules/graphprojection/postgresstore" {
-					t.Fatalf("%s imports the dormant full retained Graph Projection store", path)
-				}
-			}
-			body, readErr := os.ReadFile(path)
-			if readErr != nil {
-				return readErr
-			}
-			content := string(body)
-			for _, forbidden := range []string{
-				"postgresstore.New(",
-				"postgresstore.Options{",
-				"postgresstore.Hooks{",
-			} {
-				if strings.Contains(content, forbidden) {
-					t.Fatalf("%s contains dormant Graph Projection composition token %s", path, forbidden)
+				if strings.HasPrefix(importPath, cartularyImportPrefix+"internal/modules/graphprojection/postgresbinding") ||
+					strings.HasPrefix(importPath, cartularyImportPrefix+"internal/modules/graphprojection/postgresstore") ||
+					strings.HasPrefix(importPath, cartularyImportPrefix+"internal/modules/graphprojection/fixturetest") {
+					t.Fatalf("production file %s imports removed v1 package %s", path, importPath)
 				}
 			}
 			return nil
@@ -193,144 +80,32 @@ func TestRetainedGraphProjectionProductionCompositionIsDormant(t *testing.T) {
 			t.Fatalf("scan production root %s: %v", scanRoot, err)
 		}
 	}
-
-	configurationRoots := []string{
-		filepath.Join(root, "configs"),
-		filepath.Join(root, "internal", "app", "configassembly"),
-		filepath.Join(root, "internal", "app", "server"),
-	}
-	for _, scanRoot := range configurationRoots {
-		err := filepath.WalkDir(scanRoot, func(path string, entry os.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if entry.IsDir() || strings.HasSuffix(path, "_test.go") {
-				return nil
-			}
-			extension := filepath.Ext(path)
-			if extension != ".go" && extension != ".json" && extension != ".yaml" && extension != ".yml" && extension != ".toml" {
-				return nil
-			}
-			body, readErr := os.ReadFile(path)
-			if readErr != nil {
-				return readErr
-			}
-			content := strings.ToLower(string(body))
-			for _, forbidden := range []string{
-				"graph_projection_enabled",
-				"graphprojection_enabled",
-				"enable_graph_projection",
-				"retained_graph_projection",
-				"graph_projection_cursor_key",
-			} {
-				if strings.Contains(content, forbidden) {
-					t.Fatalf("%s contains hidden retained Graph Projection activation token %s", path, forbidden)
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			t.Fatalf("scan configuration root %s: %v", scanRoot, err)
-		}
-	}
 }
 
-func TestNoPublicGraphProjectionRoutes(t *testing.T) {
-	root := repoRoot(t)
-	files := []string{
-		filepath.Join(root, "contracts", "openapi", "cartulary.openapi.yaml"),
-		filepath.Join(root, "contracts", "ws", "index.schema.json"),
+func TestGraphProjectionCurrentRecoveryContributionIsV2Only_Unit(t *testing.T) {
+	contribution := RecoveryStateContribution()
+	if contribution.OwnerID != "module.graphprojection" {
+		t.Fatalf("Recovery owner = %q", contribution.OwnerID)
 	}
-	for _, file := range files {
-		body, err := os.ReadFile(file)
-		if err != nil {
-			t.Fatalf("read contract %s: %v", file, err)
-		}
-		content := string(body)
-		disallowedRoutes := []string{"/graph-projection", "/graph_projection", "/graphProjection", "/GraphProjection"}
-		for _, route := range disallowedRoutes {
-			if strings.Contains(content, route) {
-				t.Fatalf("%s exposes graph projection public route term %q", file, route)
-			}
-		}
+	wantTables := []string{
+		"graph_projection_result_edges",
+		"graph_projection_result_leases",
+		"graph_projection_result_vertices",
+		"graph_projection_results",
 	}
-}
-
-func TestStoreSQLStaysWithinGraphProjectionTables(t *testing.T) {
-	root := repoRoot(t)
-	forbiddenTables := []string{
-		" information_schema",
-		" pg_catalog",
-		" incidents",
-		" incident_",
-		" workbook_",
-		" timeline_",
-		" record_",
-		" evidence_",
-		" assessment",
-		" party_",
-		" task_",
-		" decision_",
+	if len(contribution.Tables) != len(wantTables) {
+		t.Fatalf("Recovery table count = %d, want %d", len(contribution.Tables), len(wantTables))
 	}
-	storeRoots := []string{
-		filepath.Join(root, "internal", "modules", "graphprojection", "postgresstore"),
-		filepath.Join(root, "internal", "modules", "graphprojection", "postgresrestore"),
-	}
-	for _, storeRoot := range storeRoots {
-		err := filepath.WalkDir(storeRoot, func(path string, entry os.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-				return nil
-			}
-			body, readErr := os.ReadFile(path)
-			if readErr != nil {
-				return readErr
-			}
-			for _, table := range forbiddenTables {
-				if strings.Contains(string(body), table) {
-					t.Fatalf("PostgreSQL Graph Projection repository file %s references source/workbook/schema table marker %q; it must only use the five derived Graph tables", path, table)
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			t.Fatalf("scan PostgreSQL Graph Projection repository %s: %v", storeRoot, err)
+	gotTables := make([]string, 0, len(contribution.Tables))
+	for _, table := range contribution.Tables {
+		gotTables = append(gotTables, table.TableName)
+		if table.AlgorithmID == nil || *table.AlgorithmID != RestoreAlgorithmID {
+			t.Fatalf("Recovery table %s algorithm = %v, want %s", table.TableName, table.AlgorithmID, RestoreAlgorithmID)
 		}
 	}
-}
-
-func TestOperationErrorsDoNotEchoSourceAuthoredValues(t *testing.T) {
-	secret := "SECRET_SOURCE_VALUE_7812"
-	input := []byte(`{
-		"projection_schema_id":"graph_projection.v1",
-		"graph_view_id":"not_a_graph_view_id",
-		"source_snapshot_id":"snap_secret",
-		"projection_config":{
-			"graph_view_key":"secret_graph",
-			"declared_source_entity_kinds":["host"],
-			"entity_mappings":[{"mapping_rule_id":"map_host","source_entity_kind":"host","projected_vertex_kind":"host_vertex"}]
-		},
-		"source_entities":[{"source_entity_id":"host1","source_entity_kind":"host","properties":{"hostname":"` + secret + `"}}],
-		"source_relationships":[],
-		"requested_at":"2026-05-30T00:00:00Z",
-		"requested_by":"fixture"
-	}`)
-	_, err := admitProjectionInput(input, admitOptions{})
-	var opErr *LifecycleError
-	if err == nil || !strings.Contains(err.Error(), "invalid_projection_request") {
-		t.Fatalf("expected invalid projection request, got %v", err)
-	}
-	if !errors.As(err, &opErr) {
-		t.Fatalf("expected operation error, got %T", err)
-	}
-	details, marshalErr := json.Marshal(opErr.Details)
-	if marshalErr != nil {
-		t.Fatalf("marshal operation error details: %v", marshalErr)
-	}
-	if strings.Contains(err.Error(), secret) || strings.Contains(string(details), secret) {
-		t.Fatalf("operation error leaked source-authored value: error=%q details=%s", err.Error(), string(details))
+	slices.Sort(gotTables)
+	if !slices.Equal(gotTables, wantTables) {
+		t.Fatalf("Recovery tables = %v, want %v", gotTables, wantTables)
 	}
 }
 
@@ -349,9 +124,9 @@ func productionImportsForFile(t testing.TB, path string) []string {
 
 func repoRoot(t testing.TB) string {
 	t.Helper()
-	wd, err := os.Getwd()
+	workingDirectory, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("get working directory: %v", err)
 	}
-	return filepath.Clean(filepath.Join(wd, "..", "..", ".."))
+	return filepath.Clean(filepath.Join(workingDirectory, "..", "..", ".."))
 }

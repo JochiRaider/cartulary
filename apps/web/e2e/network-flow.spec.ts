@@ -189,6 +189,78 @@ test("Network Analysis edge selection opens ordered contributor drawer", async (
   await expect(drawer).toContainText("contributors-b");
 });
 
+test("Network Analysis saved graphs complete exact-result lifecycle through the real application", async ({
+  page,
+}) => {
+  await openClaimedNetworkAnalysis(page, "NFGRAPHVIEW");
+  await importNetworkFlowCSV(page, {
+    displayName: "saved-graph-source",
+    file: networkFlowMinimalCSV,
+  });
+  await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
+  await expect(page.getByTestId(/^network-flow-vertex-/).first()).toBeVisible();
+  await page.getByRole("button", { name: "Saved graphs" }).click();
+
+  const panel = page.getByRole("region", {
+    name: "Saved Network Flow graphs",
+  });
+  await panel.getByRole("button", { name: "Save current graph" }).click();
+  await page
+    .getByRole("textbox", { name: "Display name" })
+    .fill("Evidence graph");
+  await page.getByRole("button", { name: "Save graph" }).click();
+  await expect(
+    panel.getByTestId(networkAnalysisTestId("saved-graph-heading")),
+  ).toHaveText("Evidence graph");
+  await expect(
+    panel.getByText("Materialization succeeded.", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    page.getByTestId(/^network-flow-saved-graph-vertex-/u).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(/^network-flow-saved-graph-edge-/u).first(),
+  ).toBeVisible();
+
+  await page
+    .getByTestId(/^network-flow-saved-graph-vertex-/u)
+    .first()
+    .getByRole("button")
+    .click();
+  const contributors = page.getByRole("complementary", {
+    name: "Saved graph contributors",
+  });
+  await expect(contributors).toBeVisible();
+  await expect(contributors).toContainText("Row");
+  await contributors.getByRole("button", { name: "Close" }).click();
+
+  await panel.getByRole("button", { name: "Rename" }).click();
+  await page
+    .getByRole("textbox", { name: "Display name" })
+    .fill("Renamed evidence graph");
+  await page.getByRole("button", { name: "Rename graph" }).click();
+  await expect(
+    panel.getByTestId(networkAnalysisTestId("saved-graph-heading")),
+  ).toHaveText("Renamed evidence graph");
+
+  await panel.getByRole("button", { name: "Refresh" }).click();
+  await expect(
+    panel.getByText(
+      "Showing the last successful result while refresh continues.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(/^network-flow-saved-graph-vertex-/u).first(),
+  ).toBeVisible();
+  await expect(
+    panel.getByText("Materialization succeeded.", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+
+  await panel.getByRole("button", { name: "Retire" }).click();
+  await page.getByRole("button", { name: "Retire graph" }).click();
+  await expect(panel.getByText("No saved graphs yet.")).toBeVisible();
+});
+
 test("Network Analysis alias collision requires explicit approval", async ({
   page,
 }) => {

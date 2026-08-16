@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 )
 
 const (
@@ -204,12 +206,27 @@ type reportingDeckBlock struct {
 }
 
 type reportingDiagramModel struct {
-	SchemaID    string                 `json:"schema_id"`
-	DiagramID   string                 `json:"diagram_id"`
-	DiagramKind string                 `json:"diagram_kind"`
-	LayoutMode  string                 `json:"layout_mode"`
-	Nodes       []reportingDiagramNode `json:"nodes"`
-	Edges       []reportingDiagramEdge `json:"edges"`
+	SchemaID            string                  `json:"schema_id"`
+	DiagramID           string                  `json:"diagram_id"`
+	DiagramKind         string                  `json:"diagram_kind"`
+	DiagramSourceKind   string                  `json:"diagram_source_kind"`
+	LayoutMode          string                  `json:"layout_mode"`
+	SourceProjectionRef *sourceProjectionRef    `json:"source_projection_ref"`
+	SelectionRule       diagramSelectionRule    `json:"selection_rule"`
+	IncludedVertexRefs  []string                `json:"included_vertex_refs"`
+	IncludedEdgeRefs    []string                `json:"included_edge_refs"`
+	OverflowSummary     *diagramOverflowSummary `json:"overflow_summary"`
+	Nodes               []reportingDiagramNode  `json:"nodes"`
+	Edges               []reportingDiagramEdge  `json:"edges"`
+}
+
+type diagramOverflowSummary struct {
+	SchemaID           string  `json:"schema_id"`
+	OmittedVertexCount int     `json:"omitted_vertex_count"`
+	OmittedEdgeCount   int     `json:"omitted_edge_count"`
+	SelectionRuleID    string  `json:"selection_rule_id"`
+	FirstOmittedRef    *string `json:"first_omitted_ref"`
+	FilterSummary      *string `json:"filter_summary"`
 }
 
 type reportingDiagramNode struct {
@@ -224,7 +241,7 @@ type reportingDiagramEdge struct {
 	Label  string `json:"label,omitempty"`
 }
 
-func renderReportBundle(contract TemplateContract, kind string, model RedactedExportModel, redactionManifestSHA256 string, releaseScope string, outputOptions json.RawMessage, graphProjectionRefs json.RawMessage, compositionJSON json.RawMessage, artifacts RedactionBundleArtifacts) (RenderBundle, error) {
+func renderReportBundle(contract TemplateContract, kind string, model RedactedExportModel, redactionManifestSHA256 string, releaseScope string, outputOptions json.RawMessage, graphProjectionRefs json.RawMessage, compositionJSON json.RawMessage, artifacts RedactionBundleArtifacts, graphResults ...resolvedGraphResult) (RenderBundle, error) {
 	if err := validateTemplateContract(contract, kind, model, releaseScope); err != nil {
 		return RenderBundle{}, err
 	}
@@ -232,7 +249,7 @@ func renderReportBundle(contract TemplateContract, kind string, model RedactedEx
 	if err != nil {
 		return RenderBundle{}, err
 	}
-	pipeline, err := buildRenderPipeline(contract, kind, model, releaseScope, options, graphProjectionRefs, compositionJSON, artifacts)
+	pipeline, err := buildRenderPipeline(contract, kind, model, releaseScope, options, graphProjectionRefs, compositionJSON, artifacts, graphResults)
 	if err != nil {
 		return RenderBundle{}, err
 	}
@@ -240,7 +257,7 @@ func renderReportBundle(contract TemplateContract, kind string, model RedactedEx
 		return RenderBundle{}, err
 	}
 	if releaseScope == ReleaseScopeExternal {
-		determinismSHA, err := validateExternalRenderDeterminism(contract, kind, model, releaseScope, options, graphProjectionRefs, compositionJSON, artifacts, pipeline)
+		determinismSHA, err := validateExternalRenderDeterminism(contract, kind, model, releaseScope, options, graphProjectionRefs, compositionJSON, artifacts, graphResults, pipeline)
 		if err != nil {
 			return RenderBundle{}, err
 		}
@@ -267,7 +284,7 @@ func parseRenderOutputOptions(raw json.RawMessage, kind string, releaseScope str
 	return options, nil
 }
 
-func buildRenderPipeline(contract TemplateContract, kind string, model RedactedExportModel, releaseScope string, options renderOutputOptions, graphProjectionRefs json.RawMessage, compositionJSON json.RawMessage, artifacts RedactionBundleArtifacts) (renderPipelineResult, error) {
+func buildRenderPipeline(contract TemplateContract, kind string, model RedactedExportModel, releaseScope string, options renderOutputOptions, graphProjectionRefs json.RawMessage, compositionJSON json.RawMessage, artifacts RedactionBundleArtifacts, graphResults []resolvedGraphResult) (renderPipelineResult, error) {
 	if err := validateSourceValuesForRemoteAssets(model); err != nil {
 		return renderPipelineResult{}, err
 	}
@@ -323,7 +340,7 @@ func buildRenderPipeline(contract TemplateContract, kind string, model RedactedE
 			files = append(files, newBundleFile("deck.pdf", renderBundleRoleRenderedPDF, "application/pdf", renderDeterministicPDF(deckJSON, source), true))
 		}
 	case OutputKindMermaid:
-		diagrams, err := deriveDiagramModels(model, graphProjectionRefs, compositionJSON)
+		diagrams, err := deriveDiagramModels(model, graphProjectionRefs, compositionJSON, releaseScope, graphResults)
 		if err != nil {
 			return renderPipelineResult{}, err
 		}
@@ -455,8 +472,8 @@ func buildRenderBundle(contract TemplateContract, kind string, releaseScope stri
 	}, nil
 }
 
-func validateExternalRenderDeterminism(contract TemplateContract, kind string, model RedactedExportModel, releaseScope string, options renderOutputOptions, graphProjectionRefs json.RawMessage, compositionJSON json.RawMessage, artifacts RedactionBundleArtifacts, first renderPipelineResult) (string, error) {
-	second, err := buildRenderPipeline(contract, kind, model, releaseScope, options, graphProjectionRefs, compositionJSON, artifacts)
+func validateExternalRenderDeterminism(contract TemplateContract, kind string, model RedactedExportModel, releaseScope string, options renderOutputOptions, graphProjectionRefs json.RawMessage, compositionJSON json.RawMessage, artifacts RedactionBundleArtifacts, graphResults []resolvedGraphResult, first renderPipelineResult) (string, error) {
+	second, err := buildRenderPipeline(contract, kind, model, releaseScope, options, graphProjectionRefs, compositionJSON, artifacts, graphResults)
 	if err != nil {
 		return "", err
 	}
@@ -666,7 +683,7 @@ func applyCompositionToDeck(slides *[]reportingDeckSlide, composition *renderCom
 	return nil
 }
 
-func deriveDiagramModels(model RedactedExportModel, graphProjectionRefs json.RawMessage, compositionJSON json.RawMessage) ([]reportingDiagramModel, error) {
+func deriveDiagramModels(model RedactedExportModel, graphProjectionRefs json.RawMessage, compositionJSON json.RawMessage, releaseScope string, graphResults []resolvedGraphResult) ([]reportingDiagramModel, error) {
 	composition, err := parseRenderComposition(compositionJSON)
 	if err != nil {
 		return nil, err
@@ -684,28 +701,274 @@ func deriveDiagramModels(model RedactedExportModel, graphProjectionRefs json.Raw
 			if decl.DeclID == "" {
 				return nil, newRenderValidationError("composition_invalid", "composition_anchor_unresolved")
 			}
-			graphLabel := ""
 			if decl.DiagramSourceKind == "graph" {
 				ref, err := resolveGraphProjectionRef(refs, decl.SourceGraphViewID)
 				if err != nil {
 					return nil, err
 				}
-				graphLabel = "Graph " + ref.GraphViewID + " run " + ref.ProjectionRunID
+				result, err := resolveLoadedGraphResult(graphResults, ref)
+				if err != nil {
+					return nil, err
+				}
+				diagram, err := graphDiagramFromResult(decl, ref, result, releaseScope)
+				if err != nil {
+					return nil, err
+				}
+				diagrams = append(diagrams, diagram)
+				continue
 			}
-			diagrams = append(diagrams, defaultDiagramFromFields(decl.DeclID, sortedRedactedFields(model.Fields), graphLabel))
+			diagrams = append(diagrams, defaultDiagramFromFields(decl.DeclID, sortedRedactedFields(model.Fields)))
 		}
 	}
 	if len(diagrams) == 0 {
-		graphLabel := ""
-		if len(refs) > 0 {
-			graphLabel = fmt.Sprintf("Graph refs: %d", len(refs))
-		}
-		diagrams = append(diagrams, defaultDiagramFromFields("default", sortedRedactedFields(model.Fields), graphLabel))
+		diagrams = append(diagrams, defaultDiagramFromFields("default", sortedRedactedFields(model.Fields)))
 	}
 	sort.Slice(diagrams, func(i, j int) bool {
 		return diagrams[i].DiagramID < diagrams[j].DiagramID
 	})
 	return diagrams, nil
+}
+
+func resolveLoadedGraphResult(results []resolvedGraphResult, ref sourceProjectionRef) (graphprojection.CompletedResultV2, error) {
+	for _, result := range results {
+		if result.Ref.GraphViewID == ref.GraphViewID && result.Ref.ProjectionResultID == ref.ProjectionResultID {
+			if result.Result.Binding != ref.binding() {
+				return graphprojection.CompletedResultV2{}, newRenderValidationError("graph_projection_unavailable", "graph_projection_digest_mismatch")
+			}
+			return result.Result, nil
+		}
+	}
+	return graphprojection.CompletedResultV2{}, newRenderValidationError("graph_projection_unavailable", "graph_projection_not_completed")
+}
+
+func graphDiagramFromResult(decl compositionDiagramDecl, ref sourceProjectionRef, result graphprojection.CompletedResultV2, releaseScope string) (reportingDiagramModel, error) {
+	vertices, edges, overflow, err := selectGraphDiagramObjects(result, decl.SelectionRule)
+	if err != nil {
+		return reportingDiagramModel{}, err
+	}
+	if releaseScope == ReleaseScopeExternal && (len(vertices) > 0 || len(edges) > 0) {
+		// Network Flow has not declared releasable disclosure partitions for raw
+		// graph values. External output therefore fails closed instead of
+		// guessing a classification or leaking a source-derived label.
+		return reportingDiagramModel{}, newRenderValidationError("redaction_manifest_invalid", "redaction_action_unresolved")
+	}
+	vertexNodeIDs := make(map[string]string, len(vertices))
+	nodes := make([]reportingDiagramNode, 0, len(vertices))
+	includedVertices := make([]string, 0, len(vertices))
+	for index, vertex := range vertices {
+		nodeID := fmt.Sprintf("n%04d", index+1)
+		vertexNodeIDs[vertex.VertexID] = nodeID
+		includedVertices = append(includedVertices, vertex.VertexID)
+		nodes = append(nodes, reportingDiagramNode{NodeID: nodeID, Label: fmt.Sprintf("Vertex %04d", index+1)})
+	}
+	diagramEdges := make([]reportingDiagramEdge, 0, len(edges))
+	includedEdges := make([]string, 0, len(edges))
+	for index, edge := range edges {
+		from, fromPresent := vertexNodeIDs[edge.SrcVertexID]
+		to, toPresent := vertexNodeIDs[edge.DstVertexID]
+		if !fromPresent || !toPresent {
+			continue
+		}
+		includedEdges = append(includedEdges, edge.EdgeID)
+		diagramEdges = append(diagramEdges, reportingDiagramEdge{
+			EdgeID: fmt.Sprintf("e%04d", index+1), From: from, To: to,
+			Label: fmt.Sprintf("Edge %04d", index+1),
+		})
+	}
+	refCopy := ref
+	return reportingDiagramModel{
+		SchemaID:            "cartulary.reporting_diagram.v1",
+		DiagramID:           decl.DeclID,
+		DiagramKind:         "flowchart",
+		DiagramSourceKind:   "graph",
+		LayoutMode:          "auto",
+		SourceProjectionRef: &refCopy,
+		SelectionRule:       decl.SelectionRule,
+		IncludedVertexRefs:  includedVertices,
+		IncludedEdgeRefs:    includedEdges,
+		OverflowSummary:     overflow,
+		Nodes:               nodes,
+		Edges:               diagramEdges,
+	}, nil
+}
+
+func selectGraphDiagramObjects(result graphprojection.CompletedResultV2, rule diagramSelectionRule) ([]graphprojection.ResultVertexV2, []graphprojection.ResultEdgeV2, *diagramOverflowSummary, error) {
+	vertexByID := make(map[string]graphprojection.ResultVertexV2, len(result.Vertices))
+	for _, vertex := range result.Vertices {
+		vertexByID[vertex.VertexID] = vertex
+	}
+	edgeByID := make(map[string]graphprojection.ResultEdgeV2, len(result.Edges))
+	for _, edge := range result.Edges {
+		edgeByID[edge.EdgeID] = edge
+	}
+	selectedVertices := map[string]struct{}{}
+	selectedEdges := map[string]struct{}{}
+	switch rule.RuleID {
+	case "explicit_refs":
+		if len(rule.VertexRefs) == 0 && len(rule.EdgeRefs) == 0 {
+			return nil, nil, nil, newRenderValidationError("graph_projection_unavailable", "diagram_selection_missing_ref")
+		}
+		if hasDuplicateStrings(rule.VertexRefs) || hasDuplicateStrings(rule.EdgeRefs) {
+			return nil, nil, nil, newRenderValidationError("graph_projection_unavailable", "diagram_selection_duplicate_ref")
+		}
+		for _, vertexID := range rule.VertexRefs {
+			if _, present := vertexByID[vertexID]; !present {
+				return nil, nil, nil, newRenderValidationError("graph_projection_unavailable", "diagram_selection_missing_ref")
+			}
+			selectedVertices[vertexID] = struct{}{}
+		}
+		for _, edgeID := range rule.EdgeRefs {
+			edge, present := edgeByID[edgeID]
+			if !present {
+				return nil, nil, nil, newRenderValidationError("graph_projection_unavailable", "diagram_selection_missing_ref")
+			}
+			if _, present := selectedVertices[edge.SrcVertexID]; !present {
+				return nil, nil, nil, newRenderValidationError("graph_projection_unavailable", "graph_projection_selection_unresolved")
+			}
+			if _, present := selectedVertices[edge.DstVertexID]; !present {
+				return nil, nil, nil, newRenderValidationError("graph_projection_unavailable", "graph_projection_selection_unresolved")
+			}
+			selectedEdges[edgeID] = struct{}{}
+		}
+	case "neighborhood":
+		if len(rule.SeedVertexRefs) == 0 || hasDuplicateStrings(rule.SeedVertexRefs) || rule.Depth == nil || *rule.Depth < 1 || *rule.Depth > 2 {
+			return nil, nil, nil, newRenderValidationError("graph_projection_unavailable", "diagram_selection_missing_ref")
+		}
+		frontier := map[string]struct{}{}
+		for _, vertexID := range rule.SeedVertexRefs {
+			if _, present := vertexByID[vertexID]; !present {
+				return nil, nil, nil, newRenderValidationError("graph_projection_unavailable", "diagram_selection_missing_ref")
+			}
+			selectedVertices[vertexID] = struct{}{}
+			frontier[vertexID] = struct{}{}
+		}
+		edgeKinds := stringSet(rule.EdgeKindFilter)
+		for depth := 0; depth < *rule.Depth && len(frontier) > 0; depth++ {
+			next := map[string]struct{}{}
+			for _, edge := range result.Edges {
+				if len(edgeKinds) > 0 {
+					if _, allowed := edgeKinds[edge.EdgeKind]; !allowed {
+						continue
+					}
+				}
+				_, srcIn := frontier[edge.SrcVertexID]
+				_, dstIn := frontier[edge.DstVertexID]
+				if srcIn == dstIn {
+					continue
+				}
+				other := edge.SrcVertexID
+				if srcIn {
+					other = edge.DstVertexID
+				}
+				if _, present := vertexByID[other]; !present {
+					return nil, nil, nil, newRenderValidationError("graph_projection_unavailable", "graph_projection_selection_unresolved")
+				}
+				selectedEdges[edge.EdgeID] = struct{}{}
+				if _, seen := selectedVertices[other]; !seen {
+					selectedVertices[other] = struct{}{}
+					next[other] = struct{}{}
+				}
+			}
+			frontier = next
+		}
+	case "all_with_bounds":
+		for _, vertex := range result.Vertices {
+			selectedVertices[vertex.VertexID] = struct{}{}
+		}
+		for _, edge := range result.Edges {
+			selectedEdges[edge.EdgeID] = struct{}{}
+		}
+	default:
+		return nil, nil, nil, newRenderValidationError("graph_projection_unavailable", "diagram_selection_missing_ref")
+	}
+	vertices := make([]graphprojection.ResultVertexV2, 0, len(selectedVertices))
+	for _, vertex := range result.Vertices {
+		if _, selected := selectedVertices[vertex.VertexID]; selected {
+			vertices = append(vertices, vertex)
+		}
+	}
+	edges := make([]graphprojection.ResultEdgeV2, 0, len(selectedEdges))
+	for _, edge := range result.Edges {
+		if _, selected := selectedEdges[edge.EdgeID]; selected {
+			edges = append(edges, edge)
+		}
+	}
+	var overflow *diagramOverflowSummary
+	if len(vertices) > 80 || len(edges) > 160 {
+		if rule.OverflowPolicy != "summarize" {
+			return nil, nil, nil, newRenderValidationError("mermaid_invalid", "diagram_hard_limit_exceeded")
+		}
+		originalVertices := vertices
+		originalEdges := edges
+		if len(vertices) > 80 {
+			vertices = vertices[:80]
+		}
+		kept := make(map[string]struct{}, len(vertices))
+		for _, vertex := range vertices {
+			kept[vertex.VertexID] = struct{}{}
+		}
+		boundedEdges := make([]graphprojection.ResultEdgeV2, 0, min(len(edges), 160))
+		for _, edge := range edges {
+			_, src := kept[edge.SrcVertexID]
+			_, dst := kept[edge.DstVertexID]
+			if src && dst && len(boundedEdges) < 160 {
+				boundedEdges = append(boundedEdges, edge)
+			}
+		}
+		edges = boundedEdges
+		firstOmittedRef := firstOmittedDiagramRef(originalVertices, vertices, originalEdges, edges)
+		overflow = &diagramOverflowSummary{
+			SchemaID:           "diagram_overflow_summary.v1",
+			OmittedVertexCount: len(originalVertices) - len(vertices),
+			OmittedEdgeCount:   len(originalEdges) - len(edges),
+			SelectionRuleID:    rule.RuleID,
+			FirstOmittedRef:    firstOmittedRef,
+		}
+	}
+	return vertices, edges, overflow, nil
+}
+
+func firstOmittedDiagramRef(originalVertices, keptVertices []graphprojection.ResultVertexV2, originalEdges, keptEdges []graphprojection.ResultEdgeV2) *string {
+	keptVertexIDs := make(map[string]struct{}, len(keptVertices))
+	for _, vertex := range keptVertices {
+		keptVertexIDs[vertex.VertexID] = struct{}{}
+	}
+	for _, vertex := range originalVertices {
+		if _, kept := keptVertexIDs[vertex.VertexID]; !kept {
+			value := vertex.VertexID
+			return &value
+		}
+	}
+	keptEdgeIDs := make(map[string]struct{}, len(keptEdges))
+	for _, edge := range keptEdges {
+		keptEdgeIDs[edge.EdgeID] = struct{}{}
+	}
+	for _, edge := range originalEdges {
+		if _, kept := keptEdgeIDs[edge.EdgeID]; !kept {
+			value := edge.EdgeID
+			return &value
+		}
+	}
+	return nil
+}
+
+func hasDuplicateStrings(values []string) bool {
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		if _, exists := seen[value]; exists {
+			return true
+		}
+		seen[value] = struct{}{}
+	}
+	return false
+}
+
+func stringSet(values []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		set[value] = struct{}{}
+	}
+	return set
 }
 
 func resolveGraphProjectionRef(refs []sourceProjectionRef, sourceGraphViewID *string) (sourceProjectionRef, error) {
@@ -728,7 +991,7 @@ func resolveGraphProjectionRef(refs []sourceProjectionRef, sourceGraphViewID *st
 	return *matched, nil
 }
 
-func defaultDiagramFromFields(diagramID string, fields []RedactedField, graphLabel string) reportingDiagramModel {
+func defaultDiagramFromFields(diagramID string, fields []RedactedField) reportingDiagramModel {
 	nodes := []reportingDiagramNode{{NodeID: "n0000", Label: "Snapshot"}}
 	edges := []reportingDiagramEdge{}
 	for i, field := range fields {
@@ -740,17 +1003,21 @@ func defaultDiagramFromFields(diagramID string, fields []RedactedField, graphLab
 		nodes = append(nodes, reportingDiagramNode{NodeID: "n0001", Label: "Report"})
 		edges = append(edges, reportingDiagramEdge{EdgeID: "e0001", From: "n0000", To: "n0001"})
 	}
-	if graphLabel != "" {
-		nodes = append(nodes, reportingDiagramNode{NodeID: "n_graph", Label: graphLabel})
-		edges = append(edges, reportingDiagramEdge{EdgeID: "e_graph", From: "n0000", To: "n_graph"})
-	}
 	return reportingDiagramModel{
-		SchemaID:    "cartulary.reporting_diagram.v1",
-		DiagramID:   diagramID,
-		DiagramKind: "flowchart",
-		LayoutMode:  "auto",
-		Nodes:       nodes,
-		Edges:       edges,
+		SchemaID:          "cartulary.reporting_diagram.v1",
+		DiagramID:         diagramID,
+		DiagramKind:       "flowchart",
+		DiagramSourceKind: "timeline",
+		LayoutMode:        "auto",
+		SelectionRule: diagramSelectionRule{
+			SchemaID: "diagram_selection_rule.v1", RuleID: "timeline_sequence",
+			VertexRefs: []string{}, EdgeRefs: []string{}, SeedVertexRefs: []string{},
+			EdgeKindFilter: []string{}, TimelineRecordIDs: []string{}, OverflowPolicy: "fail",
+		},
+		IncludedVertexRefs: []string{},
+		IncludedEdgeRefs:   []string{},
+		Nodes:              nodes,
+		Edges:              edges,
 	}
 }
 
@@ -1011,11 +1278,84 @@ type compositionAuthoredText struct {
 }
 
 type compositionDiagramDecl struct {
-	DeclID            string  `json:"decl_id"`
-	DiagramKind       string  `json:"diagram_kind"`
-	DiagramSourceKind string  `json:"diagram_source_kind"`
-	SourceGraphViewID *string `json:"source_graph_view_id"`
-	LayoutMode        string  `json:"layout_mode"`
+	DeclID            string               `json:"decl_id"`
+	DiagramKind       string               `json:"diagram_kind"`
+	DiagramSourceKind string               `json:"diagram_source_kind"`
+	SourceGraphViewID *string              `json:"source_graph_view_id"`
+	SelectionRule     diagramSelectionRule `json:"selection_rule"`
+	LayoutMode        string               `json:"layout_mode"`
+}
+
+type diagramSelectionRule struct {
+	SchemaID          string   `json:"schema_id"`
+	RuleID            string   `json:"rule_id"`
+	VertexRefs        []string `json:"vertex_refs"`
+	EdgeRefs          []string `json:"edge_refs"`
+	SeedVertexRefs    []string `json:"seed_vertex_refs"`
+	Depth             *int     `json:"depth"`
+	EdgeKindFilter    []string `json:"edge_kind_filter"`
+	TimelineRecordIDs []string `json:"timeline_record_ids"`
+	OverflowPolicy    string   `json:"overflow_policy"`
+}
+
+func (rule *diagramSelectionRule) UnmarshalJSON(data []byte) error {
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal(data, &members); err != nil {
+		return err
+	}
+	allowed := map[string]struct{}{
+		"schema_id": {}, "rule_id": {}, "vertex_refs": {}, "edge_refs": {},
+		"seed_vertex_refs": {}, "depth": {}, "edge_kind_filter": {},
+		"timeline_record_ids": {}, "overflow_policy": {},
+	}
+	if len(members) != len(allowed) {
+		return fmt.Errorf("selection_rule must contain the closed member set")
+	}
+	for key := range members {
+		if _, present := allowed[key]; !present {
+			return fmt.Errorf("selection_rule contains unknown member %q", key)
+		}
+	}
+	for _, key := range []string{"vertex_refs", "edge_refs", "seed_vertex_refs", "edge_kind_filter", "timeline_record_ids"} {
+		if bytesEqualJSONNull(members[key]) {
+			return fmt.Errorf("selection_rule member %q is not nullable", key)
+		}
+	}
+	type wireRule diagramSelectionRule
+	var decoded wireRule
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	if decoded.SchemaID != "diagram_selection_rule.v1" ||
+		(decoded.OverflowPolicy != "fail" && decoded.OverflowPolicy != "summarize") ||
+		hasDuplicateStrings(decoded.EdgeKindFilter) || !sort.StringsAreSorted(decoded.EdgeKindFilter) {
+		return fmt.Errorf("selection_rule has invalid common members")
+	}
+	if hasDuplicateStrings(decoded.TimelineRecordIDs) {
+		return fmt.Errorf("selection_rule has duplicate timeline refs")
+	}
+	switch decoded.RuleID {
+	case "explicit_refs":
+		if decoded.Depth != nil || len(decoded.SeedVertexRefs) != 0 || len(decoded.EdgeKindFilter) != 0 || len(decoded.TimelineRecordIDs) != 0 || len(decoded.VertexRefs)+len(decoded.EdgeRefs) == 0 || hasDuplicateStrings(decoded.VertexRefs) || hasDuplicateStrings(decoded.EdgeRefs) {
+			return fmt.Errorf("selection_rule explicit_refs members are invalid")
+		}
+	case "neighborhood":
+		if decoded.Depth == nil || (*decoded.Depth != 1 && *decoded.Depth != 2) || len(decoded.SeedVertexRefs) == 0 || hasDuplicateStrings(decoded.SeedVertexRefs) || len(decoded.VertexRefs) != 0 || len(decoded.EdgeRefs) != 0 || len(decoded.TimelineRecordIDs) != 0 {
+			return fmt.Errorf("selection_rule neighborhood members are invalid")
+		}
+	case "timeline_sequence":
+		if decoded.Depth != nil || len(decoded.TimelineRecordIDs) == 0 || len(decoded.VertexRefs) != 0 || len(decoded.EdgeRefs) != 0 || len(decoded.SeedVertexRefs) != 0 || len(decoded.EdgeKindFilter) != 0 {
+			return fmt.Errorf("selection_rule timeline_sequence members are invalid")
+		}
+	case "all_with_bounds":
+		if decoded.Depth != nil || len(decoded.VertexRefs) != 0 || len(decoded.EdgeRefs) != 0 || len(decoded.SeedVertexRefs) != 0 || len(decoded.EdgeKindFilter) != 0 || len(decoded.TimelineRecordIDs) != 0 {
+			return fmt.Errorf("selection_rule all_with_bounds members are invalid")
+		}
+	default:
+		return fmt.Errorf("selection_rule rule_id is invalid")
+	}
+	*rule = diagramSelectionRule(decoded)
+	return nil
 }
 
 func parseRenderComposition(raw json.RawMessage) (*renderComposition, error) {
@@ -1032,6 +1372,9 @@ func parseRenderComposition(raw json.RawMessage) (*renderComposition, error) {
 	for _, decl := range composition.DiagramDecls {
 		if decl.DiagramSourceKind != "" && decl.DiagramSourceKind != "graph" && decl.DiagramSourceKind != "timeline" {
 			return nil, fmt.Errorf("composition invalid: diagram_source_kind")
+		}
+		if decl.DiagramSourceKind == "graph" && (decl.SelectionRule.SchemaID != "diagram_selection_rule.v1" || decl.SelectionRule.OverflowPolicy == "") {
+			return nil, fmt.Errorf("composition invalid: selection_rule")
 		}
 	}
 	return &composition, nil

@@ -50,6 +50,7 @@ func assertBC001EmptyStatePolicy(t *testing.T) {
 		t.Fatalf("Network Flow state plan = %#v/%t", plan, ok)
 	}
 	if !reflect.DeepEqual(plan.DatabaseFamilyIDs, []string{
+		"network_flow_activity.graph_views",
 		"network_flow_activity.indicator_bindings",
 		"network_flow_activity.rejected_row_diagnostics",
 		"network_flow_activity.rows",

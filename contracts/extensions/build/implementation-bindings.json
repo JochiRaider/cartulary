@@ -56,8 +56,8 @@
     },
     {
       "profile_id": "network_flow_activity",
-      "contract_major": 2,
-      "implementation_id": "cartulary.network_flow_activity.builtin.v2",
+      "contract_major": 3,
+      "implementation_id": "cartulary.network_flow_activity.builtin.v3",
       "state_ownership_kind": "extension_versioned",
       "implemented_contribution_ids": [
         "network_flow_activity.backup_restore",
@@ -65,12 +65,20 @@
         "network_flow_activity.import_target",
         "network_flow_activity.indicator_link",
         "network_flow_activity.network_analysis_workspace",
-        "network_flow_activity.route_family"
+        "network_flow_activity.reporting_graph_source",
+        "network_flow_activity.route_family",
+        "network_flow_activity.websocket_invalidation"
       ],
-      "implemented_job_kinds": [],
-      "implemented_worker_kinds": [],
+      "implemented_job_kinds": [
+        "network_flow_activity.graph_view_materialize_v1"
+      ],
+      "implemented_worker_kinds": [
+        "network_flow_activity.graph_view_worker_v1"
+      ],
       "algorithm_ids": [
         "network_flow_activity.backup_enumerate_v1",
+        "network_flow_activity.graph_view_materialize_v1",
+        "network_flow_activity.graph_views_identity_v1",
         "network_flow_activity.import_apply_prepare_v1",
         "network_flow_activity.import_apply_validate_v1",
         "network_flow_activity.import_apply_write_v1",
@@ -78,12 +86,15 @@
         "network_flow_activity.indicator_link_prepare_v1",
         "network_flow_activity.indicator_link_validate_v1",
         "network_flow_activity.indicator_link_write_v1",
+        "network_flow_activity.migrate_state_1_to_2_v1",
         "network_flow_activity.rejected_row_diagnostics_identity_v1",
+        "network_flow_activity.reporting_graph_order_v1",
+        "network_flow_activity.reporting_graph_source_v1",
         "network_flow_activity.restore_rebuild_v1",
         "network_flow_activity.restore_validate_v1",
         "network_flow_activity.rows_identity_v1",
         "network_flow_activity.tables_identity_v1",
-        "network_flow_activity.validate_state_v1"
+        "network_flow_activity.validate_state_v2"
       ],
       "participant_implementations": [
         {
@@ -108,6 +119,13 @@
             "network_flow_activity.indicator_link_prepare_v1",
             "network_flow_activity.indicator_link_validate_v1",
             "network_flow_activity.indicator_link_write_v1"
+          ]
+        },
+        {
+          "participant_id": "network_flow_activity.reporting_graph_source_v1",
+          "algorithm_ids": [
+            "network_flow_activity.reporting_graph_order_v1",
+            "network_flow_activity.reporting_graph_source_v1"
           ]
         }
       ]

@@ -439,8 +439,28 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		}
 		stateRuntime, stateRuntimeErr := extensions.NewStateRuntime(extensions.StateRuntimeOptions{
 			Store: logicalStateStore,
+			Migrations: map[string]extensions.StateMigration{
+				"network_flow_activity.migrate_state_1_to_2_v1": func(context.Context, extensions.MigrationContext, extensions.StateWriteCapability) (extensions.MigrationApplyResult, error) {
+					return extensions.MigrationApplyResult{
+						SchemaID: "cartulary.extension_migration_apply_result.v1",
+						Status:   "ready_to_validate",
+					}, nil
+				},
+			},
+			PendingValidators: map[string]extensions.PendingStateValidator{
+				"network_flow_activity.validate_state_v2": func(ctx context.Context, _ extensions.MigrationValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
+					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
+						return extensions.StateValidationResult{
+							SchemaID: "cartulary.extension_migration_validation_result.v1",
+							Status:   "invalid",
+							Findings: []extensions.StateFinding{{Code: "network_flow_activity_state_invalid", Path: "/"}},
+						}, nil
+					}
+					return extensions.ValidMigrationValidationResult(), nil
+				},
+			},
 			FinalValidators: map[string]extensions.FinalStateValidator{
-				"network_flow_activity.validate_state_v1": func(ctx context.Context, _ extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
+				"network_flow_activity.validate_state_v2": func(ctx context.Context, _ extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
 					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
 						return extensions.StateValidationResult{
 							SchemaID: "cartulary.extension_final_state_validation_result.v1",
@@ -867,6 +887,10 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		AuditAppender:   authn.NewAdministrativeAuditAppender(),
 		Indicators:      indicatorOwner,
 		ResourceIntents: intentAdapters,
+		GraphViewJobs:   jobTransactions,
+		JobManager:      jobManager,
+		JobRunner:       runtime.jobRunner,
+		JobFinalizer:    extensionassembly.NewNetworkFlowGraphViewJobFinalizer(extensionJobFinalizer),
 	})
 	if err != nil {
 		runtime.Close()
@@ -907,6 +931,12 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	if err := networkFlowModule.InstallCrossOwnerCoordinator(crossOwnerCoordinator); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("install Network Flow cross-owner transactions: %w", err)
+	}
+	if _, graphViewJobsAdmitted := publicationCatalog.Job(networkflow.GraphViewMaterializationJobKind); graphViewJobsAdmitted {
+		if err := networkFlowModule.RegisterGraphViewWorker(); err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("register Network Flow graph view worker: %w", err)
+		}
 	}
 	networkFlowPortabilityState, err := networkflow.NewPortabilityStateBinding(postgresHandle)
 	if err != nil {
@@ -1020,6 +1050,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	reportingRouteOptions := reporting.WithJobs(reporting.RouteOptions{
 		JobSuccessFinalizer: extensionassembly.NewReportingJobSuccessFinalizer(extensionJobFinalizer),
 		RenderExportInvoker: renderExportInvoker,
+		GraphSourceProviders: []reporting.GraphSourceProvider{
+			networkFlowModule.ReportingGraphSource(),
+		},
 		ExportFieldProviders: []exportprovider.FieldProvider{
 			artifactReporting,
 			hostIdentityReporting,

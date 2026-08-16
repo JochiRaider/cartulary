@@ -93,6 +93,30 @@ func TestOpenAPIReleaseEnumsAndExactResources_Unit(t *testing.T) {
 		requireOpenAPIRequestRef(t, operation, "ReleaseActionRequest")
 		requireOpenAPIResponseRef(t, operation, "200", "ReleaseEnvelope")
 	}
+
+	sourceProjectionRef := reportingOpenAPIObjectAt(t, schemas, "SourceProjectionRef")
+	requireClosedOpenAPIObject(t, sourceProjectionRef, "SourceProjectionRef")
+	requireOpenAPIRequired(t, sourceProjectionRef, []string{
+		"graph_view_id",
+		"source_owner_id",
+		"projection_result_id",
+		"source_snapshot_id",
+		"projection_schema_id",
+		"projection_version",
+		"normalized_configuration_sha256",
+		"normalized_source_sha256",
+		"canonical_output_sha256",
+	})
+	sourceProjectionProperties := reportingOpenAPIObjectAt(t, sourceProjectionRef, "properties")
+	for _, removed := range []string{"projection_run_id", "configuration_sha256", "source_sha256", "output_sha256"} {
+		if _, present := sourceProjectionProperties[removed]; present {
+			t.Fatalf("SourceProjectionRef retains legacy field %q", removed)
+		}
+	}
+	if reportingOpenAPIObjectAt(t, sourceProjectionProperties, "source_owner_id")["const"] != "network_flow_activity" ||
+		reportingOpenAPIObjectAt(t, sourceProjectionProperties, "projection_schema_id")["const"] != "graph_projection.v2" {
+		t.Fatalf("SourceProjectionRef does not bind exact Network Flow Graph v2 identity: %#v", sourceProjectionProperties)
+	}
 }
 
 func requireNoOpenAPISensitiveArtifactProperties(t testing.TB, properties map[string]any) {

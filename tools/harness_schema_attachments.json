@@ -184,13 +184,6 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.graph_projection_fixture_manifest.v3",
-      "path": "tools/schemas/cartulary.graph_projection_fixture_manifest.v3.schema.json",
-      "classification": "owner_input",
-      "producer": "graph projection fixtures",
-      "validation": "json-shape-check"
-    },
-    {
       "schema_id": "cartulary.harness.defs.v1",
       "path": "tools/schemas/cartulary.harness.defs.v1.schema.json",
       "classification": "shared_component",

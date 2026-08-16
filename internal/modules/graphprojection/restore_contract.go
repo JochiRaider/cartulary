@@ -19,28 +19,25 @@ import (
 )
 
 const (
-	RestoreAlgorithmID                         = "graphprojection.restore_rebuild.v1"
-	RestoreSourceRegistrySchemaID              = "cartulary.graph_projection_restore_source_registry.v1"
-	RestoreImplementationBindingSchemaID       = "cartulary.graph_projection_restore_implementation_binding.v1"
-	RestoreRebuildResultSchemaID               = "cartulary.graph_projection_restore_rebuild_result.v1"
+	RestoreAlgorithmID                         = "graphprojection.restore_rebuild.v2"
+	RestoreSourceRegistrySchemaID              = "cartulary.graph_projection_restore_source_registry.v2"
+	RestoreImplementationBindingSchemaID       = "cartulary.graph_projection_restore_implementation_binding.v2"
+	RestoreRebuildResultSchemaID               = "cartulary.graph_projection_restore_rebuild_result.v2"
 	RestoreMaximumSourceRegistrations          = 128
-	RestoreMaximumCandidates                   = 1024
+	RestoreMaximumCandidates                   = 128
 	RestoreMaximumNormalizedInputBytes   int64 = 268435456
-	RestoreMaximumVertices                     = 500000
-	RestoreMaximumEdges                        = 1000000
+	RestoreMaximumVertices                     = MaximumResultVerticesV2
+	RestoreMaximumEdges                        = MaximumResultEdgesV2
 )
 
 var restoreGraphTableIDs = []string{
-	"graph_projection_edges",
-	"graph_projection_idempotency",
-	"graph_projection_runs",
-	"graph_projection_vertices",
-	"graph_projection_views",
+	"graph_projection_result_edges",
+	"graph_projection_result_leases",
+	"graph_projection_result_vertices",
+	"graph_projection_results",
 }
 
-func RestoreGraphTableIDs() []string {
-	return append([]string(nil), restoreGraphTableIDs...)
-}
+func RestoreGraphTableIDs() []string { return append([]string(nil), restoreGraphTableIDs...) }
 
 type RestoreErrorCode string
 
@@ -57,9 +54,7 @@ const (
 	RestoreErrorOutcomeIndeterminate    RestoreErrorCode = "restore_outcome_indeterminate"
 )
 
-type RestoreError struct {
-	Code RestoreErrorCode
-}
+type RestoreError struct{ Code RestoreErrorCode }
 
 func (err *RestoreError) Error() string {
 	if err == nil {
@@ -85,15 +80,9 @@ func RestoreErrorCodeOf(err error) (RestoreErrorCode, bool) {
 
 func validRestoreErrorCode(code RestoreErrorCode) bool {
 	switch code {
-	case RestoreErrorInvalidRequest,
-		RestoreErrorRecoveryCatalogMismatch,
-		RestoreErrorSourceRegistryMismatch,
-		RestoreErrorBindingUnavailable,
-		RestoreErrorSourceEnumeration,
-		RestoreErrorInvalidCandidate,
-		RestoreErrorResourceOverflow,
-		RestoreErrorPublicationFailed,
-		RestoreErrorPostconditionFailed,
+	case RestoreErrorInvalidRequest, RestoreErrorRecoveryCatalogMismatch, RestoreErrorSourceRegistryMismatch,
+		RestoreErrorBindingUnavailable, RestoreErrorSourceEnumeration, RestoreErrorInvalidCandidate,
+		RestoreErrorResourceOverflow, RestoreErrorPublicationFailed, RestoreErrorPostconditionFailed,
 		RestoreErrorOutcomeIndeterminate:
 		return true
 	default:
@@ -101,16 +90,16 @@ func validRestoreErrorCode(code RestoreErrorCode) bool {
 	}
 }
 
+// RestoreSourceRegistryEntry is the adopted v2 source-owner registration.
 type RestoreSourceRegistryEntry struct {
-	SourceRegistrationID      string     `json:"source_registration_id"`
-	SourceOwnerID             string     `json:"source_owner_id"`
-	EnumeratorBindingID       string     `json:"enumerator_binding_id"`
-	ValidityBindingID         string     `json:"validity_binding_id"`
-	ProjectionInputContractID string     `json:"projection_input_contract_id"`
-	ImplementationBindingID   string     `json:"implementation_binding_id"`
-	Status                    string     `json:"status"`
-	IntroducedAt              time.Time  `json:"introduced_at"`
-	RetiredAt                 *time.Time `json:"retired_at"`
+	SourceRegistrationID       string `json:"source_registration_id"`
+	SourceOwnerID              string `json:"source_owner_id"`
+	AuthoritativeFamilyID      string `json:"authoritative_family_id"`
+	EnumeratorBindingID        string `json:"enumerator_binding_id"`
+	ValidityBindingID          string `json:"validity_binding_id"`
+	ProjectionInputContractID  string `json:"projection_input_contract_id"`
+	ProjectionResultContractID string `json:"projection_result_contract_id"`
+	Status                     string `json:"status"`
 }
 
 type RestoreSourceRegistryDocument struct {
@@ -118,20 +107,20 @@ type RestoreSourceRegistryDocument struct {
 	Entries  []RestoreSourceRegistryEntry `json:"entries"`
 }
 
-type RestoreSourceState interface {
-	GraphProjectionRestoreSourceState()
-}
+type RestoreSourceState interface{ GraphProjectionRestoreSourceState() }
 
+// RestoreCandidate is a complete immutable rebuild request from a source
+// owner. ExpectedBinding is the selected result recorded by authoritative
+// state and is proved byte-for-byte after deterministic recomputation.
 type RestoreCandidate struct {
-	CandidateID          string
-	GraphViewID          string
-	NormalizedInput      []byte
-	DeclarationExpiresAt *time.Time
+	CandidateID     string
+	GraphViewID     string
+	SemanticInput   []byte
+	ExpectedBinding ResultBindingV2
 }
 
 type RestoreCandidateValidity struct {
-	Eligible   bool
-	SkipReason RestoreSkipReason
+	Eligible bool
 }
 
 type RestoreCandidateEnumerator func(context.Context, RestoreSourceState, time.Time) ([]RestoreCandidate, error)
@@ -150,56 +139,55 @@ type RestoreSourceRegistry struct {
 }
 
 func NewRestoreSourceRegistry(registrations ...RestoreSourceRegistration) (*RestoreSourceRegistry, error) {
-	if len(registrations) > RestoreMaximumSourceRegistrations {
-		return nil, NewRestoreError(RestoreErrorResourceOverflow)
+	if len(registrations) == 0 || len(registrations) > RestoreMaximumSourceRegistrations {
+		return nil, NewRestoreError(RestoreErrorInvalidRequest)
 	}
-	document := RestoreSourceRegistryDocument{
-		SchemaID: RestoreSourceRegistrySchemaID,
-		Entries:  make([]RestoreSourceRegistryEntry, len(registrations)),
-	}
+	document := RestoreSourceRegistryDocument{SchemaID: RestoreSourceRegistrySchemaID, Entries: make([]RestoreSourceRegistryEntry, len(registrations))}
 	copyRegistrations := append([]RestoreSourceRegistration(nil), registrations...)
-	for index, registration := range copyRegistrations {
+	for index := range copyRegistrations {
+		registration := copyRegistrations[index]
 		entry := registration.Entry
-		if strings.TrimSpace(entry.SourceRegistrationID) == "" ||
-			strings.TrimSpace(entry.SourceOwnerID) == "" ||
-			strings.TrimSpace(entry.EnumeratorBindingID) == "" ||
-			strings.TrimSpace(entry.ValidityBindingID) == "" ||
-			strings.TrimSpace(entry.ProjectionInputContractID) == "" ||
-			strings.TrimSpace(entry.ImplementationBindingID) == "" ||
-			(entry.Status != "active" && entry.Status != "retired") ||
-			entry.IntroducedAt.IsZero() || registration.Enumerate == nil || registration.EvaluateValidity == nil {
+		if !validRestoreRegistryEntry(entry) || registration.Enumerate == nil ||
+			(index > 0 && copyRegistrations[index-1].Entry.SourceRegistrationID >= entry.SourceRegistrationID) {
 			return nil, NewRestoreError(RestoreErrorInvalidRequest)
 		}
-		entry.IntroducedAt = entry.IntroducedAt.UTC()
-		if entry.RetiredAt != nil {
-			retiredAt := entry.RetiredAt.UTC()
-			entry.RetiredAt = &retiredAt
-		}
-		if index > 0 && copyRegistrations[index-1].Entry.SourceRegistrationID >= entry.SourceRegistrationID {
-			return nil, NewRestoreError(RestoreErrorInvalidRequest)
-		}
-		copyRegistrations[index].Entry = entry
 		document.Entries[index] = entry
 	}
-	body, err := json.Marshal(map[string]any{
-		"entries":   document.Entries,
-		"schema_id": document.SchemaID,
-	})
+	body, err := restoreCanonicalJSON(document)
 	if err != nil {
 		return nil, NewRestoreError(RestoreErrorInvalidRequest)
 	}
 	digest := sha256.Sum256(body)
-	return &RestoreSourceRegistry{
-		document: document, registrations: copyRegistrations, digestSHA256: hex.EncodeToString(digest[:]),
-	}, nil
+	return &RestoreSourceRegistry{document: document, registrations: copyRegistrations, digestSHA256: hex.EncodeToString(digest[:])}, nil
+}
+
+func NewCurrentRestoreSourceRegistry(registrations ...RestoreSourceRegistration) (*RestoreSourceRegistry, error) {
+	registry, err := NewRestoreSourceRegistry(registrations...)
+	if err != nil || registry.DigestSHA256() != contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256 ||
+		string(mustRestoreCanonicalJSON(registry.document)) != contractrecovery.CurrentGraphProjectionRestoreSourceRegistryJSON {
+		return nil, NewRestoreError(RestoreErrorSourceRegistryMismatch)
+	}
+	return registry, nil
 }
 
 func CurrentRestoreSourceRegistry() *RestoreSourceRegistry {
-	return &RestoreSourceRegistry{
-		document:      RestoreSourceRegistryDocument{SchemaID: RestoreSourceRegistrySchemaID, Entries: []RestoreSourceRegistryEntry{}},
-		registrations: []RestoreSourceRegistration{},
-		digestSHA256:  contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256,
+	return decodePackagedRestoreRegistry(contractrecovery.CurrentGraphProjectionRestoreSourceRegistryJSON,
+		contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256)
+}
+
+func decodePackagedRestoreRegistry(body, digest string) *RestoreSourceRegistry {
+	var document RestoreSourceRegistryDocument
+	if err := strictRestoreJSON([]byte(body), &document); err != nil {
+		return nil
 	}
+	return &RestoreSourceRegistry{document: document, registrations: []RestoreSourceRegistration{}, digestSHA256: digest}
+}
+
+func validRestoreRegistryEntry(entry RestoreSourceRegistryEntry) bool {
+	return strings.TrimSpace(entry.SourceRegistrationID) != "" && strings.TrimSpace(entry.SourceOwnerID) != "" &&
+		strings.TrimSpace(entry.AuthoritativeFamilyID) != "" && strings.TrimSpace(entry.EnumeratorBindingID) != "" &&
+		strings.TrimSpace(entry.ValidityBindingID) != "" && entry.ProjectionInputContractID == ProjectionSchemaIDV2 &&
+		entry.ProjectionResultContractID == "graph_projection_result.v2" && entry.Status == "active"
 }
 
 func (registry *RestoreSourceRegistry) Document() RestoreSourceRegistryDocument {
@@ -244,31 +232,19 @@ type RestoreImplementationBinding struct {
 type RestoreImplementationBindingRef struct {
 	Binding RestoreImplementationBinding
 	SHA256  string
-	Legacy  bool
 }
 
 func CurrentRestoreImplementationBinding() RestoreImplementationBindingRef {
-	return decodePackagedRestoreBinding(
-		contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON,
-		contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256,
-		false,
-	)
+	return decodePackagedRestoreBinding(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON,
+		contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256)
 }
 
-func LegacyEmptyRegistryRestoreImplementationBinding() RestoreImplementationBindingRef {
-	return decodePackagedRestoreBinding(
-		contractrecovery.LegacyGraphProjectionRestoreImplementationBindingJSON,
-		contractrecovery.LegacyGraphProjectionRestoreImplementationBindingSHA256,
-		true,
-	)
-}
-
-func decodePackagedRestoreBinding(body string, digest string, legacy bool) RestoreImplementationBindingRef {
+func decodePackagedRestoreBinding(body, digest string) RestoreImplementationBindingRef {
 	var binding RestoreImplementationBinding
 	if err := strictRestoreJSON([]byte(body), &binding); err != nil {
 		return RestoreImplementationBindingRef{}
 	}
-	return RestoreImplementationBindingRef{Binding: binding, SHA256: digest, Legacy: legacy}
+	return RestoreImplementationBindingRef{Binding: binding, SHA256: digest}
 }
 
 type RestoreRecoveryCatalogRef struct {
@@ -308,7 +284,7 @@ type RestoreRebuiltView struct {
 	SourceRegistrationID          string `json:"source_registration_id"`
 	CandidateID                   string `json:"candidate_id"`
 	GraphViewID                   string `json:"graph_view_id"`
-	ProjectionRunID               string `json:"projection_run_id"`
+	ProjectionResultID            string `json:"projection_result_id"`
 	SourceSnapshotID              string `json:"source_snapshot_id"`
 	ProjectionVersion             string `json:"projection_version"`
 	NormalizedConfigurationSHA256 string `json:"normalized_configuration_sha256"`
@@ -318,39 +294,26 @@ type RestoreRebuiltView struct {
 	CanonicalOutputSHA256         string `json:"canonical_output_sha256"`
 }
 
-type RestoreSkipReason string
-
-const (
-	RestoreSkipDeclarationExpired       RestoreSkipReason = "declaration_expired_at_consistency_point"
-	RestoreSkipRegistrationNotYetActive RestoreSkipReason = "registration_not_yet_active"
-	RestoreSkipRegistrationRetired      RestoreSkipReason = "registration_retired_before_consistency_point"
-)
-
-type RestoreSkippedCandidate struct {
-	SourceRegistrationID string            `json:"source_registration_id"`
-	CandidateID          string            `json:"candidate_id"`
-	Reason               RestoreSkipReason `json:"reason"`
-}
-
 type RestoreSafeMessage struct {
 	Code RestoreErrorCode `json:"code"`
 }
 
 type RestoreRebuildResult struct {
-	SchemaID                    string                    `json:"schema_id"`
-	RestoreOperationID          string                    `json:"restore_operation_id"`
-	TargetGenerationID          string                    `json:"target_generation_id"`
-	Status                      RestoreStatus             `json:"status"`
-	ReadinessOutcome            RestoreReadinessOutcome   `json:"readiness_outcome"`
-	AlgorithmID                 string                    `json:"algorithm_id"`
-	ImplementationBindingSHA256 string                    `json:"implementation_binding_sha256"`
-	SourceRegistrySHA256        string                    `json:"source_registry_sha256"`
-	ClearedTableIDs             []string                  `json:"cleared_table_ids"`
-	RebuiltViews                []RestoreRebuiltView      `json:"rebuilt_views"`
-	SkippedCandidates           []RestoreSkippedCandidate `json:"skipped_candidates"`
-	PostconditionSHA256         *string                   `json:"postcondition_sha256"`
-	Warnings                    []RestoreSafeMessage      `json:"warnings"`
-	Errors                      []RestoreSafeMessage      `json:"errors"`
+	SchemaID                      string                  `json:"schema_id"`
+	RestoreOperationID            string                  `json:"restore_operation_id"`
+	TargetGenerationID            string                  `json:"target_generation_id"`
+	Status                        RestoreStatus           `json:"status"`
+	ReadinessOutcome              RestoreReadinessOutcome `json:"readiness_outcome"`
+	AlgorithmID                   string                  `json:"algorithm_id"`
+	ImplementationBindingSHA256   string                  `json:"implementation_binding_sha256"`
+	SourceRegistrySHA256          string                  `json:"source_registry_sha256"`
+	ClearedTableIDs               []string                `json:"cleared_table_ids"`
+	RebuiltViews                  []RestoreRebuiltView    `json:"rebuilt_views"`
+	ReconciledNonterminalJobCount int                     `json:"reconciled_nonterminal_job_count"`
+	ReconciledLeaseCount          int                     `json:"reconciled_lease_count"`
+	PostconditionSHA256           *string                 `json:"postcondition_sha256"`
+	Warnings                      []RestoreSafeMessage    `json:"warnings"`
+	Errors                        []RestoreSafeMessage    `json:"errors"`
 }
 
 func (result RestoreRebuildResult) ReadinessSatisfied() bool {
@@ -361,8 +324,8 @@ func (result RestoreRebuildResult) Validate() error {
 	if result.SchemaID != RestoreRebuildResultSchemaID || result.AlgorithmID != RestoreAlgorithmID ||
 		strings.TrimSpace(result.RestoreOperationID) == "" || uuid.Validate(result.TargetGenerationID) != nil ||
 		!validSHA256String(result.ImplementationBindingSHA256) || !validSHA256String(result.SourceRegistrySHA256) ||
-		result.ClearedTableIDs == nil || result.RebuiltViews == nil || result.SkippedCandidates == nil ||
-		result.Warnings == nil || result.Errors == nil {
+		result.ClearedTableIDs == nil || result.RebuiltViews == nil || result.Warnings == nil || result.Errors == nil ||
+		result.ReconciledNonterminalJobCount < 0 || result.ReconciledLeaseCount < 0 {
 		return NewRestoreError(RestoreErrorPostconditionFailed)
 	}
 	switch {
@@ -372,8 +335,7 @@ func (result RestoreRebuildResult) Validate() error {
 			return NewRestoreError(RestoreErrorPostconditionFailed)
 		}
 	case result.Status == RestoreStatusFailed && result.ReadinessOutcome == RestoreReadinessIncomplete:
-		if len(result.ClearedTableIDs) != 0 || len(result.RebuiltViews) != 0 || len(result.SkippedCandidates) != 0 ||
-			result.PostconditionSHA256 != nil || len(result.Errors) == 0 {
+		if len(result.ClearedTableIDs) != 0 || len(result.RebuiltViews) != 0 || result.PostconditionSHA256 != nil || len(result.Errors) == 0 {
 			return NewRestoreError(RestoreErrorPostconditionFailed)
 		}
 	default:
@@ -384,16 +346,11 @@ func (result RestoreRebuildResult) Validate() error {
 			return NewRestoreError(RestoreErrorPostconditionFailed)
 		}
 	}
-	if !sort.SliceIsSorted(result.RebuiltViews, func(left, right int) bool {
-		if result.RebuiltViews[left].SourceRegistrationID != result.RebuiltViews[right].SourceRegistrationID {
-			return result.RebuiltViews[left].SourceRegistrationID < result.RebuiltViews[right].SourceRegistrationID
+	if !sort.SliceIsSorted(result.RebuiltViews, func(i, j int) bool {
+		if result.RebuiltViews[i].SourceRegistrationID != result.RebuiltViews[j].SourceRegistrationID {
+			return result.RebuiltViews[i].SourceRegistrationID < result.RebuiltViews[j].SourceRegistrationID
 		}
-		return result.RebuiltViews[left].CandidateID < result.RebuiltViews[right].CandidateID
-	}) || !sort.SliceIsSorted(result.SkippedCandidates, func(left, right int) bool {
-		if result.SkippedCandidates[left].SourceRegistrationID != result.SkippedCandidates[right].SourceRegistrationID {
-			return result.SkippedCandidates[left].SourceRegistrationID < result.SkippedCandidates[right].SourceRegistrationID
-		}
-		return result.SkippedCandidates[left].CandidateID < result.SkippedCandidates[right].CandidateID
+		return result.RebuiltViews[i].CandidateID < result.RebuiltViews[j].CandidateID
 	}) {
 		return NewRestoreError(RestoreErrorPostconditionFailed)
 	}
@@ -414,6 +371,11 @@ func strictRestoreJSON(data []byte, destination any) error {
 		return fmt.Errorf("trailing JSON value")
 	}
 	return nil
+}
+
+func mustRestoreCanonicalJSON(value any) []byte {
+	body, _ := restoreCanonicalJSON(value)
+	return body
 }
 
 func validSHA256String(value string) bool {

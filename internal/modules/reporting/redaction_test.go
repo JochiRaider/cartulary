@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 )
 
 func TestRedactionProfilePrecedenceActionsAndManifest_Unit(t *testing.T) {
@@ -590,14 +592,15 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 		"output_kind":"slidev",
 		"output_options":{"source_only":true},
 		"graph_projection_refs":[{
-			"projection_schema_id":"graph_projection.v1",
+			"source_owner_id":"network_flow_activity",
 			"graph_view_id":"gv_a",
+			"projection_result_id":"gpres_` + graphSHA + `",
 			"source_snapshot_id":"00000000-0000-0000-0000-000000000001",
-			"projection_run_id":"gr_a",
-			"projection_version":"1",
-			"projection_config_digest":"` + graphSHA + `",
-			"projection_source_digest":"` + graphSHA + `",
-			"projection_output_digest":"` + graphSHA + `"
+			"projection_schema_id":"graph_projection.v2",
+			"projection_version":"v2",
+			"normalized_configuration_sha256":"` + graphSHA + `",
+			"normalized_source_sha256":"` + graphSHA + `",
+			"canonical_output_sha256":"` + graphSHA + `"
 		}],
 		"composition_id":"00000000-0000-0000-0000-000000000002",
 		"composition_version":"v2",
@@ -655,8 +658,8 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 		"redaction_profile_version":"1",
 		"output_kind":"slidev",
 		"graph_projection_refs":[
-			{"projection_schema_id":"graph_projection.v1","graph_view_id":"gv_a","source_snapshot_id":"s","projection_run_id":"r1","projection_version":"1","projection_config_digest":"` + graphSHA + `","projection_source_digest":"` + graphSHA + `","projection_output_digest":"` + graphSHA + `"},
-			{"projection_schema_id":"graph_projection.v1","graph_view_id":"gv_a","source_snapshot_id":"s","projection_run_id":"r2","projection_version":"1","projection_config_digest":"` + graphSHA + `","projection_source_digest":"` + graphSHA + `","projection_output_digest":"` + graphSHA + `"}
+			{"source_owner_id":"network_flow_activity","graph_view_id":"gv_a","projection_result_id":"gpres_` + graphSHA + `","source_snapshot_id":"s","projection_schema_id":"graph_projection.v2","projection_version":"v2","normalized_configuration_sha256":"` + graphSHA + `","normalized_source_sha256":"` + graphSHA + `","canonical_output_sha256":"` + graphSHA + `"},
+			{"source_owner_id":"network_flow_activity","graph_view_id":"gv_a","projection_result_id":"gpres_` + strings.Repeat("b", 64) + `","source_snapshot_id":"s","projection_schema_id":"graph_projection.v2","projection_version":"v2","normalized_configuration_sha256":"` + graphSHA + `","normalized_source_sha256":"` + graphSHA + `","canonical_output_sha256":"` + graphSHA + `"}
 		]
 	}`))
 	if duplicateGraphRef == nil || duplicateGraphRef.Details["reason_code"] != "graph_projection_ambiguous" {
@@ -814,12 +817,37 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 		}
 	})
 	graphRenderSHA := strings.Repeat("c", 64)
+	graphRenderRef := sourceProjectionRef{
+		SourceOwnerID:                 "network_flow_activity",
+		GraphViewID:                   "gv_bound",
+		ProjectionResultID:            "gpres_" + graphRenderSHA,
+		SourceSnapshotID:              "snap",
+		ProjectionSchemaID:            graphprojection.ProjectionSchemaIDV2,
+		ProjectionVersion:             "v2",
+		NormalizedConfigurationSHA256: graphRenderSHA,
+		NormalizedSourceSHA256:        graphRenderSHA,
+		CanonicalOutputSHA256:         graphRenderSHA,
+	}
+	graphRenderResult := resolvedGraphResult{
+		Ref: graphRenderRef,
+		Result: graphprojection.CompletedResultV2{
+			Binding: graphRenderRef.binding(),
+			Vertices: []graphprojection.ResultVertexV2{
+				{VertexID: "vertex-a", VertexKind: "actor", SortKey: "0001"},
+				{VertexID: "vertex-b", VertexKind: "resource", SortKey: "0002"},
+			},
+			Edges: []graphprojection.ResultEdgeV2{
+				{EdgeID: "edge-a-b", EdgeKind: "access", SrcVertexID: "vertex-a", DstVertexID: "vertex-b", SortKey: "0001"},
+			},
+		},
+	}
 	reasonCases := []struct {
-		name     string
-		request  CreateReleaseRequest
-		contract TemplateContract
-		model    ExportModel
-		want     string
+		name         string
+		request      CreateReleaseRequest
+		contract     TemplateContract
+		model        ExportModel
+		graphResults []resolvedGraphResult
+		want         string
 	}{
 		{
 			name: "invalid redaction profile",
@@ -930,12 +958,12 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 				req := baseRequest
 				req.OutputKind = OutputKindMermaid
 				req.GraphProjectionRefs = json.RawMessage(`[
-					{"projection_schema_id":"graph_projection.v1","graph_view_id":"gv_bound","source_snapshot_id":"snap","projection_run_id":"run_1","projection_version":"1","projection_config_digest":"` + graphRenderSHA + `","projection_source_digest":"` + graphRenderSHA + `","projection_output_digest":"` + graphRenderSHA + `"}
+					{"source_owner_id":"network_flow_activity","graph_view_id":"gv_bound","projection_result_id":"gpres_` + graphRenderSHA + `","source_snapshot_id":"snap","projection_schema_id":"graph_projection.v2","projection_version":"v2","normalized_configuration_sha256":"` + graphRenderSHA + `","normalized_source_sha256":"` + graphRenderSHA + `","canonical_output_sha256":"` + graphRenderSHA + `"}
 				]`)
 				req.CompositionJSON = json.RawMessage(`{
 					"schema_id":"cartulary.report_composition.v1",
 					"deck_ops":[],
-					"diagram_decls":[{"decl_id":"diag-1","diagram_kind":"flowchart","diagram_source_kind":"graph","source_graph_view_id":"gv_missing","layout_mode":"auto"}],
+					"diagram_decls":[{"decl_id":"diag-1","diagram_kind":"flowchart","diagram_source_kind":"graph","source_graph_view_id":"gv_missing","selection_rule":{"schema_id":"diagram_selection_rule.v1","rule_id":"all_with_bounds","vertex_refs":[],"edge_refs":[],"seed_vertex_refs":[],"depth":null,"edge_kind_filter":[],"timeline_record_ids":[],"overflow_policy":"fail"},"layout_mode":"auto"}],
 					"authored_texts":[]
 				}`)
 				return req
@@ -950,19 +978,20 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 				req := baseRequest
 				req.OutputKind = OutputKindMermaid
 				req.GraphProjectionRefs = json.RawMessage(`[
-					{"projection_schema_id":"graph_projection.v1","graph_view_id":"gv_bound","source_snapshot_id":"snap","projection_run_id":"run_1","projection_version":"1","projection_config_digest":"` + graphRenderSHA + `","projection_source_digest":"` + graphRenderSHA + `","projection_output_digest":"` + graphRenderSHA + `"}
+					{"source_owner_id":"network_flow_activity","graph_view_id":"gv_bound","projection_result_id":"gpres_` + graphRenderSHA + `","source_snapshot_id":"snap","projection_schema_id":"graph_projection.v2","projection_version":"v2","normalized_configuration_sha256":"` + graphRenderSHA + `","normalized_source_sha256":"` + graphRenderSHA + `","canonical_output_sha256":"` + graphRenderSHA + `"}
 				]`)
 				req.CompositionJSON = json.RawMessage(`{
 					"schema_id":"cartulary.report_composition.v1",
 					"deck_ops":[],
-					"diagram_decls":[{"decl_id":"diag-1","diagram_kind":"flowchart","diagram_source_kind":"graph","source_graph_view_id":"gv_bound","layout_mode":"auto"}],
+					"diagram_decls":[{"decl_id":"diag-1","diagram_kind":"flowchart","diagram_source_kind":"graph","source_graph_view_id":"gv_bound","selection_rule":{"schema_id":"diagram_selection_rule.v1","rule_id":"all_with_bounds","vertex_refs":[],"edge_refs":[],"seed_vertex_refs":[],"depth":null,"edge_kind_filter":[],"timeline_record_ids":[],"overflow_policy":"fail"},"layout_mode":"auto"}],
 					"authored_texts":[]
 				}`)
 				return req
 			}(),
-			contract: contract,
-			model:    baseModel,
-			want:     "",
+			contract:     contract,
+			model:        baseModel,
+			graphResults: []resolvedGraphResult{graphRenderResult},
+			want:         "",
 		},
 		{
 			name: "manual layout unsupported for mermaid",
@@ -1007,7 +1036,7 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 			if err != nil {
 				t.Fatalf("source json: %v", err)
 			}
-			_, reasonCode, err := renderReleaseCandidate(tc.request, tc.contract, tc.model, hashHex(source))
+			_, reasonCode, err := renderReleaseCandidate(tc.request, tc.contract, tc.model, hashHex(source), tc.graphResults...)
 			if tc.want == "" {
 				if err != nil || reasonCode != "" {
 					t.Fatalf("render reason = %q, err=%v want success", reasonCode, err)

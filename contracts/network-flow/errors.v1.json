@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow_error_contracts.v1",
   "profile_id": "network_flow_activity",
-  "contract_major": 2,
+  "contract_major": 3,
   "errors": [
     { "code": "network_flow_invalid_request", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
     { "code": "network_flow_unsupported_source_profile", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
@@ -39,6 +39,12 @@
     { "code": "network_flow_counter_sum_limit_exceeded", "scope": "route", "http_status": 413, "retry_action": "reduce_scope_or_limits" },
     { "code": "network_flow_graph_projection_failed", "scope": "route", "http_status": 502, "retry_action": "do_not_retry" },
     { "code": "network_flow_graph_query_stale", "scope": "route", "http_status": 409, "retry_action": "refresh_resource" },
+    { "code": "network_flow_graph_view_not_found", "scope": "route", "http_status": 404, "retry_action": "refresh_resource" },
+    { "code": "network_flow_graph_view_not_active", "scope": "route", "http_status": 409, "retry_action": "refresh_resource" },
+    { "code": "network_flow_graph_view_not_materialized", "scope": "route", "http_status": 409, "retry_action": "retry_with_backoff" },
+    { "code": "network_flow_graph_view_version_conflict", "scope": "route", "http_status": 409, "retry_action": "refresh_resource" },
+    { "code": "network_flow_graph_view_limit_exceeded", "scope": "route", "http_status": 409, "retry_action": "reduce_scope_or_limits" },
+    { "code": "network_flow_graph_materialization_limit_exceeded", "scope": "route", "http_status": 409, "retry_action": "retry_with_backoff" },
     { "code": "network_flow_indicator_link_ambiguous", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
     { "code": "network_flow_invalid_indicator_selector", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
     { "code": "network_flow_invalid_indicator_target", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
@@ -178,6 +184,30 @@
     {
       "error_code": "network_flow_graph_query_stale",
       "reason_codes": ["digest_mismatch", "vertex_not_found", "edge_not_found", "scope_stale"]
+    },
+    {
+      "error_code": "network_flow_graph_view_not_found",
+      "reason_codes": ["not_found"]
+    },
+    {
+      "error_code": "network_flow_graph_view_not_active",
+      "reason_codes": ["retired", "source_retired"]
+    },
+    {
+      "error_code": "network_flow_graph_view_not_materialized",
+      "reason_codes": ["cancelled_without_prior_result", "failed_without_prior_result", "materialization_pending", "never_materialized"]
+    },
+    {
+      "error_code": "network_flow_graph_view_version_conflict",
+      "reason_codes": ["stale_version"]
+    },
+    {
+      "error_code": "network_flow_graph_view_limit_exceeded",
+      "reason_codes": ["active_declaration_limit_exceeded", "retained_declaration_limit_exceeded"]
+    },
+    {
+      "error_code": "network_flow_graph_materialization_limit_exceeded",
+      "reason_codes": ["incident_nonterminal_job_limit_exceeded"]
     },
     {
       "error_code": "indicator-link errors",

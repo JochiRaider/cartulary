@@ -36,6 +36,9 @@ type Service struct {
 	now             func() time.Time
 	graphProjection graphProjectionPort
 	transactions    *crossownertransaction.Coordinator
+	graphViewJobs   GraphViewJobTransactions
+	jobManager      GraphViewJobManager
+	jobRunner       GraphViewJobRunner
 }
 
 func newRouteService(deps httpapi.DependencySet, module *Module) (*Service, error) {
@@ -58,8 +61,11 @@ func newRouteService(deps httpapi.DependencySet, module *Module) (*Service, erro
 		cursorProtector: module.cursorProtector,
 		safeDigester:    module.safeDigester,
 		now:             now,
-		graphProjection: newGraphProjectionAdapter(now),
+		graphProjection: module.graphProjection,
 		transactions:    module.transactions,
+		graphViewJobs:   module.graphViewJobs,
+		jobManager:      module.jobManager,
+		jobRunner:       module.jobRunner,
 	}, nil
 }
 

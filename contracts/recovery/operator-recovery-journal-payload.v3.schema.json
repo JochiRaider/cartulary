@@ -40,7 +40,7 @@
           "$ref": "common.v1.schema.json#/$defs/sha256"
         },
         "participant_result": {
-          "$ref": "graph-projection-restore-rebuild-result.v1.schema.json"
+          "$ref": "graph-projection-restore-rebuild-result.v2.schema.json"
         }
       }
     }

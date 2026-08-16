@@ -27,6 +27,7 @@ type RouteOptions struct {
 	JobSuccessFinalizer  JobSuccessFinalizer
 	RenderExportInvoker  RenderExportInvoker
 	ExportFieldProviders []exportprovider.FieldProvider
+	GraphSourceProviders []GraphSourceProvider
 	jobAdmission         reportingJobAdmission
 	jobOperations        reportingJobManager
 	jobRunner            reportingJobRunner
@@ -73,7 +74,11 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	if err != nil {
 		return nil, fmt.Errorf("compose reporting export materializer: %w", err)
 	}
-	store := newStore(deps.Postgres, options.jobAdmission, exportMaterializer)
+	graphSources, err := NewGraphSourceRegistry(options.GraphSourceProviders...)
+	if err != nil {
+		return nil, fmt.Errorf("compose Reporting graph source registry: %w", err)
+	}
+	store := newStore(deps.Postgres, options.jobAdmission, exportMaterializer, graphSources)
 	app, err := NewApplicationService(
 		store,
 		incidents.NewAccess(deps.PostgresHandle()),
@@ -81,6 +86,7 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 		options.jobRunner,
 		options.JobSuccessFinalizer,
 		options.RenderExportInvoker,
+		graphSources,
 		now,
 	)
 	if err != nil {
@@ -300,7 +306,7 @@ func (s *Service) handleInvalidateRelease(w http.ResponseWriter, r *http.Request
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, payload)
 }
 
-func renderReleaseCandidate(request CreateReleaseRequest, contract TemplateContract, model ExportModel, exportModelSHA string) (RenderedRelease, string, error) {
+func renderReleaseCandidate(request CreateReleaseRequest, contract TemplateContract, model ExportModel, exportModelSHA string, graphResults ...resolvedGraphResult) (RenderedRelease, string, error) {
 	profile, profileSHA, err := ResolveRedactionProfile(request.RedactionProfileID, request.RedactionProfileVersion, request.RecipientPartitionRefs)
 	if errors.Is(err, ErrInvalidRedactionProfile) {
 		return RenderedRelease{}, "invalid_redaction_profile", err
@@ -326,7 +332,7 @@ func renderReleaseCandidate(request CreateReleaseRequest, contract TemplateContr
 		TokenManifestJSON:     redaction.TokenManifestJSON,
 		TokenManifestSHA256:   redaction.TokenManifestSHA256,
 		RevealMapJSON:         redaction.RevealMapJSON,
-	})
+	}, graphResults...)
 	if errors.Is(err, ErrUndeclaredTemplateBinding) {
 		return partial, "undeclared_template_binding", err
 	}

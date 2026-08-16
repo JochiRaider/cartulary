@@ -8,17 +8,25 @@ import type {
   NetworkFlowTable,
 } from "../services/networkFlowContractAdapter";
 import {
+  NetworkFlowSavedGraphPanel,
+  type NetworkFlowSavedGraphPanelController,
+} from "./NetworkFlowSavedGraphPanel";
+import {
   NetworkFlowAcceptedGrid,
   NetworkFlowContributorGrid,
   NetworkFlowRejectedGrid,
 } from "./NetworkFlowSemanticGrid";
+import type {
+  NetworkFlowSavedGraph,
+  NetworkFlowSavedGraphResult,
+} from "./networkFlowClient";
 import {
   reconcileNetworkFlowContributors,
   reconcileNetworkFlowDiagnostics,
   reconcileNetworkFlowRows,
 } from "./networkFlowQueryModel";
 
-type FixtureSurface = "accepted" | "contributors" | "rejected";
+type FixtureSurface = "accepted" | "contributors" | "rejected" | "saved";
 
 export function NetworkFlowGridLoadFixture() {
   const logicalRowCount = fixtureRowCount();
@@ -33,6 +41,7 @@ export function NetworkFlowGridLoadFixture() {
     readonly NetworkFlowContributor[]
   >(() => fixtureContributors(logicalRowCount));
   const tables = useMemo(() => fixtureTables(), []);
+  const savedGraphController = useMemo(() => fixtureSavedGraphController(), []);
   const [refreshCount, setRefreshCount] = useState(0);
   const [selectionSummary, setSelectionSummary] = useState("No selection");
   const handleSelectionChange = useCallback(
@@ -88,7 +97,7 @@ export function NetworkFlowGridLoadFixture() {
         </output>
       </header>
       <nav aria-label="Fixture grid surface" style={surfaceControlsStyle}>
-        {(["accepted", "rejected", "contributors"] as const).map(
+        {(["accepted", "rejected", "contributors", "saved"] as const).map(
           (candidate) => (
             <button
               aria-pressed={surface === candidate}
@@ -131,6 +140,14 @@ export function NetworkFlowGridLoadFixture() {
             loadState="ready"
             tables={tables}
             onRetry={() => undefined}
+          />
+        ) : null}
+        {surface === "saved" ? (
+          <NetworkFlowSavedGraphPanel
+            canCreate={false}
+            canRetire={false}
+            controller={savedGraphController}
+            currentGraph={null}
           />
         ) : null}
       </div>
@@ -234,7 +251,186 @@ function fixtureSurfaceLabel(surface: FixtureSurface): string {
       return "Rejected diagnostics";
     case "contributors":
       return "Graph contributors";
+    case "saved":
+      return "Saved graph result";
   }
+}
+
+function fixtureSavedGraphController(): NetworkFlowSavedGraphPanelController {
+  const result = fixtureSavedGraphResult();
+  const graph = result.graph_view;
+  return {
+    contributorState: "idle",
+    contributors: [],
+    createGraph: async () => true,
+    graphs: [graph],
+    listState: "ready",
+    loadGraphs: async () => undefined,
+    loadResult: async () => undefined,
+    mutationPending: false,
+    notice: null,
+    refreshGraph: async () => true,
+    renameGraph: async () => true,
+    result,
+    resultState: "ready",
+    retireGraph: async () => true,
+    selectedGraph: graph,
+    selectedGraphViewId: graph.graph_view_id,
+    selection: null,
+    selectGraphView: () => undefined,
+    selectObject: async () => undefined,
+  };
+}
+
+function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
+  const vertices = Array.from({ length: 501 }, (_, index) => {
+    const identity = index.toString(16).padStart(64, "0");
+    return {
+      vertex_id: `vx_${identity}`,
+      vertex_kind: "network_flow.ip_endpoint.v1",
+      vertex_family: "network_flow.ip_endpoint.v1",
+      labels: [],
+      properties: {
+        endpoint_kind: "ip",
+        endpoint_value: `fixture-endpoint-${String(index + 1).padStart(4, "0")}`,
+        contributing_table_ids: ["nft_load_1"],
+        flow_row_count: 1,
+        indicator_candidate_value: `fixture-endpoint-${String(index + 1).padStart(4, "0")}`,
+      },
+      metadata: {
+        mapping_rule_id: "nf.map.ip_endpoint.v1",
+        aggregation_rule_id: null,
+        aggregation_source_refs: [],
+        mapped_metadata: {},
+      },
+      source_entity_ref: {
+        source_entity_id: `nfe_${identity}`,
+        source_entity_kind: "network_flow.ip_endpoint.v1",
+        mapping_rule_id: "nf.map.ip_endpoint.v1",
+      },
+      sort_key: `nfe_${identity}`,
+    };
+  });
+  const edges = Array.from({ length: 1_001 }, (_, index) => {
+    const identity = index.toString(16).padStart(64, "0");
+    const sourceIndex = index % vertices.length;
+    const destinationIndex = (index + 1) % vertices.length;
+    const sourceIdentity = sourceIndex.toString(16).padStart(64, "0");
+    const destinationIdentity = destinationIndex.toString(16).padStart(64, "0");
+    return {
+      edge_id: `ed_${identity}`,
+      edge_kind: "network_flow.flow_edge.v1",
+      edge_family: "direct",
+      src_vertex_id: `vx_${sourceIdentity}`,
+      dst_vertex_id: `vx_${destinationIdentity}`,
+      direction: "directed",
+      labels: [],
+      properties: {
+        edge_id: `nff_${identity}`,
+        src_endpoint_id: `nfe_${sourceIdentity}`,
+        dst_endpoint_id: `nfe_${destinationIdentity}`,
+        ip_protocol: 6,
+        flow_row_count: 1,
+      },
+      metadata: {
+        mapping_rule_id: "nf.map.flow_edge.v1",
+        aggregation_rule_id: null,
+        is_reverse_edge: false,
+        reverse_of_edge_id: null,
+        aggregation_source_refs: [],
+        mapped_metadata: {},
+      },
+      source_relationship_ref: {
+        source_relationship_id: `nff_${identity}`,
+        source_relationship_kind: "network_flow.flow_edge.v1",
+        mapping_rule_id: "nf.map.flow_edge.v1",
+      },
+      sort_key: `nff_${identity}`,
+    };
+  });
+  const graph = {
+    schema_id: "cartulary.network_flow.graph_view.v1",
+    graph_view_id: "nfgv_load_fixture_0000000000000001",
+    incident_id: "00000000-0000-0000-0000-000000000000",
+    display_name: "Supported-load saved graph",
+    normalized_display_name: "supported-load saved graph",
+    graph_view_version: 1,
+    materialization_generation: 1,
+    state: "active",
+    semantic_query: {
+      schema_id: "cartulary.network_flow.graph_semantic_query.v1",
+      selected_table_ids: ["nft_load_1"],
+      filters: [],
+      time_range: { start_utc: null, end_utc: null },
+      aggregation: {
+        mode: "default_flow_edge_v1",
+        include_example_row_refs: false,
+      },
+      result_limits: {
+        max_vertices: 100_000,
+        max_edges: 250_000,
+        max_example_row_refs_per_edge: 10,
+        max_aggregate_counter_digits: 20,
+      },
+    },
+    selected_result: {
+      projection_result_id: `gpres_${"1".repeat(64)}`,
+      source_snapshot_id: "supported-load-snapshot",
+      projection_schema_id: "graph_projection.v2",
+      projection_version: "network_flow_activity.v1",
+      normalized_configuration_sha256: "2".repeat(64),
+      normalized_source_sha256: "3".repeat(64),
+      canonical_output_sha256: "4".repeat(64),
+    },
+    last_materialization_job_id: "supported-load-job",
+    last_materialization_status: "succeeded",
+    last_failure_code: null,
+    created_at: "2026-07-16T00:00:00Z",
+    updated_at: "2026-07-16T00:00:00Z",
+  } as NetworkFlowSavedGraph;
+  return {
+    schema_id: "cartulary.network_flow.graph_view_result.v1",
+    graph_view: graph,
+    projection_result: {
+      projection_schema_id: "graph_projection.v2",
+      projection_result_id: graph.selected_result?.projection_result_id ?? "",
+      graph_view_id: graph.graph_view_id,
+      source_owner_id: "network_flow_activity",
+      source_snapshot_id: "supported-load-snapshot",
+      projection_version: "network_flow_activity.v1",
+      normalized_configuration_sha256: "2".repeat(64),
+      normalized_source_sha256: "3".repeat(64),
+      canonical_output_sha256: "4".repeat(64),
+      properties: {},
+      mapped_metadata: {},
+      schema_registry: {
+        vertex_kinds: [],
+        edge_kinds: [],
+        property_keys: [],
+        metadata_keys: [],
+      },
+      vertices,
+      edges,
+      validation_summary: {
+        status: "passed",
+        fatal_count: 0,
+        error_count: 0,
+        warning_count: 0,
+        info_count: 0,
+        issues: [],
+      },
+      consumer_capabilities: {
+        query_shapes: [],
+        supports_direct_vertex_lookup: false,
+        supports_direct_edge_lookup: false,
+        supports_breadth_first_traversal: false,
+        supports_alternate_traversal_order: [],
+        max_traversal_depth: 0,
+        max_traversal_seed_vertices: 0,
+        max_kind_filters: 0,
+      },
+    },
+  } as NetworkFlowSavedGraphResult;
 }
 
 const fixtureStyle = {

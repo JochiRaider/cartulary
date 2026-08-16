@@ -85,6 +85,36 @@ func (s *TransactionService) CreateQueuedTx(ctx context.Context, tx pgx.Tx, para
 	return resource, nil
 }
 
+// CountNonterminalIncidentJobsTx is the bounded admission view exposed to
+// incident-scoped job producers. It keeps Jobs lifecycle state behind a narrow
+// port while allowing the producer's declaration mutation and quota decision
+// to share one transaction.
+func (s *TransactionService) CountNonterminalIncidentJobsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, jobKind string, maximum int64) (int64, error) {
+	if s == nil || tx == nil || incidentID == uuid.Nil || jobKind == "" || maximum < 1 {
+		return 0, ErrNotConfigured
+	}
+	if !s.selection.containsJobKind(jobKind) {
+		return 0, fmt.Errorf("%w: job kind is not admitted", ErrInvalidJobDefinition)
+	}
+	var count int64
+	err := tx.QueryRow(ctx, `
+SELECT COUNT(*)
+  FROM (
+        SELECT 1
+          FROM jobs
+         WHERE scope_kind = 'incident'
+           AND incident_id = $1
+           AND job_kind = $2
+           AND status IN ('queued', 'running', 'cancel_requested')
+         LIMIT $3
+       ) bounded_nonterminal_jobs
+`, incidentID, jobKind, maximum+1).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count nonterminal incident jobs: %w", err)
+	}
+	return count, nil
+}
+
 func (s *TransactionService) CompleteSucceededTx(ctx context.Context, tx pgx.Tx, execution Execution, completion SuccessCompletion, now time.Time) (Resource, error) {
 	if s == nil || s.progressIntents == nil {
 		return Resource{}, ErrNotConfigured

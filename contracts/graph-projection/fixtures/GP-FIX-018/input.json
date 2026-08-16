@@ -1,4 +1,0 @@
-{
-  "fixture_id": "GP-FIX-018",
-  "scenario": "lifecycle_idempotency_replay_conflict"
-}

@@ -22,7 +22,7 @@ export function readyExtensionAvailability(
     {
       profile_id: "network_flow_activity",
       claimed: true,
-      contract_major: 2,
+      contract_major: 3,
       route_families: ["/api/v1/incidents/{incident_id}/network-flow"],
       workspace_keys: ["network_analysis"],
       capabilities: [],

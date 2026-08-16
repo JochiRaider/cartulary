@@ -17171,29 +17171,33 @@
       "SourceProjectionRef": {
         "additionalProperties": false,
         "properties": {
+          "canonical_output_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
           "graph_view_id": {
             "type": "string"
           },
-          "projection_config_digest": {
+          "normalized_configuration_sha256": {
             "pattern": "^[0-9a-f]{64}$",
             "type": "string"
           },
-          "projection_output_digest": {
+          "normalized_source_sha256": {
             "pattern": "^[0-9a-f]{64}$",
             "type": "string"
           },
-          "projection_run_id": {
+          "projection_result_id": {
+            "pattern": "^gpres_[0-9a-f]{64}$",
             "type": "string"
           },
           "projection_schema_id": {
-            "const": "graph_projection.v1"
-          },
-          "projection_source_digest": {
-            "pattern": "^[0-9a-f]{64}$",
-            "type": "string"
+            "const": "graph_projection.v2"
           },
           "projection_version": {
             "type": "string"
+          },
+          "source_owner_id": {
+            "const": "network_flow_activity"
           },
           "source_snapshot_id": {
             "type": "string"
@@ -17201,13 +17205,14 @@
         },
         "required": [
           "graph_view_id",
-          "projection_run_id",
+          "source_owner_id",
+          "projection_result_id",
           "source_snapshot_id",
           "projection_schema_id",
           "projection_version",
-          "projection_config_digest",
-          "projection_source_digest",
-          "projection_output_digest"
+          "normalized_configuration_sha256",
+          "normalized_source_sha256",
+          "canonical_output_sha256"
         ],
         "type": "object"
       },

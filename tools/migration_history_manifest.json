@@ -188,6 +188,18 @@
       "filename": "00031_evidence_blob_cleanup_claims.sql",
       "sha256": "acf86625925b46198086acd93fa232d999165bf0fe2b4e4e657cacaceedcb95c",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 32,
+      "filename": "00032_graph_projection_v2.sql",
+      "sha256": "393aec3abf10fa02f1cd7b26d21dfa4a98152ee1b1f7a162e419ab18725b9314",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 33,
+      "filename": "00033_graph_projection_v1_removal.sql",
+      "sha256": "ca2d578d53768dda6219afe2de5010b33b3a2540a3793af7a646426c5ceb5f43",
+      "historical_phase_shaped": false
     }
   ]
 }

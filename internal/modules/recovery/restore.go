@@ -382,9 +382,6 @@ func (runner *RestoreRunner) runVNextProjectionRebuilds(
 			var err error
 			registry := restorecontract.CurrentGraphProjectionSourceRegistryRef()
 			binding := restorecontract.CurrentGraphProjectionImplementationBinding()
-			if verification.GraphRestoreArtifacts.LegacyEmptyRegistryBinding {
-				binding = restorecontract.LegacyGraphProjectionImplementationBinding()
-			}
 			if registry.SHA256 != verification.GraphRestoreArtifacts.SourceRegistrySHA256 ||
 				binding.SHA256 != verification.GraphRestoreArtifacts.ImplementationBindingSHA256 {
 				return graphResult, workbookResult, fmt.Errorf("%w: Graph Projection frozen artifacts mismatch", ErrInvalidBackupArtifact)

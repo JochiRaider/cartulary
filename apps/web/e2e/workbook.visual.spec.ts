@@ -5801,6 +5801,7 @@ async function maskVisualDynamicText(page: Page) {
       ],
       timestampReplacement,
       [/hitem\.[^\s<>"']+/g, "hitem.VISUAL-FIXTURE"],
+      [/gpres_[0-9a-f]+…[0-9a-f]+/gi, "gpres_VISUAL…RESULT"],
       [/\bIR-[A-Z0-9-]+\b/g, "IR-VISUAL-FIXTURE"],
       [/Playwright Worker Admin \d+/g, "Playwright Worker Admin"],
     ];
@@ -5902,6 +5903,24 @@ if (
     await assertViewportVisualRegression(
       page,
       "network-flow-analysis-graph-contributors",
+    );
+    await page.getByTestId(networkAnalysisTestId("contributor-close")).click();
+    await page.getByRole("button", { name: "Saved graphs" }).click();
+    await page.getByTestId(networkAnalysisTestId("saved-graph-create")).click();
+    await page
+      .getByTestId(networkAnalysisTestId("saved-graph-name"))
+      .fill("Visual saved graph");
+    await page.getByRole("button", { name: "Save graph" }).click();
+    const savedGraphs = page.getByTestId(networkAnalysisTestId("saved-graphs"));
+    await expect(
+      savedGraphs.getByText("Materialization succeeded.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByTestId(/^network-flow-saved-graph-edge-/u).first(),
+    ).toBeVisible();
+    await assertViewportVisualRegression(
+      page,
+      "network-flow-analysis-saved-graph-result",
     );
   });
 }

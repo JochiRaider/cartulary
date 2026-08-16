@@ -1,1 +1,0 @@
-{"status":"error","error":{"code":"invalid_projection_request","retryable":false,"details":{"operation":"project_ephemeral","reason_code":"invalid_json_syntax","field":null,"validation_code":null}}}

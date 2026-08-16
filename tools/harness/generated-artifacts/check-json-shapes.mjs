@@ -79,8 +79,6 @@ const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v3";
 const testSupportInventorySchemaID = "cartulary.test_support_inventory.v1";
 const projectionProviderManifestSchemaID =
   "cartulary.projection_provider_manifest.v4";
-const graphProjectionFixtureManifestSchemaID =
-  "cartulary.graph_projection_fixture_manifest.v3";
 const networkFlowFixtureManifestSchemaID =
   "cartulary.network_flow_fixture_manifest.v2";
 const networkFlowFixtureScenarioSchemaID =
@@ -1053,6 +1051,9 @@ function validateContractFamilyRegistryShape(file) {
   if (!familyIDs.includes("imports")) {
     throw new Error(`${file}.families must declare imports`);
   }
+  if (!familyIDs.includes("graph-projection")) {
+    throw new Error(`${file}.families must declare graph-projection`);
+  }
   if (!familyIDs.includes("recovery")) {
     throw new Error(`${file}.families must declare recovery`);
   }
@@ -1080,6 +1081,7 @@ function validateContractFamilyRegistryShape(file) {
     "view-schemas",
     "errors",
     "extensions",
+    "graph-projection",
     "network-flow",
     "audit",
     "imports",
@@ -1120,7 +1122,7 @@ function validateNetworkFlowContractIndexShape(file, root = repoRoot) {
   assertRequiredKeys(contractIndex, networkFlowContractIndexKeys, file);
   requireSchemaID(contractIndex, networkFlowContractIndexSchemaID, file);
   requireExact(contractIndex.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(contractIndex.contract_major, 2, `${file}.contract_major`);
+  requireExact(contractIndex.contract_major, 3, `${file}.contract_major`);
   requireExact(contractIndex.family_id, "network-flow", `${file}.family_id`);
   requireExact(contractIndex.owner_id, "module.networkflow", `${file}.owner_id`);
 
@@ -1368,7 +1370,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
   assertRequiredKeys(routeContracts, networkFlowRouteContractKeys, file);
   requireSchemaID(routeContracts, "cartulary.network_flow_route_contracts.v1", file);
   requireExact(routeContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(routeContracts.contract_major, 2, `${file}.contract_major`);
+  requireExact(routeContracts.contract_major, 3, `${file}.contract_major`);
   requireExact(
     routeContracts.route_root,
     "/api/v1/incidents/{incident_id}/network-flow",
@@ -1603,6 +1605,139 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       audit_event: null,
     },
     {
+      route_id: "nf.graph_views.list",
+      method: "GET",
+      path: "/api/v1/incidents/{incident_id}/network-flow/graph-views",
+      auth_context: "viewer",
+      request_schema_id: null,
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.graph_view_list.v1",
+      success_http_statuses: [200],
+      idempotency: "read_route",
+      primary_errors: ["network_flow_invalid_request"],
+      audit_event: null,
+    },
+    {
+      route_id: "nf.graph_views.create",
+      method: "POST",
+      path: "/api/v1/incidents/{incident_id}/network-flow/graph-views",
+      auth_context: "editor",
+      request_schema_id: "cartulary.network_flow.graph_view_create_request.v1",
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.graph_view_accepted.v1",
+      success_http_statuses: [202],
+      idempotency: "client_txn_id_required",
+      primary_errors: [
+        "network_flow_graph_view_limit_exceeded",
+        "network_flow_graph_materialization_limit_exceeded",
+        "network_flow_invalid_display_name",
+        "network_flow_invalid_request",
+      ],
+      audit_event: "network_flow_graph_view_created",
+    },
+    {
+      route_id: "nf.graph_views.get",
+      method: "GET",
+      path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}",
+      auth_context: "viewer",
+      request_schema_id: null,
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.graph_view_get.v1",
+      success_http_statuses: [200],
+      idempotency: "read_route",
+      primary_errors: ["network_flow_graph_view_not_found"],
+      audit_event: null,
+    },
+    {
+      route_id: "nf.graph_views.patch",
+      method: "PATCH",
+      path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}",
+      auth_context: "editor",
+      request_schema_id: "cartulary.network_flow.graph_view_rename_request.v1",
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.graph_view_mutation_result.v1",
+      success_http_statuses: [200],
+      idempotency: "client_txn_id_required",
+      primary_errors: [
+        "network_flow_graph_view_not_found",
+        "network_flow_graph_view_not_active",
+        "network_flow_graph_view_version_conflict",
+        "network_flow_invalid_display_name",
+      ],
+      audit_event: "network_flow_graph_view_renamed",
+    },
+    {
+      route_id: "nf.graph_views.delete",
+      method: "DELETE",
+      path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}",
+      auth_context: "reviewer",
+      request_schema_id: "cartulary.network_flow.graph_view_retire_request.v1",
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.graph_view_mutation_result.v1",
+      success_http_statuses: [200],
+      idempotency: "client_txn_id_required",
+      primary_errors: [
+        "network_flow_graph_view_not_found",
+        "network_flow_graph_view_not_active",
+        "network_flow_graph_view_version_conflict",
+      ],
+      audit_event: "network_flow_graph_view_retired",
+    },
+    {
+      route_id: "nf.graph_views.refresh",
+      method: "POST",
+      path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/refresh",
+      auth_context: "editor",
+      request_schema_id: "cartulary.network_flow.graph_view_refresh_request.v1",
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.graph_view_accepted.v1",
+      success_http_statuses: [202],
+      idempotency: "client_txn_id_required",
+      primary_errors: [
+        "network_flow_graph_view_not_found",
+        "network_flow_graph_view_not_active",
+        "network_flow_graph_view_version_conflict",
+        "network_flow_graph_materialization_limit_exceeded",
+      ],
+      audit_event: "network_flow_graph_view_refresh_requested",
+    },
+    {
+      route_id: "nf.graph_views.result",
+      method: "GET",
+      path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/result",
+      auth_context: "viewer",
+      request_schema_id: null,
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.graph_view_result.v1",
+      success_http_statuses: [200],
+      idempotency: "read_route",
+      primary_errors: [
+        "network_flow_graph_view_not_found",
+        "network_flow_graph_view_not_active",
+        "network_flow_graph_view_not_materialized",
+      ],
+      audit_event: null,
+    },
+    {
+      route_id: "nf.graph_views.contributors.query",
+      method: "POST",
+      path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/contributors/query",
+      auth_context: "viewer",
+      request_schema_id: "cartulary.network_flow.graph_view_contributor_query_request.v1",
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.graph_view_contributor_query_result.v1",
+      success_http_statuses: [200],
+      idempotency: "read_route",
+      primary_errors: [
+        "network_flow_graph_view_not_found",
+        "network_flow_graph_view_not_active",
+        "network_flow_graph_view_not_materialized",
+        "network_flow_graph_query_stale",
+        "network_flow_invalid_limit",
+      ],
+      audit_event: null,
+    },
+    {
       route_id: "nf.indicator_links.create",
       method: "POST",
       path: "/api/v1/incidents/{incident_id}/network-flow/indicator-links",
@@ -1696,7 +1831,7 @@ function validateNetworkFlowErrorContractsShape(file) {
   assertRequiredKeys(errorContracts, networkFlowErrorContractKeys, file);
   requireSchemaID(errorContracts, "cartulary.network_flow_error_contracts.v1", file);
   requireExact(errorContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(errorContracts.contract_major, 2, `${file}.contract_major`);
+  requireExact(errorContracts.contract_major, 3, `${file}.contract_major`);
   assertExactIDSet(
     new Set(requireStringArray(errorContracts.retry_actions, `${file}.retry_actions`, { nonEmpty: true })),
     new Set([
@@ -1748,6 +1883,12 @@ function validateNetworkFlowErrorContractsShape(file) {
       ["network_flow_counter_sum_limit_exceeded", "route", 413, "reduce_scope_or_limits"],
       ["network_flow_graph_projection_failed", "route", 502, "do_not_retry"],
       ["network_flow_graph_query_stale", "route", 409, "refresh_resource"],
+      ["network_flow_graph_view_not_found", "route", 404, "refresh_resource"],
+      ["network_flow_graph_view_not_active", "route", 409, "refresh_resource"],
+      ["network_flow_graph_view_not_materialized", "route", 409, "retry_with_backoff"],
+      ["network_flow_graph_view_version_conflict", "route", 409, "refresh_resource"],
+      ["network_flow_graph_view_limit_exceeded", "route", 409, "reduce_scope_or_limits"],
+      ["network_flow_graph_materialization_limit_exceeded", "route", 409, "retry_with_backoff"],
       ["network_flow_indicator_link_ambiguous", "route", 400, "correct_request"],
       ["network_flow_invalid_indicator_selector", "route", 400, "correct_request"],
       ["network_flow_invalid_indicator_target", "route", 400, "correct_request"],
@@ -1811,6 +1952,12 @@ function validateNetworkFlowErrorContractsShape(file) {
         "network_flow_invalid_filter",
         "network_flow_cursor_invalid",
         "network_flow_graph_projection_failed",
+        "network_flow_graph_view_not_found",
+        "network_flow_graph_view_not_active",
+        "network_flow_graph_view_not_materialized",
+        "network_flow_graph_view_version_conflict",
+        "network_flow_graph_view_limit_exceeded",
+        "network_flow_graph_materialization_limit_exceeded",
         "indicator-link errors",
         "network_flow_table_limit_exceeded,network_flow_resource_limit_exceeded",
       ].includes(entry),
@@ -1822,6 +1969,12 @@ function validateNetworkFlowErrorContractsShape(file) {
       "network_flow_invalid_filter",
       "network_flow_cursor_invalid",
       "network_flow_graph_projection_failed",
+      "network_flow_graph_view_not_found",
+      "network_flow_graph_view_not_active",
+      "network_flow_graph_view_not_materialized",
+      "network_flow_graph_view_version_conflict",
+      "network_flow_graph_view_limit_exceeded",
+      "network_flow_graph_materialization_limit_exceeded",
       "indicator-link errors",
       "network_flow_table_limit_exceeded,network_flow_resource_limit_exceeded",
     ]),
@@ -1839,7 +1992,7 @@ function validateNetworkFlowPublicSchemaBundle(file, publicSchemaIDs) {
   requireExact(bundle.$id, "cartulary.network_flow_public_schemas.v1", `${file}.$id`);
   requireSchemaID(bundle, "cartulary.network_flow_public_schemas.v1", file);
   requireExact(bundle.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(bundle.contract_major, 2, `${file}.contract_major`);
+  requireExact(bundle.contract_major, 3, `${file}.contract_major`);
   const defs = requireObject(bundle.$defs, `${file}.$defs`);
   const actualSchemaIDs = new Set();
   for (const [defName, def] of Object.entries(defs)) {
@@ -1914,6 +2067,12 @@ function validateNetworkFlowSchemaClosure(node, label) {
   }
   for (const [key, value] of Object.entries(node)) {
     if (["x_schema_id", "$ref", "const", "enum"].includes(key)) {
+      continue;
+    }
+    if (key === "properties" && value && typeof value === "object" && !Array.isArray(value)) {
+      for (const [propertyKey, propertySchema] of Object.entries(value)) {
+        validateNetworkFlowSchemaClosure(propertySchema, `${label}.properties.${propertyKey}`);
+      }
       continue;
     }
     validateNetworkFlowSchemaClosure(value, `${label}.${key}`);
@@ -2723,76 +2882,6 @@ function validateProjectionImportPolicyPackages(packagePaths, label) {
   }
 }
 
-function validateGraphProjectionEvidenceSelector(selector, label) {
-  const separator = selector.indexOf("::");
-  const selectedPath = separator === -1 ? selector : selector.slice(0, separator);
-  const selectedSymbol = separator === -1 ? "" : selector.slice(separator + 2);
-  const absolutePath = path.resolve(repoRoot, selectedPath);
-  if (!absolutePath.startsWith(`${repoRoot}${path.sep}`) || !existsSync(absolutePath)) {
-    throw new Error(`${label} selects missing path ${selectedPath}`);
-  }
-  if (selectedSymbol === "") {
-    return;
-  }
-  if (lstatSync(absolutePath).isDirectory()) {
-    const testSources = readdirSync(absolutePath, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith("_test.go"))
-      .map((entry) => readFileSync(path.join(absolutePath, entry.name), "utf8"))
-      .join("\n");
-    if (!testSources.includes(`func ${selectedSymbol}(`)) {
-      throw new Error(`${label} selects missing Go test symbol ${selectedSymbol}`);
-    }
-    return;
-  }
-  const contents = readFileSync(absolutePath, "utf8");
-  if (!contents.includes(selectedSymbol)) {
-    throw new Error(`${label} selects missing anchor ${selectedSymbol}`);
-  }
-}
-
-function validateGraphProjectionFixtureManifests(root) {
-  const fixtureRoot = repoFile(root, "contracts/graph-projection/fixtures");
-  for (const entry of readdirSync(fixtureRoot, { withFileTypes: true })) {
-    if (!entry.isDirectory() || !/^GP-FIX-\d{3}$/.test(entry.name)) {
-      continue;
-    }
-    const fixtureID = entry.name;
-    const fixtureDir = path.join(fixtureRoot, fixtureID);
-    const manifestPath = path.join(fixtureDir, "fixture.json");
-    if (!existsSync(manifestPath)) {
-      throw new Error(`${fixtureDir} is missing fixture.json`);
-    }
-    const manifest = readShapeFile(manifestPath, manifestPath);
-    validateSchemaSync(graphProjectionFixtureManifestSchemaID, manifest);
-    requireExact(manifest.fixture_id, fixtureID, `${manifestPath}.fixture_id`);
-    validateGraphProjectionEvidenceSelector(
-      `internal/modules/graphprojection::${manifest.test_symbol}`,
-      `${manifestPath}.test_symbol`,
-    );
-    const artifacts = requireArray(manifest.artifacts, `${manifestPath}.artifacts`, {
-      nonEmpty: true,
-    });
-    const paths = new Set();
-    for (const [index, artifact] of artifacts.entries()) {
-      const label = `${manifestPath}.artifacts[${index + 1}]`;
-      const logicalPath = requireManifestRelativePath(artifact.path, `${label}.path`);
-      if (paths.has(logicalPath)) {
-        throw new Error(`${manifestPath} duplicates artifact ${logicalPath}`);
-      }
-      paths.add(logicalPath);
-      const artifactPath = path.resolve(fixtureDir, logicalPath);
-      if (!artifactPath.startsWith(`${fixtureDir}${path.sep}`) || !existsSync(artifactPath)) {
-        throw new Error(`${label}.path is missing or escapes the fixture directory`);
-      }
-      if (lstatSync(artifactPath).isSymbolicLink()) {
-        throw new Error(`${label}.path must not be a symlink`);
-      }
-      const digest = sha256Hex(readFileSync(artifactPath));
-      requireExact(artifact.sha256, digest, `${label}.sha256`);
-    }
-  }
-}
-
 function sha256Hex(buffer) {
   return createHash("sha256").update(buffer).digest("hex");
 }
@@ -3480,7 +3569,6 @@ function validateAll(root) {
   validateProjectionProviderManifestShape(
     repoFile(root, "contracts/projection-providers/index.json"),
   );
-  validateGraphProjectionFixtureManifests(root);
   validateNetworkFlowContractIndexShape(
     repoFile(root, "contracts/network-flow/index.json"),
     root,

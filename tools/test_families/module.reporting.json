@@ -35,6 +35,35 @@
       ]
     },
     {
+      "row_id": "module.reporting.integration.exact_graph_result_lease_lifecycle_8f1c5c43a2",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [
+        "module.graphprojection",
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestReportingGraphSourceValidatesLeasesReadsAndReleasesExactResult_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.reporting.integration.external_releases_require_distinct_reviewer_and_0df12b0a47",
       "owner_id": "module.reporting",
       "family_id": "module.reporting.integration",
@@ -159,6 +188,37 @@
           "TestRenderExportParticipantValidatesClosedOutputAndBounds",
           "TestReportingJobWorkerParticipantFailurePublishesNoRenderOutput",
           "TestReportingPreviewWorkerHonorsCancellationAndParticipantFailure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.graph_v2_exact_selection_and_rendering_f54d8b1a62",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [
+        "module.graphprojection",
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestDiagramSelectionRuleSchemaIsClosed_Unit",
+          "TestGraphResultSelectionBoundsAndActualTopologyRendering_Unit",
+          "TestGraphResultSelectionRulesPreserveExactProjectionOrder_Unit",
+          "TestGraphSourceRegistryReadsExactResultAndOwnsReasonMapping",
+          "TestGraphSourceRegistryRejectsDuplicateAndUnknownOwners"
         ]
       },
       "evidence_class": "unit",

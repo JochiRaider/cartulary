@@ -14,9 +14,11 @@ const (
 	ExtensionFamilyRejectedRowDiagnostics = "network_flow_activity.rejected_row_diagnostics"
 	ExtensionFamilyRows                   = "network_flow_activity.rows"
 	ExtensionFamilyTables                 = "network_flow_activity.tables"
+	ExtensionFamilyGraphViews             = "network_flow_activity.graph_views"
 )
 
 var networkFlowExtensionFamilies = []string{
+	ExtensionFamilyGraphViews,
 	ExtensionFamilyIndicatorBindings,
 	ExtensionFamilyRejectedRowDiagnostics,
 	ExtensionFamilyRows,
@@ -39,6 +41,7 @@ func ExtensionStateFamilyCounters() []extensionstore.FamilyCounter {
 		countExtensionFamily(ExtensionFamilyRejectedRowDiagnostics, `SELECT COUNT(*) FROM network_flow_rejected_row_diagnostics`),
 		countExtensionFamily(ExtensionFamilyRows, `SELECT COUNT(*) FROM network_flow_rows`),
 		countExtensionFamily(ExtensionFamilyTables, `SELECT COUNT(*) FROM network_flow_tables`),
+		countExtensionFamily(ExtensionFamilyGraphViews, `SELECT COUNT(*) FROM network_flow_graph_views`),
 	}
 }
 
@@ -74,7 +77,8 @@ func ValidateExtensionState(ctx context.Context, reader ExtensionStateReader) er
 	if counts[ExtensionFamilyTables] == 0 &&
 		(counts[ExtensionFamilyRows] != 0 ||
 			counts[ExtensionFamilyRejectedRowDiagnostics] != 0 ||
-			counts[ExtensionFamilyIndicatorBindings] != 0) {
+			counts[ExtensionFamilyIndicatorBindings] != 0 ||
+			counts[ExtensionFamilyGraphViews] != 0) {
 		return fmt.Errorf("network flow dependent state exists without table state")
 	}
 	return nil

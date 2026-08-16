@@ -13,6 +13,17 @@ import {
   type GraphQueryResult,
   type GraphSelector,
   type GraphSemanticQuery,
+  type GraphView,
+  type GraphViewAccepted,
+  type GraphViewContributorQueryRequest,
+  type GraphViewContributorQueryResult,
+  type GraphViewCreateRequest,
+  type GraphViewList,
+  type GraphViewMutationResult,
+  type GraphViewRefreshRequest,
+  type GraphViewRenameRequest,
+  type GraphViewResult,
+  type GraphViewRetireRequest,
   type ImportPreviewResult,
   type IndicatorLinkRequest,
   type IndicatorLinkResult,
@@ -56,6 +67,19 @@ export type NetworkFlowGraphVertex = GraphProjectionVertex;
 export type NetworkFlowGraphSelector = GraphSelector;
 export type NetworkFlowGraphSemanticQuery = GraphSemanticQuery;
 export type NetworkFlowGraphQueryRequest = GraphQueryRequest;
+export type NetworkFlowSavedGraph = GraphView;
+export type NetworkFlowSavedGraphAccepted = GraphViewAccepted;
+export type NetworkFlowSavedGraphContributorQueryRequest =
+  GraphViewContributorQueryRequest;
+export type NetworkFlowSavedGraphContributorResult =
+  GraphViewContributorQueryResult;
+export type NetworkFlowSavedGraphCreateRequest = GraphViewCreateRequest;
+export type NetworkFlowSavedGraphList = GraphViewList;
+export type NetworkFlowSavedGraphMutationResult = GraphViewMutationResult;
+export type NetworkFlowSavedGraphRefreshRequest = GraphViewRefreshRequest;
+export type NetworkFlowSavedGraphRenameRequest = GraphViewRenameRequest;
+export type NetworkFlowSavedGraphResult = GraphViewResult;
+export type NetworkFlowSavedGraphRetireRequest = GraphViewRetireRequest;
 export type NetworkFlowContributorQueryRequest = GraphContributorQueryRequest;
 export type NetworkFlowContributorQueryContinuation =
   GraphContributorQueryContinuation;
@@ -89,7 +113,7 @@ export const networkFlowMappingCandidateSchemaId =
 export const networkFlowErrorMetadata = networkFlowErrorRegistry;
 export const networkFlowPresentationMetadata = networkFlowPresentationRegistry;
 
-const supportedNetworkFlowContractMajors = new Set([2]);
+const supportedNetworkFlowContractMajors = new Set([3]);
 
 export function isSupportedNetworkFlowContract(
   descriptor: {
@@ -167,6 +191,37 @@ export function decodeNetworkFlowContributorResult(
   value: unknown,
 ): GraphContributorQueryResult {
   return decodeOrThrow(networkFlowDecoders.graphContributorQueryResult, value);
+}
+
+export function decodeNetworkFlowSavedGraphList(value: unknown): GraphViewList {
+  return decodeOrThrow(networkFlowDecoders.graphViewList, value);
+}
+
+export function decodeNetworkFlowSavedGraphAccepted(
+  value: unknown,
+): GraphViewAccepted {
+  return decodeOrThrow(networkFlowDecoders.graphViewAccepted, value);
+}
+
+export function decodeNetworkFlowSavedGraphMutationResult(
+  value: unknown,
+): GraphViewMutationResult {
+  return decodeOrThrow(networkFlowDecoders.graphViewMutationResult, value);
+}
+
+export function decodeNetworkFlowSavedGraphResult(
+  value: unknown,
+): GraphViewResult {
+  return decodeOrThrow(networkFlowDecoders.graphViewResult, value);
+}
+
+export function decodeNetworkFlowSavedGraphContributorResult(
+  value: unknown,
+): GraphViewContributorQueryResult {
+  return decodeOrThrow(
+    networkFlowDecoders.graphViewContributorQueryResult,
+    value,
+  );
 }
 
 export function decodeNetworkFlowIndicatorLinkResult(

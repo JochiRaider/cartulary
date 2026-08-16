@@ -16,6 +16,15 @@ import type {
   NetworkFlowIndicatorTarget,
   NetworkFlowPaging,
   NetworkFlowRow,
+  NetworkFlowSavedGraph,
+  NetworkFlowSavedGraphAccepted,
+  NetworkFlowSavedGraphContributorQueryRequest,
+  NetworkFlowSavedGraphContributorResult,
+  NetworkFlowSavedGraphCreateRequest,
+  NetworkFlowSavedGraphRefreshRequest,
+  NetworkFlowSavedGraphRenameRequest,
+  NetworkFlowSavedGraphResult,
+  NetworkFlowSavedGraphRetireRequest,
   NetworkFlowTable,
   NetworkFlowTableRenameRequest,
   NetworkFlowTableScope,
@@ -26,6 +35,11 @@ import {
   decodeNetworkFlowGraphResult,
   decodeNetworkFlowIndicatorLinkResult,
   decodeNetworkFlowRejectedRowsQueryResult,
+  decodeNetworkFlowSavedGraphAccepted,
+  decodeNetworkFlowSavedGraphContributorResult,
+  decodeNetworkFlowSavedGraphList,
+  decodeNetworkFlowSavedGraphMutationResult,
+  decodeNetworkFlowSavedGraphResult,
   decodeNetworkFlowSourceProfileList,
   decodeNetworkFlowTableList,
   decodeNetworkFlowTableMutationResult,
@@ -58,6 +72,10 @@ export type {
   NetworkFlowPaging,
   NetworkFlowRow,
   NetworkFlowRowRef,
+  NetworkFlowSavedGraph,
+  NetworkFlowSavedGraphAccepted,
+  NetworkFlowSavedGraphContributorResult,
+  NetworkFlowSavedGraphResult,
   NetworkFlowTable,
   NetworkFlowTableScope,
 } from "../services/networkFlowContractAdapter";
@@ -286,6 +304,179 @@ export async function queryNetworkFlowContributors(options: {
   );
 }
 
+export async function listNetworkFlowSavedGraphs(options: {
+  readonly availability: ExtensionAvailabilityController;
+  readonly apiBase?: string | undefined;
+  readonly incidentId: string;
+  readonly signal?: AbortSignal | undefined;
+}): Promise<NetworkFlowSavedGraph[]> {
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
+    graphViewsURL(options),
+    requestInit({ method: "GET" }, options.signal),
+  );
+  if (!result.ok) {
+    throw networkFlowRequestError(result.status, result.payload);
+  }
+  return decodeNetworkFlowSavedGraphList(
+    networkFlowResponseData(result.payload),
+  ).graph_views;
+}
+
+export async function createNetworkFlowSavedGraph(options: {
+  readonly availability: ExtensionAvailabilityController;
+  readonly apiBase?: string | undefined;
+  readonly displayName: string;
+  readonly incidentId: string;
+  readonly semanticQuery: NetworkFlowGraphResult["semantic_query"];
+}): Promise<NetworkFlowSavedGraphAccepted> {
+  const request: NetworkFlowSavedGraphCreateRequest = {
+    schema_id: "cartulary.network_flow.graph_view_create_request.v1",
+    client_txn_id: clientTxnID("nf-graph-view-create"),
+    display_name: options.displayName,
+    semantic_query: options.semanticQuery,
+  };
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
+    graphViewsURL(options),
+    requestInit({ method: "POST", body: JSON.stringify(request) }, undefined),
+  );
+  if (!result.ok) {
+    throw networkFlowRequestError(result.status, result.payload);
+  }
+  return decodeNetworkFlowSavedGraphAccepted(
+    networkFlowResponseData(result.payload),
+  );
+}
+
+export async function renameNetworkFlowSavedGraph(options: {
+  readonly availability: ExtensionAvailabilityController;
+  readonly apiBase?: string | undefined;
+  readonly baseGraphViewVersion: number;
+  readonly displayName: string;
+  readonly graphViewId: string;
+  readonly incidentId: string;
+}): Promise<NetworkFlowSavedGraph> {
+  const request: NetworkFlowSavedGraphRenameRequest = {
+    schema_id: "cartulary.network_flow.graph_view_rename_request.v1",
+    client_txn_id: clientTxnID("nf-graph-view-rename"),
+    base_graph_view_version: options.baseGraphViewVersion,
+    display_name: options.displayName,
+  };
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
+    graphViewURL(options),
+    requestInit({ method: "PATCH", body: JSON.stringify(request) }, undefined),
+  );
+  if (!result.ok) {
+    throw networkFlowRequestError(result.status, result.payload);
+  }
+  return decodeNetworkFlowSavedGraphMutationResult(
+    networkFlowResponseData(result.payload),
+  ).graph_view;
+}
+
+export async function refreshNetworkFlowSavedGraph(options: {
+  readonly availability: ExtensionAvailabilityController;
+  readonly apiBase?: string | undefined;
+  readonly baseGraphViewVersion: number;
+  readonly graphViewId: string;
+  readonly incidentId: string;
+}): Promise<NetworkFlowSavedGraphAccepted> {
+  const request: NetworkFlowSavedGraphRefreshRequest = {
+    schema_id: "cartulary.network_flow.graph_view_refresh_request.v1",
+    client_txn_id: clientTxnID("nf-graph-view-refresh"),
+    base_graph_view_version: options.baseGraphViewVersion,
+  };
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
+    `${graphViewURL(options)}/refresh`,
+    requestInit({ method: "POST", body: JSON.stringify(request) }, undefined),
+  );
+  if (!result.ok) {
+    throw networkFlowRequestError(result.status, result.payload);
+  }
+  return decodeNetworkFlowSavedGraphAccepted(
+    networkFlowResponseData(result.payload),
+  );
+}
+
+export async function retireNetworkFlowSavedGraph(options: {
+  readonly availability: ExtensionAvailabilityController;
+  readonly apiBase?: string | undefined;
+  readonly baseGraphViewVersion: number;
+  readonly graphViewId: string;
+  readonly incidentId: string;
+}): Promise<NetworkFlowSavedGraph> {
+  const request: NetworkFlowSavedGraphRetireRequest = {
+    schema_id: "cartulary.network_flow.graph_view_retire_request.v1",
+    client_txn_id: clientTxnID("nf-graph-view-retire"),
+    base_graph_view_version: options.baseGraphViewVersion,
+  };
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
+    graphViewURL(options),
+    requestInit({ method: "DELETE", body: JSON.stringify(request) }, undefined),
+  );
+  if (!result.ok) {
+    throw networkFlowRequestError(result.status, result.payload);
+  }
+  return decodeNetworkFlowSavedGraphMutationResult(
+    networkFlowResponseData(result.payload),
+  ).graph_view;
+}
+
+export async function getNetworkFlowSavedGraphResult(options: {
+  readonly availability: ExtensionAvailabilityController;
+  readonly apiBase?: string | undefined;
+  readonly graphViewId: string;
+  readonly incidentId: string;
+  readonly signal?: AbortSignal | undefined;
+}): Promise<NetworkFlowSavedGraphResult> {
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
+    `${graphViewURL(options)}/result`,
+    requestInit({ method: "GET" }, options.signal),
+  );
+  if (!result.ok) {
+    throw networkFlowRequestError(result.status, result.payload);
+  }
+  return decodeNetworkFlowSavedGraphResult(
+    networkFlowResponseData(result.payload),
+  );
+}
+
+export async function queryNetworkFlowSavedGraphContributors(options: {
+  readonly availability: ExtensionAvailabilityController;
+  readonly apiBase?: string | undefined;
+  readonly graphViewId: string;
+  readonly incidentId: string;
+  readonly projectionResultId: string;
+  readonly selector: NetworkFlowSavedGraphContributorQueryRequest["selector"];
+  readonly signal?: AbortSignal | undefined;
+}): Promise<NetworkFlowSavedGraphContributorResult> {
+  const request: NetworkFlowSavedGraphContributorQueryRequest = {
+    schema_id: "cartulary.network_flow.graph_view_contributor_query_request.v1",
+    projection_result_id: options.projectionResultId,
+    selector: options.selector,
+    limit: 100,
+  };
+  const result = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
+    `${graphViewURL(options)}/contributors/query`,
+    requestInit(
+      { method: "POST", body: JSON.stringify(request) },
+      options.signal,
+    ),
+  );
+  if (!result.ok) {
+    throw networkFlowRequestError(result.status, result.payload);
+  }
+  return decodeNetworkFlowSavedGraphContributorResult(
+    networkFlowResponseData(result.payload),
+  );
+}
+
 export async function linkNetworkFlowIndicator(options: {
   readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
@@ -353,6 +544,24 @@ function tableURL(options: {
     options.apiBase,
     `/api/v1/incidents/${options.incidentId}/network-flow/tables/${options.tableId}`,
   );
+}
+
+function graphViewsURL(options: {
+  readonly apiBase?: string | undefined;
+  readonly incidentId: string;
+}): string {
+  return apiPath(
+    options.apiBase,
+    `/api/v1/incidents/${options.incidentId}/network-flow/graph-views`,
+  );
+}
+
+function graphViewURL(options: {
+  readonly apiBase?: string | undefined;
+  readonly graphViewId: string;
+  readonly incidentId: string;
+}): string {
+  return `${graphViewsURL(options)}/${options.graphViewId}`;
 }
 
 function requestInit(

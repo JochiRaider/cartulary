@@ -1,8 +1,0 @@
-{
-  "fixture_id": "GP-FIX-019",
-  "graph_view_state_after": "invalidated",
-  "invalidated_run_count": 2,
-  "invalidated_ids_ordered": true,
-  "target_scope": "graph_view",
-  "invalidation_reason_code": "security_withdrawal"
-}

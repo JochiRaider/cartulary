@@ -54,6 +54,14 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 		operationKind string
 		workerKind    string
 	}
+	contractMajors := map[string]int{
+		"enterprise_authentication": 1,
+		"import":                    1,
+		"incident_portability":      1,
+		"network_flow_activity":     3,
+		"reference_pack":            1,
+		"snapshot_reporting":        1,
+	}
 	adoption := map[string][]jobIdentity{
 		"enterprise_authentication": nil,
 		"import": {
@@ -63,6 +71,9 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 		"incident_portability": {
 			{jobKind: "incident_portability.export_v1", operationKind: "incident_portability.export", workerKind: "incident_portability.bundle_worker_v1"},
 			{jobKind: "incident_portability.import_v1", operationKind: "incident_portability.import", workerKind: "incident_portability.bundle_worker_v1"},
+		},
+		"network_flow_activity": {
+			{jobKind: "network_flow_activity.graph_view_materialize_v1", operationKind: "network_flow_activity.graph_view_materialize", workerKind: "network_flow_activity.graph_view_worker_v1"},
 		},
 		"reference_pack": {
 			{jobKind: "reference_pack.import_v1", operationKind: "reference_pack.import", workerKind: "reference_pack.lifecycle_worker_v1"},
@@ -75,14 +86,14 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 			{jobKind: "snapshot_reporting.composition_preview_v1", operationKind: "snapshot_reporting.composition_preview", workerKind: "snapshot_reporting.job_worker_v1"},
 		},
 	}
-	if len(adoption) != 5 {
-		t.Fatalf("profile adoption matrix has %d profiles; want 5", len(adoption))
+	if len(adoption) != 6 {
+		t.Fatalf("profile adoption matrix has %d profiles; want 6", len(adoption))
 	}
 	jobKinds := map[string]string{}
 	workerKinds := map[string]bool{}
 	for profileID, jobs := range adoption {
 		descriptor, ok := byProfile[profileID]
-		if !ok || !descriptor.Claimable || descriptor.ContractMajor != 1 {
+		if !ok || !descriptor.Claimable || descriptor.ContractMajor != contractMajors[profileID] {
 			t.Fatalf("canonical profile %q = %#v/%t", profileID, descriptor, ok)
 		}
 		for _, job := range jobs {
@@ -96,20 +107,21 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 			workerKinds[job.workerKind] = true
 		}
 	}
-	if len(jobKinds) != 10 || len(workerKinds) != 5 {
-		t.Fatalf("adoption identity totals = %d jobs/%d workers; want 10/5", len(jobKinds), len(workerKinds))
+	if len(jobKinds) != 11 || len(workerKinds) != 6 {
+		t.Fatalf("adoption identity totals = %d jobs/%d workers; want 11/6", len(jobKinds), len(workerKinds))
 	}
 	progressUnits := map[string]string{
-		"import.discovery_v1":                       "import.discovery.session.v1",
-		"import.apply_v1":                           "import.apply.import_unit.v1",
-		"incident_portability.export_v1":            "incident_portability.export.request.v1",
-		"incident_portability.import_v1":            "incident_portability.import.request.v1",
-		"reference_pack.import_v1":                  "reference_pack.import.request.v1",
-		"reference_pack.refresh_v1":                 "reference_pack.refresh.pack_key.v1",
-		"reference_pack.reverify_v1":                "reference_pack.reverify.pack_version.v1",
-		"snapshot_reporting.composition_preview_v1": "snapshot_reporting.composition_preview.render_attempt.v1",
-		"snapshot_reporting.release_create_v1":      "snapshot_reporting.release_create.render_attempt.v1",
-		"snapshot_reporting.snapshot_create_v1":     "snapshot_reporting.snapshot_create.materialization.v1",
+		"import.discovery_v1":                             "import.discovery.session.v1",
+		"import.apply_v1":                                 "import.apply.import_unit.v1",
+		"incident_portability.export_v1":                  "incident_portability.export.request.v1",
+		"incident_portability.import_v1":                  "incident_portability.import.request.v1",
+		"network_flow_activity.graph_view_materialize_v1": "network_flow_activity.graph_view_materialize.projection_result.v1",
+		"reference_pack.import_v1":                        "reference_pack.import.request.v1",
+		"reference_pack.refresh_v1":                       "reference_pack.refresh.pack_key.v1",
+		"reference_pack.reverify_v1":                      "reference_pack.reverify.pack_version.v1",
+		"snapshot_reporting.composition_preview_v1":       "snapshot_reporting.composition_preview.render_attempt.v1",
+		"snapshot_reporting.release_create_v1":            "snapshot_reporting.release_create.render_attempt.v1",
+		"snapshot_reporting.snapshot_create_v1":           "snapshot_reporting.snapshot_create.materialization.v1",
 	}
 	liveJobs := coordinator.JobKindContracts()
 	if len(liveJobs) != len(jobKinds) {
@@ -159,11 +171,8 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 			t.Fatalf("unexpected live worker %#v", liveWorker)
 		}
 	}
-	if networkFlow, ok := byProfile["network_flow_activity"]; !ok || !networkFlow.Claimable {
-		t.Fatalf("Network Flow regression profile = %#v/%t", networkFlow, ok)
-	}
-	if _, incorrectlyAdopted := adoption["network_flow_activity"]; incorrectlyAdopted {
-		t.Fatal("Network Flow must remain an Import-scheduled regression target, not an adopted worker owner")
+	if networkFlow, ok := byProfile["network_flow_activity"]; !ok || !networkFlow.Claimable || networkFlow.ContractMajor != 3 {
+		t.Fatalf("Network Flow v3 adopted profile = %#v/%t", networkFlow, ok)
 	}
 
 	var participant *ParticipantContract
@@ -203,7 +212,13 @@ func TestCoordinatorPortabilityPolicyProjection_Unit(t *testing.T) {
 	}
 	networkFlow := byProfile["network_flow_activity"]
 	if networkFlow.Mode != PortabilityBlockedWhenPresent ||
-		!reflect.DeepEqual(networkFlow.BlockingFamilyIDs, []string{"network_flow_activity.tables"}) {
+		!reflect.DeepEqual(networkFlow.BlockingFamilyIDs, []string{
+			"network_flow_activity.graph_views",
+			"network_flow_activity.indicator_bindings",
+			"network_flow_activity.rejected_row_diagnostics",
+			"network_flow_activity.rows",
+			"network_flow_activity.tables",
+		}) {
 		t.Fatalf("Network Flow portability policy = %#v", networkFlow)
 	}
 	reporting := byProfile["snapshot_reporting"]

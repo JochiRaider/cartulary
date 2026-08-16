@@ -2,6 +2,7 @@ package reporting
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -71,7 +72,7 @@ func (defaultReleaseCandidateRenderer) Render(ctx context.Context, payload relea
 	if err := ctx.Err(); err != nil {
 		return RenderedRelease{}, "", err
 	}
-	rendered, reasonCode, err := renderReleaseCandidate(payload.Request, payload.TemplateContract, payload.ExportModel, payload.ExportModelSHA256)
+	rendered, reasonCode, err := renderReleaseCandidate(payload.Request, payload.TemplateContract, payload.ExportModel, payload.ExportModelSHA256, payload.ResolvedGraphResults...)
 	if err != nil {
 		return rendered, reasonCode, err
 	}
@@ -87,6 +88,7 @@ type reportingJobWorker struct {
 	renderer        releaseCandidateRenderer
 	jobFinalizer    JobSuccessFinalizer
 	renderExport    RenderExportInvoker
+	graphSources    *GraphSourceRegistry
 	now             func() time.Time
 	timeout         time.Duration
 	terminalTimeout time.Duration
@@ -97,6 +99,7 @@ func newReportingJobWorker(
 	jobManager reportingJobManager,
 	jobFinalizer JobSuccessFinalizer,
 	renderExport RenderExportInvoker,
+	graphSources *GraphSourceRegistry,
 	now func() time.Time,
 ) *reportingJobWorker {
 	if now == nil {
@@ -107,6 +110,7 @@ func newReportingJobWorker(
 		jobManager:      jobManager,
 		jobFinalizer:    jobFinalizer,
 		renderExport:    renderExport,
+		graphSources:    graphSources,
 		renderer:        defaultReleaseCandidateRenderer{},
 		now:             now,
 		timeout:         defaultReportingJobTimeout,
@@ -178,6 +182,11 @@ func (w *reportingJobWorker) executeCompositionPreviewJob(ctx context.Context, p
 		w.failReportingJob(parentCtx, execution, reportingJobInternalErrorCode, err, false, progress)
 		return
 	}
+	payload.Release.ResolvedGraphResults, err = w.readGraphResults(ctx, jobID, payload.Release.GraphProjectionRefs)
+	if err != nil {
+		w.failReportingJob(parentCtx, execution, reportingJobRenderFailedCode, err, false, progress)
+		return
+	}
 	payload.Release, err = w.invokeRenderExport(ctx, payload.Release)
 	if err != nil {
 		if w.completeContextFailure(ctx, parentCtx, execution, progress) {
@@ -212,14 +221,17 @@ func (w *reportingJobWorker) executeCompositionPreviewJob(ctx context.Context, p
 		},
 		FinalCommitID: CompositionPreviewOperationKind + ":" + jobID.String(),
 		Mutate: func(ctx context.Context, tx pgx.Tx) error {
-			return w.store.CompleteCompositionPreviewJobTx(
+			if err := w.store.CompleteCompositionPreviewJobTx(
 				ctx,
 				tx,
 				jobID,
 				payload.PreviewAttemptID,
 				rendered,
 				w.now().UTC(),
-			)
+			); err != nil {
+				return err
+			}
+			return w.graphSources.ReleaseJobLeasesTx(ctx, tx, jobID)
 		},
 	})
 }
@@ -276,6 +288,11 @@ func (w *reportingJobWorker) executeReleaseCreateJob(ctx context.Context, parent
 		w.failReportingJob(parentCtx, execution, reportingJobInternalErrorCode, err, false, progress)
 		return
 	}
+	payload.ResolvedGraphResults, err = w.readGraphResults(ctx, jobID, payload.GraphProjectionRefs)
+	if err != nil {
+		w.failReportingJob(parentCtx, execution, reportingJobRenderFailedCode, err, false, progress)
+		return
+	}
 	payload, err = w.invokeRenderExport(ctx, payload)
 	if err != nil {
 		if w.completeContextFailure(ctx, parentCtx, execution, progress) {
@@ -309,6 +326,7 @@ func (w *reportingJobWorker) executeReleaseCreateJob(ctx context.Context, parent
 				releaseID, err = w.store.CompleteReleaseRenderFailedJobTx(ctx, tx, jobID, rendered.Profile, rendered.ProfileSHA256, reasonCode, w.now().UTC())
 				if err == nil {
 					details["release_id"] = releaseID.String()
+					err = w.graphSources.ReleaseJobLeasesTx(ctx, tx, jobID)
 				}
 				return err
 			},
@@ -337,7 +355,10 @@ func (w *reportingJobWorker) executeReleaseCreateJob(ctx context.Context, parent
 		},
 		FinalCommitID: ReleaseCreateOperationKind + ":" + jobID.String(),
 		Mutate: func(ctx context.Context, tx pgx.Tx) error {
-			return w.store.CompleteReleaseCreateJobTx(ctx, tx, jobID, releaseID, rendered, w.now().UTC())
+			if err := w.store.CompleteReleaseCreateJobTx(ctx, tx, jobID, releaseID, rendered, w.now().UTC()); err != nil {
+				return err
+			}
+			return w.graphSources.ReleaseJobLeasesTx(ctx, tx, jobID)
 		},
 	})
 }
@@ -387,6 +408,14 @@ func (w *reportingJobWorker) invokeRenderExport(ctx context.Context, payload rel
 	payload.ExportModel = model
 	payload.ExportModelSHA256 = digest
 	return payload, nil
+}
+
+func (w *reportingJobWorker) readGraphResults(ctx context.Context, jobID uuid.UUID, raw json.RawMessage) ([]resolvedGraphResult, error) {
+	refs, err := decodeSourceProjectionRefs(raw)
+	if err != nil {
+		return nil, newRenderValidationError("graph_projection_unavailable", "graph_projection_not_bound")
+	}
+	return w.graphSources.ReadAndRenew(ctx, jobID, refs, w.now().UTC())
 }
 
 func reportingResourceID(jobID uuid.UUID, kind string) uuid.UUID {
@@ -448,7 +477,7 @@ func (w *reportingJobWorker) failReportingJob(ctx context.Context, execution job
 	}
 	ctxTerminal, cancel := w.terminalContext(ctx)
 	defer cancel()
-	_, _ = w.jobManager.CompleteFailed(ctxTerminal, execution, jobs.FailureCompletion{
+	_, completionErr := w.jobManager.CompleteFailed(ctxTerminal, execution, jobs.FailureCompletion{
 		Progress: progress,
 		ErrorSummary: jobs.ErrorSummary{
 			Code:      code,
@@ -457,14 +486,20 @@ func (w *reportingJobWorker) failReportingJob(ctx context.Context, execution job
 			Details:   map[string]any{},
 		},
 	})
+	if completionErr == nil {
+		_ = w.graphSources.ReleaseJobLeases(ctxTerminal, execution.JobID())
+	}
 }
 
 func (w *reportingJobWorker) completeCanceled(ctx context.Context, execution jobs.Execution, progress jobs.Progress) {
 	ctxTerminal, cancel := w.terminalContext(ctx)
 	defer cancel()
-	_, _ = w.jobManager.CompleteCanceled(ctxTerminal, execution, jobs.CancellationCompletion{
+	_, completionErr := w.jobManager.CompleteCanceled(ctxTerminal, execution, jobs.CancellationCompletion{
 		Progress: progress,
 	})
+	if completionErr == nil {
+		_ = w.graphSources.ReleaseJobLeases(ctxTerminal, execution.JobID())
+	}
 }
 
 func (w *reportingJobWorker) terminalContext(ctx context.Context) (context.Context, context.CancelFunc) {

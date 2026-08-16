@@ -81,6 +81,7 @@
         "apps/web/src/networkFlow/NetworkFlowGridLoadFixture.tsx",
         "apps/web/src/networkFlow/NetworkFlowMappingModal.tsx",
         "apps/web/src/networkFlow/NetworkFlowQueryControls.tsx",
+        "apps/web/src/networkFlow/NetworkFlowSavedGraphPanel.tsx",
         "apps/web/src/networkFlow/NetworkFlowSemanticGrid.test.tsx",
         "apps/web/src/networkFlow/NetworkFlowSemanticGrid.tsx",
         "apps/web/src/networkFlow/networkFlowBoundaryPolicy.test.ts",
@@ -113,6 +114,7 @@
         "apps/web/src/networkFlow/useNetworkFlowPagedQuery.ts",
         "apps/web/src/networkFlow/useNetworkFlowRejectedRowsController.ts",
         "apps/web/src/networkFlow/useNetworkFlowRowsController.ts",
+        "apps/web/src/networkFlow/useNetworkFlowSavedGraphController.ts",
         "apps/web/src/networkFlow/useNetworkFlowTableController.ts"
       ]
     },

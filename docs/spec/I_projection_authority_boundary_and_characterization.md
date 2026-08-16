@@ -11,9 +11,9 @@ or release checks.
 
 ## I.1 Authority Posture
 
-`docs/graph_projection_nlspec.md` declares `status: adopted/current` and version 1.2.0. It governs graph-oriented projection behavior and the distinct Graph-owned `graphprojection.restore_rebuild.v1` participant. It does not govern workbook-grid projection tables, `view_row_v1`, workbook query routes, saved views, import owner facades, workbook provider descriptors, or the workbook `RestoreProjectionRebuilder`. Research reports R01 through R09 remain informative unless a finding is explicitly promoted into Core, ADR, SPEC, or adopted NLSpec material.
+`docs/graph_projection_nlspec.md` declares `status: adopted/current` and version 2.0.0. It governs pure graph-oriented projection behavior, immutable result identity, narrow result capabilities, and the distinct Graph-owned `graphprojection.restore_rebuild.v2` participant. Network Flow owns saved graph declarations and production materialization; Reporting owns exact leased consumption. Graph Projection does not govern workbook-grid projection tables, `view_row_v1`, workbook query routes, Core saved views, import owner facades, workbook provider descriptors, or the workbook `RestoreProjectionRebuilder`. Research reports R01 through R09 remain informative unless a finding is explicitly promoted into Core, ADR, SPEC, or adopted NLSpec material.
 
-Core 00 REQ-00-062 is the authority rule for projections. The 1.2.0 re-audit found the workbook and Graph restore paths complementary and distinct: Recovery coordinates both, the workbook provider registry remains unchanged, and Graph owns its typed source registry, five-table clear/rebuild, implementation binding, and participant result.
+Core 00 REQ-00-062 is the authority rule for projections. The 2.0.0 re-audit found the workbook and Graph restore paths complementary and distinct: Recovery coordinates both, the workbook provider registry remains unchanged, and Graph owns its typed source registry, four-table deterministic rebuild, implementation binding, and participant result.
 
 Accepted workbook projection boundary: each named source owner owns authoritative
 source semantics, canonical source snapshots, typed projection inputs, semantic

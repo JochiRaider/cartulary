@@ -55,7 +55,10 @@
         "cartulary.network_flow_key_ring_manifest_path.v1"
       ],
       "imported_algorithm_ids": [
-        "network_flow_activity.validate_state_v1"
+        "network_flow_activity.migrate_state_1_to_2_v1",
+        "network_flow_activity.reporting_graph_order_v1",
+        "network_flow_activity.reporting_graph_source_v1",
+        "network_flow_activity.validate_state_v2"
       ],
       "imported_artifacts": []
     },

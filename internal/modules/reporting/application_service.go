@@ -28,6 +28,7 @@ func NewApplicationService(
 	jobRunner reportingJobRunner,
 	jobFinalizer JobSuccessFinalizer,
 	renderExportInvoker RenderExportInvoker,
+	graphSources *GraphSourceRegistry,
 	now func() time.Time,
 ) (*ApplicationService, error) {
 	if store == nil || jobManager == nil || jobRunner == nil || jobFinalizer == nil || renderExportInvoker == nil {
@@ -39,7 +40,7 @@ func NewApplicationService(
 		jobNotifier:    jobRunner,
 		now:            now,
 	}
-	worker := newReportingJobWorker(store, jobManager, jobFinalizer, renderExportInvoker, now)
+	worker := newReportingJobWorker(store, jobManager, jobFinalizer, renderExportInvoker, graphSources, now)
 	if err := jobRunner.RegisterHandler(JobWorkerKind, worker.Handle); err != nil {
 		return nil, err
 	}

@@ -593,14 +593,15 @@ func validateSourceProjectionRefs(raw json.RawMessage, errorCode string) *httpap
 	ids := make([]string, 0, len(refs))
 	for _, ref := range refs {
 		allowed := map[string]struct{}{
-			"projection_schema_id":     {},
-			"graph_view_id":            {},
-			"source_snapshot_id":       {},
-			"projection_run_id":        {},
-			"projection_version":       {},
-			"projection_config_digest": {},
-			"projection_source_digest": {},
-			"projection_output_digest": {},
+			"source_owner_id":                 {},
+			"graph_view_id":                   {},
+			"projection_result_id":            {},
+			"source_snapshot_id":              {},
+			"projection_schema_id":            {},
+			"projection_version":              {},
+			"normalized_configuration_sha256": {},
+			"normalized_source_sha256":        {},
+			"canonical_output_sha256":         {},
 		}
 		for key := range ref {
 			if _, ok := allowed[key]; !ok {
@@ -608,14 +609,15 @@ func validateSourceProjectionRefs(raw json.RawMessage, errorCode string) *httpap
 			}
 		}
 		requiredStrings := []string{
+			"source_owner_id",
 			"projection_schema_id",
 			"graph_view_id",
-			"projection_run_id",
+			"projection_result_id",
 			"source_snapshot_id",
 			"projection_version",
-			"projection_config_digest",
-			"projection_source_digest",
-			"projection_output_digest",
+			"normalized_configuration_sha256",
+			"normalized_source_sha256",
+			"canonical_output_sha256",
 		}
 		values := map[string]string{}
 		for _, field := range requiredStrings {
@@ -629,10 +631,13 @@ func validateSourceProjectionRefs(raw json.RawMessage, errorCode string) *httpap
 			}
 			values[field] = parsed
 		}
-		if values["projection_schema_id"] != "graph_projection.v1" ||
-			!sha256HexPattern.MatchString(values["projection_config_digest"]) ||
-			!sha256HexPattern.MatchString(values["projection_source_digest"]) ||
-			!sha256HexPattern.MatchString(values["projection_output_digest"]) {
+		if values["source_owner_id"] != "network_flow_activity" ||
+			values["projection_schema_id"] != "graph_projection.v2" ||
+			!strings.HasPrefix(values["projection_result_id"], "gpres_") ||
+			!sha256HexPattern.MatchString(strings.TrimPrefix(values["projection_result_id"], "gpres_")) ||
+			!sha256HexPattern.MatchString(values["normalized_configuration_sha256"]) ||
+			!sha256HexPattern.MatchString(values["normalized_source_sha256"]) ||
+			!sha256HexPattern.MatchString(values["canonical_output_sha256"]) {
 			return invalidRequest(errorCode, "graph_projection_refs", "invalid_value")
 		}
 		graphViewID := values["graph_view_id"]

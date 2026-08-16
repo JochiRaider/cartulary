@@ -30,6 +30,12 @@ for (const stage of browser.stages) {
     stageQuietGroups.length,
     `quiet measurement browser sessions must not be shared in ${stage.name}`,
   );
+  assert.ok(
+    stageQuietGroups
+      .filter((group) => group.fixture_profile_id)
+      .every((group) => group.reset_before === undefined),
+    `immutable performance-fixture clones must not be reset after preparation in ${stage.name}`,
+  );
 }
 for (const retired of [
   "fixture_profiles",

@@ -1,1 +1,0 @@
-{"status":"error","error":{"code":"invalid_projection_request","retryable":false,"details":{"operation":"project_ephemeral","reason_code":"duplicate_object_member","field":"$.projection_schema_id","validation_code":null}}}

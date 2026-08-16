@@ -1016,6 +1016,72 @@
       "classification": "additive",
       "owner_id": "module.reference_data",
       "rationale": "Project Core 01's already-adopted closed Reference Pack list-query vocabulary so generated clients can encode the supported pagination, search, and filter members."
+    },
+    {
+      "fingerprint": "48aaba05e54b3197b562f27c834dd636affc37760511f3f55f8f6a3ac71220ae",
+      "classification": "additive",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Carry the Graph Projection v2 canonical output digest in every exact Reporting source reference."
+    },
+    {
+      "fingerprint": "63c9f6ae9ccfc1c8feb7fb6de0489ace0f7fd1753dc77d21cfd7dd968d1837f1",
+      "classification": "additive",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Carry the Graph Projection v2 normalized configuration digest in every exact Reporting source reference."
+    },
+    {
+      "fingerprint": "120c896945a12485fb6ebc1b31895dba32823d08d6730fe8096f51a73f7be6a1",
+      "classification": "additive",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Carry the Graph Projection v2 normalized source digest in every exact Reporting source reference."
+    },
+    {
+      "fingerprint": "3696e255ebe0e1ec965985edad0a0badf66b5eefb548f509b4242d35fe3e48e1",
+      "classification": "breaking",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Remove the Graph Projection v1 configuration-digest name after the coordinated exact-reference v2 cutover."
+    },
+    {
+      "fingerprint": "0a26dec149c48d54c0ca78c51edb3092a3e8a6a2464bc54354b82c638058503d",
+      "classification": "breaking",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Remove the Graph Projection v1 output-digest name after the coordinated exact-reference v2 cutover."
+    },
+    {
+      "fingerprint": "440b138f38c723d19767b0bc0e039c807888964455f195733819bc9ebe2d0b7a",
+      "classification": "additive",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Bind Reporting to the deterministic immutable Graph Projection v2 result identity."
+    },
+    {
+      "fingerprint": "ae0b82eeca6519d7c6d8002d6947c9e4cf22b2cc9488eb30f724f82f7a30cefb",
+      "classification": "breaking",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Remove attempt-scoped projection run identity from Reporting after the coordinated v2 cutover."
+    },
+    {
+      "fingerprint": "25298142c9d604f924d5a4b3634c335139445bb07ef0e8b0218288b85db46d9f",
+      "classification": "breaking",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Require the adopted graph_projection.v2 schema identity for exact Reporting source references."
+    },
+    {
+      "fingerprint": "8fc6234031cc5d92f620eafdf3999391aeff47f66920cf6e6f5f3c7f837ce34a",
+      "classification": "breaking",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Remove the Graph Projection v1 source-digest name after the coordinated exact-reference v2 cutover."
+    },
+    {
+      "fingerprint": "664a338c5e6f7e4a8f95b259c14cc664e1ccf8a10246edb22b4c588b81ff6027",
+      "classification": "additive",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Bind each exact Reporting graph reference to its authoritative Network Flow source owner."
+    },
+    {
+      "fingerprint": "507ede1787699b90f170f4fe08369dd1aefec314c6339182ff03a6add58be87b",
+      "classification": "breaking",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Replace the complete required Graph v1 reference tuple with the adopted exact immutable v2 tuple."
     }
   ]
 }

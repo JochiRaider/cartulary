@@ -588,6 +588,21 @@ func decodeSemanticResultLimits(raw json.RawMessage) (graphResultLimits, *httpap
 }
 
 func (s *Service) composeGraph(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, request graphQueryRequest) (graphComposition, *httpapi.APIError) {
+	composition, apiErr := s.composeGraphSource(ctx, incidentID, request)
+	if apiErr != nil {
+		return graphComposition{}, apiErr
+	}
+	sourceSnapshotID := graphSourceSnapshotDigest(incidentID, composition.SourceTables, composition.Digest)
+	projection, apiErr := s.projectNetworkFlowGraph(ctx, actorUserID, sourceSnapshotID, composition, s.now())
+	if apiErr != nil {
+		return graphComposition{}, apiErr
+	}
+	composition.GraphProjection = projection
+	composition.EdgeAnnotations = graphEdgeAnnotations(composition)
+	return composition, nil
+}
+
+func (s *Service) composeGraphSource(ctx context.Context, incidentID uuid.UUID, request graphQueryRequest) (graphComposition, *httpapi.APIError) {
 	tables, tableIDs, tableRanks, apiErr := s.resolveGraphTables(ctx, incidentID, request.TableScope)
 	if apiErr != nil {
 		return graphComposition{}, apiErr
@@ -624,13 +639,6 @@ func (s *Service) composeGraph(ctx context.Context, incidentID uuid.UUID, actorU
 		return graphComposition{}, apiErr
 	}
 	composition.SemanticQuery = graphSemanticQueryResource(tableIDs, request.Filters, request.TimeRange, request.Aggregation, request.Limits)
-	sourceSnapshotID := graphSourceSnapshotDigest(incidentID, tables, digest)
-	projection, apiErr := s.projectNetworkFlowGraph(ctx, actorUserID, sourceSnapshotID, composition, s.now())
-	if apiErr != nil {
-		return graphComposition{}, apiErr
-	}
-	composition.GraphProjection = projection
-	composition.EdgeAnnotations = graphEdgeAnnotations(composition)
 	return composition, nil
 }
 
@@ -643,6 +651,17 @@ func (s *Service) composeGraphFromSemantic(ctx context.Context, incidentID uuid.
 		Limits:      semantic.ResultLimits,
 	}
 	return s.composeGraph(ctx, incidentID, actorUserID, request)
+}
+
+func (s *Service) composeGraphSourceFromSemantic(ctx context.Context, incidentID uuid.UUID, semantic graphSemanticRequest) (graphComposition, *httpapi.APIError) {
+	request := graphQueryRequest{
+		TableScope:  TableScope{Mode: "selected_tables", SelectedTableIDs: semantic.SelectedTableIDs},
+		Filters:     semantic.Filters,
+		TimeRange:   semantic.TimeRange,
+		Aggregation: semantic.Aggregation,
+		Limits:      semantic.ResultLimits,
+	}
+	return s.composeGraphSource(ctx, incidentID, request)
 }
 
 func (s *Service) resolveGraphTables(ctx context.Context, incidentID uuid.UUID, scope TableScope) ([]TableRecord, []string, map[string]int, *httpapi.APIError) {
@@ -830,14 +849,14 @@ func (s *Service) projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.
 	graphViewKey := "network_flow_activity:" + composition.SourceTables[0].IncidentID.String() + ":" + graphViewKeySnapshot
 	projector := s.graphProjection
 	if projector == nil {
-		projector = newGraphProjectionAdapter(func() time.Time { return requestedAt })
+		projector = newGraphProjectionAdapter()
 	}
 	graphViewID, err := projector.GraphViewID(graphViewKey)
 	if err != nil {
 		return nil, graphProjectionFailed("adapter_contract_rejected")
 	}
-	input := networkFlowProjectionInput(graphViewID, graphViewKey, actorUserID, sourceSnapshotID, composition, requestedAt)
-	projectionResource, err := projector.ProjectEphemeral(ctx, canonicalJSON(input))
+	input := networkFlowProjectionInput(sourceSnapshotID, composition)
+	projectionResource, err := projector.ProjectEphemeral(ctx, graphViewID, canonicalJSON(input))
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
 			return nil, graphProjectionFailed("projection_cancelled")
@@ -858,12 +877,11 @@ func (s *Service) projectNetworkFlowGraph(ctx context.Context, actorUserID uuid.
 	return projectionResource, nil
 }
 
-func networkFlowProjectionInput(graphViewID string, graphViewKey string, actorUserID uuid.UUID, sourceSnapshotID string, composition graphComposition, requestedAt time.Time) map[string]any {
+func networkFlowProjectionInput(sourceSnapshotID string, composition graphComposition) map[string]any {
 	return map[string]any{
 		"projection_schema_id": graphProjectionSchemaID,
-		"graph_view_id":        graphViewID,
 		"source_snapshot_id":   sourceSnapshotID,
-		"projection_config":    networkFlowProjectionConfig(graphViewKey),
+		"projection_config":    networkFlowProjectionConfig(),
 		"source_entities":      graphProjectionEntities(composition),
 		"source_relationships": graphProjectionRelationships(composition),
 		"source_metadata": map[string]any{
@@ -878,20 +896,12 @@ func networkFlowProjectionInput(graphViewID string, graphViewKey string, actorUs
 			"relationship_filters": []any{},
 			"logic":                "and",
 		},
-		"relationship_definitions": []any{},
-		"property_definitions":     graphPropertyDefinitions(),
-		"requested_at":             graphProjectionTimestamp(requestedAt),
-		"requested_by":             actorUserID.String(),
+		"property_definitions": graphPropertyDefinitions(),
 	}
 }
 
-func graphProjectionTimestamp(value time.Time) string {
-	return value.UTC().Truncate(time.Microsecond).Format(time.RFC3339Nano)
-}
-
-func networkFlowProjectionConfig(graphViewKey string) map[string]any {
+func networkFlowProjectionConfig() map[string]any {
 	return map[string]any{
-		"graph_view_key":                     graphViewKey,
 		"projection_version":                 "network_flow_activity.v1",
 		"declared_source_entity_kinds":       []any{"network_flow.ip_endpoint.v1"},
 		"declared_source_relationship_kinds": []any{"network_flow.flow_edge.v1"},
@@ -926,15 +936,6 @@ func networkFlowProjectionConfig(graphViewKey string) map[string]any {
 		"default_vertex_labels":     []any{},
 		"default_edge_labels":       []any{},
 		"allow_empty_kind_registry": false,
-		"retention_policy": map[string]any{
-			"retain_replaced_results":           false,
-			"retention_count":                   0,
-			"retention_duration_seconds":        0,
-			"retain_failed_results":             false,
-			"failed_retention_count":            0,
-			"failed_retention_duration_seconds": 0,
-		},
-		"custom_config": map[string]any{},
 	}
 }
 
@@ -1542,7 +1543,7 @@ func graphProjectionFailed(reason string) *httpapi.APIError {
 	return &httpapi.APIError{Status: http.StatusBadGateway, Code: "network_flow_graph_projection_failed", Message: "network_flow_graph_projection_failed", Details: map[string]any{
 		"reason_code":                 reason,
 		"retry_action":                "do_not_retry",
-		"projection_contract_version": "graph_projection.v1",
+		"projection_contract_version": graphProjectionSchemaID,
 	}}
 }
 

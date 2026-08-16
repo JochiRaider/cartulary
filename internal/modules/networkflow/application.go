@@ -70,6 +70,9 @@ func (s *Service) commitTableSoftDeleteRoute(ctx context.Context, incidentID uui
 		if err != nil {
 			return err
 		}
+		if err := s.store.InvalidateGraphViewsForTableTx(ctx, tx, incidentID, tableID, table.UpdatedAt); err != nil {
+			return err
+		}
 		payload = tableMutationPayload(table)
 		return authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload)
 	})

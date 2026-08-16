@@ -47,7 +47,8 @@ const ownersByVersion = new Map([
   [21, "projections"], [22, "graphprojection"], [23, "reporting"],
   [24, "reportcomposition"], [25, "incidentbundles"], [26, "reference_data"],
   [27, "extensions"], [28, "audit"], [29, "collaboration"],
-  [30, "evidence"], [31, "evidence"],
+  [30, "evidence"], [31, "evidence"], [32, "networkflow"],
+  [33, "networkflow"],
 ]);
 for (const [index, filename] of migrationFiles.entries()) {
   const version = index + 1;
@@ -63,6 +64,8 @@ const profileByVersion = new Map([
   [24, "snapshot_reporting"],
   [25, "incident_portability"],
   [26, "reference_pack"],
+  [32, "network_flow_activity"],
+  [33, "network_flow_activity"],
 ]);
 const recoveryCatalog = JSON.parse(
   readFileSync(path.join(root, "contracts/recovery/fixtures/recovery-state-catalog.v1.json"), "utf8"),
@@ -135,10 +138,25 @@ function collectRelationEvents(source, version, filename) {
       const operation = match[1].toUpperCase();
       const name = qualify(match[2]);
       const key = `${kind}:${name}`;
-      if (operation === "DROP") objects.delete(key);
+      if (operation === "DROP") removeObjectAndDependents(key);
       else setObject(key, kind, name, version, filename, match.index ?? 0, source);
     }
   }
+}
+
+function removeObjectAndDependents(key) {
+  const removed = new Set([key]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [candidateKey, candidate] of objects) {
+      if (!removed.has(candidateKey) && candidate.dependencies.some((dependency) => removed.has(dependency))) {
+        removed.add(candidateKey);
+        changed = true;
+      }
+    }
+  }
+  for (const removedKey of removed) objects.delete(removedKey);
 }
 
 function collectIndexEvents(source, version, filename) {
@@ -273,13 +291,17 @@ function validateCatalogPolicy(filename, body) {
 }
 
 function setObject(key, kind, name, version, filename, position, source, dependencies = [], foreignKey = false) {
+  const bareName = name.split(".").at(-1);
+  const owner = version === 32 && bareName.startsWith("graph_projection_")
+    ? "graphprojection"
+    : ownersByVersion.get(version);
   objects.set(key, {
     object_id: objectID(kind, name),
     object_kind: kind,
     qualified_name: name,
     version,
     filename,
-    owner: ownersByVersion.get(version),
+    owner,
     profile: profileByVersion.get(version) ?? null,
     dependencies,
     foreignKey,

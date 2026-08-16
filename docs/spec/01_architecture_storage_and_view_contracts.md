@@ -6888,8 +6888,8 @@ a workbook provider and MUST NOT receive an unrestricted workbook source
 reference through those contracts.
 
 When the frozen Recovery catalog contains
-`graphprojection.restore_rebuild.v1`, Recovery MUST resolve it to the distinct
-Graph-owned restore participant defined by Graph Projection NLSpec §11.9.
+`graphprojection.restore_rebuild.v2`, Recovery MUST resolve it to the distinct
+Graph-owned restore participant defined by Graph Projection NLSpec §9.
 Recovery MUST propagate the admitted Recovery operation identity and validated
 Core 04 target-generation identity into that participant rather than minting a
 second identity. After authoritative Postgres and object data are restored,

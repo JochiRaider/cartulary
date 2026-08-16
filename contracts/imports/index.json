@@ -33,7 +33,7 @@
     "module.parties@1",
     "module.tasksdecisions@1",
     "module.timeline@2",
-    "network_flow_activity@2"
+    "network_flow_activity@3"
   ],
   "facade_contracts": [
     {
@@ -74,7 +74,7 @@
     {
       "facade_id": "network_flow_import_facade_v1",
       "facade_kind": "owner_preview_apply",
-      "owner_contract_ref": "network_flow_activity@2"
+      "owner_contract_ref": "network_flow_activity@3"
     },
     {
       "facade_id": "parties.import_create",

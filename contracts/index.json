@@ -103,11 +103,24 @@
       "description": "Extension profile discovery contract artifacts."
     },
     {
+      "family_id": "graph-projection",
+      "contract_root": "contracts/graph-projection",
+      "generation_status": "active",
+      "go_name": "GraphProjectionArtifacts",
+      "output_order": 5,
+      "generated_outputs": [
+        "internal/gen/contractgraphprojection/artifacts_gen.go"
+      ],
+      "typescript_projections": [],
+      "activation_dependency_ids": [],
+      "description": "Graph Projection v2 semantic input, immutable result, and deterministic identity fixtures."
+    },
+    {
       "family_id": "network-flow",
       "contract_root": "contracts/network-flow",
       "generation_status": "active",
       "go_name": "NetworkFlowArtifacts",
-      "output_order": 5,
+      "output_order": 6,
       "generated_outputs": [
         "internal/gen/contractnetworkflow/artifacts_gen.go",
         "internal/gen/networkflowmapping/registry_gen.go",
@@ -129,7 +142,7 @@
       "contract_root": "contracts/audit",
       "generation_status": "active",
       "go_name": "AuditArtifacts",
-      "output_order": 6,
+      "output_order": 7,
       "generated_outputs": [
         "internal/gen/administrativeauditregistry/registry_gen.go",
         "internal/gen/contractaudit/artifacts_gen.go"
@@ -143,7 +156,7 @@
       "contract_root": "contracts/imports",
       "generation_status": "active",
       "go_name": "ImportArtifacts",
-      "output_order": 7,
+      "output_order": 8,
       "generated_outputs": [
         "internal/gen/contractimports/artifacts_gen.go",
         "internal/gen/importtargetregistry/registry_gen.go",
@@ -158,7 +171,7 @@
       "contract_root": "contracts/recovery",
       "generation_status": "active",
       "go_name": "RecoveryArtifacts",
-      "output_order": 8,
+      "output_order": 9,
       "generated_outputs": [
         "internal/gen/contractrecovery/artifacts_gen.go",
         "internal/gen/contractrecovery/graph_projection_restore_binding_gen.go"
@@ -172,7 +185,7 @@
       "contract_root": "contracts/collaboration",
       "generation_status": "active",
       "go_name": "CollaborationArtifacts",
-      "output_order": 9,
+      "output_order": 10,
       "generated_outputs": [
         "internal/gen/contractcollaboration/artifacts_gen.go"
       ],
@@ -185,7 +198,7 @@
       "contract_root": "contracts/revisions",
       "generation_status": "active",
       "go_name": "RevisionsArtifacts",
-      "output_order": 10,
+      "output_order": 11,
       "generated_outputs": [
         "internal/gen/contractrevisions/artifacts_gen.go"
       ],
@@ -198,7 +211,7 @@
       "contract_root": "contracts/view-inspector",
       "generation_status": "active",
       "go_name": "ViewInspectorArtifacts",
-      "output_order": 11,
+      "output_order": 12,
       "generated_outputs": [
         "internal/gen/contractviewinspector/artifacts_gen.go",
         "packages/protocol-ts/src/generated/view-inspector-registry.ts"
@@ -219,7 +232,7 @@
       "contract_root": "contracts/artifacts",
       "generation_status": "active",
       "go_name": "ArtifactSourceArtifacts",
-      "output_order": 12,
+      "output_order": 13,
       "generated_outputs": [
         "internal/gen/contractartifacts/artifacts_gen.go",
         "internal/gen/contractartifacts/source_catalog_gen.go"
@@ -233,7 +246,7 @@
       "contract_root": "contracts/database-migrations",
       "generation_status": "active",
       "go_name": "DatabaseMigrationArtifacts",
-      "output_order": 13,
+      "output_order": 14,
       "generated_outputs": [
         "internal/gen/contractdatabasemigrations/artifacts_gen.go"
       ],
@@ -246,7 +259,7 @@
       "contract_root": "contracts/performance",
       "generation_status": "active",
       "go_name": "PerformanceArtifacts",
-      "output_order": 14,
+      "output_order": 15,
       "generated_outputs": [
         "internal/gen/contractperformance/artifacts_gen.go"
       ],

@@ -5,67 +5,102 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 )
 
-type fakeProjectionBindingReader struct {
-	bindings map[string]graphprojection.ProjectionBinding
-	err      error
+type fakeGraphSourceProvider struct {
+	ownerID string
+	result  graphprojection.CompletedResultV2
+	err     error
 }
 
-func (f fakeProjectionBindingReader) LookupProjectionBinding(_ context.Context, runID string) (graphprojection.ProjectionBinding, error) {
-	if f.err != nil {
-		return graphprojection.ProjectionBinding{}, f.err
-	}
-	binding, ok := f.bindings[runID]
-	if !ok {
-		return graphprojection.ProjectionBinding{}, graphprojection.ErrProjectionRunNotFound
-	}
-	return binding, nil
+func (provider *fakeGraphSourceProvider) SourceOwnerID() string { return provider.ownerID }
+
+func (provider *fakeGraphSourceProvider) ValidateAndLeaseResultTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, graphprojection.ResultBindingV2, time.Time, time.Time) (graphprojection.ResultLeaseV2, error) {
+	return graphprojection.ResultLeaseV2{}, provider.err
 }
 
-func TestValidateReleaseGraphProjectionRefsOwnsReasonMapping(t *testing.T) {
-	digestA := strings.Repeat("a", 64)
-	digestB := strings.Repeat("b", 64)
-	ref := sourceProjectionRef{ProjectionSchemaID: graphprojection.ProjectionSchemaID, GraphViewID: "gv_valid", SourceSnapshotID: "snapshot", ProjectionRunID: "gpr_valid", ProjectionVersion: "v1", ProjectionConfigDigest: digestA, ProjectionSourceDigest: digestA, ProjectionOutputDigest: digestA}
-	binding := graphprojection.ProjectionBinding{ProjectionRunID: ref.ProjectionRunID, GraphViewID: ref.GraphViewID, SourceSnapshotID: ref.SourceSnapshotID, ProjectionVersion: ref.ProjectionVersion, State: graphprojection.RunStateAvailable, ProjectionConfigDigest: digestA, ProjectionSourceDigest: digestA, ProjectionOutputDigest: digestA}
-	reader := fakeProjectionBindingReader{bindings: map[string]graphprojection.ProjectionBinding{ref.ProjectionRunID: binding}}
-	if err := validateReleaseGraphProjectionRefs(context.Background(), reader, "snapshot", []sourceProjectionRef{ref}); err != nil {
-		t.Fatalf("validate completed binding: %v", err)
+func (provider *fakeGraphSourceProvider) ReadAndRenewLeasedResult(context.Context, uuid.UUID, graphprojection.ResultBindingV2, time.Time, time.Time) (graphprojection.CompletedResultV2, error) {
+	return provider.result, provider.err
+}
+
+func (*fakeGraphSourceProvider) ReleaseJobLeasesTx(context.Context, pgx.Tx, uuid.UUID) error {
+	return nil
+}
+
+func (*fakeGraphSourceProvider) ReleaseJobLeases(context.Context, uuid.UUID) error { return nil }
+
+func TestGraphSourceRegistryReadsExactResultAndOwnsReasonMapping(t *testing.T) {
+	ref := testSourceProjectionRef("gv_valid", "gpr_valid")
+	result := graphprojection.CompletedResultV2{Binding: ref.binding()}
+	registry, err := NewGraphSourceRegistry(&fakeGraphSourceProvider{ownerID: ref.SourceOwnerID, result: result})
+	if err != nil {
+		t.Fatalf("new graph source registry: %v", err)
 	}
+	resolved, err := registry.ReadAndRenew(context.Background(), uuid.New(), []sourceProjectionRef{ref}, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("read exact leased result: %v", err)
+	}
+	if len(resolved) != 1 || resolved[0].Ref != ref || resolved[0].Result.Binding != ref.binding() {
+		t.Fatalf("resolved exact result = %#v", resolved)
+	}
+
 	cases := []struct {
 		name       string
-		ref        sourceProjectionRef
-		reader     graphprojection.ProjectionBindingReader
-		snapshotID string
+		err        error
 		wantReason string
 	}{
-		{name: "not bound", ref: withProjectionRun(ref, "gpr_missing"), reader: reader, snapshotID: "snapshot", wantReason: "graph_projection_not_bound"},
-		{name: "not completed", ref: ref, reader: fakeProjectionBindingReader{bindings: map[string]graphprojection.ProjectionBinding{ref.ProjectionRunID: withBindingState(binding, graphprojection.RunStateComputing)}}, snapshotID: "snapshot", wantReason: "graph_projection_not_completed"},
-		{name: "stale", ref: ref, reader: reader, snapshotID: "other", wantReason: "graph_projection_stale"},
-		{name: "digest mismatch", ref: withProjectionOutputDigest(ref, digestB), reader: reader, snapshotID: "snapshot", wantReason: "graph_projection_digest_mismatch"},
+		{name: "not bound", err: graphprojection.ErrResultV2NotFound, wantReason: "graph_projection_not_bound"},
+		{name: "not completed", err: graphprojection.ErrResultV2NotSelected, wantReason: "graph_projection_not_completed"},
+		{name: "stale", err: graphprojection.ErrResultV2SourceStale, wantReason: "graph_projection_stale"},
+		{name: "binding mismatch", err: graphprojection.ErrResultV2BindingMismatch, wantReason: "graph_projection_digest_mismatch"},
+		{name: "identity conflict", err: graphprojection.ErrResultV2IdentityConflict, wantReason: "graph_projection_digest_mismatch"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateReleaseGraphProjectionRefs(context.Background(), tc.reader, tc.snapshotID, []sourceProjectionRef{tc.ref})
+			mapped := mapGraphSourceError(tc.err)
 			var requestErr *InvalidReleaseRequestError
-			if !errors.As(err, &requestErr) || requestErr.Field != "graph_projection_refs" || requestErr.ReasonCode != tc.wantReason {
-				t.Fatalf("validation error = %#v want %s", err, tc.wantReason)
+			if !errors.As(mapped, &requestErr) || requestErr.Field != "graph_projection_refs" || requestErr.ReasonCode != tc.wantReason {
+				t.Fatalf("validation error = %#v want %s", mapped, tc.wantReason)
 			}
 		})
 	}
 }
 
-func withProjectionRun(ref sourceProjectionRef, value string) sourceProjectionRef {
-	ref.ProjectionRunID = value
-	return ref
+func TestGraphSourceRegistryRejectsDuplicateAndUnknownOwners(t *testing.T) {
+	provider := &fakeGraphSourceProvider{ownerID: "network_flow_activity"}
+	if _, err := NewGraphSourceRegistry(provider, provider); err == nil {
+		t.Fatal("duplicate source owner provider must fail")
+	}
+	registry, err := NewGraphSourceRegistry(provider)
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+	ref := testSourceProjectionRef("gv_valid", "gpr_valid")
+	ref.SourceOwnerID = "unknown"
+	_, err = registry.ReadAndRenew(context.Background(), uuid.New(), []sourceProjectionRef{ref}, time.Now().UTC())
+	var renderErr *renderValidationError
+	if !errors.As(err, &renderErr) || renderErr.ReasonCode != "graph_projection_not_bound" {
+		t.Fatalf("unknown owner error = %#v", err)
+	}
 }
-func withProjectionOutputDigest(ref sourceProjectionRef, value string) sourceProjectionRef {
-	ref.ProjectionOutputDigest = value
-	return ref
-}
-func withBindingState(binding graphprojection.ProjectionBinding, value graphprojection.RunState) graphprojection.ProjectionBinding {
-	binding.State = value
-	return binding
+
+func testSourceProjectionRef(graphViewID, resultID string) sourceProjectionRef {
+	digest := strings.Repeat("a", 64)
+	return sourceProjectionRef{
+		SourceOwnerID:                 "network_flow_activity",
+		GraphViewID:                   graphViewID,
+		ProjectionResultID:            resultID,
+		SourceSnapshotID:              "snapshot",
+		ProjectionSchemaID:            graphprojection.ProjectionSchemaIDV2,
+		ProjectionVersion:             "v2",
+		NormalizedConfigurationSHA256: digest,
+		NormalizedSourceSHA256:        digest,
+		CanonicalOutputSHA256:         digest,
+	}
 }

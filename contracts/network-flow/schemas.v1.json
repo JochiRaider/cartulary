@@ -3,7 +3,7 @@
   "$id": "cartulary.network_flow_public_schemas.v1",
   "schema_id": "cartulary.network_flow_public_schemas.v1",
   "profile_id": "network_flow_activity",
-  "contract_major": 2,
+  "contract_major": 3,
   "$defs": {
     "TimestampProfile": {
       "x_schema_id": "cartulary.network_flow.timestamp_profile.v1",
@@ -449,7 +449,7 @@
         "schema_id": { "const": "cartulary.network_flow.graph_query_result.v1" },
         "graph_query_digest": { "$ref": "#/$defs/SHA256" },
         "semantic_query": { "$ref": "#/$defs/GraphSemanticQuery" },
-        "graph_projection_result": { "$ref": "#/$defs/GraphProjectionEphemeralResult" },
+        "graph_projection_result": { "$ref": "#/$defs/GraphProjectionResultV2" },
         "edge_annotations": { "type": "array", "items": { "$ref": "#/$defs/EdgeAnnotation" } },
         "source_table_refs": { "type": "array", "items": { "$ref": "#/$defs/GraphSourceTableRef" } },
         "result_limits": { "$ref": "#/$defs/GraphResultLimits" }
@@ -876,27 +876,187 @@
         "max_traversal_depth": { "type": "integer" }, "max_traversal_seed_vertices": { "type": "integer" }, "max_kind_filters": { "type": "integer" }
       }
     },
-    "GraphProjectionEphemeralResult": {
+    "GraphProjectionResultV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["projection_schema_id", "graph_view_id", "graph_view_key", "ephemeral_projection_id", "source_snapshot_id", "projection_version", "generated_at", "state", "properties", "metadata", "schema_registry", "vertices", "edges", "validation_summary", "consumer_capabilities"],
+      "required": ["projection_schema_id", "projection_result_id", "graph_view_id", "source_owner_id", "source_snapshot_id", "projection_version", "normalized_configuration_sha256", "normalized_source_sha256", "canonical_output_sha256", "properties", "mapped_metadata", "schema_registry", "vertices", "edges", "validation_summary", "consumer_capabilities"],
       "properties": {
-        "additionalProperties": false,
-        "projection_schema_id": { "const": "graph_projection.v1" },
-        "graph_view_id": { "type": "string", "pattern": "^gv_[a-f0-9]{64}$" },
-        "graph_view_key": { "type": "string", "minLength": 1 },
-        "state": { "const": "ephemeral_available" },
-        "ephemeral_projection_id": { "type": "string", "pattern": "^gpe_[a-f0-9]{64}$" },
+        "projection_schema_id": { "const": "graph_projection.v2" },
+        "projection_result_id": { "$ref": "#/$defs/ProjectionResultID" },
+        "graph_view_id": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "source_owner_id": { "const": "network_flow_activity" },
         "source_snapshot_id": { "type": "string", "minLength": 1 },
         "projection_version": { "type": "string", "minLength": 1 },
-        "generated_at": { "$ref": "#/$defs/TimestampUTC" },
+        "normalized_configuration_sha256": { "$ref": "#/$defs/SHA256" },
+        "normalized_source_sha256": { "$ref": "#/$defs/SHA256" },
+        "canonical_output_sha256": { "$ref": "#/$defs/SHA256" },
         "properties": { "$ref": "#/$defs/GraphProjectionDynamicMap" },
-        "metadata": { "type": "object", "additionalProperties": false, "required": ["previous_projection_run_id", "projection_config_digest", "projection_source_digest", "mapped_metadata", "invalidation"], "properties": { "previous_projection_run_id": { "type": "null" }, "projection_config_digest": { "type": "string" }, "projection_source_digest": { "type": "string" }, "mapped_metadata": { "$ref": "#/$defs/GraphProjectionDynamicMap" }, "invalidation": { "type": "null" } } },
+        "mapped_metadata": { "$ref": "#/$defs/GraphProjectionDynamicMap" },
         "schema_registry": { "$ref": "#/$defs/GraphProjectionSchemaRegistry" },
         "vertices": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionVertex" } },
         "edges": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionEdge" } },
         "validation_summary": { "$ref": "#/$defs/GraphProjectionValidationSummary" },
         "consumer_capabilities": { "$ref": "#/$defs/GraphProjectionConsumerCapabilities" }
+      }
+    },
+    "GraphViewSelectedResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projection_result_id", "source_snapshot_id", "projection_schema_id", "projection_version", "normalized_configuration_sha256", "normalized_source_sha256", "canonical_output_sha256"],
+      "properties": {
+        "projection_result_id": { "$ref": "#/$defs/ProjectionResultID" },
+        "source_snapshot_id": { "type": "string", "minLength": 1 },
+        "projection_schema_id": { "const": "graph_projection.v2" },
+        "projection_version": { "type": "string", "minLength": 1 },
+        "normalized_configuration_sha256": { "$ref": "#/$defs/SHA256" },
+        "normalized_source_sha256": { "$ref": "#/$defs/SHA256" },
+        "canonical_output_sha256": { "$ref": "#/$defs/SHA256" }
+      }
+    },
+    "GraphView": {
+      "x_schema_id": "cartulary.network_flow.graph_view.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_view_id", "incident_id", "display_name", "normalized_display_name", "graph_view_version", "materialization_generation", "state", "semantic_query", "selected_result", "last_materialization_job_id", "last_materialization_status", "last_failure_code", "created_at", "updated_at"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view.v1" },
+        "graph_view_id": { "$ref": "#/$defs/GraphViewID" },
+        "incident_id": { "$ref": "#/$defs/UUID" },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "normalized_display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "graph_view_version": { "$ref": "#/$defs/PositiveInt" },
+        "materialization_generation": { "$ref": "#/$defs/PositiveInt" },
+        "state": { "enum": ["active", "retired"] },
+        "semantic_query": { "$ref": "#/$defs/GraphSemanticQuery" },
+        "selected_result": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/GraphViewSelectedResult" }] },
+        "last_materialization_job_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 160 },
+        "last_materialization_status": { "enum": ["not_started", "queued", "running", "succeeded", "failed", "cancelled"] },
+        "last_failure_code": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$" },
+        "created_at": { "$ref": "#/$defs/TimestampUTC" },
+        "updated_at": { "$ref": "#/$defs/TimestampUTC" }
+      }
+    },
+    "GraphViewList": {
+      "x_schema_id": "cartulary.network_flow.graph_view_list.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_views"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_list.v1" },
+        "graph_views": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/GraphView" } }
+      }
+    },
+    "GraphViewGet": {
+      "x_schema_id": "cartulary.network_flow.graph_view_get.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_view"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_get.v1" },
+        "graph_view": { "$ref": "#/$defs/GraphView" }
+      }
+    },
+    "GraphViewCreateRequest": {
+      "x_schema_id": "cartulary.network_flow.graph_view_create_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "client_txn_id", "display_name", "semantic_query"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_create_request.v1" },
+        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "semantic_query": { "$ref": "#/$defs/GraphSemanticQuery" }
+      }
+    },
+    "GraphViewRenameRequest": {
+      "x_schema_id": "cartulary.network_flow.graph_view_rename_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "client_txn_id", "display_name", "base_graph_view_version"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_rename_request.v1" },
+        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "base_graph_view_version": { "$ref": "#/$defs/PositiveInt" }
+      }
+    },
+    "GraphViewRefreshRequest": {
+      "x_schema_id": "cartulary.network_flow.graph_view_refresh_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "client_txn_id", "base_graph_view_version"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_refresh_request.v1" },
+        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
+        "base_graph_view_version": { "$ref": "#/$defs/PositiveInt" }
+      }
+    },
+    "GraphViewRetireRequest": {
+      "x_schema_id": "cartulary.network_flow.graph_view_retire_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "client_txn_id", "base_graph_view_version"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_retire_request.v1" },
+        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
+        "base_graph_view_version": { "$ref": "#/$defs/PositiveInt" }
+      }
+    },
+    "GraphViewAccepted": {
+      "x_schema_id": "cartulary.network_flow.graph_view_accepted.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_view", "job_id", "job_kind"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_accepted.v1" },
+        "graph_view": { "$ref": "#/$defs/GraphView" },
+        "job_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "job_kind": { "const": "network_flow_activity.graph_view_materialize_v1" }
+      }
+    },
+    "GraphViewMutationResult": {
+      "x_schema_id": "cartulary.network_flow.graph_view_mutation_result.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_view"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_mutation_result.v1" },
+        "graph_view": { "$ref": "#/$defs/GraphView" }
+      }
+    },
+    "GraphViewResult": {
+      "x_schema_id": "cartulary.network_flow.graph_view_result.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_view", "projection_result"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_result.v1" },
+        "graph_view": { "$ref": "#/$defs/GraphView" },
+        "projection_result": { "$ref": "#/$defs/GraphProjectionResultV2" }
+      }
+    },
+    "GraphViewContributorQueryRequest": {
+      "x_schema_id": "cartulary.network_flow.graph_view_contributor_query_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "projection_result_id", "selector", "limit"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_contributor_query_request.v1" },
+        "projection_result_id": { "$ref": "#/$defs/ProjectionResultID" },
+        "selector": { "$ref": "#/$defs/GraphSelector" },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 1000 }
+      }
+    },
+    "GraphViewContributorQueryResult": {
+      "x_schema_id": "cartulary.network_flow.graph_view_contributor_query_result.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_view_id", "projection_result_id", "contributors"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_view_contributor_query_result.v1" },
+        "graph_view_id": { "$ref": "#/$defs/GraphViewID" },
+        "projection_result_id": { "$ref": "#/$defs/ProjectionResultID" },
+        "contributors": { "type": "array", "maxItems": 1000, "items": { "$ref": "#/$defs/Contributor" } }
       }
     },
     "GraphProjectionValidationSummary": {
@@ -1120,7 +1280,7 @@
     "EffectiveLimits": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["network_flow.max_active_tables_per_incident", "network_flow.max_retained_tables_per_incident", "network_flow.max_selected_tables_per_query", "network_flow.max_columns_per_csv", "network_flow.max_header_scalar_length", "network_flow.max_raw_cell_scalar_length", "network_flow.max_rows_per_csv", "network_flow.max_accepted_rows_per_table", "network_flow.max_rejected_row_diagnostics", "network_flow.max_filters_per_query", "network_flow.max_sorts_per_query", "network_flow.max_query_limit", "network_flow.max_graph_vertices", "network_flow.max_graph_edges", "network_flow.max_example_row_refs_per_edge", "network_flow.max_binding_source_row_refs", "network_flow.max_aggregate_counter_digits"],
+      "required": ["network_flow.max_active_tables_per_incident", "network_flow.max_retained_tables_per_incident", "network_flow.max_selected_tables_per_query", "network_flow.max_columns_per_csv", "network_flow.max_header_scalar_length", "network_flow.max_raw_cell_scalar_length", "network_flow.max_rows_per_csv", "network_flow.max_accepted_rows_per_table", "network_flow.max_rejected_row_diagnostics", "network_flow.max_filters_per_query", "network_flow.max_sorts_per_query", "network_flow.max_query_limit", "network_flow.max_graph_vertices", "network_flow.max_graph_edges", "network_flow.max_example_row_refs_per_edge", "network_flow.max_binding_source_row_refs", "network_flow.max_aggregate_counter_digits", "network_flow.max_active_graph_views_per_incident", "network_flow.max_retained_graph_views_per_incident", "network_flow.max_nonterminal_graph_jobs_per_incident"],
       "properties": {
         "network_flow.max_active_tables_per_incident": { "$ref": "#/$defs/PositiveInt" },
         "network_flow.max_retained_tables_per_incident": { "$ref": "#/$defs/PositiveInt" },
@@ -1138,7 +1298,10 @@
         "network_flow.max_graph_edges": { "$ref": "#/$defs/NonNegativeInt" },
         "network_flow.max_example_row_refs_per_edge": { "$ref": "#/$defs/NonNegativeInt" },
         "network_flow.max_binding_source_row_refs": { "$ref": "#/$defs/PositiveInt" },
-        "network_flow.max_aggregate_counter_digits": { "$ref": "#/$defs/PositiveInt" }
+        "network_flow.max_aggregate_counter_digits": { "$ref": "#/$defs/PositiveInt" },
+        "network_flow.max_active_graph_views_per_incident": { "const": 32 },
+        "network_flow.max_retained_graph_views_per_incident": { "const": 128 },
+        "network_flow.max_nonterminal_graph_jobs_per_incident": { "const": 4 }
       }
     },
     "IntegerRange": {
@@ -1184,6 +1347,8 @@
     "RowID": { "type": "string", "pattern": "^nfr_[a-f0-9]{64}$" },
     "EndpointID": { "type": "string", "pattern": "^nfe_[a-f0-9]{64}$" },
     "FlowEdgeID": { "type": "string", "pattern": "^nff_[a-f0-9]{64}$" },
+    "GraphViewID": { "type": "string", "pattern": "^nfgv_[a-f0-9]{32}$" },
+    "ProjectionResultID": { "type": "string", "pattern": "^gpres_[a-f0-9]{64}$" },
     "BindingID": { "type": "string", "pattern": "^nfb_[a-f0-9]{32}$" },
     "DiagnosticID": { "type": "string", "pattern": "^nfd_[a-f0-9]{64}$" },
     "SourceProfileID": { "enum": ["cisco_sna_netflow_csv_v1"] },

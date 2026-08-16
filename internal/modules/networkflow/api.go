@@ -18,23 +18,26 @@ const (
 	TableStatusActive      = "active"
 	TableStatusSoftDeleted = "soft_deleted"
 
-	DefaultMaxActiveTablesPerIncident   = 128
-	DefaultMaxRetainedTablesPerIncident = 512
-	DefaultMaxColumnsPerCSV             = 256
-	DefaultMaxRowsPerCSV                = 250000
-	DefaultMaxAcceptedRowsPerTable      = 250000
-	DefaultMaxRejectedRowDiagnostics    = 10000
-	DefaultMaxHeaderScalarLength        = 1024
-	DefaultMaxRawCellScalarLength       = 4096
-	DefaultMaxSelectedTablesPerQuery    = 16
-	DefaultMaxFiltersPerQuery           = 16
-	DefaultMaxSortsPerQuery             = 8
-	DefaultMaxQueryLimit                = 500
-	DefaultMaxGraphVertices             = 5000
-	DefaultMaxGraphEdges                = 10000
-	DefaultMaxExampleRowRefsPerEdge     = 10
-	DefaultMaxBindingSourceRowRefs      = 16
-	DefaultMaxAggregateCounterDigits    = 39
+	DefaultMaxActiveTablesPerIncident         = 128
+	DefaultMaxRetainedTablesPerIncident       = 512
+	DefaultMaxColumnsPerCSV                   = 256
+	DefaultMaxRowsPerCSV                      = 250000
+	DefaultMaxAcceptedRowsPerTable            = 250000
+	DefaultMaxRejectedRowDiagnostics          = 10000
+	DefaultMaxHeaderScalarLength              = 1024
+	DefaultMaxRawCellScalarLength             = 4096
+	DefaultMaxSelectedTablesPerQuery          = 16
+	DefaultMaxFiltersPerQuery                 = 16
+	DefaultMaxSortsPerQuery                   = 8
+	DefaultMaxQueryLimit                      = 500
+	DefaultMaxGraphVertices                   = 5000
+	DefaultMaxGraphEdges                      = 10000
+	DefaultMaxActiveGraphViewsPerIncident     = 32
+	DefaultMaxRetainedGraphViewsPerIncident   = 128
+	DefaultMaxNonterminalGraphJobsPerIncident = 4
+	DefaultMaxExampleRowRefsPerEdge           = 10
+	DefaultMaxBindingSourceRowRefs            = 16
+	DefaultMaxAggregateCounterDigits          = 39
 )
 
 var (
@@ -130,44 +133,50 @@ func (e *TableLimitError) Unwrap() error {
 }
 
 type Limits struct {
-	MaxActiveTablesPerIncident   int64
-	MaxRetainedTablesPerIncident int64
-	MaxColumnsPerCSV             int64
-	MaxRowsPerCSV                int64
-	MaxAcceptedRowsPerTable      int64
-	MaxRejectedRowDiagnostics    int64
-	MaxHeaderScalarLength        int64
-	MaxRawCellScalarLength       int64
-	MaxSelectedTablesPerQuery    int64
-	MaxFiltersPerQuery           int64
-	MaxSortsPerQuery             int64
-	MaxQueryLimit                int64
-	MaxGraphVertices             int64
-	MaxGraphEdges                int64
-	MaxExampleRowRefsPerEdge     int64
-	MaxBindingSourceRowRefs      int64
-	MaxAggregateCounterDigits    int64
+	MaxActiveTablesPerIncident         int64
+	MaxRetainedTablesPerIncident       int64
+	MaxColumnsPerCSV                   int64
+	MaxRowsPerCSV                      int64
+	MaxAcceptedRowsPerTable            int64
+	MaxRejectedRowDiagnostics          int64
+	MaxHeaderScalarLength              int64
+	MaxRawCellScalarLength             int64
+	MaxSelectedTablesPerQuery          int64
+	MaxFiltersPerQuery                 int64
+	MaxSortsPerQuery                   int64
+	MaxQueryLimit                      int64
+	MaxGraphVertices                   int64
+	MaxGraphEdges                      int64
+	MaxActiveGraphViewsPerIncident     int64
+	MaxRetainedGraphViewsPerIncident   int64
+	MaxNonterminalGraphJobsPerIncident int64
+	MaxExampleRowRefsPerEdge           int64
+	MaxBindingSourceRowRefs            int64
+	MaxAggregateCounterDigits          int64
 }
 
 func DefaultLimits() Limits {
 	return Limits{
-		MaxActiveTablesPerIncident:   DefaultMaxActiveTablesPerIncident,
-		MaxRetainedTablesPerIncident: DefaultMaxRetainedTablesPerIncident,
-		MaxColumnsPerCSV:             DefaultMaxColumnsPerCSV,
-		MaxRowsPerCSV:                DefaultMaxRowsPerCSV,
-		MaxAcceptedRowsPerTable:      DefaultMaxAcceptedRowsPerTable,
-		MaxRejectedRowDiagnostics:    DefaultMaxRejectedRowDiagnostics,
-		MaxHeaderScalarLength:        DefaultMaxHeaderScalarLength,
-		MaxRawCellScalarLength:       DefaultMaxRawCellScalarLength,
-		MaxSelectedTablesPerQuery:    DefaultMaxSelectedTablesPerQuery,
-		MaxFiltersPerQuery:           DefaultMaxFiltersPerQuery,
-		MaxSortsPerQuery:             DefaultMaxSortsPerQuery,
-		MaxQueryLimit:                DefaultMaxQueryLimit,
-		MaxGraphVertices:             DefaultMaxGraphVertices,
-		MaxGraphEdges:                DefaultMaxGraphEdges,
-		MaxExampleRowRefsPerEdge:     DefaultMaxExampleRowRefsPerEdge,
-		MaxBindingSourceRowRefs:      DefaultMaxBindingSourceRowRefs,
-		MaxAggregateCounterDigits:    DefaultMaxAggregateCounterDigits,
+		MaxActiveTablesPerIncident:         DefaultMaxActiveTablesPerIncident,
+		MaxRetainedTablesPerIncident:       DefaultMaxRetainedTablesPerIncident,
+		MaxColumnsPerCSV:                   DefaultMaxColumnsPerCSV,
+		MaxRowsPerCSV:                      DefaultMaxRowsPerCSV,
+		MaxAcceptedRowsPerTable:            DefaultMaxAcceptedRowsPerTable,
+		MaxRejectedRowDiagnostics:          DefaultMaxRejectedRowDiagnostics,
+		MaxHeaderScalarLength:              DefaultMaxHeaderScalarLength,
+		MaxRawCellScalarLength:             DefaultMaxRawCellScalarLength,
+		MaxSelectedTablesPerQuery:          DefaultMaxSelectedTablesPerQuery,
+		MaxFiltersPerQuery:                 DefaultMaxFiltersPerQuery,
+		MaxSortsPerQuery:                   DefaultMaxSortsPerQuery,
+		MaxQueryLimit:                      DefaultMaxQueryLimit,
+		MaxGraphVertices:                   DefaultMaxGraphVertices,
+		MaxGraphEdges:                      DefaultMaxGraphEdges,
+		MaxActiveGraphViewsPerIncident:     DefaultMaxActiveGraphViewsPerIncident,
+		MaxRetainedGraphViewsPerIncident:   DefaultMaxRetainedGraphViewsPerIncident,
+		MaxNonterminalGraphJobsPerIncident: DefaultMaxNonterminalGraphJobsPerIncident,
+		MaxExampleRowRefsPerEdge:           DefaultMaxExampleRowRefsPerEdge,
+		MaxBindingSourceRowRefs:            DefaultMaxBindingSourceRowRefs,
+		MaxAggregateCounterDigits:          DefaultMaxAggregateCounterDigits,
 	}
 }
 
@@ -217,6 +226,18 @@ func (l Limits) normalized() Limits {
 	}
 	if l.MaxGraphEdges <= 0 {
 		l.MaxGraphEdges = defaults.MaxGraphEdges
+	}
+	if l.MaxActiveGraphViewsPerIncident <= 0 {
+		l.MaxActiveGraphViewsPerIncident = defaults.MaxActiveGraphViewsPerIncident
+	}
+	if l.MaxRetainedGraphViewsPerIncident <= 0 {
+		l.MaxRetainedGraphViewsPerIncident = defaults.MaxRetainedGraphViewsPerIncident
+	}
+	if l.MaxActiveGraphViewsPerIncident > l.MaxRetainedGraphViewsPerIncident {
+		l.MaxActiveGraphViewsPerIncident = l.MaxRetainedGraphViewsPerIncident
+	}
+	if l.MaxNonterminalGraphJobsPerIncident <= 0 {
+		l.MaxNonterminalGraphJobsPerIncident = defaults.MaxNonterminalGraphJobsPerIncident
 	}
 	if l.MaxExampleRowRefsPerEdge < 0 {
 		l.MaxExampleRowRefsPerEdge = defaults.MaxExampleRowRefsPerEdge

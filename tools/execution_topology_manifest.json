@@ -682,8 +682,7 @@
             "kind": "measurement",
             "coverage": "authoritative",
             "execution_dependency": "browser_measurement",
-            "workers": "1",
-            "reset_before": "stateful-to-measurement"
+            "workers": "1"
           },
           {
             "name": "measurement-network-flow-claimed",

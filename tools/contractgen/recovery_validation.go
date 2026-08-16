@@ -31,9 +31,9 @@ var (
 		"backup-artifact-envelope.v2.schema.json":                        "cartulary.backup_artifact_envelope.v2",
 		"backup-integrity-manifest.v3.schema.json":                       "cartulary.backup_integrity_manifest.v3",
 		"common.v1.schema.json":                                          "cartulary.recovery_common.v1",
-		"graph-projection-restore-implementation-binding.v1.schema.json": "cartulary.graph_projection_restore_implementation_binding.v1",
-		"graph-projection-restore-rebuild-result.v1.schema.json":         "cartulary.graph_projection_restore_rebuild_result.v1",
-		"graph-projection-restore-source-registry.v1.schema.json":        "cartulary.graph_projection_restore_source_registry.v1",
+		"graph-projection-restore-implementation-binding.v2.schema.json": "cartulary.graph_projection_restore_implementation_binding.v2",
+		"graph-projection-restore-rebuild-result.v2.schema.json":         "cartulary.graph_projection_restore_rebuild_result.v2",
+		"graph-projection-restore-source-registry.v2.schema.json":        "cartulary.graph_projection_restore_source_registry.v2",
 		"object-store-backup-manifest.v2.schema.json":                    "cartulary.object_store_backup_manifest.v2",
 		"object-store-backup-summary.v2.schema.json":                     "cartulary.object_store_backup_summary.v2",
 		"operator-recovery-audit-summary.v2.schema.json":                 "cartulary.operator_recovery_audit_summary.v2",
@@ -50,9 +50,9 @@ var (
 	recoveryFixtureIDsByPath = map[string]string{
 		"fixtures/backup-artifact-envelope.v2.json":                        "cartulary.backup_artifact_envelope.v2",
 		"fixtures/backup-integrity-manifest.v3.json":                       "cartulary.backup_integrity_manifest.v3",
-		"fixtures/graph-projection-restore-implementation-binding.v1.json": "cartulary.graph_projection_restore_implementation_binding.v1",
-		"fixtures/graph-projection-restore-rebuild-result.v1.json":         "cartulary.graph_projection_restore_rebuild_result.v1",
-		"fixtures/graph-projection-restore-source-registry.v1.json":        "cartulary.graph_projection_restore_source_registry.v1",
+		"fixtures/graph-projection-restore-implementation-binding.v2.json": "cartulary.graph_projection_restore_implementation_binding.v2",
+		"fixtures/graph-projection-restore-rebuild-result.v2.json":         "cartulary.graph_projection_restore_rebuild_result.v2",
+		"fixtures/graph-projection-restore-source-registry.v2.json":        "cartulary.graph_projection_restore_source_registry.v2",
 		"fixtures/object-store-backup-manifest.v2.json":                    "cartulary.object_store_backup_manifest.v2",
 		"fixtures/object-store-backup-summary.v2.json":                     "cartulary.object_store_backup_summary.v2",
 		"fixtures/operator-recovery-audit-summary.v2.json":                 "cartulary.operator_recovery_audit_summary.v2",
@@ -67,6 +67,7 @@ var (
 		"fixtures/restore-workbook-probe-registration.v1.json":             "cartulary.restore_workbook_probe_registration.v1",
 	}
 	createTablePattern = regexp.MustCompile(`(?i)\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:public\.)?([a-z][a-z0-9_]*)`)
+	dropTablePattern   = regexp.MustCompile(`(?i)\bDROP\s+TABLE(?:\s+IF\s+EXISTS)?\s+(?:public\.)?([a-z][a-z0-9_]*)`)
 )
 
 func validateRecoveryContractInput(relativePath string, value any) error {
@@ -181,10 +182,9 @@ func validateRecoveryContractFamily(root string) error {
 	if err := validateRecoveryRegistryPaths(base, registry); err != nil {
 		return err
 	}
-	if err := validateGraphProjectionRestoreContracts(base); err != nil {
+	if err := validateGraphProjectionRestoreV2Contracts(base); err != nil {
 		return err
 	}
-
 	catalog, err := readRecoveryObject(base, "fixtures/recovery-state-catalog.v1.json")
 	if err != nil {
 		return err
@@ -200,20 +200,26 @@ func validateRecoveryContractFamily(root string) error {
 	return validateRecoverySnapshotFixture(snapshot, requiredTables)
 }
 
-func validateGraphProjectionRestoreContracts(base string) error {
-	registry, err := readRecoveryObject(base, "fixtures/graph-projection-restore-source-registry.v1.json")
+func validateGraphProjectionRestoreV2Contracts(base string) error {
+	registry, err := readRecoveryObject(base, "fixtures/graph-projection-restore-source-registry.v2.json")
 	if err != nil {
 		return err
 	}
-	if err := requireAllowedKeys(registry, stringSet("schema_id", "entries"), "Graph Projection restore source registry"); err != nil {
+	if err := requireAllowedKeys(registry, stringSet("schema_id", "entries"), "Graph Projection v2 restore source registry"); err != nil {
 		return err
 	}
-	entries, err := objectArrayAllowEmpty(registry["entries"], "Graph Projection restore source registry entries")
+	entries, err := objectArray(registry["entries"], "Graph Projection v2 restore source registry entries")
 	if err != nil {
 		return err
 	}
-	if len(registry) != 2 || len(entries) != 0 {
-		return fmt.Errorf("current Graph Projection restore source registry must be the exact empty-registry posture")
+	if len(entries) != 1 ||
+		entries[0]["source_registration_id"] != "network_flow_activity.graph_views.v1" ||
+		entries[0]["source_owner_id"] != "network_flow_activity" ||
+		entries[0]["authoritative_family_id"] != "network_flow_activity.graph_views" ||
+		entries[0]["projection_input_contract_id"] != "graph_projection.v2" ||
+		entries[0]["projection_result_contract_id"] != "graph_projection_result.v2" ||
+		entries[0]["status"] != "active" {
+		return fmt.Errorf("current Graph Projection v2 restore registry must contain the exact Network Flow owner binding")
 	}
 	registryJSON, err := canonicalizeDecoded(registry)
 	if err != nil {
@@ -222,7 +228,7 @@ func validateGraphProjectionRestoreContracts(base string) error {
 	registrySum := sha256.Sum256([]byte(registryJSON))
 	registrySHA256 := hex.EncodeToString(registrySum[:])
 
-	binding, err := readRecoveryObject(base, "fixtures/graph-projection-restore-implementation-binding.v1.json")
+	binding, err := readRecoveryObject(base, "fixtures/graph-projection-restore-implementation-binding.v2.json")
 	if err != nil {
 		return err
 	}
@@ -232,68 +238,67 @@ func validateGraphProjectionRestoreContracts(base string) error {
 		"graph_engine_algorithm_ids", "graph_engine_algorithm_digests", "database_schema_lineage",
 		"database_schema_head", "packaged_subject_sha256", "build_provenance_sha256",
 	)
-	if err := requireAllowedKeys(binding, bindingKeys, "Graph Projection restore implementation binding"); err != nil {
+	if err := requireAllowedKeys(binding, bindingKeys, "Graph Projection v2 restore implementation binding"); err != nil {
 		return err
 	}
 	if len(binding) != len(bindingKeys) ||
-		binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v1" ||
-		binding["algorithm_id"] != "graphprojection.restore_rebuild.v1" ||
-		binding["binding_id"] != "graphprojection.restore_rebuild.current_empty_registry.v1" ||
-		binding["graph_projection_contract_id"] != "cartulary.graph_projection_nlspec.v1.2.0" ||
-		binding["recovery_state_catalog_sha256"] != "45beccfad63570a6590269da09ca135b791faa07c550586e2dcd7df5fc3243f8" ||
+		binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v2" ||
+		binding["algorithm_id"] != "graphprojection.restore_rebuild.v2" ||
+		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v2" ||
+		binding["graph_projection_contract_id"] != "cartulary.graph_projection_nlspec.v2.0.0" ||
 		binding["source_registry_sha256"] != registrySHA256 ||
 		binding["database_schema_lineage"] != "cartulary.prod_ddl_rebaseline.v2" {
-		return fmt.Errorf("current Graph Projection restore implementation binding has drifted from its authored source set")
-	}
-	graphTables, err := stringArray(binding["graph_table_ids"], "Graph Projection restore graph_table_ids", true)
-	if err != nil {
-		return err
+		return fmt.Errorf("current Graph Projection v2 restore implementation binding has drifted from its authored source set")
 	}
 	wantGraphTables := []string{
-		"graph_projection_edges",
-		"graph_projection_idempotency",
-		"graph_projection_runs",
-		"graph_projection_vertices",
-		"graph_projection_views",
+		"graph_projection_result_edges",
+		"graph_projection_result_leases",
+		"graph_projection_result_vertices",
+		"graph_projection_results",
 	}
-	if err := compareStringSlices(wantGraphTables, graphTables, "Graph Projection restore graph tables"); err != nil {
-		return err
-	}
-	algorithmIDs, err := stringArray(binding["graph_engine_algorithm_ids"], "Graph Projection restore algorithm IDs", true)
+	graphTables, err := stringArray(binding["graph_table_ids"], "Graph Projection v2 restore graph_table_ids", true)
 	if err != nil {
 		return err
 	}
-	if err := requireSortedUniqueStrings(algorithmIDs, "Graph Projection restore algorithm IDs"); err != nil {
+	if err := compareStringSlices(wantGraphTables, graphTables, "Graph Projection v2 restore graph tables"); err != nil {
 		return err
 	}
-	algorithmDigests, err := stringArray(binding["graph_engine_algorithm_digests"], "Graph Projection restore algorithm digests", true)
+	algorithmIDs, err := stringArray(binding["graph_engine_algorithm_ids"], "Graph Projection v2 restore algorithm IDs", true)
+	if err != nil {
+		return err
+	}
+	if err := requireSortedUniqueStrings(algorithmIDs, "Graph Projection v2 restore algorithm IDs"); err != nil {
+		return err
+	}
+	algorithmDigests, err := stringArray(binding["graph_engine_algorithm_digests"], "Graph Projection v2 restore algorithm digests", true)
 	if err != nil {
 		return err
 	}
 	if len(algorithmIDs) != len(algorithmDigests) {
-		return fmt.Errorf("graph-projection restore algorithm identities and digests must align one-to-one")
+		return fmt.Errorf("graph projection v2 restore algorithm identities and digests must align one-to-one")
 	}
 
-	result, err := readRecoveryObject(base, "fixtures/graph-projection-restore-rebuild-result.v1.json")
+	result, err := readRecoveryObject(base, "fixtures/graph-projection-restore-rebuild-result.v2.json")
 	if err != nil {
 		return err
 	}
 	resultKeys := stringSet(
 		"schema_id", "restore_operation_id", "target_generation_id", "status", "readiness_outcome",
 		"algorithm_id", "implementation_binding_sha256", "source_registry_sha256", "cleared_table_ids",
-		"rebuilt_views", "skipped_candidates", "postcondition_sha256", "warnings", "errors",
+		"rebuilt_views", "reconciled_nonterminal_job_count", "reconciled_lease_count", "postcondition_sha256",
+		"warnings", "errors",
 	)
-	if err := requireAllowedKeys(result, resultKeys, "Graph Projection restore result"); err != nil {
+	if err := requireAllowedKeys(result, resultKeys, "Graph Projection v2 restore result"); err != nil {
 		return err
 	}
-	if len(result) != len(resultKeys) || result["status"] != "succeeded" || result["readiness_outcome"] != "ready" {
-		return fmt.Errorf("graph-projection restore result fixture must be the exact successful empty-registry result shape")
+	if len(result) != len(resultKeys) || result["status"] != "succeeded" || result["readiness_outcome"] != "ready" || result["source_registry_sha256"] != registrySHA256 {
+		return fmt.Errorf("graph projection v2 restore result fixture must be the exact successful current result shape")
 	}
-	cleared, err := stringArray(result["cleared_table_ids"], "Graph Projection restore cleared tables", true)
+	cleared, err := stringArray(result["cleared_table_ids"], "Graph Projection v2 restore cleared tables", true)
 	if err != nil {
 		return err
 	}
-	return compareStringSlices(wantGraphTables, cleared, "Graph Projection restore cleared tables")
+	return compareStringSlices(wantGraphTables, cleared, "Graph Projection v2 restore cleared tables")
 }
 
 func readRecoveryObject(base, relativePath string) (map[string]any, error) {
@@ -378,8 +383,8 @@ func validateRecoveryCatalog(root string, catalog map[string]any) ([]string, err
 	if err := requireSortedUniqueStrings(catalogNames, "recovery catalog tables"); err != nil {
 		return nil, err
 	}
-	if len(requiredNames) != 83 {
-		return nil, fmt.Errorf("recovery catalog must contain exactly 83 authoritative_required tables, got %d", len(requiredNames))
+	if len(requiredNames) != 84 {
+		return nil, fmt.Errorf("recovery catalog must contain exactly 84 authoritative_required tables, got %d", len(requiredNames))
 	}
 	authoredNames, err := authoredMigrationTableNames(root)
 	if err != nil {
@@ -430,8 +435,12 @@ func authoredMigrationTableNames(root string) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read migration %s: %w", entry.Name(), err)
 		}
-		for _, match := range createTablePattern.FindAllSubmatch(raw, -1) {
-			names[strings.ToLower(string(match[1]))] = struct{}{}
+		up := strings.SplitN(string(raw), "-- +goose Down", 2)[0]
+		for _, match := range createTablePattern.FindAllStringSubmatch(up, -1) {
+			names[strings.ToLower(match[1])] = struct{}{}
+		}
+		for _, match := range dropTablePattern.FindAllStringSubmatch(up, -1) {
+			delete(names, strings.ToLower(match[1]))
 		}
 	}
 	result := make([]string, 0, len(names))
@@ -447,8 +456,8 @@ func validateRecoverySnapshotFixture(snapshot map[string]any, requiredTables []s
 	if err != nil {
 		return err
 	}
-	if len(units) != 83 {
-		return fmt.Errorf("postgres snapshot fixture must contain exactly 83 units, got %d", len(units))
+	if len(units) != 84 {
+		return fmt.Errorf("postgres snapshot fixture must contain exactly 84 units, got %d", len(units))
 	}
 	names := make([]string, 0, len(units))
 	for index, unit := range units {

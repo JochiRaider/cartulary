@@ -54,7 +54,7 @@ func TestStateRuntimeAdmit_ServiceBacked_FreshEmptyInitialization(t *testing.T) 
 		t.Fatalf("fresh empty admission: %v", err)
 	}
 	metadata := readStateMetadata(t, fixture.pool, fixture.plan.ProfileID)
-	if metadata.StateVersion != 1 || metadata.MetadataVersion != 1 || metadata.LastMigrationID != nil || validationCalls != 1 {
+	if metadata.StateVersion != fixture.plan.CurrentStateVersion || metadata.MetadataVersion != 1 || metadata.LastMigrationID != nil || validationCalls != 1 {
 		t.Fatalf("fresh metadata = %#v validation_calls=%d", metadata, validationCalls)
 	}
 	if ledgerCount(t, fixture.pool, fixture.plan.ProfileID) != 0 {
@@ -330,6 +330,8 @@ func TestStateRuntimeAdmit_ServiceBacked_AlreadyCurrentValidation(t *testing.T) 
 }
 
 func TestStateRuntimeAdmit_ServiceBacked_ConcurrentAdmissionAndLockLifetime(t *testing.T) {
+	testCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	t.Cleanup(cancel)
 	firstEntered := make(chan struct{})
 	releaseFirst := make(chan struct{})
 	attempted := make(chan struct{}, 2)
@@ -337,6 +339,16 @@ func TestStateRuntimeAdmit_ServiceBacked_ConcurrentAdmissionAndLockLifetime(t *t
 	fixture := newNetworkFlowStateFixture(t, faults)
 	var validationCalls atomic.Int32
 	runtime := newStateRuntimeForTest(t, fixture.store, StateRuntimeOptions{
+		Migrations: map[string]StateMigration{
+			"network_flow_activity.migrate_state_1_to_2_v1": func(context.Context, MigrationContext, StateWriteCapability) (MigrationApplyResult, error) {
+				return readyMigration(), nil
+			},
+		},
+		PendingValidators: map[string]PendingStateValidator{
+			"network_flow_activity.validate_state_v2": func(context.Context, MigrationValidationContext, StateReadCapability) (StateValidationResult, error) {
+				return ValidMigrationValidationResult(), nil
+			},
+		},
 		FinalValidators: map[string]FinalStateValidator{
 			fixture.plan.FinalValidationAlgorithmID: func(context.Context, FinalStateValidationContext, StateReadCapability) (StateValidationResult, error) {
 				if validationCalls.Add(1) == 1 {
@@ -349,24 +361,41 @@ func TestStateRuntimeAdmit_ServiceBacked_ConcurrentAdmissionAndLockLifetime(t *t
 		LockTimeout: 5 * time.Second,
 	})
 	errs := make(chan error, 2)
-	go func() { errs <- runtime.Admit(context.Background(), fixture.plan) }()
-	<-attempted
-	<-firstEntered
-	go func() { errs <- runtime.Admit(context.Background(), fixture.plan) }()
-	<-attempted
+	go func() { errs <- runtime.Admit(testCtx, fixture.plan) }()
+	waitStateRuntimeSignal(t, testCtx, attempted, errs, "first lock attempt")
+	waitStateRuntimeSignal(t, testCtx, firstEntered, errs, "first final validation")
+	go func() { errs <- runtime.Admit(testCtx, fixture.plan) }()
+	waitStateRuntimeSignal(t, testCtx, attempted, errs, "second lock attempt")
 	acquired, _, maxActive := faults.lifecycle()
 	if acquired != 1 || maxActive != 1 {
 		t.Fatalf("concurrent lock lifecycle before release = acquired:%d max:%d", acquired, maxActive)
 	}
 	close(releaseFirst)
 	for range 2 {
-		if err := <-errs; err != nil {
-			t.Fatal(err)
+		select {
+		case err := <-errs:
+			if err != nil {
+				t.Fatal(err)
+			}
+		case <-testCtx.Done():
+			t.Fatalf("timed out waiting for concurrent admission completion: %v", testCtx.Err())
 		}
 	}
 	acquired, released, maxActive := faults.lifecycle()
 	if acquired != 2 || released != 2 || maxActive != 1 {
 		t.Fatalf("concurrent lock lifecycle = acquired:%d released:%d max:%d", acquired, released, maxActive)
+	}
+}
+
+func waitStateRuntimeSignal(t testing.TB, ctx context.Context, signal <-chan struct{}, errs <-chan error, stage string) {
+	t.Helper()
+	select {
+	case <-signal:
+		return
+	case err := <-errs:
+		t.Fatalf("admission returned before %s: %v", stage, err)
+	case <-ctx.Done():
+		t.Fatalf("timed out waiting for %s: %v", stage, ctx.Err())
 	}
 }
 
@@ -663,8 +692,25 @@ func newSyntheticStateRuntime(t testing.TB, store StateStore, options stateRunti
 func newNetworkFlowStateRuntime(t testing.TB, store StateStore, validationCalls *int) *StateRuntime {
 	t.Helper()
 	return newStateRuntimeForTest(t, store, StateRuntimeOptions{
+		Migrations: map[string]StateMigration{
+			"network_flow_activity.migrate_state_1_to_2_v1": func(context.Context, MigrationContext, StateWriteCapability) (MigrationApplyResult, error) {
+				return readyMigration(), nil
+			},
+		},
+		PendingValidators: map[string]PendingStateValidator{
+			"network_flow_activity.validate_state_v2": func(ctx context.Context, _ MigrationValidationContext, reader StateReadCapability) (StateValidationResult, error) {
+				if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
+					return StateValidationResult{
+						SchemaID: "cartulary.extension_migration_validation_result.v1",
+						Status:   "invalid",
+						Findings: []StateFinding{{Code: "network_flow_activity_state_invalid", Path: "/"}},
+					}, nil
+				}
+				return ValidMigrationValidationResult(), nil
+			},
+		},
 		FinalValidators: map[string]FinalStateValidator{
-			"network_flow_activity.validate_state_v1": func(ctx context.Context, _ FinalStateValidationContext, reader StateReadCapability) (StateValidationResult, error) {
+			"network_flow_activity.validate_state_v2": func(ctx context.Context, _ FinalStateValidationContext, reader StateReadCapability) (StateValidationResult, error) {
 				(*validationCalls)++
 				if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
 					return StateValidationResult{

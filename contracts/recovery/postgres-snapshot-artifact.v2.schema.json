@@ -24,8 +24,8 @@
     "transaction_isolation": { "const": "repeatable_read_read_only" },
     "units": {
       "type": "array",
-      "minItems": 83,
-      "maxItems": 83,
+      "minItems": 84,
+      "maxItems": 84,
       "items": {
         "type": "object",
         "additionalProperties": false,

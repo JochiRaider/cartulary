@@ -1523,6 +1523,51 @@ if (
     ]);
     await page.getByTestId(networkAnalysisTestId("contributor-close")).click();
     await expect(edgeSelect).toBeFocused();
+
+    await page.getByRole("button", { name: "Saved graphs" }).click();
+    const savedPanel = page.getByTestId(networkAnalysisTestId("saved-graphs"));
+    const saveTrigger = page.getByTestId(
+      networkAnalysisTestId("saved-graph-create"),
+    );
+    await saveTrigger.focus();
+    await expectVisibleFocus(saveTrigger);
+    await saveTrigger.press("Enter");
+    const savedName = page.getByTestId(
+      networkAnalysisTestId("saved-graph-name"),
+    );
+    await expect(savedName).toBeFocused();
+    await savedName.press("Shift+Tab");
+    await expect(page.getByRole("button", { name: "Cancel" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(savedName).toBeFocused();
+    await savedName.fill("Accessible saved graph");
+    await page.getByRole("button", { name: "Save graph" }).click();
+    await expect(
+      page.getByTestId(networkAnalysisTestId("saved-graph-dialog")),
+    ).toHaveCount(0);
+    await expect(saveTrigger).toBeFocused();
+    await expect(
+      savedPanel.getByText("Materialization succeeded.", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    const savedVertex = page
+      .getByTestId(/^network-flow-saved-graph-vertex-/u)
+      .first()
+      .getByRole("button");
+    await savedVertex.click();
+    const savedContributors = page.getByTestId(
+      networkAnalysisTestId("saved-graph-contributors"),
+    );
+    await expect(savedContributors).toBeVisible();
+    await expectAllInteractiveControlsNamed(page);
+    await expectNoFocusTrap(page);
+    await expectAndRecordContrast(page, [
+      networkAnalysisTestId("saved-graphs"),
+      networkAnalysisTestId("saved-graph-result"),
+      networkAnalysisTestId("saved-graph-contributors"),
+    ]);
+    await savedContributors.getByRole("button", { name: "Close" }).click();
+    await expect(savedVertex).toBeFocused();
   });
 }
 

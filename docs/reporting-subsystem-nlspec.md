@@ -4,7 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
 schema_id: cartulary.reporting_subsystem_nlspec.v1
-document_version: 1.2.1
+document_version: 1.3.0
 ---
 
 # 1. Status, scope, and authority
@@ -319,7 +319,7 @@ validation where implemented.
 | `cartulary.reporting_redaction_rule_view.v1` | schema | §13 |
 | `selected_rule_trace.v1` | schema | §13 |
 | `cartulary.reporting_diagram.v1` | schema | §15 |
-| `source_projection_ref.v1` | schema | §15 |
+| `source_projection_ref.v2` | schema | §15 |
 | `diagram_selection_rule.v1` | schema | §15 |
 | `diagram_overflow_summary.v1` | schema | §15 |
 | `derive_diagram_label_v1` | derivation algorithm | §15 |
@@ -503,7 +503,7 @@ A render operation MUST bind to one immutable source tuple with at least the mem
 | `redaction_profile_sha256` | `sha256_hex` | Yes | No | None | Digest of redaction profile bytes. |
 | `release_scope` | string | Yes | No | None | Closed token from §7.3. |
 | `recipient_partition_refs[]` | array | Yes | No | None | May be empty only when `release_scope!='external_release'`; omission is invalid; external validation follows REQ-RPT-027b. |
-| `graph_projection_refs[]` | array of `source_projection_ref.v1` | Yes | No | `[]` | Completed digest-bound Graph Projection references available to diagram selection; sorted by `graph_view_id`; duplicate `graph_view_id` values invalid. |
+| `graph_projection_refs[]` | array of `source_projection_ref.v2` | Yes | No | `[]` | Exact immutable Graph Projection references available to diagram selection; sorted by `graph_view_id`; duplicate `graph_view_id` values invalid. |
 | `output_kind` | string | Yes | No | None | Closed token from §7.4. |
 | `output_options` | `cartulary.reporting_render_request_options.v1` | Yes | No | §7.5 defaults before Reporting receives tuple | Normalized object conforming to §7.5. If omitted on a public route, Core 01 MUST materialize defaults before Reporting receives the tuple. |
 | `render_environment_profile_id` | `identifier` | Yes | No | None | Exact profile identifier from the template pack and toolchain snapshot. |
@@ -535,9 +535,9 @@ When the composition tuple is non-null, Reporting MUST resolve it through the co
 For `external_release`, every member of `recipient_partition_refs[]` MUST match the `party:{party_partition_segment}` disclosure-partition grammar from REQ-RPT-057a, resolve to a Party record present in the immutable snapshot, and appear in the selected redaction profile's declared allowed `disclosure_partition_refs[]` under Core 01. The set of `recipient_partition_refs[]` MUST exactly equal the `party:*` subset of that profile's declared allowed partitions. Violations MUST fail before render output bytes with `error.code='invalid_release_request'` and respectively `reason_code='invalid_recipient_partition_ref'`, `reason_code='unknown_recipient_partition'`, or `reason_code='recipient_partition_profile_mismatch'`.
 
 **REQ-RPT-027g**
-`graph_projection_refs[]` is the release tuple's complete graph-projection binding surface. It MUST materialize to `[]` when the route request omits graph projections and omission is valid. Every item MUST satisfy Table 15-A, name a completed projection run, and bind to the same immutable source boundary as the release tuple through `source_snapshot_id`. The array MUST sort bytewise ascending by `graph_view_id`, and two items with the same `graph_view_id` are invalid before render output bytes with `error.code='invalid_release_request'`, `failure_code=null`, and `reason_code='graph_projection_ambiguous'`.
+`graph_projection_refs[]` is the release tuple's complete graph-projection binding surface. It MUST materialize to `[]` when the route request omits graph projections and omission is valid. Every item MUST satisfy Table 15-A and bind an exact immutable projection result. `source_snapshot_id` may equal the Reporting snapshot or the Network Flow owner-declared alternate immutable source boundary. The array MUST sort bytewise ascending by `graph_view_id`, and two items with the same `graph_view_id` are invalid before render output bytes with `error.code='invalid_release_request'`, `failure_code=null`, and `reason_code='graph_projection_ambiguous'`.
 
-A graph-derived template or composition diagram MUST resolve its `source_graph_view_id` against `graph_projection_refs[]` to exactly one item. No match MUST fail with `failure_code='graph_projection_unavailable'` and `reason_code='graph_projection_not_bound'`. More than one match MUST fail with `failure_code='graph_projection_unavailable'` and `reason_code='graph_projection_ambiguous'`. Reporting MUST NOT select the latest projection run, request a projection run during render, fall back to a mutable graph view, or substitute a different projection whose digests do not match the tuple item.
+A graph-derived template or composition diagram MUST resolve its `source_graph_view_id` against `graph_projection_refs[]` to exactly one item. No match MUST fail with `failure_code='graph_projection_unavailable'` and `reason_code='graph_projection_not_bound'`. More than one match MUST fail with `failure_code='graph_projection_unavailable'` and `reason_code='graph_projection_ambiguous'`. Reporting MUST NOT select a latest result, request projection during render, fall back to a mutable declaration, or substitute a result whose exact tuple differs.
 
 **REQ-RPT-027c**
 `cartulary.reporting_derivation_profile.v1` MUST use Table 7-A2. Unknown members
@@ -1585,25 +1585,36 @@ Chunked timeline slide IDs MUST use `{base_slide_id}__chunk_{0001..N}`. Slide ti
 ## 15.1 Reporting-to-Graph Projection adapter
 
 **REQ-RPT-076**
-Reporting consumes completed Graph Projection output through `source_projection_ref.v1`. Reporting MUST NOT redefine projection derivation, projected identity, lifecycle, traversal, or Graph Projection validation.
+Reporting consumes immutable Graph Projection v2 output through
+`source_projection_ref.v2`. Reporting MUST NOT redefine projection derivation,
+projected identity, or Graph validation.
 
-Release admission MUST validate every Graph Projection binding using the same database transaction and visibility snapshot that admits the release tuple. An implementation MUST NOT validate through an independent pool read or re-read a mutable latest graph view after tuple admission.
+Release admission MUST dispatch every Graph binding through the typed
+source-owner registry. The current registry contains exactly
+`network_flow_activity`. Its adapter validates incident ownership, active
+declaration visibility, selected exact result, alternate immutable source
+boundary, and all digests using the same database transaction and visibility
+snapshot that admits the release tuple. In that transaction Reporting acquires
+a durable result lease before the render job can observe the payload. An
+implementation MUST NOT validate through an independent pool read or re-read a
+mutable latest declaration after tuple admission.
 
 **REQ-RPT-077**
-`source_projection_ref.v1` MUST use Table 15-A.
+`source_projection_ref.v2` MUST use Table 15-A.
 
-**Table 15-A. `source_projection_ref.v1`**
+**Table 15-A. `source_projection_ref.v2`**
 
 | Member | Type | Required | Nullable | Default | Rule |
 | --- | --- | ---: | ---: | --- | --- |
+| `source_owner_id` | `identifier` | Yes | No | None | Exactly one registered Reporting graph source owner. |
 | `graph_view_id` | `identifier` | Yes | No | None | Graph Projection view identity. |
-| `projection_run_id` | `identifier` | Yes | No | None | Must identify a completed Graph Projection run. |
+| `projection_result_id` | `identifier` | Yes | No | None | Exact immutable Graph Projection result. |
 | `source_snapshot_id` | `identifier` | Yes | No | None | Must equal the Reporting `snapshot_id` or a Core-declared alternate immutable source-boundary token. |
-| `projection_schema_id` | `identifier` | Yes | No | None | Graph Projection schema identifier. |
+| `projection_schema_id` | `identifier` | Yes | No | None | Exactly `graph_projection.v2`. |
 | `projection_version` | `identifier` | Yes | No | None | Exact projection version. |
-| `projection_config_digest` | `sha256_hex` | Yes | No | None | Digest of Graph Projection configuration. |
-| `projection_source_digest` | `sha256_hex` | Yes | No | None | Digest of Graph Projection source input. |
-| `projection_output_digest` | `sha256_hex` | Yes | No | None | Digest of completed projection output consumed by Reporting. |
+| `normalized_configuration_sha256` | `sha256_hex` | Yes | No | None | Exact normalized configuration digest. |
+| `normalized_source_sha256` | `sha256_hex` | Yes | No | None | Exact normalized source digest. |
+| `canonical_output_sha256` | `sha256_hex` | Yes | No | None | Exact canonical output digest. |
 
 **REQ-RPT-078**
 Graph adapter failures MUST use Table 15-B.
@@ -1613,7 +1624,7 @@ Graph adapter failures MUST use Table 15-B.
 | Condition | `failure_code` | `reason_code` |
 | --- | --- | --- |
 | Projection snapshot mismatch | `graph_projection_unavailable` | `graph_projection_stale` |
-| Projection run not completed | `graph_projection_unavailable` | `graph_projection_not_completed` |
+| Selected result absent | `graph_projection_unavailable` | `graph_projection_not_completed` |
 | Graph view not bound in release tuple | `graph_projection_unavailable` | `graph_projection_not_bound` |
 | Graph view bound by more than one tuple item | `graph_projection_unavailable` | `graph_projection_ambiguous` |
 | Required vertex or edge missing | `graph_projection_unavailable` | `graph_projection_selection_unresolved` |
@@ -1624,7 +1635,7 @@ Graph adapter failures MUST use Table 15-B.
 ## 15.2 Diagram selection rules
 
 **REQ-RPT-079**
-Diagram selection rules MUST use Table 15-C. A graph-derived diagram MUST name `source_graph_view_id` and MUST resolve that value through release tuple `graph_projection_refs[]` under REQ-RPT-027g before diagram model validation. If no graph view is named, the diagram source kind MUST be `timeline`. `template_static` is future-only in Reporting v1 and MUST fail template or composition validation with `reason_code='template_static_future_only'` before render output bytes. Reporting MUST NOT construct ad hoc Graph Projection input inside export-model materialization or render execution. An implementation MAY request a Graph Projection run before render admission only through the adopted Graph Projection owner interface, and the render operation MUST still consume only a completed, digest-bound projection matching Table 15-A and bound in the tuple. Omission behavior: when no pre-admission Graph Projection request is made, Reporting consumes only already completed tuple-bound projection output or fails with Table 15-B.
+Diagram selection rules MUST use Table 15-C. A graph-derived diagram MUST name `source_graph_view_id` and MUST resolve that value through release tuple `graph_projection_refs[]` under REQ-RPT-027g before diagram model validation. If no graph view is named, the diagram source kind MUST be `timeline`. `template_static` is future-only in Reporting v1 and MUST fail template or composition validation with `reason_code='template_static_future_only'` before render output bytes. Reporting MUST NOT construct ad hoc Graph Projection input inside export-model materialization or render execution. It consumes only the exact leased tuple-bound result or fails with Table 15-B.
 
 **Table 15-C. Diagram selection rules**
 
@@ -1665,6 +1676,24 @@ Diagram selection MUST use the deterministic algorithms in Table 15-C2. A refere
 | `all_with_bounds` | Emit all projection vertices and edges in projection output order, subject to §16.1 bounds. |
 
 Projection output order means the canonical vertex and edge array order inside the digest-bound Graph Projection output. If the adopted Graph Projection owner exposes only unordered vertex or edge maps, Reporting MUST derive projection output order by sorting refs bytewise ascending and MUST record that ordering mode in `safe_details.ordering_mode='bytewise_ref_sort'` for diagram-model validation.
+
+Graph labels, properties, and mapped metadata are source-derived values, not
+inherently safe presentation text. Reporting MUST first map every selected value
+to a typed derived-analytic field with source owner, source object ref,
+classification, disclosure partitions, and redaction behavior. It then applies
+disclosure filtering and redaction before deriving labels, Mermaid, SVG, Slidev,
+or validation samples. A removed vertex removes every dependent edge. A
+transformed identifier is used consistently for its vertex and remaining edge
+endpoints. External release fails closed when any selected source value lacks a
+classification or supported redaction action. Raw graph values and replacement
+values MUST NOT appear in safe details or the redaction manifest.
+
+Reporting renews the lease while the render attempt can still read the result
+and releases it only after a durable terminal outcome no longer depends on Graph
+rows. Retry reuses the exact reference and lease purpose. Cancellation, crash,
+and expired-worker reconciliation release orphaned leases only after the durable
+job state proves no active reader. Cleanup MUST treat uncertain lease state as
+reachable.
 
 **REQ-RPT-079c**
 `diagram_overflow_summary.v1` MUST use Table 15-C3. Unknown members are invalid. It is null when no diagram content is omitted.
@@ -1715,7 +1744,7 @@ Composition manual layout is presentation data applied after diagram selection a
 | `diagram_id` | `identifier` | Yes | No | None | Template declaration `decl_id`; unique in the export model. |
 | `diagram_kind` | string | Yes | No | None | `flowchart` or `sequence`. |
 | `diagram_source_kind` | string | Yes | No | None | `graph` or `timeline`. `template_static` is future-only in v1. |
-| `source_projection_ref` | `source_projection_ref.v1` | Yes | Yes | None | Required when `diagram_source_kind='graph'`; otherwise null. |
+| `source_projection_ref` | `source_projection_ref.v2` | Yes | Yes | None | Required when `diagram_source_kind='graph'`; otherwise null. |
 | `selection_rule` | `diagram_selection_rule.v1` | Yes | No | None | One closed rule from Table 15-C1 with its required inputs. |
 | `included_vertex_refs[]` | array | Yes | No | `[]` | Ordered by the selection rule. |
 | `included_edge_refs[]` | array | Yes | No | `[]` | Ordered by the selection rule. |
@@ -2494,7 +2523,7 @@ Validation issues MUST sort by the Table 23-B2 key. A conforming implementation 
 | `output_kind` | string | §7.4 token. |
 | `release_scope` | string | §7.3 token. |
 | `graph_view_id` | `identifier` | Graph view identity. |
-| `projection_run_id` | `identifier` | Projection run identity. |
+| `projection_result_id` | `identifier` | Immutable projection result identity. |
 | `file_role` | string | Table 22-B role token. |
 | `media_type` | `media_type` | Allowed media type. |
 | `bundle_path` | `bundle_path` | Bundle path. |
@@ -3010,7 +3039,7 @@ result exercises production code and proves the complete observable outcome.
 | `RPT-FIX-070` | Aggregate-public proof with unmapped contributors, low-count buckets, allowed category labels, and labels absent from `aggregate_category_allowlist.v1`. | Only mapped contributors, contributor counts of at least `3`, and allowlisted labels can become public; failed proof falls back to normal partition filtering. |
 | `RPT-FIX-071` | Template and composition diagram declarations using `diagram_source_kind='template_static'`. | Both fail before render output bytes with `template_static_future_only`. |
 | `RPT-FIX-072` | Authoritative preview using `cartulary.report_composition_preview_source.v1` for `internal_draft`, then attempting the same descriptor for `external_release`. | Internal preview passes through Reporting validation by `preview_source_sha256`; external release rejects the descriptor before approvable bytes exist. |
-| `RPT-FIX-073` | Graph-derived diagrams with one matching tuple ref, no tuple ref, duplicate tuple refs for one `graph_view_id`, incomplete projection run, and digest mismatch. | Exact-one completed tuple binding renders; no binding fails with `graph_projection_not_bound`; duplicate binding fails with `graph_projection_ambiguous`; incomplete and mismatched refs use their exact graph adapter reasons. |
+| `RPT-FIX-073` | Graph-derived diagrams with one matching tuple ref, no tuple ref, duplicate tuple refs for one `graph_view_id`, absent selected result, and digest mismatch. | Exact-one immutable tuple binding renders; no binding fails with `graph_projection_not_bound`; duplicate binding fails with `graph_projection_ambiguous`; absent and mismatched refs use their exact graph adapter reasons. |
 | `RPT-FIX-074` | Mermaid output with three retained auto-layout diagrams and with zero retained diagrams after filtering. | Multi-diagram output emits one `.mmd` and required render per auto-layout diagram in `diagram_id` order; zero diagrams fail with `no_diagrams_selected`. |
 | `RPT-FIX-075` | Draft preview source bytes and immutable-version preview bytes for the same composition resource. | Draft preview binds by `preview_source_sha256` over `cartulary.report_composition_preview_source.v1`; immutable preview may also expose `composition_sha256`; neither digest is accepted as external-release evidence unless the immutable tuple is bound. |
 | `RPT-FIX-076` | `click_step.v1` with valid bounds and invalid zero, negative, exponent notation, decimal notation, `-0`, and above-limit ordinals or `at` values. | Valid values pass; every invalid scalar fails with `click_step_limit_exceeded` before rendered output persists. |
@@ -3103,7 +3132,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-DECK-002` | `derive_deck_v1` and `serialize_block_markdown_v1` produce golden deck models and `slides.md` bytes for every Table 18-D block kind, including list-depth failure. |
 | `RPT-AC-DECK-003` | Deck title defaulting and validation follow REQ-RPT-087c, and `field_value_to_text_v1` stringifies every valid scalar and scalar array while rejecting objects and nested arrays. |
 | `RPT-AC-MMD-004` | Mermaid node and participant IDs are ordinal, independent of source vertex-ref characters, and dangling edge endpoints fail. |
-| `RPT-AC-GRAPH-003` | Graph-derived diagrams consume only completed digest-bound `source_projection_ref.v1`; Reporting does not construct ad hoc projection input during materialization or render execution. |
+| `RPT-AC-GRAPH-003` | Graph-derived diagrams consume only exact leased `source_projection_ref.v2`; Reporting does not construct ad hoc projection input during materialization or render execution. |
 | `RPT-AC-GRAPH-004` | `diagram_selection_rule.v1`, overflow summaries, duplicate handling, missing-ref handling, traversal order, and label-source priority match §15 goldens. |
 | `RPT-AC-GRAPH-005` | Graph-derived diagrams resolve `source_graph_view_id` through release tuple `graph_projection_refs[]` to exactly one completed digest-bound projection; no-match, duplicate-match, incomplete, stale, and digest-mismatch cases use exact reason codes. |
 | `RPT-AC-ERR-002` | Every normative `failure_code` and `reason_code` literal appears in the Table 23-E or Table 23-F registry with the correct mapping. |
@@ -3175,7 +3204,7 @@ A document revision that claims to close this draft MUST satisfy Table 29-A.
 | Redaction rule closure | Rule precedence, selectors, token-backed parameters, truncation bounds, and selected-rule trace objects are closed. |
 | Partition closure | Assignment lifecycle, duplicate active assignments, public aggregate proof, and mixed-content splitting are deterministic. |
 | Timeline closure | Sort materialization, precision ranks, `record_created_at` tie-breaks, unresolved-time ordering, bounds, and overflow summary are specified. |
-| Graph closure | Reporting consumes only completed Graph Projection output through release tuple `graph_projection_refs[]`, `source_projection_ref.v1`, and closed selection rules. |
+| Graph closure | Reporting consumes only exact immutable Graph Projection output through release tuple `graph_projection_refs[]`, `source_projection_ref.v2`, leases, typed source-owner dispatch, and closed selection rules. |
 | Diagram selection closure | Selection-rule schemas, traversal order, duplicate handling, missing-ref handling, overflow summaries, and label-source priority are closed. |
 | Mermaid closure | `.mmd` bytes are deterministically serializable from auto-layout diagram objects; mermaid bundles emit one source and required render per retained auto-layout diagram, manual layout fails closed for Mermaid output, and zero retained diagrams fail closed. |
 | Manual layout closure | Manual-layout diagrams consume only closed composition layout objects, emit deterministic safe SVG through `diagram_layout_svg_serialize_v1`, never emit `.mmd`, and cannot mutate selected graph or timeline semantics. |

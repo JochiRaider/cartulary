@@ -160,7 +160,7 @@ func testClientContracts(t *testing.T, assets map[string]string) ([]byte, []byte
 		ClientBuildClass: "standard",
 		ClientBuildID:    "cartulary.web.standard.sha256:" + digestHex,
 		Profiles: []clientSupportRegistryProfile{{
-			CapabilityIDs: []string{}, ProfileID: "network_flow_activity", PublicSchemaIDs: []string{}, SupportedContractMajors: []int64{2}, WorkspaceKeys: []string{"network_analysis"},
+			CapabilityIDs: []string{}, ProfileID: "network_flow_activity", PublicSchemaIDs: []string{}, SupportedContractMajors: []int64{3}, WorkspaceKeys: []string{"network_analysis"},
 		}},
 		SchemaID: "cartulary.client_extension_support_registry.v1",
 	})

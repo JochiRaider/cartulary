@@ -107,8 +107,8 @@ func TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit(t *test
 		Status: graphprojection.RestoreStatusSucceeded, ReadinessOutcome: graphprojection.RestoreReadinessReady,
 		AlgorithmID:                 graphprojection.RestoreAlgorithmID,
 		ImplementationBindingSHA256: strings.Repeat("b", 64), SourceRegistrySHA256: strings.Repeat("c", 64),
-		ClearedTableIDs: graphprojection.RestoreGraphTableIDs(),
-		RebuiltViews:    []graphprojection.RestoreRebuiltView{}, SkippedCandidates: []graphprojection.RestoreSkippedCandidate{},
+		ClearedTableIDs:     graphprojection.RestoreGraphTableIDs(),
+		RebuiltViews:        []graphprojection.RestoreRebuiltView{},
 		PostconditionSHA256: &postcondition, Warnings: []graphprojection.RestoreSafeMessage{}, Errors: []graphprojection.RestoreSafeMessage{},
 	}
 	completion := &GraphProjectionCompletionEvidence{

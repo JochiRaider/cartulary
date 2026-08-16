@@ -3,16 +3,13 @@ package graphprojection
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
-	"unicode/utf8"
 )
 
 var (
@@ -22,166 +19,6 @@ var (
 )
 
 const maxFiniteInteger = int64(9007199254740991)
-
-const (
-	defaultRetentionCount              = 5
-	defaultRetentionDurationSeconds    = 2592000
-	defaultFailedRetentionCount        = 20
-	defaultFailedRetentionDurationSecs = 2592000
-)
-
-type admitOptions struct {
-	ProjectionRunNonce string
-	AcceptedAt         time.Time
-	InvocationIDPrefix string
-	InvocationDomain   string
-	Operation          string
-}
-
-type projectionInputSource interface {
-	Len() int
-	Bytes() []byte
-}
-
-type byteProjectionInput []byte
-
-func (input byteProjectionInput) Len() int      { return len(input) }
-func (input byteProjectionInput) Bytes() []byte { return []byte(input) }
-
-func admitProjectionInput(data []byte, options admitOptions) (run ProjectionRun, err error) {
-	return admitProjectionInputSource(byteProjectionInput(data), options)
-}
-
-func admitProjectionInputSource(source projectionInputSource, options admitOptions) (run ProjectionRun, err error) {
-	operation := options.Operation
-	if operation == "" {
-		operation = "create_projection"
-	}
-	defer func() { err = annotateAdmissionError(err, operation) }()
-	if source.Len() > graphProjectionLimits.MaxInputBytes {
-		return ProjectionRun{}, schemaError("whole_input_limit_exceeded", "$", "resource_limit_exceeded")
-	}
-	data := source.Bytes()
-	request, normalizedRaw, err := parseProjectionInput(data)
-	if err != nil {
-		return ProjectionRun{}, err
-	}
-	if request.ProjectionSchemaID != ProjectionSchemaID {
-		return ProjectionRun{}, invalidRequest("invalid_projection_schema", "$.projection_schema_id", map[string]any{"validation_code": "invalid_projection_schema"})
-	}
-	expectedGraphViewID, err := deriveGraphViewID(request.ProjectionConfig.GraphViewKey)
-	if err != nil {
-		return ProjectionRun{}, invalidRequest("normalization_failed", "$.projection_config.graph_view_key", nil)
-	}
-	if request.GraphViewID != expectedGraphViewID {
-		return ProjectionRun{}, invalidRequest("invalid_graph_view_id", "$.graph_view_id", map[string]any{"validation_code": "invalid_graph_view_id"})
-	}
-	configDigest, err := projectionConfigDigest(request)
-	if err != nil {
-		return ProjectionRun{}, invalidRequest("normalization_failed", "", nil)
-	}
-	sourceDigest, err := projectionSourceDigest(request)
-	if err != nil {
-		return ProjectionRun{}, invalidRequest("normalization_failed", "", nil)
-	}
-	nonce := strings.TrimSpace(options.ProjectionRunNonce)
-	if nonce == "" {
-		return ProjectionRun{}, fmt.Errorf("graphprojection: projection nonce is required")
-	}
-	idPrefix := options.InvocationIDPrefix
-	if idPrefix == "" {
-		idPrefix = "gpr_"
-	}
-	domain := options.InvocationDomain
-	if domain == "" {
-		domain = "GPRUN1\n"
-	}
-	runID, err := generatedID(idPrefix, domain, "projection_run", ProjectionSchemaID, expectedGraphViewID, request.SourceSnapshotID, configDigest, sourceDigest, nonce)
-	if err != nil {
-		return ProjectionRun{}, invalidRequest("normalization_failed", "", nil)
-	}
-	acceptedAt := options.AcceptedAt.UTC()
-	if acceptedAt.IsZero() {
-		acceptedAt = time.Now().UTC()
-	}
-	request.Normalized = normalizedRaw
-	return ProjectionRun{
-		Request:                request,
-		GraphViewID:            expectedGraphViewID,
-		ProjectionRunID:        runID,
-		ProjectionRunNonce:     nonce,
-		ProjectionConfigDigest: configDigest,
-		ProjectionSourceDigest: sourceDigest,
-		AcceptedAt:             acceptedAt,
-		State:                  RunStateAccepted,
-	}, nil
-}
-
-func deriveGraphViewID(graphViewKey string) (string, error) {
-	return generatedID("gv_", "GPID1\n", "graph_view", ProjectionSchemaID, graphViewKey)
-}
-
-func invalidRequest(reasonCode, field string, details map[string]any) *LifecycleError {
-	if details == nil {
-		details = map[string]any{}
-	}
-	details["reason_code"] = reasonCode
-	if field != "" {
-		details["field"] = field
-	}
-	return &LifecycleError{Code: "invalid_projection_request", ReasonCode: reasonCode, Field: field, Details: details}
-}
-
-func parseProjectionInput(data []byte) (ProjectionRequest, map[string]any, error) {
-	if !utf8.Valid(data) {
-		return ProjectionRequest{}, nil, invalidRequest("invalid_utf8", "", nil)
-	}
-	if err := rejectDuplicateObjectMembers(data); err != nil {
-		var duplicate duplicateMemberError
-		if errors.As(err, &duplicate) {
-			return ProjectionRequest{}, nil, invalidRequest("duplicate_object_member", duplicate.path, nil)
-		}
-		return ProjectionRequest{}, nil, invalidRequest("invalid_json_syntax", "", nil)
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	var raw any
-	if err := decoder.Decode(&raw); err != nil {
-		return ProjectionRequest{}, nil, invalidRequest("invalid_json_syntax", "", nil)
-	}
-	root, ok := raw.(map[string]any)
-	if !ok {
-		return ProjectionRequest{}, nil, invalidRequest("top_level_not_object", "$", nil)
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); err != io.EOF {
-		return ProjectionRequest{}, nil, invalidRequest("invalid_json_syntax", "", nil)
-	}
-	if err := validateProjectionInputSchema(root); err != nil {
-		return ProjectionRequest{}, nil, err
-	}
-	request := ProjectionRequest{
-		ProjectionSchemaID:   mustString(root["projection_schema_id"], "$.projection_schema_id"),
-		GraphViewID:          mustString(root["graph_view_id"], "$.graph_view_id"),
-		SourceSnapshotID:     mustString(root["source_snapshot_id"], "$.source_snapshot_id"),
-		SourceMetadata:       objectMap(defaultObject(root["source_metadata"]), "$.source_metadata"),
-		RequestedAt:          mustString(root["requested_at"], "$.requested_at"),
-		RequestedBy:          mustString(root["requested_by"], "$.requested_by"),
-		Filters:              parseFilters(defaultObject(root["filters"])),
-		RelationshipMappings: parseRelationshipMappings(arrayValue(root["relationship_definitions"], "$.relationship_definitions")),
-		PropertyDefinitions:  parsePropertyDefinitions(arrayValue(root["property_definitions"], "$.property_definitions")),
-	}
-	if !generatedIDPattern.MatchString(request.GraphViewID) || !strings.HasPrefix(request.GraphViewID, "gv_") {
-		return ProjectionRequest{}, nil, invalidRequest("invalid_graph_view_id", "$.graph_view_id", nil)
-	}
-	request.ProjectionConfig = parseProjectionConfig(mustObject(root["projection_config"], "$.projection_config"))
-	request.RelationshipMappingSourceConflict = len(request.RelationshipMappings) > 0 && len(request.ProjectionConfig.RelationshipMappings) > 0
-	request.SourceEntities = parseSourceEntities(arrayValue(root["source_entities"], "$.source_entities"))
-	request.SourceRelationships = parseSourceRelationships(arrayValue(root["source_relationships"], "$.source_relationships"))
-	normalizeProjectionRequest(&request)
-	normalizedRaw := normalizedRequestObject(request)
-	return request, normalizedRaw, nil
-}
 
 type duplicateMemberError struct{ path string }
 
@@ -245,8 +82,8 @@ func rejectDuplicateObjectMembers(data []byte) error {
 	return nil
 }
 
-func parseProjectionConfig(raw map[string]any) ProjectionConfig {
-	config := ProjectionConfig{
+func parseProjectionConfig(raw map[string]any) projectionConfig {
+	config := projectionConfig{
 		GraphViewKey:                    mustString(raw["graph_view_key"], "$.projection_config.graph_view_key"),
 		ProjectionVersion:               stringDefault(raw["projection_version"], "1"),
 		DeclaredSourceEntityKinds:       stringArray(raw["declared_source_entity_kinds"]),
@@ -258,35 +95,15 @@ func parseProjectionConfig(raw map[string]any) ProjectionConfig {
 		DefaultVertexLabels:             stringArray(raw["default_vertex_labels"]),
 		DefaultEdgeLabels:               stringArray(raw["default_edge_labels"]),
 		AllowEmptyKindRegistry:          boolDefault(raw["allow_empty_kind_registry"], false),
-		RetentionPolicy:                 parseRetentionPolicy(defaultObject(raw["retention_policy"])),
-		CustomConfig:                    objectMap(defaultObject(raw["custom_config"]), "$.projection_config.custom_config"),
 	}
 	return config
 }
 
-func parseRetentionPolicy(raw map[string]any) RetentionPolicy {
-	policy := RetentionPolicy{
-		RetainReplacedResults:       boolDefault(raw["retain_replaced_results"], true),
-		RetentionCount:              intDefault(raw["retention_count"], defaultRetentionCount),
-		RetentionDurationSeconds:    intDefault(raw["retention_duration_seconds"], defaultRetentionDurationSeconds),
-		RetainFailedResults:         boolDefault(raw["retain_failed_results"], true),
-		FailedRetentionCount:        intDefault(raw["failed_retention_count"], defaultFailedRetentionCount),
-		FailedRetentionDurationSecs: intDefault(raw["failed_retention_duration_seconds"], defaultFailedRetentionDurationSecs),
-		RawIntegerLexemes:           map[string]string{},
-	}
-	for _, key := range []string{"retention_count", "retention_duration_seconds", "failed_retention_count", "failed_retention_duration_seconds"} {
-		if number, ok := raw[key].(json.Number); ok {
-			policy.RawIntegerLexemes[key] = number.String()
-		}
-	}
-	return policy
-}
-
-func parseEntityMappings(raw []any) []EntityMapping {
-	mappings := make([]EntityMapping, 0, len(raw))
+func parseEntityMappings(raw []any) []entityMapping {
+	mappings := make([]entityMapping, 0, len(raw))
 	for _, entry := range raw {
 		object := mustObject(entry, "entity_mapping")
-		mapping := EntityMapping{
+		mapping := entityMapping{
 			MappingRuleID:        mustString(object["mapping_rule_id"], "mapping_rule_id"),
 			SourceEntityKind:     mustString(object["source_entity_kind"], "source_entity_kind"),
 			ProjectedVertexKind:  mustString(object["projected_vertex_kind"], "projected_vertex_kind"),
@@ -304,12 +121,12 @@ func parseEntityMappings(raw []any) []EntityMapping {
 	return mappings
 }
 
-func parseRelationshipMappings(raw []any) []RelationshipMapping {
-	mappings := make([]RelationshipMapping, 0, len(raw))
+func parseRelationshipMappings(raw []any) []relationshipMapping {
+	mappings := make([]relationshipMapping, 0, len(raw))
 	for _, entry := range raw {
 		object := mustObject(entry, "relationship_mapping")
 		projectedKind := mustString(object["projected_edge_kind"], "projected_edge_kind")
-		mapping := RelationshipMapping{
+		mapping := relationshipMapping{
 			MappingRuleID:          mustString(object["mapping_rule_id"], "mapping_rule_id"),
 			SourceRelationshipKind: mustString(object["source_relationship_kind"], "source_relationship_kind"),
 			ProjectedEdgeKind:      projectedKind,
@@ -331,12 +148,12 @@ func parseRelationshipMappings(raw []any) []RelationshipMapping {
 	return mappings
 }
 
-func parsePropertyDefinitions(raw []any) []PropertyDefinition {
-	definitions := make([]PropertyDefinition, 0, len(raw))
+func parsePropertyDefinitions(raw []any) []propertyDefinition {
+	definitions := make([]propertyDefinition, 0, len(raw))
 	for _, entry := range raw {
 		object := mustObject(entry, "property_definition")
 		required := boolDefault(object["required"], false)
-		definition := PropertyDefinition{
+		definition := propertyDefinition{
 			PropertyDefinitionID: mustString(object["property_definition_id"], "property_definition_id"),
 			TargetScope:          mustString(object["target_scope"], "target_scope"),
 			TargetKind:           mustString(object["target_kind"], "target_kind"),
@@ -359,12 +176,12 @@ func parsePropertyDefinitions(raw []any) []PropertyDefinition {
 	return definitions
 }
 
-func parseMetadataMappings(raw []any) []MetadataMapping {
-	mappings := make([]MetadataMapping, 0, len(raw))
+func parseMetadataMappings(raw []any) []metadataMapping {
+	mappings := make([]metadataMapping, 0, len(raw))
 	for _, entry := range raw {
 		object := mustObject(entry, "metadata_mapping")
 		required := boolDefault(object["required"], false)
-		mapping := MetadataMapping{
+		mapping := metadataMapping{
 			MetadataMappingID:    mustString(object["metadata_mapping_id"], "metadata_mapping_id"),
 			TargetScope:          mustString(object["target_scope"], "target_scope"),
 			TargetKind:           mustString(object["target_kind"], "target_kind"),
@@ -387,11 +204,11 @@ func parseMetadataMappings(raw []any) []MetadataMapping {
 	return mappings
 }
 
-func parseAggregationRules(raw []any) []AggregationRule {
-	rules := make([]AggregationRule, 0, len(raw))
+func parseAggregationRules(raw []any) []aggregationRule {
+	rules := make([]aggregationRule, 0, len(raw))
 	for _, entry := range raw {
 		object := mustObject(entry, "aggregation_rule")
-		rule := AggregationRule{
+		rule := aggregationRule{
 			AggregationRuleID:          mustString(object["aggregation_rule_id"], "aggregation_rule_id"),
 			TargetScope:                mustString(object["target_scope"], "target_scope"),
 			InputScope:                 mustString(object["input_scope"], "input_scope"),
@@ -404,7 +221,7 @@ func parseAggregationRules(raw []any) []AggregationRule {
 		}
 		if endpointRaw, ok := object["endpoint_grouping"]; ok && endpointRaw != nil {
 			endpoint := mustObject(endpointRaw, "endpoint_grouping")
-			rule.EndpointGrouping = &EndpointGrouping{
+			rule.endpointGrouping = &endpointGrouping{
 				SourceVertexAggregationRuleID:      mustString(endpoint["src_vertex_aggregation_rule_id"], "src_vertex_aggregation_rule_id"),
 				SourceGroupingKeys:                 stringArray(endpoint["src_grouping_keys"]),
 				DestinationVertexAggregationRuleID: mustString(endpoint["dst_vertex_aggregation_rule_id"], "dst_vertex_aggregation_rule_id"),
@@ -413,13 +230,13 @@ func parseAggregationRules(raw []any) []AggregationRule {
 			}
 		}
 		var endpointGrouping any
-		if rule.EndpointGrouping != nil {
+		if rule.endpointGrouping != nil {
 			endpointGrouping = map[string]any{
-				"source_vertex_aggregation_rule_id":      rule.EndpointGrouping.SourceVertexAggregationRuleID,
-				"source_grouping_keys":                   rule.EndpointGrouping.SourceGroupingKeys,
-				"destination_vertex_aggregation_rule_id": rule.EndpointGrouping.DestinationVertexAggregationRuleID,
-				"destination_grouping_keys":              rule.EndpointGrouping.DestinationGroupingKeys,
-				"missing_endpoint_behavior":              rule.EndpointGrouping.MissingEndpointBehavior,
+				"source_vertex_aggregation_rule_id":      rule.endpointGrouping.SourceVertexAggregationRuleID,
+				"source_grouping_keys":                   rule.endpointGrouping.SourceGroupingKeys,
+				"destination_vertex_aggregation_rule_id": rule.endpointGrouping.DestinationVertexAggregationRuleID,
+				"destination_grouping_keys":              rule.endpointGrouping.DestinationGroupingKeys,
+				"missing_endpoint_behavior":              rule.endpointGrouping.MissingEndpointBehavior,
 			}
 		}
 		rule.AggregationIdentityDigest, _ = digestTuple("GPAGG1\n", rule.AggregationRuleID, rule.TargetScope, rule.InputScope, rule.InputKind, rule.ProjectedKind, rule.GroupingKeys, rule.MissingGroupingKeyBehavior, rule.EdgeDirection, endpointGrouping)
@@ -429,11 +246,11 @@ func parseAggregationRules(raw []any) []AggregationRule {
 	return rules
 }
 
-func parseSourceEntities(raw []any) []SourceEntity {
-	entities := make([]SourceEntity, 0, len(raw))
+func parseSourceEntities(raw []any) []sourceEntity {
+	entities := make([]sourceEntity, 0, len(raw))
 	for _, entry := range raw {
 		object := mustObject(entry, "source_entity")
-		entities = append(entities, SourceEntity{
+		entities = append(entities, sourceEntity{
 			SourceEntityID:   mustString(object["source_entity_id"], "source_entity_id"),
 			SourceEntityKind: mustString(object["source_entity_kind"], "source_entity_kind"),
 			Properties:       objectMap(defaultObject(object["properties"]), "properties"),
@@ -445,11 +262,11 @@ func parseSourceEntities(raw []any) []SourceEntity {
 	return entities
 }
 
-func parseSourceRelationships(raw []any) []SourceRelationship {
-	relationships := make([]SourceRelationship, 0, len(raw))
+func parseSourceRelationships(raw []any) []sourceRelationship {
+	relationships := make([]sourceRelationship, 0, len(raw))
 	for _, entry := range raw {
 		object := mustObject(entry, "source_relationship")
-		relationships = append(relationships, SourceRelationship{
+		relationships = append(relationships, sourceRelationship{
 			SourceRelationshipID:   mustString(object["source_relationship_id"], "source_relationship_id"),
 			SourceRelationshipKind: mustString(object["source_relationship_kind"], "source_relationship_kind"),
 			SrcSourceEntityID:      stringDefault(object["src_source_entity_id"], ""),
@@ -466,20 +283,20 @@ func parseSourceRelationships(raw []any) []SourceRelationship {
 	return relationships
 }
 
-func parseFilters(raw map[string]any) Filters {
-	return Filters{
+func parseFilters(raw map[string]any) filters {
+	return filters{
 		EntityFilters:       parseFilterPredicates(arrayValue(raw["entity_filters"], "entity_filters")),
 		RelationshipFilters: parseFilterPredicates(arrayValue(raw["relationship_filters"], "relationship_filters")),
 		Logic:               stringDefault(raw["logic"], "and"),
 	}
 }
 
-func parseFilterPredicates(raw []any) []FilterPredicate {
-	predicates := make([]FilterPredicate, 0, len(raw))
+func parseFilterPredicates(raw []any) []filterPredicate {
+	predicates := make([]filterPredicate, 0, len(raw))
 	for _, entry := range raw {
 		object := mustObject(entry, "filter")
 		value, hasValue := object["value"]
-		predicates = append(predicates, FilterPredicate{
+		predicates = append(predicates, filterPredicate{
 			FieldPath: mustString(object["field_path"], "field_path"), Operator: mustString(object["op"], "op"),
 			Value: value, HasValue: hasValue, IncludeIfMissing: boolDefault(object["include_if_missing"], false),
 		})
@@ -487,7 +304,7 @@ func parseFilterPredicates(raw []any) []FilterPredicate {
 	return predicates
 }
 
-func parseInclusionPredicate(value any) (string, *FilterPredicate) {
+func parseInclusionPredicate(value any) (string, *filterPredicate) {
 	if value == nil {
 		return "always", nil
 	}
@@ -499,13 +316,13 @@ func parseInclusionPredicate(value any) (string, *FilterPredicate) {
 	return "filter", &parsed[0]
 }
 
-func normalizeProjectionRequest(request *ProjectionRequest) {
-	request.ProjectionConfig.DeclaredSourceEntityKinds = sortedStrings(request.ProjectionConfig.DeclaredSourceEntityKinds)
-	request.ProjectionConfig.DeclaredSourceRelationshipKinds = sortedStrings(request.ProjectionConfig.DeclaredSourceRelationshipKinds)
-	request.ProjectionConfig.DefaultVertexLabels = uniqueSortedStrings(request.ProjectionConfig.DefaultVertexLabels)
-	request.ProjectionConfig.DefaultEdgeLabels = uniqueSortedStrings(request.ProjectionConfig.DefaultEdgeLabels)
-	if len(request.ProjectionConfig.RelationshipMappings) > 0 {
-		request.RelationshipMappings = request.ProjectionConfig.RelationshipMappings
+func normalizeProjectionRequest(request *projectionRequest) {
+	request.projectionConfig.DeclaredSourceEntityKinds = sortedStrings(request.projectionConfig.DeclaredSourceEntityKinds)
+	request.projectionConfig.DeclaredSourceRelationshipKinds = sortedStrings(request.projectionConfig.DeclaredSourceRelationshipKinds)
+	request.projectionConfig.DefaultVertexLabels = uniqueSortedStrings(request.projectionConfig.DefaultVertexLabels)
+	request.projectionConfig.DefaultEdgeLabels = uniqueSortedStrings(request.projectionConfig.DefaultEdgeLabels)
+	if len(request.projectionConfig.RelationshipMappings) > 0 {
+		request.RelationshipMappings = request.projectionConfig.RelationshipMappings
 	}
 }
 
@@ -513,105 +330,6 @@ func sortedStrings(values []string) []string {
 	out := append([]string(nil), values...)
 	sort.Strings(out)
 	return out
-}
-
-func normalizedRequestObject(request ProjectionRequest) map[string]any {
-	return map[string]any{
-		"projection_schema_id":     request.ProjectionSchemaID,
-		"graph_view_id":            request.GraphViewID,
-		"source_snapshot_id":       request.SourceSnapshotID,
-		"projection_config":        normalizedConfigObject(request.ProjectionConfig),
-		"source_entities":          sourceEntitiesObject(request.SourceEntities),
-		"source_relationships":     sourceRelationshipsObject(request.SourceRelationships),
-		"source_metadata":          request.SourceMetadata,
-		"filters":                  filtersObject(request.Filters),
-		"relationship_definitions": relationshipMappingsObject(request.RelationshipMappings),
-		"property_definitions":     propertyDefinitionsObject(request.PropertyDefinitions),
-		"requested_at":             request.RequestedAt,
-		"requested_by":             request.RequestedBy,
-	}
-}
-
-func normalizedConfigObject(config ProjectionConfig) map[string]any {
-	return map[string]any{
-		"graph_view_key":                     config.GraphViewKey,
-		"projection_version":                 config.ProjectionVersion,
-		"declared_source_entity_kinds":       config.DeclaredSourceEntityKinds,
-		"declared_source_relationship_kinds": config.DeclaredSourceRelationshipKinds,
-		"entity_mappings":                    entityMappingsObject(config.EntityMappings),
-		"relationship_mappings":              relationshipMappingsObject(config.RelationshipMappings),
-		"metadata_mappings":                  metadataMappingsObject(config.MetadataMappings),
-		"aggregation_rules":                  aggregationRulesObject(config.AggregationRules),
-		"default_vertex_labels":              config.DefaultVertexLabels,
-		"default_edge_labels":                config.DefaultEdgeLabels,
-		"allow_empty_kind_registry":          config.AllowEmptyKindRegistry,
-		"retention_policy": map[string]any{
-			"retain_replaced_results":           config.RetentionPolicy.RetainReplacedResults,
-			"retention_count":                   retentionInteger(config.RetentionPolicy, "retention_count", config.RetentionPolicy.RetentionCount),
-			"retention_duration_seconds":        retentionInteger(config.RetentionPolicy, "retention_duration_seconds", config.RetentionPolicy.RetentionDurationSeconds),
-			"retain_failed_results":             config.RetentionPolicy.RetainFailedResults,
-			"failed_retention_count":            retentionInteger(config.RetentionPolicy, "failed_retention_count", config.RetentionPolicy.FailedRetentionCount),
-			"failed_retention_duration_seconds": retentionInteger(config.RetentionPolicy, "failed_retention_duration_seconds", config.RetentionPolicy.FailedRetentionDurationSecs),
-		},
-		"custom_config": config.CustomConfig,
-	}
-}
-
-func projectionConfigDigest(request ProjectionRequest) (string, error) {
-	transcript, err := projectionConfigDigestTranscript(request)
-	if err != nil {
-		return "", err
-	}
-	return sha256Hex(transcript), nil
-}
-
-func projectionConfigDigestTranscript(request ProjectionRequest) ([]byte, error) {
-	retention := request.ProjectionConfig.RetentionPolicy
-	configCore := canonicalFields(
-		canonicalMember{Name: "graph_view_key", Value: request.ProjectionConfig.GraphViewKey},
-		canonicalMember{Name: "projection_version", Value: request.ProjectionConfig.ProjectionVersion},
-		canonicalMember{Name: "declared_source_entity_kinds", Value: request.ProjectionConfig.DeclaredSourceEntityKinds},
-		canonicalMember{Name: "declared_source_relationship_kinds", Value: request.ProjectionConfig.DeclaredSourceRelationshipKinds},
-		canonicalMember{Name: "entity_mappings", Value: entityMappingsObject(request.ProjectionConfig.EntityMappings)},
-		canonicalMember{Name: "default_vertex_labels", Value: request.ProjectionConfig.DefaultVertexLabels},
-		canonicalMember{Name: "default_edge_labels", Value: request.ProjectionConfig.DefaultEdgeLabels},
-		canonicalMember{Name: "allow_empty_kind_registry", Value: request.ProjectionConfig.AllowEmptyKindRegistry},
-		canonicalMember{Name: "retention_policy", Value: canonicalFields(
-			canonicalMember{Name: "retain_replaced_results", Value: retention.RetainReplacedResults},
-			canonicalMember{Name: "retention_count", Value: retentionInteger(retention, "retention_count", retention.RetentionCount)},
-			canonicalMember{Name: "retention_duration_seconds", Value: retentionInteger(retention, "retention_duration_seconds", retention.RetentionDurationSeconds)},
-			canonicalMember{Name: "retain_failed_results", Value: retention.RetainFailedResults},
-			canonicalMember{Name: "failed_retention_count", Value: retentionInteger(retention, "failed_retention_count", retention.FailedRetentionCount)},
-			canonicalMember{Name: "failed_retention_duration_seconds", Value: retentionInteger(retention, "failed_retention_duration_seconds", retention.FailedRetentionDurationSecs)},
-		)},
-	)
-	source := "none"
-	if len(request.RelationshipMappings) > 0 {
-		source = "top_level_relationship_definitions"
-	}
-	if len(request.ProjectionConfig.RelationshipMappings) > 0 {
-		source = "projection_config_relationship_mappings"
-	}
-	return tupleBytesInput("GPCONFIG1\n", request.ProjectionSchemaID, configCore, source, relationshipMappingsObject(request.RelationshipMappings), filtersObject(request.Filters), propertyDefinitionsObject(request.PropertyDefinitions), metadataMappingsObject(request.ProjectionConfig.MetadataMappings), aggregationRulesObject(request.ProjectionConfig.AggregationRules))
-}
-
-func retentionInteger(policy RetentionPolicy, key string, value int) any {
-	if lexeme, ok := policy.RawIntegerLexemes[key]; ok {
-		return json.Number(lexeme)
-	}
-	return value
-}
-
-func projectionSourceDigest(request ProjectionRequest) (string, error) {
-	transcript, err := projectionSourceDigestTranscript(request)
-	if err != nil {
-		return "", err
-	}
-	return sha256Hex(transcript), nil
-}
-
-func projectionSourceDigestTranscript(request ProjectionRequest) ([]byte, error) {
-	return tupleBytesInput("GPSOURCE1\n", request.ProjectionSchemaID, request.SourceSnapshotID, sourceEntitiesObject(request.SourceEntities), sourceRelationshipsObject(request.SourceRelationships), request.SourceMetadata)
 }
 
 func defaultMissingBehavior(required bool) string {
@@ -748,16 +466,6 @@ func stringDefault(value any, fallback string) string {
 func boolDefault(value any, fallback bool) bool {
 	if boolValue, ok := value.(bool); ok {
 		return boolValue
-	}
-	return fallback
-}
-
-func intDefault(value any, fallback int) int {
-	if number, ok := value.(json.Number); ok && validFiniteInteger(number.String()) {
-		parsed, err := number.Int64()
-		if err == nil {
-			return int(parsed)
-		}
 	}
 	return fallback
 }

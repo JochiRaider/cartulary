@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:7f71cff3f0700e9122a44284b2ad189491b84f65824a231fa5b2c640439cfa88",
+  "input_digest": "sha256:7b9bdf8189e6c7662bebe4ad436c244aa563160d9ce9d7163d3b4e613473f8a9",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -362,7 +362,7 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:dec66e8034216747da1c25f23a87cac99198b34928b4d4b9e691726b64046d2f"
+      "hash": "sha256:fbbf2b467c227440d5d4a45df5099c8377d891b0c2b9dd906056e378d5e01786"
     },
     {
       "path": "tools/harness/backend/go-lpt-shards.mjs",
@@ -552,7 +552,7 @@
     {
       "path": "tools/harness/generated-artifacts/check-json-shapes.mjs",
       "role": "renderer_source",
-      "hash": "sha256:6c63633358720d8c64f55a7f72c2eeaefed85aa9d27d45d9ab68e783fb6cda67"
+      "hash": "sha256:0b787999849ea03152d0761186b8e50f5964af54ab9353c284aba5051e61f13a"
     },
     {
       "path": "tools/harness/generated-artifacts/contracts/index.mjs",
@@ -582,7 +582,7 @@
     {
       "path": "tools/harness/generated-artifacts/database-contract-drift/schema-object-ownership.mjs",
       "role": "renderer_source",
-      "hash": "sha256:3a2127aa35cfd93f0ce87b4e1af768a324fdabdb693748d0f5c9c7476276ddd0"
+      "hash": "sha256:640fd7af4a09d722dc26061334c82b76b0569f0ad6ea9d57a7f1979e72d9c61e"
     },
     {
       "path": "tools/harness/generated-artifacts/design-presentation/design-presentation-cli.mjs",
@@ -862,7 +862,7 @@
     {
       "path": "tools/task_surface_owner.json",
       "role": "task_surface_owner",
-      "hash": "sha256:be1babe8bb09c5c7cfae9566d92b1c85c5b03e57b545a0b99de1b0c8cbbe4d14"
+      "hash": "sha256:98066ba57c287647d47e8df48aafd9de3b40ce30d47ed2c7c47bd634d639ab16"
     },
     {
       "path": "tools/test_catalog_owner.json",
@@ -957,12 +957,12 @@
     {
       "path": "tools/test_families/module.extensions.json",
       "role": "test_family_manifest",
-      "hash": "sha256:6b8142bb85138ea952f7eec133fd13e416942bd2766f2abef1858e334e2f9894"
+      "hash": "sha256:5878fc54cd526fc8e8bd4c625e2af5f9f6ae8ac4230506dbed4a29a928044a1d"
     },
     {
       "path": "tools/test_families/module.graphprojection.json",
       "role": "test_family_manifest",
-      "hash": "sha256:939332654de2b7f48caef03e2901a0261d3bb0a5d47f82c99d02fd6c7e53cb15"
+      "hash": "sha256:6842e23c70dbb17333cfd569a7cf11901ffe3464bcb78c7a1d33168aca01e870"
     },
     {
       "path": "tools/test_families/module.imports.json",
@@ -997,7 +997,7 @@
     {
       "path": "tools/test_families/module.networkflow.json",
       "role": "test_family_manifest",
-      "hash": "sha256:d933f82ace36437de2cafe1d89c2ed65771520d4ecab35cb26682c67068acb1d"
+      "hash": "sha256:2c053bf6f15c6bca5b44b98cea862ed8d4e6bb6be40b4dd2076664ccfc78c363"
     },
     {
       "path": "tools/test_families/module.parties.json",
@@ -1017,7 +1017,7 @@
     {
       "path": "tools/test_families/module.recovery.json",
       "role": "test_family_manifest",
-      "hash": "sha256:9f2bec6dc98547ec7ece021eb7b65eafd4ba2e1743f199fbc97465ba542dc4e6"
+      "hash": "sha256:fbe0c5ad7fdcb5fa36a483ba3a3265be6ac2075bb3e2e2b792b591d7b7a5062a"
     },
     {
       "path": "tools/test_families/module.reference_data.json",
@@ -1032,7 +1032,7 @@
     {
       "path": "tools/test_families/module.reporting.json",
       "role": "test_family_manifest",
-      "hash": "sha256:02f2052b8dc1acfbd551ad660dedf047831171a166fd14d89064f97c79b1c93d"
+      "hash": "sha256:313a23dfae5cfacaec1447c72bcc1cd0962b11253560c073974fed3ff5c65fa1"
     },
     {
       "path": "tools/test_families/module.revisions.json",
@@ -1182,7 +1182,7 @@
     {
       "path": "tools/test_families/web.networkflow.json",
       "role": "test_family_manifest",
-      "hash": "sha256:3abbaa1ac79cdfd25956f989674efd3de54b4dac685bc2bcd044e6f8b706c6c3"
+      "hash": "sha256:1eab7dbc52a9acabc4bd136326eb0a97f810b37b37a65675834b8cfeabfd2e47"
     },
     {
       "path": "tools/test_families/web.workbook.json",
@@ -1196,10 +1196,10 @@
     }
   ],
   "outputs": {
-    "tools/browser_e2e_batch_manifest.json": "sha256:f80a00f926d963ababb0863a41bceaac9e383c39171292e666df04f26ea76fa7",
+    "tools/browser_e2e_batch_manifest.json": "sha256:97822b17296c2142e861c3067bcd11bfb1ff9ac740f82992de6a68c449636a5c",
     "tools/scheduler_manifest.json": "sha256:e0a6b0776d9b0a783d99264afa25a10636cec566aeb8d44f52580b6131eb5e4d",
-    "tools/task_surface_manifest.json": "sha256:aa216c785cb1e631bfcb68c08bf7625379cb42618a8d89992fa5ce1c20f94277",
-    "tools/task_surface.generated.mk": "sha256:4cbe36f76d350f565585f718fae712ec818ff396ad0e8bbfa08d9c6efdd1e660",
+    "tools/task_surface_manifest.json": "sha256:94ec09c4c067ca3f4753a12b0c523ce5e9f9e886a3c9e43f030c83c0481dd239",
+    "tools/task_surface.generated.mk": "sha256:936e41ac9535b3af44088ba57f174bb6ed287a480c42b7610fbbb6bd82a7cdc3",
     "tools/task_surface.runtime.generated.mk": "sha256:d57c6fc8eaf55c461ef0db63f404bfe4f174101b20783aa82f381d20e7dd40c3"
   }
 }

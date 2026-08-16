@@ -16,7 +16,7 @@ func TestNetworkFlow_FieldKeyFilterEvidence_Integration(t *testing.T) {
 
 func TestNetworkFlow_CrossTableGraphEvidence_Integration(t *testing.T) {
 	AssertGraphContractBoundary(t)
-	AssertGraphProjectionTimestampNormalizesToProviderPrecision(t)
+	AssertGraphProjectionSemanticInputExcludesOperationalFields(t)
 	AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t)
 }
 

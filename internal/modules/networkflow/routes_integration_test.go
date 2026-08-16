@@ -11,12 +11,17 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -368,12 +373,17 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		t.Fatalf("unexpected edge examples: %#v", edge)
 	}
 	projection := graph["graph_projection_result"].(map[string]any)
-	if projection["state"] != "ephemeral_available" || projection["projection_schema_id"] != "graph_projection.v1" {
+	if projection["projection_schema_id"] != graphprojection.ProjectionSchemaIDV2 || projection["source_owner_id"] != "network_flow_activity" {
 		t.Fatalf("unexpected graph projection result: %#v", projection)
 	}
-	for _, field := range []string{"graph_view_id", "graph_view_key", "source_snapshot_id", "projection_version", "generated_at", "properties", "metadata", "schema_registry", "vertices", "edges", "consumer_capabilities"} {
+	for _, field := range []string{"projection_result_id", "graph_view_id", "source_snapshot_id", "projection_version", "normalized_configuration_sha256", "normalized_source_sha256", "canonical_output_sha256", "properties", "mapped_metadata", "schema_registry", "vertices", "edges", "consumer_capabilities"} {
 		if _, ok := projection[field]; !ok {
 			t.Fatalf("graph projection result omitted %s: %#v", field, projection)
+		}
+	}
+	for _, removed := range []string{"state", "ephemeral_projection_id", "graph_view_key", "generated_at", "metadata"} {
+		if _, ok := projection[removed]; ok {
+			t.Fatalf("graph projection result retained operational field %s: %#v", removed, projection)
 		}
 	}
 
@@ -465,6 +475,348 @@ SELECT COUNT(*)
 `, incidentID); got != 1 {
 		t.Fatalf("expected one binding-reused audit event for new txn duplicate, got %d", got)
 	}
+}
+
+func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-saved-graph-routes")
+	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	adminID := uuid.MustParse(adminIDText)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-network-flow-saved-graph-incident",
+		"incident_key":  "IR-NF-SAVED-GRAPH",
+		"title":         "Network Flow saved graph",
+	})
+	incidentID := uuid.MustParse(incident["incident_id"].(string))
+	store := newTestNetworkFlowStore(t, harness.Pool, harness.Revisions.Appender())
+	sessionID, unitID := seedImportSessionUnit(t, harness.Pool, incidentID, adminID, "saved-graph.csv")
+	table, err := store.CreateTable(context.Background(), CreateTableParams{
+		IncidentID: incidentID, ActorUserID: adminID, ImportSessionID: sessionID, ImportUnitID: unitID,
+		SourceContentSHA256: testSHA1, OriginalFilename: "saved-graph.csv",
+		SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "route-test-key",
+		MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV,
+		ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []FlowRow{testFlowRow(1, "a")},
+		Now: time.Date(2026, 7, 10, 12, 30, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("create saved-graph source table: %v", err)
+	}
+
+	collectionPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graph-views"
+	createBody := map[string]any{
+		"schema_id":     "cartulary.network_flow.graph_view_create_request.v1",
+		"client_txn_id": "txn-network-flow-graph-create",
+		"display_name":  "Shared flow graph",
+		"semantic_query": map[string]any{
+			"schema_id":          "cartulary.network_flow.graph_semantic_query.v1",
+			"selected_table_ids": []string{table.TableID}, "filters": []any{},
+			"time_range":    map[string]any{"start_utc": nil, "end_utc": nil},
+			"aggregation":   map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true},
+			"result_limits": map[string]any{"max_vertices": 100, "max_edges": 100, "max_example_row_refs_per_edge": 10, "max_aggregate_counter_digits": 39},
+		},
+	}
+	mutationOptions := []func(*http.Request){
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	}
+	createResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
+	created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusAccepted)["data"].(map[string]any)
+	graphView := created["graph_view"].(map[string]any)
+	graphViewID := graphView["graph_view_id"].(string)
+	jobID := created["job_id"].(string)
+	if graphView["graph_view_version"] != float64(1) || graphView["materialization_generation"] != float64(1) || graphView["last_materialization_status"] != "queued" {
+		t.Fatalf("unexpected created graph view: %#v", graphView)
+	}
+	replayResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
+	replayed := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusAccepted)["data"].(map[string]any)
+	if replayed["job_id"] != jobID || replayed["graph_view"].(map[string]any)["graph_view_id"] != graphViewID {
+		t.Fatalf("create replay drifted: %#v", replayed)
+	}
+
+	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, jobID, "succeeded")
+	terminalReplayResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
+	terminalReplay := httptestx.RequireSuccessEnvelope(t, terminalReplayResp, http.StatusAccepted)["data"].(map[string]any)
+	if terminalReplay["job_id"] != jobID || terminalReplay["graph_view"].(map[string]any)["graph_view_id"] != graphViewID {
+		t.Fatalf("terminal create replay drifted: %#v", terminalReplay)
+	}
+	resourcePath := collectionPath + "/" + graphViewID
+	resultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	result := httptestx.RequireSuccessEnvelope(t, resultResp, http.StatusOK)["data"].(map[string]any)
+	projection := result["projection_result"].(map[string]any)
+	if projection["projection_result_id"] == "" || projection["graph_view_id"] != graphViewID || projection["source_owner_id"] != ProfileID {
+		t.Fatalf("saved graph result binding drifted: %#v", projection)
+	}
+	vertices := projection["vertices"].([]any)
+	if len(vertices) == 0 {
+		t.Fatalf("saved graph result omitted vertices: %#v", projection)
+	}
+	beforeVertexIDs, beforeEdgeIDs := projectionObjectIDs(t, projection)
+	reportingJobID := seedRestoredReportingGraphJob(t, harness, incidentID, adminID, projection)
+	networkFlowJobID := seedRestoredNetworkFlowGraphJob(t, harness, incidentID, adminID, projection)
+	restoreParticipant, err := recoveryassembly.NewGraphProjectionRestoreParticipant(harness.Pool)
+	if err != nil {
+		t.Fatalf("construct active saved-graph restore participant: %v", err)
+	}
+	recoveryCatalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
+	if err != nil {
+		t.Fatalf("construct active saved-graph recovery catalog: %v", err)
+	}
+	registryRef := restorecontract.CurrentGraphProjectionSourceRegistryRef()
+	bindingRef := restorecontract.CurrentGraphProjectionImplementationBinding()
+	restoreResult, err := restoreParticipant.Rebuild(context.Background(), restorecontract.GraphProjectionRebuildRequest{
+		Context:             context.Background(),
+		RestoreOperationID:  uuid.MustParse("00000000-0000-0000-0000-000000009101"),
+		RestoredSourceState: restorecontract.RestoredGraphProjectionSourceState{},
+		BackupSetID:         uuid.MustParse("00000000-0000-0000-0000-000000009102"),
+		ConsistencyPointAt:  time.Date(2026, 7, 10, 12, 45, 0, 0, time.UTC),
+		TargetGenerationID:  uuid.MustParse("00000000-0000-0000-0000-000000009103"),
+		RecoveryStateCatalog: restorecontract.GraphProjectionRecoveryCatalogRef{
+			DigestSHA256: recoveryCatalog.DigestSHA256(), AlgorithmID: restorecontract.GraphProjectionRestoreAlgorithmID,
+			GraphTableIDs: restorecontract.GraphProjectionTableIDs(),
+		},
+		SourceRegistry: registryRef, ImplementationBinding: bindingRef,
+	})
+	if err != nil || !restoreResult.ReadinessSatisfied() || len(restoreResult.RebuiltViews) != 1 ||
+		restoreResult.ReconciledNonterminalJobCount != 2 || restoreResult.ReconciledLeaseCount != 1 ||
+		restoreResult.RebuiltViews[0].ProjectionResultID != projection["projection_result_id"] {
+		t.Fatalf("active saved-graph restore did not reproduce exact identity: result=%#v err=%v", restoreResult, err)
+	}
+	var restoredLeaseCount int
+	var restoredAttemptID *uuid.UUID
+	if err := harness.Pool.QueryRow(context.Background(), `
+SELECT
+    (SELECT COUNT(*) FROM graph_projection_result_leases
+      WHERE projection_result_id = $1
+        AND lease_owner_id = 'snapshot_reporting'
+        AND lease_owner_resource_id = $2
+        AND lease_purpose = 'render'),
+    (SELECT handler_attempt_id FROM jobs WHERE job_id = $3)
+`, projection["projection_result_id"], reportingJobID.String(), reportingJobID).Scan(&restoredLeaseCount, &restoredAttemptID); err != nil || restoredLeaseCount != 1 || restoredAttemptID != nil {
+		t.Fatalf("restore did not reconcile Reporting lease and Common Job attempt: leases=%d attempt=%v err=%v", restoredLeaseCount, restoredAttemptID, err)
+	}
+	if err := harness.Pool.QueryRow(context.Background(), `SELECT handler_attempt_id FROM jobs WHERE job_id = $1`, networkFlowJobID).Scan(&restoredAttemptID); err != nil || restoredAttemptID != nil {
+		t.Fatalf("restore did not reconcile Network Flow Common Job attempt: attempt=%v err=%v", restoredAttemptID, err)
+	}
+	restoredResultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	restoredProjection := httptestx.RequireSuccessEnvelope(t, restoredResultResp, http.StatusOK)["data"].(map[string]any)["projection_result"].(map[string]any)
+	afterVertexIDs, afterEdgeIDs := projectionObjectIDs(t, restoredProjection)
+	if restoredProjection["projection_result_id"] != projection["projection_result_id"] ||
+		strings.Join(afterVertexIDs, ",") != strings.Join(beforeVertexIDs, ",") || strings.Join(afterEdgeIDs, ",") != strings.Join(beforeEdgeIDs, ",") {
+		t.Fatalf("restored saved graph object identity drifted: before=%v/%v after=%v/%v", beforeVertexIDs, beforeEdgeIDs, afterVertexIDs, afterEdgeIDs)
+	}
+	sourceEndpointID := vertices[0].(map[string]any)["source_entity_ref"].(map[string]any)["source_entity_id"].(string)
+	contributorsResp := httptestx.DoJSON(t, http.MethodPost, resourcePath+"/contributors/query", map[string]any{
+		"schema_id":            "cartulary.network_flow.graph_view_contributor_query_request.v1",
+		"projection_result_id": projection["projection_result_id"],
+		"selector":             map[string]any{"kind": "vertex", "vertex_id": sourceEndpointID}, "limit": 10,
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	contributors := httptestx.RequireSuccessEnvelope(t, contributorsResp, http.StatusOK)["data"].(map[string]any)["contributors"].([]any)
+	if len(contributors) != 1 {
+		t.Fatalf("saved graph contributors = %#v", contributors)
+	}
+
+	renameBody := map[string]any{
+		"schema_id": "cartulary.network_flow.graph_view_rename_request.v1", "client_txn_id": "txn-network-flow-graph-rename",
+		"base_graph_view_version": 1, "display_name": "Renamed flow graph",
+	}
+	renameResp := httptestx.DoJSON(t, http.MethodPatch, resourcePath, renameBody, mutationOptions...)
+	renamed := httptestx.RequireSuccessEnvelope(t, renameResp, http.StatusOK)["data"].(map[string]any)["graph_view"].(map[string]any)
+	if renamed["graph_view_version"] != float64(2) || renamed["materialization_generation"] != float64(1) || renamed["selected_result"] == nil {
+		t.Fatalf("rename changed materialization identity: %#v", renamed)
+	}
+
+	refreshBody := map[string]any{
+		"schema_id": "cartulary.network_flow.graph_view_refresh_request.v1", "client_txn_id": "txn-network-flow-graph-refresh",
+		"base_graph_view_version": 2,
+	}
+	refreshResp := httptestx.DoJSON(t, http.MethodPost, resourcePath+"/refresh", refreshBody, mutationOptions...)
+	refreshed := httptestx.RequireSuccessEnvelope(t, refreshResp, http.StatusAccepted)["data"].(map[string]any)
+	refreshedGraph := refreshed["graph_view"].(map[string]any)
+	if refreshedGraph["graph_view_version"] != float64(3) || refreshedGraph["materialization_generation"] != float64(2) || refreshedGraph["selected_result"] == nil {
+		t.Fatalf("refresh did not preserve last-safe result: %#v", refreshedGraph)
+	}
+	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, refreshed["job_id"].(string), "succeeded")
+	refreshedResultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	refreshedResult := httptestx.RequireSuccessEnvelope(t, refreshedResultResp, http.StatusOK)["data"].(map[string]any)["projection_result"].(map[string]any)
+	if refreshedResult["projection_result_id"] != projection["projection_result_id"] {
+		t.Fatalf("semantic retry produced a different immutable result: first=%v refreshed=%v", projection["projection_result_id"], refreshedResult["projection_result_id"])
+	}
+
+	tablePath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/tables/" + table.TableID
+	deleteTableResp := httptestx.DoJSON(t, http.MethodDelete, tablePath, map[string]any{
+		"client_txn_id": "txn-network-flow-saved-graph-source-delete", "base_table_version": 1,
+	}, mutationOptions...)
+	httptestx.RequireSuccessEnvelope(t, deleteTableResp, http.StatusOK)
+	invalidatedResp := httptestx.DoJSON(t, http.MethodGet, resourcePath, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	invalidated := httptestx.RequireSuccessEnvelope(t, invalidatedResp, http.StatusOK)["data"].(map[string]any)["graph_view"].(map[string]any)
+	if invalidated["graph_view_version"] != float64(4) || invalidated["materialization_generation"] != float64(3) || invalidated["selected_result"] != nil || invalidated["last_failure_code"] != "network_flow_source_table_deleted" {
+		t.Fatalf("source retirement did not invalidate saved graph: %#v", invalidated)
+	}
+	invalidatedResultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, invalidatedResultResp, http.StatusConflict, "network_flow_graph_view_not_materialized")
+
+	retireResp := httptestx.DoJSON(t, http.MethodDelete, resourcePath, map[string]any{
+		"schema_id": "cartulary.network_flow.graph_view_retire_request.v1", "client_txn_id": "txn-network-flow-graph-retire",
+		"base_graph_view_version": 4,
+	}, mutationOptions...)
+	retired := httptestx.RequireSuccessEnvelope(t, retireResp, http.StatusOK)["data"].(map[string]any)["graph_view"].(map[string]any)
+	if retired["state"] != "retired" || retired["graph_view_version"] != float64(5) || retired["materialization_generation"] != float64(4) || retired["selected_result"] != nil {
+		t.Fatalf("retired graph view drifted: %#v", retired)
+	}
+	getRetired := httptestx.DoJSON(t, http.MethodGet, resourcePath, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, getRetired, http.StatusConflict, "network_flow_graph_view_not_active")
+}
+
+func projectionObjectIDs(t testing.TB, projection map[string]any) ([]string, []string) {
+	t.Helper()
+	vertices, ok := projection["vertices"].([]any)
+	if !ok {
+		t.Fatalf("projection vertices have unexpected shape: %#v", projection["vertices"])
+	}
+	edges, ok := projection["edges"].([]any)
+	if !ok {
+		t.Fatalf("projection edges have unexpected shape: %#v", projection["edges"])
+	}
+	vertexIDs := make([]string, 0, len(vertices))
+	for _, raw := range vertices {
+		vertex, ok := raw.(map[string]any)
+		if !ok {
+			t.Fatalf("projection vertex has unexpected shape: %#v", raw)
+		}
+		vertexIDs = append(vertexIDs, vertex["vertex_id"].(string))
+	}
+	edgeIDs := make([]string, 0, len(edges))
+	for _, raw := range edges {
+		edge, ok := raw.(map[string]any)
+		if !ok {
+			t.Fatalf("projection edge has unexpected shape: %#v", raw)
+		}
+		edgeIDs = append(edgeIDs, edge["edge_id"].(string))
+	}
+	return vertexIDs, edgeIDs
+}
+
+func seedRestoredReportingGraphJob(
+	t testing.TB,
+	harness *appsupport.ServerHarness,
+	incidentID uuid.UUID,
+	actorID uuid.UUID,
+	projection map[string]any,
+) uuid.UUID {
+	t.Helper()
+	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID}
+	admission, err := jobs.NewExtensionJobAdmission(
+		reporting.ProfileID,
+		jobs.NewRouteIdempotencyKey("POST /api/v1/releases", actorID, incidentID.String(), "txn-network-flow-restore-report"),
+		scope,
+		[]byte(`{"graph_projection_refs":"restore-reconciliation"}`),
+	)
+	if err != nil {
+		t.Fatalf("construct restored Reporting job admission: %v", err)
+	}
+	resource, err := harness.Jobs.Create(context.Background(), jobs.EnqueueParams{
+		JobKind: reporting.ReleaseCreateJobKind, Scope: scope, SubmittedByUserID: actorID,
+		Cancelable: true, Progress: jobs.Progress{Completed: 0}, Extension: admission,
+	})
+	if err != nil {
+		t.Fatalf("create restored Reporting Graph job: %v", err)
+	}
+	jobID := uuid.MustParse(resource.JobID)
+	graphRefs := []map[string]any{{
+		"source_owner_id": projection["source_owner_id"], "graph_view_id": projection["graph_view_id"],
+		"projection_result_id": projection["projection_result_id"], "source_snapshot_id": projection["source_snapshot_id"],
+		"projection_schema_id": projection["projection_schema_id"], "projection_version": projection["projection_version"],
+		"normalized_configuration_sha256": projection["normalized_configuration_sha256"],
+		"normalized_source_sha256":        projection["normalized_source_sha256"],
+		"canonical_output_sha256":         projection["canonical_output_sha256"],
+	}}
+	payload, err := json.Marshal(map[string]any{"graph_projection_refs": graphRefs})
+	if err != nil {
+		t.Fatalf("encode restored Reporting Graph payload: %v", err)
+	}
+	now := time.Date(2026, 7, 10, 12, 40, 0, 0, time.UTC)
+	if _, err := harness.Pool.Exec(context.Background(), `
+INSERT INTO reporting_job_payloads (job_id, job_kind, incident_id, actor_user_id, request_json, created_at, updated_at)
+VALUES ($1, 'release_create', $2, $3, $4::jsonb, $5, $5)
+`, jobID, incidentID, actorID, payload, now); err != nil {
+		t.Fatalf("persist restored Reporting Graph payload: %v", err)
+	}
+	if _, err := harness.Pool.Exec(context.Background(), `
+UPDATE jobs
+   SET status = 'running', started_at = $2, updated_at = $2,
+       handler_attempt_id = $3, handler_lease_expires_at = $4
+ WHERE job_id = $1
+`, jobID, now, uuid.MustParse("00000000-0000-0000-0000-000000009104"), now.Add(time.Hour)); err != nil {
+		t.Fatalf("seed restored Reporting execution lease: %v", err)
+	}
+	return jobID
+}
+
+func seedRestoredNetworkFlowGraphJob(
+	t testing.TB,
+	harness *appsupport.ServerHarness,
+	incidentID uuid.UUID,
+	actorID uuid.UUID,
+	projection map[string]any,
+) uuid.UUID {
+	t.Helper()
+	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID}
+	admission, err := jobs.NewExtensionJobAdmission(
+		ProfileID,
+		jobs.NewRouteIdempotencyKey("POST /api/v1/network-flow/graph-views/refresh", actorID, projection["graph_view_id"].(string), "txn-network-flow-restore-job"),
+		scope,
+		[]byte(`{"graph_view":"restore-reconciliation"}`),
+	)
+	if err != nil {
+		t.Fatalf("construct restored Network Flow job admission: %v", err)
+	}
+	payload, err := json.Marshal(map[string]any{
+		"schema_id":   "cartulary.network_flow.graph_view_materialization_payload.v1",
+		"incident_id": incidentID, "graph_view_id": projection["graph_view_id"],
+		"materialization_generation": 1, "source_snapshot_id": projection["source_snapshot_id"],
+	})
+	if err != nil {
+		t.Fatalf("encode restored Network Flow graph payload: %v", err)
+	}
+	total := 1
+	resource, err := harness.Jobs.Create(context.Background(), jobs.EnqueueParams{
+		JobKind: GraphViewMaterializationJobKind, Scope: scope, SubmittedByUserID: actorID,
+		AuthPolicy: jobs.AuthPolicyIncidentMembership, Cancelable: true,
+		Progress: jobs.Progress{Completed: 0, Total: &total}, HandlerPayload: payload, Extension: admission,
+	})
+	if err != nil {
+		t.Fatalf("create restored Network Flow graph job: %v", err)
+	}
+	jobID := uuid.MustParse(resource.JobID)
+	now := time.Date(2026, 7, 10, 12, 41, 0, 0, time.UTC)
+	if _, err := harness.Pool.Exec(context.Background(), `
+UPDATE jobs
+   SET status = 'running', started_at = $2, updated_at = $2,
+       handler_attempt_id = $3, handler_lease_expires_at = $4
+ WHERE job_id = $1
+`, jobID, now, uuid.MustParse("00000000-0000-0000-0000-000000009105"), now.Add(time.Hour)); err != nil {
+		t.Fatalf("seed restored Network Flow execution lease: %v", err)
+	}
+	return jobID
+}
+
+func waitForNetworkFlowJob(t testing.TB, serverURL string, login flowtest.LoginResult, jobID string, wantStatus string) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	var last map[string]any
+	for time.Now().Before(deadline) {
+		resp := httptestx.DoJSON(t, http.MethodGet, serverURL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
+		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+		last = data
+		if data["status"] == wantStatus {
+			return
+		}
+		if data["status"] == "failed" || data["status"] == "canceled" {
+			t.Fatalf("job %s reached terminal status %#v", jobID, data)
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatalf("job %s did not reach %s; last=%#v", jobID, wantStatus, last)
 }
 
 const (

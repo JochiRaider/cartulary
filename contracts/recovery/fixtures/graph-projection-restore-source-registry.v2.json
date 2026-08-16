@@ -1,0 +1,15 @@
+{
+  "schema_id": "cartulary.graph_projection_restore_source_registry.v2",
+  "entries": [
+    {
+      "source_registration_id": "network_flow_activity.graph_views.v1",
+      "source_owner_id": "network_flow_activity",
+      "authoritative_family_id": "network_flow_activity.graph_views",
+      "enumerator_binding_id": "network_flow_activity.graph_view_restore_enumerator_v1",
+      "validity_binding_id": "network_flow_activity.graph_view_restore_validity_v1",
+      "projection_input_contract_id": "graph_projection.v2",
+      "projection_result_contract_id": "graph_projection_result.v2",
+      "status": "active"
+    }
+  ]
+}

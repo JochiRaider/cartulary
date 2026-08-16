@@ -729,7 +729,8 @@
         "package": "./internal/modules/recovery",
         "tests": [
           "TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit",
-          "TestVNextGraphRestoreArtifactsFailClosedAndSelectExactLegacyBinding_Unit"
+          "TestVNextGraphRestoreArtifactsFailClosedAndRejectRetiredRegistry_Unit",
+          "TestVNextGraphRestoreV2ProjectionContract_Unit"
         ]
       },
       "evidence_class": "unit",

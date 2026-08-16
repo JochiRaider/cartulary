@@ -1,8 +1,0 @@
-{
-  "fixture_id": "GP-FIX-033",
-  "refresh_error": {
-    "code": "invalid_operation",
-    "reason_code": "no_consumable_prior_run"
-  },
-  "failed_run_state": "failed"
-}

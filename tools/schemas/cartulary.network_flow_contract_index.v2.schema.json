@@ -25,7 +25,7 @@
       "const": "network_flow_activity"
     },
     "contract_major": {
-      "const": 2
+      "const": 3
     },
     "family_id": {
       "const": "network-flow"

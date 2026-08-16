@@ -43,26 +43,24 @@ var validationIssueContracts = map[string]validationIssueContract{
 	"resource_limit_exceeded":             {"fatal", "projection_input", []string{"limit_key", "limit", "observed"}, nil},
 	"projected_output_limit_exceeded":     {"fatal", "graph_view", []string{"limit_key", "limit", "observed"}, nil},
 	"validation_issue_limit_exceeded":     {"fatal", "projection_input", []string{"limit"}, nil},
-	"invalid_retention_policy":            {"fatal", "projection_config", []string{"field", "reason_code"}, nil},
 	"output_schema_violation":             {"fatal", "graph_view", []string{"field", "reason_code"}, nil},
 	"projection_computation_failed":       {"fatal", "graph_view", []string{"reason_code"}, nil},
 }
 
 var validationIssueReasonCodes = map[string][]string{
 	"invalid_input_shape":           {"scalar_contract_violation", "property_value_too_long", "array_element_invalid", "array_length_exceeded", "invalid_label"},
-	"invalid_projection_config":     {"custom_config_referenced", "relationship_mapping_source_conflict", "empty_kind_registry_not_allowed", "declared_kind_duplicate", "mapping_rule_duplicate", "metadata_mapping_duplicate", "aggregation_rule_duplicate", "invalid_default_materialization"},
+	"invalid_projection_config":     {"empty_kind_registry_not_allowed", "declared_kind_duplicate", "mapping_rule_duplicate", "metadata_mapping_duplicate", "aggregation_rule_duplicate", "invalid_default_materialization"},
 	"invalid_filter":                {"invalid_operator", "value_required", "value_forbidden", "invalid_field_scope", "invalid_value_shape", "unsupported_logic"},
 	"invalid_mapping_rule":          {"duplicate_mapping_rule_id", "duplicate_source_entity_kind_mapping", "duplicate_source_relationship_kind_mapping", "declared_source_kind_missing", "property_key_not_defined", "property_requiredness_mismatch", "required_optional_overlap", "reverse_edge_kind_without_reverse", "label_invalid"},
 	"invalid_metadata_mapping":      {"reserved_metadata_key", "duplicate_after_wildcard_expansion", "invalid_source_scope", "invalid_default_value", "invalid_merge_behavior_type", "invalid_projected_type", "required_metadata_missing"},
 	"invalid_property_definition":   {"duplicate_after_wildcard_expansion", "invalid_source_scope", "invalid_default_value", "invalid_null_policy", "invalid_merge_behavior_type", "invalid_projected_type"},
 	"invalid_aggregation_rule":      {"dependency_on_later_rule", "aggregation_cycle", "endpoint_rule_not_vertex_rule", "endpoint_grouping_key_count_mismatch", "endpoint_grouping_key_invalid", "endpoint_field_scope_invalid", "grouping_key_invalid", "invalid_endpoint_behavior", "invalid_edge_direction", "input_scope_invalid", "invalid_merge_behavior_type"},
 	"aggregation_endpoint_missing":  {"endpoint_key_missing", "endpoint_vertex_not_found"},
-	"invalid_retention_policy":      {"out_of_bounds", "invalid_type"},
 	"output_schema_violation":       {"id_mismatch", "reference_missing", "sort_order_invalid", "schema_registry_mismatch", "metadata_shape_invalid", "closed_schema_violation", "canonical_serialization_invalid"},
 	"projection_computation_failed": {"internal_exception", "dependency_unavailable", "timeout", "resource_exhausted", "implementation_invariant_failed"},
 }
 
-func (run ProjectionRun) issue(severity, code, targetKind, targetID string, field any, details map[string]any) ValidationIssue {
+func (run projectionWork) issue(severity, code, targetKind, targetID string, field any, details map[string]any) ValidationIssue {
 	contract, ok := validationIssueContracts[code]
 	if !ok || contract.severity != severity || contract.target != targetKind || !validIssueDetails(code, contract, details) {
 		return run.computationFailureIssue("implementation_invariant_failed")
@@ -75,16 +73,16 @@ func (run ProjectionRun) issue(severity, code, targetKind, targetID string, fiel
 	for _, key := range contract.required {
 		identityDetails[key] = details[key]
 	}
-	issueID, err := generatedID("gpi_", "GPISSUE1\n", ProjectionSchemaID, run.GraphViewID, run.ProjectionRunID, severity, code, targetKind, targetID, identityDetails)
+	issueID, err := generatedID("gpi_", "GPISSUE2\n", run.Request.ProjectionSchemaID, run.GraphViewID, run.IdentityDigest, severity, code, targetKind, targetID, identityDetails)
 	if err != nil {
 		return run.computationFailureIssue("implementation_invariant_failed")
 	}
 	return ValidationIssue{IssueID: issueID, Severity: severity, Code: code, TargetKind: targetKind, TargetID: targetID, Field: fieldPtr, Message: truncateScalars(code, graphProjectionLimits.MaxValidationMessageLength), Details: details}
 }
 
-func (run ProjectionRun) computationFailureIssue(reason string) ValidationIssue {
+func (run projectionWork) computationFailureIssue(reason string) ValidationIssue {
 	details := map[string]any{"reason_code": reason}
-	issueID, _ := generatedID("gpi_", "GPISSUE1\n", ProjectionSchemaID, run.GraphViewID, run.ProjectionRunID, "fatal", "projection_computation_failed", "graph_view", run.GraphViewID, details)
+	issueID, _ := generatedID("gpi_", "GPISSUE2\n", run.Request.ProjectionSchemaID, run.GraphViewID, run.IdentityDigest, "fatal", "projection_computation_failed", "graph_view", run.GraphViewID, details)
 	return ValidationIssue{IssueID: issueID, Severity: "fatal", Code: "projection_computation_failed", TargetKind: "graph_view", TargetID: run.GraphViewID, Message: "projection_computation_failed", Details: details}
 }
 
@@ -125,7 +123,7 @@ func containsRegistryValue(values []string, wanted string) bool {
 	return false
 }
 
-func validationSummary(run ProjectionRun, discovered []ValidationIssue) ValidationSummary {
+func validationSummary(run projectionWork, discovered []ValidationIssue) ValidationSummary {
 	issues := append([]ValidationIssue(nil), discovered...)
 	if len(issues) > graphProjectionLimits.MaxValidationIssues {
 		issues = issues[:graphProjectionLimits.MaxValidationIssues-1]

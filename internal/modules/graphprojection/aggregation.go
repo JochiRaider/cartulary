@@ -7,14 +7,14 @@ import (
 	"strings"
 )
 
-func emitAggregations(ctx context.Context, run ProjectionRun, directVertices []Vertex, directEdges []Edge) ([]Vertex, []Edge, []ValidationIssue, error) {
+func emitAggregations(ctx context.Context, run projectionWork, directVertices []Vertex, directEdges []Edge) ([]Vertex, []Edge, []ValidationIssue, error) {
 	vertices := []Vertex{}
 	edges := []Edge{}
 	availableVertices := append([]Vertex(nil), directVertices...)
 	availableEdges := append([]Edge(nil), directEdges...)
 	issues := []ValidationIssue{}
 	aggregatedVerticesByRuleAndDigest := map[string]map[string]Vertex{}
-	for _, rule := range run.Request.ProjectionConfig.AggregationRules {
+	for _, rule := range run.Request.projectionConfig.AggregationRules {
 		if err := ctx.Err(); err != nil {
 			return nil, nil, nil, err
 		}
@@ -30,7 +30,7 @@ func emitAggregations(ctx context.Context, run ProjectionRun, directVertices []V
 				return nil, nil, nil, err
 			}
 			contributors := groups[digest]
-			vertexID, _ := generatedID("vx_", "GPVERTEX1\n", "aggregated_vertex", ProjectionSchemaID, run.GraphViewID, rule.AggregationIdentityDigest, digest)
+			vertexID, _ := generatedID("vx_", "GPVERTEX1\n", "aggregated_vertex", run.Request.ProjectionSchemaID, run.GraphViewID, rule.AggregationIdentityDigest, digest)
 			props := mergeAggregateProperties(run, rule, digest, contributors, "vertex", rule.ProjectedKind, vertexID, &issues)
 			mappedMetadata := mergeAggregateMetadata(run, rule, digest, contributors, "vertex", rule.ProjectedKind, vertexID, &issues)
 			ruleID := rule.AggregationRuleID
@@ -38,7 +38,7 @@ func emitAggregations(ctx context.Context, run ProjectionRun, directVertices []V
 				VertexID:     vertexID,
 				VertexKind:   rule.ProjectedKind,
 				VertexFamily: "aggregated",
-				Labels:       run.Request.ProjectionConfig.DefaultVertexLabels,
+				Labels:       run.Request.projectionConfig.DefaultVertexLabels,
 				Properties:   props,
 				Metadata: VertexMetadata{
 					AggregationRuleID:     &ruleID,
@@ -55,14 +55,14 @@ func emitAggregations(ctx context.Context, run ProjectionRun, directVertices []V
 			availableVertices = append(availableVertices, vertex)
 		}
 	}
-	for _, rule := range run.Request.ProjectionConfig.AggregationRules {
+	for _, rule := range run.Request.projectionConfig.AggregationRules {
 		if err := ctx.Err(); err != nil {
 			return nil, nil, nil, err
 		}
-		if rule.TargetScope != "edge" || rule.EndpointGrouping == nil {
+		if rule.TargetScope != "edge" || rule.endpointGrouping == nil {
 			continue
 		}
-		aggregationKinds := aggregationProjectedKinds(run.Request.ProjectionConfig.AggregationRules)
+		aggregationKinds := aggregationProjectedKinds(run.Request.projectionConfig.AggregationRules)
 		groups, err := groupContributors(ctx, run, rule, availableVertices, availableEdges, &issues)
 		if err != nil {
 			return nil, nil, nil, err
@@ -72,20 +72,20 @@ func emitAggregations(ctx context.Context, run ProjectionRun, directVertices []V
 				return nil, nil, nil, err
 			}
 			contributors := groups[digest]
-			srcRuleID := rule.EndpointGrouping.SourceVertexAggregationRuleID
-			dstRuleID := rule.EndpointGrouping.DestinationVertexAggregationRuleID
-			srcDigest, srcMissingField, srcOK := endpointDigest(srcRuleID, "vertex", aggregationKinds[srcRuleID], rule.EndpointGrouping.SourceGroupingKeys, contributors)
-			dstDigest, dstMissingField, dstOK := endpointDigest(dstRuleID, "vertex", aggregationKinds[dstRuleID], rule.EndpointGrouping.DestinationGroupingKeys, contributors)
-			src := aggregatedVerticesByRuleAndDigest[rule.EndpointGrouping.SourceVertexAggregationRuleID][srcDigest]
-			dst := aggregatedVerticesByRuleAndDigest[rule.EndpointGrouping.DestinationVertexAggregationRuleID][dstDigest]
+			srcRuleID := rule.endpointGrouping.SourceVertexAggregationRuleID
+			dstRuleID := rule.endpointGrouping.DestinationVertexAggregationRuleID
+			srcDigest, srcMissingField, srcOK := endpointDigest(srcRuleID, "vertex", aggregationKinds[srcRuleID], rule.endpointGrouping.SourceGroupingKeys, contributors)
+			dstDigest, dstMissingField, dstOK := endpointDigest(dstRuleID, "vertex", aggregationKinds[dstRuleID], rule.endpointGrouping.DestinationGroupingKeys, contributors)
+			src := aggregatedVerticesByRuleAndDigest[rule.endpointGrouping.SourceVertexAggregationRuleID][srcDigest]
+			dst := aggregatedVerticesByRuleAndDigest[rule.endpointGrouping.DestinationVertexAggregationRuleID][dstDigest]
 			if !srcOK || !dstOK || src.VertexID == "" || dst.VertexID == "" {
-				if rule.EndpointGrouping.MissingEndpointBehavior == "error" {
+				if rule.endpointGrouping.MissingEndpointBehavior == "error" {
 					issues = append(issues, endpointResolutionIssues(run, rule, "src", srcDigest, srcMissingField, srcOK, src.VertexID != "")...)
 					issues = append(issues, endpointResolutionIssues(run, rule, "dst", dstDigest, dstMissingField, dstOK, dst.VertexID != "")...)
 				}
 				continue
 			}
-			edgeID, _ := generatedID("ed_", "GPEDGE1\n", "aggregated_edge", ProjectionSchemaID, run.GraphViewID, rule.AggregationIdentityDigest, src.VertexID, dst.VertexID, rule.EdgeDirection, digest)
+			edgeID, _ := generatedID("ed_", "GPEDGE1\n", "aggregated_edge", run.Request.ProjectionSchemaID, run.GraphViewID, rule.AggregationIdentityDigest, src.VertexID, dst.VertexID, rule.EdgeDirection, digest)
 			props := mergeAggregateProperties(run, rule, digest, contributors, "edge", rule.ProjectedKind, edgeID, &issues)
 			mappedMetadata := mergeAggregateMetadata(run, rule, digest, contributors, "edge", rule.ProjectedKind, edgeID, &issues)
 			ruleID := rule.AggregationRuleID
@@ -96,7 +96,7 @@ func emitAggregations(ctx context.Context, run ProjectionRun, directVertices []V
 				SrcVertexID: src.VertexID,
 				DstVertexID: dst.VertexID,
 				Direction:   rule.EdgeDirection,
-				Labels:      run.Request.ProjectionConfig.DefaultEdgeLabels,
+				Labels:      run.Request.projectionConfig.DefaultEdgeLabels,
 				Properties:  props,
 				Metadata: EdgeMetadata{
 					AggregationRuleID:     &ruleID,
@@ -121,7 +121,7 @@ func sortedGroupDigests(groups map[string][]contributor) []string {
 	return digests
 }
 
-func endpointResolutionIssues(run ProjectionRun, rule AggregationRule, side, digest, missingField string, digestOK, matched bool) []ValidationIssue {
+func endpointResolutionIssues(run projectionWork, rule aggregationRule, side, digest, missingField string, digestOK, matched bool) []ValidationIssue {
 	if !digestOK {
 		return []ValidationIssue{run.issue("error", "aggregation_endpoint_missing", "mapping_rule", rule.AggregationRuleID, missingField, map[string]any{"aggregation_rule_id": rule.AggregationRuleID, "endpoint_side": side, "reason_code": "endpoint_key_missing", "endpoint_digest": nil, "field_path": missingField})}
 	}
@@ -131,7 +131,7 @@ func endpointResolutionIssues(run ProjectionRun, rule AggregationRule, side, dig
 	return nil
 }
 
-func aggregationProjectedKinds(rules []AggregationRule) map[string]string {
+func aggregationProjectedKinds(rules []aggregationRule) map[string]string {
 	out := map[string]string{}
 	for _, rule := range rules {
 		out[rule.AggregationRuleID] = rule.ProjectedKind
@@ -144,13 +144,13 @@ type contributor struct {
 	ID           string
 	KindName     string
 	SortKey      string
-	Entity       *SourceEntity
-	Relationship *SourceRelationship
+	Entity       *sourceEntity
+	Relationship *sourceRelationship
 	Vertex       *Vertex
 	Edge         *Edge
 }
 
-func groupContributors(ctx context.Context, run ProjectionRun, rule AggregationRule, vertices []Vertex, edges []Edge, issues *[]ValidationIssue) (map[string][]contributor, error) {
+func groupContributors(ctx context.Context, run projectionWork, rule aggregationRule, vertices []Vertex, edges []Edge, issues *[]ValidationIssue) (map[string][]contributor, error) {
 	groups := map[string][]contributor{}
 	for _, contributor := range contributorsForRule(run, rule, vertices, edges) {
 		if err := ctx.Err(); err != nil {
@@ -188,10 +188,10 @@ func groupContributors(ctx context.Context, run ProjectionRun, rule AggregationR
 	return groups, nil
 }
 
-func contributorsForRule(run ProjectionRun, rule AggregationRule, vertices []Vertex, edges []Edge) []contributor {
+func contributorsForRule(run projectionWork, rule aggregationRule, vertices []Vertex, edges []Edge) []contributor {
 	out := []contributor{}
-	declaredEntityKinds := stringSet(run.Request.ProjectionConfig.DeclaredSourceEntityKinds)
-	declaredRelationshipKinds := stringSet(run.Request.ProjectionConfig.DeclaredSourceRelationshipKinds)
+	declaredEntityKinds := stringSet(run.Request.projectionConfig.DeclaredSourceEntityKinds)
+	declaredRelationshipKinds := stringSet(run.Request.projectionConfig.DeclaredSourceRelationshipKinds)
 	switch rule.InputScope {
 	case "source_entity":
 		for i := range run.Request.SourceEntities {
@@ -200,7 +200,7 @@ func contributorsForRule(run ProjectionRun, rule AggregationRule, vertices []Ver
 				!sourceItemWithinLimits(len(entity.Labels), len(entity.Properties), len(entity.Metadata)) ||
 				!sourceItemValuesWithinLimits(entity.Properties, entity.Metadata) ||
 				!declaredEntityKinds[entity.SourceEntityKind] ||
-				!filtersMatchEntity(run.Request.Filters.EntityFilters, *entity) {
+				!filtersMatchEntity(run.Request.filters.EntityFilters, *entity) {
 				continue
 			}
 			out = append(out, contributor{Kind: "source_entity", ID: entity.SourceEntityID, KindName: entity.SourceEntityKind, SortKey: contributorSortKey("source_entity", entity.SourceEntityKind, entity.SourceEntityID), Entity: entity})
@@ -213,7 +213,7 @@ func contributorsForRule(run ProjectionRun, rule AggregationRule, vertices []Ver
 				!sourceItemValuesWithinLimits(relationship.Properties, relationship.Metadata) ||
 				!declaredRelationshipKinds[relationship.SourceRelationshipKind] ||
 				relationship.SrcSourceEntityID == "" || relationship.DstSourceEntityID == "" || !validSourceDirection(relationship.Direction) ||
-				!filtersMatchRelationship(run.Request.Filters.RelationshipFilters, *relationship) {
+				!filtersMatchRelationship(run.Request.filters.RelationshipFilters, *relationship) {
 				continue
 			}
 			out = append(out, contributor{Kind: "source_relationship", ID: relationship.SourceRelationshipID, KindName: relationship.SourceRelationshipKind, SortKey: contributorSortKey("source_relationship", relationship.SourceRelationshipKind, relationship.SourceRelationshipID), Relationship: relationship})
@@ -238,7 +238,7 @@ func contributorsForRule(run ProjectionRun, rule AggregationRule, vertices []Ver
 	return out
 }
 
-func mergeAggregateProperties(run ProjectionRun, rule AggregationRule, groupingDigest string, contributors []contributor, targetScope, targetKind, outputID string, issues *[]ValidationIssue) map[string]any {
+func mergeAggregateProperties(run projectionWork, rule aggregationRule, groupingDigest string, contributors []contributor, targetScope, targetKind, outputID string, issues *[]ValidationIssue) map[string]any {
 	properties := map[string]any{}
 	for _, definition := range run.Request.PropertyDefinitions {
 		if !propertyApplies(definition, targetScope, targetKind) {
@@ -283,9 +283,9 @@ func mergeAggregateProperties(run ProjectionRun, rule AggregationRule, groupingD
 	return properties
 }
 
-func mergeAggregateMetadata(run ProjectionRun, rule AggregationRule, groupingDigest string, contributors []contributor, targetScope, targetKind, outputID string, issues *[]ValidationIssue) map[string]any {
+func mergeAggregateMetadata(run projectionWork, rule aggregationRule, groupingDigest string, contributors []contributor, targetScope, targetKind, outputID string, issues *[]ValidationIssue) map[string]any {
 	metadata := map[string]any{}
-	for _, mapping := range run.Request.ProjectionConfig.MetadataMappings {
+	for _, mapping := range run.Request.projectionConfig.MetadataMappings {
 		if mapping.TargetScope != targetScope || (mapping.TargetKind != "*" && mapping.TargetKind != targetKind) {
 			continue
 		}
@@ -324,7 +324,7 @@ func mergeAggregateMetadata(run ProjectionRun, rule AggregationRule, groupingDig
 	return metadata
 }
 
-func deriveProperties(run ProjectionRun, targetScope, targetKind string, entity SourceEntity, relationship *SourceRelationship, graphSource map[string]any, outputID string) (map[string]any, []ValidationIssue) {
+func deriveProperties(run projectionWork, targetScope, targetKind string, entity sourceEntity, relationship *sourceRelationship, graphSource map[string]any, outputID string) (map[string]any, []ValidationIssue) {
 	properties := map[string]any{}
 	issues := []ValidationIssue{}
 	for _, definition := range run.Request.PropertyDefinitions {
@@ -348,16 +348,16 @@ func deriveProperties(run ProjectionRun, targetScope, targetKind string, entity 
 	return properties, issues
 }
 
-func deriveGraphProperties(run ProjectionRun, issues *[]ValidationIssue) map[string]any {
-	properties, propertyIssues := deriveProperties(run, "graph_view", "*", SourceEntity{}, nil, run.Request.SourceMetadata, run.GraphViewID)
+func deriveGraphProperties(run projectionWork, issues *[]ValidationIssue) map[string]any {
+	properties, propertyIssues := deriveProperties(run, "graph_view", "*", sourceEntity{}, nil, run.Request.SourceMetadata, run.GraphViewID)
 	*issues = append(*issues, propertyIssues...)
 	return properties
 }
 
-func deriveMetadata(run ProjectionRun, targetScope, targetKind string, entity SourceEntity, relationship *SourceRelationship, outputID string) (map[string]any, []ValidationIssue) {
+func deriveMetadata(run projectionWork, targetScope, targetKind string, entity sourceEntity, relationship *sourceRelationship, outputID string) (map[string]any, []ValidationIssue) {
 	metadata := map[string]any{}
 	issues := []ValidationIssue{}
-	for _, mapping := range run.Request.ProjectionConfig.MetadataMappings {
+	for _, mapping := range run.Request.projectionConfig.MetadataMappings {
 		if mapping.TargetScope != targetScope || (mapping.TargetKind != "*" && mapping.TargetKind != targetKind) {
 			continue
 		}
@@ -387,11 +387,11 @@ type candidateDefinition struct {
 	NullOutputPolicy   string
 }
 
-func candidateDefinitionFromProperty(definition PropertyDefinition) candidateDefinition {
+func candidateDefinitionFromProperty(definition propertyDefinition) candidateDefinition {
 	return candidateDefinition{ProjectedType: definition.ProjectedType, DefaultValue: definition.DefaultValue, HasDefaultValue: definition.HasDefaultValue, MissingBehavior: definition.MissingBehavior, SourceNullBehavior: definition.SourceNullBehavior, NullOutputPolicy: definition.NullOutputPolicy}
 }
 
-func candidateDefinitionFromMetadata(mapping MetadataMapping) candidateDefinition {
+func candidateDefinitionFromMetadata(mapping metadataMapping) candidateDefinition {
 	return candidateDefinition{ProjectedType: mapping.ProjectedType, DefaultValue: mapping.DefaultValue, HasDefaultValue: mapping.HasDefaultValue, MissingBehavior: mapping.MissingBehavior, SourceNullBehavior: mapping.SourceNullBehavior, NullOutputPolicy: mapping.NullOutputPolicy}
 }
 
@@ -436,7 +436,7 @@ func evaluateCandidate(definition candidateDefinition, value any, found bool) (a
 	return value, true, ""
 }
 
-func propertyValueIssue(run ProjectionRun, code, projectedKey, expectedType, sourceFieldPath, outputID string, value any, aggregationRuleID, groupingDigest, contributorID string) ValidationIssue {
+func propertyValueIssue(run projectionWork, code, projectedKey, expectedType, sourceFieldPath, outputID string, value any, aggregationRuleID, groupingDigest, contributorID string) ValidationIssue {
 	details := map[string]any{"projected_key": projectedKey, "expected_type": expectedType, "actual_type": jsonValueType(value), "source_field_path": sourceFieldPath, "output_object_id": outputID}
 	if aggregationRuleID != "" {
 		details["aggregation_rule_id"] = aggregationRuleID
@@ -518,7 +518,7 @@ func mergeValues(behavior string, values []any) (any, bool, bool) {
 	return nil, false, false
 }
 
-func sourceField(entity SourceEntity, relationship *SourceRelationship, graphSource map[string]any, fieldPath string) (any, bool) {
+func sourceField(entity sourceEntity, relationship *sourceRelationship, graphSource map[string]any, fieldPath string) (any, bool) {
 	parts := strings.Split(fieldPath, ".")
 	switch parts[0] {
 	case "source_entity_id":
@@ -590,7 +590,7 @@ func contributorField(entry contributor, fieldPath string) (any, bool) {
 		return sourceField(*entry.Entity, nil, nil, fieldPath)
 	}
 	if entry.Relationship != nil {
-		return sourceField(SourceEntity{}, entry.Relationship, nil, fieldPath)
+		return sourceField(sourceEntity{}, entry.Relationship, nil, fieldPath)
 	}
 	if entry.Vertex != nil {
 		return projectedVertexField(*entry.Vertex, fieldPath)

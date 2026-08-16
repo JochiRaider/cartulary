@@ -1,8 +1,0 @@
-{
-  "fixture_id": "GP-FIX-030",
-  "refresh_state": "failed",
-  "selected_read_error": {
-    "code": "projection_not_available",
-    "reason_code": "invalidated"
-  }
-}

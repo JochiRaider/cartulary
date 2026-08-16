@@ -34,13 +34,8 @@ func CurrentGraphProjectionImplementationBinding() GraphProjectionImplementation
 	return graphprojection.CurrentRestoreImplementationBinding()
 }
 
-func LegacyGraphProjectionImplementationBinding() GraphProjectionImplementationBindingRef {
-	return graphprojection.LegacyEmptyRegistryRestoreImplementationBinding()
-}
-
-// RestoredGraphProjectionSourceState is the Recovery-owned typed capability
-// handed to Graph enumerators. The current empty registry has no source-owner
-// readers, so the capability intentionally exposes no query surface.
+// RestoredGraphProjectionSourceState is an opaque Recovery-owned capability;
+// source-owner registrations hold their own narrow restored-state readers.
 type RestoredGraphProjectionSourceState struct{}
 
 func (RestoredGraphProjectionSourceState) GraphProjectionRestoreSourceState() {}

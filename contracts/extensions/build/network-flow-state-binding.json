@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.extension_physical_state_binding.v1",
   "profile_id": "network_flow_activity",
-  "state_presence_manifest_sha256": "9adc721fa2b3816c9c0f48dc68a616b9581a37354eb537810563971b2b53b131",
+  "state_presence_manifest_sha256": "1e26a739b33845a496bdec258fd6be6f762889149c8b82faa93eb24b344bfa8b",
   "bindings": [
     {
       "binding_id": "network_flow_activity.tables",
@@ -52,6 +52,19 @@
       "restore_order_group": 400,
       "backup_codec_id": "network_flow_activity.indicator_bindings_codec.v1",
       "backup_codec_sha256": "b1e162fc2ff57bfd2894dd0e5589052a065c2c3a018d0e47199f554204284dbc",
+      "post_restore_validation_algorithm_id": "extension_validate_postgres_binding_restore_v1",
+      "rebuild_algorithm_id": null
+    },
+    {
+      "binding_id": "network_flow_activity.graph_views",
+      "logical_family_id": "network_flow_activity.graph_views",
+      "storage_kind": "postgres",
+      "physical_ref": "network_flow_activity:graph_views",
+      "state_class": "authoritative",
+      "backup_inclusion": "required",
+      "restore_order_group": 500,
+      "backup_codec_id": "network_flow_activity.graph_views_codec.v1",
+      "backup_codec_sha256": "65aba884c78448b6ac54da324a290050f4544b9b1a66c17a9c5f1faddab6fb7a",
       "post_restore_validation_algorithm_id": "extension_validate_postgres_binding_restore_v1",
       "rebuild_algorithm_id": null
     }

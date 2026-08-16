@@ -389,6 +389,43 @@
       ]
     },
     {
+      "row_id": "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.graphprojection",
+        "platform.jobs",
+        "web.networkflow"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/network-flow.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_d5a443be4345"
+        ],
+        "titles": [
+          "Network Analysis saved graphs complete exact-result lifecycle through the real application"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.browser_stateful",
@@ -534,6 +571,38 @@
       ]
     },
     {
+      "row_id": "module.networkflow.integration.saved_graph_lifecycle_v2",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.extensions",
+        "module.graphprojection",
+        "platform.jobs"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowSavedGraphLifecycleRoutes_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.measurement",
@@ -604,6 +673,42 @@
       ]
     },
     {
+      "row_id": "module.networkflow.measurement.saved_graph_dom_ceiling",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.graphprojection",
+        "web.networkflow"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/network-flow-grid.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_de7e4f6e5582"
+        ],
+        "titles": [
+          "measures the saved graph viewer 500-vertex and 1000-edge DOM ceiling"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.networkflow.process.the_packaged_standalone_server_composes_the_netw_400a31ad27",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.process",
@@ -629,6 +734,36 @@
       "minimum_tier": "full",
       "service_dependencies": [
         "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.networkflow.store.graph_view_declaration_persistence",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.store",
+      "collaborator_ids": [
+        "module.graphprojection",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowGraphViewDeclarationPersistence_Integration",
+          "TestNetworkFlowGraphViewPublicationRejectsStaleGenerationAndAllowsRename_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
         "postgres"
       ]
     },
@@ -1407,6 +1542,7 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
+          "TestNetworkFlowV3SavedGraphContractProjection_Unit",
           "TestNetworkFlow_CrossTableGraphEvidence_Integration"
         ]
       },

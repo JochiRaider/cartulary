@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "schema_id": "cartulary.network_flow_frontend_entrypoints.v3",
   "profile_id": "network_flow_activity",
-  "contract_major": 2,
+  "contract_major": 3,
   "network_flow": {
     "contract_index_path": "contracts/network-flow/index.json",
     "mapping_registry_path": "contracts/network-flow/mapping-registry.v2.json",

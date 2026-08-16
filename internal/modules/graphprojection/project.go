@@ -5,197 +5,114 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 	"unicode/utf8"
 )
 
-type projectOptions struct {
-	ProjectionRunNonce      string
-	AcceptedAt              time.Time
-	GeneratedAt             time.Time
-	PreviousProjectionRunID *string
-	InvocationIDPrefix      string
-	InvocationDomain        string
-	Operation               string
+type projectionWork struct {
+	Request                       projectionRequest
+	GraphViewID                   string
+	NormalizedConfigurationSHA256 string
+	NormalizedSourceSHA256        string
+	IdentityDigest                string
 }
 
-func project(data []byte, options projectOptions) (ProjectionRun, error) {
-	return projectWithContext(context.Background(), data, options)
+type projectedGraph struct {
+	Properties           map[string]any
+	MappedMetadata       map[string]any
+	SchemaRegistry       SchemaRegistry
+	Vertices             []Vertex
+	Edges                []Edge
+	ValidationSummary    ValidationSummary
+	ConsumerCapabilities ConsumerCapabilities
 }
 
-func projectWithContext(ctx context.Context, data []byte, options projectOptions) (ProjectionRun, error) {
+func projectSemanticGraph(ctx context.Context, run projectionWork) (projectedGraph, error) {
 	if err := ctx.Err(); err != nil {
-		return ProjectionRun{}, err
-	}
-	run, err := admitProjectionInput(data, admitOptions{
-		ProjectionRunNonce: options.ProjectionRunNonce,
-		AcceptedAt:         options.AcceptedAt,
-		InvocationIDPrefix: options.InvocationIDPrefix,
-		InvocationDomain:   options.InvocationDomain,
-		Operation:          options.Operation,
-	})
-	if err != nil {
-		return ProjectionRun{}, err
-	}
-	run.State = RunStateComputing
-	startedAt := options.AcceptedAt.UTC()
-	if startedAt.IsZero() {
-		startedAt = time.Now().UTC()
-	}
-	run.StartedAt = &startedAt
-	return projectAdmittedRunWithContext(ctx, run, options)
-}
-
-func projectAdmittedRunWithContext(ctx context.Context, run ProjectionRun, options projectOptions) (ProjectionRun, error) {
-	if err := ctx.Err(); err != nil {
-		return run, err
+		return projectedGraph{}, err
 	}
 	issues := validateAdmittedRequest(run)
-	result := run
-	generatedAt := options.GeneratedAt.UTC()
-	if generatedAt.IsZero() {
-		generatedAt = time.Now().UTC()
-	}
-	result.PreviousProjectionRunID = options.PreviousProjectionRunID
 	if hasFatalIssue(issues) || len(issues) > graphProjectionLimits.MaxValidationIssues {
-		result.State = RunStateFailed
-		result.FailureReason = "fatal_validation"
-		now := generatedAt
-		result.CompletedAt = &now
-		result.ValidationSummary = validationSummary(run, issues)
-		return result, nil
+		return projectedGraph{ValidationSummary: validationSummary(run, issues)}, nil
 	}
 
-	if err := ctx.Err(); err != nil {
-		return run, err
-	}
 	vertices, vertexBySource, vertexIssues, err := emitDirectVertices(ctx, run)
 	if err != nil {
-		return run, err
+		return projectedGraph{}, err
 	}
 	issues = append(issues, vertexIssues...)
 	edges, edgeIssues, err := emitDirectEdges(ctx, run, vertexBySource)
 	if err != nil {
-		return run, err
+		return projectedGraph{}, err
 	}
 	issues = append(issues, edgeIssues...)
-	aggVertices, aggEdges, aggIssues, err := emitAggregations(ctx, run, vertices, edges)
+	aggregatedVertices, aggregatedEdges, aggregationIssues, err := emitAggregations(ctx, run, vertices, edges)
 	if err != nil {
-		return run, err
+		return projectedGraph{}, err
 	}
-	issues = append(issues, aggIssues...)
-	vertices = append(vertices, aggVertices...)
-	edges = append(edges, aggEdges...)
+	issues = append(issues, aggregationIssues...)
+	vertices = append(vertices, aggregatedVertices...)
+	edges = append(edges, aggregatedEdges...)
 	sortVertices(vertices)
 	sortEdges(edges)
 	issues = append(issues, projectedOutputLimitIssues(run, vertices, edges)...)
-
 	if hasFatalIssue(issues) || len(issues) > graphProjectionLimits.MaxValidationIssues {
-		result.State = RunStateFailed
-		result.FailureReason = "fatal_validation"
-		now := generatedAt
-		result.CompletedAt = &now
-		result.ValidationSummary = validationSummary(run, issues)
-		return result, nil
+		return projectedGraph{ValidationSummary: validationSummary(run, issues)}, nil
 	}
 
-	if err := ctx.Err(); err != nil {
-		return run, err
+	properties := deriveGraphProperties(run, &issues)
+	mappedMetadata, metadataIssues := deriveMetadata(run, "graph_view", "*", sourceEntity{}, nil, run.GraphViewID)
+	issues = append(issues, metadataIssues...)
+	if len(properties) > graphProjectionLimits.MaxPropertiesPerObject {
+		issues = append(issues, run.issue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": "max_properties_per_object", "limit": graphProjectionLimits.MaxPropertiesPerObject, "observed": len(properties)}))
 	}
-	graphProperties := deriveGraphProperties(run, &issues)
-	graphMappedMetadata, graphMetadataIssues := deriveMetadata(run, "graph_view", "*", SourceEntity{}, nil, run.GraphViewID)
-	issues = append(issues, graphMetadataIssues...)
-	if len(graphProperties) > graphProjectionLimits.MaxPropertiesPerObject {
-		issues = append(issues, run.issue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": "max_properties_per_object", "limit": graphProjectionLimits.MaxPropertiesPerObject, "observed": len(graphProperties)}))
-	}
-	if len(graphMappedMetadata) > graphProjectionLimits.MaxMetadataKeysPerObject {
-		issues = append(issues, run.issue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": "max_metadata_keys_per_object", "limit": graphProjectionLimits.MaxMetadataKeysPerObject, "observed": len(graphMappedMetadata)}))
-	}
-	if hasFatalIssue(issues) || len(issues) > graphProjectionLimits.MaxValidationIssues {
-		result.State = RunStateFailed
-		result.FailureReason = "fatal_validation"
-		now := generatedAt
-		result.CompletedAt = &now
-		result.ValidationSummary = validationSummary(run, issues)
-		return result, nil
+	if len(mappedMetadata) > graphProjectionLimits.MaxMetadataKeysPerObject {
+		issues = append(issues, run.issue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": "max_metadata_keys_per_object", "limit": graphProjectionLimits.MaxMetadataKeysPerObject, "observed": len(mappedMetadata)}))
 	}
 	summary := validationSummary(run, issues)
-	result.State = RunStateAvailable
-	now := generatedAt
-	result.GeneratedAt = &now
-	result.CompletedAt = &now
-	graphView := &GraphView{
-		ProjectionSchemaID: ProjectionSchemaID,
-		GraphViewID:        result.GraphViewID,
-		GraphViewKey:       run.Request.ProjectionConfig.GraphViewKey,
-		ProjectionRunID:    result.ProjectionRunID,
-		SourceSnapshotID:   run.Request.SourceSnapshotID,
-		ProjectionVersion:  run.Request.ProjectionConfig.ProjectionVersion,
-		GeneratedAt:        formatLifecycleTimestamp(generatedAt),
-		State:              RunStateAvailable,
-		Properties:         graphProperties,
-		Metadata: GraphMetadata{
-			ProjectionConfigDigest:  run.ProjectionConfigDigest,
-			ProjectionSourceDigest:  run.ProjectionSourceDigest,
-			PreviousProjectionRunID: options.PreviousProjectionRunID,
-			MappedMetadata:          graphMappedMetadata,
-		},
+	if hasFatalIssue(issues) || len(issues) > graphProjectionLimits.MaxValidationIssues {
+		return projectedGraph{ValidationSummary: summary}, nil
+	}
+
+	graph := projectedGraph{
+		Properties:           properties,
+		MappedMetadata:       mappedMetadata,
 		SchemaRegistry:       buildSchemaRegistry(run, vertices, edges),
 		Vertices:             vertices,
 		Edges:                edges,
 		ValidationSummary:    summary,
 		ConsumerCapabilities: defaultConsumerCapabilities(),
 	}
-	result.ValidationSummary = summary
-	result.GraphView = graphView
-	if graphBytes, err := canonicalJSON(graphViewCanonicalResource(*graphView)); err == nil {
-		result.ProjectionOutputDigest = sha256Hex(graphBytes)
-	}
-	if err := validateProjectedGraph(run, graphView); err != nil {
+	if err := validateProjectedGraph(run, graph); err != nil {
 		issue := run.issue("fatal", "output_schema_violation", "graph_view", run.GraphViewID, "$", map[string]any{"field": "$", "reason_code": err.Error()})
-		result.State = RunStateFailed
-		result.GraphView = nil
-		result.ProjectionOutputDigest = ""
-		result.FailureReason = "fatal_validation"
-		result.ValidationSummary = validationSummary(run, append(issues, issue))
-		return result, nil
+		return projectedGraph{ValidationSummary: validationSummary(run, append(issues, issue))}, nil
 	}
-	return result, nil
+	return graph, nil
 }
 
-func validateProjectedGraph(run ProjectionRun, graphView *GraphView) error {
-	if graphView == nil {
-		return fmt.Errorf("closed_schema_violation")
-	}
-	if graphView.GraphViewID != run.GraphViewID || graphView.ProjectionRunID != run.ProjectionRunID {
-		return fmt.Errorf("id_mismatch")
-	}
-	if graphView.ProjectionSchemaID != ProjectionSchemaID || graphView.Metadata.ProjectionConfigDigest != run.ProjectionConfigDigest || graphView.Metadata.ProjectionSourceDigest != run.ProjectionSourceDigest {
-		return fmt.Errorf("metadata_shape_invalid")
-	}
-	vertexKinds := make(map[string]bool, len(graphView.SchemaRegistry.VertexKinds))
-	for _, schema := range graphView.SchemaRegistry.VertexKinds {
+func validateProjectedGraph(run projectionWork, graph projectedGraph) error {
+	vertexKinds := make(map[string]bool, len(graph.SchemaRegistry.VertexKinds))
+	for _, schema := range graph.SchemaRegistry.VertexKinds {
 		vertexKinds[schema.VertexKind] = true
 	}
-	edgeKinds := make(map[string]bool, len(graphView.SchemaRegistry.EdgeKinds))
-	for _, schema := range graphView.SchemaRegistry.EdgeKinds {
+	edgeKinds := make(map[string]bool, len(graph.SchemaRegistry.EdgeKinds))
+	for _, schema := range graph.SchemaRegistry.EdgeKinds {
 		edgeKinds[schema.EdgeKind] = true
 	}
-	vertexIDs := make(map[string]bool, len(graphView.Vertices))
-	for index, vertex := range graphView.Vertices {
+	vertexIDs := make(map[string]bool, len(graph.Vertices))
+	for index, vertex := range graph.Vertices {
 		if !generatedIDPattern.MatchString(vertex.VertexID) || !strings.HasPrefix(vertex.VertexID, "vx_") || vertexIDs[vertex.VertexID] {
 			return fmt.Errorf("id_mismatch")
 		}
 		if !vertexKinds[vertex.VertexKind] {
 			return fmt.Errorf("schema_registry_mismatch")
 		}
-		if index > 0 && (graphView.Vertices[index-1].SortKey > vertex.SortKey || (graphView.Vertices[index-1].SortKey == vertex.SortKey && graphView.Vertices[index-1].VertexID > vertex.VertexID)) {
+		if index > 0 && (graph.Vertices[index-1].SortKey > vertex.SortKey || (graph.Vertices[index-1].SortKey == vertex.SortKey && graph.Vertices[index-1].VertexID > vertex.VertexID)) {
 			return fmt.Errorf("sort_order_invalid")
 		}
 		vertexIDs[vertex.VertexID] = true
 	}
-	edgeIDs := make(map[string]bool, len(graphView.Edges))
-	for index, edge := range graphView.Edges {
+	edgeIDs := make(map[string]bool, len(graph.Edges))
+	for index, edge := range graph.Edges {
 		if !generatedIDPattern.MatchString(edge.EdgeID) || !strings.HasPrefix(edge.EdgeID, "ed_") || edgeIDs[edge.EdgeID] {
 			return fmt.Errorf("id_mismatch")
 		}
@@ -205,23 +122,43 @@ func validateProjectedGraph(run ProjectionRun, graphView *GraphView) error {
 		if !edgeKinds[edge.EdgeKind] {
 			return fmt.Errorf("schema_registry_mismatch")
 		}
-		if index > 0 && (graphView.Edges[index-1].SortKey > edge.SortKey || (graphView.Edges[index-1].SortKey == edge.SortKey && graphView.Edges[index-1].EdgeID > edge.EdgeID)) {
+		if index > 0 && (graph.Edges[index-1].SortKey > edge.SortKey || (graph.Edges[index-1].SortKey == edge.SortKey && graph.Edges[index-1].EdgeID > edge.EdgeID)) {
 			return fmt.Errorf("sort_order_invalid")
 		}
 		edgeIDs[edge.EdgeID] = true
 	}
-	if _, err := canonicalJSON(graphViewCanonicalResource(*graphView)); err != nil {
+	if _, err := canonicalJSON(projectedGraphResource(graph)); err != nil {
 		return fmt.Errorf("canonical_serialization_invalid")
 	}
 	return nil
 }
 
-func buildSchemaRegistry(run ProjectionRun, vertices []Vertex, edges []Edge) SchemaRegistry {
+func projectedGraphResource(graph projectedGraph) map[string]any {
+	vertices := make([]any, 0, len(graph.Vertices))
+	for _, vertex := range graph.Vertices {
+		vertices = append(vertices, vertexResource(vertex))
+	}
+	edges := make([]any, 0, len(graph.Edges))
+	for _, edge := range graph.Edges {
+		edges = append(edges, edgeResource(edge))
+	}
+	return map[string]any{
+		"properties":            nonNilMap(graph.Properties),
+		"mapped_metadata":       nonNilMap(graph.MappedMetadata),
+		"schema_registry":       schemaRegistryResource(graph.SchemaRegistry),
+		"vertices":              vertices,
+		"edges":                 edges,
+		"validation_summary":    validationSummaryResource(graph.ValidationSummary),
+		"consumer_capabilities": consumerCapabilitiesResource(graph.ConsumerCapabilities),
+	}
+}
+
+func buildSchemaRegistry(run projectionWork, vertices []Vertex, edges []Edge) SchemaRegistry {
 	vertexKinds := map[string]*VertexKindSchema{}
-	for _, mapping := range run.Request.ProjectionConfig.EntityMappings {
+	for _, mapping := range run.Request.projectionConfig.EntityMappings {
 		item := ensureVertexKind(vertexKinds, mapping.ProjectedVertexKind)
 		item.SourceEntityKinds = append(item.SourceEntityKinds, mapping.SourceEntityKind)
-		item.Labels = append(item.Labels, run.Request.ProjectionConfig.DefaultVertexLabels...)
+		item.Labels = append(item.Labels, run.Request.projectionConfig.DefaultVertexLabels...)
 		if mapping.LabelPolicy == "mapping_only" || mapping.LabelPolicy == "mapping_then_source" {
 			item.Labels = append(item.Labels, mapping.MappingLabels...)
 		}
@@ -229,11 +166,11 @@ func buildSchemaRegistry(run ProjectionRun, vertices []Vertex, edges []Edge) Sch
 			item.SourceLabelsPreserved = true
 		}
 	}
-	for _, rule := range run.Request.ProjectionConfig.AggregationRules {
+	for _, rule := range run.Request.projectionConfig.AggregationRules {
 		if rule.TargetScope == "vertex" {
 			item := ensureVertexKind(vertexKinds, rule.ProjectedKind)
 			item.AggregationRuleIDs = append(item.AggregationRuleIDs, rule.AggregationRuleID)
-			item.Labels = append(item.Labels, run.Request.ProjectionConfig.DefaultVertexLabels...)
+			item.Labels = append(item.Labels, run.Request.projectionConfig.DefaultVertexLabels...)
 		}
 	}
 	edgeKinds := map[string]*EdgeKindSchema{}
@@ -241,7 +178,7 @@ func buildSchemaRegistry(run ProjectionRun, vertices []Vertex, edges []Edge) Sch
 		item := ensureEdgeKind(edgeKinds, mapping.ProjectedEdgeKind)
 		item.SourceRelationshipKinds = append(item.SourceRelationshipKinds, mapping.SourceRelationshipKind)
 		item.Directions = append(item.Directions, projectedDirectionsForPolicy(mapping.DirectionPolicy)...)
-		item.Labels = append(item.Labels, run.Request.ProjectionConfig.DefaultEdgeLabels...)
+		item.Labels = append(item.Labels, run.Request.projectionConfig.DefaultEdgeLabels...)
 		if mapping.LabelPolicy == "mapping_only" || mapping.LabelPolicy == "mapping_then_source" {
 			item.Labels = append(item.Labels, mapping.MappingLabels...)
 		}
@@ -256,12 +193,12 @@ func buildSchemaRegistry(run ProjectionRun, vertices []Vertex, edges []Edge) Sch
 			reverse.SourceLabelsPreserved = item.SourceLabelsPreserved
 		}
 	}
-	for _, rule := range run.Request.ProjectionConfig.AggregationRules {
+	for _, rule := range run.Request.projectionConfig.AggregationRules {
 		if rule.TargetScope == "edge" {
 			item := ensureEdgeKind(edgeKinds, rule.ProjectedKind)
 			item.AggregationRuleIDs = append(item.AggregationRuleIDs, rule.AggregationRuleID)
 			item.Directions = append(item.Directions, rule.EdgeDirection)
-			item.Labels = append(item.Labels, run.Request.ProjectionConfig.DefaultEdgeLabels...)
+			item.Labels = append(item.Labels, run.Request.projectionConfig.DefaultEdgeLabels...)
 		}
 	}
 	for _, definition := range run.Request.PropertyDefinitions {
@@ -302,7 +239,7 @@ func buildSchemaRegistry(run ProjectionRun, vertices []Vertex, edges []Edge) Sch
 			registry.PropertyKeys = append(registry.PropertyKeys, PropertySchema{TargetScope: definition.TargetScope, TargetKind: targetKind, ProjectedKey: definition.ProjectedKey, ProjectedType: definition.ProjectedType, Required: definition.Required, NullableOutput: definition.NullOutputPolicy == "emit_null", MissingBehavior: definition.MissingBehavior, SourceNullBehavior: definition.SourceNullBehavior})
 		}
 	}
-	for _, mapping := range run.Request.ProjectionConfig.MetadataMappings {
+	for _, mapping := range run.Request.projectionConfig.MetadataMappings {
 		for _, targetKind := range expandedTargetKinds(mapping.TargetScope, mapping.TargetKind, vertexKinds, edgeKinds) {
 			registry.MetadataKeys = append(registry.MetadataKeys, MetadataSchema{TargetScope: mapping.TargetScope, TargetKind: targetKind, ProjectedMetadataKey: mapping.ProjectedMetadataKey, ProjectedType: mapping.ProjectedType, Required: mapping.Required, NullableOutput: mapping.NullOutputPolicy == "emit_null", MissingBehavior: mapping.MissingBehavior, SourceNullBehavior: mapping.SourceNullBehavior})
 		}
@@ -394,7 +331,7 @@ func sourceRefs(contributors []contributor) []SourceRef {
 	return refs
 }
 
-func entityIDs(entities []SourceEntity) []string {
+func entityIDs(entities []sourceEntity) []string {
 	out := make([]string, 0, len(entities))
 	for _, entity := range entities {
 		out = append(out, entity.SourceEntityID)
@@ -402,7 +339,7 @@ func entityIDs(entities []SourceEntity) []string {
 	return out
 }
 
-func relationshipIDs(relationships []SourceRelationship) []string {
+func relationshipIDs(relationships []sourceRelationship) []string {
 	out := make([]string, 0, len(relationships))
 	for _, relationship := range relationships {
 		out = append(out, relationship.SourceRelationshipID)
@@ -449,7 +386,7 @@ func validFieldPath(path string) bool {
 
 func reservedSystemMetadataTerminal(value string) bool {
 	switch value {
-	case "mapping_rule_id", "aggregation_rule_id", "aggregation_source_refs", "is_reverse_edge", "reverse_of_edge_id", "mapped_metadata", "previous_projection_run_id", "projection_config_digest", "projection_source_digest", "invalidation":
+	case "mapping_rule_id", "aggregation_rule_id", "aggregation_source_refs", "is_reverse_edge", "reverse_of_edge_id", "mapped_metadata", "projection_result_id", "normalized_configuration_sha256", "normalized_source_sha256", "canonical_output_sha256":
 		return true
 	default:
 		return false
@@ -547,11 +484,11 @@ func valueMatchesType(projectedType string, value any) bool {
 	}
 }
 
-func propertyApplies(definition PropertyDefinition, targetScope, targetKind string) bool {
+func propertyApplies(definition propertyDefinition, targetScope, targetKind string) bool {
 	return definition.TargetScope == targetScope && (definition.TargetKind == "*" || definition.TargetKind == targetKind)
 }
 
-func filtersMatchEntity(filters []FilterPredicate, entity SourceEntity) bool {
+func filtersMatchEntity(filters []filterPredicate, entity sourceEntity) bool {
 	for _, filter := range filters {
 		value, ok := sourceField(entity, nil, nil, filter.FieldPath)
 		if !filterMatches(value, ok, filter) {
@@ -561,9 +498,9 @@ func filtersMatchEntity(filters []FilterPredicate, entity SourceEntity) bool {
 	return true
 }
 
-func filtersMatchRelationship(filters []FilterPredicate, relationship SourceRelationship) bool {
+func filtersMatchRelationship(filters []filterPredicate, relationship sourceRelationship) bool {
 	for _, filter := range filters {
-		value, ok := sourceField(SourceEntity{}, &relationship, nil, filter.FieldPath)
+		value, ok := sourceField(sourceEntity{}, &relationship, nil, filter.FieldPath)
 		if !filterMatches(value, ok, filter) {
 			return false
 		}
@@ -571,7 +508,7 @@ func filtersMatchRelationship(filters []FilterPredicate, relationship SourceRela
 	return true
 }
 
-func filterMatches(value any, present bool, filter FilterPredicate) bool {
+func filterMatches(value any, present bool, filter filterPredicate) bool {
 	if !present {
 		return filter.IncludeIfMissing
 	}
@@ -628,7 +565,7 @@ func sortDirections(values []string) []string {
 
 func defaultConsumerCapabilities() ConsumerCapabilities {
 	return ConsumerCapabilities{
-		QueryShapes:                     []string{"get_edge", "get_graph_view", "get_projection_run", "get_vertex", "list_graph_views", "traverse"},
+		QueryShapes:                     []string{"read_edges", "read_exact_result", "read_vertices", "traverse"},
 		SupportsDirectVertexLookup:      true,
 		SupportsDirectEdgeLookup:        true,
 		SupportsBreadthFirstTraversal:   true,
@@ -637,8 +574,4 @@ func defaultConsumerCapabilities() ConsumerCapabilities {
 		MaxTraversalSeedVertices:        graphProjectionLimits.MaxTraversalSeedVertices,
 		MaxKindFilters:                  graphProjectionLimits.MaxTraversalKindFilters,
 	}
-}
-
-func formatLifecycleTimestamp(t time.Time) string {
-	return t.UTC().Format("2006-01-02T15:04:05.000000Z")
 }

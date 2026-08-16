@@ -245,6 +245,35 @@
       ]
     },
     {
+      "row_id": "module.extensions.integration.network_flow_state_v2",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.integration",
+      "collaborator_ids": [
+        "module.networkflow",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowFinalValidator"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.extensions.integration.state_admission_matrix_7f6ad80724",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.integration",
@@ -267,7 +296,6 @@
           "TestStateRuntimeAdmit_ServiceBacked_CommitOutcomeAbsent",
           "TestStateRuntimeAdmit_ServiceBacked_CommitOutcomeCommitted",
           "TestStateRuntimeAdmit_ServiceBacked_CommitOutcomeIndeterminate",
-          "TestStateRuntimeAdmit_ServiceBacked_ConcurrentAdmissionAndLockLifetime",
           "TestStateRuntimeAdmit_ServiceBacked_CrashResumeLedger",
           "TestStateRuntimeAdmit_ServiceBacked_FinalValidationFailureResumable",
           "TestStateRuntimeAdmit_ServiceBacked_ForbiddenEmptyState",
@@ -277,9 +305,36 @@
           "TestStateRuntimeAdmit_ServiceBacked_MigrationDefinitionClosure",
           "TestStateRuntimeAdmit_ServiceBacked_MigrationSequence",
           "TestStateRuntimeAdmit_ServiceBacked_MigrationStepRollback",
-          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowFinalValidator",
           "TestStateRuntimeAdmit_ServiceBacked_StatePresenceMatrix",
           "TestStateRuntimeAdmit_ServiceBacked_StepAndProfileDeadlines"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.extensions.integration.state_concurrent_admission",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestStateRuntimeAdmit_ServiceBacked_ConcurrentAdmissionAndLockLifetime"
         ]
       },
       "evidence_class": "integration",
@@ -727,6 +782,33 @@
         "tests": [
           "TestReconcileInactiveExtensionJobsFailsBeforeMutation_Unit",
           "TestReconcileInactiveExtensionJobs_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.extensions.unit.network_flow_v3_state_jobs_reporting_projection",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.unit",
+      "collaborator_ids": [
+        "module.networkflow",
+        "module.reporting"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestNetworkFlowV3StateJobsAndReportingProjection_Unit"
         ]
       },
       "evidence_class": "unit",

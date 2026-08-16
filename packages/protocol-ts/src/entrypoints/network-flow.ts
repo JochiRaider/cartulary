@@ -5,6 +5,12 @@ import { networkFlowPresentationRegistry } from "../generated/network-flow-prese
 import type {
   GraphContributorQueryResult,
   GraphQueryResult,
+  GraphViewAccepted,
+  GraphViewContributorQueryResult,
+  GraphViewGet,
+  GraphViewList,
+  GraphViewMutationResult,
+  GraphViewResult,
   ImportPreviewResult,
   IndicatorLinkResult,
   RejectedRowsQueryResult,
@@ -16,6 +22,12 @@ import type {
 import {
   validateCartularyNetworkFlowGraphContributorQueryResultV1,
   validateCartularyNetworkFlowGraphQueryResultV1,
+  validateCartularyNetworkFlowGraphViewAcceptedV1,
+  validateCartularyNetworkFlowGraphViewContributorQueryResultV1,
+  validateCartularyNetworkFlowGraphViewGetV1,
+  validateCartularyNetworkFlowGraphViewListV1,
+  validateCartularyNetworkFlowGraphViewMutationResultV1,
+  validateCartularyNetworkFlowGraphViewResultV1,
   validateCartularyNetworkFlowImportPreviewResultV1,
   validateCartularyNetworkFlowIndicatorLinkResultV1,
   validateCartularyNetworkFlowRejectedRowsQueryResultV1,
@@ -67,6 +79,31 @@ export const networkFlowDecoders = Object.freeze({
     "cartulary.network_flow.graph_contributor_query_result.v1",
     validateCartularyNetworkFlowGraphContributorQueryResultV1,
   ),
+  graphViewList: createDecoder<GraphViewList>(
+    "cartulary.network_flow.graph_view_list.v1",
+    validateCartularyNetworkFlowGraphViewListV1,
+  ),
+  graphViewGet: createDecoder<GraphViewGet>(
+    "cartulary.network_flow.graph_view_get.v1",
+    validateCartularyNetworkFlowGraphViewGetV1,
+  ),
+  graphViewAccepted: createDecoder<GraphViewAccepted>(
+    "cartulary.network_flow.graph_view_accepted.v1",
+    validateCartularyNetworkFlowGraphViewAcceptedV1,
+  ),
+  graphViewMutationResult: createDecoder<GraphViewMutationResult>(
+    "cartulary.network_flow.graph_view_mutation_result.v1",
+    validateCartularyNetworkFlowGraphViewMutationResultV1,
+  ),
+  graphViewResult: createDecoder<GraphViewResult>(
+    "cartulary.network_flow.graph_view_result.v1",
+    validateCartularyNetworkFlowGraphViewResultV1,
+  ),
+  graphViewContributorQueryResult:
+    createDecoder<GraphViewContributorQueryResult>(
+      "cartulary.network_flow.graph_view_contributor_query_result.v1",
+      validateCartularyNetworkFlowGraphViewContributorQueryResultV1,
+    ),
   indicatorLinkResult: createDecoder<IndicatorLinkResult>(
     "cartulary.network_flow.indicator_link_result.v1",
     validateCartularyNetworkFlowIndicatorLinkResultV1,

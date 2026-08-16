@@ -2,39 +2,47 @@ package postgresrestore
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
-	graphprojection "github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 const truncateGraphProjectionTablesSQL = `TRUNCATE TABLE
-  graph_projection_edges,
-  graph_projection_idempotency,
-  graph_projection_runs,
-  graph_projection_vertices,
-  graph_projection_views
+  graph_projection_result_edges,
+  graph_projection_result_leases,
+  graph_projection_result_vertices,
+  graph_projection_results
 RESTRICT`
 
 const committedProofTimeout = 30 * time.Second
 
-// Writer is the narrow, borrowed-Postgres publication adapter used only by
-// Recovery. It deliberately does not embed or construct postgresstore.Store.
+// DerivedStateReconciler is supplied by application assembly. It lets the
+// Recovery participant recreate owner-specific jobs and Reporting leases in
+// the same transaction without importing those subsystems into Graph.
+type DerivedStateReconciler interface {
+	ReconcileGraphProjectionDerivedState(context.Context, pgx.Tx, []graphprojection.ResultBindingV2) (int, int, error)
+}
+
 type Writer struct {
-	db postgres.DB
+	db         postgres.DB
+	reconciler DerivedStateReconciler
 }
 
 var _ graphprojection.RestorePublisher = (*Writer)(nil)
 
-func New(db postgres.DB) (*Writer, error) {
+func New(db postgres.DB) (*Writer, error) { return NewWithReconciler(db, nil) }
+
+func NewWithReconciler(db postgres.DB, reconciler DerivedStateReconciler) (*Writer, error) {
 	if db == nil {
 		return nil, graphprojection.NewRestoreError(graphprojection.RestoreErrorInvalidRequest)
 	}
-	return &Writer{db: db}, nil
+	return &Writer{db: db, reconciler: reconciler}, nil
 }
 
 func (writer *Writer) ReplaceAll(ctx context.Context, plan graphprojection.RestorePublicationPlan) (graphprojection.RestorePublicationProof, error) {
@@ -46,18 +54,28 @@ func (writer *Writer) ReplaceAll(ctx context.Context, plan graphprojection.Resto
 		return graphprojection.RestorePublicationProof{}, &graphprojection.RestorePublicationError{Cause: err}
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	if _, err := tx.Exec(ctx, `SET CONSTRAINTS graph_projection_views_selected_run_fkey DEFERRED`); err != nil {
-		return graphprojection.RestorePublicationProof{}, publicationError(ctx, err)
-	}
 	if _, err := tx.Exec(ctx, truncateGraphProjectionTablesSQL); err != nil {
 		return graphprojection.RestorePublicationProof{}, publicationError(ctx, err)
 	}
+	publisher, err := postgresresult.NewPublisher(tx)
+	if err != nil {
+		return graphprojection.RestorePublicationProof{}, publicationError(ctx, err)
+	}
+	bindings := make([]graphprojection.ResultBindingV2, 0, len(plan.Projections))
 	for _, staged := range plan.Projections {
-		if err := insertProjection(ctx, tx, staged.Run); err != nil {
+		if err := publisher.PublishResult(ctx, staged.Result); err != nil {
+			return graphprojection.RestorePublicationProof{}, publicationError(ctx, err)
+		}
+		bindings = append(bindings, staged.Result.Binding)
+	}
+	jobs, leases := 0, 0
+	if writer.reconciler != nil {
+		jobs, leases, err = writer.reconciler.ReconcileGraphProjectionDerivedState(ctx, tx, bindings)
+		if err != nil || jobs < 0 || leases < 0 {
 			return graphprojection.RestorePublicationProof{}, publicationError(ctx, err)
 		}
 	}
-	if err := verifyPublishedState(ctx, tx, plan); err != nil {
+	if err := verifyPublishedState(ctx, tx, plan, leases); err != nil {
 		return graphprojection.RestorePublicationProof{}, publicationError(ctx, err)
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -65,11 +83,12 @@ func (writer *Writer) ReplaceAll(ctx context.Context, plan graphprojection.Resto
 	}
 	proofContext, cancelProof := context.WithTimeout(context.WithoutCancel(ctx), committedProofTimeout)
 	defer cancelProof()
-	if err := verifyPublishedState(proofContext, writer.db, plan); err != nil {
+	if err := verifyPublishedState(proofContext, writer.db, plan, leases); err != nil {
 		return graphprojection.RestorePublicationProof{}, &graphprojection.RestorePublicationError{Indeterminate: true, Cause: err}
 	}
 	return graphprojection.RestorePublicationProof{
-		RebuiltViews:        append([]graphprojection.RestoreRebuiltView{}, plan.RebuiltViews...),
+		RebuiltViews:                  append([]graphprojection.RestoreRebuiltView{}, plan.RebuiltViews...),
+		ReconciledNonterminalJobCount: jobs, ReconciledLeaseCount: leases,
 		PostconditionSHA256: plan.PostconditionSHA256,
 	}, nil
 }
@@ -90,146 +109,49 @@ func validPlan(plan graphprojection.RestorePublicationPlan) bool {
 			return false
 		}
 	}
+	for index := range plan.Projections {
+		staged, rebuilt := plan.Projections[index], plan.RebuiltViews[index]
+		if staged.Result.Binding.ProjectionResultID == "" || staged.SourceRegistrationID != rebuilt.SourceRegistrationID ||
+			staged.CandidateID != rebuilt.CandidateID || staged.Result.Binding.ProjectionResultID != rebuilt.ProjectionResultID {
+			return false
+		}
+	}
 	return true
 }
 
-func insertProjection(ctx context.Context, tx pgx.Tx, run graphprojection.ProjectionRun) error {
-	if run.State != graphprojection.RunStateAvailable || run.GraphView == nil || run.GeneratedAt == nil || run.CompletedAt == nil {
-		return fmt.Errorf("staged projection is not a terminal available run")
-	}
-	validationJSON, err := json.Marshal(run.ValidationSummary)
-	if err != nil {
-		return err
-	}
-	graphJSON, err := json.Marshal(run.GraphView)
-	if err != nil {
-		return err
-	}
-	retentionJSON, err := json.Marshal(run.Request.ProjectionConfig.RetentionPolicy)
-	if err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO graph_projection_views (
-    graph_view_id, graph_view_key, state, latest_projection_run_id,
-    latest_source_snapshot_id, projection_version, selected_projection_run_id,
-    updated_at, validation_status, invalidation_json
-) VALUES ($1, $2, 'available', $3, $4, $5, $3, $6, 'passed', NULL)
-`, run.GraphViewID, run.Request.ProjectionConfig.GraphViewKey, run.ProjectionRunID, run.Request.SourceSnapshotID, run.Request.ProjectionConfig.ProjectionVersion, *run.CompletedAt); err != nil {
-		return fmt.Errorf("insert Graph restore view: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO graph_projection_runs (
-    projection_run_id, graph_view_id, source_snapshot_id, projection_version,
-    state, projection_run_nonce, projection_config_digest, projection_source_digest,
-    accepted_at, started_at, generated_at, completed_at, validation_summary_json,
-    graph_view_json, retention_policy_json, projection_output_digest
-) VALUES ($1, $2, $3, $4, 'available', $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14::jsonb, $15)
-`, run.ProjectionRunID, run.GraphViewID, run.Request.SourceSnapshotID, run.Request.ProjectionConfig.ProjectionVersion,
-		run.ProjectionRunNonce, run.ProjectionConfigDigest, run.ProjectionSourceDigest, run.AcceptedAt,
-		run.StartedAt, run.GeneratedAt, run.CompletedAt, string(validationJSON), string(graphJSON), string(retentionJSON), run.ProjectionOutputDigest); err != nil {
-		return fmt.Errorf("insert Graph restore run: %w", err)
-	}
-	for _, vertex := range run.GraphView.Vertices {
-		body, err := json.Marshal(vertex)
-		if err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `
-INSERT INTO graph_projection_vertices (
-    projection_run_id, graph_view_id, vertex_id, vertex_kind, sort_key, vertex_json
-) VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-`, run.ProjectionRunID, run.GraphViewID, vertex.VertexID, vertex.VertexKind, vertex.SortKey, string(body)); err != nil {
-			return fmt.Errorf("insert Graph restore vertex: %w", err)
-		}
-	}
-	for _, edge := range run.GraphView.Edges {
-		body, err := json.Marshal(edge)
-		if err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `
-INSERT INTO graph_projection_edges (
-    projection_run_id, graph_view_id, edge_id, edge_kind, src_vertex_id,
-    dst_vertex_id, direction, sort_key, edge_json
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
-`, run.ProjectionRunID, run.GraphViewID, edge.EdgeID, edge.EdgeKind, edge.SrcVertexID, edge.DstVertexID, edge.Direction, edge.SortKey, string(body)); err != nil {
-			return fmt.Errorf("insert Graph restore edge: %w", err)
-		}
-	}
-	return nil
-}
-
 type restoreQueryer interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	Query(context.Context, string, ...any) (pgx.Rows, error)
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func verifyPublishedState(ctx context.Context, queryer restoreQueryer, plan graphprojection.RestorePublicationPlan) error {
-	var views, runs, vertices, edges, idempotency, invalidRuns, invalidViews, invalidSelected int
+func verifyPublishedState(ctx context.Context, queryer restoreQueryer, plan graphprojection.RestorePublicationPlan, wantLeases int) error {
+	var results, vertices, edges, leases int
 	if err := queryer.QueryRow(ctx, `
 SELECT
-    (SELECT COUNT(*) FROM graph_projection_views),
-    (SELECT COUNT(*) FROM graph_projection_runs),
-    (SELECT COUNT(*) FROM graph_projection_vertices),
-    (SELECT COUNT(*) FROM graph_projection_edges),
-    (SELECT COUNT(*) FROM graph_projection_idempotency),
-    (SELECT COUNT(*) FROM graph_projection_runs WHERE state <> 'available' OR projection_output_digest IS NULL),
-    (SELECT COUNT(*) FROM graph_projection_views WHERE state <> 'available' OR validation_status <> 'passed' OR invalidation_json IS NOT NULL),
-    (SELECT COUNT(*) FROM graph_projection_views AS view_state
-       LEFT JOIN graph_projection_runs AS selected
-         ON selected.projection_run_id = view_state.selected_projection_run_id
-        AND selected.graph_view_id = view_state.graph_view_id
-      WHERE selected.projection_run_id IS NULL)
-`).Scan(&views, &runs, &vertices, &edges, &idempotency, &invalidRuns, &invalidViews, &invalidSelected); err != nil {
+    (SELECT COUNT(*) FROM graph_projection_results),
+    (SELECT COUNT(*) FROM graph_projection_result_vertices),
+    (SELECT COUNT(*) FROM graph_projection_result_edges),
+    (SELECT COUNT(*) FROM graph_projection_result_leases)
+`).Scan(&results, &vertices, &edges, &leases); err != nil {
 		return fmt.Errorf("verify Graph restore aggregate state: %w", err)
 	}
-	wantVertices := 0
-	wantEdges := 0
-	storedOutputDigests := make(map[string]string, len(plan.Projections))
-	for _, staged := range plan.Projections {
-		if staged.Run.ProjectionRunID == "" || staged.Run.ProjectionOutputDigest == "" {
-			return fmt.Errorf("graph restore staged projection proof is incomplete")
-		}
-		if _, duplicate := storedOutputDigests[staged.Run.ProjectionRunID]; duplicate {
-			return fmt.Errorf("graph restore staged projection proof is duplicated")
-		}
-		storedOutputDigests[staged.Run.ProjectionRunID] = staged.Run.ProjectionOutputDigest
-	}
+	wantVertices, wantEdges := 0, 0
 	for _, rebuilt := range plan.RebuiltViews {
 		wantVertices += rebuilt.VertexCount
 		wantEdges += rebuilt.EdgeCount
 	}
-	if views != len(plan.RebuiltViews) || runs != len(plan.RebuiltViews) || vertices != wantVertices || edges != wantEdges ||
-		idempotency != 0 || invalidRuns != 0 || invalidViews != 0 || invalidSelected != 0 {
+	if results != len(plan.Projections) || vertices != wantVertices || edges != wantEdges || leases != wantLeases {
 		return fmt.Errorf("graph restore aggregate postcondition mismatch")
 	}
-	for _, rebuilt := range plan.RebuiltViews {
-		var configDigest, sourceDigest, outputDigest, sourceSnapshotID, projectionVersion string
-		var vertexCount, edgeCount int
-		if err := queryer.QueryRow(ctx, `
-SELECT run.projection_config_digest,
-       run.projection_source_digest,
-       run.projection_output_digest,
-       run.source_snapshot_id,
-       run.projection_version,
-       (SELECT COUNT(*) FROM graph_projection_vertices WHERE projection_run_id = run.projection_run_id),
-       (SELECT COUNT(*) FROM graph_projection_edges WHERE projection_run_id = run.projection_run_id)
-  FROM graph_projection_runs AS run
-  JOIN graph_projection_views AS view_state
-    ON view_state.graph_view_id = run.graph_view_id
-   AND view_state.selected_projection_run_id = run.projection_run_id
- WHERE run.graph_view_id = $1
-   AND run.projection_run_id = $2
-`, rebuilt.GraphViewID, rebuilt.ProjectionRunID).Scan(
-			&configDigest, &sourceDigest, &outputDigest, &sourceSnapshotID, &projectionVersion, &vertexCount, &edgeCount,
-		); err != nil {
-			return fmt.Errorf("verify Graph restore projection: %w", err)
-		}
-		storedOutputDigest, ok := storedOutputDigests[rebuilt.ProjectionRunID]
-		if !ok || configDigest != rebuilt.NormalizedConfigurationSHA256 || sourceDigest != rebuilt.NormalizedSourceSHA256 ||
-			outputDigest != storedOutputDigest || sourceSnapshotID != rebuilt.SourceSnapshotID ||
-			projectionVersion != rebuilt.ProjectionVersion || vertexCount != rebuilt.VertexCount || edgeCount != rebuilt.EdgeCount {
-			return fmt.Errorf("graph restore projection postcondition mismatch")
+	reader, err := postgresresult.NewReader(queryer)
+	if err != nil {
+		return err
+	}
+	for _, staged := range plan.Projections {
+		loaded, err := reader.ReadExactResult(ctx, staged.Result.Binding)
+		if err != nil || len(loaded.Vertices) != len(staged.Result.Vertices) || len(loaded.Edges) != len(staged.Result.Edges) {
+			return fmt.Errorf("verify Graph restore exact result: %w", err)
 		}
 	}
 	return nil

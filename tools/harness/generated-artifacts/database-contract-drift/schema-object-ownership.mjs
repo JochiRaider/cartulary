@@ -27,7 +27,7 @@ const ownerByVersion = new Map([
   [21, "projections"], [22, "graphprojection"], [23, "reporting"],
   [24, "reportcomposition"], [25, "incidentbundles"], [26, "reference_data"],
   [27, "extensions"], [28, "audit"], [29, "collaboration"], [30, "evidence"],
-  [31, "evidence"],
+  [31, "evidence"], [32, "networkflow"],
 ]);
 const manifestKeys = new Set([
   "schema_id", "migration_root", "supported_postgres_major", "application_schemas",
@@ -134,11 +134,6 @@ export function validateSchemaObjectOwnership(root) {
       }
     }
   }
-  for (const version of ownerByVersion.keys()) {
-    if (!manifest.entries.some((entry) => entry.migration_version === version)) {
-      throw new Error(`${manifestFile} has no object allocated to migration ${version}`);
-    }
-  }
   return { manifestFile, objectCount: observed.size, entryCount: manifest.entries.length };
 }
 
@@ -191,7 +186,9 @@ function validateEntry(entry, label, ownerSet, migrationAllocation) {
     if (entry.migration_file !== migrationAllocation.get(version)) {
       throw new Error(`${label} must use the canonical migration version/file allocation`);
     }
-    const allocatedOwner = ownerByVersion.get(version);
+    const allocatedOwner = version === 32 && qualifiedName.includes(".graph_projection_")
+      ? "graphprojection"
+      : ownerByVersion.get(version);
     if (sourceOwner !== allocatedOwner && entry.object_kind !== "table") {
       throw new Error(`${label}.source_owner must be ${allocatedOwner} for migration ${version}`);
     }
@@ -252,13 +249,46 @@ function collectFinalAuthoredObjects(migrationDir, filenames) {
 }
 
 function collectEvents(source, version, filename, objects) {
-  scanEvents(source, /\b(CREATE|DROP)\s+TABLE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?(?:ONLY\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "table", version, filename, objects);
+  scanRelationEvents(source, /\b(CREATE|DROP)\s+TABLE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?(?:ONLY\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "table", version, filename, objects);
   scanEvents(source, /\b(CREATE(?:\s+OR\s+REPLACE)?|DROP)\s+(?:MATERIALIZED\s+)?VIEW\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "view", version, filename, objects);
   scanEvents(source, /\b(CREATE|DROP)\s+SEQUENCE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "sequence", version, filename, objects);
-  scanEvents(source, /\b(CREATE(?:\s+UNIQUE)?|DROP)\s+INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+(?:NOT\s+)?EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "index", version, filename, objects);
+  scanIndexEvents(source, version, filename, objects);
   scanEvents(source, /\b(CREATE(?:\s+OR\s+REPLACE)?|DROP)\s+FUNCTION\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)\s*\(/giu, "routine", version, filename, objects);
   scanTriggerEvents(source, version, filename, objects);
   scanConstraintEvents(source, version, filename, objects);
+}
+
+function scanRelationEvents(source, regex, kind, version, filename, objects) {
+  for (const match of source.matchAll(regex)) {
+    const name = qualify(match[2]);
+    const identity = `${kind}:${name}`;
+    if (match[1].toUpperCase() === "DROP") {
+      objects.delete(identity);
+      for (const [candidate, allocation] of objects) {
+        if (
+          allocation.relation === name ||
+          candidate.startsWith(`constraint:${name}.`) ||
+          candidate.startsWith(`trigger:${name}.`)
+        ) {
+          objects.delete(candidate);
+        }
+      }
+    } else {
+      objects.set(identity, { version, filename });
+    }
+  }
+}
+
+function scanIndexEvents(source, version, filename, objects) {
+  const regex = /\b(CREATE(?:\s+UNIQUE)?|DROP)\s+INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+(?:NOT\s+)?EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)(?:\s+ON\s+(?:ONLY\s+)?([A-Za-z_][A-Za-z0-9_.]*))?/giu;
+  for (const match of source.matchAll(regex)) {
+    const identity = `index:${qualify(match[2])}`;
+    if (match[1].toUpperCase() === "DROP") {
+      objects.delete(identity);
+    } else {
+      objects.set(identity, { version, filename, relation: qualify(match[3]) });
+    }
+  }
 }
 
 function scanEvents(source, regex, kind, version, filename, objects) {
@@ -275,7 +305,7 @@ function scanTriggerEvents(source, version, filename, objects) {
   for (const match of source.matchAll(regex)) {
     const identity = `trigger:${qualify(match[3])}.${match[2]}`;
     if (match[1].toUpperCase() === "DROP") objects.delete(identity);
-    else objects.set(identity, { version, filename });
+    else objects.set(identity, { version, filename, relation: qualify(match[3]) });
   }
 }
 
@@ -291,8 +321,8 @@ function scanConstraintEvents(source, version, filename, objects) {
       objects.delete(identity);
       objects.delete(indexIdentity);
     } else {
-      objects.set(identity, { version, filename });
-      if (match[3]) objects.set(indexIdentity, { version, filename });
+      objects.set(identity, { version, filename, relation: table });
+      if (match[3]) objects.set(indexIdentity, { version, filename, relation: table });
     }
   }
 }

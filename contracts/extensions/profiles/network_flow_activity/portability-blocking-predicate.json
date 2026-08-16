@@ -1,5 +1,9 @@
 {
   "family_ids": [
+    "network_flow_activity.graph_views",
+    "network_flow_activity.indicator_bindings",
+    "network_flow_activity.rejected_row_diagnostics",
+    "network_flow_activity.rows",
     "network_flow_activity.tables"
   ],
   "kind": "any_authoritative_state_present",

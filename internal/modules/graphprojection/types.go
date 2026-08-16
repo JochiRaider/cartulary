@@ -1,88 +1,37 @@
 package graphprojection
 
-import "time"
-
-const ProjectionSchemaID = "graph_projection.v1"
-
-type Optional[T any] struct {
-	Present bool
-	Null    bool
-	Value   T
+type projectionRequest struct {
+	ProjectionSchemaID   string
+	SourceSnapshotID     string
+	projectionConfig     projectionConfig
+	SourceEntities       []sourceEntity
+	SourceRelationships  []sourceRelationship
+	SourceMetadata       map[string]any
+	filters              filters
+	RelationshipMappings []relationshipMapping
+	PropertyDefinitions  []propertyDefinition
 }
 
-func ValueOf[T any](value T) Optional[T] { return Optional[T]{Present: true, Value: value} }
-func ExplicitNull[T any]() Optional[T]   { return Optional[T]{Present: true, Null: true} }
-
-type RunState string
-
-const (
-	RunStateAccepted    RunState = "accepted"
-	RunStateComputing   RunState = "computing"
-	RunStateAvailable   RunState = "available"
-	RunStateFailed      RunState = "failed"
-	RunStateReplaced    RunState = "replaced"
-	RunStateInvalidated RunState = "invalidated"
-)
-
-type GraphViewState string
-
-const (
-	GraphViewStateCreating    GraphViewState = "creating"
-	GraphViewStateAvailable   GraphViewState = "available"
-	GraphViewStateRefreshing  GraphViewState = "refreshing"
-	GraphViewStateFailed      GraphViewState = "failed"
-	GraphViewStateInvalidated GraphViewState = "invalidated"
-)
-
-type ProjectionRequest struct {
-	ProjectionSchemaID                string
-	GraphViewID                       string
-	SourceSnapshotID                  string
-	ProjectionConfig                  ProjectionConfig
-	SourceEntities                    []SourceEntity
-	SourceRelationships               []SourceRelationship
-	SourceMetadata                    map[string]any
-	Filters                           Filters
-	RelationshipMappings              []RelationshipMapping
-	PropertyDefinitions               []PropertyDefinition
-	RequestedAt                       string
-	RequestedBy                       string
-	Normalized                        map[string]any
-	RelationshipMappingSourceConflict bool
-}
-
-type ProjectionConfig struct {
+type projectionConfig struct {
 	GraphViewKey                    string
 	ProjectionVersion               string
 	DeclaredSourceEntityKinds       []string
 	DeclaredSourceRelationshipKinds []string
-	EntityMappings                  []EntityMapping
-	RelationshipMappings            []RelationshipMapping
-	MetadataMappings                []MetadataMapping
-	AggregationRules                []AggregationRule
+	EntityMappings                  []entityMapping
+	RelationshipMappings            []relationshipMapping
+	MetadataMappings                []metadataMapping
+	AggregationRules                []aggregationRule
 	DefaultVertexLabels             []string
 	DefaultEdgeLabels               []string
 	AllowEmptyKindRegistry          bool
-	RetentionPolicy                 RetentionPolicy
-	CustomConfig                    map[string]any
 }
 
-type RetentionPolicy struct {
-	RetainReplacedResults       bool              `json:"retain_replaced_results"`
-	RetentionCount              int               `json:"retention_count"`
-	RetentionDurationSeconds    int               `json:"retention_duration_seconds"`
-	RetainFailedResults         bool              `json:"retain_failed_results"`
-	FailedRetentionCount        int               `json:"failed_retention_count"`
-	FailedRetentionDurationSecs int               `json:"failed_retention_duration_seconds"`
-	RawIntegerLexemes           map[string]string `json:"-"`
-}
-
-type EntityMapping struct {
+type entityMapping struct {
 	MappingRuleID         string
 	SourceEntityKind      string
 	ProjectedVertexKind   string
 	InclusionPredicate    string
-	InclusionFilter       *FilterPredicate
+	InclusionFilter       *filterPredicate
 	LabelPolicy           string
 	MappingLabels         []string
 	RequiredPropertyKeys  []string
@@ -90,12 +39,12 @@ type EntityMapping struct {
 	MappingIdentityDigest string
 }
 
-type RelationshipMapping struct {
+type relationshipMapping struct {
 	MappingRuleID           string
 	SourceRelationshipKind  string
 	ProjectedEdgeKind       string
 	InclusionPredicate      string
-	InclusionFilter         *FilterPredicate
+	InclusionFilter         *filterPredicate
 	DirectionPolicy         string
 	EmitReverseEdge         bool
 	ReverseEdgeKind         string
@@ -107,7 +56,7 @@ type RelationshipMapping struct {
 	MappingIdentityDigest   string
 }
 
-type MetadataMapping struct {
+type metadataMapping struct {
 	MetadataMappingID    string
 	TargetScope          string
 	TargetKind           string
@@ -123,7 +72,7 @@ type MetadataMapping struct {
 	MergeBehavior        string
 }
 
-type AggregationRule struct {
+type aggregationRule struct {
 	AggregationRuleID          string
 	TargetScope                string
 	InputScope                 string
@@ -133,11 +82,11 @@ type AggregationRule struct {
 	MissingGroupingKeyBehavior string
 	PropertyMergeBehavior      map[string]string
 	EdgeDirection              string
-	EndpointGrouping           *EndpointGrouping
+	endpointGrouping           *endpointGrouping
 	AggregationIdentityDigest  string
 }
 
-type EndpointGrouping struct {
+type endpointGrouping struct {
 	SourceVertexAggregationRuleID      string
 	SourceGroupingKeys                 []string
 	DestinationVertexAggregationRuleID string
@@ -145,13 +94,13 @@ type EndpointGrouping struct {
 	MissingEndpointBehavior            string
 }
 
-type Filters struct {
-	EntityFilters       []FilterPredicate
-	RelationshipFilters []FilterPredicate
+type filters struct {
+	EntityFilters       []filterPredicate
+	RelationshipFilters []filterPredicate
 	Logic               string
 }
 
-type FilterPredicate struct {
+type filterPredicate struct {
 	FieldPath        string
 	Operator         string
 	Value            any
@@ -159,7 +108,7 @@ type FilterPredicate struct {
 	IncludeIfMissing bool
 }
 
-type SourceEntity struct {
+type sourceEntity struct {
 	SourceEntityID   string
 	SourceEntityKind string
 	Properties       map[string]any
@@ -167,7 +116,7 @@ type SourceEntity struct {
 	Labels           []string
 }
 
-type SourceRelationship struct {
+type sourceRelationship struct {
 	SourceRelationshipID   string
 	SourceRelationshipKind string
 	SrcSourceEntityID      string
@@ -178,7 +127,7 @@ type SourceRelationship struct {
 	Labels                 []string
 }
 
-type PropertyDefinition struct {
+type propertyDefinition struct {
 	PropertyDefinitionID string
 	TargetScope          string
 	TargetKind           string
@@ -192,56 +141,6 @@ type PropertyDefinition struct {
 	SourceNullBehavior   string
 	NullOutputPolicy     string
 	MergeBehavior        string
-}
-
-type ProjectionRun struct {
-	Request                 ProjectionRequest
-	GraphViewID             string
-	ProjectionRunID         string
-	ProjectionRunNonce      string
-	ProjectionConfigDigest  string
-	ProjectionSourceDigest  string
-	ProjectionOutputDigest  string
-	AcceptedAt              time.Time
-	StartedAt               *time.Time
-	GeneratedAt             *time.Time
-	CompletedAt             *time.Time
-	ReplacedAt              *time.Time
-	InvalidatedAt           *time.Time
-	Invalidation            *Invalidation
-	AcceptedReplay          *AcceptedRunSummary
-	State                   RunState
-	GraphView               *GraphView
-	ValidationSummary       ValidationSummary
-	FailureReason           string
-	PreviousProjectionRunID *string
-	RetentionExpiresAt      *time.Time
-}
-
-type GraphView struct {
-	ProjectionSchemaID   string
-	GraphViewID          string
-	GraphViewKey         string
-	ProjectionRunID      string
-	SourceSnapshotID     string
-	ProjectionVersion    string
-	GeneratedAt          string
-	State                RunState
-	Properties           map[string]any
-	Metadata             GraphMetadata
-	SchemaRegistry       SchemaRegistry
-	Vertices             []Vertex
-	Edges                []Edge
-	ValidationSummary    ValidationSummary
-	ConsumerCapabilities ConsumerCapabilities
-}
-
-type GraphMetadata struct {
-	ProjectionConfigDigest  string
-	ProjectionSourceDigest  string
-	PreviousProjectionRunID *string
-	Invalidation            *Invalidation
-	MappedMetadata          map[string]any
 }
 
 type SchemaRegistry struct {
@@ -385,25 +284,4 @@ type ConsumerCapabilities struct {
 	MaxTraversalDepth               int
 	MaxTraversalSeedVertices        int
 	MaxKindFilters                  int
-}
-
-type InvalidationSummary struct {
-	GraphViewID           string         `json:"graph_view_id"`
-	TargetScope           string         `json:"target_scope"`
-	TargetProjectionRunID *string        `json:"target_projection_run_id"`
-	InvalidatedRunIDs     []string       `json:"invalidated_projection_run_ids"`
-	GraphViewStateAfter   GraphViewState `json:"graph_view_state_after"`
-	InvalidatedAt         string         `json:"invalidated_at"`
-	ReasonCode            string         `json:"reason_code"`
-	RequestedAt           string         `json:"requested_at,omitempty"`
-	RequestedBy           string         `json:"requested_by"`
-	IdempotencyExpiresAt  *string        `json:"idempotency_expires_at"`
-}
-
-type Invalidation struct {
-	InvalidatedAt         string  `json:"invalidated_at"`
-	ReasonCode            string  `json:"reason_code"`
-	RequestedBy           string  `json:"requested_by"`
-	TargetScope           string  `json:"target_scope"`
-	TargetProjectionRunID *string `json:"target_projection_run_id"`
 }

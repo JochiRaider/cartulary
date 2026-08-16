@@ -55,8 +55,8 @@ type VerificationTarget struct {
 	AvailabilityKind string
 }
 
-const SourceSHA256 = "fdb8081f3b974b14fb89cea1e4d81de1a97b75086110f942e5a61e2bb2f9d99d"
-const RegistrySHA256 = "93b0817967ebe7698c208165332b2f8e09cb51b8d80afffb65a805b9d6405362"
+const SourceSHA256 = "c979c31a3635793475bd96765328836f3cd75d0cdf11036f1d6b14ec11f7a389"
+const RegistrySHA256 = "25a764559a4f0b4456db1094de73c1ba06f5410737e660896d4f96e6a0ae0d45"
 
 func stringPointer(value string) *string { return &value }
 
@@ -434,7 +434,7 @@ var Targets = []Target{
 		TargetID:                    "network_flow_table:network_flow_activity",
 		TargetKind:                  "network_flow_table",
 		ExtensionProfileID:          stringPointer("network_flow_activity"),
-		OwnerContractRef:            "network_flow_activity@2",
+		OwnerContractRef:            "network_flow_activity@3",
 		SourceResourceFamily:        "network_flow_table",
 		FacadeKind:                  "owner_preview_apply",
 		FacadeBindingID:             stringPointer("network_flow_activity.import_facade.v1"),
@@ -452,7 +452,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "target_owned",
 		EntityBearingDefault:        "target_owned_explicit_binding_only",
 		PublicProjectionDisposition: "extension_claim_gated",
-		RowSHA256:                   "7ff0bbd18162b5e8358343a1e02e2b3d49cecfd4f121f52400cbf051872940bf",
+		RowSHA256:                   "c36b47e19d9621cab399459761714204b7fa0a16b16f8010a0616d76d97fa05b",
 	},
 }
 
@@ -643,7 +643,7 @@ var AdapterDescriptors = []AdapterDescriptor{
 		FacadeKind:             "owner_preview_apply",
 		FacadeBindingID:        stringPointer("network_flow_activity.import_facade.v1"),
 		FacadeID:               stringPointer("network_flow_import_facade_v1"),
-		OwnerContractRef:       "network_flow_activity@2",
+		OwnerContractRef:       "network_flow_activity@3",
 		PreviewRequestSchemaID: stringPointer("cartulary.network_flow.import_preview_request.v1"),
 		PreviewResultSchemaID:  stringPointer("cartulary.network_flow.import_preview_result.v1"),
 		ApplyRequestSchemaID:   stringPointer("cartulary.network_flow.import_apply_request.v1"),

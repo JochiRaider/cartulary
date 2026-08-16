@@ -18,7 +18,6 @@ import (
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresbinding"
 	"github.com/JochiRaider/cartulary/internal/modules/reportcomposition"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -80,6 +79,7 @@ type Store struct {
 	pool               *pgxpool.Pool
 	jobTransactions    reportingJobAdmission
 	exportMaterializer reportingExportMaterializer
+	graphSources       *GraphSourceRegistry
 }
 
 type SnapshotRecord struct {
@@ -199,32 +199,33 @@ type snapshotCreateJobPayload struct {
 }
 
 type releaseCreateJobPayload struct {
-	ActorUserID                  string               `json:"actor_user_id"`
-	ClientTxnID                  string               `json:"client_txn_id"`
-	SnapshotID                   string               `json:"snapshot_id"`
-	IncidentID                   string               `json:"incident_id"`
-	SnapshotAt                   time.Time            `json:"snapshot_at"`
-	SourceChangeSetHighWatermark string               `json:"source_change_set_high_watermark"`
-	DerivationVersion            string               `json:"derivation_version"`
-	ExportModelSHA256            string               `json:"export_model_sha256"`
-	ExportModel                  ExportModel          `json:"export_model"`
-	TemplateID                   string               `json:"template_id"`
-	TemplateVersion              string               `json:"template_version"`
-	TemplateContract             TemplateContract     `json:"template_contract"`
-	RedactionProfileID           string               `json:"redaction_profile_id"`
-	RedactionProfileVersion      string               `json:"redaction_profile_version"`
-	OutputKind                   string               `json:"output_kind"`
-	OutputOptions                json.RawMessage      `json:"output_options"`
-	ReleaseScope                 string               `json:"release_scope"`
-	RecipientPartitionRefs       []string             `json:"recipient_partition_refs"`
-	GraphProjectionRefs          json.RawMessage      `json:"graph_projection_refs"`
-	CompositionJSON              json.RawMessage      `json:"composition_json,omitempty"`
-	CompositionID                *string              `json:"composition_id"`
-	CompositionVersion           *string              `json:"composition_version"`
-	CompositionSHA256            *string              `json:"composition_sha256"`
-	RenderAdmittedAt             time.Time            `json:"render_admitted_at"`
-	NormalizedRequest            []byte               `json:"normalized_request"`
-	Request                      CreateReleaseRequest `json:"-"`
+	ActorUserID                  string                `json:"actor_user_id"`
+	ClientTxnID                  string                `json:"client_txn_id"`
+	SnapshotID                   string                `json:"snapshot_id"`
+	IncidentID                   string                `json:"incident_id"`
+	SnapshotAt                   time.Time             `json:"snapshot_at"`
+	SourceChangeSetHighWatermark string                `json:"source_change_set_high_watermark"`
+	DerivationVersion            string                `json:"derivation_version"`
+	ExportModelSHA256            string                `json:"export_model_sha256"`
+	ExportModel                  ExportModel           `json:"export_model"`
+	TemplateID                   string                `json:"template_id"`
+	TemplateVersion              string                `json:"template_version"`
+	TemplateContract             TemplateContract      `json:"template_contract"`
+	RedactionProfileID           string                `json:"redaction_profile_id"`
+	RedactionProfileVersion      string                `json:"redaction_profile_version"`
+	OutputKind                   string                `json:"output_kind"`
+	OutputOptions                json.RawMessage       `json:"output_options"`
+	ReleaseScope                 string                `json:"release_scope"`
+	RecipientPartitionRefs       []string              `json:"recipient_partition_refs"`
+	GraphProjectionRefs          json.RawMessage       `json:"graph_projection_refs"`
+	CompositionJSON              json.RawMessage       `json:"composition_json,omitempty"`
+	CompositionID                *string               `json:"composition_id"`
+	CompositionVersion           *string               `json:"composition_version"`
+	CompositionSHA256            *string               `json:"composition_sha256"`
+	RenderAdmittedAt             time.Time             `json:"render_admitted_at"`
+	NormalizedRequest            []byte                `json:"normalized_request"`
+	Request                      CreateReleaseRequest  `json:"-"`
+	ResolvedGraphResults         []resolvedGraphResult `json:"-"`
 }
 
 type compositionPreviewJobPayload struct {
@@ -233,14 +234,29 @@ type compositionPreviewJobPayload struct {
 }
 
 type sourceProjectionRef struct {
-	GraphViewID            string `json:"graph_view_id"`
-	ProjectionRunID        string `json:"projection_run_id"`
-	SourceSnapshotID       string `json:"source_snapshot_id"`
-	ProjectionSchemaID     string `json:"projection_schema_id"`
-	ProjectionVersion      string `json:"projection_version"`
-	ProjectionConfigDigest string `json:"projection_config_digest"`
-	ProjectionSourceDigest string `json:"projection_source_digest"`
-	ProjectionOutputDigest string `json:"projection_output_digest"`
+	SourceOwnerID                 string `json:"source_owner_id"`
+	GraphViewID                   string `json:"graph_view_id"`
+	ProjectionResultID            string `json:"projection_result_id"`
+	SourceSnapshotID              string `json:"source_snapshot_id"`
+	ProjectionSchemaID            string `json:"projection_schema_id"`
+	ProjectionVersion             string `json:"projection_version"`
+	NormalizedConfigurationSHA256 string `json:"normalized_configuration_sha256"`
+	NormalizedSourceSHA256        string `json:"normalized_source_sha256"`
+	CanonicalOutputSHA256         string `json:"canonical_output_sha256"`
+}
+
+func (ref sourceProjectionRef) binding() graphprojection.ResultBindingV2 {
+	return graphprojection.ResultBindingV2{
+		ProjectionResultID:            ref.ProjectionResultID,
+		GraphViewID:                   ref.GraphViewID,
+		SourceOwnerID:                 ref.SourceOwnerID,
+		SourceSnapshotID:              ref.SourceSnapshotID,
+		ProjectionSchemaID:            ref.ProjectionSchemaID,
+		ProjectionVersion:             ref.ProjectionVersion,
+		NormalizedConfigurationSHA256: ref.NormalizedConfigurationSHA256,
+		NormalizedSourceSHA256:        ref.NormalizedSourceSHA256,
+		CanonicalOutputSHA256:         ref.CanonicalOutputSHA256,
+	}
 }
 
 type ApproveReleaseParams struct {
@@ -268,11 +284,13 @@ func newStore(
 	pool *pgxpool.Pool,
 	jobTransactions reportingJobAdmission,
 	exportMaterializer reportingExportMaterializer,
+	graphSources *GraphSourceRegistry,
 ) *Store {
 	return &Store{
 		pool:               pool,
 		jobTransactions:    jobTransactions,
 		exportMaterializer: exportMaterializer,
+		graphSources:       graphSources,
 	}
 }
 
@@ -484,8 +502,9 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 	if err != nil {
 		return CreateReleaseResult{}, err
 	}
-	if err := validateReleaseGraphProjectionRefsTx(ctx, tx, snapshot, params.Request.GraphProjectionRefs); err != nil {
-		return CreateReleaseResult{}, err
+	graphRefs, err := decodeSourceProjectionRefs(params.Request.GraphProjectionRefs)
+	if err != nil {
+		return CreateReleaseResult{}, &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "invalid_value"}
 	}
 	compositionIDString := optionalUUIDStringPointer(params.Request.CompositionID)
 	var compositionJSON json.RawMessage
@@ -544,6 +563,9 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 		return CreateReleaseResult{}, err
 	}
 	jobID := uuid.MustParse(job.JobID)
+	if err := s.graphSources.ValidateAndLeaseTx(ctx, tx, snapshot.IncidentID, jobID, graphRefs, params.Now.UTC()); err != nil {
+		return CreateReleaseResult{}, err
+	}
 	if err := sqlc.New(tx).CreateReportingJobPayload(ctx, sqlc.CreateReportingJobPayloadParams{
 		JobID:       pgUUID(jobID),
 		JobKind:     "release_create",
@@ -744,7 +766,11 @@ func (s *Store) CompositionPreviewPayloadForJob(ctx context.Context, jobID uuid.
 		return compositionPreviewJobPayload{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := validateReleaseGraphProjectionRefsTx(ctx, tx, snapshot, source.GraphProjectionRefs); err != nil {
+	graphRefs, err := decodeSourceProjectionRefs(source.GraphProjectionRefs)
+	if err != nil {
+		return compositionPreviewJobPayload{}, &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "invalid_value"}
+	}
+	if err := s.graphSources.ValidateAndLeaseTx(ctx, tx, snapshot.IncidentID, jobID, graphRefs, source.CreatedAt.UTC()); err != nil {
 		return compositionPreviewJobPayload{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -1319,44 +1345,6 @@ func resolveReleaseCompositionTupleTx(ctx context.Context, tx pgx.Tx, snapshot S
 	return &resolved, nil
 }
 
-func validateReleaseGraphProjectionRefsTx(ctx context.Context, tx pgx.Tx, snapshot SnapshotRecord, raw json.RawMessage) error {
-	refs, err := decodeSourceProjectionRefs(raw)
-	if err != nil {
-		return &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "invalid_value"}
-	}
-	return validateReleaseGraphProjectionRefs(ctx, postgresbinding.NewReader(tx), snapshot.SnapshotID.String(), refs)
-}
-
-func validateReleaseGraphProjectionRefs(ctx context.Context, reader graphprojection.ProjectionBindingReader, snapshotID string, refs []sourceProjectionRef) error {
-	for _, ref := range refs {
-		if ref.ProjectionSchemaID != graphprojection.ProjectionSchemaID {
-			return invalidGraphProjectionRef("graph_projection_digest_mismatch")
-		}
-		binding, err := reader.LookupProjectionBinding(ctx, ref.ProjectionRunID)
-		if errors.Is(err, graphprojection.ErrProjectionRunNotFound) {
-			return invalidGraphProjectionRef("graph_projection_not_bound")
-		}
-		if err != nil {
-			return err
-		}
-		if binding.State != graphprojection.RunStateAvailable && binding.State != graphprojection.RunStateReplaced {
-			return invalidGraphProjectionRef("graph_projection_not_completed")
-		}
-		if binding.SourceSnapshotID != snapshotID {
-			return invalidGraphProjectionRef("graph_projection_stale")
-		}
-		if binding.GraphViewID != ref.GraphViewID ||
-			binding.ProjectionVersion != ref.ProjectionVersion ||
-			binding.ProjectionConfigDigest != ref.ProjectionConfigDigest ||
-			binding.ProjectionSourceDigest != ref.ProjectionSourceDigest ||
-			binding.ProjectionOutputDigest == "" ||
-			binding.ProjectionOutputDigest != ref.ProjectionOutputDigest {
-			return invalidGraphProjectionRef("graph_projection_digest_mismatch")
-		}
-	}
-	return nil
-}
-
 func invalidGraphProjectionRef(reasonCode string) error {
 	return &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: reasonCode}
 }
@@ -1370,14 +1358,15 @@ func decodeSourceProjectionRefs(raw json.RawMessage) ([]sourceProjectionRef, err
 		return nil, err
 	}
 	for i, ref := range refs {
-		if strings.TrimSpace(ref.GraphViewID) == "" ||
-			strings.TrimSpace(ref.ProjectionRunID) == "" ||
+		if strings.TrimSpace(ref.SourceOwnerID) == "" ||
+			strings.TrimSpace(ref.GraphViewID) == "" ||
+			strings.TrimSpace(ref.ProjectionResultID) == "" ||
 			strings.TrimSpace(ref.SourceSnapshotID) == "" ||
 			strings.TrimSpace(ref.ProjectionSchemaID) == "" ||
 			strings.TrimSpace(ref.ProjectionVersion) == "" ||
-			!sha256HexPattern.MatchString(ref.ProjectionConfigDigest) ||
-			!sha256HexPattern.MatchString(ref.ProjectionSourceDigest) ||
-			!sha256HexPattern.MatchString(ref.ProjectionOutputDigest) {
+			!sha256HexPattern.MatchString(ref.NormalizedConfigurationSHA256) ||
+			!sha256HexPattern.MatchString(ref.NormalizedSourceSHA256) ||
+			!sha256HexPattern.MatchString(ref.CanonicalOutputSHA256) {
 			return nil, fmt.Errorf("invalid source projection ref at %d", i)
 		}
 	}

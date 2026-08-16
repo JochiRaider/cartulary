@@ -1,0 +1,310 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.graph_projection_schemas.v2",
+  "title": "Graph Projection v2 schemas",
+  "$defs": {
+    "Identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[^/\\\\\\u0000-\\u001f\\u007f-\\u009f].*[^/\\\\\\u0000-\\u001f\\u007f-\\u009f\\s]$|^[^/\\\\\\u0000-\\u001f\\u007f-\\u009f\\s]$"
+    },
+    "SHA256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "PropertyScalar": {
+      "type": ["null", "boolean", "integer", "number", "string"]
+    },
+    "PropertyValue": {
+      "oneOf": [
+        { "$ref": "#/$defs/PropertyScalar" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PropertyScalar" },
+          "maxItems": 100000
+        }
+      ]
+    },
+    "PropertyMap": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/Identifier" },
+      "additionalProperties": { "$ref": "#/$defs/PropertyValue" }
+    },
+    "Filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_path", "operator", "include_if_missing"],
+      "properties": {
+        "field_path": { "type": "string", "minLength": 1, "maxLength": 511 },
+        "operator": { "enum": ["exists", "equals", "not_equals", "in"] },
+        "value": { "$ref": "#/$defs/PropertyValue" },
+        "include_if_missing": { "type": "boolean" }
+      }
+    },
+    "Filters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_filters", "relationship_filters", "logic"],
+      "properties": {
+        "entity_filters": { "type": "array", "items": { "$ref": "#/$defs/Filter" } },
+        "relationship_filters": { "type": "array", "items": { "$ref": "#/$defs/Filter" } },
+        "logic": { "const": "and" }
+      }
+    },
+    "SourceEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_entity_id", "source_entity_kind", "properties", "metadata", "labels"],
+      "properties": {
+        "source_entity_id": { "$ref": "#/$defs/Identifier" },
+        "source_entity_kind": { "$ref": "#/$defs/Identifier" },
+        "properties": { "$ref": "#/$defs/PropertyMap" },
+        "metadata": { "type": "object" },
+        "labels": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "SourceRelationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_relationship_id", "source_relationship_kind", "src_source_entity_id", "dst_source_entity_id", "direction", "properties", "metadata", "labels"],
+      "properties": {
+        "source_relationship_id": { "$ref": "#/$defs/Identifier" },
+        "source_relationship_kind": { "$ref": "#/$defs/Identifier" },
+        "src_source_entity_id": { "$ref": "#/$defs/Identifier" },
+        "dst_source_entity_id": { "$ref": "#/$defs/Identifier" },
+        "direction": { "enum": ["forward", "reverse", "undirected", "bidirectional"] },
+        "properties": { "$ref": "#/$defs/PropertyMap" },
+        "metadata": { "type": "object" },
+        "labels": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "EntityMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mapping_rule_id", "source_entity_kind", "projected_vertex_kind", "inclusion_predicate", "label_policy", "mapping_labels", "required_property_keys", "optional_property_keys"],
+      "properties": {
+        "mapping_rule_id": { "$ref": "#/$defs/Identifier" },
+        "source_entity_kind": { "$ref": "#/$defs/Identifier" },
+        "projected_vertex_kind": { "$ref": "#/$defs/Identifier" },
+        "inclusion_predicate": { "oneOf": [{ "const": "always" }, { "$ref": "#/$defs/Filter" }] },
+        "label_policy": { "enum": ["mapping_only", "preserve_source", "mapping_then_source"] },
+        "mapping_labels": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "required_property_keys": { "type": "array", "items": { "$ref": "#/$defs/Identifier" }, "uniqueItems": true },
+        "optional_property_keys": { "type": "array", "items": { "$ref": "#/$defs/Identifier" }, "uniqueItems": true }
+      }
+    },
+    "RelationshipMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mapping_rule_id", "source_relationship_kind", "projected_edge_kind", "inclusion_predicate", "label_policy", "mapping_labels", "required_property_keys", "optional_property_keys", "direction_policy", "emit_reverse_edge"],
+      "properties": {
+        "mapping_rule_id": { "$ref": "#/$defs/Identifier" },
+        "source_relationship_kind": { "$ref": "#/$defs/Identifier" },
+        "projected_edge_kind": { "$ref": "#/$defs/Identifier" },
+        "inclusion_predicate": { "oneOf": [{ "const": "always" }, { "$ref": "#/$defs/Filter" }] },
+        "label_policy": { "enum": ["mapping_only", "preserve_source", "mapping_then_source"] },
+        "mapping_labels": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "required_property_keys": { "type": "array", "items": { "$ref": "#/$defs/Identifier" }, "uniqueItems": true },
+        "optional_property_keys": { "type": "array", "items": { "$ref": "#/$defs/Identifier" }, "uniqueItems": true },
+        "direction_policy": { "enum": ["preserve", "normalize_forward", "normalize_reverse", "undirected", "bidirectional"] },
+        "emit_reverse_edge": { "type": "boolean" },
+        "reverse_edge_kind": { "$ref": "#/$defs/Identifier" }
+      }
+    },
+    "PropertyDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["property_definition_id", "target_scope", "target_kind", "source_field_path", "projected_key", "projected_type", "required", "missing_behavior", "source_null_behavior", "null_output_policy", "merge_behavior"],
+      "properties": {
+        "property_definition_id": { "$ref": "#/$defs/Identifier" },
+        "target_scope": { "enum": ["vertex", "edge", "graph_view"] },
+        "target_kind": { "$ref": "#/$defs/Identifier" },
+        "source_field_path": { "type": "string", "minLength": 1, "maxLength": 511 },
+        "projected_key": { "$ref": "#/$defs/Identifier" },
+        "projected_type": { "enum": ["boolean", "integer", "number", "string", "timestamp", "identifier", "boolean_array", "integer_array", "number_array", "string_array", "timestamp_array", "identifier_array"] },
+        "required": { "type": "boolean" },
+        "default_value": { "$ref": "#/$defs/PropertyValue" },
+        "missing_behavior": { "enum": ["error", "omit", "default"] },
+        "source_null_behavior": { "enum": ["error", "omit", "emit_null", "default"] },
+        "null_output_policy": { "enum": ["omit", "emit_null"] },
+        "merge_behavior": { "enum": ["single_value", "first", "last", "min", "max", "sum", "count", "set", "ordered_list"] }
+      }
+    },
+    "MetadataMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metadata_mapping_id", "target_scope", "target_kind", "source_field_path", "projected_metadata_key", "projected_type", "required", "missing_behavior", "source_null_behavior", "null_output_policy", "merge_behavior"],
+      "properties": {
+        "metadata_mapping_id": { "$ref": "#/$defs/Identifier" },
+        "target_scope": { "enum": ["vertex", "edge", "graph_view"] },
+        "target_kind": { "$ref": "#/$defs/Identifier" },
+        "source_field_path": { "type": "string", "minLength": 1, "maxLength": 511 },
+        "projected_metadata_key": { "$ref": "#/$defs/Identifier" },
+        "projected_type": { "enum": ["boolean", "integer", "number", "string", "timestamp", "identifier", "boolean_array", "integer_array", "number_array", "string_array", "timestamp_array", "identifier_array"] },
+        "required": { "type": "boolean" },
+        "default_value": { "$ref": "#/$defs/PropertyValue" },
+        "missing_behavior": { "enum": ["error", "omit", "default"] },
+        "source_null_behavior": { "enum": ["error", "omit", "emit_null", "default"] },
+        "null_output_policy": { "enum": ["omit", "emit_null"] },
+        "merge_behavior": { "enum": ["single_value", "first", "last", "min", "max", "sum", "count", "set", "ordered_list"] }
+      }
+    },
+    "EndpointGrouping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["src_vertex_aggregation_rule_id", "src_grouping_keys", "dst_vertex_aggregation_rule_id", "dst_grouping_keys", "missing_endpoint_behavior"],
+      "properties": {
+        "src_vertex_aggregation_rule_id": { "$ref": "#/$defs/Identifier" },
+        "src_grouping_keys": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 511 } },
+        "dst_vertex_aggregation_rule_id": { "$ref": "#/$defs/Identifier" },
+        "dst_grouping_keys": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 511 } },
+        "missing_endpoint_behavior": { "enum": ["error", "exclude"] }
+      }
+    },
+    "AggregationRule": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["aggregation_rule_id", "target_scope", "input_scope", "input_kind", "projected_kind", "grouping_keys", "missing_grouping_key_behavior", "property_merge_behavior"],
+          "properties": {
+            "aggregation_rule_id": { "$ref": "#/$defs/Identifier" },
+            "target_scope": { "const": "vertex" },
+            "input_scope": { "enum": ["source_entity", "projected_vertex"] },
+            "input_kind": { "$ref": "#/$defs/Identifier" },
+            "projected_kind": { "$ref": "#/$defs/Identifier" },
+            "grouping_keys": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 511 } },
+            "missing_grouping_key_behavior": { "enum": ["error", "exclude", "use_null"] },
+            "property_merge_behavior": { "type": "object", "additionalProperties": { "enum": ["single_value", "first", "last", "min", "max", "sum", "count", "set", "ordered_list"] } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["aggregation_rule_id", "target_scope", "input_scope", "input_kind", "projected_kind", "grouping_keys", "missing_grouping_key_behavior", "property_merge_behavior", "edge_direction", "endpoint_grouping"],
+          "properties": {
+            "aggregation_rule_id": { "$ref": "#/$defs/Identifier" },
+            "target_scope": { "const": "edge" },
+            "input_scope": { "enum": ["source_relationship", "projected_edge"] },
+            "input_kind": { "$ref": "#/$defs/Identifier" },
+            "projected_kind": { "$ref": "#/$defs/Identifier" },
+            "grouping_keys": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 511 } },
+            "missing_grouping_key_behavior": { "enum": ["error", "exclude", "use_null"] },
+            "property_merge_behavior": { "type": "object", "additionalProperties": { "enum": ["single_value", "first", "last", "min", "max", "sum", "count", "set", "ordered_list"] } },
+            "edge_direction": { "enum": ["directed", "undirected", "bidirectional"] },
+            "endpoint_grouping": { "$ref": "#/$defs/EndpointGrouping" }
+          }
+        }
+      ]
+    },
+    "ProjectionConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projection_version", "declared_source_entity_kinds", "declared_source_relationship_kinds", "entity_mappings", "relationship_mappings", "metadata_mappings", "aggregation_rules", "default_vertex_labels", "default_edge_labels", "allow_empty_kind_registry"],
+      "properties": {
+        "projection_version": { "$ref": "#/$defs/Identifier" },
+        "declared_source_entity_kinds": { "type": "array", "items": { "$ref": "#/$defs/Identifier" }, "uniqueItems": true },
+        "declared_source_relationship_kinds": { "type": "array", "items": { "$ref": "#/$defs/Identifier" }, "uniqueItems": true },
+        "entity_mappings": { "type": "array", "items": { "$ref": "#/$defs/EntityMapping" } },
+        "relationship_mappings": { "type": "array", "items": { "$ref": "#/$defs/RelationshipMapping" } },
+        "metadata_mappings": { "type": "array", "items": { "$ref": "#/$defs/MetadataMapping" } },
+        "aggregation_rules": { "type": "array", "items": { "$ref": "#/$defs/AggregationRule" } },
+        "default_vertex_labels": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "default_edge_labels": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "allow_empty_kind_registry": { "type": "boolean" }
+      }
+    },
+    "SemanticInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projection_schema_id", "source_snapshot_id", "projection_config", "source_entities", "source_relationships", "source_metadata", "filters", "property_definitions"],
+      "properties": {
+        "projection_schema_id": { "const": "graph_projection.v2" },
+        "source_snapshot_id": { "$ref": "#/$defs/Identifier" },
+        "projection_config": { "$ref": "#/$defs/ProjectionConfig" },
+        "source_entities": { "type": "array", "items": { "$ref": "#/$defs/SourceEntity" }, "maxItems": 100000 },
+        "source_relationships": { "type": "array", "items": { "$ref": "#/$defs/SourceRelationship" }, "maxItems": 250000 },
+        "source_metadata": { "type": "object" },
+        "filters": { "$ref": "#/$defs/Filters" },
+        "property_definitions": { "type": "array", "items": { "$ref": "#/$defs/PropertyDefinition" } }
+      }
+    },
+    "SourceEntityRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_entity_id", "source_entity_kind", "mapping_rule_id"],
+      "properties": {
+        "source_entity_id": { "$ref": "#/$defs/Identifier" },
+        "source_entity_kind": { "$ref": "#/$defs/Identifier" },
+        "mapping_rule_id": { "$ref": "#/$defs/Identifier" }
+      }
+    },
+    "SourceRelationshipRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_relationship_id", "source_relationship_kind", "mapping_rule_id"],
+      "properties": {
+        "source_relationship_id": { "$ref": "#/$defs/Identifier" },
+        "source_relationship_kind": { "$ref": "#/$defs/Identifier" },
+        "mapping_rule_id": { "$ref": "#/$defs/Identifier" }
+      }
+    },
+    "Vertex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vertex_id", "vertex_kind", "vertex_family", "labels", "properties", "metadata", "source_entity_ref", "sort_key"],
+      "properties": {
+        "vertex_id": { "type": "string", "pattern": "^vx_[0-9a-f]{64}$" },
+        "vertex_kind": { "$ref": "#/$defs/Identifier" },
+        "vertex_family": { "enum": ["direct", "aggregated"] },
+        "labels": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "properties": { "$ref": "#/$defs/PropertyMap" },
+        "metadata": { "type": "object" },
+        "source_entity_ref": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/SourceEntityRef" }] },
+        "sort_key": { "type": "string" }
+      }
+    },
+    "Edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["edge_id", "edge_kind", "edge_family", "src_vertex_id", "dst_vertex_id", "direction", "labels", "properties", "metadata", "source_relationship_ref", "sort_key"],
+      "properties": {
+        "edge_id": { "type": "string", "pattern": "^ed_[0-9a-f]{64}$" },
+        "edge_kind": { "$ref": "#/$defs/Identifier" },
+        "edge_family": { "enum": ["direct", "aggregated"] },
+        "src_vertex_id": { "type": "string", "pattern": "^vx_[0-9a-f]{64}$" },
+        "dst_vertex_id": { "type": "string", "pattern": "^vx_[0-9a-f]{64}$" },
+        "direction": { "enum": ["directed", "undirected", "bidirectional"] },
+        "labels": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "properties": { "$ref": "#/$defs/PropertyMap" },
+        "metadata": { "type": "object" },
+        "source_relationship_ref": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/SourceRelationshipRef" }] },
+        "sort_key": { "type": "string" }
+      }
+    },
+    "Result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projection_schema_id", "projection_result_id", "graph_view_id", "source_owner_id", "source_snapshot_id", "projection_version", "normalized_configuration_sha256", "normalized_source_sha256", "canonical_output_sha256", "properties", "mapped_metadata", "schema_registry", "vertices", "edges", "validation_summary", "consumer_capabilities"],
+      "properties": {
+        "projection_schema_id": { "const": "graph_projection.v2" },
+        "projection_result_id": { "type": "string", "pattern": "^gpres_[0-9a-f]{64}$" },
+        "graph_view_id": { "$ref": "#/$defs/Identifier" },
+        "source_owner_id": { "$ref": "#/$defs/Identifier" },
+        "source_snapshot_id": { "$ref": "#/$defs/Identifier" },
+        "projection_version": { "$ref": "#/$defs/Identifier" },
+        "normalized_configuration_sha256": { "$ref": "#/$defs/SHA256" },
+        "normalized_source_sha256": { "$ref": "#/$defs/SHA256" },
+        "canonical_output_sha256": { "$ref": "#/$defs/SHA256" },
+        "properties": { "$ref": "#/$defs/PropertyMap" },
+        "mapped_metadata": { "type": "object" },
+        "schema_registry": { "type": "object" },
+        "vertices": { "type": "array", "items": { "$ref": "#/$defs/Vertex" }, "maxItems": 100000 },
+        "edges": { "type": "array", "items": { "$ref": "#/$defs/Edge" }, "maxItems": 250000 },
+        "validation_summary": { "type": "object" },
+        "consumer_capabilities": { "type": "object" }
+      }
+    }
+  }
+}

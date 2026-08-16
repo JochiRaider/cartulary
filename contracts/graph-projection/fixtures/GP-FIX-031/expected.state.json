@@ -1,7 +1,0 @@
-{
-  "fixture_id": "GP-FIX-031",
-  "error": {
-    "code": "invalid_operation",
-    "reason_code": "graph_view_already_exists"
-  }
-}

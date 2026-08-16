@@ -1,0 +1,43 @@
+{
+  "schema_id": "cartulary.graph_projection_golden_fixture.v2",
+  "fixture_id": "GP2-FIX-001",
+  "trusted_context": {
+    "graph_view_id": "graph-view-empty",
+    "source_owner_id": "network_flow_activity"
+  },
+  "input": {
+    "projection_schema_id": "graph_projection.v2",
+    "source_snapshot_id": "snapshot-empty",
+    "projection_config": {
+      "projection_version": "network-flow-graph-v1",
+      "declared_source_entity_kinds": [],
+      "declared_source_relationship_kinds": [],
+      "entity_mappings": [],
+      "relationship_mappings": [],
+      "metadata_mappings": [],
+      "aggregation_rules": [],
+      "default_vertex_labels": [],
+      "default_edge_labels": [],
+      "allow_empty_kind_registry": true
+    },
+    "source_entities": [],
+    "source_relationships": [],
+    "source_metadata": {},
+    "filters": {
+      "entity_filters": [],
+      "relationship_filters": [],
+      "logic": "and"
+    },
+    "property_definitions": []
+  },
+  "expected": {
+    "vertex_count": 0,
+    "edge_count": 0,
+    "projection_result_id_prefix": "gpres_",
+    "repeatable": true,
+    "projection_result_id": "gpres_470d13cd1b69a5199e9b3852c77848e64813c73c9cfd936ff85c4d1e912c9005",
+    "normalized_configuration_sha256": "d8b0762e92ed8ed8706885bfc73f96fdf65941a3c33cfb97b23cc7bfb39f218a",
+    "normalized_source_sha256": "996a557f4f17493c77d755556e1d4b659aa70dabb7ba8372357f50f12edab82b",
+    "canonical_output_sha256": "f7755c58d1d366e56f386879ca8e06bbade8e1fdf42b73a9421a8a28a9a0522e"
+  }
+}

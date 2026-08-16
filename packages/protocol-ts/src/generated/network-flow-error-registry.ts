@@ -11,7 +11,7 @@ function deepFreeze<Value>(value: Value): Value {
 }
 
 const value = {
-  "contract_major": 2,
+  "contract_major": 3,
   "errors": [
     {
       "code": "network_flow_invalid_request",
@@ -227,6 +227,42 @@ const value = {
       "code": "network_flow_graph_query_stale",
       "http_status": 409,
       "retry_action": "refresh_resource",
+      "scope": "route"
+    },
+    {
+      "code": "network_flow_graph_view_not_found",
+      "http_status": 404,
+      "retry_action": "refresh_resource",
+      "scope": "route"
+    },
+    {
+      "code": "network_flow_graph_view_not_active",
+      "http_status": 409,
+      "retry_action": "refresh_resource",
+      "scope": "route"
+    },
+    {
+      "code": "network_flow_graph_view_not_materialized",
+      "http_status": 409,
+      "retry_action": "retry_with_backoff",
+      "scope": "route"
+    },
+    {
+      "code": "network_flow_graph_view_version_conflict",
+      "http_status": 409,
+      "retry_action": "refresh_resource",
+      "scope": "route"
+    },
+    {
+      "code": "network_flow_graph_view_limit_exceeded",
+      "http_status": 409,
+      "retry_action": "reduce_scope_or_limits",
+      "scope": "route"
+    },
+    {
+      "code": "network_flow_graph_materialization_limit_exceeded",
+      "http_status": 409,
+      "retry_action": "retry_with_backoff",
       "scope": "route"
     },
     {
@@ -543,6 +579,47 @@ const value = {
         "vertex_not_found",
         "edge_not_found",
         "scope_stale"
+      ]
+    },
+    {
+      "error_code": "network_flow_graph_view_not_found",
+      "reason_codes": [
+        "not_found"
+      ]
+    },
+    {
+      "error_code": "network_flow_graph_view_not_active",
+      "reason_codes": [
+        "retired",
+        "source_retired"
+      ]
+    },
+    {
+      "error_code": "network_flow_graph_view_not_materialized",
+      "reason_codes": [
+        "cancelled_without_prior_result",
+        "failed_without_prior_result",
+        "materialization_pending",
+        "never_materialized"
+      ]
+    },
+    {
+      "error_code": "network_flow_graph_view_version_conflict",
+      "reason_codes": [
+        "stale_version"
+      ]
+    },
+    {
+      "error_code": "network_flow_graph_view_limit_exceeded",
+      "reason_codes": [
+        "active_declaration_limit_exceeded",
+        "retained_declaration_limit_exceeded"
+      ]
+    },
+    {
+      "error_code": "network_flow_graph_materialization_limit_exceeded",
+      "reason_codes": [
+        "incident_nonterminal_job_limit_exceeded"
       ]
     },
     {

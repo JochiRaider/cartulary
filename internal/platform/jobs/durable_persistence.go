@@ -47,6 +47,36 @@ SELECT handler_payload_json
 	return append(json.RawMessage(nil), payload.String...), nil
 }
 
+// RetainedHandlerPayload exposes an owner-private payload only while the
+// corresponding public job remains retained. It exists for exact producer
+// route replay after terminal extension finalization has replaced the shared
+// idempotency payload with the terminal Common Job resource.
+func (m *Manager) RetainedHandlerPayload(ctx context.Context, jobID uuid.UUID) (json.RawMessage, error) {
+	if err := m.ensureConfigured(); err != nil {
+		return nil, err
+	}
+	if jobID == uuid.Nil {
+		return nil, ErrNotFound
+	}
+	var payload pgtype.Text
+	err := m.pool.QueryRow(ctx, `
+SELECT handler_payload_json
+  FROM jobs
+ WHERE job_id = $1
+   AND (retained_until IS NULL OR retained_until > $2)
+`, jobID, m.now().UTC()).Scan(&payload)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !payload.Valid {
+		return nil, nil
+	}
+	return append(json.RawMessage(nil), payload.String...), nil
+}
+
 func (m *Manager) executionResource(ctx context.Context, execution Execution) (Resource, error) {
 	if !execution.valid() {
 		return Resource{}, ErrExecutionLost

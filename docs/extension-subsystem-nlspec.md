@@ -4,7 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: base
 schema_id: cartulary.extensions_subsystem_nlspec.v1
-document_version: 0.7.3
+document_version: 0.8.0
 contract_major: 2
 ---
 
@@ -12,13 +12,13 @@ contract_major: 2
 
 This NLSpec defines the Cartulary Extensions Subsystem. The subsystem is part of the Base Profile because profile recognition, extension discovery, reserved-route dispatch, claim resolution, inactive-profile behavior, registry integrity validation, verification routing, and extension contract coordination exists even when every optional extension profile is unclaimed.
 
-This document is `status: adopted/current`. Version `0.7.3` makes the breaking projection
+This document is `status: adopted/current`. Version `0.8.0` makes the breaking projection
 versions declared in Section 1.1 authoritative throughout this document, without a compatibility
 reader. It also adopts the v2 extension job-kind contract and its owner-declared progress-unit
 identity, coordinates the Core-owned analytical import binding shape with target-owned exact payload
 schemas, and requires every analytical `import_target` contribution to name its binding.
 Its coordinated owner repair is adopted with Core 00/Core 01, Core 03/Core 04, Domain vocabulary,
-and Network Flow Activity `2.0.3`; the machine projection and implementation evidence remain
+and Network Flow Activity `3.0.0`; the machine projection and implementation evidence remain
 governed by the controlling remediation tracker.
 
 ## 1.1 Current projection and evidence boundary
@@ -1749,7 +1749,7 @@ Profiles: base
 Verified by: EXT-AC-023, EXT-AC-039, EXT-AC-091
 
 **EXT-REQ-086**
-For the coordinated adoption baseline, the `network_flow_activity` discovery item MUST report `claimable=true`, `contract_major=2`, the reserved Network Flow route family, `workspace_keys=["network_analysis"]`, and `capabilities=[]` whether claimed or unclaimed; only `claimed` changes with the resolved claim set.
+For the coordinated adoption baseline, the `network_flow_activity` discovery item MUST report `claimable=true`, `contract_major=3`, the reserved Network Flow route family, `workspace_keys=["network_analysis"]`, and `capabilities=[]` whether claimed or unclaimed; only `claimed` changes with the resolved claim set.
 
 Profiles: base, network_flow_activity
 Verified by: EXT-AC-003, EXT-AC-016, EXT-AC-027, EXT-AC-028, EXT-AC-029
@@ -1792,16 +1792,12 @@ Profiles: base, network_flow_activity
 Verified by: EXT-AC-092
 
 **EXT-REQ-231**
-The generic seven-member discovery item is the sole discovery contract after coordinated adoption. Because the currently adopted Network Flow Activity `contract_major=1` explicitly requires public `document_version` and singular `route_root`, removal of those members is a breaking correction unless the adopted-document authority records that the profile-local item was never effective in any conforming released implementation.
-
-The default coordinated action is therefore:
-
-- revise the Network Flow Activity owner to `document_version=2.0.0` and `contract_major=2`;
-- replace its local discovery schema with `cartulary.extension_discovery_item.v1`;
-- update Core 00 recognition, owner fragments, dependency snapshot, descriptors, implementation bindings, client support registry, and behavioral verification routing;
-- leave persisted Network Flow state version unchanged unless another owner change independently requires a state migration.
-
-A contract-major-1 correction is valid only when one adopted authority finding proves all of these facts: no released server emitted the local shape; no released compatible client depended on it; no compatible retained Harness v2 evidence or claim treated it as valid; and the correction changes no previously conforming observable implementation. Without that exact finding, contract major `2` is mandatory. A patch or minor document-version increment is insufficient.
+The generic seven-member discovery item is the sole discovery contract. Network
+Flow Activity contract major `3` adds saved graph routes and schemas and MUST be
+projected atomically through Core 00 recognition, owner fragments, dependency
+snapshots, descriptors, implementation bindings, client support, and behavioral
+verification routing. A major-2-only client omits the workspace. A profile-local
+item, dual decoder, compatibility alias, or partial major update is invalid.
 
 Profiles: base, network_flow_activity
 Verified by: EXT-AC-110
@@ -1988,7 +1984,7 @@ Each `profiles[]` row MUST contain exactly:
 - `capability_ids[]`;
 - `public_schema_ids[]`.
 
-`client_build_class` has no omission default; `standard` is the only admitted build class in this revision. `profiles[]` MUST contain `0..256` rows, reject duplicate profile IDs, and sort by ascending UTF-8 bytes of `profile_id`. A row is required for every canonical descriptor with `claimable=true` and a nonempty `workspace_keys[]`; omission of any such row is invalid. Omission of a row for a claimable profile without a workspace means that browser build supports no contract major, capability, or public schema for that profile. A profile row is valid only when the canonical descriptor has `claimable=true` and a non-null `contract_major`; a recognized-unclaimable profile MUST be omitted. In contract major `1`, each `supported_contract_majors[]` array MUST contain exactly one positive integer equal to the canonical descriptor's current `contract_major` for that profile. Supporting more than one profile contract major in one browser build is future-only until a later revision defines digest-bound historical owner inputs and decoder-selection behavior. `workspace_keys[]` MUST exactly equal the descriptor workspaces for every required row and contain `0..64` values; `capability_ids[]` MUST equal `[]`; `public_schema_ids[]` MUST contain `0..256` values. Each array must reject duplicates and sort by ascending UTF-8 bytes. The required Network Flow row MUST select contract major `2` and workspace `network_analysis` exactly.
+`client_build_class` has no omission default; `standard` is the only admitted build class in this revision. `profiles[]` MUST contain `0..256` rows, reject duplicate profile IDs, and sort by ascending UTF-8 bytes of `profile_id`. A row is required for every canonical descriptor with `claimable=true` and a nonempty `workspace_keys[]`; omission of any such row is invalid. Omission of a row for a claimable profile without a workspace means that browser build supports no contract major, capability, or public schema for that profile. A profile row is valid only when the canonical descriptor has `claimable=true` and a non-null `contract_major`; a recognized-unclaimable profile MUST be omitted. In contract major `1`, each `supported_contract_majors[]` array MUST contain exactly one positive integer equal to the canonical descriptor's current `contract_major` for that profile. Supporting more than one profile contract major in one browser build is future-only until a later revision defines digest-bound historical owner inputs and decoder-selection behavior. `workspace_keys[]` MUST exactly equal the descriptor workspaces for every required row and contain `0..64` values; `capability_ids[]` MUST equal `[]`; `public_schema_ids[]` MUST contain `0..256` values. Each array must reject duplicates and sort by ascending UTF-8 bytes. The required Network Flow row MUST select contract major `3` and workspace `network_analysis` exactly.
 
 The registry declares semantic support only. It MUST NOT contain React component names, source-package paths, chunk names, URLs, DOM selectors, display labels, icons, or callback identifiers. It MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_client_support_registry_sha256_v1`. Build validation MUST fail when the registry advertises a profile absent from the canonical extension registry; when its one supported major differs from the canonical descriptor; when it advertises a workspace, capability, or public schema absent from that descriptor; when packaged assets do not match `asset_set_sha256`; or when an implementation binding claims client participation absent from this registry.
 
@@ -3967,7 +3963,7 @@ The implementation and coordinated specification set are conformant only when ev
 | `EXT-AC-153` | Transaction participant counts `0`, `1`, `16384`, and `16385`, every 64 MiB boundary, first-invalid order, result validity, and cancellation checkpoint execute exactly with no partial effects. |
 | `EXT-AC-154` | Every staged-object default, expiry/retry predicate, upload abandonment, deletion outcome/order, transaction-free delete, serialized sweep, missed-interval coalescing, startup dependency, and readiness branch executes exactly. |
 | `EXT-AC-155` | Restore accepts only stopped empty targets, processes numeric groups and sequential bindings with validation before advance, never serves failure, invokes no inactive code, uses only digest-bound codecs, and rebuilds only after claim. |
-| `EXT-AC-156` | The standard client registry covers every claimable workspace profile including Network Flow major `2`/`network_analysis`, and linearized reservation, stale/current generation, concurrency, rollover, authorization loss, and Base identity preservation are exact. |
+| `EXT-AC-156` | The standard client registry covers every claimable workspace profile including Network Flow major `3`/`network_analysis`, and linearized reservation, stale/current generation, concurrency, rollover, authorization loss, and Base identity preservation are exact. |
 | `EXT-AC-157` | Every capability surface emits `[]`; nonempty facts, arrays, and activation attempts are rejected with `extension_capability_not_supported` and execute no behavior. |
 | `EXT-AC-158` | Loss of each mandatory listener, dequeue gate, or worker before bind, before serving, or while serving is distinguished from operation failure, drains and preserves state, exits `70`, and never restarts in-process. |
 
@@ -3989,7 +3985,7 @@ Verified by: EXT-AC-001, EXT-AC-072, EXT-AC-075, EXT-AC-128
 | `EXT-GATE-004` | Core 02 adopts or confirms the generic extension-resource boundary, authoritative/derived logical state-family ownership boundary, state-presence exclusion rules, and cross-owner authoritative-write prohibition. |
 | `EXT-GATE-005` | Core 03 adopts availability epoch/generation, stable `client_instance_id` and WebSocket identity, exact discovery/support/authorization intersection, lazy loading, unsupported-major behavior, Base fallback, authorization-loss disposal, and Base cache/request/queue/draft preservation. |
 | `EXT-GATE-006` | Core 04 adopts forbidden/syntax-only inactive processing, every timeout, process lease, single-active-process rule, Stage 6 publication, readiness including cleanup dependency degradation, `fatal_integrity_shutdown_v1`, and exit codes `2` and `70`. |
-| `EXT-GATE-007` | Network Flow Activity publishes its typed owner fragments, removes its competing discovery shape, adopts major 2 unless the complete exception is recorded, and declares Import dependency, empty initialization, migration/final validation, state presence/bindings/codecs, job kinds, participants, rebuilds, and portability blocking. |
+| `EXT-GATE-007` | Network Flow Activity publishes its typed owner fragments, removes its competing discovery shape, adopts major 3, and declares Import dependency, empty initialization, exact `1 -> 2` migration/final validation, five-family state presence/bindings/codecs, saved-graph job/worker/resource, Reporting participant, Graph rebuild, and portability blocking. |
 | `EXT-GATE-008` | Reporting and Report Composition import the generic descriptor, claim, compatibility, state-presence, participant-context, result, and lifecycle contracts without transferring reporting or composition ownership. |
 | `EXT-GATE-009` | The Testing Harness remains adopted/current; every Extensions verification routes to a real test or public target; runner and execution profiles validate; and no compatibility reader or historical run can close adoption. |
 | `EXT-GATE-010` | OpenTelemetry derives `cartulary.profile.claims` only from the canonical resolved claim set and its published digest and records no profile-local secret or incident content. |
@@ -4021,7 +4017,10 @@ Verified by: EXT-AC-003, EXT-AC-072
 **EXT-REQ-170**
 Core 00, Core 01, Core 03, Core 04, and the Network Flow Activity NLSpec MUST be amended together so that discovery has one generic seven-member shape, inactive dispatch has one precedence, client support uses one major, and the current Network Flow contract-major action is explicit.
 
-The default coordinated action is Network Flow `contract_major=2` and document version `2.0.0` because removing public `document_version` and singular `route_root` changes a previously required response shape. A contract-major-1 correction is conformant only when the adopted document-status authority records every condition in EXT-REQ-231 as proven. A patch or minor document-version change without that proof is invalid.
+The current coordinated action is Network Flow `contract_major=3`, document
+version `3.0.0`, state version `2`, and the exact owner-declared saved graph
+contributions. A partial major, state, job, participant, rebuild, client-support,
+or generated-artifact update is invalid.
 
 A repository MUST NOT adopt this NLSpec while an older competing discovery item, inactive-route precedence, client major, owner fragment, compatibility reader, or generated artifact remains current.
 
@@ -4149,18 +4148,18 @@ The following object is an illustrative field fragment, not a conforming complet
   ],
   "state_ownership": {
     "kind": "extension_versioned",
-    "current_state_version": 1,
+    "current_state_version": 2,
     "minimum_migratable_state_version": 1,
     "migration_lineage_id": "network_flow_activity.state_v1",
     "state_presence_contract_ref": "docs/network-flow-activity-nlspec.md#schema:cartulary.extension_state_presence_manifest.v1",
     "initialization_definition_ref": "docs/network-flow-activity-nlspec.md#schema:cartulary.extension_state_initialization_definition.v1",
     "initialization_definition_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-    "final_state_validation_algorithm_id": "network_flow_activity_validate_state_v1",
-    "final_state_validation_algorithm_ref": "docs/network-flow-activity-nlspec.md#algorithm:network_flow_activity_validate_state_v1"
+    "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v2",
+    "final_state_validation_algorithm_ref": "network_flow_activity.validate_state_v2"
   },
   "egress_mode": "none",
   "incident_portability_mode": "blocked_when_present",
-  "snapshot_reporting_mode": "no_participation"
+  "snapshot_reporting_mode": "participant"
 }
 ```
 
@@ -4173,7 +4172,7 @@ A conforming complete descriptor would add every required member and the exhaust
   "profile_id": "network_flow_activity",
   "claimable": true,
   "claimed": false,
-  "contract_major": 2,
+  "contract_major": 3,
   "route_families": [
     "/api/v1/incidents/{incident_id}/network-flow"
   ],

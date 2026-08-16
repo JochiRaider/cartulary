@@ -3,9 +3,8 @@ title: Cartulary Report Composition NLSpec
 status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
-document_version: 1.1.0
+document_version: 1.2.0
 schema_id: cartulary.report_composition_nlspec.v1
-document_version: 1.1.1
 ---
 
 # 1. Status, Scope, And Authority
@@ -327,7 +326,7 @@ For idempotency comparison, omitted members that materialize to defaults compare
 | `output_kind` | string | Yes | No | None | Closed Reporting output kind: `mermaid` or `slidev`. |
 | `output_options` | object | No | No | Reporting §7.5 defaults | Reporting output options. Omitted object materializes exactly as Reporting §7.5. |
 | `recipient_partition_refs` | array of string | No | No | `[]` | Passed to Reporting as preview input. |
-| `graph_projection_refs` | array of Reporting `source_projection_ref.v1` | No | No | `[]` | Completed digest-bound Graph Projection references available to preview diagram validation. |
+| `graph_projection_refs` | array of Reporting `source_projection_ref.v2` | No | No | `[]` | Exact immutable Graph Projection references available to preview diagram validation. |
 
 Preview requests always delegate to Reporting with `release_scope='internal_draft'`. After default materialization, `recipient_partition_refs` MUST be `[]`; a non-empty value MUST fail before Reporting invocation with validation code `composition_schema_invalid`. `graph_projection_refs` MUST sort bytewise by `graph_view_id`, and duplicate `graph_view_id` values MUST fail before Reporting invocation with validation code `composition_validation_context_invalid`.
 
@@ -392,7 +391,7 @@ The success schema `cartulary.report_composition_preview_view.v1` MUST contain t
 | `output_kind` | string | Yes | No | Reporting output kind. |
 | `output_options` | object | Yes | No | Reporting output options after §7.5 defaults. |
 | `recipient_partition_refs` | array of string | Yes | No | Materialized recipient partitions. |
-| `graph_projection_refs` | array of Reporting `source_projection_ref.v1` | Yes | No | Materialized graph projection refs sorted by Reporting rules. |
+| `graph_projection_refs` | array of Reporting `source_projection_ref.v2` | Yes | No | Materialized graph projection refs sorted by Reporting rules. |
 | `release_scope` | string | Yes | No | Exact `internal_draft`. |
 
 **REQ-RC-035b**
@@ -815,7 +814,7 @@ A non-null validation context MUST use Table 12-B2. Unknown members are invalid.
 | `redaction_profile_version` | identifier | Yes | No | None | Reporting redaction profile version. |
 | `redaction_profile_sha256` | sha256_hex | Yes | No | None | Digest of redaction profile bytes used for authored-text permission checks. |
 | `recipient_partition_refs` | array of string | Yes | No | `[]` | Must be `[]` for `internal_draft` and `internal_review`; non-empty and Reporting-valid for `external_release`. |
-| `graph_projection_refs` | array of Reporting `source_projection_ref.v1` | Yes | No | `[]` | Sorted bytewise by `graph_view_id`; duplicate `graph_view_id` values invalid. |
+| `graph_projection_refs` | array of Reporting `source_projection_ref.v2` | Yes | No | `[]` | Sorted bytewise by `graph_view_id`; duplicate `graph_view_id` values invalid. |
 | `output_kind` | string | Yes | No | None | Closed Reporting output kind: `mermaid` or `slidev`. |
 | `output_options` | object | Yes | No | Reporting §7.5 defaults | Materialized Reporting output options. |
 | `render_environment_profile_id` | identifier | Yes | No | None | Template-declared Reporting render profile used for validation. |

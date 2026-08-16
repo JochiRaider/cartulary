@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -91,6 +92,13 @@ func writeCanonicalJSON(out *bytes.Buffer, value any, allowAdmittedNumber bool) 
 		out.WriteString(strconv.Itoa(typed))
 	case int64:
 		out.WriteString(strconv.FormatInt(typed, 10))
+	case float64:
+		if math.IsNaN(typed) || math.IsInf(typed, 0) {
+			return fmt.Errorf("non-finite canonical number")
+		}
+		formatted := strconv.FormatFloat(typed, 'g', -1, 64)
+		formatted = strings.Replace(formatted, "e+", "e", 1)
+		out.WriteString(formatted)
 	case []any:
 		out.WriteByte('[')
 		for i, entry := range typed {
@@ -166,10 +174,6 @@ func writeCanonicalJSON(out *bytes.Buffer, value any, allowAdmittedNumber bool) 
 
 func tupleBytes(prefix string, fields ...any) ([]byte, error) {
 	return tupleBytesMode(prefix, false, fields...)
-}
-
-func tupleBytesInput(prefix string, fields ...any) ([]byte, error) {
-	return tupleBytesMode(prefix, true, fields...)
 }
 
 func tupleBytesMode(prefix string, allowAdmittedNumber bool, fields ...any) ([]byte, error) {

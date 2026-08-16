@@ -4,41 +4,41 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 )
 
-func validateAdmittedRequest(run ProjectionRun) []ValidationIssue {
+func validateAdmittedRequest(run projectionWork) []ValidationIssue {
 	request := run.Request
 	issues := []ValidationIssue{}
+	identifierValid := validIdentifier
+	if request.ProjectionSchemaID == ProjectionSchemaIDV2 {
+		identifierValid = validIdentifierV2
+	}
 	scalar := func(valid bool, field string) {
 		if !valid {
 			issues = append(issues, run.issue("fatal", "invalid_input_shape", "projection_input", "projection_input", field, map[string]any{"field": field, "reason_code": "scalar_contract_violation"}))
 		}
 	}
-	scalar(validIdentifier(request.ProjectionConfig.GraphViewKey), "$.projection_config.graph_view_key")
-	scalar(validIdentifier(request.SourceSnapshotID), "$.source_snapshot_id")
-	scalar(validIdentifier(request.RequestedBy), "$.requested_by")
-	_, timestampErr := parseTimestamp(request.RequestedAt)
-	scalar(timestampErr == nil, "$.requested_at")
+	scalar(identifierValid(request.projectionConfig.GraphViewKey), "$.projection_config.graph_view_key")
+	scalar(identifierValid(request.SourceSnapshotID), "$.source_snapshot_id")
 	for index, entity := range request.SourceEntities {
 		base := fmt.Sprintf("$.source_entities[%d]", index)
-		scalar(validIdentifier(entity.SourceEntityID), base+".source_entity_id")
-		scalar(validIdentifier(entity.SourceEntityKind), base+".source_entity_kind")
+		scalar(identifierValid(entity.SourceEntityID), base+".source_entity_id")
+		scalar(identifierValid(entity.SourceEntityKind), base+".source_entity_kind")
 	}
 	for index, relationship := range request.SourceRelationships {
 		base := fmt.Sprintf("$.source_relationships[%d]", index)
-		scalar(validIdentifier(relationship.SourceRelationshipID), base+".source_relationship_id")
-		scalar(validIdentifier(relationship.SourceRelationshipKind), base+".source_relationship_kind")
+		scalar(identifierValid(relationship.SourceRelationshipID), base+".source_relationship_id")
+		scalar(identifierValid(relationship.SourceRelationshipKind), base+".source_relationship_kind")
 		if relationship.SrcSourceEntityID != "" {
-			scalar(validIdentifier(relationship.SrcSourceEntityID), base+".src_source_entity_id")
+			scalar(identifierValid(relationship.SrcSourceEntityID), base+".src_source_entity_id")
 		}
 		if relationship.DstSourceEntityID != "" {
-			scalar(validIdentifier(relationship.DstSourceEntityID), base+".dst_source_entity_id")
+			scalar(identifierValid(relationship.DstSourceEntityID), base+".dst_source_entity_id")
 		}
 	}
-	if len(request.ProjectionConfig.DeclaredSourceEntityKinds) == 0 && len(request.ProjectionConfig.DeclaredSourceRelationshipKinds) == 0 && !request.ProjectionConfig.AllowEmptyKindRegistry {
+	if len(request.projectionConfig.DeclaredSourceEntityKinds) == 0 && len(request.projectionConfig.DeclaredSourceRelationshipKinds) == 0 && !request.projectionConfig.AllowEmptyKindRegistry {
 		issues = append(issues, run.issue("fatal", "invalid_projection_config", "projection_config", "projection_config", "$.projection_config", map[string]any{"field": "$.projection_config", "reason_code": "empty_kind_registry_not_allowed"}))
 	}
 	checkDuplicates := func(values []string, collection string) {
@@ -59,13 +59,12 @@ func validateAdmittedRequest(run ProjectionRun) []ValidationIssue {
 			}
 		}
 	}
-	checkDuplicateKinds(request.ProjectionConfig.DeclaredSourceEntityKinds)
-	checkDuplicateKinds(request.ProjectionConfig.DeclaredSourceRelationshipKinds)
+	checkDuplicateKinds(request.projectionConfig.DeclaredSourceEntityKinds)
+	checkDuplicateKinds(request.projectionConfig.DeclaredSourceRelationshipKinds)
 	issues = append(issues, admittedResourceLimitIssues(run)...)
 	issues = append(issues, validateLabels(run)...)
 	issues = append(issues, validateFilters(run)...)
 	issues = append(issues, validateMappingsAndDefinitions(run)...)
-	issues = append(issues, validateRetentionPolicy(run)...)
 	for _, mapping := range request.RelationshipMappings {
 		if mapping.EmitReverseEdge && mapping.DirectionPolicy != "normalize_forward" && mapping.DirectionPolicy != "normalize_reverse" {
 			issues = append(issues, run.issue("fatal", "invalid_reverse_edge_policy", "mapping_rule", mapping.MappingRuleID, nil, map[string]any{"mapping_rule_id": mapping.MappingRuleID, "projected_direction": nil}))
@@ -74,42 +73,12 @@ func validateAdmittedRequest(run ProjectionRun) []ValidationIssue {
 	return issues
 }
 
-func validateRetentionPolicy(run ProjectionRun) []ValidationIssue {
-	policy := run.Request.ProjectionConfig.RetentionPolicy
+func validateFilters(run projectionWork) []ValidationIssue {
 	issues := []ValidationIssue{}
-	fields := []struct {
-		name string
-		max  int64
-	}{
-		{name: "retention_count", max: 100},
-		{name: "retention_duration_seconds", max: 31536000},
-		{name: "failed_retention_count", max: 100},
-		{name: "failed_retention_duration_seconds", max: 31536000},
-	}
-	for _, field := range fields {
-		lexeme, supplied := policy.RawIntegerLexemes[field.name]
-		if !supplied {
-			continue
-		}
-		path := "$.projection_config.retention_policy." + field.name
-		if !validFiniteInteger(lexeme) {
-			issues = append(issues, run.issue("fatal", "invalid_retention_policy", "projection_config", "projection_config", path, map[string]any{"field": path, "reason_code": "invalid_type"}))
-			continue
-		}
-		value, _ := strconv.ParseInt(lexeme, 10, 64)
-		if value < 0 || value > field.max {
-			issues = append(issues, run.issue("fatal", "invalid_retention_policy", "projection_config", "projection_config", path, map[string]any{"field": path, "reason_code": "out_of_bounds"}))
-		}
-	}
-	return issues
-}
-
-func validateFilters(run ProjectionRun) []ValidationIssue {
-	issues := []ValidationIssue{}
-	if run.Request.Filters.Logic != "and" {
+	if run.Request.filters.Logic != "and" {
 		issues = append(issues, run.issue("fatal", "invalid_filter", "filter", "$.filters.logic", "$.filters.logic", map[string]any{"field": "$.filters.logic", "reason_code": "unsupported_logic"}))
 	}
-	validate := func(predicates []FilterPredicate, collection, scope string) {
+	validate := func(predicates []filterPredicate, collection, scope string) {
 		for index, predicate := range predicates {
 			base := fmt.Sprintf("%s[%d]", collection, index)
 			if !validFilterFieldPath(predicate.FieldPath, scope) {
@@ -136,8 +105,8 @@ func validateFilters(run ProjectionRun) []ValidationIssue {
 			}
 		}
 	}
-	validate(run.Request.Filters.EntityFilters, "$.filters.entity_filters", "source_entity")
-	validate(run.Request.Filters.RelationshipFilters, "$.filters.relationship_filters", "source_relationship")
+	validate(run.Request.filters.EntityFilters, "$.filters.entity_filters", "source_entity")
+	validate(run.Request.filters.RelationshipFilters, "$.filters.relationship_filters", "source_relationship")
 	return issues
 }
 
@@ -167,16 +136,13 @@ func validFilterFieldPath(path, scope string) bool {
 	return len(parts) == 2 && (parts[0] == "properties" || parts[0] == "metadata") && validPropertyKey(parts[1])
 }
 
-func validateMappingsAndDefinitions(run ProjectionRun) []ValidationIssue {
+func validateMappingsAndDefinitions(run projectionWork) []ValidationIssue {
 	request := run.Request
 	issues := []ValidationIssue{}
-	if request.RelationshipMappingSourceConflict {
-		issues = append(issues, run.issue("fatal", "invalid_projection_config", "projection_config", "projection_config", "$.projection_config.relationship_mappings", map[string]any{"field": "$.projection_config.relationship_mappings", "reason_code": "relationship_mapping_source_conflict"}))
-	}
 	entityRuleIDs := map[string]bool{}
 	entityKinds := map[string]string{}
 	vertexKinds := map[string]bool{}
-	for _, mapping := range request.ProjectionConfig.EntityMappings {
+	for _, mapping := range request.projectionConfig.EntityMappings {
 		if entityRuleIDs[mapping.MappingRuleID] {
 			issues = append(issues, invalidMappingIssue(run, mapping.MappingRuleID, "duplicate_mapping_rule_id"))
 		}
@@ -222,7 +188,7 @@ func validateMappingsAndDefinitions(run ProjectionRun) []ValidationIssue {
 			issues = append(issues, run.issue("fatal", "invalid_filter", "filter", mapping.MappingRuleID, nil, map[string]any{"field": "$.projection_config.relationship_mappings.inclusion_predicate", "reason_code": "invalid_operator"}))
 		}
 	}
-	for _, rule := range request.ProjectionConfig.AggregationRules {
+	for _, rule := range request.projectionConfig.AggregationRules {
 		if rule.TargetScope == "vertex" {
 			vertexKinds[rule.ProjectedKind] = true
 		} else if rule.TargetScope == "edge" {
@@ -230,12 +196,12 @@ func validateMappingsAndDefinitions(run ProjectionRun) []ValidationIssue {
 		}
 	}
 	issues = append(issues, validateAggregationRules(run)...)
-	for _, kind := range request.ProjectionConfig.DeclaredSourceEntityKinds {
+	for _, kind := range request.projectionConfig.DeclaredSourceEntityKinds {
 		if entityKinds[kind] == "" {
 			issues = append(issues, run.issue("fatal", "missing_entity_mapping_rule", "mapping_rule", kind, nil, map[string]any{"source_entity_kind": kind}))
 		}
 	}
-	for _, kind := range request.ProjectionConfig.DeclaredSourceRelationshipKinds {
+	for _, kind := range request.projectionConfig.DeclaredSourceRelationshipKinds {
 		if relationshipKinds[kind] == "" {
 			issues = append(issues, run.issue("error", "missing_relationship_mapping_rule", "mapping_rule", kind, nil, map[string]any{"source_relationship_kind": kind}))
 		}
@@ -272,7 +238,7 @@ func validateMappingsAndDefinitions(run ProjectionRun) []ValidationIssue {
 		}
 	}
 	metadataExpansions := map[string]string{}
-	for _, mapping := range request.ProjectionConfig.MetadataMappings {
+	for _, mapping := range request.projectionConfig.MetadataMappings {
 		if reservedSystemMetadataTerminal(mapping.ProjectedMetadataKey) {
 			issues = append(issues, run.issue("fatal", "invalid_metadata_mapping", "mapping_rule", mapping.MetadataMappingID, nil, map[string]any{"metadata_mapping_id": mapping.MetadataMappingID, "reason_code": "reserved_metadata_key"}))
 		}
@@ -302,11 +268,11 @@ func validateMappingsAndDefinitions(run ProjectionRun) []ValidationIssue {
 	return issues
 }
 
-func validateAggregationRules(run ProjectionRun) []ValidationIssue {
-	rules := run.Request.ProjectionConfig.AggregationRules
+func validateAggregationRules(run projectionWork) []ValidationIssue {
+	rules := run.Request.projectionConfig.AggregationRules
 	issues := []ValidationIssue{}
 	indexes := map[string]int{}
-	byID := map[string]AggregationRule{}
+	byID := map[string]aggregationRule{}
 	for index, rule := range rules {
 		if _, exists := indexes[rule.AggregationRuleID]; exists {
 			issues = append(issues, invalidAggregationIssue(run, rule.AggregationRuleID, "aggregation_cycle"))
@@ -331,7 +297,7 @@ func validateAggregationRules(run ProjectionRun) []ValidationIssue {
 			issues = append(issues, invalidAggregationIssue(run, rule.AggregationRuleID, "grouping_key_invalid"))
 		}
 		if rule.TargetScope == "vertex" {
-			if rule.EndpointGrouping != nil || rule.EdgeDirection != "directed" {
+			if rule.endpointGrouping != nil || rule.EdgeDirection != "directed" {
 				issues = append(issues, invalidAggregationIssue(run, rule.AggregationRuleID, "invalid_edge_direction"))
 			}
 			continue
@@ -339,11 +305,11 @@ func validateAggregationRules(run ProjectionRun) []ValidationIssue {
 		if rule.EdgeDirection != "directed" && rule.EdgeDirection != "undirected" && rule.EdgeDirection != "bidirectional" {
 			issues = append(issues, invalidAggregationIssue(run, rule.AggregationRuleID, "invalid_edge_direction"))
 		}
-		if rule.EndpointGrouping == nil {
+		if rule.endpointGrouping == nil {
 			issues = append(issues, invalidAggregationIssue(run, rule.AggregationRuleID, "endpoint_rule_not_vertex_rule"))
 			continue
 		}
-		endpoint := rule.EndpointGrouping
+		endpoint := rule.endpointGrouping
 		if endpoint.MissingEndpointBehavior != "error" && endpoint.MissingEndpointBehavior != "exclude" {
 			issues = append(issues, invalidAggregationIssue(run, rule.AggregationRuleID, "invalid_endpoint_behavior"))
 		}
@@ -372,7 +338,7 @@ func validateAggregationRules(run ProjectionRun) []ValidationIssue {
 	return issues
 }
 
-func invalidAggregationIssue(run ProjectionRun, aggregationRuleID, reason string) ValidationIssue {
+func invalidAggregationIssue(run projectionWork, aggregationRuleID, reason string) ValidationIssue {
 	return run.issue("fatal", "invalid_aggregation_rule", "mapping_rule", aggregationRuleID, nil, map[string]any{"aggregation_rule_id": aggregationRuleID, "reason_code": reason})
 }
 
@@ -405,11 +371,11 @@ func validAggregationFieldPath(path, inputScope string) bool {
 	}
 }
 
-func invalidPropertyDefinitionIssue(run ProjectionRun, definition PropertyDefinition, reason string) ValidationIssue {
+func invalidPropertyDefinitionIssue(run projectionWork, definition propertyDefinition, reason string) ValidationIssue {
 	return run.issue("fatal", "invalid_property_definition", "property_definition", definition.PropertyDefinitionID, nil, map[string]any{"property_definition_id": definition.PropertyDefinitionID, "reason_code": reason})
 }
 
-func invalidMetadataMappingIssue(run ProjectionRun, mapping MetadataMapping, reason string) ValidationIssue {
+func invalidMetadataMappingIssue(run projectionWork, mapping metadataMapping, reason string) ValidationIssue {
 	return run.issue("fatal", "invalid_metadata_mapping", "mapping_rule", mapping.MetadataMappingID, nil, map[string]any{"metadata_mapping_id": mapping.MetadataMappingID, "reason_code": reason})
 }
 
@@ -431,7 +397,7 @@ func validMergeBehavior(value string) bool {
 	}
 }
 
-func invalidMappingIssue(run ProjectionRun, mappingRuleID, reason string) ValidationIssue {
+func invalidMappingIssue(run projectionWork, mappingRuleID, reason string) ValidationIssue {
 	return run.issue("fatal", "invalid_mapping_rule", "mapping_rule", mappingRuleID, nil, map[string]any{"mapping_rule_id": mappingRuleID, "reason_code": reason})
 }
 
@@ -467,7 +433,7 @@ func validDefinitionFieldPath(path, scope string) bool {
 	return false
 }
 
-func admittedResourceLimitIssues(run ProjectionRun) []ValidationIssue {
+func admittedResourceLimitIssues(run projectionWork) []ValidationIssue {
 	request := run.Request
 	issues := []ValidationIssue{}
 	whole := func(key string, observed, limit int) {
@@ -477,20 +443,19 @@ func admittedResourceLimitIssues(run ProjectionRun) []ValidationIssue {
 	}
 	whole("max_source_entities", len(request.SourceEntities), graphProjectionLimits.MaxSourceEntities)
 	whole("max_source_relationships", len(request.SourceRelationships), graphProjectionLimits.MaxSourceRelationships)
-	whole("max_entity_filters", len(request.Filters.EntityFilters), graphProjectionLimits.MaxEntityFilters)
-	whole("max_relationship_filters", len(request.Filters.RelationshipFilters), graphProjectionLimits.MaxRelationshipFilters)
-	whole("max_declared_source_entity_kinds", len(request.ProjectionConfig.DeclaredSourceEntityKinds), graphProjectionLimits.MaxDeclaredSourceEntityKinds)
-	whole("max_declared_source_relationship_kinds", len(request.ProjectionConfig.DeclaredSourceRelationshipKinds), graphProjectionLimits.MaxDeclaredSourceRelationshipKinds)
-	whole("max_entity_mappings", len(request.ProjectionConfig.EntityMappings), graphProjectionLimits.MaxEntityMappings)
+	whole("max_entity_filters", len(request.filters.EntityFilters), graphProjectionLimits.MaxEntityFilters)
+	whole("max_relationship_filters", len(request.filters.RelationshipFilters), graphProjectionLimits.MaxRelationshipFilters)
+	whole("max_declared_source_entity_kinds", len(request.projectionConfig.DeclaredSourceEntityKinds), graphProjectionLimits.MaxDeclaredSourceEntityKinds)
+	whole("max_declared_source_relationship_kinds", len(request.projectionConfig.DeclaredSourceRelationshipKinds), graphProjectionLimits.MaxDeclaredSourceRelationshipKinds)
+	whole("max_entity_mappings", len(request.projectionConfig.EntityMappings), graphProjectionLimits.MaxEntityMappings)
 	whole("max_relationship_mappings", len(request.RelationshipMappings), graphProjectionLimits.MaxRelationshipMappings)
 	whole("max_property_definitions", len(request.PropertyDefinitions), graphProjectionLimits.MaxPropertyDefinitions)
-	whole("max_metadata_mappings", len(request.ProjectionConfig.MetadataMappings), graphProjectionLimits.MaxMetadataMappings)
-	whole("max_aggregation_rules", len(request.ProjectionConfig.AggregationRules), graphProjectionLimits.MaxAggregationRules)
-	whole("max_default_vertex_labels", len(request.ProjectionConfig.DefaultVertexLabels), graphProjectionLimits.MaxDefaultVertexLabels)
-	whole("max_default_edge_labels", len(request.ProjectionConfig.DefaultEdgeLabels), graphProjectionLimits.MaxDefaultEdgeLabels)
+	whole("max_metadata_mappings", len(request.projectionConfig.MetadataMappings), graphProjectionLimits.MaxMetadataMappings)
+	whole("max_aggregation_rules", len(request.projectionConfig.AggregationRules), graphProjectionLimits.MaxAggregationRules)
+	whole("max_default_vertex_labels", len(request.projectionConfig.DefaultVertexLabels), graphProjectionLimits.MaxDefaultVertexLabels)
+	whole("max_default_edge_labels", len(request.projectionConfig.DefaultEdgeLabels), graphProjectionLimits.MaxDefaultEdgeLabels)
 	whole("max_metadata_keys_per_object", len(request.SourceMetadata), graphProjectionLimits.MaxMetadataKeysPerObject)
-	whole("max_custom_config_keys", len(request.ProjectionConfig.CustomConfig), graphProjectionLimits.MaxCustomConfigKeys)
-	for _, mapping := range request.ProjectionConfig.EntityMappings {
+	for _, mapping := range request.projectionConfig.EntityMappings {
 		whole("max_mapping_labels_per_rule", len(mapping.MappingLabels), graphProjectionLimits.MaxMappingLabelsPerRule)
 		whole("max_mapping_property_key_refs", len(mapping.RequiredPropertyKeys), graphProjectionLimits.MaxMappingPropertyKeyRefs)
 		whole("max_mapping_property_key_refs", len(mapping.OptionalPropertyKeys), graphProjectionLimits.MaxMappingPropertyKeyRefs)
@@ -511,7 +476,7 @@ func admittedResourceLimitIssues(run ProjectionRun) []ValidationIssue {
 	return issues
 }
 
-func sourceItemStringLimitIssues(run ProjectionRun, itemID string, objects ...map[string]any) []ValidationIssue {
+func sourceItemStringLimitIssues(run projectionWork, itemID string, objects ...map[string]any) []ValidationIssue {
 	observed := 0
 	for _, object := range objects {
 		for _, value := range object {
@@ -543,7 +508,7 @@ func longestPropertyString(value any) int {
 	}
 }
 
-func validateLabels(run ProjectionRun) []ValidationIssue {
+func validateLabels(run projectionWork) []ValidationIssue {
 	issues := []ValidationIssue{}
 	check := func(values []string, field string) {
 		for _, value := range values {
@@ -552,9 +517,9 @@ func validateLabels(run ProjectionRun) []ValidationIssue {
 			}
 		}
 	}
-	check(run.Request.ProjectionConfig.DefaultVertexLabels, "$.projection_config.default_vertex_labels")
-	check(run.Request.ProjectionConfig.DefaultEdgeLabels, "$.projection_config.default_edge_labels")
-	for index, mapping := range run.Request.ProjectionConfig.EntityMappings {
+	check(run.Request.projectionConfig.DefaultVertexLabels, "$.projection_config.default_vertex_labels")
+	check(run.Request.projectionConfig.DefaultEdgeLabels, "$.projection_config.default_edge_labels")
+	for index, mapping := range run.Request.projectionConfig.EntityMappings {
 		check(mapping.MappingLabels, fmt.Sprintf("$.projection_config.entity_mappings[%d].mapping_labels", index))
 	}
 	for index, mapping := range run.Request.RelationshipMappings {
@@ -569,7 +534,7 @@ func validateLabels(run ProjectionRun) []ValidationIssue {
 	return issues
 }
 
-func sourceItemResourceLimitIssues(run ProjectionRun, itemID string, labelCount, propertyCount, metadataCount int) []ValidationIssue {
+func sourceItemResourceLimitIssues(run projectionWork, itemID string, labelCount, propertyCount, metadataCount int) []ValidationIssue {
 	issues := []ValidationIssue{}
 	add := func(key string, observed, limit int) {
 		if observed > limit {
@@ -599,7 +564,7 @@ func sourceItemValuesWithinLimits(objects ...map[string]any) bool {
 	return true
 }
 
-func projectedOutputLimitIssues(run ProjectionRun, vertices []Vertex, edges []Edge) []ValidationIssue {
+func projectedOutputLimitIssues(run projectionWork, vertices []Vertex, edges []Edge) []ValidationIssue {
 	issues := []ValidationIssue{}
 	add := func(key string, observed, limit int) {
 		if observed > limit {

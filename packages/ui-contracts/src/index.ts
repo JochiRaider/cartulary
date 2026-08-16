@@ -131,6 +131,8 @@ export {
   networkAnalysisMappingColumnTestId,
   networkAnalysisRowCellTestId,
   networkAnalysisRowTestId,
+  networkAnalysisSavedGraphEdgeTestId,
+  networkAnalysisSavedGraphVertexTestId,
   networkAnalysisTableTabTestId,
   networkAnalysisTestId,
   networkAnalysisVertexTestId,

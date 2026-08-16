@@ -57,11 +57,6 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 		"collaboration_replay_events",
 		"collaboration_resume_tokens",
 		"enterprise_auth_transactions",
-		"graph_projection_edges",
-		"graph_projection_idempotency",
-		"graph_projection_runs",
-		"graph_projection_vertices",
-		"graph_projection_views",
 	)
 	if err := catalog.ValidateLegacyShadowTables(legacyTables); err != nil {
 		t.Fatalf("validate exact transitional legacy table set: %v", err)

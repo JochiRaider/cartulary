@@ -10,6 +10,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
@@ -45,6 +46,9 @@ const projectedDstVertexId =
   "vx_7777777777777777777777777777777777777777777777777777777777777777";
 const projectedEdgeId =
   "ed_8888888888888888888888888888888888888888888888888888888888888888";
+const graphViewId = "nfgv_99999999999999999999999999999999";
+const projectionResultId =
+  "gpres_0000000000000000000000000000000000000000000000000000000000000000";
 const diagnosticId =
   "nfd_3333333333333333333333333333333333333333333333333333333333333333";
 const mappingFingerprint =
@@ -843,6 +847,239 @@ describe("NetworkAnalysisWorkspace", () => {
     await user.keyboard("{Escape}");
     await waitFor(() => expect(document.activeElement).toBe(deleteTrigger));
   });
+
+  it("completes the saved graph lifecycle with exact results, last-safe refresh, contributors, bounded rendering, and role-aware controls", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = installNetworkFlowFetchMock({
+      savedGraphs: [savedGraphResource()],
+    });
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="admin"
+        incidentId="incident-1"
+      />,
+    );
+
+    await screen.findByTestId(networkAnalysisTableTabTestId(tableId));
+    await user.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
+    expect(await screen.findByText("Graph ready")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Saved graphs" }));
+    const savedGraphPanel = screen.getByRole("region", {
+      name: "Saved Network Flow graphs",
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Investigation graph" }),
+    ).toBeTruthy();
+    expect(await screen.findByText(/Result gpres_/u)).toBeTruthy();
+    expect(
+      screen.getAllByTestId(/^network-flow-saved-graph-vertex-/u),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByTestId(/^network-flow-saved-graph-edge-/u),
+    ).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "192.0.2.10" }));
+    expect(
+      await screen.findByRole("complementary", {
+        name: "Saved graph contributors",
+      }),
+    ).toBeTruthy();
+    expect(await screen.findByText(/Row 2/u)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    await user.click(
+      within(savedGraphPanel).getByRole("button", { name: "Rename" }),
+    );
+    const renameInput = screen.getByRole("textbox", { name: "Display name" });
+    await user.clear(renameInput);
+    await user.type(renameInput, "Renamed investigation");
+    await user.click(screen.getByRole("button", { name: "Rename graph" }));
+    expect(
+      await screen.findByRole("heading", { name: "Renamed investigation" }),
+    ).toBeTruthy();
+
+    await user.click(
+      within(savedGraphPanel).getByRole("button", { name: "Refresh" }),
+    );
+    expect(
+      await screen.findByText(
+        "Showing the last successful result while refresh continues.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getAllByTestId(/^network-flow-saved-graph-vertex-/u),
+    ).toHaveLength(2);
+
+    await user.click(
+      within(savedGraphPanel).getByRole("button", { name: "Retire" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Retire graph" }));
+    expect(await screen.findByText("No saved graphs yet.")).toBeTruthy();
+
+    await user.click(
+      screen.getByRole("button", { name: "Save current graph" }),
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Display name" }),
+      "New saved graph",
+    );
+    await user.click(screen.getByRole("button", { name: "Save graph" }));
+    expect(
+      await screen.findByRole("heading", { name: "New saved graph" }),
+    ).toBeTruthy();
+    expect(await screen.findByText("Materialization queued.")).toBeTruthy();
+
+    const savedGraphCalls = fetchSpy.mock.calls.filter(([input]) =>
+      requestURL(input).includes("/network-flow/graph-views"),
+    );
+    expect(savedGraphCalls.some(([, init]) => init?.method === "PATCH")).toBe(
+      true,
+    );
+    expect(
+      savedGraphCalls.some(
+        ([input, init]) =>
+          (init?.method ?? "GET") === "POST" &&
+          requestURL(input).endsWith("/refresh"),
+      ),
+    ).toBe(true);
+    expect(savedGraphCalls.some(([, init]) => init?.method === "DELETE")).toBe(
+      true,
+    );
+  });
+
+  it("enforces viewer, editor, reviewer, and administrator controls for saved graphs", async () => {
+    const user = userEvent.setup();
+    installNetworkFlowFetchMock({ savedGraphs: [savedGraphResource()] });
+    const rendered = render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="viewer"
+        incidentId="incident-1"
+      />,
+    );
+
+    await screen.findByTestId(networkAnalysisTableTabTestId(tableId));
+    await user.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
+    await user.click(screen.getByRole("button", { name: "Saved graphs" }));
+    const savedGraphPanel = screen.getByRole("region", {
+      name: "Saved Network Flow graphs",
+    });
+    const savedControls = () => within(savedGraphPanel);
+
+    expect(
+      savedControls().queryByRole("button", { name: "Save current graph" }),
+    ).toBeNull();
+    expect(
+      savedControls().queryByRole("button", { name: "Rename" }),
+    ).toBeNull();
+    expect(
+      savedControls().queryByRole("button", { name: "Refresh" }),
+    ).toBeNull();
+    expect(
+      savedControls().queryByRole("button", { name: "Retire" }),
+    ).toBeNull();
+
+    rendered.rerender(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="editor"
+        incidentId="incident-1"
+      />,
+    );
+    await screen.findByRole("heading", { name: "Investigation graph" });
+    expect(
+      savedControls().getByRole("button", { name: "Save current graph" }),
+    ).toBeTruthy();
+    expect(
+      savedControls().getByRole("button", { name: "Rename" }),
+    ).toBeTruthy();
+    expect(
+      savedControls().getByRole("button", { name: "Refresh" }),
+    ).toBeTruthy();
+    expect(
+      savedControls().queryByRole("button", { name: "Retire" }),
+    ).toBeNull();
+
+    rendered.rerender(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="reviewer"
+        incidentId="incident-1"
+      />,
+    );
+    await screen.findByRole("heading", { name: "Investigation graph" });
+    expect(
+      savedControls().queryByRole("button", { name: "Save current graph" }),
+    ).toBeNull();
+    expect(
+      savedControls().queryByRole("button", { name: "Rename" }),
+    ).toBeNull();
+    expect(
+      savedControls().queryByRole("button", { name: "Refresh" }),
+    ).toBeNull();
+    expect(
+      savedControls().getByRole("button", { name: "Retire" }),
+    ).toBeTruthy();
+
+    rendered.rerender(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="admin"
+        incidentId="incident-1"
+      />,
+    );
+    await screen.findByRole("heading", { name: "Investigation graph" });
+    expect(
+      savedControls().getByRole("button", { name: "Save current graph" }),
+    ).toBeTruthy();
+    expect(
+      savedControls().getByRole("button", { name: "Rename" }),
+    ).toBeTruthy();
+    expect(
+      savedControls().getByRole("button", { name: "Refresh" }),
+    ).toBeTruthy();
+    expect(
+      savedControls().getByRole("button", { name: "Retire" }),
+    ).toBeTruthy();
+  });
+
+  it("bounds saved graph rendering to 500 vertices and 1000 edges with paged navigation", async () => {
+    const user = userEvent.setup();
+    installNetworkFlowFetchMock({
+      savedGraphProjectionResult: largeSavedGraphProjectionResult(),
+      savedGraphs: [savedGraphResource()],
+    });
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="viewer"
+        incidentId="incident-1"
+      />,
+    );
+
+    await screen.findByTestId(networkAnalysisTableTabTestId(tableId));
+    await user.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
+    await user.click(screen.getByRole("button", { name: "Saved graphs" }));
+
+    expect(
+      await screen.findAllByTestId(/^network-flow-saved-graph-vertex-/u),
+    ).toHaveLength(500);
+    expect(
+      screen.getAllByTestId(/^network-flow-saved-graph-edge-/u),
+    ).toHaveLength(1_000);
+    await user.click(
+      within(
+        screen.getByRole("navigation", { name: "vertices navigation" }),
+      ).getByRole("button", { name: "Next" }),
+    );
+    expect(
+      screen.getAllByTestId(/^network-flow-saved-graph-vertex-/u),
+    ).toHaveLength(1);
+    await user.click(
+      within(
+        screen.getByRole("navigation", { name: "edges navigation" }),
+      ).getByRole("button", { name: "Next" }),
+    );
+    expect(
+      screen.getAllByTestId(/^network-flow-saved-graph-edge-/u),
+    ).toHaveLength(1);
+  });
 });
 
 function installImportFlowFetchMock(returnedTableId: string) {
@@ -1172,10 +1409,13 @@ function installNetworkFlowFetchMock(
     readonly rowFailureCode?: string;
     readonly rowFailureReason?: string;
     readonly rowFailureStatus?: number;
+    readonly savedGraphProjectionResult?: Record<string, unknown>;
+    readonly savedGraphs?: Array<Record<string, unknown>>;
     readonly tables?: Array<Record<string, unknown>>;
   } = {},
 ) {
   let tables = options.tables ?? [tableResource()];
+  let savedGraphs = options.savedGraphs ?? [];
   let renameConflictUsed = false;
   let rowQueryCount = 0;
   let contributorSelector: {
@@ -1195,6 +1435,155 @@ function installNetworkFlowFetchMock(
           schema_id: "cartulary.network_flow.table_list.v1",
           tables,
           meta: { count: tables.length },
+        });
+      }
+      if (
+        method === "GET" &&
+        url.endsWith("/api/v1/incidents/incident-1/network-flow/graph-views")
+      ) {
+        return jsonResponse({
+          schema_id: "cartulary.network_flow.graph_view_list.v1",
+          graph_views: savedGraphs,
+        });
+      }
+      if (
+        method === "POST" &&
+        url.endsWith("/api/v1/incidents/incident-1/network-flow/graph-views")
+      ) {
+        const request = JSON.parse(String(init?.body)) as {
+          display_name: string;
+          semantic_query: ReturnType<typeof graphSemanticQueryResource>;
+        };
+        const created = savedGraphResource({
+          displayName: request.display_name,
+          graphViewID: "nfgv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          semanticQuery: request.semantic_query,
+          selected: false,
+          status: "queued",
+        });
+        savedGraphs = [...savedGraphs, created];
+        return jsonResponse(
+          {
+            schema_id: "cartulary.network_flow.graph_view_accepted.v1",
+            graph_view: created,
+            job_id: "graph-job-create",
+            job_kind: "network_flow_activity.graph_view_materialize_v1",
+          },
+          202,
+        );
+      }
+      if (
+        method === "GET" &&
+        url.endsWith(
+          `/api/v1/incidents/incident-1/network-flow/graph-views/${graphViewId}/result`,
+        )
+      ) {
+        const graphView = savedGraphs.find(
+          (candidate) => candidate.graph_view_id === graphViewId,
+        );
+        return jsonResponse({
+          schema_id: "cartulary.network_flow.graph_view_result.v1",
+          graph_view: graphView,
+          projection_result: {
+            ...(options.savedGraphProjectionResult ??
+              graphResource().graph_projection_result),
+            graph_view_id: graphViewId,
+          },
+        });
+      }
+      if (
+        method === "POST" &&
+        url.endsWith(
+          `/api/v1/incidents/incident-1/network-flow/graph-views/${graphViewId}/contributors/query`,
+        )
+      ) {
+        return jsonResponse({
+          schema_id:
+            "cartulary.network_flow.graph_view_contributor_query_result.v1",
+          graph_view_id: graphViewId,
+          projection_result_id: projectionResultId,
+          contributors: [{ row_ref: rowRefResource(), row: rowResource() }],
+        });
+      }
+      if (
+        method === "PATCH" &&
+        url.endsWith(
+          `/api/v1/incidents/incident-1/network-flow/graph-views/${graphViewId}`,
+        )
+      ) {
+        const request = JSON.parse(String(init?.body)) as {
+          display_name: string;
+        };
+        const current = savedGraphs.find(
+          (candidate) => candidate.graph_view_id === graphViewId,
+        );
+        const renamed = {
+          ...current,
+          display_name: request.display_name,
+          normalized_display_name: request.display_name.toLowerCase(),
+          graph_view_version: Number(current?.graph_view_version ?? 1) + 1,
+        };
+        savedGraphs = savedGraphs.map((candidate) =>
+          candidate.graph_view_id === graphViewId ? renamed : candidate,
+        );
+        return jsonResponse({
+          schema_id: "cartulary.network_flow.graph_view_mutation_result.v1",
+          graph_view: renamed,
+        });
+      }
+      if (
+        method === "POST" &&
+        url.endsWith(
+          `/api/v1/incidents/incident-1/network-flow/graph-views/${graphViewId}/refresh`,
+        )
+      ) {
+        const current = savedGraphs.find(
+          (candidate) => candidate.graph_view_id === graphViewId,
+        );
+        const refreshing = {
+          ...current,
+          graph_view_version: Number(current?.graph_view_version ?? 1) + 1,
+          materialization_generation:
+            Number(current?.materialization_generation ?? 1) + 1,
+          last_materialization_job_id: "graph-job-refresh",
+          last_materialization_status: "running",
+        };
+        savedGraphs = savedGraphs.map((candidate) =>
+          candidate.graph_view_id === graphViewId ? refreshing : candidate,
+        );
+        return jsonResponse(
+          {
+            schema_id: "cartulary.network_flow.graph_view_accepted.v1",
+            graph_view: refreshing,
+            job_id: "graph-job-refresh",
+            job_kind: "network_flow_activity.graph_view_materialize_v1",
+          },
+          202,
+        );
+      }
+      if (
+        method === "DELETE" &&
+        url.endsWith(
+          `/api/v1/incidents/incident-1/network-flow/graph-views/${graphViewId}`,
+        )
+      ) {
+        const current = savedGraphs.find(
+          (candidate) => candidate.graph_view_id === graphViewId,
+        );
+        const retired = {
+          ...current,
+          state: "retired",
+          graph_view_version: Number(current?.graph_view_version ?? 1) + 1,
+          materialization_generation:
+            Number(current?.materialization_generation ?? 1) + 1,
+          selected_result: null,
+        };
+        savedGraphs = savedGraphs.filter(
+          (candidate) => candidate.graph_view_id !== graphViewId,
+        );
+        return jsonResponse({
+          schema_id: "cartulary.network_flow.graph_view_mutation_result.v1",
+          graph_view: retired,
         });
       }
       if (
@@ -1598,24 +1987,20 @@ function graphResource(
     graph_query_digest: graphDigest,
     semantic_query: graphSemanticQueryResource(options),
     graph_projection_result: {
-      projection_schema_id: "graph_projection.v1",
+      projection_schema_id: "graph_projection.v2",
+      projection_result_id:
+        "gpres_0000000000000000000000000000000000000000000000000000000000000000",
       graph_view_id:
         "gv_0000000000000000000000000000000000000000000000000000000000000000",
-      graph_view_key: "network-flow-test",
-      state: "ephemeral_available",
-      ephemeral_projection_id:
-        "gpe_0000000000000000000000000000000000000000000000000000000000000000",
+      source_owner_id: "network_flow_activity",
       source_snapshot_id: "snapshot-1",
-      projection_version: "v1",
-      generated_at: "2026-05-30T00:00:00Z",
+      projection_version: "network_flow_activity.v1",
+      normalized_configuration_sha256: graphDigest,
+      normalized_source_sha256: sourceDigest,
+      canonical_output_sha256:
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       properties: {},
-      metadata: {
-        previous_projection_run_id: null,
-        projection_config_digest: graphDigest,
-        projection_source_digest: sourceDigest,
-        mapped_metadata: {},
-        invalidation: null,
-      },
+      mapped_metadata: {},
       schema_registry: {
         vertex_kinds: [],
         edge_kinds: [],
@@ -1638,10 +2023,10 @@ function graphResource(
         {
           edge_id: projectedEdgeId,
           edge_kind: "network_flow.flow_edge.v1",
-          edge_family: "network_flow.flow_edge.v1",
+          edge_family: "direct",
           src_vertex_id: projectedSrcVertexId,
           dst_vertex_id: projectedDstVertexId,
-          direction: "forward",
+          direction: "directed",
           labels: [],
           properties: {
             edge_id: edgeId,
@@ -1709,6 +2094,94 @@ function graphResource(
       max_aggregate_counter_digits: 20,
     },
   };
+}
+
+function savedGraphResource(
+  options: {
+    readonly displayName?: string;
+    readonly graphViewID?: string;
+    readonly selected?: boolean;
+    readonly semanticQuery?: ReturnType<typeof graphSemanticQueryResource>;
+    readonly status?:
+      | "not_started"
+      | "queued"
+      | "running"
+      | "succeeded"
+      | "failed"
+      | "cancelled";
+  } = {},
+) {
+  const selected = options.selected ?? true;
+  return {
+    schema_id: "cartulary.network_flow.graph_view.v1",
+    graph_view_id: options.graphViewID ?? graphViewId,
+    incident_id: incidentResourceId,
+    display_name: options.displayName ?? "Investigation graph",
+    normalized_display_name: (
+      options.displayName ?? "Investigation graph"
+    ).toLowerCase(),
+    graph_view_version: 1,
+    materialization_generation: 1,
+    state: "active",
+    semantic_query: options.semanticQuery ?? graphSemanticQueryResource(),
+    selected_result: selected
+      ? {
+          projection_result_id: projectionResultId,
+          source_snapshot_id: "snapshot-1",
+          projection_schema_id: "graph_projection.v2",
+          projection_version: "network_flow_activity.v1",
+          normalized_configuration_sha256: graphDigest,
+          normalized_source_sha256: sourceDigest,
+          canonical_output_sha256:
+            "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        }
+      : null,
+    last_materialization_job_id: selected ? "graph-job-1" : "graph-job-create",
+    last_materialization_status:
+      options.status ?? (selected ? "succeeded" : "queued"),
+    last_failure_code: null,
+    created_at: "2026-07-10T12:00:00Z",
+    updated_at: "2026-07-10T12:00:00Z",
+  };
+}
+
+function largeSavedGraphProjectionResult(): Record<string, unknown> {
+  const base = graphResource().graph_projection_result;
+  const vertices = Array.from({ length: 501 }, (_, index) => {
+    const identity = index.toString(16).padStart(64, "0");
+    return graphVertexResource({
+      candidateValue: `192.0.${Math.floor(index / 256)}.${index % 256}`,
+      endpointId: `nfe_${identity}`,
+      projectedVertexId: `vx_${identity}`,
+    });
+  });
+  const edges = Array.from({ length: 1_001 }, (_, index) => {
+    const identity = index.toString(16).padStart(64, "0");
+    const sourceIdentity = (index % vertices.length)
+      .toString(16)
+      .padStart(64, "0");
+    const destinationIdentity = ((index + 1) % vertices.length)
+      .toString(16)
+      .padStart(64, "0");
+    return {
+      ...base.edges[0],
+      edge_id: `ed_${identity}`,
+      src_vertex_id: `vx_${sourceIdentity}`,
+      dst_vertex_id: `vx_${destinationIdentity}`,
+      properties: {
+        ...base.edges[0]?.properties,
+        edge_id: `nff_${identity}`,
+        src_endpoint_id: `nfe_${sourceIdentity}`,
+        dst_endpoint_id: `nfe_${destinationIdentity}`,
+      },
+      source_relationship_ref: {
+        ...base.edges[0]?.source_relationship_ref,
+        source_relationship_id: `nff_${identity}`,
+      },
+      sort_key: `nff_${identity}`,
+    };
+  });
+  return { ...base, vertices, edges };
 }
 
 function graphSemanticQueryResource(
@@ -1804,6 +2277,9 @@ function sourceProfileListResource() {
       "network_flow.max_example_row_refs_per_edge": 10,
       "network_flow.max_binding_source_row_refs": 100,
       "network_flow.max_aggregate_counter_digits": 20,
+      "network_flow.max_active_graph_views_per_incident": 32,
+      "network_flow.max_retained_graph_views_per_incident": 128,
+      "network_flow.max_nonterminal_graph_jobs_per_incident": 4,
     },
     meta: { count: 0 },
   };

@@ -668,74 +668,52 @@ type ExtensionStateMetadatum struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
-type GraphProjectionEdge struct {
-	ProjectionRunID string `json:"projection_run_id"`
-	GraphViewID     string `json:"graph_view_id"`
-	EdgeID          string `json:"edge_id"`
-	EdgeKind        string `json:"edge_kind"`
-	SrcVertexID     string `json:"src_vertex_id"`
-	DstVertexID     string `json:"dst_vertex_id"`
-	Direction       string `json:"direction"`
-	SortKey         string `json:"sort_key"`
-	EdgeJson        []byte `json:"edge_json"`
+type GraphProjectionResult struct {
+	ProjectionResultID            string             `json:"projection_result_id"`
+	GraphViewID                   string             `json:"graph_view_id"`
+	SourceOwnerID                 string             `json:"source_owner_id"`
+	SourceSnapshotID              string             `json:"source_snapshot_id"`
+	ProjectionSchemaID            string             `json:"projection_schema_id"`
+	ProjectionVersion             string             `json:"projection_version"`
+	NormalizedConfigurationSha256 string             `json:"normalized_configuration_sha256"`
+	NormalizedSourceSha256        string             `json:"normalized_source_sha256"`
+	CanonicalOutputSha256         string             `json:"canonical_output_sha256"`
+	VertexCount                   int64              `json:"vertex_count"`
+	EdgeCount                     int64              `json:"edge_count"`
+	ResultJson                    []byte             `json:"result_json"`
+	PublishedAt                   pgtype.Timestamptz `json:"published_at"`
 }
 
-type GraphProjectionIdempotency struct {
-	Operation          string             `json:"operation"`
-	ScopeKey           string             `json:"scope_key"`
-	IdempotencyKey     string             `json:"idempotency_key"`
-	RequestFingerprint string             `json:"request_fingerprint"`
-	GraphViewID        pgtype.Text        `json:"graph_view_id"`
-	ProjectionRunID    pgtype.Text        `json:"projection_run_id"`
-	ResponseJson       []byte             `json:"response_json"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+type GraphProjectionResultEdge struct {
+	ProjectionResultID string `json:"projection_result_id"`
+	EdgeID             string `json:"edge_id"`
+	EdgeKind           string `json:"edge_kind"`
+	SrcVertexID        string `json:"src_vertex_id"`
+	DstVertexID        string `json:"dst_vertex_id"`
+	Direction          string `json:"direction"`
+	SortOrdinal        int64  `json:"sort_ordinal"`
+	SortKey            string `json:"sort_key"`
+	EdgeJson           []byte `json:"edge_json"`
 }
 
-type GraphProjectionRun struct {
-	ProjectionRunID        string             `json:"projection_run_id"`
-	GraphViewID            string             `json:"graph_view_id"`
-	SourceSnapshotID       string             `json:"source_snapshot_id"`
-	ProjectionVersion      string             `json:"projection_version"`
-	State                  string             `json:"state"`
-	ProjectionRunNonce     string             `json:"projection_run_nonce"`
-	ProjectionConfigDigest string             `json:"projection_config_digest"`
-	ProjectionSourceDigest string             `json:"projection_source_digest"`
-	AcceptedAt             pgtype.Timestamptz `json:"accepted_at"`
-	StartedAt              pgtype.Timestamptz `json:"started_at"`
-	GeneratedAt            pgtype.Timestamptz `json:"generated_at"`
-	CompletedAt            pgtype.Timestamptz `json:"completed_at"`
-	ReplacedAt             pgtype.Timestamptz `json:"replaced_at"`
-	InvalidatedAt          pgtype.Timestamptz `json:"invalidated_at"`
-	ValidationSummaryJson  []byte             `json:"validation_summary_json"`
-	FailureReason          pgtype.Text        `json:"failure_reason"`
-	GraphViewJson          []byte             `json:"graph_view_json"`
-	InvalidationJson       []byte             `json:"invalidation_json"`
-	RetentionExpiresAt     pgtype.Timestamptz `json:"retention_expires_at"`
-	RetentionPolicyJson    []byte             `json:"retention_policy_json"`
-	ProjectionOutputDigest pgtype.Text        `json:"projection_output_digest"`
+type GraphProjectionResultLease struct {
+	LeaseID              pgtype.UUID        `json:"lease_id"`
+	ProjectionResultID   string             `json:"projection_result_id"`
+	LeaseOwnerID         string             `json:"lease_owner_id"`
+	LeaseOwnerResourceID string             `json:"lease_owner_resource_id"`
+	LeasePurpose         string             `json:"lease_purpose"`
+	LeasedUntil          pgtype.Timestamptz `json:"leased_until"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	RenewedAt            pgtype.Timestamptz `json:"renewed_at"`
 }
 
-type GraphProjectionVertex struct {
-	ProjectionRunID string `json:"projection_run_id"`
-	GraphViewID     string `json:"graph_view_id"`
-	VertexID        string `json:"vertex_id"`
-	VertexKind      string `json:"vertex_kind"`
-	SortKey         string `json:"sort_key"`
-	VertexJson      []byte `json:"vertex_json"`
-}
-
-type GraphProjectionView struct {
-	GraphViewID             string             `json:"graph_view_id"`
-	GraphViewKey            string             `json:"graph_view_key"`
-	State                   string             `json:"state"`
-	LatestProjectionRunID   pgtype.Text        `json:"latest_projection_run_id"`
-	LatestSourceSnapshotID  pgtype.Text        `json:"latest_source_snapshot_id"`
-	ProjectionVersion       pgtype.Text        `json:"projection_version"`
-	SelectedProjectionRunID pgtype.Text        `json:"selected_projection_run_id"`
-	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
-	ValidationStatus        string             `json:"validation_status"`
-	InvalidationJson        []byte             `json:"invalidation_json"`
+type GraphProjectionResultVertex struct {
+	ProjectionResultID string `json:"projection_result_id"`
+	VertexID           string `json:"vertex_id"`
+	VertexKind         string `json:"vertex_kind"`
+	SortOrdinal        int64  `json:"sort_ordinal"`
+	SortKey            string `json:"sort_key"`
+	VertexJson         []byte `json:"vertex_json"`
 }
 
 type HandoffRiskRef struct {
@@ -1180,6 +1158,33 @@ type Job struct {
 	HandlerFailureCount              int32              `json:"handler_failure_count"`
 	HandlerNextAttemptAt             pgtype.Timestamptz `json:"handler_next_attempt_at"`
 	ExpiredAt                        pgtype.Timestamptz `json:"expired_at"`
+}
+
+type NetworkFlowGraphView struct {
+	GraphViewID                           string             `json:"graph_view_id"`
+	IncidentID                            pgtype.UUID        `json:"incident_id"`
+	DisplayName                           string             `json:"display_name"`
+	NormalizedDisplayName                 string             `json:"normalized_display_name"`
+	DeclarationState                      string             `json:"declaration_state"`
+	SemanticQueryJson                     []byte             `json:"semantic_query_json"`
+	SemanticQuerySha256                   string             `json:"semantic_query_sha256"`
+	DesiredSourceSnapshotID               string             `json:"desired_source_snapshot_id"`
+	SelectedProjectionResultID            pgtype.Text        `json:"selected_projection_result_id"`
+	SelectedSourceSnapshotID              pgtype.Text        `json:"selected_source_snapshot_id"`
+	SelectedProjectionSchemaID            pgtype.Text        `json:"selected_projection_schema_id"`
+	SelectedProjectionVersion             pgtype.Text        `json:"selected_projection_version"`
+	SelectedNormalizedConfigurationSha256 pgtype.Text        `json:"selected_normalized_configuration_sha256"`
+	SelectedNormalizedSourceSha256        pgtype.Text        `json:"selected_normalized_source_sha256"`
+	SelectedCanonicalOutputSha256         pgtype.Text        `json:"selected_canonical_output_sha256"`
+	GraphViewVersion                      int64              `json:"graph_view_version"`
+	MaterializationGeneration             int64              `json:"materialization_generation"`
+	CreatedByUserID                       pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt                             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                             pgtype.Timestamptz `json:"updated_at"`
+	RetiredAt                             pgtype.Timestamptz `json:"retired_at"`
+	LatestJobID                           pgtype.UUID        `json:"latest_job_id"`
+	LastFailureCode                       pgtype.Text        `json:"last_failure_code"`
+	LastFailedAt                          pgtype.Timestamptz `json:"last_failed_at"`
 }
 
 type NetworkFlowIndicatorBinding struct {

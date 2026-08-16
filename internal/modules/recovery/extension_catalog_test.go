@@ -17,5 +17,5 @@ func testExtensionBackupCatalog(t testing.TB) *recovery.ExtensionBackupCatalog {
 }
 
 func emptyExtensionPostgresArtifact() []byte {
-	return []byte(`{"schema_id":"cartulary.postgres_snapshot_artifact.v1","tables":[{"table_name":"network_flow_indicator_bindings","row_count":0,"rows":[]},{"table_name":"network_flow_rejected_row_diagnostics","row_count":0,"rows":[]},{"table_name":"network_flow_rows","row_count":0,"rows":[]},{"table_name":"network_flow_tables","row_count":0,"rows":[]}]}`)
+	return []byte(`{"schema_id":"cartulary.postgres_snapshot_artifact.v1","tables":[{"table_name":"network_flow_graph_views","row_count":0,"rows":[]},{"table_name":"network_flow_indicator_bindings","row_count":0,"rows":[]},{"table_name":"network_flow_rejected_row_diagnostics","row_count":0,"rows":[]},{"table_name":"network_flow_rows","row_count":0,"rows":[]},{"table_name":"network_flow_tables","row_count":0,"rows":[]}]}`)
 }

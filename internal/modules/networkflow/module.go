@@ -39,6 +39,10 @@ type ModuleDependencies struct {
 	AuditAppender   AdministrativeAuditPort
 	Indicators      IndicatorParticipationPort
 	ResourceIntents ResourceIntentAppender
+	GraphViewJobs   GraphViewJobTransactions
+	JobManager      GraphViewJobManager
+	JobRunner       GraphViewJobRunner
+	JobFinalizer    GraphViewJobFinalizer
 }
 
 // Module is the single Network Flow composition facade. Transport and generic
@@ -54,6 +58,11 @@ type Module struct {
 	safeDigester    SafeDigester
 	limits          Limits
 	now             func() time.Time
+	graphProjection graphProjectionPort
+	graphViewJobs   GraphViewJobTransactions
+	jobManager      GraphViewJobManager
+	jobRunner       GraphViewJobRunner
+	jobFinalizer    GraphViewJobFinalizer
 }
 
 func NewModule(dependencies ModuleDependencies) (*Module, error) {
@@ -91,11 +100,27 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		WithSafeDigester(safeDigester),
 		WithResourceIntentAppender(dependencies.ResourceIntents),
 	)
-	module := &Module{store: store, importSources: dependencies.ImportSources, cursorProtector: cursorProtector, safeDigester: safeDigester, limits: limits, now: now}
+	module := &Module{
+		store: store, importSources: dependencies.ImportSources,
+		cursorProtector: cursorProtector, safeDigester: safeDigester,
+		limits: limits, now: now, graphProjection: newGraphProjectionAdapter(),
+		graphViewJobs: dependencies.GraphViewJobs, jobManager: dependencies.JobManager,
+		jobRunner: dependencies.JobRunner, jobFinalizer: dependencies.JobFinalizer,
+	}
 	if physical, ok := dependencies.ImportSources.(importTransactionPort); ok {
 		module.importTx = physical
 	}
 	return module, nil
+}
+
+// RegisterGraphViewWorker binds the one canonical materialization handler.
+// Registration is explicit so constructing a module never starts work or
+// hides process-level concurrency.
+func (m *Module) RegisterGraphViewWorker() error {
+	if m == nil || m.jobRunner == nil || m.jobManager == nil || m.jobFinalizer == nil || m.graphProjection == nil {
+		return errors.New("network flow graph view worker dependencies unavailable")
+	}
+	return m.jobRunner.RegisterHandler(GraphViewWorkerKind, m.handleGraphViewMaterialization)
 }
 
 // InstallCrossOwnerCoordinator completes the application-owned composition
@@ -163,17 +188,25 @@ func (m *Module) TransactionCapabilities(participantID string, tx pgx.Tx) (cross
 
 func registerNetworkFlowRoutes(mux *http.ServeMux, service *Service) error {
 	handlers := map[string]http.HandlerFunc{
-		"nf.graphs.contributors.query": service.handleGraphContributorsQuery,
-		"nf.graphs.query":              service.handleGraphQuery,
-		"nf.indicator_links.create":    service.handleIndicatorLinks,
-		"nf.rejected_rows.query":       service.handleRejectedRowsQuery,
-		"nf.rows.query":                service.handleRowsQuery,
-		"nf.source_profiles.list":      service.handleSourceProfiles,
-		"nf.tables.delete":             service.handleTableResource,
-		"nf.tables.get":                service.handleTableResource,
-		"nf.tables.list":               service.handleTablesCollection,
-		"nf.tables.patch":              service.handleTableResource,
-		"nf.tables.query":              service.handleTableRowsQuery,
+		"nf.graphs.contributors.query":      service.handleGraphContributorsQuery,
+		"nf.graphs.query":                   service.handleGraphQuery,
+		"nf.graph_views.list":               service.handleGraphViewsCollection,
+		"nf.graph_views.create":             service.handleGraphViewsCollection,
+		"nf.graph_views.get":                service.handleGraphViewResource,
+		"nf.graph_views.patch":              service.handleGraphViewResource,
+		"nf.graph_views.delete":             service.handleGraphViewResource,
+		"nf.graph_views.refresh":            service.handleGraphViewRefresh,
+		"nf.graph_views.result":             service.handleGraphViewResult,
+		"nf.graph_views.contributors.query": service.handleGraphViewContributorsQuery,
+		"nf.indicator_links.create":         service.handleIndicatorLinks,
+		"nf.rejected_rows.query":            service.handleRejectedRowsQuery,
+		"nf.rows.query":                     service.handleRowsQuery,
+		"nf.source_profiles.list":           service.handleSourceProfiles,
+		"nf.tables.delete":                  service.handleTableResource,
+		"nf.tables.get":                     service.handleTableResource,
+		"nf.tables.list":                    service.handleTablesCollection,
+		"nf.tables.patch":                   service.handleTableResource,
+		"nf.tables.query":                   service.handleTableRowsQuery,
 	}
 	routes := networkflowroutes.All()
 	if len(routes) != len(handlers) {

@@ -1718,6 +1718,7 @@
           "browser_session_group": "browser-stateful-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
+            "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
             "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf"
           ],
           "specs": [
@@ -1867,6 +1868,29 @@
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/network-flow-grid.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-om_ceiling",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-om_ceiling",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.networkflow.measurement.saved_graph_dom_ceiling"
           ],
           "specs": [
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
@@ -2160,6 +2184,29 @@
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/network-flow-grid.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-om_ceiling",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-om_ceiling",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.networkflow.measurement.saved_graph_dom_ceiling"
           ],
           "specs": [
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
@@ -2515,6 +2562,7 @@
           "browser_session_group": "browser-stateful-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
+            "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
             "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf"
           ],
           "specs": [
@@ -2535,7 +2583,6 @@
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
-          "reset_before": "stateful-to-measurement-b615aabfe6",
           "selected_row_ids": [
             "module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6"
           ],
@@ -2559,7 +2606,6 @@
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
-          "reset_before": "stateful-to-measurement-afddd2ce13",
           "selected_row_ids": [
             "module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13"
           ],
@@ -2583,7 +2629,6 @@
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
-          "reset_before": "stateful-to-measurement-961a4ec1d3",
           "selected_row_ids": [
             "module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3"
           ],
@@ -2607,7 +2652,6 @@
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
-          "reset_before": "stateful-to-measurement-d03cf54e95",
           "selected_row_ids": [
             "module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95"
           ],
@@ -2659,6 +2703,29 @@
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
             "module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/network-flow-grid.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-om_ceiling",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-om_ceiling",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.networkflow.measurement.saved_graph_dom_ceiling"
           ],
           "specs": [
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"

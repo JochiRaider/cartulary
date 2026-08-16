@@ -123,11 +123,20 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	for _, proof := range captured.IntegrityManifest.Artifacts {
 		if proof.Kind == "graph_projection_restore_implementation_binding" || proof.Kind == "graph_projection_restore_source_registry" {
 			graphArtifactCounts[proof.Kind]++
+			if proof.Kind == "graph_projection_restore_implementation_binding" && proof.SchemaID != recovery.GraphProjectionRestoreImplementationBindingV2SchemaID {
+				t.Fatalf("fresh backup used non-current Graph implementation binding schema %q", proof.SchemaID)
+			}
+			if proof.Kind == "graph_projection_restore_source_registry" && proof.SchemaID != recovery.GraphProjectionRestoreSourceRegistryV2SchemaID {
+				t.Fatalf("fresh backup used non-current Graph source registry schema %q", proof.SchemaID)
+			}
 		}
 	}
 	if graphArtifactCounts["graph_projection_restore_implementation_binding"] != 1 ||
 		graphArtifactCounts["graph_projection_restore_source_registry"] != 1 {
 		t.Fatalf("Graph Projection restore artifacts must occur exactly once: %#v", graphArtifactCounts)
+	}
+	if captured.IntegrityManifest.CodecRegistrySHA256 != recovery.VNextCodecRegistrySHA256() {
+		t.Fatalf("fresh backup codec inventory = %q; want current-only %q", captured.IntegrityManifest.CodecRegistrySHA256, recovery.VNextCodecRegistrySHA256())
 	}
 
 	algorithmIDs := recovery.RequiredVNextRestoreAlgorithmIDs(stateCatalog)
@@ -146,8 +155,8 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	if target.commits != 1 || target.rollbacks != 0 {
 		t.Fatalf("atomic restore commits/rollbacks = %d/%d, want 1/0", target.commits, target.rollbacks)
 	}
-	if got := len(target.tables); got != 83 {
-		t.Fatalf("restored tables = %d, want 83", got)
+	if got := len(target.tables); got != 84 {
+		t.Fatalf("restored tables = %d, want 84", got)
 	}
 	firstTable := stateCatalog.RequiredTableNames()[0]
 	if got := string(target.rows[firstTable][0]); got != `{"a":"first","z":"last"}` {

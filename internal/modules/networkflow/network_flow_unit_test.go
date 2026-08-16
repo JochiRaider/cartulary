@@ -92,22 +92,17 @@ func TestGraphProjectionFailureClassification(t *testing.T) {
 	}{
 		{
 			name:   "invalid request remains adapter contract rejected",
-			err:    graphprojection.NewLifecycleError("invalid_projection_request", "missing_required_member", map[string]any{"reason_code": "missing_required_member"}, nil),
+			err:    &graphprojection.ProjectionErrorV2{Code: "invalid_projection_request", ReasonCode: "missing_required_member", RetryAction: "do_not_retry"},
 			reason: "adapter_contract_rejected",
 		},
 		{
 			name:   "fatal validation remains adapter contract rejected",
-			err:    graphprojection.NewLifecycleError("ephemeral_projection_failed", "fatal_validation", map[string]any{"reason_code": "fatal_validation"}, nil),
+			err:    &graphprojection.ProjectionErrorV2{Code: "projection_validation_failed", ReasonCode: "invalid_projection_config", RetryAction: "do_not_retry"},
 			reason: "adapter_contract_rejected",
 		},
 		{
 			name:   "projection computation failure is unavailable",
-			err:    graphprojection.NewLifecycleError("ephemeral_projection_failed", "projection_computation_failed", map[string]any{"reason_code": "projection_computation_failed"}, nil),
-			reason: "projection_unavailable",
-		},
-		{
-			name:   "query unavailability is unavailable",
-			err:    graphprojection.NewQueryError("projection_not_available", "refreshing", map[string]any{"reason_code": "refreshing"}, nil),
+			err:    &graphprojection.ProjectionErrorV2{Code: "projection_computation_failed", ReasonCode: "dependency_unavailable", RetryAction: "retry_with_backoff"},
 			reason: "projection_unavailable",
 		},
 		{
@@ -123,11 +118,24 @@ func TestGraphProjectionFailureClassification(t *testing.T) {
 	}
 }
 
-func AssertGraphProjectionTimestampNormalizesToProviderPrecision(t *testing.T) {
+func AssertGraphProjectionSemanticInputExcludesOperationalFields(t *testing.T) {
 	t.Helper()
-	input := time.Date(2026, 7, 10, 12, 0, 0, 123456789, time.FixedZone("test", -4*60*60))
-	if got, want := graphProjectionTimestamp(input), "2026-07-10T16:00:00.123456Z"; got != want {
-		t.Fatalf("graph projection timestamp = %q, want %q", got, want)
+	incidentID := IncidentID()
+	input := networkFlowProjectionInput("nfsnap_"+strings.Repeat("b", 64), graphComposition{
+		SourceTables: []TableRecord{{IncidentID: incidentID}},
+		Vertices:     map[string]*graphVertex{},
+		Edges:        map[string]*graphEdge{},
+	})
+	for _, removed := range []string{"graph_view_id", "source_owner_id", "requested_at", "requested_by", "relationship_definitions"} {
+		if _, present := input[removed]; present {
+			t.Fatalf("Graph Projection v2 semantic input retained %q", removed)
+		}
+	}
+	config := input["projection_config"].(map[string]any)
+	for _, removed := range []string{"graph_view_key", "retention_policy", "custom_config"} {
+		if _, present := config[removed]; present {
+			t.Fatalf("Graph Projection v2 configuration retained %q", removed)
+		}
 	}
 }
 
@@ -184,31 +192,31 @@ func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 	if apiErr := composeGraphObjects(incidentID, rows, map[string]TableRecord{tableID: table}, &composition); apiErr != nil {
 		t.Fatalf("compose canonical Network Flow graph: %#v", apiErr)
 	}
-	requestedAt := time.Date(2026, 7, 10, 12, 0, 0, 123456789, time.UTC)
-	adapter := newGraphProjectionAdapter(func() time.Time { return requestedAt })
+	adapter := newGraphProjectionAdapter()
 	graphViewKey := "network_flow_activity:" + incidentID.String() + ":" + strings.Repeat("b", 64)
 	graphViewID, err := adapter.GraphViewID(graphViewKey)
 	if err != nil {
 		t.Fatalf("derive graph view ID: %v", err)
 	}
-	input := networkFlowProjectionInput(
-		graphViewID,
-		graphViewKey,
-		uuid.MustParse("00000000-0000-4000-8000-000000000012"),
-		"nfsnap_"+strings.Repeat("b", 64),
-		composition,
-		requestedAt,
-	)
-	result, err := adapter.ProjectEphemeral(context.Background(), canonicalJSON(input))
+	input := networkFlowProjectionInput("nfsnap_"+strings.Repeat("b", 64), composition)
+	result, err := adapter.ProjectEphemeral(context.Background(), graphViewID, canonicalJSON(input))
 	if err != nil {
-		var lifecycleErr *graphprojection.LifecycleError
-		if errors.As(err, &lifecycleErr) {
-			t.Fatalf("project canonical Network Flow graph: code=%s reason=%s field=%s details=%#v", lifecycleErr.Code, lifecycleErr.ReasonCode, lifecycleErr.Field, lifecycleErr.Details)
+		var projectionErr *graphprojection.ProjectionErrorV2
+		if errors.As(err, &projectionErr) {
+			t.Fatalf("project canonical Network Flow graph: code=%s reason=%s details=%#v", projectionErr.Code, projectionErr.ReasonCode, projectionErr.Details)
 		}
 		t.Fatalf("project canonical Network Flow graph: %v", err)
 	}
 	if summary, ok := result["validation_summary"].(map[string]any); !ok || summary["fatal_count"] != 0 || summary["error_count"] != 0 || summary["warning_count"] != 0 || summary["info_count"] != 0 {
 		t.Fatalf("canonical Network Flow graph produced validation issues: %#v", result["validation_summary"])
+	}
+	if result["projection_schema_id"] != graphprojection.ProjectionSchemaIDV2 || result["source_owner_id"] != graphSourceOwnerID || result["projection_result_id"] == "" {
+		t.Fatalf("canonical Network Flow graph did not return a v2 exact result: %#v", result)
+	}
+	for _, removed := range []string{"ephemeral_projection_id", "projection_run_id", "generated_at", "state", "metadata"} {
+		if _, present := result[removed]; present {
+			t.Fatalf("Network Flow retained legacy Graph result member %q", removed)
+		}
 	}
 }
 

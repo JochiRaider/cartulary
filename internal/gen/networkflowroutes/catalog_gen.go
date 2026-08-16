@@ -11,6 +11,14 @@ type Route struct {
 }
 
 var catalog = []Route{
+	{RouteID: "nf.graph_views.contributors.query", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/contributors/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/contributors/query", SuccessStatuses: []int{200}},
+	{RouteID: "nf.graph_views.create", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graph-views", SuccessStatuses: []int{202}},
+	{RouteID: "nf.graph_views.delete", Method: "DELETE", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", Pattern: "DELETE /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", SuccessStatuses: []int{200}},
+	{RouteID: "nf.graph_views.get", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", SuccessStatuses: []int{200}},
+	{RouteID: "nf.graph_views.list", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/graph-views", SuccessStatuses: []int{200}},
+	{RouteID: "nf.graph_views.patch", Method: "PATCH", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", Pattern: "PATCH /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}", SuccessStatuses: []int{200}},
+	{RouteID: "nf.graph_views.refresh", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/refresh", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/refresh", SuccessStatuses: []int{202}},
+	{RouteID: "nf.graph_views.result", Method: "GET", Path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/result", Pattern: "GET /api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/result", SuccessStatuses: []int{200}},
 	{RouteID: "nf.graphs.contributors.query", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graphs/contributors/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graphs/contributors/query", SuccessStatuses: []int{200}},
 	{RouteID: "nf.graphs.query", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/graphs/query", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/graphs/query", SuccessStatuses: []int{200}},
 	{RouteID: "nf.indicator_links.create", Method: "POST", Path: "/api/v1/incidents/{incident_id}/network-flow/indicator-links", Pattern: "POST /api/v1/incidents/{incident_id}/network-flow/indicator-links", SuccessStatuses: []int{200, 201}},

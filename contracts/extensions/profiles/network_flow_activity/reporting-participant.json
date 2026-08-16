@@ -1,0 +1,22 @@
+{
+  "schema_id": "cartulary.extension_participant_specialization.v3",
+  "profile_id": "network_flow_activity",
+  "participant_id": "network_flow_activity.reporting_graph_source_v1",
+  "participant_kind": "snapshot_reporting",
+  "shared_context_schema_id": "cartulary.extension_snapshot_reporting_participant_context.v1",
+  "operations": [
+    {
+      "operation_kind": "emit",
+      "result_schema_id": "cartulary.extension_snapshot_reporting_participant_result.v1",
+      "algorithm_id": "network_flow_activity.reporting_graph_source_v1",
+      "output_schema_id": "cartulary.network_flow.reporting_graph_source.v1",
+      "ordering_algorithm_id": "network_flow_activity.reporting_graph_order_v1",
+      "state_family_ids": [
+        "network_flow_activity.graph_views"
+      ],
+      "max_input_bytes": 67108864,
+      "max_output_bytes": 67108864,
+      "max_items": 351024
+    }
+  ]
+}

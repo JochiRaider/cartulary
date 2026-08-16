@@ -1765,25 +1765,6 @@
       "service_backed_only": true,
       "test_target": "self"
     },
-    "graph-projection-fixture-candidate": {
-      "prerequisites": [
-        "go-toolchain-readiness"
-      ],
-      "type": "step_command",
-      "mode": "command",
-      "env": {
-        "CARTULARY_TEST_RESULTS_DIR": "$(CARTULARY_TEST_RESULTS_DIR)",
-        "FIXTURE": "$(FIXTURE)",
-        "GO": "$(GO)",
-        "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
-        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
-        "GO_TMP_DIR": "$(GO_TMP_DIR)"
-      },
-      "command": [
-        "bash",
-        "./tools/harness/execution/run-graph-projection-fixture-candidate.sh"
-      ]
-    },
     "backend-unit": {
       "prerequisites": [
         "go-toolchain-readiness",
@@ -6195,16 +6176,6 @@
           }
         ]
       }
-    },
-    {
-      "name": "graph-projection-fixture-candidate",
-      "backing_scripts": [
-        "tools/harness/execution/run-graph-projection-fixture-candidate.sh",
-        "internal/modules/graphprojection/conformance_fixture_candidate_test.go"
-      ],
-      "target_class": "internal_helper",
-      "default_inclusion_sets": [],
-      "lifecycle_state": "candidate_child"
     },
     {
       "name": "backend-unit",

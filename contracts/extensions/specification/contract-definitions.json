@@ -274,6 +274,11 @@
       "owner_id": "core01"
     },
     {
+      "schema_id": "cartulary.network_flow.reporting_graph_source.v1",
+      "artifact_class": "runtime_protocol",
+      "owner_id": "network_flow_activity"
+    },
+    {
       "schema_id": "cartulary.reporting_export_model.v1",
       "artifact_class": "runtime_protocol",
       "owner_id": "reporting"
