@@ -93,6 +93,7 @@ export function buildSourceSnapshot(root, options = {}) {
   const snapshot = { schema_id: "cartulary.source_snapshot_digest.v2", entries };
   return {
     digest: sha256(Buffer.from(canonicalJSONString(snapshot), "utf8")),
+    entries,
     file_count: entries.length,
   };
 }

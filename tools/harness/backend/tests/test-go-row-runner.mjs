@@ -161,10 +161,14 @@ const root = path.resolve(import.meta.dirname, "../../../..");
 const graph = new WorkGraphCompiler(root).compile({ kind: "target", target: "backend-unit" });
 const goUnits = graph.units.filter((unit) => unit.unit_id.startsWith("go:"));
 assert.ok(goUnits.length > 0);
-assert.ok(goUnits.every((unit) => unit.evidence_outputs.some((output) => output.startsWith("rows/"))));
 assert.ok(
   goUnits.every((unit) =>
-    unit.evidence_outputs.every(
+    unit.current_run_evidence_outputs.some((output) => output.startsWith("rows/")),
+  ),
+);
+assert.ok(
+  goUnits.every((unit) =>
+    unit.current_run_evidence_outputs.every(
       (output) => output.startsWith("rows/") || output.startsWith("unit-results/"),
     ),
   ),

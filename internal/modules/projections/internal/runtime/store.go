@@ -66,6 +66,35 @@ func (s *Store) ApplyTimelineMutationTx(ctx context.Context, tx pgx.Tx, mutation
 	}
 }
 
+func (s *Store) ApplyTimelineFixtureBatchTx(ctx context.Context, tx pgx.Tx, inputs []timelineprojection.ProjectionInput) error {
+	if s == nil || s.physical == nil {
+		return errors.New("projection storage is required")
+	}
+	for index, input := range inputs {
+		mutation := timelineprojection.ProjectionMutation{
+			Kind: timelineprojection.ProjectionMutationUpsert, RecordID: input.RecordID, Input: input,
+		}
+		if err := mutation.Validate(); err != nil {
+			return fmt.Errorf("validate Timeline fixture projection input %d: %w", index+1, err)
+		}
+	}
+	return s.physical.InsertTimelineFixtureBatchTx(ctx, tx, inputs)
+}
+
+func (s *Store) CountTimelineFixtureRows(ctx context.Context, incidentID uuid.UUID) (int, error) {
+	if s == nil || s.physical == nil {
+		return 0, errors.New("projection storage is required")
+	}
+	return s.physical.CountTimelineFixtureRows(ctx, incidentID)
+}
+
+func (s *Store) CountTimelineFixtureRowsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (int, error) {
+	if s == nil || s.physical == nil {
+		return 0, errors.New("projection storage is required")
+	}
+	return s.physical.CountTimelineFixtureRowsTx(ctx, tx, incidentID)
+}
+
 func (s *Store) refreshTimelineTxCore(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, source TimelineSource) error {
 	if s == nil || source == nil {
 		return errors.New("timeline projection source is required")

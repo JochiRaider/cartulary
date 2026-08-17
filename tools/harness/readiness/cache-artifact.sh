@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 
-schema_id="cartulary.harness_cache_record.v1"
+schema_id="cartulary.harness_cache_record.v2"
 scope=""
 profile_id=""
 cache_dir=""
@@ -127,6 +127,18 @@ artifact_digest() {
   rm -f "$material"
 }
 
+artifact_type() {
+  if [[ -f "$1" ]]; then
+    printf 'file\n'
+  else
+    printf 'directory\n'
+  fi
+}
+
+artifact_mode() {
+  printf '0%s\n' "$(stat -c '%a' "$1")"
+}
+
 write_artifacts_json() {
   local first=1
   local entry
@@ -136,9 +148,14 @@ write_artifacts_json() {
       printf ','
     fi
     first=0
-    printf '{"path":"%s","digest":"%s"}' \
+    printf '{"artifact_type":"%s","relative_path":"%s","destination_class":"repository_artifact","mode":"%s","digest":"%s","producer_identity":"tool-cache:%s:%s","semantic_input_digest":"sha256:%s"}' \
+      "$(artifact_type "$entry")" \
       "$(json_escape "$(repo_rel "$entry")")" \
-      "$(artifact_digest "$entry")"
+      "$(artifact_mode "$entry")" \
+      "$(artifact_digest "$entry")" \
+      "$(json_escape "$scope")" \
+      "$(json_escape "$profile_id")" \
+      "$input_hash"
   done
   printf ']'
 }
@@ -156,9 +173,11 @@ write_cache_json() {
     printf '  "schema_id": "%s",\n' "$(json_escape "$schema_id")"
     printf '  "profile_id": "%s",\n' "$(json_escape "$profile_id")"
     printf '  "policy": "content_addressed",\n'
+    printf '  "producer_identity": "tool-cache:%s:%s",\n' "$(json_escape "$scope")" "$(json_escape "$profile_id")"
     printf '  "unit_id": "tool-cache:%s:%s",\n' "$(json_escape "$scope")" "$(json_escape "$profile_id")"
     printf '  "unit_digest": "sha256:%s",\n' "$key_hash"
     printf '  "input_digest": "sha256:%s",\n' "$input_hash"
+    printf '  "semantic_result": {"status":"passed","rows":[]},\n'
     printf '  "output_digest": "%s",\n' "$(json_escape "$output_digest_value")"
     printf '  "artifacts": '
     write_artifacts_json

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_services.local_session.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "session_id",
+    "owner_uid",
+    "created_at",
+    "expires_at",
+    "state_root",
+    "runtime_root",
+    "runtime_lease_id",
+    "schema_digest",
+    "tool_digest",
+    "config_digest",
+    "image_digest",
+    "environment_digest",
+    "environment",
+    "containers",
+    "service_lease"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_services.local_session.v1" },
+    "session_id": { "type": "string", "pattern": "^[0-9a-f]{24}$" },
+    "owner_uid": { "type": "integer", "minimum": 0 },
+    "created_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
+    "expires_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
+    "state_root": { "type": "string", "pattern": "^/", "minLength": 2, "maxLength": 4096 },
+    "runtime_root": { "type": "string", "pattern": "^/", "minLength": 2, "maxLength": 4096 },
+    "runtime_lease_id": { "type": "string", "pattern": "^[0-9a-f-]{36}$" },
+    "schema_digest": { "$ref": "#/$defs/digest" },
+    "tool_digest": { "$ref": "#/$defs/digest" },
+    "config_digest": { "$ref": "#/$defs/digest" },
+    "image_digest": { "$ref": "#/$defs/digest" },
+    "environment_digest": { "$ref": "#/$defs/digest" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "propertyNames": {
+        "enum": [
+          "CARTULARY_PGTEST_ADMIN_DSN",
+          "CARTULARY_PGTEST_DSN_TEMPLATE",
+          "CARTULARY_PGTEST_SCHEMA_HASH",
+          "CARTULARY_PGTEST_TEMPLATE_DB",
+          "CARTULARY_S3TEST_ACCESS_KEY_ID",
+          "CARTULARY_S3TEST_ENDPOINT",
+          "CARTULARY_S3TEST_PROBE_BUCKET",
+          "CARTULARY_S3TEST_SECRET_ACCESS_KEY",
+          "CARTULARY_S3TEST_SECURE"
+        ]
+      },
+      "required": [
+        "CARTULARY_PGTEST_ADMIN_DSN",
+        "CARTULARY_PGTEST_DSN_TEMPLATE",
+        "CARTULARY_PGTEST_SCHEMA_HASH",
+        "CARTULARY_PGTEST_TEMPLATE_DB",
+        "CARTULARY_S3TEST_ACCESS_KEY_ID",
+        "CARTULARY_S3TEST_ENDPOINT",
+        "CARTULARY_S3TEST_SECRET_ACCESS_KEY",
+        "CARTULARY_S3TEST_SECURE"
+      ]
+    },
+    "containers": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/container",
+          "properties": { "service": { "const": "object_store" } }
+        },
+        {
+          "$ref": "#/$defs/container",
+          "properties": { "service": { "const": "postgres" } }
+        }
+      ],
+      "items": false
+    },
+    "service_lease": { "$ref": "cartulary.test_services.lease.v1" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "container": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["service", "container_id", "image_reference", "image_id", "labels"],
+      "properties": {
+        "service": { "type": "string" },
+        "container_id": { "type": "string", "pattern": "^[a-f0-9]{12,64}$" },
+        "image_reference": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "image_id": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "labels": { "$ref": "cartulary.harness.defs.v1#/$defs/string_map" }
+      }
+    }
+  }
+}

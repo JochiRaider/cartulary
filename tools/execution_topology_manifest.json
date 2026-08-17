@@ -38,6 +38,18 @@
       "runner_timeout_ms": 3600000
     },
     {
+      "id": "browser_functional",
+      "resource_claims": {
+        "browser_stack": 1,
+        "cpu": 1,
+        "io": 1,
+        "memory_mb": 512,
+        "port_lane": 1,
+        "postgres": 2,
+        "process": 1
+      }
+    },
+    {
       "id": "browser_isolated",
       "resource_claims": {
         "browser_stack": 1,
@@ -80,6 +92,16 @@
         "process": 1,
         "service_stack": 1
       }
+    },
+    {
+      "id": "performance_fixture_builder",
+      "resource_claims": {
+        "cpu": 1,
+        "io": 1,
+        "memory_mb": 512,
+        "process": 1
+      },
+      "runner_timeout_ms": 3600000
     },
     {
       "id": "standard",

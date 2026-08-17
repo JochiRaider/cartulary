@@ -4,6 +4,7 @@
     {
       "profile_id": "build_outputs",
       "policy": "content_addressed",
+      "dependency_strategy": "broad",
       "targets": ["build", "build-migrate", "build-operator", "build-server", "build-server-harness", "build-web", "embedded-web-assets"],
       "input_roots": ["apps", "cmd", "contracts", "go.mod", "go.sum", "internal", "package.json", "packages", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tools/toolchain_pins.json"],
       "requires_vulnerability_database_revision": false
@@ -11,6 +12,7 @@
     {
       "profile_id": "frontend_analysis",
       "policy": "content_addressed",
+      "dependency_strategy": "broad",
       "targets": ["check-frontend-install", "frontend-fallow-static", "frontend-import-boundary-check", "frontend-typecheck", "lint-biome", "lint-scripts"],
       "input_roots": ["apps", "package.json", "packages", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tools"],
       "requires_vulnerability_database_revision": false
@@ -18,6 +20,7 @@
     {
       "profile_id": "go_analysis",
       "policy": "content_addressed",
+      "dependency_strategy": "broad",
       "targets": ["backend-module-boundary-check", "lint-go", "lint-shell"],
       "input_roots": ["cmd", "go.mod", "go.sum", "internal", "scripts", "tools"],
       "requires_vulnerability_database_revision": false
@@ -25,6 +28,7 @@
     {
       "profile_id": "go_vulnerability_scan",
       "policy": "content_addressed",
+      "dependency_strategy": "broad",
       "targets": ["go-vulncheck"],
       "input_roots": ["cmd", "go.mod", "go.sum", "internal", "tools/toolchain_pins.json"],
       "requires_vulnerability_database_revision": true
@@ -32,6 +36,7 @@
     {
       "profile_id": "release_artifacts",
       "policy": "content_addressed",
+      "dependency_strategy": "broad",
       "targets": ["license-report", "sbom"],
       "input_roots": ["go.mod", "go.sum", "package.json", "pnpm-lock.yaml", "tools/toolchain_pins.json"],
       "requires_vulnerability_database_revision": false
@@ -39,6 +44,7 @@
     {
       "profile_id": "run_setup",
       "policy": "same_run",
+      "dependency_strategy": "broad",
       "targets": ["codegen-toolchain", "go-lint-toolchain", "goose-toolchain", "gosec-toolchain", "govulncheck-toolchain", "shell-lint-toolchain", "toolchain-drift"],
       "input_roots": ["tools/toolchain_pins.json"],
       "requires_vulnerability_database_revision": false
@@ -46,8 +52,9 @@
     {
       "profile_id": "test_rows",
       "policy": "content_addressed",
+      "dependency_strategy": "unit_aware",
       "targets": ["backend-integration", "backend-integration-support", "backend-process", "backend-store", "backend-unit", "frontend-unit"],
-      "input_roots": ["apps", "cmd", "contracts", "go.mod", "go.sum", "internal", "package.json", "packages", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tools/test_families", "tools/toolchain_pins.json"],
+      "input_roots": ["Makefile", "apps", "cmd", "configs", "contracts", "go.mod", "go.sum", "internal", "package.json", "packages", "pnpm-lock.yaml", "pnpm-workspace.yaml", "scripts", "tools", "tsconfig.base.json", "tsconfig.json"],
       "requires_vulnerability_database_revision": false
     }
   ]

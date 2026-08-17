@@ -11,8 +11,10 @@ import {
 export { validateProfileMeasurementObservation } from "./profile-adapters/index.mjs";
 
 export const registrySchemaID = "cartulary.performance_fixture_snapshot_owner.v2";
+export const builderPolicySchemaID = "cartulary.performance_fixture_builder_policy.v1";
 export const snapshotKeySchemaID = "cartulary.performance_fixture_snapshot_key.v2";
 export const defaultRegistryPath = "tools/performance_fixture_snapshot_owner.json";
+export const defaultBuilderPolicyPath = "tools/performance_fixture_builder_policy.json";
 const migrationRunnerIdentity = "cartulary-postgres-migrate/goose/v3.27.0";
 const supportedArtifactPolicyGenerations = new Set([
   [
@@ -259,6 +261,31 @@ export function activePerformanceFixtureProfile(registry, fixtureProfileID) {
     throw new Error(`performance fixture profile is unknown or inactive: ${fixtureProfileID}`);
   }
   return profile;
+}
+
+export function loadPerformanceFixtureBuilderPolicy(root, options = {}) {
+  const registry = options.registry ?? loadPerformanceFixtureSnapshotRegistry(root, options);
+  const policyPath = path.resolve(
+    root,
+    options.builderPolicyPath ?? defaultBuilderPolicyPath,
+  );
+  const policy = readStrictJSON(policyPath);
+  validateSchemaSync(builderPolicySchemaID, policy);
+  const fixtureProfileIDs = policy.builders.map((entry) => entry.fixture_profile_id);
+  assertSortedUnique(fixtureProfileIDs, policyPath + ".builders.fixture_profile_id");
+  const activeProfileIDs = registry.registry.profiles
+    .filter((entry) => entry.status === "active")
+    .map((entry) => entry.fixture_profile_id)
+    .sort(compareASCII);
+  if (JSON.stringify(fixtureProfileIDs) !== JSON.stringify(activeProfileIDs)) {
+    throw new Error(policyPath + ".builders must cover exactly the active fixture profiles");
+  }
+  return deepFreeze({
+    policy,
+    byFixtureProfileID: new Map(
+      policy.builders.map((entry) => [entry.fixture_profile_id, deepFreeze(structuredClone(entry))]),
+    ),
+  });
 }
 
 export function performanceFixtureBindingsForRows(root, rows, options = {}) {

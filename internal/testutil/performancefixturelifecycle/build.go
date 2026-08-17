@@ -147,7 +147,30 @@ func Build(
 		Validation:               projectBuildValidation(profile, result.Validation),
 		RedactionPolicyID:        profile.RedactionPolicy.PolicyID,
 		CreatedAt:                time.Now().UTC().Format(time.RFC3339Nano),
+		ContributionDiagnostics:  projectBuildDiagnostics(result.ContributionDiagnostics),
+		SemanticValidationTime:   result.SemanticValidationTime,
 	}, nil
+}
+
+func projectBuildDiagnostics(diagnostics []fixture.ContributionDiagnostic) []BuildContributionDiagnostic {
+	projected := make([]BuildContributionDiagnostic, len(diagnostics))
+	for index, diagnostic := range diagnostics {
+		projected[index] = BuildContributionDiagnostic{
+			Ordinal:        index + 1,
+			ContributionID: diagnostic.ContributionID,
+			OwnerID:        diagnostic.OwnerID,
+			DurationMS:     nonNegativeMilliseconds(diagnostic.Duration),
+		}
+		if diagnostic.Batch != nil {
+			projected[index].Batch = &BuildBatchDiagnostic{
+				Strategy:            diagnostic.Batch.Strategy,
+				BatchCount:          diagnostic.Batch.BatchCount,
+				ConfiguredBatchSize: diagnostic.Batch.ConfiguredBatchSize,
+				ItemCount:           diagnostic.Batch.ItemCount,
+			}
+		}
+	}
+	return projected
 }
 
 func projectBuildReceipts(receipts []fixture.Receipt) []BuildReceipt {

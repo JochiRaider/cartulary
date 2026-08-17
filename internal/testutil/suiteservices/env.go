@@ -16,6 +16,7 @@ import (
 
 const (
 	ActiveEnv                     = "CARTULARY_TEST_SERVICES_ACTIVE"
+	PersistentBorrowerEnv         = "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER"
 	SuiteIDEnv                    = "CARTULARY_TEST_SUITE_ID"
 	TargetEnv                     = "CARTULARY_TEST_TARGET"
 	HarnessServiceDependenciesEnv = "CARTULARY_HARNESS_SERVICE_DEPENDENCIES"

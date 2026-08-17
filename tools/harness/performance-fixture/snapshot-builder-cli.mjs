@@ -58,6 +58,15 @@ function validateExisting(file, expected) {
   if (artifact.state !== "sealed") throw new Error("existing snapshot build is not sealed");
 }
 
+function validateDiagnostics(file, expected) {
+  const artifact = JSON.parse(readFileSync(file, "utf8"));
+  validateSchemaSync("cartulary.performance_fixture_build_diagnostics.v1", artifact);
+  for (const [key, value] of Object.entries(expected)) {
+    if (artifact[key] !== value) throw new Error(`existing fixture build diagnostics ${key} mismatch`);
+  }
+  if (artifact.state !== "sealed") throw new Error("existing fixture build diagnostics are not sealed");
+}
+
 export async function runSnapshotBuilder(argv) {
   const args = parseArgs(argv);
   const registry = loadPerformanceFixtureSnapshotRegistry(repoRoot);
@@ -75,8 +84,14 @@ export async function runSnapshotBuilder(argv) {
     builder_unit_id: builderUnitID,
   };
   const artifact = path.join(runRoot(), "performance-fixtures", expectedKey, "snapshot-build.json");
+  const diagnostics = path.join(runRoot(), "performance-fixtures", expectedKey, "build-diagnostics.json");
   if (existsSync(artifact)) {
     validateExisting(artifact, expected);
+    validateDiagnostics(diagnostics, {
+      fixture_profile_id: profile.fixture_profile_id,
+      snapshot_key: expectedKey,
+      builder_unit_id: builderUnitID,
+    });
     return artifact;
   }
   const executable = requiredEnv("CARTULARY_TEST_SERVICES_BIN");
@@ -103,6 +118,11 @@ export async function runSnapshotBuilder(argv) {
     result.cleanup();
   }
   validateExisting(artifact, expected);
+  validateDiagnostics(diagnostics, {
+    fixture_profile_id: profile.fixture_profile_id,
+    snapshot_key: expectedKey,
+    builder_unit_id: builderUnitID,
+  });
   return artifact;
 }
 

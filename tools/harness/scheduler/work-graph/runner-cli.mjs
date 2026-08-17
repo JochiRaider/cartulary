@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,14 +15,19 @@ import {
   createSuiteRuntime,
   scanRetainedRoot,
 } from "../../runtime/suite-runtime.mjs";
+import {
+  attachLocalSession,
+  resolveServiceSessionMode,
+} from "../../services/local-session.mjs";
+import { reduceCanonicalUnitIntervals } from "../../evidence-accounting/canonical-unit-events.mjs";
 import { buildSourceSnapshot } from "../../test-catalog/source-snapshot.mjs";
 import { FixtureBroker } from "../fixture-broker/index.mjs";
 import {
   productionFixtureProviders,
   startManagedSuite,
 } from "../fixture-broker/providers.mjs";
-import { WorkGraphCache } from "./cache.mjs";
-import { writeAtomicNDJSON } from "./atomic-ndjson.mjs";
+import { WorkGraphCache, workGraphCacheRootRelative } from "./cache.mjs";
+import { createAtomicNDJSONWriter } from "./atomic-ndjson.mjs";
 import {
   captureCapabilitySnapshot,
   resourceCapacities,
@@ -96,7 +101,12 @@ function declaredInputs(entry) {
   return Object.fromEntries(
     (entry.input_contract?.inputs ?? [])
       .filter((input) => process.env[input.name] !== undefined && process.env[input.name] !== "")
-      .map((input) => [input.name, String(process.env[input.name])])
+      .map((input) => [
+        input.name,
+        input.summary_emission === "redacted_value"
+          ? "<redacted>"
+          : String(process.env[input.name]),
+      ])
       .sort(([left], [right]) => left.localeCompare(right)),
   );
 }
@@ -134,7 +144,15 @@ function fixtureSelectionEnvironment(options) {
 
 function graphChildEnvironment(options) {
   const environment = { ...process.env };
-  for (const name of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS"]) {
+  for (const name of [
+    "CARTULARY_TEST_SERVICES_ACTIVE",
+    "CARTULARY_TEST_SERVICES_MODE",
+    "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER",
+    "CARTULARY_TEST_SERVICES_SESSION_FILE",
+    "MAKEFLAGS",
+    "MAKEOVERRIDES",
+    "MFLAGS",
+  ]) {
     delete environment[name];
   }
   if (new Set(["test-slice", "service-backed-test-slice"]).has(options.target)) {
@@ -312,27 +330,23 @@ function canonicalTimingAccounting(
   let cleanupStarted = null;
   let firstUnitStarted = null;
   let processCount = 0;
-  const cacheHits = new Set();
   for (const event of events) {
     if (event.event === "started" && byID.has(event.unit_id)) {
       started.set(event.unit_id, event.monotonic_ms);
       firstUnitStarted ??= event.monotonic_ms;
       processCount += 1;
     }
-    if (event.event === "cache_hit" && byID.has(event.unit_id)) {
-      cacheHits.add(event.unit_id);
-    }
     if (event.event === "fixture_acquired" && byID.has(event.unit_id)) {
       fixtureAcquired.set(event.unit_id, event.monotonic_ms);
     }
     if (
-      event.event === "resource_wait" &&
+      event.event === "wait_started" &&
       byID.has(event.unit_id) &&
       !resourceWaitStarted.has(event.unit_id)
     ) {
       resourceWaitStarted.set(event.unit_id, event.monotonic_ms);
     }
-    if (event.event === "admitted" && resourceWaitStarted.has(event.unit_id)) {
+    if (event.event === "wait_ended" && resourceWaitStarted.has(event.unit_id)) {
       resourceWaitIntervals.push({
         start: resourceWaitStarted.get(event.unit_id),
         end: event.monotonic_ms,
@@ -396,7 +410,7 @@ function canonicalTimingAccounting(
   return {
     ...totals,
     resource_blocking_ms: intervalUnion(resourceWaitIntervals),
-    process_count: processCount - cacheHits.size,
+    process_count: processCount,
   };
 }
 
@@ -407,6 +421,7 @@ function projectResourcePressure(events, graph, snapshot) {
   const saturationStart = new Map();
   const saturationMs = new Map();
   const peak = new Map();
+  const admitted = new Set();
   const add = (resource, amount, now) => {
     const before = active.get(resource) ?? 0;
     const after = before + amount;
@@ -423,9 +438,13 @@ function projectResourcePressure(events, graph, snapshot) {
     const unit = byID.get(event.unit_id);
     if (!unit) continue;
     if (event.event === "admitted") {
+      admitted.add(event.unit_id);
       for (const [resource, amount] of Object.entries(unit.resource_claims)) add(resource, amount, event.monotonic_ms);
     }
-    if (["completed", "failed", "cancelled"].includes(event.event)) {
+    if (
+      ["completed", "failed", "cancelled"].includes(event.event) &&
+      admitted.delete(event.unit_id)
+    ) {
       for (const [resource, amount] of Object.entries(unit.resource_claims)) add(resource, -amount, event.monotonic_ms);
     }
   }
@@ -433,7 +452,7 @@ function projectResourcePressure(events, graph, snapshot) {
   for (const [resource, startedAt] of saturationStart) {
     saturationMs.set(resource, (saturationMs.get(resource) ?? 0) + completedAt - startedAt);
   }
-  const waits = events.filter((event) => event.event === "resource_wait");
+  const waits = events.filter((event) => event.event === "wait_started");
   return {
     requested_capacity: Object.fromEntries(
       Object.keys(capacities).sort().map((resource) => [resource, Math.max(...graph.units.map((unit) => unit.resource_claims[resource] ?? 0))]),
@@ -443,7 +462,7 @@ function projectResourcePressure(events, graph, snapshot) {
     saturation_ms: Object.fromEntries([...saturationMs.entries()].sort(([left], [right]) => left.localeCompare(right))),
     wait_events: waits.length,
     blocked_units: [...new Set(waits.map((event) => event.unit_id))].sort(),
-    resource_holders: [...new Set(waits.flatMap((event) => event.resource_holders ?? []))].sort(),
+    resource_holders: [...new Set(waits.flatMap((event) => event.blocking_unit_ids ?? []))].sort(),
   };
 }
 
@@ -491,7 +510,9 @@ function fixtureLeaseArtifactRefs(runRoot) {
 }
 
 function writeUnitResult(runRoot, unit, result, missingOutputs) {
-  const relative = unit.evidence_outputs.find((output) => output.startsWith("unit-results/"));
+  const relative = unit.current_run_evidence_outputs.find((output) =>
+    output.startsWith("unit-results/"),
+  );
   if (!relative) throw new Error(`${unit.unit_id} has no canonical unit-result output`);
   const payload = {
     schema_id: "cartulary.harness_unit_result.v1",
@@ -502,7 +523,7 @@ function writeUnitResult(runRoot, unit, result, missingOutputs) {
     signal: result.signal ?? null,
     failure_class: result.failure_class ?? null,
     failure_reason: result.failure_reason ?? null,
-    evidence_outputs: unit.evidence_outputs,
+    evidence_outputs: unit.current_run_evidence_outputs,
     missing_outputs: missingOutputs,
   };
   validateSchemaSync(payload.schema_id, payload);
@@ -533,7 +554,7 @@ function writeTerminalUnitArtifacts(runRoot, graph, result) {
 }
 
 function missingUnitOutputs(runRoot, unit) {
-  return unit.evidence_outputs
+  return unit.current_run_evidence_outputs
     .filter((output) => !output.startsWith("unit-results/"))
     .filter((output) => {
       const file = containedRunFile(runRoot, output);
@@ -541,7 +562,7 @@ function missingUnitOutputs(runRoot, unit) {
     });
 }
 
-function writeCanonicalArtifacts({
+async function writeCanonicalArtifacts({
   target,
   entry,
   graph,
@@ -551,6 +572,16 @@ function writeCanonicalArtifacts({
   runID,
   snapshot,
 }) {
+  const canonical = await reduceCanonicalUnitIntervals(
+    path.join(runRoot, "unit-events.ndjson"),
+    { retainProjection: true },
+  );
+  if (canonical.finalMonotonicMs !== result.duration_ms) {
+    throw new Error(
+      `canonical event duration ${canonical.finalMonotonicMs} does not match scheduler duration ${result.duration_ms}`,
+    );
+  }
+  result = { ...result, events: canonical.projectedEvents };
   const intervals = unitIntervals(result.events);
   const taskSurface = readJSON("tools/task_surface_owner.json");
   const commandIDs = new Map(
@@ -584,7 +615,7 @@ function writeCanonicalArtifacts({
         target: projection,
         evidence_outputs: graph.units
           .filter((unit) => unitIDs.includes(unit.unit_id))
-          .flatMap((unit) => unit.evidence_outputs)
+          .flatMap((unit) => unit.current_run_evidence_outputs)
           .filter((output) => !output.startsWith("unit-results/"))
           .filter((output, index, outputs) => outputs.indexOf(output) === index)
           .sort(),
@@ -608,7 +639,7 @@ function writeCanonicalArtifacts({
       children,
       evidence_refs: graph.units
         .filter((unit) => unitIDs.includes(unit.unit_id))
-        .flatMap((unit) => unit.evidence_outputs)
+        .flatMap((unit) => unit.current_run_evidence_outputs)
         .filter((value, index, values) => values.indexOf(value) === index)
         .sort(),
     };
@@ -678,11 +709,6 @@ function writeCanonicalArtifacts({
     ],
   };
   validateSchemaSync(runSummary.schema_id, runSummary);
-  writeAtomicNDJSON(
-    path.join(runRoot, "unit-events.ndjson"),
-    result.events,
-    canonicalJSONString,
-  );
   // The run summary is the terminal completion marker and is published last.
   writeJSON(path.join(runRoot, "run-summary.json"), runSummary);
   return runSummary;
@@ -690,6 +716,10 @@ function writeCanonicalArtifacts({
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  const serviceSession = resolveServiceSessionMode({
+    target: options.target,
+    environment: process.env,
+  });
   const entry = commandEntry(options.target);
   const { resultsDir, runID, runRoot } = resolvedRunRoot();
   mkdirSync(runRoot, { recursive: true, mode: 0o700 });
@@ -751,12 +781,21 @@ async function main() {
   const suiteController = {
     ensure() {
       if (suiteClosed) throw new Error("managed suite is closed");
-      suite ??= startManagedSuite({
-        root,
-        target: options.target,
-        suiteRuntime,
-        environment: baseEnvironment,
-      });
+      suite ??= serviceSession.mode === "attach"
+        ? attachLocalSession({
+            root,
+            binary: runtimeEnvironment.CARTULARY_TEST_SERVICES_BIN,
+            sessionFile: serviceSession.sessionFile,
+            target: options.target,
+            runID,
+            suiteRuntime,
+          })
+        : startManagedSuite({
+            root,
+            target: options.target,
+            suiteRuntime,
+            environment: baseEnvironment,
+          });
       return suite;
     },
     close() {
@@ -808,10 +847,11 @@ async function main() {
   const cache = new WorkGraphCache({
     root,
     runRoot,
-    cacheRoot: path.join(root, ".cache/cartulary/work-graph"),
+    cacheRoot: path.join(root, workGraphCacheRootRelative),
     mode: cacheMode,
     toolchainDigest,
     helperDigest,
+    sourceEntries: source.entries,
     vulnerabilityDatabaseRevision: vulnerability.revision,
   });
   const controller = new AbortController();
@@ -869,7 +909,8 @@ async function main() {
   };
   let result;
   const liveEventFile = path.join(runRoot, "unit-events.ndjson");
-  writeFileSync(liveEventFile, "", { encoding: "utf8", flag: "wx", mode: 0o600 });
+  const eventWriter = createAtomicNDJSONWriter(liveEventFile, canonicalJSONString);
+  baseEnvironment.CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE = eventWriter.stagingFile;
   try {
     result = await runWorkGraph({
       graph,
@@ -882,18 +923,19 @@ async function main() {
       signal: controller.signal,
       agingQuantumMs: compiler.owner.aging_quantum_ms,
       cleanup: async () => suiteController.close(),
-      onEvent: (event) => {
-        appendFileSync(liveEventFile, `${canonicalJSONString(event)}\n`, {
-          encoding: "utf8",
-        });
-      },
+      onEvent: (event) => eventWriter.write(event),
+      retainEvents: false,
     });
+    await eventWriter.close();
+  } catch (error) {
+    await eventWriter.abort();
+    throw error;
   } finally {
     process.removeListener("SIGINT", abort);
     process.removeListener("SIGTERM", abort);
   }
   writeTerminalUnitArtifacts(runRoot, graph, result);
-  const summary = writeCanonicalArtifacts({
+  const summary = await writeCanonicalArtifacts({
     target: options.target,
     entry,
     graph,

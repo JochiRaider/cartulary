@@ -198,8 +198,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_cache_record.v1",
-      "path": "tools/schemas/cartulary.harness_cache_record.v1.schema.json",
+      "schema_id": "cartulary.harness_cache_record.v2",
+      "path": "tools/schemas/cartulary.harness_cache_record.v2.schema.json",
       "classification": "public_contract",
       "producer": "unified harness cache",
       "validation": "json-shape-check"
@@ -261,8 +261,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_go_lpt_plan.v1",
-      "path": "tools/schemas/cartulary.harness_go_lpt_plan.v1.schema.json",
+      "schema_id": "cartulary.harness_go_lpt_plan.v2",
+      "path": "tools/schemas/cartulary.harness_go_lpt_plan.v2.schema.json",
       "classification": "public_contract",
       "producer": "backend Go LPT planner",
       "validation": "json-shape-check"
@@ -359,8 +359,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_unit_event.v1",
-      "path": "tools/schemas/cartulary.harness_unit_event.v1.schema.json",
+      "schema_id": "cartulary.harness_unit_event.v2",
+      "path": "tools/schemas/cartulary.harness_unit_event.v2.schema.json",
       "classification": "public_contract",
       "producer": "unified harness scheduler",
       "validation": "json-shape-check"
@@ -373,8 +373,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_work_graph.v3",
-      "path": "tools/schemas/cartulary.harness_work_graph.v3.schema.json",
+      "schema_id": "cartulary.harness_work_graph.v4",
+      "path": "tools/schemas/cartulary.harness_work_graph.v4.schema.json",
       "classification": "public_contract",
       "producer": "harness graph compiler",
       "validation": "json-shape-check"
@@ -548,6 +548,20 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.performance_fixture_build_diagnostics.v1",
+      "path": "tools/schemas/cartulary.performance_fixture_build_diagnostics.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "performance fixture builder",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.performance_fixture_builder_policy.v1",
+      "path": "tools/schemas/cartulary.performance_fixture_builder_policy.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "performance fixture builder policy",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.performance_fixture_runtime.v2",
       "path": "tools/schemas/cartulary.performance_fixture_runtime.v2.schema.json",
       "classification": "public_contract",
@@ -597,6 +611,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.postgres_fixture_policy_registry.v1",
+      "path": "tools/schemas/cartulary.postgres_fixture_policy_registry.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "PostgreSQL fixture policy registry",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.projection_provider_manifest.v4",
       "path": "tools/schemas/cartulary.projection_provider_manifest.v4.schema.json",
       "classification": "owner_input",
@@ -639,8 +660,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.scheduler_resource_registry.v5",
-      "path": "tools/schemas/cartulary.scheduler_resource_registry.v5.schema.json",
+      "schema_id": "cartulary.scheduler_resource_registry.v6",
+      "path": "tools/schemas/cartulary.scheduler_resource_registry.v6.schema.json",
       "classification": "owner_input",
       "producer": "canonical scheduler resource owner",
       "validation": "json-shape-check"
@@ -797,6 +818,20 @@
       "path": "tools/schemas/cartulary.test_services.lifecycle.v2.schema.json",
       "classification": "public_contract",
       "producer": "service suite",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.test_services.local_session.v1",
+      "path": "tools/schemas/cartulary.test_services.local_session.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "local service session manager",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.test_services.local_session_status.v1",
+      "path": "tools/schemas/cartulary.test_services.local_session_status.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "local service session manager",
       "validation": "json-shape-check"
     },
     {

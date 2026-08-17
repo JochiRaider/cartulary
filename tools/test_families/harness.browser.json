@@ -782,6 +782,7 @@
           "TestRunStartsObjectStoreWhilePostgresTemplateIsPreparing",
           "TestServiceStartupAttemptTimingSummarizesRetries",
           "TestStaleWebE2EJanitorBoundsAndFiltersGeneratedFixtures",
+          "TestStartSuiteIdentityRequiresExplicitPersistentProof",
           "TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts",
           "TestWarmImagesUsesPinnedServiceImages"
         ]

@@ -4,6 +4,7 @@ import path from "node:path";
 import { loadBrowserBatchStages } from "../adapters/browser.mjs";
 import {
   activePerformanceFixtureProfile,
+  loadPerformanceFixtureBuilderPolicy,
   loadPerformanceFixtureSnapshotRegistry,
   performanceFixtureBindingsForRows,
   postgresMigrationDigest,
@@ -15,6 +16,7 @@ import {
   assertFixtureServiceDependencies,
   topologyResourceClaims,
 } from "./resource-claims.mjs";
+import { planBrowserFunctionalLanes } from "./browser-functional-lanes.mjs";
 
 const manifestRelativePath = "tools/browser_e2e_batch_manifest.json";
 
@@ -91,6 +93,11 @@ function resolvedFixtureProfile(root, group) {
   if (!group.fixtureProfileID) return null;
   const registry = loadPerformanceFixtureSnapshotRegistry(root);
   const profile = activePerformanceFixtureProfile(registry, group.fixtureProfileID);
+  const builderPolicy = loadPerformanceFixtureBuilderPolicy(root, { registry })
+    .byFixtureProfileID.get(group.fixtureProfileID);
+  if (!builderPolicy) {
+    throw new Error("profiled browser group " + group.name + " has no builder policy");
+  }
   const migrationDigest = postgresMigrationDigest(root);
   const key = snapshotKey(profile, migrationDigest);
   if (group.selectedRowIDs.length !== 1) {
@@ -106,10 +113,11 @@ function resolvedFixtureProfile(root, group) {
   }
   return {
     profile,
+    builderPolicy,
     migrationDigest,
     snapshotKey: key,
     builderUnitID:
-      "fixture_snapshot:" + group.runtimeProfileID + ":" +
+      "fixture_snapshot:" + builderPolicy.runtime_profile_id + ":" +
       group.fixtureProfileID + ":" + key,
     rowID,
     predicateID: bindings[0].predicate_id,
@@ -117,6 +125,12 @@ function resolvedFixtureProfile(root, group) {
 }
 
 function snapshotBuilderUnit(root, group, fixture, owner) {
+  const policy = fixture.builderPolicy;
+  assertFixtureServiceDependencies(
+    policy.fixture_capability,
+    policy.service_dependencies,
+    `performance fixture builder ${fixture.profile.fixture_profile_id}`,
+  );
   return {
     unit_id: fixture.builderUnitID,
     owner_id: "harness.browser",
@@ -131,7 +145,8 @@ function snapshotBuilderUnit(root, group, fixture, owner) {
         fixture.snapshotKey,
       ],
       {
-        CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
+        CARTULARY_BROWSER_RUNTIME_PROFILE_ID: policy.runtime_profile_id,
+        CARTULARY_FIXTURE_BUILDER_RESOURCE_PROFILE_ID: policy.resource_profile_id,
         CARTULARY_FIXTURE_PROFILE_ID: group.fixtureProfileID,
         CARTULARY_FIXTURE_SNAPSHOT_KEY: fixture.snapshotKey,
         CARTULARY_FIXTURE_MIGRATION_DIGEST: fixture.migrationDigest,
@@ -141,16 +156,22 @@ function snapshotBuilderUnit(root, group, fixture, owner) {
       },
     ),
     needs: [],
-    resource_claims: resourceClaims(root, group),
+    resource_claims: topologyResourceClaims(
+      topology(root),
+      policy.resource_profile_id,
+      policy.service_dependencies,
+      `performance fixture builder ${fixture.profile.fixture_profile_id}`,
+    ),
     shared_locks: ["host_activity"],
     exclusive_locks: [],
     fixture_profile_id: group.fixtureProfileID,
     snapshot_key: fixture.snapshotKey,
-    fixture_lease: "postgres_dedicated",
-    service_dependencies: group.serviceDependencies,
+    fixture_lease: policy.fixture_capability,
+    service_dependencies: policy.service_dependencies,
     cache_policy: "none",
     timeout_ms: owner.default_timeout_ms,
-    evidence_outputs: [
+    current_run_evidence_outputs: [
+      "performance-fixtures/" + fixture.snapshotKey + "/build-diagnostics.json",
       "performance-fixtures/" + fixture.snapshotKey + "/snapshot-build.json",
     ],
     failure_policy: requiredFailurePolicy(),
@@ -159,6 +180,7 @@ function snapshotBuilderUnit(root, group, fixture, owner) {
 }
 
 function lifecycleKey(stage, group) {
+  if (group.functionalLaneID) return group.functionalLaneID;
   if (group.kind === "stateful_partition") {
     return `${stage.name}-${group.browserSessionGroup}-${group.runtimeProfileID}`;
   }
@@ -178,7 +200,6 @@ function lifecycleUnit(root, stage, group, owner, fixture) {
       CARTULARY_BROWSER_SERVICE_REQUIREMENT: group.serviceRequirement,
       CARTULARY_HARNESS_SERVICE_DEPENDENCIES: group.serviceDependencies.join(","),
       CARTULARY_BROWSER_SESSION_CONTRACT: group.browserSessionGroup,
-      CARTULARY_BROWSER_SESSION_GROUP: key,
       ...(fixture
         ? {
             CARTULARY_FIXTURE_PROFILE_ID: group.fixtureProfileID,
@@ -204,26 +225,38 @@ function lifecycleUnit(root, stage, group, owner, fixture) {
     service_dependencies: group.serviceDependencies,
     cache_policy: "none",
     timeout_ms: owner.default_timeout_ms,
-    evidence_outputs: [],
+    current_run_evidence_outputs: [],
     failure_policy: requiredFailurePolicy(),
     estimated_work_ms: 1000,
   };
 }
 
-function resetUnit(root, stage, group, previousID, owner, fixture) {
+function resetUnit(root, stage, group, previousID, owner, fixture, resetLabel) {
   const key = safeID(lifecycleKey(stage, group));
   const locks = hostLocks(group);
+  const functionalGeneration = group.functionalGeneration ?? 0;
   return {
-    unit_id: `browser_reset:${safeID(stage.name)}:${safeID(group.resetBefore)}`,
+    unit_id: `browser_reset:${safeID(stage.name)}:${safeID(resetLabel)}`,
     owner_id: "harness.browser",
     kind: "lifecycle",
-    command: command("tools/harness/browser/reset-web-e2e-stack.sh", ["--label", group.resetBefore], {
+    command: command("tools/harness/browser/reset-web-e2e-stack.sh", [
+      "--label",
+      resetLabel,
+      ...(functionalGeneration > 1
+        ? ["--renew-generation", String(functionalGeneration)]
+        : []),
+    ], {
       CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
       CARTULARY_BROWSER_RESOURCE_PROFILE_ID: group.resourceProfileID,
+      ...(group.functionalLaneID
+        ? {
+            CARTULARY_BROWSER_FUNCTIONAL_LANE_ID: group.functionalLaneID,
+            CARTULARY_BROWSER_GROUP_GENERATION: String(functionalGeneration),
+          }
+        : {}),
       CARTULARY_BROWSER_SERVICE_REQUIREMENT: group.serviceRequirement,
       CARTULARY_HARNESS_SERVICE_DEPENDENCIES: group.serviceDependencies.join(","),
       CARTULARY_BROWSER_SESSION_CONTRACT: group.browserSessionGroup,
-      CARTULARY_BROWSER_SESSION_GROUP: key,
       ...(fixture
         ? {
             CARTULARY_FIXTURE_PROFILE_ID: group.fixtureProfileID,
@@ -249,8 +282,10 @@ function resetUnit(root, stage, group, previousID, owner, fixture) {
     service_dependencies: group.serviceDependencies,
     cache_policy: "none",
     timeout_ms: owner.default_timeout_ms,
-    evidence_outputs: [],
-    failure_policy: requiredFailurePolicy(),
+    current_run_evidence_outputs: [],
+    failure_policy: group.functionalLaneID
+      ? finalizableFailurePolicy()
+      : requiredFailurePolicy(),
     estimated_work_ms: 1000,
   };
 }
@@ -296,10 +331,15 @@ function groupUnit(root, stage, group, dependencyID, owner, mode, fixture) {
         CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
         CARTULARY_BROWSER_RESOURCE_PROFILE_ID: group.resourceProfileID,
         CARTULARY_BROWSER_SELECTED_ROW_IDS: group.selectedRowIDs.join(","),
+        ...(group.functionalLaneID
+          ? {
+              CARTULARY_BROWSER_FUNCTIONAL_LANE_ID: group.functionalLaneID,
+              CARTULARY_BROWSER_GROUP_GENERATION: String(group.functionalGeneration),
+            }
+          : {}),
         CARTULARY_BROWSER_SERVICE_REQUIREMENT: group.serviceRequirement,
         CARTULARY_HARNESS_SERVICE_DEPENDENCIES: group.serviceDependencies.join(","),
         CARTULARY_BROWSER_SESSION_CONTRACT: group.browserSessionGroup,
-        CARTULARY_BROWSER_SESSION_GROUP: key,
         CARTULARY_TEST_TARGET: target,
         ...(fixture
           ? {
@@ -334,12 +374,12 @@ function groupUnit(root, stage, group, dependencyID, owner, mode, fixture) {
     cache_policy: "none",
     timeout_ms:
       resourceProfile(root, group).runner_timeout_ms ?? owner.default_timeout_ms,
-    evidence_outputs: [
+    current_run_evidence_outputs: [
       ...group.selectedRowIDs.map((rowID) => `rows/${rowID}.json`),
       `${target}/browser-groups/${safeID(group.name)}/browser-group-result.json`,
     ].sort(compareASCII),
     failure_policy: finalizableFailurePolicy(),
-    estimated_work_ms:
+    estimated_work_ms: group.estimatedWorkMs ??
       owner.evidence_estimates_ms[group.kind === "a11y" ? "accessibility" : group.kind] ??
       owner.evidence_estimates_ms.browser,
   };
@@ -382,7 +422,7 @@ function measurementSummaryUnit(root, stage, group, runner, owner, fixture, mode
     service_dependencies: [],
     cache_policy: "none",
     timeout_ms: owner.default_timeout_ms,
-    evidence_outputs: [
+    current_run_evidence_outputs: [
       `${target}/browser-groups/${safeID(group.name)}/frontend-measurement-summary.${fixture.profile.artifact_policy.summary_schema_id.split(".").at(-1)}.json`,
     ],
     failure_policy: requiredFailurePolicy(),
@@ -390,7 +430,7 @@ function measurementSummaryUnit(root, stage, group, runner, owner, fixture, mode
   };
 }
 
-function targetFinalizer(root, stage, target, groupUnits, needs, owner) {
+function targetFinalizer(root, stage, target, groupUnits, resetUnits, needs, owner) {
   const groupTargets = stage.groups
     .map((group) => `${group.name}=${target === "browser-e2e-visual-update" ? target : group.target}`)
     .sort(compareASCII);
@@ -414,6 +454,8 @@ function targetFinalizer(root, stage, target, groupUnits, needs, owner) {
         groupTargets.join(","),
         "--children",
         target === stage.target ? stage.summaryChildren.join(",") : "",
+        "--resets",
+        resetUnits.map((unit) => unit.unit_id).sort(compareASCII).join(","),
       ],
       { CARTULARY_DEFER_OBSERVABILITY_FINALIZE: "1" },
     ),
@@ -430,7 +472,7 @@ function targetFinalizer(root, stage, target, groupUnits, needs, owner) {
     service_dependencies: [],
     cache_policy: "none",
     timeout_ms: owner.default_timeout_ms,
-    evidence_outputs: [
+    current_run_evidence_outputs: [
       `${target}/browser-target-result.json`,
       ...(target === "browser-e2e-measurement" && includesFixtureMeasurements
         ? [`${target}/frontend-measurement-aggregate.json`]
@@ -462,8 +504,44 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
   const previousByLifecycle = new Map();
   const snapshotBuilderIDs = new Set();
   const groupUnits = [];
+  const resetUnits = [];
   const measurementSummaryUnits = [];
-  for (const group of stage.groups) {
+  let scheduledGroups = stage.groups;
+  if (stage.groups.every(
+    (group) =>
+      group.kind === "duration_balanced_specs" &&
+      group.resourceProfileID === "browser_functional",
+  )) {
+    const catalog = loadTestCatalog(root);
+    const lanes = planBrowserFunctionalLanes(stage.groups, {
+      lanePrefix: stage.name,
+      maxLanes: 4,
+      estimateGroup(group) {
+        return group.selectedRowIDs.reduce((total, rowID) => {
+          const row = catalog.rowByID.get(rowID);
+          if (!row) {
+            throw new Error(`browser functional group ${group.name} references unknown row ${rowID}`);
+          }
+          const estimate = owner.evidence_estimates_ms[row.evidence_class];
+          if (!Number.isSafeInteger(estimate) || estimate < 1) {
+            throw new Error(
+              `browser functional row ${rowID} has no positive evidence estimate`,
+            );
+          }
+          return total + estimate;
+        }, 0);
+      },
+    });
+    scheduledGroups = lanes.flatMap((lane) =>
+      lane.groups.map((item) => ({
+        ...item.group,
+        estimatedWorkMs: item.estimatedWorkMs,
+        functionalLaneID: lane.laneID,
+        functionalGeneration: item.generation,
+      })),
+    );
+  }
+  for (const group of scheduledGroups) {
     const fixture = resolvedFixtureProfile(root, group);
     if (fixture && !snapshotBuilderIDs.has(fixture.builderUnitID)) {
       units.push(snapshotBuilderUnit(root, group, fixture, owner));
@@ -479,9 +557,22 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
       units.push(lifecycle);
     }
     let dependencyID = previousByLifecycle.get(key);
-    if (group.resetBefore) {
-      const reset = resetUnit(root, stage, group, dependencyID, owner, fixture);
+    const resetLabel = group.resetBefore ||
+      (group.functionalGeneration > 1
+        ? `${group.functionalLaneID}-before-${group.name}`
+        : "");
+    if (resetLabel) {
+      const reset = resetUnit(
+        root,
+        stage,
+        group,
+        dependencyID,
+        owner,
+        fixture,
+        resetLabel,
+      );
       units.push(reset);
+      resetUnits.push(reset);
       dependencyID = reset.unit_id;
     }
     const runner = groupUnit(root, stage, group, dependencyID, owner, mode, fixture);
@@ -515,8 +606,10 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
       stage,
       target,
       groupUnits,
+      resetUnits,
       [
         ...groupUnits.map((unit) => unit.unit_id),
+        ...resetUnits.map((unit) => unit.unit_id),
         ...measurementSummaryUnits.map((unit) => unit.unit_id),
       ],
       owner,

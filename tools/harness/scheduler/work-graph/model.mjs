@@ -7,7 +7,7 @@ import {
   validateSchemaSync,
 } from "../../contract/index.mjs";
 
-const graphSchemaID = "cartulary.harness_work_graph.v3";
+const graphSchemaID = "cartulary.harness_work_graph.v4";
 
 export function loadWorkGraphOwner(root) {
   const owner = JSON.parse(
@@ -78,16 +78,47 @@ export function validateWorkGraph(graph, { capacities } = {}) {
       }
     }
     assertSortedUnique(
-      unit.evidence_outputs,
-      `${unit.unit_id}.evidence_outputs`,
+      unit.current_run_evidence_outputs,
+      `${unit.unit_id}.current_run_evidence_outputs`,
     );
-    for (const output of unit.evidence_outputs) {
+    for (const output of unit.current_run_evidence_outputs) {
       if (
         output.startsWith("/") ||
         output.includes("\\") ||
         output.split("/").includes("..")
       ) {
         throw new Error(`${unit.unit_id} has unsafe evidence output ${output}`);
+      }
+    }
+    const reusablePaths = unit.reusable_artifact_outputs.map((output) => output.relative_path);
+    assertSortedUnique(reusablePaths, `${unit.unit_id}.reusable_artifact_outputs.relative_path`);
+    for (const output of unit.reusable_artifact_outputs) {
+      if (
+        output.relative_path.startsWith("/") ||
+        output.relative_path.includes("\\") ||
+        output.relative_path.split("/").includes("..")
+      ) {
+        throw new Error(
+          `${unit.unit_id} has unsafe reusable artifact output ${output.relative_path}`,
+        );
+      }
+      if (output.producer_identity !== unit.unit_id) {
+        throw new Error(
+          `${unit.unit_id} has reusable artifact output owned by ${output.producer_identity}`,
+        );
+      }
+    }
+    for (const [index, output] of unit.reusable_artifact_outputs.entries()) {
+      for (const other of unit.reusable_artifact_outputs.slice(index + 1)) {
+        if (
+          output.destination_class === other.destination_class &&
+          (other.relative_path.startsWith(`${output.relative_path}/`) ||
+            output.relative_path.startsWith(`${other.relative_path}/`))
+        ) {
+          throw new Error(
+            `${unit.unit_id} has overlapping reusable artifact outputs ${output.relative_path} and ${other.relative_path}`,
+          );
+        }
       }
     }
     if (unit.semantic_digest !== unitSemanticDigest(unit)) {
@@ -161,7 +192,17 @@ export function buildWorkGraph(units) {
       service_dependencies: [...rawUnit.service_dependencies],
       shared_locks: [...new Set(sharedLocks)].sort(),
       exclusive_locks: [...new Set(exclusiveLocks)].sort(),
-      evidence_outputs: [...new Set([...rawUnit.evidence_outputs, unitResult])].sort(),
+      current_run_evidence_outputs: [
+        ...new Set([...rawUnit.current_run_evidence_outputs, unitResult]),
+      ].sort(),
+      reusable_artifact_outputs: [...(rawUnit.reusable_artifact_outputs ?? [])]
+        .sort((left, right) =>
+          left.relative_path < right.relative_path
+            ? -1
+            : left.relative_path > right.relative_path
+              ? 1
+              : 0,
+        ),
     });
     const prior = byID.get(unit.unit_id);
     if (prior && canonicalJSONString(prior) !== canonicalJSONString(unit)) {

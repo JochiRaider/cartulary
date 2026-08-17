@@ -291,6 +291,7 @@ export function productionFixtureProviders({
   suiteRuntime,
 }) {
   const cloneOrdinals = new Map();
+  const browserAllocationOrdinals = new Map();
   const sharedProviders = Object.fromEntries(
     [
       "postgres_transaction",
@@ -320,7 +321,10 @@ export function productionFixtureProviders({
         const suite = suiteController.ensure();
         const suiteEnvironment = suite.environment;
         const safeAffinity = String(affinityKey).replaceAll(/[^A-Za-z0-9_.-]+/gu, "-");
-        const sessionRoot = suiteRuntime.privatePath("browser-stack-leases", safeAffinity);
+        const allocationOrdinal = (browserAllocationOrdinals.get(safeAffinity) ?? 0) + 1;
+        browserAllocationOrdinals.set(safeAffinity, allocationOrdinal);
+        const browserSessionID = `${safeAffinity}-allocation-${String(allocationOrdinal).padStart(3, "0")}`;
+        const sessionRoot = suiteRuntime.privatePath("browser-stack-leases", browserSessionID);
         mkdirSync(sessionRoot, { recursive: true, mode: 0o700 });
         const envFile = path.join(sessionRoot, "stack.env");
         const leaseFile = path.join(sessionRoot, "stack.lease");
@@ -341,12 +345,12 @@ export function productionFixtureProviders({
           ...selectionEnvironment,
           CARTULARY_BROWSER_RUNTIME_PROFILE_ID: runtimeProfileID,
           CARTULARY_BROWSER_SERVICE_REQUIREMENT: "test-services",
-          CARTULARY_BROWSER_SESSION_GROUP: safeAffinity,
+          CARTULARY_BROWSER_SESSION_GROUP: browserSessionID,
           CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT: sessionRoot,
           CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: suiteRuntime.root,
           CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
           CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: suiteRuntime.runID,
-          CARTULARY_TEST_SUITE_ID: suiteEnvironment.CARTULARY_TEST_SUITE_ID || `work-graph-${safeAffinity}`,
+          CARTULARY_TEST_SUITE_ID: suiteEnvironment.CARTULARY_TEST_SUITE_ID || `work-graph-${browserSessionID}`,
           ...(profiled
             ? {
                 CARTULARY_FIXTURE_PROFILE_ID: fixtureProfileID,
@@ -370,6 +374,7 @@ export function productionFixtureProviders({
           ...browserSuiteEnvironment(suiteEnvironment),
           ...selectionEnvironment,
           ...stackEnvironment,
+          CARTULARY_BROWSER_SESSION_GROUP: browserSessionID,
         };
         const close = () =>
           run(lifecycle, ["--session-stop", "--lease-file", leaseFile], {
@@ -379,7 +384,7 @@ export function productionFixtureProviders({
         return {
           ownership: "owned",
           resource_ids: [
-            `browser-stack:${safeAffinity}`,
+            `browser-stack:${browserSessionID}`,
             ...(profiled ? [`fixture-clone:${snapshotKey}:${cloneOrdinal}`] : []),
           ],
           ...(profiled

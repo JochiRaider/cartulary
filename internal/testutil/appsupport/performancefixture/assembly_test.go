@@ -53,6 +53,18 @@ func TestClosedAssemblerProducesExactDeterministicRedactedSemantics(t *testing.T
 	if got := len(first.Receipts); got != 6 {
 		t.Fatalf("receipt count=%d want=6", got)
 	}
+	if got := len(first.ContributionDiagnostics); got != 6 {
+		t.Fatalf("contribution diagnostics=%d want=6", got)
+	}
+	timelineDiagnostic := first.ContributionDiagnostics[3]
+	if timelineDiagnostic.ContributionID != "timeline.large_grid.v1" ||
+		timelineDiagnostic.OwnerID != "module.timeline" || timelineDiagnostic.Batch == nil ||
+		timelineDiagnostic.Batch.Strategy != "owner_set_oriented" ||
+		timelineDiagnostic.Batch.BatchCount != 1 ||
+		timelineDiagnostic.Batch.ConfiguredBatchSize != 20000 ||
+		timelineDiagnostic.Batch.ItemCount != 20000 {
+		t.Fatalf("unexpected Timeline build diagnostics: %#v", timelineDiagnostic)
+	}
 	if firstApplications.timelineRows != 20000 || firstApplications.hosts != 1000 || firstApplications.identities != 1000 {
 		t.Fatalf("unexpected fixture dimensions: %#v", firstApplications)
 	}
@@ -186,7 +198,7 @@ func (f *fakeApplications) CreateFixtureTimelineRows(_ context.Context, incident
 	if f.failureAt == "timeline" {
 		return errors.New("injected Timeline failure")
 	}
-	if incidentID == "" || len(rows) != 500 {
+	if incidentID == "" || len(rows) != 20000 {
 		return errors.New("invalid Timeline fixture batch")
 	}
 	for _, row := range rows {

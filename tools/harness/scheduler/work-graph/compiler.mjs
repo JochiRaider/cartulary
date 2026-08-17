@@ -70,7 +70,6 @@ function resourceClaims(row, topology) {
 function fixtureEnvironment(capability, serviceDependencies) {
   const postgresPolicies = {
     postgres_transaction: "transaction",
-    postgres_group: "group_clone",
     postgres_dedicated: "template_clone",
     // Migration leases also admit current-head isolation checks in the same
     // semantic row. MigrationDatabaseT owns its fresh replay identity; any
@@ -102,8 +101,9 @@ function rowCommand(row, target, runtimeEnvironment = {}) {
 function rowCachePolicy(row) {
   return (
     !new Set(["go", "vitest"]).has(row.runner) ||
-    new Set(["managed_process", "postgres_migration", "browser_stack"]).has(row.fixture_capability) ||
-    new Set(["measurement", "visual", "release"]).has(row.evidence_class)
+    row.fixture_capability !== "none" ||
+    row.service_dependencies.length > 0 ||
+    new Set(["measurement", "security", "visual", "release"]).has(row.evidence_class)
       ? "none"
       : "content_addressed"
   );
@@ -131,7 +131,7 @@ function rowUnit(row, target, owner, topology, needs, runtimeEnvironment) {
     service_dependencies: row.service_dependencies,
     cache_policy: rowCachePolicy(row),
     timeout_ms: owner.default_timeout_ms,
-    evidence_outputs: [`rows/${row.row_id}.json`],
+    current_run_evidence_outputs: [`rows/${row.row_id}.json`],
     failure_policy: {
       block_descendants: true,
       continue_independent: true,
@@ -144,6 +144,8 @@ function rowUnit(row, target, owner, topology, needs, runtimeEnvironment) {
 function goShardUnit(shard, rows, target, owner, topology, needs, runtimeEnvironment) {
   const rowIDs = shard.item_ids;
   const first = rows[0];
+  const claims = resourceClaims(first, topology);
+  claims.cpu = shard.cpu_tokens;
   return {
     unit_id: shard.shard_id,
     owner_id: "harness.backend",
@@ -154,19 +156,23 @@ function goShardUnit(shard, rows, target, owner, topology, needs, runtimeEnviron
       environment: {
         CARTULARY_TEST_ROWS: rowIDs.join(","),
         CARTULARY_TEST_TARGET: target,
+        CARTULARY_UNIT_CPU_TOKENS: String(shard.cpu_tokens),
+        GOMAXPROCS: String(shard.cpu_tokens),
         ...fixtureEnvironment(first.fixture_capability, first.service_dependencies),
         ...runtimeEnvironment,
       },
     },
     needs,
-    resource_claims: resourceClaims(first, topology),
+    resource_claims: claims,
     fixture_lease: fixtureCapability(first),
     service_dependencies: first.service_dependencies,
     cache_policy: rows.every((row) => rowCachePolicy(row) === "content_addressed")
       ? "content_addressed"
       : "none",
     timeout_ms: owner.default_timeout_ms,
-    evidence_outputs: rowIDs.map((rowID) => `rows/${rowID}.json`).sort(compareASCII),
+    current_run_evidence_outputs: rowIDs
+      .map((rowID) => `rows/${rowID}.json`)
+      .sort(compareASCII),
     failure_policy: {
       block_descendants: true,
       continue_independent: true,
@@ -210,7 +216,7 @@ function rawGoUnit(entry, owner, topology, needs) {
     service_dependencies: entry.service_dependencies,
     cache_policy: "none",
     timeout_ms: owner.default_timeout_ms,
-    evidence_outputs: [],
+    current_run_evidence_outputs: [],
     failure_policy: {
       block_descendants: true,
       continue_independent: true,
@@ -341,9 +347,13 @@ export class WorkGraphCompiler {
           estimated_work_ms: this.owner.evidence_estimates_ms[row.evidence_class],
           compatibility: {
             target: this.rowTargets.get(row.row_id),
+            owner_id: row.owner_id,
+            package_selection: row.selector.package,
+            evidence_class: row.evidence_class,
             runtime_profile_id: row.runtime_profile_id,
             resource_profile_id: row.resource_profile_id,
             fixture_capability: row.fixture_capability,
+            fixture_profile_id: row.fixture_profile_id ?? null,
             service_dependencies: row.service_dependencies,
             runtime_binary_ids: this.familyRuntimeBinaries.get(row.family_id) ?? [],
           },
@@ -499,7 +509,7 @@ export class WorkGraphCompiler {
         service_dependencies: serviceDependencies,
         cache_policy: policy?.cache_policy ?? "none",
         timeout_ms: this.owner.default_timeout_ms,
-        evidence_outputs: policyEvidenceOutputs(target),
+        current_run_evidence_outputs: policyEvidenceOutputs(target),
         failure_policy: {
           block_descendants: true,
           continue_independent: true,
@@ -583,8 +593,12 @@ export class WorkGraphCompiler {
     for (const unit of graph.units) {
       if (unit.unit_id.startsWith("row:")) {
         add(this.rowTargets.get(unit.unit_id.slice("row:".length)), unit.unit_id);
-      } else if (unit.evidence_outputs.some((output) => output.startsWith("rows/"))) {
-        for (const output of unit.evidence_outputs.filter((value) => value.startsWith("rows/"))) {
+      } else if (
+        unit.current_run_evidence_outputs.some((output) => output.startsWith("rows/"))
+      ) {
+        for (const output of unit.current_run_evidence_outputs.filter((value) =>
+          value.startsWith("rows/"),
+        )) {
           const rowID = output.slice("rows/".length, -".json".length);
           add(this.rowTargets.get(rowID), unit.unit_id);
         }

@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_work_graph.v3",
+  "$id": "cartulary.harness_work_graph.v4",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_id", "selector", "units", "graph_digest"],
   "properties": {
-    "schema_id": { "const": "cartulary.harness_work_graph.v3" },
+    "schema_id": { "const": "cartulary.harness_work_graph.v4" },
     "selector": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/nonempty" },
     "units": { "type": "array", "items": { "$ref": "#/$defs/unit" } },
     "graph_digest": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest" }
@@ -23,9 +23,20 @@
       "type": "object", "additionalProperties": false, "required": ["block_descendants", "continue_independent", "aggregate_effect"],
       "properties": { "block_descendants": { "type": "boolean" }, "continue_independent": { "type": "boolean" }, "aggregate_effect": { "enum": ["required", "diagnostic"] } }
     },
+    "reusable_artifact_output": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_type", "relative_path", "destination_class", "mode", "producer_identity"],
+      "properties": {
+        "artifact_type": { "enum": ["file", "directory"] },
+        "relative_path": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/nonempty" },
+        "destination_class": { "enum": ["run_root", "repository_artifact"] },
+        "mode": { "type": "string", "pattern": "^0[0-7]{3}$" },
+        "producer_identity": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/nonempty" }
+      }
+    },
     "unit": {
       "type": "object", "additionalProperties": false,
-      "required": ["unit_id", "owner_id", "kind", "command", "needs", "resource_claims", "fixture_lease", "service_dependencies", "cache_policy", "timeout_ms", "evidence_outputs", "failure_policy", "estimated_work_ms", "semantic_digest"],
+      "required": ["unit_id", "owner_id", "kind", "command", "needs", "resource_claims", "fixture_lease", "service_dependencies", "cache_policy", "timeout_ms", "current_run_evidence_outputs", "reusable_artifact_outputs", "failure_policy", "estimated_work_ms", "semantic_digest"],
       "properties": {
         "unit_id": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" }, "owner_id": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" },
         "kind": { "enum": ["runner", "readiness", "lifecycle", "finalizer", "policy", "artifact", "fixture_builder"] },
@@ -41,7 +52,8 @@
         "service_dependencies": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies" },
         "cache_policy": { "enum": ["none", "same_run", "content_addressed"] },
         "timeout_ms": { "type": "integer", "minimum": 1, "maximum": 3600000 },
-        "evidence_outputs": { "type": "array", "uniqueItems": true, "items": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/nonempty" } },
+        "current_run_evidence_outputs": { "type": "array", "uniqueItems": true, "items": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/nonempty" } },
+        "reusable_artifact_outputs": { "type": "array", "items": { "$ref": "#/$defs/reusable_artifact_output" } },
         "failure_policy": { "$ref": "#/$defs/failure_policy" },
         "estimated_work_ms": { "type": "integer", "minimum": 1 },
         "semantic_digest": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest" }

@@ -15,7 +15,7 @@ import (
 
 func TestIncidentMutationAdmissionUsesSharedLifecycleGuard_Integration(t *testing.T) {
 	ctx := context.Background()
-	testDB := pgtest.Start(t).PrepareGroupDatabaseT(t, "incident-mutation-admission", "incident-mutation-admission-lock")
+	testDB := pgtest.Start(t).PrepareIsolatedDatabaseT(t, "incident-mutation-admission")
 	firstConnection, err := pgx.Connect(ctx, testDB.DSN)
 	if err != nil {
 		t.Fatalf("connect first mutation: %v", err)

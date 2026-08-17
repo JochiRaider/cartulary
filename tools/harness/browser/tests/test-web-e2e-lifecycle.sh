@@ -389,6 +389,9 @@ mkdir -p "$reset_fake_bin" "$reset_runtime_root" "$reset_state_root"
 cat >"$reset_fake_bin/testservices" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ -n "${CARTULARY_RESET_FAKE_ARGS:-}" ]]; then
+  printf '%s\n' "$@" >"$CARTULARY_RESET_FAKE_ARGS"
+fi
 exit 0
 EOF
 cat >"$reset_fake_bin/curl" <<'EOF'
@@ -432,5 +435,25 @@ for reset_artifact in \
   [[ "$(stat -c '%a' "$reset_artifact")" == "600" ]] ||
     fail "reset ambient-022 artifact must be 0600: $reset_artifact"
 done
+
+reset_args_file="$tmp_dir/reset-renew-args"
+reset_metadata_file="$reset_runtime_root/test-services-web-e2e.json"
+printf '%s\n' '{}' >"$reset_metadata_file"
+CARTULARY_RESET_FAKE_ARGS="$reset_args_file" \
+  CARTULARY_TEST_TARGET=adhoc \
+  CARTULARY_TEST_RESULTS_DIR="$reset_results_root" \
+  CARTULARY_TEST_RUN_ID=ambient-reset \
+  CARTULARY_TEST_ROUTE_TOKEN=opaque-reset-token \
+  CARTULARY_TEST_SERVICES_BIN="$reset_fake_bin/testservices" \
+  CARTULARY_WEB_E2E_RUNTIME_ROOT="$reset_runtime_root" \
+  CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE="$reset_metadata_file" \
+  CARTULARY_PLAYWRIGHT_STATE_DIR="$reset_state_root" \
+  NODE_BIN="$NODE_BIN" \
+  PATH="$reset_fake_bin:$PATH" \
+  "$RESET_SCRIPT" --label functional-generation-2 --renew-generation 2
+if [[ "$(tr '\n' ' ' <"$reset_args_file")" != \
+  "renew-web-e2e --credential-root $reset_runtime_root --bootstrap-manifest $ROOT_DIR/configs/dev/bootstrap-admin.json --metadata-file $reset_metadata_file --generation 2 " ]]; then
+  fail "functional renewal did not pass exact owned resource identity"
+fi
 
 printf '%s\n' "test-web-e2e-lifecycle: pass"

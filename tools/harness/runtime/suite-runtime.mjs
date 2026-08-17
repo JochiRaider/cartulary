@@ -112,6 +112,13 @@ function removeOwnedRuntime(directory, runtimeBase, expectedLeaseID = "") {
   rmSync(resolved, { recursive: true, force: false });
 }
 
+export function closeSuiteRuntimeRoot({ root, expectedLeaseID }) {
+  const resolved = path.resolve(root);
+  const runtimeBase = path.dirname(resolved);
+  assertPrivateDirectory(runtimeBase, "suite runtime base");
+  removeOwnedRuntime(resolved, runtimeBase, expectedLeaseID);
+}
+
 export function cleanupStaleSuiteRuntimeRoots({
   repoRoot,
   runRoot,

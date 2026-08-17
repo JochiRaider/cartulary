@@ -17,6 +17,7 @@ import { loadPerformanceFixtureSnapshotRegistry } from "../performance-fixture/i
 import { loadVerificationContracts } from "./verification-contracts.mjs";
 import { assertSortedUnique, resolveRowSelector } from "./selector-resolution.mjs";
 import { assertFixtureServiceDependencies } from "./service-dependencies.mjs";
+import { validatePostgresFixturePolicy } from "./postgres-fixture-policy.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
 const familyManifestSchemaID = "cartulary.test_family_manifest.v5";
@@ -61,10 +62,12 @@ const expectedProfiles = Object.freeze({
   runtime_profiles: ["default", "network_flow_claimed", "none"],
   resource_profiles: [
     "backend_capacity_isolated",
+    "browser_functional",
     "browser_isolated",
     "browser_measurement_quiet",
     "io_heavy",
     "managed_process",
+    "performance_fixture_builder",
     "standard",
   ],
 });
@@ -470,6 +473,7 @@ export function loadTestCatalog(root) {
       rows.filter((row) => row.runner === runner).length,
     ]),
   );
+  const postgresFixturePolicy = validatePostgresFixturePolicy(root, rows);
   for (const [verificationID, binding] of fixtureProfiles.verificationBindings) {
     const matchingRows = rows.filter((row) =>
       row.verification_ids.includes(verificationID) &&
@@ -497,6 +501,7 @@ export function loadTestCatalog(root) {
     runner_registry: runners.registry,
     profiles: profiles.semantic,
     fixture_profiles: fixtureProfiles.semantic_projection,
+    postgres_fixture_policy: postgresFixturePolicy.registry,
     row_migrations: rowMigrations,
   });
   const summary = {
@@ -534,6 +539,7 @@ export function loadTestCatalog(root) {
     runners: runners.registry,
     profiles,
     fixtureProfiles,
+    postgresFixturePolicy,
     rowMigrations,
     summary,
     test_catalog_digest: catalogSemanticDigest,

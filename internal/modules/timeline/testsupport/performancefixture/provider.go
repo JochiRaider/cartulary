@@ -50,27 +50,22 @@ func (p *Provider) Apply(ctx context.Context, state *fixture.BuildState) (fixtur
 	if state.IncidentID == "" {
 		return fixture.Receipt{}, errors.New("timeline performance fixture requires an Incidents workspace")
 	}
-	const batchSize = 500
 	rowCount := p.descriptor.ExpectedCounts["timeline_rows"]
-	for start := 0; start < rowCount; start += batchSize {
-		end := min(start+batchSize, rowCount)
-		rows := make([]Row, end-start)
-		for offset := range rows {
-			index := start + offset
-			row := Row{Summary: fmt.Sprintf("Performance Timeline %05d", index)}
-			if index%20 == 0 {
-				suffix := fmt.Sprintf("%04d", index/20)
-				row.Summary += " perf-host-" + suffix + " perf-identity-" + suffix + "@example.test https://fixture-" + suffix + ".example.test/trace"
-				row.HostRef = "perf-host-" + suffix
-				row.IdentityRef = "perf-identity-" + suffix + "@example.test"
-				row.Tag = "perf-tag-" + suffix
-				row.DataSource = "https://fixture-" + suffix + ".example.test/trace"
-			}
-			rows[offset] = row
+	rows := make([]Row, rowCount)
+	for index := range rows {
+		row := Row{Summary: fmt.Sprintf("Performance Timeline %05d", index)}
+		if index%20 == 0 {
+			suffix := fmt.Sprintf("%04d", index/20)
+			row.Summary += " perf-host-" + suffix + " perf-identity-" + suffix + "@example.test https://fixture-" + suffix + ".example.test/trace"
+			row.HostRef = "perf-host-" + suffix
+			row.IdentityRef = "perf-identity-" + suffix + "@example.test"
+			row.Tag = "perf-tag-" + suffix
+			row.DataSource = "https://fixture-" + suffix + ".example.test/trace"
 		}
-		if err := p.application.CreateFixtureTimelineRows(ctx, state.IncidentID, rows); err != nil {
-			return fixture.Receipt{}, fmt.Errorf("create fixture Timeline batch %d: %w", start/batchSize, err)
-		}
+		rows[index] = row
+	}
+	if err := p.application.CreateFixtureTimelineRows(ctx, state.IncidentID, rows); err != nil {
+		return fixture.Receipt{}, fmt.Errorf("create fixture Timeline set: %w", err)
 	}
 	return fixture.Receipt{
 		ContributionID: p.descriptor.ContributionID,
@@ -78,4 +73,14 @@ func (p *Provider) Apply(ctx context.Context, state *fixture.BuildState) (fixtur
 		OwnerID:        p.descriptor.OwnerID,
 		Counts:         maps.Clone(p.descriptor.ExpectedCounts),
 	}, nil
+}
+
+func (p *Provider) PerformanceFixtureBatchDiagnostic() fixture.BatchDiagnostic {
+	rowCount := p.descriptor.ExpectedCounts["timeline_rows"]
+	return fixture.BatchDiagnostic{
+		Strategy:            "owner_set_oriented",
+		BatchCount:          1,
+		ConfiguredBatchSize: rowCount,
+		ItemCount:           rowCount,
+	}
 }

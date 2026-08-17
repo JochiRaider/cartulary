@@ -33,16 +33,32 @@ func runBuildPerformanceFixture(args []string, env map[string]string) int {
 		fmt.Fprintln(os.Stderr, "performance fixture build artifact must use the current run-scoped canonical path")
 		return 1
 	}
+	diagnosticsFile, err := performancefixturelifecycle.BuildDiagnosticsPath(env, parsed)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "resolve performance fixture diagnostics root: %v\n", err)
+		return 1
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
+	startedAt := time.Now()
 	artifact, err := performancefixturelifecycle.Build(ctx, env, profile, parsed, appfixture.NewProduction)
+	buildDuration := time.Since(startedAt)
 	if err != nil {
 		failed := performancefixturelifecycle.FailedBuild(profile, parsed, "contribution_invalid")
-		if writeErr := performancefixturelifecycle.WriteImmutableJSON(parsed.ArtifactFile, failed); writeErr != nil {
+		diagnostics := performancefixturelifecycle.FailedBuildDiagnostics(profile, parsed, buildDuration)
+		if writeErr := performancefixturelifecycle.WriteImmutableJSON(diagnosticsFile, diagnostics); writeErr != nil {
+			fmt.Fprintf(os.Stderr, "build performance fixture: %v; retain failure diagnostics: %v\n", err, writeErr)
+		} else if writeErr := performancefixturelifecycle.WriteImmutableJSON(parsed.ArtifactFile, failed); writeErr != nil {
 			fmt.Fprintf(os.Stderr, "build performance fixture: %v; retain failure artifact: %v\n", err, writeErr)
 		} else {
 			fmt.Fprintf(os.Stderr, "build performance fixture: %v\n", err)
 		}
+		return 1
+	}
+	diagnostics := performancefixturelifecycle.SuccessfulBuildDiagnostics(profile, parsed, artifact, buildDuration)
+	if err := performancefixturelifecycle.WriteImmutableJSON(diagnosticsFile, diagnostics); err != nil {
+		_ = performancefixturelifecycle.CleanupFailedBuild(context.Background(), env, parsed)
+		fmt.Fprintf(os.Stderr, "write performance fixture build diagnostics: %v\n", err)
 		return 1
 	}
 	if err := performancefixturelifecycle.WriteImmutableJSON(parsed.ArtifactFile, artifact); err != nil {

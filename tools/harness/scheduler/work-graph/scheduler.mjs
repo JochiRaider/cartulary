@@ -72,7 +72,31 @@ function blockingDetails(unit, capacities, activeClaims, activeSharedLocks, acti
       ...resources,
       ...conflictingLocks.map((lock) => `lock_${lock.replaceAll(/[^a-zA-Z0-9_]+/gu, "_")}`),
     ].sort(compareASCII),
-    resource_holders: holders.sort(compareASCII),
+    blocking_unit_ids: holders.sort(compareASCII),
+  };
+}
+
+function waitDetails(unit, capacities, activeClaims, activeSharedLocks, activeExclusiveLocks, running, byID) {
+  const blocking = blockingDetails(
+    unit,
+    capacities,
+    activeClaims,
+    activeSharedLocks,
+    activeExclusiveLocks,
+    running,
+    byID,
+  );
+  return {
+    wait_reason: blocking.blocking_resources.length > 0 ? "resources" : "capacity",
+    ...blocking,
+  };
+}
+
+function stoppedWaitDetails() {
+  return {
+    wait_reason: "scheduler_stop",
+    blocking_resources: [],
+    blocking_unit_ids: [],
   };
 }
 
@@ -119,12 +143,13 @@ function ready(unit, state, byID) {
 
 function schedulerEvent(seq, monotonicMs, event, unit, status, extra = {}) {
   const record = {
-    schema_id: "cartulary.harness_unit_event.v1",
+    schema_id: "cartulary.harness_unit_event.v2",
     seq,
     monotonic_ms: monotonicMs,
     event,
     unit_id: unit.unit_id,
     status,
+    needs: unit.needs ?? [],
     resource_claims: unit.resource_claims,
     service_dependencies: unit.service_dependencies ?? [],
     ...extra,
@@ -151,13 +176,27 @@ export function simulateWorkGraph({
   const activeSharedLocks = new Map();
   const activeExclusiveLocks = new Set();
   const running = new Map();
-  const waitSignatures = new Map();
+  const eligible = new Set();
+  const openWaits = new Map();
   const events = [];
   const admissions = [];
   let seq = 0;
   let now = 0;
   const emit = (event, unit, status, extra) => {
     events.push(schedulerEvent(++seq, now, event, unit, status, extra));
+  };
+  const openWait = (unit, details) => {
+    if (eligible.has(unit.unit_id)) return;
+    eligible.add(unit.unit_id);
+    openWaits.set(unit.unit_id, details);
+    emit("eligible", unit, "pending");
+    emit("wait_started", unit, "pending", details);
+  };
+  const closeWait = (unit) => {
+    const details = openWaits.get(unit.unit_id);
+    if (!details) throw new Error(`missing wait interval for ${unit.unit_id}`);
+    emit("wait_ended", unit, "pending", details);
+    openWaits.delete(unit.unit_id);
   };
   for (const unit of graph.units) emit("queued", unit, "pending");
 
@@ -173,6 +212,8 @@ export function simulateWorkGraph({
         emit("cancelled", unit, "cancelled");
       }
       for (const unit of graph.units.filter((entry) => state.get(entry.unit_id) === "pending")) {
+        openWait(unit, stoppedWaitDetails());
+        closeWait(unit);
         state.set(unit.unit_id, "cancelled");
         emit("cancelled", unit, "cancelled");
       }
@@ -186,6 +227,8 @@ export function simulateWorkGraph({
         if (state.get(unit.unit_id) !== "pending") continue;
         const dependency = failedDependency(unit, state, byID);
         if (!dependency) continue;
+        openWait(unit, stoppedWaitDetails());
+        closeWait(unit);
         state.set(unit.unit_id, "skipped");
         emit("skipped", unit, "skipped", { failure_reason: "dependency_failure" });
         skipped = true;
@@ -197,6 +240,20 @@ export function simulateWorkGraph({
       const readyUnits = graph.units
         .filter((unit) => state.get(unit.unit_id) === "pending")
         .filter((unit) => ready(unit, state, byID));
+      for (const waiting of readyUnits) {
+        openWait(
+          waiting,
+          waitDetails(
+            waiting,
+            capacities,
+            activeClaims,
+            activeSharedLocks,
+            activeExclusiveLocks,
+            running,
+            byID,
+          ),
+        );
+      }
       const candidates = readyUnits
         .filter((unit) => fitting(unit, capacities, activeClaims, activeSharedLocks, activeExclusiveLocks))
         .filter((unit) => !blockedByReadyExclusiveWaiter(unit, readyUnits))
@@ -219,6 +276,7 @@ export function simulateWorkGraph({
         }
       }
       admitted = true;
+      closeWait(unit);
       state.set(unit.unit_id, "running");
       addClaims(activeClaims, unit.resource_claims, 1);
       addLocks(activeSharedLocks, activeExclusiveLocks, unit, 1);
@@ -288,19 +346,26 @@ export async function runWorkGraph({
   agingQuantumMs = 1000,
   cleanup = async () => {},
   onEvent = () => {},
+  retainEvents = true,
 }) {
   validateWorkGraph(graph, { capacities });
   cache?.validateGraph(graph);
   const byID = new Map(graph.units.map((unit) => [unit.unit_id, unit]));
+  const successors = successorsByID(graph);
   const ranks = criticalPathRanks(graph);
   const state = new Map(graph.units.map((unit) => [unit.unit_id, "pending"]));
+  const pending = new Set(graph.units.map((unit) => unit.unit_id));
+  const readyIDs = new Set(
+    graph.units.filter((unit) => unit.needs.length === 0).map((unit) => unit.unit_id),
+  );
   const queuedAt = new Map(graph.units.map((unit) => [unit.unit_id, 0]));
   const ageCredits = new Map(graph.units.map((unit) => [unit.unit_id, 0]));
   const activeClaims = new Map();
   const activeSharedLocks = new Map();
   const activeExclusiveLocks = new Set();
   const running = new Map();
-  const waitSignatures = new Map();
+  const eligible = new Set();
+  const openWaits = new Map();
   const events = [];
   const admissions = [];
   const terminalResults = new Map();
@@ -312,62 +377,109 @@ export async function runWorkGraph({
   const started = performance.now();
   let seq = 0;
   const elapsed = () => Math.max(0, Math.floor(performance.now() - started));
-  const emit = (event, unit, status, extra) => {
-    const record = schedulerEvent(++seq, elapsed(), event, unit, status, extra);
-    events.push(record);
-    onEvent(record);
+  let lastEventMonotonicMs = 0;
+  let emissionTail = Promise.resolve();
+  const emitBatchAt = (monotonicMs, emissions) => {
+    const task = emissionTail.then(async () => {
+      const orderedMonotonicMs = Math.max(lastEventMonotonicMs, monotonicMs);
+      for (const [event, unit, status, extra] of emissions) {
+        const record = schedulerEvent(
+          ++seq,
+          orderedMonotonicMs,
+          event,
+          unit,
+          status,
+          extra,
+        );
+        lastEventMonotonicMs = record.monotonic_ms;
+        if (retainEvents) events.push(record);
+        await onEvent(record);
+      }
+    });
+    emissionTail = task.catch(() => {});
+    return task;
+  };
+  const emitAt = (monotonicMs, event, unit, status, extra) =>
+    emitBatchAt(monotonicMs, [[event, unit, status, extra]]);
+  const emit = async (event, unit, status, extra) =>
+    emitAt(elapsed(), event, unit, status, extra);
+  const openWait = async (unit, details, monotonicMs = elapsed()) => {
+    if (eligible.has(unit.unit_id)) return;
+    eligible.add(unit.unit_id);
+    openWaits.set(unit.unit_id, details);
+    await emitBatchAt(monotonicMs, [
+      ["eligible", unit, "pending"],
+      ["wait_started", unit, "pending", details],
+    ]);
+  };
+  const takeOpenWait = (unit) => {
+    const details = openWaits.get(unit.unit_id);
+    if (!details) throw new Error(`missing wait interval for ${unit.unit_id}`);
+    openWaits.delete(unit.unit_id);
+    return details;
   };
   const runLifecycleUnit = {
     unit_id: "harness:run",
+    needs: [],
     resource_claims: {},
+    service_dependencies: [],
   };
-  emit("run_started", runLifecycleUnit, "running");
-  for (const unit of graph.units) emit("queued", unit, "pending");
+  await emit("run_started", runLifecycleUnit, "running");
+  for (const unit of graph.units) await emit("queued", unit, "pending");
+
+  const settleSuccessors = async (completedUnitID) => {
+    const queue = [completedUnitID];
+    while (queue.length > 0) {
+      const predecessor = queue.shift();
+      for (const successorID of successors.get(predecessor)) {
+        if (state.get(successorID) !== "pending") continue;
+        const unit = byID.get(successorID);
+        const dependency = failedDependency(unit, state, byID);
+        if (dependency) {
+          const boundary = elapsed();
+          await openWait(unit, stoppedWaitDetails(), boundary);
+          const wait = takeOpenWait(unit);
+          pending.delete(successorID);
+          readyIDs.delete(successorID);
+          state.set(successorID, "skipped");
+          terminalResults.set(successorID, {
+            status: "skipped",
+            failure_reason: "dependency_failure",
+          });
+          await emitBatchAt(boundary, [
+            ["wait_ended", unit, "pending", wait],
+            ["skipped", unit, "skipped", { failure_reason: "dependency_failure" }],
+          ]);
+          queue.push(successorID);
+        } else if (ready(unit, state, byID)) {
+          readyIDs.add(successorID);
+        }
+      }
+    }
+  };
 
   let cleanupError = null;
 
   try {
-    while ([...state.values()].some((value) => value === "pending" || value === "running")) {
-      let skipped = false;
-      do {
-        skipped = false;
-        for (const unit of graph.units) {
-          if (state.get(unit.unit_id) !== "pending") continue;
-          const dependency = failedDependency(unit, state, byID);
-          if (!dependency) continue;
-          state.set(unit.unit_id, "skipped");
-          terminalResults.set(unit.unit_id, {
-            status: "skipped",
-            failure_reason: "dependency_failure",
-          });
-          emit("skipped", unit, "skipped", { failure_reason: "dependency_failure" });
-          skipped = true;
-        }
-      } while (skipped);
-
+    while (pending.size > 0 || running.size > 0) {
       if (!controller.signal.aborted) {
         while (true) {
           const now = elapsed();
-          const readyUnits = graph.units
-            .filter((entry) => state.get(entry.unit_id) === "pending")
-            .filter((entry) => ready(entry, state, byID));
-          for (const waiting of readyUnits.filter(
-            (entry) => !fitting(entry, capacities, activeClaims, activeSharedLocks, activeExclusiveLocks),
-          )) {
-            const details = blockingDetails(
+          const readyUnits = [...readyIDs].map((unitID) => byID.get(unitID));
+          for (const waiting of readyUnits) {
+            await openWait(
               waiting,
-              capacities,
-              activeClaims,
-              activeSharedLocks,
-              activeExclusiveLocks,
-              running,
-              byID,
+              waitDetails(
+                waiting,
+                capacities,
+                activeClaims,
+                activeSharedLocks,
+                activeExclusiveLocks,
+                running,
+                byID,
+              ),
+              now,
             );
-            const signature = JSON.stringify(details);
-            if (waitSignatures.get(waiting.unit_id) !== signature) {
-              waitSignatures.set(waiting.unit_id, signature);
-              emit("resource_wait", waiting, "pending", details);
-            }
           }
           const unit = readyUnits
             .filter((entry) => fitting(entry, capacities, activeClaims, activeSharedLocks, activeExclusiveLocks))
@@ -392,27 +504,52 @@ export async function runWorkGraph({
               ageCredits.set(waiting.unit_id, ageCredits.get(waiting.unit_id) + 1);
             }
           }
+          const cacheResult = cache
+            ? await cache.lookup(unit)
+            : { outcome: "bypass", reason: "cache_unconfigured" };
+          await emit(
+            `cache_${cacheResult.outcome}`,
+            unit,
+            cacheResult.outcome === "hit" ? "passed" : "pending",
+            {
+              ...(cacheResult.profile_id
+                ? { cache_profile_id: cacheResult.profile_id }
+                : {}),
+              cache_reason: cacheResult.reason,
+              ...(cacheResult.output_digest
+                ? { output_digest: cacheResult.output_digest }
+                : {}),
+            },
+          );
+          const admissionBoundary = elapsed();
+          const wait = takeOpenWait(unit);
+          pending.delete(unit.unit_id);
+          readyIDs.delete(unit.unit_id);
+          if (cacheResult.outcome === "hit") {
+            state.set(unit.unit_id, "passed");
+            terminalResults.set(unit.unit_id, {
+              status: "passed",
+              cache: cacheResult,
+            });
+            await emitBatchAt(admissionBoundary, [
+              ["wait_ended", unit, "pending", wait],
+              ["completed", unit, "passed", { output_digest: cacheResult.output_digest }],
+            ]);
+            await settleSuccessors(unit.unit_id);
+            continue;
+          }
           state.set(unit.unit_id, "running");
           if (unit.affinity_key) warmAffinities.delete(unit.affinity_key);
-          waitSignatures.delete(unit.unit_id);
           addClaims(activeClaims, unit.resource_claims, 1);
           addLocks(activeSharedLocks, activeExclusiveLocks, unit, 1);
           admissions.push(unit.unit_id);
-          emit("admitted", unit, "running");
-          emit("started", unit, "running");
+          await emitBatchAt(admissionBoundary, [
+            ["wait_ended", unit, "pending", wait],
+            ["admitted", unit, "running"],
+            ["started", unit, "running"],
+          ]);
           const promise = Promise.resolve()
             .then(async () => {
-              const cacheResult = cache
-                ? await cache.lookup(unit)
-                : { outcome: "bypass", reason: "cache_unconfigured" };
-              emit(`cache_${cacheResult.outcome}`, unit, cacheResult.outcome === "hit" ? "passed" : "running", {
-                ...(cacheResult.profile_id ? { cache_profile_id: cacheResult.profile_id } : {}),
-                cache_reason: cacheResult.reason,
-                ...(cacheResult.output_digest ? { output_digest: cacheResult.output_digest } : {}),
-              });
-              if (cacheResult.outcome === "hit") {
-                return { status: "passed", cache: cacheResult };
-              }
               const lease = fixtureBroker && unit.fixture_lease !== "none"
                 ? await fixtureBroker.acquire(unit.fixture_lease, {
                     affinityKey: unit.affinity_key ?? unit.owner_id,
@@ -431,7 +568,7 @@ export async function runWorkGraph({
                   })
                 : null;
               if (lease) {
-                emit("fixture_acquired", unit, "running", {
+                await emit("fixture_acquired", unit, "running", {
                   fixture_lease_id: lease.record.lease_id,
                 });
               }
@@ -456,11 +593,11 @@ export async function runWorkGraph({
                         unit.command.environment.CARTULARY_BROWSER_RELEASE_AFFINITY !== "1",
                     });
                     if (release.retained) result = { ...result, retained_fixture: true };
-                    emit("fixture_released", unit, "running", {
+                    await emit("fixture_released", unit, "running", {
                       fixture_lease_id: lease.record.lease_id,
                     });
                   } catch (error) {
-                    emit("fixture_released", unit, "failed", {
+                    await emit("fixture_released", unit, "failed", {
                       fixture_lease_id: lease.record.lease_id,
                       failure_class: "harness",
                       failure_reason: "cleanup_error",
@@ -489,25 +626,36 @@ export async function runWorkGraph({
         }
       }
 
-      if (running.size === 0) {
-        const pending = graph.units.filter((unit) => state.get(unit.unit_id) === "pending");
-        if (pending.length === 0) break;
-        if (controller.signal.aborted) {
-          for (const unit of pending) {
-            state.set(unit.unit_id, "cancelled");
-            terminalResults.set(unit.unit_id, {
-              status: "cancelled",
+      if (controller.signal.aborted && pending.size > 0) {
+        for (const unitID of [...pending].sort(compareASCII)) {
+          const unit = byID.get(unitID);
+          const boundary = elapsed();
+          await openWait(unit, stoppedWaitDetails(), boundary);
+          const wait = takeOpenWait(unit);
+          pending.delete(unitID);
+          readyIDs.delete(unitID);
+          state.set(unitID, "cancelled");
+          terminalResults.set(unitID, {
+            status: "cancelled",
+            failure_class: "interrupted",
+            failure_reason: "cancelled_or_interrupted",
+          });
+          await emitBatchAt(boundary, [
+            ["wait_ended", unit, "pending", wait],
+            ["cancelled", unit, "cancelled", {
               failure_class: "interrupted",
               failure_reason: "cancelled_or_interrupted",
-            });
-            emit("cancelled", unit, "cancelled", {
-              failure_class: "interrupted",
-              failure_reason: "cancelled_or_interrupted",
-            });
-          }
-          break;
+            }],
+          ]);
         }
-        throw new Error(`scheduler deadlock: ${pending.map((unit) => unit.unit_id).join(", ")}`);
+      }
+
+      if (running.size === 0) {
+        const pendingUnits = [...pending].map((unitID) => byID.get(unitID));
+        if (pendingUnits.length === 0) break;
+        throw new Error(
+          `scheduler deadlock: ${pendingUnits.map((unit) => unit.unit_id).join(", ")}`,
+        );
       }
 
       const { unit_id: unitID, result } = await Promise.race(running.values());
@@ -522,31 +670,32 @@ export async function runWorkGraph({
       }
       if (result.status === "passed") {
         state.set(unitID, "passed");
-        emit("completed", unit, "passed");
+        await emit("completed", unit, "passed");
       } else if (result.status === "cancelled" || controller.signal.aborted) {
         state.set(unitID, "cancelled");
-        emit("cancelled", unit, "cancelled", {
+        await emit("cancelled", unit, "cancelled", {
           failure_class: "interrupted",
           failure_reason: "cancelled_or_interrupted",
         });
       } else {
         state.set(unitID, "failed");
-        emit("failed", unit, "failed", {
+        await emit("failed", unit, "failed", {
           failure_class: result.failure_class ?? "harness",
           failure_reason: result.failure_reason ?? "execution_failure",
         });
       }
+      await settleSuccessors(unitID);
     }
   } finally {
     controller.abort();
     await Promise.allSettled(running.values());
-    emit("cleanup_started", runLifecycleUnit, "running");
+    await emit("cleanup_started", runLifecycleUnit, "running");
     const cleanupResults = await Promise.allSettled([
       fixtureBroker?.close(),
       cleanup(),
     ]);
     cleanupError = cleanupResults.find((result) => result.status === "rejected")?.reason ?? null;
-    emit(
+    await emit(
       "cleanup_completed",
       runLifecycleUnit,
       cleanupError ? "failed" : "passed",
@@ -560,7 +709,7 @@ export async function runWorkGraph({
   const failed = cleanupError || [...state.values()].some((value) =>
     ["failed", "cancelled"].includes(value),
   );
-  emit(
+  await emit(
     "run_completed",
     runLifecycleUnit,
     cancelled ? "cancelled" : failed ? "failed" : "passed",
@@ -570,13 +719,13 @@ export async function runWorkGraph({
   );
   return {
     status: failed ? "failed" : "passed",
-    duration_ms: events.at(-1).monotonic_ms,
+    duration_ms: lastEventMonotonicMs,
     cleanup_error: cleanupError ? String(cleanupError.message ?? cleanupError) : null,
     admissions,
     states: Object.fromEntries([...state.entries()].sort(([left], [right]) => compareASCII(left, right))),
     unit_results: Object.fromEntries(
       [...terminalResults.entries()].sort(([left], [right]) => compareASCII(left, right)),
     ),
-    events,
+    events: retainEvents ? events : undefined,
   };
 }

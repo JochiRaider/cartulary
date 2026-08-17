@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { validateSchemaSync } from "../../contract/index.mjs";
 import { semanticJSONDigest } from "../../contract/index.mjs";
+import { loadSchedulerResourceRegistry } from "../scheduler-resources.mjs";
 
 function readPositiveInteger(file) {
   try {
@@ -45,6 +46,43 @@ function parseOverride(value, root) {
   return override;
 }
 
+function automaticCapacities({ registry, cpuTokens, detectedMemory, detectedProcessLimit }) {
+  const policies = registry.capacity_policies;
+  const processBound = cpuTokens * policies.process_slots.cpu_multiplier;
+  const fixed = (field) => {
+    const policy = policies[field];
+    return Math.max(
+      policy.minimum,
+      Math.min(policy.default, cpuTokens * policy.maximum_cpu_multiplier),
+    );
+  };
+  return {
+    cpu_tokens: Math.max(policies.cpu_tokens.minimum, cpuTokens),
+    memory_bytes: Math.max(policies.memory_bytes.minimum, detectedMemory),
+    process_slots: Math.max(
+      policies.process_slots.minimum,
+      Math.min(detectedProcessLimit ?? processBound, processBound),
+    ),
+    io_tokens: Math.max(
+      policies.io_tokens.minimum,
+      cpuTokens * policies.io_tokens.cpu_multiplier,
+    ),
+    postgres_lanes: fixed("postgres_lanes"),
+    object_store_lanes: fixed("object_store_lanes"),
+    port_lanes: fixed("port_lanes"),
+  };
+}
+
+function resolveIntegerCapacity({ field, override, automatic, maximum }) {
+  const value = override?.[field] ?? automatic;
+  if (!Number.isSafeInteger(value) || value < 1 || value > maximum) {
+    throw new Error(
+      `capacity override ${field}=${String(value)} exceeds the detected policy bound ${maximum}`,
+    );
+  }
+  return value;
+}
+
 export function captureCapabilitySnapshot({
   root,
   override: overrideInput,
@@ -56,6 +94,41 @@ export function captureCapabilitySnapshot({
   const detectedMemory = cgroupMemory ? Math.min(cgroupMemory, hostMemory) : hostMemory;
   const detectedProcessLimit = processLimit();
   const override = parseOverride(overrideInput, root);
+  const registry = loadSchedulerResourceRegistry(
+    root ? path.join(root, "tools/scheduler_resource_registry.json") : undefined,
+  );
+  const automatic = automaticCapacities({
+    registry,
+    cpuTokens,
+    detectedMemory,
+    detectedProcessLimit,
+  });
+  const resolvedCPU = resolveIntegerCapacity({
+    field: "cpu_tokens",
+    override,
+    automatic: automatic.cpu_tokens,
+    maximum: automatic.cpu_tokens,
+  });
+  const resolvedMemory = resolveIntegerCapacity({
+    field: "memory_bytes",
+    override,
+    automatic: automatic.memory_bytes,
+    maximum: automatic.memory_bytes,
+  });
+  const boundedAutomatic = automaticCapacities({
+    registry,
+    cpuTokens: resolvedCPU,
+    detectedMemory,
+    detectedProcessLimit,
+  });
+  const processPolicy = registry.capacity_policies.process_slots;
+  const processMaximum = Math.min(
+    detectedProcessLimit ?? resolvedCPU * processPolicy.cpu_multiplier,
+    resolvedCPU * processPolicy.cpu_multiplier,
+  );
+  const ioMaximum = resolvedCPU * registry.capacity_policies.io_tokens.cpu_multiplier;
+  const fixedMaximum = (field) =>
+    resolvedCPU * registry.capacity_policies[field].maximum_cpu_multiplier;
   let writableVolume = true;
   try {
     accessSync(root ?? process.cwd(), constants.W_OK);
@@ -64,17 +137,48 @@ export function captureCapabilitySnapshot({
   }
   const snapshot = {
     schema_id: "cartulary.harness_capability_snapshot.v1",
-    cpu_tokens: override?.cpu_tokens ?? cpuTokens,
-    memory_bytes: override?.memory_bytes ?? detectedMemory,
-    process_slots:
-      override?.process_slots ??
-      Math.max(1, Math.min(detectedProcessLimit ?? cpuTokens * 4, cpuTokens * 4)),
-    io_tokens: override?.io_tokens ?? Math.max(1, cpuTokens * 2),
-    postgres_lanes: override?.postgres_lanes ?? Math.max(1, Math.min(cpuTokens, 8)),
-    object_store_lanes:
-      override?.object_store_lanes ?? Math.max(1, Math.min(cpuTokens, 4)),
+    cpu_tokens: resolvedCPU,
+    memory_bytes: resolvedMemory,
+    process_slots: resolveIntegerCapacity({
+      field: "process_slots",
+      override,
+      automatic: boundedAutomatic.process_slots,
+      maximum: processMaximum,
+    }),
+    io_tokens: resolveIntegerCapacity({
+      field: "io_tokens",
+      override,
+      automatic: boundedAutomatic.io_tokens,
+      maximum: ioMaximum,
+    }),
+    postgres_lanes: resolveIntegerCapacity({
+      field: "postgres_lanes",
+      override,
+      automatic: Math.min(
+        registry.capacity_policies.postgres_lanes.default,
+        fixedMaximum("postgres_lanes"),
+      ),
+      maximum: fixedMaximum("postgres_lanes"),
+    }),
+    object_store_lanes: resolveIntegerCapacity({
+      field: "object_store_lanes",
+      override,
+      automatic: Math.min(
+        registry.capacity_policies.object_store_lanes.default,
+        fixedMaximum("object_store_lanes"),
+      ),
+      maximum: fixedMaximum("object_store_lanes"),
+    }),
     writable_volume: override?.writable_volume ?? writableVolume,
-    port_lanes: override?.port_lanes ?? Math.max(1, Math.min(cpuTokens, 4)),
+    port_lanes: resolveIntegerCapacity({
+      field: "port_lanes",
+      override,
+      automatic: Math.min(
+        registry.capacity_policies.port_lanes.default,
+        fixedMaximum("port_lanes"),
+      ),
+      maximum: fixedMaximum("port_lanes"),
+    }),
     services: { ...services, ...(override?.services ?? {}) },
     sources: {
       cpu_tokens: override?.cpu_tokens === undefined ? "host" : "override",

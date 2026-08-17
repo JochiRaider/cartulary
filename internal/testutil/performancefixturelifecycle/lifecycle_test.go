@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestOwnedNamesAreDeterministicAndBounded(t *testing.T) {
@@ -60,5 +61,33 @@ func TestArtifactsAreImmutableAndRedacted(t *testing.T) {
 		if strings.Contains(string(raw), forbidden) {
 			t.Fatalf("failed build artifact contains forbidden field %q", forbidden)
 		}
+	}
+	diagnostics := SuccessfulBuildDiagnostics(profile, BuildArgs{
+		FixtureProfileID: profile.FixtureProfileID,
+		SnapshotKey:      performanceFixtureTestKey,
+		BuilderUnitID:    "fixture_snapshot:default:" + profile.FixtureProfileID + ":" + performanceFixtureTestKey,
+	}, BuildArtifact{
+		ContributionDiagnostics: []BuildContributionDiagnostic{{
+			Ordinal: 1, ContributionID: "timeline.large_grid.v1", OwnerID: "module.timeline",
+			DurationMS: 5, Batch: &BuildBatchDiagnostic{Strategy: "owner_set_oriented", BatchCount: 1, ConfiguredBatchSize: 20000, ItemCount: 20000},
+		}},
+		SemanticValidationTime: 3 * time.Millisecond,
+	}, 10*time.Millisecond)
+	diagnosticRaw, err := json.Marshal(diagnostics)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(diagnosticRaw), "snapshot-build.json") || diagnostics.DurationMS != 10 || diagnostics.SemanticValidationDurationMS != 3 {
+		t.Fatalf("invalid build diagnostics: %s", diagnosticRaw)
+	}
+	semanticRaw, err := json.Marshal(BuildArtifact{
+		ContributionDiagnostics: diagnostics.Contributions,
+		SemanticValidationTime:  3 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(semanticRaw), "duration_ms") || strings.Contains(string(semanticRaw), "contributions") {
+		t.Fatalf("diagnostics entered semantic artifact JSON: %s", semanticRaw)
 	}
 }

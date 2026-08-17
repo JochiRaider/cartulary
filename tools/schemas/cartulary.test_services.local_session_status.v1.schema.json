@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_services.local_session_status.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "state", "compatible", "borrower_count", "services"],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_services.local_session_status.v1" },
+    "state": { "enum": ["absent", "active", "expired", "stale", "invalid"] },
+    "compatible": { "type": "boolean" },
+    "session_id": { "type": "string", "pattern": "^[0-9a-f]{24}$" },
+    "created_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
+    "expires_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
+    "borrower_count": { "type": "integer", "minimum": 0 },
+    "reason": {
+      "enum": [
+        "descriptor_missing",
+        "descriptor_invalid",
+        "descriptor_expired",
+        "configuration_changed",
+        "schema_changed",
+        "tool_changed",
+        "image_changed",
+        "container_missing",
+        "container_not_running"
+      ]
+    },
+    "services": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["service", "running"],
+        "properties": {
+          "service": { "enum": ["postgres", "object_store"] },
+          "running": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

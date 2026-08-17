@@ -103,6 +103,49 @@ RETURNING record_id
 	return recordID, nil
 }
 
+// InsertBatchTx persists a validated, caller-identified envelope set in one
+// owner transaction. It is intended for owner-controlled construction paths;
+// ordinary product mutations continue to use InsertTx.
+func (s *Store) InsertBatchTx(ctx context.Context, tx pgx.Tx, params []InsertParams) error {
+	if len(params) == 0 {
+		return errors.New("records: batch insert requires at least one envelope")
+	}
+	rows := make([][]any, len(params))
+	seen := make(map[uuid.UUID]struct{}, len(params))
+	for index, item := range params {
+		if item.RecordID == nil || *item.RecordID == uuid.Nil || item.IncidentID == uuid.Nil ||
+			item.CreatedByUserID == uuid.Nil || item.UpdatedByUserID == uuid.Nil ||
+			item.RecordType == "" || item.CreatedAt.IsZero() || item.UpdatedAt.IsZero() || item.RowVersion < 0 {
+			return fmt.Errorf("records: invalid batch envelope at ordinal %d", index+1)
+		}
+		if _, duplicate := seen[*item.RecordID]; duplicate {
+			return fmt.Errorf("records: duplicate batch record identity at ordinal %d", index+1)
+		}
+		seen[*item.RecordID] = struct{}{}
+		rowVersion := item.RowVersion
+		if rowVersion == 0 {
+			rowVersion = 1
+		}
+		rows[index] = []any{
+			*item.RecordID, item.IncidentID, item.RecordType, item.CreatedByUserID,
+			item.CreatedAt.UTC(), item.UpdatedByUserID, item.UpdatedAt.UTC(), rowVersion,
+		}
+	}
+	inserted, err := tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"records"},
+		[]string{"record_id", "incident_id", "record_type", "created_by_user_id", "created_at", "updated_by_user_id", "updated_at", "row_version"},
+		pgx.CopyFromRows(rows),
+	)
+	if err != nil {
+		return fmt.Errorf("insert record envelope batch: %w", err)
+	}
+	if inserted != int64(len(rows)) {
+		return fmt.Errorf("insert record envelope batch: inserted %d rows, want %d", inserted, len(rows))
+	}
+	return nil
+}
+
 func (s *Store) AdvanceVersionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time) (int64, error) {
 	var rowVersion int64
 	if err := tx.QueryRow(ctx, `

@@ -35,7 +35,7 @@ function helpTierByTarget(manifest) {
 
 function selectedRowIDs(graph) {
   return [...new Set(graph.units.flatMap((unit) =>
-    unit.evidence_outputs
+    unit.current_run_evidence_outputs
       .filter((output) => output.startsWith("rows/") && output.endsWith(".json"))
       .map((output) => output.slice("rows/".length, -".json".length)),
   ))].sort(compareStrings);

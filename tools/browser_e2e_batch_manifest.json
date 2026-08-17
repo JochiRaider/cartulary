@@ -46,7 +46,7 @@
           "specs": [
             "apps/web/e2e/auth-and-incident-directory.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -68,7 +68,7 @@
           "specs": [
             "apps/web/e2e/autoresolve.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -94,7 +94,7 @@
           "specs": [
             "apps/web/e2e/collaboration.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -117,7 +117,7 @@
           "specs": [
             "apps/web/e2e/enterprise-auth.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -139,7 +139,7 @@
           "specs": [
             "apps/web/e2e/evidence-integration.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -165,7 +165,7 @@
           "specs": [
             "apps/web/e2e/evidence.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -187,7 +187,7 @@
           "specs": [
             "apps/web/e2e/grid-provenance.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -213,7 +213,7 @@
           "specs": [
             "apps/web/e2e/history.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -235,7 +235,7 @@
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -262,7 +262,7 @@
           "specs": [
             "apps/web/e2e/incident-administration.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -284,7 +284,7 @@
           "specs": [
             "apps/web/e2e/inspector-actions.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -310,7 +310,7 @@
           "specs": [
             "apps/web/e2e/keyboard.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -332,7 +332,7 @@
           "specs": [
             "apps/web/e2e/mentions.lifecycle.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -354,7 +354,7 @@
           "specs": [
             "apps/web/e2e/mentions.resolve.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -376,7 +376,7 @@
           "specs": [
             "apps/web/e2e/merge.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -398,7 +398,7 @@
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -420,7 +420,7 @@
           "specs": [
             "apps/web/e2e/reference-pack.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -442,7 +442,7 @@
           "specs": [
             "apps/web/e2e/restore.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -473,7 +473,7 @@
           "specs": [
             "apps/web/e2e/sentinel.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -495,7 +495,7 @@
           "specs": [
             "apps/web/e2e/timeline-query.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -519,7 +519,7 @@
           "specs": [
             "apps/web/e2e/timeline-workbook.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -542,7 +542,7 @@
           "specs": [
             "apps/web/e2e/workbook.assessments.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -564,7 +564,7 @@
           "specs": [
             "apps/web/e2e/workbook.generic.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -591,7 +591,7 @@
           "specs": [
             "apps/web/e2e/workbook.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -615,7 +615,7 @@
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -646,7 +646,7 @@
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -683,7 +683,7 @@
           "specs": [
             "apps/web/e2e/auth-and-incident-directory.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -705,7 +705,7 @@
           "specs": [
             "apps/web/e2e/autoresolve.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -731,7 +731,7 @@
           "specs": [
             "apps/web/e2e/collaboration.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -754,7 +754,7 @@
           "specs": [
             "apps/web/e2e/enterprise-auth.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -776,7 +776,7 @@
           "specs": [
             "apps/web/e2e/evidence-integration.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -802,7 +802,7 @@
           "specs": [
             "apps/web/e2e/evidence.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -824,7 +824,7 @@
           "specs": [
             "apps/web/e2e/grid-provenance.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -850,7 +850,7 @@
           "specs": [
             "apps/web/e2e/history.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -872,7 +872,7 @@
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -899,7 +899,7 @@
           "specs": [
             "apps/web/e2e/incident-administration.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -921,7 +921,7 @@
           "specs": [
             "apps/web/e2e/inspector-actions.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -947,7 +947,7 @@
           "specs": [
             "apps/web/e2e/keyboard.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -969,7 +969,7 @@
           "specs": [
             "apps/web/e2e/mentions.lifecycle.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -991,7 +991,7 @@
           "specs": [
             "apps/web/e2e/mentions.resolve.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -1013,7 +1013,7 @@
           "specs": [
             "apps/web/e2e/merge.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -1035,7 +1035,7 @@
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -1057,7 +1057,7 @@
           "specs": [
             "apps/web/e2e/reference-pack.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -1079,7 +1079,7 @@
           "specs": [
             "apps/web/e2e/restore.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -1110,7 +1110,7 @@
           "specs": [
             "apps/web/e2e/sentinel.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -1132,7 +1132,7 @@
           "specs": [
             "apps/web/e2e/timeline-query.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -1156,7 +1156,7 @@
           "specs": [
             "apps/web/e2e/timeline-workbook.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -1179,7 +1179,7 @@
           "specs": [
             "apps/web/e2e/workbook.assessments.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -1201,7 +1201,7 @@
           "specs": [
             "apps/web/e2e/workbook.generic.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -1228,7 +1228,7 @@
           "specs": [
             "apps/web/e2e/workbook.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -1252,7 +1252,7 @@
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",
@@ -1283,7 +1283,7 @@
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
           ],
-          "resource_profile_id": "browser_isolated",
+          "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
           "service_dependencies": [
             "object_store",

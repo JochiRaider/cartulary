@@ -480,65 +480,6 @@ func TestValidateSelectedPostgresFixturePolicy(t *testing.T) {
 	if err := validateSelectedPostgresFixturePolicy("", postgresFixturePolicyTemplateClone); err == nil {
 		t.Fatal("expected every fixture helper to require an explicit policy")
 	}
-	if err := validateSelectedPostgresFixturePolicy(postgresFixturePolicyGroupClone, postgresFixturePolicyTemplateClone); err == nil {
-		t.Fatal("expected call-site and target policy mismatch to fail")
-	}
-}
-
-func TestPrepareGroupDatabaseTReusesTemplateCloneForParentScopedGroup(t *testing.T) {
-	t.Setenv(suiteservices.SuiteIDEnv, "")
-	t.Setenv(postgresFixturePolicyTestsEnv, "TestPrepareGroupDatabaseTReusesTemplateCloneForParentScopedGroup=group_clone")
-
-	oldCreate := createDatabaseFn
-	oldDrop := dropDatabaseFn
-	t.Cleanup(func() {
-		createDatabaseFn = oldCreate
-		dropDatabaseFn = oldDrop
-	})
-
-	var creates []struct {
-		Name     string
-		Template string
-	}
-	createDatabaseFn = func(ctx context.Context, adminDSN string, name string, templateDB string) error {
-		creates = append(creates, struct {
-			Name     string
-			Template string
-		}{Name: name, Template: templateDB})
-		return nil
-	}
-	var drops []string
-	dropDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
-		drops = append(drops, name)
-		return nil
-	}
-
-	harness := &Harness{
-		adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
-		dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
-		templateDB:  "suite_template",
-		suiteHash:   "suitehash",
-		processHash: "procaaaa",
-	}
-
-	var firstName string
-	t.Run("group owner", func(t *testing.T) {
-		first := harness.PrepareGroupDatabaseT(t, "group-clone", "bootstrap-state")
-		second := harness.PrepareGroupDatabaseT(t, "group-clone", "bootstrap-state")
-		firstName = first.Name
-		if first.Name == "" || first.Name != second.Name {
-			t.Fatalf("expected grouped clone reuse, got first=%q second=%q", first.Name, second.Name)
-		}
-	})
-	if len(creates) != 1 {
-		t.Fatalf("expected one grouped template clone, got %#v", creates)
-	}
-	if creates[0].Template != "suite_template" {
-		t.Fatalf("expected grouped clone to use suite template, got %#v", creates[0])
-	}
-	if len(drops) != 1 || drops[0] != firstName {
-		t.Fatalf("expected grouped clone cleanup to drop %q, got %v", firstName, drops)
-	}
 }
 
 func TestPrepareIsolatedDatabaseTDoesNotUsePackageReset(t *testing.T) {
@@ -701,6 +642,14 @@ func TestPrepareIsolatedDatabaseTCleanupRetainsAttachedSuiteTemplateClone(t *tes
 	}
 	if !foundRetain {
 		t.Fatalf("expected retained clone fixture activity for %q, got %#v", preparedName, scope.Fixture)
+	}
+
+	t.Setenv(suiteservices.PersistentBorrowerEnv, "1")
+	t.Run("persistent session borrower", func(t *testing.T) {
+		harness.PrepareIsolatedDatabaseT(t, "persistent-borrower-cleanup")
+	})
+	if dropCalls != 1 {
+		t.Fatalf("expected a persistent session borrower to drop its run-owned database, got %d drops", dropCalls)
 	}
 }
 

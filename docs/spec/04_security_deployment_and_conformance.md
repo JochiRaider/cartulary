@@ -985,6 +985,15 @@ to a non-target Timeline row every five seconds, evenly staggered, for a steady
 aggregate rate of 4.8 committed updates per second. Target rows MUST be excluded
 from the background-update pool.
 
+The fixture's semantic identity is defined by its owner contribution identities,
+receipts, exact semantic validation, source contracts, fixture version, and seed.
+An implementation MAY change an owner-internal construction batch size or
+persistence strategy only when the resulting semantic identity, exact counts,
+conditions, contribution order, and supported product behavior remain unchanged.
+Construction timing, batch counts, batch sizes, and other build diagnostics are
+non-semantic: they MUST NOT enter a contribution receipt, snapshot key, or
+semantic validation digest.
+
 `cartulary.perf.evidence_heavy.v1` contains 5,000 Timeline rows, 10,000 Evidence
 records, tens of gigabytes of binary evidence in object storage, and at least
 one Timeline row linked to 100 Evidence records. Throughput tests MAY stub blob

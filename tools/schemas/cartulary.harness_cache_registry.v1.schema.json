@@ -10,10 +10,11 @@
       "type": "array", "minItems": 1,
       "items": {
         "type": "object", "additionalProperties": false,
-        "required": ["profile_id", "policy", "targets", "input_roots", "requires_vulnerability_database_revision"],
+        "required": ["profile_id", "policy", "dependency_strategy", "targets", "input_roots", "requires_vulnerability_database_revision"],
         "properties": {
           "profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]*$" },
           "policy": { "enum": ["same_run", "content_addressed"] },
+          "dependency_strategy": { "enum": ["broad", "unit_aware"] },
           "targets": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } },
           "input_roots": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._@+/-]+$" } },
           "requires_vulnerability_database_revision": { "type": "boolean" }

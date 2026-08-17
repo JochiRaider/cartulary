@@ -21,6 +21,15 @@ type Writer interface {
 	ApplyTimelineMutationTx(context.Context, pgx.Tx, ProjectionMutation) error
 }
 
+// FixtureBatchPort is an optional set-oriented projection capability. It is
+// kept separate from Writer so ordinary mutation adapters and focused fakes do
+// not acquire a construction-only responsibility.
+type FixtureBatchPort interface {
+	ApplyTimelineFixtureBatchTx(context.Context, pgx.Tx, []ProjectionInput) error
+	CountTimelineFixtureRows(context.Context, uuid.UUID) (int, error)
+	CountTimelineFixtureRowsTx(context.Context, pgx.Tx, uuid.UUID) (int, error)
+}
+
 type Rebuilder interface {
 	RebuildTimeline(context.Context, uuid.UUID) error
 }

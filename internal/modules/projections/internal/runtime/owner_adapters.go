@@ -33,6 +33,18 @@ func (r *TimelineRows) ApplyTimelineMutationTx(ctx context.Context, tx pgx.Tx, m
 	return r.store.ApplyTimelineMutationTx(ctx, tx, mutation)
 }
 
+func (r *TimelineRows) ApplyTimelineFixtureBatchTx(ctx context.Context, tx pgx.Tx, inputs []timelineprojection.ProjectionInput) error {
+	return r.store.ApplyTimelineFixtureBatchTx(ctx, tx, inputs)
+}
+
+func (r *TimelineRows) CountTimelineFixtureRows(ctx context.Context, incidentID uuid.UUID) (int, error) {
+	return r.store.CountTimelineFixtureRows(ctx, incidentID)
+}
+
+func (r *TimelineRows) CountTimelineFixtureRowsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (int, error) {
+	return r.store.CountTimelineFixtureRowsTx(ctx, tx, incidentID)
+}
+
 type EntityRows struct {
 	store          *Store
 	source         entityprojection.SourceReader

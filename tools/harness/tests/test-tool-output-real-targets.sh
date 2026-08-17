@@ -141,7 +141,7 @@ if (target.output_policy.summary_schema === "cartulary.harness_run_summary.v1") 
     })}`);
   }
   const eventLines = fs.readFileSync(files.events, "utf8").trim().split(/\r?\n/).filter(Boolean);
-  if (eventLines.length === 0 || eventLines.some((line) => JSON.parse(line).schema_id !== "cartulary.harness_unit_event.v1")) {
+  if (eventLines.length === 0 || eventLines.some((line) => JSON.parse(line).schema_id !== "cartulary.harness_unit_event.v2")) {
     throw new Error(`${targetName}: invalid canonical unit event stream`);
   }
   process.exit(0);

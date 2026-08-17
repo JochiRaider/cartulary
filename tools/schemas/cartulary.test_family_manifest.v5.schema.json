@@ -43,7 +43,7 @@
         "selector": { "oneOf": [{ "$ref": "#/$defs/go_selector" }, { "$ref": "#/$defs/vitest_selector" }, { "$ref": "#/$defs/playwright_selector" }, { "$ref": "#/$defs/shell_selector" }] },
         "evidence_class": { "enum": ["unit", "integration", "browser", "accessibility", "visual", "measurement", "static", "security", "release"] },
         "runtime_profile_id": { "enum": ["none", "default", "network_flow_claimed"] },
-        "resource_profile_id": { "enum": ["backend_capacity_isolated", "browser_isolated", "browser_measurement_quiet", "io_heavy", "managed_process", "standard"] },
+        "resource_profile_id": { "enum": ["backend_capacity_isolated", "browser_functional", "browser_isolated", "browser_measurement_quiet", "io_heavy", "managed_process", "performance_fixture_builder", "standard"] },
         "fixture_capability": { "enum": ["none", "postgres_transaction", "postgres_group", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"] },
         "fixture_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*_v[1-9][0-9]*$" },
         "service_dependencies": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies" },

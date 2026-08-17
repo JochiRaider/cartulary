@@ -57,13 +57,17 @@ const (
 
 	webE2ECleanupWorkersEnv = "CARTULARY_TEST_SERVICES_WEB_E2E_CLEANUP_WORKERS"
 
-	testServiceLabelManaged = "cartulary.test-services.managed"
-	testServiceLabelSuiteID = "cartulary.test-services.suite-id"
-	testServiceLabelRunID   = "cartulary.test-services.run-id"
-	testServiceLabelTarget  = "cartulary.test-services.target"
-	testServiceLabelService = "cartulary.test-services.service"
+	testServiceLabelManaged          = "cartulary.test-services.managed"
+	testServiceLabelSuiteID          = "cartulary.test-services.suite-id"
+	testServiceLabelRunID            = "cartulary.test-services.run-id"
+	testServiceLabelTarget           = "cartulary.test-services.target"
+	testServiceLabelService          = "cartulary.test-services.service"
+	testServiceLabelSessionID        = "cartulary.test-services.session-id"
+	testServiceLabelSessionExpiresAt = "cartulary.test-services.session-expires-at"
 
-	testServiceManagedValue = "true"
+	testServiceManagedValue          = "true"
+	testServicesPersistentSessionEnv = "CARTULARY_TEST_SERVICES_PERSISTENT_SESSION"
+	testServicesSessionExpiresAtEnv  = "CARTULARY_TEST_SERVICES_SESSION_EXPIRES_AT"
 
 	stagePostgresStart      = "postgres-start"
 	stageStartupPreflight   = "startup-preflight"
@@ -242,6 +246,7 @@ type dependencies struct {
 	createTemplate        func(context.Context, string, string) error
 	prepareWebE2E         func(context.Context, map[string]string) (webE2EFixture, error)
 	resetWebE2EDB         func(context.Context, string, string) error
+	renewWebE2E           func(context.Context, map[string]string, webE2EMetadata, string, string) error
 	cleanupWebE2EDB       func(context.Context, webE2EMetadata, map[string]string) error
 	cleanupWebE2EBucket   func(context.Context, webE2EMetadata, map[string]string) error
 	cleanupWebE2ESessions func(context.Context, map[string]string, string) error
@@ -260,7 +265,7 @@ func main() {
 
 func run(args []string, env map[string]string, deps dependencies) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> | build-performance-fixture <flags> | record-lifecycle --env-file <path> --event <event> [--child-key <key>] | prepare-web-e2e --env-file <path> --metadata-file <path> | reset-web-e2e --credential-root <path> --bootstrap-manifest <path> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | images | warm-images")
+		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> | schema-hash | build-performance-fixture <flags> | record-lifecycle --env-file <path> --event <event> [--child-key <key>] | prepare-web-e2e --env-file <path> --metadata-file <path> | reset-web-e2e --credential-root <path> --bootstrap-manifest <path> | renew-web-e2e --credential-root <path> --bootstrap-manifest <path> --metadata-file <path> --generation <positive-integer> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | images | warm-images")
 		return 2
 	}
 
@@ -269,6 +274,8 @@ func run(args []string, env map[string]string, deps dependencies) int {
 		return runWrappedCommand(args, env, deps)
 	case "start-suite":
 		return runStartSuite(args[1:], env, deps)
+	case "schema-hash":
+		return runSchemaHash(args[1:])
 	case "record-lifecycle":
 		return runRecordLifecycle(args[1:], env)
 	case "build-performance-fixture":
@@ -277,6 +284,8 @@ func run(args []string, env map[string]string, deps dependencies) int {
 		return runPrepareWebE2E(args[1:], env, deps)
 	case "reset-web-e2e":
 		return runResetWebE2E(args[1:], env, deps)
+	case "renew-web-e2e":
+		return runRenewWebE2E(args[1:], env, deps)
 	case "cleanup-web-e2e":
 		return runCleanupWebE2E(args[1:], env, deps)
 	case "terminate-suite":
@@ -299,6 +308,20 @@ func runImages(args []string) int {
 	for _, image := range serviceImages() {
 		fmt.Println(image)
 	}
+	return 0
+}
+
+func runSchemaHash(args []string) int {
+	if len(args) != 0 {
+		fmt.Fprintln(os.Stderr, "usage: testservices schema-hash")
+		return 2
+	}
+	hash, err := pgschema.Hash()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "hash postgres schema: %v\n", err)
+		return 1
+	}
+	fmt.Println(hash)
 	return 0
 }
 
@@ -554,10 +577,10 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 		return 2
 	}
 
-	suiteID, err := deps.suiteID()
+	suiteID, err := startSuiteIdentity(env, deps)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "generate suite id: %v\n", err)
-		return 1
+		fmt.Fprintf(os.Stderr, "resolve suite id: %v\n", err)
+		return 2
 	}
 
 	ownedEnv := cloneEnv(env)
@@ -801,6 +824,47 @@ func runResetWebE2E(args []string, env map[string]string, deps dependencies) int
 	return 0
 }
 
+func runRenewWebE2E(args []string, env map[string]string, deps dependencies) int {
+	credentialRoot, bootstrapManifest, metadataFile, generation, err := parseRenewWebE2EArgs(args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	if !suiteservices.SuiteActive(env) {
+		fmt.Fprintf(os.Stderr, "renew-web-e2e requires %s=1\n", suiteservices.ActiveEnv)
+		return 1
+	}
+	metadata, err := readWebE2EMetadata(metadataFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "read browser e2e metadata: %v\n", err)
+		return 1
+	}
+	if !generatedWebE2EFixture(metadata) || metadata.FixtureProfileID != "" {
+		fmt.Fprintln(os.Stderr, "renew-web-e2e refuses unproved or profiled browser resources")
+		return 1
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	started := time.Now().UTC()
+	err = deps.renewWebE2E(ctx, env, metadata, credentialRoot, bootstrapManifest)
+	recordTimingSpanStatus(
+		deps,
+		env,
+		bucketMigration,
+		fmt.Sprintf("test-services renew browser e2e generation %d", generation),
+		started,
+		err,
+	)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "renew browser e2e fixture: %v\n", err)
+		deps.refreshSummary(env)
+		return 1
+	}
+	deps.refreshSummary(env)
+	return 0
+}
+
 func runRecordLifecycle(args []string, env map[string]string) int {
 	envFile, event, childKey, err := parseRecordLifecycleArgs(args)
 	if err != nil {
@@ -1034,6 +1098,27 @@ func parseResetWebE2EArgs(args []string) (string, string, error) {
 	return credentialRoot, bootstrapManifest, nil
 }
 
+func parseRenewWebE2EArgs(args []string) (string, string, string, int, error) {
+	values, err := parseFlagPairs(args, map[string]struct{}{
+		"--credential-root":    {},
+		"--bootstrap-manifest": {},
+		"--metadata-file":      {},
+		"--generation":         {},
+	})
+	if err != nil {
+		return "", "", "", 0, err
+	}
+	credentialRoot := strings.TrimSpace(values["--credential-root"])
+	bootstrapManifest := strings.TrimSpace(values["--bootstrap-manifest"])
+	metadataFile := strings.TrimSpace(values["--metadata-file"])
+	generation, generationErr := strconv.Atoi(strings.TrimSpace(values["--generation"]))
+	if credentialRoot == "" || bootstrapManifest == "" || metadataFile == "" ||
+		generationErr != nil || generation < 1 {
+		return "", "", "", 0, errors.New("usage: testservices renew-web-e2e --credential-root <path> --bootstrap-manifest <path> --metadata-file <path> --generation <positive-integer>")
+	}
+	return credentialRoot, bootstrapManifest, metadataFile, generation, nil
+}
+
 func parseRecordLifecycleArgs(args []string) (string, string, string, error) {
 	values, err := parseFlagPairs(args, map[string]struct{}{
 		"--env-file":  {},
@@ -1126,6 +1211,7 @@ func defaultDependencies() dependencies {
 		createTemplate:        createTemplateDatabase,
 		prepareWebE2E:         prepareWebE2EFixture,
 		resetWebE2EDB:         resetWebE2EDatabase,
+		renewWebE2E:           renewWebE2EFixture,
 		cleanupWebE2EDB:       cleanupWebE2EDatabase,
 		cleanupWebE2EBucket:   cleanupWebE2EBucket,
 		cleanupWebE2ESessions: revokePerformanceFixtureSessions,
@@ -1222,13 +1308,41 @@ func verifySuiteReaperArtifactPath(env map[string]string) error {
 }
 
 func suiteServiceLabels(env map[string]string, service string) map[string]string {
-	return map[string]string{
+	labels := map[string]string{
 		testServiceLabelManaged: testServiceManagedValue,
 		testServiceLabelSuiteID: suiteservices.SuiteID(env),
 		testServiceLabelRunID:   suiteservices.ResolveRunID(env),
 		testServiceLabelTarget:  suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
 		testServiceLabelService: service,
 	}
+	if strings.TrimSpace(suiteservices.LookupEnvValue(env, testServicesPersistentSessionEnv)) == "1" {
+		labels[testServiceLabelSessionID] = suiteservices.SuiteID(env)
+		labels[testServiceLabelSessionExpiresAt] = strings.TrimSpace(
+			suiteservices.LookupEnvValue(env, testServicesSessionExpiresAtEnv),
+		)
+	}
+	return labels
+}
+
+func startSuiteIdentity(env map[string]string, deps dependencies) (string, error) {
+	if strings.TrimSpace(suiteservices.LookupEnvValue(env, testServicesPersistentSessionEnv)) != "1" {
+		return deps.suiteID()
+	}
+	suiteID := suiteservices.SuiteID(env)
+	if len(suiteID) != 24 {
+		return "", errors.New("persistent session suite id must be 24 lowercase hexadecimal characters")
+	}
+	for _, char := range suiteID {
+		if (char < '0' || char > '9') && (char < 'a' || char > 'f') {
+			return "", errors.New("persistent session suite id must be 24 lowercase hexadecimal characters")
+		}
+	}
+	expiresAt := strings.TrimSpace(suiteservices.LookupEnvValue(env, testServicesSessionExpiresAtEnv))
+	expires, err := time.Parse(time.RFC3339Nano, expiresAt)
+	if err != nil || !expires.After(time.Now().UTC()) {
+		return "", errors.New("persistent session expiry must be a future RFC3339 timestamp")
+	}
+	return suiteID, nil
 }
 
 func writeServiceLease(env map[string]string, postgresSvc postgresService, objectStoreSvc objectStoreService) (string, error) {
@@ -1694,6 +1808,32 @@ func resetWebE2EDatabase(ctx context.Context, credentialRoot string, bootstrapMa
 	return harnessruntime.ResetDatabase(ctx, pool, func(ctx context.Context, tx pgx.Tx) error {
 		return bootstrap.PreflightTx(ctx, bootstrapSettings, tx)
 	})
+}
+
+func renewWebE2EFixture(
+	ctx context.Context,
+	env map[string]string,
+	metadata webE2EMetadata,
+	credentialRoot string,
+	bootstrapManifest string,
+) error {
+	if !generatedWebE2EFixture(metadata) || metadata.FixtureProfileID != "" {
+		return errors.New("unproved_browser_fixture")
+	}
+	if err := resetWebE2EDatabase(ctx, credentialRoot, bootstrapManifest); err != nil {
+		return err
+	}
+	s3Harness, err := s3test.StartShared(ctx)
+	if err != nil {
+		return fmt.Errorf("attach suite object store: %w", err)
+	}
+	if err := s3Harness.CleanupBucket(ctx, metadata.Bucket); err != nil {
+		return fmt.Errorf("remove prior browser bucket generation: %w", err)
+	}
+	if err := s3Harness.CreateBucket(ctx, metadata.Bucket); err != nil {
+		return fmt.Errorf("create replacement browser bucket generation: %w", err)
+	}
+	return nil
 }
 
 func cleanupWebE2EFixture(ctx context.Context, deps dependencies, env map[string]string, metadata webE2EMetadata) error {
@@ -2682,6 +2822,12 @@ func inspectedContainerRemovingOrDead(container dockercontainer.InspectResponse)
 func previousSuiteContainerCleanupEligible(env map[string]string, item dockercontainer.Summary, now time.Time) bool {
 	labels := item.Labels
 	if labels[testServiceLabelManaged] != testServiceManagedValue {
+		return false
+	}
+	// Persistent local sessions have an explicit descriptor, borrower roster,
+	// expiry, and exact down operation. The ordinary suite janitor never owns
+	// them, including after expiry.
+	if strings.TrimSpace(labels[testServiceLabelSessionID]) != "" {
 		return false
 	}
 	suiteID := strings.TrimSpace(labels[testServiceLabelSuiteID])

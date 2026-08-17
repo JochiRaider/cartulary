@@ -67,6 +67,38 @@ func TestRunPassThroughModeStartsNoServices(t *testing.T) {
 	}
 }
 
+func TestStartSuiteIdentityRequiresExplicitPersistentProof(t *testing.T) {
+	deps := defaultTestDependencies(t).dependencies
+	deps.suiteID = func() (string, error) { return "ordinary-random-suite", nil }
+
+	ordinary, err := startSuiteIdentity(map[string]string{}, deps)
+	if err != nil || ordinary != "ordinary-random-suite" {
+		t.Fatalf("ordinary suite identity = %q, %v", ordinary, err)
+	}
+
+	env := map[string]string{
+		testServicesPersistentSessionEnv: "1",
+		suiteservices.SuiteIDEnv:         "0123456789abcdef01234567",
+		testServicesSessionExpiresAtEnv:  time.Now().UTC().Add(time.Hour).Format(time.RFC3339Nano),
+	}
+	persistent, err := startSuiteIdentity(env, deps)
+	if err != nil || persistent != env[suiteservices.SuiteIDEnv] {
+		t.Fatalf("persistent suite identity = %q, %v", persistent, err)
+	}
+
+	invalidID := cloneEnv(env)
+	invalidID[suiteservices.SuiteIDEnv] = "caller-selected-name"
+	if _, err := startSuiteIdentity(invalidID, deps); err == nil {
+		t.Fatal("persistent suite identity accepted a non-hex session ID")
+	}
+
+	expired := cloneEnv(env)
+	expired[testServicesSessionExpiresAtEnv] = time.Now().UTC().Add(-time.Second).Format(time.RFC3339Nano)
+	if _, err := startSuiteIdentity(expired, deps); err == nil {
+		t.Fatal("persistent suite identity accepted an expired session")
+	}
+}
+
 func TestRunSchedulesServiceReaperOnChildFailureAndPropagatesStatus(t *testing.T) {
 	postgresClosed := 0
 	objectStoreClosed := 0
@@ -1058,6 +1090,89 @@ func TestResetWebE2ERequiresActiveSuiteAndUsesOnlyPaths(t *testing.T) {
 	}
 }
 
+func TestRenewWebE2ERequiresOwnedOrdinaryFixtureAndExactGeneration(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	metadataFile := filepath.Join(t.TempDir(), "browser.json")
+	metadata := webE2EMetadata{
+		DatabaseName: "ct_deadbeef_cafe0001_000001_web_e2e",
+		Bucket:       "ct-deadbeef-cafe0001-000001-web-e2e",
+		Target:       "browser-e2e-webserver-backed",
+	}
+	if err := writeWebE2EMetadata(metadataFile, metadata); err != nil {
+		t.Fatalf("write metadata: %v", err)
+	}
+	called := false
+	deps.renewWebE2E = func(
+		_ context.Context,
+		_ map[string]string,
+		got webE2EMetadata,
+		credentialRoot string,
+		bootstrapManifest string,
+	) error {
+		called = true
+		if got != metadata || credentialRoot != "/runtime/credentials" ||
+			bootstrapManifest != "/config/bootstrap.json" {
+			t.Fatalf(
+				"unexpected renewal input: metadata=%#v credential_root=%q bootstrap_manifest=%q",
+				got,
+				credentialRoot,
+				bootstrapManifest,
+			)
+		}
+		return nil
+	}
+	args := []string{
+		"renew-web-e2e",
+		"--credential-root", "/runtime/credentials",
+		"--bootstrap-manifest", "/config/bootstrap.json",
+		"--metadata-file", metadataFile,
+		"--generation", "2",
+	}
+	if status := run(args, deps.env, deps.dependencies); status != 1 {
+		t.Fatalf("inactive suite renewal status: got %d want 1", status)
+	}
+	if called {
+		t.Fatal("renewal must not run outside an active suite")
+	}
+
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "suite-renew"
+	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
+	if status := run(args, activeEnv, deps.dependencies); status != 0 {
+		t.Fatalf("active suite renewal status: got %d want 0", status)
+	}
+	if !called {
+		t.Fatal("expected active suite renewal")
+	}
+	requireTimingEvent(
+		t,
+		loadTestEventsForEnv(t, activeEnv),
+		bucketMigration,
+		"test-services renew browser e2e generation 2",
+	)
+
+	for _, generation := range []string{"0", "-1", "wrong"} {
+		invalid := append([]string(nil), args...)
+		invalid[len(invalid)-1] = generation
+		if status := run(invalid, activeEnv, deps.dependencies); status != 2 {
+			t.Fatalf("invalid generation %q status: got %d want 2", generation, status)
+		}
+	}
+
+	profiledFile := filepath.Join(t.TempDir(), "profiled.json")
+	profiled := metadata
+	profiled.FixtureProfileID = "ac043_large_grid_snapshot_v1"
+	if err := writeWebE2EMetadata(profiledFile, profiled); err != nil {
+		t.Fatalf("write profiled metadata: %v", err)
+	}
+	profiledArgs := append([]string(nil), args...)
+	profiledArgs[len(profiledArgs)-3] = profiledFile
+	if status := run(profiledArgs, activeEnv, deps.dependencies); status != 1 {
+		t.Fatalf("profiled renewal status: got %d want 1", status)
+	}
+}
+
 func TestCleanupWebE2ERetiresFixtureWithoutImmediateCleanup(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	metadataFile := filepath.Join(t.TempDir(), "browser.json")
@@ -1348,6 +1463,15 @@ func TestPreviousSuiteContainerCleanupEligibilityUsesCompletedSummaryOrAge(t *te
 	freshContainer.Created = now.Add(-time.Minute).Unix()
 	if previousSuiteContainerCleanupEligible(activeEnv, freshContainer, now) {
 		t.Fatal("fresh previous suite without completed cleanup must not be eligible")
+	}
+
+	persistentContainer := staleContainer
+	persistentContainer.ID = "persistent-container"
+	persistentContainer.Labels = cloneEnv(staleContainer.Labels)
+	persistentContainer.Labels[testServiceLabelSessionID] = "0123456789abcdef01234567"
+	persistentContainer.Labels[testServiceLabelSessionExpiresAt] = now.Add(-time.Hour).Format(time.RFC3339Nano)
+	if previousSuiteContainerCleanupEligible(activeEnv, persistentContainer, now) {
+		t.Fatal("ordinary stale-suite cleanup must not own persistent session containers")
 	}
 }
 
@@ -1789,6 +1913,7 @@ func defaultTestDependencies(t testing.TB) testDeps {
 			createTemplate:        func(context.Context, string, string) error { return nil },
 			prepareWebE2E:         func(context.Context, map[string]string) (webE2EFixture, error) { return webE2EFixture{}, nil },
 			resetWebE2EDB:         func(context.Context, string, string) error { return nil },
+			renewWebE2E:           func(context.Context, map[string]string, webE2EMetadata, string, string) error { return nil },
 			cleanupWebE2EDB:       func(context.Context, webE2EMetadata, map[string]string) error { return nil },
 			cleanupWebE2EBucket:   func(context.Context, webE2EMetadata, map[string]string) error { return nil },
 			cleanupWebE2ESessions: func(context.Context, map[string]string, string) error { return nil },

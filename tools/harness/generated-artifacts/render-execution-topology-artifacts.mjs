@@ -195,6 +195,18 @@ function collectCatalogInputs(inputs, seen, catalogRoot) {
     "performance_fixture_snapshot_owner.json",
   );
   addFileInput(inputs, seen, "performance_fixture_snapshot_owner", fixtureRegistryPath);
+  addFileInput(
+    inputs,
+    seen,
+    "performance_fixture_builder_policy",
+    path.join(catalogRoot, "tools", "performance_fixture_builder_policy.json"),
+  );
+  addFileInput(
+    inputs,
+    seen,
+    "postgres_fixture_policy_registry",
+    path.join(catalogRoot, "tools", "postgres_fixture_policy_registry.json"),
+  );
   const fixtureRegistry = readJSON(fixtureRegistryPath);
   for (const profile of fixtureRegistry.profiles ?? []) {
     for (const ref of profile.source_contract_refs ?? []) {

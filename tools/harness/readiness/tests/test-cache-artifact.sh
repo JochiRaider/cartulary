@@ -86,13 +86,13 @@ assert_equals "$(cat "$command_log")" "run" "first miss executes command once"
 record_path="$(find "$cache_dir/fixture-build" -type f -name '*.json' -print -quit)"
 [[ -n "$record_path" ]] || fail "first miss did not publish a cache record"
 "$NODE_BIN" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" \
-  validate-schema cartulary.harness_cache_record.v1 "$record_path" >/dev/null
+  validate-schema cartulary.harness_cache_record.v2 "$record_path" >/dev/null
 assert_equals \
   "$(json_field "$record_path" 'value.policy')" \
   "content_addressed" \
   "record uses the canonical cache policy"
 assert_equals \
-  "$(json_field "$record_path" 'value.artifacts[0].path')" \
+  "$(json_field "$record_path" 'value.artifacts[0].relative_path')" \
   "${output_file#"$ROOT_DIR"/}" \
   "record identifies the cached output"
 
@@ -108,7 +108,7 @@ printf '{not valid json\n' >"$record_path"
 run_cache
 assert_equals "$(grep -c '^run$' "$command_log")" "3" "corrupt record executes command"
 "$NODE_BIN" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" \
-  validate-schema cartulary.harness_cache_record.v1 "$record_path" >/dev/null
+  validate-schema cartulary.harness_cache_record.v2 "$record_path" >/dev/null
 
 CARTULARY_BUILD_CACHE_DISABLE=1 run_cache
 assert_equals "$(grep -c '^run$' "$command_log")" "4" "disabled cache executes command"

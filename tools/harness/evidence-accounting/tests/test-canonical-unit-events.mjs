@@ -11,17 +11,24 @@ import {
 
 function event(seq, monotonicMs, kind, unitID, status, extra = {}) {
   return {
-    schema_id: "cartulary.harness_unit_event.v1",
+    schema_id: "cartulary.harness_unit_event.v2",
     seq,
     monotonic_ms: monotonicMs,
     event: kind,
     unit_id: unitID,
     status,
+    needs: [],
     resource_claims: {},
     service_dependencies: [],
     ...extra,
   };
 }
+
+const wait = {
+  wait_reason: "capacity",
+  blocking_resources: [],
+  blocking_unit_ids: [],
+};
 
 function writeEvents(directory, name, events) {
   const file = path.join(directory, name);
@@ -71,9 +78,13 @@ test("canonical event iterator releases early and honors cancellation", async ()
   try {
     const file = writeEvents(directory, "events.ndjson", [
       event(1, 0, "run_started", "run", "running"),
-      event(2, 1, "started", "unit:a", "running"),
-      event(3, 2, "cancelled", "unit:a", "cancelled"),
-      event(4, 3, "run_completed", "run", "cancelled"),
+      event(2, 1, "eligible", "unit:a", "pending"),
+      event(3, 1, "wait_started", "unit:a", "pending", wait),
+      event(4, 1, "wait_ended", "unit:a", "pending", wait),
+      event(5, 1, "admitted", "unit:a", "running"),
+      event(6, 1, "started", "unit:a", "running"),
+      event(7, 2, "cancelled", "unit:a", "cancelled"),
+      event(8, 3, "run_completed", "run", "cancelled"),
     ]);
     let count = 0;
     for await (const _event of readCanonicalUnitEvents(file)) {
@@ -87,7 +98,7 @@ test("canonical event iterator releases early and honors cancellation", async ()
       for await (const _event of readCanonicalUnitEvents(file, { signal: controller.signal })) continue;
     }, /cancelled/u);
     const state = await reduceCanonicalUnitIntervals(file);
-    assert.equal(state.eventCount, 4);
+    assert.equal(state.eventCount, 8);
     assert.equal(state.terminals.get("unit:a").event, "cancelled");
     assert.equal(state.runCompleted.status, "cancelled");
   } finally {
@@ -102,6 +113,10 @@ test("unit reducer retains bounded selected state while validating the full stre
     for (let index = 0; index < 20_000; index += 1) {
       events.push(event(events.length + 1, index + 1, "queued", `unit:${index}`, "pending"));
     }
+    events.push(event(events.length + 1, 20_001, "eligible", "selected", "pending"));
+    events.push(event(events.length + 1, 20_001, "wait_started", "selected", "pending", wait));
+    events.push(event(events.length + 1, 20_001, "wait_ended", "selected", "pending", wait));
+    events.push(event(events.length + 1, 20_001, "admitted", "selected", "running"));
     events.push(event(events.length + 1, 20_001, "started", "selected", "running"));
     for (let index = 0; index < 20_000; index += 1) {
       events.push(event(events.length + 1, 20_002 + index, "skipped", `unit:${index}`, "skipped", {
@@ -112,9 +127,38 @@ test("unit reducer retains bounded selected state while validating the full stre
     events.push(event(events.length + 1, 40_003, "run_completed", "run", "passed"));
     const file = writeEvents(directory, "large.ndjson", events);
     const state = await reduceCanonicalUnitIntervals(file, { unitIDs: ["selected"] });
-    assert.equal(state.eventCount, 40_004);
+    assert.equal(state.eventCount, 40_008);
     assert.deepEqual([...state.starts.keys()], ["selected"]);
     assert.deepEqual([...state.terminals.keys()], ["selected"]);
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+});
+
+test("unit reducer rejects unmatched and mismatched wait boundaries", async () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "cartulary-canonical-events-"));
+  try {
+    const unmatched = writeEvents(directory, "unmatched.ndjson", [
+      event(1, 0, "eligible", "unit:a", "pending"),
+      event(2, 0, "wait_started", "unit:a", "pending", wait),
+    ]);
+    await assert.rejects(
+      reduceCanonicalUnitIntervals(unmatched, { unitIDs: ["unit:a"] }),
+      /unmatched wait start/u,
+    );
+
+    const mismatched = writeEvents(directory, "mismatched.ndjson", [
+      event(1, 0, "eligible", "unit:a", "pending"),
+      event(2, 0, "wait_started", "unit:a", "pending", wait),
+      event(3, 0, "wait_ended", "unit:a", "pending", {
+        ...wait,
+        wait_reason: "scheduler_stop",
+      }),
+    ]);
+    await assert.rejects(
+      reduceCanonicalUnitIntervals(mismatched, { unitIDs: ["unit:a"] }),
+      /mismatched wait end/u,
+    );
   } finally {
     rmSync(directory, { force: true, recursive: true });
   }

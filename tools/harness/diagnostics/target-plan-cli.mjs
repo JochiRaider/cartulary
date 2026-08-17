@@ -59,7 +59,7 @@ function planFor(target) {
       cache_policy: unit.cache_policy,
       estimated_work_ms: unit.estimated_work_ms,
       semantic_digest: unit.semantic_digest,
-      evidence_outputs: unit.evidence_outputs,
+      evidence_outputs: unit.current_run_evidence_outputs,
     })),
   };
   validateSchemaSync(plan.schema_id, plan);

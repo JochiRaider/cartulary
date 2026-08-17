@@ -1,6 +1,47 @@
 {
-  "schema_id": "cartulary.scheduler_resource_registry.v5",
+  "schema_id": "cartulary.scheduler_resource_registry.v6",
   "capacity_override_schema": "cartulary.harness_capacity_override.v1",
+  "capacity_policies": {
+    "cpu_tokens": {
+      "source": "host_parallelism",
+      "minimum": 1
+    },
+    "io_tokens": {
+      "source": "cpu_multiple",
+      "cpu_multiplier": 2,
+      "minimum": 1
+    },
+    "memory_bytes": {
+      "source": "host_memory_cgroup_bounded",
+      "minimum": 1
+    },
+    "object_store_lanes": {
+      "source": "fixed_cpu_bounded",
+      "default": 4,
+      "minimum": 1,
+      "maximum_cpu_multiplier": 1
+    },
+    "port_lanes": {
+      "source": "fixed_cpu_bounded",
+      "default": 4,
+      "minimum": 1,
+      "maximum_cpu_multiplier": 1
+    },
+    "postgres_lanes": {
+      "source": "fixed_cpu_bounded",
+      "default": 8,
+      "minimum": 1,
+      "maximum_cpu_multiplier": 1
+    },
+    "process_slots": {
+      "source": "process_limit_bounded_cpu_multiple",
+      "cpu_multiplier": 4,
+      "minimum": 1
+    },
+    "writable_volume": {
+      "source": "writable_root"
+    }
+  },
   "resources": [
     {
       "name": "browser_stack",

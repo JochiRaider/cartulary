@@ -66,6 +66,31 @@ web_e2e_reset_database() {
     --bootstrap-manifest "$root_dir/configs/dev/bootstrap-admin.json"
 }
 
+web_e2e_renew_functional_resources() {
+  local root_dir="$1"
+  local generation="$2"
+  local runtime_root="${CARTULARY_WEB_E2E_RUNTIME_ROOT:-}"
+  local test_services_bin="${CARTULARY_TEST_SERVICES_BIN:-}"
+  local metadata_file="${CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE:-}"
+
+  if [[ -z "$runtime_root" ]]; then
+    echo "CARTULARY_WEB_E2E_RUNTIME_ROOT is required for functional renewal" >&2
+    return 2
+  fi
+  if [[ -z "$test_services_bin" || ! -x "$test_services_bin" ]]; then
+    echo "CARTULARY_TEST_SERVICES_BIN must name an executable for functional renewal" >&2
+    return 2
+  fi
+  if [[ -z "$metadata_file" ]]; then
+    metadata_file="${runtime_root%/}/test-services-web-e2e.json"
+  fi
+  "$test_services_bin" renew-web-e2e \
+    --credential-root "$runtime_root" \
+    --bootstrap-manifest "$root_dir/configs/dev/bootstrap-admin.json" \
+    --metadata-file "$metadata_file" \
+    --generation "$generation"
+}
+
 web_e2e_reset_validate_response() {
   local response_file="$1"
   local data_file="$2"
@@ -162,6 +187,7 @@ web_e2e_reset_request() {
 web_e2e_reset_stack() {
   local root_dir="$1"
   local label="$2"
+  local renew_generation="${3:-}"
   local support_dir
   local response_file
   local status_file
@@ -185,7 +211,11 @@ web_e2e_reset_stack() {
   route_origin="${route_origin%/}"
   test_route_token="$(web_e2e_reset_route_token)" || return $?
 
-  web_e2e_reset_database "$root_dir" || return $?
+  if [[ -n "$renew_generation" ]]; then
+    web_e2e_renew_functional_resources "$root_dir" "$renew_generation" || return $?
+  else
+    web_e2e_reset_database "$root_dir" || return $?
+  fi
   if ! status="$(web_e2e_reset_request "$api_origin" "$route_origin" "$test_route_token" "$response_file")"; then
     web_e2e_reset_mark_tainted "$taint_marker_file" "${CARTULARY_WEB_E2E_RUNTIME_ROOT:-}"
     echo "test runtime reset request failed after database reset committed" >&2

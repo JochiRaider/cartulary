@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_unit_event.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "seq", "monotonic_ms", "event", "unit_id", "status", "needs", "resource_claims", "service_dependencies"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_unit_event.v2" },
+    "seq": { "type": "integer", "minimum": 1 },
+    "monotonic_ms": { "type": "integer", "minimum": 0 },
+    "event": { "enum": ["run_started", "queued", "eligible", "wait_started", "wait_ended", "admitted", "started", "cache_hit", "cache_miss", "cache_bypass", "fixture_acquired", "fixture_released", "completed", "failed", "skipped", "cancelled", "cleanup_started", "cleanup_completed", "run_completed"] },
+    "unit_id": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "status": { "enum": ["pending", "running", "passed", "failed", "skipped", "cancelled"] },
+    "needs": { "type": "array", "uniqueItems": true, "items": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" } },
+    "resource_claims": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/resource_claims" },
+    "service_dependencies": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies" },
+    "wait_reason": { "enum": ["resources", "earlier_overlapping_ready", "capacity", "scheduler_stop"] },
+    "blocking_resources": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" } },
+    "blocking_unit_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" } },
+    "cache_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]*$" },
+    "cache_reason": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "output_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "fixture_lease_id": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "failure_class": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "failure_reason": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "event": { "enum": ["wait_started", "wait_ended"] } }, "required": ["event"] },
+      "then": { "required": ["wait_reason", "blocking_resources", "blocking_unit_ids"] }
+    }
+  ]
+}

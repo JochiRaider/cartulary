@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -11,7 +11,9 @@ import {
   assertFixtureServiceDependencies,
   assertServiceDependencies,
   buildWorkGraph,
+  createAtomicNDJSONWriter,
   simulateWorkGraph,
+  workGraphCacheRootRelative,
   writeAtomicNDJSON,
 } from "../scheduler/work-graph/index.mjs";
 
@@ -40,7 +42,7 @@ function unit(unitID, claims, work, needs = []) {
     service_dependencies: [],
     cache_policy: "none",
     timeout_ms: 1000,
-    evidence_outputs: [`rows/${unitID}.json`],
+    current_run_evidence_outputs: [`rows/${unitID}.json`],
     failure_policy: {
       block_descendants: true,
       continue_independent: true,
@@ -51,6 +53,7 @@ function unit(unitID, claims, work, needs = []) {
 }
 
 function assertGraphCutover() {
+  assert.equal(workGraphCacheRootRelative, ".cache/cartulary/graph-v2");
   const compiler = new WorkGraphCompiler(root);
   const topology = JSON.parse(
     readFileSync(path.join(root, "tools/execution_topology_manifest.json"), "utf8"),
@@ -92,7 +95,7 @@ function assertGraphCutover() {
   });
   assert.deepEqual(affectedDirect, affectedOwner, "equivalent row selectors must compile identically");
   const affectedUnit = affectedDirect.units.find((entry) =>
-    entry.evidence_outputs.includes(`rows/${affectedRowID}.json`),
+    entry.current_run_evidence_outputs.includes(`rows/${affectedRowID}.json`),
   );
   assert.equal(affectedUnit.fixture_lease, "postgres_dedicated");
   assert.deepEqual(affectedUnit.service_dependencies, ["object_store", "postgres"]);
@@ -103,7 +106,9 @@ function assertGraphCutover() {
     kind: "rows",
     row_ids: ["platform.audit.integration.transactional_immutable_persistence"],
   }).units.find((entry) =>
-    entry.evidence_outputs.includes("rows/platform.audit.integration.transactional_immutable_persistence.json"),
+    entry.current_run_evidence_outputs.includes(
+      "rows/platform.audit.integration.transactional_immutable_persistence.json",
+    ),
   );
   assert.equal(ioHeavy.resource_claims.io, 2, "io_heavy must be topology-authoritative");
 
@@ -206,7 +211,7 @@ function assertScheduler() {
   });
 }
 
-function assertAtomicNDJSON() {
+async function assertAtomicNDJSON() {
   const directory = mkdtempSync(path.join(os.tmpdir(), "cartulary-work-graph-ndjson-"));
   try {
     const output = path.join(directory, "unit-events.ndjson");
@@ -220,6 +225,22 @@ function assertAtomicNDJSON() {
     assert.equal(lines.length, events.length);
     assert.deepEqual(JSON.parse(lines.at(0)), events.at(0));
     assert.deepEqual(JSON.parse(lines.at(-1)), events.at(-1));
+
+    const streamed = path.join(directory, "streamed-events.ndjson");
+    const writer = createAtomicNDJSONWriter(streamed);
+    for (const event of events.slice(0, 1000)) await writer.write(event);
+    assert.equal(existsSync(streamed), false, "a live writer must not publish the canonical path");
+    assert.equal(existsSync(writer.stagingFile), true, "a live writer must expose its private staging stream");
+    assert.equal(readFileSync(writer.stagingFile, "utf8").trimEnd().split("\n").length, 1000);
+    await writer.close();
+    assert.equal(existsSync(writer.stagingFile), false, "publishing must consume the staging path");
+    assert.equal(readFileSync(streamed, "utf8").trimEnd().split("\n").length, 1000);
+
+    const aborted = path.join(directory, "aborted-events.ndjson");
+    const abortedWriter = createAtomicNDJSONWriter(aborted);
+    await abortedWriter.write(events[0]);
+    await abortedWriter.abort();
+    assert.equal(existsSync(aborted), false, "an aborted writer must not publish partial evidence");
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -227,6 +248,7 @@ function assertAtomicNDJSON() {
 
 async function assertFixtures() {
   const released = [];
+  let browserAllocation = 0;
   const providers = {
     postgres_transaction: {
       acquire: async ({ unitID }) => ({
@@ -236,32 +258,76 @@ async function assertFixtures() {
         detach: async () => released.push(unitID),
       }),
     },
-    browser_stack: {
-      acquire: async ({ affinityKey, fixtureProfileID, snapshotKey, builderUnitID }) => ({
+    postgres_dedicated: {
+      acquire: async ({ unitID }) => ({
         ownership: "owned",
-        resource_ids: [`browser:${affinityKey}`],
-        resource: { affinityKey },
-        ...(fixtureProfileID
-          ? {
-              fixture_profile_id: fixtureProfileID,
-              snapshot_key: snapshotKey,
-              builder_unit_id: builderUnitID,
-              clone_ordinal: 1,
-            }
-          : {}),
-        release: async () => released.push(affinityKey),
+        resource_ids: [`postgres:${unitID}`],
+        resource: { unitID },
+        release: async () => released.push(`healthy:${unitID}`),
+        quarantine: async () => released.push(`quarantined:${unitID}`),
       }),
+    },
+    browser_stack: {
+      acquire: async ({ affinityKey, fixtureProfileID, snapshotKey, builderUnitID }) => {
+        const allocation = ++browserAllocation;
+        return {
+          ownership: "owned",
+          resource_ids: [`browser:${affinityKey}:allocation-${allocation}`],
+          resource: { affinityKey, allocation },
+          ...(fixtureProfileID
+            ? {
+                fixture_profile_id: fixtureProfileID,
+                snapshot_key: snapshotKey,
+                builder_unit_id: builderUnitID,
+                clone_ordinal: 1,
+              }
+            : {}),
+          release: async () => released.push(affinityKey),
+          quarantine: async () => released.push(`quarantined:${affinityKey}`),
+        };
+      },
     },
   };
   const broker = new FixtureBroker({ providers });
   const transaction = await broker.acquire("postgres_transaction", { unitID: "row-a" });
   assert.equal(transaction.record.ownership, "borrowed");
   await transaction.release();
+  const failedDedicated = await broker.acquire("postgres_dedicated", { unitID: "row-failed" });
+  await failedDedicated.quarantine();
+  assert.equal(failedDedicated.record.state, "quarantined");
   const first = await broker.acquire("browser_stack", { unitID: "group-a", affinityKey: "chain-a" });
   const second = await broker.acquire("browser_stack", { unitID: "group-b", affinityKey: "chain-a" });
   assert.equal(first.resource, second.resource, "browser affinity must reuse one stack lease");
   await first.release();
   await second.release();
+  const warm = await broker.acquire("browser_stack", {
+    unitID: "warm-a",
+    affinityKey: "warm-lane",
+  });
+  assert.deepEqual(await warm.release({ healthy: true, retainWarm: true }), {
+    retained: true,
+  });
+  const warmSuccessor = await broker.acquire("browser_stack", {
+    unitID: "warm-b",
+    affinityKey: "warm-lane",
+  });
+  assert.equal(warm.resource, warmSuccessor.resource, "healthy lane must retain its allocation");
+  await warmSuccessor.release({ healthy: false, retainWarm: true });
+  const replacement = await broker.acquire("browser_stack", {
+    unitID: "warm-c",
+    affinityKey: "warm-lane",
+  });
+  assert.notEqual(
+    replacement.resource,
+    warm.resource,
+    "failed lane must be quarantined before a successor obtains a fresh allocation",
+  );
+  assert.notDeepEqual(
+    replacement.record.resource_ids,
+    warm.record.resource_ids,
+    "replacement browser allocations must expose a fresh concrete resource identity",
+  );
+  await replacement.release();
   const profile = {
     fixtureProfileID: "ac043_large_grid_snapshot_v1",
     snapshotKey: "a".repeat(64),
@@ -297,13 +363,21 @@ async function assertFixtures() {
   await sameProfile.release();
   await differentProfile.release();
   await broker.close();
-  assert.deepEqual(released.sort(), ["chain-a", "profiled-a", "profiled-a", "row-a"]);
+  assert.deepEqual(released.sort(), [
+    "chain-a",
+    "profiled-a",
+    "profiled-a",
+    "quarantined:row-failed",
+    "quarantined:warm-lane",
+    "row-a",
+    "warm-lane",
+  ]);
 
 }
 
 if (["fast", "matrix"].includes(mode)) {
   assertGraphCutover();
-  assertAtomicNDJSON();
+  await assertAtomicNDJSON();
 }
 if (["scheduler-smoke", "scheduler-matrix", "matrix"].includes(mode)) assertScheduler();
 if (["fixture-smoke", "fixture-matrix", "service-backed", "matrix"].includes(mode)) {

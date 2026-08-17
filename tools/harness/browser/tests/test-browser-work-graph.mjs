@@ -21,6 +21,7 @@ import {
 import {
   collectFinalizedMeasurementSummaries,
   collectFrontendMeasurementObservations,
+  currentUnitEventFile,
   readMeasurementSchedulerEvidence,
 } from "../frontend-measurement-evidence.mjs";
 import {
@@ -28,6 +29,8 @@ import {
   loadPerformanceFixtureSnapshotRegistry,
 } from "../../performance-fixture/index.mjs";
 import { WorkGraphCompiler } from "../../scheduler/work-graph/index.mjs";
+import { planBrowserFunctionalLanes } from "../../scheduler/work-graph/browser-functional-lanes.mjs";
+import { simulateWorkGraph } from "../../scheduler/work-graph/scheduler.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const compiler = new WorkGraphCompiler(root);
@@ -433,10 +436,11 @@ try {
   const writeEvent = (event) => {
     seq += 1;
     writeSync(file, `${JSON.stringify({
-      schema_id: "cartulary.harness_unit_event.v1",
+      schema_id: "cartulary.harness_unit_event.v2",
       seq,
       monotonic_ms: seq,
       resource_claims: {},
+      needs: [],
       service_dependencies: [],
       status: "running",
       ...event,
@@ -455,6 +459,26 @@ try {
     eventFile,
     measurementGroupResult,
   );
+
+  const previousLiveEventFile = process.env.CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE;
+  const liveEventFile = path.join(schedulerStreamRoot, "unit-events.ndjson.tmp-123-0");
+  writeFileSync(liveEventFile, readFileSync(eventFile), { mode: 0o600 });
+  try {
+    process.env.CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE = liveEventFile;
+    assert.equal(currentUnitEventFile(schedulerStreamRoot), liveEventFile);
+    process.env.CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE = path.join(os.tmpdir(), "unit-events.ndjson.tmp-escape");
+    assert.throws(
+      () => currentUnitEventFile(schedulerStreamRoot),
+      /escapes its run/u,
+      "a same-run finalizer must reject an external staging stream",
+    );
+  } finally {
+    if (previousLiveEventFile === undefined) {
+      delete process.env.CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE;
+    } else {
+      process.env.CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE = previousLiveEventFile;
+    }
+  }
   assert.equal(streamedEvidence.dependency_skipped, false);
   assert.equal(streamedEvidence.overlap_count, 0);
   assert.equal(streamedEvidence.start_seq, 20_001);
@@ -471,10 +495,11 @@ try {
     { event: "completed", status: "passed", unit_id: "row:ordinary" },
     { event: "completed", status: "passed", unit_id: measurementUnitID },
   ].map((entry, index) => ({
-    schema_id: "cartulary.harness_unit_event.v1",
+    schema_id: "cartulary.harness_unit_event.v2",
     seq: index + 1,
     monotonic_ms: index + 1,
     resource_claims: {},
+    needs: [],
     service_dependencies: [],
     ...entry,
   }));
@@ -501,11 +526,12 @@ try {
   writeFileSync(
     skippedFile,
     `${JSON.stringify({
-      schema_id: "cartulary.harness_unit_event.v1",
+      schema_id: "cartulary.harness_unit_event.v2",
       event: "skipped",
       failure_reason: "dependency_failure",
       monotonic_ms: 1,
       resource_claims: {},
+      needs: [],
       seq: 1,
       service_dependencies: [],
       status: "skipped",
@@ -525,10 +551,11 @@ try {
   writeFileSync(
     invalidSequenceFile,
     `${JSON.stringify({
-      schema_id: "cartulary.harness_unit_event.v1",
+      schema_id: "cartulary.harness_unit_event.v2",
       event: "started",
       monotonic_ms: 1,
       resource_claims: {},
+      needs: [],
       seq: 2,
       service_dependencies: [],
       status: "running",
@@ -563,7 +590,7 @@ const visualTargetFinalizer = visualGraph.units.find(
 );
 assert.ok(visualTargetFinalizer, "visual target must expose its finalizer");
 assert.ok(
-  visualTargetFinalizer.evidence_outputs.includes(
+  visualTargetFinalizer.current_run_evidence_outputs.includes(
     "browser-e2e-visual/frontend-visual-reconciliation.json",
   ),
   "visual target finalizer must retain the reconciliation artifact",
@@ -586,6 +613,176 @@ for (const [affinity, units] of byAffinity) {
   assert.equal(terminal.length, 1, `${affinity} must have one terminal stack releaser`);
 }
 
+const syntheticFunctionalGroups = [
+  ["default-long", "default", 9000],
+  ["default-next", "default", 8000],
+  ["default-third", "default", 7000],
+  ["default-fourth", "default", 6000],
+  ["claimed-long", "network_flow_claimed", 4000],
+  ["claimed-next", "network_flow_claimed", 3000],
+].map(([name, runtimeProfileID, estimate]) => ({
+  name,
+  runtimeProfileID,
+  resourceProfileID: "browser_functional",
+  estimate,
+}));
+const laneProjection = (groups) =>
+  planBrowserFunctionalLanes(groups, {
+    estimateGroup: (group) => group.estimate,
+    lanePrefix: "functional-test",
+    maxLanes: 4,
+  }).map((lane) => ({
+    lane_id: lane.laneID,
+    runtime_profile_id: lane.runtimeProfileID,
+    estimated_work_ms: lane.estimatedWorkMs,
+    groups: lane.groups.map((item) => [
+      item.group.name,
+      item.estimatedWorkMs,
+      item.generation,
+    ]),
+  }));
+const syntheticLanePlan = laneProjection(syntheticFunctionalGroups);
+assert.deepEqual(
+  syntheticLanePlan.map((lane) => lane.runtime_profile_id),
+  ["default", "default", "default", "network_flow_claimed"],
+  "four total lanes must be allocated without mixing immutable runtime profiles",
+);
+assert.deepEqual(
+  syntheticLanePlan,
+  laneProjection([...syntheticFunctionalGroups].reverse()),
+  "functional lane planning must be independent of input order",
+);
+assert.deepEqual(
+  syntheticLanePlan.flatMap((lane) => lane.groups.map(([name]) => name)).sort(),
+  syntheticFunctionalGroups.map((group) => group.name).sort(),
+  "stable LPT must assign every group exactly once",
+);
+
+const webserverBacked = compiler.compile({
+  kind: "target",
+  target: "browser-e2e-webserver-backed",
+});
+const functionalGroups = webserverBacked.units.filter((unit) =>
+  unit.unit_id.startsWith("browser_group:webserver-backed:"),
+);
+const functionalResets = webserverBacked.units.filter((unit) =>
+  unit.unit_id.startsWith("browser_reset:webserver-backed:"),
+);
+const functionalLifecycles = webserverBacked.units.filter((unit) =>
+  unit.unit_id.startsWith("browser_lifecycle:webserver-backed-"),
+);
+assert.equal(functionalGroups.length, 26);
+assert.equal(
+  functionalGroups.flatMap((unit) =>
+    unit.current_run_evidence_outputs.filter((output) => output.startsWith("rows/")),
+  ).length,
+  83,
+  "functional lane graph must preserve the exact current row closure",
+);
+assert.equal(functionalLifecycles.length, 4, "functional closure must own four warm lanes");
+assert.equal(
+  new Set(functionalGroups.map((unit) => unit.affinity_key)).size,
+  4,
+  "functional groups must use exactly four lane affinities",
+);
+assert.equal(
+  functionalResets.length,
+  functionalGroups.length - functionalLifecycles.length,
+  "each lane must have one reset between adjacent groups",
+);
+for (const unit of [...functionalLifecycles, ...functionalResets, ...functionalGroups]) {
+  assert.equal(unit.resource_claims.postgres, 2, `${unit.unit_id} must claim two PostgreSQL tokens`);
+  assert.equal(unit.resource_claims.browser_stack, 1);
+  assert.equal(unit.resource_claims.port_lane, 1);
+  assert.equal(
+    unit.command.environment.CARTULARY_BROWSER_RESOURCE_PROFILE_ID,
+    "browser_functional",
+  );
+}
+for (const unit of functionalGroups) {
+  const rowCount = unit.current_run_evidence_outputs.filter((output) =>
+    output.startsWith("rows/"),
+  ).length;
+  assert.equal(
+    unit.estimated_work_ms,
+    rowCount * compiler.owner.evidence_estimates_ms.browser,
+    `${unit.unit_id} cost must sum selected row estimates`,
+  );
+  assert.match(unit.command.environment.CARTULARY_BROWSER_FUNCTIONAL_LANE_ID, /^webserver-backed-/u);
+  assert.match(unit.command.environment.CARTULARY_BROWSER_GROUP_GENERATION, /^[1-9][0-9]*$/u);
+}
+for (const reset of functionalResets) {
+  assert.equal(reset.failure_policy.block_descendants, false);
+  assert.ok(reset.command.args.includes("--renew-generation"));
+  assert.match(reset.command.environment.CARTULARY_BROWSER_FUNCTIONAL_LANE_ID, /^webserver-backed-/u);
+}
+const functionalTargetFinalizer = webserverBacked.units.find(
+  (unit) => unit.unit_id === "browser_target_summary:browser-e2e-webserver-backed",
+);
+assert.ok(functionalTargetFinalizer);
+for (const reset of functionalResets) {
+  assert.ok(
+    functionalTargetFinalizer.needs.includes(reset.unit_id),
+    "functional target finalizer must observe every reset",
+  );
+}
+for (const affinity of new Set(functionalGroups.map((unit) => unit.affinity_key))) {
+  const laneUnits = webserverBacked.units.filter((unit) => unit.affinity_key === affinity);
+  const runtimeProfiles = new Set(
+    laneUnits.map((unit) => unit.command.environment.CARTULARY_BROWSER_RUNTIME_PROFILE_ID),
+  );
+  assert.equal(runtimeProfiles.size, 1, `${affinity} must retain immutable runtime identity`);
+  assert.equal(
+    laneUnits.filter((unit) =>
+      unit.command.environment.CARTULARY_BROWSER_RELEASE_AFFINITY === "1",
+    ).length,
+    1,
+    `${affinity} must have one terminal stack releaser`,
+  );
+}
+
+const simulationCapacities = new Map();
+for (const unit of webserverBacked.units) {
+  for (const resource of Object.keys(unit.resource_claims)) {
+    simulationCapacities.set(resource, 100);
+  }
+}
+const oneMsDurations = new Map(
+  webserverBacked.units.map((unit) => [unit.unit_id, 1]),
+);
+const resetAfterProductFailure = functionalResets[0];
+const failedProductUnitID = resetAfterProductFailure.needs[0];
+const groupAfterProductFailure = functionalGroups.find((unit) =>
+  unit.needs.includes(resetAfterProductFailure.unit_id),
+);
+const productFailureSimulation = simulateWorkGraph({
+  graph: webserverBacked,
+  capacities: simulationCapacities,
+  durations: oneMsDurations,
+  outcomes: new Map([[failedProductUnitID, "product"]]),
+});
+assert.equal(productFailureSimulation.status, "failed");
+assert.equal(productFailureSimulation.states[resetAfterProductFailure.unit_id], "passed");
+assert.equal(productFailureSimulation.states[groupAfterProductFailure.unit_id], "passed");
+assert.equal(
+  productFailureSimulation.admissions.filter((unitID) => unitID === failedProductUnitID).length,
+  1,
+  "product failures must not be retried",
+);
+const resetFailureSimulation = simulateWorkGraph({
+  graph: webserverBacked,
+  capacities: simulationCapacities,
+  durations: oneMsDurations,
+  outcomes: new Map([[resetAfterProductFailure.unit_id, "infra"]]),
+});
+assert.equal(resetFailureSimulation.status, "failed");
+assert.equal(resetFailureSimulation.states[resetAfterProductFailure.unit_id], "failed");
+assert.equal(
+  resetFailureSimulation.states[groupAfterProductFailure.unit_id],
+  "passed",
+  "reset failure must allow later work to obtain a fresh allocation",
+);
+
 const measurement = compiler.compile({
   kind: "target",
   target: "browser-e2e-measurement",
@@ -596,9 +793,32 @@ const snapshotBuilders = measurement.units.filter((entry) =>
 assert.equal(snapshotBuilders.length, 1, "the four AC-043 rows must share one builder");
 assert.equal(snapshotBuilders[0].kind, "fixture_builder");
 assert.equal(snapshotBuilders[0].fixture_lease, "postgres_dedicated");
+assert.deepEqual(snapshotBuilders[0].service_dependencies, ["postgres"]);
+assert.deepEqual(snapshotBuilders[0].resource_claims, {
+  cpu: 1,
+  io: 1,
+  memory_mb: 512,
+  postgres: 1,
+  process: 1,
+});
+assert.equal(
+  snapshotBuilders[0].command.environment.CARTULARY_FIXTURE_BUILDER_RESOURCE_PROFILE_ID,
+  "performance_fixture_builder",
+);
+for (const forbiddenResource of ["browser_stack", "object_store", "port_lane"]) {
+  assert.equal(
+    Object.hasOwn(snapshotBuilders[0].resource_claims, forbiddenResource),
+    false,
+    `fixture builder must not claim ${forbiddenResource}`,
+  );
+}
 assert.deepEqual(snapshotBuilders[0].shared_locks, ["host_activity"]);
 assert.deepEqual(snapshotBuilders[0].exclusive_locks, []);
 assert.match(snapshotBuilders[0].snapshot_key, /^[a-f0-9]{64}$/u);
+assert.deepEqual(snapshotBuilders[0].current_run_evidence_outputs, [
+  `performance-fixtures/${snapshotBuilders[0].snapshot_key}/build-diagnostics.json`,
+  `performance-fixtures/${snapshotBuilders[0].snapshot_key}/snapshot-build.json`,
+]);
 const profiledRowIDs = compiler.catalog.rows
   .filter((row) => row.fixture_profile_id === snapshotBuilders[0].fixture_profile_id)
   .map((row) => row.row_id)
@@ -642,7 +862,7 @@ for (const summary of measurementSummaries) {
   assert.equal(summary.needs.length, 1);
   assert.ok(summary.needs[0].startsWith("browser_group:measurement:"));
   assert.match(
-    summary.evidence_outputs[0],
+    summary.current_run_evidence_outputs[0],
     /frontend-measurement-summary\.v3\.json$/u,
   );
 }
@@ -718,7 +938,7 @@ for (const unit of functional.units.filter((entry) =>
   assert.ok(unit.shared_locks.includes("host_activity"));
   assert.equal(
     unit.command.environment.CARTULARY_BROWSER_RESOURCE_PROFILE_ID,
-    "browser_isolated",
+    "browser_functional",
   );
 }
 
@@ -735,7 +955,7 @@ const selectedWorkbookBrowserRows = compiler.catalog.rows
 const projectedWorkbookBrowserRows = workbookOwner.units
   .filter((unit) => unit.unit_id.startsWith("browser_group:"))
   .flatMap((unit) =>
-    unit.evidence_outputs
+    unit.current_run_evidence_outputs
       .filter((output) => output.startsWith("rows/"))
       .map((output) => output.slice("rows/".length, -".json".length)),
   )

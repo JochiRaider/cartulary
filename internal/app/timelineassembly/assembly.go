@@ -217,6 +217,14 @@ func (a recordAdapter) InsertTx(ctx context.Context, tx pgx.Tx, params timeline.
 	return a.store.InsertTx(ctx, tx, records.InsertParams(params))
 }
 
+func (a recordAdapter) InsertPerformanceFixtureBatchTx(ctx context.Context, tx pgx.Tx, params []timeline.RecordCreateParams) error {
+	batch := make([]records.InsertParams, len(params))
+	for index := range params {
+		batch[index] = records.InsertParams(params[index])
+	}
+	return a.store.InsertBatchTx(ctx, tx, batch)
+}
+
 func (a recordAdapter) AdvanceVersionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time) (int64, error) {
 	return a.store.AdvanceVersionTx(ctx, tx, recordID, actorUserID, now)
 }

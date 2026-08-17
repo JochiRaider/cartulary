@@ -23,23 +23,53 @@ type BuildArgs struct {
 }
 
 type BuildArtifact struct {
-	SchemaID                 string          `json:"schema_id"`
-	FixtureProfileID         string          `json:"fixture_profile_id"`
-	FixtureVersion           string          `json:"fixture_version"`
-	Seed                     int             `json:"seed"`
-	SnapshotKeySchemaID      string          `json:"snapshot_key_schema_id"`
-	SnapshotKey              string          `json:"snapshot_key"`
-	MigrationDigest          string          `json:"migration_digest"`
-	SourceContractDigest     string          `json:"source_contract_digest"`
-	BuilderUnitID            string          `json:"builder_unit_id"`
-	BuildOrdinal             int             `json:"build_ordinal"`
-	State                    string          `json:"state"`
-	ContributionReceipts     []BuildReceipt  `json:"contribution_receipts"`
-	SemanticValidationDigest string          `json:"semantic_validation_digest"`
-	Validation               BuildValidation `json:"validation"`
-	FailureCode              string          `json:"failure_code,omitempty"`
-	RedactionPolicyID        string          `json:"redaction_policy_id"`
-	CreatedAt                string          `json:"created_at"`
+	SchemaID                 string                        `json:"schema_id"`
+	FixtureProfileID         string                        `json:"fixture_profile_id"`
+	FixtureVersion           string                        `json:"fixture_version"`
+	Seed                     int                           `json:"seed"`
+	SnapshotKeySchemaID      string                        `json:"snapshot_key_schema_id"`
+	SnapshotKey              string                        `json:"snapshot_key"`
+	MigrationDigest          string                        `json:"migration_digest"`
+	SourceContractDigest     string                        `json:"source_contract_digest"`
+	BuilderUnitID            string                        `json:"builder_unit_id"`
+	BuildOrdinal             int                           `json:"build_ordinal"`
+	State                    string                        `json:"state"`
+	ContributionReceipts     []BuildReceipt                `json:"contribution_receipts"`
+	SemanticValidationDigest string                        `json:"semantic_validation_digest"`
+	Validation               BuildValidation               `json:"validation"`
+	FailureCode              string                        `json:"failure_code,omitempty"`
+	RedactionPolicyID        string                        `json:"redaction_policy_id"`
+	CreatedAt                string                        `json:"created_at"`
+	ContributionDiagnostics  []BuildContributionDiagnostic `json:"-"`
+	SemanticValidationTime   time.Duration                 `json:"-"`
+}
+
+type BuildBatchDiagnostic struct {
+	Strategy            string `json:"strategy"`
+	BatchCount          int    `json:"batch_count"`
+	ConfiguredBatchSize int    `json:"configured_batch_size"`
+	ItemCount           int    `json:"item_count"`
+}
+
+type BuildContributionDiagnostic struct {
+	Ordinal        int                   `json:"ordinal"`
+	ContributionID string                `json:"contribution_id"`
+	OwnerID        string                `json:"owner_id"`
+	DurationMS     int64                 `json:"duration_ms"`
+	Batch          *BuildBatchDiagnostic `json:"batch,omitempty"`
+}
+
+type BuildDiagnosticArtifact struct {
+	SchemaID                     string                        `json:"schema_id"`
+	FixtureProfileID             string                        `json:"fixture_profile_id"`
+	SnapshotKey                  string                        `json:"snapshot_key"`
+	BuilderUnitID                string                        `json:"builder_unit_id"`
+	State                        string                        `json:"state"`
+	DurationMS                   int64                         `json:"duration_ms"`
+	SemanticValidationDurationMS int64                         `json:"semantic_validation_duration_ms"`
+	Contributions                []BuildContributionDiagnostic `json:"contributions"`
+	RedactionPolicyID            string                        `json:"redaction_policy_id"`
+	CreatedAt                    string                        `json:"created_at"`
 }
 
 type ReceiptCount struct {
@@ -120,6 +150,50 @@ func BuildArtifactPath(env map[string]string, args BuildArgs) (string, error) {
 		return "", err
 	}
 	return filepath.Join(resultsRoot, suiteservices.ResolveRunID(env), "performance-fixtures", args.SnapshotKey, "snapshot-build.json"), nil
+}
+
+func BuildDiagnosticsPath(env map[string]string, args BuildArgs) (string, error) {
+	resultsRoot, err := suiteservices.ResolveResultsRoot(env)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(resultsRoot, suiteservices.ResolveRunID(env), "performance-fixtures", args.SnapshotKey, "build-diagnostics.json"), nil
+}
+
+func SuccessfulBuildDiagnostics(profile performancefixtureprofile.Profile, args BuildArgs, build BuildArtifact, duration time.Duration) BuildDiagnosticArtifact {
+	return BuildDiagnosticArtifact{
+		SchemaID:                     "cartulary.performance_fixture_build_diagnostics.v1",
+		FixtureProfileID:             profile.FixtureProfileID,
+		SnapshotKey:                  args.SnapshotKey,
+		BuilderUnitID:                args.BuilderUnitID,
+		State:                        "sealed",
+		DurationMS:                   nonNegativeMilliseconds(duration),
+		SemanticValidationDurationMS: nonNegativeMilliseconds(build.SemanticValidationTime),
+		Contributions:                append([]BuildContributionDiagnostic(nil), build.ContributionDiagnostics...),
+		RedactionPolicyID:            profile.RedactionPolicy.PolicyID,
+		CreatedAt:                    time.Now().UTC().Format(time.RFC3339Nano),
+	}
+}
+
+func FailedBuildDiagnostics(profile performancefixtureprofile.Profile, args BuildArgs, duration time.Duration) BuildDiagnosticArtifact {
+	return BuildDiagnosticArtifact{
+		SchemaID:          "cartulary.performance_fixture_build_diagnostics.v1",
+		FixtureProfileID:  profile.FixtureProfileID,
+		SnapshotKey:       args.SnapshotKey,
+		BuilderUnitID:     args.BuilderUnitID,
+		State:             "failed",
+		DurationMS:        nonNegativeMilliseconds(duration),
+		Contributions:     []BuildContributionDiagnostic{},
+		RedactionPolicyID: profile.RedactionPolicy.PolicyID,
+		CreatedAt:         time.Now().UTC().Format(time.RFC3339Nano),
+	}
+}
+
+func nonNegativeMilliseconds(duration time.Duration) int64 {
+	if duration < 0 {
+		return 0
+	}
+	return duration.Milliseconds()
 }
 
 func FailedBuild(profile performancefixtureprofile.Profile, args BuildArgs, code string) BuildArtifact {

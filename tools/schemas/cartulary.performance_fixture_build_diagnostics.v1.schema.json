@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_fixture_build_diagnostics.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "fixture_profile_id",
+    "snapshot_key",
+    "builder_unit_id",
+    "state",
+    "duration_ms",
+    "semantic_validation_duration_ms",
+    "contributions",
+    "redaction_policy_id",
+    "created_at"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.performance_fixture_build_diagnostics.v1" },
+    "fixture_profile_id": {
+      "$ref": "cartulary.performance_fixture_snapshot_key.v2#/properties/fixture_profile_id"
+    },
+    "snapshot_key": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "builder_unit_id": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "state": { "enum": ["sealed", "failed"] },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "semantic_validation_duration_ms": { "type": "integer", "minimum": 0 },
+    "contributions": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ordinal", "contribution_id", "owner_id", "duration_ms"],
+        "properties": {
+          "ordinal": { "type": "integer", "minimum": 1, "maximum": 64 },
+          "contribution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.v[1-9][0-9]*$"
+          },
+          "owner_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/owner_id" },
+          "duration_ms": { "type": "integer", "minimum": 0 },
+          "batch": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["strategy", "batch_count", "configured_batch_size", "item_count"],
+            "properties": {
+              "strategy": { "enum": ["owner_application_batch", "owner_set_oriented"] },
+              "batch_count": { "type": "integer", "minimum": 1 },
+              "configured_batch_size": { "type": "integer", "minimum": 1 },
+              "item_count": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    },
+    "redaction_policy_id": {
+      "type": "string",
+      "pattern": "^cartulary\\.[a-z0-9_.]+\\.v[1-9][0-9]*$"
+    },
+    "created_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "state": { "const": "sealed" } }, "required": ["state"] },
+      "then": { "properties": { "contributions": { "minItems": 1 } } }
+    }
+  ]
+}

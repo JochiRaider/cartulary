@@ -1,5 +1,5 @@
 export { WorkGraphCompiler } from "./compiler.mjs";
-export { writeAtomicNDJSON } from "./atomic-ndjson.mjs";
+export { createAtomicNDJSONWriter, writeAtomicNDJSON } from "./atomic-ndjson.mjs";
 export {
   browserStages,
   browserTargetStage,
@@ -26,8 +26,10 @@ export { executeUnitProcess } from "./executor.mjs";
 export {
   cacheInputRootDigest,
   loadCacheRegistry,
+  workGraphCacheRootRelative,
   WorkGraphCache,
 } from "./cache.mjs";
+export { resolveCacheDependencyClosure } from "./cache-dependencies.mjs";
 export {
   assertScannerEvidenceParity,
   resolveVulnerabilityDatabaseRevision,

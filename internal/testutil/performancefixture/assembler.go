@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 )
@@ -46,6 +47,24 @@ type Contribution interface {
 	Apply(context.Context, *BuildState) (Receipt, error)
 }
 
+type BatchDiagnostic struct {
+	Strategy            string
+	BatchCount          int
+	ConfiguredBatchSize int
+	ItemCount           int
+}
+
+type BatchDiagnosticProvider interface {
+	PerformanceFixtureBatchDiagnostic() BatchDiagnostic
+}
+
+type ContributionDiagnostic struct {
+	ContributionID string
+	OwnerID        string
+	Duration       time.Duration
+	Batch          *BatchDiagnostic
+}
+
 type SemanticValidation struct {
 	Counts     map[string]int  `json:"counts"`
 	Conditions map[string]bool `json:"conditions"`
@@ -59,6 +78,8 @@ type Result struct {
 	Receipts                 []Receipt
 	Validation               SemanticValidation
 	SemanticValidationDigest string
+	ContributionDiagnostics  []ContributionDiagnostic
+	SemanticValidationTime   time.Duration
 }
 
 type Assembler struct {
@@ -130,11 +151,14 @@ func (a *Assembler) Assemble(ctx context.Context, state *BuildState) (Result, er
 		return Result{}, errors.New("performance fixture runtime bundle diverges from its generated profile")
 	}
 	receipts := make([]Receipt, 0, len(a.contributions))
+	diagnostics := make([]ContributionDiagnostic, 0, len(a.contributions))
 	for index, contribution := range a.contributions {
 		if err := ctx.Err(); err != nil {
 			return Result{}, err
 		}
+		startedAt := time.Now()
 		receipt, err := contribution.Apply(ctx, state)
+		duration := time.Since(startedAt)
 		if err != nil {
 			return Result{}, fmt.Errorf("apply performance fixture contribution %s: %w", a.expected[index].ContributionID, err)
 		}
@@ -142,8 +166,24 @@ func (a *Assembler) Assemble(ctx context.Context, state *BuildState) (Result, er
 			return Result{}, err
 		}
 		receipts = append(receipts, cloneReceipt(receipt))
+		diagnostic := ContributionDiagnostic{
+			ContributionID: receipt.ContributionID,
+			OwnerID:        receipt.OwnerID,
+			Duration:       duration,
+		}
+		if provider, ok := contribution.(BatchDiagnosticProvider); ok {
+			batch := provider.PerformanceFixtureBatchDiagnostic()
+			if (batch.Strategy != "owner_application_batch" && batch.Strategy != "owner_set_oriented") ||
+				batch.BatchCount < 1 || batch.ConfiguredBatchSize < 1 || batch.ItemCount < 1 {
+				return Result{}, fmt.Errorf("performance fixture contribution %s returned invalid batch diagnostics", receipt.ContributionID)
+			}
+			diagnostic.Batch = &batch
+		}
+		diagnostics = append(diagnostics, diagnostic)
 	}
+	validationStartedAt := time.Now()
 	validation, err := a.validator.Validate(ctx, state)
+	validationDuration := time.Since(validationStartedAt)
 	if err != nil {
 		return Result{}, fmt.Errorf("validate performance fixture semantics: %w", err)
 	}
@@ -158,6 +198,8 @@ func (a *Assembler) Assemble(ctx context.Context, state *BuildState) (Result, er
 		Receipts:                 receipts,
 		Validation:               cloneSemanticValidation(validation),
 		SemanticValidationDigest: digest,
+		ContributionDiagnostics:  diagnostics,
+		SemanticValidationTime:   validationDuration,
 	}, nil
 }
 

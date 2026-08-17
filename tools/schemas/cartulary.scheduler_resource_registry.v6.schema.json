@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.scheduler_resource_registry.v6",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "capacity_override_schema",
+    "capacity_policies",
+    "resources",
+    "runner_worker_inputs"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.scheduler_resource_registry.v6"
+    },
+    "capacity_override_schema": {
+      "const": "cartulary.harness_capacity_override.v1"
+    },
+    "capacity_policies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cpu_tokens",
+        "io_tokens",
+        "memory_bytes",
+        "object_store_lanes",
+        "port_lanes",
+        "postgres_lanes",
+        "process_slots",
+        "writable_volume"
+      ],
+      "properties": {
+        "cpu_tokens": {
+          "$ref": "#/$defs/host_parallelism"
+        },
+        "io_tokens": {
+          "$ref": "#/$defs/cpu_multiple"
+        },
+        "memory_bytes": {
+          "$ref": "#/$defs/host_memory"
+        },
+        "object_store_lanes": {
+          "$ref": "#/$defs/fixed_cpu_bounded"
+        },
+        "port_lanes": {
+          "$ref": "#/$defs/fixed_cpu_bounded"
+        },
+        "postgres_lanes": {
+          "$ref": "#/$defs/fixed_cpu_bounded"
+        },
+        "process_slots": {
+          "$ref": "#/$defs/process_limit"
+        },
+        "writable_volume": {
+          "$ref": "#/$defs/writable_root"
+        }
+      }
+    },
+    "resources": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "snapshot_field", "unit"],
+        "properties": {
+          "name": {
+            "enum": [
+              "browser_stack",
+              "cpu",
+              "io",
+              "memory_mb",
+              "object_store",
+              "port_lane",
+              "postgres",
+              "process",
+              "service_stack",
+              "volume"
+            ]
+          },
+          "snapshot_field": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "runner_worker_inputs": {
+      "const": ["PLAYWRIGHT_WORKERS", "VITEST_MAX_WORKERS"]
+    }
+  },
+  "$defs": {
+    "host_parallelism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "minimum"],
+      "properties": {
+        "source": { "const": "host_parallelism" },
+        "minimum": { "const": 1 }
+      }
+    },
+    "host_memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "minimum"],
+      "properties": {
+        "source": { "const": "host_memory_cgroup_bounded" },
+        "minimum": { "const": 1 }
+      }
+    },
+    "cpu_multiple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "cpu_multiplier", "minimum"],
+      "properties": {
+        "source": { "const": "cpu_multiple" },
+        "cpu_multiplier": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "minimum": { "const": 1 }
+      }
+    },
+    "process_limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "cpu_multiplier", "minimum"],
+      "properties": {
+        "source": { "const": "process_limit_bounded_cpu_multiple" },
+        "cpu_multiplier": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "minimum": { "const": 1 }
+      }
+    },
+    "fixed_cpu_bounded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "default", "minimum", "maximum_cpu_multiplier"],
+      "properties": {
+        "source": { "const": "fixed_cpu_bounded" },
+        "default": { "type": "integer", "minimum": 1, "maximum": 1024 },
+        "minimum": { "const": 1 },
+        "maximum_cpu_multiplier": { "type": "integer", "minimum": 1, "maximum": 64 }
+      }
+    },
+    "writable_root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": {
+        "source": { "const": "writable_root" }
+      }
+    }
+  }
+}

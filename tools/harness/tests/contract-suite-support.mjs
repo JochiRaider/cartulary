@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import {
   chmodSync,
   existsSync,
+  linkSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   renameSync,
   rmSync,
   symlinkSync,
@@ -25,6 +28,7 @@ import {
 import {
   canonicalSnapshotKeyInput,
   groupRowsByPerformanceFixture,
+  loadPerformanceFixtureBuilderPolicy,
   loadPerformanceFixtureSnapshotRegistry,
   postgresMigrationDigest,
   snapshotKey,
@@ -45,8 +49,11 @@ import {
   validateWorkGraph,
   WorkGraphCache,
   WorkGraphCompiler,
+  resolveCacheDependencyClosure,
 } from "../scheduler/work-graph/index.mjs";
+import { buildSourceSnapshot } from "../test-catalog/source-snapshot.mjs";
 import { loadTestCatalog, validateFixtureProfile } from "../test-catalog/index.mjs";
+import { validatePostgresFixturePolicy } from "../test-catalog/postgres-fixture-policy.mjs";
 import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
 import {
   cleanupStaleSuiteRuntimeRoots,
@@ -56,6 +63,10 @@ import {
 import { enforcePrivateProcessUmask } from "../runtime/private-process.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
+
+function compareASCII(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
 
 function readJSON(relative) {
   return JSON.parse(readFileSync(path.join(root, relative), "utf8"));
@@ -68,6 +79,35 @@ const topology = readJSON("tools/execution_topology_manifest.json");
 const catalog = loadTestCatalog(root);
 const compiler = new WorkGraphCompiler(root);
 const cacheRegistry = loadCacheRegistry(root).registry;
+const fixtureBuilderPolicy = loadPerformanceFixtureBuilderPolicy(root);
+assert.deepEqual(
+  [...fixtureBuilderPolicy.byFixtureProfileID.keys()],
+  ["ac043_large_grid_snapshot_v1"],
+);
+assert.deepEqual(catalog.postgresFixturePolicy.counts, {
+  postgres_dedicated: 252,
+  postgres_group: 0,
+  postgres_migration: 8,
+  postgres_transaction: 81,
+});
+
+function assertPostgresFixturePolicyClosesSharedRows() {
+  const fixtureRoot = mkdtempSync(path.join(tmpdir(), "cartulary-postgres-policy."));
+  const policyPath = path.join(fixtureRoot, "policy.json");
+  try {
+    const policy = readJSON("tools/postgres_fixture_policy_registry.json");
+    policy.transaction_row_approvals.pop();
+    writeFileSync(policyPath, JSON.stringify(policy));
+    assert.throws(
+      () => validatePostgresFixturePolicy(root, catalog.rows, { policyPath }),
+      /must exactly cover current transaction rows/u,
+    );
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
+assertPostgresFixturePolicyClosesSharedRows();
 const retiredTargets = [
   "check-service-backed",
   "release-browser-readiness",
@@ -94,6 +134,7 @@ function assertPerformanceEvidenceGenerationBoundary() {
     "cartulary.frontend_measurement_aggregate.v3",
     "cartulary.frontend_measurement_observation.v2",
     "cartulary.frontend_measurement_summary.v3",
+    "cartulary.performance_fixture_build_diagnostics.v1",
     "cartulary.performance_fixture_runtime.v2",
     "cartulary.performance_fixture_snapshot.v2",
     "cartulary.performance_fixture_snapshot_key.v2",
@@ -390,8 +431,8 @@ function assertGeneralContract(index) {
       assert.equal(topology.schema_id, "cartulary.execution_topology.v7");
       break;
     case 1:
-      assert.equal(taskSurface.targets.length, 146);
-      assert.equal(taskSurface.targets.filter((entry) => entry.target_class === "public").length, 98);
+      assert.equal(taskSurface.targets.length, 149);
+      assert.equal(taskSurface.targets.filter((entry) => entry.target_class === "public").length, 101);
       break;
     case 2:
       assert.ok(catalog.rows.length > 0);
@@ -583,9 +624,9 @@ async function assertBoundaryContract(index, entry) {
     assert.equal(new Set(ids).size, ids.length);
   } else if (index % 5 === 1) {
     for (const schema of [
-      "cartulary.harness_work_graph.v3.schema.json",
+      "cartulary.harness_work_graph.v4.schema.json",
       "cartulary.harness_run_manifest.v1.schema.json",
-      "cartulary.harness_unit_event.v1.schema.json",
+      "cartulary.harness_unit_event.v2.schema.json",
       "cartulary.harness_run_summary.v1.schema.json",
     ]) assert.ok(existsSync(path.join(root, "tools/schemas", schema)));
   } else if (index % 5 === 2) {
@@ -713,7 +754,7 @@ function assertGraphContract(index) {
     const row = catalog.rows.find((entry) => entry.runner === "go" && entry.fixture_capability === "none");
     const graph = compiler.compile({ kind: "rows", row_ids: [row.row_id] });
     assert.deepEqual(
-      graph.units.flatMap((unit) => unit.evidence_outputs),
+      graph.units.flatMap((unit) => unit.current_run_evidence_outputs),
       [`rows/${row.row_id}.json`, `unit-results/go-${graph.units[0].unit_id.split(":").slice(1).join("-")}.json`],
     );
   } else if (index % 4 === 2) {
@@ -722,7 +763,20 @@ function assertGraphContract(index) {
       { availableGoLanes: 4 },
     );
     assert.equal(plan.shards.flatMap((shard) => shard.item_ids).length, 17);
-    assert.ok(plan.shards.length <= 8);
+    assert.equal(plan.shards.length, 1);
+    assert.equal(plan.worker_count, 1);
+    assert.equal(plan.gomaxprocs, 4);
+    const hostPlan = planGoLPTShards(
+      Array.from({ length: 10 }, (_, itemIndex) => ({
+        id: `group-${itemIndex}`,
+        estimated_work_ms: itemIndex + 1,
+        compatibility: { package: `package-${itemIndex}` },
+      })),
+      { availableGoLanes: 24 },
+    );
+    assert.equal(hostPlan.worker_count, 6);
+    assert.equal(hostPlan.gomaxprocs, 4);
+    assert.ok(hostPlan.shards.every((shard) => shard.cpu_tokens === 4));
   } else {
     const graph = compiler.compile({ kind: "target", target: "lint" });
     validateWorkGraph(graph);
@@ -742,7 +796,7 @@ function schedulerFixture() {
     service_dependencies: [],
     cache_policy: "none",
     timeout_ms: 1000,
-    evidence_outputs: [`rows/${unitID}.json`],
+    current_run_evidence_outputs: [`rows/${unitID}.json`],
     failure_policy: { block_descendants: true, continue_independent: true, aggregate_effect: "required" },
     estimated_work_ms: 10,
   });
@@ -761,10 +815,11 @@ function cacheFixture(policy = "content_addressed") {
   const output = path.join(runRoot, "artifacts/result.txt");
   mkdirSync(path.dirname(output), { recursive: true });
   writeFileSync(input, "input-one\n");
-  writeFileSync(output, "output-one\n");
+  writeFileSync(output, "output-one\n", { mode: 0o600 });
   const profile = {
     profile_id: "fixture_profile",
     policy,
+    dependency_strategy: "broad",
     targets: ["fixture-target"],
     input_roots: [path.relative(root, input).replaceAll("\\", "/")],
     requires_vulnerability_database_revision: false,
@@ -782,7 +837,16 @@ function cacheFixture(policy = "content_addressed") {
       environment: { CARTULARY_TEST_TARGET: "fixture-target" },
     },
     cache_policy: policy,
-    evidence_outputs: ["artifacts/result.txt"],
+    current_run_evidence_outputs: ["unit-results/target-fixture-target.json"],
+    reusable_artifact_outputs: [
+      {
+        artifact_type: "file",
+        relative_path: "artifacts/result.txt",
+        destination_class: "run_root",
+        mode: "0600",
+        producer_identity: "target:fixture-target",
+      },
+    ],
     semantic_digest: `sha256:${"a".repeat(64)}`,
   };
   const create = (options = {}) => new WorkGraphCache({
@@ -808,14 +872,14 @@ async function assertContentCacheContract() {
 
     const context = cache.context(fixture.unit);
     const directory = cache.entryDirectory(context.profile, context.inputDigest);
-    writeFileSync(path.join(directory, "artifacts/0"), "corrupt\n");
+    writeFileSync(path.join(directory, "artifacts/0/0"), "corrupt\n");
     assert.deepEqual(
       await cache.lookup(fixture.unit),
       { outcome: "miss", reason: "record_invalid", profile_id: "fixture_profile", write_eligible: true },
     );
 
     writeFileSync(fixture.input, "input-two\n");
-    assert.equal((await cache.lookup(fixture.unit)).reason, "record_missing");
+    assert.equal((await fixture.create().lookup(fixture.unit)).reason, "record_missing");
     writeFileSync(fixture.input, "input-one\n");
     assert.equal((await fixture.create({ toolchainDigest: `sha256:${"d".repeat(64)}` }).lookup(fixture.unit)).reason, "record_missing");
     assert.equal((await fixture.create({ helperDigest: `sha256:${"e".repeat(64)}` }).lookup(fixture.unit)).reason, "record_missing");
@@ -837,6 +901,390 @@ async function assertCacheModeContract() {
   } finally {
     rmSync(fixture.fixtureRoot, { recursive: true, force: true });
   }
+}
+
+function cacheEntryFor(fixture, cache) {
+  const context = cache.context(fixture.unit);
+  return {
+    context,
+    directory: cache.entryDirectory(context.profile, context.inputDigest),
+  };
+}
+
+async function assertInvalidCacheEntry(mutator) {
+  const fixture = cacheFixture();
+  try {
+    const cache = fixture.create();
+    assert.equal((await cache.store(fixture.unit)).stored, true);
+    const { directory } = cacheEntryFor(fixture, cache);
+    writeFileSync(fixture.output, "preserved-destination\n", { mode: 0o600 });
+    mutator({ fixture, cache, directory });
+    assert.deepEqual(
+      await cache.lookup(fixture.unit),
+      {
+        outcome: "miss",
+        reason: "record_invalid",
+        profile_id: "fixture_profile",
+        write_eligible: true,
+      },
+    );
+    assert.equal(readFileSync(fixture.output, "utf8"), "preserved-destination\n");
+    assert.equal(existsSync(directory), false, "invalid cache entries must be quarantined");
+    const quarantine = path.join(fixture.cacheRoot, ".quarantine/fixture_profile");
+    assert.equal(readdirSync(quarantine).length, 1);
+  } finally {
+    rmSync(fixture.fixtureRoot, { recursive: true, force: true });
+  }
+}
+
+function mutateRecord(directory, mutate) {
+  const recordPath = path.join(directory, "record.json");
+  const record = JSON.parse(readFileSync(recordPath, "utf8"));
+  mutate(record);
+  writeFileSync(recordPath, `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
+}
+
+async function assertCacheContainmentMatrix() {
+  await assertInvalidCacheEntry(({ directory }) => {
+    mutateRecord(directory, (record) => {
+      record.artifacts[0].relative_path = "/absolute/result.txt";
+    });
+  });
+  await assertInvalidCacheEntry(({ directory }) => {
+    mutateRecord(directory, (record) => {
+      record.artifacts[0].relative_path = "../traversal.txt";
+    });
+  });
+  await assertInvalidCacheEntry(({ directory }) => {
+    mutateRecord(directory, (record) => {
+      record.artifacts[0].destination_class = "repository_artifact";
+    });
+  });
+  await assertInvalidCacheEntry(({ directory }) => {
+    mutateRecord(directory, (record) => {
+      record.producer_identity = "target:wrong-producer";
+      record.artifacts[0].producer_identity = "target:wrong-producer";
+    });
+  });
+  await assertInvalidCacheEntry(({ directory }) => {
+    mutateRecord(directory, (record) => {
+      record.artifacts[0].mode = "0644";
+    });
+  });
+  await assertInvalidCacheEntry(({ directory }) => {
+    rmSync(path.join(directory, "artifacts/0/0"));
+  });
+  await assertInvalidCacheEntry(({ directory }) => {
+    writeFileSync(path.join(directory, "artifacts/0/surplus"), "surplus\n", { mode: 0o600 });
+  });
+  await assertInvalidCacheEntry(({ directory, fixture }) => {
+    const payload = path.join(directory, "artifacts/0/0");
+    rmSync(payload);
+    symlinkSync(fixture.input, payload);
+  });
+  await assertInvalidCacheEntry(({ directory, fixture }) => {
+    const payload = path.join(directory, "artifacts/0/0");
+    rmSync(payload);
+    linkSync(fixture.input, payload);
+  });
+  await assertInvalidCacheEntry(({ directory }) => {
+    chmodSync(path.join(directory, "artifacts/0/0"), 0o644);
+  });
+  await assertInvalidCacheEntry(({ directory }) => {
+    const payload = path.join(directory, "artifacts/0/0");
+    rmSync(payload);
+    execFileSync("mkfifo", [payload]);
+  });
+  await assertInvalidCacheEntry(({ directory, fixture }) => {
+    const record = path.join(directory, "record.json");
+    rmSync(record);
+    symlinkSync(fixture.input, record);
+  });
+}
+
+function directoryCacheFixture() {
+  const fixture = cacheFixture();
+  rmSync(fixture.output);
+  mkdirSync(fixture.output, { mode: 0o700 });
+  mkdirSync(path.join(fixture.output, "nested"), { mode: 0o750 });
+  writeFileSync(path.join(fixture.output, "root.txt"), "root\n", { mode: 0o600 });
+  writeFileSync(path.join(fixture.output, "nested/child.txt"), "child\n", { mode: 0o640 });
+  fixture.unit.reusable_artifact_outputs[0] = {
+    ...fixture.unit.reusable_artifact_outputs[0],
+    artifact_type: "directory",
+    mode: "0700",
+  };
+  return fixture;
+}
+
+async function assertDirectoryAndConcurrentCacheContract() {
+  const directoryFixture = directoryCacheFixture();
+  try {
+    const cache = directoryFixture.create();
+    assert.equal((await cache.store(directoryFixture.unit)).stored, true);
+    rmSync(directoryFixture.output, { recursive: true });
+    assert.equal((await cache.lookup(directoryFixture.unit)).outcome, "hit");
+    assert.equal(readFileSync(path.join(directoryFixture.output, "root.txt"), "utf8"), "root\n");
+    assert.equal(readFileSync(path.join(directoryFixture.output, "nested/child.txt"), "utf8"), "child\n");
+    assert.equal(lstatSync(directoryFixture.output).mode & 0o777, 0o700);
+    assert.equal(lstatSync(path.join(directoryFixture.output, "nested")).mode & 0o777, 0o750);
+    assert.equal(lstatSync(path.join(directoryFixture.output, "nested/child.txt")).mode & 0o777, 0o640);
+  } finally {
+    rmSync(directoryFixture.fixtureRoot, { recursive: true, force: true });
+  }
+
+  const concurrent = cacheFixture();
+  try {
+    const first = concurrent.create();
+    const second = concurrent.create();
+    const firstStore = await first.store(concurrent.unit);
+    writeFileSync(concurrent.output, "output-two\n", { mode: 0o600 });
+    const secondStore = await second.store(concurrent.unit);
+    assert.equal(firstStore.reason, "stored");
+    assert.equal(secondStore.reason, "concurrent_entry");
+    assert.equal(secondStore.output_digest, firstStore.output_digest);
+    rmSync(concurrent.output);
+    assert.equal((await second.lookup(concurrent.unit)).outcome, "hit");
+    assert.equal(readFileSync(concurrent.output, "utf8"), "output-one\n");
+  } finally {
+    rmSync(concurrent.fixtureRoot, { recursive: true, force: true });
+  }
+}
+
+async function assertDestinationRollbackContract() {
+  const fixture = cacheFixture();
+  try {
+    const secondOutput = path.join(fixture.runRoot, "artifacts/second.txt");
+    writeFileSync(secondOutput, "second-cached\n", { mode: 0o600 });
+    fixture.unit.reusable_artifact_outputs = [
+      {
+        artifact_type: "file",
+        relative_path: "artifacts/result.txt",
+        destination_class: "run_root",
+        mode: "0600",
+        producer_identity: fixture.unit.unit_id,
+      },
+      {
+        artifact_type: "file",
+        relative_path: "artifacts/second.txt",
+        destination_class: "run_root",
+        mode: "0600",
+        producer_identity: fixture.unit.unit_id,
+      },
+    ];
+    const cache = fixture.create();
+    assert.equal((await cache.store(fixture.unit)).stored, true);
+    writeFileSync(fixture.output, "first-preserved\n", { mode: 0o600 });
+    rmSync(secondOutput);
+    symlinkSync(fixture.input, secondOutput);
+    const result = await cache.lookup(fixture.unit);
+    assert.equal(result.reason, "restore_rejected");
+    assert.equal(readFileSync(fixture.output, "utf8"), "first-preserved\n");
+    assert.equal(lstatSync(secondOutput).isSymbolicLink(), true);
+  } finally {
+    rmSync(fixture.fixtureRoot, { recursive: true, force: true });
+  }
+}
+
+function changedDigest(entry, fill) {
+  return { ...entry, byte_digest: `sha256:${fill.repeat(64)}` };
+}
+
+function cacheableRowUnit(row) {
+  return compiler.compile({ kind: "rows", row_ids: [row.row_id] }).units.find((unit) =>
+    unit.current_run_evidence_outputs.includes(`rows/${row.row_id}.json`),
+  );
+}
+
+async function assertDependencyClosureContract() {
+  const source = buildSourceSnapshot(root);
+  const profile = cacheRegistry.profiles.find((entry) => entry.profile_id === "test_rows");
+  const goRow = catalog.rows.find((row) => row.runner === "go" && row.fixture_capability === "none");
+  const goUnit = cacheableRowUnit(goRow);
+  const statefulRow = catalog.rows.find((row) =>
+    new Set(["go", "vitest"]).has(row.runner) &&
+    (row.fixture_capability !== "none" || row.service_dependencies.length > 0),
+  );
+  assert.ok(statefulRow, "the catalog must retain a stateful row cache boundary fixture");
+  assert.equal(cacheableRowUnit(statefulRow).cache_policy, "none");
+  const securityRow = catalog.rows.find((row) =>
+    new Set(["go", "vitest"]).has(row.runner) && row.evidence_class === "security",
+  );
+  assert.ok(securityRow, "the catalog must retain a security row cache boundary fixture");
+  assert.equal(cacheableRowUnit(securityRow).cache_policy, "none");
+  const goClosure = resolveCacheDependencyClosure({
+    root,
+    entries: source.entries,
+    profile,
+    unit: goUnit,
+  });
+  assert.equal(goClosure.strategy, "go_packages");
+  assert.ok(goClosure.entries.some((entry) => entry.path === "go.mod"));
+  assert.ok(goClosure.entries.some((entry) => entry.path === "pnpm-lock.yaml"));
+  assert.ok(goClosure.entries.some((entry) => entry.path.startsWith("tools/harness/")));
+  assert.ok(
+    goClosure.entries.some((entry) => entry.path.startsWith("tools/harness/generated-artifacts/")),
+    "generator identities must be closed by the package cache key",
+  );
+  assert.ok(goClosure.entries.some((entry) => entry.path === `tools/test_families/${goRow.owner_id}.json`));
+  const goPackage = goRow.selector.package.replace(/^\.\//u, "");
+  const added = {
+    path: `${goPackage}/untracked-cache-input.fixture`,
+    kind: "file",
+    mode: "0600",
+    byte_digest: `sha256:${"1".repeat(64)}`,
+  };
+  const addedClosure = resolveCacheDependencyClosure({
+    root,
+    entries: [...source.entries, added].sort((left, right) => compareASCII(left.path, right.path)),
+    profile,
+    unit: goUnit,
+  });
+  assert.equal(addedClosure.strategy, "go_packages");
+  assert.notEqual(addedClosure.digest, goClosure.digest);
+  assert.equal(
+    resolveCacheDependencyClosure({ root, entries: source.entries, profile, unit: goUnit }).digest,
+    goClosure.digest,
+    "deleting the untracked input must return to the original package closure",
+  );
+  const renamedClosure = resolveCacheDependencyClosure({
+    root,
+    entries: [...source.entries, { ...added, path: `${goPackage}/renamed-cache-input.fixture` }]
+      .sort((left, right) => compareASCII(left.path, right.path)),
+    profile,
+    unit: goUnit,
+  });
+  assert.notEqual(renamedClosure.digest, addedClosure.digest);
+  for (const pathUnderTest of ["pnpm-lock.yaml", "tools/toolchain_pins.json"]) {
+    const changed = source.entries.map((entry) =>
+      entry.path === pathUnderTest ? changedDigest(entry, pathUnderTest === "pnpm-lock.yaml" ? "2" : "3") : entry,
+    );
+    const closure = resolveCacheDependencyClosure({ root, entries: changed, profile, unit: goUnit });
+    assert.notEqual(closure.digest, goClosure.digest);
+  }
+  const schemaEntry = goClosure.entries.find((entry) => entry.path.startsWith("tools/schemas/"));
+  const schemaChanged = source.entries.map((entry) =>
+    entry.path === schemaEntry.path ? changedDigest(entry, "4") : entry,
+  );
+  assert.notEqual(
+    resolveCacheDependencyClosure({ root, entries: schemaChanged, profile, unit: goUnit }).digest,
+    goClosure.digest,
+  );
+  const selectedGoSource = goClosure.entries.find((entry) =>
+    entry.path.startsWith(`${goPackage}/`) && entry.path.endsWith(".go"),
+  );
+  const incomplete = source.entries.map((entry) =>
+    entry.path === selectedGoSource.path ? changedDigest(entry, "5") : entry,
+  );
+  assert.equal(
+    resolveCacheDependencyClosure({ root, entries: incomplete, profile, unit: goUnit }).strategy,
+    "broad_fallback",
+  );
+  const unknownUnit = {
+    ...goUnit,
+    command: {
+      ...goUnit.command,
+      environment: { ...goUnit.command.environment, CARTULARY_TEST_ROWS: "unknown.row" },
+    },
+  };
+  assert.equal(
+    resolveCacheDependencyClosure({ root, entries: source.entries, profile, unit: unknownUnit }).strategy,
+    "broad_fallback",
+  );
+
+  const vitestRow = catalog.rows.find((row) => row.runner === "vitest");
+  const vitestUnit = cacheableRowUnit(vitestRow);
+  const tsClosure = resolveCacheDependencyClosure({ root, entries: source.entries, profile, unit: vitestUnit });
+  assert.equal(tsClosure.strategy, "typescript_workspaces");
+  assert.ok(tsClosure.entries.some((entry) => entry.path === vitestRow.selector.file));
+  assert.ok(tsClosure.entries.some((entry) => entry.path === "apps/web/package.json"));
+  const tsAdded = {
+    path: "apps/web/src/untracked-cache-input.fixture",
+    kind: "file",
+    mode: "0600",
+    byte_digest: `sha256:${"6".repeat(64)}`,
+  };
+  const tsAddedClosure = resolveCacheDependencyClosure({
+    root,
+    entries: [...source.entries, tsAdded].sort((left, right) => compareASCII(left.path, right.path)),
+    profile,
+    unit: vitestUnit,
+  });
+  assert.equal(tsAddedClosure.strategy, "typescript_workspaces");
+  assert.notEqual(tsAddedClosure.digest, tsClosure.digest);
+  assert.ok(
+    tsClosure.metadata.workspaces.length > 1,
+    "the web workspace closure must include transitive repository workspaces",
+  );
+  const transitiveRoot = tsClosure.metadata.workspaces.find((workspace) => workspace !== "apps/web");
+  const transitiveEntry = tsClosure.entries.find((entry) =>
+    entry.path.startsWith(`${transitiveRoot}/`) &&
+    entry.path !== `${transitiveRoot}/package.json`,
+  );
+  assert.ok(transitiveEntry, "transitive workspace must contribute executable source");
+  const transitiveChanged = source.entries.map((entry) =>
+    entry.path === transitiveEntry.path ? changedDigest(entry, "7") : entry,
+  );
+  assert.notEqual(
+    resolveCacheDependencyClosure({
+      root,
+      entries: transitiveChanged,
+      profile,
+      unit: vitestUnit,
+    }).digest,
+    tsClosure.digest,
+    "a transitive workspace change must invalidate the selected row",
+  );
+
+  const fixtureRoot = mkdtempSync(path.join(root, "tmp/unit-aware-cache-contract."));
+  try {
+    const runRoot = path.join(fixtureRoot, "run");
+    const rowOutput = path.join(runRoot, `rows/${goRow.row_id}.json`);
+    mkdirSync(path.dirname(rowOutput), { recursive: true, mode: 0o700 });
+    const sourceResult = {
+      schema_id: "cartulary.harness_row_result.v2",
+      row_id: goRow.row_id,
+      terminal_state: "passed",
+      duration_ms: 12,
+      exit_code: 0,
+      failure_class: null,
+      failure_reason: null,
+      failure_diagnostic: null,
+      runner: "go",
+      started_at: "2026-01-01T00:00:00.000Z",
+      finished_at: "2026-01-01T00:00:00.012Z",
+      wall_duration_ms: 12,
+    };
+    validateSchemaSync(sourceResult.schema_id, sourceResult);
+    writeFileSync(rowOutput, `${JSON.stringify(sourceResult, null, 2)}\n`, { mode: 0o600 });
+    const cache = new WorkGraphCache({
+      root,
+      runRoot,
+      cacheRoot: path.join(fixtureRoot, "cache"),
+      registry: cacheRegistry,
+      toolchainDigest: `sha256:${"8".repeat(64)}`,
+      helperDigest: `sha256:${"9".repeat(64)}`,
+      sourceEntries: source.entries,
+      clock: () => new Date("2030-01-01T00:00:00.000Z"),
+    });
+    assert.equal(cache.context(goUnit).dependencyClosure.strategy, "go_packages");
+    assert.equal((await cache.store(goUnit)).stored, true);
+    rmSync(rowOutput);
+    assert.equal((await cache.lookup(goUnit)).outcome, "hit");
+    const replay = JSON.parse(readFileSync(rowOutput, "utf8"));
+    assert.equal(replay.started_at, "2030-01-01T00:00:00.000Z");
+    assert.equal(replay.duration_ms, 0);
+    assert.equal(replay.row_id, goRow.row_id);
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
+async function assertExtendedCacheContract() {
+  await assertCacheContainmentMatrix();
+  await assertDirectoryAndConcurrentCacheContract();
+  await assertDestinationRollbackContract();
+  await assertDependencyClosureContract();
 }
 
 function assertVulnerabilityRevisionContract() {
@@ -913,6 +1361,38 @@ async function assertSchedulerContract(index) {
       Object.fromEntries(Object.entries(fixtureFailure.unit_results).map(([unitID, terminal]) => [unitID, terminal.status])),
       { a: "failed", b: "passed", c: "skipped" },
     );
+
+    const hitGraph = buildWorkGraph([schedulerFixture().units[0]]);
+    let executions = 0;
+    const cacheHit = await runWorkGraph({
+      graph: hitGraph,
+      capacities: new Map([["cpu", 1], ["process", 1]]),
+      cwd: root,
+      environment: {},
+      cache: {
+        validateGraph: () => {},
+        lookup: async () => ({
+          outcome: "hit",
+          reason: "record_valid",
+          profile_id: "fixture",
+          output_digest: `sha256:${"f".repeat(64)}`,
+        }),
+        store: async () => { throw new Error("cache hit must not be stored again"); },
+      },
+      executeUnit: async () => {
+        executions += 1;
+        return { status: "passed", exit_code: 0 };
+      },
+    });
+    assert.equal(executions, 0);
+    assert.deepEqual(cacheHit.admissions, []);
+    assert.ok(cacheHit.events.some((event) => event.event === "cache_hit"));
+    assert.ok(cacheHit.events.some((event) => event.event === "completed"));
+    assert.equal(
+      cacheHit.events.some((event) => ["admitted", "started"].includes(event.event)),
+      false,
+      "a cache hit must complete before resource admission",
+    );
   } else if (index % 8 === 1) {
     const cancelled = simulateWorkGraph({ graph: schedulerFixture(), capacities: new Map([["cpu", 1], ["process", 1]]), cancelAtMs: 1 });
     assert.ok(cancelled.events.some((entry) => entry.event === "cancelled"));
@@ -924,10 +1404,23 @@ async function assertSchedulerContract(index) {
     });
     validateSchemaSync(snapshot.schema_id, snapshot);
     assert.equal(snapshot.cpu_tokens, 2);
+    assert.equal(snapshot.postgres_lanes, 2);
+    assert.throws(
+      () => captureCapabilitySnapshot({
+        root,
+        override: {
+          schema_id: "cartulary.harness_capacity_override.v1",
+          cpu_tokens: 2,
+          postgres_lanes: 3,
+        },
+      }),
+      /postgres_lanes=3 exceeds the detected policy bound 2/u,
+    );
   } else if (index % 8 === 3) {
     assert.ok(cacheRegistry.profiles.every((profile) => new Set(profile.targets).size === profile.targets.length));
   } else if (index % 8 === 4) {
     await assertContentCacheContract();
+    if (index === 4) await assertExtendedCacheContract();
   } else if (index % 8 === 5) {
     await assertCacheModeContract();
   } else if (index % 8 === 6) {

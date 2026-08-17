@@ -42,7 +42,6 @@ const (
 	postgresFixturePolicyTemplateClone = "template_clone"
 	postgresFixturePolicyPackageReset  = "package_reset"
 	postgresFixturePolicyTransaction   = "transaction"
-	postgresFixturePolicyGroupClone    = "group_clone"
 )
 
 const (
@@ -84,8 +83,6 @@ type Harness struct {
 
 	packageDBMu sync.Mutex
 	packageDBs  map[string]*packageDatabase
-	groupDBMu   sync.Mutex
-	groupDBs    map[string]*groupDatabase
 }
 
 type TestDatabase struct {
@@ -126,12 +123,6 @@ type packageDatabase struct {
 type resetPlan struct {
 	statement string
 	tables    []string
-}
-
-type groupDatabase struct {
-	mu                sync.Mutex
-	db                *TestDatabase
-	cleanupRegistered bool
 }
 
 type fixtureAttribution struct {
@@ -816,9 +807,8 @@ func (h *Harness) PreparePackageResetDatabaseT(t testing.TB, prefix string) *Tes
 	t.Helper()
 
 	// Package reset is an explicit compatibility path for tests that prove a
-	// closed reset surface. Ordinary integration tests use isolated clones,
-	// grouped committed-state tests use PrepareGroupDatabaseT, and store tests
-	// use BeginRollbackDBT.
+	// closed reset surface. Ordinary integration tests use isolated clones and
+	// store tests use BeginRollbackDBT.
 	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyPackageReset)
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = postgresFixturePolicyPackageReset
@@ -900,51 +890,6 @@ func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 	return &RollbackDB{tx: tx, conn: conn}
 }
 
-func (h *Harness) PrepareGroupDatabaseT(t testing.TB, prefix string, groupKey string) *TestDatabase {
-	t.Helper()
-	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyGroupClone)
-
-	attribution := fixtureAttributionFor(t, "pgtest")
-	attribution.PostgresFixturePolicy = postgresFixturePolicyGroupClone
-	return h.prepareGroupDatabaseT(t, prefix, groupKey, attribution)
-}
-
-func (h *Harness) prepareGroupDatabaseT(t testing.TB, prefix string, groupKey string, attribution fixtureAttribution) *TestDatabase {
-	t.Helper()
-
-	attribution.PostgresFixturePolicy = postgresFixturePolicyGroupClone
-	key := attribution.CallerPackage + ":" + topLevelTestName(attribution.TestName) + ":" + sanitizeIdentifier(groupKey)
-	if key == "::" {
-		key = sanitizeIdentifier(prefix)
-	}
-	attribution.ReuseGroup = key
-	fixture := h.groupDatabase(key)
-	fixture.mu.Lock()
-	defer fixture.mu.Unlock()
-
-	if fixture.db == nil {
-		testDB, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReuseGroup, attribution)
-		if err != nil {
-			t.Fatalf("prepare grouped postgres database: %v", err)
-		}
-		fixture.db = testDB
-	}
-	if !fixture.cleanupRegistered {
-		fixture.cleanupRegistered = true
-		t.Cleanup(func() {
-			if h.retainPreparedDatabaseOnCleanup() {
-				h.recordRetainedDatabase(fixture.db.Name, suiteservices.FixtureReuseGroup, attribution)
-				return
-			}
-			if err := h.dropDatabase(context.Background(), fixture.db.Name, suiteservices.FixtureReuseGroup, attribution); err != nil {
-				t.Fatalf("drop grouped postgres database: %v", err)
-			}
-		})
-	}
-
-	return fixture.db
-}
-
 func (h *Harness) packageDatabase(key string) *packageDatabase {
 	h.packageDBMu.Lock()
 	defer h.packageDBMu.Unlock()
@@ -956,21 +901,6 @@ func (h *Harness) packageDatabase(key string) *packageDatabase {
 	if fixture == nil {
 		fixture = &packageDatabase{}
 		h.packageDBs[key] = fixture
-	}
-	return fixture
-}
-
-func (h *Harness) groupDatabase(key string) *groupDatabase {
-	h.groupDBMu.Lock()
-	defer h.groupDBMu.Unlock()
-
-	if h.groupDBs == nil {
-		h.groupDBs = make(map[string]*groupDatabase)
-	}
-	fixture := h.groupDBs[key]
-	if fixture == nil {
-		fixture = &groupDatabase{}
-		h.groupDBs[key] = fixture
 	}
 	return fixture
 }
@@ -1328,7 +1258,10 @@ func dropDatabase(ctx context.Context, adminDSN string, name string) error {
 }
 
 func (h *Harness) retainDatabaseOnCleanup() bool {
-	return h.attached && h.templateDB != "" && suiteservices.SuiteActive(nil)
+	return h.attached &&
+		h.templateDB != "" &&
+		suiteservices.SuiteActive(nil) &&
+		strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PersistentBorrowerEnv)) != "1"
 }
 
 func (h *Harness) retainPreparedDatabaseOnCleanup() bool {
@@ -1845,7 +1778,7 @@ func postgresFixtureClass(policy string, reuseScope string) string {
 	switch policy {
 	case postgresFixturePolicyTransaction:
 		return "transaction"
-	case postgresFixturePolicyPackageReset, postgresFixturePolicyGroupClone:
+	case postgresFixturePolicyPackageReset:
 		return "reusable_database"
 	case postgresFixturePolicyTemplateClone:
 		return "isolated_clone"
@@ -1857,7 +1790,7 @@ func postgresFixtureClass(policy string, reuseScope string) string {
 		return "migration_scratch"
 	case suiteservices.FixtureReuseTransaction:
 		return "transaction"
-	case suiteservices.FixtureReusePackage, suiteservices.FixtureReuseGroup:
+	case suiteservices.FixtureReusePackage:
 		return "reusable_database"
 	}
 	return ""
@@ -2000,8 +1933,6 @@ func normalizePostgresFixturePolicy(value string) string {
 		return postgresFixturePolicyPackageReset
 	case postgresFixturePolicyTransaction:
 		return postgresFixturePolicyTransaction
-	case postgresFixturePolicyGroupClone:
-		return postgresFixturePolicyGroupClone
 	default:
 		return ""
 	}

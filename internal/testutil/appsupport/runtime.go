@@ -118,23 +118,9 @@ func (r *Runtime) PrepareIsolatedDatabase(t testing.TB, prefix string) *pgtest.T
 	return r.Postgres.PrepareIsolatedDatabaseT(t, prefix)
 }
 
-func (r *Runtime) PrepareGroupDatabase(t testing.TB, prefix string, groupKey string) *pgtest.TestDatabase {
-	t.Helper()
-	return r.Postgres.PrepareGroupDatabaseT(t, prefix, groupKey)
-}
-
 func (r *Runtime) PrepareServerDatabase(t testing.TB, prefix string) *pgtest.TestDatabase {
 	t.Helper()
 	return r.PrepareIsolatedDatabase(t, prefix)
-}
-
-func (r *Runtime) PrepareGroupServerDatabase(
-	t testing.TB,
-	prefix string,
-	groupKey string,
-) *pgtest.TestDatabase {
-	t.Helper()
-	return r.PrepareGroupDatabase(t, prefix, groupKey)
 }
 
 func (r *Runtime) StartServerWithDependencies(

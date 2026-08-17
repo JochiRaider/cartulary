@@ -366,6 +366,21 @@
         "target": "task-surface-report",
         "owner_section": "Section 4",
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "test-services-session-down",
+        "owner_section": "Section 4",
+        "reason": "Explicit local session lifecycle is developer acceleration rather than a stable measured test workload."
+      },
+      {
+        "target": "test-services-session-status",
+        "owner_section": "Section 4",
+        "reason": "Explicit local session diagnostics are developer support rather than a stable measured test workload."
+      },
+      {
+        "target": "test-services-session-up",
+        "owner_section": "Section 4",
+        "reason": "Explicit local session lifecycle is developer acceleration rather than a stable measured test workload."
       }
     ],
     "measurement_profiles": [
@@ -737,6 +752,18 @@
           "target": "services-down",
           "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
           "description": "preview or stop local Postgres and SeaweedFS S3 while preserving named volumes"
+        },
+        {
+          "target": "test-services-session-up",
+          "description": "start an explicit reusable local test-service session"
+        },
+        {
+          "target": "test-services-session-status",
+          "description": "print redacted reusable test-service session status"
+        },
+        {
+          "target": "test-services-session-down",
+          "description": "stop the exact reusable test-service session when it has no live borrowers"
         },
         {
           "target": "object-store-init",
@@ -1336,6 +1363,57 @@
         "bash",
         "./tools/harness/readiness/dev-services.sh",
         "services-down"
+      ]
+    },
+    "test-services-session-up": {
+      "prerequisites": [
+        "go-toolchain-readiness",
+        "testservices-build",
+        "$(NODE_BIN)"
+      ],
+      "type": "step_command",
+      "mode": "command",
+      "env": {
+        "TEST_SERVICES_BIN": "$(TEST_SERVICES_BIN)"
+      },
+      "command": [
+        "$(NODE_BIN)",
+        "./tools/harness/services/local-session-cli.mjs",
+        "up"
+      ]
+    },
+    "test-services-session-status": {
+      "prerequisites": [
+        "go-toolchain-readiness",
+        "testservices-build",
+        "$(NODE_BIN)"
+      ],
+      "type": "step_command",
+      "mode": "command",
+      "env": {
+        "TEST_SERVICES_BIN": "$(TEST_SERVICES_BIN)"
+      },
+      "command": [
+        "$(NODE_BIN)",
+        "./tools/harness/services/local-session-cli.mjs",
+        "status"
+      ]
+    },
+    "test-services-session-down": {
+      "prerequisites": [
+        "go-toolchain-readiness",
+        "testservices-build",
+        "$(NODE_BIN)"
+      ],
+      "type": "step_command",
+      "mode": "command",
+      "env": {
+        "TEST_SERVICES_BIN": "$(TEST_SERVICES_BIN)"
+      },
+      "command": [
+        "$(NODE_BIN)",
+        "./tools/harness/services/local-session-cli.mjs",
+        "down"
       ]
     },
     "services-wait": {
@@ -2194,6 +2272,7 @@
       "command": [
         "$(NODE_BIN)",
         "--test",
+        "./tools/harness/services/tests/test-local-session.mjs",
         "./tools/harness/tests/test-harness-boundary-contracts.mjs",
         "./tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "./tools/harness/tests/test-harness-evidence-contracts.mjs",
@@ -2243,6 +2322,7 @@
       "command": [
         "$(NODE_BIN)",
         "--test",
+        "./tools/harness/services/tests/test-local-session.mjs",
         "./tools/harness/tests/test-harness-boundary-contracts.mjs",
         "./tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "./tools/harness/tests/test-harness-evidence-contracts.mjs",
@@ -3698,6 +3778,254 @@
             "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
+    },
+    {
+      "name": "test-services-session-up",
+      "backing_scripts": [
+        "tools/harness/services/local-session-cli.mjs",
+        "tools/harness/services/local-session.mjs",
+        "tools/testservices/main.go"
+      ],
+      "output_policy": {
+        "output_class": "service_summary",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 4,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.test_services_session_up.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        },
+        {
+          "behavior": "security_boundary",
+          "owner_section": "Section 15"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_session",
+          "lifecycle_machine": "explicit local service session lifecycle from Section 11"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_TEST_SERVICES_SESSION_FILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "configuration_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
+    },
+    {
+      "name": "test-services-session-status",
+      "backing_scripts": [
+        "tools/harness/services/local-session-cli.mjs",
+        "tools/harness/services/local-session.mjs"
+      ],
+      "output_policy": {
+        "output_class": "machine_stdout_json",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 1,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 2,
+          "stderr_bytes": 1000,
+          "excerpt_lines": 2,
+          "excerpt_bytes": 1000
+        },
+        "raw_stream_policy": "machine_json_stdout",
+        "summary_schema": null
+      },
+      "command_id": "cartulary.harness.command.test_services_session_status.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        },
+        {
+          "behavior": "security_boundary",
+          "owner_section": "Section 15"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 4"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_TEST_SERVICES_SESSION_FILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "configuration_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
+    },
+    {
+      "name": "test-services-session-down",
+      "backing_scripts": [
+        "tools/harness/services/local-session-cli.mjs",
+        "tools/harness/services/local-session.mjs",
+        "tools/testservices/main.go"
+      ],
+      "output_policy": {
+        "output_class": "service_summary",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 4,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.test_services_session_down.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        },
+        {
+          "behavior": "destructive_safety",
+          "owner_section": "Section 13"
+        },
+        {
+          "behavior": "security_boundary",
+          "owner_section": "Section 15"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "destructive_cleanup",
+          "owner_section": "Section 13",
+          "predicates_section": "Section 13"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_TEST_SERVICES_SESSION_FILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "configuration_error",
+            "summary_emission": "redacted_value",
             "child_forwarding": "runtime_env"
           }
         ]
@@ -6046,6 +6374,44 @@
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
         "inputs": [
+          {
+            "name": "CARTULARY_TEST_SERVICES_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "owned",
+              "attach"
+            ],
+            "default": "owned",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_TEST_SERVICES_SESSION_FILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "configuration_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "runtime_env"
+          },
           {
             "name": "CARTULARY_HARNESS_CACHE_MODE",
             "binding": "make_variable",
@@ -9481,6 +9847,7 @@
       "backing_scripts": [
         "tools/harness_contract_suite_registry.json",
         "tools/harness_contract_case_ledger.json",
+        "tools/harness/services/tests/test-local-session.mjs",
         "tools/harness/tests/contract-suite-support.mjs",
         "tools/harness/tests/test-harness-boundary-contracts.mjs",
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
@@ -9527,6 +9894,9 @@
         "tools/harness/observability/tests/test-observability.mjs",
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh",
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harness/services/local-session-cli.mjs",
+        "tools/harness/services/local-session.mjs",
+        "tools/harness/services/tests/test-local-session.mjs",
         "tools/harness/tests/contract-suite-support.mjs",
         "tools/harness/tests/test-harness-boundary-contracts.mjs",
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
@@ -10065,6 +10435,44 @@
         "undeclared_inherited_env": "ignore",
         "inputs": [
           {
+            "name": "CARTULARY_TEST_SERVICES_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "owned",
+              "attach"
+            ],
+            "default": "owned",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_TEST_SERVICES_SESSION_FILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "configuration_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "runtime_env"
+          },
+          {
             "name": "CARTULARY_HARNESS_CACHE_MODE",
             "binding": "make_variable",
             "allowed_sources": [
@@ -10220,6 +10628,44 @@
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
         "inputs": [
+          {
+            "name": "CARTULARY_TEST_SERVICES_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "owned",
+              "attach"
+            ],
+            "default": "owned",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_TEST_SERVICES_SESSION_FILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "configuration_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "runtime_env"
+          },
           {
             "name": "CARTULARY_HARNESS_CACHE_MODE",
             "binding": "make_variable",

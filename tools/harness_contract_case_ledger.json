@@ -580,15 +580,15 @@
     {
       "legacy_ordinal": 83,
       "legacy_name": "scheduler FIFO reservations prevent resource leapfrogging",
-      "current_name": "scheduler FIFO reservations prevent resource leapfrogging",
-      "disposition": "retained",
+      "current_name": "scheduler ranked resource fit backfills without reserving unavailable capacity",
+      "disposition": "replaced",
       "suite": "scheduler"
     },
     {
       "legacy_ordinal": 84,
       "legacy_name": "scheduler FIFO reservations yield to a feasible liveness unit when no child is running",
-      "current_name": "scheduler FIFO reservations yield to a feasible liveness unit when no child is running",
-      "disposition": "retained",
+      "current_name": "scheduler ranked resource fit admits feasible work without ineligible reservations",
+      "disposition": "replaced",
       "suite": "scheduler"
     },
     {

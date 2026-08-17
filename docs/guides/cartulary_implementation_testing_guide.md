@@ -170,6 +170,63 @@ only after its exit criteria pass; commit that implementation and checkpoint
 together; then activate the next slice. The final validation slice changes only
 validation, accounting, or handoff defects.
 
+## Reuse Local Test Services Explicitly
+
+Ordinary harness commands own and remove their managed PostgreSQL and object-store
+containers. For repeated local work on a small service-backed slice, create one
+explicit expiring session, inspect only its redacted status, attach the eligible
+target, and stop the session when finished:
+
+```sh
+make test-services-session-up
+make test-services-session-status
+make service-backed-test-slice \
+  OWNER=<owner-id> \
+  ROWS=<row-id,...> \
+  CARTULARY_TEST_SERVICES_MODE=attach
+make test-services-session-down
+```
+
+The default descriptor is
+`${CARTULARY_MACHINE_CACHE_DIR}/test-services/session.json`. Set
+`CARTULARY_TEST_SERVICES_SESSION_FILE=/absolute/path/session.json` on every
+command only when an explicit alternate location is required. A descriptor is
+never attached merely because it exists. `attach` is accepted only by
+`service-backed-test-slice`, `browser-e2e-webserver-backed`, and
+`browser-e2e-stateful`; aggregate, measurement, accessibility, visual, CI, and
+release targets always own fresh services.
+
+Each attached invocation still receives unique databases, buckets, ports,
+browser contexts, runtime roots, and cleanup ownership. Session shutdown refuses
+live borrowers. If status reports `stale`, `expired`, or `invalid`, do not edit
+the descriptor or remove containers by name; use the session-down command so
+cleanup can verify exact ownership. Status output intentionally omits credentials,
+container identities, runtime paths, and administrative endpoints.
+
+`CARTULARY_TEST_SERVICES_ACTIVE` is private child-process state. Supplying it to
+a public command is now an error; replace prior caller-side uses with
+`CARTULARY_TEST_SERVICES_MODE=attach`. There is no v1 selector alias or automatic
+legacy attachment path.
+
+## Harness Evidence and Cache Cutover
+
+Current harness runs emit `cartulary.harness_unit_event.v2`, compile
+`cartulary.harness_work_graph.v4`, and read or write only
+`cartulary.harness_cache_record.v2`. There are no compatibility readers or dual
+writes for the retired event v1, graph v3, or cache-record v1 formats. Historical
+result roots remain manually inspectable archives, but cannot be retained as
+current-run evidence or supplied as a cache input.
+
+The v4 graph distinguishes current-run evidence from reusable artifacts. A
+cache hit always regenerates row and unit evidence with current timestamps;
+artifact bytes are reusable only after the producer declares their complete
+typed output and freshness contract. Build, license, and SBOM graph caching is
+therefore intentionally disabled until those declarations exist.
+
+Cache v2 entries live under `.cache/cartulary/graph-v2`. The former graph cache
+root is ignored, not migrated. Use `make distclean` when the old local cache
+bytes should be removed; do not copy or translate entries between roots.
+
 ## Browser Work
 
 Browser rows are grouped by semantic stage, runtime profile, fixture and

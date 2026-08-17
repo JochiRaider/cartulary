@@ -27,7 +27,7 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
+      "resource_profile_id": "browser_functional",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -755,9 +755,9 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
-        "TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit",
-        "TestVNextGraphRestoreArtifactsFailClosedAndRejectRetiredRegistry_Unit",
-        "TestVNextGraphRestoreArtifactsRetainExactHistoricalV2Dispatch_Unit"
+          "TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit",
+          "TestVNextGraphRestoreArtifactsFailClosedAndRejectRetiredRegistry_Unit",
+          "TestVNextGraphRestoreArtifactsRetainExactHistoricalV2Dispatch_Unit"
         ]
       },
       "evidence_class": "unit",

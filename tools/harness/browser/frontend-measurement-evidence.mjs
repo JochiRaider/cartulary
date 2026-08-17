@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
+import process from "node:process";
 
 import { validateSchemaSync } from "../contract/index.mjs";
 import { readCanonicalUnitEvents } from "../evidence-accounting/canonical-unit-events.mjs";
@@ -8,6 +9,30 @@ import { readCanonicalUnitEvents } from "../evidence-accounting/canonical-unit-e
 const forbiddenKey = /^(?:bucket_name|credential|credentials|database_name|dsn|email|entered_text|password|payload|record_id|runtime_path|secret|token|transaction_id|txn_id|user_id)$/iu;
 const reportByteLimit = 32 * 1024 * 1024;
 const attachmentByteLimit = 8 * 1024 * 1024;
+
+export function currentUnitEventFile(runRoot) {
+  const configured = String(process.env.CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE ?? "").trim();
+  if (!configured) return path.join(runRoot, "unit-events.ndjson");
+  if (!path.isAbsolute(configured)) {
+    throw new Error("live unit-event staging path must be absolute");
+  }
+  const resolved = path.resolve(configured);
+  const relative = path.relative(runRoot, resolved);
+  if (
+    !relative || relative.startsWith("..") || path.isAbsolute(relative) ||
+    !path.basename(resolved).startsWith("unit-events.ndjson.tmp-")
+  ) {
+    throw new Error("live unit-event staging path escapes its run or has an invalid identity");
+  }
+  if (!existsSync(resolved)) {
+    throw new Error("live unit-event staging path is missing");
+  }
+  const stat = lstatSync(resolved);
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error("live unit-event staging path is not a regular file");
+  }
+  return resolved;
+}
 
 function readBoundedJSON(file, label, maxBytes) {
   const stat = lstatSync(file);

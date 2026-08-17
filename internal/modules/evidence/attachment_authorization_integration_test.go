@@ -202,7 +202,7 @@ UPDATE incidents
 
 func TestAttachRouteContract_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	testDB := runtime.PrepareGroupServerDatabase(t, "evidence_lifecycle-attach-route-contract", "evidence_lifecycle-attach-route-contract")
+	testDB := runtime.PrepareServerDatabase(t, "evidence_lifecycle-attach-route-contract")
 	harness := runtime.StartServerWithDatabase(t, "evidence_lifecycle-attach-route-contract", testDB)
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	objectStoreAdmin := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-object-store-admin@example.test", "EvidenceLifecycle Object Store Admin", "EvidenceLifecycleObjectStoreAdmin1!", false, true, true)

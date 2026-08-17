@@ -18,6 +18,7 @@ import {
 import { buildFrontendVisualReconciliation } from "./frontend-visual-reconciliation.mjs";
 import {
   collectFinalizedMeasurementSummaries,
+  currentUnitEventFile,
   readMeasurementSchedulerEvidenceForGroups,
 } from "./frontend-measurement-evidence.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
@@ -26,7 +27,13 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
 
 function parse(argv) {
-  const options = { target: "", groups: [], groupTargets: new Map(), children: [] };
+  const options = {
+    target: "",
+    groups: [],
+    groupTargets: new Map(),
+    children: [],
+    resets: [],
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--target") options.target = argv[++index] ?? "";
@@ -39,12 +46,17 @@ function parse(argv) {
       }
     }
     else if (arg === "--children") options.children = (argv[++index] ?? "").split(",").filter(Boolean);
+    else if (arg === "--resets") options.resets = (argv[++index] ?? "").split(",").filter(Boolean);
     else throw new Error("invalid browser target finalizer arguments");
   }
   if (!options.target || options.groups.length === 0 || options.groupTargets.size !== options.groups.length) {
     throw new Error("browser target finalizer requires target and exact group targets");
   }
   return options;
+}
+
+function safeID(value) {
+  return value.replaceAll(/[^A-Za-z0-9_.+-]+/gu, "-");
 }
 
 function runRoot() {
@@ -71,6 +83,23 @@ function groupResult(base, groupID, target) {
   };
 }
 
+function resetResult(base, unitID) {
+  const file = path.join(base, "unit-results", `${safeID(unitID)}.json`);
+  if (!existsSync(file)) {
+    throw new Error(`browser target reset result is missing: ${unitID}`);
+  }
+  const stat = lstatSync(file);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 1024 * 1024) {
+    throw new Error(`browser target reset result exceeds its bounded JSON contract: ${file}`);
+  }
+  const result = JSON.parse(readFileSync(file, "utf8"));
+  validateSchemaSync("cartulary.harness_unit_result.v1", result);
+  if (result.unit_id !== unitID) {
+    throw new Error(`browser target reset result identity mismatch: ${unitID}`);
+  }
+  return result;
+}
+
 function sha256(bytes) {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 }
@@ -84,7 +113,7 @@ function relativeToRun(base, file) {
 }
 
 async function measurementSchedulerOverlapCount(base, groups) {
-  const eventsFile = path.join(base, "unit-events.ndjson");
+  const eventsFile = currentUnitEventFile(base);
   if (!existsSync(eventsFile)) {
     throw new Error("measurement qualification requires unit-events.ndjson");
   }
@@ -95,7 +124,7 @@ async function measurementSchedulerOverlapCount(base, groups) {
   return [...states.values()].reduce((total, state) => total + state.overlap_count, 0);
 }
 
-async function writeTargetResult(base, options, groups) {
+async function writeTargetResult(base, options, groups, resets) {
   const targetDirectory = path.join(base, options.target);
   const output = path.join(targetDirectory, "browser-target-result.json");
   if (existsSync(output)) {
@@ -306,6 +335,7 @@ async function writeTargetResult(base, options, groups) {
     target_id: options.target,
     status:
       groups.every((group) => group.result.status === "pass") &&
+      resets.every((reset) => reset.status === "passed") &&
       (visualReconciliation === null || visualReconciliation.status === "pass") &&
       (measurementAggregate === null || measurementAggregate.status === "qualified")
         ? "pass"
@@ -336,8 +366,11 @@ const groups = options.groups
     groupResult(base, group, options.groupTargets.get(group)),
   )
   .filter((group) => group !== null);
+const resets = options.resets.map((unitID) => resetResult(base, unitID));
 const complete = groups.length === options.groups.length;
-const targetResult = complete ? await writeTargetResult(base, options, groups) : null;
+const targetResult = complete
+  ? await writeTargetResult(base, options, groups, resets)
+  : null;
 if (!complete) {
   process.stderr.write(`browser target ${options.target} is missing group results\n`);
   process.exitCode = 11;

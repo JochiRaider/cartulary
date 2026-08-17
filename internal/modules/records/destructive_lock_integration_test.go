@@ -14,7 +14,7 @@ import (
 
 func TestDestructiveLockContract_Integration(t *testing.T) {
 	ctx := context.Background()
-	testDB := pgtest.Start(t).PrepareGroupDatabaseT(t, "records-destructive-lock-contract", "lock-ordering")
+	testDB := pgtest.Start(t).PrepareIsolatedDatabaseT(t, "records-destructive-lock-contract")
 	lockHolder, err := pgx.Connect(ctx, testDB.DSN)
 	if err != nil {
 		t.Fatalf("connect lock holder: %v", err)

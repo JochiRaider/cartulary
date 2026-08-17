@@ -16,6 +16,9 @@
   db-reset \
   services-up \
   services-down \
+  test-services-session-up \
+  test-services-session-status \
+  test-services-session-down \
   services-wait \
   postgres-wait \
   object-store-wait \
@@ -193,6 +196,9 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make services-up                    start local Postgres and SeaweedFS S3, then wait until ready' \
 	'  make services-down' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or stop local Postgres and SeaweedFS S3 while preserving named volumes' \
+	'  make test-services-session-up       start an explicit reusable local test-service session' \
+	'  make test-services-session-status   print redacted reusable test-service session status' \
+	'  make test-services-session-down     stop the exact reusable test-service session when it has no live borrowers' \
 	'  make object-store-init              create the default local object-store bucket if needed' \
 	'  make object-store-reset' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or clear objects from the default local object-store bucket; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset' \
@@ -429,6 +435,26 @@ services-down:
 	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,services-down)
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-services-down}" $(RUN_STEP_SCRIPT) "services-down" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" bash ./tools/harness/readiness/dev-services.sh services-down
+
+test-services-session-up: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+test-services-session-up:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-services-session-up)
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory go-toolchain-readiness testservices-build; fi
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-test-services-session-up}" $(RUN_STEP_SCRIPT) "test-services-session-up" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_TEST_SERVICES_SESSION_FILE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/services/local-session-cli.mjs up
+
+test-services-session-status:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-services-session-status)
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory go-toolchain-readiness testservices-build; fi
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_TEST_SERVICES_SESSION_FILE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/services/local-session-cli.mjs status
+
+test-services-session-down: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+test-services-session-down:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-services-session-down)
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory go-toolchain-readiness testservices-build; fi
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-test-services-session-down}" $(RUN_STEP_SCRIPT) "test-services-session-down" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_TEST_SERVICES_SESSION_FILE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/services/local-session-cli.mjs down
 
 services-wait: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 services-wait: postgres-wait object-store-wait
@@ -753,8 +779,8 @@ service-backed-test-slice:
 	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,service-backed-test-slice)
 	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory go-toolchain-readiness; fi
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE PLAYWRIGHT_WORKERS VITEST_MAX_WORKERS)" MAKE="$(MAKE)" \
-	  NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection owner --target service-backed-test-slice --owner "$(OWNER)" $(if $(strip $(ROWS)),--rows "$(ROWS)",) --service-backed-only
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" CARTULARY_MAKE_INPUT_SOURCES="$(call \
+	  TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE PLAYWRIGHT_WORKERS VITEST_MAX_WORKERS)" MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection owner --target service-backed-test-slice --owner "$(OWNER)" $(if $(strip $(ROWS)),--rows "$(ROWS)",) --service-backed-only
 
 backend-unit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 backend-unit: export CARTULARY_TEST_TARGET ?= backend-unit
@@ -1102,7 +1128,7 @@ lint-markdown:
 harness-contract-tests: export CARTULARY_TEST_TARGET ?= harness-contract-tests
 harness-contract-tests: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-contract-tests: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-contract-tests" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/tests/test-harness-boundary-contracts.mjs ./tools/harness/tests/test-harness-command-surface-contracts.mjs ./tools/harness/tests/test-harness-evidence-contracts.mjs ./tools/harness/tests/test-harness-graph-contracts.mjs ./tools/harness/tests/test-harness-scheduler-contracts.mjs
+	$(Q)$(RUN_STEP_SCRIPT) "harness-contract-tests" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/services/tests/test-local-session.mjs ./tools/harness/tests/test-harness-boundary-contracts.mjs ./tools/harness/tests/test-harness-command-surface-contracts.mjs ./tools/harness/tests/test-harness-evidence-contracts.mjs ./tools/harness/tests/test-harness-graph-contracts.mjs ./tools/harness/tests/test-harness-scheduler-contracts.mjs
 
 harness-command-surface-contract: export CARTULARY_TEST_TARGET ?= harness-command-surface-contract
 harness-command-surface-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
@@ -1122,8 +1148,8 @@ harness-contract:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-contract)
 	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
 	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "harness-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" \
-	  CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" $(NODE_BIN) --test ./tools/harness/tests/test-harness-boundary-contracts.mjs ./tools/harness/tests/test-harness-command-surface-contracts.mjs ./tools/harness/tests/test-harness-evidence-contracts.mjs ./tools/harness/tests/test-harness-graph-contracts.mjs \
-	  ./tools/harness/tests/test-harness-scheduler-contracts.mjs ./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs ./tools/harness/observability/tests/test-observability.mjs
+	  CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" $(NODE_BIN) --test ./tools/harness/services/tests/test-local-session.mjs ./tools/harness/tests/test-harness-boundary-contracts.mjs ./tools/harness/tests/test-harness-command-surface-contracts.mjs ./tools/harness/tests/test-harness-evidence-contracts.mjs \
+	  ./tools/harness/tests/test-harness-graph-contracts.mjs ./tools/harness/tests/test-harness-scheduler-contracts.mjs ./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs ./tools/harness/observability/tests/test-observability.mjs
 	$(call RUN_TARGET_SUMMARY,harness-contract,pass)
 else
 harness-contract: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -1186,8 +1212,8 @@ browser-e2e-webserver-backed: export CARTULARY_TEST_TARGET ?= browser-e2e-webser
 browser-e2e-webserver-backed:
 	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-webserver-backed)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs \
-	  --selection target --target browser-e2e-webserver-backed
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE \
+	  CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE)" MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection target --target browser-e2e-webserver-backed
 
 browser-e2e-functional: export CARTULARY_TEST_TARGET ?= browser-e2e-functional
 browser-e2e-functional: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
@@ -1204,8 +1230,8 @@ browser-e2e-stateful: export CARTULARY_TEST_TARGET ?= browser-e2e-stateful
 browser-e2e-stateful:
 	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-stateful)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs \
-	  --selection target --target browser-e2e-stateful
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE \
+	  CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE)" MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection target --target browser-e2e-stateful
 
 browser-e2e-resettable: export CARTULARY_TEST_TARGET ?= browser-e2e-resettable
 browser-e2e-resettable: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1

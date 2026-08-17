@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_fixture_builder_policy.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "builders"],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.performance_fixture_builder_policy.v1"
+    },
+    "builders": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fixture_profile_id",
+          "runtime_profile_id",
+          "resource_profile_id",
+          "fixture_capability",
+          "service_dependencies"
+        ],
+        "properties": {
+          "fixture_profile_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*_v[1-9][0-9]*$"
+          },
+          "runtime_profile_id": { "const": "default" },
+          "resource_profile_id": { "const": "performance_fixture_builder" },
+          "fixture_capability": { "const": "postgres_dedicated" },
+          "service_dependencies": {
+            "const": ["postgres"]
+          }
+        }
+      }
+    }
+  }
+}

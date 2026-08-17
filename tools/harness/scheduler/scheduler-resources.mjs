@@ -31,11 +31,11 @@ export function validateSchedulerResourceRegistrySemantics(
   const keys = Object.keys(registry ?? {}).sort();
   if (
     JSON.stringify(keys) !==
-    JSON.stringify(["capacity_override_schema", "resources", "runner_worker_inputs", "schema_id"])
+    JSON.stringify(["capacity_override_schema", "capacity_policies", "resources", "runner_worker_inputs", "schema_id"])
   ) {
     throw new Error(`${label} has unexpected fields`);
   }
-  if (registry.schema_id !== "cartulary.scheduler_resource_registry.v5") {
+  if (registry.schema_id !== "cartulary.scheduler_resource_registry.v6") {
     throw new Error(`${label} has the wrong schema ID`);
   }
   if (registry.capacity_override_schema !== "cartulary.harness_capacity_override.v1") {
@@ -47,6 +47,40 @@ export function validateSchedulerResourceRegistrySemantics(
       JSON.stringify(expectedResources)
   ) {
     throw new Error(`${label} must declare the sorted canonical resource roster`);
+  }
+  const expectedPolicyFields = [
+    "cpu_tokens",
+    "io_tokens",
+    "memory_bytes",
+    "object_store_lanes",
+    "port_lanes",
+    "postgres_lanes",
+    "process_slots",
+    "writable_volume",
+  ];
+  if (
+    JSON.stringify(Object.keys(registry.capacity_policies ?? {}).sort()) !==
+    JSON.stringify(expectedPolicyFields)
+  ) {
+    throw new Error(`${label} must declare the closed capacity policy roster`);
+  }
+  const expectedSources = {
+    cpu_tokens: "host_parallelism",
+    io_tokens: "cpu_multiple",
+    memory_bytes: "host_memory_cgroup_bounded",
+    object_store_lanes: "fixed_cpu_bounded",
+    port_lanes: "fixed_cpu_bounded",
+    postgres_lanes: "fixed_cpu_bounded",
+    process_slots: "process_limit_bounded_cpu_multiple",
+    writable_volume: "writable_root",
+  };
+  for (const field of expectedPolicyFields) {
+    if (registry.capacity_policies[field]?.source !== expectedSources[field]) {
+      throw new Error(`${label}.capacity_policies.${field} has an unsupported source`);
+    }
+  }
+  if (registry.capacity_policies.postgres_lanes.default !== 8) {
+    throw new Error(`${label}.capacity_policies.postgres_lanes.default must be 8`);
   }
   for (const resource of registry.resources) {
     if (

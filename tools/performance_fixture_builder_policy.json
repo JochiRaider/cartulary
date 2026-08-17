@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.performance_fixture_builder_policy.v1",
+  "builders": [
+    {
+      "fixture_profile_id": "ac043_large_grid_snapshot_v1",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "performance_fixture_builder",
+      "fixture_capability": "postgres_dedicated",
+      "service_dependencies": [
+        "postgres"
+      ]
+    }
+  ]
+}

@@ -292,7 +292,11 @@ export class FixtureBroker {
         await (lease.allocation.quarantine?.() ?? lease.allocation.destroy?.());
       }
     }
-    lease.record.state = healthy ? "released" : "destroyed";
+    lease.record.state = healthy
+      ? "released"
+      : lease.record.state === "quarantined"
+        ? "quarantined"
+        : "destroyed";
     validateSchemaSync(lease.record.schema_id, lease.record);
     await this.recordSink(lease.record);
     return { retained };
