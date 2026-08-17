@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.test_family_manifest.v5",
+  "$id": "cartulary.test_family_manifest.v6",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_id", "owner_id", "rows"],
   "properties": {
-    "schema_id": { "const": "cartulary.test_family_manifest.v5" },
+    "schema_id": { "const": "cartulary.test_family_manifest.v6" },
     "owner_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/owner_id" },
     "rows": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/row" } }
   },
@@ -43,9 +43,10 @@
         "selector": { "oneOf": [{ "$ref": "#/$defs/go_selector" }, { "$ref": "#/$defs/vitest_selector" }, { "$ref": "#/$defs/playwright_selector" }, { "$ref": "#/$defs/shell_selector" }] },
         "evidence_class": { "enum": ["unit", "integration", "browser", "accessibility", "visual", "measurement", "static", "security", "release"] },
         "runtime_profile_id": { "enum": ["none", "default", "network_flow_claimed"] },
-        "resource_profile_id": { "enum": ["backend_capacity_isolated", "browser_functional", "browser_isolated", "browser_measurement_quiet", "io_heavy", "managed_process", "performance_fixture_builder", "standard"] },
-        "fixture_capability": { "enum": ["none", "postgres_transaction", "postgres_group", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"] },
+        "resource_profile_id": { "enum": ["backend_capacity_isolated", "browser_functional", "browser_isolated", "browser_measurement_quiet", "io_heavy", "managed_process", "performance_fixture_builder", "postgres_catalog_isolated", "standard"] },
+        "fixture_capability": { "enum": ["none", "postgres_transaction", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"] },
         "fixture_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*_v[1-9][0-9]*$" },
+        "process_isolation": { "const": "exclusive" },
         "service_dependencies": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies" },
         "minimum_tier": { "enum": ["fast", "standard", "full", "release"] },
         "claim_posture": { "type": "string", "pattern": "^(?:implementation|informative|claim\\.[a-z][a-z0-9_]{0,62})$" },

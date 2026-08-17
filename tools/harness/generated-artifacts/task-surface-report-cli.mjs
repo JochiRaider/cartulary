@@ -8,12 +8,9 @@ import {
   collectTaskSurfaceMakeDensityErrors,
   compactHelpEntries,
   defaultGeneratedMakePath,
-  defaultGeneratedMakeRuntimePath,
   harnessCheckEntries,
   helpTiers,
   makeRecipeEntries,
-  renderTaskSurfaceMake,
-  renderTaskSurfaceMakeRuntime,
   taskSurfaceMakeDensity,
   taskSurfaceSchemaID,
 } from "./task-surface/index.mjs";
@@ -40,9 +37,6 @@ const manifestPath = resolvePath(
 );
 const generatedMakePath = resolvePath(
   process.env.CARTULARY_TASK_SURFACE_GENERATED_MAKE ?? defaultGeneratedMakePath,
-);
-const generatedMakeRuntimePath = resolvePath(
-  process.env.CARTULARY_TASK_SURFACE_GENERATED_RUNTIME_MAKE ?? defaultGeneratedMakeRuntimePath,
 );
 const schedulerManifestPath = resolvePath("tools/scheduler_manifest.json");
 
@@ -71,8 +65,6 @@ function main() {
   const catalogTargetPartitions = collectCatalogTargetPartitions(manifest);
   const errors = validateTaskSurface({
     authoredMake,
-    generatedMakePath,
-    generatedMakeRuntimePath,
     helpEntries,
     manifest,
     authoredGeneratedRecipeBlocks,
@@ -362,8 +354,6 @@ function collectCatalogTargetPartitions(taskSurface) {
 
 function validateTaskSurface({
   authoredMake,
-  generatedMakePath,
-  generatedMakeRuntimePath,
   helpEntries,
   manifest,
   authoredGeneratedRecipeBlocks,
@@ -391,18 +381,6 @@ function validateTaskSurface({
   }
   errors.push(...collectTaskSurfaceManifestErrors(manifest));
   errors.push(...collectTaskSurfaceMakeDensityErrors(manifest));
-  const renderedMake = renderTaskSurfaceMake(manifest);
-  const renderedRuntimeMake = renderTaskSurfaceMakeRuntime(manifest);
-  const committedMake = readFileSync(generatedMakePath, "utf8");
-  const committedRuntimeMake = readFileSync(generatedMakeRuntimePath, "utf8");
-  if (renderedMake !== committedMake) {
-    errors.push("tools/task_surface.generated.mk is stale; run tools/harness/generated-artifacts/render-task-surface-make.mjs");
-  }
-  if (renderedRuntimeMake !== committedRuntimeMake) {
-    errors.push(
-      "tools/task_surface.runtime.generated.mk is stale; run tools/harness/generated-artifacts/render-task-surface-make.mjs",
-    );
-  }
   for (const recipe of makeRecipeEntries(manifest)) {
     if (authoredGeneratedRecipeBlocks.has(recipe.target)) {
       errors.push(`generated Make recipe target ${recipe.target} must not be hand-defined in Makefile`);

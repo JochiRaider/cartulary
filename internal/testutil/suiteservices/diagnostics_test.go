@@ -2,11 +2,239 @@ package suiteservices
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 )
+
+func TestProducerJournalIsBoundedAndRejectsCompletedCorruption(t *testing.T) {
+	resultsRoot := t.TempDir()
+	env := map[string]string{
+		SuiteIDEnv:        "suite-journal",
+		TargetEnv:         "check",
+		testResultsDirEnv: resultsRoot,
+		testRunIDEnv:      "run-journal",
+	}
+	for index := range 12 {
+		if err := RecordEvent(env, Event{
+			Type:      EventFailureRecorded,
+			Timestamp: fmt.Sprintf("2026-08-17T12:00:%02dZ", index),
+			PID:       8080,
+			Details: map[string]any{
+				"failure_class":  FailureClassInfra,
+				"failure_reason": "service_start_error",
+			},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	suiteDir, _, err := ResolveSuiteArtifactDir(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	journals, err := filepath.Glob(filepath.Join(suiteDir, "journals", "*.ndjson"))
+	if err != nil || len(journals) != 1 {
+		t.Fatalf("expected one producer journal, got %v (%v)", journals, err)
+	}
+	scope, ok, err := Summarize(env)
+	if err != nil || !ok {
+		t.Fatalf("summarize journal: ok=%t err=%v", ok, err)
+	}
+	if scope.Failures.Counts[FailureClassInfra] != 12 || len(scope.Failures.Exemplars[FailureClassInfra]) != 10 {
+		t.Fatalf("failure counts/exemplars are not bounded: %#v", scope.Failures)
+	}
+	if err := os.Chmod(journals[0], 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Summarize(env); err == nil {
+		t.Fatal("reader must reject a producer journal with non-owner permissions")
+	}
+	if err := os.Chmod(journals[0], 0o600); err != nil {
+		t.Fatal(err)
+	}
+	journal, err := os.OpenFile(journals[0], os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := journal.WriteString("{"); err != nil {
+		t.Fatal(err)
+	}
+	if err := journal.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Summarize(env); err != nil {
+		t.Fatalf("incomplete trailing crash record must be ignored: %v", err)
+	}
+	journal, err = os.OpenFile(journals[0], os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := journal.WriteString("\n"); err != nil {
+		t.Fatal(err)
+	}
+	if err := journal.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Summarize(env); err == nil {
+		t.Fatal("malformed completed journal record must be rejected")
+	}
+}
+
+func TestProducerJournalRejectsSymlinkDestination(t *testing.T) {
+	resultsRoot := t.TempDir()
+	env := map[string]string{
+		SuiteIDEnv:        "suite-journal-symlink",
+		TargetEnv:         "check",
+		testResultsDirEnv: resultsRoot,
+		testRunIDEnv:      "run-journal-symlink",
+	}
+	suiteDir, _, err := ResolveSuiteArtifactDir(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	journalDir := filepath.Join(suiteDir, "journals")
+	if err := os.MkdirAll(journalDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(t.TempDir(), "outside.ndjson")
+	if err := os.WriteFile(target, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(journalDir, producerIdentity+".ndjson")); err != nil {
+		t.Fatal(err)
+	}
+	if err := RecordEvent(env, Event{Type: EventWrapperOwnedStart}); err == nil {
+		t.Fatal("producer journal writer must reject a symlink destination")
+	}
+}
+
+func TestProducerJournalRejectsSequenceGapsAndDuplicates(t *testing.T) {
+	for _, testCase := range []struct {
+		name      string
+		sequences []uint64
+	}{
+		{name: "gap", sequences: []uint64{2}},
+		{name: "duplicate", sequences: []uint64{1, 1}},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			resultsRoot := t.TempDir()
+			env := map[string]string{
+				SuiteIDEnv:        "suite-journal-" + testCase.name,
+				TargetEnv:         "check",
+				testResultsDirEnv: resultsRoot,
+				testRunIDEnv:      "run-journal-" + testCase.name,
+			}
+			suiteDir, _, err := ResolveSuiteArtifactDir(env)
+			if err != nil {
+				t.Fatal(err)
+			}
+			journalDir := filepath.Join(suiteDir, "journals")
+			if err := os.MkdirAll(journalDir, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			producerID := "producer-identity"
+			var records strings.Builder
+			for index, sequence := range testCase.sequences {
+				records.WriteString(fmt.Sprintf(
+					`{"schema_id":"cartulary.test_services.journal_event.v1","producer_id":%q,"seq":%d,"type":"wrapper-owned-start","timestamp":"2026-08-17T12:00:%02dZ","pid":8080}`+"\n",
+					producerID, sequence, index,
+				))
+			}
+			if err := os.WriteFile(filepath.Join(journalDir, producerID+".ndjson"), []byte(records.String()), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := Summarize(env); err == nil {
+				t.Fatalf("completed journal with %s must be rejected", testCase.name)
+			}
+		})
+	}
+}
+
+func TestScopeV2OmitsExactResourcesAndPrivateLedgerIsOwnerOnly(t *testing.T) {
+	resultsRoot := t.TempDir()
+	env := map[string]string{
+		SuiteIDEnv:        "suite-ledger",
+		TargetEnv:         "browser-e2e",
+		testResultsDirEnv: resultsRoot,
+		testRunIDEnv:      "run-ledger",
+	}
+	for _, event := range []Event{
+		{Type: EventPostgresDBCreated, Name: "ct_private", PID: 9090},
+		{Type: EventS3BucketCreated, Name: "ct-private", PID: 9090},
+		{Type: EventWebE2EFixtureRetired, PID: 9090, Details: map[string]any{"database_name": "ct_private", "bucket": "ct-private", "target": "browser-e2e"}},
+	} {
+		if err := RecordEvent(env, event); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := RefreshSummary(env); err != nil {
+		t.Fatal(err)
+	}
+	suiteDir, _, _ := ResolveSuiteArtifactDir(env)
+	summary, err := os.ReadFile(filepath.Join(suiteDir, "service-scope.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"created_databases", "created_buckets", "retired_fixtures", "by_package", "by_test"} {
+		if strings.Contains(string(summary), forbidden) {
+			t.Fatalf("bounded public scope retained %q", forbidden)
+		}
+	}
+	ledgerPath := filepath.Join(suiteDir, "resource-ledger.json")
+	info, err := os.Lstat(ledgerPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 || !info.Mode().IsRegular() {
+		t.Fatalf("resource ledger mode/type = %v", info.Mode())
+	}
+	ledger, ok, err := ReadResourceLedger(env)
+	if err != nil || !ok || len(ledger.Databases) != 1 || len(ledger.Buckets) != 1 || len(ledger.BrowserFixtures) != 1 {
+		t.Fatalf("private ledger lost exact cleanup authority: ok=%t err=%v ledger=%#v", ok, err, ledger)
+	}
+	if err := os.Chmod(ledgerPath, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := ReadResourceLedger(env); err == nil {
+		t.Fatal("resource ledger reader must reject non-owner permissions")
+	}
+	if err := os.Chmod(ledgerPath, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ledger.SuiteID = "wrong-suite"
+	tampered, err := json.Marshal(ledger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(ledgerPath, append(tampered, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := ReadResourceLedger(env); err == nil {
+		t.Fatal("resource ledger reader must reject wrong suite identity")
+	}
+	if err := os.Remove(ledgerPath); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "outside-ledger.json")
+	if err := os.WriteFile(outside, tampered, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, ledgerPath); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := ReadResourceLedger(env); err == nil {
+		t.Fatal("resource ledger reader must reject symlinks")
+	}
+	if err := RemoveResourceLedger(env); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(ledgerPath); !os.IsNotExist(err) {
+		t.Fatalf("successful cleanup must remove resource ledger: %v", err)
+	}
+}
 
 func TestRefreshSummaryPublishesCompleteSnapshotsUnderConcurrency(t *testing.T) {
 	resultsRoot := t.TempDir()
@@ -48,7 +276,7 @@ func TestRefreshSummaryPublishesCompleteSnapshotsUnderConcurrency(t *testing.T) 
 		if err := json.Unmarshal(raw, &scope); err != nil {
 			t.Fatalf("reader observed incomplete summary: %v", err)
 		}
-		if scope.SchemaID != "cartulary.test_services.scope.v1" {
+		if scope.SchemaID != "cartulary.test_services.scope.v2" {
 			t.Fatalf("unexpected scope schema %q", scope.SchemaID)
 		}
 	}
@@ -346,14 +574,14 @@ func TestSummarizeReportsFixtureActivity(t *testing.T) {
 			},
 		},
 		{
-			Type:      EventPostgresDBReset,
+			Type:      EventPostgresTransaction,
 			Timestamp: "2026-04-25T12:00:01Z",
 			PID:       101,
 			Name:      "ct_auth",
 			Details: map[string]any{
 				"duration_ms":    float64(7),
-				"fixture_policy": PostgresFixturePolicyPackageReset,
-				"reuse_scope":    FixtureReusePackage,
+				"fixture_policy": PostgresFixturePolicyTransaction,
+				"reuse_scope":    FixtureReuseTransaction,
 				"caller_package": "internal/modules/auth",
 				"caller_file":    "internal/modules/auth/integration_test.go",
 				"test_name":      "TestAuthReplay",
@@ -410,6 +638,51 @@ func TestSummarizeReportsFixtureActivity(t *testing.T) {
 	}
 	if len(scope.Fixture.Slowest) == 0 || scope.Fixture.Slowest[0].TestName != "TestAuth" {
 		t.Fatalf("expected slowest fixture event first, got %#v", scope.Fixture.Slowest)
+	}
+}
+
+func TestSummarizeBoundsStrategyDiagnosticsWithoutLosingTotals(t *testing.T) {
+	env := map[string]string{
+		SuiteIDEnv:        "suite-bounded-strategies",
+		TargetEnv:         "release-check",
+		testResultsDirEnv: t.TempDir(),
+		testRunIDEnv:      "run-bounded-strategies",
+	}
+
+	for index := 0; index < 40; index++ {
+		strategy := fmt.Sprintf("strategy-%02d", index)
+		if err := RecordEvent(env, Event{
+			Type:      EventPostgresDBCreated,
+			Timestamp: fmt.Sprintf("2026-04-25T12:00:%02dZ", index),
+			PID:       300 + index,
+			Name:      fmt.Sprintf("ct_strategy_%02d", index),
+			Details: map[string]any{
+				"duration_ms":          int64(index),
+				"preparation_strategy": strategy,
+				"reuse_scope":          FixtureReusePerTest,
+				"target":               "release-check",
+			},
+		}); err != nil {
+			t.Fatalf("record strategy %s: %v", strategy, err)
+		}
+	}
+
+	scope, ok, err := Summarize(env)
+	if err != nil || !ok {
+		t.Fatalf("summarize bounded strategies: ok=%t err=%v", ok, err)
+	}
+	if scope.Fixture.TotalCount != 40 || scope.Fixture.TotalDurationMS != 780 {
+		t.Fatalf("fixture totals were truncated: %#v", scope.Fixture)
+	}
+	if scope.Fixture.StrategyAggregateCount != 40 {
+		t.Fatalf("strategy aggregate count = %d, want 40", scope.Fixture.StrategyAggregateCount)
+	}
+	if len(scope.Fixture.ByStrategy) != 32 {
+		t.Fatalf("retained strategy diagnostics = %d, want 32", len(scope.Fixture.ByStrategy))
+	}
+	if scope.Fixture.ByStrategy[0].Strategy != "strategy-39" ||
+		scope.Fixture.ByStrategy[31].Strategy != "strategy-08" {
+		t.Fatalf("bounded strategy ordering is not deterministic: first=%#v last=%#v", scope.Fixture.ByStrategy[0], scope.Fixture.ByStrategy[31])
 	}
 }
 
@@ -478,20 +751,21 @@ func TestSummarizeReportsBrowserE2EFixtureLifecycle(t *testing.T) {
 	if !ok {
 		t.Fatal("expected suite summary")
 	}
-	if scope.BrowserE2E.RetiredFixtureCount != 2 || len(scope.BrowserE2E.RetiredFixtures) != 1 {
-		t.Fatalf("expected deduplicated retired browser fixture summary, got %#v", scope.BrowserE2E)
+	if scope.BrowserE2E.RetiredFixtureCount != 2 {
+		t.Fatalf("expected full retired browser fixture count, got %#v", scope.BrowserE2E)
 	}
-	if scope.BrowserE2E.CleanedFixtureCount != 1 || len(scope.BrowserE2E.CleanedFixtures) != 1 {
+	if scope.BrowserE2E.CleanedFixtureCount != 1 {
 		t.Fatalf("expected cleaned browser fixture summary, got %#v", scope.BrowserE2E)
 	}
-	if scope.BrowserE2E.ReclaimedFixtureCount != 1 || len(scope.BrowserE2E.ReclaimedFixtures) != 1 {
+	if scope.BrowserE2E.ReclaimedFixtureCount != 1 {
 		t.Fatalf("expected reclaimed browser fixture summary, got %#v", scope.BrowserE2E)
 	}
-	if scope.BrowserE2E.ReclaimedFixtures[0].ReclaimStrategy != "owned_stack_termination" {
-		t.Fatalf("expected reclaim strategy in browser fixture summary, got %#v", scope.BrowserE2E.ReclaimedFixtures[0])
+	ledger, found, err := CurrentResourceLedger(env)
+	if err != nil || !found {
+		t.Fatalf("read private resource ledger: found=%t err=%v", found, err)
 	}
-	if scope.BrowserE2E.RetiredFixtures[0].Timestamp != "2026-04-25T12:00:01Z" {
-		t.Fatalf("expected latest retired fixture event to win, got %#v", scope.BrowserE2E.RetiredFixtures[0])
+	if len(ledger.BrowserFixtures) != 0 {
+		t.Fatalf("completed browser fixture remained live in private ledger: %#v", ledger.BrowserFixtures)
 	}
 }
 

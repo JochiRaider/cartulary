@@ -3,11 +3,7 @@ package pgtest
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -125,7 +121,7 @@ func TestCreateDatabaseRejectsOmittedServiceBeforeAcquisition(t *testing.T) {
 		createDatabaseFn = oldCreate
 	})
 
-	_, err := (&Harness{}).NewDatabase(context.Background(), "guarded")
+	_, err := (&Harness{}).newDatabase(context.Background(), "guarded", suiteservices.FixtureReusePerTest, fixtureAttribution{})
 	var dependencyErr *suiteservices.ServiceDependencyError
 	if !errors.As(err, &dependencyErr) || dependencyErr.Service != "postgres" || dependencyErr.Reason != "omitted" {
 		t.Fatalf("unexpected dependency error: %#v", err)
@@ -425,10 +421,8 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 
 func TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage(t *testing.T) {
 	t.Setenv(postgresFixturePolicyTestsEnv, "TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage=template_clone")
-	t.Setenv(postgresFixturePolicyPackagesEnv, "internal/modules/auth=package_reset")
-	t.Setenv(postgresFixturePolicyDefaultEnv, "package_reset")
-	t.Setenv(postgresResetTablesTestsEnv, "TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage=users|sessions")
-	t.Setenv(postgresResetTablesPackagesEnv, "internal/modules/auth=audit_events|route_idempotency")
+	t.Setenv(postgresFixturePolicyPackagesEnv, "internal/modules/auth=transaction")
+	t.Setenv(postgresFixturePolicyDefaultEnv, "transaction")
 
 	policy := resolvePostgresFixturePolicy(fixtureAttribution{
 		TestName:      "TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage/subcase",
@@ -437,29 +431,13 @@ func TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage(t *testing.T)
 	if policy != postgresFixturePolicyTemplateClone {
 		t.Fatalf("expected top-level test policy to win, got %q", policy)
 	}
-	tables := resolvePostgresResetTables(fixtureAttribution{
-		TestName:      "TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage/subcase",
-		CallerPackage: "internal/modules/auth",
-	})
-	if got, want := strings.Join(tables, ","), "users,sessions"; got != want {
-		t.Fatalf("expected top-level reset tables to win, got %q want %q", got, want)
-	}
-
 	t.Setenv(postgresFixturePolicyTestsEnv, "")
-	t.Setenv(postgresResetTablesTestsEnv, "")
 	policy = resolvePostgresFixturePolicy(fixtureAttribution{
 		TestName:      "TestOther/subcase",
 		CallerPackage: "./internal/modules/auth",
 	})
-	if policy != postgresFixturePolicyPackageReset {
+	if policy != postgresFixturePolicyTransaction {
 		t.Fatalf("expected package policy to win, got %q", policy)
-	}
-	tables = resolvePostgresResetTables(fixtureAttribution{
-		TestName:      "TestOther/subcase",
-		CallerPackage: "./internal/modules/auth",
-	})
-	if got, want := strings.Join(tables, ","), "audit_events,route_idempotency"; got != want {
-		t.Fatalf("expected package reset tables to win, got %q want %q", got, want)
 	}
 
 	t.Setenv(postgresFixturePolicyPackagesEnv, "")
@@ -482,17 +460,15 @@ func TestValidateSelectedPostgresFixturePolicy(t *testing.T) {
 	}
 }
 
-func TestPrepareIsolatedDatabaseTDoesNotUsePackageReset(t *testing.T) {
+func TestPrepareIsolatedDatabaseTUsesFreshTemplateClones(t *testing.T) {
 	t.Setenv(suiteservices.SuiteIDEnv, "")
 	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyTemplateClone)
 
 	oldCreate := createDatabaseFn
-	oldDrop := dropDatabaseFn
-	oldListMutableTables := listMutableTablesFn
+	oldDrop := dropOwnedDatabaseFn
 	t.Cleanup(func() {
 		createDatabaseFn = oldCreate
-		dropDatabaseFn = oldDrop
-		listMutableTablesFn = oldListMutableTables
+		dropOwnedDatabaseFn = oldDrop
 	})
 
 	var creates []struct {
@@ -507,14 +483,10 @@ func TestPrepareIsolatedDatabaseTDoesNotUsePackageReset(t *testing.T) {
 		return nil
 	}
 	var drops []string
-	dropDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, normalLimit time.Duration, forcedLimit time.Duration) (bool, error) {
 		drops = append(drops, name)
-		return nil
+		return false, nil
 	}
-	listMutableTablesFn = func(ctx context.Context, db *sql.DB) ([]string, error) {
-		return nil, errors.New("template clone policy must not reset mutable tables")
-	}
-
 	harness := &Harness{
 		adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
 		dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
@@ -550,21 +522,23 @@ func TestPrepareIsolatedDatabaseTDoesNotUsePackageReset(t *testing.T) {
 
 func TestPrepareIsolatedDatabaseTCleanupDropsStandaloneDatabase(t *testing.T) {
 	t.Setenv(suiteservices.SuiteIDEnv, "")
+	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "postgres")
+	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyTemplateClone)
 
 	oldCreate := createDatabaseFn
-	oldDrop := dropDatabaseFn
+	oldDrop := dropOwnedDatabaseFn
 	t.Cleanup(func() {
 		createDatabaseFn = oldCreate
-		dropDatabaseFn = oldDrop
+		dropOwnedDatabaseFn = oldDrop
 	})
 
 	var dropped []string
 	createDatabaseFn = func(ctx context.Context, adminDSN string, name string, templateDB string) error {
 		return nil
 	}
-	dropDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, normalLimit time.Duration, forcedLimit time.Duration) (bool, error) {
 		dropped = append(dropped, name)
-		return nil
+		return false, nil
 	}
 
 	harness := &Harness{
@@ -585,27 +559,148 @@ func TestPrepareIsolatedDatabaseTCleanupDropsStandaloneDatabase(t *testing.T) {
 	}
 }
 
-func TestPrepareIsolatedDatabaseTCleanupRetainsAttachedSuiteTemplateClone(t *testing.T) {
-	t.Setenv(suiteservices.ActiveEnv, "1")
+func TestDatabaseCleanupUsesBoundedForcedFallbackOnlyForOwnedActiveDatabase(t *testing.T) {
+	oldDrop := dropOwnedDatabaseFn
+	t.Cleanup(func() {
+		dropOwnedDatabaseFn = oldDrop
+	})
+
+	harness := &Harness{
+		adminDSN: "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
+		ownedDatabases: map[string]struct{}{
+			"ct_deadbeef_cafe0001_000001_owned": {},
+		},
+	}
+	dropCalls := 0
+	dropOwnedDatabaseFn = func(ctx context.Context, _ string, _ string, normalLimit time.Duration, forcedLimit time.Duration) (bool, error) {
+		dropCalls++
+		if ctx.Err() != nil {
+			t.Fatalf("cleanup delegate received canceled parent: %v", ctx.Err())
+		}
+		if normalLimit != postgresDatabaseNormalDropTimeout || forcedLimit != postgresDatabaseForcedDropTimeout {
+			t.Fatalf("cleanup limits = (%s, %s), want (%s, %s)", normalLimit, forcedLimit, postgresDatabaseNormalDropTimeout, postgresDatabaseForcedDropTimeout)
+		}
+		return true, nil
+	}
+
+	if err := harness.dropDatabase(context.Background(), "ct_deadbeef_cafe0001_000001_owned", suiteservices.FixtureReusePerTest, fixtureAttribution{}); err != nil {
+		t.Fatalf("drop owned active database: %v", err)
+	}
+	if dropCalls != 1 {
+		t.Fatalf("expected one coordinated drop request, got %d", dropCalls)
+	}
+
+	if err := harness.dropDatabase(context.Background(), "ct_deadbeef_cafe0001_000002_unowned", suiteservices.FixtureReusePerTest, fixtureAttribution{}); err == nil {
+		t.Fatal("expected unowned database cleanup to fail before deletion")
+	}
+	if dropCalls != 1 {
+		t.Fatalf("unowned database reached deletion: calls=%d", dropCalls)
+	}
+}
+
+func TestDatabaseCleanupUsesFreshForcedFallbackAfterBoundedNormalTimeout(t *testing.T) {
+	oldDrop := dropOwnedDatabaseFn
+	t.Cleanup(func() {
+		dropOwnedDatabaseFn = oldDrop
+	})
+
+	const databaseName = "ct_deadbeef_cafe0001_000001_owned"
+	harness := &Harness{
+		adminDSN: "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
+		ownedDatabases: map[string]struct{}{
+			databaseName: {},
+		},
+	}
+	dropCalls := 0
+	dropOwnedDatabaseFn = func(ctx context.Context, _ string, _ string, normalLimit time.Duration, forcedLimit time.Duration) (bool, error) {
+		dropCalls++
+		if ctx.Err() != nil {
+			t.Fatalf("coordinated cleanup inherited an expired child context: %v", ctx.Err())
+		}
+		if normalLimit != postgresDatabaseNormalDropTimeout || forcedLimit != postgresDatabaseForcedDropTimeout {
+			t.Fatalf("coordinated cleanup limits = (%s, %s)", normalLimit, forcedLimit)
+		}
+		return true, nil
+	}
+
+	if err := harness.dropDatabase(context.Background(), databaseName, suiteservices.FixtureReusePerTest, fixtureAttribution{}); err != nil {
+		t.Fatalf("drop owned database after normal timeout: %v", err)
+	}
+	if dropCalls != 1 {
+		t.Fatalf("coordinated cleanup calls = %d, want 1", dropCalls)
+	}
+}
+
+func TestDatabaseCleanupDoesNotForceNonConnectionFailure(t *testing.T) {
+	authorizePGSuite(t)
+	t.Setenv(suiteservices.SuiteIDEnv, "suite-cleanup-failure")
+	t.Setenv(suiteservices.TargetEnv, "backend-integration")
+	t.Setenv("CARTULARY_TEST_RESULTS_DIR", t.TempDir())
+	t.Setenv("CARTULARY_TEST_RUN_ID", "cleanup-failure")
+
+	oldDrop := dropOwnedDatabaseFn
+	t.Cleanup(func() {
+		dropOwnedDatabaseFn = oldDrop
+	})
+
+	const databaseName = "ct_deadbeef_cafe0001_000001_owned"
+	harness := &Harness{ownedDatabases: map[string]struct{}{databaseName: {}}}
+	if err := suiteservices.RecordEvent(nil, suiteservices.Event{Type: suiteservices.EventPostgresDBCreated, Name: databaseName, Kind: "template-clone"}); err != nil {
+		t.Fatalf("record owned database: %v", err)
+	}
+	dropCalls := 0
+	dropOwnedDatabaseFn = func(context.Context, string, string, time.Duration, time.Duration) (bool, error) {
+		dropCalls++
+		return false, errors.New("permission denied")
+	}
+	if err := harness.dropDatabase(context.Background(), databaseName, suiteservices.FixtureReusePerTest, fixtureAttribution{}); err == nil {
+		t.Fatal("expected ordinary cleanup failure")
+	}
+	if dropCalls != 1 {
+		t.Fatalf("non-connection failure delegated %d times", dropCalls)
+	}
+	ledger, found, err := suiteservices.CurrentResourceLedger(nil)
+	if err != nil || !found {
+		t.Fatalf("read cleanup-failure ledger: found=%t err=%v", found, err)
+	}
+	if len(ledger.Databases) != 1 || ledger.Databases[0] != databaseName {
+		t.Fatalf("failed cleanup lost recovery authority: %#v", ledger.Databases)
+	}
+
+	dropOwnedDatabaseFn = func(context.Context, string, string, time.Duration, time.Duration) (bool, error) {
+		dropCalls++
+		return false, context.Canceled
+	}
+	if err := harness.dropDatabase(context.Background(), databaseName, suiteservices.FixtureReusePerTest, fixtureAttribution{}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("interrupted cleanup error = %v, want context cancellation", err)
+	}
+	if dropCalls != 2 {
+		t.Fatalf("interrupted cleanup delegated %d total times", dropCalls)
+	}
+}
+
+func TestPrepareIsolatedDatabaseTCleanupDropsAttachedSuiteTemplateClone(t *testing.T) {
+	authorizePGSuite(t)
+	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyTemplateClone)
 	t.Setenv(suiteservices.SuiteIDEnv, "suite-retained-template")
 	t.Setenv(suiteservices.TargetEnv, "backend-integration")
 	t.Setenv("CARTULARY_TEST_RESULTS_DIR", t.TempDir())
 	t.Setenv("CARTULARY_TEST_RUN_ID", "retained-template")
 
 	oldCreate := createDatabaseFn
-	oldDrop := dropDatabaseFn
+	oldDrop := dropOwnedDatabaseFn
 	t.Cleanup(func() {
 		createDatabaseFn = oldCreate
-		dropDatabaseFn = oldDrop
+		dropOwnedDatabaseFn = oldDrop
 	})
 
 	createDatabaseFn = func(ctx context.Context, adminDSN string, name string, templateDB string) error {
 		return nil
 	}
 	dropCalls := 0
-	dropDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, normalLimit time.Duration, forcedLimit time.Duration) (bool, error) {
 		dropCalls++
-		return nil
+		return false, nil
 	}
 
 	harness := &Harness{
@@ -622,46 +717,29 @@ func TestPrepareIsolatedDatabaseTCleanupRetainsAttachedSuiteTemplateClone(t *tes
 		preparedName = harness.PrepareIsolatedDatabaseT(t, "attached-cleanup").Name
 	})
 
-	if dropCalls != 0 {
-		t.Fatalf("expected attached suite template cleanup to retain database, got %d drops", dropCalls)
-	}
-
-	scope, ok, err := suiteservices.Summarize(nil)
-	if err != nil {
-		t.Fatalf("summarize suite service events: %v", err)
-	}
-	if !ok {
-		t.Fatal("expected suite service summary")
-	}
-	foundRetain := false
-	for _, activity := range scope.Fixture.ByStrategy {
-		if activity.Operation == "database-retain" && activity.ReuseScope == suiteservices.FixtureReusePerTest && activity.Strategy == suiteservices.PostgresPreparationTemplateClone {
-			foundRetain = true
-			break
-		}
-	}
-	if !foundRetain {
-		t.Fatalf("expected retained clone fixture activity for %q, got %#v", preparedName, scope.Fixture)
+	if dropCalls != 1 {
+		t.Fatalf("expected attached suite template cleanup to drop %q, got %d drops", preparedName, dropCalls)
 	}
 
 	t.Setenv(suiteservices.PersistentBorrowerEnv, "1")
 	t.Run("persistent session borrower", func(t *testing.T) {
 		harness.PrepareIsolatedDatabaseT(t, "persistent-borrower-cleanup")
 	})
-	if dropCalls != 1 {
-		t.Fatalf("expected a persistent session borrower to drop its run-owned database, got %d drops", dropCalls)
+	if dropCalls != 2 {
+		t.Fatalf("expected a persistent session borrower to use the same eager cleanup path, got %d drops", dropCalls)
 	}
 }
 
 func TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase(t *testing.T) {
 	t.Setenv(suiteservices.SuiteIDEnv, "")
+	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "postgres")
 
 	oldCreate := createDatabaseFn
-	oldDrop := dropDatabaseFn
+	oldDrop := dropOwnedDatabaseFn
 	oldMigrate := migrateDatabaseFn
 	t.Cleanup(func() {
 		createDatabaseFn = oldCreate
-		dropDatabaseFn = oldDrop
+		dropOwnedDatabaseFn = oldDrop
 		migrateDatabaseFn = oldMigrate
 	})
 
@@ -671,9 +749,9 @@ func TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase(t *testing.T) {
 		scratchName = name
 		return nil
 	}
-	dropDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, normalLimit time.Duration, forcedLimit time.Duration) (bool, error) {
 		dropped = append(dropped, name)
-		return nil
+		return false, nil
 	}
 	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
 		return nil
@@ -696,19 +774,19 @@ func TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase(t *testing.T) {
 	}
 }
 
-func TestMigrationDatabaseTCleanupRetainsAttachedSuiteScratchDatabase(t *testing.T) {
-	t.Setenv(suiteservices.ActiveEnv, "1")
+func TestMigrationDatabaseTCleanupDropsAttachedSuiteScratchDatabase(t *testing.T) {
+	authorizePGSuite(t)
 	t.Setenv(suiteservices.SuiteIDEnv, "suite-retained-migration-scratch")
 	t.Setenv(suiteservices.TargetEnv, "backend-integration")
 	t.Setenv("CARTULARY_TEST_RESULTS_DIR", t.TempDir())
 	t.Setenv("CARTULARY_TEST_RUN_ID", "retained-migration-scratch")
 
 	oldCreate := createDatabaseFn
-	oldDrop := dropDatabaseFn
+	oldDrop := dropOwnedDatabaseFn
 	oldMigrate := applyMigrationsThrough
 	t.Cleanup(func() {
 		createDatabaseFn = oldCreate
-		dropDatabaseFn = oldDrop
+		dropOwnedDatabaseFn = oldDrop
 		applyMigrationsThrough = oldMigrate
 	})
 
@@ -718,9 +796,9 @@ func TestMigrationDatabaseTCleanupRetainsAttachedSuiteScratchDatabase(t *testing
 		scratchName = name
 		return nil
 	}
-	dropDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, normalLimit time.Duration, forcedLimit time.Duration) (bool, error) {
 		dropCalls++
-		return nil
+		return false, nil
 	}
 	applyMigrationsThrough = func(ctx context.Context, db *sql.DB, version int64) error {
 		return nil
@@ -739,26 +817,8 @@ func TestMigrationDatabaseTCleanupRetainsAttachedSuiteScratchDatabase(t *testing
 		harness.MigrationDatabaseThroughT(t, 1)
 	})
 
-	if dropCalls != 0 {
-		t.Fatalf("expected attached suite migration scratch cleanup to retain database, got %d drops", dropCalls)
-	}
-
-	scope, ok, err := suiteservices.Summarize(nil)
-	if err != nil {
-		t.Fatalf("summarize suite service events: %v", err)
-	}
-	if !ok {
-		t.Fatal("expected suite service summary")
-	}
-	foundRetain := false
-	for _, activity := range scope.Fixture.ByStrategy {
-		if activity.Service == suiteservices.ServicePostgres && activity.Operation == "database-retain" && activity.ReuseScope == suiteservices.FixtureReuseMigrationScratch {
-			foundRetain = true
-			break
-		}
-	}
-	if !foundRetain {
-		t.Fatalf("expected retained migration scratch fixture activity for %q, got %#v", scratchName, scope.Fixture)
+	if dropCalls != 1 {
+		t.Fatalf("expected attached suite migration scratch cleanup to drop %q, got %d drops", scratchName, dropCalls)
 	}
 }
 
@@ -846,10 +906,6 @@ func TestHarnessStartsPostgresAndRunsCurrentMigrationPath(t *testing.T) {
 		t.Fatalf("prepare database: %v", err)
 	}
 	defer func() {
-		if harness.retainPreparedDatabaseOnCleanup() {
-			harness.recordRetainedDatabase(testDB.Name, suiteservices.FixtureReusePerTest, fixtureAttribution{})
-			return
-		}
 		if err := harness.DropDatabase(context.Background(), testDB.Name); err != nil {
 			t.Fatalf("drop database: %v", err)
 		}
@@ -886,7 +942,7 @@ SELECT EXISTS (
 	}
 }
 
-func TestBeginRollbackDBTIsolatesRowsWithoutPackageReset(t *testing.T) {
+func TestBeginRollbackDBTIsolatesRowsPerTransaction(t *testing.T) {
 	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyTransaction)
 	t.Setenv(suiteservices.SuiteIDEnv, "rollback-db")
 	t.Setenv(suiteservices.TargetEnv, "backend-store")
@@ -934,235 +990,6 @@ func TestBeginRollbackDBTIsolatesRowsWithoutPackageReset(t *testing.T) {
 	}
 }
 
-func TestPreparePackageResetDatabaseTTargetedResetReusesCachedStatement(t *testing.T) {
-	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyPackageReset)
-	t.Setenv(postgresResetTablesTestsEnv, "TestPreparePackageResetDatabaseTTargetedResetReusesCachedStatement=local_reset_probe")
-	t.Setenv(suiteservices.SuiteIDEnv, "package-reset-proof")
-	t.Setenv(suiteservices.TargetEnv, "backend-integration")
-	t.Setenv("CARTULARY_TEST_RESULTS_DIR", t.TempDir())
-	t.Setenv("CARTULARY_TEST_RUN_ID", "package-reset-proof")
-	harness := Start(t)
-
-	oldListMutableTables := listMutableTablesFn
-	listCalls := 0
-	listMutableTablesFn = func(ctx context.Context, db *sql.DB) ([]string, error) {
-		listCalls++
-		return oldListMutableTables(ctx, db)
-	}
-	t.Cleanup(func() {
-		listMutableTablesFn = oldListMutableTables
-	})
-
-	var firstName string
-	t.Run("first use seeds rows", func(t *testing.T) {
-		first := harness.PreparePackageResetDatabaseT(t, "package-reset")
-		firstName = first.Name
-
-		db, err := sql.Open("pgx", first.DSN)
-		if err != nil {
-			t.Fatalf("open package database: %v", err)
-		}
-		defer db.Close()
-
-		if _, err := db.ExecContext(context.Background(), `CREATE TABLE IF NOT EXISTS local_reset_probe (id bigserial PRIMARY KEY, value text NOT NULL)`); err != nil {
-			t.Fatalf("create targeted reset probe: %v", err)
-		}
-		if _, err := db.ExecContext(context.Background(), `INSERT INTO local_reset_probe (value) VALUES ($1)`, "first"); err != nil {
-			t.Fatalf("seed package database: %v", err)
-		}
-	})
-	t.Run("second use resets rows", func(t *testing.T) {
-		second := harness.PreparePackageResetDatabaseT(t, "package-reset")
-		if second.Name != firstName {
-			t.Fatalf("expected package database reuse, got %q want %q", second.Name, firstName)
-		}
-		db, err := sql.Open("pgx", second.DSN)
-		if err != nil {
-			t.Fatalf("open reused package database: %v", err)
-		}
-		defer db.Close()
-
-		var probeCount int
-		if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM local_reset_probe`).Scan(&probeCount); err != nil {
-			t.Fatalf("count reset probe rows: %v", err)
-		}
-		if probeCount != 0 {
-			t.Fatalf("expected package reset to clear probe rows, got %d", probeCount)
-		}
-
-		var gooseCount int
-		if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM goose_db_version`).Scan(&gooseCount); err != nil {
-			t.Fatalf("count goose versions: %v", err)
-		}
-		if gooseCount == 0 {
-			t.Fatal("expected package reset to preserve migration metadata")
-		}
-
-		if _, err := db.ExecContext(context.Background(), `INSERT INTO local_reset_probe (value) VALUES ($1)`, "second"); err != nil {
-			t.Fatalf("seed package database for cached reset: %v", err)
-		}
-	})
-	if listCalls != 1 {
-		t.Fatalf("expected first package reset to discover mutable tables once, got %d calls", listCalls)
-	}
-
-	listMutableTablesFn = func(ctx context.Context, db *sql.DB) ([]string, error) {
-		return nil, fmt.Errorf("cached reset should not rediscover mutable tables")
-	}
-	t.Run("third use reuses cached reset statement", func(t *testing.T) {
-		third := harness.PreparePackageResetDatabaseT(t, "package-reset")
-		if third.Name != firstName {
-			t.Fatalf("expected package database reuse, got %q want %q", third.Name, firstName)
-		}
-		db, err := sql.Open("pgx", third.DSN)
-		if err != nil {
-			t.Fatalf("open cached-reset package database: %v", err)
-		}
-		defer db.Close()
-
-		var probeCount int
-		if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM local_reset_probe`).Scan(&probeCount); err != nil {
-			t.Fatalf("count probe rows after cached reset: %v", err)
-		}
-		if probeCount != 0 {
-			t.Fatalf("expected cached package reset to clear probe rows, got %d", probeCount)
-		}
-	})
-
-	resetEvents := readPostgresResetEventDetails(t)
-	if len(resetEvents) != 2 {
-		t.Fatalf("expected two package reset events, got %d: %#v", len(resetEvents), resetEvents)
-	}
-	proofEvent := resetEvents[0]
-	if got := stringDetail(t, proofEvent, "actual_reset_tables"); got != "local_reset_probe" {
-		t.Fatalf("expected retained reset event to name targeted table, got %q in %#v", got, proofEvent)
-	}
-	if got := numberDetail(t, proofEvent, "actual_reset_table_count"); got != 1 {
-		t.Fatalf("expected retained reset event to count one reset table, got %v in %#v", got, proofEvent)
-	}
-	beforeCounts := objectDetail(t, proofEvent, "reset_row_counts_before")
-	afterCounts := objectDetail(t, proofEvent, "reset_row_counts_after")
-	if got := numberDetail(t, beforeCounts, "local_reset_probe"); got != 1 {
-		t.Fatalf("expected reset proof to capture one probe row before reset, got %v in %#v", got, beforeCounts)
-	}
-	if got := numberDetail(t, afterCounts, "local_reset_probe"); got != 0 {
-		t.Fatalf("expected reset proof to capture zero probe rows after reset, got %v in %#v", got, afterCounts)
-	}
-	if preserved, ok := proofEvent["goose_db_version_preserved"].(bool); !ok || !preserved {
-		t.Fatalf("expected reset proof to capture preserved goose metadata, got %#v", proofEvent["goose_db_version_preserved"])
-	}
-	if got := numberDetail(t, proofEvent, "route_idempotency_rows_after"); got != 0 {
-		t.Fatalf("expected reset proof to capture zero route idempotency rows after reset, got %v", got)
-	}
-}
-
-func TestPreparePackageResetDatabaseTFullResetPreservesMigrationMetadata(t *testing.T) {
-	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyPackageReset)
-	harness := Start(t)
-
-	var firstName string
-	t.Run("first use seeds rows", func(t *testing.T) {
-		first := harness.PreparePackageResetDatabaseT(t, "package-reset-full")
-		firstName = first.Name
-
-		db, err := sql.Open("pgx", first.DSN)
-		if err != nil {
-			t.Fatalf("open package database: %v", err)
-		}
-		defer db.Close()
-
-		if _, err := db.ExecContext(context.Background(), `INSERT INTO users (email, display_name, password_hash, mfa_required) VALUES ($1, $2, $3, false)`, "package-reset-full@example.test", "Package Reset Full", "hash"); err != nil {
-			t.Fatalf("seed package database: %v", err)
-		}
-	})
-	t.Run("second use full reset clears mutable rows", func(t *testing.T) {
-		second := harness.PreparePackageResetDatabaseT(t, "package-reset-full")
-		if second.Name != firstName {
-			t.Fatalf("expected package database reuse, got %q want %q", second.Name, firstName)
-		}
-		db, err := sql.Open("pgx", second.DSN)
-		if err != nil {
-			t.Fatalf("open reused package database: %v", err)
-		}
-		defer db.Close()
-
-		var userCount int
-		if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM users`).Scan(&userCount); err != nil {
-			t.Fatalf("count reset users: %v", err)
-		}
-		if userCount != 0 {
-			t.Fatalf("expected full package reset to clear users, got %d", userCount)
-		}
-
-		var gooseCount int
-		if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM goose_db_version`).Scan(&gooseCount); err != nil {
-			t.Fatalf("count goose versions: %v", err)
-		}
-		if gooseCount == 0 {
-			t.Fatal("expected package reset to preserve migration metadata")
-		}
-	})
-}
-
-func readPostgresResetEventDetails(t testing.TB) []map[string]any {
-	t.Helper()
-
-	suiteDir, ok, err := suiteservices.ResolveSuiteArtifactDir(nil)
-	if err != nil {
-		t.Fatalf("resolve suite artifact dir: %v", err)
-	}
-	if !ok {
-		t.Fatal("expected suite artifact dir")
-	}
-	files, err := filepath.Glob(filepath.Join(suiteDir, "events", "*postgres-db-reset.json"))
-	if err != nil {
-		t.Fatalf("glob postgres reset events: %v", err)
-	}
-	details := make([]map[string]any, 0, len(files))
-	for _, file := range files {
-		raw, err := os.ReadFile(file) // #nosec G304 -- test reads suite-service event files from the resolved test artifact directory.
-		if err != nil {
-			t.Fatalf("read postgres reset event %s: %v", file, err)
-		}
-		var event suiteservices.Event
-		if err := json.Unmarshal(raw, &event); err != nil {
-			t.Fatalf("decode postgres reset event %s: %v", file, err)
-		}
-		details = append(details, event.Details)
-	}
-	return details
-}
-
-func objectDetail(t testing.TB, value map[string]any, key string) map[string]any {
-	t.Helper()
-
-	object, ok := value[key].(map[string]any)
-	if !ok {
-		t.Fatalf("expected %s object detail, got %#v", key, value[key])
-	}
-	return object
-}
-
-func numberDetail(t testing.TB, value map[string]any, key string) float64 {
-	t.Helper()
-
-	number, ok := value[key].(float64)
-	if !ok {
-		t.Fatalf("expected %s numeric detail, got %#v", key, value[key])
-	}
-	return number
-}
-
-func stringDetail(t testing.TB, value map[string]any, key string) string {
-	t.Helper()
-
-	text, ok := value[key].(string)
-	if !ok {
-		t.Fatalf("expected %s string detail, got %#v", key, value[key])
-	}
-	return text
-}
-
 func resetSharedHarness(t testing.TB) {
 	t.Helper()
 
@@ -1175,6 +1002,15 @@ func resetSharedHarness(t testing.TB) {
 		sharedHarness = nil
 		sharedHarnessMu.Unlock()
 	})
+}
+
+func authorizePGSuite(t *testing.T) {
+	t.Helper()
+	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "postgres")
+	t.Setenv(suiteservices.CallModeEnv, "owned")
+	t.Setenv(suiteservices.SuiteRuntimeRootEnv, "/private/pgtest-suite-runtime")
+	t.Setenv(suiteservices.SuiteRuntimeLeaseIDEnv, "00000000-0000-4000-8000-000000000001")
+	t.Setenv(suiteservices.SuiteRuntimeRunIDEnv, "pgtest-suite")
 }
 
 func stubOwnedPostgresStartup(t testing.TB) {

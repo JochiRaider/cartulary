@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v5",
+  "schema_id": "cartulary.test_family_manifest.v6",
   "owner_id": "platform.jobs",
   "rows": [
     {
@@ -203,6 +203,7 @@
       "evidence_class": "integration",
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
+      "process_isolation": "exclusive",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",

@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
+import { loadServiceJournalEvents } from "../services/journal-reader.mjs";
+
 export const fixtureReportSchemaID = "cartulary.fixture_report.v1";
 export const defaultFixtureThresholdMS = 30000;
 export const defaultFixtureTop = 5;
@@ -8,9 +10,7 @@ export const defaultFixtureTop = 5;
 const fixtureEventTypes = new Set([
   "postgres-db-created",
   "postgres-db-dropped",
-  "postgres-db-retained",
   "postgres-db-migrated",
-  "postgres-db-reset",
   "postgres-transaction",
   "s3-bucket-created",
   "s3-bucket-cleaned",
@@ -75,12 +75,8 @@ export function fixtureOperationForEvent(type) {
       return "database-create";
     case "postgres-db-dropped":
       return "database-drop";
-    case "postgres-db-retained":
-      return "database-retain";
     case "postgres-db-migrated":
       return "database-migrate";
-    case "postgres-db-reset":
-      return "database-reset";
     case "postgres-transaction":
       return "transaction";
     case "s3-bucket-created":
@@ -100,42 +96,19 @@ export function loadServiceFixtureEvents({
   target = "",
   repoRoot = process.cwd(),
 } = {}) {
-  const servicesRoot = path.join(resultsRoot, runId, "_shared", "test-services");
-  if (!existsSync(servicesRoot)) {
-    return [];
-  }
   const events = [];
-  const stack = [servicesRoot];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-        continue;
-      }
-      if (!entry.isFile() || !entry.name.endsWith(".json")) {
-        continue;
-      }
-      let event;
-      try {
-        event = JSON.parse(readFileSync(next, "utf8"));
-      } catch {
-        continue;
-      }
-      if (!fixtureEventTypes.has(event.type)) {
-        continue;
-      }
-      const details = event.details ?? {};
-      if (target && details.target !== target) {
-        continue;
-      }
-      events.push({
-        event,
-        path: next,
-        artifact: relToRepo(repoRoot, path.dirname(path.dirname(next))),
-      });
-    }
+  for (const { event, suiteRoot, journalPath } of loadServiceJournalEvents({
+    resultsRoot,
+    runId,
+  })) {
+    if (!fixtureEventTypes.has(event.type)) continue;
+    const details = event.details ?? {};
+    if (target && details.target !== target) continue;
+    events.push({
+      event,
+      path: journalPath,
+      artifact: relToRepo(repoRoot, suiteRoot),
+    });
   }
   events.sort(
     (left, right) =>

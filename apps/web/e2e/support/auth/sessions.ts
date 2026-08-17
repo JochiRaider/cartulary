@@ -6,7 +6,13 @@ import type {
   SafeUserResource,
   SessionResource,
 } from "@cartulary/protocol-ts/http";
-import { type APIRequestContext, type Page, request } from "@playwright/test";
+import { authTestId } from "@cartulary/ui-contracts";
+import {
+  type APIRequestContext,
+  expect,
+  type Page,
+  request,
+} from "@playwright/test";
 import type { TrackedSessionSnapshot } from "../runtime/cleanup";
 import { apiBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
@@ -244,6 +250,64 @@ export async function loginTrackedUserViaPage(
     secondFactorCode?: string | null;
   },
 ) {
+  const authShell = page.getByTestId(authTestId("shell"));
+  if (await authShell.isVisible()) {
+    const previousSessionCookie = (await page.context().cookies()).find(
+      (cookie) => cookie.name === sessionCookieName,
+    )?.value;
+    const username = page.getByTestId(authTestId("login-username"));
+    const password = page.getByTestId(authTestId("login-password"));
+    const submit = page.getByTestId(authTestId("login-submit"));
+    await username.fill(options.email);
+    await password.fill(options.password);
+    const secondFactorCode = options.secondFactorCode?.trim() ?? "";
+    if (secondFactorCode !== "") {
+      const totpCode = page.getByTestId(authTestId("login-totp-code"));
+      if (!(await totpCode.isVisible())) {
+        await submit.click();
+        await totpCode.waitFor({ state: "visible" });
+      }
+      await totpCode.fill(secondFactorCode);
+    }
+    const successfulLoginResponse = page.waitForResponse((response) => {
+      if (response.request().method() !== "POST" || !response.ok()) {
+        return false;
+      }
+      return new URL(response.url()).pathname === "/api/v1/auth/login";
+    });
+    await submit.click();
+    await successfulLoginResponse;
+    await expect
+      .poll(async () => {
+        const cookies = await page.context().cookies();
+        const sessionCookie = cookies.find(
+          (cookie) => cookie.name === sessionCookieName,
+        );
+        const csrfCookie = cookies.find(
+          (cookie) => cookie.name === csrfCookieName,
+        );
+        return (
+          sessionCookie !== undefined &&
+          sessionCookie.value !== previousSessionCookie &&
+          csrfCookie !== undefined
+        );
+      })
+      .toBe(true);
+    const authenticatedCookies = await page.context().cookies();
+    const sessionCookie = authenticatedCookies.find(
+      (cookie) => cookie.name === sessionCookieName,
+    );
+    const csrfCookie = authenticatedCookies.find(
+      (cookie) => cookie.name === csrfCookieName,
+    );
+    if (sessionCookie === undefined || csrfCookie === undefined) {
+      throw new Error("in-page login did not commit authenticated cookies");
+    }
+    await applyCookies(page, sessionCookie.value, csrfCookie.value);
+    await authShell.waitFor({ state: "hidden" });
+    return;
+  }
+
   await page.context().clearCookies();
   const loginResponse = await loginLocalAPIContext(
     atJsonOrigin(page.request, apiBase),

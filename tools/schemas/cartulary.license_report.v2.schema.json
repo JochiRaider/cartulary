@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.license_report.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "semantic_input_digest", "entries"],
+  "properties": {
+    "schema_id": { "const": "cartulary.license_report.v2" },
+    "semantic_input_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package",
+        "version",
+        "ecosystem",
+        "classification",
+        "direct",
+        "transitive",
+        "license_expression",
+        "raw_license_metadata",
+        "evidence_source",
+        "evidence_digest",
+        "issue_flags",
+        "review_flags"
+      ],
+      "properties": {
+        "package": { "$ref": "#/$defs/nonempty" },
+        "version": { "$ref": "#/$defs/nonempty" },
+        "ecosystem": { "enum": ["container", "font", "go", "node-workspace", "npm"] },
+        "classification": { "$ref": "#/$defs/nonempty" },
+        "direct": { "type": "boolean" },
+        "transitive": { "type": "boolean" },
+        "license_expression": { "type": ["string", "null"], "minLength": 1 },
+        "raw_license_metadata": { "type": ["string", "null"], "minLength": 1 },
+        "evidence_source": { "$ref": "#/$defs/nonempty" },
+        "evidence_digest": {
+          "oneOf": [
+            { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+            { "type": "null" }
+          ]
+        },
+        "issue_flags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+        },
+        "review_flags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+        },
+        "font_files": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256", "bytes"],
+            "properties": {
+              "path": { "$ref": "#/$defs/nonempty" },
+              "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "bytes": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    },
+    "nonempty": { "type": "string", "minLength": 1, "maxLength": 4096 }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_services.journal_event.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "producer_id", "seq", "type", "timestamp", "pid"],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_services.journal_event.v1" },
+    "producer_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "seq": { "type": "integer", "minimum": 1 },
+    "type": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "timestamp": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
+    "pid": { "type": "integer", "minimum": 1 },
+    "service": { "type": "string", "maxLength": 128 },
+    "name": { "type": "string", "maxLength": 1024 },
+    "kind": { "type": "string", "maxLength": 128 },
+    "status": { "type": "string", "maxLength": 128 },
+    "details": { "type": "object", "maxProperties": 64 }
+  }
+}

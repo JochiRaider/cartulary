@@ -50,10 +50,8 @@ func TestRunPassThroughModeStartsNoServices(t *testing.T) {
 		stopSignals:   func(chan<- os.Signal) {},
 	}
 
-	env := map[string]string{
-		suiteservices.ActiveEnv:  "1",
-		"CARTULARY_SENTINEL_VAR": "preserved",
-	}
+	env := map[string]string{"CARTULARY_SENTINEL_VAR": "preserved"}
+	authorizeSuiteEnv(env)
 
 	status := run([]string{"run", "--", "ignored"}, env, deps)
 	if status != 0 {
@@ -704,7 +702,7 @@ func TestRunRecordsObjectStoreStartupFailureWithStructuredSummary(t *testing.T) 
 func TestServiceStartupAttemptTimingSummarizesRetries(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "suite-startup-attempts"
 	activeEnv[suiteservices.TargetEnv] = "browser-e2e"
 
@@ -912,8 +910,8 @@ func TestPrepareWebE2ERequiresActiveSuiteAndTemplate(t *testing.T) {
 	}
 
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
-	activeEnv[suiteservices.SuiteIDEnv] = "suite-web-e2e-cleanup"
+	authorizeSuiteEnv(activeEnv)
+	activeEnv[suiteservices.SuiteIDEnv] = "suite-redaction"
 	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
 	status = run([]string{"prepare-web-e2e", "--env-file", filepath.Join(t.TempDir(), "env"), "--metadata-file", filepath.Join(t.TempDir(), "metadata.json")}, activeEnv, deps.dependencies)
 	if status != 1 {
@@ -953,8 +951,8 @@ func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
 	envFile := filepath.Join(t.TempDir(), "browser.env")
 	metadataFile := filepath.Join(t.TempDir(), "browser.json")
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
-	activeEnv[suiteservices.SuiteIDEnv] = "suite-web-e2e"
+	authorizeSuiteEnv(activeEnv)
+	activeEnv[suiteservices.SuiteIDEnv] = "suite-redaction"
 	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
 	activeEnv[suiteservices.PGTemplateDBEnv] = "suite_template"
 
@@ -1056,7 +1054,7 @@ func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
 		preparation.Target != "browser-e2e-webserver-backed" {
 		t.Fatalf("unexpected browser database preparation: %#v", preparation)
 	}
-	if scope.ObjectStore.BucketCreateCount != 1 || len(scope.ObjectStore.CreatedBuckets) != 1 || scope.ObjectStore.CreatedBuckets[0] != "ct-web" {
+	if scope.ObjectStore.BucketCreateCount != 1 {
 		t.Fatalf("expected browser fixture to create one isolated bucket, got %#v", scope.ObjectStore)
 	}
 	requireTimingEvent(t, loadTestEventsForEnv(t, activeEnv), bucketMigration, "test-services prepare browser e2e fixture")
@@ -1081,7 +1079,8 @@ func TestResetWebE2ERequiresActiveSuiteAndUsesOnlyPaths(t *testing.T) {
 	}
 
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
+	activeEnv[suiteservices.SuiteIDEnv] = "suite-redaction"
 	if status := run(args, activeEnv, deps.dependencies); status != 0 {
 		t.Fatalf("active suite reset status: got %d want 0", status)
 	}
@@ -1136,7 +1135,7 @@ func TestRenewWebE2ERequiresOwnedOrdinaryFixtureAndExactGeneration(t *testing.T)
 	}
 
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "suite-renew"
 	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
 	if status := run(args, activeEnv, deps.dependencies); status != 0 {
@@ -1180,7 +1179,7 @@ func TestCleanupWebE2ERetiresFixtureWithoutImmediateCleanup(t *testing.T) {
 		t.Fatalf("write metadata: %v", err)
 	}
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "suite-web-e2e-cleanup"
 	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
 
@@ -1195,10 +1194,14 @@ func TestCleanupWebE2ERetiresFixtureWithoutImmediateCleanup(t *testing.T) {
 	if !ok {
 		t.Fatal("expected suite summary")
 	}
-	if scope.BrowserE2E.RetiredFixtureCount != 1 || len(scope.BrowserE2E.RetiredFixtures) != 1 {
+	if scope.BrowserE2E.RetiredFixtureCount != 1 {
 		t.Fatalf("expected one retired browser fixture, got %#v", scope.BrowserE2E)
 	}
-	retired := scope.BrowserE2E.RetiredFixtures[0]
+	ledger, found, err := suiteservices.CurrentResourceLedger(activeEnv)
+	if err != nil || !found || len(ledger.BrowserFixtures) != 1 {
+		t.Fatalf("expected one private-ledger browser fixture: found=%t err=%v ledger=%#v", found, err, ledger)
+	}
+	retired := ledger.BrowserFixtures[0]
 	if retired.DatabaseName != "ct_web" || retired.Bucket != "ct-web" || retired.Target != "browser-e2e-webserver-backed" {
 		t.Fatalf("unexpected retired browser fixture: %#v", retired)
 	}
@@ -1208,7 +1211,7 @@ func TestCleanupWebE2ERetiresFixtureWithoutImmediateCleanup(t *testing.T) {
 func TestCleanupOwnedServicesReclaimsRetiredWebE2EFixturesOnce(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "suite-web-e2e-cleanup"
 	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
 	for range 2 {
@@ -1274,15 +1277,20 @@ func TestCleanupOwnedServicesReclaimsRetiredWebE2EFixturesOnce(t *testing.T) {
 	if !ok {
 		t.Fatal("expected suite summary")
 	}
-	if scope.BrowserE2E.CleanedFixtureCount != 0 || len(scope.BrowserE2E.CleanedFixtures) != 0 {
+	if scope.BrowserE2E.CleanedFixtureCount != 0 {
 		t.Fatalf("owned-stack teardown must not record destructive cleanup, got %#v", scope.BrowserE2E)
 	}
-	if scope.BrowserE2E.ReclaimedFixtureCount != 1 || len(scope.BrowserE2E.ReclaimedFixtures) != 1 {
+	if scope.BrowserE2E.ReclaimedFixtureCount != 1 {
 		t.Fatalf("expected one reclaimed browser fixture, got %#v", scope.BrowserE2E)
 	}
-	reclaimed := scope.BrowserE2E.ReclaimedFixtures[0]
-	if reclaimed.ReclaimStrategy != webE2EReclaimStrategyOwnedStack {
-		t.Fatalf("expected owned-stack reclaim strategy, got %#v", reclaimed)
+	foundReclaimStrategy := false
+	for _, event := range loadTestEventsForEnv(t, activeEnv) {
+		if event.Type == suiteservices.EventWebE2EFixtureReclaimed && event.Details["reclaim_strategy"] == webE2EReclaimStrategyOwnedStack {
+			foundReclaimStrategy = true
+		}
+	}
+	if !foundReclaimStrategy {
+		t.Fatal("expected owned-stack reclaim strategy event")
 	}
 	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services check browser e2e fixture leaks", "pass")
 	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services reclaim pooled browser fixtures by owned stack", "pass")
@@ -1294,7 +1302,7 @@ func TestCleanupOwnedServicesReclaimsRetiredWebE2EFixturesOnce(t *testing.T) {
 func TestCleanupOwnedServicesTerminatesServicesConcurrently(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "suite-concurrent-service-cleanup"
 	activeEnv[suiteservices.TargetEnv] = "check"
 
@@ -1351,7 +1359,7 @@ func TestCleanupOwnedServicesTerminatesServicesConcurrently(t *testing.T) {
 func TestStaleWebE2EJanitorBoundsAndFiltersGeneratedFixtures(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	staleEnv := cloneEnv(deps.env)
-	staleEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(staleEnv)
 	staleEnv[suiteservices.SuiteIDEnv] = "suite-stale-browser-fixtures"
 	staleEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
 
@@ -1371,7 +1379,7 @@ func TestStaleWebE2EJanitorBoundsAndFiltersGeneratedFixtures(t *testing.T) {
 	deps.refreshSummary(staleEnv)
 
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "suite-active-browser-fixtures"
 	activeEnv[suiteservices.TargetEnv] = "check"
 
@@ -1407,11 +1415,11 @@ func TestPreviousSuiteContainerCleanupEligibilityUsesCompletedSummaryOrAge(t *te
 	deps := defaultTestDependencies(t)
 	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 
 	completedEnv := cloneEnv(deps.env)
-	completedEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(completedEnv)
 	completedEnv[suiteservices.SuiteIDEnv] = "completed-suite"
 	completedEnv["CARTULARY_TEST_RUN_ID"] = "completed-run"
 	recordCleanupAndRefresh(deps.dependencies, completedEnv, "succeeded", 0)
@@ -1492,7 +1500,7 @@ func TestCleanupPreviousSuiteServiceContainersRemovesEligibleContainer(t *testin
 	deps := defaultTestDependencies(t)
 	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 	cli := &fakeSuiteContainerClient{
 		items: []dockercontainer.Summary{staleSuiteContainer("removed-container", now)},
@@ -1514,7 +1522,7 @@ func TestCleanupPreviousSuiteServiceContainersAcceptsNotFound(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 	cli := &fakeSuiteContainerClient{
 		items: []dockercontainer.Summary{staleSuiteContainer("gone-container", now)},
@@ -1536,7 +1544,7 @@ func TestCleanupPreviousSuiteServiceContainersAcceptsConcurrentRemoval(t *testin
 	deps := defaultTestDependencies(t)
 	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 
 	cli := &fakeSuiteContainerClient{
@@ -1571,7 +1579,7 @@ func TestCleanupPreviousSuiteServiceContainersTimeoutThenGone(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 	cli := &fakeSuiteContainerClient{
 		items: []dockercontainer.Summary{staleSuiteContainer("timeout-gone", now)},
@@ -1599,7 +1607,7 @@ func TestCleanupPreviousSuiteServiceContainersTimeoutThenRemovingOrDead(t *testi
 	deps := defaultTestDependencies(t)
 	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 
 	cases := []struct {
@@ -1646,7 +1654,7 @@ func TestCleanupPreviousSuiteServiceContainersTimeoutStillRunningFails(t *testin
 	deps := defaultTestDependencies(t)
 	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 	runningState := dockercontainer.State{Status: dockercontainer.ContainerState("running"), Running: true}
 	cli := &fakeSuiteContainerClient{
@@ -1675,7 +1683,7 @@ func TestCleanupPreviousSuiteServiceContainersRequiresOwnershipProof(t *testing.
 	deps := defaultTestDependencies(t)
 	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 	unproven := staleSuiteContainer("unproven-container", now)
 	delete(unproven.Labels, testServiceLabelSuiteID)
@@ -1699,7 +1707,7 @@ func TestCleanupPreviousSuiteServiceContainersReportsListFailure(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 	cli := &fakeSuiteContainerClient{listErr: errors.New("docker unavailable")}
 
@@ -1719,7 +1727,7 @@ func TestCleanupPreviousSuiteServiceContainersSkipsCurrentSuite(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 
 	cli := &fakeSuiteContainerClient{
@@ -1751,7 +1759,7 @@ func TestCleanupPreviousSuiteServiceContainersReportsFatalRemove(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
 
 	cli := &fakeSuiteContainerClient{
@@ -1783,7 +1791,7 @@ func TestCleanupPreviousSuiteServiceContainersReportsFatalRemove(t *testing.T) {
 func TestCleanupOwnedServicesFailsFastOnBrowserFixtureLeak(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
 	activeEnv[suiteservices.SuiteIDEnv] = "suite-web-e2e-cleanup-fail"
 	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
 	recordWebE2EFixtureEvent(deps.dependencies, activeEnv, suiteservices.EventWebE2EFixtureRetired, webE2EMetadata{DatabaseName: "ct_web", Bucket: "ct-web"})
@@ -1823,7 +1831,8 @@ func TestPrepareWebE2ECleansFixtureWhenEnvWriteFails(t *testing.T) {
 	envFile := t.TempDir()
 	metadataFile := filepath.Join(t.TempDir(), "browser.json")
 	activeEnv := cloneEnv(deps.env)
-	activeEnv[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(activeEnv)
+	activeEnv[suiteservices.SuiteIDEnv] = "suite-redaction"
 	activeEnv[suiteservices.PGTemplateDBEnv] = "suite_template"
 
 	deps.prepareWebE2E = func(context.Context, map[string]string) (webE2EFixture, error) {
@@ -1865,6 +1874,22 @@ type testDeps struct {
 	resultsDir string
 }
 
+func authorizeSuiteEnv(env map[string]string) {
+	env[suiteservices.CallModeEnv] = "owned"
+	if env[suiteservices.SuiteIDEnv] == "" {
+		env[suiteservices.SuiteIDEnv] = "suite-authorized-test"
+	}
+	if env[suiteservices.SuiteRuntimeRootEnv] == "" {
+		env[suiteservices.SuiteRuntimeRootEnv] = "/private/suite-runtime"
+	}
+	if env[suiteservices.SuiteRuntimeLeaseIDEnv] == "" {
+		env[suiteservices.SuiteRuntimeLeaseIDEnv] = "00000000-0000-4000-8000-000000000001"
+	}
+	if env[suiteservices.SuiteRuntimeRunIDEnv] == "" {
+		env[suiteservices.SuiteRuntimeRunIDEnv] = "wrapper-tests"
+	}
+}
+
 func defaultTestDependencies(t testing.TB) testDeps {
 	t.Helper()
 
@@ -1885,6 +1910,28 @@ func defaultTestDependencies(t testing.TB) testDeps {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(runtimeRoot, "runtime-owner.json"), append(ownerBytes, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	serviceLeaseBytes, err := json.Marshal(map[string]any{
+		"schema_id":      "cartulary.test_services.lease.v1",
+		"lease_id":       "service-lease-test",
+		"suite_id":       "suite-redaction",
+		"run_id":         "wrapper-tests",
+		"ownership_mode": "owned",
+		"cleanup_state":  "not_started",
+		"resources": []map[string]any{
+			{"kind": "container", "service": suiteservices.ServicePostgres, "container_id": "postgres-test-container"},
+			{"kind": "container", "service": suiteservices.ServiceObjectStore, "container_id": "object-store-test-container"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateServiceRoot := filepath.Join(runtimeRoot, "test-services")
+	if err := os.Mkdir(privateServiceRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(privateServiceRoot, "service-lease.json"), append(serviceLeaseBytes, '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	env := map[string]string{
@@ -2027,21 +2074,12 @@ func loadTestEventsForEnv(t testing.TB, env map[string]string) []suiteservices.E
 	if !ok {
 		t.Fatal("expected suite artifact dir")
 	}
-	eventFiles, err := filepath.Glob(filepath.Join(suiteDir, "events", "*.json"))
+	events, found, err := suiteservices.ReadJournalEvents(env)
 	if err != nil {
-		t.Fatalf("list suite service events: %v", err)
+		t.Fatalf("read suite service journals: %v", err)
 	}
-	events := make([]suiteservices.Event, 0, len(eventFiles))
-	for _, eventPath := range eventFiles {
-		raw, err := os.ReadFile(eventPath)
-		if err != nil {
-			t.Fatalf("read event %s: %v", eventPath, err)
-		}
-		var event suiteservices.Event
-		if err := json.Unmarshal(raw, &event); err != nil {
-			t.Fatalf("decode event %s: %v", eventPath, err)
-		}
-		events = append(events, event)
+	if !found {
+		t.Fatalf("suite service journals not found beneath %s", suiteDir)
 	}
 	return events
 }

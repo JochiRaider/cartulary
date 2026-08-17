@@ -1,0 +1,316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_services.scope.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "target",
+    "suite_id",
+    "run_id",
+    "artifact_dir",
+    "readiness_generation",
+    "wrapper",
+    "preflight",
+    "failures",
+    "cleanup",
+    "postgres",
+    "object_store",
+    "browser_e2e",
+    "fixture",
+    "started_services"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_services.scope.v2" },
+    "target": { "type": "string", "minLength": 1 },
+    "suite_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "artifact_dir": { "type": "string", "minLength": 1 },
+    "readiness_generation": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "wrapper": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owned_count", "pass_through_count"],
+      "properties": {
+        "owned_count": { "$ref": "#/$defs/non_negative_integer" },
+        "pass_through_count": { "$ref": "#/$defs/non_negative_integer" }
+      }
+    },
+    "preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "docker_ok",
+        "reaper_ready",
+        "stale_containers_scanned",
+        "stale_containers_removed",
+        "stale_containers_deferred",
+        "ryuk_disabled_for_suite_startup"
+      ],
+      "properties": {
+        "status": { "type": "string" },
+        "failure_class": { "$ref": "#/$defs/failure_class" },
+        "failure_reason": { "$ref": "#/$defs/failure_reason" },
+        "docker_ok": { "type": "boolean" },
+        "docker_endpoint": { "type": "string" },
+        "reaper_ready": { "type": "boolean" },
+        "stale_containers_scanned": { "$ref": "#/$defs/non_negative_integer" },
+        "stale_containers_removed": { "$ref": "#/$defs/non_negative_integer" },
+        "stale_containers_deferred": { "$ref": "#/$defs/non_negative_integer" },
+        "ryuk_disabled_for_suite_startup": { "type": "boolean" },
+        "message": { "type": "string" }
+      }
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "failure_class",
+        "failure_reason",
+        "attempts_started",
+        "max_attempts",
+        "retryable",
+        "retry_blocked_by_context"
+      ],
+      "properties": {
+        "failure_class": { "$ref": "#/$defs/failure_class" },
+        "failure_reason": { "$ref": "#/$defs/failure_reason" },
+        "service": { "type": "string" },
+        "stage": { "type": "string" },
+        "operation": { "type": "string" },
+        "message": { "type": "string" },
+        "attempts_started": { "$ref": "#/$defs/non_negative_integer" },
+        "max_attempts": { "$ref": "#/$defs/non_negative_integer" },
+        "retryable": { "type": "boolean" },
+        "retry_blocked_by_context": { "type": "boolean" },
+        "docker_endpoint": { "type": "string" }
+      }
+    },
+    "failures": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "counts": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/failure_class" },
+          "additionalProperties": { "$ref": "#/$defs/non_negative_integer" }
+        },
+        "reasons": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/failure_reason" },
+          "additionalProperties": { "$ref": "#/$defs/non_negative_integer" }
+        },
+        "exemplars": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "maxItems": 10,
+            "items": { "$ref": "#/$defs/failure_exemplar" }
+          }
+        }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": { "type": "string" },
+        "completed_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
+        "child_exit_status": { "type": "integer" }
+      }
+    },
+    "postgres": { "$ref": "#/$defs/postgres_summary" },
+    "object_store": { "$ref": "#/$defs/object_store_summary" },
+    "browser_e2e": { "$ref": "#/$defs/browser_summary" },
+    "fixture": { "$ref": "#/$defs/fixture_summary" },
+    "started_services": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "names": {
+          "type": "array",
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  },
+  "$defs": {
+    "non_negative_integer": { "type": "integer", "minimum": 0 },
+    "failure_class": {
+      "enum": ["product", "security", "config", "infra", "harness", "artifact", "timing", "interrupted", "unknown"]
+    },
+    "failure_reason": {
+      "enum": [
+        "usage_error",
+        "configuration_error",
+        "preflight_error",
+        "service_start_error",
+        "service_readiness_timeout",
+        "fixture_error",
+        "resource_conflict",
+        "test_assertion_failure",
+        "security_finding",
+        "child_target_failure",
+        "tool_diagnostic_failure",
+        "scheduler_accounting_error",
+        "test_accounting_unmapped",
+        "artifact_error",
+        "cleanup_error",
+        "duration_baseline_drift",
+        "timeout_failure",
+        "cancelled_or_interrupted",
+        "unknown_failure"
+      ]
+    },
+    "failure_exemplar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempts_started", "max_attempts", "retryable", "retry_blocked_by_context"],
+      "properties": {
+        "failure_class": { "$ref": "#/$defs/failure_class" },
+        "failure_reason": { "$ref": "#/$defs/failure_reason" },
+        "service": { "type": "string" },
+        "stage": { "type": "string" },
+        "operation": { "type": "string" },
+        "message": { "type": "string" },
+        "attempts_started": { "$ref": "#/$defs/non_negative_integer" },
+        "max_attempts": { "$ref": "#/$defs/non_negative_integer" },
+        "retryable": { "type": "boolean" },
+        "retry_blocked_by_context": { "type": "boolean" },
+        "docker_endpoint": { "type": "string" }
+      }
+    },
+    "startup_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempt_count", "retry_count", "slowest_attempt_duration_ms", "final_attempt", "final_retryable", "final_retry_blocked_by_context"],
+      "properties": {
+        "attempt_count": { "$ref": "#/$defs/non_negative_integer" },
+        "retry_count": { "$ref": "#/$defs/non_negative_integer" },
+        "slowest_attempt_duration_ms": { "$ref": "#/$defs/non_negative_integer" },
+        "final_attempt": { "$ref": "#/$defs/non_negative_integer" },
+        "final_status": { "type": "string" },
+        "final_retryable": { "type": "boolean" },
+        "final_retry_blocked_by_context": { "type": "boolean" },
+        "attempts": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["attempt", "max_attempts", "duration_ms", "retryable", "retry_scheduled", "retry_blocked_by_context"],
+            "properties": {
+              "attempt": { "type": "integer", "minimum": 1 },
+              "max_attempts": { "$ref": "#/$defs/non_negative_integer" },
+              "status": { "type": "string" },
+              "duration_ms": { "$ref": "#/$defs/non_negative_integer" },
+              "retryable": { "type": "boolean" },
+              "retry_scheduled": { "type": "boolean" },
+              "retry_blocked_by_context": { "type": "boolean" },
+              "message": { "type": "string" },
+              "timestamp": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" }
+            }
+          }
+        }
+      }
+    },
+    "postgres_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["started", "startup", "attached_harness_count", "created_database_count", "migrated_database_count", "template_clone_count"],
+      "properties": {
+        "started": { "type": "boolean" },
+        "started_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
+        "host": { "type": "string" },
+        "port": { "type": "string" },
+        "user": { "type": "string" },
+        "template_database": { "type": "string" },
+        "startup": { "$ref": "#/$defs/startup_summary" },
+        "attached_harness_count": { "$ref": "#/$defs/non_negative_integer" },
+        "created_database_count": { "$ref": "#/$defs/non_negative_integer" },
+        "migrated_database_count": { "$ref": "#/$defs/non_negative_integer" },
+        "template_clone_count": { "$ref": "#/$defs/non_negative_integer" },
+        "preparation_examples": {
+          "type": "array",
+          "maxItems": 10,
+          "items": { "$ref": "#/$defs/postgres_preparation" }
+        }
+      }
+    },
+    "postgres_preparation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "strategy", "pid", "timestamp"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "strategy": { "enum": ["template", "template-clone", "fresh-migration"] },
+        "template_database": { "type": "string" },
+        "schema_hash": { "type": "string" },
+        "fixture_class": { "type": "string" },
+        "target": { "type": "string" },
+        "pid": { "type": "integer", "minimum": 1 },
+        "timestamp": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" }
+      }
+    },
+    "object_store_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["started", "secure", "startup", "attached_harness_count", "bucket_create_count", "bucket_cleanup_count"],
+      "properties": {
+        "started": { "type": "boolean" },
+        "started_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
+        "endpoint": { "type": "string" },
+        "secure": { "type": "boolean" },
+        "startup": { "$ref": "#/$defs/startup_summary" },
+        "attached_harness_count": { "$ref": "#/$defs/non_negative_integer" },
+        "bucket_create_count": { "$ref": "#/$defs/non_negative_integer" },
+        "bucket_cleanup_count": { "$ref": "#/$defs/non_negative_integer" }
+      }
+    },
+    "browser_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["retired_fixture_count", "cleaned_fixture_count", "reclaimed_fixture_count"],
+      "properties": {
+        "retired_fixture_count": { "$ref": "#/$defs/non_negative_integer" },
+        "cleaned_fixture_count": { "$ref": "#/$defs/non_negative_integer" },
+        "reclaimed_fixture_count": { "$ref": "#/$defs/non_negative_integer" }
+      }
+    },
+    "fixture_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total_count", "total_duration_ms", "strategy_aggregate_count"],
+      "properties": {
+        "total_count": { "$ref": "#/$defs/non_negative_integer" },
+        "total_duration_ms": { "$ref": "#/$defs/non_negative_integer" },
+        "strategy_aggregate_count": { "$ref": "#/$defs/non_negative_integer" },
+        "by_strategy": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/fixture_activity" } },
+        "slowest": { "type": "array", "maxItems": 10, "items": { "$ref": "#/$defs/fixture_activity" } }
+      }
+    },
+    "fixture_activity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "total_duration_ms"],
+      "properties": {
+        "service": { "type": "string" },
+        "target": { "type": "string" },
+        "operation": { "type": "string" },
+        "strategy": { "type": "string" },
+        "fixture_policy": { "type": "string" },
+        "fixture_class": { "type": "string" },
+        "reuse_scope": { "type": "string" },
+        "reuse_group": { "type": "string" },
+        "caller_package": { "type": "string" },
+        "caller_file": { "type": "string" },
+        "test_name": { "type": "string" },
+        "count": { "$ref": "#/$defs/non_negative_integer" },
+        "total_duration_ms": { "$ref": "#/$defs/non_negative_integer" }
+      }
+    }
+  }
+}

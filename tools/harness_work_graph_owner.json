@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_work_graph_owner.v1",
+  "schema_id": "cartulary.harness_work_graph_owner.v2",
   "capacity_override_input": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
   "tier_order": [
     "fast",
@@ -436,7 +436,23 @@
         "frontend-install",
         "toolchain-drift"
       ],
-      "cache_policy": "none",
+      "cache_policy": "content_addressed",
+      "reusable_artifact_outputs": [
+        {
+          "artifact_type": "file",
+          "relative_path": ".cartulary/release-artifacts/license-report.json",
+          "destination_class": "repository_artifact",
+          "mode": "0644",
+          "producer_identity": "target:release-inventory-artifacts"
+        },
+        {
+          "artifact_type": "file",
+          "relative_path": ".cartulary/release-artifacts/sbom.cyclonedx.json",
+          "destination_class": "repository_artifact",
+          "mode": "0644",
+          "producer_identity": "target:release-inventory-artifacts"
+        }
+      ],
       "estimated_work_ms": 10000,
       "resource_profile_id": "standard",
       "service_dependencies": []

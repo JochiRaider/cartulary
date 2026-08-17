@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import {
   createLocalSession,
+  assertNoCallerServiceState,
   localSessionStatus,
   resolveLocalSessionFile,
   stopLocalSession,
@@ -21,14 +22,7 @@ export function runLocalSessionCLI(args = process.argv.slice(2), environment = p
     usage();
     return 2;
   }
-  if (Object.hasOwn(environment, "CARTULARY_TEST_SERVICES_ACTIVE")) {
-    throw new Error("CARTULARY_TEST_SERVICES_ACTIVE is internal and must not be supplied by callers");
-  }
-  if (Object.hasOwn(environment, "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER")) {
-    throw new Error(
-      "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER is internal and must not be supplied by callers",
-    );
-  }
+  assertNoCallerServiceState(environment);
   const binary = path.resolve(
     String(environment.TEST_SERVICES_BIN || environment.CARTULARY_TEST_SERVICES_BIN || path.join(root, "tmp/toolbin/cartulary-test-services")),
   );

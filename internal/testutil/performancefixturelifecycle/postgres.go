@@ -9,10 +9,21 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
+	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
+)
+
+const (
+	performanceFixtureNormalDropLimit = 5 * time.Second
+	performanceFixtureForcedDropLimit = 15 * time.Second
+	performanceFixtureCatalogLimit    = 15 * time.Second
+	performanceFixtureDrainLimit      = 5 * time.Second
+	performanceFixtureDrainPoll       = 25 * time.Millisecond
 )
 
 func replaceDatabaseInDSN(adminDSN string, database string) (string, error) {
@@ -28,31 +39,28 @@ func cloneDatabase(ctx context.Context, adminDSN string, source string, target s
 	if !safePostgresIdentifier(source) || !safePostgresIdentifier(target) {
 		return errors.New("performance fixture database identity is unsafe")
 	}
-	admin, err := sql.Open("pgx", adminDSN)
-	if err != nil {
-		return err
-	}
-	defer admin.Close()
-	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE "%s" TEMPLATE "%s"`, target, source)); err != nil {
-		return fmt.Errorf("clone performance fixture database: %w", err)
-	}
-	return nil
+	return withSharedCatalogMutation(ctx, adminDSN, target, func(admin *sql.DB) error {
+		if _, err := admin.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE "%s" TEMPLATE "%s"`, target, source)); err != nil {
+			return fmt.Errorf("clone performance fixture database: %w", err)
+		}
+		return nil
+	})
 }
 
 func sealTemplate(ctx context.Context, adminDSN string, name string, owner string) error {
-	admin, err := sql.Open("pgx", adminDSN)
-	if err != nil {
-		return err
-	}
-	defer admin.Close()
-	for _, statement := range []string{
-		fmt.Sprintf(`ALTER DATABASE "%s" WITH ALLOW_CONNECTIONS false`, name),
-		fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE true`, name),
-		fmt.Sprintf(`COMMENT ON DATABASE "%s" IS '%s'`, name, owner),
-	} {
-		if _, err := admin.ExecContext(ctx, statement); err != nil {
-			return fmt.Errorf("seal performance fixture template: %w", err)
+	if err := withSharedCatalogMutation(ctx, adminDSN, name, func(admin *sql.DB) error {
+		for _, statement := range []string{
+			fmt.Sprintf(`ALTER DATABASE "%s" WITH ALLOW_CONNECTIONS false`, name),
+			fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE true`, name),
+			fmt.Sprintf(`COMMENT ON DATABASE "%s" IS '%s'`, name, owner),
+		} {
+			if _, err := admin.ExecContext(ctx, statement); err != nil {
+				return fmt.Errorf("seal performance fixture template: %w", err)
+			}
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	return validateTemplate(ctx, adminDSN, name, owner)
 }
@@ -61,15 +69,12 @@ func markTemplateOwned(ctx context.Context, adminDSN string, name string, owner 
 	if !safePostgresIdentifier(name) || strings.Contains(owner, "'") {
 		return errors.New("performance fixture template ownership identity is unsafe")
 	}
-	admin, err := sql.Open("pgx", adminDSN)
-	if err != nil {
-		return err
-	}
-	defer admin.Close()
-	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`COMMENT ON DATABASE "%s" IS '%s'`, name, owner)); err != nil {
-		return fmt.Errorf("mark performance fixture template ownership: %w", err)
-	}
-	return nil
+	return withSharedCatalogMutation(ctx, adminDSN, name, func(admin *sql.DB) error {
+		if _, err := admin.ExecContext(ctx, fmt.Sprintf(`COMMENT ON DATABASE "%s" IS '%s'`, name, owner)); err != nil {
+			return fmt.Errorf("mark performance fixture template ownership: %w", err)
+		}
+		return nil
+	})
 }
 
 func validateTemplate(ctx context.Context, adminDSN string, name string, owner string) error {
@@ -90,51 +95,95 @@ func validateTemplate(ctx context.Context, adminDSN string, name string, owner s
 	return nil
 }
 
-func requireNoConnections(ctx context.Context, adminDSN string, name string) error {
+func requireNoConnections(ctx context.Context, adminDSN string, name string, owned *ownedConnectionPIDs) error {
 	admin, err := sql.Open("pgx", adminDSN)
 	if err != nil {
 		return err
 	}
 	defer admin.Close()
-	var count int
-	if err := admin.QueryRowContext(ctx, `SELECT COUNT(*) FROM pg_stat_activity WHERE datname = $1`, name).Scan(&count); err != nil {
-		return err
+	drainContext, cancel := context.WithTimeout(ctx, performanceFixtureDrainLimit)
+	defer cancel()
+	return waitForNoTemplateConnections(
+		drainContext,
+		owned,
+		func(queryContext context.Context) ([]uint32, error) {
+			rows, err := admin.QueryContext(queryContext, `SELECT pid FROM pg_stat_activity WHERE datname = $1 ORDER BY pid`, name)
+			if err != nil {
+				return nil, err
+			}
+			defer rows.Close()
+			var pids []uint32
+			for rows.Next() {
+				var pid uint32
+				if err := rows.Scan(&pid); err != nil {
+					return nil, err
+				}
+				pids = append(pids, pid)
+			}
+			return pids, rows.Err()
+		},
+		performanceFixtureDrainPoll,
+	)
+}
+
+func waitForNoTemplateConnections(
+	ctx context.Context,
+	owned *ownedConnectionPIDs,
+	observe func(context.Context) ([]uint32, error),
+	retryDelay time.Duration,
+) error {
+	for {
+		pids, err := observe(ctx)
+		if err != nil {
+			return fmt.Errorf("inspect performance fixture template connections: %w", err)
+		}
+		if len(pids) == 0 {
+			return nil
+		}
+		for _, pid := range pids {
+			if !owned.Contains(pid) {
+				return fmt.Errorf("performance fixture template has %d unowned open connection(s)", len(pids))
+			}
+		}
+		timer := time.NewTimer(retryDelay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return fmt.Errorf("performance fixture owned connections did not drain: %w", ctx.Err())
+		case <-timer.C:
+		}
 	}
-	if count != 0 {
-		return fmt.Errorf("performance fixture template has %d unknown open connection(s)", count)
-	}
-	return nil
 }
 
 func dropTemplate(ctx context.Context, adminDSN string, name string) error {
 	if adminDSN == "" || !safePostgresIdentifier(name) {
 		return errors.New("performance fixture template cleanup identity is incomplete")
 	}
-	admin, err := sql.Open("pgx", adminDSN)
-	if err != nil {
+	if err := withSharedCatalogMutation(ctx, adminDSN, name, func(admin *sql.DB) error {
+		_, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE false`, name))
+		return err
+	}); err != nil {
 		return err
 	}
-	defer admin.Close()
-	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE false`, name)); err != nil {
-		return err
-	}
-	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, name)); err != nil {
-		return err
-	}
-	return nil
+	return dropProvenDatabase(ctx, adminDSN, name)
 }
 
 func dropDatabase(ctx context.Context, adminDSN string, name string) error {
 	if !safePostgresIdentifier(name) {
 		return errors.New("performance fixture clone cleanup identity is unsafe")
 	}
-	admin, err := sql.Open("pgx", adminDSN)
-	if err != nil {
-		return err
-	}
-	defer admin.Close()
-	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, name)); err != nil {
-		return err
+	return dropProvenDatabase(ctx, adminDSN, name)
+}
+
+func dropProvenDatabase(ctx context.Context, adminDSN string, name string) error {
+	if _, err := postgrescleanup.DropOwnedDatabase(
+		ctx,
+		adminDSN,
+		name,
+		performanceFixtureNormalDropLimit,
+		performanceFixtureForcedDropLimit,
+	); err != nil {
+		return fmt.Errorf("drop performance fixture database: %w", err)
 	}
 	return nil
 }
@@ -201,11 +250,14 @@ func CleanupSuite(ctx context.Context, env map[string]string) error {
 			_ = admin.Close()
 			return errors.New("performance fixture suite cleanup rejected an unowned template")
 		}
-		if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE false`, candidate.name)); err != nil {
+		if err := withSharedCatalogMutation(ctx, adminDSN, candidate.name, func(mutationAdmin *sql.DB) error {
+			_, err := mutationAdmin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE false`, candidate.name))
+			return err
+		}); err != nil {
 			_ = admin.Close()
 			return err
 		}
-		if _, err := admin.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE "%s" WITH (FORCE)`, candidate.name)); err != nil {
+		if err := dropProvenDatabase(ctx, adminDSN, candidate.name); err != nil {
 			_ = admin.Close()
 			return err
 		}
@@ -214,4 +266,19 @@ func CleanupSuite(ctx context.Context, env map[string]string) error {
 		return err
 	}
 	return errors.Join(os.RemoveAll(suiteRuntimeRoot), os.RemoveAll(cloneRuntimeRoot))
+}
+
+func withSharedCatalogMutation(
+	ctx context.Context,
+	adminDSN string,
+	resource string,
+	operation func(*sql.DB) error,
+) error {
+	return postgrescatalog.WithMutation(
+		ctx,
+		adminDSN,
+		resource,
+		performanceFixtureCatalogLimit,
+		operation,
+	)
 }

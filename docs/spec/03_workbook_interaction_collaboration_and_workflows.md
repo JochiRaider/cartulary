@@ -2155,8 +2155,18 @@ Verified by: AC-013, AC-014, AC-044, AC-047, AC-124, AC-184, AC-185, AC-231, AC-
 
 **REQ-03-224**
 Sorting and filtering MUST apply to underlying rows before grouping is computed. Clearing a user sort override MUST return the surface to schema default sort only, represented by omitted `sort` on `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query` and by canonical persisted `query_json.sort=[]` when the state is saved in a saved view. Clearing grouping MUST persist omitted `query_json.group_by`; the client MUST NOT persist JSON `null` for that state. When the server returns canonicalized `meta.query`, the client MUST treat that canonical query contract as authoritative for rendered filter chips, restored saved-view state, and cursor continuation. For workbook surface queries triggered by sort, filter, group, surface, cursor, or refresh state, the client MUST render only the latest applicable query result for the active incident, surface, and query identity. Older in-flight query results and query errors that have been superseded by a newer applicable query MUST NOT replace rendered rows, clear rendered rows, change visible query errors, or drive access-loss handling. Even when a query result is still latest for the active query identity, it MUST NOT overwrite a locally accepted newer committed row for the same `record_id`; if a full query response is older than the client's accepted row-version high-water mark for any returned row, the client MUST preserve the newer local committed row state and refresh through the same HTTP query route to recover canonical sort, filter, and grouping placement. The client MUST NOT preserve caller-entered order for set-like `values[]`, MUST NOT preserve case-only variants of `prefix.value` as authoritative state, and MUST NOT re-tokenize `full_text` independently of the server contract.
+
+A bounded latest query result MAY omit a locally created committed row that
+falls outside its returned window. For the same incident, surface, and query
+identity, the client MUST retain the most recent locally created committed row
+as a presentation pin when that row is absent from a refresh result. The next
+local create replaces the pin, and an incident, surface, or query-identity
+change clears it. This pin MUST preserve the accepted committed row through its
+stable visible paint without turning earlier local creates into an unbounded
+client-side result union or carrying a row across filter, sort, or grouping
+changes.
 Profiles: base
-Verified by: AC-013, AC-014, AC-044, AC-047, AC-124, AC-184, AC-185, AC-231, AC-360, AC-363
+Verified by: AC-013, AC-014, AC-043, AC-044, AC-047, AC-124, AC-184, AC-185, AC-231, AC-360, AC-363
 
 ### 14.2 Grouping boundary
 

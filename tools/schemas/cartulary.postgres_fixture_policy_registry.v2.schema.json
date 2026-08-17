@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.postgres_fixture_policy_registry.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "catalog_schema_id",
+    "capability_policies",
+    "transaction_row_approvals"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.postgres_fixture_policy_registry.v2" },
+    "catalog_schema_id": { "const": "cartulary.test_family_manifest.v6" },
+    "capability_policies": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["capability", "isolation_scope", "rationale", "shared_scope"],
+        "properties": {
+          "capability": {
+            "enum": [
+              "postgres_dedicated",
+              "postgres_migration",
+              "postgres_transaction"
+            ]
+          },
+          "isolation_scope": {
+            "enum": ["database", "migration_database", "transaction"]
+          },
+          "rationale": {
+            "enum": [
+              "committed_or_unproven_work_requires_unique_database",
+              "schema_lifecycle_requires_fresh_database",
+              "single_connection_rollback_proven"
+            ]
+          },
+          "shared_scope": { "type": "boolean" }
+        }
+      }
+    },
+    "transaction_row_approvals": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.]*$"
+      }
+    }
+  }
+}

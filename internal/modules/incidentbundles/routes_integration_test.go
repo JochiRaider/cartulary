@@ -2456,10 +2456,7 @@ func startIsolatedIncidentBundleServer(t testing.TB, runtime *appsupport.Runtime
 func startIsolatedIncidentBundleServerWithEnv(t testing.TB, runtime *appsupport.Runtime, prefix string, extraEnv map[string]string) *appsupport.ServerHarness {
 	t.Helper()
 	testDB := runtime.Postgres.PrepareIsolatedDatabaseT(t, prefix)
-	bucket, err := runtime.S3.BootstrapBucket(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("prepare isolated target bucket: %v", err)
-	}
+	bucket := runtime.S3.BootstrapBucketT(t, prefix)
 	env := runtime.S3.Env(bucket)
 	for key, value := range extraEnv {
 		env[key] = value

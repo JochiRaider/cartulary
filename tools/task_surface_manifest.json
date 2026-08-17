@@ -2708,11 +2708,15 @@
     },
     "license-report": {
       "prerequisites": [
-        "$(LICENSE_REPORT_ARTIFACT)"
+        "release-inventory-artifacts"
       ],
+      "graph_child_skips_prerequisites": true,
       "type": "step_command",
       "mode": "run_step",
       "step_label": "license-report",
+      "env": {
+        "NODE_BIN": "$(NODE_BIN)"
+      },
       "command": [
         "./tools/release-evidence/check-release-artifact.sh",
         "\"license report\"",
@@ -2723,11 +2727,15 @@
     },
     "sbom": {
       "prerequisites": [
-        "$(SBOM_ARTIFACT)"
+        "release-inventory-artifacts"
       ],
+      "graph_child_skips_prerequisites": true,
       "type": "step_command",
       "mode": "run_step",
       "step_label": "sbom",
+      "env": {
+        "NODE_BIN": "$(NODE_BIN)"
+      },
       "command": [
         "./tools/release-evidence/check-release-artifact.sh",
         "\"SBOM\"",
@@ -2923,7 +2931,8 @@
         "$(SBOM_ARTIFACT)",
         "$(LICENSE_REPORT_ARTIFACT)"
       ],
-      "type": "artifact_binding"
+      "type": "artifact_binding",
+      "graph_entry": true
     }
   },
   "targets": [
@@ -9845,8 +9854,6 @@
     {
       "name": "harness-contract-tests",
       "backing_scripts": [
-        "tools/harness_contract_suite_registry.json",
-        "tools/harness_contract_case_ledger.json",
         "tools/harness/services/tests/test-local-session.mjs",
         "tools/harness/tests/contract-suite-support.mjs",
         "tools/harness/tests/test-harness-boundary-contracts.mjs",
@@ -9865,8 +9872,6 @@
     {
       "name": "harness-command-surface-contract",
       "backing_scripts": [
-        "tools/harness_contract_suite_registry.json",
-        "tools/harness_contract_case_ledger.json",
         "tools/harness/tests/contract-suite-support.mjs",
         "tools/harness/tests/test-harness-command-surface-contracts.mjs"
       ],
@@ -9878,8 +9883,6 @@
     {
       "name": "harness-evidence-contract",
       "backing_scripts": [
-        "tools/harness_contract_suite_registry.json",
-        "tools/harness_contract_case_ledger.json",
         "tools/harness/tests/contract-suite-support.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs"
       ],
@@ -9902,9 +9905,7 @@
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs",
         "tools/harness/tests/test-harness-graph-contracts.mjs",
-        "tools/harness/tests/test-harness-scheduler-contracts.mjs",
-        "tools/harness_contract_case_ledger.json",
-        "tools/harness_contract_suite_registry.json"
+        "tools/harness/tests/test-harness-scheduler-contracts.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -12449,8 +12450,7 @@
     {
       "name": "license-report",
       "backing_scripts": [
-        "tools/release-evidence/generate-sbom-license-evidence.mjs",
-        "tools/release-evidence/validate-cyclonedx.mjs",
+        "tools/release-evidence/validate-license-report.mjs",
         "tools/release-evidence/check-release-artifact.sh"
       ],
       "target_class": "internal_helper",
@@ -12462,8 +12462,8 @@
     {
       "name": "sbom",
       "backing_scripts": [
-        "tools/release-evidence/generate-sbom-license-evidence.mjs",
         "tools/release-evidence/validate-cyclonedx.mjs",
+        "tools/release-evidence/validate-release-sbom.mjs",
         "tools/release-evidence/check-release-artifact.sh"
       ],
       "target_class": "internal_helper",
@@ -13447,11 +13447,63 @@
     },
     {
       "name": "release-inventory-artifacts",
+      "backing_scripts": [
+        "tools/release-evidence/generate-sbom-license-evidence.mjs",
+        "tools/release-evidence/validate-cyclonedx.mjs",
+        "tools/release-evidence/validate-license-report.mjs",
+        "tools/release-evidence/validate-release-sbom.mjs"
+      ],
+      "command_id": "cartulary.harness.command.release_inventory_artifacts.v1",
       "target_class": "internal_helper",
       "default_inclusion_sets": [
         "release-check"
       ],
-      "lifecycle_state": "candidate_child"
+      "lifecycle_state": "candidate_child",
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_HARNESS_CACHE_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "normal",
+              "cold",
+              "off"
+            ],
+            "default": "normal",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
     }
   ],
   "harness_tiers": {

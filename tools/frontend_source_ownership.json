@@ -342,6 +342,7 @@
         "apps/web/src/workbook/query/workbookQueryRowPatch.ts",
         "apps/web/src/workbook/runtime/WorkbookMutationRuntime.test.ts",
         "apps/web/src/workbook/runtime/WorkbookMutationRuntime.ts",
+        "apps/web/src/workbook/runtime/WorkbookMutationRuntimeRegistry.ts",
         "apps/web/src/workbook/runtime/useWorkbookMutationRuntime.ts",
         "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
         "apps/web/src/workbook/runtime/workbookConflictModel.ts",

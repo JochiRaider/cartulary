@@ -61,8 +61,59 @@ type BatchDiagnosticProvider interface {
 type ContributionDiagnostic struct {
 	ContributionID string
 	OwnerID        string
+	State          string
 	Duration       time.Duration
 	Batch          *BatchDiagnostic
+}
+
+type FailureDiagnostic struct {
+	Stage                      string
+	Contributions              []ContributionDiagnostic
+	SemanticValidationDuration time.Duration
+}
+
+type assemblyFailure struct {
+	diagnostic FailureDiagnostic
+	err        error
+}
+
+func (e *assemblyFailure) Error() string { return e.err.Error() }
+
+func (e *assemblyFailure) Unwrap() error { return e.err }
+
+func FailureDiagnostics(err error) (FailureDiagnostic, bool) {
+	var failure *assemblyFailure
+	if !errors.As(err, &failure) {
+		return FailureDiagnostic{}, false
+	}
+	return FailureDiagnostic{
+		Stage:                      failure.diagnostic.Stage,
+		Contributions:              cloneContributionDiagnostics(failure.diagnostic.Contributions),
+		SemanticValidationDuration: failure.diagnostic.SemanticValidationDuration,
+	}, true
+}
+
+func newAssemblyFailure(stage string, diagnostics []ContributionDiagnostic, semanticDuration time.Duration, err error) error {
+	return &assemblyFailure{
+		diagnostic: FailureDiagnostic{
+			Stage:                      stage,
+			Contributions:              cloneContributionDiagnostics(diagnostics),
+			SemanticValidationDuration: semanticDuration,
+		},
+		err: err,
+	}
+}
+
+func cloneContributionDiagnostics(diagnostics []ContributionDiagnostic) []ContributionDiagnostic {
+	cloned := make([]ContributionDiagnostic, len(diagnostics))
+	for index, diagnostic := range diagnostics {
+		cloned[index] = diagnostic
+		if diagnostic.Batch != nil {
+			batch := *diagnostic.Batch
+			cloned[index].Batch = &batch
+		}
+	}
+	return cloned
 }
 
 type SemanticValidation struct {
@@ -134,65 +185,75 @@ func NewAssembler(profile performancefixtureprofile.Profile, validator Validator
 
 func (a *Assembler) Assemble(ctx context.Context, state *BuildState) (Result, error) {
 	if a == nil {
-		return Result{}, errors.New("performance fixture assembler is nil")
+		return Result{}, newAssemblyFailure("assembly", nil, 0, errors.New("performance fixture assembler is nil"))
 	}
 	if state == nil {
-		return Result{}, errors.New("performance fixture build state is required")
+		return Result{}, newAssemblyFailure("assembly", nil, 0, errors.New("performance fixture build state is required"))
 	}
 	if err := validateSnapshotKey(state.SnapshotKey); err != nil {
-		return Result{}, err
+		return Result{}, newAssemblyFailure("assembly", nil, 0, err)
 	}
 	if state.FixtureProfileID != a.profileID || state.Seed != a.seed {
-		return Result{}, errors.New("performance fixture build state diverges from its generated profile")
+		return Result{}, newAssemblyFailure("assembly", nil, 0, errors.New("performance fixture build state diverges from its generated profile"))
 	}
 	if state.RuntimeBundle.SchemaID != a.runtimeSchemaID ||
 		state.RuntimeBundle.FixtureProfileID != a.profileID ||
 		state.RuntimeBundle.SnapshotKey != state.SnapshotKey {
-		return Result{}, errors.New("performance fixture runtime bundle diverges from its generated profile")
+		return Result{}, newAssemblyFailure("assembly", nil, 0, errors.New("performance fixture runtime bundle diverges from its generated profile"))
 	}
 	receipts := make([]Receipt, 0, len(a.contributions))
 	diagnostics := make([]ContributionDiagnostic, 0, len(a.contributions))
 	for index, contribution := range a.contributions {
 		if err := ctx.Err(); err != nil {
-			return Result{}, err
+			diagnostics = append(diagnostics, ContributionDiagnostic{
+				ContributionID: a.expected[index].ContributionID,
+				OwnerID:        a.expected[index].OwnerID,
+				State:          "failed",
+			})
+			return Result{}, newAssemblyFailure("contribution", diagnostics, 0, err)
 		}
 		startedAt := time.Now()
 		receipt, err := contribution.Apply(ctx, state)
 		duration := time.Since(startedAt)
-		if err != nil {
-			return Result{}, fmt.Errorf("apply performance fixture contribution %s: %w", a.expected[index].ContributionID, err)
-		}
-		if err := validateReceipt(receipt, a.expected[index]); err != nil {
-			return Result{}, err
-		}
-		receipts = append(receipts, cloneReceipt(receipt))
 		diagnostic := ContributionDiagnostic{
-			ContributionID: receipt.ContributionID,
-			OwnerID:        receipt.OwnerID,
+			ContributionID: a.expected[index].ContributionID,
+			OwnerID:        a.expected[index].OwnerID,
+			State:          "failed",
 			Duration:       duration,
 		}
+		if err != nil {
+			diagnostics = append(diagnostics, diagnostic)
+			return Result{}, newAssemblyFailure("contribution", diagnostics, 0, fmt.Errorf("apply performance fixture contribution %s: %w", a.expected[index].ContributionID, err))
+		}
+		if err := validateReceipt(receipt, a.expected[index]); err != nil {
+			diagnostics = append(diagnostics, diagnostic)
+			return Result{}, newAssemblyFailure("contribution", diagnostics, 0, err)
+		}
+		receipts = append(receipts, cloneReceipt(receipt))
 		if provider, ok := contribution.(BatchDiagnosticProvider); ok {
 			batch := provider.PerformanceFixtureBatchDiagnostic()
 			if (batch.Strategy != "owner_application_batch" && batch.Strategy != "owner_set_oriented") ||
 				batch.BatchCount < 1 || batch.ConfiguredBatchSize < 1 || batch.ItemCount < 1 {
-				return Result{}, fmt.Errorf("performance fixture contribution %s returned invalid batch diagnostics", receipt.ContributionID)
+				diagnostics = append(diagnostics, diagnostic)
+				return Result{}, newAssemblyFailure("contribution", diagnostics, 0, fmt.Errorf("performance fixture contribution %s returned invalid batch diagnostics", receipt.ContributionID))
 			}
 			diagnostic.Batch = &batch
 		}
+		diagnostic.State = "completed"
 		diagnostics = append(diagnostics, diagnostic)
 	}
 	validationStartedAt := time.Now()
 	validation, err := a.validator.Validate(ctx, state)
 	validationDuration := time.Since(validationStartedAt)
 	if err != nil {
-		return Result{}, fmt.Errorf("validate performance fixture semantics: %w", err)
+		return Result{}, newAssemblyFailure("semantic_validation", diagnostics, validationDuration, fmt.Errorf("validate performance fixture semantics: %w", err))
 	}
 	if err := validateSemanticResult(validation, a.expectedSemantic, a.expectedConditions); err != nil {
-		return Result{}, err
+		return Result{}, newAssemblyFailure("semantic_validation", diagnostics, validationDuration, err)
 	}
 	digest, err := semanticDigest(receipts, validation)
 	if err != nil {
-		return Result{}, err
+		return Result{}, newAssemblyFailure("semantic_validation", diagnostics, validationDuration, err)
 	}
 	return Result{
 		Receipts:                 receipts,

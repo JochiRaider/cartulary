@@ -56,11 +56,24 @@ tmp_dir="$(mktemp -d)"
 trap cleanup EXIT
 
 # The managed lifecycle is session-owned and has no development-stack route.
-assert_file_contains "$START_SCRIPT" 'CARTULARY_TEST_SERVICES_ACTIVE:-}" != "1"' "managed suite guard"
+assert_file_contains "$START_SCRIPT" 'CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID' "authenticated managed suite guard"
+assert_file_not_contains "$START_SCRIPT" 'CARTULARY_TEST_SERVICES_ACTIVE' "ambient active state removed"
 # shellcheck disable=SC2016
 assert_file_contains "$START_SCRIPT" '_shared/test-services/${SUITE_ID}/browser-sessions/${BROWSER_SESSION_ID}' "session artifact cardinality"
 assert_file_contains "$START_SCRIPT" 'finalize startup diagnostics' "terminal diagnostic precedes publication"
-assert_file_contains "$START_SCRIPT" 'publish immutable v5 stack' "v4 publication"
+assert_file_contains "$START_SCRIPT" 'publish immutable v6 stack' "v6 publication"
+assert_file_contains "$START_SCRIPT" 'v6 browser stack publication requires bound backend and frontend readiness' "missing readiness fails publication"
+# shellcheck disable=SC2016
+assert_file_not_contains "$START_SCRIPT" 'if [[ -z "${BACKEND_READY_AT}" || -z "${FRONTEND_READY_AT}" ]]; then
+    return 0' "missing readiness cannot silently publish"
+assert_file_contains "$START_SCRIPT" 'snapshot_service_scope || return $?' "admission publication failure propagates"
+assert_file_contains "$START_SCRIPT" 'verify_stack_publication' "terminal publication verification"
+# shellcheck disable=SC2016
+assert_file_contains "$START_SCRIPT" 'artifact identity ${BROWSER_SESSION_ID} is already in use' "session artifact collision rejection"
+# shellcheck disable=SC2016
+assert_file_not_contains "$START_SCRIPT" 'rm -f \
+    "${STACK_ENV_FILE}" \
+    "${STACK_JSON_FILE}"' "immutable public session evidence is never cleared"
 # shellcheck disable=SC2016
 assert_file_contains "$START_SCRIPT" 'vite preview --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort' "strict preview"
 assert_file_contains "$START_SCRIPT" 'TEST_SERVICE_FRONTEND_PORT_START=19000' "service-backed frontend range starts below the default ephemeral range"
@@ -185,12 +198,11 @@ remove_stale_port_lease "$(port_lease_dir 39001)" ||
 [[ ! -d "$(port_lease_dir 39001)" ]] ||
   fail "dead transferred port lease was not removed"
 
-unset CARTULARY_TEST_SERVICES_ACTIVE
 CARTULARY_BROWSER_SERVICE_REQUIREMENT=test-services
 SUITE_ID=suite-test
 BROWSER_SESSION_ID=session-test
 if prepare_runtime_root >/dev/null 2>&1; then
-  fail "managed browser runtime must reject a missing active test-services suite"
+  fail "managed browser runtime must reject missing suite-runtime proof"
 fi
 if browser_start_services >/dev/null 2>&1; then
   fail "browser lifecycle must reject shared development services"
@@ -208,7 +220,7 @@ security_lease_id="00000000-0000-4000-8000-000000000002"
 printf '{"schema_id":"cartulary.harness_suite_runtime_owner.v1","lease_id":"%s","run_id":"%s","owner_uid":%s,"created_at":"2026-08-14T00:00:00Z"}\n' \
   "$security_lease_id" "$security_run_id" "$(id -u)" >"$security_suite_root/runtime-owner.json"
 chmod 600 "$security_suite_root/runtime-owner.json"
-export CARTULARY_TEST_SERVICES_ACTIVE=1
+export CARTULARY_TEST_SERVICES_CALL_MODE=owned
 export CARTULARY_TEST_RESULTS_DIR="$security_results_root"
 export CARTULARY_TEST_RUN_ID="$security_run_id"
 export CARTULARY_HARNESS_SUITE_RUNTIME_ROOT="$security_suite_root"
@@ -217,6 +229,9 @@ export CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID="$security_run_id"
 PRIVATE_SESSION_ROOT="$security_session_root"
 BROWSER_SESSION_ID=security-session
 prepare_runtime_root || fail "valid external private browser runtime admission"
+if prepare_runtime_root >/dev/null 2>&1; then
+  fail "browser runtime must reject a reused public session identity"
+fi
 [[ "$RUNTIME_ROOT_BASE" == "$security_session_root/runtime-root" ]] ||
   fail "browser runtime root must be external to retained results"
 [[ "$STACK_ENV_FILE" == "$security_session_root/stack.env" ]] ||
@@ -247,8 +262,15 @@ private_session_root="$private_suite_root/browser-stack-leases/$session_id"
 runtime_root="$private_session_root/runtime-root"
 mkdir -p "$session_root" "$private_session_root/logs" "$runtime_root/playwright-state"
 chmod 700 "$private_suite_root" "$private_session_root" "$runtime_root" "$runtime_root/playwright-state"
-printf '{"schema_id":"cartulary.test_services.scope.v1","suite_id":"%s","run_id":"%s"}\n' \
-  "$suite_id" "$run_id" >"$suite_root/service-scope.json"
+printf '{"schema_id":"cartulary.test_services.scope.v2","target":"browser-e2e","suite_id":"%s","run_id":"%s","artifact_dir":"%s","readiness_generation":"sha256:%s","wrapper":{"owned_count":1,"pass_through_count":0},"preflight":{"docker_ok":true,"reaper_ready":true,"stale_containers_scanned":0,"stale_containers_removed":0,"stale_containers_deferred":0,"ryuk_disabled_for_suite_startup":true},"failures":{},"cleanup":{},"postgres":{"started":true,"startup":{"attempt_count":0,"retry_count":0,"slowest_attempt_duration_ms":0,"final_attempt":0,"final_retryable":false,"final_retry_blocked_by_context":false},"attached_harness_count":1,"created_database_count":1,"migrated_database_count":1,"template_clone_count":1},"object_store":{"started":true,"secure":false,"startup":{"attempt_count":0,"retry_count":0,"slowest_attempt_duration_ms":0,"final_attempt":0,"final_retryable":false,"final_retry_blocked_by_context":false},"attached_harness_count":1,"bucket_create_count":1,"bucket_cleanup_count":0},"browser_e2e":{"retired_fixture_count":0,"cleaned_fixture_count":0,"reclaimed_fixture_count":0},"fixture":{"total_count":2,"total_duration_ms":0,"strategy_aggregate_count":0},"started_services":{"names":["object_store","postgres"]}}\n' \
+  "$suite_id" "$run_id" "$suite_root" "$(printf '4%.0s' {1..64})" >"$suite_root/service-scope.json"
+printf '{"schema_id":"cartulary.run_manifest.v3","source_digest":"sha256:%s"}\n' \
+  "$(printf '3%.0s' {1..64})" >"$run_root/run-manifest.json"
+mkdir -p "$private_suite_root/test-services"
+chmod 700 "$private_suite_root/test-services"
+printf '{"schema_id":"cartulary.test_services.lease.v1","lease_id":"00000000-0000-4000-8000-000000000001","suite_id":"%s","run_id":"%s","cleanup_state":"not_started","resources":[{"kind":"container","service":"postgres","container_id":"postgres-container-proof"},{"kind":"container","service":"object_store","container_id":"object-store-container-proof"}]}\n' \
+  "$suite_id" "$run_id" >"$private_suite_root/test-services/service-lease.json"
+chmod 600 "$private_suite_root/test-services/service-lease.json"
 printf '{"database_name":"ct_web_test","bucket":"ct-web-test"}\n' >"$runtime_root/test-services-web-e2e.json"
 printf 'backend\n' >"$private_session_root/logs/server.log"
 printf 'frontend\n' >"$private_session_root/logs/web.log"
@@ -266,12 +288,13 @@ export CARTULARY_TEST_SUITE_ID="$suite_id"
 export CARTULARY_BROWSER_SESSION_GROUP="$session_id"
 export CARTULARY_BROWSER_RUNTIME_PROFILE_ID=default
 export CARTULARY_BROWSER_SERVICE_REQUIREMENT=test-services
-export CARTULARY_TEST_SERVICES_ACTIVE=1
 export CARTULARY_TEST_SERVICES_CALL_MODE=owned
 export CARTULARY_WEB_E2E_SESSION_ARTIFACT_DIR="$session_root"
 export CARTULARY_WEB_E2E_RUNTIME_ROOT="$runtime_root"
 export CARTULARY_PLAYWRIGHT_STATE_DIR="$runtime_root/playwright-state"
 export CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID=00000000-0000-4000-8000-000000000001
+export CARTULARY_HARNESS_SUITE_RUNTIME_ROOT="$private_suite_root"
+export CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID="$run_id"
 export CARTULARY_WEB_E2E_SERVER_LOG="$private_session_root/logs/server.log"
 export CARTULARY_WEB_E2E_WEB_LOG="$private_session_root/logs/web.log"
 export CARTULARY_WEB_E2E_API_ORIGIN=http://127.0.0.1:38080
@@ -289,13 +312,14 @@ export CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE="$runtime_root/test-service
 export CARTULARY_PGTEST_TEMPLATE_DB=ct_suite_template
 CARTULARY_PGTEST_SCHEMA_HASH="sha256:$(printf '2%.0s' {1..64})"
 export CARTULARY_PGTEST_SCHEMA_HASH
+export CARTULARY_S3TEST_ENDPOINT=127.0.0.1:39000
 export CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT=127.0.0.1:39000
 export CARTULARY_S3_OBJECT_PRIMARY_SECURE=false
 export CARTULARY_S3_OBJECT_PRIMARY_BUCKET=ct-web-test
 
 "$NODE_BIN" "$EVIDENCE_HELPER" event initializing "initializing test session"
 "$NODE_BIN" "$EVIDENCE_HELPER" event service_attached "attached exact suite"
-"$NODE_BIN" "$EVIDENCE_HELPER" snapshot-service-scope
+"$NODE_BIN" "$EVIDENCE_HELPER" write-service-admission
 "$NODE_BIN" "$EVIDENCE_HELPER" event fixture_ready "fixture ready"
 "$NODE_BIN" "$EVIDENCE_HELPER" event backend_ready "backend ready"
 "$NODE_BIN" "$EVIDENCE_HELPER" event frontend_ready "frontend ready"
@@ -304,12 +328,12 @@ export CARTULARY_S3_OBJECT_PRIMARY_BUCKET=ct-web-test
 stack_file="$("$NODE_BIN" "$EVIDENCE_HELPER" stack)"
 export CARTULARY_WEB_E2E_STACK_JSON_FILE="$stack_file"
 
-assert_json "$stack_file" 'value.schema_id === "cartulary.web_e2e_stack.v5"' "v4 schema identity"
+assert_json "$stack_file" 'value.schema_id === "cartulary.web_e2e_stack.v6"' "v4 schema identity"
 assert_json "$stack_file" 'value.suite_id === "suite-test" && value.browser_session_id === "session-default"' "v4 suite/session identity"
 assert_json "$stack_file" 'value.postgres_identity.database_name === "ct_web_test" && value.object_store_identity.bucket === "ct-web-test"' "v4 isolated resource identity"
 assert_json "$stack_file" 'value.frontend.frontend_command_kind === "vite-preview"' "v4 preview identity"
 if grep -Eq 'access_key|secret|postgres://' "$stack_file"; then
-  fail "v5 stack must not contain credentials or DSNs"
+  fail "v6 stack must not contain credentials or DSNs"
 fi
 
 attachment_exports="$("$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file")"
@@ -353,7 +377,7 @@ if CARTULARY_BROWSER_RUNTIME_PROFILE_ID=network_flow_claimed \
   fail "profile-mismatched v4 attachment must fail"
 fi
 if "$NODE_BIN" "$EVIDENCE_HELPER" stack >/dev/null 2>&1; then
-  fail "v5 stack publication must be immutable"
+  fail "v6 stack publication must be immutable"
 fi
 printf '\n' >>"$session_root/startup-diagnostics.json"
 if "$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file" >/dev/null 2>&1; then

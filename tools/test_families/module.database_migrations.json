@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v5",
+  "schema_id": "cartulary.test_family_manifest.v6",
   "owner_id": "module.database_migrations",
   "rows": [
     {
@@ -430,7 +430,14 @@
       "selector": {
         "package": "./internal/testutil/pgtest",
         "tests": [
-          "TestMigrationDatabaseTargetedOperationValidation"
+          "TestDatabaseCleanupDoesNotForceNonConnectionFailure",
+          "TestDatabaseCleanupUsesBoundedForcedFallbackOnlyForOwnedActiveDatabase",
+          "TestDatabaseCleanupUsesFreshForcedFallbackAfterBoundedNormalTimeout",
+          "TestMigrationDatabaseTCleanupDropsAttachedSuiteScratchDatabase",
+          "TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase",
+          "TestMigrationDatabaseTargetedOperationValidation",
+          "TestPrepareIsolatedDatabaseTCleanupDropsAttachedSuiteTemplateClone",
+          "TestPrepareIsolatedDatabaseTCleanupDropsStandaloneDatabase"
         ]
       },
       "evidence_class": "unit",

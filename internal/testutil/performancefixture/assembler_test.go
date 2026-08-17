@@ -166,6 +166,13 @@ func TestAssemblerPropagatesContributionFailure(t *testing.T) {
 	}
 	if _, err := assembler.Assemble(context.Background(), testState()); err == nil {
 		t.Fatal("expected injected mutation failure")
+	} else if diagnostic, ok := FailureDiagnostics(err); !ok {
+		t.Fatal("expected bounded failure diagnostics")
+	} else if diagnostic.Stage != "contribution" || len(diagnostic.Contributions) != 1 ||
+		diagnostic.Contributions[0].ContributionID != descriptor.ContributionID ||
+		diagnostic.Contributions[0].OwnerID != descriptor.OwnerID ||
+		diagnostic.Contributions[0].State != "failed" {
+		t.Fatalf("unexpected bounded failure diagnostics: %#v", diagnostic)
 	}
 }
 

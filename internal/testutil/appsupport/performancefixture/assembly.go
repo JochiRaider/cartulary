@@ -110,17 +110,29 @@ func New(profile performancefixtureprofile.Profile, dependencies Dependencies) (
 	if err != nil {
 		return nil, err
 	}
-	viewSchemaIDs := make([]string, 0)
+	projectionRows := map[string]int{
+		"cartulary.view.hosts.v1":      expectations.HostRows,
+		"cartulary.view.identities.v1": expectations.IdentityRows,
+		"cartulary.view.timeline.v2":   expectations.TimelineRows,
+	}
+	projectionExpectations := make([]projectionsfixture.SetExpectation, 0)
 	for _, ref := range profile.SourceContractRefs {
 		if ref.SchemaID == "cartulary.view_schema_source.v1" {
-			viewSchemaIDs = append(viewSchemaIDs, ref.ContractID)
+			exactRows, ok := projectionRows[ref.ContractID]
+			if !ok {
+				return nil, fmt.Errorf("AC-043 generated profile has no projection count for %s", ref.ContractID)
+			}
+			projectionExpectations = append(projectionExpectations, projectionsfixture.SetExpectation{
+				ViewSchemaID: ref.ContractID,
+				ExactRows:    exactRows,
+			})
 		}
 	}
 	projectionsDescriptor, err := descriptor("module.projections")
 	if err != nil {
 		return nil, err
 	}
-	projections, err := projectionsfixture.New(dependencies.Projections, projectionsDescriptor, viewSchemaIDs)
+	projections, err := projectionsfixture.New(dependencies.Projections, projectionsDescriptor, projectionExpectations)
 	if err != nil {
 		return nil, err
 	}

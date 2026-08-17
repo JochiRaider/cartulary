@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { closeSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
+import { closeSync, lstatSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
 
@@ -32,6 +32,19 @@ function readEnvironmentFile(file) {
     }
   }
   return environment;
+}
+
+function requireOwnerOnlyRegularFile(file, label) {
+  const stat = lstatSync(file);
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error(`${label} must be a regular non-symlink file`);
+  }
+  if ((stat.mode & 0o777) !== 0o600) {
+    throw new Error(`${label} must have mode 0600`);
+  }
+  if (typeof process.getuid === "function" && stat.uid !== process.getuid()) {
+    throw new Error(`${label} must be owned by the current user`);
+  }
 }
 
 function readSuiteEnvironmentFile(file) {
@@ -269,7 +282,6 @@ function borrowedProvider(suiteController, resourceID, environmentForSuite = (va
 
 function browserSuiteEnvironment(environment) {
   const exact = new Set([
-    "CARTULARY_TEST_SERVICES_ACTIVE",
     "CARTULARY_TEST_SERVICES_CALL_MODE",
     "CARTULARY_TEST_SERVICES_LIFECYCLE_MODE",
     "CARTULARY_TEST_SUITE_ID",
@@ -295,7 +307,6 @@ export function productionFixtureProviders({
   const sharedProviders = Object.fromEntries(
     [
       "postgres_transaction",
-      "postgres_group",
       "postgres_dedicated",
       "postgres_migration",
       "managed_process",
@@ -367,7 +378,32 @@ export function productionFixtureProviders({
           cwd: root,
           environment,
         });
-        const stackEnvironment = readEnvironmentFile(envFile);
+        let stackEnvironment;
+        try {
+          stackEnvironment = readEnvironmentFile(envFile);
+          const stackFile = stackEnvironment.CARTULARY_WEB_E2E_STACK_JSON_FILE;
+          if (!stackFile || path.basename(stackFile) !== "stack-v6.json") {
+            throw new Error("browser session did not publish its stack-v6 attachment path");
+          }
+          requireOwnerOnlyRegularFile(stackFile, "browser stack-v6 evidence");
+          requireOwnerOnlyRegularFile(
+            path.join(path.dirname(stackFile), "service-admission.json"),
+            "browser service-admission evidence",
+          );
+        } catch (error) {
+          try {
+            run(lifecycle, ["--session-stop", "--lease-file", leaseFile], {
+              cwd: root,
+              environment,
+            });
+          } catch (cleanupError) {
+            throw new AggregateError(
+              [error, cleanupError],
+              "browser session publication failed and owned cleanup also failed",
+            );
+          }
+          throw error;
+        }
         suiteRuntime.registerEnvironment(stackEnvironment);
         rmSync(envFile, { force: true });
         const unitEnvironment = {

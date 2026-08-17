@@ -20,7 +20,7 @@ func runBuildPerformanceFixture(args []string, env map[string]string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
 	}
-	if !suiteservices.SuiteActive(env) {
+	if !suiteservices.SuiteAuthorized(env) {
 		fmt.Fprintln(os.Stderr, "build-performance-fixture requires an active owned suite")
 		return 1
 	}
@@ -45,7 +45,7 @@ func runBuildPerformanceFixture(args []string, env map[string]string) int {
 	buildDuration := time.Since(startedAt)
 	if err != nil {
 		failed := performancefixturelifecycle.FailedBuild(profile, parsed, "contribution_invalid")
-		diagnostics := performancefixturelifecycle.FailedBuildDiagnostics(profile, parsed, buildDuration)
+		diagnostics := performancefixturelifecycle.FailedBuildDiagnostics(profile, parsed, buildDuration, err)
 		if writeErr := performancefixturelifecycle.WriteImmutableJSON(diagnosticsFile, diagnostics); writeErr != nil {
 			fmt.Fprintf(os.Stderr, "build performance fixture: %v; retain failure diagnostics: %v\n", err, writeErr)
 		} else if writeErr := performancefixturelifecycle.WriteImmutableJSON(parsed.ArtifactFile, failed); writeErr != nil {

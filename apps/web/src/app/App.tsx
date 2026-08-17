@@ -25,6 +25,7 @@ import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
 } from "../shared/workbookShellContracts";
+import { WorkbookMutationRuntimeRegistry } from "../workbook/runtime/WorkbookMutationRuntimeRegistry";
 import {
   AccountSecurityPanel,
   DeploymentUsersPanel,
@@ -220,6 +221,16 @@ function incidentCreateOptionalBody(fields: {
 
 export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const { commitRoute, route, routeRef } = useAppRouteRuntime();
+  const workbookMutationRuntimeRegistry = useMemo(
+    () => new WorkbookMutationRuntimeRegistry(),
+    [],
+  );
+  useEffect(
+    () => () => {
+      workbookMutationRuntimeRegistry.dispose();
+    },
+    [workbookMutationRuntimeRegistry],
+  );
   const [session, setSession] = useState<SessionData | null>(null);
   const workbookAuthorizationRecovery = useMemo(
     () =>
@@ -1244,6 +1255,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
               renderIncidentControls={(props) => (
                 <IncidentAdminPanel {...props} />
               )}
+              mutationRuntimeRegistry={workbookMutationRuntimeRegistry}
             />
           </Suspense>
         </section>

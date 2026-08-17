@@ -97,7 +97,7 @@
         "cartulary.harness_run_manifest.v1",
         "cartulary.harness_run_summary.v1",
         "cartulary.harness_target_summary.v1",
-        "cartulary.test_family_manifest.v5",
+        "cartulary.test_family_manifest.v6",
         "cartulary.test_owner_explanation.v3",
         "cartulary.test_owner_registry.v1",
         "cartulary.test_runner_registry.v1",

@@ -533,16 +533,7 @@ func requireNoPermissiveTestRuntimeCORS(t testing.TB, resp *http.Response) {
 
 func prepareTestRuntimeResetBucket(t testing.TB, h *s3test.Harness, prefix string) string {
 	t.Helper()
-	bucket, err := h.BootstrapBucket(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("bootstrap reset test bucket: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := h.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Logf("cleanup reset test bucket: %v", err)
-		}
-	})
-	return bucket
+	return h.BootstrapBucketT(t, prefix)
 }
 
 func seedTestRuntimeResetRows(t testing.TB, db *sql.DB) {

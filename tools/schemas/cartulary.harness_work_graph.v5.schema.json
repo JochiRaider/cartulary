@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_work_graph.v4",
+  "$id": "cartulary.harness_work_graph.v5",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_id", "selector", "units", "graph_digest"],
   "properties": {
-    "schema_id": { "const": "cartulary.harness_work_graph.v4" },
+    "schema_id": { "const": "cartulary.harness_work_graph.v5" },
     "selector": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/nonempty" },
     "units": { "type": "array", "items": { "$ref": "#/$defs/unit" } },
     "graph_digest": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest" }
@@ -46,7 +46,7 @@
         "shared_locks": { "type": "array", "uniqueItems": true, "items": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" } },
         "exclusive_locks": { "type": "array", "uniqueItems": true, "items": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" } },
         "affinity_key": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" },
-        "fixture_lease": { "enum": ["none", "postgres_transaction", "postgres_group", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"] },
+        "fixture_lease": { "enum": ["none", "postgres_transaction", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"] },
         "fixture_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*_v[1-9][0-9]*$" },
         "snapshot_key": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "service_dependencies": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies" },

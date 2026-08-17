@@ -25,9 +25,8 @@ WEB_LOG=""
 STACK_ENV_FILE=""
 STACK_JSON_FILE=""
 STARTUP_DIAGNOSTIC_FILE=""
-STARTUP_EVENTS_FILE=""
 STACK_LEASE_FILE=""
-SERVICE_SCOPE_SNAPSHOT_FILE=""
+SERVICE_ADMISSION_FILE=""
 RUN_ROOT=""
 PRIVATE_SESSION_ROOT="${CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT:-}"
 SUITE_ID="${CARTULARY_TEST_SUITE_ID:-}"
@@ -149,10 +148,6 @@ prepare_runtime_root() {
   local suite_runtime_run_id="${CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID:-}"
   local owner_marker=""
 
-  if [[ "${CARTULARY_TEST_SERVICES_ACTIVE:-}" != "1" ]]; then
-    echo "managed browser sessions require CARTULARY_TEST_SERVICES_ACTIVE=1" >&2
-    return 2
-  fi
   if [[ "${CARTULARY_BROWSER_SERVICE_REQUIREMENT:-}" != "test-services" ]]; then
     echo "browser lifecycle adapter requires CARTULARY_BROWSER_SERVICE_REQUIREMENT=test-services" >&2
     return 2
@@ -216,24 +211,21 @@ prepare_runtime_root() {
   fi
   PRIVATE_SESSION_ROOT="${private_session_real}"
   TARGET_ARTIFACT_DIR="${RUN_ROOT}/_shared/test-services/${SUITE_ID}/browser-sessions/${BROWSER_SESSION_ID}"
+  if [[ -e "${TARGET_ARTIFACT_DIR}" || -L "${TARGET_ARTIFACT_DIR}" ]]; then
+    echo "browser session artifact identity ${BROWSER_SESSION_ID} is already in use" >&2
+    return 2
+  fi
   step_secure_mkdir "${TARGET_ARTIFACT_DIR}" "${PRIVATE_SESSION_ROOT}/logs"
   RUNTIME_ROOT_BASE="${PRIVATE_SESSION_ROOT}/runtime-root"
   SERVER_LOG="${PRIVATE_SESSION_ROOT}/logs/server.log"
   WEB_LOG="${PRIVATE_SESSION_ROOT}/logs/web.log"
   STACK_ENV_FILE="${PRIVATE_SESSION_ROOT}/stack.env"
-  STACK_JSON_FILE="${TARGET_ARTIFACT_DIR}/stack-v5.json"
+  STACK_JSON_FILE="${TARGET_ARTIFACT_DIR}/stack-v6.json"
   STARTUP_DIAGNOSTIC_FILE="${TARGET_ARTIFACT_DIR}/startup-diagnostics.json"
-  STARTUP_EVENTS_FILE="${TARGET_ARTIFACT_DIR}/startup-events.jsonl"
   STACK_LEASE_FILE="${TARGET_ARTIFACT_DIR}/browser-stack-lease.json"
-  SERVICE_SCOPE_SNAPSHOT_FILE="${TARGET_ARTIFACT_DIR}/service-scope-admission.json"
+  SERVICE_ADMISSION_FILE="${TARGET_ARTIFACT_DIR}/service-admission.json"
   rm -rf "${RUNTIME_ROOT_BASE}"
-  rm -f \
-    "${STACK_ENV_FILE}" \
-    "${STACK_JSON_FILE}" \
-    "${STARTUP_DIAGNOSTIC_FILE}" \
-    "${STARTUP_EVENTS_FILE}" \
-    "${STACK_LEASE_FILE}" \
-    "${SERVICE_SCOPE_SNAPSHOT_FILE}"
+  rm -f "${STACK_ENV_FILE}"
   KEEP_RUNTIME_ROOT=1
 
   PLAYWRIGHT_STATE_DIR="${RUNTIME_ROOT_BASE}/playwright-state"
@@ -291,10 +283,11 @@ write_stack_metadata() {
   local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
 
   if [[ -z "${BACKEND_READY_AT}" || -z "${FRONTEND_READY_AT}" ]]; then
-    return 0
+    echo "v6 browser stack publication requires bound backend and frontend readiness" >&2
+    return 1
   fi
   if [[ ! -f "${STARTUP_DIAGNOSTIC_FILE}" ]]; then
-    echo "v5 browser stack publication requires terminal startup diagnostics" >&2
+    echo "v6 browser stack publication requires terminal startup diagnostics" >&2
     return 1
   fi
   if [[ ! -x "${node_bin}" ]]; then
@@ -308,8 +301,8 @@ write_stack_metadata() {
   export CARTULARY_WEB_E2E_FRONTEND_READY_AT="${FRONTEND_READY_AT}"
   export CARTULARY_WEB_E2E_BACKEND_IDENTITY_SERVER_PID="${BACKEND_IDENTITY_SERVER_PID}"
   export CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE="${TEST_SERVICES_METADATA_FILE}"
-  "${node_bin}" "${SESSION_EVIDENCE_HELPER}" lease
-  "${node_bin}" "${SESSION_EVIDENCE_HELPER}" stack >/dev/null
+  "${node_bin}" "${SESSION_EVIDENCE_HELPER}" lease || return $?
+  "${node_bin}" "${SESSION_EVIDENCE_HELPER}" stack >/dev/null || return $?
   export CARTULARY_WEB_E2E_STACK_JSON_FILE="${STACK_JSON_FILE}"
 
   step_secure_mkdir "$(dirname "${STACK_ENV_FILE}")"
@@ -329,6 +322,24 @@ CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID=${RUNTIME_PROFILE_ID}
 CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT=${RUNTIME_PROFILE_FINGERPRINT}
 EOF
   chmod 600 "${STACK_ENV_FILE}" 2>/dev/null || true
+  verify_stack_publication
+}
+
+verify_stack_publication() {
+  local artifact=""
+  local label=""
+
+  for artifact in "${SERVICE_ADMISSION_FILE}" "${STACK_LEASE_FILE}" "${STACK_JSON_FILE}"; do
+    label="$(basename "${artifact}")"
+    if [[ ! -f "${artifact}" || -L "${artifact}" ]]; then
+      echo "browser session publication requires regular ${label}" >&2
+      return 1
+    fi
+    if [[ "$(stat -c '%a' "${artifact}")" != "600" || "$(stat -c '%u' "${artifact}")" != "$(id -u)" ]]; then
+      echo "browser session publication requires owner-only ${label}" >&2
+      return 1
+    fi
+  done
   return 0
 }
 
@@ -386,7 +397,7 @@ snapshot_service_scope() {
   if [[ ! -x "${node_bin}" ]]; then
     node_bin="node"
   fi
-  "${node_bin}" "${SESSION_EVIDENCE_HELPER}" snapshot-service-scope
+  "${node_bin}" "${SESSION_EVIDENCE_HELPER}" write-service-admission
 }
 
 require_frontend_preview_artifacts() {
@@ -459,12 +470,19 @@ EOF
 }
 
 using_test_services_stack() {
-  [[ "${CARTULARY_TEST_SERVICES_ACTIVE:-}" == "1" ]]
+  [[ -n "${SUITE_ID}" && -n "${CARTULARY_HARNESS_SUITE_RUNTIME_ROOT:-}" && \
+    -n "${CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID:-}" && \
+    -n "${CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID:-}" && \
+    -f "${CARTULARY_HARNESS_SUITE_RUNTIME_ROOT}/runtime-owner.json" && \
+    -f "${CARTULARY_HARNESS_SUITE_RUNTIME_ROOT}/test-services/service-lease.json" && \
+    -n "${CARTULARY_PGTEST_TEMPLATE_DB:-}" && \
+    -n "${CARTULARY_PGTEST_SCHEMA_HASH:-}" && \
+    -n "${CARTULARY_S3TEST_ENDPOINT:-}" ]]
 }
 
 require_test_services_bin() {
   if [[ -z "${TEST_SERVICES_BIN}" ]]; then
-    echo "CARTULARY_TEST_SERVICES_BIN is required when CARTULARY_TEST_SERVICES_ACTIVE=1" >&2
+    echo "CARTULARY_TEST_SERVICES_BIN is required for an authenticated managed-service stack" >&2
     return 1
   fi
   if [[ ! -x "${TEST_SERVICES_BIN}" ]]; then
@@ -707,7 +725,6 @@ write_session_files() {
   CARTULARY_WEB_E2E_KEEP_RUNTIME_ROOT="${KEEP_RUNTIME_ROOT}" \
   CARTULARY_WEB_E2E_DB="${E2E_DB}" \
   CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE="${TEST_SERVICES_METADATA_FILE}" \
-  CARTULARY_WEB_E2E_TEST_SERVICES_ACTIVE="${CARTULARY_TEST_SERVICES_ACTIVE:-}" \
   CARTULARY_WEB_E2E_PGTEST_SCHEMA_HASH="${CARTULARY_PGTEST_SCHEMA_HASH}" \
   CARTULARY_WEB_E2E_PGTEST_TEMPLATE_DB="${CARTULARY_PGTEST_TEMPLATE_DB}" \
   CARTULARY_WEB_E2E_S3_ENDPOINT="${CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT}" \
@@ -777,7 +794,6 @@ const lease = {
   keep_runtime_root: process.env.CARTULARY_WEB_E2E_KEEP_RUNTIME_ROOT === "1",
   e2e_db: process.env.CARTULARY_WEB_E2E_DB,
   test_services_metadata_file: process.env.CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE,
-  test_services_active: process.env.CARTULARY_WEB_E2E_TEST_SERVICES_ACTIVE === "1",
   runtime_profile_id: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID,
   runtime_profile_fingerprint: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT,
 };
@@ -814,10 +830,8 @@ console.log(`SESSION_ENV_FILE=${q(lease.session_env_file)}`);
 console.log(`KEEP_RUNTIME_ROOT=${lease.keep_runtime_root ? "1" : "0"}`);
 console.log(`E2E_DB=${q(lease.e2e_db)}`);
 console.log(`TEST_SERVICES_METADATA_FILE=${q(lease.test_services_metadata_file)}`);
-console.log(`CARTULARY_TEST_SERVICES_ACTIVE=${lease.test_services_active ? "1" : ""}`);
 EOF
   )"
-  export CARTULARY_TEST_SERVICES_ACTIVE
   CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}"
   export CARTULARY_TEST_ROUTE_TOKEN_FILE
   adopt_port_lease_for_cleanup "${BACKEND_PORT}"
@@ -1055,7 +1069,7 @@ browser_prepare_database() {
     "${TEST_SERVICES_METADATA_FILE}")"
   export CARTULARY_WEB_E2E_DB="${E2E_DB}"
   export CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN="${E2E_DSN}"
-  snapshot_service_scope
+  snapshot_service_scope || return $?
   record_startup_event "fixture_ready" \
     "prepared isolated browser database and object-store fixture"
 }
@@ -1093,8 +1107,6 @@ browser_wait_backend_ready() {
         return 1
       fi
       BACKEND_IDENTITY_SERVER_PID="${identity_pid}"
-      BACKEND_READY_AT="$(step_now_utc)"
-      record_startup_event "backend_ready" "backend ready at ${API_ORIGIN}"
       return 0
     fi
     sleep 0.5
@@ -1136,8 +1148,6 @@ browser_wait_frontend_ready() {
         cat "${WEB_LOG}" >&2 || true
         return 1
       fi
-      FRONTEND_READY_AT="$(step_now_utc)"
-      record_startup_event "frontend_ready" "frontend ready at ${PUBLIC_ORIGIN}"
       return 0
     fi
     sleep 0.5
@@ -1364,12 +1374,17 @@ main() {
   fi
 
   CARTULARY_STEP_TIMING_BUCKET=server_startup run_step_command "browser-e2e startup backend ready" browser_wait_backend_ready
+  BACKEND_READY_AT="$(step_now_utc)"
+  record_startup_event "backend_ready" "backend ready at ${API_ORIGIN}"
   CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e startup frontend ready" start_frontend_preview_ready "${pnpm_bin}"
+  FRONTEND_READY_AT="$(step_now_utc)"
+  record_startup_event "frontend_ready" "frontend ready at ${PUBLIC_ORIGIN}"
   run_timing_span "setup" "browser-e2e finalize startup diagnostics" finalize_startup_ready
-  run_timing_span "setup" "browser-e2e publish immutable v5 stack" write_stack_metadata
+  run_timing_span "setup" "browser-e2e publish immutable v6 stack" write_stack_metadata
 
   if [[ "${SESSION_MODE}" == "start" ]]; then
     run_timing_span "setup" "browser-e2e write session lease" write_session_files
+    verify_stack_publication
     transfer_port_lease_for_port "${BACKEND_PORT}" "${SERVER_PGID}"
     transfer_port_lease_for_port "${FRONTEND_PORT}" "${VITE_PGID}"
     release_process_group_monitor "${SERVER_PGID}"

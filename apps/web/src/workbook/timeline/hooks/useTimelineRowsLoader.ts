@@ -53,6 +53,7 @@ export function useTimelineRowsLoader({
   beginRefreshInFlight,
   beginTimelineRowsLoad,
   committedRowsChangedSince,
+  currentCreatedRowPresentationRecordId,
   currentCommittedTimelineRow,
   finishRefreshInFlight,
   failViewportContinuity,
@@ -92,6 +93,7 @@ export function useTimelineRowsLoader({
     readonly requestSequence: number;
   };
   readonly committedRowsChangedSince: (epoch: number) => boolean;
+  readonly currentCreatedRowPresentationRecordId: () => string | null;
   readonly currentCommittedTimelineRow: (
     recordId: string,
   ) => WorkbookRow | null;
@@ -400,6 +402,12 @@ export function useTimelineRowsLoader({
           incomingRows: incomingFreshness.rows,
           materializeRow: editorDraftRegistry.materializeRow,
           nextDraftIndex,
+          pinnedCommittedRow: (() => {
+            const recordId = currentCreatedRowPresentationRecordId();
+            return recordId === null
+              ? null
+              : currentCommittedTimelineRow(recordId);
+          })(),
         });
       acceptCommittedTimelineRows(committedRows);
       editorDraftRegistry.retainRows(
@@ -463,6 +471,8 @@ export function useTimelineRowsLoader({
       advanceViewportContinuity,
       beginTimelineRowsLoad,
       committedRowsChangedSince,
+      currentCreatedRowPresentationRecordId,
+      currentCommittedTimelineRow,
       failViewportContinuity,
       freshTimelineRowsForQueryResult,
       hasLoadedRows,
@@ -494,16 +504,18 @@ export function useTimelineRowsLoader({
   return { loadRows };
 }
 
-function reconcileCommittedRowsWithLocalDrafts({
+export function reconcileCommittedRowsWithLocalDrafts({
   currentRows,
   incomingRows,
   materializeRow,
   nextDraftIndex,
+  pinnedCommittedRow = null,
 }: {
   readonly currentRows: WorkbookRow[];
   readonly incomingRows: WorkbookRow[];
   readonly materializeRow: (row: WorkbookRow) => WorkbookRow;
   readonly nextDraftIndex: () => number;
+  readonly pinnedCommittedRow?: WorkbookRow | null;
 }): {
   readonly committedRows: WorkbookRow[];
   readonly rows: WorkbookRow[];
@@ -516,9 +528,15 @@ function reconcileCommittedRowsWithLocalDrafts({
       )
       .map((row) => [row.recordId, row]),
   );
+  const incomingRowsWithPresentationPin =
+    pinnedCommittedRow?.recordId !== null &&
+    pinnedCommittedRow?.recordId !== undefined &&
+    !incomingRows.some((row) => row.recordId === pinnedCommittedRow.recordId)
+      ? [...incomingRows, pinnedCommittedRow]
+      : incomingRows;
   const committedRows = reconcileWorkbookRecordRows(
     currentRows.filter((row) => row.recordId !== null),
-    incomingRows,
+    incomingRowsWithPresentationPin,
   ).map((row) => {
     let rowWithLocalState = row;
     if (row.recordId === null) {

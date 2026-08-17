@@ -3,19 +3,13 @@ import path from "node:path";
 
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 
-const schemaID = "cartulary.postgres_fixture_policy_registry.v1";
+const schemaID = "cartulary.postgres_fixture_policy_registry.v2";
 const capabilityContract = Object.freeze([
   {
     capability: "postgres_dedicated",
     isolation_scope: "database",
     rationale: "committed_or_unproven_work_requires_unique_database",
     shared_scope: false,
-  },
-  {
-    capability: "postgres_group",
-    isolation_scope: "group",
-    rationale: "explicit_compatible_group_with_reset_and_contamination_proof",
-    shared_scope: true,
   },
   {
     capability: "postgres_migration",
@@ -69,32 +63,6 @@ export function validatePostgresFixturePolicy(root, rows, options = {}) {
   if (JSON.stringify(registry.transaction_row_approvals) !== JSON.stringify(transactionRows)) {
     throw new Error(
       `${policyPath}.transaction_row_approvals must exactly cover current transaction rows`,
-    );
-  }
-
-  const groupRowIDs = postgresRows
-    .filter((row) => row.fixture_capability === "postgres_group")
-    .map((row) => row.row_id)
-    .sort(compareASCII);
-  const approvedGroupRowIDs = registry.group_row_approvals.map((entry) => entry.row_id);
-  assertSortedUnique(approvedGroupRowIDs, `${policyPath}.group_row_approvals.row_id`);
-  if (JSON.stringify(approvedGroupRowIDs) !== JSON.stringify(groupRowIDs)) {
-    throw new Error(`${policyPath}.group_row_approvals must exactly cover current group rows`);
-  }
-  if (groupRowIDs.length > 0) {
-    throw new Error(
-      `${policyPath} cannot admit postgres_group until deterministic reset and failure contamination enforcement are implemented`,
-    );
-  }
-  for (const field of [
-    "compatibility_key",
-    "reset_contract_id",
-    "success_contamination_test_id",
-    "failure_contamination_test_id",
-  ]) {
-    assertSortedUnique(
-      registry.group_row_approvals.map((entry) => entry[field]),
-      `${policyPath}.group_row_approvals.${field}`,
     );
   }
 

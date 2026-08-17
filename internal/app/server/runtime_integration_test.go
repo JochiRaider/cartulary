@@ -81,15 +81,7 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 	defer pool.Close()
 
 	s3Harness := s3test.Start(t)
-	bucket, err := s3Harness.BootstrapBucket(ctx, "single-active-process")
-	if err != nil {
-		t.Fatalf("bootstrap single-active object bucket: %v", err)
-	}
-	defer func() {
-		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Logf("cleanup single-active bucket: %v", err)
-		}
-	}()
+	bucket := s3Harness.BootstrapBucketT(t, "single-active-process")
 	s3Env := s3Harness.Env(bucket)
 	store, err := objectstore.Setup(ctx, objectstore.Settings{
 		BindingKind: "managed_service",

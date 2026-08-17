@@ -110,6 +110,7 @@ import { useEntitySurfaceQuery } from "./query/useEntitySurfaceQuery";
 import { useGenericSurfaceQuery } from "./query/useGenericSurfaceQuery";
 import { useWorkbookMutationRuntime } from "./runtime/useWorkbookMutationRuntime";
 import { WorkbookMutationRuntime } from "./runtime/WorkbookMutationRuntime";
+import { WorkbookMutationRuntimeRegistry } from "./runtime/WorkbookMutationRuntimeRegistry";
 import {
   createReferenceQueryBroker,
   type ReferenceQueryBrokerPort,
@@ -151,6 +152,11 @@ type WorkbookShellProps = {
   renderIncidentControls?:
     | ((props: WorkbookIncidentControlsRendererProps) => ReactNode)
     | undefined;
+  mutationRuntimeRegistry?: WorkbookMutationRuntimeRegistry | undefined;
+};
+
+type WorkbookShellContentProps = WorkbookShellProps & {
+  mutationRuntimeRegistry: WorkbookMutationRuntimeRegistry;
 };
 
 type ExtensionWorkspaceRendererProps = {
@@ -203,7 +209,8 @@ function WorkbookShellContent({
   onIncidentSnapshot,
   onIncidentAccessLost,
   renderIncidentControls,
-}: WorkbookShellProps) {
+  mutationRuntimeRegistry,
+}: WorkbookShellContentProps) {
   const collaborationSession = useIncidentCollaborationSession();
   const extensionAvailability = useMemo(
     () =>
@@ -231,19 +238,27 @@ function WorkbookShellContent({
   );
   const mutationRuntime = useMemo(
     () =>
-      new WorkbookMutationRuntime(
+      mutationRuntimeRegistry.acquire(
         {
           clientInstanceId: collaborationSession.clientInstanceId,
           incidentId,
         },
-        transactionIds,
-        pendingMutationPort,
+        () =>
+          new WorkbookMutationRuntime(
+            {
+              clientInstanceId: collaborationSession.clientInstanceId,
+              incidentId,
+            },
+            transactionIds,
+            pendingMutationPort,
+          ),
       ),
     [
       collaborationSession.clientInstanceId,
       incidentId,
       pendingMutationPort,
       transactionIds,
+      mutationRuntimeRegistry,
     ],
   );
   const mutationCommands = useMemo(
@@ -1094,6 +1109,20 @@ function WorkbookShellContent({
 }
 
 export function WorkbookShell(props: WorkbookShellProps) {
+  const localMutationRuntimeRegistry = useMemo(
+    () => new WorkbookMutationRuntimeRegistry(),
+    [],
+  );
+  const mutationRuntimeRegistry =
+    props.mutationRuntimeRegistry ?? localMutationRuntimeRegistry;
+  useEffect(
+    () => () => {
+      if (props.mutationRuntimeRegistry === undefined) {
+        localMutationRuntimeRegistry.dispose();
+      }
+    },
+    [localMutationRuntimeRegistry, props.mutationRuntimeRegistry],
+  );
   return (
     <IncidentCollaborationSession
       apiBase={props.apiBase}
@@ -1103,7 +1132,10 @@ export function WorkbookShell(props: WorkbookShellProps) {
         mode: "viewing",
       }}
     >
-      <WorkbookShellContent {...props} />
+      <WorkbookShellContent
+        {...props}
+        mutationRuntimeRegistry={mutationRuntimeRegistry}
+      />
     </IncidentCollaborationSession>
   );
 }

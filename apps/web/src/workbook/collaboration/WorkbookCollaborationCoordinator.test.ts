@@ -373,6 +373,14 @@ describe("WorkbookCollaborationCoordinator", () => {
     fixture.projection.dispose();
   });
 
+  it("disposes shell projections without disposing the borrowed mutation runtime", () => {
+    const fixture = projectionFixture();
+    fixture.projection.dispose();
+    expect(fixture.mutationInvalidation).not.toHaveBeenCalledWith({
+      kind: "runtime_disposed",
+    });
+  });
+
   it("confirms access loss without replay and rejects late recovery after disposal", async () => {
     vi.useFakeTimers();
     let resolveRecovery:

@@ -1,13 +1,18 @@
 package suiteservices
 
 import (
+	"bufio"
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync/atomic"
+	"sync"
+	"syscall"
 	"time"
 )
 
@@ -26,8 +31,6 @@ const (
 	EventPostgresDBCreated      = "postgres-db-created"
 	EventPostgresDBDropped      = "postgres-db-dropped"
 	EventPostgresDBMigrated     = "postgres-db-migrated"
-	EventPostgresDBRetained     = "postgres-db-retained"
-	EventPostgresDBReset        = "postgres-db-reset"
 	EventPostgresTransaction    = "postgres-transaction"
 	EventPostgresTemplateUse    = "postgres-template-clone"
 	EventS3Attach               = "s3-attach"
@@ -49,18 +52,17 @@ const (
 
 const (
 	PostgresFixturePolicyTemplateClone    = "template_clone"
-	PostgresFixturePolicyPackageReset     = "package_reset"
 	PostgresFixturePolicyMigrationScratch = "migration_scratch"
 	PostgresFixturePolicyTransaction      = "transaction"
 )
 
 const (
-	FixtureReusePerTest          = "per-test"
-	FixtureReusePackage          = "package-reused"
-	FixtureReuseTransaction      = "transaction"
-	FixtureReusePrefix           = "prefix-reused"
-	FixtureReuseSuiteTemplate    = "suite-template"
-	FixtureReuseMigrationScratch = "migration-scratch"
+	FixtureReusePerTest            = "per-test"
+	FixtureReuseObjectStorePackage = "object-store-package"
+	FixtureReuseTransaction        = "transaction"
+	FixtureReusePrefix             = "prefix-reused"
+	FixtureReuseSuiteTemplate      = "suite-template"
+	FixtureReuseMigrationScratch   = "migration-scratch"
 )
 
 const (
@@ -70,31 +72,36 @@ const (
 )
 
 type Event struct {
-	Type      string         `json:"type"`
-	Timestamp string         `json:"timestamp"`
-	PID       int            `json:"pid"`
-	Service   string         `json:"service,omitempty"`
-	Name      string         `json:"name,omitempty"`
-	Kind      string         `json:"kind,omitempty"`
-	Status    string         `json:"status,omitempty"`
-	Details   map[string]any `json:"details,omitempty"`
+	SchemaID   string         `json:"schema_id"`
+	ProducerID string         `json:"producer_id"`
+	Sequence   uint64         `json:"seq"`
+	Type       string         `json:"type"`
+	Timestamp  string         `json:"timestamp"`
+	PID        int            `json:"pid"`
+	Service    string         `json:"service,omitempty"`
+	Name       string         `json:"name,omitempty"`
+	Kind       string         `json:"kind,omitempty"`
+	Status     string         `json:"status,omitempty"`
+	Details    map[string]any `json:"details,omitempty"`
 }
 
 type ServiceScope struct {
-	SchemaID     string               `json:"schema_id"`
-	Target       string               `json:"target"`
-	SuiteID      string               `json:"suite_id"`
-	RunID        string               `json:"run_id"`
-	ArtifactDir  string               `json:"artifact_dir"`
-	Wrapper      WrapperSummary       `json:"wrapper"`
-	Preflight    PreflightSummary     `json:"preflight"`
-	Failure      *FailureSummary      `json:"failure,omitempty"`
-	Cleanup      CleanupSummary       `json:"cleanup"`
-	Postgres     PostgresSummary      `json:"postgres"`
-	ObjectStore  ObjectStoreSummary   `json:"object_store"`
-	BrowserE2E   BrowserE2ESummary    `json:"browser_e2e"`
-	Fixture      FixtureSummary       `json:"fixture"`
-	StartedNames StartedServiceRecord `json:"started_services"`
+	SchemaID            string               `json:"schema_id"`
+	Target              string               `json:"target"`
+	SuiteID             string               `json:"suite_id"`
+	RunID               string               `json:"run_id"`
+	ArtifactDir         string               `json:"artifact_dir"`
+	ReadinessGeneration string               `json:"readiness_generation"`
+	Wrapper             WrapperSummary       `json:"wrapper"`
+	Preflight           PreflightSummary     `json:"preflight"`
+	Failure             *FailureSummary      `json:"failure,omitempty"`
+	Failures            FailureDiagnostics   `json:"failures"`
+	Cleanup             CleanupSummary       `json:"cleanup"`
+	Postgres            PostgresSummary      `json:"postgres"`
+	ObjectStore         ObjectStoreSummary   `json:"object_store"`
+	BrowserE2E          BrowserE2ESummary    `json:"browser_e2e"`
+	Fixture             FixtureSummary       `json:"fixture"`
+	StartedNames        StartedServiceRecord `json:"started_services"`
 }
 
 type WrapperSummary struct {
@@ -130,6 +137,12 @@ type FailureSummary struct {
 	DockerEndpoint        string `json:"docker_endpoint,omitempty"`
 }
 
+type FailureDiagnostics struct {
+	Counts    map[string]int              `json:"counts,omitempty"`
+	Reasons   map[string]int              `json:"reasons,omitempty"`
+	Exemplars map[string][]FailureSummary `json:"exemplars,omitempty"`
+}
+
 type CleanupSummary struct {
 	Status          string `json:"status,omitempty"`
 	CompletedAt     string `json:"completed_at,omitempty"`
@@ -148,8 +161,7 @@ type PostgresSummary struct {
 	CreatedDatabaseCount  int                           `json:"created_database_count"`
 	MigratedDatabaseCount int                           `json:"migrated_database_count"`
 	TemplateCloneCount    int                           `json:"template_clone_count"`
-	CreatedDatabases      []string                      `json:"created_databases,omitempty"`
-	DatabasePreparations  []PostgresDatabasePreparation `json:"database_preparations,omitempty"`
+	DatabasePreparations  []PostgresDatabasePreparation `json:"preparation_examples,omitempty"`
 }
 
 type PostgresDatabasePreparation struct {
@@ -172,8 +184,6 @@ type ObjectStoreSummary struct {
 	AttachedHarnessCount int                   `json:"attached_harness_count"`
 	BucketCreateCount    int                   `json:"bucket_create_count"`
 	BucketCleanupCount   int                   `json:"bucket_cleanup_count"`
-	CreatedBuckets       []string              `json:"created_buckets,omitempty"`
-	CleanedBuckets       []string              `json:"cleaned_buckets,omitempty"`
 }
 
 type ServiceStartupSummary struct {
@@ -200,12 +210,9 @@ type ServiceStartupAttempt struct {
 }
 
 type BrowserE2ESummary struct {
-	RetiredFixtureCount   int                    `json:"retired_fixture_count"`
-	CleanedFixtureCount   int                    `json:"cleaned_fixture_count"`
-	ReclaimedFixtureCount int                    `json:"reclaimed_fixture_count"`
-	RetiredFixtures       []BrowserE2EFixtureRef `json:"retired_fixtures,omitempty"`
-	CleanedFixtures       []BrowserE2EFixtureRef `json:"cleaned_fixtures,omitempty"`
-	ReclaimedFixtures     []BrowserE2EFixtureRef `json:"reclaimed_fixtures,omitempty"`
+	RetiredFixtureCount   int `json:"retired_fixture_count"`
+	CleanedFixtureCount   int `json:"cleaned_fixture_count"`
+	ReclaimedFixtureCount int `json:"reclaimed_fixture_count"`
 }
 
 type BrowserE2EFixtureRef struct {
@@ -217,13 +224,19 @@ type BrowserE2EFixtureRef struct {
 	PID             int    `json:"pid,omitempty"`
 }
 
+const (
+	fixtureStrategyDiagnosticLimit = 32
+	fixtureSlowestDiagnosticLimit  = 10
+)
+
 type FixtureSummary struct {
-	TotalCount      int               `json:"total_count"`
-	TotalDurationMS int64             `json:"total_duration_ms"`
-	ByPackage       []FixtureActivity `json:"by_package,omitempty"`
-	ByTest          []FixtureActivity `json:"by_test,omitempty"`
-	ByStrategy      []FixtureActivity `json:"by_strategy,omitempty"`
-	Slowest         []FixtureActivity `json:"slowest,omitempty"`
+	TotalCount             int               `json:"total_count"`
+	TotalDurationMS        int64             `json:"total_duration_ms"`
+	StrategyAggregateCount int               `json:"strategy_aggregate_count"`
+	ByPackage              []FixtureActivity `json:"-"`
+	ByTest                 []FixtureActivity `json:"-"`
+	ByStrategy             []FixtureActivity `json:"by_strategy,omitempty"`
+	Slowest                []FixtureActivity `json:"slowest,omitempty"`
 }
 
 type FixtureActivity struct {
@@ -246,7 +259,12 @@ type StartedServiceRecord struct {
 	Names []string `json:"names,omitempty"`
 }
 
-var eventSequence uint64
+var journalState = struct {
+	sync.Mutex
+	sequences map[string]uint64
+}{sequences: make(map[string]uint64)}
+
+var producerIdentity = currentProducerIdentity()
 
 func RecordEvent(env map[string]string, event Event) error {
 	suiteDir, ok, err := ResolveSuiteArtifactDir(env)
@@ -263,23 +281,58 @@ func RecordEvent(env map[string]string, event Event) error {
 	if event.PID == 0 {
 		event.PID = os.Getpid()
 	}
+	event.SchemaID = "cartulary.test_services.journal_event.v1"
+	event.ProducerID = producerIdentity
 	event = sanitizeEvent(event)
 
-	eventsDir := filepath.Join(suiteDir, "events")
-	if err := os.MkdirAll(eventsDir, 0o700); err != nil {
-		return fmt.Errorf("create suite-service events dir: %w", err)
+	journalDir := filepath.Join(suiteDir, "journals")
+	if err := os.MkdirAll(journalDir, 0o700); err != nil {
+		return fmt.Errorf("create suite-service journal dir: %w", err)
 	}
 
-	sequence := atomic.AddUint64(&eventSequence, 1)
-	fileName := fmt.Sprintf("%s-%d-%06d-%s.json", sanitizeFileComponent(event.Timestamp), event.PID, sequence, sanitizeFileComponent(event.Type))
-	eventPath := filepath.Join(eventsDir, fileName)
-	payload, err := json.MarshalIndent(event, "", "  ")
+	journalPath := filepath.Join(journalDir, event.ProducerID+".ndjson")
+	journalState.Lock()
+	defer journalState.Unlock()
+	if journalState.sequences[journalPath] == 0 {
+		last, err := lastJournalSequence(journalPath, event.ProducerID)
+		if err != nil {
+			return err
+		}
+		journalState.sequences[journalPath] = last
+	}
+	event.Sequence = journalState.sequences[journalPath] + 1
+	payload, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("encode suite-service event: %w", err)
 	}
-	if err := os.WriteFile(eventPath, append(payload, '\n'), 0o600); err != nil {
-		return fmt.Errorf("write suite-service event: %w", err)
+	if len(payload) > 64*1024 {
+		return fmt.Errorf("encode suite-service event: record exceeds 65536-byte bound")
 	}
+	journal, err := os.OpenFile(journalPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY|syscall.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return fmt.Errorf("open suite-service journal: %w", err)
+	}
+	if err := journal.Chmod(0o600); err != nil {
+		_ = journal.Close()
+		return fmt.Errorf("secure suite-service journal: %w", err)
+	}
+	journalInfo, err := journal.Stat()
+	if err != nil || !journalInfo.Mode().IsRegular() || journalInfo.Mode().Perm() != 0o600 {
+		_ = journal.Close()
+		return fmt.Errorf("suite-service journal must be a mode-0600 regular file")
+	}
+	if _, err := journal.Write(append(payload, '\n')); err != nil {
+		_ = journal.Close()
+		return fmt.Errorf("append suite-service journal: %w", err)
+	}
+	if err := journal.Sync(); err != nil {
+		_ = journal.Close()
+		return fmt.Errorf("sync suite-service journal: %w", err)
+	}
+	if err := journal.Close(); err != nil {
+		return fmt.Errorf("close suite-service journal: %w", err)
+	}
+	journalState.sequences[journalPath] = event.Sequence
 
 	return nil
 }
@@ -306,7 +359,7 @@ func RefreshSummary(env map[string]string) error {
 	if err := writeFileAtomically(filepath.Join(suiteDir, "service-scope.json"), append(payload, '\n'), 0o600); err != nil {
 		return fmt.Errorf("write suite-service summary: %w", err)
 	}
-	return nil
+	return refreshResourceLedger(env)
 }
 
 func writeFileAtomically(destination string, payload []byte, mode os.FileMode) (returnErr error) {
@@ -352,43 +405,26 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 	}
 
 	scope := ServiceScope{
-		SchemaID:    "cartulary.test_services.scope.v1",
+		SchemaID:    "cartulary.test_services.scope.v2",
 		Target:      firstNonEmpty(strings.TrimSpace(LookupEnvValue(env, TargetEnv)), "test-services"),
 		SuiteID:     SuiteID(env),
 		RunID:       ResolveRunID(env),
 		ArtifactDir: suiteDir,
 	}
 
-	eventFiles, err := filepath.Glob(filepath.Join(suiteDir, "events", "*.json"))
+	events, err := readJournalEvents(suiteDir)
 	if err != nil {
-		return ServiceScope{}, true, fmt.Errorf("list suite-service events: %w", err)
+		return ServiceScope{}, true, err
 	}
-	sort.Strings(eventFiles)
 
-	createdDatabases := make(map[string]struct{})
-	createdBuckets := make(map[string]struct{})
-	cleanedBuckets := make(map[string]struct{})
 	startedServices := make(map[string]struct{})
 	databasePreparations := make(map[string]PostgresDatabasePreparation)
-	retiredWebE2EFixtures := make(map[string]BrowserE2EFixtureRef)
-	cleanedWebE2EFixtures := make(map[string]BrowserE2EFixtureRef)
-	reclaimedWebE2EFixtures := make(map[string]BrowserE2EFixtureRef)
 	packageFixtures := make(map[string]FixtureActivity)
 	testFixtures := make(map[string]FixtureActivity)
 	strategyFixtures := make(map[string]FixtureActivity)
 	slowestFixtures := make([]FixtureActivity, 0)
 
-	for _, eventPath := range eventFiles {
-		raw, err := os.ReadFile(eventPath) // #nosec G304 -- event paths come from a suite artifact glob rooted by ResolveSuiteArtifactDir.
-		if err != nil {
-			return ServiceScope{}, true, fmt.Errorf("read suite-service event %s: %w", eventPath, err)
-		}
-
-		var event Event
-		if err := json.Unmarshal(raw, &event); err != nil {
-			return ServiceScope{}, true, fmt.Errorf("decode suite-service event %s: %w", eventPath, err)
-		}
-
+	for _, event := range events {
 		switch event.Type {
 		case EventWrapperOwnedStart:
 			scope.Wrapper.OwnedCount++
@@ -409,20 +445,33 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 				Message:                     stringDetail(event.Details, "message"),
 			}
 		case EventFailureRecorded:
+			failure := FailureSummary{
+				FailureClass:          stringDetail(event.Details, "failure_class"),
+				FailureReason:         stringDetail(event.Details, "failure_reason"),
+				Service:               event.Service,
+				Stage:                 stringDetail(event.Details, "stage"),
+				Operation:             stringDetail(event.Details, "operation"),
+				Message:               stringDetail(event.Details, "message"),
+				AttemptsStarted:       intValue(event.Details, "attempts_started"),
+				MaxAttempts:           intValue(event.Details, "max_attempts"),
+				Retryable:             boolDetail(event.Details, "retryable"),
+				RetryBlockedByContext: boolDetail(event.Details, "retry_blocked_by_context"),
+				DockerEndpoint:        stringDetail(event.Details, "docker_endpoint"),
+			}
+			if scope.Failures.Counts == nil {
+				scope.Failures.Counts = make(map[string]int)
+				scope.Failures.Reasons = make(map[string]int)
+				scope.Failures.Exemplars = make(map[string][]FailureSummary)
+			}
+			failureClass := firstNonEmpty(failure.FailureClass, "unknown")
+			failureReason := firstNonEmpty(failure.FailureReason, "unknown_failure")
+			scope.Failures.Counts[failureClass]++
+			scope.Failures.Reasons[failureReason]++
+			if len(scope.Failures.Exemplars[failureClass]) < 10 {
+				scope.Failures.Exemplars[failureClass] = append(scope.Failures.Exemplars[failureClass], failure)
+			}
 			if scope.Failure == nil {
-				scope.Failure = &FailureSummary{
-					FailureClass:          stringDetail(event.Details, "failure_class"),
-					FailureReason:         stringDetail(event.Details, "failure_reason"),
-					Service:               event.Service,
-					Stage:                 stringDetail(event.Details, "stage"),
-					Operation:             stringDetail(event.Details, "operation"),
-					Message:               stringDetail(event.Details, "message"),
-					AttemptsStarted:       intValue(event.Details, "attempts_started"),
-					MaxAttempts:           intValue(event.Details, "max_attempts"),
-					Retryable:             boolDetail(event.Details, "retryable"),
-					RetryBlockedByContext: boolDetail(event.Details, "retry_blocked_by_context"),
-					DockerEndpoint:        stringDetail(event.Details, "docker_endpoint"),
-				}
+				scope.Failure = &failure
 			}
 		case EventServiceStarted:
 			startedServices[event.Service] = struct{}{}
@@ -453,9 +502,6 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			scope.Postgres.AttachedHarnessCount++
 		case EventPostgresDBCreated:
 			scope.Postgres.CreatedDatabaseCount++
-			if event.Name != "" {
-				createdDatabases[event.Name] = struct{}{}
-			}
 			if event.Kind == "template" && event.Name != "" {
 				scope.Postgres.TemplateDatabase = event.Name
 			}
@@ -463,13 +509,11 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventPostgresDBDropped:
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
-		case EventPostgresDBRetained:
-			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventPostgresDBMigrated:
 			scope.Postgres.MigratedDatabaseCount++
 			upsertPostgresPreparation(databasePreparations, event, strategyForPostgresMigratedEvent(event))
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
-		case EventPostgresDBReset, EventPostgresTransaction:
+		case EventPostgresTransaction:
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventPostgresTemplateUse:
 			scope.Postgres.TemplateCloneCount++
@@ -478,15 +522,9 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			scope.ObjectStore.AttachedHarnessCount++
 		case EventS3BucketCreated:
 			scope.ObjectStore.BucketCreateCount++
-			if event.Name != "" {
-				createdBuckets[event.Name] = struct{}{}
-			}
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventS3BucketCleaned:
 			scope.ObjectStore.BucketCleanupCount++
-			if event.Name != "" {
-				cleanedBuckets[event.Name] = struct{}{}
-			}
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventS3PrefixCleaned:
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
@@ -494,32 +532,172 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			recordStartupAttempt(&scope, event)
 		case EventWebE2EFixtureRetired:
 			scope.BrowserE2E.RetiredFixtureCount++
-			upsertWebE2EFixture(retiredWebE2EFixtures, event)
 		case EventWebE2EFixtureCleaned:
 			scope.BrowserE2E.CleanedFixtureCount++
-			upsertWebE2EFixture(cleanedWebE2EFixtures, event)
 		case EventWebE2EFixtureReclaimed:
 			scope.BrowserE2E.ReclaimedFixtureCount++
-			upsertWebE2EFixture(reclaimedWebE2EFixtures, event)
 		}
 	}
 
-	scope.Postgres.CreatedDatabases = sortedKeys(createdDatabases)
-	scope.Postgres.DatabasePreparations = sortedPostgresPreparations(databasePreparations)
-	scope.ObjectStore.CreatedBuckets = sortedKeys(createdBuckets)
-	scope.ObjectStore.CleanedBuckets = sortedKeys(cleanedBuckets)
+	scope.Postgres.DatabasePreparations = firstPostgresPreparations(sortedPostgresPreparations(databasePreparations), 10)
 	scope.Postgres.Startup = finalizeStartupSummary(scope.Postgres.Startup)
 	scope.ObjectStore.Startup = finalizeStartupSummary(scope.ObjectStore.Startup)
-	scope.BrowserE2E.RetiredFixtures = sortedWebE2EFixtures(retiredWebE2EFixtures)
-	scope.BrowserE2E.CleanedFixtures = sortedWebE2EFixtures(cleanedWebE2EFixtures)
-	scope.BrowserE2E.ReclaimedFixtures = sortedWebE2EFixtures(reclaimedWebE2EFixtures)
 	scope.StartedNames.Names = sortedKeys(startedServices)
 	scope.Fixture.ByPackage = sortedFixtureActivities(packageFixtures)
 	scope.Fixture.ByTest = sortedFixtureActivities(testFixtures)
-	scope.Fixture.ByStrategy = sortedFixtureActivities(strategyFixtures)
-	scope.Fixture.Slowest = topFixtureActivities(slowestFixtures, 10)
+	scope.Fixture.StrategyAggregateCount = len(strategyFixtures)
+	scope.Fixture.ByStrategy = firstFixtureActivities(sortedFixtureActivities(strategyFixtures), fixtureStrategyDiagnosticLimit)
+	scope.Fixture.Slowest = topFixtureActivities(slowestFixtures, fixtureSlowestDiagnosticLimit)
+	readinessBytes := []byte(strings.Join([]string{
+		scope.SuiteID,
+		scope.Postgres.StartedAt,
+		scope.ObjectStore.StartedAt,
+		strings.Join(scope.StartedNames.Names, ","),
+	}, "\x00"))
+	scope.ReadinessGeneration = fmt.Sprintf("sha256:%x", sha256.Sum256(readinessBytes))
 
 	return scope, true, nil
+}
+
+func firstPostgresPreparations(values []PostgresDatabasePreparation, limit int) []PostgresDatabasePreparation {
+	if len(values) > limit {
+		return values[:limit]
+	}
+	return values
+}
+
+func firstFixtureActivities(values []FixtureActivity, limit int) []FixtureActivity {
+	if len(values) > limit {
+		return values[:limit]
+	}
+	return values
+}
+
+func lastJournalSequence(path string, producerID string) (uint64, error) {
+	events, err := readJournal(path, producerID)
+	if errorsIsNotExist(err) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	if len(events) == 0 {
+		return 0, nil
+	}
+	return events[len(events)-1].Sequence, nil
+}
+
+func errorsIsNotExist(err error) bool { return err != nil && os.IsNotExist(err) }
+
+func readJournalEvents(suiteDir string) ([]Event, error) {
+	paths, err := filepath.Glob(filepath.Join(suiteDir, "journals", "*.ndjson"))
+	if err != nil {
+		return nil, fmt.Errorf("list suite-service journals: %w", err)
+	}
+	sort.Strings(paths)
+	events := make([]Event, 0)
+	for _, path := range paths {
+		producerID := strings.TrimSuffix(filepath.Base(path), ".ndjson")
+		journalEvents, err := readJournal(path, producerID)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, journalEvents...)
+	}
+	sort.Slice(events, func(i, j int) bool {
+		if events[i].Timestamp != events[j].Timestamp {
+			return events[i].Timestamp < events[j].Timestamp
+		}
+		if events[i].ProducerID != events[j].ProducerID {
+			return events[i].ProducerID < events[j].ProducerID
+		}
+		return events[i].Sequence < events[j].Sequence
+	})
+	return events, nil
+}
+
+func ReadJournalEvents(env map[string]string) ([]Event, bool, error) {
+	suiteDir, ok, err := ResolveSuiteArtifactDir(env)
+	if err != nil || !ok {
+		return nil, ok, err
+	}
+	events, err := readJournalEvents(suiteDir)
+	return events, true, err
+}
+
+func ReadJournalEventsDir(suiteDir string) ([]Event, error) {
+	return readJournalEvents(suiteDir)
+}
+
+func readJournal(path string, producerID string) ([]Event, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o600 {
+		return nil, fmt.Errorf("suite-service journal %s must be a mode-0600 non-symlink regular file", path)
+	}
+	raw, err := os.ReadFile(path) // #nosec G304 -- path is rooted beneath the resolved suite directory.
+	if err != nil {
+		return nil, err
+	}
+	complete := bytes.HasSuffix(raw, []byte{'\n'})
+	lines := bytes.Split(raw, []byte{'\n'})
+	if !complete && len(lines) > 0 {
+		lines = lines[:len(lines)-1]
+	}
+	events := make([]Event, 0, len(lines))
+	for _, line := range lines {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		decoder := json.NewDecoder(bufio.NewReader(bytes.NewReader(line)))
+		decoder.DisallowUnknownFields()
+		var event Event
+		if err := decoder.Decode(&event); err != nil {
+			return nil, fmt.Errorf("decode completed suite-service journal record %s: %w", path, err)
+		}
+		if err := ensureJSONEOF(decoder); err != nil {
+			return nil, fmt.Errorf("decode completed suite-service journal record %s: %w", path, err)
+		}
+		expected := uint64(len(events) + 1)
+		if event.SchemaID != "cartulary.test_services.journal_event.v1" || event.ProducerID != producerID || event.Sequence != expected {
+			return nil, fmt.Errorf("suite-service journal %s has invalid producer identity or sequence: got %s/%d, want %s/%d", path, event.ProducerID, event.Sequence, producerID, expected)
+		}
+		if event.Type == "" || event.PID < 1 {
+			return nil, fmt.Errorf("suite-service journal %s has an incomplete event identity", path)
+		}
+		if _, err := time.Parse(time.RFC3339Nano, event.Timestamp); err != nil {
+			return nil, fmt.Errorf("suite-service journal %s has an invalid timestamp: %w", path, err)
+		}
+		events = append(events, event)
+	}
+	return events, nil
+}
+
+func ensureJSONEOF(decoder *json.Decoder) error {
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("multiple JSON values in one journal record")
+		}
+		return err
+	}
+	return nil
+}
+
+func currentProducerIdentity() string {
+	raw, err := os.ReadFile("/proc/self/stat")
+	if err == nil {
+		text := string(raw)
+		if closeIndex := strings.LastIndex(text, ")"); closeIndex >= 0 {
+			fields := strings.Fields(text[closeIndex+1:])
+			if len(fields) > 19 {
+				return fmt.Sprintf("process-%d-%s", os.Getpid(), fields[19])
+			}
+		}
+	}
+	return fmt.Sprintf("process-%d", os.Getpid())
 }
 
 func recordStartupAttempt(scope *ServiceScope, event Event) {
@@ -636,7 +814,7 @@ func fixtureActivityFromEvent(event Event) FixtureActivity {
 
 func fixtureServiceForEvent(eventType string) string {
 	switch eventType {
-	case EventPostgresDBCreated, EventPostgresDBDropped, EventPostgresDBMigrated, EventPostgresDBRetained, EventPostgresDBReset, EventPostgresTransaction:
+	case EventPostgresDBCreated, EventPostgresDBDropped, EventPostgresDBMigrated, EventPostgresTransaction:
 		return ServicePostgres
 	case EventS3BucketCreated, EventS3BucketCleaned, EventS3PrefixCleaned:
 		return ServiceObjectStore
@@ -651,12 +829,8 @@ func fixtureOperationForEvent(eventType string) string {
 		return "database-create"
 	case EventPostgresDBDropped:
 		return "database-drop"
-	case EventPostgresDBRetained:
-		return "database-retain"
 	case EventPostgresDBMigrated:
 		return "database-migrate"
-	case EventPostgresDBReset:
-		return "database-reset"
 	case EventPostgresTransaction:
 		return "transaction"
 	case EventS3BucketCreated:
@@ -721,8 +895,14 @@ func topFixtureActivities(values []FixtureActivity, limit int) []FixtureActivity
 
 func fixtureKey(parts ...string) string {
 	trimmed := make([]string, 0, len(parts))
+	nonEmpty := false
 	for _, part := range parts {
-		trimmed = append(trimmed, strings.TrimSpace(part))
+		value := strings.TrimSpace(part)
+		trimmed = append(trimmed, value)
+		nonEmpty = nonEmpty || value != ""
+	}
+	if !nonEmpty {
+		return ""
 	}
 	return strings.Join(trimmed, "\x1f")
 }
@@ -776,7 +956,7 @@ func normalizePostgresPreparationStrategy(strategy string) string {
 }
 
 func upsertPostgresPreparation(preparations map[string]PostgresDatabasePreparation, event Event, strategy string) {
-	if event.Name == "" {
+	if event.Name == "" || strategy == "" {
 		return
 	}
 
@@ -826,14 +1006,7 @@ func sortedPostgresPreparations(preparations map[string]PostgresDatabasePreparat
 }
 
 func upsertWebE2EFixture(fixtures map[string]BrowserE2EFixtureRef, event Event) {
-	fixture := BrowserE2EFixtureRef{
-		DatabaseName:    stringDetail(event.Details, "database_name"),
-		Bucket:          stringDetail(event.Details, "bucket"),
-		Target:          stringDetail(event.Details, "target"),
-		ReclaimStrategy: stringDetail(event.Details, "reclaim_strategy"),
-		Timestamp:       event.Timestamp,
-		PID:             event.PID,
-	}
+	fixture := webE2EFixtureFromEvent(event)
 	key := fixtureKey(fixture.DatabaseName, fixture.Bucket, fixture.Target)
 	if key == "" {
 		return
@@ -865,38 +1038,6 @@ func sortedWebE2EFixtures(fixtures map[string]BrowserE2EFixtureRef) []BrowserE2E
 		return values[i].Timestamp < values[j].Timestamp
 	})
 	return values
-}
-
-func sanitizeFileComponent(value string) string {
-	lower := strings.ToLower(value)
-	lower = strings.ReplaceAll(lower, ":", "-")
-	lower = strings.ReplaceAll(lower, ".", "-")
-	lower = strings.ReplaceAll(lower, "_", "-")
-	lower = strings.ReplaceAll(lower, "/", "-")
-	lower = strings.TrimSpace(lower)
-	if lower == "" {
-		return "event"
-	}
-
-	var builder strings.Builder
-	for _, r := range lower {
-		switch {
-		case r >= 'a' && r <= 'z':
-			builder.WriteRune(r)
-		case r >= '0' && r <= '9':
-			builder.WriteRune(r)
-		case r == '-':
-			builder.WriteRune(r)
-		default:
-			builder.WriteByte('-')
-		}
-	}
-
-	result := strings.Trim(builder.String(), "-")
-	if result == "" {
-		return "event"
-	}
-	return result
 }
 
 func earliestTimestamp(current string, candidate string) string {

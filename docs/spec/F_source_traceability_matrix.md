@@ -1291,7 +1291,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-03-221 | Core 03 §13.3 Bulk editing | base | AC-003, AC-040, AC-231 |
 | REQ-03-222 | Core 03 §13.3 Bulk editing | base | AC-003, AC-040, AC-231 |
 | REQ-03-223 | Core 03 §14.1 Sort and filter behavior | base | AC-013..AC-014, AC-044, AC-047, AC-124, AC-184..AC-185, AC-231, AC-387 |
-| REQ-03-224 | Core 03 §14.1 Sort and filter behavior | base | AC-013..AC-014, AC-044, AC-047, AC-124, AC-184..AC-185, AC-231, AC-360, AC-387 |
+| REQ-03-224 | Core 03 §14.1 Sort and filter behavior | base | AC-013..AC-014, AC-043..AC-044, AC-047, AC-124, AC-184..AC-185, AC-231, AC-360, AC-387 |
 | REQ-03-225 | Core 03 §14.2 Timeline grouping boundary | base | AC-024..AC-026, AC-231 |
 | REQ-03-226 | Core 03 §14.3 Allowed grouping keys | base | AC-024..AC-026, AC-231 |
 | REQ-03-227 | Core 03 §14.3 Allowed grouping keys | base | AC-024..AC-026, AC-231 |
@@ -1530,7 +1530,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | AC-040 | REQ-03-048..REQ-03-051, REQ-03-083..REQ-03-085, REQ-03-221..REQ-03-222 |
 | AC-041 | REQ-03-048..REQ-03-051, REQ-03-077..REQ-03-082 |
 | AC-042 | REQ-03-041..REQ-03-051 |
-| AC-043 | REQ-00-013, REQ-01-015..REQ-01-017, REQ-03-001..REQ-03-003, REQ-03-087..REQ-03-089, REQ-03-217..REQ-03-219, REQ-03-263, REQ-03-282 |
+| AC-043 | REQ-00-013, REQ-01-015..REQ-01-017, REQ-03-001..REQ-03-003, REQ-03-087..REQ-03-089, REQ-03-217..REQ-03-219, REQ-03-224, REQ-03-263, REQ-03-282 |
 | AC-044 | REQ-00-013, REQ-01-015..REQ-01-017, REQ-03-223..REQ-03-224 |
 | AC-045 | REQ-00-013, REQ-01-015..REQ-01-017, REQ-01-355..REQ-01-366, REQ-03-242..REQ-03-246 |
 | AC-046 | REQ-00-013, REQ-01-004..REQ-01-014, REQ-01-018, REQ-01-248..REQ-01-249, REQ-01-342..REQ-01-348, REQ-01-351..REQ-01-353, REQ-01-369, REQ-01-452..REQ-01-454 |

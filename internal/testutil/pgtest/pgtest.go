@@ -26,6 +26,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/database_migrations/sourcecatalog"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
+	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 	"github.com/JochiRaider/cartulary/internal/testutil/testfailure"
@@ -34,13 +36,15 @@ import (
 const postgresImage = "postgres:16-alpine"
 
 const (
-	postgresPortMappingTimeout   = 15 * time.Second
-	postgresClientReadyTimeout   = 15 * time.Second
-	postgresHealthPollInterval   = 250 * time.Millisecond
-	postgresClientAttemptTimeout = 5 * time.Second
+	postgresPortMappingTimeout        = 15 * time.Second
+	postgresClientReadyTimeout        = 15 * time.Second
+	postgresHealthPollInterval        = 250 * time.Millisecond
+	postgresClientAttemptTimeout      = 5 * time.Second
+	postgresCatalogAdmissionTimeout   = 15 * time.Second
+	postgresDatabaseNormalDropTimeout = 5 * time.Second
+	postgresDatabaseForcedDropTimeout = 15 * time.Second
 
 	postgresFixturePolicyTemplateClone = "template_clone"
-	postgresFixturePolicyPackageReset  = "package_reset"
 	postgresFixturePolicyTransaction   = "transaction"
 )
 
@@ -48,8 +52,6 @@ const (
 	postgresFixturePolicyTestsEnv    = "CARTULARY_POSTGRES_FIXTURE_POLICY_TESTS"
 	postgresFixturePolicyPackagesEnv = "CARTULARY_POSTGRES_FIXTURE_POLICY_PACKAGES"
 	postgresFixturePolicyDefaultEnv  = "CARTULARY_POSTGRES_FIXTURE_POLICY_DEFAULT"
-	postgresResetTablesTestsEnv      = "CARTULARY_POSTGRES_RESET_TABLES_TESTS"
-	postgresResetTablesPackagesEnv   = "CARTULARY_POSTGRES_RESET_TABLES_PACKAGES"
 )
 
 const (
@@ -79,10 +81,12 @@ type Harness struct {
 	shared      bool
 	attached    bool
 
-	templateMu sync.Mutex
+	templateMu      sync.Mutex
+	ownedDatabaseMu sync.Mutex
+	ownedDatabases  map[string]struct{}
 
-	packageDBMu sync.Mutex
-	packageDBs  map[string]*packageDatabase
+	transactionDBMu sync.Mutex
+	transactionDBs  map[string]*transactionDatabase
 }
 
 type TestDatabase struct {
@@ -113,16 +117,9 @@ type RollbackDB struct {
 	conn *pgx.Conn
 }
 
-type packageDatabase struct {
-	mu         sync.Mutex
-	db         *TestDatabase
-	resetPlans map[string]resetPlan
-	resetSQLs  map[string]string
-}
-
-type resetPlan struct {
-	statement string
-	tables    []string
+type transactionDatabase struct {
+	mu sync.Mutex
+	db *TestDatabase
 }
 
 type fixtureAttribution struct {
@@ -131,7 +128,6 @@ type fixtureAttribution struct {
 	CallerPackage         string
 	HarnessPackage        string
 	PostgresFixturePolicy string
-	PostgresResetTables   []string
 	ReuseGroup            string
 }
 
@@ -153,9 +149,8 @@ var (
 	applyMigrationsThrough    = applyCanonicalMigrationsThrough
 	rollbackMigrationsThrough = rollbackCanonicalMigrationsThrough
 	createDatabaseFn          = createDatabase
-	dropDatabaseFn            = dropDatabase
+	dropOwnedDatabaseFn       = postgrescleanup.DropOwnedDatabase
 	markTemplateDBFn          = markTemplateDatabase
-	listMutableTablesFn       = listMutableTables
 )
 
 func Start(t testing.TB) *Harness {
@@ -454,8 +449,15 @@ func (h *Harness) AdminDSN() string {
 	return h.adminDSN
 }
 
-func (h *Harness) NewDatabase(ctx context.Context, prefix string) (*TestDatabase, error) {
-	return h.newDatabase(ctx, prefix, suiteservices.FixtureReusePerTest, fixtureAttribution{})
+func (h *Harness) NewDatabaseT(t testing.TB, prefix string) *TestDatabase {
+	t.Helper()
+	attribution := fixtureAttributionFor(t, "pgtest")
+	testDB, err := h.newDatabase(context.Background(), prefix, suiteservices.FixtureReusePerTest, attribution)
+	if err != nil {
+		t.Fatalf("create postgres database: %v", err)
+	}
+	h.registerDatabaseCleanupT(t, testDB.Name, suiteservices.FixtureReusePerTest, attribution)
+	return testDB
 }
 
 func (h *Harness) newDatabase(ctx context.Context, prefix string, reuseScope string, attribution fixtureAttribution) (*TestDatabase, error) {
@@ -619,15 +621,7 @@ func (h *Harness) PrepareIsolatedDatabaseT(t testing.TB, prefix string) *TestDat
 	if err != nil {
 		t.Fatalf("prepare postgres database: %v", err)
 	}
-	t.Cleanup(func() {
-		if h.retainPreparedDatabaseOnCleanup() {
-			h.recordRetainedDatabase(testDB.Name, suiteservices.FixtureReusePerTest, attribution)
-			return
-		}
-		if err := h.dropDatabase(context.Background(), testDB.Name, suiteservices.FixtureReusePerTest, attribution); err != nil {
-			t.Fatalf("drop postgres database: %v", err)
-		}
-	})
+	h.registerDatabaseCleanupT(t, testDB.Name, suiteservices.FixtureReusePerTest, attribution)
 	return testDB
 }
 
@@ -654,16 +648,17 @@ func (h *Harness) newMigrationDatabaseT(t testing.TB) *TestDatabase {
 	if err != nil {
 		t.Fatalf("create migration scratch database: %v", err)
 	}
+	h.registerDatabaseCleanupT(t, testDB.Name, suiteservices.FixtureReuseMigrationScratch, attribution)
+	return testDB
+}
+
+func (h *Harness) registerDatabaseCleanupT(t testing.TB, name string, reuseScope string, attribution fixtureAttribution) {
+	t.Helper()
 	t.Cleanup(func() {
-		if h.retainDatabaseOnCleanup() {
-			h.recordRetainedDatabase(testDB.Name, suiteservices.FixtureReuseMigrationScratch, attribution)
-			return
-		}
-		if err := h.dropDatabase(context.Background(), testDB.Name, suiteservices.FixtureReuseMigrationScratch, attribution); err != nil {
-			t.Fatalf("drop migration scratch database: %v", err)
+		if err := h.dropDatabase(context.Background(), name, reuseScope, attribution); err != nil {
+			t.Fatalf("drop postgres database: %v", err)
 		}
 	})
-	return testDB
 }
 
 func (h *Harness) MigrationDatabaseT(t testing.TB) *MigrationDatabase {
@@ -803,43 +798,6 @@ func newCanonicalMigrationProvider(db *sql.DB) (*goose.Provider, error) {
 	return sourcecatalog.NewProvider(db, source, locker)
 }
 
-func (h *Harness) PreparePackageResetDatabaseT(t testing.TB, prefix string) *TestDatabase {
-	t.Helper()
-
-	// Package reset is an explicit compatibility path for tests that prove a
-	// closed reset surface. Ordinary integration tests use isolated clones and
-	// store tests use BeginRollbackDBT.
-	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyPackageReset)
-	attribution := fixtureAttributionFor(t, "pgtest")
-	attribution.PostgresFixturePolicy = postgresFixturePolicyPackageReset
-	attribution.PostgresResetTables = resolvePostgresResetTables(attribution)
-
-	key := attribution.CallerPackage
-	if key == "" {
-		key = sanitizeIdentifier(prefix)
-	}
-	attribution.ReuseGroup = key
-	fixture := h.packageDatabase(key)
-	fixture.mu.Lock()
-
-	if fixture.db == nil {
-		testDB, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePackage, attribution)
-		if err != nil {
-			fixture.mu.Unlock()
-			t.Fatalf("prepare package postgres database: %v", err)
-		}
-		fixture.db = testDB
-	} else if err := h.resetPackageDatabase(context.Background(), fixture, attribution); err != nil {
-		fixture.mu.Unlock()
-		t.Fatalf("reset package postgres database: %v", err)
-	}
-
-	t.Cleanup(func() {
-		fixture.mu.Unlock()
-	})
-	return fixture.db
-}
-
 func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 	t.Helper()
 	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyTransaction)
@@ -851,11 +809,11 @@ func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 		key = sanitizeIdentifier(prefix)
 	}
 	attribution.ReuseGroup = key
-	fixture := h.packageDatabase(key)
+	fixture := h.transactionDatabase(key)
 	fixture.mu.Lock()
 
 	if fixture.db == nil {
-		testDB, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePackage, attribution)
+		testDB, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReuseTransaction, attribution)
 		if err != nil {
 			fixture.mu.Unlock()
 			t.Fatalf("prepare transaction postgres database: %v", err)
@@ -890,324 +848,19 @@ func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 	return &RollbackDB{tx: tx, conn: conn}
 }
 
-func (h *Harness) packageDatabase(key string) *packageDatabase {
-	h.packageDBMu.Lock()
-	defer h.packageDBMu.Unlock()
+func (h *Harness) transactionDatabase(key string) *transactionDatabase {
+	h.transactionDBMu.Lock()
+	defer h.transactionDBMu.Unlock()
 
-	if h.packageDBs == nil {
-		h.packageDBs = make(map[string]*packageDatabase)
+	if h.transactionDBs == nil {
+		h.transactionDBs = make(map[string]*transactionDatabase)
 	}
-	fixture := h.packageDBs[key]
+	fixture := h.transactionDBs[key]
 	if fixture == nil {
-		fixture = &packageDatabase{}
-		h.packageDBs[key] = fixture
+		fixture = &transactionDatabase{}
+		h.transactionDBs[key] = fixture
 	}
 	return fixture
-}
-
-func (h *Harness) ResetDatabase(ctx context.Context, name string) error {
-	return h.resetDatabase(ctx, name, suiteservices.FixtureReusePerTest, fixtureAttribution{})
-}
-
-func (h *Harness) resetDatabase(ctx context.Context, name string, reuseScope string, attribution fixtureAttribution) error {
-	start := time.Now()
-	db, err := sql.Open("pgx", h.dsnFor(name))
-	if err != nil {
-		return fmt.Errorf("open postgres reset handle: %w", err)
-	}
-	defer db.Close()
-
-	statement, tables, err := h.buildResetStatement(ctx, db, nil)
-	if err != nil {
-		return err
-	}
-	beforeCounts, err := countRowsByTable(ctx, db, tables)
-	if err != nil {
-		return err
-	}
-	gooseBefore, gooseExistsBefore, err := countRowsIfTableExists(ctx, db, "goose_db_version")
-	if err != nil {
-		return err
-	}
-	routeIDBefore, routeIDExistsBefore, err := countRowsIfTableExists(ctx, db, "route_idempotency")
-	if err != nil {
-		return err
-	}
-	if statement != "" {
-		if _, err := db.ExecContext(ctx, statement); err != nil {
-			return fmt.Errorf("truncate mutable postgres tables: %w", err)
-		}
-	}
-	afterCounts, err := countRowsByTable(ctx, db, tables)
-	if err != nil {
-		return err
-	}
-	gooseAfter, gooseExistsAfter, err := countRowsIfTableExists(ctx, db, "goose_db_version")
-	if err != nil {
-		return err
-	}
-	routeIDAfter, routeIDExistsAfter, err := countRowsIfTableExists(ctx, db, "route_idempotency")
-	if err != nil {
-		return err
-	}
-	details := postgresFixtureDetails("", reuseScope, attribution, time.Since(start))
-	addPostgresResetProofDetails(details, tables, beforeCounts, afterCounts, gooseBefore, gooseExistsBefore, gooseAfter, gooseExistsAfter, routeIDBefore, routeIDExistsBefore, routeIDAfter, routeIDExistsAfter)
-	recordSuiteEvent(suiteservices.Event{
-		Type:    suiteservices.EventPostgresDBReset,
-		Name:    name,
-		Details: details,
-	})
-	return nil
-}
-
-func (h *Harness) resetPackageDatabase(ctx context.Context, fixture *packageDatabase, attribution fixtureAttribution) error {
-	start := time.Now()
-	db, err := sql.Open("pgx", h.dsnFor(fixture.db.Name))
-	if err != nil {
-		return fmt.Errorf("open postgres reset handle: %w", err)
-	}
-	defer db.Close()
-
-	resetKey := strings.Join(attribution.PostgresResetTables, ",")
-	if fixture.resetPlans == nil {
-		fixture.resetPlans = make(map[string]resetPlan)
-	}
-	plan, ok := fixture.resetPlans[resetKey]
-	if !ok {
-		var err error
-		plan.statement, plan.tables, err = h.buildResetStatement(ctx, db, attribution.PostgresResetTables)
-		if err != nil {
-			return err
-		}
-		fixture.resetPlans[resetKey] = plan
-		if fixture.resetSQLs == nil {
-			fixture.resetSQLs = make(map[string]string)
-		}
-		fixture.resetSQLs[resetKey] = plan.statement
-	}
-	beforeCounts, err := countRowsByTable(ctx, db, plan.tables)
-	if err != nil {
-		return err
-	}
-	gooseBefore, gooseExistsBefore, err := countRowsIfTableExists(ctx, db, "goose_db_version")
-	if err != nil {
-		return err
-	}
-	routeIDBefore, routeIDExistsBefore, err := countRowsIfTableExists(ctx, db, "route_idempotency")
-	if err != nil {
-		return err
-	}
-	if plan.statement != "" {
-		if _, err := db.ExecContext(ctx, plan.statement); err != nil {
-			return fmt.Errorf("truncate mutable postgres tables: %w", err)
-		}
-	}
-	afterCounts, err := countRowsByTable(ctx, db, plan.tables)
-	if err != nil {
-		return err
-	}
-	gooseAfter, gooseExistsAfter, err := countRowsIfTableExists(ctx, db, "goose_db_version")
-	if err != nil {
-		return err
-	}
-	routeIDAfter, routeIDExistsAfter, err := countRowsIfTableExists(ctx, db, "route_idempotency")
-	if err != nil {
-		return err
-	}
-	details := postgresFixtureDetails("", suiteservices.FixtureReusePackage, attribution, time.Since(start))
-	addPostgresResetProofDetails(details, plan.tables, beforeCounts, afterCounts, gooseBefore, gooseExistsBefore, gooseAfter, gooseExistsAfter, routeIDBefore, routeIDExistsBefore, routeIDAfter, routeIDExistsAfter)
-	recordSuiteEvent(suiteservices.Event{
-		Type:    suiteservices.EventPostgresDBReset,
-		Name:    fixture.db.Name,
-		Details: details,
-	})
-	return nil
-}
-
-func (h *Harness) buildResetStatement(ctx context.Context, db *sql.DB, resetTables []string) (string, []string, error) {
-	if len(resetTables) > 0 {
-		if err := validateTargetedResetTables(ctx, db, resetTables); err != nil {
-			return "", nil, err
-		}
-		tables := append([]string(nil), resetTables...)
-		quotedTables := make([]string, len(tables))
-		for index, table := range tables {
-			quotedTables[index] = quoteIdentifier(table)
-		}
-		return "TRUNCATE TABLE " + strings.Join(quotedTables, ", ") + " RESTART IDENTITY CASCADE", tables, nil
-	}
-	tables, err := listMutableTablesFn(ctx, db)
-	if err != nil {
-		return "", nil, err
-	}
-	if len(tables) == 0 {
-		return "", nil, nil
-	}
-	quotedTables := make([]string, len(tables))
-	for index, table := range tables {
-		quotedTables[index] = quoteIdentifier(table)
-	}
-	return "TRUNCATE TABLE " + strings.Join(quotedTables, ", ") + " RESTART IDENTITY CASCADE", tables, nil
-}
-
-func countRowsByTable(ctx context.Context, db *sql.DB, tables []string) (map[string]int64, error) {
-	counts := make(map[string]int64, len(tables))
-	for _, table := range tables {
-		count, err := countRows(ctx, db, table)
-		if err != nil {
-			return nil, err
-		}
-		counts[table] = count
-	}
-	return counts, nil
-}
-
-func countRowsIfTableExists(ctx context.Context, db *sql.DB, table string) (int64, bool, error) {
-	var exists bool
-	if err := db.QueryRowContext(ctx, `SELECT to_regclass($1::text) IS NOT NULL`, "public."+table).Scan(&exists); err != nil {
-		return 0, false, fmt.Errorf("check postgres table %s: %w", table, err)
-	}
-	if !exists {
-		return 0, false, nil
-	}
-	count, err := countRows(ctx, db, table)
-	if err != nil {
-		return 0, true, err
-	}
-	return count, true, nil
-}
-
-func countRows(ctx context.Context, db *sql.DB, table string) (int64, error) {
-	var count int64
-	if err := db.QueryRowContext(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", quoteIdentifier(table))).Scan(&count); err != nil {
-		return 0, fmt.Errorf("count postgres table %s: %w", table, err)
-	}
-	return count, nil
-}
-
-func addPostgresResetProofDetails(details map[string]any, tables []string, beforeCounts map[string]int64, afterCounts map[string]int64, gooseBefore int64, gooseExistsBefore bool, gooseAfter int64, gooseExistsAfter bool, routeIDBefore int64, routeIDExistsBefore bool, routeIDAfter int64, routeIDExistsAfter bool) {
-	if len(tables) > 0 {
-		details["actual_reset_tables"] = strings.Join(tables, ",")
-	}
-	details["actual_reset_table_count"] = len(tables)
-	details["reset_row_counts_before"] = beforeCounts
-	details["reset_row_counts_after"] = afterCounts
-	if gooseExistsBefore || gooseExistsAfter {
-		details["goose_db_version_rows_before"] = gooseBefore
-		details["goose_db_version_rows_after"] = gooseAfter
-		details["goose_db_version_preserved"] = gooseExistsBefore && gooseExistsAfter && gooseBefore == gooseAfter
-	}
-	if routeIDExistsBefore || routeIDExistsAfter {
-		details["route_idempotency_rows_before"] = routeIDBefore
-		details["route_idempotency_rows_after"] = routeIDAfter
-	}
-}
-
-func listMutableTables(ctx context.Context, db *sql.DB) ([]string, error) {
-	rows, err := db.QueryContext(ctx, `
-		SELECT tablename
-		  FROM pg_tables
-		 WHERE schemaname = 'public'
-   AND tablename <> 'goose_db_version'
- ORDER BY tablename`)
-	if err != nil {
-		return nil, fmt.Errorf("list mutable postgres tables: %w", err)
-	}
-	defer rows.Close()
-
-	tables := make([]string, 0)
-	for rows.Next() {
-		var table string
-		if err := rows.Scan(&table); err != nil {
-			return nil, fmt.Errorf("scan mutable postgres table: %w", err)
-		}
-		tables = append(tables, table)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate mutable postgres tables: %w", err)
-	}
-	return tables, nil
-}
-
-func validateTargetedResetTables(ctx context.Context, db *sql.DB, resetTables []string) error {
-	tableSet := make(map[string]struct{}, len(resetTables))
-	for _, table := range resetTables {
-		table = strings.TrimSpace(table)
-		if table == "" {
-			return fmt.Errorf("targeted postgres reset includes an empty table name")
-		}
-		tableSet[table] = struct{}{}
-	}
-
-	mutableTables, err := listMutableTablesFn(ctx, db)
-	if err != nil {
-		return err
-	}
-	mutableSet := make(map[string]struct{}, len(mutableTables))
-	for _, table := range mutableTables {
-		mutableSet[table] = struct{}{}
-	}
-	for table := range tableSet {
-		if _, ok := mutableSet[table]; !ok {
-			return fmt.Errorf("targeted postgres reset table %s is not a mutable public table", table)
-		}
-	}
-
-	rows, err := db.QueryContext(ctx, `
-SELECT source.relname AS source_table, target.relname AS target_table
-  FROM pg_constraint constraint_row
-  JOIN pg_class source ON source.oid = constraint_row.conrelid
-  JOIN pg_namespace source_namespace ON source_namespace.oid = source.relnamespace
-  JOIN pg_class target ON target.oid = constraint_row.confrelid
-  JOIN pg_namespace target_namespace ON target_namespace.oid = target.relnamespace
- WHERE constraint_row.contype = 'f'
-   AND source_namespace.nspname = 'public'
-   AND target_namespace.nspname = 'public'
- ORDER BY source.relname, target.relname`)
-	if err != nil {
-		return fmt.Errorf("list postgres reset table dependencies: %w", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var sourceTable string
-		var targetTable string
-		if err := rows.Scan(&sourceTable, &targetTable); err != nil {
-			return fmt.Errorf("scan postgres reset table dependency: %w", err)
-		}
-		_, sourceSelected := tableSet[sourceTable]
-		_, targetSelected := tableSet[targetTable]
-		if sourceSelected != targetSelected {
-			return fmt.Errorf("targeted postgres reset table set must include both sides of FK %s -> %s", sourceTable, targetTable)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("iterate postgres reset table dependencies: %w", err)
-	}
-	return nil
-}
-
-func BeginRollbackTxT(t testing.TB, db *sql.DB) *sql.Tx {
-	t.Helper()
-
-	attribution := fixtureAttributionFor(t, "pgtest")
-	attribution.PostgresFixturePolicy = resolvePostgresFixturePolicy(attribution)
-	if attribution.PostgresFixturePolicy == "" || attribution.PostgresFixturePolicy == postgresFixturePolicyPackageReset {
-		attribution.PostgresFixturePolicy = postgresFixturePolicyTransaction
-	}
-	start := time.Now()
-	tx, err := db.BeginTx(context.Background(), nil)
-	if err != nil {
-		t.Fatalf("begin postgres rollback transaction: %v", err)
-	}
-	recordSuiteEvent(suiteservices.Event{
-		Type:    suiteservices.EventPostgresTransaction,
-		Details: postgresFixtureDetails("", suiteservices.FixtureReuseTransaction, attribution, time.Since(start)),
-	})
-	t.Cleanup(func() {
-		_ = tx.Rollback()
-	})
-	return tx
 }
 
 func (db *RollbackDB) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
@@ -1231,49 +884,40 @@ func (h *Harness) DropDatabase(ctx context.Context, name string) error {
 }
 
 func (h *Harness) dropDatabase(ctx context.Context, name string, reuseScope string, attribution fixtureAttribution) error {
+	if !h.ownsDatabase(name) {
+		return fmt.Errorf("refuse to drop postgres database %q without exact harness ownership", name)
+	}
 	start := time.Now()
-	if err := dropDatabaseFn(ctx, h.adminDSN, name); err != nil {
+	cleanupStrategy := "normal_drop"
+	forced, err := dropOwnedDatabaseFn(
+		ctx,
+		h.adminDSN,
+		name,
+		postgresDatabaseNormalDropTimeout,
+		postgresDatabaseForcedDropTimeout,
+	)
+	if err != nil {
 		return err
 	}
+	if forced {
+		cleanupStrategy = "forced_drop_fallback"
+	}
+	details := postgresFixtureDetails("", reuseScope, attribution, time.Since(start))
+	details["cleanup_strategy"] = cleanupStrategy
 	recordSuiteEvent(suiteservices.Event{
 		Type:    suiteservices.EventPostgresDBDropped,
 		Name:    name,
-		Details: postgresFixtureDetails("", reuseScope, attribution, time.Since(start)),
+		Details: details,
 	})
 
 	return nil
 }
 
-func dropDatabase(ctx context.Context, adminDSN string, name string) error {
-	admin, err := sql.Open("pgx", adminDSN)
-	if err != nil {
-		return fmt.Errorf("open postgres admin handle: %w", err)
-	}
-	defer admin.Close()
-
-	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, name)); err != nil {
-		return fmt.Errorf("drop test database %s: %w", name, err)
-	}
-	return nil
-}
-
-func (h *Harness) retainDatabaseOnCleanup() bool {
-	return h.attached &&
-		h.templateDB != "" &&
-		suiteservices.SuiteActive(nil) &&
-		strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PersistentBorrowerEnv)) != "1"
-}
-
-func (h *Harness) retainPreparedDatabaseOnCleanup() bool {
-	return h.retainDatabaseOnCleanup()
-}
-
-func (h *Harness) recordRetainedDatabase(name string, reuseScope string, attribution fixtureAttribution) {
-	recordSuiteEvent(suiteservices.Event{
-		Type:    suiteservices.EventPostgresDBRetained,
-		Name:    name,
-		Details: postgresFixtureDetails(suiteservices.PostgresPreparationTemplateClone, reuseScope, attribution, 0),
-	})
+func (h *Harness) ownsDatabase(name string) bool {
+	h.ownedDatabaseMu.Lock()
+	defer h.ownedDatabaseMu.Unlock()
+	_, ok := h.ownedDatabases[name]
+	return ok
 }
 
 func (h *Harness) Close(ctx context.Context) error {
@@ -1406,7 +1050,16 @@ func (h *Harness) createDatabase(ctx context.Context, name string, templateDB st
 	if err := suiteservices.CheckServiceDependencies(nil, "postgres"); err != nil {
 		return err
 	}
-	return createDatabaseFn(ctx, h.adminDSN, name, templateDB)
+	if err := createDatabaseFn(ctx, h.adminDSN, name, templateDB); err != nil {
+		return err
+	}
+	h.ownedDatabaseMu.Lock()
+	if h.ownedDatabases == nil {
+		h.ownedDatabases = make(map[string]struct{})
+	}
+	h.ownedDatabases[name] = struct{}{}
+	h.ownedDatabaseMu.Unlock()
+	return nil
 }
 
 func failPostgresSetup(t testing.TB, defaultStage string, err error) {
@@ -1464,21 +1117,27 @@ func pingAdminDSN(ctx context.Context, dsn string) error {
 }
 
 func createDatabase(ctx context.Context, adminDSN string, name string, templateDB string) error {
-	admin, err := sql.Open("pgx", adminDSN)
+	err := postgrescatalog.WithMutation(
+		ctx,
+		adminDSN,
+		name,
+		postgresCatalogAdmissionTimeout,
+		func(admin *sql.DB) error {
+			statement := fmt.Sprintf(`CREATE DATABASE "%s"`, name)
+			if templateDB != "" {
+				statement += fmt.Sprintf(` TEMPLATE "%s"`, templateDB)
+			}
+			if _, err := admin.ExecContext(ctx, statement); err != nil {
+				if templateDB != "" {
+					return fmt.Errorf("create test database %s from template %s: %w", name, templateDB, err)
+				}
+				return fmt.Errorf("create test database %s: %w", name, err)
+			}
+			return nil
+		},
+	)
 	if err != nil {
-		return fmt.Errorf("open postgres admin handle: %w", err)
-	}
-	defer admin.Close()
-
-	statement := fmt.Sprintf(`CREATE DATABASE "%s"`, name)
-	if templateDB != "" {
-		statement += fmt.Sprintf(` TEMPLATE "%s"`, templateDB)
-	}
-	if _, err := admin.ExecContext(ctx, statement); err != nil {
-		if templateDB != "" {
-			return fmt.Errorf("create test database %s from template %s: %w", name, templateDB, err)
-		}
-		return fmt.Errorf("create test database %s: %w", name, err)
+		return err
 	}
 	if err := ProvisionDatabase(ctx, adminDSN, name); err != nil {
 		return err
@@ -1681,22 +1340,24 @@ REVOKE cartulary_schema_owner, cartulary_runtime FROM cartulary_recovery_login;`
 }
 
 func markTemplateDatabase(ctx context.Context, adminDSN string, name string) error {
-	admin, err := sql.Open("pgx", adminDSN)
-	if err != nil {
-		return fmt.Errorf("open postgres admin handle: %w", err)
-	}
-	defer admin.Close()
-
-	if _, err := admin.ExecContext(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, name); err != nil {
-		return fmt.Errorf("terminate template database connections: %w", err)
-	}
-	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH ALLOW_CONNECTIONS false`, name)); err != nil {
-		return fmt.Errorf("disable template database connections: %w", err)
-	}
-	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE true`, name)); err != nil {
-		return fmt.Errorf("mark template database as template: %w", err)
-	}
-	return nil
+	return postgrescatalog.WithMutation(
+		ctx,
+		adminDSN,
+		name,
+		postgresCatalogAdmissionTimeout,
+		func(admin *sql.DB) error {
+			if _, err := admin.ExecContext(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, name); err != nil {
+				return fmt.Errorf("terminate template database connections: %w", err)
+			}
+			if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH ALLOW_CONNECTIONS false`, name)); err != nil {
+				return fmt.Errorf("disable template database connections: %w", err)
+			}
+			if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE true`, name)); err != nil {
+				return fmt.Errorf("mark template database as template: %w", err)
+			}
+			return nil
+		},
+	)
 }
 
 func templateDatabaseName(suiteHash string, schemaHash string) string {
@@ -1746,9 +1407,6 @@ func postgresFixtureDetails(strategy string, reuseScope string, attribution fixt
 	if attribution.PostgresFixturePolicy != "" {
 		details["fixture_policy"] = attribution.PostgresFixturePolicy
 	}
-	if len(attribution.PostgresResetTables) > 0 {
-		details["reset_tables"] = strings.Join(attribution.PostgresResetTables, ",")
-	}
 	if hash := fixtureSchemaHash(); hash != "" {
 		details["schema_hash"] = hash
 	}
@@ -1778,8 +1436,6 @@ func postgresFixtureClass(policy string, reuseScope string) string {
 	switch policy {
 	case postgresFixturePolicyTransaction:
 		return "transaction"
-	case postgresFixturePolicyPackageReset:
-		return "reusable_database"
 	case postgresFixturePolicyTemplateClone:
 		return "isolated_clone"
 	case "suite_template":
@@ -1790,8 +1446,6 @@ func postgresFixtureClass(policy string, reuseScope string) string {
 		return "migration_scratch"
 	case suiteservices.FixtureReuseTransaction:
 		return "transaction"
-	case suiteservices.FixtureReusePackage:
-		return "reusable_database"
 	}
 	return ""
 }
@@ -1862,50 +1516,6 @@ func lookupFixturePolicy(envName string, key string) string {
 	return ""
 }
 
-func resolvePostgresResetTables(attribution fixtureAttribution) []string {
-	topLevelTest := topLevelTestName(attribution.TestName)
-	if tables := lookupResetTables(postgresResetTablesTestsEnv, topLevelTest); len(tables) > 0 {
-		return tables
-	}
-	return lookupResetTables(postgresResetTablesPackagesEnv, attribution.CallerPackage)
-}
-
-func lookupResetTables(envName string, key string) []string {
-	key = normalizeFixturePolicyKey(key)
-	if key == "" {
-		return nil
-	}
-	for _, assignment := range splitFixturePolicyAssignments(suiteservices.LookupEnvValue(nil, envName)) {
-		name, value, ok := strings.Cut(assignment, "=")
-		if !ok {
-			continue
-		}
-		if normalizeFixturePolicyKey(name) == key {
-			return normalizeResetTables(value)
-		}
-	}
-	return nil
-}
-
-func normalizeResetTables(value string) []string {
-	seen := make(map[string]struct{})
-	tables := make([]string, 0)
-	for _, table := range strings.FieldsFunc(value, func(r rune) bool {
-		return r == '|' || r == ':' || r == '+'
-	}) {
-		table = strings.TrimSpace(table)
-		if table == "" {
-			continue
-		}
-		if _, ok := seen[table]; ok {
-			continue
-		}
-		seen[table] = struct{}{}
-		tables = append(tables, table)
-	}
-	return tables
-}
-
 func splitFixturePolicyAssignments(value string) []string {
 	return strings.FieldsFunc(value, func(r rune) bool {
 		return r == ',' || r == ';' || r == '\n' || r == '\r'
@@ -1929,8 +1539,6 @@ func normalizePostgresFixturePolicy(value string) string {
 	switch strings.TrimSpace(value) {
 	case postgresFixturePolicyTemplateClone:
 		return postgresFixturePolicyTemplateClone
-	case postgresFixturePolicyPackageReset:
-		return postgresFixturePolicyPackageReset
 	case postgresFixturePolicyTransaction:
 		return postgresFixturePolicyTransaction
 	default:
@@ -1991,8 +1599,4 @@ func callerPackage(file string) string {
 		return ""
 	}
 	return filepath.ToSlash(filepath.Dir(file))
-}
-
-func quoteIdentifier(value string) string {
-	return `"` + strings.ReplaceAll(value, `"`, `""`) + `"`
 }

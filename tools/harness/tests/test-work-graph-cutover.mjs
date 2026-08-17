@@ -100,7 +100,84 @@ function assertGraphCutover() {
   assert.equal(affectedUnit.fixture_lease, "postgres_dedicated");
   assert.deepEqual(affectedUnit.service_dependencies, ["object_store", "postgres"]);
   assert.equal(affectedUnit.resource_claims.object_store, 1);
+  assert.equal(affectedUnit.resource_claims.cpu, 1);
   assert.equal(affectedUnit.resource_claims.postgres, 1);
+  assert.equal(affectedUnit.command.environment.CARTULARY_UNIT_CPU_TOKENS, "1");
+  assert.equal(affectedUnit.command.environment.GOMAXPROCS, "1");
+
+  const dedicatedRows = [
+    "module.entities.integration.host_and_identity_create_routes_reuse_exact_matc_f443e2591f",
+    "module.entities.integration.the_explicit_merge_route_repoints_live_fan_out_p_0ec76e8044",
+  ];
+  const dedicatedGraph = compiler.compile({ kind: "rows", row_ids: dedicatedRows });
+  const dedicatedUnits = dedicatedGraph.units.filter((entry) =>
+    dedicatedRows.some((rowID) =>
+      entry.current_run_evidence_outputs.includes(`rows/${rowID}.json`),
+    ),
+  );
+  assert.equal(dedicatedUnits.length, 1, "compatible dedicated rows must share one Go process");
+  assert.equal(dedicatedUnits[0].fixture_lease, "postgres_dedicated");
+  assert.deepEqual(
+    dedicatedUnits[0].current_run_evidence_outputs,
+    dedicatedRows.map((rowID) => `rows/${rowID}.json`),
+  );
+  assert.equal(dedicatedUnits[0].command.environment.GOMAXPROCS, "1");
+
+  const migrationRows = [
+    "module.database_migrations.integration.production_ddl_v2_recurrence",
+    "module.database_migrations.integration.production_preflight_state_matrix",
+  ];
+  const migrationGraph = compiler.compile({ kind: "rows", row_ids: migrationRows });
+  const migrationUnits = migrationGraph.units.filter((entry) =>
+    migrationRows.some((rowID) =>
+      entry.current_run_evidence_outputs.includes(`rows/${rowID}.json`),
+    ),
+  );
+  assert.equal(migrationUnits.length, 1, "compatible migration rows must share one Go process");
+  assert.equal(migrationUnits[0].fixture_lease, "postgres_migration");
+  assert.deepEqual(
+    migrationUnits[0].current_run_evidence_outputs,
+    migrationRows.map((rowID) => `rows/${rowID}.json`),
+  );
+
+  const processGlobalRows = [
+    "platform.jobs.integration.claim_recovery_and_publication",
+    "platform.jobs.integration.operational_telemetry",
+  ];
+  const processGlobalGraph = compiler.compile({ kind: "rows", row_ids: processGlobalRows });
+  const processGlobalUnits = processGlobalGraph.units.filter((entry) =>
+    processGlobalRows.some((rowID) =>
+      entry.current_run_evidence_outputs.includes(`rows/${rowID}.json`),
+    ),
+  );
+  assert.equal(
+    processGlobalUnits.length,
+    2,
+    "an explicit process-global assertion must not share a Go process",
+  );
+
+  const managedProcessRows = [
+    "module.extensions.integration.bc011_deadline_precedence_ef23af86ac",
+    "module.extensions.integration.bc015_browser_availability_e0a71bee5d",
+  ];
+  const managedProcessGraph = compiler.compile({
+    kind: "rows",
+    row_ids: managedProcessRows,
+  });
+  const managedProcessUnits = managedProcessGraph.units.filter((entry) =>
+    managedProcessRows.some((rowID) =>
+      entry.current_run_evidence_outputs.includes(`rows/${rowID}.json`),
+    ),
+  );
+  assert.equal(managedProcessUnits.length, 2, "managed-process rows must remain process-isolated");
+  assert.ok(managedProcessUnits.every((entry) => entry.fixture_lease === "managed_process"));
+
+  const rawPostgresUnit = compiler
+    .compile({ kind: "target", target: "backend-integration" })
+    .units.find((entry) => entry.unit_id === "raw_go:backend-integration-testutil");
+  assert.equal(rawPostgresUnit.resource_claims.cpu, 1);
+  assert.equal(rawPostgresUnit.resource_claims.postgres, 1);
+  assert.equal(rawPostgresUnit.command.environment.GOMAXPROCS, "1");
 
   const ioHeavy = compiler.compile({
     kind: "rows",

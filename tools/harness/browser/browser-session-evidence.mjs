@@ -27,7 +27,7 @@ const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const identityPattern = /^[a-zA-Z0-9_.-]+$/u;
 
 function usage() {
-  return "usage: browser-session-evidence.mjs event <state> <message> [failure-class failure-reason] | terminal <ready|failed> <message> [failure-class failure-reason] | snapshot-service-scope | lease | stack | attach <stack-v5.json> | attach-json <stack-v5.json>";
+  return "usage: browser-session-evidence.mjs event <state> <message> [failure-class failure-reason] | terminal <ready|failed> <message> [failure-class failure-reason] | write-service-admission | lease | stack | attach <stack-v6.json> | attach-json <stack-v6.json>";
 }
 
 function requiredEnv(name) {
@@ -61,6 +61,13 @@ function requireRegularNoSymlink(file, label) {
   const info = lstatSync(file);
   if (!info.isFile() || info.isSymbolicLink()) {
     throw new Error(`${label} must be a non-symlink regular file`);
+  }
+}
+
+function requireOwnerOnlyRegular(file, label) {
+  requireRegularNoSymlink(file, label);
+  if ((lstatSync(file).mode & 0o777) !== 0o600) {
+    throw new Error(`${label} must be mode 0600`);
   }
 }
 
@@ -249,7 +256,7 @@ function terminal(status, message, failureClass = "", failureReason = "") {
   return payload;
 }
 
-function snapshotServiceScope() {
+function writeServiceAdmission() {
   const suiteRoot = path.join(
     runRoot(),
     "_shared",
@@ -258,8 +265,64 @@ function snapshotServiceScope() {
   );
   const source = path.join(suiteRoot, "service-scope.json");
   requireRegularNoSymlink(source, "test-services service scope");
-  const destination = path.join(sessionRoot(), "service-scope-admission.json");
-  atomicWrite(destination, readFileSync(source));
+  const scopeBytes = readFileSync(source);
+  const scope = JSON.parse(scopeBytes);
+  validateSchemaSync(scope.schema_id, scope);
+  if (
+    scope.schema_id !== "cartulary.test_services.scope.v2" ||
+    scope.suite_id !== identityEnv("CARTULARY_TEST_SUITE_ID") ||
+    scope.run_id !== identityEnv("CARTULARY_TEST_RUN_ID")
+  ) {
+    throw new Error("test-services scope does not identify the active suite");
+  }
+  const serviceLease = path.join(
+    path.resolve(requiredEnv("CARTULARY_HARNESS_SUITE_RUNTIME_ROOT")),
+    "test-services",
+    "service-lease.json",
+  );
+  requireOwnerOnlyRegular(serviceLease, "private test-services lease");
+  const serviceLeaseBytes = readFileSync(serviceLease);
+  const activeLease = JSON.parse(serviceLeaseBytes);
+  if (
+    activeLease.schema_id !== "cartulary.test_services.lease.v1" ||
+    activeLease.suite_id !== scope.suite_id ||
+    activeLease.run_id !== scope.run_id ||
+    activeLease.cleanup_state !== "not_started"
+  ) {
+    throw new Error("private test-services lease does not identify an active suite");
+  }
+  const requiredServices = ["object_store", "postgres"];
+  const containerProof = requiredServices.map((service) => {
+    const resource = activeLease.resources.find(
+      (candidate) => candidate.kind === "container" && candidate.service === service,
+    );
+    if (!resource?.container_id) {
+      throw new Error(`private test-services lease lacks ${service} container proof`);
+    }
+    return {
+      service,
+      container_id_sha256: sha256Bytes(Buffer.from(resource.container_id)),
+    };
+  });
+  const runManifestFile = path.join(runRoot(), "run-manifest.json");
+  requireRegularNoSymlink(runManifestFile, "current run manifest");
+  const runManifest = JSON.parse(readFileSync(runManifestFile, "utf8"));
+  const payload = {
+    schema_id: "cartulary.test_services.browser_admission.v1",
+    suite_id: scope.suite_id,
+    browser_session_id: identityEnv("CARTULARY_BROWSER_SESSION_GROUP"),
+    readiness_generation: normalizeDigest(
+      scope.readiness_generation,
+      "service readiness generation",
+    ),
+    required_services: requiredServices,
+    container_proof: containerProof,
+    source_digest: normalizeDigest(runManifest.source_digest, "run source digest"),
+    scope_digest: sha256Bytes(scopeBytes),
+  };
+  validateSchemaSync(payload.schema_id, payload);
+  const destination = path.join(sessionRoot(), "service-admission.json");
+  atomicWrite(destination, `${JSON.stringify(payload, null, 2)}\n`);
   return destination;
 }
 
@@ -411,12 +474,12 @@ function performanceFixtureEvidence(fixture) {
 function writeStack() {
   const diagnostic = diagnosticPath();
   const lease = path.join(sessionRoot(), "browser-stack-lease.json");
-  const serviceScope = path.join(sessionRoot(), "service-scope-admission.json");
+  const serviceAdmission = path.join(sessionRoot(), "service-admission.json");
   const metadataFile = requiredEnv("CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE");
   for (const [file, label] of [
     [diagnostic, "startup diagnostic"],
     [lease, "browser stack lease"],
-    [serviceScope, "service scope snapshot"],
+    [serviceAdmission, "service admission proof"],
     [metadataFile, "browser fixture metadata"],
   ]) {
     requireRegularNoSymlink(file, label);
@@ -426,7 +489,7 @@ function writeStack() {
     terminalDiagnostic.schema_id !== "cartulary.browser_startup_diagnostics.v2" ||
     terminalDiagnostic.status !== "ready"
   ) {
-    throw new Error("v5 stack publication requires a terminal ready diagnostic");
+    throw new Error("v6 stack publication requires a terminal ready diagnostic");
   }
   const fixture = JSON.parse(readFileSync(metadataFile, "utf8"));
   const buildDirectory = path.join(repoRoot, "apps", "web", "dist");
@@ -443,14 +506,14 @@ function writeStack() {
   });
   const performanceFixture = performanceFixtureEvidence(fixture);
   const payload = {
-    schema_id: "cartulary.web_e2e_stack.v5",
+    schema_id: "cartulary.web_e2e_stack.v6",
     suite_id: identityEnv("CARTULARY_TEST_SUITE_ID"),
     browser_session_id: identityEnv("CARTULARY_BROWSER_SESSION_GROUP"),
     service_mode: requiredEnv("CARTULARY_TEST_SERVICES_CALL_MODE"),
     runtime_profile_id: identityEnv("CARTULARY_BROWSER_RUNTIME_PROFILE_ID"),
     configuration_fingerprint: configurationFingerprint,
-    service_scope_ref: relativeToRun(serviceScope),
-    service_scope_sha256: sha256File(serviceScope),
+    service_admission_ref: relativeToRun(serviceAdmission),
+    service_admission_sha256: sha256File(serviceAdmission),
     postgres_identity: {
       database_name: String(fixture.database_name),
       template_database: requiredEnv("CARTULARY_PGTEST_TEMPLATE_DB"),
@@ -503,8 +566,8 @@ function writeStack() {
     ready_at: new Date().toISOString(),
   };
   validateSchemaSync(payload.schema_id, payload);
-  const output = path.join(sessionRoot(), "stack-v5.json");
-  if (existsSync(output)) throw new Error("v5 browser stack evidence is immutable");
+  const output = path.join(sessionRoot(), "stack-v6.json");
+  if (existsSync(output)) throw new Error("v6 browser stack evidence is immutable");
   atomicWrite(output, `${JSON.stringify(payload, null, 2)}\n`);
   return output;
 }
@@ -522,7 +585,7 @@ function verifyProcessProof(proof, label) {
     "executable_sha256",
   ]) {
     if (current[key] !== proof[key]) {
-      throw new Error(`browser v5 attachment ${label} process proof mismatch`);
+      throw new Error(`browser v6 attachment ${label} process proof mismatch`);
     }
   }
 }
@@ -549,12 +612,12 @@ export function attachmentAssignments(stackPath) {
     throw new Error("Playwright state must be beneath the private browser runtime root");
   }
   if (
-    resolvedStack !== path.join(expectedRoot, "stack-v5.json") ||
+    resolvedStack !== path.join(expectedRoot, "stack-v6.json") ||
     !resolvedStack.startsWith(`${runRoot()}${path.sep}`)
   ) {
     throw new Error("browser stack path does not identify the current session");
   }
-  requireRegularNoSymlink(resolvedStack, "v5 browser stack");
+  requireRegularNoSymlink(resolvedStack, "v6 browser stack");
   const stack = JSON.parse(readFileSync(resolvedStack, "utf8"));
   validateSchemaSync(stack.schema_id, stack);
   const expected = {
@@ -564,17 +627,17 @@ export function attachmentAssignments(stackPath) {
   };
   for (const [key, value] of Object.entries(expected)) {
     if (stack[key] !== value) {
-      throw new Error(`browser v5 attachment ${key} mismatch`);
+      throw new Error(`browser v6 attachment ${key} mismatch`);
     }
   }
   for (const [referenceKey, digestKey] of [
-    ["service_scope_ref", "service_scope_sha256"],
+    ["service_admission_ref", "service_admission_sha256"],
     ["startup_diagnostics_ref", "startup_diagnostics_sha256"],
     ["lease_ref", "lease_sha256"],
   ]) {
     const artifact = resolveRunArtifact(stack[referenceKey]);
     if (sha256File(artifact) !== stack[digestKey]) {
-      throw new Error(`browser v5 attachment ${referenceKey} digest mismatch`);
+      throw new Error(`browser v6 attachment ${referenceKey} digest mismatch`);
     }
   }
   const retainedLease = JSON.parse(
@@ -587,7 +650,7 @@ export function attachmentAssignments(stackPath) {
     retainedLease.browser_session_id !== expected.browser_session_id ||
     retainedLease.runtime_profile_id !== expected.runtime_profile_id
   ) {
-    throw new Error("browser v5 attachment retained lease identity mismatch");
+    throw new Error("browser v6 attachment retained lease identity mismatch");
   }
   if (stack.performance_fixture) {
     const active = stack.performance_fixture;
@@ -597,11 +660,11 @@ export function attachmentAssignments(stackPath) {
       active.builder_unit_id !== requiredEnv("CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID") ||
       active.clone_ordinal !== Number.parseInt(requiredEnv("CARTULARY_FIXTURE_CLONE_ORDINAL"), 10)
     ) {
-      throw new Error("browser v5 attachment performance fixture identity mismatch");
+      throw new Error("browser v6 attachment performance fixture identity mismatch");
     }
     const buildArtifact = resolveRunArtifact(active.build_artifact_ref);
     if (sha256File(buildArtifact) !== active.build_artifact_sha256) {
-      throw new Error("browser v5 attachment performance fixture build digest mismatch");
+      throw new Error("browser v6 attachment performance fixture build digest mismatch");
     }
     const build = JSON.parse(readFileSync(buildArtifact, "utf8"));
     validateSchemaSync(build.schema_id, build);
@@ -611,7 +674,7 @@ export function attachmentAssignments(stackPath) {
       build.snapshot_key !== active.snapshot_key ||
       build.builder_unit_id !== active.builder_unit_id
     ) {
-      throw new Error("browser v5 attachment does not reference its exact sealed build");
+      throw new Error("browser v6 attachment does not reference its exact sealed build");
     }
     const runtimeBundle = requiredEnv("CARTULARY_PERFORMANCE_FIXTURE_RUNTIME_BUNDLE");
     requireRegularNoSymlink(runtimeBundle, "private performance fixture runtime bundle");
@@ -621,19 +684,20 @@ export function attachmentAssignments(stackPath) {
       bundle.fixture_profile_id !== active.fixture_profile_id ||
       bundle.snapshot_key !== active.snapshot_key
     ) {
-      throw new Error("browser v5 attachment runtime bundle identity mismatch");
+      throw new Error("browser v6 attachment runtime bundle identity mismatch");
     }
   }
-  const serviceScope = JSON.parse(
-    readFileSync(resolveRunArtifact(stack.service_scope_ref), "utf8"),
+  const serviceAdmission = JSON.parse(
+    readFileSync(resolveRunArtifact(stack.service_admission_ref), "utf8"),
   );
+  validateSchemaSync(serviceAdmission.schema_id, serviceAdmission);
   if (
-    serviceScope.suite_id !== stack.suite_id ||
-    (serviceScope.schema_hash !== undefined &&
-      normalizeDigest(serviceScope.schema_hash, "service scope schema hash") !==
-        stack.postgres_identity.schema_hash)
+    serviceAdmission.schema_id !== "cartulary.test_services.browser_admission.v1" ||
+    serviceAdmission.suite_id !== stack.suite_id ||
+    serviceAdmission.browser_session_id !== stack.browser_session_id ||
+    serviceAdmission.required_services.join("\0") !== "object_store\0postgres"
   ) {
-    throw new Error("browser v5 attachment service-scope identity mismatch");
+    throw new Error("browser v6 attachment service-admission identity mismatch");
   }
   const diagnostic = JSON.parse(
     readFileSync(resolveRunArtifact(stack.startup_diagnostics_ref), "utf8"),
@@ -645,7 +709,7 @@ export function attachmentAssignments(stackPath) {
     diagnostic.browser_session_id !== stack.browser_session_id ||
     diagnostic.runtime_profile_id !== stack.runtime_profile_id
   ) {
-    throw new Error("browser v5 attachment diagnostic identity mismatch");
+    throw new Error("browser v6 attachment diagnostic identity mismatch");
   }
   if (
     stack.postgres_identity.schema_hash !==
@@ -663,13 +727,13 @@ export function attachmentAssignments(stackPath) {
         requiredEnv("CARTULARY_S3_OBJECT_PRIMARY_SECURE"),
       )
   ) {
-    throw new Error("browser v5 attachment active service identity mismatch");
+    throw new Error("browser v6 attachment active service identity mismatch");
   }
   if (
     directoryDigest(path.join(repoRoot, stack.frontend.build_artifact_ref)) !==
     stack.frontend.build_artifact_sha256
   ) {
-    throw new Error("browser v5 attachment frontend build digest mismatch");
+    throw new Error("browser v6 attachment frontend build digest mismatch");
   }
   verifyProcessProof(stack.backend, "backend");
   verifyProcessProof(stack.frontend, "frontend");
@@ -677,7 +741,7 @@ export function attachmentAssignments(stackPath) {
   const stateDirInfo = lstatSync(playwrightStateDir);
   if (!stateDirInfo.isDirectory() || stateDirInfo.isSymbolicLink()) {
     throw new Error(
-      "browser v5 attachment Playwright state path must be a non-symlink directory",
+      "browser v6 attachment Playwright state path must be a non-symlink directory",
     );
   }
   return {
@@ -733,8 +797,8 @@ function main(argv) {
     terminal(args[0], args[1], args[2], args[3]);
     return;
   }
-  if (command === "snapshot-service-scope" && args.length === 0) {
-    snapshotServiceScope();
+  if (command === "write-service-admission" && args.length === 0) {
+    writeServiceAdmission();
     return;
   }
   if (command === "lease" && args.length === 0) {

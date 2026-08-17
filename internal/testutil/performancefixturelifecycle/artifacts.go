@@ -10,8 +10,22 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
+	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
+
+type buildStageError struct {
+	stage string
+	err   error
+}
+
+func (e *buildStageError) Error() string { return e.err.Error() }
+
+func (e *buildStageError) Unwrap() error { return e.err }
+
+func withBuildFailureStage(stage string, err error) error {
+	return &buildStageError{stage: stage, err: err}
+}
 
 type BuildArgs struct {
 	FixtureProfileID     string
@@ -55,6 +69,7 @@ type BuildContributionDiagnostic struct {
 	Ordinal        int                   `json:"ordinal"`
 	ContributionID string                `json:"contribution_id"`
 	OwnerID        string                `json:"owner_id"`
+	State          string                `json:"state"`
 	DurationMS     int64                 `json:"duration_ms"`
 	Batch          *BuildBatchDiagnostic `json:"batch,omitempty"`
 }
@@ -65,6 +80,8 @@ type BuildDiagnosticArtifact struct {
 	SnapshotKey                  string                        `json:"snapshot_key"`
 	BuilderUnitID                string                        `json:"builder_unit_id"`
 	State                        string                        `json:"state"`
+	FailureStage                 string                        `json:"failure_stage"`
+	ConstructionCount            int                           `json:"construction_count"`
 	DurationMS                   int64                         `json:"duration_ms"`
 	SemanticValidationDurationMS int64                         `json:"semantic_validation_duration_ms"`
 	Contributions                []BuildContributionDiagnostic `json:"contributions"`
@@ -162,11 +179,13 @@ func BuildDiagnosticsPath(env map[string]string, args BuildArgs) (string, error)
 
 func SuccessfulBuildDiagnostics(profile performancefixtureprofile.Profile, args BuildArgs, build BuildArtifact, duration time.Duration) BuildDiagnosticArtifact {
 	return BuildDiagnosticArtifact{
-		SchemaID:                     "cartulary.performance_fixture_build_diagnostics.v1",
+		SchemaID:                     "cartulary.performance_fixture_build_diagnostics.v2",
 		FixtureProfileID:             profile.FixtureProfileID,
 		SnapshotKey:                  args.SnapshotKey,
 		BuilderUnitID:                args.BuilderUnitID,
 		State:                        "sealed",
+		FailureStage:                 "none",
+		ConstructionCount:            1,
 		DurationMS:                   nonNegativeMilliseconds(duration),
 		SemanticValidationDurationMS: nonNegativeMilliseconds(build.SemanticValidationTime),
 		Contributions:                append([]BuildContributionDiagnostic(nil), build.ContributionDiagnostics...),
@@ -175,17 +194,33 @@ func SuccessfulBuildDiagnostics(profile performancefixtureprofile.Profile, args 
 	}
 }
 
-func FailedBuildDiagnostics(profile performancefixtureprofile.Profile, args BuildArgs, duration time.Duration) BuildDiagnosticArtifact {
+func FailedBuildDiagnostics(profile performancefixtureprofile.Profile, args BuildArgs, duration time.Duration, buildErr error) BuildDiagnosticArtifact {
+	stage := "setup"
+	semanticValidationDuration := time.Duration(0)
+	contributions := []BuildContributionDiagnostic{}
+	if diagnostic, ok := fixture.FailureDiagnostics(buildErr); ok {
+		stage = diagnostic.Stage
+		semanticValidationDuration = diagnostic.SemanticValidationDuration
+		contributions = projectBuildDiagnostics(diagnostic.Contributions)
+	} else {
+		var staged *buildStageError
+		if errors.As(buildErr, &staged) {
+			stage = staged.stage
+		}
+	}
 	return BuildDiagnosticArtifact{
-		SchemaID:          "cartulary.performance_fixture_build_diagnostics.v1",
-		FixtureProfileID:  profile.FixtureProfileID,
-		SnapshotKey:       args.SnapshotKey,
-		BuilderUnitID:     args.BuilderUnitID,
-		State:             "failed",
-		DurationMS:        nonNegativeMilliseconds(duration),
-		Contributions:     []BuildContributionDiagnostic{},
-		RedactionPolicyID: profile.RedactionPolicy.PolicyID,
-		CreatedAt:         time.Now().UTC().Format(time.RFC3339Nano),
+		SchemaID:                     "cartulary.performance_fixture_build_diagnostics.v2",
+		FixtureProfileID:             profile.FixtureProfileID,
+		SnapshotKey:                  args.SnapshotKey,
+		BuilderUnitID:                args.BuilderUnitID,
+		State:                        "failed",
+		FailureStage:                 stage,
+		ConstructionCount:            1,
+		DurationMS:                   nonNegativeMilliseconds(duration),
+		SemanticValidationDurationMS: nonNegativeMilliseconds(semanticValidationDuration),
+		Contributions:                contributions,
+		RedactionPolicyID:            profile.RedactionPolicy.PolicyID,
+		CreatedAt:                    time.Now().UTC().Format(time.RFC3339Nano),
 	}
 }
 

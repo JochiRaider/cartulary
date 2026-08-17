@@ -88,6 +88,7 @@ export function useTimelineRowMutationCoordinator({
   advanceViewportContinuity,
   clearActiveCollectionInputKey,
   clearViewportContinuity,
+  createdRowPresentationScopeKey,
   editorDraftRegistry,
   editorPort,
   mutationRuntime,
@@ -108,6 +109,7 @@ export function useTimelineRowMutationCoordinator({
   ) => void;
   readonly clearActiveCollectionInputKey: (focusKey: string) => void;
   readonly clearViewportContinuity: (token: number) => void;
+  readonly createdRowPresentationScopeKey: string;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly editorPort: TimelineRowMutationEditorPort;
   readonly mutationRuntime: WorkbookMutationRuntime;
@@ -130,6 +132,10 @@ export function useTimelineRowMutationCoordinator({
 }) {
   const { replaceRows, updateRows } = rowStoreCommands;
   const conflictQueueRef = useRef<Record<string, LocalConflictState>>({});
+  const createdRowPresentationRef = useRef<{
+    recordId: string | null;
+    scopeKey: string;
+  }>({ recordId: null, scopeKey: createdRowPresentationScopeKey });
   const conflicts = useTimelineConflicts({ conflictQueueRef });
   const commonMutationSnapshot = useWorkbookMutationRuntime(
     mutationRuntime,
@@ -305,6 +311,12 @@ export function useTimelineRowMutationCoordinator({
         setSelectedRowId(committed.recordId);
       }
       const createdFromDraft = previousRow?.recordId === null;
+      if (createdFromDraft && committed.recordId !== null) {
+        createdRowPresentationRef.current = {
+          recordId: committed.recordId,
+          scopeKey: createdRowPresentationScopeKey,
+        };
+      }
       if (
         createdFromDraft &&
         options.continueOnFreshDraft &&
@@ -340,6 +352,7 @@ export function useTimelineRowMutationCoordinator({
       acceptCommittedTimelineRow,
       advanceViewportContinuity,
       clearViewportContinuity,
+      createdRowPresentationScopeKey,
       editorPort,
       nextDraftIndex,
       pruneAutoResolutionNoticesForRows,
@@ -605,6 +618,15 @@ export function useTimelineRowMutationCoordinator({
     [mutationRuntime, setActiveConflictKey],
   );
 
+  const currentCreatedRowPresentationRecordId = useCallback(
+    () =>
+      createdRowPresentationRef.current.scopeKey ===
+      createdRowPresentationScopeKey
+        ? createdRowPresentationRef.current.recordId
+        : null,
+    [createdRowPresentationScopeKey],
+  );
+
   return {
     commands: {
       acceptCommittedTimelineRow,
@@ -642,6 +664,7 @@ export function useTimelineRowMutationCoordinator({
       queryAdmission: {
         beginLoad,
         committedRowsChangedSince,
+        currentCreatedRowPresentationRecordId,
         currentCommittedTimelineRow,
         hasLoadedRows,
         isCurrentLoadSequence,

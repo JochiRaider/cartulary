@@ -129,6 +129,9 @@ function containedPath(root, relative, { createParents = false } = {}) {
 }
 
 function walkInputFiles(root, relative, output) {
+  if ([".md", ".markdown", ".mdown", ".mkd"].includes(path.posix.extname(relative).toLowerCase())) {
+    return;
+  }
   const absolute = containedPath(root, normalizedRelative(relative, "cache input path"));
   if (!existsSync(absolute)) {
     output.push({ path: relative, missing: true });

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.fixture_tier_proof.v2",
+  "$id": "cartulary.fixture_tier_proof.v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,7 +19,7 @@
     "final_verdict"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.fixture_tier_proof.v2" },
+    "schema_id": { "const": "cartulary.fixture_tier_proof.v3" },
     "target": { "type": "string", "minLength": 1 },
     "owner_id": { "type": "string", "minLength": 1 },
     "row_id": { "type": "string", "minLength": 1 },
@@ -33,8 +33,6 @@
     "execution_boundary": {
       "enum": [
         "rollback_transaction",
-        "committed_package_reset",
-        "shared_group_database",
         "isolated_template_clone",
         "migration_scratch_database"
       ]
@@ -107,10 +105,8 @@
     "fixture_policy": {
       "enum": [
         "template_clone",
-        "package_reset",
         "migration_scratch",
-        "transaction",
-        "group_clone"
+        "transaction"
       ]
     },
     "proof_status": { "enum": ["accepted", "retained", "blocked"] },

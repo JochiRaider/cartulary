@@ -145,7 +145,6 @@ function fixtureSelectionEnvironment(options) {
 function graphChildEnvironment(options) {
   const environment = { ...process.env };
   for (const name of [
-    "CARTULARY_TEST_SERVICES_ACTIVE",
     "CARTULARY_TEST_SERVICES_MODE",
     "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER",
     "CARTULARY_TEST_SERVICES_SESSION_FILE",
@@ -730,6 +729,7 @@ async function main() {
     services: { browser: true, object_store: true, postgres: true, service_stack: true },
   });
   compiler.availableGoLanes = snapshot.cpu_tokens;
+  compiler.availablePostgresLanes = snapshot.postgres_lanes;
   const { graph, projections } = selectionFor(options, compiler);
   const cacheMode = process.env.CARTULARY_HARNESS_CACHE_MODE || "normal";
   if (!cacheModes.has(cacheMode)) throw new Error(`invalid graph cache mode ${cacheMode}`);

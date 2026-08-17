@@ -17,15 +17,7 @@ func TestHarnessOpensAndClosesSocketAgainstBootstrapBoundary(t *testing.T) {
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "wstest")
 
 	s3Harness := s3test.Start(t)
-	bucket, err := s3Harness.BootstrapBucket(context.Background(), "wstest")
-	if err != nil {
-		t.Fatalf("bootstrap bucket: %v", err)
-	}
-	defer func() {
-		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Fatalf("cleanup bucket: %v", err)
-		}
-	}()
+	bucket := s3Harness.BootstrapBucketT(t, "wstest")
 
 	env := testDB.Env()
 	for key, value := range s3Harness.Env(bucket) {

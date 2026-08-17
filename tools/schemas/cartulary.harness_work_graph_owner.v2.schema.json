@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_work_graph_owner.v1",
+  "$id": "cartulary.harness_work_graph_owner.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,7 +18,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_work_graph_owner.v1"
+      "const": "cartulary.harness_work_graph_owner.v2"
     },
     "capacity_override_input": {
       "const": "CARTULARY_HARNESS_CAPACITY_OVERRIDE"
@@ -61,11 +61,15 @@
             "items": { "type": "string", "pattern": "^[a-z][a-z0-9_.]*$" }
           },
           "fixture_lease": {
-            "enum": ["none", "postgres_transaction", "postgres_group", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"]
+            "enum": ["none", "postgres_transaction", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"]
           },
           "service_dependencies": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies" },
-          "resource_profile_id": { "enum": ["backend_capacity_isolated", "browser_functional", "browser_isolated", "browser_measurement_quiet", "io_heavy", "managed_process", "performance_fixture_builder", "standard"] },
+          "resource_profile_id": { "enum": ["backend_capacity_isolated", "browser_functional", "browser_isolated", "browser_measurement_quiet", "io_heavy", "managed_process", "performance_fixture_builder", "postgres_catalog_isolated", "standard"] },
           "cache_policy": { "enum": ["none", "same_run", "content_addressed"] },
+          "reusable_artifact_outputs": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/reusable_artifact_output" }
+          },
           "estimated_work_ms": { "type": "integer", "minimum": 1 }
         }
       }
@@ -89,6 +93,18 @@
   },
   "$defs": {
     "target": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "reusable_artifact_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_type", "relative_path", "destination_class", "mode", "producer_identity"],
+      "properties": {
+        "artifact_type": { "enum": ["file", "directory"] },
+        "relative_path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._@+/-]+$" },
+        "destination_class": { "enum": ["run_root", "repository_artifact"] },
+        "mode": { "type": "string", "pattern": "^0[0-7]{3}$" },
+        "producer_identity": { "type": "string", "minLength": 1, "maxLength": 255 }
+      }
+    },
     "aggregate_target_lists": {
       "type": "object",
       "additionalProperties": false,

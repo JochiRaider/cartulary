@@ -20,7 +20,7 @@ import { assertFixtureServiceDependencies } from "./service-dependencies.mjs";
 import { validatePostgresFixturePolicy } from "./postgres-fixture-policy.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
-const familyManifestSchemaID = "cartulary.test_family_manifest.v5";
+const familyManifestSchemaID = "cartulary.test_family_manifest.v6";
 const rowMigrationSchemaID = "cartulary.test_catalog_row_migration.v1";
 const runnerRegistrySchemaID = "cartulary.test_runner_registry.v1";
 export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";
@@ -68,6 +68,7 @@ const expectedProfiles = Object.freeze({
     "io_heavy",
     "managed_process",
     "performance_fixture_builder",
+    "postgres_catalog_isolated",
     "standard",
   ],
 });
@@ -347,6 +348,12 @@ function validateRowSemantics({
   }
   if (row.fixture_capability === "managed_process" && row.runtime_profile_id === "none") {
     throw new Error(`${label}.fixture_capability managed_process requires a runtime profile`);
+  }
+  if (row.process_isolation !== undefined && row.runner !== "go") {
+    throw new Error(`${label}.process_isolation is supported only for exact-symbol Go rows`);
+  }
+  if (row.process_isolation !== undefined && row.fixture_capability === "managed_process") {
+    throw new Error(`${label}.process_isolation redundantly restates managed_process isolation`);
   }
   if (
     Object.keys(resourceProfile.resource_claims).some((claim) => claim.startsWith("postgres")) &&

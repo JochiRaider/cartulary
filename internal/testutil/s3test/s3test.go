@@ -36,6 +36,7 @@ const (
 	objectStoreClientReadyTimeout      = 120 * time.Second
 	objectStoreClientAttemptTimeout    = 5 * time.Second
 	objectStoreProbeCleanupTimeout     = 5 * time.Second
+	objectStoreFixtureCleanupTimeout   = 15 * time.Second
 	objectStoreAccessKey               = "cartulary-local"
 	objectStoreSecretKey               = "cartulary-local-secret"
 	objectStoreProbePayload            = "cartulary-object-store-readiness"
@@ -129,7 +130,7 @@ var (
 	startPreflightFn             func(context.Context) (string, error)
 	startSleepFn                 func(context.Context, time.Duration) error
 	preparePackageCreateBucketFn = func(ctx context.Context, h *Harness, name string, attribution fixtureAttribution) error {
-		return h.createBucket(ctx, name, suiteservices.FixtureReusePackage, attribution)
+		return h.createBucket(ctx, name, suiteservices.FixtureReuseObjectStorePackage, attribution)
 	}
 	preparePackageCleanupFn = func(ctx context.Context, h *Harness, bucket string, attribution fixtureAttribution) error {
 		return h.cleanupPrefixWithDetails(ctx, bucket, "", suiteservices.FixtureReusePrefix, attribution)
@@ -608,8 +609,29 @@ func (c minioReadinessClient) DeleteNamespace(ctx context.Context, bucket string
 }
 
 func (h *Harness) BootstrapBucket(ctx context.Context, prefix string) (string, error) {
+	return h.bootstrapBucket(ctx, prefix, suiteservices.FixtureReusePerTest, fixtureAttribution{})
+}
+
+func (h *Harness) BootstrapBucketT(t testing.TB, prefix string) string {
+	t.Helper()
+	attribution := fixtureAttributionFor(t, "s3test")
+	bucket, err := h.bootstrapBucket(context.Background(), prefix, suiteservices.FixtureReusePerTest, attribution)
+	if err != nil {
+		failObjectStoreSetup(t, "create_bucket", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), objectStoreFixtureCleanupTimeout)
+		defer cancel()
+		if err := h.cleanupBucketWithDetails(ctx, bucket, suiteservices.FixtureReusePerTest, attribution); err != nil {
+			t.Fatalf("cleanup object-store bucket: %v", err)
+		}
+	})
+	return bucket
+}
+
+func (h *Harness) bootstrapBucket(ctx context.Context, prefix string, reuseScope string, attribution fixtureAttribution) (string, error) {
 	name := h.nextBucketName(prefix)
-	if err := h.createBucket(ctx, name, suiteservices.FixtureReusePerTest, fixtureAttribution{}); err != nil {
+	if err := h.createBucket(ctx, name, reuseScope, attribution); err != nil {
 		return "", err
 	}
 	return name, nil
@@ -819,6 +841,10 @@ func (h *Harness) RoundTrip(ctx context.Context, bucket string, key string, payl
 }
 
 func (h *Harness) CleanupBucket(ctx context.Context, bucket string) error {
+	return h.cleanupBucketWithDetails(ctx, bucket, suiteservices.FixtureReusePerTest, fixtureAttribution{})
+}
+
+func (h *Harness) cleanupBucketWithDetails(ctx context.Context, bucket string, reuseScope string, attribution fixtureAttribution) error {
 	start := time.Now()
 	if err := h.cleanupPrefix(ctx, bucket, ""); err != nil {
 		return err
@@ -835,7 +861,7 @@ func (h *Harness) CleanupBucket(ctx context.Context, bucket string) error {
 	recordSuiteEvent(suiteservices.Event{
 		Type:    suiteservices.EventS3BucketCleaned,
 		Name:    bucket,
-		Details: s3FixtureDetails("bucket", suiteservices.FixtureReusePerTest, fixtureAttribution{}, time.Since(start)),
+		Details: s3FixtureDetails("bucket", reuseScope, attribution, time.Since(start)),
 	})
 
 	return nil
@@ -843,6 +869,39 @@ func (h *Harness) CleanupBucket(ctx context.Context, bucket string) error {
 
 func (h *Harness) CleanupPrefix(ctx context.Context, bucket string, prefix string) error {
 	return h.cleanupPrefixWithDetails(ctx, bucket, prefix, suiteservices.FixtureReusePrefix, fixtureAttribution{})
+}
+
+// ResetBucket removes the complete contents of an owned, reusable namespace
+// without changing its identity, then proves that the exact mutation path is
+// ready before the next borrower is admitted.
+func (h *Harness) ResetBucket(ctx context.Context, bucket string) error {
+	if err := suiteservices.CheckServiceDependencies(nil, "object_store"); err != nil {
+		return err
+	}
+	if strings.TrimSpace(bucket) == "" {
+		return errors.New("object-store bucket reset requires an exact bucket")
+	}
+	if err := h.cleanupPrefixWithDetails(
+		ctx,
+		bucket,
+		"",
+		suiteservices.FixtureReusePrefix,
+		fixtureAttribution{},
+	); err != nil {
+		return fmt.Errorf("empty object-store bucket %s: %w", bucket, err)
+	}
+	if err := h.waitForObjectStoreReadiness(ctx, objectStoreReadinessConfig{
+		ReadyTimeout:    objectStoreClientReadyTimeout,
+		PollInterval:    objectStoreHealthPollInterval,
+		AttemptTimeout:  objectStoreClientAttemptTimeout,
+		CreateNamespace: false,
+		ListFirst:       false,
+		Bucket:          bucket,
+		Key:             h.nextProbeKey(),
+	}); err != nil {
+		return fmt.Errorf("admit reset object-store bucket %s: %w", bucket, err)
+	}
+	return nil
 }
 
 func (h *Harness) cleanupPrefixWithDetails(ctx context.Context, bucket string, prefix string, reuseScope string, attribution fixtureAttribution) error {

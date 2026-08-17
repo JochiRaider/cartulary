@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.web_e2e_stack.v5",
+  "$id": "cartulary.web_e2e_stack.v6",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,8 +10,8 @@
     "service_mode",
     "runtime_profile_id",
     "configuration_fingerprint",
-    "service_scope_ref",
-    "service_scope_sha256",
+    "service_admission_ref",
+    "service_admission_sha256",
     "postgres_identity",
     "object_store_identity",
     "backend",
@@ -24,14 +24,14 @@
     "ready_at"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.web_e2e_stack.v5" },
+    "schema_id": { "const": "cartulary.web_e2e_stack.v6" },
     "suite_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
     "browser_session_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
     "service_mode": { "enum": ["owned", "attach"] },
     "runtime_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
     "configuration_fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-    "service_scope_ref": { "$ref": "#/$defs/run_relative_path" },
-    "service_scope_sha256": { "$ref": "#/$defs/digest" },
+    "service_admission_ref": { "$ref": "#/$defs/run_relative_path" },
+    "service_admission_sha256": { "$ref": "#/$defs/digest" },
     "postgres_identity": {
       "type": "object",
       "additionalProperties": false,

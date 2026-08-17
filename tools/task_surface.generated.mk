@@ -1434,14 +1434,22 @@ release-evidence-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 
 license-report: export CARTULARY_TEST_TARGET ?= license-report
 license-report: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-license-report: $(LICENSE_REPORT_ARTIFACT)
-	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "license-report" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ./tools/release-evidence/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
+license-report:
+else
+license-report: release-inventory-artifacts
+endif
+	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "license-report" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" ./tools/release-evidence/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"
 	$(call RUN_TARGET_SUMMARY,license-report,pass)
 
 sbom: export CARTULARY_TEST_TARGET ?= sbom
 sbom: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-sbom: $(SBOM_ARTIFACT)
-	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "sbom" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ./tools/release-evidence/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
+sbom:
+else
+sbom: release-inventory-artifacts
+endif
+	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "sbom" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" ./tools/release-evidence/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"
 	$(call RUN_TARGET_SUMMARY,sbom,pass)
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
@@ -1586,6 +1594,13 @@ canonical-evidence-drift-suite: $(NODE_BIN)
 goose-toolchain: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 goose-toolchain: $(GOOSE_BIN)
 
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 release-inventory-artifacts: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 release-inventory-artifacts: $(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT)
+else
+release-inventory-artifacts: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+release-inventory-artifacts: $(NODE_BIN)
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs \
+	  --selection target --target release-inventory-artifacts
+endif
 

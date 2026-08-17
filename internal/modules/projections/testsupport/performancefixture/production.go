@@ -23,21 +23,14 @@ func NewProductionApplication(runtime *projectionassembly.Runtime) (*ProductionA
 	return &ProductionApplication{runtime: runtime}, nil
 }
 
-func (a *ProductionApplication) ValidateFixtureProjectionSets(ctx context.Context, incidentID string, viewSchemaIDs []string) error {
+func (a *ProductionApplication) ValidateFixtureProjectionSets(ctx context.Context, incidentID string, expectations []SetExpectation) error {
 	incidentUUID, err := uuid.Parse(incidentID)
 	if err != nil {
 		return err
 	}
-	expectedCounts := map[string]int{
-		"cartulary.view.hosts.v1":      1000,
-		"cartulary.view.identities.v1": 1000,
-		"cartulary.view.timeline.v2":   20000,
-	}
-	for _, viewSchemaID := range viewSchemaIDs {
-		want, ok := expectedCounts[viewSchemaID]
-		if !ok {
-			return fmt.Errorf("unsupported fixture projection %s", viewSchemaID)
-		}
+	for _, expectation := range expectations {
+		viewSchemaID := expectation.ViewSchemaID
+		want := expectation.ExactRows
 		schema, ok := viewschema.Lookup(viewSchemaID)
 		if !ok {
 			return fmt.Errorf("fixture projection schema %s is unavailable", viewSchemaID)

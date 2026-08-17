@@ -681,6 +681,42 @@ func TestCleanupPrefixPreservesSiblingObjects(t *testing.T) {
 	}
 }
 
+func TestResetBucketPreservesNamespaceAndProvesMutation(t *testing.T) {
+	harness := Start(t)
+
+	bucket, err := harness.BootstrapBucket(context.Background(), "stable-reset")
+	if err != nil {
+		t.Fatalf("bootstrap bucket: %v", err)
+	}
+	defer func() {
+		if err := harness.CleanupBucket(context.Background(), bucket); err != nil {
+			t.Fatalf("cleanup bucket: %v", err)
+		}
+	}()
+
+	if _, err := harness.RoundTrip(context.Background(), bucket, "prior/object.txt", []byte("prior")); err != nil {
+		t.Fatalf("write prior generation: %v", err)
+	}
+	if err := harness.ResetBucket(context.Background(), bucket); err != nil {
+		t.Fatalf("reset bucket: %v", err)
+	}
+
+	client, err := harness.Client(context.Background())
+	if err != nil {
+		t.Fatalf("create s3 client: %v", err)
+	}
+	exists, err := client.BucketExists(context.Background(), bucket)
+	if err != nil || !exists {
+		t.Fatalf("stable bucket missing after reset: exists=%t err=%v", exists, err)
+	}
+	if _, err := client.StatObject(context.Background(), bucket, "prior/object.txt", minio.StatObjectOptions{}); err == nil {
+		t.Fatal("prior generation object remained after reset")
+	}
+	if _, err := harness.RoundTrip(context.Background(), bucket, "next/object.txt", []byte("next")); err != nil {
+		t.Fatalf("next generation mutation: %v", err)
+	}
+}
+
 func resetSharedHarness(t testing.TB) {
 	t.Helper()
 

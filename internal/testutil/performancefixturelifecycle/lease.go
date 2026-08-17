@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
@@ -61,6 +62,10 @@ func Prepare(ctx context.Context, env map[string]string) (PreparedFixture, error
 	if err != nil {
 		return PreparedFixture{}, err
 	}
+	return prepareWithProfile(ctx, env, profile)
+}
+
+func prepareWithProfile(ctx context.Context, env map[string]string, profile performancefixtureprofile.Profile) (PreparedFixture, error) {
 	key := strings.TrimSpace(env["CARTULARY_FIXTURE_SNAPSHOT_KEY"])
 	builderID := strings.TrimSpace(env["CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID"])
 	rowID := strings.TrimSpace(env["CARTULARY_FIXTURE_ROW_ID"])
@@ -147,6 +152,10 @@ func CleanupLease(ctx context.Context, env map[string]string, metadata LeaseMeta
 	if err != nil {
 		return err
 	}
+	return cleanupLeaseWithProfile(ctx, env, profile, metadata, ports)
+}
+
+func cleanupLeaseWithProfile(ctx context.Context, env map[string]string, profile performancefixtureprofile.Profile, metadata LeaseMetadata, ports CleanupPorts) error {
 	if ports.CleanupSessions == nil || ports.DetectLeaks == nil || ports.CleanupDatabase == nil || ports.CleanupBucket == nil {
 		return errors.New("performance fixture cleanup ports are incomplete")
 	}

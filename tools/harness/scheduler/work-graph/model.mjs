@@ -7,7 +7,7 @@ import {
   validateSchemaSync,
 } from "../../contract/index.mjs";
 
-const graphSchemaID = "cartulary.harness_work_graph.v4";
+const graphSchemaID = "cartulary.harness_work_graph.v5";
 
 export function loadWorkGraphOwner(root) {
   const owner = JSON.parse(

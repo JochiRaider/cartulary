@@ -254,9 +254,7 @@ export function simulateWorkGraph({
           ),
         );
       }
-      const candidates = readyUnits
-        .filter((unit) => fitting(unit, capacities, activeClaims, activeSharedLocks, activeExclusiveLocks))
-        .filter((unit) => !blockedByReadyExclusiveWaiter(unit, readyUnits))
+      const orderedReadyUnits = readyUnits
         .sort((left, right) => {
           const leftAge = Math.floor((now - queuedAt.get(left.unit_id)) / agingQuantumMs);
           const rightAge = Math.floor((now - queuedAt.get(right.unit_id)) / agingQuantumMs);
@@ -268,6 +266,9 @@ export function simulateWorkGraph({
             (rightAge + ageCredits.get(right.unit_id)) * agingQuantumMs;
           return rightRank - leftRank || compareASCII(left.unit_id, right.unit_id);
         });
+      const candidates = orderedReadyUnits
+        .filter((unit) => fitting(unit, capacities, activeClaims, activeSharedLocks, activeExclusiveLocks))
+        .filter((unit) => !blockedByReadyExclusiveWaiter(unit, readyUnits));
       const unit = candidates[0];
       if (!unit) break;
       for (const waiting of readyUnits) {
@@ -481,10 +482,7 @@ export async function runWorkGraph({
               now,
             );
           }
-          const unit = readyUnits
-            .filter((entry) => fitting(entry, capacities, activeClaims, activeSharedLocks, activeExclusiveLocks))
-            .filter((entry) => !blockedByReadyExclusiveWaiter(entry, readyUnits))
-            .sort((left, right) => {
+          const orderedReadyUnits = readyUnits.sort((left, right) => {
               const leftWarm = warmAffinities.has(left.affinity_key) ? 1 : 0;
               const rightWarm = warmAffinities.has(right.affinity_key) ? 1 : 0;
               if (leftWarm !== rightWarm) return rightWarm - leftWarm;
@@ -497,7 +495,10 @@ export async function runWorkGraph({
                 ranks.get(right.unit_id) +
                 (rightAge + ageCredits.get(right.unit_id)) * agingQuantumMs;
               return rightRank - leftRank || compareASCII(left.unit_id, right.unit_id);
-            })[0];
+            });
+          const unit = orderedReadyUnits
+            .filter((entry) => fitting(entry, capacities, activeClaims, activeSharedLocks, activeExclusiveLocks))
+            .filter((entry) => !blockedByReadyExclusiveWaiter(entry, readyUnits))[0];
           if (!unit) break;
           for (const waiting of readyUnits) {
             if (waiting.unit_id !== unit.unit_id) {

@@ -3993,8 +3993,6 @@ test.describe("browser.incident-selection accessibility readiness", () => {
         user.user_id,
         "a11y.incident-selection.row-01 revoked-session",
       );
-      await page.getByLabel("Account and application navigation").click();
-      await page.getByRole("menuitem", { name: "Incidents" }).click();
       await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
         "data-bootstrap-state",
         "revoked",

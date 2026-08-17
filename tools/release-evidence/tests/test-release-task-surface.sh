@@ -173,6 +173,7 @@ release_check_logical_block="$(normalize_make_continuations "$release_check_bloc
 release_readiness_block="$(extract_target_definition release-readiness-evidence)"
 license_report_block="$(extract_target_definition license-report)"
 sbom_block="$(extract_target_definition sbom)"
+release_inventory_block="$(extract_target_definition release-inventory-artifacts)"
 help_output="$(env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET make --no-print-directory help)"
 help_all_output="$(env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET make --no-print-directory help-all)"
 release_check_explain="$(env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET make --no-print-directory explain-target TARGET=release-check DETAIL=summary)"
@@ -184,10 +185,13 @@ assert_contains "$release_check_logical_block" 'work-graph/runner-cli.mjs --sele
 assert_contains "$release_readiness_block" './tools/release-evidence/release-readiness-evidence.mjs' "release readiness evidence command"
 assert_contains "$makefile_content" '$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT):' "SBOM/license artifact generation rule"
 assert_contains "$makefile_content" './tools/release-evidence/generate-sbom-license-evidence.mjs' "SBOM/license generator command"
-assert_contains "$license_report_block" 'license-report: $(LICENSE_REPORT_ARTIFACT)' "license-report generation prerequisite"
+assert_contains "$license_report_block" 'license-report: release-inventory-artifacts' "license-report producer prerequisite"
+assert_contains "$license_report_block" 'ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)' "license-report graph-child prerequisite cutover"
 assert_contains "$license_report_block" './tools/release-evidence/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"' "license-report validation command"
-assert_contains "$sbom_block" 'sbom: $(SBOM_ARTIFACT)' "sbom generation prerequisite"
+assert_contains "$sbom_block" 'sbom: release-inventory-artifacts' "sbom producer prerequisite"
+assert_contains "$sbom_block" 'ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)' "sbom graph-child prerequisite cutover"
 assert_contains "$sbom_block" './tools/release-evidence/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"' "sbom validation command"
+assert_contains "$release_inventory_block" 'work-graph/runner-cli.mjs --selection target --target release-inventory-artifacts' "release inventory graph producer"
 assert_not_contains "$help_output" "make release-check" "compact help omits release-check documentation"
 assert_contains "$help_all_output" "target -> owner partition -> semantic row -> artifact" "help-all concept hierarchy"
 assert_contains "$help_all_output" "make release-check" "help-all release-check documentation"
@@ -202,29 +206,39 @@ tmp_dir="$(cartulary_harness_mktemp_dir "release-task-surface-artifacts.XXXXXX")
 cleanup_paths+=("$tmp_dir")
 empty_license="$tmp_dir/empty-license.json"
 valid_license="$tmp_dir/license-report.json"
+legacy_license="$tmp_dir/license-report-v1.json"
 empty_sbom="$tmp_dir/empty-sbom.cyclonedx.json"
 valid_sbom="$tmp_dir/sbom.cyclonedx.json"
 
 touch "$empty_license"
 cp "$empty_license" "$empty_license.before"
-empty_license_output="$(assert_make_fails "empty license report" --old-file="$empty_license" NODE_BIN="$NODE_BIN" LICENSE_REPORT_ARTIFACT="$empty_license" license-report)"
+empty_license_output="$(assert_make_fails "empty license report" CARTULARY_HARNESS_GRAPH_CHILD=1 --old-file="$empty_license" NODE_BIN="$NODE_BIN" LICENSE_REPORT_ARTIFACT="$empty_license" license-report)"
 assert_contains "$empty_license_output" "license report artifact is empty" "empty license report failure"
 assert_files_equal "$empty_license" "$empty_license.before" "empty license report probe"
 
-printf '%s\n' '{"licenses":[]}' >"$valid_license"
+printf '%s\n' '{"schema_id":"cartulary.license_report.v2","semantic_input_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","entries":[]}' >"$valid_license"
 cp "$valid_license" "$valid_license.before"
-assert_make_passes "valid license report" --old-file="$valid_license" NODE_BIN="$NODE_BIN" LICENSE_REPORT_ARTIFACT="$valid_license" license-report >/dev/null
+assert_make_passes "valid license report" CARTULARY_HARNESS_GRAPH_CHILD=1 --old-file="$valid_license" NODE_BIN="$NODE_BIN" LICENSE_REPORT_ARTIFACT="$valid_license" license-report >/dev/null
 assert_files_equal "$valid_license" "$valid_license.before" "valid license report probe"
+
+printf '%s\n' '{"schema_id":"cartulary.license_report.v1","entries":[]}' >"$legacy_license"
+legacy_license_output="$(assert_make_fails "legacy license report" CARTULARY_HARNESS_GRAPH_CHILD=1 --old-file="$legacy_license" NODE_BIN="$NODE_BIN" LICENSE_REPORT_ARTIFACT="$legacy_license" license-report)"
+assert_contains "$legacy_license_output" "unsupported license report schema cartulary.license_report.v1" "legacy license report hard cutover"
+
+graph_missing_license="$tmp_dir/graph-child-missing-license.json"
+graph_missing_output="$(assert_make_fails "graph child missing license" CARTULARY_HARNESS_GRAPH_CHILD=1 NODE_BIN="$NODE_BIN" LICENSE_REPORT_ARTIFACT="$graph_missing_license" license-report)"
+assert_contains "$graph_missing_output" "license report artifact missing" "graph child validates without regeneration"
+assert_file_absent "$graph_missing_license" "graph child producer bypass"
 
 touch "$empty_sbom"
 cp "$empty_sbom" "$empty_sbom.before"
-empty_sbom_output="$(assert_make_fails "empty SBOM" --old-file="$empty_sbom" NODE_BIN="$NODE_BIN" SBOM_ARTIFACT="$empty_sbom" sbom)"
+empty_sbom_output="$(assert_make_fails "empty SBOM" CARTULARY_HARNESS_GRAPH_CHILD=1 --old-file="$empty_sbom" NODE_BIN="$NODE_BIN" SBOM_ARTIFACT="$empty_sbom" sbom)"
 assert_contains "$empty_sbom_output" "SBOM artifact is empty" "empty SBOM failure"
 assert_files_equal "$empty_sbom" "$empty_sbom.before" "empty SBOM probe"
 
-printf '%s\n' '{"bomFormat":"CycloneDX"}' >"$valid_sbom"
+printf '%s\n' '{"bomFormat":"CycloneDX","specVersion":"1.7","serialNumber":"urn:uuid:aaaaaaaa-aaaa-5aaa-8aaa-aaaaaaaaaaaa","version":1,"metadata":{"component":{"type":"application","name":"fixture","properties":[{"name":"cartulary:semantic_input_digest","value":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}}}' >"$valid_sbom"
 cp "$valid_sbom" "$valid_sbom.before"
-assert_make_passes "valid SBOM" --old-file="$valid_sbom" NODE_BIN="$NODE_BIN" SBOM_ARTIFACT="$valid_sbom" sbom >/dev/null
+assert_make_passes "valid SBOM" CARTULARY_HARNESS_GRAPH_CHILD=1 --old-file="$valid_sbom" NODE_BIN="$NODE_BIN" SBOM_ARTIFACT="$valid_sbom" sbom >/dev/null
 assert_files_equal "$valid_sbom" "$valid_sbom.before" "valid SBOM probe"
 
 assert_no_ambient_summary "license-report"

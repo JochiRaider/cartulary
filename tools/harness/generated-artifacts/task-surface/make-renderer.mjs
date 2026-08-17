@@ -199,12 +199,21 @@ function renderMakeRecipe(recipe, manifest) {
     nodeReadinessPrelude.length > 0 || prerequisitePrelude.length > 0
       ? ""
       : (recipe.prerequisites ?? []).join(" ");
-  const header = prerequisites
+  const targetHeader = prerequisites
     ? `${recipe.target}: ${prerequisites}`
     : `${recipe.target}:`;
+  const header = recipe.graph_child_skips_prerequisites === true && prerequisites
+    ? [
+        "ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)",
+        `${recipe.target}:`,
+        "else",
+        targetHeader,
+        "endif",
+      ]
+    : [targetHeader];
   const prefix = renderRecipePrefix(recipe, entry);
   if (["artifact_binding", "aggregate", "readiness_projection"].includes(recipe.type)) {
-    const lines = [...prefix, header, ...publicPrelude, ...prerequisitePrelude];
+    const lines = [...prefix, ...header, ...publicPrelude, ...prerequisitePrelude];
     if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v5") {
       lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
     }
@@ -214,14 +223,14 @@ function renderMakeRecipe(recipe, manifest) {
     if (recipe.scope === "distclean") {
       return [
         ...prefix,
-        header,
+        ...header,
         ...publicPrelude,
         "\t$(Q)$(RUN_HARNESS_CLEANUP) distclean $(DISTCLEAN_PATHS)",
       ];
     }
     return [
       ...prefix,
-      header,
+      ...header,
       ...publicPrelude,
       "\t$(Q)$(RUN_HARNESS_CLEANUP) clean $(CLEAN_PATHS)",
     ];
@@ -233,7 +242,7 @@ function renderMakeRecipe(recipe, manifest) {
         : "TASK_SURFACE_HELP_LINES";
     return [
       ...prefix,
-      header,
+      ...header,
       ...publicPrelude,
       `\t$(Q)printf '%s\\n' $(${variable})`,
     ];
@@ -246,7 +255,7 @@ function renderMakeRecipe(recipe, manifest) {
         : `--selection ${recipe.selection} --target ${recipe.target}`;
     return [
       ...prefix,
-      header,
+      ...header,
       ...publicPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(TASK_SURFACE_MACHINE_STATE_ENV) ${forwarded.join(" ")} MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs ${selectionArgs}`,
@@ -258,7 +267,7 @@ function renderMakeRecipe(recipe, manifest) {
       shouldEmitRetainedTargetSummary(recipe, entry, manifest);
     const lines = [
       ...prefix,
-      header,
+      ...header,
       ...publicPrelude,
       ...prerequisitePrelude,
       ...renderStepCommandRecipe(recipe, entry, manifest),
@@ -284,7 +293,7 @@ function renderMakeRecipe(recipe, manifest) {
     ];
     return [
       ...prefix,
-      header,
+      ...header,
       ...publicPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${env.join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target ${recipe.target} --child-target ${recipe.child_target} --status ${status} --step-label "${stepLabel}"${projection}`,
@@ -300,7 +309,7 @@ function renderMakeRecipe(recipe, manifest) {
       .join(" ");
     return [
       ...prefix,
-      header,
+      ...header,
       ...publicPrelude,
       ...prerequisitePrelude,
       `\t$(Q)$(call RUN_MAKE_NODE_TOOL,${recipe.target},${env})`,

@@ -121,8 +121,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.fixture_tier_proof.v2",
-      "path": "tools/schemas/cartulary.fixture_tier_proof.v2.schema.json",
+      "schema_id": "cartulary.fixture_tier_proof.v3",
+      "path": "tools/schemas/cartulary.fixture_tier_proof.v3.schema.json",
       "classification": "public_contract",
       "producer": "scheduler reporter",
       "validation": "json-shape-check"
@@ -226,20 +226,6 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_contract_case_ledger.v1",
-      "path": "tools/schemas/cartulary.harness_contract_case_ledger.v1.schema.json",
-      "classification": "owner_input",
-      "producer": "harness contract case ledger",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.harness_contract_suite_registry.v1",
-      "path": "tools/schemas/cartulary.harness_contract_suite_registry.v1.schema.json",
-      "classification": "owner_input",
-      "producer": "harness contract suite registry",
-      "validation": "json-shape-check"
-    },
-    {
       "schema_id": "cartulary.harness_evidence_root_manifest.v1",
       "path": "tools/schemas/cartulary.harness_evidence_root_manifest.v1.schema.json",
       "classification": "public_contract",
@@ -254,8 +240,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_fixture_lease.v2",
-      "path": "tools/schemas/cartulary.harness_fixture_lease.v2.schema.json",
+      "schema_id": "cartulary.harness_fixture_lease.v3",
+      "path": "tools/schemas/cartulary.harness_fixture_lease.v3.schema.json",
       "classification": "public_contract",
       "producer": "harness fixture broker",
       "validation": "json-shape-check"
@@ -338,8 +324,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_target_plan.v3",
-      "path": "tools/schemas/cartulary.harness_target_plan.v3.schema.json",
+      "schema_id": "cartulary.harness_target_plan.v4",
+      "path": "tools/schemas/cartulary.harness_target_plan.v4.schema.json",
       "classification": "public_contract",
       "producer": "work graph target plan",
       "validation": "json-shape-check"
@@ -373,15 +359,15 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_work_graph.v4",
-      "path": "tools/schemas/cartulary.harness_work_graph.v4.schema.json",
+      "schema_id": "cartulary.harness_work_graph.v5",
+      "path": "tools/schemas/cartulary.harness_work_graph.v5.schema.json",
       "classification": "public_contract",
       "producer": "harness graph compiler",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_work_graph_owner.v1",
-      "path": "tools/schemas/cartulary.harness_work_graph_owner.v1.schema.json",
+      "schema_id": "cartulary.harness_work_graph_owner.v2",
+      "path": "tools/schemas/cartulary.harness_work_graph_owner.v2.schema.json",
       "classification": "owner_input",
       "producer": "harness graph owner",
       "validation": "json-shape-check"
@@ -412,6 +398,13 @@
       "path": "tools/schemas/cartulary.incident_bundle_traceability.v1.schema.json",
       "classification": "owner_input",
       "producer": "Incident Bundles traceability owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.license_report.v2",
+      "path": "tools/schemas/cartulary.license_report.v2.schema.json",
+      "classification": "public_contract",
+      "producer": "release inventory generator",
       "validation": "json-shape-check"
     },
     {
@@ -548,8 +541,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.performance_fixture_build_diagnostics.v1",
-      "path": "tools/schemas/cartulary.performance_fixture_build_diagnostics.v1.schema.json",
+      "schema_id": "cartulary.performance_fixture_build_diagnostics.v2",
+      "path": "tools/schemas/cartulary.performance_fixture_build_diagnostics.v2.schema.json",
       "classification": "public_contract",
       "producer": "performance fixture builder",
       "validation": "json-shape-check"
@@ -611,8 +604,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.postgres_fixture_policy_registry.v1",
-      "path": "tools/schemas/cartulary.postgres_fixture_policy_registry.v1.schema.json",
+      "schema_id": "cartulary.postgres_fixture_policy_registry.v2",
+      "path": "tools/schemas/cartulary.postgres_fixture_policy_registry.v2.schema.json",
       "classification": "owner_input",
       "producer": "PostgreSQL fixture policy registry",
       "validation": "json-shape-check"
@@ -772,8 +765,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_family_manifest.v5",
-      "path": "tools/schemas/cartulary.test_family_manifest.v5.schema.json",
+      "schema_id": "cartulary.test_family_manifest.v6",
+      "path": "tools/schemas/cartulary.test_family_manifest.v6.schema.json",
       "classification": "owner_input",
       "producer": "test family owner",
       "validation": "json-shape-check"
@@ -807,6 +800,20 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.test_services.browser_admission.v1",
+      "path": "tools/schemas/cartulary.test_services.browser_admission.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "browser session admission",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.test_services.journal_event.v1",
+      "path": "tools/schemas/cartulary.test_services.journal_event.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "service suite producer",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.test_services.lease.v1",
       "path": "tools/schemas/cartulary.test_services.lease.v1.schema.json",
       "classification": "public_contract",
@@ -835,8 +842,15 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_services.scope.v1",
-      "path": "tools/schemas/cartulary.test_services.scope.v1.schema.json",
+      "schema_id": "cartulary.test_services.resource_ledger.v1",
+      "path": "tools/schemas/cartulary.test_services.resource_ledger.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "service suite cleanup authority",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.test_services.scope.v2",
+      "path": "tools/schemas/cartulary.test_services.scope.v2.schema.json",
       "classification": "public_contract",
       "producer": "service suite",
       "validation": "json-shape-check"
@@ -913,8 +927,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.web_e2e_stack.v5",
-      "path": "tools/schemas/cartulary.web_e2e_stack.v5.schema.json",
+      "schema_id": "cartulary.web_e2e_stack.v6",
+      "path": "tools/schemas/cartulary.web_e2e_stack.v6.schema.json",
       "classification": "public_contract",
       "producer": "browser session lifecycle",
       "validation": "json-shape-check"

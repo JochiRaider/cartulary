@@ -1,5 +1,6 @@
 import { scrollGridCellIntoView } from "@cartulary/test-utils/grid";
 import {
+  authTestId,
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
   currentIncidentRoleTestId,
@@ -541,7 +542,10 @@ export async function exerciseRevokedPendingReplay({
     await socketMonitor.waitForClose(revocation.socketIndex, 25_000);
 
     heldPatch.release();
-    await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
+    await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
+      "data-bootstrap-state",
+      "revoked",
+    );
 
     for (const item of replayItems) {
       await expect(
@@ -550,9 +554,6 @@ export async function exerciseRevokedPendingReplay({
         ),
       ).toHaveCount(0);
     }
-    await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
-      String(queuedReplayItems.length),
-    );
 
     const messageStart = socketMonitor.messageCount();
     await sessionTracker.loginTrackedUser(page, {

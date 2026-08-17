@@ -33,27 +33,31 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
+	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
 
 const (
-	postgresStartupTimeout       = 3 * time.Minute
-	suitePreflightTimeout        = 3 * time.Second
-	suitePostgresAttemptLimit    = 35 * time.Second
-	suiteObjectStoreAttemptLimit = 2 * time.Minute
-	staleSuiteContainerAge       = 10 * time.Minute
-	staleSuiteContainerRecheck   = 2 * time.Second
-	templateStartupTimeout       = 2 * time.Minute
-	objectStoreStartupTimeout    = 2 * time.Minute
-	cleanupTimeout               = 2 * time.Minute
-	webE2ELeakCheckTimeout       = 5 * time.Second
-	signalWaitTimeout            = 15 * time.Second
-	webE2ECleanupWorkers         = 4
-	webE2ECleanupMaxWorkers      = 16
-	staleFixtureMaxCandidates    = 32
-	staleFixtureJanitorTimeout   = 10 * time.Second
+	postgresStartupTimeout         = 3 * time.Minute
+	suitePreflightTimeout          = 3 * time.Second
+	suitePostgresAttemptLimit      = 35 * time.Second
+	suiteObjectStoreAttemptLimit   = 2 * time.Minute
+	staleSuiteContainerAge         = 10 * time.Minute
+	staleSuiteContainerRecheck     = 2 * time.Second
+	templateStartupTimeout         = 2 * time.Minute
+	objectStoreStartupTimeout      = 2 * time.Minute
+	postgresCatalogAdmissionLimit  = 15 * time.Second
+	postgresDatabaseCleanupTimeout = 15 * time.Second
+	cleanupTimeout                 = 2 * time.Minute
+	webE2ELeakCheckTimeout         = 5 * time.Second
+	signalWaitTimeout              = 15 * time.Second
+	webE2ECleanupWorkers           = 4
+	webE2ECleanupMaxWorkers        = 16
+	staleFixtureMaxCandidates      = 32
+	staleFixtureJanitorTimeout     = 10 * time.Second
 
 	webE2ECleanupWorkersEnv = "CARTULARY_TEST_SERVICES_WEB_E2E_CLEANUP_WORKERS"
 
@@ -361,7 +365,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 		return 2
 	}
 
-	if suiteservices.SuiteActive(env) {
+	if suiteservices.SuiteAuthorized(env) {
 		deps.recordEvent(env, suiteservices.Event{Type: suiteservices.EventWrapperPassThrough})
 		attachEnv := cloneEnv(env)
 		attachEnv["CARTULARY_TEST_SERVICES_CALL_MODE"] = "attach"
@@ -380,10 +384,9 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	}
 
 	ownedEnv := cloneEnv(env)
-	ownedEnv[suiteservices.ActiveEnv] = "1"
 	ownedEnv[suiteservices.SuiteIDEnv] = suiteID
 	ownedEnv[suiteservices.LifecycleModeEnv] = "owned"
-	ownedEnv["CARTULARY_TEST_SERVICES_CALL_MODE"] = "owned"
+	ownedEnv[suiteservices.CallModeEnv] = "owned"
 
 	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart})
 	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartServices, ""); err != nil {
@@ -572,7 +575,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 		fmt.Fprintln(os.Stderr, usageErr)
 		return 2
 	}
-	if suiteservices.SuiteActive(env) {
+	if suiteservices.SuiteAuthorized(env) {
 		fmt.Fprintln(os.Stderr, "start-suite requires ownership of a new suite; nested active suites are not supported")
 		return 2
 	}
@@ -584,10 +587,9 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	}
 
 	ownedEnv := cloneEnv(env)
-	ownedEnv[suiteservices.ActiveEnv] = "1"
 	ownedEnv[suiteservices.SuiteIDEnv] = suiteID
 	ownedEnv[suiteservices.LifecycleModeEnv] = "owned"
-	ownedEnv["CARTULARY_TEST_SERVICES_CALL_MODE"] = "owned"
+	ownedEnv[suiteservices.CallModeEnv] = "owned"
 
 	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart})
 	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartServices, ""); err != nil {
@@ -755,8 +757,12 @@ func runPrepareWebE2E(args []string, env map[string]string, deps dependencies) i
 		fmt.Fprintln(os.Stderr, err)
 		return 2
 	}
-	if !suiteservices.SuiteActive(env) {
-		fmt.Fprintf(os.Stderr, "prepare-web-e2e requires %s=1\n", suiteservices.ActiveEnv)
+	if !suiteservices.SuiteAuthorized(env) {
+		fmt.Fprintln(os.Stderr, "prepare-web-e2e requires authenticated suite runtime proof")
+		return 1
+	}
+	if err := validateActiveServiceLease(env); err != nil {
+		fmt.Fprintf(os.Stderr, "prepare-web-e2e service authority: %v\n", err)
 		return 1
 	}
 	if strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.PGTemplateDBEnv)) == "" {
@@ -810,8 +816,8 @@ func runResetWebE2E(args []string, env map[string]string, deps dependencies) int
 		fmt.Fprintln(os.Stderr, err)
 		return 2
 	}
-	if !suiteservices.SuiteActive(env) {
-		fmt.Fprintf(os.Stderr, "reset-web-e2e requires %s=1\n", suiteservices.ActiveEnv)
+	if !suiteservices.SuiteAuthorized(env) {
+		fmt.Fprintln(os.Stderr, "reset-web-e2e requires authenticated suite runtime proof")
 		return 1
 	}
 
@@ -830,8 +836,8 @@ func runRenewWebE2E(args []string, env map[string]string, deps dependencies) int
 		fmt.Fprintln(os.Stderr, err)
 		return 2
 	}
-	if !suiteservices.SuiteActive(env) {
-		fmt.Fprintf(os.Stderr, "renew-web-e2e requires %s=1\n", suiteservices.ActiveEnv)
+	if !suiteservices.SuiteAuthorized(env) {
+		fmt.Fprintln(os.Stderr, "renew-web-e2e requires authenticated suite runtime proof")
 		return 1
 	}
 	metadata, err := readWebE2EMetadata(metadataFile)
@@ -937,8 +943,8 @@ func runCleanupWebE2E(args []string, env map[string]string, deps dependencies) i
 		fmt.Fprintln(os.Stderr, err)
 		return 2
 	}
-	if !suiteservices.SuiteActive(env) {
-		fmt.Fprintf(os.Stderr, "cleanup-web-e2e requires %s=1\n", suiteservices.ActiveEnv)
+	if !suiteservices.SuiteAuthorized(env) {
+		fmt.Fprintln(os.Stderr, "cleanup-web-e2e requires authenticated suite runtime proof")
 		return 1
 	}
 
@@ -976,9 +982,9 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 	}
 
 	leaseEnv := cloneEnv(env)
-	leaseEnv[suiteservices.ActiveEnv] = "1"
 	leaseEnv[suiteservices.SuiteIDEnv] = lease.SuiteID
 	leaseEnv[suiteservices.LifecycleModeEnv] = "owned"
+	leaseEnv[suiteservices.CallModeEnv] = "owned"
 	if lease.Target != "" {
 		leaseEnv[suiteservices.TargetEnv] = lease.Target
 	}
@@ -1025,6 +1031,12 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 		}
 	}
 	deps.refreshSummary(leaseEnv)
+	if status == 0 {
+		if err := suiteservices.RemoveResourceLedger(leaseEnv); err != nil {
+			status = 1
+			printSuiteFailure(leaseEnv, failureSummary("", stageCleanupReaper, "remove successful suite resource ledger", err))
+		}
+	}
 	if status == 0 && emitCleanupTerminal {
 		if err := recordLifecycleEventIfPresent(leaseEnv, suiteservices.LifecycleEventCleanupSucceeded, ""); err != nil {
 			printSuiteFailure(leaseEnv, failureSummary("", stageCleanupReaper, "record cleanup lifecycle success", err))
@@ -1452,6 +1464,51 @@ func readServiceLease(path string) (serviceLease, error) {
 	return lease, nil
 }
 
+func validateActiveServiceLease(env map[string]string) error {
+	runtimeRoot, ok, err := suiteservices.ResolveSuiteRuntimeDir(env)
+	if err != nil || !ok {
+		if err != nil {
+			return err
+		}
+		return errors.New("active service lease requires a private suite runtime root")
+	}
+	leasePath := filepath.Join(runtimeRoot, "service-lease.json")
+	info, err := os.Lstat(leasePath)
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o600 {
+		return errors.New("active service lease must be a mode-0600 non-symlink regular file")
+	}
+	lease, err := readServiceLease(leasePath)
+	if err != nil {
+		return err
+	}
+	if lease.SuiteID != suiteservices.SuiteID(env) ||
+		lease.RunID != strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.SuiteRuntimeRunIDEnv)) ||
+		lease.CleanupState != "not_started" {
+		return errors.New("active service lease does not match the suite/run or is no longer usable")
+	}
+	required := map[string]bool{
+		suiteservices.ServicePostgres:    false,
+		suiteservices.ServiceObjectStore: false,
+	}
+	for _, resource := range lease.Resources {
+		if resource.Kind != "container" || strings.TrimSpace(resource.ContainerID) == "" {
+			continue
+		}
+		if _, ok := required[resource.Service]; ok {
+			required[resource.Service] = true
+		}
+	}
+	for service, present := range required {
+		if !present {
+			return fmt.Errorf("active service lease lacks %s container proof", service)
+		}
+	}
+	return nil
+}
+
 func cloneStringMap(values map[string]string) map[string]string {
 	if len(values) == 0 {
 		return nil
@@ -1685,46 +1742,53 @@ func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB str
 		return fmt.Errorf("close template database handle: %w", err)
 	}
 
-	admin, err := sql.Open("pgx", adminDSN)
-	if err != nil {
-		return fmt.Errorf("open postgres admin handle: %w", err)
-	}
-	defer admin.Close()
-
-	if _, err := admin.ExecContext(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, templateDB); err != nil {
-		return fmt.Errorf("terminate template database connections: %w", err)
-	}
-	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH ALLOW_CONNECTIONS false`, templateDB)); err != nil {
-		return fmt.Errorf("disable template database connections: %w", err)
-	}
-	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE true`, templateDB)); err != nil {
-		return fmt.Errorf("mark template database as template: %w", err)
-	}
-	return nil
+	return postgrescatalog.WithMutation(
+		ctx,
+		adminDSN,
+		templateDB,
+		postgresCatalogAdmissionLimit,
+		func(admin *sql.DB) error {
+			if _, err := admin.ExecContext(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, templateDB); err != nil {
+				return fmt.Errorf("terminate template database connections: %w", err)
+			}
+			if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH ALLOW_CONNECTIONS false`, templateDB)); err != nil {
+				return fmt.Errorf("disable template database connections: %w", err)
+			}
+			if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE true`, templateDB)); err != nil {
+				return fmt.Errorf("mark template database as template: %w", err)
+			}
+			return nil
+		},
+	)
 }
 
 func createDatabase(ctx context.Context, adminDSN string, name string) error {
-	admin, err := sql.Open("pgx", adminDSN)
-	if err != nil {
-		return fmt.Errorf("open postgres admin handle: %w", err)
-	}
-	defer admin.Close()
-
-	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE "%s"`, name)); err != nil {
-		return fmt.Errorf("create database %s: %w", name, err)
-	}
-	return nil
+	return postgrescatalog.WithMutation(
+		ctx,
+		adminDSN,
+		name,
+		postgresCatalogAdmissionLimit,
+		func(admin *sql.DB) error {
+			if _, err := admin.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE "%s"`, name)); err != nil {
+				return fmt.Errorf("create database %s: %w", name, err)
+			}
+			return nil
+		},
+	)
 }
 
 func dropDatabase(ctx context.Context, adminDSN string, name string) error {
-	admin, err := sql.Open("pgx", adminDSN)
-	if err != nil {
-		return fmt.Errorf("open postgres admin handle: %w", err)
+	if !generatedWebE2EDatabaseName(name) {
+		return fmt.Errorf("refuse to drop browser fixture database %q without generated ownership identity", name)
 	}
-	defer admin.Close()
-
-	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, name)); err != nil {
-		return fmt.Errorf("drop test database %s: %w", name, err)
+	if _, err := postgrescleanup.DropOwnedDatabase(
+		ctx,
+		adminDSN,
+		name,
+		5*time.Second,
+		postgresDatabaseCleanupTimeout,
+	); err != nil {
+		return fmt.Errorf("drop browser fixture database %s: %w", name, err)
 	}
 	return nil
 }
@@ -1827,11 +1891,8 @@ func renewWebE2EFixture(
 	if err != nil {
 		return fmt.Errorf("attach suite object store: %w", err)
 	}
-	if err := s3Harness.CleanupBucket(ctx, metadata.Bucket); err != nil {
-		return fmt.Errorf("remove prior browser bucket generation: %w", err)
-	}
-	if err := s3Harness.CreateBucket(ctx, metadata.Bucket); err != nil {
-		return fmt.Errorf("create replacement browser bucket generation: %w", err)
+	if err := s3Harness.ResetBucket(ctx, metadata.Bucket); err != nil {
+		return fmt.Errorf("reset browser bucket generation in place: %w", err)
 	}
 	return nil
 }
@@ -1887,6 +1948,9 @@ func cleanupWebE2EDatabase(ctx context.Context, metadata webE2EMetadata, env map
 }
 
 func cleanupWebE2EBucket(ctx context.Context, metadata webE2EMetadata, env map[string]string) error {
+	if !generatedWebE2EBucketName(metadata.Bucket) {
+		return fmt.Errorf("refuse to clean browser fixture bucket %q without generated ownership identity", metadata.Bucket)
+	}
 	if endpoint := strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.S3EndpointEnv)); endpoint != "" {
 		s3Harness := &s3test.Harness{
 			Endpoint:  endpoint,
@@ -2053,6 +2117,11 @@ func recordCleanupAndRefresh(deps dependencies, env map[string]string, status st
 		},
 	})
 	deps.refreshSummary(env)
+	if status == "succeeded" {
+		if err := suiteservices.RemoveResourceLedger(env); err != nil {
+			printSuiteFailure(env, failureSummary("", stageCleanupReaper, "remove successful suite resource ledger", err))
+		}
+	}
 }
 
 func recordServiceReaperScheduled(deps dependencies, env map[string]string, leasePath string) {
@@ -2166,11 +2235,19 @@ func recordWebE2EFixtureReclaimedEvent(deps dependencies, env map[string]string,
 }
 
 func pendingRetiredWebE2EFixtures(env map[string]string) ([]webE2EMetadata, error) {
-	scope, ok, err := suiteservices.Summarize(env)
+	ledger, ok, err := suiteservices.CurrentResourceLedger(env)
 	if err != nil || !ok {
 		return nil, err
 	}
-	return pendingWebE2EFixtures(scope), nil
+	fixtures := make([]webE2EMetadata, 0, len(ledger.BrowserFixtures))
+	for _, fixture := range ledger.BrowserFixtures {
+		fixtures = append(fixtures, webE2EMetadata{
+			DatabaseName: fixture.DatabaseName,
+			Bucket:       fixture.Bucket,
+			Target:       fixture.Target,
+		})
+	}
+	return fixtures, nil
 }
 
 func reclaimOwnedWebE2EFixtures(deps dependencies, env map[string]string, fixtures []webE2EMetadata) {
@@ -2255,67 +2332,28 @@ func staleWebE2EFixtures(env map[string]string) ([]webE2EMetadata, error) {
 	if err != nil {
 		return nil, err
 	}
-	servicesRootFS, err := os.OpenRoot(servicesRoot)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	defer servicesRootFS.Close()
-
-	completed := make(map[string]struct{})
 	retired := make(map[string]webE2EMetadata)
 	err = filepath.WalkDir(servicesRoot, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if entry.IsDir() || entry.Name() != "service-scope.json" {
-			return nil
-		}
-		info, err := entry.Info()
-		if err != nil {
-			return err
-		}
-		if !info.Mode().IsRegular() {
+		if entry.IsDir() || entry.Name() != "resource-ledger.json" {
 			return nil
 		}
 		if !pathWithinRoot(servicesRoot, path) {
-			return fmt.Errorf("service scope path %s escapes %s", path, servicesRoot)
+			return fmt.Errorf("resource ledger path %s escapes %s", path, servicesRoot)
 		}
-		relativeScopePath, err := filepath.Rel(servicesRoot, path)
+		ledger, ok, err := suiteservices.ReadResourceLedgerFile(path)
 		if err != nil {
 			return err
 		}
-		raw, err := servicesRootFS.ReadFile(relativeScopePath)
-		if err != nil {
-			return err
+		if !ok {
+			return nil
 		}
-		var scope suiteservices.ServiceScope
-		if err := json.Unmarshal(raw, &scope); err != nil {
-			return err
+		if ledger.SuiteID != filepath.Base(filepath.Dir(path)) || ledger.RunID != suiteservices.ResolveRunID(env) {
+			return fmt.Errorf("resource ledger %s does not match its owned suite/run path", path)
 		}
-		for _, fixture := range scope.BrowserE2E.CleanedFixtures {
-			metadata := webE2EMetadata{
-				DatabaseName: fixture.DatabaseName,
-				Bucket:       fixture.Bucket,
-				Target:       fixture.Target,
-			}
-			if key := webE2EFixtureKey(metadata); key != "" {
-				completed[key] = struct{}{}
-			}
-		}
-		for _, fixture := range scope.BrowserE2E.ReclaimedFixtures {
-			metadata := webE2EMetadata{
-				DatabaseName: fixture.DatabaseName,
-				Bucket:       fixture.Bucket,
-				Target:       fixture.Target,
-			}
-			if key := webE2EFixtureKey(metadata); key != "" {
-				completed[key] = struct{}{}
-			}
-		}
-		for _, fixture := range scope.BrowserE2E.RetiredFixtures {
+		for _, fixture := range ledger.BrowserFixtures {
 			metadata := webE2EMetadata{
 				DatabaseName: fixture.DatabaseName,
 				Bucket:       fixture.Bucket,
@@ -2337,10 +2375,7 @@ func staleWebE2EFixtures(env map[string]string) ([]webE2EMetadata, error) {
 	}
 
 	fixtures := make([]webE2EMetadata, 0, len(retired))
-	for key, fixture := range retired {
-		if _, ok := completed[key]; ok {
-			continue
-		}
+	for _, fixture := range retired {
 		fixtures = append(fixtures, fixture)
 	}
 	slices.SortFunc(fixtures, func(left, right webE2EMetadata) int {
@@ -2416,52 +2451,6 @@ func generatedWebE2EBucketName(name string) bool {
 		return false
 	}
 	return true
-}
-
-func pendingWebE2EFixtures(scope suiteservices.ServiceScope) []webE2EMetadata {
-	completed := make(map[string]struct{})
-	for _, fixture := range scope.BrowserE2E.CleanedFixtures {
-		metadata := webE2EMetadata{
-			DatabaseName: fixture.DatabaseName,
-			Bucket:       fixture.Bucket,
-			Target:       fixture.Target,
-		}
-		completed[webE2EFixtureKey(metadata)] = struct{}{}
-	}
-	for _, fixture := range scope.BrowserE2E.ReclaimedFixtures {
-		metadata := webE2EMetadata{
-			DatabaseName: fixture.DatabaseName,
-			Bucket:       fixture.Bucket,
-			Target:       fixture.Target,
-		}
-		completed[webE2EFixtureKey(metadata)] = struct{}{}
-	}
-
-	pending := make(map[string]webE2EMetadata)
-	for _, fixture := range scope.BrowserE2E.RetiredFixtures {
-		metadata := webE2EMetadata{
-			DatabaseName: fixture.DatabaseName,
-			Bucket:       fixture.Bucket,
-			Target:       fixture.Target,
-		}
-		key := webE2EFixtureKey(metadata)
-		if key == "" {
-			continue
-		}
-		if _, ok := completed[key]; ok {
-			continue
-		}
-		pending[key] = metadata
-	}
-
-	fixtures := make([]webE2EMetadata, 0, len(pending))
-	for _, fixture := range pending {
-		fixtures = append(fixtures, fixture)
-	}
-	slices.SortFunc(fixtures, func(left, right webE2EMetadata) int {
-		return strings.Compare(webE2EFixtureKey(left), webE2EFixtureKey(right))
-	})
-	return fixtures
 }
 
 func webE2EFixtureKey(metadata webE2EMetadata) string {

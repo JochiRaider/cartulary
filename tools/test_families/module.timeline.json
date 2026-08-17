@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v5",
+  "schema_id": "cartulary.test_family_manifest.v6",
   "owner_id": "module.timeline",
   "rows": [
     {
@@ -699,7 +699,9 @@
         "titles": [
           "useTimelineRowMutationCoordinator admits conflict server state without collapsing its local draft",
           "useTimelineRowMutationCoordinator invalidates an in-flight query generation when an action advances the row",
-          "useTimelineRowMutationCoordinator prevents stale action and mutation results from regressing a live high-water row"
+          "useTimelineRowMutationCoordinator pins only the latest locally created row within its query presentation scope",
+          "useTimelineRowMutationCoordinator prevents stale action and mutation results from regressing a live high-water row",
+          "useTimelineRowMutationCoordinator retains one query-scoped created row when a refresh omits it"
         ]
       },
       "evidence_class": "unit",

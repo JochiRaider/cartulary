@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_services.resource_ledger.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "suite_id", "run_id"],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_services.resource_ledger.v1" },
+    "suite_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "databases": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "buckets": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "browser_fixtures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "database_name": { "type": "string" },
+          "bucket": { "type": "string" },
+          "target": { "type": "string" },
+          "reclaim_strategy": { "type": "string" },
+          "timestamp": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
+          "pid": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  }
+}

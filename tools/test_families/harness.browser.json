@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v5",
+  "schema_id": "cartulary.test_family_manifest.v6",
   "owner_id": "harness.browser",
   "rows": [
     {
@@ -513,16 +513,11 @@
       ]
     },
     {
-      "row_id": "harness.browser.integration.performance_fixture_source_owner_assembly",
+      "row_id": "harness.browser.integration.postgres_cleanup_target_scoped_coordination",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.integration",
       "collaborator_ids": [
-        "module.auth",
-        "module.entities",
-        "module.incidents",
-        "module.links",
-        "module.projections",
-        "module.timeline",
+        "module.database_migrations",
         "platform.postgres"
       ],
       "verification_ids": [
@@ -530,18 +525,25 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/testutil/appsupport/performancefixture",
+        "package": "./internal/testutil/postgrescleanup",
         "tests": [
-          "TestProductionClosedAssemblerBuildsExactDeterministicFixture_Integration"
+          "TestCatalogMutationSerializesOneTargetWithoutBlockingAnotherTarget",
+          "TestConcurrentActiveDatabaseCleanupUsesTargetScopedForcedAdmission",
+          "TestDropOwnedDatabaseDoesNotForceUnrelatedOrParentCancellation",
+          "TestDropOwnedDatabaseForcedFallbackWaitsForNormalAdmission",
+          "TestDropOwnedDatabaseRejectsIncompleteInputsBeforeLock",
+          "TestDropOwnedDatabaseReleasesNormalAdmissionBeforeForcedFallback",
+          "TestDropOwnedDatabaseTreatsCoordinationFailureAsHardFailure",
+          "TestDropOwnedDatabaseUsesFreshForcedContextAfterNormalTimeout"
         ]
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
+      "resource_profile_id": "postgres_catalog_isolated",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full",
+      "minimum_tier": "standard",
       "service_dependencies": [
         "postgres"
       ]
@@ -607,6 +609,7 @@
           "TestPreparePackageBucketCoreClassifiesPutDeadlineAndCleanupFailure",
           "TestPreparePackageBucketCoreRejectsCapabilityAndCancellation",
           "TestPreparePackageBucketCoreReusesPackageBucket",
+          "TestResetBucketPreservesNamespaceAndProvesMutation",
           "TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness"
         ]
       },

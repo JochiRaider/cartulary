@@ -43,6 +43,7 @@ import {
   captureCapabilitySnapshot,
   loadCacheRegistry,
   assertScannerEvidenceParity,
+  cacheInputRootDigest,
   resolveVulnerabilityDatabaseRevision,
   runWorkGraph,
   simulateWorkGraph,
@@ -72,10 +73,9 @@ function readJSON(relative) {
   return JSON.parse(readFileSync(path.join(root, relative), "utf8"));
 }
 
-const ledger = readJSON("tools/harness_contract_case_ledger.json");
-validateSchemaSync(ledger.schema_id, ledger);
 const taskSurface = readJSON("tools/task_surface_owner.json");
 const topology = readJSON("tools/execution_topology_manifest.json");
+const rowMigrations = readJSON("tools/test_catalog_row_migrations.json");
 const catalog = loadTestCatalog(root);
 const compiler = new WorkGraphCompiler(root);
 const cacheRegistry = loadCacheRegistry(root).registry;
@@ -86,7 +86,6 @@ assert.deepEqual(
 );
 assert.deepEqual(catalog.postgresFixturePolicy.counts, {
   postgres_dedicated: 252,
-  postgres_group: 0,
   postgres_migration: 8,
   postgres_transaction: 81,
 });
@@ -134,7 +133,7 @@ function assertPerformanceEvidenceGenerationBoundary() {
     "cartulary.frontend_measurement_aggregate.v3",
     "cartulary.frontend_measurement_observation.v2",
     "cartulary.frontend_measurement_summary.v3",
-    "cartulary.performance_fixture_build_diagnostics.v1",
+    "cartulary.performance_fixture_build_diagnostics.v2",
     "cartulary.performance_fixture_runtime.v2",
     "cartulary.performance_fixture_snapshot.v2",
     "cartulary.performance_fixture_snapshot_key.v2",
@@ -424,48 +423,100 @@ function assertPerformanceFixtureSnapshotContract() {
   }
 }
 
-function assertGeneralContract(index) {
-  switch (index % 8) {
-    case 0:
+const generalCases = [
+  {
+    id: "current_owner_and_topology_identity",
+    name: "current task-surface and topology identities are exact",
+    acceptance_ids: ["TH-HARNESS-AC-082"],
+    run() {
       assert.equal(taskSurface.schema_id, "cartulary.task_surface_owner.v2");
       assert.equal(topology.schema_id, "cartulary.execution_topology.v7");
-      break;
-    case 1:
+    },
+  },
+  {
+    id: "current_target_roster",
+    name: "current target roster and public surface are exact",
+    acceptance_ids: ["TH-HARNESS-AC-001"],
+    run() {
       assert.equal(taskSurface.targets.length, 149);
       assert.equal(taskSurface.targets.filter((entry) => entry.target_class === "public").length, 101);
-      break;
-    case 2:
+    },
+  },
+  {
+    id: "catalog_tier_closure",
+    name: "catalog rows use only current minimum tiers",
+    acceptance_ids: ["TH-HARNESS-AC-018"],
+    run() {
       assert.ok(catalog.rows.length > 0);
       assert.ok(catalog.rows.every((row) => tiers.includes(row.minimum_tier)));
-      break;
-    case 3:
+    },
+  },
+  {
+    id: "fixture_profile_closure",
+    name: "fixture profiles, retired rows, and canonical construction are closed",
+    acceptance_ids: ["TH-HARNESS-AC-086", "TH-HARNESS-AC-096", "TH-HARNESS-AC-098"],
+    run() {
       assert.ok(catalog.rows.every((row) => typeof row.fixture_capability === "string"));
-      assert.equal(catalog.rows.filter((row) => row.fixture_profile_id).length, 4);
-      assert.ok(
-        catalog.rows
-          .filter((row) => row.fixture_profile_id)
-          .every((row) => row.fixture_profile_id === "ac043_large_grid_snapshot_v1"),
-      );
+      const profiledRows = catalog.rows.filter((row) => row.fixture_profile_id);
+      assert.equal(profiledRows.length, 4);
+      assert.ok(profiledRows.every((row) =>
+        row.fixture_profile_id === "ac043_large_grid_snapshot_v1"));
       assert.ok(catalog.rows.every((row) => !("default_check" in row)));
-      break;
-    case 4:
-      assert.ok(retiredTargets.every((target) => !taskSurface.targets.some((entry) => entry.name === target)));
-      break;
-    case 5:
+      for (let mask = 1; mask < (1 << profiledRows.length); mask += 1) {
+        const rowIDs = profiledRows
+          .filter((_, index) => (mask & (1 << index)) !== 0)
+          .map((row) => row.row_id);
+        const graph = compiler.compile({ kind: "rows", row_ids: rowIDs });
+        assert.equal(
+          graph.units.filter((unit) => unit.kind === "fixture_builder").length,
+          1,
+          `profiled subset ${rowIDs.join(",")} must have one canonical construction`,
+        );
+      }
+      const nonMeasurement = compiler.compile({
+        kind: "rows",
+        row_ids: ["harness.browser.unit.source_owner_contribution_assembler"],
+      });
+      assert.equal(nonMeasurement.units.some((unit) => unit.kind === "fixture_builder"), false);
+      const migration = rowMigrations.migrations.find((entry) =>
+        entry.retired_row_id ===
+          "harness.browser.integration.performance_fixture_source_owner_assembly");
+      assert.deepEqual(migration?.replacement_row_ids, [
+        "harness.browser.integration.performance_fixture_snapshot_lifecycle",
+        "harness.browser.unit.source_owner_contribution_assembler",
+      ]);
+    },
+  },
+  {
+    id: "retired_target_absence",
+    name: "retired public target aliases remain absent",
+    acceptance_ids: ["TH-HARNESS-AC-001"],
+    run() {
+      assert.ok(retiredTargets.every((target) =>
+        !taskSurface.targets.some((entry) => entry.name === target)));
+    },
+  },
+  {
+    id: "retired_topology_field_absence",
+    name: "retired schedule and fixture fields remain absent",
+    acceptance_ids: ["TH-HARNESS-AC-082"],
+    run() {
       assert.equal("sequence_schedules" in topology, false);
       assert.equal("check_schedules" in topology, false);
       assert.equal("service_backed_schedules" in topology, false);
       assert.equal("fixture_profiles" in topology, false);
-      break;
-    case 6:
+    },
+  },
+  {
+    id: "cache_registry_identity",
+    name: "cache registry exposes the current test-row profile",
+    acceptance_ids: ["TH-HARNESS-AC-091"],
+    run() {
       assert.equal(cacheRegistry.schema_id, "cartulary.harness_cache_registry.v1");
       assert.ok(cacheRegistry.profiles.some((profile) => profile.profile_id === "test_rows"));
-      break;
-    default:
-      assert.equal(ledger.entries.length, 122);
-      assert.equal(new Set(ledger.entries.map((entry) => entry.legacy_name)).size, 122);
-  }
-}
+    },
+  },
+];
 
 async function assertSuiteRuntimeBoundary() {
   const fixtureRoot = mkdtempSync(path.join(tmpdir(), "cartulary-suite-runtime-contract."));
@@ -611,66 +662,85 @@ async function assertSuiteRuntimeBoundary() {
   }
 }
 
-async function assertBoundaryContract(index, entry) {
-  if (entry.legacy_name === "owner catalog closes identities, selectors, profiles, and routing digests") {
-    assertPerformanceFixtureSnapshotContract();
-    assertPerformanceEvidenceGenerationBoundary();
-    await assertSuiteRuntimeBoundary();
-    return;
-  }
-  if (index % 5 === 0) {
-    const attachments = readJSON("tools/harness_schema_attachments.json");
-    const ids = attachments.attachments.map((entry) => entry.schema_id);
-    assert.equal(new Set(ids).size, ids.length);
-  } else if (index % 5 === 1) {
-    for (const schema of [
-      "cartulary.harness_work_graph.v4.schema.json",
-      "cartulary.harness_run_manifest.v1.schema.json",
-      "cartulary.harness_unit_event.v2.schema.json",
-      "cartulary.harness_run_summary.v1.schema.json",
-    ]) assert.ok(existsSync(path.join(root, "tools/schemas", schema)));
-  } else if (index % 5 === 2) {
-    for (const oldSchema of [
-      "cartulary.harness_execution_context.v2.schema.json",
-      "cartulary.harness_invocation_start.v1.schema.json",
-      "cartulary.harness_observability_index.v1.schema.json",
-      "cartulary.harness_sequence_event.v1.schema.json",
-      "cartulary.task_surface_owner.v1.schema.json",
-      "cartulary.test_family_manifest.v2.schema.json",
-      "cartulary.test_family_manifest.v4.schema.json",
-      "cartulary.scheduler_manifest.v2.schema.json",
-    ]) assert.equal(existsSync(path.join(root, "tools/schemas", oldSchema)), false);
-  } else if (index % 5 === 3) {
-    const owner = readJSON("tools/harness_work_graph_owner.json");
-    validateSchemaSync(owner.schema_id, owner);
-  } else {
-    assert.ok(taskSurface.targets.every((entry) => (entry.backing_scripts ?? []).every((file) => !path.isAbsolute(file))));
+async function assertBoundaryContract(kind) {
+  switch (kind) {
+    case "performance_and_runtime":
+      assertPerformanceFixtureSnapshotContract();
+      assertPerformanceEvidenceGenerationBoundary();
+      await assertSuiteRuntimeBoundary();
+      return;
+    case "attachment_uniqueness": {
+      const attachments = readJSON("tools/harness_schema_attachments.json");
+      const ids = attachments.attachments.map((entry) => entry.schema_id);
+      assert.equal(new Set(ids).size, ids.length);
+      return;
+    }
+    case "current_schema_presence":
+      for (const schema of [
+        "cartulary.harness_work_graph.v5.schema.json",
+        "cartulary.harness_run_manifest.v1.schema.json",
+        "cartulary.harness_unit_event.v2.schema.json",
+        "cartulary.harness_run_summary.v1.schema.json",
+      ]) assert.ok(existsSync(path.join(root, "tools/schemas", schema)));
+      return;
+    case "retired_schema_absence":
+      for (const oldSchema of [
+        "cartulary.harness_execution_context.v2.schema.json",
+        "cartulary.harness_invocation_start.v1.schema.json",
+        "cartulary.harness_observability_index.v1.schema.json",
+        "cartulary.harness_sequence_event.v1.schema.json",
+        "cartulary.task_surface_owner.v1.schema.json",
+        "cartulary.test_family_manifest.v2.schema.json",
+        "cartulary.test_family_manifest.v4.schema.json",
+        "cartulary.scheduler_manifest.v2.schema.json",
+      ]) assert.equal(existsSync(path.join(root, "tools/schemas", oldSchema)), false);
+      return;
+    case "work_graph_owner_validation":
+      validateSchemaSync(
+        "cartulary.harness_work_graph_owner.v2",
+        readJSON("tools/harness_work_graph_owner.json"),
+      );
+      return;
+    case "relative_backing_scripts":
+      assert.ok(taskSurface.targets.every((entry) =>
+        (entry.backing_scripts ?? []).every((file) => !path.isAbsolute(file))));
+      return;
+    default:
+      throw new Error(`unknown boundary contract ${kind}`);
   }
 }
 
-function assertCommandSurfaceContract(index) {
+function assertCommandSurfaceContract(kind) {
   const graphTargets = ["test-slice", "service-backed-test-slice", "test-fast", "test", "check", "ci", "release-check", "lint"];
-  if (index % 4 === 0) {
-    assert.ok(graphTargets.every((target) => taskSurface.make_recipes[target]?.type === "work_graph"));
-    assert.ok(taskSurface.observability_policy.required_targets.every((target) => {
-      const recipe = taskSurface.make_recipes[target];
-      return recipe?.type === "work_graph" || recipe?.graph_entry === true;
-    }));
-  } else if (index % 4 === 1) {
-    assert.ok(taskSurface.targets.filter((entry) => entry.target_class === "public").every((entry) => /^cartulary\.harness\.command\.[a-z0-9_]+\.v[1-9][0-9]*$/u.test(entry.command_id)));
-  } else if (index % 4 === 2) {
-    for (const target of taskSurface.observability_policy.required_targets) {
-      const inputNames = (taskSurface.targets.find((entry) => entry.name === target)?.input_contract?.inputs ?? []).map((input) => input.name);
-      assert.ok(inputNames.includes("CARTULARY_HARNESS_CACHE_MODE"));
-      assert.ok(inputNames.includes("CARTULARY_HARNESS_CAPACITY_OVERRIDE"));
-    }
-  } else {
-    assert.ok(!JSON.stringify(taskSurface.make_recipes).includes("nested_scheduler"));
-    assert.ok(taskSurface.observability_policy.required_targets.every((target) => {
-      const entry = taskSurface.targets.find((candidate) => candidate.name === target);
-      return entry.output_policy.summary_schema === "cartulary.harness_run_summary.v1" &&
-        entry.output_policy.artifact_policy === "run_and_target_summaries";
-    }));
+  switch (kind) {
+    case "graph_entrypoints":
+      assert.ok(graphTargets.every((target) => taskSurface.make_recipes[target]?.type === "work_graph"));
+      assert.ok(taskSurface.observability_policy.required_targets.every((target) => {
+        const recipe = taskSurface.make_recipes[target];
+        return recipe?.type === "work_graph" || recipe?.graph_entry === true;
+      }));
+      return;
+    case "command_identities":
+      assert.ok(taskSurface.targets.filter((entry) => entry.target_class === "public").every((entry) =>
+        /^cartulary\.harness\.command\.[a-z0-9_]+\.v[1-9][0-9]*$/u.test(entry.command_id)));
+      return;
+    case "graph_inputs":
+      for (const target of taskSurface.observability_policy.required_targets) {
+        const inputNames = (taskSurface.targets.find((entry) => entry.name === target)?.input_contract?.inputs ?? []).map((input) => input.name);
+        assert.ok(inputNames.includes("CARTULARY_HARNESS_CACHE_MODE"));
+        assert.ok(inputNames.includes("CARTULARY_HARNESS_CAPACITY_OVERRIDE"));
+      }
+      return;
+    case "output_contracts":
+      assert.ok(!JSON.stringify(taskSurface.make_recipes).includes("nested_scheduler"));
+      assert.ok(taskSurface.observability_policy.required_targets.every((target) => {
+        const entry = taskSurface.targets.find((candidate) => candidate.name === target);
+        return entry.output_policy.summary_schema === "cartulary.harness_run_summary.v1" &&
+          entry.output_policy.artifact_policy === "run_and_target_summaries";
+      }));
+      return;
+    default:
+      throw new Error(`unknown command-surface contract ${kind}`);
   }
 }
 
@@ -718,69 +788,107 @@ function assertGoSelectorBuildContextContract() {
   }
 }
 
-function assertEvidenceContract(index, entry) {
-  if (entry.current_name === "runner selector resolvers preserve exact closed shapes across all runners") {
-    assertGoSelectorBuildContextContract();
-    return;
-  }
+function assertEvidenceContract(kind) {
   const tierCounts = Object.fromEntries(tiers.map((tier) => [tier, catalog.rows.filter((row) => row.minimum_tier === tier).length]));
-  if (index % 4 === 0) {
-    assert.deepEqual(Object.keys(tierCounts), tiers);
-    assert.equal(Object.values(tierCounts).reduce((sum, count) => sum + count, 0), catalog.rows.length);
-  } else if (index % 4 === 1) {
-    const reached = tiers.map((tier, rank) => catalog.rows.filter((row) => tiers.indexOf(row.minimum_tier) <= rank).length);
-    assert.ok(reached.every((count, rank) => rank === 0 || count >= reached[rank - 1]));
-    assert.equal(reached.at(-1), catalog.rows.length);
-  } else if (index % 4 === 2) {
-    const fixtureCounts = new Map();
-    for (const row of catalog.rows) fixtureCounts.set(row.fixture_capability, (fixtureCounts.get(row.fixture_capability) ?? 0) + 1);
-    assert.equal([...fixtureCounts.values()].reduce((sum, count) => sum + count, 0), catalog.rows.length);
-    assert.equal(
-      fixtureCounts.get("browser_stack"),
-      catalog.rows.filter((row) => row.runner === "playwright").length,
-    );
-  } else {
-    assert.ok(catalog.registry.owners.filter((owner) => owner.status === "active").every((owner) => catalog.rows.some((row) => row.owner_id === owner.owner_id)));
+  switch (kind) {
+    case "selector_build_context":
+      assertGoSelectorBuildContextContract();
+      return;
+    case "tier_partition":
+      assert.deepEqual(Object.keys(tierCounts), tiers);
+      assert.equal(Object.values(tierCounts).reduce((sum, count) => sum + count, 0), catalog.rows.length);
+      return;
+    case "tier_monotonicity": {
+      const reached = tiers.map((tier, rank) =>
+        catalog.rows.filter((row) => tiers.indexOf(row.minimum_tier) <= rank).length);
+      assert.ok(reached.every((count, rank) => rank === 0 || count >= reached[rank - 1]));
+      assert.equal(reached.at(-1), catalog.rows.length);
+      return;
+    }
+    case "fixture_partition": {
+      const fixtureCounts = new Map();
+      for (const row of catalog.rows) {
+        fixtureCounts.set(row.fixture_capability, (fixtureCounts.get(row.fixture_capability) ?? 0) + 1);
+      }
+      assert.equal([...fixtureCounts.values()].reduce((sum, count) => sum + count, 0), catalog.rows.length);
+      assert.equal(
+        fixtureCounts.get("browser_stack"),
+        catalog.rows.filter((row) => row.runner === "playwright").length,
+      );
+      return;
+    }
+    case "active_owner_coverage":
+      assert.ok(catalog.registry.owners.filter((owner) => owner.status === "active").every((owner) =>
+        catalog.rows.some((row) => row.owner_id === owner.owner_id)));
+      return;
+    default:
+      throw new Error(`unknown evidence contract ${kind}`);
   }
 }
 
-function assertGraphContract(index) {
+function assertGraphContract(kind) {
   const roots = ["test-fast", "check", "test", "ci", "release-check"];
-  if (index % 4 === 0) {
-    const graph = compiler.compile({ kind: "aggregate", target: roots[index % roots.length] });
-    validateWorkGraph(graph);
-    assert.equal(graph.graph_digest, compiler.compile({ kind: "aggregate", target: roots[index % roots.length] }).graph_digest);
-  } else if (index % 4 === 1) {
-    const row = catalog.rows.find((entry) => entry.runner === "go" && entry.fixture_capability === "none");
-    const graph = compiler.compile({ kind: "rows", row_ids: [row.row_id] });
-    assert.deepEqual(
-      graph.units.flatMap((unit) => unit.current_run_evidence_outputs),
-      [`rows/${row.row_id}.json`, `unit-results/go-${graph.units[0].unit_id.split(":").slice(1).join("-")}.json`],
-    );
-  } else if (index % 4 === 2) {
-    const plan = planGoLPTShards(
-      Array.from({ length: 17 }, (_, itemIndex) => ({ id: `row-${itemIndex}`, estimated_work_ms: itemIndex + 1, compatibility: { runtime: "none" } })),
-      { availableGoLanes: 4 },
-    );
-    assert.equal(plan.shards.flatMap((shard) => shard.item_ids).length, 17);
-    assert.equal(plan.shards.length, 1);
-    assert.equal(plan.worker_count, 1);
-    assert.equal(plan.gomaxprocs, 4);
-    const hostPlan = planGoLPTShards(
-      Array.from({ length: 10 }, (_, itemIndex) => ({
-        id: `group-${itemIndex}`,
-        estimated_work_ms: itemIndex + 1,
-        compatibility: { package: `package-${itemIndex}` },
-      })),
-      { availableGoLanes: 24 },
-    );
-    assert.equal(hostPlan.worker_count, 6);
-    assert.equal(hostPlan.gomaxprocs, 4);
-    assert.ok(hostPlan.shards.every((shard) => shard.cpu_tokens === 4));
-  } else {
-    const graph = compiler.compile({ kind: "target", target: "lint" });
-    validateWorkGraph(graph);
-    assert.ok(graph.units.length >= 7);
+  switch (kind) {
+    case "aggregate_determinism":
+      for (const target of roots) {
+        const graph = compiler.compile({ kind: "aggregate", target });
+        validateWorkGraph(graph);
+        assert.equal(
+          graph.graph_digest,
+          compiler.compile({ kind: "aggregate", target }).graph_digest,
+        );
+      }
+      return;
+    case "row_evidence_outputs": {
+      const row = catalog.rows.find((entry) => entry.runner === "go" && entry.fixture_capability === "none");
+      const graph = compiler.compile({ kind: "rows", row_ids: [row.row_id] });
+      assert.deepEqual(
+        graph.units.flatMap((unit) => unit.current_run_evidence_outputs),
+        [`rows/${row.row_id}.json`, `unit-results/go-${graph.units[0].unit_id.split(":").slice(1).join("-")}.json`],
+      );
+      return;
+    }
+    case "go_lpt_budget": {
+      const plan = planGoLPTShards(
+        Array.from({ length: 17 }, (_, itemIndex) => ({ id: `row-${itemIndex}`, estimated_work_ms: itemIndex + 1, compatibility: { runtime: "none" } })),
+        { availableGoLanes: 4 },
+      );
+      assert.equal(plan.shards.flatMap((shard) => shard.item_ids).length, 17);
+      assert.equal(plan.shards.length, 1);
+      assert.equal(plan.worker_count, 1);
+      assert.equal(plan.gomaxprocs, 4);
+      const hostPlan = planGoLPTShards(
+        Array.from({ length: 10 }, (_, itemIndex) => ({
+          id: `group-${itemIndex}`,
+          estimated_work_ms: itemIndex + 1,
+          compatibility: { package: `package-${itemIndex}` },
+        })),
+        { availableGoLanes: 24 },
+      );
+      assert.equal(hostPlan.worker_count, 6);
+      assert.equal(hostPlan.gomaxprocs, 4);
+      assert.ok(hostPlan.shards.every((shard) => shard.cpu_tokens === 4));
+      const isolatedPlan = planGoLPTShards(
+        Array.from({ length: 3 }, (_, itemIndex) => ({
+          id: `isolated-${itemIndex}`,
+          estimated_work_ms: itemIndex + 1,
+          compatibility: { package: "same-package" },
+          isolated: true,
+        })),
+        { availableGoLanes: 4 },
+      );
+      assert.equal(isolatedPlan.shards.length, 3);
+      assert.ok(isolatedPlan.shards.every((shard) => shard.isolated));
+      return;
+    }
+    case "target_graph_validation": {
+      const graph = compiler.compile({ kind: "target", target: "lint" });
+      validateWorkGraph(graph);
+      assert.ok(graph.units.length >= 7);
+      return;
+    }
+    default:
+      throw new Error(`unknown graph contract ${kind}`);
   }
 }
 
@@ -864,6 +972,14 @@ function cacheFixture(policy = "content_addressed") {
 async function assertContentCacheContract() {
   const fixture = cacheFixture();
   try {
+    const markdownBoundary = path.join(fixture.fixtureRoot, "markdown-boundary");
+    mkdirSync(markdownBoundary);
+    writeFileSync(path.join(markdownBoundary, "semantic.txt"), "semantic input\n");
+    symlinkSync("missing-markdown-target", path.join(markdownBoundary, "README.md"));
+    assert.doesNotThrow(() =>
+      cacheInputRootDigest(root, [path.relative(root, markdownBoundary).replaceAll("\\", "/")]),
+    );
+
     const cache = fixture.create();
     assert.equal((await cache.store(fixture.unit)).stored, true);
     rmSync(fixture.output);
@@ -1280,6 +1396,94 @@ async function assertDependencyClosureContract() {
   }
 }
 
+function assertReleaseInventoryContract() {
+  const producerGraph = compiler.compile({
+    kind: "target",
+    target: "release-inventory-artifacts",
+  });
+  const producer = producerGraph.units.find(
+    (unit) => unit.unit_id === "target:release-inventory-artifacts",
+  );
+  assert.ok(producer, "release inventory producer must compile as one semantic unit");
+  assert.equal(producer.cache_policy, "content_addressed");
+  assert.deepEqual(producer.reusable_artifact_outputs, [
+    {
+      artifact_type: "file",
+      relative_path: ".cartulary/release-artifacts/license-report.json",
+      destination_class: "repository_artifact",
+      mode: "0644",
+      producer_identity: "target:release-inventory-artifacts",
+    },
+    {
+      artifact_type: "file",
+      relative_path: ".cartulary/release-artifacts/sbom.cyclonedx.json",
+      destination_class: "repository_artifact",
+      mode: "0644",
+      producer_identity: "target:release-inventory-artifacts",
+    },
+  ]);
+  const profile = cacheRegistry.profiles.find(
+    (entry) => entry.profile_id === "release_artifacts",
+  );
+  assert.deepEqual(profile.targets, ["release-inventory-artifacts"]);
+  for (const requiredInput of [
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "docker-compose.dev.yml",
+    "tools/toolchain_pins.json",
+    "tools/release-evidence/generate-sbom-license-evidence.mjs",
+    "tools/schemas/cartulary.license_report.v2.schema.json",
+  ]) {
+    assert.ok(profile.input_roots.includes(requiredInput), `${requiredInput} must invalidate release inventory`);
+  }
+  const source = buildSourceSnapshot(root);
+  const baselineClosure = resolveCacheDependencyClosure({
+    root,
+    entries: source.entries,
+    profile,
+    unit: producer,
+  });
+  assert.equal(baselineClosure.strategy, "broad");
+  for (const pathUnderTest of [
+    "go.mod",
+    "go.sum",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "apps/web/package.json",
+    "tools/toolchain_pins.json",
+    "docker-compose.dev.yml",
+    "tools/release-evidence/generate-sbom-license-evidence.mjs",
+    "tools/schemas/cartulary.license_report.v2.schema.json",
+  ]) {
+    assert.ok(
+      baselineClosure.entries.some((entry) => entry.path === pathUnderTest),
+      `${pathUnderTest} must occur in the release inventory dependency closure`,
+    );
+    const changed = source.entries.map((entry) =>
+      entry.path === pathUnderTest ? changedDigest(entry, "9") : entry,
+    );
+    assert.notEqual(
+      resolveCacheDependencyClosure({ root, entries: changed, profile, unit: producer }).digest,
+      baselineClosure.digest,
+      `${pathUnderTest} must change the release inventory cache key`,
+    );
+  }
+  for (const target of ["license-report", "sbom"]) {
+    const graph = compiler.compile({ kind: "target", target });
+    const validator = graph.units.find((unit) => unit.unit_id === `target:${target}`);
+    assert.equal(validator.cache_policy, "none");
+    assert.ok(
+      validator.needs.includes("target:release-inventory-artifacts"),
+      `${target} must consume the canonical producer`,
+    );
+    assert.deepEqual(validator.reusable_artifact_outputs, []);
+  }
+}
+
 async function assertExtendedCacheContract() {
   await assertCacheContainmentMatrix();
   await assertDirectoryAndConcurrentCacheContract();
@@ -1317,8 +1521,8 @@ function assertScannerParityContract() {
   );
 }
 
-async function assertSchedulerContract(index) {
-  if (index % 8 === 0) {
+async function assertSchedulerContract(kind) {
+  if (kind === "execution_and_cache_admission") {
     const graph = schedulerFixture();
     const result = simulateWorkGraph({ graph, capacities: new Map([["cpu", 2], ["process", 2]]), durations: new Map([["a", 10], ["b", 20], ["c", 5]]) });
     assert.deepEqual(result.admissions.slice(0, 2), ["a", "b"]);
@@ -1393,10 +1597,10 @@ async function assertSchedulerContract(index) {
       false,
       "a cache hit must complete before resource admission",
     );
-  } else if (index % 8 === 1) {
+  } else if (kind === "cancellation") {
     const cancelled = simulateWorkGraph({ graph: schedulerFixture(), capacities: new Map([["cpu", 1], ["process", 1]]), cancelAtMs: 1 });
     assert.ok(cancelled.events.some((entry) => entry.event === "cancelled"));
-  } else if (index % 8 === 2) {
+  } else if (kind === "capacity_snapshot") {
     const snapshot = captureCapabilitySnapshot({
       root,
       override: { schema_id: "cartulary.harness_capacity_override.v1", cpu_tokens: 2, memory_bytes: 1048576, process_slots: 2, io_tokens: 2, port_lanes: 1, writable_volume: true },
@@ -1416,35 +1620,90 @@ async function assertSchedulerContract(index) {
       }),
       /postgres_lanes=3 exceeds the detected policy bound 2/u,
     );
-  } else if (index % 8 === 3) {
+  } else if (kind === "cache_registry_targets") {
     assert.ok(cacheRegistry.profiles.every((profile) => new Set(profile.targets).size === profile.targets.length));
-  } else if (index % 8 === 4) {
+  } else if (kind === "content_cache") {
     await assertContentCacheContract();
-    if (index === 4) await assertExtendedCacheContract();
-  } else if (index % 8 === 5) {
+    await assertExtendedCacheContract();
+  } else if (kind === "cache_modes") {
     await assertCacheModeContract();
-  } else if (index % 8 === 6) {
+  } else if (kind === "release_inventory") {
+    assertReleaseInventoryContract();
+  } else if (kind === "vulnerability_revision") {
     assertVulnerabilityRevisionContract();
-  } else {
+  } else if (kind === "scanner_parity") {
     assertScannerParityContract();
+  } else {
+    throw new Error(`unknown scheduler contract ${kind}`);
   }
 }
 
-const assertions = {
-  boundaries: assertBoundaryContract,
-  command_surface: assertCommandSurfaceContract,
-  evidence: assertEvidenceContract,
-  graph: assertGraphContract,
-  scheduler: assertSchedulerContract,
+function semanticCase(id, name, acceptanceIDs, run) {
+  return { id, name, acceptance_ids: acceptanceIDs, run };
+}
+
+const suiteCases = {
+  boundaries: [
+    ...generalCases,
+    semanticCase(
+      "performance_evidence_and_runtime_boundary",
+      "performance evidence generations and suite runtime are isolated",
+      ["TH-HARNESS-AC-099", "TH-HARNESS-AC-100"],
+      () => assertBoundaryContract("performance_and_runtime"),
+    ),
+    semanticCase("schema_attachment_uniqueness", "active schema attachments are unique", ["TH-HARNESS-AC-005"], () => assertBoundaryContract("attachment_uniqueness")),
+    semanticCase("current_schema_presence", "current harness schemas are present", ["TH-HARNESS-AC-005"], () => assertBoundaryContract("current_schema_presence")),
+    semanticCase("retired_schema_absence", "retired harness schemas remain absent", ["TH-HARNESS-AC-005"], () => assertBoundaryContract("retired_schema_absence")),
+    semanticCase("work_graph_owner_validation", "work graph owner validates against its current schema", ["TH-HARNESS-AC-082"], () => assertBoundaryContract("work_graph_owner_validation")),
+    semanticCase("relative_backing_script_paths", "task-surface backing scripts are repository-relative", ["TH-HARNESS-AC-016"], () => assertBoundaryContract("relative_backing_scripts")),
+  ],
+  command_surface: [
+    semanticCase("graph_entrypoint_contract", "graph entrypoints use one work-graph command model", ["TH-HARNESS-AC-082"], () => assertCommandSurfaceContract("graph_entrypoints")),
+    semanticCase("public_command_identity_contract", "public command identities are closed and versioned", ["TH-HARNESS-AC-001"], () => assertCommandSurfaceContract("command_identities")),
+    semanticCase("graph_input_contract", "observable graph targets expose cache and capacity inputs", ["TH-HARNESS-AC-083"], () => assertCommandSurfaceContract("graph_inputs")),
+    semanticCase("public_output_contract", "observable targets publish current run and target summaries", ["TH-HARNESS-AC-004"], () => assertCommandSurfaceContract("output_contracts")),
+  ],
+  evidence: [
+    semanticCase("go_selector_build_context", "Go selectors honor the canonical build context", ["TH-HARNESS-AC-018"], () => assertEvidenceContract("selector_build_context")),
+    semanticCase("tier_partition_closure", "catalog tier partitions close every row exactly once", ["TH-HARNESS-AC-018"], () => assertEvidenceContract("tier_partition")),
+    semanticCase("tier_monotonic_closure", "catalog tier reachability is monotonic", ["TH-HARNESS-AC-018"], () => assertEvidenceContract("tier_monotonicity")),
+    semanticCase("fixture_partition_closure", "fixture capabilities partition current rows", ["TH-HARNESS-AC-086"], () => assertEvidenceContract("fixture_partition")),
+    semanticCase("active_owner_row_coverage", "every active owner retains current row coverage", ["TH-HARNESS-AC-018"], () => assertEvidenceContract("active_owner_coverage")),
+  ],
+  graph: [
+    semanticCase("aggregate_graph_determinism", "aggregate work graphs are deterministic", ["TH-HARNESS-AC-082"], () => assertGraphContract("aggregate_determinism")),
+    semanticCase("row_evidence_output_contract", "row graphs declare exact current-run evidence outputs", ["TH-HARNESS-AC-087"], () => assertGraphContract("row_evidence_outputs")),
+    semanticCase("go_lpt_cpu_budget", "Go LPT planning preserves row closure and CPU budgets", ["TH-HARNESS-AC-087"], () => assertGraphContract("go_lpt_budget")),
+    semanticCase("target_graph_validation", "target graphs validate before execution", ["TH-HARNESS-AC-082"], () => assertGraphContract("target_graph_validation")),
+  ],
+  scheduler: [
+    semanticCase("scheduler_execution_and_cache_admission", "scheduler dependency, fixture, and cache admission lifecycles are exact", ["TH-HARNESS-AC-089", "TH-HARNESS-AC-091"], () => assertSchedulerContract("execution_and_cache_admission")),
+    semanticCase("scheduler_cancellation", "scheduler cancellation emits terminal evidence", ["TH-HARNESS-AC-089"], () => assertSchedulerContract("cancellation")),
+    semanticCase("capacity_snapshot_contract", "capacity snapshots enforce detected resource bounds", ["TH-HARNESS-AC-085"], () => assertSchedulerContract("capacity_snapshot")),
+    semanticCase("cache_registry_target_uniqueness", "cache registry target bindings are unique", ["TH-HARNESS-AC-091"], () => assertSchedulerContract("cache_registry_targets")),
+    semanticCase("content_cache_security_and_closure", "content cache restore is complete, contained, and dependency-closed", ["TH-HARNESS-AC-091", "TH-HARNESS-AC-101"], () => assertSchedulerContract("content_cache")),
+    semanticCase("cache_mode_contract", "cache modes preserve explicit read and write behavior", ["TH-HARNESS-AC-091"], () => assertSchedulerContract("cache_modes")),
+    semanticCase("release_inventory_contract", "release inventory has one deterministic paired cache producer and fresh validators", ["TH-HARNESS-AC-101"], () => assertSchedulerContract("release_inventory")),
+    semanticCase("vulnerability_revision_contract", "vulnerability database revisions are content-proven", ["TH-HARNESS-AC-098"], () => assertSchedulerContract("vulnerability_revision")),
+    semanticCase("scanner_evidence_parity", "scanner evidence parity rejects divergent executions", ["TH-HARNESS-AC-098"], () => assertSchedulerContract("scanner_parity")),
+  ],
 };
 
+const allCases = Object.values(suiteCases).flat();
+assert.equal(new Set(allCases.map((entry) => entry.id)).size, allCases.length);
+for (const entry of allCases) {
+  assert.match(entry.id, /^[a-z][a-z0-9_]*$/u);
+  assert.ok(entry.acceptance_ids.length > 0);
+  assert.equal(new Set(entry.acceptance_ids).size, entry.acceptance_ids.length);
+  assert.ok(entry.acceptance_ids.every((id) => /^TH-HARNESS-AC-[0-9]{3}$/u.test(id)));
+}
+
 export function runContractSuite(suite) {
-  const entries = ledger.entries.filter((entry) => entry.suite === suite);
-  assert.ok(entries.length > 0, `contract suite ${suite} is empty`);
-  entries.forEach((entry, index) => {
-    test(entry.current_name, async () => {
-      assertGeneralContract(index);
-      await assertions[suite](index, entry);
+  const cases = suiteCases[suite];
+  assert.ok(cases?.length > 0, `contract suite ${suite} is empty`);
+  for (const entry of cases) {
+    test(`${entry.id}: ${entry.name}`, async () => {
+      await entry.run();
     });
-  });
+  }
 }

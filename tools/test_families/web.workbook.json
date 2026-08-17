@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v5",
+  "schema_id": "cartulary.test_family_manifest.v6",
   "owner_id": "web.workbook",
   "rows": [
     {
@@ -3439,7 +3439,10 @@
       "selector": {
         "file": "apps/web/src/workbook/runtime/WorkbookMutationRuntime.test.ts",
         "titles": [
-          "WorkbookMutationRuntime retains queued drafts and refresh debt across surface unmounts"
+          "WorkbookMutationRuntime retains queued drafts and refresh debt across surface unmounts",
+          "WorkbookMutationRuntimeRegistry preserves one scoped runtime across authenticated shell remounts",
+          "WorkbookMutationRuntimeRegistry rejects a factory result from another pending-queue scope",
+          "WorkbookMutationRuntimeRegistry retires the previous scope on incident change and app disposal"
         ]
       },
       "evidence_class": "unit",

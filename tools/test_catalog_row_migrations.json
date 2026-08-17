@@ -2,6 +2,21 @@
   "schema_id": "cartulary.test_catalog_row_migration.v1",
   "migrations": [
     {
+      "retired_row_id": "harness.browser.integration.performance_fixture_source_owner_assembly",
+      "replacement_row_ids": [
+        "harness.browser.integration.performance_fixture_snapshot_lifecycle",
+        "harness.browser.unit.source_owner_contribution_assembler"
+      ],
+      "reason": "Direct source-owner assembler contracts prove descriptor closure, exact counts, deterministic semantics, and failure propagation; the canonical snapshot lifecycle and measurement closure provide the sole production construction and read-back."
+    },
+    {
+      "retired_row_id": "harness.browser.integration.postgres_cleanup_reader_writer_coordination",
+      "replacement_row_ids": [
+        "harness.browser.integration.postgres_cleanup_target_scoped_coordination"
+      ],
+      "reason": "Exact-target exclusion plus honest graph-level PostgreSQL resource claims replace the service-global reader/writer lock, preserving exact cleanup without a collision-prone second admission layer."
+    },
+    {
       "retired_row_id": "module.timeline.measurement.the_isolated_measurement_suite_proves_one_real_s_6a3649dbd5",
       "replacement_row_ids": [
         "module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",

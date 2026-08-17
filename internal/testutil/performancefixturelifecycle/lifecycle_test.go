@@ -2,6 +2,7 @@ package performancefixturelifecycle
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,7 +70,7 @@ func TestArtifactsAreImmutableAndRedacted(t *testing.T) {
 	}, BuildArtifact{
 		ContributionDiagnostics: []BuildContributionDiagnostic{{
 			Ordinal: 1, ContributionID: "timeline.large_grid.v1", OwnerID: "module.timeline",
-			DurationMS: 5, Batch: &BuildBatchDiagnostic{Strategy: "owner_set_oriented", BatchCount: 1, ConfiguredBatchSize: 20000, ItemCount: 20000},
+			State: "completed", DurationMS: 5, Batch: &BuildBatchDiagnostic{Strategy: "owner_set_oriented", BatchCount: 1, ConfiguredBatchSize: 20000, ItemCount: 20000},
 		}},
 		SemanticValidationTime: 3 * time.Millisecond,
 	}, 10*time.Millisecond)
@@ -77,7 +78,7 @@ func TestArtifactsAreImmutableAndRedacted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(diagnosticRaw), "snapshot-build.json") || diagnostics.DurationMS != 10 || diagnostics.SemanticValidationDurationMS != 3 {
+	if strings.Contains(string(diagnosticRaw), "snapshot-build.json") || diagnostics.SchemaID != "cartulary.performance_fixture_build_diagnostics.v2" || diagnostics.FailureStage != "none" || diagnostics.ConstructionCount != 1 || diagnostics.DurationMS != 10 || diagnostics.SemanticValidationDurationMS != 3 {
 		t.Fatalf("invalid build diagnostics: %s", diagnosticRaw)
 	}
 	semanticRaw, err := json.Marshal(BuildArtifact{
@@ -89,5 +90,20 @@ func TestArtifactsAreImmutableAndRedacted(t *testing.T) {
 	}
 	if strings.Contains(string(semanticRaw), "duration_ms") || strings.Contains(string(semanticRaw), "contributions") {
 		t.Fatalf("diagnostics entered semantic artifact JSON: %s", semanticRaw)
+	}
+	failedDiagnostics := FailedBuildDiagnostics(profile, BuildArgs{
+		FixtureProfileID: profile.FixtureProfileID,
+		SnapshotKey:      performanceFixtureTestKey,
+		BuilderUnitID:    "fixture_snapshot:default:" + profile.FixtureProfileID + ":" + performanceFixtureTestKey,
+	}, 12*time.Millisecond, withBuildFailureStage("finalization", errors.New("sensitive database path")))
+	failedRaw, err := json.Marshal(failedDiagnostics)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if failedDiagnostics.FailureStage != "finalization" || failedDiagnostics.SemanticValidationDurationMS != 0 || len(failedDiagnostics.Contributions) != 0 {
+		t.Fatalf("invalid failed diagnostics: %s", failedRaw)
+	}
+	if strings.Contains(string(failedRaw), "sensitive") || strings.Contains(string(failedRaw), "database path") {
+		t.Fatalf("failed diagnostics leaked error text: %s", failedRaw)
 	}
 }

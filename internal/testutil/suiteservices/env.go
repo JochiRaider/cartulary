@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	ActiveEnv                     = "CARTULARY_TEST_SERVICES_ACTIVE"
+	CallModeEnv                   = "CARTULARY_TEST_SERVICES_CALL_MODE"
 	PersistentBorrowerEnv         = "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER"
 	SuiteIDEnv                    = "CARTULARY_TEST_SUITE_ID"
 	TargetEnv                     = "CARTULARY_TEST_TARGET"
@@ -53,8 +53,13 @@ func LookupEnvValue(env map[string]string, key string) string {
 	return value
 }
 
-func SuiteActive(env map[string]string) bool {
-	return strings.TrimSpace(LookupEnvValue(env, ActiveEnv)) == "1"
+func SuiteAuthorized(env map[string]string) bool {
+	mode := strings.TrimSpace(LookupEnvValue(env, CallModeEnv))
+	return (mode == "owned" || mode == "attach") &&
+		SuiteID(env) != "" &&
+		strings.TrimSpace(LookupEnvValue(env, SuiteRuntimeRootEnv)) != "" &&
+		strings.TrimSpace(LookupEnvValue(env, SuiteRuntimeLeaseIDEnv)) != "" &&
+		strings.TrimSpace(LookupEnvValue(env, SuiteRuntimeRunIDEnv)) != ""
 }
 
 func SuiteID(env map[string]string) string {

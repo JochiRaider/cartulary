@@ -1,25 +1,45 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
   copyFileSync,
   existsSync,
+  lstatSync,
+  mkdtempSync,
   mkdirSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
 import crypto from "node:crypto";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+import {
+  canonicalJSONString,
+  semanticJSONDigest,
+  validateSchemaSync,
+} from "../harness/contract/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../..");
 const cyclonedxSpecVersion = "1.7";
-const cyclonedxGomodSpecVersion = "1.6";
 const firstPartyGoModule = "github.com/JochiRaider/cartulary";
 const firstPartyNpmScope = "@cartulary/";
+const goTestPackagePatterns = Object.freeze([
+  "./cmd/...",
+  "./db/...",
+  "./internal/...",
+  "./tools/...",
+]);
+
+function compareASCII(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
 
 function rel(file) {
   return path.relative(repoRoot, file).replaceAll(path.sep, "/") || ".";
@@ -29,21 +49,89 @@ function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
-function writeJSON(file, value) {
-  writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+function writeCanonicalJSON(file, value) {
+  writeFileSync(file, `${canonicalJSONString(value)}\n`, { mode: 0o644 });
+  chmodSync(file, 0o644);
 }
 
 function ensureDir(dir) {
   mkdirSync(dir, { recursive: true });
 }
 
+function ensureSafeDirectory(directory) {
+  const absolute = path.resolve(directory);
+  const parsed = path.parse(absolute);
+  let current = parsed.root;
+  for (const segment of absolute.slice(parsed.root.length).split(path.sep).filter(Boolean)) {
+    current = path.join(current, segment);
+    if (!existsSync(current)) mkdirSync(current, { mode: 0o755 });
+    const info = lstatSync(current);
+    if (!info.isDirectory() || info.isSymbolicLink()) {
+      throw new Error(`release inventory directory ancestry is unsafe: ${current}`);
+    }
+  }
+}
+
+function deterministicUUID(digest) {
+  const hex = digest.replace(/^sha256:/u, "").slice(0, 32).split("");
+  hex[12] = "5";
+  hex[16] = "8";
+  return `${hex.slice(0, 8).join("")}-${hex.slice(8, 12).join("")}-${hex.slice(12, 16).join("")}-${hex.slice(16, 20).join("")}-${hex.slice(20).join("")}`;
+}
+
+function publishCanonicalPair(outputs) {
+  const transactionID = crypto.randomUUID();
+  const staged = [];
+  const published = [];
+  const backups = [];
+  try {
+    for (const { destination, value } of outputs) {
+      ensureSafeDirectory(path.dirname(destination));
+      if (existsSync(destination)) {
+        const info = lstatSync(destination);
+        if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1) {
+          throw new Error(`release inventory destination is not a regular file: ${destination}`);
+        }
+      }
+      const stage = path.join(
+        path.dirname(destination),
+        `.cartulary-release-stage-${path.basename(destination)}-${transactionID}`,
+      );
+      writeCanonicalJSON(stage, value);
+      staged.push({ destination, stage });
+    }
+    for (const entry of staged) {
+      if (existsSync(entry.destination)) {
+        const backup = `${entry.destination}.cartulary-release-backup-${transactionID}`;
+        renameSync(entry.destination, backup);
+        backups.push({ destination: entry.destination, backup });
+      }
+      renameSync(entry.stage, entry.destination);
+      published.push(entry.destination);
+    }
+    for (const { backup } of backups) {
+      rmSync(backup, { force: true });
+    }
+  } catch (error) {
+    for (const destination of [...published].reverse()) {
+      rmSync(destination, { force: true });
+    }
+    for (const { destination, backup } of [...backups].reverse()) {
+      if (existsSync(backup)) renameSync(backup, destination);
+    }
+    for (const { stage } of staged) {
+      rmSync(stage, { force: true });
+    }
+    throw error;
+  }
+}
+
 function sha256File(file) {
   return crypto.createHash("sha256").update(readFileSync(file)).digest("hex");
 }
 
-function nowRunID() {
-  const compact = new Date().toISOString().replaceAll("-", "").replace("T", "-").replaceAll(":", "").replace(/\.\d+Z$/, "Z");
-  return `${compact}-p${process.pid}`;
+function sha256Digest(file) {
+  return `sha256:${sha256File(file)}`;
 }
 
 function shellQuote(value) {
@@ -92,7 +180,8 @@ function runCommand(ctx, label, command, args, options = {}) {
     record.error = result.error.message;
   }
   if ((options.required ?? true) && result.status !== 0) {
-    throw new Error(`${label} failed with exit code ${result.status}; see ${rel(stderrFile)}`);
+    const diagnostic = stderr.trim().split(/\r?\n/u).slice(-8).join(" | ");
+    throw new Error(`${label} failed with exit code ${result.status}${diagnostic ? `: ${diagnostic}` : ""}`);
   }
   return { ...record, stdout, stderr };
 }
@@ -176,21 +265,25 @@ function findLicenseFiles(dir) {
   }
   const candidates = [];
   for (const name of readdirSync(dir)) {
+    if (!/^(license|licence|copying|notice)([._-].*)?$/i.test(name)) {
+      continue;
+    }
+    if (/\.(?:md|markdown|mdown|mkd)$/i.test(name)) {
+      continue;
+    }
     const full = path.join(dir, name);
     if (!statSync(full).isFile()) {
       continue;
     }
-    if (/^(license|licence|copying|notice)([._-].*)?$/i.test(name)) {
-      candidates.push(full);
-    }
+    candidates.push(full);
   }
-  return candidates.sort((a, b) => a.localeCompare(b));
+  return candidates.sort(compareASCII);
 }
 
 function copyLicenseEvidence(ctx, dependency, sourceDir, rawLicenseMetadata) {
   const licenseFiles = findLicenseFiles(sourceDir);
   const issues = [];
-  let evidencePath = null;
+  let evidenceDigest = null;
   let evidenceSource = null;
   if (licenseFiles.length > 0) {
     const out = path.join(
@@ -202,7 +295,7 @@ function copyLicenseEvidence(ctx, dependency, sourceDir, rawLicenseMetadata) {
       chunks.push(`===== ${rel(file)} =====\n${readFileSync(file, "utf8").trimEnd()}\n`);
     }
     writeFileSync(out, `${chunks.join("\n")}\n`);
-    evidencePath = rel(out);
+    evidenceDigest = sha256Digest(out);
     evidenceSource = "package-distributed license file";
   } else if (rawLicenseMetadata) {
     evidenceSource = "package metadata license field";
@@ -213,7 +306,7 @@ function copyLicenseEvidence(ctx, dependency, sourceDir, rawLicenseMetadata) {
     issues.push("license_metadata_missing");
   }
   return {
-    evidencePath,
+    evidenceDigest,
     evidenceSource,
     issues,
   };
@@ -237,14 +330,6 @@ function licenseReviewFlags(licenseExpression, rawLicenseMetadata) {
     flags.push("notice_or_attribution_review");
   }
   return [...new Set(flags)].sort();
-}
-
-function npmPackageNameFromSpecifier(specifier) {
-  if (specifier.startsWith("node:") || specifier.startsWith(".") || specifier.startsWith("/")) {
-    return null;
-  }
-  const parts = specifier.split("/");
-  return specifier.startsWith("@") ? `${parts[0]}/${parts[1]}` : parts[0];
 }
 
 function npmPurl(name, version) {
@@ -271,14 +356,22 @@ function componentProperty(name, value) {
   return { name, value: String(value) };
 }
 
-function makeCycloneDxBom({ name, version, bomRefValue, components, dependencies, tools, timestamp, completeness }) {
+function makeCycloneDxBom({
+  name,
+  version,
+  bomRefValue,
+  components,
+  dependencies,
+  tools,
+  semanticInputDigest,
+  completeness,
+}) {
   const bom = {
     bomFormat: "CycloneDX",
     specVersion: cyclonedxSpecVersion,
-    serialNumber: `urn:uuid:${crypto.randomUUID()}`,
+    serialNumber: `urn:uuid:${deterministicUUID(semanticInputDigest)}`,
     version: 1,
     metadata: {
-      timestamp,
       tools: {
         components: tools,
       },
@@ -291,6 +384,7 @@ function makeCycloneDxBom({ name, version, bomRefValue, components, dependencies
         properties: [
           componentProperty("cartulary:first_party", true),
           componentProperty("cartulary:license_evidence", "LICENSE"),
+          componentProperty("cartulary:semantic_input_digest", semanticInputDigest),
         ],
       },
     },
@@ -478,47 +572,6 @@ function parseNpmLicenseOutput(text) {
   return byNameVersion;
 }
 
-function collectNodeImportScan() {
-  const roots = [path.join(repoRoot, "apps"), path.join(repoRoot, "packages")];
-  const specifiers = new Map();
-  const importPattern = /(?:^|\s)(?:import\s+(?:[^'"]+\s+from\s+)?|export\s+[^'"]+\s+from\s+|import\()\s*["']([^"']+)["']/gm;
-  function walk(dir) {
-    if (!existsSync(dir)) {
-      return;
-    }
-    for (const name of readdirSync(dir)) {
-      const full = path.join(dir, name);
-      const stat = statSync(full);
-      if (stat.isDirectory()) {
-        if (name === "node_modules" || name === "dist" || name === "coverage") {
-          continue;
-        }
-        walk(full);
-        continue;
-      }
-      if (!/\.(ts|tsx|js|jsx|mjs|cjs)$/.test(name)) {
-        continue;
-      }
-      const text = readFileSync(full, "utf8");
-      for (const match of text.matchAll(importPattern)) {
-        const specifier = match[1];
-        const pkg = npmPackageNameFromSpecifier(specifier);
-        if (!pkg) {
-          continue;
-        }
-        if (!specifiers.has(pkg)) {
-          specifiers.set(pkg, []);
-        }
-        specifiers.get(pkg).push(rel(full));
-      }
-    }
-  }
-  for (const root of roots) {
-    walk(root);
-  }
-  return specifiers;
-}
-
 function parseGoModuleGraph(text) {
   const edges = [];
   for (const line of text.split(/\r?\n/)) {
@@ -544,32 +597,15 @@ function parseGoModuleSet(text) {
   return modules;
 }
 
-function parseMakeToolPins() {
-  const makefile = readFileSync(path.join(repoRoot, "Makefile"), "utf8");
-  const pins = [];
-  for (const [name, regex, classification] of [
-    ["sqlc", /^SQLC_TOOL\s*:=\s*(\S+)/m, "code-generation tool dependency"],
-    ["goose", /^GOOSE_TOOL\s*:=\s*(\S+)/m, "build-time dependency"],
-    ["staticcheck", /^STATICCHECK_TOOL\s*:=\s*(\S+)/m, "development-only dependency"],
-    ["govulncheck", /^GOVULNCHECK_TOOL\s*:=\s*(\S+)/m, "development-only dependency"],
-    ["gosec", /^GOSEC_TOOL\s*:=\s*(\S+)/m, "development-only dependency"],
-    ["cyclonedx-gomod", /^CYCLONEDX_GOMOD_TOOL\s*:=\s*(\S+)/m, "code-generation tool dependency"],
-    ["syft", /^SYFT_TOOL\s*:=\s*(\S+)/m, "code-generation tool dependency"],
-  ]) {
-    const match = makefile.match(regex);
-    if (match) {
-      const spec = match[1];
-      const at = spec.lastIndexOf("@");
-      pins.push({
-        name,
-        module: at > 0 ? spec.slice(0, at) : spec,
-        version: at > 0 ? spec.slice(at + 1) : "",
-        spec,
-        classification,
-      });
-    }
-  }
-  return pins;
+function goTestDependencyListArgs() {
+  return [
+    "list",
+    "-deps",
+    "-test",
+    "-f",
+    "{{if and (not .Standard) .Module}}{{.Module.Path}}@{{.Module.Version}}{{end}}",
+    ...goTestPackagePatterns,
+  ];
 }
 
 function parseContainerImages() {
@@ -602,12 +638,12 @@ function parseContainerImages() {
       });
     }
   }
-  return [...images.values()].sort((a, b) => a.image.localeCompare(b.image));
+  return [...images.values()].sort((a, b) => compareASCII(a.image, b.image));
 }
 
 function makeDependencyBomComponents(records, licenseIndex) {
   return [...records.values()]
-    .sort((a, b) => `${a.ecosystem}:${a.name}:${a.version}`.localeCompare(`${b.ecosystem}:${b.name}:${b.version}`))
+    .sort((a, b) => compareASCII(`${a.ecosystem}:${a.name}:${a.version}`, `${b.ecosystem}:${b.name}:${b.version}`))
     .map((record) => {
       const license = licenseIndex.get(`${record.ecosystem}:${record.name}@${record.version}`);
       const component = {
@@ -651,18 +687,11 @@ function makeDependencyBomComponents(records, licenseIndex) {
 
 function dependencyGraphToCycloneDx(dependencies) {
   return [...dependencies.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => compareASCII(a, b))
     .map(([ref, children]) => ({
       ref,
       dependsOn: [...children].sort(),
     }));
-}
-
-function addProvenance(provenance, key, evidence) {
-  if (!provenance[key]) {
-    provenance[key] = [];
-  }
-  provenance[key].push(evidence);
 }
 
 function artifactRows(files) {
@@ -673,7 +702,7 @@ function artifactRows(files) {
       sha256: sha256File(file),
       bytes: statSync(file).size,
     }))
-    .sort((a, b) => a.path.localeCompare(b.path));
+    .sort((a, b) => compareASCII(a.path, b.path));
 }
 
 function loadFontEvidence(ctx) {
@@ -723,7 +752,7 @@ function loadFontEvidence(ctx) {
       license_expression: family.license,
       raw_license_metadata: family.license,
       evidence_source: licenseFile ? "vendored font license file" : "missing",
-      evidence_path: licenseFile ? rel(licenseEvidencePath) : null,
+      evidence_digest: licenseFile ? sha256Digest(licenseEvidencePath) : null,
       issue_flags: licenseFile ? [] : ["license_text_missing"],
       review_flags: licenseReviewFlags(family.license, family.license),
       font_files: family.files ?? [],
@@ -732,37 +761,19 @@ function loadFontEvidence(ctx) {
   return { manifestFile, manifest, records, licenseEntries };
 }
 
-function writeMarkdownReport(file, lines) {
-  writeFileSync(file, `${lines.join("\n")}\n`);
-}
-
-function commandsMarkdown(ctx, { timestamp, commit, status, nodeVersion, pnpmVersion }) {
-  return [
-    "# Commands Used",
-    "",
-    `- Working directory: ${repoRoot}`,
-    `- Generated at: ${timestamp}`,
-    `- Commit: ${commit || "unavailable"}`,
-    `- Dirty worktree at generation: ${status ? "yes" : "no"}`,
-    `- Node: ${nodeVersion || "unavailable"}`,
-    `- pnpm: ${pnpmVersion || "unavailable"}`,
-    `- CycloneDX primary spec version: ${cyclonedxSpecVersion}`,
-    `- cyclonedx-gomod raw Go app spec version: ${cyclonedxGomodSpecVersion}`,
-    "- Network status: generator does not pull container images implicitly; package-manager commands may use configured caches/registries.",
-    "",
-    "## Commands",
-    "",
-    ...ctx.commands.map(
-      (command) =>
-        `- \`${command.command}\`\n  - cwd: ${command.cwd}\n  - exit: ${command.exit_code}\n  - stdout: ${command.stdout}\n  - stderr: ${command.stderr}`,
-    ),
-  ];
-}
-
 function buildToolsMetadata(ctx) {
   const tools = [
-    { type: "application", name: "cartulary-sbom-license-evidence-generator", version: "1" },
+    { type: "application", name: "cartulary-release-inventory-generator", version: "2" },
   ];
+  if (ctx.toolVersions.node) {
+    tools.push({ type: "application", name: "node", version: ctx.toolVersions.node });
+  }
+  if (ctx.toolVersions.pnpm) {
+    tools.push({ type: "application", name: "pnpm", version: ctx.toolVersions.pnpm });
+  }
+  if (ctx.toolVersions.go) {
+    tools.push({ type: "application", name: "go", version: ctx.toolVersions.go });
+  }
   if (ctx.toolVersions.cdxgen) {
     tools.push({ type: "application", name: "@cyclonedx/cdxgen", version: ctx.toolVersions.cdxgen });
   }
@@ -796,48 +807,20 @@ function collectGoEvidence(ctx) {
     "./cmd/migrate",
     "./cmd/operator",
   ], { env: goReadOnlyEnv() });
-  const test = runCommand(ctx, "go list test deps", go, [
-    "list",
-    "-deps",
-    "-test",
-    "-f",
-    "{{if and (not .Standard) .Module}}{{.Module.Path}}@{{.Module.Version}}{{end}}",
-    "./...",
-  ], { env: goReadOnlyEnv() });
-
-  for (const [name, main] of [
-    ["server", "cmd/server"],
-    ["migrate", "cmd/migrate"],
-    ["operator", "cmd/operator"],
-  ]) {
-    runCommand(
-      ctx,
-      `cyclonedx gomod ${name}`,
-      ctx.config.cyclonedxGomod,
-      [
-        "app",
-        "-json",
-        "-output-version",
-        cyclonedxGomodSpecVersion,
-        "-licenses",
-        "-packages",
-        "-main",
-        main,
-        "-output",
-        path.join(ctx.rawDir, `sbom.go.${name}.raw.cyclonedx.json`),
-        repoRoot,
-      ],
-      { env: goReadOnlyEnv(), required: false },
-    );
-  }
+  const test = runCommand(
+    ctx,
+    "go list test deps",
+    go,
+    goTestDependencyListArgs(),
+    { env: goReadOnlyEnv() },
+  );
 
   const downloads = new Map(parseJSONStream(download.stdout).map((entry) => [`${entry.Path}@${entry.Version}`, entry]));
   const modules = parseJSONStream(goList.stdout);
   const runtimeSet = parseGoModuleSet(runtime.stdout);
   const testSet = parseGoModuleSet(test.stdout);
   const graphEdges = parseGoModuleGraph(goGraph.stdout);
-  const toolPins = parseMakeToolPins();
-  return { modules, downloads, runtimeSet, testSet, graphEdges, toolPins };
+  return { modules, downloads, runtimeSet, testSet, graphEdges };
 }
 
 function collectNodeEvidence(ctx, packageManifests) {
@@ -853,79 +836,19 @@ function collectNodeEvidence(ctx, packageManifests) {
     "--json",
     "--long",
   ]);
-  runCommand(
-    ctx,
-    "cdxgen node raw",
-    pnpm,
-    [
-      "exec",
-      "cdxgen",
-      "-t",
-      "js",
-      "--spec-version",
-      cyclonedxSpecVersion,
-      "--json-pretty",
-      "--no-install-deps",
-      "--validate",
-      "-o",
-      path.join(ctx.rawDir, "sbom.node.raw.cyclonedx.json"),
-      repoRoot,
-    ],
-    { required: false },
-  );
   const directIndex = directNodeDependencyIndex(packageManifests);
   const projects = JSON.parse(list.stdout);
   const licenseIndex = parseNpmLicenseOutput(licenses.stdout);
-  const importScan = collectNodeImportScan();
-  return { directIndex, projects, licenseIndex, importScan };
+  return { directIndex, projects, licenseIndex };
 }
 
 function collectContainerEvidence(ctx) {
   const images = parseContainerImages();
-  const docker = spawnSync("docker", ["--version"], { encoding: "utf8" });
-  const dockerAvailable = docker.status === 0;
-  const scanned = [];
-  const skipped = [];
   if (ctx.config.syft && existsSync(ctx.config.syft)) {
     const version = runOutput(ctx, "syft version", ctx.config.syft, ["version"], { required: false });
     ctx.toolVersions.syft = version.split(/\r?\n/).find((line) => line.includes("Version:"))?.replace(/^.*Version:\s*/, "") ?? version;
   }
-  for (const entry of images) {
-    if (!dockerAvailable || !ctx.config.syft || !existsSync(ctx.config.syft)) {
-      skipped.push({
-        image: entry.image,
-        reason: dockerAvailable ? "syft binary unavailable" : "docker unavailable",
-      });
-      continue;
-    }
-    const inspect = spawnSync("docker", ["image", "inspect", entry.image], {
-      cwd: repoRoot,
-      encoding: "utf8",
-      maxBuffer: 32 * 1024 * 1024,
-    });
-    if (inspect.status !== 0) {
-      skipped.push({
-        image: entry.image,
-        reason: "image not present locally; generator does not pull images implicitly",
-      });
-      continue;
-    }
-    const safe = normalizePackageName(entry.image);
-    const output = path.join(ctx.outputDir, `sbom.container.${safe}.cyclonedx.json`);
-    const result = runCommand(
-      ctx,
-      `syft ${entry.image}`,
-      ctx.config.syft,
-      [entry.image, "-o", `cyclonedx-json=${output}`],
-      { required: false },
-    );
-    if (result.exit_code === 0 && existsSync(output)) {
-      scanned.push({ image: entry.image, output });
-    } else {
-      skipped.push({ image: entry.image, reason: "syft scan failed" });
-    }
-  }
-  return { images, scanned, skipped };
+  return { images };
 }
 
 function main() {
@@ -934,10 +857,15 @@ function main() {
   const canonicalLicenseReport = path.resolve(
     process.env.LICENSE_REPORT_ARTIFACT ?? path.join(releaseDir, "license-report.json"),
   );
-  const outputDir = path.join(releaseDir, "sbom", process.env.CARTULARY_SBOM_RUN_ID || nowRunID());
+  if (
+    canonicalSbom !== path.join(releaseDir, "sbom.cyclonedx.json") ||
+    canonicalLicenseReport !== path.join(releaseDir, "license-report.json")
+  ) {
+    throw new Error("release inventory artifacts must use the canonical paired paths beneath RELEASE_ARTIFACT_DIR");
+  }
+  const outputDir = mkdtempSync(path.join(os.tmpdir(), "cartulary-release-inventory-"));
   const rawDir = path.join(outputDir, "raw");
   const licensesDir = path.join(outputDir, "licenses");
-  rmSync(outputDir, { recursive: true, force: true });
   ensureDir(rawDir);
   ensureDir(licensesDir);
 
@@ -956,15 +884,11 @@ function main() {
     },
   };
 
-  const timestamp = new Date().toISOString();
+  try {
   const packageManifests = readPackageManifests();
-  const provenance = {};
-  const dependencyRecords = new Map();
+  const containerRecords = new Map();
   const licenseReport = [];
-  const unresolvedIssues = [];
 
-  const commit = runOutput(ctx, "git rev-parse HEAD", "git", ["rev-parse", "HEAD"], { required: false });
-  const status = runOutput(ctx, "git status short", "git", ["status", "--short"], { required: false });
   const nodeVersion = runOutput(ctx, "node version", ctx.config.node, ["--version"], { required: false });
   const pnpmVersion = runOutput(ctx, "pnpm version", ctx.config.pnpm, ["--version"], { required: false });
   ctx.toolVersions.node = nodeVersion;
@@ -982,6 +906,7 @@ function main() {
   const rootLicense = path.join(repoRoot, "LICENSE");
   const firstPartyLicenseOut = path.join(licensesDir, deterministicLicenseFilename("first-party", "cartulary", "0.0.0"));
   copyFileSync(rootLicense, firstPartyLicenseOut);
+  const firstPartyLicenseDigest = sha256Digest(firstPartyLicenseOut);
 
   const goRecords = new Map();
   const goDependencies = new Map();
@@ -1017,17 +942,13 @@ function main() {
         "go.sum",
         "go list -m -json all",
         goEvidence.runtimeSet.has(key) ? "go list -deps ./cmd/server ./cmd/migrate ./cmd/operator" : null,
-        goEvidence.testSet.has(key) ? "go list -deps -test ./..." : null,
+        goEvidence.testSet.has(key)
+          ? `go list -deps -test ${goTestPackagePatterns.join(" ")}`
+          : null,
         "go mod graph",
       ].filter(Boolean),
     };
     goRecords.set(ref, record);
-    dependencyRecords.set(ref, record);
-    addProvenance(provenance, ref, {
-      dependency: key,
-      evidence: record.evidence,
-      source_path: sourceDir ? rel(sourceDir) : null,
-    });
     const evidence = copyLicenseEvidence(ctx, record, sourceDir, null);
     const issues = [...evidence.issues];
     const licenseEntry = {
@@ -1040,14 +961,11 @@ function main() {
       license_expression: null,
       raw_license_metadata: null,
       evidence_source: evidence.evidenceSource,
-      evidence_path: evidence.evidencePath,
+      evidence_digest: evidence.evidenceDigest,
       issue_flags: issues,
       review_flags: [],
     };
     licenseReport.push(licenseEntry);
-    if (issues.length > 0) {
-      unresolvedIssues.push(`${module.Path}@${module.Version}: ${issues.join(", ")}`);
-    }
   }
 
   for (const [from, to] of goEvidence.graphEdges) {
@@ -1061,41 +979,11 @@ function main() {
     }
   }
 
-  for (const pin of goEvidence.toolPins) {
-    const ref = bomRef("go-tool", pin.module, pin.version);
-    const record = {
-      ref,
-      ecosystem: "go",
-      name: pin.module,
-      version: pin.version,
-      classification: pin.classification,
-      direct: true,
-      transitive: false,
-      optional: false,
-      path: null,
-      evidence: ["Makefile pinned tool variable"],
-    };
-    dependencyRecords.set(ref, record);
-    addProvenance(provenance, ref, {
-      dependency: pin.spec,
-      evidence: record.evidence,
-      source_path: "Makefile",
-    });
-  }
-
   const { components: nodeRecords, dependencies: nodeDependencies } = flattenPnpmProjects(
     nodeEvidence.projects,
     nodeEvidence.directIndex,
   );
-  const importScan = nodeEvidence.importScan;
   for (const record of nodeRecords.values()) {
-    dependencyRecords.set(record.ref, record);
-    addProvenance(provenance, record.ref, {
-      dependency: `${record.name}@${record.version}`,
-      evidence: record.evidence,
-      source_path: record.path ? rel(record.path) : null,
-      import_scan_paths: importScan.get(record.name) ?? [],
-    });
     const licenseMetadata = nodeEvidence.licenseIndex.get(`${record.name}@${record.version}`);
     const packageJSON = record.path ? path.join(record.path, "package.json") : null;
     let rawLicenseMetadata = licenseMetadata?.raw ?? null;
@@ -1109,7 +997,7 @@ function main() {
       licenseExpression = licenseExpression ?? "Apache-2.0";
       evidence = {
         evidenceSource: "repository root LICENSE",
-        evidencePath: rel(firstPartyLicenseOut),
+        evidenceDigest: firstPartyLicenseDigest,
         issues: [],
       };
     } else {
@@ -1130,14 +1018,11 @@ function main() {
       license_expression: licenseExpression,
       raw_license_metadata: rawLicenseMetadata,
       evidence_source: evidence.evidenceSource,
-      evidence_path: evidence.evidencePath,
+      evidence_digest: evidence.evidenceDigest,
       issue_flags: [...new Set(issues)].sort(),
       review_flags: reviewFlags,
     };
     licenseReport.push(licenseEntry);
-    if (licenseEntry.issue_flags.length > 0) {
-      unresolvedIssues.push(`${record.name}@${record.version}: ${licenseEntry.issue_flags.join(", ")}`);
-    }
   }
 
   for (const image of containerEvidence.images) {
@@ -1154,18 +1039,8 @@ function main() {
       path: null,
       evidence: [image.source, "container image reference scan"],
     };
-    dependencyRecords.set(ref, record);
-    addProvenance(provenance, ref, {
-      dependency: image.image,
-      evidence: record.evidence,
-      source_path: image.source,
-      scan_status: containerEvidence.scanned.find((scan) => scan.image === image.image)
-        ? "scanned"
-        : "not_scanned",
-    });
-    const issueFlags = containerEvidence.scanned.find((scan) => scan.image === image.image)
-      ? ["container_license_review_required"]
-      : ["container_image_sbom_incomplete", "license_text_missing", "license_metadata_missing"];
+    containerRecords.set(ref, record);
+    const issueFlags = ["container_image_sbom_incomplete", "license_text_missing", "license_metadata_missing"];
     licenseReport.push({
       package: image.image,
       version: record.version,
@@ -1176,35 +1051,29 @@ function main() {
       license_expression: null,
       raw_license_metadata: null,
       evidence_source: "container image reference",
-      evidence_path: null,
+      evidence_digest: null,
       issue_flags: issueFlags,
       review_flags: ["legal_review"],
     });
-    unresolvedIssues.push(`${image.image}: ${issueFlags.join(", ")}`);
   }
 
-  for (const record of fontEvidence.records.values()) {
-    dependencyRecords.set(record.ref, record);
-    addProvenance(provenance, record.ref, {
-      dependency: `${record.name}@${record.version}`,
-      evidence: record.evidence,
-      source_path: record.path ? rel(record.path) : null,
-      font_manifest: fontEvidence.manifestFile ? rel(fontEvidence.manifestFile) : null,
-    });
-  }
   for (const entry of fontEvidence.licenseEntries) {
     licenseReport.push(entry);
-    if (entry.issue_flags.length > 0) {
-      unresolvedIssues.push(`${entry.package}@${entry.version}: ${entry.issue_flags.join(", ")}`);
-    }
   }
 
-  const declaredNodeNames = new Set(nodeEvidence.directIndex.keys());
-  const usedUndeclared = [...importScan.keys()].filter(
-    (name) => !declaredNodeNames.has(name) && !name.startsWith(firstPartyNpmScope),
+  for (const entry of licenseReport) {
+    entry.issue_flags = [...new Set(entry.issue_flags)].sort(compareASCII);
+    entry.review_flags = [...new Set(entry.review_flags)].sort(compareASCII);
+    if (entry.font_files) {
+      entry.font_files = [...entry.font_files].sort((left, right) => compareASCII(left.path, right.path));
+    }
+  }
+  licenseReport.sort((a, b) =>
+    compareASCII(
+      `${a.ecosystem}:${a.package}:${a.version}`,
+      `${b.ecosystem}:${b.package}:${b.version}`,
+    ),
   );
-  const declaredUnused = [...declaredNodeNames].filter((name) => !importScan.has(name) && !name.startsWith(firstPartyNpmScope));
-
   const licenseIndexForBom = new Map(
     licenseReport.map((entry) => [`${entry.ecosystem}:${entry.package}@${entry.version}`, entry]),
   );
@@ -1212,29 +1081,9 @@ function main() {
   const cartularyRef = "cartulary:application";
 
   const goComponents = makeDependencyBomComponents(goRecords, licenseIndexForBom);
-  const goBom = makeCycloneDxBom({
-    name: "Cartulary Go backend",
-    version: "0.0.0",
-    bomRefValue: "cartulary:go-backend",
-    components: goComponents,
-    dependencies: dependencyGraphToCycloneDx(goDependencies),
-    tools,
-    timestamp,
-    completeness: "complete",
-  });
-
+  const goCycloneDependencies = dependencyGraphToCycloneDx(goDependencies);
   const nodeComponents = makeDependencyBomComponents(nodeRecords, licenseIndexForBom);
-  const nodeBom = makeCycloneDxBom({
-    name: "Cartulary pnpm workspace",
-    version: "0.0.0",
-    bomRefValue: "cartulary:node-workspace",
-    components: nodeComponents,
-    dependencies: dependencyGraphToCycloneDx(nodeDependencies),
-    tools,
-    timestamp,
-    completeness: "complete",
-  });
-
+  const nodeCycloneDependencies = dependencyGraphToCycloneDx(nodeDependencies);
   const shippedRecords = new Map();
   for (const record of [...goRecords.values(), ...nodeRecords.values()]) {
     if (record.classification === "runtime dependency" || record.classification === "first-party") {
@@ -1244,229 +1093,85 @@ function main() {
   for (const record of fontEvidence.records.values()) {
     shippedRecords.set(record.ref, record);
   }
+  for (const record of containerRecords.values()) {
+    shippedRecords.set(record.ref, record);
+  }
   const combinedDependencies = new Map([[cartularyRef, new Set(shippedRecords.keys())]]);
+  const combinedComponents = makeDependencyBomComponents(shippedRecords, licenseIndexForBom);
+  const combinedCycloneDependencies = dependencyGraphToCycloneDx(combinedDependencies);
+  const semanticInputDigest = semanticJSONDigest({
+    schema_id: "cartulary.release_inventory_semantic_inputs.v1",
+    tools,
+    go_components: goComponents,
+    go_dependencies: goCycloneDependencies,
+    node_components: nodeComponents,
+    node_dependencies: nodeCycloneDependencies,
+    combined_components: combinedComponents,
+    combined_dependencies: combinedCycloneDependencies,
+    license_entries: licenseReport,
+  });
+  const goBom = makeCycloneDxBom({
+    name: "Cartulary Go backend",
+    version: "0.0.0",
+    bomRefValue: "cartulary:go-backend",
+    components: goComponents,
+    dependencies: goCycloneDependencies,
+    tools,
+    semanticInputDigest,
+    completeness: "complete",
+  });
+  const nodeBom = makeCycloneDxBom({
+    name: "Cartulary pnpm workspace",
+    version: "0.0.0",
+    bomRefValue: "cartulary:node-workspace",
+    components: nodeComponents,
+    dependencies: nodeCycloneDependencies,
+    tools,
+    semanticInputDigest,
+    completeness: "complete",
+  });
   const combinedBom = makeCycloneDxBom({
     name: "Cartulary shipped application artifact set",
     version: "0.0.0",
     bomRefValue: cartularyRef,
-    components: makeDependencyBomComponents(shippedRecords, licenseIndexForBom),
-    dependencies: dependencyGraphToCycloneDx(combinedDependencies),
+    components: combinedComponents,
+    dependencies: combinedCycloneDependencies,
     tools,
-    timestamp,
-    completeness: containerEvidence.skipped.length > 0 ? "incomplete" : "complete",
+    semanticInputDigest,
+    completeness: containerRecords.size > 0 ? "incomplete" : "complete",
   });
 
   const sbomGo = path.join(outputDir, "sbom.go.cyclonedx.json");
   const sbomNode = path.join(outputDir, "sbom.node.cyclonedx.json");
   const sbomCombined = path.join(outputDir, "sbom.cyclonedx.json");
-  writeJSON(sbomGo, goBom);
-  writeJSON(sbomNode, nodeBom);
-  writeJSON(sbomCombined, combinedBom);
-
   const licenseReportPath = path.join(outputDir, "license-report.json");
-  const provenancePath = path.join(outputDir, "dependency-provenance.json");
-  const commandsPath = path.join(outputDir, "commands-used.md");
-  const commandsJsonPath = path.join(outputDir, "commands-used.json");
-  const readinessPath = path.join(outputDir, "sbom-readiness-report.md");
-  const licenseReportMarkdown = path.join(outputDir, "license-report.md");
-  const toolingPlanPath = path.join(outputDir, "tooling-plan.md");
-  const artifactDigestsPath = path.join(outputDir, "artifact-digests.json");
-
-  licenseReport.sort((a, b) =>
-    `${a.ecosystem}:${a.package}:${a.version}`.localeCompare(`${b.ecosystem}:${b.package}:${b.version}`),
-  );
-  writeJSON(licenseReportPath, {
-    schema_id: "cartulary.license_report.v1",
-    generated_at: timestamp,
-    repository: repoRoot,
-    commit,
+  const licenseReportDocument = {
+    schema_id: "cartulary.license_report.v2",
+    semantic_input_digest: semanticInputDigest,
     entries: licenseReport,
-  });
-  writeJSON(provenancePath, {
-    schema_id: "cartulary.dependency_provenance.v1",
-    generated_at: timestamp,
-    repository: repoRoot,
-    commit,
-    provenance,
-    import_scan: {
-      node_used_external_packages: Object.fromEntries([...importScan.entries()].sort()),
-      node_used_undeclared_packages: usedUndeclared.sort(),
-      node_declared_not_observed_in_import_scan: declaredUnused.sort(),
-      method: "regex import/export scan of apps/ and packages/ TypeScript/JavaScript sources; source imports corroborate use but do not establish transitive versions",
-    },
-    container_images: containerEvidence,
-  });
+  };
+  validateSchemaSync(licenseReportDocument.schema_id, licenseReportDocument);
+  writeCanonicalJSON(sbomGo, goBom);
+  writeCanonicalJSON(sbomNode, nodeBom);
+  writeCanonicalJSON(sbomCombined, combinedBom);
+  writeCanonicalJSON(licenseReportPath, licenseReportDocument);
 
-  const artifactFiles = [
-    sbomCombined,
-    sbomGo,
-    sbomNode,
-    licenseReportPath,
-    provenancePath,
-    commandsPath,
-    commandsJsonPath,
-    readinessPath,
-    licenseReportMarkdown,
-    toolingPlanPath,
-    ...containerEvidence.scanned.map((entry) => entry.output),
-  ];
-
-  const licenseSummary = new Map();
-  for (const entry of licenseReport) {
-    const key = entry.license_expression ?? "NOASSERTION";
-    licenseSummary.set(key, (licenseSummary.get(key) ?? 0) + 1);
-  }
-  const textEvidenceCount = licenseReport.filter((entry) => entry.evidence_path).length;
-  const referenceOnlyCount = licenseReport.filter((entry) => !entry.evidence_path && entry.raw_license_metadata).length;
-  const missingEvidence = licenseReport.filter((entry) => entry.issue_flags.length > 0);
-
-  writeMarkdownReport(licenseReportMarkdown, [
-    "# Cartulary License Evidence Report",
-    "",
-    "This is an engineering evidence report, not a legal compliance certification.",
-    "",
-    "## Summary By License Expression",
-    "",
-    ...[...licenseSummary.entries()].sort().map(([license, count]) => `- ${license}: ${count}`),
-    "",
-    "## Evidence Coverage",
-    "",
-    `- Entries with collected package-distributed license text: ${textEvidenceCount}`,
-    `- Entries with metadata/reference-only evidence: ${referenceOnlyCount}`,
-    `- Entries with unresolved issue flags: ${missingEvidence.length}`,
-    "",
-    "## Unresolved License Issues",
-    "",
-    ...(missingEvidence.length > 0
-      ? missingEvidence.map((entry) => `- ${entry.ecosystem}:${entry.package}@${entry.version}: ${entry.issue_flags.join(", ")}`)
-      : ["- None observed by this generator."]),
-  ]);
-
-  writeMarkdownReport(toolingPlanPath, [
-    "# SBOM Tooling Plan And Patch Summary",
-    "",
-    "- `make sbom` and `make license-report` generate `.cartulary/release-artifacts/sbom/<run-id>/` through `tools/release-evidence/generate-sbom-license-evidence.mjs`, then validate canonical artifacts.",
-    "- Pinned Node tooling: `@cyclonedx/cdxgen@12.3.1` and `ajv@8.20.0` in the pnpm workspace.",
-    "- Pinned Go tooling: `cyclonedx-gomod@v1.10.0` and `syft@v1.44.0` installed into `tmp/toolbin` by Make prerequisites.",
-    "- Generated release artifacts remain ignored under `.cartulary/release-artifacts/`.",
-    "- `release-check` continues to fail when the configured SBOM or license report is missing or empty.",
-  ]);
-
-  ensureDir(path.dirname(canonicalSbom));
-  ensureDir(path.dirname(canonicalLicenseReport));
-  copyFileSync(sbomCombined, canonicalSbom);
-  copyFileSync(licenseReportPath, canonicalLicenseReport);
-
-  const validator = path.join(repoRoot, "tools", "release-evidence", "validate-cyclonedx.mjs");
+  const validator = path.join(repoRoot, "tools", "release-evidence", "validate-release-sbom.mjs");
   runCommand(ctx, "validate combined sbom", ctx.config.node, [validator, sbomCombined]);
   runCommand(ctx, "validate go sbom", ctx.config.node, [validator, sbomGo]);
   runCommand(ctx, "validate node sbom", ctx.config.node, [validator, sbomNode]);
-  for (const entry of containerEvidence.scanned) {
-    runCommand(ctx, `validate container sbom ${entry.image}`, ctx.config.node, [validator, entry.output]);
-  }
+  publishCanonicalPair([
+    { destination: canonicalLicenseReport, value: licenseReportDocument },
+    { destination: canonicalSbom, value: combinedBom },
+  ]);
   runCommand(ctx, "validate canonical sbom", ctx.config.node, [validator, canonicalSbom]);
 
-  writeJSON(commandsJsonPath, {
-    schema_id: "cartulary.sbom_commands.v1",
-    generated_at: timestamp,
-    commands: ctx.commands,
-  });
-  writeMarkdownReport(commandsPath, commandsMarkdown(ctx, { timestamp, commit, status, nodeVersion, pnpmVersion }));
-
-  const artifactDigestRows = artifactRows([
-    ...artifactFiles.filter((file) => file !== readinessPath),
-    canonicalSbom,
-    canonicalLicenseReport,
-  ]);
-  const licenseEvidenceCount = existsSync(licensesDir)
-    ? readdirSync(licensesDir).filter((name) => statSync(path.join(licensesDir, name)).isFile()).length
-    : 0;
-  const readinessLines = [
-    "# Cartulary SBOM Readiness Report",
-    "",
-    "This package is an engineering evidence package for CRA-readiness work. It is not a legal compliance certification.",
-    "",
-    "## Scope",
-    "",
-    `- Repository path: ${repoRoot}`,
-    `- Commit/hash: ${commit || "unavailable"}`,
-    `- Generation time: ${timestamp}`,
-    "- Ecosystems inspected: Go modules, pnpm/Node workspace, local container image references, generated-code surfaces, scripts/tools.",
-    "- Artifact set covered: shipped Go server/migrate dependency graph, pnpm workspace dependency graph, local-service container references, and tool/generator dependency evidence.",
-    "- Network access used: package-manager and Go commands used configured caches/registries; container images were not pulled implicitly.",
-    "",
-    "## Generated Artifacts",
-    "",
-    ...artifactDigestRows.map((artifact) => `- ${artifact.path} (${artifact.bytes} bytes, sha256=${artifact.sha256})`),
-    `- ${rel(licensesDir)}/ (${licenseEvidenceCount} collected license evidence files)`,
-    "",
-    "## Coverage",
-    "",
-    `- Direct dependencies covered: ${licenseReport.filter((entry) => entry.direct).length}`,
-    `- Transitive dependencies covered: ${licenseReport.filter((entry) => entry.transitive).length}`,
-    "- Runtime/build/test/dev/generated-code/container classifications are recorded when manifest, package-manager, or import evidence supports them.",
-    "- Explicit exclusions: container OS package details are incomplete unless the referenced image already exists locally and Syft successfully scans it.",
-    "",
-    "## License Evidence",
-    "",
-    ...[...licenseSummary.entries()].sort().map(([license, count]) => `- ${license}: ${count}`),
-    `- Dependencies with collected full license text: ${textEvidenceCount}`,
-    `- Dependencies with only license references/metadata: ${referenceOnlyCount}`,
-    `- Dependencies with missing, ambiguous, custom, or conflicting evidence flags: ${missingEvidence.length}`,
-    "",
-    "## Dependency Provenance",
-    "",
-    "- Go provenance comes from `go.mod`, `go.sum`, `go list -m -json all`, `go mod graph`, and `go list -deps` scans.",
-    "- Node provenance comes from workspace `package.json` files, `pnpm-lock.yaml`, `pnpm list`, `pnpm licenses`, and import scans.",
-    "- Workspace packages are first-party components and use the repository root `LICENSE` as first-party license evidence.",
-    "- No `vendor/` directory or checked-in third-party license directory was observed by this generator.",
-    "",
-    "## Toolchain Integration",
-    "",
-    "- Existing release commands found: `make release-check`, `make license-report`, and `make sbom`.",
-    "- Added/proposed commands: existing `make sbom` and `make license-report` now generate evidence artifacts through the repo-local generator before checking non-empty outputs.",
-    "- Regenerate with: `make sbom` or `make license-report`.",
-    "- Release verification checks canonical non-empty SBOM/license artifacts through `tools/release-evidence/check-release-artifact.sh`.",
-    "",
-    "## Unresolved Issues",
-    "",
-    ...(unresolvedIssues.length > 0 ? unresolvedIssues.slice(0, 200).map((issue) => `- ${issue}`) : ["- None observed."]),
-    unresolvedIssues.length > 200 ? `- Additional unresolved entries omitted from Markdown summary: ${unresolvedIssues.length - 200}` : "",
-    usedUndeclared.length > 0 ? `- Node imports observed without direct manifest declarations: ${usedUndeclared.join(", ")}` : "- Node import scan found no strong used-but-undeclared direct dependency evidence.",
-    declaredUnused.length > 0
-      ? `- Declared Node dependencies not observed by import scan: ${declaredUnused.join(", ")}. This is informational because config files, type-only use, transitive plugins, and test/runtime entrypoints can hide usage from a simple import scan.`
-      : "- Node import scan found no declared dependency gaps.",
-    containerEvidence.skipped.length > 0
-      ? `- Container/image scan gaps: ${containerEvidence.skipped.map((entry) => `${entry.image} (${entry.reason})`).join("; ")}`
-      : "- Container/image scan gaps: none observed.",
-    "",
-    "## Assumptions And Limitations",
-    "",
-    "- License expressions are not inferred from package names, popularity, or license-file conventions.",
-    "- Go module license expressions are reported as unresolved unless package metadata or tool output provides support.",
-    "- pnpm license metadata is registry/package metadata and may require legal review when full license text is missing.",
-    "- Generated code is attributed to repo-local generators and generator/tool pins; generated outputs are not treated as third-party source by themselves.",
-    "- Container image package/license completeness depends on local image availability and Syft scan success.",
-    "",
-    "## Follow-Up Work Before CRA-Ready Treatment",
-    "",
-    "- Review every `license_text_missing`, `license_metadata_missing`, and `license_expression_missing` entry in `license-report.json`.",
-    "- Decide whether release artifacts should remain generated-only or be retained per release.",
-    "- Run container image scans from a controlled environment with pinned image digests and retain the resulting container SBOMs.",
-    "- Add legal-owner review for entries with copyleft, commercial, custom, missing, or ambiguous license flags.",
-    "- Re-run `make sbom` from a fresh clone using the same manifests and lockfiles and compare artifact shape plus unresolved issue counts.",
-  ].filter(Boolean);
-  writeMarkdownReport(readinessPath, readinessLines);
-
-  writeJSON(artifactDigestsPath, {
-    schema_id: "cartulary.sbom_artifact_digests.v1",
-    generated_at: timestamp,
-    artifacts: artifactRows([...artifactFiles, canonicalSbom, canonicalLicenseReport]),
-  });
-
-  console.log(`SBOM/license evidence generated: ${rel(outputDir)}`);
+  console.log(`Release inventory semantic input: ${semanticInputDigest}`);
   console.log(`Canonical SBOM: ${rel(canonicalSbom)}`);
   console.log(`Canonical license report: ${rel(canonicalLicenseReport)}`);
+  } finally {
+    rmSync(outputDir, { recursive: true, force: true });
+  }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -1482,6 +1187,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
 export {
   artifactRows,
   findLicenseFiles,
+  goTestDependencyListArgs,
   licenseReviewFlags,
   makeCycloneDxBom,
   normalizePackageName,

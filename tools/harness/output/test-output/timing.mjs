@@ -7,6 +7,8 @@ import {
   readFileSync,
 } from "node:fs";
 import path from "node:path";
+
+import { loadServiceJournalEvents } from "../../services/journal-reader.mjs";
 import {
   prettyJSONString,
   secureMkdir,
@@ -194,60 +196,33 @@ function loadTargetOwnedTimingSpans(targetDir) {
 }
 
 function loadServiceTimingSpans(target) {
-  const servicesRoot = path.join(
-    resultsRoot,
-    runId,
-    "_shared",
-    "test-services",
-  );
-  if (!existsSync(servicesRoot)) {
-    return [];
-  }
   const spans = [];
-  const stack = [servicesRoot];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-        continue;
-      }
-      if (!entry.isFile() || !entry.name.endsWith(".json")) {
-        continue;
-      }
-      let event;
-      try {
-        event = JSON.parse(readFileSync(next, "utf8"));
-      } catch {
-        continue;
-      }
-      if (event.type !== "timing-span") {
-        continue;
-      }
-      const details = event.details ?? {};
-      if (details.target !== target) {
-        continue;
-      }
-      const bucket = normalizeTimingBucket(details.bucket);
-      spans.push({
-        source: "test_services",
-        bucket,
-        label: details.label ?? event.name ?? "test-services timing",
-        start_time: details.start_time ?? "",
-        end_time: details.end_time ?? event.timestamp ?? "",
-        duration_ms: clampDurationMs(details.duration_ms ?? 0),
-        status: details.status ?? event.status ?? "",
-        janitorial: details.janitorial === true,
-        startup_attempt: details.startup_attempt === true,
-        service: details.service ?? event.service ?? "",
-        attempt: details.attempt ?? 0,
-        max_attempts: details.max_attempts ?? 0,
-        retry_scheduled: details.retry_scheduled === true,
-        retry_blocked_by_context: details.retry_blocked_by_context === true,
-        artifact: relToRepo(path.dirname(path.dirname(next))),
-      });
+  for (const { event, suiteRoot } of loadServiceJournalEvents({ resultsRoot, runId })) {
+    if (event.type !== "timing-span") {
+      continue;
     }
+    const details = event.details ?? {};
+    if (details.target !== target) {
+      continue;
+    }
+    const bucket = normalizeTimingBucket(details.bucket);
+    spans.push({
+      source: "test_services",
+      bucket,
+      label: details.label ?? event.name ?? "test-services timing",
+      start_time: details.start_time ?? "",
+      end_time: details.end_time ?? event.timestamp ?? "",
+      duration_ms: clampDurationMs(details.duration_ms ?? 0),
+      status: details.status ?? event.status ?? "",
+      janitorial: details.janitorial === true,
+      startup_attempt: details.startup_attempt === true,
+      service: details.service ?? event.service ?? "",
+      attempt: details.attempt ?? 0,
+      max_attempts: details.max_attempts ?? 0,
+      retry_scheduled: details.retry_scheduled === true,
+      retry_blocked_by_context: details.retry_blocked_by_context === true,
+      artifact: relToRepo(suiteRoot),
+    });
   }
   return spans;
 }

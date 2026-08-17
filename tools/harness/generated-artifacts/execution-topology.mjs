@@ -130,7 +130,7 @@ function normalizeGoTargets(raw, runtimeBinaries) {
     estimatedWorkMs: entry.estimated_work_ms,
   }));
   for (const entry of rawAggregates) {
-    if (!new Set(["none", "postgres_transaction", "postgres_group", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"]).has(entry.fixtureCapability)) {
+    if (!new Set(["none", "postgres_transaction", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"]).has(entry.fixtureCapability)) {
       throw new Error(`raw Go aggregate ${entry.id} has invalid fixture capability`);
     }
     if (!new Set(["default", "network_flow_claimed", "none"]).has(entry.runtimeProfileID)) {

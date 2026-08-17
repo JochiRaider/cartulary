@@ -80,7 +80,7 @@ func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedWorkUnits(t *testing.T)
 	}
 	assertNoHotPathPostgresDrops(t, scope)
 	assertPostgresFixturePolicy(t, scope, suiteservices.PostgresFixturePolicyTemplateClone)
-	assertPostgresPackageResetsLimitedToHarnessPolicy(t, scope)
+	assertNoPostgresDatabaseResets(t, scope)
 
 	postgresPIDs := uniqueEventPIDs(events, suiteservices.EventPostgresDBCreated)
 	objectStorePIDs := uniqueEventPIDs(events, suiteservices.EventS3BucketCreated)
@@ -116,20 +116,6 @@ func assertNoPostgresDatabaseResets(t testing.TB, scope suiteservices.ServiceSco
 		if activity.Service == suiteservices.ServicePostgres && activity.Operation == "database-reset" {
 			t.Fatalf("unexpected postgres database reset activity: %#v", activity)
 		}
-	}
-}
-
-func assertPostgresPackageResetsLimitedToHarnessPolicy(t testing.TB, scope suiteservices.ServiceScope) {
-	t.Helper()
-
-	for _, activity := range scope.Fixture.ByPackage {
-		if activity.Service != suiteservices.ServicePostgres || activity.Operation != "database-reset" {
-			continue
-		}
-		if activity.FixturePolicy == suiteservices.PostgresFixturePolicyPackageReset && activity.CallerPackage == "internal/testutil/pgtest" {
-			continue
-		}
-		t.Fatalf("unexpected non-harness postgres package reset activity: %#v", activity)
 	}
 }
 
@@ -230,24 +216,9 @@ func requireDocker(t testing.TB) {
 
 func loadEvents(t testing.TB, suiteDir string) []suiteservices.Event {
 	t.Helper()
-
-	eventFiles, err := filepath.Glob(filepath.Join(suiteDir, "events", "*.json"))
+	events, err := suiteservices.ReadJournalEventsDir(suiteDir)
 	if err != nil {
-		t.Fatalf("list suite service events: %v", err)
-	}
-	slices.Sort(eventFiles)
-
-	events := make([]suiteservices.Event, 0, len(eventFiles))
-	for _, eventPath := range eventFiles {
-		raw, err := os.ReadFile(eventPath)
-		if err != nil {
-			t.Fatalf("read suite service event %s: %v", eventPath, err)
-		}
-		var event suiteservices.Event
-		if err := json.Unmarshal(raw, &event); err != nil {
-			t.Fatalf("decode suite service event %s: %v", eventPath, err)
-		}
-		events = append(events, event)
+		t.Fatalf("read suite service journals: %v", err)
 	}
 	return events
 }

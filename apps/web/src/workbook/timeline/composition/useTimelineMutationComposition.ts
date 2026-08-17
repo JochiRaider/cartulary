@@ -1,4 +1,5 @@
 import type { GridCellStateInput } from "@cartulary/grid-adapter";
+import { requireViewContract } from "@cartulary/view-contracts";
 import {
   type Dispatch,
   type SetStateAction,
@@ -9,6 +10,7 @@ import {
 import type { SheetRef } from "../../../shared/sheetRef";
 import type { WorkbookCollaborationCoordinator } from "../../collaboration/WorkbookCollaborationCoordinator";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
+import { buildQueryRequest } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookPendingMutationPort } from "../../ports/WorkbookPendingMutationPort";
@@ -48,6 +50,8 @@ import {
 } from "../models/workbookTimelineModel";
 import { useTimelineRowMutationCoordinator } from "../mutations/useTimelineRowMutationCoordinator";
 import type { TimelineRecordActionPort } from "../ports/TimelineRecordActionPort";
+
+const timelineContract = requireViewContract(timelineViewSchemaId);
 
 type TimelineMutationCompositionInput = {
   readonly collaborationProjection: WorkbookCollaborationCoordinator;
@@ -132,10 +136,18 @@ export function useTimelineMutationComposition({
   pendingMutationPort,
   query,
 }: TimelineMutationCompositionInput) {
+  const createdRowPresentationScopeKey = useMemo(
+    () =>
+      `${incident.continuityResetKey}:${JSON.stringify(
+        buildQueryRequest(timelineContract, query.queryState),
+      )}`,
+    [incident.continuityResetKey, query.queryState],
+  );
   const rowMutations = useTimelineRowMutationCoordinator({
     advanceViewportContinuity: grid.advanceViewportContinuity,
     clearActiveCollectionInputKey: foundation.clearActiveCollectionInputKey,
     clearViewportContinuity: grid.clearViewportContinuity,
+    createdRowPresentationScopeKey,
     editorDraftRegistry: foundation.editorDraftRegistry,
     editorPort: grid.editorPort,
     mutationRuntime,
@@ -197,6 +209,8 @@ export function useTimelineMutationComposition({
     beginRefreshInFlight: rowMutations.commands.beginRefreshInFlight,
     beginTimelineRowsLoad: queryAdmission.beginLoad,
     committedRowsChangedSince: queryAdmission.committedRowsChangedSince,
+    currentCreatedRowPresentationRecordId:
+      queryAdmission.currentCreatedRowPresentationRecordId,
     currentCommittedTimelineRow: queryAdmission.currentCommittedTimelineRow,
     finishRefreshInFlight: rowMutations.commands.finishRefreshInFlight,
     failViewportContinuity: grid.failViewportContinuity,

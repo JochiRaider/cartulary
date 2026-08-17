@@ -18,10 +18,7 @@ import (
 func TestProductionDDLContaminationFailsBeforeMutation_Integration(t *testing.T) {
 	repositoryHead := canonicalRepositoryHead(t)
 	harness := pgtest.Start(t)
-	testDB, err := harness.NewDatabase(context.Background(), "ddl-v2-contaminated")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testDB := harness.NewDatabaseT(t, "ddl-v2-contaminated")
 	db, err := pgtest.OpenPurposeDatabase(testDB.DSN, platformpostgres.PurposeMigration)
 	if err != nil {
 		t.Fatal(err)
@@ -63,10 +60,7 @@ func TestProductionDDLExtensionPrerequisiteMatrix_Integration(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			harness := pgtest.Start(t)
-			testDB, err := harness.NewDatabase(context.Background(), "ddl-v2-extension-invalid")
-			if err != nil {
-				t.Fatal(err)
-			}
+			testDB := harness.NewDatabaseT(t, "ddl-v2-extension-invalid")
 			admin := openAdminDatabase(t, harness.AdminDSN(), testDB.Name)
 			if _, err := admin.ExecContext(context.Background(), test.mutate); err != nil {
 				t.Fatalf("establish invalid extension state: %v", err)
@@ -98,10 +92,7 @@ func TestProductionDDLExtensionPrerequisiteMatrix_Integration(t *testing.T) {
 	t.Run("correct", func(t *testing.T) {
 		repositoryHead := canonicalRepositoryHead(t)
 		harness := pgtest.Start(t)
-		testDB, err := harness.NewDatabase(context.Background(), "ddl-v2-extension-valid")
-		if err != nil {
-			t.Fatal(err)
-		}
+		testDB := harness.NewDatabaseT(t, "ddl-v2-extension-valid")
 		db, err := pgtest.OpenPurposeDatabase(testDB.DSN, platformpostgres.PurposeMigration)
 		if err != nil {
 			t.Fatal(err)

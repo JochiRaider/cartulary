@@ -52,7 +52,6 @@
     "tools/protocol-ts",
     "tools/harness",
     "tools/harness_cache_registry.json",
-    "tools/harness_contract_suite_registry.json",
     "tools/harness_helper_ownership.json",
     "tools/harness_schema_attachments.json",
     "tools/harness_work_graph_owner.json",

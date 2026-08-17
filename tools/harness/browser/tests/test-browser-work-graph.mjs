@@ -668,8 +668,10 @@ const functionalGroups = webserverBacked.units.filter((unit) =>
 const functionalResets = webserverBacked.units.filter((unit) =>
   unit.unit_id.startsWith("browser_reset:webserver-backed:"),
 );
-const functionalLifecycles = webserverBacked.units.filter((unit) =>
-  unit.unit_id.startsWith("browser_lifecycle:webserver-backed-"),
+assert.equal(
+  webserverBacked.units.some((unit) => unit.unit_id.startsWith("browser_lifecycle:")),
+  false,
+  "the first executable browser consumer must own its stack without a synthetic readiness handoff",
 );
 assert.equal(functionalGroups.length, 26);
 assert.equal(
@@ -679,18 +681,17 @@ assert.equal(
   83,
   "functional lane graph must preserve the exact current row closure",
 );
-assert.equal(functionalLifecycles.length, 4, "functional closure must own four warm lanes");
 assert.equal(
-  new Set(functionalGroups.map((unit) => unit.affinity_key)).size,
+	new Set(functionalGroups.map((unit) => unit.affinity_key)).size,
   4,
   "functional groups must use exactly four lane affinities",
 );
 assert.equal(
-  functionalResets.length,
-  functionalGroups.length - functionalLifecycles.length,
-  "each lane must have one reset between adjacent groups",
+	functionalResets.length,
+	functionalGroups.length - 4,
+	"each lane must have one reset between adjacent groups",
 );
-for (const unit of [...functionalLifecycles, ...functionalResets, ...functionalGroups]) {
+for (const unit of [...functionalResets, ...functionalGroups]) {
   assert.equal(unit.resource_claims.postgres, 2, `${unit.unit_id} must claim two PostgreSQL tokens`);
   assert.equal(unit.resource_claims.browser_stack, 1);
   assert.equal(unit.resource_claims.port_lane, 1);
@@ -877,22 +878,22 @@ for (const summary of measurementSummaries) {
     "the aggregate must wait for every row finalizer",
   );
 }
-for (const lifecycle of measurement.units.filter((entry) =>
-  entry.unit_id.startsWith("browser_lifecycle:measurement-measurement-measurement-timeline-grid-"),
+for (const firstConsumer of measurement.units.filter((entry) =>
+	entry.unit_id.startsWith("browser_group:measurement:measurement-measurement-timeline-grid-"),
 )) {
-  assert.ok(
-    lifecycle.needs.includes(snapshotBuilders[0].unit_id),
-    lifecycle.unit_id + " must depend on the shared snapshot builder",
-  );
-  assert.equal(lifecycle.fixture_profile_id, "ac043_large_grid_snapshot_v1");
-  assert.equal(lifecycle.snapshot_key, snapshotBuilders[0].snapshot_key);
-  assert.match(
-    lifecycle.command.environment.CARTULARY_FIXTURE_ROW_ID,
-    /^module\.timeline\.measurement\./u,
-  );
-  assert.match(
-    lifecycle.command.environment.CARTULARY_FIXTURE_PREDICATE_ID,
-    /^perf\./u,
+	assert.ok(
+		firstConsumer.needs.includes(snapshotBuilders[0].unit_id),
+		firstConsumer.unit_id + " must depend on the shared snapshot builder",
+	);
+	assert.equal(firstConsumer.fixture_profile_id, "ac043_large_grid_snapshot_v1");
+	assert.equal(firstConsumer.snapshot_key, snapshotBuilders[0].snapshot_key);
+	assert.match(
+		firstConsumer.command.environment.CARTULARY_FIXTURE_ROW_ID,
+		/^module\.timeline\.measurement\./u,
+	);
+	assert.match(
+		firstConsumer.command.environment.CARTULARY_FIXTURE_PREDICATE_ID,
+		/^perf\./u,
   );
 }
 for (const unit of measurement.units) {
@@ -905,8 +906,7 @@ for (const unit of measurement.units) {
   );
 }
 for (const unit of measurement.units.filter((entry) =>
-  entry.unit_id.startsWith("browser_lifecycle:measurement-") ||
-  entry.unit_id.startsWith("browser_group:measurement:") ||
+	entry.unit_id.startsWith("browser_group:measurement:") ||
   entry.unit_id === "browser_target_summary:browser-e2e-measurement"
 )) {
   assert.ok(

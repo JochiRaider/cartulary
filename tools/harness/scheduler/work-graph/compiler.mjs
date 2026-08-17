@@ -26,6 +26,12 @@ function compareASCII(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+function goRowProcessIsolation(row) {
+  return row.fixture_capability === "managed_process" || row.process_isolation === "exclusive"
+    ? "exclusive"
+    : "shared";
+}
+
 function assertSortedUniqueInput(values, label) {
   if (new Set(values).size !== values.length) {
     throw new Error(`${label} contains duplicate values`);
@@ -109,6 +115,28 @@ function rowCachePolicy(row) {
   );
 }
 
+function boundedGoClaims(claims, requestedParallelism, availablePostgresLanes) {
+  if (!Object.hasOwn(claims, "postgres")) {
+    return { claims, parallelism: requestedParallelism };
+  }
+  const parallelism = Math.max(
+    1,
+    Math.min(
+      requestedParallelism,
+      availablePostgresLanes,
+      claims.postgres,
+    ),
+  );
+  return {
+    claims: Object.fromEntries(
+      Object.entries({ ...claims, cpu: parallelism, postgres: parallelism }).sort(
+        ([left], [right]) => compareASCII(left, right),
+      ),
+    ),
+    parallelism,
+  };
+}
+
 function policyEvidenceOutputs(target) {
   if (target === "go-vulncheck") {
     return [
@@ -141,11 +169,25 @@ function rowUnit(row, target, owner, topology, needs, runtimeEnvironment) {
   };
 }
 
-function goShardUnit(shard, rows, target, owner, topology, needs, runtimeEnvironment) {
+function goShardUnit(
+  shard,
+  rows,
+  target,
+  owner,
+  topology,
+  needs,
+  runtimeEnvironment,
+  availablePostgresLanes,
+) {
   const rowIDs = shard.item_ids;
   const first = rows[0];
-  const claims = resourceClaims(first, topology);
-  claims.cpu = shard.cpu_tokens;
+  const baseClaims = resourceClaims(first, topology);
+  baseClaims.cpu = shard.cpu_tokens;
+  const { claims, parallelism } = boundedGoClaims(
+    baseClaims,
+    shard.cpu_tokens,
+    availablePostgresLanes,
+  );
   return {
     unit_id: shard.shard_id,
     owner_id: "harness.backend",
@@ -156,8 +198,8 @@ function goShardUnit(shard, rows, target, owner, topology, needs, runtimeEnviron
       environment: {
         CARTULARY_TEST_ROWS: rowIDs.join(","),
         CARTULARY_TEST_TARGET: target,
-        CARTULARY_UNIT_CPU_TOKENS: String(shard.cpu_tokens),
-        GOMAXPROCS: String(shard.cpu_tokens),
+        CARTULARY_UNIT_CPU_TOKENS: String(parallelism),
+        GOMAXPROCS: String(parallelism),
         ...fixtureEnvironment(first.fixture_capability, first.service_dependencies),
         ...runtimeEnvironment,
       },
@@ -182,9 +224,26 @@ function goShardUnit(shard, rows, target, owner, topology, needs, runtimeEnviron
   };
 }
 
-function rawGoUnit(entry, owner, topology, needs) {
+function rawGoUnit(
+  entry,
+  owner,
+  topology,
+  needs,
+  availableGoLanes,
+  availablePostgresLanes,
+) {
   assertFixtureServiceDependencies(entry.fixture_capability, entry.service_dependencies, entry.id);
   assertServiceDependencies(topology, entry.runtime_profile_id, entry.service_dependencies, entry.id);
+  const { claims, parallelism } = boundedGoClaims(
+    topologyResourceClaims(
+      topology,
+      entry.resource_profile_id,
+      entry.service_dependencies,
+      entry.id,
+    ),
+    availableGoLanes,
+    availablePostgresLanes,
+  );
   return {
     unit_id: `raw_go:${entry.id}`,
     owner_id: "harness.backend",
@@ -202,16 +261,14 @@ function rawGoUnit(entry, owner, topology, needs) {
       ],
       environment: {
         CARTULARY_TEST_TARGET: entry.target,
+        ...(Object.hasOwn(claims, "postgres")
+          ? { GOMAXPROCS: String(parallelism) }
+          : {}),
         ...fixtureEnvironment(entry.fixture_capability, entry.service_dependencies),
       },
     },
     needs,
-    resource_claims: topologyResourceClaims(
-      topology,
-      entry.resource_profile_id,
-      entry.service_dependencies,
-      entry.id,
-    ),
+    resource_claims: claims,
     fixture_lease: entry.fixture_capability,
     service_dependencies: entry.service_dependencies,
     cache_policy: "none",
@@ -241,6 +298,7 @@ export class WorkGraphCompiler {
     this.rawGoAggregates = this.topology.go_targets.raw_go_aggregates ?? [];
     this.commandTargets = commandTargetMap(this.taskSurface);
     this.availableGoLanes = 4;
+    this.availablePostgresLanes = 4;
     this._catalog = null;
     this._targetRows = null;
     this._rowTargets = null;
@@ -354,10 +412,16 @@ export class WorkGraphCompiler {
             resource_profile_id: row.resource_profile_id,
             fixture_capability: row.fixture_capability,
             fixture_profile_id: row.fixture_profile_id ?? null,
+            process_isolation: goRowProcessIsolation(row),
             service_dependencies: row.service_dependencies,
             runtime_binary_ids: this.familyRuntimeBinaries.get(row.family_id) ?? [],
           },
-          isolated: new Set(["managed_process", "postgres_dedicated", "postgres_migration"]).has(row.fixture_capability),
+          // Dedicated databases, migration databases, and ordinary object-store
+          // namespaces are owned and eagerly finalized by each testing.T. They
+          // may share a compatible Go process without sharing the resource.
+          // managed_process is different: process lifecycle is the resource
+          // under test, so each selected row retains its own child process.
+          isolated: goRowProcessIsolation(row) === "exclusive",
         })),
         { availableGoLanes: this.availableGoLanes },
       );
@@ -371,6 +435,7 @@ export class WorkGraphCompiler {
           this.topology,
           needsForRow(shardRows[0]),
           runtimeEnvironmentForRow(shardRows[0]),
+          this.availablePostgresLanes,
         ));
       }
     }
@@ -510,6 +575,7 @@ export class WorkGraphCompiler {
         cache_policy: policy?.cache_policy ?? "none",
         timeout_ms: this.owner.default_timeout_ms,
         current_run_evidence_outputs: policyEvidenceOutputs(target),
+        reusable_artifact_outputs: policy?.reusable_artifact_outputs ?? [],
         failure_policy: {
           block_descendants: true,
           continue_independent: true,
@@ -532,7 +598,14 @@ export class WorkGraphCompiler {
       .sort(compareASCII);
     return buildWorkGraph([
       ...readiness.units,
-      ...entries.map((entry) => rawGoUnit(entry, this.owner, this.topology, entry.service_dependencies.length === 0 ? [] : terminals)),
+      ...entries.map((entry) => rawGoUnit(
+        entry,
+        this.owner,
+        this.topology,
+        entry.service_dependencies.length === 0 ? [] : terminals,
+        this.availableGoLanes,
+        this.availablePostgresLanes,
+      )),
     ]);
   }
 

@@ -235,11 +235,9 @@ function collectRendererSourceInputs(inputs, seen) {
     "tools/harness/test-catalog",
     "scripts/lib",
   ];
-  const legacySourceNames = new Set(["task-surface-report-cli.mjs"]);
   const isProductionModule = (candidate) =>
     candidate.endsWith(".mjs") &&
-    !candidate.split(path.sep).includes("tests") &&
-    !legacySourceNames.has(path.basename(candidate));
+    !candidate.split(path.sep).includes("tests");
   for (const root of rendererSourceRoots) {
     for (const file of collectFiles(path.join(repoRoot, root), isProductionModule)) {
       addFileInput(inputs, seen, "renderer_source", file);

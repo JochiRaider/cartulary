@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v5",
+  "schema_id": "cartulary.test_family_manifest.v6",
   "owner_id": "web.collaboration",
   "rows": [
     {
@@ -73,6 +73,7 @@
         "titles": [
           "WorkbookCollaborationCoordinator clears protected owners again when recovery confirms incident access loss",
           "WorkbookCollaborationCoordinator confirms access loss without replay and rejects late recovery after disposal",
+          "WorkbookCollaborationCoordinator disposes shell projections without disposing the borrowed mutation runtime",
           "WorkbookCollaborationCoordinator keeps base and saved-view presence exact, keyed, sorted, and self-free",
           "WorkbookCollaborationCoordinator recovers authorization through the injected port and keeps role downgrades read-only",
           "WorkbookCollaborationCoordinator refreshes invalidations and resets before releasing replay",

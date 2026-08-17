@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_services.browser_admission.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "suite_id",
+    "browser_session_id",
+    "readiness_generation",
+    "required_services",
+    "container_proof",
+    "source_digest",
+    "scope_digest"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_services.browser_admission.v1" },
+    "suite_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "browser_session_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "readiness_generation": { "$ref": "#/$defs/digest" },
+    "required_services": {
+      "const": ["object_store", "postgres"]
+    },
+    "container_proof": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["service", "container_id_sha256"],
+        "properties": {
+          "service": { "enum": ["object_store", "postgres"] },
+          "container_id_sha256": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "source_digest": { "$ref": "#/$defs/digest" },
+    "scope_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

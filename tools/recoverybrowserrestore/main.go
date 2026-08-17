@@ -37,10 +37,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
+	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 )
 
 const readySchemaID = "cartulary.restore.browser_restore_target.v1"
 const restoreBrowserRecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+const restoreBrowserCatalogAdmissionLimit = 15 * time.Second
 
 type readyPayload struct {
 	SchemaID            string                            `json:"schema_id"`
@@ -714,26 +717,29 @@ func createFromTemplateDB(ctx context.Context, baseDSN string, databaseName stri
 }
 
 func createDatabase(ctx context.Context, adminDSN string, name string, templateDatabase string) error {
-	admin, err := sql.Open("pgx", adminDSN)
-	if err != nil {
-		return fmt.Errorf("open admin db: %w", err)
-	}
-	defer admin.Close()
-	quoted, err := pgIdentifier(name)
-	if err != nil {
-		return err
-	}
 	quotedTemplate, err := pgIdentifier(templateDatabase)
 	if err != nil {
 		return err
 	}
-	if _, err := admin.ExecContext(ctx, `DROP DATABASE IF EXISTS `+quoted+` WITH (FORCE)`); err != nil {
+	if err := postgrescleanup.ForceDropDatabase(ctx, adminDSN, name); err != nil {
 		return fmt.Errorf("drop existing target db: %w", err)
 	}
-	if _, err := admin.ExecContext(ctx, `CREATE DATABASE `+quoted+` TEMPLATE `+quotedTemplate); err != nil {
-		return fmt.Errorf("create target db: %w", err)
+	quoted, err := pgIdentifier(name)
+	if err != nil {
+		return err
 	}
-	return nil
+	return postgrescatalog.WithMutation(
+		ctx,
+		adminDSN,
+		name,
+		restoreBrowserCatalogAdmissionLimit,
+		func(admin *sql.DB) error {
+			if _, err := admin.ExecContext(ctx, `CREATE DATABASE `+quoted+` TEMPLATE `+quotedTemplate); err != nil {
+				return fmt.Errorf("create target db: %w", err)
+			}
+			return nil
+		},
+	)
 }
 
 func dropDatabase(ctx context.Context, sourceDSN string, name string) error {
@@ -741,17 +747,7 @@ func dropDatabase(ctx context.Context, sourceDSN string, name string) error {
 	if err != nil {
 		return err
 	}
-	admin, err := sql.Open("pgx", adminDSN)
-	if err != nil {
-		return err
-	}
-	defer admin.Close()
-	quoted, err := pgIdentifier(name)
-	if err != nil {
-		return err
-	}
-	_, err = admin.ExecContext(ctx, `DROP DATABASE IF EXISTS `+quoted+` WITH (FORCE)`)
-	return err
+	return postgrescleanup.ForceDropDatabase(ctx, adminDSN, name)
 }
 
 func databaseDSN(rawDSN string, database string) (string, error) {

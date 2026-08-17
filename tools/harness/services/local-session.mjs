@@ -27,6 +27,11 @@ const allowedAttachedTargets = new Set([
   "browser-e2e-webserver-backed",
   "service-backed-test-slice",
 ]);
+const callerServiceInputs = new Set([
+  "CARTULARY_TEST_SERVICES_BIN",
+  "CARTULARY_TEST_SERVICES_MODE",
+  "CARTULARY_TEST_SERVICES_SESSION_FILE",
+]);
 const serviceEnvironmentNames = [
   "CARTULARY_PGTEST_ADMIN_DSN",
   "CARTULARY_PGTEST_DSN_TEMPLATE",
@@ -43,6 +48,14 @@ const identityPattern = /^[A-Za-z0-9_.-]+$/u;
 
 function compareASCII(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+export function assertNoCallerServiceState(environment) {
+  const reserved = Object.keys(environment).filter((name) =>
+    name.startsWith("CARTULARY_TEST_SERVICES_") && !callerServiceInputs.has(name));
+  if (reserved.length > 0) {
+    throw new Error(`${reserved.sort(compareASCII).join(",")} is reserved internal service state`);
+  }
 }
 
 function sha256(bytes) {
@@ -458,9 +471,7 @@ export function localSessionStatus({ root, binary, sessionFile, dependencies = {
 }
 
 export function createLocalSession({ root, binary, sessionFile, environment = process.env, dependencies = {} }) {
-  if (Object.hasOwn(environment, "CARTULARY_TEST_SERVICES_ACTIVE")) {
-    throw new Error("CARTULARY_TEST_SERVICES_ACTIVE is internal and must not be supplied by callers");
-  }
+  assertNoCallerServiceState(environment);
   return withLifecycleLock(sessionFile, () => {
     if (existsSync(sessionFile)) {
       throw new Error("a local service session descriptor already exists; inspect or stop it first");
@@ -627,7 +638,6 @@ export function attachLocalSession({
       .slice(0, 24);
     const environment = {
       ...descriptor.environment,
-      CARTULARY_TEST_SERVICES_ACTIVE: "1",
       CARTULARY_TEST_SERVICES_CALL_MODE: "attach",
       CARTULARY_TEST_SERVICES_LIFECYCLE_MODE: "attach",
       CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER: "1",
@@ -686,7 +696,7 @@ export function stopLocalSession({ root, binary, sessionFile, dependencies = {} 
     const terminateEnvironment = {
       ...descriptor.environment,
       CARTULARY_TEST_SUITE_ID: descriptor.session_id,
-      CARTULARY_TEST_SERVICES_ACTIVE: "1",
+      CARTULARY_TEST_SERVICES_CALL_MODE: "owned",
       CARTULARY_TEST_SERVICES_LIFECYCLE_MODE: "owned",
       CARTULARY_TEST_RESULTS_DIR: descriptor.service_lease.result_root,
       CARTULARY_TEST_RUN_ID: descriptor.service_lease.run_id,
@@ -715,14 +725,7 @@ export function stopLocalSession({ root, binary, sessionFile, dependencies = {} 
 }
 
 export function resolveServiceSessionMode({ target, environment = process.env }) {
-  if (Object.hasOwn(environment, "CARTULARY_TEST_SERVICES_ACTIVE")) {
-    throw new Error("CARTULARY_TEST_SERVICES_ACTIVE is internal and must not be supplied by callers");
-  }
-  if (Object.hasOwn(environment, "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER")) {
-    throw new Error(
-      "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER is internal and must not be supplied by callers",
-    );
-  }
+  assertNoCallerServiceState(environment);
   const mode = String(environment.CARTULARY_TEST_SERVICES_MODE ?? "owned").trim() || "owned";
   if (!new Set(["owned", "attach"]).has(mode)) {
     throw new Error("CARTULARY_TEST_SERVICES_MODE must be owned or attach");

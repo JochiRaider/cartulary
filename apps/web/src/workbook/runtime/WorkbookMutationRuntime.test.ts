@@ -7,6 +7,7 @@ import {
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
+import { WorkbookMutationRuntimeRegistry } from "./WorkbookMutationRuntimeRegistry";
 
 const incidentId = "10000000-0000-4000-8000-000000000001";
 const recordId = "20000000-0000-4000-8000-000000000001";
@@ -310,6 +311,79 @@ describe("WorkbookMutationRuntime", () => {
           value: "Local draft",
         },
       ],
+    });
+  });
+});
+
+function registryRuntime(
+  scopedIncidentId: string,
+  clientInstanceId = "client-1",
+) {
+  return {
+    invalidate: vi.fn(),
+    scope: { clientInstanceId, incidentId: scopedIncidentId },
+  } as unknown as WorkbookMutationRuntime;
+}
+
+describe("WorkbookMutationRuntimeRegistry", () => {
+  it("preserves one scoped runtime across authenticated shell remounts", () => {
+    const registry = new WorkbookMutationRuntimeRegistry();
+    const retained = registryRuntime("incident-1");
+    const create = vi.fn(() => retained);
+
+    expect(
+      registry.acquire(
+        { clientInstanceId: "client-1", incidentId: "incident-1" },
+        create,
+      ),
+    ).toBe(retained);
+    expect(
+      registry.acquire(
+        { clientInstanceId: "client-1", incidentId: "incident-1" },
+        create,
+      ),
+    ).toBe(retained);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(retained.invalidate).not.toHaveBeenCalled();
+  });
+
+  it("retires the previous scope on incident change and app disposal", () => {
+    const registry = new WorkbookMutationRuntimeRegistry();
+    const first = registryRuntime("incident-1");
+    const second = registryRuntime("incident-2");
+    registry.acquire(first.scope, () => first);
+
+    expect(registry.acquire(second.scope, () => second)).toBe(second);
+    expect(first.invalidate).toHaveBeenNthCalledWith(1, {
+      kind: "incident_changed",
+      nextIncidentId: "incident-2",
+    });
+    expect(first.invalidate).toHaveBeenNthCalledWith(2, {
+      kind: "runtime_disposed",
+    });
+
+    registry.dispose();
+    registry.dispose();
+    expect(second.invalidate).toHaveBeenCalledTimes(1);
+    expect(second.invalidate).toHaveBeenCalledWith({
+      kind: "runtime_disposed",
+    });
+    expect(() => registry.acquire(second.scope, () => second)).toThrow(
+      "workbook mutation runtime registry is disposed",
+    );
+  });
+
+  it("rejects a factory result from another pending-queue scope", () => {
+    const registry = new WorkbookMutationRuntimeRegistry();
+    const wrong = registryRuntime("incident-2");
+    expect(() =>
+      registry.acquire(
+        { clientInstanceId: "client-1", incidentId: "incident-1" },
+        () => wrong,
+      ),
+    ).toThrow("workbook mutation runtime factory returned wrong scope");
+    expect(wrong.invalidate).toHaveBeenCalledWith({
+      kind: "runtime_disposed",
     });
   });
 });

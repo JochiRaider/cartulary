@@ -207,7 +207,7 @@ test("session mode is explicit, closed, and limited to approved leaf targets", (
   );
   assert.throws(
     () => resolveServiceSessionMode({ target: "test-fast", environment: { CARTULARY_TEST_SERVICES_ACTIVE: "1" } }),
-    /internal/u,
+    /reserved internal service state/u,
   );
   assert.throws(
     () =>
@@ -215,7 +215,7 @@ test("session mode is explicit, closed, and limited to approved leaf targets", (
         target: "test-fast",
         environment: { CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER: "1" },
       }),
-    /internal/u,
+    /reserved internal service state/u,
   );
   assert.throws(
     () => resolveServiceSessionMode({ target: "test-fast", environment: { CARTULARY_TEST_SERVICES_SESSION_FILE: sessionFile } }),

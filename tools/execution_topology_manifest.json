@@ -45,7 +45,7 @@
         "io": 1,
         "memory_mb": 512,
         "port_lane": 1,
-        "postgres": 2,
+        "postgres": 4,
         "process": 1
       }
     },
@@ -57,7 +57,7 @@
         "io": 1,
         "memory_mb": 512,
         "port_lane": 1,
-        "postgres": 4,
+        "postgres": 2,
         "process": 1
       }
     },
@@ -102,6 +102,16 @@
         "process": 1
       },
       "runner_timeout_ms": 3600000
+    },
+    {
+      "id": "postgres_catalog_isolated",
+      "resource_claims": {
+        "cpu": 4,
+        "io": 1,
+        "memory_mb": 256,
+        "postgres": 4,
+        "process": 1
+      }
     },
     {
       "id": "standard",

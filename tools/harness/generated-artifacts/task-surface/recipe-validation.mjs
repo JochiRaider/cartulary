@@ -150,12 +150,21 @@ export function validateMakeRecipes(errors, targets, sequences, recipes) {
     ) {
       errors.push(`${label}.success_summary must be a boolean`);
     }
+    if (
+      recipe.graph_child_skips_prerequisites !== undefined &&
+      typeof recipe.graph_child_skips_prerequisites !== "boolean"
+    ) {
+      errors.push(`${label}.graph_child_skips_prerequisites must be a boolean`);
+    }
+    if (
+      recipe.graph_child_skips_prerequisites === true &&
+      (!Array.isArray(recipe.prerequisites) || recipe.prerequisites.length === 0)
+    ) {
+      errors.push(`${label}.graph_child_skips_prerequisites requires prerequisites`);
+    }
     if (recipe.graph_entry !== undefined) {
       if (recipe.graph_entry !== true) {
         errors.push(`${label}.graph_entry must be true when present`);
-      }
-      if (targets.get(target)?.target_class !== "public") {
-        errors.push(`${label}.graph_entry is limited to public targets`);
       }
       if (recipe.type === "work_graph") {
         errors.push(`${label}.graph_entry is redundant for work_graph recipes`);

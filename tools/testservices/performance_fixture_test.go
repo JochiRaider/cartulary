@@ -51,7 +51,7 @@ func TestPerformanceFixtureBuildArgumentsRequireCanonicalClosedIdentity(t *testi
 func TestPerformanceFixtureCleanupIsActiveCompleteAndIdempotentlyOwned(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	env := cloneEnv(deps.env)
-	env[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(env)
 	env[suiteservices.SuiteIDEnv] = "suite-performance-cleanup"
 	env[suiteservices.TargetEnv] = "browser-e2e-measurement"
 	env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] = "1"
@@ -126,7 +126,7 @@ func TestPerformanceFixtureCleanupIsActiveCompleteAndIdempotentlyOwned(t *testin
 func TestPerformanceFixtureCleanupRetainsFailureAndContinuesIndependentCleanup(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	env := cloneEnv(deps.env)
-	env[suiteservices.ActiveEnv] = "1"
+	authorizeSuiteEnv(env)
 	env[suiteservices.SuiteIDEnv] = "suite-performance-cleanup-failure"
 	env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] = "1"
 	profile := performanceFixtureTestProfile(t)

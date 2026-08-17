@@ -265,8 +265,8 @@ func lifecycleMode(env map[string]string) string {
 	if mode == "owned" || mode == "attach" {
 		return mode
 	}
-	if SuiteActive(env) {
-		return "attach"
+	if callMode := strings.TrimSpace(LookupEnvValue(env, CallModeEnv)); callMode == "owned" || callMode == "attach" {
+		return callMode
 	}
 	return "owned"
 }

@@ -273,29 +273,15 @@ write_fixture_event() {
   local reuse_scope="$9"
   local caller_package="${10}"
   local test_name="${11}"
-  local event_dir="${results_dir}/${run_id}/_shared/test-services/${suite_id}/events"
+  local journal_dir="${results_dir}/${run_id}/_shared/test-services/${suite_id}/journals"
+  local producer_id="fixture-${suite_id}"
+  local sequence_number=$((10#$sequence))
 
-  mkdir -p "$event_dir"
-  cat >"${event_dir}/2026-01-01T00-00-${sequence}Z-100-${sequence}-${event_type}.json" <<JSON
-{
-  "type": "${event_type}",
-  "timestamp": "2026-01-01T00:00:${sequence}Z",
-  "pid": 100,
-  "service": "postgres",
-  "name": "ct_fixture_${sequence}",
-  "kind": "template-clone",
-  "details": {
-    "target": "${target}",
-    "duration_ms": ${duration_ms},
-    "fixture_policy": "${fixture_policy}",
-    "reuse_scope": "${reuse_scope}",
-    "caller_package": "${caller_package}",
-    "caller_file": "${caller_package}/fixture_test.go",
-    "test_name": "${test_name}",
-    "preparation_strategy": "template-clone"
-  }
-}
-JSON
+  mkdir -p "$journal_dir"
+  printf '{"schema_id":"cartulary.test_services.journal_event.v1","producer_id":"%s","seq":%d,"type":"%s","timestamp":"2026-01-01T00:00:%sZ","pid":100,"service":"postgres","name":"ct_fixture_%s","kind":"template-clone","details":{"target":"%s","duration_ms":%d,"fixture_policy":"%s","reuse_scope":"%s","caller_package":"%s","caller_file":"%s/fixture_test.go","test_name":"%s","preparation_strategy":"template-clone"}}\n' \
+    "$producer_id" "$sequence_number" "$event_type" "$sequence" "$sequence" "$target" "$duration_ms" "$fixture_policy" "$reuse_scope" "$caller_package" "$caller_package" "$test_name" \
+    >>"${journal_dir}/${producer_id}.ndjson"
+  chmod 600 "${journal_dir}/${producer_id}.ndjson"
 }
 
 quiet_success_output="$(
@@ -951,7 +937,7 @@ assert_equals "$(json_field "$missing_target_summary" "summary_targets.missing.0
 infra_timing_results="$(cartulary_harness_mktemp_dir "target-summary-infra-timing.XXXXXX")"
 cleanup_paths+=("$infra_timing_results")
 infra_step_dir="$infra_timing_results/infra-timing/infra-target/pass-step"
-infra_service_dir="$infra_timing_results/infra-timing/_shared/test-services/suite/events"
+infra_service_dir="$infra_timing_results/infra-timing/_shared/test-services/suite/journals"
 mkdir -p "$infra_step_dir" "$infra_service_dir"
 cat >"$infra_step_dir/step-summary.json" <<'JSON'
 {
@@ -998,21 +984,8 @@ cat >"$infra_step_dir/step-summary.json" <<'JSON'
   "manifest_mismatch": null
 }
 JSON
-cat >"$infra_service_dir/001.json" <<'JSON'
-{
-  "type": "timing-span",
-  "timestamp": "2026-01-01T00:00:02Z",
-  "details": {
-    "target": "infra-target",
-    "bucket": "service_wait",
-    "label": "test-services start object-store",
-    "start_time": "2026-01-01T00:00:01Z",
-    "end_time": "2026-01-01T00:00:02Z",
-    "duration_ms": 1000,
-    "status": "fail"
-  }
-}
-JSON
+printf '%s\n' '{"schema_id":"cartulary.test_services.journal_event.v1","producer_id":"fixture-infra","seq":1,"type":"timing-span","timestamp":"2026-01-01T00:00:02Z","pid":100,"details":{"target":"infra-target","bucket":"service_wait","label":"test-services start object-store","start_time":"2026-01-01T00:00:01Z","end_time":"2026-01-01T00:00:02Z","duration_ms":1000,"status":"fail"}}' >"$infra_service_dir/fixture-infra.ndjson"
+chmod 600 "$infra_service_dir/fixture-infra.ndjson"
 infra_timing_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$infra_timing_results" \
@@ -1029,30 +1002,10 @@ assert_equals "$(json_field "$infra_timing_summary" "failures.0.kind")" "timing"
 
 retry_timing_results="$(cartulary_harness_mktemp_dir "target-summary-retry-timing.XXXXXX")"
 cleanup_paths+=("$retry_timing_results")
-retry_service_dir="$retry_timing_results/retry-timing/_shared/test-services/suite/events"
+retry_service_dir="$retry_timing_results/retry-timing/_shared/test-services/suite/journals"
 mkdir -p "$retry_service_dir"
-cat >"$retry_service_dir/001.json" <<'JSON'
-{
-  "type": "timing-span",
-  "timestamp": "2026-01-01T00:00:02Z",
-  "details": {
-    "target": "retry-target",
-    "bucket": "service_wait",
-    "label": "test-services start object-store attempt 1",
-    "start_time": "2026-01-01T00:00:01Z",
-    "end_time": "2026-01-01T00:00:02Z",
-    "duration_ms": 1000,
-    "status": "fail",
-    "service": "object_store",
-    "startup_attempt": true,
-    "attempt": 1,
-    "max_attempts": 2,
-    "retryable": true,
-    "retry_scheduled": true,
-    "retry_blocked_by_context": false
-  }
-}
-JSON
+printf '%s\n' '{"schema_id":"cartulary.test_services.journal_event.v1","producer_id":"fixture-retry","seq":1,"type":"timing-span","timestamp":"2026-01-01T00:00:02Z","pid":100,"details":{"target":"retry-target","bucket":"service_wait","label":"test-services start object-store attempt 1","start_time":"2026-01-01T00:00:01Z","end_time":"2026-01-01T00:00:02Z","duration_ms":1000,"status":"fail","service":"object_store","startup_attempt":true,"attempt":1,"max_attempts":2,"retryable":true,"retry_scheduled":true,"retry_blocked_by_context":false}}' >"$retry_service_dir/fixture-retry.ndjson"
+chmod 600 "$retry_service_dir/fixture-retry.ndjson"
 retry_timing_output="$(
   CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_TEST_RESULTS_DIR="$retry_timing_results" \
@@ -1428,8 +1381,8 @@ assert_equals "$(json_field "$legacy_duration_step_dir/step-summary.json" "execu
 
 fixture_results="$(cartulary_harness_mktemp_dir "fixture-reporting.XXXXXX")"
 cleanup_paths+=("$fixture_results")
-write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "01" "postgres-db-reset" "fixture-target" 20000 "package_reset" "package-reused" "internal/modules/auth" "TestSlowB"
-write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "02" "postgres-db-reset" "fixture-target" 15000 "package_reset" "package-reused" "internal/modules/auth" "TestSlowA"
+write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "01" "postgres-transaction" "fixture-target" 20000 "transaction" "transaction" "internal/modules/auth" "TestSlowB"
+write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "02" "postgres-transaction" "fixture-target" 15000 "transaction" "transaction" "internal/modules/auth" "TestSlowA"
 write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "03" "postgres-db-created" "fixture-target" 1000 "template_clone" "per-test" "internal/modules/entities" "TestClone"
 below_fixture_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
@@ -1449,11 +1402,11 @@ fixture_target_output="$(
     "$ROOT_DIR/tools/harness/output/test-output.sh" target-summary fixture-target pass \
     2>&1
 )"
-assert_contains "$fixture_target_output" "[FIXTURE] fixture-target total=36.0s count=3 top_strategy=postgres/database-reset/package_reset/package-reused count=2 duration=35.0s hotspots=internal/modules/auth/postgres/database-reset/package_reset/package-reused(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1) slowest=TestSlowB(20.0s),TestSlowA(15.0s)" "fixture target threshold output"
+assert_contains "$fixture_target_output" "[FIXTURE] fixture-target total=36.0s count=3 top_strategy=postgres/transaction/transaction/transaction count=2 duration=35.0s hotspots=internal/modules/auth/postgres/transaction/transaction/transaction(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1) slowest=TestSlowB(20.0s),TestSlowA(15.0s)" "fixture target threshold output"
 assert_equals "$(json_field "$fixture_results/fixture-run/fixture-target/target-summary.json" "totals.fixture.total_duration_ms")" "36000" "fixture target summary duration"
 
-write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "01" "postgres-db-reset" "fixture-tie" 10000 "package_reset" "package-reused" "internal/modules/auth" "TestResetA"
-write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "02" "postgres-db-reset" "fixture-tie" 10000 "package_reset" "package-reused" "internal/modules/auth" "TestResetB"
+write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "01" "postgres-transaction" "fixture-tie" 10000 "transaction" "transaction" "internal/modules/auth" "TestResetA"
+write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "02" "postgres-transaction" "fixture-tie" 10000 "transaction" "transaction" "internal/modules/auth" "TestResetB"
 write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "03" "postgres-transaction" "fixture-tie" 20000 "transaction" "transaction" "internal/modules/auth" "TestTxn"
 fixture_tie_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
@@ -1463,13 +1416,13 @@ fixture_tie_output="$(
     "$ROOT_DIR/tools/harness/output/test-output.sh" target-summary fixture-tie pass \
     2>&1
 )"
-assert_contains "$fixture_tie_output" "top_strategy=postgres/database-reset/package_reset/package-reused count=2 duration=20.0s" "fixture strategy tie prefers count"
-assert_contains "$fixture_tie_output" "hotspots=internal/modules/auth/postgres/database-reset/package_reset/package-reused(20.0s,count=2),internal/modules/auth/postgres/transaction/transaction/transaction(20.0s,count=1)" "fixture hotspot tie prefers count"
+assert_contains "$fixture_tie_output" "top_strategy=postgres/transaction/transaction/transaction count=2 duration=20.0s" "fixture strategy tie prefers count"
+assert_contains "$fixture_tie_output" "hotspots=internal/modules/auth/postgres/transaction/transaction/transaction(20.0s,count=2),internal/modules/auth/postgres/transaction/transaction/transaction(20.0s,count=1)" "fixture hotspot tie prefers count"
 
-write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite" "01" "postgres-db-reset" "fixture-hotspot-cap" 4000 "package_reset" "package-reused" "internal/modules/one" "TestOne"
-write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite" "02" "postgres-db-reset" "fixture-hotspot-cap" 3000 "package_reset" "package-reused" "internal/modules/two" "TestTwo"
-write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite" "03" "postgres-db-reset" "fixture-hotspot-cap" 2000 "package_reset" "package-reused" "internal/modules/three" "TestThree"
-write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite" "04" "postgres-db-reset" "fixture-hotspot-cap" 1000 "package_reset" "package-reused" "internal/modules/four" "TestFour"
+write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite" "01" "postgres-transaction" "fixture-hotspot-cap" 4000 "transaction" "transaction" "internal/modules/one" "TestOne"
+write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite" "02" "postgres-transaction" "fixture-hotspot-cap" 3000 "transaction" "transaction" "internal/modules/two" "TestTwo"
+write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite" "03" "postgres-transaction" "fixture-hotspot-cap" 2000 "transaction" "transaction" "internal/modules/three" "TestThree"
+write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite" "04" "postgres-transaction" "fixture-hotspot-cap" 1000 "transaction" "transaction" "internal/modules/four" "TestFour"
 fixture_hotspot_cap_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   FIXTURE_THRESHOLD_MS=1 \
@@ -1479,7 +1432,7 @@ fixture_hotspot_cap_output="$(
     "$ROOT_DIR/tools/harness/output/test-output.sh" target-summary fixture-hotspot-cap pass \
     2>&1
 )"
-assert_contains "$fixture_hotspot_cap_output" "hotspots=internal/modules/one/postgres/database-reset/package_reset/package-reused(4.00s,count=1),internal/modules/two/postgres/database-reset/package_reset/package-reused(3.00s,count=1),internal/modules/three/postgres/database-reset/package_reset/package-reused(2.00s,count=1)" "fixture hotspots cap at three"
+assert_contains "$fixture_hotspot_cap_output" "hotspots=internal/modules/one/postgres/transaction/transaction/transaction(4.00s,count=1),internal/modules/two/postgres/transaction/transaction/transaction(3.00s,count=1),internal/modules/three/postgres/transaction/transaction/transaction(2.00s,count=1)" "fixture hotspots cap at three"
 assert_not_contains "$fixture_hotspot_cap_output" "internal/modules/four/postgres" "fixture hotspots omit fourth entry"
 
 fixture_run_output="$(
@@ -1490,7 +1443,7 @@ fixture_run_output="$(
     "$ROOT_DIR/tools/harness/output/test-output.sh" run-summary "fixture run" pass 1 1 - fixture-target \
     2>&1
 )"
-assert_contains "$fixture_run_output" "[FIXTURE] fixture run total=36.0s count=3 top_strategy=postgres/database-reset/package_reset/package-reused count=2 duration=35.0s hotspots=internal/modules/auth/postgres/database-reset/package_reset/package-reused(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture run summary output"
+assert_contains "$fixture_run_output" "[FIXTURE] fixture run total=36.0s count=3 top_strategy=postgres/transaction/transaction/transaction count=2 duration=35.0s hotspots=internal/modules/auth/postgres/transaction/transaction/transaction(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture run summary output"
 
 mkdir -p "$fixture_results/older-run"
 touch -d '2026-01-01T00:00:00Z' "$fixture_results/older-run"
@@ -1500,14 +1453,14 @@ fixture_report_output="$(
     2>&1
 )"
 assert_contains "$fixture_report_output" "[FIXTURE] fixture run total=36.0s count=3" "fixture report newest run aggregate output"
-assert_contains "$fixture_report_output" "hotspots=internal/modules/auth/postgres/database-reset/package_reset/package-reused(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture report newest run hotspots"
+assert_contains "$fixture_report_output" "hotspots=internal/modules/auth/postgres/transaction/transaction/transaction(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture report newest run hotspots"
 assert_contains "$fixture_report_output" "[FIXTURE] fixture-target total=36.0s count=3" "fixture report newest run target output"
 fixture_report_concrete_output="$(
   "$ROOT_DIR/tools/harness/diagnostics/fixture-report-cli.mjs" --results-dir "$fixture_results/fixture-run" --threshold-ms 30000 --top 2 \
     2>&1
 )"
 assert_contains "$fixture_report_concrete_output" "[FIXTURE] fixture run total=36.0s count=3" "fixture report concrete run aggregate output"
-assert_contains "$fixture_report_concrete_output" "hotspots=internal/modules/auth/postgres/database-reset/package_reset/package-reused(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture report concrete run hotspots"
+assert_contains "$fixture_report_concrete_output" "hotspots=internal/modules/auth/postgres/transaction/transaction/transaction(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture report concrete run hotspots"
 assert_contains "$fixture_report_concrete_output" "[FIXTURE] fixture-target total=36.0s count=3" "fixture report concrete run target output"
 if fixture_report_mismatch_output="$(
   "$ROOT_DIR/tools/harness/diagnostics/fixture-report-cli.mjs" --results-dir "$fixture_results/fixture-run" --run-id fixture-tie-run --threshold-ms 1 \
@@ -1524,7 +1477,7 @@ assert_equals "$(json_field "$fixture_report_json" "run_dir")" "$fixture_results
 assert_equals "$(json_field "$fixture_report_json" "aggregate.total_duration_ms")" "36000" "fixture report aggregate duration"
 assert_equals "$(json_field "$fixture_report_json" "targets.0.target")" "fixture-target" "fixture report target"
 
-write_fixture_event "$fixture_results" "fixture-aggregate-run" "fixture-suite" "01" "postgres-db-reset" "fixture-child" 32000 "package_reset" "package-reused" "internal/modules/auth" "TestAggregateChild"
+write_fixture_event "$fixture_results" "fixture-aggregate-run" "fixture-suite" "01" "postgres-transaction" "fixture-child" 32000 "transaction" "transaction" "internal/modules/auth" "TestAggregateChild"
 CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
 CARTULARY_TEST_RUN_ID="fixture-aggregate-run" \
   "$ROOT_DIR/tools/harness/output/test-output.sh" target-summary fixture-child pass >/dev/null 2>&1
@@ -1547,7 +1500,7 @@ assert_contains "$fixture_report_aggregate_target_output" "[FIXTURE] fixture-par
 
 teardown_accounting_results="$(cartulary_harness_mktemp_dir "target-timing-teardown-accounting.XXXXXX")"
 cleanup_paths+=("$teardown_accounting_results")
-teardown_services_dir="$teardown_accounting_results/teardown-accounting/_shared/test-services/web-fixture/events"
+teardown_services_dir="$teardown_accounting_results/teardown-accounting/_shared/test-services/web-fixture/journals"
 mkdir -p "$teardown_services_dir"
 CARTULARY_TEST_RESULTS_DIR="$teardown_accounting_results" \
 CARTULARY_TEST_RUN_ID="teardown-accounting" \
@@ -1576,23 +1529,8 @@ CARTULARY_TIMING_START_TIME="2026-01-01T00:00:01.800Z" \
 CARTULARY_TIMING_END_TIME="2026-01-01T00:00:02.100Z" \
 CARTULARY_TIMING_DURATION_MS="300" \
   "$ROOT_DIR/tools/harness/output/test-output.sh" timing-span
-cat >"$teardown_services_dir/cleanup-browser-fixture.json" <<'JSON'
-{
-  "type": "timing-span",
-  "name": "test-services cleanup browser e2e fixture",
-  "status": "fail",
-  "timestamp": "2026-01-01T00:00:01.800Z",
-  "details": {
-    "target": "browser-e2e-webserver-backed",
-    "bucket": "teardown",
-    "label": "test-services cleanup browser e2e fixture",
-    "start_time": "2026-01-01T00:00:01.100Z",
-    "end_time": "2026-01-01T00:00:01.800Z",
-    "duration_ms": 700,
-    "status": "fail"
-  }
-}
-JSON
+printf '%s\n' '{"schema_id":"cartulary.test_services.journal_event.v1","producer_id":"fixture-teardown","seq":1,"type":"timing-span","name":"test-services cleanup browser e2e fixture","status":"fail","timestamp":"2026-01-01T00:00:01.800Z","pid":100,"details":{"target":"browser-e2e-webserver-backed","bucket":"teardown","label":"test-services cleanup browser e2e fixture","start_time":"2026-01-01T00:00:01.100Z","end_time":"2026-01-01T00:00:01.800Z","duration_ms":700,"status":"fail"}}' >"$teardown_services_dir/fixture-teardown.ndjson"
+chmod 600 "$teardown_services_dir/fixture-teardown.ndjson"
 CARTULARY_TEST_RESULTS_DIR="$teardown_accounting_results" \
 CARTULARY_TEST_RUN_ID="teardown-accounting" \
   "$ROOT_DIR/tools/harness/output/test-output.sh" target-summary browser-e2e-webserver-backed pass >/dev/null 2>&1

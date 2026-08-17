@@ -60,11 +60,14 @@ function validateExisting(file, expected) {
 
 function validateDiagnostics(file, expected) {
   const artifact = JSON.parse(readFileSync(file, "utf8"));
-  validateSchemaSync("cartulary.performance_fixture_build_diagnostics.v1", artifact);
+  validateSchemaSync("cartulary.performance_fixture_build_diagnostics.v2", artifact);
   for (const [key, value] of Object.entries(expected)) {
     if (artifact[key] !== value) throw new Error(`existing fixture build diagnostics ${key} mismatch`);
   }
   if (artifact.state !== "sealed") throw new Error("existing fixture build diagnostics are not sealed");
+  if (artifact.construction_count !== 1) {
+    throw new Error("existing fixture build diagnostics must prove one construction");
+  }
 }
 
 export async function runSnapshotBuilder(argv) {

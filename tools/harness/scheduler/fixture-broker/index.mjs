@@ -8,7 +8,6 @@ export {
 const capabilities = new Set([
   "none",
   "postgres_transaction",
-  "postgres_group",
   "postgres_dedicated",
   "postgres_migration",
   "object_store_namespace",
@@ -183,12 +182,7 @@ export class FixtureBroker {
   ) {
     if (this.closed) throw new Error("fixture broker is closed");
     if (!capabilities.has(capability)) throw new Error(`unknown fixture capability ${capability}`);
-    if (capability === "postgres_group" && !affinityKey) {
-      throw new Error("postgres_group requires an affinity key");
-    }
-    const sharedKey = capability === "postgres_group"
-      ? `${capability}:${affinityKey ?? unitID}`
-      : capability === "browser_stack"
+    const sharedKey = capability === "browser_stack"
         ? `${capability}:${affinityKey ?? unitID}:${fixtureProfileID ?? "none"}:${snapshotKey ?? "none"}`
         : "";
     const leaseID = this.idFactory();
@@ -231,7 +225,7 @@ export class FixtureBroker {
       }
     }
     const record = {
-      schema_id: "cartulary.harness_fixture_lease.v2",
+      schema_id: "cartulary.harness_fixture_lease.v3",
       lease_id: leaseID,
       capability,
       ownership: allocation.ownership,

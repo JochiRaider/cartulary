@@ -261,7 +261,6 @@ export class WorkbookCollaborationCoordinator {
     this.listeners.clear();
     this.clientTxnResolvers.clear();
     const reason = { kind: "runtime_disposed" } as const;
-    this.options.mutationRuntime.invalidate(reason);
     this.options.queryInvalidation(reason);
     this.activePort?.invalidate(reason);
     this.options.inspectorInvalidation(reason);

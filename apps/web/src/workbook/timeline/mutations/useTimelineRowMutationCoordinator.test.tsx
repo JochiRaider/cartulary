@@ -9,6 +9,7 @@ import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { useTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { useTimelineCommittedRecordIdle } from "../hooks/useTimelineCommittedRecordIdle";
 import { useTimelinePendingSaves } from "../hooks/useTimelinePendingSaves";
+import { reconcileCommittedRowsWithLocalDrafts } from "../hooks/useTimelineRowsLoader";
 import type { PendingReplayRuntimeMeta } from "../models/timelineControllerPorts";
 import type {
   AutoResolutionNotice,
@@ -26,11 +27,17 @@ import { useTimelineRowMutationCoordinator } from "./useTimelineRowMutationCoord
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const incidentId = "10000000-0000-4000-8000-000000000001";
 const recordId = "11111111-1111-4111-8111-111111111111";
+const secondRecordId = "22222222-2222-4222-8222-222222222222";
+const thirdRecordId = "33333333-3333-4333-8333-333333333333";
 
-function timelineRow(rowVersion: number, synopsis: string): WorkbookRow {
+function timelineRow(
+  rowVersion: number,
+  synopsis: string,
+  targetRecordId = recordId,
+): WorkbookRow {
   return rowFromApi(
     normalizeTimelineFullRow(
-      fullWorkbookViewRow(timelineContract, recordId, rowVersion, {
+      fullWorkbookViewRow(timelineContract, targetRecordId, rowVersion, {
         "timeline.activity_synopsis_text": synopsis,
       }),
       "row mutation coordinator fixture",
@@ -38,8 +45,12 @@ function timelineRow(rowVersion: number, synopsis: string): WorkbookRow {
   );
 }
 
-function timelineApiRow(rowVersion: number, synopsis: string) {
-  const row = timelineRow(rowVersion, synopsis).rawRow;
+function timelineApiRow(
+  rowVersion: number,
+  synopsis: string,
+  targetRecordId = recordId,
+) {
+  const row = timelineRow(rowVersion, synopsis, targetRecordId).rawRow;
   if (row === null) throw new Error("expected API-backed Timeline row");
   return row;
 }
@@ -55,6 +66,7 @@ function runtimeFixture() {
 function renderCoordinator(
   runtime: WorkbookMutationRuntime,
   initialRows: WorkbookRow[],
+  initialCreatedRowPresentationScopeKey = "incident-1:default-query",
 ) {
   const editorPort = {
     activateEdit: vi.fn(),
@@ -65,63 +77,78 @@ function renderCoordinator(
   };
   const advanceViewportContinuity = vi.fn();
   const clearViewportContinuity = vi.fn();
-  const rendered = renderHook(() => {
-    const [rows, setRows] = useState(initialRows);
-    const replaceRows = useCallback((nextRows: WorkbookRow[]) => {
-      setRows(nextRows);
-    }, []);
-    const updateRows = useCallback(
-      (updater: (current: WorkbookRow[]) => WorkbookRow[]) => {
-        setRows((current) => updater(current));
+  const rendered = renderHook(
+    ({
+      createdRowPresentationScopeKey,
+    }: {
+      createdRowPresentationScopeKey: string;
+    }) => {
+      const [rows, setRows] = useState(initialRows);
+      const replaceRows = useCallback((nextRows: WorkbookRow[]) => {
+        setRows(nextRows);
+      }, []);
+      const updateRows = useCallback(
+        (updater: (current: WorkbookRow[]) => WorkbookRow[]) => {
+          setRows((current) => updater(current));
+        },
+        [],
+      );
+      const rowsRef = useRef(rows);
+      rowsRef.current = rows;
+      const [selectedRowId, setSelectedRowId] = useState<string | null>(
+        recordId,
+      );
+      const [, setAutoResolutionNotices] = useState<AutoResolutionNotice[]>([]);
+      const [, setDismissedMentionsByRow] = useState<
+        Record<string, DismissedMention[]>
+      >({});
+      const pending = useTimelinePendingSaves<PendingReplayRuntimeMeta>({
+        mutationRuntime: runtime,
+      });
+      const editorDraftRegistry =
+        useTimelineEditorDraftRegistry(timelineViewSchemaId);
+      const loadRows = async () => undefined;
+      const nextDraftIndexRef = useRef(2);
+      const coordinator = useTimelineRowMutationCoordinator({
+        advanceViewportContinuity,
+        clearViewportContinuity,
+        createdRowPresentationScopeKey,
+        editorDraftRegistry,
+        editorPort,
+        mutationRuntime: runtime,
+        nextDraftIndex: () => {
+          const next = nextDraftIndexRef.current;
+          nextDraftIndexRef.current += 1;
+          return next;
+        },
+        pendingQueueSnapshot: pending.snapshot.pendingQueueSnapshot,
+        pendingSavesRefs: pending.refs,
+        rowsRef,
+        selectedRowId,
+        clearActiveCollectionInputKey: () => undefined,
+        setAutoResolutionNotices,
+        setDismissedMentionsByRow,
+        setPendingQueueSnapshot: pending.commands.setPendingQueueSnapshot,
+        rowStoreCommands: { replaceRows, updateRows },
+        setSelectedRowId,
+      });
+      const waitForCommittedRecordIdle = useTimelineCommittedRecordIdle({
+        conflictQueueRef: coordinator.refs.conflictQueueRef,
+        latestCommittedRowVersion:
+          coordinator.commands.latestCommittedRowVersion,
+        latestCommittedTimelineRow:
+          coordinator.commands.latestCommittedTimelineRow,
+        loadRows,
+        pendingSavesRefs: pending.refs,
+      });
+      return { coordinator, rows, waitForCommittedRecordIdle };
+    },
+    {
+      initialProps: {
+        createdRowPresentationScopeKey: initialCreatedRowPresentationScopeKey,
       },
-      [],
-    );
-    const rowsRef = useRef(rows);
-    rowsRef.current = rows;
-    const [selectedRowId, setSelectedRowId] = useState<string | null>(recordId);
-    const [, setAutoResolutionNotices] = useState<AutoResolutionNotice[]>([]);
-    const [, setDismissedMentionsByRow] = useState<
-      Record<string, DismissedMention[]>
-    >({});
-    const pending = useTimelinePendingSaves<PendingReplayRuntimeMeta>({
-      mutationRuntime: runtime,
-    });
-    const editorDraftRegistry =
-      useTimelineEditorDraftRegistry(timelineViewSchemaId);
-    const loadRows = async () => undefined;
-    const nextDraftIndexRef = useRef(2);
-    const coordinator = useTimelineRowMutationCoordinator({
-      advanceViewportContinuity,
-      clearViewportContinuity,
-      editorDraftRegistry,
-      editorPort,
-      mutationRuntime: runtime,
-      nextDraftIndex: () => {
-        const next = nextDraftIndexRef.current;
-        nextDraftIndexRef.current += 1;
-        return next;
-      },
-      pendingQueueSnapshot: pending.snapshot.pendingQueueSnapshot,
-      pendingSavesRefs: pending.refs,
-      rowsRef,
-      selectedRowId,
-      clearActiveCollectionInputKey: () => undefined,
-      setAutoResolutionNotices,
-      setDismissedMentionsByRow,
-      setPendingQueueSnapshot: pending.commands.setPendingQueueSnapshot,
-      rowStoreCommands: { replaceRows, updateRows },
-      setSelectedRowId,
-    });
-    const waitForCommittedRecordIdle = useTimelineCommittedRecordIdle({
-      conflictQueueRef: coordinator.refs.conflictQueueRef,
-      latestCommittedRowVersion: coordinator.commands.latestCommittedRowVersion,
-      latestCommittedTimelineRow:
-        coordinator.commands.latestCommittedTimelineRow,
-      loadRows,
-      pendingSavesRefs: pending.refs,
-    });
-    return { coordinator, rows, waitForCommittedRecordIdle };
-  });
+    },
+  );
   return {
     ...rendered,
     advanceViewportContinuity,
@@ -169,8 +196,84 @@ describe("useTimelineRowMutationCoordinator", () => {
       recordId,
       null,
     ]);
+    expect(
+      result.current.coordinator.ports.queryAdmission.currentCreatedRowPresentationRecordId(),
+    ).toBe(recordId);
     unmount();
     runtime.invalidate({ kind: "runtime_disposed" });
+  });
+
+  it("pins only the latest locally created row within its query presentation scope", () => {
+    const runtime = runtimeFixture();
+    const draft = createDraftRow(1);
+    const { result, rerender, unmount } = renderCoordinator(runtime, [draft]);
+
+    act(() => {
+      result.current.coordinator.commands.applyAcceptedRowMutation(draft.key, {
+        row: timelineApiRow(1, "first created summary"),
+        viewSchemaId: timelineViewSchemaId,
+      });
+    });
+    const nextDraft = result.current.rows.find((row) => row.recordId === null);
+    if (nextDraft === undefined) throw new Error("expected next draft row");
+    act(() => {
+      result.current.coordinator.commands.applyAcceptedRowMutation(
+        nextDraft.key,
+        {
+          row: timelineApiRow(1, "second created summary", secondRecordId),
+          viewSchemaId: timelineViewSchemaId,
+        },
+      );
+    });
+
+    expect(
+      result.current.coordinator.ports.queryAdmission.currentCreatedRowPresentationRecordId(),
+    ).toBe(secondRecordId);
+    rerender({ createdRowPresentationScopeKey: "incident-1:filtered-query" });
+    expect(
+      result.current.coordinator.ports.queryAdmission.currentCreatedRowPresentationRecordId(),
+    ).toBeNull();
+    unmount();
+    runtime.invalidate({ kind: "runtime_disposed" });
+  });
+
+  it("retains one query-scoped created row when a refresh omits it", () => {
+    const earlierCreated = timelineRow(1, "earlier", recordId);
+    const pinnedCreated = timelineRow(1, "pinned", secondRecordId);
+    const incoming = timelineRow(1, "incoming", thirdRecordId);
+    const reconciled = reconcileCommittedRowsWithLocalDrafts({
+      currentRows: [earlierCreated, pinnedCreated, createDraftRow(1)],
+      incomingRows: [incoming],
+      materializeRow: (row) => row,
+      nextDraftIndex: () => 2,
+      pinnedCommittedRow: pinnedCreated,
+    });
+
+    expect(reconciled.committedRows.map((row) => row.recordId)).toEqual([
+      thirdRecordId,
+      secondRecordId,
+    ]);
+    expect(reconciled.rows.filter((row) => row.recordId === null)).toHaveLength(
+      1,
+    );
+
+    const authoritativePinned = timelineRow(
+      2,
+      "authoritative pinned",
+      secondRecordId,
+    );
+    const withAuthoritativePin = reconcileCommittedRowsWithLocalDrafts({
+      currentRows: reconciled.rows,
+      incomingRows: [incoming, authoritativePinned],
+      materializeRow: (row) => row,
+      nextDraftIndex: () => 3,
+      pinnedCommittedRow: pinnedCreated,
+    });
+    expect(
+      withAuthoritativePin.committedRows.filter(
+        (row) => row.recordId === secondRecordId,
+      ),
+    ).toEqual([authoritativePinned]);
   });
 
   it("prevents stale action and mutation results from regressing a live high-water row", () => {

@@ -11,6 +11,7 @@ import (
 	authfixture "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/performancefixture"
 	entitiesfixture "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport/performancefixture"
 	linksfixture "github.com/JochiRaider/cartulary/internal/modules/links/testsupport/performancefixture"
+	projectionsfixture "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport/performancefixture"
 	timelinefixture "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/performancefixture"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 )
@@ -226,14 +227,19 @@ func (f *fakeApplications) ValidateFixtureAssociations(_ context.Context, incide
 	return nil
 }
 
-func (f *fakeApplications) ValidateFixtureProjectionSets(_ context.Context, incidentID string, viewSchemaIDs []string) error {
+func (f *fakeApplications) ValidateFixtureProjectionSets(_ context.Context, incidentID string, expectations []projectionsfixture.SetExpectation) error {
 	if f.failureAt == "projections" {
 		return errors.New("injected Projections failure")
 	}
-	if incidentID == "" || len(viewSchemaIDs) != 3 {
+	if incidentID == "" || len(expectations) != 3 {
 		return errors.New("fixture projection validation failed")
 	}
-	f.projectionSets = len(viewSchemaIDs)
+	for _, expectation := range expectations {
+		if expectation.ViewSchemaID == "" || expectation.ExactRows < 1 {
+			return errors.New("fixture projection expectation is incomplete")
+		}
+	}
+	f.projectionSets = len(expectations)
 	return nil
 }
 

@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
@@ -73,7 +75,16 @@ func Build(
 	if err != nil {
 		return BuildArtifact{}, err
 	}
-	pool, err := pgxpool.New(ctx, dsn)
+	poolConfig, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return BuildArtifact{}, fmt.Errorf("parse performance fixture template pool configuration: %w", err)
+	}
+	ownedConnections := &ownedConnectionPIDs{}
+	poolConfig.AfterConnect = func(_ context.Context, connection *pgx.Conn) error {
+		ownedConnections.Add(connection.PgConn().PID())
+		return nil
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		return BuildArtifact{}, fmt.Errorf("open performance fixture template: %w", err)
 	}
@@ -120,14 +131,14 @@ func Build(
 	}
 	if err := fixture.ValidateReceiptRedaction(result, state); err != nil {
 		closePool()
-		return BuildArtifact{}, err
+		return BuildArtifact{}, withBuildFailureStage("finalization", err)
 	}
 	closePool()
-	if err := requireNoConnections(ctx, adminDSN, templateName); err != nil {
-		return BuildArtifact{}, err
+	if err := requireNoConnections(ctx, adminDSN, templateName, ownedConnections); err != nil {
+		return BuildArtifact{}, withBuildFailureStage("finalization", err)
 	}
 	if err := sealTemplate(ctx, adminDSN, templateName, templateOwner(suiteID, args.SnapshotKey)); err != nil {
-		return BuildArtifact{}, err
+		return BuildArtifact{}, withBuildFailureStage("finalization", err)
 	}
 	sealed = true
 	return BuildArtifact{
@@ -152,6 +163,24 @@ func Build(
 	}, nil
 }
 
+type ownedConnectionPIDs struct {
+	values sync.Map
+}
+
+func (pids *ownedConnectionPIDs) Add(pid uint32) {
+	if pids != nil {
+		pids.values.Store(pid, struct{}{})
+	}
+}
+
+func (pids *ownedConnectionPIDs) Contains(pid uint32) bool {
+	if pids == nil {
+		return false
+	}
+	_, ok := pids.values.Load(pid)
+	return ok
+}
+
 func projectBuildDiagnostics(diagnostics []fixture.ContributionDiagnostic) []BuildContributionDiagnostic {
 	projected := make([]BuildContributionDiagnostic, len(diagnostics))
 	for index, diagnostic := range diagnostics {
@@ -159,6 +188,7 @@ func projectBuildDiagnostics(diagnostics []fixture.ContributionDiagnostic) []Bui
 			Ordinal:        index + 1,
 			ContributionID: diagnostic.ContributionID,
 			OwnerID:        diagnostic.OwnerID,
+			State:          diagnostic.State,
 			DurationMS:     nonNegativeMilliseconds(diagnostic.Duration),
 		}
 		if diagnostic.Batch != nil {

@@ -10,6 +10,7 @@ import {
   sortByHeader,
 } from "@cartulary/test-utils/grid";
 import {
+  authTestId,
   cellPresenceMarkerTestId,
   currentIncidentRoleTestId,
   gridRowGutterTestId,
@@ -1266,6 +1267,10 @@ test("replays queued unsent writes after re-authentication without silent reload
         .poll(() => patchController.calls.at(-1)?.status ?? 0)
         .toBe(401);
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
+      await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
+        "data-bootstrap-state",
+        "revoked",
+      );
 
       await sessionTracker.loginTrackedUser(page, {
         createdBy: "collaboration-conflict",

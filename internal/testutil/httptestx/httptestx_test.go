@@ -2,7 +2,6 @@ package httptestx
 
 import (
 	"bytes"
-	"context"
 	"io/fs"
 	"net/http"
 	"os"
@@ -140,15 +139,7 @@ func TestHarnessBootsServerAndAssertsEnvelopes(t *testing.T) {
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "httptestx")
 
 	s3Harness := s3test.Start(t)
-	bucket, err := s3Harness.BootstrapBucket(context.Background(), "httptestx")
-	if err != nil {
-		t.Fatalf("bootstrap bucket: %v", err)
-	}
-	defer func() {
-		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Fatalf("cleanup bucket: %v", err)
-		}
-	}()
+	bucket := s3Harness.BootstrapBucketT(t, "httptestx")
 
 	env := testDB.Env()
 	for key, value := range s3Harness.Env(bucket) {
@@ -177,15 +168,7 @@ func TestStartServerHonorsTestRouteMode(t *testing.T) {
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "httptestx-test-route-mode")
 
 	s3Harness := s3test.Start(t)
-	bucket, err := s3Harness.BootstrapBucket(context.Background(), "httptestx-test-route-mode")
-	if err != nil {
-		t.Fatalf("bootstrap bucket: %v", err)
-	}
-	defer func() {
-		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Fatalf("cleanup bucket: %v", err)
-		}
-	}()
+	bucket := s3Harness.BootstrapBucketT(t, "httptestx-test-route-mode")
 
 	env := testDB.Env()
 	for key, value := range s3Harness.Env(bucket) {
