@@ -504,6 +504,11 @@ const value = {
       "summary": "The requested reserved extension-family route belongs to an unclaimed deployment extension profile."
     },
     {
+      "code": "extension_capability_not_supported",
+      "http_status": 409,
+      "summary": "A structurally valid nonempty extension capability array attempted activation while capabilities are disabled."
+    },
+    {
       "code": "internal_error",
       "http_status": 500,
       "summary": "The server could not complete the request."
@@ -1140,7 +1145,7 @@ const value = {
         },
         {
           "code": "invalid_required_capabilities",
-          "summary": "required_capabilities is malformed or contains a token outside the incident-bundle vocabulary."
+          "summary": "required_capabilities is not an array or contains a non-string member."
         },
         {
           "code": "history_mode_not_supported",
@@ -1166,6 +1171,10 @@ const value = {
         {
           "code": "missing_required_blob",
           "summary": "A required incident-bundle blob could not be read or verified."
+        },
+        {
+          "code": "extension_state_not_portable",
+          "summary": "A recognized blocked_when_present profile has retained authoritative state at the export publication boundary."
         }
       ]
     },
@@ -1195,10 +1204,6 @@ const value = {
         {
           "code": "duplicate_incident_id",
           "summary": "The target deployment already contains the incident_id carried by the bundle."
-        },
-        {
-          "code": "unsupported_required_capability",
-          "summary": "The bundle requires an optional capability unsupported by this deployment."
         },
         {
           "code": "remote_fetch_required",

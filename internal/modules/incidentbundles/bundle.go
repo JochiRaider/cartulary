@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"path"
@@ -130,6 +131,8 @@ type VerificationInput struct {
 	Limits Limits
 }
 
+var ErrExtensionCapabilityNotSupported = errors.New("extension_capability_not_supported")
+
 type VerifiedBundle struct {
 	Manifest       BundleManifest
 	ManifestSHA256 string
@@ -215,12 +218,16 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 	if !ok {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "missing_required_file"}
 	}
+	sanitizedManifestBytes, capabilityActivationRequested, err := sanitizeRequiredCapabilities(manifestBytes)
+	if err != nil {
+		return VerifiedBundle{}, err
+	}
 	bundleVersion, err := parseBundleVersion(manifestBytes)
 	if err != nil {
 		return VerifiedBundle{}, err
 	}
 	var manifest BundleManifest
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+	if err := json.Unmarshal(sanitizedManifestBytes, &manifest); err != nil {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
 	}
 	manifest.BundleVersion = bundleVersion
@@ -240,9 +247,6 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 			return VerifiedBundle{}, &VerificationError{ReasonCode: "signature_mismatch"}
 		}
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "signature_mismatch"}
-	}
-	if len(manifest.RequiredCapabilities) > 0 {
-		return VerifiedBundle{}, &VerificationError{ReasonCode: "unsupported_required_capability"}
 	}
 	requiredPaths, err := requiredStructuredFilesForVersion(manifest.BundleVersion)
 	if err != nil {
@@ -298,12 +302,42 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 	if !bundleOptionalSectionsAllowed(files, manifest) {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
 	}
+	if capabilityActivationRequested {
+		return VerifiedBundle{}, ErrExtensionCapabilityNotSupported
+	}
 	return VerifiedBundle{
 		Manifest:       manifest,
 		ManifestSHA256: hashHex(manifestBytes),
 		Files:          files,
 		Checksums:      checksums,
 	}, nil
+}
+
+func sanitizeRequiredCapabilities(manifestBytes []byte) ([]byte, bool, error) {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(manifestBytes, &raw); err != nil || raw == nil {
+		return nil, false, &VerificationError{ReasonCode: "malformed_manifest"}
+	}
+	value, ok := raw["required_capabilities"]
+	if !ok || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+		return nil, false, &VerificationError{ReasonCode: "malformed_manifest"}
+	}
+	var items []json.RawMessage
+	if err := json.Unmarshal(value, &items); err != nil {
+		return nil, false, &VerificationError{ReasonCode: "malformed_manifest"}
+	}
+	for _, item := range items {
+		var token string
+		if err := json.Unmarshal(item, &token); err != nil {
+			return nil, false, &VerificationError{ReasonCode: "malformed_manifest"}
+		}
+	}
+	raw["required_capabilities"] = json.RawMessage("[]")
+	sanitized, err := json.Marshal(raw)
+	if err != nil {
+		return nil, false, &VerificationError{ReasonCode: "malformed_manifest"}
+	}
+	return sanitized, len(items) > 0, nil
 }
 
 func parseBundleVersion(manifestBytes []byte) (int, error) {
@@ -410,12 +444,6 @@ func validateManifestVocabularies(manifest BundleManifest) error {
 	}
 	if !canonicalKnownTokenSet(manifest.OptionalSections, incidentBundleOptionalSectionTokens) {
 		return &VerificationError{ReasonCode: "malformed_manifest"}
-	}
-	if !canonicalKnownTokenSet(manifest.RequiredCapabilities, incidentBundleOptionalSectionTokens) {
-		return &VerificationError{ReasonCode: "malformed_manifest"}
-	}
-	if len(manifest.RequiredCapabilities) > 0 {
-		return &VerificationError{ReasonCode: "unsupported_required_capability"}
 	}
 	return nil
 }

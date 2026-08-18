@@ -490,10 +490,52 @@
       "rationale": "Publish the closed Incident Bundle export validation-failure reason vocabulary adopted by Core 01."
     },
     {
-      "fingerprint": "713d41c8f0b3e495947298ecd5d52ea8e35c1e1d29752c2febcab631480a9c1d",
+      "fingerprint": "cce7955d2f0f12dfaa448886ac5418ece7bd2754b04fa3dff91d7d8f34e430e7",
       "classification": "additive",
       "owner_id": "module.incidentbundles",
-      "rationale": "Publish the closed Incident Bundle export conflict-failure reason vocabulary adopted by Core 01."
+      "rationale": "Publish the corrected Incident Bundle export conflict vocabulary, including the shared disabled-capability error, for the OpenAPI 2.0 cutover."
+    },
+    {
+      "fingerprint": "1e4553a8826b96e06ff6907c0ba2867d9c4d32f8f7b4ae27d5b8b08ec98cfb48",
+      "classification": "non_behavioral",
+      "owner_id": "module.incidentbundles",
+      "rationale": "Describe the adopted distinction between structural required-capability validation and disabled capability activation."
+    },
+    {
+      "fingerprint": "1a3266be2a48f5d57b2234a6b0a1bbcec0bf55de6465ddf4b4ec8390480f0862",
+      "classification": "breaking",
+      "owner_id": "module.incidentbundles",
+      "rationale": "Remove the obsolete required-capability token enumeration so every string value reaches the shared disabled-capability behavior in OpenAPI 2.0."
+    },
+    {
+      "fingerprint": "66a0308c1a8ceeecdf7cb60cffd2005de3700b130c32a14d054fd2348899f3fc",
+      "classification": "breaking",
+      "owner_id": "module.incidentbundles",
+      "rationale": "Remove the export request's empty-only schema restriction so a structurally valid nonempty array receives the adopted semantic 409 response."
+    },
+    {
+      "fingerprint": "47c680ad0a6ec0e8324b7fc3c00004134a7964a3edc28c2d786513fb0140eabc",
+      "classification": "breaking",
+      "owner_id": "module.incidentbundles",
+      "rationale": "Remove schema-level uniqueness from a disabled capability array whose values are never classified or normalized."
+    },
+    {
+      "fingerprint": "725aec2354cef1e4a61b9c8f27c2f6a0c82f2496815f45adc4a51b3b650b45ff",
+      "classification": "breaking",
+      "owner_id": "module.incidentbundles",
+      "rationale": "Remove obsolete capability tokens from successful Incident Bundle descriptors, which always expose an empty array."
+    },
+    {
+      "fingerprint": "157c2381693d0ca85a56e3fe6b79445944933a7ca2f206a0883100ffdd7d93d7",
+      "classification": "additive",
+      "owner_id": "module.incidentbundles",
+      "rationale": "Project the adopted invariant that a successful Incident Bundle descriptor contains no required capabilities."
+    },
+    {
+      "fingerprint": "88d3eb211885de228f17d5210abba9df679a2ad15e2b210459db73b7f6af6746",
+      "classification": "breaking",
+      "owner_id": "module.incidentbundles",
+      "rationale": "Remove redundant uniqueness metadata from the descriptor's now empty-only required-capability array."
     },
     {
       "fingerprint": "90c20ef9e4b6854afdd4046a1955d40483eb64702e36fcee06e920d58fd000e4",
@@ -508,10 +550,10 @@
       "rationale": "Publish the closed Incident Bundle import conflict-failure reason vocabulary adopted by Core 01."
     },
     {
-      "fingerprint": "5d3b116dae1cb29b21ec412150bcbc45c02eb9cfe5984fbb68dc003dc0afa4e1",
+      "fingerprint": "88cdc31682cdf610d6330ad19362dbbd9f3c183f80d15df7eb31a8032c045142",
       "classification": "additive",
       "owner_id": "module.incidentbundles",
-      "rationale": "Publish the closed Incident Bundle descriptor validation-failure reason vocabulary adopted by Core 01."
+      "rationale": "Publish the canonical invalid_pagination_request descriptor validation code adopted by Core 01 and Core 04."
     },
     {
       "fingerprint": "ad7cc925c3a547a0dec6572f3ac8b2d522d596e87b649bf3f0d8c318be3d50bf",

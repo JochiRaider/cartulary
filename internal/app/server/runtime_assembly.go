@@ -918,13 +918,14 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	if networkFlowRouteAdmitted {
 		networkFlowTelemetry = newNetworkFlowTelemetryObserver(normalizedCfg.Telemetry.Resource.ServiceVersion)
 	}
+	incidentTransactionParticipant := incidents.NewTransactionParticipant()
 	networkFlowModule, err := networkflow.NewModule(networkflow.ModuleDependencies{
 		Postgres:        postgresHandle,
 		ImportSources:   importStore,
 		KeyRings:        networkFlowKeyRings,
 		EffectiveLimits: networkFlowConfiguration.EffectiveResourceLimits(),
 		Now:             now,
-		IncidentLocks:   incidents.NewTransactionParticipant(),
+		IncidentLocks:   incidentTransactionParticipant,
 		AuditAppender:   authn.NewAdministrativeAuditAppender(),
 		Indicators:      indicatorOwner,
 		ResourceIntents: intentAdapters,
@@ -997,11 +998,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("register Network Flow graph view worker: %w", err)
 		}
 	}
-	networkFlowPortabilityState, err := networkflow.NewPortabilityStateBinding(postgresHandle)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("compose Network Flow portability state binding: %w", err)
-	}
+	networkFlowPortabilityState := networkflow.NewPortabilityStateBinding()
 	portabilityPresence, err := extensionassembly.NewIncidentPortabilityStatePresence(networkFlowPortabilityState)
 	if err != nil {
 		runtime.Close()
@@ -1031,10 +1028,11 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			extensionassembly.NewIncidentBundleJobSuccessFinalizer(extensionJobFinalizer, now),
 		),
 		incidentbundles.WithPortability(portability, crossOwnerCoordinator),
+		incidentbundles.WithIncidentPublicationLock(incidentTransactionParticipant),
 		incidentbundles.WithProjectionRebuild(projectionRuntime.ImportRebuilder()),
 		incidentbundles.WithSourceCatalog(incidentSourceCatalog),
 		incidentbundles.WithHistoricalIntentPolicy(historicalIntentPolicy),
-		incidentbundles.WithEvidenceBlobPortability(evidenceBlobPort),
+		incidentbundles.WithBlobPortability(evidenceBlobPort),
 	)
 	importOwnerLimits, importArchiveLimits := settingsProjection.Imports()
 	importOwnerRegistry, err := importassembly.NewOwnerCreateRegistry(

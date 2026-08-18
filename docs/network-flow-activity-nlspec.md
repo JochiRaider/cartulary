@@ -1,7 +1,7 @@
 ---
 title: Network Flow Activity NLSpec
 status: adopted/current
-document_version: 4.0.0
+document_version: 4.0.1
 contract_major: 4
 profile_id: network_flow_activity
 document_class: nlspec
@@ -12,14 +12,17 @@ document_class: nlspec
 Status: `adopted/current`.
 
 This NLSpec defines the implementation-conformance contract for the
-`network_flow_activity` extension profile. Version `4.0.0` adds fail-closed
+`network_flow_activity` extension profile. Version `4.0.1` clarifies that its
+retained-state predicate participates in the shared Incident Portability
+publication serialization boundary without changing contract major `4`.
+Version `4.0.0` added fail-closed
 effective resource configuration, ordered streaming graph construction,
 source-key contributor paging, bounded result cleanup, operational telemetry,
 and time-bucketed graphs while retaining Graph Projection v2 as a pure engine.
 It replaces public contract major `3`; no dual browser decoder or profile
 compatibility surface is current.
 
-Document version: `4.0.0`. Contract major: `4`. Durable state version is `3`
+Document version: `4.0.1`. Contract major: `4`. Durable state version is `3`
 with exact `1 -> 2` and `2 -> 3` migrations. The second migration rewrites no
 authoritative bytes and expands saved-query admission to the v1/v2 union.
 Clients that do not support major `4` omit the workspace through Core discovery
@@ -3355,6 +3358,7 @@ require one row, selector, or fixture annotation per criterion.
 | `NF-AC-118` | Table rename preserves saved results; table soft delete clears affected ordinary exposure without deleting a leased result. |
 | `NF-AC-119` | Graph v2 retry and Recovery reproduce exact result, vertex, edge, and digest identities. |
 | `NF-AC-120` | The saved graph workspace is accessible, role-aware, stale-response safe, and mounts no more than 500 vertices and 1,000 edges at once. |
+| `NF-AC-121` | Every retained Network Flow family mutation and Incident Bundle publication serialize on the same incident boundary; active, soft-deleted, or concurrently committed retained state blocks publication without disclosing a physical identity or leaving a descriptor or object. |
 
 ## 24. Core amendments and adoption blocker checklist
 
@@ -3419,6 +3423,16 @@ caches, ephemeral graph projections, staged objects,
 temporary files, indexes, and configuration never make Network Flow state
 present. Metadata with no authoritative member is valid empty state because the
 policy is `allowed`; it is not synthetic state.
+
+Every Network Flow path that commits a member of these retained authoritative
+families MUST acquire the shared per-incident serialization boundary before
+commit. Incident Portability evaluates the five families through the same
+transaction-bound query capability after acquiring that boundary and before
+committing an export descriptor. Active and retained soft-deleted state both
+block with `incident_bundle_export_rejected`,
+`reason_code='extension_state_not_portable'`, and safe
+`profile_id='network_flow_activity'`; no physical table, row, or object identity
+is disclosed.
 
 The `cartulary.extension_state_initialization_definition.v1` declaration has
 `kind='empty'`. It invokes no Network Flow code, constructs no authoritative

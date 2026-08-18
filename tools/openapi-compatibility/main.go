@@ -34,7 +34,7 @@ func main() {
 				if payload, encodeErr := json.MarshalIndent(diagnosticReport, "", "  "); encodeErr == nil {
 					payload = append(payload, '\n')
 					if *reportPath != "" {
-						_ = os.MkdirAll(filepath.Dir(*reportPath), 0o755)
+						_ = os.MkdirAll(filepath.Dir(*reportPath), 0o700)
 						_ = writeReportAtomically(*reportPath, payload)
 					} else {
 						_, _ = os.Stdout.Write(payload)
@@ -52,7 +52,7 @@ func main() {
 	}
 	payload = append(payload, '\n')
 	if *reportPath != "" {
-		if err := os.MkdirAll(filepath.Dir(*reportPath), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(*reportPath), 0o700); err != nil {
 			fmt.Fprintf(os.Stderr, "openapi compatibility failed: create report directory: %v\n", err)
 			os.Exit(1)
 		}
@@ -85,7 +85,7 @@ func writeReportAtomically(path string, payload []byte) error {
 	defer func() {
 		_ = os.Remove(temporaryName)
 	}()
-	if err := temporary.Chmod(0o644); err != nil {
+	if err := temporary.Chmod(0o600); err != nil {
 		_ = temporary.Close()
 		return err
 	}

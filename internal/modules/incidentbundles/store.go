@@ -203,7 +203,7 @@ func (s *Store) acceptJob(ctx context.Context, params jobAdmissionParams) (JobAc
 		return JobAcceptedResult{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if existing, err := lookupRouteIdempotencyTx(ctx, tx, params.Key); err == nil {
+	if existing, err := authn.GetRouteIdempotencyTx(ctx, tx, params.Key); err == nil {
 		if !bytes.Equal(existing.RequestHash, params.RequestHash) {
 			return JobAcceptedResult{}, authn.ErrClientTxnConflict
 		}
@@ -283,33 +283,6 @@ func (s *Store) GetJobPayload(ctx context.Context, jobID uuid.UUID) (JobPayload,
 		return JobPayload{}, ErrNotFound
 	}
 	return payload, err
-}
-
-func (s *Store) ListRecoverableJobPayloads(ctx context.Context) ([]JobPayload, error) {
-	rows, err := s.pool.Query(ctx, `
-SELECT p.job_id
-  FROM incident_bundle_job_payloads p
-  JOIN jobs j ON j.job_id = p.job_id
- WHERE j.status IN ('queued', 'running', 'cancel_requested')
- ORDER BY p.created_at ASC
-`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var payloads []JobPayload
-	for rows.Next() {
-		var jobID uuid.UUID
-		if err := rows.Scan(&jobID); err != nil {
-			return nil, err
-		}
-		payload, err := s.GetJobPayload(ctx, jobID)
-		if err != nil {
-			return nil, err
-		}
-		payloads = append(payloads, payload)
-	}
-	return payloads, rows.Err()
 }
 
 func MarkImportCompleteTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, incidentID uuid.UUID, manifestSHA string, now time.Time) error {
@@ -438,22 +411,6 @@ SELECT job_id, job_kind, actor_user_id, incident_id::text, bundle_id::text, uplo
 	}
 	payload.ManifestSHA256 = stringPtrFromNull(manifestSHA)
 	return payload, nil
-}
-
-func lookupRouteIdempotencyTx(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
-	var record authn.RouteIdempotencyRecord
-	err := tx.QueryRow(ctx, `
-SELECT route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_code, response_json
-  FROM route_idempotency
- WHERE route_key = $1
-   AND actor_user_id = $2
-   AND scope_key = $3
-   AND client_txn_id = $4
-`, key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID).Scan(&record.RouteKey, &record.ScopeKey, &record.ClientTxnID, &record.ActorUserID, &record.RequestHash, &record.StatusCode, &record.ResponseJSON)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return authn.RouteIdempotencyRecord{}, authn.ErrNotFound
-	}
-	return record, err
 }
 
 func uuidPtrFromNullString(value sql.NullString) *uuid.UUID {

@@ -56,13 +56,13 @@ func NewIncidentPortabilityStatePresence(networkFlow *networkflow.PortabilitySta
 	return &IncidentPortabilityStatePresence{networkFlow: networkFlow}, nil
 }
 
-func (p *IncidentPortabilityStatePresence) AuthoritativeStatePresent(ctx context.Context, incidentID uuid.UUID, profileID string, familyIDs []string) (bool, error) {
+func (p *IncidentPortabilityStatePresence) AuthoritativeStatePresent(ctx context.Context, query incidentbundles.StatePresenceQuery, incidentID uuid.UUID, profileID string, familyIDs []string) (bool, error) {
 	if p == nil || p.networkFlow == nil {
 		return false, errors.New("incident portability state presence unavailable")
 	}
 	switch profileID {
 	case networkflow.ProfileID:
-		return p.networkFlow.RetainedAuthoritativeStatePresent(ctx, incidentID, familyIDs)
+		return p.networkFlow.RetainedAuthoritativeStatePresentTx(ctx, query, incidentID, familyIDs)
 	default:
 		return false, errors.New("incident portability state presence profile scope invalid")
 	}

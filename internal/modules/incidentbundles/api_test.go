@@ -14,12 +14,14 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -55,16 +57,40 @@ func TestDecodeExportRequestCanonicalizesAndRejectsModes_Unit(t *testing.T) {
 		t.Fatalf("normalized request must include fixed modes: %#v", normalized)
 	}
 
+	omitted, omittedErr := DecodeExportRequest(bytes.NewBufferString(`{
+		"incident_id":"11111111-1111-1111-1111-111111111111",
+		"client_txn_id":"txn-export-equivalent"
+	}`))
+	explicitEmpty, emptyErr := DecodeExportRequest(bytes.NewBufferString(`{
+		"incident_id":"11111111-1111-1111-1111-111111111111",
+		"client_txn_id":"txn-export-equivalent",
+		"optional_sections":[],
+		"required_capabilities":[],
+		"reference_pack_mode":"refs_only"
+	}`))
+	if omittedErr != nil || emptyErr != nil {
+		t.Fatalf("omitted/empty equivalent requests failed: omitted=%#v empty=%#v", omittedErr, emptyErr)
+	}
+	if !bytes.Equal(omitted.Normalized, explicitEmpty.Normalized) {
+		t.Fatalf("omitted and explicit-empty defaults normalize differently:\n omitted=%s\nexplicit=%s", omitted.Normalized, explicitEmpty.Normalized)
+	}
+
 	_, apiErr = DecodeExportRequest(bytes.NewBufferString(`{
 		"incident_id":"11111111-1111-1111-1111-111111111111",
-		"client_txn_id":"txn-export-required-capability",
-		"required_capabilities":["snapshots"]
+		"client_txn_id":"txn-export-malformed-capability",
+		"required_capabilities":[1]
 	}`))
-	if apiErr == nil {
-		t.Fatal("required optional-section capabilities must be rejected until implemented")
+	if apiErr == nil || apiErr.Status != http.StatusBadRequest || apiErr.Code != "invalid_incident_bundle_request" || apiErr.Details["reason_code"] != "invalid_required_capabilities" {
+		t.Fatalf("non-string capability member must remain a structural request failure: %#v", apiErr)
 	}
-	if apiErr.Status != http.StatusBadRequest || apiErr.Code != "invalid_incident_bundle_request" || apiErr.Details["reason_code"] != "invalid_required_capabilities" {
-		t.Fatalf("required capability rejection mismatch: %#v", apiErr)
+
+	activation, apiErr := DecodeExportRequest(bytes.NewBufferString(`{
+		"incident_id":"11111111-1111-1111-1111-111111111111",
+		"client_txn_id":"txn-export-required-capability",
+		"required_capabilities":["future-capability","future-capability"]
+	}`))
+	if apiErr != nil || !activation.CapabilityActivationRequested || len(activation.RequiredCapabilities) != 0 || strings.Contains(string(activation.Normalized), "future-capability") {
+		t.Fatalf("valid capability activation was classified or retained: request=%#v error=%#v", activation, apiErr)
 	}
 
 	for _, body := range []string{
@@ -228,7 +254,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 		Bundle: bundle.Bytes,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
-	if !isVerificationReason(err, "unsupported_required_capability") {
+	if !errors.Is(err, ErrExtensionCapabilityNotSupported) {
 		t.Fatalf("required capability reason mismatch: %v", err)
 	}
 
@@ -334,8 +360,28 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 		Bundle: unsupportedRequired,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
-	if !isVerificationReason(err, "unsupported_required_capability") {
+	if !errors.Is(err, ErrExtensionCapabilityNotSupported) {
 		t.Fatalf("unsupported required capability reason mismatch: %v", err)
+	}
+	malformedRequired := replaceManifestFields(t, validBundle.Bytes, func(manifest map[string]any) {
+		manifest["required_capabilities"] = []any{1}
+	})
+	_, err = VerifyBundle(VerificationInput{
+		Bundle: malformedRequired,
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	})
+	if !isVerificationReason(err, "malformed_manifest") {
+		t.Fatalf("structurally invalid required capability reason mismatch: %v", err)
+	}
+	capabilityFiles := zipFilesMap(t, unsupportedRequired)
+	capabilityFiles["data/records.ndjson"] = append(capabilityFiles["data/records.ndjson"], []byte("{}\n")...)
+	capabilityWithBadChecksum := newZip(t, capabilityFiles)
+	_, err = VerifyBundle(VerificationInput{
+		Bundle: capabilityWithBadChecksum,
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	})
+	if !isVerificationReason(err, "checksum_mismatch") {
+		t.Fatalf("archive integrity must precede capability rejection: %v", err)
 	}
 
 	withKnownOptionalSection, err := BuildBundleArchive(ManifestInput{
@@ -457,24 +503,31 @@ func TestCompressionRatioBoundaryUsesThresholdComparison_Unit(t *testing.T) {
 
 func TestOpenAPIAndErrorRegistryContainIncidentBundleContracts_Unit(t *testing.T) {
 	openAPIDoc := contracttest.OpenAPIDocument(t)
-	for _, field := range []string{"optional_sections", "required_capabilities"} {
-		schema := openAPIObjectAt(t, openAPIDoc, "components", "schemas", "IncidentBundleResource", "properties", field)
-		if schema["type"] != "array" || schema["uniqueItems"] != true {
-			t.Fatalf("%s must be a unique array schema: %#v", field, schema)
-		}
-		items, ok := schema["items"].(map[string]any)
-		if !ok {
-			t.Fatalf("%s items schema missing: %#v", field, schema)
-		}
-		enumValues, ok := items["enum"].([]any)
-		if !ok || !slices.Equal(enumStrings(enumValues), []string{"reference_packs", "snapshots"}) {
-			t.Fatalf("%s enum tokens mismatch: %#v", field, items["enum"])
-		}
+	optionalSections := openAPIObjectAt(t, openAPIDoc, "components", "schemas", "IncidentBundleResource", "properties", "optional_sections")
+	if optionalSections["type"] != "array" || optionalSections["uniqueItems"] != true {
+		t.Fatalf("optional_sections must remain a unique array schema: %#v", optionalSections)
+	}
+	optionalItems, ok := optionalSections["items"].(map[string]any)
+	if !ok {
+		t.Fatalf("optional_sections items schema missing: %#v", optionalSections)
+	}
+	enumValues, ok := optionalItems["enum"].([]any)
+	if !ok || !slices.Equal(enumStrings(enumValues), []string{"reference_packs", "snapshots"}) {
+		t.Fatalf("optional_sections enum tokens mismatch: %#v", optionalItems["enum"])
+	}
+
+	resourceCapabilities := openAPIObjectAt(t, openAPIDoc, "components", "schemas", "IncidentBundleResource", "properties", "required_capabilities")
+	if resourceCapabilities["type"] != "array" || resourceCapabilities["maxItems"] != float64(0) {
+		t.Fatalf("successful descriptor capabilities must be an empty-only array: %#v", resourceCapabilities)
+	}
+	resourceItems, ok := resourceCapabilities["items"].(map[string]any)
+	if !ok || resourceItems["type"] != "string" || resourceItems["enum"] != nil {
+		t.Fatalf("descriptor capabilities must not publish obsolete capability tokens: %#v", resourceItems)
 	}
 	exportRequiredCapabilities := openAPIObjectAt(t, openAPIDoc, "components", "schemas", "IncidentBundleExportRequest", "properties", "required_capabilities")
-	maxItems, ok := exportRequiredCapabilities["maxItems"].(float64)
-	if !ok || maxItems != 0 {
-		t.Fatalf("export request required_capabilities must advertise empty current support: %#v", exportRequiredCapabilities)
+	exportItems, ok := exportRequiredCapabilities["items"].(map[string]any)
+	if !ok || exportRequiredCapabilities["maxItems"] != nil || exportRequiredCapabilities["uniqueItems"] != nil || exportItems["type"] != "string" || exportItems["enum"] != nil {
+		t.Fatalf("export required_capabilities must admit any structurally valid string array for semantic rejection: %#v", exportRequiredCapabilities)
 	}
 	paths := openAPIObjectAt(t, openAPIDoc, "paths")
 	for _, path := range []string{
@@ -486,12 +539,23 @@ func TestOpenAPIAndErrorRegistryContainIncidentBundleContracts_Unit(t *testing.T
 			t.Fatalf("openapi missing path %q", path)
 		}
 	}
+	exportConflict := openAPIObjectAt(t, openAPIDoc, "paths", "/api/v1/incident-bundles/export", "post", "responses", "409")
+	exportCodes, ok := exportConflict["x-cartulary-error-codes"].([]any)
+	if !ok || !slices.Contains(enumStrings(exportCodes), "extension_capability_not_supported") {
+		t.Fatalf("export 409 contract omits shared capability error: %#v", exportConflict)
+	}
+	descriptorInvalid := openAPIObjectAt(t, openAPIDoc, "paths", "/api/v1/incident-bundles/{bundle_id}", "get", "responses", "400")
+	descriptorCodes, ok := descriptorInvalid["x-cartulary-error-codes"].([]any)
+	if !ok || !slices.Equal(enumStrings(descriptorCodes), []string{"invalid_pagination_request"}) {
+		t.Fatalf("descriptor 400 contract must use only invalid_pagination_request: %#v", descriptorInvalid)
+	}
 	_ = openAPIObjectAt(t, openAPIDoc, "components", "schemas", "IncidentBundleResource")
 	for code, status := range map[string]int{
-		"incident_bundle_export_rejected": http.StatusConflict,
-		"incident_bundle_import_rejected": http.StatusConflict,
-		"incident_bundle_not_found":       http.StatusNotFound,
-		"invalid_incident_bundle_request": http.StatusBadRequest,
+		"extension_capability_not_supported": http.StatusConflict,
+		"incident_bundle_export_rejected":    http.StatusConflict,
+		"incident_bundle_import_rejected":    http.StatusConflict,
+		"incident_bundle_not_found":          http.StatusNotFound,
+		"invalid_incident_bundle_request":    http.StatusBadRequest,
 	} {
 		contracttest.RequireErrorContract(t, code, status)
 	}
@@ -551,6 +615,7 @@ func TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit(t *testing.T) {
 			"unsupported_upload_envelope",
 		},
 		"incident_bundle_export_rejected": {
+			"extension_state_not_portable",
 			"missing_required_blob",
 			"missing_required_file",
 		},
@@ -571,7 +636,6 @@ func TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit(t *testing.T) {
 			"source_family_invalid",
 			"unsupported_bundle_version",
 			"unsupported_member_type",
-			"unsupported_required_capability",
 		},
 	}
 	gotReasons := map[string][]string{}
@@ -640,6 +704,7 @@ func TestClaimedIncidentPortabilityRejectsMissingJobsBeforePublication_Unit(t *t
 		importFinalizer:   importFinalizerStub{},
 		jobFinalizer:      jobFinalizerStub{},
 		portability:       &PortabilityOrchestrator{},
+		publicationLock:   publicationLockStub{},
 		transactions:      &crossownertransaction.Coordinator{},
 		storage:           bundleStorageStub{},
 		projectionRebuild: projectionRebuilderStub{},
@@ -647,6 +712,23 @@ func TestClaimedIncidentPortabilityRejectsMissingJobsBeforePublication_Unit(t *t
 	})
 	if err == nil || !strings.Contains(err.Error(), "jobs composition is required") {
 		t.Fatalf("claimed Incident Portability without Jobs composition error = %v", err)
+	}
+	_, err = newService(httpapi.DependencySet{}, routeOptions{
+		importFinalizer:   importFinalizerStub{},
+		jobFinalizer:      jobFinalizerStub{},
+		portability:       &PortabilityOrchestrator{},
+		publicationLock:   publicationLockStub{},
+		transactions:      &crossownertransaction.Coordinator{},
+		storage:           bundleStorageStub{},
+		projectionRebuild: projectionRebuilderStub{},
+		sourceCatalog:     &sourceport.Catalog{},
+		historicalIntents: historicalIntentPolicyStub{},
+		jobAdmission:      jobAdmissionStub{},
+		jobOperations:     &recordingJobOperations{},
+		jobRunner:         jobRunnerStub{},
+	})
+	if err == nil || !strings.Contains(err.Error(), "blob portability is required") {
+		t.Fatalf("claimed Incident Portability without the private blob port error = %v", err)
 	}
 }
 
@@ -673,6 +755,27 @@ func (jobFinalizerStub) FinalizeIncidentBundleJobSuccessTx(context.Context, cros
 func (jobFinalizerStub) FinalizeIncidentBundleJobFailure(context.Context, JobFailureFinalization) (jobs.Resource, error) {
 	return jobs.Resource{}, nil
 }
+
+type publicationLockStub struct{}
+
+func (publicationLockStub) LockIncidentTx(context.Context, pgx.Tx, uuid.UUID) (bool, error) {
+	return true, nil
+}
+
+type jobAdmissionStub struct{}
+
+func (jobAdmissionStub) CreateQueuedTx(context.Context, pgx.Tx, jobs.EnqueueParams, time.Time) (jobs.Resource, error) {
+	return jobs.Resource{}, nil
+}
+
+type jobRunnerStub struct{}
+
+func (jobRunnerStub) RegisterHandler(string, jobs.HandlerFunc) error { return nil }
+func (jobRunnerStub) Notify(uuid.UUID)                               {}
+
+type historicalIntentPolicyStub struct{}
+
+func (historicalIntentPolicyStub) SuppressTx(context.Context, pgx.Tx) error { return nil }
 
 type bundleStorageStub struct{}
 
@@ -729,6 +832,102 @@ func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
 	if importRef.Kind != "incident" || importRef.ID != incidentID.String() || importRef.Route != "/api/v1/incidents/"+incidentID.String() {
 		t.Fatalf("import resource ref mismatch: %#v", importRef)
 	}
+
+	t.Run("blocked publication removes physical object and uses the closed failure", func(t *testing.T) {
+		storage := &recordingBundleStorage{}
+		manager := &recordingJobOperations{}
+		worker := &incidentBundleWorker{
+			storage: storage,
+			results: incidentBundleJobResultSink{manager: manager},
+		}
+		reference, err := ParseBundleStorageRef("incident-bundles/22222222-2222-2222-2222-222222222222.zip")
+		if err != nil {
+			t.Fatal(err)
+		}
+		worker.handleExportFinalizationError(context.Background(), jobs.Execution{}, reference, newPortabilityFailure(ErrPortabilityBlocked, "a-profile"))
+		if len(storage.removed) != 1 || storage.removed[0].String() != reference.String() {
+			t.Fatalf("published object cleanup = %#v", storage.removed)
+		}
+		if manager.failed == nil || manager.failed.ErrorSummary.Code != "incident_bundle_export_rejected" || manager.failed.ErrorSummary.Retryable {
+			t.Fatalf("blocked publication completion = %#v", manager.failed)
+		}
+		details := manager.failed.ErrorSummary.Details
+		if len(details) != 2 || details["reason_code"] != "extension_state_not_portable" || details["profile_id"] != "a-profile" {
+			t.Fatalf("blocked publication details = %#v", details)
+		}
+	})
+
+	t.Run("prepared import cleanup uses the private blob consumer port", func(t *testing.T) {
+		blob := &recordingBlobPortability{}
+		prepared := &PreparedImport{blobPort: blob, stagedObjectKeys: []string{"staged/one", "staged/two"}}
+		prepared.Cleanup(context.Background())
+		if !slices.Equal(blob.cleaned, []string{"staged/one", "staged/two"}) || len(prepared.stagedObjectKeys) != 0 {
+			t.Fatalf("private blob cleanup seam = cleaned %#v remaining %#v", blob.cleaned, prepared.stagedObjectKeys)
+		}
+	})
+}
+
+type recordingBundleStorage struct {
+	removed []BundleStorageRef
+}
+
+func (*recordingBundleStorage) Stage(context.Context, string, []byte) (BundleStagingRef, error) {
+	return BundleStagingRef{}, nil
+}
+
+func (*recordingBundleStorage) Publish(context.Context, string, []byte) (BundleStorageRef, error) {
+	return BundleStorageRef{}, nil
+}
+
+func (*recordingBundleStorage) ReadStaged(BundleStagingRef, int64) ([]byte, error) { return nil, nil }
+func (*recordingBundleStorage) RemoveStaged(BundleStagingRef) error                { return nil }
+
+func (s *recordingBundleStorage) RemovePublished(reference BundleStorageRef) error {
+	s.removed = append(s.removed, reference)
+	return nil
+}
+
+type recordingJobOperations struct {
+	failed *jobs.FailureCompletion
+}
+
+type recordingBlobPortability struct {
+	cleaned []string
+}
+
+var _ blobPortability = (*recordingBlobPortability)(nil)
+
+func (*recordingBlobPortability) ExportBlobFiles(context.Context, incidentportability.Queryer, uuid.UUID, map[string][]byte) error {
+	return nil
+}
+
+func (*recordingBlobPortability) RewriteAndStageObjectBlobs(context.Context, map[string][]byte, uuid.UUID, uuid.UUID, incidentportability.AttributionRecorder) ([]byte, []string, error) {
+	return []byte("[]\n"), []string{"staged/object"}, nil
+}
+
+func (p *recordingBlobPortability) CleanupStagedObjects(_ context.Context, keys []string) {
+	p.cleaned = append(p.cleaned, keys...)
+}
+
+func (*recordingJobOperations) Get(context.Context, uuid.UUID) (jobs.Resource, error) {
+	return jobs.Resource{}, nil
+}
+
+func (*recordingJobOperations) ObserveExecution(context.Context, jobs.Execution) (jobs.Resource, error) {
+	return jobs.Resource{Status: jobs.StatusRunning}, nil
+}
+
+func (*recordingJobOperations) UpdateProgress(context.Context, jobs.Execution, jobs.Progress, *string) (jobs.Resource, error) {
+	return jobs.Resource{}, nil
+}
+
+func (o *recordingJobOperations) CompleteFailed(_ context.Context, _ jobs.Execution, completion jobs.FailureCompletion) (jobs.Resource, error) {
+	o.failed = &completion
+	return jobs.Resource{}, nil
+}
+
+func (*recordingJobOperations) CompleteCanceled(context.Context, jobs.Execution, jobs.CancellationCompletion) (jobs.Resource, error) {
+	return jobs.Resource{}, nil
 }
 
 func TestIncidentBundleStorageReferencesAreStrictAndRootFree_Unit(t *testing.T) {

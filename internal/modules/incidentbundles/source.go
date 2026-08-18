@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	evidencemodule "github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
@@ -23,16 +22,24 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
+// blobPortability is the Incident Bundles-owned consumer port for blob data.
+// Application assembly supplies the Evidence-owned implementation.
+type blobPortability interface {
+	ExportBlobFiles(context.Context, incidentportability.Queryer, uuid.UUID, map[string][]byte) error
+	RewriteAndStageObjectBlobs(context.Context, map[string][]byte, uuid.UUID, uuid.UUID, incidentportability.AttributionRecorder) ([]byte, []string, error)
+	CleanupStagedObjects(context.Context, []string)
+}
+
 type BundleBuilder struct {
 	pool          *pgxpool.Pool
-	blobPort      *evidencemodule.IncidentBundleBlobPortability
+	blobPort      blobPortability
 	portability   *PortabilityOrchestrator
 	sourceCatalog *sourceport.Catalog
 }
 
 type Importer struct {
 	pool              *pgxpool.Pool
-	blobPort          *evidencemodule.IncidentBundleBlobPortability
+	blobPort          blobPortability
 	finalizer         incidents.IncidentBundleImportFinalizer
 	projectionRebuild importProjectionRebuilder
 	sourceCatalog     *sourceport.Catalog
@@ -62,7 +69,7 @@ type PreparedImport struct {
 	files              map[string][]byte
 	attributions       importedAttributionBuffer
 	stagedObjectKeys   []string
-	blobPort           *evidencemodule.IncidentBundleBlobPortability
+	blobPort           blobPortability
 	sourcePreparations []preparedSource
 	importContext      sourceport.ImportContext
 }
@@ -123,13 +130,13 @@ func (b BundleBuilder) Build(ctx context.Context, incidentID uuid.UUID, request 
 	}
 	files["data/actors.ndjson"] = actors
 	if b.blobPort == nil {
-		return BuiltIncidentBundle{}, errors.New("incident bundle Evidence blob portability is required")
+		return BuiltIncidentBundle{}, errors.New("incident bundle blob portability is required")
 	}
 	if err := b.blobPort.ExportBlobFiles(ctx, tx, incidentID, files); err != nil {
 		return BuiltIncidentBundle{}, verificationErrorFromPort(err)
 	}
 	if b.portability != nil {
-		payloads, err := b.portability.Export(ctx, incidentID)
+		payloads, err := b.portability.Export(ctx, tx, incidentID)
 		if err != nil {
 			return BuiltIncidentBundle{}, err
 		}
@@ -361,7 +368,7 @@ func (i Importer) PrepareImport(ctx context.Context, verified VerifiedBundle, pa
 		sourcePreparations = append(sourcePreparations, preparedSource{port: port, prepared: prepared})
 	}
 	if i.blobPort == nil {
-		return nil, errors.New("incident bundle Evidence blob portability is required")
+		return nil, errors.New("incident bundle blob portability is required")
 	}
 	rewrittenObjectBlobs, writtenObjectKeys, err := i.blobPort.RewriteAndStageObjectBlobs(ctx, verified.Files, incidentID, params.ActorUserID, &attributions)
 	if err != nil {

@@ -7,7 +7,12 @@
     "mutation_protocol": "shared_transaction_only",
     "staged_output_capability": "operation_scoped",
     "participant_input_max_bytes": 67108864,
-    "aggregate_input_max_bytes": 67108864
+    "aggregate_input_max_bytes": 67108864,
+    "blocked_when_present_error": "incident_bundle_export_rejected",
+    "blocked_when_present_reason": "extension_state_not_portable",
+    "blocking_profile_selection": "utf8_byte_ascending_first",
+    "publication_guard": "transaction_bound_incident_serialization",
+    "blocked_publication_cleanup": "remove_unreferenced_object"
   },
   "transaction": {
     "minimum_participants": 1,

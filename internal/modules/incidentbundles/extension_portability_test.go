@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
@@ -56,7 +58,7 @@ func TestIncidentBundlePortabilityStateAndClaimMatrix_Integration(t *testing.T) 
 			if err != nil {
 				t.Fatal(err)
 			}
-			payloads, err := orchestrator.Export(context.Background(), incidentID)
+			payloads, err := orchestrator.Export(context.Background(), portabilityQueryFake{}, incidentID)
 			if !errors.Is(err, test.wantError) {
 				t.Fatalf("error = %v; want %v", err, test.wantError)
 			}
@@ -68,6 +70,33 @@ func TestIncidentBundlePortabilityStateAndClaimMatrix_Integration(t *testing.T) 
 			}
 		})
 	}
+
+	t.Run("blocking profiles use canonical profile order", func(t *testing.T) {
+		later := withPortabilityMode(base, PortabilityModeBlockedWhenPresent)
+		later.ProfileID = "z-profile"
+		earlier := withPortabilityMode(base, PortabilityModeBlockedWhenPresent)
+		earlier.ProfileID = "a-profile"
+		orchestrator, err := NewPortabilityOrchestrator(
+			[]ExtensionPolicy{later, earlier},
+			portabilityPresenceFake{present: true},
+			nil,
+			&portabilityAllocatorFake{},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = orchestrator.Export(context.Background(), portabilityQueryFake{}, incidentID)
+		var failure *PortabilityFailure
+		if !errors.As(err, &failure) || !errors.Is(err, ErrPortabilityBlocked) {
+			t.Fatalf("blocking export error = %v; want PortabilityFailure wrapping ErrPortabilityBlocked", err)
+		}
+		if failure.ProfileID != "a-profile" {
+			t.Fatalf("selected blocking profile = %q; want a-profile", failure.ProfileID)
+		}
+		if err := orchestrator.ValidatePublication(context.Background(), portabilityQueryFake{}, incidentID); !errors.As(err, &failure) || failure.ProfileID != "a-profile" {
+			t.Fatalf("publication guard selected %v; want a-profile", err)
+		}
+	})
 }
 
 func TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration(t *testing.T) {
@@ -159,13 +188,46 @@ func TestIncidentBundleImportDescriptorIsClosed_Unit(t *testing.T) {
 		len(descriptor.ContractSHA256) != 64 {
 		t.Fatalf("descriptor = %#v", descriptor)
 	}
+	contribution := RecoveryStateContribution()
+	if contribution.OwnerID != "module.incidentbundles" || len(contribution.Tables) != 5 || len(contribution.ObjectFamilies) != 1 {
+		t.Fatalf("root Recovery contribution identity changed: %#v", contribution)
+	}
+	wantTables := []string{
+		"incident_bundle_exports",
+		"incident_bundle_imported_actors",
+		"incident_bundle_imported_attributions",
+		"incident_bundle_job_payloads",
+		"incident_bundle_manifest_files",
+	}
+	gotTables := make([]string, 0, len(contribution.Tables))
+	for _, table := range contribution.Tables {
+		gotTables = append(gotTables, table.TableName)
+	}
+	if !slices.Equal(gotTables, wantTables) {
+		t.Fatalf("root Recovery table order = %#v; want %#v", gotTables, wantTables)
+	}
+	family := contribution.ObjectFamilies[0]
+	if family.ObjectFamilyID != "incident_bundles.files" ||
+		family.InventoryAlgorithmID == nil || *family.InventoryAlgorithmID != "incidentbundles.snapshot_file_inventory.v1" ||
+		family.ValidationAlgorithmID == nil || *family.ValidationAlgorithmID != "incidentbundles.validate_file_inventory.v1" ||
+		family.RestoreAlgorithmID == nil || *family.RestoreAlgorithmID != "incidentbundles.restore_file_inventory.v1" {
+		t.Fatalf("root Recovery object family changed: %#v", family)
+	}
+	inventory := VNextRecoveryObjectInventory(nil)
+	if inventory.OwnerID() != "module.incidentbundles" || inventory.ObjectFamilyID() != "incident_bundles.files" || inventory.InventoryAlgorithmID() != "incidentbundles.snapshot_file_inventory.v1" {
+		t.Fatalf("root Recovery inventory identity changed: owner=%q family=%q algorithm=%q", inventory.OwnerID(), inventory.ObjectFamilyID(), inventory.InventoryAlgorithmID())
+	}
 }
 
 type portabilityPresenceFake struct{ present bool }
 
-func (p portabilityPresenceFake) AuthoritativeStatePresent(context.Context, uuid.UUID, string, []string) (bool, error) {
+func (p portabilityPresenceFake) AuthoritativeStatePresent(context.Context, StatePresenceQuery, uuid.UUID, string, []string) (bool, error) {
 	return p.present, nil
 }
+
+type portabilityQueryFake struct{}
+
+func (portabilityQueryFake) QueryRow(context.Context, string, ...any) pgx.Row { return nil }
 
 type portabilityAllocatorFake struct {
 	allocated []string

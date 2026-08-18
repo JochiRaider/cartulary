@@ -12,7 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
-	evidencemodule "github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
@@ -62,7 +61,7 @@ type ImportTransactionProvider struct {
 	now      func() time.Time
 }
 
-func NewImportTransactionProvider(pool *pgxpool.Pool, blobPort *evidencemodule.IncidentBundleBlobPortability, finalizer incidents.IncidentBundleImportFinalizer, projectionRebuild importProjectionRebuilder, historicalIntents historicalIntentPolicy, jobs jobRunnableValidator, now func() time.Time) (*ImportTransactionProvider, error) {
+func NewImportTransactionProvider(pool *pgxpool.Pool, blobPort blobPortability, finalizer incidents.IncidentBundleImportFinalizer, projectionRebuild importProjectionRebuilder, historicalIntents historicalIntentPolicy, jobs jobRunnableValidator, now func() time.Time) (*ImportTransactionProvider, error) {
 	if pool == nil || blobPort == nil || finalizer == nil || projectionRebuild == nil || historicalIntents == nil || jobs == nil {
 		return nil, errors.New("incident bundle import transaction provider is incomplete")
 	}

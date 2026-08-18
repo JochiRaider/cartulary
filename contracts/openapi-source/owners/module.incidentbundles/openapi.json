@@ -45,6 +45,7 @@
             "description": "Export rejected or idempotency conflict",
             "x-cartulary-error-codes": [
               "client_txn_conflict",
+              "extension_capability_not_supported",
               "incident_bundle_export_rejected"
             ],
             "content": {
@@ -101,7 +102,7 @@
           "400": {
             "description": "Invalid singleton read query",
             "x-cartulary-error-codes": [
-              "invalid_list_query"
+              "invalid_pagination_request"
             ],
             "content": {
               "application/json": {
@@ -239,16 +240,10 @@
           },
           "required_capabilities": {
             "type": "array",
-            "description": "Current deployment supports no required optional-section export capabilities; omit this member or send an empty array. Non-empty values fail with invalid_required_capabilities until a later profile revision declares implementation support.",
-            "maxItems": 0,
+            "description": "Omission and an empty array are equivalent. Every structurally valid non-empty string array fails with extension_capability_not_supported; submitted values are not classified or echoed.",
             "items": {
-              "type": "string",
-              "enum": [
-                "reference_packs",
-                "snapshots"
-              ]
-            },
-            "uniqueItems": true
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -350,13 +345,9 @@
           },
           "required_capabilities": {
             "type": "array",
-            "uniqueItems": true,
+            "maxItems": 0,
             "items": {
-              "type": "string",
-              "enum": [
-                "reference_packs",
-                "snapshots"
-              ]
+              "type": "string"
             }
           }
         },

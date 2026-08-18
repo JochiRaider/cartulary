@@ -49,14 +49,15 @@ var IncidentBundleFileContentTypes = []string{
 }
 
 type ExportRequest struct {
-	IncidentID           uuid.UUID
-	ClientTxnID          string
-	ReferencePackMode    string
-	OptionalSections     []string
-	RequiredCapabilities []string
-	HistoryMode          string
-	BlobMode             string
-	Normalized           []byte
+	IncidentID                    uuid.UUID
+	ClientTxnID                   string
+	ReferencePackMode             string
+	OptionalSections              []string
+	RequiredCapabilities          []string
+	CapabilityActivationRequested bool
+	HistoryMode                   string
+	BlobMode                      string
+	Normalized                    []byte
 }
 
 type ImportMetadataRequest struct {
@@ -113,17 +114,15 @@ func DecodeExportRequest(reader io.Reader) (ExportRequest, *httpapi.APIError) {
 			return ExportRequest{}, invalidIncidentBundleRequest("reference_pack_mode", "invalid_reference_pack_mode")
 		}
 	}
-	optionalSections, apiErr := canonicalTokenArray(raw, "optional_sections", true)
+	optionalSections, apiErr := canonicalOptionalSections(raw)
 	if apiErr != nil {
 		return ExportRequest{}, apiErr
 	}
-	requiredCapabilities, apiErr := canonicalTokenArray(raw, "required_capabilities", false)
+	capabilityActivationRequested, apiErr := decodeRequiredCapabilities(raw)
 	if apiErr != nil {
 		return ExportRequest{}, apiErr
 	}
-	if len(requiredCapabilities) > 0 {
-		return ExportRequest{}, invalidIncidentBundleRequest("required_capabilities", "invalid_required_capabilities")
-	}
+	requiredCapabilities := []string{}
 	normalized, err := json.Marshal(map[string]any{
 		"blob_mode":             BlobModeFull,
 		"history_mode":          HistoryModeFull,
@@ -136,14 +135,15 @@ func DecodeExportRequest(reader io.Reader) (ExportRequest, *httpapi.APIError) {
 		return ExportRequest{}, internalAPIError(err)
 	}
 	return ExportRequest{
-		IncidentID:           incidentID,
-		ClientTxnID:          clientTxnID,
-		ReferencePackMode:    referencePackMode,
-		OptionalSections:     optionalSections,
-		RequiredCapabilities: requiredCapabilities,
-		HistoryMode:          HistoryModeFull,
-		BlobMode:             BlobModeFull,
-		Normalized:           normalized,
+		IncidentID:                    incidentID,
+		ClientTxnID:                   clientTxnID,
+		ReferencePackMode:             referencePackMode,
+		OptionalSections:              optionalSections,
+		RequiredCapabilities:          requiredCapabilities,
+		CapabilityActivationRequested: capabilityActivationRequested,
+		HistoryMode:                   HistoryModeFull,
+		BlobMode:                      BlobModeFull,
+		Normalized:                    normalized,
 	}, nil
 }
 
@@ -199,7 +199,8 @@ func requiredStringField(raw map[string]json.RawMessage, field string) (string, 
 	return parsed, nil
 }
 
-func canonicalTokenArray(raw map[string]json.RawMessage, field string, optional bool) ([]string, *httpapi.APIError) {
+func canonicalOptionalSections(raw map[string]json.RawMessage) ([]string, *httpapi.APIError) {
+	const field = "optional_sections"
 	value, ok := raw[field]
 	if !ok {
 		return []string{}, nil
@@ -209,18 +210,12 @@ func canonicalTokenArray(raw map[string]json.RawMessage, field string, optional 
 	}
 	var items []string
 	if err := json.Unmarshal(value, &items); err != nil {
-		if optional {
-			return nil, invalidIncidentBundleRequest(field, "invalid_optional_sections")
-		}
-		return nil, invalidIncidentBundleRequest(field, "invalid_required_capabilities")
+		return nil, invalidIncidentBundleRequest(field, "invalid_optional_sections")
 	}
 	seen := map[string]struct{}{}
 	for _, item := range items {
 		if item != "reference_packs" && item != "snapshots" {
-			if optional {
-				return nil, invalidIncidentBundleRequest(field, "invalid_optional_sections")
-			}
-			return nil, invalidIncidentBundleRequest(field, "invalid_required_capabilities")
+			return nil, invalidIncidentBundleRequest(field, "invalid_optional_sections")
 		}
 		seen[item] = struct{}{}
 	}
@@ -232,12 +227,36 @@ func canonicalTokenArray(raw map[string]json.RawMessage, field string, optional 
 	return canonical, nil
 }
 
+func decodeRequiredCapabilities(raw map[string]json.RawMessage) (bool, *httpapi.APIError) {
+	const field = "required_capabilities"
+	value, ok := raw[field]
+	if !ok {
+		return false, nil
+	}
+	if bytesEqualJSONNull(value) {
+		return false, invalidIncidentBundleRequest(field, "field_not_nullable")
+	}
+	var items []string
+	if err := json.Unmarshal(value, &items); err != nil {
+		return false, invalidIncidentBundleRequest(field, "invalid_required_capabilities")
+	}
+	return len(items) > 0, nil
+}
+
 func invalidIncidentBundleRequest(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{"reason_code": reasonCode}
 	if field != "" {
 		details["field"] = field
 	}
 	return &httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_incident_bundle_request", Details: details}
+}
+
+func extensionCapabilityNotSupported() *httpapi.APIError {
+	return &httpapi.APIError{
+		Status:  http.StatusConflict,
+		Code:    "extension_capability_not_supported",
+		Details: map[string]any{"profile_id": ProfileID},
+	}
 }
 
 func incidentBundleNotFound() *httpapi.APIError {

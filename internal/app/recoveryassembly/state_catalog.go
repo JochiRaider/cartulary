@@ -13,7 +13,7 @@ import (
 	extensionsrecovery "github.com/JochiRaider/cartulary/internal/modules/extensions/recoverycontribution"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
-	incidentbundlesource "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -52,7 +52,7 @@ func CurrentRecoveryStateContributions() ([]recoverystate.Contribution, error) {
 		extensionsrecovery.RecoveryStateContribution(),
 		graphprojection.RecoveryStateContribution(),
 		imports.RecoveryStateContribution(),
-		incidentbundlesource.RecoveryStateContribution(),
+		incidentbundles.RecoveryStateContribution(),
 		incidents.RecoveryStateContribution(),
 		indicators.RecoveryStateContribution(),
 		links.RecoveryStateContribution(),
@@ -92,7 +92,7 @@ func CurrentVNextObjectInventoryCatalog(
 		evidence.VNextRecoveryObjectInventory(source),
 		imports.VNextRecoveryObjectInventory(),
 		extensionsrecovery.VNextRecoveryObjectInventory(source),
-		incidentbundlesource.VNextRecoveryObjectInventory(source),
+		incidentbundles.VNextRecoveryObjectInventory(source),
 		referencedatarecovery.VNextRecoveryObjectInventory(source),
 		reporting.VNextRecoveryObjectInventory(source),
 	)

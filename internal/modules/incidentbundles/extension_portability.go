@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
@@ -64,7 +65,13 @@ type ExtensionPolicy struct {
 // retained authoritative members only and never invoke profile workers,
 // migrations, probes, or participant code.
 type StatePresence interface {
-	AuthoritativeStatePresent(context.Context, uuid.UUID, string, []string) (bool, error)
+	AuthoritativeStatePresent(context.Context, StatePresenceQuery, uuid.UUID, string, []string) (bool, error)
+}
+
+// StatePresenceQuery is the transaction-bound read capability supplied by the
+// Incident Bundles owner to declarative extension state bindings.
+type StatePresenceQuery interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
 type ExportInvocation struct {
@@ -202,7 +209,9 @@ type PortabilityOrchestrator struct {
 
 func NewPortabilityOrchestrator(policies []ExtensionPolicy, presence StatePresence, participants []ExtensionParticipant, allocator stagedobjects.Allocator) (*PortabilityOrchestrator, error) {
 	resolved := append([]ExtensionPolicy(nil), policies...)
-	sort.Slice(resolved, func(i, j int) bool { return resolved[i].ProfileID < resolved[j].ProfileID })
+	sort.Slice(resolved, func(i, j int) bool {
+		return bytes.Compare([]byte(resolved[i].ProfileID), []byte(resolved[j].ProfileID)) < 0
+	})
 	participantMap := make(map[string]ExtensionParticipant, len(participants))
 	for _, participant := range participants {
 		if participant == nil || participant.ID() == "" ||
@@ -266,8 +275,8 @@ func NewPortabilityOrchestrator(policies []ExtensionPolicy, presence StatePresen
 	}, nil
 }
 
-func (o *PortabilityOrchestrator) Export(ctx context.Context, incidentID uuid.UUID) ([]ExtensionPayload, error) {
-	if o == nil || incidentID == uuid.Nil {
+func (o *PortabilityOrchestrator) Export(ctx context.Context, query StatePresenceQuery, incidentID uuid.UUID) ([]ExtensionPayload, error) {
+	if o == nil || query == nil || incidentID == uuid.Nil {
 		return nil, ErrPortabilityUnavailable
 	}
 	results := make([]ExtensionPayload, 0)
@@ -282,7 +291,7 @@ func (o *PortabilityOrchestrator) Export(ctx context.Context, incidentID uuid.UU
 		present := false
 		if len(families) > 0 {
 			var err error
-			present, err = o.presence.AuthoritativeStatePresent(ctx, incidentID, policy.ProfileID, families)
+			present, err = o.presence.AuthoritativeStatePresent(ctx, query, incidentID, policy.ProfileID, families)
 			if err != nil {
 				return nil, err
 			}
@@ -321,6 +330,30 @@ func (o *PortabilityOrchestrator) Export(ctx context.Context, incidentID uuid.UU
 		}
 	}
 	return results, nil
+}
+
+// ValidatePublication is the authoritative last-moment guard. It evaluates
+// only declarative blockers and never invokes extension participant code.
+func (o *PortabilityOrchestrator) ValidatePublication(ctx context.Context, query StatePresenceQuery, incidentID uuid.UUID) error {
+	if o == nil || query == nil || incidentID == uuid.Nil {
+		return ErrPortabilityUnavailable
+	}
+	for _, policy := range o.policies {
+		if policy.Mode != PortabilityModeBlockedWhenPresent {
+			continue
+		}
+		if err := contextError(ctx); err != nil {
+			return err
+		}
+		present, err := o.presence.AuthoritativeStatePresent(ctx, query, incidentID, policy.ProfileID, policy.BlockingFamilyIDs)
+		if err != nil {
+			return err
+		}
+		if present {
+			return newPortabilityFailure(ErrPortabilityBlocked, policy.ProfileID)
+		}
+	}
+	return nil
 }
 
 func (o *PortabilityOrchestrator) PrepareImport(ctx context.Context, operationID string, incidentID uuid.UUID, files map[string][]byte) (PreparedPortability, error) {

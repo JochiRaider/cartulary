@@ -3388,8 +3388,8 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `reference_pack_activation_rejected` | `409` | `false` | Activation was rejected because the addressed version is already active or is not in a verified-available condition. `error.details.reason_code` MUST use the `reference_pack_activation_rejected` registry in §3.3.6.2. |  |  |  |
 | `invalid_incident_bundle_request` | `400` | `false` | An incident-bundle export or import request is malformed, omits a required member, uses `null` where forbidden, requests unsupported partial-history or partial-blob modes, includes an unknown top-level member, or fails the shared upload-envelope contract for `POST /api/v1/incident-bundles/import`, including unsupported framing, missing or duplicate required parts, unexpected extra parts, invalid metadata encoding or JSON, or invalid part content type. |  |  |  |
 | `incident_bundle_not_found` | `404` | `false` | No visible export descriptor exists for the supplied `bundle_id`. |  |  |  |
-| `incident_bundle_export_rejected` | `409` | `false` | Whole-incident export could not materialize a conformant bundle because required structured files or required blobs were unavailable. `error.details.reason_code` MUST use the `incident_bundle_export_rejected` registry in §3.3.6.2. |  |  |  |
-| `incident_bundle_import_rejected` | `409` | `false` | Whole-incident import failed closed because bundle-member validation, integrity validation, incident-identity collision checks, or capability checks did not pass. `error.details.reason_code` MUST use the `incident_bundle_import_rejected` registry in §3.3.6.2. |  |  |  |
+| `incident_bundle_export_rejected` | `409` | `false` | Whole-incident export could not materialize a conformant bundle because required structured files or required blobs were unavailable, or because retained authoritative extension state was not portable. `error.details.reason_code` MUST use the `incident_bundle_export_rejected` registry in §3.3.6.2. |  |  |  |
+| `incident_bundle_import_rejected` | `409` | `false` | Whole-incident import failed closed because bundle-member validation, integrity validation, or incident-identity collision checks did not pass. `error.details.reason_code` MUST use the `incident_bundle_import_rejected` registry in §3.3.6.2. Capability activation attempts instead use `extension_capability_not_supported`. |  |  |  |
 
 For public evidence and blob routes, `object_store_unavailable` and `object_store_access_rejected` apply only after authentication, authorization, route-shape validation, idempotency conflict checks, and visible authoritative evidence/blob state checks that can be completed without object-store access. They are valid for blob-slot upload-target creation, evidence attach finalization when object bytes or metadata must be verified, preview-handle or download-handle issuance when object bytes or metadata must be verified, and evidence-handle redemption. Existing route-specific errors such as `invalid_blob_create_request`, `blob_create_rejected`, `evidence_attach_rejected`, and `evidence_access_unavailable` retain precedence when they more specifically describe request shape or authoritative evidence/blob state.
 
@@ -3890,6 +3890,7 @@ Boundary values that are syntactically valid but do not equal the current commit
 | --- | --- |
 | `missing_required_file` | One or more required structured bundle files could not be materialized. |
 | `missing_required_blob` | One or more required blob bytes could not be materialized for export. |
+| `extension_state_not_portable` | A recognized `blocked_when_present` profile has retained authoritative incident state at the publication boundary. Details contain the selected safe `profile_id` and no state-family or physical-storage fact. |
 
 `incident_bundle_import_rejected` `error.details.reason_code` values:
 
@@ -3901,7 +3902,6 @@ Boundary values that are syntactically valid but do not equal the current commit
 | `signature_mismatch` | Bundle signature verification failed where supported or required. |
 | `blob_hash_mismatch` | One or more blob bytes did not match the required `blobs/sha256/<sha256-lower-hex>` path digest. |
 | `duplicate_incident_id` | The target deployment already contains the exported `incident_id`. |
-| `extension_capability_not_supported` | The bundle supplies a nonempty `required_capabilities[]`; capability activation is disabled in extension contract major `1`. |
 | `remote_fetch_required` | Import would require a remote fetch, which the current profile forbids. |
 | `archive_extracted_bytes_exceeded` | The extracted regular-file byte total exceeds `limits.incident_bundles.max_extracted_bytes`. |
 | `archive_compression_ratio_exceeded` | The extracted regular-file byte total exceeds `compressed_bytes * limits.archives.max_compression_ratio`. |
@@ -9417,9 +9417,9 @@ Verified by: AC-273, AC-274, AC-275
 
 | Route | Request contract summary | Success resource or body | Long-running | Primary family errors |
 | --- | --- | --- | --- | --- |
-| `POST /api/v1/incident-bundles/export` | JSON object with required `incident_id` and `client_txn_id`; optional `reference_pack_mode`, `optional_sections[]`, and `required_capabilities[]`; `history_mode` and `blob_mode` are forbidden user inputs | Common job resource; terminal success emits one `incident_bundle` ref | Yes | `invalid_incident_bundle_request`, `incident_bundle_export_rejected` |
+| `POST /api/v1/incident-bundles/export` | JSON object with required `incident_id` and `client_txn_id`; optional `reference_pack_mode`, `optional_sections[]`, and `required_capabilities[]`; `history_mode` and `blob_mode` are forbidden user inputs | Common job resource; terminal success emits one `incident_bundle` ref | Yes | `invalid_incident_bundle_request`, `extension_capability_not_supported`, `incident_bundle_export_rejected` |
 | `GET /api/v1/incident-bundles/{bundle_id}` | Singleton read | Durable export descriptor | No | `incident_bundle_not_found`, `invalid_pagination_request` |
-| `POST /api/v1/incident-bundles/import` | Shared upload envelope with required `client_txn_id` in metadata | Common job resource; terminal success emits one imported `incident` ref | Yes | `invalid_incident_bundle_request`, `incident_bundle_import_rejected` |
+| `POST /api/v1/incident-bundles/import` | Shared upload envelope with required `client_txn_id` in metadata | Common job resource; terminal success emits one imported `incident` ref | Yes | `invalid_incident_bundle_request`, `extension_capability_not_supported`, `incident_bundle_import_rejected` |
 
 **Table 17.5-B. Export descriptor and import metadata summary**
 
@@ -9438,34 +9438,44 @@ Verified by: AC-273, AC-274, AC-275
 | Export success | `result_summary.code='incident_bundle_exported'` and exactly one `incident_bundle` ref |
 | Import success | `result_summary.code='incident_bundle_imported'` and exactly one imported `incident` ref |
 | Invalid request registry | `invalid_incident_bundle_request` with shared upload-envelope reasons plus the export and import request-shape reasons in REQ-01-486 |
-| Export rejection registry | `incident_bundle_export_rejected` with `missing_required_file` and `missing_required_blob` |
-| Import rejection registry | `incident_bundle_import_rejected` with member-path, member-type, integrity, blob-hash, duplicate-incident, capability, remote-fetch, archive-limit, and initial-admin-unavailable reasons |
+| Export rejection registry | `incident_bundle_export_rejected` with `missing_required_file`, `missing_required_blob`, and `extension_state_not_portable` |
+| Capability activation rejection | `extension_capability_not_supported` for every structurally valid nonempty request or manifest `required_capabilities[]` |
+| Import rejection registry | `incident_bundle_import_rejected` with member-path, member-type, integrity, blob-hash, duplicate-incident, remote-fetch, archive-limit, and initial-admin-unavailable reasons |
 
 
 **REQ-01-484**
-`POST /api/v1/incident-bundles/export` MUST accept a JSON object with required `incident_id` and required `client_txn_id`. It MAY include optional `reference_pack_mode`, optional `optional_sections[]`, and optional `required_capabilities[]`. For `reference_pack_mode`, omission means `refs_only`, explicit JSON `null` is invalid, omission and explicit `refs_only` MUST compare equal for idempotency and replay, and the allowed current-profile values are exactly `refs_only` and `embedded`. For `optional_sections[]`, omission means `[]`, explicit JSON `null` is invalid, explicit `[]` compares equal to omission, the allowed current-profile tokens are exactly `snapshots` and `reference_packs`, caller order is non-semantic, duplicate members coalesce by exact token equality, and the canonical normalized form is the unique exact-token set sorted ascending. For `required_capabilities[]`, omission means `[]`, explicit JSON `null` is invalid, and explicit `[]` compares equal to omission. A nonempty value MUST fail without side effects with `extension_capability_not_supported`; no token is admitted. Unknown optional-section tokens or any `reference_pack_mode` value outside the closed current-profile vocabulary are invalid and MUST NOT be silently ignored or dropped at export admission. The current profile MUST NOT expose user-tunable partial-history or partial-blob request modes; if `history_mode` or `blob_mode` is supplied, the route MUST fail closed. Export MUST run as an incident-scoped background job whose job read and cancel authorization re-derives both current `deployment_admin` and current membership in the exported incident; cancel MUST additionally require the submitter relationship or current incident role `admin`. The durable export descriptor under `GET /api/v1/incident-bundles/{bundle_id}` MUST exist only after successful export, MUST reject pagination, and MUST expose at minimum `bundle_id`, `incident_id`, `exported_at`, `manifest_sha256`, `reference_pack_mode`, `optional_sections[]`, `required_capabilities=[]`, fixed `history_mode='full'`, and fixed `blob_mode='full'`. The durable export descriptor and emitted `manifest.json` MUST both serialize the resolved `reference_pack_mode`, canonicalized `optional_sections[]`, and empty `required_capabilities[]`. On successful export, the terminal common-job summary MUST use `result_summary.code='incident_bundle_exported'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'incident_bundle', id: <bundle_id>, route: '/api/v1/incident-bundles/{bundle_id}' }`.
+`POST /api/v1/incident-bundles/export` MUST accept a JSON object with required `incident_id` and required `client_txn_id`. It MAY include optional `reference_pack_mode`, optional `optional_sections[]`, and optional `required_capabilities[]`. For `reference_pack_mode`, omission means `refs_only`, explicit JSON `null` is invalid, omission and explicit `refs_only` MUST compare equal for idempotency and replay, and the allowed current-profile values are exactly `refs_only` and `embedded`. For `optional_sections[]`, omission means `[]`, explicit JSON `null` is invalid, explicit `[]` compares equal to omission, the allowed current-profile tokens are exactly `snapshots` and `reference_packs`, caller order is non-semantic, duplicate members coalesce by exact token equality, and the canonical normalized form is the unique exact-token set sorted ascending. For `required_capabilities[]`, omission means `[]`, explicit JSON `null` is invalid, explicit `[]` compares equal to omission, and every member of a structurally valid array is a string. A structurally valid nonempty value, including an unknown future string, MUST fail without side effects with `extension_capability_not_supported`; no token is admitted, classified, retained, or echoed. A non-array or non-string member instead fails structurally with `invalid_required_capabilities`. The server MUST authenticate the deployment administrator and verify current incident membership before disclosing this shared activation failure, and MUST reject it before idempotency success or job admission. Unknown optional-section tokens or any `reference_pack_mode` value outside the closed current-profile vocabulary are invalid and MUST NOT be silently ignored or dropped at export admission. The current profile MUST NOT expose user-tunable partial-history or partial-blob request modes; if `history_mode` or `blob_mode` is supplied, the route MUST fail closed. Export MUST run as an incident-scoped background job whose job read and cancel authorization re-derives both current `deployment_admin` and current membership in the exported incident; cancel MUST additionally require the submitter relationship or current incident role `admin`. The durable export descriptor under `GET /api/v1/incident-bundles/{bundle_id}` MUST exist only after successful export, MUST reject pagination, and MUST expose at minimum `bundle_id`, `incident_id`, `exported_at`, `manifest_sha256`, `reference_pack_mode`, `optional_sections[]`, `required_capabilities=[]`, fixed `history_mode='full'`, and fixed `blob_mode='full'`. The durable export descriptor and emitted `manifest.json` MUST both serialize the resolved `reference_pack_mode`, canonicalized `optional_sections[]`, and empty `required_capabilities[]`. On successful export, the terminal common-job summary MUST use `result_summary.code='incident_bundle_exported'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'incident_bundle', id: <bundle_id>, route: '/api/v1/incident-bundles/{bundle_id}' }`.
 Profiles: incident_portability
 Verified by: AC-273, AC-274
 
 **REQ-01-485**
-`POST /api/v1/incident-bundles/import` MUST use the shared upload-envelope contract in §17.1.1. Within that contract, metadata MUST contain required `client_txn_id`. For this route, the `file` part media type MUST be one of the exact values declared for `POST /api/v1/incident-bundles/import` in REQ-01-552. Those media-type values are envelope gates only; bundle-member validation, integrity verification, and archive-limit enforcement remain byte-based. Route-scoped normalized request comparison for idempotency MUST include SHA-256 of the exact uploaded file bytes. Multipart boundary text, part order, advisory filename, and non-semantic part headers or parameters MUST NOT affect normalized comparison. A schema-valid nonempty manifest `required_capabilities[]` MUST fail before participant invocation with `extension_capability_not_supported`. Import MUST run as a deployment-scoped `deployment_admin` background job because no target incident exists until a successful import transaction commits. Import-job admission MUST bind the job to the server-derived submitting internal `user_id`, and final publication MUST create the target-local initial-admin membership, workbook-preference objects, and membership audit event under REQ-01-609. The current profile defines no durable import resource; on success the terminal job result summary MUST use `result_summary.code='incident_bundle_imported'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'incident', id: <incident_id>, route: '/api/v1/incidents/{incident_id}' }`. Import remains create-only into an empty incident namespace. The current profile MUST reject clone, merge, identifier-remap, remote-fetch, initial-admin selection, adoption workflow, or equivalent alternative import modes.
+`POST /api/v1/incident-bundles/import` MUST use the shared upload-envelope contract in §17.1.1. Within that contract, metadata MUST contain required `client_txn_id`. For this route, the `file` part media type MUST be one of the exact values declared for `POST /api/v1/incident-bundles/import` in REQ-01-552. Those media-type values are envelope gates only; bundle-member validation, integrity verification, and archive-limit enforcement remain byte-based. Route-scoped normalized request comparison for idempotency MUST include SHA-256 of the exact uploaded file bytes. Multipart boundary text, part order, advisory filename, and non-semantic part headers or parameters MUST NOT affect normalized comparison. A schema-valid nonempty manifest `required_capabilities[]`, including an unknown future string, MUST fail with `extension_capability_not_supported` after safe archive-path, member-type, manifest-integrity, and checksum validation and before source preparation, extension participant invocation, staged target mutation, or publication. The implementation MUST NOT retain, classify, or echo any supplied capability value. Import MUST run as a deployment-scoped `deployment_admin` background job because no target incident exists until a successful import transaction commits. Import-job admission MUST bind the job to the server-derived submitting internal `user_id`, and final publication MUST create the target-local initial-admin membership, workbook-preference objects, and membership audit event under REQ-01-609. The current profile defines no durable import resource; on success the terminal job result summary MUST use `result_summary.code='incident_bundle_imported'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'incident', id: <incident_id>, route: '/api/v1/incidents/{incident_id}' }`. Import remains create-only into an empty incident namespace. The current profile MUST reject clone, merge, identifier-remap, remote-fetch, initial-admin selection, adoption workflow, or equivalent alternative import modes.
 Profiles: incident_portability
 Verified by: AC-275, AC-442
 
 **REQ-01-486**
 The incident-bundle route family MUST use only `invalid_incident_bundle_request`,
-`incident_bundle_not_found`, `incident_bundle_export_rejected`, and
-`incident_bundle_import_rejected`. `invalid_incident_bundle_request` MUST use
+`incident_bundle_not_found`, `extension_capability_not_supported`,
+`incident_bundle_export_rejected`, and `incident_bundle_import_rejected`.
+`extension_capability_not_supported` MUST use status `409`, `retryable=false`,
+and exact `details={"profile_id":"incident_portability"}`. It applies to every
+structurally valid nonempty request or manifest `required_capabilities[]` and
+MUST NOT contain or imply a caller-supplied capability value.
+`invalid_incident_bundle_request` MUST use
 only the shared upload-envelope reasons from REQ-01-553 plus
 `request_not_object`, `missing_required_field`, `field_not_nullable`,
 `unknown_field`, `invalid_reference_pack_mode`, `invalid_optional_sections`,
 `invalid_required_capabilities`, `history_mode_not_supported`,
 `blob_mode_not_supported`, and `invalid_value`.
-`incident_bundle_export_rejected` MUST use only `missing_required_file` and
-`missing_required_blob`. `incident_bundle_import_rejected` MUST use only
+`incident_bundle_export_rejected` MUST use only `missing_required_file`,
+`missing_required_blob`, and `extension_state_not_portable`. The latter MUST
+include exactly `reason_code='extension_state_not_portable'` and the selected
+safe server-derived `profile_id`. When multiple profiles block, the selected
+profile MUST be the first after ascending UTF-8 byte ordering.
+`incident_bundle_import_rejected` MUST use only
 `invalid_member_path`, `unsupported_member_type`, `checksum_mismatch`,
 `signature_mismatch`, `blob_hash_mismatch`, `duplicate_incident_id`,
-`unsupported_required_capability`, `remote_fetch_required`,
+`remote_fetch_required`,
 `missing_required_file`, `missing_required_blob`, `malformed_manifest`,
 `unsupported_bundle_version`, `source_family_invalid`,
 `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`,
@@ -9475,9 +9485,18 @@ details in REQ-01-642. `initial_admin_unavailable` means the import submitter no
 longer exists, is inactive, or no longer holds `deployment_admin` when final
 publication is attempted, so the target deployment cannot establish the
 required initial incident administrator.
+
+The `blocked_when_present` decision MUST be re-evaluated inside the final
+export publication transaction after acquiring the same per-incident
+serialization boundary used by authoritative writes for every recognized
+blocking profile. The descriptor and successful job result MAY be committed
+only after that re-evaluation succeeds. An earlier read MAY avoid work but is
+not authoritative. A final blocking result MUST roll back descriptor and
+success publication and MUST remove any physical bundle object written before
+the final decision; no public or durable reference to that object may remain.
 Profiles: incident_portability
 Verified by: AC-276, AC-327, AC-328, AC-332, AC-442, AC-490, AC-497,
- AC-502
+ AC-502, AC-544
 
 ## 18. Writable-string contract registry
 

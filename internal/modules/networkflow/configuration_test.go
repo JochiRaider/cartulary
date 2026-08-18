@@ -83,16 +83,14 @@ func TestNetworkFlowConfigurationContribution_Unit(t *testing.T) {
 	})
 
 	t.Run("incident portability binding is closed and inert before query", func(t *testing.T) {
-		if _, err := NewPortabilityStateBinding(nil); err == nil {
-			t.Fatal("nil PostgreSQL dependency was admitted")
-		}
-		binding := &PortabilityStateBinding{}
-		if _, err := binding.RetainedAuthoritativeStatePresent(
+		binding := NewPortabilityStateBinding()
+		if _, err := binding.RetainedAuthoritativeStatePresentTx(
 			context.Background(),
+			nil,
 			uuid.MustParse("11111111-1111-1111-1111-111111111111"),
 			[]string{ExtensionFamilyTables},
 		); err == nil {
-			t.Fatal("unconfigured portability binding was admitted")
+			t.Fatal("missing transaction query capability was admitted")
 		}
 	})
 }

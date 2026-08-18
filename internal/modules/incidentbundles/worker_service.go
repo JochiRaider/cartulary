@@ -11,7 +11,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
-	evidencemodule "github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -38,6 +37,12 @@ type incidentBundleJobAdmission interface {
 	CreateQueuedTx(context.Context, pgx.Tx, jobs.EnqueueParams, time.Time) (jobs.Resource, error)
 }
 
+// IncidentPublicationLock is the incident-owner serialization capability used
+// by the final bundle publication transaction.
+type IncidentPublicationLock interface {
+	LockIncidentTx(context.Context, pgx.Tx, uuid.UUID) (bool, error)
+}
+
 type incidentBundleWorker struct {
 	store             *Store
 	jobManager        incidentBundleJobOperations
@@ -47,17 +52,18 @@ type incidentBundleWorker struct {
 	importFinalizer   incidents.IncidentBundleImportFinalizer
 	jobFinalizer      JobSuccessFinalizer
 	portability       *PortabilityOrchestrator
+	publicationLock   IncidentPublicationLock
 	transactions      *crossownertransaction.Coordinator
 	projectionRebuild importProjectionRebuilder
 	sourceCatalog     *sourceport.Catalog
 	historicalIntents historicalIntentPolicy
-	blobPort          *evidencemodule.IncidentBundleBlobPortability
+	blobPort          blobPortability
 	limits            Limits
 	deps              httpapi.DependencySet
 	now               func() time.Time
 }
 
-func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, jobManager incidentBundleJobOperations, jobRunner incidentBundleJobRunner, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, projectionRebuild importProjectionRebuilder, sourceCatalog *sourceport.Catalog, historicalIntents historicalIntentPolicy, blobPort *evidencemodule.IncidentBundleBlobPortability, limits Limits, now func() time.Time) *incidentBundleWorker {
+func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, jobManager incidentBundleJobOperations, jobRunner incidentBundleJobRunner, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, publicationLock IncidentPublicationLock, transactions *crossownertransaction.Coordinator, projectionRebuild importProjectionRebuilder, sourceCatalog *sourceport.Catalog, historicalIntents historicalIntentPolicy, blobPort blobPortability, limits Limits, now func() time.Time) *incidentBundleWorker {
 	return &incidentBundleWorker{
 		store:             store,
 		jobManager:        jobManager,
@@ -67,6 +73,7 @@ func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, jobManage
 		importFinalizer:   importFinalizer,
 		jobFinalizer:      jobFinalizer,
 		portability:       portability,
+		publicationLock:   publicationLock,
 		transactions:      transactions,
 		projectionRebuild: projectionRebuild,
 		sourceCatalog:     sourceCatalog,
@@ -177,21 +184,40 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, execution j
 		FinalCommitID: "incident_portability.export:" +
 			bundleID.String() + ":" + built.Archive.ManifestSHA256,
 		Mutate: func(ctx context.Context, tx pgx.Tx) error {
+			found, lockErr := w.publicationLock.LockIncidentTx(ctx, tx, *payload.IncidentID)
+			if lockErr != nil {
+				return lockErr
+			}
+			if !found {
+				return ErrNotFound
+			}
+			if guardErr := w.portability.ValidatePublication(ctx, tx, *payload.IncidentID); guardErr != nil {
+				return guardErr
+			}
 			var mutationErr error
 			record, mutationErr = w.store.CompleteExportDescriptorTx(ctx, tx, completeParams)
 			return mutationErr
 		},
 	})
 	if err != nil {
-		if !errors.Is(err, ErrJobFinalizationIndeterminate) {
-			_ = w.storage.RemovePublished(storageReference)
-			w.results.completeFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
-		}
+		w.handleExportFinalizationError(ctx, execution, storageReference, err)
 		return
 	}
 	if record.BundleID != bundleID {
 		return
 	}
+}
+
+func (w *incidentBundleWorker) handleExportFinalizationError(ctx context.Context, execution jobs.Execution, storageReference BundleStorageRef, err error) {
+	if errors.Is(err, ErrJobFinalizationIndeterminate) {
+		return
+	}
+	_ = w.storage.RemovePublished(storageReference)
+	if errors.Is(err, ErrPortabilityBlocked) {
+		w.results.completeFailedFromError(ctx, execution, "incident_bundle_export_rejected", err)
+		return
+	}
+	w.results.completeFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
 }
 
 func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution jobs.Execution, payload JobPayload) {
@@ -212,6 +238,10 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 	}
 	verified, err := VerifyBundle(VerificationInput{Bundle: data, Limits: w.limits})
 	if err != nil {
+		if errors.Is(err, ErrExtensionCapabilityNotSupported) {
+			w.results.completeFailedFromError(ctx, execution, "extension_capability_not_supported", err)
+			return
+		}
 		w.results.completeFailedFromError(ctx, execution, "incident_bundle_import_rejected", err)
 		return
 	}
@@ -366,6 +396,16 @@ func (s incidentBundleJobResultSink) completeFailedFromError(ctx context.Context
 }
 
 func incidentBundleFailureDetails(code string, err error) (string, map[string]any) {
+	if errors.Is(err, ErrExtensionCapabilityNotSupported) {
+		return "extension_capability_not_supported", map[string]any{"profile_id": ProfileID}
+	}
+	var portabilityFailure *PortabilityFailure
+	if code == "incident_bundle_export_rejected" && errors.As(err, &portabilityFailure) && errors.Is(err, ErrPortabilityBlocked) {
+		return "extension_state_not_portable", map[string]any{
+			"reason_code": "extension_state_not_portable",
+			"profile_id":  portabilityFailure.ProfileID,
+		}
+	}
 	reason := "missing_required_file"
 	details := map[string]any{}
 	var verificationErr *VerificationError

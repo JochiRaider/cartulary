@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -21,23 +22,29 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestExportJobIdempotencyAndDescriptor_Integration(t *testing.T) {
-	harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-export")
-	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	runtime := appsupport.StartRuntime(t)
+	database := runtime.PrepareServerDatabase(t, "extension_profile-incident-bundle-export")
+	harness := runtime.StartServerWithDatabase(t, "extension_profile-incident-bundle-export", database)
+	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-source",
 		"incident_key":  "BUNDLE-EXPORT",
@@ -68,20 +75,62 @@ func TestExportJobIdempotencyAndDescriptor_Integration(t *testing.T) {
 	if replayedJob["job_id"] != job["job_id"] {
 		t.Fatalf("exact replay returned different job: first=%v replay=%v", job["job_id"], replayedJob["job_id"])
 	}
+	var storedStatus int
+	var storedResponse []byte
+	if err := harness.DB.QueryRow(`
+SELECT status_code, response_json
+  FROM route_idempotency
+ WHERE route_key = 'incident_bundles.export'
+   AND actor_user_id = $1
+   AND scope_key = $2
+   AND client_txn_id = 'txn-export-bundle'
+`, adminID, incidentID).Scan(&storedStatus, &storedResponse); err != nil {
+		t.Fatalf("read shared Auth idempotency record: %v", err)
+	}
+	var storedJob map[string]any
+	if err := json.Unmarshal(storedResponse, &storedJob); err != nil || storedStatus != http.StatusAccepted || storedJob["job_id"] != job["job_id"] {
+		t.Fatalf("stored idempotency response changed: status=%d response=%s err=%v", storedStatus, storedResponse, err)
+	}
 	divergent := postExport(t, harness.Server, admin, map[string]any{
 		"incident_id":         incidentID,
 		"client_txn_id":       "txn-export-bundle",
 		"reference_pack_mode": "embedded",
 	})
 	httptestx.RequireErrorEnvelope(t, divergent, http.StatusConflict, "client_txn_conflict")
-	unsupportedRequired := postExport(t, harness.Server, admin, map[string]any{
+	if countRows(t, harness.DB, `SELECT count(*) FROM route_idempotency WHERE route_key = 'incident_bundles.export' AND actor_user_id = $1 AND scope_key = $2 AND client_txn_id = 'txn-export-bundle'`, adminID, incidentID) != 1 {
+		t.Fatal("conflicting replay changed the shared idempotency row count")
+	}
+	for index, capabilities := range [][]string{{"snapshots"}, {"unknown/hostile capability"}} {
+		beforeJobs := countRows(t, harness.DB, `SELECT count(*) FROM jobs`)
+		beforePayloads := countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_job_payloads`)
+		beforeIdempotency := countRows(t, harness.DB, `SELECT count(*) FROM route_idempotency WHERE route_key = 'incident_bundles.export'`)
+		unsupportedRequired := postExport(t, harness.Server, admin, map[string]any{
+			"incident_id":           incidentID,
+			"client_txn_id":         "txn-export-required-capability-" + fmt.Sprint(index),
+			"required_capabilities": capabilities,
+		})
+		body := httptestx.RequireErrorEnvelope(t, unsupportedRequired, http.StatusConflict, "extension_capability_not_supported")
+		details := httptestx.RequireErrorDetails(t, body)
+		if len(details) != 1 || details["profile_id"] != incidentbundles.ProfileID || strings.Contains(string(jsonRaw(t, details)), capabilities[0]) {
+			t.Fatalf("required capability details were not exact and value-free: %#v", details)
+		}
+		if countRows(t, harness.DB, `SELECT count(*) FROM jobs`) != beforeJobs ||
+			countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_job_payloads`) != beforePayloads ||
+			countRows(t, harness.DB, `SELECT count(*) FROM route_idempotency WHERE route_key = 'incident_bundles.export'`) != beforeIdempotency {
+			t.Fatal("capability rejection created a job, payload, or idempotency row")
+		}
+	}
+	rejectedReplay := postExport(t, harness.Server, admin, map[string]any{
 		"incident_id":           incidentID,
-		"client_txn_id":         "txn-export-required-capability",
-		"required_capabilities": []string{"snapshots"},
+		"client_txn_id":         "txn-export-required-capability-0",
+		"required_capabilities": []string{"different-value-same-terminal-result"},
 	})
-	body := httptestx.RequireErrorEnvelope(t, unsupportedRequired, http.StatusBadRequest, "invalid_incident_bundle_request")
-	if details := httptestx.RequireErrorDetails(t, body); details["reason_code"] != "invalid_required_capabilities" {
-		t.Fatalf("required capability rejection reason mismatch: %#v", details)
+	replayBody := httptestx.RequireErrorEnvelope(t, rejectedReplay, http.StatusConflict, "extension_capability_not_supported")
+	if details := httptestx.RequireErrorDetails(t, replayBody); len(details) != 1 || details["profile_id"] != incidentbundles.ProfileID {
+		t.Fatalf("replayed capability rejection details mismatch: %#v", details)
+	}
+	if countRows(t, harness.DB, `SELECT count(*) FROM route_idempotency WHERE route_key = 'incident_bundles.export' AND client_txn_id = 'txn-export-required-capability-0'`) != 0 {
+		t.Fatal("replayed capability rejection created idempotency state")
 	}
 
 	terminal := waitJob(t, harness.Server, admin, job["job_id"].(string))
@@ -104,6 +153,117 @@ func TestExportJobIdempotencyAndDescriptor_Integration(t *testing.T) {
 	descriptor := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	if descriptor["history_mode"] != "full" || descriptor["blob_mode"] != "full" || descriptor["manifest_sha256"] == "" {
 		t.Fatalf("descriptor missing fixed modes or manifest hash: %#v", descriptor)
+	}
+
+	t.Run("queued export recovers through the named runner", func(t *testing.T) {
+		testQueuedExportRecoveryThroughNamedRunner(
+			t,
+			harness,
+			admin,
+			uuid.MustParse(adminID),
+			uuid.MustParse(incidentID),
+			func() *appsupport.ServerHarness {
+				return runtime.StartServerWithDatabaseAndObjectStore(
+					t,
+					"incident-bundle-named-runner-recovery",
+					database,
+					harness.ObjectStore,
+				)
+			},
+		)
+	})
+}
+
+func testQueuedExportRecoveryThroughNamedRunner(
+	t *testing.T,
+	first *appsupport.ServerHarness,
+	admin flowtest.LoginResult,
+	adminID uuid.UUID,
+	incidentID uuid.UUID,
+	restart func() *appsupport.ServerHarness,
+) {
+	ctx := context.Background()
+
+	// Stop the first process before admitting the job so no in-process Notify
+	// hint can participate. The second process must discover the durable queued
+	// job during the named runner's activation scan.
+	first.Server.Close()
+	normalizedRequest, err := json.Marshal(map[string]any{
+		"client_txn_id":         "txn-incident-bundle-recovery",
+		"incident_id":           incidentID.String(),
+		"optional_sections":     []string{},
+		"reference_pack_mode":   "refs_only",
+		"required_capabilities": []string{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idempotencyKey := jobs.NewRouteIdempotencyKey(
+		"incident_bundles.export",
+		adminID,
+		incidentID.String(),
+		"txn-incident-bundle-recovery",
+	)
+	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID}
+	admission, err := jobs.NewExtensionJobAdmission(
+		incidentbundles.ProfileID,
+		idempotencyKey,
+		scope,
+		normalizedRequest,
+	)
+	if err != nil {
+		t.Fatalf("construct Incident Bundle recovery admission: %v", err)
+	}
+	total := 1
+	queued, err := first.Jobs.Create(ctx, jobs.EnqueueParams{
+		JobKind:           incidentbundles.ExportJobKind,
+		Scope:             scope,
+		SubmittedByUserID: adminID,
+		AuthPolicy:        jobs.AuthPolicyDeploymentAdminIncidentMembership,
+		Cancelable:        true,
+		Progress:          jobs.Progress{Completed: 0, Total: &total},
+		Extension:         admission,
+	})
+	if err != nil {
+		t.Fatalf("create queued Incident Bundle recovery job: %v", err)
+	}
+	jobID := uuid.MustParse(queued.JobID)
+	tx, err := first.Pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `
+INSERT INTO incident_bundle_job_payloads (
+    job_id, job_kind, actor_user_id, incident_id, request_json, created_at, updated_at
+)
+VALUES ($1, 'export', $2, $3, $4, $5, $5)
+`, jobID, adminID, incidentID, normalizedRequest, queued.SubmittedAt); err != nil {
+		t.Fatalf("insert queued Incident Bundle recovery payload: %v", err)
+	}
+	requestDigest := sha256.Sum256(normalizedRequest)
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, authn.RouteIdempotencyKey{
+		RouteKey:    idempotencyKey.RouteKey,
+		ActorUserID: idempotencyKey.ActorUserID,
+		ScopeKey:    idempotencyKey.ScopeKey,
+		ClientTxnID: idempotencyKey.ClientTxnID,
+	}, nil, requestDigest[:], http.StatusAccepted, queued); err != nil {
+		t.Fatalf("insert queued Incident Bundle recovery idempotency: %v", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	second := restart()
+	terminal := waitJob(t, second.Server, admin, queued.JobID)
+	if summary := terminal["result_summary"].(map[string]any); summary["code"] != incidentbundles.ResultIncidentBundleExported {
+		t.Fatalf("recovered export summary = %#v", summary)
+	}
+	if countRows(t, second.DB, `SELECT count(*) FROM incident_bundle_exports WHERE export_job_id = $1`, jobID) != 1 {
+		t.Fatal("named recovery produced missing or duplicate Incident Bundle descriptors")
+	}
+	if countRows(t, second.DB, `SELECT count(*) FROM extension_job_commit_proofs WHERE job_id = $1`, jobID) != 1 {
+		t.Fatal("named recovery produced missing or duplicate terminal commit proofs")
 	}
 }
 
@@ -135,6 +295,7 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 	nonmemberAdminCookies, nonmemberAdminCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, nonmemberAdminUser.Email, nonmemberAdminPassword, nil)
 	submitterLogin := flowtest.LoginResult{SessionCookie: submitterCookies, CSRFCookie: submitterCSRF}
 	memberAdminLogin := flowtest.LoginResult{SessionCookie: memberAdminCookies, CSRFCookie: memberAdminCSRF}
+	nonmemberAdminLogin := flowtest.LoginResult{SessionCookie: nonmemberAdminCookies, CSRFCookie: nonmemberAdminCSRF}
 
 	scenariotest.CreateMembership(t, harness.Server, admin, incidentID, map[string]any{
 		"client_txn_id": "txn-incident-bundle-export-auth-submitter-membership",
@@ -151,6 +312,15 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 		"user_id":       memberOnlyUser.ID.String(),
 		"role":          "admin",
 	})
+	capabilityProbe := postExport(t, harness.Server, nonmemberAdminLogin, map[string]any{
+		"incident_id":           incidentID,
+		"client_txn_id":         "txn-export-capability-nonmember",
+		"required_capabilities": []string{"membership-oracle-probe"},
+	})
+	capabilityProbeBody := httptestx.RequireErrorEnvelope(t, capabilityProbe, http.StatusNotFound, "incident_bundle_not_found")
+	if strings.Contains(string(jsonRaw(t, capabilityProbeBody)), "membership-oracle-probe") {
+		t.Fatal("membership-first capability rejection echoed the submitted value")
+	}
 
 	exportJob := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, submitterLogin, map[string]any{
 		"incident_id":   incidentID,
@@ -866,7 +1036,7 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 				}
 				return append(payload, '\n')
 			}),
-			wantReason: "unsupported_required_capability",
+			wantReason: "extension_capability_not_supported",
 		},
 		{
 			name:       "signature mismatch",
@@ -1036,7 +1206,11 @@ func TestNetworkFlowRetainedStateBlocksBundleExport_Integration(t *testing.T) {
 			"incident_id": incidentID, "client_txn_id": clientTxnID,
 		}), http.StatusAccepted)["data"].(map[string]any)
 		terminal := waitFailedJob(t, harness.Server, admin, job["job_id"].(string))
-		requireFailedJobReason(t, terminal, "incident_bundle_export_rejected", "missing_required_file")
+		requireFailedJobReason(t, terminal, "incident_bundle_export_rejected", "extension_state_not_portable")
+		details := terminal["error_summary"].(map[string]any)["details"].(map[string]any)
+		if len(details) != 2 || details["profile_id"] != "network_flow_activity" {
+			t.Fatalf("blocked export details mismatch: %#v", details)
+		}
 		if countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_exports WHERE export_job_id = $1`, job["job_id"].(string)) != 0 {
 			t.Fatal("blocked Network Flow export published a bundle descriptor")
 		}
@@ -1052,6 +1226,70 @@ UPDATE network_flow_tables
 		t.Fatalf("soft delete Network Flow table: %v", err)
 	}
 	assertBlocked("txn-export-network-flow-soft-deleted")
+
+	t.Run("state commit serializes before the publication guard", func(t *testing.T) {
+		raceIncident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
+			"client_txn_id": "txn-incident-bundle-network-flow-publication-race",
+			"incident_key":  "BUNDLE-NF-RACE",
+			"title":         "Incident bundle Network Flow publication race",
+		})
+		raceIncidentID := raceIncident["incident_id"].(string)
+		stateTx, err := harness.Pool.BeginTx(context.Background(), pgx.TxOptions{})
+		if err != nil {
+			t.Fatalf("begin publication race transaction: %v", err)
+		}
+		defer func() { _ = stateTx.Rollback(context.Background()) }()
+		lock := incidents.NewTransactionParticipant()
+		found, err := lock.LockIncidentTx(context.Background(), stateTx, uuid.MustParse(raceIncidentID))
+		if err != nil || !found {
+			t.Fatalf("lock publication race incident: found=%t err=%v", found, err)
+		}
+		seedIncidentBundleNetworkFlowTablePGX(t, stateTx, raceIncidentID, adminID)
+		type publicationResult struct {
+			present bool
+			err     error
+		}
+		publication := make(chan publicationResult, 1)
+		go func() {
+			publicationTx, beginErr := harness.Pool.BeginTx(context.Background(), pgx.TxOptions{})
+			if beginErr != nil {
+				publication <- publicationResult{err: beginErr}
+				return
+			}
+			defer func() { _ = publicationTx.Rollback(context.Background()) }()
+			locked, lockErr := lock.LockIncidentTx(context.Background(), publicationTx, uuid.MustParse(raceIncidentID))
+			if lockErr != nil || !locked {
+				publication <- publicationResult{err: fmt.Errorf("publication lock: found=%t: %w", locked, lockErr)}
+				return
+			}
+			present, presenceErr := networkflow.NewPortabilityStateBinding().RetainedAuthoritativeStatePresentTx(
+				context.Background(), publicationTx, uuid.MustParse(raceIncidentID), []string{
+					networkflow.ExtensionFamilyGraphViews,
+					networkflow.ExtensionFamilyIndicatorBindings,
+					networkflow.ExtensionFamilyRejectedRowDiagnostics,
+					networkflow.ExtensionFamilyRows,
+					networkflow.ExtensionFamilyTables,
+				},
+			)
+			publication <- publicationResult{present: present, err: presenceErr}
+		}()
+		select {
+		case result := <-publication:
+			t.Fatalf("publication crossed the incident boundary before state commit: %#v", result)
+		case <-time.After(100 * time.Millisecond):
+		}
+		if err := stateTx.Commit(context.Background()); err != nil {
+			t.Fatalf("commit publication race state: %v", err)
+		}
+		select {
+		case result := <-publication:
+			if result.err != nil || !result.present {
+				t.Fatalf("publication guard did not observe committed blocking state: %#v", result)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("publication did not cross the incident boundary after state commit")
+		}
+	})
 }
 
 func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
@@ -1117,13 +1355,31 @@ func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
 	}
 }
 
-func seedIncidentBundleNetworkFlowTable(t testing.TB, db *sql.DB, incidentID, actorID string) string {
+type incidentBundleSQLExecutor interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}
+
+func seedIncidentBundleNetworkFlowTable(t testing.TB, db incidentBundleSQLExecutor, incidentID, actorID string) string {
+	return seedIncidentBundleNetworkFlowTableWithExec(t, incidentID, actorID, func(query string, args ...any) error {
+		_, err := db.ExecContext(context.Background(), query, args...)
+		return err
+	})
+}
+
+func seedIncidentBundleNetworkFlowTablePGX(t testing.TB, tx pgx.Tx, incidentID, actorID string) string {
+	return seedIncidentBundleNetworkFlowTableWithExec(t, incidentID, actorID, func(query string, args ...any) error {
+		_, err := tx.Exec(context.Background(), query, args...)
+		return err
+	})
+}
+
+func seedIncidentBundleNetworkFlowTableWithExec(t testing.TB, incidentID, actorID string, exec func(string, ...any) error) string {
 	t.Helper()
 	sessionID := uuid.New()
 	unitID := uuid.New()
-	tableID := "nft_" + strings.Repeat("a", 32)
+	tableID := "nft_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	digest := strings.Repeat("1", 64)
-	if _, err := db.Exec(`
+	if err := exec(`
 INSERT INTO import_sessions (
     import_session_id, incident_id, created_by_user_id, client_txn_id, assistant_profile,
     source_file_kind, original_filename, source_content_sha256, source_media_type, source_byte_size,
@@ -1135,7 +1391,7 @@ INSERT INTO import_sessions (
 `, sessionID, incidentID, actorID, "txn-import-"+unitID.String(), digest); err != nil {
 		t.Fatalf("seed Network Flow import session: %v", err)
 	}
-	if _, err := db.Exec(`
+	if err := exec(`
 INSERT INTO import_units (
     import_unit_id, import_session_id, unit_status, locator_kind, locator, source_rect_a1,
     header_row_ref, data_start_row_ref, inferred_row_count, inferred_column_count,
@@ -1150,7 +1406,7 @@ INSERT INTO import_units (
 `, unitID, sessionID, digest); err != nil {
 		t.Fatalf("seed Network Flow import unit: %v", err)
 	}
-	if _, err := db.Exec(`
+	if err := exec(`
 INSERT INTO network_flow_tables (
     network_flow_table_id, incident_id, display_name, table_status,
     source_import_session_id, source_import_unit_id, source_content_sha256,
@@ -2635,7 +2891,18 @@ func assertImportFailureLeavesState(t testing.TB, harness *appsupport.ServerHarn
 	resp := postImport(t, harness.Server, login, `{"client_txn_id":"`+clientTxnID+`"}`, bundle, "bundle.zip")
 	job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
 	terminal := waitFailedJob(t, harness.Server, login, job["job_id"].(string))
-	requireFailedJobReason(t, terminal, "incident_bundle_import_rejected", wantReason)
+	if wantReason == "extension_capability_not_supported" {
+		errorSummary := terminal["error_summary"].(map[string]any)
+		if errorSummary["code"] != "extension_capability_not_supported" {
+			t.Fatalf("capability import code mismatch: %#v", errorSummary)
+		}
+		details := errorSummary["details"].(map[string]any)
+		if len(details) != 1 || details["profile_id"] != incidentbundles.ProfileID {
+			t.Fatalf("capability import details mismatch: %#v", details)
+		}
+	} else {
+		requireFailedJobReason(t, terminal, "incident_bundle_import_rejected", wantReason)
+	}
 	if summary, ok := terminal["result_summary"].(map[string]any); ok {
 		if refs, ok := summary["resource_refs"].([]any); ok && len(refs) != 0 {
 			t.Fatalf("failed import must not expose imported resource refs: %#v", summary)

@@ -17,7 +17,7 @@
     },
     {
       "error_class": "capability_unavailable",
-      "error_codes": ["extension_profile_not_claimed", "auth_provider_not_found", "auth_provider_disabled"]
+      "error_codes": ["extension_profile_not_claimed", "extension_capability_not_supported", "auth_provider_not_found", "auth_provider_disabled"]
     },
     {
       "error_class": "concurrency_conflict",

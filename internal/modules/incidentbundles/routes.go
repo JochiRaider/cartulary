@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
-	evidencemodule "github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -34,6 +33,7 @@ type routeOptions struct {
 	importFinalizer   incidents.IncidentBundleImportFinalizer
 	jobFinalizer      JobSuccessFinalizer
 	portability       *PortabilityOrchestrator
+	publicationLock   IncidentPublicationLock
 	transactions      *crossownertransaction.Coordinator
 	storage           BundleStorage
 	limits            Limits
@@ -43,7 +43,7 @@ type routeOptions struct {
 	jobAdmission      incidentBundleJobAdmission
 	jobOperations     incidentBundleJobOperations
 	jobRunner         incidentBundleJobRunner
-	blobPort          *evidencemodule.IncidentBundleBlobPortability
+	blobPort          blobPortability
 }
 
 func WithJobs(admission incidentBundleJobAdmission, operations incidentBundleJobOperations, runner incidentBundleJobRunner) RouteOption {
@@ -58,6 +58,12 @@ func WithPortability(orchestrator *PortabilityOrchestrator, transactions *crosso
 	return func(options *routeOptions) {
 		options.portability = orchestrator
 		options.transactions = transactions
+	}
+}
+
+func WithIncidentPublicationLock(lock IncidentPublicationLock) RouteOption {
+	return func(options *routeOptions) {
+		options.publicationLock = lock
 	}
 }
 
@@ -103,7 +109,7 @@ func WithHistoricalIntentPolicy(policy historicalIntentPolicy) RouteOption {
 	}
 }
 
-func WithEvidenceBlobPortability(port *evidencemodule.IncidentBundleBlobPortability) RouteOption {
+func WithBlobPortability(port blobPortability) RouteOption {
 	return func(options *routeOptions) {
 		options.blobPort = port
 	}
@@ -139,6 +145,9 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if options.portability == nil || options.transactions == nil {
 		return nil, fmt.Errorf("incident bundle portability composition is required")
 	}
+	if options.publicationLock == nil {
+		return nil, fmt.Errorf("incident bundle publication lock is required")
+	}
 	if options.storage == nil {
 		return nil, fmt.Errorf("incident bundle storage is required")
 	}
@@ -158,7 +167,7 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		return nil, fmt.Errorf("incident bundle historical intent policy is required")
 	}
 	if options.blobPort == nil {
-		return nil, fmt.Errorf("incident bundle Evidence blob portability is required")
+		return nil, fmt.Errorf("incident bundle blob portability is required")
 	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
@@ -169,7 +178,7 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	store := NewStore(deps.Postgres, options.jobAdmission)
-	worker := newIncidentBundleWorker(store, deps, options.jobOperations, options.jobRunner, options.storage, options.importFinalizer, options.jobFinalizer, options.portability, options.transactions, options.projectionRebuild, options.sourceCatalog, options.historicalIntents, options.blobPort, options.limits, now)
+	worker := newIncidentBundleWorker(store, deps, options.jobOperations, options.jobRunner, options.storage, options.importFinalizer, options.jobFinalizer, options.portability, options.publicationLock, options.transactions, options.projectionRebuild, options.sourceCatalog, options.historicalIntents, options.blobPort, options.limits, now)
 	if err := worker.registerJobHandler(); err != nil {
 		return nil, err
 	}
@@ -251,6 +260,10 @@ func (s *Service) handleExport(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if request.CapabilityActivationRequested {
+		writeAPIError(w, r, extensionCapabilityNotSupported())
 		return
 	}
 	result, err := s.store.AcceptExport(r.Context(), ExportAcceptedParams{

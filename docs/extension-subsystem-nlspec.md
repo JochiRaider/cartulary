@@ -4,7 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: base
 schema_id: cartulary.extensions_subsystem_nlspec.v1
-document_version: 0.9.0
+document_version: 0.9.1
 contract_major: 2
 ---
 
@@ -12,7 +12,9 @@ contract_major: 2
 
 This NLSpec defines the Cartulary Extensions Subsystem. The subsystem is part of the Base Profile because profile recognition, extension discovery, reserved-route dispatch, claim resolution, inactive-profile behavior, registry integrity validation, verification routing, and extension contract coordination exists even when every optional extension profile is unclaimed.
 
-This document is `status: adopted/current`. Version `0.9.0` makes the breaking projection
+This document is `status: adopted/current`. Version `0.9.1` clarifies the
+transaction-bound Incident Portability publication guard and the closed shared
+capability error without changing extension contract major `2`. Version `0.9.0` made the breaking projection
 versions declared in Section 1.1 authoritative throughout this document, without a compatibility
 reader. It also adopts the v2 extension job-kind contract and its owner-declared progress-unit
 identity, coordinates the Core-owned analytical import binding shape with target-owned exact payload
@@ -3337,7 +3339,9 @@ Profiles: base
 Verified by: EXT-AC-066, EXT-AC-073, EXT-AC-094
 
 **EXT-REQ-141**
-For `incident_portability_mode='blocked_when_present'`, Incident Portability MUST evaluate the exact `cartulary.extension_state_blocking_predicate.v1` object under EXT-REQ-222. When it evaluates true, export MUST fail before bundle publication. Generic error `details` MUST contain exactly `profile_id`; a family ID, count, physical identity, or profile-authored detail is forbidden. The implementation MUST NOT silently omit state or publish a partial-success bundle.
+For `incident_portability_mode='blocked_when_present'`, Incident Portability MUST evaluate the exact `cartulary.extension_state_blocking_predicate.v1` object under EXT-REQ-222. When it evaluates true, export MUST fail before bundle publication with `incident_bundle_export_rejected`, `reason_code='extension_state_not_portable'`, `retryable=false`, and the selected safe `profile_id`. Error details contain exactly `reason_code` and `profile_id`; a family ID, count, physical identity, capability value, or profile-authored detail is forbidden. When multiple profiles block, Incident Portability evaluates recognized profiles in ascending UTF-8 byte order and discloses only the first blocking profile. The implementation MUST NOT silently omit state or publish a partial-success bundle.
+
+The authoritative evaluation MUST run inside the final export publication transaction after acquiring the shared per-incident serialization boundary used by authoritative state-changing paths. Every current or future owner of a `blocked_when_present` family MUST acquire that same boundary before committing state for the incident. An earlier read MAY avoid bundle construction but is not authoritative. The successful descriptor and terminal result MUST commit only after the final evaluation passes. A final blocking result MUST roll back publication and remove any physical object written before the decision, leaving no durable or public reference. The evaluator remains declarative: it MUST NOT invoke profile code, accept a profile callback, or learn profile-owned physical storage identities.
 
 Profiles: base
 Verified by: EXT-AC-034, EXT-AC-064
@@ -3381,7 +3385,7 @@ Profiles: base
 Verified by: EXT-AC-035, EXT-AC-065, EXT-AC-094
 
 **EXT-REQ-198**
-Incident Portability MUST apply Tables 23-A and 23-B. The shared declarative state-presence evaluator MUST run whenever the selected matrix row depends on whether authoritative state is present. Omission behavior: it is not invoked for a row whose result is independent of state presence. Arbitrary profile code, profile migration, profile workers, external probes, and third-party egress MUST NOT run for an inactive profile during portability admission.
+Incident Portability MUST apply Tables 23-A and 23-B. The shared declarative state-presence evaluator MUST run whenever the selected matrix row depends on whether authoritative state is present. For publication-blocking decisions its reads MUST use the final publication transaction and shared incident serialization boundary required by EXT-REQ-141. Omission behavior: it is not invoked for a row whose result is independent of state presence. Arbitrary profile code, profile migration, profile workers, external probes, and third-party egress MUST NOT run for an inactive profile during portability admission.
 
 Profiles: base
 Verified by: EXT-AC-094
@@ -3894,7 +3898,7 @@ The implementation and coordinated specification set are conformant only when ev
 | `EXT-AC-061` | Physical backup preserves claimed and unclaimed authoritative extension state and state-version metadata. |
 | `EXT-AC-062` | Restore preserves unclaimed state without interpreting or migrating it. |
 | `EXT-AC-063` | A claimed profile becomes available after restore only after compatibility, migration, and post-restore validation. |
-| `EXT-AC-064` | Incident-bundle export fails before publication when Network Flow blocking state exists. |
+| `EXT-AC-064` | Incident-bundle export evaluates recognized blocking profiles in UTF-8 order at the transaction-bound publication guard; active or retained soft-deleted Network Flow state returns only `incident_bundle_export_rejected`, `extension_state_not_portable`, and the safe profile ID, and leaves no descriptor or object. |
 | `EXT-AC-065` | A profile with no Snapshot and Reporting participant contributes no snapshot, report, diagram, or release content implicitly. |
 | `EXT-AC-066` | Unknown extension payloads and uploaded content remain inert and are not executed or interpreted as extension code. |
 | `EXT-AC-067` | A profile with `egress_mode='none'` performs no third-party request from routes, workers, migrations, validation, or browser code. |
