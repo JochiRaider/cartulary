@@ -3,6 +3,29 @@
   "owner_id": "harness.command_surface",
   "rows": [
     {
+      "row_id": "harness.command_surface.behavior.incident_bundle_v1_retirement_attestation_target",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [
+        "harness.release"
+      ],
+      "verification_ids": [
+        "harness.command_surface.verification.incident_bundle_v1_retirement_attestation_target"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.incident_bundle_v1_retirement_attestation_command_surface_contract.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.command_surface.behavior.public_registry_parity",
       "owner_id": "harness.command_surface",
       "family_id": "harness.command_surface.behavior",

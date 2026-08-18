@@ -2451,12 +2451,26 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   provenance, and satisfies generated-artifact policy with no manually edited
   generated root or dependency lockfile.
   - Verifies: REQ-01-643
-- **AC-506**: Version `1` import removal remains blocked until two stable
-  releases have exported version `2`, 180 days have elapsed since the first
-  adopting stable release, successful v1-import telemetry is zero for 30
-  consecutive days, operator inventory is clear, and a later Core revision
-  removes v1; an earlier projection date or unreleased build satisfies none of
-  those release-clock conditions.
+- **AC-506**: Version `1` is a development-only pre-production import that has
+  never appeared in a published stable release. The active compatibility
+  projection records `release_lifecycle=preproduction_unreleased`,
+  `backward_compatibility_required=false`, `adopting_stable_release=null`, and
+  `status=development_only`; this state requires no fabricated release,
+  telemetry, inventory, or elapsed-time evidence, and a later Core revision
+  may adopt a clean v2-only cutover. If a stable release admits version `1`
+  before removal, the projection atomically changes to
+  `release_lifecycle=stable_published` and
+  `backward_compatibility_required=true`; removal then remains blocked until
+  one adopting stable release and two distinct subsequent stable releases,
+  three releases total, have exported version `2`; each is published, strictly
+  ordered, and supported by a distinct passing retained Make-owned
+  `release-check` run; 180 complete days have elapsed since the adopting
+  release and deprecation start were recorded atomically; successful v1-import
+  telemetry is zero for the current complete 30-day interval; operator
+  inventory at the same cutoff is complete and clear; and a later Core
+  revision removes v1. A projection date, prerelease, development build,
+  local-only run, or unreleased implementation cannot establish stable
+  exposure or satisfy a stable-published release-clock condition.
   - Verifies: REQ-01-635..REQ-01-636
 - **AC-507**: `incident.json`, `actors.ndjson`,
   `reference_pack_refs.json`, and each admitted `ext/**` payload reject their

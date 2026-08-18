@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { repoRoot } from "../../contract/index.mjs";
 
+import { createHash } from "node:crypto";
 import {
   existsSync,
   readFileSync,
@@ -15,6 +16,7 @@ import {
   compactJSONString,
   HarnessConfigError,
   prettyJSONString,
+  redactString,
   secureMkdir,
   secureWriteFile,
   validateSchemaSync,
@@ -61,6 +63,28 @@ function relToRepo(value) {
     return relative;
   }
   return normalized;
+}
+
+function sha256File(file) {
+  return `sha256:${createHash("sha256").update(readFileSync(file)).digest("hex")}`;
+}
+
+export function retirementAttestationSummaryExtension(file) {
+  if (!file) {
+    return null;
+  }
+  const result = readJsonIfExists(file);
+  if (!result) {
+    return null;
+  }
+  validateSchemaSync(
+    "cartulary.incident_bundle_v1_retirement_attestation_result.v1",
+    result,
+  );
+  return {
+    input_digest: result.input_digest,
+    result_digest: sha256File(file),
+  };
 }
 
 function ensureDir(dir) {
@@ -242,6 +266,11 @@ export function writeStepArtifacts(context, details) {
       path.join(context.stepDir, "govulncheck-findings.json"),
     )
       ? path.join(context.stepDir, "govulncheck-findings.json")
+      : "",
+    retirement_attestation_result: existsSync(
+      path.join(context.stepDir, "retirement-attestation-result.json"),
+    )
+      ? path.join(context.stepDir, "retirement-attestation-result.json")
       : "",
     playwright_timing: playwrightTimingPath,
   })) {
@@ -427,6 +456,12 @@ export function writeStepArtifacts(context, details) {
         govulncheckFindings.blocking_vulnerability_ids ?? [],
     };
   }
+  const retirementAttestationResultPath = artifacts.retirement_attestation_result
+    ? resolveArtifactPath(artifacts.retirement_attestation_result)
+    : "";
+  const retirementAttestationExtension = retirementAttestationSummaryExtension(
+    retirementAttestationResultPath,
+  );
   const toolSummary = buildToolRunSummary({
     target: context.target,
     command:
@@ -487,6 +522,13 @@ export function writeStepArtifacts(context, details) {
             "json",
           )
         : null,
+      artifacts.retirement_attestation_result
+        ? fileArtifactRef(
+            "retirement_attestation_result",
+            artifacts.retirement_attestation_result,
+            "json",
+          )
+        : null,
     ],
     logArtifacts: Object.entries(artifacts)
       .filter(([key]) => key.endsWith("_log"))
@@ -513,6 +555,12 @@ export function writeStepArtifacts(context, details) {
       ...(Object.keys(securityExtension).length > 0
         ? { "cartulary.security": securityExtension }
         : {}),
+      ...(retirementAttestationExtension
+        ? {
+            "cartulary.incident_bundle_v1_retirement_attestation":
+              retirementAttestationExtension,
+          }
+        : {}),
     },
   });
   writeToolSummary(toolSummaryFile, toolSummary);
@@ -533,7 +581,7 @@ export function writeStepArtifacts(context, details) {
       process.stderr.write(
         `[ARTIFACTS] target=${context.target} root=${toolSummary.run_root} summary_json=${terminalArtifactPath(toolSummary.run_root, toolSummaryRel)} log_artifact=${terminalArtifactPath(toolSummary.run_root, logArtifact)} scheduler_json=- progress_log=-${finalizeSummaryRel ? ` finalize_json=${terminalArtifactPath(toolSummary.run_root, finalizeSummaryRel)}` : ""}\n`,
       );
-      process.stderr.write(`[RERUN] command="${context.command}"\n`);
+      process.stderr.write(`[RERUN] command="${redactString(context.command)}"\n`);
       process.stderr.write(
         `[INVESTIGATE] command="make explain-run RESULTS_DIR=${relToRepo(path.join(resultsRoot, runId))} TARGET=${context.target} DETAIL=logs"\n`,
       );

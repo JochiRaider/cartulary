@@ -10,6 +10,7 @@
     "private_key": "[REDACTED:private-key]"
   },
   "sensitive_key_patterns": [
+    "^attestation$",
     "^(?:authorization|cookie|set-cookie|x-cartulary-test-route-token)$",
     "^(?:password|pass|pwd|token|jwt|bearer|api[_-]?key|access[_-]?key|secret[_-]?key)$",
     "(?:^|[_-])(?:password|pass|pwd|token|jwt|bearer|api[_-]?key|access[_-]?key|secret[_-]?key)$",
@@ -58,18 +59,23 @@
     },
     {
       "name": "cli_secret_argument_equals",
-      "pattern": "(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*)([^\\s]+)",
+      "pattern": "(?i)(--(?:attestation|password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*)((?:\\\\.|[^\\s])+)",
       "replacement": "$1[REDACTED]"
     },
     {
       "name": "cli_secret_argument_space",
-      "pattern": "(?i)(--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s+)([^\\s]+)",
+      "pattern": "(?i)(--(?:attestation|password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s+)((?:\\\\.|[^\\s])+)",
       "replacement": "$1[REDACTED]"
     },
     {
       "name": "generic_password_assignment",
       "pattern": "(?i)\\b(password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*([^\\s&]+)",
       "replacement": "$1=[REDACTED]"
+    },
+    {
+      "name": "attestation_path_assignment",
+      "pattern": "(?i)\\b(attestation\\s*=\\s*)((?:\\\\.|[^\\s&])+)",
+      "replacement": "$1[REDACTED]"
     },
     {
       "name": "object_store_credential_assignment",

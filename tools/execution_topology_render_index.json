@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:0e4ccdab088cafd9dd940506a13db4dfab647ac853acd176cfaab0b3ada92a5a",
+  "input_digest": "sha256:d5d9278eea210aed5b4ae3ef2a5514bdce1a514e6c57092bd731a6b2f1aa0926",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -37,7 +37,7 @@
     {
       "path": "contracts/verification/owners/harness.command_surface.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:be8b178936a3f366a5a016f4a41dcb66e2411b07435c662c0b35da82a0a4a5f2"
+      "hash": "sha256:6295fada0d24fd9083e939903f949cf7f12d2686595d98d588e9b537986db38f"
     },
     {
       "path": "contracts/verification/owners/harness.evidence_accounting.json",
@@ -52,7 +52,7 @@
     {
       "path": "contracts/verification/owners/harness.release.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:55830f41afa7ef5c744e726cb3f7fa511a684285a71dc4c1da43d9f1d318eec2"
+      "hash": "sha256:56f2343417c89d4a3700b920e18f5f6cc4e416a9e38349a7f81f8f55f5f45f54"
     },
     {
       "path": "contracts/verification/owners/harness.test_catalog.json",
@@ -457,7 +457,7 @@
     {
       "path": "tools/harness/contract/harness-contract.mjs",
       "role": "renderer_source",
-      "hash": "sha256:a22e6ecfd2c5dbb131a75072ce6cb93eaf98b7e7e6810475d30ff03dfafec151"
+      "hash": "sha256:004ac4cec310f5c9d759ed488adf3c6b2cfb7d61584082479a26fc5f42aa80c2"
     },
     {
       "path": "tools/harness/contract/index.mjs",
@@ -677,7 +677,7 @@
     {
       "path": "tools/harness/generated-artifacts/task-surface/make-renderer.mjs",
       "role": "renderer_source",
-      "hash": "sha256:1f4d28217d814f8b1b935e6399d75287239b42f7e412cdbd85318a8516df14f6"
+      "hash": "sha256:a53da063f2461a4a621273d4accc64c74be8208336c9a41dae4614b4c0d2b311"
     },
     {
       "path": "tools/harness/generated-artifacts/task-surface/model.mjs",
@@ -892,7 +892,7 @@
     {
       "path": "tools/task_surface_owner.json",
       "role": "task_surface_owner",
-      "hash": "sha256:eff68c8c37d12c0f7546acf30b3540b808d895a48566e31b46c5427a7b46ca6a"
+      "hash": "sha256:a8b3d62722f458511735d3dfa211fbc85ca7d15e4888f7886a5314ea2c8e8744"
     },
     {
       "path": "tools/test_catalog_owner.json",
@@ -922,7 +922,7 @@
     {
       "path": "tools/test_families/harness.command_surface.json",
       "role": "test_family_manifest",
-      "hash": "sha256:c611a7f41ddc58f34ca826c887cd3d83587d4a9a023b754f26f61cb8ec4adf22"
+      "hash": "sha256:a1e5eb6cc69f8fddc80ad4c899f20c82c3c4d2eae3c8df665ec165454d16d4cc"
     },
     {
       "path": "tools/test_families/harness.evidence_accounting.json",
@@ -937,7 +937,7 @@
     {
       "path": "tools/test_families/harness.release.json",
       "role": "test_family_manifest",
-      "hash": "sha256:4b2c7f5a7b42954ef4f670845f2efa007c8b6a3635bc8226d0f6ad7709a16047"
+      "hash": "sha256:5252910c1a325f7ab892467a4a213d8a16119005e1a7502a0bdbe8c9099b7871"
     },
     {
       "path": "tools/test_families/harness.test_catalog.json",
@@ -1228,8 +1228,8 @@
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:329372cd499f295f19fbbdda549eba936087b232b82241caededadb0998c189a",
     "tools/scheduler_manifest.json": "sha256:e0a6b0776d9b0a783d99264afa25a10636cec566aeb8d44f52580b6131eb5e4d",
-    "tools/task_surface_manifest.json": "sha256:94db7967307a6d7c993a0938deceadf81f334abd986f84b7660783bb0c188424",
-    "tools/task_surface.generated.mk": "sha256:7e5bfe01e954cd9f5363802cd4ac3991174ed089c99d1057a9d0fa55e1e5f305",
-    "tools/task_surface.runtime.generated.mk": "sha256:8a3f9853f62b7f88aa8c9bebbad27737b54168b4c70544c33988e303ba55c599"
+    "tools/task_surface_manifest.json": "sha256:86b0d58f8ae6a1a7017638d4a35231d7e6fc65f7ced7bb120fdc51bcc71e692a",
+    "tools/task_surface.generated.mk": "sha256:6a3401e947c5a53f17b1fd06a3b3d46aae00e18f49d2fb1223c156dca804c78a",
+    "tools/task_surface.runtime.generated.mk": "sha256:48e69e462ea989e58012954528723be6bb27a1aaa0d361df99911d004a846184"
   }
 }

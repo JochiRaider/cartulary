@@ -1,0 +1,68 @@
+{
+  "schema_id": "cartulary.incident_bundle_v1_retirement_attestation.v1",
+  "cutoff_date": "2025-07-10",
+  "compatibility_snapshot": {
+    "snapshot_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "adopting_release_identity": "v2.0.0",
+    "deprecation_started_on": "2025-01-01",
+    "minimum_stable_releases": 3,
+    "minimum_retention_days": 180
+  },
+  "releases": [
+    {
+      "role": "adopting",
+      "release_identity": "v2.0.0",
+      "published_on": "2025-01-01",
+      "stable": true,
+      "bundle_version": 2,
+      "run_manifest_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "run_summary_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "target_summary_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "source_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "publication_evidence_digest": "sha256:bb16bfdce818efb65b4e6832729cc7a52aa5463007c5e6742e29078bf30f3b4d"
+    },
+    {
+      "role": "subsequent_1",
+      "release_identity": "v2.1.0",
+      "published_on": "2025-02-01",
+      "stable": true,
+      "bundle_version": 2,
+      "run_manifest_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "run_summary_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "target_summary_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "source_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "publication_evidence_digest": "sha256:7fcc7eabb2939a695978ab3b26876b69795cdc248e87c8c8f48c8d3922c4d698"
+    },
+    {
+      "role": "subsequent_2",
+      "release_identity": "v2.2.0",
+      "published_on": "2025-03-01",
+      "stable": true,
+      "bundle_version": 2,
+      "run_manifest_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+      "run_summary_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_summary_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "publication_evidence_digest": "sha256:f57c34f31c9112ac5de54535a9cb5f2b4cf2e49c7b399b25b0b551569ba8a81d"
+    }
+  ],
+  "telemetry": {
+    "metric_identity": "cartulary.incident_bundle.v1_import",
+    "interval_start": "2025-06-10",
+    "interval_end": "2025-07-10",
+    "interval_days": 30,
+    "missing_intervals": 0,
+    "successful_v1_imports": 0,
+    "complete": true,
+    "evidence_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "inventory": {
+    "cutoff_date": "2025-07-10",
+    "inventory_classes_expected": 4,
+    "inventory_classes_covered": 4,
+    "supported_archives": 0,
+    "v1_required_archives": 0,
+    "complete": true,
+    "evidence_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  }
+}

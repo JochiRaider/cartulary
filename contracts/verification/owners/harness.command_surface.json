@@ -3,6 +3,16 @@
   "owner_id": "harness.command_surface",
   "verifications": [
     {
+      "verification_id": "harness.command_surface.verification.incident_bundle_v1_retirement_attestation_target",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "harness-contract"
+    },
+    {
       "verification_id": "harness.command_surface.verification.public_registry_parity",
       "behavior_class": "harness",
       "profile": "support",

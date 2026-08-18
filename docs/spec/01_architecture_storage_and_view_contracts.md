@@ -7557,19 +7557,39 @@ Export and import MUST preserve deterministic canonical JSON, exact row
 ordering, UTF-8, LF, checksum, member-path, member-type, extracted-byte,
 compression-ratio, and member-count rules in REQ-01-429 through REQ-01-442.
 
-Version `1` import MUST remain available until all five conditions are true:
+Version `1` import is a development-only, pre-production surface that has never
+been included in a published stable release. It carries no backward-
+compatibility obligation and MAY be removed by a clean pre-production cutover
+after a later Core revision explicitly adopts v2-only admission. The active
+compatibility projection MUST represent that state as
+`release_lifecycle=preproduction_unreleased`,
+`backward_compatibility_required=false`, `adopting_stable_release=null`, and
+`status=development_only`.
 
-1. two stable releases have exported version `2`;
-2. 180 days have elapsed since the first such adopting stable release;
-3. successful `cartulary.incident_bundle.v1_import` telemetry is zero for 30
-   consecutive days;
-4. operator inventory confirms that no required version `1` archive remains;
+If a published stable release admits version `1` before that removal, the
+projection MUST atomically move to `release_lifecycle=stable_published` and
+`backward_compatibility_required=true`. Version `1` import then MUST remain
+available until all five conditions are true:
+
+1. one adopting stable release and two distinct subsequent stable releases,
+   three releases total, have exported version `2`;
+2. 180 complete days have elapsed since the adopting stable release and its
+   deprecation start were recorded atomically;
+3. the current complete 30-day interval ending at the shared cutoff contains
+   zero successful `cartulary.incident_bundle.v1_import` occurrences;
+4. complete operator inventory at that cutoff confirms that no required
+   version `1` archive remains;
 5. a later Core revision explicitly removes version `1`.
 
-A projection-only date, development build, or unreleased implementation MUST
-NOT start or backdate the adopting-stable-release clock. The successful-v1
-telemetry occurrence MUST be recorded only after the import commit is proven
-and MUST contain no incident, row, path, object, or staging identifier.
+A projection-only date, development build, prerelease, local-only run, or
+unreleased implementation MUST NOT be used to claim stable exposure, start or
+backdate the adopting-stable-release clock, or count toward the three-release
+minimum. The pre-production path MUST NOT fabricate release, telemetry, or
+inventory evidence. Each qualifying release on the stable-published path MUST
+be stable, published, v2-bearing, strictly ordered, and supported by a distinct
+passing retained Make-owned `release-check` run. The successful-v1 telemetry
+occurrence MUST be recorded only after the import commit is proven and MUST
+contain no incident, row, path, object, or staging identifier.
 Profiles: incident_portability
 Verified by: AC-487, AC-488, AC-489, AC-491, AC-503, AC-506
 

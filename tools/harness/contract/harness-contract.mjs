@@ -76,6 +76,7 @@ const protectedCleanupIdentities = new Set([
   "tools",
 ]);
 const structuredSecretKeyTokens = new Set([
+  "ATTESTATION",
   "PASSWORD",
   "PASS",
   "PWD",
@@ -1081,6 +1082,12 @@ function resolveDeclaredTargetInputs(target, entry, manifest, env) {
       continue;
     }
     if (isMakeEnvironmentOrigin(origin) && !(input.allowed_sources ?? []).includes("environment")) {
+      if (input.required) {
+        throw new HarnessConfigError(
+          `${input.name} is required from an allowed source for target ${target}`,
+          { reason: input.invalid_reason },
+        );
+      }
       continue;
     }
     const normalized = normalizeInputValue(input, raw);
@@ -1324,7 +1331,7 @@ function compiledRedactionRules() {
 }
 
 function isSensitiveCLIFlag(value) {
-  return /^--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)$/iu.test(
+  return /^--(?:attestation|password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)$/iu.test(
     String(value ?? ""),
   );
 }
@@ -1376,6 +1383,10 @@ export function redactValue(value, key = "") {
     return rules.replacement;
   }
   if (typeof value === "string") {
+    const assignment = /^([A-Z][A-Z0-9_]*)=(.*)$/isu.exec(value);
+    if (assignment && isStructuredSecretKey(assignment[1])) {
+      return `${assignment[1]}=${rules.replacement}`;
+    }
     return redactString(value);
   }
   if (Array.isArray(value)) {

@@ -6,12 +6,18 @@
   "required": [
     "schema_id",
     "current_export_version",
+    "release_lifecycle",
+    "backward_compatibility_required",
     "adopting_stable_release",
     "retained_imports"
   ],
   "properties": {
     "schema_id": { "const": "cartulary.incident_bundle_compatibility.v2" },
     "current_export_version": { "const": 2 },
+    "release_lifecycle": {
+      "enum": ["preproduction_unreleased", "stable_published"]
+    },
+    "backward_compatibility_required": { "type": "boolean" },
     "adopting_stable_release": {
       "type": ["string", "null"],
       "minLength": 1
@@ -41,13 +47,13 @@
           "surface_id": { "const": "incident_bundle_v1_import" },
           "bundle_version": { "const": 1 },
           "owner_id": { "const": "module.incidentbundles" },
-          "status": { "const": "deprecated" },
+          "status": { "enum": ["development_only", "deprecated"] },
           "export_allowed": { "const": false },
           "deprecation_started_on": {
             "type": ["string", "null"],
             "format": "date"
           },
-          "minimum_stable_releases": { "type": "integer", "minimum": 2 },
+          "minimum_stable_releases": { "const": 3 },
           "minimum_retention_days": { "type": "integer", "minimum": 180 },
           "zero_successful_import_days": { "type": "integer", "minimum": 30 },
           "operator_inventory_clear_required": { "const": true },
@@ -58,6 +64,39 @@
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "release_lifecycle": { "const": "preproduction_unreleased" }
+        }
+      },
+      "then": {
+        "properties": {
+          "backward_compatibility_required": { "const": false },
+          "adopting_stable_release": { "type": "null" },
+          "retained_imports": {
+            "items": {
+              "properties": {
+                "status": { "const": "development_only" },
+                "deprecation_started_on": { "type": "null" }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "backward_compatibility_required": { "const": true },
+          "retained_imports": {
+            "items": {
+              "properties": {
+                "status": { "const": "deprecated" }
+              }
+            }
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {

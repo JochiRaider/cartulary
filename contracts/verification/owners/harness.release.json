@@ -11,6 +11,16 @@
         "shell"
       ],
       "public_target": "release-check"
+    },
+    {
+      "verification_id": "harness.release.verification.incident_bundle_v1_retirement_attestation",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "release_check",
+        "shell"
+      ],
+      "public_target": "release-check"
     }
   ]
 }

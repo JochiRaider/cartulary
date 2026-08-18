@@ -298,6 +298,11 @@
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
       },
       {
+        "target": "incident-bundle-v1-retirement-attestation-check",
+        "owner_section": "Section 4",
+        "reason": "Explicit external retirement-gate validation is release-process evidence rather than a stable execution workload."
+      },
+      {
         "target": "lint-markdown",
         "owner_section": "Section 4",
         "reason": "Standalone human-documentation maintenance is outside executable product testing and evidence."
@@ -1103,6 +1108,11 @@
         {
           "target": "release-check",
           "description": "run check, extended harness, frontend readiness, release artifacts, build verification, and release-readiness aggregation"
+        },
+        {
+          "target": "incident-bundle-v1-retirement-attestation-check",
+          "usage": "ATTESTATION=<path>",
+          "description": "validate retained evidence for Incident Bundle v1 retirement"
         },
         {
           "target": "release-readiness-evidence",
@@ -2296,6 +2306,20 @@
       ],
       "test_target": "self"
     },
+    "incident-bundle-v1-retirement-attestation-command-surface-contract": {
+      "type": "step_command",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
+      ],
+      "mode": "run_step",
+      "step_label": "incident-bundle-v1-retirement-attestation-command-surface-contract",
+      "command": [
+        "bash",
+        "./tools/release-evidence/tests/test-incident-bundle-v1-retirement-attestation-task-surface.sh"
+      ],
+      "test_target": "self"
+    },
     "harness-evidence-contract": {
       "type": "step_command",
       "prerequisites": [
@@ -2673,6 +2697,24 @@
       "selection": "aggregate",
       "test_target": "self"
     },
+    "incident-bundle-v1-retirement-attestation-check": {
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
+      ],
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "incident-bundle-v1-retirement-attestation-check",
+      "command": [
+        "$(NODE_BIN)",
+        "./tools/release-evidence/incident-bundle-v1-retirement-attestation-cli.mjs"
+      ],
+      "args": [
+        "--attestation",
+        "$(call task_surface_shell_quote_raw,ATTESTATION)"
+      ],
+      "test_target": "self"
+    },
     "release-readiness-evidence": {
       "prerequisites": [
         "$(NODE_BIN)"
@@ -2703,6 +2745,20 @@
       "command": [
         "$(NODE_BIN)",
         "./tools/release-evidence/tests/test-release-readiness-evidence.mjs"
+      ],
+      "test_target": "self"
+    },
+    "incident-bundle-v1-retirement-attestation-contract": {
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
+      ],
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "incident-bundle-v1-retirement-attestation-contract",
+      "command": [
+        "$(NODE_BIN)",
+        "./tools/release-evidence/tests/test-incident-bundle-v1-retirement-attestation.mjs"
       ],
       "test_target": "self"
     },
@@ -9881,6 +9937,16 @@
       "lifecycle_state": "candidate_child"
     },
     {
+      "name": "incident-bundle-v1-retirement-attestation-command-surface-contract",
+      "backing_scripts": [
+        "tools/release-evidence/tests/test-incident-bundle-v1-retirement-attestation-task-surface.sh"
+      ],
+      "command_id": "cartulary.harness.command.incident_bundle_v1_retirement_attestation_command_surface_contract.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
       "name": "harness-evidence-contract",
       "backing_scripts": [
         "tools/harness/tests/contract-suite-support.mjs",
@@ -12339,6 +12405,77 @@
       }
     },
     {
+      "name": "incident-bundle-v1-retirement-attestation-check",
+      "backing_scripts": [
+        "tools/harness/observability/canonical-evidence.mjs",
+        "tools/release-evidence/incident-bundle-v1-retirement-attestation-cli.mjs",
+        "tools/release-evidence/incident-bundle-v1-retirement-attestation.mjs"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 3,
+          "stderr_bytes": 1000,
+          "excerpt_lines": 3,
+          "excerpt_bytes": 1000
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.incident_bundle_v1_retirement_attestation_check.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "aggregates_gates",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "ATTESTATION",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "argv"
+          }
+        ]
+      }
+    },
+    {
       "name": "release-readiness-evidence",
       "backing_scripts": [
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
@@ -12443,6 +12580,18 @@
         "tools/release-evidence/release-readiness-evidence.mjs"
       ],
       "command_id": "cartulary.harness.command.release_evidence_contract.v2",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "incident-bundle-v1-retirement-attestation-contract",
+      "backing_scripts": [
+        "tools/release-evidence/fixtures/incident-bundle-v1-retirement-attestation.valid.json",
+        "tools/release-evidence/incident-bundle-v1-retirement-attestation.mjs",
+        "tools/release-evidence/tests/test-incident-bundle-v1-retirement-attestation.mjs"
+      ],
+      "command_id": "cartulary.harness.command.incident_bundle_v1_retirement_attestation_contract.v1",
       "target_class": "check_internal",
       "default_inclusion_sets": [],
       "lifecycle_state": "candidate_child"

@@ -401,6 +401,20 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.incident_bundle_v1_retirement_attestation.v1",
+      "path": "tools/schemas/cartulary.incident_bundle_v1_retirement_attestation.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "Incident Bundle v1 retirement attestation validator",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.incident_bundle_v1_retirement_attestation_result.v1",
+      "path": "tools/schemas/cartulary.incident_bundle_v1_retirement_attestation_result.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "Incident Bundle v1 retirement attestation validator",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.license_report.v2",
       "path": "tools/schemas/cartulary.license_report.v2.schema.json",
       "classification": "public_contract",
