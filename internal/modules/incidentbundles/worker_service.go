@@ -9,23 +9,43 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 )
 
-const incidentBundleJobHandlerName = BundleWorkerKind
+const incidentBundleJobHandlerName = bundleWorkerKind
 
-type incidentBundleJobRunner interface {
+type workerDiagnosticError struct {
+	classification string
+	jobID          uuid.UUID
+}
+
+func (e *workerDiagnosticError) Error() string {
+	return fmt.Sprintf("incident bundle worker failure: class=%s job_id=%s", e.classification, e.jobID)
+}
+
+func newWorkerDiagnosticError(classification string, jobID uuid.UUID) error {
+	switch classification {
+	case "execution_observation_failed", "payload_load_failed":
+	default:
+		classification = "unclassified_failure"
+	}
+	return &workerDiagnosticError{classification: classification, jobID: jobID}
+}
+
+// JobRunner is the Jobs-owned handler registration and wake-up capability.
+type JobRunner interface {
 	RegisterHandler(string, jobs.HandlerFunc) error
 	Notify(uuid.UUID)
 }
 
-type incidentBundleJobOperations interface {
+// JobOperations is the Jobs-owned execution lifecycle capability.
+type JobOperations interface {
 	Get(context.Context, uuid.UUID) (jobs.Resource, error)
 	ObserveExecution(context.Context, jobs.Execution) (jobs.Resource, error)
 	UpdateProgress(context.Context, jobs.Execution, jobs.Progress, *string) (jobs.Resource, error)
@@ -33,8 +53,11 @@ type incidentBundleJobOperations interface {
 	CompleteCanceled(context.Context, jobs.Execution, jobs.CancellationCompletion) (jobs.Resource, error)
 }
 
-type incidentBundleJobAdmission interface {
+// JobTransactions is the Jobs-owned transaction capability required for
+// admission and import execution validation.
+type JobTransactions interface {
 	CreateQueuedTx(context.Context, pgx.Tx, jobs.EnqueueParams, time.Time) (jobs.Resource, error)
+	ValidateExecutionTx(context.Context, pgx.Tx, jobs.Execution) error
 }
 
 // IncidentPublicationLock is the incident-owner serialization capability used
@@ -44,9 +67,10 @@ type IncidentPublicationLock interface {
 }
 
 type incidentBundleWorker struct {
-	store             *Store
-	jobManager        incidentBundleJobOperations
-	jobRunner         incidentBundleJobRunner
+	store             *store
+	pool              *pgxpool.Pool
+	jobManager        JobOperations
+	jobRunner         JobRunner
 	results           incidentBundleJobResultSink
 	storage           BundleStorage
 	importFinalizer   incidents.IncidentBundleImportFinalizer
@@ -54,18 +78,18 @@ type incidentBundleWorker struct {
 	portability       *PortabilityOrchestrator
 	publicationLock   IncidentPublicationLock
 	transactions      *crossownertransaction.Coordinator
-	projectionRebuild importProjectionRebuilder
+	projectionRebuild ImportProjectionRebuilder
 	sourceCatalog     *sourceport.Catalog
-	historicalIntents historicalIntentPolicy
-	blobPort          blobPortability
+	historicalIntents HistoricalIntentPolicy
+	blobPort          BlobPortability
 	limits            Limits
-	deps              httpapi.DependencySet
 	now               func() time.Time
 }
 
-func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, jobManager incidentBundleJobOperations, jobRunner incidentBundleJobRunner, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, publicationLock IncidentPublicationLock, transactions *crossownertransaction.Coordinator, projectionRebuild importProjectionRebuilder, sourceCatalog *sourceport.Catalog, historicalIntents historicalIntentPolicy, blobPort blobPortability, limits Limits, now func() time.Time) *incidentBundleWorker {
+func newIncidentBundleWorker(store *store, pool *pgxpool.Pool, jobManager JobOperations, jobRunner JobRunner, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, publicationLock IncidentPublicationLock, projectionRebuild ImportProjectionRebuilder, sourceCatalog *sourceport.Catalog, historicalIntents HistoricalIntentPolicy, blobPort BlobPortability, limits Limits, now func() time.Time) *incidentBundleWorker {
 	return &incidentBundleWorker{
 		store:             store,
+		pool:              pool,
 		jobManager:        jobManager,
 		jobRunner:         jobRunner,
 		results:           incidentBundleJobResultSink{manager: jobManager, store: store, finalizer: jobFinalizer, now: now},
@@ -74,13 +98,11 @@ func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, jobManage
 		jobFinalizer:      jobFinalizer,
 		portability:       portability,
 		publicationLock:   publicationLock,
-		transactions:      transactions,
 		projectionRebuild: projectionRebuild,
 		sourceCatalog:     sourceCatalog,
 		historicalIntents: historicalIntents,
 		blobPort:          blobPort,
 		limits:            limits,
-		deps:              deps,
 		now:               now,
 	}
 }
@@ -107,31 +129,31 @@ func (w *incidentBundleWorker) dispatch(jobIDText string) error {
 func (w *incidentBundleWorker) executeJobID(ctx context.Context, execution jobs.Execution) error {
 	jobID := execution.JobID()
 	if _, err := w.jobManager.ObserveExecution(ctx, execution); err != nil {
-		return err
+		return newWorkerDiagnosticError("execution_observation_failed", jobID)
 	}
-	payload, err := w.store.GetJobPayload(ctx, jobID)
+	payload, err := w.store.getJobPayload(ctx, jobID)
 	if err != nil {
-		w.results.completeFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
-		return fmt.Errorf("load incident bundle job payload: %w", err)
+		w.results.completeInternalFailure(ctx, execution)
+		return newWorkerDiagnosticError("payload_load_failed", jobID)
 	}
 	w.executePayload(ctx, execution, payload)
 	return nil
 }
 
-func (w *incidentBundleWorker) executePayload(ctx context.Context, execution jobs.Execution, payload JobPayload) {
+func (w *incidentBundleWorker) executePayload(ctx context.Context, execution jobs.Execution, payload jobPayload) {
 	switch payload.JobKind {
 	case "export":
 		w.executeExportJob(ctx, execution, payload)
 	case "import":
 		w.executeImportJob(ctx, execution, payload)
 	default:
-		w.results.completeFailed(ctx, execution, failedCompletion("internal_error", map[string]any{"job_kind": payload.JobKind}))
+		w.results.completeInternalFailure(ctx, execution)
 	}
 }
 
-func (w *incidentBundleWorker) executeExportJob(ctx context.Context, execution jobs.Execution, payload JobPayload) {
+func (w *incidentBundleWorker) executeExportJob(ctx context.Context, execution jobs.Execution, payload jobPayload) {
 	if payload.IncidentID == nil {
-		w.results.completeFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
+		w.results.completeInternalFailure(ctx, execution)
 		return
 	}
 	if !w.prepareClaimedJob(ctx, execution, 1) {
@@ -143,31 +165,31 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, execution j
 		RequiredCapabilities []string `json:"required_capabilities"`
 	}
 	if err := json.Unmarshal(payload.RequestJSON, &normalized); err != nil {
-		w.results.completeFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
+		w.results.completeInternalFailure(ctx, execution)
 		return
 	}
-	request := ExportRequest{
+	request := exportRequest{
 		IncidentID:           *payload.IncidentID,
 		ReferencePackMode:    normalized.ReferencePackMode,
 		OptionalSections:     normalized.OptionalSections,
 		RequiredCapabilities: normalized.RequiredCapabilities,
-		HistoryMode:          HistoryModeFull,
-		BlobMode:             BlobModeFull,
+		HistoryMode:          historyModeFull,
+		BlobMode:             blobModeFull,
 	}
 	bundleID := uuid.New()
 	exportedAt := w.now().UTC()
-	builder := BundleBuilder{pool: w.deps.Postgres, blobPort: w.blobPort, portability: w.portability, sourceCatalog: w.sourceCatalog}
-	built, err := builder.Build(ctx, *payload.IncidentID, request, bundleID, exportedAt)
+	builder := bundleBuilder{pool: w.pool, blobPort: w.blobPort, portability: w.portability, sourceCatalog: w.sourceCatalog}
+	built, err := builder.build(ctx, *payload.IncidentID, request, bundleID, exportedAt)
 	if err != nil {
 		w.results.completeFailedFromError(ctx, execution, "incident_bundle_export_rejected", err)
 		return
 	}
 	storageReference, err := w.storage.Publish(ctx, bundleID.String(), built.Archive.Bytes)
 	if err != nil {
-		w.results.completeFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
+		w.results.completeInternalFailure(ctx, execution)
 		return
 	}
-	completeParams := ExportCompleteParams{
+	completeParams := exportCompleteParams{
 		JobID: payload.JobID, ActorUserID: payload.ActorUserID,
 		IncidentID: *payload.IncidentID, BundleID: bundleID, ExportedAt: exportedAt,
 		ManifestSHA256:       built.Archive.ManifestSHA256,
@@ -177,7 +199,7 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, execution j
 		BundleSHA256:         built.BundleSHA256, BundleByteSize: built.BundleByteSize,
 		BundleStorageRef: storageReference, ManifestFiles: built.Archive.Manifest.Files,
 	}
-	var record DescriptorRecord
+	var record descriptorRecord
 	_, err = w.jobFinalizer.FinalizeIncidentBundleJobSuccess(ctx, JobSuccessFinalization{
 		Execution:  execution,
 		Completion: exportSuccessCompletion(bundleID),
@@ -189,13 +211,13 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, execution j
 				return lockErr
 			}
 			if !found {
-				return ErrNotFound
+				return errNotFound
 			}
 			if guardErr := w.portability.ValidatePublication(ctx, tx, *payload.IncidentID); guardErr != nil {
 				return guardErr
 			}
 			var mutationErr error
-			record, mutationErr = w.store.CompleteExportDescriptorTx(ctx, tx, completeParams)
+			record, mutationErr = w.store.completeExportDescriptorTx(ctx, tx, completeParams)
 			return mutationErr
 		},
 	})
@@ -217,12 +239,12 @@ func (w *incidentBundleWorker) handleExportFinalizationError(ctx context.Context
 		w.results.completeFailedFromError(ctx, execution, "incident_bundle_export_rejected", err)
 		return
 	}
-	w.results.completeFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
+	w.results.completeInternalFailure(ctx, execution)
 }
 
-func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution jobs.Execution, payload JobPayload) {
+func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution jobs.Execution, payload jobPayload) {
 	if payload.BundleStagingRef == nil {
-		w.results.completeFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
+		w.results.completeInternalFailure(ctx, execution)
 		return
 	}
 	defer func() {
@@ -236,9 +258,9 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 		w.results.completeFailed(ctx, execution, failedCompletion("incident_bundle_import_rejected", map[string]any{"reason_code": "missing_required_file"}))
 		return
 	}
-	verified, err := VerifyBundle(VerificationInput{Bundle: data, Limits: w.limits})
+	verified, err := verifyBundle(verificationInput{Bundle: data, Limits: w.limits})
 	if err != nil {
-		if errors.Is(err, ErrExtensionCapabilityNotSupported) {
+		if errors.Is(err, errExtensionCapabilityNotSupported) {
 			w.results.completeFailedFromError(ctx, execution, "extension_capability_not_supported", err)
 			return
 		}
@@ -246,35 +268,35 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 		return
 	}
 	requestID := incidents.ImportBundleRequestID(payload.JobID)
-	importer := Importer{
-		pool:              w.deps.Postgres,
+	importer := importer{
+		pool:              w.pool,
 		blobPort:          w.blobPort,
 		finalizer:         w.importFinalizer,
 		projectionRebuild: w.projectionRebuild,
 		sourceCatalog:     w.sourceCatalog,
 		historicalIntents: w.historicalIntents,
 	}
-	importParams := ImportParams{
+	importParams := importParams{
 		ActorUserID: payload.ActorUserID,
 		PublishedAt: w.now().UTC(),
 		RequestID:   &requestID,
 		OperationID: payload.JobID.String(),
 	}
-	prepared, err := importer.PrepareImport(ctx, verified, importParams)
+	prepared, err := importer.prepareImport(ctx, verified, importParams)
 	if err != nil {
-		var verificationErr *VerificationError
+		var verificationErr *verificationError
 		if errors.As(err, &verificationErr) {
 			w.results.completeFailedFromError(ctx, execution, "incident_bundle_import_rejected", err)
 			return
 		}
-		w.results.completeFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
+		w.results.completeInternalFailure(ctx, execution)
 		return
 	}
 	committed := false
 	finalityUnknown := false
 	defer func() {
 		if !committed && !finalityUnknown {
-			prepared.Cleanup(context.WithoutCancel(ctx))
+			prepared.cleanup(context.WithoutCancel(ctx))
 		}
 	}()
 	portability, err := w.portability.PrepareImport(ctx, payload.JobID.String(), prepared.IncidentID, verified.Files)
@@ -287,9 +309,9 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 			_ = portability.Abandon(context.WithoutCancel(ctx))
 		}
 	}()
-	coreParticipant, err := NewImportTransactionParticipant(prepared, importParams, execution, verified.ManifestSHA256)
+	coreParticipant, err := newImportTransactionParticipant(prepared, importParams, execution, verified.ManifestSHA256)
 	if err != nil {
-		w.results.completeFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
+		w.results.completeInternalFailure(ctx, execution)
 		return
 	}
 	participants := append([]crossownertransaction.Participant{coreParticipant}, portability.Participants...)
@@ -306,17 +328,17 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 			finalityUnknown = true
 			return
 		}
-		var verificationErr *VerificationError
+		var verificationErr *verificationError
 		if errors.As(err, &verificationErr) {
 			w.results.completeFailedFromError(ctx, execution, "incident_bundle_import_rejected", verificationErr)
 			return
 		}
-		w.results.completeFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
+		w.results.completeInternalFailure(ctx, execution)
 		return
 	}
-	value, ok := result.ParticipantValues[ImportTransactionParticipantID].(ImportTransactionResult)
+	value, ok := result.ParticipantValues[ImportTransactionParticipantID].(importTransactionResult)
 	if !ok || value.IncidentID != prepared.IncidentID {
-		w.results.completeFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
+		w.results.completeInternalFailure(ctx, execution)
 		return
 	}
 	committed = true
@@ -362,8 +384,8 @@ func (w *incidentBundleWorker) prepareClaimedJob(ctx context.Context, execution 
 }
 
 type incidentBundleJobResultSink struct {
-	manager   incidentBundleJobOperations
-	store     *Store
+	manager   JobOperations
+	store     *store
 	finalizer JobSuccessFinalizer
 	now       func() time.Time
 }
@@ -376,7 +398,15 @@ func (s incidentBundleJobResultSink) completeFailed(ctx context.Context, executi
 	_, _ = s.manager.CompleteFailed(ctx, execution, completion)
 }
 
+func (s incidentBundleJobResultSink) completeInternalFailure(ctx context.Context, execution jobs.Execution) {
+	s.completeFailed(ctx, execution, internalFailureCompletion())
+}
+
 func (s incidentBundleJobResultSink) completeFailedFromError(ctx context.Context, execution jobs.Execution, code string, err error) {
+	if code == "internal_error" {
+		s.completeInternalFailure(ctx, execution)
+		return
+	}
 	reason, details := incidentBundleFailureDetails(code, err)
 	if resource, observeErr := s.manager.ObserveExecution(ctx, execution); observeErr == nil && resource.Status == jobs.StatusCancelRequested {
 		_, _ = s.manager.CompleteCanceled(ctx, execution, jobs.CancellationCompletion{Progress: jobs.Progress{Completed: 1, Total: intPtr(1)}})
@@ -390,13 +420,13 @@ func (s incidentBundleJobResultSink) completeFailedFromError(ctx context.Context
 		Execution:  execution,
 		Completion: failedCompletion(code, details),
 		Mutate: func(ctx context.Context, tx pgx.Tx) error {
-			return s.store.MarkJobFailureTx(ctx, tx, execution.JobID(), reason, s.now())
+			return s.store.markJobFailureTx(ctx, tx, execution.JobID(), reason, s.now())
 		},
 	})
 }
 
 func incidentBundleFailureDetails(code string, err error) (string, map[string]any) {
-	if errors.Is(err, ErrExtensionCapabilityNotSupported) {
+	if errors.Is(err, errExtensionCapabilityNotSupported) {
 		return "extension_capability_not_supported", map[string]any{"profile_id": ProfileID}
 	}
 	var portabilityFailure *PortabilityFailure
@@ -408,7 +438,7 @@ func incidentBundleFailureDetails(code string, err error) (string, map[string]an
 	}
 	reason := "missing_required_file"
 	details := map[string]any{}
-	var verificationErr *VerificationError
+	var verificationErr *verificationError
 	if errors.As(err, &verificationErr) {
 		reason = verificationErr.ReasonCode
 		if reason == "source_family_invalid" &&
@@ -442,7 +472,7 @@ func exportSuccessCompletion(bundleID uuid.UUID) jobs.SuccessCompletion {
 	return jobs.SuccessCompletion{
 		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
 		ResultSummary: jobs.ResultSummary{
-			Code:    ResultIncidentBundleExported,
+			Code:    resultIncidentBundleExported,
 			Message: "Incident bundle exported.",
 			ResourceRefs: []jobs.ResourceRef{{
 				Kind:  "incident_bundle",
@@ -457,7 +487,7 @@ func importSuccessCompletion(incidentID uuid.UUID) jobs.SuccessCompletion {
 	return jobs.SuccessCompletion{
 		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
 		ResultSummary: jobs.ResultSummary{
-			Code:    ResultIncidentBundleImported,
+			Code:    resultIncidentBundleImported,
 			Message: "Incident bundle imported.",
 			ResourceRefs: []jobs.ResourceRef{{
 				Kind:  "incident",
@@ -469,6 +499,9 @@ func importSuccessCompletion(incidentID uuid.UUID) jobs.SuccessCompletion {
 }
 
 func failedCompletion(code string, details map[string]any) jobs.FailureCompletion {
+	if code == "internal_error" {
+		details = map[string]any{}
+	}
 	return jobs.FailureCompletion{
 		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
 		ErrorSummary: jobs.ErrorSummary{
@@ -478,4 +511,8 @@ func failedCompletion(code string, details map[string]any) jobs.FailureCompletio
 			Details:   details,
 		},
 	}
+}
+
+func internalFailureCompletion() jobs.FailureCompletion {
+	return failedCompletion("internal_error", map[string]any{})
 }

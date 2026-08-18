@@ -18,9 +18,9 @@ import (
 )
 
 const (
-	BundleFormat              = "cartulary.incident_bundle"
-	BundleVersion             = 2
-	LegacyBundleVersion       = 1
+	bundleFormat              = "cartulary.incident_bundle"
+	bundleVersion             = 2
+	legacyBundleVersion       = 1
 	sourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 	tarTypeRegA               = byte(0)
 )
@@ -85,7 +85,7 @@ var requiredStructuredFilesV1 = func() []string {
 // current source-file registry is closed.
 var requiredStructuredFiles = requiredStructuredFilesV2
 
-type ManifestInput struct {
+type manifestInput struct {
 	BundleID             string
 	IncidentID           string
 	IncidentKey          string
@@ -95,14 +95,14 @@ type ManifestInput struct {
 	RequiredCapabilities []string
 }
 
-type BundleArchive struct {
+type bundleArchive struct {
 	Bytes          []byte
 	ManifestSHA256 string
 	ChecksumLines  []string
-	Manifest       BundleManifest
+	Manifest       bundleManifest
 }
 
-type BundleManifest struct {
+type bundleManifest struct {
 	BundleFormat                 string         `json:"bundle_format"`
 	BundleVersion                int            `json:"bundle_version"`
 	BundleID                     string         `json:"bundle_id"`
@@ -116,80 +116,80 @@ type BundleManifest struct {
 	OptionalSections             []string       `json:"optional_sections"`
 	RequiredCapabilities         []string       `json:"required_capabilities"`
 	SigningKeyID                 *string        `json:"signing_key_id,omitempty"`
-	Files                        []ManifestFile `json:"files"`
+	Files                        []manifestFile `json:"files"`
 }
 
-type ManifestFile struct {
+type manifestFile struct {
 	Path      string `json:"path"`
 	SHA256    string `json:"sha256"`
 	SizeBytes int64  `json:"size_bytes"`
 	Required  bool   `json:"required"`
 }
 
-type VerificationInput struct {
+type verificationInput struct {
 	Bundle []byte
 	Limits Limits
 }
 
-var ErrExtensionCapabilityNotSupported = errors.New("extension_capability_not_supported")
+var errExtensionCapabilityNotSupported = errors.New("extension_capability_not_supported")
 
-type VerifiedBundle struct {
-	Manifest       BundleManifest
+type verifiedBundle struct {
+	Manifest       bundleManifest
 	ManifestSHA256 string
 	Files          map[string][]byte
 	Checksums      map[string]string
 }
 
-type VerificationError struct {
+type verificationError struct {
 	ReasonCode     string
 	SourceFamilyID string
 	InvariantID    string
 }
 
-func (e *VerificationError) Error() string {
+func (e *verificationError) Error() string {
 	return "incident bundle verification failed: " + e.ReasonCode
 }
 
-func BuildBundleArchive(input ManifestInput, files map[string][]byte) (BundleArchive, error) {
+func buildBundleArchive(input manifestInput, files map[string][]byte) (bundleArchive, error) {
 	normalizedFiles := map[string][]byte{}
 	for pathName, content := range files {
 		if !safeBundlePath(pathName) {
-			return BundleArchive{}, fmt.Errorf("unsafe bundle path %q", pathName)
+			return bundleArchive{}, fmt.Errorf("unsafe bundle path %q", pathName)
 		}
 		normalizedFiles[pathName] = append([]byte(nil), content...)
 	}
 	for _, pathName := range requiredStructuredFiles {
 		if _, ok := normalizedFiles[pathName]; !ok {
-			return BundleArchive{}, fmt.Errorf("%s is required", pathName)
+			return bundleArchive{}, fmt.Errorf("%s is required", pathName)
 		}
 	}
 
 	manifestFiles := manifestFilesFor(normalizedFiles, false)
 	sourceBoundaryBytes, err := json.Marshal(manifestFiles)
 	if err != nil {
-		return BundleArchive{}, err
+		return bundleArchive{}, err
 	}
-	manifest := BundleManifest{
-		BundleFormat:                 BundleFormat,
-		BundleVersion:                BundleVersion,
+	manifest := bundleManifest{
+		BundleFormat:                 bundleFormat,
+		BundleVersion:                bundleVersion,
 		BundleID:                     input.BundleID,
 		IncidentID:                   input.IncidentID,
 		IncidentKey:                  input.IncidentKey,
 		ExportedAt:                   input.ExportedAt,
 		SourceChangeSetHighWatermark: sourceBoundaryTokenPrefix + hashHex(sourceBoundaryBytes),
-		HistoryMode:                  HistoryModeFull,
-		BlobMode:                     BlobModeFull,
+		HistoryMode:                  historyModeFull,
+		BlobMode:                     blobModeFull,
 		ReferencePackMode:            input.ReferencePackMode,
 		OptionalSections:             canonicalStringSet(input.OptionalSections),
 		RequiredCapabilities:         canonicalStringSet(input.RequiredCapabilities),
 		Files:                        manifestFiles,
 	}
 	if manifest.ReferencePackMode == "" {
-		manifest.ReferencePackMode = ReferencePackModeRefsOnly
+		manifest.ReferencePackMode = referencePackModeRefsOnly
 	}
 	manifestBytes, err := canonicalJSONString(manifest)
 	if err != nil {
-		return BundleArchive{}, err
+		return bundleArchive{}, err
 	}
 	manifestSHA := hashHex(manifestBytes)
 	normalizedFiles["manifest.json"] = manifestBytes
@@ -199,9 +199,9 @@ func BuildBundleArchive(input ManifestInput, files map[string][]byte) (BundleArc
 
 	archiveBytes, err := zipFiles(normalizedFiles)
 	if err != nil {
-		return BundleArchive{}, err
+		return bundleArchive{}, err
 	}
-	return BundleArchive{
+	return bundleArchive{
 		Bytes:          archiveBytes,
 		ManifestSHA256: manifestSHA,
 		ChecksumLines:  checksumLines,
@@ -209,64 +209,64 @@ func BuildBundleArchive(input ManifestInput, files map[string][]byte) (BundleArc
 	}, nil
 }
 
-func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
+func verifyBundle(input verificationInput) (verifiedBundle, error) {
 	files, err := readBundleArchive(input.Bundle, input.Limits)
 	if err != nil {
-		return VerifiedBundle{}, err
+		return verifiedBundle{}, err
 	}
 	manifestBytes, ok := files["manifest.json"]
 	if !ok {
-		return VerifiedBundle{}, &VerificationError{ReasonCode: "missing_required_file"}
+		return verifiedBundle{}, &verificationError{ReasonCode: "missing_required_file"}
 	}
 	sanitizedManifestBytes, capabilityActivationRequested, err := sanitizeRequiredCapabilities(manifestBytes)
 	if err != nil {
-		return VerifiedBundle{}, err
+		return verifiedBundle{}, err
 	}
 	bundleVersion, err := parseBundleVersion(manifestBytes)
 	if err != nil {
-		return VerifiedBundle{}, err
+		return verifiedBundle{}, err
 	}
-	var manifest BundleManifest
+	var manifest bundleManifest
 	if err := json.Unmarshal(sanitizedManifestBytes, &manifest); err != nil {
-		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
+		return verifiedBundle{}, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	manifest.BundleVersion = bundleVersion
-	if manifest.BundleFormat != BundleFormat ||
-		manifest.HistoryMode != HistoryModeFull ||
-		manifest.BlobMode != BlobModeFull {
-		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
+	if manifest.BundleFormat != bundleFormat ||
+		manifest.HistoryMode != historyModeFull ||
+		manifest.BlobMode != blobModeFull {
+		return verifiedBundle{}, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	if !strings.HasPrefix(manifest.SourceChangeSetHighWatermark, sourceBoundaryTokenPrefix) {
-		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
+		return verifiedBundle{}, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	if err := validateManifestVocabularies(manifest); err != nil {
-		return VerifiedBundle{}, err
+		return verifiedBundle{}, err
 	}
 	if signatureBytes, ok := files["integrity/signature.ed25519"]; ok {
 		if len(signatureBytes) == 0 || manifest.SigningKeyID == nil || strings.TrimSpace(*manifest.SigningKeyID) == "" {
-			return VerifiedBundle{}, &VerificationError{ReasonCode: "signature_mismatch"}
+			return verifiedBundle{}, &verificationError{ReasonCode: "signature_mismatch"}
 		}
-		return VerifiedBundle{}, &VerificationError{ReasonCode: "signature_mismatch"}
+		return verifiedBundle{}, &verificationError{ReasonCode: "signature_mismatch"}
 	}
 	requiredPaths, err := requiredStructuredFilesForVersion(manifest.BundleVersion)
 	if err != nil {
-		return VerifiedBundle{}, err
+		return verifiedBundle{}, err
 	}
 	if err := validateClosedBundlePaths(files, manifest.BundleVersion, requiredPaths); err != nil {
-		return VerifiedBundle{}, err
+		return verifiedBundle{}, err
 	}
 	for _, pathName := range requiredPaths {
 		if _, ok := files[pathName]; !ok {
-			return VerifiedBundle{}, &VerificationError{ReasonCode: "missing_required_file"}
+			return verifiedBundle{}, &verificationError{ReasonCode: "missing_required_file"}
 		}
 	}
 	checksumBytes, ok := files["integrity/checksums.sha256"]
 	if !ok {
-		return VerifiedBundle{}, &VerificationError{ReasonCode: "checksum_mismatch"}
+		return verifiedBundle{}, &verificationError{ReasonCode: "checksum_mismatch"}
 	}
 	checksums, err := parseChecksumInventory(string(checksumBytes))
 	if err != nil {
-		return VerifiedBundle{}, &VerificationError{ReasonCode: "checksum_mismatch"}
+		return verifiedBundle{}, &verificationError{ReasonCode: "checksum_mismatch"}
 	}
 	for pathName, content := range files {
 		if pathName == "manifest.json" || strings.HasPrefix(pathName, "integrity/") {
@@ -274,38 +274,38 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 		}
 		want, ok := checksums[pathName]
 		if !ok {
-			return VerifiedBundle{}, &VerificationError{ReasonCode: "checksum_mismatch"}
+			return verifiedBundle{}, &verificationError{ReasonCode: "checksum_mismatch"}
 		}
 		if got := hashHex(content); got != want {
-			return VerifiedBundle{}, &VerificationError{ReasonCode: "checksum_mismatch"}
+			return verifiedBundle{}, &verificationError{ReasonCode: "checksum_mismatch"}
 		}
 		if strings.HasPrefix(pathName, "blobs/sha256/") {
 			if blobSHA := strings.TrimPrefix(pathName, "blobs/sha256/"); blobSHA != want {
-				return VerifiedBundle{}, &VerificationError{ReasonCode: "blob_hash_mismatch"}
+				return verifiedBundle{}, &verificationError{ReasonCode: "blob_hash_mismatch"}
 			}
 		}
 	}
 	for listedPath := range checksums {
 		if listedPath == "manifest.json" || strings.HasPrefix(listedPath, "integrity/") {
-			return VerifiedBundle{}, &VerificationError{ReasonCode: "checksum_mismatch"}
+			return verifiedBundle{}, &verificationError{ReasonCode: "checksum_mismatch"}
 		}
 		if _, ok := files[listedPath]; !ok {
 			if strings.HasPrefix(listedPath, "blobs/sha256/") {
-				return VerifiedBundle{}, &VerificationError{ReasonCode: "missing_required_blob"}
+				return verifiedBundle{}, &verificationError{ReasonCode: "missing_required_blob"}
 			}
-			return VerifiedBundle{}, &VerificationError{ReasonCode: "missing_required_file"}
+			return verifiedBundle{}, &verificationError{ReasonCode: "missing_required_file"}
 		}
 	}
 	if !canonicalManifestFilesMatch(files, manifest.Files) {
-		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
+		return verifiedBundle{}, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	if !bundleOptionalSectionsAllowed(files, manifest) {
-		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
+		return verifiedBundle{}, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	if capabilityActivationRequested {
-		return VerifiedBundle{}, ErrExtensionCapabilityNotSupported
+		return verifiedBundle{}, errExtensionCapabilityNotSupported
 	}
-	return VerifiedBundle{
+	return verifiedBundle{
 		Manifest:       manifest,
 		ManifestSHA256: hashHex(manifestBytes),
 		Files:          files,
@@ -316,26 +316,26 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 func sanitizeRequiredCapabilities(manifestBytes []byte) ([]byte, bool, error) {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(manifestBytes, &raw); err != nil || raw == nil {
-		return nil, false, &VerificationError{ReasonCode: "malformed_manifest"}
+		return nil, false, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	value, ok := raw["required_capabilities"]
 	if !ok || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
-		return nil, false, &VerificationError{ReasonCode: "malformed_manifest"}
+		return nil, false, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	var items []json.RawMessage
 	if err := json.Unmarshal(value, &items); err != nil {
-		return nil, false, &VerificationError{ReasonCode: "malformed_manifest"}
+		return nil, false, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	for _, item := range items {
 		var token string
 		if err := json.Unmarshal(item, &token); err != nil {
-			return nil, false, &VerificationError{ReasonCode: "malformed_manifest"}
+			return nil, false, &verificationError{ReasonCode: "malformed_manifest"}
 		}
 	}
 	raw["required_capabilities"] = json.RawMessage("[]")
 	sanitized, err := json.Marshal(raw)
 	if err != nil {
-		return nil, false, &VerificationError{ReasonCode: "malformed_manifest"}
+		return nil, false, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	return sanitized, len(items) > 0, nil
 }
@@ -343,37 +343,37 @@ func sanitizeRequiredCapabilities(manifestBytes []byte) ([]byte, bool, error) {
 func parseBundleVersion(manifestBytes []byte) (int, error) {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(manifestBytes, &raw); err != nil {
-		return 0, &VerificationError{ReasonCode: "malformed_manifest"}
+		return 0, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	value, ok := raw["bundle_version"]
 	if !ok || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
-		return 0, &VerificationError{ReasonCode: "malformed_manifest"}
+		return 0, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	var version int
 	decoder := json.NewDecoder(bytes.NewReader(value))
 	if err := decoder.Decode(&version); err != nil {
-		return 0, &VerificationError{ReasonCode: "malformed_manifest"}
+		return 0, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); err != io.EOF {
-		return 0, &VerificationError{ReasonCode: "malformed_manifest"}
+		return 0, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	switch version {
-	case LegacyBundleVersion, BundleVersion:
+	case legacyBundleVersion, bundleVersion:
 		return version, nil
 	default:
-		return 0, &VerificationError{ReasonCode: "unsupported_bundle_version"}
+		return 0, &verificationError{ReasonCode: "unsupported_bundle_version"}
 	}
 }
 
 func requiredStructuredFilesForVersion(version int) ([]string, error) {
 	switch version {
-	case LegacyBundleVersion:
+	case legacyBundleVersion:
 		return requiredStructuredFilesV1, nil
-	case BundleVersion:
+	case bundleVersion:
 		return requiredStructuredFilesV2, nil
 	default:
-		return nil, &VerificationError{ReasonCode: "unsupported_bundle_version"}
+		return nil, &verificationError{ReasonCode: "unsupported_bundle_version"}
 	}
 }
 
@@ -384,7 +384,7 @@ func validateClosedBundlePaths(files map[string][]byte, version int, requiredPat
 	}
 	selectedTimeline := map[string]struct{}{}
 	otherTimeline := map[string]struct{}{}
-	if version == LegacyBundleVersion {
+	if version == legacyBundleVersion {
 		selectedTimeline["data/timeline_time_conversion_profiles.ndjson"] = struct{}{}
 		selectedTimeline["data/timeline_events.ndjson"] = struct{}{}
 		otherTimeline["data/timeline_time_profiles.ndjson"] = struct{}{}
@@ -399,18 +399,18 @@ func validateClosedBundlePaths(files map[string][]byte, version int, requiredPat
 	}
 	for filePath := range files {
 		if _, mismatch := otherTimeline[filePath]; mismatch {
-			return &VerificationError{ReasonCode: "malformed_manifest"}
+			return &verificationError{ReasonCode: "malformed_manifest"}
 		}
 		if !strings.HasPrefix(filePath, "data/") {
 			continue
 		}
 		if _, ok := required[filePath]; !ok {
-			return &VerificationError{ReasonCode: "malformed_manifest"}
+			return &verificationError{ReasonCode: "malformed_manifest"}
 		}
 	}
 	for filePath := range selectedTimeline {
 		if _, ok := files[filePath]; !ok {
-			return &VerificationError{ReasonCode: "malformed_manifest"}
+			return &verificationError{ReasonCode: "malformed_manifest"}
 		}
 	}
 	return nil
@@ -425,7 +425,7 @@ func removeRequiredStructuredFile(files []string, target string) []string {
 	return files
 }
 
-func canonicalManifestFilesMatch(files map[string][]byte, manifestFiles []ManifestFile) bool {
+func canonicalManifestFilesMatch(files map[string][]byte, manifestFiles []manifestFile) bool {
 	expected := manifestFilesFor(files, false)
 	if len(expected) != len(manifestFiles) {
 		return false
@@ -438,12 +438,12 @@ func canonicalManifestFilesMatch(files map[string][]byte, manifestFiles []Manife
 	return true
 }
 
-func validateManifestVocabularies(manifest BundleManifest) error {
-	if manifest.ReferencePackMode != ReferencePackModeRefsOnly && manifest.ReferencePackMode != ReferencePackModeEmbedded {
-		return &VerificationError{ReasonCode: "malformed_manifest"}
+func validateManifestVocabularies(manifest bundleManifest) error {
+	if manifest.ReferencePackMode != referencePackModeRefsOnly && manifest.ReferencePackMode != referencePackModeEmbedded {
+		return &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	if !canonicalKnownTokenSet(manifest.OptionalSections, incidentBundleOptionalSectionTokens) {
-		return &VerificationError{ReasonCode: "malformed_manifest"}
+		return &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	return nil
 }
@@ -467,12 +467,12 @@ func canonicalKnownTokenSet(values []string, allowed map[string]struct{}) bool {
 	return true
 }
 
-func bundleOptionalSectionsAllowed(files map[string][]byte, manifest BundleManifest) bool {
+func bundleOptionalSectionsAllowed(files map[string][]byte, manifest bundleManifest) bool {
 	declared := map[string]struct{}{}
 	for _, section := range manifest.OptionalSections {
 		declared[section] = struct{}{}
 	}
-	if manifest.ReferencePackMode == ReferencePackModeEmbedded {
+	if manifest.ReferencePackMode == referencePackModeEmbedded {
 		declared["reference_packs"] = struct{}{}
 	}
 	for pathName := range files {
@@ -501,7 +501,7 @@ func bundleOptionalSectionsAllowed(files map[string][]byte, manifest BundleManif
 
 func readBundleArchive(bundle []byte, limits Limits) (map[string][]byte, error) {
 	if len(bundle) == 0 {
-		return nil, &VerificationError{ReasonCode: "missing_required_file"}
+		return nil, &verificationError{ReasonCode: "missing_required_file"}
 	}
 	if files, err := readZipArchive(bundle, limits); err == nil {
 		return files, nil
@@ -522,7 +522,7 @@ func readBundleArchive(bundle []byte, limits Limits) (map[string][]byte, error) 
 			return nil, tarErr
 		}
 	}
-	return nil, &VerificationError{ReasonCode: "unsupported_member_type"}
+	return nil, &verificationError{ReasonCode: "unsupported_member_type"}
 }
 
 func readZipArchive(bundle []byte, limits Limits) (map[string][]byte, error) {
@@ -544,12 +544,12 @@ func readZipArchive(bundle []byte, limits Limits) (map[string][]byte, error) {
 		}
 		if kind == archiveMemberDirectory {
 			if member.UncompressedSize64 != 0 {
-				return nil, &VerificationError{ReasonCode: "unsupported_member_type"}
+				return nil, &verificationError{ReasonCode: "unsupported_member_type"}
 			}
 			continue
 		}
 		if _, duplicate := files[member.Name]; duplicate {
-			return nil, &VerificationError{ReasonCode: "malformed_manifest"}
+			return nil, &verificationError{ReasonCode: "malformed_manifest"}
 		}
 		extracted += int64(member.UncompressedSize64)
 		if err := checkExtractedSize(extracted, limits); err != nil {
@@ -557,12 +557,12 @@ func readZipArchive(bundle []byte, limits Limits) (map[string][]byte, error) {
 		}
 		rc, err := member.Open()
 		if err != nil {
-			return nil, &VerificationError{ReasonCode: "missing_required_file"}
+			return nil, &verificationError{ReasonCode: "missing_required_file"}
 		}
 		data, err := io.ReadAll(rc)
 		_ = rc.Close()
 		if err != nil {
-			return nil, &VerificationError{ReasonCode: "missing_required_file"}
+			return nil, &verificationError{ReasonCode: "missing_required_file"}
 		}
 		files[member.Name] = data
 	}
@@ -595,12 +595,12 @@ func readTarArchive(reader io.Reader, compressedSize int64, limits Limits) (map[
 		}
 		if kind == archiveMemberDirectory {
 			if header.Size != 0 {
-				return nil, &VerificationError{ReasonCode: "unsupported_member_type"}
+				return nil, &verificationError{ReasonCode: "unsupported_member_type"}
 			}
 			continue
 		}
 		if _, duplicate := files[header.Name]; duplicate {
-			return nil, &VerificationError{ReasonCode: "malformed_manifest"}
+			return nil, &verificationError{ReasonCode: "malformed_manifest"}
 		}
 		extracted += header.Size
 		if err := checkExtractedSize(extracted, limits); err != nil {
@@ -608,12 +608,12 @@ func readTarArchive(reader io.Reader, compressedSize int64, limits Limits) (map[
 		}
 		data, err := io.ReadAll(tr)
 		if err != nil {
-			return nil, &VerificationError{ReasonCode: "missing_required_file"}
+			return nil, &verificationError{ReasonCode: "missing_required_file"}
 		}
 		files[header.Name] = data
 	}
 	if len(files) == 0 {
-		return nil, &VerificationError{ReasonCode: "missing_required_file"}
+		return nil, &verificationError{ReasonCode: "missing_required_file"}
 	}
 	if err := checkCompressionRatio(extracted, compressedSize, limits); err != nil {
 		return nil, err
@@ -631,17 +631,17 @@ const (
 func classifyZipMember(member *zip.File) (archiveMemberKind, error) {
 	isDirectory := member.FileInfo().IsDir() || strings.HasSuffix(member.Name, "/")
 	if !safeArchiveMemberPath(member.Name, isDirectory) {
-		return archiveMemberFile, &VerificationError{ReasonCode: "invalid_member_path"}
+		return archiveMemberFile, &verificationError{ReasonCode: "invalid_member_path"}
 	}
 	modeType := member.FileInfo().Mode().Type()
 	if isDirectory {
 		if modeType != 0 && !member.FileInfo().IsDir() {
-			return archiveMemberFile, &VerificationError{ReasonCode: "unsupported_member_type"}
+			return archiveMemberFile, &verificationError{ReasonCode: "unsupported_member_type"}
 		}
 		return archiveMemberDirectory, nil
 	}
 	if modeType != 0 {
-		return archiveMemberFile, &VerificationError{ReasonCode: "unsupported_member_type"}
+		return archiveMemberFile, &verificationError{ReasonCode: "unsupported_member_type"}
 	}
 	return archiveMemberFile, nil
 }
@@ -649,7 +649,7 @@ func classifyZipMember(member *zip.File) (archiveMemberKind, error) {
 func classifyTarMember(header *tar.Header) (archiveMemberKind, error) {
 	isDirectory := header.Typeflag == tar.TypeDir
 	if !safeArchiveMemberPath(header.Name, isDirectory) {
-		return archiveMemberFile, &VerificationError{ReasonCode: "invalid_member_path"}
+		return archiveMemberFile, &verificationError{ReasonCode: "invalid_member_path"}
 	}
 	switch header.Typeflag {
 	case tar.TypeDir:
@@ -657,7 +657,7 @@ func classifyTarMember(header *tar.Header) (archiveMemberKind, error) {
 	case tar.TypeReg, tarTypeRegA:
 		return archiveMemberFile, nil
 	default:
-		return archiveMemberFile, &VerificationError{ReasonCode: "unsupported_member_type"}
+		return archiveMemberFile, &verificationError{ReasonCode: "unsupported_member_type"}
 	}
 }
 
@@ -667,7 +667,7 @@ func checkExtractedSize(extracted int64, limits Limits) error {
 		max = defaultIncidentBundleMaxExtractedBytes
 	}
 	if extracted > max {
-		return &VerificationError{ReasonCode: "archive_extracted_bytes_exceeded"}
+		return &verificationError{ReasonCode: "archive_extracted_bytes_exceeded"}
 	}
 	return nil
 }
@@ -678,7 +678,7 @@ func checkMemberCount(count int, limits Limits) error {
 		max = defaultArchiveMaxMembers
 	}
 	if int64(count) > max {
-		return &VerificationError{ReasonCode: "archive_member_count_exceeded"}
+		return &verificationError{ReasonCode: "archive_member_count_exceeded"}
 	}
 	return nil
 }
@@ -693,12 +693,12 @@ func checkCompressionRatio(extracted int64, compressed int64, limits Limits) err
 	}
 	const maxInt64 = int64(^uint64(0) >> 1)
 	if compressed <= maxInt64/max && extracted > compressed*max {
-		return &VerificationError{ReasonCode: "archive_compression_ratio_exceeded"}
+		return &verificationError{ReasonCode: "archive_compression_ratio_exceeded"}
 	}
 	return nil
 }
 
-func manifestFilesFor(files map[string][]byte, includeIntegrity bool) []ManifestFile {
+func manifestFilesFor(files map[string][]byte, includeIntegrity bool) []manifestFile {
 	paths := make([]string, 0, len(files))
 	for pathName := range files {
 		if pathName == "manifest.json" || (!includeIntegrity && strings.HasPrefix(pathName, "integrity/")) {
@@ -707,9 +707,9 @@ func manifestFilesFor(files map[string][]byte, includeIntegrity bool) []Manifest
 		paths = append(paths, pathName)
 	}
 	sort.Strings(paths)
-	result := make([]ManifestFile, 0, len(paths))
+	result := make([]manifestFile, 0, len(paths))
 	for _, pathName := range paths {
-		result = append(result, ManifestFile{
+		result = append(result, manifestFile{
 			Path:      pathName,
 			SHA256:    "sha256:" + hashHex(files[pathName]),
 			SizeBytes: int64(len(files[pathName])),
@@ -828,6 +828,6 @@ func canonicalStringSet(values []string) []string {
 }
 
 func isVerificationFailure(err error) bool {
-	_, ok := err.(*VerificationError)
+	_, ok := err.(*verificationError)
 	return ok
 }

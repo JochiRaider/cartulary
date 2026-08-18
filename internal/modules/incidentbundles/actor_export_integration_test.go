@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
@@ -55,7 +54,7 @@ INSERT INTO incident_bundle_imported_actors (
 				`{"owner_user_id":null}` + "\n",
 		),
 	}
-	payload, err := (BundleBuilder{}).exportActors(ctx, db, incidentID, files)
+	payload, err := (bundleBuilder{}).exportActors(ctx, db, incidentID, files)
 	if err != nil {
 		t.Fatalf("export native and imported actors: %v", err)
 	}
@@ -76,10 +75,10 @@ INSERT INTO incident_bundle_imported_actors (
 `, incidentID, localActorID.String()); err != nil {
 		t.Fatalf("seed colliding actor descriptor: %v", err)
 	}
-	_, err = (BundleBuilder{}).exportActors(ctx, db, incidentID, files)
-	var failure *sourceport.Failure
+	_, err = (bundleBuilder{}).exportActors(ctx, db, incidentID, files)
+	var failure *verificationError
 	if !errors.As(err, &failure) ||
-		failure.FamilyID != "actors" ||
+		failure.SourceFamilyID != "actors" ||
 		failure.InvariantID != "actors.reference_complete" {
 		t.Fatalf("actor descriptor collision error = %T %v", err, err)
 	}

@@ -4,15 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
@@ -35,60 +32,25 @@ func ImportTransactionDescriptor() crossownertransaction.Descriptor {
 	}
 }
 
-type ImportTransactionResult struct {
+type importTransactionResult struct {
 	IncidentID uuid.UUID
 }
 
-type ImportReadCapability interface {
+type importReadCapability interface {
 	crossownertransaction.ReadCapability
 	ValidateIncidentBundleImport(context.Context, uuid.UUID, jobs.Execution) error
 }
 
-type ImportWriteCapability interface {
+type importWriteCapability interface {
 	crossownertransaction.WriteCapability
-	ApplyIncidentBundleImport(context.Context, *PreparedImport, ImportParams, uuid.UUID, string) (ImportTransactionResult, error)
-}
-
-type jobRunnableValidator interface {
-	ValidateExecutionTx(context.Context, pgx.Tx, jobs.Execution) error
-}
-
-// ImportTransactionProvider owns the Incident Bundles logical capability over
-// the one physical transaction supplied by app composition.
-type ImportTransactionProvider struct {
-	importer Importer
-	jobs     jobRunnableValidator
-	now      func() time.Time
-}
-
-func NewImportTransactionProvider(pool *pgxpool.Pool, blobPort blobPortability, finalizer incidents.IncidentBundleImportFinalizer, projectionRebuild importProjectionRebuilder, historicalIntents historicalIntentPolicy, jobs jobRunnableValidator, now func() time.Time) (*ImportTransactionProvider, error) {
-	if pool == nil || blobPort == nil || finalizer == nil || projectionRebuild == nil || historicalIntents == nil || jobs == nil {
-		return nil, errors.New("incident bundle import transaction provider is incomplete")
-	}
-	if now == nil {
-		now = func() time.Time { return time.Now().UTC() }
-	}
-	return &ImportTransactionProvider{importer: Importer{
-		pool: pool, blobPort: blobPort, finalizer: finalizer, projectionRebuild: projectionRebuild,
-		historicalIntents: historicalIntents,
-	}, jobs: jobs, now: now}, nil
-}
-
-func (p *ImportTransactionProvider) TransactionCapabilities(participantID string, tx pgx.Tx) (crossownertransaction.ReadCapability, crossownertransaction.WriteCapability, error) {
-	if p == nil || tx == nil || participantID != ImportTransactionParticipantID {
-		return nil, nil, fmt.Errorf("%w: %s", crossownertransaction.ErrParticipantSet, participantID)
-	}
-	capability := &importTransactionCapability{
-		participantID: participantID, tx: tx, importer: p.importer, jobs: p.jobs, now: p.now,
-	}
-	return capability, capability, nil
+	ApplyIncidentBundleImport(context.Context, *preparedImport, importParams, uuid.UUID, string) (importTransactionResult, error)
 }
 
 type importTransactionCapability struct {
 	participantID string
 	tx            pgx.Tx
-	importer      Importer
-	jobs          jobRunnableValidator
+	importer      importer
+	jobs          JobTransactions
 	now           func() time.Time
 }
 
@@ -108,7 +70,7 @@ func (c *importTransactionCapability) ValidateIncidentBundleImport(ctx context.C
 		return err
 	}
 	if incidentExists {
-		return &VerificationError{ReasonCode: "duplicate_incident_id"}
+		return &verificationError{ReasonCode: "duplicate_incident_id"}
 	}
 	if err := c.jobs.ValidateExecutionTx(ctx, c.tx, execution); err != nil {
 		if errors.Is(err, jobs.ErrCancellationRequested) || errors.Is(err, jobs.ErrInvalidTransition) {
@@ -119,41 +81,41 @@ func (c *importTransactionCapability) ValidateIncidentBundleImport(ctx context.C
 	return nil
 }
 
-func (c *importTransactionCapability) ApplyIncidentBundleImport(ctx context.Context, prepared *PreparedImport, params ImportParams, jobID uuid.UUID, manifestSHA string) (ImportTransactionResult, error) {
+func (c *importTransactionCapability) ApplyIncidentBundleImport(ctx context.Context, prepared *preparedImport, params importParams, jobID uuid.UUID, manifestSHA string) (importTransactionResult, error) {
 	if c == nil || c.tx == nil || c.now == nil || prepared == nil {
-		return ImportTransactionResult{}, crossownertransaction.ErrUnavailable
+		return importTransactionResult{}, crossownertransaction.ErrUnavailable
 	}
-	incidentID, err := c.importer.ApplyPreparedImportTx(ctx, c.tx, prepared, params)
+	incidentID, err := c.importer.applyPreparedImportTx(ctx, c.tx, prepared, params)
 	if err != nil {
-		return ImportTransactionResult{}, err
+		return importTransactionResult{}, err
 	}
 	now := c.now().UTC()
-	if err := MarkImportCompleteTx(ctx, c.tx, jobID, incidentID, manifestSHA, now); err != nil {
-		return ImportTransactionResult{}, err
+	if err := markImportCompleteTx(ctx, c.tx, jobID, incidentID, manifestSHA, now); err != nil {
+		return importTransactionResult{}, err
 	}
-	return ImportTransactionResult{IncidentID: incidentID}, nil
+	return importTransactionResult{IncidentID: incidentID}, nil
 }
 
-type ImportTransactionParticipant struct {
-	prepared    *PreparedImport
-	params      ImportParams
+type importTransactionParticipant struct {
+	prepared    *preparedImport
+	params      importParams
 	execution   jobs.Execution
 	manifestSHA string
 }
 
-func NewImportTransactionParticipant(prepared *PreparedImport, params ImportParams, execution jobs.Execution, manifestSHA string) (*ImportTransactionParticipant, error) {
+func newImportTransactionParticipant(prepared *preparedImport, params importParams, execution jobs.Execution, manifestSHA string) (*importTransactionParticipant, error) {
 	if prepared == nil || prepared.IncidentID == uuid.Nil || params.ActorUserID == uuid.Nil ||
 		execution.JobID() == uuid.Nil || manifestSHA == "" {
 		return nil, ErrPortabilityPayload
 	}
-	return &ImportTransactionParticipant{
+	return &importTransactionParticipant{
 		prepared: prepared, params: params, execution: execution, manifestSHA: manifestSHA,
 	}, nil
 }
 
-func (p *ImportTransactionParticipant) ID() string { return ImportTransactionParticipantID }
+func (p *importTransactionParticipant) ID() string { return ImportTransactionParticipantID }
 
-func (p *ImportTransactionParticipant) BuildInput(context.Context, crossownertransaction.OperationContext) (crossownertransaction.Input, error) {
+func (p *importTransactionParticipant) BuildInput(context.Context, crossownertransaction.OperationContext) (crossownertransaction.Input, error) {
 	if p == nil || p.prepared == nil {
 		return crossownertransaction.Input{}, ErrPortabilityPayload
 	}
@@ -166,7 +128,7 @@ func (p *ImportTransactionParticipant) BuildInput(context.Context, crossownertra
 	return crossownertransaction.Input{SchemaID: importTransactionInputSchema, CanonicalBytes: payload}, err
 }
 
-func (p *ImportTransactionParticipant) Prepare(context.Context, crossownertransaction.Invocation) (crossownertransaction.PrepareResult, error) {
+func (p *importTransactionParticipant) Prepare(context.Context, crossownertransaction.Invocation) (crossownertransaction.PrepareResult, error) {
 	if p == nil || p.prepared == nil {
 		return crossownertransaction.PrepareResult{}, ErrPortabilityPayload
 	}
@@ -175,8 +137,8 @@ func (p *ImportTransactionParticipant) Prepare(context.Context, crossownertransa
 	}}}, nil
 }
 
-func (p *ImportTransactionParticipant) Validate(ctx context.Context, invocation crossownertransaction.Invocation) (crossownertransaction.ValidationResult, error) {
-	capability, ok := invocation.ReadAccess.(ImportReadCapability)
+func (p *importTransactionParticipant) Validate(ctx context.Context, invocation crossownertransaction.Invocation) (crossownertransaction.ValidationResult, error) {
+	capability, ok := invocation.ReadAccess.(importReadCapability)
 	if !ok {
 		return crossownertransaction.ValidationResult{}, crossownertransaction.ErrUnavailable
 	}
@@ -186,8 +148,8 @@ func (p *ImportTransactionParticipant) Validate(ctx context.Context, invocation 
 	return crossownertransaction.Valid(), nil
 }
 
-func (p *ImportTransactionParticipant) Write(ctx context.Context, invocation crossownertransaction.Invocation) (crossownertransaction.WriteResult, error) {
-	capability, ok := invocation.WriteAccess.(ImportWriteCapability)
+func (p *importTransactionParticipant) Write(ctx context.Context, invocation crossownertransaction.Invocation) (crossownertransaction.WriteResult, error) {
+	capability, ok := invocation.WriteAccess.(importWriteCapability)
 	if !ok {
 		return crossownertransaction.WriteResult{}, crossownertransaction.ErrUnavailable
 	}

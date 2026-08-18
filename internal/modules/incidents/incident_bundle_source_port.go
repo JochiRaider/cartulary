@@ -16,11 +16,11 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		OwnerID: "module.incidents", OwnerRelationIDs: []string{"incident-core"},
 		Paths: []sourceport.Path{{
 			LogicalPath: "data/incident.json", ContentRole: "singleton_json",
-			Versions: []int{1, 2}, StableIdentity: []string{"id"},
+			Versions: []int{1, 2}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "incident.source_identity_admitted",
 		}},
 		InvariantIDs: []string{
 			"incident.exact_shape", "incident.identity_key_lifecycle",
-			"incident.attribution_version",
+			"incident.attribution_version", "incident.source_identity_admitted",
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
@@ -39,10 +39,10 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			}
 			var row map[string]any
 			if err := json.Unmarshal(files["data/incident.json"], &row); err != nil {
-				return nil, &sourceport.Failure{FamilyID: "incident", InvariantID: "incident.exact_shape"}
+				return nil, descriptor.DeclaredFailure("incident.exact_shape")
 			}
 			if incidentportability.StringFromAny(row["id"]) != importContext.IncidentID.String() {
-				return nil, &sourceport.Failure{FamilyID: "incident", InvariantID: "incident.identity_key_lifecycle"}
+				return nil, descriptor.DeclaredFailure("incident.identity_key_lifecycle")
 			}
 			return files, nil
 		},
@@ -56,7 +56,7 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 				return err
 			}
 			if count != 1 {
-				return &sourceport.Failure{FamilyID: "incident", InvariantID: "incident.identity_key_lifecycle"}
+				return descriptor.DeclaredFailure("incident.identity_key_lifecycle")
 			}
 			return nil
 		},

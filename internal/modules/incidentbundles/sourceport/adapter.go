@@ -2,7 +2,6 @@ package sourceport
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -105,19 +104,22 @@ func (a *Adapter) ApplyImportTx(ctx context.Context, tx pgx.Tx, prepared Prepare
 	if err == nil {
 		return nil
 	}
-	var verification *incidentportability.VerificationFailure
-	if errors.As(err, &verification) && verification.ReasonCode == "duplicate_source_row" {
-		return a.sourceFailure()
+	if logicalPath, ok := incidentportability.FixedImportFailurePath(err); ok {
+		return a.declaredPathFailure(logicalPath)
 	}
 	return err
 }
 
-func (a *Adapter) sourceFailure() error {
-	invariantID := ""
-	if a != nil && len(a.descriptor.InvariantIDs) > 0 {
-		invariantID = a.descriptor.InvariantIDs[0]
+func (a *Adapter) declaredPathFailure(logicalPath string) error {
+	if a == nil {
+		return ErrInvalidCatalog
 	}
-	return &Failure{FamilyID: a.descriptor.FamilyID, InvariantID: invariantID}
+	for _, path := range a.descriptor.Paths {
+		if path.LogicalPath == logicalPath {
+			return a.descriptor.DeclaredFailure(path.StableIdentityInvariantID)
+		}
+	}
+	return fmt.Errorf("%w: fixed import path is undeclared", ErrInvalidCatalog)
 }
 
 func (a *Adapter) ValidateImportTx(ctx context.Context, tx pgx.Tx, prepared Prepared, importContext ImportContext) error {
@@ -153,10 +155,10 @@ func PrepareFiles(descriptor Descriptor, bundle Bundle, version int) (PreparedFi
 			for _, row := range rows {
 				identity := stableIdentity(row, path.StableIdentity)
 				if identity == "" {
-					return nil, &Failure{FamilyID: descriptor.FamilyID, InvariantID: descriptor.InvariantIDs[0]}
+					return nil, descriptor.DeclaredFailure(path.StableIdentityInvariantID)
 				}
 				if _, duplicate := seen[identity]; duplicate {
-					return nil, &Failure{FamilyID: descriptor.FamilyID, InvariantID: descriptor.InvariantIDs[0]}
+					return nil, descriptor.DeclaredFailure(path.StableIdentityInvariantID)
 				}
 				seen[identity] = struct{}{}
 			}

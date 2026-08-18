@@ -10,8 +10,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
-const IncidentPortabilityProfileID = ProfileID
-
 func ImportedAttributionResolver() revisions.ImportedAttributionResolver {
 	return importedAttributionResolver{}
 }

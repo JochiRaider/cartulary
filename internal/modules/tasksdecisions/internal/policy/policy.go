@@ -19,10 +19,11 @@ const (
 	InvariantLifecycle      = "tasks_decisions.lifecycle_legal"
 	InvariantDependent      = "tasks_decisions.dependent_fields_legal"
 	InvariantReferences     = "tasks_decisions.references_same_incident"
+	InvariantSourceIdentity = "tasks_decisions.source_identity_admitted"
 )
 
 func PortabilityInvariantIDs() []string {
-	return []string{InvariantEnvelope, InvariantLifecycle, InvariantDependent, InvariantReferences}
+	return []string{InvariantEnvelope, InvariantLifecycle, InvariantDependent, InvariantReferences, InvariantSourceIdentity}
 }
 
 func IsPortabilityInvariant(value string) bool {

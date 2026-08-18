@@ -13,8 +13,8 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		FamilyID: "assessments", ContractMajor: sourceport.ContractMajor,
 		OwnerID: "module.assessments", OwnerRelationIDs: []string{"assessment-source"},
 		Dependencies: []string{"evidence"},
-		Paths:        []sourceport.Path{{LogicalPath: "data/compromise_assessments.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}}},
-		InvariantIDs: []string{"assessments.subject_type_scope", "assessments.state_confidence_rationale_legal", "assessments.timestamps_lifecycle_legal"},
+		Paths:        []sourceport.Path{{LogicalPath: "data/compromise_assessments.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "assessments.source_identity_admitted"}},
+		InvariantIDs: []string{"assessments.subject_type_scope", "assessments.state_confidence_rationale_legal", "assessments.timestamps_lifecycle_legal", "assessments.source_identity_admitted"},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor, Export: sourceport.QueryExport(ExportIncidentBundleFiles),
@@ -38,7 +38,7 @@ SELECT EXISTS (
 				return err
 			}
 			if invalid {
-				return &sourceport.Failure{FamilyID: "assessments", InvariantID: "assessments.subject_type_scope"}
+				return descriptor.DeclaredFailure("assessments.subject_type_scope")
 			}
 			return nil
 		},

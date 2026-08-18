@@ -11,21 +11,7 @@ import (
 )
 
 func NewIncidentBundleSourcePort() sourceport.Port {
-	descriptor := sourceport.Descriptor{
-		FamilyID: "links_tags", ContractMajor: sourceport.ContractMajor,
-		OwnerID: "module.links", OwnerRelationIDs: []string{"links-and-tags"},
-		Dependencies: []string{"assessments"},
-		Paths: []sourceport.Path{
-			{LogicalPath: "data/record_links.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_link_id"}},
-			{LogicalPath: "data/tags.ndjson", ContentRole: "validation_rows", Versions: []int{1, 2}, StableIdentity: []string{"normalized_tag_name", "tag_name"}},
-			{LogicalPath: "data/record_tags.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_tag_id"}},
-		},
-		InvariantIDs: []string{
-			"links_tags.endpoints_same_incident", "links_tags.link_tuple_legal",
-			"links_tags.link_unique", "links_tags.deletion_tuple_legal",
-			"links_tags.tag_normalized", "links_tags.tag_catalog_exact",
-		},
-	}
+	descriptor := linksIncidentBundleDescriptor()
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor, Export: sourceport.QueryExport(ExportIncidentBundleFiles),
 		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
@@ -33,7 +19,7 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			if err != nil {
 				return nil, err
 			}
-			if err := validateTagCatalog(files); err != nil {
+			if err := validateTagCatalog(descriptor, files); err != nil {
 				return nil, err
 			}
 			return files, nil
@@ -55,14 +41,33 @@ SELECT EXISTS (
 				return err
 			}
 			if invalid {
-				return &sourceport.Failure{FamilyID: "links_tags", InvariantID: "links_tags.endpoints_same_incident"}
+				return descriptor.DeclaredFailure("links_tags.endpoints_same_incident")
 			}
 			return nil
 		},
 	})
 }
 
-func validateTagCatalog(files sourceport.PreparedFiles) error {
+func linksIncidentBundleDescriptor() sourceport.Descriptor {
+	return sourceport.Descriptor{
+		FamilyID: "links_tags", ContractMajor: sourceport.ContractMajor,
+		OwnerID: "module.links", OwnerRelationIDs: []string{"links-and-tags"},
+		Dependencies: []string{"assessments"},
+		Paths: []sourceport.Path{
+			{LogicalPath: "data/record_links.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_link_id"}, StableIdentityInvariantID: "links_tags.source_identity_admitted"},
+			{LogicalPath: "data/tags.ndjson", ContentRole: "validation_rows", Versions: []int{1, 2}, StableIdentity: []string{"normalized_tag_name", "tag_name"}, StableIdentityInvariantID: "links_tags.source_identity_admitted"},
+			{LogicalPath: "data/record_tags.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_tag_id"}, StableIdentityInvariantID: "links_tags.source_identity_admitted"},
+		},
+		InvariantIDs: []string{
+			"links_tags.endpoints_same_incident", "links_tags.link_tuple_legal",
+			"links_tags.link_unique", "links_tags.deletion_tuple_legal",
+			"links_tags.tag_normalized", "links_tags.tag_catalog_exact",
+			"links_tags.source_identity_admitted",
+		},
+	}
+}
+
+func validateTagCatalog(descriptor sourceport.Descriptor, files sourceport.PreparedFiles) error {
 	catalogRows, err := incidentportability.DecodeNDJSON(files["data/tags.ndjson"])
 	if err != nil {
 		return err
@@ -74,9 +79,9 @@ func validateTagCatalog(files sourceport.PreparedFiles) error {
 	catalog := map[string]struct{}{}
 	for _, row := range catalogRows {
 		if len(row) != 2 {
-			return &sourceport.Failure{FamilyID: "links_tags", InvariantID: "links_tags.tag_catalog_exact"}
+			return descriptor.DeclaredFailure("links_tags.tag_catalog_exact")
 		}
-		key, err := tagCatalogKey(row)
+		key, err := tagCatalogKey(descriptor, row)
 		if err != nil {
 			return err
 		}
@@ -84,28 +89,28 @@ func validateTagCatalog(files sourceport.PreparedFiles) error {
 	}
 	derived := map[string]struct{}{}
 	for _, row := range tagRows {
-		key, err := tagCatalogKey(row)
+		key, err := tagCatalogKey(descriptor, row)
 		if err != nil {
 			return err
 		}
 		derived[key] = struct{}{}
 	}
 	if len(catalog) != len(derived) {
-		return &sourceport.Failure{FamilyID: "links_tags", InvariantID: "links_tags.tag_catalog_exact"}
+		return descriptor.DeclaredFailure("links_tags.tag_catalog_exact")
 	}
 	for key := range catalog {
 		if _, ok := derived[key]; !ok {
-			return &sourceport.Failure{FamilyID: "links_tags", InvariantID: "links_tags.tag_catalog_exact"}
+			return descriptor.DeclaredFailure("links_tags.tag_catalog_exact")
 		}
 	}
 	return nil
 }
 
-func tagCatalogKey(row map[string]any) (string, error) {
+func tagCatalogKey(descriptor sourceport.Descriptor, row map[string]any) (string, error) {
 	tagName, tagOK := row["tag_name"].(string)
 	normalized, normalizedOK := row["normalized_tag_name"].(string)
 	if !tagOK || !normalizedOK || tagName == "" || normalized == "" {
-		return "", &sourceport.Failure{FamilyID: "links_tags", InvariantID: "links_tags.tag_normalized"}
+		return "", descriptor.DeclaredFailure("links_tags.tag_normalized")
 	}
 	encoded, _ := json.Marshal([]string{tagName, normalized})
 	return string(encoded), nil

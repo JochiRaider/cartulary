@@ -137,7 +137,7 @@ func ImportIncidentBundleFilesTx(
 ) error {
 	switch bundleVersion {
 	case 2:
-		if err := importTimelineProfilesTx(ctx, tx, files[timelineBundleProfilesPath], actorUserID, attributions); err != nil {
+		if err := importTimelineProfilesTx(ctx, tx, timelineBundleProfilesPath, files[timelineBundleProfilesPath], actorUserID, attributions); err != nil {
 			return err
 		}
 		if err := importTimelineRecordsV2Tx(ctx, tx, files[timelineBundleRecordsPath], actorUserID, attributions); err != nil {
@@ -145,7 +145,7 @@ func ImportIncidentBundleFilesTx(
 		}
 		return importTimelineProvenanceV2Tx(ctx, tx, files[timelineBundleProvenancePath])
 	case 1:
-		if err := importTimelineProfilesTx(ctx, tx, files[timelineBundleV1ProfilesPath], actorUserID, attributions); err != nil {
+		if err := importTimelineProfilesTx(ctx, tx, timelineBundleV1ProfilesPath, files[timelineBundleV1ProfilesPath], actorUserID, attributions); err != nil {
 			return err
 		}
 		return importTimelineRecordsV1Tx(ctx, tx, files[timelineBundleV1RecordsPath], actorUserID, attributions)
@@ -157,6 +157,7 @@ func ImportIncidentBundleFilesTx(
 func importTimelineProfilesTx(
 	ctx context.Context,
 	tx pgx.Tx,
+	logicalPath string,
 	payload []byte,
 	actorUserID uuid.UUID,
 	attributions incidentportability.AttributionRecorder,
@@ -195,7 +196,7 @@ SELECT
 			return err
 		}
 		if tag.RowsAffected() != 1 {
-			return &incidentportability.VerificationFailure{ReasonCode: "duplicate_source_row"}
+			return incidentportability.FixedImportFailure(logicalPath)
 		}
 	}
 	return nil
@@ -228,7 +229,7 @@ func importTimelineRecordsV2Tx(
 			return err
 		}
 		if tag.RowsAffected() != 1 {
-			return &incidentportability.VerificationFailure{ReasonCode: "duplicate_source_row"}
+			return incidentportability.FixedImportFailure(timelineBundleRecordsPath)
 		}
 	}
 	return nil
@@ -266,7 +267,7 @@ func importTimelineRecordsV1Tx(
 			return err
 		}
 		if tag.RowsAffected() != 1 {
-			return &incidentportability.VerificationFailure{ReasonCode: "duplicate_source_row"}
+			return incidentportability.FixedImportFailure(timelineBundleV1RecordsPath)
 		}
 		recordID, err := uuid.Parse(incidentportability.StringFromAny(row["record_id"]))
 		if err != nil {
@@ -323,7 +324,7 @@ SELECT
 			return err
 		}
 		if tag.RowsAffected() != 1 {
-			return &incidentportability.VerificationFailure{ReasonCode: "duplicate_source_row"}
+			return incidentportability.FixedImportFailure(timelineBundleProvenancePath)
 		}
 	}
 	return nil

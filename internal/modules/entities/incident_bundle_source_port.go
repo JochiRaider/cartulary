@@ -14,17 +14,17 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		OwnerID: "module.entities", OwnerRelationIDs: []string{"entity-source"},
 		Dependencies: []string{"parties"},
 		Paths: []sourceport.Path{
-			{LogicalPath: "data/entity_mentions.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"entity_mention_id"}},
-			{LogicalPath: "data/hosts.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}},
-			{LogicalPath: "data/identities.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}},
-			{LogicalPath: "data/entity_preserved_identifiers.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"entity_preserved_identifier_id"}},
-			{LogicalPath: "data/entity_aliases.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"entity_alias_id"}},
+			{LogicalPath: "data/entity_mentions.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"entity_mention_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
+			{LogicalPath: "data/hosts.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
+			{LogicalPath: "data/identities.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
+			{LogicalPath: "data/entity_preserved_identifiers.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"entity_preserved_identifier_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
+			{LogicalPath: "data/entity_aliases.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"entity_alias_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
 		},
 		InvariantIDs: []string{
 			"entities.mentions_observational", "entities.envelope_type_scope",
 			"entities.resolution_merge_coherent", "entities.alias_identifier_normalized",
 			"entities.alias_identifier_classified", "entities.alias_identifier_unique",
-			"entities.alias_identifier_same_incident",
+			"entities.alias_identifier_same_incident", "entities.source_identity_admitted",
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
@@ -51,7 +51,7 @@ SELECT EXISTS (
 				return err
 			}
 			if invalid {
-				return &sourceport.Failure{FamilyID: "entities", InvariantID: "entities.envelope_type_scope"}
+				return descriptor.DeclaredFailure("entities.envelope_type_scope")
 			}
 			return nil
 		},

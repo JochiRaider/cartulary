@@ -2362,11 +2362,16 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   row shapes; provenance composite identities are unique and non-orphaned; and
   import loses or duplicates no provenance row.
   - Verifies: REQ-01-636, REQ-01-640
-- **AC-492**: When Incident Portability is claimed, application composition
-  with a nil Jobs manager, nil runner, unconfigured runner, absent dequeue gate,
-  runner closed before publication, duplicate or failed handler registration,
-  or unavailable recovery exits before Incident Bundle routes, listeners,
-  readiness, or work are published.
+- **AC-492**: When Incident Portability is claimed, its single module facade
+  rejects each missing required dependency before exposing transaction
+  capabilities, routes, or work. Application composition installs the
+  cross-owner coordinator exactly once, registers the named handler exactly
+  once, and only then publishes routes. A nil Jobs manager, nil runner,
+  unconfigured runner, absent dequeue gate, runner closed before publication,
+  duplicate or failed coordinator or handler registration, or unavailable
+  recovery exits before Incident Bundle routes, listeners, readiness, or work
+  are published; no functional-option or alternate-constructor path bypasses
+  the facade.
   - Verifies: REQ-01-637
 - **AC-493**: When Incident Portability is unclaimed, no Incident Bundle route
   is exposed, no Incident Bundle handler is registered or invoked, and absence
@@ -2386,18 +2391,22 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
 - **AC-496**: Catalog construction rejects each closed invalid class in
   REQ-01-639, two valid builds produce the same FK-safe order, and every
   required version `1` and version `2` core path has exactly one declared
-  consumer or validator.
+  consumer or validator and one declared stable-identity invariant.
   - Verifies: REQ-01-635, REQ-01-639..REQ-01-640
 - **AC-497**: For each current source-owner family, at least one fixture that is
   valid JSON and database-convertible but violates a named REQ-01-640 semantic
   invariant fails with `incident_bundle_import_rejected`,
   `reason_code='source_family_invalid'`, and the exact safe
-  `source_family_id` and `invariant_id`, and commits no visible state.
+  `source_family_id` and `invariant_id`, and commits no visible state. Missing
+  and duplicate stable identities select the failing path's declared
+  `<family_id>.source_identity_admitted` invariant independently of descriptor
+  invariant order.
   - Verifies: REQ-01-449, REQ-01-486, REQ-01-640, REQ-01-642
 - **AC-498**: Duplicate stable identities, cross-incident references,
   cross-family orphans, affected-row mismatches, and a `tags.ndjson` catalog
   unequal to the distinct imported record-tag names fail closed rather than
-  being ignored or merged.
+  being ignored or merged. Unknown paths and undeclared stable-identity
+  invariants fail internally without defaulting to another invariant.
   - Verifies: REQ-01-639..REQ-01-640
 - **AC-499**: Every source actor referenced by imported state has exactly one
   valid descriptor; a missing, malformed, or duplicate descriptor fails; and a
@@ -2422,7 +2431,10 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   exact safe reasons and allowed details, and representative failures prove
   that HTTP responses, job results, logs, telemetry, readiness,
   administrative summaries, and operator output contain none of the forbidden
-  imported values or internal topology in REQ-01-642.
+  imported values or internal topology in REQ-01-642. Representative Incident
+  Bundles internal failures return and retain only the exact generic internal
+  error tuple and contain no injected SQL, path, storage reference, credential,
+  constraint, or upstream message.
   - Verifies: REQ-01-486, REQ-01-609, REQ-01-642
 - **AC-503**: Permuting archive-member order or source-row order without
   changing semantic content produces the same selected codec, catalog order,

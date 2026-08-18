@@ -387,8 +387,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.incident_bundle_source_catalog.v1",
-      "path": "tools/schemas/cartulary.incident_bundle_source_catalog.v1.schema.json",
+      "schema_id": "cartulary.incident_bundle_source_catalog.v2",
+      "path": "tools/schemas/cartulary.incident_bundle_source_catalog.v2.schema.json",
       "classification": "owner_input",
       "producer": "Incident Bundles source-port catalog owner",
       "validation": "json-shape-check"

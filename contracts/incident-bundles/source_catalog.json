@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.incident_bundle_source_catalog.v1",
+  "schema_id": "cartulary.incident_bundle_source_catalog.v2",
   "contract_major": 1,
   "families": [
     {
@@ -8,9 +8,9 @@
       "owner_relation_ids": ["incident-core"],
       "dependencies": [],
       "paths": [
-        {"logical_path": "data/incident.json", "content_role": "singleton_json", "versions": [1, 2], "stable_identity": ["id"]}
+        {"logical_path": "data/incident.json", "content_role": "singleton_json", "versions": [1, 2], "stable_identity": ["id"], "stable_identity_invariant_id": "incident.source_identity_admitted"}
       ],
-      "invariant_ids": ["incident.exact_shape", "incident.identity_key_lifecycle", "incident.attribution_version"]
+      "invariant_ids": ["incident.exact_shape", "incident.identity_key_lifecycle", "incident.attribution_version", "incident.source_identity_admitted"]
     },
     {
       "family_id": "records",
@@ -18,9 +18,9 @@
       "owner_relation_ids": ["record-envelope"],
       "dependencies": ["incident"],
       "paths": [
-        {"logical_path": "data/records.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.records.row.v1", "versions": [1, 2], "stable_identity": ["record_id"]}
+        {"logical_path": "data/records.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.records.row.v1", "versions": [1, 2], "stable_identity": ["record_id"], "stable_identity_invariant_id": "records.source_identity_admitted"}
       ],
-      "invariant_ids": ["records.incident_scope", "records.envelope_legal", "records.subtype_complete"]
+      "invariant_ids": ["records.incident_scope", "records.envelope_legal", "records.subtype_complete", "records.source_identity_admitted"]
     },
     {
       "family_id": "timeline",
@@ -28,13 +28,13 @@
       "owner_relation_ids": ["timeline-source"],
       "dependencies": ["records"],
       "paths": [
-        {"logical_path": "data/timeline_time_conversion_profiles.ndjson", "content_role": "source_rows", "versions": [1], "stable_identity": ["incident_id"]},
-        {"logical_path": "data/timeline_events.ndjson", "content_role": "source_rows", "versions": [1], "stable_identity": ["record_id"]},
-        {"logical_path": "data/timeline_time_profiles.ndjson", "content_role": "source_rows", "versions": [2], "stable_identity": ["incident_id"]},
-        {"logical_path": "data/timeline_records.ndjson", "content_role": "source_rows", "versions": [2], "stable_identity": ["record_id"]},
-        {"logical_path": "data/timeline_source_provenance.ndjson", "content_role": "source_rows", "versions": [2], "stable_identity": ["record_id", "source_row_ordinal", "source_column_ordinal", "source_identity_sha256"]}
+        {"logical_path": "data/timeline_time_conversion_profiles.ndjson", "content_role": "source_rows", "versions": [1], "stable_identity": ["incident_id"], "stable_identity_invariant_id": "timeline.source_identity_admitted"},
+        {"logical_path": "data/timeline_events.ndjson", "content_role": "source_rows", "versions": [1], "stable_identity": ["record_id"], "stable_identity_invariant_id": "timeline.source_identity_admitted"},
+        {"logical_path": "data/timeline_time_profiles.ndjson", "content_role": "source_rows", "versions": [2], "stable_identity": ["incident_id"], "stable_identity_invariant_id": "timeline.source_identity_admitted"},
+        {"logical_path": "data/timeline_records.ndjson", "content_role": "source_rows", "versions": [2], "stable_identity": ["record_id"], "stable_identity_invariant_id": "timeline.source_identity_admitted"},
+        {"logical_path": "data/timeline_source_provenance.ndjson", "content_role": "source_rows", "versions": [2], "stable_identity": ["record_id", "source_row_ordinal", "source_column_ordinal", "source_identity_sha256"], "stable_identity_invariant_id": "timeline.source_identity_admitted"}
       ],
-      "invariant_ids": ["timeline.version_shape_exact", "timeline.envelope_type_scope", "timeline.lifecycle_coherent", "timeline.generated_time_coherent", "timeline.paired_time_coherent", "timeline.provenance_unique", "timeline.provenance_non_orphaned", "timeline.v1_translation_lossless"]
+      "invariant_ids": ["timeline.version_shape_exact", "timeline.envelope_type_scope", "timeline.lifecycle_coherent", "timeline.generated_time_coherent", "timeline.paired_time_coherent", "timeline.provenance_unique", "timeline.provenance_non_orphaned", "timeline.v1_translation_lossless", "timeline.source_identity_admitted"]
     },
     {
       "family_id": "parties",
@@ -42,9 +42,9 @@
       "owner_relation_ids": ["parties"],
       "dependencies": ["timeline"],
       "paths": [
-        {"logical_path": "data/parties.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"]}
+        {"logical_path": "data/parties.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"], "stable_identity_invariant_id": "parties.source_identity_admitted"}
       ],
-      "invariant_ids": ["parties.envelope_type_scope", "parties.identity_lifecycle", "parties.normalization_exact"]
+      "invariant_ids": ["parties.envelope_type_scope", "parties.identity_lifecycle", "parties.normalization_exact", "parties.source_identity_admitted"]
     },
     {
       "family_id": "entities",
@@ -52,13 +52,13 @@
       "owner_relation_ids": ["entity-source"],
       "dependencies": ["parties"],
       "paths": [
-        {"logical_path": "data/entity_mentions.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["entity_mention_id"]},
-        {"logical_path": "data/hosts.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"]},
-        {"logical_path": "data/identities.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"]},
-        {"logical_path": "data/entity_preserved_identifiers.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["entity_preserved_identifier_id"]},
-        {"logical_path": "data/entity_aliases.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["entity_alias_id"]}
+        {"logical_path": "data/entity_mentions.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["entity_mention_id"], "stable_identity_invariant_id": "entities.source_identity_admitted"},
+        {"logical_path": "data/hosts.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"], "stable_identity_invariant_id": "entities.source_identity_admitted"},
+        {"logical_path": "data/identities.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"], "stable_identity_invariant_id": "entities.source_identity_admitted"},
+        {"logical_path": "data/entity_preserved_identifiers.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["entity_preserved_identifier_id"], "stable_identity_invariant_id": "entities.source_identity_admitted"},
+        {"logical_path": "data/entity_aliases.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["entity_alias_id"], "stable_identity_invariant_id": "entities.source_identity_admitted"}
       ],
-      "invariant_ids": ["entities.mentions_observational", "entities.envelope_type_scope", "entities.resolution_merge_coherent", "entities.alias_identifier_normalized", "entities.alias_identifier_classified", "entities.alias_identifier_unique", "entities.alias_identifier_same_incident"]
+      "invariant_ids": ["entities.mentions_observational", "entities.envelope_type_scope", "entities.resolution_merge_coherent", "entities.alias_identifier_normalized", "entities.alias_identifier_classified", "entities.alias_identifier_unique", "entities.alias_identifier_same_incident", "entities.source_identity_admitted"]
     },
     {
       "family_id": "indicators",
@@ -66,11 +66,11 @@
       "owner_relation_ids": ["indicator-source"],
       "dependencies": ["entities"],
       "paths": [
-        {"logical_path": "data/indicators.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.indicators.row.v1", "versions": [1, 2], "stable_identity": ["record_id"]},
-        {"logical_path": "data/indicator_observations.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.indicator_observations.row.v1", "versions": [1, 2], "stable_identity": ["indicator_observation_id"]},
-        {"logical_path": "data/indicator_state_intervals.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.indicator_state_intervals.row.v1", "versions": [1, 2], "stable_identity": ["indicator_state_interval_id"]}
+        {"logical_path": "data/indicators.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.indicators.row.v1", "versions": [1, 2], "stable_identity": ["record_id"], "stable_identity_invariant_id": "indicators.source_identity_admitted"},
+        {"logical_path": "data/indicator_observations.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.indicator_observations.row.v1", "versions": [1, 2], "stable_identity": ["indicator_observation_id"], "stable_identity_invariant_id": "indicators.source_identity_admitted"},
+        {"logical_path": "data/indicator_state_intervals.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.indicator_state_intervals.row.v1", "versions": [1, 2], "stable_identity": ["indicator_state_interval_id"], "stable_identity_invariant_id": "indicators.source_identity_admitted"}
       ],
-      "invariant_ids": ["indicators.representation_legal", "indicators.normalization_exact", "indicators.identity_unique", "indicators.observation_same_incident", "indicators.observation_ordered", "indicators.observation_coherent", "indicators.interval_same_incident", "indicators.interval_ordered", "indicators.interval_coherent", "indicators.repeated_observations_preserved"]
+      "invariant_ids": ["indicators.representation_legal", "indicators.normalization_exact", "indicators.identity_unique", "indicators.observation_same_incident", "indicators.observation_ordered", "indicators.observation_coherent", "indicators.interval_same_incident", "indicators.interval_ordered", "indicators.interval_coherent", "indicators.repeated_observations_preserved", "indicators.source_identity_admitted"]
     },
     {
       "family_id": "artifacts",
@@ -78,13 +78,13 @@
       "owner_relation_ids": ["artifacts-and-optional-surfaces"],
       "dependencies": ["indicators"],
       "paths": [
-        {"logical_path": "data/artifacts.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"]},
-        {"logical_path": "data/artifact_findings.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"]},
-        {"logical_path": "data/artifact_investigative_queries.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"]},
-        {"logical_path": "data/artifact_forensic_keywords.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"]},
-        {"logical_path": "data/handoff_risk_refs.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["risk_ref_id"]}
+        {"logical_path": "data/artifacts.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"], "stable_identity_invariant_id": "artifacts.source_identity_admitted"},
+        {"logical_path": "data/artifact_findings.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"], "stable_identity_invariant_id": "artifacts.source_identity_admitted"},
+        {"logical_path": "data/artifact_investigative_queries.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"], "stable_identity_invariant_id": "artifacts.source_identity_admitted"},
+        {"logical_path": "data/artifact_forensic_keywords.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"], "stable_identity_invariant_id": "artifacts.source_identity_admitted"},
+        {"logical_path": "data/handoff_risk_refs.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["risk_ref_id"], "stable_identity_invariant_id": "artifacts.source_identity_admitted"}
       ],
-      "invariant_ids": ["artifacts.envelope_type_scope", "artifacts.subtype_exact", "artifacts.lifecycle_fields_legal", "artifacts.handoff_risk_target", "artifacts.references_same_incident"]
+      "invariant_ids": ["artifacts.envelope_type_scope", "artifacts.subtype_exact", "artifacts.lifecycle_fields_legal", "artifacts.handoff_risk_target", "artifacts.references_same_incident", "artifacts.source_identity_admitted"]
     },
     {
       "family_id": "tasks_decisions",
@@ -92,10 +92,10 @@
       "owner_relation_ids": ["tasks-and-decisions"],
       "dependencies": ["artifacts"],
       "paths": [
-        {"logical_path": "data/task_requests.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"]},
-        {"logical_path": "data/decisions.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"]}
+        {"logical_path": "data/task_requests.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"], "stable_identity_invariant_id": "tasks_decisions.source_identity_admitted"},
+        {"logical_path": "data/decisions.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"], "stable_identity_invariant_id": "tasks_decisions.source_identity_admitted"}
       ],
-      "invariant_ids": ["tasks_decisions.envelope_type_scope", "tasks_decisions.lifecycle_legal", "tasks_decisions.dependent_fields_legal", "tasks_decisions.references_same_incident"]
+      "invariant_ids": ["tasks_decisions.envelope_type_scope", "tasks_decisions.lifecycle_legal", "tasks_decisions.dependent_fields_legal", "tasks_decisions.references_same_incident", "tasks_decisions.source_identity_admitted"]
     },
     {
       "family_id": "evidence",
@@ -103,11 +103,11 @@
       "owner_relation_ids": ["evidence-source-and-handles"],
       "dependencies": ["tasks_decisions"],
       "paths": [
-        {"logical_path": "data/evidence_records.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"]},
-        {"logical_path": "data/evidence_custody_events.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["custody_event_id"]},
-        {"logical_path": "data/object_blobs.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["object_blob_id"]}
+        {"logical_path": "data/evidence_records.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"], "stable_identity_invariant_id": "evidence.source_identity_admitted"},
+        {"logical_path": "data/evidence_custody_events.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["custody_event_id"], "stable_identity_invariant_id": "evidence.source_identity_admitted"},
+        {"logical_path": "data/object_blobs.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["object_blob_id"], "stable_identity_invariant_id": "evidence.source_identity_admitted"}
       ],
-      "invariant_ids": ["evidence.envelope_type_scope", "evidence.object_metadata_agree", "evidence.storage_reference_legal", "evidence.byte_size_digest_agree", "evidence.lifecycle_legal", "evidence.staged_bytes_digest", "evidence.custody_ordered", "evidence.custody_same_incident"]
+      "invariant_ids": ["evidence.envelope_type_scope", "evidence.object_metadata_agree", "evidence.storage_reference_legal", "evidence.byte_size_digest_agree", "evidence.lifecycle_legal", "evidence.staged_bytes_digest", "evidence.custody_ordered", "evidence.custody_same_incident", "evidence.source_identity_admitted"]
     },
     {
       "family_id": "assessments",
@@ -115,9 +115,9 @@
       "owner_relation_ids": ["assessment-source"],
       "dependencies": ["evidence"],
       "paths": [
-        {"logical_path": "data/compromise_assessments.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"]}
+        {"logical_path": "data/compromise_assessments.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"], "stable_identity_invariant_id": "assessments.source_identity_admitted"}
       ],
-      "invariant_ids": ["assessments.subject_type_scope", "assessments.state_confidence_rationale_legal", "assessments.timestamps_lifecycle_legal"]
+      "invariant_ids": ["assessments.subject_type_scope", "assessments.state_confidence_rationale_legal", "assessments.timestamps_lifecycle_legal", "assessments.source_identity_admitted"]
     },
     {
       "family_id": "links_tags",
@@ -125,11 +125,11 @@
       "owner_relation_ids": ["links-and-tags"],
       "dependencies": ["assessments"],
       "paths": [
-        {"logical_path": "data/record_links.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_link_id"]},
-        {"logical_path": "data/tags.ndjson", "content_role": "validation_rows", "versions": [1, 2], "stable_identity": ["normalized_tag_name", "tag_name"]},
-        {"logical_path": "data/record_tags.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_tag_id"]}
+        {"logical_path": "data/record_links.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_link_id"], "stable_identity_invariant_id": "links_tags.source_identity_admitted"},
+        {"logical_path": "data/tags.ndjson", "content_role": "validation_rows", "versions": [1, 2], "stable_identity": ["normalized_tag_name", "tag_name"], "stable_identity_invariant_id": "links_tags.source_identity_admitted"},
+        {"logical_path": "data/record_tags.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_tag_id"], "stable_identity_invariant_id": "links_tags.source_identity_admitted"}
       ],
-      "invariant_ids": ["links_tags.endpoints_same_incident", "links_tags.link_tuple_legal", "links_tags.link_unique", "links_tags.deletion_tuple_legal", "links_tags.tag_normalized", "links_tags.tag_catalog_exact"]
+      "invariant_ids": ["links_tags.endpoints_same_incident", "links_tags.link_tuple_legal", "links_tags.link_unique", "links_tags.deletion_tuple_legal", "links_tags.tag_normalized", "links_tags.tag_catalog_exact", "links_tags.source_identity_admitted"]
     },
     {
       "family_id": "revisions",
@@ -137,11 +137,11 @@
       "owner_relation_ids": ["record-revisions"],
       "dependencies": ["links_tags"],
       "paths": [
-        {"logical_path": "data/change_sets.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.change_sets.row.v1", "versions": [1, 2], "stable_identity": ["change_set_id"]},
-        {"logical_path": "data/change_set_mutations.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.change_set_mutations.row.v1", "versions": [1, 2], "stable_identity": ["change_set_id", "sequence_no"]},
-        {"logical_path": "data/record_revisions.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.record_revisions.row.v1", "versions": [1, 2], "stable_identity": ["revision_id"]}
+        {"logical_path": "data/change_sets.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.change_sets.row.v1", "versions": [1, 2], "stable_identity": ["change_set_id"], "stable_identity_invariant_id": "revisions.source_identity_admitted"},
+        {"logical_path": "data/change_set_mutations.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.change_set_mutations.row.v1", "versions": [1, 2], "stable_identity": ["change_set_id", "sequence_no"], "stable_identity_invariant_id": "revisions.source_identity_admitted"},
+        {"logical_path": "data/record_revisions.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.record_revisions.row.v1", "versions": [1, 2], "stable_identity": ["revision_id"], "stable_identity_invariant_id": "revisions.source_identity_admitted"}
       ],
-      "invariant_ids": ["revisions.references_complete", "revisions.actor_references_complete", "revisions.mutation_sequence_contiguous", "revisions.record_version_unique", "revisions.history_reconstruction", "revisions.sequence_repair_after_validation"]
+      "invariant_ids": ["revisions.references_complete", "revisions.actor_references_complete", "revisions.mutation_sequence_contiguous", "revisions.record_version_unique", "revisions.history_reconstruction", "revisions.sequence_repair_after_validation", "revisions.source_identity_admitted"]
     },
     {
       "family_id": "saved_views",
@@ -149,9 +149,9 @@
       "owner_relation_ids": ["savedviews"],
       "dependencies": ["revisions"],
       "paths": [
-        {"logical_path": "data/saved_views.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.saved_views.row.v1", "versions": [1, 2], "stable_identity": ["saved_view_id"]}
+        {"logical_path": "data/saved_views.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.saved_views.row.v1", "versions": [1, 2], "stable_identity": ["saved_view_id"], "stable_identity_invariant_id": "saved_views.source_identity_admitted"}
       ],
-      "invariant_ids": ["saved_views.row_shape_exact", "saved_views.identity_scope_legal", "saved_views.owner_tuple_legal", "saved_views.display_name_normalized", "saved_views.query_layout_legal", "saved_views.version_timestamps_legal", "saved_views.reference_pack_degradation_bounded"]
+      "invariant_ids": ["saved_views.row_shape_exact", "saved_views.identity_scope_legal", "saved_views.owner_tuple_legal", "saved_views.display_name_normalized", "saved_views.query_layout_legal", "saved_views.version_timestamps_legal", "saved_views.reference_pack_degradation_bounded", "saved_views.source_identity_admitted"]
     }
   ],
   "special_consumers": [

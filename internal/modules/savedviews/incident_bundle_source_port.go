@@ -18,12 +18,13 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		Paths: []sourceport.Path{{
 			LogicalPath: "data/saved_views.ndjson", ContentRole: "source_rows",
 			SchemaID: "cartulary.incident_bundle.saved_views.row.v1",
-			Versions: []int{1, 2}, StableIdentity: []string{"saved_view_id"},
+			Versions: []int{1, 2}, StableIdentity: []string{"saved_view_id"}, StableIdentityInvariantID: "saved_views.source_identity_admitted",
 		}},
 		InvariantIDs: []string{
 			"saved_views.row_shape_exact", "saved_views.identity_scope_legal", "saved_views.owner_tuple_legal",
 			"saved_views.display_name_normalized", "saved_views.query_layout_legal",
 			"saved_views.version_timestamps_legal", "saved_views.reference_pack_degradation_bounded",
+			"saved_views.source_identity_admitted",
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
@@ -37,14 +38,14 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		},
 		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
 			prepared, err := prepareSavedViewImport(bundle, savedViewPrivateImportContext(importContext))
-			return prepared, savedViewSourcePortError(err)
+			return prepared, savedViewSourcePortError(descriptor, err)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
 			prepared, ok := value.(preparedSavedViewImport)
 			if !ok {
 				return sourceport.ErrPreparedBinding
 			}
-			return savedViewSourcePortError(applyPreparedSavedViewImportTx(
+			return savedViewSourcePortError(descriptor, applyPreparedSavedViewImportTx(
 				ctx,
 				tx,
 				prepared,
@@ -56,7 +57,7 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			if !ok {
 				return sourceport.ErrPreparedBinding
 			}
-			return savedViewSourcePortError(validatePreparedSavedViewImportTx(
+			return savedViewSourcePortError(descriptor, validatePreparedSavedViewImportTx(
 				ctx,
 				tx,
 				prepared,
@@ -78,16 +79,13 @@ func savedViewPrivateImportContext(importContext sourceport.ImportContext) saved
 	}
 }
 
-func savedViewSourcePortError(err error) error {
+func savedViewSourcePortError(descriptor sourceport.Descriptor, err error) error {
 	if err == nil {
 		return nil
 	}
 	var invariantFailure *savedViewInvariantError
 	if errors.As(err, &invariantFailure) {
-		return &sourceport.Failure{
-			FamilyID:    "saved_views",
-			InvariantID: invariantFailure.InvariantID,
-		}
+		return descriptor.DeclaredFailure(invariantFailure.InvariantID)
 	}
 	return err
 }

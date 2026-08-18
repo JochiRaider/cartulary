@@ -20,19 +20,19 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
-var ErrNotFound = errors.New("incident bundle: not found")
+var errNotFound = errors.New("incident bundle: not found")
 
-type Store struct {
+type store struct {
 	pool            *pgxpool.Pool
-	jobTransactions incidentBundleJobAdmission
+	jobTransactions JobTransactions
 }
 
-type JobAcceptedResult struct {
+type jobAcceptedResult struct {
 	Job      jobs.Resource
 	Replayed bool
 }
 
-type JobPayload struct {
+type jobPayload struct {
 	JobID              uuid.UUID
 	JobKind            string
 	ActorUserID        uuid.UUID
@@ -46,23 +46,23 @@ type JobPayload struct {
 	CreatedAt          time.Time
 }
 
-type ExportAcceptedParams struct {
+type exportAcceptedParams struct {
 	ActorUserID       uuid.UUID
-	Request           ExportRequest
+	Request           exportRequest
 	NormalizedRequest []byte
 	Now               time.Time
 }
 
-type ImportAcceptedParams struct {
+type importAcceptedParams struct {
 	ActorUserID       uuid.UUID
-	Request           ImportMetadataRequest
+	Request           importMetadataRequest
 	UploadedSHA256    string
 	BundleStagingRef  BundleStagingRef
 	NormalizedRequest []byte
 	Now               time.Time
 }
 
-type ExportCompleteParams struct {
+type exportCompleteParams struct {
 	JobID                uuid.UUID
 	ActorUserID          uuid.UUID
 	IncidentID           uuid.UUID
@@ -75,10 +75,10 @@ type ExportCompleteParams struct {
 	BundleSHA256         string
 	BundleByteSize       int64
 	BundleStorageRef     BundleStorageRef
-	ManifestFiles        []ManifestFile
+	ManifestFiles        []manifestFile
 }
 
-type DescriptorRecord struct {
+type descriptorRecord struct {
 	BundleID             uuid.UUID
 	IncidentID           uuid.UUID
 	ExportedAt           time.Time
@@ -93,11 +93,11 @@ type DescriptorRecord struct {
 	BundleStorageRef     BundleStorageRef
 }
 
-func NewStore(pool *pgxpool.Pool, jobTransactions incidentBundleJobAdmission) *Store {
-	return &Store{pool: pool, jobTransactions: jobTransactions}
+func newStore(pool *pgxpool.Pool, jobTransactions JobTransactions) *store {
+	return &store{pool: pool, jobTransactions: jobTransactions}
 }
 
-func (s *Store) AcceptExport(ctx context.Context, params ExportAcceptedParams) (JobAcceptedResult, error) {
+func (s *store) acceptExport(ctx context.Context, params exportAcceptedParams) (jobAcceptedResult, error) {
 	requestHash := hashBytes(params.NormalizedRequest)
 	key := authn.RouteIdempotencyKey{
 		RouteKey:    "incident_bundles.export",
@@ -111,7 +111,7 @@ func (s *Store) AcceptExport(ctx context.Context, params ExportAcceptedParams) (
 		Create: func(ctx context.Context, tx pgx.Tx) (jobs.Resource, error) {
 			scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID}
 			admission, err := jobs.NewExtensionJobAdmission(
-				IncidentPortabilityProfileID,
+				ProfileID,
 				jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 				scope,
 				params.NormalizedRequest,
@@ -120,7 +120,7 @@ func (s *Store) AcceptExport(ctx context.Context, params ExportAcceptedParams) (
 				return jobs.Resource{}, err
 			}
 			job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
-				JobKind:           ExportJobKind,
+				JobKind:           exportJobKind,
 				Scope:             scope,
 				SubmittedByUserID: params.ActorUserID,
 				AuthPolicy:        jobs.AuthPolicyDeploymentAdminIncidentMembership,
@@ -143,7 +143,7 @@ func (s *Store) AcceptExport(ctx context.Context, params ExportAcceptedParams) (
 	})
 }
 
-func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (JobAcceptedResult, error) {
+func (s *store) acceptImport(ctx context.Context, params importAcceptedParams) (jobAcceptedResult, error) {
 	requestHash := hashBytes(params.NormalizedRequest)
 	key := authn.RouteIdempotencyKey{
 		RouteKey:    "incident_bundles.import",
@@ -157,7 +157,7 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 		Create: func(ctx context.Context, tx pgx.Tx) (jobs.Resource, error) {
 			scope := jobs.Scope{Kind: jobs.ScopeKindDeployment}
 			admission, err := jobs.NewExtensionJobAdmission(
-				IncidentPortabilityProfileID,
+				ProfileID,
 				jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 				scope,
 				params.NormalizedRequest,
@@ -166,7 +166,7 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 				return jobs.Resource{}, err
 			}
 			job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
-				JobKind:           ImportJobKind,
+				JobKind:           importJobKind,
 				Scope:             scope,
 				SubmittedByUserID: params.ActorUserID,
 				AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
@@ -197,40 +197,40 @@ type jobAdmissionParams struct {
 	Create      func(context.Context, pgx.Tx) (jobs.Resource, error)
 }
 
-func (s *Store) acceptJob(ctx context.Context, params jobAdmissionParams) (JobAcceptedResult, error) {
+func (s *store) acceptJob(ctx context.Context, params jobAdmissionParams) (jobAcceptedResult, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return JobAcceptedResult{}, err
+		return jobAcceptedResult{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	if existing, err := authn.GetRouteIdempotencyTx(ctx, tx, params.Key); err == nil {
 		if !bytes.Equal(existing.RequestHash, params.RequestHash) {
-			return JobAcceptedResult{}, authn.ErrClientTxnConflict
+			return jobAcceptedResult{}, authn.ErrClientTxnConflict
 		}
 		var job jobs.Resource
 		if err := json.Unmarshal(existing.ResponseJSON, &job); err != nil {
-			return JobAcceptedResult{}, err
+			return jobAcceptedResult{}, err
 		}
-		return JobAcceptedResult{Job: job, Replayed: true}, tx.Commit(ctx)
+		return jobAcceptedResult{Job: job, Replayed: true}, tx.Commit(ctx)
 	} else if !errors.Is(err, authn.ErrNotFound) {
-		return JobAcceptedResult{}, err
+		return jobAcceptedResult{}, err
 	}
 	job, err := params.Create(ctx, tx)
 	if err != nil {
-		return JobAcceptedResult{}, err
+		return jobAcceptedResult{}, err
 	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, params.Key, nil, params.RequestHash, http.StatusAccepted, job); err != nil {
-		return JobAcceptedResult{}, err
+		return jobAcceptedResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return JobAcceptedResult{}, err
+		return jobAcceptedResult{}, err
 	}
-	return JobAcceptedResult{Job: job}, nil
+	return jobAcceptedResult{Job: job}, nil
 }
 
-func (s *Store) CompleteExportDescriptorTx(ctx context.Context, tx pgx.Tx, params ExportCompleteParams) (DescriptorRecord, error) {
+func (s *store) completeExportDescriptorTx(ctx context.Context, tx pgx.Tx, params exportCompleteParams) (descriptorRecord, error) {
 	if tx == nil {
-		return DescriptorRecord{}, errors.New("incident bundle export transaction unavailable")
+		return descriptorRecord{}, errors.New("incident bundle export transaction unavailable")
 	}
 	_, err := tx.Exec(ctx, `
 INSERT INTO incident_bundle_exports (
@@ -241,7 +241,7 @@ INSERT INTO incident_bundle_exports (
 VALUES ($1, $2, $3, $4, $5, $6, $7, 'full', 'full', $8, $9, $10, $11, $12, $5)
 `, params.BundleID, params.IncidentID, params.JobID, params.ActorUserID, params.ExportedAt, params.ManifestSHA256, params.ReferencePackMode, params.OptionalSections, params.RequiredCapabilities, params.BundleSHA256, params.BundleByteSize, params.BundleStorageRef.String())
 	if err != nil {
-		return DescriptorRecord{}, err
+		return descriptorRecord{}, err
 	}
 	for _, file := range params.ManifestFiles {
 		sha := strings.TrimPrefix(file.SHA256, "sha256:")
@@ -250,7 +250,7 @@ INSERT INTO incident_bundle_manifest_files (bundle_id, path, sha256, size_bytes,
 VALUES ($1, $2, $3, $4, $5)
 `, params.BundleID, file.Path, sha, file.SizeBytes, file.Required)
 		if err != nil {
-			return DescriptorRecord{}, err
+			return descriptorRecord{}, err
 		}
 	}
 	tag, err := tx.Exec(ctx, `
@@ -261,31 +261,31 @@ UPDATE incident_bundle_job_payloads
  WHERE job_id = $1
 `, params.JobID, params.BundleID, params.ManifestSHA256, params.ExportedAt)
 	if err != nil {
-		return DescriptorRecord{}, err
+		return descriptorRecord{}, err
 	}
 	if tag.RowsAffected() != 1 {
-		return DescriptorRecord{}, ErrNotFound
+		return descriptorRecord{}, errNotFound
 	}
 	return getDescriptorTx(ctx, tx, params.BundleID)
 }
 
-func (s *Store) GetDescriptor(ctx context.Context, bundleID uuid.UUID) (DescriptorRecord, error) {
+func (s *store) getDescriptor(ctx context.Context, bundleID uuid.UUID) (descriptorRecord, error) {
 	record, err := getDescriptorTx(ctx, s.pool, bundleID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return DescriptorRecord{}, ErrNotFound
+		return descriptorRecord{}, errNotFound
 	}
 	return record, err
 }
 
-func (s *Store) GetJobPayload(ctx context.Context, jobID uuid.UUID) (JobPayload, error) {
+func (s *store) getJobPayload(ctx context.Context, jobID uuid.UUID) (jobPayload, error) {
 	payload, err := getJobPayloadTx(ctx, s.pool, jobID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return JobPayload{}, ErrNotFound
+		return jobPayload{}, errNotFound
 	}
 	return payload, err
 }
 
-func MarkImportCompleteTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, incidentID uuid.UUID, manifestSHA string, now time.Time) error {
+func markImportCompleteTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, incidentID uuid.UUID, manifestSHA string, now time.Time) error {
 	if tx == nil {
 		return errors.New("incident bundle import transaction unavailable")
 	}
@@ -308,12 +308,12 @@ UPDATE incident_bundle_job_payloads
 		return err
 	}
 	if tag.RowsAffected() != 1 {
-		return ErrNotFound
+		return errNotFound
 	}
 	return nil
 }
 
-func (s *Store) MarkJobFailureTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, reason string, now time.Time) error {
+func (s *store) markJobFailureTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, reason string, now time.Time) error {
 	command, err := tx.Exec(ctx, `
 UPDATE incident_bundle_job_payloads
    SET failure_reason = $2,
@@ -324,12 +324,12 @@ UPDATE incident_bundle_job_payloads
 		return err
 	}
 	if command.RowsAffected() != 1 {
-		return ErrNotFound
+		return errNotFound
 	}
 	return nil
 }
 
-func (r DescriptorRecord) Resource() map[string]any {
+func (r descriptorRecord) resource() map[string]any {
 	return map[string]any{
 		"bundle_id":             r.BundleID.String(),
 		"incident_id":           r.IncidentID.String(),
@@ -347,8 +347,8 @@ type rowQuerier interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func getDescriptorTx(ctx context.Context, q rowQuerier, bundleID uuid.UUID) (DescriptorRecord, error) {
-	var record DescriptorRecord
+func getDescriptorTx(ctx context.Context, q rowQuerier, bundleID uuid.UUID) (descriptorRecord, error) {
+	var record descriptorRecord
 	err := q.QueryRow(ctx, `
 SELECT bundle_id, incident_id, exported_at, manifest_sha256, reference_pack_mode,
        history_mode, blob_mode, optional_sections, required_capabilities,
@@ -358,7 +358,7 @@ SELECT bundle_id, incident_id, exported_at, manifest_sha256, reference_pack_mode
 `, bundleID).Scan(&record.BundleID, &record.IncidentID, &record.ExportedAt, &record.ManifestSHA256, &record.ReferencePackMode, &record.HistoryMode, &record.BlobMode, &record.OptionalSections, &record.RequiredCapabilities, &record.BundleSHA256, &record.BundleByteSize, &record.BundleStorageRef.value)
 	if err == nil {
 		if _, parseErr := ParseBundleStorageRef(record.BundleStorageRef.value); parseErr != nil {
-			return DescriptorRecord{}, fmt.Errorf("decode incident bundle storage reference: %w", parseErr)
+			return descriptorRecord{}, fmt.Errorf("decode incident bundle storage reference: %w", parseErr)
 		}
 	}
 	if record.OptionalSections == nil {
@@ -381,8 +381,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
 	return err
 }
 
-func getJobPayloadTx(ctx context.Context, q rowQuerier, jobID uuid.UUID) (JobPayload, error) {
-	var payload JobPayload
+func getJobPayloadTx(ctx context.Context, q rowQuerier, jobID uuid.UUID) (jobPayload, error) {
+	var payload jobPayload
 	var incidentID sql.NullString
 	var bundleID sql.NullString
 	var uploadedSHA sql.NullString
@@ -396,7 +396,7 @@ SELECT job_id, job_kind, actor_user_id, incident_id::text, bundle_id::text, uplo
  WHERE job_id = $1
 `, jobID).Scan(&payload.JobID, &payload.JobKind, &payload.ActorUserID, &incidentID, &bundleID, &uploadedSHA, &stagingPath, &importedIncidentID, &manifestSHA, &payload.RequestJSON, &payload.CreatedAt)
 	if err != nil {
-		return JobPayload{}, err
+		return jobPayload{}, err
 	}
 	payload.IncidentID = uuidPtrFromNullString(incidentID)
 	payload.BundleID = uuidPtrFromNullString(bundleID)
@@ -405,7 +405,7 @@ SELECT job_id, job_kind, actor_user_id, incident_id::text, bundle_id::text, uplo
 	if stagingPath.Valid {
 		reference, parseErr := ParseBundleStagingRef(stagingPath.String)
 		if parseErr != nil {
-			return JobPayload{}, fmt.Errorf("decode incident bundle staging reference: %w", parseErr)
+			return jobPayload{}, fmt.Errorf("decode incident bundle staging reference: %w", parseErr)
 		}
 		payload.BundleStagingRef = &reference
 	}

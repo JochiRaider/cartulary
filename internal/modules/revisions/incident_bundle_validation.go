@@ -167,17 +167,7 @@ func selectedRevisionsFailure(failures []revisionsParseFailure) error {
 }
 
 func revisionsFailure(invariantID string) error {
-	switch invariantID {
-	case revisionsReferencesInvariant,
-		revisionsActorsInvariant,
-		revisionsSequenceInvariant,
-		revisionsRecordVersionInvariant,
-		revisionsHistoryInvariant,
-		revisionsSequenceRepairInvariant:
-		return &sourceport.Failure{FamilyID: "revisions", InvariantID: invariantID}
-	default:
-		return errors.New("revisions portability invariant is undeclared")
-	}
+	return revisionsIncidentBundleDescriptor().DeclaredFailure(invariantID)
 }
 
 func revisionsInvariantRank(invariantID string) int {

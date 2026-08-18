@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"sort"
@@ -18,37 +17,37 @@ import (
 const (
 	ProfileID                  = "incident_portability"
 	BundlesRouteContributionID = "incident_portability.bundles_route"
-	BundleWorkerKind           = "incident_portability.bundle_worker_v1"
-	ExportJobKind              = "incident_portability.export_v1"
-	ImportJobKind              = "incident_portability.import_v1"
-	ExportOperationKind        = "incident_portability.export"
-	ImportOperationKind        = "incident_portability.import"
+	bundleWorkerKind           = "incident_portability.bundle_worker_v1"
+	exportJobKind              = "incident_portability.export_v1"
+	importJobKind              = "incident_portability.import_v1"
 
-	HistoryModeFull = "full"
-	BlobModeFull    = "full"
+	historyModeFull = "full"
+	blobModeFull    = "full"
 
-	ReferencePackModeRefsOnly = "refs_only"
-	ReferencePackModeEmbedded = "embedded"
+	referencePackModeRefsOnly = "refs_only"
+	referencePackModeEmbedded = "embedded"
 
-	ResultIncidentBundleExported = "incident_bundle_exported"
-	ResultIncidentBundleImported = "incident_bundle_imported"
+	resultIncidentBundleExported = "incident_bundle_exported"
+	resultIncidentBundleImported = "incident_bundle_imported"
 
-	MediaTypeZip         = "application/zip"
-	MediaTypeTar         = "application/x-tar"
-	MediaTypeGzip        = "application/gzip"
-	MediaTypeXGzip       = "application/x-gzip"
-	MediaTypeOctetStream = "application/octet-stream"
+	mediaTypeZip         = "application/zip"
+	mediaTypeTar         = "application/x-tar"
+	mediaTypeGzip        = "application/gzip"
+	mediaTypeXGzip       = "application/x-gzip"
+	mediaTypeOctetStream = "application/octet-stream"
 )
 
-var IncidentBundleFileContentTypes = []string{
-	MediaTypeZip,
-	MediaTypeTar,
-	MediaTypeGzip,
-	MediaTypeXGzip,
-	MediaTypeOctetStream,
+func acceptedIncidentBundleFileContentTypes() []string {
+	return []string{
+		mediaTypeZip,
+		mediaTypeTar,
+		mediaTypeGzip,
+		mediaTypeXGzip,
+		mediaTypeOctetStream,
+	}
 }
 
-type ExportRequest struct {
+type exportRequest struct {
 	IncidentID                    uuid.UUID
 	ClientTxnID                   string
 	ReferencePackMode             string
@@ -60,15 +59,15 @@ type ExportRequest struct {
 	Normalized                    []byte
 }
 
-type ImportMetadataRequest struct {
+type importMetadataRequest struct {
 	ClientTxnID string
 	Normalized  []byte
 }
 
-func DecodeExportRequest(reader io.Reader) (ExportRequest, *httpapi.APIError) {
+func decodeExportRequest(reader io.Reader) (exportRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader)
 	if apiErr != nil {
-		return ExportRequest{}, apiErr
+		return exportRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{
 		"incident_id":           {},
@@ -81,92 +80,92 @@ func DecodeExportRequest(reader io.Reader) (ExportRequest, *httpapi.APIError) {
 	}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
-			return ExportRequest{}, invalidIncidentBundleRequest(key, "unknown_field")
+			return exportRequest{}, invalidIncidentBundleRequest(key, "unknown_field")
 		}
 	}
 	if _, ok := raw["history_mode"]; ok {
-		return ExportRequest{}, invalidIncidentBundleRequest("history_mode", "history_mode_not_supported")
+		return exportRequest{}, invalidIncidentBundleRequest("history_mode", "history_mode_not_supported")
 	}
 	if _, ok := raw["blob_mode"]; ok {
-		return ExportRequest{}, invalidIncidentBundleRequest("blob_mode", "blob_mode_not_supported")
+		return exportRequest{}, invalidIncidentBundleRequest("blob_mode", "blob_mode_not_supported")
 	}
 	incidentIDText, apiErr := requiredStringField(raw, "incident_id")
 	if apiErr != nil {
-		return ExportRequest{}, apiErr
+		return exportRequest{}, apiErr
 	}
 	incidentID, err := uuid.Parse(incidentIDText)
 	if err != nil {
-		return ExportRequest{}, invalidIncidentBundleRequest("incident_id", "invalid_value")
+		return exportRequest{}, invalidIncidentBundleRequest("incident_id", "invalid_value")
 	}
 	clientTxnID, apiErr := requiredStringField(raw, "client_txn_id")
 	if apiErr != nil {
-		return ExportRequest{}, apiErr
+		return exportRequest{}, apiErr
 	}
-	referencePackMode := ReferencePackModeRefsOnly
+	referencePackMode := referencePackModeRefsOnly
 	if value, ok := raw["reference_pack_mode"]; ok {
 		if bytesEqualJSONNull(value) {
-			return ExportRequest{}, invalidIncidentBundleRequest("reference_pack_mode", "field_not_nullable")
+			return exportRequest{}, invalidIncidentBundleRequest("reference_pack_mode", "field_not_nullable")
 		}
 		if err := json.Unmarshal(value, &referencePackMode); err != nil {
-			return ExportRequest{}, invalidIncidentBundleRequest("reference_pack_mode", "invalid_reference_pack_mode")
+			return exportRequest{}, invalidIncidentBundleRequest("reference_pack_mode", "invalid_reference_pack_mode")
 		}
-		if referencePackMode != ReferencePackModeRefsOnly && referencePackMode != ReferencePackModeEmbedded {
-			return ExportRequest{}, invalidIncidentBundleRequest("reference_pack_mode", "invalid_reference_pack_mode")
+		if referencePackMode != referencePackModeRefsOnly && referencePackMode != referencePackModeEmbedded {
+			return exportRequest{}, invalidIncidentBundleRequest("reference_pack_mode", "invalid_reference_pack_mode")
 		}
 	}
 	optionalSections, apiErr := canonicalOptionalSections(raw)
 	if apiErr != nil {
-		return ExportRequest{}, apiErr
+		return exportRequest{}, apiErr
 	}
 	capabilityActivationRequested, apiErr := decodeRequiredCapabilities(raw)
 	if apiErr != nil {
-		return ExportRequest{}, apiErr
+		return exportRequest{}, apiErr
 	}
 	requiredCapabilities := []string{}
 	normalized, err := json.Marshal(map[string]any{
-		"blob_mode":             BlobModeFull,
-		"history_mode":          HistoryModeFull,
+		"blob_mode":             blobModeFull,
+		"history_mode":          historyModeFull,
 		"incident_id":           incidentID.String(),
 		"optional_sections":     optionalSections,
 		"reference_pack_mode":   referencePackMode,
 		"required_capabilities": requiredCapabilities,
 	})
 	if err != nil {
-		return ExportRequest{}, internalAPIError(err)
+		return exportRequest{}, internalAPIError()
 	}
-	return ExportRequest{
+	return exportRequest{
 		IncidentID:                    incidentID,
 		ClientTxnID:                   clientTxnID,
 		ReferencePackMode:             referencePackMode,
 		OptionalSections:              optionalSections,
 		RequiredCapabilities:          requiredCapabilities,
 		CapabilityActivationRequested: capabilityActivationRequested,
-		HistoryMode:                   HistoryModeFull,
-		BlobMode:                      BlobModeFull,
+		HistoryMode:                   historyModeFull,
+		BlobMode:                      blobModeFull,
 		Normalized:                    normalized,
 	}, nil
 }
 
-func DecodeImportMetadata(envelope httpapi.UploadEnvelope) (ImportMetadataRequest, *httpapi.APIError) {
+func decodeImportMetadata(envelope httpapi.UploadEnvelope) (importMetadataRequest, *httpapi.APIError) {
 	allowed := map[string]struct{}{
 		"client_txn_id": {},
 	}
 	for key := range envelope.Metadata {
 		if _, ok := allowed[key]; !ok {
-			return ImportMetadataRequest{}, invalidIncidentBundleRequest(key, "unknown_field")
+			return importMetadataRequest{}, invalidIncidentBundleRequest(key, "unknown_field")
 		}
 	}
 	clientTxnID, apiErr := requiredStringField(envelope.Metadata, "client_txn_id")
 	if apiErr != nil {
-		return ImportMetadataRequest{}, apiErr
+		return importMetadataRequest{}, apiErr
 	}
 	normalized, err := json.Marshal(map[string]any{
 		"file_sha256": envelope.FileSHA256Hex,
 	})
 	if err != nil {
-		return ImportMetadataRequest{}, internalAPIError(err)
+		return importMetadataRequest{}, internalAPIError()
 	}
-	return ImportMetadataRequest{ClientTxnID: clientTxnID, Normalized: normalized}, nil
+	return importMetadataRequest{ClientTxnID: clientTxnID, Normalized: normalized}, nil
 }
 
 func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
@@ -267,8 +266,8 @@ func clientTxnConflict(clientTxnID string) *httpapi.APIError {
 	return &httpapi.APIError{Status: http.StatusConflict, Code: "client_txn_conflict", Details: map[string]any{"client_txn_id": clientTxnID}}
 }
 
-func internalAPIError(err error) *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: err.Error(), Details: map[string]any{}}
+func internalAPIError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: "internal_error", Details: map[string]any{}}
 }
 
 func uploadEnvelopeAPIError(err *httpapi.UploadEnvelopeError) *httpapi.APIError {
@@ -280,7 +279,9 @@ func uploadEnvelopeAPIError(err *httpapi.UploadEnvelopeError) *httpapi.APIError 
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
 	if apiErr == nil {
-		apiErr = internalAPIError(fmt.Errorf("missing api error"))
+		apiErr = internalAPIError()
+	} else if apiErr.Code == "internal_error" {
+		apiErr = internalAPIError()
 	}
 	message := apiErr.Message
 	if message == "" {

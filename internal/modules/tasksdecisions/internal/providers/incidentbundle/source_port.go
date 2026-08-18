@@ -13,16 +13,7 @@ import (
 )
 
 func NewSourcePort() sourceport.Port {
-	descriptor := sourceport.Descriptor{
-		FamilyID: "tasks_decisions", ContractMajor: sourceport.ContractMajor,
-		OwnerID: "module.tasksdecisions", OwnerRelationIDs: []string{"tasks-and-decisions"},
-		Dependencies: []string{"artifacts"},
-		Paths: []sourceport.Path{
-			{LogicalPath: "data/task_requests.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}},
-			{LogicalPath: "data/decisions.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}},
-		},
-		InvariantIDs: policy.PortabilityInvariantIDs(),
-	}
+	descriptor := tasksDecisionsSourceDescriptor()
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor, Export: sourceport.QueryExport(exportIncidentBundleFiles),
 		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
@@ -43,6 +34,19 @@ func NewSourcePort() sourceport.Port {
 			return validatePreparedTasksDecisionsImportTx(ctx, tx, prepared, importContext)
 		},
 	})
+}
+
+func tasksDecisionsSourceDescriptor() sourceport.Descriptor {
+	return sourceport.Descriptor{
+		FamilyID: "tasks_decisions", ContractMajor: sourceport.ContractMajor,
+		OwnerID: "module.tasksdecisions", OwnerRelationIDs: []string{"tasks-and-decisions"},
+		Dependencies: []string{"artifacts"},
+		Paths: []sourceport.Path{
+			{LogicalPath: "data/task_requests.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "tasks_decisions.source_identity_admitted"},
+			{LogicalPath: "data/decisions.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "tasks_decisions.source_identity_admitted"},
+		},
+		InvariantIDs: policy.PortabilityInvariantIDs(),
+	}
 }
 
 type portableSourceIdentity struct {

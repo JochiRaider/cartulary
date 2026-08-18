@@ -19,11 +19,11 @@ func NewIncidentBundleSourcePort(subtypeCatalog *subtypepresence.Catalog) source
 		Paths: []sourceport.Path{{
 			LogicalPath: recordsBundlePath, ContentRole: "source_rows",
 			SchemaID: "cartulary.incident_bundle.records.row.v1",
-			Versions: []int{1, 2}, StableIdentity: []string{"record_id"},
+			Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "records.source_identity_admitted",
 		}},
 		InvariantIDs: []string{
 			"records.incident_scope", "records.envelope_legal",
-			"records.subtype_complete",
+			"records.subtype_complete", "records.source_identity_admitted",
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
@@ -48,7 +48,7 @@ func NewIncidentBundleSourcePort(subtypeCatalog *subtypepresence.Catalog) source
 				bundle,
 				recordsPrivateImportContext(importContext),
 			)
-			return prepared, recordsPortError(err)
+			return prepared, recordsPortError(descriptor, err)
 		},
 		Apply: func(
 			ctx context.Context,
@@ -60,7 +60,7 @@ func NewIncidentBundleSourcePort(subtypeCatalog *subtypepresence.Catalog) source
 			if !ok {
 				return sourceport.ErrPreparedBinding
 			}
-			return recordsPortError(applyPreparedRecordsImportTx(
+			return recordsPortError(descriptor, applyPreparedRecordsImportTx(
 				ctx,
 				tx,
 				prepared,
@@ -77,7 +77,7 @@ func NewIncidentBundleSourcePort(subtypeCatalog *subtypepresence.Catalog) source
 			if !ok {
 				return sourceport.ErrPreparedBinding
 			}
-			return recordsPortError(validatePreparedRecordsImportTx(
+			return recordsPortError(descriptor, validatePreparedRecordsImportTx(
 				ctx,
 				tx,
 				prepared,
@@ -100,16 +100,13 @@ func recordsPrivateImportContext(importContext sourceport.ImportContext) records
 	}
 }
 
-func recordsPortError(err error) error {
+func recordsPortError(descriptor sourceport.Descriptor, err error) error {
 	if err == nil {
 		return nil
 	}
 	var invariantFailure *recordsInvariantError
 	if errors.As(err, &invariantFailure) {
-		return &sourceport.Failure{
-			FamilyID:    "records",
-			InvariantID: invariantFailure.InvariantID,
-		}
+		return descriptor.DeclaredFailure(invariantFailure.InvariantID)
 	}
 	return err
 }

@@ -387,7 +387,7 @@ func applyAndValidateTaskDecisionBundle(t testing.TB, harness tasksDecisionsPort
 func requireTasksDecisionsPortabilityFailure(t testing.TB, err error, invariantID string) {
 	t.Helper()
 	var failure *sourceport.Failure
-	if !errors.As(err, &failure) || failure.FamilyID != "tasks_decisions" || failure.InvariantID != invariantID {
+	if !errors.As(err, &failure) || failure.FamilyID() != "tasks_decisions" || failure.InvariantID() != invariantID {
 		t.Fatalf("tasks/decisions portability failure = %#v, %v; want %s", failure, err, invariantID)
 	}
 }

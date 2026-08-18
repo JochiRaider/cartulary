@@ -350,10 +350,7 @@ func nullableCanonicalPortableTime(value any) (*time.Time, bool) {
 }
 
 func tasksDecisionsInvariantFailure(invariantID string) error {
-	if !policy.IsPortabilityInvariant(invariantID) {
-		invariantID = policy.InvariantEnvelope
-	}
-	return &sourceport.Failure{FamilyID: "tasks_decisions", InvariantID: invariantID}
+	return tasksDecisionsSourceDescriptor().DeclaredFailure(invariantID)
 }
 
 func applyPreparedTasksDecisionsImportTx(

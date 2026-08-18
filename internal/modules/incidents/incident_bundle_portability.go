@@ -41,7 +41,7 @@ func ImportIncidentBundleIncidentTx(ctx context.Context, tx pgx.Tx, payload []by
 		return err
 	}
 	if tag.RowsAffected() != 1 {
-		return &incidentportability.VerificationFailure{ReasonCode: "duplicate_source_row"}
+		return incidentportability.FixedImportFailure("data/incident.json")
 	}
 	return nil
 }

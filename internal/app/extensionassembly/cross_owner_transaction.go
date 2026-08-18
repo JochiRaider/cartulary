@@ -48,7 +48,7 @@ type TransactionCapabilityProvider interface {
 // registry, so participant admission cannot be expanded at runtime.
 type TransactionCapabilityMux struct {
 	NetworkFlow     *networkflow.Module
-	IncidentBundles *incidentbundles.ImportTransactionProvider
+	IncidentBundles TransactionCapabilityProvider
 }
 
 func (m TransactionCapabilityMux) TransactionCapabilities(participantID string, tx pgx.Tx) (crossownertransaction.ReadCapability, crossownertransaction.WriteCapability, error) {

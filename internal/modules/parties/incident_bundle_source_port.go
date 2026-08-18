@@ -13,8 +13,8 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		FamilyID: "parties", ContractMajor: sourceport.ContractMajor,
 		OwnerID: "module.parties", OwnerRelationIDs: []string{"parties"},
 		Dependencies: []string{"timeline"},
-		Paths:        []sourceport.Path{{LogicalPath: "data/parties.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}}},
-		InvariantIDs: []string{"parties.envelope_type_scope", "parties.identity_lifecycle", "parties.normalization_exact"},
+		Paths:        []sourceport.Path{{LogicalPath: "data/parties.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "parties.source_identity_admitted"}},
+		InvariantIDs: []string{"parties.envelope_type_scope", "parties.identity_lifecycle", "parties.normalization_exact", "parties.source_identity_admitted"},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor, Export: sourceport.QueryExport(ExportIncidentBundleFiles),
@@ -36,7 +36,7 @@ SELECT EXISTS (
 				return err
 			}
 			if invalid {
-				return &sourceport.Failure{FamilyID: "parties", InvariantID: "parties.envelope_type_scope"}
+				return descriptor.DeclaredFailure("parties.envelope_type_scope")
 			}
 			return nil
 		},

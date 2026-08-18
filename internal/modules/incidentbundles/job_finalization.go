@@ -52,7 +52,7 @@ func (f importJobTransactionFinalizer) Publish(
 		len(values) == 0 {
 		return crossownertransaction.ErrWrite
 	}
-	result, ok := values[ImportTransactionParticipantID].(ImportTransactionResult)
+	result, ok := values[ImportTransactionParticipantID].(importTransactionResult)
 	if !ok || result.IncidentID == uuid.Nil {
 		return crossownertransaction.ErrWrite
 	}

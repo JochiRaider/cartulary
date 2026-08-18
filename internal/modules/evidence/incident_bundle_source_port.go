@@ -14,15 +14,16 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		OwnerID: "module.evidence", OwnerRelationIDs: []string{"evidence-source-and-handles"},
 		Dependencies: []string{"tasks_decisions"},
 		Paths: []sourceport.Path{
-			{LogicalPath: "data/evidence_records.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}},
-			{LogicalPath: "data/evidence_custody_events.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"custody_event_id"}},
-			{LogicalPath: "data/object_blobs.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"object_blob_id"}},
+			{LogicalPath: "data/evidence_records.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
+			{LogicalPath: "data/evidence_custody_events.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"custody_event_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
+			{LogicalPath: "data/object_blobs.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"object_blob_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
 		},
 		InvariantIDs: []string{
 			"evidence.envelope_type_scope", "evidence.object_metadata_agree",
 			"evidence.storage_reference_legal", "evidence.byte_size_digest_agree",
 			"evidence.lifecycle_legal", "evidence.staged_bytes_digest",
 			"evidence.custody_ordered", "evidence.custody_same_incident",
+			"evidence.source_identity_admitted",
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
@@ -47,7 +48,7 @@ SELECT EXISTS (
 				return err
 			}
 			if invalid {
-				return &sourceport.Failure{FamilyID: "evidence", InvariantID: "evidence.envelope_type_scope"}
+				return descriptor.DeclaredFailure("evidence.envelope_type_scope")
 			}
 			return nil
 		},

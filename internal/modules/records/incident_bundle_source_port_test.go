@@ -598,8 +598,8 @@ func requireRecordsFailure(t testing.TB, err error, invariantID string) {
 	t.Helper()
 	var failure *sourceport.Failure
 	if !errors.As(err, &failure) ||
-		failure.FamilyID != "records" ||
-		failure.InvariantID != invariantID {
+		failure.FamilyID() != "records" ||
+		failure.InvariantID() != invariantID {
 		t.Fatalf("records failure = %#v, %v; want %s", failure, err, invariantID)
 	}
 	if strings.Contains(err.Error(), "record_id") ||

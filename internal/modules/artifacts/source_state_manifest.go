@@ -167,10 +167,11 @@ func (manifest *sourceStateManifest) sourcePortPaths() []sourceport.Path {
 	paths := make([]sourceport.Path, 0, len(manifest.relations))
 	for _, relation := range manifest.relations {
 		paths = append(paths, sourceport.Path{
-			LogicalPath:    relation.logicalBundlePath,
-			ContentRole:    "source_rows",
-			Versions:       append([]int(nil), relation.supportedVersions...),
-			StableIdentity: append([]string(nil), relation.stableIdentity...),
+			LogicalPath:               relation.logicalBundlePath,
+			ContentRole:               "source_rows",
+			Versions:                  append([]int(nil), relation.supportedVersions...),
+			StableIdentity:            append([]string(nil), relation.stableIdentity...),
+			StableIdentityInvariantID: "artifacts.source_identity_admitted",
 		})
 	}
 	return paths

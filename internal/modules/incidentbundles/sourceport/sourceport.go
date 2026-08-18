@@ -23,11 +23,12 @@ var (
 )
 
 type Path struct {
-	LogicalPath    string   `json:"logical_path"`
-	ContentRole    string   `json:"content_role"`
-	SchemaID       string   `json:"schema_id,omitempty"`
-	Versions       []int    `json:"versions"`
-	StableIdentity []string `json:"stable_identity"`
+	LogicalPath               string   `json:"logical_path"`
+	ContentRole               string   `json:"content_role"`
+	SchemaID                  string   `json:"schema_id,omitempty"`
+	Versions                  []int    `json:"versions"`
+	StableIdentity            []string `json:"stable_identity"`
+	StableIdentityInvariantID string   `json:"stable_identity_invariant_id"`
 }
 
 type Descriptor struct {
@@ -117,12 +118,40 @@ type ContractValidator interface {
 }
 
 type Failure struct {
-	FamilyID    string
-	InvariantID string
+	familyID    string
+	invariantID string
 }
 
 func (e *Failure) Error() string {
-	return fmt.Sprintf("incident bundle source family %s failed invariant %s", e.FamilyID, e.InvariantID)
+	return fmt.Sprintf("incident bundle source family %s failed invariant %s", e.familyID, e.invariantID)
+}
+
+func (e *Failure) FamilyID() string {
+	if e == nil {
+		return ""
+	}
+	return e.familyID
+}
+
+func (e *Failure) InvariantID() string {
+	if e == nil {
+		return ""
+	}
+	return e.invariantID
+}
+
+// DeclaredFailure constructs a read-only failure bound to this descriptor's
+// family and closed invariant registry.
+func (d Descriptor) DeclaredFailure(invariantID string) error {
+	if strings.TrimSpace(d.FamilyID) == "" || !strings.HasPrefix(invariantID, d.FamilyID+".") {
+		return fmt.Errorf("%w: invariant %s is outside family %s", ErrInvalidCatalog, invariantID, d.FamilyID)
+	}
+	for _, declared := range d.InvariantIDs {
+		if invariantID == declared {
+			return &Failure{familyID: d.FamilyID, invariantID: invariantID}
+		}
+	}
+	return fmt.Errorf("%w: invariant %s is undeclared for family %s", ErrInvalidCatalog, invariantID, d.FamilyID)
 }
 
 type Catalog struct {
@@ -311,7 +340,8 @@ func validateDescriptor(descriptor Descriptor, allowedRelations map[string]struc
 	seenPaths := map[string]struct{}{}
 	for _, path := range descriptor.Paths {
 		if strings.TrimSpace(path.LogicalPath) == "" || strings.TrimSpace(path.ContentRole) == "" ||
-			len(path.Versions) == 0 || len(path.StableIdentity) == 0 {
+			len(path.Versions) == 0 || len(path.StableIdentity) == 0 ||
+			strings.TrimSpace(path.StableIdentityInvariantID) == "" {
 			return fmt.Errorf("%w: incomplete path in %s", ErrInvalidCatalog, descriptor.FamilyID)
 		}
 		if path.SchemaID != "" && !schemaIDPattern.MatchString(path.SchemaID) {
@@ -319,6 +349,9 @@ func validateDescriptor(descriptor Descriptor, allowedRelations map[string]struc
 		}
 		if _, duplicate := seenPaths[path.LogicalPath]; duplicate {
 			return fmt.Errorf("%w: duplicate path %s", ErrInvalidCatalog, path.LogicalPath)
+		}
+		if failure := descriptor.DeclaredFailure(path.StableIdentityInvariantID); errors.Is(failure, ErrInvalidCatalog) {
+			return failure
 		}
 		seenPaths[path.LogicalPath] = struct{}{}
 	}

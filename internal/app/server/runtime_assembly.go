@@ -312,6 +312,15 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("project Network Flow application plan: route and workspace admission disagree")
 	}
+	incidentBundleRouteAdmitted, err := publicationCatalog.ExactProfileContributionSet(
+		incidentbundles.ProfileID,
+		"http_route_family",
+		[]string{incidentbundles.BundlesRouteContributionID},
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("project Incident Bundles route application plan: %w", err)
+	}
 	referencePackRouteAdmitted, err := publicationCatalog.ExactProfileContributionSet(
 		reference_data.ProfileID,
 		"http_route_family",
@@ -798,7 +807,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 	cursorCodec := pagination.NewCodec(cursorKey[:])
 	attributionResolvers := revisions.NewAttributionResolverRegistry()
-	if err := attributionResolvers.RegisterImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID, incidentbundles.ImportedAttributionResolver()); err != nil {
+	if err := attributionResolvers.RegisterImportedAttributionResolver(incidentbundles.ProfileID, incidentbundles.ImportedAttributionResolver()); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("register incident portability attribution resolver: %w", err)
 	}
@@ -895,7 +904,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	}
 	revisionCommands, err := revisionRuntime.NewCommandService(
 		postgresHandle,
-		attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID),
+		attributionResolvers.ImportedAttributionResolver(incidentbundles.ProfileID),
 		projectionRuntime.RevisionRebuilder(),
 		projectionRuntime.RevisionLiveRecords(),
 		now,
@@ -939,21 +948,50 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Network Flow module: %w", err)
 	}
-	incidentBundleImportTransactions, err := incidentbundles.NewImportTransactionProvider(
-		postgresPool,
-		evidenceBlobPort,
-		incidentBundleImportFinalizer,
-		projectionRuntime.ImportRebuilder(),
-		historicalIntentPolicy,
-		jobTransactions,
-		now,
+	networkFlowPortabilityState := networkflow.NewPortabilityStateBinding()
+	portabilityPresence, err := extensionassembly.NewIncidentPortabilityStatePresence(networkFlowPortabilityState)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Incident Portability state presence: %w", err)
+	}
+	portability, err := incidentbundles.NewPortabilityOrchestrator(
+		extensionassembly.IncidentPortabilityPolicies(extensionCoordinator.PortabilityPolicies(), resolvedClaims),
+		portabilityPresence,
+		nil,
+		stagedObjectService,
 	)
 	if err != nil {
 		runtime.Close()
-		return nil, fmt.Errorf("compose Incident Bundles import transaction provider: %w", err)
+		return nil, fmt.Errorf("compose Incident Portability: %w", err)
+	}
+	incidentSourceCatalog, err := incidentportabilityassembly.NewCatalog()
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Incident Portability source catalog: %w", err)
+	}
+	incidentBundleModule, err := incidentbundles.NewModule(incidentbundles.ModuleDependencies{
+		Postgres:                postgresPool,
+		JobTransactions:         jobTransactions,
+		JobOperations:           jobManager,
+		JobRunner:               runtime.jobRunner,
+		Storage:                 incidentBundleStorage,
+		Limits:                  settingsProjection.IncidentBundles(),
+		ImportFinalizer:         incidentBundleImportFinalizer,
+		JobFinalizer:            extensionassembly.NewIncidentBundleJobSuccessFinalizer(extensionJobFinalizer, now),
+		Portability:             portability,
+		IncidentPublicationLock: incidentTransactionParticipant,
+		ProjectionRebuilder:     projectionRuntime.ImportRebuilder(),
+		SourceCatalog:           incidentSourceCatalog,
+		HistoricalIntentPolicy:  historicalIntentPolicy,
+		BlobPortability:         evidenceBlobPort,
+		Now:                     now,
+	})
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Incident Bundles module: %w", err)
 	}
 	crossOwnerBackend, err := extensionassembly.NewCrossOwnerBackend(postgresHandle, extensionassembly.TransactionCapabilityMux{
-		NetworkFlow: networkFlowModule, IncidentBundles: incidentBundleImportTransactions,
+		NetworkFlow: networkFlowModule, IncidentBundles: incidentBundleModule,
 	})
 	if err != nil {
 		runtime.Close()
@@ -974,6 +1012,10 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	if err := networkFlowModule.InstallCrossOwnerCoordinator(crossOwnerCoordinator); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("install Network Flow cross-owner transactions: %w", err)
+	}
+	if err := incidentBundleModule.InstallCrossOwnerCoordinator(crossOwnerCoordinator); err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("install Incident Bundles cross-owner transactions: %w", err)
 	}
 	var networkFlowCleanupDispatcher *networkflow.GraphResultCleanupDispatcher
 	if networkFlowRouteAdmitted {
@@ -998,42 +1040,14 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("register Network Flow graph view worker: %w", err)
 		}
 	}
-	networkFlowPortabilityState := networkflow.NewPortabilityStateBinding()
-	portabilityPresence, err := extensionassembly.NewIncidentPortabilityStatePresence(networkFlowPortabilityState)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("compose Incident Portability state presence: %w", err)
+	var incidentBundleRoutes httpapi.RouteRegistrar
+	if incidentBundleRouteAdmitted {
+		if err := incidentBundleModule.RegisterBundleWorker(); err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("register Incident Bundles worker: %w", err)
+		}
+		incidentBundleRoutes = incidentBundleModule.RegisterRoutes()
 	}
-	portability, err := incidentbundles.NewPortabilityOrchestrator(
-		extensionassembly.IncidentPortabilityPolicies(extensionCoordinator.PortabilityPolicies(), resolvedClaims),
-		portabilityPresence,
-		nil,
-		stagedObjectService,
-	)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("compose Incident Portability: %w", err)
-	}
-	incidentSourceCatalog, err := incidentportabilityassembly.NewCatalog()
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("compose Incident Portability source catalog: %w", err)
-	}
-	incidentBundleRoutes := incidentbundles.RegisterRoutes(
-		incidentbundles.WithJobs(jobTransactions, jobManager, runtime.jobRunner),
-		incidentbundles.WithStorage(incidentBundleStorage),
-		incidentbundles.WithLimits(settingsProjection.IncidentBundles()),
-		incidentbundles.WithImportFinalizer(incidentBundleImportFinalizer),
-		incidentbundles.WithJobSuccessFinalizer(
-			extensionassembly.NewIncidentBundleJobSuccessFinalizer(extensionJobFinalizer, now),
-		),
-		incidentbundles.WithPortability(portability, crossOwnerCoordinator),
-		incidentbundles.WithIncidentPublicationLock(incidentTransactionParticipant),
-		incidentbundles.WithProjectionRebuild(projectionRuntime.ImportRebuilder()),
-		incidentbundles.WithSourceCatalog(incidentSourceCatalog),
-		incidentbundles.WithHistoricalIntentPolicy(historicalIntentPolicy),
-		incidentbundles.WithBlobPortability(evidenceBlobPort),
-	)
 	importOwnerLimits, importArchiveLimits := settingsProjection.Imports()
 	importOwnerRegistry, err := importassembly.NewOwnerCreateRegistry(
 		importassembly.OwnerRegistryDependencies{

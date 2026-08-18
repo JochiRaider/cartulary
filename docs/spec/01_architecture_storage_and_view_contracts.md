@@ -7583,6 +7583,16 @@ duplicate or failed handler registration, or unavailable recovery MUST fail
 application assembly before publication and execute no work. An unclaimed
 profile MUST expose no Incident Bundle routes, MUST register or invoke no
 Incident Bundle handler, and has no profile-specific runner requirement.
+
+Claimed-profile composition MUST use one Incident Bundles module facade that
+validates every required dependency before exposing transaction capabilities,
+work, or routes. Application composition MUST construct that facade, use its
+transaction capabilities to construct the application-owned cross-owner
+coordinator, install that coordinator exactly once, register the named bundle
+handler exactly once, and only then publish the route contribution. Required
+dependencies MUST NOT be represented as optional functional options, and a
+second constructor, forwarding wrapper, or mutable replacement path is
+forbidden.
 Profiles: incident_portability
 Verified by: AC-492, AC-493
 
@@ -7611,7 +7621,7 @@ Every port MUST provide the following behavioral interface:
 
 | Operation | Input | Output | Required behavior |
 | --- | --- | --- | --- |
-| Descriptor | None | Immutable descriptor | Declares family ID, contract major, exact paths and content roles, stable row identities, dependency IDs, owner ID, owner relation IDs, and the closed invariant IDs in REQ-01-640. |
+| Descriptor | None | Immutable descriptor | Declares family ID, contract major, exact paths and content roles, stable row identities, one stable-identity invariant ID per path, dependency IDs, owner ID, owner relation IDs, and the closed invariant IDs in REQ-01-640. |
 | Export | Read-only query capability and `incident_id` | Deterministic ordered files | Reads only owner state and emits the admitted current version. |
 | Prepare import | Bounded read-only bundle capability and immutable import context | Opaque prepared value or typed failure | Decodes exact shapes without information loss, enforces the source owner's canonical-input policy, validates row-local semantics, and performs no database or visible-object mutation. Owner-declared normalization is permitted only when its adopted contract expressly admits normalization into acceptance. |
 | Apply import transaction | Supplied transaction, matching prepared value, and immutable import context | Success or typed failure | Uses fixed owner-controlled SQL or SQLC, writes only owner relations, and requires affected-row equality. |
@@ -7621,8 +7631,9 @@ A prepared value is bound to its creating port and operation and MUST be passed
 only to that same port. The catalog MUST reject duplicate family IDs, duplicate
 logical paths, uncovered required paths, paths claimed more than once,
 unsupported contract majors, unknown dependencies, dependency cycles, missing
-ports, empty stable identities, empty invariant sets, and owner relation IDs
-absent from the schema-ownership projection. It MUST record one FK-safe
+ports, empty stable identities, missing or undeclared path stable-identity
+invariants, empty invariant sets, and owner relation IDs absent from the
+schema-ownership projection. It MUST record one FK-safe
 topological order. Topological peers sort by `family_id` ascending; order MUST
 NOT derive from Go imports, map iteration, filesystem or archive order, or
 physical relation names. Ownership metadata is audit data only: the
@@ -7637,21 +7648,27 @@ The current contract-major-`1` source catalog and closed invariant IDs are:
 
 | Family | Dependencies | Required invariant IDs |
 | --- | --- | --- |
-| `incident` | `[]` | `incident.exact_shape`, `incident.identity_key_lifecycle`, `incident.attribution_version` |
-| `records` | `incident` | `records.incident_scope`, `records.envelope_legal`, `records.subtype_complete` |
-| `timeline` | `records` | `timeline.version_shape_exact`, `timeline.envelope_type_scope`, `timeline.lifecycle_coherent`, `timeline.generated_time_coherent`, `timeline.paired_time_coherent`, `timeline.provenance_unique`, `timeline.provenance_non_orphaned`, `timeline.v1_translation_lossless` |
-| `parties` | `timeline` | `parties.envelope_type_scope`, `parties.identity_lifecycle`, `parties.normalization_exact` |
-| `entities` | `parties` | `entities.mentions_observational`, `entities.envelope_type_scope`, `entities.resolution_merge_coherent`, `entities.alias_identifier_normalized`, `entities.alias_identifier_classified`, `entities.alias_identifier_unique`, `entities.alias_identifier_same_incident` |
-| `indicators` | `entities` | `indicators.representation_legal`, `indicators.normalization_exact`, `indicators.identity_unique`, `indicators.observation_same_incident`, `indicators.observation_ordered`, `indicators.observation_coherent`, `indicators.interval_same_incident`, `indicators.interval_ordered`, `indicators.interval_coherent`, `indicators.repeated_observations_preserved` |
-| `artifacts` | `indicators` | `artifacts.envelope_type_scope`, `artifacts.subtype_exact`, `artifacts.lifecycle_fields_legal`, `artifacts.handoff_risk_target`, `artifacts.references_same_incident` |
-| `tasks_decisions` | `artifacts` | `tasks_decisions.envelope_type_scope`, `tasks_decisions.lifecycle_legal`, `tasks_decisions.dependent_fields_legal`, `tasks_decisions.references_same_incident` |
-| `evidence` | `tasks_decisions` | `evidence.envelope_type_scope`, `evidence.object_metadata_agree`, `evidence.storage_reference_legal`, `evidence.byte_size_digest_agree`, `evidence.lifecycle_legal`, `evidence.staged_bytes_digest`, `evidence.custody_ordered`, `evidence.custody_same_incident` |
-| `assessments` | `evidence` | `assessments.subject_type_scope`, `assessments.state_confidence_rationale_legal`, `assessments.timestamps_lifecycle_legal` |
-| `links_tags` | `assessments` | `links_tags.endpoints_same_incident`, `links_tags.link_tuple_legal`, `links_tags.link_unique`, `links_tags.deletion_tuple_legal`, `links_tags.tag_normalized`, `links_tags.tag_catalog_exact` |
-| `revisions` | `links_tags` | `revisions.references_complete`, `revisions.actor_references_complete`, `revisions.mutation_sequence_contiguous`, `revisions.record_version_unique`, `revisions.history_reconstruction`, `revisions.sequence_repair_after_validation` |
-| `saved_views` | `revisions` | `saved_views.row_shape_exact`, `saved_views.identity_scope_legal`, `saved_views.owner_tuple_legal`, `saved_views.display_name_normalized`, `saved_views.query_layout_legal`, `saved_views.version_timestamps_legal`, `saved_views.reference_pack_degradation_bounded` |
+| `incident` | `[]` | `incident.source_identity_admitted`, `incident.exact_shape`, `incident.identity_key_lifecycle`, `incident.attribution_version` |
+| `records` | `incident` | `records.source_identity_admitted`, `records.incident_scope`, `records.envelope_legal`, `records.subtype_complete` |
+| `timeline` | `records` | `timeline.source_identity_admitted`, `timeline.version_shape_exact`, `timeline.envelope_type_scope`, `timeline.lifecycle_coherent`, `timeline.generated_time_coherent`, `timeline.paired_time_coherent`, `timeline.provenance_unique`, `timeline.provenance_non_orphaned`, `timeline.v1_translation_lossless` |
+| `parties` | `timeline` | `parties.source_identity_admitted`, `parties.envelope_type_scope`, `parties.identity_lifecycle`, `parties.normalization_exact` |
+| `entities` | `parties` | `entities.source_identity_admitted`, `entities.mentions_observational`, `entities.envelope_type_scope`, `entities.resolution_merge_coherent`, `entities.alias_identifier_normalized`, `entities.alias_identifier_classified`, `entities.alias_identifier_unique`, `entities.alias_identifier_same_incident` |
+| `indicators` | `entities` | `indicators.source_identity_admitted`, `indicators.representation_legal`, `indicators.normalization_exact`, `indicators.identity_unique`, `indicators.observation_same_incident`, `indicators.observation_ordered`, `indicators.observation_coherent`, `indicators.interval_same_incident`, `indicators.interval_ordered`, `indicators.interval_coherent`, `indicators.repeated_observations_preserved` |
+| `artifacts` | `indicators` | `artifacts.source_identity_admitted`, `artifacts.envelope_type_scope`, `artifacts.subtype_exact`, `artifacts.lifecycle_fields_legal`, `artifacts.handoff_risk_target`, `artifacts.references_same_incident` |
+| `tasks_decisions` | `artifacts` | `tasks_decisions.source_identity_admitted`, `tasks_decisions.envelope_type_scope`, `tasks_decisions.lifecycle_legal`, `tasks_decisions.dependent_fields_legal`, `tasks_decisions.references_same_incident` |
+| `evidence` | `tasks_decisions` | `evidence.source_identity_admitted`, `evidence.envelope_type_scope`, `evidence.object_metadata_agree`, `evidence.storage_reference_legal`, `evidence.byte_size_digest_agree`, `evidence.lifecycle_legal`, `evidence.staged_bytes_digest`, `evidence.custody_ordered`, `evidence.custody_same_incident` |
+| `assessments` | `evidence` | `assessments.source_identity_admitted`, `assessments.subject_type_scope`, `assessments.state_confidence_rationale_legal`, `assessments.timestamps_lifecycle_legal` |
+| `links_tags` | `assessments` | `links_tags.source_identity_admitted`, `links_tags.endpoints_same_incident`, `links_tags.link_tuple_legal`, `links_tags.link_unique`, `links_tags.deletion_tuple_legal`, `links_tags.tag_normalized`, `links_tags.tag_catalog_exact` |
+| `revisions` | `links_tags` | `revisions.source_identity_admitted`, `revisions.references_complete`, `revisions.actor_references_complete`, `revisions.mutation_sequence_contiguous`, `revisions.record_version_unique`, `revisions.history_reconstruction`, `revisions.sequence_repair_after_validation` |
+| `saved_views` | `revisions` | `saved_views.source_identity_admitted`, `saved_views.row_shape_exact`, `saved_views.identity_scope_legal`, `saved_views.owner_tuple_legal`, `saved_views.display_name_normalized`, `saved_views.query_layout_legal`, `saved_views.version_timestamps_legal`, `saved_views.reference_pack_degradation_bounded` |
 
 The corresponding source-owner invariant meanings are exactly:
+
+For every family, `<family_id>.source_identity_admitted` means that every row
+contains all path-declared stable-identity members in their canonical forms and
+that the resulting identity is unique within that logical path. The path's
+descriptor declares this invariant explicitly; descriptor order, caller input,
+archive order, and database error text MUST NOT select it.
 
 | Family | Required invariant meaning |
 | --- | --- |
@@ -8032,6 +8049,18 @@ details contain no caller-supplied family or invariant string and no raw
 database error. A constraint or driver failure MAY map to an invariant only
 through an owner-authored exact condition or constraint identity; parsing error
 messages or defaulting to the descriptor's first invariant is forbidden.
+
+Missing or duplicate stable identities MUST map through the failing logical
+path's server-owned `stable_identity_invariant_id`. An unknown logical path or
+undeclared invariant is an internal failure and MUST expose no family, path,
+invariant, row value, or caller-supplied source detail.
+
+Every Incident Bundles internal HTTP or durable-job failure MUST use exactly
+`code='internal_error'`, `message='internal_error'`, `retryable=false`, and an
+empty details object. Raw causes MAY be retained only for in-process causal
+control; logs, telemetry, readiness, administrative summaries, operator
+output, public responses, and durable job results receive only allowlisted
+classification and correlation data.
 
 Public errors, job results, logs, telemetry, readiness, administrative
 summaries, and operator output MUST NOT contain raw imported row values, raw

@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.incident_bundle_source_catalog.v1",
+  "$id": "cartulary.incident_bundle_source_catalog.v2",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_id", "contract_major", "families", "special_consumers"],
   "properties": {
-    "schema_id": { "const": "cartulary.incident_bundle_source_catalog.v1" },
+    "schema_id": { "const": "cartulary.incident_bundle_source_catalog.v2" },
     "contract_major": { "const": 1 },
     "families": {
       "type": "array",
@@ -23,7 +23,7 @@
     "path": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["logical_path", "content_role", "versions", "stable_identity"],
+      "required": ["logical_path", "content_role", "versions", "stable_identity", "stable_identity_invariant_id"],
       "properties": {
         "logical_path": { "type": "string", "minLength": 1 },
         "content_role": { "enum": ["singleton_json", "source_rows", "validation_rows"] },
@@ -39,7 +39,8 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": { "type": "string", "minLength": 1 }
-        }
+        },
+        "stable_identity_invariant_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$" }
       }
     },
     "family": {

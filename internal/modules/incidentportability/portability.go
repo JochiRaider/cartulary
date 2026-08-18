@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -61,6 +62,26 @@ type VerificationFailure struct {
 
 func (e *VerificationFailure) Error() string {
 	return "incident portability verification failed: " + e.ReasonCode
+}
+
+type fixedImportFailure struct {
+	logicalPath string
+}
+
+func (e *fixedImportFailure) Error() string {
+	return "incident portability fixed import failed"
+}
+
+func FixedImportFailure(logicalPath string) error {
+	return &fixedImportFailure{logicalPath: logicalPath}
+}
+
+func FixedImportFailurePath(err error) (string, bool) {
+	var failure *fixedImportFailure
+	if !errors.As(err, &failure) || strings.TrimSpace(failure.logicalPath) == "" {
+		return "", false
+	}
+	return failure.logicalPath, true
 }
 
 func ExportNDJSON(ctx context.Context, q Queryer, incidentID uuid.UUID, path string, query string) (File, error) {
@@ -135,7 +156,7 @@ func ImportFixedRows(ctx context.Context, tx pgx.Tx, spec FixedImportSpec, rows 
 			return err
 		}
 		if tag.RowsAffected() != 1 {
-			return &VerificationFailure{ReasonCode: "duplicate_source_row"}
+			return FixedImportFailure(spec.LogicalBundlePath)
 		}
 	}
 	return nil

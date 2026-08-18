@@ -8,16 +8,26 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
+	"net/textproto"
 	"os"
+	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
@@ -30,7 +40,7 @@ import (
 )
 
 func TestDecodeExportRequestCanonicalizesAndRejectsModes_Unit(t *testing.T) {
-	request, apiErr := DecodeExportRequest(bytes.NewBufferString(`{
+	request, apiErr := decodeExportRequest(bytes.NewBufferString(`{
 		"incident_id":"11111111-1111-1111-1111-111111111111",
 		"client_txn_id":"txn-export",
 		"optional_sections":["reference_packs","snapshots","reference_packs"],
@@ -38,9 +48,9 @@ func TestDecodeExportRequestCanonicalizesAndRejectsModes_Unit(t *testing.T) {
 		"reference_pack_mode":"embedded"
 	}`))
 	if apiErr != nil {
-		t.Fatalf("DecodeExportRequest returned error: %#v", apiErr)
+		t.Fatalf("decodeExportRequest returned error: %#v", apiErr)
 	}
-	if request.HistoryMode != HistoryModeFull || request.BlobMode != BlobModeFull {
+	if request.HistoryMode != historyModeFull || request.BlobMode != blobModeFull {
 		t.Fatalf("export request must force full modes, got history=%q blob=%q", request.HistoryMode, request.BlobMode)
 	}
 	if !slices.Equal(request.OptionalSections, []string{"reference_packs", "snapshots"}) {
@@ -57,11 +67,11 @@ func TestDecodeExportRequestCanonicalizesAndRejectsModes_Unit(t *testing.T) {
 		t.Fatalf("normalized request must include fixed modes: %#v", normalized)
 	}
 
-	omitted, omittedErr := DecodeExportRequest(bytes.NewBufferString(`{
+	omitted, omittedErr := decodeExportRequest(bytes.NewBufferString(`{
 		"incident_id":"11111111-1111-1111-1111-111111111111",
 		"client_txn_id":"txn-export-equivalent"
 	}`))
-	explicitEmpty, emptyErr := DecodeExportRequest(bytes.NewBufferString(`{
+	explicitEmpty, emptyErr := decodeExportRequest(bytes.NewBufferString(`{
 		"incident_id":"11111111-1111-1111-1111-111111111111",
 		"client_txn_id":"txn-export-equivalent",
 		"optional_sections":[],
@@ -75,7 +85,7 @@ func TestDecodeExportRequestCanonicalizesAndRejectsModes_Unit(t *testing.T) {
 		t.Fatalf("omitted and explicit-empty defaults normalize differently:\n omitted=%s\nexplicit=%s", omitted.Normalized, explicitEmpty.Normalized)
 	}
 
-	_, apiErr = DecodeExportRequest(bytes.NewBufferString(`{
+	_, apiErr = decodeExportRequest(bytes.NewBufferString(`{
 		"incident_id":"11111111-1111-1111-1111-111111111111",
 		"client_txn_id":"txn-export-malformed-capability",
 		"required_capabilities":[1]
@@ -84,7 +94,7 @@ func TestDecodeExportRequestCanonicalizesAndRejectsModes_Unit(t *testing.T) {
 		t.Fatalf("non-string capability member must remain a structural request failure: %#v", apiErr)
 	}
 
-	activation, apiErr := DecodeExportRequest(bytes.NewBufferString(`{
+	activation, apiErr := decodeExportRequest(bytes.NewBufferString(`{
 		"incident_id":"11111111-1111-1111-1111-111111111111",
 		"client_txn_id":"txn-export-required-capability",
 		"required_capabilities":["future-capability","future-capability"]
@@ -97,7 +107,7 @@ func TestDecodeExportRequestCanonicalizesAndRejectsModes_Unit(t *testing.T) {
 		`{"incident_id":"11111111-1111-1111-1111-111111111111","client_txn_id":"txn","history_mode":"partial"}`,
 		`{"incident_id":"11111111-1111-1111-1111-111111111111","client_txn_id":"txn","blob_mode":"metadata_only"}`,
 	} {
-		_, apiErr := DecodeExportRequest(bytes.NewBufferString(body))
+		_, apiErr := decodeExportRequest(bytes.NewBufferString(body))
 		if apiErr == nil || apiErr.Code != "invalid_incident_bundle_request" {
 			t.Fatalf("forbidden modes must fail with invalid_incident_bundle_request, got %#v", apiErr)
 		}
@@ -110,32 +120,32 @@ func TestBundleManifestChecksumDeterministic_Unit(t *testing.T) {
 	files := minimalRequiredBundleFiles()
 	files["data/records.ndjson"] = []byte("{}\n")
 	files["data/artifacts.ndjson"] = []byte("{\"record_id\":\"33333333-3333-4333-8333-333333333333\"}\n")
-	first, err := BuildBundleArchive(ManifestInput{
+	first, err := buildBundleArchive(manifestInput{
 		BundleID:             "22222222-2222-2222-2222-222222222222",
 		IncidentID:           "11111111-1111-1111-1111-111111111111",
 		IncidentKey:          "INC-1",
 		ExportedAt:           "2026-05-25T00:00:00Z",
-		ReferencePackMode:    ReferencePackModeRefsOnly,
+		ReferencePackMode:    referencePackModeRefsOnly,
 		OptionalSections:     []string{},
 		RequiredCapabilities: []string{},
 	}, files)
 	if err != nil {
-		t.Fatalf("BuildBundleArchive first: %v", err)
+		t.Fatalf("buildBundleArchive first: %v", err)
 	}
 	secondFiles := minimalRequiredBundleFiles()
 	secondFiles["data/records.ndjson"] = []byte("{}\n")
 	secondFiles["data/artifacts.ndjson"] = []byte("{\"record_id\":\"33333333-3333-4333-8333-333333333333\"}\n")
-	second, err := BuildBundleArchive(ManifestInput{
+	second, err := buildBundleArchive(manifestInput{
 		BundleID:             "22222222-2222-2222-2222-222222222222",
 		IncidentID:           "11111111-1111-1111-1111-111111111111",
 		IncidentKey:          "INC-1",
 		ExportedAt:           "2026-05-25T00:00:00Z",
-		ReferencePackMode:    ReferencePackModeRefsOnly,
+		ReferencePackMode:    referencePackModeRefsOnly,
 		OptionalSections:     []string{},
 		RequiredCapabilities: []string{},
 	}, secondFiles)
 	if err != nil {
-		t.Fatalf("BuildBundleArchive second: %v", err)
+		t.Fatalf("buildBundleArchive second: %v", err)
 	}
 	if !bytes.Equal(first.Bytes, second.Bytes) {
 		t.Fatal("deterministic bundle archive changed when input map order changed")
@@ -204,33 +214,33 @@ func requireClosedRequiredSourceFileRegistry(t testing.TB) {
 
 	files := minimalRequiredBundleFiles()
 	delete(files, "data/parties.ndjson")
-	_, err := BuildBundleArchive(ManifestInput{
+	_, err := buildBundleArchive(manifestInput{
 		BundleID:          "55555555-5555-5555-5555-555555555555",
 		IncidentID:        "11111111-1111-1111-1111-111111111111",
 		IncidentKey:       "INC-1",
 		ExportedAt:        "2026-05-25T00:00:00Z",
-		ReferencePackMode: ReferencePackModeRefsOnly,
+		ReferencePackMode: referencePackModeRefsOnly,
 	}, files)
 	if err == nil || !strings.Contains(err.Error(), "data/parties.ndjson is required") {
-		t.Fatalf("BuildBundleArchive must reject missing required source files, got %v", err)
+		t.Fatalf("buildBundleArchive must reject missing required source files, got %v", err)
 	}
 	files = minimalRequiredBundleFiles()
 	delete(files, "data/saved_views.ndjson")
-	_, err = BuildBundleArchive(ManifestInput{
+	_, err = buildBundleArchive(manifestInput{
 		BundleID:          "55555555-5555-5555-5555-555555555556",
 		IncidentID:        "11111111-1111-1111-1111-111111111111",
 		IncidentKey:       "INC-1",
 		ExportedAt:        "2026-05-25T00:00:00Z",
-		ReferencePackMode: ReferencePackModeRefsOnly,
+		ReferencePackMode: referencePackModeRefsOnly,
 	}, files)
 	if err == nil || !strings.Contains(err.Error(), "data/saved_views.ndjson is required") {
-		t.Fatalf("BuildBundleArchive must reject missing saved views source file, got %v", err)
+		t.Fatalf("buildBundleArchive must reject missing saved views source file, got %v", err)
 	}
 }
 
 func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	unsafe := newZip(t, map[string][]byte{"../manifest.json": []byte("{}")})
-	_, err := VerifyBundle(VerificationInput{
+	_, err := verifyBundle(verificationInput{
 		Bundle: unsafe,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024}},
 	})
@@ -239,37 +249,37 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	}
 
 	files := minimalRequiredBundleFiles()
-	bundle, err := BuildBundleArchive(ManifestInput{
+	bundle, err := buildBundleArchive(manifestInput{
 		BundleID:             "22222222-2222-2222-2222-222222222222",
 		IncidentID:           "11111111-1111-1111-1111-111111111111",
 		IncidentKey:          "INC-1",
 		ExportedAt:           "2026-05-25T00:00:00Z",
-		ReferencePackMode:    ReferencePackModeRefsOnly,
+		ReferencePackMode:    referencePackModeRefsOnly,
 		RequiredCapabilities: []string{"snapshots"},
 	}, files)
 	if err != nil {
-		t.Fatalf("BuildBundleArchive: %v", err)
+		t.Fatalf("buildBundleArchive: %v", err)
 	}
-	_, err = VerifyBundle(VerificationInput{
+	_, err = verifyBundle(verificationInput{
 		Bundle: bundle.Bytes,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
-	if !errors.Is(err, ErrExtensionCapabilityNotSupported) {
+	if !errors.Is(err, errExtensionCapabilityNotSupported) {
 		t.Fatalf("required capability reason mismatch: %v", err)
 	}
 
-	validBundle, err := BuildBundleArchive(ManifestInput{
+	validBundle, err := buildBundleArchive(manifestInput{
 		BundleID:          "33333333-3333-3333-3333-333333333333",
 		IncidentID:        "11111111-1111-1111-1111-111111111111",
 		IncidentKey:       "INC-1",
 		ExportedAt:        "2026-05-25T00:00:00Z",
-		ReferencePackMode: ReferencePackModeRefsOnly,
+		ReferencePackMode: referencePackModeRefsOnly,
 	}, files)
 	if err != nil {
-		t.Fatalf("BuildBundleArchive valid bundle: %v", err)
+		t.Fatalf("buildBundleArchive valid bundle: %v", err)
 	}
 	missingRequired := removeZipMember(t, validBundle.Bytes, "data/records.ndjson")
-	_, err = VerifyBundle(VerificationInput{
+	_, err = verifyBundle(verificationInput{
 		Bundle: missingRequired,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -278,13 +288,13 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	}
 
 	withZipDirectories := appendZipMember(t, appendZipMember(t, validBundle.Bytes, "data/", nil), "integrity/", nil)
-	if _, err = VerifyBundle(VerificationInput{
+	if _, err = verifyBundle(verificationInput{
 		Bundle: withZipDirectories,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	}); err != nil {
 		t.Fatalf("safe ZIP directory members must be ignored as structural entries: %v", err)
 	}
-	_, err = VerifyBundle(VerificationInput{
+	_, err = verifyBundle(verificationInput{
 		Bundle: withZipDirectories,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: int64(len(zipFilesMap(t, validBundle.Bytes)) + 1), MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -292,7 +302,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 		t.Fatalf("ZIP directory entries must count against member limits: %v", err)
 	}
 	unsafeDirectory := appendZipMember(t, validBundle.Bytes, "../data/", nil)
-	_, err = VerifyBundle(VerificationInput{
+	_, err = verifyBundle(verificationInput{
 		Bundle: unsafeDirectory,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -300,7 +310,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 		t.Fatalf("unsafe ZIP directory reason mismatch: %v", err)
 	}
 	unsupportedZipMember := appendZipSymlink(t, validBundle.Bytes, "data/member-link", "manifest.json")
-	_, err = VerifyBundle(VerificationInput{
+	_, err = verifyBundle(verificationInput{
 		Bundle: unsupportedZipMember,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -308,13 +318,13 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 		t.Fatalf("unsupported ZIP member reason mismatch: %v", err)
 	}
 	withTarDirectories := newTarGzip(t, []string{"data", "integrity/"}, zipFilesMap(t, validBundle.Bytes))
-	if _, err = VerifyBundle(VerificationInput{
+	if _, err = verifyBundle(verificationInput{
 		Bundle: withTarDirectories,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	}); err != nil {
 		t.Fatalf("safe TAR directory members must be ignored as structural entries: %v", err)
 	}
-	_, err = VerifyBundle(VerificationInput{
+	_, err = verifyBundle(verificationInput{
 		Bundle: withTarDirectories,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: int64(len(zipFilesMap(t, validBundle.Bytes)) + 1), MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -323,7 +333,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	}
 
 	withSignature := appendZipMember(t, validBundle.Bytes, "integrity/signature.ed25519", []byte("not-a-supported-signature"))
-	_, err = VerifyBundle(VerificationInput{
+	_, err = verifyBundle(verificationInput{
 		Bundle: withSignature,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -334,7 +344,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	malformedMode := replaceManifestFields(t, validBundle.Bytes, func(manifest map[string]any) {
 		manifest["reference_pack_mode"] = "floating"
 	})
-	_, err = VerifyBundle(VerificationInput{
+	_, err = verifyBundle(verificationInput{
 		Bundle: malformedMode,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -345,7 +355,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	malformedOptionalSection := replaceManifestFields(t, validBundle.Bytes, func(manifest map[string]any) {
 		manifest["optional_sections"] = []any{"unknown_section"}
 	})
-	_, err = VerifyBundle(VerificationInput{
+	_, err = verifyBundle(verificationInput{
 		Bundle: malformedOptionalSection,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -356,17 +366,17 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	unsupportedRequired := replaceManifestFields(t, validBundle.Bytes, func(manifest map[string]any) {
 		manifest["required_capabilities"] = []any{"snapshots"}
 	})
-	_, err = VerifyBundle(VerificationInput{
+	_, err = verifyBundle(verificationInput{
 		Bundle: unsupportedRequired,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
-	if !errors.Is(err, ErrExtensionCapabilityNotSupported) {
+	if !errors.Is(err, errExtensionCapabilityNotSupported) {
 		t.Fatalf("unsupported required capability reason mismatch: %v", err)
 	}
 	malformedRequired := replaceManifestFields(t, validBundle.Bytes, func(manifest map[string]any) {
 		manifest["required_capabilities"] = []any{1}
 	})
-	_, err = VerifyBundle(VerificationInput{
+	_, err = verifyBundle(verificationInput{
 		Bundle: malformedRequired,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -376,7 +386,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	capabilityFiles := zipFilesMap(t, unsupportedRequired)
 	capabilityFiles["data/records.ndjson"] = append(capabilityFiles["data/records.ndjson"], []byte("{}\n")...)
 	capabilityWithBadChecksum := newZip(t, capabilityFiles)
-	_, err = VerifyBundle(VerificationInput{
+	_, err = verifyBundle(verificationInput{
 		Bundle: capabilityWithBadChecksum,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -384,21 +394,21 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 		t.Fatalf("archive integrity must precede capability rejection: %v", err)
 	}
 
-	withKnownOptionalSection, err := BuildBundleArchive(ManifestInput{
+	withKnownOptionalSection, err := buildBundleArchive(manifestInput{
 		BundleID:             "44444444-4444-4444-4444-444444444444",
 		IncidentID:           "11111111-1111-1111-1111-111111111111",
 		IncidentKey:          "INC-1",
 		ExportedAt:           "2026-05-25T00:00:00Z",
-		ReferencePackMode:    ReferencePackModeRefsOnly,
+		ReferencePackMode:    referencePackModeRefsOnly,
 		OptionalSections:     []string{"snapshots"},
 		RequiredCapabilities: []string{},
 	}, withAdditionalBundleFiles(minimalRequiredBundleFiles(), map[string][]byte{
 		"ext/snapshots/snapshot.json": []byte(`{"snapshot_id":"snap-1"}` + "\n"),
 	}))
 	if err != nil {
-		t.Fatalf("BuildBundleArchive optional section: %v", err)
+		t.Fatalf("buildBundleArchive optional section: %v", err)
 	}
-	if _, err = VerifyBundle(VerificationInput{
+	if _, err = verifyBundle(verificationInput{
 		Bundle: withKnownOptionalSection.Bytes,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	}); err != nil {
@@ -408,15 +418,15 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 
 func TestVerifyBundleRejectsMalformedManifestVersion_Unit(t *testing.T) {
 	files := minimalRequiredBundleFiles()
-	bundle, err := BuildBundleArchive(ManifestInput{
+	bundle, err := buildBundleArchive(manifestInput{
 		BundleID:          "22222222-2222-4222-8222-222222222222",
 		IncidentID:        "11111111-1111-4111-8111-111111111111",
 		IncidentKey:       "INC-VERSION-MALFORMED",
 		ExportedAt:        "2026-07-27T00:00:00Z",
-		ReferencePackMode: ReferencePackModeRefsOnly,
+		ReferencePackMode: referencePackModeRefsOnly,
 	}, files)
 	if err != nil {
-		t.Fatalf("BuildBundleArchive: %v", err)
+		t.Fatalf("buildBundleArchive: %v", err)
 	}
 	cases := map[string]func(map[string]any){
 		"omitted":     func(manifest map[string]any) { delete(manifest, "bundle_version") },
@@ -426,7 +436,7 @@ func TestVerifyBundleRejectsMalformedManifestVersion_Unit(t *testing.T) {
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, verifyErr := VerifyBundle(VerificationInput{
+			_, verifyErr := verifyBundle(verificationInput{
 				Bundle: replaceManifestFields(t, bundle.Bytes, mutate),
 				Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 			})
@@ -438,20 +448,20 @@ func TestVerifyBundleRejectsMalformedManifestVersion_Unit(t *testing.T) {
 }
 
 func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.T) {
-	bundle, err := BuildBundleArchive(ManifestInput{
+	bundle, err := buildBundleArchive(manifestInput{
 		BundleID:          "22222222-2222-4222-8222-222222222223",
 		IncidentID:        "11111111-1111-4111-8111-111111111111",
 		IncidentKey:       "INC-VERSION-CLOSED",
 		ExportedAt:        "2026-07-27T00:00:00Z",
-		ReferencePackMode: ReferencePackModeRefsOnly,
+		ReferencePackMode: referencePackModeRefsOnly,
 	}, minimalRequiredBundleFiles())
 	if err != nil {
-		t.Fatalf("BuildBundleArchive: %v", err)
+		t.Fatalf("buildBundleArchive: %v", err)
 	}
 	unsupported := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) {
 		manifest["bundle_version"] = 3
 	})
-	if _, verifyErr := VerifyBundle(VerificationInput{
+	if _, verifyErr := verifyBundle(verificationInput{
 		Bundle: unsupported,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	}); !isVerificationReason(verifyErr, "unsupported_bundle_version") {
@@ -460,7 +470,7 @@ func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.
 
 	mixedFiles := zipFilesMap(t, bundle.Bytes)
 	mixedFiles["data/timeline_events.ndjson"] = []byte{}
-	if _, verifyErr := VerifyBundle(VerificationInput{
+	if _, verifyErr := verifyBundle(verificationInput{
 		Bundle: zipFromFiles(t, mixedFiles),
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	}); !isVerificationReason(verifyErr, "malformed_manifest") {
@@ -502,6 +512,53 @@ func TestCompressionRatioBoundaryUsesThresholdComparison_Unit(t *testing.T) {
 }
 
 func TestOpenAPIAndErrorRegistryContainIncidentBundleContracts_Unit(t *testing.T) {
+	t.Run("production export surface is closed", func(t *testing.T) {
+		actual := incidentBundleExportedDeclarations(t)
+		unapproved := incidentBundleExportDifference(actual, incidentBundleExportAllowlist)
+		stale := incidentBundleExportDifference(incidentBundleExportAllowlist, actual)
+		if len(unapproved) != 0 || len(stale) != 0 {
+			t.Fatalf("Incident Bundles exported surface mismatch: unapproved=%v stale=%v", unapproved, stale)
+		}
+	})
+
+	t.Run("internal errors use one value-free response tuple", func(t *testing.T) {
+		sentinels := []string{
+			"SELECT secret_value FROM deployment_credentials",
+			"/var/lib/cartulary/private/archive.zip",
+			"s3://private-bucket/object?token=storage-secret",
+			"postgres://operator:credential@database/cartulary",
+			"upstream unauthorized: api_key=credential-secret",
+		}
+		for _, sentinel := range sentinels {
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, "/api/v1/incident-bundles/00000000-0000-4000-8000-000000000001", nil)
+			writeAPIError(recorder, request, &httpapi.APIError{
+				Status: http.StatusTeapot, Code: "internal_error", Message: sentinel,
+				Details: map[string]any{"raw": sentinel}, Conflict: sentinel, Retryable: true,
+			})
+			if recorder.Code != http.StatusInternalServerError {
+				t.Fatalf("internal error status = %d", recorder.Code)
+			}
+			var envelope map[string]any
+			if err := json.Unmarshal(recorder.Body.Bytes(), &envelope); err != nil {
+				t.Fatalf("decode internal error response: %v", err)
+			}
+			payload, ok := envelope["error"].(map[string]any)
+			if !ok || payload["code"] != "internal_error" || payload["message"] != "internal_error" || payload["retryable"] != false {
+				t.Fatalf("internal error payload = %#v", envelope)
+			}
+			details, ok := payload["details"].(map[string]any)
+			if !ok || len(details) != 0 || payload["conflict"] != nil || strings.Contains(recorder.Body.String(), sentinel) {
+				t.Fatalf("internal error disclosed sentinel: %s", recorder.Body.String())
+			}
+		}
+		apiErr := internalAPIError()
+		if apiErr.Status != http.StatusInternalServerError || apiErr.Code != "internal_error" ||
+			apiErr.Message != "internal_error" || len(apiErr.Details) != 0 {
+			t.Fatalf("internal error constructor = %#v", apiErr)
+		}
+	})
+
 	openAPIDoc := contracttest.OpenAPIDocument(t)
 	optionalSections := openAPIObjectAt(t, openAPIDoc, "components", "schemas", "IncidentBundleResource", "properties", "optional_sections")
 	if optionalSections["type"] != "array" || optionalSections["uniqueItems"] != true {
@@ -559,6 +616,160 @@ func TestOpenAPIAndErrorRegistryContainIncidentBundleContracts_Unit(t *testing.T
 	} {
 		contracttest.RequireErrorContract(t, code, status)
 	}
+}
+
+var incidentBundleExportAllowlist = map[string]struct{}{
+	"ArchiveLimits":                               {},
+	"BlobPortability":                             {},
+	"BundleStagingRef":                            {},
+	"BundleStagingRef.String":                     {},
+	"BundleStorage":                               {},
+	"BundleStorageRef":                            {},
+	"BundleStorageRef.String":                     {},
+	"BundlesRouteContributionID":                  {},
+	"ClaimStateClaimed":                           {},
+	"ClaimStateRecognizedUnclaimable":             {},
+	"ClaimStateUnclaimed":                         {},
+	"EncodeExtensionPayload":                      {},
+	"ErrInvalidStorageReference":                  {},
+	"ErrJobFinalizationIndeterminate":             {},
+	"ErrPortabilityBlocked":                       {},
+	"ErrPortabilityLimit":                         {},
+	"ErrPortabilityPayload":                       {},
+	"ErrPortabilityResult":                        {},
+	"ErrPortabilityUnavailable":                   {},
+	"ExportInvocation":                            {},
+	"ExportResult":                                {},
+	"ExtensionExportResultSchema":                 {},
+	"ExtensionImportResultSchema":                 {},
+	"ExtensionParticipant":                        {},
+	"ExtensionPayload":                            {},
+	"ExtensionPayloadSchema":                      {},
+	"ExtensionPolicy":                             {},
+	"HistoricalIntentPolicy":                      {},
+	"ImportInvocation":                            {},
+	"ImportPreparation":                           {},
+	"ImportProjectionRebuilder":                   {},
+	"ImportTransactionDescriptor":                 {},
+	"ImportTransactionParticipantID":              {},
+	"ImportedAttributionResolver":                 {},
+	"IncidentBundleLimits":                        {},
+	"IncidentPublicationLock":                     {},
+	"JobFailureFinalization":                      {},
+	"JobOperations":                               {},
+	"JobRunner":                                   {},
+	"JobSuccessFinalization":                      {},
+	"JobSuccessFinalizer":                         {},
+	"JobSuccessMutation":                          {},
+	"JobTransactions":                             {},
+	"Limits":                                      {},
+	"Module":                                      {},
+	"Module.InstallCrossOwnerCoordinator":         {},
+	"Module.RegisterBundleWorker":                 {},
+	"Module.RegisterRoutes":                       {},
+	"Module.TransactionCapabilities":              {},
+	"ModuleDependencies":                          {},
+	"NewModule":                                   {},
+	"NewPortabilityOrchestrator":                  {},
+	"ParseBundleStagingRef":                       {},
+	"ParseBundleStorageRef":                       {},
+	"PortabilityFailure":                          {},
+	"PortabilityFailure.Error":                    {},
+	"PortabilityFailure.Unwrap":                   {},
+	"PortabilityModeBlockedWhenPresent":           {},
+	"PortabilityModeNoAuthoritativeState":         {},
+	"PortabilityModeParticipant":                  {},
+	"PortabilityOrchestrator":                     {},
+	"PortabilityOrchestrator.Export":              {},
+	"PortabilityOrchestrator.PrepareImport":       {},
+	"PortabilityOrchestrator.ValidatePublication": {},
+	"PortabilityParticipantByteLimit":             {},
+	"PortabilityStagedOutputScope":                {},
+	"PortabilityStagedOutputScope.Allocate":       {},
+	"PortabilityStagedOutputScope.Refs":           {},
+	"PreparedPortability":                         {},
+	"PreparedPortability.Abandon":                 {},
+	"PreparedPortability.Committed":               {},
+	"ProfileID":                                   {},
+	"RecoveryStateContribution":                   {},
+	"StatePresence":                               {},
+	"StatePresenceQuery":                          {},
+	"VNextRecoveryObjectInventory":                {},
+}
+
+func incidentBundleExportedDeclarations(t testing.TB) map[string]struct{} {
+	t.Helper()
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("read Incident Bundles package: %v", err)
+	}
+	fileSet := token.NewFileSet()
+	result := map[string]struct{}{}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(fileSet, filepath.Clean(entry.Name()), nil, 0)
+		if err != nil {
+			t.Fatalf("parse %s: %v", entry.Name(), err)
+		}
+		for _, declaration := range file.Decls {
+			switch typed := declaration.(type) {
+			case *ast.GenDecl:
+				for _, specification := range typed.Specs {
+					switch spec := specification.(type) {
+					case *ast.TypeSpec:
+						if ast.IsExported(spec.Name.Name) {
+							result[spec.Name.Name] = struct{}{}
+						}
+					case *ast.ValueSpec:
+						for _, name := range spec.Names {
+							if ast.IsExported(name.Name) {
+								result[name.Name] = struct{}{}
+							}
+						}
+					}
+				}
+			case *ast.FuncDecl:
+				if !ast.IsExported(typed.Name.Name) {
+					continue
+				}
+				name := typed.Name.Name
+				if typed.Recv != nil {
+					receiver := incidentBundleExportedReceiver(typed.Recv.List[0].Type)
+					if receiver == "" {
+						continue
+					}
+					name = receiver + "." + name
+				}
+				result[name] = struct{}{}
+			}
+		}
+	}
+	return result
+}
+
+func incidentBundleExportedReceiver(expression ast.Expr) string {
+	switch typed := expression.(type) {
+	case *ast.Ident:
+		if ast.IsExported(typed.Name) {
+			return typed.Name
+		}
+	case *ast.StarExpr:
+		return incidentBundleExportedReceiver(typed.X)
+	}
+	return ""
+}
+
+func incidentBundleExportDifference(left map[string]struct{}, right map[string]struct{}) []string {
+	var result []string
+	for name := range left {
+		if _, ok := right[name]; !ok {
+			result = append(result, name)
+		}
+	}
+	sort.Strings(result)
+	return result
 }
 
 func TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit(t *testing.T) {
@@ -686,49 +897,102 @@ func TestIncidentBundlePortabilityFailuresUseClosedRedactedDetails_Unit(t *testi
 func TestAdmittedRouteSetupRequiresImportFinalizer_Unit(t *testing.T) {
 	projections := httpapiextensions.New([]httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: true}})
 	deps := projections.Dependencies(httpapi.DependencySet{})
-	err := RegisterRoutes()(http.NewServeMux(), deps)
-	if err == nil || !strings.Contains(err.Error(), "import finalizer") {
-		t.Fatalf("admitted incident portability setup must fail without import finalizer, got %v", err)
+	module, err := NewModule(moduleTestDependencies())
+	if err != nil {
+		t.Fatalf("construct complete module: %v", err)
 	}
-	err = RegisterRoutes(WithImportFinalizer(importFinalizerStub{}))(
-		http.NewServeMux(),
-		deps,
-	)
-	if err == nil || !strings.Contains(err.Error(), "job success finalizer") {
-		t.Fatalf("admitted incident portability setup must fail without job success finalizer, got %v", err)
+	mux := http.NewServeMux()
+	registrar := module.RegisterRoutes()
+	if err := registrar(mux, deps); err == nil || !strings.Contains(err.Error(), "coordinator is not installed") {
+		t.Fatalf("routes before coordinator error = %v", err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/incident-bundles/11111111-1111-1111-1111-111111111111", nil)
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("failed lifecycle published a partial route: status=%d", response.Code)
+	}
+
+	coordinator := &crossownertransaction.Coordinator{}
+	if err := module.InstallCrossOwnerCoordinator(nil); err == nil || !strings.Contains(err.Error(), "coordinator is required") {
+		t.Fatalf("nil coordinator error = %v", err)
+	}
+	if err := module.InstallCrossOwnerCoordinator(coordinator); err != nil {
+		t.Fatalf("install coordinator: %v", err)
+	}
+	if err := module.InstallCrossOwnerCoordinator(coordinator); err == nil || !strings.Contains(err.Error(), "already installed") {
+		t.Fatalf("duplicate coordinator error = %v", err)
+	}
+	if err := registrar(mux, deps); err == nil || !strings.Contains(err.Error(), "worker is not registered") {
+		t.Fatalf("routes before worker error = %v", err)
+	}
+	if err := module.RegisterBundleWorker(); err != nil {
+		t.Fatalf("register worker: %v", err)
+	}
+	if err := module.RegisterBundleWorker(); err == nil || !strings.Contains(err.Error(), "already registered") {
+		t.Fatalf("duplicate worker registration error = %v", err)
+	}
+	if err := registrar(mux, deps); err != nil {
+		t.Fatalf("bind routes after lifecycle completion: %v", err)
+	}
+
+	unordered, err := NewModule(moduleTestDependencies())
+	if err != nil {
+		t.Fatalf("construct unordered module: %v", err)
+	}
+	if err := unordered.RegisterBundleWorker(); err == nil || !strings.Contains(err.Error(), "coordinator is not installed") {
+		t.Fatalf("worker before coordinator error = %v", err)
 	}
 }
 
 func TestClaimedIncidentPortabilityRejectsMissingJobsBeforePublication_Unit(t *testing.T) {
-	_, err := newService(httpapi.DependencySet{}, routeOptions{
-		importFinalizer:   importFinalizerStub{},
-		jobFinalizer:      jobFinalizerStub{},
-		portability:       &PortabilityOrchestrator{},
-		publicationLock:   publicationLockStub{},
-		transactions:      &crossownertransaction.Coordinator{},
-		storage:           bundleStorageStub{},
-		projectionRebuild: projectionRebuilderStub{},
-		sourceCatalog:     &sourceport.Catalog{},
-	})
-	if err == nil || !strings.Contains(err.Error(), "jobs composition is required") {
-		t.Fatalf("claimed Incident Portability without Jobs composition error = %v", err)
+	baseline := moduleTestDependencies()
+	tests := []struct {
+		name   string
+		want   string
+		mutate func(*ModuleDependencies)
+	}{
+		{name: "PostgreSQL", want: "PostgreSQL", mutate: func(dependencies *ModuleDependencies) { dependencies.Postgres = nil }},
+		{name: "Jobs transactions", want: "Jobs transaction", mutate: func(dependencies *ModuleDependencies) { dependencies.JobTransactions = nil }},
+		{name: "Jobs operations", want: "Jobs operations", mutate: func(dependencies *ModuleDependencies) { dependencies.JobOperations = nil }},
+		{name: "Jobs runner", want: "Jobs runner", mutate: func(dependencies *ModuleDependencies) { dependencies.JobRunner = nil }},
+		{name: "storage", want: "storage", mutate: func(dependencies *ModuleDependencies) { dependencies.Storage = nil }},
+		{name: "import finalizer", want: "import finalizer", mutate: func(dependencies *ModuleDependencies) { dependencies.ImportFinalizer = nil }},
+		{name: "job finalizer", want: "job finalizer", mutate: func(dependencies *ModuleDependencies) { dependencies.JobFinalizer = nil }},
+		{name: "portability", want: "portability", mutate: func(dependencies *ModuleDependencies) { dependencies.Portability = nil }},
+		{name: "publication lock", want: "publication lock", mutate: func(dependencies *ModuleDependencies) { dependencies.IncidentPublicationLock = nil }},
+		{name: "projection rebuild", want: "projection rebuilder", mutate: func(dependencies *ModuleDependencies) { dependencies.ProjectionRebuilder = nil }},
+		{name: "source catalog", want: "source catalog", mutate: func(dependencies *ModuleDependencies) { dependencies.SourceCatalog = nil }},
+		{name: "historical intents", want: "historical intent policy", mutate: func(dependencies *ModuleDependencies) { dependencies.HistoricalIntentPolicy = nil }},
+		{name: "blob portability", want: "blob portability", mutate: func(dependencies *ModuleDependencies) { dependencies.BlobPortability = nil }},
 	}
-	_, err = newService(httpapi.DependencySet{}, routeOptions{
-		importFinalizer:   importFinalizerStub{},
-		jobFinalizer:      jobFinalizerStub{},
-		portability:       &PortabilityOrchestrator{},
-		publicationLock:   publicationLockStub{},
-		transactions:      &crossownertransaction.Coordinator{},
-		storage:           bundleStorageStub{},
-		projectionRebuild: projectionRebuilderStub{},
-		sourceCatalog:     &sourceport.Catalog{},
-		historicalIntents: historicalIntentPolicyStub{},
-		jobAdmission:      jobAdmissionStub{},
-		jobOperations:     &recordingJobOperations{},
-		jobRunner:         jobRunnerStub{},
-	})
-	if err == nil || !strings.Contains(err.Error(), "blob portability is required") {
-		t.Fatalf("claimed Incident Portability without the private blob port error = %v", err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dependencies := baseline
+			test.mutate(&dependencies)
+			_, err := NewModule(dependencies)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("missing %s error = %v; want %q", test.name, err, test.want)
+			}
+		})
+	}
+}
+
+func moduleTestDependencies() ModuleDependencies {
+	return ModuleDependencies{
+		Postgres:                &pgxpool.Pool{},
+		JobTransactions:         jobAdmissionStub{},
+		JobOperations:           &recordingJobOperations{},
+		JobRunner:               &registrationRunnerStub{},
+		Storage:                 bundleStorageStub{},
+		ImportFinalizer:         importFinalizerStub{},
+		JobFinalizer:            jobFinalizerStub{},
+		Portability:             &PortabilityOrchestrator{},
+		IncidentPublicationLock: publicationLockStub{},
+		ProjectionRebuilder:     projectionRebuilderStub{},
+		SourceCatalog:           &sourceport.Catalog{},
+		HistoricalIntentPolicy:  historicalIntentPolicyStub{},
+		BlobPortability:         &recordingBlobPortability{},
 	}
 }
 
@@ -768,10 +1032,9 @@ func (jobAdmissionStub) CreateQueuedTx(context.Context, pgx.Tx, jobs.EnqueuePara
 	return jobs.Resource{}, nil
 }
 
-type jobRunnerStub struct{}
-
-func (jobRunnerStub) RegisterHandler(string, jobs.HandlerFunc) error { return nil }
-func (jobRunnerStub) Notify(uuid.UUID)                               {}
+func (jobAdmissionStub) ValidateExecutionTx(context.Context, pgx.Tx, jobs.Execution) error {
+	return nil
+}
 
 type historicalIntentPolicyStub struct{}
 
@@ -813,7 +1076,7 @@ func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
 	if exportTransition.ResultSummary.Code == "" {
 		t.Fatalf("export success transition missing summary: %#v", exportTransition)
 	}
-	if exportTransition.ResultSummary.Code != ResultIncidentBundleExported || len(exportTransition.ResultSummary.ResourceRefs) != 1 {
+	if exportTransition.ResultSummary.Code != resultIncidentBundleExported || len(exportTransition.ResultSummary.ResourceRefs) != 1 {
 		t.Fatalf("export result summary mismatch: %#v", exportTransition.ResultSummary)
 	}
 	exportRef := exportTransition.ResultSummary.ResourceRefs[0]
@@ -825,13 +1088,70 @@ func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
 	if importTransition.ResultSummary.Code == "" {
 		t.Fatalf("import success transition missing summary: %#v", importTransition)
 	}
-	if importTransition.ResultSummary.Code != ResultIncidentBundleImported || len(importTransition.ResultSummary.ResourceRefs) != 1 {
+	if importTransition.ResultSummary.Code != resultIncidentBundleImported || len(importTransition.ResultSummary.ResourceRefs) != 1 {
 		t.Fatalf("import result summary mismatch: %#v", importTransition.ResultSummary)
 	}
 	importRef := importTransition.ResultSummary.ResourceRefs[0]
 	if importRef.Kind != "incident" || importRef.ID != incidentID.String() || importRef.Route != "/api/v1/incidents/"+incidentID.String() {
 		t.Fatalf("import resource ref mismatch: %#v", importRef)
 	}
+
+	t.Run("internal failures discard dependency values and retain safe diagnostics", func(t *testing.T) {
+		sentinels := map[string]string{
+			"persistence":  "SELECT secret_value FROM incident_bundle_jobs",
+			"storage":      "s3://private-bucket/object?token=storage-secret",
+			"finalization": "/var/lib/cartulary/private/finalization.sql",
+			"upstream":     "upstream unauthorized: api_key=credential-secret",
+		}
+		for source, sentinel := range sentinels {
+			t.Run(source, func(t *testing.T) {
+				manager := &recordingJobOperations{}
+				sink := incidentBundleJobResultSink{manager: manager}
+				sink.completeFailedFromError(context.Background(), jobs.Execution{}, "internal_error", errors.New(sentinel))
+				requireGenericInternalFailure(t, manager.failed, sentinel)
+			})
+		}
+
+		hostile := failedCompletion("internal_error", map[string]any{
+			"job_kind": "SELECT raw_job_kind FROM secrets",
+		})
+		requireGenericInternalFailure(t, &hostile, "raw_job_kind")
+
+		manager := &recordingJobOperations{}
+		worker := &incidentBundleWorker{results: incidentBundleJobResultSink{manager: manager}}
+		worker.executePayload(context.Background(), jobs.Execution{}, jobPayload{JobKind: "credential-shaped-job-kind"})
+		requireGenericInternalFailure(t, manager.failed, "credential-shaped-job-kind")
+
+		manager = &recordingJobOperations{}
+		storage := &recordingBundleStorage{}
+		worker = &incidentBundleWorker{storage: storage, results: incidentBundleJobResultSink{manager: manager}}
+		reference, err := ParseBundleStorageRef("incident-bundles/22222222-2222-2222-2222-222222222222.zip")
+		if err != nil {
+			t.Fatal(err)
+		}
+		finalizationSentinel := "constraint incident_bundle_secret_path /private/finalizer"
+		worker.handleExportFinalizationError(context.Background(), jobs.Execution{}, reference, errors.New(finalizationSentinel))
+		requireGenericInternalFailure(t, manager.failed, finalizationSentinel)
+
+		jobID := uuid.MustParse("44444444-4444-4444-8444-444444444444")
+		diagnosticErr := newWorkerDiagnosticError("payload_load_failed", jobID)
+		var diagnostic *workerDiagnosticError
+		if !errors.As(diagnosticErr, &diagnostic) || diagnostic.classification != "payload_load_failed" || diagnostic.jobID != jobID {
+			t.Fatalf("worker diagnostic = %#v, %v", diagnostic, diagnosticErr)
+		}
+		hostileDiagnostic := newWorkerDiagnosticError("SELECT credential FROM secrets", jobID)
+		if strings.Contains(hostileDiagnostic.Error(), "SELECT") || !strings.Contains(hostileDiagnostic.Error(), "class=unclassified_failure") || !strings.Contains(hostileDiagnostic.Error(), jobID.String()) {
+			t.Fatalf("unsafe worker diagnostic = %q", hostileDiagnostic)
+		}
+
+		observeSentinel := "postgres://operator:password@database/cartulary"
+		observeManager := &recordingJobOperations{observeErr: errors.New(observeSentinel)}
+		worker = &incidentBundleWorker{jobManager: observeManager}
+		if err := worker.executeJobID(context.Background(), jobs.Execution{}); err == nil ||
+			strings.Contains(err.Error(), observeSentinel) || !strings.Contains(err.Error(), "class=execution_observation_failed") {
+			t.Fatalf("worker observation diagnostic = %v", err)
+		}
+	})
 
 	t.Run("blocked publication removes physical object and uses the closed failure", func(t *testing.T) {
 		storage := &recordingBundleStorage{}
@@ -859,8 +1179,8 @@ func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
 
 	t.Run("prepared import cleanup uses the private blob consumer port", func(t *testing.T) {
 		blob := &recordingBlobPortability{}
-		prepared := &PreparedImport{blobPort: blob, stagedObjectKeys: []string{"staged/one", "staged/two"}}
-		prepared.Cleanup(context.Background())
+		prepared := &preparedImport{blobPort: blob, stagedObjectKeys: []string{"staged/one", "staged/two"}}
+		prepared.cleanup(context.Background())
 		if !slices.Equal(blob.cleaned, []string{"staged/one", "staged/two"}) || len(prepared.stagedObjectKeys) != 0 {
 			t.Fatalf("private blob cleanup seam = cleaned %#v remaining %#v", blob.cleaned, prepared.stagedObjectKeys)
 		}
@@ -888,14 +1208,15 @@ func (s *recordingBundleStorage) RemovePublished(reference BundleStorageRef) err
 }
 
 type recordingJobOperations struct {
-	failed *jobs.FailureCompletion
+	failed     *jobs.FailureCompletion
+	observeErr error
 }
 
 type recordingBlobPortability struct {
 	cleaned []string
 }
 
-var _ blobPortability = (*recordingBlobPortability)(nil)
+var _ BlobPortability = (*recordingBlobPortability)(nil)
 
 func (*recordingBlobPortability) ExportBlobFiles(context.Context, incidentportability.Queryer, uuid.UUID, map[string][]byte) error {
 	return nil
@@ -913,7 +1234,10 @@ func (*recordingJobOperations) Get(context.Context, uuid.UUID) (jobs.Resource, e
 	return jobs.Resource{}, nil
 }
 
-func (*recordingJobOperations) ObserveExecution(context.Context, jobs.Execution) (jobs.Resource, error) {
+func (o *recordingJobOperations) ObserveExecution(context.Context, jobs.Execution) (jobs.Resource, error) {
+	if o.observeErr != nil {
+		return jobs.Resource{}, o.observeErr
+	}
 	return jobs.Resource{Status: jobs.StatusRunning}, nil
 }
 
@@ -928,6 +1252,22 @@ func (o *recordingJobOperations) CompleteFailed(_ context.Context, _ jobs.Execut
 
 func (*recordingJobOperations) CompleteCanceled(context.Context, jobs.Execution, jobs.CancellationCompletion) (jobs.Resource, error) {
 	return jobs.Resource{}, nil
+}
+
+func requireGenericInternalFailure(t testing.TB, completion *jobs.FailureCompletion, forbidden string) {
+	t.Helper()
+	if completion == nil || completion.ErrorSummary.Code != "internal_error" ||
+		completion.ErrorSummary.Message != "internal_error" || completion.ErrorSummary.Retryable ||
+		len(completion.ErrorSummary.Details) != 0 {
+		t.Fatalf("internal failure completion = %#v", completion)
+	}
+	encoded, err := json.Marshal(completion)
+	if err != nil {
+		t.Fatalf("encode internal failure completion: %v", err)
+	}
+	if forbidden != "" && strings.Contains(string(encoded), forbidden) {
+		t.Fatalf("internal failure disclosed %q: %s", forbidden, encoded)
+	}
 }
 
 func TestIncidentBundleStorageReferencesAreStrictAndRootFree_Unit(t *testing.T) {
@@ -975,7 +1315,35 @@ func TestIncidentBundleWorkerRequiresNamedRunner_Unit(t *testing.T) {
 	if err := worker.dispatch(uuid.NewString()); !errors.Is(err, jobs.ErrNotConfigured) {
 		t.Fatalf("dispatch without named runner error = %v; want ErrNotConfigured", err)
 	}
+
+	runner := &registrationRunnerStub{}
+	worker.jobRunner = runner
+	if err := worker.registerJobHandler(); err != nil {
+		t.Fatalf("register named handler: %v", err)
+	}
+	if runner.name != bundleWorkerKind {
+		t.Fatalf("registered handler name = %q; want %q", runner.name, bundleWorkerKind)
+	}
+	if err := worker.registerJobHandler(); !errors.Is(err, jobs.ErrHandlerAlreadyRegistered) {
+		t.Fatalf("duplicate named handler error = %v; want ErrHandlerAlreadyRegistered", err)
+	}
 }
+
+type registrationRunnerStub struct {
+	name       string
+	registered bool
+}
+
+func (runner *registrationRunnerStub) RegisterHandler(name string, _ jobs.HandlerFunc) error {
+	if runner.registered {
+		return jobs.ErrHandlerAlreadyRegistered
+	}
+	runner.name = name
+	runner.registered = true
+	return nil
+}
+
+func (*registrationRunnerStub) Notify(uuid.UUID) {}
 
 func openAPIObjectAt(t testing.TB, root map[string]any, path ...string) map[string]any {
 	t.Helper()
@@ -1247,19 +1615,49 @@ func isVerificationReason(err error, reason string) bool {
 	if err == nil {
 		return false
 	}
-	verificationErr, ok := err.(*VerificationError)
+	verificationErr, ok := err.(*verificationError)
 	return ok && verificationErr.ReasonCode == reason
 }
 
 func TestDecodeImportMetadataUsesUploadHash_Unit(t *testing.T) {
-	request, apiErr := DecodeImportMetadata(httpapi.UploadEnvelope{
+	wantMediaTypes := []string{
+		"application/zip",
+		"application/x-tar",
+		"application/gzip",
+		"application/x-gzip",
+		"application/octet-stream",
+	}
+	firstMediaTypes := acceptedIncidentBundleFileContentTypes()
+	if !slices.Equal(firstMediaTypes, wantMediaTypes) {
+		t.Fatalf("incident bundle upload media types = %#v; want %#v", firstMediaTypes, wantMediaTypes)
+	}
+	firstMediaTypes[0] = "application/x-mutated-by-caller"
+	if laterMediaTypes := acceptedIncidentBundleFileContentTypes(); !slices.Equal(laterMediaTypes, wantMediaTypes) {
+		t.Fatalf("incident bundle upload media types retained caller mutation: %#v", laterMediaTypes)
+	}
+	for _, contentType := range wantMediaTypes {
+		t.Run(contentType, func(t *testing.T) {
+			envelope, envelopeErr := httpapi.ParseUploadEnvelope(
+				incidentBundleUploadEnvelopeRequest(t, contentType),
+				httpapi.UploadEnvelopePolicy{FileContentTypes: acceptedIncidentBundleFileContentTypes()},
+			)
+			if envelopeErr != nil {
+				t.Fatalf("exact media type %q was rejected: %v", contentType, envelopeErr)
+			}
+			if envelope.FileContentType != contentType {
+				t.Fatalf("normalized media type = %q; want %q", envelope.FileContentType, contentType)
+			}
+		})
+	}
+
+	request, apiErr := decodeImportMetadata(httpapi.UploadEnvelope{
 		Metadata: map[string]json.RawMessage{
 			"client_txn_id": json.RawMessage(`"txn-import"`),
 		},
 		FileSHA256Hex: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 	})
 	if apiErr != nil {
-		t.Fatalf("DecodeImportMetadata returned error: %#v", apiErr)
+		t.Fatalf("decodeImportMetadata returned error: %#v", apiErr)
 	}
 	var normalized map[string]any
 	if err := json.Unmarshal(request.Normalized, &normalized); err != nil {
@@ -1269,7 +1667,7 @@ func TestDecodeImportMetadataUsesUploadHash_Unit(t *testing.T) {
 		t.Fatalf("normalized import request must include file hash: %#v", normalized)
 	}
 	for _, field := range []string{"clone_mode", "merge_mode", "identifier_remap", "remote_fetch"} {
-		_, apiErr := DecodeImportMetadata(httpapi.UploadEnvelope{
+		_, apiErr := decodeImportMetadata(httpapi.UploadEnvelope{
 			Metadata: map[string]json.RawMessage{
 				"client_txn_id": json.RawMessage(`"txn-import"`),
 				field:           json.RawMessage(`true`),
@@ -1280,4 +1678,40 @@ func TestDecodeImportMetadataUsesUploadHash_Unit(t *testing.T) {
 			t.Fatalf("%s must be rejected with invalid_incident_bundle_request, got %#v", field, apiErr)
 		}
 	}
+}
+
+func incidentBundleUploadEnvelopeRequest(t testing.TB, contentType string) *http.Request {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for _, part := range []struct {
+		name        string
+		filename    string
+		contentType string
+		body        string
+	}{
+		{name: "metadata", contentType: "application/json", body: `{"client_txn_id":"txn-import"}`},
+		{name: "file", filename: "bundle.bin", contentType: contentType, body: "bundle"},
+	} {
+		header := textproto.MIMEHeader{}
+		parameters := map[string]string{"name": part.name}
+		if part.filename != "" {
+			parameters["filename"] = part.filename
+		}
+		header.Set("Content-Disposition", mime.FormatMediaType("form-data", parameters))
+		header.Set("Content-Type", part.contentType)
+		partWriter, err := writer.CreatePart(header)
+		if err != nil {
+			t.Fatalf("create %s upload part: %v", part.name, err)
+		}
+		if _, err := io.WriteString(partWriter, part.body); err != nil {
+			t.Fatalf("write %s upload part: %v", part.name, err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close incident bundle upload envelope: %v", err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/incident-bundles/import", &body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	return request
 }

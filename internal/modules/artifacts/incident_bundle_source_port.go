@@ -21,7 +21,7 @@ func NewIncidentBundleSourcePort() (sourceport.Port, error) {
 		InvariantIDs: []string{
 			"artifacts.envelope_type_scope", "artifacts.subtype_exact",
 			"artifacts.lifecycle_fields_legal", "artifacts.handoff_risk_target",
-			"artifacts.references_same_incident",
+			"artifacts.references_same_incident", "artifacts.source_identity_admitted",
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
@@ -44,7 +44,7 @@ SELECT EXISTS (
 				return err
 			}
 			if invalid {
-				return &sourceport.Failure{FamilyID: "artifacts", InvariantID: "artifacts.envelope_type_scope"}
+				return descriptor.DeclaredFailure("artifacts.envelope_type_scope")
 			}
 			return nil
 		},

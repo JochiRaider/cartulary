@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -17,8 +15,8 @@ import (
 	"github.com/google/uuid"
 )
 
-type Service struct {
-	store          *Store
+type service struct {
+	store          *store
 	authStore      *authn.Store
 	incidentAccess incidents.Access
 	storage        BundleStorage
@@ -27,103 +25,14 @@ type Service struct {
 	now            func() time.Time
 }
 
-type RouteOption func(*routeOptions)
-
-type routeOptions struct {
-	importFinalizer   incidents.IncidentBundleImportFinalizer
-	jobFinalizer      JobSuccessFinalizer
-	portability       *PortabilityOrchestrator
-	publicationLock   IncidentPublicationLock
-	transactions      *crossownertransaction.Coordinator
-	storage           BundleStorage
-	limits            Limits
-	projectionRebuild importProjectionRebuilder
-	sourceCatalog     *sourceport.Catalog
-	historicalIntents historicalIntentPolicy
-	jobAdmission      incidentBundleJobAdmission
-	jobOperations     incidentBundleJobOperations
-	jobRunner         incidentBundleJobRunner
-	blobPort          blobPortability
-}
-
-func WithJobs(admission incidentBundleJobAdmission, operations incidentBundleJobOperations, runner incidentBundleJobRunner) RouteOption {
-	return func(options *routeOptions) {
-		options.jobAdmission = admission
-		options.jobOperations = operations
-		options.jobRunner = runner
-	}
-}
-
-func WithPortability(orchestrator *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator) RouteOption {
-	return func(options *routeOptions) {
-		options.portability = orchestrator
-		options.transactions = transactions
-	}
-}
-
-func WithIncidentPublicationLock(lock IncidentPublicationLock) RouteOption {
-	return func(options *routeOptions) {
-		options.publicationLock = lock
-	}
-}
-
-func WithImportFinalizer(finalizer incidents.IncidentBundleImportFinalizer) RouteOption {
-	return func(options *routeOptions) {
-		options.importFinalizer = finalizer
-	}
-}
-
-func WithJobSuccessFinalizer(finalizer JobSuccessFinalizer) RouteOption {
-	return func(options *routeOptions) {
-		options.jobFinalizer = finalizer
-	}
-}
-
-func WithStorage(storage BundleStorage) RouteOption {
-	return func(options *routeOptions) {
-		options.storage = storage
-	}
-}
-
-func WithLimits(limits Limits) RouteOption {
-	return func(options *routeOptions) {
-		options.limits = limits
-	}
-}
-
-func WithProjectionRebuild(rebuilder importProjectionRebuilder) RouteOption {
-	return func(options *routeOptions) {
-		options.projectionRebuild = rebuilder
-	}
-}
-
-func WithSourceCatalog(catalog *sourceport.Catalog) RouteOption {
-	return func(options *routeOptions) {
-		options.sourceCatalog = catalog
-	}
-}
-
-func WithHistoricalIntentPolicy(policy historicalIntentPolicy) RouteOption {
-	return func(options *routeOptions) {
-		options.historicalIntents = policy
-	}
-}
-
-func WithBlobPortability(port blobPortability) RouteOption {
-	return func(options *routeOptions) {
-		options.blobPort = port
-	}
-}
-
-func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
-	resolved := routeOptions{}
-	for _, option := range options {
-		if option != nil {
-			option(&resolved)
-		}
-	}
+// RegisterRoutes returns the Incident Bundles registrar only after the module
+// facade has completed its coordinator and worker lifecycle.
+func (m *Module) RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps, resolved)
+		if err := m.routeDependenciesReady(); err != nil {
+			return err
+		}
+		service, err := newService(deps, m)
 		if err != nil {
 			return err
 		}
@@ -135,65 +44,26 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet, options routeOptions) (*Service, error) {
-	if options.importFinalizer == nil {
-		return nil, fmt.Errorf("incident bundle import finalizer is required")
-	}
-	if options.jobFinalizer == nil {
-		return nil, fmt.Errorf("incident bundle job success finalizer is required")
-	}
-	if options.portability == nil || options.transactions == nil {
-		return nil, fmt.Errorf("incident bundle portability composition is required")
-	}
-	if options.publicationLock == nil {
-		return nil, fmt.Errorf("incident bundle publication lock is required")
-	}
-	if options.storage == nil {
-		return nil, fmt.Errorf("incident bundle storage is required")
-	}
-	if options.projectionRebuild == nil {
-		return nil, fmt.Errorf("incident bundle projection rebuild is required")
-	}
-	if options.sourceCatalog == nil {
-		return nil, fmt.Errorf("incident bundle source catalog is required")
-	}
-	if options.jobOperations == nil || options.jobRunner == nil {
-		return nil, fmt.Errorf("incident bundle jobs composition is required")
-	}
-	if options.jobAdmission == nil {
-		return nil, fmt.Errorf("incident bundle Jobs transaction service is required")
-	}
-	if options.historicalIntents == nil {
-		return nil, fmt.Errorf("incident bundle historical intent policy is required")
-	}
-	if options.blobPort == nil {
-		return nil, fmt.Errorf("incident bundle blob portability is required")
+func newService(deps httpapi.DependencySet, module *Module) (*service, error) {
+	if module == nil || module.pool == nil || module.store == nil || module.worker == nil || module.storage == nil || module.now == nil {
+		return nil, fmt.Errorf("incident bundle module is incomplete")
 	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
 	}
-	now := deps.Now
-	if now == nil {
-		now = func() time.Time { return time.Now().UTC() }
-	}
-	store := NewStore(deps.Postgres, options.jobAdmission)
-	worker := newIncidentBundleWorker(store, deps, options.jobOperations, options.jobRunner, options.storage, options.importFinalizer, options.jobFinalizer, options.portability, options.publicationLock, options.transactions, options.projectionRebuild, options.sourceCatalog, options.historicalIntents, options.blobPort, options.limits, now)
-	if err := worker.registerJobHandler(); err != nil {
-		return nil, err
-	}
-	return &Service{
-		store:          store,
-		authStore:      authn.NewStore(deps.PostgresHandle()),
-		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
-		storage:        options.storage,
-		worker:         worker,
+	return &service{
+		store:          module.store,
+		authStore:      authn.NewStore(module.pool),
+		incidentAccess: incidents.NewAccess(module.pool),
+		storage:        module.storage,
+		worker:         module.worker,
 		keys:           keys,
-		now:            now,
+		now:            module.now,
 	}, nil
 }
 
-func (s *Service) handleBundleMember(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleBundleMember(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -217,30 +87,30 @@ func (s *Service) handleBundleMember(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	record, err := s.store.GetDescriptor(r.Context(), bundleID)
-	if errors.Is(err, ErrNotFound) {
+	record, err := s.store.getDescriptor(r.Context(), bundleID)
+	if errors.Is(err, errNotFound) {
 		writeAPIError(w, r, incidentBundleNotFound())
 		return
 	}
 	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, internalAPIError())
 		return
 	}
 	if _, err := s.incidentAccess.GetIncidentMembershipForUser(r.Context(), record.IncidentID, principal.User.ID); s.incidentAccess.IsMembershipNotFound(err) {
 		writeAPIError(w, r, incidentBundleNotFound())
 		return
 	} else if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, internalAPIError())
 		return
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, internalAPIError())
 		return
 	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, record.Resource())
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, record.resource())
 }
 
-func (s *Service) handleExport(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleExport(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -250,7 +120,7 @@ func (s *Service) handleExport(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := DecodeExportRequest(r.Body)
+	request, apiErr := decodeExportRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -259,14 +129,14 @@ func (s *Service) handleExport(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, incidentBundleNotFound())
 		return
 	} else if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, internalAPIError())
 		return
 	}
 	if request.CapabilityActivationRequested {
 		writeAPIError(w, r, extensionCapabilityNotSupported())
 		return
 	}
-	result, err := s.store.AcceptExport(r.Context(), ExportAcceptedParams{
+	result, err := s.store.acceptExport(r.Context(), exportAcceptedParams{
 		ActorUserID:       principal.User.ID,
 		Request:           request,
 		NormalizedRequest: request.Normalized,
@@ -277,20 +147,20 @@ func (s *Service) handleExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, internalAPIError())
 		return
 	}
 	if !result.Replayed {
 		_ = s.worker.dispatch(result.Job.JobID)
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, internalAPIError())
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
 }
 
-func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleImport(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -300,22 +170,22 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	envelope, envelopeErr := httpapi.ParseUploadEnvelope(r, httpapi.UploadEnvelopePolicy{FileContentTypes: IncidentBundleFileContentTypes})
+	envelope, envelopeErr := httpapi.ParseUploadEnvelope(r, httpapi.UploadEnvelopePolicy{FileContentTypes: acceptedIncidentBundleFileContentTypes()})
 	if envelopeErr != nil {
 		writeAPIError(w, r, uploadEnvelopeAPIError(envelopeErr))
 		return
 	}
-	request, apiErr := DecodeImportMetadata(envelope)
+	request, apiErr := decodeImportMetadata(envelope)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 	stagingReference, err := s.storage.Stage(r.Context(), envelope.FileSHA256Hex, envelope.File)
 	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, internalAPIError())
 		return
 	}
-	result, err := s.store.AcceptImport(r.Context(), ImportAcceptedParams{
+	result, err := s.store.acceptImport(r.Context(), importAcceptedParams{
 		ActorUserID:       principal.User.ID,
 		Request:           request,
 		UploadedSHA256:    envelope.FileSHA256Hex,
@@ -330,7 +200,7 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		_ = s.storage.RemoveStaged(stagingReference)
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, internalAPIError())
 		return
 	}
 	if !result.Replayed {
@@ -339,13 +209,13 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 		_ = s.storage.RemoveStaged(stagingReference)
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		writeAPIError(w, r, internalAPIError())
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
 }
 
-func (s *Service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {
+func (s *service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {
 	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: stateChanging})
 	if apiErr != nil {
 		return httpauth.Principal{}, apiErr
@@ -356,6 +226,6 @@ func (s *Service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (h
 	return principal, nil
 }
 
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
 	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
 }

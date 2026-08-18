@@ -193,8 +193,8 @@ func TestRevisionsIncidentBundleInvariantAttribution(t *testing.T) {
 	}
 
 	descriptor := harness.port.Descriptor()
-	if got := descriptor.InvariantIDs[len(descriptor.InvariantIDs)-1]; got != "revisions.sequence_repair_after_validation" {
-		t.Fatalf("last revisions invariant = %q", got)
+	if got := descriptor.InvariantIDs[len(descriptor.InvariantIDs)-2:]; got[0] != "revisions.sequence_repair_after_validation" || got[1] != "revisions.source_identity_admitted" {
+		t.Fatalf("revisions invariant tail = %#v", got)
 	}
 
 	strictFixtures := []struct {
@@ -524,8 +524,8 @@ func (h revisionsPortabilityHarness) applyAndValidate(t testing.TB, bundle sourc
 func requireRevisionsInvariant(t testing.TB, err error, invariantID string) {
 	t.Helper()
 	var failure *sourceport.Failure
-	if !errors.As(err, &failure) || failure.FamilyID != "revisions" ||
-		failure.InvariantID != invariantID {
+	if !errors.As(err, &failure) || failure.FamilyID() != "revisions" ||
+		failure.InvariantID() != invariantID {
 		t.Fatalf("Revisions portability failure = %#v, %v; want %s", failure, err, invariantID)
 	}
 	for _, forbidden := range []string{"SELECT", "record_revisions", "must-not-escape"} {
