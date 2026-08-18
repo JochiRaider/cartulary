@@ -32,8 +32,8 @@ type BlobPortability interface {
 type bundleBuilder struct {
 	pool          *pgxpool.Pool
 	blobPort      BlobPortability
-	portability   *PortabilityOrchestrator
-	sourceCatalog *sourceport.Catalog
+	portability   portabilityCoordinator
+	sourceCatalog sourcePortCatalog
 }
 
 type importer struct {
@@ -41,7 +41,7 @@ type importer struct {
 	blobPort          BlobPortability
 	finalizer         incidents.IncidentBundleImportFinalizer
 	projectionRebuild ImportProjectionRebuilder
-	sourceCatalog     *sourceport.Catalog
+	sourceCatalog     sourcePortCatalog
 	historicalIntents HistoricalIntentPolicy
 }
 

@@ -174,7 +174,7 @@ func testSourceStateManifestDerivesExactRecoveryAndPortabilityState(t *testing.T
 	for index, want := range wantPaths {
 		got := paths[index]
 		if got.LogicalPath != want.logicalPath || got.ContentRole != "source_rows" ||
-			!slices.Equal(got.Versions, []int{1, 2}) || !slices.Equal(got.StableIdentity, []string{want.stableIdentity}) {
+			!slices.Equal(got.Versions, []int{2}) || !slices.Equal(got.StableIdentity, []string{want.stableIdentity}) {
 			t.Fatalf("source-port path %d = %#v, want %#v", index, got, want)
 		}
 	}
@@ -223,7 +223,7 @@ func testSourceStateManifestOwnsDefensiveRelationCopies(t *testing.T) {
 	input[0].supportedVersions[0] = 99
 	input[0].stableIdentity[0] = "mutated_identity"
 	input[0].requiredImportColumns[0] = "mutated_column"
-	if manifest.relations[0].supportedVersions[0] != 1 ||
+	if manifest.relations[0].supportedVersions[0] != 2 ||
 		manifest.relations[0].stableIdentity[0] != "record_id" ||
 		manifest.relations[0].requiredImportColumns[0] != "record_id" {
 		t.Fatalf("manifest retained caller-owned slices: %#v", manifest.relations[0])
@@ -235,7 +235,7 @@ func testSourceStateManifestOwnsDefensiveRelationCopies(t *testing.T) {
 	imports := manifest.importSpecifications()
 	imports[0].StableIdentity[0] = "mutated_identity"
 	imports[0].RequiredColumns[0] = "mutated_column"
-	if got := manifest.sourcePortPaths()[0]; got.Versions[0] != 1 || got.StableIdentity[0] != "record_id" {
+	if got := manifest.sourcePortPaths()[0]; got.Versions[0] != 2 || got.StableIdentity[0] != "record_id" {
 		t.Fatalf("source-port projection exposed manifest slices: %#v", got)
 	}
 	if got := manifest.importSpecifications()[0]; got.StableIdentity[0] != "record_id" || got.RequiredColumns[0] != "record_id" {

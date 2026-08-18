@@ -14,11 +14,11 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		OwnerID: "module.entities", OwnerRelationIDs: []string{"entity-source"},
 		Dependencies: []string{"parties"},
 		Paths: []sourceport.Path{
-			{LogicalPath: "data/entity_mentions.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"entity_mention_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
-			{LogicalPath: "data/hosts.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
-			{LogicalPath: "data/identities.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
-			{LogicalPath: "data/entity_preserved_identifiers.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"entity_preserved_identifier_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
-			{LogicalPath: "data/entity_aliases.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"entity_alias_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
+			{LogicalPath: "data/entity_mentions.ndjson", ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"entity_mention_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
+			{LogicalPath: "data/hosts.ndjson", ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
+			{LogicalPath: "data/identities.ndjson", ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
+			{LogicalPath: "data/entity_preserved_identifiers.ndjson", ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"entity_preserved_identifier_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
+			{LogicalPath: "data/entity_aliases.ndjson", ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"entity_alias_id"}, StableIdentityInvariantID: "entities.source_identity_admitted"},
 		},
 		InvariantIDs: []string{
 			"entities.mentions_observational", "entities.envelope_type_scope",

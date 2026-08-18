@@ -8,7 +8,7 @@
 - **Iteration 1 execution baseline (historical):** branch `main`, commit `3956dd1d3e286bd612abb198a0c42c8e51222127`, then equal to `origin/main`. The tracker had preserved staged user-owned changes before implementation began; they were not reset or replaced.
 - **Iteration 2 planning baseline:** branch `main`, commit `31769e815190ed72e713daa1dfe6269b9ede465a`, with a clean worktree before this document update. Every implementation session MUST refresh this value before relying on it.
 - **Iteration 3 planning baseline:** branch `main`, commit `017f504ba0912071d3de261a93a2e04fead25f99`, with a clean worktree before `IB-R3-PLAN-001`. Every implementation session MUST refresh this value before relying on it.
-- **Status:** Iterations 1 and 2 are complete. Iteration 3 preflight, `IB-R3-S00`, and `IB-R3-S01` are complete. The adopted pre-production lifecycle path makes stable-release, elapsed-time, telemetry, and inventory gates inapplicable because Bundle v1 has never been published as a stable compatibility surface, and the project owner confirms that no v1 bundle or recovery archive requires conversion. Complete v1 removal is the selected future state. Bundle v1 remains implemented only until the S02 owner revision and S03 atomic cutover.
+- **Status:** Iterations 1, 2, and 3 are complete. The adopted pre-production lifecycle path made stable-release, elapsed-time, telemetry, and inventory gates inapplicable because Bundle v1 was never published as a stable compatibility surface, and the project owner confirmed that no v1 bundle or recovery archive requires conversion. Bundle version 2 is the sole implemented format; the compatibility/attestation contingency, concrete v1 reader/translator, successful-v1 telemetry, and source-catalog v2 are removed. Explicit tripwire and service-backed matrices prove that numeric v1 cannot reach source, extension, transaction, incident-domain, or publication effects. The complete narrow-to-broad validation floor is green, all changes remain uncommitted, and the final next action is none.
 - **Iteration 1 authorized scope (historical):** the adopted owners, authored contract inputs, generated projections produced through Make, Incident Bundles and directly affected peer-owner implementation/tests, verification inputs when required, and this tracker.
 - **Iteration 2 authorized scope:** the adopted owner text, authored internal contracts, Make-generated projections when changed by generation, Incident Bundles and the thirteen affected source-owner implementations/tests, application assembly, verification inputs when required, and this tracker.
 - **Iteration 3 execution scope:** the authorized work covers gate semantics, retirement evidence, later version-admission retirement, fail-closed behavior, telemetry cleanup, thirteen-source-owner consistency, verification, and the owner revisions explicitly assigned below; it excludes unrelated package relocation or topology cleanup.
@@ -31,7 +31,7 @@ Owner and support documents inspected:
 - `AGENTS.md` and `docs/handoffs/cartulary_modular_refactor_planning_framework.md`.
 - `docs/domain.md` for vocabulary and owner navigation.
 - Core 00 `docs/spec/00_document_set_status_and_precedence.md`, including the Incident Portability owner and capability posture.
-- Core 01 `docs/spec/01_architecture_storage_and_view_contracts.md`, especially incident portability §§12.3 and 17.5, REQ-01-425 through REQ-01-451, REQ-01-483 through REQ-01-486, and REQ-01-635 through REQ-01-646.
+- Core 01 `docs/spec/01_architecture_storage_and_view_contracts.md`, especially incident portability §§12.3 and 17.5, REQ-01-425 through REQ-01-451, REQ-01-483 through REQ-01-486, and REQ-01-635 through REQ-01-659.
 - Core 02 `docs/spec/02_domain_model_schema_and_history.md` for source-owner data, history, attribution, and deployment-local state exclusions from incident portability.
 - Core 03 `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` for saved-view/workbook consequences and confirmation that no frontend shell behavior is owned here.
 - Core 04 `docs/spec/04_security_deployment_and_conformance.md`, including AC-164 through AC-169, AC-273 through AC-276, AC-332, AC-386, AC-442, and AC-487 through AC-508.
@@ -765,7 +765,7 @@ Gates 001 through 005 apply conjunctively only after Bundle v1 becomes a publish
 | `IB-R3-GATE-003` | At least 180 complete days have elapsed from the recorded deprecation start. | The pre-production cutover has no deprecation clock because no stable compatibility promise began. | NOT APPLICABLE | No elapsed time is invented. Stable publication of v1 before removal reopens this gate and starts the clock only from an atomic adopting-release/deprecation record. |
 | `IB-R3-GATE-004` | A current 30-consecutive-complete-day window contains zero successful v1 imports. | Pre-production use is not compatibility-retirement telemetry, and no operational window is required for a never-stable surface. | NOT APPLICABLE | No telemetry evidence is invented. Stable publication of v1 before removal reopens this gate and requires the exact complete window. |
 | `IB-R3-GATE-005` | Operator inventory finds zero supported recovery archives that still require v1. | The project owner confirms that no v1 bundle, backup, or supported recovery archive exists that requires conversion or continued readability; no production or stable-release archive has a compatibility entitlement. | NOT APPLICABLE | No inventory evidence or conversion campaign is invented. Stable publication of v1 before removal reopens this gate and requires complete current inventory. |
-| `IB-R3-GATE-006` | A later adopted Core revision authorizes v2-only admission and removal. | REQ-01-636 and AC-506 now authorize the pre-production lifecycle path but the remaining Core 01/Core 04 assertions still admit v1 until the exhaustive S02 revision. | OPEN | `IB-R3-S02` adopts complete v2-only semantics before implementation deletion begins. |
+| `IB-R3-GATE-006` | A later adopted Core revision authorizes v2-only admission and removal. | S02 revised every affected Core and subsystem owner: version 2 is the sole admitted version, retired numeric version 1 is unsupported, and no success, translation, compatibility, telemetry-retirement, or attestation-target promise remains. | PASS | Closed by the classified owner sweep and `IB-R3-T-013` before implementation deletion begins. |
 
 ### 18.3 External retirement-attestation contract
 
@@ -794,7 +794,7 @@ The target and its tests are authored through the Testing Harness owner, task-su
 | `IB-R3-REQ-003` | The adopted Testing Harness owner and Make-owned checker MUST define and validate the separate closed input/result schemas for the stable-published branch, resolve stable publication facts exclusively through distinct retained passing `release-check` runs, derive all gate states in the result, and accept only bounded aggregate/date/count/digest fields without incident or storage identifiers. The result MUST omit its own digest, and the checker MUST reject a pre-production projection as not operationally gated. | `IB-R3-S00`, `IB-R3-S01` |
 | `IB-R3-REQ-004` | Bundle v1 import and successful-import telemetry MUST remain functional through S01 and until the later S02 owner adoption and S03 atomic removal. No implementation-removal test may become active merely because the operational gates are inapplicable. | `IB-R3-S00`, `IB-R3-S01`, `IB-R3-S02`, `IB-R3-S03` |
 | `IB-R3-REQ-005` | S01 closes when adopted owners and the active compatibility projection record that v1 is `preproduction_unreleased`, has never established a stable compatibility promise, and requires no backward compatibility. No release, elapsed-time, telemetry, inventory, or passing-attestation evidence may be fabricated. Stable publication of v1 before S03 reopens S01 and requires the full retained attestation path. | `IB-R3-S01` |
-| `IB-R3-REQ-006` | After S01, every active Core assertion of Bundle v1 MUST be revised. The known Core 01 set is REQ-01-635, 636, 640, 651, 659, 644, and 645; the known Core 04 set is AC-489, 490, 496, 506, 508, 513, 525, 529, 531, and 533. Version 2 becomes the sole admitted version, AC-489 becomes the retired-v1 rejection proof, the Timeline v1 invariant and positive translation promise are removed, and unsupported-versus-malformed precedence is preserved. Implementation deletion MUST wait for adoption. | `IB-R3-S02` |
+| `IB-R3-REQ-006` | After S01, every active Core assertion of Bundle v1 MUST be revised. The complete Core 01 set is REQ-01-635, 636, 640, 644, 645, 651, 653, and 659; the Core 04 set is AC-489, 490, 496, 506, 508, 513, 525, 529, 531, and 533. Version 2 becomes the sole admitted version, AC-489 becomes the retired-v1 rejection proof, the Timeline v1 invariant and positive translation promise are removed, and unsupported-versus-malformed precedence is preserved. Implementation deletion MUST wait for adoption. | `IB-R3-S02` |
 | `IB-R3-REQ-007` | The active compatibility registry, `cartulary.incident_bundle_compatibility.v2` schema and attachment, and the contingency attestation target/schemas/validator/routing MUST be deleted only in the post-adoption atomic cutover if v1 remains never-stable. No compatibility v3 registry, reader, shadow input, runtime gate, or dead one-time checker survives. If stable publication reopens S01, retained retirement history remains in adopted owner text, retained release evidence, and tracker checkpoints. | `IB-R3-S03` |
 | `IB-R3-REQ-008` | Source-catalog v3 MUST replace v2 atomically across the authored catalog, schema, attachment, loader, all thirteen source owners, special consumers, tests, and generated projections. Every path MUST admit exactly version 2; v2 MUST remain immutable and no v2/v3 reader may exist. | `IB-R3-S03` |
 | `IB-R3-REQ-009` | The cutover MUST remove the legacy bundle constant, v1 required-path registry, v1 codec branch, Timeline `raw_capture` translator, v1-only Timeline paths and invariant, owner-local `{1,2}` checks, positive v1 fixtures, worker telemetry emission, v1 metric registry/helper/tests, and OTEL golden entry. | `IB-R3-S03` |
@@ -836,16 +836,16 @@ Tests introduced before removal MUST characterize still-required behavior or val
 | `IB-R3-AC-001` | The document-only plan changes only this tracker, records every gate open, and authorizes no execution slice. | `IB-R3-PLAN-001`, focused diff, `git diff --check`, Markdown lint | PASS in `IB-R3-PLAN-001` |
 | `IB-R3-AC-002` | Gate semantics and external attestation are adopted, deterministic, privacy-bounded, Make-owned, and tested while working v1 support remains intact. | `IB-R3-T-001` through `IB-R3-T-005` | PASS in `IB-R3-S00` |
 | `IB-R3-AC-003` | The adopted pre-production lifecycle is internally consistent and machine-validated, requires no invented operational evidence, and automatically reactivates the stable-published gate if v1 ships before removal. | Core 01 REQ-01-636, Core 04 AC-506, compatibility projection/schema, checker negative test, and Section 23 S01 checkpoint | PASS in `IB-R3-S01` |
-| `IB-R3-AC-004` | A coordinated adopted Core and subsystem NLSpec revision makes version 2 the only admitted Bundle version and removes every normative Bundle-v1 success, compatibility, translation, telemetry-retirement, and attestation-target mention without changing v2 or unrelated `.v1` semantics. | `IB-R3-T-013`, owner review, and S02 checkpoint | READY after AC-003 |
-| `IB-R3-AC-005` | Active compatibility inputs and contingency attestation machinery are deleted with no replacement registry, converter, shim, or reader; only the adopted pre-production decision and tracker history remain. | Exact path/caller searches and S03 diff | BLOCKED by AC-004 |
-| `IB-R3-AC-006` | Source-catalog v3 is the only active catalog, every path admits only version 2, and all thirteen owners and special consumers agree. | `IB-R3-T-006`, JSON shape, generation drift, owner slices | BLOCKED by AC-004 |
-| `IB-R3-AC-007` | Numeric v1 is rejected with the stable unsupported-version result before every source, transaction, storage, publication, audit-success, and telemetry effect. | `IB-R3-T-007` | BLOCKED by AC-004 |
-| `IB-R3-AC-008` | Retired v1 Timeline paths under numeric v2 and mixed or unknown path sets remain malformed and fail closed. | `IB-R3-T-008` | BLOCKED by AC-004 |
-| `IB-R3-AC-009` | No concrete Bundle v1 support or successful-import telemetry remains, and every retained `.v1` identifier has an explicit current-contract justification. | `IB-R3-T-009` and telemetry-owner checks | BLOCKED by AC-004 |
-| `IB-R3-AC-010` | Surviving v2 behavior, source-family invariants, atomicity, recovery, authorization, cleanup, extensions, attribution, and saved views remain green. | `IB-R3-T-010` | BLOCKED by AC-004 |
-| `IB-R3-AC-011` | The Incident Bundles owner remains at 24 rows and the former translation row is replaced by the retirement-rejection row without duplicate execution. | `IB-R3-T-011`, owner explanation, target plans | BLOCKED by AC-004 |
-| `IB-R3-AC-012` | Every no-change boundary and the complete narrow-to-broad validation floor pass with classified failures and exact retained evidence. | `IB-R3-T-012` and S05 checkpoint | BLOCKED by AC-004 |
-| `IB-R3-AC-013` | Every slice has a complete checkpoint, rollback point, staging record, and post-checkpoint diff and Markdown validation; final `next action` is `none`. | Section 23 | BLOCKED by all implementation slices |
+| `IB-R3-AC-004` | A coordinated adopted Core and subsystem NLSpec revision makes version 2 the only admitted Bundle version and removes every normative Bundle-v1 success, compatibility, translation, telemetry-retirement, and attestation-target mention without changing v2 or unrelated `.v1` semantics. | `IB-R3-T-013`, owner review, and S02 checkpoint | PASS in `IB-R3-S02` |
+| `IB-R3-AC-005` | Active compatibility inputs and contingency attestation machinery are deleted with no replacement registry, converter, shim, or reader; only the adopted pre-production decision and tracker history remain. | Exact path/caller searches and S03 diff | PASS in `IB-R3-S03` |
+| `IB-R3-AC-006` | Source-catalog v3 is the only active catalog, every path admits only version 2, and all thirteen owners and special consumers agree. | `IB-R3-T-006`, JSON shape, generation drift, owner slices | PASS in `IB-R3-S03` |
+| `IB-R3-AC-007` | Numeric v1 is rejected with the stable unsupported-version result before every source, transaction, target-storage, publication, audit-success, and telemetry effect, while admitted-upload staging is removed as required. | `IB-R3-T-007` | PASS in `IB-R3-S04` |
+| `IB-R3-AC-008` | Retired v1 Timeline paths under numeric v2 and mixed or unknown path sets remain malformed and fail closed. | `IB-R3-T-008` | PASS in `IB-R3-S04` |
+| `IB-R3-AC-009` | No concrete Bundle v1 support or successful-import telemetry remains, and every retained `.v1` identifier has an explicit current-contract justification. | `IB-R3-T-009` and telemetry-owner checks | PASS in `IB-R3-S04` |
+| `IB-R3-AC-010` | Surviving v2 behavior, source-family invariants, atomicity, recovery, authorization, cleanup, extensions, attribution, and saved views remain green. | `IB-R3-T-010` | PASS in `IB-R3-S04` |
+| `IB-R3-AC-011` | The Incident Bundles owner remains at 24 rows and the former translation row is replaced by the retirement-rejection row without duplicate execution. | `IB-R3-T-011`, owner explanation, target plans | PASS in `IB-R3-S03` |
+| `IB-R3-AC-012` | Every no-change boundary and the complete narrow-to-broad validation floor pass with classified failures and exact retained evidence. | `IB-R3-T-012` and S05 checkpoint | PASS in `IB-R3-S05` |
+| `IB-R3-AC-013` | Every slice has a complete checkpoint, rollback point, staging record, and post-checkpoint diff and Markdown validation; final `next action` is `none`. | Section 23 | PASS in `IB-R3-S05` |
 
 ## 21. Iteration 3 Sequential Workstreams
 
@@ -871,15 +871,15 @@ The order is strict: `IB-R3-S00` → `IB-R3-S01` → `IB-R3-S02` → `IB-R3-S03`
 
 ### `IB-R3-S02` — Adopt the removal owners
 
-- **Status:** READY; S01 is complete and no implementation removal has begun.
+- **Status:** COMPLETE on 2026-08-18 EDT; checkpointed in Section 23. No implementation removal occurred in this slice.
 - **Dependencies:** completed S01 pre-production lifecycle checkpoint and the existing Iteration 3 owner-adoption authority.
-- **Work:** exhaustively revise every active Bundle-v1 assertion in both Core and subsystem NLSpecs. The known Core 01 set is REQ-01-635, 636, 640, 651, 659, 644, and 645; the known Core 04 set is AC-489, 490, 496, 506, 508, 513, 525, 529, 531, and 533. Remove the Incident Bundle v1 retirement target, schemas, input matrix, output contract, artifact identity, and related prose from the Testing Harness NLSpec because S03 deletes that public tooling. Search all `docs/spec/*.md` and `docs/*nlspec.md` owners for additional Bundle-v1-specific language. Make version 2 the sole admitted version, redefine AC-489 as retired-v1 rejection proof, remove normative v1 Timeline paths, invariants, translation requirements, successful-import acceptance, telemetry-retirement requirements, and any conversion or retained-readability obligation, update typed traceability mappings, and preserve unsupported-version precedence, v2 closed-path rules, public failure vocabulary, asynchronous job semantics, the historical pre-production decision, and no-change boundaries. Do not rewrite unrelated API `/api/v1`, schema/token `.v1`, or other subsystem version families.
+- **Work:** exhaustively revise every active Bundle-v1 assertion in both Core and subsystem NLSpecs. The complete Core 01 set is REQ-01-635, 636, 640, 644, 645, 651, 653, and 659; the Core 04 set is AC-489, 490, 496, 506, 508, 513, 525, 529, 531, and 533. Remove the Incident Bundle v1 retirement target, schemas, input matrix, output contract, artifact identity, and related prose from the Testing Harness NLSpec because S03 deletes that public tooling. Search all `docs/spec/*.md` and `docs/*nlspec.md` owners for additional Bundle-v1-specific language. Make version 2 the sole admitted version, redefine AC-489 as retired-v1 rejection proof, remove normative v1 Timeline paths, invariants, translation requirements, successful-import acceptance, telemetry-retirement requirements, and any conversion or retained-readability obligation, update typed traceability mappings, and preserve unsupported-version precedence, v2 closed-path rules, public failure vocabulary, asynchronous job semantics, the historical pre-production decision, and no-change boundaries. Do not rewrite unrelated API `/api/v1`, schema/token `.v1`, or other subsystem version families.
 - **Exit:** adopted Core and subsystem NLSpec text unambiguously authorizes complete removal, `IB-R3-T-013` and `IB-R3-AC-004` pass, and an exact classified owner search remains as checkpoint evidence before runtime deletion starts.
 - **Rollback:** revert the complete Core 01/Core 04/Testing Harness and any additionally affected subsystem NLSpec revision together before S03. S02 and S03 are a non-deployable owner-to-projection transition: do not release the tree between them. Never retain owners that promise v1 after code deletion or deploy implementation that still exposes removed owner behavior.
 
 ### `IB-R3-S03` — Atomic v2-only cutover
 
-- **Status:** BLOCKED by S02.
+- **Status:** COMPLETE on 2026-08-18 EDT; checkpointed in Section 23 as one indivisible cutover.
 - **Dependencies:** adopted complete Core and subsystem NLSpec S02 revision; clean rollback point; all relevant callers and generated owners inventoried.
 - **Work:** delete the active compatibility registry, its v2 schema and attachment and, while the lifecycle remains never-stable, delete the contingency attestation target, schemas, validator, tests, verification routing, and generated task-surface projections; replace source-catalog v2 with v3 across all thirteen owners and special consumers with only version 2; remove all concrete runtime, Timeline translation, owner-local admission, fixture, successful-import telemetry, metric-registry, and OTEL-golden v1 support listed in `IB-R3-REQ-009`; replace the positive translation fixture/test/routed row with the negative retired-v1 case; regenerate authored topology through Make while retaining exactly 24 Incident Bundles rows. Add no converter, offline translator, fallback codec, feature flag, dual reader, or migration. Retain only generic `BundleVersion`, descriptor `Versions`, catalog maps, and version-aware preparation seams that serve future formats, plus unrelated stable `.v1` identities owned outside Bundle v1.
 - **Exit:** `IB-R3-T-006` through `IB-R3-T-011` pass, no compatibility, attestation, conversion, or v1 catalog/reader surface remains, every path admits only v2, and exact diffs show one routed-row replacement rather than topology growth.
@@ -887,7 +887,7 @@ The order is strict: `IB-R3-S00` → `IB-R3-S01` → `IB-R3-S02` → `IB-R3-S03`
 
 ### `IB-R3-S04` — Production hardening
 
-- **Status:** BLOCKED by S03.
+- **Status:** COMPLETE on 2026-08-18 EDT; checkpointed in Section 23 after one stale Revisions projection was returned to and repaired within S03.
 - **Dependencies:** complete atomic v2-only tree.
 - **Work:** prove rejection ordering with fail-fast collaborators and service-backed zero-state checks; preserve the admitted/idempotent job payload and terminal failure while proving staging cleanup and zero incident-domain or publication effects; prove numeric-v1 unsupported precedence and v2-with-retired-path malformed precedence; audit all concrete codec, path, translator, telemetry, catalog, fixture, reader, conversion, compatibility, and attestation remnants; classify retained `.v1` names and remove only those dedicated to Bundle v1.
 - **Retained contracts:** current row-schema IDs, API contracts, source-boundary tokens, and database tables such as `timeline_events` and `timeline_time_conversion_profiles` remain unless a separately authorized owner/migration effort says otherwise.
@@ -896,7 +896,7 @@ The order is strict: `IB-R3-S00` → `IB-R3-S01` → `IB-R3-S02` → `IB-R3-S03`
 
 ### `IB-R3-S05` — Validation and handoff
 
-- **Status:** BLOCKED by S04.
+- **Status:** COMPLETE on 2026-08-18 EDT; final checkpoint and evidence are recorded in Section 23.
 - **Dependencies:** all prior checkpoints complete and post-checkpoint Markdown gates passing.
 - **Work:** run the narrow owner and service-backed slices before broad suites; validate the exhaustive Core/subsystem NLSpec cleanup, Timeline and telemetry owners, removal of obsolete release-evidence and compatibility surfaces, no-change boundaries, generated policy, security, and the full harness; classify every failure; repair only related failures; complete all acceptance rows and the final exact manifest.
 - **Exit:** every `IB-R3-AC-*` row passes; exact searches find no executable Bundle v1 support, compatibility/attestation machinery, or conversion path; the checkpoint records commands, results, run roots, changed files, zero migration impact, skipped checks, staging state, rollback points, commit or `uncommitted` state, and `next action=none`.
@@ -934,14 +934,14 @@ Generated roots and lockfiles change only through their owning generation workfl
 | --- | --- | --- | --- | --- |
 | `IB-R3-RISK-001` | Ambiguous release counting permits early retirement. | Adopt the explicit adopting-plus-two-subsequent rule in owner and projection. | Attestation negative tests reject two-total-release interpretations. | CLOSED in S00 |
 | `IB-R3-RISK-002` | Self-asserted or backdated operational evidence closes gates without real releases or elapsed time. | Use the adopted pre-production lifecycle without operational claims; if stable publication occurs, resolve releases through trusted retained evidence and derive dates in the validator. | The checker rejects `preproduction_unreleased` and rejects unreleased, prerelease, unordered, future, or backdated stable-path records. | CLOSED for current lifecycle in S01; reactivates on stable v1 publication |
-| `IB-R3-RISK-003` | Retirement evidence leaks incident or storage metadata. | Closed schema with aggregates and digests only. | Unknown-key and identifier-bearing-field negative tests; do not copy payloads into the tracker. | MITIGATED in S00 |
-| `IB-R3-RISK-004` | V1 support or telemetry is removed before owners and the atomic cutover are ready. | Retain positive v1 behavior through S01 and S02 despite the absence of a compatibility promise. | Focused v1 characterization must pass until S03; any early deletion fails the slice boundary. | CONTROL ACTIVE; S01 complete |
-| `IB-R3-RISK-005` | Source-catalog v2/v3 or owner/runtime admission becomes mixed. | One S03 rollback unit; no compatibility reader or intermediate checkpoint. | Exact catalog/path searches, thirteen-owner slices, JSON shape, and generation drift. | OPEN |
-| `IB-R3-RISK-006` | Unsupported v1 reaches incident-domain or publication effects before rejection, or tests incorrectly forbid durable asynchronous admission state. | Parse and classify numeric version after ordinary job admission/archive reading but before source preparation, extension preparation, and transaction acquisition. | Zero-call spies plus service-backed proof of the admitted/terminal job, staging cleanup, and absence from every prohibited state surface. | OPEN |
-| `IB-R3-RISK-007` | Broad `v1` cleanup removes unrelated current contracts or tables. | Require occurrence classification and preserve explicitly named row/API/source/database identifiers. | No-change diff plus owner-specific compatibility and migration checks. | OPEN |
-| `IB-R3-RISK-008` | Removing the positive routed row reduces coverage or duplicates execution. | Replace the authored row in place and regenerate through Make. | Pre/post 24-row comparison, unique execution audit, owner explanation, and target-plan diff. | OPEN |
-| `IB-R3-RISK-009` | V2 regressions hide behind successful v1-removal tests. | Treat v2 round-trip, atomicity, recovery, authorization, extensions, and all source invariants as release blockers. | Narrow owner slices followed by `test-fast` and `check`; classify and repair only related failures. | OPEN |
-| `IB-R3-RISK-010` | A production incident prompts an unowned compatibility shim. | Preserve the complete prior release as the operational rollback and keep future-version seams generic. | Roll back deployment as a unit; require a new owner revision for any compatibility restoration. | OPEN |
+| `IB-R3-RISK-003` | Retirement evidence leaks incident or storage metadata. | Closed schema with aggregates and digests only. | Unknown-key and identifier-bearing-field negative tests; do not copy payloads into the tracker. | CLOSED when the never-used evidence machinery was deleted in S03 |
+| `IB-R3-RISK-004` | V1 support or telemetry is removed before owners and the atomic cutover are ready. | Retain positive v1 behavior through S01 and S02 despite the absence of a compatibility promise. | Focused v1 characterization must pass until S03; any early deletion fails the slice boundary. | CLOSED by the S02 owner checkpoint; S03 is now authorized |
+| `IB-R3-RISK-005` | Source-catalog v2/v3 or owner/runtime admission becomes mixed. | One S03 rollback unit; no compatibility reader or intermediate checkpoint. | Exact catalog/path searches, thirteen-owner slices, JSON shape, and generation drift. | CLOSED in S03 |
+| `IB-R3-RISK-006` | Unsupported v1 reaches incident-domain or publication effects before rejection, or tests incorrectly forbid durable asynchronous admission state. | Parse and classify numeric version after ordinary job admission/archive reading but before source preparation, extension preparation, and transaction acquisition. | Zero-call spies plus service-backed proof of the admitted/terminal job, staging cleanup, and absence from every prohibited state surface. | CLOSED in S04 |
+| `IB-R3-RISK-007` | Broad `v1` cleanup removes unrelated current contracts or tables. | Require occurrence classification and preserve explicitly named row/API/source/database identifiers. | No-change diff plus owner-specific compatibility and migration checks. | CLOSED in S04 |
+| `IB-R3-RISK-008` | Removing the positive routed row reduces coverage or duplicates execution. | Replace the authored row in place and regenerate through Make. | Pre/post 24-row comparison, unique execution audit, owner explanation, and target-plan diff. | CLOSED in S03 |
+| `IB-R3-RISK-009` | V2 regressions hide behind successful v1-removal tests. | Treat v2 round-trip, atomicity, recovery, authorization, extensions, and all source invariants as release blockers. | Narrow owner slices followed by `test-fast` and `check`; classify and repair only related failures. | CLOSED by S05 |
+| `IB-R3-RISK-010` | A production incident prompts an unowned compatibility shim. | Preserve the complete prior release as the operational rollback and keep future-version seams generic. | Roll back deployment as a unit; require a new owner revision for any compatibility restoration. | DISPOSITIONED: deployment rollback only; compatibility restoration requires new owner adoption |
 
 ### 22.3 Atomicity and rollback rules
 
@@ -964,10 +964,10 @@ Generated roots and lockfiles change only through their owning generation workfl
 | `IB-R3-PLAN-004` | Make exhaustive Bundle-v1 mention removal from Core and subsystem NLSpecs an explicit S02 step and acceptance gate. | Complete-removal decision | COMPLETE | `IB-R3-REQ-017`, `IB-R3-T-013`, tracker-only checkpoint, `git diff --check`, Markdown lint |
 | `IB-R3-W001` / `IB-R3-S00` | Gate semantics and evidence machinery. | Authority and refreshed baseline | COMPLETE | `IB-R3-AC-002`, S00 checkpoint |
 | `IB-R3-W002` / `IB-R3-S01` | Pre-production lifecycle closure, with operational evidence retained as a contingency path only. | S00 and explicit project lifecycle determination | COMPLETE | `IB-R3-AC-003`, owner/projection/schema/checker agreement, S01 checkpoint |
-| `IB-R3-W003` / `IB-R3-S02` | Adopt complete v2-only Core and subsystem NLSpecs and remove all Bundle-v1-specific normative mentions. | S01 pass and owner authority | READY | `IB-R3-T-013`, `IB-R3-AC-004` |
-| `IB-R3-W004` / `IB-R3-S03` | Atomic v2-only cutover. | S02 adoption | BLOCKED | `IB-R3-AC-005` through `IB-R3-AC-011` |
-| `IB-R3-W005` / `IB-R3-S04` | Production hardening and exhaustive classification. | S03 complete | BLOCKED | `IB-R3-AC-007` through `IB-R3-AC-010` |
-| `IB-R3-W006` / `IB-R3-S05` | Validation and final handoff. | S04 complete | BLOCKED | All `IB-R3-AC-*`; `next action=none` |
+| `IB-R3-W003` / `IB-R3-S02` | Adopt complete v2-only Core and subsystem NLSpecs and remove all Bundle-v1-specific normative mentions. | S01 pass and owner authority | COMPLETE | `IB-R3-T-013`, `IB-R3-AC-004`, S02 checkpoint |
+| `IB-R3-W004` / `IB-R3-S03` | Atomic v2-only cutover. | S02 adoption | COMPLETE | `IB-R3-AC-005`, `IB-R3-AC-006`, `IB-R3-AC-011`, S03 checkpoint |
+| `IB-R3-W005` / `IB-R3-S04` | Production hardening and exhaustive classification. | S03 complete | COMPLETE | `IB-R3-AC-007` through `IB-R3-AC-010`, S04 checkpoint |
+| `IB-R3-W006` / `IB-R3-S05` | Validation and final handoff. | S04 complete | COMPLETE | All `IB-R3-AC-*`; `next action=none` |
 
 ### 23.2 Mandatory checkpoint schema
 
@@ -985,14 +985,25 @@ After validating each future slice and before beginning its successor, append on
 
 | 2026-08-18 EDT | `IB-R3-PLAN-004` | COMPLETE, uncommitted. Added an explicit S02 step to remove Bundle-v1-specific normative mentions from every affected Core and subsystem NLSpec before S03 deletes implementation and projections. | Adds `IB-R3-REQ-017` and `IB-R3-T-013`; strengthens `IB-R3-AC-004`, the S02 work/exit/rollback contract, S03 dependency, S05 validation, the work tracker, and the ownership/deletion map. The current exact owner scan identifies Bundle-v1-specific active language in Core 01, Core 04, and the Testing Harness NLSpec, but S02 must search all `docs/spec/*.md` and `docs/*nlspec.md` rather than assuming that inventory is permanently closed. API `/api/v1`, schema/token `.v1`, and unrelated subsystem version families remain explicitly protected. No implementation workstream status changed. | Changed only `docs/handoffs/incidentbundles-module-refactor-tracker.md`. `git diff --check` and `git diff --cached --check` passed; `make lint-markdown` passed at `.cartulary/test-results/ib-r3-plan004-final-lint-20260818`. No specification, contract, generated, runtime, test, telemetry, route, OpenAPI, database, frontend, domain, or lockfile changed in this planning checkpoint. | Compatibility and migration impact are unchanged: complete pre-production v1 removal with no converter or migration. The previously staged S00/S01/PLAN-003 tree remains unchanged; PLAN-004 is unstaged on top of the staged tracker entry, and no commit was created. Rollback is the PLAN-004 tracker edit only. | Begin `IB-R3-S02` with the coordinated Core/subsystem NLSpec sweep; do not begin S03 until `IB-R3-T-013` passes and the S02 checkpoint is sealed. |
 
-### 23.3 Future artifact ownership and deletion map
+| 2026-08-18 EDT | `IB-R3-S02` | COMPLETE, uncommitted. Adopted the final v2-only Incident Bundle owners and removed the obsolete retirement-attestation surface from the Testing Harness owner without changing implementation or projections. | Closes `IB-R3-GATE-006`, `IB-R3-REQ-006`, the S02 portion of `IB-R3-REQ-016` and `IB-R3-REQ-017`, `IB-R3-T-013`, `IB-R3-AC-004`, and `IB-R3-RISK-004`. Existing requirement, acceptance, and verification IDs remain valid, so `contracts/incident-bundles/traceability.json` is a verified no-op. | Exact changed files: `docs/spec/01_architecture_storage_and_view_contracts.md`, `docs/spec/04_security_deployment_and_conformance.md`, `docs/testing-harness-nlspec.md`, and this tracker. The classified scan covered every `docs/spec/*.md` and `docs/*nlspec.md`; remaining `/api/v1` routes, `.v1` schema/token identities, and unrelated subsystem versions are not Bundle-version admission. Preliminary and final `git diff --check` passed; `make lint-markdown` passed before the checkpoint at `.cartulary/test-results/20260818T183956Z-p775712` and after it at `.cartulary/test-results/20260818T184133Z-p777105`. | Runtime Bundle v1 import, source-catalog v2, compatibility v2, attestation projections/tooling, positive fixture/row, and successful-v1 telemetry remain unchanged for the S03 atomic unit. No route, OpenAPI, database, bundle v2 byte, media type, stable token, frontend, `docs/domain.md`, generated artifact, contract projection, test, telemetry implementation, or lockfile changed. Migration impact is zero. Rollback is the complete four-document S02 owner/checkpoint unit before S03; S02 is not separately deployable. | Begin `IB-R3-S03`; keep contracts, all owners, runtime, Timeline, telemetry, fixtures, routing, and generated projections in one atomic rollback unit. |
+| 2026-08-18 EDT | `IB-R3-S03` | COMPLETE, uncommitted. Performed the indivisible v2-only cutover: removed compatibility and retirement-attestation machinery, replaced source-catalog v2 with v3, deleted concrete Bundle-v1/Timeline translation and success telemetry, and replaced the positive v1 row with a negative retired-version scenario. | Closes `IB-R3-REQ-007` through `IB-R3-REQ-009`, the S03 portions of `IB-R3-REQ-010` through `IB-R3-REQ-016`, `IB-R3-T-006` through `IB-R3-T-011`, `IB-R3-AC-005`, `IB-R3-AC-006`, `IB-R3-AC-011`, `IB-R3-RISK-005`, and `IB-R3-RISK-008`. S03 evidence for AC-007 through AC-010 is green; S04 owns their exhaustive hardening/classification closure. | Section 23.5 records the exact modified/deleted/generated manifest, static audit, row/target delta, and every retained run root. Key gates: JSON shape `.cartulary/test-results/20260818T190052Z-p793455`; harness contract `.cartulary/test-results/20260818T190402Z-p837368`; OTel `.cartulary/test-results/20260818T190428Z-p839268`; full Incident Bundles unit `.cartulary/test-results/20260818T192232Z-p1412901` and service-backed `.cartulary/test-results/20260818T192332Z-p1427880`; backend boundary `.cartulary/test-results/20260818T192438Z-p1442776`; generation drift `.cartulary/test-results/20260818T192446Z-p1443163`; final focused admission/catalog rerun `.cartulary/test-results/20260818T192646Z-p1446872`. | No compatibility or data migration exists or is required; development-only numeric-v1 archives are now unreadable and fail with the existing safe asynchronous terminal tuple. Routes, OpenAPI, migrations, Bundle v2 bytes, media types, stable job/profile/worker/source tokens, frontend, `docs/domain.md`, and lockfiles are unchanged. All changes remain unstaged and uncommitted. Rollback is indivisible across every S03 path in Section 23.5 and returns to the complete S02 checkpoint; no mixed v2/v3 tree is a valid rollback point. | Begin `IB-R3-S04`; do not add a compatibility path if hardening exposes a cutover defect. |
+| 2026-08-18 EDT | `IB-R3-S03` corrective checkpoint | COMPLETE, uncommitted. The first S04 exhaustive search found the Revisions contract index still projecting Incident Bundle versions `[1, 2]`; execution returned to S03, changed the authored projection to `[2]`, regenerated its machine projection through `make generate`, and repeated the complete S03 validation floor before resuming S04. | Restores the all-owner portion of `IB-R3-REQ-008`, `IB-R3-T-006`, `IB-R3-T-010`, `IB-R3-AC-006`, and `IB-R3-RISK-005`. Exact `incident_bundle_versions` searches now find only `[2]`. The correction adds no reader, shim, fallback, or compatibility behavior. | Authored correction: `contracts/revisions/index.json`. Generated correction: `internal/gen/contractrevisions/artifacts_gen.go`. Section 23.5 records the replacement evidence. The initial concurrent `module.incidents` attempt at `.cartulary/test-results/20260818T193617Z-p1468594` failed because `test-service-images` could not execute while three owner harnesses contended; it was unrelated to the product change and its sequential rerun passed at `.cartulary/test-results/20260818T193811Z-p1609431`. | Contract major 1 and all Revisions schema/token identities remain unchanged; only the admitted Incident Bundle version set changed. No route, OpenAPI, database, Bundle v2 byte, media type, stable token, frontend, domain, or lockfile change occurred. Migration impact remains zero. The atomic S03 rollback boundary now includes both correction paths; the tree is unstaged and uncommitted. | Resume `IB-R3-S04`; retain exact one-version searches in the final audit. |
+| 2026-08-18 EDT | `IB-R3-S04` | COMPLETE, uncommitted. Replaced implicit invalid-concrete dependency poison with narrow production-facing collaborator interfaces and explicit source, extension, publication-validation, and transaction tripwires; retained and reran the service-backed durable-admission/zero-effect matrix; closed version-precedence and retained-identifier audits. | Closes the S04 portions of `IB-R3-REQ-010` through `IB-R3-REQ-012`, `IB-R3-REQ-016`, and `IB-R3-REQ-017`; passes `IB-R3-T-007` through `IB-R3-T-010` and `IB-R3-AC-007` through `IB-R3-AC-010`; closes `IB-R3-RISK-006` and `IB-R3-RISK-007`. The S04 search also triggered and closed the S03 corrective checkpoint above. | S04 product/test files are `internal/modules/incidentbundles/worker_service.go`, `internal/modules/incidentbundles/source.go`, and `internal/modules/incidentbundles/api_test.go`; this tracker records the evidence. Focused unit tripwire row passed at `.cartulary/test-results/20260818T195252Z-p2095638`; version/path precedence at `.cartulary/test-results/20260818T195301Z-p2096029`; catalog/descriptor closure at `.cartulary/test-results/20260818T195308Z-p2096420`; service-backed retired-version isolation at `.cartulary/test-results/20260818T195315Z-p2096815`; formatting at `.cartulary/test-results/20260818T195355Z-p2111409`; post-checkpoint diff and Markdown validation at `.cartulary/test-results/20260818T195621Z-p2115745`. The corrective S03 owner roots in Section 23.5 supply the independent thirteen-owner, Reference Data, Extensions, telemetry, v2 round-trip, atomicity, recovery, authorization, cleanup, attribution, and saved-view floor. Section 23.6 records exact searches, the zero-effect matrix, and all 107 classified retained-identifier matches. | Numeric v1 preserves only the admitted job, payload, idempotency, terminal failure, upload read, and required staging deletion; it creates no source, extension, transaction, incident-domain, success-audit, descriptor, or final-object state. Routes, OpenAPI, migrations, Bundle v2 bytes, media types, stable tokens, frontend, `docs/domain.md`, and lockfiles remain unchanged. No converter or migration exists; development-only v1 archives remain unreadable. The worktree and index are unstaged and uncommitted. Rollback is the S04 three-file interface/test hardening plus the complete corrected S03 atomic unit; no hidden compatibility branch is permitted. | Begin `IB-R3-S05`; run the full final validation floor and finish with `next action=none`. |
 
-This is a routing inventory for the authorized future slices. `IB-R3-PLAN-003` fixes the intended disposition but changes none of these paths itself.
+| 2026-08-18 EDT | `IB-R3-S03` cleanup checkpoint | COMPLETE, uncommitted. The first broad S05 check found the S03-removed positive translation scenario had left one unused `ndjsonRowsByIdentity` integration-test helper. The helper had zero callers and was deleted; no product behavior, fixture, selector, or row changed. | Completes the dead-helper portion of `IB-R3-REQ-009`, `IB-R3-T-009`, and `IB-R3-AC-009`. The related broad-check failure at `.cartulary/test-results/20260818T203342Z-p3350580` and focused staticcheck diagnostic at `.cartulary/test-results/20260818T203822Z-p3479723` identified only `U1000`; replacement `make lint-go` passed at `.cartulary/test-results/20260818T203855Z-p3484256`. | Changed only `internal/modules/incidentbundles/routes_helpers_integration_test.go` beyond the already-recorded tree. Replacement floor: format `.cartulary/test-results/20260818T203902Z-p3484838`; JSON `.cartulary/test-results/20260818T203910Z-p3488577`; harness `.cartulary/test-results/20260818T203910Z-p3488956`; OTel `.cartulary/test-results/20260818T203910Z-p3488371`; generation drift `.cartulary/test-results/20260818T203910Z-p3488535`; boundary `.cartulary/test-results/20260818T203910Z-p3488848`; telemetry `.cartulary/test-results/20260818T203927Z-p3496826`; Incident Bundles unit/service `.cartulary/test-results/20260818T203933Z-p3497192` and `.cartulary/test-results/20260818T204032Z-p3512185`; Timeline `.cartulary/test-results/20260818T204134Z-p3526957`; Incidents/Records/Parties `.cartulary/test-results/20260818T204617Z-p3582757`, `.cartulary/test-results/20260818T204617Z-p3582755`, and `.cartulary/test-results/20260818T204617Z-p3582754`; Entities/Indicators/Artifacts `.cartulary/test-results/20260818T204735Z-p3677190`, `.cartulary/test-results/20260818T204735Z-p3677191`, and `.cartulary/test-results/20260818T204735Z-p3677199`; Tasks and Decisions/Evidence/Assessments `.cartulary/test-results/20260818T204920Z-p3758342`, `.cartulary/test-results/20260818T204920Z-p3758340`, and `.cartulary/test-results/20260818T204920Z-p3758333`; Links/Revisions/Saved Views `.cartulary/test-results/20260818T205043Z-p3882715`, `.cartulary/test-results/20260818T205043Z-p3882712`, and `.cartulary/test-results/20260818T205043Z-p3882710`; Reference Data/Extensions `.cartulary/test-results/20260818T205209Z-p4009304` and `.cartulary/test-results/20260818T205209Z-p4009307`; post-checkpoint diff and Markdown validation `.cartulary/test-results/20260818T205350Z-p4085076`. | This removes test-only dead code and changes no compatibility or migration surface. The corrected S03 rollback unit now includes the helper deletion. Routes, OpenAPI, migrations, Bundle v2, media types, stable tokens, frontend, domain, and lockfiles remain unchanged. Work remains unstaged and uncommitted. | Resume `IB-R3-S05` at `make check`; repeat the broad gate, then final audits and handoff. |
+
+| 2026-08-18 EDT | `IB-R3-S02` corrective checkpoint | COMPLETE, uncommitted. The final S05 owner scan found that Core 01 REQ-01-653 still described Indicator storage contraction as preserving valid Bundle version 1 or 2 bytes. The owner now names only valid Bundle version 2 bytes, and the complete Core 01 removal set is recorded as REQ-01-635/636/640/644/645/651/653/659. | Restores the exhaustive-owner portion of `IB-R3-REQ-006`, `IB-R3-REQ-017`, `IB-R3-T-013`, and `IB-R3-AC-004`. Exact scans across every `docs/spec/*.md` and `docs/*nlspec.md` now find no Incident Bundle v1 admission, success, translation, telemetry, compatibility, retirement, or attestation promise. No typed mapping names REQ-01-653, so the traceability projection remains a verified no-op. | Changed `docs/spec/01_architecture_storage_and_view_contracts.md` and this tracker. The classified retained owner matches are Object Store schema versions, Reference Pack offline-bundle profile IDs, Reporting render-bundle algorithm IDs, API routes, and other schema/token versions; none is Incident Bundle format admission. Post-checkpoint diff and Markdown validation passed at `.cartulary/test-results/20260818T210048Z-p4194144`. | This specification correction aligns the already-v2-only projection and implementation and changes no runtime, generated artifact, route, OpenAPI, migration, Bundle v2 byte, media type, stable token, frontend, domain, or lockfile. Migration impact is zero. Work remains unstaged and uncommitted. Rollback is the two-document S02 correction; it must not be rolled back independently into an owner/runtime contradiction. | Resume `IB-R3-S05` at the final owner and implementation audits, then close the handoff. |
+
+| 2026-08-18 EDT | `IB-R3-S05` | COMPLETE, uncommitted. Completed the prescribed narrow-to-broad validation, final owner/implementation audits, failure classification, correction routing, exact manifest, no-change proof, and handoff. | All `IB-R3-REQ-*`, `IB-R3-T-*`, and `IB-R3-AC-*` are complete. All risks are closed or explicitly dispositioned. The related dead-helper lint failure returned to S03 and the missed REQ-01-653 owner wording returned to S02; both prior-slice checkpoints passed before S05 resumed. | Section 23.7 records every final command, run root, classified failure, changed/deleted/generated path group, search result, skip, and worktree fact. Final `make test-fast` passed 405/405 units at `.cartulary/test-results/20260818T203145Z-p3314753`; replacement `make check` passed 622/622 at `.cartulary/test-results/20260818T205459Z-p4087194`. | Migration and conversion impact are zero. Numeric-v1 development archives are intentionally unreadable; Bundle v2 and every protected route, OpenAPI, media type, stable token, frontend path, domain term, migration, and lockfile remain unchanged. No dedicated browser suite was required because no frontend behavior changed; owner-routed browser evidence still passed. The index is empty, all 77 paths are unstaged, and no commit was created. Rollback remains the complete corrected S03 atomic unit plus its preceding S02 owner correction; after deployment, use whole-release rollback only. | None. |
+
+### 23.3 Artifact ownership and disposition map
+
+This routing inventory records the disposition completed by S03 and the identities intentionally retained for S04/S05 audits.
 
 | Surface | S00/S01 posture | Post-gate owner | S03 disposition |
 | --- | --- | --- | --- |
-| Core 01 REQ-01-635/636/640/644/645/651/659 and Core 04 AC-489/490/496/506/508/513/525/529/531/533 | Clarify gate; retain v1 semantics | Core owner adoption | Exhaustively adopt v2-only semantics in S02 before deletion |
-| Testing Harness NLSpec Bundle-v1 retirement target, input/output contract, artifact identity, and schema-attachment ownership | Retain only as the S00/S01 contingency owner | Testing Harness owner adoption | Remove the Bundle-v1-specific normative surface in S02; delete its projections and tooling in S03 |
+| Core 01 REQ-01-635/636/640/644/645/651/653/659 and Core 04 AC-489/490/496/506/508/513/525/529/531/533 | V2-only owner semantics adopted in S02 | Core owner adoption | Project the adopted v2-only behavior in S03 |
+| Testing Harness NLSpec Bundle-v1 retirement target, input/output contract, artifact identity, and schema-attachment ownership | Normative surface removed in S02 | Testing Harness owner adoption | Delete its projections and tooling in S03 |
 | `contracts/incident-bundles/compatibility.json`, its v2 schema, and attachment | Record `preproduction_unreleased`, no compatibility obligation, and no fabricated operational facts | Incident Portability projection owners | Delete; no v3 registry or reader |
 | External retirement attestation/result schemas, validator, task-surface route, verification routing, and retained-output handling | Retain as a fail-closed contingency only if v1 becomes stable before cutover; reject the current pre-production lifecycle | Release-evidence and harness projection owners | Delete active checker machinery with the compatibility input when no stable retirement history exists |
 | `contracts/incident-bundles/source_catalog.json`, v2 schema, and attachment | Retain v2 | Incident Bundles plus thirteen source owners | Replace atomically with source-catalog v3; version 2 only |
@@ -1006,3 +1017,272 @@ This is a routing inventory for the authorized future slices. `IB-R3-PLAN-003` f
 ### 23.4 Planning checkpoint no-change manifest
 
 `IB-R3-PLAN-001` changes only `docs/handoffs/incidentbundles-module-refactor-tracker.md`. In particular, `docs/domain.md`, adopted Core files, `contracts/**`, `internal/**`, `tools/**`, `Makefile`, generated roots, database migrations, OpenAPI, frontend paths, and lockfiles remain byte-for-byte outside this checkpoint. No commit is created by the planning task.
+
+### 23.5 S03 exact cutover manifest and evidence
+
+S03 modified these authored files:
+
+- `contracts/incident-bundles/change_set_mutations.row.v1.schema.json`
+- `contracts/incident-bundles/change_sets.row.v1.schema.json`
+- `contracts/incident-bundles/fixture_manifest.json`
+- `contracts/incident-bundles/indicator_observations.row.v1.schema.json`
+- `contracts/incident-bundles/indicator_state_intervals.row.v1.schema.json`
+- `contracts/incident-bundles/indicators.row.v1.schema.json`
+- `contracts/incident-bundles/record_revisions.row.v1.schema.json`
+- `contracts/incident-bundles/saved_views.row.v1.schema.json`
+- `contracts/incident-bundles/source_catalog.json`
+- `contracts/revisions/index.json`
+- `contracts/verification/owners/harness.command_surface.json`
+- `contracts/verification/owners/harness.release.json`
+- `contracts/verification/owners/platform.telemetry.json`
+- `docs/handoffs/incidentbundles-module-refactor-tracker.md`
+- `docs/testing-harness-nlspec.md`
+- `internal/app/incidentportabilityassembly/catalog.go`
+- `internal/modules/artifacts/source_state_manifest.go`
+- `internal/modules/artifacts/source_state_manifest_test.go`
+- `internal/modules/artifacts/surface_contract_test.go`
+- `internal/modules/assessments/incident_bundle_source_port.go`
+- `internal/modules/entities/incident_bundle_source_port.go`
+- `internal/modules/evidence/incident_bundle_source_port.go`
+- `internal/modules/incidentbundles/api_test.go`
+- `internal/modules/incidentbundles/bundle.go`
+- `internal/modules/incidentbundles/routes_compatibility_integration_test.go`
+- `internal/modules/incidentbundles/routes_helpers_integration_test.go`
+- `internal/modules/incidentbundles/source_catalog_test.go`
+- `internal/modules/incidentbundles/worker_service.go`
+- `internal/modules/incidents/incident_bundle_source_port.go`
+- `internal/modules/indicators/internal/providers/incidentbundle/portable_model.go`
+- `internal/modules/indicators/internal/providers/incidentbundle/portable_prepare.go`
+- `internal/modules/indicators/internal/providers/incidentbundle/source_port.go`
+- `internal/modules/indicators/portability_characterization_test.go`
+- `internal/modules/links/incident_bundle_source_port.go`
+- `internal/modules/parties/incident_bundle_source_port.go`
+- `internal/modules/records/incident_bundle_source_port.go`
+- `internal/modules/records/incident_bundle_source_port_test.go`
+- `internal/modules/revisions/incident_bundle_portability_test.go`
+- `internal/modules/revisions/incident_bundle_source_port.go`
+- `internal/modules/savedviews/incident_bundle_source_port.go`
+- `internal/modules/tasksdecisions/internal/providers/incidentbundle/source_port.go`
+- `internal/modules/timeline/incident_bundle_portability.go`
+- `internal/modules/timeline/incident_bundle_source_port.go`
+- `internal/platform/telemetry/registry.go`
+- `internal/platform/telemetry/registry_test.go`
+- `internal/testutil/golden/otel/cases/OTEL-CORPUS-015/input.json`
+- `tools/harness/contract/harness-contract.mjs`
+- `tools/harness/output/test-output/step-artifacts.mjs`
+- `tools/harness/tests/contract-suite-support.mjs`
+- `tools/harness_redaction_manifest.json`
+- `tools/harness_schema_attachments.json`
+- `tools/otel/check-otel-conformance.mjs`
+- `tools/task_surface_owner.json`
+- `tools/test_families/harness.command_surface.json`
+- `tools/test_families/harness.release.json`
+- `tools/test_families/module.incidentbundles.json`
+- `tools/test_families/platform.telemetry.json`
+
+S03 deleted these files:
+
+- `contracts/incident-bundles/compatibility.json`
+- `internal/platform/telemetry/incident_portability.go`
+- `tools/release-evidence/fixtures/incident-bundle-v1-retirement-attestation.valid.json`
+- `tools/release-evidence/incident-bundle-v1-retirement-attestation-cli.mjs`
+- `tools/release-evidence/incident-bundle-v1-retirement-attestation.mjs`
+- `tools/release-evidence/tests/test-incident-bundle-v1-retirement-attestation-task-surface.sh`
+- `tools/release-evidence/tests/test-incident-bundle-v1-retirement-attestation.mjs`
+- `tools/schemas/cartulary.incident_bundle_compatibility.v2.schema.json`
+- `tools/schemas/cartulary.incident_bundle_source_catalog.v2.schema.json`
+- `tools/schemas/cartulary.incident_bundle_v1_retirement_attestation.v1.schema.json`
+- `tools/schemas/cartulary.incident_bundle_v1_retirement_attestation_result.v1.schema.json`
+
+S03 added `tools/schemas/cartulary.incident_bundle_source_catalog.v3.schema.json`. `make generate` produced the only generated deltas:
+
+- `internal/gen/contractrevisions/artifacts_gen.go`
+- `tools/execution_topology_render_index.json`
+- `tools/task_surface.generated.mk`
+- `tools/task_surface.runtime.generated.mk`
+- `tools/task_surface_manifest.json`
+
+The topology comparison is exact: Incident Bundles remains at 24 rows, with only `module.incidentbundles.integration.incident_bundle_v1_translation_lossless_29db97f48c` removed and `module.incidentbundles.integration.incident_bundle_retired_version_is_rejected_with_1ec7e171fe` added. The task surface moved from 152 to 149 total targets and from 102 to 101 public targets by removing exactly `incident-bundle-v1-retirement-attestation-check`, `incident-bundle-v1-retirement-attestation-command-surface-contract`, and `incident-bundle-v1-retirement-attestation-contract`.
+
+After the corrective checkpoint below, the exact S03 removal audit reported zero concrete-v1 symbols, zero compatibility/retirement-attestation surfaces, zero mixed owner-version declarations, and zero converter, compatibility-shim, feature-flag, fallback-codec, dual-reader, compatibility-reader, or offline-translator surfaces under `internal`, `contracts`, and `tools`. The only retained retired-Timeline path strings are negative malformed-manifest inputs in `internal/modules/incidentbundles/api_test.go`; the only numeric-v1 bundle occurrences are rejection/binding-negative tests. Generic version-aware interfaces remain, but no default or fallback admits version 1.
+
+Passing owner evidence:
+
+| Owner or gate | Retained successful run root |
+| --- | --- |
+| Focused retired-version unit boundary | `.cartulary/test-results/20260818T190228Z-p815550` |
+| Focused retired-version service-backed scenario | `.cartulary/test-results/20260818T190237Z-p816403` |
+| `module.incidents` | `.cartulary/test-results/20260818T190441Z-p843473` |
+| `module.records` | `.cartulary/test-results/20260818T190556Z-p887349` |
+| `module.timeline` | `.cartulary/test-results/20260818T190631Z-p902269` |
+| `module.parties` | `.cartulary/test-results/20260818T191107Z-p960120` |
+| `module.entities` | `.cartulary/test-results/20260818T191159Z-p997640` |
+| `module.indicators` | `.cartulary/test-results/20260818T191338Z-p1049830` |
+| `module.artifacts` | `.cartulary/test-results/20260818T191415Z-p1065356` |
+| `module.tasksdecisions` | `.cartulary/test-results/20260818T191453Z-p1080351` |
+| `module.evidence` | `.cartulary/test-results/20260818T191543Z-p1118489` |
+| `module.assessments` | `.cartulary/test-results/20260818T191659Z-p1166762` |
+| `module.links` | `.cartulary/test-results/20260818T191750Z-p1207394` |
+| `module.revisions` | `.cartulary/test-results/20260818T191840Z-p1245419` |
+| `module.savedviews` | `.cartulary/test-results/20260818T191944Z-p1289670` |
+| `module.reference_data` | `.cartulary/test-results/20260818T192056Z-p1336698` |
+| `module.extensions` | `.cartulary/test-results/20260818T192141Z-p1374739` |
+| `platform.telemetry` | `.cartulary/test-results/20260818T190419Z-p837883` |
+| Full `module.incidentbundles` unit selection | `.cartulary/test-results/20260818T192232Z-p1412901` |
+| Full `module.incidentbundles` service-backed selection | `.cartulary/test-results/20260818T192332Z-p1427880` |
+| Final focused catalog/admission rerun | `.cartulary/test-results/20260818T192646Z-p1446872` |
+
+Supporting successful gates are `make format` at `.cartulary/test-results/20260818T192908Z-p1448130`, `make generate` at `.cartulary/test-results/20260818T190350Z-p834319`, `make json-shape-check` at `.cartulary/test-results/20260818T190052Z-p793455`, `make harness-contract` at `.cartulary/test-results/20260818T190402Z-p837368`, `make otel-conformance` at `.cartulary/test-results/20260818T190428Z-p839268`, `make backend-module-boundary-check` at `.cartulary/test-results/20260818T192438Z-p1442776`, `make generate-drift` at `.cartulary/test-results/20260818T192446Z-p1443163`, and the post-checkpoint `git diff --check` plus `make lint-markdown` at `.cartulary/test-results/20260818T192929Z-p1451894`. The earlier `make test-slice OWNER=module.incidentbundles` failure at `.cartulary/test-results/20260818T190059Z-p793955` was related and repaired: the new table-driven test required the missing `fmt` import; all replacement runs passed. The earlier generation-drift failure at `.cartulary/test-results/20260818T190324Z-p831105` was related and repaired by regenerating after the final authored row selector change.
+
+The S04 audit then found one stale owner projection: `contracts/revisions/index.json` still listed `incident_bundle_versions` as `[1, 2]`. Execution returned to S03 and replaced it with `[2]`; `make generate` updated `internal/gen/contractrevisions/artifacts_gen.go`. The complete replacement checkpoint passed with these retained roots:
+
+| Corrective S03 owner or gate | Retained successful run root |
+| --- | --- |
+| `make generate` | `.cartulary/test-results/20260818T193532Z-p1456780` |
+| JSON shape | `.cartulary/test-results/20260818T193558Z-p1460022` |
+| Harness contract | `.cartulary/test-results/20260818T193558Z-p1460383` |
+| OTel conformance | `.cartulary/test-results/20260818T193558Z-p1459805` |
+| Generation drift | `.cartulary/test-results/20260818T193558Z-p1459960` |
+| Backend module boundary | `.cartulary/test-results/20260818T193558Z-p1460291` |
+| `module.incidents` | `.cartulary/test-results/20260818T193811Z-p1609431` |
+| `module.records` | `.cartulary/test-results/20260818T193617Z-p1468593` |
+| `module.timeline` | `.cartulary/test-results/20260818T194314Z-p1970623` |
+| `module.parties` | `.cartulary/test-results/20260818T193617Z-p1468604` |
+| `module.entities` | `.cartulary/test-results/20260818T193617Z-p1468595` |
+| `module.indicators` | `.cartulary/test-results/20260818T193936Z-p1651933` |
+| `module.artifacts` | `.cartulary/test-results/20260818T193936Z-p1651934` |
+| `module.tasksdecisions` | `.cartulary/test-results/20260818T193936Z-p1651935` |
+| `module.evidence` | `.cartulary/test-results/20260818T194027Z-p1719199` |
+| `module.assessments` | `.cartulary/test-results/20260818T194027Z-p1719198` |
+| `module.links` | `.cartulary/test-results/20260818T194027Z-p1719207` |
+| `module.revisions` | `.cartulary/test-results/20260818T194150Z-p1843495` |
+| `module.savedviews` | `.cartulary/test-results/20260818T194150Z-p1843497` |
+| `module.reference_data` | `.cartulary/test-results/20260818T194150Z-p1843507` |
+| `module.extensions` | `.cartulary/test-results/20260818T194314Z-p1970614` |
+| `platform.telemetry` | `.cartulary/test-results/20260818T194314Z-p1970618` |
+| Full `module.incidentbundles` unit selection | `.cartulary/test-results/20260818T194754Z-p2064169` |
+| Full `module.incidentbundles` service-backed selection | `.cartulary/test-results/20260818T194853Z-p2079067` |
+
+The concurrent `module.incidents` attempt at `.cartulary/test-results/20260818T193617Z-p1468594` was an unrelated harness/resource failure: the shared `test-service-images` dependency failed while four owner harnesses ran concurrently. No product row failed, and the sequential replacement above passed all 24 units.
+
+The first S05 broad check identified one additional S03 cleanup item: `ndjsonRowsByIdentity` in `routes_helpers_integration_test.go` became unused when the positive v1 translation scenario was removed. It had zero callers and was deleted. The S03 cleanup checkpoint in Section 23.2 records the failed staticcheck evidence, passing focused replacement, and complete replacement owner floor.
+
+### 23.6 S04 hardening, isolation, and retained-identifier audit
+
+S04 introduced no new product behavior. It replaced concrete worker field types with three narrow private collaborator interfaces: `sourcePortCatalog`, `portabilityCoordinator`, and `transactionCoordinator`. Production constructors still accept and inject the existing concrete catalog, portability orchestrator, and transaction coordinator. This preserves composition while allowing the unit test to install explicit panic-on-reach tripwires at source preparation, extension preparation, publication validation, and transaction execution. A retired numeric version completes through the stable failure path without invoking any tripwire.
+
+The service-backed proof retains the required asynchronous envelope and compares the complete prohibited-state snapshot before admission and after terminal failure:
+
+| Surface | S04 assertion | Result |
+| --- | --- | --- |
+| Initial route result | Upload admission returns `202` with a durable job identity. | PASS |
+| Exact replay | The same client transaction and bytes return the same job identity. | PASS |
+| Terminal result | `incident_bundle_import_rejected`, `reason_code=unsupported_bundle_version`, `retryable=false`. | PASS |
+| Durable envelope | Jobs, Incident Bundle payloads, and route-idempotency rows each increase by exactly one; the payload retains only its upload hash and terminal failure data, not an imported incident or manifest digest. | PASS |
+| Temporary upload | The staged upload is read once by the unit proof and is absent after failure in both unit and service-backed proofs. | PASS |
+| Preparation and transaction | Source preparation, extension preparation, publication validation, and transaction execution tripwires remain uncalled. | PASS |
+| Incident and source state | Incident, record, membership, incident preference, user preference, Timeline projection, imported-actor, and imported-attribution snapshots remain unchanged. | PASS |
+| Success and publication state | Success-audit, bundle-export descriptor, extension-state metadata, extension staged-object, and final object-key snapshots remain unchanged. The successful-v1 metric has no runtime or registry surface. | PASS |
+
+The closed version/path matrix is exact:
+
+| Input | Classification |
+| --- | --- |
+| Integer `1` | `unsupported_bundle_version` |
+| Unknown future integer `3` | `unsupported_bundle_version` |
+| Missing, `null`, string, or non-integer version | `malformed_manifest` |
+| Version 2 plus `data/timeline_time_conversion_profiles.ndjson` | `malformed_manifest` |
+| Version 2 plus `data/timeline_events.ndjson` | `malformed_manifest` |
+| Version 2 plus both retired Timeline paths | `malformed_manifest` |
+| Version 2 plus an unknown `data/` member | `malformed_manifest` |
+
+The exact executable audit covered `internal`, `contracts`, `tools`, and `Makefile`. Searches for the legacy bundle constant, v1 required-path registry, Timeline translator/invariant, successful-v1 metric and Go symbol, source-catalog v2 identity, compatibility registry, retirement-attestation target/schemas/tooling, converter, conversion path, compatibility shim, feature flag, fallback codec, dual reader, compatibility reader, offline translator, owner `Versions` containing 1, and authored `incident_bundle_versions` containing 1 all returned zero. `incident_bundle_versions` appears only as `[2]` in `contracts/revisions/index.json` and its generated projection. The retired Timeline path search returns exactly three negative malformed-manifest inputs in `internal/modules/incidentbundles/api_test.go`. The active source catalog contains 35 ordinary v2-only path entries and three v2-only special consumers across thirteen source families. The Incident Bundles authored verification owner contains exactly 24 row IDs.
+
+The retained scan command matched 107 lines across the affected contract, implementation, source-owner, Revisions, and verification roots. Every match belongs to one of these current non-Bundle-version categories:
+
+| Retained category | Owner and examples | Retention reason |
+| --- | --- | --- |
+| Public API route major | HTTP/OpenAPI owners; `/api/v1/incident-bundles`, `/api/v1/jobs`, `/api/v1/incidents`, `/api/v1/records`. | Stable route namespace; Bundle format retirement does not revise the public API major. |
+| Stable job, worker, and transaction identities | Incident Portability, Jobs, and Extensions; `incident_portability.bundle_worker_v1`, `export_v1`, `import_v1`, transaction participant/input/algorithm IDs. | Current operation and participant contract versions, explicitly protected by the plan; they do not select an archive codec. |
+| Source-boundary identity | Incident Portability and Reporting; `cartulary.source_boundary.v1:`. | Current deterministic source-change boundary token, preserved byte-for-byte for Bundle v2. |
+| Portable row-schema document identities | Records, Indicators, Revisions, and Saved Views; `records.row.v1` plus the seven local `*.row.v1` schemas and `cartulary.layout.v1`. | Schema-document versions referenced by v2-only catalog entries; descriptions now state current v2 use, and renaming would create unrelated row-contract churn. |
+| Fixture and traceability document identities | Incident Bundles verification; `incident_bundle_fixture_manifest.v1` and `incident_bundle_traceability.v1`. | Versioned harness/traceability document shapes, not accepted Bundle versions. `retired_v1_rejection` is a negative coverage label only. |
+| Extension portability identities | Incident Bundles and Extensions; extension export/import result and payload `.v1` schemas plus test-only participant/profile payload versions. | Current extension SPI result/input versions, independent of Bundle manifest version admission. |
+| Recovery algorithm identities | Incident Bundles and Recovery; snapshot, validation, and restore file-inventory `.v1` algorithms. | Current recovery contribution algorithms for Bundle files; no legacy archive reader or conversion behavior. |
+| Revisions contract and database identities | Revisions; contract-index and referenced schema/registry `.v1` documents plus `revisions_incident_bundle_sequence_begin_v1` and `finish_v1`. | Current Revisions document and database routine versions; retained to avoid an unrelated database migration. Their Incident Bundle admission projection is now exactly `[2]`. |
+| Peer subsystem fixture identities | Network Flow and Revisions test owners; Network Flow CSV parser `.v1` tokens and Revisions snapshot `.v1` schemas used in Incident Bundle integration tests. | Current peer-owner contract versions carried by v2 archives; they do not implement Bundle v1. |
+
+The database tables `timeline_events` and `timeline_time_conversion_profiles` are also intentionally retained: they are live Timeline storage identities, not retired Bundle member paths. No retained match admits, reads, translates, measures, or converts Bundle version 1.
+
+The no-change diff for `docs/domain.md`, `contracts/openapi-source`, `db/migrations`, `apps/web`, `go.sum`, and `pnpm-lock.yaml` is empty. Stable route, media-type, job/profile/worker/participant, source-boundary, and row-schema identities remain unchanged. The focused S04 run roots are recorded in the S04 checkpoint row; the complete corrected owner floor is retained in Section 23.5.
+
+### 23.7 S05 final validation and handoff
+
+The final worktree contains exactly 77 changed paths: 65 modified tracked paths, 11 deleted tracked paths, and one added untracked authored schema. The exact manifest is the union of the S02 owner/checkpoint paths in Section 23.2, the S03 authored/deleted/added/generated lists in Section 23.5, and the S04 hardening paths `internal/modules/incidentbundles/source.go`, `internal/modules/incidentbundles/worker_service.go`, and `internal/modules/incidentbundles/api_test.go` in Section 23.6. Corrections added no path outside that union: they updated the already-listed Core 01 and route-helper files, plus the Revisions authored/generated paths already added to Section 23.5. There are no staged paths.
+
+The final generated set is exactly:
+
+- `internal/gen/contractrevisions/artifacts_gen.go`
+- `tools/execution_topology_render_index.json`
+- `tools/task_surface.generated.mk`
+- `tools/task_surface.runtime.generated.mk`
+- `tools/task_surface_manifest.json`
+
+All five were produced through `make generate`; no generated root was hand-edited. The only added path is authored `tools/schemas/cartulary.incident_bundle_source_catalog.v3.schema.json`. The exact 11 deleted paths are:
+
+- `contracts/incident-bundles/compatibility.json`
+- `internal/platform/telemetry/incident_portability.go`
+- `tools/release-evidence/fixtures/incident-bundle-v1-retirement-attestation.valid.json`
+- `tools/release-evidence/incident-bundle-v1-retirement-attestation-cli.mjs`
+- `tools/release-evidence/incident-bundle-v1-retirement-attestation.mjs`
+- `tools/release-evidence/tests/test-incident-bundle-v1-retirement-attestation-task-surface.sh`
+- `tools/release-evidence/tests/test-incident-bundle-v1-retirement-attestation.mjs`
+- `tools/schemas/cartulary.incident_bundle_compatibility.v2.schema.json`
+- `tools/schemas/cartulary.incident_bundle_source_catalog.v2.schema.json`
+- `tools/schemas/cartulary.incident_bundle_v1_retirement_attestation.v1.schema.json`
+- `tools/schemas/cartulary.incident_bundle_v1_retirement_attestation_result.v1.schema.json`
+
+The final S05 owner matrix passed:
+
+| Owner | Unit/full owner run | Service-backed run |
+| --- | --- | --- |
+| Incident Bundles | `.cartulary/test-results/20260818T195724Z-p2117782` | `.cartulary/test-results/20260818T195829Z-p2132549` |
+| Incidents | `.cartulary/test-results/20260818T200052Z-p2189580` | `.cartulary/test-results/20260818T195935Z-p2147334` |
+| Records | `.cartulary/test-results/20260818T200214Z-p2231901` | `.cartulary/test-results/20260818T200303Z-p2283878` |
+| Timeline | `.cartulary/test-results/20260818T202054Z-p3164777` | `.cartulary/test-results/20260818T202530Z-p3219977` |
+| Parties | `.cartulary/test-results/20260818T200214Z-p2231907` | `.cartulary/test-results/20260818T200303Z-p2283880` |
+| Entities | `.cartulary/test-results/20260818T200352Z-p2335807` | `.cartulary/test-results/20260818T200535Z-p2402211` |
+| Indicators | `.cartulary/test-results/20260818T200352Z-p2335812` | `.cartulary/test-results/20260818T200535Z-p2402213` |
+| Artifacts | `.cartulary/test-results/20260818T200719Z-p2468414` | `.cartulary/test-results/20260818T201054Z-p2572973` |
+| Tasks and Decisions | `.cartulary/test-results/20260818T200719Z-p2468420` | `.cartulary/test-results/20260818T200809Z-p2520436` |
+| Evidence | `.cartulary/test-results/20260818T201135Z-p2587593` | `.cartulary/test-results/20260818T201257Z-p2674190` |
+| Assessments | `.cartulary/test-results/20260818T201135Z-p2587595` | `.cartulary/test-results/20260818T201257Z-p2674189` |
+| Links | `.cartulary/test-results/20260818T201417Z-p2760814` | `.cartulary/test-results/20260818T201525Z-p2840466` |
+| Revisions | `.cartulary/test-results/20260818T201417Z-p2760815` | `.cartulary/test-results/20260818T201525Z-p2840480` |
+| Saved Views | `.cartulary/test-results/20260818T201634Z-p2920245` | `.cartulary/test-results/20260818T201752Z-p3004352` |
+| Reference Data | `.cartulary/test-results/20260818T201634Z-p2920248` | `.cartulary/test-results/20260818T201752Z-p3004353` |
+| Extensions | `.cartulary/test-results/20260818T201910Z-p3088420` | `.cartulary/test-results/20260818T202006Z-p3126690` |
+| Telemetry | `.cartulary/test-results/20260818T201910Z-p3088419` | Not applicable: the authored owner has no service-backed rows. |
+
+Repository-level S05 gates passed:
+
+| Command | Result and retained root |
+| --- | --- |
+| Compatibility/attestation absence check | PASS; exact search returned zero active paths, command IDs, schemas, or symbols. |
+| `make harness-contract` | PASS at `.cartulary/test-results/20260818T203008Z-p3275354`. |
+| `make openapi-compatibility-check` | PASS at `.cartulary/test-results/20260818T203028Z-p3275879`. |
+| `make migration-drift` | PASS at `.cartulary/test-results/20260818T203032Z-p3276444`. |
+| `make json-shape-check` | PASS at `.cartulary/test-results/20260818T203043Z-p3279158`. |
+| `make generate-drift` | PASS at `.cartulary/test-results/20260818T203049Z-p3279591`. |
+| `make generated-artifact-policy-check` | PASS at `.cartulary/test-results/20260818T203059Z-p3282492`. |
+| `make backend-module-boundary-check` | PASS at `.cartulary/test-results/20260818T203103Z-p3282991`. |
+| `make go-gosec-targeted` | PASS at `.cartulary/test-results/20260818T203109Z-p3283455`. |
+| `make agent-finalize` | PASS at `.cartulary/test-results/20260818T203124Z-p3311657`; retained-run maintenance was skipped as required because `RESULTS_DIR` was unset. |
+| `make test-fast` | PASS, 405/405 units, at `.cartulary/test-results/20260818T203145Z-p3314753`. |
+| `make check` | Replacement PASS, 622/622 units, at `.cartulary/test-results/20260818T205459Z-p4087194`. |
+
+Failure classification is complete. The Artifacts service-backed attempt at `.cartulary/test-results/20260818T200809Z-p2520435` was unrelated infrastructure: the object store failed readiness before any product test executed; the isolated replacement passed. The first broad check at `.cartulary/test-results/20260818T203342Z-p3350580` was related: staticcheck found only the S03-orphaned helper; the S03 cleanup checkpoint records its removal and complete replacement floor. The final owner scan then found the related S02 REQ-01-653 wording omission; its owner-only correction and Markdown checkpoint are recorded in Section 23.2. No failure remains open.
+
+Final executable searches return zero legacy bundle constants, v1 path registries, Timeline translators/invariants, successful-v1 telemetry symbols, source-catalog v2 identities, compatibility/attestation surfaces, converters, conversion paths, shims, feature flags, fallback codecs, dual readers, compatibility readers, offline translators, owner path-version arrays containing 1, or Revisions `incident_bundle_versions` containing 1. The two retired Timeline path strings occur on exactly three lines, all negative malformed-manifest inputs in `api_test.go`. The retained affected-root `.v1` scan still has exactly 107 classified lines, the Incident Bundles owner has exactly 24 row IDs, the source catalog has 35 ordinary `[2]` path entries plus three `[2]` special consumers, and Revisions projects only `[2]` in both authored and generated forms.
+
+The protected diff is empty for `docs/domain.md`, `contracts/openapi-source`, `db/migrations`, `apps/web`, `go.sum`, and `pnpm-lock.yaml`. No route, OpenAPI operation or schema, database migration, Bundle v2 byte contract, upload media type, job/profile/worker/participant/source token, frontend path, domain vocabulary, or lockfile changed. Dedicated browser targets were skipped because the task changed no frontend behavior; browser-backed rows selected by affected owners still passed. Final `git diff --check`, cached-diff check, and Markdown lint passed at `.cartulary/test-results/20260818T210418Z-p3202`. The final state is `main@505acc50f9ebcb4316bc9a0bbde9fbe1e1f4051c`, dirty only by the 77 intended unstaged and uncommitted paths, with `next action=none`.

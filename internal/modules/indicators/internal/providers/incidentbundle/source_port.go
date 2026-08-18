@@ -39,9 +39,9 @@ func indicatorSourceDescriptor() sourceport.Descriptor {
 		OwnerID: "module.indicators", OwnerRelationIDs: []string{"indicator-source"},
 		Dependencies: []string{"entities"},
 		Paths: []sourceport.Path{
-			{LogicalPath: "data/indicators.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.indicators.row.v1", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "indicators.source_identity_admitted"},
-			{LogicalPath: "data/indicator_observations.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.indicator_observations.row.v1", Versions: []int{1, 2}, StableIdentity: []string{"indicator_observation_id"}, StableIdentityInvariantID: "indicators.source_identity_admitted"},
-			{LogicalPath: "data/indicator_state_intervals.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.indicator_state_intervals.row.v1", Versions: []int{1, 2}, StableIdentity: []string{"indicator_state_interval_id"}, StableIdentityInvariantID: "indicators.source_identity_admitted"},
+			{LogicalPath: "data/indicators.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.indicators.row.v1", Versions: []int{2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "indicators.source_identity_admitted"},
+			{LogicalPath: "data/indicator_observations.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.indicator_observations.row.v1", Versions: []int{2}, StableIdentity: []string{"indicator_observation_id"}, StableIdentityInvariantID: "indicators.source_identity_admitted"},
+			{LogicalPath: "data/indicator_state_intervals.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.indicator_state_intervals.row.v1", Versions: []int{2}, StableIdentity: []string{"indicator_state_interval_id"}, StableIdentityInvariantID: "indicators.source_identity_admitted"},
 		},
 		InvariantIDs: []string{
 			"indicators.representation_legal", "indicators.normalization_exact",

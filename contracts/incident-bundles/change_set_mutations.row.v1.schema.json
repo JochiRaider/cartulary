@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cartulary.incident_bundle.change_set_mutations.row.v1",
   "title": "Revisions mutation incident bundle row",
-  "description": "Exact portable change-set mutation row shared by Incident Bundle versions 1 and 2.",
+  "description": "Exact portable change-set mutation row used by Incident Bundle version 2.",
   "type": "object",
   "additionalProperties": false,
   "required": [

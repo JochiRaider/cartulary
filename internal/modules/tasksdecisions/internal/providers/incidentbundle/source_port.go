@@ -42,8 +42,8 @@ func tasksDecisionsSourceDescriptor() sourceport.Descriptor {
 		OwnerID: "module.tasksdecisions", OwnerRelationIDs: []string{"tasks-and-decisions"},
 		Dependencies: []string{"artifacts"},
 		Paths: []sourceport.Path{
-			{LogicalPath: "data/task_requests.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "tasks_decisions.source_identity_admitted"},
-			{LogicalPath: "data/decisions.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "tasks_decisions.source_identity_admitted"},
+			{LogicalPath: "data/task_requests.ndjson", ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "tasks_decisions.source_identity_admitted"},
+			{LogicalPath: "data/decisions.ndjson", ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "tasks_decisions.source_identity_admitted"},
 		},
 		InvariantIDs: policy.PortabilityInvariantIDs(),
 	}

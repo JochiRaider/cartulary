@@ -15,26 +15,12 @@ const (
 	timelineBundleRecordsPath    = "data/timeline_records.ndjson"
 	timelineBundleProfilesPath   = "data/timeline_time_profiles.ndjson"
 	timelineBundleProvenancePath = "data/timeline_source_provenance.ndjson"
-	timelineBundleV1RecordsPath  = "data/timeline_events.ndjson"
-	timelineBundleV1ProfilesPath = "data/timeline_time_conversion_profiles.ndjson"
 )
 
 var timelineBundleRecordFields = fieldSet(
 	"record_id", "incident_id", "capture_state",
 	"reviewed_by_user_id", "reviewed_at",
 	"superseded_by_user_id", "superseded_at",
-	"date_entered_text", "analyst_text", "mitre_stage_text",
-	"device_object_text", "ip_address_text", "activity_utc_text",
-	"activity_local_text", "raw_activity_text", "activity_synopsis_text",
-	"data_source_text", "activity_utc_generated", "activity_local_generated",
-	"activity_time_pair_state",
-)
-
-var timelineBundleV1RecordFields = fieldSet(
-	"record_id", "incident_id", "capture_state", "row_version",
-	"recorded_at", "edited_at", "created_by_user_id", "updated_by_user_id",
-	"reviewed_by_user_id", "reviewed_at",
-	"superseded_by_user_id", "superseded_at", "raw_capture",
 	"date_entered_text", "analyst_text", "mitre_stage_text",
 	"device_object_text", "ip_address_text", "activity_utc_text",
 	"activity_local_text", "raw_activity_text", "activity_synopsis_text",
@@ -144,11 +130,6 @@ func ImportIncidentBundleFilesTx(
 			return err
 		}
 		return importTimelineProvenanceV2Tx(ctx, tx, files[timelineBundleProvenancePath])
-	case 1:
-		if err := importTimelineProfilesTx(ctx, tx, timelineBundleV1ProfilesPath, files[timelineBundleV1ProfilesPath], actorUserID, attributions); err != nil {
-			return err
-		}
-		return importTimelineRecordsV1Tx(ctx, tx, files[timelineBundleV1RecordsPath], actorUserID, attributions)
 	default:
 		return malformedTimelineBundle()
 	}
@@ -235,51 +216,6 @@ func importTimelineRecordsV2Tx(
 	return nil
 }
 
-func importTimelineRecordsV1Tx(
-	ctx context.Context,
-	tx pgx.Tx,
-	payload []byte,
-	actorUserID uuid.UUID,
-	attributions incidentportability.AttributionRecorder,
-) error {
-	rows, err := decodeLogicalRows(payload)
-	if err != nil {
-		return err
-	}
-	for _, row := range rows {
-		if err := requireExactFields(row, timelineBundleV1RecordFields, "record_id", "incident_id", "capture_state", "row_version", "recorded_at", "edited_at", "created_by_user_id", "updated_by_user_id", "raw_capture"); err != nil {
-			return err
-		}
-		rawCapture, err := decodeLegacyRawCapture(row["raw_capture"])
-		if err != nil {
-			return err
-		}
-		delete(row, "raw_capture")
-		if err := incidentportability.RemapTopLevelUserFields(row, "timeline_events", []string{"record_id"}, actorUserID, attributions); err != nil {
-			return err
-		}
-		raw, err := json.Marshal(row)
-		if err != nil {
-			return err
-		}
-		tag, err := tx.Exec(ctx, timelineLegacyRecordInsertSQL, raw)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() != 1 {
-			return incidentportability.FixedImportFailure(timelineBundleV1RecordsPath)
-		}
-		recordID, err := uuid.Parse(incidentportability.StringFromAny(row["record_id"]))
-		if err != nil {
-			return malformedTimelineBundle()
-		}
-		if err := insertSourceProvenanceTx(ctx, tx, recordID, rawCapture); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func importTimelineProvenanceV2Tx(ctx context.Context, tx pgx.Tx, payload []byte) error {
 	rows, err := decodeLogicalRows(payload)
 	if err != nil {
@@ -328,32 +264,6 @@ SELECT
 		}
 	}
 	return nil
-}
-
-func decodeLegacyRawCapture(value any) ([]ClipboardRawImportColumn, error) {
-	raw, err := json.Marshal(value)
-	if err != nil {
-		return nil, malformedTimelineBundle()
-	}
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &object); err != nil {
-		return nil, malformedTimelineBundle()
-	}
-	if len(object) == 0 {
-		return nil, nil
-	}
-	if len(object) != 1 {
-		return nil, malformedTimelineBundle()
-	}
-	columns, ok := object["import_columns"]
-	if !ok {
-		return nil, malformedTimelineBundle()
-	}
-	var result []ClipboardRawImportColumn
-	if err := json.Unmarshal(columns, &result); err != nil {
-		return nil, malformedTimelineBundle()
-	}
-	return result, nil
 }
 
 func decodeLogicalRows(payload []byte) ([]map[string]any, error) {
@@ -429,43 +339,4 @@ SELECT
     ON record.record_id = (payload ->> 'record_id')::uuid
    AND record.incident_id = (payload ->> 'incident_id')::uuid
    AND record.record_type = 'timeline_event'
-`
-
-const timelineLegacyRecordInsertSQL = `
-INSERT INTO timeline_events (
-    record_id, incident_id, capture_state, row_version,
-    recorded_at, edited_at, created_by_user_id, updated_by_user_id,
-    reviewed_by_user_id, reviewed_at, superseded_by_user_id, superseded_at,
-    date_entered_text, analyst_text, mitre_stage_text, device_object_text,
-    ip_address_text, activity_utc_text, activity_local_text, raw_activity_text,
-    activity_synopsis_text, data_source_text, activity_utc_generated,
-    activity_local_generated, activity_time_pair_state
-)
-SELECT
-    (payload ->> 'record_id')::uuid,
-    (payload ->> 'incident_id')::uuid,
-    payload ->> 'capture_state',
-    (payload ->> 'row_version')::bigint,
-    (payload ->> 'recorded_at')::timestamp with time zone,
-    (payload ->> 'edited_at')::timestamp with time zone,
-    (payload ->> 'created_by_user_id')::uuid,
-    (payload ->> 'updated_by_user_id')::uuid,
-    NULLIF(payload ->> 'reviewed_by_user_id', '')::uuid,
-    NULLIF(payload ->> 'reviewed_at', '')::timestamp with time zone,
-    NULLIF(payload ->> 'superseded_by_user_id', '')::uuid,
-    NULLIF(payload ->> 'superseded_at', '')::timestamp with time zone,
-    payload ->> 'date_entered_text',
-    payload ->> 'analyst_text',
-    payload ->> 'mitre_stage_text',
-    payload ->> 'device_object_text',
-    payload ->> 'ip_address_text',
-    payload ->> 'activity_utc_text',
-    payload ->> 'activity_local_text',
-    payload ->> 'raw_activity_text',
-    payload ->> 'activity_synopsis_text',
-    payload ->> 'data_source_text',
-    (payload ->> 'activity_utc_generated')::boolean,
-    (payload ->> 'activity_local_generated')::boolean,
-    payload ->> 'activity_time_pair_state'
-  FROM (SELECT $1::jsonb AS payload) AS input
 `

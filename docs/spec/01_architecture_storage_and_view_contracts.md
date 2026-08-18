@@ -1491,7 +1491,7 @@ deletion tuple. Indicator source persistence MUST NOT retain an authoritative
 or fallback copy of those fields. Portable Indicator rows retain the admitted
 source-major-`1` shape by joining Indicator subtype state to the Records
 envelope; neither storage contraction nor claim rebuild changes valid bundle
-version 1 or 2 bytes.
+version 2 bytes.
 
 `indicator_active_identities` is Indicator-owned rebuildable coordination
 state keyed by `(incident_id, indicator_type, dedupe_key)` and maps one active
@@ -7481,48 +7481,47 @@ projections and MUST NOT add, remove, or reinterpret a row in these registries.
 **REQ-01-635**
 Every newly generated Incident Bundle MUST use
 `bundle_format='cartulary.incident_bundle'` and numeric `bundle_version=2`.
-Version `1` is import-only and MUST remain importable until every retirement
-condition in REQ-01-636 passes and a later Core revision removes it. Import
-MUST parse `manifest.bundle_version` before interpreting any source payload and
-MUST select exactly one codec only from that numeric value. Filename presence,
-file order, archive order, prior import history, and caller input MUST NOT
-select or override a codec. Omitted, JSON `null`, or non-integer
+Version `2` is the sole admitted version. Import MUST parse
+`manifest.bundle_version` before interpreting any source payload and MUST
+select exactly one codec only from that numeric value. Filename presence, file
+order, archive order, prior import history, and caller input MUST NOT select or
+override a codec. Omitted, JSON `null`, or non-integer
 `bundle_version` MUST fail before source preparation with
 `incident_bundle_import_rejected` and `reason_code='malformed_manifest'`.
-Integers outside `{1,2}` MUST fail at the same boundary with
-`reason_code='unsupported_bundle_version'`. No fallback version exists.
+Every integer other than `2`, including retired numeric version `1`, MUST fail
+at the same boundary with `reason_code='unsupported_bundle_version'`. No
+fallback version exists.
 
-The required versioned Timeline path sets are exactly:
+The required Timeline path set is exactly:
 
 | Version | Export | Import | Exact Timeline paths |
 | --- | --- | --- | --- |
 | `2` | Required current output | Required | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
-| `1` | Forbidden | Required while REQ-01-636 retains it | `data/timeline_time_conversion_profiles.ndjson`, `data/timeline_events.ndjson` |
 
-A v1 path with version `2`, a v2 path with version `1`, both path sets, or an
-incomplete selected path set MUST fail before source preparation with
-`reason_code='malformed_manifest'`. Each admitted version has the following
+A retired Timeline path, a mixed retired/current path set, or an incomplete
+current path set under version `2` MUST fail before source preparation with
+`reason_code='malformed_manifest'`. The admitted version has the following
 closed required core path registry; a missing, duplicate, or unknown member
 under `data/` MUST fail closed and every required path MUST have exactly one
 declared consumer or validator:
 
-| Family or special consumer | Version `1` paths | Version `2` paths |
-| --- | --- | --- |
-| Incident | `data/incident.json` | `data/incident.json` |
-| Actors | `data/actors.ndjson` | `data/actors.ndjson` |
-| Records | `data/records.ndjson` | `data/records.ndjson` |
-| Timeline | `data/timeline_time_conversion_profiles.ndjson`, `data/timeline_events.ndjson` | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
-| Parties | `data/parties.ndjson` | `data/parties.ndjson` |
-| Entities | `data/entity_mentions.ndjson`, `data/hosts.ndjson`, `data/identities.ndjson`, `data/entity_preserved_identifiers.ndjson`, `data/entity_aliases.ndjson` | Same as version `1`. |
-| Indicators | `data/indicators.ndjson`, `data/indicator_observations.ndjson`, `data/indicator_state_intervals.ndjson` | Same as version `1`. |
-| Artifacts | `data/artifacts.ndjson`, `data/artifact_findings.ndjson`, `data/artifact_investigative_queries.ndjson`, `data/artifact_forensic_keywords.ndjson`, `data/handoff_risk_refs.ndjson` | Same as version `1`. |
-| Tasks and Decisions | `data/task_requests.ndjson`, `data/decisions.ndjson` | Same as version `1`. |
-| Evidence | `data/evidence_records.ndjson`, `data/evidence_custody_events.ndjson`, `data/object_blobs.ndjson` | Same as version `1`. |
-| Assessments | `data/compromise_assessments.ndjson` | `data/compromise_assessments.ndjson` |
-| Links and Tags | `data/record_links.ndjson`, `data/tags.ndjson`, `data/record_tags.ndjson` | Same as version `1`. |
-| Revisions | `data/change_sets.ndjson`, `data/change_set_mutations.ndjson`, `data/record_revisions.ndjson` | Same as version `1`. |
-| Saved Views | `data/saved_views.ndjson` | `data/saved_views.ndjson` |
-| Reference Pack references | `data/reference_pack_refs.json` | `data/reference_pack_refs.json` |
+| Family or special consumer | Version `2` paths |
+| --- | --- |
+| Incident | `data/incident.json` |
+| Actors | `data/actors.ndjson` |
+| Records | `data/records.ndjson` |
+| Timeline | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
+| Parties | `data/parties.ndjson` |
+| Entities | `data/entity_mentions.ndjson`, `data/hosts.ndjson`, `data/identities.ndjson`, `data/entity_preserved_identifiers.ndjson`, `data/entity_aliases.ndjson` |
+| Indicators | `data/indicators.ndjson`, `data/indicator_observations.ndjson`, `data/indicator_state_intervals.ndjson` |
+| Artifacts | `data/artifacts.ndjson`, `data/artifact_findings.ndjson`, `data/artifact_investigative_queries.ndjson`, `data/artifact_forensic_keywords.ndjson`, `data/handoff_risk_refs.ndjson` |
+| Tasks and Decisions | `data/task_requests.ndjson`, `data/decisions.ndjson` |
+| Evidence | `data/evidence_records.ndjson`, `data/evidence_custody_events.ndjson`, `data/object_blobs.ndjson` |
+| Assessments | `data/compromise_assessments.ndjson` |
+| Links and Tags | `data/record_links.ndjson`, `data/tags.ndjson`, `data/record_tags.ndjson` |
+| Revisions | `data/change_sets.ndjson`, `data/change_set_mutations.ndjson`, `data/record_revisions.ndjson` |
+| Saved Views | `data/saved_views.ndjson` |
+| Reference Pack references | `data/reference_pack_refs.json` |
 
 Optional extensibility MUST use an owner-admitted `ext/**` path and MUST NOT add
 an implicit core-file fallback.
@@ -7546,50 +7545,15 @@ The v2 Timeline record-envelope fields `row_version`, `created_at`,
 same-record row in `data/records.ndjson`; they MUST NOT be duplicated or
 independently resolved from `timeline_records.ndjson`.
 
-The v1 translator MUST preserve `incident_id`, `record_id`, `row_version`,
-timestamps, attribution, capture/review/supersession state, and every Timeline
-value. It MUST convert every admitted `raw_capture.import_columns` item into
-one v2 provenance row without discarding its source identity, row ordinal,
-column ordinal, header, raw value, or cell kind. Malformed or non-representable
-legacy capture MUST fail; lossy success is forbidden.
-
 Export and import MUST preserve deterministic canonical JSON, exact row
 ordering, UTF-8, LF, checksum, member-path, member-type, extracted-byte,
 compression-ratio, and member-count rules in REQ-01-429 through REQ-01-442.
 
-Version `1` import is a development-only, pre-production surface that has never
-been included in a published stable release. It carries no backward-
-compatibility obligation and MAY be removed by a clean pre-production cutover
-after a later Core revision explicitly adopts v2-only admission. The active
-compatibility projection MUST represent that state as
-`release_lifecycle=preproduction_unreleased`,
-`backward_compatibility_required=false`, `adopting_stable_release=null`, and
-`status=development_only`.
-
-If a published stable release admits version `1` before that removal, the
-projection MUST atomically move to `release_lifecycle=stable_published` and
-`backward_compatibility_required=true`. Version `1` import then MUST remain
-available until all five conditions are true:
-
-1. one adopting stable release and two distinct subsequent stable releases,
-   three releases total, have exported version `2`;
-2. 180 complete days have elapsed since the adopting stable release and its
-   deprecation start were recorded atomically;
-3. the current complete 30-day interval ending at the shared cutoff contains
-   zero successful `cartulary.incident_bundle.v1_import` occurrences;
-4. complete operator inventory at that cutoff confirms that no required
-   version `1` archive remains;
-5. a later Core revision explicitly removes version `1`.
-
-A projection-only date, development build, prerelease, local-only run, or
-unreleased implementation MUST NOT be used to claim stable exposure, start or
-backdate the adopting-stable-release clock, or count toward the three-release
-minimum. The pre-production path MUST NOT fabricate release, telemetry, or
-inventory evidence. Each qualifying release on the stable-published path MUST
-be stable, published, v2-bearing, strictly ordered, and supported by a distinct
-passing retained Make-owned `release-check` run. The successful-v1 telemetry
-occurrence MUST be recorded only after the import commit is proven and MUST
-contain no incident, row, path, object, or staging identifier.
+Retired numeric versions have no compatibility reader, translation path,
+conversion utility, runtime flag, fallback codec, or active compatibility
+registry. Future bundle versions require a later owner revision and an atomic
+catalog/runtime addition; generic version-aware interfaces alone do not admit
+another version.
 Profiles: incident_portability
 Verified by: AC-487, AC-488, AC-489, AC-491, AC-503, AC-506
 
@@ -7670,7 +7634,7 @@ The current contract-major-`1` source catalog and closed invariant IDs are:
 | --- | --- | --- |
 | `incident` | `[]` | `incident.source_identity_admitted`, `incident.exact_shape`, `incident.identity_key_lifecycle`, `incident.attribution_version` |
 | `records` | `incident` | `records.source_identity_admitted`, `records.incident_scope`, `records.envelope_legal`, `records.subtype_complete` |
-| `timeline` | `records` | `timeline.source_identity_admitted`, `timeline.version_shape_exact`, `timeline.envelope_type_scope`, `timeline.lifecycle_coherent`, `timeline.generated_time_coherent`, `timeline.paired_time_coherent`, `timeline.provenance_unique`, `timeline.provenance_non_orphaned`, `timeline.v1_translation_lossless` |
+| `timeline` | `records` | `timeline.source_identity_admitted`, `timeline.version_shape_exact`, `timeline.envelope_type_scope`, `timeline.lifecycle_coherent`, `timeline.generated_time_coherent`, `timeline.paired_time_coherent`, `timeline.provenance_unique`, `timeline.provenance_non_orphaned` |
 | `parties` | `timeline` | `parties.source_identity_admitted`, `parties.envelope_type_scope`, `parties.identity_lifecycle`, `parties.normalization_exact` |
 | `entities` | `parties` | `entities.source_identity_admitted`, `entities.mentions_observational`, `entities.envelope_type_scope`, `entities.resolution_merge_coherent`, `entities.alias_identifier_normalized`, `entities.alias_identifier_classified`, `entities.alias_identifier_unique`, `entities.alias_identifier_same_incident` |
 | `indicators` | `entities` | `indicators.source_identity_admitted`, `indicators.representation_legal`, `indicators.normalization_exact`, `indicators.identity_unique`, `indicators.observation_same_incident`, `indicators.observation_ordered`, `indicators.observation_coherent`, `indicators.interval_same_incident`, `indicators.interval_ordered`, `indicators.interval_coherent`, `indicators.repeated_observations_preserved` |
@@ -7693,7 +7657,7 @@ archive order, and database error text MUST NOT select it.
 | Family | Required invariant meaning |
 | --- | --- |
 | Records | Every row belongs to the imported incident; record type, row version, timestamps, actor attribution, and deletion tuples are legal; every subtype-required envelope has exactly its admitted owner row. |
-| Timeline | The selected version has its exact shape; every row binds a same-incident `timeline_event` envelope; capture, review, supersession, generated-time, and paired-time state are coherent; provenance identities are unique and non-orphaned; v1 translation is lossless. |
+| Timeline | Version `2` has its exact shape; every row binds a same-incident `timeline_event` envelope; capture, review, supersession, generated-time, and paired-time state are coherent; provenance identities are unique and non-orphaned. |
 | Parties | Every row has a same-incident party envelope; required identity fields and lifecycle state are valid; normalized string/reference pairs equal the owner normalization result. |
 | Entities | Mentions remain observations; hosts and identities have the correct envelopes; resolution and merge-lineage tuples are coherent; aliases and preserved identifiers are normalized, classified, unique, and same-incident. |
 | Indicators | Type/value/hash representation and normalization are legal; duplicate identities are rejected; observations and state intervals are same-incident, ordered, and coherent; repeated observations are not silently merged. |
@@ -7705,7 +7669,7 @@ archive order, and database error text MUST NOT select it.
 | Revisions | Referenced change sets, mutations, revisions, records, and actors exist; mutation sequence is contiguous; `(record_id, row_version)` is unique; before/after history reconstructs imported current state; sequence repair runs only after validation. |
 | Saved Views | Every bounded logical row has the exact adopted shape and types; UUIDs, incident/schema references, scope/owner tuple, display name, query, layout, version, and timestamps are valid; transaction state equals admitted input; absent optional Reference Packs degrade only admitted overlays. |
 
-For Incident Bundle versions `1` and `2`, source family `indicators`, contract
+For Incident Bundle version `2`, source family `indicators`, contract
 major `1`, each non-empty row of the three Indicator files MUST be one exact
 JSON object. Every member listed below is required, including members whose
 value may be JSON `null`. Unknown, missing, duplicate, aliased, wrongly typed,
@@ -7810,7 +7774,7 @@ operator output. Selection MUST NOT depend on archive order, NDJSON row order,
 filesystem order, map iteration, unsorted SQL output, constraint-reporting
 order, PostgreSQL error text, or a descriptor-default invariant.
 
-For Incident Bundle versions `1` and `2`, source family `revisions`, contract
+For Incident Bundle version `2`, source family `revisions`, contract
 major `1`, each non-empty row of the three Revisions files MUST be one exact
 JSON object. Every member listed below is required, including members whose
 value may be JSON `null`. Unknown, missing, duplicate, aliased, wrongly typed,
@@ -7874,7 +7838,7 @@ consumer port whose providers are constructed by authoritative source owners
 and whose complete immutable catalog is validated by application composition.
 
 **REQ-01-659**
-For Incident Bundle versions `1` and `2`, the outer exact member sets,
+For Incident Bundle version `2`, the outer exact member sets,
 ordering, contract major, attribution behavior, sequence repair, invariant
 precedence, and no-live-publication behavior of the Revisions source family
 remain unchanged. Every non-null `before_value`, `after_value`, `before_json`,
@@ -7995,8 +7959,7 @@ The exact Records invariant rules are:
 | `records.envelope_legal` | Exact shape, stable identity, UUIDs, record type, positive version, canonical timestamps, actor references, and deletion tuple satisfy this requirement. |
 | `records.subtype_complete` | Every envelope has exactly one compatible primary source-owner binding, and no primary source-owner binding targets a missing, different-incident, or incompatible envelope. |
 
-Versions `1` and `2` use this same contract-major-`1` Records row and type
-mapping. Version `1` has no lenient envelope path, version `2` has no
+Version `2` uses this contract-major-`1` Records row and type mapping. It has no
 additive-field tolerance, and no legacy-invalid-record switch exists. Export
 MUST emit the exact shape in `record_id` order and MUST preserve portable
 source actor attribution on re-export. Apply MUST use fixed parameterized SQL
@@ -8105,7 +8068,7 @@ Profiles: incident_portability
 Verified by: AC-504, AC-505
 
 **REQ-01-644**
-For Incident Bundle versions `1` and `2`, source family `saved_views`,
+For Incident Bundle version `2`, source family `saved_views`,
 contract major `1`, each non-empty logical row of
 `data/saved_views.ndjson` MUST be one JSON object containing exactly these
 eleven required members:
@@ -8135,7 +8098,7 @@ Verified by: AC-508
 
 **REQ-01-645**
 `data/saved_views.ndjson` MUST be present exactly once for admitted bundle
-versions `1` and `2`. Export MUST include every incident-owned private, shared,
+version `2`. Export MUST include every incident-owned private, shared,
 and system saved view, order rows by `saved_view_id` ascending, serialize
 lexicographically ordered canonical JSON with exactly one trailing LF per row,
 and emit a zero-byte member when no rows exist. Export MUST select and map the

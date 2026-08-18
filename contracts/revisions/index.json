@@ -20,7 +20,7 @@
     "history_backfill": false,
     "dual_read_or_write": false,
     "preproduction_database_reset_required": true,
-    "incident_bundle_versions": [1, 2]
+    "incident_bundle_versions": [2]
   },
   "closure_policy": {
     "objects_closed_by_default": true,

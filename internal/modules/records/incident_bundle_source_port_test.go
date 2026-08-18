@@ -118,7 +118,7 @@ func TestRecordsPortableEnvelopeInvariantContract_Integration(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "records-portable-envelope-invariants")
 	actorID, incidentID := seedEnvelopeOwnerContext(t, db, "portable-envelope")
 	port := newRecordsTestPort(t, true)
-	for _, bundleVersion := range []int{1, 2} {
+	for _, bundleVersion := range []int{2} {
 		t.Run(fmt.Sprintf("bundle_version_%d", bundleVersion), func(t *testing.T) {
 			recordID := uuid.New()
 			now := time.Date(2026, time.July, 29, 19, bundleVersion, 0, bundleVersion, time.UTC)

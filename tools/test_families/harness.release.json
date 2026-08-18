@@ -22,29 +22,6 @@
       "fixture_capability": "none",
       "minimum_tier": "release",
       "service_dependencies": []
-    },
-    {
-      "row_id": "harness.release.behavior.incident_bundle_v1_retirement_attestation",
-      "owner_id": "harness.release",
-      "family_id": "harness.release.behavior",
-      "collaborator_ids": [
-        "harness.command_surface"
-      ],
-      "verification_ids": [
-        "harness.release.verification.incident_bundle_v1_retirement_attestation"
-      ],
-      "runner": "shell",
-      "selector": {
-        "command_id": "cartulary.harness.command.incident_bundle_v1_retirement_attestation_contract.v1"
-      },
-      "evidence_class": "release",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "release",
-      "service_dependencies": []
     }
   ]
 }

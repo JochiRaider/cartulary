@@ -1240,7 +1240,7 @@ The timed or fixture-sensitive criteria below define observable implementation o
   - Verifies: REQ-01-070, REQ-01-245, REQ-01-328, REQ-02-190, REQ-04-053
 - **AC-524**: New-record Evidence and Timeline file flows retain the provisional draft and selected file only in client-local state until generic row-create success, use slot then upload then one atomic row-create with `evidence.initial_object_blob_id`, retain the same row-create `client_txn_id` for uncertain transport retry, use the ordinary new-ID workflow after a definitive conflict, keep focus and workbook state continuous, and expose accessible pending, retry, blocked, and error feedback. Before row-create success, no draft row appears in query, collaboration, history, projection, export, backup, or portability state.
   - Verifies: REQ-01-328, REQ-03-116..REQ-03-126, REQ-04-021..REQ-04-030
-- **AC-525**: Revisions bundle files for admitted versions `1` and `2` accept only their exact contract-major-`1` row shapes and deterministic export order. Independent fixtures exercise every Revisions invariant, and multi-defect permutations always select the owner-defined first invariant and stable row identity. Failures expose only the closed source family and invariant IDs, leave no visible state, and never derive attribution from PostgreSQL error text or a descriptor-default invariant.
+- **AC-525**: Revisions bundle files for admitted version `2` accept only their exact contract-major-`1` row shapes and deterministic export order. Independent fixtures exercise every Revisions invariant, and multi-defect permutations always select the owner-defined first invariant and stable row identity. Failures expose only the closed source family and invariant IDs, leave no visible state, and never derive attribution from PostgreSQL error text or a descriptor-default invariant.
   - Verifies: REQ-01-639..REQ-01-642, REQ-02-204, REQ-02-217..REQ-02-218
 - **AC-526**: Deployment config v2 requires one secure Revisions conflict-token key-ring manifest before listeners or workers. Exact manifest, path, key, secret, purpose, active/decrypt-only rotation, nonce, TTL, skew, opacity, tamper, expiry, retirement, and uniform-error fixtures pass; v1 configuration and v2 conflict tokens are rejected without an authentication-master or hard-coded fallback; and a client retains its local draft while refreshing an invalidated conflict.
   - Verifies: REQ-03-066, REQ-03-075..REQ-03-078, REQ-04-069, REQ-04-077..REQ-04-078, REQ-04-111, REQ-04-147..REQ-04-149
@@ -1248,16 +1248,16 @@ The timed or fixture-sensitive criteria below define observable implementation o
   - Verifies: REQ-01-640..REQ-01-642
 - **AC-528**: Delete, restore, rollback, and explicit conflict resolution enforce authentication, cookie CSRF, path syntax, hidden visibility, role, token where applicable, and content/body validation in owner-defined order. Unauthorized malformed requests reveal no body- or selector-specific detail and commit no idempotency, source, history, projection, or Collaboration effect; authorized valid requests preserve their public methods, paths, operation IDs, envelopes, and consequences.
   - Verifies: REQ-01-074, REQ-01-100, REQ-03-075
-- **AC-529**: Revisions owns generic change-set/revision history, revision-window, conflict token/text-merge/`keep_saved`, opaque selector lifecycle, indexed association lookup, transaction/lock/idempotency/publication order, and rollback coordination behind consumer-owned ports and immutable application-composed provider catalogs. All ten current record types produce a closed `{snapshot_schema_id, record, source}` authoritative snapshot that passes its exact source-owner validator; no stored non-null row snapshot is schema-less or projection-derived. Ordinary live revisions persist transactionally atomic, revision-bound, field-keyed conflict facts derived only from explicit live-change input; those facts preserve scalar and collection conflict consequences without becoming row-history, rollback, projection, or portability authority. All fourteen current target kinds resolve exactly once to pure history semantics and generic `row` or `non_row` rollback dispatch; persisted association arrays are sorted, unique, complete, indexed, and equal owner-derived facts. Source owners retain current-state, field, collection, association, companion, revalidation, and inverse semantics. Incident Bundle versions 1 and 2 retain their exact portable outer rows, recompute association facts, omit conflict facts, and reject schema-less snapshots. HTTP/auth/platform concerns terminate at adapters; Records construction, view-schema resolution, and process-environment capture terminate at application/server assembly; deployment-local administrative audit remains under Authentication and Administration. Static and negative-runtime boundaries reject concrete Records construction, reverse imports, ambient environment reads, global registries, projection snapshot truth/fallback, source JSON-key history predicates, target/source-type rollback switches, dynamic relation metadata, incomplete catalogs, unauthorized provider invocation, and non-atomic provider failure.
+- **AC-529**: Revisions owns generic change-set/revision history, revision-window, conflict token/text-merge/`keep_saved`, opaque selector lifecycle, indexed association lookup, transaction/lock/idempotency/publication order, and rollback coordination behind consumer-owned ports and immutable application-composed provider catalogs. All ten current record types produce a closed `{snapshot_schema_id, record, source}` authoritative snapshot that passes its exact source-owner validator; no stored non-null row snapshot is schema-less or projection-derived. Ordinary live revisions persist transactionally atomic, revision-bound, field-keyed conflict facts derived only from explicit live-change input; those facts preserve scalar and collection conflict consequences without becoming row-history, rollback, projection, or portability authority. All fourteen current target kinds resolve exactly once to pure history semantics and generic `row` or `non_row` rollback dispatch; persisted association arrays are sorted, unique, complete, indexed, and equal owner-derived facts. Source owners retain current-state, field, collection, association, companion, revalidation, and inverse semantics. Incident Bundle version 2 retains its exact portable outer rows, recomputes association facts, omits conflict facts, and rejects schema-less snapshots. HTTP/auth/platform concerns terminate at adapters; Records construction, view-schema resolution, and process-environment capture terminate at application/server assembly; deployment-local administrative audit remains under Authentication and Administration. Static and negative-runtime boundaries reject concrete Records construction, reverse imports, ambient environment reads, global registries, projection snapshot truth/fallback, source JSON-key history predicates, target/source-type rollback switches, dynamic relation metadata, incomplete catalogs, unauthorized provider invocation, and non-atomic provider failure.
   - Verifies: REQ-00-071, REQ-01-650, REQ-01-659, REQ-02-204, REQ-02-216..REQ-02-218, REQ-02-265, REQ-03-066
 - **AC-530**: Indicator observations accept and persist exactly `manual_entry`, `clipboard_paste`, `csv_import`, `xlsx_import`, `api_import`, `extraction`, and trusted-internal `system`. `interactive_cell`, empty, missing, case-folded, whitespace-padded, aliased, unknown, extension-prefixed, and ordinary caller-selected `system` values fail before the first database write. Every live producer emits its assigned token; ordinary HTTP analyst entry emits `manual_entry`. Exact tokens survive history, rollback, and Incident Bundle round trips, and repeated equal-content observations with distinct stable identities remain separate. Every invalid-origin fixture proves no observation, source or Indicator version, change set, revision, projection, Collaboration intent, idempotency success, or publication effect.
   - Verifies: REQ-01-639..REQ-01-642, REQ-02-075..REQ-02-080, REQ-02-260
-- **AC-531**: Indicator source-major-`1` files for admitted bundle versions `1` and `2` accept only the three exact REQ-01-640 row schemas, explicit nullable members, canonical scalar forms, and stable-identity export ordering. Independent negative fixtures exercise each of the ten Indicator invariants; three multi-defect fixtures under different archive and row permutations always select the owner-defined lowest-precedence invariant and stable row identity. Valid v2 export/import/export is deterministic, valid retained v1 imports into the current model, active and tombstoned repeated observations remain distinct, and injected failure during apply, validation, or before final commit leaves no visible state. Unsupported, hostile, and malformed values expose only `source_family_id='indicators'` and the selected closed `invariant_id`; they disclose no row value, raw digest, SQL, relation, constraint, storage, path, or internal topology through responses, jobs, logs, telemetry, readiness, administrative summaries, or operator output.
+- **AC-531**: Indicator source-major-`1` files for admitted bundle version `2` accept only the three exact REQ-01-640 row schemas, explicit nullable members, canonical scalar forms, and stable-identity export ordering. Independent negative fixtures exercise each of the ten Indicator invariants; three multi-defect fixtures under different archive and row permutations always select the owner-defined lowest-precedence invariant and stable row identity. Valid v2 export/import/export is deterministic, active and tombstoned repeated observations remain distinct, and injected failure during apply, validation, or before final commit leaves no visible state. Unsupported, hostile, and malformed values expose only `source_family_id='indicators'` and the selected closed `invariant_id`; they disclose no row value, raw digest, SQL, relation, constraint, storage, path, or internal topology through responses, jobs, logs, telemetry, readiness, administrative summaries, or operator output.
 
 - **AC-532**: The six Indicator observation and lifecycle route families, comprising eight HTTP operations, implement their exact read, create, resolve, dismiss, restore, and append contracts. Independent fixtures cover authenticated hidden-resource ordering, viewer denial, editor success, cookie CSRF, exact and divergent replay, stale base versions, every legal and illegal observation transition, source/view/field validation, ASCII and multibyte UTF-8 spans, mid-code-point and out-of-range spans, server-derived text/locator/manual origin, canonical candidate derivation, same-incident targets/support UUIDs, the four lifecycle tokens, canonical times, affected-record lock/version order, row-centric history, projection refresh, ordinary Collaboration publication, and failure atomicity. Observation and interval pages are stable, actor/record-bound, tombstone-free, newest-first, OFFSET-free, and reject cursor replay under another actor, record, route, or limit. Discovery emits the four exact Core 01 Indicator feature rows, and the client resolves their complete semantic tuples before wildcard families. Indicator and Timeline Inspector handlers call the real routes, never generic record patch, preserve selection, expose accessible pending/empty/error/retry/paging states, and omit unsupported actions instead of rendering inert controls.
   - Verifies: REQ-01-615..REQ-01-617, REQ-01-652, REQ-01-654, REQ-02-263..REQ-02-264, REQ-03-306, REQ-04-150
 
-- **AC-533**: A clean install and an upgrade with valid existing Indicator rows create and deterministically backfill exactly one `indicator_active_identities` claim per Records-authoritative active canonical identity. Concurrent create converges on one claim; delete releases it; restore fails atomically on conflict; rollback rekeys it; Incident Bundle import maintains it; recovery rebuild produces the same claims; and claims never appear in portable or backup-domain content. During expand compatibility, every writer maintains claims and mirrors atomically. After the old-writer drain gate, constraint validation and contract migration remove all Indicator envelope mirrors, legacy indexes, and mirror foreign keys; every source read obtains envelope state from Records. Empty install, upgrade, Down reconstruction from Records, subsequent Up, delete/restore, rollback, recovery, and valid bundle v1/v2 round trips all pass. Unknown lifecycle state, envelope drift, malformed child tuple, incompatible idempotency payload, or duplicate Records-active identity blocks the applicable migration without guessing or partial schema change.
+- **AC-533**: A clean install and an upgrade with valid existing Indicator rows create and deterministically backfill exactly one `indicator_active_identities` claim per Records-authoritative active canonical identity. Concurrent create converges on one claim; delete releases it; restore fails atomically on conflict; rollback rekeys it; Incident Bundle import maintains it; recovery rebuild produces the same claims; and claims never appear in portable or backup-domain content. During expand compatibility, every writer maintains claims and mirrors atomically. After the old-writer drain gate, constraint validation and contract migration remove all Indicator envelope mirrors, legacy indexes, and mirror foreign keys; every source read obtains envelope state from Records. Empty install, upgrade, Down reconstruction from Records, subsequent Up, delete/restore, rollback, recovery, and valid bundle v2 round trips all pass. Unknown lifecycle state, envelope drift, malformed child tuple, incompatible idempotency payload, or duplicate Records-active identity blocks the applicable migration without guessing or partial schema change.
   - Verifies: REQ-01-639..REQ-01-642, REQ-02-072..REQ-02-080, REQ-02-260
 - **AC-016**: Evidence processing and any implemented background job start without blocking grid editing, and the UI shows progress and cancellation within 1 second of job start.
   - Verifies: REQ-01-243..REQ-01-247, REQ-01-355..REQ-01-366, REQ-02-186..REQ-02-201, REQ-03-121..REQ-03-126
@@ -2339,18 +2339,21 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   visible only through the final proven commit.
   - Verifies: REQ-01-425..REQ-01-426, REQ-01-448..REQ-01-450,
     REQ-01-609, REQ-01-636, REQ-01-640..REQ-01-641
-- **AC-489**: A valid retained version `1` archive imports successfully and its
-  subsequent version `2` export is semantically equivalent: the translator
-  preserves incident and record identity, row version, timestamps,
-  attribution, capture/review/supersession state, Timeline values, and every
-  source-identity, row-ordinal, column-ordinal, header, raw-value, and cell-kind
-  provenance fact; malformed or non-representable legacy capture fails with no
-  visible state.
+- **AC-489**: A structurally valid archive declaring retired numeric version
+  `1` is admitted through the ordinary asynchronous job boundary and then
+  fails with `incident_bundle_import_rejected`,
+  `reason_code='unsupported_bundle_version'`, and `retryable=false` before
+  source preparation, extension preparation, cross-owner transaction
+  acquisition, target mutation, or publication. The admitted job,
+  idempotency record, payload, terminal failure, and required staging cleanup
+  remain; no incident, membership, preference, attribution, successful audit,
+  final object, or success metric is created.
   - Verifies: REQ-01-635..REQ-01-636, REQ-01-640
 - **AC-490**: Before source preparation, import rejects omitted, JSON `null`,
   and non-integer `bundle_version` with `malformed_manifest`; rejects an
-  integer outside `{1,2}` with `unsupported_bundle_version`; and rejects a
-  selected-version Timeline path mismatch, both Timeline path sets, an unknown
+  integer other than `2`, including retired numeric version `1`, with
+  `unsupported_bundle_version`; and rejects a retired or mixed Timeline path
+  set under version `2`, an unknown
   or duplicate core path, a missing required path, checksum failure, traversal,
   unsupported member, extracted-byte excess, compression-ratio excess, or
   member-count excess with the exact closed import reason and no codec
@@ -2390,7 +2393,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-450, REQ-01-638, REQ-01-641
 - **AC-496**: Catalog construction rejects each closed invalid class in
   REQ-01-639, two valid builds produce the same FK-safe order, and every
-  required version `1` and version `2` core path has exactly one declared
+  required version `2` core path has exactly one declared
   consumer or validator and one declared stable-identity invariant.
   - Verifies: REQ-01-635, REQ-01-639..REQ-01-640
 - **AC-497**: For each current source-owner family, at least one fixture that is
@@ -2451,33 +2454,21 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   provenance, and satisfies generated-artifact policy with no manually edited
   generated root or dependency lockfile.
   - Verifies: REQ-01-643
-- **AC-506**: Version `1` is a development-only pre-production import that has
-  never appeared in a published stable release. The active compatibility
-  projection records `release_lifecycle=preproduction_unreleased`,
-  `backward_compatibility_required=false`, `adopting_stable_release=null`, and
-  `status=development_only`; this state requires no fabricated release,
-  telemetry, inventory, or elapsed-time evidence, and a later Core revision
-  may adopt a clean v2-only cutover. If a stable release admits version `1`
-  before removal, the projection atomically changes to
-  `release_lifecycle=stable_published` and
-  `backward_compatibility_required=true`; removal then remains blocked until
-  one adopting stable release and two distinct subsequent stable releases,
-  three releases total, have exported version `2`; each is published, strictly
-  ordered, and supported by a distinct passing retained Make-owned
-  `release-check` run; 180 complete days have elapsed since the adopting
-  release and deprecation start were recorded atomically; successful v1-import
-  telemetry is zero for the current complete 30-day interval; operator
-  inventory at the same cutoff is complete and clear; and a later Core
-  revision removes v1. A projection date, prerelease, development build,
-  local-only run, or unreleased implementation cannot establish stable
-  exposure or satisfy a stable-published release-clock condition.
+- **AC-506**: Version `2` is the sole admitted Incident Bundle version. The
+  active tree contains no compatibility registry, retired-version reader,
+  translator, conversion utility, runtime flag, fallback codec, dual reader,
+  successful-retired-version telemetry, or legacy-specific release-evidence
+  machinery.
+  Generic version-aware interfaces do not admit another version, and a future
+  version requires a later coordinated owner, catalog, implementation, and
+  verification revision.
   - Verifies: REQ-01-635..REQ-01-636
 - **AC-507**: `incident.json`, `actors.ndjson`,
   `reference_pack_refs.json`, and each admitted `ext/**` payload reject their
   closed malformed, duplicate, mismatched, unknown, or unclaimed cases, invoke
   exactly their admitted consumer, and publish no unauthorized state.
   - Verifies: REQ-01-635, REQ-01-640, REQ-01-642
-- **AC-508**: For admitted versions `1` and `2`,
+- **AC-508**: For admitted version `2`,
   `data/saved_views.ndjson` is always present and contains only the exact
   eleven-member REQ-01-644 row. Deterministic export covers private, shared,
   system, and zero-row incidents without relation-derived fields. Preparation
@@ -2519,7 +2510,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   contended record, and returns no partial protected-set result.
   - Verifies: REQ-00-067, REQ-01-649
 - **AC-513**: Legal Records rows import and deterministically re-export for
-  admitted versions `1` and `2`; exact-shape, identity, type, version,
+  admitted version `2`; exact-shape, identity, type, version,
   timestamp, actor, delete-tuple, duplicate, incident-scope, missing-subtype,
   incompatible-subtype, duplicate-subtype, and reverse-orphan cases each fail
   with the exact closed Records invariant and safe public error, and every

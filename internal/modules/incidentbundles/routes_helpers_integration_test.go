@@ -36,7 +36,6 @@ const (
 	incidentBundleExportJobKind  = "incident_portability.export_v1"
 	incidentBundleExportedCode   = "incident_bundle_exported"
 	incidentBundleImportedCode   = "incident_bundle_imported"
-	incidentBundleLegacyVersion  = 1
 	incidentBundleZIPMediaType   = "application/zip"
 )
 
@@ -889,106 +888,6 @@ func mapsClone(source map[string]any) map[string]any {
 	return result
 }
 
-func convertV2TimelineBundleToV1(t testing.TB, bundle []byte) []byte {
-	t.Helper()
-	files := zipMemberMap(t, bundle)
-	var manifest incidentBundleManifestMirror
-	if err := json.Unmarshal(files["manifest.json"], &manifest); err != nil {
-		t.Fatalf("decode v2 manifest for v1 conversion: %v", err)
-	}
-	recordEnvelopes := ndjsonRowsByIdentity(t, files["data/records.ndjson"], "record_id")
-	provenanceRows := decodeNDJSONRows(t, files["data/timeline_source_provenance.ndjson"])
-	provenanceByRecord := map[string][]map[string]any{}
-	for _, provenance := range provenanceRows {
-		recordID, _ := provenance["record_id"].(string)
-		provenanceByRecord[recordID] = append(provenanceByRecord[recordID], provenance)
-	}
-	legacyRows := decodeNDJSONRows(t, files["data/timeline_records.ndjson"])
-	var legacyPayload bytes.Buffer
-	for _, legacyRow := range legacyRows {
-		recordID, _ := legacyRow["record_id"].(string)
-		envelope := recordEnvelopes[recordID]
-		for target, source := range map[string]string{
-			"row_version":        "row_version",
-			"recorded_at":        "created_at",
-			"edited_at":          "updated_at",
-			"created_by_user_id": "created_by_user_id",
-			"updated_by_user_id": "updated_by_user_id",
-		} {
-			legacyRow[target] = envelope[source]
-		}
-		importColumns := make([]map[string]any, 0, len(provenanceByRecord[recordID]))
-		for _, provenance := range provenanceByRecord[recordID] {
-			column := map[string]any{
-				"source_kind":           provenance["source_kind"],
-				"source_row_ordinal":    provenance["source_row_ordinal"],
-				"source_column_ordinal": provenance["source_column_ordinal"],
-				"source_header_text":    provenance["source_header"],
-				"raw_value":             provenance["raw_value"],
-			}
-			if cellKind, ok := provenance["cell_kind"]; ok && cellKind != nil && cellKind != "" {
-				column["cell_kind"] = cellKind
-			}
-			if metadata, ok := provenance["source_metadata"].(map[string]any); ok {
-				for key, value := range metadata {
-					if key != "source_kind" {
-						column[key] = value
-					}
-				}
-			}
-			importColumns = append(importColumns, column)
-		}
-		legacyRow["raw_capture"] = map[string]any{"import_columns": importColumns}
-		encoded, err := json.Marshal(legacyRow)
-		if err != nil {
-			t.Fatalf("encode v1 Timeline row: %v", err)
-		}
-		legacyPayload.Write(encoded)
-		legacyPayload.WriteByte('\n')
-	}
-	files["data/timeline_time_conversion_profiles.ndjson"] = files["data/timeline_time_profiles.ndjson"]
-	files["data/timeline_events.ndjson"] = legacyPayload.Bytes()
-	delete(files, "data/timeline_time_profiles.ndjson")
-	delete(files, "data/timeline_records.ndjson")
-	delete(files, "data/timeline_source_provenance.ndjson")
-	delete(files, "manifest.json")
-	delete(files, "integrity/checksums.sha256")
-
-	paths := make([]string, 0, len(files))
-	for path := range files {
-		if !strings.HasPrefix(path, "integrity/") {
-			paths = append(paths, path)
-		}
-	}
-	slices.Sort(paths)
-	manifest.Files = make([]incidentBundleFileMirror, 0, len(paths))
-	for _, path := range paths {
-		manifest.Files = append(manifest.Files, incidentBundleFileMirror{
-			Path:      path,
-			SHA256:    "sha256:" + hashHexBytes(files[path]),
-			SizeBytes: int64(len(files[path])),
-			Required:  !strings.HasPrefix(path, "ext/"),
-		})
-	}
-	sourceBoundaryBytes, err := json.Marshal(manifest.Files)
-	if err != nil {
-		t.Fatalf("encode v1 source boundary: %v", err)
-	}
-	manifest.BundleVersion = incidentBundleLegacyVersion
-	manifest.SourceChangeSetHighWatermark = "cartulary.source_boundary.v1:" + hashHexBytes(sourceBoundaryBytes)
-	manifestBytes, err := json.Marshal(manifest)
-	if err != nil {
-		t.Fatalf("encode v1 manifest: %v", err)
-	}
-	files["manifest.json"] = append(manifestBytes, '\n')
-	checksumLines := make([]string, 0, len(paths))
-	for _, path := range paths {
-		checksumLines = append(checksumLines, hashHexBytes(files[path])+"  "+path)
-	}
-	files["integrity/checksums.sha256"] = []byte(strings.Join(checksumLines, "\n") + "\n")
-	return writeZipMemberMap(t, files)
-}
-
 func zipMemberMap(t testing.TB, bundle []byte) map[string][]byte {
 	t.Helper()
 	reader, err := zip.NewReader(bytes.NewReader(bundle), int64(len(bundle)))
@@ -1030,7 +929,7 @@ func writeZipMemberMap(t testing.TB, files map[string][]byte) []byte {
 		}
 	}
 	if err := writer.Close(); err != nil {
-		t.Fatalf("close v1 zip: %v", err)
+		t.Fatalf("close zip: %v", err)
 	}
 	return output.Bytes()
 }
@@ -1050,19 +949,6 @@ func decodeNDJSONRows(t testing.TB, payload []byte) []map[string]any {
 		rows = append(rows, row)
 	}
 	return rows
-}
-
-func ndjsonRowsByIdentity(t testing.TB, payload []byte, identity string) map[string]map[string]any {
-	t.Helper()
-	result := map[string]map[string]any{}
-	for _, row := range decodeNDJSONRows(t, payload) {
-		key, _ := row[identity].(string)
-		if key == "" {
-			t.Fatalf("NDJSON row has no %s identity: %#v", identity, row)
-		}
-		result[key] = row
-	}
-	return result
 }
 
 func rewriteZipMembers(t testing.TB, bundle []byte, transform func(path string, data []byte) ([]byte, bool)) []byte {
@@ -1447,21 +1333,33 @@ func assertImportFailureLeavesState(t testing.TB, harness *appsupport.ServerHarn
 
 type importFailureState struct {
 	IncidentRows            int
+	RecordRows              int
 	MembershipRows          int
+	IncidentPreferenceRows  int
+	UserPreferenceRows      int
 	ProjectionRows          int
 	ImportedActorRows       int
 	ImportedAttributionRows int
+	SuccessAuditRows        int
 	ExportRows              int
+	ExtensionStateRows      int
+	ExtensionStagedRows     int
 	ImportedObjectKeys      []string
 }
 
 func (s importFailureState) equal(other importFailureState) bool {
 	return s.IncidentRows == other.IncidentRows &&
+		s.RecordRows == other.RecordRows &&
 		s.MembershipRows == other.MembershipRows &&
+		s.IncidentPreferenceRows == other.IncidentPreferenceRows &&
+		s.UserPreferenceRows == other.UserPreferenceRows &&
 		s.ProjectionRows == other.ProjectionRows &&
 		s.ImportedActorRows == other.ImportedActorRows &&
 		s.ImportedAttributionRows == other.ImportedAttributionRows &&
+		s.SuccessAuditRows == other.SuccessAuditRows &&
 		s.ExportRows == other.ExportRows &&
+		s.ExtensionStateRows == other.ExtensionStateRows &&
+		s.ExtensionStagedRows == other.ExtensionStagedRows &&
 		slices.Equal(s.ImportedObjectKeys, other.ImportedObjectKeys)
 }
 
@@ -1469,11 +1367,17 @@ func snapshotImportFailureState(t testing.TB, harness *appsupport.ServerHarness,
 	t.Helper()
 	return importFailureState{
 		IncidentRows:            countRows(t, harness.DB, `SELECT count(*) FROM incidents WHERE id = $1`, incidentID),
+		RecordRows:              countRows(t, harness.DB, `SELECT count(*) FROM records WHERE incident_id = $1`, incidentID),
 		MembershipRows:          countRows(t, harness.DB, `SELECT count(*) FROM incident_memberships WHERE incident_id = $1`, incidentID),
+		IncidentPreferenceRows:  countRows(t, harness.DB, `SELECT count(*) FROM incident_workbook_preferences WHERE incident_id = $1`, incidentID),
+		UserPreferenceRows:      countRows(t, harness.DB, `SELECT count(*) FROM user_workbook_preferences WHERE incident_id = $1`, incidentID),
 		ProjectionRows:          countRows(t, harness.DB, `SELECT count(*) FROM timeline_grid_projection WHERE incident_id = $1`, incidentID),
 		ImportedActorRows:       countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_imported_actors WHERE incident_id = $1`, incidentID),
 		ImportedAttributionRows: countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_imported_attributions WHERE incident_id = $1`, incidentID),
+		SuccessAuditRows:        countRows(t, harness.DB, `SELECT count(*) FROM deployment_admin_audit_events WHERE incident_id = $1`, incidentID),
 		ExportRows:              countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_exports WHERE incident_id = $1`, incidentID),
+		ExtensionStateRows:      countRows(t, harness.DB, `SELECT count(*) FROM extension_state_metadata`),
+		ExtensionStagedRows:     countRows(t, harness.DB, `SELECT count(*) FROM extension_staged_objects`),
 		ImportedObjectKeys:      objectKeysWithPrefix(t, harness.ObjectStore, "incidents/"+incidentID+"/object-blobs/"),
 	}
 }

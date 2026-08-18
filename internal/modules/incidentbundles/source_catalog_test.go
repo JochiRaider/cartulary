@@ -48,13 +48,14 @@ func TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit(t *testing.T) 
 	if !slices.Equal(families, want) {
 		t.Fatalf("catalog order = %#v, want %#v", families, want)
 	}
-	assertAuthoredSourceCatalogV2(t)
+	assertAuthoredSourceCatalogV3(t)
 	assertRevisionsCatalogProjection(t, catalog.Descriptors())
 	assertSavedViewsCatalogProjection(t, catalog.Descriptors())
-	for version, path := range map[int]string{1: "data/timeline_events.ndjson", 2: "data/timeline_source_provenance.ndjson"} {
-		if consumer, ok := catalog.ConsumerFor(version, path); !ok || consumer != "timeline" {
-			t.Fatalf("Timeline path %q version %d consumer = %q, %v", path, version, consumer, ok)
-		}
+	if consumer, ok := catalog.ConsumerFor(2, "data/timeline_source_provenance.ndjson"); !ok || consumer != "timeline" {
+		t.Fatalf("Timeline v2 provenance consumer = %q, %v", consumer, ok)
+	}
+	if consumer, ok := catalog.ConsumerFor(1, "data/timeline_source_provenance.ndjson"); ok || consumer != "" {
+		t.Fatalf("retired bundle-version consumer = %q, %v", consumer, ok)
 	}
 }
 
@@ -210,13 +211,17 @@ type sourceCatalogProjection struct {
 		Paths        []sourceport.Path `json:"paths"`
 		InvariantIDs []string          `json:"invariant_ids"`
 	} `json:"families"`
+	SpecialConsumers []struct {
+		FamilyID string `json:"family_id"`
+		Versions []int  `json:"versions"`
+	} `json:"special_consumers"`
 }
 
-func assertAuthoredSourceCatalogV2(t *testing.T) {
+func assertAuthoredSourceCatalogV3(t *testing.T) {
 	t.Helper()
 	var authored sourceCatalogProjection
 	readContractJSON(t, "source_catalog.json", &authored)
-	if authored.SchemaID != "cartulary.incident_bundle_source_catalog.v2" || authored.ContractMajor != sourceport.ContractMajor || len(authored.Families) != 13 {
+	if authored.SchemaID != "cartulary.incident_bundle_source_catalog.v3" || authored.ContractMajor != sourceport.ContractMajor || len(authored.Families) != 13 {
 		t.Fatalf("authored source catalog header = %q major %d families %d", authored.SchemaID, authored.ContractMajor, len(authored.Families))
 	}
 	for _, family := range authored.Families {
@@ -225,9 +230,20 @@ func assertAuthoredSourceCatalogV2(t *testing.T) {
 			t.Fatalf("authored family %q does not declare %q", family.FamilyID, invariantID)
 		}
 		for _, path := range family.Paths {
+			if !slices.Equal(path.Versions, []int{2}) {
+				t.Fatalf("authored path %q versions = %#v, want [2]", path.LogicalPath, path.Versions)
+			}
 			if path.StableIdentityInvariantID != invariantID {
 				t.Fatalf("authored path %q invariant = %q, want %q", path.LogicalPath, path.StableIdentityInvariantID, invariantID)
 			}
+		}
+	}
+	if len(authored.SpecialConsumers) != 3 {
+		t.Fatalf("authored special consumers = %d, want 3", len(authored.SpecialConsumers))
+	}
+	for _, consumer := range authored.SpecialConsumers {
+		if !slices.Equal(consumer.Versions, []int{2}) {
+			t.Fatalf("authored special consumer %q versions = %#v, want [2]", consumer.FamilyID, consumer.Versions)
 		}
 	}
 }

@@ -292,7 +292,7 @@ func TestRevisionsIncidentBundleRoundTripIsDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build remapped portable actor catalog: %v", err)
 	}
-	for _, version := range []int{1, 2} {
+	for _, version := range []int{2} {
 		t.Run(fmt.Sprintf("bundle_version_%d", version), func(t *testing.T) {
 			importContext := harness.context
 			importContext.BundleVersion = version

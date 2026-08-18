@@ -1,7 +1,6 @@
 package telemetry
 
 const (
-	IncidentBundleV1ImportMetricName        = "cartulary.incident_bundle.v1_import"
 	EvidenceCleanupOperationsMetricName     = "cartulary.evidence.cleanup.operations"
 	EvidenceCleanupSweepDurationMetricName  = "cartulary.evidence.cleanup.sweep.duration"
 	EvidenceCleanupOverdueMetricName        = "cartulary.evidence.cleanup.overdue"
@@ -264,7 +263,6 @@ func MetricRegistry() []MetricRegistryRow {
 		{Name: "cartulary.postgres.operation.duration", InstrumentKind: "Histogram", Unit: "s", Description: "Postgres dependency operation duration.", Aggregation: "explicit_bucket_histogram", Temporality: "cumulative", Buckets: durationBuckets, AllowedAttributes: []string{"db.system.name", "cartulary.operation", "cartulary.result"}, OptionalAttributes: []string{"cartulary.error_class"}, OverflowBehavior: "drop_metric_overflow"},
 		{Name: "cartulary.objectstore.operation.duration", InstrumentKind: "Histogram", Unit: "s", Description: "Object-store dependency operation duration.", Aggregation: "explicit_bucket_histogram", Temporality: "cumulative", Buckets: durationBuckets, AllowedAttributes: []string{"cartulary.operation", "cartulary.result"}, OptionalAttributes: []string{"cartulary.error_class"}, OverflowBehavior: "drop_metric_overflow"},
 		{Name: "cartulary.objectstore.transfer.bytes", InstrumentKind: "Histogram", Unit: "By", Description: "Safe object-store transfer size.", Aggregation: "explicit_bucket_histogram", Temporality: "cumulative", Buckets: byteBuckets, AllowedAttributes: []string{"cartulary.operation", "cartulary.result"}, OverflowBehavior: "drop_metric_overflow"},
-		{Name: IncidentBundleV1ImportMetricName, InstrumentKind: "Counter", Unit: "{import}", Description: "Successful committed Incident Bundle v1 imports.", Aggregation: "monotonic_sum", Temporality: "cumulative", AllowedAttributes: nil, OverflowBehavior: "drop_metric_overflow"},
 		{Name: TelemetryExportFailureMetricName, InstrumentKind: "Counter", Unit: "{failure}", Description: "Telemetry export failures.", Aggregation: "monotonic_sum", Temporality: "cumulative", AllowedAttributes: []string{"cartulary.signal_kind", "cartulary.telemetry.exporter_kind", "cartulary.error_class"}, OverflowBehavior: "drop_metric_overflow"},
 		{Name: TelemetryItemDroppedMetricName, InstrumentKind: "Counter", Unit: "{item}", Description: "Telemetry items dropped before or during export.", Aggregation: "monotonic_sum", Temporality: "cumulative", AllowedAttributes: []string{"cartulary.signal_kind", "cartulary.drop_reason"}, OverflowBehavior: "drop_metric_overflow"},
 		{Name: TelemetryQueueDepthMetricName, InstrumentKind: "ObservableGauge", Unit: "{item}", Description: "Current processor queue depth by signal.", Aggregation: "last_value", Temporality: "cumulative_equivalent_current_observation", AllowedAttributes: []string{"cartulary.signal_kind"}, OverflowBehavior: "drop_metric_overflow"},

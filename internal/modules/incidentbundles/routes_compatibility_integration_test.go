@@ -1,14 +1,10 @@
 package incidentbundles_test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"os"
-	"reflect"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
@@ -18,102 +14,59 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-func TestIncidentBundleV1TranslationIsLossless_Integration(t *testing.T) {
+func TestIncidentBundleRetiredVersionIsRejectedWithoutEffects_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	sourceHarness := runtime.StartDefaultServer(t, "incident-bundle-v1-translation-source")
-	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "incident-bundle-v1-translation-target")
+	sourceHarness := runtime.StartDefaultServer(t, "incident-bundle-retired-version-source")
+	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "incident-bundle-retired-version-target")
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
-		"client_txn_id": "txn-incident-bundle-v1-translation-source",
-		"incident_key":  "BUNDLE-V1-TRANSLATION",
-		"title":         "Incident bundle v1 translation",
+		"client_txn_id": "txn-incident-bundle-retired-version-source",
+		"incident_key":  "BUNDLE-RETIRED-VERSION",
+		"title":         "Incident bundle retired version rejection",
 	})
 	incidentID := incident["incident_id"].(string)
-	row := timelineroutetest.CreateRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
-		"client_txn_id":                   "txn-incident-bundle-v1-translation-row",
-		"timeline.activity_synopsis_text": "Lossless legacy translation",
+	timelineroutetest.CreateRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
+		"client_txn_id":                   "txn-incident-bundle-retired-version-row",
+		"timeline.activity_synopsis_text": "Retired version must remain inert",
 	})
-	recordID := row["row"].(map[string]any)["record_id"].(string)
-	sourceMetadata := map[string]any{
-		"source_kind":         "clipboard",
-		"paste_client_txn_id": "txn-legacy-source",
-		"mapping_fingerprint": strings.Repeat("a", 64),
-	}
-	sourceMetadataJSON, err := json.Marshal(sourceMetadata)
-	if err != nil {
-		t.Fatalf("encode legacy provenance metadata: %v", err)
-	}
-	sourceIdentity := sha256.Sum256(sourceMetadataJSON)
-	if _, err := sourceHarness.DB.Exec(`
-INSERT INTO timeline_source_provenance (
-    record_id, source_identity_hash, source_row_ordinal,
-    source_column_ordinal, source_kind, source_metadata,
-    source_header_json, raw_value, cell_kind, created_at
-) VALUES ($1, $2, 7, 3, 'clipboard', $3::jsonb, '["Legacy Header"]'::jsonb, 'legacy raw value', 'text', now())
-`, recordID, sourceIdentity[:], sourceMetadataJSON); err != nil {
-		t.Fatalf("seed legacy provenance: %v", err)
-	}
 
-	v2Bundle := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "txn-export-v1-translation")
-	v1Bundle := convertV2TimelineBundleToV1(t, v2Bundle)
-	var convertedManifest incidentBundleManifestMirror
-	if err := json.Unmarshal(zipMemberMap(t, v1Bundle)["manifest.json"], &convertedManifest); err != nil {
-		t.Fatalf("decode converted v1 manifest: %v", err)
+	bundle := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "txn-export-retired-version")
+	retiredBundle := replaceZipMember(t, bundle, "manifest.json", func(original []byte) []byte {
+		var manifest map[string]any
+		if err := json.Unmarshal(original, &manifest); err != nil {
+			t.Fatalf("decode current manifest: %v", err)
+		}
+		manifest["bundle_version"] = float64(1)
+		payload, err := json.Marshal(manifest)
+		if err != nil {
+			t.Fatalf("encode retired-version manifest: %v", err)
+		}
+		return append(payload, '\n')
+	})
+	beforeDurability := snapshotEnvelopeDurability(t, targetHarness.DB)
+	terminal := assertImportFailureLeavesState(
+		t, targetHarness, targetAdmin, incidentID,
+		"txn-import-retired-version", retiredBundle, "unsupported_bundle_version",
+	)
+	errorSummary := terminal["error_summary"].(map[string]any)
+	if errorSummary["retryable"] != false {
+		t.Fatalf("retired version failure must be non-retryable: %#v", errorSummary)
 	}
-	if convertedManifest.BundleVersion != incidentBundleLegacyVersion {
-		t.Fatalf("converted bundle version = %d; want %d", convertedManifest.BundleVersion, incidentBundleLegacyVersion)
+	replay := postImport(
+		t, targetHarness.Server, targetAdmin,
+		`{"client_txn_id":"txn-import-retired-version"}`,
+		retiredBundle, "retired-version-replay.zip",
+	)
+	replayedJob := httptestx.RequireSuccessEnvelope(t, replay, http.StatusAccepted)["data"].(map[string]any)
+	if replayedJob["job_id"] != terminal["job_id"] {
+		t.Fatalf("retired version replay returned a different job: first=%v replay=%v", terminal["job_id"], replayedJob["job_id"])
 	}
-	terminal := importBundleAndWait(t, targetHarness.Server, targetAdmin, v1Bundle, "txn-import-v1-translation")
-	if terminal["status"] != "succeeded" {
-		t.Fatalf("v1 import terminal state = %#v", terminal)
-	}
-	var synopsis string
-	if err := targetHarness.DB.QueryRow(`
-SELECT activity_synopsis_text
-  FROM timeline_events
- WHERE record_id = $1
-`, recordID).Scan(&synopsis); err != nil {
-		t.Fatalf("query translated timeline row: %v", err)
-	}
-	if synopsis != "Lossless legacy translation" {
-		t.Fatalf("translated timeline synopsis = %q", synopsis)
-	}
-	var identityHex string
-	var rowOrdinal int
-	var columnOrdinal int
-	var sourceKind string
-	var metadataJSON string
-	var headerJSON string
-	var rawValue string
-	var cellKind string
-	if err := targetHarness.DB.QueryRow(`
-SELECT encode(source_identity_hash, 'hex'), source_row_ordinal,
-       source_column_ordinal, source_kind, source_metadata::text,
-       source_header_json::text, raw_value, cell_kind
-  FROM timeline_source_provenance
- WHERE record_id = $1
-`, recordID).Scan(
-		&identityHex, &rowOrdinal, &columnOrdinal, &sourceKind,
-		&metadataJSON, &headerJSON, &rawValue, &cellKind,
-	); err != nil {
-		t.Fatalf("query translated Timeline provenance: %v", err)
-	}
-	if identityHex != hex.EncodeToString(sourceIdentity[:]) ||
-		rowOrdinal != 7 || columnOrdinal != 3 || sourceKind != "clipboard" ||
-		rawValue != "legacy raw value" || cellKind != "text" {
-		t.Fatalf("translated Timeline provenance changed: %s/%d/%d/%s/%s/%s", identityHex, rowOrdinal, columnOrdinal, sourceKind, rawValue, cellKind)
-	}
-	var gotMetadata any
-	var wantMetadata any
-	if err := json.Unmarshal([]byte(metadataJSON), &gotMetadata); err != nil {
-		t.Fatalf("decode imported provenance metadata: %v", err)
-	}
-	if err := json.Unmarshal(sourceMetadataJSON, &wantMetadata); err != nil {
-		t.Fatalf("decode source provenance metadata: %v", err)
-	}
-	if !reflect.DeepEqual(gotMetadata, wantMetadata) || headerJSON != `["Legacy Header"]` {
-		t.Fatalf("translated Timeline provenance metadata changed: metadata=%s header=%s", metadataJSON, headerJSON)
+	afterDurability := snapshotEnvelopeDurability(t, targetHarness.DB)
+	if afterDurability.Jobs != beforeDurability.Jobs+1 ||
+		afterDurability.Payloads != beforeDurability.Payloads+1 ||
+		afterDurability.Idempotency != beforeDurability.Idempotency+1 {
+		t.Fatalf("retired version durable admission mismatch: before=%#v after=%#v", beforeDurability, afterDurability)
 	}
 }
 

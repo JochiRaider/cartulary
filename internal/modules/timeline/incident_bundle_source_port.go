@@ -14,8 +14,6 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		OwnerID: "module.timeline", OwnerRelationIDs: []string{"timeline-source"},
 		Dependencies: []string{"records"},
 		Paths: []sourceport.Path{
-			{LogicalPath: timelineBundleV1ProfilesPath, ContentRole: "source_rows", Versions: []int{1}, StableIdentity: []string{"incident_id"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
-			{LogicalPath: timelineBundleV1RecordsPath, ContentRole: "source_rows", Versions: []int{1}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
 			{LogicalPath: timelineBundleProfilesPath, ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"incident_id"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
 			{LogicalPath: timelineBundleRecordsPath, ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
 			{LogicalPath: timelineBundleProvenancePath, ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"record_id", "source_row_ordinal", "source_column_ordinal", "source_identity_sha256"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
@@ -24,7 +22,7 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			"timeline.version_shape_exact", "timeline.envelope_type_scope",
 			"timeline.lifecycle_coherent", "timeline.generated_time_coherent",
 			"timeline.paired_time_coherent", "timeline.provenance_unique",
-			"timeline.provenance_non_orphaned", "timeline.v1_translation_lossless",
+			"timeline.provenance_non_orphaned",
 			"timeline.source_identity_admitted",
 		},
 	}

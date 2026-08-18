@@ -80,7 +80,6 @@ func NewCatalog() (*sourceport.Catalog, error) {
 		"data/record_revisions.ndjson", "data/saved_views.ndjson",
 		"data/reference_pack_refs.json",
 	}
-	v1 := replaceTimelinePaths(v2)
 	special := map[string]string{
 		"data/actors.ndjson":            "actors",
 		"data/reference_pack_refs.json": "reference_pack_refs",
@@ -101,7 +100,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 			revisions.NewIncidentBundleSourcePort(revisionsValidation),
 			savedviews.NewIncidentBundleSourcePort(),
 		},
-		RequiredPathsByVersion: map[int][]string{1: v1, 2: v2},
+		RequiredPathsByVersion: map[int][]string{2: v2},
 		AllowedRelationIDs: map[string]struct{}{
 			"incident-core": {}, "record-envelope": {}, "record-revisions": {},
 			"timeline-source": {},
@@ -110,7 +109,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 			"evidence-source-and-handles": {}, "assessment-source": {},
 			"links-and-tags": {}, "savedviews": {},
 		},
-		SpecialConsumers: map[int]map[string]string{1: special, 2: special},
+		SpecialConsumers: map[int]map[string]string{2: special},
 	})
 }
 
@@ -138,22 +137,4 @@ func (reader incidentBundleRecordEnvelopeReader) RecordTypeTx(
 		return "", pgx.ErrNoRows
 	}
 	return envelope.RecordType, nil
-}
-
-func replaceTimelinePaths(v2 []string) []string {
-	v1 := make([]string, 0, len(v2)-1)
-	for _, logicalPath := range v2 {
-		switch logicalPath {
-		case "data/timeline_time_profiles.ndjson",
-			"data/timeline_records.ndjson",
-			"data/timeline_source_provenance.ndjson":
-			continue
-		default:
-			v1 = append(v1, logicalPath)
-		}
-	}
-	return append(v1,
-		"data/timeline_time_conversion_profiles.ndjson",
-		"data/timeline_events.ndjson",
-	)
 }

@@ -13,7 +13,7 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		FamilyID: "parties", ContractMajor: sourceport.ContractMajor,
 		OwnerID: "module.parties", OwnerRelationIDs: []string{"parties"},
 		Dependencies: []string{"timeline"},
-		Paths:        []sourceport.Path{{LogicalPath: "data/parties.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "parties.source_identity_admitted"}},
+		Paths:        []sourceport.Path{{LogicalPath: "data/parties.ndjson", ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "parties.source_identity_admitted"}},
 		InvariantIDs: []string{"parties.envelope_type_scope", "parties.identity_lifecycle", "parties.normalization_exact", "parties.source_identity_admitted"},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{

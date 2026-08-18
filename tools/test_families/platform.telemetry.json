@@ -8,8 +8,7 @@
       "family_id": "platform.telemetry.unit",
       "collaborator_ids": [],
       "verification_ids": [
-        "platform.telemetry.verification.current_conformance",
-        "platform.telemetry.verification.incident_bundle_v1_import"
+        "platform.telemetry.verification.current_conformance"
       ],
       "runner": "go",
       "selector": {
@@ -20,7 +19,6 @@
           "TestAccessorsUnknownScopeFallsBackToNoopTelemetryScope",
           "TestFixedTraceIDRatioCompatCorpus",
           "TestHTTPMiddlewareNoSDK",
-          "TestIncidentBundleV1ImportMetricIsAttributeFree_Unit",
           "TestMetricRegistryClosed",
           "TestResolveSamplerProfile",
           "TestSpanRegistryClosed"

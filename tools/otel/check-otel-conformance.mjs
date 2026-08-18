@@ -135,7 +135,6 @@ const expectedMetricNames = [
   "cartulary.postgres.operation.duration",
   "cartulary.objectstore.operation.duration",
   "cartulary.objectstore.transfer.bytes",
-  "cartulary.incident_bundle.v1_import",
   "cartulary.telemetry.export.failure",
   "cartulary.telemetry.item.dropped",
   "cartulary.telemetry.queue.depth",

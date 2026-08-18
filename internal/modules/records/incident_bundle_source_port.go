@@ -19,7 +19,7 @@ func NewIncidentBundleSourcePort(subtypeCatalog *subtypepresence.Catalog) source
 		Paths: []sourceport.Path{{
 			LogicalPath: recordsBundlePath, ContentRole: "source_rows",
 			SchemaID: "cartulary.incident_bundle.records.row.v1",
-			Versions: []int{1, 2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "records.source_identity_admitted",
+			Versions: []int{2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "records.source_identity_admitted",
 		}},
 		InvariantIDs: []string{
 			"records.incident_scope", "records.envelope_legal",

@@ -100,7 +100,6 @@
   lint-markdown \
   harness-contract-tests \
   harness-command-surface-contract \
-  incident-bundle-v1-retirement-attestation-command-surface-contract \
   harness-evidence-contract \
   harness-contract \
   lint-shell \
@@ -132,10 +131,8 @@
   check-harness-smoke \
   ci \
   release-check \
-  incident-bundle-v1-retirement-attestation-check \
   release-readiness-evidence \
   release-evidence-contract \
-  incident-bundle-v1-retirement-attestation-contract \
   license-report \
   sbom \
   seaweedfs-compatibility \
@@ -312,8 +309,6 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'release:' \
 	'  make ci                             run the provider-neutral CI entrypoint' \
 	'  make release-check                  run check, extended harness, frontend readiness, release artifacts, build verification, and release-readiness aggregation' \
-	'  make incident-bundle-v1-retirement-attestation-check' \
-	'                                      ATTESTATION=<path> validate retained evidence for Incident Bundle v1 retirement' \
 	'  make release-readiness-evidence     aggregate retained release-readiness evidence with explicit semantic effects' \
 	'  make seaweedfs-compatibility        run the full SeaweedFS S3 compatibility profile' \
 	'  make seaweedfs-release-evidence     emit SeaweedFS release-gate evidence without enforcing the strict gate' \
@@ -1140,11 +1135,6 @@ harness-command-surface-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-command-surface-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)$(RUN_STEP_SCRIPT) "harness-command-surface-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/tests/test-harness-command-surface-contracts.mjs
 
-incident-bundle-v1-retirement-attestation-command-surface-contract: export CARTULARY_TEST_TARGET ?= incident-bundle-v1-retirement-attestation-command-surface-contract
-incident-bundle-v1-retirement-attestation-command-surface-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-incident-bundle-v1-retirement-attestation-command-surface-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)$(RUN_STEP_SCRIPT) "incident-bundle-v1-retirement-attestation-command-surface-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) bash ./tools/release-evidence/tests/test-incident-bundle-v1-retirement-attestation-task-surface.sh
-
 harness-evidence-contract: export CARTULARY_TEST_TARGET ?= harness-evidence-contract
 harness-evidence-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-evidence-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
@@ -1416,14 +1406,6 @@ release-check:
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs \
 	  --selection aggregate --target release-check
 
-incident-bundle-v1-retirement-attestation-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-incident-bundle-v1-retirement-attestation-check: export CARTULARY_TEST_TARGET ?= incident-bundle-v1-retirement-attestation-check
-incident-bundle-v1-retirement-attestation-check:
-	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,incident-bundle-v1-retirement-attestation-check)
-	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
-	$(Q)ATTESTATION=$(call task_surface_shell_quote_raw,ATTESTATION) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ATTESTATION)" $(RUN_STEP_SCRIPT) "incident-bundle-v1-retirement-attestation-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) ./tools/release-evidence/incident-bundle-v1-retirement-attestation-cli.mjs --attestation $(call task_surface_shell_quote_raw,ATTESTATION)
-
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 release-readiness-evidence: export CARTULARY_TEST_TARGET ?= release-readiness-evidence
 release-readiness-evidence: export CARTULARY_ALLOW_EXISTING_RUN_ROOT := 1
@@ -1449,11 +1431,6 @@ release-evidence-contract: export CARTULARY_TEST_TARGET ?= release-evidence-cont
 release-evidence-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 release-evidence-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)$(RUN_STEP_SCRIPT) "release-evidence-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) ./tools/release-evidence/tests/test-release-readiness-evidence.mjs
-
-incident-bundle-v1-retirement-attestation-contract: export CARTULARY_TEST_TARGET ?= incident-bundle-v1-retirement-attestation-contract
-incident-bundle-v1-retirement-attestation-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-incident-bundle-v1-retirement-attestation-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)$(RUN_STEP_SCRIPT) "incident-bundle-v1-retirement-attestation-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) ./tools/release-evidence/tests/test-incident-bundle-v1-retirement-attestation.mjs
 
 license-report: export CARTULARY_TEST_TARGET ?= license-report
 license-report: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1

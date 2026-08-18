@@ -1717,7 +1717,6 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `check` | `cartulary.harness.command.check.v2` | `aggregates_gates` | `check` | `scheduler_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `scheduler_orchestration` (Section 10), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` |  |
 | `ci` | `cartulary.harness.command.ci.v3` | `aggregates_gates` | `ci` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Duration-baseline drift remains an explicit post-run maintenance command and is not an in-flight CI child. |
 | `release-check` | `cartulary.harness.command.release_check.v2` | `aggregates_gates` | `release-check` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Runs release child helpers for extended harness contract checks, advisory security audit evidence, SBOM/license evidence, SeaweedFS S3 release-gate evidence, builds, deployable-shape evidence, frontend support/visual/accessibility readiness children, and final release-readiness aggregation. |
-| `incident-bundle-v1-retirement-attestation-check` | `cartulary.harness.command.incident_bundle_v1_retirement_attestation_check.v1` | `aggregates_gates` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` | Validates the closed external Incident Bundle v1 retirement attestation against three distinct passing retained Make-owned `release-check` runs when the active compatibility projection declares a stable-published compatibility obligation, and writes one deterministic command-specific result. It is never selected by an aggregate because retirement requires an explicit current external input. |
 | `release-readiness-evidence` | `cartulary.harness.command.release_readiness_evidence.v2` | `aggregates_gates` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Validates the exact canonical target-projection closure required by `release-check`; it writes no parallel release-evidence format and does not promote design/support evidence to product conformance or Core 05 publication evidence. |
 | `seaweedfs-compatibility` | `cartulary.harness.command.seaweedfs_compatibility.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` | Runs the dedicated SeaweedFS S3 compatibility profile and emits the full `SWFS-COMP-*` report outside `services-up` as a command-specific retained artifact. |
 | `seaweedfs-release-evidence` | `cartulary.harness.command.seaweedfs_release_evidence.v2` | `static_analysis_security` |  | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `security_boundary` (Section 15), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Runs current SeaweedFS compatibility as a prerequisite, emits SeaweedFS release evidence, and emits a non-enforcing release-gate summary as command-specific retained artifacts; missing strict child evidence is reported as blocked evidence rather than hidden. |
@@ -1730,57 +1729,6 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `build-web` | `cartulary.harness.command.build_web.v2` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | In default local `check`, build evidence is readiness for browser preview work, not release deployable-shape evidence. |
 | `clean` | `cartulary.harness.command.clean.v1` | `cleanup` | `helper_only` | `destructive_human` | none | `destructive_safety` (Section 13), `failure_normalization` (Section 9) | `destructive_cleanup` | `public_active` |  |
 | `distclean` | `cartulary.harness.command.distclean.v1` | `cleanup` | `helper_only` | `destructive_human` | none | `destructive_safety` (Section 13), `failure_normalization` (Section 9) | `destructive_cleanup` | `public_active` |  |
-
-The Incident Bundle v1 retirement target accepts exactly one target-local
-input, `ATTESTATION`, in addition to the global machine-cache inputs. It MUST be
-supplied on the Make command line, MUST be redacted from declared-input and
-command summaries, and MUST NOT be inherited from the environment or accepted
-from a Makefile default. Public preflight rejects a missing, empty, or invalid
-path as `config/usage_error` with exit `2` before child work. The implementation
-MUST read no URL and MUST open the selected input as a non-empty, non-symlink
-regular file of at most 1 MiB before passing its bytes to the validator. The
-selected path MUST NOT appear in stdout, stderr, retained summaries, or the
-result artifact.
-
-The target validates schema
-`cartulary.incident_bundle_v1_retirement_attestation.v1`. Its three release
-references MUST resolve by exact run-manifest digest under the retained results
-root to three distinct canonical `release-check` runs. Each run MUST have a
-clean source state, the current `release-check` command identity, passing run
-and target summaries, and exact matching run-manifest, run-summary,
-target-summary, and source digests. The compatibility snapshot digest MUST
-match the active compatibility projection bytes, and the projection's adopting
-release, deprecation date, release minimum, retention minimum, telemetry
-window, and inventory requirement MUST match the attestation. The projection
-MUST also declare `release_lifecycle=stable_published`,
-`backward_compatibility_required=true`, and retained-import
-`status=deprecated`; the checker fails closed for a
-`preproduction_unreleased` development-only surface because that lifecycle has
-no operational evidence gate to attest. The
-publication-evidence digest is the
-SHA-256 digest of the canonical LF-terminated JSON object containing exactly
-`release_identity`, `published_on`, `stable`, `bundle_version`,
-`run_manifest_digest`, `run_summary_digest`, `target_summary_digest`, and
-`source_digest` in that order. This digest binds the allowed publication claim
-to the retained run without adding a self-declared pass field or a mutable
-parallel release-evidence format.
-
-On success, the target writes exactly
-`<run-root>/incident-bundle-v1-retirement-attestation-check/incident-bundle-v1-retirement-attestation-check/retirement-attestation-result.json`
-as `cartulary.incident_bundle_v1_retirement_attestation_result.v1` and emits one
-bounded success line containing only gate count plus the exact input and result
-digests. The result derives the eligibility date, elapsed complete-day count,
-and five individual gate states and MUST NOT contain its own digest. The
-retained stdout log and the `cartulary.tool_run_summary.v5` extension
-`cartulary.incident_bundle_v1_retirement_attestation` record the exact input
-and result digests after the result is written. The result file is a declared
-summary artifact.
-Malformed, unsafe, missing retained, noncanonical, failed, ambiguous, stale,
-incomplete, nonzero, or digest-mismatched evidence fails
-`artifact/artifact_error` with exit `11`, writes no passing result, and emits
-only a closed diagnostic token without a caller path or evidence payload. The
-target mutates no repository source, product state, service, database, bundle,
-telemetry source, operator inventory, or retained release run.
 
 **TH-HARNESS-REQ-059**
 Every public target MUST declare one or more side-effect classes in the public target registry source. The declaration MUST be represented as `side_effects[]`, where each entry is an object with `class`, `owner_section`, and the class-specific details required by the table below. A target that performs an undeclared side effect is non-conformant. `none` is mutually exclusive with every other side-effect class.
@@ -1826,10 +1774,6 @@ runtime-family inference, and target-name inference are forbidden.
 `scheduler-summary-timing-drift` are explicitly `out_of_scope`: they validate
 caller-selected retained evidence, so their duration describes that external
 evidence selection rather than a stable command workload.
-`incident-bundle-v1-retirement-attestation-check` is explicitly
-`out_of_scope`: its duration is governed by caller-supplied operational
-evidence and a retained release-run corpus that cannot form a stable
-repository measurement workload.
 Verified by: TH-HARNESS-AC-072, TH-HARNESS-AC-073
 
 **TH-HARNESS-REQ-078**
@@ -2173,7 +2117,7 @@ Each `inputs[]` row MUST contain `name`, `binding`, `allowed_sources`, `required
 | `summary_emission` | One of `none`, `value`, `redacted_value`, or `source_and_value`. |
 | `child_forwarding` | One of `none`, `argv`, `runtime_env`, or `argv_and_runtime_env`; undeclared public harness inputs MUST NOT reach child environments. |
 
-The closed target-local public input set in the current profile consists only of documented uses of `ROLE`, `OWNER`, `ROWS`, `TARGET`, `RESULTS_DIR`, explicit retained-evidence root selectors, `ATTESTATION`, `ALLOW_OLDER_RESULTS_DIR`, `RUN_ID`, `DETAIL`, `JSON`, worker controls, fixture report limits, duration-maintenance knobs, scheduler timing knobs, destructive-safety controls, the explicit Govulncheck database override, and the explicit `HARNESS_OTLP_ENDPOINT` and `HARNESS_OTLP_HEADERS_FILE` post-run export inputs. A public target accepts one of these names only when it appears in the normative input matrix below.
+The closed target-local public input set in the current profile consists only of documented uses of `ROLE`, `OWNER`, `ROWS`, `TARGET`, `RESULTS_DIR`, explicit retained-evidence root selectors, `ALLOW_OLDER_RESULTS_DIR`, `RUN_ID`, `DETAIL`, `JSON`, worker controls, fixture report limits, duration-maintenance knobs, scheduler timing knobs, destructive-safety controls, the explicit Govulncheck database override, and the explicit `HARNESS_OTLP_ENDPOINT` and `HARNESS_OTLP_HEADERS_FILE` post-run export inputs. A public target accepts one of these names only when it appears in the normative input matrix below.
 
 `frontend-fallow-static` accepts no target-local Make variables in the current Fallow static profile. A future changed-code audit base such as `FALLOW_CHANGED_SINCE` MUST be added to this registry before it becomes public input.
 
@@ -2188,7 +2132,6 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `object-store-reset` | `CARTULARY_DESTRUCTIVE_CONFIRM` | `enum` | no | make command line | none | omitted | `invalid` | `trim` | `object-store-reset` | `usage_error`, exit `2` | `value` | `none` |
 | `agent-finalize` | `ALLOW_OLDER_RESULTS_DIR` | `exact_1_bool` | no | make command line, environment, makefile default | none | omitted | `false` | `trim` | `exact_1_bool` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `agent-finalize` | `RESULTS_DIR` | `result_selector` | no | make command line, environment, makefile default | none | omitted | `omitted` | `path_token` | `result_selector` | `usage_error`, exit `2` | `value` | `runtime_env` |
-| `incident-bundle-v1-retirement-attestation-check` | `ATTESTATION` | `path` | yes | make command line | none | missing required input | `invalid` | `path_token` | non-empty regular JSON file of at most 1 MiB; final component is not a symlink | `usage_error`, exit `2` before child work for missing/empty/path syntax; `artifact_error`, exit `11` for unsafe or incompatible evidence | `redacted_value` | `argv` |
 | `test-evidence-audit`, `task-guide`, `test-slice`, `service-backed-test-slice`, `explain-test-owner` | `OWNER` | `owner_id` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `trim` | `owner_id` | `usage_error`, exit `2` | `value` | `argv` |
 | `test-evidence-audit`, `harness-performance-check` | `EVIDENCE_ROOTS_FILE` | `path` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `path_token` | `path` | `usage_error`, exit `2` | `value` | `argv` |
 | `task-surface-report` | `TASK_SURFACE_REPORT_ARGS` | `task_surface_report_args` | no | make command line, environment, makefile default | none | omitted | `omitted` | `trim` | `task_surface_report_args` | `usage_error`, exit `2` | `value` | `argv` |
@@ -2615,8 +2558,6 @@ parity-checked with every harness-public row in this table.
 | `cartulary.test.network_flow_auth_transition_control.v1` | `tools/schemas/cartulary.test.network_flow_auth_transition_control.v1.schema.json` | present | Network Flow auth-transition control route | Before an armed Network Flow auth-transition control is accepted. |
 | `cartulary.test.network_flow_audit_assertion_control.v1` | `tools/schemas/cartulary.test.network_flow_audit_assertion_control.v1.schema.json` | present | Network Flow audit-assertion control route | Before an armed Network Flow audit-count or replay assertion is accepted. |
 | `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | present           | Fixture report target    | Before machine JSON is emitted.           |
-| `cartulary.incident_bundle_v1_retirement_attestation.v1` | `tools/schemas/cartulary.incident_bundle_v1_retirement_attestation.v1.schema.json` | present | Incident Bundle retirement evidence input | Before any retirement gate is derived or retained release evidence is resolved. |
-| `cartulary.incident_bundle_v1_retirement_attestation_result.v1` | `tools/schemas/cartulary.incident_bundle_v1_retirement_attestation_result.v1.schema.json` | present | Incident Bundle retirement attestation validator | Before the command-specific result is retained or its digest is emitted. |
 | `cartulary.network_flow_fixture_manifest.v2`    | `tools/schemas/cartulary.network_flow_fixture_manifest.v2.schema.json`    | present           | Network Flow fixture manifest validator | Before a Network Flow fixture manifest is selected for behavior execution. |
 | `cartulary.network_flow_fixture_scenario.v2`    | `tools/schemas/cartulary.network_flow_fixture_scenario.v2.schema.json`    | present           | Network Flow fixture scenario validator | Before a Network Flow fixture scenario is selected for behavior execution. |
 | `cartulary.network_flow_timezone_ruleset_provenance.v2` | `tools/schemas/cartulary.network_flow_timezone_ruleset_provenance.v2.schema.json` | present | Network Flow timezone provenance validator | During JSON shape checks and before timestamp fixtures are accepted. |

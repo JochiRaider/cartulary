@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -458,24 +459,136 @@ func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.
 	if err != nil {
 		t.Fatalf("buildBundleArchive: %v", err)
 	}
-	unsupported := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) {
-		manifest["bundle_version"] = 3
-	})
-	if _, verifyErr := verifyBundle(verificationInput{
-		Bundle: unsupported,
-		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
-	}); !isVerificationReason(verifyErr, "unsupported_bundle_version") {
-		t.Fatalf("unsupported integer version reason mismatch: %v", verifyErr)
+	for _, version := range []int{1, 3} {
+		t.Run(fmt.Sprintf("unsupported_version_%d", version), func(t *testing.T) {
+			unsupported := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) {
+				manifest["bundle_version"] = version
+			})
+			if _, verifyErr := verifyBundle(verificationInput{
+				Bundle: unsupported,
+				Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+			}); !isVerificationReason(verifyErr, "unsupported_bundle_version") {
+				t.Fatalf("unsupported integer version %d reason mismatch: %v", version, verifyErr)
+			}
+		})
 	}
 
-	mixedFiles := zipFilesMap(t, bundle.Bytes)
-	mixedFiles["data/timeline_events.ndjson"] = []byte{}
-	if _, verifyErr := verifyBundle(verificationInput{
-		Bundle: zipFromFiles(t, mixedFiles),
-		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
-	}); !isVerificationReason(verifyErr, "malformed_manifest") {
-		t.Fatalf("mixed Timeline paths reason mismatch: %v", verifyErr)
+	for name, additionalPaths := range map[string][]string{
+		"retired timeline profile": {"data/timeline_time_conversion_profiles.ndjson"},
+		"retired timeline records": {"data/timeline_events.ndjson"},
+		"both retired paths":       {"data/timeline_time_conversion_profiles.ndjson", "data/timeline_events.ndjson"},
+		"unknown core member":      {"data/unknown.ndjson"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			mixedFiles := zipFilesMap(t, bundle.Bytes)
+			for _, path := range additionalPaths {
+				mixedFiles[path] = []byte{}
+			}
+			if _, verifyErr := verifyBundle(verificationInput{
+				Bundle: zipFromFiles(t, mixedFiles),
+				Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+			}); !isVerificationReason(verifyErr, "malformed_manifest") {
+				t.Fatalf("closed path classification mismatch: %v", verifyErr)
+			}
+		})
 	}
+}
+
+func TestWorkerRejectsRetiredVersionBeforePreparationAndTransaction_Unit(t *testing.T) {
+	bundle, err := buildBundleArchive(manifestInput{
+		BundleID:          "22222222-2222-4222-8222-222222222224",
+		IncidentID:        "11111111-1111-4111-8111-111111111111",
+		IncidentKey:       "INC-RETIRED-VERSION-BOUNDARY",
+		ExportedAt:        "2026-07-27T00:00:00Z",
+		ReferencePackMode: referencePackModeRefsOnly,
+	}, minimalRequiredBundleFiles())
+	if err != nil {
+		t.Fatalf("buildBundleArchive: %v", err)
+	}
+	retired := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) {
+		manifest["bundle_version"] = 1
+	})
+	stagingRef, err := ParseBundleStagingRef("incident-bundles/imports/retired-version.bundle")
+	if err != nil {
+		t.Fatalf("parse staging reference: %v", err)
+	}
+	manager := &recordingJobOperations{}
+	storage := &recordingBundleStorage{staged: retired}
+	boundaries := &importBoundaryTripwires{}
+	worker := &incidentBundleWorker{
+		jobManager: manager,
+		results:    incidentBundleJobResultSink{manager: manager},
+		storage:    storage,
+		limits: Limits{
+			Archives:        ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100},
+			IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024},
+		},
+		// Each collaborator panics at its first preparation or mutation method.
+		// A retired version must complete without reaching any of them.
+		sourceCatalog: sourcePreparationTripwire{boundaries: boundaries},
+		portability:   extensionPreparationTripwire{boundaries: boundaries},
+		transactions:  transactionExecutionTripwire{boundaries: boundaries},
+	}
+	worker.executeImportJob(context.Background(), jobs.Execution{}, jobPayload{
+		JobKind:          "import",
+		JobID:            uuid.MustParse("44444444-4444-4444-8444-444444444445"),
+		ActorUserID:      uuid.MustParse("55555555-5555-4555-8555-555555555555"),
+		BundleStagingRef: &stagingRef,
+	})
+	if manager.failed == nil || manager.failed.ErrorSummary.Code != "incident_bundle_import_rejected" ||
+		manager.failed.ErrorSummary.Retryable ||
+		manager.failed.ErrorSummary.Details["reason_code"] != "unsupported_bundle_version" {
+		t.Fatalf("retired version completion = %#v", manager.failed)
+	}
+	if storage.stagedReads != 1 || storage.stagedRemovals != 1 {
+		t.Fatalf("retired version staging lifecycle = reads %d removals %d", storage.stagedReads, storage.stagedRemovals)
+	}
+	if boundaries.sourcePreparation || boundaries.extensionPreparation || boundaries.publicationValidation || boundaries.transactionExecution {
+		t.Fatalf("retired version reached downstream boundaries: %#v", boundaries)
+	}
+}
+
+type importBoundaryTripwires struct {
+	sourcePreparation     bool
+	extensionPreparation  bool
+	publicationValidation bool
+	transactionExecution  bool
+}
+
+type sourcePreparationTripwire struct {
+	boundaries *importBoundaryTripwires
+}
+
+func (t sourcePreparationTripwire) Ports() []sourceport.Port {
+	t.boundaries.sourcePreparation = true
+	panic("retired bundle reached source preparation")
+}
+
+type extensionPreparationTripwire struct {
+	boundaries *importBoundaryTripwires
+}
+
+func (t extensionPreparationTripwire) Export(context.Context, StatePresenceQuery, uuid.UUID) ([]ExtensionPayload, error) {
+	panic("retired bundle reached the export-only extension boundary")
+}
+
+func (t extensionPreparationTripwire) PrepareImport(context.Context, string, uuid.UUID, map[string][]byte) (PreparedPortability, error) {
+	t.boundaries.extensionPreparation = true
+	panic("retired bundle reached extension preparation")
+}
+
+func (t extensionPreparationTripwire) ValidatePublication(context.Context, StatePresenceQuery, uuid.UUID) error {
+	t.boundaries.publicationValidation = true
+	panic("retired bundle reached publication validation")
+}
+
+type transactionExecutionTripwire struct {
+	boundaries *importBoundaryTripwires
+}
+
+func (t transactionExecutionTripwire) Execute(context.Context, crossownertransaction.Operation) (crossownertransaction.Result, error) {
+	t.boundaries.transactionExecution = true
+	panic("retired bundle reached transaction execution")
 }
 
 func minimalRequiredBundleFiles() map[string][]byte {
@@ -1188,7 +1301,10 @@ func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
 }
 
 type recordingBundleStorage struct {
-	removed []BundleStorageRef
+	removed        []BundleStorageRef
+	staged         []byte
+	stagedReads    int
+	stagedRemovals int
 }
 
 func (*recordingBundleStorage) Stage(context.Context, string, []byte) (BundleStagingRef, error) {
@@ -1199,8 +1315,15 @@ func (*recordingBundleStorage) Publish(context.Context, string, []byte) (BundleS
 	return BundleStorageRef{}, nil
 }
 
-func (*recordingBundleStorage) ReadStaged(BundleStagingRef, int64) ([]byte, error) { return nil, nil }
-func (*recordingBundleStorage) RemoveStaged(BundleStagingRef) error                { return nil }
+func (s *recordingBundleStorage) ReadStaged(BundleStagingRef, int64) ([]byte, error) {
+	s.stagedReads++
+	return append([]byte(nil), s.staged...), nil
+}
+
+func (s *recordingBundleStorage) RemoveStaged(BundleStagingRef) error {
+	s.stagedRemovals++
+	return nil
+}
 
 func (s *recordingBundleStorage) RemovePublished(reference BundleStorageRef) error {
 	s.removed = append(s.removed, reference)

@@ -76,7 +76,6 @@ const protectedCleanupIdentities = new Set([
   "tools",
 ]);
 const structuredSecretKeyTokens = new Set([
-  "ATTESTATION",
   "PASSWORD",
   "PASS",
   "PWD",
@@ -1331,7 +1330,7 @@ function compiledRedactionRules() {
 }
 
 function isSensitiveCLIFlag(value) {
-  return /^--(?:attestation|password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)$/iu.test(
+  return /^--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)$/iu.test(
     String(value ?? ""),
   );
 }

@@ -20,7 +20,6 @@ import (
 const (
 	bundleFormat              = "cartulary.incident_bundle"
 	bundleVersion             = 2
-	legacyBundleVersion       = 1
 	sourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 	tarTypeRegA               = byte(0)
 )
@@ -66,19 +65,6 @@ var requiredStructuredFilesV2 = []string{
 	"data/saved_views.ndjson",
 	"data/reference_pack_refs.json",
 }
-
-var requiredStructuredFilesV1 = func() []string {
-	files := append([]string(nil), requiredStructuredFilesV2...)
-	files = removeRequiredStructuredFile(files, "data/timeline_time_profiles.ndjson")
-	files = removeRequiredStructuredFile(files, "data/timeline_records.ndjson")
-	files = removeRequiredStructuredFile(files, "data/timeline_source_provenance.ndjson")
-	files = append(files,
-		"data/timeline_time_conversion_profiles.ndjson",
-		"data/timeline_events.ndjson",
-	)
-	sort.Strings(files)
-	return files
-}()
 
 // requiredStructuredFiles is the current export surface. It remains a named
 // value because tests and manifest construction intentionally prove that the
@@ -252,7 +238,7 @@ func verifyBundle(input verificationInput) (verifiedBundle, error) {
 	if err != nil {
 		return verifiedBundle{}, err
 	}
-	if err := validateClosedBundlePaths(files, manifest.BundleVersion, requiredPaths); err != nil {
+	if err := validateClosedBundlePaths(files, requiredPaths); err != nil {
 		return verifiedBundle{}, err
 	}
 	for _, pathName := range requiredPaths {
@@ -359,7 +345,7 @@ func parseBundleVersion(manifestBytes []byte) (int, error) {
 		return 0, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	switch version {
-	case legacyBundleVersion, bundleVersion:
+	case bundleVersion:
 		return version, nil
 	default:
 		return 0, &verificationError{ReasonCode: "unsupported_bundle_version"}
@@ -368,8 +354,6 @@ func parseBundleVersion(manifestBytes []byte) (int, error) {
 
 func requiredStructuredFilesForVersion(version int) ([]string, error) {
 	switch version {
-	case legacyBundleVersion:
-		return requiredStructuredFilesV1, nil
 	case bundleVersion:
 		return requiredStructuredFilesV2, nil
 	default:
@@ -377,30 +361,12 @@ func requiredStructuredFilesForVersion(version int) ([]string, error) {
 	}
 }
 
-func validateClosedBundlePaths(files map[string][]byte, version int, requiredPaths []string) error {
+func validateClosedBundlePaths(files map[string][]byte, requiredPaths []string) error {
 	required := make(map[string]struct{}, len(requiredPaths))
 	for _, filePath := range requiredPaths {
 		required[filePath] = struct{}{}
 	}
-	selectedTimeline := map[string]struct{}{}
-	otherTimeline := map[string]struct{}{}
-	if version == legacyBundleVersion {
-		selectedTimeline["data/timeline_time_conversion_profiles.ndjson"] = struct{}{}
-		selectedTimeline["data/timeline_events.ndjson"] = struct{}{}
-		otherTimeline["data/timeline_time_profiles.ndjson"] = struct{}{}
-		otherTimeline["data/timeline_records.ndjson"] = struct{}{}
-		otherTimeline["data/timeline_source_provenance.ndjson"] = struct{}{}
-	} else {
-		selectedTimeline["data/timeline_time_profiles.ndjson"] = struct{}{}
-		selectedTimeline["data/timeline_records.ndjson"] = struct{}{}
-		selectedTimeline["data/timeline_source_provenance.ndjson"] = struct{}{}
-		otherTimeline["data/timeline_time_conversion_profiles.ndjson"] = struct{}{}
-		otherTimeline["data/timeline_events.ndjson"] = struct{}{}
-	}
 	for filePath := range files {
-		if _, mismatch := otherTimeline[filePath]; mismatch {
-			return &verificationError{ReasonCode: "malformed_manifest"}
-		}
 		if !strings.HasPrefix(filePath, "data/") {
 			continue
 		}
@@ -408,21 +374,7 @@ func validateClosedBundlePaths(files map[string][]byte, version int, requiredPat
 			return &verificationError{ReasonCode: "malformed_manifest"}
 		}
 	}
-	for filePath := range selectedTimeline {
-		if _, ok := files[filePath]; !ok {
-			return &verificationError{ReasonCode: "malformed_manifest"}
-		}
-	}
 	return nil
-}
-
-func removeRequiredStructuredFile(files []string, target string) []string {
-	for index, file := range files {
-		if file == target {
-			return append(files[:index], files[index+1:]...)
-		}
-	}
-	return files
 }
 
 func canonicalManifestFilesMatch(files map[string][]byte, manifestFiles []manifestFile) bool {

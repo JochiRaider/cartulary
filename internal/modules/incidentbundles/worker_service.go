@@ -15,7 +15,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 )
 
 const incidentBundleJobHandlerName = bundleWorkerKind
@@ -66,6 +65,20 @@ type IncidentPublicationLock interface {
 	LockIncidentTx(context.Context, pgx.Tx, uuid.UUID) (bool, error)
 }
 
+type sourcePortCatalog interface {
+	Ports() []sourceport.Port
+}
+
+type portabilityCoordinator interface {
+	Export(context.Context, StatePresenceQuery, uuid.UUID) ([]ExtensionPayload, error)
+	PrepareImport(context.Context, string, uuid.UUID, map[string][]byte) (PreparedPortability, error)
+	ValidatePublication(context.Context, StatePresenceQuery, uuid.UUID) error
+}
+
+type transactionCoordinator interface {
+	Execute(context.Context, crossownertransaction.Operation) (crossownertransaction.Result, error)
+}
+
 type incidentBundleWorker struct {
 	store             *store
 	pool              *pgxpool.Pool
@@ -75,11 +88,11 @@ type incidentBundleWorker struct {
 	storage           BundleStorage
 	importFinalizer   incidents.IncidentBundleImportFinalizer
 	jobFinalizer      JobSuccessFinalizer
-	portability       *PortabilityOrchestrator
+	portability       portabilityCoordinator
 	publicationLock   IncidentPublicationLock
-	transactions      *crossownertransaction.Coordinator
+	transactions      transactionCoordinator
 	projectionRebuild ImportProjectionRebuilder
-	sourceCatalog     *sourceport.Catalog
+	sourceCatalog     sourcePortCatalog
 	historicalIntents HistoricalIntentPolicy
 	blobPort          BlobPortability
 	limits            Limits
@@ -344,9 +357,6 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 	committed = true
 	prepared.stagedObjectKeys = nil
 	portability.Committed()
-	if verified.Manifest.BundleVersion == 1 {
-		telemetry.RecordIncidentBundleV1Import(context.WithoutCancel(ctx), "")
-	}
 }
 
 func incidentBundleStagingReadLimit(maxExtractedBytes int64) int64 {

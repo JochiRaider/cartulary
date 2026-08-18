@@ -299,6 +299,35 @@
       ]
     },
     {
+      "row_id": "module.incidentbundles.integration.incident_bundle_retired_version_is_rejected_with_1ec7e171fe",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.integration",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.compatibility"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestIncidentBundleRetiredVersionIsRejectedWithoutEffects_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.incidentbundles.integration.incident_bundle_storage_reference_cutover_is_cle_7e4d8743ff",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.integration",
@@ -323,36 +352,6 @@
       "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard",
       "service_dependencies": [
-        "postgres"
-      ]
-    },
-    {
-      "row_id": "module.incidentbundles.integration.incident_bundle_v1_translation_lossless_29db97f48c",
-      "owner_id": "module.incidentbundles",
-      "family_id": "module.incidentbundles.integration",
-      "collaborator_ids": [
-        "module.timeline",
-        "platform.telemetry"
-      ],
-      "verification_ids": [
-        "module.incidentbundles.verification.compatibility"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/incidentbundles",
-        "tests": [
-          "TestIncidentBundleV1TranslationIsLossless_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard",
-      "service_dependencies": [
-        "object_store",
         "postgres"
       ]
     },
@@ -608,6 +607,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
+          "TestWorkerRejectsRetiredVersionBeforePreparationAndTransaction_Unit",
           "TestWorkerResultTransitionsPreservePublicSummaries_Unit"
         ]
       },
