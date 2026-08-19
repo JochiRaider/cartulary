@@ -142,7 +142,11 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 	return transitionMutation{resource: record, changed: true}, nil
 }
 
-func transitionCancellationTx(
+// transitionCancellationLockedTx applies cancellation after the caller has
+// acquired the per-job transition advisory lock. Keeping this precondition
+// explicit prevents callers that already hold durable rows from introducing a
+// row-before-transition lock-order inversion.
+func transitionCancellationLockedTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	jobID uuid.UUID,
@@ -150,9 +154,6 @@ func transitionCancellationTx(
 ) (transitionMutation, string, error) {
 	if tx == nil || jobID == uuid.Nil || now.IsZero() {
 		return transitionMutation{}, "", ErrInvalidJobDefinition
-	}
-	if err := lockTransitionTx(ctx, tx, jobID); err != nil {
-		return transitionMutation{}, "", err
 	}
 	current, err := getJobTx(ctx, tx, jobID)
 	if err != nil {

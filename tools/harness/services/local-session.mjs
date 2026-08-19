@@ -495,6 +495,7 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
     });
     const envFile = path.join(stateRoot, "suite-environment.json");
     const leaseFile = path.join(stateRoot, "suite-lease.json");
+    const resultFile = path.join(stateRoot, "suite-start-result.json");
     const startEnvironment = {
       CARTULARY_TEST_SERVICES_PERSISTENT_SESSION: "1",
       CARTULARY_TEST_SERVICES_SESSION_EXPIRES_AT: expiresAt,
@@ -508,7 +509,12 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
     };
     let started = false;
     try {
-      runTestservices(binary, ["start-suite", "--env-file", envFile, "--lease-file", leaseFile], {
+      runTestservices(binary, [
+        "start-suite",
+        "--env-file", envFile,
+        "--lease-file", leaseFile,
+        "--result-file", resultFile,
+      ], {
         root,
         environment: startEnvironment,
         dependencies,
@@ -516,9 +522,24 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
       started = true;
       assertPrivateFile(envFile, "local service session environment staging file");
       assertPrivateFile(leaseFile, "local service session lease staging file");
+      assertPrivateFile(resultFile, "local service session start-result staging file");
       const suiteEnvironment = JSON.parse(readFileSync(envFile, "utf8"));
       const serviceLease = JSON.parse(readFileSync(leaseFile, "utf8"));
+      const startResult = JSON.parse(readFileSync(resultFile, "utf8"));
       validateSchemaSync(serviceLease.schema_id, serviceLease);
+      validateSchemaSync(startResult.schema_id, startResult);
+      if (
+        startResult.status !== "ready" ||
+        startResult.run_id !== "session-up" ||
+        startResult.target !== "test-services-session-up" ||
+        startResult.suite_id !== sessionID ||
+        startResult.service_scope_ref !== `_shared/test-services/${sessionID}/service-scope.json` ||
+        startResult.failure_class !== null ||
+        startResult.failure_reason !== null
+      ) {
+        throw new Error("local service session start result does not match the requested suite");
+      }
+      rmSync(resultFile, { force: true });
       const compatibility = currentCompatibility({ root, binary, dependencies });
       const containers = serviceLease.resources
         .map((resource) => {

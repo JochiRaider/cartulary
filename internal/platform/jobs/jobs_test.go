@@ -77,6 +77,164 @@ func TestManagerCreatesCancelsAndReplaysJobCancel(t *testing.T) {
 	}
 }
 
+func TestManagerCancellationUsesCanonicalTransitionLockOrder_Integration(t *testing.T) {
+	ctx := context.Background()
+	manager, actorID, incidentID, pool := newJobsHarnessWithPool(
+		t,
+		"jobs-cancel-lock-order",
+		func() time.Time { return time.Now().UTC() },
+	)
+	compositionValue, present := testJobCompositions.Load(manager)
+	if !present {
+		t.Fatal("test Jobs composition is unavailable")
+	}
+	composition := compositionValue.(testJobComposition)
+
+	enqueueCancelable := func(t *testing.T) (uuid.UUID, jobs.Execution) {
+		t.Helper()
+		resource, err := enqueueTestJob(t, manager, jobs.EnqueueParams{
+			JobKind:           testJobKind,
+			Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
+			SubmittedByUserID: actorID,
+			Cancelable:        true,
+			Progress:          jobs.Progress{Completed: 0},
+		})
+		if err != nil {
+			t.Fatalf("create cancelable job: %v", err)
+		}
+		jobID := uuid.MustParse(resource.JobID)
+		return jobID, claimTestExecution(t, manager, jobID)
+	}
+	cancel := func(jobID uuid.UUID, txnID string) <-chan error {
+		result := make(chan error, 1)
+		go func() {
+			_, err := manager.Cancel(ctx, jobs.CancelParams{
+				JobID:             jobID,
+				ActorUserID:       actorID,
+				ClientTxnID:       txnID,
+				NormalizedRequest: []byte(`{"client_txn_id":"` + txnID + `","reason":null}`),
+			})
+			result <- err
+		}()
+		return result
+	}
+
+	t.Run("cancellation waits before locking the job row", func(t *testing.T) {
+		jobID, _ := enqueueCancelable(t)
+		lockConn, err := pool.Acquire(ctx)
+		if err != nil {
+			t.Fatalf("acquire transition blocker: %v", err)
+		}
+		defer lockConn.Release()
+		var blockerPID int32
+		if err := lockConn.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&blockerPID); err != nil {
+			t.Fatalf("load blocker pid: %v", err)
+		}
+		const transitionLockSeed int64 = 49006006
+		if _, err := lockConn.Exec(ctx, `SELECT pg_advisory_lock(hashtextextended($1::text, $2))`, jobID, transitionLockSeed); err != nil {
+			t.Fatalf("hold transition lock: %v", err)
+		}
+		locked := true
+		defer func() {
+			if locked {
+				_, _ = lockConn.Exec(context.Background(), `SELECT pg_advisory_unlock(hashtextextended($1::text, $2))`, jobID, transitionLockSeed)
+			}
+		}()
+
+		cancelResult := cancel(jobID, "txn-cancel-lock-first")
+		_ = waitForBlockedBackend(t, pool, blockerPID)
+
+		probeTx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin row-lock probe: %v", err)
+		}
+		defer func() { _ = probeTx.Rollback(ctx) }()
+		var present bool
+		if err := probeTx.QueryRow(ctx, `SELECT true FROM jobs WHERE job_id = $1 FOR UPDATE NOWAIT`, jobID).Scan(&present); err != nil {
+			t.Fatalf("cancellation locked the job row before the transition lock: %v", err)
+		}
+		if !present {
+			t.Fatal("row-lock probe did not find job")
+		}
+		if err := probeTx.Rollback(ctx); err != nil {
+			t.Fatalf("release row-lock probe: %v", err)
+		}
+
+		if _, err := lockConn.Exec(ctx, `SELECT pg_advisory_unlock(hashtextextended($1::text, $2))`, jobID, transitionLockSeed); err != nil {
+			t.Fatalf("release transition lock: %v", err)
+		}
+		locked = false
+		if err := <-cancelResult; err != nil {
+			t.Fatalf("cancel after transition release: %v", err)
+		}
+	})
+
+	t.Run("execution commit serializes before cancellation", func(t *testing.T) {
+		jobID, execution := enqueueCancelable(t)
+		ownerTx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin owner transaction: %v", err)
+		}
+		defer func() { _ = ownerTx.Rollback(ctx) }()
+		if err := composition.transactions.ValidateExecutionTx(ctx, ownerTx, execution); err != nil {
+			t.Fatalf("validate owner execution: %v", err)
+		}
+		var ownerPID int32
+		if err := ownerTx.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&ownerPID); err != nil {
+			t.Fatalf("load owner pid: %v", err)
+		}
+		cancelResult := cancel(jobID, "txn-owner-before-cancel")
+		_ = waitForBlockedBackend(t, pool, ownerPID)
+		if err := ownerTx.Commit(ctx); err != nil {
+			t.Fatalf("commit owner transaction: %v", err)
+		}
+		if err := <-cancelResult; err != nil {
+			t.Fatalf("cancel after owner commit: %v", err)
+		}
+	})
+
+	t.Run("cancellation prevents later owner effects", func(t *testing.T) {
+		jobID, execution := enqueueCancelable(t)
+		if err := <-cancel(jobID, "txn-cancel-before-owner"); err != nil {
+			t.Fatalf("cancel before owner validation: %v", err)
+		}
+		ownerTx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin rejected owner transaction: %v", err)
+		}
+		defer func() { _ = ownerTx.Rollback(ctx) }()
+		if err := composition.transactions.ValidateExecutionTx(ctx, ownerTx, execution); !errors.Is(err, jobs.ErrCancellationRequested) {
+			t.Fatalf("owner validation error = %v, want ErrCancellationRequested", err)
+		}
+	})
+}
+
+func waitForBlockedBackend(t testing.TB, pool *pgxpool.Pool, blockerPID int32) int32 {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		var waiterPID int32
+		err := pool.QueryRow(context.Background(), `
+SELECT pid
+  FROM pg_stat_activity
+ WHERE datname = current_database()
+   AND pid <> pg_backend_pid()
+   AND $1::integer = ANY(pg_blocking_pids(pid))
+ ORDER BY pid
+ LIMIT 1
+`, blockerPID).Scan(&waiterPID)
+		if err == nil {
+			return waiterPID
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			t.Fatalf("inspect blocked backend: %v", err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for backend blocked by pid %d", blockerPID)
+	return 0
+}
+
 func TestManagerTerminalSuccessRetainsJobResource(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 5, 23, 10, 0, 0, 0, time.UTC)

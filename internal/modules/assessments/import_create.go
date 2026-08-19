@@ -124,20 +124,25 @@ func (f *importCreateFacade) CreateImportRowTx(
 
 	assessorID := request.ActorUserID
 	if input.Assessor != nil {
-		valid, err = f.assessors.ValidateAssessmentAssessorTx(ctx, tx, *input.Assessor)
-		if err != nil {
-			return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf(
-				"validate assessment import assessor: %w",
-				err,
-			)
-		}
-		if !valid {
-			return ownerfacade.ImportOwnerCreateResponse{}, &CreateValidationError{
-				Field:      "assessment.assessor",
-				ReasonCode: "invalid_value",
-			}
-		}
 		assessorID = *input.Assessor
+	}
+	valid, err = f.assessors.ValidateAssessmentAssessorTx(
+		ctx,
+		tx,
+		request.IncidentID,
+		assessorID,
+	)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf(
+			"validate assessment import assessor: %w",
+			err,
+		)
+	}
+	if !valid {
+		return ownerfacade.ImportOwnerCreateResponse{}, &CreateValidationError{
+			Field:      "assessment.assessor",
+			ReasonCode: "invalid_value",
+		}
 	}
 
 	now := command.Now.UTC()

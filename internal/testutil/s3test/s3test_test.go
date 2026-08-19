@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/minio/minio-go/v7"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 
@@ -245,6 +246,50 @@ func TestOwnedObjectStoreReadinessTimeoutIsTerminalForTheStartedLane(t *testing.
 	if observedObjectStoreRetry(events) {
 		t.Fatalf("readiness expiry must not schedule a replacement lane, got %#v", events)
 	}
+	diagnostic, ok := ReadinessDiagnosticFromError(err)
+	if !ok || diagnostic.CleanupOutcome != "completed" {
+		t.Fatalf("owned readiness cleanup diagnostic = %#v present=%t", diagnostic, ok)
+	}
+}
+
+func TestOwnedObjectStoreRetriesOnlyPreReadinessStartupAndUsesFreshReadinessContext(t *testing.T) {
+	stubOwnedObjectStoreStartup(t)
+
+	starts := 0
+	readinessChecks := 0
+	var events []testcontainersx.StartEvent
+	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+		starts++
+		if starts == 1 {
+			return nil, errors.New("docker.sock connection reset by peer")
+		}
+		return fakeObjectStoreContainer{
+			host: "127.0.0.1",
+			port: network.MustParsePort("8333/tcp"),
+		}, nil
+	}
+	waitReadyFn = func(ctx context.Context, harness *Harness) error {
+		readinessChecks++
+		if _, hasDeadline := ctx.Deadline(); hasDeadline {
+			t.Fatal("readiness reused the bounded startup-attempt context")
+		}
+		return nil
+	}
+
+	if _, err := StartOwnedWithOptions(context.Background(), StartOptions{
+		AttemptTimeout: 25 * time.Millisecond,
+		Observer: func(event testcontainersx.StartEvent) {
+			events = append(events, event)
+		},
+	}); err != nil {
+		t.Fatalf("start object store after transient pre-readiness failure: %v", err)
+	}
+	if starts != 2 || readinessChecks != 1 {
+		t.Fatalf("startup/readiness phase counts = %d/%d, want 2/1", starts, readinessChecks)
+	}
+	if !observedObjectStoreRetry(events) {
+		t.Fatalf("pre-readiness Docker failure did not use declared retry: %#v", events)
+	}
 }
 
 func TestOwnedObjectStoreDoesNotRetryAuthenticationReadinessFailure(t *testing.T) {
@@ -265,11 +310,15 @@ func TestOwnedObjectStoreDoesNotRetryAuthenticationReadinessFailure(t *testing.T
 	}
 	waitReadyFn = func(ctx context.Context, harness *Harness) error {
 		return &objectStoreReadinessError{
+			Phase:          "initial_lane",
+			Stage:          "create_namespace",
+			Outcome:        "capability_rejected",
+			Attempts:       1,
+			CleanupOutcome: "completed",
 			LastErr: minio.ErrorResponse{
 				Code:    "AccessDenied",
 				Message: "Access Denied",
 			},
-			DeadlineExpired: true,
 		}
 	}
 
@@ -284,15 +333,9 @@ func TestOwnedObjectStoreDoesNotRetryAuthenticationReadinessFailure(t *testing.T
 		t.Fatalf("expected failed auth attempt to terminate its container once, got %d", terminations)
 	}
 
-	var startFailure *testcontainersx.StartFailure
-	if !errors.As(err, &startFailure) {
-		t.Fatalf("expected StartFailure, got %T", err)
-	}
-	if startFailure.Retryable {
-		t.Fatal("auth readiness failure must not be retryable")
-	}
-	if startFailure.AttemptsStarted != 1 || startFailure.MaxAttempts != testcontainersx.DefaultMaxAttempts {
-		t.Fatalf("unexpected attempts: got %d/%d", startFailure.AttemptsStarted, startFailure.MaxAttempts)
+	diagnostic, ok := ReadinessDiagnosticFromError(err)
+	if !ok || diagnostic.Outcome != "capability_rejected" || diagnostic.AttemptCount != 1 {
+		t.Fatalf("unexpected capability readiness diagnostic: %#v present=%t", diagnostic, ok)
 	}
 }
 
@@ -924,6 +967,8 @@ type fakeObjectStoreContainer struct {
 	testcontainers.Container
 	host      string
 	port      network.Port
+	state     *dockercontainer.State
+	stateErr  error
 	terminate func(context.Context) error
 }
 
@@ -933,6 +978,16 @@ func (c fakeObjectStoreContainer) Host(context.Context) (string, error) {
 
 func (c fakeObjectStoreContainer) MappedPort(context.Context, string) (network.Port, error) {
 	return c.port, nil
+}
+
+func (c fakeObjectStoreContainer) State(context.Context) (*dockercontainer.State, error) {
+	if c.stateErr != nil {
+		return nil, c.stateErr
+	}
+	if c.state != nil {
+		return c.state, nil
+	}
+	return &dockercontainer.State{Status: dockercontainer.StateRunning, Running: true}, nil
 }
 
 func (c fakeObjectStoreContainer) Terminate(ctx context.Context, opts ...testcontainers.TerminateOption) error {

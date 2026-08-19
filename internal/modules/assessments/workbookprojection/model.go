@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	assessmentpolicy "github.com/JochiRaider/cartulary/internal/modules/assessments/internal/policy"
 )
 
 type ProjectionInput struct {
@@ -35,7 +37,7 @@ func (input ProjectionInput) Validate() error {
 		return errors.New("assessment projection input row_version must be positive")
 	case input.SubjectRef == uuid.Nil:
 		return errors.New("assessment projection input subject_ref is required")
-	case input.SubjectType != "host" && input.SubjectType != "identity":
+	case !assessmentpolicy.ValidSubjectType(input.SubjectType):
 		return fmt.Errorf("assessment projection input subject_type %q is invalid", input.SubjectType)
 	case input.Assessor == uuid.Nil:
 		return errors.New("assessment projection input assessor is required")
@@ -44,15 +46,14 @@ func (input ProjectionInput) Validate() error {
 	case input.SupportingLinkCount < 0:
 		return errors.New("assessment projection input supporting_link_count must be non-negative")
 	}
-	switch input.AssessmentState {
-	case "unknown", "suspected", "confirmed", "disproven", "cleared":
-	default:
+	if !assessmentpolicy.ValidState(input.AssessmentState) {
 		return fmt.Errorf(
 			"assessment projection input assessment_state %q is invalid",
 			input.AssessmentState,
 		)
 	}
-	if input.ConfidenceBand != confidenceBand(input.ConfidenceScore) {
+	band, valid := assessmentpolicy.ConfidenceBand(input.ConfidenceScore)
+	if !valid || input.ConfidenceBand != band {
 		return errors.New("assessment projection input confidence_band is not canonical")
 	}
 	return nil
@@ -104,21 +105,6 @@ func (input ProjectionInput) isZero() bool {
 		input.Assessor == uuid.Nil &&
 		input.AssessedAt.IsZero() &&
 		input.SupportingLinkCount == 0
-}
-
-func confidenceBand(score *int) string {
-	switch {
-	case score == nil:
-		return "unset"
-	case *score >= 0 && *score <= 39:
-		return "low"
-	case *score >= 40 && *score <= 69:
-		return "medium"
-	case *score >= 70 && *score <= 100:
-		return "high"
-	default:
-		return ""
-	}
 }
 
 type ProjectionInputPage struct {

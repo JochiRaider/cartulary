@@ -75,6 +75,7 @@ function sessionFixture({ ageMS = 0 } = {}) {
       assert.equal(args[0], "start-suite");
       const envFile = args[args.indexOf("--env-file") + 1];
       const leaseFile = args[args.indexOf("--lease-file") + 1];
+      const resultFile = args[args.indexOf("--result-file") + 1];
       const labels = (service) => ({
         "cartulary.test-services.managed": "true",
         "cartulary.test-services.session-id": environment.CARTULARY_TEST_SUITE_ID,
@@ -141,6 +142,16 @@ function sessionFixture({ ageMS = 0 } = {}) {
         proof_labels: { "cartulary.test-services.session-id": environment.CARTULARY_TEST_SUITE_ID },
         proof_prefixes: {},
         cleanup_state: "active",
+      });
+      privateJSON(resultFile, {
+        schema_id: "cartulary.test_services.start_result.v1",
+        status: "ready",
+        run_id: "session-up",
+        target: "test-services-session-up",
+        suite_id: environment.CARTULARY_TEST_SUITE_ID,
+        service_scope_ref: `_shared/test-services/${environment.CARTULARY_TEST_SUITE_ID}/service-scope.json`,
+        failure_class: null,
+        failure_reason: null,
       });
     },
   };

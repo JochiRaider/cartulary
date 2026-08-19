@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_services.start_result.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "status",
+    "run_id",
+    "target",
+    "suite_id",
+    "service_scope_ref",
+    "failure_class",
+    "failure_reason"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_services.start_result.v1" },
+    "status": { "enum": ["ready", "failed"] },
+    "run_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "target": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "suite_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "service_scope_ref": {
+      "type": "string",
+      "pattern": "^_shared/test-services/[A-Za-z0-9][A-Za-z0-9._-]*/service-scope\\.json$"
+    },
+    "failure_class": {
+      "enum": [null, "product", "security", "config", "infra", "harness", "artifact", "timing", "interrupted", "unknown"]
+    },
+    "failure_reason": {
+      "enum": [
+        null,
+        "usage_error",
+        "configuration_error",
+        "preflight_error",
+        "service_start_error",
+        "service_readiness_timeout",
+        "fixture_error",
+        "resource_conflict",
+        "test_assertion_failure",
+        "security_finding",
+        "child_target_failure",
+        "tool_diagnostic_failure",
+        "scheduler_accounting_error",
+        "test_accounting_unmapped",
+        "artifact_error",
+        "cleanup_error",
+        "duration_baseline_drift",
+        "timeout_failure",
+        "cancelled_or_interrupted",
+        "unknown_failure"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "ready" } } },
+      "then": {
+        "properties": {
+          "failure_class": { "type": "null" },
+          "failure_reason": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "failed" } } },
+      "then": {
+        "properties": {
+          "failure_class": { "type": "string" },
+          "failure_reason": { "type": "string" }
+        }
+      }
+    }
+  ]
+}

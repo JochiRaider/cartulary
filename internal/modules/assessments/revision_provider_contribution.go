@@ -1,8 +1,8 @@
 package assessments
 
 import (
-	"github.com/JochiRaider/cartulary/internal/modules/assessments/deleterestore"
-	"github.com/JochiRaider/cartulary/internal/modules/assessments/rollbackprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/assessments/internal/providers/deleterestore"
+	"github.com/JochiRaider/cartulary/internal/modules/assessments/internal/providers/rollback"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
@@ -15,7 +15,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			SnapshotSchemaID:    "cartulary.revisions.snapshot.assessment.v1",
 			HistoryTargetKinds:  []string{"assessment"},
 			DeleteRestoreSource: deleterestore.NewSource(),
-			RowRollbackProvider: rollbackprovider.NewProvider(),
+			RowRollbackProvider: rollback.NewProvider(),
 			RecordViewRoutes: []revisions.RecordViewRouteContribution{{
 				ContributionID: "assessments.assessments",
 				ViewSchemaIDs:  []string{AssessmentsViewSchemaID},

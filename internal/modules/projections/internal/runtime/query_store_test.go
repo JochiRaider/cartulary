@@ -15,8 +15,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
@@ -26,7 +28,76 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
+
+func TestAssessmentFixtureMutationSQLTransaction(t *testing.T) {
+	ctx := context.Background()
+	harness := pgtest.Start(t)
+	db := harness.OpenIsolatedDatabaseT(t, "assessment-projection-sql-fixture", postgres.PurposeRecovery)
+	actorID := uuid.MustParse(authflowtest.SeedLocalUser(
+		t,
+		db,
+		"assessment-projection-sql@example.test",
+		"Assessment Projection SQL",
+		"AssessmentProjectionSQL1!",
+		false,
+	))
+	incidentID := uuid.MustParse(incidentstoretest.SeedIncidentMembershipSQL(
+		t,
+		db,
+		actorID.String(),
+		"assessment_projection_sql",
+	))
+	recordID := uuid.New()
+	assessmenttest.SeedAssessment(
+		t,
+		db,
+		incidentID,
+		actorID,
+		recordID,
+		uuid.New(),
+		"host",
+		"suspected",
+	)
+
+	var rowCount int
+	if err := db.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM assessment_grid_projection WHERE record_id = $1
+`, recordID).Scan(&rowCount); err != nil {
+		t.Fatalf("count upserted assessment projection fixture: %v", err)
+	}
+	if rowCount != 1 {
+		t.Fatalf("upserted assessment projection fixture rows = %d, want 1", rowCount)
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("begin assessment projection fixture delete: %v", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := projectiontestsupport.ApplyAssessmentFixtureMutationSQLTx(
+		ctx,
+		tx,
+		assessmentprojection.ProjectionMutation{
+			Kind:     assessmentprojection.ProjectionMutationDelete,
+			RecordID: recordID,
+		},
+	); err != nil {
+		t.Fatalf("delete assessment projection fixture: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit assessment projection fixture delete: %v", err)
+	}
+	if err := db.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM assessment_grid_projection WHERE record_id = $1
+`, recordID).Scan(&rowCount); err != nil {
+		t.Fatalf("count deleted assessment projection fixture: %v", err)
+	}
+	if rowCount != 0 {
+		t.Fatalf("deleted assessment projection fixture rows = %d, want 0", rowCount)
+	}
+}
 
 func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	ctx := context.Background()

@@ -35,9 +35,13 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 		t.Fatalf("object family count = %d, want %d", got, recoverystate.ObjectFamilyCount)
 	}
 	preferenceOwners := map[string]string{}
+	assessmentRecovery := map[string]recoverystate.CatalogTable{}
 	for _, table := range document.Tables {
 		if table.TableName == "incident_workbook_preferences" || table.TableName == "user_workbook_preferences" {
 			preferenceOwners[table.TableName] = table.OwnerID
+		}
+		if table.TableName == "assessments" || table.TableName == "assessment_grid_projection" {
+			assessmentRecovery[table.TableName] = table
 		}
 	}
 	if !slices.Equal(
@@ -45,6 +49,18 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 		[]string{"module.workbook", "module.workbook"},
 	) {
 		t.Fatalf("Workbook preference Recovery ownership = %#v", preferenceOwners)
+	}
+	if source := assessmentRecovery["assessments"]; source.OwnerID != "module.assessments" ||
+		source.StateClass != recoverystate.StateAuthoritative ||
+		source.BackupInclusion != recoverystate.InclusionRequired ||
+		source.RestoreAction != recoverystate.RestoreState {
+		t.Fatalf("assessment source Recovery classification = %#v", source)
+	}
+	if projection := assessmentRecovery["assessment_grid_projection"]; projection.OwnerID != "module.projections" ||
+		projection.StateClass != recoverystate.StateDerived ||
+		projection.BackupInclusion != recoverystate.InclusionRebuildable ||
+		projection.RestoreAction != recoverystate.RebuildState {
+		t.Fatalf("assessment projection Recovery classification = %#v", projection)
 	}
 	if _, err := CurrentVNextObjectInventoryCatalog(nil); err != nil {
 		t.Fatalf("exact six-family vNext inventory registration: %v", err)

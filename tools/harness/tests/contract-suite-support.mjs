@@ -56,6 +56,7 @@ import { buildSourceSnapshot } from "../test-catalog/source-snapshot.mjs";
 import { loadTestCatalog, validateFixtureProfile } from "../test-catalog/index.mjs";
 import { validatePostgresFixturePolicy } from "../test-catalog/postgres-fixture-policy.mjs";
 import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
+import { startManagedSuite } from "../scheduler/fixture-broker/providers.mjs";
 import {
   cleanupStaleSuiteRuntimeRoots,
   createSuiteRuntime,
@@ -85,7 +86,7 @@ assert.deepEqual(
   ["ac043_large_grid_snapshot_v1"],
 );
 assert.deepEqual(catalog.postgresFixturePolicy.counts, {
-  postgres_dedicated: 254,
+  postgres_dedicated: 256,
   postgres_migration: 8,
   postgres_transaction: 81,
 });
@@ -915,6 +916,108 @@ function schedulerFixture() {
   ]);
 }
 
+function assertManagedSuiteFailurePropagation() {
+  const fixtureRoot = mkdtempSync(path.join(tmpdir(), "cartulary-managed-suite-failure."));
+  const resultsRoot = path.join(fixtureRoot, "results");
+  const runID = "managed-suite-failure";
+  const runRoot = path.join(resultsRoot, runID);
+  mkdirSync(runRoot, { recursive: true, mode: 0o700 });
+  const executable = path.join(fixtureRoot, "fake-testservices.cjs");
+  writeFileSync(executable, `const fs = require("node:fs");
+const path = require("node:path");
+const value = (name) => process.argv[process.argv.indexOf(name) + 1];
+const suiteID = "0123456789abcdef01234567";
+const runID = process.env.CARTULARY_TEST_RUN_ID;
+const target = process.env.CARTULARY_TEST_TARGET;
+const scopeRef = "_shared/test-services/" + suiteID + "/service-scope.json";
+const scopePath = path.join(process.env.CARTULARY_TEST_RESULTS_DIR, runID, scopeRef);
+if (process.env.FAKE_START_MODE === "config") process.exit(2);
+fs.mkdirSync(path.dirname(scopePath), { recursive: true, mode: 0o700 });
+const startup = { attempt_count: 1, retry_count: 0, slowest_attempt_duration_ms: 5, final_attempt: 1, final_status: "pass", final_retryable: false, final_retry_blocked_by_context: false };
+const failure = { failure_class: "infra", failure_reason: "service_readiness_timeout", service: "object_store", stage: "object-store-start", operation: "start suite object-store", message: "object-store readiness failed: stage=list attempts=29 cleanup=not_needed reason=deadline_expired", attempts_started: 1, max_attempts: 2, retryable: false, retry_blocked_by_context: false };
+const scope = { schema_id: "cartulary.test_services.scope.v2", target, suite_id: suiteID, run_id: runID, artifact_dir: path.dirname(scopePath), readiness_generation: "sha256:" + "a".repeat(64), wrapper: { owned_count: 1, pass_through_count: 0 }, preflight: { docker_ok: true, reaper_ready: true, stale_containers_scanned: 0, stale_containers_removed: 0, stale_containers_deferred: 0, ryuk_disabled_for_suite_startup: true }, failure, failures: { counts: { infra: 1 }, reasons: { service_readiness_timeout: 1 }, exemplars: { infra: [failure] } }, cleanup: { status: "startup_failed", child_exit_status: 3 }, postgres: { started: false, startup, attached_harness_count: 0, created_database_count: 0, migrated_database_count: 0, template_clone_count: 0 }, object_store: { started: false, secure: false, startup, attached_harness_count: 0, bucket_create_count: 0, bucket_cleanup_count: 0 }, browser_e2e: { retired_fixture_count: 0, cleaned_fixture_count: 0, reclaimed_fixture_count: 0 }, fixture: { total_count: 0, total_duration_ms: 0, strategy_aggregate_count: 0 }, started_services: {}, extensions: { "cartulary.object_store_readiness": { schema_id: "cartulary.object_store_readiness_diagnostic.v1", phase: "initial_lane", stage: "list", outcome: "deadline_expired", attempt_count: 29, attempt_timeout_count: 1, elapsed_ms: 120000, cleanup_outcome: "not_needed", cause_counts: { transport_unreachable: 28, operation_timeout: 1 }, container_state: "running", health_state: "none", exit_code: 0, oom_killed: false } } };
+fs.writeFileSync(scopePath, JSON.stringify(scope) + "\\n", { mode: 0o600 });
+if (process.env.FAKE_START_MODE === "missing") process.exit(3);
+const result = { schema_id: "cartulary.test_services.start_result.v1", status: "failed", run_id: runID, target, suite_id: suiteID, service_scope_ref: scopeRef, failure_class: "infra", failure_reason: "service_readiness_timeout" };
+if (process.env.FAKE_START_MODE === "foreign") result.run_id = "foreign-run";
+if (process.env.FAKE_START_MODE === "escape") result.service_scope_ref = "../foreign.json";
+fs.writeFileSync(value("--result-file"), JSON.stringify(result) + "\\n", { mode: 0o600 });
+process.exit(3);
+`, { mode: 0o700 });
+  const suiteRuntime = createSuiteRuntime({
+    repoRoot: root,
+    runRoot,
+    runID,
+    scratchRoot: path.join(fixtureRoot, "scratch"),
+  });
+  try {
+    assert.throws(
+      () => startManagedSuite({
+        root,
+        target: "test-slice",
+        suiteRuntime,
+        executable: process.execPath,
+        executableArgs: ["--", executable],
+        environment: {
+          CARTULARY_TEST_RESULTS_DIR: resultsRoot,
+          CARTULARY_TEST_RUN_ID: runID,
+        },
+      }),
+      (error) => {
+        assert.equal(error.failure_class, "infra", error.message);
+        assert.equal(error.failure_reason, "service_readiness_timeout", error.message);
+        assert.deepEqual(error.artifact_refs, [
+          "_shared/test-services/0123456789abcdef01234567/service-scope.json",
+        ]);
+        return true;
+      },
+    );
+    for (const mode of ["escape", "foreign", "missing"]) {
+      assert.throws(
+        () => startManagedSuite({
+          root,
+          target: "test-slice",
+          suiteRuntime,
+          executable: process.execPath,
+          executableArgs: ["--", executable],
+          environment: {
+            CARTULARY_TEST_RESULTS_DIR: resultsRoot,
+            CARTULARY_TEST_RUN_ID: runID,
+            FAKE_START_MODE: mode,
+          },
+        }),
+        (error) => {
+          assert.equal(error.failure_class, "artifact");
+          assert.equal(error.failure_reason, "artifact_error");
+          return true;
+        },
+      );
+    }
+    assert.throws(
+      () => startManagedSuite({
+        root,
+        target: "test-slice",
+        suiteRuntime,
+        executable: process.execPath,
+        executableArgs: ["--", executable],
+        environment: {
+          CARTULARY_TEST_RESULTS_DIR: resultsRoot,
+          CARTULARY_TEST_RUN_ID: runID,
+          FAKE_START_MODE: "config",
+        },
+      }),
+      (error) => {
+        assert.equal(error.failure_class, "config");
+        assert.equal(error.failure_reason, "configuration_error");
+        return true;
+      },
+    );
+  } finally {
+    suiteRuntime.close();
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
 function cacheFixture(policy = "content_addressed") {
   const fixtureRoot = mkdtempSync(path.join(root, "tmp/work-graph-cache-contract."));
   const runRoot = path.join(fixtureRoot, "run");
@@ -1565,6 +1668,37 @@ async function assertSchedulerContract(kind) {
       Object.fromEntries(Object.entries(fixtureFailure.unit_results).map(([unitID, terminal]) => [unitID, terminal.status])),
       { a: "failed", b: "passed", c: "skipped" },
     );
+    assert.equal(fixtureFailure.unit_results.a.failure_class, "harness");
+    assert.equal(fixtureFailure.unit_results.a.failure_reason, "fixture_error");
+    assert.equal(fixtureFailure.unit_results.a.exit_code, 3);
+
+    const classifiedFailure = await runWorkGraph({
+      graph: buildWorkGraph([{
+        ...schedulerFixture().units[0],
+        fixture_lease: "managed_process",
+      }]),
+      capacities: new Map([["cpu", 1], ["process", 1]]),
+      cwd: root,
+      environment: {},
+      fixtureBroker: {
+        acquire: async () => {
+          const error = new Error("classified service readiness failure");
+          error.failure_class = "infra";
+          error.failure_reason = "service_readiness_timeout";
+          error.artifact_refs = ["_shared/test-services/suite/service-scope.json"];
+          throw error;
+        },
+        close: async () => {},
+      },
+      executeUnit: async () => ({ status: "passed", exit_code: 0 }),
+    });
+    assert.equal(classifiedFailure.unit_results.a.failure_class, "infra");
+    assert.equal(classifiedFailure.unit_results.a.failure_reason, "service_readiness_timeout");
+    assert.equal(classifiedFailure.unit_results.a.exit_code, 3);
+    assert.deepEqual(classifiedFailure.unit_results.a.artifact_refs, [
+      "_shared/test-services/suite/service-scope.json",
+    ]);
+    assertManagedSuiteFailurePropagation();
 
     const hitGraph = buildWorkGraph([schedulerFixture().units[0]]);
     let executions = 0;

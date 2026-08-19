@@ -11,6 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -65,18 +66,31 @@ func (a subjectValidator) ValidateAssessmentSubjectTx(
 }
 
 type assessorValidator struct {
-	auth *authn.Store
+	auth      *authn.Store
+	incidents *admission.Checker
 }
 
 func NewAssessorValidator(pool postgres.DB) assessments.AssessorValidator {
-	return assessorValidator{auth: authn.NewStore(pool)}
+	return assessorValidator{
+		auth:      authn.NewStore(pool),
+		incidents: admission.NewChecker(pool),
+	}
 }
 
 func (a assessorValidator) ValidateAssessmentAssessorTx(
 	ctx context.Context,
 	tx pgx.Tx,
+	incidentID uuid.UUID,
 	userID uuid.UUID,
 ) (bool, error) {
+	if _, err := a.incidents.CheckTx(ctx, tx, incidentID, userID, admission.Requirement{
+		AllowedRoles: admission.RolesMember,
+		Lifecycle:    admission.LifecycleAny,
+	}); admission.IsDenied(err, admission.DenialNotVisible) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
 	user, err := a.auth.GetUserByIDForUpdateTx(ctx, tx, userID)
 	if errors.Is(err, authn.ErrNotFound) {
 		return false, nil

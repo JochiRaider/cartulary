@@ -20,6 +20,7 @@ export {
   normalizeFailureRecord,
   normalizeFailureReason,
   primaryPublicFailure,
+  publicExitCodeForFailure,
   publicExitCodeForFailures,
   publicExitCodeForSummary,
 } from "./failure-taxonomy.mjs";

@@ -1,8 +1,37 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { closeSync, lstatSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
+import { closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
+
+import {
+  normalizeFailureClass,
+  normalizeFailureReason,
+  validateSchemaSync,
+} from "../../contract/index.mjs";
+
+export class FixtureAcquisitionError extends Error {
+  constructor(message, { failureClass, failureReason, artifactRefs = [] }) {
+    super(message);
+    this.name = "FixtureAcquisitionError";
+    this.failure_class = normalizeFailureClass(failureClass, "harness");
+    this.failure_reason = normalizeFailureReason(failureReason, "fixture_error");
+    this.artifact_refs = [...new Set(artifactRefs)].sort();
+  }
+}
+
+function acquisitionError(message, failureClass, failureReason, artifactRefs = []) {
+  return new FixtureAcquisitionError(message, {
+    failureClass,
+    failureReason,
+    artifactRefs,
+  });
+}
+
+function contained(parent, child) {
+  const relative = path.relative(parent, child);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
 
 function run(command, args, { cwd, environment }) {
   const result = spawnSync(command, args, {
@@ -217,27 +246,140 @@ function objectStoreNamespaceProvider({ root, suiteController, suiteRuntime }) {
   };
 }
 
-export function startManagedSuite({ root, target, suiteRuntime, environment = {} }) {
+export function startManagedSuite({
+  root,
+  target,
+  suiteRuntime,
+  environment = {},
+  executable: configuredExecutable,
+  executableArgs = [],
+}) {
   const suiteRoot = suiteRuntime.privatePath("test-services");
   mkdirSync(suiteRoot, { recursive: true, mode: 0o700 });
   const envFile = path.join(suiteRoot, "suite-environment.json");
   const leaseFile = path.join(suiteRoot, "suite-lease.json");
-  const executable =
+  const resultFile = path.join(suiteRoot, "suite-start-result.json");
+  const executable = configuredExecutable ||
     process.env.TEST_SERVICES_BIN ||
     process.env.CARTULARY_TEST_SERVICES_BIN ||
     path.join(root, "tmp/toolbin/cartulary-test-services");
   const suiteID = `work-graph-${target}`.replaceAll(/[^A-Za-z0-9_.-]+/gu, "-");
-  run(executable, ["start-suite", "--env-file", envFile, "--lease-file", leaseFile], {
+  const startEnvironment = {
+    ...environment,
+    CARTULARY_TEST_SUITE_ID: suiteID,
+    CARTULARY_TEST_TARGET: target,
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: suiteRuntime.root,
+    CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: suiteRuntime.runID,
+  };
+  const start = spawnSync(executable, [
+    ...executableArgs,
+    "start-suite",
+    "--env-file", envFile,
+    "--lease-file", leaseFile,
+    "--result-file", resultFile,
+  ], {
     cwd: root,
-    environment: {
-      ...environment,
-      CARTULARY_TEST_SUITE_ID: suiteID,
-      CARTULARY_TEST_TARGET: target,
-      CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: suiteRuntime.root,
-      CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
-      CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: suiteRuntime.runID,
-    },
+    env: { ...process.env, ...startEnvironment },
+    stdio: "ignore",
   });
+  if (start.error) {
+    const missing = start.error.code === "ENOENT";
+    throw acquisitionError(
+      missing ? "test-services helper is unavailable" : "test-services helper failed before publishing start evidence",
+      missing ? "config" : "harness",
+      missing ? "configuration_error" : "fixture_error",
+    );
+  }
+  let startResult;
+  let serviceScope;
+  let serviceScopeRef = "";
+  try {
+    requireOwnerOnlyRegularFile(resultFile, "test-services start result");
+    startResult = JSON.parse(readFileSync(resultFile, "utf8"));
+    validateSchemaSync(startResult.schema_id, startResult);
+    if (
+      startResult.run_id !== suiteRuntime.runID ||
+      startResult.target !== target
+    ) {
+      throw new Error("test-services start result identity does not match the scheduler request");
+    }
+    const resultsDir = environment.CARTULARY_TEST_RESULTS_DIR;
+    if (typeof resultsDir !== "string" || resultsDir.trim() === "") {
+      throw new Error("managed suite requires CARTULARY_TEST_RESULTS_DIR");
+    }
+    const runRoot = path.resolve(root, resultsDir, suiteRuntime.runID);
+    const scopePath = path.resolve(runRoot, startResult.service_scope_ref);
+    if (!contained(runRoot, scopePath)) {
+      throw new Error("test-services start result scope reference escapes the run root");
+    }
+    serviceScopeRef = path.relative(runRoot, scopePath).split(path.sep).join("/");
+    requireOwnerOnlyRegularFile(scopePath, "test-services service scope");
+    serviceScope = JSON.parse(readFileSync(scopePath, "utf8"));
+    validateSchemaSync(serviceScope.schema_id, serviceScope);
+    if (
+      serviceScope.run_id !== startResult.run_id ||
+      serviceScope.target !== startResult.target ||
+      serviceScope.suite_id !== startResult.suite_id ||
+      serviceScopeRef !== `_shared/test-services/${startResult.suite_id}/service-scope.json`
+    ) {
+      throw new Error("test-services start result and service scope identities disagree");
+    }
+  } catch (error) {
+    if (existsSync(leaseFile)) {
+      try {
+        run(executable, ["terminate-suite", "--lease", leaseFile], {
+          cwd: root,
+          environment: startEnvironment,
+        });
+      } catch {
+        // The malformed evidence remains primary; cleanup is best effort here.
+      }
+    }
+    if (!existsSync(resultFile) && start.status === 2) {
+      throw acquisitionError(
+        "test-services helper rejected its configuration before publishing start evidence",
+        "config",
+        "configuration_error",
+      );
+    }
+    throw acquisitionError(
+      `test-services start evidence is invalid after helper exit ${start.status ?? "unknown"}: ${error.message}`,
+      "artifact",
+      "artifact_error",
+    );
+  } finally {
+    rmSync(resultFile, { force: true });
+  }
+  if (start.status !== 0) {
+    if (
+      startResult.status !== "failed" ||
+      !serviceScope.failure ||
+      serviceScope.failure.failure_class !== startResult.failure_class ||
+      serviceScope.failure.failure_reason !== startResult.failure_reason
+    ) {
+      throw acquisitionError(
+        "test-services failed without matching classified service evidence",
+        "artifact",
+        "artifact_error",
+        [serviceScopeRef],
+      );
+    }
+    throw acquisitionError(
+      `test-services suite startup failed: ${startResult.failure_class}/${startResult.failure_reason}`,
+      startResult.failure_class,
+      startResult.failure_reason,
+      [serviceScopeRef],
+    );
+  }
+  if (startResult.status !== "ready" || serviceScope.failure) {
+    throw acquisitionError(
+      "test-services reported success without matching ready evidence",
+      "artifact",
+      "artifact_error",
+      [serviceScopeRef],
+    );
+  }
   const suiteEnvironment = readSuiteEnvironmentFile(envFile);
   if (!suiteEnvironment || typeof suiteEnvironment !== "object" || Array.isArray(suiteEnvironment)) {
     throw new Error("test-services suite environment is invalid");

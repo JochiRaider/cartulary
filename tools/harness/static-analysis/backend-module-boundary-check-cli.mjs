@@ -936,21 +936,21 @@ function assertBoundaryFixtures(manifest) {
       wantCode: null,
     },
     {
-      label: "Assessment test-support projection write",
+      label: "Projections test-support assessment projection write",
       scope: "test_fixture",
       rule: assessmentProjectionRule,
       file: {
-        relative: "internal/modules/assessments/testsupport/assessments.go",
+        relative: "internal/modules/projections/testsupport/capability.go",
         content: "package testsupport\nconst sql = `INSERT INTO assessment_grid_projection (record_id) VALUES ($1)`",
       },
       wantCode: null,
     },
     {
-      label: "Assessment test-support path is not a production permission",
+      label: "Projections test-support path is not a production permission",
       scope: "production",
       rule: assessmentProjectionRule,
       file: {
-        relative: "internal/modules/assessments/testsupport/assessments.go",
+        relative: "internal/modules/projections/testsupport/capability.go",
         content: "package testsupport\nconst sql = `INSERT INTO assessment_grid_projection (record_id) VALUES ($1)`",
       },
       wantCode: "sql_table_write_access",

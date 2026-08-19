@@ -111,7 +111,7 @@ func TestProjectionTableOwnershipSetsAreExactlyEqual(t *testing.T) {
 	}
 
 	wantFixturePermissions := map[string][]string{
-		"assessment_grid_projection": {"internal/modules/assessments/testsupport/assessments.go"},
+		"assessment_grid_projection": {"internal/modules/projections/testsupport/capability.go"},
 		"timeline_grid_projection":   {"internal/modules/timeline/testsupport/asserttest/assertions.go"},
 	}
 	for table, paths := range fixturePermissions {
@@ -162,7 +162,7 @@ func TestProjectionProviderSQLSourceOwnership(t *testing.T) {
 		{path: "internal/modules/indicators/internal/providers/projection/source.go", provider: "indicator"},
 		{path: "internal/modules/projections/internal/storage/indicator.go", provider: "indicator"},
 		{path: "internal/modules/projections/internal/queryengine/indicator.go", provider: "indicator"},
-		{path: "internal/modules/assessments/projectionprovider/provider.go", provider: "assessment"},
+		{path: "internal/modules/assessments/internal/providers/projection/provider.go", provider: "assessment"},
 		{path: "internal/modules/projections/internal/storage/assessment.go", provider: "assessment"},
 		{path: "internal/modules/projections/internal/queryengine/assessment.go", provider: "assessment"},
 		{path: "internal/modules/artifacts/internal/providers/projection/source.go", provider: "artifact"},

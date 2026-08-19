@@ -284,6 +284,12 @@ func (m *Manager) Cancel(ctx context.Context, params CancelParams) (CancelResult
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	now := m.now().UTC()
+	// Every per-job lifecycle transaction takes the transition advisory lock
+	// before it locks durable job or route-idempotency rows. Owner execution
+	// validation uses the same order, so cancellation must not invert it.
+	if err := lockTransitionTx(ctx, tx, params.JobID); err != nil {
+		return CancelResult{}, err
+	}
 	if err := requireVisibleJobTx(ctx, tx, params.JobID, now); err != nil {
 		return CancelResult{}, err
 	}
@@ -303,7 +309,7 @@ func (m *Manager) Cancel(ctx context.Context, params CancelParams) (CancelResult
 		return CancelResult{Resource: resource, Replayed: true}, tx.Commit(ctx)
 	}
 
-	mutation, reason, err := transitionCancellationTx(ctx, tx, params.JobID, now)
+	mutation, reason, err := transitionCancellationLockedTx(ctx, tx, params.JobID, now)
 	if err != nil {
 		return CancelResult{}, err
 	}

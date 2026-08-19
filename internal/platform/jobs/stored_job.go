@@ -40,8 +40,10 @@ SELECT job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id
 }
 
 // requireVisibleJobTx establishes the public retention boundary before any
-// replay or mutation lookup. Taking the row lock makes the visibility decision
-// stable for the remainder of the caller's transaction.
+// replay or mutation lookup. Callers that can change lifecycle state must hold
+// the per-job transition advisory lock before calling it. Taking the row lock
+// then makes the visibility decision stable for the remainder of the caller's
+// transaction without reversing the canonical lock order.
 func requireVisibleJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, now time.Time) error {
 	var present bool
 	err := tx.QueryRow(ctx, `

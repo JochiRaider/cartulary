@@ -3,18 +3,18 @@ package assessments_test
 import (
 	"context"
 	"encoding/json"
-	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
-	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
-	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
-	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
-
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -226,6 +226,37 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		"value": "anything",
 	}, "field_key")
 	requireQueriedRecordIDs(t, workbookStore, incident.ID, filterEq("assessment.assessment_state", "confirmed"), []uuid.UUID{created["confirmed"]})
+
+	for index, boundary := range []struct {
+		score int
+		band  string
+	}{
+		{score: 0, band: "low"},
+		{score: 39, band: "low"},
+		{score: 40, band: "medium"},
+		{score: 69, band: "medium"},
+		{score: 70, band: "high"},
+		{score: 100, band: "high"},
+	} {
+		request := validCreateRequest(hostID, "host", "confirmed")
+		request.ClientTxnID = fmt.Sprintf("txn-workbook_interaction-u-9-06-boundary-%d", boundary.score)
+		request.ConfidenceScore = &boundary.score
+		result, err := createAssessment(
+			ctx,
+			workbookStore,
+			actor,
+			incident.ID,
+			request,
+			fmt.Sprintf("req-workbook_interaction-u-9-06-boundary-%d", boundary.score),
+			time.Date(2026, 5, 17, 18, index, 0, 0, time.UTC),
+		)
+		if err != nil {
+			t.Fatalf("create confidence boundary %d: %v", boundary.score, err)
+		}
+		cells := result.Payload["row"].(map[string]any)["cells"].(map[string]any)
+		requireNumericCellValue(t, cells, "assessment.confidence_score", boundary.score)
+		requireCellValue(t, cells, "assessment.confidence_band", boundary.band)
+	}
 }
 
 func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.T) {
@@ -796,6 +827,27 @@ func createAssessment(
 
 func filterEq(fieldKey string, value any) viewschema.Filter {
 	return viewschema.Filter{FieldKey: fieldKey, Op: "eq", Arg: map[string]any{"value": value}}
+}
+
+func requireNumericCellValue(t testing.TB, cells map[string]any, fieldKey string, want int) {
+	t.Helper()
+	value := cells[fieldKey].(map[string]any)["value"]
+	var got int
+	switch typed := value.(type) {
+	case int:
+		got = typed
+	case int32:
+		got = int(typed)
+	case int64:
+		got = int(typed)
+	case float64:
+		got = int(typed)
+	default:
+		t.Fatalf("unexpected %s numeric type: %T", fieldKey, value)
+	}
+	if got != want {
+		t.Fatalf("unexpected %s value: got %d want %d", fieldKey, got, want)
+	}
 }
 
 func requireQueriedRecordIDs(t testing.TB, store *workbook.Store, incidentID uuid.UUID, filter viewschema.Filter, want []uuid.UUID) {

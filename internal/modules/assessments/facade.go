@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	assessmentpolicy "github.com/JochiRaider/cartulary/internal/modules/assessments/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -98,7 +99,7 @@ type SubjectValidator interface {
 }
 
 type AssessorValidator interface {
-	ValidateAssessmentAssessorTx(context.Context, pgx.Tx, uuid.UUID) (bool, error)
+	ValidateAssessmentAssessorTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (bool, error)
 }
 
 type SupportTargetValidator interface {
@@ -229,14 +230,14 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (CreateResul
 
 	assessorID := command.ActorUserID
 	if input.Assessor != nil {
-		valid, err = f.assessors.ValidateAssessmentAssessorTx(ctx, tx, *input.Assessor)
-		if err != nil {
-			return CreateResult{}, fmt.Errorf("validate assessment assessor: %w", err)
-		}
-		if !valid {
-			return CreateResult{}, &CreateValidationError{Field: "assessment.assessor", ReasonCode: "invalid_value"}
-		}
 		assessorID = *input.Assessor
+	}
+	valid, err = f.assessors.ValidateAssessmentAssessorTx(ctx, tx, command.IncidentID, assessorID)
+	if err != nil {
+		return CreateResult{}, fmt.Errorf("validate assessment assessor: %w", err)
+	}
+	if !valid {
+		return CreateResult{}, &CreateValidationError{Field: "assessment.assessor", ReasonCode: "invalid_value"}
 	}
 
 	now := command.Now.UTC()
@@ -351,14 +352,13 @@ func validateCreateInputShape(input CreateInput) error {
 		return &CreateValidationError{Field: "client_txn_id", ReasonCode: "missing_required_field"}
 	case input.SubjectRef == uuid.Nil:
 		return &CreateValidationError{Field: "assessment.subject_ref", ReasonCode: "missing_required_field"}
-	case input.SubjectType != "host" && input.SubjectType != "identity":
+	case !assessmentpolicy.ValidSubjectType(input.SubjectType):
 		return &CreateValidationError{Field: "assessment.subject_type", ReasonCode: "invalid_value"}
-	case !validAssessmentState(input.AssessmentState):
+	case !assessmentpolicy.ValidState(input.AssessmentState):
 		return &CreateValidationError{Field: "assessment.assessment_state", ReasonCode: "invalid_value"}
 	case input.Rationale == "":
 		return &CreateValidationError{Field: "assessment.rationale", ReasonCode: "missing_required_field"}
-	case input.ConfidenceScore != nil &&
-		(*input.ConfidenceScore < 0 || *input.ConfidenceScore > 100):
+	case !validConfidenceScore(input.ConfidenceScore):
 		return &CreateValidationError{Field: "assessment.confidence_score", ReasonCode: "invalid_value"}
 	case len(input.SupportRefs) > maxSupportActions:
 		return &CreateValidationError{Field: "assessment.support_refs", ReasonCode: "invalid_value"}
@@ -389,13 +389,9 @@ func canonicalRowVersion(row map[string]any) (int64, error) {
 	return 0, fmt.Errorf("load assessment canonical row: invalid row_version %#v", value)
 }
 
-func validAssessmentState(value string) bool {
-	switch value {
-	case "unknown", "suspected", "confirmed", "disproven", "cleared":
-		return true
-	default:
-		return false
-	}
+func validConfidenceScore(value *int) bool {
+	_, valid := assessmentpolicy.ConfidenceBand(value)
+	return valid
 }
 
 func uniqueUUIDs(values []uuid.UUID) []uuid.UUID {

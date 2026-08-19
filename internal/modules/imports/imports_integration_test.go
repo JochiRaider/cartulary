@@ -2120,26 +2120,39 @@ func TestCancellationAfterCommittedUnitDerivesPartialApplication_Integration(t *
 		httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
 	}
 
-	const advisoryKey int64 = 49006002
+	var advisoryNamespace int32
+	var advisoryKey int32
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT hashtext(current_database()), hashtext($1)
+`, t.Name()).Scan(&advisoryNamespace, &advisoryKey); err != nil {
+		t.Fatalf("derive partial-cancellation advisory key: %v", err)
+	}
 	blocker, err := harness.DB.Conn(context.Background())
 	if err != nil {
 		t.Fatalf("acquire partial-cancellation blocker connection: %v", err)
 	}
 	defer blocker.Close()
-	if _, err := blocker.ExecContext(context.Background(), "SELECT pg_advisory_lock($1)", advisoryKey); err != nil {
+	var blockerPID int32
+	if err := blocker.QueryRowContext(context.Background(), `SELECT pg_backend_pid()`).Scan(&blockerPID); err != nil {
+		t.Fatalf("load partial-cancellation blocker pid: %v", err)
+	}
+	if _, err := blocker.ExecContext(context.Background(), "SELECT pg_advisory_lock($1, $2)", advisoryNamespace, advisoryKey); err != nil {
 		t.Fatalf("acquire partial-cancellation advisory lock: %v", err)
 	}
+	blockerLocked := true
 	defer func() {
-		_, _ = blocker.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1)", advisoryKey)
+		if blockerLocked {
+			_, _ = blocker.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1, $2)", advisoryNamespace, advisoryKey)
+		}
 	}()
-	if _, err := harness.DB.ExecContext(context.Background(), `
+	fixtureSQL := fmt.Sprintf(`
 CREATE FUNCTION public.block_first_import_outcome_rs06()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
     IF NEW.discovery_sequence = 1 THEN
-        PERFORM pg_advisory_xact_lock(49006002);
+        PERFORM pg_advisory_xact_lock(%d, %d);
     END IF;
     RETURN NEW;
 END;
@@ -2148,7 +2161,8 @@ CREATE TRIGGER block_first_import_outcome_rs06
 BEFORE INSERT ON import_unit_apply_outcomes
 FOR EACH ROW
 EXECUTE FUNCTION public.block_first_import_outcome_rs06()
-`); err != nil {
+`, advisoryNamespace, advisoryKey)
+	if _, err := harness.DB.ExecContext(context.Background(), fixtureSQL); err != nil {
 		t.Fatalf("install partial-cancellation serialization fixture: %v", err)
 	}
 
@@ -2176,38 +2190,45 @@ EXECUTE FUNCTION public.block_first_import_outcome_rs06()
 	}()
 
 	var applyJobID string
+	var applyBackendPID int32
 	deadline := time.Now().Add(5 * time.Second)
 	outcomeBlocked := false
 	for time.Now().Before(deadline) {
-		var blockedOutcomeWriters int
 		err = harness.DB.QueryRowContext(context.Background(), `
 SELECT
     COALESCE((
-        SELECT COUNT(*)
-          FROM pg_locks
-         WHERE locktype = 'advisory'
-           AND classid = 0
-           AND objid = $2
-           AND NOT granted
-    ), 0),
+        SELECT activity.pid
+          FROM pg_stat_activity AS activity
+         WHERE activity.datname = current_database()
+           AND $2::integer = ANY(pg_blocking_pids(activity.pid))
+           AND EXISTS (
+               SELECT 1
+                 FROM pg_locks AS waiting_lock
+                WHERE waiting_lock.pid = activity.pid
+                  AND waiting_lock.locktype = 'advisory'
+                  AND NOT waiting_lock.granted
+           )
+         ORDER BY activity.pid
+         LIMIT 1
+    ), 0)::integer,
     COALESCE((
         SELECT apply_job_id::text
           FROM import_sessions
          WHERE import_session_id::text = $1
            AND apply_job_id IS NOT NULL
     ), '')
-`, sessionID, advisoryKey).Scan(&blockedOutcomeWriters, &applyJobID)
+`, sessionID, blockerPID).Scan(&applyBackendPID, &applyJobID)
 		if err != nil {
 			t.Fatalf("observe first unit commit boundary: %v", err)
 		}
-		if blockedOutcomeWriters > 0 && applyJobID != "" {
+		if applyBackendPID != 0 && applyJobID != "" {
 			outcomeBlocked = true
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	if !outcomeBlocked || applyJobID == "" {
-		t.Fatal("apply did not reach the first unit commit boundary")
+		t.Fatalf("apply did not reach the first unit commit boundary; locks=%s", databaseLockGraph(harness.DB))
 	}
 
 	cancelResponse := make(chan asyncResponse, 1)
@@ -2231,28 +2252,44 @@ SELECT
 
 	deadline = time.Now().Add(5 * time.Second)
 	cancelWaiting := false
+	var cancelBackendPID int32
 	for time.Now().Before(deadline) {
-		var waiting int
 		if err := harness.DB.QueryRowContext(context.Background(), `
-SELECT COUNT(*)
- FROM pg_stat_activity
- WHERE wait_event_type = 'Lock'
-   AND query LIKE '%retained_until IS NULL OR retained_until >%'
-`).Scan(&waiting); err != nil {
+SELECT COALESCE((
+    SELECT activity.pid
+      FROM pg_stat_activity AS activity
+     WHERE activity.datname = current_database()
+       AND $1::integer = ANY(pg_blocking_pids(activity.pid))
+       AND EXISTS (
+           SELECT 1
+             FROM pg_locks AS waiting_lock
+            WHERE waiting_lock.pid = activity.pid
+              AND waiting_lock.locktype = 'advisory'
+              AND NOT waiting_lock.granted
+       )
+     ORDER BY activity.pid
+     LIMIT 1
+), 0)::integer
+`, applyBackendPID).Scan(&cancelBackendPID); err != nil {
 			t.Fatalf("observe waiting cancellation: %v", err)
 		}
-		if waiting == 1 {
+		if cancelBackendPID != 0 {
 			cancelWaiting = true
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	if !cancelWaiting {
-		t.Fatal("cancel request did not serialize behind the first unit commit")
+		t.Fatalf(
+			"cancel request did not wait on the apply transition lock held by pid %d; locks=%s",
+			applyBackendPID,
+			databaseLockGraph(harness.DB),
+		)
 	}
-	if _, err := blocker.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1)", advisoryKey); err != nil {
+	if _, err := blocker.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1, $2)", advisoryNamespace, advisoryKey); err != nil {
 		t.Fatalf("release partial-cancellation unit commit: %v", err)
 	}
+	blockerLocked = false
 
 	select {
 	case result := <-cancelResponse:
@@ -2324,6 +2361,48 @@ SELECT COUNT(*)
 `, incidentID); got != 2 {
 		t.Fatalf("partial cancellation committed %d Timeline effects, want only the first unit's 2", got)
 	}
+}
+
+func databaseLockGraph(db *sql.DB) string {
+	rows, err := db.QueryContext(context.Background(), `
+SELECT activity.pid,
+       lock.locktype,
+       lock.mode,
+       lock.granted,
+       pg_blocking_pids(activity.pid)::text
+  FROM pg_stat_activity AS activity
+  JOIN pg_locks AS lock ON lock.pid = activity.pid
+ WHERE activity.datname = current_database()
+ ORDER BY activity.pid, lock.locktype, lock.mode, lock.granted
+ LIMIT 32
+`)
+	if err != nil {
+		return "unavailable:" + err.Error()
+	}
+	defer rows.Close()
+	observations := make([]string, 0, 32)
+	for rows.Next() {
+		var pid int32
+		var lockType string
+		var mode string
+		var granted bool
+		var blockers string
+		if err := rows.Scan(&pid, &lockType, &mode, &granted, &blockers); err != nil {
+			return "unavailable:" + err.Error()
+		}
+		observations = append(observations, fmt.Sprintf(
+			"pid=%d type=%s mode=%s granted=%t blockers=%s",
+			pid,
+			lockType,
+			mode,
+			granted,
+			blockers,
+		))
+	}
+	if err := rows.Err(); err != nil {
+		return "unavailable:" + err.Error()
+	}
+	return strings.Join(observations, "; ")
 }
 
 func TestImportsEvidenceCreateParity_Integration(t *testing.T) {

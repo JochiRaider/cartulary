@@ -1,9 +1,39 @@
-import { validateSchemaSync } from "../../contract/index.mjs";
+import {
+  normalizeFailureClass,
+  normalizeFailureReason,
+  publicExitCodeForFailure,
+  validateSchemaSync,
+} from "../../contract/index.mjs";
 import { validateWorkGraph } from "./model.mjs";
 import { executeUnitProcess } from "./executor.mjs";
 
 function compareASCII(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function fixtureFailureResult(error) {
+  const failureClass = normalizeFailureClass(error?.failure_class, "harness");
+  const failureReason = normalizeFailureReason(error?.failure_reason, "fixture_error");
+  const artifactRefs = Array.isArray(error?.artifact_refs)
+    ? [...new Set(error.artifact_refs.filter((value) =>
+        typeof value === "string" &&
+        value.length > 0 &&
+        value.length <= 512 &&
+        !value.startsWith("/") &&
+        !value.split(/[\\/]/u).includes(".."),
+      ))].sort(compareASCII)
+    : [];
+  return {
+    status: "failed",
+    failure_class: failureClass,
+    failure_reason: failureReason,
+    exit_code: publicExitCodeForFailure({
+      failure_class: failureClass,
+      failure_reason: failureReason,
+    }),
+    artifact_refs: artifactRefs,
+    error,
+  };
 }
 
 function successorsByID(graph) {
@@ -616,12 +646,7 @@ export async function runWorkGraph({
             .then((result) => ({ unit_id: unit.unit_id, result }))
             .catch((error) => ({
               unit_id: unit.unit_id,
-              result: {
-                status: "failed",
-                failure_class: "infra",
-                failure_reason: "fixture_error",
-                error,
-              },
+              result: fixtureFailureResult(error),
             }));
           running.set(unit.unit_id, promise);
         }

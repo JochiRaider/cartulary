@@ -382,6 +382,109 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 	if postgresAttemptTimeout == objectStoreAttemptTimeout {
 		t.Fatal("postgres and object-store suite startup attempts must not share one timeout budget")
 	}
+
+	resultRoot := t.TempDir()
+	resultEnv := map[string]string{
+		"CARTULARY_TEST_RESULTS_DIR": resultRoot,
+		"CARTULARY_TEST_RUN_ID":      "run-start-result",
+		suiteservices.SuiteIDEnv:     "0123456789abcdef01234567",
+		suiteservices.TargetEnv:      "test-slice",
+	}
+	if err := suiteservices.RecordEvent(resultEnv, suiteservices.Event{
+		Type:    suiteservices.EventFailureRecorded,
+		Service: suiteservices.ServiceObjectStore,
+		Details: map[string]any{
+			"failure_class":            suiteservices.FailureClassInfra,
+			"failure_reason":           "service_readiness_timeout",
+			"attempts_started":         1,
+			"max_attempts":             2,
+			"retryable":                false,
+			"retry_blocked_by_context": false,
+		},
+	}); err != nil {
+		t.Fatalf("record start-result failure: %v", err)
+	}
+	if err := suiteservices.RefreshSummary(resultEnv); err != nil {
+		t.Fatalf("refresh start-result service scope: %v", err)
+	}
+	resultFile := filepath.Join(t.TempDir(), "start-result.json")
+	if err := writeStartSuiteResult(resultFile, resultEnv, false); err != nil {
+		t.Fatalf("write failed start result: %v", err)
+	}
+	resultInfo, err := os.Lstat(resultFile)
+	if err != nil || !resultInfo.Mode().IsRegular() || resultInfo.Mode().Perm() != 0o600 {
+		t.Fatalf("start result mode/type: info=%v err=%v", resultInfo, err)
+	}
+	var result startSuiteResult
+	resultBytes, err := os.ReadFile(resultFile)
+	if err != nil {
+		t.Fatalf("read start result: %v", err)
+	}
+	if err := json.Unmarshal(resultBytes, &result); err != nil {
+		t.Fatalf("decode start result: %v", err)
+	}
+	if result.Status != "failed" || result.FailureClass == nil || *result.FailureClass != "infra" ||
+		result.FailureReason == nil || *result.FailureReason != "service_readiness_timeout" ||
+		result.ServiceScopeRef != "_shared/test-services/0123456789abcdef01234567/service-scope.json" {
+		t.Fatalf("unexpected failed start result: %#v", result)
+	}
+	if exitCode := startSuiteFailureExitCode(resultEnv); exitCode != 3 {
+		t.Fatalf("readiness timeout exit code = %d, want 3", exitCode)
+	}
+}
+
+func TestObjectStoreReadinessClassificationUsesTypedOutcomeAndIndependentDeadline(t *testing.T) {
+	harness := &s3test.Harness{
+		Endpoint:  "127.0.0.1:1",
+		AccessKey: "readiness-access",
+		SecretKey: "readiness-secret",
+	}
+	deadlineCtx, cancelDeadline := context.WithTimeout(context.Background(), time.Nanosecond)
+	time.Sleep(time.Millisecond)
+	deadlineErr := harness.WaitReady(deadlineCtx)
+	cancelDeadline()
+	deadlineFailure := failureSummary(
+		suiteservices.ServiceObjectStore,
+		stageObjectStoreStart,
+		"start suite object-store",
+		deadlineErr,
+	)
+	if deadlineFailure.FailureClass != suiteservices.FailureClassInfra ||
+		deadlineFailure.FailureReason != "service_readiness_timeout" ||
+		deadlineFailure.ObjectStoreReadiness == nil ||
+		deadlineFailure.ObjectStoreReadiness.Outcome != "deadline_expired" {
+		t.Fatalf("unexpected deadline classification: %#v", deadlineFailure)
+	}
+
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	canceledErr := harness.WaitReady(canceledCtx)
+	canceledFailure := failureSummary(
+		suiteservices.ServiceObjectStore,
+		stageObjectStoreStart,
+		"start suite object-store",
+		canceledErr,
+	)
+	if canceledFailure.FailureClass != "interrupted" ||
+		canceledFailure.FailureReason != "cancelled_or_interrupted" ||
+		canceledFailure.ObjectStoreReadiness == nil ||
+		canceledFailure.ObjectStoreReadiness.Outcome != "cancelled" {
+		t.Fatalf("unexpected cancellation classification: %#v", canceledFailure)
+	}
+
+	starterObserved := false
+	startResult := <-startObjectStoreAsync(context.Background(), dependencies{
+		startObjectStore: func(ctx context.Context, env map[string]string) (objectStoreService, error) {
+			starterObserved = true
+			if _, hasDeadline := ctx.Deadline(); hasDeadline {
+				return objectStoreService{}, errors.New("object-store suite wrapper imposed a deadline across startup and readiness")
+			}
+			return objectStoreService{}, nil
+		},
+	}, map[string]string{})
+	if startResult.err != nil || !starterObserved {
+		t.Fatalf("independent object-store startup context: observed=%t err=%v", starterObserved, startResult.err)
+	}
 }
 
 func TestRunDisablesRyukOnlyForSuiteStartup(t *testing.T) {

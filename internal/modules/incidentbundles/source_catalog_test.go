@@ -62,6 +62,21 @@ func TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit(t *testing.T) 
 	if !slices.Equal(families, want) {
 		t.Fatalf("catalog order = %#v, want %#v", families, want)
 	}
+	assessmentDescriptor := catalog.Descriptors()[9]
+	if assessmentDescriptor.FamilyID != "assessments" ||
+		assessmentDescriptor.OwnerID != "module.assessments" ||
+		!slices.Equal(assessmentDescriptor.Dependencies, []string{"evidence"}) ||
+		len(assessmentDescriptor.Paths) != 1 {
+		t.Fatalf("assessment source descriptor drifted: %#v", assessmentDescriptor)
+	}
+	assessmentPath := assessmentDescriptor.Paths[0]
+	if assessmentPath.LogicalPath != "data/compromise_assessments.ndjson" ||
+		assessmentPath.ContentRole != "source_rows" ||
+		!slices.Equal(assessmentPath.Versions, []int{2}) ||
+		!slices.Equal(assessmentPath.StableIdentity, []string{"record_id"}) ||
+		assessmentPath.StableIdentityInvariantID != "assessments.source_identity_admitted" {
+		t.Fatalf("assessment source path drifted: %#v", assessmentPath)
+	}
 	assertAuthoredSourceCatalogV3(t)
 	assertRevisionsCatalogProjection(t, catalog.Descriptors())
 	assertSavedViewsCatalogProjection(t, catalog.Descriptors())

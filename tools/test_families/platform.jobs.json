@@ -138,6 +138,7 @@
       "selector": {
         "package": "./internal/platform/jobs",
         "tests": [
+          "TestManagerCancellationUsesCanonicalTransitionLockOrder_Integration",
           "TestManagerCreatesCancelsAndReplaysJobCancel",
           "TestManagerTerminalSuccessRetainsJobResource"
         ]

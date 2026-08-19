@@ -485,6 +485,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.object_store_readiness_diagnostic.v1",
+      "path": "tools/schemas/cartulary.object_store_readiness_diagnostic.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "object-store readiness controller",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.object_store_release_threat_policy.v1",
       "path": "tools/schemas/cartulary.object_store_release_threat_policy.v1.schema.json",
       "classification": "owner_input",
@@ -846,6 +853,13 @@
       "path": "tools/schemas/cartulary.test_services.scope.v2.schema.json",
       "classification": "public_contract",
       "producer": "service suite",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.test_services.start_result.v1",
+      "path": "tools/schemas/cartulary.test_services.start_result.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "service suite broker",
       "validation": "json-shape-check"
     },
     {

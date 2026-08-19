@@ -165,6 +165,31 @@ func TestScopeV2OmitsExactResourcesAndPrivateLedgerIsOwnerOnly(t *testing.T) {
 		{Type: EventPostgresDBCreated, Name: "ct_private", PID: 9090},
 		{Type: EventS3BucketCreated, Name: "ct-private", PID: 9090},
 		{Type: EventWebE2EFixtureRetired, PID: 9090, Details: map[string]any{"database_name": "ct_private", "bucket": "ct-private", "target": "browser-e2e"}},
+		{
+			Type:    EventFailureRecorded,
+			Service: ServiceObjectStore,
+			PID:     9090,
+			Details: map[string]any{
+				"failure_class":  FailureClassInfra,
+				"failure_reason": "service_readiness_timeout",
+				ObjectStoreReadinessExtensionKey: ObjectStoreReadinessDiagnostic{
+					SchemaID:            "cartulary.object_store_readiness_diagnostic.v1",
+					Phase:               "initial_lane",
+					Stage:               "list",
+					Outcome:             "deadline_expired",
+					AttemptCount:        3,
+					AttemptTimeoutCount: 1,
+					ElapsedMS:           120000,
+					CleanupOutcome:      "not_needed",
+					CauseCounts: map[string]int{
+						"operation_timeout":     1,
+						"transport_unreachable": 2,
+					},
+					ContainerState: "running",
+					HealthState:    "none",
+				},
+			},
+		},
 	} {
 		if err := RecordEvent(env, event); err != nil {
 			t.Fatal(err)
@@ -173,12 +198,20 @@ func TestScopeV2OmitsExactResourcesAndPrivateLedgerIsOwnerOnly(t *testing.T) {
 	if err := RefreshSummary(env); err != nil {
 		t.Fatal(err)
 	}
+	scope, ok, err := Summarize(env)
+	if err != nil || !ok {
+		t.Fatalf("summarize readiness diagnostic: ok=%t err=%v", ok, err)
+	}
+	diagnostic, ok := scope.Extensions[ObjectStoreReadinessExtensionKey].(ObjectStoreReadinessDiagnostic)
+	if !ok || diagnostic.Stage != "list" || diagnostic.AttemptCount != 3 || diagnostic.CauseCounts["transport_unreachable"] != 2 {
+		t.Fatalf("unexpected readiness diagnostic: %#v", scope.Extensions)
+	}
 	suiteDir, _, _ := ResolveSuiteArtifactDir(env)
 	summary, err := os.ReadFile(filepath.Join(suiteDir, "service-scope.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, forbidden := range []string{"created_databases", "created_buckets", "retired_fixtures", "by_package", "by_test"} {
+	for _, forbidden := range []string{"created_databases", "created_buckets", "retired_fixtures", "by_package", "by_test", "access_key", "secret_key", "raw_error", "log_tail"} {
 		if strings.Contains(string(summary), forbidden) {
 			t.Fatalf("bounded public scope retained %q", forbidden)
 		}
@@ -233,6 +266,71 @@ func TestScopeV2OmitsExactResourcesAndPrivateLedgerIsOwnerOnly(t *testing.T) {
 	}
 	if _, err := os.Stat(ledgerPath); !os.IsNotExist(err) {
 		t.Fatalf("successful cleanup must remove resource ledger: %v", err)
+	}
+
+	malformedEnv := map[string]string{
+		SuiteIDEnv:        "suite-malformed-readiness",
+		TargetEnv:         "check",
+		testResultsDirEnv: resultsRoot,
+		testRunIDEnv:      "run-malformed-readiness",
+	}
+	if err := RecordEvent(malformedEnv, Event{
+		Type:    EventFailureRecorded,
+		Service: ServiceObjectStore,
+		Details: map[string]any{
+			ObjectStoreReadinessExtensionKey: map[string]any{
+				"schema_id":             "cartulary.object_store_readiness_diagnostic.v1",
+				"phase":                 "initial_lane",
+				"stage":                 "list",
+				"outcome":               "deadline_expired",
+				"attempt_count":         1,
+				"attempt_timeout_count": 0,
+				"elapsed_ms":            1,
+				"cleanup_outcome":       "not_needed",
+				"cause_counts":          map[string]int{"transport_unreachable": 1},
+				"endpoint":              "forbidden.example:9000",
+			},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Summarize(malformedEnv); err == nil {
+		t.Fatal("malformed readiness diagnostic must be rejected")
+	}
+
+	maximumDiagnostic := ObjectStoreReadinessDiagnostic{
+		SchemaID:            "cartulary.object_store_readiness_diagnostic.v1",
+		Phase:               "package_admission",
+		Stage:               "delete_verify",
+		Outcome:             "deadline_expired",
+		AttemptCount:        10000,
+		AttemptTimeoutCount: 10000,
+		ElapsedMS:           600000,
+		CleanupOutcome:      "completed",
+		CauseCounts:         map[string]int{"operation_timeout": 10000},
+	}
+	raw := map[string]any{ObjectStoreReadinessExtensionKey: maximumDiagnostic}
+	decoded, present, err := objectStoreReadinessDiagnosticDetail(raw)
+	if err != nil || !present || decoded.AttemptCount != 10000 {
+		t.Fatalf("maximum bounded diagnostic rejected: present=%t diagnostic=%#v err=%v", present, decoded, err)
+	}
+	first, err := json.Marshal(maximumDiagnostic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := json.Marshal(maximumDiagnostic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Fatalf("diagnostic serialization is not deterministic: %s != %s", first, second)
+	}
+
+	maximumDiagnostic.ElapsedMS++
+	if _, _, err := objectStoreReadinessDiagnosticDetail(map[string]any{
+		ObjectStoreReadinessExtensionKey: maximumDiagnostic,
+	}); err == nil {
+		t.Fatal("out-of-bounds diagnostic must be rejected")
 	}
 }
 

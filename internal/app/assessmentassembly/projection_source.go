@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	assessmentprovider "github.com/JochiRaider/cartulary/internal/modules/assessments/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -15,14 +15,13 @@ import (
 
 func NewProjectionContribution() (assessmentprojection.Contribution, error) {
 	recordStore := records.NewStore()
-	source := assessmentprovider.NewSource(
-		assessmentEnvelopeAdapter{records: recordStore},
-		assessmentSupportAdapter{
+	return assessments.NewProjectionContribution(assessments.ProjectionContributionDependencies{
+		Envelopes: assessmentEnvelopeAdapter{records: recordStore},
+		Support: assessmentSupportAdapter{
 			links:   links.AssessmentFactReader{},
 			records: recordStore,
 		},
-	)
-	return assessmentprojection.NewContribution(source)
+	})
 }
 
 type assessmentEnvelopeAdapter struct {

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -102,6 +103,25 @@ type ServiceScope struct {
 	BrowserE2E          BrowserE2ESummary    `json:"browser_e2e"`
 	Fixture             FixtureSummary       `json:"fixture"`
 	StartedNames        StartedServiceRecord `json:"started_services"`
+	Extensions          map[string]any       `json:"extensions,omitempty"`
+}
+
+const ObjectStoreReadinessExtensionKey = "cartulary.object_store_readiness"
+
+type ObjectStoreReadinessDiagnostic struct {
+	SchemaID            string         `json:"schema_id"`
+	Phase               string         `json:"phase"`
+	Stage               string         `json:"stage"`
+	Outcome             string         `json:"outcome"`
+	AttemptCount        int            `json:"attempt_count"`
+	AttemptTimeoutCount int            `json:"attempt_timeout_count"`
+	ElapsedMS           int64          `json:"elapsed_ms"`
+	CleanupOutcome      string         `json:"cleanup_outcome"`
+	CauseCounts         map[string]int `json:"cause_counts"`
+	ContainerState      string         `json:"container_state,omitempty"`
+	HealthState         string         `json:"health_state,omitempty"`
+	ExitCode            *int           `json:"exit_code,omitempty"`
+	OOMKilled           *bool          `json:"oom_killed,omitempty"`
 }
 
 type WrapperSummary struct {
@@ -124,17 +144,18 @@ type PreflightSummary struct {
 }
 
 type FailureSummary struct {
-	FailureClass          string `json:"failure_class,omitempty"`
-	FailureReason         string `json:"failure_reason,omitempty"`
-	Service               string `json:"service,omitempty"`
-	Stage                 string `json:"stage,omitempty"`
-	Operation             string `json:"operation,omitempty"`
-	Message               string `json:"message,omitempty"`
-	AttemptsStarted       int    `json:"attempts_started"`
-	MaxAttempts           int    `json:"max_attempts"`
-	Retryable             bool   `json:"retryable"`
-	RetryBlockedByContext bool   `json:"retry_blocked_by_context"`
-	DockerEndpoint        string `json:"docker_endpoint,omitempty"`
+	FailureClass          string                          `json:"failure_class,omitempty"`
+	FailureReason         string                          `json:"failure_reason,omitempty"`
+	Service               string                          `json:"service,omitempty"`
+	Stage                 string                          `json:"stage,omitempty"`
+	Operation             string                          `json:"operation,omitempty"`
+	Message               string                          `json:"message,omitempty"`
+	AttemptsStarted       int                             `json:"attempts_started"`
+	MaxAttempts           int                             `json:"max_attempts"`
+	Retryable             bool                            `json:"retryable"`
+	RetryBlockedByContext bool                            `json:"retry_blocked_by_context"`
+	DockerEndpoint        string                          `json:"docker_endpoint,omitempty"`
+	ObjectStoreReadiness  *ObjectStoreReadinessDiagnostic `json:"-"`
 }
 
 type FailureDiagnostics struct {
@@ -473,6 +494,18 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			if scope.Failure == nil {
 				scope.Failure = &failure
 			}
+			diagnostic, diagnosticPresent, diagnosticErr := objectStoreReadinessDiagnosticDetail(event.Details)
+			if diagnosticErr != nil {
+				return ServiceScope{}, true, fmt.Errorf("decode object-store readiness diagnostic: %w", diagnosticErr)
+			}
+			if diagnosticPresent {
+				if scope.Extensions == nil {
+					scope.Extensions = make(map[string]any)
+				}
+				if _, present := scope.Extensions[ObjectStoreReadinessExtensionKey]; !present {
+					scope.Extensions[ObjectStoreReadinessExtensionKey] = diagnostic
+				}
+			}
 		case EventServiceStarted:
 			startedServices[event.Service] = struct{}{}
 			switch event.Service {
@@ -557,6 +590,64 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 	scope.ReadinessGeneration = fmt.Sprintf("sha256:%x", sha256.Sum256(readinessBytes))
 
 	return scope, true, nil
+}
+
+func objectStoreReadinessDiagnosticDetail(details map[string]any) (ObjectStoreReadinessDiagnostic, bool, error) {
+	raw, present := details[ObjectStoreReadinessExtensionKey]
+	if !present || raw == nil {
+		return ObjectStoreReadinessDiagnostic{}, false, nil
+	}
+	payload, err := json.Marshal(raw)
+	if err != nil {
+		return ObjectStoreReadinessDiagnostic{}, true, err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	var diagnostic ObjectStoreReadinessDiagnostic
+	if err := decoder.Decode(&diagnostic); err != nil || ensureJSONEOF(decoder) != nil {
+		return ObjectStoreReadinessDiagnostic{}, true, errors.New("diagnostic is not a closed object")
+	}
+	if diagnostic.SchemaID != "cartulary.object_store_readiness_diagnostic.v1" ||
+		diagnostic.AttemptCount < 1 || diagnostic.AttemptCount > 10000 ||
+		diagnostic.AttemptTimeoutCount < 0 || diagnostic.AttemptTimeoutCount > 10000 ||
+		diagnostic.AttemptTimeoutCount > diagnostic.AttemptCount || diagnostic.ElapsedMS < 0 ||
+		diagnostic.ElapsedMS > 600000 ||
+		!memberOf(diagnostic.Phase, "initial_lane", "broker_namespace", "package_admission") ||
+		!memberOf(diagnostic.Stage, "list", "create_namespace", "put", "head", "delete", "delete_verify") ||
+		!memberOf(diagnostic.Outcome, "deadline_expired", "capability_rejected", "cancelled", "unavailable") ||
+		!memberOf(diagnostic.CleanupOutcome, "not_needed", "completed", "failed") ||
+		len(diagnostic.CauseCounts) == 0 || len(diagnostic.CauseCounts) > 7 {
+		return ObjectStoreReadinessDiagnostic{}, true, errors.New("diagnostic fields are outside their closed bounds")
+	}
+	counted := 0
+	for cause, count := range diagnostic.CauseCounts {
+		if !memberOf(cause, "transport_unreachable", "operation_timeout", "service_error", "capability_rejected", "semantic_mismatch", "cancelled", "unknown_transient") {
+			return ObjectStoreReadinessDiagnostic{}, true, errors.New("diagnostic cause is not recognized")
+		}
+		if count < 1 || count > 10000 {
+			return ObjectStoreReadinessDiagnostic{}, true, errors.New("diagnostic cause counts must be positive")
+		}
+		counted += count
+	}
+	if counted != diagnostic.AttemptCount {
+		return ObjectStoreReadinessDiagnostic{}, true, errors.New("diagnostic cause counts must equal attempt_count")
+	}
+	if diagnostic.ContainerState != "" && !memberOf(diagnostic.ContainerState, "created", "running", "paused", "restarting", "removing", "exited", "dead", "unavailable") {
+		return ObjectStoreReadinessDiagnostic{}, true, errors.New("diagnostic container_state is not recognized")
+	}
+	if diagnostic.HealthState != "" && !memberOf(diagnostic.HealthState, "healthy", "unhealthy", "starting", "none", "unavailable") {
+		return ObjectStoreReadinessDiagnostic{}, true, errors.New("diagnostic health_state is not recognized")
+	}
+	return diagnostic, true, nil
+}
+
+func memberOf(value string, allowed ...string) bool {
+	for _, candidate := range allowed {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
 }
 
 func firstPostgresPreparations(values []PostgresDatabasePreparation, limit int) []PostgresDatabasePreparation {

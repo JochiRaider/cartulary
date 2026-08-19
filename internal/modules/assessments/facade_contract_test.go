@@ -170,6 +170,7 @@ func (p *assessmentFacadePorts) ValidateAssessmentAssessorTx(
 	_ context.Context,
 	_ pgx.Tx,
 	_ uuid.UUID,
+	_ uuid.UUID,
 ) (bool, error) {
 	p.participantCalls++
 	if err := p.inject("assessor"); err != nil {

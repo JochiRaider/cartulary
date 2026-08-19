@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.object_store_readiness_diagnostic.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "phase",
+    "stage",
+    "outcome",
+    "attempt_count",
+    "attempt_timeout_count",
+    "elapsed_ms",
+    "cleanup_outcome",
+    "cause_counts"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.object_store_readiness_diagnostic.v1" },
+    "phase": { "enum": ["initial_lane", "broker_namespace", "package_admission"] },
+    "stage": { "enum": ["list", "create_namespace", "put", "head", "delete", "delete_verify"] },
+    "outcome": { "enum": ["deadline_expired", "capability_rejected", "cancelled", "unavailable"] },
+    "attempt_count": { "type": "integer", "minimum": 1, "maximum": 10000 },
+    "attempt_timeout_count": { "type": "integer", "minimum": 0, "maximum": 10000 },
+    "elapsed_ms": { "type": "integer", "minimum": 0, "maximum": 600000 },
+    "cleanup_outcome": { "enum": ["not_needed", "completed", "failed"] },
+    "cause_counts": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 7,
+      "propertyNames": {
+        "enum": [
+          "transport_unreachable",
+          "operation_timeout",
+          "service_error",
+          "capability_rejected",
+          "semantic_mismatch",
+          "cancelled",
+          "unknown_transient"
+        ]
+      },
+      "additionalProperties": { "type": "integer", "minimum": 1, "maximum": 10000 }
+    },
+    "container_state": {
+      "enum": ["created", "running", "paused", "restarting", "removing", "exited", "dead", "unavailable"]
+    },
+    "health_state": { "enum": ["healthy", "unhealthy", "starting", "none", "unavailable"] },
+    "exit_code": { "type": "integer" },
+    "oom_killed": { "type": "boolean" }
+  }
+}

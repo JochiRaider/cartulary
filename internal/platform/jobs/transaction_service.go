@@ -344,7 +344,9 @@ func (s *TransactionService) CompleteInactiveJobTx(ctx context.Context, tx pgx.T
 	if current.Status == StatusQueued {
 		var mutation transitionMutation
 		if outcome.status == StatusCanceled {
-			mutation, _, err = transitionCancellationTx(ctx, tx, grant.jobID, now)
+			// ValidateInactiveJobTx acquired the transition lock before loading
+			// the durable job representation for this grant.
+			mutation, _, err = transitionCancellationLockedTx(ctx, tx, grant.jobID, now)
 		} else {
 			mutation, err = transitionRunningTx(ctx, tx, grant.jobID, current.Progress, current.Message, now)
 		}

@@ -393,6 +393,7 @@
       "selector": {
         "package": "./internal/modules/projections/internal/runtime",
         "tests": [
+          "TestAssessmentFixtureMutationSQLTransaction",
           "TestProjectionStoreQueryRowsAndLoadRowTxParity",
           "TestTypedEntityProjectionDeletionUsesCallerTransaction"
         ]
@@ -402,7 +403,7 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_transaction",
+      "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard",
       "service_dependencies": [
         "postgres"

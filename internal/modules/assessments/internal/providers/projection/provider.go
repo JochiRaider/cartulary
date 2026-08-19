@@ -1,4 +1,4 @@
-package projectionprovider
+package projection
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	assessmentpolicy "github.com/JochiRaider/cartulary/internal/modules/assessments/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 )
 
@@ -143,6 +144,7 @@ func (s *Source) projectionInputTx(
 	if err != nil {
 		return workbookprojection.ProjectionInput{}, false, err
 	}
+	confidenceBand, _ := assessmentpolicy.ConfidenceBand(snapshot.ConfidenceScore)
 	input := workbookprojection.ProjectionInput{
 		RecordID:            snapshot.RecordID,
 		IncidentID:          snapshot.IncidentID,
@@ -151,7 +153,7 @@ func (s *Source) projectionInputTx(
 		SubjectType:         snapshot.SubjectType,
 		AssessmentState:     snapshot.AssessmentState,
 		ConfidenceScore:     cloneInt(snapshot.ConfidenceScore),
-		ConfidenceBand:      deriveConfidenceBand(snapshot.ConfidenceScore),
+		ConfidenceBand:      confidenceBand,
 		Rationale:           snapshot.Rationale,
 		Assessor:            snapshot.Assessor,
 		AssessedAt:          snapshot.AssessedAt.UTC(),
@@ -266,21 +268,6 @@ func scanSnapshot(row pgx.Row) (sourceSnapshot, error) {
 		snapshot.DeletedAt = &deletedAt
 	}
 	return snapshot, nil
-}
-
-func deriveConfidenceBand(score *int) string {
-	switch {
-	case score == nil:
-		return "unset"
-	case *score >= 0 && *score <= 39:
-		return "low"
-	case *score >= 40 && *score <= 69:
-		return "medium"
-	case *score >= 70 && *score <= 100:
-		return "high"
-	default:
-		return ""
-	}
 }
 
 func cloneInt(value *int) *int {

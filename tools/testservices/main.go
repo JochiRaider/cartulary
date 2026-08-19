@@ -48,7 +48,6 @@ const (
 	staleSuiteContainerAge         = 10 * time.Minute
 	staleSuiteContainerRecheck     = 2 * time.Second
 	templateStartupTimeout         = 2 * time.Minute
-	objectStoreStartupTimeout      = 2 * time.Minute
 	postgresCatalogAdmissionLimit  = 15 * time.Second
 	postgresDatabaseCleanupTimeout = 15 * time.Second
 	cleanupTimeout                 = 2 * time.Minute
@@ -140,6 +139,17 @@ type objectStoreStartResult struct {
 	start   time.Time
 	end     time.Time
 	err     error
+}
+
+type startSuiteResult struct {
+	SchemaID        string  `json:"schema_id"`
+	Status          string  `json:"status"`
+	RunID           string  `json:"run_id"`
+	Target          string  `json:"target"`
+	SuiteID         string  `json:"suite_id"`
+	ServiceScopeRef string  `json:"service_scope_ref"`
+	FailureClass    *string `json:"failure_class"`
+	FailureReason   *string `json:"failure_reason"`
 }
 
 type serviceCleanupResult struct {
@@ -269,7 +279,7 @@ func main() {
 
 func run(args []string, env map[string]string, deps dependencies) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> | schema-hash | build-performance-fixture <flags> | record-lifecycle --env-file <path> --event <event> [--child-key <key>] | prepare-web-e2e --env-file <path> --metadata-file <path> | reset-web-e2e --credential-root <path> --bootstrap-manifest <path> | renew-web-e2e --credential-root <path> --bootstrap-manifest <path> --metadata-file <path> --generation <positive-integer> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | images | warm-images")
+		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> --result-file <path> | schema-hash | build-performance-fixture <flags> | record-lifecycle --env-file <path> --event <event> [--child-key <key>] | prepare-web-e2e --env-file <path> --metadata-file <path> | reset-web-e2e --credential-root <path> --bootstrap-manifest <path> | renew-web-e2e --credential-root <path> --bootstrap-manifest <path> --metadata-file <path> --generation <positive-integer> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | images | warm-images")
 		return 2
 	}
 
@@ -346,11 +356,8 @@ func startPostgresAsync(parent context.Context, deps dependencies, env map[strin
 func startObjectStoreAsync(parent context.Context, deps dependencies, env map[string]string) <-chan objectStoreStartResult {
 	resultCh := make(chan objectStoreStartResult, 1)
 	go func() {
-		ctx, cancel := context.WithTimeout(parent, objectStoreStartupTimeout)
-		defer cancel()
-
 		result := objectStoreStartResult{start: time.Now().UTC()}
-		result.service, result.err = deps.startObjectStore(ctx, env)
+		result.service, result.err = deps.startObjectStore(parent, env)
 		result.end = time.Now().UTC()
 		resultCh <- result
 	}()
@@ -568,9 +575,9 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	return childExitCode
 }
 
-func runStartSuite(args []string, env map[string]string, deps dependencies) int {
+func runStartSuite(args []string, env map[string]string, deps dependencies) (exitCode int) {
 	wrapperStart := time.Now().UTC()
-	envFile, leaseFile, usageErr := parseStartSuiteArgs(args)
+	envFile, leaseFile, resultFile, usageErr := parseStartSuiteArgs(args)
 	if usageErr != nil {
 		fmt.Fprintln(os.Stderr, usageErr)
 		return 2
@@ -590,6 +597,16 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	ownedEnv[suiteservices.SuiteIDEnv] = suiteID
 	ownedEnv[suiteservices.LifecycleModeEnv] = "owned"
 	ownedEnv[suiteservices.CallModeEnv] = "owned"
+	ready := false
+	defer func() {
+		if !ready && exitCode == 1 {
+			exitCode = startSuiteFailureExitCode(ownedEnv)
+		}
+		if err := writeStartSuiteResult(resultFile, ownedEnv, ready); err != nil {
+			fmt.Fprintf(os.Stderr, "write test-services start result: %v\n", err)
+			exitCode = 1
+		}
+	}()
 
 	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart})
 	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartServices, ""); err != nil {
@@ -748,6 +765,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 		return 1
 	}
 	deps.refreshSummary(ownedEnv)
+	ready = true
 	return 0
 }
 
@@ -1161,20 +1179,82 @@ func parseCleanupWebE2EArgs(args []string) (string, error) {
 	return metadataFile, nil
 }
 
-func parseStartSuiteArgs(args []string) (string, string, error) {
+func parseStartSuiteArgs(args []string) (string, string, string, error) {
 	values, err := parseFlagPairs(args, map[string]struct{}{
-		"--env-file":   {},
-		"--lease-file": {},
+		"--env-file":    {},
+		"--lease-file":  {},
+		"--result-file": {},
 	})
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	envFile := strings.TrimSpace(values["--env-file"])
 	leaseFile := strings.TrimSpace(values["--lease-file"])
-	if envFile == "" || leaseFile == "" {
-		return "", "", errors.New("usage: testservices start-suite --env-file <path> --lease-file <path>")
+	resultFile := strings.TrimSpace(values["--result-file"])
+	if envFile == "" || leaseFile == "" || resultFile == "" {
+		return "", "", "", errors.New("usage: testservices start-suite --env-file <path> --lease-file <path> --result-file <path>")
 	}
-	return envFile, leaseFile, nil
+	return envFile, leaseFile, resultFile, nil
+}
+
+func writeStartSuiteResult(path string, env map[string]string, ready bool) error {
+	suiteID := suiteservices.SuiteID(env)
+	runID := suiteservices.ResolveRunID(env)
+	target := firstNonEmptyString(strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.TargetEnv)), "test-services")
+	result := startSuiteResult{
+		SchemaID:        "cartulary.test_services.start_result.v1",
+		Status:          "failed",
+		RunID:           runID,
+		Target:          target,
+		SuiteID:         suiteID,
+		ServiceScopeRef: filepath.ToSlash(filepath.Join("_shared", "test-services", suiteID, "service-scope.json")),
+	}
+	if ready {
+		result.Status = "ready"
+	} else {
+		failureClass := suiteservices.FailureClassHelper
+		failureReason := "fixture_error"
+		if scope, present, err := suiteservices.Summarize(env); err == nil && present && scope.Failure != nil {
+			failureClass = firstNonEmptyString(scope.Failure.FailureClass, failureClass)
+			failureReason = firstNonEmptyString(scope.Failure.FailureReason, failureReason)
+		}
+		result.FailureClass = &failureClass
+		result.FailureReason = &failureReason
+	}
+	payload, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode start result: %w", err)
+	}
+	if err := writeFileAtomic(path, append(payload, '\n'), 0o600); err != nil {
+		return err
+	}
+	return nil
+}
+
+func startSuiteFailureExitCode(env map[string]string) int {
+	scope, present, err := suiteservices.Summarize(env)
+	if err != nil || !present || scope.Failure == nil {
+		return 1
+	}
+	switch scope.Failure.FailureReason {
+	case "preflight_error", "service_start_error", "service_readiness_timeout", "fixture_error":
+		return 3
+	case "configuration_error", "usage_error":
+		return 2
+	case "artifact_error":
+		return 11
+	case "cancelled_or_interrupted":
+		return 15
+	default:
+		return 1
+	}
+}
+
+func firstNonEmptyString(value string, fallback string) string {
+	if strings.TrimSpace(value) != "" {
+		return value
+	}
+	return fallback
 }
 
 func parseTerminateSuiteArgs(args []string) (string, error) {
@@ -2973,6 +3053,9 @@ func failureSummary(service string, stage string, operation string, err error) s
 	} else if err != nil {
 		failure.Message = err.Error()
 	}
+	if diagnostic, present := s3test.ReadinessDiagnosticFromError(err); present {
+		failure.ObjectStoreReadiness = &diagnostic
+	}
 
 	failure.Message = suiteservices.SanitizeDiagnosticText(failure.Message)
 	failure.DockerEndpoint = suiteservices.SanitizeDiagnosticText(failure.DockerEndpoint)
@@ -2980,11 +3063,21 @@ func failureSummary(service string, stage string, operation string, err error) s
 }
 
 func classifyFailureReason(stage string, operation string, err error) string {
+	if diagnostic, present := s3test.ReadinessDiagnosticFromError(err); present {
+		switch diagnostic.Outcome {
+		case "deadline_expired":
+			return "service_readiness_timeout"
+		case "capability_rejected":
+			return "fixture_error"
+		case "cancelled":
+			return "cancelled_or_interrupted"
+		}
+	}
 	switch stage {
 	case stageStartupPreflight:
 		return "preflight_error"
 	case stagePostgresStart, stageObjectStoreStart:
-		if serviceReadinessTimeout(err) {
+		if stage == stagePostgresStart && serviceReadinessTimeout(err) {
 			return "service_readiness_timeout"
 		}
 		return "service_start_error"
@@ -3014,6 +3107,8 @@ func classifyFailureStage(service string, stage string, reason string) string {
 		return suiteservices.FailureClassHelper
 	case "artifact_error":
 		return suiteservices.FailureClassArtifact
+	case "cancelled_or_interrupted":
+		return "interrupted"
 	case "timeout_failure":
 		return "timing"
 	}
@@ -3030,27 +3125,29 @@ func serviceReadinessTimeout(err error) bool {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return true
 	}
-	lower := strings.ToLower(err.Error())
-	return strings.Contains(lower, "readiness") &&
-		(strings.Contains(lower, "deadline") || strings.Contains(lower, "timeout") || strings.Contains(lower, "timed out"))
+	return false
 }
 
 func recordFailureAndRefresh(deps dependencies, env map[string]string, failure suiteservices.FailureSummary) {
+	details := map[string]any{
+		"failure_class":            failure.FailureClass,
+		"failure_reason":           failure.FailureReason,
+		"stage":                    failure.Stage,
+		"operation":                failure.Operation,
+		"message":                  failure.Message,
+		"attempts_started":         failure.AttemptsStarted,
+		"max_attempts":             failure.MaxAttempts,
+		"retryable":                failure.Retryable,
+		"retry_blocked_by_context": failure.RetryBlockedByContext,
+		"docker_endpoint":          failure.DockerEndpoint,
+	}
+	if failure.ObjectStoreReadiness != nil {
+		details[suiteservices.ObjectStoreReadinessExtensionKey] = failure.ObjectStoreReadiness
+	}
 	deps.recordEvent(env, suiteservices.Event{
 		Type:    suiteservices.EventFailureRecorded,
 		Service: failure.Service,
-		Details: map[string]any{
-			"failure_class":            failure.FailureClass,
-			"failure_reason":           failure.FailureReason,
-			"stage":                    failure.Stage,
-			"operation":                failure.Operation,
-			"message":                  failure.Message,
-			"attempts_started":         failure.AttemptsStarted,
-			"max_attempts":             failure.MaxAttempts,
-			"retryable":                failure.Retryable,
-			"retry_blocked_by_context": failure.RetryBlockedByContext,
-			"docker_endpoint":          failure.DockerEndpoint,
-		},
+		Details: details,
 	})
 	deps.refreshSummary(env)
 	printSuiteFailure(env, failure)

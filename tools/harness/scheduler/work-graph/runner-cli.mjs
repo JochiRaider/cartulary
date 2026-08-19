@@ -508,11 +508,21 @@ function fixtureLeaseArtifactRefs(runRoot) {
     .sort();
 }
 
+function serviceScopeArtifactRefs(result) {
+  return (result?.artifact_refs ?? []).filter((value) =>
+    /^_shared\/test-services\/[A-Za-z0-9][A-Za-z0-9._-]*\/service-scope\.json$/u.test(value),
+  );
+}
+
 function writeUnitResult(runRoot, unit, result, missingOutputs) {
   const relative = unit.current_run_evidence_outputs.find((output) =>
     output.startsWith("unit-results/"),
   );
   if (!relative) throw new Error(`${unit.unit_id} has no canonical unit-result output`);
+  const evidenceOutputs = [
+    ...unit.current_run_evidence_outputs,
+    ...serviceScopeArtifactRefs(result),
+  ].filter((value, index, values) => values.indexOf(value) === index).sort();
   const payload = {
     schema_id: "cartulary.harness_unit_result.v1",
     unit_id: unit.unit_id,
@@ -522,7 +532,7 @@ function writeUnitResult(runRoot, unit, result, missingOutputs) {
     signal: result.signal ?? null,
     failure_class: result.failure_class ?? null,
     failure_reason: result.failure_reason ?? null,
-    evidence_outputs: unit.current_run_evidence_outputs,
+    evidence_outputs: evidenceOutputs,
     missing_outputs: missingOutputs,
   };
   validateSchemaSync(payload.schema_id, payload);
@@ -638,7 +648,10 @@ async function writeCanonicalArtifacts({
       children,
       evidence_refs: graph.units
         .filter((unit) => unitIDs.includes(unit.unit_id))
-        .flatMap((unit) => unit.current_run_evidence_outputs)
+        .flatMap((unit) => [
+          ...unit.current_run_evidence_outputs,
+          ...serviceScopeArtifactRefs(result.unit_results[unit.unit_id]),
+        ])
         .filter((value, index, values) => values.indexOf(value) === index)
         .sort(),
     };
@@ -705,7 +718,8 @@ async function writeCanonicalArtifacts({
       "unit-events.ndjson",
       ...projectionNames.map((projection) => `target-summaries/${projection}.json`),
       ...fixtureLeaseArtifactRefs(runRoot),
-    ],
+      ...Object.values(result.unit_results).flatMap(serviceScopeArtifactRefs),
+    ].filter((value, index, values) => values.indexOf(value) === index).sort(),
   };
   validateSchemaSync(runSummary.schema_id, runSummary);
   // The run summary is the terminal completion marker and is published last.

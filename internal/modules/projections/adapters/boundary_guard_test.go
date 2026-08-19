@@ -104,7 +104,8 @@ func checkProjectionImports(t *testing.T, repoRoot, filePath string) {
 		case strings.HasPrefix(importPath, projectionsImportPath+"/"):
 			t.Fatalf("%s imports projection internal package %s", relPath, importPath)
 		case strings.HasPrefix(importPath, cartularyImportPrefix+"internal/modules/") &&
-			strings.Contains(importPath, "/projectionprovider"):
+			(strings.Contains(importPath, "/projectionprovider") ||
+				strings.Contains(importPath, "/internal/providers/projection")):
 			if projectionProviderAssemblyImportAllowed(relPath, importPath) {
 				continue
 			}
@@ -118,8 +119,17 @@ func checkProjectionImports(t *testing.T, repoRoot, filePath string) {
 
 func projectionProviderAssemblyImportAllowed(relPath string, importPath string) bool {
 	allowed := map[string]map[string]struct{}{
-		"internal/app/assessmentassembly": {
-			cartularyImportPrefix + "internal/modules/assessments/projectionprovider": {},
+		"internal/modules/artifacts": {
+			cartularyImportPrefix + "internal/modules/artifacts/internal/providers/projection": {},
+		},
+		"internal/modules/assessments": {
+			cartularyImportPrefix + "internal/modules/assessments/internal/providers/projection": {},
+		},
+		"internal/modules/indicators/projectionprovider": {
+			cartularyImportPrefix + "internal/modules/indicators/internal/providers/projection": {},
+		},
+		"internal/modules/tasksdecisions/projectionprovider": {
+			cartularyImportPrefix + "internal/modules/tasksdecisions/internal/providers/projection": {},
 		},
 		"internal/app/projectionassembly": {
 			cartularyImportPrefix + "internal/modules/entities/hostidentity/projectionprovider": {},
@@ -146,10 +156,15 @@ func TestProjectionProviderAssemblyAllowlistMatchesFinalTopology(t *testing.T) {
 			importPath: cartularyImportPrefix + "internal/modules/timeline/projectionprovider",
 			want:       true,
 		},
-		"assessment source seam": {
-			path:       "internal/app/assessmentassembly/projection_source.go",
-			importPath: cartularyImportPrefix + "internal/modules/assessments/projectionprovider",
+		"assessment root contribution": {
+			path:       "internal/modules/assessments/projection_provider_contribution.go",
+			importPath: cartularyImportPrefix + "internal/modules/assessments/internal/providers/projection",
 			want:       true,
+		},
+		"assessment application assembly uses root": {
+			path:       "internal/app/assessmentassembly/projection_source.go",
+			importPath: cartularyImportPrefix + "internal/modules/assessments/internal/providers/projection",
+			want:       false,
 		},
 		"timeline is not a composition root": {
 			path:       "internal/app/timelineassembly/assembly.go",
@@ -158,7 +173,7 @@ func TestProjectionProviderAssemblyAllowlistMatchesFinalTopology(t *testing.T) {
 		},
 		"projection assembly cannot bypass assessment seam": {
 			path:       "internal/app/projectionassembly/build.go",
-			importPath: cartularyImportPrefix + "internal/modules/assessments/projectionprovider",
+			importPath: cartularyImportPrefix + "internal/modules/assessments/internal/providers/projection",
 			want:       false,
 		},
 	}

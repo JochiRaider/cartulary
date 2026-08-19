@@ -233,6 +233,7 @@
         "internal/modules/artifacts/incident_bundle_source_port.go",
         "internal/modules/artifacts/source_state_manifest.go",
         "internal/modules/assessments/incident_bundle_source_port.go",
+        "internal/modules/assessments/internal/providers/incidentbundle/**",
         "internal/modules/entities/incident_bundle_source_port.go",
         "internal/modules/evidence/incident_bundle_source_port.go",
         "internal/modules/incidents/incident_bundle_source_port.go",
@@ -279,14 +280,22 @@
       ]
     },
     {
-      "id": "assessment-delete-restore-provider-import",
-      "import": "github.com/JochiRaider/cartulary/internal/modules/assessments/deleterestore",
+      "id": "assessment-private-delete-restore-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/assessments/internal/providers/deleterestore",
       "allowed_importers": ["internal/modules/assessments/**"]
     },
     {
-      "id": "assessment-rollback-provider-import",
-      "import": "github.com/JochiRaider/cartulary/internal/modules/assessments/rollbackprovider",
+      "id": "assessment-private-rollback-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/assessments/internal/providers/rollback",
       "allowed_importers": ["internal/modules/assessments/**"]
+    },
+    {
+      "id": "assessment-private-incident-bundle-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/assessments/internal/providers/incidentbundle",
+      "allowed_importers": [
+        "internal/modules/assessments/incident_bundle_source_port.go",
+        "internal/modules/assessments/incident_bundle_subtype_presence.go"
+      ]
     },
     {
       "id": "entity-delete-restore-provider-import",
@@ -427,7 +436,7 @@
       "import": "github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract",
       "allowed_importers": [
         "internal/modules/artifacts/internal/providers/deleterestore/provider.go",
-        "internal/modules/assessments/deleterestore/provider.go",
+        "internal/modules/assessments/internal/providers/deleterestore/provider.go",
         "internal/modules/entities/hostidentity/deleterestore/provider.go",
         "internal/modules/evidence/deleterestore/provider.go",
         "internal/modules/indicators/internal/providers/deleterestore/provider.go",
@@ -656,6 +665,7 @@
       "scan_paths": ["internal/modules/assessments/**"],
       "allowed_paths": [
         "internal/modules/assessments/incident_bundle_subtype_presence.go",
+        "internal/modules/assessments/internal/providers/incidentbundle/subtype_presence.go",
         "internal/modules/assessments/workbookprojection/**"
       ],
       "production_only": true
@@ -1443,7 +1453,7 @@
       ],
       "test_read_allowed_paths": [],
       "test_write_allowed_paths": [
-        "internal/modules/assessments/testsupport/assessments.go"
+        "internal/modules/projections/testsupport/capability.go"
       ],
       "lock_allowed_paths": [
         "internal/modules/projections/internal/storage/assessment.go"
@@ -1542,11 +1552,11 @@
 		"internal/modules/artifacts/internal/providers/deleterestore/provider.go",
         "internal/modules/artifacts/incident_bundle_source_port.go",
 		"internal/modules/artifacts/internal/providers/projection/source.go",
-        "internal/modules/assessments/incident_bundle_source_port.go",
-        "internal/modules/assessments/deleterestore/provider.go",
-        "internal/modules/assessments/projectionprovider/provider.go",
+        "internal/modules/assessments/internal/providers/incidentbundle/source_port.go",
+        "internal/modules/assessments/internal/providers/deleterestore/provider.go",
+        "internal/modules/assessments/internal/providers/projection/provider.go",
 		"internal/modules/projections/internal/queryengine/assessment.go",
-        "internal/modules/assessments/rollbackprovider/provider.go",
+        "internal/modules/assessments/internal/providers/rollback/provider.go",
         "internal/modules/entities/hostidentity/match.go",
         "internal/modules/entities/hostidentity/deleterestore/provider.go",
         "internal/modules/entities/hostidentity/patch_store.go",
@@ -2133,6 +2143,16 @@
       "production_only": true
     },
     {
+      "id": "assessments-retired-incident-bundle-helpers",
+      "tokens": [
+        "func ExportIncidentBundleFiles(",
+        "func ImportIncidentBundleFilesTx("
+      ],
+      "scan_paths": ["internal/modules/assessments/*.go"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
       "id": "root-capability-consumers-no-raw-filesystem-mutation",
       "tokens": [
         "os.Create(",
@@ -2529,7 +2549,7 @@
       ],
       "scan_paths": [
 		"internal/modules/artifacts/internal/providers/deleterestore/**",
-        "internal/modules/assessments/deleterestore/**",
+		"internal/modules/assessments/internal/providers/deleterestore/**",
         "internal/modules/entities/hostidentity/deleterestore/**",
         "internal/modules/evidence/deleterestore/**",
         "internal/modules/indicators/internal/providers/deleterestore/**",

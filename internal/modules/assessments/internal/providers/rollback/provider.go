@@ -1,4 +1,4 @@
-package rollbackprovider
+package rollback
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	assessmentpolicy "github.com/JochiRaider/cartulary/internal/modules/assessments/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -25,13 +26,13 @@ func (Provider) ValidateRollbackValue(value map[string]any) error {
 	}
 	if raw, present := source["subject_type"]; present {
 		text, valid := raw.(string)
-		if !valid || (text != "host" && text != "identity") {
+		if !valid || !assessmentpolicy.ValidSubjectType(text) {
 			return rollbackcontract.ErrTargetNotReversible
 		}
 	}
 	if raw, present := source["assessment_state"]; present {
 		text, valid := raw.(string)
-		if !valid || !validAssessmentState(text) {
+		if !valid || !assessmentpolicy.ValidState(text) {
 			return rollbackcontract.ErrTargetNotReversible
 		}
 	}
@@ -42,7 +43,10 @@ func (Provider) ValidateRollbackValue(value map[string]any) error {
 	}
 	if raw, present := source["confidence_score"]; present && raw != nil {
 		score, valid := numericInt(raw)
-		if !valid || score < 0 || score > 100 {
+		if !valid {
+			return rollbackcontract.ErrTargetNotReversible
+		}
+		if _, valid := assessmentpolicy.ConfidenceBand(&score); !valid {
 			return rollbackcontract.ErrTargetNotReversible
 		}
 	}
@@ -161,14 +165,5 @@ func numericInt(value any) (int, bool) {
 		return int(typed), math.Trunc(typed) == typed
 	default:
 		return 0, false
-	}
-}
-
-func validAssessmentState(value string) bool {
-	switch value {
-	case "unknown", "suspected", "confirmed", "disproven", "cleared":
-		return true
-	default:
-		return false
 	}
 }

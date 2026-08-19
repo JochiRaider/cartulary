@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -95,6 +96,7 @@ type minioReadinessClient struct {
 }
 
 type objectStoreReadinessConfig struct {
+	Phase           string
 	ReadyTimeout    time.Duration
 	PollInterval    time.Duration
 	AttemptTimeout  time.Duration
@@ -110,6 +112,8 @@ type objectStoreProbeFailure struct {
 	Cause          error
 	CleanupErr     error
 }
+
+var errObjectStoreReadinessSemanticMismatch = errors.New("object-store readiness semantic mismatch")
 
 var (
 	sharedHarnessMu   sync.Mutex
@@ -137,6 +141,7 @@ var (
 	}
 	preparePackageWaitReadyFn = func(ctx context.Context, h *Harness, bucket string) error {
 		return h.waitForObjectStoreReadiness(ctx, objectStoreReadinessConfig{
+			Phase:           "package_admission",
 			ReadyTimeout:    objectStoreClientReadyTimeout,
 			PollInterval:    objectStoreHealthPollInterval,
 			AttemptTimeout:  objectStoreClientAttemptTimeout,
@@ -258,6 +263,14 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 	if err != nil {
 		return nil, err
 	}
+	if err := waitReadyFn(ctx, harness); err != nil {
+		attachOwnedContainerDiagnostic(err, harness)
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		cleanupErr := harness.Container.Terminate(cleanupCtx)
+		cancel()
+		setOwnedLaneCleanupOutcome(err, cleanupErr)
+		return nil, errors.Join(fmt.Errorf("wait for object-store readiness: %w", err), cleanupErr)
+	}
 	return harness, nil
 }
 
@@ -318,10 +331,6 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 		processHash: suiteservices.ProcessHash(),
 	}
 
-	if err := waitReadyFn(ctx, harness); err != nil {
-		return nil, fmt.Errorf("wait for object-store readiness: %w", err)
-	}
-
 	attemptSucceeded = true
 	return harness, nil
 }
@@ -365,6 +374,7 @@ func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
 
 func (h *Harness) WaitReady(ctx context.Context) error {
 	config := objectStoreReadinessConfig{
+		Phase:           "initial_lane",
 		ReadyTimeout:    objectStoreClientReadyTimeout,
 		PollInterval:    objectStoreHealthPollInterval,
 		AttemptTimeout:  objectStoreClientAttemptTimeout,
@@ -381,9 +391,18 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 }
 
 type objectStoreReadinessError struct {
+	Phase           string
 	Stage           string
+	Outcome         string
 	Attempts        int
+	AttemptTimeouts int
+	Elapsed         time.Duration
 	CleanupOutcome  string
+	CauseCounts     map[string]int
+	ContainerState  string
+	HealthState     string
+	ExitCode        *int
+	OOMKilled       *bool
 	LastErr         error
 	DeadlineExpired bool
 }
@@ -392,13 +411,99 @@ func (e *objectStoreReadinessError) Error() string {
 	if e == nil {
 		return ""
 	}
-	reason := "unavailable"
-	if e.DeadlineExpired {
-		reason = "deadline_expired"
-	} else if isNonRetryableObjectStoreReadinessError(e.LastErr) {
-		reason = "capability_rejected"
+	reason := e.Outcome
+	if reason == "" {
+		reason = "unavailable"
+		if e.DeadlineExpired {
+			reason = "deadline_expired"
+		} else if isNonRetryableObjectStoreReadinessError(e.LastErr) {
+			reason = "capability_rejected"
+		}
 	}
 	return fmt.Sprintf("object-store readiness failed: stage=%s attempts=%d cleanup=%s reason=%s", e.Stage, e.Attempts, e.CleanupOutcome, reason)
+}
+
+func ReadinessDiagnosticFromError(err error) (suiteservices.ObjectStoreReadinessDiagnostic, bool) {
+	var readinessErr *objectStoreReadinessError
+	if !errors.As(err, &readinessErr) {
+		return suiteservices.ObjectStoreReadinessDiagnostic{}, false
+	}
+	diagnostic := suiteservices.ObjectStoreReadinessDiagnostic{
+		SchemaID:            "cartulary.object_store_readiness_diagnostic.v1",
+		Phase:               normalizedReadinessPhase(readinessErr.Phase),
+		Stage:               normalizedDiagnosticReadinessStage(readinessErr.Stage),
+		Outcome:             normalizedReadinessOutcome(readinessErr),
+		AttemptCount:        max(readinessErr.Attempts, 1),
+		AttemptTimeoutCount: max(readinessErr.AttemptTimeouts, 0),
+		ElapsedMS:           max(readinessErr.Elapsed.Milliseconds(), 0),
+		CleanupOutcome:      normalizedDiagnosticCleanupOutcome(readinessErr.CleanupOutcome),
+		CauseCounts:         cloneCauseCounts(readinessErr.CauseCounts),
+		ContainerState:      readinessErr.ContainerState,
+		HealthState:         readinessErr.HealthState,
+		ExitCode:            readinessErr.ExitCode,
+		OOMKilled:           readinessErr.OOMKilled,
+	}
+	if len(diagnostic.CauseCounts) == 0 {
+		diagnostic.CauseCounts = map[string]int{classifyObjectStoreReadinessCause(readinessErr.LastErr): diagnostic.AttemptCount}
+	}
+	return diagnostic, true
+}
+
+func normalizedReadinessPhase(phase string) string {
+	switch phase {
+	case "initial_lane", "broker_namespace", "package_admission":
+		return phase
+	default:
+		return "initial_lane"
+	}
+}
+
+func normalizedDiagnosticReadinessStage(stage string) string {
+	switch stage {
+	case "list", "create_namespace", "put", "head", "delete", "delete_verify":
+		return stage
+	default:
+		return "list"
+	}
+}
+
+func normalizedReadinessOutcome(readinessErr *objectStoreReadinessError) string {
+	if readinessErr == nil {
+		return "unavailable"
+	}
+	switch readinessErr.Outcome {
+	case "deadline_expired", "capability_rejected", "cancelled", "unavailable":
+		return readinessErr.Outcome
+	}
+	if readinessErr.DeadlineExpired {
+		return "deadline_expired"
+	}
+	if errors.Is(readinessErr.LastErr, context.Canceled) {
+		return "cancelled"
+	}
+	if isNonRetryableObjectStoreReadinessError(readinessErr.LastErr) {
+		return "capability_rejected"
+	}
+	return "unavailable"
+}
+
+func normalizedDiagnosticCleanupOutcome(outcome string) string {
+	switch outcome {
+	case "completed", "failed":
+		return outcome
+	default:
+		return "not_needed"
+	}
+}
+
+func cloneCauseCounts(values map[string]int) map[string]int {
+	cloned := make(map[string]int, len(values))
+	for key, value := range values {
+		if value > 0 {
+			cloned[key] = value
+		}
+	}
+	return cloned
 }
 
 func (e *objectStoreReadinessError) Unwrap() error {
@@ -415,6 +520,7 @@ func isRetryableObjectStoreStartupFailure(_ error) bool {
 }
 
 func (h *Harness) waitForObjectStoreReadiness(ctx context.Context, config objectStoreReadinessConfig) error {
+	startedAt := time.Now()
 	readyCtx, cancel := context.WithTimeout(ctx, config.ReadyTimeout)
 	defer cancel()
 
@@ -422,6 +528,8 @@ func (h *Harness) waitForObjectStoreReadiness(ctx context.Context, config object
 	defer ticker.Stop()
 
 	attempts := 0
+	attemptTimeouts := 0
+	causeCounts := make(map[string]int)
 	lastFailure := &objectStoreProbeFailure{Stage: "list", CleanupOutcome: "not_needed"}
 	for {
 		attempts++
@@ -432,33 +540,127 @@ func (h *Harness) waitForObjectStoreReadiness(ctx context.Context, config object
 		} else {
 			lastFailure = runObjectStoreMutationProbe(attemptCtx, client, config)
 		}
+		attemptCtxErr := attemptCtx.Err()
 		attemptCancel()
 		if lastFailure == nil {
 			return nil
 		}
+		classifiedCause := lastFailure.Cause
+		if isNonRetryableObjectStoreReadinessError(lastFailure.CleanupErr) {
+			classifiedCause = lastFailure.CleanupErr
+		}
+		attemptTimedOut := errors.Is(attemptCtxErr, context.DeadlineExceeded) ||
+			errors.Is(lastFailure.Cause, context.DeadlineExceeded) ||
+			errors.Is(lastFailure.CleanupErr, context.DeadlineExceeded)
+		if attemptTimedOut {
+			attemptTimeouts++
+		}
+		causeCounts[classifyObjectStoreReadinessCause(classifiedCause)]++
 		if isNonRetryableObjectStoreReadinessError(lastFailure.Cause) ||
 			isNonRetryableObjectStoreReadinessError(lastFailure.CleanupErr) {
-			return newObjectStoreReadinessError(lastFailure, attempts, false)
+			return newObjectStoreReadinessError(config.Phase, lastFailure, attempts, attemptTimeouts, time.Since(startedAt), causeCounts, "capability_rejected")
 		}
 
 		select {
 		case <-readyCtx.Done():
-			return newObjectStoreReadinessError(lastFailure, attempts, errors.Is(readyCtx.Err(), context.DeadlineExceeded))
+			outcome := "cancelled"
+			if errors.Is(readyCtx.Err(), context.DeadlineExceeded) {
+				outcome = "deadline_expired"
+			}
+			return newObjectStoreReadinessError(config.Phase, lastFailure, attempts, attemptTimeouts, time.Since(startedAt), causeCounts, outcome)
 		case <-ticker.C:
 		}
 	}
 }
 
-func newObjectStoreReadinessError(failure *objectStoreProbeFailure, attempts int, deadlineExpired bool) error {
+func newObjectStoreReadinessError(
+	phase string,
+	failure *objectStoreProbeFailure,
+	attempts int,
+	attemptTimeouts int,
+	elapsed time.Duration,
+	causeCounts map[string]int,
+	outcome string,
+) error {
 	if failure == nil {
 		failure = &objectStoreProbeFailure{Stage: "list", CleanupOutcome: "not_needed"}
 	}
 	return &objectStoreReadinessError{
+		Phase:           normalizedReadinessPhase(phase),
 		Stage:           failure.Stage,
+		Outcome:         outcome,
 		Attempts:        attempts,
+		AttemptTimeouts: attemptTimeouts,
+		Elapsed:         elapsed,
 		CleanupOutcome:  failure.CleanupOutcome,
+		CauseCounts:     cloneCauseCounts(causeCounts),
 		LastErr:         failure.Cause,
-		DeadlineExpired: deadlineExpired,
+		DeadlineExpired: outcome == "deadline_expired",
+	}
+}
+
+func classifyObjectStoreReadinessCause(err error) string {
+	if errors.Is(err, errObjectStoreReadinessSemanticMismatch) {
+		return "semantic_mismatch"
+	}
+	if isNonRetryableObjectStoreReadinessError(err) {
+		return "capability_rejected"
+	}
+	if errors.Is(err, context.Canceled) {
+		return "cancelled"
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "operation_timeout"
+	}
+	var networkErr net.Error
+	if errors.As(err, &networkErr) {
+		if networkErr.Timeout() {
+			return "operation_timeout"
+		}
+		return "transport_unreachable"
+	}
+	var response minio.ErrorResponse
+	if errors.As(err, &response) {
+		return "service_error"
+	}
+	return "unknown_transient"
+}
+
+func attachOwnedContainerDiagnostic(err error, harness *Harness) {
+	var readinessErr *objectStoreReadinessError
+	if !errors.As(err, &readinessErr) || harness == nil || harness.Container == nil {
+		return
+	}
+	inspectCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	state, inspectErr := harness.Container.State(inspectCtx)
+	if inspectErr != nil || state == nil {
+		readinessErr.ContainerState = "unavailable"
+		readinessErr.HealthState = "unavailable"
+		return
+	}
+	readinessErr.ContainerState = string(state.Status)
+	if readinessErr.ContainerState == "" {
+		readinessErr.ContainerState = "unavailable"
+	}
+	readinessErr.HealthState = "none"
+	if state.Health != nil {
+		readinessErr.HealthState = string(state.Health.Status)
+	}
+	exitCode := state.ExitCode
+	oomKilled := state.OOMKilled
+	readinessErr.ExitCode = &exitCode
+	readinessErr.OOMKilled = &oomKilled
+}
+
+func setOwnedLaneCleanupOutcome(err error, cleanupErr error) {
+	var readinessErr *objectStoreReadinessError
+	if !errors.As(err, &readinessErr) {
+		return
+	}
+	readinessErr.CleanupOutcome = "completed"
+	if cleanupErr != nil {
+		readinessErr.CleanupOutcome = "failed"
 	}
 }
 
@@ -520,13 +722,13 @@ func runObjectStoreMutationProbe(ctx context.Context, client objectStoreReadines
 		return &objectStoreProbeFailure{Stage: "head", Cause: err}
 	}
 	if size != int64(len(payload)) {
-		return &objectStoreProbeFailure{Stage: "head", Cause: fmt.Errorf("probe size mismatch")}
+		return &objectStoreProbeFailure{Stage: "head", Cause: errObjectStoreReadinessSemanticMismatch}
 	}
 	if err := client.Delete(ctx, config.Bucket, config.Key); err != nil {
 		return &objectStoreProbeFailure{Stage: "delete", Cause: err}
 	}
 	if _, err := client.HeadSize(ctx, config.Bucket, config.Key); err == nil {
-		return &objectStoreProbeFailure{Stage: "delete_verify", Cause: fmt.Errorf("probe object remains visible")}
+		return &objectStoreProbeFailure{Stage: "delete_verify", Cause: errObjectStoreReadinessSemanticMismatch}
 	} else if !isNoSuchObjectError(err) {
 		return &objectStoreProbeFailure{Stage: "delete_verify", Cause: err}
 	}
@@ -646,6 +848,7 @@ func (h *Harness) BootstrapProbeBucket(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("create broker object-store probe namespace: %w", err)
 	}
 	if err := h.waitForObjectStoreReadiness(ctx, objectStoreReadinessConfig{
+		Phase:           "broker_namespace",
 		ReadyTimeout:    objectStoreClientReadyTimeout,
 		PollInterval:    objectStoreHealthPollInterval,
 		AttemptTimeout:  objectStoreClientAttemptTimeout,
@@ -891,6 +1094,7 @@ func (h *Harness) ResetBucket(ctx context.Context, bucket string) error {
 		return fmt.Errorf("empty object-store bucket %s: %w", bucket, err)
 	}
 	if err := h.waitForObjectStoreReadiness(ctx, objectStoreReadinessConfig{
+		Phase:           "package_admission",
 		ReadyTimeout:    objectStoreClientReadyTimeout,
 		PollInterval:    objectStoreHealthPollInterval,
 		AttemptTimeout:  objectStoreClientAttemptTimeout,

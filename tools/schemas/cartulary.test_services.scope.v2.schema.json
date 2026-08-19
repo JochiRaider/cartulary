@@ -137,6 +137,16 @@
     },
     "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
   },
+  "patternProperties": {
+    "^extensions$": {
+      "type": "object",
+      "properties": {
+        "cartulary.object_store_readiness": {
+          "$ref": "cartulary.object_store_readiness_diagnostic.v1"
+        }
+      }
+    }
+  },
   "$defs": {
     "non_negative_integer": { "type": "integer", "minimum": 0 },
     "failure_class": {
