@@ -35,13 +35,6 @@ type IncidentSnapshot struct {
 	Version      int64
 }
 
-type SourceBoundaryState struct {
-	IncidentID               string  `json:"incident_id"`
-	IncidentVersion          int64   `json:"incident_version"`
-	LatestChangeSetID        *string `json:"latest_change_set_id"`
-	LatestChangeSetCreatedAt *string `json:"latest_change_set_created_at"`
-}
-
 type ProviderOutput struct {
 	SchemaID                 string                    `json:"schema_id"`
 	ProviderKey              string                    `json:"provider_key"`

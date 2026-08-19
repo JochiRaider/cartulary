@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	admissionpkg "github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -16,7 +16,7 @@ import (
 // routeAdmission owns authentication, CSRF/session admission, incident
 // membership/role checks, and session sliding for Evidence transport.
 type routeAdmission struct {
-	incidents incidents.Access
+	incidents *admissionpkg.Checker
 	auth      *authn.Store
 	keys      authn.MasterKeys
 	now       func() time.Time
@@ -38,24 +38,39 @@ func (admission routeAdmission) visibleIncident(
 	ctx context.Context,
 	incidentID uuid.UUID,
 	userID uuid.UUID,
-) (incidents.IncidentRecord, *httpapi.APIError) {
-	record, err := admission.incidents.GetVisibleIncident(ctx, incidentID, userID)
-	if admission.incidents.IsIncidentNotFound(err) {
-		return incidents.IncidentRecord{}, incidentNotFoundError()
-	}
-	if err != nil {
-		return incidents.IncidentRecord{}, httpapi.InternalAPIError(err)
-	}
-	return record, nil
+) (admissionpkg.Grant, *httpapi.APIError) {
+	grant, err := admission.incidents.Check(ctx, incidentID, userID, admissionpkg.Requirement{
+		AllowedRoles: admissionpkg.RolesMember,
+		Lifecycle:    admissionpkg.LifecycleAny,
+	})
+	return evidenceAdmissionResult(grant, err, "member")
 }
 
 func (admission routeAdmission) requireRole(
 	ctx context.Context,
 	incidentID uuid.UUID,
 	userID uuid.UUID,
-	roles ...string,
-) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentRole(ctx, admission.incidents, incidentID, userID, roles...)
+	roles admissionpkg.RoleSet,
+	requiredRole string,
+) (admissionpkg.Grant, *httpapi.APIError) {
+	grant, err := admission.incidents.Check(ctx, incidentID, userID, admissionpkg.Requirement{
+		AllowedRoles: roles,
+		Lifecycle:    admissionpkg.LifecycleAny,
+	})
+	return evidenceAdmissionResult(grant, err, requiredRole)
+}
+
+func evidenceAdmissionResult(grant admissionpkg.Grant, err error, requiredRole string) (admissionpkg.Grant, *httpapi.APIError) {
+	switch {
+	case admissionpkg.IsDenied(err, admissionpkg.DenialNotVisible):
+		return admissionpkg.Grant{}, incidentNotFoundError()
+	case admissionpkg.IsDenied(err, admissionpkg.DenialInsufficientRole):
+		return admissionpkg.Grant{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": requiredRole}}
+	case err != nil:
+		return admissionpkg.Grant{}, httpapi.InternalAPIError(err)
+	default:
+		return grant, nil
+	}
 }
 
 func (admission routeAdmission) slide(

@@ -17,7 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -68,7 +68,7 @@ func (e AttachRejectedError) Unwrap() error {
 type blobLifecycleService struct {
 	pool           postgres.DB
 	authStore      *authn.Store
-	incidentAccess incidents.Access
+	incidentAccess *admission.Checker
 	revisionStore  revisionAppendPort
 	projections    evidenceprojection.Rows
 	supportEffects evidenceprojection.SupportProjectionEffectsTx
@@ -216,7 +216,7 @@ func newBlobLifecycleService(dependencies blobLifecycleDependencies) (*blobLifec
 	return &blobLifecycleService{
 		pool:           dependencies.Postgres,
 		authStore:      authn.NewStore(dependencies.Postgres),
-		incidentAccess: incidents.NewAccess(dependencies.Postgres),
+		incidentAccess: admission.NewChecker(dependencies.Postgres),
 		revisionStore:  newRevisionAppendAdapter(dependencies.Revisions),
 		projections:    dependencies.Projections,
 		supportEffects: dependencies.SupportEffects,
@@ -266,7 +266,7 @@ func (s *blobLifecycleService) CreateBlobSlot(ctx context.Context, params blobSl
 	if err := ensureIncidentVisibleTx(ctx, tx, params.IncidentID); err != nil {
 		return blobSlotResult{}, err
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, params.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, params.IncidentID); err != nil {
 		return blobSlotResult{}, err
 	}
 	if err := s.blobSlots.insertTx(ctx, tx, params); err != nil {
@@ -305,7 +305,7 @@ func (s *blobLifecycleService) ClaimUploadLease(ctx context.Context, leaseID uui
 	if err != nil {
 		return err
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, lease.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, lease.IncidentID); err != nil {
 		return err
 	}
 	if !bytes.Equal(lease.CapabilityHash, capabilityHash) || lease.LeaseState != "issued" || !lease.ExpiresAt.After(now) ||
@@ -336,7 +336,7 @@ func (s *blobLifecycleService) PreflightAttachBlob(ctx context.Context, actor au
 	if err != nil {
 		return attachBlobPreflightResult{}, err
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return attachBlobPreflightResult{}, err
 	}
 	row, err := s.projections.LoadEvidenceTx(ctx, tx, recordID)
@@ -439,7 +439,7 @@ func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 	if err != nil {
 		return attachBlobResult{}, err
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return attachBlobResult{}, err
 	}
 	if meta.RowVersion != request.BaseRowVersion {
@@ -666,7 +666,7 @@ func (s *blobLifecycleService) QuarantineBlob(ctx context.Context, actorUserID u
 	if err != nil {
 		return quarantineBlobResult{}, err
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, blob.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, blob.IncidentID); err != nil {
 		return quarantineBlobResult{}, err
 	}
 	if !evidencepolicy.LegalBlobTransition(blob.UploadState, evidencepolicy.BlobQuarantined, trigger) {

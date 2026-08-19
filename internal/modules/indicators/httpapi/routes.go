@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -34,7 +34,7 @@ type ownerApplication interface {
 
 type Service struct {
 	owner       ownerApplication
-	incidents   incidents.Access
+	incidents   *admission.Checker
 	records     *records.Store
 	authStore   *authn.Store
 	keys        authn.MasterKeys
@@ -80,7 +80,7 @@ func newService(deps platformhttpapi.DependencySet, owner ownerApplication) (*Se
 	}
 	postgres := deps.PostgresHandle()
 	return &Service{
-		owner: owner, incidents: incidents.NewAccess(postgres), records: records.NewStore(postgres),
+		owner: owner, incidents: admission.NewChecker(postgres), records: records.NewStore(postgres),
 		authStore: authn.NewStore(postgres), keys: keys, cursorCodec: codec, now: now,
 	}, nil
 }
@@ -215,7 +215,7 @@ func (s *Service) handleObservationAction(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, r, observationNotFoundError())
 		return
 	}
-	if _, apiErr := incidents.RequireIncidentRole(r.Context(), s.incidents, observation.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := requireIncidentAdmission(r.Context(), s.incidents, observation.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -358,10 +358,10 @@ func (s *Service) visibleEnvelope(ctx context.Context, actorID uuid.UUID, record
 		return records.Envelope{}, indicatorSourceNotFoundError()
 	}
 	if mutation {
-		if _, apiErr := incidents.RequireIncidentRole(ctx, s.incidents, envelope.IncidentID, actorID, "editor", "reviewer", "admin"); apiErr != nil {
+		if _, apiErr := requireIncidentAdmission(ctx, s.incidents, envelope.IncidentID, actorID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 			return records.Envelope{}, apiErr
 		}
-	} else if _, apiErr := incidents.RequireIncidentMembership(ctx, s.incidents, envelope.IncidentID, actorID); apiErr != nil {
+	} else if _, apiErr := requireIncidentAdmission(ctx, s.incidents, envelope.IncidentID, actorID, admission.RolesMember, "member"); apiErr != nil {
 		return records.Envelope{}, apiErr
 	}
 	return envelope, nil
@@ -413,7 +413,7 @@ func mutationError(err error, clientTxnID string) *platformhttpapi.APIError {
 		return &platformhttpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Details: map[string]any{}}
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		return platformhttpapi.ClientTxnConflictError(clientTxnID)
-	case errors.Is(err, incidents.ErrIncidentClosed):
+	case admission.IsDenied(err, admission.DenialIncidentClosed):
 		return &platformhttpapi.APIError{Status: http.StatusConflict, Code: "incident_closed", Details: map[string]any{}}
 	default:
 		return internalError()
@@ -434,6 +434,20 @@ func observationNotFoundError() *platformhttpapi.APIError {
 
 func resolvedIndicatorNotFoundError() *platformhttpapi.APIError {
 	return &platformhttpapi.APIError{Status: http.StatusNotFound, Code: "resolved_indicator_not_found", Details: map[string]any{}}
+}
+
+func requireIncidentAdmission(ctx context.Context, checker *admission.Checker, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *platformhttpapi.APIError) {
+	grant, err := checker.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleAny})
+	switch {
+	case admission.IsDenied(err, admission.DenialNotVisible):
+		return admission.Grant{}, &platformhttpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+	case admission.IsDenied(err, admission.DenialInsufficientRole):
+		return admission.Grant{}, &platformhttpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": requiredRole}}
+	case err != nil:
+		return admission.Grant{}, platformhttpapi.InternalAPIError(err)
+	default:
+		return grant, nil
+	}
 }
 
 func invalidPaginationError(reason string) *platformhttpapi.APIError {

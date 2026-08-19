@@ -49,7 +49,7 @@ func RawPayload(payload any) json.RawMessage {
 type Hub struct {
 	mu                    sync.Mutex
 	sessions              map[uuid.UUID]map[chan string]struct{}
-	incidentSessions      map[incidentSessionKey]map[chan string]struct{}
+	incidentUsers         map[incidentUserKey]map[chan string]struct{}
 	incidentTerminals     map[uuid.UUID]map[chan string]struct{}
 	incidentStreams       map[uuid.UUID]map[chan Message]struct{}
 	presences             map[uuid.UUID]map[string]PresenceRecord
@@ -136,15 +136,15 @@ type PresenceRecord struct {
 	ExpiresAt    string            `json:"expires_at"`
 }
 
-type incidentSessionKey struct {
+type incidentUserKey struct {
 	IncidentID uuid.UUID
-	SessionID  uuid.UUID
+	UserID     uuid.UUID
 }
 
 func NewHub() *Hub {
 	return &Hub{
 		sessions:          make(map[uuid.UUID]map[chan string]struct{}),
-		incidentSessions:  make(map[incidentSessionKey]map[chan string]struct{}),
+		incidentUsers:     make(map[incidentUserKey]map[chan string]struct{}),
 		incidentTerminals: make(map[uuid.UUID]map[chan string]struct{}),
 		incidentStreams:   make(map[uuid.UUID]map[chan Message]struct{}),
 		presences:         make(map[uuid.UUID]map[string]PresenceRecord),
@@ -317,26 +317,26 @@ func (h *Hub) BroadcastPresenceDelta(incidentID uuid.UUID, kind string, presence
 	h.broadcastIncidentExcept(incidentID, message, excludedSubscriber)
 }
 
-func (h *Hub) RegisterIncidentSession(incidentID uuid.UUID, sessionID uuid.UUID) (<-chan string, func()) {
+func (h *Hub) RegisterIncidentUser(incidentID uuid.UUID, userID uuid.UUID) (<-chan string, func()) {
 	if h == nil {
 		return nil, func() {}
 	}
 	ch := make(chan string, 1)
-	key := incidentSessionKey{IncidentID: incidentID, SessionID: sessionID}
+	key := incidentUserKey{IncidentID: incidentID, UserID: userID}
 	h.mu.Lock()
-	subscribers := h.incidentSessions[key]
+	subscribers := h.incidentUsers[key]
 	if subscribers == nil {
 		subscribers = make(map[chan string]struct{})
-		h.incidentSessions[key] = subscribers
+		h.incidentUsers[key] = subscribers
 	}
 	subscribers[ch] = struct{}{}
 	h.mu.Unlock()
 	return ch, func() {
 		h.mu.Lock()
-		if subscribers := h.incidentSessions[key]; subscribers != nil {
+		if subscribers := h.incidentUsers[key]; subscribers != nil {
 			delete(subscribers, ch)
 			if len(subscribers) == 0 {
-				delete(h.incidentSessions, key)
+				delete(h.incidentUsers, key)
 			}
 		}
 		h.mu.Unlock()
@@ -389,26 +389,26 @@ func (h *Hub) ActiveConnections() int64 {
 	return count
 }
 
-func (h *Hub) RevokeIncidentSession(incidentID uuid.UUID, sessionID uuid.UUID, reasonCode string) {
+func (h *Hub) RevokeIncidentUser(incidentID uuid.UUID, userID uuid.UUID, reasonCode string) {
 	if h == nil {
 		return
 	}
-	key := incidentSessionKey{IncidentID: incidentID, SessionID: sessionID}
+	key := incidentUserKey{IncidentID: incidentID, UserID: userID}
 	h.mu.Lock()
-	sessionSet := h.incidentSessions[key]
-	subscribers := make([]chan string, 0, len(sessionSet))
-	for current := range sessionSet {
+	userSet := h.incidentUsers[key]
+	subscribers := make([]chan string, 0, len(userSet))
+	for current := range userSet {
 		subscribers = append(subscribers, current)
 	}
-	delete(h.incidentSessions, key)
+	delete(h.incidentUsers, key)
 	h.mu.Unlock()
 	for _, current := range subscribers {
 		current <- reasonCode
 	}
 }
 
-func (h *Hub) RevokeIncidentAccess(incidentID uuid.UUID, sessionID uuid.UUID) {
-	h.RevokeIncidentSession(incidentID, sessionID, "incident_access_revoked")
+func (h *Hub) RevokeIncidentAccess(incidentID uuid.UUID, userID uuid.UUID) {
+	h.RevokeIncidentUser(incidentID, userID, "incident_access_revoked")
 }
 
 func (h *Hub) TerminateIncident(incidentID uuid.UUID, reasonCode string) {

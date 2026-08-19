@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -55,7 +55,7 @@ func (s *Service) handleImportSessionsCollection(w http.ResponseWriter, r *http.
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), request.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), request.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -314,7 +314,7 @@ func (s *Service) handleMappingPreview(w http.ResponseWriter, r *http.Request, p
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -409,7 +409,7 @@ func (s *Service) handleMapping(w http.ResponseWriter, r *http.Request, principa
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -469,7 +469,7 @@ func (s *Service) handleUnitAction(
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -511,7 +511,7 @@ func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, principal 
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -550,7 +550,7 @@ func writeImportStoreError(w http.ResponseWriter, r *http.Request, err error, cl
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, clientTxnConflict(clientTxnID))
-	case errors.Is(err, incidents.ErrIncidentClosed):
+	case admission.IsDenied(err, admission.DenialIncidentClosed):
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}})
 	case errors.Is(err, ErrNotFound):
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
@@ -564,12 +564,33 @@ func writeImportStoreError(w http.ResponseWriter, r *http.Request, err error, cl
 	return false
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
+	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{
+		AllowedRoles: admission.RolesMember,
+		Lifecycle:    admission.LifecycleAny,
+	})
+	return importAdmissionResult(grant, err, "member")
 }
 
-func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentRole(ctx, s.incidentAccess, incidentID, userID, roles...)
+func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *httpapi.APIError) {
+	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{
+		AllowedRoles: roles,
+		Lifecycle:    admission.LifecycleAny,
+	})
+	return importAdmissionResult(grant, err, requiredRole)
+}
+
+func importAdmissionResult(grant admission.Grant, err error, requiredRole string) (admission.Grant, *httpapi.APIError) {
+	switch {
+	case admission.IsDenied(err, admission.DenialNotVisible):
+		return admission.Grant{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+	case admission.IsDenied(err, admission.DenialInsufficientRole):
+		return admission.Grant{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": requiredRole}}
+	case err != nil:
+		return admission.Grant{}, internalAPIError(err)
+	default:
+		return grant, nil
+	}
 }
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {

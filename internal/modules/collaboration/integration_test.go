@@ -122,6 +122,13 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 	})
 
 	t.Run("incident membership removal", func(t *testing.T) {
+		otherIncident := incidentscenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
+			"client_txn_id": "txn-collaboration-support-socket-membership-other-incident",
+			"incident_key":  "IR-COLLABORATIONSUPPORTSOCKETOTHER",
+			"title":         "Collaboration membership target isolation",
+		})
+		otherIncidentID := otherIncident["incident_id"].(string)
+		incidentscenariotest.CreateMembershipForUser(t, harness.Server, admin, otherIncidentID, member.ID.String(), member.Email, "editor")
 		memberSocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     memberSession.Value,
 			ClientInstanceID: "collaboration-support-socket-membership",
@@ -129,6 +136,23 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 		})
 		incidentscenariotest.DeleteMembershipVersion(t, harness.Server, admin, incidentID, member.ID.String(), queryMembershipVersion(t, harness, incidentID, member.ID.String()))
 		incidentwstest.ExpectSessionRevoked(t, memberSocket, "incident_access_revoked")
+
+		removedIncidentResponse := httptestx.DoJSON(
+			t,
+			http.MethodGet,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
+			nil,
+			httptestx.WithCookies(memberSession),
+		)
+		httptestx.RequireErrorEnvelope(t, removedIncidentResponse, http.StatusNotFound, "incident_not_found")
+		otherIncidentResponse := httptestx.DoJSON(
+			t,
+			http.MethodGet,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID,
+			nil,
+			httptestx.WithCookies(memberSession),
+		)
+		httptestx.RequireSuccessEnvelope(t, otherIncidentResponse, http.StatusOK)
 	})
 
 	t.Run("incident close", func(t *testing.T) {

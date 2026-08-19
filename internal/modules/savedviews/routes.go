@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -18,7 +18,7 @@ import (
 
 type service struct {
 	application    *savedViewApplication
-	incidentAccess incidents.Access
+	incidentAccess *admission.Checker
 	authStore      *authn.Store
 	keys           authn.MasterKeys
 	cursorCodec    *pagination.Codec
@@ -74,7 +74,7 @@ func newService(deps httpapi.DependencySet) (*service, error) {
 	}
 	return &service{
 		application:    newSavedViewApplication(newPostgresSavedViewRepository(deps.PostgresHandle())),
-		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
+		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		keys:           keys,
 		cursorCodec:    cursorCodec,
@@ -247,7 +247,7 @@ func (s *service) handlePatch(w http.ResponseWriter, r *http.Request, incidentID
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	record, err := s.application.patch(r.Context(), incidentID, savedViewID, principal.User.ID, membership.Role, request, s.now())
+	record, err := s.application.patch(r.Context(), incidentID, savedViewID, principal.User.ID, membership.Role.String(), request, s.now())
 	if err != nil {
 		writeAPIError(w, r, savedViewError(err))
 		return
@@ -270,7 +270,7 @@ func (s *service) handleDelete(w http.ResponseWriter, r *http.Request, incidentI
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.application.delete(r.Context(), incidentID, savedViewID, principal.User.ID, membership.Role); err != nil {
+	if err := s.application.delete(r.Context(), incidentID, savedViewID, principal.User.ID, membership.Role.String()); err != nil {
 		writeAPIError(w, r, savedViewError(err))
 		return
 	}
@@ -359,8 +359,19 @@ func savedViewError(err error) *httpapi.APIError {
 	}
 }
 
-func (s *service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
+func (s *service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
+	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{
+		AllowedRoles: admission.RolesMember,
+		Lifecycle:    admission.LifecycleAny,
+	})
+	switch {
+	case admission.IsDenied(err, admission.DenialNotVisible):
+		return admission.Grant{}, savedViewNotFoundError()
+	case err != nil:
+		return admission.Grant{}, internalAPIError(err)
+	default:
+		return grant, nil
+	}
 }
 
 func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {

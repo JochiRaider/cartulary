@@ -11,7 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -169,7 +169,7 @@ func (runtime *OwnerRuntime) RouteRegistrar(settings Settings) httpapi.RouteRegi
 		now:         runtime.now,
 		operations:  runtime.routes,
 		admission: routeAdmission{
-			incidents: incidents.NewAccess(runtime.postgres),
+			incidents: admission.NewChecker(runtime.postgres),
 			auth:      authn.NewStore(runtime.postgres),
 			now:       runtime.now,
 		},

@@ -98,7 +98,7 @@ func (s *Store) ValidateExtensionApplyPreconditionsTx(
 	if s == nil || tx == nil {
 		return fmt.Errorf("import extension apply transaction unavailable")
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return err
 	}
 	capability, err := s.sourceCapabilityForUnitTx(ctx, tx, sessionID, unitID)

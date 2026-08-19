@@ -78,7 +78,7 @@ func (s *Store) loadConflictTarget(
 	if !ok || !field.Writable {
 		return conflictresolution.Target{}, pgx.ErrNoRows
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return conflictresolution.Target{}, err
 	}
 	var row map[string]any

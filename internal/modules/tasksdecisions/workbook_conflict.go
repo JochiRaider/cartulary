@@ -68,7 +68,7 @@ func (f *MutationFacade) loadConflictTarget(
 	if _, err := f.conflictFields.ResolveWritableField(command.Claims.ViewSchemaID, command.Claims.FieldKey); err != nil {
 		return conflictresolution.Target{}, pgx.ErrNoRows
 	}
-	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
+	if err := f.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return conflictresolution.Target{}, err
 	}
 	row, err := f.loadProjectionRowTx(

@@ -1,17 +1,18 @@
-package incidents
+package httpapi
 
 import (
 	"net/http"
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 )
 
-func parseMembershipAuditScope(rawQuery string) (listquery.Result, *httpapi.APIError) {
+func parseMembershipAuditScope(rawQuery string) (listquery.Result, *platformhttpapi.APIError) {
 	result, queryErr := administrativeaudit.ParseListScope(rawQuery, administrativeaudit.ScopeIncident)
 	if queryErr == nil {
 		return result, nil
@@ -37,7 +38,7 @@ func (s *Service) handleMembershipAuditEvents(w http.ResponseWriter, r *http.Req
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesAdmin, "admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -90,7 +91,7 @@ func (s *Service) handleMembershipAuditEvents(w http.ResponseWriter, r *http.Req
 		}
 		nextCursorToken = &token
 	}
-	_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"audit_events": rows}, httpapi.PagingMeta{
+	_ = platformhttpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"audit_events": rows}, platformhttpapi.PagingMeta{
 		Limit:      binding.Limit,
 		HasMore:    nextCursorToken != nil,
 		NextCursor: nextCursorToken,

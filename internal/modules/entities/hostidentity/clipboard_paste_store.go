@@ -78,7 +78,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return ClipboardPasteResult{}, err
 	}
 	changeSetID, err := s.ports.revisions.AppendChangeSetTx(ctx, tx, entityChangeSetParams{

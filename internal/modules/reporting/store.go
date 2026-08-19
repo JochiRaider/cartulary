@@ -149,17 +149,9 @@ type CreateSnapshotResult struct {
 	Replayed   bool
 }
 
-type SourceBoundaryState struct {
-	IncidentID               string  `json:"incident_id"`
-	IncidentVersion          int64   `json:"incident_version"`
-	LatestChangeSetID        *string `json:"latest_change_set_id"`
-	LatestChangeSetCreatedAt *string `json:"latest_change_set_created_at"`
-}
-
 type ResolvedSourceBoundary struct {
 	Token         string
 	CanonicalJSON []byte
-	State         SourceBoundaryState
 }
 
 type RenderedRelease struct {
@@ -337,7 +329,7 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}
-	boundary, err := resolveSourceBoundaryTx(ctx, tx, incident)
+	boundary, err := s.exportMaterializer.ResolveSourceBoundaryTx(ctx, tx, incident)
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}

@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -18,7 +18,7 @@ import (
 
 type Service struct {
 	store          *Store
-	incidentAccess incidents.Access
+	incidentAccess *admission.Checker
 	authStore      *authn.Store
 	keys           authn.MasterKeys
 	cursorCodec    *pagination.Codec
@@ -69,7 +69,7 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	}
 	return &Service{
 		store:          NewStore(deps.PostgresHandle()),
-		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
+		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		keys:           keys,
 		cursorCodec:    cursorCodec,
@@ -137,7 +137,7 @@ func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
 			NextCursor: nextToken,
 		})
 	case http.MethodPost:
-		if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, "editor", "admin"); apiErr != nil {
+		if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -185,7 +185,7 @@ func (s *Service) handleResource(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, payload)
 	case http.MethodPatch:
-		if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, "editor", "admin"); apiErr != nil {
+		if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -197,7 +197,7 @@ func (s *Service) handleResource(w http.ResponseWriter, r *http.Request) {
 		result, err := s.store.UpdateDraft(r.Context(), incidentID, compositionID, principal.User.ID, request, s.now())
 		s.writeMutationResult(w, r, &principal, request.ClientTxnID, result, err, "composition_not_found")
 	case http.MethodDelete:
-		if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, "editor", "admin"); apiErr != nil {
+		if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -223,7 +223,7 @@ func (s *Service) handleVersions(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, "editor", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -350,12 +350,33 @@ func (s *Service) authenticate(r *http.Request, stateChanging bool) (httpauth.Pr
 	return httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: stateChanging})
 }
 
-func (s *Service) requireIncidentMembership(r *http.Request, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentMembership(r.Context(), s.incidentAccess, incidentID, userID)
+func (s *Service) requireIncidentMembership(r *http.Request, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
+	grant, err := s.incidentAccess.Check(r.Context(), incidentID, userID, admission.Requirement{
+		AllowedRoles: admission.RolesMember,
+		Lifecycle:    admission.LifecycleAny,
+	})
+	return reportCompositionAdmissionResult(grant, err, "member")
 }
 
-func (s *Service) requireIncidentRole(r *http.Request, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentRole(r.Context(), s.incidentAccess, incidentID, userID, roles...)
+func (s *Service) requireIncidentRole(r *http.Request, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *httpapi.APIError) {
+	grant, err := s.incidentAccess.Check(r.Context(), incidentID, userID, admission.Requirement{
+		AllowedRoles: roles,
+		Lifecycle:    admission.LifecycleAny,
+	})
+	return reportCompositionAdmissionResult(grant, err, requiredRole)
+}
+
+func reportCompositionAdmissionResult(grant admission.Grant, err error, requiredRole string) (admission.Grant, *httpapi.APIError) {
+	switch {
+	case admission.IsDenied(err, admission.DenialNotVisible):
+		return admission.Grant{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+	case admission.IsDenied(err, admission.DenialInsufficientRole):
+		return admission.Grant{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": requiredRole}}
+	case err != nil:
+		return admission.Grant{}, httpapi.InternalAPIError(err)
+	default:
+		return grant, nil
+	}
 }
 
 func (s *Service) slideSessionIfNeeded(r *http.Request, principal *httpauth.Principal) error {

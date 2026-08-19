@@ -1,0 +1,72 @@
+{
+  "schema_id": "cartulary.revisions.source_boundary_vectors.v1",
+  "selection_order": ["created_at DESC", "change_set_id DESC"],
+  "hash_input": "canonical_json_utf8_without_prefix_or_trailing_newline",
+  "vectors": [
+    {
+      "vector_id": "zero_change_sets",
+      "incident_id": "11111111-1111-4111-8111-111111111111",
+      "incident_version": 1,
+      "visible_change_sets": [],
+      "canonical_json": "{\"incident_id\":\"11111111-1111-4111-8111-111111111111\",\"incident_version\":1,\"latest_change_set_id\":null,\"latest_change_set_created_at\":null}",
+      "token": "cartulary.source_boundary.v1:7118b27f199de626a091552abc20fb026c5f25f04ca303e0edc790f86ee82478"
+    },
+    {
+      "vector_id": "one_change_set_rfc3339nano",
+      "incident_id": "11111111-1111-4111-8111-111111111111",
+      "incident_version": 7,
+      "visible_change_sets": [
+        {
+          "change_set_id": "22222222-2222-4222-8222-222222222222",
+          "created_at": "2026-08-18T20:01:02.345678Z"
+        }
+      ],
+      "canonical_json": "{\"incident_id\":\"11111111-1111-4111-8111-111111111111\",\"incident_version\":7,\"latest_change_set_id\":\"22222222-2222-4222-8222-222222222222\",\"latest_change_set_created_at\":\"2026-08-18T20:01:02.345678Z\"}",
+      "token": "cartulary.source_boundary.v1:c8b824c9a0f3a97298bef7ea170b22c43cae1ab4e06103210ba1f34aac9f42f3"
+    },
+    {
+      "vector_id": "many_change_sets_latest_timestamp",
+      "incident_id": "11111111-1111-4111-8111-111111111111",
+      "incident_version": 9,
+      "visible_change_sets": [
+        {
+          "change_set_id": "22222222-2222-4222-8222-222222222222",
+          "created_at": "2026-08-18T20:01:02Z"
+        },
+        {
+          "change_set_id": "44444444-4444-4444-8444-444444444444",
+          "created_at": "2026-08-18T20:01:03Z"
+        }
+      ],
+      "canonical_json": "{\"incident_id\":\"11111111-1111-4111-8111-111111111111\",\"incident_version\":9,\"latest_change_set_id\":\"44444444-4444-4444-8444-444444444444\",\"latest_change_set_created_at\":\"2026-08-18T20:01:03Z\"}",
+      "token": "cartulary.source_boundary.v1:dce22a07b8c338ffc5ddd4bfd20b06516fd13144a76ff6849b556438ce9b430c"
+    },
+    {
+      "vector_id": "tied_timestamp_highest_uuid",
+      "incident_id": "11111111-1111-4111-8111-111111111111",
+      "incident_version": 10,
+      "visible_change_sets": [
+        {
+          "change_set_id": "55555555-5555-4555-8555-555555555555",
+          "created_at": "2026-08-18T20:01:04Z"
+        },
+        {
+          "change_set_id": "66666666-6666-4666-8666-666666666666",
+          "created_at": "2026-08-18T20:01:04Z"
+        }
+      ],
+      "canonical_json": "{\"incident_id\":\"11111111-1111-4111-8111-111111111111\",\"incident_version\":10,\"latest_change_set_id\":\"66666666-6666-4666-8666-666666666666\",\"latest_change_set_created_at\":\"2026-08-18T20:01:04Z\"}",
+      "token": "cartulary.source_boundary.v1:ded9c0fdcbb931382ac6c040bd980e6da5ded676dd41892352fc3eb348f13fca"
+    }
+  ],
+  "transaction_cases": [
+    {
+      "case_id": "repeatable_read_visibility",
+      "rule": "incident version, selected change set, and materialization use one repeatable-read snapshot"
+    },
+    {
+      "case_id": "exact_replay",
+      "rule": "replay returns the originally committed canonical bytes and token without resolving current state"
+    }
+  ]
+}

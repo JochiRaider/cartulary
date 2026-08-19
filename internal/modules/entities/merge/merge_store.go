@@ -241,7 +241,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			},
 		}
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, survivorMeta.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, survivorMeta.IncidentID); err != nil {
 		return MergeResult{}, err
 	}
 

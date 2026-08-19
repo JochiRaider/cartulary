@@ -12,6 +12,7 @@ import (
 	"github.com/pquerna/otp/totp"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -81,7 +82,7 @@ func CreateIncident(t testing.TB, server *httptestx.Server, admin LoginResult, b
 func CreateIncidentInStore(t testing.TB, pool postgres.DB, actor authn.UserRecord, clientTxnID string, incidentKey string, title string) incidents.IncidentRecord {
 	t.Helper()
 
-	store := incidents.NewApplication(pool)
+	store := incidents.NewApplication(pool, workbookstartuppostgres.NewWriter())
 	result, err := store.CreateIncident(context.Background(), actor, incidents.CreateIncidentRequest{
 		ClientTxnID: clientTxnID,
 		IncidentKey: incidentKey,

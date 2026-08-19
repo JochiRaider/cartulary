@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -30,7 +30,7 @@ const (
 )
 
 type Service struct {
-	incidentAccess incidents.Access
+	incidentAccess *admission.Checker
 	authStore      *authn.Store
 	hub            *Hub
 	replay         *ReplayStore
@@ -83,7 +83,7 @@ func newService(deps httpapi.DependencySet, settings Settings) (*Service, error)
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &Service{
-		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
+		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		hub:            settings.Hub,
 		replay:         NewReplayStore(deps.PostgresHandle(), now),
@@ -138,7 +138,7 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 
 	sessionRevocations, unregisterSession := s.hub.RegisterSession(principal.Session.ID)
 	defer unregisterSession()
-	incidentRevocations, unregisterIncident := s.hub.RegisterIncidentSession(incidentID, principal.Session.ID)
+	incidentRevocations, unregisterIncident := s.hub.RegisterIncidentUser(incidentID, principal.User.ID)
 	defer unregisterIncident()
 	incidentTerminals, unregisterIncidentTerminal := s.hub.RegisterIncidentTerminal(incidentID)
 	defer unregisterIncidentTerminal()
@@ -469,11 +469,14 @@ func (s *Service) writeTerminalIncidentError(ctx context.Context, conn Socket, i
 }
 
 func (s *Service) incidentClosed(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (bool, error) {
-	record, err := s.incidentAccess.GetVisibleIncident(ctx, incidentID, userID)
+	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{
+		AllowedRoles: admission.RolesMember,
+		Lifecycle:    admission.LifecycleAny,
+	})
 	if err != nil {
 		return false, err
 	}
-	return record.Status == "closed", nil
+	return grant.IncidentStatus == admission.IncidentStatusClosed, nil
 }
 
 func (s *Service) readFirstMessage(ctx context.Context, conn Socket) (Message, error) {
@@ -578,8 +581,19 @@ func decodePayloadObject(payload json.RawMessage, target any) error {
 	return nil
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
+	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{
+		AllowedRoles: admission.RolesMember,
+		Lifecycle:    admission.LifecycleAny,
+	})
+	switch {
+	case admission.IsDenied(err, admission.DenialNotVisible):
+		return admission.Grant{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+	case err != nil:
+		return admission.Grant{}, httpapi.InternalAPIError(err)
+	default:
+		return grant, nil
+	}
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {

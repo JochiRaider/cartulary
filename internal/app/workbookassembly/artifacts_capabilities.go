@@ -13,7 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -219,7 +219,7 @@ func NewArtifactMutationContribution(
 	}
 	authStore := authn.NewStore(pool)
 	facade, err := artifacts.NewMutationContribution(pool, conflictTokens, artifacts.MutationDependencies{
-		IncidentState:        incidents.NewAccess(pool),
+		IncidentState:        admission.NewChecker(pool),
 		MemberReferences:     artifacts.NewMemberReferenceCapability(),
 		Idempotency:          artifactIdempotency{store: authStore},
 		RecordEnvelopes:      records.NewStore(),

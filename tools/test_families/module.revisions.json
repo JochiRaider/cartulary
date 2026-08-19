@@ -550,6 +550,34 @@
       ]
     },
     {
+      "row_id": "module.revisions.integration.source_boundary_v1_selection_and_repeatable_read_92b1e375a4",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.integration",
+      "collaborator_ids": [
+        "module.reporting"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions/sourceboundary",
+        "tests": [
+          "TestSourceBoundaryV1CanonicalBytesAndSelection_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.revisions.portability.allocator",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.portability",
@@ -1274,6 +1302,31 @@
         ]
       },
       "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.revisions.unit.source_boundary_v1_bytes_hash_and_invalid_inputs_4a71df3ac8",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions/sourceboundary",
+        "tests": [
+          "TestCanonicalBoundaryV1BytesHashAndDefensiveCopy",
+          "TestInvalidBoundaryInputsFailClosed"
+        ]
+      },
+      "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",

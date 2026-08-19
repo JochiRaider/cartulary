@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -22,7 +22,7 @@ import (
 type Service struct {
 	jobs           jobReadCanceler
 	authStore      *authn.Store
-	incidentAccess incidents.Access
+	incidentAccess *admission.Checker
 	keys           authn.MasterKeys
 	now            func() time.Time
 }
@@ -65,7 +65,7 @@ func newService(deps httpapi.DependencySet, jobService jobReadCanceler) (*Servic
 	return &Service{
 		jobs:           jobService,
 		authStore:      authn.NewStore(deps.PostgresHandle()),
-		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
+		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
 		keys:           keys,
 		now:            now,
 	}, nil
@@ -193,8 +193,11 @@ func (s *Service) authorizeJob(ctx context.Context, resource jobs.Resource, prin
 		if resource.AuthPolicy == jobs.AuthPolicyDeploymentAdminIncidentMembership && !principal.User.IsDeploymentAdmin {
 			return jobNotFoundError()
 		}
-		membership, err := s.incidentAccess.GetIncidentMembershipForUser(ctx, *resource.Scope.IncidentID, principal.User.ID)
-		if s.incidentAccess.IsMembershipNotFound(err) {
+		grant, err := s.incidentAccess.Check(ctx, *resource.Scope.IncidentID, principal.User.ID, admission.Requirement{
+			AllowedRoles: admission.RolesMember,
+			Lifecycle:    admission.LifecycleAny,
+		})
+		if admission.IsDenied(err, admission.DenialNotVisible) {
 			return jobNotFoundError()
 		}
 		if err != nil {
@@ -206,7 +209,7 @@ func (s *Service) authorizeJob(ctx context.Context, resource jobs.Resource, prin
 		default:
 			return jobNotFoundError()
 		}
-		if !cancel || submittedByCurrentUser || membership.Role == "admin" {
+		if !cancel || submittedByCurrentUser || grant.Role == admission.RoleAdmin {
 			return nil
 		}
 		return &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": "submitted_by|admin"}}

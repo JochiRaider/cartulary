@@ -5,7 +5,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/workbookpreferences"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrapport"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -17,19 +18,23 @@ type Application struct {
 	pool                 postgres.DB
 	authStore            *authn.Store
 	repository           *repository
-	preferenceBootstrap  PreferenceBootstrapPort
+	admission            *admission.Checker
+	preferenceBootstrap  bootstrapport.Writer
 	incidentCreateCommit IncidentCreateCommitPort
 }
 
-func NewApplication(pool postgres.DB) *Application {
-	return NewApplicationWithOptions(pool, ApplicationOptions{})
+// These values are persisted with public idempotency payloads and therefore
+// remain stable even though HTTP response selection belongs to httpapi.
+const (
+	persistedSuccessStatus = 200
+	persistedCreatedStatus = 201
+)
+
+func NewApplication(pool postgres.DB, preferenceBootstrap bootstrapport.Writer) *Application {
+	return NewApplicationWithOptions(pool, ApplicationOptions{PreferenceBootstrap: preferenceBootstrap})
 }
 
 func NewApplicationWithOptions(pool postgres.DB, options ApplicationOptions) *Application {
-	preferenceBootstrap := options.PreferenceBootstrap
-	if preferenceBootstrap == nil {
-		preferenceBootstrap = workbookpreferences.NewBootstrap()
-	}
 	incidentCreateCommit := options.IncidentCreateCommit
 	if incidentCreateCommit == nil {
 		incidentCreateCommit = directIncidentCreateCommit{}
@@ -38,7 +43,8 @@ func NewApplicationWithOptions(pool postgres.DB, options ApplicationOptions) *Ap
 		pool:                 pool,
 		authStore:            authn.NewStore(pool),
 		repository:           newRepository(pool),
-		preferenceBootstrap:  preferenceBootstrap,
+		admission:            admission.NewChecker(pool),
+		preferenceBootstrap:  options.PreferenceBootstrap,
 		incidentCreateCommit: incidentCreateCommit,
 	}
 }

@@ -1,4 +1,4 @@
-package workbookpreferences
+package postgres
 
 import (
 	"context"
@@ -11,53 +11,39 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
+	platformpostgres "github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-var ErrNotFound = errors.New("incidents workbook preferences: not found")
-
-type DefaultRecord struct {
-	IncidentID      uuid.UUID
-	DefaultSheetRef []byte
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	UpdatedByUserID *uuid.UUID
-}
-
-type UserRecord struct {
-	IncidentID   uuid.UUID
-	UserID       uuid.UUID
-	HomeSheetRef []byte
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-}
-
 type Repository struct {
-	db postgres.DB
+	db platformpostgres.DB
 }
 
-func NewRepository(db postgres.DB) *Repository {
+func NewRepository(db platformpostgres.DB) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) GetDefault(ctx context.Context, incidentID uuid.UUID) (DefaultRecord, error) {
+func (r *Repository) GetDefaultPreferences(
+	ctx context.Context,
+	incidentID uuid.UUID,
+) (workbookstartup.DefaultPreferencesRecord, error) {
 	row, err := sqlc.New(r.db).GetDefaultWorkbookPreferences(ctx, pgUUID(incidentID))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return DefaultRecord{}, ErrNotFound
+		return workbookstartup.DefaultPreferencesRecord{}, workbookstartup.ErrPreferencesNotFound
 	}
 	if err != nil {
-		return DefaultRecord{}, err
+		return workbookstartup.DefaultPreferencesRecord{}, err
 	}
 	return defaultRecordFromSQL(row)
 }
 
-func (r *Repository) PutDefault(
+func (r *Repository) PutDefaultPreferences(
 	ctx context.Context,
 	incidentID uuid.UUID,
 	actorUserID uuid.UUID,
 	defaultSheetRef []byte,
 	now time.Time,
-) (DefaultRecord, error) {
+) (workbookstartup.DefaultPreferencesRecord, error) {
 	row, err := sqlc.New(r.db).PutDefaultWorkbookPreferences(ctx, sqlc.PutDefaultWorkbookPreferencesParams{
 		IncidentID:      pgUUID(incidentID),
 		Column2:         sheetRefParam(defaultSheetRef),
@@ -65,32 +51,36 @@ func (r *Repository) PutDefault(
 		UpdatedByUserID: pgUUID(actorUserID),
 	})
 	if err != nil {
-		return DefaultRecord{}, err
+		return workbookstartup.DefaultPreferencesRecord{}, err
 	}
 	return defaultRecordFromSQL(row)
 }
 
-func (r *Repository) GetUser(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (UserRecord, error) {
+func (r *Repository) GetUserPreferences(
+	ctx context.Context,
+	incidentID uuid.UUID,
+	userID uuid.UUID,
+) (workbookstartup.UserPreferencesRecord, error) {
 	row, err := sqlc.New(r.db).GetUserWorkbookPreferences(ctx, sqlc.GetUserWorkbookPreferencesParams{
 		IncidentID: pgUUID(incidentID),
 		UserID:     pgUUID(userID),
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return UserRecord{}, ErrNotFound
+		return workbookstartup.UserPreferencesRecord{}, workbookstartup.ErrPreferencesNotFound
 	}
 	if err != nil {
-		return UserRecord{}, err
+		return workbookstartup.UserPreferencesRecord{}, err
 	}
 	return userRecordFromSQL(row)
 }
 
-func (r *Repository) PutUser(
+func (r *Repository) PutUserPreferences(
 	ctx context.Context,
 	incidentID uuid.UUID,
 	userID uuid.UUID,
 	homeSheetRef []byte,
 	now time.Time,
-) (UserRecord, error) {
+) (workbookstartup.UserPreferencesRecord, error) {
 	row, err := sqlc.New(r.db).PutUserWorkbookPreferences(ctx, sqlc.PutUserWorkbookPreferencesParams{
 		IncidentID: pgUUID(incidentID),
 		UserID:     pgUUID(userID),
@@ -98,7 +88,7 @@ func (r *Repository) PutUser(
 		CreatedAt:  pgTimestamptz(now),
 	})
 	if err != nil {
-		return UserRecord{}, err
+		return workbookstartup.UserPreferencesRecord{}, err
 	}
 	return userRecordFromSQL(row)
 }
@@ -111,7 +101,7 @@ func NewSession(tx pgx.Tx) Session {
 	return Session{tx: tx}
 }
 
-func (s Session) UserRefForUpdate(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) ([]byte, error) {
+func (s Session) UserPreferenceRef(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) ([]byte, error) {
 	ref, err := sqlc.New(s.tx).GetUserWorkbookPreferenceRefForUpdate(ctx, sqlc.GetUserWorkbookPreferenceRefForUpdateParams{
 		IncidentID: pgUUID(incidentID),
 		UserID:     pgUUID(userID),
@@ -125,7 +115,7 @@ func (s Session) UserRefForUpdate(ctx context.Context, incidentID uuid.UUID, use
 	return cloneBytes(ref), nil
 }
 
-func (s Session) DefaultRefForUpdate(ctx context.Context, incidentID uuid.UUID) ([]byte, error) {
+func (s Session) DefaultPreferenceRef(ctx context.Context, incidentID uuid.UUID) ([]byte, error) {
 	ref, err := sqlc.New(s.tx).GetDefaultWorkbookPreferenceRefForUpdate(ctx, pgUUID(incidentID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
@@ -136,7 +126,7 @@ func (s Session) DefaultRefForUpdate(ctx context.Context, incidentID uuid.UUID) 
 	return cloneBytes(ref), nil
 }
 
-func (s Session) ClearUserIfCurrent(
+func (s Session) ClearUserPreferenceIfCurrent(
 	ctx context.Context,
 	incidentID uuid.UUID,
 	userID uuid.UUID,
@@ -155,7 +145,7 @@ func (s Session) ClearUserIfCurrent(
 	return rows == 1, nil
 }
 
-func (s Session) ClearDefaultIfCurrent(
+func (s Session) ClearDefaultPreferenceIfCurrent(
 	ctx context.Context,
 	incidentID uuid.UUID,
 	actorUserID uuid.UUID,
@@ -174,12 +164,12 @@ func (s Session) ClearDefaultIfCurrent(
 	return rows == 1, nil
 }
 
-func defaultRecordFromSQL(row sqlc.IncidentWorkbookPreference) (DefaultRecord, error) {
+func defaultRecordFromSQL(row sqlc.IncidentWorkbookPreference) (workbookstartup.DefaultPreferencesRecord, error) {
 	incidentID, err := uuidFromPG(row.IncidentID)
 	if err != nil {
-		return DefaultRecord{}, err
+		return workbookstartup.DefaultPreferencesRecord{}, err
 	}
-	return DefaultRecord{
+	return workbookstartup.DefaultPreferencesRecord{
 		IncidentID:      incidentID,
 		DefaultSheetRef: cloneBytes(row.DefaultSheetRef),
 		CreatedAt:       row.CreatedAt.Time.UTC(),
@@ -188,16 +178,16 @@ func defaultRecordFromSQL(row sqlc.IncidentWorkbookPreference) (DefaultRecord, e
 	}, nil
 }
 
-func userRecordFromSQL(row sqlc.UserWorkbookPreference) (UserRecord, error) {
+func userRecordFromSQL(row sqlc.UserWorkbookPreference) (workbookstartup.UserPreferencesRecord, error) {
 	incidentID, err := uuidFromPG(row.IncidentID)
 	if err != nil {
-		return UserRecord{}, err
+		return workbookstartup.UserPreferencesRecord{}, err
 	}
 	userID, err := uuidFromPG(row.UserID)
 	if err != nil {
-		return UserRecord{}, err
+		return workbookstartup.UserPreferencesRecord{}, err
 	}
-	return UserRecord{
+	return workbookstartup.UserPreferencesRecord{
 		IncidentID:   incidentID,
 		UserID:       userID,
 		HomeSheetRef: cloneBytes(row.HomeSheetRef),
@@ -219,7 +209,7 @@ func pgUUID(value uuid.UUID) pgtype.UUID {
 
 func uuidFromPG(value pgtype.UUID) (uuid.UUID, error) {
 	if !value.Valid {
-		return uuid.Nil, errors.New("incidents workbook preferences: UUID is null")
+		return uuid.Nil, errors.New("workbook startup preferences: UUID is null")
 	}
 	return uuid.UUID(value.Bytes), nil
 }

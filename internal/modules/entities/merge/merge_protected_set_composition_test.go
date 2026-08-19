@@ -12,6 +12,7 @@ import (
 	entitymerge "github.com/JochiRaider/cartulary/internal/modules/entities/merge"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
+	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -144,7 +145,7 @@ RETURNING id, email, display_name, password_hash, mfa_required, is_active, is_de
 
 func createComposedMergeIncident(t testing.TB, db postgres.DB, actor authn.UserRecord) incidents.IncidentRecord {
 	t.Helper()
-	result, err := incidents.NewApplication(db).CreateIncident(
+	result, err := incidents.NewApplication(db, workbookstartuppostgres.NewWriter()).CreateIncident(
 		context.Background(),
 		actor,
 		incidents.CreateIncidentRequest{

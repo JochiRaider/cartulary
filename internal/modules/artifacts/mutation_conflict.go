@@ -93,7 +93,7 @@ func (f *MutationFacade) loadConflictTarget(
 	if !ok || !field.Writable {
 		return conflicts.Target{}, pgx.ErrNoRows
 	}
-	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
+	if err := f.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return conflicts.Target{}, err
 	}
 	row, err := f.source.projections.LoadArtifactTx(ctx, tx, command.Claims.ViewSchemaID, command.RecordID)

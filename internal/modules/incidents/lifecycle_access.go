@@ -1,14 +1,9 @@
 package incidents
 
 import (
-	"context"
-	"errors"
-	"slices"
 	"time"
 
 	"github.com/google/uuid"
-
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 type IncidentCreateBootstrap struct {
@@ -46,6 +41,15 @@ func IncidentLifecycleRequestHash(action string, request IncidentLifecycleReques
 	})
 }
 
+func MembershipCreateRequestHash(request MembershipCreateRequest) []byte {
+	return hashRequestPayload(map[string]any{
+		"client_txn_id": request.ClientTxnID,
+		"user_id":       request.UserID,
+		"email":         request.Email,
+		"role":          request.Role,
+	})
+}
+
 func ApplyIncidentPatch(current IncidentRecord, request IncidentPatchRequest, actorUserID uuid.UUID, updatedAt time.Time) (IncidentRecord, bool) {
 	next := current
 	if request.Description.Present {
@@ -76,43 +80,4 @@ func ApplyIncidentPatch(current IncidentRecord, request IncidentPatchRequest, ac
 	next.UpdatedByUserID = &actorUserID
 	next.IncidentVersion = current.IncidentVersion + 1
 	return next, true
-}
-
-func IncidentAccessError(membership *MembershipRecord, isDeploymentAdmin bool, roles ...string) *httpapi.APIError {
-	_ = isDeploymentAdmin
-	if membership == nil {
-		return incidentNotFoundError()
-	}
-	if len(roles) == 0 {
-		return nil
-	}
-	if !slices.Contains(roles, membership.Role) {
-		return authorizationDeniedError(requiredRoleDescription(roles...))
-	}
-	return nil
-}
-
-func RequireIncidentMembership(ctx context.Context, access Access, incidentID uuid.UUID, userID uuid.UUID) (MembershipRecord, *httpapi.APIError) {
-	if access == nil {
-		return MembershipRecord{}, httpapi.InternalAPIError(errors.New("incidents access is required"))
-	}
-	record, err := access.GetIncidentMembershipForUser(ctx, incidentID, userID)
-	if access.IsMembershipNotFound(err) || errors.Is(err, ErrMembershipNotFound) {
-		return MembershipRecord{}, IncidentAccessError(nil, false)
-	}
-	if err != nil {
-		return MembershipRecord{}, httpapi.InternalAPIError(err)
-	}
-	return record, nil
-}
-
-func RequireIncidentRole(ctx context.Context, access Access, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (MembershipRecord, *httpapi.APIError) {
-	record, apiErr := RequireIncidentMembership(ctx, access, incidentID, userID)
-	if apiErr != nil {
-		return MembershipRecord{}, apiErr
-	}
-	if apiErr := IncidentAccessError(&record, false, roles...); apiErr != nil {
-		return MembershipRecord{}, apiErr
-	}
-	return record, nil
 }

@@ -11,7 +11,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -40,7 +40,7 @@ func (s *service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.admission.requireRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.admission.requireRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -49,7 +49,7 @@ func (s *service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if evidencepolicy.IncidentMutationBlocked(incident.Status) {
+	if incident.IncidentStatus == admission.IncidentStatusClosed {
 		writeAPIError(w, r, incidentClosedError())
 		return
 	}
@@ -131,7 +131,7 @@ func (s *service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, pgx.ErrNoRows):
 		writeAPIError(w, r, incidentNotFoundError())
 		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
+	case admission.IsDenied(err, admission.DenialIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
 	case err != nil:
@@ -170,7 +170,7 @@ func (s *service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, objectUploadNotFoundOrRevoked())
 		return
 	}
-	if _, apiErr := s.admission.requireRole(r.Context(), claims.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.admission.requireRole(r.Context(), claims.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -252,13 +252,13 @@ func (s *service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if evidencepolicy.IncidentMutationBlocked(incident.Status) {
+	if incident.IncidentStatus == admission.IncidentStatusClosed {
 		writeAPIError(w, r, incidentClosedError())
 		return
 	}
 	if err := s.operations.ClaimUploadLease(r.Context(), claims.LeaseID, capabilityHash, now); err != nil {
 		switch {
-		case errors.Is(err, incidents.ErrIncidentClosed):
+		case admission.IsDenied(err, admission.DenialIncidentClosed):
 			writeAPIError(w, r, incidentClosedError())
 		case errors.Is(err, errUploadLeaseNotFound):
 			writeAPIError(w, r, objectUploadNotFoundOrRevoked())
@@ -343,7 +343,7 @@ func (s *service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, evidenceRecordNotFound())
 		return
 	}
-	if _, apiErr := s.admission.requireRole(r.Context(), access.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.admission.requireRole(r.Context(), access.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -352,7 +352,7 @@ func (s *service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if evidencepolicy.IncidentMutationBlocked(incident.Status) {
+	if incident.IncidentStatus == admission.IncidentStatusClosed {
 		writeAPIError(w, r, incidentClosedError())
 		return
 	}

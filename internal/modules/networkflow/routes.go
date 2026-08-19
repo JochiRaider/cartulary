@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -28,7 +28,7 @@ const (
 
 type Service struct {
 	store           *Store
-	incidentAccess  incidents.Access
+	incidentAccess  incidentAdmissionChecker
 	authStore       *authn.Store
 	keys            authn.MasterKeys
 	cursorProtector CursorProtector
@@ -40,6 +40,10 @@ type Service struct {
 	jobManager      GraphViewJobManager
 	jobRunner       GraphViewJobRunner
 	graphTelemetry  GraphTelemetryObserver
+}
+
+type incidentAdmissionChecker interface {
+	Check(context.Context, uuid.UUID, uuid.UUID, admission.Requirement) (admission.Grant, error)
 }
 
 func newRouteService(deps httpapi.DependencySet, module *Module) (*Service, error) {
@@ -56,7 +60,7 @@ func newRouteService(deps httpapi.DependencySet, module *Module) (*Service, erro
 	}
 	return &Service{
 		store:           module.store,
-		incidentAccess:  incidents.NewAccess(deps.PostgresHandle()),
+		incidentAccess:  admission.NewChecker(deps.PostgresHandle()),
 		authStore:       authn.NewStore(deps.PostgresHandle()),
 		keys:            keys,
 		cursorProtector: module.cursorProtector,
@@ -178,7 +182,7 @@ func (s *Service) handleTableResource(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "admin"); apiErr != nil {
+		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -202,7 +206,7 @@ func (s *Service) handleTableResource(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "reviewer", "admin"); apiErr != nil {
+		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesReviewerAdmin, "reviewer|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -782,12 +786,22 @@ func (s *Service) authenticate(r *http.Request, stateChanging bool) (httpauth.Pr
 	return httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: stateChanging})
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
+	return s.requireIncidentRole(ctx, incidentID, userID, admission.RolesMember, "")
 }
 
-func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentRole(ctx, s.incidentAccess, incidentID, userID, roles...)
+func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *httpapi.APIError) {
+	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleAny})
+	switch {
+	case admission.IsDenied(err, admission.DenialNotVisible):
+		return admission.Grant{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+	case admission.IsDenied(err, admission.DenialInsufficientRole):
+		return admission.Grant{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Message: "authorization denied", Details: map[string]any{"required_role": requiredRole}}
+	case err != nil:
+		return admission.Grant{}, httpapi.InternalAPIError(err)
+	default:
+		return grant, nil
+	}
 }
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {

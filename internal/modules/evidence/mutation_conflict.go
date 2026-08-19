@@ -80,7 +80,7 @@ func (f *mutationFacade) loadConflictTarget(
 	if !ok || !field.Writable {
 		return conflictresolution.Target{}, pgx.ErrNoRows
 	}
-	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
+	if err := f.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return conflictresolution.Target{}, err
 	}
 	row, err := f.projectionRows.LoadEvidenceTx(ctx, tx, command.RecordID)

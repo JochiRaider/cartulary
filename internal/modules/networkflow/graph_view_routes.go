@@ -15,6 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -95,7 +96,7 @@ func (s *Service) handleGraphViewsCollection(w http.ResponseWriter, r *http.Requ
 			"schema_id": "cartulary.network_flow.graph_view_list.v2", "graph_views": resources,
 		})
 	case http.MethodPost:
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "admin"); apiErr != nil {
+		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -165,7 +166,7 @@ func (s *Service) handleGraphViewResource(w http.ResponseWriter, r *http.Request
 			"graph_view": graphViewResource(declaration, status),
 		})
 	case http.MethodPatch:
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "admin"); apiErr != nil {
+		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -185,7 +186,7 @@ func (s *Service) handleGraphViewResource(w http.ResponseWriter, r *http.Request
 		}
 		_ = httpapi.WriteSuccess(w, r, status, payload)
 	case http.MethodDelete:
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "reviewer", "admin"); apiErr != nil {
+		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesReviewerAdmin, "reviewer|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -223,7 +224,7 @@ func (s *Service) handleGraphViewRefresh(w http.ResponseWriter, r *http.Request)
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}

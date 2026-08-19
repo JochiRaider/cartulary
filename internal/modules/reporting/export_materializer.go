@@ -16,12 +16,12 @@ import (
 	partyreporting "github.com/JochiRaider/cartulary/internal/modules/parties/reportingprovider"
 	recordreporting "github.com/JochiRaider/cartulary/internal/modules/records/reportingprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/sourceboundary"
 	timelinereporting "github.com/JochiRaider/cartulary/internal/modules/timeline/reportingprovider"
 )
 
 type reportingIncidentProvider interface {
 	GetIncidentSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (exportprovider.IncidentSnapshot, error)
-	ResolveSourceBoundaryStateTx(context.Context, pgx.Tx, exportprovider.IncidentSnapshot) (exportprovider.SourceBoundaryState, error)
 }
 
 type reportingSupportRefProvider interface {
@@ -30,6 +30,7 @@ type reportingSupportRefProvider interface {
 
 type reportingExportMaterializer struct {
 	incidentProvider   reportingIncidentProvider
+	sourceBoundary     sourceboundary.Resolver
 	supportRefProvider reportingSupportRefProvider
 	fieldProviders     []exportprovider.FieldProvider
 }
@@ -38,10 +39,6 @@ type reportingIncidentProviderFunc struct{}
 
 func (reportingIncidentProviderFunc) GetIncidentSnapshotTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (exportprovider.IncidentSnapshot, error) {
 	return incidentreporting.GetIncidentSnapshotTx(ctx, tx, incidentID)
-}
-
-func (reportingIncidentProviderFunc) ResolveSourceBoundaryStateTx(ctx context.Context, tx pgx.Tx, incident exportprovider.IncidentSnapshot) (exportprovider.SourceBoundaryState, error) {
-	return incidentreporting.ResolveSourceBoundaryStateTx(ctx, tx, incident)
 }
 
 type reportingSupportRefProviderFunc struct {
@@ -66,8 +63,12 @@ func (p reportingExportFieldProviderFunc) CollectFactsTx(ctx context.Context, tx
 }
 
 func newReportingExportMaterializer(
+	sourceBoundary sourceboundary.Resolver,
 	contributions ...exportprovider.FieldProvider,
 ) (reportingExportMaterializer, error) {
+	if sourceBoundary == nil {
+		return reportingExportMaterializer{}, errors.New("reporting source-boundary resolver is required")
+	}
 	fieldProviders := []exportprovider.FieldProvider{
 		reportingExportFieldProviderFunc{key: "records", collect: recordreporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "timeline", collect: timelinereporting.CollectFactsTx},
@@ -96,6 +97,7 @@ func newReportingExportMaterializer(
 	})
 	return reportingExportMaterializer{
 		incidentProvider: reportingIncidentProviderFunc{},
+		sourceBoundary:   sourceBoundary,
 		supportRefProvider: reportingSupportRefProviderFunc{
 			collect: func(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (map[string][]string, error) {
 				targets, err := evidencereporting.CollectLogicalSupportTargetsTx(ctx, tx, incidentID)
@@ -120,30 +122,25 @@ func getIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (Incide
 	return incidentMetadataFromProvider(record), nil
 }
 
-func resolveSourceBoundaryTx(ctx context.Context, tx pgx.Tx, incident IncidentMetadataSnapshot) (ResolvedSourceBoundary, error) {
-	providerIncident := incidentMetadataToProvider(incident)
-	state, err := (reportingIncidentProviderFunc{}).ResolveSourceBoundaryStateTx(ctx, tx, providerIncident)
+func (m reportingExportMaterializer) ResolveSourceBoundaryTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incident IncidentMetadataSnapshot,
+) (ResolvedSourceBoundary, error) {
+	incidentID, err := uuid.Parse(incident.ID)
 	if err != nil {
 		return ResolvedSourceBoundary{}, err
 	}
-	encoded, err := canonicalJSON(SourceBoundaryState{
-		IncidentID:               state.IncidentID,
-		IncidentVersion:          state.IncidentVersion,
-		LatestChangeSetID:        state.LatestChangeSetID,
-		LatestChangeSetCreatedAt: state.LatestChangeSetCreatedAt,
+	boundary, err := m.sourceBoundary.ResolveCurrentTx(ctx, tx, sourceboundary.ResolveInput{
+		IncidentID:      incidentID,
+		IncidentVersion: incident.Version,
 	})
 	if err != nil {
 		return ResolvedSourceBoundary{}, err
 	}
 	return ResolvedSourceBoundary{
-		Token:         SourceBoundaryTokenPrefix + hashHex(encoded),
-		CanonicalJSON: encoded,
-		State: SourceBoundaryState{
-			IncidentID:               state.IncidentID,
-			IncidentVersion:          state.IncidentVersion,
-			LatestChangeSetID:        state.LatestChangeSetID,
-			LatestChangeSetCreatedAt: state.LatestChangeSetCreatedAt,
-		},
+		Token:         boundary.Token,
+		CanonicalJSON: append([]byte(nil), boundary.CanonicalJSON...),
 	}, nil
 }
 
@@ -184,19 +181,6 @@ func (m reportingExportMaterializer) CollectFieldsTx(ctx context.Context, tx pgx
 
 func incidentMetadataFromProvider(record exportprovider.IncidentSnapshot) IncidentMetadataSnapshot {
 	return IncidentMetadataSnapshot{
-		ID:           record.ID,
-		Title:        record.Title,
-		Description:  record.Description,
-		Status:       record.Status,
-		Severity:     record.Severity,
-		TLP:          record.TLP,
-		CurrentPhase: record.CurrentPhase,
-		Version:      record.Version,
-	}
-}
-
-func incidentMetadataToProvider(record IncidentMetadataSnapshot) exportprovider.IncidentSnapshot {
-	return exportprovider.IncidentSnapshot{
 		ID:           record.ID,
 		Title:        record.Title,
 		Description:  record.Description,

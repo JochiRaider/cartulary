@@ -9,7 +9,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
@@ -21,7 +21,7 @@ import (
 type mutationFacade struct {
 	pool              postgres.DB
 	authStore         *authn.Store
-	incidentAccess    incidents.Access
+	incidentAccess    *admission.Checker
 	recordStore       *records.Store
 	projectionRows    evidenceprojection.Rows
 	supportEffects    evidenceprojection.SupportProjectionEffectsTx
@@ -144,7 +144,7 @@ func newMutationFacade(
 		return nil, fmt.Errorf("compose Evidence workbook facade: support projection effects are required")
 	}
 	recordStore := records.NewStore()
-	incidentAccess := incidents.NewAccess(pool)
+	incidentAccess := admission.NewChecker(pool)
 	return &mutationFacade{
 		pool:              pool,
 		authStore:         authn.NewStore(pool),

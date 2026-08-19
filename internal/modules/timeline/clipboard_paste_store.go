@@ -74,7 +74,7 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return ClipboardPasteResult{}, err
 	}
 	if err := s.validateOwnerBatchTargetsTx(ctx, tx, incidentID, request.Operation, request.Targets); err != nil {

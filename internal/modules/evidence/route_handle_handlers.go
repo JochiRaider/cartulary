@@ -11,6 +11,7 @@ import (
 	"time"
 
 	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
@@ -42,7 +43,7 @@ func (s *service) handleIssueHandle(w http.ResponseWriter, r *http.Request, kind
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.admission.requireRole(r.Context(), access.IncidentID, principal.User.ID, "viewer", "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.admission.requireRole(r.Context(), access.IncidentID, principal.User.ID, admission.RolesMember, "member"); apiErr != nil {
 		writeAPIError(w, r, evidenceRecordNotFound())
 		return
 	}
@@ -142,7 +143,7 @@ func (s *service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, handleNotFoundOrRevoked())
 		return
 	}
-	if _, apiErr := s.admission.requireRole(r.Context(), handle.IncidentID, principal.User.ID, "viewer", "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.admission.requireRole(r.Context(), handle.IncidentID, principal.User.ID, admission.RolesMember, "member"); apiErr != nil {
 		writeAPIError(w, r, handleNotFoundOrRevoked())
 		return
 	}

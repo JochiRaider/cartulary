@@ -73,7 +73,7 @@ func (service indicatorCreateService) createIndicatorRow(ctx context.Context, ac
 		_ = tx.Rollback(ctx)
 	}()
 
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return CreateResult{}, err
 	}
 	beforeSnapshot, err := s.captureIndicatorSnapshotBeforeUpsertTx(ctx, tx, incidentID, command)
@@ -202,7 +202,7 @@ func (s *Store) FindOrCreateIndicatorParticipantTx(ctx context.Context, tx pgx.T
 	if command.OperationOccurred.IsZero() {
 		return IndicatorFindOrCreateParticipantResult{}, &IndicatorCreateValidationError{Field: "operation_occurred", ReasonCode: "missing_required_field"}
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, command.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, command.IncidentID); err != nil {
 		return IndicatorFindOrCreateParticipantResult{}, err
 	}
 

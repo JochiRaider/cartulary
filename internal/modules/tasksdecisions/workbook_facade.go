@@ -184,7 +184,7 @@ func (f *MutationFacade) Create(ctx context.Context, command WorkbookCreateComma
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, command.IncidentID); err != nil {
+	if err := f.incidentAccess.RequireOpenTx(ctx, tx, command.IncidentID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
 	if err := validateCreateReferencesTx(ctx, tx, f.memberReferences, f.linkStore, command.IncidentID, request); err != nil {
@@ -339,7 +339,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if !recordTypeMatchesView(meta.RecordType, request.ViewSchemaID) {
 		return WorkbookMutationResult{}, pgx.ErrNoRows
 	}
-	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
+	if err := f.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
 	effectiveBeforeVersion := request.BaseRowVersion

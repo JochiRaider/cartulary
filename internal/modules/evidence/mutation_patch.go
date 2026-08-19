@@ -50,7 +50,7 @@ func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	if meta.RecordType != "evidence" {
 		return MutationResult{}, pgx.ErrNoRows
 	}
-	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
+	if err := f.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return MutationResult{}, err
 	}
 	effectiveBeforeVersion := request.BaseRowVersion

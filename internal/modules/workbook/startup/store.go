@@ -17,7 +17,8 @@ var (
 )
 
 // PreferenceStore is the non-transactional preference surface Workbook needs
-// for its public preference routes. Storage ownership remains outside Workbook.
+// for its public preference routes. The PostgreSQL implementation is owned by
+// the startup/postgres leaf package.
 type PreferenceStore interface {
 	GetDefaultPreferences(ctx context.Context, incidentID uuid.UUID) (DefaultPreferencesRecord, error)
 	PutDefaultPreferences(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, defaultSheetRef []byte, now time.Time) (DefaultPreferencesRecord, error)
@@ -35,8 +36,8 @@ type Session interface {
 	ResolveSavedView(ctx context.Context, incidentID uuid.UUID, savedViewID uuid.UUID, userID uuid.UUID) (SavedViewRecord, string, error)
 }
 
-// UnitOfWork joins Incidents-owned preferences and Saved Views resolution over
-// one transaction without leaking transaction mechanics into Workbook.
+// UnitOfWork joins Workbook preferences and Saved Views resolution over one
+// transaction without leaking transaction mechanics into the Workbook core.
 type UnitOfWork interface {
 	Run(ctx context.Context, operation func(Session) (Record, error)) (Record, error)
 }

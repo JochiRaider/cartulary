@@ -7,12 +7,15 @@
   "owner_requirements": [
     "REQ-00-071",
     "REQ-01-659",
+    "REQ-02-143b",
     "REQ-02-265"
   ],
   "contract_files": {
     "canonical_snapshot_envelope": "contracts/revisions/canonical-snapshot-envelope.v1.schema.json",
     "conflict_token_key_ring": "contracts/revisions/conflict-token-key-ring.v1.schema.json",
     "snapshot_schema_registry": "contracts/revisions/snapshot-schema-registry.v1.json",
+    "source_boundary": "contracts/revisions/source-boundary.v1.schema.json",
+    "source_boundary_vectors": "contracts/revisions/source-boundary-vectors.v1.json",
     "target_semantics_registry": "contracts/revisions/target-semantics-registry.v1.json"
   },
   "compatibility_policy": {

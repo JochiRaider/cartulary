@@ -203,7 +203,7 @@ func (s *store) createRow(ctx context.Context, actor authn.UserRecord, incidentI
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
 	changeSetID := uuid.New()
@@ -538,7 +538,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, current.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, current.IncidentID); err != nil {
 		return MutationResult{}, err
 	}
 	if current.RowVersion < request.BaseRowVersion {

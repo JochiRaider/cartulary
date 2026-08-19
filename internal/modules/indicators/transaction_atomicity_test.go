@@ -15,6 +15,7 @@ import (
 	indicatorcontract "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	projectionfixture "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport/fixturewriter"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
@@ -34,7 +35,7 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	}
 	actor := authstoretest.SeedLocalUserRecord(t, db, "indicator-atomicity@example.test", "Indicator Atomicity", "IndicatorAtomicity1!", false, false, true)
 	now := time.Date(2026, 8, 3, 19, 0, 0, 0, time.UTC)
-	incidentResult, err := incidents.NewApplication(db).CreateIncident(ctx, actor, incidents.CreateIncidentRequest{
+	incidentResult, err := incidents.NewApplication(db, workbookstartuppostgres.NewWriter()).CreateIncident(ctx, actor, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-indicator-atomicity-incident",
 		IncidentKey: "IR-IND-ATOMICITY",
 		Title:       "Indicator repository atomicity",

@@ -345,20 +345,6 @@ func (r *repository) countIncidentAdmins(ctx context.Context, incidentID uuid.UU
 	return int(count), nil
 }
 
-func (r *repository) ensureOpen(ctx context.Context, incidentID uuid.UUID) error {
-	status, err := r.queries.EnsureIncidentOpenForMutation(ctx, pgUUID(incidentID))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrIncidentNotFound
-	}
-	if err != nil {
-		return fmt.Errorf("ensure incident open: %w", err)
-	}
-	if status == "closed" {
-		return ErrIncidentClosed
-	}
-	return nil
-}
-
 func (r *repository) getIncidentBundleInitialAdminForUpdate(
 	ctx context.Context,
 	userID uuid.UUID,

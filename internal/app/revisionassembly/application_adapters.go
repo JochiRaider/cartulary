@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -25,7 +25,7 @@ func (adapter transactionRunnerAdapter) BeginTx(ctx context.Context, options pgx
 }
 
 type commandAuthorizerAdapter struct {
-	access incidents.Access
+	access *admission.Checker
 }
 
 func (adapter commandAuthorizerAdapter) AuthorizeCommandTx(
@@ -35,17 +35,20 @@ func (adapter commandAuthorizerAdapter) AuthorizeCommandTx(
 	actor revisions.ActorID,
 	kind revisions.CommandKind,
 ) error {
-	roles := []string{"reviewer", "admin"}
+	roles := admission.RolesReviewerAdmin
 	if kind == revisions.CommandSoftDelete {
-		roles = []string{"editor", "reviewer", "admin"}
+		roles = admission.RolesEditorReviewerAdmin
 	}
-	_, err := adapter.access.AuthorizeMutationTx(ctx, tx, incidentID, actor.UUID(), roles...)
+	_, err := adapter.access.CheckTx(ctx, tx, incidentID, actor.UUID(), admission.Requirement{
+		AllowedRoles: roles,
+		Lifecycle:    admission.LifecycleOpen,
+	})
 	switch {
-	case errors.Is(err, incidents.ErrIncidentClosed):
+	case admission.IsDenied(err, admission.DenialIncidentClosed):
 		return revisions.ErrCommandIncidentClosed
-	case errors.Is(err, incidents.ErrIncidentNotFound), errors.Is(err, incidents.ErrMembershipNotFound):
+	case admission.IsDenied(err, admission.DenialNotVisible):
 		return revisions.ErrCommandTargetNotFound
-	case errors.Is(err, incidents.ErrIncidentRoleDenied):
+	case admission.IsDenied(err, admission.DenialInsufficientRole):
 		return revisions.ErrCommandRoleDenied
 	default:
 		return err

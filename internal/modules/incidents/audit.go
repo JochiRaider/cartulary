@@ -27,7 +27,7 @@ type auditEvent struct {
 	PublicSource string
 }
 
-func insertAuditEvent(ctx context.Context, tx pgx.Tx, event auditEvent) error {
+func insertAuditEvent(ctx context.Context, tx pgx.Tx, event auditEvent) (uuid.UUID, error) {
 	occurredAt := time.Now().UTC()
 	raw := administrativeaudit.RawEvent{
 		ActorUserID:  event.ActorUserID,
@@ -44,20 +44,21 @@ func insertAuditEvent(ctx context.Context, tx pgx.Tx, event auditEvent) error {
 	}
 	actionCode, changes, projected := membershipAuditProjection(event)
 	if !projected {
-		if _, err := administrativeaudit.AppendRawTx(ctx, tx, raw); err != nil {
-			return fmt.Errorf("insert incident audit event: %w", err)
+		eventID, err := administrativeaudit.AppendRawTx(ctx, tx, raw)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("insert incident audit event: %w", err)
 		}
-		return nil
+		return eventID, nil
 	}
 	if event.IncidentID == nil || event.ActorUserID == nil || event.TargetUserID == nil {
-		return errors.New("insert incident membership audit event: projection identifiers are incomplete")
+		return uuid.Nil, errors.New("insert incident membership audit event: projection identifiers are incomplete")
 	}
 	source := event.PublicSource
 	if source == "" {
 		source = administrativeaudit.SourceAPI
 	}
 	targetID := event.TargetUserID.String()
-	if _, err := administrativeaudit.AppendTx(ctx, tx, raw, administrativeaudit.Event{
+	eventID, err := administrativeaudit.AppendTx(ctx, tx, raw, administrativeaudit.Event{
 		ScopeKind:   administrativeaudit.ScopeIncident,
 		ScopeID:     event.IncidentID,
 		OccurredAt:  occurredAt,
@@ -69,10 +70,11 @@ func insertAuditEvent(ctx context.Context, tx pgx.Tx, event auditEvent) error {
 		TargetID:    &targetID,
 		Changes:     changes,
 		ReasonCode:  event.ReasonCode,
-	}); err != nil {
-		return fmt.Errorf("insert incident audit event: %w", err)
+	})
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("insert incident audit event: %w", err)
 	}
-	return nil
+	return eventID, nil
 }
 
 func membershipAuditProjection(event auditEvent) (string, []administrativeaudit.Change, bool) {

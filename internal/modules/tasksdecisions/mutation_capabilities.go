@@ -99,7 +99,7 @@ func (r StoredMutationResult) DecisionSupersessionResult() (StoredDecisionSupers
 // IncidentStateCapability owns only incident lifecycle admission in a caller
 // supplied transaction.
 type IncidentStateCapability interface {
-	EnsureOpenTx(context.Context, pgx.Tx, uuid.UUID) error
+	RequireOpenTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
 // MemberReferenceCapability validates the stable active same-incident user

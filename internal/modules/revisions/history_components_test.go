@@ -17,6 +17,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
+	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
@@ -192,7 +193,7 @@ func TestHistoryQueryRepositoryMapsPersistenceRows_Integration(t *testing.T) {
 		true,
 	)
 	now := time.Date(2026, 8, 3, 16, 45, 0, 123456000, time.UTC)
-	incidentResult, err := incidents.NewApplication(database).CreateIncident(context.Background(), actor, incidents.CreateIncidentRequest{
+	incidentResult, err := incidents.NewApplication(database, workbookstartuppostgres.NewWriter()).CreateIncident(context.Background(), actor, incidents.CreateIncidentRequest{
 		ClientTxnID: "history-repository-incident",
 		IncidentKey: "IR-HISTORY-REPOSITORY",
 		Title:       "History repository component",

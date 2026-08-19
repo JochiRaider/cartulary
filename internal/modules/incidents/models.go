@@ -18,7 +18,6 @@ var (
 	ErrIncidentClosed            = errors.New("incidents: incident closed")
 	ErrIncidentIllegalTransition = errors.New("incidents: illegal incident transition")
 	ErrInitialAdminUnavailable   = errors.New("incidents: initial admin unavailable")
-	ErrIncidentRoleDenied        = errors.New("incidents: incident role denied")
 )
 
 // IncidentVersionConflictError carries the optimistic-concurrency values needed
@@ -89,23 +88,65 @@ type MembershipRecord struct {
 }
 
 type CreateIncidentResult struct {
-	Incident   IncidentRecord
-	Payload    map[string]any
-	StatusCode int
-	Location   string
+	Incident IncidentRecord
+	Payload  map[string]any
+	Created  bool
 }
 
 type MembershipCreateResult struct {
 	Membership MembershipRecord
 	Payload    map[string]any
-	StatusCode int
+	Created    bool
 }
 
 type IncidentLifecycleResult struct {
-	Incident   IncidentRecord
-	Payload    map[string]any
-	StatusCode int
-	Replayed   bool
+	Incident IncidentRecord
+	Payload  map[string]any
+	Commit   TerminalMutationCommit
+}
+
+type MembershipDeleteResult struct {
+	Commit TerminalMutationCommit
+}
+
+type TerminalMutationDisposition string
+
+const (
+	TerminalMutationNewCommit TerminalMutationDisposition = "new_commit"
+	TerminalMutationReplay    TerminalMutationDisposition = "replay"
+)
+
+// TerminalMutationCommit describes whether an application mutation committed
+// new state. EffectKey is the administrative-audit event UUID committed in the
+// same transaction; replay results never carry one.
+type TerminalMutationCommit struct {
+	Disposition TerminalMutationDisposition
+	EffectKey   uuid.UUID
+}
+
+func NewTerminalMutationCommit(effectKey uuid.UUID) TerminalMutationCommit {
+	return TerminalMutationCommit{Disposition: TerminalMutationNewCommit, EffectKey: effectKey}
+}
+
+func ReplayTerminalMutationCommit() TerminalMutationCommit {
+	return TerminalMutationCommit{Disposition: TerminalMutationReplay}
+}
+
+func (commit TerminalMutationCommit) Validate() error {
+	switch commit.Disposition {
+	case TerminalMutationNewCommit:
+		if commit.EffectKey == uuid.Nil {
+			return errors.New("incidents: new terminal mutation commit requires an effect key")
+		}
+		return nil
+	case TerminalMutationReplay:
+		if commit.EffectKey != uuid.Nil {
+			return errors.New("incidents: replayed terminal mutation cannot carry an effect key")
+		}
+		return nil
+	default:
+		return errors.New("incidents: invalid terminal mutation disposition")
+	}
 }
 
 func optionalStringValue(value *string) string {
@@ -113,10 +154,6 @@ func optionalStringValue(value *string) string {
 		return ""
 	}
 	return *value
-}
-
-func incidentLocation(incidentID uuid.UUID) string {
-	return "/api/v1/incidents/" + incidentID.String()
 }
 
 func extractUUID(value any) (uuid.UUID, error) {

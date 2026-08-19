@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -28,7 +28,7 @@ import (
 type WorkbookFacade struct {
 	pool              postgres.DB
 	authStore         *authn.Store
-	incidentAccess    incidents.Access
+	incidentAccess    *admission.Checker
 	recordStore       *records.Store
 	projectionRows    partyprojection.Rows
 	revisionHistory   conflicttokens.RevisionWindowReader
@@ -125,7 +125,7 @@ func NewWorkbookFacade(
 	return &WorkbookFacade{
 		pool:              pool,
 		authStore:         authn.NewStore(pool),
-		incidentAccess:    incidents.NewAccess(pool),
+		incidentAccess:    admission.NewChecker(pool),
 		recordStore:       records.NewStore(),
 		projectionRows:    projectionRows,
 		revisionHistory:   conflicttokens.NewRevisionWindowReader(),
@@ -173,7 +173,7 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, command.IncidentID); err != nil {
+	if err := f.incidentAccess.RequireOpenTx(ctx, tx, command.IncidentID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
 	now := command.Now.UTC()
@@ -366,7 +366,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if meta.RecordType != "party" {
 		return WorkbookMutationResult{}, pgx.ErrNoRows
 	}
-	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
+	if err := f.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
 	effectiveBeforeVersion := request.BaseRowVersion

@@ -59,7 +59,7 @@ func (f *mutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, command.IncidentID); err != nil {
+	if err := f.incidentAccess.RequireOpenTx(ctx, tx, command.IncidentID); err != nil {
 		return MutationResult{}, err
 	}
 	if request.InitialObjectBlobID != nil {

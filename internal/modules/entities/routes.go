@@ -10,6 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -19,10 +20,14 @@ import (
 type Service struct {
 	mergeStore     *merge.Store
 	mentionStore   *mentions.Store
-	incidentAccess incidents.Access
+	incidentAccess incidentAdmissionChecker
 	authStore      *authn.Store
 	keys           authn.MasterKeys
 	now            func() time.Time
+}
+
+type incidentAdmissionChecker interface {
+	Check(context.Context, uuid.UUID, uuid.UUID, admission.Requirement) (admission.Grant, error)
 }
 
 type RouteOptions struct {
@@ -61,7 +66,7 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	return &Service{
 		mergeStore:     options.MergeStore,
 		mentionStore:   options.MentionStore,
-		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
+		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		keys:           keys,
 		now:            now,
@@ -89,7 +94,7 @@ func (s *Service) handleMerge(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesReviewerAdmin, "reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -114,7 +119,7 @@ func (s *Service) handleMerge(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
+	case errors.Is(err, incidents.ErrIncidentClosed), admission.IsDenied(err, admission.DenialIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, merge.ErrMergeTargetNotFound):
@@ -183,7 +188,7 @@ func (s *Service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
+	case errors.Is(err, incidents.ErrIncidentClosed), admission.IsDenied(err, admission.DenialIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, mentions.ErrEntityMentionNotFound):
@@ -216,8 +221,18 @@ func (s *Service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
-func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentRole(ctx, s.incidentAccess, incidentID, userID, roles...)
+func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *httpapi.APIError) {
+	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleAny})
+	switch {
+	case admission.IsDenied(err, admission.DenialNotVisible):
+		return admission.Grant{}, incidentNotFoundError()
+	case admission.IsDenied(err, admission.DenialInsufficientRole):
+		return admission.Grant{}, authorizationDeniedError(requiredRole)
+	case err != nil:
+		return admission.Grant{}, internalAPIError(err)
+	default:
+		return grant, nil
+	}
 }
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {

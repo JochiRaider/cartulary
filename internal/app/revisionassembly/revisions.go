@@ -9,7 +9,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
@@ -148,7 +148,7 @@ func (r *Runtime) NewCommandService(
 	}
 	return revisions.NewCommandService(revisions.CommandServiceDependencies{
 		Transactions:                transactionRunnerAdapter{database: db},
-		Authorization:               commandAuthorizerAdapter{access: incidents.NewAccess(db)},
+		Authorization:               commandAuthorizerAdapter{access: admission.NewChecker(db)},
 		Idempotency:                 commandIdempotencyAdapter{store: authn.NewStore(db)},
 		ImportedAttributionResolver: attributionResolver,
 		Projections:                 projections,

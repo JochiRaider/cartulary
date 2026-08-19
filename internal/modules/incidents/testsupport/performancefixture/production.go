@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -29,7 +30,7 @@ func NewProductionApplication(pool postgres.DB, actor authn.UserRecord) (*Produc
 		return nil, fmt.Errorf("incidents performance fixture requires an active deployment-admin actor")
 	}
 	return &ProductionApplication{
-		actor: actor, incidents: incidents.NewApplication(pool), users: authn.NewStore(pool), now: time.Now,
+		actor: actor, incidents: incidents.NewApplication(pool, workbookstartuppostgres.NewWriter()), users: authn.NewStore(pool), now: time.Now,
 	}, nil
 }
 

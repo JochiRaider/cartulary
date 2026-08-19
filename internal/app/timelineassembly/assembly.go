@@ -17,7 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -110,7 +110,7 @@ func compose(dependencies Dependencies) composition {
 	collaborators := timeline.Collaborators{
 		Core: timeline.CoreCollaborators{
 			Idempotency: idempotencyAdapter{store: authn.NewStore(dependencies.Postgres)},
-			Incidents:   incidentAdapter{access: incidents.NewAccess(dependencies.Postgres)},
+			Incidents:   incidentAdapter{access: admission.NewChecker(dependencies.Postgres)},
 			Records:     recordsPort,
 			Revisions:   revisionAdapter{appender: dependencies.Revisions, reader: conflicttokens.NewRevisionWindowReader()},
 		},
@@ -197,12 +197,12 @@ func (a idempotencyAdapter) InsertRouteIdempotencyPayload(ctx context.Context, t
 }
 
 type incidentAdapter struct {
-	access incidents.Access
+	access *admission.Checker
 }
 
-func (a incidentAdapter) EnsureOpenTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	err := a.access.EnsureOpenTx(ctx, tx, incidentID)
-	if errors.Is(err, incidents.ErrIncidentClosed) {
+func (a incidentAdapter) RequireOpenTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
+	err := a.access.RequireOpenTx(ctx, tx, incidentID)
+	if admission.IsDenied(err, admission.DenialIncidentClosed) {
 		return timeline.ErrIncidentClosed
 	}
 	return err

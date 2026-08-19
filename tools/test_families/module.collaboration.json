@@ -849,6 +849,35 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.collaboration.support_unit.terminal_incident_effects_run_only_after_fresh_c_15414f1007",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.support_unit",
+      "collaborator_ids": [
+        "module.incidents"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/collaborationassembly/incidenteffects",
+        "tests": [
+          "TestCoordinatorEmitsOnlyAfterFreshTerminalCommit",
+          "TestCoordinatorRequiresCompleteComposition",
+          "TestCoordinatorSuppressesEffectsForFailureAndInvalidResults",
+          "TestCoordinatorTargetsOnlyDeletedMembership"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1",
       "owner_id": "module.collaboration",
       "family_id": "module.collaboration.visual",

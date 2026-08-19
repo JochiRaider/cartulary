@@ -13,7 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -26,7 +26,7 @@ import (
 type Store struct {
 	pool           postgres.DB
 	authStore      *authn.Store
-	incidentAccess incidents.Access
+	incidentAccess *admission.Checker
 	ports          storePorts
 }
 
@@ -64,7 +64,7 @@ func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOp
 	return &Store{
 		pool:           pool,
 		authStore:      authn.NewStore(pool),
-		incidentAccess: incidents.NewAccess(pool),
+		incidentAccess: admission.NewChecker(pool),
 		ports:          ports,
 	}
 }

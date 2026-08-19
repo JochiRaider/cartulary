@@ -51,7 +51,7 @@ type IdempotencyPort interface {
 }
 
 type IncidentPort interface {
-	EnsureOpenTx(context.Context, pgx.Tx, uuid.UUID) error
+	RequireOpenTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
 type RecordCreateParams struct {

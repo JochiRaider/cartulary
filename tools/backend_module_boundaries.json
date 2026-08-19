@@ -175,6 +175,30 @@
   },
   "owner_port_only_imports": [
     {
+      "id": "revisions-source-boundary-port-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/revisions/sourceboundary",
+      "allowed_importers": [
+        "internal/app/server/runtime_assembly.go",
+        "internal/modules/reporting/evidence_provider_validation_test.go",
+        "internal/modules/reporting/export_materializer.go",
+        "internal/modules/reporting/routes.go",
+        "internal/modules/revisions/sourceboundary/**"
+      ]
+    },
+    {
+      "id": "workbook-startup-bootstrap-port-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrapport",
+      "allowed_importers": [
+        "internal/modules/incidents/application.go",
+        "internal/modules/incidents/import_finalization.go",
+        "internal/modules/incidents/incident_application.go",
+        "internal/modules/incidents/ports.go",
+        "internal/modules/incidents/store_test.go",
+        "internal/modules/workbook/startup/bootstrapport/**",
+        "internal/modules/workbook/startup/postgres/**"
+      ]
+    },
+    {
       "id": "extensions-facade-composition-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/extensions",
       "allowed_importers": [
@@ -767,6 +791,19 @@
       "production_only": true
     },
     {
+      "id": "collaboration-incident-effects-notifier-has-no-storage-dependency",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/platform/authn",
+        "github.com/JochiRaider/cartulary/internal/platform/postgres"
+      ],
+      "scan_paths": [
+        "internal/modules/collaboration/incident_session_notifier.go"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "extensions-owner-no-concrete-profile-implementations",
       "match_kind": "subtree",
       "imports": [
@@ -823,17 +860,53 @@
         "github.com/jackc/pgx/v5/pgxpool"
       ],
       "scan_paths": ["internal/modules/workbook/**"],
+      "allowed_paths": ["internal/modules/workbook/startup/postgres/**"],
+      "production_only": true
+    },
+    {
+      "id": "incidents-no-workbook-startup-implementation-or-platform-ws",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres",
+        "github.com/JochiRaider/cartulary/internal/platform/ws"
+      ],
+      "scan_paths": ["internal/modules/incidents/**"],
       "allowed_paths": [],
       "production_only": true
     },
     {
-      "id": "incidents-no-workbook-startup-or-platform-ws",
-      "match_kind": "subtree",
+      "id": "incidents-no-workbook-startup-root",
+      "match_kind": "exact",
       "imports": [
-        "github.com/JochiRaider/cartulary/internal/modules/workbook/startup",
-        "github.com/JochiRaider/cartulary/internal/platform/ws"
+        "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
       ],
       "scan_paths": ["internal/modules/incidents/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "incidents-admission-is-transport-neutral",
+      "match_kind": "subtree",
+      "imports": [
+        "net/http",
+        "github.com/JochiRaider/cartulary/internal/platform/httpapi",
+        "github.com/JochiRaider/cartulary/internal/platform/httpauth"
+      ],
+      "scan_paths": ["internal/modules/incidents/admission/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "incidents-root-is-transport-neutral",
+      "match_kind": "subtree",
+      "imports": [
+        "net/http",
+        "github.com/JochiRaider/cartulary/internal/platform/httpapi",
+        "github.com/JochiRaider/cartulary/internal/platform/httpauth"
+      ],
+      "scan_paths": [
+        "internal/modules/incidents/*.go"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -975,6 +1048,7 @@
         "github.com/JochiRaider/cartulary/internal/modules/evidence",
         "github.com/JochiRaider/cartulary/internal/modules/indicators",
         "github.com/JochiRaider/cartulary/internal/modules/incidents",
+        "github.com/JochiRaider/cartulary/internal/modules/incidents/admission",
         "github.com/JochiRaider/cartulary/internal/modules/links",
         "github.com/JochiRaider/cartulary/internal/modules/parties",
         "github.com/JochiRaider/cartulary/internal/modules/records",
@@ -1044,6 +1118,7 @@
         "github.com/JochiRaider/cartulary/internal/modules/evidence",
         "github.com/JochiRaider/cartulary/internal/modules/tabularingest",
         "github.com/JochiRaider/cartulary/internal/modules/incidents",
+        "github.com/JochiRaider/cartulary/internal/modules/incidents/admission",
         "github.com/JochiRaider/cartulary/internal/modules/indicators",
         "github.com/JochiRaider/cartulary/internal/modules/links",
         "github.com/JochiRaider/cartulary/internal/modules/parties",
@@ -1088,6 +1163,7 @@
       ],
       "allowed_imports": [
         "github.com/JochiRaider/cartulary/internal/modules/incidents",
+        "github.com/JochiRaider/cartulary/internal/modules/incidents/admission",
         "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
       ]
     }
@@ -1556,6 +1632,16 @@
         "internal/testutil/networkflowsupport/intents.go",
         "internal/testutil/revisionsupport/revisionsupport.go"
       ]
+    },
+    {
+      "id": "incident-terminal-mutations-invoked-only-by-effect-coordinator",
+      "symbols": [
+        ".DeleteMembership(",
+        ".TransitionIncidentLifecycle("
+      ],
+      "allowed_paths": [
+        "internal/app/collaborationassembly/incidenteffects/coordinator.go"
+      ]
     }
   ],
   "command_root_shape": {
@@ -1756,6 +1842,75 @@
       "scan_paths": ["internal/modules/incidents/**"],
       "allowed_paths": [],
       "production_only": false
+    },
+    {
+      "id": "retired-incidents-admission-api",
+      "tokens": [
+        "type Access interface",
+        "type AccessService struct",
+        "func NewAccess(",
+        "func IncidentAccessError(",
+        "func RequireIncidentMembership(",
+        "func RequireIncidentRole(",
+        "AuthorizeMutationTx(",
+        "EnsureOpenTx("
+      ],
+      "scan_paths": ["internal/modules/incidents/**"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-incidents-effect-routing-api",
+      "tokens": [
+        "CollaborationSessionPort",
+        "RegisterIncidentSession(",
+        "RevokeIncidentSession(",
+        "notifyIncidentClosed(",
+        "notifyIncidentMembershipRevoked("
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "retired-incidents-http-root-api",
+      "tokens": [
+        "Location string",
+        "StatusCode int",
+        "func RegisterRoutes(",
+        "type RouteOptions struct"
+      ],
+      "scan_paths": [
+        "internal/modules/incidents/*.go"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "retired-incidents-owner-adapters",
+      "tokens": [
+        "ResolveSourceBoundaryStateTx",
+        "incidents_workbook_preferences",
+        "internal/modules/incidents/workbookpreferences"
+      ],
+      "scan_paths": [
+        "db/queries/**",
+        "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "incidents-no-revisions-source-boundary-storage",
+      "tokens": [
+        "change_sets",
+        "change_set_id DESC"
+      ],
+      "scan_paths": ["internal/modules/incidents/**"],
+      "allowed_paths": [],
+      "production_only": true
     },
     {
       "id": "incident-create-commit-seam-not-in-production-assembly",
@@ -2063,6 +2218,10 @@
       ],
       "scan_paths": ["internal/modules/**"],
       "allowed_paths": [
+        "internal/modules/incidents/application.go",
+        "internal/modules/incidents/import_finalization.go",
+        "internal/modules/incidents/incident_application.go",
+        "internal/modules/incidents/ports.go",
         "internal/modules/projections/adapters/adapters.go",
         "internal/modules/workbook/**"
       ],

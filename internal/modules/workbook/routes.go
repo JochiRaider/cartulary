@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
@@ -37,7 +38,7 @@ type Service struct {
 	timelineOwner  workbookTimelineMutationPort
 	entityOwner    workbookEntityMutationPort
 	conflictTokens workbookConflictTokenPort
-	incidentAccess incidents.Access
+	incidentAccess *admission.Checker
 	startupStore   *workbookstartup.Store
 	authStore      *authn.Store
 	cursorCodec    *pagination.Codec
@@ -105,7 +106,7 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -185,7 +186,7 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -275,7 +276,7 @@ func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Requ
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
+	case errors.Is(err, incidents.ErrIncidentClosed), admission.IsDenied(err, admission.DenialIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, hostidentity.ErrInvalidCreateRequest):
@@ -350,7 +351,7 @@ func newService(
 		timelineOwner:  routeDependencies.TimelineOwner,
 		entityOwner:    routeDependencies.EntityOwner,
 		conflictTokens: routeDependencies.ConflictTokens,
-		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
+		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
 		startupStore:   startupStore,
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		cursorCodec:    cursorCodec,
@@ -401,7 +402,7 @@ func (s *Service) handleWorkbookPreferencesDefault(w http.ResponseWriter, r *htt
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		membership, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin")
+		membership, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesAdmin, "admin")
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -411,7 +412,7 @@ func (s *Service) handleWorkbookPreferencesDefault(w http.ResponseWriter, r *htt
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if apiErr := s.startupStore.ValidatePreferenceSheetRef(request.DefaultSheetRef, membership.Role, "default_sheet_ref"); apiErr != nil {
+		if apiErr := s.startupStore.ValidatePreferenceSheetRef(request.DefaultSheetRef, membership.Role.String(), "default_sheet_ref"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -482,7 +483,7 @@ func (s *Service) handleWorkbookPreferencesMe(w http.ResponseWriter, r *http.Req
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if apiErr := s.startupStore.ValidatePreferenceSheetRef(request.HomeSheetRef, membership.Role, "home_sheet_ref"); apiErr != nil {
+		if apiErr := s.startupStore.ValidatePreferenceSheetRef(request.HomeSheetRef, membership.Role.String(), "home_sheet_ref"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -526,11 +527,11 @@ func (s *Service) handleWorkbookStartup(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := s.startupStore.ValidateExplicitSheetRef(explicitSheetRef, membership.Role); apiErr != nil {
+	if apiErr := s.startupStore.ValidateExplicitSheetRef(explicitSheetRef, membership.Role.String()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	record, err := s.startupStore.Resolve(r.Context(), incidentID, principal.User.ID, membership.Role, explicitSheetRef, s.now())
+	record, err := s.startupStore.Resolve(r.Context(), incidentID, principal.User.ID, membership.Role.String(), explicitSheetRef, s.now())
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -680,7 +681,7 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -727,7 +728,7 @@ func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), target.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), target.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -779,7 +780,7 @@ func (s *Service) handleLinkedNoteCreate(w http.ResponseWriter, r *http.Request)
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -810,7 +811,7 @@ func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Message: "record deleted use restore", Details: map[string]any{}})
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), target.IncidentID, principal.User.ID, "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), target.IncidentID, principal.User.ID, admission.RolesReviewerAdmin, "reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -881,7 +882,7 @@ func (s *Service) handleDecisionSupersede(w http.ResponseWriter, r *http.Request
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
+	case errors.Is(err, incidents.ErrIncidentClosed), admission.IsDenied(err, admission.DenialIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
 	case isRecordTargetNotFound(err):
@@ -937,7 +938,7 @@ func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), target.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), target.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -984,7 +985,7 @@ func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, pri
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, httpapi.ClientTxnConflictError(clientTxnID))
 		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
+	case errors.Is(err, incidents.ErrIncidentClosed), admission.IsDenied(err, admission.DenialIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
 	case isRecordTargetNotFound(err):
@@ -1053,12 +1054,22 @@ func workbookQueryScope(incidentID uuid.UUID, viewSchemaID string, queryMeta vie
 	}, nil
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
+	return s.requireIncidentRole(ctx, incidentID, userID, admission.RolesMember, "")
 }
 
-func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentRole(ctx, s.incidentAccess, incidentID, userID, roles...)
+func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *httpapi.APIError) {
+	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleAny})
+	switch {
+	case admission.IsDenied(err, admission.DenialNotVisible):
+		return admission.Grant{}, incidentNotFoundError()
+	case admission.IsDenied(err, admission.DenialInsufficientRole):
+		return admission.Grant{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Message: "authorization denied", Details: map[string]any{"required_role": requiredRole}}
+	case err != nil:
+		return admission.Grant{}, internalAPIError(err)
+	default:
+		return grant, nil
+	}
 }
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {

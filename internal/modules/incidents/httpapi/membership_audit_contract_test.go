@@ -1,4 +1,4 @@
-package incidents
+package httpapi
 
 import (
 	"reflect"

@@ -100,7 +100,7 @@ func (s *store) applyAction(
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, current.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, current.IncidentID); err != nil {
 		return MutationResult{}, err
 	}
 	if current.RowVersion != baseRowVersion {

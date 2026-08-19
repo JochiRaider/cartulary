@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/google/uuid"
@@ -190,16 +190,15 @@ func importUnitFailure(err error) importUnitFailureDetail {
 			Retryable:  false,
 			Details:    map[string]any{"reason_code": "cancel_requested"},
 		}
-	case errors.Is(err, incidents.ErrIncidentClosed):
+	case admission.IsDenied(err, admission.DenialIncidentClosed):
 		return importUnitFailureDetail{
 			ErrorCode:  "incident_closed",
 			ReasonCode: "incident_closed",
 			Retryable:  false,
 			Details:    map[string]any{"reason_code": "incident_closed"},
 		}
-	case errors.Is(err, incidents.ErrIncidentNotFound),
-		errors.Is(err, incidents.ErrMembershipNotFound),
-		errors.Is(err, incidents.ErrIncidentRoleDenied),
+	case admission.IsDenied(err, admission.DenialNotVisible),
+		admission.IsDenied(err, admission.DenialInsufficientRole),
 		errors.Is(err, errImportActorUnauthorized):
 		return importUnitFailureDetail{
 			ErrorCode:  "authorization_denied",

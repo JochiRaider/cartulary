@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -292,7 +292,7 @@ func newTaskDecisionMutationDependencies(
 ) tasksdecisions.MutationDependencies {
 	authStore := authn.NewStore(pool)
 	return tasksdecisions.MutationDependencies{
-		IncidentState:        incidents.NewAccess(pool),
+		IncidentState:        admission.NewChecker(pool),
 		MemberReferences:     tasksdecisions.NewMemberReferenceCapability(),
 		Idempotency:          taskDecisionIdempotency{store: authStore},
 		RecordEnvelopes:      records.NewStore(),

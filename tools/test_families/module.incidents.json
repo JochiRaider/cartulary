@@ -382,6 +382,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.incidents.integration.concurrent_cross_admin_deletion_preserves_an_ad_9f25d8ef61",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestConcurrentCrossAdminDeletionPreservesAnIncidentAdmin_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.incidents.integration.incident_create_persists_the_incident_row_bootst_0bd8d02f12",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.integration",
@@ -744,10 +770,13 @@
       ]
     },
     {
-      "row_id": "module.incidents.store.the_committed_create_result_returns_the_stable_a_5f64fd9d84",
+      "row_id": "module.incidents.store.terminal_mutation_results_distinguish_fresh_comm_2101097f8d",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.store",
-      "collaborator_ids": [],
+      "collaborator_ids": [
+        "module.collaboration",
+        "platform.audit"
+      ],
       "verification_ids": [
         "module.incidents.verification.behavior_contract"
       ],
@@ -755,7 +784,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestStoreCreateIncidentReturnsStableLocationValue_Unit"
+          "TestTerminalMutationCommitResultsUseCommittedAuditEventIdentity_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -768,6 +797,30 @@
       "service_dependencies": [
         "postgres"
       ]
+    },
+    {
+      "row_id": "module.incidents.store.the_committed_create_result_returns_the_stable_a_5f64fd9d84",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents/httpapi",
+        "tests": [
+          "TestIncidentCreateLocationDerivesFromApplicationResult_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
     },
     {
       "row_id": "module.incidents.support_integration.control_boundary_incident_core_deployment_admin_9ba3db3d5f",
@@ -930,7 +983,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/incidents",
+        "package": "./internal/modules/incidents/httpapi",
         "tests": [
           "TestOpenAPIWorkbookPreferencesExposeGetAndPutContracts"
         ]
@@ -954,7 +1007,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/incidents",
+        "package": "./internal/modules/incidents/httpapi",
         "tests": [
           "TestUnit_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable"
         ]
@@ -969,6 +1022,33 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.incidents.unit.incident_admission_role_sets_and_denials_are_closed_0ed8398f44",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents/admission",
+        "tests": [
+          "TestDecisionPrecedenceIsRoleBeforeLifecycleAfterVisibility",
+          "TestInvalidRequirementsAndStoredEnumsFailAsInternalErrors",
+          "TestNilDependenciesFailAsInternalErrors",
+          "TestRoleSetsAreExactAndNonOrdinal"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.incidents.unit.incident_create_decode_rejects_undeclared_member_6b93095d4c",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.unit",
@@ -978,7 +1058,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/incidents",
+        "package": "./internal/modules/incidents/httpapi",
         "tests": [
           "TestIncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey_Unit"
         ]
@@ -1004,7 +1084,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/incidents",
+        "package": "./internal/modules/incidents/httpapi",
         "tests": [
           "TestIncidentLifecycleRequestValidationUsesExactErrorFamilyAndReasons_Unit",
           "TestOpenAPIIncidentLifecycleOperationsAreCompleteAndExact_Unit"
@@ -1031,7 +1111,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/incidents",
+        "package": "./internal/modules/incidents/httpapi",
         "tests": [
           "TestIncidentOpenAPIResponsesAndSecurityMatchRuntime_Unit"
         ]
@@ -1055,9 +1135,36 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/incidents",
+        "package": "./internal/modules/incidents/httpapi",
         "tests": [
           "TestIncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.incidents.unit.incidents_http_route_registration_requires_the_i_3a8a99a9ef",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [
+        "app.server",
+        "module.collaboration"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents/httpapi",
+        "tests": [
+          "TestRegisterRoutesRequiresIncidentPorts"
         ]
       },
       "evidence_class": "unit",
@@ -1082,7 +1189,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/incidents",
+        "package": "./internal/modules/incidents/httpapi",
         "tests": [
           "TestOpenAPIIncidentMembershipAuditOperationIsCompleteAndExact_Unit"
         ]
@@ -1106,7 +1213,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/incidents",
+        "package": "./internal/modules/incidents/httpapi",
         "tests": [
           "TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit"
         ]
@@ -1130,7 +1237,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/incidents",
+        "package": "./internal/modules/incidents/httpapi",
         "tests": [
           "TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallback_Unit"
         ]
@@ -1154,7 +1261,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/incidents",
+        "package": "./internal/modules/incidents/httpapi",
         "tests": [
           "TestIncidentAccessDecisionUsesNotFoundForMissingMembershipAndDeniedForInsufficientRole_Unit"
         ]

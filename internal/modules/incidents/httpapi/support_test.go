@@ -1,9 +1,11 @@
-package incidents
+package httpapi
 
 import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 )
 
 func TestUnit_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable(t *testing.T) {
@@ -32,13 +34,13 @@ func TestUnit_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable(t *testi
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "base_membership_version", "missing_required_field")
 
 	nextRole := "reviewer"
-	if !WouldLeaveNoIncidentAdmins("admin", 1, &nextRole, false) {
+	if !incidents.WouldLeaveNoIncidentAdmins("admin", 1, &nextRole, false) {
 		t.Fatal("demoting the last admin must be rejected")
 	}
-	if WouldLeaveNoIncidentAdmins("admin", 2, &nextRole, false) {
+	if incidents.WouldLeaveNoIncidentAdmins("admin", 2, &nextRole, false) {
 		t.Fatal("demoting one of two admins must be allowed")
 	}
-	if !WouldLeaveNoIncidentAdmins("admin", 1, nil, true) {
+	if !incidents.WouldLeaveNoIncidentAdmins("admin", 1, nil, true) {
 		t.Fatal("deleting the last admin must be rejected")
 	}
 }

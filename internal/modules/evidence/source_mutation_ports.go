@@ -13,7 +13,7 @@ import (
 )
 
 type evidenceIncidentAdmissionPort interface {
-	EnsureOpenTx(context.Context, pgx.Tx, uuid.UUID) error
+	RequireOpenTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
 type evidenceRecordEnvelopePort interface {

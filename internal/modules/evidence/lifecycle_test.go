@@ -3,7 +3,6 @@ package evidence_test
 import (
 	"context"
 	"errors"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"strings"
 	"testing"
 	"time"
@@ -11,9 +10,10 @@ import (
 	"github.com/google/uuid"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -138,8 +138,8 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	if _, err := harness.DB.Exec(context.Background(), `UPDATE incidents SET status = 'closed', closed_at = now() WHERE id = $1`, incident.ID); err != nil {
 		t.Fatalf("close incident before quarantine: %v", err)
 	}
-	if _, err := evidenceStore.QuarantineBlob(context.Background(), actor.ID, closedBlobID, "admin_quarantine", "req-closed-quarantine", time.Now().UTC()); !errors.Is(err, incidents.ErrIncidentClosed) {
-		t.Fatalf("closed-incident quarantine got %v, want incidents.ErrIncidentClosed", err)
+	if _, err := evidenceStore.QuarantineBlob(context.Background(), actor.ID, closedBlobID, "admin_quarantine", "req-closed-quarantine", time.Now().UTC()); !admission.IsDenied(err, admission.DenialIncidentClosed) {
+		t.Fatalf("closed-incident quarantine got %v, want typed incident-closed denial", err)
 	}
 
 	requireEvidenceState(t, harness.DB, attachRecordID, "available", "available", blobID)

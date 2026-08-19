@@ -127,7 +127,7 @@ func (f *MutationFacade) executeCreateTx(
 			return artifactCreateTxResult{}, err
 		}
 	}
-	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
+	if err := f.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return artifactCreateTxResult{}, err
 	}
 	if err := validateArtifactReferencesTx(

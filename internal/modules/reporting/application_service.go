@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -16,14 +16,14 @@ import (
 
 type ApplicationService struct {
 	store          *Store
-	incidentAccess incidents.Access
+	incidentAccess *admission.Checker
 	jobNotifier    reportingJobRunner
 	now            func() time.Time
 }
 
 func NewApplicationService(
 	store *Store,
-	incidentAccess incidents.Access,
+	incidentAccess *admission.Checker,
 	jobManager reportingJobManager,
 	jobRunner reportingJobRunner,
 	jobFinalizer JobSuccessFinalizer,
@@ -48,7 +48,7 @@ func NewApplicationService(
 }
 
 func (s *ApplicationService) CreateSnapshot(ctx context.Context, actorUserID uuid.UUID, request CreateSnapshotRequest) (jobs.Resource, *httpapi.APIError) {
-	if _, apiErr := s.requireIncidentRole(ctx, request.IncidentID, actorUserID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(ctx, request.IncidentID, actorUserID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		return jobs.Resource{}, apiErr
 	}
 	result, err := s.store.CreateSnapshot(ctx, CreateSnapshotParams{
@@ -96,7 +96,7 @@ func (s *ApplicationService) CreateRelease(ctx context.Context, actorUserID uuid
 	if err != nil {
 		return jobs.Resource{}, internalAPIError(err)
 	}
-	if _, apiErr := s.requireIncidentRole(ctx, snapshot.IncidentID, actorUserID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(ctx, snapshot.IncidentID, actorUserID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		return jobs.Resource{}, snapshotVisibilityError(apiErr)
 	}
 	templateContract, apiErr := validateCreateReleaseRequestSemantics(request)
@@ -154,7 +154,7 @@ func (s *ApplicationService) ApproveRelease(ctx context.Context, actorUserID uui
 	}
 	result, err := s.store.ApproveRelease(ctx, ApproveReleaseParams{
 		ActorUserID:       actorUserID,
-		ActorIncidentRole: membership.Role,
+		ActorIncidentRole: membership.Role.String(),
 		ReleaseID:         releaseID,
 		Request:           request,
 		Now:               s.now(),
@@ -178,7 +178,7 @@ func (s *ApplicationService) adminReleaseAction(ctx context.Context, actorUserID
 	if err != nil {
 		return nil, internalAPIError(err)
 	}
-	if _, apiErr := s.requireIncidentRole(ctx, incidentID, actorUserID, "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(ctx, incidentID, actorUserID, admission.RolesAdmin, "admin"); apiErr != nil {
 		return nil, releaseVisibilityError(apiErr)
 	}
 	result, err := action(ctx, ReleaseActionParams{
@@ -214,10 +214,31 @@ func (s *ApplicationService) notifyReportingJob(jobID uuid.UUID) {
 	}
 }
 
-func (s *ApplicationService) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
+func (s *ApplicationService) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
+	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{
+		AllowedRoles: admission.RolesMember,
+		Lifecycle:    admission.LifecycleAny,
+	})
+	return reportingAdmissionResult(grant, err, "member")
 }
 
-func (s *ApplicationService) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentRole(ctx, s.incidentAccess, incidentID, userID, roles...)
+func (s *ApplicationService) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *httpapi.APIError) {
+	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{
+		AllowedRoles: roles,
+		Lifecycle:    admission.LifecycleAny,
+	})
+	return reportingAdmissionResult(grant, err, requiredRole)
+}
+
+func reportingAdmissionResult(grant admission.Grant, err error, requiredRole string) (admission.Grant, *httpapi.APIError) {
+	switch {
+	case admission.IsDenied(err, admission.DenialNotVisible):
+		return admission.Grant{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+	case admission.IsDenied(err, admission.DenialInsufficientRole):
+		return admission.Grant{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": requiredRole}}
+	case err != nil:
+		return admission.Grant{}, internalAPIError(err)
+	default:
+		return grant, nil
+	}
 }

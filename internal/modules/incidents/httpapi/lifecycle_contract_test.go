@@ -1,4 +1,4 @@
-package incidents
+package httpapi
 
 import (
 	"reflect"
@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
 
@@ -64,14 +65,14 @@ func TestIncidentLifecycleRequestValidationUsesExactErrorFamilyAndReasons_Unit(t
 	if request.BaseIncidentVersion != 7 || request.ClientTxnID != "txn-lifecycle" || request.Reason != "café\nline" {
 		t.Fatalf("unexpected normalized lifecycle request: %#v", request)
 	}
-	closeHash := IncidentLifecycleRequestHash("close", request)
-	reopenHash := IncidentLifecycleRequestHash("reopen", request)
+	closeHash := incidents.IncidentLifecycleRequestHash("close", request)
+	reopenHash := incidents.IncidentLifecycleRequestHash("reopen", request)
 	if reflect.DeepEqual(closeHash, reopenHash) {
 		t.Fatal("action route must participate in lifecycle idempotency comparison")
 	}
 	otherKey := request
 	otherKey.ClientTxnID = "txn-other-key"
-	if !reflect.DeepEqual(closeHash, IncidentLifecycleRequestHash("close", otherKey)) {
+	if !reflect.DeepEqual(closeHash, incidents.IncidentLifecycleRequestHash("close", otherKey)) {
 		t.Fatal("client_txn_id belongs to the idempotency key, not the normalized comparison payload")
 	}
 }

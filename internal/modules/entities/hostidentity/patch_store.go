@@ -96,7 +96,7 @@ func (s *Store) PatchEntityRow(ctx context.Context, actor authn.UserRecord, reco
 	if !entityRecordTypeMatchesView(meta.RecordType, request.ViewSchemaID) {
 		return PatchMutationResult{}, pgx.ErrNoRows
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return PatchMutationResult{}, err
 	}
 	if meta.RowVersion != request.BaseRowVersion {

@@ -1,4 +1,4 @@
-package incidents
+package httpapi
 
 import (
 	"context"
@@ -8,8 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
@@ -17,12 +19,18 @@ import (
 )
 
 type Service struct {
-	application          *Application
-	authStore            *authn.Store
-	collaborationSession CollaborationSessionPort
-	keys                 authn.MasterKeys
-	cursorCodec          *pagination.Codec
-	now                  func() time.Time
+	application       *incidents.Application
+	terminalMutations incidents.TerminalMutationCoordinator
+	incidentAdmission *admission.Checker
+	authStore         *authn.Store
+	keys              authn.MasterKeys
+	cursorCodec       *pagination.Codec
+	now               func() time.Time
+}
+
+type RouteOptions struct {
+	Application       *incidents.Application
+	TerminalMutations incidents.TerminalMutationCoordinator
 }
 
 type membershipTargetLookup interface {
@@ -30,17 +38,17 @@ type membershipTargetLookup interface {
 	GetUserByNormalizedEmail(context.Context, string) (authn.UserRecord, error)
 }
 
-func RegisterRoutes(options ...RouteOptions) httpapi.RouteRegistrar {
+func RegisterRoutes(options ...RouteOptions) platformhttpapi.RouteRegistrar {
 	routeOptions := RouteOptions{}
 	if len(options) > 0 {
 		routeOptions = options[0]
 	}
-	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
+	return func(mux *http.ServeMux, deps platformhttpapi.DependencySet) error {
 		service, err := newService(deps, routeOptions)
 		if err != nil {
 			return err
 		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.incidents", map[string]http.HandlerFunc{
+		return platformhttpapi.BindOwnerRoutes(mux, deps, "module.incidents", map[string]http.HandlerFunc{
 			"closeIncident":                     service.handleIncidentsMember,
 			"createIncident":                    service.handleIncidentsCollection,
 			"createIncidentMembership":          service.handleIncidentsMember,
@@ -56,9 +64,12 @@ func RegisterRoutes(options ...RouteOptions) httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, error) {
-	if options.CollaborationSession == nil {
-		return nil, errors.New("incidents: collaboration session port is required for route registration")
+func newService(deps platformhttpapi.DependencySet, options RouteOptions) (*Service, error) {
+	if options.Application == nil {
+		return nil, errors.New("incidents: application is required for route registration")
+	}
+	if options.TerminalMutations == nil {
+		return nil, errors.New("incidents: terminal mutation coordinator is required for route registration")
 	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
@@ -74,16 +85,17 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
-		application:          NewApplication(deps.PostgresHandle()),
-		authStore:            authn.NewStore(deps.PostgresHandle()),
-		collaborationSession: options.CollaborationSession,
-		keys:                 keys,
-		cursorCodec:          cursorCodec,
-		now:                  now,
+		application:       options.Application,
+		terminalMutations: options.TerminalMutations,
+		incidentAdmission: admission.NewChecker(deps.PostgresHandle()),
+		authStore:         authn.NewStore(deps.PostgresHandle()),
+		keys:              keys,
+		cursorCodec:       cursorCodec,
+		now:               now,
 	}, nil
 }
 
-func parseIncidentListScope(rawQuery string) (listquery.Result, *httpapi.APIError) {
+func parseIncidentListScope(rawQuery string) (listquery.Result, *platformhttpapi.APIError) {
 	result, queryErr := listquery.Parse(rawQuery, listquery.Config{
 		Search: true,
 		ExactFilters: map[string]listquery.ExactFilter{
@@ -99,8 +111,8 @@ func parseIncidentListScope(rawQuery string) (listquery.Result, *httpapi.APIErro
 	return listquery.Result{}, invalidListQuery(queryErr.ReasonCode)
 }
 
-func (s *Service) incidentListPageRequest(binding pagination.Binding, cursor *pagination.Cursor) (IncidentListPageRequest, string) {
-	request := IncidentListPageRequest{
+func (s *Service) incidentListPageRequest(binding pagination.Binding, cursor *pagination.Cursor) (incidents.IncidentListPageRequest, string) {
+	request := incidents.IncidentListPageRequest{
 		Limit:        binding.Limit + 1,
 		SearchTokens: strings.Fields(binding.Scope["search"]),
 	}
@@ -111,27 +123,27 @@ func (s *Service) incidentListPageRequest(binding pagination.Binding, cursor *pa
 		return request, ""
 	}
 	if cursor.Mode != pagination.ModeKeyset {
-		return IncidentListPageRequest{}, pagination.ReasonInvalidCursorToken
+		return incidents.IncidentListPageRequest{}, pagination.ReasonInvalidCursorToken
 	}
 	anchor, err := time.Parse(time.RFC3339Nano, cursor.Position["anchor_updated_at"])
 	if err != nil {
-		return IncidentListPageRequest{}, pagination.ReasonInvalidCursorToken
+		return incidents.IncidentListPageRequest{}, pagination.ReasonInvalidCursorToken
 	}
 	lastUpdatedAt, err := time.Parse(time.RFC3339Nano, cursor.Position["last_updated_at"])
 	if err != nil {
-		return IncidentListPageRequest{}, pagination.ReasonInvalidCursorToken
+		return incidents.IncidentListPageRequest{}, pagination.ReasonInvalidCursorToken
 	}
 	lastID, err := uuid.Parse(cursor.Position["last_incident_id"])
 	if err != nil {
-		return IncidentListPageRequest{}, pagination.ReasonInvalidCursorToken
+		return incidents.IncidentListPageRequest{}, pagination.ReasonInvalidCursorToken
 	}
 	anchor = anchor.UTC()
 	request.AnchorUpdatedAt = &anchor
-	request.After = &IncidentListPosition{UpdatedAt: lastUpdatedAt.UTC(), ID: lastID}
+	request.After = &incidents.IncidentListPosition{UpdatedAt: lastUpdatedAt.UTC(), ID: lastID}
 	return request, ""
 }
 
-func buildIncidentListPage(binding pagination.Binding, anchor time.Time, records []IncidentRecord) ([]json.RawMessage, *pagination.Cursor, error) {
+func buildIncidentListPage(binding pagination.Binding, anchor time.Time, records []incidents.IncidentRecord) ([]json.RawMessage, *pagination.Cursor, error) {
 	hasMore := len(records) > binding.Limit
 	pageRecords := records
 	if hasMore {
@@ -139,7 +151,7 @@ func buildIncidentListPage(binding pagination.Binding, anchor time.Time, records
 	}
 	resources := make([]map[string]any, 0, len(pageRecords))
 	for _, record := range pageRecords {
-		resources = append(resources, BuildIncidentResource(record))
+		resources = append(resources, incidents.BuildIncidentResource(record))
 	}
 	rows, err := pagination.MarshalResources(resources)
 	if err != nil {
@@ -223,7 +235,7 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 			}
 			nextToken = &token
 		}
-		_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"incidents": rows}, httpapi.PagingMeta{
+		_ = platformhttpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"incidents": rows}, platformhttpapi.PagingMeta{
 			Limit:      binding.Limit,
 			HasMore:    nextToken != nil,
 			NextCursor: nextToken,
@@ -241,12 +253,12 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		result, err := s.application.CreateIncident(r.Context(), principal.User, request, IncidentCreateRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+		result, err := s.application.CreateIncident(r.Context(), principal.User, request, incidents.IncidentCreateRequestHash(request), platformhttpapi.RequestIDFromContext(r.Context()), s.now())
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
-			writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
+			writeAPIError(w, r, platformhttpapi.ClientTxnConflictError(request.ClientTxnID))
 			return
-		case errors.Is(err, ErrIncidentKeyConflict):
+		case errors.Is(err, incidents.ErrIncidentKeyConflict):
 			writeAPIError(w, r, incidentKeyConflictError(request.IncidentKey))
 			return
 		case err != nil:
@@ -258,12 +270,20 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		w.Header().Set("Location", result.Location)
-		_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
+		w.Header().Set("Location", incidentLocation(result.Incident.ID))
+		status := http.StatusOK
+		if result.Created {
+			status = http.StatusCreated
+		}
+		_ = platformhttpapi.WriteSuccess(w, r, status, result.Payload)
 
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+}
+
+func incidentLocation(incidentID uuid.UUID) string {
+	return "/api/v1/incidents/" + incidentID.String()
 }
 
 func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) {
@@ -282,7 +302,7 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 	if len(segments) == 1 {
 		switch r.Method {
 		case http.MethodGet:
-			if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+			if apiErr := platformhttpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 				writeAPIError(w, r, apiErr)
 				return
 			}
@@ -292,7 +312,7 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 			record, err := s.application.GetVisibleIncident(r.Context(), incidentID, principal.User.ID)
-			if errors.Is(err, ErrIncidentNotFound) {
+			if errors.Is(err, incidents.ErrIncidentNotFound) {
 				writeAPIError(w, r, incidentNotFoundError())
 				return
 			}
@@ -304,7 +324,7 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 				writeAPIError(w, r, internalAPIError(err))
 				return
 			}
-			_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildIncidentResource(record))
+			_ = platformhttpapi.WriteSuccess(w, r, http.StatusOK, incidents.BuildIncidentResource(record))
 
 		case http.MethodPatch:
 			principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
@@ -312,7 +332,7 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 				writeAPIError(w, r, apiErr)
 				return
 			}
-			membership, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "reviewer", "admin")
+			membership, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesReviewerAdmin, "reviewer|admin")
 			if apiErr != nil {
 				writeAPIError(w, r, apiErr)
 				return
@@ -323,16 +343,25 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 				writeAPIError(w, r, apiErr)
 				return
 			}
-			record, _, err := s.application.UpdateIncident(r.Context(), principal.User, incidentID, request, httpapi.RequestIDFromContext(r.Context()), s.now())
-			var versionConflict *IncidentVersionConflictError
+			record, _, err := s.application.UpdateIncident(r.Context(), principal.User, incidentID, request, platformhttpapi.RequestIDFromContext(r.Context()), s.now())
+			var versionConflict *incidents.IncidentVersionConflictError
 			switch {
-			case errors.Is(err, ErrIncidentNotFound):
+			case admission.IsDenied(err, admission.DenialNotVisible):
+				writeAPIError(w, r, incidentNotFoundError())
+				return
+			case admission.IsDenied(err, admission.DenialInsufficientRole):
+				writeAPIError(w, r, authorizationDeniedError("reviewer|admin"))
+				return
+			case admission.IsDenied(err, admission.DenialIncidentClosed):
+				writeAPIError(w, r, incidentClosedError())
+				return
+			case errors.Is(err, incidents.ErrIncidentNotFound):
 				writeAPIError(w, r, incidentNotFoundError())
 				return
 			case errors.As(err, &versionConflict):
 				writeAPIError(w, r, incidentVersionConflictError(versionConflict))
 				return
-			case errors.Is(err, ErrIncidentClosed):
+			case errors.Is(err, incidents.ErrIncidentClosed):
 				writeAPIError(w, r, incidentClosedError())
 				return
 			case err != nil:
@@ -343,7 +372,7 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 				writeAPIError(w, r, internalAPIError(err))
 				return
 			}
-			_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildIncidentResource(record))
+			_ = platformhttpapi.WriteSuccess(w, r, http.StatusOK, incidents.BuildIncidentResource(record))
 
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -389,7 +418,7 @@ func (s *Service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesAdmin, "admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -398,42 +427,45 @@ func (s *Service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.application.TransitionIncidentLifecycle(
+	result, err := s.terminalMutations.CoordinateIncidentLifecycle(
 		r.Context(),
 		principal.User,
 		incidentID,
 		action,
 		request,
-		IncidentLifecycleRequestHash(action, request),
-		httpapi.RequestIDFromContext(r.Context()),
+		incidents.IncidentLifecycleRequestHash(action, request),
+		platformhttpapi.RequestIDFromContext(r.Context()),
 		s.now(),
 	)
-	var versionConflict *IncidentVersionConflictError
+	var versionConflict *incidents.IncidentVersionConflictError
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
+		writeAPIError(w, r, platformhttpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
-	case errors.Is(err, ErrIncidentNotFound):
+	case admission.IsDenied(err, admission.DenialNotVisible):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case admission.IsDenied(err, admission.DenialInsufficientRole):
+		writeAPIError(w, r, authorizationDeniedError("admin"))
+		return
+	case errors.Is(err, incidents.ErrIncidentNotFound):
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	case errors.As(err, &versionConflict):
 		writeAPIError(w, r, incidentVersionConflictError(versionConflict))
 		return
-	case errors.Is(err, ErrIncidentIllegalTransition):
+	case errors.Is(err, incidents.ErrIncidentIllegalTransition):
 		writeAPIError(w, r, incidentIllegalTransitionError(action))
 		return
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if action == "close" && !result.Replayed {
-		s.notifyIncidentClosed(r.Context(), incidentID)
-	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
+	_ = platformhttpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
 }
 
 func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
@@ -466,7 +498,7 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 		}
 		memberships := make([]map[string]any, 0, len(records))
 		for _, record := range records {
-			memberships = append(memberships, BuildMembershipResource(record))
+			memberships = append(memberships, incidents.BuildMembershipResource(record))
 		}
 		rows, nextCursor, err := pagination.PageResources(binding, cursor, memberships)
 		switch {
@@ -491,7 +523,7 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			}
 			nextToken = &token
 		}
-		_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"memberships": rows}, httpapi.PagingMeta{
+		_ = platformhttpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"memberships": rows}, platformhttpapi.PagingMeta{
 			Limit:      binding.Limit,
 			HasMore:    nextToken != nil,
 			NextCursor: nextToken,
@@ -503,7 +535,7 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin"); apiErr != nil {
+		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesAdmin, "admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -518,18 +550,19 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		requestHash := hashRequestPayload(map[string]any{
-			"client_txn_id": request.ClientTxnID,
-			"user_id":       request.UserID,
-			"email":         request.Email,
-			"role":          request.Role,
-		})
-		result, err := s.application.CreateMembership(r.Context(), principal.User, incidentID, targetUser, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+		requestHash := incidents.MembershipCreateRequestHash(request)
+		result, err := s.application.CreateMembership(r.Context(), principal.User, incidentID, targetUser, request, requestHash, platformhttpapi.RequestIDFromContext(r.Context()), s.now())
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
-			writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
+			writeAPIError(w, r, platformhttpapi.ClientTxnConflictError(request.ClientTxnID))
 			return
-		case errors.Is(err, ErrMembershipExistsUsePatch):
+		case admission.IsDenied(err, admission.DenialNotVisible):
+			writeAPIError(w, r, incidentNotFoundError())
+			return
+		case admission.IsDenied(err, admission.DenialInsufficientRole):
+			writeAPIError(w, r, authorizationDeniedError("admin"))
+			return
+		case errors.Is(err, incidents.ErrMembershipExistsUsePatch):
 			writeAPIError(w, r, membershipExistsUsePatchError())
 			return
 		case err != nil:
@@ -540,7 +573,11 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
+		status := http.StatusOK
+		if result.Created {
+			status = http.StatusCreated
+		}
+		_ = platformhttpapi.WriteSuccess(w, r, status, result.Payload)
 
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -555,7 +592,7 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin"); apiErr != nil {
+		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesAdmin, "admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -564,15 +601,21 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		record, _, err := s.application.UpdateMembership(r.Context(), principal.User, incidentID, userID, request, httpapi.RequestIDFromContext(r.Context()), s.now())
+		record, _, err := s.application.UpdateMembership(r.Context(), principal.User, incidentID, userID, request, platformhttpapi.RequestIDFromContext(r.Context()), s.now())
 		switch {
-		case errors.Is(err, ErrMembershipNotFound):
+		case admission.IsDenied(err, admission.DenialNotVisible):
+			writeAPIError(w, r, incidentNotFoundError())
+			return
+		case admission.IsDenied(err, admission.DenialInsufficientRole):
+			writeAPIError(w, r, authorizationDeniedError("admin"))
+			return
+		case errors.Is(err, incidents.ErrMembershipNotFound):
 			writeAPIError(w, r, membershipNotFoundError())
 			return
-		case errors.Is(err, ErrMembershipVersionConflict):
+		case errors.Is(err, incidents.ErrMembershipVersionConflict):
 			writeAPIError(w, r, membershipVersionConflictError())
 			return
-		case errors.Is(err, ErrLastIncidentAdmin):
+		case errors.Is(err, incidents.ErrLastIncidentAdmin):
 			writeAPIError(w, r, lastIncidentAdminError())
 			return
 		case err != nil:
@@ -583,7 +626,7 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildMembershipResource(record))
+		_ = platformhttpapi.WriteSuccess(w, r, http.StatusOK, incidents.BuildMembershipResource(record))
 
 	case http.MethodDelete:
 		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
@@ -591,7 +634,7 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin"); apiErr != nil {
+		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesAdmin, "admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -600,15 +643,21 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if err := s.application.DeleteMembership(r.Context(), principal.User, incidentID, userID, request, httpapi.RequestIDFromContext(r.Context())); err != nil {
+		if _, err := s.terminalMutations.CoordinateMembershipDeletion(r.Context(), principal.User, incidentID, userID, request, platformhttpapi.RequestIDFromContext(r.Context())); err != nil {
 			switch {
-			case errors.Is(err, ErrMembershipNotFound):
+			case admission.IsDenied(err, admission.DenialNotVisible):
+				writeAPIError(w, r, incidentNotFoundError())
+				return
+			case admission.IsDenied(err, admission.DenialInsufficientRole):
+				writeAPIError(w, r, authorizationDeniedError("admin"))
+				return
+			case errors.Is(err, incidents.ErrMembershipNotFound):
 				writeAPIError(w, r, membershipNotFoundError())
 				return
-			case errors.Is(err, ErrMembershipVersionConflict):
+			case errors.Is(err, incidents.ErrMembershipVersionConflict):
 				writeAPIError(w, r, membershipVersionConflictError())
 				return
-			case errors.Is(err, ErrLastIncidentAdmin):
+			case errors.Is(err, incidents.ErrLastIncidentAdmin):
 				writeAPIError(w, r, lastIncidentAdminError())
 				return
 			default:
@@ -620,7 +669,6 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		s.notifyIncidentMembershipRevoked(r.Context(), incidentID, userID)
 		w.WriteHeader(http.StatusNoContent)
 
 	default:
@@ -628,47 +676,33 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 	}
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (MembershipRecord, *httpapi.APIError) {
-	record, err := s.application.GetIncidentMembershipForUser(ctx, incidentID, userID)
-	if errors.Is(err, ErrMembershipNotFound) {
-		return MembershipRecord{}, IncidentAccessError(nil, false)
-	}
-	if err != nil {
-		return MembershipRecord{}, internalAPIError(err)
-	}
-	return record, nil
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *platformhttpapi.APIError) {
+	return s.requireIncidentRole(ctx, incidentID, userID, admission.RolesMember, "")
 }
 
-func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (MembershipRecord, *httpapi.APIError) {
-	record, apiErr := s.requireIncidentMembership(ctx, incidentID, userID)
-	if apiErr != nil {
-		return MembershipRecord{}, apiErr
-	}
-	if apiErr := IncidentAccessError(&record, false, roles...); apiErr != nil {
-		return MembershipRecord{}, apiErr
-	}
-	return record, nil
+func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *platformhttpapi.APIError) {
+	grant, err := s.incidentAdmission.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleAny})
+	return incidentAdmissionResult(grant, err, requiredRole)
 }
 
-func (s *Service) notifyIncidentClosed(ctx context.Context, incidentID uuid.UUID) {
-	if s.collaborationSession == nil {
-		return
+func incidentAdmissionResult(grant admission.Grant, err error, requiredRole string) (admission.Grant, *platformhttpapi.APIError) {
+	switch {
+	case admission.IsDenied(err, admission.DenialNotVisible):
+		return admission.Grant{}, incidentNotFoundError()
+	case admission.IsDenied(err, admission.DenialInsufficientRole):
+		return admission.Grant{}, authorizationDeniedError(requiredRole)
+	case err != nil:
+		return admission.Grant{}, internalAPIError(err)
+	default:
+		return grant, nil
 	}
-	s.collaborationSession.NotifyIncidentClosed(ctx, incidentID)
 }
 
-func (s *Service) notifyIncidentMembershipRevoked(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) {
-	if s.collaborationSession == nil {
-		return
-	}
-	s.collaborationSession.NotifyIncidentMembershipRevoked(ctx, incidentID, userID)
-}
-
-func (s *Service) resolveMembershipTarget(ctx context.Context, request MembershipCreateRequest) (authn.UserRecord, *httpapi.APIError) {
+func (s *Service) resolveMembershipTarget(ctx context.Context, request incidents.MembershipCreateRequest) (authn.UserRecord, *platformhttpapi.APIError) {
 	return resolveMembershipTarget(ctx, s.authStore, request)
 }
 
-func resolveMembershipTarget(ctx context.Context, lookup membershipTargetLookup, request MembershipCreateRequest) (authn.UserRecord, *httpapi.APIError) {
+func resolveMembershipTarget(ctx context.Context, lookup membershipTargetLookup, request incidents.MembershipCreateRequest) (authn.UserRecord, *platformhttpapi.APIError) {
 	var (
 		user authn.UserRecord
 		err  error
@@ -694,16 +728,16 @@ func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.
 	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
 }
 
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
+func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *platformhttpapi.APIError) {
 	message := apiErr.Message
 	if message == "" {
 		message = apiErr.Code
 	}
-	_ = httpapi.WriteError(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details)
+	_ = platformhttpapi.WriteError(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details)
 }
 
-func internalAPIError(err error) *httpapi.APIError {
-	return &httpapi.APIError{
+func internalAPIError(err error) *platformhttpapi.APIError {
+	return &platformhttpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
 		Message: err.Error(),

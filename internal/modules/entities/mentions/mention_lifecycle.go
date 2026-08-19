@@ -168,7 +168,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	if err != nil {
 		return MentionActionResult{}, err
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, mention.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, mention.IncidentID); err != nil {
 		return MentionActionResult{}, err
 	}
 	if mention.RowVersion != request.BaseMentionRowVersion {

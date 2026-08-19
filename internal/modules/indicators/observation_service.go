@@ -41,7 +41,7 @@ func (service indicatorObservationService) createManualObservation(ctx context.C
 		return IndicatorObservationMutationResult{}, fmt.Errorf("begin Indicator observation transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, params.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, params.IncidentID); err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
 
@@ -183,7 +183,7 @@ func (service indicatorObservationService) transitionObservation(ctx context.Con
 	if current.RowVersion != baseRowVersion {
 		return IndicatorObservationMutationResult{}, ErrRowVersionConflict
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, current.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, current.IncidentID); err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
 	transitionAt := s.now().UTC().Truncate(time.Microsecond)

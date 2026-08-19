@@ -3,7 +3,7 @@ package evidence
 import (
 	"errors"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
@@ -19,7 +19,7 @@ func translateAttachError(err error, clientTxnID string) *httpapi.APIError {
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		return clientTxnConflict(clientTxnID)
-	case errors.Is(err, incidents.ErrIncidentClosed):
+	case admission.IsDenied(err, admission.DenialIncidentClosed):
 		return incidentClosedError()
 	case errors.As(err, &rowConflict):
 		return rowVersionConflict(rowConflict.RecordID, rowConflict.BaseRowVersion, rowConflict.CurrentRowVersion)

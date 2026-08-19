@@ -6,11 +6,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-)
 
-type PreferenceBootstrapPort interface {
-	BootstrapIncidentPreferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, actorUserID uuid.UUID, now time.Time) error
-}
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrapport"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+)
 
 // IncidentCreateCommitPort owns the final commit boundary for incident create.
 // Implementations are invoked only after the incident, creator membership,
@@ -32,16 +31,28 @@ type IncidentBundleImportFinalizer interface {
 	FinalizeIncidentBundleImportTx(ctx context.Context, tx pgx.Tx, params IncidentBundleImportFinalizationParams) error
 }
 
-type CollaborationSessionPort interface {
-	NotifyIncidentClosed(ctx context.Context, incidentID uuid.UUID)
-	NotifyIncidentMembershipRevoked(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID)
+type TerminalMutationCoordinator interface {
+	CoordinateIncidentLifecycle(
+		context.Context,
+		authn.UserRecord,
+		uuid.UUID,
+		string,
+		IncidentLifecycleRequest,
+		[]byte,
+		string,
+		time.Time,
+	) (IncidentLifecycleResult, error)
+	CoordinateMembershipDeletion(
+		context.Context,
+		authn.UserRecord,
+		uuid.UUID,
+		uuid.UUID,
+		MembershipDeleteRequest,
+		string,
+	) (MembershipDeleteResult, error)
 }
 
 type ApplicationOptions struct {
-	PreferenceBootstrap  PreferenceBootstrapPort
+	PreferenceBootstrap  bootstrapport.Writer
 	IncidentCreateCommit IncidentCreateCommitPort
-}
-
-type RouteOptions struct {
-	CollaborationSession CollaborationSessionPort
 }

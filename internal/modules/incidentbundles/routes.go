@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -18,7 +18,7 @@ import (
 type service struct {
 	store          *store
 	authStore      *authn.Store
-	incidentAccess incidents.Access
+	incidentAccess *admission.Checker
 	storage        BundleStorage
 	worker         *incidentBundleWorker
 	keys           authn.MasterKeys
@@ -55,7 +55,7 @@ func newService(deps httpapi.DependencySet, module *Module) (*service, error) {
 	return &service{
 		store:          module.store,
 		authStore:      authn.NewStore(module.pool),
-		incidentAccess: incidents.NewAccess(module.pool),
+		incidentAccess: admission.NewChecker(module.pool),
 		storage:        module.storage,
 		worker:         module.worker,
 		keys:           keys,
@@ -96,7 +96,7 @@ func (s *service) handleBundleMember(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError())
 		return
 	}
-	if _, err := s.incidentAccess.GetIncidentMembershipForUser(r.Context(), record.IncidentID, principal.User.ID); s.incidentAccess.IsMembershipNotFound(err) {
+	if _, err := s.incidentAccess.Check(r.Context(), record.IncidentID, principal.User.ID, admission.Requirement{AllowedRoles: admission.RolesMember, Lifecycle: admission.LifecycleAny}); admission.IsDenied(err, admission.DenialNotVisible) {
 		writeAPIError(w, r, incidentBundleNotFound())
 		return
 	} else if err != nil {
@@ -125,7 +125,7 @@ func (s *service) handleExport(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, err := s.incidentAccess.GetIncidentMembershipForUser(r.Context(), request.IncidentID, principal.User.ID); s.incidentAccess.IsMembershipNotFound(err) {
+	if _, err := s.incidentAccess.Check(r.Context(), request.IncidentID, principal.User.ID, admission.Requirement{AllowedRoles: admission.RolesMember, Lifecycle: admission.LifecycleAny}); admission.IsDenied(err, admission.DenialNotVisible) {
 		writeAPIError(w, r, incidentBundleNotFound())
 		return
 	} else if err != nil {

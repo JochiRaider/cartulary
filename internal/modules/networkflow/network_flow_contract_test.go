@@ -13,10 +13,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -451,19 +450,19 @@ func AssertAuthorizationBoundary(t *testing.T) {
 	t.Helper()
 	incidentID := uuid.New()
 	userID := uuid.New()
-	missing := &authorizationAccess{err: incidents.ErrMembershipNotFound}
+	missing := &authorizationAccess{err: &admission.Denied{Code: admission.DenialNotVisible}}
 	service := &Service{incidentAccess: missing}
 	if _, apiErr := service.requireIncidentMembership(context.Background(), incidentID, userID); apiErr == nil || apiErr.Status != 404 || apiErr.Code != "incident_not_found" {
 		t.Fatalf("missing membership result = %#v, want owner-derived incident_not_found", apiErr)
 	}
-	viewer := &authorizationAccess{membership: incidents.MembershipRecord{Role: "viewer"}}
+	viewer := &authorizationAccess{grant: admission.Grant{Role: admission.RoleViewer}}
 	service.incidentAccess = viewer
-	if _, apiErr := service.requireIncidentRole(context.Background(), incidentID, userID, "editor", "admin"); apiErr == nil || apiErr.Status != 403 || apiErr.Code != "authorization_denied" {
+	if _, apiErr := service.requireIncidentRole(context.Background(), incidentID, userID, admission.RolesEditorAdmin, "editor|admin"); apiErr == nil || apiErr.Status != 403 || apiErr.Code != "authorization_denied" {
 		t.Fatalf("viewer mutation result = %#v, want owner-derived authorization_denied", apiErr)
 	}
-	admin := &authorizationAccess{membership: incidents.MembershipRecord{Role: "admin"}}
+	admin := &authorizationAccess{grant: admission.Grant{Role: admission.RoleAdmin}}
 	service.incidentAccess = admin
-	if record, apiErr := service.requireIncidentRole(context.Background(), incidentID, userID, "editor", "admin"); apiErr != nil || record.Role != "admin" {
+	if record, apiErr := service.requireIncidentRole(context.Background(), incidentID, userID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil || record.Role != admission.RoleAdmin {
 		t.Fatalf("admin mutation result = %#v/%#v", record, apiErr)
 	}
 	if RouteContributionID != "network_flow_activity.route_family" {
@@ -631,34 +630,16 @@ func approvedMappingFixture(sourceProfileID string) ApprovedMapping {
 }
 
 type authorizationAccess struct {
-	membership incidents.MembershipRecord
-	err        error
+	grant admission.Grant
+	err   error
 }
 
-func (a *authorizationAccess) GetVisibleIncident(context.Context, uuid.UUID, uuid.UUID) (incidents.IncidentRecord, error) {
-	return incidents.IncidentRecord{}, a.err
-}
-
-func (a *authorizationAccess) GetIncidentMembershipForUser(context.Context, uuid.UUID, uuid.UUID) (incidents.MembershipRecord, error) {
-	return a.membership, a.err
-}
-
-func (*authorizationAccess) EnsureOpenTx(context.Context, pgx.Tx, uuid.UUID) error {
-	return nil
-}
-
-func (a *authorizationAccess) AuthorizeMutationTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, ...string) (incidents.MembershipRecord, error) {
-	return a.membership, a.err
-}
-
-func (*authorizationAccess) IsIncidentClosed(err error) bool {
-	return errors.Is(err, incidents.ErrIncidentClosed)
-}
-
-func (*authorizationAccess) IsIncidentNotFound(err error) bool {
-	return errors.Is(err, incidents.ErrIncidentNotFound)
-}
-
-func (*authorizationAccess) IsMembershipNotFound(err error) bool {
-	return errors.Is(err, incidents.ErrMembershipNotFound)
+func (a *authorizationAccess) Check(context.Context, uuid.UUID, uuid.UUID, admission.Requirement) (admission.Grant, error) {
+	if a.err != nil {
+		return admission.Grant{}, a.err
+	}
+	if a.grant.Role == admission.RoleViewer {
+		return admission.Grant{}, &admission.Denied{Code: admission.DenialInsufficientRole}
+	}
+	return a.grant, nil
 }

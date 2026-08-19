@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -104,7 +105,7 @@ RETURNING id, email, display_name, password_hash, mfa_required, is_active, is_de
 func createMergeProtectedSetIncident(t testing.TB, db postgres.DB, actor authn.UserRecord, clientTxnID string, incidentKey string, title string) incidents.IncidentRecord {
 	t.Helper()
 
-	store := incidents.NewApplication(db)
+	store := incidents.NewApplication(db, workbookstartuppostgres.NewWriter())
 	result, err := store.CreateIncident(context.Background(), actor, incidents.CreateIncidentRequest{
 		ClientTxnID: clientTxnID,
 		IncidentKey: incidentKey,

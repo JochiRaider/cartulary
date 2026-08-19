@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
+	"github.com/JochiRaider/cartulary/internal/app/collaborationassembly/incidenteffects"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/importassembly"
@@ -35,6 +36,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	incidentshttpapi "github.com/JochiRaider/cartulary/internal/modules/incidents/httpapi"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatorshttpapi "github.com/JochiRaider/cartulary/internal/modules/indicators/httpapi"
 	"github.com/JochiRaider/cartulary/internal/modules/jobapi"
@@ -46,12 +48,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	revisionshttpapi "github.com/JochiRaider/cartulary/internal/modules/revisions/httpapi"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/sourceboundary"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/viewschemas"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
@@ -815,10 +819,21 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("validate attribution resolvers: %w", err)
 	}
-	incidentRoutes := incidents.RegisterRoutes(incidents.RouteOptions{
-		CollaborationSession: collaboration.NewIncidentSessionNotifier(postgresHandle, hub),
+	workbookPreferenceBootstrap := workbookstartuppostgres.NewWriter()
+	incidentApplication := incidents.NewApplication(postgresHandle, workbookPreferenceBootstrap)
+	incidentEffects, err := incidenteffects.New(
+		incidentApplication,
+		collaboration.NewIncidentSessionNotifier(hub),
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose incident terminal effects: %w", err)
+	}
+	incidentRoutes := incidentshttpapi.RegisterRoutes(incidentshttpapi.RouteOptions{
+		Application:       incidentApplication,
+		TerminalMutations: incidentEffects,
 	})
-	incidentBundleImportFinalizer := incidents.NewIncidentBundleImportFinalizer()
+	incidentBundleImportFinalizer := incidents.NewIncidentBundleImportFinalizer(workbookPreferenceBootstrap)
 	historicalIntentPolicy := collaboration.NewHistoricalIntentPolicy()
 	providerContributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
@@ -1121,6 +1136,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	reportingRouteOptions := reporting.WithJobs(reporting.RouteOptions{
 		JobSuccessFinalizer: extensionassembly.NewReportingJobSuccessFinalizer(extensionJobFinalizer),
 		RenderExportInvoker: renderExportInvoker,
+		SourceBoundary:      sourceboundary.NewResolver(),
 		GraphSourceProviders: []reporting.GraphSourceProvider{
 			networkFlowModule.ReportingGraphSource(),
 		},

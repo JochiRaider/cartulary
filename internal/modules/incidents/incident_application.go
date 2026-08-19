@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrapport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 )
@@ -111,13 +112,14 @@ func (a *Application) CreateIncident(
 			return CreateIncidentResult{}, fmt.Errorf("decode replayed incident id: %w", err)
 		}
 		return CreateIncidentResult{
-			Incident:   IncidentRecord{ID: incidentID},
-			Payload:    payload,
-			StatusCode: http.StatusOK,
-			Location:   incidentLocation(incidentID),
+			Incident: IncidentRecord{ID: incidentID},
+			Payload:  payload,
 		}, nil
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return CreateIncidentResult{}, fmt.Errorf("query incident create idempotency: %w", err)
+	}
+	if a.preferenceBootstrap == nil {
+		return CreateIncidentResult{}, errors.New("incidents: workbook preference bootstrap port is required")
 	}
 
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -156,13 +158,17 @@ func (a *Application) CreateIncident(
 		return CreateIncidentResult{}, err
 	}
 
-	if err := a.preferenceBootstrap.BootstrapIncidentPreferencesTx(ctx, tx, incident.ID, actor.ID, now); err != nil {
+	if err := a.preferenceBootstrap.InsertInitialTx(ctx, tx, bootstrapport.InitialPreferenceInput{
+		IncidentID:      incident.ID,
+		UserID:          actor.ID,
+		CommitTimestamp: now,
+	}); err != nil {
 		return CreateIncidentResult{}, err
 	}
 
 	incidentPayload := BuildIncidentResource(incident)
 	membershipPayload := BuildMembershipResource(membership)
-	if err := insertAuditEvent(ctx, tx, auditEvent{
+	if _, err := insertAuditEvent(ctx, tx, auditEvent{
 		ActorUserID:  &actor.ID,
 		TargetUserID: &actor.ID,
 		IncidentID:   &incident.ID,
@@ -174,7 +180,7 @@ func (a *Application) CreateIncident(
 	}); err != nil {
 		return CreateIncidentResult{}, err
 	}
-	if err := insertAuditEvent(ctx, tx, auditEvent{
+	if _, err := insertAuditEvent(ctx, tx, auditEvent{
 		ActorUserID:  &actor.ID,
 		TargetUserID: &actor.ID,
 		IncidentID:   &incident.ID,
@@ -197,7 +203,7 @@ func (a *Application) CreateIncident(
 		key,
 		&actor.ID,
 		requestHash,
-		http.StatusCreated,
+		persistedCreatedStatus,
 		responseJSON,
 	); err != nil {
 		if authn.IsUniqueViolation(err) {
@@ -210,10 +216,9 @@ func (a *Application) CreateIncident(
 		return CreateIncidentResult{}, fmt.Errorf("commit incident create transaction: %w", err)
 	}
 	return CreateIncidentResult{
-		Incident:   incident,
-		Payload:    incidentPayload,
-		StatusCode: http.StatusCreated,
-		Location:   incidentLocation(incident.ID),
+		Incident: incident,
+		Payload:  incidentPayload,
+		Created:  true,
 	}, nil
 }
 
@@ -238,6 +243,12 @@ func (a *Application) UpdateIncident(
 	if err != nil {
 		return IncidentRecord{}, false, err
 	}
+	if _, err := a.admission.CheckTx(ctx, tx, incidentID, actor.ID, admission.Requirement{
+		AllowedRoles: admission.RolesReviewerAdmin,
+		Lifecycle:    admission.LifecycleOpen,
+	}); err != nil {
+		return IncidentRecord{}, false, err
+	}
 	if current.IncidentVersion != request.BaseIncidentVersion {
 		return IncidentRecord{}, false, &IncidentVersionConflictError{
 			IncidentID:             incidentID,
@@ -245,10 +256,6 @@ func (a *Application) UpdateIncident(
 			CurrentIncidentVersion: current.IncidentVersion,
 		}
 	}
-	if current.Status == "closed" {
-		return IncidentRecord{}, false, ErrIncidentClosed
-	}
-
 	next, changed := ApplyIncidentPatch(current, request, actor.ID, now)
 	if !changed {
 		if err := tx.Commit(ctx); err != nil {
@@ -261,7 +268,7 @@ func (a *Application) UpdateIncident(
 	if err != nil {
 		return IncidentRecord{}, false, err
 	}
-	if err := insertAuditEvent(ctx, tx, auditEvent{
+	if _, err := insertAuditEvent(ctx, tx, auditEvent{
 		ActorUserID:  &actor.ID,
 		TargetUserID: &actor.ID,
 		IncidentID:   &incidentID,
@@ -304,7 +311,10 @@ func (a *Application) TransitionIncidentLifecycle(
 		if err != nil {
 			return IncidentLifecycleResult{}, fmt.Errorf("decode replayed incident lifecycle payload: %w", err)
 		}
-		return IncidentLifecycleResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true}, nil
+		return IncidentLifecycleResult{
+			Payload: payload,
+			Commit:  ReplayTerminalMutationCommit(),
+		}, nil
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return IncidentLifecycleResult{}, fmt.Errorf("query incident lifecycle idempotency: %w", err)
 	}
@@ -320,6 +330,12 @@ func (a *Application) TransitionIncidentLifecycle(
 	txRepository := newRepository(tx)
 	current, err := txRepository.getIncidentForUpdate(ctx, incidentID)
 	if err != nil {
+		return IncidentLifecycleResult{}, err
+	}
+	if _, err := a.admission.CheckTx(ctx, tx, incidentID, actor.ID, admission.Requirement{
+		AllowedRoles: admission.RolesAdmin,
+		Lifecycle:    admission.LifecycleAny,
+	}); err != nil {
 		return IncidentLifecycleResult{}, err
 	}
 	if current.IncidentVersion != request.BaseIncidentVersion {
@@ -361,7 +377,7 @@ func (a *Application) TransitionIncidentLifecycle(
 	}
 
 	payload := BuildIncidentResource(updated)
-	if err := insertAuditEvent(ctx, tx, auditEvent{
+	auditEventID, err := insertAuditEvent(ctx, tx, auditEvent{
 		ActorUserID:  &actor.ID,
 		TargetUserID: &actor.ID,
 		IncidentID:   &incidentID,
@@ -372,7 +388,8 @@ func (a *Application) TransitionIncidentLifecycle(
 		RequestID:    &requestID,
 		BeforeJSON:   BuildIncidentResource(current),
 		AfterJSON:    payload,
-	}); err != nil {
+	})
+	if err != nil {
 		return IncidentLifecycleResult{}, err
 	}
 
@@ -386,7 +403,7 @@ func (a *Application) TransitionIncidentLifecycle(
 		key,
 		&actor.ID,
 		requestHash,
-		http.StatusOK,
+		persistedSuccessStatus,
 		responseJSON,
 	); err != nil {
 		if authn.IsUniqueViolation(err) {
@@ -399,8 +416,8 @@ func (a *Application) TransitionIncidentLifecycle(
 		return IncidentLifecycleResult{}, fmt.Errorf("commit incident lifecycle transaction: %w", err)
 	}
 	return IncidentLifecycleResult{
-		Incident:   updated,
-		Payload:    payload,
-		StatusCode: http.StatusOK,
+		Incident: updated,
+		Payload:  payload,
+		Commit:   NewTerminalMutationCommit(auditEventID),
 	}, nil
 }

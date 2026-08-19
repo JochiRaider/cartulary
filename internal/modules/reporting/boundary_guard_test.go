@@ -46,6 +46,10 @@ func TestReportingProductionImportBoundaries(t *testing.T) {
 			"export_materializer.go": true,
 			"routes.go":              true,
 		},
+		reportingRepoImportPrefix + "internal/modules/revisions/sourceboundary": {
+			"export_materializer.go": true,
+			"routes.go":              true,
+		},
 		reportingRepoImportPrefix + "internal/modules/timeline/reportingprovider": {
 			"export_materializer.go": true,
 		},

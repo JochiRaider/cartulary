@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -33,7 +33,7 @@ var (
 type Store struct {
 	pool             postgres.DB
 	authStore        *authn.Store
-	incidentAccess   incidents.Access
+	incidentAccess   *admission.Checker
 	revisionAppender *revisions.Appender
 	keepSaved        conflicts.IdempotencyPort
 	ports            entityStorePorts
@@ -61,7 +61,7 @@ func NewStore(
 	store := &Store{
 		pool:             pool,
 		authStore:        authn.NewStore(pool),
-		incidentAccess:   incidents.NewAccess(pool),
+		incidentAccess:   admission.NewChecker(pool),
 		revisionAppender: appender,
 		keepSaved:        keepSaved,
 		ports:            newEntityStorePorts(pool, appender, projectionWriter),
@@ -392,7 +392,7 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 		_ = tx.Rollback(ctx)
 	}()
 
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
 	beforeSnapshot, err := s.captureHostSnapshotBeforeUpsertTx(ctx, tx, incidentID, request)
@@ -524,7 +524,7 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		_ = tx.Rollback(ctx)
 	}()
 
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
 	beforeSnapshot, err := s.captureIdentitySnapshotBeforeUpsertTx(ctx, tx, incidentID, request)

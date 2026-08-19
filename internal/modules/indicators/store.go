@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -33,11 +33,11 @@ var (
 )
 
 type incidentLifecycleAccess interface {
-	EnsureOpenTx(context.Context, pgx.Tx, uuid.UUID) error
+	RequireOpenTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
 func newIncidentLifecycleAccess(pool postgres.DB) incidentLifecycleAccess {
-	return incidents.NewAccess(pool)
+	return admission.NewChecker(pool)
 }
 
 type IndicatorCreateValidationError struct {

@@ -59,7 +59,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	if err := validateArtifactViewRecordTx(ctx, tx, command.RecordID, request.ViewSchemaID); err != nil {
 		return MutationResult{}, err
 	}
-	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
+	if err := f.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return MutationResult{}, err
 	}
 	effectiveBeforeVersion := request.BaseRowVersion

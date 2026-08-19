@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/sourceboundary"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -28,6 +29,7 @@ type RouteOptions struct {
 	RenderExportInvoker  RenderExportInvoker
 	ExportFieldProviders []exportprovider.FieldProvider
 	GraphSourceProviders []GraphSourceProvider
+	SourceBoundary       sourceboundary.Resolver
 	jobAdmission         reportingJobAdmission
 	jobOperations        reportingJobManager
 	jobRunner            reportingJobRunner
@@ -70,7 +72,7 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	if options.jobOperations != nil && options.jobAdmission == nil {
 		return nil, fmt.Errorf("reporting admitted route requires the Jobs transaction service")
 	}
-	exportMaterializer, err := newReportingExportMaterializer(options.ExportFieldProviders...)
+	exportMaterializer, err := newReportingExportMaterializer(options.SourceBoundary, options.ExportFieldProviders...)
 	if err != nil {
 		return nil, fmt.Errorf("compose reporting export materializer: %w", err)
 	}
@@ -81,7 +83,7 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	store := newStore(deps.Postgres, options.jobAdmission, exportMaterializer, graphSources)
 	app, err := NewApplicationService(
 		store,
-		incidents.NewAccess(deps.PostgresHandle()),
+		admission.NewChecker(deps.PostgresHandle()),
 		options.jobOperations,
 		options.jobRunner,
 		options.JobSuccessFinalizer,

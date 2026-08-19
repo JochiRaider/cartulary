@@ -2,21 +2,22 @@ package incidents
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/workbookpreferences"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrapport"
 )
 
 type incidentBundleImportFinalizer struct {
-	preferenceBootstrap PreferenceBootstrapPort
+	preferenceBootstrap bootstrapport.Writer
 }
 
-func NewIncidentBundleImportFinalizer() IncidentBundleImportFinalizer {
+func NewIncidentBundleImportFinalizer(preferenceBootstrap bootstrapport.Writer) IncidentBundleImportFinalizer {
 	return &incidentBundleImportFinalizer{
-		preferenceBootstrap: workbookpreferences.NewBootstrap(),
+		preferenceBootstrap: preferenceBootstrap,
 	}
 }
 
@@ -25,6 +26,9 @@ func (f *incidentBundleImportFinalizer) FinalizeIncidentBundleImportTx(
 	tx pgx.Tx,
 	params IncidentBundleImportFinalizationParams,
 ) error {
+	if f == nil || f.preferenceBootstrap == nil {
+		return errors.New("incidents: workbook preference bootstrap port is required")
+	}
 	publishedAt := params.PublishedAt
 	if publishedAt.IsZero() {
 		publishedAt = time.Now().UTC()
@@ -51,17 +55,19 @@ func (f *incidentBundleImportFinalizer) FinalizeIncidentBundleImportTx(
 		return err
 	}
 
-	if err := f.preferenceBootstrap.BootstrapIncidentPreferencesTx(
+	if err := f.preferenceBootstrap.InsertInitialTx(
 		ctx,
 		tx,
-		params.IncidentID,
-		params.SubmittedByUserID,
-		publishedAt,
+		bootstrapport.InitialPreferenceInput{
+			IncidentID:      params.IncidentID,
+			UserID:          params.SubmittedByUserID,
+			CommitTimestamp: publishedAt,
+		},
 	); err != nil {
 		return err
 	}
 
-	if err := insertAuditEvent(ctx, tx, auditEvent{
+	if _, err := insertAuditEvent(ctx, tx, auditEvent{
 		ActorUserID:  &params.SubmittedByUserID,
 		TargetUserID: &params.SubmittedByUserID,
 		IncidentID:   &params.IncidentID,

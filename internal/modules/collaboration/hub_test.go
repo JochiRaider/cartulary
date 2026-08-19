@@ -53,21 +53,30 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 		}
 	})
 
-	t.Run("revocation subscribers preserve public reason codes", func(t *testing.T) {
+	t.Run("revocation subscribers preserve public reason codes and incident user isolation", func(t *testing.T) {
 		hub := NewHub()
 		sessionID := uuid.New()
 		incidentID := uuid.New()
+		userID := uuid.New()
+		otherUserID := uuid.New()
+		otherIncidentID := uuid.New()
 
 		sessionRevocations, unregisterSession := hub.RegisterSession(sessionID)
 		defer unregisterSession()
-		incidentRevocations, unregisterIncident := hub.RegisterIncidentSession(incidentID, sessionID)
+		incidentRevocations, unregisterIncident := hub.RegisterIncidentUser(incidentID, userID)
 		defer unregisterIncident()
+		otherUserRevocations, unregisterOtherUser := hub.RegisterIncidentUser(incidentID, otherUserID)
+		defer unregisterOtherUser()
+		otherIncidentRevocations, unregisterOtherIncident := hub.RegisterIncidentUser(otherIncidentID, userID)
+		defer unregisterOtherIncident()
 
 		hub.RevokeSession(sessionID, "concurrency_limit")
 		requireReason(t, sessionRevocations, "concurrency_limit")
 
-		hub.RevokeIncidentSession(incidentID, sessionID, "incident_access_revoked")
+		hub.RevokeIncidentUser(incidentID, userID, "incident_access_revoked")
 		requireReason(t, incidentRevocations, "incident_access_revoked")
+		requireNoRevocationReason(t, otherUserRevocations)
+		requireNoRevocationReason(t, otherIncidentRevocations)
 	})
 
 	t.Run("subscription teardown is idempotent and safe during publish", func(t *testing.T) {

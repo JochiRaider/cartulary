@@ -86,7 +86,7 @@ type coordinatorIncidentAdmission struct {
 	events *[]string
 }
 
-func (admission coordinatorIncidentAdmission) EnsureOpenTx(context.Context, pgx.Tx, uuid.UUID) error {
+func (admission coordinatorIncidentAdmission) RequireOpenTx(context.Context, pgx.Tx, uuid.UUID) error {
 	*admission.events = append(*admission.events, "incident")
 	return nil
 }

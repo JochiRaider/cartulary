@@ -48,7 +48,7 @@ func (coordinator evidenceSourceMutationKernel) createTx(
 	command evidenceCreateTxCommand,
 	createParams createParams,
 ) (evidenceCreateTxResult, error) {
-	if err := coordinator.incidents.EnsureOpenTx(ctx, tx, command.IncidentID); err != nil {
+	if err := coordinator.incidents.RequireOpenTx(ctx, tx, command.IncidentID); err != nil {
 		return evidenceCreateTxResult{}, err
 	}
 	if err := validateEvidenceReferencesTx(ctx, tx, command.IncidentID, command.Values); err != nil {

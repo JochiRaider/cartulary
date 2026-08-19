@@ -9,10 +9,11 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/sourceboundary"
 )
 
 func TestReportingEvidenceProviderMalformedContributionPublishesNoPartialOutput(t *testing.T) {
-	materializer, err := newReportingExportMaterializer()
+	materializer, err := newReportingExportMaterializer(sourceboundary.NewResolver())
 	if err != nil {
 		t.Fatalf("construct Reporting materializer: %v", err)
 	}

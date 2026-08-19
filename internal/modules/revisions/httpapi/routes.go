@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -26,7 +26,7 @@ type commandApplication interface {
 
 type Service struct {
 	commands       commandApplication
-	incidentAccess incidents.Access
+	incidentAccess *admission.Checker
 	records        revisions.RecordEnvelopeReader
 	authStore      *authn.Store
 	keys           authn.MasterKeys
@@ -71,7 +71,7 @@ func newService(deps platformhttpapi.DependencySet, commands commandApplication,
 	}
 	return &Service{
 		commands:       commands,
-		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
+		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
 		records:        records,
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		keys:           keys,
@@ -194,7 +194,7 @@ func (s *Service) handleRecordRollback(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if !roleIn(membership.Role, "reviewer", "admin") {
+	if !roleIn(membership.Role.String(), "reviewer", "admin") {
 		writeAPIError(w, r, forbiddenError("reviewer|admin"))
 		return
 	}
@@ -294,11 +294,11 @@ func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, de
 		return
 	}
 	if deleting {
-		if !roleIn(membership.Role, "editor", "reviewer", "admin") {
+		if !roleIn(membership.Role.String(), "editor", "reviewer", "admin") {
 			writeAPIError(w, r, forbiddenError("editor|reviewer|admin"))
 			return
 		}
-	} else if !roleIn(membership.Role, "reviewer", "admin") {
+	} else if !roleIn(membership.Role.String(), "reviewer", "admin") {
 		writeAPIError(w, r, forbiddenError("reviewer|admin"))
 		return
 	}
@@ -383,8 +383,19 @@ func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, de
 	_ = platformhttpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *platformhttpapi.APIError) {
-	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *platformhttpapi.APIError) {
+	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{
+		AllowedRoles: admission.RolesMember,
+		Lifecycle:    admission.LifecycleAny,
+	})
+	switch {
+	case admission.IsDenied(err, admission.DenialNotVisible):
+		return admission.Grant{}, incidentNotFoundError()
+	case err != nil:
+		return admission.Grant{}, internalAPIError(err)
+	default:
+		return grant, nil
+	}
 }
 
 func roleIn(role string, allowed ...string) bool {

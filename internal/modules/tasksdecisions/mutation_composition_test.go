@@ -131,7 +131,7 @@ func (compositionKeepSavedIdempotency) PutTx(context.Context, pgx.Tx, conflictto
 
 type compositionOperations struct{}
 
-func (compositionOperations) EnsureOpenTx(context.Context, pgx.Tx, uuid.UUID) error { return nil }
+func (compositionOperations) RequireOpenTx(context.Context, pgx.Tx, uuid.UUID) error { return nil }
 
 func (compositionOperations) ValidateIncidentMemberUserTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, string) error {
 	return nil

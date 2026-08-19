@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -20,7 +20,7 @@ import (
 
 type Service struct {
 	store                    *Store
-	incidentAccess           incidents.Access
+	incidentAccess           *admission.Checker
 	authStore                *authn.Store
 	jobManager               importJobOperations
 	jobRunner                importJobRunner
@@ -164,7 +164,7 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 			options.revisionAppender,
 			options.jobTransactions,
 		),
-		incidentAccess:           incidents.NewAccess(deps.PostgresHandle()),
+		incidentAccess:           admission.NewChecker(deps.PostgresHandle()),
 		authStore:                authn.NewStore(deps.PostgresHandle()),
 		jobManager:               options.jobOperations,
 		jobRunner:                options.jobRunner,

@@ -1,4 +1,4 @@
-package incidents
+package httpapi
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -205,7 +206,7 @@ func TestIncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable_Unit(t *test
 		t.Fatalf("unexpected omitted field to be marked present: %#v", request.PrimaryExternalCaseRef)
 	}
 
-	current := IncidentRecord{
+	current := incidents.IncidentRecord{
 		ID:                     uuid.MustParse("00000000-0000-0000-0000-000000000905"),
 		TLP:                    stringRef("TLP:AMBER"),
 		CurrentPhase:           stringRef("containment"),
@@ -213,7 +214,7 @@ func TestIncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable_Unit(t *test
 		UpdatedAt:              timeRef(2026, 4, 17, 12, 0),
 		IncidentVersion:        7,
 	}
-	noOp, changed := ApplyIncidentPatch(current, IncidentPatchRequest{BaseIncidentVersion: 7}, uuid.MustParse("00000000-0000-0000-0000-000000000777"), timeRef(2026, 4, 17, 13, 0))
+	noOp, changed := incidents.ApplyIncidentPatch(current, incidents.IncidentPatchRequest{BaseIncidentVersion: 7}, uuid.MustParse("00000000-0000-0000-0000-000000000777"), timeRef(2026, 4, 17, 13, 0))
 	if changed {
 		t.Fatalf("expected structurally valid no-op patch to remain version-stable: %#v", noOp)
 	}
@@ -221,10 +222,10 @@ func TestIncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable_Unit(t *test
 		t.Fatalf("no-op patch must keep version and updated_at stable: before=%#v after=%#v", current, noOp)
 	}
 
-	material, changed := ApplyIncidentPatch(current, IncidentPatchRequest{
+	material, changed := incidents.ApplyIncidentPatch(current, incidents.IncidentPatchRequest{
 		BaseIncidentVersion:    7,
-		TLP:                    OptionalNullableString{Present: true, Value: stringRef("TLP:GREEN")},
-		PrimaryExternalCaseRef: OptionalNullableString{Present: true, Value: nil},
+		TLP:                    incidents.OptionalNullableString{Present: true, Value: stringRef("TLP:GREEN")},
+		PrimaryExternalCaseRef: incidents.OptionalNullableString{Present: true, Value: nil},
 	}, uuid.MustParse("00000000-0000-0000-0000-000000000777"), timeRef(2026, 4, 17, 13, 0))
 	if !changed {
 		t.Fatal("expected material patch to change promoted fields")

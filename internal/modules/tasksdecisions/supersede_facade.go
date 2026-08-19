@@ -111,7 +111,7 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 	if targetMeta.RecordType != "decision" {
 		return SupersedeMutationResult{}, pgx.ErrNoRows
 	}
-	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, targetMeta.IncidentID); err != nil {
+	if err := f.incidentAccess.RequireOpenTx(ctx, tx, targetMeta.IncidentID); err != nil {
 		return SupersedeMutationResult{}, err
 	}
 	if targetMeta.RowVersion != request.BaseRowVersion {

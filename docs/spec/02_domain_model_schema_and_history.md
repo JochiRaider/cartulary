@@ -1501,7 +1501,33 @@ These fields are source-state facts only. Core 02 MUST NOT define report redacti
 Profiles: snapshot_reporting
 Verified by: AC-233
 
-The current canonical derivation id is `cartulary.reporting_derivation_profile.v1`, which materializes `cartulary.reporting_export_model.v1` under the Reporting NLSpec. It covers incident metadata plus active base-profile workbook/reporting surfaces needed for reports: record envelopes, Timeline, hosts, identities, parties, evidence metadata, task requests, decisions, notes, findings and hypotheses, coordination artifacts, active record links, tags, entity mentions, support refs, disclosure-partition refs, and the structural sections, blocks, records, relationships, timeline events, subjects, diagrams, assets, support index, and validation summary required by Reporting. The prior `cartulary.snapshot_export_model.v3` / `cartulary.export_model.v3` pair is legacy read-only material and is not a current render-admission derivation. The public `source_change_set_high_watermark` value is the opaque token `cartulary.source_boundary.v1:<sha256>`, where the hash input is canonical JSON containing `incident_id`, `incident_version`, latest visible `change_set_id`, and latest visible `change_set.created_at`; the change-set fields are JSON `null` when the incident has no source change sets. The canonical export model MUST exclude raw blob bytes, blob hashes, storage references, mutable history, deployment auth or admin state, job records, and idempotency records.
+**REQ-02-143b**
+Core 02 owns the exact current-profile source-boundary object identified by
+`cartulary.source_boundary.v1`. Its UTF-8 bytes MUST be a whitespace-free JSON object
+with members emitted in exactly this order:
+
+```json
+{"incident_id":"<lowercase UUID>","incident_version":1,"latest_change_set_id":null,"latest_change_set_created_at":null}
+```
+
+`incident_id` and a non-null `latest_change_set_id` MUST use canonical lowercase UUID
+text. `incident_version` MUST be the positive integer version visible at the same
+snapshot boundary. `latest_change_set_created_at` MUST be JSON `null` exactly when
+`latest_change_set_id` is JSON `null`; otherwise it MUST be the selected change set's
+timestamp normalized to UTC and encoded as RFC3339Nano with the `Z` suffix. No member
+may be omitted, renamed, reordered, or added.
+
+The latest visible change set MUST be selected by `created_at DESC, change_set_id DESC`.
+Selection, incident-version reading, and canonical serialization MUST use the same
+repeatable-read transaction snapshot as snapshot materialization. The public token is
+the lowercase hexadecimal SHA-256 digest over exactly those object bytes, prefixed by
+`cartulary.source_boundary.v1:`. The hash input MUST NOT include the schema identifier,
+prefix, a byte-order mark, whitespace, or a trailing newline. Exact replay MUST retain
+the originally committed object bytes and token instead of resolving current state.
+Profiles: snapshot_reporting
+Verified by: AC-266
+
+The current canonical derivation id is `cartulary.reporting_derivation_profile.v1`, which materializes `cartulary.reporting_export_model.v1` under the Reporting NLSpec. It covers incident metadata plus active base-profile workbook/reporting surfaces needed for reports: record envelopes, Timeline, hosts, identities, parties, evidence metadata, task requests, decisions, notes, findings and hypotheses, coordination artifacts, active record links, tags, entity mentions, support refs, disclosure-partition refs, and the structural sections, blocks, records, relationships, timeline events, subjects, diagrams, assets, support index, and validation summary required by Reporting. The prior `cartulary.snapshot_export_model.v3` / `cartulary.export_model.v3` pair is legacy read-only material and is not a current render-admission derivation. The public `source_change_set_high_watermark` value is the opaque token owned by REQ-02-143b. The canonical export model MUST exclude raw blob bytes, blob hashes, storage references, mutable history, deployment auth or admin state, job records, and idempotency records.
 
 **REQ-02-144**
 When recipient-specific reporting is implemented, each exportable field or block MUST also be able to carry zero or more stable incident-local `disclosure_partition_refs[]`. Each `disclosure_partition_ref` names an export-only withholding boundary such as an affected party or other approved recipient partition. `disclosure_partition_refs[]` MUST be stored as snapshot or export metadata only. They MUST NOT change live workspace authorization.

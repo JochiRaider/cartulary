@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -67,9 +68,8 @@ func (s *Service) handleRegion(
 		r.Context(),
 		incidentID,
 		principal.User.ID,
-		"editor",
-		"reviewer",
-		"admin",
+		admission.RolesEditorReviewerAdmin,
+		"editor|reviewer|admin",
 	); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -251,14 +251,15 @@ func (s *Store) CreateOperatorRegion(
 	case "applied", "partially_applied", "failed", "canceled":
 		return CreateOperatorRegionResult{}, importConflictError("session_terminal")
 	}
-	if _, err := s.incidentAccess.AuthorizeMutationTx(
+	if _, err := s.incidentAccess.CheckTx(
 		ctx,
 		tx,
 		incidentID,
 		params.ActorUserID,
-		"editor",
-		"reviewer",
-		"admin",
+		admission.Requirement{
+			AllowedRoles: admission.RolesEditorReviewerAdmin,
+			Lifecycle:    admission.LifecycleOpen,
+		},
 	); err != nil {
 		return CreateOperatorRegionResult{}, err
 	}

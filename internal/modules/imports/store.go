@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -52,7 +52,7 @@ func (e *ApplyBlockedError) Unwrap() error {
 
 type Store struct {
 	pool             *pgxpool.Pool
-	incidentAccess   incidents.Access
+	incidentAccess   *admission.Checker
 	revisionAppender *revisions.Appender
 	jobTransactions  importJobTransactions
 }
@@ -187,7 +187,7 @@ func NewStore(
 ) *Store {
 	return &Store{
 		pool:             pool,
-		incidentAccess:   incidents.NewAccess(pool),
+		incidentAccess:   admission.NewChecker(pool),
 		revisionAppender: appender,
 		jobTransactions:  jobTransactions,
 	}
@@ -706,7 +706,7 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 	if err != nil {
 		return ApplyStartResult{}, err
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return ApplyStartResult{}, err
 	}
 	switch status {

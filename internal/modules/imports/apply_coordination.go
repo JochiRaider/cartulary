@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/google/uuid"
@@ -49,14 +50,15 @@ func (s *Service) applyUnit(
 		}
 		return unitApplyOutcome{}, err
 	}
-	if _, err := s.incidentAccess.AuthorizeMutationTx(
+	if _, err := s.incidentAccess.CheckTx(
 		ctx,
 		tx,
 		start.IncidentID,
 		actor.ID,
-		"editor",
-		"reviewer",
-		"admin",
+		admission.Requirement{
+			AllowedRoles: admission.RolesEditorReviewerAdmin,
+			Lifecycle:    admission.LifecycleOpen,
+		},
 	); err != nil {
 		return unitApplyOutcome{}, err
 	}

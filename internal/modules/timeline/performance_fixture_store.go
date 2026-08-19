@@ -29,7 +29,7 @@ func (s *store) createPerformanceFixtureRows(ctx context.Context, command Perfor
 		return PerformanceFixtureResult{}, fmt.Errorf("begin timeline performance fixture transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, command.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, command.IncidentID); err != nil {
 		return PerformanceFixtureResult{}, err
 	}
 	var existing int

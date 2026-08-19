@@ -12,6 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/mutationtest"
+	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -90,7 +91,7 @@ func CreateMembershipInStore(
 ) incidents.MembershipCreateResult {
 	t.Helper()
 
-	store := incidents.NewApplication(pool)
+	store := incidents.NewApplication(pool, workbookstartuppostgres.NewWriter())
 	result, err := store.CreateMembership(
 		context.Background(),
 		actor,

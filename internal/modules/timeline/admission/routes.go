@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -17,10 +17,14 @@ import (
 
 type Service struct {
 	facade         *timeline.Facade
-	incidentAccess incidents.Access
+	incidentAccess incidentAdmissionChecker
 	authStore      *authn.Store
 	keys           authn.MasterKeys
 	now            func() time.Time
+}
+
+type incidentAdmissionChecker interface {
+	Check(context.Context, uuid.UUID, uuid.UUID, admission.Requirement) (admission.Grant, error)
 }
 
 type RouteOptions struct {
@@ -55,7 +59,7 @@ func newService(deps httpapi.DependencySet, facade *timeline.Facade) (*Service, 
 	}
 	return &Service{
 		facade:         facade,
-		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
+		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		keys:           keys,
 		now:            now,
@@ -72,7 +76,7 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireTimelineRole(r.Context(), recordID, principal.User.ID, "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireTimelineRole(r.Context(), recordID, principal.User.ID, admission.RolesReviewerAdmin, "reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -150,7 +154,7 @@ func (s *Service) handlePutTimeConversionProfile(w http.ResponseWriter, r *http.
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesAdmin, "admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -205,15 +209,25 @@ func formatUUIDPointer(value *uuid.UUID) any {
 	return value.String()
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
+	return s.requireIncidentRole(ctx, incidentID, userID, admission.RolesMember, "")
 }
 
-func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentRole(ctx, s.incidentAccess, incidentID, userID, roles...)
+func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *httpapi.APIError) {
+	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleAny})
+	switch {
+	case admission.IsDenied(err, admission.DenialNotVisible):
+		return admission.Grant{}, incidentNotFoundError()
+	case admission.IsDenied(err, admission.DenialInsufficientRole):
+		return admission.Grant{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Message: "authorization denied", Details: map[string]any{"required_role": requiredRole}}
+	case err != nil:
+		return admission.Grant{}, internalAPIError(err)
+	default:
+		return grant, nil
+	}
 }
 
-func (s *Service) requireTimelineRole(ctx context.Context, recordID uuid.UUID, userID uuid.UUID, roles ...string) (uuid.UUID, *httpapi.APIError) {
+func (s *Service) requireTimelineRole(ctx context.Context, recordID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (uuid.UUID, *httpapi.APIError) {
 	incidentID, err := s.facade.RecordIncident(ctx, recordID)
 	if errors.Is(err, timeline.ErrRecordNotFound) {
 		return uuid.UUID{}, incidentNotFoundError()
@@ -221,7 +235,7 @@ func (s *Service) requireTimelineRole(ctx context.Context, recordID uuid.UUID, u
 	if err != nil {
 		return uuid.UUID{}, internalAPIError(err)
 	}
-	if _, apiErr := s.requireIncidentRole(ctx, incidentID, userID, roles...); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(ctx, incidentID, userID, roles, requiredRole); apiErr != nil {
 		return uuid.UUID{}, apiErr
 	}
 	return incidentID, nil

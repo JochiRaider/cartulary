@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -73,6 +74,7 @@ func newIncidentCreateCommitFaultCapability(
 	}
 	return &IncidentCreateCommitFaultCapability{
 		application: incidents.NewApplicationWithOptions(db, incidents.ApplicationOptions{
+			PreferenceBootstrap:  workbookstartuppostgres.NewWriter(),
 			IncidentCreateCommit: incidentCreateCommitFault{},
 		}),
 	}, nil

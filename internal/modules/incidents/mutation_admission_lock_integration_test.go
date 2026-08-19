@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -59,13 +59,13 @@ INSERT INTO incidents (
 		t.Fatalf("begin second mutation admission: %v", err)
 	}
 	defer func() { _ = secondMutation.Rollback(context.Background()) }()
-	access := incidents.NewAccess(firstConnection)
-	if err := access.EnsureOpenTx(ctx, firstMutation, incidentID); err != nil {
+	access := admission.NewChecker(firstConnection)
+	if err := access.RequireOpenTx(ctx, firstMutation, incidentID); err != nil {
 		t.Fatalf("admit first concurrent mutation: %v", err)
 	}
 	concurrentContext, cancelConcurrent := context.WithTimeout(ctx, 2*time.Second)
 	defer cancelConcurrent()
-	if err := access.EnsureOpenTx(concurrentContext, secondMutation, incidentID); err != nil {
+	if err := access.RequireOpenTx(concurrentContext, secondMutation, incidentID); err != nil {
 		t.Fatalf("shared incident admission serialized concurrent mutations: %v", err)
 	}
 

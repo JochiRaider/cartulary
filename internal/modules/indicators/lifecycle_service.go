@@ -41,7 +41,7 @@ func (service indicatorLifecycleService) appendInterval(ctx context.Context, act
 		return IndicatorLifecycleMutationResult{}, fmt.Errorf("begin Indicator lifecycle transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, params.IncidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, params.IncidentID); err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
 	lockIDs := sortedRecordIDs(append([]uuid.UUID{params.IndicatorRecordID}, params.SupportRefs...)...)

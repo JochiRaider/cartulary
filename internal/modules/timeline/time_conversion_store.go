@@ -54,7 +54,7 @@ func (s *store) PutTimeConversionProfile(ctx context.Context, actor authn.UserRe
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return TimeConversionProfile{}, err
 	}
 

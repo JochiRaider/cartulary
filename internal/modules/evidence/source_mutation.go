@@ -5,7 +5,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -41,7 +41,7 @@ func newSourceMutationService(
 		projections: projectionRows,
 	}
 	service.mutations = evidenceSourceMutationKernel{
-		incidents:     incidents.NewAccess(pool),
+		incidents:     admission.NewChecker(pool),
 		source:        service.source,
 		revisions:     newRevisionAppendAdapter(appender),
 		collaboration: intents,
