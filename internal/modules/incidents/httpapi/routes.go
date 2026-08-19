@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
+	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -18,19 +20,40 @@ import (
 	"github.com/google/uuid"
 )
 
-type Service struct {
-	application       *incidents.Application
-	terminalMutations incidents.TerminalMutationCoordinator
-	incidentAdmission *admission.Checker
+type Application interface {
+	ListVisibleIncidents(context.Context, uuid.UUID, incidents.IncidentListPageRequest) ([]incidents.IncidentRecord, error)
+	GetVisibleIncident(context.Context, uuid.UUID, uuid.UUID) (incidents.IncidentRecord, error)
+	CreateIncident(context.Context, authn.UserRecord, incidents.CreateIncidentRequest, string, time.Time) (incidents.CreateIncidentResult, error)
+	UpdateIncident(context.Context, authn.UserRecord, uuid.UUID, incidents.IncidentPatchRequest, string, time.Time) (incidents.IncidentRecord, bool, error)
+	ListMemberships(context.Context, uuid.UUID) ([]incidents.MembershipRecord, error)
+	CreateMembership(context.Context, authn.UserRecord, uuid.UUID, authn.UserRecord, incidents.MembershipCreateRequest, string, time.Time) (incidents.MembershipCreateResult, error)
+	UpdateMembership(context.Context, authn.UserRecord, uuid.UUID, uuid.UUID, incidents.MembershipPatchRequest, string, time.Time) (incidents.MembershipRecord, bool, error)
+	ListAdministrativeAuditEvents(context.Context, administrativeaudit.ListFilter) ([]administrativeaudit.Record, error)
+}
+
+type AdmissionChecker interface {
+	Check(context.Context, uuid.UUID, uuid.UUID, admission.Requirement) (admission.Grant, error)
+}
+
+type TerminalMutationCoordinator interface {
+	CoordinateIncidentLifecycle(context.Context, authn.UserRecord, uuid.UUID, string, incidents.IncidentLifecycleRequest, string, time.Time) (incidents.IncidentLifecycleResult, error)
+	CoordinateMembershipDeletion(context.Context, authn.UserRecord, uuid.UUID, uuid.UUID, incidents.MembershipDeleteRequest, string) (incidents.MembershipDeleteResult, error)
+}
+
+type Dependencies struct {
+	Application                 Application
+	AdmissionChecker            AdmissionChecker
+	TerminalMutationCoordinator TerminalMutationCoordinator
+}
+
+type service struct {
+	application       Application
+	terminalMutations TerminalMutationCoordinator
+	incidentAdmission AdmissionChecker
 	authStore         *authn.Store
 	keys              authn.MasterKeys
 	cursorCodec       *pagination.Codec
 	now               func() time.Time
-}
-
-type RouteOptions struct {
-	Application       *incidents.Application
-	TerminalMutations incidents.TerminalMutationCoordinator
 }
 
 type membershipTargetLookup interface {
@@ -38,13 +61,9 @@ type membershipTargetLookup interface {
 	GetUserByNormalizedEmail(context.Context, string) (authn.UserRecord, error)
 }
 
-func RegisterRoutes(options ...RouteOptions) platformhttpapi.RouteRegistrar {
-	routeOptions := RouteOptions{}
-	if len(options) > 0 {
-		routeOptions = options[0]
-	}
+func RegisterRoutes(dependencies Dependencies) platformhttpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps platformhttpapi.DependencySet) error {
-		service, err := newService(deps, routeOptions)
+		service, err := newService(deps, dependencies)
 		if err != nil {
 			return err
 		}
@@ -64,11 +83,14 @@ func RegisterRoutes(options ...RouteOptions) platformhttpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps platformhttpapi.DependencySet, options RouteOptions) (*Service, error) {
-	if options.Application == nil {
+func newService(deps platformhttpapi.DependencySet, dependencies Dependencies) (*service, error) {
+	if isNilRouteDependency(dependencies.Application) {
 		return nil, errors.New("incidents: application is required for route registration")
 	}
-	if options.TerminalMutations == nil {
+	if isNilRouteDependency(dependencies.AdmissionChecker) {
+		return nil, errors.New("incidents: admission checker is required for route registration")
+	}
+	if isNilRouteDependency(dependencies.TerminalMutationCoordinator) {
 		return nil, errors.New("incidents: terminal mutation coordinator is required for route registration")
 	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
@@ -84,15 +106,28 @@ func newService(deps platformhttpapi.DependencySet, options RouteOptions) (*Serv
 		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
-	return &Service{
-		application:       options.Application,
-		terminalMutations: options.TerminalMutations,
-		incidentAdmission: admission.NewChecker(deps.PostgresHandle()),
+	return &service{
+		application:       dependencies.Application,
+		terminalMutations: dependencies.TerminalMutationCoordinator,
+		incidentAdmission: dependencies.AdmissionChecker,
 		authStore:         authn.NewStore(deps.PostgresHandle()),
 		keys:              keys,
 		cursorCodec:       cursorCodec,
 		now:               now,
 	}, nil
+}
+
+func isNilRouteDependency(dependency any) bool {
+	if dependency == nil {
+		return true
+	}
+	value := reflect.ValueOf(dependency)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }
 
 func parseIncidentListScope(rawQuery string) (listquery.Result, *platformhttpapi.APIError) {
@@ -111,7 +146,7 @@ func parseIncidentListScope(rawQuery string) (listquery.Result, *platformhttpapi
 	return listquery.Result{}, invalidListQuery(queryErr.ReasonCode)
 }
 
-func (s *Service) incidentListPageRequest(binding pagination.Binding, cursor *pagination.Cursor) (incidents.IncidentListPageRequest, string) {
+func (s *service) incidentListPageRequest(binding pagination.Binding, cursor *pagination.Cursor) (incidents.IncidentListPageRequest, string) {
 	request := incidents.IncidentListPageRequest{
 		Limit:        binding.Limit + 1,
 		SearchTokens: strings.Fields(binding.Scope["search"]),
@@ -176,7 +211,7 @@ func buildIncidentListPage(binding pagination.Binding, anchor time.Time, records
 	}, nil
 }
 
-func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleIncidentsCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
@@ -247,13 +282,13 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		request, apiErr := DecodeIncidentCreateRequest(r.Body)
+		request, apiErr := decodeIncidentCreateRequest(r.Body)
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
 
-		result, err := s.application.CreateIncident(r.Context(), principal.User, request, incidents.IncidentCreateRequestHash(request), platformhttpapi.RequestIDFromContext(r.Context()), s.now())
+		result, err := s.application.CreateIncident(r.Context(), principal.User, request, platformhttpapi.RequestIDFromContext(r.Context()), s.now())
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
 			writeAPIError(w, r, platformhttpapi.ClientTxnConflictError(request.ClientTxnID))
@@ -286,7 +321,7 @@ func incidentLocation(incidentID uuid.UUID) string {
 	return "/api/v1/incidents/" + incidentID.String()
 }
 
-func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) {
 	trimmed := strings.TrimPrefix(r.URL.Path, "/api/v1/incidents/")
 	if trimmed == "" || trimmed == r.URL.Path {
 		http.NotFound(w, r)
@@ -338,7 +373,7 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 			_ = membership
-			request, apiErr := DecodeIncidentPatchRequest(r.Body)
+			request, apiErr := decodeIncidentPatchRequest(r.Body)
 			if apiErr != nil {
 				writeAPIError(w, r, apiErr)
 				return
@@ -360,9 +395,6 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 				return
 			case errors.As(err, &versionConflict):
 				writeAPIError(w, r, incidentVersionConflictError(versionConflict))
-				return
-			case errors.Is(err, incidents.ErrIncidentClosed):
-				writeAPIError(w, r, incidentClosedError())
 				return
 			case err != nil:
 				writeAPIError(w, r, internalAPIError(err))
@@ -408,7 +440,7 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 	http.NotFound(w, r)
 }
 
-func (s *Service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, action string) {
+func (s *service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, action string) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -422,7 +454,7 @@ func (s *Service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := DecodeIncidentLifecycleRequest(r.Body)
+	request, apiErr := decodeIncidentLifecycleRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -433,7 +465,6 @@ func (s *Service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request
 		incidentID,
 		action,
 		request,
-		incidents.IncidentLifecycleRequestHash(action, request),
 		platformhttpapi.RequestIDFromContext(r.Context()),
 		s.now(),
 	)
@@ -468,7 +499,7 @@ func (s *Service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request
 	_ = platformhttpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
 }
 
-func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
+func (s *service) handleMembershipsCollection(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
 	switch r.Method {
 	case http.MethodGet:
 		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
@@ -539,7 +570,7 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		request, apiErr := DecodeMembershipCreateRequest(r.Body)
+		request, apiErr := decodeMembershipCreateRequest(r.Body)
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -550,8 +581,7 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		requestHash := incidents.MembershipCreateRequestHash(request)
-		result, err := s.application.CreateMembership(r.Context(), principal.User, incidentID, targetUser, request, requestHash, platformhttpapi.RequestIDFromContext(r.Context()), s.now())
+		result, err := s.application.CreateMembership(r.Context(), principal.User, incidentID, targetUser, request, platformhttpapi.RequestIDFromContext(r.Context()), s.now())
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
 			writeAPIError(w, r, platformhttpapi.ClientTxnConflictError(request.ClientTxnID))
@@ -584,7 +614,7 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 	}
 }
 
-func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, userID uuid.UUID) {
+func (s *service) handleMembershipMember(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, userID uuid.UUID) {
 	switch r.Method {
 	case http.MethodPatch:
 		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
@@ -596,7 +626,7 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		request, apiErr := DecodeMembershipPatchRequest(r.Body)
+		request, apiErr := decodeMembershipPatchRequest(r.Body)
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -638,7 +668,7 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		request, apiErr := DecodeMembershipDeleteRequest(r.Body)
+		request, apiErr := decodeMembershipDeleteRequest(r.Body)
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -676,11 +706,11 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 	}
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *platformhttpapi.APIError) {
+func (s *service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *platformhttpapi.APIError) {
 	return s.requireIncidentRole(ctx, incidentID, userID, admission.RolesMember, "")
 }
 
-func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *platformhttpapi.APIError) {
+func (s *service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *platformhttpapi.APIError) {
 	grant, err := s.incidentAdmission.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleAny})
 	return incidentAdmissionResult(grant, err, requiredRole)
 }
@@ -698,7 +728,7 @@ func incidentAdmissionResult(grant admission.Grant, err error, requiredRole stri
 	}
 }
 
-func (s *Service) resolveMembershipTarget(ctx context.Context, request incidents.MembershipCreateRequest) (authn.UserRecord, *platformhttpapi.APIError) {
+func (s *service) resolveMembershipTarget(ctx context.Context, request incidents.MembershipCreateRequest) (authn.UserRecord, *platformhttpapi.APIError) {
 	return resolveMembershipTarget(ctx, s.authStore, request)
 }
 
@@ -724,7 +754,7 @@ func resolveMembershipTarget(ctx context.Context, lookup membershipTargetLookup,
 	return user, nil
 }
 
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
 	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
 }
 

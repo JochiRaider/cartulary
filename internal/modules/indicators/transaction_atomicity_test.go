@@ -35,11 +35,18 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	}
 	actor := authstoretest.SeedLocalUserRecord(t, db, "indicator-atomicity@example.test", "Indicator Atomicity", "IndicatorAtomicity1!", false, false, true)
 	now := time.Date(2026, 8, 3, 19, 0, 0, 0, time.UTC)
-	incidentResult, err := incidents.NewApplication(db, workbookstartuppostgres.NewWriter()).CreateIncident(ctx, actor, incidents.CreateIncidentRequest{
+	incidentApplication, err := incidents.NewApplication(incidents.ApplicationDependencies{
+		Postgres:            db,
+		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+	})
+	if err != nil {
+		t.Fatalf("construct Incidents application: %v", err)
+	}
+	incidentResult, err := incidentApplication.CreateIncident(ctx, actor, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-indicator-atomicity-incident",
 		IncidentKey: "IR-IND-ATOMICITY",
 		Title:       "Indicator repository atomicity",
-	}, []byte("txn-indicator-atomicity-incident"), "request-indicator-atomicity-incident", now)
+	}, "request-indicator-atomicity-incident", now)
 	if err != nil {
 		t.Fatalf("create incident: %v", err)
 	}

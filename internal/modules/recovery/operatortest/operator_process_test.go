@@ -750,7 +750,16 @@ func TestOperatorRestoreVerifyDueContinuesAfterDeterminateFailure_Process(t *tes
 	failedBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000112801")
 	successfulBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000112802")
 
-	missingObject := seedOperatorObjectBlob(t, sourceDB.DSN, actorID, []byte("object intentionally absent from captured namespace"))
+	zeroIncidentID := uuid.Nil
+	if _, err := sourcePool.Exec(ctx, `
+INSERT INTO incidents (
+    id, incident_key, incident_key_canonical, title, status,
+    created_by_user_id, updated_by_user_id
+)
+VALUES ($1, 'recovery-zero-incident', 'recovery-zero-incident', 'Recovery zero incident', 'active', $2, $2)
+`, zeroIncidentID, actorID); err != nil {
+		t.Fatalf("seed determinate workbook-probe failure: %v", err)
+	}
 	seedOperatorRecoveryBackupSet(
 		t,
 		ctx,
@@ -761,19 +770,8 @@ func TestOperatorRestoreVerifyDueContinuesAfterDeterminateFailure_Process(t *tes
 		now.Add(-2*time.Minute),
 		"backup_restore-determinate-failure",
 	)
-	cleanupStatements := []struct {
-		query string
-		id    uuid.UUID
-	}{
-		{"DELETE FROM evidence WHERE object_blob_id = $1", missingObject.objectBlobID},
-		{"DELETE FROM object_blobs WHERE object_blob_id = $1", missingObject.objectBlobID},
-		{"DELETE FROM records WHERE record_id = $1", missingObject.recordID},
-		{"DELETE FROM incidents WHERE id = $1", missingObject.incidentID},
-	}
-	for _, statement := range cleanupStatements {
-		if _, err := sourcePool.Exec(ctx, statement.query, statement.id); err != nil {
-			t.Fatalf("remove determinate-failure source fixture: %v", err)
-		}
+	if _, err := sourcePool.Exec(ctx, "DELETE FROM incidents WHERE id = $1", zeroIncidentID); err != nil {
+		t.Fatalf("remove determinate-failure source fixture: %v", err)
 	}
 	seedOperatorRecoveryBackupSet(
 		t,
@@ -838,6 +836,7 @@ type operatorRecoveryProgressRecord struct {
 
 func seedOperatorRecoveryBackupSet(t testing.TB, ctx context.Context, pool *pgxpool.Pool, cfg operatorExplicitConfigFixture, backupStorage recovery.BackupStorage, backupSetID uuid.UUID, consistencyPointAt time.Time, label string) recovery.BackupSet {
 	t.Helper()
+	_ = label
 
 	sourceObjectStore, err := objectstore.NewFilesystemStore(cfg.objectRoot)
 	if err != nil {
@@ -846,28 +845,42 @@ func seedOperatorRecoveryBackupSet(t testing.TB, ctx context.Context, pool *pgxp
 	defer func() {
 		_ = sourceObjectStore.Close()
 	}()
-	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, pool)
+	stateCatalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
 	if err != nil {
-		t.Fatalf("capture source postgres artifact: %v", err)
+		t.Fatalf("construct current Recovery state catalog: %v", err)
 	}
-	objectArtifact, err := recovery.CaptureObjectStoreSnapshotArtifact(ctx, sourceObjectStore, "")
+	inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(
+		recoveryassembly.NewVNextObjectSource(sourceObjectStore),
+	)
 	if err != nil {
-		t.Fatalf("capture source object artifact: %v", err)
+		t.Fatalf("construct current Recovery object inventory: %v", err)
 	}
-	objectManifestBody, objectSummaryBody := operatorObjectStoreBackupObjectArtifacts(t, backupSetID, consistencyPointAt, label, objectArtifact, nil)
+	streaming, err := recovery.RequireStreamingBackupStorage(backupStorage)
+	if err != nil {
+		t.Fatalf("construct streaming Recovery backup storage: %v", err)
+	}
+	capture, err := recovery.NewVNextCaptureService(
+		recoveryassembly.NewVNextSnapshotRepository(pool),
+		streaming,
+		stateCatalog,
+		inventories,
+	)
+	if err != nil {
+		t.Fatalf("construct current Recovery capture service: %v", err)
+	}
 	createdAt := consistencyPointAt.Add(-time.Minute)
-	backupSet, err := recovery.NewCaptureService(recovery.NewStore(pool), backupStorage, operatorExtensionBackupCatalog(t)).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
-		BackupSetID:                       backupSetID,
-		ConsistencyPointAt:                consistencyPointAt,
-		CreatedAt:                         createdAt,
-		RetainedUntil:                     createdAt.Add(31 * 24 * time.Hour),
-		PostgresArtifact:                  recovery.BackupArtifact{Body: postgresArtifact, ContentType: "application/json"},
-		ObjectStoreArtifact:               recovery.BackupArtifact{Body: objectArtifact, ContentType: "application/json"},
-		ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: objectManifestBody, ContentType: "application/json"},
-		ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: objectSummaryBody, ContentType: "application/json"},
+	captured, err := capture.Capture(ctx, recovery.VNextCaptureParams{
+		BackupSetID:        backupSetID,
+		ConsistencyPointAt: consistencyPointAt,
+		CreatedAt:          createdAt,
+		RetainedUntil:      createdAt.Add(31 * 24 * time.Hour),
 	})
 	if err != nil {
 		t.Fatalf("capture recovery backup set %s: %v", backupSetID, err)
+	}
+	backupSet, err := recovery.NewStore(pool).PublishVNextCapturedBackup(ctx, captured)
+	if err != nil {
+		t.Fatalf("publish recovery backup set %s: %v", backupSetID, err)
 	}
 	return backupSet
 }
@@ -1644,28 +1657,6 @@ VALUES ($1, $2, lower($2), $2, 'active', $3, $3)
 		t.Fatalf("seed operator incident %s: %v", incidentKey, err)
 	}
 	return incidentID
-}
-
-func operatorObjectStoreBackupObjectArtifacts(t testing.TB, backupSetID uuid.UUID, consistencyPointAt time.Time, bucket string, objectSnapshotBody []byte, blobIndex map[string]uuid.UUID) ([]byte, []byte) {
-	t.Helper()
-	snapshot, err := recovery.DecodeObjectStoreSnapshotArtifact(objectSnapshotBody)
-	if err != nil {
-		t.Fatalf("decode operator object-store snapshot: %v", err)
-	}
-	manifest, manifestBody, err := recovery.BuildSeaweedFSS3ObjectStoreBackupManifest(snapshot, recovery.ObjectStoreBackupManifestParams{
-		BackupSetID:               backupSetID,
-		ConsistencyPointAt:        consistencyPointAt,
-		Bucket:                    bucket,
-		BlobObjectIDsByStorageRef: blobIndex,
-	})
-	if err != nil {
-		t.Fatalf("build operator object-store backup manifest: %v", err)
-	}
-	_, summaryBody, err := recovery.BuildObjectStoreBackupSummary(manifest)
-	if err != nil {
-		t.Fatalf("build operator object-store backup summary: %v", err)
-	}
-	return manifestBody, summaryBody
 }
 
 func envPairs(env map[string]string) []string {

@@ -3,6 +3,8 @@ package appsupport
 import (
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -27,10 +29,17 @@ func TestIncidentCreateCommitFaultRequiresValidatedTestRuntimeAdmission(t *testi
 	); err == nil || capability != nil {
 		t.Fatalf("unvalidated custom runtime installed fault: capability=%v err=%v", capability, err)
 	}
-	capability, err := newIncidentCreateCommitFaultCapability(
+	if capability, err := newIncidentCreateCommitFaultCapability(
 		nil,
 		httptestx.TestRouteModeHarnessOwned,
 		nil,
+	); err == nil || capability != nil {
+		t.Fatalf("runtime without Postgres installed fault: capability=%v err=%v", capability, err)
+	}
+	capability, err := newIncidentCreateCommitFaultCapability(
+		nil,
+		httptestx.TestRouteModeHarnessOwned,
+		&pgxpool.Pool{},
 	)
 	if err != nil {
 		t.Fatalf("harness-owned runtime admission failed: %v", err)

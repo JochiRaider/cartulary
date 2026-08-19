@@ -325,6 +325,7 @@ type VNextCaptureService struct {
 	storage     StreamingBackupStorage
 	state       *recoverystate.Catalog
 	inventories *VNextObjectInventoryCatalog
+	generation  *vNextRecoveryGeneration
 }
 
 func NewVNextCaptureService(
@@ -342,8 +343,16 @@ func NewVNextCaptureService(
 	if len(stateCatalog.RequiredTableNames()) != recoverystate.RequiredTableCount {
 		return nil, fmt.Errorf("%w: required table count drift", ErrVNextBackup)
 	}
+	registry, err := loadVNextRecoveryGenerationRegistry()
+	if err != nil {
+		return nil, err
+	}
+	if stateCatalog.DigestSHA256() != registry.current.stateCatalog.DigestSHA256() {
+		return nil, fmt.Errorf("%w: capture requires the current Recovery generation catalog", ErrVNextBackup)
+	}
 	return &VNextCaptureService{
 		snapshots: snapshots, storage: storage, state: stateCatalog, inventories: inventories,
+		generation: registry.current,
 	}, nil
 }
 
@@ -438,7 +447,7 @@ func (service *VNextCaptureService) Capture(
 		ctx,
 		params.BackupSetID,
 		"graph_projection_restore_source_registry",
-		[]byte(contractrecovery.CurrentGraphProjectionRestoreSourceRegistryJSON),
+		service.generation.graph.SourceRegistryJSON,
 	)
 	if err != nil {
 		return VNextCapturedBackup{}, err
@@ -447,7 +456,7 @@ func (service *VNextCaptureService) Capture(
 		ctx,
 		params.BackupSetID,
 		"graph_projection_restore_implementation_binding",
-		[]byte(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON),
+		service.generation.graph.ImplementationBindingJSON,
 	)
 	if err != nil {
 		return VNextCapturedBackup{}, err
@@ -455,8 +464,8 @@ func (service *VNextCaptureService) Capture(
 
 	artifacts := append([]VNextArtifactProof(nil), unitProofs...)
 	artifacts = append(artifacts,
-		vNextArtifactProof("graph_projection_restore_implementation_binding", GraphProjectionRestoreImplementationBindingV3SchemaID, graphImplementationBindingProof),
-		vNextArtifactProof("graph_projection_restore_source_registry", GraphProjectionRestoreSourceRegistryV3SchemaID, graphSourceRegistryProof),
+		vNextArtifactProof("graph_projection_restore_implementation_binding", service.generation.bindingSchemaID, graphImplementationBindingProof),
+		vNextArtifactProof("graph_projection_restore_source_registry", service.generation.registrySchemaID, graphSourceRegistryProof),
 		vNextArtifactProof("postgres_snapshot", PostgresSnapshotArtifactV2SchemaID, postgresProof),
 		vNextArtifactProof("object_store_manifest", ObjectStoreBackupManifestV2SchemaID, objectManifestProof),
 		vNextArtifactProof("object_store_summary", ObjectStoreBackupSummaryV2SchemaID, objectSummaryProof),
@@ -474,7 +483,7 @@ func (service *VNextCaptureService) Capture(
 		CreatedAt:                  params.CreatedAt,
 		RetainedUntil:              params.RetainedUntil,
 		RecoveryStateCatalogSHA256: service.state.DigestSHA256(),
-		CodecRegistrySHA256:        VNextCodecRegistrySHA256(),
+		CodecRegistrySHA256:        service.generation.codecRegistrySHA256,
 		PostgresSnapshotRef:        postgresProof.LogicalRef,
 		ObjectStoreManifestRef:     objectManifestProof.LogicalRef,
 		Artifacts:                  artifacts,
@@ -759,35 +768,7 @@ func buildVNextObjectSummary(
 }
 
 func VNextCodecRegistrySHA256() string {
-	codecs := []string{
-		BackupArtifactEnvelopeV2SchemaID,
-		BackupIntegrityManifestV3SchemaID,
-		GraphProjectionRestoreImplementationBindingV3SchemaID,
-		GraphProjectionRestoreSourceRegistryV3SchemaID,
-		ObjectStoreBackupManifestV2SchemaID,
-		ObjectStoreBackupSummaryV2SchemaID,
-		PostgresSnapshotArtifactV2SchemaID,
-		PostgresSnapshotUnitV1SchemaID,
-	}
-	sort.Strings(codecs)
-	sum := sha256.Sum256([]byte(vNextCodecRegistryDomain + strings.Join(codecs, "\n") + "\n"))
-	return hex.EncodeToString(sum[:])
-}
-
-func historicalV2CodecRegistrySHA256() string {
-	codecs := []string{
-		BackupArtifactEnvelopeV2SchemaID,
-		BackupIntegrityManifestV3SchemaID,
-		GraphProjectionRestoreImplementationBindingV2SchemaID,
-		GraphProjectionRestoreSourceRegistryV2SchemaID,
-		ObjectStoreBackupManifestV2SchemaID,
-		ObjectStoreBackupSummaryV2SchemaID,
-		PostgresSnapshotArtifactV2SchemaID,
-		PostgresSnapshotUnitV1SchemaID,
-	}
-	sort.Strings(codecs)
-	sum := sha256.Sum256([]byte(vNextCodecRegistryDomain + strings.Join(codecs, "\n") + "\n"))
-	return hex.EncodeToString(sum[:])
+	return contractrecovery.RecoveryGenerations[0].CodecRegistrySHA256
 }
 
 func vNextArtifactProof(kind string, schemaID string, proof BackupArtifactStreamProof) VNextArtifactProof {
@@ -883,7 +864,7 @@ type VNextRestoreMutation interface {
 }
 
 type VNextRestoreTarget interface {
-	WithAtomicRestore(context.Context, func(VNextRestoreMutation) error) error
+	WithAtomicRestore(context.Context, *recoverystate.Catalog, func(VNextRestoreMutation) error) error
 }
 
 type VNextRestoreAlgorithmCatalog struct {
@@ -962,15 +943,18 @@ func RequiredVNextRestoreAlgorithmIDs(stateCatalog *recoverystate.Catalog) []str
 }
 
 type VNextRestoreService struct {
-	storage    StreamingBackupStorage
-	state      *recoverystate.Catalog
-	algorithms *VNextRestoreAlgorithmCatalog
+	storage     StreamingBackupStorage
+	state       *recoverystate.Catalog
+	algorithms  *VNextRestoreAlgorithmCatalog
+	generations *vNextRecoveryGenerationRegistry
 }
 
 type VNextRestoreVerificationEvidence struct {
 	ManifestSHA256        string
 	RestoredObjectCount   int64
 	GraphRestoreArtifacts VNextGraphProjectionRestoreArtifacts
+	stateCatalog          *recoverystate.Catalog
+	codecRegistrySHA256   string
 }
 
 func NewVNextRestoreService(
@@ -984,7 +968,16 @@ func NewVNextRestoreService(
 	if err := stateCatalog.ValidateFrozen(); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrVNextBackup, err)
 	}
-	return &VNextRestoreService{storage: storage, state: stateCatalog, algorithms: algorithms}, nil
+	generations, err := loadVNextRecoveryGenerationRegistry()
+	if err != nil {
+		return nil, err
+	}
+	if stateCatalog.DigestSHA256() != generations.current.stateCatalog.DigestSHA256() {
+		return nil, fmt.Errorf("%w: restore composition requires the current Recovery catalog", ErrVNextBackup)
+	}
+	return &VNextRestoreService{
+		storage: storage, state: stateCatalog, algorithms: algorithms, generations: generations,
+	}, nil
 }
 
 func (service *VNextRestoreService) ReadVerificationEvidence(
@@ -1002,7 +995,8 @@ func (service *VNextRestoreService) ReadVerificationEvidence(
 	if err := strictDecodeJSON(integrityBody, &integrity); err != nil {
 		return VNextRestoreVerificationEvidence{}, fmt.Errorf("%w: decode integrity manifest: %v", ErrVNextBackup, err)
 	}
-	if err := service.validateIntegrityManifest(integrity); err != nil {
+	generation, err := service.validateIntegrityManifest(integrity)
+	if err != nil {
 		return VNextRestoreVerificationEvidence{}, err
 	}
 	proofs := make(map[string]VNextArtifactProof, len(integrity.Artifacts))
@@ -1016,7 +1010,7 @@ func (service *VNextRestoreService) ReadVerificationEvidence(
 			objectManifestProof = proof
 		}
 	}
-	graphArtifacts, err := service.resolveGraphProjectionRestoreArtifacts(ctx, integrity, proofs)
+	graphArtifacts, err := service.resolveGraphProjectionRestoreArtifacts(ctx, generation, proofs)
 	if err != nil {
 		return VNextRestoreVerificationEvidence{}, err
 	}
@@ -1031,13 +1025,15 @@ func (service *VNextRestoreService) ReadVerificationEvidence(
 	if err := strictDecodeJSON(objectBody, &objectManifest); err != nil {
 		return VNextRestoreVerificationEvidence{}, fmt.Errorf("%w: decode object manifest: %v", ErrVNextBackup, err)
 	}
-	if err := service.validateObjectManifest(integrity, objectManifest); err != nil {
+	if err := service.validateObjectManifest(integrity, generation, objectManifest); err != nil {
 		return VNextRestoreVerificationEvidence{}, err
 	}
 	return VNextRestoreVerificationEvidence{
 		ManifestSHA256:        integrity.ManifestSHA256,
 		RestoredObjectCount:   int64(len(objectManifest.Objects)),
 		GraphRestoreArtifacts: graphArtifacts,
+		stateCatalog:          generation.stateCatalog,
+		codecRegistrySHA256:   generation.codecRegistrySHA256,
 	}, nil
 }
 
@@ -1057,7 +1053,8 @@ func (service *VNextRestoreService) Restore(
 	if err := strictDecodeJSON(integrityBody, &integrity); err != nil {
 		return fmt.Errorf("%w: decode integrity manifest: %v", ErrVNextBackup, err)
 	}
-	if err := service.validateIntegrityManifest(integrity); err != nil {
+	generation, err := service.validateIntegrityManifest(integrity)
+	if err != nil {
 		return err
 	}
 	proofs := make(map[string]VNextArtifactProof, len(integrity.Artifacts))
@@ -1070,7 +1067,7 @@ func (service *VNextRestoreService) Restore(
 			return fmt.Errorf("preflight vNext artifact %s: %w", proof.LogicalRef, err)
 		}
 	}
-	if _, err := service.resolveGraphProjectionRestoreArtifacts(ctx, integrity, proofs); err != nil {
+	if _, err := service.resolveGraphProjectionRestoreArtifacts(ctx, generation, proofs); err != nil {
 		return err
 	}
 	postgresProof, admitted := proofs[integrity.PostgresSnapshotRef]
@@ -1089,7 +1086,7 @@ func (service *VNextRestoreService) Restore(
 	if err := strictDecodeJSON(postgresBody, &postgresArtifact); err != nil {
 		return fmt.Errorf("%w: decode postgres snapshot: %v", ErrVNextBackup, err)
 	}
-	if err := service.validatePostgresArtifact(integrity, postgresArtifact, proofs); err != nil {
+	if err := service.validatePostgresArtifact(integrity, generation, postgresArtifact, proofs); err != nil {
 		return err
 	}
 	objectBody, err := service.readJSONArtifact(ctx, streamProof(objectManifestProof), 1<<30)
@@ -1100,7 +1097,7 @@ func (service *VNextRestoreService) Restore(
 	if err := strictDecodeJSON(objectBody, &objectManifest); err != nil {
 		return fmt.Errorf("%w: decode object manifest: %v", ErrVNextBackup, err)
 	}
-	if err := service.validateObjectManifest(integrity, objectManifest); err != nil {
+	if err := service.validateObjectManifest(integrity, generation, objectManifest); err != nil {
 		return err
 	}
 	objectProofs := make(map[string]BackupArtifactStreamProof, len(objectManifest.Objects))
@@ -1128,8 +1125,8 @@ func (service *VNextRestoreService) Restore(
 		objectProofs[object.ArtifactRef] = proof
 	}
 
-	return target.WithAtomicRestore(ctx, func(mutation VNextRestoreMutation) error {
-		tableNames := service.state.RequiredTableNames()
+	return target.WithAtomicRestore(ctx, generation.stateCatalog, func(mutation VNextRestoreMutation) error {
+		tableNames := generation.stateCatalog.RequiredTableNames()
 		if err := mutation.PreparePostgresTables(ctx, tableNames); err != nil {
 			return err
 		}
@@ -1158,7 +1155,7 @@ func (service *VNextRestoreService) Restore(
 				return readErr
 			}
 		}
-		for _, algorithmID := range RequiredVNextRestoreAlgorithmIDs(service.state) {
+		for _, algorithmID := range RequiredVNextRestoreAlgorithmIDs(generation.stateCatalog) {
 			if err := mutation.RunCatalogAlgorithm(ctx, algorithmID); err != nil {
 				return fmt.Errorf("run catalog restore algorithm %s: %w", algorithmID, err)
 			}
@@ -1305,45 +1302,28 @@ func (service *VNextRestoreService) readJSONArtifact(
 
 func (service *VNextRestoreService) validateIntegrityManifest(
 	manifest VNextBackupIntegrityManifest,
-) error {
+) (*vNextRecoveryGeneration, error) {
+	generation, admitted := service.generations.lookup(
+		manifest.RecoveryStateCatalogSHA256,
+		manifest.CodecRegistrySHA256,
+	)
 	if manifest.SchemaID != BackupIntegrityManifestV3SchemaID ||
-		!service.admitsRecoveryGeneration(manifest.RecoveryStateCatalogSHA256, manifest.CodecRegistrySHA256) ||
+		!admitted ||
 		len(manifest.Artifacts) < 3 || len(manifest.Artifacts) > 4096 {
-		return fmt.Errorf("%w: integrity manifest facts mismatch", ErrVNextBackup)
+		return nil, fmt.Errorf("%w: integrity manifest facts mismatch", ErrVNextBackup)
 	}
 	actual := manifest.ManifestSHA256
 	copyValue := manifest
 	copyValue.ManifestSHA256 = ""
 	if err := validateSelfDigest(vNextIntegrityManifestDigestDomain, actual, copyValue); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
-}
-
-func (service *VNextRestoreService) admitsRecoveryGeneration(catalogSHA256, codecRegistrySHA256 string) bool {
-	if service == nil || service.state == nil {
-		return false
-	}
-	if catalogSHA256 == service.state.DigestSHA256() && codecRegistrySHA256 == VNextCodecRegistrySHA256() {
-		return true
-	}
-	return catalogSHA256 == historicalGraphProjectionRecoveryCatalogSHA256V2() &&
-		codecRegistrySHA256 == historicalV2CodecRegistrySHA256()
-}
-
-func historicalGraphProjectionRecoveryCatalogSHA256V2() string {
-	var binding struct {
-		RecoveryStateCatalogSHA256 string `json:"recovery_state_catalog_sha256"`
-	}
-	if err := json.Unmarshal([]byte(contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2JSON), &binding); err != nil {
-		return ""
-	}
-	return binding.RecoveryStateCatalogSHA256
+	return generation, nil
 }
 
 func (service *VNextRestoreService) resolveGraphProjectionRestoreArtifacts(
 	ctx context.Context,
-	integrity VNextBackupIntegrityManifest,
+	generation *vNextRecoveryGeneration,
 	proofs map[string]VNextArtifactProof,
 ) (VNextGraphProjectionRestoreArtifacts, error) {
 	var registryProofs []VNextArtifactProof
@@ -1360,8 +1340,7 @@ func (service *VNextRestoreService) resolveGraphProjectionRestoreArtifacts(
 			bindingProofs = append(bindingProofs, proof)
 		}
 	}
-	if !service.admitsRecoveryGeneration(integrity.RecoveryStateCatalogSHA256, integrity.CodecRegistrySHA256) ||
-		len(registryProofs) != 1 || len(bindingProofs) != 1 {
+	if generation == nil || len(registryProofs) != 1 || len(bindingProofs) != 1 {
 		return VNextGraphProjectionRestoreArtifacts{}, fmt.Errorf("%w: Graph Projection restore artifacts are missing or duplicated", ErrVNextBackup)
 	}
 	registryProof := registryProofs[0]
@@ -1370,24 +1349,10 @@ func (service *VNextRestoreService) resolveGraphProjectionRestoreArtifacts(
 		bindingProof.Kind != "graph_projection_restore_implementation_binding" {
 		return VNextGraphProjectionRestoreArtifacts{}, fmt.Errorf("%w: Graph Projection restore artifact binding mismatch", ErrVNextBackup)
 	}
-	algorithmID := "graphprojection.restore_rebuild.v3"
-	expectedRegistrySchemaID := GraphProjectionRestoreSourceRegistryV3SchemaID
-	expectedBindingSchemaID := GraphProjectionRestoreImplementationBindingV3SchemaID
-	expectedRegistryJSON := contractrecovery.CurrentGraphProjectionRestoreSourceRegistryJSON
-	expectedRegistrySHA256 := contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256
-	expectedBindingJSON := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON
-	expectedBindingSHA256 := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256
-	if integrity.CodecRegistrySHA256 == historicalV2CodecRegistrySHA256() {
-		algorithmID = "graphprojection.restore_rebuild.v2"
-		expectedRegistrySchemaID = GraphProjectionRestoreSourceRegistryV2SchemaID
-		expectedBindingSchemaID = GraphProjectionRestoreImplementationBindingV2SchemaID
-		expectedRegistryJSON = contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2JSON
-		expectedRegistrySHA256 = contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2SHA256
-		expectedBindingJSON = contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2JSON
-		expectedBindingSHA256 = contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2SHA256
-	}
-	if registryProof.SchemaID != expectedRegistrySchemaID || registryProof.PlaintextSHA256 != expectedRegistrySHA256 ||
-		bindingProof.SchemaID != expectedBindingSchemaID || bindingProof.PlaintextSHA256 != expectedBindingSHA256 {
+	if registryProof.SchemaID != generation.registrySchemaID ||
+		registryProof.PlaintextSHA256 != generation.graph.SourceRegistrySHA256 ||
+		bindingProof.SchemaID != generation.bindingSchemaID ||
+		bindingProof.PlaintextSHA256 != generation.graph.ImplementationBindingSHA256 {
 		return VNextGraphProjectionRestoreArtifacts{}, fmt.Errorf("%w: Graph Projection restore artifact binding mismatch", ErrVNextBackup)
 	}
 	registryBody, err := service.readJSONArtifact(ctx, streamProof(registryProof), 1<<20)
@@ -1398,13 +1363,13 @@ func (service *VNextRestoreService) resolveGraphProjectionRestoreArtifacts(
 	if err != nil {
 		return VNextGraphProjectionRestoreArtifacts{}, err
 	}
-	if !bytes.Equal(registryBody, []byte(expectedRegistryJSON)) ||
-		!bytes.Equal(bindingBody, []byte(expectedBindingJSON)) {
+	if !bytes.Equal(registryBody, generation.graph.SourceRegistryJSON) ||
+		!bytes.Equal(bindingBody, generation.graph.ImplementationBindingJSON) {
 		return VNextGraphProjectionRestoreArtifacts{}, fmt.Errorf("%w: Graph Projection restore artifact canonical bytes mismatch", ErrVNextBackup)
 	}
 	return VNextGraphProjectionRestoreArtifacts{
-		AlgorithmID:                 algorithmID,
-		RecoveryStateCatalogSHA256:  integrity.RecoveryStateCatalogSHA256,
+		AlgorithmID:                 generation.graph.AlgorithmID,
+		RecoveryStateCatalogSHA256:  generation.stateCatalog.DigestSHA256(),
 		SourceRegistryJSON:          append([]byte(nil), registryBody...),
 		SourceRegistrySHA256:        registryProof.PlaintextSHA256,
 		ImplementationBindingJSON:   append([]byte(nil), bindingBody...),
@@ -1414,6 +1379,7 @@ func (service *VNextRestoreService) resolveGraphProjectionRestoreArtifacts(
 
 func (service *VNextRestoreService) validatePostgresArtifact(
 	integrity VNextBackupIntegrityManifest,
+	generation *vNextRecoveryGeneration,
 	artifact VNextPostgresSnapshotArtifact,
 	proofs map[string]VNextArtifactProof,
 ) error {
@@ -1422,7 +1388,8 @@ func (service *VNextRestoreService) validatePostgresArtifact(
 		!artifact.ConsistencyPointAt.Equal(integrity.ConsistencyPointAt) ||
 		artifact.RecoveryStateCatalogSHA256 != integrity.RecoveryStateCatalogSHA256 ||
 		artifact.TransactionIsolation != VNextTransactionIsolation ||
-		len(artifact.Units) != recoverystate.RequiredTableCount {
+		generation == nil ||
+		len(artifact.Units) != len(generation.stateCatalog.RequiredTableNames()) {
 		return fmt.Errorf("%w: postgres snapshot facts mismatch", ErrVNextBackup)
 	}
 	actual := artifact.SnapshotSHA256
@@ -1431,7 +1398,7 @@ func (service *VNextRestoreService) validatePostgresArtifact(
 	if err := validateSelfDigest(vNextPostgresSnapshotDigestDomain, actual, copyValue); err != nil {
 		return err
 	}
-	expectedTables := service.state.RequiredTableNames()
+	expectedTables := generation.stateCatalog.RequiredTableNames()
 	for index, unit := range artifact.Units {
 		if unit.TableName != expectedTables[index] ||
 			unit.CodecID != PostgresSnapshotUnitV1SchemaID ||
@@ -1451,12 +1418,14 @@ func (service *VNextRestoreService) validatePostgresArtifact(
 
 func (service *VNextRestoreService) validateObjectManifest(
 	integrity VNextBackupIntegrityManifest,
+	generation *vNextRecoveryGeneration,
 	manifest VNextObjectStoreBackupManifest,
 ) error {
 	if manifest.SchemaID != ObjectStoreBackupManifestV2SchemaID ||
 		manifest.BackupSetID != integrity.BackupSetID ||
 		!manifest.ConsistencyPointAt.Equal(integrity.ConsistencyPointAt) ||
-		manifest.RecoveryStateCatalogSHA256 != service.state.DigestSHA256() {
+		generation == nil ||
+		manifest.RecoveryStateCatalogSHA256 != generation.stateCatalog.DigestSHA256() {
 		return fmt.Errorf("%w: object manifest facts mismatch", ErrVNextBackup)
 	}
 	actual := manifest.ManifestSHA256
@@ -1466,7 +1435,7 @@ func (service *VNextRestoreService) validateObjectManifest(
 		return err
 	}
 	families := make(map[string]recoverystate.CatalogObjectFamily)
-	for _, family := range service.state.Document().ObjectFamilies {
+	for _, family := range generation.stateCatalog.Document().ObjectFamilies {
 		families[family.ObjectFamilyID] = family
 	}
 	seen := make(map[string]struct{}, len(manifest.Objects))
@@ -1510,12 +1479,93 @@ func verifyVNextBackupSetDurability(
 	stateCatalog *recoverystate.Catalog,
 	backupSet BackupSet,
 ) error {
+	_, err := selectVNextBackupSetGeneration(ctx, storage, stateCatalog, backupSet)
+	return err
+}
+
+func selectVNextBackupSetGeneration(
+	ctx context.Context,
+	storage BackupStorage,
+	stateCatalog *recoverystate.Catalog,
+	backupSet BackupSet,
+) (*vNextRecoveryGeneration, error) {
+	selection, err := readVNextBackupSetGeneration(ctx, storage, stateCatalog, backupSet)
+	if err != nil {
+		return nil, err
+	}
+	restore := selection.restore
+	integrity := selection.integrity
+	generation := selection.generation
+	proofs := selection.proofs
+	for _, proof := range proofs {
+		if err := restore.storage.ReadArtifactStream(ctx, streamProof(proof), io.Discard); err != nil {
+			return nil, err
+		}
+	}
+	postgresLogicalRef, ok := VNextLogicalRefFromMetadataKey(backupSet.PostgresArtifactKey)
+	if !ok || postgresLogicalRef != integrity.PostgresSnapshotRef {
+		return nil, fmt.Errorf("%w: postgres metadata selector mismatch", ErrVNextBackup)
+	}
+	postgresProof, ok := proofs[postgresLogicalRef]
+	if !ok ||
+		postgresProof.PlaintextBytes != backupSet.PostgresArtifactSizeBytes ||
+		postgresProof.PlaintextSHA256 != backupSet.PostgresArtifactSHA256 {
+		return nil, fmt.Errorf("%w: postgres metadata proof mismatch", ErrVNextBackup)
+	}
+	postgresBody, err := restore.readJSONArtifact(ctx, streamProof(postgresProof), 32<<20)
+	if err != nil {
+		return nil, err
+	}
+	var postgresArtifact VNextPostgresSnapshotArtifact
+	if err := strictDecodeJSON(postgresBody, &postgresArtifact); err != nil {
+		return nil, fmt.Errorf("%w: decode postgres snapshot: %v", ErrVNextBackup, err)
+	}
+	if err := restore.validatePostgresArtifact(integrity, generation, postgresArtifact, proofs); err != nil {
+		return nil, err
+	}
+	objectLogicalRef, ok := VNextLogicalRefFromMetadataKey(backupSet.ObjectStoreArtifactKey)
+	if !ok || objectLogicalRef != integrity.ObjectStoreManifestRef {
+		return nil, fmt.Errorf("%w: object metadata selector mismatch", ErrVNextBackup)
+	}
+	objectProof, ok := proofs[objectLogicalRef]
+	if !ok ||
+		objectProof.PlaintextBytes != backupSet.ObjectStoreArtifactSizeBytes ||
+		objectProof.PlaintextSHA256 != backupSet.ObjectStoreArtifactSHA256 {
+		return nil, fmt.Errorf("%w: object metadata proof mismatch", ErrVNextBackup)
+	}
+	objectBody, err := restore.readJSONArtifact(ctx, streamProof(objectProof), 1<<30)
+	if err != nil {
+		return nil, err
+	}
+	var objectManifest VNextObjectStoreBackupManifest
+	if err := strictDecodeJSON(objectBody, &objectManifest); err != nil {
+		return nil, fmt.Errorf("%w: decode object manifest: %v", ErrVNextBackup, err)
+	}
+	if err := restore.validateObjectManifest(integrity, generation, objectManifest); err != nil {
+		return nil, err
+	}
+	return generation, nil
+}
+
+type vNextBackupGenerationSelection struct {
+	restore    *VNextRestoreService
+	integrity  VNextBackupIntegrityManifest
+	generation *vNextRecoveryGeneration
+	proofs     map[string]VNextArtifactProof
+}
+
+func readVNextBackupSetGeneration(
+	ctx context.Context,
+	storage BackupStorage,
+	stateCatalog *recoverystate.Catalog,
+	backupSet BackupSet,
+) (vNextBackupGenerationSelection, error) {
 	if stateCatalog == nil {
-		return fmt.Errorf("%w: current recovery-state catalog is required", ErrVNextBackup)
+		return vNextBackupGenerationSelection{}, fmt.Errorf("%w: current recovery-state catalog is required", ErrVNextBackup)
 	}
 	streaming, err := RequireStreamingBackupStorage(storage)
 	if err != nil {
-		return err
+		return vNextBackupGenerationSelection{}, err
 	}
 	integrityProof, err := VNextProofFromMetadata(
 		ctx,
@@ -1526,69 +1576,49 @@ func verifyVNextBackupSetDurability(
 		backupSet.IntegrityManifestSHA256,
 	)
 	if err != nil {
-		return err
+		return vNextBackupGenerationSelection{}, err
 	}
 	if integrityProof.PlaintextBytes > 32<<20 {
-		return fmt.Errorf("%w: integrity manifest exceeds bound", ErrVNextBackup)
+		return vNextBackupGenerationSelection{}, fmt.Errorf("%w: integrity manifest exceeds bound", ErrVNextBackup)
 	}
 	var integrityBody bytes.Buffer
 	if err := streaming.ReadArtifactStream(ctx, integrityProof, &integrityBody); err != nil {
-		return err
+		return vNextBackupGenerationSelection{}, err
 	}
 	var integrity VNextBackupIntegrityManifest
 	if err := strictDecodeJSON(integrityBody.Bytes(), &integrity); err != nil {
-		return fmt.Errorf("%w: decode integrity manifest: %v", ErrVNextBackup, err)
+		return vNextBackupGenerationSelection{}, fmt.Errorf("%w: decode integrity manifest: %v", ErrVNextBackup, err)
 	}
 	algorithms, err := NewVNextRestoreAlgorithmCatalog(
 		stateCatalog,
 		RequiredVNextRestoreAlgorithmIDs(stateCatalog)...,
 	)
 	if err != nil {
-		return err
+		return vNextBackupGenerationSelection{}, err
 	}
 	restore, err := NewVNextRestoreService(streaming, stateCatalog, algorithms)
 	if err != nil {
-		return err
+		return vNextBackupGenerationSelection{}, err
 	}
-	if err := restore.validateIntegrityManifest(integrity); err != nil {
-		return err
+	generation, err := restore.validateIntegrityManifest(integrity)
+	if err != nil {
+		return vNextBackupGenerationSelection{}, err
 	}
 	if integrity.BackupSetID != backupSet.BackupSetID.String() ||
 		!integrity.ConsistencyPointAt.Equal(backupSet.ConsistencyPointAt) {
-		return fmt.Errorf("%w: integrity manifest does not match backup metadata", ErrVNextBackup)
+		return vNextBackupGenerationSelection{}, fmt.Errorf("%w: integrity manifest does not match backup metadata", ErrVNextBackup)
 	}
 	proofs := make(map[string]VNextArtifactProof, len(integrity.Artifacts))
 	for _, proof := range integrity.Artifacts {
 		if _, duplicate := proofs[proof.LogicalRef]; duplicate {
-			return fmt.Errorf("%w: duplicate artifact proof", ErrVNextBackup)
+			return vNextBackupGenerationSelection{}, fmt.Errorf("%w: duplicate artifact proof", ErrVNextBackup)
 		}
 		proofs[proof.LogicalRef] = proof
-		if err := streaming.ReadArtifactStream(ctx, streamProof(proof), io.Discard); err != nil {
-			return err
-		}
 	}
-	if _, err := restore.resolveGraphProjectionRestoreArtifacts(ctx, integrity, proofs); err != nil {
-		return err
+	if _, err := restore.resolveGraphProjectionRestoreArtifacts(ctx, generation, proofs); err != nil {
+		return vNextBackupGenerationSelection{}, err
 	}
-	postgresLogicalRef, ok := VNextLogicalRefFromMetadataKey(backupSet.PostgresArtifactKey)
-	if !ok || postgresLogicalRef != integrity.PostgresSnapshotRef {
-		return fmt.Errorf("%w: postgres metadata selector mismatch", ErrVNextBackup)
-	}
-	postgresProof, ok := proofs[postgresLogicalRef]
-	if !ok ||
-		postgresProof.PlaintextBytes != backupSet.PostgresArtifactSizeBytes ||
-		postgresProof.PlaintextSHA256 != backupSet.PostgresArtifactSHA256 {
-		return fmt.Errorf("%w: postgres metadata proof mismatch", ErrVNextBackup)
-	}
-	objectLogicalRef, ok := VNextLogicalRefFromMetadataKey(backupSet.ObjectStoreArtifactKey)
-	if !ok || objectLogicalRef != integrity.ObjectStoreManifestRef {
-		return fmt.Errorf("%w: object metadata selector mismatch", ErrVNextBackup)
-	}
-	objectProof, ok := proofs[objectLogicalRef]
-	if !ok ||
-		objectProof.PlaintextBytes != backupSet.ObjectStoreArtifactSizeBytes ||
-		objectProof.PlaintextSHA256 != backupSet.ObjectStoreArtifactSHA256 {
-		return fmt.Errorf("%w: object metadata proof mismatch", ErrVNextBackup)
-	}
-	return nil
+	return vNextBackupGenerationSelection{
+		restore: restore, integrity: integrity, generation: generation, proofs: proofs,
+	}, nil
 }

@@ -2,8 +2,6 @@ package performancefixture
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -29,8 +27,15 @@ func NewProductionApplication(pool postgres.DB, actor authn.UserRecord) (*Produc
 	if actor.ID == uuid.Nil || !actor.IsActive || !actor.IsDeploymentAdmin {
 		return nil, fmt.Errorf("incidents performance fixture requires an active deployment-admin actor")
 	}
+	incidentApplication, err := incidents.NewApplication(incidents.ApplicationDependencies{
+		Postgres:            pool,
+		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("construct Incidents performance fixture application: %w", err)
+	}
 	return &ProductionApplication{
-		actor: actor, incidents: incidents.NewApplication(pool, workbookstartuppostgres.NewWriter()), users: authn.NewStore(pool), now: time.Now,
+		actor: actor, incidents: incidentApplication, users: authn.NewStore(pool), now: time.Now,
 	}, nil
 }
 
@@ -41,12 +46,7 @@ func (a *ProductionApplication) CreateFixtureWorkspaceIncident(ctx context.Conte
 		IncidentKey: fmt.Sprintf("AC043-PERF-%d", seed),
 		Title:       "Large-grid performance fixture",
 	}
-	payload, err := json.Marshal(request)
-	if err != nil {
-		return "", err
-	}
-	hash := sha256.Sum256(payload)
-	result, err := a.incidents.CreateIncident(ctx, a.actor, request, hash[:], "req-"+clientTxnID, a.now().UTC())
+	result, err := a.incidents.CreateIncident(ctx, a.actor, request, "req-"+clientTxnID, a.now().UTC())
 	if err != nil {
 		return "", err
 	}
@@ -67,12 +67,7 @@ func (a *ProductionApplication) AddFixtureMembership(ctx context.Context, incide
 		return err
 	}
 	clientTxnID := "performance-fixture-membership-" + userUUID.String()
-	request := incidents.MembershipCreateRequest{ClientTxnID: clientTxnID, Role: role}
-	payload, err := json.Marshal(request)
-	if err != nil {
-		return err
-	}
-	hash := sha256.Sum256(payload)
-	_, err = a.incidents.CreateMembership(ctx, a.actor, incidentUUID, target, request, hash[:], "req-"+clientTxnID, a.now().UTC())
+	request := incidents.MembershipCreateRequest{ClientTxnID: clientTxnID, UserID: &userUUID, Role: role}
+	_, err = a.incidents.CreateMembership(ctx, a.actor, incidentUUID, target, request, "req-"+clientTxnID, a.now().UTC())
 	return err
 }

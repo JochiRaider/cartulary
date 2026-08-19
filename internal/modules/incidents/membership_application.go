@@ -26,10 +26,13 @@ func (a *Application) CreateMembership(
 	incidentID uuid.UUID,
 	targetUser authn.UserRecord,
 	request MembershipCreateRequest,
-	requestHash []byte,
 	requestID string,
 	now time.Time,
 ) (MembershipCreateResult, error) {
+	if err := validateMembershipCreateTarget(request, targetUser); err != nil {
+		return MembershipCreateResult{}, err
+	}
+	requestHash := membershipCreateRequestHash(request)
 	key := authn.RouteIdempotencyKey{
 		RouteKey:    "incident.memberships.create",
 		ActorUserID: actor.ID,
@@ -210,7 +213,7 @@ func (a *Application) UpdateMembership(
 	if err != nil {
 		return MembershipRecord{}, false, fmt.Errorf("count incident admins: %w", err)
 	}
-	if WouldLeaveNoIncidentAdmins(current.Role, adminCount, &request.Role, false) {
+	if wouldLeaveNoIncidentAdmins(current.Role, adminCount, &request.Role, false) {
 		return MembershipRecord{}, false, ErrLastIncidentAdmin
 	}
 
@@ -283,7 +286,7 @@ func (a *Application) DeleteMembership(
 	if err != nil {
 		return MembershipDeleteResult{}, fmt.Errorf("count incident admins: %w", err)
 	}
-	if WouldLeaveNoIncidentAdmins(current.Role, adminCount, nil, true) {
+	if wouldLeaveNoIncidentAdmins(current.Role, adminCount, nil, true) {
 		return MembershipDeleteResult{}, ErrLastIncidentAdmin
 	}
 
@@ -309,4 +312,32 @@ func (a *Application) DeleteMembership(
 		return MembershipDeleteResult{}, fmt.Errorf("commit membership delete transaction: %w", err)
 	}
 	return MembershipDeleteResult{Commit: NewTerminalMutationCommit(auditEventID)}, nil
+}
+
+func validateMembershipCreateTarget(request MembershipCreateRequest, targetUser authn.UserRecord) error {
+	if request.UserID != nil {
+		if request.Email != nil || targetUser.ID == uuid.Nil || *request.UserID != targetUser.ID {
+			return errors.New("incidents: resolved membership target does not match user_id selector")
+		}
+		return nil
+	}
+	if request.Email == nil || targetUser.ID == uuid.Nil {
+		return errors.New("incidents: resolved membership target requires exactly one selector")
+	}
+	_, requestComparison, requestOK := authn.NormalizeEmailAddress(*request.Email)
+	_, targetComparison, targetOK := authn.NormalizeEmailAddress(targetUser.Email)
+	if !requestOK || !targetOK || requestComparison != targetComparison {
+		return errors.New("incidents: resolved membership target does not match email selector")
+	}
+	return nil
+}
+
+func wouldLeaveNoIncidentAdmins(currentRole string, adminCount int, nextRole *string, deleting bool) bool {
+	if currentRole != "admin" {
+		return false
+	}
+	if !deleting && nextRole != nil && *nextRole == "admin" {
+		return false
+	}
+	return adminCount <= 1
 }

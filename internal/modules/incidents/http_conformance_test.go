@@ -21,7 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/routeinventory"
 )
 
-func TestIncidentCreateBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(t *testing.T) {
+func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-02")
 

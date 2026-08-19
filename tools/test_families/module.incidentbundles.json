@@ -402,6 +402,7 @@
         "package": "./internal/modules/incidentbundles",
         "tests": [
           "TestIncidentBundleImportDescriptorIsClosed_Unit",
+          "TestIncidentsSourcePortRejectsWrongPreparedTypeWithoutPanic_Unit",
           "TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit",
           "TestSourcePortCatalogRejectsInvalidDescriptors_Unit",
           "TestSourcePortDescriptorsAreImmutableAndPreparedValuesAreOperationBound_Unit",
@@ -632,6 +633,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
+          "TestImportBundleRequestIDIsDeterministic_Unit",
           "TestIncidentBundleWorkerRequiresNamedRunner_Unit"
         ]
       },

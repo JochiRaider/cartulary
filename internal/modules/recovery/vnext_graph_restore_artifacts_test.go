@@ -14,11 +14,19 @@ import (
 	"testing"
 
 	contractrecovery "github.com/JochiRaider/cartulary/internal/gen/contractrecovery"
-	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
 func TestVNextGraphRestoreV3ProjectionContract_Unit(t *testing.T) {
 	t.Parallel()
+	if got, want := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256, "113056a35ec55e42532fca7fd15f557450cd585cd54fb70c657ea1bfb4b61673"; got != want {
+		t.Fatalf("current Workbook-owned Graph v3 binding digest = %s, want %s", got, want)
+	}
+	if got, want := contractrecovery.RecoveryGenerations[1].GraphImplementationBindingSHA256, "6ec244d0b82466a18adbdb82554be29f5e4baac384175538acbc92e56f14b8d5"; got != want {
+		t.Fatalf("pre-Workbook-ownership Graph v3 binding digest = %s, want %s", got, want)
+	}
+	if got, want := contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256, "61c3f7348c4df2bee3e969c905c91c9857082cf2839a0b57104e40339e3e16d3"; got != want {
+		t.Fatalf("Graph v3 source registry digest = %s, want %s", got, want)
+	}
 
 	var registry struct {
 		SchemaID string `json:"schema_id"`
@@ -72,9 +80,12 @@ func TestVNextGraphRestoreV3ProjectionContract_Unit(t *testing.T) {
 }
 
 func TestVNextGraphRestoreArtifactsFailClosedAndRejectRetiredRegistry_Unit(t *testing.T) {
-	service := &VNextRestoreService{}
-	current := VNextBackupIntegrityManifest{CodecRegistrySHA256: VNextCodecRegistrySHA256()}
-	_, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), current, map[string]VNextArtifactProof{
+	registry, err := loadVNextRecoveryGenerationRegistry()
+	if err != nil {
+		t.Fatalf("load Recovery generation registry: %v", err)
+	}
+	service := &VNextRestoreService{generations: registry}
+	_, err = service.resolveGraphProjectionRestoreArtifacts(context.Background(), registry.current, map[string]VNextArtifactProof{
 		"registry": {
 			Kind: "graph_projection_restore_source_registry", SchemaID: GraphProjectionRestoreSourceRegistryV2SchemaID,
 			LogicalRef: "registry", PlaintextSHA256: contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256,
@@ -88,23 +99,39 @@ func TestVNextGraphRestoreArtifactsFailClosedAndRejectRetiredRegistry_Unit(t *te
 	if retired.CodecRegistrySHA256 == VNextCodecRegistrySHA256() {
 		t.Fatal("retired empty-registry codec digest unexpectedly equals the current inventory")
 	}
-	if _, err = service.resolveGraphProjectionRestoreArtifacts(context.Background(), retired, map[string]VNextArtifactProof{}); err == nil || !errors.Is(err, ErrVNextBackup) {
+	if _, err = service.resolveGraphProjectionRestoreArtifacts(context.Background(), nil, map[string]VNextArtifactProof{}); err == nil || !errors.Is(err, ErrVNextBackup) {
 		t.Fatalf("retired empty-registry backup remained admitted: %v", err)
 	}
 }
 
 func TestVNextGraphRestoreArtifactsRetainExactHistoricalV2Dispatch_Unit(t *testing.T) {
+	if got, want := contractrecovery.RecoveryGenerations[2].CatalogDigestSHA256, "ce0a1f4053a9ce156273e4adf40c8b4185fa616170eadd6a860500d0b24fd22f"; got != want {
+		t.Fatalf("historical Graph v2 catalog digest = %s, want %s", got, want)
+	}
+	if got, want := contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2SHA256, "235c69bbc0e5d4f25f3fab7b1f2b8c30ba6370bfc65abcba75822007802621b9"; got != want {
+		t.Fatalf("historical Graph v2 binding digest = %s, want %s", got, want)
+	}
+	if got, want := contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2SHA256, "e75697ef1f6b5a197d299746fd42d2bf07afcd2e1c9d187a6fe695bca3096730"; got != want {
+		t.Fatalf("historical Graph v2 source registry digest = %s, want %s", got, want)
+	}
 	registryBody := []byte(contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2JSON)
 	bindingBody := []byte(contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2JSON)
 	storage := &graphRestoreArtifactStorage{bodies: map[string][]byte{
 		"graph-registry-v2": registryBody,
 		"graph-binding-v2":  bindingBody,
 	}}
-	service := &VNextRestoreService{storage: storage, state: &recoverystate.Catalog{}}
-	integrity := VNextBackupIntegrityManifest{
-		RecoveryStateCatalogSHA256: historicalGraphProjectionRecoveryCatalogSHA256V2(),
-		CodecRegistrySHA256:        historicalV2CodecRegistrySHA256(),
+	registry, err := loadVNextRecoveryGenerationRegistry()
+	if err != nil {
+		t.Fatalf("load Recovery generation registry: %v", err)
 	}
+	generation, admitted := registry.lookup(
+		contractrecovery.RecoveryGenerations[2].CatalogDigestSHA256,
+		contractrecovery.RecoveryGenerations[2].CodecRegistrySHA256,
+	)
+	if !admitted {
+		t.Fatal("historical Graph v2 generation is not admitted")
+	}
+	service := &VNextRestoreService{storage: storage, generations: registry}
 	proofs := map[string]VNextArtifactProof{
 		"graph-registry-v2": {
 			Kind: "graph_projection_restore_source_registry", SchemaID: GraphProjectionRestoreSourceRegistryV2SchemaID,
@@ -117,7 +144,7 @@ func TestVNextGraphRestoreArtifactsRetainExactHistoricalV2Dispatch_Unit(t *testi
 			PlaintextSHA256: contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2SHA256,
 		},
 	}
-	resolved, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), integrity, proofs)
+	resolved, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), generation, proofs)
 	if err != nil || resolved.AlgorithmID != "graphprojection.restore_rebuild.v2" ||
 		!bytes.Equal(resolved.SourceRegistryJSON, registryBody) || !bytes.Equal(resolved.ImplementationBindingJSON, bindingBody) {
 		t.Fatalf("resolve exact historical Graph restore artifacts: result=%#v err=%v", resolved, err)
@@ -128,8 +155,50 @@ func TestVNextGraphRestoreArtifactsRetainExactHistoricalV2Dispatch_Unit(t *testi
 	bindingProof.SchemaID = GraphProjectionRestoreImplementationBindingV3SchemaID
 	bindingProof.PlaintextSHA256 = contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256
 	mixed["graph-binding-v2"] = bindingProof
-	if _, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), integrity, mixed); !errors.Is(err, ErrVNextBackup) {
+	if _, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), generation, mixed); !errors.Is(err, ErrVNextBackup) {
 		t.Fatalf("mixed historical/current Graph restore artifacts were admitted: %v", err)
+	}
+}
+
+func TestVNextGraphRestoreArtifactsRetainExactPreWorkbookV3Dispatch_Unit(t *testing.T) {
+	registry, err := loadVNextRecoveryGenerationRegistry()
+	if err != nil {
+		t.Fatalf("load Recovery generation registry: %v", err)
+	}
+	projected := contractrecovery.RecoveryGenerations[1]
+	generation, admitted := registry.lookup(projected.CatalogDigestSHA256, projected.CodecRegistrySHA256)
+	if !admitted {
+		t.Fatal("pre-Workbook-ownership Graph v3 generation is not admitted")
+	}
+	storage := &graphRestoreArtifactStorage{bodies: map[string][]byte{
+		"graph-registry-v3": []byte(projected.GraphSourceRegistryJSON),
+		"graph-binding-v3":  []byte(projected.GraphImplementationBindingJSON),
+	}}
+	service := &VNextRestoreService{storage: storage, generations: registry}
+	proofs := map[string]VNextArtifactProof{
+		"graph-registry-v3": {
+			Kind: "graph_projection_restore_source_registry", SchemaID: projected.GraphSourceRegistrySchemaID,
+			LogicalRef: "graph-registry-v3", PlaintextBytes: int64(len(projected.GraphSourceRegistryJSON)),
+			PlaintextSHA256: projected.GraphSourceRegistrySHA256,
+		},
+		"graph-binding-v3": {
+			Kind: "graph_projection_restore_implementation_binding", SchemaID: projected.GraphImplementationBindingSchemaID,
+			LogicalRef: "graph-binding-v3", PlaintextBytes: int64(len(projected.GraphImplementationBindingJSON)),
+			PlaintextSHA256: projected.GraphImplementationBindingSHA256,
+		},
+	}
+	resolved, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), generation, proofs)
+	if err != nil || resolved.AlgorithmID != "graphprojection.restore_rebuild.v3" ||
+		resolved.RecoveryStateCatalogSHA256 != projected.CatalogDigestSHA256 ||
+		resolved.ImplementationBindingSHA256 != "6ec244d0b82466a18adbdb82554be29f5e4baac384175538acbc92e56f14b8d5" {
+		t.Fatalf("resolve exact pre-Workbook Graph v3 artifacts: result=%#v err=%v", resolved, err)
+	}
+	mixed := mapsCloneGraphRestoreProofs(proofs)
+	bindingProof := mixed["graph-binding-v3"]
+	bindingProof.PlaintextSHA256 = contractrecovery.RecoveryGenerations[0].GraphImplementationBindingSHA256
+	mixed["graph-binding-v3"] = bindingProof
+	if _, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), generation, mixed); !errors.Is(err, ErrVNextBackup) {
+		t.Fatalf("mixed pre-Workbook/current Graph v3 artifacts were admitted: %v", err)
 	}
 }
 

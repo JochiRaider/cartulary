@@ -9,7 +9,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -119,7 +118,7 @@ func (s *Service) handleMerge(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
-	case errors.Is(err, incidents.ErrIncidentClosed), admission.IsDenied(err, admission.DenialIncidentClosed):
+	case admission.IsDenied(err, admission.DenialIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, merge.ErrMergeTargetNotFound):
@@ -188,7 +187,7 @@ func (s *Service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
-	case errors.Is(err, incidents.ErrIncidentClosed), admission.IsDenied(err, admission.DenialIncidentClosed):
+	case admission.IsDenied(err, admission.DenialIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, mentions.ErrEntityMentionNotFound):

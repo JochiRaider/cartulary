@@ -205,7 +205,8 @@ func TestGraphRestoreV3MixedDeclarationsAndHistoricalV2DispatchRemainExact(t *te
 	publisher := &recordingRestorePublisher{}
 	service, err := NewRestoreService(publisher, currentRegistry, RestoreServiceOptions{
 		SupportedBindings: []RestoreImplementationBindingRef{
-			CurrentRestoreImplementationBinding(), HistoricalRestoreImplementationBindingV2(),
+			CurrentRestoreImplementationBinding(), PreWorkbookOwnershipRestoreImplementationBinding(),
+			HistoricalRestoreImplementationBindingV2(),
 		},
 		SupportedRegistries: []*RestoreSourceRegistry{currentRegistry, historicalRegistry},
 	})
@@ -218,6 +219,18 @@ func TestGraphRestoreV3MixedDeclarationsAndHistoricalV2DispatchRemainExact(t *te
 		len(currentResult.RebuiltViews) != 2 || currentResult.RebuiltViews[0].SemanticQuerySchemaID == "" ||
 		currentResult.RebuiltViews[1].SemanticQuerySchemaID != "cartulary.network_flow.graph_semantic_query.v2" {
 		t.Fatalf("current mixed restore result = %#v err=%v", currentResult, err)
+	}
+	preWorkbookBinding := PreWorkbookOwnershipRestoreImplementationBinding()
+	preWorkbookRequest := restoreV2Request(context.Background(), currentRegistry, preWorkbookBinding)
+	preWorkbookRequest.RecoveryStateCatalog = RestoreRecoveryCatalogRef{
+		DigestSHA256:  preWorkbookBinding.Binding.RecoveryStateCatalogSHA256,
+		AlgorithmID:   preWorkbookBinding.Binding.AlgorithmID,
+		GraphTableIDs: RestoreGraphTableIDs(),
+	}
+	preWorkbookResult, err := service.Rebuild(preWorkbookRequest.Context, preWorkbookRequest)
+	if err != nil || preWorkbookResult.SchemaID != RestoreRebuildResultSchemaID ||
+		preWorkbookResult.AlgorithmID != RestoreAlgorithmID || len(preWorkbookResult.RebuiltViews) != 2 {
+		t.Fatalf("pre-Workbook exact v3 restore result = %#v err=%v", preWorkbookResult, err)
 	}
 
 	historicalBinding := HistoricalRestoreImplementationBindingV2()

@@ -82,22 +82,14 @@ func (a *Application) GetVisibleIncident(
 	return a.repository.getVisibleIncident(ctx, incidentID, userID)
 }
 
-func (a *Application) GetIncidentMembershipForUser(
-	ctx context.Context,
-	incidentID uuid.UUID,
-	userID uuid.UUID,
-) (MembershipRecord, error) {
-	return a.repository.getMembership(ctx, incidentID, userID)
-}
-
 func (a *Application) CreateIncident(
 	ctx context.Context,
 	actor authn.UserRecord,
 	request CreateIncidentRequest,
-	requestHash []byte,
 	requestID string,
 	now time.Time,
 ) (CreateIncidentResult, error) {
+	requestHash := incidentCreateRequestHash(request)
 	key := authn.ActorOnlyRouteIdempotencyKey("incidents.create", actor.ID, request.ClientTxnID)
 	if existing, err := a.authStore.GetRouteIdempotency(ctx, key); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
@@ -118,10 +110,6 @@ func (a *Application) CreateIncident(
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return CreateIncidentResult{}, fmt.Errorf("query incident create idempotency: %w", err)
 	}
-	if a.preferenceBootstrap == nil {
-		return CreateIncidentResult{}, errors.New("incidents: workbook preference bootstrap port is required")
-	}
-
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return CreateIncidentResult{}, fmt.Errorf("begin incident create transaction: %w", err)
@@ -131,7 +119,6 @@ func (a *Application) CreateIncident(
 	}()
 
 	txRepository := newRepository(tx)
-	bootstrap := DefaultIncidentCreateBootstrap()
 	incident, err := txRepository.createIncident(ctx, createIncidentPersistenceParams{
 		IncidentKey:            request.IncidentKey,
 		Title:                  request.Title,
@@ -151,7 +138,7 @@ func (a *Application) CreateIncident(
 		IncidentID:  incident.ID,
 		UserID:      actor.ID,
 		JoinedAt:    now,
-		Role:        bootstrap.CreatorRole,
+		Role:        "admin",
 		DisplayName: actor.DisplayName,
 	})
 	if err != nil {
@@ -212,7 +199,7 @@ func (a *Application) CreateIncident(
 		return CreateIncidentResult{}, fmt.Errorf("insert incident idempotency: %w", err)
 	}
 
-	if err := a.incidentCreateCommit.CommitIncidentCreate(ctx, tx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return CreateIncidentResult{}, fmt.Errorf("commit incident create transaction: %w", err)
 	}
 	return CreateIncidentResult{
@@ -256,7 +243,7 @@ func (a *Application) UpdateIncident(
 			CurrentIncidentVersion: current.IncidentVersion,
 		}
 	}
-	next, changed := ApplyIncidentPatch(current, request, actor.ID, now)
+	next, changed := applyIncidentPatch(current, request, actor.ID, now)
 	if !changed {
 		if err := tx.Commit(ctx); err != nil {
 			return IncidentRecord{}, false, fmt.Errorf("commit incident no-op patch transaction: %w", err)
@@ -293,10 +280,10 @@ func (a *Application) TransitionIncidentLifecycle(
 	incidentID uuid.UUID,
 	action string,
 	request IncidentLifecycleRequest,
-	requestHash []byte,
 	requestID string,
 	now time.Time,
 ) (IncidentLifecycleResult, error) {
+	requestHash := incidentLifecycleRequestHash(action, request)
 	key := authn.RouteIdempotencyKey{
 		RouteKey:    "incidents." + action,
 		ActorUserID: actor.ID,
@@ -420,4 +407,41 @@ func (a *Application) TransitionIncidentLifecycle(
 		Payload:  payload,
 		Commit:   NewTerminalMutationCommit(auditEventID),
 	}, nil
+}
+
+func applyIncidentPatch(
+	current IncidentRecord,
+	request IncidentPatchRequest,
+	actorUserID uuid.UUID,
+	updatedAt time.Time,
+) (IncidentRecord, bool) {
+	next := current
+	if request.Description.Present {
+		next.Description = request.Description.Value
+	}
+	if request.Severity.Present {
+		next.Severity = request.Severity.Value
+	}
+	if request.TLP.Present {
+		next.TLP = request.TLP.Value
+	}
+	if request.CurrentPhase.Present {
+		next.CurrentPhase = request.CurrentPhase.Value
+	}
+	if request.PrimaryExternalCaseRef.Present {
+		next.PrimaryExternalCaseRef = request.PrimaryExternalCaseRef.Value
+	}
+
+	if stringPointersEqual(current.Description, next.Description) &&
+		stringPointersEqual(current.Severity, next.Severity) &&
+		stringPointersEqual(current.TLP, next.TLP) &&
+		stringPointersEqual(current.CurrentPhase, next.CurrentPhase) &&
+		stringPointersEqual(current.PrimaryExternalCaseRef, next.PrimaryExternalCaseRef) {
+		return current, false
+	}
+
+	next.UpdatedAt = updatedAt.UTC()
+	next.UpdatedByUserID = &actorUserID
+	next.IncidentVersion = current.IncidentVersion + 1
+	return next, true
 }

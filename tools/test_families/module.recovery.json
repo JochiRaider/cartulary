@@ -755,9 +755,13 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
+          "TestRecoveryGenerationRegistryOwnsThreeExactClosedGenerations_Unit",
+          "TestRecoveryGenerationRegistryRejectsMalformedDuplicateAndMixedEntries_Unit",
+          "TestRecoveryGenerationSelectionDrivesCatalogCodecAndGraphValidation_Unit",
           "TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit",
           "TestVNextGraphRestoreArtifactsFailClosedAndRejectRetiredRegistry_Unit",
-          "TestVNextGraphRestoreArtifactsRetainExactHistoricalV2Dispatch_Unit"
+          "TestVNextGraphRestoreArtifactsRetainExactHistoricalV2Dispatch_Unit",
+          "TestVNextGraphRestoreArtifactsRetainExactPreWorkbookV3Dispatch_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -728,6 +728,7 @@
         "tests": [
           "TestIncidentBundleImportFinalizationCommitsBootstrapState",
           "TestIncidentBundleImportFinalizationRejectsMissingSubmitter",
+          "TestIncidentBundleImportFinalizerRejectsInvalidDependenciesAndParamsBeforeDatabaseAccess",
           "TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit",
           "TestStoreCreateIncidentPreferenceBootstrapFailureRollsBack"
         ]
@@ -865,9 +866,9 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestIncidentCreateBootstrapsCreatorAndWorkbookPreferencesHTTPConformance",
           "TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance",
           "TestIncidentCreateReturnsStableLocationHeaderHTTPConformance",
+          "TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance",
           "TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTPConformance",
           "TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConformance"
         ]
@@ -998,7 +999,7 @@
       "service_dependencies": []
     },
     {
-      "row_id": "module.incidents.support_unit.unit_membership_patch_and_delete_decode_and_last_2eb9a74e0c",
+      "row_id": "module.incidents.support_unit.unit_membership_patch_and_delete_decode_stays_stable_i2",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.support_unit",
       "collaborator_ids": [],
@@ -1009,7 +1010,7 @@
       "selector": {
         "package": "./internal/modules/incidents/httpapi",
         "tests": [
-          "TestUnit_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable"
+          "TestUnit_MembershipPatchAndDeleteDecodeStayStable"
         ]
       },
       "evidence_class": "unit",
@@ -1019,6 +1020,57 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.incidents.unit.application_constructor_guards_i2",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestNewApplicationValidatesDependenciesInOrder_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.incidents.unit.idempotency_and_private_helper_contracts_i2",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentIdempotencyHashCompatibility_Unit",
+          "TestIncidentPatchKeepsNoOpStableAndAdvancesMaterialChange_Unit",
+          "TestLastAdminGuardDetectsSoleAdministrator_Unit",
+          "TestValidateMembershipCreateTarget_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
       "service_dependencies": []
     },
     {
@@ -1150,7 +1202,7 @@
       "service_dependencies": []
     },
     {
-      "row_id": "module.incidents.unit.incidents_http_route_registration_requires_the_i_3a8a99a9ef",
+      "row_id": "module.incidents.unit.incidents_http_dependencies_i2",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.unit",
       "collaborator_ids": [
@@ -1164,7 +1216,7 @@
       "selector": {
         "package": "./internal/modules/incidents/httpapi",
         "tests": [
-          "TestRegisterRoutesRequiresIncidentPorts"
+          "TestRegisterRoutesRequiresExactDependencies"
         ]
       },
       "evidence_class": "unit",

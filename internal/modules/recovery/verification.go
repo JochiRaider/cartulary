@@ -133,6 +133,14 @@ func (service *RestoreVerificationService) VerifyBackupSetAttempt(
 	restoreTarget := target.RestoreTarget
 	restoreTarget.Readiness = nil
 	restoreResult, restoreErr := service.runner.RestoreBackupSet(ctx, restoreTarget, backupSet)
+	if restoreResult.RecoveryStateCatalogSHA256 != "" && restoreResult.CodecRegistrySHA256 != "" {
+		verificationBasis.RecoveryStateCatalogSHA256 = restoreResult.RecoveryStateCatalogSHA256
+		verificationBasis.CodecRegistrySHA256 = restoreResult.CodecRegistrySHA256
+		verificationBasisSHA256, err = verificationBasis.SHA256()
+		if err != nil {
+			return RestoreVerificationResult{}, err
+		}
+	}
 	var selectedIncidentID *string
 	var incidentErr error
 	var probeErr error

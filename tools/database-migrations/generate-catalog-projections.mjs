@@ -122,7 +122,10 @@ const manifest = {
   application_schemas: ["public"],
   goose_ledger: "public.goose_db_version",
   lineage_relation: "public.schema_migration_lineage",
-  allowed_owners: [...new Set(ownersByVersion.values())].sort(),
+  allowed_owners: [...new Set([
+    ...ownersByVersion.values(),
+    ...entries.map((entry) => entry.source_owner),
+  ])].sort(),
   entries,
 };
 writeJSON("tools/schema_object_ownership_manifest.json", manifest);

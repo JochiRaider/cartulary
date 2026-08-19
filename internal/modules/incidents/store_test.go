@@ -5,14 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/mutationtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
@@ -94,19 +97,22 @@ func TestStoreCreateIncidentPreferenceBootstrapFailureRollsBack(t *testing.T) {
 		true,
 	)
 	bootstrapErr := errors.New("bootstrap port failed")
-	store := incidents.NewApplicationWithOptions(harness.DB, incidents.ApplicationOptions{
+	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
+		Postgres:            harness.DB,
 		PreferenceBootstrap: failingPreferenceBootstrap{err: bootstrapErr},
 	})
+	if err != nil {
+		t.Fatalf("construct Incidents application: %v", err)
+	}
 	request := incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-incident_membership-support-bootstrap-port-rollback",
 		IncidentKey: "IR-SUPPORT-BOOTSTRAP-PORT-ROLLBACK",
 		Title:       "Incident administration support bootstrap port rollback",
 	}
-	_, err := store.CreateIncident(
+	_, err = store.CreateIncident(
 		context.Background(),
 		actor,
 		request,
-		incidents.IncidentCreateRequestHash(request),
 		"req-"+request.ClientTxnID,
 		time.Now().UTC(),
 	)
@@ -185,7 +191,6 @@ func TestTerminalMutationCommitResultsUseCommittedAuditEventIdentity_Unit(t *tes
 		incident.ID,
 		"close",
 		closeRequest,
-		incidents.IncidentLifecycleRequestHash("close", closeRequest),
 		"req-terminal-effect-close",
 		time.Now().UTC(),
 	)
@@ -200,7 +205,6 @@ func TestTerminalMutationCommitResultsUseCommittedAuditEventIdentity_Unit(t *tes
 		incident.ID,
 		"close",
 		closeRequest,
-		incidents.IncidentLifecycleRequestHash("close", closeRequest),
 		"req-terminal-effect-close-replay",
 		time.Now().UTC(),
 	)
@@ -256,7 +260,10 @@ SELECT id
 
 func TestIncidentBundleImportFinalizationCommitsBootstrapState(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-support-incident-bundle-finalize")
-	finalizer := incidents.NewIncidentBundleImportFinalizer(workbookstartuppostgres.NewWriter())
+	finalizer, err := incidents.NewIncidentBundleImportFinalizer(workbookstartuppostgres.NewWriter())
+	if err != nil {
+		t.Fatalf("construct incident bundle import finalizer: %v", err)
+	}
 	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
@@ -269,7 +276,7 @@ func TestIncidentBundleImportFinalizationCommitsBootstrapState(t *testing.T) {
 	)
 	incidentID := uuid.New()
 	publishedAt := time.Date(2026, 5, 25, 18, 0, 0, 0, time.UTC)
-	requestID := incidents.ImportBundleRequestID(uuid.New())
+	requestID := "incident-bundle-finalization-request"
 
 	tx, err := harness.DB.BeginTx(context.Background(), pgx.TxOptions{})
 	if err != nil {
@@ -277,7 +284,7 @@ func TestIncidentBundleImportFinalizationCommitsBootstrapState(t *testing.T) {
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	insertImportedIncidentTx(t, tx, incidentID, actor.ID, "IR-BUNDLE-FINALIZE")
-	if err := finalizer.FinalizeIncidentBundleImportTx(context.Background(), tx, incidents.IncidentBundleImportFinalizationParams{
+	if err := finalizer.FinalizeIncidentBundleImportTx(context.Background(), tx, importfinalizerport.Params{
 		IncidentID:        incidentID,
 		SubmittedByUserID: actor.ID,
 		PublishedAt:       publishedAt,
@@ -321,7 +328,10 @@ func TestIncidentBundleImportFinalizationCommitsBootstrapState(t *testing.T) {
 
 func TestIncidentBundleImportFinalizationRejectsMissingSubmitter(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-support-incident-bundle-finalize-missing")
-	finalizer := incidents.NewIncidentBundleImportFinalizer(workbookstartuppostgres.NewWriter())
+	finalizer, err := incidents.NewIncidentBundleImportFinalizer(workbookstartuppostgres.NewWriter())
+	if err != nil {
+		t.Fatalf("construct incident bundle import finalizer: %v", err)
+	}
 	creator := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
@@ -340,12 +350,12 @@ func TestIncidentBundleImportFinalizationRejectsMissingSubmitter(t *testing.T) {
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	insertImportedIncidentTx(t, tx, incidentID, creator.ID, "IR-BUNDLE-FINALIZE-MISSING")
-	err = finalizer.FinalizeIncidentBundleImportTx(context.Background(), tx, incidents.IncidentBundleImportFinalizationParams{
+	err = finalizer.FinalizeIncidentBundleImportTx(context.Background(), tx, importfinalizerport.Params{
 		IncidentID:        incidentID,
 		SubmittedByUserID: uuid.New(),
 		PublishedAt:       time.Now().UTC(),
 	})
-	if !errors.Is(err, incidents.ErrInitialAdminUnavailable) {
+	if !errors.Is(err, importfinalizerport.ErrInitialAdminUnavailable) {
 		t.Fatalf("expected ErrInitialAdminUnavailable, got %T %[1]v", err)
 	}
 	_ = tx.Rollback(context.Background())
@@ -364,6 +374,47 @@ func TestIncidentBundleImportFinalizationRejectsMissingSubmitter(t *testing.T) {
 	}
 	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE incident_id = $1`, incidentID); got != 0 {
 		t.Fatalf("failed finalization transaction left audit row, got %d", got)
+	}
+}
+
+func TestIncidentBundleImportFinalizerRejectsInvalidDependenciesAndParamsBeforeDatabaseAccess(t *testing.T) {
+	if finalizer, err := incidents.NewIncidentBundleImportFinalizer(nil); err == nil || finalizer != nil {
+		t.Fatalf("nil bootstrap constructed finalizer: finalizer=%v err=%v", finalizer, err)
+	}
+	var typedNilBootstrap *workbookstartuppostgres.Writer
+	if finalizer, err := incidents.NewIncidentBundleImportFinalizer(typedNilBootstrap); err == nil || finalizer != nil {
+		t.Fatalf("typed-nil bootstrap constructed finalizer: finalizer=%v err=%v", finalizer, err)
+	}
+
+	finalizer, err := incidents.NewIncidentBundleImportFinalizer(workbookstartuppostgres.NewWriter())
+	if err != nil {
+		t.Fatalf("construct valid finalizer: %v", err)
+	}
+	validParams := importfinalizerport.Params{
+		IncidentID:        uuid.New(),
+		SubmittedByUserID: uuid.New(),
+		PublishedAt:       time.Date(2026, 8, 19, 5, 0, 0, 0, time.UTC),
+	}
+	var typedNilTx *pgxpool.Tx
+	tests := []struct {
+		name      string
+		tx        pgx.Tx
+		params    importfinalizerport.Params
+		wantError string
+	}{
+		{name: "nil transaction", params: validParams, wantError: "transaction is required"},
+		{name: "typed nil transaction", tx: typedNilTx, params: validParams, wantError: "transaction is required"},
+		{name: "zero incident ID", tx: &pgxpool.Tx{}, params: importfinalizerport.Params{SubmittedByUserID: validParams.SubmittedByUserID, PublishedAt: validParams.PublishedAt}, wantError: "incident ID is required"},
+		{name: "zero submitter ID", tx: &pgxpool.Tx{}, params: importfinalizerport.Params{IncidentID: validParams.IncidentID, PublishedAt: validParams.PublishedAt}, wantError: "submitter ID is required"},
+		{name: "zero publication time", tx: &pgxpool.Tx{}, params: importfinalizerport.Params{IncidentID: validParams.IncidentID, SubmittedByUserID: validParams.SubmittedByUserID}, wantError: "publication time is required"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := finalizer.FinalizeIncidentBundleImportTx(context.Background(), test.tx, test.params)
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("finalization error = %v, want %q", err, test.wantError)
+			}
+		})
 	}
 }
 
@@ -422,7 +473,6 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 		context.Background(),
 		actor,
 		firstRequest,
-		incidents.IncidentCreateRequestHash(firstRequest),
 		"req-txn-u-2-04-create",
 		time.Now().UTC(),
 	)
@@ -445,7 +495,6 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 		context.Background(),
 		actor,
 		replayRequest,
-		incidents.IncidentCreateRequestHash(replayRequest),
 		"req-txn-u-2-04-replay",
 		time.Now().UTC(),
 	)
@@ -468,7 +517,6 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 		context.Background(),
 		actor,
 		divergentRequest,
-		incidents.IncidentCreateRequestHash(divergentRequest),
 		"req-txn-u-2-04-divergent",
 		time.Now().UTC(),
 	); !errors.Is(err, authn.ErrClientTxnConflict) {
@@ -487,7 +535,6 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 		context.Background(),
 		secondActor,
 		secondActorRequest,
-		incidents.IncidentCreateRequestHash(secondActorRequest),
 		"req-txn-u-2-04-actor-two",
 		time.Now().UTC(),
 	)
@@ -517,7 +564,13 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 
 func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-u-2-14")
-	store := incidents.NewApplication(harness.DB, workbookstartuppostgres.NewWriter())
+	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
+		Postgres:            harness.DB,
+		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+	})
+	if err != nil {
+		t.Fatalf("construct Incidents application: %v", err)
+	}
 	admin := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
@@ -597,7 +650,13 @@ func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T)
 
 func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-u-2-07")
-	store := incidents.NewApplication(harness.DB, workbookstartuppostgres.NewWriter())
+	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
+		Postgres:            harness.DB,
+		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+	})
+	if err != nil {
+		t.Fatalf("construct Incidents application: %v", err)
+	}
 	admin := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,

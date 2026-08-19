@@ -82,13 +82,3 @@ func BuildMembershipResource(record MembershipRecord) map[string]any {
 		"membership_version": record.MembershipVersion,
 	}
 }
-
-func WouldLeaveNoIncidentAdmins(currentRole string, adminCount int, nextRole *string, deleting bool) bool {
-	if currentRole != "admin" {
-		return false
-	}
-	if !deleting && nextRole != nil && *nextRole == "admin" {
-		return false
-	}
-	return adminCount <= 1
-}

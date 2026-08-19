@@ -145,7 +145,14 @@ RETURNING id, email, display_name, password_hash, mfa_required, is_active, is_de
 
 func createComposedMergeIncident(t testing.TB, db postgres.DB, actor authn.UserRecord) incidents.IncidentRecord {
 	t.Helper()
-	result, err := incidents.NewApplication(db, workbookstartuppostgres.NewWriter()).CreateIncident(
+	application, err := incidents.NewApplication(incidents.ApplicationDependencies{
+		Postgres:            db,
+		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+	})
+	if err != nil {
+		t.Fatalf("construct Incidents application: %v", err)
+	}
+	result, err := application.CreateIncident(
 		context.Background(),
 		actor,
 		incidents.CreateIncidentRequest{
@@ -153,7 +160,6 @@ func createComposedMergeIncident(t testing.TB, db postgres.DB, actor authn.UserR
 			IncidentKey: "IR-MERGE-PROTECTED-COMPOSITION",
 			Title:       "Merge protected set composition",
 		},
-		[]byte("merge-protected-incident-composition"),
 		"req-merge-protected-incident-composition",
 		time.Now().UTC(),
 	)

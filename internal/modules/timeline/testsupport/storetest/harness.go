@@ -19,5 +19,12 @@ func StartStore(t testing.TB, prefix string) *StoreHarness {
 
 	postgresHarness := pgtest.Start(t)
 	db := postgresHarness.BeginRollbackDBT(t, prefix)
-	return &StoreHarness{DB: db, Incidents: incidents.NewApplication(db, workbookstartuppostgres.NewWriter())}
+	application, err := incidents.NewApplication(incidents.ApplicationDependencies{
+		Postgres:            db,
+		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+	})
+	if err != nil {
+		t.Fatalf("construct Incidents application: %v", err)
+	}
+	return &StoreHarness{DB: db, Incidents: application}
 }

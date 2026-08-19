@@ -36,7 +36,8 @@
     "revisions",
     "savedviews",
     "tasksdecisions",
-    "timeline"
+    "timeline",
+    "workbook"
   ],
   "entries": [
     {
@@ -27451,7 +27452,7 @@
       "object_kind": "table",
       "qualified_name": "public.incident_workbook_preferences",
       "management_class": "cartulary_authored",
-      "source_owner": "incidents",
+      "source_owner": "workbook",
       "migration_version": 3,
       "migration_file": "00003_incidents.sql",
       "dependency_object_ids": [],
@@ -28318,7 +28319,7 @@
       "object_kind": "table",
       "qualified_name": "public.user_workbook_preferences",
       "management_class": "cartulary_authored",
-      "source_owner": "incidents",
+      "source_owner": "workbook",
       "migration_version": 3,
       "migration_file": "00003_incidents.sql",
       "dependency_object_ids": [],

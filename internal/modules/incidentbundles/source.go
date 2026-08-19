@@ -14,9 +14,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
@@ -39,7 +39,7 @@ type bundleBuilder struct {
 type importer struct {
 	pool              *pgxpool.Pool
 	blobPort          BlobPortability
-	finalizer         incidents.IncidentBundleImportFinalizer
+	finalizer         importfinalizerport.Finalizer
 	projectionRebuild ImportProjectionRebuilder
 	sourceCatalog     sourcePortCatalog
 	historicalIntents HistoricalIntentPolicy
@@ -102,14 +102,6 @@ func (b bundleBuilder) build(ctx context.Context, incidentID uuid.UUID, request 
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	files := map[string][]byte{}
-	incidentJSON, incidentKey, err := incidents.ExportIncidentBundleIncident(ctx, tx, incidentID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return builtIncidentBundle{}, errNotFound
-		}
-		return builtIncidentBundle{}, err
-	}
-	files["data/incident.json"] = incidentJSON
 	if b.sourceCatalog == nil {
 		return builtIncidentBundle{}, errors.New("incident bundle source catalog is required")
 	}
@@ -120,12 +112,26 @@ func (b bundleBuilder) build(ctx context.Context, incidentID uuid.UUID, request 
 			PortableAttributions: portableAttributionResolver{},
 		})
 		if err != nil {
+			if port.Descriptor().FamilyID == "incident" && errors.Is(err, pgx.ErrNoRows) {
+				return builtIncidentBundle{}, errNotFound
+			}
 			return builtIncidentBundle{}, err
 		}
 		for _, file := range exportedFiles {
 			files[file.Path] = file.Payload
 		}
 	}
+	incidentJSON, ok := files["data/incident.json"]
+	if !ok {
+		return builtIncidentBundle{}, errors.New("incident bundle incident source is required")
+	}
+	var incidentIdentity struct {
+		IncidentKey string `json:"incident_key"`
+	}
+	if err := json.Unmarshal(incidentJSON, &incidentIdentity); err != nil {
+		return builtIncidentBundle{}, err
+	}
+	incidentKey := incidentIdentity.IncidentKey
 	files["data/reference_pack_refs.json"] = []byte("[]\n")
 	actors, err := b.exportActors(ctx, tx, incidentID, files)
 	if err != nil {
@@ -458,13 +464,13 @@ func (i importer) applyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	if i.finalizer == nil {
 		return uuid.UUID{}, errors.New("incident bundle import finalizer is required")
 	}
-	if err := i.finalizer.FinalizeIncidentBundleImportTx(ctx, tx, incidents.IncidentBundleImportFinalizationParams{
+	if err := i.finalizer.FinalizeIncidentBundleImportTx(ctx, tx, importfinalizerport.Params{
 		IncidentID:        incidentID,
 		SubmittedByUserID: params.ActorUserID,
 		PublishedAt:       params.PublishedAt,
 		RequestID:         params.RequestID,
 	}); err != nil {
-		if errors.Is(err, incidents.ErrInitialAdminUnavailable) {
+		if errors.Is(err, importfinalizerport.ErrInitialAdminUnavailable) {
 			return uuid.UUID{}, &verificationError{ReasonCode: "initial_admin_unavailable"}
 		}
 		return uuid.UUID{}, err

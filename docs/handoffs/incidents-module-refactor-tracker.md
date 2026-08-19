@@ -7,10 +7,10 @@
 - **Output path:** `docs/handoffs/incidents-module-refactor-tracker.md`
 - **Repository snapshot:** commit `6e5eb78380cdabc7b41f6c0b05a932a1539dece7`; the worktree was clean and `main` was four commits ahead of `origin/main` when this planning session began.
 - **Live execution snapshot:** implementation was authorized on 2026-08-18 from commit `6e5eb78380cdabc7b41f6c0b05a932a1539dece7`; `main` remained four commits ahead of `origin/main`, and this tracker remained the only staged path at activation.
-- **Status:** implementation complete. Every authorized workstream is `DONE`; this tracker remains the controlling execution and handoff artifact.
-- **Execution boundary:** production code, tests, adopted specifications, authored contracts, SQL inputs, boundary policy, harness owner inputs, and generated projections may change only where the approved workstream requires them. Public HTTP/OpenAPI/WebSocket behavior, persisted source-boundary v1 bytes, and database schema remain frozen.
+- **Status:** Iteration 1 implementation is complete and every Iteration 1 workstream is `DONE`. Iteration 2 is planned in sections 13 through 17; only its document-activation workstream is authorized by the current request.
+- **Execution boundary:** Iteration 1's completed production state remains frozen. The current document-only request may change only this tracker. Future Iteration 2 production code, tests, adopted specifications, authored contracts, SQL inputs, boundary policy, harness owner inputs, and generated projections remain `TODO` until separately authorized. Public HTTP/OpenAPI/WebSocket behavior, persisted source-boundary v1 bytes, persisted idempotency hashes, and database schema remain frozen.
 - **Non-goals:** no database migration, frontend source change, durable outbox, multi-process delivery design, public route or payload change, or permanent internal compatibility shim is planned. Discovery requiring one stops the affected slice for owner review.
-- **Authorization:** the remediation request authorizes WF-00, SP-01, SP-02, and implementation slices RS-00, RS-01, RS-04, RS-05, RS-03, RS-02, RS-06, and RS-07 in that order.
+- **Authorization:** the Iteration 1 remediation authorized WF-00, SP-01, SP-02, and implementation slices RS-00, RS-01, RS-04, RS-05, RS-03, RS-02, RS-06, and RS-07 in that order, and those slices are complete. The current request authorizes only `I2-WF-00`; `I2-SP-01` and `I2-RS-00` through `I2-RS-07` are planned but not execution-authorized.
 - **NLSpec posture:** this tracker uses NLSpec-style normative language to make the proposed refactor reproducible. It is not an adopted NLSpec, does not amend an owner document, and cannot authorize a public behavior change.
 - **Revision posture:** `temp/analysis-notes.md` and `docs/research/nlspec-spec.md` were inspected as research and writing guidance only. Their recommendations are accepted only where they agree with adopted owners and live repository evidence.
 
@@ -868,3 +868,396 @@ changing public wire behavior or deployment topology.
 The Incidents module specification and implementation remediation is complete. No
 owner contradiction, public contract change, database migration, frontend source
 change, durable delivery expansion, or retained internal compatibility shim remains.
+
+## 13. Iteration 2 Charter and Execution Ledger
+
+Sections 1 through 12 are the closed, append-only Iteration 1 planning and handoff
+record. This section begins Iteration 2 without reopening or reinterpreting any
+Iteration 1 result.
+
+- **Iteration target:** remove confirmed dead and legacy Incidents surfaces, make
+  construction and dependency direction explicit, and close production-readiness
+  gaps without widening public behavior.
+- **Planning baseline:** clean `main` at
+  `ffe49c02d40d04c5e55a5bbc8f4d95276e358f0d` on 2026-08-19.
+- **Current authorization:** the 2026-08-19 implementation request authorizes
+  `I2-SP-01` and `I2-RS-00` through `I2-RS-07` in the ledger order. Only the one
+  active workstream may change its authorized areas; every successor remains gated
+  on its predecessor's completed tracker checkpoint.
+- **Compatibility boundary:** public HTTP, OpenAPI, WebSocket, session, error,
+  validation-order, persisted idempotency, and database-schema behavior remains
+  unchanged. Internal Go callers migrate to the final interfaces without aliases or
+  forwarding shims.
+- **Expansion gate:** discovery requiring a public contract change, database
+  migration, frontend change, different persisted request hash, or broader Recovery
+  generation policy MUST mark the affected workstream `BLOCKED: owner contradiction`
+  or `BLOCKED: scope expansion` before dependent work begins.
+- **Source posture:** `docs/domain.md` supplies vocabulary and owner navigation only.
+  `docs/research/nlspec-spec.md` supplies writing and completeness guidance only.
+  Neither document is an instruction source for this iteration, and neither requires
+  an Iteration 2 edit.
+
+Iteration 2 status values are closed. `TODO` means execution has not begun;
+`IN_PROGRESS` is the only active workstream; `DONE` means every exit criterion and
+tracker checkpoint passed; `BLOCKED` records the exact unmet owner or external
+prerequisite. A successor MUST NOT begin before every predecessor is `DONE`.
+
+The tracker update is the final action of every future workstream. The row, detailed
+evidence, failures, residual risks, and next dependency MUST be current before
+`make lint-markdown` and tracker-scoped `git diff HEAD --check` run. A failed exit
+criterion stops all dependent work.
+
+| Workstream | Status | Dependency | Authorized change | Exit evidence | Next dependency |
+| --- | --- | --- | --- | --- | --- |
+| `I2-WF-00` — append Iteration 2 plan | DONE | None | This tracker only | Sections 13–17 added; Markdown lint passed at `20260819T042615Z-p1430172`; tracker-scoped diff and tracker-only changed-path review passed | `I2-SP-01`, after separate execution authorization |
+| `I2-SP-01` — close Recovery owner drift | DONE | `I2-WF-00` | Core 01 and Core 04 owner text only | Core 01 states exact 113/84 arithmetic and Graph classification; Core 04 names additive migrations 30–34; Markdown, traceability, and diff gates passed | `I2-RS-00` |
+| `I2-RS-00` — characterization baseline | DONE | `I2-SP-01` | Tests, contracts needed to freeze current facts, and tracker | Six exact hash preimages/digests, existing constructor/finalizer/rollback and 11-operation behavior, zero-caller searches, and both existing Recovery generation identities pass | `I2-RS-01` |
+| `I2-RS-01` — remove confirmed dead leaves | DONE | `I2-RS-00` | Incidents, affected classifiers, authored SQL, generated SQL, tests, boundary policy, and tracker | All five dead-leaf groups and generated/type-switch residue are absent; recurrence, affected-owner, harness, static, generation, and drift gates passed | `I2-RS-02` |
+| `I2-RS-02` — internalize idempotency and helpers | DONE | `I2-RS-01` | Incidents callers, tests, and tracker | Final application signatures compile; persisted hash goldens and replay/conflict matrices pass; stale file and exports are gone | `I2-RS-03` |
+| `I2-RS-03` — consolidate construction and test faults | DONE | `I2-RS-02` | Incidents construction, server/test composition, test support, boundary policy, and tracker | One fail-fast constructor remains and commit-fault injection is test-owned | `I2-RS-04` |
+| `I2-RS-04` — harden HTTP composition | DONE | `I2-RS-03` | Incidents HTTP, server assembly, tests, boundary/harness inputs, and tracker | Exact dependencies are injected and all 11 operations retain parity | `I2-RS-05` |
+| `I2-RS-05` — relocate bundle consumer port | DONE | `I2-RS-04` | Incidents, Incident Bundles, assembly, tests, boundary/harness inputs, and tracker | Incident Bundles owns its port/request ID; invalid input and prepared-value failures are deterministic; root ports file is gone | `I2-RS-06` |
+| `I2-RS-06` — correct Recovery ownership | DONE | `I2-RS-05` | Workbook/Incidents contributions, Recovery contracts/runtime, assembly, tests, generated projections, policy, and tracker | Workbook owns preference tables and all three exact generations validate without reinterpretation | `I2-RS-07` |
+| `I2-RS-07` — cleanup, validation, and handoff | DONE | `I2-RS-06` | Final residue, tests, generated outputs through owners, and tracker | Retired surfaces and drift are absent; retained exports/support are justified; focused, service-backed, browser, static, generation, finalization, and repository-wide validation pass | Complete |
+
+## 14. Live Cleanup Inventory
+
+This inventory records repository facts at the Iteration 2 planning baseline. A zero
+production caller is evidence for removal, not independent authority to change public
+behavior.
+
+| ID | Current surface and location | Live callers or dependency | Disposition | Risk and owning workstream |
+| --- | --- | --- | --- | --- |
+| `I2-LC-001` | `IncidentCreateIdempotencyScope` in `incidents/lifecycle_access.go` | No caller | Delete | Dead compatibility vocabulary can imply a configurable scope that does not exist; `I2-RS-01`. |
+| `I2-LC-002` | `(*Application).GetIncidentMembershipForUser` in `incident_application.go` | No caller | Delete | An unused read expands the application facade and future support burden; `I2-RS-01`. |
+| `I2-LC-003` | `storetest.LookupUserByEmail` | No caller | Delete | Dead test support obscures the supported fixture surface; `I2-RS-01`. |
+| `I2-LC-004` | Authored queries `EnsureIncidentOpenForMutation` and `ListIncidentMemberships` in `db/queries/incidents.sql` | No generated method call; the latter leaves a dead generated row-type switch in `repository.go` | Delete authored queries and dependent residue, then regenerate | Unused persistence APIs can be mistaken for supported transaction paths; `I2-RS-01`. |
+| `I2-LC-005` | `incidents.ErrIncidentClosed` and classifier branches in Incidents HTTP, Entities, and Workbook | No Incidents production producer; actual incident closure denial is `admission.DenialIncidentClosed` | Delete sentinel and compatibility branches; retain `timeline.ErrIncidentClosed` | Dual error families can drift or mask the real admission contract; `I2-RS-01`. |
+| `I2-LC-006` | Exported create/lifecycle/membership hash helpers and caller-supplied `requestHash []byte` application parameters | HTTP routes, Incidents store/test support, lifecycle contract tests, and commit-fault support construct or pass hashes | Derive privately inside application methods and remove arguments/exports | A caller can persist a hash that does not describe the normalized request; `I2-RS-02`. |
+| `I2-LC-007` | `IncidentCreateBootstrap`, `DefaultIncidentCreateBootstrap`, `ApplyIncidentPatch`, and `WouldLeaveNoIncidentAdmins` | Incidents implementation plus one same-owner HTTP test | Privatize or inline; move direct helper evidence to the owning package | Unnecessary exports turn implementation choices into de facto APIs; `I2-RS-02` and `I2-RS-07`. |
+| `I2-LC-008` | `NewApplicationWithOptions`, `ApplicationOptions`, `IncidentCreateCommitPort`, and `directIncidentCreateCommit` | Production uses the ordinary constructor; only Incidents tests and `internal/testutil/appsupport/commit_fault.go` use the commit seam | Replace with one dependency constructor and a test-owned database/transaction fault decorator | A production-only test hook weakens construction invariants and expands the root port surface; `I2-RS-03`. |
+| `I2-LC-009` | `httpapi.RegisterRoutes(options ...RouteOptions)`, exported `Service`, and six exported `Decode*Request` functions | Production supplies exactly one option; decoder/service use is package-local | Use one exact dependency value and private service/decoders | Variadic zero-option compatibility always fails and hides required composition; `I2-RS-04`. |
+| `I2-LC-010` | HTTP creates `admission.NewChecker` from platform dependencies; terminal coordinator interface lives in Incidents root | Server already owns composition; only HTTP consumes the coordinator interface | Inject a narrow admission capability and move the terminal interface to its consumer | Adapter construction in HTTP and producer-owned ports increase coupling; `I2-RS-04`. |
+| `I2-LC-011` | Import-finalizer params/interface, unavailable-admin error, and bundle request-ID helper live under Incidents | Incident Bundles module, worker, server assembly, and Incidents store tests | Move the consumer contract/error to `incidentbundles/importfinalizerport`; keep implementation in Incidents; move request-ID derivation to Incident Bundles | Current placement forces Incident Bundles to depend on unrelated Incidents root surface; `I2-RS-05`. |
+| `I2-LC-012` | Import finalizer substitutes `time.Now()` for zero `PublishedAt`; source-port apply uses `value.(sourceport.PreparedFiles)` | Current production callers supply a timestamp and adapter-prepared files | Reject zero IDs/time and return a controlled internal error for a wrong prepared value | Hidden clocks break deterministic commits and unchecked assertions can panic a worker; `I2-RS-05`. |
+| `I2-LC-013` | Incidents recovery contribution claims `incident_workbook_preferences` and `user_workbook_preferences`; Workbook has no contribution | Recovery assembly registers Incidents but not Workbook | Move both declarations to Workbook and register its contribution | Persistence ownership and recovery ownership disagree; `I2-RS-06`. |
+| `I2-LC-014` | Recovery admission recognizes current Graph v3 or one historical Graph v2 pair through branching and validates other artifacts against current state | Retained backups may bind either admitted generation | Replace the heuristic with a finite generation registry and add the pre-ownership-change Graph v3 generation | A catalog-owner-only digest change would reject retained backups or reinterpret them through current state; `I2-RS-06`. |
+| `I2-LC-015` | Incidents source-port/resource builders and Incidents-specific mutation, performance, scenario, route, and store support | Active owner assembly and broad test families | Retain; remove only proven dead members | Moving cohesive owner behavior would reduce clarity without lowering coupling; regression review in `I2-RS-07`. |
+
+The application constructor currently has thirteen caller files outside its definition:
+server assembly; two Entities merge tests; Incidents membership-concurrency and store
+tests; Incidents performance/store harnesses; Indicators and Revisions transaction
+tests; Timeline store support; and shared app-scenario support. `I2-RS-03` MUST migrate
+the complete compiler-discovered set rather than maintaining an overload.
+
+## 15. Iteration 2 Remediation Decisions
+
+| Gap | Remediation and affected areas | Rationale and long-term benefit | Compatibility or migration impact | Risk if unresolved | Completion validation |
+| --- | --- | --- | --- | --- | --- |
+| `I2-GAP-001` — Recovery owner-spec drift | Before implementation, amend Core 01's catalog posture and REQ-01-647 from 113/83 with five Graph rebuildables to 113/84 with four Graph rebuildables; identify `network_flow_graph_views` as authoritative. Amend Core 04 AC-542 to immutable versions 1–29 plus additive versions 30–34 and Recovery 113/84. **Areas:** specification and tracker. | Restores one authoritative description of the already-shipped migration and Recovery projection without treating implementation as authority. Later ownership work starts from truthful invariants. | No runtime, SQL, migration, wire, or data change. Existing historical handoffs remain historical. | Owner text, validation code, and live contracts disagree, so later generation changes cannot be reviewed reliably. | Core text states `84 + 4 + 6 + 1 + 7 + 1 + 10 = 113`; `network_flow_graph_views` and Graph result classifications match live projections; AC-542 names head 34; traceability and Markdown checks pass. |
+| `I2-GAP-002` — confirmed dead leaves | Delete `I2-LC-001` through `I2-LC-005`, change authored SQL before regeneration, and add boundary/static assertions where recurrence is plausible. **Areas:** implementation, authored SQL, generated SQL, tests, and boundary policy. | Removes misleading APIs and duplicate error vocabulary while shrinking persistence and test surfaces. | Internal compile-time removal only. Actual admission denial and Timeline closure behavior remain. No schema migration. | Future callers can adopt an unused or semantically obsolete path, making removal more costly and error handling inconsistent. | Repository searches find no retired symbol/query/generated method/type-switch branch; Incidents, Entities, and Workbook focused/service-backed slices plus boundary, lint, generation, and drift gates pass. |
+| `I2-GAP-003` — caller-owned idempotency hashes | Derive hashes inside the three application mutations, remove public hash helpers and hash arguments, use closed private canonical payload structs, relocate patch/bootstrap helpers, and delete `lifecycle_access.go`. **Areas:** implementation and tests. | The application becomes the sole authority for the request-to-hash relationship; future callers cannot accidentally persist a mismatched digest. | Existing SHA-256 values, stored response JSON/status, replay, conflict, and actor scoping remain byte-compatible. No data migration. Internal callers change signatures. | A new caller can provide arbitrary or stale hash bytes and corrupt idempotency equivalence. | Pre/post exact-byte and digest goldens cover nullable/omitted fields and lifecycle action selection; fresh, replay, different-payload conflict, and different-actor matrices pass; no external hash helper remains. |
+| `I2-GAP-004` — construction and production test seam | Introduce `ApplicationDependencies` and one error-returning constructor; reject nil and typed-nil dependencies before readiness. Replace the commit port with a test-owned `postgres.DB` decorator whose returned transaction rolls back and returns the retained commit-fault sentinel from `Commit`. **Areas:** implementation, test support, tests, and boundary policy. | Makes valid construction explicit and keeps fault injection at the infrastructure boundary it exercises. | Thirteen caller files migrate at compile time. Ordinary transaction behavior and commit-failure outcome remain unchanged. No compatibility constructor remains. | Partially initialized applications can reach serving, and production must permanently carry a test-only abstraction. | Nil/typed-nil matrices fail deterministically; server composition succeeds only with complete dependencies; commit-failure tests prove no incident, membership, preference, audit, or idempotency residue; retired constructor/seam searches are empty. |
+| `I2-GAP-005` — HTTP composition and excess exports | Define exact `httpapi.Dependencies`, consumer-owned `Application`, `AdmissionChecker`, and `TerminalMutationCoordinator` capabilities; inject all three from server assembly; make service and decoders private; remove variadic registration. **Areas:** implementation, tests, assembly, harness, and boundary policy. | HTTP owns only transport concerns and declares the minimum application capabilities it consumes. Required dependencies become visible at composition. | All 11 public operations, OpenAPI operation IDs, error/envelope shapes, validation order, session sliding, and persisted replay payloads remain stable. Internal composition breaks intentionally. | Hidden adapter construction and broad exported helpers promote coupling and allow incomplete registration shapes. | Missing/nil/typed-nil dependency tests fail before binding; runtime/OpenAPI parity and all operation families pass; root ports no longer contain the terminal interface; package export audit passes. |
+| `I2-GAP-006` — Incident Bundle port ownership and deterministic finalization | Add `internal/modules/incidentbundles/importfinalizerport`; move the params, interface, and unavailable-admin sentinel there; return `(importfinalizerport.Finalizer, error)` from construction; reject zero IDs/time; move request-ID derivation into Incident Bundles; replace the unchecked assertion; delete empty `incidents/ports.go`. **Areas:** implementation, tests, assembly, and boundary policy. | The consumer owns its narrow capability while Incidents retains atomic implementation. Explicit time and type validation make worker behavior deterministic and panic-free. | Bundle wire, job, transaction, membership, preferences, and audit behavior remain unchanged. Current production callers already provide nonzero values. Internal imports change with no shim. | Cross-owner root coupling persists; malformed internal inputs can call a hidden clock or crash a worker. | Create/import success, rollback, unavailable-admin, nil/typed-nil writer, zero-field, wrong-prepared-type, request-ID, replay, and worker tests pass; no old port symbol or root ports file remains. |
+| `I2-GAP-007` — Workbook recovery ownership and generation compatibility | Add Workbook's contribution for the two preference tables, remove them from Incidents, register Workbook, and replace Recovery's two-branch admission with a schema-validated three-entry generation registry. **Areas:** specification projection, implementation, contracts, tests, generated outputs, assembly, and boundary policy. | Physical, semantic, and recovery ownership agree. Exact finite generations preserve justified backup compatibility without creating an open-ended legacy reader. | Table names and 113/84 membership are unchanged; contribution count becomes 30 and current catalog digest changes. New capture emits only the new generation. Exact pre-change Graph v3 and existing Graph v2 backups remain readable while retained. No data/schema migration. | Retained backups can become unrestorable or be silently validated against the wrong owner catalog; future Workbook changes remain coupled to Incidents. | Current generation and both historical pairs pass exact catalog, PostgreSQL unit, object-family, codec, and Graph-artifact tests; cross-pair mixtures and unknown generations fail before mutation; boundary checks forbid preference-table claims in Incidents. |
+| `I2-GAP-008` — final residue and regression prevention | Privatize remaining same-package helpers, retain cohesive active source/test support, add recurrence policies, recalculate the final inventory, and close the tracker. **Areas:** implementation, tests, boundary/harness policy, generated artifacts, and documentation. | Leaves one comprehensible production architecture and an intentionally small exported surface without sacrificing valuable owner fixtures. | Internal compile-time cleanup only. No public product or persisted-state change. | Transitional names and accidental exports become long-lived compatibility obligations. | Retired-symbol/import scans, export inventory, all affected owner matrices, browser/static/harness/drift checks, finalization, and full check pass with every row `DONE`. |
+
+Historical Recovery support is the only planned legacy retention. It has continuing
+value because REQ-01-575 requires an exact decoder for a selected retained backup and
+successful backup metadata remains retained for at least 30 days. An old generation
+MUST NOT be removed on a calendar assumption: removal requires repository or
+deployment evidence that no supported retained backup names it and a separate adopted
+owner decision.
+
+## 16. Target Interfaces, Invariants, and Workstream Detail
+
+### 16.1 Application construction and idempotency
+
+The final construction surface is exact:
+
+```go
+type ApplicationDependencies struct {
+    Postgres            postgres.DB
+    PreferenceBootstrap bootstrapport.Writer
+}
+
+func NewApplication(ApplicationDependencies) (*Application, error)
+```
+
+Both dependencies are required. A nil or typed-nil value has no default and fails
+before an application can be registered or served. The application may continue to
+construct its private repository, authentication store, and admission checker from the
+validated PostgreSQL dependency.
+
+The final mutation shapes omit caller-provided request hashes:
+
+```go
+CreateIncident(ctx, actor, request, requestID, now)
+TransitionIncidentLifecycle(ctx, actor, incidentID, action, request, requestID, now)
+CreateMembership(ctx, actor, incidentID, targetUser, request, requestID, now)
+```
+
+Each method derives SHA-256 from compact Go `encoding/json` bytes with no schema
+prefix, whitespace suffix, or trailing newline. Private typed payloads declare members
+in the exact persisted order:
+
+- Create: `client_txn_id`, `current_phase`, `description`, `incident_key`,
+  `primary_external_case_ref`, `severity`, `title`, `tlp`.
+- Lifecycle: `action_route`, `base_incident_version`, `reason`.
+- Membership: `client_txn_id`, `email`, `role`, `user_id`.
+
+Omitted normalized nullable values retain their current JSON `null` representation.
+The lifecycle action remains part of the hash; `close` and `reopen` with otherwise
+equal request data are distinct. Stored hash, response bytes, response status, scope,
+and replay precedence do not change.
+
+### 16.2 HTTP consumer capabilities
+
+HTTP registration becomes exactly `RegisterRoutes(Dependencies)`; there is no
+variadic or zero-option form. `Dependencies` contains:
+
+- an `Application` capability containing only `ListVisibleIncidents`,
+  `CreateIncident`, `GetVisibleIncident`, `UpdateIncident`, `ListMemberships`,
+  `CreateMembership`, `UpdateMembership`, and
+  `ListAdministrativeAuditEvents`;
+- an `AdmissionChecker` capability containing only `Check`; and
+- a `TerminalMutationCoordinator` capability containing only incident lifecycle
+  coordination and membership deletion coordination.
+
+The coordinator lifecycle method adopts the application signature without a hash
+argument. Server assembly constructs the neutral admission checker and injects all
+three capabilities. HTTP may continue to construct transport-owned authentication and
+pagination helpers from its platform dependency set. Missing, nil, or typed-nil owner
+capabilities fail route composition before serving.
+
+The HTTP service and all six incident/membership request decoders become private.
+Their white-box tests remain in the `httpapi` package. Resource builders stay exported
+from Incidents because both application persistence/audit logic and HTTP use them.
+
+### 16.3 Incident Bundle finalizer port
+
+`internal/modules/incidentbundles/importfinalizerport` owns the finalization params,
+`Finalizer` interface, and `ErrInitialAdminUnavailable`. The interface remains:
+
+```go
+FinalizeIncidentBundleImportTx(context.Context, pgx.Tx, Params) error
+```
+
+Incidents supplies the implementation and returns
+`(importfinalizerport.Finalizer, error)` from its constructor. The finalizer uses only
+the caller-owned transaction. It never begins, commits, retries, upserts, calls a
+clock, or changes authorization/audit scope. Nil/typed-nil preference writers and zero
+incident ID, submitter ID, or publication timestamp fail before a query or write.
+
+Incident Bundles privately derives `incident_bundle_import:<job UUID>`. Incidents
+tests use explicit request IDs. A prepared value of the wrong internal type returns a
+bounded internal error instead of panicking; it does not create a new public bundle
+failure family.
+
+### 16.4 Recovery generations and ownership
+
+Workbook's contribution contains exactly `incident_workbook_preferences` and
+`user_workbook_preferences`. Incidents retains exactly `incidents` and
+`incident_memberships`. Recovery assembly registers both, increasing the contribution
+count from 29 to 30 without changing the 113-table/84-required table set.
+
+An authored, schema-validated Recovery generation registry is the sole admission
+owner. Generated Go constants are derived from it; generated roots are never edited
+directly. A closed generation record binds one exact catalog digest, codec-registry
+digest, immutable catalog artifact, required table set, object-family set, and Graph
+registry/binding artifacts. The registry contains exactly:
+
+1. the new Workbook-owned current catalog, current codec registry, and Graph v3
+   artifacts;
+2. the frozen pre-change Incidents-owned workbook-preference catalog, current codec
+   registry, and Graph v3 artifacts; and
+3. the existing historical Graph v2 catalog, historical codec registry, and Graph v2
+   artifacts.
+
+The lookup key is the exact `(catalog digest, codec-registry digest)` pair. Duplicate
+keys, multiple current entries, malformed artifacts, unknown pairs, or a catalog from
+one entry combined with codecs or Graph artifacts from another fail before restore
+mutation. Capture selects only entry 1. Restore uses the selected entry for PostgreSQL
+unit count/order, object-family admission, catalog checks, and Graph artifacts; it does
+not compare historical artifacts to current state or infer the Graph generation from
+codec identity alone. Returned artifact bytes are immutable or defensively copied.
+
+### 16.5 Slice execution and rollback
+
+- `I2-SP-01` changes owner prose only and stops if live 113/84 or head 34 evidence is
+  not reproducible.
+- `I2-RS-00` adds evidence without changing production behavior. Any owner/behavior
+  conflict blocks its dependent slice.
+- `I2-RS-01` removes only proven dead leaves and regenerates immediately after the
+  authored SQL edit.
+- `I2-RS-02` migrates every caller atomically; it does not keep wrapper hash functions
+  or overloads.
+- `I2-RS-03` migrates the complete constructor caller set and proves the replacement
+  fault wrapper before deleting the production seam.
+- `I2-RS-04` composes final dependencies before deleting `RouteOptions`, exports, and
+  the root terminal interface.
+- `I2-RS-05` moves the port and all consumers in one slice; no type alias bridges old
+  and new packages.
+- `I2-RS-06` freezes the pre-change generation before changing contribution ownership,
+  then proves old/current admission before deleting heuristic branches.
+- `I2-RS-07` removes only residue made obsolete by prior passing slices and performs
+  no unplanned feature work.
+
+Rollback is workstream-local through Git. A failed slice restores its authored and
+generated changes together; it MUST NOT preserve a partial compatibility wrapper,
+rewrite persisted hashes, reinterpret a historical catalog, edit an immutable
+migration, or advance the next tracker row.
+
+## 17. Validation, Handoff, and Binary Completion
+
+### 17.1 Per-workstream validation
+
+Before selecting rows, use `make task-guide ROLE=module-author OWNER=<owner-id>` and
+the repository explanation targets. Each implementation slice runs the focused and
+service-backed owner slices for every changed owner. The minimum owner matrix is:
+
+| Change family | Required owners |
+| --- | --- |
+| Dead SQL/errors and idempotency | `module.incidents`; add `module.entities` and `module.workbook` when their classifiers change |
+| Constructor and HTTP composition | `module.incidents`, `app.server`, and every compiler-discovered caller owner, including Entities, Indicators, Revisions, and Timeline |
+| Bundle finalizer port | `module.incidents`, `module.incidentbundles`, and `app.server` |
+| Recovery ownership/generations | `module.incidents`, `module.workbook`, `module.recovery`, and `app.server`/Recovery assembly rows |
+
+After an authored SQL, contract, or harness input changes, run `make generate` once
+the input is coherent, then immediately run `make generate-drift`,
+`make generated-artifact-policy-check`, and `make json-shape-check`. Every production
+slice also runs `make backend-module-boundary-check` and `make lint-go`. Harness inputs
+change only when selectors, ownership, or topology actually changes, followed by
+`make harness-contract`.
+
+Required scenario families include:
+
+- exact create/lifecycle/membership hash preimages and digests for zero, null,
+  non-null, replay, conflicting payload, different actor, and close/reopen action;
+- nil and typed-nil construction, successful composition, and final-commit rollback
+  without partial incident, membership, preference, audit, or idempotency rows;
+- all 11 HTTP operations, validation precedence, concealment, paging, session sliding,
+  Location, error/envelope shape, stored replay payload, and OpenAPI/runtime parity;
+- bundle finalization success, rollback, missing/inactive/non-admin submitter, zero
+  identity/time, nil writer, wrong prepared type, request-ID determinism, and worker
+  replay;
+- current Recovery capture/restore, exact pre-change Graph v3 restore, exact historical
+  Graph v2 restore, cross-pair rejection, unknown generation rejection, contribution
+  count 30, table set 113/84, and owner-boundary recurrence.
+
+### 17.2 Final validation order
+
+After all narrow workstream evidence passes:
+
+1. Run focused and service-backed slices for Incidents, Incident Bundles, Workbook,
+   Recovery, app.server, and every additional changed caller owner.
+2. Run `make agent-finalize` with `RESULTS_DIR` unset unless a deliberately retained
+   successful full-run root is supplied; record the retained-run skip when unset.
+3. Run `make browser-e2e-webserver-backed`.
+4. Run `make backend-module-boundary-check`.
+5. Run `make lint-go`.
+6. Run `make harness-contract`.
+7. Run `make generate-drift`.
+8. Run `make generated-artifact-policy-check`.
+9. Run `make json-shape-check`.
+10. Run `make lint-markdown`.
+11. Run `make check`.
+12. Run final repository-wide retired-symbol/import searches and `git diff --check`.
+
+For this document-only `I2-WF-00` activation, the exact validation is limited to
+`make lint-markdown`,
+`git diff HEAD --check -- docs/handoffs/incidents-module-refactor-tracker.md`, and a
+changed-path review proving that only this tracker changed and sections 1 through 12
+remain Iteration 1 history.
+
+### 17.3 Handoff record
+
+Every workstream handoff records the baseline commit/worktree, files changed,
+substantive decision, generated outputs, commands and result roots, every failed run
+and disposition, skipped checks with reason, residual risk, rollback boundary, and
+sole next dependency. `I2-RS-07` additionally records the final file/export inventory,
+all three Recovery generation identities, the absence of a schema/data/public
+contract migration, and confirmation that no internal compatibility shim remains.
+
+### 17.4 Binary completion criteria
+
+| Criterion | Planned result |
+| --- | --- |
+| Sections 1–12 remain a truthful Iteration 1 record and sections 13–17 control Iteration 2. | `I2-WF-00` exit |
+| Core 01, Core 04, migrations, and Recovery projections agree on head 34 and 113/84. | `I2-SP-01` exit |
+| Every removed symbol/query has zero live caller and a recurrence check where material. | `I2-RS-01` exit |
+| The application alone derives byte-compatible idempotency hashes. | `I2-RS-02` exit |
+| One fail-fast application constructor exists and production contains no commit-fault port. | `I2-RS-03` exit |
+| HTTP has exact injected owner capabilities, private mechanics, and unchanged 11-operation behavior. | `I2-RS-04` exit |
+| Incident Bundles owns its finalizer port/request ID and malformed internal values cannot panic or call a hidden clock. | `I2-RS-05` exit |
+| Workbook owns both preference tables and exactly three immutable Recovery generations are admitted without reinterpretation. | `I2-RS-06` exit |
+| No public route/wire, persisted hash, schema, migration, frontend, or domain-vocabulary change occurred. | Final handoff |
+| No retired internal alias, overload, shim, symbol, import, query, generated residue, or unexplained drift remains. | `I2-RS-07` exit |
+| Every required focused, service-backed, browser, static, harness, drift, finalization, and broad check passes or is explicitly blocked before dependent work. | `I2-RS-07` exit |
+
+The 2026-08-19 implementation request authorizes the remaining Iteration 2 ledger.
+Execution remains serial: one row may be `IN_PROGRESS`, and no successor begins until
+its predecessor's tracker checkpoint and exit gates pass.
+
+### 17.5 `I2-WF-00` completion evidence
+
+| Time | Baseline and scope | Change | Validation | Result and next action |
+| --- | --- | --- | --- | --- |
+| 2026-08-19T00:23:21-04:00 | Clean `main` at `ffe49c02d40d04c5e55a5bbc8f4d95276e358f0d`; document-only authorization | Updated the section 1 posture and appended sections 13–17. No Iteration 1 ledger/history, production, test, owner, SQL, contract, generated, harness, migration, frontend, domain, or research file changed. | `make lint-markdown` passed at `.cartulary/test-results/20260819T042615Z-p1430172`; tracker-scoped `git diff HEAD --check`; `git status --short`; tracker-only diff review | `I2-WF-00` is `DONE`. Only this tracker is modified, sections 1–12 remain the Iteration 1 record, and `I2-SP-01` is the sole planned successor but remains unauthorized and `TODO`. |
+
+### 17.6 `I2-SP-01` completion evidence
+
+| Time | Baseline and scope | Change | Validation | Result and next action |
+| --- | --- | --- | --- | --- |
+| 2026-08-19T00:39:49-04:00 | `main` at `ffe49c02d40d04c5e55a5bbc8f4d95276e358f0d`; preserved the staged `I2-WF-00` tracker addition and changed only the two adopted owners plus the tracker | Core 01 now classifies 84 authoritative tables, four Graph result tables as rebuildable, and `network_flow_graph_views` as authoritative; its arithmetic is `84 + 4 + 6 + 1 + 7 + 1 + 10 = 113`. Core 04 AC-542 now names immutable migrations 1–29, additive migrations 30–34, and Recovery 113/84. No runtime, SQL, contract, generated, harness, migration, frontend, domain, or historical Iteration 1 content changed. | Migration-head and Recovery-limit shell assertions; owner-text and projection searches; `git diff HEAD --check`; `make lint-markdown` passed at `.cartulary/test-results/20260819T043911Z-p1437347` before the final tracker checkpoint, followed by the required final Markdown and tracker-diff gates | `I2-SP-01` is `DONE`. No failure, skipped technical check, owner contradiction, compatibility impact, or residual risk remains. Rollback is limited to the two owner-text corrections and this checkpoint. `I2-RS-00` is the sole successor. |
+
+### 17.7 `I2-RS-00` completion evidence
+
+| Time | Baseline and scope | Change | Validation | Result and next action |
+| --- | --- | --- | --- | --- |
+| 2026-08-19T00:49:43-04:00 | `I2-SP-01` complete on `main` at `ffe49c02d40d04c5e55a5bbc8f4d95276e358f0d`; retained the staged tracker baseline | Added test-only Incidents golden evidence for six exact compact JSON preimages and SHA-256 values: create with null and populated optionals, close, reopen, membership by user ID, and membership by email. Pinned the current pre-Workbook-ownership catalog digest `04174fbf70585af5afb5ace702b797f7512f655005b8502b02f4b41700a966a6`, Graph v3 registry/binding digests `61c3f7348c4df2bee3e969c905c91c9857082cf2839a0b57104e40339e3e16d3`/`6ec244d0b82466a18adbdb82554be29f5e4baac384175538acbc92e56f14b8d5`, and historical Graph v2 catalog/registry/binding digests `ce0a1f4053a9ce156273e4adf40c8b4185fa616170eadd6a860500d0b24fd22f`/`e75697ef1f6b5a197d299746fd42d2bf07afcd2e1c9d187a6fe695bca3096730`/`235c69bbc0e5d4f25f3fab7b1f2b8c30ba6370bfc65abcba75822007802621b9`. Existing focused matrices retain valid construction, finalizer publication time, final-commit rollback residue, 11-operation HTTP, and exact historical v2 dispatch evidence. Production behavior and contracts did not change. Static searches confirmed `I2-LC-001` through `I2-LC-004` have definitions/generated residue but no consumers, and `incidents.ErrIncidentClosed` has classifiers but no Incidents producer. | `make format` passed at `.cartulary/test-results/20260819T044312Z-p1440709`; `make test-slice OWNER=module.incidents` passed 26/26 at `.cartulary/test-results/20260819T044331Z-p1445424`; corrected the first Recovery golden attempt after `.cartulary/test-results/20260819T044332Z-p1445434` proved raw file hashes differ from canonical JSON digests; `make test-slice OWNER=module.recovery` then passed 24/24 at `.cartulary/test-results/20260819T044551Z-p1539559`; service-backed Incidents and Recovery slices each passed 19/19 at `.cartulary/test-results/20260819T044712Z-p1589755` and `.cartulary/test-results/20260819T044712Z-p1589757`; `make backend-module-boundary-check` passed at `.cartulary/test-results/20260819T044848Z-p1681858`; `make lint-go` passed; dead-surface and OpenAPI inventory searches; `make lint-markdown` passed at `.cartulary/test-results/20260819T044905Z-p1688425` before the final checkpoint, followed by the required final Markdown and tracker-diff gates | `I2-RS-00` is `DONE`. The failed Recovery run was a test-authoring error and is retained above; canonical constants corrected it with no product change. Contract generation/drift was skipped because no authored contract changed. Residual risk is limited to the intentionally retained dead surfaces, which the next slice removes. Rollback is the three test edits and this checkpoint. `I2-RS-01` is the sole successor. |
+
+### 17.8 `I2-RS-01` completion evidence
+
+| Time | Baseline and scope | Change | Validation | Result and next action |
+| --- | --- | --- | --- | --- |
+| 2026-08-19T00:59:20-04:00 | `I2-RS-00` complete on `main` at `ffe49c02d40d04c5e55a5bbc8f4d95276e358f0d`; retained all preceding staged and unstaged Iteration 2 work | Removed `IncidentCreateIdempotencyScope`, `GetIncidentMembershipForUser`, `storetest.LookupUserByEmail`, authored `EnsureIncidentOpenForMutation` and `ListIncidentMemberships`, their generated SQL methods/params/rows, the repository row switch, `incidents.ErrIncidentClosed`, and its Incidents HTTP, Entities, and Workbook classifiers. Removed the newly unused Entities/Workbook imports. Retained Timeline's independently produced and consumed sentinel. Added exact boundary-policy recurrence rules. Generated output changed only `internal/gen/sql/incidents.sql.go`; no schema, migration, public API, persisted behavior, frontend, domain, or compatibility shim changed. | `make generate` passed at `.cartulary/test-results/20260819T045100Z-p1690751`; `make format` passed at `.cartulary/test-results/20260819T045313Z-p1713574`; repository-wide production/generated retired-symbol searches passed; Incidents, Entities, and Workbook focused slices passed 26/26, 32/32, and 67/67 at `.cartulary/test-results/20260819T045336Z-p1728829`, `.cartulary/test-results/20260819T045336Z-p1728812`, and `.cartulary/test-results/20260819T045336Z-p1728825`; their service-backed slices passed 19/19, 29/29, and 39/39 at `.cartulary/test-results/20260819T045620Z-p1880738`, `.cartulary/test-results/20260819T045620Z-p1880740`, and `.cartulary/test-results/20260819T045620Z-p1880743`; `make generate-drift`, artifact policy, and JSON shape passed at `.cartulary/test-results/20260819T045223Z-p1697997`, `.cartulary/test-results/20260819T045233Z-p1708197`, and `.cartulary/test-results/20260819T045234Z-p1708606`; final boundary and Harness gates passed at `.cartulary/test-results/20260819T045903Z-p2030140` and `.cartulary/test-results/20260819T045903Z-p2030171`; `make lint-go` passed after removing unused imports; `make lint-markdown` passed at `.cartulary/test-results/20260819T045903Z-p2030165` before the final checkpoint, followed by the required final Markdown and tracker-diff gates | `I2-RS-01` is `DONE`. An intermediate `make lint-go` failed because the removed classifiers left unused imports; the imports were deleted and the rerun passed. No technical check was skipped and no residual dead-leaf risk remains. Rollback is the authored SQL, regenerated SQL, source removals, recurrence policy, and this checkpoint as one slice. `I2-RS-02` is the sole successor. |
+
+### 17.9 `I2-RS-02` completion evidence
+
+| Time | Baseline and scope | Change | Validation | Result and next action |
+| --- | --- | --- | --- | --- |
+| 2026-08-19T01:20:27-04:00 | `I2-RS-01` complete on `main` at `ffe49c02d40d04c5e55a5bbc8f4d95276e358f0d`; retained all preceding Iteration 2 work and changed Incidents mutation callers, their direct tests/support, Collaboration coordination, affected owner test callers, boundary policy, Harness routing, and this tracker | Added private typed create, lifecycle, and membership payloads in the required member order and made the application derive compact-JSON SHA-256 values. Removed all three caller hash parameters and exported hash helpers, inlined create bootstrap, privatized patch and last-admin mechanics, moved their white-box evidence to the Incidents package, and deleted `lifecycle_access.go`. Membership creation now rejects a missing selector or a normalized selector/target mismatch before transaction start. Migrated every compiler-discovered mutation caller without an alias or overload. Renamed the remaining HTTP test/row so it describes decoder evidence only and added recurrence policy for the retired surface. No generated output, public route/wire, status, stored response, persisted digest, schema, migration, frontend, or domain-vocabulary behavior changed. | Exact preimage/digest and private-helper row passed at `.cartulary/test-results/20260819T050956Z-p2127473`; full Incidents passed 27/27 at `.cartulary/test-results/20260819T051436Z-p2324385`; Entities, Indicators, Revisions, Collaboration, and server focused slices passed 32/32, 13/13, 27/27, 33/33, and 34/34 at `.cartulary/test-results/20260819T051006Z-p2128014`, `.cartulary/test-results/20260819T051006Z-p2128017`, `.cartulary/test-results/20260819T051006Z-p2128022`, `.cartulary/test-results/20260819T051205Z-p2239132`, and `.cartulary/test-results/20260819T051205Z-p2239134`; their service-backed matrices passed Incidents 19/19, Entities 29/29, Indicators 7/7, Revisions 20/20, Collaboration 23/23, and server 17/17 at `.cartulary/test-results/20260819T051602Z-p2367764`, `.cartulary/test-results/20260819T051602Z-p2367771`, `.cartulary/test-results/20260819T051602Z-p2367778`, `.cartulary/test-results/20260819T051802Z-p2476570`, `.cartulary/test-results/20260819T051802Z-p2476590`, and `.cartulary/test-results/20260819T051802Z-p2476625`; renamed decoder row passed at `.cartulary/test-results/20260819T051958Z-p2602655`; `make format` passed at `.cartulary/test-results/20260819T050707Z-p2073570`; final boundary and Harness gates passed at `.cartulary/test-results/20260819T050742Z-p2081875` and `.cartulary/test-results/20260819T051958Z-p2602816`; `make lint-go` and production retired-symbol searches passed | `I2-RS-02` is `DONE`. Early format/lint attempts exposed one stale Harness selector, unused imports, and unused test helpers; each was corrected and all reruns passed. Generation/drift checks were skipped because no SQL, contract, schema, or generated source changed in this slice. The remaining `requestHash` parameters belong to other owners and are outside this gap. Residual risk is limited to constructor invalid-state and production commit-seam concerns assigned to the successor. Rollback is the private hash/helper implementation, all migrated callers and tests, boundary/Harness inputs, and this checkpoint as one atomic slice. `I2-RS-03` is the sole successor. |
+
+### 17.10 `I2-RS-03` completion evidence
+
+| Time | Baseline and scope | Change | Validation | Result and next action |
+| --- | --- | --- | --- | --- |
+| 2026-08-19T01:48:10-04:00 | `I2-RS-02` complete on `main` at `ffe49c02d40d04c5e55a5bbc8f4d95276e358f0d`; retained all preceding Iteration 2 work and changed Incidents construction, all 13 compiler-discovered external caller files, server/test composition, test support, boundary/Harness policy, and this tracker | Replaced both constructors with `NewApplication(ApplicationDependencies) (*Application, error)` and the exact `Postgres`/`PreferenceBootstrap` dependency fields. Construction rejects nil and typed-nil Postgres first, then nil and typed-nil bootstrap, before repositories, auth, or admission services are built. Migrated every external caller atomically. Removed `ApplicationOptions`, `NewApplicationWithOptions`, `IncidentCreateCommitPort`, `directIncidentCreateCommit`, and the application commit field. Incident creation now commits its transaction directly. Final-commit fault injection is a test-support `postgres.DB` decorator that returns a wrapped `pgx.Tx`; its `Commit` rolls back and returns `ErrIncidentCreateCommitFault`. Added constructor-order/typed-nil evidence and recurrence rules for the retired surfaces. No generated output, public route/wire, transaction semantics, persisted response/hash, schema, migration, frontend, domain-vocabulary, or compatibility constructor changed or was added. | `make format` passed at `.cartulary/test-results/20260819T052628Z-p2639678`; focused Incidents, server, Entities, Indicators, Revisions, and Timeline slices passed 27/27, 24/24, 32/32, 13/13, 27/27, and 48/48 at `.cartulary/test-results/20260819T052717Z-p2653047`, `.cartulary/test-results/20260819T052717Z-p2653058`, `.cartulary/test-results/20260819T053252Z-p2792188`, `.cartulary/test-results/20260819T053434Z-p2844346`, `.cartulary/test-results/20260819T053515Z-p2859681`, and `.cartulary/test-results/20260819T053622Z-p2903891`; their service-backed matrices passed 19/19, 17/17, 29/29, 7/7, 20/20, and 29/29 at `.cartulary/test-results/20260819T054102Z-p2959451`, `.cartulary/test-results/20260819T054102Z-p2959459`, `.cartulary/test-results/20260819T054544Z-p3095010`, `.cartulary/test-results/20260819T054544Z-p3095006`, `.cartulary/test-results/20260819T054544Z-p3095003`, and `.cartulary/test-results/20260819T054102Z-p2959473`; constructor guards and the atomic rollback test, including incident, membership, both preference, audit, and idempotency residue, passed in the Incidents root; final boundary and Harness gates passed at `.cartulary/test-results/20260819T052641Z-p2650505` and `.cartulary/test-results/20260819T052646Z-p2650958`; `make lint-go`, retired-symbol searches, exact-signature search, 13-caller inventory, and `git diff --check` passed | `I2-RS-03` is `DONE`. Two early lint attempts exposed a missing retained `context` import and one migrated test redeclaration; both implementation errors were corrected and lint reran cleanly. A parallel Timeline run at `.cartulary/test-results/20260819T052717Z-p2653050` had 48/48 rows pass but its visual helper failed to start alongside other browser-bearing owners; the Harness classified it as an infrastructure fixture error, and the isolated full rerun passed. Generation/drift was skipped because this slice changed no SQL, contract, schema, or generated source. Residual risk is limited to HTTP composition/export concerns assigned to the successor. Rollback is the dependency constructor, all caller migrations, test-owned decorator, tests/policy, and this checkpoint as one atomic slice. `I2-RS-04` is the sole successor. |
+
+### 17.11 `I2-RS-04` completion evidence
+
+| Time | Baseline and scope | Change | Validation | Result and next action |
+| --- | --- | --- | --- | --- |
+| 2026-08-19T01:59:02-04:00 | `I2-RS-03` complete on `main` at `ffe49c02d40d04c5e55a5bbc8f4d95276e358f0d`; retained all preceding Iteration 2 work and changed Incidents HTTP, server composition, tests, boundary/Harness inputs, and this tracker | Replaced variadic `RegisterRoutes(options ...RouteOptions)` with `RegisterRoutes(Dependencies)`. HTTP now owns exact `Application`, `AdmissionChecker`, and `TerminalMutationCoordinator` capabilities containing only methods used by its 11 operations. Server assembly explicitly supplies the Incidents application, an admission checker, and Collaboration terminal-effects coordinator. Registration rejects nil and typed-nil fields in dependency order before loading transport configuration or binding routes. Removed root `incidents.TerminalMutationCoordinator`, `RouteOptions`, exported `Service`, and all six exported `Decode*Request` functions; service and decoder mechanics are private while root resource builders remain exported. Auth/session, key/cursor construction, list/paging, request parsing, envelopes, errors, and response mechanics remain transport-owned. No public HTTP/OpenAPI/WebSocket behavior, status, validation precedence, concealment, session sliding, paging, Location, persisted response/hash, schema, migration, frontend, or compatibility shim changed. | Exact missing/nil/typed-nil dependency row passed at `.cartulary/test-results/20260819T055245Z-p3222424`; focused Incidents, server, and Collaboration slices passed 27/27, 24/24, and 32/32 at `.cartulary/test-results/20260819T055314Z-p3224422`, `.cartulary/test-results/20260819T055447Z-p3268362`, and `.cartulary/test-results/20260819T055545Z-p3307522`; their service-backed matrices passed 19/19, 17/17, and 23/23 at `.cartulary/test-results/20260819T055710Z-p3353483`, `.cartulary/test-results/20260819T055710Z-p3353491`, and `.cartulary/test-results/20260819T055710Z-p3353486`; `make format` passed at `.cartulary/test-results/20260819T055223Z-p3207110`; final boundary and Harness gates passed at `.cartulary/test-results/20260819T055245Z-p3222579` and `.cartulary/test-results/20260819T055245Z-p3222573`; `make lint-go`, exported-surface and retired-symbol/import searches, and `git diff --check` passed | `I2-RS-04` is `DONE`. The first format attempt rejected an overlong authored Harness row ID; the row was shortened without changing its selector and all gates then passed. Generation/drift was skipped because no SQL, schema, contract, or generated source changed. Residual risk is limited to bundle consumer-port ownership and finalizer input determinism assigned to the successor. Rollback is the HTTP capability boundary, server composition, tests/policy, and this checkpoint as one atomic slice. `I2-RS-05` is the sole successor. |
+
+### 17.12 `I2-RS-05` completion evidence
+
+| Time | Baseline and scope | Change | Validation | Result and next action |
+| --- | --- | --- | --- | --- |
+| 2026-08-19T02:13:12-04:00 | `I2-RS-04` complete on `main` at `ffe49c02d40d04c5e55a5bbc8f4d95276e358f0d`; retained all preceding Iteration 2 work and changed the Incidents provider, Incident Bundles module/source/worker, server assembly, tests, boundary/Harness inputs, and this tracker | Added consumer-owned `incidentbundles/importfinalizerport` with `Params`, `Finalizer`, and `ErrInitialAdminUnavailable`; migrated module, importer, worker, server, and tests without aliases. Incidents still provides the atomic implementation, but its constructor now returns `(importfinalizerport.Finalizer, error)` and rejects nil/typed-nil Workbook writers. Finalization rejects nil/typed-nil transactions and zero incident ID, submitter ID, or publication time before repository construction or database access; the hidden clock fallback is gone and caller publication time is normalized to UTC. Request-ID derivation is private and deterministic in Incident Bundles. The Incidents source port replaces its unchecked prepared-value assertion with a checked conversion wrapping `sourceport.ErrInvalidCatalog`. Deleted the obsolete root `incidents/ports.go`, moved the unavailable-admin sentinel, removed stale allowlist entries, and added exact import/recurrence policy. No public bundle wire/job/error mapping, transaction/audit behavior, schema, migration, persisted hash, frontend, or compatibility bridge changed. | Focused finalizer success/unavailable/rollback and invalid dependency/transaction/zero-value evidence passed 3/3 at `.cartulary/test-results/20260819T060658Z-p3500836`; wrong prepared-type evidence passed at `.cartulary/test-results/20260819T060658Z-p3500850`; deterministic request-ID evidence passed at `.cartulary/test-results/20260819T060658Z-p3500838`; full Incidents, Incident Bundles, and server slices passed 27/27, 8/8, and 24/24 at `.cartulary/test-results/20260819T060759Z-p3518222`, `.cartulary/test-results/20260819T060922Z-p3561849`, and `.cartulary/test-results/20260819T061021Z-p3576865`; their service-backed matrices passed 19/19, 6/6, and 17/17 at `.cartulary/test-results/20260819T061127Z-p3616033`, `.cartulary/test-results/20260819T061127Z-p3616031`, and `.cartulary/test-results/20260819T061127Z-p3616038`; `make format` passed at `.cartulary/test-results/20260819T060459Z-p3482847`; final boundary and Harness gates passed at `.cartulary/test-results/20260819T060635Z-p3500252` and `.cartulary/test-results/20260819T060556Z-p3499037`; `make lint-go`, old symbol/import/file searches, hidden-clock/assertion searches, and `git diff --check` passed | `I2-RS-05` is `DONE`. The first boundary run at `.cartulary/test-results/20260819T060556Z-p3499014` showed that the existing Incident Bundles facade prefix rule also governs its new port subpackage; the three exact Incidents provider/test importers were added and the rerun passed. Generation/drift was skipped because no SQL, schema, contract, or generated source changed. Residual risk is limited to Recovery table ownership and multi-generation interpretation assigned to the successor. Rollback is the consumer port, provider/consumer migration, deterministic validation/request ID, checked conversion, tests/policy, and this checkpoint as one atomic slice. `I2-RS-06` is the sole successor. |
+
+### 17.13 `I2-RS-06` completion evidence
+
+| Time | Baseline and scope | Change | Validation | Result and next action |
+| --- | --- | --- | --- | --- |
+| 2026-08-19T03:22:12-04:00 | `I2-RS-05` complete on `main` at `ffe49c02d40d04c5e55a5bbc8f4d95276e358f0d`; retained all preceding staged and unstaged Iteration 2 work and changed Workbook/Incidents recovery contributions, Recovery and Graph contracts/runtime, recovery/operator assembly, tests, database-ownership and boundary/Harness inputs, generated projections, and this tracker | Moved `incident_workbook_preferences` and `user_workbook_preferences` from Incidents to a new Workbook contribution, registered Workbook, and raised the exact catalog contribution count to 30 while retaining 113 authored and 84 required tables. Added schema-validated `cartulary.recovery_generation_registry.v1`, immutable current/pre-ownership-v3/historical-v2 catalogs and Graph bindings, exact artifact digests/counts, and generated typed projections. Capture accepts only the current entry. Restore, durability, PostgreSQL unit order, object families, invalidation, consistency, Graph dispatch, replay, and verification basis/evidence select one entry by the exact catalog/codec pair; due-verification computes the expected basis per retained backup rather than repeatedly treating historical backups as changed. Unknown and cross-generation pairs or Graph mixtures fail before target mutation. Frozen catalogs validate their own shape/digest instead of current state. Database ownership generation now derives its closed owner vocabulary from projected entries, so Workbook ownership is reproducible. Generated outputs are `internal/gen/contractrecovery/recovery_generation_registry_gen.go`, updated Recovery/Graph artifact projections, schema-ownership and topology projections. No schema/data migration, immutable SQL edit, public HTTP/OpenAPI/WebSocket or frontend change, persisted Incidents hash/response change, compatibility shim, or open-ended legacy reader was introduced. | Focused Incidents, Workbook, Recovery, Graph Projection, operator, and server slices passed 27/27, 67/67, 24/24, 8/8, 12/12, and 24/24 at `.cartulary/test-results/20260819T070642Z-p27336`, `.cartulary/test-results/20260819T070406Z-p4164503`, `.cartulary/test-results/20260819T070147Z-p4078725`, `.cartulary/test-results/20260819T071344Z-p219125`, `.cartulary/test-results/20260819T070318Z-p4129699`, and `.cartulary/test-results/20260819T072233Z-p336628`; their service-backed matrices passed 19/19, 39/39, 19/19, 6/6, 9/9, and 17/17 at `.cartulary/test-results/20260819T071210Z-p176131`, `.cartulary/test-results/20260819T070946Z-p120324`, `.cartulary/test-results/20260819T070825Z-p70557`, `.cartulary/test-results/20260819T071445Z-p234278`, `.cartulary/test-results/20260819T071538Z-p249276`, and `.cartulary/test-results/20260819T072335Z-p376084`. Final `make generate`, drift, artifact-policy, JSON-shape, and Harness gates passed at `.cartulary/test-results/20260819T072121Z-p328827`, `.cartulary/test-results/20260819T072134Z-p331761`, `.cartulary/test-results/20260819T072144Z-p334707`, `.cartulary/test-results/20260819T072148Z-p335156`, and `.cartulary/test-results/20260819T072154Z-p335702`; boundary passed at `.cartulary/test-results/20260819T071839Z-p293959`; `make format`, `make lint-go`, repository diff checks, contribution/table inventories, and retired-heuristic searches passed. The generation registry digest is `09cb6e77f710577a9b95c0ea21c4c603ef92167c1f7ef5e7a60aad393accae34`. Exact identities are: current Workbook/v3 catalog `96ab9cac942a3729afcefa47a02bbfe910a2c09af0fb25ee32f7b610b6352055`, codec `8fa8c539eabd71ce38b0808ee7176261e32e144ae8fbe0c66ca9bce35f907d47`, Graph registry `61c3f7348c4df2bee3e969c905c91c9857082cf2839a0b57104e40339e3e16d3`, binding `113056a35ec55e42532fca7fd15f557450cd585cd54fb70c657ea1bfb4b61673`; pre-ownership v3 catalog `04174fbf70585af5afb5ace702b797f7512f655005b8502b02f4b41700a966a6`, the same v3 codec/registry, binding `6ec244d0b82466a18adbdb82554be29f5e4baac384175538acbc92e56f14b8d5`; historical v2 catalog `ce0a1f4053a9ce156273e4adf40c8b4185fa616170eadd6a860500d0b24fd22f`, codec `20807db2017de12c86732a11912effdebed32b8a691b032113675f2bc6129352`, registry `e75697ef1f6b5a197d299746fd42d2bf07afcd2e1c9d187a6fe695bca3096730`, binding `235c69bbc0e5d4f25f3fab7b1f2b8c30ba6370bfc65abcba75822007802621b9`. | `I2-RS-06` is `DONE`. Failed runs were retained and resolved as follows: `.cartulary/test-results/20260819T062634Z-p3718200` exposed a newline-versus-canonical Graph-binding digest; `.cartulary/test-results/20260819T063533Z-p3731075` and `.cartulary/test-results/20260819T063722Z-p3785163` exposed one stale test variable and an over-strict partial JSON decode; `.cartulary/test-results/20260819T065211Z-p3871832`, `.cartulary/test-results/20260819T065454Z-p3932253`, and `.cartulary/test-results/20260819T065746Z-p3982187` exposed legacy process capture and two unsuitable failure fixtures, replaced with current capture plus a determinate workbook-probe failure; `.cartulary/test-results/20260819T071634Z-p286706` and `.cartulary/test-results/20260819T072043Z-p328026` exposed the missing generated Workbook owner vocabulary and its source-generator omission; `.cartulary/test-results/20260819T071803Z-p289239` exposed a lexical generated-root-write false positive in a test import; `.cartulary/test-results/20260819T071901Z-p310582` exposed four generator error-string style violations. Every disposition was an implementation/test/Harness correction and passed on rerun; no owner contradiction or scope expansion occurred. Browser, `agent-finalize`, and repository-wide `make check` are deliberately deferred to the authorized final successor. Residual risk is limited to final residue/export review and broad regression validation. Rollback is the three immutable generation artifacts and registry/schema/index, ownership contributions/assembly, generator/generated projections, exact-generation runtime/Graph dispatch, verification/replay scheduling, tests/policy, and this checkpoint as one atomic slice. `I2-RS-07` is the sole successor. |
+
+### 17.14 `I2-RS-07` completion evidence
+
+| Time | Baseline and scope | Change | Validation | Result and next action |
+| --- | --- | --- | --- | --- |
+| 2026-08-19T04:38:23-04:00 | `I2-RS-06` complete on `main` at `ffe49c02d40d04c5e55a5bbc8f4d95276e358f0d`; retained every preceding staged and unstaged Iteration 2 change and audited final Incidents, Incident Bundles, Recovery, generated SQL, boundary/Harness policy, owner matrices, and changed paths | Removed the now-incompatible SQL/store selector that evaluated all retained backups against one current verification basis; generation-aware catalog scheduling remains the sole path. Made both raw Incidents bundle codec helpers private and changed Incident Bundles to obtain canonical `data/incident.json` through the registered source port, preserving its bytes, incident-key propagation, and incident-not-found mapping. Renamed the last three tests carrying retired helper spellings and migrated their authored selectors. Added recurrence rules for the deleted Recovery selector and bundle codec exports. Regenerated `internal/gen/sql/recovery.sql.go` and affected Harness topology output. Final Incidents inventory is 45 files: 25 production and 20 test, with 114 exported-declaration lines; final Recovery inventory is 47 files: 24 production and 23 test, with 326 exported-declaration lines. Surviving Incidents exports are justified application capabilities and records, source registration, resource builders shared with HTTP, transaction participation, Recovery and Reporting contributions, finalizer construction, and cohesive owner-specific test support. Recovery's generation identity is consumed across its application boundary; generated generation entries are also consumed by Graph Projection. No unused compatibility export remains. | Final focused/service-backed pairs passed for Incidents 27/27 and 19/19 at `.cartulary/test-results/20260819T082455Z-p1617673` and `.cartulary/test-results/20260819T082617Z-p1661332`; Incident Bundles 8/8 and 6/6 at `.cartulary/test-results/20260819T073736Z-p633288` and `.cartulary/test-results/20260819T073834Z-p648545`; Recovery 24/24 and 19/19 at `.cartulary/test-results/20260819T072917Z-p424365` and `.cartulary/test-results/20260819T073053Z-p476243`; Entities 32/32 and 29/29 at `.cartulary/test-results/20260819T074435Z-p721301` and `.cartulary/test-results/20260819T074623Z-p773231`; Workbook 67/67 and 39/39 at `.cartulary/test-results/20260819T074808Z-p825149` and `.cartulary/test-results/20260819T075017Z-p881078`; Indicators 13/13 and 7/7 at `.cartulary/test-results/20260819T075244Z-p936691` and `.cartulary/test-results/20260819T075321Z-p952010`; Graph Projection 8/8 and 6/6 at `.cartulary/test-results/20260819T075359Z-p966854` and `.cartulary/test-results/20260819T075458Z-p981908`; operator 12/12 and 9/9 at `.cartulary/test-results/20260819T075546Z-p996748` and `.cartulary/test-results/20260819T075621Z-p1031155`; Revisions 27/27 and 20/20 at `.cartulary/test-results/20260819T075655Z-p1065089` and `.cartulary/test-results/20260819T075757Z-p1109270`; Timeline 48/48 and 29/29 at `.cartulary/test-results/20260819T075859Z-p1151939` and `.cartulary/test-results/20260819T080333Z-p1208019`; Collaboration 32/32 and 23/23 at `.cartulary/test-results/20260819T080806Z-p1263616` and `.cartulary/test-results/20260819T080928Z-p1309811`; server 24/24 and 17/17 at `.cartulary/test-results/20260819T081050Z-p1355282` and `.cartulary/test-results/20260819T081145Z-p1394021`. Final `make format` and `make generate` passed at `.cartulary/test-results/20260819T082439Z-p1611166` and `.cartulary/test-results/20260819T082443Z-p1614711`; `make agent-finalize` passed 1/1 at `.cartulary/test-results/20260819T082743Z-p1704060` with `RESULTS_DIR` unset and the expected retained-run maintenance skip; browser passed 58/58 at `.cartulary/test-results/20260819T082759Z-p1706930`; boundary 3/3, Harness 2/2, drift 4/4, generated policy 3/3, JSON shape 3/3, and Markdown passed at `.cartulary/test-results/20260819T083206Z-p1758330`, `.cartulary/test-results/20260819T083214Z-p1763380`, `.cartulary/test-results/20260819T083227Z-p1763835`, `.cartulary/test-results/20260819T083235Z-p1766717`, `.cartulary/test-results/20260819T083236Z-p1767121`, and `.cartulary/test-results/20260819T083239Z-p1767596`; `make lint-go` passed; terminal `make check` passed 627/627 at `.cartulary/test-results/20260819T083246Z-p1768497`; exact repository-wide retired-symbol/import/generated-residue scans, ownership scan, export review, changed-path review, and `git diff HEAD --check` passed. The mandatory post-checkpoint Markdown and tracker-scoped diff gates also pass. Registry digest remains `09cb6e77f710577a9b95c0ea21c4c603ef92167c1f7ef5e7a60aad393accae34`. Exact generation identities remain: current Workbook/v3 catalog/codec/Graph registry/binding `96ab9cac942a3729afcefa47a02bbfe910a2c09af0fb25ee32f7b610b6352055` / `8fa8c539eabd71ce38b0808ee7176261e32e144ae8fbe0c66ca9bce35f907d47` / `61c3f7348c4df2bee3e969c905c91c9857082cf2839a0b57104e40339e3e16d3` / `113056a35ec55e42532fca7fd15f557450cd585cd54fb70c657ea1bfb4b61673`; pre-ownership v3 `04174fbf70585af5afb5ace702b797f7512f655005b8502b02f4b41700a966a6` / the same v3 codec and registry / `6ec244d0b82466a18adbdb82554be29f5e4baac384175538acbc92e56f14b8d5`; historical v2 `ce0a1f4053a9ce156273e4adf40c8b4185fa616170eadd6a860500d0b24fd22f` / `20807db2017de12c86732a11912effdebed32b8a691b032113675f2bc6129352` / `e75697ef1f6b5a197d299746fd42d2bf07afcd2e1c9d187a6fe695bca3096730` / `235c69bbc0e5d4f25f3fab7b1f2b8c30ba6370bfc65abcba75822007802621b9`. | `I2-RS-07` and Iteration 2 are `DONE`. The first final Entities run at `.cartulary/test-results/20260819T074012Z-p667242` passed 31/32 and classified the unstarted unit as infrastructure `fixture_error` because `cartulary-test-services start-suite` exited; its isolated rerun passed 32/32. An initial `make explain-run ... DETAIL=rows` investigation used an unsupported detail value; supported summary/log views confirmed the infrastructure classification. The first post-rename `make format` failed before a run root because one authored selector list was not ASCII-sorted; ordering was corrected and every downstream gate reran successfully. Earlier broad acceptance roots were superseded after the test-name cleanup. No required check was skipped; only retained-run maintenance was intentionally skipped because `RESULTS_DIR` was unset. The only retained legacy behavior is the two exact historical Recovery generations, removable only through a separate adopted owner decision backed by repository or deployment evidence. No public HTTP/OpenAPI/WebSocket/session/frontend behavior, persisted response or idempotency hash, schema/data migration, domain vocabulary, alias, overload, forwarding shim, open-ended reader, or unexplained drift remains. Residual risk is limited to operational stewardship of those deliberately retained historical backups. Rollback is the obsolete Recovery SQL/store selector removal, private bundle-codec migration, tests/Harness/policy, regenerated outputs, and this checkpoint as one atomic final slice; preceding completed workstreams retain their recorded rollback boundaries. There is no successor. |
+
+Iteration 2 is complete. Sections 13 through 17 contain no active or pending row.

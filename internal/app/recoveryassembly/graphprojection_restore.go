@@ -67,6 +67,7 @@ func NewGraphProjectionRestoreParticipant(db postgres.DB) (restorecontract.Graph
 		graphprojection.RestoreServiceOptions{
 			SupportedBindings: []graphprojection.RestoreImplementationBindingRef{
 				graphprojection.CurrentRestoreImplementationBinding(),
+				graphprojection.PreWorkbookOwnershipRestoreImplementationBinding(),
 				graphprojection.HistoricalRestoreImplementationBindingV2(),
 			},
 			SupportedRegistries: []*graphprojection.RestoreSourceRegistry{registry, historicalRegistry},

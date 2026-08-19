@@ -31,6 +31,12 @@ func TestGraphRestoreCurrentRegistryAndBindingsAreExact(t *testing.T) {
 	}
 	historicalRegistry := HistoricalRestoreSourceRegistryV2()
 	historicalBinding := HistoricalRestoreImplementationBindingV2()
+	preWorkbookBinding := PreWorkbookOwnershipRestoreImplementationBinding()
+	if preWorkbookBinding.Binding.AlgorithmID != RestoreAlgorithmID ||
+		preWorkbookBinding.Binding.RecoveryStateCatalogSHA256 != contractrecovery.RecoveryGenerations[1].CatalogDigestSHA256 ||
+		preWorkbookBinding.SHA256 != contractrecovery.RecoveryGenerations[1].GraphImplementationBindingSHA256 {
+		t.Fatalf("pre-Workbook-ownership v3 restore binding drifted: %#v", preWorkbookBinding)
+	}
 	if historicalRegistry == nil || historicalRegistry.Document().SchemaID != HistoricalRestoreSourceRegistrySchemaIDV2 ||
 		historicalRegistry.DigestSHA256() != contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2SHA256 ||
 		historicalBinding.Binding.AlgorithmID != HistoricalRestoreAlgorithmIDV2 ||

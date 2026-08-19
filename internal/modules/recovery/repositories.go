@@ -13,7 +13,6 @@ type backupRepository interface {
 	createCapturedBackupSet(context.Context, createBackupSetParams) (BackupSet, error)
 	GetBackupSet(context.Context, uuid.UUID) (BackupSet, error)
 	ListRetainedBackupSetMetadata(context.Context, time.Time) ([]BackupSet, error)
-	ListBackupsDueForRestoreVerification(context.Context, time.Time, string) ([]BackupSet, error)
 }
 
 // verificationRepository is the private persistence boundary for verification

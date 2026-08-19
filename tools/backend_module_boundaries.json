@@ -192,10 +192,19 @@
         "internal/modules/incidents/application.go",
         "internal/modules/incidents/import_finalization.go",
         "internal/modules/incidents/incident_application.go",
-        "internal/modules/incidents/ports.go",
         "internal/modules/incidents/store_test.go",
         "internal/modules/workbook/startup/bootstrapport/**",
         "internal/modules/workbook/startup/postgres/**"
+      ]
+    },
+    {
+      "id": "incident-bundle-import-finalizer-port-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport",
+      "allowed_importers": [
+        "internal/modules/incidentbundles/**",
+        "internal/modules/incidents/import_finalization.go",
+        "internal/modules/incidents/repository.go",
+        "internal/modules/incidents/store_test.go"
       ]
     },
     {
@@ -227,6 +236,9 @@
         "internal/modules/entities/incident_bundle_source_port.go",
         "internal/modules/evidence/incident_bundle_source_port.go",
         "internal/modules/incidents/incident_bundle_source_port.go",
+        "internal/modules/incidents/import_finalization.go",
+        "internal/modules/incidents/repository.go",
+        "internal/modules/incidents/store_test.go",
         "internal/modules/indicators/identity_portability_test.go",
         "internal/modules/indicators/incident_bundle_contribution.go",
         "internal/modules/indicators/internal/providers/incidentbundle/**",
@@ -1844,6 +1856,183 @@
       "production_only": false
     },
     {
+      "id": "retired-incidents-iteration2-dead-leaves",
+      "tokens": [
+        "func IncidentCreateIdempotencyScope(",
+        "func (a *Application) GetIncidentMembershipForUser(",
+        "func LookupUserByEmail(",
+        "-- name: EnsureIncidentOpenForMutation ",
+        "-- name: ListIncidentMemberships "
+      ],
+      "scan_paths": [
+        "db/queries/incidents.sql",
+        "internal/modules/incidents/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-incidents-caller-owned-idempotency-and-helper-api",
+      "tokens": [
+        "func IncidentCreateRequestHash(",
+        "func IncidentLifecycleRequestHash(",
+        "func MembershipCreateRequestHash(",
+        "IncidentCreateBootstrap",
+        "DefaultIncidentCreateBootstrap",
+        "ApplyIncidentPatch",
+        "WouldLeaveNoIncidentAdmins",
+        "requestHash []byte"
+      ],
+      "scan_paths": [
+        "internal/modules/incidents/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "retired-incidents-application-construction-and-commit-seam",
+      "tokens": [
+        "NewApplicationWithOptions(",
+        "ApplicationOptions",
+        "IncidentCreateCommitPort",
+        "directIncidentCreateCommit",
+        "CommitIncidentCreate("
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-incidents-positional-application-constructor",
+      "tokens": [
+        "func NewApplication(pool postgres.DB"
+      ],
+      "scan_paths": [
+        "internal/modules/incidents/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-incidents-http-options-and-exported-mechanics",
+      "tokens": [
+        "type RouteOptions struct",
+        "func RegisterRoutes(options ...RouteOptions)",
+        "type Service struct",
+        "func DecodeIncidentCreateRequest(",
+        "func DecodeIncidentPatchRequest(",
+        "func DecodeIncidentLifecycleRequest(",
+        "func DecodeMembershipCreateRequest(",
+        "func DecodeMembershipPatchRequest(",
+        "func DecodeMembershipDeleteRequest("
+      ],
+      "scan_paths": [
+        "internal/modules/incidents/httpapi/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-incidents-root-terminal-coordinator-port",
+      "tokens": [
+        "incidents.TerminalMutationCoordinator"
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-incidents-root-import-finalizer-port-and-request-id",
+      "tokens": [
+        "IncidentBundleImportFinalizationParams",
+        "type IncidentBundleImportFinalizer interface",
+        "incidents.ErrInitialAdminUnavailable",
+        "incidents.ImportBundleRequestID",
+        "func ImportBundleRequestID("
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-incidents-exported-bundle-codec-helpers",
+      "tokens": [
+        "func ExportIncidentBundleIncident(",
+        "func ImportIncidentBundleIncidentTx("
+      ],
+      "scan_paths": [
+        "internal/modules/incidents/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "incidents-cannot-reclaim-workbook-recovery-tables",
+      "tokens": [
+        "incident_workbook_preferences",
+        "user_workbook_preferences"
+      ],
+      "scan_paths": [
+        "internal/modules/incidents/recovery_state.go"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-recovery-generation-heuristics",
+      "tokens": [
+        "admitsRecoveryGeneration(",
+        "historicalV2CodecRegistrySHA256(",
+        "historicalGraphProjectionRecoveryCatalogSHA256V2("
+      ],
+      "scan_paths": [
+        "internal/modules/recovery/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-recovery-current-basis-due-selector",
+      "tokens": [
+        "-- name: ListBackupSetsDueForRestoreVerification ",
+        "func (s *Store) ListBackupsDueForRestoreVerification("
+      ],
+      "scan_paths": [
+        "db/queries/recovery.sql",
+        "internal/modules/recovery/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-incidents-closed-sentinel-and-classifiers",
+      "tokens": [
+        "incidents.ErrIncidentClosed"
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-incidents-closed-sentinel-definition",
+      "tokens": [
+        "ErrIncidentClosed"
+      ],
+      "scan_paths": [
+        "internal/modules/incidents/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "retired-incidents-admission-api",
       "tokens": [
         "type Access interface",
@@ -2221,7 +2410,6 @@
         "internal/modules/incidents/application.go",
         "internal/modules/incidents/import_finalization.go",
         "internal/modules/incidents/incident_application.go",
-        "internal/modules/incidents/ports.go",
         "internal/modules/projections/adapters/adapters.go",
         "internal/modules/workbook/**"
       ],

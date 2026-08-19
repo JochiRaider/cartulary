@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
 
@@ -36,7 +35,7 @@ func TestIncidentLifecycleRequestValidationUsesExactErrorFamilyAndReasons_Unit(t
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, apiErr := DecodeIncidentLifecycleRequest(strings.NewReader(tc.body))
+			_, apiErr := decodeIncidentLifecycleRequest(strings.NewReader(tc.body))
 			if apiErr == nil {
 				t.Fatal("expected lifecycle request error")
 			}
@@ -56,7 +55,7 @@ func TestIncidentLifecycleRequestValidationUsesExactErrorFamilyAndReasons_Unit(t
 		})
 	}
 
-	request, apiErr := DecodeIncidentLifecycleRequest(strings.NewReader(
+	request, apiErr := decodeIncidentLifecycleRequest(strings.NewReader(
 		`{"base_incident_version":7,"client_txn_id":"txn-lifecycle","reason":"  cafe\u0301\r\nline\t "}`,
 	))
 	if apiErr != nil {
@@ -64,16 +63,6 @@ func TestIncidentLifecycleRequestValidationUsesExactErrorFamilyAndReasons_Unit(t
 	}
 	if request.BaseIncidentVersion != 7 || request.ClientTxnID != "txn-lifecycle" || request.Reason != "café\nline" {
 		t.Fatalf("unexpected normalized lifecycle request: %#v", request)
-	}
-	closeHash := incidents.IncidentLifecycleRequestHash("close", request)
-	reopenHash := incidents.IncidentLifecycleRequestHash("reopen", request)
-	if reflect.DeepEqual(closeHash, reopenHash) {
-		t.Fatal("action route must participate in lifecycle idempotency comparison")
-	}
-	otherKey := request
-	otherKey.ClientTxnID = "txn-other-key"
-	if !reflect.DeepEqual(closeHash, incidents.IncidentLifecycleRequestHash("close", otherKey)) {
-		t.Fatal("client_txn_id belongs to the idempotency key, not the normalized comparison payload")
 	}
 }
 

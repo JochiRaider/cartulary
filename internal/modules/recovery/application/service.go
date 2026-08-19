@@ -281,6 +281,15 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 			errors.New("confirmed backup_set_id does not match latest retained backup"),
 		)
 	}
+	generationIdentity, err := recovery.NewBackupCatalog(
+		sourceStore,
+		backupStorage,
+		service.ExtensionBackups,
+		service.RecoveryStateCatalog,
+	).RecoveryGenerationIdentity(ctx, backupSet)
+	if err != nil {
+		return ResultForStoredBackupSet(backupSet), classifyAdmissionFailure(err)
+	}
 	if err := requireDistinctRestoreTarget(parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg); err != nil {
 		return ResultForStoredBackupSet(backupSet), err
 	}
@@ -292,7 +301,7 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 	if !ok {
 		return ResultForStoredBackupSet(backupSet), NewFailure(FailureTargetMarkerInvalid, errors.New("restore target generation was not retained after admission"))
 	}
-	if replay, found, replayErr := service.replaySuccessfulRestore(ctx, sourcePool, parsed, backupSet, targetGenerationID); replayErr != nil {
+	if replay, found, replayErr := service.replaySuccessfulRestore(ctx, sourcePool, parsed, backupSet, generationIdentity, targetGenerationID); replayErr != nil {
 		return ResultForStoredBackupSet(backupSet), NewFailure(FailureRestoreJournalWrite, replayErr)
 	} else if found {
 		if admissionErr := admission.AssertHeld(); admissionErr != nil {
@@ -438,17 +447,13 @@ func (service Service) runRestoreVerifyDue(ctx context.Context, parsed operation
 	if err != nil {
 		return Result{}, NewFailure(FailureVerificationInvariantCheck, err)
 	}
-	basisSHA256, err := basis.SHA256()
-	if err != nil {
-		return Result{}, NewFailure(FailureVerificationInvariantCheck, err)
-	}
 	sourceStore := recovery.NewStore(sourcePool)
 	due, err := recovery.NewBackupCatalog(
 		sourceStore,
 		backupStorage,
 		service.ExtensionBackups,
 		service.RecoveryStateCatalog,
-	).ListBackupsDueForRestoreVerification(ctx, service.now(), basisSHA256)
+	).ListBackupsDueForRestoreVerification(ctx, service.now(), basis)
 	if err != nil {
 		return Result{}, classifyAdmissionFailure(err)
 	}
@@ -988,6 +993,7 @@ func (service Service) replaySuccessfulRestore(
 	pool PostgresPool,
 	parsed operationRequest,
 	backupSet recovery.BackupSet,
+	generationIdentity recovery.RecoveryGenerationIdentity,
 	targetGenerationID uuid.UUID,
 ) (Result, bool, error) {
 	repository, err := service.evidenceRepository(pool)
@@ -1005,8 +1011,12 @@ func (service Service) replaySuccessfulRestore(
 	completion := record.GraphProjectionCompletion
 	if completion == nil || completion.TargetGenerationID != targetGenerationID ||
 		completion.RestoreOperationID != parsed.OperationID || completion.BackupSetID != backupSet.BackupSetID ||
-		!completion.ConsistencyPointAt.Equal(backupSet.ConsistencyPointAt) || service.RecoveryStateCatalog == nil ||
-		completion.RecoveryStateCatalogSHA256 != service.RecoveryStateCatalog.DigestSHA256() ||
+		!completion.ConsistencyPointAt.Equal(backupSet.ConsistencyPointAt) ||
+		!generationIdentity.AdmitsGraphCompletion(
+			completion.RecoveryStateCatalogSHA256,
+			completion.SourceRegistrySHA256,
+			completion.ImplementationBindingSHA256,
+		) ||
 		!completion.ParticipantResult.ReadinessSatisfied() {
 		return Result{}, false, nil
 	}

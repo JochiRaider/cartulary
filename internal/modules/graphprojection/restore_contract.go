@@ -292,6 +292,26 @@ func HistoricalRestoreImplementationBindingV2() RestoreImplementationBindingRef 
 		contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2SHA256)
 }
 
+func PreWorkbookOwnershipRestoreImplementationBinding() RestoreImplementationBindingRef {
+	for _, generation := range contractrecovery.RecoveryGenerations {
+		if generation.GenerationID == "recovery.historical.incidents_owned.graph_v3" {
+			return decodePackagedRestoreBinding(
+				generation.GraphImplementationBindingJSON,
+				generation.GraphImplementationBindingSHA256,
+			)
+		}
+	}
+	return RestoreImplementationBindingRef{}
+}
+
+func FrozenRestoreImplementationBinding(body []byte, digest string) RestoreImplementationBindingRef {
+	ref := decodePackagedRestoreBinding(string(body), digest)
+	if !wellFormedRestoreImplementationBinding(ref) {
+		return RestoreImplementationBindingRef{}
+	}
+	return ref
+}
+
 func decodePackagedRestoreBinding(body, digest string) RestoreImplementationBindingRef {
 	var binding RestoreImplementationBinding
 	if err := strictRestoreJSON([]byte(body), &binding); err != nil {

@@ -72,12 +72,6 @@ FROM incidents
 WHERE id = $1
 FOR UPDATE;
 
--- name: EnsureIncidentOpenForMutation :one
-SELECT status
-FROM incidents
-WHERE id = $1
-FOR SHARE;
-
 -- name: CreateIncident :one
 INSERT INTO incidents (
     incident_key,
@@ -222,26 +216,6 @@ JOIN users u
   ON u.id = m.user_id
 WHERE m.incident_id = $1
 ORDER BY m.joined_at ASC, m.user_id ASC;
-
--- name: ListIncidentMemberships :many
-SELECT
-    m.incident_id,
-    m.user_id,
-    u.display_name,
-    m.role,
-    m.joined_at,
-    m.added_by_user_id,
-    m.updated_at,
-    m.updated_by_user_id,
-    m.membership_version
-FROM incident_memberships m
-JOIN users u
-  ON u.id = m.user_id
-WHERE m.incident_id = $1
-  AND m.joined_at <= $2
-  AND ($3::timestamptz IS NULL OR $4::uuid IS NULL OR m.joined_at > $3 OR (m.joined_at = $3 AND m.user_id > $4))
-ORDER BY m.joined_at ASC, m.user_id ASC
-LIMIT $5;
 
 -- name: CreateBootstrapIncidentMembership :one
 INSERT INTO incident_memberships (

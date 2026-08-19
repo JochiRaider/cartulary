@@ -1,0 +1,1203 @@
+{
+  "schema_id": "cartulary.recovery_state_catalog.v1",
+  "catalog_digest_sha256": "04174fbf70585af5afb5ace702b797f7512f655005b8502b02f4b41700a966a6",
+  "contribution_digests": [
+    {
+      "owner_id": "module.artifacts",
+      "sha256": "f894c5a027ea39290f93c6eec774a270538b4d7e6bbb5f84ee6eaedaa0d88ee0"
+    },
+    {
+      "owner_id": "module.assessments",
+      "sha256": "6137f1453fed1e27b161e8af3a81f2f0e406560a50047471c3358b6aaffae2df"
+    },
+    {
+      "owner_id": "module.audit",
+      "sha256": "8d081cd7d61359e240385a406dd22db85f265edd1b53f0b179182717032ae11d"
+    },
+    {
+      "owner_id": "module.auth",
+      "sha256": "33514f731ad00cd3a53c2960d96d5ba070c39fa924fcab9522c6868f0d85a4d1"
+    },
+    {
+      "owner_id": "module.collaboration",
+      "sha256": "7ec6f6a4119b8191e17f6d972dbbfea505ffefb21066fd1a5ee6fb2a7dfe5591"
+    },
+    {
+      "owner_id": "module.database_migrations",
+      "sha256": "06f9e0d0c7d5fd86173dd1f185df4a5d9976a3e55372797506c5b1a47628f9d6"
+    },
+    {
+      "owner_id": "module.deployment_admin",
+      "sha256": "b258ee4eac03f381cd541ce506212e04eadb46cbc271d6b159ea3b6c2b210e79"
+    },
+    {
+      "owner_id": "module.entities",
+      "sha256": "2ddb034becceefcd35c2523e07858bded84e34665beb4773f5a91d8c066eb5dd"
+    },
+    {
+      "owner_id": "module.evidence",
+      "sha256": "d2f9fc1ee11cce8f122ed96a6eff9899f210553738948955fedc0e737af5c4a6"
+    },
+    {
+      "owner_id": "module.extensions",
+      "sha256": "9d772e1e4a42ad96c1e4a494a019c6f9b1bffde5b8b89b9022cef7189231c4ba"
+    },
+    {
+      "owner_id": "module.graphprojection",
+      "sha256": "ea724412be039139ceea8801ba8d574e305be68eb33167cc50f8c61b64cf79e3"
+    },
+    {
+      "owner_id": "module.imports",
+      "sha256": "37f4fd325352dc92eb4387f2dfdb087449db807d6e39ab0b5565176e97522c73"
+    },
+    {
+      "owner_id": "module.incidentbundles",
+      "sha256": "c1f6c95ef36fa5c73fbb828af6e2a229ee41543eae6c38da9aad65396e5287bb"
+    },
+    {
+      "owner_id": "module.incidents",
+      "sha256": "86d4b0d6e403ae4ff49fa34e11b5e078bd80fa26f630f8b14b4808dc9af9dd93"
+    },
+    {
+      "owner_id": "module.indicators",
+      "sha256": "a1a318a207590e5b3b7d13ba40609369896e306aab1b36425bc3ff0d22aa1c18"
+    },
+    {
+      "owner_id": "module.links",
+      "sha256": "38422869a5da6da07f652f18ea95c44a21794b04e2a01e807c2e50aa281ea84b"
+    },
+    {
+      "owner_id": "module.networkflow",
+      "sha256": "76ea2149eef49163c176af63fd5bd4a1b3c08aa5ce54a1fb35edb9d4873c93be"
+    },
+    {
+      "owner_id": "module.parties",
+      "sha256": "7681119049274289ac31e6fa2282a5e1e00d67e34aa844a9312f7c43a9fab9e4"
+    },
+    {
+      "owner_id": "module.platform_jobs",
+      "sha256": "ce3ff568ea45f7e317f87a5f9456e97a8520f12d039558900defb5905b4a4e90"
+    },
+    {
+      "owner_id": "module.projections",
+      "sha256": "87f4572f348d911f5aa8e1b2e051c7271d0e15e7b23a9891978877df656da0c0"
+    },
+    {
+      "owner_id": "module.records",
+      "sha256": "35a45090a02de99d0eddf1c1a7e196d673b3c552c46f139a9fae92cd0063a91c"
+    },
+    {
+      "owner_id": "module.recovery",
+      "sha256": "e091f6d8eb64f6163d484aac2816ae2dde1c6e6b58680b7c518a3c2fedf26cf4"
+    },
+    {
+      "owner_id": "module.reference_data",
+      "sha256": "4a32b0bbc8f6e68618b24bbbd0344651f5006cea8978c881d6622f4c549ae524"
+    },
+    {
+      "owner_id": "module.reportcomposition",
+      "sha256": "bbb9b0a5597b57b4d11c3af1bdca0f2259869b94b6a5b170ce7a1b89c7c51ca2"
+    },
+    {
+      "owner_id": "module.reporting",
+      "sha256": "556ea4c5465004424138d4eb4d396fecf1b38ee72139dc1c14dc2a7ae2e1e26b"
+    },
+    {
+      "owner_id": "module.revisions",
+      "sha256": "bdf2165f378eb1c9e2ae7b1284582ceb339a21228c41c8633e9e6fc3689321f5"
+    },
+    {
+      "owner_id": "module.savedviews",
+      "sha256": "0b9e544b92746e168c9137b4a07e258fafef5ee91458c4e66ab1aa345b33b455"
+    },
+    {
+      "owner_id": "module.tasksdecisions",
+      "sha256": "ddcd0568e62ff11db6b90893d5274aff967b970e31c8ddfec20e61595a7b07e1"
+    },
+    {
+      "owner_id": "module.timeline",
+      "sha256": "79a48a016647c9378e49cdbb5d16820e88861c43525b60b0c5db3c5be3217a1f"
+    }
+  ],
+  "tables": [
+    {
+      "owner_id": "module.auth",
+      "table_name": "account_preferences",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.audit",
+      "table_name": "administrative_audit_projections",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.artifacts",
+      "table_name": "artifact_findings",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.artifacts",
+      "table_name": "artifact_forensic_keywords",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.projections",
+      "table_name": "artifact_grid_projection",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "workbook.restore_projections.v1"
+    },
+    {
+      "owner_id": "module.artifacts",
+      "table_name": "artifact_investigative_queries",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.artifacts",
+      "table_name": "artifacts",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.projections",
+      "table_name": "assessment_grid_projection",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "workbook.restore_projections.v1"
+    },
+    {
+      "owner_id": "module.assessments",
+      "table_name": "assessments",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.deployment_admin",
+      "table_name": "backup_sets",
+      "state_class": "recovery_metadata",
+      "backup_inclusion": "excluded_recovery_metadata",
+      "restore_action": "ignore",
+      "codec_id": null,
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.auth",
+      "table_name": "bootstrap_tokens",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.revisions",
+      "table_name": "change_set_mutations",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.revisions",
+      "table_name": "change_sets",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.collaboration",
+      "table_name": "collaboration_event_intents",
+      "state_class": "security_ephemeral",
+      "backup_inclusion": "excluded_security_state",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "collaboration.invalidate_restore_generation.v1"
+    },
+    {
+      "owner_id": "module.collaboration",
+      "table_name": "collaboration_incident_stream_cursors",
+      "state_class": "security_ephemeral",
+      "backup_inclusion": "excluded_security_state",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "collaboration.invalidate_restore_generation.v1"
+    },
+    {
+      "owner_id": "module.collaboration",
+      "table_name": "collaboration_replay_events",
+      "state_class": "security_ephemeral",
+      "backup_inclusion": "excluded_security_state",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "collaboration.invalidate_restore_generation.v1"
+    },
+    {
+      "owner_id": "module.collaboration",
+      "table_name": "collaboration_resume_tokens",
+      "state_class": "security_ephemeral",
+      "backup_inclusion": "excluded_security_state",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "collaboration.invalidate_restore_generation.v1"
+    },
+    {
+      "owner_id": "module.projections",
+      "table_name": "decision_grid_projection",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "workbook.restore_projections.v1"
+    },
+    {
+      "owner_id": "module.tasksdecisions",
+      "table_name": "decisions",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.deployment_admin",
+      "table_name": "deployment_admin_audit_events",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.deployment_admin",
+      "table_name": "deployment_bootstrap_state",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.auth",
+      "table_name": "enterprise_auth_bindings",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.auth",
+      "table_name": "enterprise_auth_providers",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.auth",
+      "table_name": "enterprise_auth_transactions",
+      "state_class": "security_ephemeral",
+      "backup_inclusion": "excluded_security_state",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "auth.invalidate_enterprise_transactions.v1"
+    },
+    {
+      "owner_id": "module.entities",
+      "table_name": "entity_aliases",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.entities",
+      "table_name": "entity_mentions",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.entities",
+      "table_name": "entity_preserved_identifiers",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.evidence",
+      "table_name": "evidence",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.evidence",
+      "table_name": "evidence_access_handles",
+      "state_class": "security_ephemeral",
+      "backup_inclusion": "excluded_security_state",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "evidence.invalidate_access_handles.v1"
+    },
+    {
+      "owner_id": "module.evidence",
+      "table_name": "evidence_blob_cleanup_claims",
+      "state_class": "transient",
+      "backup_inclusion": "excluded_transient",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "evidence.invalidate_blob_cleanup_claims.v1"
+    },
+    {
+      "owner_id": "module.evidence",
+      "table_name": "evidence_custody_events",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.projections",
+      "table_name": "evidence_grid_projection",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "workbook.restore_projections.v1"
+    },
+    {
+      "owner_id": "module.evidence",
+      "table_name": "evidence_object_upload_leases",
+      "state_class": "security_ephemeral",
+      "backup_inclusion": "excluded_security_state",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "evidence.invalidate_upload_leases.v1"
+    },
+    {
+      "owner_id": "module.extensions",
+      "table_name": "extension_job_cancellation_observations",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.extensions",
+      "table_name": "extension_job_commit_proofs",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.extensions",
+      "table_name": "extension_migration_ledger",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.extensions",
+      "table_name": "extension_staged_object_references",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.extensions",
+      "table_name": "extension_staged_objects",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.extensions",
+      "table_name": "extension_state_metadata",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.graphprojection",
+      "table_name": "graph_projection_result_edges",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "graphprojection.restore_rebuild.v3"
+    },
+    {
+      "owner_id": "module.graphprojection",
+      "table_name": "graph_projection_result_leases",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "graphprojection.restore_rebuild.v3"
+    },
+    {
+      "owner_id": "module.graphprojection",
+      "table_name": "graph_projection_result_vertices",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "graphprojection.restore_rebuild.v3"
+    },
+    {
+      "owner_id": "module.graphprojection",
+      "table_name": "graph_projection_results",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "graphprojection.restore_rebuild.v3"
+    },
+    {
+      "owner_id": "module.artifacts",
+      "table_name": "handoff_risk_refs",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.projections",
+      "table_name": "host_grid_projection",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "workbook.restore_projections.v1"
+    },
+    {
+      "owner_id": "module.entities",
+      "table_name": "hosts",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.entities",
+      "table_name": "identities",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.projections",
+      "table_name": "identity_grid_projection",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "workbook.restore_projections.v1"
+    },
+    {
+      "owner_id": "module.imports",
+      "table_name": "import_apply_journal",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.imports",
+      "table_name": "import_apply_unit_plans",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.imports",
+      "table_name": "import_sessions",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.imports",
+      "table_name": "import_source_streams",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.imports",
+      "table_name": "import_unit_apply_outcomes",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.imports",
+      "table_name": "import_units",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.incidentbundles",
+      "table_name": "incident_bundle_exports",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.incidentbundles",
+      "table_name": "incident_bundle_imported_actors",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.incidentbundles",
+      "table_name": "incident_bundle_imported_attributions",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.incidentbundles",
+      "table_name": "incident_bundle_job_payloads",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.incidentbundles",
+      "table_name": "incident_bundle_manifest_files",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.incidents",
+      "table_name": "incident_memberships",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.incidents",
+      "table_name": "incident_workbook_preferences",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.incidents",
+      "table_name": "incidents",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.indicators",
+      "table_name": "indicator_active_identities",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "indicators.restore_active_identities.v1"
+    },
+    {
+      "owner_id": "module.projections",
+      "table_name": "indicator_grid_projection",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "workbook.restore_projections.v1"
+    },
+    {
+      "owner_id": "module.indicators",
+      "table_name": "indicator_observations",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.indicators",
+      "table_name": "indicator_state_intervals",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.indicators",
+      "table_name": "indicators",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.platform_jobs",
+      "table_name": "jobs",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.networkflow",
+      "table_name": "network_flow_graph_views",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.networkflow",
+      "table_name": "network_flow_indicator_bindings",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.networkflow",
+      "table_name": "network_flow_rejected_row_diagnostics",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.networkflow",
+      "table_name": "network_flow_rows",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.networkflow",
+      "table_name": "network_flow_tables",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.evidence",
+      "table_name": "object_blobs",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.recovery",
+      "table_name": "operator_recovery_journal",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.parties",
+      "table_name": "parties",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.projections",
+      "table_name": "party_grid_projection",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "workbook.restore_projections.v1"
+    },
+    {
+      "owner_id": "module.auth",
+      "table_name": "pending_totp_enrollments",
+      "state_class": "security_ephemeral",
+      "backup_inclusion": "excluded_security_state",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "auth.invalidate_pending_totp.v1"
+    },
+    {
+      "owner_id": "module.revisions",
+      "table_name": "record_history_entry_refs",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.links",
+      "table_name": "record_links",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.revisions",
+      "table_name": "record_revision_conflict_facts",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.revisions",
+      "table_name": "record_revisions",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.links",
+      "table_name": "record_tags",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.records",
+      "table_name": "records",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reference_data",
+      "table_name": "reference_pack_activation_state",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reference_data",
+      "table_name": "reference_pack_attestations",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reference_data",
+      "table_name": "reference_pack_job_payloads",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reference_data",
+      "table_name": "reference_packs",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reportcomposition",
+      "table_name": "report_composition_preview_attempts",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reportcomposition",
+      "table_name": "report_composition_release_bindings",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reportcomposition",
+      "table_name": "report_composition_versions",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reportcomposition",
+      "table_name": "report_compositions",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reporting",
+      "table_name": "reporting_composition_preview_output_files",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reporting",
+      "table_name": "reporting_composition_preview_outputs",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reporting",
+      "table_name": "reporting_job_payloads",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reporting",
+      "table_name": "reporting_release_approvals",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reporting",
+      "table_name": "reporting_releases",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reporting",
+      "table_name": "reporting_render_bundle_files",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reporting",
+      "table_name": "reporting_render_bundles",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reporting",
+      "table_name": "reporting_snapshots",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.deployment_admin",
+      "table_name": "restore_verification_runs",
+      "state_class": "recovery_metadata",
+      "backup_inclusion": "excluded_recovery_metadata",
+      "restore_action": "ignore",
+      "codec_id": null,
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.auth",
+      "table_name": "route_idempotency",
+      "state_class": "security_ephemeral",
+      "backup_inclusion": "excluded_security_state",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "auth.invalidate_route_idempotency.v1"
+    },
+    {
+      "owner_id": "module.savedviews",
+      "table_name": "saved_views",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.database_migrations",
+      "table_name": "schema_migration_lineage",
+      "state_class": "migration_metadata",
+      "backup_inclusion": "excluded_schema_metadata",
+      "restore_action": "ignore",
+      "codec_id": null,
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.projections",
+      "table_name": "task_request_grid_projection",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "workbook.restore_projections.v1"
+    },
+    {
+      "owner_id": "module.tasksdecisions",
+      "table_name": "task_requests",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.timeline",
+      "table_name": "timeline_events",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.projections",
+      "table_name": "timeline_grid_projection",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "workbook.restore_projections.v1"
+    },
+    {
+      "owner_id": "module.timeline",
+      "table_name": "timeline_source_provenance",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.timeline",
+      "table_name": "timeline_time_conversion_profiles",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.auth",
+      "table_name": "user_sessions",
+      "state_class": "security_ephemeral",
+      "backup_inclusion": "excluded_security_state",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "auth.invalidate_sessions.v1"
+    },
+    {
+      "owner_id": "module.incidents",
+      "table_name": "user_workbook_preferences",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.auth",
+      "table_name": "users",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    }
+  ],
+  "object_families": [
+    {
+      "owner_id": "module.evidence",
+      "object_family_id": "evidence.blobs",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "inventory_algorithm_id": "evidence.snapshot_blob_inventory.v1",
+      "validation_algorithm_id": "evidence.validate_blob_inventory.v1",
+      "restore_algorithm_id": "evidence.restore_blob_inventory.v1"
+    },
+    {
+      "owner_id": "module.extensions",
+      "object_family_id": "extensions.staged_objects",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "inventory_algorithm_id": "extensions.snapshot_staged_object_inventory.v1",
+      "validation_algorithm_id": "extensions.validate_staged_object_inventory.v1",
+      "restore_algorithm_id": "extensions.restore_staged_object_inventory.v1"
+    },
+    {
+      "owner_id": "module.imports",
+      "object_family_id": "imports.source_streams",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "inventory_algorithm_id": "imports.snapshot_source_stream_inventory.v1",
+      "validation_algorithm_id": "imports.validate_source_stream_inventory.v1",
+      "restore_algorithm_id": "imports.restore_source_stream_inventory.v1"
+    },
+    {
+      "owner_id": "module.incidentbundles",
+      "object_family_id": "incident_bundles.files",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "inventory_algorithm_id": "incidentbundles.snapshot_file_inventory.v1",
+      "validation_algorithm_id": "incidentbundles.validate_file_inventory.v1",
+      "restore_algorithm_id": "incidentbundles.restore_file_inventory.v1"
+    },
+    {
+      "owner_id": "module.reference_data",
+      "object_family_id": "reference_packs.members",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "inventory_algorithm_id": "reference_data.snapshot_member_inventory.v1",
+      "validation_algorithm_id": "reference_data.validate_member_inventory.v1",
+      "restore_algorithm_id": "reference_data.restore_member_inventory.v1"
+    },
+    {
+      "owner_id": "module.reporting",
+      "object_family_id": "reporting.render_preview_members",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "inventory_algorithm_id": "reporting.snapshot_output_inventory.v1",
+      "validation_algorithm_id": "reporting.validate_output_inventory.v1",
+      "restore_algorithm_id": "reporting.restore_output_inventory.v1"
+    }
+  ]
+}

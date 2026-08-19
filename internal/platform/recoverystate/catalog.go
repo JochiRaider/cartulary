@@ -1,11 +1,13 @@
 package recoverystate
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 
@@ -19,7 +21,7 @@ const (
 
 	AuthoredTableCount  = 113
 	RequiredTableCount  = 84
-	ContributionCount   = 29
+	ContributionCount   = 30
 	ObjectFamilyCount   = 6
 	catalogFixturePath  = "contracts/recovery/fixtures/recovery-state-catalog.v1.json"
 	catalogDigestPrefix = "CARTULARY-RECOVERY-STATE-CATALOG-V1\n"
@@ -120,6 +122,14 @@ type Document struct {
 
 type Catalog struct {
 	document Document
+	shape    FrozenShape
+}
+
+type FrozenShape struct {
+	ContributionCount  int
+	AuthoredTableCount int
+	RequiredTableCount int
+	ObjectFamilyCount  int
 }
 
 func AuthoritativeTables(names ...string) []Table {
@@ -267,7 +277,11 @@ func Build(contributions ...Contribution) (*Catalog, error) {
 	sort.Slice(document.ObjectFamilies, func(left, right int) bool {
 		return document.ObjectFamilies[left].ObjectFamilyID < document.ObjectFamilies[right].ObjectFamilyID
 	})
-	if err := validateCompleteDocument(document); err != nil {
+	shape := FrozenShape{
+		ContributionCount: ContributionCount, AuthoredTableCount: AuthoredTableCount,
+		RequiredTableCount: RequiredTableCount, ObjectFamilyCount: ObjectFamilyCount,
+	}
+	if err := validateCurrentDocument(document, shape); err != nil {
 		return nil, err
 	}
 	digest, err := calculateDocumentDigest(document)
@@ -275,14 +289,31 @@ func Build(contributions ...Contribution) (*Catalog, error) {
 		return nil, err
 	}
 	document.CatalogDigestSHA256 = digest
-	return &Catalog{document: cloneDocument(document)}, nil
+	return &Catalog{document: cloneDocument(document), shape: shape}, nil
+}
+
+func NewFrozenCatalogJSON(body []byte, shape FrozenShape) (*Catalog, error) {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	var document Document
+	if err := decoder.Decode(&document); err != nil {
+		return nil, fmt.Errorf("%w: decode frozen catalog: %v", ErrInvalidCatalog, err)
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return nil, fmt.Errorf("%w: frozen catalog has trailing JSON", ErrInvalidCatalog)
+	}
+	catalog := &Catalog{document: cloneDocument(document), shape: shape}
+	if err := catalog.ValidateFrozen(); err != nil {
+		return nil, err
+	}
+	return catalog, nil
 }
 
 func (catalog *Catalog) ValidateFrozen() error {
 	if catalog == nil {
 		return fmt.Errorf("%w: frozen catalog is unavailable", ErrInvalidCatalog)
 	}
-	if err := validateCompleteDocument(catalog.document); err != nil {
+	if err := validateFrozenDocument(catalog.document, catalog.shape); err != nil {
 		return err
 	}
 	digest, err := calculateDocumentDigest(catalog.document)
@@ -313,7 +344,7 @@ func (catalog *Catalog) RequiredTableNames() []string {
 	if catalog == nil {
 		return nil
 	}
-	result := make([]string, 0, RequiredTableCount)
+	result := make([]string, 0, catalog.shape.RequiredTableCount)
 	for _, table := range catalog.document.Tables {
 		if table.BackupInclusion == InclusionRequired {
 			result = append(result, table.TableName)
@@ -498,44 +529,9 @@ func validateObjectFamily(family ObjectFamily) error {
 	return nil
 }
 
-func validateCompleteDocument(document Document) error {
-	if len(document.ContributionDigests) != ContributionCount {
-		return fmt.Errorf(
-			"%w: expected %d owner contributions, got %d",
-			ErrInvalidCatalog,
-			ContributionCount,
-			len(document.ContributionDigests),
-		)
-	}
-	if len(document.Tables) != AuthoredTableCount {
-		return fmt.Errorf(
-			"%w: expected %d authored tables, got %d",
-			ErrInvalidCatalog,
-			AuthoredTableCount,
-			len(document.Tables),
-		)
-	}
-	required := 0
-	for _, table := range document.Tables {
-		if table.BackupInclusion == InclusionRequired {
-			required++
-		}
-	}
-	if required != RequiredTableCount {
-		return fmt.Errorf(
-			"%w: expected %d required tables, got %d",
-			ErrInvalidCatalog,
-			RequiredTableCount,
-			required,
-		)
-	}
-	if len(document.ObjectFamilies) != ObjectFamilyCount {
-		return fmt.Errorf(
-			"%w: expected %d object families, got %d",
-			ErrInvalidCatalog,
-			ObjectFamilyCount,
-			len(document.ObjectFamilies),
-		)
+func validateCurrentDocument(document Document, shape FrozenShape) error {
+	if err := validateFrozenDocument(document, shape); err != nil {
+		return err
 	}
 	expectedArtifact, ok := contractrecovery.Index[catalogFixturePath]
 	if !ok {
@@ -545,10 +541,111 @@ func validateCompleteDocument(document Document) error {
 	if err := json.Unmarshal([]byte(expectedArtifact.JSON), &expected); err != nil {
 		return fmt.Errorf("%w: decode generated catalog projection: %v", ErrInvalidCatalog, err)
 	}
+	if err := compareContributionDigests(expected.ContributionDigests, document.ContributionDigests); err != nil {
+		return err
+	}
 	if err := compareCatalogTables(expected.Tables, document.Tables); err != nil {
 		return err
 	}
 	return compareCatalogObjectFamilies(expected.ObjectFamilies, document.ObjectFamilies)
+}
+
+func validateFrozenDocument(document Document, shape FrozenShape) error {
+	if document.SchemaID != CatalogSchemaID {
+		return fmt.Errorf("%w: wrong catalog schema", ErrInvalidCatalog)
+	}
+	if shape.ContributionCount <= 0 || shape.AuthoredTableCount <= 0 ||
+		shape.RequiredTableCount <= 0 || shape.ObjectFamilyCount <= 0 {
+		return fmt.Errorf("%w: frozen catalog shape is invalid", ErrInvalidCatalog)
+	}
+	if len(document.ContributionDigests) != shape.ContributionCount {
+		return fmt.Errorf(
+			"%w: expected %d owner contributions, got %d",
+			ErrInvalidCatalog,
+			shape.ContributionCount,
+			len(document.ContributionDigests),
+		)
+	}
+	previousOwner := ""
+	for _, contribution := range document.ContributionDigests {
+		if !validIdentifier(contribution.OwnerID) || !validSHA256Hex(contribution.SHA256) ||
+			(previousOwner != "" && contribution.OwnerID <= previousOwner) {
+			return fmt.Errorf("%w: contribution digests are malformed, duplicated, or unsorted", ErrInvalidCatalog)
+		}
+		previousOwner = contribution.OwnerID
+	}
+	if len(document.Tables) != shape.AuthoredTableCount {
+		return fmt.Errorf(
+			"%w: expected %d authored tables, got %d",
+			ErrInvalidCatalog,
+			shape.AuthoredTableCount,
+			len(document.Tables),
+		)
+	}
+	required := 0
+	previousTable := ""
+	for _, table := range document.Tables {
+		if !validIdentifier(table.OwnerID) || (previousTable != "" && table.TableName <= previousTable) {
+			return fmt.Errorf("%w: catalog tables are malformed, duplicated, or unsorted", ErrInvalidCatalog)
+		}
+		if err := validateTable(Table{
+			TableName: table.TableName, StateClass: table.StateClass,
+			BackupInclusion: table.BackupInclusion, RestoreAction: table.RestoreAction,
+			CodecID: table.CodecID, AlgorithmID: table.AlgorithmID,
+		}); err != nil {
+			return fmt.Errorf("%w: owner %s: %v", ErrInvalidCatalog, table.OwnerID, err)
+		}
+		previousTable = table.TableName
+		if table.BackupInclusion == InclusionRequired {
+			required++
+		}
+	}
+	if required != shape.RequiredTableCount {
+		return fmt.Errorf(
+			"%w: expected %d required tables, got %d",
+			ErrInvalidCatalog,
+			shape.RequiredTableCount,
+			required,
+		)
+	}
+	if len(document.ObjectFamilies) != shape.ObjectFamilyCount {
+		return fmt.Errorf(
+			"%w: expected %d object families, got %d",
+			ErrInvalidCatalog,
+			shape.ObjectFamilyCount,
+			len(document.ObjectFamilies),
+		)
+	}
+	previousFamily := ""
+	for _, family := range document.ObjectFamilies {
+		if !validIdentifier(family.OwnerID) ||
+			(previousFamily != "" && family.ObjectFamilyID <= previousFamily) {
+			return fmt.Errorf("%w: catalog object families are malformed, duplicated, or unsorted", ErrInvalidCatalog)
+		}
+		if err := validateObjectFamily(ObjectFamily{
+			ObjectFamilyID: family.ObjectFamilyID, StateClass: family.StateClass,
+			BackupInclusion: family.BackupInclusion, RestoreAction: family.RestoreAction,
+			InventoryAlgorithmID:  family.InventoryAlgorithmID,
+			ValidationAlgorithmID: family.ValidationAlgorithmID,
+			RestoreAlgorithmID:    family.RestoreAlgorithmID,
+		}); err != nil {
+			return fmt.Errorf("%w: owner %s: %v", ErrInvalidCatalog, family.OwnerID, err)
+		}
+		previousFamily = family.ObjectFamilyID
+	}
+	return nil
+}
+
+func compareContributionDigests(expected []ContributionDigest, actual []ContributionDigest) error {
+	if len(expected) != len(actual) {
+		return fmt.Errorf("%w: generated and assembled contribution counts differ", ErrInvalidCatalog)
+	}
+	for index := range expected {
+		if expected[index] != actual[index] {
+			return fmt.Errorf("%w: generated and assembled contributions differ at owner %s", ErrInvalidCatalog, expected[index].OwnerID)
+		}
+	}
+	return nil
 }
 
 func compareCatalogTables(expected []CatalogTable, actual []CatalogTable) error {
@@ -732,4 +829,12 @@ func validIdentifier(value string) bool {
 	return (first >= 'a' && first <= 'z') ||
 		(first >= 'A' && first <= 'Z') ||
 		(first >= '0' && first <= '9')
+}
+
+func validSHA256Hex(value string) bool {
+	if len(value) != sha256.Size*2 {
+		return false
+	}
+	_, err := hex.DecodeString(value)
+	return err == nil && strings.ToLower(value) == value
 }

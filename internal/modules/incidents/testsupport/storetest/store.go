@@ -71,7 +71,6 @@ func CreateIncidentInStore(
 		context.Background(),
 		actor,
 		request,
-		incidents.IncidentCreateRequestHash(request),
 		"req-"+request.ClientTxnID,
 		time.Now().UTC(),
 	)
@@ -91,14 +90,19 @@ func CreateMembershipInStore(
 ) incidents.MembershipCreateResult {
 	t.Helper()
 
-	store := incidents.NewApplication(pool, workbookstartuppostgres.NewWriter())
+	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
+		Postgres:            pool,
+		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+	})
+	if err != nil {
+		t.Fatalf("construct Incidents application: %v", err)
+	}
 	result, err := store.CreateMembership(
 		context.Background(),
 		actor,
 		incidentID,
 		targetUser,
 		request,
-		[]byte(request.ClientTxnID),
 		"req-"+request.ClientTxnID,
 		time.Now().UTC(),
 	)
@@ -106,17 +110,6 @@ func CreateMembershipInStore(
 		t.Fatalf("create membership in store: %v", err)
 	}
 	return result
-}
-
-func LookupUserByEmail(t testing.TB, pool postgres.DB, email string) authn.UserRecord {
-	t.Helper()
-
-	store := authn.NewStore(pool)
-	record, err := store.GetUserByNormalizedEmail(context.Background(), email)
-	if err != nil {
-		t.Fatalf("lookup user by email %q: %v", email, err)
-	}
-	return record
 }
 
 func LookupUserByID(t testing.TB, pool postgres.DB, userID uuid.UUID) authn.UserRecord {

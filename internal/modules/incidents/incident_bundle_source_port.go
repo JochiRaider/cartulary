@@ -3,6 +3,7 @@ package incidents
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 
@@ -26,7 +27,7 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor,
 		Export: func(ctx context.Context, exportContext sourceport.ExportContext) ([]incidentportability.File, error) {
-			payload, _, err := ExportIncidentBundleIncident(ctx, exportContext.Query, exportContext.IncidentID)
+			payload, _, err := exportIncidentBundleIncident(ctx, exportContext.Query, exportContext.IncidentID)
 			if err != nil {
 				return nil, err
 			}
@@ -47,8 +48,11 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			return files, nil
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
-			files := value.(sourceport.PreparedFiles)
-			return ImportIncidentBundleIncidentTx(ctx, tx, files["data/incident.json"], importContext.ActorUserID, importContext.Attributions)
+			files, ok := value.(sourceport.PreparedFiles)
+			if !ok {
+				return fmt.Errorf("%w: Incidents prepared import has type %T", sourceport.ErrInvalidCatalog, value)
+			}
+			return importIncidentBundleIncidentTx(ctx, tx, files["data/incident.json"], importContext.ActorUserID, importContext.Attributions)
 		},
 		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
 			var count int

@@ -5,7 +5,7 @@
   "graph_projection_contract_id": "cartulary.graph_projection_nlspec.v2.1.0",
   "semantic_query_schema_ids": ["cartulary.network_flow.graph_semantic_query.v1", "cartulary.network_flow.graph_semantic_query.v2"],
   "historical_dispatch_algorithm_ids": ["graphprojection.restore_rebuild.v2"],
-  "recovery_state_catalog_sha256": "04174fbf70585af5afb5ace702b797f7512f655005b8502b02f4b41700a966a6",
+  "recovery_state_catalog_sha256": "96ab9cac942a3729afcefa47a02bbfe910a2c09af0fb25ee32f7b610b6352055",
   "source_registry_sha256": "61c3f7348c4df2bee3e969c905c91c9857082cf2839a0b57104e40339e3e16d3",
   "graph_table_ids": ["graph_projection_result_edges", "graph_projection_result_leases", "graph_projection_result_vertices", "graph_projection_results"],
   "graph_engine_algorithm_ids": ["graphprojection.deterministic_projection.v2", "graphprojection.input_admission.v2", "graphprojection.restore_publication.v3", "graphprojection.result_identity.v2"],

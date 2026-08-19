@@ -95,17 +95,19 @@ type RestoreStepObserver interface {
 }
 
 type RestoreResult struct {
-	BackupSet                 BackupSet
-	ConsistencyReport         RestoreConsistencyReport
-	ObjectStoreBackupManifest ObjectStoreBackupManifest
-	ProjectionRebuildResult   restorecontract.ProjectionRebuildResult
-	GraphProjectionResult     restorecontract.GraphProjectionRebuildResult
-	GraphProjectionCompletion *restorecontract.GraphProjectionCompletionEvidence
-	ExtensionBindings         []ExtensionBindingProof
-	SelectedIncidentID        *string
-	WorkbookProbe             *workbookprobe.Result
-	IntegrityManifestSHA256   string
-	RestoredObjectCount       int64
+	BackupSet                  BackupSet
+	ConsistencyReport          RestoreConsistencyReport
+	ObjectStoreBackupManifest  ObjectStoreBackupManifest
+	ProjectionRebuildResult    restorecontract.ProjectionRebuildResult
+	GraphProjectionResult      restorecontract.GraphProjectionRebuildResult
+	GraphProjectionCompletion  *restorecontract.GraphProjectionCompletionEvidence
+	ExtensionBindings          []ExtensionBindingProof
+	SelectedIncidentID         *string
+	WorkbookProbe              *workbookprobe.Result
+	IntegrityManifestSHA256    string
+	RestoredObjectCount        int64
+	RecoveryStateCatalogSHA256 string
+	CodecRegistrySHA256        string
 }
 
 type RestoreConsistencyReport struct {
@@ -306,7 +308,7 @@ func (runner *RestoreRunner) restoreVNextBackupSet(
 	recordStep(target.Observer, RestoreStepPostgresRestore)
 	recordStep(target.Observer, RestoreStepObjectStoreRestore)
 	if err := restore.Restore(ctx, &vNextRestoreTarget{
-		target: target, stateCatalog: runner.stateCatalog,
+		target: target,
 	}, integrityProof); err != nil {
 		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepPostgresRestore, err)
 	}
@@ -332,16 +334,18 @@ func (runner *RestoreRunner) restoreVNextBackupSet(
 		graphResult,
 	)
 	recordStep(target.Observer, RestoreStepConsistencyCheck)
-	report, err := vNextConsistencyReport(ctx, target, runner.stateCatalog, backupSet)
+	report, err := vNextConsistencyReport(ctx, target, verificationEvidence.stateCatalog, backupSet)
 	if err != nil {
 		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepConsistencyCheck, err)
 	}
 	result := RestoreResult{
 		BackupSet: backupSet, ConsistencyReport: report,
 		ProjectionRebuildResult: projectionResult, GraphProjectionResult: graphResult,
-		GraphProjectionCompletion: &graphCompletion,
-		IntegrityManifestSHA256:   verificationEvidence.ManifestSHA256,
-		RestoredObjectCount:       verificationEvidence.RestoredObjectCount,
+		GraphProjectionCompletion:  &graphCompletion,
+		IntegrityManifestSHA256:    verificationEvidence.ManifestSHA256,
+		RestoredObjectCount:        verificationEvidence.RestoredObjectCount,
+		RecoveryStateCatalogSHA256: verificationEvidence.GraphRestoreArtifacts.RecoveryStateCatalogSHA256,
+		CodecRegistrySHA256:        verificationEvidence.codecRegistrySHA256,
 	}
 	if target.Readiness != nil {
 		recordStep(target.Observer, RestoreStepReadiness)
@@ -359,7 +363,7 @@ func (runner *RestoreRunner) runVNextProjectionRebuilds(
 	verification VNextRestoreVerificationEvidence,
 ) (restorecontract.GraphProjectionRebuildResult, restorecontract.ProjectionRebuildResult, error) {
 	graphTables := make([]string, 0, len(restorecontract.GraphProjectionTableIDs()))
-	for _, table := range runner.stateCatalog.Document().Tables {
+	for _, table := range verification.stateCatalog.Document().Tables {
 		if table.OwnerID == "module.graphprojection" && table.RestoreAction == recoverystate.RebuildState {
 			graphTables = append(graphTables, table.TableName)
 		}
@@ -376,11 +380,8 @@ func (runner *RestoreRunner) runVNextProjectionRebuilds(
 	}
 	algorithmIDs := []string{graphAlgorithmID, "workbook.restore_projections.v1"}
 	sort.Strings(algorithmIDs)
-	required := RequiredVNextRestoreAlgorithmIDs(runner.stateCatalog)
+	required := RequiredVNextRestoreAlgorithmIDs(verification.stateCatalog)
 	for _, algorithmID := range algorithmIDs {
-		if algorithmID == restorecontract.HistoricalGraphProjectionRestoreAlgorithmIDV2 {
-			continue
-		}
 		index := sort.SearchStrings(required, algorithmID)
 		if index == len(required) || required[index] != algorithmID {
 			return restorecontract.GraphProjectionRebuildResult{}, restorecontract.ProjectionRebuildResult{}, fmt.Errorf("%w: projection rebuild algorithm is unavailable", ErrInvalidBackupArtifact)
@@ -392,17 +393,18 @@ func (runner *RestoreRunner) runVNextProjectionRebuilds(
 	for _, algorithmID := range algorithmIDs {
 		switch algorithmID {
 		case restorecontract.GraphProjectionRestoreAlgorithmID, restorecontract.HistoricalGraphProjectionRestoreAlgorithmIDV2:
-			var err error
-			registry := restorecontract.CurrentGraphProjectionSourceRegistryRef()
-			binding := restorecontract.CurrentGraphProjectionImplementationBinding()
-			if algorithmID == restorecontract.HistoricalGraphProjectionRestoreAlgorithmIDV2 {
-				registry = restorecontract.HistoricalGraphProjectionSourceRegistryV2Ref()
-				binding = restorecontract.HistoricalGraphProjectionImplementationBindingV2()
-			}
+			registry := restorecontract.FrozenGraphProjectionSourceRegistryRef(
+				verification.GraphRestoreArtifacts.SourceRegistrySHA256,
+			)
+			binding := restorecontract.FrozenGraphProjectionImplementationBinding(
+				verification.GraphRestoreArtifacts.ImplementationBindingJSON,
+				verification.GraphRestoreArtifacts.ImplementationBindingSHA256,
+			)
 			if registry.SHA256 != verification.GraphRestoreArtifacts.SourceRegistrySHA256 ||
 				binding.SHA256 != verification.GraphRestoreArtifacts.ImplementationBindingSHA256 {
 				return graphResult, workbookResult, fmt.Errorf("%w: Graph Projection frozen artifacts mismatch", ErrInvalidBackupArtifact)
 			}
+			var err error
 			graphResult, err = target.GraphProjection.Rebuild(ctx, restorecontract.GraphProjectionRebuildRequest{
 				Context:             ctx,
 				RestoreOperationID:  target.RestoreOperationID,
@@ -473,12 +475,12 @@ func equalStringSlices(left, right []string) bool {
 }
 
 type vNextRestoreTarget struct {
-	target       RestoreTarget
-	stateCatalog *recoverystate.Catalog
+	target RestoreTarget
 }
 
 func (target *vNextRestoreTarget) WithAtomicRestore(
 	ctx context.Context,
+	stateCatalog *recoverystate.Catalog,
 	run func(VNextRestoreMutation) error,
 ) error {
 	tx, err := target.target.Postgres.BeginTx(ctx, pgx.TxOptions{})
@@ -490,7 +492,7 @@ func (target *vNextRestoreTarget) WithAtomicRestore(
 		return fmt.Errorf("disable vNext restore referential triggers: %w", err)
 	}
 	mutation := &vNextRestoreMutation{
-		tx: tx, objects: target.target.ObjectStore, stateCatalog: target.stateCatalog,
+		tx: tx, objects: target.target.ObjectStore, stateCatalog: stateCatalog,
 	}
 	if err := run(mutation); err != nil {
 		return err

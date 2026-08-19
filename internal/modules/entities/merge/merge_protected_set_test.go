@@ -105,12 +105,18 @@ RETURNING id, email, display_name, password_hash, mfa_required, is_active, is_de
 func createMergeProtectedSetIncident(t testing.TB, db postgres.DB, actor authn.UserRecord, clientTxnID string, incidentKey string, title string) incidents.IncidentRecord {
 	t.Helper()
 
-	store := incidents.NewApplication(db, workbookstartuppostgres.NewWriter())
+	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
+		Postgres:            db,
+		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+	})
+	if err != nil {
+		t.Fatalf("construct Incidents application: %v", err)
+	}
 	result, err := store.CreateIncident(context.Background(), actor, incidents.CreateIncidentRequest{
 		ClientTxnID: clientTxnID,
 		IncidentKey: incidentKey,
 		Title:       title,
-	}, []byte(clientTxnID), "req-"+clientTxnID, time.Now().UTC())
+	}, "req-"+clientTxnID, time.Now().UTC())
 	if err != nil {
 		t.Fatalf("create merge protected set incident: %v", err)
 	}

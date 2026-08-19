@@ -29,6 +29,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
@@ -69,6 +70,7 @@ func CurrentRecoveryStateContributions() ([]recoverystate.Contribution, error) {
 		savedviews.RecoveryStateContribution(),
 		tasksdecisions.NewRecoveryContribution(),
 		timeline.RecoveryStateContribution(),
+		workbook.RecoveryStateContribution(),
 	}, nil
 }
 

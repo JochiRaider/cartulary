@@ -31,9 +31,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -1058,6 +1058,14 @@ func TestAdmittedRouteSetupRequiresImportFinalizer_Unit(t *testing.T) {
 	}
 }
 
+func TestImportBundleRequestIDIsDeterministic_Unit(t *testing.T) {
+	jobID := uuid.MustParse("00000000-0000-0000-0000-000000000905")
+	want := "incident_bundle_import:00000000-0000-0000-0000-000000000905"
+	if first, second := importBundleRequestID(jobID), importBundleRequestID(jobID); first != want || second != want {
+		t.Fatalf("request IDs = %q and %q, want %q", first, second, want)
+	}
+}
+
 func TestClaimedIncidentPortabilityRejectsMissingJobsBeforePublication_Unit(t *testing.T) {
 	baseline := moduleTestDependencies()
 	tests := []struct {
@@ -1114,7 +1122,7 @@ type importFinalizerStub struct{}
 func (importFinalizerStub) FinalizeIncidentBundleImportTx(
 	context.Context,
 	pgx.Tx,
-	incidents.IncidentBundleImportFinalizationParams,
+	importfinalizerport.Params,
 ) error {
 	return nil
 }

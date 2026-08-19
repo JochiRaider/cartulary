@@ -34,11 +34,26 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 	if got := len(document.ObjectFamilies); got != recoverystate.ObjectFamilyCount {
 		t.Fatalf("object family count = %d, want %d", got, recoverystate.ObjectFamilyCount)
 	}
+	preferenceOwners := map[string]string{}
+	for _, table := range document.Tables {
+		if table.TableName == "incident_workbook_preferences" || table.TableName == "user_workbook_preferences" {
+			preferenceOwners[table.TableName] = table.OwnerID
+		}
+	}
+	if !slices.Equal(
+		[]string{preferenceOwners["incident_workbook_preferences"], preferenceOwners["user_workbook_preferences"]},
+		[]string{"module.workbook", "module.workbook"},
+	) {
+		t.Fatalf("Workbook preference Recovery ownership = %#v", preferenceOwners)
+	}
 	if _, err := CurrentVNextObjectInventoryCatalog(nil); err != nil {
 		t.Fatalf("exact six-family vNext inventory registration: %v", err)
 	}
 	if catalog.DigestSHA256() == "" {
 		t.Fatal("catalog digest is empty")
+	}
+	if got, want := catalog.DigestSHA256(), "96ab9cac942a3729afcefa47a02bbfe910a2c09af0fb25ee32f7b610b6352055"; got != want {
+		t.Fatalf("pre-Workbook-ownership catalog digest = %s, want compatibility identity %s", got, want)
 	}
 	if want := restorecontract.CurrentGraphProjectionImplementationBinding().Binding.RecoveryStateCatalogSHA256; catalog.DigestSHA256() != want {
 		t.Fatalf("current Graph restore binding recovery catalog digest = %s, want %s", want, catalog.DigestSHA256())

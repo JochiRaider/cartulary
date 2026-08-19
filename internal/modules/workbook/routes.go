@@ -12,7 +12,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -276,7 +275,7 @@ func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Requ
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
-	case errors.Is(err, incidents.ErrIncidentClosed), admission.IsDenied(err, admission.DenialIncidentClosed):
+	case admission.IsDenied(err, admission.DenialIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, hostidentity.ErrInvalidCreateRequest):
@@ -882,7 +881,7 @@ func (s *Service) handleDecisionSupersede(w http.ResponseWriter, r *http.Request
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
-	case errors.Is(err, incidents.ErrIncidentClosed), admission.IsDenied(err, admission.DenialIncidentClosed):
+	case admission.IsDenied(err, admission.DenialIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
 	case isRecordTargetNotFound(err):
@@ -985,7 +984,7 @@ func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, pri
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, httpapi.ClientTxnConflictError(clientTxnID))
 		return
-	case errors.Is(err, incidents.ErrIncidentClosed), admission.IsDenied(err, admission.DenialIncidentClosed):
+	case admission.IsDenied(err, admission.DenialIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
 	case isRecordTargetNotFound(err):

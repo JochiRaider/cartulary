@@ -193,11 +193,18 @@ func TestHistoryQueryRepositoryMapsPersistenceRows_Integration(t *testing.T) {
 		true,
 	)
 	now := time.Date(2026, 8, 3, 16, 45, 0, 123456000, time.UTC)
-	incidentResult, err := incidents.NewApplication(database, workbookstartuppostgres.NewWriter()).CreateIncident(context.Background(), actor, incidents.CreateIncidentRequest{
+	incidentApplication, err := incidents.NewApplication(incidents.ApplicationDependencies{
+		Postgres:            database,
+		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+	})
+	if err != nil {
+		t.Fatalf("construct Incidents application: %v", err)
+	}
+	incidentResult, err := incidentApplication.CreateIncident(context.Background(), actor, incidents.CreateIncidentRequest{
 		ClientTxnID: "history-repository-incident",
 		IncidentKey: "IR-HISTORY-REPOSITORY",
 		Title:       "History repository component",
-	}, []byte("history-repository-incident"), "req-history-repository-incident", now)
+	}, "req-history-repository-incident", now)
 	if err != nil {
 		t.Fatalf("create incident: %v", err)
 	}

@@ -1,12 +1,17 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -28,17 +33,57 @@ func TestIncidentAccessDecisionUsesNotFoundForMissingMembershipAndDeniedForInsuf
 	}
 }
 
-func TestRegisterRoutesRequiresIncidentPorts(t *testing.T) {
-	t.Run("application", func(t *testing.T) {
-		err := RegisterRoutes(RouteOptions{})(http.NewServeMux(), httpapi.DependencySet{})
-		if err == nil || !strings.Contains(err.Error(), "application is required") {
-			t.Fatalf("missing application must fail route registration, got %v", err)
-		}
-	})
-	t.Run("terminal mutation coordinator", func(t *testing.T) {
-		err := RegisterRoutes(RouteOptions{Application: &incidents.Application{}})(http.NewServeMux(), httpapi.DependencySet{})
-		if err == nil || !strings.Contains(err.Error(), "terminal mutation coordinator is required") {
-			t.Fatalf("missing terminal mutation coordinator must fail route registration, got %v", err)
-		}
-	})
+func TestRegisterRoutesRequiresExactDependencies(t *testing.T) {
+	validApplication := &incidents.Application{}
+	validAdmission := &admission.Checker{}
+	var typedNilApplication *incidents.Application
+	var typedNilAdmission *admission.Checker
+	var typedNilCoordinator *terminalMutationCoordinatorStub
+
+	tests := []struct {
+		name         string
+		dependencies Dependencies
+		wantError    string
+	}{
+		{name: "missing application", dependencies: Dependencies{}, wantError: "application is required"},
+		{name: "typed nil application", dependencies: Dependencies{Application: typedNilApplication}, wantError: "application is required"},
+		{name: "missing admission", dependencies: Dependencies{Application: validApplication}, wantError: "admission checker is required"},
+		{name: "typed nil admission", dependencies: Dependencies{Application: validApplication, AdmissionChecker: typedNilAdmission}, wantError: "admission checker is required"},
+		{name: "missing coordinator", dependencies: Dependencies{Application: validApplication, AdmissionChecker: validAdmission}, wantError: "terminal mutation coordinator is required"},
+		{name: "typed nil coordinator", dependencies: Dependencies{Application: validApplication, AdmissionChecker: validAdmission, TerminalMutationCoordinator: typedNilCoordinator}, wantError: "terminal mutation coordinator is required"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := RegisterRoutes(test.dependencies)(http.NewServeMux(), httpapi.DependencySet{})
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("route registration error = %v, want %q", err, test.wantError)
+			}
+		})
+	}
+}
+
+type terminalMutationCoordinatorStub struct{}
+
+func (*terminalMutationCoordinatorStub) CoordinateIncidentLifecycle(
+	context.Context,
+	authn.UserRecord,
+	uuid.UUID,
+	string,
+	incidents.IncidentLifecycleRequest,
+	string,
+	time.Time,
+) (incidents.IncidentLifecycleResult, error) {
+	return incidents.IncidentLifecycleResult{}, nil
+}
+
+func (*terminalMutationCoordinatorStub) CoordinateMembershipDeletion(
+	context.Context,
+	authn.UserRecord,
+	uuid.UUID,
+	uuid.UUID,
+	incidents.MembershipDeleteRequest,
+	string,
+) (incidents.MembershipDeleteResult, error) {
+	return incidents.MembershipDeleteResult{}, nil
 }

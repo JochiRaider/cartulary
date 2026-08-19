@@ -36,6 +36,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	incidentshttpapi "github.com/JochiRaider/cartulary/internal/modules/incidents/httpapi"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatorshttpapi "github.com/JochiRaider/cartulary/internal/modules/indicators/httpapi"
@@ -820,7 +821,14 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		return nil, fmt.Errorf("validate attribution resolvers: %w", err)
 	}
 	workbookPreferenceBootstrap := workbookstartuppostgres.NewWriter()
-	incidentApplication := incidents.NewApplication(postgresHandle, workbookPreferenceBootstrap)
+	incidentApplication, err := incidents.NewApplication(incidents.ApplicationDependencies{
+		Postgres:            postgresHandle,
+		PreferenceBootstrap: workbookPreferenceBootstrap,
+	})
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Incidents application: %w", err)
+	}
 	incidentEffects, err := incidenteffects.New(
 		incidentApplication,
 		collaboration.NewIncidentSessionNotifier(hub),
@@ -829,11 +837,16 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose incident terminal effects: %w", err)
 	}
-	incidentRoutes := incidentshttpapi.RegisterRoutes(incidentshttpapi.RouteOptions{
-		Application:       incidentApplication,
-		TerminalMutations: incidentEffects,
+	incidentRoutes := incidentshttpapi.RegisterRoutes(incidentshttpapi.Dependencies{
+		Application:                 incidentApplication,
+		AdmissionChecker:            admission.NewChecker(postgresHandle),
+		TerminalMutationCoordinator: incidentEffects,
 	})
-	incidentBundleImportFinalizer := incidents.NewIncidentBundleImportFinalizer(workbookPreferenceBootstrap)
+	incidentBundleImportFinalizer, err := incidents.NewIncidentBundleImportFinalizer(workbookPreferenceBootstrap)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose incident bundle import finalizer: %w", err)
+	}
 	historicalIntentPolicy := collaboration.NewHistoricalIntentPolicy()
 	providerContributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {

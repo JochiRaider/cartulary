@@ -31,6 +31,8 @@ type BackupDurabilityDiagnostic struct {
 	Code               string
 }
 
+const restoreVerificationMaximumAge = 7 * 24 * time.Hour
+
 func NewBackupCatalog(
 	store backupRepository,
 	storage BackupStorage,
@@ -178,21 +180,76 @@ func (catalog *BackupCatalog) VerifyBackupSetDurability(ctx context.Context, bac
 	return nil
 }
 
-func (catalog *BackupCatalog) ListBackupsDueForRestoreVerification(ctx context.Context, asOf time.Time, verificationBasisSHA256 string) ([]BackupSet, error) {
+func (catalog *BackupCatalog) RecoveryGenerationIdentity(
+	ctx context.Context,
+	backupSet BackupSet,
+) (RecoveryGenerationIdentity, error) {
+	if catalog == nil || catalog.storage == nil || catalog.stateCatalog == nil {
+		return RecoveryGenerationIdentity{}, fmt.Errorf("%w: backup catalog requires backup storage and current recovery-state catalog", ErrInvalidBackupMetadata)
+	}
+	if _, vNext := VNextLogicalRefFromMetadataKey(backupSet.IntegrityManifestKey); !vNext {
+		return RecoveryGenerationIdentity{}, fmt.Errorf("%w: registered Recovery generation requires a vNext backup", ErrVNextBackup)
+	}
+	selection, err := readVNextBackupSetGeneration(ctx, catalog.storage, catalog.stateCatalog, backupSet)
+	if err != nil {
+		return RecoveryGenerationIdentity{}, err
+	}
+	return selection.generation.identity(), nil
+}
+
+func (catalog *BackupCatalog) ListBackupsDueForRestoreVerification(
+	ctx context.Context,
+	asOf time.Time,
+	verificationBasis RestoreVerificationBasis,
+) ([]BackupSet, error) {
 	if catalog == nil || catalog.store == nil || catalog.storage == nil || catalog.extensionBackups == nil {
 		return nil, fmt.Errorf("%w: backup catalog requires store and backup storage", ErrInvalidBackupMetadata)
 	}
-	backupSets, err := catalog.store.ListBackupsDueForRestoreVerification(ctx, asOf, verificationBasisSHA256)
+	if err := verificationBasis.Validate(); err != nil {
+		return nil, err
+	}
+	asOf = normalizeAsOf(asOf)
+	backupSets, err := catalog.store.ListRetainedBackupSetMetadata(ctx, asOf)
 	if err != nil {
 		return nil, err
 	}
-	sort.Slice(backupSets, func(i, j int) bool {
-		if !backupSets[i].ConsistencyPointAt.Equal(backupSets[j].ConsistencyPointAt) {
-			return backupSets[i].ConsistencyPointAt.Before(backupSets[j].ConsistencyPointAt)
+	due := make([]BackupSet, 0, len(backupSets))
+	for _, backupSet := range backupSets {
+		identity, err := catalog.RecoveryGenerationIdentity(ctx, backupSet)
+		if err != nil {
+			return nil, err
 		}
-		return backupSets[i].BackupSetID.String() < backupSets[j].BackupSetID.String()
+		expectedBasis := restoreVerificationBasisForGeneration(verificationBasis, identity)
+		expectedBasisSHA256, err := expectedBasis.SHA256()
+		if err != nil {
+			return nil, err
+		}
+		if backupDueForRestoreVerification(backupSet, asOf, expectedBasisSHA256) {
+			due = append(due, backupSet)
+		}
+	}
+	sort.Slice(due, func(i, j int) bool {
+		if !due[i].ConsistencyPointAt.Equal(due[j].ConsistencyPointAt) {
+			return due[i].ConsistencyPointAt.Before(due[j].ConsistencyPointAt)
+		}
+		return due[i].BackupSetID.String() < due[j].BackupSetID.String()
 	})
-	return backupSets, nil
+	return due, nil
+}
+
+func restoreVerificationBasisForGeneration(
+	basis RestoreVerificationBasis,
+	identity RecoveryGenerationIdentity,
+) RestoreVerificationBasis {
+	basis.RecoveryStateCatalogSHA256 = identity.RecoveryStateCatalogSHA256
+	basis.CodecRegistrySHA256 = identity.CodecRegistrySHA256
+	return basis
+}
+
+func backupDueForRestoreVerification(backupSet BackupSet, asOf time.Time, expectedBasisSHA256 string) bool {
+	return backupSet.LastVerifiedRestoreAt == nil ||
+		!backupSet.LastVerifiedRestoreAt.After(asOf.Add(-restoreVerificationMaximumAge)) ||
+		backupSet.LastVerificationBasisSHA256 != expectedBasisSHA256
 }
 
 func backupDurabilityDiagnosticCode(err error) string {

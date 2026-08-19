@@ -262,20 +262,6 @@ func (q *Queries) DeleteIncidentMembership(ctx context.Context, arg DeleteIncide
 	return err
 }
 
-const ensureIncidentOpenForMutation = `-- name: EnsureIncidentOpenForMutation :one
-SELECT status
-FROM incidents
-WHERE id = $1
-FOR SHARE
-`
-
-func (q *Queries) EnsureIncidentOpenForMutation(ctx context.Context, id pgtype.UUID) (string, error) {
-	row := q.db.QueryRow(ctx, ensureIncidentOpenForMutation, id)
-	var status string
-	err := row.Scan(&status)
-	return status, err
-}
-
 const getIncidentBundleInitialAdminForUpdate = `-- name: GetIncidentBundleInitialAdminForUpdate :one
 SELECT
     display_name,
@@ -544,83 +530,6 @@ func (q *Queries) ListAllIncidentMemberships(ctx context.Context, incidentID pgt
 	var items []ListAllIncidentMembershipsRow
 	for rows.Next() {
 		var i ListAllIncidentMembershipsRow
-		if err := rows.Scan(
-			&i.IncidentID,
-			&i.UserID,
-			&i.DisplayName,
-			&i.Role,
-			&i.JoinedAt,
-			&i.AddedByUserID,
-			&i.UpdatedAt,
-			&i.UpdatedByUserID,
-			&i.MembershipVersion,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listIncidentMemberships = `-- name: ListIncidentMemberships :many
-SELECT
-    m.incident_id,
-    m.user_id,
-    u.display_name,
-    m.role,
-    m.joined_at,
-    m.added_by_user_id,
-    m.updated_at,
-    m.updated_by_user_id,
-    m.membership_version
-FROM incident_memberships m
-JOIN users u
-  ON u.id = m.user_id
-WHERE m.incident_id = $1
-  AND m.joined_at <= $2
-  AND ($3::timestamptz IS NULL OR $4::uuid IS NULL OR m.joined_at > $3 OR (m.joined_at = $3 AND m.user_id > $4))
-ORDER BY m.joined_at ASC, m.user_id ASC
-LIMIT $5
-`
-
-type ListIncidentMembershipsParams struct {
-	IncidentID pgtype.UUID        `json:"incident_id"`
-	JoinedAt   pgtype.Timestamptz `json:"joined_at"`
-	Column3    pgtype.Timestamptz `json:"column_3"`
-	Column4    pgtype.UUID        `json:"column_4"`
-	Limit      int32              `json:"limit"`
-}
-
-type ListIncidentMembershipsRow struct {
-	IncidentID        pgtype.UUID        `json:"incident_id"`
-	UserID            pgtype.UUID        `json:"user_id"`
-	DisplayName       string             `json:"display_name"`
-	Role              string             `json:"role"`
-	JoinedAt          pgtype.Timestamptz `json:"joined_at"`
-	AddedByUserID     pgtype.UUID        `json:"added_by_user_id"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-	UpdatedByUserID   pgtype.UUID        `json:"updated_by_user_id"`
-	MembershipVersion int64              `json:"membership_version"`
-}
-
-func (q *Queries) ListIncidentMemberships(ctx context.Context, arg ListIncidentMembershipsParams) ([]ListIncidentMembershipsRow, error) {
-	rows, err := q.db.Query(ctx, listIncidentMemberships,
-		arg.IncidentID,
-		arg.JoinedAt,
-		arg.Column3,
-		arg.Column4,
-		arg.Limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListIncidentMembershipsRow
-	for rows.Next() {
-		var i ListIncidentMembershipsRow
 		if err := rows.Scan(
 			&i.IncidentID,
 			&i.UserID,

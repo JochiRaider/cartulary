@@ -36,7 +36,7 @@ var canonicalTLPTokens = map[string]struct{}{
 	"TLP:RED":          {},
 }
 
-func DecodeIncidentCreateRequest(reader io.Reader) (incidents.CreateIncidentRequest, *platformhttpapi.APIError) {
+func decodeIncidentCreateRequest(reader io.Reader) (incidents.CreateIncidentRequest, *platformhttpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidIncidentCreate)
 	if apiErr != nil {
 		return incidents.CreateIncidentRequest{}, apiErr
@@ -121,7 +121,7 @@ func DecodeIncidentCreateRequest(reader io.Reader) (incidents.CreateIncidentRequ
 	return request, nil
 }
 
-func DecodeIncidentPatchRequest(reader io.Reader) (incidents.IncidentPatchRequest, *platformhttpapi.APIError) {
+func decodeIncidentPatchRequest(reader io.Reader) (incidents.IncidentPatchRequest, *platformhttpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidIncidentPatch)
 	if apiErr != nil {
 		return incidents.IncidentPatchRequest{}, apiErr
@@ -188,7 +188,7 @@ func DecodeIncidentPatchRequest(reader io.Reader) (incidents.IncidentPatchReques
 	return request, nil
 }
 
-func DecodeIncidentLifecycleRequest(reader io.Reader) (incidents.IncidentLifecycleRequest, *platformhttpapi.APIError) {
+func decodeIncidentLifecycleRequest(reader io.Reader) (incidents.IncidentLifecycleRequest, *platformhttpapi.APIError) {
 	raw, err := platformhttpapi.DecodeStrictJSONObject(reader)
 	if err != nil {
 		return incidents.IncidentLifecycleRequest{}, invalidIncidentLifecycleRequest("", "request_not_object")
@@ -238,7 +238,7 @@ func DecodeIncidentLifecycleRequest(reader io.Reader) (incidents.IncidentLifecyc
 	return request, nil
 }
 
-func DecodeMembershipCreateRequest(reader io.Reader) (incidents.MembershipCreateRequest, *platformhttpapi.APIError) {
+func decodeMembershipCreateRequest(reader io.Reader) (incidents.MembershipCreateRequest, *platformhttpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return incidents.MembershipCreateRequest{}, apiErr
@@ -300,7 +300,7 @@ func DecodeMembershipCreateRequest(reader io.Reader) (incidents.MembershipCreate
 	return request, nil
 }
 
-func DecodeMembershipPatchRequest(reader io.Reader) (incidents.MembershipPatchRequest, *platformhttpapi.APIError) {
+func decodeMembershipPatchRequest(reader io.Reader) (incidents.MembershipPatchRequest, *platformhttpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return incidents.MembershipPatchRequest{}, apiErr
@@ -343,7 +343,7 @@ func DecodeMembershipPatchRequest(reader io.Reader) (incidents.MembershipPatchRe
 	return request, nil
 }
 
-func DecodeMembershipDeleteRequest(reader io.Reader) (incidents.MembershipDeleteRequest, *platformhttpapi.APIError) {
+func decodeMembershipDeleteRequest(reader io.Reader) (incidents.MembershipDeleteRequest, *platformhttpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return incidents.MembershipDeleteRequest{}, apiErr

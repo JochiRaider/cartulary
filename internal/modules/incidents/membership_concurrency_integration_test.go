@@ -35,7 +35,13 @@ func TestConcurrentCrossAdminDeletionPreservesAnIncidentAdmin_Integration(t *tes
 		t, pool, "incident-admin-concurrency-second@example.test", "Second concurrent admin",
 		"IncidentAdminConcurrencySecond1!", false, false, true,
 	)
-	application := incidents.NewApplication(pool, workbookstartuppostgres.NewWriter())
+	application, err := incidents.NewApplication(incidents.ApplicationDependencies{
+		Postgres:            pool,
+		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+	})
+	if err != nil {
+		t.Fatalf("construct Incidents application: %v", err)
+	}
 	incident := storetest.CreateIncidentInStore(t, application, firstAdmin, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-incident-admin-concurrency-create",
 		IncidentKey: "IR-ADMIN-CONCURRENCY",

@@ -15,9 +15,7 @@ var (
 	ErrMembershipExistsUsePatch  = errors.New("incidents: membership exists use patch")
 	ErrMembershipVersionConflict = errors.New("incidents: membership version conflict")
 	ErrLastIncidentAdmin         = errors.New("incidents: last incident admin")
-	ErrIncidentClosed            = errors.New("incidents: incident closed")
 	ErrIncidentIllegalTransition = errors.New("incidents: illegal incident transition")
-	ErrInitialAdminUnavailable   = errors.New("incidents: initial admin unavailable")
 )
 
 // IncidentVersionConflictError carries the optimistic-concurrency values needed

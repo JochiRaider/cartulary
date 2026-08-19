@@ -19,6 +19,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
 func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing.T) {
@@ -148,6 +149,9 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	if captured.IntegrityManifest.CodecRegistrySHA256 != recovery.VNextCodecRegistrySHA256() {
 		t.Fatalf("fresh backup codec inventory = %q; want current-only %q", captured.IntegrityManifest.CodecRegistrySHA256, recovery.VNextCodecRegistrySHA256())
 	}
+	if captured.IntegrityManifest.RecoveryStateCatalogSHA256 != stateCatalog.DigestSHA256() {
+		t.Fatalf("fresh backup catalog = %q; want current catalog %q", captured.IntegrityManifest.RecoveryStateCatalogSHA256, stateCatalog.DigestSHA256())
+	}
 
 	algorithmIDs := recovery.RequiredVNextRestoreAlgorithmIDs(stateCatalog)
 	algorithms, err := recovery.NewVNextRestoreAlgorithmCatalog(stateCatalog, algorithmIDs...)
@@ -164,6 +168,9 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	}
 	if target.commits != 1 || target.rollbacks != 0 {
 		t.Fatalf("atomic restore commits/rollbacks = %d/%d, want 1/0", target.commits, target.rollbacks)
+	}
+	if target.stateCatalogSHA256 != captured.IntegrityManifest.RecoveryStateCatalogSHA256 {
+		t.Fatalf("restore target catalog = %s, want selected %s", target.stateCatalogSHA256, captured.IntegrityManifest.RecoveryStateCatalogSHA256)
 	}
 	if got := len(target.tables); got != 84 {
 		t.Fatalf("restored tables = %d, want 84", got)
@@ -275,18 +282,21 @@ func (vNextSnapshotFake) QueryRows(
 }
 
 type vNextRestoreTargetFake struct {
-	tables     []string
-	rows       map[string][]json.RawMessage
-	objects    map[string][]byte
-	algorithms []string
-	commits    int
-	rollbacks  int
+	tables             []string
+	rows               map[string][]json.RawMessage
+	objects            map[string][]byte
+	algorithms         []string
+	commits            int
+	rollbacks          int
+	stateCatalogSHA256 string
 }
 
 func (target *vNextRestoreTargetFake) WithAtomicRestore(
 	ctx context.Context,
+	stateCatalog *recoverystate.Catalog,
 	run func(recovery.VNextRestoreMutation) error,
 ) error {
+	target.stateCatalogSHA256 = stateCatalog.DigestSHA256()
 	mutation := &vNextRestoreMutationFake{
 		rows:    make(map[string][]json.RawMessage),
 		objects: make(map[string][]byte),

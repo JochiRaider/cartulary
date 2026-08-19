@@ -12,12 +12,16 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
 const incidentBundleJobHandlerName = bundleWorkerKind
+
+func importBundleRequestID(jobID uuid.UUID) string {
+	return "incident_bundle_import:" + jobID.String()
+}
 
 type workerDiagnosticError struct {
 	classification string
@@ -86,7 +90,7 @@ type incidentBundleWorker struct {
 	jobRunner         JobRunner
 	results           incidentBundleJobResultSink
 	storage           BundleStorage
-	importFinalizer   incidents.IncidentBundleImportFinalizer
+	importFinalizer   importfinalizerport.Finalizer
 	jobFinalizer      JobSuccessFinalizer
 	portability       portabilityCoordinator
 	publicationLock   IncidentPublicationLock
@@ -99,7 +103,7 @@ type incidentBundleWorker struct {
 	now               func() time.Time
 }
 
-func newIncidentBundleWorker(store *store, pool *pgxpool.Pool, jobManager JobOperations, jobRunner JobRunner, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, publicationLock IncidentPublicationLock, projectionRebuild ImportProjectionRebuilder, sourceCatalog *sourceport.Catalog, historicalIntents HistoricalIntentPolicy, blobPort BlobPortability, limits Limits, now func() time.Time) *incidentBundleWorker {
+func newIncidentBundleWorker(store *store, pool *pgxpool.Pool, jobManager JobOperations, jobRunner JobRunner, storage BundleStorage, importFinalizer importfinalizerport.Finalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, publicationLock IncidentPublicationLock, projectionRebuild ImportProjectionRebuilder, sourceCatalog *sourceport.Catalog, historicalIntents HistoricalIntentPolicy, blobPort BlobPortability, limits Limits, now func() time.Time) *incidentBundleWorker {
 	return &incidentBundleWorker{
 		store:             store,
 		pool:              pool,
@@ -280,7 +284,7 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 		w.results.completeFailedFromError(ctx, execution, "incident_bundle_import_rejected", err)
 		return
 	}
-	requestID := incidents.ImportBundleRequestID(payload.JobID)
+	requestID := importBundleRequestID(payload.JobID)
 	importer := importer{
 		pool:              w.pool,
 		blobPort:          w.blobPort,

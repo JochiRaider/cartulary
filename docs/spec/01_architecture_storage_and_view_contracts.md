@@ -6683,9 +6683,10 @@ authoritative state from a name predicate, an unrestricted schema scan, raw
 cross-owner query, or Harness/tooling metadata at runtime.
 
 The current vNext catalog accounts for exactly 113 catalog entries under the
-current recovery-state counting model. Exactly 83 are
-`authoritative_required`. All five `graph_projection_*` tables are
-`excluded_rebuildable`; all four `collaboration_*` stream tables and
+current recovery-state counting model. Exactly 84 are
+`authoritative_required`. The four `graph_projection_result_*` tables are
+`excluded_rebuildable`; `network_flow_graph_views` is authoritative and
+`authoritative_required`. All four `collaboration_*` stream tables and
 `enterprise_auth_transactions` and `evidence_object_upload_leases` are
 `excluded_security_state` and MUST be invalidated across the restore
 generation. `evidence_blob_cleanup_claims` is `transient`,
@@ -6701,8 +6702,8 @@ contribution change before generation can pass.
 The current catalog cardinality is:
 
 ```text
-83 authoritative_required
-+ 5 excluded_rebuildable
+84 authoritative_required
++ 4 excluded_rebuildable
 + 6 excluded_security_state
 + 1 excluded_transient
 + 7 explicit exclusions

@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport"
 )
 
 type repository struct {
@@ -351,7 +352,7 @@ func (r *repository) getIncidentBundleInitialAdminForUpdate(
 ) (incidentBundleInitialAdmin, error) {
 	row, err := r.queries.GetIncidentBundleInitialAdminForUpdate(ctx, pgUUID(userID))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return incidentBundleInitialAdmin{}, ErrInitialAdminUnavailable
+		return incidentBundleInitialAdmin{}, importfinalizerport.ErrInitialAdminUnavailable
 	}
 	if err != nil {
 		return incidentBundleInitialAdmin{}, fmt.Errorf("read incident bundle initial admin: %w", err)
@@ -406,8 +407,6 @@ func membershipRecordFromSQL(row any) (MembershipRecord, error) {
 	case sqlc.GetIncidentMembershipForUpdateRow:
 		return membershipRecordFromSQLFields(typed.IncidentID, typed.UserID, typed.DisplayName, typed.Role, typed.JoinedAt, typed.AddedByUserID, typed.UpdatedAt, typed.UpdatedByUserID, typed.MembershipVersion)
 	case sqlc.ListAllIncidentMembershipsRow:
-		return membershipRecordFromSQLFields(typed.IncidentID, typed.UserID, typed.DisplayName, typed.Role, typed.JoinedAt, typed.AddedByUserID, typed.UpdatedAt, typed.UpdatedByUserID, typed.MembershipVersion)
-	case sqlc.ListIncidentMembershipsRow:
 		return membershipRecordFromSQLFields(typed.IncidentID, typed.UserID, typed.DisplayName, typed.Role, typed.JoinedAt, typed.AddedByUserID, typed.UpdatedAt, typed.UpdatedByUserID, typed.MembershipVersion)
 	case sqlc.CreateBootstrapIncidentMembershipRow:
 		return membershipRecordFromSQLFields(typed.IncidentID, typed.UserID, typed.DisplayName, typed.Role, typed.JoinedAt, typed.AddedByUserID, typed.UpdatedAt, typed.UpdatedByUserID, typed.MembershipVersion)

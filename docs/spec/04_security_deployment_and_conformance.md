@@ -1440,7 +1440,7 @@ These criteria provide direct runtime-family verification for substantive base-p
   - Verifies: REQ-01-660
 - **AC-542**: Production DDL Rebaseline v2 evidence proves that one pristine
   PostgreSQL 16 database applies the immutable versions `1..29` and the
-  owner-approved additive versions 30 and 31 under lineage
+  owner-approved additive versions `30..34` under lineage
   `cartulary.prod_ddl_rebaseline.v2`; v1, foreign, unmarked-nonzero, and
   contaminated states fail before v2 DDL with remediation-report schema v1,
   boundary `prod_ddl_rebaseline_v2`, reason `historical_migration_lineage`, and
@@ -1457,7 +1457,7 @@ These criteria provide direct runtime-family verification for substantive base-p
   `session_user`/`current_user` establishment including recycled connections,
   object ownership, explicit ACLs, `PUBLIC` revocation, default-deny future
   objects, runtime denial of migration and restore authority, and complete
-  Recovery under `cartulary_recovery`. Recovery remains exactly 113/83 with the
+  Recovery under `cartulary_recovery`. Recovery remains exactly 113/84 with the
   unique Revisions conflict-fact entry; evidence remains v2, remediation
   remains v1, and public product behavior and SQLC have no unexplained delta.
   - Verifies: REQ-01-661, REQ-04-153, TH-HARNESS-REQ-811

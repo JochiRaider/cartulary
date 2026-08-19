@@ -8,11 +8,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -20,7 +18,7 @@ import (
 )
 
 func TestIncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey_Unit(t *testing.T) {
-	request, apiErr := DecodeIncidentCreateRequest(strings.NewReader(`{
+	request, apiErr := decodeIncidentCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-01",
 		"incident_key":"  IR-E\u0301-2026-001  ",
 		"title":"  Incident E\u0301xample  ",
@@ -43,7 +41,7 @@ func TestIncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey_Unit(t *te
 	}
 	requireWritableStringNormalization(t, *request.Description, "First line\nSecond line")
 
-	_, apiErr = DecodeIncidentCreateRequest(strings.NewReader(`{
+	_, apiErr = decodeIncidentCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-01-invalid-memberships",
 		"incident_key":"IR-2026-002",
 		"title":"Example",
@@ -51,7 +49,7 @@ func TestIncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey_Unit(t *te
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "initial_memberships", "collaborator_seeding_not_supported")
 
-	_, apiErr = DecodeIncidentCreateRequest(strings.NewReader(`{
+	_, apiErr = decodeIncidentCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-01-invalid-top-level",
 		"incident_key":"IR-2026-003",
 		"title":"Example",
@@ -59,7 +57,7 @@ func TestIncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey_Unit(t *te
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "unexpected", "unknown_field")
 
-	_, apiErr = DecodeIncidentCreateRequest(strings.NewReader(`{
+	_, apiErr = decodeIncidentCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-01-server-managed",
 		"incident_key":"IR-2026-004",
 		"title":"Example",
@@ -67,7 +65,7 @@ func TestIncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey_Unit(t *te
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "incident_version", "server_managed_field")
 
-	_, apiErr = DecodeIncidentCreateRequest(strings.NewReader(`{
+	_, apiErr = decodeIncidentCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-01-invalid-tlp",
 		"incident_key":"IR-2026-005",
 		"title":"Example",
@@ -106,7 +104,7 @@ func TestIncidentRequestStringContracts(t *testing.T) {
 	}
 	for _, tc := range createCases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, apiErr := DecodeIncidentCreateRequest(strings.NewReader(createPayload(map[string]any{tc.field: tc.value})))
+			_, apiErr := decodeIncidentCreateRequest(strings.NewReader(createPayload(map[string]any{tc.field: tc.value})))
 			requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", tc.field, "invalid_value")
 		})
 	}
@@ -118,7 +116,7 @@ func TestIncidentRequestStringContracts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal patch payload: %v", err)
 	}
-	patchRequest, apiErr := DecodeIncidentPatchRequest(strings.NewReader(string(patchPayload)))
+	patchRequest, apiErr := decodeIncidentPatchRequest(strings.NewReader(string(patchPayload)))
 	if apiErr != nil {
 		t.Fatalf("decode whitespace metadata clear patch: %v", apiErr)
 	}
@@ -126,7 +124,7 @@ func TestIncidentRequestStringContracts(t *testing.T) {
 		t.Fatalf("whitespace metadata patch must clear to null, got %#v", patchRequest.CurrentPhase)
 	}
 
-	_, apiErr = DecodeIncidentPatchRequest(strings.NewReader(`{
+	_, apiErr = decodeIncidentPatchRequest(strings.NewReader(`{
 		"base_incident_version":3,
 		"tlp":" TLP:AMBER "
 	}`))
@@ -188,7 +186,7 @@ func TestIncidentListQueryUsesCoreListQueryErrors(t *testing.T) {
 }
 
 func TestIncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable_Unit(t *testing.T) {
-	request, apiErr := DecodeIncidentPatchRequest(strings.NewReader(`{
+	request, apiErr := decodeIncidentPatchRequest(strings.NewReader(`{
 		"base_incident_version":7,
 		"tlp":null,
 		"current_phase":"  containment  "
@@ -206,59 +204,31 @@ func TestIncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable_Unit(t *test
 		t.Fatalf("unexpected omitted field to be marked present: %#v", request.PrimaryExternalCaseRef)
 	}
 
-	current := incidents.IncidentRecord{
-		ID:                     uuid.MustParse("00000000-0000-0000-0000-000000000905"),
-		TLP:                    stringRef("TLP:AMBER"),
-		CurrentPhase:           stringRef("containment"),
-		PrimaryExternalCaseRef: stringRef("CASE-1"),
-		UpdatedAt:              timeRef(2026, 4, 17, 12, 0),
-		IncidentVersion:        7,
-	}
-	noOp, changed := incidents.ApplyIncidentPatch(current, incidents.IncidentPatchRequest{BaseIncidentVersion: 7}, uuid.MustParse("00000000-0000-0000-0000-000000000777"), timeRef(2026, 4, 17, 13, 0))
-	if changed {
-		t.Fatalf("expected structurally valid no-op patch to remain version-stable: %#v", noOp)
-	}
-	if noOp.IncidentVersion != current.IncidentVersion || !noOp.UpdatedAt.Equal(current.UpdatedAt) {
-		t.Fatalf("no-op patch must keep version and updated_at stable: before=%#v after=%#v", current, noOp)
-	}
-
-	material, changed := incidents.ApplyIncidentPatch(current, incidents.IncidentPatchRequest{
-		BaseIncidentVersion:    7,
-		TLP:                    incidents.OptionalNullableString{Present: true, Value: stringRef("TLP:GREEN")},
-		PrimaryExternalCaseRef: incidents.OptionalNullableString{Present: true, Value: nil},
-	}, uuid.MustParse("00000000-0000-0000-0000-000000000777"), timeRef(2026, 4, 17, 13, 0))
-	if !changed {
-		t.Fatal("expected material patch to change promoted fields")
-	}
-	if material.IncidentVersion != 8 || material.TLP == nil || *material.TLP != "TLP:GREEN" || material.PrimaryExternalCaseRef != nil {
-		t.Fatalf("unexpected material patch projection: %#v", material)
-	}
-
-	_, apiErr = DecodeIncidentPatchRequest(strings.NewReader(`{
+	_, apiErr = decodeIncidentPatchRequest(strings.NewReader(`{
 		"base_incident_version":7,
 		"title":"forbidden"
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "title", "forbidden_field")
 
-	_, apiErr = DecodeIncidentPatchRequest(strings.NewReader(`{
+	_, apiErr = decodeIncidentPatchRequest(strings.NewReader(`{
 		"tlp":"TLP:AMBER"
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "base_incident_version", "missing_required_field")
 
-	_, apiErr = DecodeIncidentPatchRequest(strings.NewReader(`{
+	_, apiErr = decodeIncidentPatchRequest(strings.NewReader(`{
 		"base_incident_version":7,
 		"tlp":"amber"
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "tlp", "invalid_value")
 
-	_, apiErr = DecodeIncidentPatchRequest(strings.NewReader(`{
+	_, apiErr = decodeIncidentPatchRequest(strings.NewReader(`{
 		"unknown":"field"
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "unknown", "unknown_field")
 }
 
 func TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit(t *testing.T) {
-	request, apiErr := DecodeMembershipCreateRequest(strings.NewReader(`{
+	request, apiErr := decodeMembershipCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-email",
 		"email":"  Analyst@Example.Test  ",
 		"role":"reviewer"
@@ -291,7 +261,7 @@ func TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit(t *testing.T) 
 		t.Fatalf("membership email target must use lookup-only resolution: target=%#v lookup=%#v", target, emailLookup)
 	}
 
-	userOnly, apiErr := DecodeMembershipCreateRequest(strings.NewReader(`{
+	userOnly, apiErr := decodeMembershipCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-user",
 		"user_id":"00000000-0000-0000-0000-000000000601",
 		"role":"viewer"
@@ -323,13 +293,13 @@ func TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit(t *testing.T) 
 		t.Fatalf("membership user_id target must use lookup-only resolution: target=%#v lookup=%#v", target, userLookup)
 	}
 
-	_, apiErr = DecodeMembershipCreateRequest(strings.NewReader(`{
+	_, apiErr = decodeMembershipCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-missing-target",
 		"role":"viewer"
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "user_id", "exactly_one_target_selector")
 
-	_, apiErr = DecodeMembershipCreateRequest(strings.NewReader(`{
+	_, apiErr = decodeMembershipCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-dual-target",
 		"user_id":"00000000-0000-0000-0000-000000000602",
 		"email":"dual@example.test",
@@ -337,14 +307,14 @@ func TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit(t *testing.T) 
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "user_id", "exactly_one_target_selector")
 
-	_, apiErr = DecodeMembershipCreateRequest(strings.NewReader(`{
+	_, apiErr = decodeMembershipCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-invalid-role",
 		"email":"solo@example.test",
 		"role":"owner"
 	}`))
 	requireClosedVocabularyRejected(t, apiErr, "role", "invalid_role")
 
-	_, apiErr = DecodeMembershipCreateRequest(strings.NewReader(`{
+	_, apiErr = decodeMembershipCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-no-invite",
 		"email":"solo@example.test",
 		"role":"viewer",
@@ -352,7 +322,7 @@ func TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit(t *testing.T) 
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "invitation_email", "unknown_field")
 
-	notFoundRequest, apiErr := DecodeMembershipCreateRequest(strings.NewReader(`{
+	notFoundRequest, apiErr := decodeMembershipCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-not-found",
 		"email":"missing@example.test",
 		"role":"viewer"
@@ -367,7 +337,7 @@ func TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit(t *testing.T) 
 	}, notFoundRequest)
 	requireAPIError(t, apiErr, http.StatusNotFound, "user_not_found", "", "")
 
-	inactiveRequest, apiErr := DecodeMembershipCreateRequest(strings.NewReader(`{
+	inactiveRequest, apiErr := decodeMembershipCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-inactive",
 		"email":"inactive@example.test",
 		"role":"viewer"
@@ -594,10 +564,6 @@ func extensionContract(t testing.TB, profileID string) extensionProfileContract 
 	return extensionProfileContract{}
 }
 
-func stringRef(value string) *string {
-	return &value
-}
-
 func performRequest(t testing.TB, handler http.Handler, method string, target string, body io.Reader) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, target, body)
@@ -822,10 +788,6 @@ func requireOpenAPIEnvelopeSchema(t testing.TB, schema map[string]any, wantDataS
 	if meta["$ref"] != "#/components/schemas/EnvelopeMeta" {
 		t.Fatalf("unexpected workbook preferences envelope meta ref: %#v", meta)
 	}
-}
-
-func timeRef(year int, month int, day int, hour int, minute int) time.Time {
-	return time.Date(year, time.Month(month), day, hour, minute, 0, 0, time.UTC)
 }
 
 type extensionProfileContract struct {

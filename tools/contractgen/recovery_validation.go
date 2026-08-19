@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	recoveryRegistrySchemaID = "cartulary.recovery_contract_registry.v1"
-	recoveryCatalogSchemaID  = "cartulary.recovery_state_catalog.v1"
+	recoveryRegistrySchemaID           = "cartulary.recovery_contract_registry.v1"
+	recoveryCatalogSchemaID            = "cartulary.recovery_state_catalog.v1"
+	recoveryGenerationRegistrySchemaID = "cartulary.recovery_generation_registry.v1"
 )
 
 var (
@@ -45,6 +46,7 @@ var (
 		"operator-recovery-journal-payload.v4.schema.json":               "cartulary.operator_recovery_journal_payload.v4",
 		"postgres-snapshot-artifact.v2.schema.json":                      "cartulary.postgres_snapshot_artifact.v2",
 		"postgres-snapshot-unit.v1.schema.json":                          "cartulary.postgres_snapshot_unit.v1",
+		"recovery-generation-registry.v1.schema.json":                    recoveryGenerationRegistrySchemaID,
 		"recovery-state-catalog.v1.schema.json":                          recoveryCatalogSchemaID,
 		"recovery-state-contribution.v1.schema.json":                     "cartulary.recovery_state_contribution.v1",
 		"restore-target-marker.v2.schema.json":                           "cartulary.restore_target_marker.v2",
@@ -52,27 +54,31 @@ var (
 		"restore-workbook-probe-registration.v1.schema.json":             "cartulary.restore_workbook_probe_registration.v1",
 	}
 	recoveryFixtureIDsByPath = map[string]string{
-		"fixtures/backup-artifact-envelope.v2.json":                        "cartulary.backup_artifact_envelope.v2",
-		"fixtures/backup-integrity-manifest.v3.json":                       "cartulary.backup_integrity_manifest.v3",
-		"fixtures/graph-projection-restore-implementation-binding.v2.json": "cartulary.graph_projection_restore_implementation_binding.v2",
-		"fixtures/graph-projection-restore-implementation-binding.v3.json": "cartulary.graph_projection_restore_implementation_binding.v3",
-		"fixtures/graph-projection-restore-rebuild-result.v2.json":         "cartulary.graph_projection_restore_rebuild_result.v2",
-		"fixtures/graph-projection-restore-rebuild-result.v3.json":         "cartulary.graph_projection_restore_rebuild_result.v3",
-		"fixtures/graph-projection-restore-source-registry.v2.json":        "cartulary.graph_projection_restore_source_registry.v2",
-		"fixtures/graph-projection-restore-source-registry.v3.json":        "cartulary.graph_projection_restore_source_registry.v3",
-		"fixtures/object-store-backup-manifest.v2.json":                    "cartulary.object_store_backup_manifest.v2",
-		"fixtures/object-store-backup-summary.v2.json":                     "cartulary.object_store_backup_summary.v2",
-		"fixtures/operator-recovery-audit-summary.v2.json":                 "cartulary.operator_recovery_audit_summary.v2",
-		"fixtures/operator-recovery-journal-payload.v2.json":               "cartulary.operator_recovery_journal_payload.v2",
-		"fixtures/operator-recovery-journal-payload.v3.json":               "cartulary.operator_recovery_journal_payload.v3",
-		"fixtures/operator-recovery-journal-payload.v4.json":               "cartulary.operator_recovery_journal_payload.v4",
-		"fixtures/postgres-snapshot-artifact.v2.json":                      "cartulary.postgres_snapshot_artifact.v2",
-		"fixtures/postgres-snapshot-unit.v1.json":                          "cartulary.postgres_snapshot_unit.v1",
-		"fixtures/recovery-state-catalog.v1.json":                          recoveryCatalogSchemaID,
-		"fixtures/recovery-state-contribution.v1.json":                     "cartulary.recovery_state_contribution.v1",
-		"fixtures/restore-target-marker.v2.json":                           "cartulary.restore_target_marker.v2",
-		"fixtures/restore-verification.v2.json":                            "cartulary.restore_verification.v2",
-		"fixtures/restore-workbook-probe-registration.v1.json":             "cartulary.restore_workbook_probe_registration.v1",
+		"fixtures/backup-artifact-envelope.v2.json":                                               "cartulary.backup_artifact_envelope.v2",
+		"fixtures/backup-integrity-manifest.v3.json":                                              "cartulary.backup_integrity_manifest.v3",
+		"fixtures/graph-projection-restore-implementation-binding.v2.json":                        "cartulary.graph_projection_restore_implementation_binding.v2",
+		"fixtures/graph-projection-restore-implementation-binding.v3.json":                        "cartulary.graph_projection_restore_implementation_binding.v3",
+		"fixtures/graph-projection-restore-implementation-binding.v3.pre-workbook-ownership.json": "cartulary.graph_projection_restore_implementation_binding.v3",
+		"fixtures/graph-projection-restore-rebuild-result.v2.json":                                "cartulary.graph_projection_restore_rebuild_result.v2",
+		"fixtures/graph-projection-restore-rebuild-result.v3.json":                                "cartulary.graph_projection_restore_rebuild_result.v3",
+		"fixtures/graph-projection-restore-source-registry.v2.json":                               "cartulary.graph_projection_restore_source_registry.v2",
+		"fixtures/graph-projection-restore-source-registry.v3.json":                               "cartulary.graph_projection_restore_source_registry.v3",
+		"fixtures/object-store-backup-manifest.v2.json":                                           "cartulary.object_store_backup_manifest.v2",
+		"fixtures/object-store-backup-summary.v2.json":                                            "cartulary.object_store_backup_summary.v2",
+		"fixtures/operator-recovery-audit-summary.v2.json":                                        "cartulary.operator_recovery_audit_summary.v2",
+		"fixtures/operator-recovery-journal-payload.v2.json":                                      "cartulary.operator_recovery_journal_payload.v2",
+		"fixtures/operator-recovery-journal-payload.v3.json":                                      "cartulary.operator_recovery_journal_payload.v3",
+		"fixtures/operator-recovery-journal-payload.v4.json":                                      "cartulary.operator_recovery_journal_payload.v4",
+		"fixtures/postgres-snapshot-artifact.v2.json":                                             "cartulary.postgres_snapshot_artifact.v2",
+		"fixtures/postgres-snapshot-unit.v1.json":                                                 "cartulary.postgres_snapshot_unit.v1",
+		"fixtures/recovery-generation-registry.v1.json":                                           recoveryGenerationRegistrySchemaID,
+		"fixtures/recovery-state-catalog.v1.graph-v2.json":                                        recoveryCatalogSchemaID,
+		"fixtures/recovery-state-catalog.v1.json":                                                 recoveryCatalogSchemaID,
+		"fixtures/recovery-state-catalog.v1.pre-workbook-ownership.json":                          recoveryCatalogSchemaID,
+		"fixtures/recovery-state-contribution.v1.json":                                            "cartulary.recovery_state_contribution.v1",
+		"fixtures/restore-target-marker.v2.json":                                                  "cartulary.restore_target_marker.v2",
+		"fixtures/restore-verification.v2.json":                                                   "cartulary.restore_verification.v2",
+		"fixtures/restore-workbook-probe-registration.v1.json":                                    "cartulary.restore_workbook_probe_registration.v1",
 	}
 	createTablePattern = regexp.MustCompile(`(?i)\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:public\.)?([a-z][a-z0-9_]*)`)
 	dropTablePattern   = regexp.MustCompile(`(?i)\bDROP\s+TABLE(?:\s+IF\s+EXISTS)?\s+(?:public\.)?([a-z][a-z0-9_]*)`)
@@ -196,6 +202,9 @@ func validateRecoveryContractFamily(root string) error {
 	if err := validateGraphProjectionRestoreV3Contracts(base); err != nil {
 		return err
 	}
+	if err := validateRecoveryGenerationRegistry(base); err != nil {
+		return err
+	}
 	catalog, err := readRecoveryObject(base, "fixtures/recovery-state-catalog.v1.json")
 	if err != nil {
 		return err
@@ -209,6 +218,247 @@ func validateRecoveryContractFamily(root string) error {
 		return err
 	}
 	return validateRecoverySnapshotFixture(snapshot, requiredTables)
+}
+
+func validateRecoveryGenerationRegistry(base string) error {
+	registry, err := readRecoveryObject(base, "fixtures/recovery-generation-registry.v1.json")
+	if err != nil {
+		return err
+	}
+	if err := requireAllowedKeys(registry, stringSet("schema_id", "generations"), "Recovery generation registry"); err != nil {
+		return err
+	}
+	if registry["schema_id"] != recoveryGenerationRegistrySchemaID {
+		return fmt.Errorf("recovery generation registry has the wrong schema_id")
+	}
+	generations, err := objectArray(registry["generations"], "Recovery generation registry generations")
+	if err != nil {
+		return err
+	}
+	wantIDs := []string{
+		"recovery.current.workbook_owned.graph_v3",
+		"recovery.historical.incidents_owned.graph_v3",
+		"recovery.historical.graph_v2",
+	}
+	wantCatalogPaths := []string{
+		"fixtures/recovery-state-catalog.v1.json",
+		"fixtures/recovery-state-catalog.v1.pre-workbook-ownership.json",
+		"fixtures/recovery-state-catalog.v1.graph-v2.json",
+	}
+	wantBindingPaths := []string{
+		"fixtures/graph-projection-restore-implementation-binding.v3.json",
+		"fixtures/graph-projection-restore-implementation-binding.v3.pre-workbook-ownership.json",
+		"fixtures/graph-projection-restore-implementation-binding.v2.json",
+	}
+	if len(generations) != len(wantIDs) {
+		return fmt.Errorf("recovery generation registry must contain exactly three generations")
+	}
+	seenPairs := map[string]struct{}{}
+	for index, generation := range generations {
+		label := fmt.Sprintf("Recovery generation registry generations[%d]", index+1)
+		if err := requireAllowedKeys(generation, stringSet("generation_id", "capture_current", "catalog", "codec_registry", "graph"), label); err != nil {
+			return err
+		}
+		generationID, err := requiredString(generation, "generation_id", label)
+		if err != nil {
+			return err
+		}
+		captureCurrent, err := requiredBool(generation, "capture_current", label)
+		if err != nil {
+			return err
+		}
+		if generationID != wantIDs[index] || captureCurrent != (index == 0) {
+			return fmt.Errorf("%s is not the exact generation at position %d", generationID, index+1)
+		}
+		catalog, err := asObject(generation["catalog"], label+".catalog")
+		if err != nil {
+			return err
+		}
+		catalogDigest, err := validateRecoveryGenerationCatalogBinding(base, catalog, wantCatalogPaths[index], label+".catalog")
+		if err != nil {
+			return err
+		}
+		codecs, err := asObject(generation["codec_registry"], label+".codec_registry")
+		if err != nil {
+			return err
+		}
+		codecDigest, err := validateRecoveryGenerationCodecBinding(codecs, label+".codec_registry")
+		if err != nil {
+			return err
+		}
+		pair := catalogDigest + "\x00" + codecDigest
+		if _, duplicate := seenPairs[pair]; duplicate {
+			return fmt.Errorf("recovery generation registry duplicates a catalog/codec lookup pair")
+		}
+		seenPairs[pair] = struct{}{}
+		graph, err := asObject(generation["graph"], label+".graph")
+		if err != nil {
+			return err
+		}
+		if err := validateRecoveryGenerationGraphBinding(base, graph, wantBindingPaths[index], catalogDigest, label+".graph"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateRecoveryGenerationCatalogBinding(
+	base string,
+	binding map[string]any,
+	wantPath string,
+	label string,
+) (string, error) {
+	keys := stringSet(
+		"artifact_path", "schema_id", "canonical_sha256", "catalog_digest_sha256",
+		"contribution_count", "authored_table_count", "required_table_count", "object_family_count",
+	)
+	if err := requireAllowedKeys(binding, keys, label); err != nil {
+		return "", err
+	}
+	path, err := requiredString(binding, "artifact_path", label)
+	if err != nil {
+		return "", err
+	}
+	if path != wantPath || binding["schema_id"] != recoveryCatalogSchemaID {
+		return "", fmt.Errorf("%s does not bind the required immutable catalog", label)
+	}
+	catalog, canonicalSHA256, err := readRecoveryCanonicalArtifact(base, path)
+	if err != nil {
+		return "", err
+	}
+	if binding["canonical_sha256"] != canonicalSHA256 || catalog["schema_id"] != recoveryCatalogSchemaID {
+		return "", fmt.Errorf("%s catalog canonical bytes or schema mismatch", label)
+	}
+	catalogDigest, err := requiredString(catalog, "catalog_digest_sha256", "contracts/recovery/"+path)
+	if err != nil {
+		return "", err
+	}
+	if binding["catalog_digest_sha256"] != catalogDigest {
+		return "", fmt.Errorf("%s catalog digest does not match the frozen document", label)
+	}
+	contributions, err := objectArray(catalog["contribution_digests"], label+" contribution digests")
+	if err != nil {
+		return "", err
+	}
+	tables, err := objectArray(catalog["tables"], label+" tables")
+	if err != nil {
+		return "", err
+	}
+	objects, err := objectArray(catalog["object_families"], label+" object families")
+	if err != nil {
+		return "", err
+	}
+	required := int64(0)
+	for _, table := range tables {
+		if table["backup_inclusion"] == "authoritative_required" {
+			required++
+		}
+	}
+	wantCounts := map[string]int64{
+		"contribution_count":   int64(len(contributions)),
+		"authored_table_count": int64(len(tables)),
+		"required_table_count": required,
+		"object_family_count":  int64(len(objects)),
+	}
+	for field, want := range wantCounts {
+		got, err := requiredInt(binding, field, label)
+		if err != nil {
+			return "", err
+		}
+		if got != want {
+			return "", fmt.Errorf("%s.%s = %d, want %d from frozen catalog", label, field, got, want)
+		}
+	}
+	return catalogDigest, nil
+}
+
+func validateRecoveryGenerationCodecBinding(binding map[string]any, label string) (string, error) {
+	if err := requireAllowedKeys(binding, stringSet("schema_ids", "digest_sha256"), label); err != nil {
+		return "", err
+	}
+	schemaIDs, err := stringArray(binding["schema_ids"], label+".schema_ids", true)
+	if err != nil {
+		return "", err
+	}
+	if err := requireSortedUniqueStrings(schemaIDs, label+".schema_ids"); err != nil {
+		return "", err
+	}
+	digest, err := requiredString(binding, "digest_sha256", label)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256([]byte("CARTULARY-RECOVERY-CODEC-REGISTRY-VNEXT\n" + strings.Join(schemaIDs, "\n") + "\n"))
+	if digest != hex.EncodeToString(sum[:]) {
+		return "", fmt.Errorf("%s digest does not match its sorted schema IDs", label)
+	}
+	return digest, nil
+}
+
+func validateRecoveryGenerationGraphBinding(
+	base string,
+	graph map[string]any,
+	wantBindingPath string,
+	catalogDigest string,
+	label string,
+) error {
+	if err := requireAllowedKeys(graph, stringSet("algorithm_id", "source_registry", "implementation_binding"), label); err != nil {
+		return err
+	}
+	algorithmID, err := requiredString(graph, "algorithm_id", label)
+	if err != nil {
+		return err
+	}
+	for field, wantPath := range map[string]string{
+		"source_registry":        pathForGraphGeneration(wantBindingPath),
+		"implementation_binding": wantBindingPath,
+	} {
+		binding, err := asObject(graph[field], label+"."+field)
+		if err != nil {
+			return err
+		}
+		if err := requireAllowedKeys(binding, stringSet("artifact_path", "schema_id", "canonical_sha256"), label+"."+field); err != nil {
+			return err
+		}
+		path, err := requiredString(binding, "artifact_path", label+"."+field)
+		if err != nil {
+			return err
+		}
+		if path != wantPath {
+			return fmt.Errorf("%s.%s does not bind the exact frozen artifact", label, field)
+		}
+		artifact, canonicalSHA256, err := readRecoveryCanonicalArtifact(base, path)
+		if err != nil {
+			return err
+		}
+		if binding["canonical_sha256"] != canonicalSHA256 || binding["schema_id"] != artifact["schema_id"] {
+			return fmt.Errorf("%s.%s canonical bytes or schema mismatch", label, field)
+		}
+		if field == "implementation_binding" &&
+			(artifact["algorithm_id"] != algorithmID || artifact["recovery_state_catalog_sha256"] != catalogDigest) {
+			return fmt.Errorf("%s implementation binding does not match its algorithm and catalog", label)
+		}
+	}
+	return nil
+}
+
+func pathForGraphGeneration(bindingPath string) string {
+	if strings.Contains(bindingPath, ".v2.") {
+		return "fixtures/graph-projection-restore-source-registry.v2.json"
+	}
+	return "fixtures/graph-projection-restore-source-registry.v3.json"
+}
+
+func readRecoveryCanonicalArtifact(base string, relativePath string) (map[string]any, string, error) {
+	artifact, err := readRecoveryObject(base, relativePath)
+	if err != nil {
+		return nil, "", err
+	}
+	canonical, err := canonicalizeDecoded(artifact)
+	if err != nil {
+		return nil, "", err
+	}
+	sum := sha256.Sum256([]byte(canonical))
+	return artifact, hex.EncodeToString(sum[:]), nil
 }
 
 func validateGraphProjectionRestoreV2Contracts(base string) error {

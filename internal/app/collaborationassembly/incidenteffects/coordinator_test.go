@@ -27,7 +27,6 @@ func (stub *applicationStub) TransitionIncidentLifecycle(
 	uuid.UUID,
 	string,
 	incidents.IncidentLifecycleRequest,
-	[]byte,
 	string,
 	time.Time,
 ) (incidents.IncidentLifecycleResult, error) {
@@ -106,7 +105,7 @@ func TestCoordinatorEmitsOnlyAfterFreshTerminalCommit(t *testing.T) {
 	}
 	if _, err := coordinator.CoordinateIncidentLifecycle(
 		context.Background(), authn.UserRecord{}, incidentID, "close",
-		incidents.IncidentLifecycleRequest{}, nil, "request", time.Now(),
+		incidents.IncidentLifecycleRequest{}, "request", time.Now(),
 	); err != nil {
 		t.Fatalf("coordinate close: %v", err)
 	}
@@ -121,14 +120,14 @@ func TestCoordinatorEmitsOnlyAfterFreshTerminalCommit(t *testing.T) {
 	application.lifecycleResult.Commit = incidents.ReplayTerminalMutationCommit()
 	if _, err := coordinator.CoordinateIncidentLifecycle(
 		context.Background(), authn.UserRecord{}, incidentID, "close",
-		incidents.IncidentLifecycleRequest{}, nil, "request", time.Now(),
+		incidents.IncidentLifecycleRequest{}, "request", time.Now(),
 	); err != nil {
 		t.Fatalf("coordinate close replay: %v", err)
 	}
 	application.lifecycleResult.Commit = incidents.NewTerminalMutationCommit(uuid.New())
 	if _, err := coordinator.CoordinateIncidentLifecycle(
 		context.Background(), authn.UserRecord{}, incidentID, "reopen",
-		incidents.IncidentLifecycleRequest{}, nil, "request", time.Now(),
+		incidents.IncidentLifecycleRequest{}, "request", time.Now(),
 	); err != nil {
 		t.Fatalf("coordinate reopen: %v", err)
 	}
@@ -146,7 +145,7 @@ func TestCoordinatorSuppressesEffectsForFailureAndInvalidResults(t *testing.T) {
 	}
 	if _, err := coordinator.CoordinateIncidentLifecycle(
 		context.Background(), authn.UserRecord{}, uuid.New(), "close",
-		incidents.IncidentLifecycleRequest{}, nil, "request", time.Now(),
+		incidents.IncidentLifecycleRequest{}, "request", time.Now(),
 	); err == nil {
 		t.Fatal("application failure must be returned")
 	}
@@ -158,7 +157,7 @@ func TestCoordinatorSuppressesEffectsForFailureAndInvalidResults(t *testing.T) {
 	application.lifecycleResult = incidents.IncidentLifecycleResult{}
 	if _, err := coordinator.CoordinateIncidentLifecycle(
 		context.Background(), authn.UserRecord{}, uuid.New(), "close",
-		incidents.IncidentLifecycleRequest{}, nil, "request", time.Now(),
+		incidents.IncidentLifecycleRequest{}, "request", time.Now(),
 	); err == nil {
 		t.Fatal("unknown disposition must fail closed")
 	}

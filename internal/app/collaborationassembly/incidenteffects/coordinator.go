@@ -20,7 +20,6 @@ type Application interface {
 		uuid.UUID,
 		string,
 		incidents.IncidentLifecycleRequest,
-		[]byte,
 		string,
 		time.Time,
 	) (incidents.IncidentLifecycleResult, error)
@@ -63,7 +62,6 @@ func (c *Coordinator) CoordinateIncidentLifecycle(
 	incidentID uuid.UUID,
 	action string,
 	request incidents.IncidentLifecycleRequest,
-	requestHash []byte,
 	requestID string,
 	now time.Time,
 ) (incidents.IncidentLifecycleResult, error) {
@@ -73,7 +71,6 @@ func (c *Coordinator) CoordinateIncidentLifecycle(
 		incidentID,
 		action,
 		request,
-		requestHash,
 		requestID,
 		now,
 	)

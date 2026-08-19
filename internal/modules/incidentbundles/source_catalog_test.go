@@ -14,7 +14,21 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/incidentportabilityassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 )
+
+func TestIncidentsSourcePortRejectsWrongPreparedTypeWithoutPanic_Unit(t *testing.T) {
+	port := incidents.NewIncidentBundleSourcePort()
+	importContext := sourceport.ImportContext{OperationID: "wrong-prepared-type"}
+	prepared := sourceport.NewPrepared(
+		"module.incidents:incident",
+		importContext.OperationID,
+		"not prepared files",
+	)
+	if err := port.ApplyImportTx(context.Background(), nil, prepared, importContext); !errors.Is(err, sourceport.ErrInvalidCatalog) {
+		t.Fatalf("wrong prepared type error = %v; want ErrInvalidCatalog", err)
+	}
+}
 
 func TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit(t *testing.T) {
 	catalog, err := incidentportabilityassembly.NewCatalog()

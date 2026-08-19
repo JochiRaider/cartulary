@@ -44,6 +44,25 @@ func HistoricalGraphProjectionImplementationBindingV2() GraphProjectionImplement
 	return graphprojection.HistoricalRestoreImplementationBindingV2()
 }
 
+func FrozenGraphProjectionSourceRegistryRef(digest string) GraphProjectionSourceRegistryRef {
+	current := CurrentGraphProjectionSourceRegistryRef()
+	if digest == current.SHA256 {
+		return current
+	}
+	historical := HistoricalGraphProjectionSourceRegistryV2Ref()
+	if digest == historical.SHA256 {
+		return historical
+	}
+	return GraphProjectionSourceRegistryRef{}
+}
+
+func FrozenGraphProjectionImplementationBinding(
+	body []byte,
+	digest string,
+) GraphProjectionImplementationBindingRef {
+	return graphprojection.FrozenRestoreImplementationBinding(body, digest)
+}
+
 // RestoredGraphProjectionSourceState is an opaque Recovery-owned capability;
 // source-owner registrations hold their own narrow restored-state readers.
 type RestoredGraphProjectionSourceState struct{}

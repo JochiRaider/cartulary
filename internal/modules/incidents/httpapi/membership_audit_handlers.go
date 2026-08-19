@@ -23,7 +23,7 @@ func parseMembershipAuditScope(rawQuery string) (listquery.Result, *platformhttp
 	return listquery.Result{}, invalidListQuery(queryErr.ReasonCode)
 }
 
-func (s *Service) handleMembershipAuditEvents(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
+func (s *service) handleMembershipAuditEvents(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return

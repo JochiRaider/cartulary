@@ -174,7 +174,8 @@
       "output_order": 9,
       "generated_outputs": [
         "internal/gen/contractrecovery/artifacts_gen.go",
-        "internal/gen/contractrecovery/graph_projection_restore_binding_gen.go"
+        "internal/gen/contractrecovery/graph_projection_restore_binding_gen.go",
+        "internal/gen/contractrecovery/recovery_generation_registry_gen.go"
       ],
       "typescript_projections": [],
       "activation_dependency_ids": [],

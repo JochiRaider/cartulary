@@ -33,8 +33,8 @@
     },
     "tables": {
       "type": "array",
-      "minItems": 118,
-      "maxItems": 118,
+      "minItems": 113,
+      "maxItems": 113,
       "items": {
         "type": "object",
         "additionalProperties": false,

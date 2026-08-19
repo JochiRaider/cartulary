@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 )
 
 // ModuleDependencies is the complete Incident Bundles production composition
@@ -24,7 +24,7 @@ type ModuleDependencies struct {
 	JobRunner               JobRunner
 	Storage                 BundleStorage
 	Limits                  Limits
-	ImportFinalizer         incidents.IncidentBundleImportFinalizer
+	ImportFinalizer         importfinalizerport.Finalizer
 	JobFinalizer            JobSuccessFinalizer
 	Portability             *PortabilityOrchestrator
 	IncidentPublicationLock IncidentPublicationLock

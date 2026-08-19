@@ -293,28 +293,6 @@ func sortBackupSetsForObjectStoreBackupLatest(backupSets []BackupSet) {
 	})
 }
 
-func (s *Store) ListBackupsDueForRestoreVerification(ctx context.Context, asOf time.Time, verificationBasisSHA256 string) ([]BackupSet, error) {
-	if !validOptionalSHA256Hex(verificationBasisSHA256) {
-		return nil, ErrInvalidVerificationBasis
-	}
-	rows, err := sqlc.New(s.pool).ListBackupSetsDueForRestoreVerification(ctx, sqlc.ListBackupSetsDueForRestoreVerificationParams{
-		RetainedUntil:               pgTimestamptz(normalizeAsOf(asOf)),
-		LastVerificationBasisSha256: pgOptionalText(verificationBasisSHA256),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("list backup sets due for restore verification: %w", err)
-	}
-	backupSets := make([]BackupSet, 0, len(rows))
-	for _, row := range rows {
-		backupSet, err := backupSetFromSQL(row)
-		if err != nil {
-			return nil, err
-		}
-		backupSets = append(backupSets, backupSet)
-	}
-	return backupSets, nil
-}
-
 func (s *Store) UpdateVerificationState(ctx context.Context, backupSetID uuid.UUID, state VerificationState, lastVerifiedRestoreAt *time.Time, verificationBasisSHA256 ...string) (BackupSet, error) {
 	basis := ""
 	if len(verificationBasisSHA256) > 0 {
