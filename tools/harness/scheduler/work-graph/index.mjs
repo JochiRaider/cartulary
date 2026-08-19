@@ -20,6 +20,7 @@ export {
 } from "./resource-claims.mjs";
 export {
   captureCapabilitySnapshot,
+  cpuCapacityWithSafetyMargin,
   resourceCapacities,
 } from "./capability.mjs";
 export { executeUnitProcess } from "./executor.mjs";

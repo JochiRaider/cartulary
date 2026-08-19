@@ -162,6 +162,8 @@ func TestScopeV2OmitsExactResourcesAndPrivateLedgerIsOwnerOnly(t *testing.T) {
 		testRunIDEnv:      "run-ledger",
 	}
 	for _, event := range []Event{
+		{Type: EventServiceStarted, Service: ServicePostgres, PID: 9090, Details: map[string]any{"host": "forbidden.example", "port": "5432", "user": "cartulary"}},
+		{Type: EventServiceStarted, Service: ServiceObjectStore, PID: 9090, Details: map[string]any{"endpoint": "forbidden.example:9000", "secure": false}},
 		{Type: EventPostgresDBCreated, Name: "ct_private", PID: 9090},
 		{Type: EventS3BucketCreated, Name: "ct-private", PID: 9090},
 		{Type: EventWebE2EFixtureRetired, PID: 9090, Details: map[string]any{"database_name": "ct_private", "bucket": "ct-private", "target": "browser-e2e"}},
@@ -211,7 +213,7 @@ func TestScopeV2OmitsExactResourcesAndPrivateLedgerIsOwnerOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, forbidden := range []string{"created_databases", "created_buckets", "retired_fixtures", "by_package", "by_test", "access_key", "secret_key", "raw_error", "log_tail"} {
+	for _, forbidden := range []string{"created_databases", "created_buckets", "retired_fixtures", "by_package", "by_test", "access_key", "secret_key", "docker_endpoint", "endpoint", "forbidden.example", "raw_error", "log_tail"} {
 		if strings.Contains(string(summary), forbidden) {
 			t.Fatalf("bounded public scope retained %q", forbidden)
 		}
@@ -781,6 +783,64 @@ func TestSummarizeBoundsStrategyDiagnosticsWithoutLosingTotals(t *testing.T) {
 	if scope.Fixture.ByStrategy[0].Strategy != "strategy-39" ||
 		scope.Fixture.ByStrategy[31].Strategy != "strategy-08" {
 		t.Fatalf("bounded strategy ordering is not deterministic: first=%#v last=%#v", scope.Fixture.ByStrategy[0], scope.Fixture.ByStrategy[31])
+	}
+}
+
+func TestSummarizeStrategyIdentityIncludesFixtureClassAndCountTieOrdering(t *testing.T) {
+	env := map[string]string{
+		SuiteIDEnv:        "suite-strategy-identity",
+		TargetEnv:         "fixture-tie",
+		testResultsDirEnv: t.TempDir(),
+		testRunIDEnv:      "run-strategy-identity",
+	}
+
+	fixtures := []struct {
+		timestamp    string
+		durationMS   int64
+		fixtureClass string
+		testName     string
+	}{
+		{timestamp: "2026-04-25T12:00:00Z", durationMS: 10, fixtureClass: "reset", testName: "TestResetA"},
+		{timestamp: "2026-04-25T12:00:01Z", durationMS: 10, fixtureClass: "reset", testName: "TestResetB"},
+		{timestamp: "2026-04-25T12:00:02Z", durationMS: 20, fixtureClass: "transaction", testName: "TestTxn"},
+	}
+	for index, fixture := range fixtures {
+		if err := RecordEvent(env, Event{
+			Type:      EventPostgresTransaction,
+			Timestamp: fixture.timestamp,
+			PID:       400 + index,
+			Name:      fmt.Sprintf("ct_fixture_%d", index),
+			Details: map[string]any{
+				"duration_ms":          fixture.durationMS,
+				"preparation_strategy": PostgresPreparationTemplateClone,
+				"fixture_policy":       PostgresFixturePolicyTransaction,
+				"fixture_class":        fixture.fixtureClass,
+				"reuse_scope":          FixtureReuseTransaction,
+				"caller_package":       "internal/modules/auth",
+				"test_name":            fixture.testName,
+				"target":               "fixture-tie",
+			},
+		}); err != nil {
+			t.Fatalf("record fixture %s: %v", fixture.testName, err)
+		}
+	}
+
+	scope, ok, err := Summarize(env)
+	if err != nil || !ok {
+		t.Fatalf("summarize strategy identity: ok=%t err=%v", ok, err)
+	}
+	if scope.Fixture.StrategyAggregateCount != 2 || len(scope.Fixture.ByStrategy) != 2 {
+		t.Fatalf("strategy aggregates = count %d values %#v, want two distinct fixture classes", scope.Fixture.StrategyAggregateCount, scope.Fixture.ByStrategy)
+	}
+	first := scope.Fixture.ByStrategy[0]
+	second := scope.Fixture.ByStrategy[1]
+	if first.Service != ServicePostgres || first.Target != "fixture-tie" || first.Operation != "transaction" ||
+		first.Strategy != PostgresPreparationTemplateClone || first.FixturePolicy != PostgresFixturePolicyTransaction ||
+		first.FixtureClass != "reset" || first.ReuseScope != FixtureReuseTransaction || first.Count != 2 || first.TotalDurationMS != 20 {
+		t.Fatalf("first strategy aggregate = %#v, want exact reset aggregate", first)
+	}
+	if second.FixtureClass != "transaction" || second.Count != 1 || second.TotalDurationMS != 20 {
+		t.Fatalf("second strategy aggregate = %#v, want exact transaction aggregate", second)
 	}
 }
 

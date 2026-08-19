@@ -46,6 +46,26 @@ function parseOverride(value, root) {
   return override;
 }
 
+export function cpuCapacityWithSafetyMargin(cpuTokens, policy) {
+  const minimum = policy.minimum;
+  const marginPercent = policy.safety_margin_percent ?? 0;
+  if (
+    !Number.isSafeInteger(cpuTokens) ||
+    cpuTokens < 1 ||
+    !Number.isSafeInteger(minimum) ||
+    minimum < 1 ||
+    !Number.isSafeInteger(marginPercent) ||
+    marginPercent < 0 ||
+    marginPercent > 100
+  ) {
+    throw new Error("invalid CPU capacity safety-margin inputs");
+  }
+  return Math.max(
+    minimum,
+    Math.floor((cpuTokens * 100) / (100 + marginPercent)),
+  );
+}
+
 function automaticCapacities({ registry, cpuTokens, detectedMemory, detectedProcessLimit }) {
   const policies = registry.capacity_policies;
   const processBound = cpuTokens * policies.process_slots.cpu_multiplier;
@@ -88,7 +108,10 @@ export function captureCapabilitySnapshot({
   override: overrideInput,
   services = {},
 } = {}) {
-  const cpuTokens = Math.max(1, os.availableParallelism?.() ?? os.cpus().length ?? 1);
+  const detectedCPUTokens = Math.max(
+    1,
+    os.availableParallelism?.() ?? os.cpus().length ?? 1,
+  );
   const cgroupMemory = readPositiveInteger("/sys/fs/cgroup/memory.max");
   const hostMemory = Math.max(1, os.totalmem());
   const detectedMemory = cgroupMemory ? Math.min(cgroupMemory, hostMemory) : hostMemory;
@@ -96,6 +119,10 @@ export function captureCapabilitySnapshot({
   const override = parseOverride(overrideInput, root);
   const registry = loadSchedulerResourceRegistry(
     root ? path.join(root, "tools/scheduler_resource_registry.json") : undefined,
+  );
+  const cpuTokens = cpuCapacityWithSafetyMargin(
+    detectedCPUTokens,
+    registry.capacity_policies.cpu_tokens,
   );
   const automatic = automaticCapacities({
     registry,

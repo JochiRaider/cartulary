@@ -52,6 +52,30 @@ function unit(unitID, claims, work, needs = []) {
   };
 }
 
+function expectedCurrentRunOutputs(unitValue, rowIDs) {
+  const safeUnitID = unitValue.unit_id.replaceAll(/[^A-Za-z0-9_.-]+/gu, "-");
+  return [...rowIDs.map((rowID) => `rows/${rowID}.json`), `unit-results/${safeUnitID}.json`].sort();
+}
+
+function assertCanonicalCurrentRunOutputs(unitValue, rowIDs, label) {
+  assert.deepEqual(
+    unitValue.current_run_evidence_outputs,
+    expectedCurrentRunOutputs(unitValue, rowIDs),
+    `${label} must publish only selected row evidence and one canonical unit result`,
+  );
+  assert.equal(
+    unitValue.current_run_evidence_outputs.filter((output) => output.startsWith("unit-results/"))
+      .length,
+    1,
+    `${label} must publish exactly one canonical unit result`,
+  );
+  assert.equal(
+    new Set(unitValue.current_run_evidence_outputs).size,
+    unitValue.current_run_evidence_outputs.length,
+    `${label} outputs must be unique`,
+  );
+}
+
 function assertGraphCutover() {
   assert.equal(workGraphCacheRootRelative, ".cache/cartulary/graph-v2");
   const compiler = new WorkGraphCompiler(root);
@@ -117,10 +141,7 @@ function assertGraphCutover() {
   );
   assert.equal(dedicatedUnits.length, 1, "compatible dedicated rows must share one Go process");
   assert.equal(dedicatedUnits[0].fixture_lease, "postgres_dedicated");
-  assert.deepEqual(
-    dedicatedUnits[0].current_run_evidence_outputs,
-    dedicatedRows.map((rowID) => `rows/${rowID}.json`),
-  );
+  assertCanonicalCurrentRunOutputs(dedicatedUnits[0], dedicatedRows, "dedicated Go batch");
   assert.equal(dedicatedUnits[0].command.environment.GOMAXPROCS, "1");
 
   const migrationRows = [
@@ -135,10 +156,7 @@ function assertGraphCutover() {
   );
   assert.equal(migrationUnits.length, 1, "compatible migration rows must share one Go process");
   assert.equal(migrationUnits[0].fixture_lease, "postgres_migration");
-  assert.deepEqual(
-    migrationUnits[0].current_run_evidence_outputs,
-    migrationRows.map((rowID) => `rows/${rowID}.json`),
-  );
+  assertCanonicalCurrentRunOutputs(migrationUnits[0], migrationRows, "migration Go batch");
 
   const processGlobalRows = [
     "platform.jobs.integration.claim_recovery_and_publication",

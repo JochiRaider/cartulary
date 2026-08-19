@@ -102,7 +102,12 @@
       "required": ["source", "minimum"],
       "properties": {
         "source": { "const": "host_parallelism" },
-        "minimum": { "const": 1 }
+        "minimum": { "const": 1 },
+        "safety_margin_percent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
       }
     },
     "host_memory": {

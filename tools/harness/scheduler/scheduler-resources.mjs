@@ -79,6 +79,16 @@ export function validateSchedulerResourceRegistrySemantics(
       throw new Error(`${label}.capacity_policies.${field} has an unsupported source`);
     }
   }
+  const cpuSafetyMargin = registry.capacity_policies.cpu_tokens.safety_margin_percent ?? 0;
+  if (
+    !Number.isSafeInteger(cpuSafetyMargin) ||
+    cpuSafetyMargin < 0 ||
+    cpuSafetyMargin > 100
+  ) {
+    throw new Error(
+      `${label}.capacity_policies.cpu_tokens.safety_margin_percent must be an integer from 0 through 100`,
+    );
+  }
   if (registry.capacity_policies.postgres_lanes.default !== 8) {
     throw new Error(`${label}.capacity_policies.postgres_lanes.default must be 8`);
   }

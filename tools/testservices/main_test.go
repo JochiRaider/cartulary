@@ -443,6 +443,8 @@ func TestObjectStoreReadinessClassificationUsesTypedOutcomeAndIndependentDeadlin
 	time.Sleep(time.Millisecond)
 	deadlineErr := harness.WaitReady(deadlineCtx)
 	cancelDeadline()
+	rawCleanupErr := errors.New("stop container b56c88f3a1b0 through unix:///var/run/docker.sock: context deadline exceeded")
+	deadlineErr = errors.Join(deadlineErr, rawCleanupErr)
 	deadlineFailure := failureSummary(
 		suiteservices.ServiceObjectStore,
 		stageObjectStoreStart,
@@ -454,6 +456,33 @@ func TestObjectStoreReadinessClassificationUsesTypedOutcomeAndIndependentDeadlin
 		deadlineFailure.ObjectStoreReadiness == nil ||
 		deadlineFailure.ObjectStoreReadiness.Outcome != "deadline_expired" {
 		t.Fatalf("unexpected deadline classification: %#v", deadlineFailure)
+	}
+	for _, forbidden := range []string{"docker.sock", "b56c88f3a1b0", rawCleanupErr.Error(), "127.0.0.1:1"} {
+		if strings.Contains(deadlineFailure.Message, forbidden) {
+			t.Fatalf("typed readiness failure message retained %q: %q", forbidden, deadlineFailure.Message)
+		}
+	}
+	for _, required := range []string{"phase=initial_lane", "stage=list", "outcome=deadline_expired", "attempts=1", "cause_counts="} {
+		if !strings.Contains(deadlineFailure.Message, required) {
+			t.Fatalf("typed readiness failure message omitted %q: %q", required, deadlineFailure.Message)
+		}
+	}
+
+	deps := defaultTestDependencies(t)
+	deps.env[suiteservices.SuiteIDEnv] = "suite-redaction"
+	recordFailureAndRefresh(deps.dependencies, deps.env, deadlineFailure)
+	retained, err := os.ReadFile(summaryPath(deps))
+	if err != nil {
+		t.Fatalf("read retained readiness failure: %v", err)
+	}
+	for _, forbidden := range []string{"b56c88f3a1b0", rawCleanupErr.Error(), "127.0.0.1:1", "raw_error", "log_tail"} {
+		if strings.Contains(string(retained), forbidden) {
+			t.Fatalf("retained readiness failure contained %q: %s", forbidden, retained)
+		}
+	}
+	retainedScope := decodeScope(t, retained)
+	if retainedScope.Failure == nil || retainedScope.Failure.Message != deadlineFailure.Message {
+		t.Fatalf("retained readiness failure was not bounded: %#v", retainedScope.Failure)
 	}
 
 	canceledCtx, cancel := context.WithCancel(context.Background())
@@ -580,8 +609,20 @@ func TestRunFailsFastWhenSuitePreflightFails(t *testing.T) {
 		t.Fatalf("preflight failure must stop before services or child, postgres=%t object_store=%t child=%t", startedPostgres, startedObjectStore, startedChild)
 	}
 	scope := loadScope(t, deps)
-	if scope.Preflight.Status != "fail" || scope.Preflight.DockerEndpoint != "unix:///var/run/docker.sock" {
+	retainedPreflight, err := os.ReadFile(summaryPath(deps))
+	if err != nil {
+		t.Fatalf("read retained preflight failure: %v", err)
+	}
+	for _, forbidden := range []string{"docker.sock", "unix://", "/containers/", "raw_error", "log_tail"} {
+		if strings.Contains(string(retainedPreflight), forbidden) {
+			t.Fatalf("retained preflight failure contained %q: %s", forbidden, retainedPreflight)
+		}
+	}
+	if scope.Preflight.Status != "fail" {
 		t.Fatalf("unexpected preflight summary: %#v", scope.Preflight)
+	}
+	if scope.Preflight.Message != "suite service preflight failed" || strings.Contains(scope.Preflight.Message, "docker.sock") {
+		t.Fatalf("preflight summary retained raw endpoint details: %#v", scope.Preflight)
 	}
 	if scope.Preflight.FailureClass != suiteservices.FailureClassInfra || scope.Preflight.FailureReason != "preflight_error" {
 		t.Fatalf("unexpected preflight failure fields: %#v", scope.Preflight)
@@ -758,6 +799,15 @@ func TestRunRecordsObjectStoreStartupFailureWithStructuredSummary(t *testing.T) 
 	}
 
 	scope := loadScope(t, deps)
+	retainedStartup, err := os.ReadFile(summaryPath(deps))
+	if err != nil {
+		t.Fatalf("read retained startup failure: %v", err)
+	}
+	for _, forbidden := range []string{"docker.sock", "unix://", "/containers/", "object-store-secret", "access-secret", "raw_error", "log_tail"} {
+		if strings.Contains(string(retainedStartup), forbidden) {
+			t.Fatalf("retained startup failure contained %q: %s", forbidden, retainedStartup)
+		}
+	}
 	if scope.Failure == nil {
 		t.Fatal("expected startup failure summary")
 	}
@@ -785,13 +835,10 @@ func TestRunRecordsObjectStoreStartupFailureWithStructuredSummary(t *testing.T) 
 	if scope.Failure.AttemptsStarted != 1 || scope.Failure.MaxAttempts != 2 {
 		t.Fatalf("unexpected attempts: got %#v", scope.Failure)
 	}
-	if scope.Failure.DockerEndpoint != "unix:///var/run/docker.sock" {
-		t.Fatalf("unexpected docker endpoint: got %q", scope.Failure.DockerEndpoint)
+	if scope.Failure.Message != "service container startup failed" {
+		t.Fatalf("unexpected bounded startup failure message: %q", scope.Failure.Message)
 	}
-	if !strings.Contains(scope.Failure.Message, "connection refused") {
-		t.Fatalf("expected connection failure detail, got %q", scope.Failure.Message)
-	}
-	for _, secret := range []string{"object-store-secret", "access-secret"} {
+	for _, secret := range []string{"object-store-secret", "access-secret", "docker.sock", "connection refused"} {
 		if strings.Contains(scope.Failure.Message, secret) {
 			t.Fatalf("failure message must redact %q, got %q", secret, scope.Failure.Message)
 		}

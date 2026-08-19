@@ -458,8 +458,6 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 		Type:    suiteservices.EventServiceStarted,
 		Service: suiteservices.ServicePostgres,
 		Details: map[string]any{
-			"host":              postgresSvc.host,
-			"port":              postgresSvc.port,
 			"user":              postgresSvc.user,
 			"template_database": templateDB,
 		},
@@ -504,8 +502,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 		Type:    suiteservices.EventServiceStarted,
 		Service: suiteservices.ServiceObjectStore,
 		Details: map[string]any{
-			"endpoint": objectStoreSvc.endpoint,
-			"secure":   objectStoreSvc.secure,
+			"secure": objectStoreSvc.secure,
 		},
 	})
 	deps.refreshSummary(ownedEnv)
@@ -665,8 +662,6 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 		Type:    suiteservices.EventServiceStarted,
 		Service: suiteservices.ServicePostgres,
 		Details: map[string]any{
-			"host":              postgresSvc.host,
-			"port":              postgresSvc.port,
 			"user":              postgresSvc.user,
 			"template_database": templateDB,
 		},
@@ -713,8 +708,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 		Type:    suiteservices.EventServiceStarted,
 		Service: suiteservices.ServiceObjectStore,
 		Details: map[string]any{
-			"endpoint": objectStoreSvc.endpoint,
-			"secure":   objectStoreSvc.secure,
+			"secure": objectStoreSvc.secure,
 		},
 	})
 	deps.refreshSummary(ownedEnv)
@@ -2218,7 +2212,6 @@ func recordServiceReaperScheduled(deps dependencies, env map[string]string, leas
 func recordSuitePreflight(deps dependencies, env map[string]string, result suitePreflightResult, err error) {
 	details := map[string]any{
 		"target":                          suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
-		"docker_endpoint":                 result.DockerEndpoint,
 		"docker_ok":                       result.DockerOK,
 		"reaper_ready":                    result.ReaperReady,
 		"stale_containers_scanned":        result.StaleContainersScanned,
@@ -2231,7 +2224,7 @@ func recordSuitePreflight(deps dependencies, env map[string]string, result suite
 		status = "fail"
 		details["failure_class"] = suiteservices.FailureClassInfra
 		details["failure_reason"] = "preflight_error"
-		details["message"] = suiteservices.SanitizeDiagnosticText(err.Error())
+		details["message"] = "suite service preflight failed"
 	}
 	deps.recordEvent(env, suiteservices.Event{
 		Type:    suiteservices.EventSuitePreflight,
@@ -3044,21 +3037,25 @@ func failureSummary(service string, stage string, operation string, err error) s
 	var startFailure *testcontainersx.StartFailure
 	if errors.As(err, &startFailure) {
 		failure.Operation = startFailure.Operation
-		failure.Message = startFailure.DiagnosticMessage()
+		failure.Message = "service container startup failed"
 		failure.AttemptsStarted = startFailure.AttemptsStarted
 		failure.MaxAttempts = startFailure.MaxAttempts
 		failure.Retryable = startFailure.Retryable
 		failure.RetryBlockedByContext = startFailure.RetryBlockedByContext
-		failure.DockerEndpoint = startFailure.DockerEndpoint
 	} else if err != nil {
 		failure.Message = err.Error()
 	}
+	if stage == stageStartupPreflight {
+		failure.Message = "suite service preflight failed"
+	}
 	if diagnostic, present := s3test.ReadinessDiagnosticFromError(err); present {
 		failure.ObjectStoreReadiness = &diagnostic
+		if message, messagePresent := s3test.ReadinessDiagnosticText(err); messagePresent {
+			failure.Message = message
+		}
 	}
 
 	failure.Message = suiteservices.SanitizeDiagnosticText(failure.Message)
-	failure.DockerEndpoint = suiteservices.SanitizeDiagnosticText(failure.DockerEndpoint)
 	return failure
 }
 
@@ -3139,7 +3136,6 @@ func recordFailureAndRefresh(deps dependencies, env map[string]string, failure s
 		"max_attempts":             failure.MaxAttempts,
 		"retryable":                failure.Retryable,
 		"retry_blocked_by_context": failure.RetryBlockedByContext,
-		"docker_endpoint":          failure.DockerEndpoint,
 	}
 	if failure.ObjectStoreReadiness != nil {
 		details[suiteservices.ObjectStoreReadinessExtensionKey] = failure.ObjectStoreReadiness

@@ -179,6 +179,7 @@ export function summarizeFixtureActivityList(target, activities) {
     totalDurationMs += activity.duration_ms;
     addFixtureAggregate(byPackage, [
       activity.service,
+      activity.target,
       activity.operation,
       activity.reuse_scope,
       activity.fixture_policy,
@@ -186,6 +187,7 @@ export function summarizeFixtureActivityList(target, activities) {
       activity.caller_package,
     ], activity, {
       service: activity.service,
+      target: activity.target,
       operation: activity.operation,
       reuse_scope: activity.reuse_scope,
       fixture_policy: activity.fixture_policy,
@@ -194,6 +196,7 @@ export function summarizeFixtureActivityList(target, activities) {
     });
     addFixtureAggregate(byTest, [
       activity.service,
+      activity.target,
       activity.operation,
       activity.reuse_scope,
       activity.fixture_policy,
@@ -201,6 +204,7 @@ export function summarizeFixtureActivityList(target, activities) {
       activity.test_name,
     ], activity, {
       service: activity.service,
+      target: activity.target,
       operation: activity.operation,
       reuse_scope: activity.reuse_scope,
       fixture_policy: activity.fixture_policy,
@@ -209,18 +213,20 @@ export function summarizeFixtureActivityList(target, activities) {
     });
     addFixtureAggregate(byStrategy, [
       activity.service,
+      activity.target,
       activity.operation,
-      activity.reuse_scope,
       activity.strategy,
       activity.fixture_policy,
       activity.fixture_class,
+      activity.reuse_scope,
     ], activity, {
       service: activity.service,
+      target: activity.target,
       operation: activity.operation,
-      reuse_scope: activity.reuse_scope,
       strategy: activity.strategy,
       fixture_policy: activity.fixture_policy,
       fixture_class: activity.fixture_class,
+      reuse_scope: activity.reuse_scope,
     });
   }
 
@@ -282,6 +288,7 @@ export function sortedFixtureAggregates(map) {
 export function fixtureSortKey(value) {
   return [
     value.service ?? "",
+    value.target ?? "",
     value.operation ?? "",
     value.strategy ?? "",
     value.fixture_policy ?? "",

@@ -817,3 +817,104 @@ product implementation was changed. The only residual is the explicitly
 retained object-store infrastructure recurrence above; it must be investigated
 from the normalized evidence rather than masked by more retries, longer
 timeouts, or a provider substitution.
+
+## 15. Testing Harness Gap Remediation Closure
+
+### Authority, causal finding, and compatibility
+
+The adopted Testing Harness NLSpec remains authoritative. TH-HARNESS-REQ-411
+now defines the exact fixture strategy aggregate as service, target, operation,
+preparation strategy, fixture policy, fixture class, and reuse scope. Caller
+package and test identities remain separate hotspot and slowest-event
+dimensions. `docs/domain.md` is unchanged because no domain vocabulary or owner
+navigation changed. Canonical unit-result publication and fail-closed browser
+readiness were already authoritative and required no compatibility path.
+
+Private recurrence capture identified whole-host pressure as the object-store
+readiness cause. The failed broad replay at
+`.cartulary/test-results/20260819T192915Z-p2567279` reached 62.60% CPU and
+34.61% I/O pressure while SeaweedFS remained running, non-OOM, and
+non-restarting. Focused Revisions capture peaked at 0.36% CPU pressure, and the
+final ten-run series peaked at 0.18%. Reducing object-store lanes from four to
+three alone did not prevent recurrence, so the final policy also reserves a
+portable 25% CPU admission margin: detected capacity is transformed with
+`floor(detected * 100 / 125)`, bounded to at least one token. This host now
+admits 19 of 24 detected CPU tokens. The policy is authored in the scheduler
+resource registry and covered by deterministic 24-to-19, 4-to-3, and 1-to-1
+contract vectors.
+
+No Revisions product, HTTP, database, object-storage API, provider image,
+120-second readiness deadline, retry count, fallback provider, replacement
+lane, or automatic failed-run rerun changed. The expected compatibility effect
+is lower admission concurrency and potentially longer broad-suite wall time.
+The service-scope v2 producer and schema no longer retain service host, port,
+endpoint, Docker endpoint, container identity, raw error, or log-tail fields;
+these test-only ephemeral diagnostics require no product or data migration.
+
+### Implemented workstreams
+
+| Workstream | Remediation | Status |
+| --- | --- | --- |
+| Object-store infrastructure | Added normalized typed readiness text, preserved the readiness failure across cleanup failure, propagated `cleanup_outcome=failed`, removed raw endpoint/error fields at the event source, reduced object-store lanes to three, and added the 25% CPU admission reserve | COMPLETE |
+| Execution smoke | Aligned Go and JavaScript aggregation with the exact seven-field identity; replaced the malformed tie fixture with two distinct equal-duration aggregates; asserted structured ordering and exact canonical unit-result outputs for dedicated and migration batches | COMPLETE |
+| Browser lifecycle | Replaced the multiline source `grep` with behavioral missing-readiness, missing-diagnostic, and publication-verification cases; retained the fail-closed guard; made publication and final verification status propagation explicit | COMPLETE |
+| Integrated harness stability | Isolated the process-wide umask proof in a child process so concurrent cache-mode assertions cannot observe transient global mode changes | COMPLETE |
+
+### Focused, stress, and retained-evidence proof
+
+- Latest generation and contracts passed at
+  `.cartulary/test-results/20260819T195458Z-p2956341` (`make generate`),
+  `20260819T195649Z-p2963636` (JSON shape),
+  `20260819T195652Z-p2964042` (generated-artifact policy),
+  `20260819T195654Z-p2964442` (generation drift), and
+  `20260819T195702Z-p2967381` (harness contract). The focused generated-drift
+  row passed at `20260819T195714Z-p2967907`.
+- Harness Browser passed 28/28 at
+  `.cartulary/test-results/20260819T195729Z-p2970600` and service-backed 6/6 at
+  `20260819T195830Z-p2988521`. Execution and lifecycle smoke passed at
+  `20260819T201330Z-p3524598` and `20260819T201350Z-p3531976`.
+- Strict SeaweedFS compatibility passed 3/3 at
+  `.cartulary/test-results/20260819T200006Z-p3003898`; the Revisions
+  service-backed slice passed 20/20 at `20260819T200040Z-p3020141`.
+- Ten consecutive fresh Revisions owner slices passed 27/27 at
+  `.cartulary/test-results/20260819T200149Z-p3066306`,
+  `20260819T200255Z-p3112563`, `20260819T200357Z-p3158211`,
+  `20260819T200459Z-p3203782`, `20260819T200601Z-p3249443`,
+  `20260819T200708Z-p3295285`, `20260819T200814Z-p3341195`,
+  `20260819T200922Z-p3387096`, `20260819T201024Z-p3432674`, and
+  `20260819T201126Z-p3478204`. No failure reset was required.
+- The final recurrence capture observed 12 balanced SeaweedFS and PostgreSQL
+  create/start/die/destroy lifecycles, zero capture errors, zero OOM or restart
+  evidence, and 0.18%/0.00%/14.55% maximum CPU/memory/I/O ten-second pressure.
+  All raw private captures were owner-only, reduced to these aggregate facts,
+  and deleted.
+- Scans of every final Revisions service scope and service journal found zero
+  endpoint, socket, container, raw-error, or log-tail fields. Canonical browser
+  stack publications retain their NLSpec-required allocated ports and are not
+  service-readiness diagnostics. Docker reported zero managed test-container
+  residue after the browser and Revisions service-backed runs.
+
+### Integrated validation and failure attribution
+
+`make agent-finalize` with `RESULTS_DIR` unset passed at
+`.cartulary/test-results/20260819T201358Z-p3533720`; retained-run maintenance
+was intentionally skipped. `make test-fast` passed 408/408 at
+`20260819T201411Z-p3536549`. The final `make check` passed 629/629 at
+`20260819T201632Z-p3577758`, retained-run finalization against that root passed
+at `20260819T202136Z-p3691112`, and `make release-check` passed 786/786 at
+`20260819T202204Z-p3694098`.
+
+Intermediate failures were causal evidence or related harness findings, not
+waived gates. The 4-lane check at `20260819T191722Z-p2387068` reproduced the
+readiness timeout; the 3-lane replay at `20260819T192915Z-p2567279` proved that
+service-lane reduction alone could not protect the daemon under whole-host
+pressure. The policy-corrected replay at `20260819T194604Z-p2794172` passed the
+object-store admission row in 23.04 seconds but exposed the concurrent umask
+test race and a transient generated-drift snapshot failure. The umask mutation
+was isolated structurally; generation drift and its exact row then passed
+narrowly and both passed in the final broad graph. An earlier ShellCheck
+finding was fixed with scoped annotations rather than suppressing the scripts.
+
+The three testing-harness gaps are closed. No raw investigation capture,
+unexpected generated root, lockfile, provider substitution, or Revisions
+product change remains in the worktree.

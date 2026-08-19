@@ -273,13 +273,14 @@ write_fixture_event() {
   local reuse_scope="$9"
   local caller_package="${10}"
   local test_name="${11}"
+  local fixture_class="${12:-}"
   local journal_dir="${results_dir}/${run_id}/_shared/test-services/${suite_id}/journals"
   local producer_id="fixture-${suite_id}"
   local sequence_number=$((10#$sequence))
 
   mkdir -p "$journal_dir"
-  printf '{"schema_id":"cartulary.test_services.journal_event.v1","producer_id":"%s","seq":%d,"type":"%s","timestamp":"2026-01-01T00:00:%sZ","pid":100,"service":"postgres","name":"ct_fixture_%s","kind":"template-clone","details":{"target":"%s","duration_ms":%d,"fixture_policy":"%s","reuse_scope":"%s","caller_package":"%s","caller_file":"%s/fixture_test.go","test_name":"%s","preparation_strategy":"template-clone"}}\n' \
-    "$producer_id" "$sequence_number" "$event_type" "$sequence" "$sequence" "$target" "$duration_ms" "$fixture_policy" "$reuse_scope" "$caller_package" "$caller_package" "$test_name" \
+  printf '{"schema_id":"cartulary.test_services.journal_event.v1","producer_id":"%s","seq":%d,"type":"%s","timestamp":"2026-01-01T00:00:%sZ","pid":100,"service":"postgres","name":"ct_fixture_%s","kind":"template-clone","details":{"target":"%s","duration_ms":%d,"fixture_policy":"%s","fixture_class":"%s","reuse_scope":"%s","caller_package":"%s","caller_file":"%s/fixture_test.go","test_name":"%s","preparation_strategy":"template-clone"}}\n' \
+    "$producer_id" "$sequence_number" "$event_type" "$sequence" "$sequence" "$target" "$duration_ms" "$fixture_policy" "$fixture_class" "$reuse_scope" "$caller_package" "$caller_package" "$test_name" \
     >>"${journal_dir}/${producer_id}.ndjson"
   chmod 600 "${journal_dir}/${producer_id}.ndjson"
 }
@@ -1402,12 +1403,15 @@ fixture_target_output="$(
     "$ROOT_DIR/tools/harness/output/test-output.sh" target-summary fixture-target pass \
     2>&1
 )"
-assert_contains "$fixture_target_output" "[FIXTURE] fixture-target total=36.0s count=3 top_strategy=postgres/transaction/transaction/transaction count=2 duration=35.0s hotspots=internal/modules/auth/postgres/transaction/transaction/transaction(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1) slowest=TestSlowB(20.0s),TestSlowA(15.0s)" "fixture target threshold output"
+assert_contains "$fixture_target_output" "[FIXTURE] fixture-target total=36.0s count=3" "fixture target totals fragment"
+assert_contains "$fixture_target_output" "top_strategy=postgres/transaction/transaction/transaction count=2 duration=35.0s" "fixture target strategy fragment"
+assert_contains "$fixture_target_output" "hotspots=internal/modules/auth/postgres/transaction/transaction/transaction(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture target hotspot fragment"
+assert_contains "$fixture_target_output" "slowest=TestSlowB(20.0s),TestSlowA(15.0s)" "fixture target slowest fragment"
 assert_equals "$(json_field "$fixture_results/fixture-run/fixture-target/target-summary.json" "totals.fixture.total_duration_ms")" "36000" "fixture target summary duration"
 
-write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "01" "postgres-transaction" "fixture-tie" 10000 "transaction" "transaction" "internal/modules/auth" "TestResetA"
-write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "02" "postgres-transaction" "fixture-tie" 10000 "transaction" "transaction" "internal/modules/auth" "TestResetB"
-write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "03" "postgres-transaction" "fixture-tie" 20000 "transaction" "transaction" "internal/modules/auth" "TestTxn"
+write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "01" "postgres-transaction" "fixture-tie" 10000 "transaction" "transaction" "internal/modules/auth" "TestResetA" "reset"
+write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "02" "postgres-transaction" "fixture-tie" 10000 "transaction" "transaction" "internal/modules/auth" "TestResetB" "reset"
+write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "03" "postgres-transaction" "fixture-tie" 20000 "transaction" "transaction" "internal/modules/auth" "TestTxn" "transaction"
 fixture_tie_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   FIXTURE_THRESHOLD_MS=1 \
@@ -1416,6 +1420,20 @@ fixture_tie_output="$(
     "$ROOT_DIR/tools/harness/output/test-output.sh" target-summary fixture-tie pass \
     2>&1
 )"
+fixture_tie_summary="$fixture_results/fixture-tie-run/fixture-tie/target-summary.json"
+assert_equals "$(json_field "$fixture_tie_summary" "totals.fixture.by_strategy.length")" "2" "fixture strategy tie aggregate cardinality"
+assert_equals "$(json_field "$fixture_tie_summary" "totals.fixture.by_strategy.0.service")" "postgres" "fixture strategy tie first service"
+assert_equals "$(json_field "$fixture_tie_summary" "totals.fixture.by_strategy.0.target")" "fixture-tie" "fixture strategy tie first target"
+assert_equals "$(json_field "$fixture_tie_summary" "totals.fixture.by_strategy.0.operation")" "transaction" "fixture strategy tie first operation"
+assert_equals "$(json_field "$fixture_tie_summary" "totals.fixture.by_strategy.0.strategy")" "template-clone" "fixture strategy tie first strategy"
+assert_equals "$(json_field "$fixture_tie_summary" "totals.fixture.by_strategy.0.fixture_policy")" "transaction" "fixture strategy tie first policy"
+assert_equals "$(json_field "$fixture_tie_summary" "totals.fixture.by_strategy.0.fixture_class")" "reset" "fixture strategy tie first class"
+assert_equals "$(json_field "$fixture_tie_summary" "totals.fixture.by_strategy.0.reuse_scope")" "transaction" "fixture strategy tie first reuse scope"
+assert_equals "$(json_field "$fixture_tie_summary" "totals.fixture.by_strategy.0.count")" "2" "fixture strategy tie first count"
+assert_equals "$(json_field "$fixture_tie_summary" "totals.fixture.by_strategy.0.total_duration_ms")" "20000" "fixture strategy tie first duration"
+assert_equals "$(json_field "$fixture_tie_summary" "totals.fixture.by_strategy.1.fixture_class")" "transaction" "fixture strategy tie second class"
+assert_equals "$(json_field "$fixture_tie_summary" "totals.fixture.by_strategy.1.count")" "1" "fixture strategy tie second count"
+assert_equals "$(json_field "$fixture_tie_summary" "totals.fixture.by_strategy.1.total_duration_ms")" "20000" "fixture strategy tie second duration"
 assert_contains "$fixture_tie_output" "top_strategy=postgres/transaction/transaction/transaction count=2 duration=20.0s" "fixture strategy tie prefers count"
 assert_contains "$fixture_tie_output" "hotspots=internal/modules/auth/postgres/transaction/transaction/transaction(20.0s,count=2),internal/modules/auth/postgres/transaction/transaction/transaction(20.0s,count=1)" "fixture hotspot tie prefers count"
 

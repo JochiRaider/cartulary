@@ -18,6 +18,7 @@ import {
 import path from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
 
 import { planGoLPTShards } from "../backend/go-lpt-shards.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
@@ -41,6 +42,7 @@ import {
 import {
   buildWorkGraph,
   captureCapabilitySnapshot,
+  cpuCapacityWithSafetyMargin,
   loadCacheRegistry,
   assertScannerEvidenceParity,
   cacheInputRootDigest,
@@ -62,8 +64,6 @@ import {
   createSuiteRuntime,
   scanRetainedRoot,
 } from "../runtime/suite-runtime.mjs";
-import { enforcePrivateProcessUmask } from "../runtime/private-process.mjs";
-
 const root = path.resolve(import.meta.dirname, "../../..");
 
 function compareASCII(left, right) {
@@ -527,20 +527,28 @@ async function assertSuiteRuntimeBoundary() {
   mkdirSync(repo, { recursive: true, mode: 0o700 });
   mkdirSync(runRoot, { recursive: true, mode: 0o700 });
   try {
-    const priorUmask = process.umask(0o022);
-    try {
-      enforcePrivateProcessUmask();
-      const descendantRoot = path.join(fixtureRoot, "descendant-output", "nested", "leaf");
-      mkdirSync(descendantRoot, { recursive: true });
-      for (const directory of [
-        path.join(fixtureRoot, "descendant-output"),
-        path.join(fixtureRoot, "descendant-output", "nested"),
-        descendantRoot,
-      ]) {
-        assert.equal(lstatSync(directory).mode & 0o777, 0o700);
-      }
-    } finally {
-      process.umask(priorUmask);
+    const descendantRoot = path.join(fixtureRoot, "descendant-output", "nested", "leaf");
+    const privateProcessModule = pathToFileURL(
+      path.join(root, "tools/harness/runtime/private-process.mjs"),
+    ).href;
+    execFileSync(process.execPath, [
+      "--input-type=module",
+      "--eval",
+      `
+        import { mkdirSync } from "node:fs";
+        import { enforcePrivateProcessUmask } from ${JSON.stringify(privateProcessModule)};
+        process.umask(0o022);
+        enforcePrivateProcessUmask();
+        mkdirSync(process.argv[1], { recursive: true });
+      `,
+      descendantRoot,
+    ]);
+    for (const directory of [
+      path.join(fixtureRoot, "descendant-output"),
+      path.join(fixtureRoot, "descendant-output", "nested"),
+      descendantRoot,
+    ]) {
+      assert.equal(lstatSync(directory).mode & 0o777, 0o700);
     }
 
     const runtime = createSuiteRuntime({
@@ -1735,6 +1743,12 @@ async function assertSchedulerContract(kind) {
     const cancelled = simulateWorkGraph({ graph: schedulerFixture(), capacities: new Map([["cpu", 1], ["process", 1]]), cancelAtMs: 1 });
     assert.ok(cancelled.events.some((entry) => entry.event === "cancelled"));
   } else if (kind === "capacity_snapshot") {
+    const schedulerRegistry = readJSON("tools/scheduler_resource_registry.json");
+    const cpuPolicy = schedulerRegistry.capacity_policies.cpu_tokens;
+    assert.equal(cpuPolicy.safety_margin_percent, 25);
+    assert.equal(cpuCapacityWithSafetyMargin(24, cpuPolicy), 19);
+    assert.equal(cpuCapacityWithSafetyMargin(4, cpuPolicy), 3);
+    assert.equal(cpuCapacityWithSafetyMargin(1, cpuPolicy), 1);
     const snapshot = captureCapabilitySnapshot({
       root,
       override: { schema_id: "cartulary.harness_capacity_override.v1", cpu_tokens: 2, memory_bytes: 1048576, process_slots: 2, io_tokens: 2, port_lanes: 1, writable_volume: true },

@@ -31,6 +31,13 @@ assert_file_not_contains() {
   fi
 }
 
+assert_text_contains() {
+  local text="$1"
+  local value="$2"
+  local label="$3"
+  [[ "$text" == *"$value"* ]] || fail "$label: expected output to contain [$value]"
+}
+
 assert_json() {
   local file="$1"
   local expression="$2"
@@ -63,9 +70,6 @@ assert_file_contains "$START_SCRIPT" '_shared/test-services/${SUITE_ID}/browser-
 assert_file_contains "$START_SCRIPT" 'finalize startup diagnostics' "terminal diagnostic precedes publication"
 assert_file_contains "$START_SCRIPT" 'publish immutable v6 stack' "v6 publication"
 assert_file_contains "$START_SCRIPT" 'v6 browser stack publication requires bound backend and frontend readiness' "missing readiness fails publication"
-# shellcheck disable=SC2016
-assert_file_not_contains "$START_SCRIPT" 'if [[ -z "${BACKEND_READY_AT}" || -z "${FRONTEND_READY_AT}" ]]; then
-    return 0' "missing readiness cannot silently publish"
 assert_file_contains "$START_SCRIPT" 'snapshot_service_scope || return $?' "admission publication failure propagates"
 assert_file_contains "$START_SCRIPT" 'verify_stack_publication' "terminal publication verification"
 # shellcheck disable=SC2016
@@ -90,6 +94,150 @@ assert_file_contains "$ATTACH_SCRIPT" 'browser-session-evidence.mjs' "Playwright
 # Source the adapter only for fail-closed entrypoint checks.
 # shellcheck source=tools/harness/browser/start-web-e2e.sh
 source "$START_SCRIPT"
+
+assert_stack_publication_failure() {
+  local label="$1"
+  local backend_ready_at="$2"
+  local frontend_ready_at="$3"
+  local diagnostic_state="$4"
+  local expected_diagnostic="$5"
+  local case_root="$tmp_dir/publication-$label"
+  local public_root="$case_root/public"
+  local runtime_root="$case_root/private-runtime"
+  local terminal_diagnostic="$case_root/terminal-startup.json"
+  local output=""
+  local status=0
+
+  mkdir -p "$public_root" "$runtime_root"
+  if [[ "$diagnostic_state" == "present" ]]; then
+    printf '%s\n' '{"schema_id":"cartulary.browser_startup_diagnostics.v2","status":"ready"}' >"$terminal_diagnostic"
+    chmod 600 "$terminal_diagnostic"
+  fi
+
+  set +e
+  output="$(
+    (
+      set +e
+      BACKEND_READY_AT="$backend_ready_at"
+      FRONTEND_READY_AT="$frontend_ready_at"
+      STARTUP_DIAGNOSTIC_FILE="$terminal_diagnostic"
+      TARGET_ARTIFACT_DIR="$public_root"
+      # Publication guards are intentionally isolated in this subshell.
+      # shellcheck disable=SC2030
+      STACK_ENV_FILE="$case_root/stack.env"
+      STACK_JSON_FILE="$public_root/stack.json"
+      STACK_LEASE_FILE="$public_root/stack-lease.json"
+      SERVICE_ADMISSION_FILE="$public_root/service-admission.json"
+      SESSION_ENV_FILE="$case_root/session.env"
+      SESSION_LEASE_FILE="$case_root/session-lease.json"
+      RUNTIME_ROOT_BASE="$runtime_root"
+      PLAYWRIGHT_STATE_DIR="$runtime_root/playwright-state"
+      TEST_ROUTE_TOKEN_FILE="$runtime_root/test-route-token"
+      TEST_SERVICES_ENV_FILE="$runtime_root/test-services.env"
+      TEST_SERVICES_METADATA_FILE=""
+      TEST_SERVICES_BIN=""
+      SERVER_PGID=""
+      VITE_PGID=""
+      CHILD_PGID=""
+      BACKEND_PORT=39881
+      FRONTEND_PORT=39882
+      PORT_LEASE_DIRS=()
+      KEEP_RUNTIME_ROOT=0
+      cleanup_done=0
+      write_stack_metadata
+      publication_status=$?
+      if ! cleanup; then
+        echo "publication guard cleanup failed" >&2
+        exit 99
+      fi
+      exit "$publication_status"
+    ) 2>&1
+  )"
+  status=$?
+  set -e
+
+  [[ "$status" -eq 1 ]] || fail "$label: expected publication status 1, got $status"
+  assert_text_contains "$output" "$expected_diagnostic" "$label bounded diagnostic"
+  for unpublished in \
+    "$public_root/stack.json" \
+    "$public_root/stack-lease.json" \
+    "$public_root/service-admission.json" \
+    "$case_root/stack.env" \
+    "$case_root/session.env" \
+    "$case_root/session-lease.json"; do
+    [[ ! -e "$unpublished" ]] || fail "$label: unexpectedly published $unpublished"
+  done
+  [[ ! -e "$runtime_root" ]] || fail "$label: normal cleanup did not remove the private runtime"
+}
+
+assert_stack_publication_failure \
+  "missing-backend-readiness" "" "2026-08-19T12:00:01Z" "present" \
+  "v6 browser stack publication requires bound backend and frontend readiness"
+assert_stack_publication_failure \
+  "missing-frontend-readiness" "2026-08-19T12:00:00Z" "" "present" \
+  "v6 browser stack publication requires bound backend and frontend readiness"
+assert_stack_publication_failure \
+  "missing-both-readiness" "" "" "present" \
+  "v6 browser stack publication requires bound backend and frontend readiness"
+assert_stack_publication_failure \
+  "missing-terminal-diagnostic" "2026-08-19T12:00:00Z" "2026-08-19T12:00:01Z" "missing" \
+  "v6 browser stack publication requires terminal startup diagnostics"
+
+verification_case_root="$tmp_dir/publication-verification-failure"
+mkdir -p "$verification_case_root/private-runtime"
+set +e
+verification_failure_output="$(
+  (
+    set +e
+    # publish_session_lease invokes this test override indirectly.
+    # shellcheck disable=SC2329
+    write_session_files() { return 0; }
+    verify_stack_publication() {
+      echo "browser session publication verification failed" >&2
+      return 19
+    }
+    # Verification failure state is intentionally isolated in this subshell.
+    # shellcheck disable=SC2030
+    RUNTIME_ROOT_BASE="$verification_case_root/private-runtime"
+    SESSION_ENV_FILE="$verification_case_root/session.env"
+    SESSION_LEASE_FILE="$verification_case_root/session-lease.json"
+    TEST_SERVICES_BIN=""
+    TEST_SERVICES_METADATA_FILE=""
+    SERVER_PGID=""
+    VITE_PGID=""
+    CHILD_PGID=""
+    BACKEND_PORT=39883
+    FRONTEND_PORT=39884
+    PORT_LEASE_DIRS=()
+    KEEP_RUNTIME_ROOT=0
+    cleanup_done=0
+    publish_session_lease
+    publication_status=$?
+    if ! cleanup; then
+      echo "publication verification cleanup failed" >&2
+      exit 99
+    fi
+    exit "$publication_status"
+  ) 2>&1
+)"
+verification_failure_status=$?
+set -e
+[[ "$verification_failure_status" -eq 19 ]] ||
+  fail "publication verification failure: expected status 19, got $verification_failure_status"
+assert_text_contains \
+  "$verification_failure_output" \
+  "browser session publication verification failed" \
+  "publication verification bounded diagnostic"
+for unpublished in \
+  "$verification_case_root/session.env" \
+  "$verification_case_root/session-lease.json"; do
+  [[ ! -e "$unpublished" ]] ||
+    fail "publication verification failure: unexpectedly published $unpublished"
+done
+if [[ -d "$verification_case_root/private-runtime" ]] &&
+  find "$verification_case_root/private-runtime" -mindepth 1 -print -quit | grep -q .; then
+  fail "publication verification failure: normal cleanup retained private runtime material"
+fi
 
 # Parent graph selection and scheduling inputs must not leak into the nested
 # readiness Make target, whose public contract does not declare them.
@@ -232,8 +380,12 @@ prepare_runtime_root || fail "valid external private browser runtime admission"
 if prepare_runtime_root >/dev/null 2>&1; then
   fail "browser runtime must reject a reused public session identity"
 fi
+# The earlier assignment was confined to its publication-test subshell.
+# shellcheck disable=SC2031
 [[ "$RUNTIME_ROOT_BASE" == "$security_session_root/runtime-root" ]] ||
   fail "browser runtime root must be external to retained results"
+# The earlier assignment was confined to its publication-test subshell.
+# shellcheck disable=SC2031
 [[ "$STACK_ENV_FILE" == "$security_session_root/stack.env" ]] ||
   fail "browser stack environment must remain private"
 if find "$security_results_root/$security_run_id" -type f \( -name '*.env' -o -name '*.lease' -o -name '*.dsn' \) -print -quit | grep -q .; then

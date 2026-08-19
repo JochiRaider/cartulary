@@ -252,6 +252,72 @@ func TestOwnedObjectStoreReadinessTimeoutIsTerminalForTheStartedLane(t *testing.
 	}
 }
 
+func TestOwnedObjectStoreCleanupFailureRemainsSecondaryTypedEvidence(t *testing.T) {
+	stubOwnedObjectStoreStartup(t)
+
+	const rawCleanupIdentity = "container b56c88f3a1b0 via unix:///var/run/docker.sock"
+	cleanupErr := errors.New(rawCleanupIdentity)
+	startContainerFn = func(context.Context, testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+		return fakeObjectStoreContainer{
+			host: "127.0.0.1",
+			port: network.MustParsePort("8333/tcp"),
+			terminate: func(context.Context) error {
+				return cleanupErr
+			},
+		}, nil
+	}
+	waitReadyFn = func(context.Context, *Harness) error {
+		return &objectStoreReadinessError{
+			Phase:           "initial_lane",
+			Stage:           "list",
+			Outcome:         "deadline_expired",
+			Attempts:        33,
+			AttemptTimeouts: 3,
+			Elapsed:         120 * time.Second,
+			CleanupOutcome:  "not_needed",
+			CauseCounts: map[string]int{
+				"operation_timeout":     3,
+				"transport_unreachable": 30,
+			},
+			LastErr:         context.DeadlineExceeded,
+			DeadlineExpired: true,
+		}
+	}
+
+	_, err := startHarness(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected terminal readiness failure")
+	}
+	if !errors.Is(err, cleanupErr) {
+		t.Fatalf("secondary cleanup error was not preserved internally: %v", err)
+	}
+	diagnostic, present := ReadinessDiagnosticFromError(err)
+	if !present || diagnostic.Outcome != "deadline_expired" || diagnostic.CleanupOutcome != "failed" {
+		t.Fatalf("cleanup failure replaced or failed to update readiness evidence: present=%t diagnostic=%#v", present, diagnostic)
+	}
+	message, present := ReadinessDiagnosticText(err)
+	if !present {
+		t.Fatal("expected bounded readiness diagnostic text")
+	}
+	for _, forbidden := range []string{rawCleanupIdentity, "docker.sock", "b56c88f3a1b0"} {
+		if strings.Contains(message, forbidden) {
+			t.Fatalf("bounded readiness diagnostic retained %q: %q", forbidden, message)
+		}
+	}
+	for _, required := range []string{
+		"phase=initial_lane",
+		"stage=list",
+		"outcome=deadline_expired",
+		"attempts=33",
+		"cause_counts=operation_timeout:3,transport_unreachable:30",
+		"cleanup=failed",
+	} {
+		if !strings.Contains(message, required) {
+			t.Fatalf("bounded readiness diagnostic omitted %q: %q", required, message)
+		}
+	}
+}
+
 func TestOwnedObjectStoreRetriesOnlyPreReadinessStartupAndUsesFreshReadinessContext(t *testing.T) {
 	stubOwnedObjectStoreStartup(t)
 

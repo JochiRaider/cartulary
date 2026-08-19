@@ -325,6 +325,10 @@ EOF
   verify_stack_publication
 }
 
+publish_stack_metadata() {
+  run_timing_span "setup" "browser-e2e publish immutable v6 stack" write_stack_metadata || return $?
+}
+
 verify_stack_publication() {
   local artifact=""
   local label=""
@@ -803,6 +807,11 @@ fs.writeFileSync(process.env.CARTULARY_WEB_E2E_SESSION_LEASE_FILE, `${JSON.strin
 fs.chmodSync(process.env.CARTULARY_WEB_E2E_SESSION_ENV_FILE, 0o600);
 fs.chmodSync(process.env.CARTULARY_WEB_E2E_SESSION_LEASE_FILE, 0o600);
 EOF
+}
+
+publish_session_lease() {
+  run_timing_span "setup" "browser-e2e write session lease" write_session_files || return $?
+  verify_stack_publication || return $?
 }
 
 load_session_lease() {
@@ -1379,12 +1388,11 @@ main() {
   CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e startup frontend ready" start_frontend_preview_ready "${pnpm_bin}"
   FRONTEND_READY_AT="$(step_now_utc)"
   record_startup_event "frontend_ready" "frontend ready at ${PUBLIC_ORIGIN}"
-  run_timing_span "setup" "browser-e2e finalize startup diagnostics" finalize_startup_ready
-  run_timing_span "setup" "browser-e2e publish immutable v6 stack" write_stack_metadata
+  run_timing_span "setup" "browser-e2e finalize startup diagnostics" finalize_startup_ready || return $?
+  publish_stack_metadata || return $?
 
   if [[ "${SESSION_MODE}" == "start" ]]; then
-    run_timing_span "setup" "browser-e2e write session lease" write_session_files
-    verify_stack_publication
+    publish_session_lease || return $?
     transfer_port_lease_for_port "${BACKEND_PORT}" "${SERVER_PGID}"
     transfer_port_lease_for_port "${FRONTEND_PORT}" "${VITE_PGID}"
     release_process_group_monitor "${SERVER_PGID}"

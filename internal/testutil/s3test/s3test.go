@@ -9,6 +9,7 @@ import (
 	"net"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -411,16 +412,11 @@ func (e *objectStoreReadinessError) Error() string {
 	if e == nil {
 		return ""
 	}
-	reason := e.Outcome
-	if reason == "" {
-		reason = "unavailable"
-		if e.DeadlineExpired {
-			reason = "deadline_expired"
-		} else if isNonRetryableObjectStoreReadinessError(e.LastErr) {
-			reason = "capability_rejected"
-		}
+	message, present := ReadinessDiagnosticText(e)
+	if !present {
+		return "object-store readiness failed"
 	}
-	return fmt.Sprintf("object-store readiness failed: stage=%s attempts=%d cleanup=%s reason=%s", e.Stage, e.Attempts, e.CleanupOutcome, reason)
+	return message
 }
 
 func ReadinessDiagnosticFromError(err error) (suiteservices.ObjectStoreReadinessDiagnostic, bool) {
@@ -447,6 +443,31 @@ func ReadinessDiagnosticFromError(err error) (suiteservices.ObjectStoreReadiness
 		diagnostic.CauseCounts = map[string]int{classifyObjectStoreReadinessCause(readinessErr.LastErr): diagnostic.AttemptCount}
 	}
 	return diagnostic, true
+}
+
+// ReadinessDiagnosticText returns the complete bounded public diagnostic for a
+// typed readiness failure. It deliberately reconstructs the message from
+// normalized fields instead of formatting the wrapped provider or cleanup
+// errors, which can contain Docker endpoints and container identities.
+func ReadinessDiagnosticText(err error) (string, bool) {
+	diagnostic, present := ReadinessDiagnosticFromError(err)
+	if !present {
+		return "", false
+	}
+	causes := make([]string, 0, len(diagnostic.CauseCounts))
+	for cause, count := range diagnostic.CauseCounts {
+		causes = append(causes, fmt.Sprintf("%s:%d", cause, count))
+	}
+	sort.Strings(causes)
+	return fmt.Sprintf(
+		"object-store readiness failed: phase=%s stage=%s outcome=%s attempts=%d cause_counts=%s cleanup=%s",
+		diagnostic.Phase,
+		diagnostic.Stage,
+		diagnostic.Outcome,
+		diagnostic.AttemptCount,
+		strings.Join(causes, ","),
+		diagnostic.CleanupOutcome,
+	), true
 }
 
 func normalizedReadinessPhase(phase string) string {

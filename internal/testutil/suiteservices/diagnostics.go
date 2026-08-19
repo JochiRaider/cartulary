@@ -134,7 +134,6 @@ type PreflightSummary struct {
 	FailureClass                string `json:"failure_class,omitempty"`
 	FailureReason               string `json:"failure_reason,omitempty"`
 	DockerOK                    bool   `json:"docker_ok"`
-	DockerEndpoint              string `json:"docker_endpoint,omitempty"`
 	ReaperReady                 bool   `json:"reaper_ready"`
 	StaleContainersScanned      int    `json:"stale_containers_scanned"`
 	StaleContainersRemoved      int    `json:"stale_containers_removed"`
@@ -154,7 +153,6 @@ type FailureSummary struct {
 	MaxAttempts           int                             `json:"max_attempts"`
 	Retryable             bool                            `json:"retryable"`
 	RetryBlockedByContext bool                            `json:"retry_blocked_by_context"`
-	DockerEndpoint        string                          `json:"docker_endpoint,omitempty"`
 	ObjectStoreReadiness  *ObjectStoreReadinessDiagnostic `json:"-"`
 }
 
@@ -173,8 +171,6 @@ type CleanupSummary struct {
 type PostgresSummary struct {
 	Started               bool                          `json:"started"`
 	StartedAt             string                        `json:"started_at,omitempty"`
-	Host                  string                        `json:"host,omitempty"`
-	Port                  string                        `json:"port,omitempty"`
 	User                  string                        `json:"user,omitempty"`
 	TemplateDatabase      string                        `json:"template_database,omitempty"`
 	Startup               ServiceStartupSummary         `json:"startup"`
@@ -199,7 +195,6 @@ type PostgresDatabasePreparation struct {
 type ObjectStoreSummary struct {
 	Started              bool                  `json:"started"`
 	StartedAt            string                `json:"started_at,omitempty"`
-	Endpoint             string                `json:"endpoint,omitempty"`
 	Secure               bool                  `json:"secure"`
 	Startup              ServiceStartupSummary `json:"startup"`
 	AttachedHarnessCount int                   `json:"attached_harness_count"`
@@ -457,7 +452,6 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 				FailureClass:                stringDetail(event.Details, "failure_class"),
 				FailureReason:               stringDetail(event.Details, "failure_reason"),
 				DockerOK:                    boolDetail(event.Details, "docker_ok"),
-				DockerEndpoint:              stringDetail(event.Details, "docker_endpoint"),
 				ReaperReady:                 boolDetail(event.Details, "reaper_ready"),
 				StaleContainersScanned:      intValue(event.Details, "stale_containers_scanned"),
 				StaleContainersRemoved:      intValue(event.Details, "stale_containers_removed"),
@@ -477,7 +471,6 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 				MaxAttempts:           intValue(event.Details, "max_attempts"),
 				Retryable:             boolDetail(event.Details, "retryable"),
 				RetryBlockedByContext: boolDetail(event.Details, "retry_blocked_by_context"),
-				DockerEndpoint:        stringDetail(event.Details, "docker_endpoint"),
 			}
 			if scope.Failures.Counts == nil {
 				scope.Failures.Counts = make(map[string]int)
@@ -512,8 +505,6 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			case ServicePostgres:
 				scope.Postgres.Started = true
 				scope.Postgres.StartedAt = earliestTimestamp(scope.Postgres.StartedAt, event.Timestamp)
-				scope.Postgres.Host = stringDetail(event.Details, "host")
-				scope.Postgres.Port = stringDetail(event.Details, "port")
 				scope.Postgres.User = stringDetail(event.Details, "user")
 				if templateDB := stringDetail(event.Details, "template_database"); templateDB != "" {
 					scope.Postgres.TemplateDatabase = templateDB
@@ -521,7 +512,6 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			case ServiceObjectStore:
 				scope.ObjectStore.Started = true
 				scope.ObjectStore.StartedAt = earliestTimestamp(scope.ObjectStore.StartedAt, event.Timestamp)
-				scope.ObjectStore.Endpoint = stringDetail(event.Details, "endpoint")
 				scope.ObjectStore.Secure = boolDetail(event.Details, "secure")
 			}
 		case EventCleanupCompleted:
@@ -869,12 +859,13 @@ func recordFixtureActivity(summary *FixtureSummary, byPackage map[string]Fixture
 		existing.Operation = activity.Operation
 		existing.ReuseScope = activity.ReuseScope
 	})
-	upsertFixtureActivity(byStrategy, fixtureKey(activity.Service, activity.Target, activity.Strategy, activity.FixturePolicy, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
+	upsertFixtureActivity(byStrategy, fixtureKey(activity.Service, activity.Target, activity.Operation, activity.Strategy, activity.FixturePolicy, activity.FixtureClass, activity.ReuseScope), activity, func(existing *FixtureActivity) {
 		existing.Service = activity.Service
 		existing.Target = activity.Target
+		existing.Operation = activity.Operation
 		existing.Strategy = activity.Strategy
 		existing.FixturePolicy = activity.FixturePolicy
-		existing.Operation = activity.Operation
+		existing.FixtureClass = activity.FixtureClass
 		existing.ReuseScope = activity.ReuseScope
 	})
 	*slowest = append(*slowest, activity)
@@ -1005,6 +996,7 @@ func fixtureActivitySortKey(activity FixtureActivity) string {
 		activity.Operation,
 		activity.Strategy,
 		activity.FixturePolicy,
+		activity.FixtureClass,
 		activity.ReuseScope,
 		activity.CallerPackage,
 		activity.TestName,

@@ -52,7 +52,6 @@
         "failure_class": { "$ref": "#/$defs/failure_class" },
         "failure_reason": { "$ref": "#/$defs/failure_reason" },
         "docker_ok": { "type": "boolean" },
-        "docker_endpoint": { "type": "string" },
         "reaper_ready": { "type": "boolean" },
         "stale_containers_scanned": { "$ref": "#/$defs/non_negative_integer" },
         "stale_containers_removed": { "$ref": "#/$defs/non_negative_integer" },
@@ -82,8 +81,7 @@
         "attempts_started": { "$ref": "#/$defs/non_negative_integer" },
         "max_attempts": { "$ref": "#/$defs/non_negative_integer" },
         "retryable": { "type": "boolean" },
-        "retry_blocked_by_context": { "type": "boolean" },
-        "docker_endpoint": { "type": "string" }
+        "retry_blocked_by_context": { "type": "boolean" }
       }
     },
     "failures": {
@@ -189,8 +187,7 @@
         "attempts_started": { "$ref": "#/$defs/non_negative_integer" },
         "max_attempts": { "$ref": "#/$defs/non_negative_integer" },
         "retryable": { "type": "boolean" },
-        "retry_blocked_by_context": { "type": "boolean" },
-        "docker_endpoint": { "type": "string" }
+        "retry_blocked_by_context": { "type": "boolean" }
       }
     },
     "startup_summary": {
@@ -234,8 +231,6 @@
       "properties": {
         "started": { "type": "boolean" },
         "started_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
-        "host": { "type": "string" },
-        "port": { "type": "string" },
         "user": { "type": "string" },
         "template_database": { "type": "string" },
         "startup": { "$ref": "#/$defs/startup_summary" },
@@ -272,7 +267,6 @@
       "properties": {
         "started": { "type": "boolean" },
         "started_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
-        "endpoint": { "type": "string" },
         "secure": { "type": "boolean" },
         "startup": { "$ref": "#/$defs/startup_summary" },
         "attached_harness_count": { "$ref": "#/$defs/non_negative_integer" },

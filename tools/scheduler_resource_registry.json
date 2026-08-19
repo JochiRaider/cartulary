@@ -4,7 +4,8 @@
   "capacity_policies": {
     "cpu_tokens": {
       "source": "host_parallelism",
-      "minimum": 1
+      "minimum": 1,
+      "safety_margin_percent": 25
     },
     "io_tokens": {
       "source": "cpu_multiple",
@@ -17,7 +18,7 @@
     },
     "object_store_lanes": {
       "source": "fixed_cpu_bounded",
-      "default": 4,
+      "default": 3,
       "minimum": 1,
       "maximum_cpu_multiplier": 1
     },
