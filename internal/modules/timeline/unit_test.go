@@ -2,7 +2,6 @@ package timeline_test
 
 import (
 	"context"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"testing"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -117,60 +115,6 @@ func TestBindingMode_Unit(t *testing.T) {
 		t.Fatalf("identity entity_origin write must not synthesize mentions, got %d", got)
 	}
 
-	entitytest.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, entityResult.RecordID, "host", "Import Host Alias")
-	entitytest.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, identityResult.RecordID, "identity", "Import Identity Alias")
-	importHostNormalizedToken, ok := fieldnorm.NormalizeMentionToken(" import   host alias ")
-	if !ok {
-		t.Fatal("normalize import host mention token")
-	}
-	importIdentityNormalizedToken, ok := fieldnorm.NormalizeMentionToken(" import   identity alias ")
-	if !ok {
-		t.Fatal("normalize import identity mention token")
-	}
-	importRequest := CreateRequest{
-		ClientTxnID:          "txn-entity_linking-u-4-01-import-row",
-		ActivitySynopsisText: stringPtr("Import create preserves mention tokens"),
-		HostRefs: &CollectionActionPayload{Actions: []CollectionAction{{
-			Op:             "add_token",
-			RawText:        " import   host alias ",
-			NormalizedText: importHostNormalizedToken,
-		}}},
-		IdentityRefs: &CollectionActionPayload{Actions: []CollectionAction{{
-			Op:             "add_token",
-			RawText:        " import   identity alias ",
-			NormalizedText: importIdentityNormalizedToken,
-		}}},
-	}
-	importResult, err := timelineStore.CreateImportedRow(context.Background(), actor, incident.ID, importRequest, timelineadmission.CreateRequestHash(importRequest), "req-entity_linking-u-4-01-import-row", time.Now().UTC())
-	if err != nil {
-		t.Fatalf("import create row: %v", err)
-	}
-	importRow := importResult.Payload["row"].(map[string]any)
-	importHostItem := workbookscenariotest.RequireSingleCollectionItem(t, importRow, timelinetest.FieldHostRefs)
-	if importHostItem["item_kind"] != "unresolved_mention" || importHostItem["resolved_record_id"] != nil {
-		t.Fatalf("import host token must remain unresolved, got %#v", importHostItem)
-	}
-	if _, ok := importHostItem["provenance"]; ok {
-		t.Fatalf("import host token must not surface auto-match provenance, got %#v", importHostItem)
-	}
-	importIdentityItem := workbookscenariotest.RequireSingleCollectionItem(t, importRow, timelinetest.FieldIdentityRefs)
-	if importIdentityItem["item_kind"] != "unresolved_mention" || importIdentityItem["resolved_record_id"] != nil {
-		t.Fatalf("import identity token must remain unresolved, got %#v", importIdentityItem)
-	}
-	if _, ok := importIdentityItem["provenance"]; ok {
-		t.Fatalf("import identity token must not surface auto-match provenance, got %#v", importIdentityItem)
-	}
-	importHostMention := entitytest.LookupMention(t, harness.DB, entitytest.MentionIDFromItemRef(t, importHostItem["item_ref"].(string)))
-	if importHostMention.ResolutionStatus != entitytest.MentionStatusUnresolved || importHostMention.ResolvedRecordID != nil || importHostMention.ResolutionMethod != nil {
-		t.Fatalf("import host mention must remain unresolved, got %#v", importHostMention)
-	}
-	importIdentityMention := entitytest.LookupMention(t, harness.DB, entitytest.MentionIDFromItemRef(t, importIdentityItem["item_ref"].(string)))
-	if importIdentityMention.ResolutionStatus != entitytest.MentionStatusUnresolved || importIdentityMention.ResolvedRecordID != nil || importIdentityMention.ResolutionMethod != nil {
-		t.Fatalf("import identity mention must remain unresolved, got %#v", importIdentityMention)
-	}
-	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE src_record_id = $1 AND deleted_at IS NULL`, importResult.RecordID); got != 0 {
-		t.Fatalf("import create must not create auto-match links, got %d", got)
-	}
 }
 
 // timeline-storage / REQ-02-031..REQ-02-032, REQ-02-058 / AC-019, AC-021.
@@ -323,17 +267,6 @@ func newResolutionTimelineCommands(t testing.TB, pool postgres.DB) *resolutionTi
 
 func (c *resolutionTimelineCommands) CreateRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return c.facade.CreateRow(ctx, CreateRowCommand{
-		Actor:       actor,
-		IncidentID:  incidentID,
-		Request:     request,
-		RequestHash: requestHash,
-		RequestID:   requestID,
-		Now:         now,
-	})
-}
-
-func (c *resolutionTimelineCommands) CreateImportedRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	return c.facade.CreateImportedRow(ctx, CreateRowCommand{
 		Actor:       actor,
 		IncidentID:  incidentID,
 		Request:     request,

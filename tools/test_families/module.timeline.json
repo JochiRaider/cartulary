@@ -1622,8 +1622,7 @@
         "tests": [
           "TestUnit_CaptureStateHelpers",
           "TestUnit_InitialStateVocabulary",
-          "TestUnit_PayloadBuildersExposeStableShapes",
-          "TestUnit_SupersedeGuards"
+          "TestUnit_PayloadBuildersExposeStableShapes"
         ]
       },
       "evidence_class": "unit",

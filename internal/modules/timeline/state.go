@@ -1,7 +1,5 @@
 package timeline
 
-import "github.com/google/uuid"
-
 const (
 	captureStateRough      = "rough"
 	captureStateEnriched   = "enriched"
@@ -40,20 +38,8 @@ func newIllegalTransitionError(reasonCode string, fromStatus string, toStatus st
 	}
 }
 
-var captureStateVocabulary = map[string]struct{}{
-	captureStateRough:      {},
-	captureStateEnriched:   {},
-	captureStateReviewed:   {},
-	captureStateSuperseded: {},
-}
-
-func InitialCaptureState() string {
+func initialCaptureState() string {
 	return captureStateRough
-}
-
-func IsSupportedCaptureState(value string) bool {
-	_, ok := captureStateVocabulary[value]
-	return ok
 }
 
 func CreateRequestHasUserValue(request CreateRequest) bool {
@@ -73,7 +59,7 @@ func CreateRequestHasUserValue(request CreateRequest) bool {
 		(request.AttachedEvidence != nil && len(request.AttachedEvidence.Actions) > 0)
 }
 
-func CaptureStateAfterMaterialPatch(current string) (string, error) {
+func captureStateAfterMaterialPatch(current string) (string, error) {
 	switch current {
 	case captureStateRough, captureStateReviewed:
 		return captureStateEnriched, nil
@@ -84,27 +70,10 @@ func CaptureStateAfterMaterialPatch(current string) (string, error) {
 	}
 }
 
-func CaptureStateAllowsMarkReviewed(current string) bool {
+func captureStateAllowsMarkReviewed(current string) bool {
 	return current == captureStateRough || current == captureStateEnriched
 }
 
-func CaptureStateAllowsSupersede(current string) bool {
+func captureStateAllowsSupersede(current string) bool {
 	return current == captureStateRough || current == captureStateEnriched || current == captureStateReviewed
-}
-
-func ValidateSupersedeReplacement(currentRecordID uuid.UUID, currentIncidentID uuid.UUID, replacementRecordID *uuid.UUID, replacementIncidentID *uuid.UUID) error {
-	if replacementRecordID == nil {
-		return nil
-	}
-	guards := make([]string, 0, 2)
-	if *replacementRecordID == currentRecordID {
-		guards = append(guards, supersedeGuardReplacementDifferent)
-	}
-	if replacementIncidentID != nil && *replacementIncidentID != currentIncidentID {
-		guards = append(guards, supersedeGuardReplacementVisibleActiveSameIncident)
-	}
-	if len(guards) > 0 {
-		return newIllegalTransitionError("supersede_not_allowed", "", captureStateSuperseded, guards...)
-	}
-	return nil
 }

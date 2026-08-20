@@ -169,6 +169,9 @@ func TestReportingProviderPackagesExposeTypedFacts(t *testing.T) {
 		if !strings.Contains(string(data), "CollectFactsTx(") {
 			t.Fatalf("%s does not expose typed reporting provider facts", fileName)
 		}
+		if fileName == "../timeline/reportingprovider/provider.go" && strings.Contains(string(data), "func CollectFieldsTx(") {
+			t.Fatalf("%s must expose typed facts without the legacy field wrapper", fileName)
+		}
 	}
 
 	data, err := os.ReadFile("export_materializer.go")
@@ -177,7 +180,6 @@ func TestReportingProviderPackagesExposeTypedFacts(t *testing.T) {
 	}
 	for _, forbidden := range []string{
 		"recordreporting.CollectFieldsTx",
-		"timelinereporting.CollectFieldsTx",
 		"hostidentityreporting.CollectFieldsTx",
 		"partyreporting.CollectFieldsTx",
 		"evidencereporting.CollectFieldsTx",

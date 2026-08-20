@@ -22,8 +22,10 @@ import (
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/fakeports"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
@@ -1030,9 +1032,13 @@ func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 	)
 	httptestx.RequireSuccessEnvelope(t, patch, http.StatusOK)
 
-	beforeEnvelope := queryTimelineEnvelope(t, server, incidentID, adminLogin, map[string]any{})
+	beforeEnvelope := queryTimelineEnvelope(t, server, incidentID, adminLogin)
 	contractassert.RequireDefaultQueryMeta(t, beforeEnvelope, timeline.TimelineViewSchemaID)
-	beforeRows := beforeEnvelope["data"].(map[string]any)["rows"].([]any)
+	rawBeforeRows := beforeEnvelope["data"].(map[string]any)["rows"].([]any)
+	beforeRows := make([]map[string]any, 0, len(rawBeforeRows))
+	for _, rawRow := range rawBeforeRows {
+		beforeRows = append(beforeRows, rawRow.(map[string]any))
+	}
 	if len(beforeRows) != 3 {
 		t.Fatalf("expected three projected rows, got %#v", beforeRows)
 	}
@@ -1040,13 +1046,13 @@ func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 	if expectedSecondID < expectedFirstID {
 		expectedFirstID, expectedSecondID = expectedSecondID, expectedFirstID
 	}
-	if got := beforeRows[0].(map[string]any)["record_id"]; got != expectedFirstID {
+	if got := beforeRows[0]["record_id"]; got != expectedFirstID {
 		t.Fatalf("expected first default-sorted row %s, got %#v", expectedFirstID, beforeRows)
 	}
-	if got := beforeRows[1].(map[string]any)["record_id"]; got != expectedSecondID {
+	if got := beforeRows[1]["record_id"]; got != expectedSecondID {
 		t.Fatalf("expected second default-sorted row %s, got %#v", expectedSecondID, beforeRows)
 	}
-	if got := beforeRows[2].(map[string]any)["record_id"]; got != zeroFieldID {
+	if got := beforeRows[2]["record_id"]; got != zeroFieldID {
 		t.Fatalf("expected zero-field create to sort after explicit occurred_at rows, got %#v", beforeRows)
 	}
 	secondRow := findRow(t, beforeRows, secondID)
@@ -1100,7 +1106,7 @@ func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 	if _, err := db.ExecContext(context.Background(), `DELETE FROM timeline_grid_projection WHERE incident_id::text = $1`, incidentID); err != nil {
 		t.Fatalf("clear projection rows: %v", err)
 	}
-	emptyEnvelope := queryTimelineEnvelope(t, server, incidentID, adminLogin, map[string]any{})
+	emptyEnvelope := queryTimelineEnvelope(t, server, incidentID, adminLogin)
 	contractassert.RequireDefaultQueryMeta(t, emptyEnvelope, timeline.TimelineViewSchemaID)
 	emptyRows := emptyEnvelope["data"].(map[string]any)["rows"].([]any)
 	if len(emptyRows) != 0 {
@@ -1110,9 +1116,9 @@ func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 	if err := harness.Projections.RebuildTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
 		t.Fatalf("rebuild timeline projection: %v", err)
 	}
-	rebuiltEnvelope := queryTimelineEnvelope(t, server, incidentID, adminLogin, map[string]any{})
+	rebuiltEnvelope := queryTimelineEnvelope(t, server, incidentID, adminLogin)
 	contractassert.RequireDefaultQueryMeta(t, rebuiltEnvelope, timeline.TimelineViewSchemaID)
-	rebuiltRows := rebuiltEnvelope["data"].(map[string]any)["rows"].([]any)
+	rebuiltRows := queryTimelineRows(t, server, incidentID, adminLogin)
 	contractassert.RequireProjectionDeterminism(t, beforeRows, rebuiltRows)
 
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM timeline_events WHERE incident_id::text = $1`, incidentID); got != 3 {
@@ -1453,9 +1459,14 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			t.Fatalf("unexpected superseded projection row: %#v", projection)
 		}
 
-		queryEnvelope := queryTimelineEnvelope(t, server, incidentID, reviewerLogin, map[string]any{})
+		queryEnvelope := queryTimelineEnvelope(t, server, incidentID, reviewerLogin)
 		contractassert.RequireDefaultQueryMeta(t, queryEnvelope, timeline.TimelineViewSchemaID)
-		supersededRow := findRow(t, queryEnvelope["data"].(map[string]any)["rows"].([]any), recordID)
+		rawQueryRows := queryEnvelope["data"].(map[string]any)["rows"].([]any)
+		queryRows := make([]map[string]any, 0, len(rawQueryRows))
+		for _, rawRow := range rawQueryRows {
+			queryRows = append(queryRows, rawRow.(map[string]any))
+		}
+		supersededRow := findRow(t, queryRows, recordID)
 		if supersededRow["cells"].(map[string]any)["timeline.replacement_record_id"].(map[string]any)["value"] != replacementID {
 			t.Fatalf("expected query to surface replacement_record_id, got %#v", supersededRow)
 		}
@@ -1652,9 +1663,14 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if projection.CaptureState != "rough" || projection.ReplacementRecordID != nil {
 			t.Fatalf("rollback must restore pre-supersede projection row, got %#v", projection)
 		}
-		envelope := queryTimelineEnvelope(t, server, incidentID, adminLogin, map[string]any{})
+		envelope := queryTimelineEnvelope(t, server, incidentID, adminLogin)
 		contractassert.RequireDefaultQueryMeta(t, envelope, timeline.TimelineViewSchemaID)
-		row := findRow(t, envelope["data"].(map[string]any)["rows"].([]any), recordID)
+		rawEnvelopeRows := envelope["data"].(map[string]any)["rows"].([]any)
+		envelopeRows := make([]map[string]any, 0, len(rawEnvelopeRows))
+		for _, rawRow := range rawEnvelopeRows {
+			envelopeRows = append(envelopeRows, rawRow.(map[string]any))
+		}
+		row := findRow(t, envelopeRows, recordID)
 		if row["cells"].(map[string]any)["timeline.replacement_record_id"].(map[string]any)["value"] != nil {
 			t.Fatalf("rollback must clear replacement_record_id query surfacing, got %#v", row)
 		}
@@ -2000,7 +2016,7 @@ func createIncident(t testing.TB, server *httptestx.Server, admin loginResult, b
 func createTimelineRow(t testing.TB, server *httptestx.Server, incidentID string, admin loginResult, body map[string]any) map[string]any {
 	t.Helper()
 
-	return scenariotest.CreateTimelineRow(t, server, incidentID, toLogin(admin), body)
+	return routetest.CreateRow(t, server, toLogin(admin), incidentID, body)
 }
 
 func createMembership(t testing.TB, server *httptestx.Server, incidentID string, userID string, email string, role string, admin loginResult) {
@@ -2048,13 +2064,21 @@ func expectNoTimelineSocketMessage(t testing.TB, client *scenariotest.TimelineSo
 func requireMutationRecorded(t testing.TB, db *sql.DB, changeSetID string, recordID string, wantActorUserID string, wantSource string, wantClientTxnID string, wantMutationRows int, wantRevisions int) {
 	t.Helper()
 
-	scenariotest.RequireMutationRecorded(t, db, changeSetID, recordID, wantActorUserID, wantSource, wantClientTxnID, wantMutationRows, wantRevisions)
+	workbookscenariotest.RequireChangeSetAttribution(t, db, changeSetID, wantActorUserID, wantSource, wantClientTxnID)
+	database := asserttest.SQLDatabase(db)
+	if got := asserttest.CountChangeSetMutations(t, database, changeSetID); got != wantMutationRows {
+		t.Fatalf("unexpected mutation row count for %s: got %d want %d", changeSetID, got, wantMutationRows)
+	}
+	if got := asserttest.CountRecordRevisions(t, database, recordID); got != wantRevisions {
+		t.Fatalf("unexpected record revision count for %s: got %d want %d", recordID, got, wantRevisions)
+	}
 }
 
 func requireNoTimelineCollaborationEmission(t testing.TB, client *scenariotest.TimelineSocketClient, changes <-chan platformws.Message) {
 	t.Helper()
 
-	scenariotest.RequireNoTimelineCollaborationEmission(t, client, changes)
+	scenariotest.ExpectNoTimelineSocketMessage(t, client)
+	asserttest.RequireNoRecordChange(t, changes, 300*time.Millisecond)
 }
 
 func requireRejectedMutationStable(t testing.TB, db *sql.DB, incidentID string, recordID string, before asserttest.Counters, resp *http.Response, wantFrom string, wantTo string, wantGuards []string) {
@@ -2070,28 +2094,34 @@ func requireRejectedMutationStable(t testing.TB, db *sql.DB, incidentID string, 
 	}
 }
 
-func queryTimelineEnvelope(t testing.TB, server *httptestx.Server, incidentID string, login loginResult, body map[string]any) map[string]any {
+func queryTimelineEnvelope(t testing.TB, server *httptestx.Server, incidentID string, login loginResult) map[string]any {
 	t.Helper()
 
-	return scenariotest.QueryTimelineEnvelope(t, server, incidentID, toLogin(login), body)
+	return workbookscenariotest.QueryViewEnvelope(t, server.HTTP.URL, incidentID, timeline.TimelineViewSchemaID, appsupport.LoginResult{
+		SessionCookie: login.sessionCookie,
+		CSRFCookie:    login.csrfCookie,
+	})
 }
 
-func queryTimelineRows(t testing.TB, server *httptestx.Server, incidentID string, login loginResult) []any {
+func queryTimelineRows(t testing.TB, server *httptestx.Server, incidentID string, login loginResult) []map[string]any {
 	t.Helper()
 
-	return scenariotest.QueryTimelineRows(t, server, incidentID, toLogin(login))
+	return workbookscenariotest.QueryViewRows(t, server.HTTP.URL, incidentID, timeline.TimelineViewSchemaID, appsupport.LoginResult{
+		SessionCookie: login.sessionCookie,
+		CSRFCookie:    login.csrfCookie,
+	})
 }
 
-func findRow(t testing.TB, rows []any, recordID string) map[string]any {
+func findRow(t testing.TB, rows []map[string]any, recordID string) map[string]any {
 	t.Helper()
 
-	return scenariotest.FindRow(t, rows, recordID)
+	return workbookscenariotest.FindRow(t, rows, recordID)
 }
 
 func mustUUID(t testing.TB, raw string) uuid.UUID {
 	t.Helper()
 
-	return scenariotest.MustUUID(t, raw)
+	return appsupport.MustUUID(t, raw)
 }
 
 func doJSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {

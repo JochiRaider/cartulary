@@ -319,7 +319,7 @@ func (s *store) applyOwnerBatchCreateTx(ctx context.Context, tx pgx.Tx, actor au
 		RecordID:              recordID,
 		IncidentID:            incidentID,
 		ActivityTimePairState: "disabled",
-		CaptureState:          InitialCaptureState(),
+		CaptureState:          initialCaptureState(),
 		RowVersion:            1,
 		RecordedAt:            now.UTC(),
 		EditedAt:              now.UTC(),
@@ -406,7 +406,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 		After:                     projected,
 		AfterRow:                  afterRow,
 		AfterSnapshot:             afterSnapshot,
-		ChangedFieldKeys:          ComputeChangedFieldKeys(nil, projected),
+		ChangedFieldKeys:          computeChangedFieldKeys(nil, projected),
 		TagMutations:              tagMutations,
 		AttachedEvidenceMutations: attachedEvidenceMutations,
 		RecordID:                  projected.RecordID,
@@ -507,7 +507,7 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 	}
 	stateMaterialChanged := materialChanged || mentionChanged || evidenceChanged
 	if stateMaterialChanged {
-		nextState, err := CaptureStateAfterMaterialPatch(current.CaptureState)
+		nextState, err := captureStateAfterMaterialPatch(current.CaptureState)
 		if err != nil {
 			return clipboardAppliedRow{}, nil, err
 		}
@@ -580,7 +580,7 @@ RETURNING recorded_at
 		AfterRow:                  afterRow,
 		BeforeSnapshot:            &beforeSnapshot,
 		AfterSnapshot:             afterSnapshot,
-		ChangedFieldKeys:          ComputeChangedFieldKeys(&beforeProjected, afterProjected),
+		ChangedFieldKeys:          computeChangedFieldKeys(&beforeProjected, afterProjected),
 		TagMutations:              tagMutations,
 		AttachedEvidenceMutations: attachedEvidenceMutations,
 		RecordID:                  afterProjected.RecordID,

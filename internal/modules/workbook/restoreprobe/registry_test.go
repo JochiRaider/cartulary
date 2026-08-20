@@ -55,7 +55,7 @@ func TestRestoreProbeRegistryExecutesExactOwnerRegistration(t *testing.T) {
 	if len(query.meta.Filters) != 0 || query.meta.GroupBy != nil || !reflect.DeepEqual(query.meta.Sort, wantSort) {
 		t.Fatalf("query realization got %#v", query.meta)
 	}
-	if result.RegistrationID != timeline.RestoreWorkbookProbeRegistrationID ||
+	if result.RegistrationID != "timeline.base_restore_probe.v1" ||
 		result.ViewSchemaID != "cartulary.view.timeline.v2" ||
 		result.RowCount != 0 {
 		t.Fatalf("execution result got %#v", result)

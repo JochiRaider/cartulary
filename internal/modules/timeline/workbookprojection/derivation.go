@@ -57,8 +57,8 @@ func Derive(snapshot sourcerepository.Snapshot, replacementRecordID *uuid.UUID) 
 		DataSourceText:        cloneStringPointer(snapshot.DataSourceText),
 		RecordedAt:            snapshot.RecordedAt.UTC(),
 		EditedAt:              snapshot.EditedAt.UTC(),
-		ActivitySortTS:        DeriveActivitySortTS(snapshot.ActivityUTCText, snapshot.ActivityLocalText),
-		DateEnteredSortDay:    DeriveDateEnteredSortDay(snapshot.DateEnteredText),
+		ActivitySortTS:        deriveActivitySortTS(snapshot.ActivityUTCText, snapshot.ActivityLocalText),
+		DateEnteredSortDay:    deriveDateEnteredSortDay(snapshot.DateEnteredText),
 		ActivityTimePairState: snapshot.ActivityTimePairState,
 		CaptureState:          snapshot.CaptureState,
 		ReplacementRecordID:   cloneUUIDPointer(replacementRecordID),
@@ -133,7 +133,7 @@ func (record DerivedRecord) PresenterRecord() rowpresenter.Record {
 	}
 }
 
-func DeriveActivitySortTS(utcText *string, localText *string) *time.Time {
+func deriveActivitySortTS(utcText *string, localText *string) *time.Time {
 	if parsed, ok := timecontract.ParseUTC(utcText); ok {
 		return &parsed
 	}
@@ -143,7 +143,7 @@ func DeriveActivitySortTS(utcText *string, localText *string) *time.Time {
 	return nil
 }
 
-func DeriveDateEnteredSortDay(text *string) *time.Time {
+func deriveDateEnteredSortDay(text *string) *time.Time {
 	if text == nil || *text == "" {
 		return nil
 	}

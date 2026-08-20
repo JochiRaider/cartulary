@@ -19,15 +19,7 @@ type Facade struct {
 var errRequestFingerprintRequired = errors.New("timeline mutation request fingerprint is required")
 
 func NewFacade(pool postgres.DB, collaborators Collaborators, conflictTokens conflicttokens.ConflictTokenCodec) *Facade {
-	return newFacadeWithStore(newStore(pool, collaborators, conflictTokens))
-}
-
-func newFacadeWithStore(store *store) *Facade {
-	return &Facade{store: store}
-}
-
-func (f *Facade) ParseConflictToken(token string) (conflicttokens.ConflictTokenClaims, bool) {
-	return f.store.parseConflictToken(token)
+	return &Facade{store: newStore(pool, collaborators, conflictTokens)}
 }
 
 func (f *Facade) RecordIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {
@@ -47,13 +39,6 @@ func (f *Facade) CreateRow(ctx context.Context, command CreateRowCommand) (Mutat
 		return MutationResult{}, err
 	}
 	return f.store.CreateRow(ctx, command.Actor, command.IncidentID, command.Request, command.RequestHash, command.RequestID, command.Now)
-}
-
-func (f *Facade) CreateImportedRow(ctx context.Context, command CreateRowCommand) (MutationResult, error) {
-	if err := requireRequestFingerprint(command.RequestHash); err != nil {
-		return MutationResult{}, err
-	}
-	return f.store.CreateImportedRow(ctx, command.Actor, command.IncidentID, command.Request, command.RequestHash, command.RequestID, command.Now)
 }
 
 func (f *Facade) PatchRow(ctx context.Context, command PatchRowCommand) (MutationResult, error) {

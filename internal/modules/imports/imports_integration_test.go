@@ -694,8 +694,9 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	})
 	incidentID := incident["incident_id"].(string)
 	hostRecordID := createImportAutoResolutionCandidateHost(t, harness.Server.HTTP.URL, adminLogin, incidentID)
+	identityRecordID := createImportAutoResolutionCandidateIdentity(t, harness.Server.HTTP.URL, adminLogin, incidentID)
 	metadata := `{"client_txn_id":"txn-extension_profile-import-apply-upload","incident_id":"` + incidentID + `"}`
-	csv := "host,summary,source_note,tag\nhost-1, Alpha summary ,raw-a,Urgent\nhost-2,Beta summary,raw-b,Review\n"
+	csv := "host,identity,summary,source_note,tag\nhost-1,identity-1, Alpha summary ,raw-a,Urgent\nhost-2,identity-2,Beta summary,raw-b,Review\n"
 
 	uploadResp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, metadata, csv, "apply.csv", false)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
@@ -724,6 +725,15 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 			},
 			{
 				"source_column_ordinal": 2,
+				"source_header_text":    "identity",
+				"field_key":             "timeline.identity_refs",
+				"entity_binding_mode":   "mention_origin",
+				"transform_id":          nil,
+				"transform_options":     map[string]any{},
+				"empty_value_policy":    "omit_field",
+			},
+			{
+				"source_column_ordinal": 3,
 				"source_header_text":    "summary",
 				"field_key":             "timeline.activity_synopsis_text",
 				"entity_binding_mode":   nil,
@@ -732,7 +742,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 				"empty_value_policy":    "omit_field",
 			},
 			{
-				"source_column_ordinal": 3,
+				"source_column_ordinal": 4,
 				"source_header_text":    "source_note",
 				"field_key":             nil,
 				"entity_binding_mode":   nil,
@@ -741,7 +751,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 				"empty_value_policy":    "omit_field",
 			},
 			{
-				"source_column_ordinal": 4,
+				"source_column_ordinal": 5,
 				"source_header_text":    "tag",
 				"field_key":             "timeline.tags",
 				"entity_binding_mode":   nil,
@@ -808,11 +818,14 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	if !summaries["Alpha summary"] || !summaries["Beta summary"] {
 		t.Fatalf("imported summaries not found: %#v", summaries)
 	}
-	requireTimelineHostMentionUnresolved(t, rowsBySummary["Alpha summary"], "host-1")
-	requireTimelineHostMentionUnresolved(t, rowsBySummary["Beta summary"], "host-2")
-	requireImportedHostMentionNotAutoResolved(t, harness.DB, incidentID, recordIDsBySummary["Alpha summary"], hostRecordID, "host-1")
-	requireTimelineImportProvenance(t, harness.DB, recordIDsBySummary["Alpha summary"], sessionID, unitID, "source_note", "raw-a", 2, 3, "A1:D3")
-	requireTimelineImportProvenance(t, harness.DB, recordIDsBySummary["Beta summary"], sessionID, unitID, "source_note", "raw-b", 3, 3, "A1:D3")
+	requireTimelineMentionUnresolved(t, rowsBySummary["Alpha summary"], "timeline.host_refs", "host-1")
+	requireTimelineMentionUnresolved(t, rowsBySummary["Alpha summary"], "timeline.identity_refs", "identity-1")
+	requireTimelineMentionUnresolved(t, rowsBySummary["Beta summary"], "timeline.host_refs", "host-2")
+	requireTimelineMentionUnresolved(t, rowsBySummary["Beta summary"], "timeline.identity_refs", "identity-2")
+	requireImportedMentionNotAutoResolved(t, harness.DB, incidentID, recordIDsBySummary["Alpha summary"], hostRecordID, "timeline.host_refs", "observed_on_host", "host-1")
+	requireImportedMentionNotAutoResolved(t, harness.DB, incidentID, recordIDsBySummary["Alpha summary"], identityRecordID, "timeline.identity_refs", "observed_as_identity", "identity-1")
+	requireTimelineImportProvenance(t, harness.DB, recordIDsBySummary["Alpha summary"], sessionID, unitID, "source_note", "raw-a", 2, 4, "A1:E3")
+	requireTimelineImportProvenance(t, harness.DB, recordIDsBySummary["Beta summary"], sessionID, unitID, "source_note", "raw-b", 3, 4, "A1:E3")
 
 	unitClientTxnID := "import:" + sessionID + ":" + unitID + ":txn-extension_profile-import-apply-apply"
 	var changeSetID string
@@ -929,13 +942,15 @@ func TestTimelineOwnerUnitRollsBackWhenJournalFails_Integration(t *testing.T) {
 		"title":         "Timeline import owner rollback",
 	})
 	incidentID := incident["incident_id"].(string)
+	createImportAutoResolutionCandidateHost(t, harness.Server.HTTP.URL, adminLogin, incidentID)
+	createImportAutoResolutionCandidateIdentity(t, harness.Server.HTTP.URL, adminLogin, incidentID)
 	sessionID, unitID := startCSVImportSession(
 		t,
 		harness.Server.HTTP.URL,
 		adminLogin,
 		incidentID,
 		"txn-extension_profile-import-timeline-rollback-upload",
-		"summary\nmust roll back\n",
+		"host,identity,summary\nhost-1,identity-1,must roll back\n",
 		"timeline-rollback.csv",
 	)
 	mapping := map[string]any{
@@ -944,15 +959,35 @@ func TestTimelineOwnerUnitRollsBackWhenJournalFails_Integration(t *testing.T) {
 		"header_row_ref":        1,
 		"data_start_row_ref":    2,
 		"unknown_column_policy": "preserve_raw_capture",
-		"source_columns": []map[string]any{{
-			"source_column_ordinal": 1,
-			"source_header_text":    "summary",
-			"field_key":             "timeline.activity_synopsis_text",
-			"entity_binding_mode":   nil,
-			"transform_id":          nil,
-			"transform_options":     map[string]any{},
-			"empty_value_policy":    "omit_field",
-		}},
+		"source_columns": []map[string]any{
+			{
+				"source_column_ordinal": 1,
+				"source_header_text":    "host",
+				"field_key":             "timeline.host_refs",
+				"entity_binding_mode":   "mention_origin",
+				"transform_id":          nil,
+				"transform_options":     map[string]any{},
+				"empty_value_policy":    "omit_field",
+			},
+			{
+				"source_column_ordinal": 2,
+				"source_header_text":    "identity",
+				"field_key":             "timeline.identity_refs",
+				"entity_binding_mode":   "mention_origin",
+				"transform_id":          nil,
+				"transform_options":     map[string]any{},
+				"empty_value_policy":    "omit_field",
+			},
+			{
+				"source_column_ordinal": 3,
+				"source_header_text":    "summary",
+				"field_key":             "timeline.activity_synopsis_text",
+				"entity_binding_mode":   nil,
+				"transform_id":          nil,
+				"transform_options":     map[string]any{},
+				"empty_value_policy":    "omit_field",
+			},
+		},
 	}
 	mappingResp := doImportJSON(
 		t,
@@ -1025,7 +1060,11 @@ EXECUTE FUNCTION public.fail_import_journal_timeline_rs04()
 	for table, query := range map[string]string{
 		"Timeline source":     `SELECT COUNT(*) FROM timeline_events WHERE incident_id::text = $1`,
 		"record envelope":     `SELECT COUNT(*) FROM records WHERE incident_id::text = $1 AND record_type = 'timeline_event'`,
+		"entity mention":      `SELECT COUNT(*) FROM entity_mentions mention JOIN records record ON record.record_id = mention.source_record_id WHERE record.incident_id::text = $1 AND record.record_type = 'timeline_event'`,
+		"record link":         `SELECT COUNT(*) FROM record_links link JOIN records record ON record.record_id = link.src_record_id WHERE record.incident_id::text = $1 AND record.record_type = 'timeline_event'`,
 		"Timeline projection": `SELECT COUNT(*) FROM timeline_grid_projection WHERE incident_id::text = $1`,
+		"change-set mutation": `SELECT COUNT(*) FROM change_set_mutations mutation JOIN change_sets change_set USING (change_set_id) WHERE change_set.incident_id::text = $1 AND change_set.source = 'imports.apply'`,
+		"record revision":     `SELECT COUNT(*) FROM record_revisions revision JOIN change_sets change_set USING (change_set_id) WHERE change_set.incident_id::text = $1 AND change_set.source = 'imports.apply'`,
 		"apply journal":       `SELECT COUNT(*) FROM import_apply_journal WHERE import_session_id::text = $1`,
 		"unit change set":     `SELECT COUNT(*) FROM change_sets WHERE incident_id::text = $1 AND source = 'imports.apply' AND client_txn_id = $2`,
 	} {
@@ -2593,6 +2632,30 @@ func createImportAutoResolutionCandidateHost(t testing.TB, serverURL string, log
 	return data["row"].(map[string]any)["record_id"].(string)
 }
 
+func createImportAutoResolutionCandidateIdentity(t testing.TB, serverURL string, login flowtest.LoginResult, incidentID string) string {
+	t.Helper()
+
+	resp := httptestx.DoJSON(
+		t,
+		http.MethodPost,
+		serverURL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.identities.v1/rows",
+		map[string]any{
+			"client_txn_id":         "txn-extension_profile-import-apply-identity-alias-candidate",
+			"identity.display_name": "Import existing identity",
+			"identity.aliases": map[string]any{
+				"kind": "collection_actions_v1",
+				"actions": []map[string]any{
+					{"op": "add_alias", "alias_text": "identity-1"},
+				},
+			},
+		},
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+	)
+	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+	return data["row"].(map[string]any)["record_id"].(string)
+}
+
 func cloneImportMappingPayload(t testing.TB, source map[string]any) map[string]any {
 	t.Helper()
 
@@ -2740,41 +2803,41 @@ func waitImportJobTerminal(t testing.TB, serverURL string, login flowtest.LoginR
 	}
 }
 
-func requireTimelineHostMentionUnresolved(t testing.TB, row map[string]any, rawText string) {
+func requireTimelineMentionUnresolved(t testing.TB, row map[string]any, fieldKey string, rawText string) {
 	t.Helper()
 
 	cells := row["cells"].(map[string]any)
-	hostRefs := cells["timeline.host_refs"].(map[string]any)["value"].(map[string]any)
-	items := hostRefs["items"].([]any)
+	mentions := cells[fieldKey].(map[string]any)["value"].(map[string]any)
+	items := mentions["items"].([]any)
 	if len(items) != 1 {
-		t.Fatalf("expected one imported host mention, got %#v", hostRefs)
+		t.Fatalf("expected one imported %s mention, got %#v", fieldKey, mentions)
 	}
 	item := items[0].(map[string]any)
 	if item["item_kind"] != "unresolved_mention" || item["raw_text"] != rawText {
-		t.Fatalf("expected unresolved imported host mention %q, got %#v", rawText, item)
+		t.Fatalf("expected unresolved imported %s mention %q, got %#v", fieldKey, rawText, item)
 	}
 	if _, ok := item["resolved_record_id"]; ok {
-		t.Fatalf("imported host mention must not be resolved: %#v", item)
+		t.Fatalf("imported %s mention must not be resolved: %#v", fieldKey, item)
 	}
 	if _, ok := item["resolution_method"]; ok {
-		t.Fatalf("imported host mention must not expose resolution method: %#v", item)
+		t.Fatalf("imported %s mention must not expose resolution method: %#v", fieldKey, item)
 	}
 }
 
-func requireImportedHostMentionNotAutoResolved(t testing.TB, db *sql.DB, incidentID string, timelineRecordID string, hostRecordID string, rawText string) {
+func requireImportedMentionNotAutoResolved(t testing.TB, db *sql.DB, incidentID string, timelineRecordID string, entityRecordID string, sourceFieldKey string, linkType string, rawText string) {
 	t.Helper()
 
 	if got := dbassert.CountSQL(t, db, `
 SELECT COUNT(*)
   FROM entity_mentions
  WHERE source_record_id::text = $1
-   AND source_field_key = 'timeline.host_refs'
-   AND raw_text = $2
+   AND source_field_key = $2
+   AND raw_text = $3
    AND resolution_status = 'unresolved'
    AND resolved_record_id IS NULL
    AND resolution_method IS NULL
-`, timelineRecordID, rawText); got != 1 {
-		t.Fatalf("imported host token must remain one unresolved mention, got %d", got)
+`, timelineRecordID, sourceFieldKey, rawText); got != 1 {
+		t.Fatalf("imported %s token must remain one unresolved mention, got %d", sourceFieldKey, got)
 	}
 	if got := dbassert.CountSQL(t, db, `
 SELECT COUNT(*)
@@ -2782,10 +2845,10 @@ SELECT COUNT(*)
  WHERE incident_id::text = $1
    AND src_record_id::text = $2
    AND dst_record_id::text = $3
-   AND link_type = 'observed_on_host'
+   AND link_type = $4
    AND deleted_at IS NULL
-`, incidentID, timelineRecordID, hostRecordID); got != 0 {
-		t.Fatalf("imported exact alias must not create active host link, got %d", got)
+`, incidentID, timelineRecordID, entityRecordID, linkType); got != 0 {
+		t.Fatalf("imported exact alias must not create active %s link, got %d", linkType, got)
 	}
 	if got := dbassert.CountSQL(t, db, `
 SELECT COUNT(*)
@@ -2795,7 +2858,7 @@ SELECT COUNT(*)
    AND dst_record_id::text = $3
    AND provenance = 'auto_match'
    AND deleted_at IS NULL
-`, incidentID, timelineRecordID, hostRecordID); got != 0 {
+`, incidentID, timelineRecordID, entityRecordID); got != 0 {
 		t.Fatalf("imported exact alias must not create auto_match link, got %d", got)
 	}
 }

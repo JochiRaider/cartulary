@@ -618,9 +618,14 @@ SELECT COUNT(*)
 			t.Fatalf("timeline projection rebuild must not create late auto-resolution side effects, before=%+v after=%+v", beforeCounters, afterCounters)
 		}
 
-		envelope := queryTimelineEnvelope(t, harness.Server, incidentID, adminLogin, map[string]any{})
+		envelope := queryTimelineEnvelope(t, harness.Server, incidentID, adminLogin)
 		contractassert.RequireDefaultQueryMeta(t, envelope, timeline.TimelineViewSchemaID)
-		rowAfter := findRow(t, envelope["data"].(map[string]any)["rows"].([]any), recordID)
+		rawRows := envelope["data"].(map[string]any)["rows"].([]any)
+		rows := make([]map[string]any, 0, len(rawRows))
+		for _, rawRow := range rawRows {
+			rows = append(rows, rawRow.(map[string]any))
+		}
+		rowAfter := findRow(t, rows, recordID)
 		requireViewRowFieldSurface(t, "timeline-resolution", rowAfter, timeline.TimelineViewSchemaID)
 		itemAfter := requireSingleCollectionItem(t, rowAfter, timelinetest.FieldHostRefs)
 		if itemAfter["item_kind"] != "unresolved_mention" {
@@ -699,9 +704,14 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 			linktest.ManualLinkExpectation.Confidence,
 		)
 
-		envelope := queryTimelineEnvelope(t, harness.Server, incidentID, adminLogin, map[string]any{})
+		envelope := queryTimelineEnvelope(t, harness.Server, incidentID, adminLogin)
 		contractassert.RequireDefaultQueryMeta(t, envelope, timeline.TimelineViewSchemaID)
-		row := findRow(t, envelope["data"].(map[string]any)["rows"].([]any), recordID)
+		rawRows := envelope["data"].(map[string]any)["rows"].([]any)
+		rows := make([]map[string]any, 0, len(rawRows))
+		for _, rawRow := range rawRows {
+			rows = append(rows, rawRow.(map[string]any))
+		}
+		row := findRow(t, rows, recordID)
 		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
 		item := requireSingleCollectionItem(t, row, timelinetest.FieldHostRefs)
 		if item["item_kind"] != "resolved_ref" || item["resolved_record_id"] != entitytest.CanonicalHostRecordID.String() {

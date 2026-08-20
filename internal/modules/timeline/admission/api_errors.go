@@ -7,7 +7,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 )
 
 type MutationAPIErrorContext struct {
@@ -76,53 +75,6 @@ func sameFieldConflictAPIError(err *timeline.SameFieldConflictError) *httpapi.AP
 		Message:  "same field conflict",
 		Details:  map[string]any{},
 		Conflict: conflict,
-	}
-}
-
-func invalidViewQuery(field string, reasonCode string) *httpapi.APIError {
-	details := map[string]any{}
-	if field != "" {
-		details["field"] = field
-	}
-	if reasonCode != "" {
-		details["reason_code"] = reasonCode
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusBadRequest,
-		Code:    "invalid_view_query",
-		Message: "invalid view query",
-		Details: details,
-	}
-}
-
-func invalidViewQueryValidation(err *viewquery.ValidationError) *httpapi.APIError {
-	if err == nil {
-		return invalidViewQuery("", "")
-	}
-	details := map[string]any{}
-	if err.Field != "" {
-		details["field"] = err.Field
-	}
-	if err.FieldKey != "" {
-		details["field_key"] = err.FieldKey
-	}
-	if err.FilterIndex != nil {
-		details["filter_index"] = *err.FilterIndex
-	}
-	if err.ReasonCode != "" {
-		details["reason_code"] = err.ReasonCode
-	}
-	if err.RequestedCount != nil {
-		details["requested_count"] = *err.RequestedCount
-	}
-	if err.MaxCount != nil {
-		details["max_count"] = *err.MaxCount
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusBadRequest,
-		Code:    "invalid_view_query",
-		Message: "invalid view query",
-		Details: details,
 	}
 }
 

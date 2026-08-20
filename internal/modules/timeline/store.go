@@ -164,10 +164,6 @@ func (s *store) CreateRow(ctx context.Context, actor authn.UserRecord, incidentI
 	})
 }
 
-func (s *store) CreateImportedRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	return s.createRow(ctx, actor, incidentID, request, requestHash, requestID, now, createRowOptions{})
-}
-
 func (s *store) createRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time, options createRowOptions) (MutationResult, error) {
 	scopeKey := incidentID.String() + ":" + TimelineViewSchemaID
 	idempotencyKey := authn.RouteIdempotencyKey{
@@ -272,7 +268,7 @@ func (s *store) createRowTx(
 		ActivitySynopsisText:  request.ActivitySynopsisText,
 		DataSourceText:        request.DataSourceText,
 		ActivityTimePairState: "disabled",
-		CaptureState:          InitialCaptureState(),
+		CaptureState:          initialCaptureState(),
 		RowVersion:            1,
 		RecordedAt:            now.UTC(),
 		EditedAt:              now.UTC(),
@@ -378,7 +374,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 		return MutationResult{}, 0, err
 	}
 
-	payload := BuildMutationPayload(projected, changeSetID)
+	payload := buildMutationPayload(projected, changeSetID)
 	if err := s.appendRecordChangeIntentTx(
 		ctx,
 		tx,
@@ -388,7 +384,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 		changeSetID,
 		request.ClientTxnID,
 		actorUserID,
-		ComputeChangedFieldKeys(nil, projected),
+		computeChangedFieldKeys(nil, projected),
 		afterRow,
 		0,
 		now,
@@ -403,7 +399,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 		ChangeSetID:      changeSetID,
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       projected.RowVersion,
-		ChangedFieldKeys: ComputeChangedFieldKeys(nil, projected),
+		ChangedFieldKeys: computeChangedFieldKeys(nil, projected),
 		Row:              projected,
 	}, mutationSequence, nil
 }
@@ -655,7 +651,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 	}
 	stateMaterialChanged := materialChanged || mentionChanged || evidenceChanged
 	if stateMaterialChanged {
-		nextState, err := CaptureStateAfterMaterialPatch(current.CaptureState)
+		nextState, err := captureStateAfterMaterialPatch(current.CaptureState)
 		if err != nil {
 			return MutationResult{}, err
 		}
@@ -762,7 +758,7 @@ RETURNING recorded_at
 		return MutationResult{}, err
 	}
 
-	payload := BuildMutationPayload(afterProjected, changeSetID)
+	payload := buildMutationPayload(afterProjected, changeSetID)
 	if err := s.appendRecordChangeIntentTx(
 		ctx,
 		tx,
@@ -772,7 +768,7 @@ RETURNING recorded_at
 		changeSetID,
 		request.ClientTxnID,
 		actor.ID,
-		ComputeChangedFieldKeys(&beforeProjected, afterProjected),
+		computeChangedFieldKeys(&beforeProjected, afterProjected),
 		afterRow,
 		0,
 		now,
@@ -796,7 +792,7 @@ RETURNING recorded_at
 		ChangeSetID:      changeSetID,
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       afterProjected.RowVersion,
-		ChangedFieldKeys: ComputeChangedFieldKeys(&beforeProjected, afterProjected),
+		ChangedFieldKeys: computeChangedFieldKeys(&beforeProjected, afterProjected),
 		Row:              afterProjected,
 	}, nil
 }
@@ -979,21 +975,6 @@ func (s *store) conflictToken(recordID uuid.UUID, fieldKey string, baseRowVersio
 		CurrentRowVersion:       currentRowVersion,
 		RequestHash:             conflicttokens.RequestHashTokenValue(requestHash),
 	})
-}
-
-func (s *store) parseConflictToken(token string) (conflicttokens.ConflictTokenClaims, bool) {
-	return parseTimelineConflictTokenWithCodec(s.conflictTokens, token)
-}
-
-func parseTimelineConflictTokenWithCodec(codec conflicttokens.ConflictTokenCodec, token string) (conflicttokens.ConflictTokenClaims, bool) {
-	claims, ok := codec.Parse(token)
-	if !ok {
-		return conflicttokens.ConflictTokenClaims{}, false
-	}
-	if claims.RouteKey != conflictResolveRouteKey || claims.ViewSchemaID != TimelineViewSchemaID {
-		return conflicttokens.ConflictTokenClaims{}, false
-	}
-	return claims, true
 }
 
 func rowCellValue(row map[string]any, fieldKey string) (any, bool) {

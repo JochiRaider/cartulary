@@ -2,18 +2,18 @@ package timeline
 
 import "github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 
-const RestoreWorkbookProbeRegistrationID = "timeline.base_restore_probe.v1"
+const restoreWorkbookProbeRegistrationID = "timeline.base_restore_probe.v1"
 
 // RestoreWorkbookProbeRegistration contributes Timeline's exact Base restore
 // verification query. Workbook owns validation and execution.
 func RestoreWorkbookProbeRegistration() workbookprobe.Registration {
 	return workbookprobe.Registration{
 		SchemaID:       workbookprobe.RegistrationSchemaID,
-		RegistrationID: RestoreWorkbookProbeRegistrationID,
+		RegistrationID: restoreWorkbookProbeRegistrationID,
 		OwnerID:        "module.timeline",
 		Profile:        workbookprobe.BaseProfile,
 		IsDefault:      true,
-		ViewSchemaID:   "cartulary.view.timeline.v2",
+		ViewSchemaID:   TimelineViewSchemaID,
 		Filters:        []workbookprobe.Filter{},
 		Sort: []workbookprobe.Sort{
 			{FieldKey: "timeline.activity_sort_ts", Direction: "asc"},

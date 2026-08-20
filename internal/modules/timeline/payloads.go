@@ -7,7 +7,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
 
-func BuildActionPayload(record workbookprojection.DerivedRecord, changeSetID uuid.UUID, reason *string) map[string]any {
+func buildActionPayload(record workbookprojection.DerivedRecord, changeSetID uuid.UUID, reason *string) map[string]any {
 	payload := map[string]any{
 		"record_id":             record.RecordID.String(),
 		"incident_id":           record.IncidentID.String(),
@@ -20,7 +20,7 @@ func BuildActionPayload(record workbookprojection.DerivedRecord, changeSetID uui
 	return payload
 }
 
-func BuildMutationPayload(record workbookprojection.DerivedRecord, changeSetID uuid.UUID) map[string]any {
+func buildMutationPayload(record workbookprojection.DerivedRecord, changeSetID uuid.UUID) map[string]any {
 	return map[string]any{
 		"view_schema_id": TimelineViewSchemaID,
 		"change_set_id":  changeSetID.String(),

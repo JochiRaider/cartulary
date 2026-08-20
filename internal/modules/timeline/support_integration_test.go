@@ -8,6 +8,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -106,19 +107,19 @@ func TestAuthorizationMatrix(t *testing.T) {
 	})
 
 	t.Run("patch route matrix", func(t *testing.T) {
-		editorTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		editorTarget := routetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 			"client_txn_id":                   "txn-support-timeline_mutation-auth-patch-editor",
 			"timeline.activity_synopsis_text": "patch editor target",
 		})
-		reviewerTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		reviewerTarget := routetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 			"client_txn_id":                   "txn-support-timeline_mutation-auth-patch-reviewer",
 			"timeline.activity_synopsis_text": "patch reviewer target",
 		})
-		adminTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		adminTarget := routetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 			"client_txn_id":                   "txn-support-timeline_mutation-auth-patch-admin",
 			"timeline.activity_synopsis_text": "patch admin target",
 		})
-		deniedTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		deniedTarget := routetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 			"client_txn_id":                   "txn-support-timeline_mutation-auth-patch-denied",
 			"timeline.activity_synopsis_text": "patch denied target",
 		})
@@ -162,15 +163,15 @@ func TestAuthorizationMatrix(t *testing.T) {
 	})
 
 	t.Run("mark reviewed route matrix", func(t *testing.T) {
-		reviewerTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		reviewerTarget := routetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 			"client_txn_id":                   "txn-support-timeline_mutation-auth-review-reviewer",
 			"timeline.activity_synopsis_text": "review reviewer target",
 		})
-		adminTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		adminTarget := routetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 			"client_txn_id":                   "txn-support-timeline_mutation-auth-review-admin",
 			"timeline.activity_synopsis_text": "review admin target",
 		})
-		deniedTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		deniedTarget := routetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 			"client_txn_id":                   "txn-support-timeline_mutation-auth-review-denied",
 			"timeline.activity_synopsis_text": "review denied target",
 		})
@@ -210,27 +211,27 @@ func TestAuthorizationMatrix(t *testing.T) {
 	})
 
 	t.Run("supersede route matrix", func(t *testing.T) {
-		reviewerTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		reviewerTarget := routetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 			"client_txn_id":                   "txn-support-timeline_mutation-auth-supersede-reviewer",
 			"timeline.activity_synopsis_text": "supersede reviewer target",
 		})
-		adminTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		adminTarget := routetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 			"client_txn_id":                   "txn-support-timeline_mutation-auth-supersede-admin",
 			"timeline.activity_synopsis_text": "supersede admin target",
 		})
-		deniedTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		deniedTarget := routetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 			"client_txn_id":                   "txn-support-timeline_mutation-auth-supersede-denied",
 			"timeline.activity_synopsis_text": "supersede denied target",
 		})
-		reviewerReplacement := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		reviewerReplacement := routetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 			"client_txn_id":                   "txn-support-timeline_mutation-auth-supersede-reviewer-replacement",
 			"timeline.activity_synopsis_text": "supersede reviewer replacement",
 		})
-		adminReplacement := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		adminReplacement := routetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 			"client_txn_id":                   "txn-support-timeline_mutation-auth-supersede-admin-replacement",
 			"timeline.activity_synopsis_text": "supersede admin replacement",
 		})
-		deniedReplacement := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		deniedReplacement := routetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 			"client_txn_id":                   "txn-support-timeline_mutation-auth-supersede-denied-replacement",
 			"timeline.activity_synopsis_text": "supersede denied replacement",
 		})

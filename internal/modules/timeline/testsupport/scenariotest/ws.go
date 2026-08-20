@@ -11,6 +11,7 @@ import (
 
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
@@ -43,7 +44,7 @@ func ConnectTimelineSocket(t testing.TB, server *httptestx.Server, incidentID st
 		Presence: platformws.PresenceInput{
 			SheetRef: map[string]string{
 				"kind": "view_schema",
-				"id":   timelineViewSchemaID,
+				"id":   timeline.TimelineViewSchemaID,
 			},
 			Mode: "viewing",
 		},

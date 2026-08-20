@@ -62,7 +62,7 @@ func (s *store) createPerformanceFixtureRows(ctx context.Context, command Perfor
 		snapshot := sourcerepository.Snapshot{
 			RecordID: recordID, IncidentID: command.IncidentID,
 			ActivitySynopsisText: &summary, DataSourceText: dataSource,
-			ActivityTimePairState: "disabled", CaptureState: InitialCaptureState(), RowVersion: 1,
+			ActivityTimePairState: "disabled", CaptureState: initialCaptureState(), RowVersion: 1,
 			RecordedAt: now, EditedAt: now, CreatedByUserID: command.Actor.ID, UpdatedByUserID: command.Actor.ID,
 		}
 		projections[index] = projectRecord(snapshot, nil).ProjectionInput()
@@ -123,7 +123,7 @@ func (s *store) createPerformanceFixtureRows(ctx context.Context, command Perfor
 			RecordID: recordIDs[index], IncidentID: command.IncidentID,
 			ActivitySynopsisText:  projections[index].ActivitySynopsisText,
 			DataSourceText:        projections[index].DataSourceText,
-			ActivityTimePairState: "disabled", CaptureState: InitialCaptureState(), RowVersion: 1,
+			ActivityTimePairState: "disabled", CaptureState: initialCaptureState(), RowVersion: 1,
 			RecordedAt: now, EditedAt: now, CreatedByUserID: command.Actor.ID, UpdatedByUserID: command.Actor.ID,
 		}, nil)
 		if err := s.hydrateProjectedCollections(ctx, tx, &derived); err != nil {

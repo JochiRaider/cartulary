@@ -13,17 +13,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mutationpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
-
-func DecodeViewQueryRequest(reader io.Reader, viewSchemaID string) (viewschema.QueryMeta, *httpapi.APIError) {
-	query, err := viewquery.Decode(reader, viewSchemaID)
-	if err != nil {
-		return viewschema.QueryMeta{}, invalidViewQueryValidation(err)
-	}
-	return query.Meta, nil
-}
 
 func DecodeTimelineCreateRequest(reader io.Reader) (timeline.CreateRequest, *httpapi.APIError) {
 	schema, found := viewschema.Lookup(timeline.TimelineViewSchemaID)

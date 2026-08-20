@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -86,51 +85,6 @@ func (r *Repository) LoadUnlockedTx(ctx context.Context, tx pgx.Tx, recordID uui
 
 func (r *Repository) LoadForIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (Snapshot, error) {
 	return r.loadTx(ctx, tx, &incidentID, recordID, true)
-}
-
-func (r *Repository) ListIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]Snapshot, error) {
-	rows, err := tx.Query(ctx, sourceSelect+`
- WHERE incident_id = $1
- ORDER BY record_id
-`, incidentID)
-	if err != nil {
-		return nil, fmt.Errorf("list timeline source rows: %w", err)
-	}
-	defer rows.Close()
-
-	snapshots := make([]Snapshot, 0)
-	for rows.Next() {
-		snapshot, err := scanSource(rows)
-		if err != nil {
-			return nil, err
-		}
-		snapshots = append(snapshots, snapshot)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate timeline source rows: %w", err)
-	}
-
-	recordIDs := make([]uuid.UUID, 0, len(snapshots))
-	for _, snapshot := range snapshots {
-		recordIDs = append(recordIDs, snapshot.RecordID)
-	}
-	envelopes, err := r.envelopes.LoadEnvelopesTx(ctx, tx, recordIDs, false)
-	if err != nil {
-		return nil, err
-	}
-	filtered := snapshots[:0]
-	for _, snapshot := range snapshots {
-		envelope, ok := envelopes[snapshot.RecordID]
-		if !ok || !eligibleEnvelope(snapshot, envelope, &incidentID) {
-			continue
-		}
-		applyEnvelope(&snapshot, envelope)
-		filtered = append(filtered, snapshot)
-	}
-	slices.SortFunc(filtered, func(left Snapshot, right Snapshot) int {
-		return slices.Compare(left.RecordID[:], right.RecordID[:])
-	})
-	return filtered, nil
 }
 
 func (r *Repository) ListIncidentPageTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, afterRecordID *uuid.UUID, limit int) (Page, error) {

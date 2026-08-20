@@ -18,7 +18,7 @@ import (
 
 func (s *store) MarkReviewed(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request ActionRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return s.applyAction(ctx, actor, reviewRouteKey, recordID, request.BaseRowVersion, request.ClientTxnID, requestHash, requestID, now, request.Reason, nil, func(current sourcerepository.Snapshot) (sourcerepository.Snapshot, *string, error) {
-		if !CaptureStateAllowsMarkReviewed(current.CaptureState) {
+		if !captureStateAllowsMarkReviewed(current.CaptureState) {
 			return sourcerepository.Snapshot{}, nil, newIllegalTransitionError("mark_reviewed_not_allowed", current.CaptureState, captureStateReviewed)
 		}
 		next := current
@@ -35,7 +35,7 @@ func (s *store) MarkReviewed(ctx context.Context, actor authn.UserRecord, record
 
 func (s *store) Supersede(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request SupersedeRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return s.applyAction(ctx, actor, supersedeRouteKey, recordID, request.BaseRowVersion, request.ClientTxnID, requestHash, requestID, now, &request.Reason, request.ReplacementRecordID, func(current sourcerepository.Snapshot) (sourcerepository.Snapshot, *string, error) {
-		if !CaptureStateAllowsSupersede(current.CaptureState) {
+		if !captureStateAllowsSupersede(current.CaptureState) {
 			return sourcerepository.Snapshot{}, nil, newIllegalTransitionError("supersede_not_allowed", current.CaptureState, captureStateSuperseded)
 		}
 
@@ -242,7 +242,7 @@ RETURNING recorded_at
 		return MutationResult{}, err
 	}
 
-	payload := BuildActionPayload(afterProjected, changeSetID, effectiveReason)
+	payload := buildActionPayload(afterProjected, changeSetID, effectiveReason)
 	if err := s.appendRecordChangeIntentTx(
 		ctx,
 		tx,
@@ -252,7 +252,7 @@ RETURNING recorded_at
 		changeSetID,
 		clientTxnID,
 		actor.ID,
-		ComputeChangedFieldKeys(&beforeProjected, afterProjected),
+		computeChangedFieldKeys(&beforeProjected, afterProjected),
 		afterRow,
 		0,
 		now,
@@ -276,7 +276,7 @@ RETURNING recorded_at
 		ChangeSetID:      changeSetID,
 		ClientTxnID:      clientTxnID,
 		RowVersion:       afterProjected.RowVersion,
-		ChangedFieldKeys: ComputeChangedFieldKeys(&beforeProjected, afterProjected),
+		ChangedFieldKeys: computeChangedFieldKeys(&beforeProjected, afterProjected),
 		Row:              afterProjected,
 	}, nil
 }

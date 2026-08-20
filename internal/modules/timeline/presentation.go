@@ -12,7 +12,7 @@ func buildRow(record workbookprojection.DerivedRecord) map[string]any {
 	return rowpresenter.BuildRow(record.PresenterRecord())
 }
 
-func ComputeChangedFieldKeys(before *workbookprojection.DerivedRecord, after workbookprojection.DerivedRecord) []string {
+func computeChangedFieldKeys(before *workbookprojection.DerivedRecord, after workbookprojection.DerivedRecord) []string {
 	beforeCells := map[string]any{}
 	if before != nil {
 		beforeRow := buildRow(*before)
