@@ -5,32 +5,16 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 )
 
-type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
-
-type ImportRevision struct {
-	ChangeSetID  uuid.UUID
-	SequenceNo   int
-	RecordID     uuid.UUID
-	RowVersion   int64
-	AfterVersion string
-	CanonicalRow map[string]any
-}
-
-type ImportRevisionAppender interface {
-	AppendAssessmentImportRevisionTx(context.Context, pgx.Tx, ImportRevision) error
-}
-
 type ImportCreateDependencies struct {
 	Subjects    SubjectValidator
 	Assessors   AssessorValidator
 	Records     RecordEnvelopeCreator
-	Revisions   ImportRevisionAppender
+	Revisions   ownerfacade.RecordRevisionAndIntentAppender
 	Projections AssessmentProjectionPort
 }
 
@@ -39,7 +23,7 @@ type importCreateFacade struct {
 	subjects    SubjectValidator
 	assessors   AssessorValidator
 	records     RecordEnvelopeCreator
-	revisions   ImportRevisionAppender
+	revisions   ownerfacade.RecordRevisionAndIntentAppender
 	projections AssessmentProjectionPort
 }
 
@@ -83,7 +67,7 @@ func NewImportCreateFacade(
 func (f *importCreateFacade) CreateImportRowTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	command ImportCreateCommand,
+	command ownerfacade.ImportOwnerCreateCommand,
 ) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
 	if request.TargetViewSchemaID != AssessmentsViewSchemaID {
@@ -94,7 +78,7 @@ func (f *importCreateFacade) CreateImportRowTx(
 	}
 	input, err := assessmentCreateInputFromImport(
 		request,
-		assessmentImportValuesByField(request.FieldValues),
+		ownerfacade.ValuesByField(request.FieldValues),
 	)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
@@ -184,39 +168,20 @@ func (f *importCreateFacade) CreateImportRowTx(
 			err,
 		)
 	}
-	rowVersion, err := canonicalRowVersion(row)
-	if err != nil {
-		return ownerfacade.ImportOwnerCreateResponse{}, err
-	}
-	if err := f.revisions.AppendAssessmentImportRevisionTx(ctx, tx, ImportRevision{
-		ChangeSetID: command.ChangeSetID,
-		SequenceNo:  command.SequenceNo,
-		RecordID:    recordID,
-		RowVersion:  rowVersion,
-		AfterVersion: fmt.Sprintf(
-			"record:%s:%d",
-			recordID.String(),
-			rowVersion,
-		),
-		CanonicalRow: row,
-	}); err != nil {
-		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf(
-			"append imported assessment revision: %w",
-			err,
-		)
-	}
-	return ownerfacade.ImportOwnerCreateResponse{
-		RecordID:   recordID,
-		RowVersion: rowVersion,
-		ChangeSetMutationRef: fmt.Sprintf(
-			"change_set_mutation:%s:%d",
-			command.ChangeSetID,
-			command.SequenceNo,
-		),
+	response, err := ownerfacade.FinalizeRecordRevisionAndIntentTx(ctx, tx, f.revisions, ownerfacade.FinalizeCommand{
+		Request:         request,
+		ChangeSetID:     command.ChangeSetID,
+		SequenceNo:      command.SequenceNo,
+		RecordID:        recordID,
+		Operation:       "create",
 		CreatedOrReused: "created",
 		OwnerResultCode: "created",
-		RowRefresh:      row,
-	}, nil
+		Row:             row,
+	})
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("finalize imported assessment: %w", err)
+	}
+	return response, nil
 }
 
 func assessmentCreateInputFromImport(
@@ -247,14 +212,4 @@ func assessmentCreateInputFromImport(
 		result.AssessedAt = value.Timestamp
 	}
 	return result, nil
-}
-
-func assessmentImportValuesByField(
-	fields []ownerfacade.ImportFieldValue,
-) map[string]ownerfacade.ImportScalarValue {
-	values := make(map[string]ownerfacade.ImportScalarValue, len(fields))
-	for _, field := range fields {
-		values[field.FieldKey] = field.NormalizedValue
-	}
-	return values
 }

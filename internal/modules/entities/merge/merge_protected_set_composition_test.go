@@ -32,10 +32,14 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 
 	composition := revisionsupport.MustComposition(t)
 	appender := composition.Runtime.Appender()
+	assessmentEffects, err := assessments.NewMergeEffects(composedMergeAssessmentProjection{}, appender)
+	if err != nil {
+		t.Fatalf("construct assessment merge effects: %v", err)
+	}
 	store := entitymerge.NewStore(
 		db,
 		appender,
-		entitymerge.WithAssessmentEffects(assessments.NewMergeEffects(composedMergeAssessmentProjection{}, appender)),
+		entitymerge.WithAssessmentEffects(assessmentEffects),
 		entitymerge.WithWorkbookProjection(composedMergeWorkbookProjection{}),
 		entitymerge.WithTimelineEffects(composedMergeTimelineEffects{}),
 		entitymerge.WithCollaborationIntents(composition.Intents),

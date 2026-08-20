@@ -78,7 +78,10 @@ func NewBundle(dependencies Dependencies) (*Bundle, error) {
 	if dependencies.AssessmentRows == nil {
 		return nil, fmt.Errorf("compose Timeline bundle: Assessment projection rows are required")
 	}
-	components := compose(dependencies)
+	components, err := compose(dependencies)
+	if err != nil {
+		return nil, err
+	}
 	return &Bundle{
 		Facade:             timeline.NewFacade(dependencies.Postgres, components.collaborators, dependencies.ConflictTokens),
 		MentionEffects:     components.mentionEffects,
@@ -98,7 +101,7 @@ func NewCollaborators(dependencies Dependencies) (timeline.Collaborators, error)
 	return bundle.Collaborators, nil
 }
 
-func compose(dependencies Dependencies) composition {
+func compose(dependencies Dependencies) (composition, error) {
 	recordsPort := recordAdapter{
 		store:   records.NewStore(),
 		targets: records.NewRouteTargetResolver(dependencies.Postgres),
@@ -136,6 +139,13 @@ func compose(dependencies Dependencies) composition {
 			Collaboration:    collaborationAdapter{appender: dependencies.Collaboration},
 		},
 	}
+	assessmentEffects, err := assessmentassembly.NewMergeEffects(
+		dependencies.AssessmentRows,
+		dependencies.Revisions,
+	)
+	if err != nil {
+		return composition{}, fmt.Errorf("compose Timeline bundle: assessment merge effects: %w", err)
+	}
 	return composition{
 		mentionEffects: mentionEffects,
 		entityMentionStore: mentions.NewStore(
@@ -148,16 +158,13 @@ func compose(dependencies Dependencies) composition {
 		entityMergeStore: merge.NewStore(
 			dependencies.Postgres,
 			dependencies.Revisions,
-			merge.WithAssessmentEffects(assessmentassembly.NewMergeEffects(
-				dependencies.AssessmentRows,
-				dependencies.Revisions,
-			)),
+			merge.WithAssessmentEffects(assessmentEffects),
 			merge.WithTimelineEffects(mentionEffects),
 			merge.WithCollaborationIntents(dependencies.Collaboration),
 			merge.WithWorkbookProjection(entityProjectionWriter),
 		),
 		collaborators: collaborators,
-	}
+	}, nil
 }
 
 type collaborationAdapter struct {

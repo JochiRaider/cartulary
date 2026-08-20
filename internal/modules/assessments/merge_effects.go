@@ -13,30 +13,22 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
-var ErrMergeProtectedSetChanged = errors.New("assessments: merge protected set changed")
-
 type MergeProtectedSetChangedError struct {
 	RecordID uuid.UUID
 }
 
 func (e *MergeProtectedSetChangedError) Error() string {
-	return ErrMergeProtectedSetChanged.Error()
-}
-
-func (e *MergeProtectedSetChangedError) Unwrap() error {
-	return ErrMergeProtectedSetChanged
+	return "assessments: merge protected set changed"
 }
 
 type MergeMutation struct {
-	TargetKind      string
-	TargetID        string
-	OperationKind   string
-	BeforeVersionID *string
-	AfterVersionID  *string
-	BeforeValue     any
-	AfterValue      any
-	BeforeSnapshot  *revisions.RecordSnapshot
-	AfterSnapshot   *revisions.RecordSnapshot
+	TargetKind     string
+	TargetID       string
+	OperationKind  string
+	BeforeValue    any
+	AfterValue     any
+	BeforeSnapshot *revisions.RecordSnapshot
+	AfterSnapshot  *revisions.RecordSnapshot
 }
 
 type MergeProjectionPort interface {
@@ -52,14 +44,14 @@ type MergeEffects struct {
 	snapshots   MergeSnapshotCapturePort
 }
 
-func NewMergeEffects(projections MergeProjectionPort, snapshots MergeSnapshotCapturePort) *MergeEffects {
+func NewMergeEffects(projections MergeProjectionPort, snapshots MergeSnapshotCapturePort) (*MergeEffects, error) {
 	if projections == nil {
-		panic("construct assessment merge effects: projection port is required")
+		return nil, errors.New("construct assessment merge effects: projection port is required")
 	}
 	if snapshots == nil {
-		panic("construct assessment merge effects: snapshot capture port is required")
+		return nil, errors.New("construct assessment merge effects: snapshot capture port is required")
 	}
-	return &MergeEffects{projections: projections, snapshots: snapshots}
+	return &MergeEffects{projections: projections, snapshots: snapshots}, nil
 }
 
 type mergeAssessmentRecord struct {
@@ -72,8 +64,6 @@ type mergeAssessmentRecord struct {
 	Rationale       string
 	AssessorUserID  uuid.UUID
 	AssessedAt      time.Time
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
 	DeletedAt       *time.Time
 	DeletedByUserID *uuid.UUID
 }
@@ -128,8 +118,6 @@ SELECT
     rationale,
     assessor_user_id,
     assessed_at,
-    created_at,
-    updated_at,
     deleted_at,
     deleted_by_user_id
   FROM assessments
@@ -177,7 +165,6 @@ UPDATE assessments
 			return nil, 0, fmt.Errorf("repoint merged assessment: %w", err)
 		}
 		record.SubjectRecordID = survivorRecordID
-		record.UpdatedAt = now.UTC()
 		if err := e.projections.RefreshAssessmentProjectionTx(ctx, tx, record.RecordID); err != nil {
 			return nil, 0, err
 		}
@@ -215,8 +202,6 @@ func scanMergeAssessmentRecord(row pgx.Row) (mergeAssessmentRecord, error) {
 		&record.Rationale,
 		&record.AssessorUserID,
 		&record.AssessedAt,
-		&record.CreatedAt,
-		&record.UpdatedAt,
 		&deletedAt,
 		&deletedByUserID,
 	); err != nil {
@@ -227,8 +212,6 @@ func scanMergeAssessmentRecord(row pgx.Row) (mergeAssessmentRecord, error) {
 		record.ConfidenceScore = &value
 	}
 	record.AssessedAt = record.AssessedAt.UTC()
-	record.CreatedAt = record.CreatedAt.UTC()
-	record.UpdatedAt = record.UpdatedAt.UTC()
 	if deletedAt.Valid {
 		value := deletedAt.Time.UTC()
 		record.DeletedAt = &value

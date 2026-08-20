@@ -206,6 +206,12 @@
       "filename": "00034_graph_projection_cleanup_indexes.sql",
       "sha256": "615624aeb979fe3d376a8b013666ac5f175e9c343147baf0f714bfc006e81ca3",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 35,
+      "filename": "00035_assessment_create_idempotency_v1.sql",
+      "sha256": "f5800e4d9b733a279d93743506d6e12ca86f9b2d8a3637161c4b6072678dfacb",
+      "historical_phase_shaped": false
     }
   ]
 }

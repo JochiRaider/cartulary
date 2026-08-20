@@ -377,14 +377,6 @@ func canonicalRowVersion(row map[string]any) (int64, error) {
 		if typed > 0 {
 			return typed, nil
 		}
-	case int:
-		if typed > 0 {
-			return int64(typed), nil
-		}
-	case float64:
-		if typed > 0 && typed == float64(int64(typed)) {
-			return int64(typed), nil
-		}
 	}
 	return 0, fmt.Errorf("load assessment canonical row: invalid row_version %#v", value)
 }

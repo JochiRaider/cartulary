@@ -7,11 +7,11 @@
 | Target path | internal/modules/assessments |
 | Target label | assessments |
 | Output path | docs/handoffs/assessments-module-refactor-tracker.md |
-| Repository baseline | main at 8c8c52a43069 on 2026-08-19 |
-| Status | COMPLETE: authorized remediation and validation handoff finished |
-| Allowed change | The serial implementation slices and validations defined by this tracker |
-| Non-goals | No public route, OpenAPI, view-schema, database-schema, migration, bundle-version, generated-protocol, or frontend behavior change |
-| Execution authority | The 2026-08-19 remediation request authorizes AS-S00A through AS-S06 and requires a tracker checkpoint after every completed slice |
+| Repository baseline | Historical remediation baseline: main at 8c8c52a43069; APR planning baseline: main at 6cb809190bf107e805720a9552a894783db10cbc on 2026-08-19 |
+| Status | AS-S00A through AS-S06, the Sections 14-15 follow-up, and APR-S00 through APR-S05 are COMPLETE; the APR iteration is COMPLETE |
+| Allowed change | APR-S01 through APR-S05 are authorized by the 2026-08-19 implementation request and must follow the serial checkpoint protocol in Section 18 |
+| Non-goals | APR-S00 makes no product, contract, migration, generated-artifact, test-catalog, or other documentation change. The planned iteration does not change public routes, OpenAPI, view schemas, bundle formats, frontend behavior, or public protocols |
+| Execution authority | The 2026-08-19 implementation request authorized APR-S01 through APR-S05; all serial dependency checkpoints are complete |
 
 The target began with 21 files. Authorized additions and relocations are added
 to the inventory as they land. The normalized label is
@@ -918,3 +918,558 @@ finding was fixed with scoped annotations rather than suppressing the scripts.
 The three testing-harness gaps are closed. No raw investigation capture,
 unexpected generated root, lockfile, provider substitution, or Revisions
 product change remains in the worktree.
+
+## 16. APR Iteration Scope and Planning Posture
+
+APR is the Assessments Production-Readiness cleanup iteration. Sections 1-15
+remain the immutable execution and handoff history for the completed module
+remediation and its testing-harness follow-up. APR does not reopen either
+effort. In particular, the transient failures recorded in Sections 14 and 15
+were corrected and closed; they are not APR requirements, risks, or planned
+work.
+
+This tracker is an execution-support artifact, not product authority. Core
+owners continue to define the behavior preserved by this iteration. No
+Assessment NLSpec, Core owner, `docs/domain.md`, OpenAPI document, view schema,
+bundle contract, frontend contract, or public protocol change is planned.
+
+### 16.1 Planning baseline
+
+| Baseline fact | APR-S00 record |
+| --- | --- |
+| Commit | `6cb809190bf107e805720a9552a894783db10cbc` |
+| Date | 2026-08-19 |
+| Assessments file inventory | 27 files |
+| Assessments owner rows | 17 total |
+| Assessments service-backed rows | 10 |
+| Go lint | `make lint-go` passed |
+| Assessments slice | `make test-slice OWNER=module.assessments` passed 23/23 |
+| Assessments slice result root | `.cartulary/test-results/20260819T204641Z-p3914346` |
+| Prior transient failures | Closed in Sections 14-15; excluded from APR scope |
+
+The baseline is frozen for planning purposes. Migration 35 is the next legal
+migration on this baseline. If another change occupies that number before
+APR-S01 is authorized, execution must stop and rebaseline this tracker rather
+than silently renumbering the planned migration.
+
+### 16.2 Iteration objective and retained surfaces
+
+APR removes compatibility behavior, duplicate orchestration, dead merge state,
+panic-based construction, and permissive adapter normalization that do not
+serve the production architecture. It also installs a narrow export guard so
+the cleaned package surface remains intentional as later phases expand.
+
+The following surfaces have clear continuing value and remain:
+
+- the Assessments `Facade` and typed cross-owner ports;
+- the `workbookprojection` contract surface;
+- `NewProjectionContribution`;
+- `RevisionProviderContribution`;
+- `RecoveryStateContribution`;
+- `NewIncidentBundleSourcePort`;
+- `IncidentBundleSubtypeContribution`;
+- dual-driver assessment test support required by current cross-owner tests.
+
+APR is repository-internal cleanup except for the persisted idempotency data
+migration. It does not authorize a database domain-schema change, public API
+change, route change, bundle-version change, generated protocol change, or
+frontend behavior change. Internal removals receive no aliases, `Must`
+constructors, or deprecation window.
+
+### 16.3 Authorization boundary
+
+APR-S00 was completed as a tracker-only planning slice. The 2026-08-19
+implementation request authorizes APR-S01 through APR-S05. Authorization does
+not bypass the dependency gates: each successor remains ineligible until the
+preceding implementation, focused validation, and tracker checkpoint are
+complete.
+
+## 17. APR Requirements and Gap Register
+
+### 17.1 Requirements
+
+| Requirement | Planned outcome | Primary evidence |
+| --- | --- | --- |
+| APR-REQ-001 | Preserve Sections 1-15 as completed historical evidence and treat their transient failures as closed | Tracker review |
+| APR-REQ-002 | Execute APR serially and checkpoint this tracker after every authorized workstream before starting its successor | Section 18 ledger |
+| APR-REQ-003 | Preserve valid persisted assessment-create replays while converging storage and runtime decoding on one strict v1 payload | Codec and migration tests |
+| APR-REQ-004 | Reject malformed, unknown, or internally inconsistent persisted payloads before migration mutation, with aggregate-only diagnostics | Migration preflight tests |
+| APR-REQ-005 | Replace Assessments-specific import finalization with the Imports-owned generic revision-and-intent finalizer and field mapper | IMP-01 through IMP-10 |
+| APR-REQ-006 | Remove unused merge API, version state, and query state without changing merge results, history, tombstones, timestamps, refresh, or rollback | Entities, Revisions, Timeline, and Assessments tests |
+| APR-REQ-007 | Make merge dependency failures ordinary constructor errors and propagate them through application composition without a `Must` helper | Construction and composition tests |
+| APR-REQ-008 | Accept only positive `int64` row versions from the live projection boundary | Facade unit tests |
+| APR-REQ-009 | Keep serialization-specific number handling inside persisted-payload and Imports-owned codecs | Codec and import tests |
+| APR-REQ-010 | Lock the final Assessments root and `workbookprojection` exports with an exact AST allowlist and negative fixture | Export-guard tests |
+| APR-REQ-011 | Retain the five root contribution surfaces, `Facade`, typed ports, `workbookprojection`, and dual-driver test support | Export allowlist and boundary checks |
+| APR-REQ-012 | Add exactly one authored unit row and one service-backed migration row in APR-S01, reaching 19 total owner rows and 11 service-backed rows | Owner routing and generated topology checks |
+| APR-REQ-013 | Preserve all public HTTP, WebSocket, OpenAPI, view-schema, bundle, frontend, field-key, and generated-protocol behavior | Affected owner and broad validation |
+| APR-REQ-014 | Remove retired internal APIs without aliases or a compatibility layer | Exact symbol and import searches |
+| APR-REQ-015 | Complete APR only after every requirement and gap is traced to passing evidence or an explicitly attributed failure | APR-S05 handoff |
+
+### 17.2 Gap decisions
+
+| Gap | Remediation and areas | Rationale and long-term benefit | Compatibility or migration impact | Risk if unresolved | Completion validation |
+| --- | --- | --- | --- | --- | --- |
+| Legacy assessment idempotency decoder remains indefinitely | **Migration, implementation, tests:** add `00035_assessment_create_idempotency_v1.sql`; migrate valid legacy `assessments.rows.create` payloads to the canonical v1 shape; remove the runtime fallback and accept only strict v1 payloads | `route_idempotency` rows do not expire. A one-time migration bridge preserves valuable replay history while leaving one durable runtime representation | Valid persisted replays remain valid. Malformed or unknown formats block migration with aggregate-only diagnostics. Down migration mechanically reconstructs the old response shape | Blind fallback removal can allow duplicate assessments; permanent dual-format decoding weakens corruption handling and increases maintenance | Up/Down/Up passes; canonical rows remain unchanged; valid legacy rows replay identically; malformed rows fail without mutation or sensitive diagnostics; no legacy decoder remains |
+| Assessment-specific import finalization duplicates Imports' generic finalizer | **Implementation, tests:** use `ownerfacade.RecordRevisionAndIntentAppender`, `FinalizeRecordRevisionAndIntentTx`, and `ownerfacade.ValuesByField`; remove the local revision DTO, appender, adapter, alias, and map helper | One Imports-owned finalization path keeps mutation, revision, intent, and result semantics coherent as Imports evolves | Repository-internal Go break only; no alias. Import results and transaction behavior remain exact | Assessments can drift from every other import owner and require duplicate maintenance | IMP-01 through IMP-10 pass; retired types and helpers have zero references; Imports and Assessments slices pass |
+| Merge participant carries unused API and query state | **Implementation, tests:** remove `ErrMergeProtectedSetChanged`, its `Unwrap`, unused version IDs, and unused selected/scanned timestamps; retain the typed error and `RecordID`, actual `updated_at` write, and exact tombstone fields | Contracts the participant to facts that influence merge behavior and removes false extension points | Internal DTO break with atomic Entities adapter updates; public merge behavior and history are unchanged | Dead fields imply unsupported semantics and create needless merge/revision coupling | Protected-set, repointing, rollback, snapshot, and revision tests remain exact; retired symbols and selected columns are absent |
+| Merge construction panics on invalid dependencies | **Implementation, tests:** change `NewMergeEffects` and its application wrapper to return `(*MergeEffects, error)`; propagate errors through `timelineassembly.NewBundle`; add no `Must` helper | Predictable startup errors remain composable as the dependency graph grows | Internal constructor migration only; valid startup behavior is unchanged | A future composition path can convert a configuration defect into a process panic | Nil dependency cases return stable errors; valid composition and Timeline/Entities tests pass; no constructor panic remains |
+| Live projection row-version parsing accepts types production never emits | **Implementation, tests:** accept only positive `int64` from the interactive facade; reject `int`, `float64`, zero, and negative values; retain JSON-number handling only in persisted-payload and Imports-owned codecs | Separates a typed live boundary from serialization concerns and exposes adapter drift immediately | Stricter internal failure for malformed adapters only | Broken adapters can be silently normalized and remain hidden | Positive `int64` succeeds; every other type or value fails before revision or idempotency effects |
+| Final exported surface is not permanently locked | **Tests and harness:** add an AST-based exact allowlist for the root and `workbookprojection`, including a negative fixture | Prevents accidental compatibility-surface growth after cleanup while private providers and test support remain evolvable | Test-only enforcement; this iteration adds no production export | Retired aliases and convenience APIs can return unnoticed | Exact allowlist passes and an injected export fails |
+
+### 17.3 Interface and compatibility decisions
+
+The authorized implementation iteration will make these repository-internal
+changes:
+
+- `NewMergeEffects(...)` becomes `(*MergeEffects, error)`.
+- `ImportCreateDependencies.Revisions` uses the Imports-owned generic
+  revision-and-intent appender.
+- `ImportCreateCommand`, `ImportRevision`, `ImportRevisionAppender`,
+  `ErrMergeProtectedSetChanged`, its `Unwrap`, and the two unused merge version
+  fields are removed.
+- Live row-version acceptance narrows to positive `int64` values.
+
+Valid persisted replay history has continuing value and is migrated. Malformed
+or unknown stored payloads are neither deleted nor silently ignored. Existing
+public behavior and the retained contribution surfaces in Section 16.2 remain
+unchanged.
+
+## 18. APR Serial Workstreams
+
+Sequence:
+
+`APR-S00 -> APR-S01 -> APR-S02 -> APR-S03 -> APR-S04 -> APR-S05`
+
+| Slice | Purpose | Dependency | Status | Authorization |
+| --- | --- | --- | --- | --- |
+| APR-S00 | Tracker rebaseline and decision-complete plan | Completed Sections 1-15 | COMPLETE | Authorized documentation-only slice |
+| APR-S01 | Persisted idempotency cutover | APR-S00 checkpoint | COMPLETE | Checkpoint recorded in Section 20.3 |
+| APR-S02 | Import finalization consolidation | APR-S01 checkpoint | COMPLETE | Checkpoint recorded in Section 20.4 |
+| APR-S03 | Merge participant contraction | APR-S02 checkpoint | COMPLETE | Checkpoint recorded in Section 20.5 |
+| APR-S04 | Fail-safe construction, strict live row version, and export lock | APR-S03 checkpoint | COMPLETE | Checkpoint recorded in Section 20.6 |
+| APR-S05 | Validation, traceability, and final handoff | APR-S04 checkpoint | COMPLETE | Checkpoint and handoff recorded in Section 20.7 |
+
+### 18.1 Checkpoint protocol
+
+Every authorized implementation slice is serial. After its code and focused
+checks pass, and before its successor begins, update this tracker with:
+
+- status and requirement-to-evidence changes;
+- every authored, moved, generated, or deleted file;
+- exact commands, results, and result or artifact roots;
+- owner-row and service-backed-row counts when changed;
+- compatibility and migration effects;
+- generated outputs and lockfile status;
+- failures, causal attribution, skipped checks, and residual risks;
+- the next eligible slice and its authorization state.
+
+Do not advance with a failing focused test, stale path, occupied migration
+number, hand-edited generated artifact, incomplete checkpoint, or unexplained
+failure. A checkpoint never grants authority for its successor.
+
+### 18.2 APR-S00 - Tracker rebaseline
+
+Update the header and append the APR scope, baseline, requirements, gap
+decisions, workstreams, validation matrix, checkpoint ledger, and handoff
+template. Preserve Sections 1-15 byte-for-byte except for the header posture
+needed to distinguish the completed work from this new planned iteration.
+
+Exit criteria:
+
+- only this tracker changed;
+- `make lint-markdown` passes;
+- `git diff --check` passes;
+- APR-S00 is `COMPLETE`; and
+- APR-S01 remains `PLANNED` and explicitly authorization-gated.
+
+### 18.3 APR-S01 - Persisted idempotency cutover
+
+Add `db/migrations/00035_assessment_create_idempotency_v1.sql` and a strict
+canonical assessment-create payload codec. The migration must first classify
+all `assessments.rows.create` payloads without mutation. It may update only
+valid legacy rows; existing canonical v1 rows remain byte-for-byte or
+semantically unchanged as required by the codec contract. Unknown schemas,
+malformed values, or redundant-field disagreements fail the migration with
+aggregate-only diagnostics that reveal no incident, actor, assessment,
+version, or payload value.
+
+The canonical decoder validates the schema identifier, exact top-level member
+set, UUID fields, positive row version, row presence, and redundant
+record/version agreement. After migration evidence passes, remove the legacy
+runtime fallback. Down migration mechanically reconstructs the former response
+shape so Up/Down/Up is deterministic.
+
+Use `make author-test-row-id` rather than editing generated topology. Add one
+authored Assessments unit row for codec behavior and one service-backed
+Database Migrations row for stored-data conversion. Expected Assessments
+routing after generation is 19 total owner rows and 11 service-backed rows.
+
+Exit criteria:
+
+- strict round trip and malformed, unknown, mismatched, and boundary matrices
+  pass;
+- valid legacy, existing-v1, malformed-preflight, safe-diagnostic,
+  Up/Down/Up, and replay-equivalence migration cases pass;
+- no legacy decoder or permissive fallback remains;
+- Assessments, Workbook, and Database Migrations checks pass; and
+- migration drift, generation drift, and the APR-S01 tracker checkpoint pass.
+
+### 18.4 APR-S02 - Import finalization consolidation
+
+Replace the Assessments-local import finalization path with
+`ownerfacade.RecordRevisionAndIntentAppender`,
+`FinalizeRecordRevisionAndIntentTx`, and `ownerfacade.ValuesByField`. Delete
+the local import revision DTO, appender interface,
+`assessmentImportRevisionAdapter`, `ImportCreateCommand` alias, and field-map
+helper without replacements.
+
+Preserve borrowed-transaction ownership, validation order, projection refresh,
+mutation identity, revision values, intent contents, result codes, and rollback
+behavior. Do not introduce a second generic abstraction in Assessments.
+
+Exit criteria:
+
+- IMP-01 through IMP-10 pass, including rollback and negative effects;
+- retired types, aliases, adapters, and helpers have zero references;
+- focused and service-backed Assessments and Imports slices pass; and
+- the APR-S02 tracker checkpoint is complete.
+
+### 18.5 APR-S03 - Merge participant contraction
+
+Remove `ErrMergeProtectedSetChanged` and its `Unwrap`, retaining the typed
+protected-set error and `RecordID`. Remove unused `BeforeVersionID` and
+`AfterVersionID` state and update the Entities adapter atomically. Stop
+selecting and scanning `created_at` and `updated_at` when those values do not
+affect the mutation result.
+
+The cleanup must retain the actual `updated_at` write, exact tombstone fields,
+`protected_set_changed` behavior, record detail, snapshots, canonical before
+and after values, projection refresh, repointing, revision history, and
+rollback.
+
+Exit criteria:
+
+- protected-set race, repointing, snapshot, rollback, and history parity pass;
+- removed API, fields, and selected timestamp columns are absent;
+- Assessments, Entities, Revisions, and Timeline slices pass; and
+- the APR-S03 tracker checkpoint is complete.
+
+### 18.6 APR-S04 - Fail-safe construction and surface lock
+
+Change `NewMergeEffects` and its application wrapper to return
+`(*MergeEffects, error)`. Propagate errors through `timelineassembly.NewBundle`
+and every composition caller. Nil dependencies return stable errors; do not add
+a `Must` constructor or preserve a panic path.
+
+Constrain the live projection row-version helper to positive `int64` values.
+Reject `int`, `float64`, zero, negative, and other values before any revision or
+idempotency effect. Serialization-specific numeric handling remains inside the
+strict persisted-payload codec and Imports-owned generic finalization.
+
+Add an AST-based exact export allowlist for the Assessments root and
+`workbookprojection`, with a negative fixture proving that an injected export
+fails. Extend the existing Assessments unit owner row with constructor,
+row-version, and export-lock evidence; do not add another catalog row.
+
+Exit criteria:
+
+- nil dependency cases return errors and valid Timeline composition passes;
+- the row-version acceptance and rejection matrix passes;
+- the exact export allowlist and negative fixture pass;
+- `make lint-go`, affected owner slices, module-boundary checks, and exact
+  retired-symbol searches pass; and
+- the APR-S04 tracker checkpoint is complete.
+
+### 18.7 APR-S05 - Validation and handoff
+
+Reconcile every APR requirement, gap, removal, retained surface, and
+compatibility decision against evidence. Run the final ladder in Section 19,
+record every result root and failure attribution, inspect the final diff, and
+complete the handoff. No unexplained failing gate may be waived.
+
+Exit criteria:
+
+- APR routing is exactly 19 total Assessments rows and 11 service-backed rows;
+- every APR requirement and gap maps to passing evidence;
+- all failures are fixed or explicitly attributed to a documented external or
+  unrelated cause without waiving an applicable gate;
+- generated and lockfile inspection is clean and no unrelated change remains;
+  and
+- all APR slices and the iteration status are `COMPLETE`.
+
+## 19. APR Validation and Acceptance Matrix
+
+### 19.1 Slice evidence
+
+| Slice | Required evidence | Required narrow owners or gates |
+| --- | --- | --- |
+| APR-S00 | Tracker-only diff and Markdown validity | `make lint-markdown`; `git diff --check`; final status inspection |
+| APR-S01 | Strict codec matrix; migration classification, safe preflight, Up/Down/Up, and replay equivalence; exact 19/11 routing | Assessments, Workbook, Database Migrations; `make migration-drift`; generation and topology drift |
+| APR-S02 | IMP-01 through IMP-10; borrowed transaction, revision, intent, result, refresh, and rollback parity | Assessments and Imports focused and service-backed slices |
+| APR-S03 | Protected-set race, repointing, snapshot, canonical values, history, refresh, and rollback parity | Assessments, Entities, Revisions, and Timeline slices |
+| APR-S04 | Constructor errors, valid composition, strict live row version, export allowlist positive and negative cases, retired-symbol absence | `make lint-go`; affected owner slices; `make backend-module-boundary-check` |
+| APR-S05 | Complete requirement traceability and broad regression evidence | Final ladder and handoff inspection |
+
+### 19.2 Final validation ladder
+
+Run from narrow routing evidence to broad release evidence:
+
+1. Run `make task-guide ROLE=module-author OWNER=module.assessments` and
+   `make explain-test-owner OWNER=module.assessments`; confirm 19 owner rows and
+   11 service-backed rows.
+2. Run focused and service-backed slices for Assessments, Imports, Entities,
+   Revisions, Timeline, Workbook, Projections, and Database Migrations.
+3. Run `make backend-module-boundary-check`, `make harness-contract`,
+   `make migration-drift`, `make generate-drift`,
+   `make generated-artifact-policy-check`, `make json-shape-check`, and
+   `make lint`.
+4. Run `make frontend-typecheck`, `make frontend-unit`,
+   `make frontend-import-boundary-check`, and
+   `make browser-e2e-webserver-backed`.
+5. Run `make agent-finalize`, then `make test-fast`, `make check`, and
+   `make release-check`. If no retained successful full warm-check root exists,
+   leave `RESULTS_DIR` unset and record that retained-run maintenance was
+   skipped.
+6. Finish with `make lint-markdown`, `git diff --check`, and inspection of
+   final status, generated roots, dependency files, and lockfiles.
+
+Use public Make targets for repository checks. Generated topology may change
+only through its authored owner inputs and the relevant generator; never edit
+generated topology, generated protocol roots, `go.sum`, or `pnpm-lock.yaml`
+by hand.
+
+## 20. APR Checkpoint Ledger and Handoff Template
+
+### 20.1 Checkpoint ledger
+
+| Checkpoint | Status | Files changed | Commands and evidence | Compatibility or risk | Next eligible slice |
+| --- | --- | --- | --- | --- | --- |
+| APR-S00 | COMPLETE | `docs/handoffs/assessments-module-refactor-tracker.md` only | Baseline: `make lint-go` passed; Assessments slice passed 23/23 at `.cartulary/test-results/20260819T204641Z-p3914346`; revalidation: `make lint-markdown` passed at `.cartulary/test-results/20260819T211602Z-p3967606`; `git diff --cached --check`, commit, migration inventory, and tracker-only status checks passed | Planning only; no product, migration, test, catalog, generated, lockfile, or public compatibility effect | APR-S01 is authorized and eligible |
+| APR-S01 | COMPLETE | Codec, migration, tests, owner catalog, migration catalog projection, generated manifests/index, schema-hash expectations, harness count, and tracker | Assessments 25/25 and service-backed 17/17; codec and migration rows pass; Workbook and Database Migrations affected rows pass; migration/generation/artifact/JSON drift passes; details in Section 20.3 | Valid replay history is retained in strict v1 storage; public response shape is unchanged; Up precedes the strict binary and Down requires the old binary | APR-S02 is authorized and eligible |
+| APR-S02 | COMPLETE | Assessment import facade, application composition, import characterization, and tracker | Assessments passed 25/25 and service-backed 17/17; Imports passed 22/22 and service-backed 14/14; details in Section 20.4 | Internal duplicate orchestration was removed without changing transaction ownership, mutation/revision/intent order, response fields, or rollback | APR-S03 is authorized and eligible |
+| APR-S03 | COMPLETE | Assessment merge participant, Entities adapter, and tracker | Assessments, Entities, Revisions, and Timeline focused/service-backed suites pass; details in Section 20.5 | Public merge results and history are unchanged; only unused internal state was removed | APR-S04 is authorized and eligible |
+| APR-S04 | COMPLETE | Merge constructors/composition, live row-version boundary, constructor/boundary/export tests, owner-row selectors, generated topology index, and tracker | Assessments, Entities, Timeline, real server bootstrap composition, lint, and module boundaries pass; exact evidence is in Section 20.6 | Internal constructors now return errors; malformed internal row-version values now fail closed; no public or protocol behavior changed | APR-S05 is authorized and eligible |
+| APR-S05 | COMPLETE | Final validation evidence, operator migration-evidence digest expectation, tracker traceability, and handoff | All owner, drift, frontend, browser, broad check, and release gates pass; details in Section 20.7 | Public behavior remains unchanged; migration deployment and rollback ordering are explicit | None; APR is complete |
+
+APR-S01 added exactly one service-free codec row and one
+`postgres_migration` row. The current count is 19 total and 11 service-backed;
+the repository-wide `postgres_migration` count is 9.
+
+### 20.2 Implementation checkpoint template
+
+Copy and complete this block after each authorized implementation slice and
+before starting its successor:
+
+| Field | Required entry |
+| --- | --- |
+| Slice and status | Slice ID, `COMPLETE` or `BLOCKED`, and date |
+| Baseline and final commit/worktree | Exact commit and relevant status summary |
+| Files | Authored, moved, deleted, and generated files |
+| Requirements and gaps | IDs closed, evidence added, and anything still open |
+| Commands | Exact commands, results, counts, and result/artifact roots |
+| Compatibility and migration | Preserved behavior, intentional breaks, data effects, and rollback posture |
+| Generated and dependency state | Generator results, generated roots, dependency files, and lockfiles |
+| Failures and skips | Exact failure, causal attribution, resolution, or explicit reason for a skipped non-applicable check |
+| Residual risk | Remaining risk carried to the next slice |
+| Next slice | Next eligible slice and confirmation of authorization |
+
+### 20.3 APR-S01 checkpoint
+
+| Field | APR-S01 record |
+| --- | --- |
+| Slice and status | APR-S01 `COMPLETE`, 2026-08-19 |
+| Baseline and final worktree | Baseline remains `6cb809190bf107e805720a9552a894783db10cbc`; the pre-existing staged tracker is preserved and APR implementation changes remain unstaged |
+| Authored files | Added `db/migrations/00035_assessment_create_idempotency_v1.sql`, `internal/app/workbookassembly/assessment_idempotency.go`, `internal/app/workbookassembly/assessment_idempotency_test.go`, and `internal/app/workbookassembly/assessment_idempotency_migration_test.go`; changed the workbook adapter, two schema-hash expectations, migration owner generator, Assessments owner manifest, PostgreSQL fixture count, and this tracker |
+| Generated files | `make generate` updated `tools/migration_history_manifest.json` and `tools/execution_topology_render_index.json`; no generated protocol root changed |
+| Requirements and gaps | Closed APR-REQ-003, APR-REQ-004, APR-REQ-009 for persisted decoding, and APR-REQ-012; removed the runtime legacy decoder; retained exact public response behavior |
+| Focused commands | Codec row passed at `.cartulary/test-results/20260819T213108Z-p4090346`; migration row passed at `.cartulary/test-results/20260819T213215Z-p4106308`; Assessments passed 25/25 at `.cartulary/test-results/20260819T213342Z-p4125288`; service-backed Assessments passed 17/17 at `.cartulary/test-results/20260819T213452Z-p4166362`; affected Database Migrations rows passed 2/2 at `.cartulary/test-results/20260819T213547Z-p12926`; affected Workbook passed 3/3 at `.cartulary/test-results/20260819T213622Z-p19914`; the Database Migrations head/rollback row passed 3/3 at `.cartulary/test-results/20260819T213700Z-p34790` |
+| Drift and generation | `make generate` passed at `.cartulary/test-results/20260819T213309Z-p4121641`; `make migration-drift` passed 5/5 at `.cartulary/test-results/20260819T213551Z-p13384`; `make generate-drift` passed 4/4 at `.cartulary/test-results/20260819T213559Z-p16103`; generated-artifact policy passed 3/3 at `.cartulary/test-results/20260819T213607Z-p18981`; JSON shape passed 3/3 at `.cartulary/test-results/20260819T213608Z-p19387` |
+| Compatibility and migration | Storage v1 contains the scope-bound incident identity while replay strips that internal member so the HTTP row remains unchanged. Up preflights all target rows, enriches valid pre-cutover canonical and legacy rows, and leaves unrelated rows unchanged. Down removes the storage-only incident identity while rebuilding the historical three-member envelope. Deploy Up before the strict binary; roll back the binary before Down |
+| Generated and dependency state | Intentional migration SHA and schema hash are updated through authored inputs and `make generate`; Assessments routing is 19/11 and repository `postgres_migration` fixtures are 9; no dependency or lockfile changed |
+| Failures and resolution | The first codec fixture used ineffective string mutations and was corrected. The first migration fixture omitted a required unrelated hash and read PostgreSQL DETAIL from the wrong wrapper level; both tests were corrected. Full Assessments then exposed that public rows omit `incident_id`; storage-only enrichment and replay stripping resolved it without a public contract change. A Down SQL precedence ambiguity was parenthesized. All affected gates were rerun and passed |
+| Residual risk | Operational preflight can still reject unsupported production data by design; such a failure requires explicit data disposition while retaining the pre-cutover binary. No known code or test defect remains in APR-S01 |
+| Next slice | APR-S02 is authorized and eligible; its APR-S01 dependency checkpoint is complete |
+
+### 20.4 APR-S02 checkpoint
+
+| Field | APR-S02 record |
+| --- | --- |
+| Slice and status | APR-S02 `COMPLETE`, 2026-08-19 |
+| Baseline and final worktree | Baseline remains `6cb809190bf107e805720a9552a894783db10cbc`; APR-S01 changes are retained and the pre-existing staged tracker remains preserved |
+| Authored files | Changed `internal/modules/assessments/import_create.go`, `internal/app/importassembly/assessment_facade.go`, `internal/app/importassembly/assessment_integration_test.go`, and this tracker |
+| Requirements and gaps | Closed APR-REQ-005 and the assessment-specific import-finalization gap. IMP-01 through IMP-10 remain passing. The characterization now explicitly requires the record-change intent alongside source, projection, mutation, and revision facts |
+| Commands | `make format` passed at `.cartulary/test-results/20260819T214159Z-p82956`; `make lint-go` passed; Assessments passed 25/25 at `.cartulary/test-results/20260819T214217Z-p97968`; service-backed Assessments passed 17/17 at `.cartulary/test-results/20260819T214312Z-p139001`; Imports passed 22/22 at `.cartulary/test-results/20260819T214419Z-p179547`; service-backed Imports passed 14/14 at `.cartulary/test-results/20260819T214531Z-p221059` |
+| Compatibility | `ImportCreateDependencies.Revisions` now consumes `ownerfacade.RecordRevisionAndIntentAppender` directly. The owner still borrows the caller transaction, validates before effects, refreshes before finalization, publishes the same create mutation/revision/intent, and returns the same record, row version, mutation reference, result codes, and row refresh |
+| Generated and dependency state | No generated artifact, dependency, or lockfile changed in APR-S02; routing remains 19/11 |
+| Failures and resolution | The first focused service-backed attempt failed during build because the removed DTO left one unused `uuid` import. The import was removed and all affected gates passed on rerun |
+| Retired symbols | Exact searches are empty for `ImportCreateCommand`, `ImportRevision`, `ImportRevisionAppender`, `AppendAssessmentImportRevisionTx`, `assessmentImportRevisionAdapter`, and `assessmentImportValuesByField` within the Assessments and import-assembly scope |
+| Residual risk | No known semantic drift or compatibility shim remains. Future import-finalization changes are now owned once by Imports |
+| Next slice | APR-S03 is authorized and eligible; its APR-S02 dependency checkpoint is complete |
+
+### 20.5 APR-S03 checkpoint
+
+| Field | APR-S03 record |
+| --- | --- |
+| Slice and status | APR-S03 `COMPLETE`, 2026-08-19 |
+| Baseline and final worktree | Baseline remains `6cb809190bf107e805720a9552a894783db10cbc`; APR-S01 and APR-S02 changes are retained and the staged tracker baseline remains preserved |
+| Authored files | Changed `internal/modules/assessments/merge_effects.go`, `internal/modules/entities/merge/ports.go`, and this tracker |
+| Requirements and gaps | Closed APR-REQ-006 and the dead merge API/query-state gap. The typed `MergeProtectedSetChangedError`, `RecordID`, Entities reason translation, actual source `updated_at` write, tombstone members, before/after values, snapshots, projection refresh, and history remain |
+| Commands | `make format` passed at `.cartulary/test-results/20260819T214810Z-p263078`; protected-set integration passed 3/3 at `.cartulary/test-results/20260819T214814Z-p266652`; Assessments passed 25/25 at `.cartulary/test-results/20260819T214856Z-p282148` and service-backed 17/17 at `.cartulary/test-results/20260819T214956Z-p323149`; Entities passed 32/32 at `.cartulary/test-results/20260819T215056Z-p363692` and service-backed 29/29 at `.cartulary/test-results/20260819T215238Z-p416633`; Revisions passed 27/27 at `.cartulary/test-results/20260819T215422Z-p468616` and service-backed 20/20 at `.cartulary/test-results/20260819T215530Z-p512579`; Timeline passed 48/48 at `.cartulary/test-results/20260819T215641Z-p555384` and service-backed 29/29 at `.cartulary/test-results/20260819T220117Z-p612949` |
+| Compatibility | Internal `MergeMutation` version members and the sentinel/unwrap contract were removed atomically with the Entities adapter. Typed error classification and all observable merge effects remain unchanged |
+| Query contraction | `created_at` and the read-side `updated_at` were removed from the assessment merge select, scan, record DTO, and normalization. The `UPDATE assessments ... updated_at = $3` write remains the sole timestamp use |
+| Generated and dependency state | No generated artifact, owner row, dependency, or lockfile changed in APR-S03; routing remains 19/11 |
+| Failures and skips | No APR-S03 command failed and no applicable focused check was skipped |
+| Retired symbols | Exact searches are empty in the assessment participant for `ErrMergeProtectedSetChanged`, `Unwrap`, `BeforeVersionID`, `AfterVersionID`, and `created_at`; the only `updated_at` occurrence is the retained source write. The assessment-to-Entities mapping contains no version mapping |
+| Residual risk | No known behavior or history risk remains. The constructor is intentionally unchanged here and is owned by APR-S04 |
+| Next slice | APR-S04 is authorized and eligible; its APR-S03 dependency checkpoint is complete |
+
+### 20.6 APR-S04 checkpoint
+
+| Field | APR-S04 record |
+| --- | --- |
+| Slice and status | APR-S04 `COMPLETE`, 2026-08-19 |
+| Baseline and final worktree | Baseline remains `6cb809190bf107e805720a9552a894783db10cbc`; APR-S01 through APR-S03 changes are retained, the pre-existing staged tracker baseline is preserved, and APR-S04 changes remain unstaged |
+| Authored files | Changed `internal/modules/assessments/merge_effects.go`, `internal/modules/assessments/facade.go`, `internal/modules/assessments/facade_contract_test.go`, `internal/app/assessmentassembly/adapters.go`, `internal/app/timelineassembly/assembly.go`, `internal/modules/entities/merge/merge_protected_set_test.go`, `internal/modules/entities/merge/merge_protected_set_composition_test.go`, `tools/test_families/module.assessments.json`, and this tracker; added `internal/modules/assessments/merge_effects_constructor_test.go` and `internal/modules/assessments/export_surface_test.go`; no file was moved or deleted |
+| Generated files | `make generate` updated `tools/execution_topology_render_index.json` from the authored selector expansion. The APR-S01 migration manifest change remains present but did not change again in APR-S04; no generated protocol root changed |
+| Requirements and gaps | Closed APR-REQ-007, APR-REQ-008, the live portion of APR-REQ-009, APR-REQ-010, APR-REQ-011, and the remaining APR-REQ-014 construction/surface enforcement. Both merge constructors return errors, Timeline and server composition propagate them, the live facade accepts only positive `int64`, and the exact root/workbookprojection AST allowlists cover declarations, exported values, functions, types, methods, fields, and interface methods |
+| Primary commands | `make format` passed at `.cartulary/test-results/20260819T224148Z-p1152513`; `make lint-go` passed; `make generate` passed at `.cartulary/test-results/20260819T221604Z-p740111`; Assessments passed 25/25 at `.cartulary/test-results/20260819T221633Z-p747506` and service-backed 17/17 at `.cartulary/test-results/20260819T221737Z-p789004`; the final constructor/version/export row passed 3/3 at `.cartulary/test-results/20260819T224207Z-p1160940` |
+| Downstream commands | Entities rerun passed 32/32 at `.cartulary/test-results/20260819T222435Z-p882868` and service-backed passed 29/29 at `.cartulary/test-results/20260819T222618Z-p935008`; the affected Timeline failure set rerun passed 12/12 at `.cartulary/test-results/20260819T223515Z-p1043832` and Timeline service-backed passed 29/29 at `.cartulary/test-results/20260819T223607Z-p1081682`; real app-server bootstrap composition passed 3/3 at `.cartulary/test-results/20260819T224059Z-p1137548`; `make backend-module-boundary-check` passed 3/3 at `.cartulary/test-results/20260819T224201Z-p1160551` |
+| Surface and routing evidence | The positive allowlist passes; the synthetic injected function is reported as unexpected and the inverse fixture proves a removed export is reported as missing. The allowlist retains `Facade`, its typed ports, `workbookprojection`, and the five contribution constructors. `make explain-test-owner OWNER=module.assessments` reports exactly 19 rows and 11 service-backed rows. The existing facade-transaction row owns all new tests, so no catalog row was added |
+| Compatibility | `NewMergeEffects` and the assessment-assembly wrapper have an intentional internal signature break and no alias or `Must` helper. Valid Timeline/server startup is unchanged. Invalid dependencies now produce stable contextual startup errors. Malformed live projection adapters now fail before revision or idempotency writes and the transaction rolls back; valid production `int64` behavior is unchanged |
+| Generated and dependency state | Routing remains 19/11 and repository `postgres_migration` fixtures remain 9. Generated change is generator-produced from the authored test selector. No dependency, `go.sum`, `pnpm-lock.yaml`, or other lockfile changed |
+| Failures and resolution | The first live-version test attempt at `.cartulary/test-results/20260819T220936Z-p685978` miscounted envelope creation as a revision; the counter was moved to the revision appender. The first export run at `.cartulary/test-results/20260819T221306Z-p706001` intentionally used empty allowlists to capture the exact surface, which was then frozen. Entities first reached 31/32 at `.cartulary/test-results/20260819T221840Z-p829577` because an isolated object-store lane timed out; the same full route passed 32/32 on rerun. Timeline first reached 45/48 at `.cartulary/test-results/20260819T222800Z-p987019` because one browser row timed out and one isolated object-store lane failed readiness; every affected row passed in the exact rerun and the full service-backed slice passed. No product assertion failure remains and no applicable check was skipped |
+| Retired symbols | Exact owning-scope searches are empty for the retired import DTOs/adapter/helper, merge sentinel/unwrap/version state, constructor `Must` or panic path, and live `int`, `int32`, or `float64` coercion cases. The assessment merge read has no `created_at` or read-side `updated_at`; the actual `updated_at = $3` write remains |
+| Residual risk | No known APR-S04 defect remains. The exact export list intentionally makes future public surface additions review-visible; they require an explicit allowlist decision rather than an implicit compatibility commitment |
+| Next slice | APR-S05 is authorized and eligible; its APR-S04 dependency checkpoint is complete |
+
+### 20.7 APR-S05 validation and final handoff
+
+| Field | APR-S05 record |
+| --- | --- |
+| Slice and status | APR-S05 `COMPLETE`, 2026-08-19; the complete APR iteration is `COMPLETE` |
+| Baseline and final worktree | Baseline remains `6cb809190bf107e805720a9552a894783db10cbc`. Final status contains exactly the 27 planned paths listed below. The pre-existing staged tracker baseline remains preserved; its APR execution additions and every implementation path remain unstaged. No unrelated path was found |
+| Requirements and gaps | APR-REQ-001 through APR-REQ-015 and all six Section 17.2 gaps are closed against the traceability tables below. No product owner, `docs/domain.md`, Core specification, OpenAPI, view schema, bundle, frontend, field-key, or generated protocol changed |
+| Routing | `make task-guide ROLE=module-author OWNER=module.assessments` returned the focused and service-backed routes. `make explain-test-owner OWNER=module.assessments` reports exactly 19 total rows and 11 service-backed rows. Repository-wide `postgres_migration` routing is 9 |
+| Migration completion | Migration 35 is owned by Assessments and generated in `tools/migration_history_manifest.json` with SHA-256 `f5800e4d9b733a279d93743506d6e12ca86f9b2d8a3637161c4b6072678dfacb`. Codec and migration matrices prove valid legacy conversion, strict canonical decoding, unchanged already-strict rows, unrelated-route isolation, aggregate-only fail-closed preflight, replay equivalence, and deterministic Up/Down/Up |
+| Compatibility and deployment | Public create/replay responses, merge results/history, import responses, Timeline/server startup, and every external protocol remain unchanged. Deploy migration Up before the strict binary; the old binary already reads v1. Roll back the binary before Down, and use Down only on disposable rollback evidence. Invalid persisted state blocks Up without mutation; malformed internal projection adapters now fail closed and roll back |
+| Finalization | `make agent-finalize` passed 1/1 at `.cartulary/test-results/20260819T231753Z-p1861826`. No successful full warm-check root was available at invocation, so `RESULTS_DIR` was intentionally unset; retained-run canonical-evidence and scheduler maintenance were skipped with `results-dir-not-provided`, while JSON shape, catalog/tier coverage, generated-structure refresh, and retained secret scan passed |
+| Generated and dependency state | Only `tools/migration_history_manifest.json` and `tools/execution_topology_render_index.json` are generated changes, both produced by `make generate` from authored inputs. Finalizer reported generated state `unchanged`; generation drift and generated-artifact policy pass. No file under `internal/gen/**`, `packages/protocol-ts/src/generated/**`, or `packages/ui-contracts/src/generated/**` differs. No dependency manifest, `go.sum`, `pnpm-lock.yaml`, or other lockfile differs |
+| Failures and skips | The APR-S04 authoring and infrastructure retries are recorded in Section 20.6. In APR-S05, Timeline first reached 47/48 because one isolated object-store lane failed readiness at `.cartulary/test-results/20260819T225447Z-p1530920`; its exact affected store set passed at `.cartulary/test-results/20260819T230144Z-p1587507`, service-backed Timeline passed 29/29, and the exact full focused command then passed 48/48. `test-fast` first reached 408/409 because the operator migration-evidence golden still described the pre-migration-35 manifest at `.cartulary/test-results/20260819T232824Z-p1954234`; the intentional digest was updated, its owner row passed 1/1, and `test-fast` passed 409/409. The only skip is retained-run maintenance described above; no applicable product or release gate was skipped or waived |
+| Residual risk | Production Up can intentionally reject unsupported durable replay state. Operators must keep the pre-cutover binary available and disposition such data explicitly before retrying. This fail-closed operational possibility and the documented deployment order are the only residual concerns; no known implementation, compatibility, security, or validation defect remains |
+| Final assertion | Every applicable red gate was corrected or rerun to green. No unexplained applicable failure was waived. There is no next implementation slice |
+
+#### 20.7.1 Final owner and broad validation evidence
+
+| Gate | Result and run root |
+| --- | --- |
+| Assessments | Focused 25/25 at `.cartulary/test-results/20260819T224441Z-p1178064`; service-backed 17/17 at `.cartulary/test-results/20260819T224542Z-p1218732` |
+| Imports | Focused 22/22 at `.cartulary/test-results/20260819T224641Z-p1259138`; service-backed 14/14 at `.cartulary/test-results/20260819T224751Z-p1299648` |
+| Entities | Focused 32/32 at `.cartulary/test-results/20260819T224906Z-p1340045`; service-backed 29/29 at `.cartulary/test-results/20260819T225052Z-p1392330` |
+| Revisions | Focused 27/27 at `.cartulary/test-results/20260819T225237Z-p1444404`; service-backed 20/20 at `.cartulary/test-results/20260819T225342Z-p1488096` |
+| Timeline | Final exact focused rerun 48/48 at `.cartulary/test-results/20260819T235049Z-p2281418`; service-backed 29/29 at `.cartulary/test-results/20260819T230224Z-p1602379` |
+| Workbook | Focused 67/67 at `.cartulary/test-results/20260819T230659Z-p1658177`; service-backed 39/39 at `.cartulary/test-results/20260819T230930Z-p1717005` |
+| Projections | Focused 15/15 at `.cartulary/test-results/20260819T231148Z-p1772772`; service-backed 11/11 at `.cartulary/test-results/20260819T231232Z-p1788576` |
+| Database Migrations | Focused 9/9 at `.cartulary/test-results/20260819T231314Z-p1803779`; service-backed 4/4 at `.cartulary/test-results/20260819T231433Z-p1819103` |
+| App server composition | Real successful-bootstrap composition passed 3/3 at `.cartulary/test-results/20260819T231554Z-p1834139` |
+| Structure and drift | Backend boundaries 3/3 at `.cartulary/test-results/20260819T231639Z-p1849027`; harness contract 2/2 at `.cartulary/test-results/20260819T231646Z-p1849499`; migration drift 5/5 at `.cartulary/test-results/20260819T231701Z-p1850084`; generation drift 4/4 at `.cartulary/test-results/20260819T231714Z-p1852871`; generated-artifact policy 3/3 at `.cartulary/test-results/20260819T231724Z-p1855819`; JSON shape 3/3 at `.cartulary/test-results/20260819T231730Z-p1856277`; lint 11/11 at `.cartulary/test-results/20260819T231737Z-p1856842` |
+| Frontend and browser | Typecheck 2/2 at `.cartulary/test-results/20260819T231808Z-p1864675`; unit 390/390 at `.cartulary/test-results/20260819T231821Z-p1865195`; import boundaries 2/2 at `.cartulary/test-results/20260819T232402Z-p1902191`; webserver-backed browser 58/58 at `.cartulary/test-results/20260819T232411Z-p1902679` |
+| Broad completion | Operator migration-evidence row 1/1 at `.cartulary/test-results/20260819T232952Z-p1965827`; `test-fast` 409/409 at `.cartulary/test-results/20260819T233000Z-p1966359`; `check` 631/631 at `.cartulary/test-results/20260819T233014Z-p1967365`; `release-check` 788/788 at `.cartulary/test-results/20260819T233504Z-p2074191` |
+| Final inspection | `make lint-markdown` passed at `.cartulary/test-results/20260819T235818Z-p2338109`; staged and unstaged `git diff --check`, exact 27-path status, staged-baseline preservation, no-deletion, public/generated-root, dependency/lockfile, 19/11 routing, 9-migration-fixture, migration-35 manifest, and retired-symbol assertions all passed |
+
+#### 20.7.2 Requirement traceability
+
+| Requirement | Final evidence and disposition |
+| --- | --- |
+| APR-REQ-001 | Sections 1-15 remain historical evidence; only the top posture table distinguishes the completed APR iteration |
+| APR-REQ-002 | APR-S00 through APR-S05 executed serially, with Sections 20.3 through 20.7 completed before successor work began |
+| APR-REQ-003 | Strict codec and migration/replay rows pass; valid durable history converges on the v1 payload and the runtime legacy decoder is absent |
+| APR-REQ-004 | Migration preflight tests prove malformed/unknown state blocks mutation with aggregate-only diagnostics and unrelated rows remain isolated |
+| APR-REQ-005 | Assessment imports use the Imports-owned appender, finalizer, and field mapper; IMP-01 through IMP-10 and both owner matrices pass |
+| APR-REQ-006 | Dead assessment merge sentinel/version/timestamp read state is absent; Assessments, Entities, Revisions, and Timeline evidence proves behavior/history parity |
+| APR-REQ-007 | Both merge constructors return stable errors, Timeline/server composition propagates them, valid composition passes, and there is no `Must` or constructor panic path |
+| APR-REQ-008 | The live projection boundary accepts only positive `int64`; all other matrix values fail before revision/idempotency writes and roll back |
+| APR-REQ-009 | Serialized-number handling remains in the persisted codec and Imports-owned finalization; no live coercion branch remains |
+| APR-REQ-010 | Exact standard-library AST guards pass for the root and `workbookprojection`; injected extra and simulated missing exports both fail comparison |
+| APR-REQ-011 | The allowlist retains `Facade`, typed ports, `workbookprojection`, dual-driver test support, and all five contribution constructors |
+| APR-REQ-012 | The authored catalog has exactly 19 Assessments rows and 11 service-backed rows; repository `postgres_migration` count is 9 |
+| APR-REQ-013 | No public contract file changed; frontend/browser, `check`, and `release-check` all pass |
+| APR-REQ-014 | Owning-scope searches are empty for every retired import, merge, constructor, and coercion symbol; no alias or compatibility layer was added |
+| APR-REQ-015 | This checkpoint maps all requirements, gaps, files, effects, failures, skips, and validation evidence; no applicable failure is unexplained or waived |
+
+#### 20.7.3 Gap closure
+
+| Gap | Final remediation and validation |
+| --- | --- |
+| Indefinite legacy idempotency decoding | Migration 35 performs fail-closed one-time convergence and deterministic Down; one strict runtime codec remains. Codec, migration, replay, drift, operator evidence, and release gates pass |
+| Assessment-specific import finalization | Local DTO/adapter/helper orchestration was deleted and the Imports-owned finalizer is used directly. Assessment and Imports matrices plus explicit intent characterization pass |
+| Dead merge API and query state | The sentinel/unwrap, unused assessment mutation version fields, and unused timestamp reads were removed atomically with the Entities adapter. Merge, history, snapshot, refresh, rollback, and downstream matrices pass |
+| Panic-based merge construction | Constructors return errors through Timeline/server composition; stable nil errors and valid composition pass with no `Must` helper |
+| Permissive live row-version coercion | Only positive `int64` succeeds; every other tested type/value fails before finalization and transaction effects roll back |
+| Unlocked exported package surface | Exact AST allowlists protect root and `workbookprojection` declarations and exports; positive, extra-export, and missing-export evidence passes without adding a catalog row |
+
+#### 20.7.4 Final 27-path inventory
+
+Added authored files:
+
+- `db/migrations/00035_assessment_create_idempotency_v1.sql`
+- `internal/app/workbookassembly/assessment_idempotency.go`
+- `internal/app/workbookassembly/assessment_idempotency_test.go`
+- `internal/app/workbookassembly/assessment_idempotency_migration_test.go`
+- `internal/modules/assessments/export_surface_test.go`
+- `internal/modules/assessments/merge_effects_constructor_test.go`
+
+Modified authored files:
+
+- `docs/handoffs/assessments-module-refactor-tracker.md`
+- `internal/app/assessmentassembly/adapters.go`
+- `internal/app/importassembly/assessment_facade.go`
+- `internal/app/importassembly/assessment_integration_test.go`
+- `internal/app/operator/operator_migration_evidence_test.go`
+- `internal/app/timelineassembly/assembly.go`
+- `internal/app/workbookassembly/assessment_facade.go`
+- `internal/modules/assessments/facade.go`
+- `internal/modules/assessments/facade_contract_test.go`
+- `internal/modules/assessments/import_create.go`
+- `internal/modules/assessments/merge_effects.go`
+- `internal/modules/database_migrations/catalog_characterization_test.go`
+- `internal/modules/entities/merge/merge_protected_set_composition_test.go`
+- `internal/modules/entities/merge/merge_protected_set_test.go`
+- `internal/modules/entities/merge/ports.go`
+- `internal/testutil/pgtest/pgtest_test.go`
+- `tools/database-migrations/generate-catalog-projections.mjs`
+- `tools/harness/tests/contract-suite-support.mjs`
+- `tools/test_families/module.assessments.json`
+
+Generated files:
+
+- `tools/execution_topology_render_index.json`
+- `tools/migration_history_manifest.json`
+
+No file was moved or deleted.
+
+## 21. APR Binary Completion and Deferred Scope
+
+APR-S00 is complete only when this tracker is the sole changed file and both
+Markdown lint and diff whitespace validation pass. That completion establishes
+a decision-ready plan; it does not start implementation.
+
+APR-S01 through APR-S05 were separately authorized and executed in order,
+every checkpoint is complete, the 19/11 routing expectation is proven, every
+APR requirement and gap is closed, and the final validation ladder passes
+without unexplained failure. The APR iteration is complete.
+
+The following remain deliberately outside APR:
+
+- creation of an Assessment NLSpec or changes to Core owners or
+  `docs/domain.md`;
+- public route, HTTP, WebSocket, OpenAPI, view-schema, bundle-version,
+  frontend, public protocol, field-key, or generated-protocol changes;
+- historical assessment rewrites beyond the narrowly planned idempotency
+  payload migration;
+- compatibility aliases, deprecated copies, or a parallel legacy decoder;
+- removal of retained contribution facades, typed ports,
+  `workbookprojection`, or dual-driver test support; and
+- implementation based solely on the documentation-only APR-S00 checkpoint;
+  APR-S01 through APR-S05 instead used the separate 2026-08-19 implementation
+  authorization recorded above.

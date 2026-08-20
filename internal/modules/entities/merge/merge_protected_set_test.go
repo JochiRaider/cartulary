@@ -25,13 +25,17 @@ type mergeProjectionWriterStub struct {
 
 func TestMergeAssessmentRepointRejectsUnprotectedAssessment(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "merge-protected-set-revalidate")
+	assessmentEffects, err := assessments.NewMergeEffects(
+		mergeAssessmentProjectionStub{},
+		mergeAssessmentSnapshotStub{},
+	)
+	if err != nil {
+		t.Fatalf("construct assessment merge effects: %v", err)
+	}
 	store := NewStore(
 		db,
 		nil,
-		WithAssessmentEffects(assessments.NewMergeEffects(
-			mergeAssessmentProjectionStub{},
-			mergeAssessmentSnapshotStub{},
-		)),
+		WithAssessmentEffects(assessmentEffects),
 		WithWorkbookProjection(mergeProjectionWriterStub{}),
 	)
 	actor := seedMergeProtectedSetUser(t, db, "merge-protected-revalidate@example.test", "Merge Protected Revalidate")

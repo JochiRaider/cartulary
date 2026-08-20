@@ -300,6 +300,62 @@
       ]
     },
     {
+      "row_id": "module.assessments.store.assessment_create_idempotency_codec_rejects_malf_9c202126fd",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.store",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/workbookassembly",
+        "tests": [
+          "TestAssessmentCreateResultCodec"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.assessments.store.assessment_create_idempotency_migration_preserve_b451ac58f2",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.store",
+      "collaborator_ids": [
+        "module.auth",
+        "module.database_migrations",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/workbookassembly",
+        "tests": [
+          "TestAssessmentCreateIdempotencyMigration_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.assessments.store.assessment_import_create_facade_contract_7282c4a7e3",
       "owner_id": "module.assessments",
       "family_id": "module.assessments.store",
@@ -418,7 +474,11 @@
       "selector": {
         "package": "./internal/modules/assessments",
         "tests": [
-          "TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipants"
+          "TestAssessmentExportSurface",
+          "TestAssessmentExportSurfaceRejectsInjectedExport",
+          "TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipants",
+          "TestAssessmentLiveRowVersionBoundary",
+          "TestAssessmentMergeEffectsConstruction"
         ]
       },
       "evidence_class": "integration",

@@ -3,6 +3,8 @@ package assessments_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -123,10 +125,94 @@ func TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipant
 	}
 }
 
+func TestAssessmentLiveRowVersionBoundary(t *testing.T) {
+	harness := appsupport.StartStore(t, "assessments-live-row-version")
+	actor := authstoretest.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"assessment-row-version@example.test",
+		"Assessment Row Version",
+		"AssessmentRowVersionPass1!",
+		false,
+		false,
+		true,
+	)
+	incident := appsupport.CreateIncidentInStore(
+		t,
+		harness.DB,
+		actor,
+		"txn-assessment-row-version-incident",
+		"IR-ASSESSMENT-ROW-VERSION",
+		"Assessment row version boundary",
+	)
+	subjectID := uuid.New()
+	entitytest.SeedHostRecord(
+		t,
+		harness.DB,
+		incident.ID,
+		actor.ID,
+		subjectID,
+		"Assessment row version host",
+		"assessment-row-version-host",
+		"",
+		"",
+	)
+
+	for index, test := range []struct {
+		name   string
+		value  any
+		wantOK bool
+	}{
+		{name: "positive int64", value: int64(1), wantOK: true},
+		{name: "int", value: int(1)},
+		{name: "int32", value: int32(1)},
+		{name: "float64 integral", value: float64(1)},
+		{name: "float64 fractional", value: float64(1.5)},
+		{name: "zero", value: int64(0)},
+		{name: "negative", value: int64(-1)},
+		{name: "nil", value: nil},
+		{name: "string", value: "1"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			before := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID)
+			ports := &assessmentFacadePorts{
+				projectionRowVersion:    test.value,
+				projectionRowVersionSet: true,
+			}
+			facade := newAssessmentFacadeForTest(t, harness.DB, ports)
+			command := assessmentFacadeCommand(actor.ID, incident.ID, subjectID, fmt.Sprintf("txn-row-version-%d", index))
+			_, err := facade.Create(context.Background(), command)
+			if test.wantOK {
+				if err != nil {
+					t.Fatalf("positive int64 row version failed: %v", err)
+				}
+				if ports.revisionCalls != 1 || ports.idempotencyStoreCalls != 1 {
+					t.Fatalf("valid row version finalization calls: revision=%d idempotency=%d", ports.revisionCalls, ports.idempotencyStoreCalls)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), "invalid row_version") {
+				t.Fatalf("invalid live row version error = %v", err)
+			}
+			if ports.revisionCalls != 0 || ports.idempotencyStoreCalls != 0 {
+				t.Fatalf("invalid row version reached finalization: revision=%d idempotency=%d", ports.revisionCalls, ports.idempotencyStoreCalls)
+			}
+			after := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID)
+			if after != before {
+				t.Fatalf("invalid row version retained assessment effects: before=%d after=%d", before, after)
+			}
+		})
+	}
+}
+
 type assessmentFacadePorts struct {
-	failure          string
-	replay           *assessments.CreateIdempotencyRecord
-	participantCalls int
+	failure                 string
+	replay                  *assessments.CreateIdempotencyRecord
+	projectionRowVersion    any
+	projectionRowVersionSet bool
+	participantCalls        int
+	revisionCalls           int
+	idempotencyStoreCalls   int
 }
 
 func (p *assessmentFacadePorts) LookupCreate(
@@ -149,6 +235,7 @@ func (p *assessmentFacadePorts) StoreCreateTx(
 	_ assessments.CreateResult,
 ) error {
 	p.participantCalls++
+	p.idempotencyStoreCalls++
 	return p.inject("idempotency_store")
 }
 
@@ -231,6 +318,7 @@ func (p *assessmentFacadePorts) AppendAssessmentCreateRevisionTx(
 	_ assessments.CreateRevision,
 ) (uuid.UUID, error) {
 	p.participantCalls++
+	p.revisionCalls++
 	if err := p.inject("revisions"); err != nil {
 		return uuid.Nil, err
 	}
@@ -246,9 +334,13 @@ func (p *assessmentFacadePorts) RefreshAndLoadAssessmentRowTx(
 	if err := p.inject("projection"); err != nil {
 		return nil, err
 	}
+	rowVersion := any(int64(1))
+	if p.projectionRowVersionSet {
+		rowVersion = p.projectionRowVersion
+	}
 	return map[string]any{
 		"record_id":   recordID.String(),
-		"row_version": int64(1),
+		"row_version": rowVersion,
 	}, nil
 }
 

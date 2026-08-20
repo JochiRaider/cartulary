@@ -311,15 +311,13 @@ func mergeMutationsFromAssessmentMutations(mutations []assessments.MergeMutation
 	result := make([]mergeMutation, 0, len(mutations))
 	for _, mutation := range mutations {
 		result = append(result, mergeMutation{
-			TargetKind:      mutation.TargetKind,
-			TargetID:        mutation.TargetID,
-			OperationKind:   mutation.OperationKind,
-			BeforeVersionID: mutation.BeforeVersionID,
-			AfterVersionID:  mutation.AfterVersionID,
-			BeforeValue:     mutation.BeforeValue,
-			AfterValue:      mutation.AfterValue,
-			BeforeSnapshot:  mutation.BeforeSnapshot,
-			AfterSnapshot:   mutation.AfterSnapshot,
+			TargetKind:     mutation.TargetKind,
+			TargetID:       mutation.TargetID,
+			OperationKind:  mutation.OperationKind,
+			BeforeValue:    mutation.BeforeValue,
+			AfterValue:     mutation.AfterValue,
+			BeforeSnapshot: mutation.BeforeSnapshot,
+			AfterSnapshot:  mutation.AfterSnapshot,
 		})
 	}
 	return result

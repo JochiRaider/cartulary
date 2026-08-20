@@ -2,9 +2,7 @@ package workbookassembly
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -19,18 +17,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-const assessmentCreateResultSchemaID = "cartulary.assessments.create_result.v1"
-
 type assessmentIdempotencyAdapter struct {
 	store *authn.Store
-}
-
-type storedAssessmentCreateResult struct {
-	SchemaID     string         `json:"schema_id"`
-	RecordID     string         `json:"record_id"`
-	ChangeSetID  string         `json:"change_set_id"`
-	RowVersion   int64          `json:"row_version"`
-	CanonicalRow map[string]any `json:"row"`
 }
 
 func (a assessmentIdempotencyAdapter) LookupCreate(ctx context.Context, key assessments.CreateIdempotencyKey) (assessments.CreateIdempotencyRecord, bool, error) {
@@ -46,7 +34,7 @@ func (a assessmentIdempotencyAdapter) LookupCreate(ctx context.Context, key asse
 	if err != nil {
 		return assessments.CreateIdempotencyRecord{}, false, err
 	}
-	result, err := decodeAssessmentCreateResult(record.ResponseJSON)
+	result, err := decodeAssessmentCreateResult(record.ResponseJSON, record.ScopeKey, record.StatusCode, record.RequestHash)
 	if err != nil {
 		return assessments.CreateIdempotencyRecord{}, false, err
 	}
@@ -57,14 +45,11 @@ func (a assessmentIdempotencyAdapter) LookupCreate(ctx context.Context, key asse
 }
 
 func (assessmentIdempotencyAdapter) StoreCreateTx(ctx context.Context, tx pgx.Tx, key assessments.CreateIdempotencyKey, result assessments.CreateResult) error {
-	payload := storedAssessmentCreateResult{
-		SchemaID:     assessmentCreateResultSchemaID,
-		RecordID:     result.RecordID.String(),
-		ChangeSetID:  result.ChangeSetID.String(),
-		RowVersion:   result.RowVersion,
-		CanonicalRow: result.CanonicalRow,
+	payload, err := encodeAssessmentCreateResult(key.ScopeKey, key.RequestHash, result)
+	if err != nil {
+		return err
 	}
-	err := authn.InsertRouteIdempotencyPayload(ctx, tx, authn.RouteIdempotencyKey{
+	err = authn.InsertRouteIdempotency(ctx, tx, authn.RouteIdempotencyKey{
 		RouteKey:    key.RouteKey,
 		ActorUserID: key.ActorUserID,
 		ScopeKey:    key.ScopeKey,
@@ -74,75 +59,6 @@ func (assessmentIdempotencyAdapter) StoreCreateTx(ctx context.Context, tx pgx.Tx
 		return assessments.ErrClientTxnConflict
 	}
 	return err
-}
-
-func decodeAssessmentCreateResult(data []byte) (assessments.CreateResult, error) {
-	var stored storedAssessmentCreateResult
-	if err := json.Unmarshal(data, &stored); err != nil {
-		return assessments.CreateResult{}, fmt.Errorf("decode assessment create result: %w", err)
-	}
-	if stored.SchemaID == assessmentCreateResultSchemaID {
-		recordID, err := uuid.Parse(stored.RecordID)
-		if err != nil {
-			return assessments.CreateResult{}, fmt.Errorf("decode assessment create record id: %w", err)
-		}
-		changeSetID, err := uuid.Parse(stored.ChangeSetID)
-		if err != nil {
-			return assessments.CreateResult{}, fmt.Errorf("decode assessment create change set id: %w", err)
-		}
-		return assessments.CreateResult{
-			Outcome:      assessments.CreateOutcomeCommitted,
-			CanonicalRow: stored.CanonicalRow,
-			RecordID:     recordID,
-			ChangeSetID:  changeSetID,
-			RowVersion:   stored.RowVersion,
-		}, nil
-	}
-
-	var legacy struct {
-		ChangeSetID string         `json:"change_set_id"`
-		Row         map[string]any `json:"row"`
-	}
-	if err := json.Unmarshal(data, &legacy); err != nil {
-		return assessments.CreateResult{}, fmt.Errorf("decode legacy assessment create result: %w", err)
-	}
-	recordIDText, ok := legacy.Row["record_id"].(string)
-	if !ok {
-		return assessments.CreateResult{}, errors.New("decode legacy assessment create result: record_id is required")
-	}
-	recordID, err := uuid.Parse(recordIDText)
-	if err != nil {
-		return assessments.CreateResult{}, fmt.Errorf("decode legacy assessment create record id: %w", err)
-	}
-	changeSetID, err := uuid.Parse(legacy.ChangeSetID)
-	if err != nil {
-		return assessments.CreateResult{}, fmt.Errorf("decode legacy assessment create change set id: %w", err)
-	}
-	rowVersion, err := assessmentRowVersion(legacy.Row)
-	if err != nil {
-		return assessments.CreateResult{}, err
-	}
-	return assessments.CreateResult{
-		Outcome:      assessments.CreateOutcomeCommitted,
-		CanonicalRow: legacy.Row,
-		RecordID:     recordID,
-		ChangeSetID:  changeSetID,
-		RowVersion:   rowVersion,
-	}, nil
-}
-
-func assessmentRowVersion(row map[string]any) (int64, error) {
-	switch value := row["row_version"].(type) {
-	case float64:
-		if value > 0 && value == float64(int64(value)) {
-			return int64(value), nil
-		}
-	case int64:
-		if value > 0 {
-			return value, nil
-		}
-	}
-	return 0, fmt.Errorf("decode assessment create result: invalid row_version %#v", row["row_version"])
 }
 
 type assessmentRevisionAdapter struct {

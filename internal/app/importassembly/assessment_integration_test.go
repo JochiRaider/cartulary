@@ -303,6 +303,7 @@ SELECT subject_record_id, subject_type, assessment_state, confidence_score,
 		"projection": `SELECT count(*) FROM assessment_grid_projection WHERE record_id = $1`,
 		"mutation":   `SELECT count(*) FROM change_set_mutations WHERE target_id = $1`,
 		"revision":   `SELECT count(*) FROM record_revisions WHERE record_id = $1`,
+		"intent":     `SELECT count(*) FROM collaboration_event_intents WHERE source_record_id = $1 AND event_family = 'record_changed' AND source_row_version = 1`,
 	} {
 		var count int
 		if err := harness.db.QueryRow(context.Background(), query, recordID).Scan(&count); err != nil {

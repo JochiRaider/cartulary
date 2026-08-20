@@ -217,7 +217,10 @@ type mergeProjectionPort struct {
 	rows assessmentprojection.Rows
 }
 
-func NewMergeEffects(rows assessmentprojection.Rows, snapshots assessments.MergeSnapshotCapturePort) *assessments.MergeEffects {
+func NewMergeEffects(rows assessmentprojection.Rows, snapshots assessments.MergeSnapshotCapturePort) (*assessments.MergeEffects, error) {
+	if rows == nil {
+		return nil, errors.New("compose assessment merge effects: projection rows are required")
+	}
 	return assessments.NewMergeEffects(mergeProjectionPort{rows: rows}, snapshots)
 }
 

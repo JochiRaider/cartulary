@@ -87,7 +87,7 @@ assert.deepEqual(
 );
 assert.deepEqual(catalog.postgresFixturePolicy.counts, {
   postgres_dedicated: 256,
-  postgres_migration: 8,
+  postgres_migration: 9,
   postgres_transaction: 81,
 });
 
