@@ -15,7 +15,7 @@ import (
 
 type Owners struct {
 	Entities    *hostidentity.Store
-	Timeline    *timeline.Facade
+	Timeline    *timeline.PerformanceFixtureContribution
 	Projections *projectionassembly.Runtime
 }
 
@@ -76,7 +76,7 @@ func NewOwners(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCode
 			entityPorts.Writer,
 			hostidentity.WithProjectionReader(entityPorts.Reader),
 		),
-		Timeline:    timelineBundle.Facade,
+		Timeline:    timelineBundle.PerformanceFixture,
 		Projections: projectionRuntime,
 	}, nil
 }

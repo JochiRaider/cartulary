@@ -37,7 +37,7 @@ func NewContributionCatalog(
 	assessmentProjections assessmentprojection.Rows,
 	partyProjections partyprojection.Rows,
 	indicatorOwner *indicators.Store,
-	timelineOwner *timeline.Facade,
+	timelineOwner workbook.TimelineMutationOwner,
 	evidenceOwner evidence.MutationContribution,
 	artifactOwner *artifacts.MutationFacade,
 	taskDecisionOwner *tasksdecisions.MutationFacade,

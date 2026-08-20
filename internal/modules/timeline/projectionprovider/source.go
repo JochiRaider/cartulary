@@ -3,7 +3,6 @@ package projectionprovider
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -12,6 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/collectionfacts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
@@ -21,7 +21,11 @@ import (
 func NewSource() *workbookprojection.Source {
 	return workbookprojection.NewSource(
 		timelineEnvelopeReader{store: records.NewStore()},
-		timelineCollectionFacts{},
+		collectionfacts.New(
+			entityfacts.Reader{},
+			links.TimelineFactReader{},
+			evidence.TimelineFactReader{},
+		),
 	)
 }
 
@@ -71,42 +75,4 @@ func projectionTimelineEnvelope(envelope records.Envelope) sourcerepository.Enve
 		UpdatedAt:       envelope.UpdatedAt,
 		DeletedAt:       envelope.DeletedAt,
 	}
-}
-
-type timelineCollectionFacts struct{}
-
-func (timelineCollectionFacts) LoadTimelineCollectionFactsTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-	recordID uuid.UUID,
-) (workbookprojection.CollectionFacts, error) {
-	mentions, err := (entityfacts.Reader{}).LoadMentionsTx(ctx, tx, recordID)
-	if err != nil {
-		return workbookprojection.CollectionFacts{}, fmt.Errorf("load Timeline entity facts: %w", err)
-	}
-	linkFacts, err := (links.TimelineFactReader{}).LoadTx(ctx, tx, incidentID, recordID)
-	if err != nil {
-		return workbookprojection.CollectionFacts{}, fmt.Errorf("load Timeline link facts: %w", err)
-	}
-	evidenceFacts, err := (evidence.TimelineFactReader{}).LoadTx(ctx, tx, incidentID, linkFacts.AttachedEvidenceIDs)
-	if err != nil {
-		return workbookprojection.CollectionFacts{}, fmt.Errorf("load Timeline evidence facts: %w", err)
-	}
-	attachedEvidence := make([]workbookprojection.EvidenceFact, len(evidenceFacts))
-	for index, fact := range evidenceFacts {
-		attachedEvidence[index] = workbookprojection.EvidenceFact{
-			RecordID:       fact.RecordID,
-			Title:          fact.Title,
-			LifecycleState: fact.LifecycleState,
-			UploadState:    fact.UploadState,
-		}
-	}
-	return workbookprojection.CollectionFacts{
-		Mentions:            mentions,
-		ResolvedLinks:       linkFacts.ResolvedLinks,
-		Tags:                linkFacts.Tags,
-		AttachedEvidence:    attachedEvidence,
-		ReplacementRecordID: linkFacts.ReplacementRecordID,
-	}, nil
 }

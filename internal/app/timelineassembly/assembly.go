@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
+	entityfacts "github.com/JochiRaider/cartulary/internal/modules/entities/timelinefacts"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
@@ -23,6 +24,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/collectionfacts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
@@ -43,6 +45,7 @@ type Dependencies struct {
 
 type Bundle struct {
 	Facade             *timeline.Facade
+	PerformanceFixture *timeline.PerformanceFixtureContribution
 	MentionEffects     *mentioneffects.Provider
 	EntityMentionStore *mentions.Store
 	EntityMergeStore   *merge.Store
@@ -82,8 +85,10 @@ func NewBundle(dependencies Dependencies) (*Bundle, error) {
 	if err != nil {
 		return nil, err
 	}
+	facade := timeline.NewFacade(dependencies.Postgres, components.collaborators, dependencies.ConflictTokens)
 	return &Bundle{
-		Facade:             timeline.NewFacade(dependencies.Postgres, components.collaborators, dependencies.ConflictTokens),
+		Facade:             facade,
+		PerformanceFixture: timeline.NewPerformanceFixtureContribution(facade),
 		MentionEffects:     components.mentionEffects,
 		EntityMentionStore: components.entityMentionStore,
 		EntityMergeStore:   components.entityMergeStore,
@@ -106,7 +111,11 @@ func compose(dependencies Dependencies) (composition, error) {
 		store:   records.NewStore(),
 		targets: records.NewRouteTargetResolver(dependencies.Postgres),
 	}
-	collectionFacts := newCollectionReadAdapter()
+	collectionFacts := collectionfacts.New(
+		entityfacts.Reader{},
+		links.TimelineFactReader{},
+		evidence.TimelineFactReader{},
+	)
 	timelineWriter := dependencies.TimelineProjection
 	entityProjectionWriter := dependencies.EntityProjection
 	mentionEffects := mentioneffects.NewProvider(recordsPort, collectionFacts, timelineWriter)

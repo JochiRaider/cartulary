@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/mutationpolicy"
 )
 
 func TestPatchPayloadValidation_Unit(t *testing.T) {
@@ -36,9 +37,40 @@ func TestPatchPayloadValidation_Unit(t *testing.T) {
 		"timeline.tags",
 	})
 
+	t.Run("thirty one raw changes reach field validation", func(t *testing.T) {
+		rawChanges := make([]map[string]any, 0, mutationpolicy.MaxPatchChanges-1)
+		for range mutationpolicy.MaxPatchChanges - 1 {
+			rawChanges = append(rawChanges, map[string]any{
+				"field_key": "timeline.activity_synopsis_text",
+				"value":     "summary-value",
+			})
+		}
+		payload, err := json.Marshal(map[string]any{
+			"view_schema_id":   timeline.TimelineViewSchemaID,
+			"base_row_version": 1,
+			"client_txn_id":    "txn-u-3-06-below-max-raw",
+			"changes":          rawChanges,
+		})
+		if err != nil {
+			t.Fatalf("marshal patch payload: %v", err)
+		}
+
+		_, apiErr := DecodeTimelinePatchRequest(bytes.NewReader(payload))
+		if apiErr == nil {
+			t.Fatal("expected duplicate field rejection below the count ceiling")
+		}
+		requireClosedVocabularyRejected(
+			t,
+			apiErr.Code,
+			apiErr.Details,
+			"changes",
+			"duplicate_field_key",
+		)
+	})
+
 	t.Run("thirty two raw changes do not trip the count ceiling", func(t *testing.T) {
-		rawChanges := make([]map[string]any, 0, maxPatchChanges)
-		for range maxPatchChanges {
+		rawChanges := make([]map[string]any, 0, mutationpolicy.MaxPatchChanges)
+		for range mutationpolicy.MaxPatchChanges {
 			rawChanges = append(rawChanges, map[string]any{
 				"field_key": "timeline.activity_synopsis_text",
 				"value":     "summary-value",
@@ -68,8 +100,8 @@ func TestPatchPayloadValidation_Unit(t *testing.T) {
 	})
 
 	t.Run("sixty four collection actions remain valid", func(t *testing.T) {
-		actions := make([]map[string]any, 0, maxCollectionActions)
-		for index := range maxCollectionActions {
+		actions := make([]map[string]any, 0, mutationpolicy.MaxCollectionActions)
+		for index := range mutationpolicy.MaxCollectionActions {
 			actions = append(actions, map[string]any{
 				"op":       "add_token",
 				"raw_text": "host-token-" + string(rune('a'+(index%26))),
@@ -97,8 +129,41 @@ func TestPatchPayloadValidation_Unit(t *testing.T) {
 		if apiErr != nil {
 			t.Fatalf("expected max collection action payload to decode, got %#v", apiErr)
 		}
-		if got := len(request.CanonicalChange[0].ActionPayload.Actions); got != maxCollectionActions {
-			t.Fatalf("unexpected decoded action count: got %d want %d", got, maxCollectionActions)
+		if got := len(request.CanonicalChange[0].ActionPayload.Actions); got != mutationpolicy.MaxCollectionActions {
+			t.Fatalf("unexpected decoded action count: got %d want %d", got, mutationpolicy.MaxCollectionActions)
+		}
+	})
+
+	t.Run("sixty three collection actions remain valid", func(t *testing.T) {
+		actions := make([]map[string]any, 0, mutationpolicy.MaxCollectionActions-1)
+		for index := range mutationpolicy.MaxCollectionActions - 1 {
+			actions = append(actions, map[string]any{
+				"op":       "add_token",
+				"raw_text": "host-token-" + string(rune('a'+(index%26))),
+			})
+		}
+		payload, err := json.Marshal(map[string]any{
+			"view_schema_id":   timeline.TimelineViewSchemaID,
+			"base_row_version": 1,
+			"client_txn_id":    "txn-u-3-06-below-max-actions",
+			"changes": []map[string]any{{
+				"field_key": "timeline.host_refs",
+				"action_payload": map[string]any{
+					"kind":    "collection_actions_v1",
+					"actions": actions,
+				},
+			}},
+		})
+		if err != nil {
+			t.Fatalf("marshal collection patch payload: %v", err)
+		}
+
+		request, apiErr := DecodeTimelinePatchRequest(bytes.NewReader(payload))
+		if apiErr != nil {
+			t.Fatalf("expected below-max collection action payload to decode, got %#v", apiErr)
+		}
+		if got := len(request.CanonicalChange[0].ActionPayload.Actions); got != mutationpolicy.MaxCollectionActions-1 {
+			t.Fatalf("unexpected decoded action count: got %d want %d", got, mutationpolicy.MaxCollectionActions-1)
 		}
 	})
 
@@ -346,8 +411,8 @@ func TestPatchPayloadValidation_Unit(t *testing.T) {
 	}
 
 	t.Run("thirty three raw changes fail closed", func(t *testing.T) {
-		rawChanges := make([]map[string]any, 0, maxPatchChanges+1)
-		for range maxPatchChanges + 1 {
+		rawChanges := make([]map[string]any, 0, mutationpolicy.MaxPatchChanges+1)
+		for range mutationpolicy.MaxPatchChanges + 1 {
 			rawChanges = append(rawChanges, map[string]any{
 				"field_key": "timeline.activity_synopsis_text",
 				"value":     "summary-value",
@@ -374,8 +439,8 @@ func TestPatchPayloadValidation_Unit(t *testing.T) {
 			"changes",
 			"change_count_exceeded",
 		)
-		requireErrorDetail(t, apiErr.Details, "requested_count", maxPatchChanges+1)
-		requireErrorDetail(t, apiErr.Details, "max_count", maxPatchChanges)
+		requireErrorDetail(t, apiErr.Details, "requested_count", mutationpolicy.MaxPatchChanges+1)
+		requireErrorDetail(t, apiErr.Details, "max_count", mutationpolicy.MaxPatchChanges)
 	})
 
 	t.Run("empty patch collection actions fail with collection count detail", func(t *testing.T) {
@@ -412,8 +477,8 @@ func TestPatchPayloadValidation_Unit(t *testing.T) {
 	})
 
 	t.Run("sixty five collection actions fail closed", func(t *testing.T) {
-		actions := make([]map[string]any, 0, maxCollectionActions+1)
-		for index := range maxCollectionActions + 1 {
+		actions := make([]map[string]any, 0, mutationpolicy.MaxCollectionActions+1)
+		for index := range mutationpolicy.MaxCollectionActions + 1 {
 			actions = append(actions, map[string]any{
 				"op":       "add_token",
 				"raw_text": "host-token-" + string(rune('a'+(index%26))),
@@ -449,8 +514,8 @@ func TestPatchPayloadValidation_Unit(t *testing.T) {
 			"collection_action_count_exceeded",
 		)
 		requireErrorDetail(t, apiErr.Details, "field_key", "timeline.host_refs")
-		requireErrorDetail(t, apiErr.Details, "requested_count", maxCollectionActions+1)
-		requireErrorDetail(t, apiErr.Details, "max_count", maxCollectionActions)
+		requireErrorDetail(t, apiErr.Details, "requested_count", mutationpolicy.MaxCollectionActions+1)
+		requireErrorDetail(t, apiErr.Details, "max_count", mutationpolicy.MaxCollectionActions)
 	})
 
 	t.Run("empty create collection actions fail with collection count detail", func(t *testing.T) {
@@ -480,8 +545,8 @@ func TestPatchPayloadValidation_Unit(t *testing.T) {
 	})
 
 	t.Run("oversized create collection actions fail with collection count detail", func(t *testing.T) {
-		actions := make([]map[string]any, 0, maxCollectionActions+1)
-		for index := range maxCollectionActions + 1 {
+		actions := make([]map[string]any, 0, mutationpolicy.MaxCollectionActions+1)
+		for index := range mutationpolicy.MaxCollectionActions + 1 {
 			actions = append(actions, map[string]any{
 				"op":       "add_token",
 				"raw_text": "host-token-" + string(rune('a'+(index%26))),
@@ -510,8 +575,8 @@ func TestPatchPayloadValidation_Unit(t *testing.T) {
 			"collection_action_count_exceeded",
 		)
 		requireErrorDetail(t, apiErr.Details, "field_key", "timeline.host_refs")
-		requireErrorDetail(t, apiErr.Details, "requested_count", maxCollectionActions+1)
-		requireErrorDetail(t, apiErr.Details, "max_count", maxCollectionActions)
+		requireErrorDetail(t, apiErr.Details, "requested_count", mutationpolicy.MaxCollectionActions+1)
+		requireErrorDetail(t, apiErr.Details, "max_count", mutationpolicy.MaxCollectionActions)
 	})
 }
 
@@ -519,7 +584,8 @@ func TestUnit_TimelineVisibleTextContract(t *testing.T) {
 	t.Run("create preserves nullable empty and source-like text", func(t *testing.T) {
 		sourceLike := `=HYPERLINK("https://example.test","click") <script>alert(1)</script> **bold** [link](https://example.test)`
 		exactWhitespace := " \tTabbed\nLine\rCarriage "
-		maxLength := strings.Repeat("a", 32768)
+		belowMaxLength := strings.Repeat("界", mutationpolicy.MaxVisibleTextRunes-1)
+		maxLength := strings.Repeat("a", mutationpolicy.MaxVisibleTextRunes)
 		payload, err := json.Marshal(map[string]any{
 			"client_txn_id":                   "txn-u-3-12-create-visible-text",
 			"timeline.activity_synopsis_text": "",
@@ -527,6 +593,7 @@ func TestUnit_TimelineVisibleTextContract(t *testing.T) {
 			"timeline.data_source_text":       sourceLike,
 			"timeline.analyst_text":           nil,
 			"timeline.device_object_text":     maxLength,
+			"timeline.ip_address_text":        belowMaxLength,
 		})
 		if err != nil {
 			t.Fatalf("marshal visible-text create payload: %v", err)
@@ -550,6 +617,9 @@ func TestUnit_TimelineVisibleTextContract(t *testing.T) {
 		}
 		if request.DeviceObjectText == nil || *request.DeviceObjectText != maxLength {
 			t.Fatalf("expected max-length visible text to decode, got %#v", request.DeviceObjectText)
+		}
+		if request.IPAddressText == nil || *request.IPAddressText != belowMaxLength {
+			t.Fatalf("expected below-max rune text to decode, got %#v", request.IPAddressText)
 		}
 	})
 
@@ -584,7 +654,7 @@ func TestUnit_TimelineVisibleTextContract(t *testing.T) {
 			{name: "nul", value: "bad\x00value"},
 			{name: "control", value: "bad\x01value"},
 			{name: "c1 control", value: "bad\u0085value"},
-			{name: "too long", value: strings.Repeat("a", 32769)},
+			{name: "too long", value: strings.Repeat("a", mutationpolicy.MaxVisibleTextRunes+1)},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {

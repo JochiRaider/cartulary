@@ -5,14 +5,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/versionid"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -407,7 +408,7 @@ func requireVersionID(t testing.TB, field string, got *string, recordID string, 
 		}
 		return
 	}
-	want := "timeline:" + recordID + ":" + strconv.FormatInt(*wantVersion, 10)
+	want := versionid.Format(uuid.MustParse(recordID), *wantVersion)
 	if got == nil || *got != want {
 		var gotValue any
 		if got != nil {

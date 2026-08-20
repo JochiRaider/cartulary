@@ -1265,7 +1265,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			}),
 		},
 		{id: "timeline", registrar: timelineadmission.RegisterRoutes(timelineadmission.RouteOptions{
-			Facade: timelineFacade,
+			Owner: timelineFacade,
 		})},
 		{id: "revisions", registrar: revisionRoutes},
 		{id: "indicators", registrar: indicatorshttpapi.RegisterRoutes(indicatorOwner)},

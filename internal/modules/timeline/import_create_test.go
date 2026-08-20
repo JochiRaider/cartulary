@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/mutationpolicy"
 )
 
 func TestTimelineImportNormalizerPreservesOwnerSemantics(t *testing.T) {
@@ -28,6 +29,28 @@ func TestTimelineImportNormalizerPreservesOwnerSemantics(t *testing.T) {
 				include,
 				err,
 			)
+		}
+	})
+
+	t.Run("visible text rune boundaries match mutation admission", func(t *testing.T) {
+		t.Parallel()
+		for _, runeCount := range []int{mutationpolicy.MaxVisibleTextRunes - 1, mutationpolicy.MaxVisibleTextRunes} {
+			raw := strings.Repeat("界", runeCount)
+			value, include, err := normalizeImportField(
+				"timeline.activity_synopsis_text",
+				raw,
+				"omit_field",
+			)
+			if err != nil || !include || value.Text == nil || *value.Text != raw {
+				t.Fatalf("%d-rune Timeline text mismatch: value=%#v include=%t err=%v", runeCount, value, include, err)
+			}
+		}
+		if _, _, err := normalizeImportField(
+			"timeline.activity_synopsis_text",
+			strings.Repeat("界", mutationpolicy.MaxVisibleTextRunes+1),
+			"omit_field",
+		); err == nil {
+			t.Fatal("32769-rune Timeline text unexpectedly succeeded")
 		}
 	})
 

@@ -1,34 +1,32 @@
 package admission
 
 import (
-	"crypto/sha256"
-	"encoding/json"
-
 	"github.com/google/uuid"
 
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/valuecodec"
 )
 
 func CreateRequestHash(request timeline.CreateRequest) []byte {
 	payload := map[string]any{
-		"timeline.date_entered_text":      derefString(request.DateEnteredText),
-		"timeline.analyst_text":           derefString(request.AnalystText),
-		"timeline.mitre_stage_text":       derefString(request.MitreStageText),
-		"timeline.device_object_text":     derefString(request.DeviceObjectText),
-		"timeline.ip_address_text":        derefString(request.IPAddressText),
-		"timeline.activity_utc_text":      derefString(request.ActivityUTCText),
-		"timeline.activity_local_text":    derefString(request.ActivityLocalText),
-		"timeline.raw_activity_text":      derefString(request.RawActivityText),
-		"timeline.activity_synopsis_text": derefString(request.ActivitySynopsisText),
-		"timeline.data_source_text":       derefString(request.DataSourceText),
-		"timeline.host_refs":              canonicalCollectionActionPayload(request.HostRefs),
-		"timeline.identity_refs":          canonicalCollectionActionPayload(request.IdentityRefs),
-		"timeline.tags":                   canonicalCollectionActionPayload(request.Tags),
-		"timeline.attached_evidence_ids":  canonicalCollectionActionPayload(request.AttachedEvidence),
+		"timeline.date_entered_text":      valuecodec.OptionalString(request.DateEnteredText),
+		"timeline.analyst_text":           valuecodec.OptionalString(request.AnalystText),
+		"timeline.mitre_stage_text":       valuecodec.OptionalString(request.MitreStageText),
+		"timeline.device_object_text":     valuecodec.OptionalString(request.DeviceObjectText),
+		"timeline.ip_address_text":        valuecodec.OptionalString(request.IPAddressText),
+		"timeline.activity_utc_text":      valuecodec.OptionalString(request.ActivityUTCText),
+		"timeline.activity_local_text":    valuecodec.OptionalString(request.ActivityLocalText),
+		"timeline.raw_activity_text":      valuecodec.OptionalString(request.RawActivityText),
+		"timeline.activity_synopsis_text": valuecodec.OptionalString(request.ActivitySynopsisText),
+		"timeline.data_source_text":       valuecodec.OptionalString(request.DataSourceText),
+		"timeline.host_refs":              request.HostRefs.CanonicalValue(),
+		"timeline.identity_refs":          request.IdentityRefs.CanonicalValue(),
+		"timeline.tags":                   request.Tags.CanonicalValue(),
+		"timeline.attached_evidence_ids":  request.AttachedEvidence.CanonicalValue(),
 		"raw_capture.import_columns":      request.RawCaptureColumns,
 	}
-	return hashRequestPayload(payload)
+	return valuecodec.CanonicalJSONSHA256(payload)
 }
 
 func PatchRequestHash(request timeline.PatchRequest) []byte {
@@ -36,13 +34,13 @@ func PatchRequestHash(request timeline.PatchRequest) []byte {
 	for _, change := range request.CanonicalChange {
 		entry := map[string]any{"field_key": change.FieldKey}
 		if change.ActionPayload != nil {
-			entry["action_payload"] = canonicalCollectionActionPayload(change.ActionPayload)
+			entry["action_payload"] = change.ActionPayload.CanonicalValue()
 		} else {
-			entry["value"] = derefString(change.TextValue)
+			entry["value"] = change.CanonicalValue()
 		}
 		changes = append(changes, entry)
 	}
-	return hashRequestPayload(map[string]any{
+	return valuecodec.CanonicalJSONSHA256(map[string]any{
 		"view_schema_id":   request.ViewSchemaID,
 		"base_row_version": request.BaseRowVersion,
 		"changes":          changes,
@@ -50,7 +48,7 @@ func PatchRequestHash(request timeline.PatchRequest) []byte {
 }
 
 func ConflictResolveRequestHash(claims conflicttokens.ConflictTokenClaims, request timeline.ConflictResolveRequest) []byte {
-	return hashRequestPayload(map[string]any{
+	return valuecodec.CanonicalJSONSHA256(map[string]any{
 		"conflict_token":      request.ConflictToken,
 		"resolution_kind":     request.ResolutionKind,
 		"record_id":           claims.RecordID,
@@ -64,53 +62,8 @@ func ConflictResolveRequestHash(claims conflicttokens.ConflictTokenClaims, reque
 func ActionRequestHash(baseRowVersion int64, clientTxnID string, reason *string, replacementRecordID *uuid.UUID) []byte {
 	payload := map[string]any{
 		"base_row_version":      baseRowVersion,
-		"reason":                derefString(reason),
-		"replacement_record_id": nil,
+		"reason":                valuecodec.OptionalString(reason),
+		"replacement_record_id": valuecodec.OptionalUUID(replacementRecordID),
 	}
-	if replacementRecordID != nil {
-		payload["replacement_record_id"] = replacementRecordID.String()
-	}
-	return hashRequestPayload(payload)
-}
-
-func canonicalCollectionActionPayload(payload *timeline.CollectionActionPayload) any {
-	if payload == nil {
-		return nil
-	}
-	actions := make([]map[string]any, 0, len(payload.Actions))
-	for _, action := range payload.Actions {
-		entry := map[string]any{"op": action.Op}
-		if action.Op == "add_tag" && action.RawText != "" {
-			entry["tag_name"] = action.RawText
-		} else if action.RawText != "" {
-			entry["raw_text"] = action.NormalizedText
-		}
-		if action.ItemRef != "" {
-			entry["item_ref"] = action.ItemRef
-		}
-		if action.ResolvedRecord != nil {
-			entry["resolved_record_id"] = action.ResolvedRecord.String()
-		}
-		if action.LinkedRecordID != nil {
-			entry["linked_record_id"] = action.LinkedRecordID.String()
-		}
-		actions = append(actions, entry)
-	}
-	return map[string]any{
-		"kind":    "collection_actions_v1",
-		"actions": actions,
-	}
-}
-
-func hashRequestPayload(payload any) []byte {
-	data, _ := json.Marshal(payload)
-	sum := sha256.Sum256(data)
-	return append([]byte(nil), sum[:]...)
-}
-
-func derefString(value *string) any {
-	if value == nil {
-		return nil
-	}
-	return *value
+	return valuecodec.CanonicalJSONSHA256(payload)
 }

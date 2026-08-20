@@ -34,6 +34,12 @@ type ImportOwnerCreateFacade interface {
 	CreateImportRowTx(context.Context, pgx.Tx, ImportOwnerCreateCommand) (ImportOwnerCreateResponse, error)
 }
 
+// ImportOwnerCreateTx is the caller-transaction create capability an import
+// owner contributes before it is bound to normalization and registry metadata.
+type ImportOwnerCreateTx interface {
+	CreateImportRowTx(context.Context, pgx.Tx, ImportOwnerCreateCommand) (ImportOwnerCreateResponse, error)
+}
+
 type ImportOwnerCreateFunc func(
 	context.Context,
 	pgx.Tx,

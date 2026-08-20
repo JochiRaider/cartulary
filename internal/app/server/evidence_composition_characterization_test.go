@@ -71,6 +71,13 @@ func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 	if _, exposed := timelineBundleType.FieldByName("EvidenceStore"); exposed {
 		t.Fatal("Timeline bundle exposes an Evidence store")
 	}
+	fixtureField, present := timelineBundleType.FieldByName("PerformanceFixture")
+	if !present {
+		t.Fatal("Timeline bundle does not expose its isolated performance fixture contribution")
+	}
+	if got, want := fixtureField.Type.String(), "*timeline.PerformanceFixtureContribution"; got != want {
+		t.Fatalf("Timeline performance fixture contribution type = %s, want %s", got, want)
+	}
 	ownerType := reflect.TypeOf(evidence.OwnerRuntime{})
 	wantOwnerFields := map[string]reflect.Type{
 		"postgres":     reflect.TypeOf((*postgres.DB)(nil)).Elem(),

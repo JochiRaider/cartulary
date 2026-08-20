@@ -34,7 +34,7 @@ type Service struct {
 	contributions  *WorkbookContributionCatalog
 	mutations      workbookMutationPort
 	recordTargets  workbookRecordTargetPort
-	timelineOwner  workbookTimelineMutationPort
+	timelineOwner  TimelineMutationOwner
 	entityOwner    workbookEntityMutationPort
 	conflictTokens workbookConflictTokenPort
 	incidentAccess *admission.Checker
@@ -49,7 +49,7 @@ type Service struct {
 type StartupStoreFactory func(httpapi.DependencySet) (*workbookstartup.Store, error)
 
 type RouteDependencies struct {
-	TimelineOwner       *timeline.Facade
+	TimelineOwner       TimelineMutationOwner
 	MutationStore       *Store
 	EntityOwner         *hostidentity.Store
 	ConflictTokens      conflicttokens.ConflictTokenCodec

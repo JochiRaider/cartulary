@@ -10,29 +10,12 @@ import (
 
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/mutationpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
-
-const (
-	maxPatchChanges      = 32
-	maxCollectionActions = 64
-)
-
-var directWritableFieldKeys = map[string]struct{}{
-	"timeline.date_entered_text":      {},
-	"timeline.analyst_text":           {},
-	"timeline.mitre_stage_text":       {},
-	"timeline.device_object_text":     {},
-	"timeline.ip_address_text":        {},
-	"timeline.activity_utc_text":      {},
-	"timeline.activity_local_text":    {},
-	"timeline.raw_activity_text":      {},
-	"timeline.activity_synopsis_text": {},
-	"timeline.data_source_text":       {},
-}
 
 func DecodeViewQueryRequest(reader io.Reader, viewSchemaID string) (viewschema.QueryMeta, *httpapi.APIError) {
 	query, err := viewquery.Decode(reader, viewSchemaID)
@@ -168,10 +151,10 @@ func DecodeTimelinePatchRequest(reader io.Reader) (timeline.PatchRequest, *httpa
 	if len(rawChanges) == 0 {
 		return timeline.PatchRequest{}, invalidMutationPayload("changes", "empty_changes")
 	}
-	if len(rawChanges) > maxPatchChanges {
+	if len(rawChanges) > mutationpolicy.MaxPatchChanges {
 		return timeline.PatchRequest{}, invalidMutationPayloadWithDetails("changes", "change_count_exceeded", map[string]any{
 			"requested_count": len(rawChanges),
-			"max_count":       maxPatchChanges,
+			"max_count":       mutationpolicy.MaxPatchChanges,
 		})
 	}
 
@@ -256,9 +239,9 @@ func DecodeTimelineConflictResolveRequest(reader io.Reader, token string, claims
 			return timeline.ConflictResolveRequest{}, apiErr
 		}
 		change.ActionPayload = payload
-		change.CanonicalAny = canonicalCollectionActionPayload(payload)
+		change.CanonicalAny = payload.CanonicalValue()
 	} else {
-		if _, ok := directWritableFieldKeys[claims.FieldKey]; !ok {
+		if !mutationpolicy.IsDirectWritableField(claims.FieldKey) {
 			return timeline.ConflictResolveRequest{}, invalidMutationPayload("field_key", "unsupported_field_key")
 		}
 		textValue, ok := normalizeFieldTextValue(claims.FieldKey, resolvedValue)
@@ -266,7 +249,7 @@ func DecodeTimelineConflictResolveRequest(reader io.Reader, token string, claims
 			return timeline.ConflictResolveRequest{}, invalidMutationPayload(claims.FieldKey, "invalid_value")
 		}
 		change.TextValue = textValue
-		change.CanonicalAny = canonicalChangeValue(change)
+		change.CanonicalAny = change.CanonicalValue()
 	}
 	request.ResolvedChange = &change
 	request.CanonicalAny = change.CanonicalAny
@@ -471,7 +454,7 @@ func decodePatchChange(raw json.RawMessage) (timeline.PatchChange, *httpapi.APIE
 	if !hasValue {
 		return timeline.PatchChange{}, invalidMutationPayload("value", "missing_required_field")
 	}
-	if _, ok := directWritableFieldKeys[fieldKey]; !ok {
+	if !mutationpolicy.IsDirectWritableField(fieldKey) {
 		return timeline.PatchChange{}, invalidMutationPayload("field_key", "unsupported_field_key")
 	}
 	textValue, ok := normalizeFieldTextValue(fieldKey, value)
@@ -483,14 +466,10 @@ func decodePatchChange(raw json.RawMessage) (timeline.PatchChange, *httpapi.APIE
 }
 
 func normalizeFieldTextValue(fieldKey string, value json.RawMessage) (*string, bool) {
-	if _, ok := directWritableFieldKeys[fieldKey]; !ok {
+	if !mutationpolicy.IsDirectWritableField(fieldKey) {
 		return nil, false
 	}
 	return normalizeNullableTimelineVisibleTextValue(value)
-}
-
-func canonicalChangeValue(change timeline.PatchChange) any {
-	return derefString(change.TextValue)
 }
 
 func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey string) (*timeline.CollectionActionPayload, *httpapi.APIError) {
@@ -552,11 +531,11 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 			"field_key": fieldKey,
 		})
 	}
-	if len(rawActions) > maxCollectionActions {
+	if len(rawActions) > mutationpolicy.MaxCollectionActions {
 		return nil, invalidMutationPayloadWithDetails(actionsField, "collection_action_count_exceeded", map[string]any{
 			"field_key":       fieldKey,
 			"requested_count": len(rawActions),
-			"max_count":       maxCollectionActions,
+			"max_count":       mutationpolicy.MaxCollectionActions,
 		})
 	}
 
@@ -852,25 +831,10 @@ func normalizeNullableTimelineVisibleTextValue(value json.RawMessage) (*string, 
 	if err := json.Unmarshal(value, &rawValue); err != nil {
 		return nil, false
 	}
-	if !validTimelineVisibleText(rawValue) {
+	if !mutationpolicy.IsValidVisibleText(rawValue) {
 		return nil, false
 	}
 	return &rawValue, true
-}
-
-func validTimelineVisibleText(value string) bool {
-	if len([]rune(value)) > 32768 {
-		return false
-	}
-	for _, r := range value {
-		if r == 0 {
-			return false
-		}
-		if (r < 0x20 || (r >= 0x7f && r <= 0x9f)) && r != '\t' && r != '\n' && r != '\r' {
-			return false
-		}
-	}
-	return true
 }
 
 func normalizeNullableLineField(raw map[string]json.RawMessage, field string) (*string, bool) {

@@ -55,11 +55,47 @@
       ]
     },
     {
+      "verification_id": "module.timeline.verification.capability_boundary",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"]
+    },
+    {
+      "verification_id": "module.timeline.verification.cleanup",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"]
+    },
+    {
+      "verification_id": "module.timeline.verification.collection_facts",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"]
+    },
+    {
       "verification_id": "module.timeline.verification.incident_portability",
       "behavior_class": "product",
       "profile": "base",
       "evidence_kinds": ["go_test"],
       "public_target": "test"
+    },
+    {
+      "verification_id": "module.timeline.verification.policy_contract",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"]
+    },
+    {
+      "verification_id": "module.timeline.verification.presentation_bytes",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"]
+    },
+    {
+      "verification_id": "module.timeline.verification.version_identifier",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"]
     }
   ]
 }

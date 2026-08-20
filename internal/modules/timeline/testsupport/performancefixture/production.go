@@ -12,19 +12,19 @@ import (
 )
 
 type ProductionApplication struct {
-	actor  authn.UserRecord
-	facade *timeline.Facade
-	now    func() time.Time
+	actor authn.UserRecord
+	owner *timeline.PerformanceFixtureContribution
+	now   func() time.Time
 }
 
-func NewProductionApplication(facade *timeline.Facade, actor authn.UserRecord) (*ProductionApplication, error) {
-	if facade == nil {
+func NewProductionApplication(owner *timeline.PerformanceFixtureContribution, actor authn.UserRecord) (*ProductionApplication, error) {
+	if owner == nil {
 		return nil, fmt.Errorf("timeline performance fixture facade is required")
 	}
 	if actor.ID == uuid.Nil {
 		return nil, fmt.Errorf("timeline performance fixture actor is required")
 	}
-	return &ProductionApplication{actor: actor, facade: facade, now: time.Now}, nil
+	return &ProductionApplication{actor: actor, owner: owner, now: time.Now}, nil
 }
 
 func (a *ProductionApplication) CreateFixtureTimelineRows(ctx context.Context, incidentID string, rows []Row) error {
@@ -45,7 +45,7 @@ func (a *ProductionApplication) CreateFixtureTimelineRows(ctx context.Context, i
 		}
 	}
 	expected := timeline.PerformanceFixtureResult{RowCount: len(rows), RelationshipRows: relationshipRows}
-	result, err := a.facade.CreatePerformanceFixtureRows(ctx, timeline.PerformanceFixtureCommand{
+	result, err := a.owner.CreatePerformanceFixtureRows(ctx, timeline.PerformanceFixtureCommand{
 		Actor: a.actor, IncidentID: incidentUUID, Rows: ownerRows, Now: a.now().UTC(),
 	})
 	if err != nil {
@@ -54,5 +54,5 @@ func (a *ProductionApplication) CreateFixtureTimelineRows(ctx context.Context, i
 	if result != expected {
 		return fmt.Errorf("timeline performance fixture created %#v, want %#v", result, expected)
 	}
-	return a.facade.ValidatePerformanceFixtureRows(ctx, incidentUUID, expected)
+	return a.owner.ValidatePerformanceFixtureRows(ctx, incidentUUID, expected)
 }

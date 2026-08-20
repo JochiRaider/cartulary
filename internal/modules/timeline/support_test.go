@@ -2,12 +2,16 @@ package timeline
 
 import (
 	"errors"
+	"fmt"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/valuecodec"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/versionid"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
 
@@ -64,6 +68,38 @@ func TestUnit_CaptureStateHelpers(t *testing.T) {
 }
 
 func TestUnit_PayloadBuildersExposeStableShapes(t *testing.T) {
+	recordVersionID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
+	if got, want := versionid.Format(recordVersionID, 2), "timeline_record:"+recordVersionID.String()+":2"; got != want {
+		t.Fatalf("Timeline version ID changed: got %q want %q", got, want)
+	}
+
+	t.Run("current facade method inventory is explicit", func(t *testing.T) {
+		facadeType := reflect.TypeOf((*Facade)(nil))
+		got := make([]string, 0, facadeType.NumMethod())
+		for index := range facadeType.NumMethod() {
+			got = append(got, facadeType.Method(index).Name)
+		}
+		want := []string{
+			"ApplyClipboardPaste",
+			"ApplyFillDown",
+			"ApplyMultiRowTagAssignment",
+			"CreateImportRowTx",
+			"CreateImportedRow",
+			"CreateRow",
+			"GetTimeConversionProfile",
+			"MarkReviewedRow",
+			"ParseConflictToken",
+			"PatchRow",
+			"PutTimeConversionProfile",
+			"RecordIncident",
+			"ResolveConflict",
+			"SupersedeRow",
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("Timeline facade method set changed: got %#v want %#v", got, want)
+		}
+	})
+
 	recordID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	incidentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 	changeSetID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
@@ -97,6 +133,13 @@ func TestUnit_PayloadBuildersExposeStableShapes(t *testing.T) {
 	}
 	if actionPayload["replacement_record_id"] != replacementID.String() {
 		t.Fatalf("expected replacement record id in action payload, got %#v", actionPayload)
+	}
+
+	if got, want := fmt.Sprintf("%x", valuecodec.CanonicalJSONSHA256(mutationPayload)), "c9fb6ab2d93f42c7375dc3c10bc41c9a4f90503b8d4cd5d2721c796576d976db"; got != want {
+		t.Fatalf("canonical mutation payload hash changed: got %s want %s", got, want)
+	}
+	if got, want := fmt.Sprintf("%x", valuecodec.CanonicalJSONSHA256(actionPayload)), "8ac588868d66bef540c019c9c55af59e2cd032029184af3567d2b0136458b653"; got != want {
+		t.Fatalf("canonical action payload hash changed: got %s want %s", got, want)
 	}
 }
 

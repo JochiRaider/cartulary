@@ -9,6 +9,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/valuecodec"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -16,24 +17,36 @@ import (
 )
 
 type Service struct {
-	facade         *timeline.Facade
+	owner          RouteOwner
 	incidentAccess incidentAdmissionChecker
 	authStore      *authn.Store
 	keys           authn.MasterKeys
 	now            func() time.Time
 }
 
+// RouteOwner is the exact Timeline capability used by Timeline HTTP routes.
+// Keeping the interface with the consumer prevents transport composition from
+// acquiring unrelated Timeline mutation authority.
+type RouteOwner interface {
+	RecordIncident(context.Context, uuid.UUID) (uuid.UUID, error)
+	GetTimeConversionProfile(context.Context, uuid.UUID, time.Time) (timeline.TimeConversionProfile, error)
+	PutTimeConversionProfile(context.Context, authn.UserRecord, uuid.UUID, timeline.TimeConversionProfilePutRequest, time.Time) (timeline.TimeConversionProfile, error)
+	MarkReviewedRow(context.Context, timeline.MarkReviewedCommand) (timeline.MutationResult, error)
+}
+
+var _ RouteOwner = (*timeline.Facade)(nil)
+
 type incidentAdmissionChecker interface {
 	Check(context.Context, uuid.UUID, uuid.UUID, admission.Requirement) (admission.Grant, error)
 }
 
 type RouteOptions struct {
-	Facade *timeline.Facade
+	Owner RouteOwner
 }
 
 func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps, options.Facade)
+		service, err := newService(deps, options.Owner)
 		if err != nil {
 			return err
 		}
@@ -45,7 +58,7 @@ func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet, facade *timeline.Facade) (*Service, error) {
+func newService(deps httpapi.DependencySet, owner RouteOwner) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -54,11 +67,11 @@ func newService(deps httpapi.DependencySet, facade *timeline.Facade) (*Service, 
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	if facade == nil {
+	if owner == nil {
 		return nil, errors.New("timeline route composition requires a façade")
 	}
 	return &Service{
-		facade:         facade,
+		owner:          owner,
 		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		keys:           keys,
@@ -86,7 +99,7 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.facade.MarkReviewedRow(r.Context(), timeline.MarkReviewedCommand{
+	result, err := s.owner.MarkReviewedRow(r.Context(), timeline.MarkReviewedCommand{
 		Actor:    principal.User,
 		RecordID: recordID,
 		Request:  request,
@@ -132,7 +145,7 @@ func (s *Service) handleGetTimeConversionProfile(w http.ResponseWriter, r *http.
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	profile, err := s.facade.GetTimeConversionProfile(r.Context(), incidentID, s.now())
+	profile, err := s.owner.GetTimeConversionProfile(r.Context(), incidentID, s.now())
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -163,7 +176,7 @@ func (s *Service) handlePutTimeConversionProfile(w http.ResponseWriter, r *http.
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	profile, err := s.facade.PutTimeConversionProfile(r.Context(), principal.User, incidentID, request, s.now())
+	profile, err := s.owner.PutTimeConversionProfile(r.Context(), principal.User, incidentID, request, s.now())
 	if apiErr, ok := ClassifyMutationAPIError(err, MutationAPIErrorContext{}); ok {
 		writeAPIError(w, r, apiErr)
 		return
@@ -184,10 +197,10 @@ func buildTimeConversionProfilePayload(profile timeline.TimeConversionProfile) m
 		"incident_id":          profile.IncidentID.String(),
 		"enabled":              profile.Enabled,
 		"local_offset_minutes": derefInt(profile.LocalOffsetMinutes),
-		"local_label":          derefString(profile.LocalLabel),
+		"local_label":          valuecodec.OptionalString(profile.LocalLabel),
 		"profile_version":      profile.ProfileVersion,
-		"updated_at":           formatTimestamp(profile.UpdatedAt),
-		"updated_by_user_id":   formatUUIDPointer(profile.UpdatedByUserID),
+		"updated_at":           valuecodec.Timestamp(profile.UpdatedAt),
+		"updated_by_user_id":   valuecodec.OptionalUUID(profile.UpdatedByUserID),
 	}
 }
 
@@ -196,17 +209,6 @@ func derefInt(value *int) any {
 		return nil
 	}
 	return *value
-}
-
-func formatTimestamp(value time.Time) string {
-	return value.UTC().Format(time.RFC3339Nano)
-}
-
-func formatUUIDPointer(value *uuid.UUID) any {
-	if value == nil {
-		return nil
-	}
-	return value.String()
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
@@ -228,7 +230,7 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 }
 
 func (s *Service) requireTimelineRole(ctx context.Context, recordID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (uuid.UUID, *httpapi.APIError) {
-	incidentID, err := s.facade.RecordIncident(ctx, recordID)
+	incidentID, err := s.owner.RecordIncident(ctx, recordID)
 	if errors.Is(err, timeline.ErrRecordNotFound) {
 		return uuid.UUID{}, incidentNotFoundError()
 	}

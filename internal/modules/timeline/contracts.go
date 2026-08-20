@@ -11,22 +11,7 @@ const (
 	conflictResolveRouteKey = ConflictResolveRouteKey
 	reviewRouteKey          = "timeline.records.mark_reviewed"
 	supersedeRouteKey       = "timeline.records.supersede"
-	maxPatchChanges         = 32
-	maxCollectionActions    = 64
 )
-
-var directWritableFieldKeys = map[string]struct{}{
-	"timeline.date_entered_text":      {},
-	"timeline.analyst_text":           {},
-	"timeline.mitre_stage_text":       {},
-	"timeline.device_object_text":     {},
-	"timeline.ip_address_text":        {},
-	"timeline.activity_utc_text":      {},
-	"timeline.activity_local_text":    {},
-	"timeline.raw_activity_text":      {},
-	"timeline.activity_synopsis_text": {},
-	"timeline.data_source_text":       {},
-}
 
 type CreateRequest struct {
 	ClientTxnID          string

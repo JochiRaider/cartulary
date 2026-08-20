@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/mutationpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -118,7 +119,7 @@ func buildTagAssignmentOwnerRows(tagName string, normalizedTag string, rowCount 
 	change := PatchChange{
 		FieldKey:      "timeline.tags",
 		ActionPayload: payload,
-		CanonicalAny:  canonicalCollectionActionPayload(payload),
+		CanonicalAny:  payload.CanonicalValue(),
 	}
 	rows := make([]ownerBatchRowPlanV1, 0, rowCount)
 	for index := 0; index < rowCount; index++ {
@@ -158,7 +159,7 @@ func clipboardValueToPatchChange(fieldKey string, rawValue string) (PatchChange,
 		}
 		payload := &CollectionActionPayload{Actions: []CollectionAction{action}}
 		change := PatchChange{FieldKey: fieldKey, ActionPayload: payload}
-		change.CanonicalAny = canonicalCollectionActionPayload(payload)
+		change.CanonicalAny = payload.CanonicalValue()
 		return change, true
 	}
 	return fillDownValueToPatchChange(fieldKey, rawValue)
@@ -169,7 +170,7 @@ func fillDownValueToPatchChange(fieldKey string, rawValue string) (PatchChange, 
 	if !ok || !field.Writable || field.ConflictResolutionClass == "collection_review" {
 		return PatchChange{}, false
 	}
-	if _, ok := directWritableFieldKeys[fieldKey]; !ok {
+	if !mutationpolicy.IsDirectWritableField(fieldKey) {
 		return PatchChange{}, false
 	}
 	rawJSON, _ := json.Marshal(rawValue)
@@ -178,7 +179,7 @@ func fillDownValueToPatchChange(fieldKey string, rawValue string) (PatchChange, 
 		return PatchChange{}, false
 	}
 	change := PatchChange{FieldKey: fieldKey, TextValue: value}
-	change.CanonicalAny = canonicalChangeValue(change)
+	change.CanonicalAny = change.CanonicalValue()
 	return change, true
 }
 

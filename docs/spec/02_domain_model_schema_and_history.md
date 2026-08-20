@@ -2474,6 +2474,27 @@ boundary migration rather than upgraded through historical-shape inference.
 Profiles: base, incident_portability
 Verified by: AC-215, AC-217, AC-231, AC-412, AC-529
 
+**REQ-02-266**
+The sole valid current Timeline version-identifier grammar is
+`timeline_record:<canonical-record-uuid>:<positive-row-version>`. Timeline
+MUST derive every non-null pre-change and post-change value from the stable
+target record identifier and the exact authoritative snapshot row version by
+using one source-owned formatter. This rule applies both to primary Timeline
+row mutations and to subordinate Entity-mention effects emitted by a Timeline
+change. The persisted mutation target kind remains `timeline_record`, and the
+source record type remains `timeline_event`.
+
+Revisions, rollback coordination, Incident Portability, and every other
+generic consumer MUST treat version identifiers as opaque values. No generic
+reader may parse a prefix to select authorization, dispatch, source ownership,
+SQL, snapshot, or provider behavior. The retired `timeline:` grammar is not a
+valid current Timeline value. Because this is a pre-production hard cutover,
+the implementation MUST provide no alias, migration, backfill, translation,
+dual read, or dual write; a database containing the retired grammar MUST be
+destructively reset before current code is deployed.
+Profiles: base, incident_portability
+Verified by: AC-549, AC-550
+
 ### 15.3.1 Retained history and rollback horizon
 
 **REQ-02-238**

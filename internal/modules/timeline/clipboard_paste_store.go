@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/versionid"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -145,7 +146,7 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 	payloadRows := make([]map[string]any, 0, len(applied))
 	for _, row := range applied {
 		beforeVersion := ""
-		afterVersion := versionID(row.After.RecordID, row.After.RowVersion)
+		afterVersion := versionid.Format(row.After.RecordID, row.After.RowVersion)
 		params := revisions.AppendRecordMutationParams{
 			ChangeSetID:    changeSetID,
 			SequenceNo:     sequenceNo,
@@ -156,7 +157,7 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 			AfterSnapshot:  &row.AfterSnapshot,
 		}
 		if row.Before != nil {
-			beforeVersion = versionID(row.Before.RecordID, row.Before.RowVersion)
+			beforeVersion = versionid.Format(row.Before.RecordID, row.Before.RowVersion)
 			params.BeforeVersionID = &beforeVersion
 			params.BeforeSnapshot = row.BeforeSnapshot
 		}

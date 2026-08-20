@@ -3,6 +3,7 @@ package timeline
 import (
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/valuecodec"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
 
@@ -13,8 +14,8 @@ func BuildActionPayload(record workbookprojection.DerivedRecord, changeSetID uui
 		"row_version":           record.RowVersion,
 		"capture_state":         record.CaptureState,
 		"change_set_id":         changeSetID.String(),
-		"reason":                derefString(reason),
-		"replacement_record_id": formatUUIDPointer(record.ReplacementRecordID),
+		"reason":                valuecodec.OptionalString(reason),
+		"replacement_record_id": valuecodec.OptionalUUID(record.ReplacementRecordID),
 	}
 	return payload
 }

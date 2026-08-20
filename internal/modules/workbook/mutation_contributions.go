@@ -154,7 +154,7 @@ func (p conflictProvider) ResolveConflict(
 	return p.resolve(ctx, command)
 }
 
-func NewTimelineCreateProvider(owner *timeline.Facade) CreateProvider {
+func NewTimelineCreateProvider(owner TimelineMutationOwner) CreateProvider {
 	return createProvider{
 		decode: func(reader io.Reader) (CreateAdmission, *httpapi.APIError) {
 			request, apiErr := timelineadmission.DecodeTimelineCreateRequest(reader)
@@ -535,7 +535,7 @@ func newGenericCreateProvider(viewSchemaID string, create genericCreateFunc) Cre
 	}
 }
 
-func NewTimelinePatchProvider(owner *timeline.Facade) PatchProvider {
+func NewTimelinePatchProvider(owner TimelineMutationOwner) PatchProvider {
 	return patchProvider{
 		decode: func(reader io.Reader) (PatchAdmission, *httpapi.APIError) {
 			request, apiErr := timelineadmission.DecodeTimelinePatchRequest(reader)
@@ -708,7 +708,7 @@ func newGenericPatchProvider(
 	}
 }
 
-func NewTimelineConflictProvider(owner *timeline.Facade) ConflictProvider {
+func NewTimelineConflictProvider(owner TimelineMutationOwner) ConflictProvider {
 	return conflictProvider{
 		decode: func(
 			reader io.Reader,

@@ -12,6 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/versionid"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -195,8 +196,8 @@ RETURNING recorded_at
 
 	beforeRow := buildRow(beforeProjected)
 	afterRow := buildRow(afterProjected)
-	beforeVersion := versionID(current.RecordID, current.RowVersion)
-	afterVersion := versionID(next.RecordID, next.RowVersion)
+	beforeVersion := versionid.Format(current.RecordID, current.RowVersion)
+	afterVersion := versionid.Format(next.RecordID, next.RowVersion)
 	if err := s.revisionsStore.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,

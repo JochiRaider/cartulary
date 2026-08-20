@@ -21,6 +21,9 @@ func TestTimelineAdmissionCreateAndHashContracts(t *testing.T) {
 		if timeline.CreateRequestHasUserValue(request) {
 			t.Fatalf("zero-field request unexpectedly has user values: %#v", request)
 		}
+		if got, want := fmt.Sprintf("%x", CreateRequestHash(request)), "707fa241fc61891b68145853cf5fd56ed74baf61d63431a09c0af44df93efda8"; got != want {
+			t.Fatalf("canonical zero-field create request hash changed: got %s want %s", got, want)
+		}
 	})
 
 	t.Run("patch hash ignores admitted change ordering", func(t *testing.T) {
@@ -50,6 +53,9 @@ func TestTimelineAdmissionCreateAndHashContracts(t *testing.T) {
 		}
 		if !bytes.Equal(PatchRequestHash(left), PatchRequestHash(right)) {
 			t.Fatal("canonical patch request hash changed with input ordering")
+		}
+		if got, want := fmt.Sprintf("%x", PatchRequestHash(left)), "44f43180a1cd46648a6ff12fb685432f9922d23f3cc6e2fa6ed249f09e3a461b"; got != want {
+			t.Fatalf("canonical patch request hash changed: got %s want %s", got, want)
 		}
 	})
 

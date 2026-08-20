@@ -2,7 +2,6 @@ package timeline
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/mutationpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -35,8 +35,21 @@ type PerformanceFixtureResult struct {
 	RelationshipRows int
 }
 
-func (f *Facade) CreatePerformanceFixtureRows(ctx context.Context, command PerformanceFixtureCommand) (PerformanceFixtureResult, error) {
-	if f == nil || f.store == nil {
+// PerformanceFixtureContribution is Timeline's isolated test-only bulk fixture
+// capability. It is intentionally separate from the ordinary mutation facade.
+type PerformanceFixtureContribution struct {
+	store *store
+}
+
+func NewPerformanceFixtureContribution(facade *Facade) *PerformanceFixtureContribution {
+	if facade == nil {
+		return nil
+	}
+	return &PerformanceFixtureContribution{store: facade.store}
+}
+
+func (c *PerformanceFixtureContribution) CreatePerformanceFixtureRows(ctx context.Context, command PerformanceFixtureCommand) (PerformanceFixtureResult, error) {
+	if c == nil || c.store == nil {
 		return PerformanceFixtureResult{}, errors.New("timeline performance fixture facade is required")
 	}
 	if command.Actor.ID == uuid.Nil || command.IncidentID == uuid.Nil || command.Now.IsZero() ||
@@ -73,14 +86,14 @@ func (f *Facade) CreatePerformanceFixtureRows(ctx context.Context, command Perfo
 			}
 		}
 	}
-	return f.store.createPerformanceFixtureRows(ctx, command)
+	return c.store.createPerformanceFixtureRows(ctx, command)
 }
 
-func (f *Facade) ValidatePerformanceFixtureRows(ctx context.Context, incidentID uuid.UUID, expected PerformanceFixtureResult) error {
-	if f == nil || f.store == nil || incidentID == uuid.Nil || expected.RowCount < 1 || expected.RelationshipRows < 0 {
+func (c *PerformanceFixtureContribution) ValidatePerformanceFixtureRows(ctx context.Context, incidentID uuid.UUID, expected PerformanceFixtureResult) error {
+	if c == nil || c.store == nil || incidentID == uuid.Nil || expected.RowCount < 1 || expected.RelationshipRows < 0 {
 		return errors.New("timeline performance fixture validation request is invalid")
 	}
-	actual, err := f.store.performanceFixtureCounts(ctx, incidentID)
+	actual, err := c.store.performanceFixtureCounts(ctx, incidentID)
 	if err != nil {
 		return err
 	}
@@ -94,10 +107,6 @@ func validPerformanceFixtureScalar(fieldKey string, value string) bool {
 	if strings.TrimSpace(value) == "" {
 		return false
 	}
-	raw, err := json.Marshal(value)
-	if err != nil {
-		return false
-	}
-	_, ok := normalizeFieldTextValue(fieldKey, raw)
-	return ok
+	return mutationpolicy.IsDirectWritableField(fieldKey) &&
+		mutationpolicy.IsValidVisibleText(value)
 }

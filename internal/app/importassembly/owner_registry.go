@@ -28,7 +28,7 @@ type OwnerRegistryDependencies struct {
 	Postgres                postgres.DB
 	RevisionAppender        *revisions.Appender
 	Intents                 collaboration.IntentAppender
-	Timeline                *timeline.Facade
+	Timeline                ownerfacade.ImportOwnerCreateTx
 	EntityProjections       entityprojection.Writer
 	AssessmentProjections   assessmentprojection.Rows
 	ArtifactProjections     artifactprojection.Rows

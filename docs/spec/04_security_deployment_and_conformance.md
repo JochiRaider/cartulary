@@ -1063,6 +1063,25 @@ apply-to-visible-paint, and total.
 Profiles: base
 Verified by: AC-043, AC-044, AC-045
 
+**REQ-04-160**
+Timeline implementation conformance MUST prove all of the following as one
+owner-routed family: one immutable mutation-policy vocabulary; consumer-owned
+least-capability interfaces and fixture-only bulk authority; one canonical
+value and hash encoding vocabulary; one typed collection-fact reader used by
+separate composition roots; one current version-identifier writer grammar;
+and complete removal and verification accounting for superseded artifacts.
+
+Evidence MUST cover exact boundary values, byte-level persisted and published
+representations, caller-transaction identity, failure precedence, nil and
+duplicate behavior, authorization denials without side effects, portability
+when that profile is claimed, static ownership boundaries, and the authored
+test catalog and generated harness topology. Conformance evidence MUST NOT
+read, stat, hash, parse, or otherwise depend on Markdown or handoff files at
+runtime. These rules introduce no public HTTP, OpenAPI, WebSocket, view-schema,
+frontend, projection-storage, authorization, or database-schema change.
+Profiles: base
+Verified by: AC-545, AC-546, AC-547, AC-548, AC-549, AC-551
+
 ### 9.0 Profile claim manifests
 
 The manifests below define implementation claim boundaries without restating requirement prose. Each manifest selects implementation requirements through the `Profiles:` trailers carried by Core 00 through Core 04 and pairs that selector with the acceptance criteria that complete the claim. Appendix F expands every selector into explicit navigation tables.
@@ -1074,7 +1093,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-474`, `AC-480..AC-486`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-474`, `AC-480..AC-486`, `AC-545..AC-549`, `AC-551`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -1138,7 +1157,7 @@ Definition of Done:
 - additional requirement selector: `profile:incident_portability`
 - additional acceptance criteria: `AC-164..AC-169`, `AC-236`,
   `AC-273..AC-276`, `AC-327..AC-328`, `AC-332`, `AC-386`, `AC-409`,
-  `AC-440`, `AC-442`, `AC-487..AC-508`
+  `AC-440`, `AC-442`, `AC-487..AC-508`, `AC-550`
 - **AC-236**: An Incident Portability claim is conformant only when a Base claim passes, every requirement selected by `profile:incident_portability` is implemented, and every additional acceptance criterion listed in this manifest passes.
   - Verifies: `profile:incident_portability`
 
@@ -1461,6 +1480,54 @@ These criteria provide direct runtime-family verification for substantive base-p
   unique Revisions conflict-fact entry; evidence remains v2, remediation
   remains v1, and public product behavior and SQLC have no unexplained delta.
   - Verifies: REQ-01-661, REQ-04-153, TH-HARNESS-REQ-811
+
+- **AC-545**: Timeline policy evidence proves that direct writable field
+  membership, the 32-change patch limit, the 64-action collection limit, the
+  32,768-rune visible-text limit, and allowed control characters have one
+  immutable implementation owner. Root mutation, admission, import,
+  clipboard, conflict, and fixture validation use that owner directly;
+  vectors at 31/32/33 changes, 63/64/65 actions, and
+  32,767/32,768/32,769 runes preserve exact accepted values, error codes,
+  details, null behavior, and hashes; and no copied map, limit, or validator
+  remains.
+  - Verifies: REQ-04-160
+- **AC-546**: Timeline capability evidence proves that admission, Workbook,
+  and Imports depend only on their consumer-owned operation sets; Imports'
+  create operation preserves caller-transaction ownership; performance
+  fixture construction is exposed as a distinct fixture-only contribution;
+  the ordinary Timeline facade has no fixture methods; nil and error behavior
+  remains exact; and no production or test boundary allowlist expands.
+  - Verifies: REQ-04-160
+- **AC-547**: Timeline canonical-value evidence proves byte-exact parity for
+  optional strings and UUIDs, UTC RFC3339Nano timestamps, UTC dates,
+  nil/empty collection values, canonical JSON SHA-256, create/patch/action
+  hashes, row cells and groups, conflicts, revisions, and Collaboration
+  payloads. Row presentation has exactly one `view_row_v1` serializer and no
+  superseded encoding helper remains.
+  - Verifies: REQ-04-160
+- **AC-548**: Timeline collection-fact evidence exercises every mention,
+  link, and evidence success and failure position; proves exact source order,
+  duplicate and nil/empty behavior, identical caller transaction, no read
+  after failure, and byte-equivalent application facts, projection inputs,
+  and rows. Projection-provider and Timeline application composition construct
+  independent reader values without exchanging runtime authority, and
+  descriptor fields, registries, and boundary allowlists remain exact.
+  - Verifies: REQ-01-662, REQ-04-160
+- **AC-549**: Timeline version evidence proves that primary row mutations and
+  subordinate Entity-mention effects use the sole formatter and persist exact
+  `timeline_record:<canonical-record-uuid>:<positive-row-version>` values
+  derived from the target identifier and authoritative snapshot row version.
+  Revisions persistence and rollback treat those values as opaque, every
+  `timeline:` Timeline writer and fixture is absent, and no prefix parser
+  selects authorization, dispatch, source ownership, SQL, snapshots, or
+  providers.
+  - Verifies: REQ-02-266, REQ-04-160
+- **AC-551**: Timeline cleanup evidence proves that empty scaffolding and every
+  superseded compatibility, adapter, formatter, and helper artifact is absent;
+  executable tests have exact authored verification-contract and test-family
+  ownership; generated topology is generator-produced and drift-free; and
+  the final module inventory reconciles without an orphan or dead symbol.
+  - Verifies: REQ-04-160
 
 ### 9.1B Network Flow Activity Extension Profile criteria
 
@@ -2340,6 +2407,15 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-471, REQ-01-486, REQ-01-553
 - **AC-544**: Incident Bundle export re-evaluates every recognized `blocked_when_present` profile after acquiring the incident serialization boundary in the final publication transaction. No state proceeds; active or retained soft-deleted Network Flow state fails with `incident_bundle_export_rejected` and `reason_code='extension_state_not_portable'`; concurrent state committed before the final guard is observed; multiple blockers disclose only the UTF-8-smallest safe profile ID; and failure leaves no descriptor, public object reference, or residual published object.
   - Verifies: REQ-01-486, EXT-REQ-141, EXT-REQ-198, EXT-REQ-222, NF-REQ-182
+- **AC-550**: Exporting, importing into an empty deployment, and re-exporting
+  current Timeline history preserves each non-null version identifier as the
+  byte-exact opaque value
+  `timeline_record:<canonical-record-uuid>:<positive-row-version>` and
+  preserves null as null. The embedded identifier and row version match the
+  target and canonical snapshot, rollback succeeds or fails without prefix
+  parsing, and no retired `timeline:` fixture, import translation, alias,
+  backfill, dual reader, or dual writer is accepted.
+  - Verifies: REQ-01-663, REQ-02-266
 - **AC-442**: Successful incident-bundle import persists the submitting internal `user_id` at job admission, creates exactly one target-local membership for the imported incident with that user as `role='admin'`, creates the incident-wide `default_sheet_ref=null` and importer `home_sheet_ref=null` workbook-preference objects, emits one attributed `membership_created` administrative audit event, and makes the incident visible only after those objects, imported source state, and projections commit atomically. Historical actors, actor match hints, provider-subject hints, email hints, saved-view owners, and source-system role information create no additional memberships. Exact replay of a successful import creates no duplicate membership, preference object, audit event, or visible incident. If the submitter is missing, inactive, or no longer a deployment administrator at final publication, the job fails terminally with `incident_bundle_import_rejected` and `reason_code='initial_admin_unavailable'`, leaves no visible incident, leaves no membership or workbook preference object, and emits no successful membership audit event.
   - Verifies: REQ-00-058, REQ-01-448..REQ-01-450, REQ-01-485..REQ-01-486, REQ-01-609, REQ-03-290
 

@@ -28,7 +28,9 @@ type workbookRecordTargetPort interface {
 
 type recordRouteTarget = records.RouteTarget
 
-type workbookTimelineMutationPort interface {
+// TimelineMutationOwner is the exact Timeline mutation capability consumed by
+// Workbook routes and contribution providers.
+type TimelineMutationOwner interface {
 	ApplyClipboardPaste(ctx context.Context, command timeline.ClipboardPasteCommand) (timeline.ClipboardPasteResult, error)
 	ApplyFillDown(ctx context.Context, command timeline.FillDownCommand) (timeline.ClipboardPasteResult, error)
 	ApplyMultiRowTagAssignment(ctx context.Context, command timeline.MultiRowTagAssignmentCommand) (timeline.ClipboardPasteResult, error)
@@ -37,6 +39,8 @@ type workbookTimelineMutationPort interface {
 	SupersedeRow(ctx context.Context, command timeline.SupersedeCommand) (timeline.MutationResult, error)
 	ResolveConflict(ctx context.Context, command timeline.ConflictResolveCommand) (timeline.MutationResult, error)
 }
+
+var _ TimelineMutationOwner = (*timeline.Facade)(nil)
 
 type workbookEntityMutationPort interface {
 	CreateHostRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request hostidentity.CreateRequest, requestHash []byte, requestID string, now time.Time) (hostidentity.MutationResult, error)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/rowpresenter"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/versionid"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
 
@@ -76,7 +77,7 @@ func (p *Provider) PrepareMentionActionTx(ctx context.Context, tx pgx.Tx, record
 	return ActionState{
 		SourceRecordID:  record.RecordID,
 		RowVersion:      record.RowVersion,
-		BeforeVersionID: VersionID(record.RecordID, record.RowVersion),
+		BeforeVersionID: versionid.Format(record.RecordID, record.RowVersion),
 		BeforeRow:       row,
 	}, nil
 }
@@ -119,7 +120,7 @@ UPDATE timeline_events
 		SourceRecordID:  state.SourceRecordID,
 		RowVersion:      rowVersion,
 		BeforeVersionID: state.BeforeVersionID,
-		AfterVersionID:  VersionID(state.SourceRecordID, rowVersion),
+		AfterVersionID:  versionid.Format(state.SourceRecordID, rowVersion),
 		BeforeRow:       state.BeforeRow,
 		AfterRow:        afterRow,
 	}, nil
@@ -214,8 +215,4 @@ func (p *Provider) loadRecordAndRowTx(ctx context.Context, tx pgx.Tx, recordID u
 	}
 	workbookprojection.ApplyCollectionFacts(&derived, facts)
 	return record, rowpresenter.BuildRow(derived.PresenterRecord()), nil
-}
-
-func VersionID(recordID uuid.UUID, rowVersion int64) string {
-	return fmt.Sprintf("timeline_record:%s:%d", recordID.String(), rowVersion)
 }

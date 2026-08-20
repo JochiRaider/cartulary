@@ -19,6 +19,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/valuecodec"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/versionid"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -345,7 +347,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 	if err != nil {
 		return MutationResult{}, 0, err
 	}
-	afterVersion := versionID(current.RecordID, projected.RowVersion)
+	afterVersion := versionid.Format(current.RecordID, projected.RowVersion)
 	if err := s.revisionsStore.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     mutationSequence,
@@ -725,8 +727,8 @@ RETURNING recorded_at
 
 	beforeRow := buildRow(beforeProjected)
 	afterRow := buildRow(afterProjected)
-	beforeVersion := versionID(current.RecordID, current.RowVersion)
-	afterVersion := versionID(next.RecordID, next.RowVersion)
+	beforeVersion := versionid.Format(current.RecordID, current.RowVersion)
+	afterVersion := versionid.Format(next.RecordID, next.RowVersion)
 	if err := s.revisionsStore.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
@@ -852,7 +854,7 @@ func ensureEmptyTimelineCollectionCells(row map[string]any) {
 	for _, fieldKey := range []string{"timeline.host_refs", "timeline.identity_refs", "timeline.tags", "timeline.attached_evidence_ids"} {
 		if _, present := cells[fieldKey]; !present {
 			policy, _ := LookupCollectionPolicy(fieldKey)
-			cells[fieldKey] = map[string]any{"value": collectionValue(policy.Ordered, nil)}
+			cells[fieldKey] = map[string]any{"value": valuecodec.Collection(policy.Ordered, nil)}
 		}
 	}
 }
@@ -955,7 +957,7 @@ func (s *store) buildSameFieldConflict(recordID uuid.UUID, current workbookproje
 			"client_value":              clientValue,
 			"server_value":              serverValue,
 			"server_updated_by":         changed.ServerUpdatedBy.String(),
-			"server_updated_at":         formatTimestamp(changed.ServerUpdatedAt),
+			"server_updated_at":         valuecodec.Timestamp(changed.ServerUpdatedAt),
 			"base_value":                baseValue,
 		},
 	}, nil
@@ -1009,7 +1011,7 @@ func rowCellValue(row map[string]any, fieldKey string) (any, bool) {
 
 func patchClientConflictValue(recordID uuid.UUID, change PatchChange, baseValue any, requestHash []byte) (any, error) {
 	if change.ActionPayload == nil {
-		return canonicalChangeValue(change), nil
+		return change.CanonicalValue(), nil
 	}
 	return applyCollectionConflictActions(recordID, change.FieldKey, baseValue, change.ActionPayload, requestHash)
 }
@@ -1053,7 +1055,7 @@ func applyCollectionConflictActions(recordID uuid.UUID, fieldKey string, baseVal
 			return collectionSortKey(items[left]) < collectionSortKey(items[right])
 		})
 	}
-	return collectionValue(ordered, items), nil
+	return valuecodec.Collection(ordered, items), nil
 }
 
 func cloneCollectionConflictValue(value any) (bool, []map[string]any, bool) {
@@ -1136,7 +1138,7 @@ func newClientCollectionItem(recordID uuid.UUID, fieldKey string, action Collect
 }
 
 func clientCollectionLocalUUID(recordID uuid.UUID, fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) uuid.UUID {
-	sum := hashCanonicalValue(map[string]any{
+	sum := valuecodec.CanonicalJSONSHA256(map[string]any{
 		"request_hash": base64.RawURLEncoding.EncodeToString(requestHash),
 		"record_id":    recordID.String(),
 		"field_key":    fieldKey,
@@ -1148,14 +1150,14 @@ func clientCollectionLocalUUID(recordID uuid.UUID, fieldKey string, action Colle
 }
 
 func clientCollectionItemRef(fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) string {
-	sum := hashCanonicalValue(map[string]any{
+	sum := valuecodec.CanonicalJSONSHA256(map[string]any{
 		"request_hash":     base64.RawURLEncoding.EncodeToString(requestHash),
 		"field_key":        fieldKey,
 		"action_index":     actionIndex,
 		"op":               action.Op,
 		"raw_text":         action.NormalizedText,
 		"item_ref":         action.ItemRef,
-		"linked_record_id": formatUUIDPointer(action.LinkedRecordID),
+		"linked_record_id": valuecodec.OptionalUUID(action.LinkedRecordID),
 	})
 	token := base64.RawURLEncoding.EncodeToString(sum)
 	if len(token) > 18 {
@@ -1207,10 +1209,6 @@ func collectionSortKey(item map[string]any) string {
 		}
 	}
 	return ""
-}
-
-func versionID(recordID uuid.UUID, rowVersion int64) string {
-	return fmt.Sprintf("timeline:%s:%d", recordID.String(), rowVersion)
 }
 
 func hasMaterialChange(current sourcerepository.Snapshot, next sourcerepository.Snapshot) bool {

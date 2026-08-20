@@ -7,18 +7,22 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/mutationpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
+
+var _ ownerfacade.ImportOwnerCreateTx = (*Facade)(nil)
 
 func NewImportCreateFacade(
 	targetViewSchemaID string,
 	facadeID string,
-	owner *Facade,
+	owner ownerfacade.ImportOwnerCreateTx,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
 	if targetViewSchemaID != TimelineViewSchemaID {
 		return nil, fmt.Errorf("timeline import surface %q not mapped", targetViewSchemaID)
 	}
-	if owner == nil || owner.store == nil {
+	facadeOwner, isFacade := owner.(*Facade)
+	if owner == nil || (isFacade && (facadeOwner == nil || facadeOwner.store == nil)) {
 		return nil, fmt.Errorf("timeline import facade requires an owner")
 	}
 	return ownerfacade.NewImportOwnerCreateFacadeWithNormalizer(
@@ -41,7 +45,7 @@ func normalizeImportField(
 		case "omit_field":
 			return ownerfacade.ImportScalarValue{}, false, nil
 		case "write_null":
-			if _, ok := directWritableFieldKeys[fieldKey]; !ok {
+			if !mutationpolicy.IsDirectWritableField(fieldKey) {
 				return ownerfacade.ImportScalarValue{}, false, fmt.Errorf(
 					"timeline import field %s is not nullable",
 					fieldKey,
@@ -55,8 +59,8 @@ func normalizeImportField(
 			)
 		}
 	}
-	if _, ok := directWritableFieldKeys[fieldKey]; ok {
-		if !validTimelineVisibleText(raw) {
+	if mutationpolicy.IsDirectWritableField(fieldKey) {
+		if !mutationpolicy.IsValidVisibleText(raw) {
 			return ownerfacade.ImportScalarValue{}, false, fmt.Errorf(
 				"invalid imported Timeline field %s",
 				fieldKey,

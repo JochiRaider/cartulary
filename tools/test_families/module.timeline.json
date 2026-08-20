@@ -773,6 +773,7 @@
       "collaborator_ids": [],
       "verification_ids": [
         "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.capability_boundary",
         "module.timeline.verification.incident_portability"
       ],
       "runner": "go",
@@ -800,7 +801,8 @@
       "family_id": "module.timeline.integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.timeline.verification.behavior_contract"
+        "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.version_identifier"
       ],
       "runner": "go",
       "selector": {
@@ -854,7 +856,8 @@
       "family_id": "module.timeline.integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.timeline.verification.behavior_contract"
+        "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.presentation_bytes"
       ],
       "runner": "go",
       "selector": {
@@ -881,7 +884,8 @@
       "family_id": "module.timeline.integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.timeline.verification.behavior_contract"
+        "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.presentation_bytes"
       ],
       "runner": "go",
       "selector": {
@@ -908,7 +912,9 @@
       "family_id": "module.timeline.integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.timeline.verification.behavior_contract"
+        "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.collection_facts",
+        "module.timeline.verification.presentation_bytes"
       ],
       "runner": "go",
       "selector": {
@@ -1315,7 +1321,8 @@
       "family_id": "module.timeline.store",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.timeline.verification.behavior_contract"
+        "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.version_identifier"
       ],
       "runner": "go",
       "selector": {
@@ -1571,12 +1578,43 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.timeline.support_unit.timeline_import_normalization_preserves_owner_po_0e92bc5ae9",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.support_unit",
+      "collaborator_ids": [
+        "module.imports"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.policy_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestTimelineImportNormalizerPreservesOwnerSemantics",
+          "TestTimelineImportRequestRetainsDurableProvenance"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.timeline.support_unit.unit_capture_state_and_payload_helpers_772e7f2e60",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.support_unit",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.timeline.verification.behavior_contract"
+        "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.capability_boundary",
+        "module.timeline.verification.cleanup",
+        "module.timeline.verification.presentation_bytes"
       ],
       "runner": "go",
       "selector": {
@@ -1605,13 +1643,16 @@
         "module.evidence"
       ],
       "verification_ids": [
-        "module.timeline.verification.behavior_contract"
+        "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.collection_facts"
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/app/timelineassembly",
+        "package": "./internal/modules/timeline/collectionfacts",
         "tests": [
-          "TestEvidenceTimelineFactMappingIsLosslessAndOrdered"
+          "TestReaderMapsFactsLosslesslyInOrder",
+          "TestReaderRequiresAllDependenciesBeforeReading",
+          "TestReaderStopsAtFirstFailure"
         ]
       },
       "evidence_class": "unit",
@@ -1655,7 +1696,9 @@
       "family_id": "module.timeline.unit",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.timeline.verification.behavior_contract"
+        "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.policy_contract",
+        "module.timeline.verification.presentation_bytes"
       ],
       "runner": "go",
       "selector": {
@@ -1700,6 +1743,31 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.timeline.unit.timeline_canonical_value_codec_preserves_nullabl_8e157df0fd",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.presentation_bytes"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline/valuecodec",
+        "tests": [
+          "TestCanonicalJSONSHA256",
+          "TestCanonicalScalarAndCollectionValues"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.timeline.unit.timeline_create_and_patch_decoding_accepts_manua_d80720f76e",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.unit",
@@ -1724,12 +1792,39 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.timeline.unit.timeline_mutation_policy_is_closed_immutable_and_744c76d583",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.policy_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline/mutationpolicy",
+        "tests": [
+          "TestTimelineMutationPolicyIsClosedAndImmutable",
+          "TestTimelineVisibleTextPolicyBoundaries"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.timeline.unit.timeline_projection_contract_shaping_exposes_the_0a2232ebe0",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.unit",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.timeline.verification.behavior_contract"
+        "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.collection_facts",
+        "module.timeline.verification.presentation_bytes"
       ],
       "runner": "go",
       "selector": {
@@ -1763,6 +1858,32 @@
         "package": "./internal/modules/timeline",
         "tests": [
           "TestAutoResolutionEligibility_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.unit.timeline_version_identifiers_encode_the_exact_re_0e9c9c6928",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.version_identifier"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline/versionid",
+        "tests": [
+          "TestFormatUsesTimelineRecordIdentityAndExactRowVersion"
         ]
       },
       "evidence_class": "unit",

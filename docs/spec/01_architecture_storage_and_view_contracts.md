@@ -6038,6 +6038,27 @@ schema contract.
 Profiles: base
 Verified by: AC-539
 
+**REQ-01-662**
+Timeline collection-fact loading MUST have exactly one typed source-owner
+implementation. That reader MUST receive explicit mention, link, and evidence
+read capabilities and MUST load, in that order, the complete Timeline-owned
+collection facts required by both current application mutation and projection
+derivation. It MUST preserve the caller's transaction identity, source result
+order, duplicate behavior, and nil-versus-empty representation. A failed read
+MUST stop the sequence immediately, MUST return that error without
+reinterpretation, and MUST perform no later read or partial result publication.
+
+Timeline application assembly and Timeline projection-provider construction
+MUST each construct an independent reader value from their own authorized
+capabilities. Sharing the typed read implementation MUST NOT merge those
+composition roots, expose a Projections runtime or provider through the
+Timeline application facade, grant either context transaction-lifecycle,
+authorization, write, cache, dynamic-registry, or projection-table authority,
+or move source-fact meaning outside Timeline. The reader MUST NOT begin,
+commit, roll back, replace, or detach the caller's transaction.
+Profiles: base
+Verified by: AC-548
+
 **REQ-01-660**
 The internal `artifacts` refinement MUST own authoritative source state for
 records whose current envelope has `record_type='artifact'`. Its ownership
@@ -7229,6 +7250,23 @@ Verified by: AC-164, AC-165, AC-166, AC-167, AC-168, AC-169, AC-236
 A portability bundle MUST preserve enough authoritative history substrate for the importing deployment to materialize conformant `GET /api/v1/records/{record_id}/history` results and conformant rollback behavior for imported records. Exact byte preservation of opaque `history_entry_ref` values is not part of the portability contract. The importing deployment MAY reissue `history_entry_ref` values, but once issued there they MUST be stable for the retained-history lifetime of the imported record in that deployment.
 Profiles: incident_portability
 Verified by: AC-236, AC-386
+
+**REQ-01-663**
+For every current Timeline mutation whose persisted pre-change or post-change
+version identifier is non-null, Incident Portability export, import, and
+re-export MUST preserve the exact opaque UTF-8 value
+`timeline_record:<canonical-record-uuid>:<positive-row-version>`. A null
+version identifier MUST remain null. Import validation MUST preserve the
+embedded Timeline record identifier and row version as authoritative history
+facts without deriving dispatch, authorization, source ownership, target kind,
+or SQL behavior from the prefix.
+
+The current profile provides no portability alias, translation, backfill,
+dual-read, or dual-write behavior for the retired `timeline:` grammar. A
+pre-cutover pre-production bundle is unsupported and MUST NOT be normalized
+into current history.
+Profiles: incident_portability
+Verified by: AC-550
 
 #### 12.3.1 Logical bundle contract
 
