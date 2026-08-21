@@ -65,9 +65,9 @@ func recordDeletedUseRestoreError() *httpapi.APIError {
 }
 
 func sameFieldConflictAPIError(err *timeline.SameFieldConflictError) *httpapi.APIError {
-	conflict := any(nil)
+	var conflict any
 	if err != nil {
-		conflict = err.Conflict
+		conflict = err.Conflict.PublicValue()
 	}
 	return &httpapi.APIError{
 		Status:   http.StatusConflict,

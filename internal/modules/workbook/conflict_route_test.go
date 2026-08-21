@@ -12,12 +12,11 @@ import (
 
 	"github.com/google/uuid"
 
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
-
-const NotesViewSchemaID = "cartulary.view.notes.v1"
 
 func TestGridWriteConcurrencyRoute_Unit(t *testing.T) {
 	harness, login, _, incidentID := ConflictFixture(t, "collaboration-u-6-01-grid-write-concurrency", "IR-COLLABORATION-workbook-storage")
@@ -29,29 +28,29 @@ func TestGridWriteConcurrencyRoute_Unit(t *testing.T) {
 	routeRight := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-01-route-right-create", "Route right", "Right base body")
 	routeRightID := appsupport.MustUUID(t, routeRight["record_id"].(string))
 	routeBoundPatchBody := map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-01-route-bound-body",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": "Path-selected body"}},
 	}
 	routeLeftPatch := requireWorkbookPatch(t, harness, login, routeLeftID, routeBoundPatchBody)
 	requireCellValue(t, routeLeftPatch["row"].(map[string]any), "note.body", "Path-selected body")
-	routeRightAfterLeft := RequireQueriedRow(t, harness, login, incidentID, NotesViewSchemaID, routeRightID)
+	routeRightAfterLeft := RequireQueriedRow(t, harness, login, incidentID, artifacts.NotesViewSchemaID, routeRightID)
 	requireCellValue(t, routeRightAfterLeft, "note.body", "Right base body")
 	routeRightPatch := requireWorkbookPatch(t, harness, login, routeRightID, routeBoundPatchBody)
 	requireCellValue(t, routeRightPatch["row"].(map[string]any), "note.body", "Path-selected body")
-	routeLeftAfterRight := RequireQueriedRow(t, harness, login, incidentID, NotesViewSchemaID, routeLeftID)
+	routeLeftAfterRight := RequireQueriedRow(t, harness, login, incidentID, artifacts.NotesViewSchemaID, routeLeftID)
 	requireCellValue(t, routeLeftAfterRight, "note.body", "Path-selected body")
 
 	missingBase := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
-		"view_schema_id": NotesViewSchemaID,
+		"view_schema_id": artifacts.NotesViewSchemaID,
 		"client_txn_id":  "txn-collaboration-u-6-01-missing-base",
 		"changes":        []map[string]any{{"field_key": "note.body", "value": "Client body"}},
 	})
 	httptestx.RequireErrorEnvelope(t, missingBase, http.StatusBadRequest, "invalid_mutation_payload")
 	fullRowPatch := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"record_id":        recordID.String(),
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-01-record-id-in-body",
 		"note.body":        "Client body",
@@ -59,7 +58,7 @@ func TestGridWriteConcurrencyRoute_Unit(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, fullRowPatch, http.StatusBadRequest, "invalid_mutation_payload")
 
 	titlePatch := requireWorkbookPatch(t, harness, login, recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-01-server-title",
 		"changes":          []map[string]any{{"field_key": "note.title", "value": "Server title"}},
@@ -67,7 +66,7 @@ func TestGridWriteConcurrencyRoute_Unit(t *testing.T) {
 	requireCellValue(t, titlePatch["row"].(map[string]any), "note.title", "Server title")
 
 	bodyPatch := requireWorkbookPatch(t, harness, login, recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-01-client-body",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": "Client body"}},
@@ -82,7 +81,7 @@ func TestGridWriteConcurrencyRoute_Unit(t *testing.T) {
 
 	beforeConflict := snapshotWorkbookConflictSideEffects(t, harness, incidentID, recordID)
 	sameField := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-01-client-title",
 		"changes":          []map[string]any{{"field_key": "note.title", "value": "Client title"}},
@@ -103,14 +102,14 @@ func TestSameFieldConflictHTTP_Unit(t *testing.T) {
 	note := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-02-create", "Base title", "Base body")
 	recordID := appsupport.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-02-server",
 		"changes":          []map[string]any{{"field_key": "note.title", "value": "Server title"}},
 	})
 
 	resp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-02-client",
 		"changes":          []map[string]any{{"field_key": "note.title", "value": "Client title"}},
@@ -144,7 +143,7 @@ func TestTextCompareMergeDurability_Unit(t *testing.T) {
 	note := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-03-clean-create", "Merge note", "one\ntwo\nthree")
 	recordID := appsupport.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-03-clean-server",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": "one\nTWO\nthree"}},
@@ -152,7 +151,7 @@ func TestTextCompareMergeDurability_Unit(t *testing.T) {
 
 	beforeConflict := snapshotWorkbookConflictSideEffects(t, harness, incidentID, recordID)
 	resp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-03-clean-client",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": "one\ntwo\nTHREE"}},
@@ -166,7 +165,7 @@ func TestTextCompareMergeDurability_Unit(t *testing.T) {
 	if beforeConflict != afterConflict {
 		t.Fatalf("clean text conflict wrote durable side effects: before=%+v after=%+v", beforeConflict, afterConflict)
 	}
-	current := RequireQueriedRow(t, harness, login, incidentID, NotesViewSchemaID, recordID)
+	current := RequireQueriedRow(t, harness, login, incidentID, artifacts.NotesViewSchemaID, recordID)
 	requireCellValue(t, current, "note.body", "one\nTWO\nthree")
 	if got := int64(current["row_version"].(float64)); got != 2 {
 		t.Fatalf("rejected clean text conflict changed row_version = %d want 2", got)
@@ -187,13 +186,13 @@ func TestTextCompareMergeDurability_Unit(t *testing.T) {
 	overlap := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-03-overlap-create", "Overlap note", "one\ntwo")
 	overlapID := appsupport.MustUUID(t, overlap["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, overlapID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-03-overlap-server",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": "one\nserver"}},
 	})
 	overlapResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", overlapID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-03-overlap-client",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": "one\nclient"}},
@@ -211,14 +210,14 @@ func TestTextCompareMergeDurability_Unit(t *testing.T) {
 	rendered := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-03-rendered-create", "Rendered-looking note", renderedLookingBase)
 	renderedID := appsupport.MustUUID(t, rendered["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, renderedID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-03-rendered-server",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": renderedLookingServer}},
 	})
 	beforeRenderedConflict := snapshotWorkbookConflictSideEffects(t, harness, incidentID, renderedID)
 	renderedResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", renderedID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-03-rendered-client",
 		"changes":          []map[string]any{{"field_key": "note.body", "value": renderedLookingClient}},
@@ -235,7 +234,7 @@ func TestTextCompareMergeDurability_Unit(t *testing.T) {
 	if beforeRenderedConflict != afterRenderedConflict {
 		t.Fatalf("rendered-looking clean text conflict wrote durable side effects: before=%+v after=%+v", beforeRenderedConflict, afterRenderedConflict)
 	}
-	renderedCurrent := RequireQueriedRow(t, harness, login, incidentID, NotesViewSchemaID, renderedID)
+	renderedCurrent := RequireQueriedRow(t, harness, login, incidentID, artifacts.NotesViewSchemaID, renderedID)
 	requireCellValue(t, renderedCurrent, "note.body", renderedLookingServer)
 }
 
@@ -272,7 +271,7 @@ func TestCollectionReviewRouteResolve_Unit(t *testing.T) {
 	secondEvidenceID := seedEvidenceRecord(t, harness, incidentID, actorID, "VPN log bundle")
 	thirdEvidenceID := seedEvidenceRecord(t, harness, incidentID, actorID, "Firewall log bundle")
 
-	noteData := requireWorkbookCreate(t, harness, login, incidentID, NotesViewSchemaID, map[string]any{
+	noteData := requireWorkbookCreate(t, harness, login, incidentID, artifacts.NotesViewSchemaID, map[string]any{
 		"client_txn_id": "txn-collaboration-u-6-04-create",
 		"note.title":    "Collection note",
 		"note.tags":     collectionActions(addToken("base-tag")),
@@ -280,7 +279,7 @@ func TestCollectionReviewRouteResolve_Unit(t *testing.T) {
 	note := noteData["row"].(map[string]any)
 	recordID := appsupport.MustUUID(t, note["record_id"].(string))
 	requireCollectionValueHasItemKind(t, cellMapValue(t, note, "note.tags"), "tag")
-	queried := RequireQueriedRow(t, harness, login, incidentID, NotesViewSchemaID, recordID)
+	queried := RequireQueriedRow(t, harness, login, incidentID, artifacts.NotesViewSchemaID, recordID)
 	requireCollectionValueHasItemKind(t, cellMapValue(t, queried, "note.tags"), "tag")
 
 	commData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.comm_log.v1", map[string]any{
@@ -398,7 +397,7 @@ func TestCollectionReviewRouteResolve_Unit(t *testing.T) {
 	} {
 		t.Run(invalid.name, func(t *testing.T) {
 			invalidResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
-				"view_schema_id":   NotesViewSchemaID,
+				"view_schema_id":   artifacts.NotesViewSchemaID,
 				"base_row_version": 3,
 				"client_txn_id":    "txn-collaboration-u-6-04-invalid-" + invalid.name,
 				"changes": []map[string]any{{
@@ -574,7 +573,7 @@ func TestConflictResolutionRevalidatesStaleToken_Unit(t *testing.T) {
 	oldToken := conflict["conflict_token"].(string)
 
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 2,
 		"client_txn_id":    "txn-collaboration-u-6-07-server-advanced",
 		"changes": []map[string]any{{
@@ -664,7 +663,7 @@ type CollectionReviewCase struct {
 
 func CollectionReviewCases() map[string]CollectionReviewCase {
 	return map[string]CollectionReviewCase{
-		"note.tags":                          {viewSchemaID: NotesViewSchemaID, fieldKey: "note.tags", expectedItemKind: "tag"},
+		"note.tags":                          {viewSchemaID: artifacts.NotesViewSchemaID, fieldKey: "note.tags", expectedItemKind: "tag"},
 		"comm_log.decision_ids":              {viewSchemaID: "cartulary.view.comm_log.v1", fieldKey: "comm_log.decision_ids", expectedItemKind: "record_ref"},
 		"comm_log.action_task_ids":           {viewSchemaID: "cartulary.view.comm_log.v1", fieldKey: "comm_log.action_task_ids", expectedItemKind: "record_ref"},
 		"comm_log.audience_party_ids":        {viewSchemaID: "cartulary.view.comm_log.v1", fieldKey: "comm_log.audience_party_ids", expectedItemKind: "party_ref"},
@@ -728,7 +727,7 @@ func RouteSupportedCollectionReviewFields() []string {
 		"cartulary.view.decisions.v1":     {},
 		"cartulary.view.handoff.v1":       {},
 		"cartulary.view.lesson.v1":        {},
-		NotesViewSchemaID:                 {},
+		artifacts.NotesViewSchemaID:       {},
 		"cartulary.view.status_review.v1": {},
 		"cartulary.view.task_requests.v1": {},
 	}
@@ -826,7 +825,7 @@ func ConflictFixture(t testing.TB, name string, incidentKey string) (*appsupport
 
 func CreateNote(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, clientTxnID string, title string, body string) map[string]any {
 	t.Helper()
-	data := requireWorkbookCreate(t, harness, login, incidentID, NotesViewSchemaID, map[string]any{
+	data := requireWorkbookCreate(t, harness, login, incidentID, artifacts.NotesViewSchemaID, map[string]any{
 		"client_txn_id": clientTxnID,
 		"note.title":    title,
 		"note.body":     body,
@@ -839,13 +838,13 @@ func CreateNoteTitleConflict(t testing.TB, harness *appsupport.ServerHarness, lo
 	note := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-06-"+suffix+"-create", suffix+" base", suffix+" body")
 	recordID := appsupport.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-06-" + suffix + "-server",
 		"changes":          []map[string]any{{"field_key": "note.title", "value": savedValue}},
 	})
 	resp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-u-6-06-" + suffix + "-client",
 		"changes":          []map[string]any{{"field_key": "note.title", "value": localValue}},

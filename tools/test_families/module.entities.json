@@ -633,6 +633,39 @@
       ]
     },
     {
+      "row_id": "module.entities.unit.entity_mutation_admission_and_hashing_remain_own_80f4147eb7",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.unit",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities/hostidentity",
+        "tests": [
+          "TestClipboardPasteRequestDecodePlanAndHash",
+          "TestClipboardPasteRequestDecodeRejectsWorkbookInvalidPayloads",
+          "TestCreateRequestAdmissionAndHashCompatibility",
+          "TestPatchRequestDecodeAcceptsOrderedAliasActions",
+          "TestPatchRequestDecodeRejectsUnsupportedEntityChanges",
+          "TestPatchRequestDecodeSortsAndHashesEntityChanges",
+          "TestWorkbookConflictResolveAdmissionAndHashCompatibility",
+          "TestWorkbookConflictResolveAdmissionRejectsInvalidEntityValues"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.entities.unit.entity_revision_contribution_owns_current_snapsh_4a2385fd4a",
       "owner_id": "module.entities",
       "family_id": "module.entities.unit",

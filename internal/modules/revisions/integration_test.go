@@ -17,12 +17,12 @@ import (
 	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
 
 func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {

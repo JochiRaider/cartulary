@@ -19,6 +19,7 @@ type recordingQuery struct {
 	viewSchemaID string
 	meta         viewschema.QueryMeta
 	rows         []map[string]any
+	err          error
 }
 
 func (query *recordingQuery) QueryRows(
@@ -31,7 +32,7 @@ func (query *recordingQuery) QueryRows(
 	query.incidentID = incidentID
 	query.viewSchemaID = viewSchemaID
 	query.meta = meta
-	return query.rows, nil
+	return query.rows, query.err
 }
 
 func TestRestoreProbeRegistryExecutesExactOwnerRegistration(t *testing.T) {
@@ -60,11 +61,103 @@ func TestRestoreProbeRegistryExecutesExactOwnerRegistration(t *testing.T) {
 		result.RowCount != 0 {
 		t.Fatalf("execution result got %#v", result)
 	}
+
+	t.Run("nonzero rows are counted without changing registration identity", func(t *testing.T) {
+		rowQuery := &recordingQuery{rows: []map[string]any{{"record_id": "first"}, {"record_id": "second"}}}
+		rowRegistry, rowErr := restoreprobe.NewRegistry(rowQuery, timeline.RestoreWorkbookProbeRegistration())
+		if rowErr != nil {
+			t.Fatalf("new row-count registry: %v", rowErr)
+		}
+		rowResult, rowErr := rowRegistry.ExecuteDefault(context.Background(), restoreprobe.BaseProfile, incidentID)
+		if rowErr != nil {
+			t.Fatalf("execute row-count registry: %v", rowErr)
+		}
+		if rowResult.RegistrationID != "timeline.base_restore_probe.v1" ||
+			rowResult.ViewSchemaID != "cartulary.view.timeline.v2" ||
+			rowResult.RowCount != 2 || rowQuery.calls != 1 {
+			t.Fatalf("row-count execution got result=%#v calls=%d", rowResult, rowQuery.calls)
+		}
+	})
+
+	t.Run("unknown profile and nil incident fail before querying", func(t *testing.T) {
+		guardedQuery := &recordingQuery{}
+		guardedRegistry, guardedErr := restoreprobe.NewRegistry(guardedQuery, timeline.RestoreWorkbookProbeRegistration())
+		if guardedErr != nil {
+			t.Fatalf("new guarded registry: %v", guardedErr)
+		}
+		if _, guardedErr = guardedRegistry.ExecuteDefault(context.Background(), "unknown", incidentID); !errors.Is(guardedErr, restoreprobe.ErrExecutionFailed) {
+			t.Fatalf("unknown profile error got %v", guardedErr)
+		}
+		if _, guardedErr = guardedRegistry.ExecuteDefault(context.Background(), restoreprobe.BaseProfile, uuid.Nil); !errors.Is(guardedErr, restoreprobe.ErrExecutionFailed) {
+			t.Fatalf("nil incident error got %v", guardedErr)
+		}
+		if guardedQuery.calls != 0 {
+			t.Fatalf("pre-query failures invoked projection query %d times", guardedQuery.calls)
+		}
+	})
+
+	t.Run("query failure preserves registration and view identity", func(t *testing.T) {
+		queryFailure := errors.New("projection query unavailable")
+		failingQuery := &recordingQuery{err: queryFailure}
+		failingRegistry, failingErr := restoreprobe.NewRegistry(failingQuery, timeline.RestoreWorkbookProbeRegistration())
+		if failingErr != nil {
+			t.Fatalf("new failing registry: %v", failingErr)
+		}
+		failedResult, failingErr := failingRegistry.ExecuteDefault(context.Background(), restoreprobe.BaseProfile, incidentID)
+		if !errors.Is(failingErr, restoreprobe.ErrExecutionFailed) ||
+			failedResult.RegistrationID != "timeline.base_restore_probe.v1" ||
+			failedResult.ViewSchemaID != "cartulary.view.timeline.v2" ||
+			failingQuery.calls != 1 {
+			t.Fatalf("query failure got result=%#v calls=%d error=%v", failedResult, failingQuery.calls, failingErr)
+		}
+	})
+
+	t.Run("nil registry fails without panic", func(t *testing.T) {
+		var nilRegistry *restoreprobe.Registry
+		if _, nilErr := nilRegistry.ExecuteDefault(context.Background(), restoreprobe.BaseProfile, incidentID); !errors.Is(nilErr, restoreprobe.ErrExecutionFailed) {
+			t.Fatalf("nil registry error got %v", nilErr)
+		}
+	})
 }
 
 func TestRestoreProbeRegistryRejectsConflicts(t *testing.T) {
 	query := &recordingQuery{}
 	registration := timeline.RestoreWorkbookProbeRegistration()
+	t.Run("nil projection query", func(t *testing.T) {
+		_, err := restoreprobe.NewRegistry(nil, registration)
+		if !errors.Is(err, restoreprobe.ErrInvalidRegistration) {
+			t.Fatalf("nil projection query got %v", err)
+		}
+	})
+	t.Run("typed nil projection query", func(t *testing.T) {
+		var typedNil *recordingQuery
+		_, err := restoreprobe.NewRegistry(typedNil, registration)
+		if !errors.Is(err, restoreprobe.ErrInvalidRegistration) {
+			t.Fatalf("typed nil projection query got %v", err)
+		}
+	})
+	t.Run("empty registration set", func(t *testing.T) {
+		_, err := restoreprobe.NewRegistry(query)
+		if !errors.Is(err, restoreprobe.ErrInvalidRegistration) {
+			t.Fatalf("empty registration set got %v", err)
+		}
+	})
+	t.Run("invalid registration schema", func(t *testing.T) {
+		invalid := registration
+		invalid.SchemaID = "cartulary.restore_workbook_probe_registration.invalid"
+		_, err := restoreprobe.NewRegistry(query, invalid)
+		if !errors.Is(err, restoreprobe.ErrInvalidRegistration) {
+			t.Fatalf("invalid registration schema got %v", err)
+		}
+	})
+	t.Run("unresolved view schema", func(t *testing.T) {
+		invalid := registration
+		invalid.ViewSchemaID = "cartulary.view.unknown.v1"
+		_, err := restoreprobe.NewRegistry(query, invalid)
+		if !errors.Is(err, restoreprobe.ErrInvalidRegistration) {
+			t.Fatalf("unresolved view schema got %v", err)
+		}
+	})
 	t.Run("duplicate registration", func(t *testing.T) {
 		_, err := restoreprobe.NewRegistry(query, registration, registration)
 		if !errors.Is(err, restoreprobe.ErrRegistryConflict) {

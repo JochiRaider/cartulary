@@ -24,7 +24,6 @@ import (
 	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	timeline "github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -32,6 +31,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
 
 func newEntityTestTimelineBundle(t testing.TB, pool postgres.DB) *timelineassembly.Bundle {

@@ -25,13 +25,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
 
 func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {

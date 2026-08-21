@@ -2,25 +2,21 @@ package workbook
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-func (s *Service) startWorkbookQuery(ctx context.Context, viewSchemaID string) (context.Context, func(result string, errorCode string, rowCount int)) {
+func (s *service) startWorkbookQuery(ctx context.Context, viewSchemaID string) (context.Context, func(result string, errorCode string, rowCount int)) {
 	viewSchemaID = safeWorkbookViewSchemaID(viewSchemaID)
 	started := time.Now()
 	ctx, span := telemetry.Tracer(telemetry.ScopeWorkbook, s.telemetryServiceVersion()).Start(
@@ -71,7 +67,7 @@ func (s *Service) startWorkbookQuery(ctx context.Context, viewSchemaID string) (
 	}
 }
 
-func (s *Service) startWorkbookMutation(ctx context.Context, viewSchemaID string, operation string) (context.Context, func(result string, errorCode string)) {
+func (s *service) startWorkbookMutation(ctx context.Context, viewSchemaID string, operation string) (context.Context, func(result string, errorCode string)) {
 	viewSchemaID = safeWorkbookViewSchemaID(viewSchemaID)
 	recordType := safeWorkbookRecordType(viewSchemaID)
 	operation = safeWorkbookOperation(operation)
@@ -112,7 +108,7 @@ func (s *Service) startWorkbookMutation(ctx context.Context, viewSchemaID string
 	}
 }
 
-func (s *Service) telemetryServiceVersion() string {
+func (s *service) telemetryServiceVersion() string {
 	if s != nil && strings.TrimSpace(s.serviceVersion) != "" {
 		return s.serviceVersion
 	}
@@ -132,40 +128,6 @@ func workbookAPIErrorTelemetry(apiErr *httpapi.APIError) (string, string) {
 		return "failed", apiErr.Code
 	default:
 		return "failed", apiErr.Code
-	}
-}
-
-func workbookMutationErrorTelemetry(err error, clientTxnID string) (string, string) {
-	if err == nil {
-		return "success", ""
-	}
-	return workbookAPIErrorTelemetry(mutationAPIErrorForTelemetry(err, clientTxnID))
-}
-
-func mutationAPIErrorForTelemetry(err error, clientTxnID string) *httpapi.APIError {
-	var (
-		validationErr *MutationValidationError
-		lifecycleErr  *LifecycleValidationError
-		rowConflict   *RowVersionConflictError
-		sameConflict  *SameFieldConflictError
-	)
-	switch {
-	case errors.Is(err, authn.ErrClientTxnConflict):
-		return httpapi.ClientTxnConflictError(clientTxnID)
-	case errors.Is(err, pgx.ErrNoRows):
-		return incidentNotFoundError()
-	case errors.Is(err, revisions.ErrRecordDeletedUseRestore):
-		return &httpapi.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Details: map[string]any{}}
-	case errors.As(err, &validationErr):
-		return invalidMutationPayload(validationErr.Field, validationErr.ReasonCode)
-	case errors.As(err, &lifecycleErr):
-		return &httpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Details: map[string]any{}}
-	case errors.As(err, &sameConflict):
-		return sameFieldConflictError(sameConflict)
-	case errors.As(err, &rowConflict):
-		return rowVersionConflictError(map[string]any{})
-	default:
-		return internalAPIError(err)
 	}
 }
 

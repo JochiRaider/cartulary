@@ -1,23 +1,21 @@
 package workbook
 
 import (
-	"errors"
 	"net/http"
 	"testing"
-
-	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 func TestWorkbookTelemetrySafeMappings(t *testing.T) {
-	if got := safeWorkbookViewSchemaID(EvidenceViewSchemaID); got != EvidenceViewSchemaID {
+	const evidenceViewSchemaID = "cartulary.view.evidence.v1"
+	if got := safeWorkbookViewSchemaID(evidenceViewSchemaID); got != evidenceViewSchemaID {
 		t.Fatalf("unexpected safe view schema: %q", got)
 	}
 	if got := safeWorkbookViewSchemaID("incident/10000000"); got != "unknown" {
 		t.Fatalf("unexpected unsafe view schema mapping: %q", got)
 	}
-	if got := safeWorkbookRecordType(EvidenceViewSchemaID); got != "evidence" {
+	if got := safeWorkbookRecordType(evidenceViewSchemaID); got != "evidence" {
 		t.Fatalf("unexpected evidence record type: %q", got)
 	}
 	if got := safeWorkbookOperation("patch"); got != "patch" {
@@ -37,21 +35,18 @@ func TestWorkbookAPIErrorTelemetry(t *testing.T) {
 	if result != "rejected" || code != "invalid_mutation_payload" {
 		t.Fatalf("unexpected rejection telemetry: result=%q code=%q", result, code)
 	}
-	result, code = workbookMutationErrorTelemetry(pgx.ErrNoRows, "txn")
-	if result != "rejected" || code != "incident_not_found" {
-		t.Fatalf("unexpected pgx no rows telemetry: result=%q code=%q", result, code)
-	}
-	result, code = workbookMutationErrorTelemetry(errors.New("database failure"), "txn")
+	result, code = workbookAPIErrorTelemetry(internalAPIError(nil))
 	if result != "failed" || code != "internal_error" {
 		t.Fatalf("unexpected internal error telemetry: result=%q code=%q", result, code)
 	}
 }
 
 func TestWorkbookTelemetryNoSDK(t *testing.T) {
-	service := &Service{serviceVersion: "0.0.0+unknown"}
-	ctx, finishQuery := service.startWorkbookQuery(t.Context(), EvidenceViewSchemaID)
+	const evidenceViewSchemaID = "cartulary.view.evidence.v1"
+	service := &service{serviceVersion: "0.0.0+unknown"}
+	ctx, finishQuery := service.startWorkbookQuery(t.Context(), evidenceViewSchemaID)
 	finishQuery("success", "", 3)
 
-	_, finishMutation := service.startWorkbookMutation(ctx, EvidenceViewSchemaID, "patch")
+	_, finishMutation := service.startWorkbookMutation(ctx, evidenceViewSchemaID, "patch")
 	finishMutation("conflict", "row_version_conflict")
 }

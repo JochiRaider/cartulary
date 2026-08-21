@@ -12,15 +12,20 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	assessmentadmission "github.com/JochiRaider/cartulary/internal/modules/assessments/admission"
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -29,6 +34,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
 
 func TestAssessmentFixtureMutationSQLTransaction(t *testing.T) {
@@ -103,10 +109,12 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "projection-query-load-row-parity")
 	projectionCatalog := projectiontestsupport.MustBuild(t, harness.DB)
-	workbookStore := appsupport.NewWorkbookStore(
+	workbookStore := appsupport.NewWorkbookCatalog(
 		harness.DB,
 		conflicttest.NewCodec("workbook"),
 	)
+	assessmentOwner := appsupport.NewAssessmentOwner(harness.DB)
+	partyOwner := appsupport.NewPartyOwner(harness.DB, conflicttest.NewCodec("workbook"))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "projection-parity@example.test", "Projection Parity", "ProjectionParity1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-parity-incident", "IR-PROJECTION-PARITY", "Projection parity")
 
@@ -116,53 +124,29 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
 
 	confidenceScore := 75
-	confidenceNumber := int64(confidenceScore)
-	subjectType := "host"
-	assessmentState := "confirmed"
-	rationale := "Projection parity assessment."
-	assessmentRequest := workbook.CreateRequest{
-		ViewSchemaID: assessments.AssessmentsViewSchemaID,
-		ClientTxnID:  "txn-projection-parity-assessment",
-		Values: map[string]workbook.ValueChange{
-			"assessment.subject_ref": {
-				Kind: "uuid",
-				UUID: &hostID,
-			},
-			"assessment.subject_type": {
-				Kind: "text",
-				Text: &subjectType,
-			},
-			"assessment.assessment_state": {
-				Kind: "text",
-				Text: &assessmentState,
-			},
-			"assessment.confidence_score": {
-				Kind:   "number",
-				Number: &confidenceNumber,
-			},
-			"assessment.rationale": {
-				Kind: "text",
-				Text: &rationale,
-			},
-		},
-		Collections: map[string]workbook.CollectionActionPayload{
-			"assessment.support_refs": {
-				Actions: []workbook.CollectionAction{{
-					Op:             "add_record_ref",
-					LinkedRecordID: &supportID,
-				}},
-			},
-		},
+	assessmentInput := assessments.CreateInput{
+		ClientTxnID:     "txn-projection-parity-assessment",
+		SubjectRef:      hostID,
+		SubjectType:     "host",
+		AssessmentState: "confirmed",
+		ConfidenceScore: &confidenceScore,
+		Rationale:       "Projection parity assessment.",
+		SupportRefs:     []uuid.UUID{supportID},
 	}
-	assessment, err := workbookStore.CreateWorkbookRow(
-		ctx,
-		actor,
-		incident.ID,
-		assessmentRequest,
-		workbook.CreateRequestHash(assessmentRequest),
-		"req-projection-parity-assessment",
-		time.Date(2026, 7, 1, 13, 0, 0, 0, time.UTC),
-	)
+	assessment, err := assessmentOwner.Create(ctx, assessments.CreateCommand{
+		ActorUserID: actor.ID,
+		IncidentID:  incident.ID,
+		Input:       assessmentInput,
+		Idempotency: assessments.CreateIdempotencyKey{
+			RouteKey:    "assessments.rows.create",
+			ActorUserID: actor.ID,
+			ScopeKey:    incident.ID.String() + ":" + assessments.AssessmentsViewSchemaID,
+			ClientTxnID: assessmentInput.ClientTxnID,
+			RequestHash: assessmentadmission.CreateRequestHash(assessmentInput),
+		},
+		RequestID: "req-projection-parity-assessment",
+		Now:       time.Date(2026, 7, 1, 13, 0, 0, 0, time.UTC),
+	})
 	if err != nil {
 		t.Fatalf("create assessment parity row: %v", err)
 	}
@@ -177,47 +161,73 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 		hostID,
 	)
 
-	evidence := mustCreateWorkbookProjectionRow(t, workbookStore, actor, incident.ID, workbook.EvidenceViewSchemaID, "txn-projection-parity-evidence", map[string]workbook.ValueChange{
-		"evidence.title": textProjectionValue("Projection parity evidence"),
-	}, nil, time.Date(2026, 7, 1, 13, 1, 0, 0, time.UTC))
-	note := mustCreateWorkbookProjectionRow(t, workbookStore, actor, incident.ID, workbook.NotesViewSchemaID, "txn-projection-parity-note", map[string]workbook.ValueChange{
+	evidenceTitle := "Projection parity evidence"
+	evidenceRequest := evidence.CreateRequest{
+		ViewSchemaID: evidence.ViewSchemaID, ClientTxnID: "txn-projection-parity-evidence",
+		Values: map[string]evidence.FieldValue{"evidence.title": {Text: &evidenceTitle}},
+	}
+	evidenceResult, err := appsupport.NewEvidenceMutationOwner(harness.DB, conflicttest.NewCodec("workbook")).Create(
+		ctx,
+		evidence.CreateCommand{
+			Actor: actor, IncidentID: incident.ID, Request: evidenceRequest,
+			RequestHash: evidence.CreateRequestHash(evidenceRequest), RequestID: "req-txn-projection-parity-evidence",
+			RouteKey: "workbook.rows.create", Now: time.Date(2026, 7, 1, 13, 1, 0, 0, time.UTC),
+		},
+	)
+	if err != nil {
+		t.Fatalf("create Evidence projection parity row: %v", err)
+	}
+	note := mustCreateWorkbookProjectionRow(t, workbookStore, actor, incident.ID, artifacts.NotesViewSchemaID, "txn-projection-parity-note", map[string]workbookroutetest.ValueChange{
 		"note.title": textProjectionValue("Projection parity note"),
 		"note.body":  textProjectionValue("Projection parity note body."),
-	}, map[string]workbook.CollectionActionPayload{
-		"note.tags": {Actions: []workbook.CollectionAction{{Op: "add_tag", RawText: "projection-parity", NormalizedText: "projection-parity"}}},
+	}, map[string]workbookroutetest.CollectionActionPayload{
+		"note.tags": {Actions: []workbookroutetest.CollectionAction{{Op: "add_tag", RawText: "projection-parity", NormalizedText: "projection-parity"}}},
 	}, time.Date(2026, 7, 1, 13, 2, 0, 0, time.UTC))
-	party := mustCreateWorkbookProjectionRow(t, workbookStore, actor, incident.ID, workbook.PartiesViewSchemaID, "txn-projection-parity-party", map[string]workbook.ValueChange{
-		"party.display_name": textProjectionValue("Projection Party"),
-		"party.party_kind":   textProjectionValue("person"),
-	}, nil, time.Date(2026, 7, 1, 13, 3, 0, 0, time.UTC))
-	decision := mustCreateWorkbookProjectionRow(t, workbookStore, actor, incident.ID, workbook.DecisionsViewSchemaID, "txn-projection-parity-decision", map[string]workbook.ValueChange{
+	partyDisplayName := "Projection Party"
+	partyKind := "person"
+	partyRequest := parties.CreateRequest{
+		ViewSchemaID: parties.ViewSchemaID, ClientTxnID: "txn-projection-parity-party",
+		Values: map[string]parties.FieldValue{
+			"party.display_name": {Text: &partyDisplayName},
+			"party.party_kind":   {Text: &partyKind},
+		},
+	}
+	party, err := partyOwner.Create(ctx, parties.CreateCommand{
+		Actor: actor, IncidentID: incident.ID, Request: partyRequest,
+		RequestHash: parties.CreateRequestHash(partyRequest), RequestID: "req-txn-projection-parity-party",
+		RouteKey: "workbook.rows.create", Now: time.Date(2026, 7, 1, 13, 3, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("create Party projection parity row: %v", err)
+	}
+	decision := mustCreateWorkbookProjectionRow(t, workbookStore, actor, incident.ID, tasksdecisions.DecisionsViewSchemaID, "txn-projection-parity-decision", map[string]workbookroutetest.ValueChange{
 		"decision.summary":       textProjectionValue("Projection parity decision"),
 		"decision.decision_type": textProjectionValue("containment"),
 		"decision.rationale":     textProjectionValue("Projection parity decision rationale."),
-	}, map[string]workbook.CollectionActionPayload{
-		"decision.support_refs": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &evidence.RecordID}}},
+	}, map[string]workbookroutetest.CollectionActionPayload{
+		"decision.support_refs": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &evidenceResult.RecordID}}},
 	}, time.Date(2026, 7, 1, 13, 4, 0, 0, time.UTC))
 
 	dueAt := time.Date(2026, 7, 3, 9, 0, 0, 0, time.UTC)
-	task := mustCreateWorkbookProjectionRow(t, workbookStore, actor, incident.ID, workbook.TaskRequestsViewSchemaID, "txn-projection-parity-task", map[string]workbook.ValueChange{
+	task := mustCreateWorkbookProjectionRow(t, workbookStore, actor, incident.ID, tasksdecisions.TaskRequestsViewSchemaID, "txn-projection-parity-task", map[string]workbookroutetest.ValueChange{
 		"task.title":              textProjectionValue("Projection parity task"),
 		"task.task_kind":          textProjectionValue("collection"),
 		"task.due_at":             {Kind: "timestamp", Timestamp: &dueAt},
 		"task.decision_record_id": {Kind: "uuid", UUID: &decision.RecordID},
-	}, map[string]workbook.CollectionActionPayload{
-		"task.linked_record_ids": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &evidence.RecordID}}},
+	}, map[string]workbookroutetest.CollectionActionPayload{
+		"task.linked_record_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &evidenceResult.RecordID}}},
 	}, time.Date(2026, 7, 1, 13, 5, 0, 0, time.UTC))
 
 	targets := []struct {
 		viewSchemaID string
 		recordID     uuid.UUID
 	}{
-		{viewSchemaID: workbook.AssessmentsViewSchemaID, recordID: assessment.RecordID},
-		{viewSchemaID: workbook.NotesViewSchemaID, recordID: note.RecordID},
-		{viewSchemaID: workbook.EvidenceViewSchemaID, recordID: evidence.RecordID},
-		{viewSchemaID: workbook.PartiesViewSchemaID, recordID: party.RecordID},
-		{viewSchemaID: workbook.DecisionsViewSchemaID, recordID: decision.RecordID},
-		{viewSchemaID: workbook.TaskRequestsViewSchemaID, recordID: task.RecordID},
+		{viewSchemaID: assessments.AssessmentsViewSchemaID, recordID: assessment.RecordID},
+		{viewSchemaID: artifacts.NotesViewSchemaID, recordID: note.RecordID},
+		{viewSchemaID: evidence.ViewSchemaID, recordID: evidenceResult.RecordID},
+		{viewSchemaID: parties.ViewSchemaID, recordID: party.RecordID},
+		{viewSchemaID: tasksdecisions.DecisionsViewSchemaID, recordID: decision.RecordID},
+		{viewSchemaID: tasksdecisions.TaskRequestsViewSchemaID, recordID: task.RecordID},
 	}
 	for _, target := range targets {
 		t.Run(target.viewSchemaID, func(t *testing.T) {
@@ -233,12 +243,12 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 		})
 	}
 
-	createdAssessmentRow := assessment.Payload["row"].(map[string]any)
+	createdAssessmentRow := assessment.CanonicalRow
 	queriedAssessments, err := projectionCatalog.RestoreProbeQuery().QueryRows(
 		ctx,
 		incident.ID,
-		workbook.AssessmentsViewSchemaID,
-		defaultProjectionQuery(t, workbook.AssessmentsViewSchemaID),
+		assessments.AssessmentsViewSchemaID,
+		defaultProjectionQuery(t, assessments.AssessmentsViewSchemaID),
 	)
 	if err != nil {
 		t.Fatalf("query created assessment row: %v", err)
@@ -286,7 +296,7 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	rebuilt, err := projectionCatalog.RevisionLiveRecords().LoadRowTx(
 		ctx,
 		tx,
-		workbook.AssessmentsViewSchemaID,
+		assessments.AssessmentsViewSchemaID,
 		assessment.RecordID,
 	)
 	if err != nil {
@@ -349,18 +359,18 @@ func createImportedAssessmentProjectionRow(
 
 func mustCreateWorkbookProjectionRow(
 	t testing.TB,
-	store *workbook.Store,
+	store *workbook.WorkbookContributionCatalog,
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
 	viewSchemaID string,
 	clientTxnID string,
-	values map[string]workbook.ValueChange,
-	collections map[string]workbook.CollectionActionPayload,
+	values map[string]workbookroutetest.ValueChange,
+	collections map[string]workbookroutetest.CollectionActionPayload,
 	now time.Time,
 ) workbook.MutationResult {
 	t.Helper()
 
-	result, err := store.CreateWorkbookRow(context.Background(), actor, incidentID, workbook.CreateRequest{
+	result, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), actor, incidentID, workbookroutetest.CreateRequest{
 		ViewSchemaID: viewSchemaID,
 		ClientTxnID:  clientTxnID,
 		Values:       values,
@@ -372,8 +382,8 @@ func mustCreateWorkbookProjectionRow(
 	return result
 }
 
-func textProjectionValue(value string) workbook.ValueChange {
-	return workbook.ValueChange{Kind: "text", Text: &value}
+func textProjectionValue(value string) workbookroutetest.ValueChange {
+	return workbookroutetest.ValueChange{Kind: "text", Text: &value}
 }
 
 func defaultProjectionQuery(t testing.TB, viewSchemaID string) viewschema.QueryMeta {

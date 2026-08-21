@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -65,6 +66,7 @@ func TestWorkbookRouteGuardsFailBeforeMutation(t *testing.T) {
 		"note.title":    "closed incident guard note",
 	})
 	recordID := appsupport.MustUUID(t, noteData["row"].(map[string]any)["record_id"].(string))
+	requireWorkbookOperationGuardMatrix(t, harness, adminLogin, incidentID, recordID)
 	requireConflictResolveSecurityPrecedence(t, harness, adminLogin, adminUserID, incidentID)
 
 	if _, err := harness.DB.ExecContext(context.Background(), `
@@ -100,13 +102,64 @@ UPDATE incidents
 	}
 }
 
+func requireWorkbookOperationGuardMatrix(t *testing.T, harness *appsupport.ServerHarness, adminLogin appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID) {
+	t.Helper()
+
+	incidentPrefix := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String()
+	recordPrefix := harness.Server.HTTP.URL + "/api/v1/records/" + recordID.String()
+	operations := []struct {
+		name          string
+		method        string
+		url           string
+		stateChanging bool
+	}{
+		{name: "applyWorkbookBulkMutation", method: http.MethodPost, url: incidentPrefix + "/views/cartulary.view.timeline.v1/bulk-mutations", stateChanging: true},
+		{name: "createRecordLinkedNote", method: http.MethodPost, url: recordPrefix + "/linked-notes", stateChanging: true},
+		{name: "createViewRow", method: http.MethodPost, url: incidentPrefix + "/views/cartulary.view.notes.v1/rows", stateChanging: true},
+		{name: "getCurrentUserWorkbookPreferences", method: http.MethodGet, url: incidentPrefix + "/workbook-preferences/me"},
+		{name: "getIncidentDefaultWorkbookPreferences", method: http.MethodGet, url: incidentPrefix + "/workbook-preferences/default"},
+		{name: "getIncidentWorkbookStartup", method: http.MethodGet, url: incidentPrefix + "/workbook-startup"},
+		{name: "patchRecord", method: http.MethodPatch, url: recordPrefix, stateChanging: true},
+		{name: "pasteWorkbookClipboard", method: http.MethodPost, url: incidentPrefix + "/views/cartulary.view.timeline.v1/clipboard-paste", stateChanging: true},
+		{name: "putCurrentUserWorkbookPreferences", method: http.MethodPut, url: incidentPrefix + "/workbook-preferences/me", stateChanging: true},
+		{name: "putIncidentDefaultWorkbookPreferences", method: http.MethodPut, url: incidentPrefix + "/workbook-preferences/default", stateChanging: true},
+		{name: "queryWorkbookView", method: http.MethodPost, url: incidentPrefix + "/views/cartulary.view.notes.v1/query"},
+		{name: "resolveRecordSameFieldConflict", method: http.MethodPost, url: recordPrefix + "/conflicts/not-a-token/resolve", stateChanging: true},
+		{name: "supersedeRecord", method: http.MethodPost, url: recordPrefix + "/supersede", stateChanging: true},
+	}
+
+	before := snapshotWorkbookRouteGuardState(t, harness, incidentID)
+	for _, operation := range operations {
+		t.Run(operation.name+"/authentication", func(t *testing.T) {
+			response := appsupport.DoJSON(t, operation.method, operation.url, map[string]any{})
+			httptestx.RequireErrorEnvelope(t, response, http.StatusUnauthorized, "session_required")
+		})
+		if operation.stateChanging {
+			t.Run(operation.name+"/csrf", func(t *testing.T) {
+				response := appsupport.DoJSON(
+					t,
+					operation.method,
+					operation.url,
+					map[string]any{},
+					appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+				)
+				httptestx.RequireErrorEnvelope(t, response, http.StatusForbidden, "csrf_verification_failed")
+			})
+		}
+	}
+	after := snapshotWorkbookRouteGuardState(t, harness, incidentID)
+	if after != before {
+		t.Fatalf("operation guard matrix mutated workbook state: before=%+v after=%+v", before, after)
+	}
+}
+
 func requireConflictResolveSecurityPrecedence(t testing.TB, harness *appsupport.ServerHarness, adminLogin appsupport.LoginResult, adminUserID uuid.UUID, incidentID uuid.UUID) {
 	t.Helper()
 
 	note := CreateNote(t, harness, adminLogin, incidentID, "txn-workbook_interaction-conflict-guard-create", "Conflict guard", "Conflict guard body")
 	recordID := appsupport.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, adminLogin, recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-workbook_interaction-conflict-guard-server",
 		"changes": []map[string]any{{
@@ -115,7 +168,7 @@ func requireConflictResolveSecurityPrecedence(t testing.TB, harness *appsupport.
 		}},
 	})
 	conflictResponse := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-workbook_interaction-conflict-guard-client",
 		"changes": []map[string]any{{

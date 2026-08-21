@@ -9,11 +9,11 @@ import (
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
 
 // indicator-resolution / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.

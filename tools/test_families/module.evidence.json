@@ -1260,6 +1260,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.evidence.unit.evidence_mutation_admission_and_replay_hashing_are_o_48d36a71bc",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidenceMutationAdmissionAndReplayHashing_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.evidence.unit.evidence_rollback_validates_shared_lifecycle_bri_5be78560c9",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.unit",

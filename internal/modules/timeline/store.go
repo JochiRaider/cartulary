@@ -63,11 +63,53 @@ func (e *RowVersionConflictError) Details() map[string]any {
 }
 
 type SameFieldConflictError struct {
-	Conflict map[string]any
+	Conflict SameFieldConflict
 }
 
 func (e *SameFieldConflictError) Error() string {
 	return "timeline: same field conflict"
+}
+
+type OptionalConflictValue struct {
+	Present bool
+	Value   any
+}
+
+type SameFieldConflict struct {
+	ConflictToken           string
+	RecordID                uuid.UUID
+	FieldKey                string
+	ConflictResolutionClass string
+	BaseRowVersion          int64
+	CurrentRowVersion       int64
+	ClientValue             any
+	ServerValue             any
+	BaseValue               OptionalConflictValue
+	ServerUpdatedBy         uuid.UUID
+	ServerUpdatedAt         time.Time
+	SuggestedMergedValue    OptionalConflictValue
+}
+
+func (value SameFieldConflict) PublicValue() map[string]any {
+	payload := map[string]any{
+		"conflict_token":            value.ConflictToken,
+		"record_id":                 value.RecordID.String(),
+		"field_key":                 value.FieldKey,
+		"conflict_resolution_class": value.ConflictResolutionClass,
+		"base_row_version":          value.BaseRowVersion,
+		"current_row_version":       value.CurrentRowVersion,
+		"client_value":              value.ClientValue,
+		"server_value":              value.ServerValue,
+		"server_updated_by":         value.ServerUpdatedBy.String(),
+		"server_updated_at":         valuecodec.Timestamp(value.ServerUpdatedAt),
+	}
+	if value.BaseValue.Present {
+		payload["base_value"] = value.BaseValue.Value
+	}
+	if value.SuggestedMergedValue.Present {
+		payload["suggested_merged_value"] = value.SuggestedMergedValue.Value
+	}
+	return payload
 }
 
 type patchConflictWindow struct {
@@ -942,21 +984,25 @@ func (s *store) buildSameFieldConflict(recordID uuid.UUID, current workbookproje
 	if err != nil {
 		return nil, err
 	}
-	return &SameFieldConflictError{
-		Conflict: map[string]any{
-			"conflict_token":            token,
-			"record_id":                 recordID.String(),
-			"field_key":                 change.FieldKey,
-			"conflict_resolution_class": conflictClass,
-			"base_row_version":          baseRowVersion,
-			"current_row_version":       current.RowVersion,
-			"client_value":              clientValue,
-			"server_value":              serverValue,
-			"server_updated_by":         changed.ServerUpdatedBy.String(),
-			"server_updated_at":         valuecodec.Timestamp(changed.ServerUpdatedAt),
-			"base_value":                baseValue,
-		},
-	}, nil
+	conflict := SameFieldConflict{
+		ConflictToken:           token,
+		RecordID:                recordID,
+		FieldKey:                change.FieldKey,
+		ConflictResolutionClass: conflictClass,
+		BaseRowVersion:          baseRowVersion,
+		CurrentRowVersion:       current.RowVersion,
+		ClientValue:             clientValue,
+		ServerValue:             serverValue,
+		BaseValue:               OptionalConflictValue{Present: true, Value: baseValue},
+		ServerUpdatedBy:         changed.ServerUpdatedBy,
+		ServerUpdatedAt:         changed.ServerUpdatedAt.UTC(),
+	}
+	if conflictClass == "text_compare_merge" {
+		if suggested, ok := conflicttokens.SuggestedTextMergeValue(baseValue, serverValue, clientValue); ok {
+			conflict.SuggestedMergedValue = OptionalConflictValue{Present: true, Value: suggested}
+		}
+	}
+	return &SameFieldConflictError{Conflict: conflict}, nil
 }
 
 func (s *store) conflictToken(recordID uuid.UUID, fieldKey string, baseRowVersion int64, currentRowVersion int64, requestHash []byte) (string, error) {

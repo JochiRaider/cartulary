@@ -14,7 +14,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
@@ -23,13 +22,13 @@ import (
 
 func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "evidence_lifecycle-evidence-lifecycle")
-	workbookStore := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
+	evidenceOwner := appsupport.NewEvidenceMutationOwner(harness.DB, conflicttest.NewCodec("workbook"))
 	revisionComposition := revisionsupport.MustComposition(t)
 	evidenceStore := newTestBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-lifecycle@example.test", "EvidenceLifecycle Lifecycle", "EvidenceLifecycleLifecycle1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-lifecycle-incident", "IR-P5-LIFECYCLE", "Evidence lifecycle")
 
-	requested := createEvidenceViaWorkbook(t, workbookStore, actor, incident.ID, `{
+	requested := createEvidenceViaOwner(t, evidenceOwner, actor, incident.ID, `{
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-requested",
 		"evidence.title":" Requested endpoint package ",
 		"evidence.storage_ref":" ticket://collect-1 ",
@@ -45,7 +44,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	requireRowCellValue(t, requestedRow, "evidence.source_party_text", "Endpoint owner")
 	requireRowCellNonEmpty(t, requestedRow, "evidence.requested_at")
 
-	pendingReceipt := patchEvidenceViaWorkbook(t, workbookStore, actor, recordID, `{
+	pendingReceipt := patchEvidenceViaOwner(t, evidenceOwner, actor, recordID, `{
 		"view_schema_id":"cartulary.view.evidence.v1",
 		"base_row_version":1,
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-pending",
@@ -53,7 +52,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	}`)
 	requireRowCellValue(t, pendingReceipt.Payload["row"].(map[string]any), "evidence.lifecycle_state", "pending_receipt")
 
-	received := patchEvidenceViaWorkbook(t, workbookStore, actor, recordID, `{
+	received := patchEvidenceViaOwner(t, evidenceOwner, actor, recordID, `{
 		"view_schema_id":"cartulary.view.evidence.v1",
 		"base_row_version":2,
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-received",
@@ -61,20 +60,20 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	}`)
 	requireRowCellValue(t, received.Payload["row"].(map[string]any), "evidence.lifecycle_state", "received")
 
-	requireIllegalLifecyclePatch(t, workbookStore, actor, recordID, `{
+	requireIllegalLifecyclePatch(t, evidenceOwner, actor, recordID, `{
 		"view_schema_id":"cartulary.view.evidence.v1",
 		"base_row_version":3,
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-available-without-blob",
 		"changes":[{"field_key":"evidence.lifecycle_state","value":"available"}]
 	}`)
-	requireIllegalLifecyclePatch(t, workbookStore, actor, recordID, `{
+	requireIllegalLifecyclePatch(t, evidenceOwner, actor, recordID, `{
 		"view_schema_id":"cartulary.view.evidence.v1",
 		"base_row_version":3,
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-released-direct",
 		"changes":[{"field_key":"evidence.lifecycle_state","value":"released"}]
 	}`)
 
-	attachTarget := createEvidenceViaWorkbook(t, workbookStore, actor, incident.ID, `{
+	attachTarget := createEvidenceViaOwner(t, evidenceOwner, actor, incident.ID, `{
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-attach-target",
 		"evidence.title":"Blob arrives later",
 		"evidence.storage_ref":"ticket://collect-2",
@@ -110,7 +109,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	}
 	requireChangeSetAttribution(t, harness.DB, attached.Payload["change_set_id"].(string), actor.ID, "evidence.attach_blob", attachRequest.ClientTxnID)
 
-	available := patchEvidenceViaWorkbook(t, workbookStore, actor, attachRecordID, `{
+	available := patchEvidenceViaOwner(t, evidenceOwner, actor, attachRecordID, `{
 		"view_schema_id":"cartulary.view.evidence.v1",
 		"base_row_version":2,
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-available-after-attach",
@@ -118,7 +117,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	}`)
 	requireRowCellValue(t, available.Payload["row"].(map[string]any), "evidence.lifecycle_state", "available")
 
-	quarantined := createEvidenceViaWorkbook(t, workbookStore, actor, incident.ID, `{
+	quarantined := createEvidenceViaOwner(t, evidenceOwner, actor, incident.ID, `{
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-quarantined",
 		"evidence.title":"Quarantined evidence"
 	}`)
@@ -145,40 +144,54 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	requireEvidenceState(t, harness.DB, attachRecordID, "available", "available", blobID)
 }
 
-func createEvidenceViaWorkbook(t testing.TB, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, body string) workbook.MutationResult {
+func createEvidenceViaOwner(t testing.TB, owner evidence.MutationContribution, actor authn.UserRecord, incidentID uuid.UUID, body string) evidence.MutationResult {
 	t.Helper()
-	request, apiErr := workbook.DecodeCreateRequest(workbook.EvidenceViewSchemaID, strings.NewReader(body))
+	request, apiErr := evidence.DecodeCreateRequest(strings.NewReader(body))
 	if apiErr != nil {
 		t.Fatalf("decode evidence create: %#v", apiErr)
 	}
-	result, err := store.CreateWorkbookRow(context.Background(), actor, incidentID, request, workbook.CreateRequestHash(request), "req-"+request.ClientTxnID, time.Now().UTC())
+	result, err := owner.Create(context.Background(), evidence.CreateCommand{
+		Actor: actor, IncidentID: incidentID, Request: request,
+		RequestHash: evidence.CreateRequestHash(request), RequestID: "req-" + request.ClientTxnID,
+		RouteKey: "workbook.rows.create", Now: time.Now().UTC(),
+	})
 	if err != nil {
-		t.Fatalf("create evidence via workbook store: %v", err)
+		t.Fatalf("create evidence via owner: %v", err)
 	}
 	return result
 }
 
-func patchEvidenceViaWorkbook(t testing.TB, store *workbook.Store, actor authn.UserRecord, recordID uuid.UUID, body string) workbook.MutationResult {
+func patchEvidenceViaOwner(t testing.TB, owner evidence.MutationContribution, actor authn.UserRecord, recordID uuid.UUID, body string) evidence.MutationResult {
 	t.Helper()
-	request, apiErr := workbook.DecodePatchRequest(strings.NewReader(body))
+	request, apiErr := evidence.DecodePatchRequest(strings.NewReader(body))
 	if apiErr != nil {
 		t.Fatalf("decode evidence patch: %#v", apiErr)
 	}
-	result, err := store.PatchWorkbookRow(context.Background(), actor, recordID, request, workbook.PatchRequestHash(request), "req-"+request.ClientTxnID, time.Now().UTC())
+	result, err := owner.Patch(context.Background(), evidence.PatchCommand{
+		Actor: actor, RecordID: recordID, Request: request,
+		RequestHash: evidence.PatchRequestHash(request), RequestID: "req-" + request.ClientTxnID,
+		RouteKey: "workbook.records.patch", ConflictRouteKey: "workbook.records.conflicts.resolve",
+		Now: time.Now().UTC(),
+	})
 	if err != nil {
-		t.Fatalf("patch evidence via workbook store: %v", err)
+		t.Fatalf("patch evidence via owner: %v", err)
 	}
 	return result
 }
 
-func requireIllegalLifecyclePatch(t testing.TB, store *workbook.Store, actor authn.UserRecord, recordID uuid.UUID, body string) {
+func requireIllegalLifecyclePatch(t testing.TB, owner evidence.MutationContribution, actor authn.UserRecord, recordID uuid.UUID, body string) {
 	t.Helper()
-	request, apiErr := workbook.DecodePatchRequest(strings.NewReader(body))
+	request, apiErr := evidence.DecodePatchRequest(strings.NewReader(body))
 	if apiErr != nil {
 		t.Fatalf("decode illegal evidence patch: %#v", apiErr)
 	}
-	_, err := store.PatchWorkbookRow(context.Background(), actor, recordID, request, workbook.PatchRequestHash(request), "req-"+request.ClientTxnID, time.Now().UTC())
-	var lifecycleErr *workbook.LifecycleValidationError
+	_, err := owner.Patch(context.Background(), evidence.PatchCommand{
+		Actor: actor, RecordID: recordID, Request: request,
+		RequestHash: evidence.PatchRequestHash(request), RequestID: "req-" + request.ClientTxnID,
+		RouteKey: "workbook.records.patch", ConflictRouteKey: "workbook.records.conflicts.resolve",
+		Now: time.Now().UTC(),
+	})
+	var lifecycleErr *evidence.LifecycleValidationError
 	if !errors.As(err, &lifecycleErr) {
 		t.Fatalf("illegal evidence lifecycle patch got %v want LifecycleValidationError", err)
 	}

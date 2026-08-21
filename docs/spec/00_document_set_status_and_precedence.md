@@ -288,8 +288,30 @@ NOT settle such a conflict.
 Profiles: base, incident_portability
 Verified by: AC-529
 
+**REQ-00-072**
+`docs/decisions/workbook-module-boundary.md` is an adopted implementation
+architecture decision for the backend Workbook module only. It owns the exact
+internal application-facade boundary, consumer-owned contribution topology,
+application-composed source adapters, transition order, and removal of
+repository-internal compatibility paths named in that decision. It MUST NOT
+redefine public Workbook routes or payloads, startup, query, cursor, mutation,
+history, projection, Collaboration, restore-verification, source-state,
+security, or conformance behavior.
+
+Core 01 remains authoritative for application, route, startup, query,
+mutation, projection, storage-boundary, and restore-probe behavior. Core 02
+remains authoritative for source state, record envelopes, history, and
+rollback meaning. Core 03 remains authoritative for Workbook interaction and
+Collaboration consequences. Core 04 remains authoritative for security and
+conformance. The decision MUST be revised or withdrawn when it conflicts with
+a later adopted behavioral owner; an implementation, tracker, test, contract
+projection, or generated artifact MUST NOT settle such a conflict.
+Profiles: base
+Verified by: AC-552
+
 | Contract family | Primary owner | Allowed secondary sections | Ownership rule | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
+| Backend Workbook implementation topology, contribution composition, source-adapter placement, and repository-internal compatibility removal | `docs/decisions/workbook-module-boundary.md` for implementation structure; Core 01 for application behavior | Core 02 source/history meaning; Core 03 interaction and Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The adopted decision owns internal package, provider, and constructor structure only. It cannot redefine public Workbook behavior, source state, history, projections, restore results, or security. | REQ-00-072 | base | AC-552 |
 | Revisions implementation topology, source-provider composition, and repository-internal compatibility removal | `docs/decisions/revisions-module-boundary.md` for implementation structure; Core 01 and Core 02 for behavior | Core 03 Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The adopted decision owns internal package and constructor structure only. It cannot redefine source state, retained-history meaning, public contracts, portability, or conformance. | REQ-00-071 | base, incident_portability | AC-529 |
 | Workbook-grid Projections implementation topology and repository-internal compatibility removal | `docs/decisions/projections-module-boundary.md` for implementation structure; Core 01 §8 and §12.2 for behavior | Core 04 §9.1A; Appendix I; implementation guides and trackers | The adopted decision owns exact package and constructor structure only. It cannot redefine projection behavior, storage meaning, source semantics, public contracts, or conformance. | REQ-00-070 | base | AC-539 |
 | Current record-envelope authority versus retained record history | Core 02 §3 for envelope meaning and record-type membership; Core 01 §1 and §12.3 for implementation ownership and portability | Core 01 record mutation/history routes; Core 02 history substrate; Core 04 conformance; `docs/domain.md` for vocabulary only | The current-envelope owner controls current envelope persistence and transaction ports. Revisions controls history and destructive coordination but MUST NOT become current-envelope authority. | REQ-00-067 | base, incident_portability | AC-509..AC-512, AC-514 |

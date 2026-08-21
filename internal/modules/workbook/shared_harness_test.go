@@ -11,11 +11,12 @@ import (
 
 	"github.com/google/uuid"
 
-	workbookroutetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/routetest"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	workbookroutetest "github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
 
 func TestWorkbookRouteInventoryCoverage(t *testing.T) {
@@ -42,10 +43,10 @@ func TestWorkbookRouteInventoryCoverage(t *testing.T) {
 
 func TestWorkbookRouteConformance(t *testing.T) {
 	harness, login, actorID, incidentID := ConflictFixture(t, "collaboration-support-shared-workbook-routes", "IR-COLLABORATION-SUPPORT-WORKBOOK")
-	allowedNoteFields := workbookscenariotest.AllowedFieldKeys(t, "collaboration-support-shared-workbook-routes", NotesViewSchemaID)
+	allowedNoteFields := workbookscenariotest.AllowedFieldKeys(t, "collaboration-support-shared-workbook-routes", artifacts.NotesViewSchemaID)
 
 	createTxnID := "txn-collaboration-support-create"
-	createResp := doWorkbookJSON(t, harness, login, http.MethodPost, incidentID, NotesViewSchemaID, uuid.Nil, map[string]any{
+	createResp := doWorkbookJSON(t, harness, login, http.MethodPost, incidentID, artifacts.NotesViewSchemaID, uuid.Nil, map[string]any{
 		"client_txn_id": createTxnID,
 		"note.title":    "  Shared harness note  ",
 		"note.body":     "Shared body",
@@ -57,7 +58,7 @@ func TestWorkbookRouteConformance(t *testing.T) {
 	contractassert.RequireFieldKeyConformance(t, []string{"note.body", "note.title"}, allowedNoteFields)
 
 	stableBeforeCreateReplay := workbookscenariotest.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
-	createReplayResp := doWorkbookJSON(t, harness, login, http.MethodPost, incidentID, NotesViewSchemaID, uuid.Nil, map[string]any{
+	createReplayResp := doWorkbookJSON(t, harness, login, http.MethodPost, incidentID, artifacts.NotesViewSchemaID, uuid.Nil, map[string]any{
 		"client_txn_id": createTxnID,
 		"note.title":    "  Shared harness note  ",
 		"note.body":     "Shared body",
@@ -72,7 +73,7 @@ func TestWorkbookRouteConformance(t *testing.T) {
 		StableBefore:    stableBeforeCreateReplay,
 		StableAfter:     stableAfterCreateReplay,
 	})
-	createDivergentResp := doWorkbookJSON(t, harness, login, http.MethodPost, incidentID, NotesViewSchemaID, uuid.Nil, map[string]any{
+	createDivergentResp := doWorkbookJSON(t, harness, login, http.MethodPost, incidentID, artifacts.NotesViewSchemaID, uuid.Nil, map[string]any{
 		"client_txn_id": createTxnID,
 		"note.title":    "Divergent shared harness note",
 		"note.body":     "Shared body",
@@ -82,7 +83,7 @@ func TestWorkbookRouteConformance(t *testing.T) {
 
 	patchTxnID := "txn-collaboration-support-patch"
 	patchResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    patchTxnID,
 		"changes": []map[string]any{{
@@ -98,7 +99,7 @@ func TestWorkbookRouteConformance(t *testing.T) {
 
 	stableBeforePatchReplay := workbookscenariotest.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
 	patchReplayResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    patchTxnID,
 		"changes": []map[string]any{{
@@ -112,7 +113,7 @@ func TestWorkbookRouteConformance(t *testing.T) {
 		t.Fatalf("patch replay changed durable counts: before=%+v after=%+v", stableBeforePatchReplay, stableAfterPatchReplay)
 	}
 	patchDivergentResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    patchTxnID,
 		"changes": []map[string]any{{
@@ -137,7 +138,7 @@ func RequireWorkbookAuthorizationRederived(t testing.TB, harness *appsupport.Ser
 	authRecordID := appsupport.MustUUID(t, authRow["record_id"].(string))
 
 	beforeResp := doWorkbookJSON(t, harness, editorLogin, http.MethodPatch, uuid.Nil, "", authRecordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-support-auth-before",
 		"changes": []map[string]any{{
@@ -162,7 +163,7 @@ UPDATE incident_memberships
 	afterRow := CreateNote(t, harness, adminLogin, incidentID, "txn-collaboration-support-auth-after-create", "Authorization after row", "Authorization body")
 	afterRecordID := appsupport.MustUUID(t, afterRow["record_id"].(string))
 	afterResp := doWorkbookJSON(t, harness, editorLogin, http.MethodPatch, uuid.Nil, "", afterRecordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-support-auth-after",
 		"changes": []map[string]any{{
@@ -183,7 +184,7 @@ func RequireConflictResolveSharedHarness(t testing.TB, harness *appsupport.Serve
 	note := CreateNote(t, harness, login, incidentID, "txn-collaboration-support-resolve-create", "Resolve base", "Resolve body")
 	recordID := appsupport.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-support-resolve-server",
 		"changes": []map[string]any{{
@@ -192,7 +193,7 @@ func RequireConflictResolveSharedHarness(t testing.TB, harness *appsupport.Serve
 		}},
 	})
 	conflictResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
-		"view_schema_id":   NotesViewSchemaID,
+		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-collaboration-support-resolve-client",
 		"changes": []map[string]any{{

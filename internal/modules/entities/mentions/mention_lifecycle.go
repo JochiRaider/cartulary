@@ -21,10 +21,26 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-var ErrEntityMentionNotFound = errors.New("entities: entity mention not found")
-var ErrResolvedRecordNotFound = errors.New("entities: resolved record not found")
+var ErrEntityMentionNotFound = newInvalidMutationTargetError("entities: entity mention not found")
+var ErrResolvedRecordNotFound = newInvalidMutationTargetError("entities: resolved record not found")
 var ErrSourceRecordNotFound = errors.New("entities: source record not found")
 var ErrRecordDeletedUseRestore = errors.New("entities: record deleted use restore")
+
+type invalidMutationTargetError struct {
+	message string
+}
+
+func newInvalidMutationTargetError(message string) *invalidMutationTargetError {
+	return &invalidMutationTargetError{message: message}
+}
+
+func (e *invalidMutationTargetError) Error() string {
+	return e.message
+}
+
+func (e *invalidMutationTargetError) InvalidMutationTarget() bool {
+	return true
+}
 
 type MentionTransitionError struct {
 	FromStatus     string
@@ -34,6 +50,10 @@ type MentionTransitionError struct {
 
 func (e *MentionTransitionError) Error() string {
 	return fmt.Sprintf("entities: illegal mention transition %s -> %s", e.FromStatus, e.ToStatus)
+}
+
+func (e *MentionTransitionError) MutationTransitionDetails() (string, string, []string) {
+	return e.FromStatus, e.ToStatus, append([]string(nil), e.ViolatedGuards...)
 }
 
 type MentionRowVersionConflictError struct {
@@ -53,6 +73,10 @@ type MentionTargetValidationError struct {
 
 func (e *MentionTargetValidationError) Error() string {
 	return fmt.Sprintf("entities: invalid resolved target: %s", e.Reason)
+}
+
+func (e *MentionTargetValidationError) InvalidMutationTarget() bool {
+	return true
 }
 
 type mentionActionRecord struct {

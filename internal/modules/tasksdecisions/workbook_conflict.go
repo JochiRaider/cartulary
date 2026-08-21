@@ -9,19 +9,19 @@ import (
 	conflictresolution "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 )
 
-type WorkbookConflictCommand struct {
+type ConflictCommand struct {
 	Mechanics      conflictresolution.Command
 	ResolutionKind string
-	Patch          *WorkbookPatchRequest
+	Patch          *PatchRequest
 	Now            time.Time
 }
 
 func (f *MutationFacade) ResolveConflict(
 	ctx context.Context,
-	command WorkbookConflictCommand,
-) (WorkbookMutationResult, error) {
+	command ConflictCommand,
+) (MutationResult, error) {
 	if command.ResolutionKind != "keep_saved" {
-		return f.Patch(ctx, WorkbookPatchCommand{
+		return f.Patch(ctx, PatchCommand{
 			ActorUserID:      command.Mechanics.ActorUserID,
 			RecordID:         command.Mechanics.RecordID,
 			Request:          *command.Patch,
@@ -40,9 +40,9 @@ func (f *MutationFacade) ResolveConflict(
 		f.loadConflictTarget,
 	)
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
-	return WorkbookMutationResult{
+	return MutationResult{
 		Row:          conflictResultRow(result.Payload),
 		Replayed:     result.Replayed,
 		IncidentID:   result.IncidentID,

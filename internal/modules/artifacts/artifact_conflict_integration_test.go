@@ -102,9 +102,9 @@ func TestArtifactConflictSourceRevalidation(t *testing.T) {
 	if !errors.As(err, &conflict) {
 		t.Fatalf("stale same-field patch error = %v, want SameFieldConflictError", err)
 	}
-	if conflict.Conflict["conflict_token"] == nil ||
-		conflict.Conflict["field_key"] != "note.body" ||
-		conflict.Conflict["current_row_version"] == nil {
+	if conflict.Conflict.ConflictToken == "" ||
+		conflict.Conflict.FieldKey != "note.body" ||
+		conflict.Conflict.CurrentRowVersion < 1 {
 		t.Fatalf("same-field conflict payload is incomplete: %#v", conflict.Conflict)
 	}
 	requireCount(t, harness, `SELECT count(*) FROM records WHERE record_id = $1 AND row_version = 2`, created.RecordID, 1)

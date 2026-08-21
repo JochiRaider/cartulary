@@ -149,18 +149,18 @@ func overlappingArtifactPatchChange(changes []PatchChange, changedFields map[str
 	return PatchChange{}, conflicts.PatchChangedField{}, false
 }
 
-func buildArtifactSameFieldConflict(params artifactSameFieldConflictParams) (map[string]any, error) {
+func buildArtifactSameFieldConflict(params artifactSameFieldConflictParams) (SameFieldConflict, error) {
 	baseValue, ok := rowCellValue(params.Window.BaseRow, params.Change.FieldKey)
 	if !ok {
-		return nil, &conflicts.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
+		return SameFieldConflict{}, &conflicts.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
 	}
 	serverValue, ok := rowCellValue(params.CurrentRow, params.Change.FieldKey)
 	if !ok {
-		return nil, &conflicts.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
+		return SameFieldConflict{}, &conflicts.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
 	}
 	clientValue, err := artifactPatchClientConflictValue(params.RecordID, params.Change, baseValue, params.RequestHash)
 	if err != nil {
-		return nil, &conflicts.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
+		return SameFieldConflict{}, &conflicts.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
 	}
 	conflictClass := params.FieldDescriptors.ConflictResolutionClass(params.Change.FieldKey)
 	if conflictClass == "" {
@@ -168,24 +168,24 @@ func buildArtifactSameFieldConflict(params artifactSameFieldConflictParams) (map
 	}
 	conflictToken, err := artifactConflictToken(params.RouteKey, params.RecordID, params.ViewSchemaID, params.Change.FieldKey, conflictClass, params.BaseRowVersion, params.CurrentRowVersion, params.RequestHash, params.Codec)
 	if err != nil {
-		return nil, err
+		return SameFieldConflict{}, err
 	}
-	conflict := map[string]any{
-		"conflict_token":            conflictToken,
-		"record_id":                 params.RecordID.String(),
-		"field_key":                 params.Change.FieldKey,
-		"conflict_resolution_class": conflictClass,
-		"base_row_version":          params.BaseRowVersion,
-		"current_row_version":       params.CurrentRowVersion,
-		"client_value":              clientValue,
-		"server_value":              serverValue,
-		"server_updated_by":         params.Changed.ServerUpdatedBy.String(),
-		"server_updated_at":         params.Changed.ServerUpdatedAt.UTC().Format(time.RFC3339Nano),
-		"base_value":                baseValue,
+	conflict := SameFieldConflict{
+		ConflictToken:           conflictToken,
+		RecordID:                params.RecordID,
+		FieldKey:                params.Change.FieldKey,
+		ConflictResolutionClass: conflictClass,
+		BaseRowVersion:          params.BaseRowVersion,
+		CurrentRowVersion:       params.CurrentRowVersion,
+		ClientValue:             clientValue,
+		ServerValue:             serverValue,
+		BaseValue:               OptionalConflictValue{Present: true, Value: baseValue},
+		ServerUpdatedBy:         params.Changed.ServerUpdatedBy,
+		ServerUpdatedAt:         params.Changed.ServerUpdatedAt.UTC(),
 	}
 	if conflictClass == "text_compare_merge" {
 		if suggested, ok := conflicts.SuggestedTextMergeValue(baseValue, serverValue, clientValue); ok {
-			conflict["suggested_merged_value"] = suggested
+			conflict.SuggestedMergedValue = OptionalConflictValue{Present: true, Value: suggested}
 		}
 	}
 	return conflict, nil

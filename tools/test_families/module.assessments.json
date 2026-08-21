@@ -389,6 +389,39 @@
       ]
     },
     {
+      "row_id": "module.assessments.store.assessment_projection_query_remains_owner_backed_172051cb0d",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.store",
+      "collaborator_ids": [
+        "module.entities",
+        "module.links",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestAssessmentsQueryThroughWorkbookProjections_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.assessments.store.assessment_support_refs_task_linked_record_ids_d_9c08a8f2f2",
       "owner_id": "module.assessments",
       "family_id": "module.assessments.store",
@@ -578,6 +611,33 @@
           "TestOwnerCreateRegistryComposesEveryCurrentViewTarget",
           "TestOwnerCreateRegistryConsumesNarrowEvidenceFacade",
           "TestOwnerCreateRegistryRequiresCompositionDependencies"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.assessments.unit.assessment_create_admission_and_replay_hashing_r_40fd1c88bb",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.unit",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/assessments/admission",
+        "tests": [
+          "TestCreateRequestAdmissionAndHashCompatibility",
+          "TestCreateRequestAdmissionRejectsNonContractualShapes"
         ]
       },
       "evidence_class": "unit",

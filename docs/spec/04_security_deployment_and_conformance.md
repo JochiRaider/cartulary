@@ -1528,6 +1528,26 @@ These criteria provide direct runtime-family verification for substantive base-p
   ownership; generated topology is generator-produced and drift-free; and
   the final module inventory reconciles without an orphan or dead symbol.
   - Verifies: REQ-04-160
+- **AC-552**: Backend Workbook boundary evidence proves that one private
+  application facade registers the exact thirteen adopted Workbook operations;
+  that one immutable, fail-closed catalog contains every active query, create,
+  patch, conflict, clipboard, bulk, linked-note, and supersede capability; and
+  that concrete source-owner adapters are constructed only by
+  `internal/app/workbookassembly`. Source owners retain admission,
+  normalization, defaults, canonical hashes, source mutation, history and
+  projection inputs, and Collaboration consequences. Generic Workbook
+  production code contains no source-owner command, result, error, field, or
+  collection policy and no opaque admission value. Workbook maps only a closed
+  safe failure vocabulary to public errors and imports no concrete source owner;
+  its only cross-module production imports are the adopted incident-admission
+  and Projections provider-contract capabilities. Exact route, authorization,
+  replay, startup, effect-order, restore-probe, query, mutation, browser, and
+  wire behavior remains owner-conformant. The former Store mutation facade,
+  concrete provider constructors, redundant owner aliases, stale boundary
+  sentinel, compatibility paths, and orphaned tests are absent; canonical
+  boundary policy and exact authored verification accounting are generated and
+  drift-free.
+  - Verifies: REQ-00-072
 
 ### 9.1B Network Flow Activity Extension Profile criteria
 

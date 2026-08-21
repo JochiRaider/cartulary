@@ -8,47 +8,68 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/parties"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
 
-func mustCreatePartyFor(t testing.TB, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, displayName string) uuid.UUID {
+func mustCreatePartyFor(t testing.TB, pool postgres.DB, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, displayName string) uuid.UUID {
 	t.Helper()
-	result, err := store.CreateWorkbookRow(context.Background(), actor, incidentID, workbook.CreateRequest{
-		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  clientTxnID,
-		Values: map[string]workbook.ValueChange{
-			"party.display_name": {Kind: "text", Text: &displayName},
-			"party.party_kind":   {Kind: "text", Text: stringPtr("organization")},
+	partyKind := "organization"
+	request := parties.CreateRequest{
+		ViewSchemaID: parties.ViewSchemaID, ClientTxnID: clientTxnID,
+		Values: map[string]parties.FieldValue{
+			"party.display_name": {Text: &displayName},
+			"party.party_kind":   {Text: &partyKind},
 		},
-	}, []byte(clientTxnID), "req-"+clientTxnID, time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC))
+	}
+	result, err := appsupport.NewPartyOwner(pool, workbookTestConflictTokens()).Create(
+		context.Background(),
+		parties.CreateCommand{
+			Actor: actor, IncidentID: incidentID, Request: request,
+			RequestHash: parties.CreateRequestHash(request), RequestID: "req-" + clientTxnID,
+			RouteKey: "workbook.rows.create", Now: time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC),
+		},
+	)
 	if err != nil {
 		t.Fatalf("create party %s: %v", clientTxnID, err)
 	}
 	return result.RecordID
 }
 
-func mustCreateEvidenceFor(t testing.TB, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
+func mustCreateEvidenceFor(t testing.TB, pool postgres.DB, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
 	t.Helper()
-	result, err := store.CreateWorkbookRow(context.Background(), actor, incidentID, workbook.CreateRequest{
-		ViewSchemaID: workbook.EvidenceViewSchemaID,
-		ClientTxnID:  clientTxnID,
-		Values: map[string]workbook.ValueChange{
-			"evidence.title": {Kind: "text", Text: &title},
+	request := evidence.CreateRequest{
+		ViewSchemaID: evidence.ViewSchemaID, ClientTxnID: clientTxnID,
+		Values: map[string]evidence.FieldValue{
+			"evidence.title": {Text: &title},
 		},
-	}, []byte(clientTxnID), "req-"+clientTxnID, time.Date(2026, 5, 18, 12, 1, 0, 0, time.UTC))
+	}
+	result, err := appsupport.NewEvidenceMutationOwner(pool, workbookTestConflictTokens()).Create(
+		context.Background(),
+		evidence.CreateCommand{
+			Actor: actor, IncidentID: incidentID, Request: request,
+			RequestHash: evidence.CreateRequestHash(request), RequestID: "req-" + clientTxnID,
+			RouteKey: "workbook.rows.create", Now: time.Date(2026, 5, 18, 12, 1, 0, 0, time.UTC),
+		},
+	)
 	if err != nil {
 		t.Fatalf("create evidence %s: %v", clientTxnID, err)
 	}
 	return result.RecordID
 }
 
-func mustCreateTaskFor(t testing.TB, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
+func mustCreateTaskFor(t testing.TB, store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
 	t.Helper()
-	result, err := store.CreateWorkbookRow(context.Background(), actor, incidentID, workbook.CreateRequest{
-		ViewSchemaID: workbook.TaskRequestsViewSchemaID,
+	result, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), actor, incidentID, workbookroutetest.CreateRequest{
+		ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID,
 		ClientTxnID:  clientTxnID,
-		Values: map[string]workbook.ValueChange{
+		Values: map[string]workbookroutetest.ValueChange{
 			"task.title":     {Kind: "text", Text: &title},
 			"task.task_kind": {Kind: "text", Text: stringPtr("request")},
 		},
@@ -59,18 +80,18 @@ func mustCreateTaskFor(t testing.TB, store *workbook.Store, actor authn.UserReco
 	return result.RecordID
 }
 
-func mustCreateDecision(t testing.TB, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, status string, summary string) uuid.UUID {
+func mustCreateDecision(t testing.TB, store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, status string, summary string) uuid.UUID {
 	t.Helper()
-	values := map[string]workbook.ValueChange{
+	values := map[string]workbookroutetest.ValueChange{
 		"decision.summary":       {Kind: "text", Text: &summary},
 		"decision.decision_type": {Kind: "text", Text: stringPtr("containment")},
 		"decision.rationale":     {Kind: "text", Text: stringPtr("The decision is needed for coordinated response.")},
 	}
 	if status != "" {
-		values["decision.status"] = workbook.ValueChange{Kind: "text", Text: &status}
+		values["decision.status"] = workbookroutetest.ValueChange{Kind: "text", Text: &status}
 	}
-	result, err := store.CreateWorkbookRow(context.Background(), actor, incidentID, workbook.CreateRequest{
-		ViewSchemaID: workbook.DecisionsViewSchemaID,
+	result, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), actor, incidentID, workbookroutetest.CreateRequest{
+		ViewSchemaID: tasksdecisions.DecisionsViewSchemaID,
 		ClientTxnID:  clientTxnID,
 		Values:       values,
 	}, []byte(clientTxnID), "req-"+clientTxnID, Time(0))

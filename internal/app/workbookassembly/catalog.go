@@ -37,7 +37,7 @@ func NewContributionCatalog(
 	assessmentProjections assessmentprojection.Rows,
 	partyProjections partyprojection.Rows,
 	indicatorOwner *indicators.Store,
-	timelineOwner workbook.TimelineMutationOwner,
+	timelineOwner *timeline.Facade,
 	evidenceOwner evidence.MutationContribution,
 	artifactOwner *artifacts.MutationFacade,
 	taskDecisionOwner *tasksdecisions.MutationFacade,
@@ -91,7 +91,11 @@ func NewContributionCatalog(
 		entityProjections.Writer,
 		hostidentity.WithProjectionReader(entityProjections.Reader),
 	)
-	assessmentFacade, err := newAssessmentFacade(
+	entityProviders, err := newEntityProviderSet(entityStore)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
+	}
+	assessmentFacade, err := NewAssessmentMutationContribution(
 		pool,
 		assessmentProjections,
 		entityStore,
@@ -100,7 +104,11 @@ func NewContributionCatalog(
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
 	}
-	partyOwner := parties.NewWorkbookFacade(
+	assessmentCreateProvider, err := newAssessmentCreateProvider(assessmentFacade)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
+	}
+	partyOwner := parties.NewMutationFacade(
 		pool,
 		conflictTokens,
 		appender,
@@ -108,6 +116,30 @@ func NewContributionCatalog(
 		keepSaved,
 		partyProjections,
 	)
+	partyProviders, err := newPartyProviderSet(partyOwner)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
+	}
+	evidenceProviders, err := newEvidenceProviderSet(evidenceOwner)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
+	}
+	artifactProviders, err := newArtifactProviderSet(artifactOwner)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
+	}
+	taskDecisionProviders, err := newTaskDecisionProviderSet(taskDecisionOwner)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
+	}
+	timelineProviders, err := newTimelineProviderSet(timelineOwner)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
+	}
+	indicatorCreateProvider, err := newIndicatorCreateProvider(indicatorOwner)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
+	}
 	sourceQueries := map[string]workbook.QueryProvider{
 		hostidentity.HostsViewSchemaID: workbook.QueryProviderFunc(
 			func(
@@ -139,29 +171,23 @@ func NewContributionCatalog(
 		),
 	}
 	createProviders := map[string]workbook.CreateProvider{
-		timeline.TimelineViewSchemaID:       workbook.NewTimelineCreateProvider(timelineOwner),
-		hostidentity.HostsViewSchemaID:      workbook.NewHostCreateProvider(entityStore),
-		hostidentity.IdentitiesViewSchemaID: workbook.NewIdentityCreateProvider(entityStore),
-		indicators.ViewSchemaID:             workbook.NewIndicatorCreateProvider(indicatorOwner),
-		assessments.AssessmentsViewSchemaID: workbook.NewAssessmentCreateProvider(assessmentFacade),
-		workbook.NotesViewSchemaID:          workbook.NewArtifactCreateProvider(workbook.NotesViewSchemaID, artifactOwner),
-		workbook.CommLogViewSchemaID:        workbook.NewArtifactCreateProvider(workbook.CommLogViewSchemaID, artifactOwner),
-		workbook.HandoffViewSchemaID:        workbook.NewArtifactCreateProvider(workbook.HandoffViewSchemaID, artifactOwner),
-		workbook.StatusReviewViewSchemaID:   workbook.NewArtifactCreateProvider(workbook.StatusReviewViewSchemaID, artifactOwner),
-		workbook.LessonViewSchemaID:         workbook.NewArtifactCreateProvider(workbook.LessonViewSchemaID, artifactOwner),
-		workbook.FindingsViewSchemaID:       workbook.NewArtifactCreateProvider(workbook.FindingsViewSchemaID, artifactOwner),
-		workbook.InvestigativeQueriesViewSchemaID: workbook.NewArtifactCreateProvider(
-			workbook.InvestigativeQueriesViewSchemaID,
-			artifactOwner,
-		),
-		workbook.ForensicKeywordsViewSchemaID: workbook.NewArtifactCreateProvider(
-			workbook.ForensicKeywordsViewSchemaID,
-			artifactOwner,
-		),
-		workbook.EvidenceViewSchemaID:     workbook.NewEvidenceCreateProvider(evidenceOwner),
-		workbook.PartiesViewSchemaID:      workbook.NewPartyCreateProvider(partyOwner),
-		workbook.TaskRequestsViewSchemaID: workbook.NewTaskDecisionCreateProvider(workbook.TaskRequestsViewSchemaID, taskDecisionOwner),
-		workbook.DecisionsViewSchemaID:    workbook.NewTaskDecisionCreateProvider(workbook.DecisionsViewSchemaID, taskDecisionOwner),
+		timeline.TimelineViewSchemaID:              timelineProviders.create,
+		hostidentity.HostsViewSchemaID:             entityProviders.hostCreate,
+		hostidentity.IdentitiesViewSchemaID:        entityProviders.identityCreate,
+		indicators.ViewSchemaID:                    indicatorCreateProvider,
+		assessments.AssessmentsViewSchemaID:        assessmentCreateProvider,
+		artifacts.NotesViewSchemaID:                artifactProviders.creates[artifacts.NotesViewSchemaID],
+		artifacts.CommLogViewSchemaID:              artifactProviders.creates[artifacts.CommLogViewSchemaID],
+		artifacts.HandoffViewSchemaID:              artifactProviders.creates[artifacts.HandoffViewSchemaID],
+		artifacts.StatusReviewViewSchemaID:         artifactProviders.creates[artifacts.StatusReviewViewSchemaID],
+		artifacts.LessonViewSchemaID:               artifactProviders.creates[artifacts.LessonViewSchemaID],
+		artifacts.FindingsViewSchemaID:             artifactProviders.creates[artifacts.FindingsViewSchemaID],
+		artifacts.InvestigativeQueriesViewSchemaID: artifactProviders.creates[artifacts.InvestigativeQueriesViewSchemaID],
+		artifacts.ForensicKeywordsViewSchemaID:     artifactProviders.creates[artifacts.ForensicKeywordsViewSchemaID],
+		evidence.ViewSchemaID:                      evidenceProviders.create,
+		parties.ViewSchemaID:                       partyProviders.create,
+		tasksdecisions.TaskRequestsViewSchemaID:    taskDecisionProviders.creates[tasksdecisions.TaskRequestsViewSchemaID],
+		tasksdecisions.DecisionsViewSchemaID:       taskDecisionProviders.creates[tasksdecisions.DecisionsViewSchemaID],
 	}
 
 	descriptors := projectionDescriptors.All()
@@ -215,118 +241,150 @@ func NewContributionCatalog(
 		{
 			RecordType:    "timeline_event",
 			ViewSchemaIDs: []string{timeline.TimelineViewSchemaID},
-			Provider:      workbook.NewTimelinePatchProvider(timelineOwner),
+			Provider:      timelineProviders.patch,
 		},
 		{
 			RecordType:    "host",
 			ViewSchemaIDs: []string{hostidentity.HostsViewSchemaID},
-			Provider:      workbook.NewHostPatchProvider(entityStore),
+			Provider:      entityProviders.hostPatch,
 		},
 		{
 			RecordType:    "identity",
 			ViewSchemaIDs: []string{hostidentity.IdentitiesViewSchemaID},
-			Provider:      workbook.NewIdentityPatchProvider(entityStore),
+			Provider:      entityProviders.identityPatch,
 		},
 		{
-			RecordType: "artifact",
-			ViewSchemaIDs: []string{
-				workbook.CommLogViewSchemaID,
-				workbook.FindingsViewSchemaID,
-				workbook.ForensicKeywordsViewSchemaID,
-				workbook.HandoffViewSchemaID,
-				workbook.InvestigativeQueriesViewSchemaID,
-				workbook.LessonViewSchemaID,
-				workbook.NotesViewSchemaID,
-				workbook.StatusReviewViewSchemaID,
-			},
-			Provider: workbook.NewArtifactPatchProvider(artifactOwner),
+			RecordType:    "artifact",
+			ViewSchemaIDs: append([]string(nil), artifactViewSchemaIDs...),
+			Provider:      artifactProviders.patch,
 		},
 		{
 			RecordType:    "evidence",
-			ViewSchemaIDs: []string{workbook.EvidenceViewSchemaID},
-			Provider:      workbook.NewEvidencePatchProvider(evidenceOwner),
+			ViewSchemaIDs: []string{evidence.ViewSchemaID},
+			Provider:      evidenceProviders.patch,
 		},
 		{
 			RecordType:    "party",
-			ViewSchemaIDs: []string{workbook.PartiesViewSchemaID},
-			Provider:      workbook.NewPartyPatchProvider(partyOwner),
+			ViewSchemaIDs: []string{parties.ViewSchemaID},
+			Provider:      partyProviders.patch,
 		},
 		{
 			RecordType:    "task_request",
-			ViewSchemaIDs: []string{workbook.TaskRequestsViewSchemaID},
-			Provider: workbook.NewTaskDecisionPatchProvider(
-				"task_request",
-				workbook.TaskRequestsViewSchemaID,
-				taskDecisionOwner,
-			),
+			ViewSchemaIDs: []string{tasksdecisions.TaskRequestsViewSchemaID},
+			Provider:      taskDecisionProviders.patches["task_request"],
 		},
 		{
 			RecordType:    "decision",
-			ViewSchemaIDs: []string{workbook.DecisionsViewSchemaID},
-			Provider: workbook.NewTaskDecisionPatchProvider(
-				"decision",
-				workbook.DecisionsViewSchemaID,
-				taskDecisionOwner,
-			),
+			ViewSchemaIDs: []string{tasksdecisions.DecisionsViewSchemaID},
+			Provider:      taskDecisionProviders.patches["decision"],
 		},
 	}
 	conflictContributions := []workbook.ConflictContribution{
 		{
 			RecordType:    "timeline_event",
 			ViewSchemaIDs: []string{timeline.TimelineViewSchemaID},
-			Provider:      workbook.NewTimelineConflictProvider(timelineOwner),
+			Provider:      timelineProviders.conflict,
 		},
 		{
 			RecordType:    "host",
 			ViewSchemaIDs: []string{hostidentity.HostsViewSchemaID},
-			Provider:      workbook.NewHostConflictProvider(entityStore),
+			Provider:      entityProviders.hostConflict,
 		},
 		{
 			RecordType:    "identity",
 			ViewSchemaIDs: []string{hostidentity.IdentitiesViewSchemaID},
-			Provider:      workbook.NewIdentityConflictProvider(entityStore),
+			Provider:      entityProviders.identityConflict,
 		},
 		{
-			RecordType: "artifact",
-			ViewSchemaIDs: []string{
-				workbook.CommLogViewSchemaID,
-				workbook.FindingsViewSchemaID,
-				workbook.ForensicKeywordsViewSchemaID,
-				workbook.HandoffViewSchemaID,
-				workbook.InvestigativeQueriesViewSchemaID,
-				workbook.LessonViewSchemaID,
-				workbook.NotesViewSchemaID,
-				workbook.StatusReviewViewSchemaID,
-			},
-			Provider: workbook.NewArtifactConflictProvider(artifactOwner),
+			RecordType:    "artifact",
+			ViewSchemaIDs: append([]string(nil), artifactViewSchemaIDs...),
+			Provider:      artifactProviders.conflict,
 		},
 		{
 			RecordType:    "evidence",
-			ViewSchemaIDs: []string{workbook.EvidenceViewSchemaID},
-			Provider:      workbook.NewEvidenceConflictProvider(evidenceOwner),
+			ViewSchemaIDs: []string{evidence.ViewSchemaID},
+			Provider:      evidenceProviders.conflict,
 		},
 		{
 			RecordType:    "party",
-			ViewSchemaIDs: []string{workbook.PartiesViewSchemaID},
-			Provider:      workbook.NewPartyConflictProvider(partyOwner),
+			ViewSchemaIDs: []string{parties.ViewSchemaID},
+			Provider:      partyProviders.conflict,
 		},
 		{
 			RecordType:    "task_request",
-			ViewSchemaIDs: []string{workbook.TaskRequestsViewSchemaID},
-			Provider: workbook.NewTaskDecisionConflictProvider(
-				"task_request",
-				workbook.TaskRequestsViewSchemaID,
-				taskDecisionOwner,
-			),
+			ViewSchemaIDs: []string{tasksdecisions.TaskRequestsViewSchemaID},
+			Provider:      taskDecisionProviders.conflicts["task_request"],
 		},
 		{
 			RecordType:    "decision",
-			ViewSchemaIDs: []string{workbook.DecisionsViewSchemaID},
-			Provider: workbook.NewTaskDecisionConflictProvider(
-				"decision",
-				workbook.DecisionsViewSchemaID,
-				taskDecisionOwner,
-			),
+			ViewSchemaIDs: []string{tasksdecisions.DecisionsViewSchemaID},
+			Provider:      taskDecisionProviders.conflicts["decision"],
+		},
+	}
+	timelineClipboardProvider, err := newTimelineClipboardProvider(timelineOwner)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook Timeline clipboard provider: %w", err)
+	}
+	hostClipboardProvider, err := newEntityClipboardProvider(hostidentity.HostsViewSchemaID, entityStore)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook Hosts clipboard provider: %w", err)
+	}
+	identityClipboardProvider, err := newEntityClipboardProvider(hostidentity.IdentitiesViewSchemaID, entityStore)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook Identities clipboard provider: %w", err)
+	}
+	timelineBulkProvider, err := newTimelineBulkProvider(timelineOwner)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook Timeline bulk provider: %w", err)
+	}
+	linkedNoteProvider, err := newLinkedNoteProvider(artifactOwner)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook linked-note provider: %w", err)
+	}
+	decisionSupersedeProvider, err := newDecisionSupersedeProvider(taskDecisionOwner)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook Decision supersede provider: %w", err)
+	}
+	timelineSupersedeProvider, err := newTimelineSupersedeProvider(timelineOwner)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook Timeline supersede provider: %w", err)
+	}
+	actionContributions := workbook.MutationActionContributions{
+		Clipboard: []workbook.ClipboardContribution{
+			{
+				ViewSchemaID: timeline.TimelineViewSchemaID,
+				Provider:     timelineClipboardProvider,
+			},
+			{
+				ViewSchemaID: hostidentity.HostsViewSchemaID,
+				Provider:     hostClipboardProvider,
+			},
+			{
+				ViewSchemaID: hostidentity.IdentitiesViewSchemaID,
+				Provider:     identityClipboardProvider,
+			},
+		},
+		Bulk: []workbook.BulkContribution{
+			{
+				ViewSchemaID: timeline.TimelineViewSchemaID,
+				Provider:     timelineBulkProvider,
+			},
+		},
+		LinkedNote: []workbook.LinkedNoteContribution{
+			{RecordType: "evidence", Provider: linkedNoteProvider},
+			{RecordType: "host", Provider: linkedNoteProvider},
+			{RecordType: "identity", Provider: linkedNoteProvider},
+			{RecordType: "timeline_event", Provider: linkedNoteProvider},
+		},
+		Supersede: []workbook.SupersedeContribution{
+			{
+				RecordType: "decision",
+				Provider:   decisionSupersedeProvider,
+			},
+			{
+				RecordType: "timeline_event",
+				Provider:   timelineSupersedeProvider,
+			},
 		},
 	}
 	catalog, err := workbook.NewWorkbookContributionCatalog(
@@ -335,6 +393,19 @@ func NewContributionCatalog(
 		createContributions,
 		patchContributions,
 		conflictContributions,
+		workbook.ActionCapabilityRequirements{
+			ClipboardViewSchemaIDs: []string{
+				hostidentity.HostsViewSchemaID,
+				hostidentity.IdentitiesViewSchemaID,
+				timeline.TimelineViewSchemaID,
+			},
+			BulkViewSchemaIDs: []string{timeline.TimelineViewSchemaID},
+			LinkedNoteRecordTypes: []string{
+				"evidence", "host", "identity", "timeline_event",
+			},
+			SupersedeRecordTypes: []string{"decision", "timeline_event"},
+		},
+		actionContributions,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)

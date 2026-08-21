@@ -2,7 +2,6 @@ package mentions
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,7 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-var ErrInvalidMentionResolution = errors.New("entities: invalid mention resolution")
+var ErrInvalidMentionResolution = newInvalidMutationTargetError("entities: invalid mention resolution")
 
 type MentionResolutionResult struct {
 	EntityType    string

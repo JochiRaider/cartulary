@@ -55,15 +55,15 @@ func TestImportContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
 }
 
 type mutationCreateConsumer interface {
-	Create(context.Context, WorkbookCreateCommand) (WorkbookMutationResult, error)
+	Create(context.Context, CreateCommand) (MutationResult, error)
 }
 
 type mutationPatchConsumer interface {
-	Patch(context.Context, WorkbookPatchCommand) (WorkbookMutationResult, error)
+	Patch(context.Context, PatchCommand) (MutationResult, error)
 }
 
 type mutationConflictConsumer interface {
-	ResolveConflict(context.Context, WorkbookConflictCommand) (WorkbookMutationResult, error)
+	ResolveConflict(context.Context, ConflictCommand) (MutationResult, error)
 }
 
 type mutationSupersedeConsumer interface {

@@ -3,6 +3,7 @@ package workbook
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"slices"
 
 	"github.com/google/uuid"
@@ -72,13 +73,27 @@ type ConflictContribution struct {
 	Provider      ConflictProvider
 }
 
+// ActionCapabilityRequirements are supplied by application assembly. Workbook
+// validates an exact immutable catalog against these keys without knowing
+// which source modules currently provide the capabilities.
+type ActionCapabilityRequirements struct {
+	ClipboardViewSchemaIDs []string
+	BulkViewSchemaIDs      []string
+	LinkedNoteRecordTypes  []string
+	SupersedeRecordTypes   []string
+}
+
 // WorkbookContributionCatalog is immutable after construction. Later slices
 // add the conflict index to this same catalog.
 type WorkbookContributionCatalog struct {
-	queries   map[string]QueryProvider
-	creates   map[string]CreateProvider
-	patches   map[string]PatchProvider
-	conflicts map[string]ConflictProvider
+	queries     map[string]QueryProvider
+	creates     map[string]CreateProvider
+	patches     map[string]PatchProvider
+	conflicts   map[string]ConflictProvider
+	clipboards  map[string]ClipboardProvider
+	bulk        map[string]BulkProvider
+	linkedNotes map[string]LinkedNoteProvider
+	supersedes  map[string]SupersedeProvider
 }
 
 func NewWorkbookContributionCatalog(
@@ -87,6 +102,8 @@ func NewWorkbookContributionCatalog(
 	createContributions []CreateContribution,
 	patchContributions []PatchContribution,
 	conflictContributions []ConflictContribution,
+	actionRequirements ActionCapabilityRequirements,
+	actionContributions MutationActionContributions,
 ) (*WorkbookContributionCatalog, error) {
 	expected, err := expectedQuerySurfaces(descriptors)
 	if err != nil {
@@ -134,7 +151,7 @@ func NewWorkbookContributionCatalog(
 				surface.backendKind,
 			)
 		}
-		if contribution.Provider == nil {
+		if isNilContributionProvider(contribution.Provider) {
 			return nil, fmt.Errorf("workbook query contribution %q has nil provider", contribution.ViewSchemaID)
 		}
 		queries[contribution.ViewSchemaID] = contribution.Provider
@@ -157,12 +174,68 @@ func NewWorkbookContributionCatalog(
 	if err != nil {
 		return nil, err
 	}
+	requirements, err := validateActionCapabilityRequirements(actionRequirements)
+	if err != nil {
+		return nil, err
+	}
+	clipboards, err := validateClipboardContributions(actionContributions.Clipboard, requirements.clipboard)
+	if err != nil {
+		return nil, err
+	}
+	bulk, err := validateBulkContributions(actionContributions.Bulk, requirements.bulk)
+	if err != nil {
+		return nil, err
+	}
+	linkedNotes, err := validateLinkedNoteContributions(actionContributions.LinkedNote, requirements.linkedNote)
+	if err != nil {
+		return nil, err
+	}
+	supersedes, err := validateSupersedeContributions(actionContributions.Supersede, requirements.supersede)
+	if err != nil {
+		return nil, err
+	}
 	return &WorkbookContributionCatalog{
-		queries:   queries,
-		creates:   creates,
-		patches:   patches,
-		conflicts: conflicts,
+		queries:     queries,
+		creates:     creates,
+		patches:     patches,
+		conflicts:   conflicts,
+		clipboards:  clipboards,
+		bulk:        bulk,
+		linkedNotes: linkedNotes,
+		supersedes:  supersedes,
 	}, nil
+}
+
+func (c *WorkbookContributionCatalog) ClipboardFor(viewSchemaID string) (ClipboardProvider, bool) {
+	if c == nil {
+		return nil, false
+	}
+	provider, ok := c.clipboards[viewSchemaID]
+	return provider, ok
+}
+
+func (c *WorkbookContributionCatalog) BulkFor(viewSchemaID string) (BulkProvider, bool) {
+	if c == nil {
+		return nil, false
+	}
+	provider, ok := c.bulk[viewSchemaID]
+	return provider, ok
+}
+
+func (c *WorkbookContributionCatalog) LinkedNoteFor(recordType string) (LinkedNoteProvider, bool) {
+	if c == nil {
+		return nil, false
+	}
+	provider, ok := c.linkedNotes[recordType]
+	return provider, ok
+}
+
+func (c *WorkbookContributionCatalog) SupersedeFor(recordType string) (SupersedeProvider, bool) {
+	if c == nil {
+		return nil, false
+	}
+	provider, ok := c.supersedes[recordType]
+	return provider, ok
 }
 
 func (c *WorkbookContributionCatalog) ConflictFor(recordType string) (ConflictProvider, bool) {
@@ -285,8 +358,11 @@ func validateCreateContributions(
 				surface.sourceRecordTypes,
 			)
 		}
-		if contribution.Provider == nil {
+		if isNilContributionProvider(contribution.Provider) {
 			return nil, fmt.Errorf("workbook create contribution %q has nil provider", contribution.ViewSchemaID)
+		}
+		if err := contribution.Provider.ValidateWorkbookContribution(); err != nil {
+			return nil, fmt.Errorf("workbook create contribution %q is invalid: %w", contribution.ViewSchemaID, err)
 		}
 		creates[contribution.ViewSchemaID] = contribution.Provider
 	}
@@ -327,8 +403,11 @@ func validatePatchContributions(contributions []PatchContribution) (map[string]P
 				expectedViews,
 			)
 		}
-		if contribution.Provider == nil {
+		if isNilContributionProvider(contribution.Provider) {
 			return nil, fmt.Errorf("workbook patch contribution %q has nil provider", contribution.RecordType)
+		}
+		if err := contribution.Provider.ValidateWorkbookContribution(); err != nil {
+			return nil, fmt.Errorf("workbook patch contribution %q is invalid: %w", contribution.RecordType, err)
 		}
 		patches[contribution.RecordType] = contribution.Provider
 	}
@@ -372,11 +451,14 @@ func validateConflictContributions(
 				expectedViews,
 			)
 		}
-		if contribution.Provider == nil {
+		if isNilContributionProvider(contribution.Provider) {
 			return nil, fmt.Errorf(
 				"workbook conflict contribution %q has nil provider",
 				contribution.RecordType,
 			)
+		}
+		if err := contribution.Provider.ValidateWorkbookContribution(); err != nil {
+			return nil, fmt.Errorf("workbook conflict contribution %q is invalid: %w", contribution.RecordType, err)
 		}
 		conflicts[contribution.RecordType] = contribution.Provider
 	}
@@ -389,6 +471,173 @@ func validateConflictContributions(
 		}
 	}
 	return conflicts, nil
+}
+
+type validatedActionRequirements struct {
+	clipboard  map[string]struct{}
+	bulk       map[string]struct{}
+	linkedNote map[string]struct{}
+	supersede  map[string]struct{}
+}
+
+func validateActionCapabilityRequirements(input ActionCapabilityRequirements) (validatedActionRequirements, error) {
+	clipboard, err := validateRequiredKeys("clipboard", input.ClipboardViewSchemaIDs, true)
+	if err != nil {
+		return validatedActionRequirements{}, err
+	}
+	bulk, err := validateRequiredKeys("bulk", input.BulkViewSchemaIDs, true)
+	if err != nil {
+		return validatedActionRequirements{}, err
+	}
+	linkedNote, err := validateRequiredKeys("linked-note", input.LinkedNoteRecordTypes, false)
+	if err != nil {
+		return validatedActionRequirements{}, err
+	}
+	supersede, err := validateRequiredKeys("supersede", input.SupersedeRecordTypes, false)
+	if err != nil {
+		return validatedActionRequirements{}, err
+	}
+	return validatedActionRequirements{
+		clipboard: clipboard, bulk: bulk, linkedNote: linkedNote, supersede: supersede,
+	}, nil
+}
+
+func validateRequiredKeys(family string, keys []string, viewSchemaKeys bool) (map[string]struct{}, error) {
+	required := make(map[string]struct{}, len(keys))
+	for _, key := range append([]string(nil), keys...) {
+		if key == "" {
+			return nil, fmt.Errorf("workbook %s capability requirement has empty key", family)
+		}
+		if _, duplicate := required[key]; duplicate {
+			return nil, fmt.Errorf("duplicate workbook %s capability requirement %q", family, key)
+		}
+		if viewSchemaKeys {
+			if _, known := viewschema.Lookup(key); !known {
+				return nil, fmt.Errorf("workbook %s capability requirement references unknown surface %q", family, key)
+			}
+		}
+		required[key] = struct{}{}
+	}
+	return required, nil
+}
+
+func validateClipboardContributions(contributions []ClipboardContribution, expected map[string]struct{}) (map[string]ClipboardProvider, error) {
+	providers := make(map[string]ClipboardProvider, len(contributions))
+	for _, contribution := range contributions {
+		if _, known := viewschema.Lookup(contribution.ViewSchemaID); !known {
+			return nil, fmt.Errorf("workbook clipboard contribution references unknown surface %q", contribution.ViewSchemaID)
+		}
+		if _, required := expected[contribution.ViewSchemaID]; !required {
+			return nil, fmt.Errorf("workbook clipboard contribution references unsupported surface %q", contribution.ViewSchemaID)
+		}
+		if _, duplicate := providers[contribution.ViewSchemaID]; duplicate {
+			return nil, fmt.Errorf("duplicate workbook clipboard contribution for %q", contribution.ViewSchemaID)
+		}
+		if isNilContributionProvider(contribution.Provider) {
+			return nil, fmt.Errorf("workbook clipboard contribution %q has nil provider", contribution.ViewSchemaID)
+		}
+		if err := contribution.Provider.ValidateWorkbookContribution(); err != nil {
+			return nil, fmt.Errorf("workbook clipboard contribution %q is invalid: %w", contribution.ViewSchemaID, err)
+		}
+		providers[contribution.ViewSchemaID] = contribution.Provider
+	}
+	for viewSchemaID := range expected {
+		if _, ok := providers[viewSchemaID]; !ok {
+			return nil, fmt.Errorf("workbook clipboard contribution missing required surface %q", viewSchemaID)
+		}
+	}
+	return providers, nil
+}
+
+func validateBulkContributions(contributions []BulkContribution, expected map[string]struct{}) (map[string]BulkProvider, error) {
+	providers := make(map[string]BulkProvider, len(contributions))
+	for _, contribution := range contributions {
+		if _, known := viewschema.Lookup(contribution.ViewSchemaID); !known {
+			return nil, fmt.Errorf("workbook bulk contribution references unknown surface %q", contribution.ViewSchemaID)
+		}
+		if _, required := expected[contribution.ViewSchemaID]; !required {
+			return nil, fmt.Errorf("workbook bulk contribution references unsupported surface %q", contribution.ViewSchemaID)
+		}
+		if _, duplicate := providers[contribution.ViewSchemaID]; duplicate {
+			return nil, fmt.Errorf("duplicate workbook bulk contribution for %q", contribution.ViewSchemaID)
+		}
+		if isNilContributionProvider(contribution.Provider) {
+			return nil, fmt.Errorf("workbook bulk contribution %q has nil provider", contribution.ViewSchemaID)
+		}
+		if err := contribution.Provider.ValidateWorkbookContribution(); err != nil {
+			return nil, fmt.Errorf("workbook bulk contribution %q is invalid: %w", contribution.ViewSchemaID, err)
+		}
+		providers[contribution.ViewSchemaID] = contribution.Provider
+	}
+	for viewSchemaID := range expected {
+		if _, ok := providers[viewSchemaID]; !ok {
+			return nil, fmt.Errorf("workbook bulk contribution missing required surface %q", viewSchemaID)
+		}
+	}
+	return providers, nil
+}
+
+func validateLinkedNoteContributions(contributions []LinkedNoteContribution, expected map[string]struct{}) (map[string]LinkedNoteProvider, error) {
+	providers := make(map[string]LinkedNoteProvider, len(contributions))
+	for _, contribution := range contributions {
+		if _, required := expected[contribution.RecordType]; !required {
+			return nil, fmt.Errorf("workbook linked-note contribution references unsupported record type %q", contribution.RecordType)
+		}
+		if _, duplicate := providers[contribution.RecordType]; duplicate {
+			return nil, fmt.Errorf("duplicate workbook linked-note contribution for record type %q", contribution.RecordType)
+		}
+		if isNilContributionProvider(contribution.Provider) {
+			return nil, fmt.Errorf("workbook linked-note contribution %q has nil provider", contribution.RecordType)
+		}
+		if err := contribution.Provider.ValidateWorkbookContribution(); err != nil {
+			return nil, fmt.Errorf("workbook linked-note contribution %q is invalid: %w", contribution.RecordType, err)
+		}
+		providers[contribution.RecordType] = contribution.Provider
+	}
+	for recordType := range expected {
+		if _, ok := providers[recordType]; !ok {
+			return nil, fmt.Errorf("workbook linked-note contribution missing required record type %q", recordType)
+		}
+	}
+	return providers, nil
+}
+
+func validateSupersedeContributions(contributions []SupersedeContribution, expected map[string]struct{}) (map[string]SupersedeProvider, error) {
+	providers := make(map[string]SupersedeProvider, len(contributions))
+	for _, contribution := range contributions {
+		if _, required := expected[contribution.RecordType]; !required {
+			return nil, fmt.Errorf("workbook supersede contribution references unsupported record type %q", contribution.RecordType)
+		}
+		if _, duplicate := providers[contribution.RecordType]; duplicate {
+			return nil, fmt.Errorf("duplicate workbook supersede contribution for record type %q", contribution.RecordType)
+		}
+		if isNilContributionProvider(contribution.Provider) {
+			return nil, fmt.Errorf("workbook supersede contribution %q has nil provider", contribution.RecordType)
+		}
+		if err := contribution.Provider.ValidateWorkbookContribution(); err != nil {
+			return nil, fmt.Errorf("workbook supersede contribution %q is invalid: %w", contribution.RecordType, err)
+		}
+		providers[contribution.RecordType] = contribution.Provider
+	}
+	for recordType := range expected {
+		if _, ok := providers[recordType]; !ok {
+			return nil, fmt.Errorf("workbook supersede contribution missing required record type %q", recordType)
+		}
+	}
+	return providers, nil
+}
+
+func isNilContributionProvider(provider any) bool {
+	if provider == nil {
+		return true
+	}
+	value := reflect.ValueOf(provider)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }
 
 func expectedConflictSurfaces() map[string][]string {
@@ -502,29 +751,4 @@ func expectedQuerySurfaces(descriptors providercontract.DescriptorSet) (map[stri
 		}
 	}
 	return expected, nil
-}
-
-func (s *Store) QueryRows(
-	ctx context.Context,
-	incidentID uuid.UUID,
-	viewSchemaID string,
-	query viewschema.QueryMeta,
-) ([]map[string]any, error) {
-	if s == nil || s.contributions == nil {
-		return nil, fmt.Errorf("workbook contribution catalog is required")
-	}
-	return s.contributions.QueryRows(ctx, incidentID, viewSchemaID, query)
-}
-
-func (s *Store) QueryRowsPage(
-	ctx context.Context,
-	incidentID uuid.UUID,
-	viewSchemaID string,
-	query viewschema.QueryMeta,
-	window querypage.Window,
-) (querypage.Result, error) {
-	if s == nil || s.contributions == nil {
-		return querypage.Result{}, fmt.Errorf("workbook contribution catalog is required")
-	}
-	return s.contributions.QueryRowsPage(ctx, incidentID, viewSchemaID, query, window)
 }

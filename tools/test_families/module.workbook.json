@@ -920,6 +920,261 @@
       ]
     },
     {
+      "row_id": "module.workbook.catalog.collection_review_fields_use_collection_value_v1_4efe5fcdae",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.catalog",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestCollectionReviewRouteResolve_Unit"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.catalog.communications_log_handoff_status_review_and_les_63b0f44db8",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.catalog",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestCoordinationArtifactSurfacesUseContractFilters",
+          "TestCoordinationCollectionItemShapes_Unit",
+          "TestCoordinationCollectionsAndValidation_Unit",
+          "TestCoordinationDeclaredQueryFieldsAreMapped_Unit",
+          "TestCoordinationDuplicateCoalescing_Unit",
+          "TestCoordinationMinimumDefaultsAndRejection_Unit",
+          "TestCoordinationProjectionSortFilterGroup_Unit",
+          "TestCoordinationSavedViewsRemainAdditive_Unit",
+          "TestCoordinationSemanticFilters_Unit",
+          "TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.catalog.every_grid_write_is_anchored_to_the_route_bound_3926ec3df4",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.catalog",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestGridWriteConcurrencyRoute_Unit"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.catalog.findings_investigative_queries_and_forensic_keyw_1ca6136d7c",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.catalog",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestFindingsConfidenceBandBoundaries_Unit",
+          "TestOptionalStandardizedSurfacesCatalogBehavior_Unit",
+          "TestOptionalStandardizedSurfacesProjectionQueryBehavior_Unit"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.catalog",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestConflictResolutionRevalidatesStaleToken_Unit",
+          "TestConflictResolveDurability_Unit",
+          "TestSourceOwnerConflictContributions_Integration",
+          "TestWorkbookRouteGuardsFailBeforeMutation"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.catalog.linked_notes_create_contextual_artifact_links_9a09b2f951",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.catalog",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestLinkedNotesCreateContextualArtifactLinks_Unit"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.catalog.same_field_conflict_transport_uses_409_error_cod_4447ac22bf",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.catalog",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestSameFieldConflictHTTP_Unit"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.catalog.text_compare_merge_treats_the_field_as_plain_tex_977f9eb56f",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.catalog",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestTextCompareMergeDurability_Unit"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.catalog.workbook_preference_routes_keep_home_sheet_ref_a_72ab108a31",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.catalog",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookPreferencePointers_Unit"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.frontend.keyboard_command_mapping_covers_arrow_keys_enter_936238eee1",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.frontend",
@@ -1732,6 +1987,35 @@
       ]
     },
     {
+      "row_id": "module.workbook.integration.evidence_row_create_and_patch_through_workbook_p_d074e288e1",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [
+        "module.evidence"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbook_EvidenceMutations"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.integration.full_row_and_sparse_patch_wire_families_preserve_32a4ab3be1",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.integration",
@@ -1787,6 +2071,36 @@
       ]
     },
     {
+      "row_id": "module.workbook.integration.notes_task_requests_and_decisions_mutations_thro_c325a978ef",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [
+        "module.artifacts",
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbook_NotesTasksAndDecisionsMutations"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.integration.parties_and_coordination_system_views_query_rout_e0808abf39",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.integration",
@@ -1798,7 +2112,8 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestCoordinationProjectionQueries_Integration"
+          "TestCoordinationProjectionQueries_Integration",
+          "TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows"
         ]
       },
       "evidence_class": "integration",
@@ -1855,7 +2170,8 @@
         "package": "./internal/modules/workbook",
         "tests": [
           "TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident",
-          "TestWorkbook_AllRegisteredSurfacesHaveCreateAdmission_Integration"
+          "TestWorkbook_AllRegisteredSurfacesHaveCreateAdmission_Integration",
+          "TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior"
         ]
       },
       "evidence_class": "integration",
@@ -1882,7 +2198,6 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestAssessmentsQueryThroughWorkbookProjections_Integration",
           "TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration",
           "TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration",
           "TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration",
@@ -1913,6 +2228,7 @@
         "package": "./internal/modules/workbook",
         "tests": [
           "TestBulkMutationsPersistOneVisibleBatch_Integration",
+          "TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration",
           "TestEntityOriginClipboardPasteUsesSharedIngest_Integration",
           "TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration"
         ]
@@ -1970,260 +2286,6 @@
         "package": "./internal/modules/workbook",
         "tests": [
           "TestPartiesSurface_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
-    },
-    {
-      "row_id": "module.workbook.store.collection_review_fields_use_collection_value_v1_4efe5fcdae",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.store",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook",
-        "tests": [
-          "TestCollectionReviewRouteResolve_Unit"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
-    },
-    {
-      "row_id": "module.workbook.store.communications_log_handoff_status_review_and_les_63b0f44db8",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.store",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook",
-        "tests": [
-          "TestCoordinationCollectionItemShapes_Unit",
-          "TestCoordinationCollectionsAndValidation_Unit",
-          "TestCoordinationDeclaredQueryFieldsAreMapped_Unit",
-          "TestCoordinationDuplicateCoalescing_Unit",
-          "TestCoordinationMinimumDefaultsAndRejection_Unit",
-          "TestCoordinationProjectionSortFilterGroup_Unit",
-          "TestCoordinationSavedViewsRemainAdditive_Unit",
-          "TestCoordinationSemanticFilters_Unit",
-          "TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
-    },
-    {
-      "row_id": "module.workbook.store.every_grid_write_is_anchored_to_the_route_bound_3926ec3df4",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.store",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook",
-        "tests": [
-          "TestGridWriteConcurrencyRoute_Unit"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
-    },
-    {
-      "row_id": "module.workbook.store.findings_investigative_queries_and_forensic_keyw_1ca6136d7c",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.store",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook",
-        "tests": [
-          "TestFindingsConfidenceBandBoundaries_Unit",
-          "TestOptionalStandardizedSurfacesProjectionQueryBehavior_Unit",
-          "TestOptionalStandardizedSurfacesStoreBehavior_Unit"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard",
-      "service_dependencies": [
-        "postgres"
-      ]
-    },
-    {
-      "row_id": "module.workbook.store.keep_saved_clears_the_conflict_without_creating_c65a9c3099",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.store",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook",
-        "tests": [
-          "TestConflictResolutionRevalidatesStaleToken_Unit",
-          "TestConflictResolveDurability_Unit",
-          "TestSourceOwnerConflictContributions_Integration",
-          "TestWorkbookRouteGuardsFailBeforeMutation"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
-    },
-    {
-      "row_id": "module.workbook.store.linked_notes_create_contextual_artifact_links_9a09b2f951",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.store",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook",
-        "tests": [
-          "TestLinkedNotesCreateContextualArtifactLinks_Unit"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard",
-      "service_dependencies": [
-        "postgres"
-      ]
-    },
-    {
-      "row_id": "module.workbook.store.same_field_conflict_transport_uses_409_error_cod_4447ac22bf",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.store",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook",
-        "tests": [
-          "TestSameFieldConflictHTTP_Unit"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
-    },
-    {
-      "row_id": "module.workbook.store.text_compare_merge_treats_the_field_as_plain_tex_977f9eb56f",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.store",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook",
-        "tests": [
-          "TestTextCompareMergeDurability_Unit"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
-    },
-    {
-      "row_id": "module.workbook.store.workbook_preference_routes_keep_home_sheet_ref_a_72ab108a31",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.store",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook",
-        "tests": [
-          "TestWorkbookPreferencePointers_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -2350,21 +2412,19 @@
       "service_dependencies": []
     },
     {
-      "row_id": "module.workbook.unit.create_indicator_admission_preserves_wire_and_replay_7ef2ad611c",
+      "row_id": "module.workbook.support_unit.workbook_startup_admission_preserves_explicit_sh_c63a5015f6",
       "owner_id": "module.workbook",
-      "family_id": "module.workbook.unit",
-      "collaborator_ids": [
-        "module.indicators"
-      ],
+      "family_id": "module.workbook.support_unit",
+      "collaborator_ids": [],
       "verification_ids": [
         "module.workbook.verification.behavior_contract"
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/workbook",
+        "package": "./internal/modules/workbook/startup",
         "tests": [
-          "TestIndicatorCreateAdmissionAndHashCompatibility",
-          "TestIndicatorCreateAdmissionRejectsBeforeOwnerExecution"
+          "TestExtensionWorkspaceRegistrySeparatesClaimDeclarationAndVisibility",
+          "TestWorkbookStartupExplicitSheetRefParser"
         ]
       },
       "evidence_class": "unit",
@@ -2373,33 +2433,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
-      "row_id": "module.workbook.unit.generic_decoder_defers_evidence_policy_to_owner_48d36a71bc",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.unit",
-      "collaborator_ids": [
-        "module.evidence"
-      ],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook",
-        "tests": [
-          "TestWorkbookMutationDecoderDefersReservedEvidenceStorageRefToOwner"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "minimum_tier": "full",
       "service_dependencies": []
     },
     {
@@ -2485,10 +2519,14 @@
       "service_dependencies": []
     },
     {
-      "row_id": "module.workbook.unit.shared_paste_and_bulk_planning_parses_quoted_csv_5659d1fb01",
+      "row_id": "module.workbook.unit.the_owner_mutation_admission_enforces_closed_co_572104489b",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.unit",
-      "collaborator_ids": [],
+      "collaborator_ids": [
+        "module.artifacts",
+        "module.evidence",
+        "module.tasksdecisions"
+      ],
       "verification_ids": [
         "module.workbook.verification.behavior_contract"
       ],
@@ -2496,7 +2534,42 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestSharedPasteAndBulkPlanningGroupsOneVisibleAction_Unit"
+          "TestOwnerMutationAdmissionAdmitsStructurallyValidOwnerSpecificCollectionOps",
+          "TestOwnerMutationAdmissionCollectionIDsAreExactLexicalTokens",
+          "TestOwnerMutationAdmissionCollectionRemovalRequiresItemRef",
+          "TestOwnerMutationAdmissionRejectsCollectionReplacement",
+          "TestTaskDecisionRelationshipConfidenceRejected"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.workbook.unit.the_owner_mutation_admission_enforces_direct_re_b3fec12cf8",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [
+        "module.parties",
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestDirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs",
+          "TestDirectPartyReferenceDecoderAcceptsOnlyExactStableIDs",
+          "TestOwnerMutationAdmissionDistinguishesKnownNonWritableAndUnknownFields",
+          "TestOwnerMutationRequestHashNormalization",
+          "TestTaskOwnerNullClearRejectedAtDecoder"
         ]
       },
       "evidence_class": "unit",
@@ -2545,6 +2618,34 @@
         "package": "./internal/modules/workbook",
         "tests": [
           "TestTimestampInstantPatchDecoder_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.workbook.unit.workbook_telemetry_remains_bounded_content_safe_b88c7be5d3",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [
+        "platform.telemetry"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookAPIErrorTelemetry",
+          "TestWorkbookTelemetryNoSDK",
+          "TestWorkbookTelemetrySafeMappings"
         ]
       },
       "evidence_class": "unit",

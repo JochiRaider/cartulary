@@ -449,7 +449,7 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 				if err != nil {
 					return clipboardAppliedRow{}, nil, err
 				}
-				conflicts = append(conflicts, conflict.Conflict)
+				conflicts = append(conflicts, conflict.Conflict.PublicValue())
 				continue
 			}
 			kept = append(kept, cell)

@@ -112,11 +112,31 @@ func (e *RowVersionConflictError) Error() string {
 }
 
 type SameFieldConflictError struct {
-	Conflict map[string]any
+	Conflict SameFieldConflict
 }
 
 func (e *SameFieldConflictError) Error() string {
 	return "artifacts: same field conflict"
+}
+
+type OptionalConflictValue struct {
+	Present bool
+	Value   any
+}
+
+type SameFieldConflict struct {
+	ConflictToken           string
+	RecordID                uuid.UUID
+	FieldKey                string
+	ConflictResolutionClass string
+	BaseRowVersion          int64
+	CurrentRowVersion       int64
+	ClientValue             any
+	ServerValue             any
+	BaseValue               OptionalConflictValue
+	ServerUpdatedBy         uuid.UUID
+	ServerUpdatedAt         time.Time
+	SuggestedMergedValue    OptionalConflictValue
 }
 
 func NewMutationContribution(

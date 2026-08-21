@@ -2,6 +2,7 @@ package recovery_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -66,6 +67,38 @@ func TestRestoreVerificationWorkbookProbe(t *testing.T) {
 		}
 		if result.WorkbookProbe == nil || *result.WorkbookProbe != executor.result {
 			t.Fatalf("bound workbook probe result got %#v want %#v", result.WorkbookProbe, executor.result)
+		}
+	})
+
+	t.Run("selected incident requires an executor", func(t *testing.T) {
+		selected := "00000000-0000-0000-0000-000000009101"
+		result := recovery.RestoreResult{SelectedIncidentID: &selected}
+		err := (recovery.RestoreVerificationWorkbookProbe{}).ProbeRestoredBackup(ctx, &result)
+		if !errors.Is(err, recovery.ErrWorkbookProbeFailed) || !strings.Contains(err.Error(), "requires executor") {
+			t.Fatalf("missing executor error got %v", err)
+		}
+	})
+
+	t.Run("invalid selected incident is a typed probe failure", func(t *testing.T) {
+		selected := "not-an-incident-id"
+		result := recovery.RestoreResult{SelectedIncidentID: &selected}
+		err := (recovery.RestoreVerificationWorkbookProbe{Executor: &workbookProbeExecutor{}}).ProbeRestoredBackup(ctx, &result)
+		if !errors.Is(err, recovery.ErrWorkbookProbeFailed) || !strings.Contains(err.Error(), "selected incident_id is invalid") {
+			t.Fatalf("invalid selected incident error got %v", err)
+		}
+	})
+
+	t.Run("executor failure preserves attempted registration identity", func(t *testing.T) {
+		selected := "00000000-0000-0000-0000-000000009101"
+		probeFailure := errors.New("projection query failed")
+		executor := &workbookProbeExecutor{
+			result: workbookprobe.Result{RegistrationID: "timeline.base_restore_probe.v1", ViewSchemaID: "cartulary.view.timeline.v2"},
+			err:    probeFailure,
+		}
+		result := recovery.RestoreResult{SelectedIncidentID: &selected}
+		err := (recovery.RestoreVerificationWorkbookProbe{Executor: executor}).ProbeRestoredBackup(ctx, &result)
+		if !errors.Is(err, recovery.ErrWorkbookProbeFailed) || result.WorkbookProbe == nil || *result.WorkbookProbe != executor.result || executor.calls != 1 {
+			t.Fatalf("executor failure got result=%#v calls=%d error=%v", result.WorkbookProbe, executor.calls, err)
 		}
 	})
 }

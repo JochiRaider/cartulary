@@ -31,7 +31,7 @@ func TestTaskDecisionIdempotencyAdapterBoundary_Integration(t *testing.T) {
 		ClientTxnID: "txn-idempotency-adapter-boundary",
 	}
 	recordID := uuid.New()
-	result := tasksdecisions.NewStoredCreateResult(tasksdecisions.StoredWorkbookResult{
+	result := tasksdecisions.NewStoredCreateResult(tasksdecisions.StoredRowMutationResult{
 		ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID,
 		RecordID:     recordID,
 		ChangeSetID:  uuid.New(),
@@ -44,7 +44,7 @@ func TestTaskDecisionIdempotencyAdapterBoundary_Integration(t *testing.T) {
 			t.Fatalf("begin mismatch transaction: %v", err)
 		}
 		defer func() { _ = tx.Rollback(ctx) }()
-		patchResult := tasksdecisions.NewStoredPatchResult(tasksdecisions.StoredWorkbookResult{
+		patchResult := tasksdecisions.NewStoredPatchResult(tasksdecisions.StoredRowMutationResult{
 			ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID,
 			RecordID:     recordID,
 			ChangeSetID:  uuid.New(),

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -44,7 +45,7 @@ type Registry struct {
 }
 
 func NewRegistry(query ProjectionQuery, registrations ...Registration) (*Registry, error) {
-	if query == nil {
+	if isNilProjectionQuery(query) {
 		return nil, fmt.Errorf("%w: projection query is required", ErrInvalidRegistration)
 	}
 	if len(registrations) == 0 {
@@ -82,6 +83,19 @@ func NewRegistry(query ProjectionQuery, registrations ...Registration) (*Registr
 		}
 	}
 	return &Registry{query: query, defaults: defaults}, nil
+}
+
+func isNilProjectionQuery(query ProjectionQuery) bool {
+	if query == nil {
+		return true
+	}
+	value := reflect.ValueOf(query)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }
 
 func (registry *Registry) ExecuteDefault(

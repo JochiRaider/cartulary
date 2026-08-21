@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:8ffcf14b6c1c9d350ce2843b1c6602da591eea3e5850a1896b5332252cbedfb0",
+  "input_digest": "sha256:43d3f1fcbf7b790200904f156c05d72c359a0db559b8ae2f35cfbe429449bf2f",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -217,7 +217,7 @@
     {
       "path": "contracts/verification/owners/module.workbook.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:12b6f73275e0a3ad038c8fc23188ef2b6023a8aefe64ce97a11c4a59ca14417e"
+      "hash": "sha256:f1b127fa43b971cbceda8c093cca7ba035f9f2e4fc05dfeb3c502c5f44be15dc"
     },
     {
       "path": "contracts/verification/owners/package.grid_adapter.json",
@@ -882,7 +882,7 @@
     {
       "path": "tools/postgres_fixture_policy_registry.json",
       "role": "postgres_fixture_policy_registry",
-      "hash": "sha256:659f0b4f58f7032e4d032d4fda9cfae0a3c44d3cd5cf581b8239b1041a52635c"
+      "hash": "sha256:a7e0d3934599b9fda0233e808c5e76afc1fc5f88fc8b5035c3b96eec63cc0819"
     },
     {
       "path": "tools/scheduler_resource_registry.json",
@@ -947,12 +947,12 @@
     {
       "path": "tools/test_families/module.artifacts.json",
       "role": "test_family_manifest",
-      "hash": "sha256:e89f581bbb4eac440da5bcb3396cc50b6457adba57b88f7f16cf55c72d1a5b6d"
+      "hash": "sha256:49d1453b2af6cd34a965380c8d7b7c4c306c3337abf3748e87a9f8229f9555bf"
     },
     {
       "path": "tools/test_families/module.assessments.json",
       "role": "test_family_manifest",
-      "hash": "sha256:ab09590c282241dfd2f83384057e5f32722f223cd5cb6958486ec1b4bcb71e26"
+      "hash": "sha256:4ce05f962b5fa3a78aaadb01286f0ffb6eec055d001bdcd2cb5ba927c1bf2f96"
     },
     {
       "path": "tools/test_families/module.auth.json",
@@ -977,12 +977,12 @@
     {
       "path": "tools/test_families/module.entities.json",
       "role": "test_family_manifest",
-      "hash": "sha256:e9ad433b4a4ae34b2b43f29e0bb45e64f845af30b39521b2c8c65ee35aa9b55b"
+      "hash": "sha256:aa498075ad82cbfdf241ee52a32bd579b229b44ae3c051f2f52c3e543848a3d7"
     },
     {
       "path": "tools/test_families/module.evidence.json",
       "role": "test_family_manifest",
-      "hash": "sha256:fe5a57400756a92502c3d0d7d68fb8ed0f8cf2d3aa33ad839b50596697b4e197"
+      "hash": "sha256:15314a1b488184be51e5ecb28985d3366ba9ade41462e3ba721e63a1bff024ea"
     },
     {
       "path": "tools/test_families/module.extensions.json",
@@ -1012,7 +1012,7 @@
     {
       "path": "tools/test_families/module.indicators.json",
       "role": "test_family_manifest",
-      "hash": "sha256:ecf53497bb9536f546b435794aa2e9cfc6fa3c3a1446d68b1f5e03d193db3ae1"
+      "hash": "sha256:8612ea7e49b5aad6e8eb604f9d7364f0dc6ea362582cc7bac400d61059d6d3e0"
     },
     {
       "path": "tools/test_families/module.jobapi.json",
@@ -1032,7 +1032,7 @@
     {
       "path": "tools/test_families/module.parties.json",
       "role": "test_family_manifest",
-      "hash": "sha256:e3334c59d197b4aaa8f233c18f115a752f56f8542c52dd30fcbac3ac99975b8a"
+      "hash": "sha256:6d8d8c294649089c685fa2ad4b9a9f563cb6fd7535068ec421b1b0a7c2b46dd8"
     },
     {
       "path": "tools/test_families/module.projections.json",
@@ -1047,7 +1047,7 @@
     {
       "path": "tools/test_families/module.recovery.json",
       "role": "test_family_manifest",
-      "hash": "sha256:851ae831a29572bf68c34ff06892ca098815e40f31d763064beb58f9eb330f81"
+      "hash": "sha256:ecd8b59283f1af0733373d1b54a2180a1835ce0e79cbd165d7bac0804f15a812"
     },
     {
       "path": "tools/test_families/module.reference_data.json",
@@ -1087,17 +1087,17 @@
     {
       "path": "tools/test_families/module.tasksdecisions.json",
       "role": "test_family_manifest",
-      "hash": "sha256:df70deda387a8ea66148592f9652919aafd48601aafbea8b3d38e961f4f00fa7"
+      "hash": "sha256:67fda50dbb327460bf2a4e26186214b8ffc9ffaadacfc88b86987543c2667b12"
     },
     {
       "path": "tools/test_families/module.timeline.json",
       "role": "test_family_manifest",
-      "hash": "sha256:53e2090877dc2469202e9df927d3cce39842e08303de0f163c354065d5dbf129"
+      "hash": "sha256:48a27089bf6dba57c327a669be07ff72a731cd754269c463f40e4df06374ff88"
     },
     {
       "path": "tools/test_families/module.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:386669f82c1a41d8401ca3d8bfd57c71bd8d7a89f499152fbde0b90ff21e019f"
+      "hash": "sha256:c29e5bd6583bc80863be9cde60a869f1234cd834873b7476ac675c68d94abbf7"
     },
     {
       "path": "tools/test_families/package.grid_adapter.json",

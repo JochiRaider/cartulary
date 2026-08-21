@@ -22,7 +22,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -30,6 +29,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
 
 // entity-resolution / REQ-01-196..REQ-01-227, REQ-02-039..REQ-02-044 / AC-188..AC-190, AC-221..AC-225.

@@ -17,6 +17,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
@@ -29,6 +30,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
 
 func workbookTestConflictTokens() conflicttokens.ConflictTokenCodec {
@@ -38,20 +40,20 @@ func workbookTestConflictTokens() conflicttokens.ConflictTokenCodec {
 func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-defaults")
-	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
+	store := appsupport.NewWorkbookCatalog(harness.DB, workbookTestConflictTokens())
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-coordination@example.test", "Collaboration Coordination", "CollaborationCoordination1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-coordination-incident", "IR-COLLABORATION-COORD", "Workbook inspector collaboration workflow coordination defaults")
 
 	for _, tc := range []struct {
 		name         string
 		viewSchemaID string
-		values       map[string]workbook.ValueChange
+		values       map[string]workbookroutetest.ValueChange
 		wantField    string
 	}{
 		{
 			name:         "comm-log-missing-summary",
-			viewSchemaID: workbook.CommLogViewSchemaID,
-			values: map[string]workbook.ValueChange{
+			viewSchemaID: artifacts.CommLogViewSchemaID,
+			values: map[string]workbookroutetest.ValueChange{
 				"comm_log.comm_type":          Text("briefing"),
 				"comm_log.audience":           Text("leadership"),
 				"comm_log.channel_or_meeting": Text("Bridge"),
@@ -60,27 +62,27 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 		},
 		{
 			name:         "handoff-missing-summary",
-			viewSchemaID: workbook.HandoffViewSchemaID,
-			values: map[string]workbook.ValueChange{
+			viewSchemaID: artifacts.HandoffViewSchemaID,
+			values: map[string]workbookroutetest.ValueChange{
 				"handoff.incoming_owner_user_id": UUID(actor.ID),
 			},
 			wantField: "handoff.current_state_summary",
 		},
 		{
 			name:         "status-review-missing-summary",
-			viewSchemaID: workbook.StatusReviewViewSchemaID,
-			values:       map[string]workbook.ValueChange{},
+			viewSchemaID: artifacts.StatusReviewViewSchemaID,
+			values:       map[string]workbookroutetest.ValueChange{},
 			wantField:    "status_review.current_state_summary",
 		},
 		{
 			name:         "lesson-missing-summary",
-			viewSchemaID: workbook.LessonViewSchemaID,
-			values:       map[string]workbook.ValueChange{},
+			viewSchemaID: artifacts.LessonViewSchemaID,
+			values:       map[string]workbookroutetest.ValueChange{},
 			wantField:    "lesson.summary",
 		},
 	} {
 		before := countDurableState(t, harness, incident.ID)
-		_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+		_, err := workbookroutetest.CreateWorkbookRow(store, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
 			ViewSchemaID: tc.viewSchemaID,
 			ClientTxnID:  "txn-workbook_interaction-collaboration-" + tc.name,
 			Values:       tc.values,
@@ -89,12 +91,12 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 		requireDurableState(t, harness, incident.ID, before, tc.name)
 	}
 
-	expectDecodePatchRejected(t, workbook.CommLogViewSchemaID, "comm_log.comm_id", "client-supplied")
-	expectDecodePatchRejected(t, workbook.HandoffViewSchemaID, "handoff.handoff_id", "client-supplied")
-	expectDecodePatchRejected(t, workbook.StatusReviewViewSchemaID, "status_review.status_review_id", "client-supplied")
-	expectDecodePatchRejected(t, workbook.LessonViewSchemaID, "lesson.lesson_id", "client-supplied")
+	expectDecodePatchRejected(t, artifacts.CommLogViewSchemaID, "comm_log.comm_id", "client-supplied")
+	expectDecodePatchRejected(t, artifacts.HandoffViewSchemaID, "handoff.handoff_id", "client-supplied")
+	expectDecodePatchRejected(t, artifacts.StatusReviewViewSchemaID, "status_review.status_review_id", "client-supplied")
+	expectDecodePatchRejected(t, artifacts.LessonViewSchemaID, "lesson.lesson_id", "client-supplied")
 
-	comm := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-defaults", map[string]workbook.ValueChange{
+	comm := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-defaults", map[string]workbookroutetest.ValueChange{
 		"comm_log.comm_type":          Text("briefing"),
 		"comm_log.audience":           Text("Leadership Team"),
 		"comm_log.channel_or_meeting": Text("Bridge"),
@@ -111,14 +113,14 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, commRow, "comm_log.audience_party_ids", 0)
 	requireCoordinationCollectionItemCount(t, commRow, "comm_log.attendee_party_ids", 0)
 	beforeCommVersion := RecordVersion(t, harness.DB, comm.RecordID)
-	_, err := Patch(store, actor, comm.RecordID, workbook.CommLogViewSchemaID, beforeCommVersion, "txn-workbook_interaction-collaboration-comm-invalid-type",
-		ValueChange("comm_log.comm_type", workbook.ValueChange{Kind: "text", Text: stringPtr("emergency")}))
+	_, err := Patch(store, actor, comm.RecordID, artifacts.CommLogViewSchemaID, beforeCommVersion, "txn-workbook_interaction-collaboration-comm-invalid-type",
+		ValueChange("comm_log.comm_type", workbookroutetest.ValueChange{Kind: "text", Text: stringPtr("emergency")}))
 	requireMutationValidation(t, err, "comm_log.comm_type", "invalid_value")
 	if got := RecordVersion(t, harness.DB, comm.RecordID); got != beforeCommVersion {
 		t.Fatalf("invalid comm type changed row version: got %d want %d", got, beforeCommVersion)
 	}
 
-	handoff := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-defaults", map[string]workbook.ValueChange{
+	handoff := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-defaults", map[string]workbookroutetest.ValueChange{
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  Text("Night shift owns containment"),
 	}, nil, Time(time.Hour))
@@ -134,14 +136,14 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, handoffRow, "handoff.open_decision_ids", 0)
 	requireCoordinationCollectionItemCount(t, handoffRow, "handoff.open_risk_refs", 0)
 	acknowledgedAt := Time(2 * time.Hour)
-	handoffAck := mustPatch(t, store, actor, handoff.RecordID, workbook.HandoffViewSchemaID, 1, "txn-workbook_interaction-collaboration-handoff-ack",
-		ValueChange("handoff.acknowledged_at", workbook.ValueChange{Kind: "timestamp", Timestamp: &acknowledgedAt}))
+	handoffAck := mustPatch(t, store, actor, handoff.RecordID, artifacts.HandoffViewSchemaID, 1, "txn-workbook_interaction-collaboration-handoff-ack",
+		ValueChange("handoff.acknowledged_at", workbookroutetest.ValueChange{Kind: "timestamp", Timestamp: &acknowledgedAt}))
 	requireCoordinationCellValue(t, handoffAck.Payload["row"].(map[string]any), "handoff.ack_state", "acknowledged")
-	handoffClear := mustPatch(t, store, actor, handoff.RecordID, workbook.HandoffViewSchemaID, 2, "txn-workbook_interaction-collaboration-handoff-clear-ack",
-		ValueChange("handoff.acknowledged_at", workbook.ValueChange{Kind: "null"}))
+	handoffClear := mustPatch(t, store, actor, handoff.RecordID, artifacts.HandoffViewSchemaID, 2, "txn-workbook_interaction-collaboration-handoff-clear-ack",
+		ValueChange("handoff.acknowledged_at", workbookroutetest.ValueChange{Kind: "null"}))
 	requireCoordinationCellValue(t, handoffClear.Payload["row"].(map[string]any), "handoff.ack_state", "pending")
 
-	status := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-defaults", map[string]workbook.ValueChange{
+	status := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-defaults", map[string]workbookroutetest.ValueChange{
 		"status_review.current_state_summary": Text("Containment is stable"),
 	}, nil, Time(2*time.Hour))
 	statusRow := status.Payload["row"].(map[string]any)
@@ -155,7 +157,7 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, statusRow, "status_review.pending_evidence_ids", 0)
 	requireCoordinationCollectionItemCount(t, statusRow, "status_review.open_decision_ids", 0)
 
-	lesson := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-defaults", map[string]workbook.ValueChange{
+	lesson := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-defaults", map[string]workbookroutetest.ValueChange{
 		"lesson.summary": Text("Preserve VPN logs earlier"),
 	}, nil, Time(3*time.Hour))
 	lessonRow := lesson.Payload["row"].(map[string]any)
@@ -167,8 +169,8 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, lessonRow, "lesson.follow_up_task_ids", 0)
 	requireCoordinationCollectionItemCount(t, lessonRow, "lesson.evidence_refs", 0)
 	beforeLessonVersion := RecordVersion(t, harness.DB, lesson.RecordID)
-	_, err = Patch(store, actor, lesson.RecordID, workbook.LessonViewSchemaID, beforeLessonVersion, "txn-workbook_interaction-collaboration-lesson-invalid-closure",
-		ValueChange("lesson.closure_state", workbook.ValueChange{Kind: "text", Text: stringPtr("archived")}))
+	_, err = Patch(store, actor, lesson.RecordID, artifacts.LessonViewSchemaID, beforeLessonVersion, "txn-workbook_interaction-collaboration-lesson-invalid-closure",
+		ValueChange("lesson.closure_state", workbookroutetest.ValueChange{Kind: "text", Text: stringPtr("archived")}))
 	requireMutationValidation(t, err, "lesson.closure_state", "invalid_value")
 	if got := RecordVersion(t, harness.DB, lesson.RecordID); got != beforeLessonVersion {
 		t.Fatalf("invalid lesson closure state changed row version: got %d want %d", got, beforeLessonVersion)
@@ -188,7 +190,7 @@ func TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit(t *testing.T) {
 		Cookies:          []*http.Cookie{login.SessionCookie},
 		ClientInstanceID: "workbook_interaction-collaboration-rejected-create-listener",
 		Presence: platformws.PresenceInput{
-			SheetRef: map[string]string{"kind": "view_schema", "id": workbook.CommLogViewSchemaID},
+			SheetRef: map[string]string{"kind": "view_schema", "id": artifacts.CommLogViewSchemaID},
 			Mode:     "viewing",
 		},
 	})
@@ -200,10 +202,10 @@ func TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit(t *testing.T) {
 		clientTxnID  string
 		wantField    string
 	}{
-		{viewSchemaID: workbook.CommLogViewSchemaID, artifactType: "comm_log", clientTxnID: "txn-workbook_interaction-collaboration-zero-field-comm", wantField: "comm_log.comm_type"},
-		{viewSchemaID: workbook.HandoffViewSchemaID, artifactType: "handoff", clientTxnID: "txn-workbook_interaction-collaboration-zero-field-handoff", wantField: "handoff.incoming_owner_user_id"},
-		{viewSchemaID: workbook.StatusReviewViewSchemaID, artifactType: "status_review", clientTxnID: "txn-workbook_interaction-collaboration-zero-field-status", wantField: "status_review.current_state_summary"},
-		{viewSchemaID: workbook.LessonViewSchemaID, artifactType: "lesson", clientTxnID: "txn-workbook_interaction-collaboration-zero-field-lesson", wantField: "lesson.summary"},
+		{viewSchemaID: artifacts.CommLogViewSchemaID, artifactType: "comm_log", clientTxnID: "txn-workbook_interaction-collaboration-zero-field-comm", wantField: "comm_log.comm_type"},
+		{viewSchemaID: artifacts.HandoffViewSchemaID, artifactType: "handoff", clientTxnID: "txn-workbook_interaction-collaboration-zero-field-handoff", wantField: "handoff.incoming_owner_user_id"},
+		{viewSchemaID: artifacts.StatusReviewViewSchemaID, artifactType: "status_review", clientTxnID: "txn-workbook_interaction-collaboration-zero-field-status", wantField: "status_review.current_state_summary"},
+		{viewSchemaID: artifacts.LessonViewSchemaID, artifactType: "lesson", clientTxnID: "txn-workbook_interaction-collaboration-zero-field-lesson", wantField: "lesson.summary"},
 	} {
 		t.Run(tc.viewSchemaID, func(t *testing.T) {
 			before := countSQLDurableState(t, harness.DB, incidentID)
@@ -243,13 +245,13 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 		harness.Pool,
 		workbookstartup.NewWorkspaceRegistryFromPublication(nil),
 	)
-	workbookStore := appsupport.NewWorkbookStore(harness.Pool, workbookTestConflictTokens())
+	workbookStore := appsupport.NewWorkbookCatalog(harness.Pool, workbookTestConflictTokens())
 
 	for _, viewSchemaID := range []string{
-		workbook.CommLogViewSchemaID,
-		workbook.HandoffViewSchemaID,
-		workbook.StatusReviewViewSchemaID,
-		workbook.LessonViewSchemaID,
+		artifacts.CommLogViewSchemaID,
+		artifacts.HandoffViewSchemaID,
+		artifacts.StatusReviewViewSchemaID,
+		artifacts.LessonViewSchemaID,
 	} {
 		t.Run(viewSchemaID, func(t *testing.T) {
 			response := appsupport.DoJSON(
@@ -323,12 +325,12 @@ func DefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMeta {
 
 func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-projections")
-	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
+	store := appsupport.NewWorkbookCatalog(harness.DB, workbookTestConflictTokens())
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-projection@example.test", "Collaboration Projection", "CollaborationProjection1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-projection-incident", "IR-COLLABORATION-PROJECTION", "Workbook inspector collaboration workflow coordination projections")
 
 	commOneNextReport := time.Date(2026, 5, 20, 9, 0, 0, 0, time.UTC)
-	_ = mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-projection-one", map[string]workbook.ValueChange{
+	_ = mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-projection-one", map[string]workbookroutetest.ValueChange{
 		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 18, 9, 0, 0, 0, time.UTC)),
 		"comm_log.comm_type":          Text("briefing"),
 		"comm_log.audience":           Text("Leads"),
@@ -338,7 +340,7 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 		"comm_log.privilege_tag":      Text("internal"),
 	}, nil, Time(0))
 	commTwoNextReport := time.Date(2026, 5, 21, 9, 0, 0, 0, time.UTC)
-	commTwo := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-projection-two", map[string]workbook.ValueChange{
+	commTwo := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-projection-two", map[string]workbookroutetest.ValueChange{
 		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 19, 9, 0, 0, 0, time.UTC)),
 		"comm_log.comm_type":          Text("notification"),
 		"comm_log.audience":           Text("Duty managers"),
@@ -346,7 +348,7 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 		"comm_log.summary":            Text("Projection notification"),
 		"comm_log.next_report_at":     Timestamp(commTwoNextReport),
 	}, nil, Time(time.Minute))
-	requireProjectedRow(t, store, incident.ID, workbook.CommLogViewSchemaID, viewschema.QueryMeta{
+	requireProjectedRow(t, store, incident.ID, artifacts.CommLogViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{
 			{FieldKey: "comm_log.comm_type", Op: "eq", Arg: map[string]any{"value": "notification"}},
 			{FieldKey: "comm_log.timestamp_day", Op: "eq", Arg: map[string]any{"value": "2026-05-19"}},
@@ -356,19 +358,19 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 		GroupBy: StringPtr("comm_log.comm_type"),
 	}, commTwo.RecordID, "comm_log.comm_type", "notification")
 
-	handoffPending := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-projection-pending", map[string]workbook.ValueChange{
+	handoffPending := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-projection-pending", map[string]workbookroutetest.ValueChange{
 		"handoff.timestamp_utc":          Timestamp(time.Date(2026, 5, 18, 10, 0, 0, 0, time.UTC)),
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  Text("Pending projection handoff"),
 	}, nil, Time(2*time.Minute))
 	acknowledgedAt := time.Date(2026, 5, 19, 11, 0, 0, 0, time.UTC)
-	handoffAck := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-projection-ack", map[string]workbook.ValueChange{
+	handoffAck := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-projection-ack", map[string]workbookroutetest.ValueChange{
 		"handoff.timestamp_utc":          Timestamp(time.Date(2026, 5, 19, 10, 0, 0, 0, time.UTC)),
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  Text("Acknowledged projection handoff"),
 		"handoff.acknowledged_at":        Timestamp(acknowledgedAt),
 	}, nil, Time(3*time.Minute))
-	requireProjectedRow(t, store, incident.ID, workbook.HandoffViewSchemaID, viewschema.QueryMeta{
+	requireProjectedRow(t, store, incident.ID, artifacts.HandoffViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{
 			{FieldKey: "handoff.incoming_owner_user_id", Op: "eq", Arg: map[string]any{"value": actor.ID.String()}},
 			{FieldKey: "handoff.ack_state", Op: "eq", Arg: map[string]any{"value": "acknowledged"}},
@@ -377,14 +379,14 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 		Sort:    []viewschema.SortEntry{{FieldKey: "handoff.outgoing_owner_user_id", Direction: "asc"}, {FieldKey: "record_id", Direction: "asc"}},
 		GroupBy: StringPtr("handoff.ack_state"),
 	}, handoffAck.RecordID, "handoff.ack_state", "acknowledged")
-	ackAsc, err := store.QueryRows(context.Background(), incident.ID, workbook.HandoffViewSchemaID, viewschema.QueryMeta{
+	ackAsc, err := store.QueryRows(context.Background(), incident.ID, artifacts.HandoffViewSchemaID, viewschema.QueryMeta{
 		Sort: []viewschema.SortEntry{{FieldKey: "handoff.ack_state", Direction: "asc"}, {FieldKey: "record_id", Direction: "asc"}},
 	})
 	if err != nil {
 		t.Fatalf("query handoff ack_state ascending order: %v", err)
 	}
 	requireRecordOrder(t, ackAsc, []uuid.UUID{handoffPending.RecordID, handoffAck.RecordID})
-	ackDesc, err := store.QueryRows(context.Background(), incident.ID, workbook.HandoffViewSchemaID, viewschema.QueryMeta{
+	ackDesc, err := store.QueryRows(context.Background(), incident.ID, artifacts.HandoffViewSchemaID, viewschema.QueryMeta{
 		Sort: []viewschema.SortEntry{{FieldKey: "handoff.ack_state", Direction: "desc"}, {FieldKey: "record_id", Direction: "asc"}},
 	})
 	if err != nil {
@@ -392,18 +394,18 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 	}
 	requireRecordOrder(t, ackDesc, []uuid.UUID{handoffAck.RecordID, handoffPending.RecordID})
 
-	_ = mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-projection-one", map[string]workbook.ValueChange{
+	_ = mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-projection-one", map[string]workbookroutetest.ValueChange{
 		"status_review.timestamp_utc":         Timestamp(time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC)),
 		"status_review.current_state_summary": Text("Status review baseline"),
 	}, nil, Time(4*time.Minute))
 	statusNextReport := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
-	status := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-projection-two", map[string]workbook.ValueChange{
+	status := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-projection-two", map[string]workbookroutetest.ValueChange{
 		"status_review.timestamp_utc":         Timestamp(time.Date(2026, 5, 19, 12, 0, 0, 0, time.UTC)),
 		"status_review.review_owner_user_id":  UUID(actor.ID),
 		"status_review.current_state_summary": Text("Status review next report"),
 		"status_review.next_report_at":        Timestamp(statusNextReport),
 	}, nil, Time(5*time.Minute))
-	requireProjectedRow(t, store, incident.ID, workbook.StatusReviewViewSchemaID, viewschema.QueryMeta{
+	requireProjectedRow(t, store, incident.ID, artifacts.StatusReviewViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{
 			{FieldKey: "status_review.review_owner_user_id", Op: "eq", Arg: map[string]any{"value": actor.ID.String()}},
 			{FieldKey: "status_review.timestamp_day", Op: "eq", Arg: map[string]any{"value": "2026-05-19"}},
@@ -413,17 +415,17 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 		GroupBy: StringPtr("status_review.review_owner_user_id"),
 	}, status.RecordID, "status_review.review_owner_user_id", actor.ID.String())
 
-	_ = mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-projection-open", map[string]workbook.ValueChange{
+	_ = mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-projection-open", map[string]workbookroutetest.ValueChange{
 		"lesson.timestamp_utc": Timestamp(time.Date(2026, 5, 18, 13, 0, 0, 0, time.UTC)),
 		"lesson.summary":       Text("Open lesson projection"),
 	}, nil, Time(6*time.Minute))
-	lesson := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-projection-closed", map[string]workbook.ValueChange{
+	lesson := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-projection-closed", map[string]workbookroutetest.ValueChange{
 		"lesson.timestamp_utc": Timestamp(time.Date(2026, 5, 19, 13, 0, 0, 0, time.UTC)),
 		"lesson.summary":       Text("Closed lesson projection"),
 		"lesson.owner_user_id": UUID(actor.ID),
 		"lesson.closure_state": Text("closed"),
 	}, nil, Time(7*time.Minute))
-	requireProjectedRow(t, store, incident.ID, workbook.LessonViewSchemaID, viewschema.QueryMeta{
+	requireProjectedRow(t, store, incident.ID, artifacts.LessonViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{
 			{FieldKey: "lesson.closure_state", Op: "eq", Arg: map[string]any{"value": "closed"}},
 			{FieldKey: "lesson.owner_user_id", Op: "eq", Arg: map[string]any{"value": actor.ID.String()}},
@@ -436,33 +438,33 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 
 func TestCoordinationDeclaredQueryFieldsAreMapped_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-query-fields")
-	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
+	store := appsupport.NewWorkbookCatalog(harness.DB, workbookTestConflictTokens())
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-query-fields@example.test", "Collaboration Query Fields", "CollaborationQueryFields1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-query-fields-incident", "IR-COLLABORATION-QUERY-FIELDS", "Workbook inspector collaboration workflow declared query fields")
 
-	mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-comm", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-comm", map[string]workbookroutetest.ValueChange{
 		"comm_log.comm_type":          Text("briefing"),
 		"comm_log.audience":           Text("Query field audience"),
 		"comm_log.channel_or_meeting": Text("Bridge"),
 		"comm_log.summary":            Text("Query field comm log"),
 		"comm_log.privilege_tag":      Text("internal"),
 	}, nil, Time(0))
-	mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-handoff", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-handoff", map[string]workbookroutetest.ValueChange{
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  Text("Query field handoff"),
 	}, nil, Time(time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-status", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-status", map[string]workbookroutetest.ValueChange{
 		"status_review.current_state_summary": Text("Query field status review"),
 	}, nil, Time(2*time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-lesson", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-lesson", map[string]workbookroutetest.ValueChange{
 		"lesson.summary": Text("Query field lesson"),
 	}, nil, Time(3*time.Minute))
 
 	for _, viewSchemaID := range []string{
-		workbook.CommLogViewSchemaID,
-		workbook.HandoffViewSchemaID,
-		workbook.StatusReviewViewSchemaID,
-		workbook.LessonViewSchemaID,
+		artifacts.CommLogViewSchemaID,
+		artifacts.HandoffViewSchemaID,
+		artifacts.StatusReviewViewSchemaID,
+		artifacts.LessonViewSchemaID,
 	} {
 		t.Run(viewSchemaID, func(t *testing.T) {
 			schema, ok := viewschema.Lookup(viewSchemaID)
@@ -506,14 +508,14 @@ func TestCoordinationDeclaredQueryFieldsAreMapped_Unit(t *testing.T) {
 
 func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-semantic-filters")
-	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
+	store := appsupport.NewWorkbookCatalog(harness.DB, workbookTestConflictTokens())
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-filters@example.test", "Collaboration Filters", "CollaborationFilters1!", false, false, true)
 	alternate := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-filters-alt@example.test", "Collaboration Filters Alt", "CollaborationFiltersAlt1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-filters-incident", "IR-COLLABORATION-FILTERS", "Workbook inspector collaboration workflow semantic filters")
-	_, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
-		ViewSchemaID: workbook.HandoffViewSchemaID,
+	_, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), actor, incident.ID, workbookroutetest.CreateRequest{
+		ViewSchemaID: artifacts.HandoffViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-collaboration-filter-nonmember-owner",
-		Values: map[string]workbook.ValueChange{
+		Values: map[string]workbookroutetest.ValueChange{
 			"handoff.incoming_owner_user_id": UUID(alternate.ID),
 			"handoff.current_state_summary":  Text("Non-member owner must fail"),
 		},
@@ -521,7 +523,7 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 	requireMutationValidation(t, err, "handoff.incoming_owner_user_id", "invalid_value")
 	incidentstoretest.SeedMembership(t, harness.DB, incident.ID, alternate.ID, alternate.DisplayName, "editor", actor.ID)
 
-	commPositive := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-filter-comm-positive", map[string]workbook.ValueChange{
+	commPositive := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-filter-comm-positive", map[string]workbookroutetest.ValueChange{
 		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 19, 9, 0, 0, 0, time.UTC)),
 		"comm_log.comm_type":          Text("notification"),
 		"comm_log.audience":           Text("Incident Command"),
@@ -530,7 +532,7 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 		"comm_log.next_report_at":     Timestamp(time.Date(2026, 5, 22, 9, 0, 0, 0, time.UTC)),
 		"comm_log.privilege_tag":      Text("privileged"),
 	}, nil, Time(0))
-	mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-filter-comm-negative", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-filter-comm-negative", map[string]workbookroutetest.ValueChange{
 		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 20, 9, 0, 0, 0, time.UTC)),
 		"comm_log.comm_type":          Text("briefing"),
 		"comm_log.audience":           Text("Engineering"),
@@ -540,40 +542,40 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 		"comm_log.privilege_tag":      Text("public"),
 	}, nil, Time(time.Minute))
 
-	handoffPositive := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-filter-handoff-positive", map[string]workbook.ValueChange{
+	handoffPositive := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-filter-handoff-positive", map[string]workbookroutetest.ValueChange{
 		"handoff.timestamp_utc":          Timestamp(time.Date(2026, 5, 19, 10, 0, 0, 0, time.UTC)),
 		"handoff.outgoing_owner_user_id": UUID(actor.ID),
 		"handoff.incoming_owner_user_id": UUID(alternate.ID),
 		"handoff.current_state_summary":  Text("Semantic filter positive handoff"),
 		"handoff.acknowledged_at":        Timestamp(time.Date(2026, 5, 19, 11, 0, 0, 0, time.UTC)),
 	}, nil, Time(2*time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-filter-handoff-negative", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-filter-handoff-negative", map[string]workbookroutetest.ValueChange{
 		"handoff.timestamp_utc":          Timestamp(time.Date(2026, 5, 20, 10, 0, 0, 0, time.UTC)),
 		"handoff.outgoing_owner_user_id": UUID(alternate.ID),
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  Text("Semantic filter negative handoff"),
 	}, nil, Time(3*time.Minute))
 
-	statusPositive := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-filter-status-positive", map[string]workbook.ValueChange{
+	statusPositive := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-filter-status-positive", map[string]workbookroutetest.ValueChange{
 		"status_review.timestamp_utc":         Timestamp(time.Date(2026, 5, 19, 12, 0, 0, 0, time.UTC)),
 		"status_review.review_owner_user_id":  UUID(actor.ID),
 		"status_review.current_state_summary": Text("Semantic filter positive status"),
 		"status_review.next_report_at":        Timestamp(time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)),
 	}, nil, Time(4*time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-filter-status-negative", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-filter-status-negative", map[string]workbookroutetest.ValueChange{
 		"status_review.timestamp_utc":         Timestamp(time.Date(2026, 5, 20, 12, 0, 0, 0, time.UTC)),
 		"status_review.review_owner_user_id":  UUID(alternate.ID),
 		"status_review.current_state_summary": Text("Semantic filter negative status"),
 		"status_review.next_report_at":        Timestamp(time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC)),
 	}, nil, Time(5*time.Minute))
 
-	lessonPositive := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-filter-lesson-positive", map[string]workbook.ValueChange{
+	lessonPositive := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-filter-lesson-positive", map[string]workbookroutetest.ValueChange{
 		"lesson.timestamp_utc": Timestamp(time.Date(2026, 5, 19, 13, 0, 0, 0, time.UTC)),
 		"lesson.summary":       Text("Semantic filter positive lesson"),
 		"lesson.owner_user_id": UUID(actor.ID),
 		"lesson.closure_state": Text("closed"),
 	}, nil, Time(6*time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-filter-lesson-negative", map[string]workbook.ValueChange{
+	mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-filter-lesson-negative", map[string]workbookroutetest.ValueChange{
 		"lesson.timestamp_utc": Timestamp(time.Date(2026, 5, 20, 13, 0, 0, 0, time.UTC)),
 		"lesson.summary":       Text("Semantic filter negative lesson"),
 		"lesson.owner_user_id": UUID(alternate.ID),
@@ -588,32 +590,32 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 		value        any
 		wantRecordID uuid.UUID
 	}{
-		{"comm-type-eq", workbook.CommLogViewSchemaID, "comm_log.comm_type", "eq", "notification", commPositive.RecordID},
-		{"comm-type-prefix", workbook.CommLogViewSchemaID, "comm_log.comm_type", "prefix", "not", commPositive.RecordID},
-		{"comm-audience-eq", workbook.CommLogViewSchemaID, "comm_log.audience", "eq", "incident command", commPositive.RecordID},
-		{"comm-audience-prefix", workbook.CommLogViewSchemaID, "comm_log.audience", "prefix", "incident", commPositive.RecordID},
-		{"comm-channel-eq", workbook.CommLogViewSchemaID, "comm_log.channel_or_meeting", "eq", "bridge alpha", commPositive.RecordID},
-		{"comm-channel-prefix", workbook.CommLogViewSchemaID, "comm_log.channel_or_meeting", "prefix", "bridge", commPositive.RecordID},
-		{"comm-privilege-eq", workbook.CommLogViewSchemaID, "comm_log.privilege_tag", "eq", "privileged", commPositive.RecordID},
-		{"comm-privilege-prefix", workbook.CommLogViewSchemaID, "comm_log.privilege_tag", "prefix", "priv", commPositive.RecordID},
-		{"comm-timestamp-day", workbook.CommLogViewSchemaID, "comm_log.timestamp_day", "eq", "2026-05-19", commPositive.RecordID},
-		{"comm-next-report-day", workbook.CommLogViewSchemaID, "comm_log.next_report_day", "eq", "2026-05-22", commPositive.RecordID},
-		{"handoff-outgoing-eq", workbook.HandoffViewSchemaID, "handoff.outgoing_owner_user_id", "eq", actor.ID.String(), handoffPositive.RecordID},
-		{"handoff-outgoing-prefix", workbook.HandoffViewSchemaID, "handoff.outgoing_owner_user_id", "prefix", actor.ID.String()[:8], handoffPositive.RecordID},
-		{"handoff-incoming-eq", workbook.HandoffViewSchemaID, "handoff.incoming_owner_user_id", "eq", alternate.ID.String(), handoffPositive.RecordID},
-		{"handoff-incoming-prefix", workbook.HandoffViewSchemaID, "handoff.incoming_owner_user_id", "prefix", alternate.ID.String()[:8], handoffPositive.RecordID},
-		{"handoff-timestamp-day", workbook.HandoffViewSchemaID, "handoff.timestamp_day", "eq", "2026-05-19", handoffPositive.RecordID},
-		{"handoff-ack-eq", workbook.HandoffViewSchemaID, "handoff.ack_state", "eq", "acknowledged", handoffPositive.RecordID},
-		{"handoff-ack-prefix", workbook.HandoffViewSchemaID, "handoff.ack_state", "prefix", "ack", handoffPositive.RecordID},
-		{"status-owner-eq", workbook.StatusReviewViewSchemaID, "status_review.review_owner_user_id", "eq", actor.ID.String(), statusPositive.RecordID},
-		{"status-owner-prefix", workbook.StatusReviewViewSchemaID, "status_review.review_owner_user_id", "prefix", actor.ID.String()[:8], statusPositive.RecordID},
-		{"status-timestamp-day", workbook.StatusReviewViewSchemaID, "status_review.timestamp_day", "eq", "2026-05-19", statusPositive.RecordID},
-		{"status-next-report-day", workbook.StatusReviewViewSchemaID, "status_review.next_report_day", "eq", "2026-05-22", statusPositive.RecordID},
-		{"lesson-owner-eq", workbook.LessonViewSchemaID, "lesson.owner_user_id", "eq", actor.ID.String(), lessonPositive.RecordID},
-		{"lesson-owner-prefix", workbook.LessonViewSchemaID, "lesson.owner_user_id", "prefix", actor.ID.String()[:8], lessonPositive.RecordID},
-		{"lesson-closure-eq", workbook.LessonViewSchemaID, "lesson.closure_state", "eq", "closed", lessonPositive.RecordID},
-		{"lesson-closure-prefix", workbook.LessonViewSchemaID, "lesson.closure_state", "prefix", "clo", lessonPositive.RecordID},
-		{"lesson-timestamp-day", workbook.LessonViewSchemaID, "lesson.timestamp_day", "eq", "2026-05-19", lessonPositive.RecordID},
+		{"comm-type-eq", artifacts.CommLogViewSchemaID, "comm_log.comm_type", "eq", "notification", commPositive.RecordID},
+		{"comm-type-prefix", artifacts.CommLogViewSchemaID, "comm_log.comm_type", "prefix", "not", commPositive.RecordID},
+		{"comm-audience-eq", artifacts.CommLogViewSchemaID, "comm_log.audience", "eq", "incident command", commPositive.RecordID},
+		{"comm-audience-prefix", artifacts.CommLogViewSchemaID, "comm_log.audience", "prefix", "incident", commPositive.RecordID},
+		{"comm-channel-eq", artifacts.CommLogViewSchemaID, "comm_log.channel_or_meeting", "eq", "bridge alpha", commPositive.RecordID},
+		{"comm-channel-prefix", artifacts.CommLogViewSchemaID, "comm_log.channel_or_meeting", "prefix", "bridge", commPositive.RecordID},
+		{"comm-privilege-eq", artifacts.CommLogViewSchemaID, "comm_log.privilege_tag", "eq", "privileged", commPositive.RecordID},
+		{"comm-privilege-prefix", artifacts.CommLogViewSchemaID, "comm_log.privilege_tag", "prefix", "priv", commPositive.RecordID},
+		{"comm-timestamp-day", artifacts.CommLogViewSchemaID, "comm_log.timestamp_day", "eq", "2026-05-19", commPositive.RecordID},
+		{"comm-next-report-day", artifacts.CommLogViewSchemaID, "comm_log.next_report_day", "eq", "2026-05-22", commPositive.RecordID},
+		{"handoff-outgoing-eq", artifacts.HandoffViewSchemaID, "handoff.outgoing_owner_user_id", "eq", actor.ID.String(), handoffPositive.RecordID},
+		{"handoff-outgoing-prefix", artifacts.HandoffViewSchemaID, "handoff.outgoing_owner_user_id", "prefix", actor.ID.String()[:8], handoffPositive.RecordID},
+		{"handoff-incoming-eq", artifacts.HandoffViewSchemaID, "handoff.incoming_owner_user_id", "eq", alternate.ID.String(), handoffPositive.RecordID},
+		{"handoff-incoming-prefix", artifacts.HandoffViewSchemaID, "handoff.incoming_owner_user_id", "prefix", alternate.ID.String()[:8], handoffPositive.RecordID},
+		{"handoff-timestamp-day", artifacts.HandoffViewSchemaID, "handoff.timestamp_day", "eq", "2026-05-19", handoffPositive.RecordID},
+		{"handoff-ack-eq", artifacts.HandoffViewSchemaID, "handoff.ack_state", "eq", "acknowledged", handoffPositive.RecordID},
+		{"handoff-ack-prefix", artifacts.HandoffViewSchemaID, "handoff.ack_state", "prefix", "ack", handoffPositive.RecordID},
+		{"status-owner-eq", artifacts.StatusReviewViewSchemaID, "status_review.review_owner_user_id", "eq", actor.ID.String(), statusPositive.RecordID},
+		{"status-owner-prefix", artifacts.StatusReviewViewSchemaID, "status_review.review_owner_user_id", "prefix", actor.ID.String()[:8], statusPositive.RecordID},
+		{"status-timestamp-day", artifacts.StatusReviewViewSchemaID, "status_review.timestamp_day", "eq", "2026-05-19", statusPositive.RecordID},
+		{"status-next-report-day", artifacts.StatusReviewViewSchemaID, "status_review.next_report_day", "eq", "2026-05-22", statusPositive.RecordID},
+		{"lesson-owner-eq", artifacts.LessonViewSchemaID, "lesson.owner_user_id", "eq", actor.ID.String(), lessonPositive.RecordID},
+		{"lesson-owner-prefix", artifacts.LessonViewSchemaID, "lesson.owner_user_id", "prefix", actor.ID.String()[:8], lessonPositive.RecordID},
+		{"lesson-closure-eq", artifacts.LessonViewSchemaID, "lesson.closure_state", "eq", "closed", lessonPositive.RecordID},
+		{"lesson-closure-prefix", artifacts.LessonViewSchemaID, "lesson.closure_state", "prefix", "clo", lessonPositive.RecordID},
+		{"lesson-timestamp-day", artifacts.LessonViewSchemaID, "lesson.timestamp_day", "eq", "2026-05-19", lessonPositive.RecordID},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			requireFilterMatchesOnly(t, store, incident.ID, tc.viewSchemaID, viewschema.Filter{
@@ -627,21 +629,21 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 
 func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-collection-shapes")
-	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
+	store := appsupport.NewWorkbookCatalog(harness.DB, workbookTestConflictTokens())
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-shapes@example.test", "Collaboration Shapes", "CollaborationShapes1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-shapes-incident", "IR-COLLABORATION-SHAPES", "Workbook inspector collaboration workflow collection item shapes")
 
-	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-party", "Coordination Shape Party")
-	attendeePartyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-attendee", "Coordination Shape Attendee")
+	partyID := mustCreatePartyFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-party", "Coordination Shape Party")
+	attendeePartyID := mustCreatePartyFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-attendee", "Coordination Shape Attendee")
 	decisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-decision", "approved", "Shape decision")
 	taskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-task", "Shape task")
-	evidenceID := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-evidence", "Shape evidence")
+	evidenceID := mustCreateEvidenceFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-evidence", "Shape evidence")
 
-	comm := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-shapes-comm", MinimumValues(actor.ID, workbook.CommLogViewSchemaID), map[string]workbook.CollectionActionPayload{
+	comm := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-shapes-comm", MinimumValues(actor.ID, artifacts.CommLogViewSchemaID), map[string]workbookroutetest.CollectionActionPayload{
 		"comm_log.decision_ids":       Collection(addOptionalSurfaceRecordRef(decisionID)),
 		"comm_log.action_task_ids":    Collection(addOptionalSurfaceRecordRef(taskID)),
-		"comm_log.audience_party_ids": Collection(workbook.CollectionAction{Op: "add_party_ref", PartyID: &partyID}),
-		"comm_log.attendee_party_ids": Collection(workbook.CollectionAction{Op: "add_party_ref", PartyID: &attendeePartyID}),
+		"comm_log.audience_party_ids": Collection(workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &partyID}),
+		"comm_log.attendee_party_ids": Collection(workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &attendeePartyID}),
 	}, Time(0))
 	commRow := comm.Payload["row"].(map[string]any)
 	requireRecordRefItemShape(t, commRow, "comm_log.decision_ids", decisionID)
@@ -649,17 +651,17 @@ func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
 	requirePartyRefItemShape(t, commRow, "comm_log.audience_party_ids", partyID)
 	requirePartyRefItemShape(t, commRow, "comm_log.attendee_party_ids", attendeePartyID)
 
-	handoff := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-shapes-handoff", MinimumValues(actor.ID, workbook.HandoffViewSchemaID), map[string]workbook.CollectionActionPayload{
+	handoff := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-shapes-handoff", MinimumValues(actor.ID, artifacts.HandoffViewSchemaID), map[string]workbookroutetest.CollectionActionPayload{
 		"handoff.open_task_ids":     Collection(addOptionalSurfaceRecordRef(taskID)),
 		"handoff.open_decision_ids": Collection(addOptionalSurfaceRecordRef(decisionID)),
-		"handoff.open_risk_refs":    {Actions: []workbook.CollectionAction{{Op: "add_risk_ref", RiskRefText: "Escalate outbound access", NormalizedText: "escalate outbound access"}}},
+		"handoff.open_risk_refs":    {Actions: []workbookroutetest.CollectionAction{{Op: "add_risk_ref", RiskRefText: "Escalate outbound access", NormalizedText: "escalate outbound access"}}},
 	}, Time(time.Minute))
 	handoffRow := handoff.Payload["row"].(map[string]any)
 	requireRecordRefItemShape(t, handoffRow, "handoff.open_task_ids", taskID)
 	requireRecordRefItemShape(t, handoffRow, "handoff.open_decision_ids", decisionID)
 	requireRiskRefItemShape(t, handoffRow, "handoff.open_risk_refs", "Escalate outbound access")
 
-	status := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-shapes-status", MinimumValues(actor.ID, workbook.StatusReviewViewSchemaID), map[string]workbook.CollectionActionPayload{
+	status := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-shapes-status", MinimumValues(actor.ID, artifacts.StatusReviewViewSchemaID), map[string]workbookroutetest.CollectionActionPayload{
 		"status_review.blocked_task_ids":     Collection(addOptionalSurfaceRecordRef(taskID)),
 		"status_review.pending_evidence_ids": Collection(addOptionalSurfaceRecordRef(evidenceID)),
 		"status_review.open_decision_ids":    Collection(addOptionalSurfaceRecordRef(decisionID)),
@@ -669,7 +671,7 @@ func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
 	requireRecordRefItemShape(t, statusRow, "status_review.pending_evidence_ids", evidenceID)
 	requireRecordRefItemShape(t, statusRow, "status_review.open_decision_ids", decisionID)
 
-	lesson := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-shapes-lesson", MinimumValues(actor.ID, workbook.LessonViewSchemaID), map[string]workbook.CollectionActionPayload{
+	lesson := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-shapes-lesson", MinimumValues(actor.ID, artifacts.LessonViewSchemaID), map[string]workbookroutetest.CollectionActionPayload{
 		"lesson.follow_up_task_ids": Collection(addOptionalSurfaceRecordRef(taskID)),
 		"lesson.evidence_refs":      Collection(addOptionalSurfaceRecordRef(evidenceID)),
 	}, Time(3*time.Minute))
@@ -680,38 +682,38 @@ func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
 
 func TestCoordinationDuplicateCoalescing_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-duplicate-coalescing")
-	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
+	store := appsupport.NewWorkbookCatalog(harness.DB, workbookTestConflictTokens())
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-duplicates@example.test", "Collaboration Duplicates", "CollaborationDuplicates1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-duplicates-incident", "IR-COLLABORATION-DUPLICATES", "Workbook inspector collaboration workflow duplicate coalescing")
 
-	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-duplicates-party", "Duplicate Party")
+	partyID := mustCreatePartyFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-duplicates-party", "Duplicate Party")
 	decisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-duplicates-decision", "approved", "Duplicate decision")
 	taskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-duplicates-task", "Duplicate task")
-	evidenceID := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-duplicates-evidence", "Duplicate evidence")
+	evidenceID := mustCreateEvidenceFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-duplicates-evidence", "Duplicate evidence")
 
 	for _, tc := range []struct {
 		name         string
 		viewSchemaID string
 		fieldKey     string
-		action       workbook.CollectionAction
+		action       workbookroutetest.CollectionAction
 		wantLinkID   uuid.UUID
 	}{
-		{"comm-decision", workbook.CommLogViewSchemaID, "comm_log.decision_ids", addOptionalSurfaceRecordRef(decisionID), decisionID},
-		{"comm-task", workbook.CommLogViewSchemaID, "comm_log.action_task_ids", addOptionalSurfaceRecordRef(taskID), taskID},
-		{"comm-audience-party", workbook.CommLogViewSchemaID, "comm_log.audience_party_ids", workbook.CollectionAction{Op: "add_party_ref", PartyID: &partyID}, partyID},
-		{"comm-attendee-party", workbook.CommLogViewSchemaID, "comm_log.attendee_party_ids", workbook.CollectionAction{Op: "add_party_ref", PartyID: &partyID}, partyID},
-		{"handoff-task", workbook.HandoffViewSchemaID, "handoff.open_task_ids", addOptionalSurfaceRecordRef(taskID), taskID},
-		{"handoff-decision", workbook.HandoffViewSchemaID, "handoff.open_decision_ids", addOptionalSurfaceRecordRef(decisionID), decisionID},
-		{"status-task", workbook.StatusReviewViewSchemaID, "status_review.blocked_task_ids", addOptionalSurfaceRecordRef(taskID), taskID},
-		{"status-evidence", workbook.StatusReviewViewSchemaID, "status_review.pending_evidence_ids", addOptionalSurfaceRecordRef(evidenceID), evidenceID},
-		{"status-decision", workbook.StatusReviewViewSchemaID, "status_review.open_decision_ids", addOptionalSurfaceRecordRef(decisionID), decisionID},
-		{"lesson-task", workbook.LessonViewSchemaID, "lesson.follow_up_task_ids", addOptionalSurfaceRecordRef(taskID), taskID},
-		{"lesson-evidence", workbook.LessonViewSchemaID, "lesson.evidence_refs", addOptionalSurfaceRecordRef(evidenceID), evidenceID},
+		{"comm-decision", artifacts.CommLogViewSchemaID, "comm_log.decision_ids", addOptionalSurfaceRecordRef(decisionID), decisionID},
+		{"comm-task", artifacts.CommLogViewSchemaID, "comm_log.action_task_ids", addOptionalSurfaceRecordRef(taskID), taskID},
+		{"comm-audience-party", artifacts.CommLogViewSchemaID, "comm_log.audience_party_ids", workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &partyID}, partyID},
+		{"comm-attendee-party", artifacts.CommLogViewSchemaID, "comm_log.attendee_party_ids", workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &partyID}, partyID},
+		{"handoff-task", artifacts.HandoffViewSchemaID, "handoff.open_task_ids", addOptionalSurfaceRecordRef(taskID), taskID},
+		{"handoff-decision", artifacts.HandoffViewSchemaID, "handoff.open_decision_ids", addOptionalSurfaceRecordRef(decisionID), decisionID},
+		{"status-task", artifacts.StatusReviewViewSchemaID, "status_review.blocked_task_ids", addOptionalSurfaceRecordRef(taskID), taskID},
+		{"status-evidence", artifacts.StatusReviewViewSchemaID, "status_review.pending_evidence_ids", addOptionalSurfaceRecordRef(evidenceID), evidenceID},
+		{"status-decision", artifacts.StatusReviewViewSchemaID, "status_review.open_decision_ids", addOptionalSurfaceRecordRef(decisionID), decisionID},
+		{"lesson-task", artifacts.LessonViewSchemaID, "lesson.follow_up_task_ids", addOptionalSurfaceRecordRef(taskID), taskID},
+		{"lesson-evidence", artifacts.LessonViewSchemaID, "lesson.evidence_refs", addOptionalSurfaceRecordRef(evidenceID), evidenceID},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			clientTxnID := "txn-workbook_interaction-collaboration-duplicates-" + tc.name
 			values := MinimumValues(actor.ID, tc.viewSchemaID)
-			collections := map[string]workbook.CollectionActionPayload{
+			collections := map[string]workbookroutetest.CollectionActionPayload{
 				tc.fieldKey: Collection(tc.action, tc.action),
 			}
 			result := mustCreateRow(t, store, actor, incident.ID, tc.viewSchemaID, clientTxnID, values, collections, Time(0))
@@ -733,22 +735,22 @@ func TestCoordinationDuplicateCoalescing_Unit(t *testing.T) {
 	}
 
 	riskClientTxnID := "txn-workbook_interaction-collaboration-duplicates-risk"
-	riskValues := MinimumValues(actor.ID, workbook.HandoffViewSchemaID)
-	riskCollections := map[string]workbook.CollectionActionPayload{
+	riskValues := MinimumValues(actor.ID, artifacts.HandoffViewSchemaID)
+	riskCollections := map[string]workbookroutetest.CollectionActionPayload{
 		"handoff.open_risk_refs": {
-			Actions: []workbook.CollectionAction{
+			Actions: []workbookroutetest.CollectionAction{
 				{Op: "add_risk_ref", RiskRefText: " Repeated risk reference ", NormalizedText: "repeated risk reference"},
 				{Op: "add_risk_ref", RiskRefText: "Repeated risk reference", NormalizedText: "repeated risk reference"},
 			},
 		},
 	}
-	handoff := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, riskClientTxnID, riskValues, riskCollections, Time(time.Minute))
+	handoff := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, riskClientTxnID, riskValues, riskCollections, Time(time.Minute))
 	requireCoordinationCollectionItemCount(t, handoff.Payload["row"].(map[string]any), "handoff.open_risk_refs", 1)
 	if got := countActiveRiskRefs(t, harness, handoff.RecordID); got != 1 {
 		t.Fatalf("handoff risk duplicate create refs: got %d want 1", got)
 	}
 
-	riskReplay := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, riskClientTxnID, riskValues, riskCollections, Time(31*time.Minute))
+	riskReplay := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, riskClientTxnID, riskValues, riskCollections, Time(31*time.Minute))
 	if riskReplay.RecordID != handoff.RecordID {
 		t.Fatalf("handoff risk replay record_id: got %s want %s", riskReplay.RecordID, handoff.RecordID)
 	}
@@ -761,25 +763,25 @@ func TestCoordinationDuplicateCoalescing_Unit(t *testing.T) {
 func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-collections")
-	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
+	store := appsupport.NewWorkbookCatalog(harness.DB, workbookTestConflictTokens())
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-collections@example.test", "Collaboration Collections", "CollaborationCollections1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-collections-incident", "IR-COLLABORATION-COLLECTIONS", "Workbook inspector collaboration workflow coordination collections")
 
-	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-party", "Coordination Legal")
-	otherPartyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-party-other", "Coordination Legal Alternate")
+	partyID := mustCreatePartyFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-party", "Coordination Legal")
+	otherPartyID := mustCreatePartyFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-party-other", "Coordination Legal Alternate")
 	decisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-decision", "approved", "Approve coordination plan")
 	taskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-task", "Coordinate endpoint logs")
-	evidenceID := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-evidence", "Coordination evidence")
+	evidenceID := mustCreateEvidenceFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-evidence", "Coordination evidence")
 
 	otherIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-foreign-incident", "IR-COLLABORATION-COLLECTIONS-FOREIGN", "Workbook inspector collaboration workflow foreign incident")
-	foreignEvidenceID := mustCreateEvidenceFor(t, store, actor, otherIncident.ID, "txn-workbook_interaction-collaboration-foreign-evidence", "Foreign evidence")
+	foreignEvidenceID := mustCreateEvidenceFor(t, harness.DB, actor, otherIncident.ID, "txn-workbook_interaction-collaboration-foreign-evidence", "Foreign evidence")
 	foreignTaskID := mustCreateTaskFor(t, store, actor, otherIncident.ID, "txn-workbook_interaction-collaboration-foreign-task", "Foreign task")
 	foreignDecisionID := mustCreateDecision(t, store, actor, otherIncident.ID, "txn-workbook_interaction-collaboration-foreign-decision", "approved", "Foreign decision")
-	foreignPartyID := mustCreatePartyFor(t, store, actor, otherIncident.ID, "txn-workbook_interaction-collaboration-foreign-party", "Foreign party")
-	deletedEvidenceID := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-deleted-evidence", "Deleted evidence")
+	foreignPartyID := mustCreatePartyFor(t, harness.DB, actor, otherIncident.ID, "txn-workbook_interaction-collaboration-foreign-party", "Foreign party")
+	deletedEvidenceID := mustCreateEvidenceFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-deleted-evidence", "Deleted evidence")
 	deletedTaskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-deleted-task", "Deleted task")
 	deletedDecisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-deleted-decision", "approved", "Deleted decision")
-	deletedPartyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-deleted-party", "Deleted party")
+	deletedPartyID := mustCreatePartyFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-deleted-party", "Deleted party")
 	for label, recordID := range map[string]uuid.UUID{
 		"evidence": deletedEvidenceID,
 		"task":     deletedTaskID,
@@ -805,15 +807,15 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 		fieldKey     string
 		targetType   string
 	}{
-		{workbook.CommLogViewSchemaID, "comm_log.decision_ids", "decision"},
-		{workbook.CommLogViewSchemaID, "comm_log.action_task_ids", "task_request"},
-		{workbook.HandoffViewSchemaID, "handoff.open_task_ids", "task_request"},
-		{workbook.HandoffViewSchemaID, "handoff.open_decision_ids", "decision"},
-		{workbook.StatusReviewViewSchemaID, "status_review.blocked_task_ids", "task_request"},
-		{workbook.StatusReviewViewSchemaID, "status_review.pending_evidence_ids", "evidence"},
-		{workbook.StatusReviewViewSchemaID, "status_review.open_decision_ids", "decision"},
-		{workbook.LessonViewSchemaID, "lesson.follow_up_task_ids", "task_request"},
-		{workbook.LessonViewSchemaID, "lesson.evidence_refs", "evidence"},
+		{artifacts.CommLogViewSchemaID, "comm_log.decision_ids", "decision"},
+		{artifacts.CommLogViewSchemaID, "comm_log.action_task_ids", "task_request"},
+		{artifacts.HandoffViewSchemaID, "handoff.open_task_ids", "task_request"},
+		{artifacts.HandoffViewSchemaID, "handoff.open_decision_ids", "decision"},
+		{artifacts.StatusReviewViewSchemaID, "status_review.blocked_task_ids", "task_request"},
+		{artifacts.StatusReviewViewSchemaID, "status_review.pending_evidence_ids", "evidence"},
+		{artifacts.StatusReviewViewSchemaID, "status_review.open_decision_ids", "decision"},
+		{artifacts.LessonViewSchemaID, "lesson.follow_up_task_ids", "task_request"},
+		{artifacts.LessonViewSchemaID, "lesson.evidence_refs", "evidence"},
 	} {
 		for _, invalid := range []struct {
 			name string
@@ -825,11 +827,11 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 		} {
 			before := countDurableState(t, harness, incident.ID)
 			clientTxnID := "txn-workbook_interaction-collaboration-invalid-" + strings.ReplaceAll(field.fieldKey, ".", "-") + "-" + invalid.name
-			_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+			_, err := workbookroutetest.CreateWorkbookRow(store, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
 				ViewSchemaID: field.viewSchemaID,
 				ClientTxnID:  clientTxnID,
 				Values:       MinimumValues(actor.ID, field.viewSchemaID),
-				Collections:  map[string]workbook.CollectionActionPayload{field.fieldKey: Collection(addOptionalSurfaceRecordRef(invalid.id))},
+				Collections:  map[string]workbookroutetest.CollectionActionPayload{field.fieldKey: Collection(addOptionalSurfaceRecordRef(invalid.id))},
 			}, []byte(clientTxnID), "req-"+clientTxnID, Time(2*time.Hour))
 			requireMutationValidation(t, err, field.fieldKey, "invalid_value")
 			requireDurableState(t, harness, incident.ID, before, field.fieldKey+" "+invalid.name)
@@ -847,26 +849,26 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 		} {
 			before := countDurableState(t, harness, incident.ID)
 			clientTxnID := "txn-workbook_interaction-collaboration-invalid-" + strings.ReplaceAll(fieldKey, ".", "-") + "-" + invalid.name
-			_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
-				ViewSchemaID: workbook.CommLogViewSchemaID,
+			_, err := workbookroutetest.CreateWorkbookRow(store, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
+				ViewSchemaID: artifacts.CommLogViewSchemaID,
 				ClientTxnID:  clientTxnID,
-				Values:       MinimumValues(actor.ID, workbook.CommLogViewSchemaID),
-				Collections:  map[string]workbook.CollectionActionPayload{fieldKey: Collection(workbook.CollectionAction{Op: "add_party_ref", PartyID: &invalid.id})},
+				Values:       MinimumValues(actor.ID, artifacts.CommLogViewSchemaID),
+				Collections:  map[string]workbookroutetest.CollectionActionPayload{fieldKey: Collection(workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &invalid.id})},
 			}, []byte(clientTxnID), "req-"+clientTxnID, Time(3*time.Hour))
 			requireMutationValidation(t, err, fieldKey, "invalid_value")
 			requireDurableState(t, harness, incident.ID, before, fieldKey+" "+invalid.name)
 		}
 	}
 
-	comm := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-collections", map[string]workbook.ValueChange{
+	comm := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-collections", map[string]workbookroutetest.ValueChange{
 		"comm_log.comm_type":          Text("briefing"),
 		"comm_log.audience":           Text("Leadership source text"),
 		"comm_log.channel_or_meeting": Text("Bridge"),
 		"comm_log.summary":            Text("Collection coordination update"),
-	}, map[string]workbook.CollectionActionPayload{
+	}, map[string]workbookroutetest.CollectionActionPayload{
 		"comm_log.decision_ids":       Collection(addOptionalSurfaceRecordRef(decisionID), addOptionalSurfaceRecordRef(decisionID)),
 		"comm_log.action_task_ids":    Collection(addOptionalSurfaceRecordRef(taskID), addOptionalSurfaceRecordRef(taskID)),
-		"comm_log.audience_party_ids": Collection(workbook.CollectionAction{Op: "add_party_ref", PartyID: &partyID}, workbook.CollectionAction{Op: "add_party_ref", PartyID: &partyID}),
+		"comm_log.audience_party_ids": Collection(workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &partyID}, workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &partyID}),
 	}, Time(4*time.Hour))
 	commRow := comm.Payload["row"].(map[string]any)
 	requireCoordinationCellValue(t, commRow, "comm_log.audience", "Leadership source text")
@@ -879,21 +881,21 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	requireManualReferenceLink(t, harness, comm.RecordID, taskID, "comm_log.action_task_ids", "references_record")
 	requireManualReferenceLink(t, harness, comm.RecordID, partyID, "comm_log.audience_party_ids", "references_record")
 
-	commWithAttendee := mustPatch(t, store, actor, comm.RecordID, workbook.CommLogViewSchemaID, 1, "txn-workbook_interaction-collaboration-comm-add-attendee",
-		CollectionChange("comm_log.attendee_party_ids", Collection(workbook.CollectionAction{Op: "add_party_ref", PartyID: &otherPartyID})))
+	commWithAttendee := mustPatch(t, store, actor, comm.RecordID, artifacts.CommLogViewSchemaID, 1, "txn-workbook_interaction-collaboration-comm-add-attendee",
+		CollectionChange("comm_log.attendee_party_ids", Collection(workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &otherPartyID})))
 	requireCoordinationCellValue(t, commWithAttendee.Payload["row"].(map[string]any), "comm_log.audience", "Leadership source text")
-	commWithoutAttendee := mustPatch(t, store, actor, comm.RecordID, workbook.CommLogViewSchemaID, 2, "txn-workbook_interaction-collaboration-comm-remove-attendee",
-		CollectionChange("comm_log.attendee_party_ids", Collection(workbook.CollectionAction{Op: "remove_party_ref", ItemRef: "party_ref:" + otherPartyID.String()})))
+	commWithoutAttendee := mustPatch(t, store, actor, comm.RecordID, artifacts.CommLogViewSchemaID, 2, "txn-workbook_interaction-collaboration-comm-remove-attendee",
+		CollectionChange("comm_log.attendee_party_ids", Collection(workbookroutetest.CollectionAction{Op: "remove_party_ref", ItemRef: "party_ref:" + otherPartyID.String()})))
 	requireCoordinationCellValue(t, commWithoutAttendee.Payload["row"].(map[string]any), "comm_log.audience", "Leadership source text")
 
-	handoff := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-collections", map[string]workbook.ValueChange{
+	handoff := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-collections", map[string]workbookroutetest.ValueChange{
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  Text("Open coordination work"),
-	}, map[string]workbook.CollectionActionPayload{
+	}, map[string]workbookroutetest.CollectionActionPayload{
 		"handoff.open_task_ids":     Collection(addOptionalSurfaceRecordRef(taskID)),
 		"handoff.open_decision_ids": Collection(addOptionalSurfaceRecordRef(decisionID)),
 		"handoff.open_risk_refs": {
-			Actions: []workbook.CollectionAction{
+			Actions: []workbookroutetest.CollectionAction{
 				{Op: "add_risk_ref", RiskRefText: " Pending outbound access review ", NormalizedText: "pending outbound access review"},
 				{Op: "add_risk_ref", RiskRefText: "Pending outbound access review", NormalizedText: "pending outbound access review"},
 			},
@@ -911,26 +913,26 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	if got := countLinksForField(t, harness, handoff.RecordID, "handoff.open_risk_refs"); got != 0 {
 		t.Fatalf("risk refs must not create generic record links, got %d", got)
 	}
-	secondHandoff := mustCreateRow(t, store, actor, incident.ID, workbook.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-risk-scoped", map[string]workbook.ValueChange{
+	secondHandoff := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-risk-scoped", map[string]workbookroutetest.ValueChange{
 		"handoff.incoming_owner_user_id": UUID(actor.ID),
 		"handoff.current_state_summary":  Text("Separate handoff same risk text"),
-	}, map[string]workbook.CollectionActionPayload{
-		"handoff.open_risk_refs": {Actions: []workbook.CollectionAction{{Op: "add_risk_ref", RiskRefText: "Pending outbound access review", NormalizedText: "pending outbound access review"}}},
+	}, map[string]workbookroutetest.CollectionActionPayload{
+		"handoff.open_risk_refs": {Actions: []workbookroutetest.CollectionAction{{Op: "add_risk_ref", RiskRefText: "Pending outbound access review", NormalizedText: "pending outbound access review"}}},
 	}, Time(6*time.Hour))
 	secondRiskRef := requireSingleItemRef(t, secondHandoff.Payload["row"].(map[string]any), "handoff.open_risk_refs", "risk_ref:")
 	if got := countActiveRiskRefs(t, harness, secondHandoff.RecordID); got != 1 {
 		t.Fatalf("same risk text must be scoped per handoff: got %d want 1", got)
 	}
-	removedRisk := mustPatch(t, store, actor, handoff.RecordID, workbook.HandoffViewSchemaID, 1, "txn-workbook_interaction-collaboration-handoff-remove-risk",
-		CollectionChange("handoff.open_risk_refs", workbook.CollectionActionPayload{Actions: []workbook.CollectionAction{{Op: "remove_risk_ref", ItemRef: riskRef}}}))
+	removedRisk := mustPatch(t, store, actor, handoff.RecordID, artifacts.HandoffViewSchemaID, 1, "txn-workbook_interaction-collaboration-handoff-remove-risk",
+		CollectionChange("handoff.open_risk_refs", workbookroutetest.CollectionActionPayload{Actions: []workbookroutetest.CollectionAction{{Op: "remove_risk_ref", ItemRef: riskRef}}}))
 	requireCoordinationCollectionItemCount(t, removedRisk.Payload["row"].(map[string]any), "handoff.open_risk_refs", 0)
 	if got := countActiveRiskRefs(t, harness, secondHandoff.RecordID); got != 1 {
 		t.Fatalf("removing one handoff risk ref affected another handoff: got %d want 1", got)
 	}
 
-	status := mustCreateRow(t, store, actor, incident.ID, workbook.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-collections", map[string]workbook.ValueChange{
+	status := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-collections", map[string]workbookroutetest.ValueChange{
 		"status_review.current_state_summary": Text("Status with open coordination work"),
-	}, map[string]workbook.CollectionActionPayload{
+	}, map[string]workbookroutetest.CollectionActionPayload{
 		"status_review.blocked_task_ids":     Collection(addOptionalSurfaceRecordRef(taskID)),
 		"status_review.pending_evidence_ids": Collection(addOptionalSurfaceRecordRef(evidenceID)),
 		"status_review.open_decision_ids":    Collection(addOptionalSurfaceRecordRef(decisionID)),
@@ -940,9 +942,9 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, statusRow, "status_review.pending_evidence_ids", 1)
 	requireCoordinationCollectionItemCount(t, statusRow, "status_review.open_decision_ids", 1)
 
-	lesson := mustCreateRow(t, store, actor, incident.ID, workbook.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-collections", map[string]workbook.ValueChange{
+	lesson := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-collections", map[string]workbookroutetest.ValueChange{
 		"lesson.summary": Text("Follow up on evidence and work"),
-	}, map[string]workbook.CollectionActionPayload{
+	}, map[string]workbookroutetest.CollectionActionPayload{
 		"lesson.follow_up_task_ids": Collection(addOptionalSurfaceRecordRef(taskID)),
 		"lesson.evidence_refs":      Collection(addOptionalSurfaceRecordRef(evidenceID)),
 	}, Time(8*time.Hour))
@@ -956,15 +958,15 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 		fieldKey     string
 		targetType   string
 	}{
-		{workbook.CommLogViewSchemaID, comm.RecordID, "comm_log.decision_ids", "decision"},
-		{workbook.CommLogViewSchemaID, comm.RecordID, "comm_log.action_task_ids", "task_request"},
-		{workbook.HandoffViewSchemaID, handoff.RecordID, "handoff.open_task_ids", "task_request"},
-		{workbook.HandoffViewSchemaID, handoff.RecordID, "handoff.open_decision_ids", "decision"},
-		{workbook.StatusReviewViewSchemaID, status.RecordID, "status_review.blocked_task_ids", "task_request"},
-		{workbook.StatusReviewViewSchemaID, status.RecordID, "status_review.pending_evidence_ids", "evidence"},
-		{workbook.StatusReviewViewSchemaID, status.RecordID, "status_review.open_decision_ids", "decision"},
-		{workbook.LessonViewSchemaID, lesson.RecordID, "lesson.follow_up_task_ids", "task_request"},
-		{workbook.LessonViewSchemaID, lesson.RecordID, "lesson.evidence_refs", "evidence"},
+		{artifacts.CommLogViewSchemaID, comm.RecordID, "comm_log.decision_ids", "decision"},
+		{artifacts.CommLogViewSchemaID, comm.RecordID, "comm_log.action_task_ids", "task_request"},
+		{artifacts.HandoffViewSchemaID, handoff.RecordID, "handoff.open_task_ids", "task_request"},
+		{artifacts.HandoffViewSchemaID, handoff.RecordID, "handoff.open_decision_ids", "decision"},
+		{artifacts.StatusReviewViewSchemaID, status.RecordID, "status_review.blocked_task_ids", "task_request"},
+		{artifacts.StatusReviewViewSchemaID, status.RecordID, "status_review.pending_evidence_ids", "evidence"},
+		{artifacts.StatusReviewViewSchemaID, status.RecordID, "status_review.open_decision_ids", "decision"},
+		{artifacts.LessonViewSchemaID, lesson.RecordID, "lesson.follow_up_task_ids", "task_request"},
+		{artifacts.LessonViewSchemaID, lesson.RecordID, "lesson.evidence_refs", "evidence"},
 	} {
 		for _, invalid := range []struct {
 			name    string
@@ -974,7 +976,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 			{name: "foreign", itemRef: "record_ref:" + invalidTargets[field.targetType].foreign.String()},
 			{name: "deleted", itemRef: "record_ref:" + invalidTargets[field.targetType].deleted.String()},
 		} {
-			requireInvalidCollectionPatch(t, harness, store, actor, incident.ID, field.recordID, field.viewSchemaID, field.fieldKey, Collection(workbook.CollectionAction{Op: "remove_record_ref", ItemRef: invalid.itemRef}), field.fieldKey+" remove "+invalid.name)
+			requireInvalidCollectionPatch(t, harness, store, actor, incident.ID, field.recordID, field.viewSchemaID, field.fieldKey, Collection(workbookroutetest.CollectionAction{Op: "remove_record_ref", ItemRef: invalid.itemRef}), field.fieldKey+" remove "+invalid.name)
 		}
 	}
 
@@ -993,7 +995,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 			{name: "foreign", itemRef: "party_ref:" + foreignPartyID.String()},
 			{name: "deleted", itemRef: "party_ref:" + deletedPartyID.String()},
 		} {
-			requireInvalidCollectionPatch(t, harness, store, actor, incident.ID, field.recordID, workbook.CommLogViewSchemaID, field.fieldKey, Collection(workbook.CollectionAction{Op: "remove_party_ref", ItemRef: invalid.itemRef}), field.fieldKey+" remove "+invalid.name)
+			requireInvalidCollectionPatch(t, harness, store, actor, incident.ID, field.recordID, artifacts.CommLogViewSchemaID, field.fieldKey, Collection(workbookroutetest.CollectionAction{Op: "remove_party_ref", ItemRef: invalid.itemRef}), field.fieldKey+" remove "+invalid.name)
 		}
 	}
 
@@ -1005,13 +1007,13 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 		{name: "deleted", itemRef: riskRef},
 		{name: "invalid", itemRef: "risk_ref:00000000-0000-0000-0000-000000000000"},
 	} {
-		requireInvalidCollectionPatch(t, harness, store, actor, incident.ID, handoff.RecordID, workbook.HandoffViewSchemaID, "handoff.open_risk_refs", Collection(workbook.CollectionAction{Op: "remove_risk_ref", ItemRef: invalid.itemRef}), "handoff.open_risk_refs remove "+invalid.name)
+		requireInvalidCollectionPatch(t, harness, store, actor, incident.ID, handoff.RecordID, artifacts.HandoffViewSchemaID, "handoff.open_risk_refs", Collection(workbookroutetest.CollectionAction{Op: "remove_risk_ref", ItemRef: invalid.itemRef}), "handoff.open_risk_refs remove "+invalid.name)
 	}
 }
 
-func mustCreateRow(t testing.TB, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, viewSchemaID string, clientTxnID string, values map[string]workbook.ValueChange, collections map[string]workbook.CollectionActionPayload, now time.Time) workbook.MutationResult {
+func mustCreateRow(t testing.TB, store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, incidentID uuid.UUID, viewSchemaID string, clientTxnID string, values map[string]workbookroutetest.ValueChange, collections map[string]workbookroutetest.CollectionActionPayload, now time.Time) workbook.MutationResult {
 	t.Helper()
-	result, err := store.CreateWorkbookRow(context.Background(), actor, incidentID, workbook.CreateRequest{
+	result, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), actor, incidentID, workbookroutetest.CreateRequest{
 		ViewSchemaID: viewSchemaID,
 		ClientTxnID:  clientTxnID,
 		Values:       values,
@@ -1023,17 +1025,17 @@ func mustCreateRow(t testing.TB, store *workbook.Store, actor authn.UserRecord, 
 	return result
 }
 
-func Text(value string) workbook.ValueChange {
-	return workbook.ValueChange{Kind: "text", Text: stringPtr(value)}
+func Text(value string) workbookroutetest.ValueChange {
+	return workbookroutetest.ValueChange{Kind: "text", Text: stringPtr(value)}
 }
 
-func UUID(value uuid.UUID) workbook.ValueChange {
-	return workbook.ValueChange{Kind: "uuid", UUID: &value}
+func UUID(value uuid.UUID) workbookroutetest.ValueChange {
+	return workbookroutetest.ValueChange{Kind: "uuid", UUID: &value}
 }
 
-func Timestamp(value time.Time) workbook.ValueChange {
+func Timestamp(value time.Time) workbookroutetest.ValueChange {
 	value = value.UTC()
-	return workbook.ValueChange{Kind: "timestamp", Timestamp: &value}
+	return workbookroutetest.ValueChange{Kind: "timestamp", Timestamp: &value}
 }
 
 func StringPtr(value string) *string {
@@ -1044,30 +1046,30 @@ func Time(offset time.Duration) time.Time {
 	return time.Date(2026, 5, 19, 15, 0, 0, 0, time.UTC).Add(offset)
 }
 
-func MinimumValues(actorID uuid.UUID, viewSchemaID string) map[string]workbook.ValueChange {
+func MinimumValues(actorID uuid.UUID, viewSchemaID string) map[string]workbookroutetest.ValueChange {
 	switch viewSchemaID {
-	case workbook.CommLogViewSchemaID:
-		return map[string]workbook.ValueChange{
+	case artifacts.CommLogViewSchemaID:
+		return map[string]workbookroutetest.ValueChange{
 			"comm_log.comm_type":          Text("briefing"),
 			"comm_log.audience":           Text("Audience text"),
 			"comm_log.channel_or_meeting": Text("Bridge"),
 			"comm_log.summary":            Text("Coordination update"),
 		}
-	case workbook.HandoffViewSchemaID:
-		return map[string]workbook.ValueChange{
+	case artifacts.HandoffViewSchemaID:
+		return map[string]workbookroutetest.ValueChange{
 			"handoff.incoming_owner_user_id": UUID(actorID),
 			"handoff.current_state_summary":  Text("Handoff state"),
 		}
-	case workbook.StatusReviewViewSchemaID:
-		return map[string]workbook.ValueChange{
+	case artifacts.StatusReviewViewSchemaID:
+		return map[string]workbookroutetest.ValueChange{
 			"status_review.current_state_summary": Text("Status review state"),
 		}
-	case workbook.LessonViewSchemaID:
-		return map[string]workbook.ValueChange{
+	case artifacts.LessonViewSchemaID:
+		return map[string]workbookroutetest.ValueChange{
 			"lesson.summary": Text("Lesson summary"),
 		}
 	default:
-		return map[string]workbook.ValueChange{}
+		return map[string]workbookroutetest.ValueChange{}
 	}
 }
 
@@ -1156,16 +1158,18 @@ SELECT r.record_type, a.artifact_type
 
 func requireMutationValidation(t testing.TB, err error, field string, reason string) {
 	t.Helper()
-	var validationErr *workbook.MutationValidationError
-	if !errors.As(err, &validationErr) {
-		t.Fatalf("expected mutation validation error, got %v", err)
+	var catalogErr *workbookroutetest.MutationFailureError
+	if errors.As(err, &catalogErr) {
+		gotField, gotReason, ok := catalogErr.Failure.InvalidPayloadDetail()
+		if !ok || gotField != field || gotReason != reason {
+			t.Fatalf("unexpected catalog validation failure: kind=%q field=%q reason=%q", catalogErr.Failure.Kind(), gotField, gotReason)
+		}
+		return
 	}
-	if validationErr.Field != field || validationErr.ReasonCode != reason {
-		t.Fatalf("unexpected validation error: %#v", validationErr)
-	}
+	t.Fatalf("expected catalog validation failure, got %v", err)
 }
 
-func requireInvalidCollectionPatch(t testing.TB, harness *appsupport.StoreHarness, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, viewSchemaID string, fieldKey string, collection workbook.CollectionActionPayload, context string) {
+func requireInvalidCollectionPatch(t testing.TB, harness *appsupport.StoreHarness, store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, viewSchemaID string, fieldKey string, collection workbookroutetest.CollectionActionPayload, context string) {
 	t.Helper()
 	before := countDurableState(t, harness, incidentID)
 	baseVersion := RecordVersion(t, harness.DB, recordID)
@@ -1214,7 +1218,7 @@ func expectDecodePatchRejected(t testing.TB, viewSchemaID string, fieldKey strin
 	if err != nil {
 		t.Fatalf("marshal patch payload: %v", err)
 	}
-	if _, apiErr := workbook.DecodePatchRequest(strings.NewReader(string(payload))); apiErr == nil {
+	if _, apiErr := artifacts.DecodePatchRequest(strings.NewReader(string(payload))); apiErr == nil {
 		t.Fatalf("expected patch decode to reject %s", fieldKey)
 	}
 }
@@ -1378,7 +1382,7 @@ func requireItemString(t testing.TB, item map[string]any, key string, want strin
 	}
 }
 
-func requireFilterMatchesOnly(t testing.TB, store *workbook.Store, incidentID uuid.UUID, viewSchemaID string, filter viewschema.Filter, wantRecordID uuid.UUID) {
+func requireFilterMatchesOnly(t testing.TB, store *workbook.WorkbookContributionCatalog, incidentID uuid.UUID, viewSchemaID string, filter viewschema.Filter, wantRecordID uuid.UUID) {
 	t.Helper()
 	rows, err := store.QueryRows(context.Background(), incidentID, viewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{filter},
@@ -1392,7 +1396,7 @@ func requireFilterMatchesOnly(t testing.TB, store *workbook.Store, incidentID uu
 	}
 }
 
-func requireProjectedRow(t testing.TB, store *workbook.Store, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta, recordID uuid.UUID, groupField string, groupValue any) {
+func requireProjectedRow(t testing.TB, store *workbook.WorkbookContributionCatalog, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta, recordID uuid.UUID, groupField string, groupValue any) {
 	t.Helper()
 	rows, err := store.QueryRows(context.Background(), incidentID, viewSchemaID, query)
 	if err != nil {

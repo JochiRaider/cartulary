@@ -60,6 +60,17 @@ var (
 	}
 )
 
+func CreatePayload(clientTxnID string) map[string]any {
+	return map[string]any{
+		"client_txn_id":              clientTxnID,
+		"indicator.indicator_type":   "ipv4_addr",
+		"indicator.value_kind":       "atomic",
+		"indicator.display_value":    "203.0.113.24",
+		"indicator.normalized_value": "203.0.113.24",
+		"indicator.defanged_value":   "203[.]0[.]113[.]24",
+	}
+}
+
 func CanonicalDedupeKey(t testing.TB, indicatorType string, valueKind string, displayValue string) string {
 	t.Helper()
 	canonical, err := identity.Canonicalize(identity.Input{

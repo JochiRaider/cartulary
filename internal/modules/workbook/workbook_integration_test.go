@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -127,7 +127,7 @@ func TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior(t *testin
 		"title":         "Workbook projection query boundary",
 	})
 	incidentID := incident["incident_id"].(string)
-	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/views/" + workbook.NotesViewSchemaID + "/query"
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/views/" + artifacts.NotesViewSchemaID + "/query"
 
 	unauthenticated := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{})
 	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
@@ -150,7 +150,7 @@ func TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior(t *testin
 	)
 	body := httptestx.RequireSuccessEnvelope(t, valid, http.StatusOK)
 	data := body["data"].(map[string]any)
-	if data["view_schema_id"] != workbook.NotesViewSchemaID || data["incident_id"] != incidentID {
+	if data["view_schema_id"] != artifacts.NotesViewSchemaID || data["incident_id"] != incidentID {
 		t.Fatalf("projection-backed query returned wrong route identity: %#v", data)
 	}
 	paging := body["meta"].(map[string]any)["paging"].(map[string]any)
@@ -179,7 +179,7 @@ func TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows(t *testing.T) {
 	}{
 		{
 			name:         "comm_log",
-			viewSchemaID: workbook.CommLogViewSchemaID,
+			viewSchemaID: artifacts.CommLogViewSchemaID,
 			body: map[string]any{
 				"client_txn_id":               "txn-workbook-default-query-comm",
 				"comm_log.comm_type":          "briefing",
@@ -202,7 +202,7 @@ func TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows(t *testing.T) {
 		},
 		{
 			name:         "handoff",
-			viewSchemaID: workbook.HandoffViewSchemaID,
+			viewSchemaID: artifacts.HandoffViewSchemaID,
 			body: map[string]any{
 				"client_txn_id":                  "txn-workbook-default-query-handoff",
 				"handoff.incoming_owner_user_id": adminUserID.String(),
@@ -223,7 +223,7 @@ func TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows(t *testing.T) {
 		},
 		{
 			name:         "status_review",
-			viewSchemaID: workbook.StatusReviewViewSchemaID,
+			viewSchemaID: artifacts.StatusReviewViewSchemaID,
 			body: map[string]any{
 				"client_txn_id":                       "txn-workbook-default-query-status",
 				"status_review.current_state_summary": "Default query status review",
@@ -243,7 +243,7 @@ func TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows(t *testing.T) {
 		},
 		{
 			name:         "lesson",
-			viewSchemaID: workbook.LessonViewSchemaID,
+			viewSchemaID: artifacts.LessonViewSchemaID,
 			body: map[string]any{
 				"client_txn_id":  "txn-workbook-default-query-lesson",
 				"lesson.summary": "Default query lesson",

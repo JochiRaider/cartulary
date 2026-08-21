@@ -1132,26 +1132,8 @@
         "github.com/JochiRaider/cartulary/internal/modules/workbook"
       ],
       "allowed_imports": [
-        "github.com/JochiRaider/cartulary/internal/modules/artifacts",
-        "github.com/JochiRaider/cartulary/internal/modules/assessments",
-        "github.com/JochiRaider/cartulary/internal/modules/collaboration",
-        "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity",
-        "github.com/JochiRaider/cartulary/internal/modules/entities/mentions",
-        "github.com/JochiRaider/cartulary/internal/modules/evidence",
-        "github.com/JochiRaider/cartulary/internal/modules/tabularingest",
-        "github.com/JochiRaider/cartulary/internal/modules/incidents",
         "github.com/JochiRaider/cartulary/internal/modules/incidents/admission",
-        "github.com/JochiRaider/cartulary/internal/modules/indicators",
-        "github.com/JochiRaider/cartulary/internal/modules/links",
-        "github.com/JochiRaider/cartulary/internal/modules/parties",
-        "github.com/JochiRaider/cartulary/internal/modules/projections/providercontract",
-        "github.com/JochiRaider/cartulary/internal/modules/records",
-        "github.com/JochiRaider/cartulary/internal/modules/revisions",
-        "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts",
-        "github.com/JochiRaider/cartulary/internal/modules/savedviews",
-        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions",
-        "github.com/JochiRaider/cartulary/internal/modules/timeline",
-        "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
+        "github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
       ]
     },
     {
@@ -1186,7 +1168,8 @@
       "allowed_imports": [
         "github.com/JochiRaider/cartulary/internal/modules/incidents",
         "github.com/JochiRaider/cartulary/internal/modules/incidents/admission",
-        "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+        "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts",
+        "github.com/JochiRaider/cartulary/internal/modules/tabularingest"
       ]
     }
   ],
@@ -2415,9 +2398,36 @@
         "workbook.NewStore("
       ],
       "scan_paths": ["internal/**"],
-      "allowed_paths": [
-        "internal/app/workbookassembly/store.go"
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "retired-workbook-legacy-mutation-surfaces",
+      "tokens": [
+        "type Store struct",
+        "type StoreDependencies struct",
+        "func NewStore(",
+        "func NewMutationStore(",
+        "type createProvider struct",
+        "type patchProvider struct",
+        "type conflictProvider struct",
+        "mutationOutcomeFromLegacy",
+        "legacyResultFromMutationOutcome",
+        "legacyErrorFromMutationFailure",
+        "safeFailureFromLegacyError",
+        "type CreateRequest struct",
+        "type PatchRequest struct",
+        "type ConflictResolveRequest struct",
+        "type ValueChange struct",
+        "type CollectionActionPayload struct",
+        "type TimelineMutationOwner",
+        "type Service struct"
       ],
+      "scan_paths": [
+        "internal/modules/workbook/*.go",
+        "internal/app/workbookassembly/*.go"
+      ],
+      "allowed_paths": [],
       "production_only": true
     },
     {
@@ -2485,7 +2495,6 @@
         "internal/platform/authn",
         "authn.",
         "ResponseJSON",
-        "json.Unmarshal(",
         "ConflictIdempotency",
         "ClassifyIdempotencyWriteError",
         "IdempotencyOutcome",

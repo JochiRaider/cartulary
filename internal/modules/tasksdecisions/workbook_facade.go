@@ -38,55 +38,51 @@ type MutationFacade struct {
 	conflictFields   conflicttokens.FieldResolver
 }
 
-type WorkbookCreateRequest struct {
+type CreateRequest struct {
 	ViewSchemaID string
 	ClientTxnID  string
 	Values       map[string]FieldValue
-	Collections  map[string]WorkbookCollectionActionPayload
+	Collections  map[string]CollectionActionPayload
 }
 
-type WorkbookPatchRequest struct {
+type PatchRequest struct {
 	ViewSchemaID   string
 	BaseRowVersion int64
 	ClientTxnID    string
-	Changes        []WorkbookPatchChange
+	Changes        []PatchChange
 }
 
-type WorkbookPatchChange struct {
+type PatchChange struct {
 	FieldKey       string
 	Value          *FieldValue
-	Collection     *WorkbookCollectionActionPayload
+	Collection     *CollectionActionPayload
 	CanonicalValue any
 }
 
-type WorkbookCollectionActionPayload struct {
-	Actions []WorkbookCollectionAction
+type CollectionActionPayload struct {
+	Actions []CollectionAction
 }
 
-type WorkbookCollectionAction struct {
+type CollectionAction struct {
 	Op             string
-	RawText        string
 	LinkedRecordID *uuid.UUID
-	PartyID        *uuid.UUID
 	ItemRef        string
-	RiskRefText    string
-	NormalizedText string
 }
 
-type WorkbookCreateCommand struct {
+type CreateCommand struct {
 	ActorUserID uuid.UUID
 	IncidentID  uuid.UUID
-	Request     WorkbookCreateRequest
+	Request     CreateRequest
 	RequestHash []byte
 	RequestID   string
 	RouteKey    string
 	Now         time.Time
 }
 
-type WorkbookPatchCommand struct {
+type PatchCommand struct {
 	ActorUserID      uuid.UUID
 	RecordID         uuid.UUID
-	Request          WorkbookPatchRequest
+	Request          PatchRequest
 	RequestHash      []byte
 	RequestID        string
 	RouteKey         string
@@ -94,7 +90,7 @@ type WorkbookPatchCommand struct {
 	Now              time.Time
 }
 
-type WorkbookMutationResult struct {
+type MutationResult struct {
 	Row              map[string]any
 	Created          bool
 	Replayed         bool
@@ -118,11 +114,31 @@ func (e *RowVersionConflictError) Error() string {
 }
 
 type SameFieldConflictError struct {
-	Conflict map[string]any
+	Conflict SameFieldConflict
 }
 
 func (e *SameFieldConflictError) Error() string {
 	return "tasksdecisions: same field conflict"
+}
+
+type OptionalConflictValue struct {
+	Present bool
+	Value   any
+}
+
+type SameFieldConflict struct {
+	ConflictToken           string
+	RecordID                uuid.UUID
+	FieldKey                string
+	ConflictResolutionClass string
+	BaseRowVersion          int64
+	CurrentRowVersion       int64
+	ClientValue             any
+	ServerValue             any
+	BaseValue               OptionalConflictValue
+	ServerUpdatedBy         uuid.UUID
+	ServerUpdatedAt         time.Time
+	SuggestedMergedValue    OptionalConflictValue
 }
 
 func NewMutationContribution(
@@ -151,7 +167,7 @@ func NewMutationContribution(
 	}, nil
 }
 
-func (f *MutationFacade) Create(ctx context.Context, command WorkbookCreateCommand) (WorkbookMutationResult, error) {
+func (f *MutationFacade) Create(ctx context.Context, command CreateCommand) (MutationResult, error) {
 	request := command.Request
 	idempotencyKey := IdempotencyKey{
 		RouteKey:    command.RouteKey,
@@ -161,39 +177,39 @@ func (f *MutationFacade) Create(ctx context.Context, command WorkbookCreateComma
 	}
 	if existing, err := f.idempotency.Get(ctx, idempotencyKey, command.RequestHash); err == nil {
 		if !bytes.Equal(existing.RequestHash, command.RequestHash) {
-			return WorkbookMutationResult{}, ErrClientTxnConflict
+			return MutationResult{}, ErrClientTxnConflict
 		}
 		if existing.Result.Kind() != StoredMutationCreate {
-			return WorkbookMutationResult{}, ErrStoredMutationKindMismatch
+			return MutationResult{}, ErrStoredMutationKindMismatch
 		}
-		stored, ok := existing.Result.WorkbookResult()
+		stored, ok := existing.Result.RowMutationResult()
 		if !ok || stored.ViewSchemaID != request.ViewSchemaID {
-			return WorkbookMutationResult{}, ErrStoredMutationKindMismatch
+			return MutationResult{}, ErrStoredMutationKindMismatch
 		}
-		return WorkbookMutationResult{Row: stored.Row, Replayed: true, IncidentID: command.IncidentID, RecordID: stored.RecordID, ChangeSetID: stored.ChangeSetID, ViewSchemaID: request.ViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
+		return MutationResult{Row: stored.Row, Replayed: true, IncidentID: command.IncidentID, RecordID: stored.RecordID, ChangeSetID: stored.ChangeSetID, ViewSchemaID: request.ViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
 	} else if !errors.Is(err, ErrIdempotencyNotFound) {
-		return WorkbookMutationResult{}, fmt.Errorf("query task/decision create idempotency: %w", err)
+		return MutationResult{}, fmt.Errorf("query task/decision create idempotency: %w", err)
 	}
 	if err := validateCreateRequest(request); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 
 	tx, err := f.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return WorkbookMutationResult{}, fmt.Errorf("begin task/decision create transaction: %w", err)
+		return MutationResult{}, fmt.Errorf("begin task/decision create transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if err := f.incidentAccess.RequireOpenTx(ctx, tx, command.IncidentID); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	if err := validateCreateReferencesTx(ctx, tx, f.memberReferences, f.linkStore, command.IncidentID, request); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	now := command.Now.UTC()
 	recordType := recordTypeForView(request.ViewSchemaID)
 	if recordType == "" {
-		return WorkbookMutationResult{}, &ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
+		return MutationResult{}, &ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
 	}
 	recordID, err := f.recordStore.InsertTx(ctx, tx, records.InsertParams{
 		IncidentID:      command.IncidentID,
@@ -205,42 +221,42 @@ func (f *MutationFacade) Create(ctx context.Context, command WorkbookCreateComma
 		RowVersion:      1,
 	})
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	directLinkMutations := make([]links.RecordLinkMutation, 0)
 	switch request.ViewSchemaID {
 	case TaskRequestsViewSchemaID:
 		if err := tasksource.InsertTaskRequestTx(ctx, tx, recordID, command.IncidentID, command.ActorUserID, TaskCreateParams{Values: request.Values}, now); err != nil {
-			return WorkbookMutationResult{}, err
+			return MutationResult{}, err
 		}
 		if value, ok := request.Values[TaskDecisionRecordFieldKey]; ok && value.UUID != nil {
 			directLinkMutations, err = syncTaskDecisionReferenceTx(ctx, tx, f.linkStore, command.IncidentID, recordID, command.ActorUserID, value.UUID, now)
 			if err != nil {
-				return WorkbookMutationResult{}, err
+				return MutationResult{}, err
 			}
 		}
 	case DecisionsViewSchemaID:
 		if err := tasksource.InsertDecisionTx(ctx, tx, recordID, command.IncidentID, command.ActorUserID, DecisionCreateParams{Values: request.Values}, now); err != nil {
-			return WorkbookMutationResult{}, err
+			return MutationResult{}, err
 		}
 	default:
-		return WorkbookMutationResult{}, &ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
+		return MutationResult{}, &ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
 	}
 	collectionMutations, err := f.applyCollectionPayloadsTx(ctx, tx, command.IncidentID, recordID, command.ActorUserID, request.Collections, now)
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	collectionMutations = append(directLinkMutations, collectionMutations...)
 	afterSnapshot, err := f.revisions.CaptureRecordSnapshotTx(ctx, tx, recordID)
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	if err := f.refreshRowTx(ctx, tx, request.ViewSchemaID, recordID); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	row, err := f.loadProjectionRowTx(ctx, tx, request.ViewSchemaID, recordID)
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	changeSetID, err := f.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  command.IncidentID,
@@ -251,7 +267,7 @@ func (f *MutationFacade) Create(ctx context.Context, command WorkbookCreateComma
 		CreatedAt:   now,
 	})
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	afterVersionID := supersedeVersionID(recordID, 1)
 	if err := f.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
@@ -263,10 +279,10 @@ func (f *MutationFacade) Create(ctx context.Context, command WorkbookCreateComma
 		AfterVersionID: &afterVersionID,
 		AfterSnapshot:  &afterSnapshot,
 	}); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	if err := f.appendRecordLinkMutationsTx(ctx, tx, changeSetID, 2, collectionMutations); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	if err := f.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:   changeSetID,
@@ -275,21 +291,21 @@ func (f *MutationFacade) Create(ctx context.Context, command WorkbookCreateComma
 		AfterSnapshot: &afterSnapshot,
 		LiveChange:    revisions.LiveRecordChange{AfterValue: row},
 	}); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
-	storedResult := NewStoredCreateResult(StoredWorkbookResult{
+	storedResult := NewStoredCreateResult(StoredRowMutationResult{
 		ViewSchemaID: request.ViewSchemaID,
 		RecordID:     recordID,
 		ChangeSetID:  changeSetID,
 		Row:          row,
 	})
 	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, command.RequestHash, storedResult); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return WorkbookMutationResult{}, fmt.Errorf("commit task/decision create transaction: %w", err)
+		return MutationResult{}, fmt.Errorf("commit task/decision create transaction: %w", err)
 	}
-	return WorkbookMutationResult{
+	return MutationResult{
 		Row:              row,
 		Created:          true,
 		IncidentID:       command.IncidentID,
@@ -302,7 +318,7 @@ func (f *MutationFacade) Create(ctx context.Context, command WorkbookCreateComma
 	}, nil
 }
 
-func (f *MutationFacade) Patch(ctx context.Context, command WorkbookPatchCommand) (WorkbookMutationResult, error) {
+func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (MutationResult, error) {
 	request := command.Request
 	idempotencyKey := IdempotencyKey{
 		RouteKey:    command.RouteKey,
@@ -312,61 +328,61 @@ func (f *MutationFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	}
 	if existing, err := f.idempotency.Get(ctx, idempotencyKey, command.RequestHash); err == nil {
 		if !bytes.Equal(existing.RequestHash, command.RequestHash) {
-			return WorkbookMutationResult{}, ErrClientTxnConflict
+			return MutationResult{}, ErrClientTxnConflict
 		}
 		if existing.Result.Kind() != StoredMutationPatch {
-			return WorkbookMutationResult{}, ErrStoredMutationKindMismatch
+			return MutationResult{}, ErrStoredMutationKindMismatch
 		}
-		stored, ok := existing.Result.WorkbookResult()
+		stored, ok := existing.Result.RowMutationResult()
 		if !ok || stored.ViewSchemaID != request.ViewSchemaID || stored.RecordID != command.RecordID {
-			return WorkbookMutationResult{}, ErrStoredMutationKindMismatch
+			return MutationResult{}, ErrStoredMutationKindMismatch
 		}
-		return WorkbookMutationResult{Row: stored.Row, Replayed: true, RecordID: command.RecordID, ChangeSetID: stored.ChangeSetID, ViewSchemaID: request.ViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
+		return MutationResult{Row: stored.Row, Replayed: true, RecordID: command.RecordID, ChangeSetID: stored.ChangeSetID, ViewSchemaID: request.ViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
 	} else if !errors.Is(err, ErrIdempotencyNotFound) {
-		return WorkbookMutationResult{}, fmt.Errorf("query task/decision patch idempotency: %w", err)
+		return MutationResult{}, fmt.Errorf("query task/decision patch idempotency: %w", err)
 	}
 
 	tx, err := f.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return WorkbookMutationResult{}, fmt.Errorf("begin task/decision patch transaction: %w", err)
+		return MutationResult{}, fmt.Errorf("begin task/decision patch transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	meta, err := loadSupersedeRecordMetaForUpdateTx(ctx, tx, f.recordStore, command.RecordID)
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	if !recordTypeMatchesView(meta.RecordType, request.ViewSchemaID) {
-		return WorkbookMutationResult{}, pgx.ErrNoRows
+		return MutationResult{}, pgx.ErrNoRows
 	}
 	if err := f.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	effectiveBeforeVersion := request.BaseRowVersion
 	if meta.RowVersion != request.BaseRowVersion {
 		if meta.RowVersion < request.BaseRowVersion {
-			return WorkbookMutationResult{}, &RowVersionConflictError{RecordID: command.RecordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: meta.RowVersion}
+			return MutationResult{}, &RowVersionConflictError{RecordID: command.RecordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: meta.RowVersion}
 		}
 		windowRows, err := f.revisions.LoadRevisionWindowTx(ctx, tx, command.RecordID, request.BaseRowVersion, meta.RowVersion)
 		if err != nil {
-			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
+			return MutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
 		fieldDescriptors, err := f.conflictFields.ResolveViewSchema(request.ViewSchemaID)
 		if err != nil {
-			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
+			return MutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
 		projector, ok := taskDecisionConflictSnapshotProjector(request.ViewSchemaID)
 		if !ok {
-			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, conflicttokens.ErrInvalidSnapshotProjector)
+			return MutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, conflicttokens.ErrInvalidSnapshotProjector)
 		}
 		window, err := conflicttokens.BuildCanonicalPatchConflictWindow(command.RecordID, request.BaseRowVersion, meta.RowVersion, windowRows, fieldDescriptors, projector)
 		if err != nil {
-			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
+			return MutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
 		if change, changed, ok := overlappingPatchChange(request.Changes, window.ChangedFields); ok {
 			current, err := f.loadProjectionRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 			if err != nil {
-				return WorkbookMutationResult{}, err
+				return MutationResult{}, err
 			}
 			conflictPayload, err := buildSameFieldConflict(sameFieldConflictParams{
 				RouteKey:          command.ConflictRouteKey,
@@ -383,47 +399,47 @@ func (f *MutationFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 				Codec:             f.conflictTokens,
 			})
 			if err != nil {
-				return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
+				return MutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 			}
-			return WorkbookMutationResult{}, &SameFieldConflictError{Conflict: conflictPayload}
+			return MutationResult{}, &SameFieldConflictError{Conflict: conflictPayload}
 		}
 		effectiveBeforeVersion = meta.RowVersion
 	}
 	beforeRow, err := f.loadProjectionRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	beforeSnapshot, err := f.revisions.CaptureRecordSnapshotTx(ctx, tx, command.RecordID)
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	if err := validatePatchReferencesTx(ctx, tx, f.memberReferences, f.linkStore, meta.IncidentID, request); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	changed, collectionMutations, err := f.applyPatchTx(ctx, tx, meta.IncidentID, command.RecordID, command.ActorUserID, request, command.Now.UTC())
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	if !changed {
-		return WorkbookMutationResult{}, &ValidationError{Field: "changes", ReasonCode: "no_effective_change"}
+		return MutationResult{}, &ValidationError{Field: "changes", ReasonCode: "no_effective_change"}
 	}
 	rowVersion, err := f.recordStore.AdvanceVersionTx(ctx, tx, command.RecordID, command.ActorUserID, command.Now.UTC())
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	if err := f.touchSourceRowTx(ctx, tx, request.ViewSchemaID, command.RecordID, command.Now.UTC()); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	if err := f.refreshRowTx(ctx, tx, request.ViewSchemaID, command.RecordID); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	afterRow, err := f.loadProjectionRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	afterSnapshot, err := f.revisions.CaptureRecordSnapshotTx(ctx, tx, command.RecordID)
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	changeSetID, err := f.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  meta.IncidentID,
@@ -434,7 +450,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		CreatedAt:   command.Now.UTC(),
 	})
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	beforeVersionID := supersedeVersionID(command.RecordID, request.BaseRowVersion)
 	if effectiveBeforeVersion != request.BaseRowVersion {
@@ -452,10 +468,10 @@ func (f *MutationFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		BeforeSnapshot:  &beforeSnapshot,
 		AfterSnapshot:   &afterSnapshot,
 	}); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	if err := f.appendRecordLinkMutationsTx(ctx, tx, changeSetID, 2, collectionMutations); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	if err := f.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:    changeSetID,
@@ -465,21 +481,21 @@ func (f *MutationFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		AfterSnapshot:  &afterSnapshot,
 		LiveChange:     revisions.LiveRecordChange{BeforeValue: beforeRow, AfterValue: afterRow},
 	}); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
-	storedResult := NewStoredPatchResult(StoredWorkbookResult{
+	storedResult := NewStoredPatchResult(StoredRowMutationResult{
 		ViewSchemaID: request.ViewSchemaID,
 		RecordID:     command.RecordID,
 		ChangeSetID:  changeSetID,
 		Row:          afterRow,
 	})
 	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, command.RequestHash, storedResult); err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return WorkbookMutationResult{}, fmt.Errorf("commit task/decision patch transaction: %w", err)
+		return MutationResult{}, fmt.Errorf("commit task/decision patch transaction: %w", err)
 	}
-	return WorkbookMutationResult{
+	return MutationResult{
 		Row:              afterRow,
 		IncidentID:       meta.IncidentID,
 		RecordID:         command.RecordID,
@@ -491,7 +507,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	}, nil
 }
 
-func validateCreateRequest(request WorkbookCreateRequest) error {
+func validateCreateRequest(request CreateRequest) error {
 	switch request.ViewSchemaID {
 	case TaskRequestsViewSchemaID:
 		return policy.ValidateTaskCreateParams(TaskCreateParams{Values: request.Values})
@@ -508,7 +524,7 @@ func validateCreateReferencesTx(
 	members MemberReferenceCapability,
 	linkStore LinkCapability,
 	incidentID uuid.UUID,
-	request WorkbookCreateRequest,
+	request CreateRequest,
 ) error {
 	for fieldKey, value := range request.Values {
 		if value.UUID != nil && policy.IsMemberUserReferenceField(fieldKey) {
@@ -536,7 +552,7 @@ func validatePatchReferencesTx(
 	members MemberReferenceCapability,
 	linkStore LinkCapability,
 	incidentID uuid.UUID,
-	request WorkbookPatchRequest,
+	request PatchRequest,
 ) error {
 	for _, change := range request.Changes {
 		if change.Value != nil && change.Value.UUID != nil && policy.IsMemberUserReferenceField(change.FieldKey) {
@@ -574,7 +590,7 @@ func validateTargetRecordTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID
 	return tasksource.ValidateTargetRecordTx(ctx, tx, incidentID, recordID, expectedType, field)
 }
 
-func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, request WorkbookPatchRequest, now time.Time) (bool, []links.RecordLinkMutation, error) {
+func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, request PatchRequest, now time.Time) (bool, []links.RecordLinkMutation, error) {
 	changed := false
 	collectionMutations := make([]links.RecordLinkMutation, 0)
 	var beforeTask TaskLifecycleState
@@ -638,7 +654,7 @@ func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID
 	return changed, collectionMutations, nil
 }
 
-func (f *MutationFacade) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, change WorkbookPatchChange, now time.Time) (bool, []links.RecordLinkMutation, error) {
+func (f *MutationFacade) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, change PatchChange, now time.Time) (bool, []links.RecordLinkMutation, error) {
 	switch viewSchemaID {
 	case TaskRequestsViewSchemaID:
 		if err := policy.ValidateTaskDirectPatchChange(change.FieldKey, *change.Value); err != nil {
@@ -656,7 +672,7 @@ func (f *MutationFacade) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, inc
 	}
 }
 
-func (f *MutationFacade) applyCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, collections map[string]WorkbookCollectionActionPayload, now time.Time) ([]links.RecordLinkMutation, error) {
+func (f *MutationFacade) applyCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, collections map[string]CollectionActionPayload, now time.Time) ([]links.RecordLinkMutation, error) {
 	fieldKeys := make([]string, 0, len(collections))
 	for fieldKey := range collections {
 		fieldKeys = append(fieldKeys, fieldKey)
@@ -673,7 +689,7 @@ func (f *MutationFacade) applyCollectionPayloadsTx(ctx context.Context, tx pgx.T
 	return mutations, nil
 }
 
-func validateCollectionPayloadTx(ctx context.Context, tx pgx.Tx, linkStore LinkCapability, incidentID uuid.UUID, fieldKey string, payload WorkbookCollectionActionPayload) error {
+func validateCollectionPayloadTx(ctx context.Context, tx pgx.Tx, linkStore LinkCapability, incidentID uuid.UUID, fieldKey string, payload CollectionActionPayload) error {
 	descriptor, ok := lookupCollectionDescriptor(fieldKey)
 	if !ok {
 		return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
@@ -685,7 +701,7 @@ func validateCollectionPayloadTx(ctx context.Context, tx pgx.Tx, linkStore LinkC
 	return linkStore.ValidateRecordRefCollectionTx(ctx, tx, command)
 }
 
-func (f *MutationFacade) applyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, fieldKey string, payload WorkbookCollectionActionPayload, now time.Time) (bool, []links.RecordLinkMutation, error) {
+func (f *MutationFacade) applyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, fieldKey string, payload CollectionActionPayload, now time.Time) (bool, []links.RecordLinkMutation, error) {
 	descriptor, ok := lookupCollectionDescriptor(fieldKey)
 	if !ok {
 		return false, nil, &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
@@ -734,12 +750,12 @@ type collectionDescriptor struct {
 	ExpectedTargetType string
 }
 
-func IsWorkbookRecordRefCollectionField(fieldKey string) bool {
+func IsRecordRefCollectionField(fieldKey string) bool {
 	_, ok := lookupCollectionDescriptor(fieldKey)
 	return ok
 }
 
-func AllowsWorkbookCollectionOp(fieldKey string, op string) bool {
+func AllowsCollectionOp(fieldKey string, op string) bool {
 	if _, ok := lookupCollectionDescriptor(fieldKey); !ok {
 		return false
 	}
@@ -759,12 +775,12 @@ func lookupCollectionDescriptor(fieldKey string) (collectionDescriptor, bool) {
 	}
 }
 
-func recordRefValidation(incidentID uuid.UUID, descriptor collectionDescriptor, payload WorkbookCollectionActionPayload) (links.RecordRefCollectionValidation, error) {
+func recordRefValidation(incidentID uuid.UUID, descriptor collectionDescriptor, payload CollectionActionPayload) (links.RecordRefCollectionValidation, error) {
 	adds, removes, err := recordRefActions(descriptor, payload)
 	return links.RecordRefCollectionValidation{IncidentID: incidentID, FieldKey: descriptor.FieldKey, LinkType: links.LinkType(descriptor.LinkType), ExpectedTargetType: descriptor.ExpectedTargetType, AddRecordIDs: adds, RemoveRecordIDs: removes}, err
 }
 
-func recordRefActions(descriptor collectionDescriptor, payload WorkbookCollectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {
+func recordRefActions(descriptor collectionDescriptor, payload CollectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {
 	adds := make([]uuid.UUID, 0)
 	removes := make([]uuid.UUID, 0)
 	for _, action := range payload.Actions {
@@ -844,35 +860,35 @@ type sameFieldConflictParams struct {
 	CurrentRowVersion int64
 	RequestHash       []byte
 	Window            conflicttokens.PatchConflictWindow
-	Change            WorkbookPatchChange
+	Change            PatchChange
 	Changed           conflicttokens.PatchChangedField
 	CurrentRow        map[string]any
 	FieldDescriptors  conflicttokens.FieldDescriptorSet
 	Codec             conflicttokens.ConflictTokenCodec
 }
 
-func overlappingPatchChange(changes []WorkbookPatchChange, changedFields map[string]conflicttokens.PatchChangedField) (WorkbookPatchChange, conflicttokens.PatchChangedField, bool) {
+func overlappingPatchChange(changes []PatchChange, changedFields map[string]conflicttokens.PatchChangedField) (PatchChange, conflicttokens.PatchChangedField, bool) {
 	for _, change := range changes {
 		changed, ok := changedFields[change.FieldKey]
 		if ok {
 			return change, changed, true
 		}
 	}
-	return WorkbookPatchChange{}, conflicttokens.PatchChangedField{}, false
+	return PatchChange{}, conflicttokens.PatchChangedField{}, false
 }
 
-func buildSameFieldConflict(params sameFieldConflictParams) (map[string]any, error) {
+func buildSameFieldConflict(params sameFieldConflictParams) (SameFieldConflict, error) {
 	baseValue, ok := rowCellValue(params.Window.BaseRow, params.Change.FieldKey)
 	if !ok {
-		return nil, &conflicttokens.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
+		return SameFieldConflict{}, &conflicttokens.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
 	}
 	serverValue, ok := rowCellValue(params.CurrentRow, params.Change.FieldKey)
 	if !ok {
-		return nil, &conflicttokens.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
+		return SameFieldConflict{}, &conflicttokens.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
 	}
 	clientValue, err := patchClientConflictValue(params.Change, baseValue)
 	if err != nil {
-		return nil, &conflicttokens.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
+		return SameFieldConflict{}, &conflicttokens.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
 	}
 	conflictClass := params.FieldDescriptors.ConflictResolutionClass(params.Change.FieldKey)
 	if conflictClass == "" {
@@ -880,24 +896,20 @@ func buildSameFieldConflict(params sameFieldConflictParams) (map[string]any, err
 	}
 	conflictToken, err := conflictToken(params.RouteKey, params.RecordID, params.ViewSchemaID, params.Change.FieldKey, conflictClass, params.BaseRowVersion, params.CurrentRowVersion, params.RequestHash, params.Codec)
 	if err != nil {
-		return nil, err
+		return SameFieldConflict{}, err
 	}
-	conflict := map[string]any{
-		"conflict_token":            conflictToken,
-		"record_id":                 params.RecordID.String(),
-		"field_key":                 params.Change.FieldKey,
-		"conflict_resolution_class": conflictClass,
-		"base_row_version":          params.BaseRowVersion,
-		"current_row_version":       params.CurrentRowVersion,
-		"client_value":              clientValue,
-		"server_value":              serverValue,
-		"server_updated_by":         params.Changed.ServerUpdatedBy.String(),
-		"server_updated_at":         params.Changed.ServerUpdatedAt.UTC().Format(time.RFC3339Nano),
-		"base_value":                baseValue,
+	conflict := SameFieldConflict{
+		ConflictToken: conflictToken, RecordID: params.RecordID, FieldKey: params.Change.FieldKey,
+		ConflictResolutionClass: conflictClass,
+		BaseRowVersion:          params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion,
+		ClientValue: clientValue, ServerValue: serverValue,
+		BaseValue:       OptionalConflictValue{Present: true, Value: baseValue},
+		ServerUpdatedBy: params.Changed.ServerUpdatedBy,
+		ServerUpdatedAt: params.Changed.ServerUpdatedAt.UTC(),
 	}
 	if conflictClass == "text_compare_merge" {
 		if suggested, ok := conflicttokens.SuggestedTextMergeValue(baseValue, serverValue, clientValue); ok {
-			conflict["suggested_merged_value"] = suggested
+			conflict.SuggestedMergedValue = OptionalConflictValue{Present: true, Value: suggested}
 		}
 	}
 	return conflict, nil
@@ -913,14 +925,14 @@ func rowCellValue(row map[string]any, fieldKey string) (any, bool) {
 	return value, ok
 }
 
-func patchClientConflictValue(change WorkbookPatchChange, baseValue any) (any, error) {
+func patchClientConflictValue(change PatchChange, baseValue any) (any, error) {
 	if change.Collection == nil {
 		return change.CanonicalValue, nil
 	}
 	return applyCollectionConflictActions(change.FieldKey, baseValue, *change.Collection)
 }
 
-func applyCollectionConflictActions(fieldKey string, baseValue any, payload WorkbookCollectionActionPayload) (map[string]any, error) {
+func applyCollectionConflictActions(fieldKey string, baseValue any, payload CollectionActionPayload) (map[string]any, error) {
 	ordered, items, ok := cloneCollectionConflictValue(baseValue)
 	if !ok {
 		return nil, fmt.Errorf("invalid base collection value for %s", fieldKey)
@@ -1048,7 +1060,7 @@ func conflictToken(routeKey string, recordID uuid.UUID, viewSchemaID string, fie
 	})
 }
 
-func touchesField(changes []WorkbookPatchChange, fieldKey string) bool {
+func touchesField(changes []PatchChange, fieldKey string) bool {
 	for _, change := range changes {
 		if change.FieldKey == fieldKey {
 			return true
@@ -1057,7 +1069,7 @@ func touchesField(changes []WorkbookPatchChange, fieldKey string) bool {
 	return false
 }
 
-func touchesAnyField(changes []WorkbookPatchChange, fieldKeys ...string) bool {
+func touchesAnyField(changes []PatchChange, fieldKeys ...string) bool {
 	for _, fieldKey := range fieldKeys {
 		if touchesField(changes, fieldKey) {
 			return true

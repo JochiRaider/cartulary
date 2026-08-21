@@ -14,7 +14,7 @@ func TestStoredMutationOperationMismatchRejectedBeforeSourceMutation_Unit(t *tes
 	idempotency := fixedReplayIdempotency{
 		record: IdempotencyRecord{
 			RequestHash: []byte("same-request"),
-			Result: NewStoredPatchResult(StoredWorkbookResult{
+			Result: NewStoredPatchResult(StoredRowMutationResult{
 				ViewSchemaID: TaskRequestsViewSchemaID,
 				RecordID:     recordID,
 				ChangeSetID:  uuid.New(),
@@ -23,10 +23,10 @@ func TestStoredMutationOperationMismatchRejectedBeforeSourceMutation_Unit(t *tes
 		},
 	}
 	facade := &MutationFacade{idempotency: idempotency}
-	_, err := facade.Create(context.Background(), WorkbookCreateCommand{
+	_, err := facade.Create(context.Background(), CreateCommand{
 		ActorUserID: uuid.New(),
 		IncidentID:  uuid.New(),
-		Request: WorkbookCreateRequest{
+		Request: CreateRequest{
 			ViewSchemaID: TaskRequestsViewSchemaID,
 			ClientTxnID:  "txn-operation-mismatch",
 		},

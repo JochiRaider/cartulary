@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -15,7 +16,23 @@ import (
 
 func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 	recordID := uuid.New()
-	conflict := map[string]any{"field_key": "timeline.activity_synopsis_text"}
+	actorID := uuid.New()
+	updatedAt := time.Date(2026, 7, 25, 12, 30, 0, 0, time.UTC)
+	conflict := timeline.SameFieldConflict{
+		ConflictToken: "opaque-token", RecordID: recordID,
+		FieldKey: "timeline.activity_synopsis_text", ConflictResolutionClass: "text_compare_merge",
+		BaseRowVersion: 3, CurrentRowVersion: 4,
+		ClientValue: "client", ServerValue: "server",
+		BaseValue:       timeline.OptionalConflictValue{Present: true, Value: "base"},
+		ServerUpdatedBy: actorID, ServerUpdatedAt: updatedAt,
+	}
+	conflictPayload := map[string]any{
+		"conflict_token": "opaque-token", "record_id": recordID.String(),
+		"field_key": "timeline.activity_synopsis_text", "conflict_resolution_class": "text_compare_merge",
+		"base_row_version": int64(3), "current_row_version": int64(4),
+		"client_value": "client", "server_value": "server", "base_value": "base",
+		"server_updated_by": actorID.String(), "server_updated_at": updatedAt.Format(time.RFC3339Nano),
+	}
 
 	tests := []struct {
 		name     string
@@ -66,7 +83,7 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 			code:     "same_field_conflict",
 			message:  "same field conflict",
 			details:  map[string]any{},
-			conflict: conflict,
+			conflict: conflictPayload,
 		},
 		{
 			name: "typed row version conflict",

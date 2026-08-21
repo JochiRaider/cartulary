@@ -12,12 +12,16 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -84,13 +88,79 @@ func NewEvidenceOwnerRuntimeForTimeline(
 	)
 }
 
+// NewEvidenceMutationOwner composes the Evidence mutation owner for tests that
+// exercise Evidence semantics without depending on Workbook's legacy Store.
+func NewEvidenceMutationOwner(
+	pool postgres.DB,
+	conflictTokens conflicttokens.ConflictTokenCodec,
+) evidence.MutationContribution {
+	intents := collaboration.NewIntentAppender()
+	contributions, err := revisionassembly.CurrentProviderContributions()
+	if err != nil {
+		panic(err)
+	}
+	revisionRuntime, err := revisionassembly.Build(
+		revisionassembly.Dependencies{
+			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
+			IntentAppender:         intents,
+		},
+		contributions...,
+	)
+	if err != nil {
+		panic(err)
+	}
+	projectionRuntime := mustBuildProjectionRuntime(pool)
+	runtime := NewEvidenceOwnerRuntime(
+		pool,
+		conflictTokens,
+		revisionRuntime.Appender(),
+		intents,
+		UnavailableEvidenceObjectStore(),
+		revisionRuntime.ConflictFieldResolver(),
+		workbookassembly.NewConflictIdempotencyPort(pool),
+		projectionRuntime,
+	)
+	return runtime.MutationContribution()
+}
+
 func UnavailableEvidenceObjectStore() objectstore.TypedStore {
 	return unavailableEvidenceObjectStore{}
 }
 
-// NewWorkbookStore composes the same code-backed projection catalog used by
-// the server for focused module tests that do not need an HTTP runtime.
-func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *workbook.Store {
+// NewTaskDecisionOwner composes the source-owner mutation facade for tests
+// that verify Task/Decision lifecycle behavior without the legacy Store.
+func NewTaskDecisionOwner(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *tasksdecisions.MutationFacade {
+	intents := collaboration.NewIntentAppender()
+	contributions, err := revisionassembly.CurrentProviderContributions()
+	if err != nil {
+		panic(err)
+	}
+	revisionRuntime, err := revisionassembly.Build(
+		revisionassembly.Dependencies{
+			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
+			IntentAppender:         intents,
+		},
+		contributions...,
+	)
+	if err != nil {
+		panic(err)
+	}
+	owner, err := workbookassembly.NewTaskDecisionMutationContribution(
+		pool,
+		conflictTokens,
+		revisionRuntime.Appender(),
+		revisionRuntime.ConflictFieldResolver(),
+		mustBuildProjectionRuntime(pool).TaskDecisionPorts().Rows,
+	)
+	if err != nil {
+		panic(err)
+	}
+	return owner
+}
+
+// NewWorkbookCatalog composes the same immutable provider catalog used by the
+// server for focused generic coordination tests.
+func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *workbook.WorkbookContributionCatalog {
 	intents := collaboration.NewIntentAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
@@ -181,16 +251,77 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 	if err != nil {
 		panic(err)
 	}
-	store, err := workbookassembly.NewMutationStore(
-		pool,
-		catalog,
-		artifactMutation,
-		taskDecisionMutation,
+	return catalog
+}
+
+// NewAssessmentOwner composes the Assessment owner for tests that exercise
+// source semantics directly rather than through Workbook's legacy Store.
+func NewAssessmentOwner(pool postgres.DB) *assessments.Facade {
+	intents := collaboration.NewIntentAppender()
+	contributions, err := revisionassembly.CurrentProviderContributions()
+	if err != nil {
+		panic(err)
+	}
+	revisionRuntime, err := revisionassembly.Build(
+		revisionassembly.Dependencies{
+			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
+			IntentAppender:         intents,
+		},
+		contributions...,
 	)
 	if err != nil {
 		panic(err)
 	}
-	return store
+	projectionRuntime := mustBuildProjectionRuntime(pool)
+	entityStore := hostidentity.NewStore(
+		pool,
+		revisionRuntime.Appender(),
+		workbookassembly.NewConflictIdempotencyPort(pool),
+		projectionRuntime.EntityPorts().Writer,
+		hostidentity.WithProjectionReader(projectionRuntime.EntityPorts().Reader),
+	)
+	owner, err := workbookassembly.NewAssessmentMutationContribution(
+		pool,
+		projectionRuntime.AssessmentPorts().Rows,
+		entityStore,
+		revisionRuntime.Appender(),
+	)
+	if err != nil {
+		panic(err)
+	}
+	return owner
+}
+
+// NewPartyOwner composes the Party mutation owner for tests that exercise
+// Party semantics without depending on Workbook's transitional Store.
+func NewPartyOwner(
+	pool postgres.DB,
+	conflictTokens conflicttokens.ConflictTokenCodec,
+) *parties.MutationFacade {
+	intents := collaboration.NewIntentAppender()
+	contributions, err := revisionassembly.CurrentProviderContributions()
+	if err != nil {
+		panic(err)
+	}
+	revisionRuntime, err := revisionassembly.Build(
+		revisionassembly.Dependencies{
+			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
+			IntentAppender:         intents,
+		},
+		contributions...,
+	)
+	if err != nil {
+		panic(err)
+	}
+	projectionRuntime := mustBuildProjectionRuntime(pool)
+	return parties.NewMutationFacade(
+		pool,
+		conflictTokens,
+		revisionRuntime.Appender(),
+		revisionRuntime.ConflictFieldResolver(),
+		workbookassembly.NewConflictIdempotencyPort(pool),
+		projectionRuntime.PartyPorts().Rows,
+	)
 }
 
 type unavailableEvidenceObjectStore struct{}

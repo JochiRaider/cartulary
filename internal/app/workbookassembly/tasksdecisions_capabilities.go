@@ -126,7 +126,7 @@ func decodeTaskDecisionStoredResult(
 		if err != nil {
 			return tasksdecisions.StoredMutationResult{}, err
 		}
-		stored := tasksdecisions.StoredWorkbookResult{
+		stored := tasksdecisions.StoredRowMutationResult{
 			ViewSchemaID: viewSchemaID,
 			RecordID:     recordID,
 			ChangeSetID:  changeSetID,
@@ -175,7 +175,7 @@ func decodeTaskDecisionStoredResult(
 func encodeTaskDecisionStoredResult(result tasksdecisions.StoredMutationResult) (map[string]any, error) {
 	switch result.Kind() {
 	case tasksdecisions.StoredMutationCreate, tasksdecisions.StoredMutationPatch:
-		stored, ok := result.WorkbookResult()
+		stored, ok := result.RowMutationResult()
 		if !ok {
 			return nil, tasksdecisions.ErrStoredMutationKindMismatch
 		}

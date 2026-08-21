@@ -3,6 +3,16 @@
   "owner_id": "module.workbook",
   "verifications": [
     {
+      "verification_id": "module.workbook.verification.architecture_boundary",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "backend-module-boundary-check"
+    },
+    {
       "verification_id": "module.workbook.verification.behavior_contract",
       "behavior_class": "product",
       "profile": "base",

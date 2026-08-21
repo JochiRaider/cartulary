@@ -47,7 +47,7 @@ const (
 	StoredMutationDecisionSupersession StoredMutationKind = "decision_supersession"
 )
 
-type StoredWorkbookResult struct {
+type StoredRowMutationResult struct {
 	ViewSchemaID string
 	RecordID     uuid.UUID
 	ChangeSetID  uuid.UUID
@@ -64,16 +64,16 @@ type StoredDecisionSupersessionResult struct {
 // the only way application adapters can create a valid stored result.
 type StoredMutationResult struct {
 	kind         StoredMutationKind
-	workbook     StoredWorkbookResult
+	row          StoredRowMutationResult
 	supersession StoredDecisionSupersessionResult
 }
 
-func NewStoredCreateResult(result StoredWorkbookResult) StoredMutationResult {
-	return StoredMutationResult{kind: StoredMutationCreate, workbook: result}
+func NewStoredCreateResult(result StoredRowMutationResult) StoredMutationResult {
+	return StoredMutationResult{kind: StoredMutationCreate, row: result}
 }
 
-func NewStoredPatchResult(result StoredWorkbookResult) StoredMutationResult {
-	return StoredMutationResult{kind: StoredMutationPatch, workbook: result}
+func NewStoredPatchResult(result StoredRowMutationResult) StoredMutationResult {
+	return StoredMutationResult{kind: StoredMutationPatch, row: result}
 }
 
 func NewStoredDecisionSupersessionResult(result StoredDecisionSupersessionResult) StoredMutationResult {
@@ -82,11 +82,11 @@ func NewStoredDecisionSupersessionResult(result StoredDecisionSupersessionResult
 
 func (r StoredMutationResult) Kind() StoredMutationKind { return r.kind }
 
-func (r StoredMutationResult) WorkbookResult() (StoredWorkbookResult, bool) {
+func (r StoredMutationResult) RowMutationResult() (StoredRowMutationResult, bool) {
 	if r.kind != StoredMutationCreate && r.kind != StoredMutationPatch {
-		return StoredWorkbookResult{}, false
+		return StoredRowMutationResult{}, false
 	}
-	return r.workbook, true
+	return r.row, true
 }
 
 func (r StoredMutationResult) DecisionSupersessionResult() (StoredDecisionSupersessionResult, bool) {

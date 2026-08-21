@@ -10,22 +10,30 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	assessmentadmission "github.com/JochiRaider/cartulary/internal/modules/assessments/admission"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/parties"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
 
 func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "workbook_interaction-assessments-u-9-06")
-	workbookStore := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
+	workbookStore := appsupport.NewWorkbookCatalog(harness.DB, conflicttest.NewCodec("workbook"))
+	assessmentOwner := appsupport.NewAssessmentOwner(harness.DB)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "workbook_interaction-u906@example.test", "Workbook inspector U906", "WorkbookInteractionU906Pass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-06-incident", "IR-WORKBOOK-INTERACTION-assessment-storage", "Workbook inspector assessment-storage assessments")
 
@@ -61,7 +69,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		}
 		result, err := createAssessment(
 			ctx,
-			workbookStore,
+			assessmentOwner,
 			actor,
 			incident.ID,
 			request,
@@ -72,7 +80,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 			t.Fatalf("create %s assessment: %v", tc.key, err)
 		}
 		created[tc.key] = result.RecordID
-		row := result.Payload["row"].(map[string]any)
+		row := result.CanonicalRow
 		cells := row["cells"].(map[string]any)
 		requireCellValue(t, cells, "assessment.subject_ref", tc.subjectRef.String())
 		requireCellValue(t, cells, "assessment.subject_type", tc.subjectType)
@@ -107,7 +115,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		{FieldKey: "assessment.assessed_at", Direction: "desc"},
 		{FieldKey: "record_id", Direction: "asc"},
 	}
-	rows, err := workbookStore.QueryRows(ctx, incident.ID, workbook.AssessmentsViewSchemaID, query)
+	rows, err := workbookStore.QueryRows(ctx, incident.ID, assessments.AssessmentsViewSchemaID, query)
 	if err != nil {
 		t.Fatalf("query assessment rows sorted by confidence band: %v", err)
 	}
@@ -123,7 +131,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		before := queryCount(t, harness, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID)
 		request := validCreateRequest(hostID, "host", state)
 		request.ClientTxnID = "txn-workbook_interaction-u-9-06-operational-" + state
-		if _, err := createAssessment(ctx, workbookStore, actor, incident.ID, request, "req-operational-"+state, time.Now().UTC()); err == nil {
+		if _, err := createAssessment(ctx, assessmentOwner, actor, incident.ID, request, "req-operational-"+state, time.Now().UTC()); err == nil {
 			t.Fatalf("expected operational state %q to fail closed", state)
 		}
 		if after := queryCount(t, harness, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID); after != before {
@@ -155,7 +163,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		}},
 	} {
 		before := queryCount(t, harness, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID)
-		if _, err := createAssessment(ctx, workbookStore, actor, incident.ID, tc.request, "req-"+tc.name, time.Now().UTC()); err == nil {
+		if _, err := createAssessment(ctx, assessmentOwner, actor, incident.ID, tc.request, "req-"+tc.name, time.Now().UTC()); err == nil {
 			t.Fatalf("expected %s to fail closed", tc.name)
 		}
 		if after := queryCount(t, harness, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID); after != before {
@@ -163,7 +171,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		}
 	}
 
-	expectAssessmentCreateRejected(t, workbookStore, actor, incident.ID, map[string]any{
+	expectAssessmentCreateRejected(t, assessmentOwner, actor, incident.ID, map[string]any{
 		"client_txn_id":               "txn-workbook_interaction-u-9-06-null-assessed-at",
 		"assessment.subject_ref":      hostID.String(),
 		"assessment.subject_type":     "host",
@@ -188,43 +196,15 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		"assessment.assessed_at":      " 2026-04-24T12:00:00Z",
 	})
 
-	patchPayload := map[string]any{
-		"view_schema_id":   assessments.AssessmentsViewSchemaID,
-		"base_row_version": 1,
-		"client_txn_id":    "txn-workbook_interaction-u-9-06-semantic-patch",
-		"changes": []map[string]any{
-			{"field_key": "assessment.assessment_state", "value": "cleared"},
-		},
+	assessmentSchema, ok := viewschema.Lookup(assessments.AssessmentsViewSchemaID)
+	if !ok {
+		t.Fatal("assessment view schema is missing")
 	}
-	data, err := json.Marshal(patchPayload)
-	if err != nil {
-		t.Fatalf("marshal patch payload: %v", err)
+	for fieldKey, field := range assessmentSchema.Fields() {
+		if field.Writable {
+			t.Fatalf("append-only assessment field %s is unexpectedly patch-writable", fieldKey)
+		}
 	}
-	if _, apiErr := workbook.DecodePatchRequest(strings.NewReader(string(data))); apiErr == nil {
-		t.Fatalf("expected in-place assessment semantic patch to be rejected")
-	}
-	requireAssessmentPatchDecodeError(t, "assessment.assessment_state", map[string]any{
-		"value": "cleared",
-	}, "assessment.assessment_state")
-	requireAssessmentPatchDecodeError(t, "assessment.support_refs", map[string]any{
-		"action_payload": map[string]any{
-			"kind": "collection_actions_v1",
-			"actions": []map[string]any{
-				{"op": "add_record_ref", "linked_record_id": hostID.String()},
-			},
-		},
-	}, "assessment.support_refs")
-	requireAssessmentPatchDecodeError(t, "assessment.support_refs", map[string]any{
-		"action_payload": map[string]any{
-			"kind": "collection_actions_v1",
-			"actions": []map[string]any{
-				{"op": "remove_item", "item_ref": "record_ref:" + hostID.String()},
-			},
-		},
-	}, "assessment.support_refs")
-	requireAssessmentPatchDecodeError(t, "assessment.not_a_field", map[string]any{
-		"value": "anything",
-	}, "field_key")
 	requireQueriedRecordIDs(t, workbookStore, incident.ID, filterEq("assessment.assessment_state", "confirmed"), []uuid.UUID{created["confirmed"]})
 
 	for index, boundary := range []struct {
@@ -243,7 +223,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		request.ConfidenceScore = &boundary.score
 		result, err := createAssessment(
 			ctx,
-			workbookStore,
+			assessmentOwner,
 			actor,
 			incident.ID,
 			request,
@@ -253,7 +233,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create confidence boundary %d: %v", boundary.score, err)
 		}
-		cells := result.Payload["row"].(map[string]any)["cells"].(map[string]any)
+		cells := result.CanonicalRow["cells"].(map[string]any)
 		requireNumericCellValue(t, cells, "assessment.confidence_score", boundary.score)
 		requireCellValue(t, cells, "assessment.confidence_band", boundary.band)
 	}
@@ -262,7 +242,10 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "workbook_interaction-assessments-u-9-12")
-	workbookStore := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
+	workbookStore := appsupport.NewWorkbookCatalog(harness.DB, conflicttest.NewCodec("workbook"))
+	assessmentOwner := appsupport.NewAssessmentOwner(harness.DB)
+	partyOwner := appsupport.NewPartyOwner(harness.DB, conflicttest.NewCodec("workbook"))
+	evidenceOwner := appsupport.NewEvidenceMutationOwner(harness.DB, conflicttest.NewCodec("workbook"))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "workbook_interaction-u912@example.test", "Workbook inspector U912", "WorkbookInteractionU912Pass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-12-incident", "IR-WORKBOOK-INTERACTION-assessment-storage", "Workbook inspector assessment-storage assessment links")
 	hostID := uuid.New()
@@ -275,7 +258,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	request.SupportRefs = []uuid.UUID{supportID}
 	result, err := createAssessment(
 		ctx,
-		workbookStore,
+		assessmentOwner,
 		actor,
 		incident.ID,
 		request,
@@ -311,7 +294,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		t.Fatalf("expected no manual assessment support links with client confidence, got %d", got)
 	}
 
-	expectWorkbookDecodeCreateRejected(t, workbook.TaskRequestsViewSchemaID, map[string]any{
+	expectOwnerDecodeCreateRejected(t, tasksdecisions.TaskRequestsViewSchemaID, map[string]any{
 		"client_txn_id":  "txn-workbook_interaction-u-9-12-task-confidence-create",
 		"task.title":     "Task confidence must be rejected",
 		"task.task_kind": "collection",
@@ -322,8 +305,8 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 			},
 		},
 	})
-	expectWorkbookDecodePatchRejected(t, map[string]any{
-		"view_schema_id":   workbook.TaskRequestsViewSchemaID,
+	expectOwnerDecodePatchRejected(t, map[string]any{
+		"view_schema_id":   tasksdecisions.TaskRequestsViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-workbook_interaction-u-9-12-task-confidence-patch",
 		"changes": []map[string]any{
@@ -338,7 +321,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 			},
 		},
 	})
-	expectWorkbookDecodeCreateRejected(t, workbook.DecisionsViewSchemaID, map[string]any{
+	expectOwnerDecodeCreateRejected(t, tasksdecisions.DecisionsViewSchemaID, map[string]any{
 		"client_txn_id":          "txn-workbook_interaction-u-9-12-decision-support-confidence-create",
 		"decision.summary":       "Decision confidence must be rejected",
 		"decision.decision_type": "containment",
@@ -350,8 +333,8 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 			},
 		},
 	})
-	expectWorkbookDecodePatchRejected(t, map[string]any{
-		"view_schema_id":   workbook.DecisionsViewSchemaID,
+	expectOwnerDecodePatchRejected(t, map[string]any{
+		"view_schema_id":   tasksdecisions.DecisionsViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-workbook_interaction-u-9-12-decision-support-confidence-patch",
 		"changes": []map[string]any{
@@ -366,7 +349,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 			},
 		},
 	})
-	expectWorkbookDecodeCreateRejected(t, workbook.DecisionsViewSchemaID, map[string]any{
+	expectOwnerDecodeCreateRejected(t, tasksdecisions.DecisionsViewSchemaID, map[string]any{
 		"client_txn_id":          "txn-workbook_interaction-u-9-12-decision-affected-confidence-create",
 		"decision.summary":       "Decision affected confidence must be rejected",
 		"decision.decision_type": "containment",
@@ -378,8 +361,8 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 			},
 		},
 	})
-	expectWorkbookDecodePatchRejected(t, map[string]any{
-		"view_schema_id":   workbook.DecisionsViewSchemaID,
+	expectOwnerDecodePatchRejected(t, map[string]any{
+		"view_schema_id":   tasksdecisions.DecisionsViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-workbook_interaction-u-9-12-decision-affected-confidence-patch",
 		"changes": []map[string]any{
@@ -404,7 +387,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	}{
 		{
 			name:         "comm-decision",
-			viewSchemaID: workbook.CommLogViewSchemaID,
+			viewSchemaID: artifacts.CommLogViewSchemaID,
 			fieldKey:     "comm_log.decision_ids",
 			createBody: map[string]any{
 				"comm_log.comm_type":          "briefing",
@@ -416,7 +399,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		},
 		{
 			name:         "comm-action-task",
-			viewSchemaID: workbook.CommLogViewSchemaID,
+			viewSchemaID: artifacts.CommLogViewSchemaID,
 			fieldKey:     "comm_log.action_task_ids",
 			createBody: map[string]any{
 				"comm_log.comm_type":          "briefing",
@@ -428,7 +411,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		},
 		{
 			name:         "comm-audience-party",
-			viewSchemaID: workbook.CommLogViewSchemaID,
+			viewSchemaID: artifacts.CommLogViewSchemaID,
 			fieldKey:     "comm_log.audience_party_ids",
 			createBody: map[string]any{
 				"comm_log.comm_type":          "briefing",
@@ -440,7 +423,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		},
 		{
 			name:         "comm-attendee-party",
-			viewSchemaID: workbook.CommLogViewSchemaID,
+			viewSchemaID: artifacts.CommLogViewSchemaID,
 			fieldKey:     "comm_log.attendee_party_ids",
 			createBody: map[string]any{
 				"comm_log.comm_type":          "briefing",
@@ -452,7 +435,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		},
 		{
 			name:         "handoff-task",
-			viewSchemaID: workbook.HandoffViewSchemaID,
+			viewSchemaID: artifacts.HandoffViewSchemaID,
 			fieldKey:     "handoff.open_task_ids",
 			createBody: map[string]any{
 				"handoff.incoming_owner_user_id": actor.ID.String(),
@@ -462,7 +445,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		},
 		{
 			name:         "handoff-decision",
-			viewSchemaID: workbook.HandoffViewSchemaID,
+			viewSchemaID: artifacts.HandoffViewSchemaID,
 			fieldKey:     "handoff.open_decision_ids",
 			createBody: map[string]any{
 				"handoff.incoming_owner_user_id": actor.ID.String(),
@@ -472,7 +455,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		},
 		{
 			name:         "handoff-risk",
-			viewSchemaID: workbook.HandoffViewSchemaID,
+			viewSchemaID: artifacts.HandoffViewSchemaID,
 			fieldKey:     "handoff.open_risk_refs",
 			createBody: map[string]any{
 				"handoff.incoming_owner_user_id": actor.ID.String(),
@@ -482,7 +465,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		},
 		{
 			name:         "status-blocked-task",
-			viewSchemaID: workbook.StatusReviewViewSchemaID,
+			viewSchemaID: artifacts.StatusReviewViewSchemaID,
 			fieldKey:     "status_review.blocked_task_ids",
 			createBody: map[string]any{
 				"status_review.current_state_summary": "Coordination confidence must be rejected.",
@@ -491,7 +474,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		},
 		{
 			name:         "status-pending-evidence",
-			viewSchemaID: workbook.StatusReviewViewSchemaID,
+			viewSchemaID: artifacts.StatusReviewViewSchemaID,
 			fieldKey:     "status_review.pending_evidence_ids",
 			createBody: map[string]any{
 				"status_review.current_state_summary": "Coordination confidence must be rejected.",
@@ -500,7 +483,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		},
 		{
 			name:         "status-open-decision",
-			viewSchemaID: workbook.StatusReviewViewSchemaID,
+			viewSchemaID: artifacts.StatusReviewViewSchemaID,
 			fieldKey:     "status_review.open_decision_ids",
 			createBody: map[string]any{
 				"status_review.current_state_summary": "Coordination confidence must be rejected.",
@@ -509,7 +492,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		},
 		{
 			name:         "lesson-follow-up-task",
-			viewSchemaID: workbook.LessonViewSchemaID,
+			viewSchemaID: artifacts.LessonViewSchemaID,
 			fieldKey:     "lesson.follow_up_task_ids",
 			createBody: map[string]any{
 				"lesson.summary": "Coordination confidence must be rejected.",
@@ -518,7 +501,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		},
 		{
 			name:         "lesson-evidence",
-			viewSchemaID: workbook.LessonViewSchemaID,
+			viewSchemaID: artifacts.LessonViewSchemaID,
 			fieldKey:     "lesson.evidence_refs",
 			createBody: map[string]any{
 				"lesson.summary": "Coordination confidence must be rejected.",
@@ -532,8 +515,8 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 			"kind":    "collection_actions_v1",
 			"actions": []map[string]any{tc.action},
 		}
-		expectWorkbookDecodeCreateRejected(t, tc.viewSchemaID, createBody)
-		expectWorkbookDecodePatchRejected(t, map[string]any{
+		expectOwnerDecodeCreateRejected(t, tc.viewSchemaID, createBody)
+		expectOwnerDecodePatchRejected(t, map[string]any{
 			"view_schema_id":   tc.viewSchemaID,
 			"base_row_version": 1,
 			"client_txn_id":    "txn-workbook_interaction-u-9-12-" + tc.name + "-confidence-patch",
@@ -549,36 +532,36 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		})
 	}
 
-	taskResult, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
-		ViewSchemaID: workbook.TaskRequestsViewSchemaID,
+	taskResult, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
+		ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-12-task-null-confidence",
-		Values: map[string]workbook.ValueChange{
+		Values: map[string]workbookroutetest.ValueChange{
 			"task.title":     {Kind: "text", Text: textPtr("Task confidence remains null")},
 			"task.task_kind": {Kind: "text", Text: textPtr("collection")},
 		},
-		Collections: map[string]workbook.CollectionActionPayload{
+		Collections: map[string]workbookroutetest.CollectionActionPayload{
 			"task.linked_record_ids": {
-				Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}},
+				Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}},
 			},
 		},
 	}, []byte("txn-workbook_interaction-u-9-12-task-null-confidence"), "req-workbook_interaction-u-9-12-task-null-confidence", time.Date(2026, 5, 17, 18, 30, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create task with manual link: %v", err)
 	}
-	decisionResult, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
-		ViewSchemaID: workbook.DecisionsViewSchemaID,
+	decisionResult, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
+		ViewSchemaID: tasksdecisions.DecisionsViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-12-decision-null-confidence",
-		Values: map[string]workbook.ValueChange{
+		Values: map[string]workbookroutetest.ValueChange{
 			"decision.summary":       {Kind: "text", Text: textPtr("Decision confidence remains null")},
 			"decision.decision_type": {Kind: "text", Text: textPtr("containment")},
 			"decision.rationale":     {Kind: "text", Text: textPtr("Manual relationship confidence remains null.")},
 		},
-		Collections: map[string]workbook.CollectionActionPayload{
+		Collections: map[string]workbookroutetest.CollectionActionPayload{
 			"decision.support_refs": {
-				Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}},
+				Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}},
 			},
 			"decision.affected_record_ids": {
-				Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}},
+				Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}},
 			},
 		},
 	}, []byte("txn-workbook_interaction-u-9-12-decision-null-confidence"), "req-workbook_interaction-u-9-12-decision-null-confidence", time.Date(2026, 5, 17, 18, 45, 0, 0, time.UTC))
@@ -589,21 +572,27 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	requireManualLinkConfidenceNull(t, harness, incident.ID, decisionResult.RecordID, supportID, "supported_by")
 	requireManualLinkConfidenceNull(t, harness, incident.ID, decisionResult.RecordID, supportID, "references_record")
 
-	coordParty, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
-		ViewSchemaID: workbook.PartiesViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-12-coord-party",
-		Values: map[string]workbook.ValueChange{
-			"party.display_name": {Kind: "text", Text: textPtr("Coordination party confidence remains null")},
-			"party.party_kind":   {Kind: "text", Text: textPtr("team")},
+	partyRequest := parties.CreateRequest{
+		ViewSchemaID: parties.ViewSchemaID, ClientTxnID: "txn-workbook_interaction-u-9-12-coord-party",
+		Values: map[string]parties.FieldValue{
+			"party.display_name": {Text: textPtr("Coordination party confidence remains null")},
+			"party.party_kind":   {Text: textPtr("team")},
 		},
-	}, []byte("txn-workbook_interaction-u-9-12-coord-party"), "req-workbook_interaction-u-9-12-coord-party", time.Date(2026, 5, 17, 18, 50, 0, 0, time.UTC))
+	}
+	coordParty, err := partyOwner.Create(ctx, parties.CreateCommand{
+		Actor: actor, IncidentID: incident.ID, Request: partyRequest,
+		RequestHash: parties.CreateRequestHash(partyRequest),
+		RequestID:   "req-workbook_interaction-u-9-12-coord-party",
+		RouteKey:    "workbook.rows.create",
+		Now:         time.Date(2026, 5, 17, 18, 50, 0, 0, time.UTC),
+	})
 	if err != nil {
 		t.Fatalf("create coordination party target: %v", err)
 	}
-	coordTask, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
-		ViewSchemaID: workbook.TaskRequestsViewSchemaID,
+	coordTask, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
+		ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-12-coord-task",
-		Values: map[string]workbook.ValueChange{
+		Values: map[string]workbookroutetest.ValueChange{
 			"task.title":     {Kind: "text", Text: textPtr("Coordination task confidence remains null")},
 			"task.task_kind": {Kind: "text", Text: textPtr("follow_up")},
 		},
@@ -611,10 +600,10 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	if err != nil {
 		t.Fatalf("create coordination task target: %v", err)
 	}
-	coordDecision, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
-		ViewSchemaID: workbook.DecisionsViewSchemaID,
+	coordDecision, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
+		ViewSchemaID: tasksdecisions.DecisionsViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-12-coord-decision",
-		Values: map[string]workbook.ValueChange{
+		Values: map[string]workbookroutetest.ValueChange{
 			"decision.summary":       {Kind: "text", Text: textPtr("Coordination decision confidence remains null")},
 			"decision.decision_type": {Kind: "text", Text: textPtr("containment")},
 			"decision.rationale":     {Kind: "text", Text: textPtr("Coordination manual relationship confidence remains null.")},
@@ -623,30 +612,36 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	if err != nil {
 		t.Fatalf("create coordination decision target: %v", err)
 	}
-	coordEvidence, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
-		ViewSchemaID: workbook.EvidenceViewSchemaID,
+	coordEvidenceRequest := evidence.CreateRequest{
+		ViewSchemaID: evidence.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-12-coord-evidence",
-		Values: map[string]workbook.ValueChange{
-			"evidence.title": {Kind: "text", Text: textPtr("Coordination evidence confidence remains null")},
+		Values: map[string]evidence.FieldValue{
+			"evidence.title": {Text: textPtr("Coordination evidence confidence remains null")},
 		},
-	}, []byte("txn-workbook_interaction-u-9-12-coord-evidence"), "req-workbook_interaction-u-9-12-coord-evidence", time.Date(2026, 5, 17, 18, 53, 0, 0, time.UTC))
+	}
+	coordEvidence, err := evidenceOwner.Create(ctx, evidence.CreateCommand{
+		Actor: actor, IncidentID: incident.ID, Request: coordEvidenceRequest,
+		RequestHash: evidence.CreateRequestHash(coordEvidenceRequest),
+		RequestID:   "req-workbook_interaction-u-9-12-coord-evidence",
+		RouteKey:    "workbook.rows.create", Now: time.Date(2026, 5, 17, 18, 53, 0, 0, time.UTC),
+	})
 	if err != nil {
 		t.Fatalf("create coordination evidence target: %v", err)
 	}
 
-	commResult, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
-		ViewSchemaID: workbook.CommLogViewSchemaID,
+	commResult, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
+		ViewSchemaID: artifacts.CommLogViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-12-comm-null-confidence",
-		Values: map[string]workbook.ValueChange{
+		Values: map[string]workbookroutetest.ValueChange{
 			"comm_log.comm_type":          {Kind: "text", Text: textPtr("briefing")},
 			"comm_log.audience":           {Kind: "text", Text: textPtr("Coordination party")},
 			"comm_log.channel_or_meeting": {Kind: "text", Text: textPtr("Bridge")},
 			"comm_log.summary":            {Kind: "text", Text: textPtr("Manual confidence remains null.")},
 		},
-		Collections: map[string]workbook.CollectionActionPayload{
-			"comm_log.decision_ids":       {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordDecision.RecordID}}},
-			"comm_log.action_task_ids":    {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
-			"comm_log.audience_party_ids": {Actions: []workbook.CollectionAction{{Op: "add_party_ref", PartyID: &coordParty.RecordID}}},
+		Collections: map[string]workbookroutetest.CollectionActionPayload{
+			"comm_log.decision_ids":       {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordDecision.RecordID}}},
+			"comm_log.action_task_ids":    {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
+			"comm_log.audience_party_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_party_ref", PartyID: &coordParty.RecordID}}},
 		},
 	}, []byte("txn-workbook_interaction-u-9-12-comm-null-confidence"), "req-workbook_interaction-u-9-12-comm-null-confidence", time.Date(2026, 5, 17, 18, 54, 0, 0, time.UTC))
 	if err != nil {
@@ -656,17 +651,17 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	requireManualLinkConfidenceNull(t, harness, incident.ID, commResult.RecordID, coordTask.RecordID, "references_record")
 	requireManualLinkConfidenceNull(t, harness, incident.ID, commResult.RecordID, coordParty.RecordID, "references_record")
 
-	handoffResult, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
-		ViewSchemaID: workbook.HandoffViewSchemaID,
+	handoffResult, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
+		ViewSchemaID: artifacts.HandoffViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-12-handoff-null-confidence",
-		Values: map[string]workbook.ValueChange{
+		Values: map[string]workbookroutetest.ValueChange{
 			"handoff.incoming_owner_user_id": {Kind: "uuid", UUID: &actor.ID},
 			"handoff.current_state_summary":  {Kind: "text", Text: textPtr("Manual confidence remains null.")},
 		},
-		Collections: map[string]workbook.CollectionActionPayload{
-			"handoff.open_task_ids":     {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
-			"handoff.open_decision_ids": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordDecision.RecordID}}},
-			"handoff.open_risk_refs":    {Actions: []workbook.CollectionAction{{Op: "add_risk_ref", RiskRefText: "Manual risk refs have no confidence", NormalizedText: "manual risk refs have no confidence"}}},
+		Collections: map[string]workbookroutetest.CollectionActionPayload{
+			"handoff.open_task_ids":     {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
+			"handoff.open_decision_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordDecision.RecordID}}},
+			"handoff.open_risk_refs":    {Actions: []workbookroutetest.CollectionAction{{Op: "add_risk_ref", RiskRefText: "Manual risk refs have no confidence", NormalizedText: "manual risk refs have no confidence"}}},
 		},
 	}, []byte("txn-workbook_interaction-u-9-12-handoff-null-confidence"), "req-workbook_interaction-u-9-12-handoff-null-confidence", time.Date(2026, 5, 17, 18, 55, 0, 0, time.UTC))
 	if err != nil {
@@ -681,16 +676,16 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		t.Fatalf("expected one handoff risk child row, got %d", got)
 	}
 
-	statusResult, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
-		ViewSchemaID: workbook.StatusReviewViewSchemaID,
+	statusResult, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
+		ViewSchemaID: artifacts.StatusReviewViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-12-status-null-confidence",
-		Values: map[string]workbook.ValueChange{
+		Values: map[string]workbookroutetest.ValueChange{
 			"status_review.current_state_summary": {Kind: "text", Text: textPtr("Manual confidence remains null.")},
 		},
-		Collections: map[string]workbook.CollectionActionPayload{
-			"status_review.blocked_task_ids":     {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
-			"status_review.pending_evidence_ids": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordEvidence.RecordID}}},
-			"status_review.open_decision_ids":    {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordDecision.RecordID}}},
+		Collections: map[string]workbookroutetest.CollectionActionPayload{
+			"status_review.blocked_task_ids":     {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
+			"status_review.pending_evidence_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordEvidence.RecordID}}},
+			"status_review.open_decision_ids":    {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordDecision.RecordID}}},
 		},
 	}, []byte("txn-workbook_interaction-u-9-12-status-null-confidence"), "req-workbook_interaction-u-9-12-status-null-confidence", time.Date(2026, 5, 17, 18, 56, 0, 0, time.UTC))
 	if err != nil {
@@ -700,15 +695,15 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	requireManualLinkConfidenceNull(t, harness, incident.ID, statusResult.RecordID, coordEvidence.RecordID, "references_record")
 	requireManualLinkConfidenceNull(t, harness, incident.ID, statusResult.RecordID, coordDecision.RecordID, "references_record")
 
-	lessonResult, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
-		ViewSchemaID: workbook.LessonViewSchemaID,
+	lessonResult, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
+		ViewSchemaID: artifacts.LessonViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-12-lesson-null-confidence",
-		Values: map[string]workbook.ValueChange{
+		Values: map[string]workbookroutetest.ValueChange{
 			"lesson.summary": {Kind: "text", Text: textPtr("Manual confidence remains null.")},
 		},
-		Collections: map[string]workbook.CollectionActionPayload{
-			"lesson.follow_up_task_ids": {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
-			"lesson.evidence_refs":      {Actions: []workbook.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordEvidence.RecordID}}},
+		Collections: map[string]workbookroutetest.CollectionActionPayload{
+			"lesson.follow_up_task_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
+			"lesson.evidence_refs":      {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordEvidence.RecordID}}},
 		},
 	}, []byte("txn-workbook_interaction-u-9-12-lesson-null-confidence"), "req-workbook_interaction-u-9-12-lesson-null-confidence", time.Date(2026, 5, 17, 18, 57, 0, 0, time.UTC))
 	if err != nil {
@@ -746,83 +741,40 @@ func validCreateRequest(
 
 func createAssessment(
 	ctx context.Context,
-	store *workbook.Store,
+	owner *assessments.Facade,
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
 	request assessmentCreateRequest,
 	requestID string,
 	now time.Time,
-) (workbook.MutationResult, error) {
-	workbookRequest := workbook.CreateRequest{
-		ViewSchemaID: assessments.AssessmentsViewSchemaID,
-		ClientTxnID:  request.ClientTxnID,
-		Values:       map[string]workbook.ValueChange{},
-		Collections:  map[string]workbook.CollectionActionPayload{},
+) (assessments.CreateResult, error) {
+	input := assessments.CreateInput{
+		ClientTxnID:     request.ClientTxnID,
+		SubjectType:     request.SubjectType,
+		AssessmentState: request.AssessmentState,
+		ConfidenceScore: request.ConfidenceScore,
+		Rationale:       request.Rationale,
+		Assessor:        request.Assessor,
+		AssessedAt:      request.AssessedAt,
+		SupportRefs:     append([]uuid.UUID(nil), request.SupportRefs...),
 	}
 	if request.SubjectRef != nil {
-		workbookRequest.Values["assessment.subject_ref"] = workbook.ValueChange{
-			Kind: "uuid",
-			UUID: request.SubjectRef,
-		}
+		input.SubjectRef = *request.SubjectRef
 	}
-	if request.SubjectType != "" {
-		workbookRequest.Values["assessment.subject_type"] = workbook.ValueChange{
-			Kind: "text",
-			Text: &request.SubjectType,
-		}
-	}
-	if request.AssessmentState != "" {
-		workbookRequest.Values["assessment.assessment_state"] = workbook.ValueChange{
-			Kind: "text",
-			Text: &request.AssessmentState,
-		}
-	}
-	if request.ConfidenceScore != nil {
-		score := int64(*request.ConfidenceScore)
-		workbookRequest.Values["assessment.confidence_score"] = workbook.ValueChange{
-			Kind:   "number",
-			Number: &score,
-		}
-	}
-	if request.Rationale != "" {
-		workbookRequest.Values["assessment.rationale"] = workbook.ValueChange{
-			Kind: "text",
-			Text: &request.Rationale,
-		}
-	}
-	if request.Assessor != nil {
-		workbookRequest.Values["assessment.assessor"] = workbook.ValueChange{
-			Kind: "uuid",
-			UUID: request.Assessor,
-		}
-	}
-	if request.AssessedAt != nil {
-		workbookRequest.Values["assessment.assessed_at"] = workbook.ValueChange{
-			Kind:      "timestamp",
-			Timestamp: request.AssessedAt,
-		}
-	}
-	if len(request.SupportRefs) > 0 {
-		actions := make([]workbook.CollectionAction, 0, len(request.SupportRefs))
-		for index := range request.SupportRefs {
-			ref := request.SupportRefs[index]
-			actions = append(actions, workbook.CollectionAction{
-				Op:             "add_record_ref",
-				LinkedRecordID: &ref,
-			})
-		}
-		workbookRequest.Collections["assessment.support_refs"] =
-			workbook.CollectionActionPayload{Actions: actions}
-	}
-	return store.CreateWorkbookRow(
-		ctx,
-		actor,
-		incidentID,
-		workbookRequest,
-		workbook.CreateRequestHash(workbookRequest),
-		requestID,
-		now,
-	)
+	return owner.Create(ctx, assessments.CreateCommand{
+		ActorUserID: actor.ID,
+		IncidentID:  incidentID,
+		Input:       input,
+		Idempotency: assessments.CreateIdempotencyKey{
+			RouteKey:    "assessments.rows.create",
+			ActorUserID: actor.ID,
+			ScopeKey:    incidentID.String() + ":" + assessments.AssessmentsViewSchemaID,
+			ClientTxnID: input.ClientTxnID,
+			RequestHash: assessmentadmission.CreateRequestHash(input),
+		},
+		RequestID: requestID,
+		Now:       now,
+	})
 }
 
 func filterEq(fieldKey string, value any) viewschema.Filter {
@@ -850,11 +802,11 @@ func requireNumericCellValue(t testing.TB, cells map[string]any, fieldKey string
 	}
 }
 
-func requireQueriedRecordIDs(t testing.TB, store *workbook.Store, incidentID uuid.UUID, filter viewschema.Filter, want []uuid.UUID) {
+func requireQueriedRecordIDs(t testing.TB, store *workbook.WorkbookContributionCatalog, incidentID uuid.UUID, filter viewschema.Filter, want []uuid.UUID) {
 	t.Helper()
 	query := assessmentQueryMeta(t)
 	query.Filters = []viewschema.Filter{filter}
-	rows, err := store.QueryRows(context.Background(), incidentID, workbook.AssessmentsViewSchemaID, query)
+	rows, err := store.QueryRows(context.Background(), incidentID, assessments.AssessmentsViewSchemaID, query)
 	if err != nil {
 		t.Fatalf("query assessment rows for %#v: %v", filter, err)
 	}
@@ -879,7 +831,7 @@ func requireRecordIDOrder(t testing.TB, rows []map[string]any, want []uuid.UUID)
 
 func assessmentQueryMeta(t testing.TB) viewschema.QueryMeta {
 	t.Helper()
-	schema, ok := viewschema.Lookup(workbook.AssessmentsViewSchemaID)
+	schema, ok := viewschema.Lookup(assessments.AssessmentsViewSchemaID)
 	if !ok {
 		t.Fatalf("missing assessments view schema")
 	}
@@ -901,17 +853,14 @@ func expectDecodeCreateRejected(t testing.TB, body map[string]any) {
 	if err != nil {
 		t.Fatalf("marshal create body: %v", err)
 	}
-	if _, apiErr := workbook.DecodeCreateRequest(
-		assessments.AssessmentsViewSchemaID,
-		strings.NewReader(string(data)),
-	); apiErr == nil {
+	if _, apiErr := assessmentadmission.DecodeCreateRequest(strings.NewReader(string(data))); apiErr == nil {
 		t.Fatalf("expected create body to be rejected: %#v", body)
 	}
 }
 
 func expectAssessmentCreateRejected(
 	t testing.TB,
-	store *workbook.Store,
+	owner *assessments.Facade,
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
 	body map[string]any,
@@ -921,80 +870,67 @@ func expectAssessmentCreateRejected(
 	if err != nil {
 		t.Fatalf("marshal assessment create body: %v", err)
 	}
-	request, apiErr := workbook.DecodeCreateRequest(
-		assessments.AssessmentsViewSchemaID,
-		strings.NewReader(string(data)),
-	)
+	input, apiErr := assessmentadmission.DecodeCreateRequest(strings.NewReader(string(data)))
 	if apiErr != nil {
 		return
 	}
-	if _, err := store.CreateWorkbookRow(
-		context.Background(),
-		actor,
-		incidentID,
-		request,
-		workbook.CreateRequestHash(request),
-		"req-"+request.ClientTxnID,
-		time.Now().UTC(),
-	); err == nil {
+	if _, err := owner.Create(context.Background(), assessments.CreateCommand{
+		ActorUserID: actor.ID,
+		IncidentID:  incidentID,
+		Input:       input,
+		Idempotency: assessments.CreateIdempotencyKey{
+			RouteKey:    "assessments.rows.create",
+			ActorUserID: actor.ID,
+			ScopeKey:    incidentID.String() + ":" + assessments.AssessmentsViewSchemaID,
+			ClientTxnID: input.ClientTxnID,
+			RequestHash: assessmentadmission.CreateRequestHash(input),
+		},
+		RequestID: "req-" + input.ClientTxnID,
+		Now:       time.Now().UTC(),
+	}); err == nil {
 		t.Fatalf("expected assessment create body to be rejected: %#v", body)
 	}
 }
 
-func expectWorkbookDecodeCreateRejected(t testing.TB, viewSchemaID string, body map[string]any) {
+func expectOwnerDecodeCreateRejected(t testing.TB, viewSchemaID string, body map[string]any) {
 	t.Helper()
 	data, err := json.Marshal(body)
 	if err != nil {
 		t.Fatalf("marshal workbook create body: %v", err)
 	}
-	if _, apiErr := workbook.DecodeCreateRequest(viewSchemaID, strings.NewReader(string(data))); apiErr == nil {
-		t.Fatalf("expected workbook create body to be rejected: %#v", body)
-	} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
-		t.Fatalf("unexpected workbook create error: %#v", apiErr)
+	if viewSchemaID == tasksdecisions.TaskRequestsViewSchemaID || viewSchemaID == tasksdecisions.DecisionsViewSchemaID {
+		_, apiErr := tasksdecisions.DecodeCreateRequest(viewSchemaID, strings.NewReader(string(data)))
+		requireOwnerDecodeRejected(t, apiErr, body)
+		return
 	}
+	_, apiErr := artifacts.DecodeCreateRequest(viewSchemaID, strings.NewReader(string(data)))
+	requireOwnerDecodeRejected(t, apiErr, body)
 }
 
-func expectWorkbookDecodePatchRejected(t testing.TB, body map[string]any) {
+func expectOwnerDecodePatchRejected(t testing.TB, body map[string]any) {
 	t.Helper()
 	data, err := json.Marshal(body)
 	if err != nil {
 		t.Fatalf("marshal workbook patch body: %v", err)
 	}
-	if _, apiErr := workbook.DecodePatchRequest(strings.NewReader(string(data))); apiErr == nil {
-		t.Fatalf("expected workbook patch body to be rejected: %#v", body)
-	} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
-		t.Fatalf("unexpected workbook patch error: %#v", apiErr)
+	viewSchemaID, _ := body["view_schema_id"].(string)
+	if viewSchemaID == tasksdecisions.TaskRequestsViewSchemaID || viewSchemaID == tasksdecisions.DecisionsViewSchemaID {
+		_, apiErr := tasksdecisions.DecodePatchRequest(strings.NewReader(string(data)))
+		requireOwnerDecodeRejected(t, apiErr, body)
+		return
 	}
+	_, apiErr := artifacts.DecodePatchRequest(strings.NewReader(string(data)))
+	requireOwnerDecodeRejected(t, apiErr, body)
 }
 
-func requireAssessmentPatchDecodeError(t testing.TB, fieldKey string, changeBody map[string]any, wantDetailField string) {
+func requireOwnerDecodeRejected(t testing.TB, apiErr *httpapi.APIError, body map[string]any) {
 	t.Helper()
-	change := map[string]any{"field_key": fieldKey}
-	for key, value := range changeBody {
-		change[key] = value
-	}
-	data, err := json.Marshal(map[string]any{
-		"view_schema_id":   assessments.AssessmentsViewSchemaID,
-		"base_row_version": 1,
-		"client_txn_id":    "txn-assessment-characterization-" + strings.ReplaceAll(fieldKey, ".", "-"),
-		"changes":          []map[string]any{change},
-	})
-	if err != nil {
-		t.Fatalf("marshal assessment patch body: %v", err)
-	}
-	_, apiErr := workbook.DecodePatchRequest(strings.NewReader(string(data)))
 	if apiErr == nil {
-		t.Fatalf("expected assessment patch for %s to be rejected", fieldKey)
+		t.Fatalf("expected owner mutation body to be rejected: %#v", body)
 		return
 	}
 	if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
-		t.Fatalf("unexpected assessment patch error for %s: %#v", fieldKey, apiErr)
-	}
-	if got := apiErr.Details["field"]; got != wantDetailField {
-		t.Fatalf("unexpected assessment patch detail field for %s: got %#v want %q", fieldKey, got, wantDetailField)
-	}
-	if got := apiErr.Details["reason_code"]; got != "unsupported_field_key" {
-		t.Fatalf("unexpected assessment patch reason for %s: got %#v", fieldKey, got)
+		t.Fatalf("unexpected owner mutation error: %#v", apiErr)
 	}
 }
 

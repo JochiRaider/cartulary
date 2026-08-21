@@ -20,7 +20,25 @@ const (
 	MentionStatusResolved   = "resolved"
 	MentionStatusDismissed  = "dismissed"
 	MentionActionResolve    = "resolve_item"
+	MentionActionDismiss    = "dismiss_item"
 )
+
+func HostCreatePayload(clientTxnID string) map[string]any {
+	return map[string]any{
+		"client_txn_id":     clientTxnID,
+		"host.display_name": "VPN Gateway",
+		"host.hostname":     "vpn-gateway",
+	}
+}
+
+func IdentityCreatePayload(clientTxnID string) map[string]any {
+	return map[string]any{
+		"client_txn_id":             clientTxnID,
+		"identity.display_name":     "VPN User",
+		"identity.email":            "vpn.user@example.test",
+		"identity.sam_account_name": "VPNUSER",
+	}
+}
 
 var (
 	BaseTime                       = time.Date(2026, time.April, 18, 14, 30, 0, 0, time.UTC)

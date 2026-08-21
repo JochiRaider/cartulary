@@ -17,11 +17,11 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -780,7 +780,7 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ap
 	}, csrfOptions(login)...)
 	requireSuccessEnvelope(t, patchResp, http.StatusOK)
 
-	evidenceResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+workbook.EvidenceViewSchemaID+"/rows", map[string]any{
+	evidenceResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+evidence.ViewSchemaID+"/rows", map[string]any{
 		"client_txn_id":  "txn-rp-degrade-" + suffix + "-evidence",
 		"evidence.title": "Reference Pack degradation evidence " + suffix,
 	}, csrfOptions(login)...)

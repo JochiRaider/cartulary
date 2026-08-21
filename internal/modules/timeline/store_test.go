@@ -351,16 +351,16 @@ func TestPatchFieldLevelConcurrency_Unit(t *testing.T) {
 		if !errors.As(err, &conflict) {
 			t.Fatalf("expected same-field conflict, got %v", err)
 		}
-		if conflict.Conflict["record_id"] != row.RecordID.String() ||
-			conflict.Conflict["field_key"] != "timeline.activity_synopsis_text" ||
-			conflict.Conflict["conflict_resolution_class"] != "text_compare_merge" ||
-			conflict.Conflict["base_value"] != "base summary" ||
-			conflict.Conflict["server_value"] != "server summary" ||
-			conflict.Conflict["client_value"] != "client summary" ||
-			conflict.Conflict["server_updated_by"] != actor.ID.String() {
+		if conflict.Conflict.RecordID != row.RecordID ||
+			conflict.Conflict.FieldKey != "timeline.activity_synopsis_text" ||
+			conflict.Conflict.ConflictResolutionClass != "text_compare_merge" ||
+			!conflict.Conflict.BaseValue.Present || conflict.Conflict.BaseValue.Value != "base summary" ||
+			conflict.Conflict.ServerValue != "server summary" ||
+			conflict.Conflict.ClientValue != "client summary" ||
+			conflict.Conflict.ServerUpdatedBy != actor.ID {
 			t.Fatalf("unexpected same-field conflict payload: %#v", conflict.Conflict)
 		}
-		if conflict.Conflict["base_row_version"] != row.RowVersion || conflict.Conflict["current_row_version"] != serverResult.RowVersion || conflict.Conflict["conflict_token"] == "" {
+		if conflict.Conflict.BaseRowVersion != row.RowVersion || conflict.Conflict.CurrentRowVersion != serverResult.RowVersion || conflict.Conflict.ConflictToken == "" {
 			t.Fatalf("missing same-field conflict version/token fields: %#v", conflict.Conflict)
 		}
 		afterConflict := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), row.RecordID.String())
@@ -422,15 +422,18 @@ SELECT COUNT(*)
 		if !errors.As(err, &conflict) {
 			t.Fatalf("expected collection same-field conflict, got %v", err)
 		}
-		if conflict.Conflict["field_key"] != "timeline.host_refs" ||
-			conflict.Conflict["conflict_resolution_class"] != "collection_review" ||
-			conflict.Conflict["base_row_version"] != row.RowVersion ||
-			conflict.Conflict["current_row_version"] != serverResult.RowVersion {
+		if conflict.Conflict.FieldKey != "timeline.host_refs" ||
+			conflict.Conflict.ConflictResolutionClass != "collection_review" ||
+			conflict.Conflict.BaseRowVersion != row.RowVersion ||
+			conflict.Conflict.CurrentRowVersion != serverResult.RowVersion {
 			t.Fatalf("unexpected collection conflict metadata: %#v", conflict.Conflict)
 		}
-		requireCollectionConflictValue(t, conflict.Conflict["base_value"], "")
-		requireCollectionConflictValue(t, conflict.Conflict["server_value"], "Server Host")
-		requireCollectionConflictValue(t, conflict.Conflict["client_value"], "Client Host")
+		if !conflict.Conflict.BaseValue.Present {
+			t.Fatal("collection conflict omitted its base value")
+		}
+		requireCollectionConflictValue(t, conflict.Conflict.BaseValue.Value, "")
+		requireCollectionConflictValue(t, conflict.Conflict.ServerValue, "Server Host")
+		requireCollectionConflictValue(t, conflict.Conflict.ClientValue, "Client Host")
 	})
 
 	t.Run("stale same-field tag patch reports canonical client tag refs", func(t *testing.T) {
@@ -476,15 +479,18 @@ SELECT COUNT(*)
 		if !errors.As(err, &conflict) {
 			t.Fatalf("expected tag same-field conflict, got %v", err)
 		}
-		if conflict.Conflict["field_key"] != "timeline.tags" ||
-			conflict.Conflict["conflict_resolution_class"] != "collection_review" ||
-			conflict.Conflict["base_row_version"] != row.RowVersion ||
-			conflict.Conflict["current_row_version"] != serverResult.RowVersion {
+		if conflict.Conflict.FieldKey != "timeline.tags" ||
+			conflict.Conflict.ConflictResolutionClass != "collection_review" ||
+			conflict.Conflict.BaseRowVersion != row.RowVersion ||
+			conflict.Conflict.CurrentRowVersion != serverResult.RowVersion {
 			t.Fatalf("unexpected tag conflict metadata: %#v", conflict.Conflict)
 		}
-		requireCollectionConflictValue(t, conflict.Conflict["base_value"], "")
-		requireTagConflictItem(t, conflict.Conflict["server_value"], row.RecordID, "server-tag")
-		requireTagConflictItem(t, conflict.Conflict["client_value"], row.RecordID, "client-tag")
+		if !conflict.Conflict.BaseValue.Present {
+			t.Fatal("tag conflict omitted its base value")
+		}
+		requireCollectionConflictValue(t, conflict.Conflict.BaseValue.Value, "")
+		requireTagConflictItem(t, conflict.Conflict.ServerValue, row.RecordID, "server-tag")
+		requireTagConflictItem(t, conflict.Conflict.ClientValue, row.RecordID, "client-tag")
 	})
 
 	t.Run("stale patch after lifecycle-only change applies against current lifecycle", func(t *testing.T) {

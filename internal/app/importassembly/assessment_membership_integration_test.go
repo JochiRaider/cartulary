@@ -11,20 +11,16 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	assessmentadmission "github.com/JochiRaider/cartulary/internal/modules/assessments/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 )
 
 func TestAssessmentAssessorMembershipContract_Integration(t *testing.T) {
 	harness := newTasksDecisionsImportHarness(t, "assessment-membership")
-	workbookStore := appsupport.NewWorkbookStore(
-		harness.db,
-		conflicttest.NewCodec("assessment-membership"),
-	)
+	assessmentOwner := appsupport.NewAssessmentOwner(harness.db)
 	hostID := uuid.New()
 	seedAssessmentMembershipHost(t, harness, hostID)
 	member := seedTasksDecisionsImportUser(t, harness, true, true)
@@ -48,8 +44,8 @@ func TestAssessmentAssessorMembershipContract_Integration(t *testing.T) {
 	)
 
 	t.Run("interactive_default_and_explicit_member_succeed", func(t *testing.T) {
-		defaulted, err := createAssessmentMembershipWorkbookRow(
-			workbookStore,
+		defaulted, err := createAssessmentMembershipRow(
+			assessmentOwner,
 			harness.actor,
 			harness.incidentID,
 			hostID,
@@ -61,8 +57,8 @@ func TestAssessmentAssessorMembershipContract_Integration(t *testing.T) {
 		}
 		requireAssessmentMembershipAssessor(t, harness, defaulted.RecordID, harness.actor.ID)
 
-		explicit, err := createAssessmentMembershipWorkbookRow(
-			workbookStore,
+		explicit, err := createAssessmentMembershipRow(
+			assessmentOwner,
 			harness.actor,
 			harness.incidentID,
 			hostID,
@@ -84,8 +80,8 @@ func TestAssessmentAssessorMembershipContract_Integration(t *testing.T) {
 		} {
 			t.Run(name, func(t *testing.T) {
 				before := assessmentMembershipEffectCounts(t, harness)
-				_, err := createAssessmentMembershipWorkbookRow(
-					workbookStore,
+				_, err := createAssessmentMembershipRow(
+					assessmentOwner,
 					harness.actor,
 					harness.incidentID,
 					hostID,
@@ -143,8 +139,8 @@ func TestAssessmentAssessorMembershipContract_Integration(t *testing.T) {
 			t.Fatalf("remove default assessor membership: %v", err)
 		}
 		before := assessmentMembershipEffectCounts(t, harness)
-		_, err := createAssessmentMembershipWorkbookRow(
-			workbookStore,
+		_, err := createAssessmentMembershipRow(
+			assessmentOwner,
 			departedActor,
 			harness.incidentID,
 			hostID,
@@ -168,8 +164,8 @@ func TestAssessmentAssessorMembershipContract_Integration(t *testing.T) {
 	t.Run("exact_replay_preserves_history_after_assessor_departure", func(t *testing.T) {
 		departing := seedTasksDecisionsImportUser(t, harness, true, true)
 		const clientTxnID = "txn-assessment-membership-replay"
-		first, err := createAssessmentMembershipWorkbookRow(
-			workbookStore,
+		first, err := createAssessmentMembershipRow(
+			assessmentOwner,
 			harness.actor,
 			harness.incidentID,
 			hostID,
@@ -187,8 +183,8 @@ func TestAssessmentAssessorMembershipContract_Integration(t *testing.T) {
 		); err != nil {
 			t.Fatalf("remove historical assessor membership: %v", err)
 		}
-		replay, err := createAssessmentMembershipWorkbookRow(
-			workbookStore,
+		replay, err := createAssessmentMembershipRow(
+			assessmentOwner,
 			harness.actor,
 			harness.incidentID,
 			hostID,
@@ -198,7 +194,7 @@ func TestAssessmentAssessorMembershipContract_Integration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("replay after assessor departure: %v", err)
 		}
-		if !replay.Replayed || replay.RecordID != first.RecordID || replay.ChangeSetID != first.ChangeSetID {
+		if replay.Outcome != assessments.CreateOutcomeReplayed || replay.RecordID != first.RecordID || replay.ChangeSetID != first.ChangeSetID {
 			t.Fatalf("replay identity drifted: first=%#v replay=%#v", first, replay)
 		}
 		requireAssessmentMembershipAssessor(t, harness, first.RecordID, departing.ID)
@@ -247,39 +243,36 @@ INSERT INTO hosts (
 	}
 }
 
-func createAssessmentMembershipWorkbookRow(
-	store *workbook.Store,
+func createAssessmentMembershipRow(
+	owner *assessments.Facade,
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
 	subjectID uuid.UUID,
 	assessorID *uuid.UUID,
 	clientTxnID string,
-) (workbook.MutationResult, error) {
-	subjectType := "host"
-	state := "confirmed"
-	rationale := "Assessment membership contract."
-	request := workbook.CreateRequest{
-		ViewSchemaID: assessments.AssessmentsViewSchemaID,
-		ClientTxnID:  clientTxnID,
-		Values: map[string]workbook.ValueChange{
-			"assessment.subject_ref":      {Kind: "uuid", UUID: &subjectID},
-			"assessment.subject_type":     {Kind: "text", Text: &subjectType},
-			"assessment.assessment_state": {Kind: "text", Text: &state},
-			"assessment.rationale":        {Kind: "text", Text: &rationale},
+) (assessments.CreateResult, error) {
+	input := assessments.CreateInput{
+		ClientTxnID:     clientTxnID,
+		SubjectRef:      subjectID,
+		SubjectType:     "host",
+		AssessmentState: "confirmed",
+		Rationale:       "Assessment membership contract.",
+		Assessor:        assessorID,
+	}
+	return owner.Create(context.Background(), assessments.CreateCommand{
+		ActorUserID: actor.ID,
+		IncidentID:  incidentID,
+		Input:       input,
+		Idempotency: assessments.CreateIdempotencyKey{
+			RouteKey:    "assessments.rows.create",
+			ActorUserID: actor.ID,
+			ScopeKey:    incidentID.String() + ":" + assessments.AssessmentsViewSchemaID,
+			ClientTxnID: clientTxnID,
+			RequestHash: assessmentadmission.CreateRequestHash(input),
 		},
-	}
-	if assessorID != nil {
-		request.Values["assessment.assessor"] = workbook.ValueChange{Kind: "uuid", UUID: assessorID}
-	}
-	return store.CreateWorkbookRow(
-		context.Background(),
-		actor,
-		incidentID,
-		request,
-		workbook.CreateRequestHash(request),
-		"req-"+clientTxnID,
-		time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC),
-	)
+		RequestID: "req-" + clientTxnID,
+		Now:       time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC),
+	})
 }
 
 func runAssessmentImportCreateAsActor(
@@ -334,14 +327,7 @@ func requireAssessmentMembershipValidation(t testing.TB, err error) {
 	if err == nil {
 		t.Fatal("invalid assessment assessor unexpectedly succeeded")
 	}
-	var validation *workbook.MutationValidationError
 	var assessmentValidation *assessments.CreateValidationError
-	if errors.As(err, &validation) {
-		if validation.Field != "assessment.assessor" || validation.ReasonCode != "invalid_value" {
-			t.Fatalf("workbook validation = %#v", validation)
-		}
-		return
-	}
 	if errors.As(err, &assessmentValidation) {
 		if assessmentValidation.Field != "assessment.assessor" || assessmentValidation.ReasonCode != "invalid_value" {
 			t.Fatalf("assessment validation = %#v", assessmentValidation)

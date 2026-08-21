@@ -23,6 +23,7 @@
   ],
   "transaction_row_approvals": [
     "module.assessments.store.assessment_import_create_facade_contract_7282c4a7e3",
+    "module.assessments.store.assessment_projection_query_remains_owner_backed_172051cb0d",
     "module.assessments.store.assessment_support_refs_task_linked_record_ids_d_9c08a8f2f2",
     "module.assessments.store.compromise_assessments_append_incident_scoped_ho_f6cf5d55c6",
     "module.assessments.store.facade_transaction_participant_rollback_and_replay",
@@ -99,9 +100,9 @@
     "module.timeline.store.the_first_material_patch_transitions_rough_enric_c36dc39675",
     "module.timeline.store.timeline_mention_fields_prove_mention_origin_bin_46b2abfeb9",
     "module.timeline.store.timeline_query_accepts_timeline_evidence_count_a_22cc245694",
+    "module.workbook.catalog.findings_investigative_queries_and_forensic_keyw_1ca6136d7c",
+    "module.workbook.catalog.linked_notes_create_contextual_artifact_links_9a09b2f951",
     "module.workbook.integration.required_surface_persistence_queries_through_wor_fc52555181",
-    "module.workbook.store.findings_investigative_queries_and_forensic_keyw_1ca6136d7c",
-    "module.workbook.store.linked_notes_create_contextual_artifact_links_9a09b2f951",
     "module.workbook.support_integration.workbook_startup_preferences_bootstrap_and_upser_6ac935eac8"
   ]
 }

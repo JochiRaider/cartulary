@@ -22,12 +22,12 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
 
 func TestSurfaceEnvelope(t *testing.T) {

@@ -29,7 +29,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	hostidentityreporting "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/reportingprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
@@ -1225,16 +1224,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Workbook contribution catalog: %w", err)
 	}
-	workbookMutationStore, err := workbookassembly.NewMutationStore(
-		postgresHandle,
-		workbookContributionCatalog,
-		artifactMutation,
-		taskDecisionMutation,
-	)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("compose Workbook mutation store: %w", err)
-	}
 	builtInRoutes, err := newApplicationRouteCatalog(publicationCatalog).Bind([]routeContribution{
 		{id: "auth", registrar: auth.RegisterRoutes(authRouteOptions...)},
 		{id: "incidents", registrar: incidentRoutes},
@@ -1251,16 +1240,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		{
 			id: "workbook",
 			registrar: workbook.RegisterRoutes(workbook.RouteDependencies{
-				TimelineOwner: timelineFacade,
-				MutationStore: workbookMutationStore,
-				EntityOwner: hostidentity.NewStore(
-					postgresHandle,
-					revisionRuntime.Appender(),
-					workbookassembly.NewConflictIdempotencyPort(postgresHandle),
-					projectionRuntime.EntityPorts().Writer,
-					hostidentity.WithProjectionReader(projectionRuntime.EntityPorts().Reader),
-				),
-				ConflictTokens:      workbookConflictTokens,
+				Catalog:             workbookContributionCatalog,
+				RecordTargets:       workbookassembly.NewRecordTargetResolver(postgresHandle),
+				ConflictTokens:      workbookassembly.NewConflictTokenDecoder(workbookConflictTokens),
 				StartupStoreFactory: workbookassembly.NewStartupStoreFromDependencies,
 			}),
 		},

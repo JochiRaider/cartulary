@@ -13,7 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-type WorkbookConflictCommand struct {
+type ConflictCommand struct {
 	Mechanics      conflictresolution.Command
 	Actor          authn.UserRecord
 	ResolutionKind string
@@ -23,7 +23,7 @@ type WorkbookConflictCommand struct {
 
 func (s *Store) ResolveWorkbookConflict(
 	ctx context.Context,
-	command WorkbookConflictCommand,
+	command ConflictCommand,
 ) (PatchMutationResult, error) {
 	if command.ResolutionKind != "keep_saved" {
 		return s.PatchEntityRow(

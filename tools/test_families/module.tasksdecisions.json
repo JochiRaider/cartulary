@@ -241,6 +241,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.tasksdecisions.source_mutations.task_and_decision_mutation_admission_and_replay_6d4ea5900a",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.source_mutations",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/tasksdecisions",
+        "tests": [
+          "TestTaskDecisionMutationAdmissionAndReplayHashing"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.tasksdecisions.source_workbook.task_requests_and_decisions_persist_as_workbook_887d6b579e",
       "owner_id": "module.tasksdecisions",
       "family_id": "module.tasksdecisions.source_workbook",

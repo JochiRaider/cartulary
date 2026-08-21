@@ -645,6 +645,7 @@
           "TestRestoreVerificationArtifactV1HistoricalDecoderRemainsStrict_Unit",
           "TestRestoreVerificationArtifactV2BindsWorkbookExecutionAndBasis_Unit",
           "TestRestoreVerificationArtifactV2CanonicalFixture_Unit",
+          "TestRestoreVerificationIncidentSelectionIsLexicographicAndSingleShot",
           "TestRestoreVerificationWorkbookProbe"
         ]
       },

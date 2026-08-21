@@ -109,7 +109,7 @@ func (a assessmentRevisionAdapter) AppendAssessmentCreateRevisionTx(ctx context.
 	return changeSetID, nil
 }
 
-func newAssessmentFacade(
+func NewAssessmentMutationContribution(
 	pool postgres.DB,
 	projectionRows assessmentprojection.Rows,
 	entityStore *hostidentity.Store,
