@@ -31,15 +31,15 @@ type CreateProvider interface {
 	Create(context.Context, CreateCommand) (MutationOutcome, error)
 }
 
-type CreateDecodeFunc func(io.Reader) (CreateAdmission, *MutationFailure, error)
-type CreateExecuteFunc func(context.Context, CreateCommand) (MutationOutcome, error)
-
 type neutralCreateProvider struct {
-	decode  CreateDecodeFunc
-	execute CreateExecuteFunc
+	decode  func(io.Reader) (CreateAdmission, *MutationFailure, error)
+	execute func(context.Context, CreateCommand) (MutationOutcome, error)
 }
 
-func NewCreateProvider(decode CreateDecodeFunc, execute CreateExecuteFunc) (CreateProvider, error) {
+func NewCreateProvider(
+	decode func(io.Reader) (CreateAdmission, *MutationFailure, error),
+	execute func(context.Context, CreateCommand) (MutationOutcome, error),
+) (CreateProvider, error) {
 	provider := &neutralCreateProvider{decode: decode, execute: execute}
 	if err := provider.ValidateWorkbookContribution(); err != nil {
 		return nil, err
@@ -84,15 +84,15 @@ type PatchProvider interface {
 	Patch(context.Context, PatchCommand) (MutationOutcome, error)
 }
 
-type PatchDecodeFunc func(io.Reader) (PatchAdmission, *MutationFailure, error)
-type PatchExecuteFunc func(context.Context, PatchCommand) (MutationOutcome, error)
-
 type neutralPatchProvider struct {
-	decode  PatchDecodeFunc
-	execute PatchExecuteFunc
+	decode  func(io.Reader) (PatchAdmission, *MutationFailure, error)
+	execute func(context.Context, PatchCommand) (MutationOutcome, error)
 }
 
-func NewPatchProvider(decode PatchDecodeFunc, execute PatchExecuteFunc) (PatchProvider, error) {
+func NewPatchProvider(
+	decode func(io.Reader) (PatchAdmission, *MutationFailure, error),
+	execute func(context.Context, PatchCommand) (MutationOutcome, error),
+) (PatchProvider, error) {
 	provider := &neutralPatchProvider{decode: decode, execute: execute}
 	if err := provider.ValidateWorkbookContribution(); err != nil {
 		return nil, err
@@ -140,15 +140,15 @@ type ConflictProvider interface {
 	ResolveConflict(context.Context, ConflictCommand) (MutationOutcome, error)
 }
 
-type ConflictDecodeFunc func(io.Reader, string, ConflictClaims) (ConflictAdmission, *MutationFailure, error)
-type ConflictExecuteFunc func(context.Context, ConflictCommand) (MutationOutcome, error)
-
 type neutralConflictProvider struct {
-	decode  ConflictDecodeFunc
-	execute ConflictExecuteFunc
+	decode  func(io.Reader, string, ConflictClaims) (ConflictAdmission, *MutationFailure, error)
+	execute func(context.Context, ConflictCommand) (MutationOutcome, error)
 }
 
-func NewConflictProvider(decode ConflictDecodeFunc, execute ConflictExecuteFunc) (ConflictProvider, error) {
+func NewConflictProvider(
+	decode func(io.Reader, string, ConflictClaims) (ConflictAdmission, *MutationFailure, error),
+	execute func(context.Context, ConflictCommand) (MutationOutcome, error),
+) (ConflictProvider, error) {
 	provider := &neutralConflictProvider{decode: decode, execute: execute}
 	if err := provider.ValidateWorkbookContribution(); err != nil {
 		return nil, err

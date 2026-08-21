@@ -17,9 +17,12 @@ import (
 )
 
 func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *testing.T) {
+	if _, err := NewQueryProvider(nil); err == nil {
+		t.Fatal("query provider accepted a nil query function")
+	}
 	descriptors, queryContributions, createContributions, patchContributions, conflictContributions := validCatalogInputs(t)
 	actions := validActionContributions()
-	catalog, err := NewWorkbookContributionCatalog(
+	catalog, err := NewWorkbookContributionCatalog(catalogInput(
 		mustDescriptorSet(t, descriptors),
 		queryContributions,
 		createContributions,
@@ -27,7 +30,7 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 		conflictContributions,
 		validActionRequirements(),
 		actions,
-	)
+	))
 	if err != nil {
 		t.Fatalf("construct valid contribution catalog: %v", err)
 	}
@@ -106,7 +109,7 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 		{
 			name: "typed nil provider",
 			edit: func(descriptors []providercontract.ProviderDescriptor, contributions []QueryContribution) ([]providercontract.ProviderDescriptor, []QueryContribution) {
-				var provider *QueryProviderFunc
+				var provider *queryProvider
 				contributions[0].Provider = provider
 				return descriptors, contributions
 			},
@@ -143,7 +146,7 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 			testDescriptors := cloneProviderDescriptors(descriptors)
 			testContributions := cloneQueryContributions(queryContributions)
 			testDescriptors, testContributions = test.edit(testDescriptors, testContributions)
-			_, err := NewWorkbookContributionCatalog(
+			_, err := NewWorkbookContributionCatalog(catalogInput(
 				mustDescriptorSet(t, testDescriptors),
 				testContributions,
 				createContributions,
@@ -151,7 +154,7 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 				conflictContributions,
 				validActionRequirements(),
 				actions,
-			)
+			))
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("expected error containing %q, got %v", test.want, err)
 			}
@@ -162,7 +165,7 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *testing.T) {
 	descriptors, queries, creates, patches, conflicts := validCatalogInputs(t)
 	actions := validActionContributions()
-	catalog, err := NewWorkbookContributionCatalog(
+	catalog, err := NewWorkbookContributionCatalog(catalogInput(
 		mustDescriptorSet(t, descriptors),
 		queries,
 		creates,
@@ -170,7 +173,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 		conflicts,
 		validActionRequirements(),
 		actions,
-	)
+	))
 	if err != nil {
 		t.Fatalf("construct valid contribution catalog: %v", err)
 	}
@@ -283,7 +286,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 	}
 	for _, test := range createTests {
 		t.Run("create/"+test.name, func(t *testing.T) {
-			_, err := NewWorkbookContributionCatalog(
+			_, err := NewWorkbookContributionCatalog(catalogInput(
 				mustDescriptorSet(t, descriptors),
 				queries,
 				test.edit(cloneCreateContributions(creates)),
@@ -291,7 +294,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 				conflicts,
 				validActionRequirements(),
 				actions,
-			)
+			))
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("expected error containing %q, got %v", test.want, err)
 			}
@@ -353,7 +356,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 	}
 	for _, test := range patchTests {
 		t.Run("patch/"+test.name, func(t *testing.T) {
-			_, err := NewWorkbookContributionCatalog(
+			_, err := NewWorkbookContributionCatalog(catalogInput(
 				mustDescriptorSet(t, descriptors),
 				queries,
 				creates,
@@ -361,7 +364,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 				conflicts,
 				validActionRequirements(),
 				actions,
-			)
+			))
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("expected error containing %q, got %v", test.want, err)
 			}
@@ -423,7 +426,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 	}
 	for _, test := range conflictTests {
 		t.Run("conflict/"+test.name, func(t *testing.T) {
-			_, err := NewWorkbookContributionCatalog(
+			_, err := NewWorkbookContributionCatalog(catalogInput(
 				mustDescriptorSet(t, descriptors),
 				queries,
 				creates,
@@ -431,7 +434,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 				test.edit(cloneConflictContributions(conflicts)),
 				validActionRequirements(),
 				actions,
-			)
+			))
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("expected error containing %q, got %v", test.want, err)
 			}
@@ -439,7 +442,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 	}
 
 	constructActions := func(actionContributions MutationActionContributions) error {
-		_, err := NewWorkbookContributionCatalog(
+		_, err := NewWorkbookContributionCatalog(catalogInput(
 			mustDescriptorSet(t, descriptors),
 			queries,
 			creates,
@@ -447,7 +450,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 			conflicts,
 			validActionRequirements(),
 			actionContributions,
-		)
+		))
 		return err
 	}
 	actionTests := []struct {
@@ -555,29 +558,59 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 		t.Run("requirements/"+test.name, func(t *testing.T) {
 			requirements := validActionRequirements()
 			test.edit(&requirements)
-			_, err := NewWorkbookContributionCatalog(
+			_, err := NewWorkbookContributionCatalog(catalogInput(
 				mustDescriptorSet(t, descriptors), queries, creates, patches, conflicts,
 				requirements, validActionContributions(),
-			)
+			))
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("expected error containing %q, got %v", test.want, err)
 			}
 		})
 	}
 
-	t.Run("action requirements and contributions are copied", func(t *testing.T) {
+	t.Run("catalog input collections are copied", func(t *testing.T) {
 		requirements := validActionRequirements()
 		actions := validActionContributions()
-		catalog, err := NewWorkbookContributionCatalog(
-			mustDescriptorSet(t, descriptors), queries, creates, patches, conflicts,
+		input := catalogInput(
+			mustDescriptorSet(t, descriptors),
+			cloneQueryContributions(queries),
+			cloneCreateContributions(creates),
+			clonePatchContributions(patches),
+			cloneConflictContributions(conflicts),
 			requirements, actions,
 		)
+		queryID := input.Queries[0].ViewSchemaID
+		createID := input.Creates[0].ViewSchemaID
+		patchType := input.Patches[0].RecordType
+		conflictType := input.Conflicts[0].RecordType
+		clipboardID := input.Actions.Clipboard[0].ViewSchemaID
+		catalog, err := NewWorkbookContributionCatalog(input)
 		if err != nil {
 			t.Fatalf("construct catalog: %v", err)
 		}
-		requirements.ClipboardViewSchemaIDs[0] = "cartulary.view.unknown.v1"
-		actions.Clipboard[0].ViewSchemaID = "cartulary.view.unknown.v1"
-		if _, ok := catalog.ClipboardFor("cartulary.view.hosts.v1"); !ok {
+		input.Queries[0].ViewSchemaID = "cartulary.view.unknown.v1"
+		input.Queries[0].SourceRecordTypes[0] = "unknown_record"
+		input.Creates[0].ViewSchemaID = "cartulary.view.unknown.v1"
+		input.Creates[0].SourceRecordTypes[0] = "unknown_record"
+		input.Patches[0].RecordType = "unknown_record"
+		input.Patches[0].ViewSchemaIDs[0] = "cartulary.view.unknown.v1"
+		input.Conflicts[0].RecordType = "unknown_record"
+		input.Conflicts[0].ViewSchemaIDs[0] = "cartulary.view.unknown.v1"
+		input.ActionRequirements.ClipboardViewSchemaIDs[0] = "cartulary.view.unknown.v1"
+		input.Actions.Clipboard[0].ViewSchemaID = "cartulary.view.unknown.v1"
+		if _, ok := catalog.QueryFor(queryID); !ok {
+			t.Fatal("catalog retained caller-owned query input")
+		}
+		if _, ok := catalog.CreateFor(createID); !ok {
+			t.Fatal("catalog retained caller-owned create input")
+		}
+		if _, ok := catalog.PatchFor(patchType); !ok {
+			t.Fatal("catalog retained caller-owned patch input")
+		}
+		if _, ok := catalog.ConflictFor(conflictType); !ok {
+			t.Fatal("catalog retained caller-owned conflict input")
+		}
+		if _, ok := catalog.ClipboardFor(clipboardID); !ok {
 			t.Fatal("catalog retained caller-owned action input")
 		}
 	})
@@ -618,28 +651,72 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 			t.Fatal("conflict provider accepted a nil executor")
 		}
 
+		clipboardDecode := func(io.Reader) (ClipboardAdmission, *MutationFailure, error) { return nil, nil, nil }
+		clipboardExecute := func(context.Context, ClipboardCommand) (MutationOutcome, error) {
+			return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}), nil
+		}
+		if _, err := NewClipboardProvider(nil, clipboardExecute); err == nil {
+			t.Fatal("clipboard provider accepted a nil decoder")
+		}
+		if _, err := NewClipboardProvider(clipboardDecode, nil); err == nil {
+			t.Fatal("clipboard provider accepted a nil executor")
+		}
+
+		bulkDecode := func(io.Reader) (BulkAdmission, *MutationFailure, error) { return nil, nil, nil }
+		bulkExecute := func(context.Context, BulkCommand) (MutationOutcome, error) {
+			return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}), nil
+		}
+		if _, err := NewBulkProvider(nil, bulkExecute); err == nil {
+			t.Fatal("bulk provider accepted a nil decoder")
+		}
+		if _, err := NewBulkProvider(bulkDecode, nil); err == nil {
+			t.Fatal("bulk provider accepted a nil executor")
+		}
+
+		linkedNoteDecode := func(io.Reader) (LinkedNoteAdmission, *MutationFailure, error) { return nil, nil, nil }
+		linkedNoteExecute := func(context.Context, LinkedNoteCommand) (MutationOutcome, error) {
+			return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}), nil
+		}
+		if _, err := NewLinkedNoteProvider(nil, linkedNoteExecute); err == nil {
+			t.Fatal("linked-note provider accepted a nil decoder")
+		}
+		if _, err := NewLinkedNoteProvider(linkedNoteDecode, nil); err == nil {
+			t.Fatal("linked-note provider accepted a nil executor")
+		}
+
+		supersedeDecode := func(io.Reader) (SupersedeAdmission, *MutationFailure, error) { return nil, nil, nil }
+		supersedeExecute := func(context.Context, SupersedeCommand) (MutationOutcome, error) {
+			return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}), nil
+		}
+		if _, err := NewSupersedeProvider(nil, supersedeExecute); err == nil {
+			t.Fatal("supersede provider accepted a nil decoder")
+		}
+		if _, err := NewSupersedeProvider(supersedeDecode, nil); err == nil {
+			t.Fatal("supersede provider accepted a nil executor")
+		}
+
 		invalidCreates := cloneCreateContributions(creates)
 		invalidCreates[0].Provider = &neutralCreateProvider{}
-		if _, err := NewWorkbookContributionCatalog(
+		if _, err := NewWorkbookContributionCatalog(catalogInput(
 			mustDescriptorSet(t, descriptors), queries, invalidCreates, patches, conflicts,
 			validActionRequirements(), validActionContributions(),
-		); err == nil || !strings.Contains(err.Error(), "create contribution") {
+		)); err == nil || !strings.Contains(err.Error(), "create contribution") {
 			t.Fatalf("catalog accepted incomplete create provider: %v", err)
 		}
 		invalidPatches := clonePatchContributions(patches)
 		invalidPatches[0].Provider = &neutralPatchProvider{}
-		if _, err := NewWorkbookContributionCatalog(
+		if _, err := NewWorkbookContributionCatalog(catalogInput(
 			mustDescriptorSet(t, descriptors), queries, creates, invalidPatches, conflicts,
 			validActionRequirements(), validActionContributions(),
-		); err == nil || !strings.Contains(err.Error(), "patch contribution") {
+		)); err == nil || !strings.Contains(err.Error(), "patch contribution") {
 			t.Fatalf("catalog accepted incomplete patch provider: %v", err)
 		}
 		invalidConflicts := cloneConflictContributions(conflicts)
 		invalidConflicts[0].Provider = &neutralConflictProvider{}
-		if _, err := NewWorkbookContributionCatalog(
+		if _, err := NewWorkbookContributionCatalog(catalogInput(
 			mustDescriptorSet(t, descriptors), queries, creates, patches, invalidConflicts,
 			validActionRequirements(), validActionContributions(),
-		); err == nil || !strings.Contains(err.Error(), "conflict contribution") {
+		)); err == nil || !strings.Contains(err.Error(), "conflict contribution") {
 			t.Fatalf("catalog accepted incomplete conflict provider: %v", err)
 		}
 	})
@@ -881,6 +958,26 @@ func mustUUIDForCatalogTest(t testing.TB, raw string) uuid.UUID {
 	return value
 }
 
+func catalogInput(
+	descriptors providercontract.DescriptorSet,
+	queries []QueryContribution,
+	creates []CreateContribution,
+	patches []PatchContribution,
+	conflicts []ConflictContribution,
+	actionRequirements ActionCapabilityRequirements,
+	actions MutationActionContributions,
+) ContributionCatalogInput {
+	return ContributionCatalogInput{
+		ProjectionDescriptors: descriptors,
+		Queries:               queries,
+		Creates:               creates,
+		Patches:               patches,
+		Conflicts:             conflicts,
+		ActionRequirements:    actionRequirements,
+		Actions:               actions,
+	}
+}
+
 func validCatalogInputs(t testing.TB) (
 	[]providercontract.ProviderDescriptor,
 	[]QueryContribution,
@@ -911,16 +1008,20 @@ func validCatalogInputs(t testing.TB) (
 			SourceRecordTypes: append([]string(nil), resource.SourceRecordTypes...),
 			Capabilities:      providercontract.ProviderCapabilities{Query: true},
 		})
+		queryProvider, err := NewQueryProvider(
+			func(context.Context, QueryCommand) (querypage.Result, error) {
+				return querypage.Result{}, nil
+			},
+		)
+		if err != nil {
+			t.Fatalf("construct query provider for %s: %v", resource.ViewSchemaID, err)
+		}
 		contributions = append(contributions, QueryContribution{
 			ViewSchemaID:      resource.ViewSchemaID,
 			SourceOwnerKey:    ownerKey,
 			SourceRecordTypes: append([]string(nil), resource.SourceRecordTypes...),
 			BackendKind:       QueryBackendProjection,
-			Provider: QueryProviderFunc(
-				func(context.Context, QueryCommand) (querypage.Result, error) {
-					return querypage.Result{}, nil
-				},
-			),
+			Provider:          queryProvider,
 		})
 		schema, _ := viewschema.Lookup(resource.ViewSchemaID)
 		if schema.CreateCapable {

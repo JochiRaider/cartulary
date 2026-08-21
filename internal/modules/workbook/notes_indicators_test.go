@@ -24,7 +24,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -33,6 +35,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
+
+type typedNilProjectionQueryCatalog struct{}
+
+func (*typedNilProjectionQueryCatalog) WorkbookQueryProvider(string) (workbook.QueryProvider, bool) {
+	return nil, false
+}
 
 func TestLinkedNotesCreateContextualArtifactLinks_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-u-9-03-notes")
@@ -578,27 +586,72 @@ func newCatalogBackedWorkbookCatalog(
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)
 	}
-	catalog, err := workbookassembly.NewContributionCatalog(
-		pool,
-		projections.DescriptorSet(),
-		projections,
-		projections.EntityPorts(),
-		projections.AssessmentPorts().Rows,
-		projections.PartyPorts().Rows,
-		indicatorOwner,
-		timelineBundle.Facade,
-		evidenceOwner.MutationContribution(),
-		artifactMutation,
-		taskDecisionMutation,
-		conflictTokens,
-		conflictFields,
-		appender,
-		intents,
-	)
+	dependencies := workbookassembly.ContributionDependencies{
+		Postgres:              pool,
+		ProjectionDescriptors: projections.DescriptorSet(),
+		ProjectionQueries:     projections,
+		EntityProjections:     projections.EntityPorts(),
+		AssessmentProjections: projections.AssessmentPorts().Rows,
+		PartyProjections:      projections.PartyPorts().Rows,
+		IndicatorOwner:        indicatorOwner,
+		TimelineOwner:         timelineBundle.Facade,
+		EvidenceOwner:         evidenceOwner.MutationContribution(),
+		ArtifactOwner:         artifactMutation,
+		TaskDecisionOwner:     taskDecisionMutation,
+		ConflictTokens:        conflictTokens,
+		ConflictFields:        conflictFields,
+		Revisions:             appender,
+		CollaborationIntents:  intents,
+	}
+	requireContributionDependenciesFailClosed(t, dependencies)
+	catalog, err := workbookassembly.NewContributionCatalog(dependencies)
 	if err != nil {
 		t.Fatalf("compose workbook contribution catalog: %v", err)
 	}
 	return catalog, artifactMutation
+}
+
+func requireContributionDependenciesFailClosed(
+	t testing.TB,
+	valid workbookassembly.ContributionDependencies,
+) {
+	t.Helper()
+	tests := []struct {
+		name string
+		edit func(*workbookassembly.ContributionDependencies)
+	}{
+		{name: "Postgres", edit: func(input *workbookassembly.ContributionDependencies) { input.Postgres = nil }},
+		{name: "projection descriptors", edit: func(input *workbookassembly.ContributionDependencies) {
+			input.ProjectionDescriptors = providercontract.DescriptorSet{}
+		}},
+		{name: "projection queries", edit: func(input *workbookassembly.ContributionDependencies) { input.ProjectionQueries = nil }},
+		{name: "typed-nil projection queries", edit: func(input *workbookassembly.ContributionDependencies) {
+			var typedNil *typedNilProjectionQueryCatalog
+			input.ProjectionQueries = typedNil
+		}},
+		{name: "Entity writer", edit: func(input *workbookassembly.ContributionDependencies) { input.EntityProjections.Writer = nil }},
+		{name: "Entity reader", edit: func(input *workbookassembly.ContributionDependencies) { input.EntityProjections.Reader = nil }},
+		{name: "Assessment rows", edit: func(input *workbookassembly.ContributionDependencies) { input.AssessmentProjections = nil }},
+		{name: "Party rows", edit: func(input *workbookassembly.ContributionDependencies) { input.PartyProjections = nil }},
+		{name: "Indicator owner", edit: func(input *workbookassembly.ContributionDependencies) { input.IndicatorOwner = nil }},
+		{name: "Timeline owner", edit: func(input *workbookassembly.ContributionDependencies) { input.TimelineOwner = nil }},
+		{name: "Evidence owner", edit: func(input *workbookassembly.ContributionDependencies) { input.EvidenceOwner = nil }},
+		{name: "Artifact owner", edit: func(input *workbookassembly.ContributionDependencies) { input.ArtifactOwner = nil }},
+		{name: "Task Decision owner", edit: func(input *workbookassembly.ContributionDependencies) { input.TaskDecisionOwner = nil }},
+		{name: "conflict tokens", edit: func(input *workbookassembly.ContributionDependencies) {
+			input.ConflictTokens = conflicttokens.ConflictTokenCodec{}
+		}},
+		{name: "conflict fields", edit: func(input *workbookassembly.ContributionDependencies) { input.ConflictFields = nil }},
+		{name: "Revisions", edit: func(input *workbookassembly.ContributionDependencies) { input.Revisions = nil }},
+		{name: "Collaboration intents", edit: func(input *workbookassembly.ContributionDependencies) { input.CollaborationIntents = nil }},
+	}
+	for _, test := range tests {
+		input := valid
+		test.edit(&input)
+		if _, err := workbookassembly.NewContributionCatalog(input); err == nil {
+			t.Fatalf("contribution dependencies accepted missing %s", test.name)
+		}
+	}
 }
 
 func newWorkbookTimelineComposition(

@@ -12,12 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
-	contract "github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
-)
-
-const (
-	RegistrationSchemaID = contract.RegistrationSchemaID
-	BaseProfile          = contract.BaseProfile
+	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 )
 
 var (
@@ -28,23 +23,19 @@ var (
 	identifierPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$`)
 )
 
-type Filter = contract.Filter
-type Sort = contract.Sort
-type Registration = contract.Registration
-type Result = contract.Result
-
 type ProjectionQuery interface {
 	QueryRows(context.Context, uuid.UUID, string, viewschema.QueryMeta) ([]map[string]any, error)
 }
 
-type Executor = contract.Executor
-
 type Registry struct {
 	query    ProjectionQuery
-	defaults map[string]Registration
+	defaults map[string]workbookprobe.Registration
 }
 
-func NewRegistry(query ProjectionQuery, registrations ...Registration) (*Registry, error) {
+func NewRegistry(
+	query ProjectionQuery,
+	registrations ...workbookprobe.Registration,
+) (*Registry, error) {
 	if isNilProjectionQuery(query) {
 		return nil, fmt.Errorf("%w: projection query is required", ErrInvalidRegistration)
 	}
@@ -54,7 +45,7 @@ func NewRegistry(query ProjectionQuery, registrations ...Registration) (*Registr
 
 	seenIDs := make(map[string]struct{}, len(registrations))
 	profiles := make(map[string]struct{})
-	defaults := make(map[string]Registration)
+	defaults := make(map[string]workbookprobe.Registration)
 	for _, registration := range registrations {
 		if err := validateRegistration(registration); err != nil {
 			return nil, err
@@ -102,16 +93,16 @@ func (registry *Registry) ExecuteDefault(
 	ctx context.Context,
 	profile string,
 	incidentID uuid.UUID,
-) (Result, error) {
+) (workbookprobe.Result, error) {
 	if registry == nil || registry.query == nil {
-		return Result{}, fmt.Errorf("%w: registry is unavailable", ErrExecutionFailed)
+		return workbookprobe.Result{}, fmt.Errorf("%w: registry is unavailable", ErrExecutionFailed)
 	}
 	registration, ok := registry.defaults[profile]
 	if !ok {
-		return Result{}, fmt.Errorf("%w: profile %q has no default", ErrExecutionFailed, profile)
+		return workbookprobe.Result{}, fmt.Errorf("%w: profile %q has no default", ErrExecutionFailed, profile)
 	}
 	if incidentID == uuid.Nil {
-		return Result{}, fmt.Errorf("%w: incident_id is required", ErrExecutionFailed)
+		return workbookprobe.Result{}, fmt.Errorf("%w: incident_id is required", ErrExecutionFailed)
 	}
 	meta := viewschema.QueryMeta{
 		Filters: make([]viewschema.Filter, 0, len(registration.Filters)),
@@ -132,7 +123,7 @@ func (registry *Registry) ExecuteDefault(
 		})
 	}
 	rows, err := registry.query.QueryRows(ctx, incidentID, registration.ViewSchemaID, meta)
-	result := Result{
+	result := workbookprobe.Result{
 		RegistrationID: registration.RegistrationID,
 		ViewSchemaID:   registration.ViewSchemaID,
 	}
@@ -148,8 +139,8 @@ func (registry *Registry) ExecuteDefault(
 	return result, nil
 }
 
-func validateRegistration(registration Registration) error {
-	if registration.SchemaID != RegistrationSchemaID {
+func validateRegistration(registration workbookprobe.Registration) error {
+	if registration.SchemaID != workbookprobe.RegistrationSchemaID {
 		return fmt.Errorf("%w: unsupported schema_id %q", ErrInvalidRegistration, registration.SchemaID)
 	}
 	for name, value := range map[string]string{
@@ -194,13 +185,13 @@ func validateRegistration(registration Registration) error {
 	return nil
 }
 
-func cloneRegistration(registration Registration) Registration {
+func cloneRegistration(registration workbookprobe.Registration) workbookprobe.Registration {
 	cloned := registration
-	cloned.Filters = append([]Filter(nil), registration.Filters...)
+	cloned.Filters = append([]workbookprobe.Filter(nil), registration.Filters...)
 	for index := range cloned.Filters {
 		cloned.Filters[index].Arg = cloneMap(cloned.Filters[index].Arg)
 	}
-	cloned.Sort = append([]Sort(nil), registration.Sort...)
+	cloned.Sort = append([]workbookprobe.Sort(nil), registration.Sort...)
 	if registration.GroupBy != nil {
 		value := *registration.GroupBy
 		cloned.GroupBy = &value

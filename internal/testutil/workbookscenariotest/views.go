@@ -81,18 +81,6 @@ func RequireSingleCollectionItem(t testing.TB, row map[string]any, fieldKey stri
 	return items[0]
 }
 
-func RequireCollectionItemByRawText(t testing.TB, items []map[string]any, rawText string) map[string]any {
-	t.Helper()
-
-	for _, item := range items {
-		if item["raw_text"] == rawText {
-			return item
-		}
-	}
-	t.Fatalf("expected collection item with raw_text=%q, got %#v", rawText, items)
-	return nil
-}
-
 func MentionIDFromItemRef(t testing.TB, itemRef string) uuid.UUID {
 	t.Helper()
 

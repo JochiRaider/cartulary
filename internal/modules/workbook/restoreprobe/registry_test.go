@@ -11,6 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook/restoreprobe"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 )
 
 type recordingQuery struct {
@@ -42,7 +43,7 @@ func TestRestoreProbeRegistryExecutesExactOwnerRegistration(t *testing.T) {
 		t.Fatalf("new restore probe registry: %v", err)
 	}
 	incidentID := uuid.MustParse("00000000-0000-0000-0000-000000000401")
-	result, err := registry.ExecuteDefault(context.Background(), restoreprobe.BaseProfile, incidentID)
+	result, err := registry.ExecuteDefault(context.Background(), workbookprobe.BaseProfile, incidentID)
 	if err != nil {
 		t.Fatalf("execute default restore probe: %v", err)
 	}
@@ -68,7 +69,7 @@ func TestRestoreProbeRegistryExecutesExactOwnerRegistration(t *testing.T) {
 		if rowErr != nil {
 			t.Fatalf("new row-count registry: %v", rowErr)
 		}
-		rowResult, rowErr := rowRegistry.ExecuteDefault(context.Background(), restoreprobe.BaseProfile, incidentID)
+		rowResult, rowErr := rowRegistry.ExecuteDefault(context.Background(), workbookprobe.BaseProfile, incidentID)
 		if rowErr != nil {
 			t.Fatalf("execute row-count registry: %v", rowErr)
 		}
@@ -88,7 +89,7 @@ func TestRestoreProbeRegistryExecutesExactOwnerRegistration(t *testing.T) {
 		if _, guardedErr = guardedRegistry.ExecuteDefault(context.Background(), "unknown", incidentID); !errors.Is(guardedErr, restoreprobe.ErrExecutionFailed) {
 			t.Fatalf("unknown profile error got %v", guardedErr)
 		}
-		if _, guardedErr = guardedRegistry.ExecuteDefault(context.Background(), restoreprobe.BaseProfile, uuid.Nil); !errors.Is(guardedErr, restoreprobe.ErrExecutionFailed) {
+		if _, guardedErr = guardedRegistry.ExecuteDefault(context.Background(), workbookprobe.BaseProfile, uuid.Nil); !errors.Is(guardedErr, restoreprobe.ErrExecutionFailed) {
 			t.Fatalf("nil incident error got %v", guardedErr)
 		}
 		if guardedQuery.calls != 0 {
@@ -103,7 +104,7 @@ func TestRestoreProbeRegistryExecutesExactOwnerRegistration(t *testing.T) {
 		if failingErr != nil {
 			t.Fatalf("new failing registry: %v", failingErr)
 		}
-		failedResult, failingErr := failingRegistry.ExecuteDefault(context.Background(), restoreprobe.BaseProfile, incidentID)
+		failedResult, failingErr := failingRegistry.ExecuteDefault(context.Background(), workbookprobe.BaseProfile, incidentID)
 		if !errors.Is(failingErr, restoreprobe.ErrExecutionFailed) ||
 			failedResult.RegistrationID != "timeline.base_restore_probe.v1" ||
 			failedResult.ViewSchemaID != "cartulary.view.timeline.v2" ||
@@ -114,7 +115,7 @@ func TestRestoreProbeRegistryExecutesExactOwnerRegistration(t *testing.T) {
 
 	t.Run("nil registry fails without panic", func(t *testing.T) {
 		var nilRegistry *restoreprobe.Registry
-		if _, nilErr := nilRegistry.ExecuteDefault(context.Background(), restoreprobe.BaseProfile, incidentID); !errors.Is(nilErr, restoreprobe.ErrExecutionFailed) {
+		if _, nilErr := nilRegistry.ExecuteDefault(context.Background(), workbookprobe.BaseProfile, incidentID); !errors.Is(nilErr, restoreprobe.ErrExecutionFailed) {
 			t.Fatalf("nil registry error got %v", nilErr)
 		}
 	})

@@ -1204,21 +1204,23 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		return nil, fmt.Errorf("compose Workbook Artifacts mutation contribution: %w", err)
 	}
 	workbookContributionCatalog, err := workbookassembly.NewContributionCatalog(
-		postgresHandle,
-		projectionRuntime.DescriptorSet(),
-		projectionRuntime,
-		projectionRuntime.EntityPorts(),
-		projectionRuntime.AssessmentPorts().Rows,
-		projectionRuntime.PartyPorts().Rows,
-		indicatorOwner,
-		timelineFacade,
-		evidenceOwner.MutationContribution(),
-		artifactMutation,
-		taskDecisionMutation,
-		workbookConflictTokens,
-		revisionRuntime.ConflictFieldResolver(),
-		revisionRuntime.Appender(),
-		intentAppender,
+		workbookassembly.ContributionDependencies{
+			Postgres:              postgresHandle,
+			ProjectionDescriptors: projectionRuntime.DescriptorSet(),
+			ProjectionQueries:     projectionRuntime,
+			EntityProjections:     projectionRuntime.EntityPorts(),
+			AssessmentProjections: projectionRuntime.AssessmentPorts().Rows,
+			PartyProjections:      projectionRuntime.PartyPorts().Rows,
+			IndicatorOwner:        indicatorOwner,
+			TimelineOwner:         timelineFacade,
+			EvidenceOwner:         evidenceOwner.MutationContribution(),
+			ArtifactOwner:         artifactMutation,
+			TaskDecisionOwner:     taskDecisionMutation,
+			ConflictTokens:        workbookConflictTokens,
+			ConflictFields:        revisionRuntime.ConflictFieldResolver(),
+			Revisions:             revisionRuntime.Appender(),
+			CollaborationIntents:  intentAppender,
+		},
 	)
 	if err != nil {
 		runtime.Close()

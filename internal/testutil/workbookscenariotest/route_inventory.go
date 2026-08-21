@@ -200,10 +200,6 @@ type RouteInventoryEntry struct {
 	HarnessRequirements map[RouteHarnessClass]RouteHarnessRequirement
 }
 
-func WorkbookRouteHarnessClasses() []RouteHarnessClass {
-	return append([]RouteHarnessClass(nil), workbookRouteHarnessClasses...)
-}
-
 func ValidateRouteInventory(t testing.TB, routes []RouteInventoryEntry) {
 	t.Helper()
 

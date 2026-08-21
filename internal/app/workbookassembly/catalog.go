@@ -3,6 +3,7 @@ package workbookassembly
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
@@ -29,59 +30,43 @@ type projectionQueryCatalog interface {
 	WorkbookQueryProvider(string) (workbook.QueryProvider, bool)
 }
 
-func NewContributionCatalog(
-	pool postgres.DB,
-	projectionDescriptors providercontract.DescriptorSet,
-	projectionQueries projectionQueryCatalog,
-	entityProjections entityprojection.Ports,
-	assessmentProjections assessmentprojection.Rows,
-	partyProjections partyprojection.Rows,
-	indicatorOwner *indicators.Store,
-	timelineOwner *timeline.Facade,
-	evidenceOwner evidence.MutationContribution,
-	artifactOwner *artifacts.MutationFacade,
-	taskDecisionOwner *tasksdecisions.MutationFacade,
-	conflictTokens conflicttokens.ConflictTokenCodec,
-	conflictFields conflicttokens.FieldResolver,
-	appender *revisions.Appender,
-	intents collaboration.IntentAppender,
-) (*workbook.WorkbookContributionCatalog, error) {
-	if projectionDescriptors.Len() == 0 {
-		return nil, fmt.Errorf("compose workbook contribution catalog: projection descriptors are required")
+type ContributionDependencies struct {
+	Postgres              postgres.DB
+	ProjectionDescriptors providercontract.DescriptorSet
+	ProjectionQueries     projectionQueryCatalog
+	EntityProjections     entityprojection.Ports
+	AssessmentProjections assessmentprojection.Rows
+	PartyProjections      partyprojection.Rows
+	IndicatorOwner        *indicators.Store
+	TimelineOwner         *timeline.Facade
+	EvidenceOwner         evidence.MutationContribution
+	ArtifactOwner         *artifacts.MutationFacade
+	TaskDecisionOwner     *tasksdecisions.MutationFacade
+	ConflictTokens        conflicttokens.ConflictTokenCodec
+	ConflictFields        conflicttokens.FieldResolver
+	Revisions             *revisions.Appender
+	CollaborationIntents  collaboration.IntentAppender
+}
+
+func NewContributionCatalog(input ContributionDependencies) (*workbook.WorkbookContributionCatalog, error) {
+	if err := validateContributionDependencies(input); err != nil {
+		return nil, err
 	}
-	if projectionQueries == nil {
-		return nil, fmt.Errorf("compose workbook contribution catalog: projection queries are required")
-	}
-	if entityProjections.Writer == nil || entityProjections.Reader == nil {
-		return nil, fmt.Errorf("compose workbook contribution catalog: Entities projection ports are required")
-	}
-	if assessmentProjections == nil {
-		return nil, fmt.Errorf("compose workbook contribution catalog: Assessments projection rows are required")
-	}
-	if partyProjections == nil {
-		return nil, fmt.Errorf("compose workbook contribution catalog: Parties projection rows are required")
-	}
-	if indicatorOwner == nil {
-		return nil, fmt.Errorf("compose workbook contribution catalog: Indicators owner is required")
-	}
-	if timelineOwner == nil {
-		return nil, fmt.Errorf("compose workbook contribution catalog: Timeline owner is required")
-	}
-	if evidenceOwner == nil {
-		return nil, fmt.Errorf("compose workbook contribution catalog: Evidence contribution is required")
-	}
-	if artifactOwner == nil {
-		return nil, fmt.Errorf("compose workbook contribution catalog: Artifacts mutation contribution is required")
-	}
-	if taskDecisionOwner == nil {
-		return nil, fmt.Errorf("compose workbook contribution catalog: Tasks/Decisions mutation contribution is required")
-	}
-	if intents == nil {
-		return nil, fmt.Errorf("compose workbook contribution catalog: Collaboration intent appender is required")
-	}
-	if conflictFields == nil {
-		return nil, fmt.Errorf("compose workbook contribution catalog: Revisions conflict field resolver is required")
-	}
+	pool := input.Postgres
+	projectionDescriptors := input.ProjectionDescriptors
+	projectionQueries := input.ProjectionQueries
+	entityProjections := input.EntityProjections
+	assessmentProjections := input.AssessmentProjections
+	partyProjections := input.PartyProjections
+	indicatorOwner := input.IndicatorOwner
+	timelineOwner := input.TimelineOwner
+	evidenceOwner := input.EvidenceOwner
+	artifactOwner := input.ArtifactOwner
+	taskDecisionOwner := input.TaskDecisionOwner
+	conflictTokens := input.ConflictTokens
+	conflictFields := input.ConflictFields
+	appender := input.Revisions
+
 	keepSaved := NewConflictIdempotencyPort(pool)
 
 	entityStore := hostidentity.NewStore(
@@ -91,6 +76,123 @@ func NewContributionCatalog(
 		entityProjections.Writer,
 		hostidentity.WithProjectionReader(entityProjections.Reader),
 	)
+	return buildContributionCatalog(contributionAssemblyInput{
+		projectionDescriptors: projectionDescriptors,
+		projectionQueries:     projectionQueries,
+		entityStore:           entityStore,
+		assessmentProjections: assessmentProjections,
+		partyProjections:      partyProjections,
+		indicatorOwner:        indicatorOwner,
+		timelineOwner:         timelineOwner,
+		evidenceOwner:         evidenceOwner,
+		artifactOwner:         artifactOwner,
+		taskDecisionOwner:     taskDecisionOwner,
+		conflictTokens:        conflictTokens,
+		conflictFields:        conflictFields,
+		appender:              appender,
+		pool:                  pool,
+		keepSaved:             keepSaved,
+	})
+}
+
+func validateContributionDependencies(input ContributionDependencies) error {
+	if isNilContributionDependency(input.Postgres) {
+		return fmt.Errorf("compose workbook contribution catalog: Postgres is required")
+	}
+	if input.ProjectionDescriptors.Len() == 0 {
+		return fmt.Errorf("compose workbook contribution catalog: projection descriptors are required")
+	}
+	if isNilContributionDependency(input.ProjectionQueries) {
+		return fmt.Errorf("compose workbook contribution catalog: projection queries are required")
+	}
+	if isNilContributionDependency(input.EntityProjections.Writer) ||
+		isNilContributionDependency(input.EntityProjections.Reader) {
+		return fmt.Errorf("compose workbook contribution catalog: Entities projection ports are required")
+	}
+	if isNilContributionDependency(input.AssessmentProjections) {
+		return fmt.Errorf("compose workbook contribution catalog: Assessments projection rows are required")
+	}
+	if isNilContributionDependency(input.PartyProjections) {
+		return fmt.Errorf("compose workbook contribution catalog: Parties projection rows are required")
+	}
+	if input.IndicatorOwner == nil {
+		return fmt.Errorf("compose workbook contribution catalog: Indicators owner is required")
+	}
+	if input.TimelineOwner == nil {
+		return fmt.Errorf("compose workbook contribution catalog: Timeline owner is required")
+	}
+	if isNilContributionDependency(input.EvidenceOwner) {
+		return fmt.Errorf("compose workbook contribution catalog: Evidence contribution is required")
+	}
+	if input.ArtifactOwner == nil {
+		return fmt.Errorf("compose workbook contribution catalog: Artifacts mutation contribution is required")
+	}
+	if input.TaskDecisionOwner == nil {
+		return fmt.Errorf("compose workbook contribution catalog: Tasks/Decisions mutation contribution is required")
+	}
+	if reflect.ValueOf(input.ConflictTokens).IsZero() {
+		return fmt.Errorf("compose workbook contribution catalog: conflict token codec is required")
+	}
+	if isNilContributionDependency(input.ConflictFields) {
+		return fmt.Errorf("compose workbook contribution catalog: Revisions conflict field resolver is required")
+	}
+	if input.Revisions == nil {
+		return fmt.Errorf("compose workbook contribution catalog: Revisions appender is required")
+	}
+	if isNilContributionDependency(input.CollaborationIntents) {
+		return fmt.Errorf("compose workbook contribution catalog: Collaboration intent appender is required")
+	}
+	return nil
+}
+
+func isNilContributionDependency(dependency any) bool {
+	if dependency == nil {
+		return true
+	}
+	value := reflect.ValueOf(dependency)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
+}
+
+type contributionAssemblyInput struct {
+	pool                  postgres.DB
+	projectionDescriptors providercontract.DescriptorSet
+	projectionQueries     projectionQueryCatalog
+	entityStore           *hostidentity.Store
+	assessmentProjections assessmentprojection.Rows
+	partyProjections      partyprojection.Rows
+	indicatorOwner        *indicators.Store
+	timelineOwner         *timeline.Facade
+	evidenceOwner         evidence.MutationContribution
+	artifactOwner         *artifacts.MutationFacade
+	taskDecisionOwner     *tasksdecisions.MutationFacade
+	conflictTokens        conflicttokens.ConflictTokenCodec
+	conflictFields        conflicttokens.FieldResolver
+	appender              *revisions.Appender
+	keepSaved             conflicttokens.IdempotencyPort
+}
+
+func buildContributionCatalog(input contributionAssemblyInput) (*workbook.WorkbookContributionCatalog, error) {
+	pool := input.pool
+	projectionDescriptors := input.projectionDescriptors
+	projectionQueries := input.projectionQueries
+	entityStore := input.entityStore
+	assessmentProjections := input.assessmentProjections
+	partyProjections := input.partyProjections
+	indicatorOwner := input.indicatorOwner
+	timelineOwner := input.timelineOwner
+	evidenceOwner := input.evidenceOwner
+	artifactOwner := input.artifactOwner
+	taskDecisionOwner := input.taskDecisionOwner
+	conflictTokens := input.conflictTokens
+	conflictFields := input.conflictFields
+	appender := input.appender
+	keepSaved := input.keepSaved
+
 	entityProviders, err := newEntityProviderSet(entityStore)
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
@@ -140,35 +242,37 @@ func NewContributionCatalog(
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
 	}
+	hostQueryProvider, err := workbook.NewQueryProvider(
+		func(ctx context.Context, command workbook.QueryCommand) (querypage.Result, error) {
+			if command.ViewSchemaID != hostidentity.HostsViewSchemaID {
+				return querypage.Result{}, fmt.Errorf(
+					"host query contribution received view schema %q",
+					command.ViewSchemaID,
+				)
+			}
+			return entityStore.QueryHostRowsPage(ctx, command.IncidentID, command.Query, command.Window)
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook Hosts query provider: %w", err)
+	}
+	identityQueryProvider, err := workbook.NewQueryProvider(
+		func(ctx context.Context, command workbook.QueryCommand) (querypage.Result, error) {
+			if command.ViewSchemaID != hostidentity.IdentitiesViewSchemaID {
+				return querypage.Result{}, fmt.Errorf(
+					"identity query contribution received view schema %q",
+					command.ViewSchemaID,
+				)
+			}
+			return entityStore.QueryIdentityRowsPage(ctx, command.IncidentID, command.Query, command.Window)
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook Identities query provider: %w", err)
+	}
 	sourceQueries := map[string]workbook.QueryProvider{
-		hostidentity.HostsViewSchemaID: workbook.QueryProviderFunc(
-			func(
-				ctx context.Context,
-				command workbook.QueryCommand,
-			) (querypage.Result, error) {
-				if command.ViewSchemaID != hostidentity.HostsViewSchemaID {
-					return querypage.Result{}, fmt.Errorf(
-						"host query contribution received view schema %q",
-						command.ViewSchemaID,
-					)
-				}
-				return entityStore.QueryHostRowsPage(ctx, command.IncidentID, command.Query, command.Window)
-			},
-		),
-		hostidentity.IdentitiesViewSchemaID: workbook.QueryProviderFunc(
-			func(
-				ctx context.Context,
-				command workbook.QueryCommand,
-			) (querypage.Result, error) {
-				if command.ViewSchemaID != hostidentity.IdentitiesViewSchemaID {
-					return querypage.Result{}, fmt.Errorf(
-						"identity query contribution received view schema %q",
-						command.ViewSchemaID,
-					)
-				}
-				return entityStore.QueryIdentityRowsPage(ctx, command.IncidentID, command.Query, command.Window)
-			},
-		),
+		hostidentity.HostsViewSchemaID:      hostQueryProvider,
+		hostidentity.IdentitiesViewSchemaID: identityQueryProvider,
 	}
 	createProviders := map[string]workbook.CreateProvider{
 		timeline.TimelineViewSchemaID:              timelineProviders.create,
@@ -387,13 +491,13 @@ func NewContributionCatalog(
 			},
 		},
 	}
-	catalog, err := workbook.NewWorkbookContributionCatalog(
-		projectionDescriptors,
-		queryContributions,
-		createContributions,
-		patchContributions,
-		conflictContributions,
-		workbook.ActionCapabilityRequirements{
+	catalog, err := workbook.NewWorkbookContributionCatalog(workbook.ContributionCatalogInput{
+		ProjectionDescriptors: projectionDescriptors,
+		Queries:               queryContributions,
+		Creates:               createContributions,
+		Patches:               patchContributions,
+		Conflicts:             conflictContributions,
+		ActionRequirements: workbook.ActionCapabilityRequirements{
 			ClipboardViewSchemaIDs: []string{
 				hostidentity.HostsViewSchemaID,
 				hostidentity.IdentitiesViewSchemaID,
@@ -405,8 +509,8 @@ func NewContributionCatalog(
 			},
 			SupersedeRecordTypes: []string{"decision", "timeline_event"},
 		},
-		actionContributions,
-	)
+		Actions: actionContributions,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
 	}

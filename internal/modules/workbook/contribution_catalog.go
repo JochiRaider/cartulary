@@ -2,6 +2,7 @@ package workbook
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -37,13 +38,24 @@ type QueryCommand struct {
 	Window       querypage.Window
 }
 
-type QueryProviderFunc func(context.Context, QueryCommand) (querypage.Result, error)
+type queryProvider struct {
+	query func(context.Context, QueryCommand) (querypage.Result, error)
+}
 
-func (f QueryProviderFunc) QueryRowsPage(
+func NewQueryProvider(
+	query func(context.Context, QueryCommand) (querypage.Result, error),
+) (QueryProvider, error) {
+	if query == nil {
+		return nil, errors.New("query provider requires query function")
+	}
+	return &queryProvider{query: query}, nil
+}
+
+func (provider *queryProvider) QueryRowsPage(
 	ctx context.Context,
 	command QueryCommand,
 ) (querypage.Result, error) {
-	return f(ctx, command)
+	return provider.query(ctx, command)
 }
 
 type QueryContribution struct {
@@ -83,8 +95,17 @@ type ActionCapabilityRequirements struct {
 	SupersedeRecordTypes   []string
 }
 
-// WorkbookContributionCatalog is immutable after construction. Later slices
-// add the conflict index to this same catalog.
+type ContributionCatalogInput struct {
+	ProjectionDescriptors providercontract.DescriptorSet
+	Queries               []QueryContribution
+	Creates               []CreateContribution
+	Patches               []PatchContribution
+	Conflicts             []ConflictContribution
+	ActionRequirements    ActionCapabilityRequirements
+	Actions               MutationActionContributions
+}
+
+// WorkbookContributionCatalog is immutable after construction.
 type WorkbookContributionCatalog struct {
 	queries     map[string]QueryProvider
 	creates     map[string]CreateProvider
@@ -96,15 +117,15 @@ type WorkbookContributionCatalog struct {
 	supersedes  map[string]SupersedeProvider
 }
 
-func NewWorkbookContributionCatalog(
-	descriptors providercontract.DescriptorSet,
-	queryContributions []QueryContribution,
-	createContributions []CreateContribution,
-	patchContributions []PatchContribution,
-	conflictContributions []ConflictContribution,
-	actionRequirements ActionCapabilityRequirements,
-	actionContributions MutationActionContributions,
-) (*WorkbookContributionCatalog, error) {
+func NewWorkbookContributionCatalog(input ContributionCatalogInput) (*WorkbookContributionCatalog, error) {
+	input = cloneContributionCatalogInput(input)
+	descriptors := input.ProjectionDescriptors
+	queryContributions := input.Queries
+	createContributions := input.Creates
+	patchContributions := input.Patches
+	conflictContributions := input.Conflicts
+	actionRequirements := input.ActionRequirements
+	actionContributions := input.Actions
 	expected, err := expectedQuerySurfaces(descriptors)
 	if err != nil {
 		return nil, err
@@ -194,16 +215,10 @@ func NewWorkbookContributionCatalog(
 	if err != nil {
 		return nil, err
 	}
-	return &WorkbookContributionCatalog{
-		queries:     queries,
-		creates:     creates,
-		patches:     patches,
-		conflicts:   conflicts,
-		clipboards:  clipboards,
-		bulk:        bulk,
-		linkedNotes: linkedNotes,
-		supersedes:  supersedes,
-	}, nil
+	return newWorkbookContributionCatalog(contributionCatalogIndexes{
+		queries: queries, creates: creates, patches: patches, conflicts: conflicts,
+		clipboards: clipboards, bulk: bulk, linkedNotes: linkedNotes, supersedes: supersedes,
+	}), nil
 }
 
 func (c *WorkbookContributionCatalog) ClipboardFor(viewSchemaID string) (ClipboardProvider, bool) {

@@ -89,7 +89,7 @@ func NewEvidenceOwnerRuntimeForTimeline(
 }
 
 // NewEvidenceMutationOwner composes the Evidence mutation owner for tests that
-// exercise Evidence semantics without depending on Workbook's legacy Store.
+// exercise source-owner semantics directly.
 func NewEvidenceMutationOwner(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
@@ -128,7 +128,7 @@ func UnavailableEvidenceObjectStore() objectstore.TypedStore {
 }
 
 // NewTaskDecisionOwner composes the source-owner mutation facade for tests
-// that verify Task/Decision lifecycle behavior without the legacy Store.
+// that verify Task/Decision lifecycle behavior directly.
 func NewTaskDecisionOwner(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *tasksdecisions.MutationFacade {
 	intents := collaboration.NewIntentAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
@@ -232,21 +232,23 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 		panic(err)
 	}
 	catalog, err := workbookassembly.NewContributionCatalog(
-		pool,
-		projectionRuntime.DescriptorSet(),
-		projectionRuntime,
-		projectionRuntime.EntityPorts(),
-		projectionRuntime.AssessmentPorts().Rows,
-		projectionRuntime.PartyPorts().Rows,
-		indicatorOwner,
-		timelineBundle.Facade,
-		evidenceOwner.MutationContribution(),
-		artifactMutation,
-		taskDecisionMutation,
-		conflictTokens,
-		conflictFields,
-		appender,
-		intents,
+		workbookassembly.ContributionDependencies{
+			Postgres:              pool,
+			ProjectionDescriptors: projectionRuntime.DescriptorSet(),
+			ProjectionQueries:     projectionRuntime,
+			EntityProjections:     projectionRuntime.EntityPorts(),
+			AssessmentProjections: projectionRuntime.AssessmentPorts().Rows,
+			PartyProjections:      projectionRuntime.PartyPorts().Rows,
+			IndicatorOwner:        indicatorOwner,
+			TimelineOwner:         timelineBundle.Facade,
+			EvidenceOwner:         evidenceOwner.MutationContribution(),
+			ArtifactOwner:         artifactMutation,
+			TaskDecisionOwner:     taskDecisionMutation,
+			ConflictTokens:        conflictTokens,
+			ConflictFields:        conflictFields,
+			Revisions:             appender,
+			CollaborationIntents:  intents,
+		},
 	)
 	if err != nil {
 		panic(err)
@@ -255,7 +257,7 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 }
 
 // NewAssessmentOwner composes the Assessment owner for tests that exercise
-// source semantics directly rather than through Workbook's legacy Store.
+// source semantics through its owner facade.
 func NewAssessmentOwner(pool postgres.DB) *assessments.Facade {
 	intents := collaboration.NewIntentAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
@@ -293,7 +295,7 @@ func NewAssessmentOwner(pool postgres.DB) *assessments.Facade {
 }
 
 // NewPartyOwner composes the Party mutation owner for tests that exercise
-// Party semantics without depending on Workbook's transitional Store.
+// Party source semantics directly.
 func NewPartyOwner(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,

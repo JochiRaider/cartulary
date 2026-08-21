@@ -33,15 +33,15 @@ type ClipboardProvider interface {
 	ApplyClipboard(context.Context, ClipboardCommand) (MutationOutcome, error)
 }
 
-type ClipboardDecodeFunc func(io.Reader) (ClipboardAdmission, *MutationFailure, error)
-type ClipboardExecuteFunc func(context.Context, ClipboardCommand) (MutationOutcome, error)
-
 type clipboardProvider struct {
-	decode  ClipboardDecodeFunc
-	execute ClipboardExecuteFunc
+	decode  func(io.Reader) (ClipboardAdmission, *MutationFailure, error)
+	execute func(context.Context, ClipboardCommand) (MutationOutcome, error)
 }
 
-func NewClipboardProvider(decode ClipboardDecodeFunc, execute ClipboardExecuteFunc) (ClipboardProvider, error) {
+func NewClipboardProvider(
+	decode func(io.Reader) (ClipboardAdmission, *MutationFailure, error),
+	execute func(context.Context, ClipboardCommand) (MutationOutcome, error),
+) (ClipboardProvider, error) {
 	provider := &clipboardProvider{decode: decode, execute: execute}
 	if err := provider.ValidateWorkbookContribution(); err != nil {
 		return nil, err
@@ -84,15 +84,15 @@ type BulkProvider interface {
 	ApplyBulk(context.Context, BulkCommand) (MutationOutcome, error)
 }
 
-type BulkDecodeFunc func(io.Reader) (BulkAdmission, *MutationFailure, error)
-type BulkExecuteFunc func(context.Context, BulkCommand) (MutationOutcome, error)
-
 type bulkProvider struct {
-	decode  BulkDecodeFunc
-	execute BulkExecuteFunc
+	decode  func(io.Reader) (BulkAdmission, *MutationFailure, error)
+	execute func(context.Context, BulkCommand) (MutationOutcome, error)
 }
 
-func NewBulkProvider(decode BulkDecodeFunc, execute BulkExecuteFunc) (BulkProvider, error) {
+func NewBulkProvider(
+	decode func(io.Reader) (BulkAdmission, *MutationFailure, error),
+	execute func(context.Context, BulkCommand) (MutationOutcome, error),
+) (BulkProvider, error) {
 	provider := &bulkProvider{decode: decode, execute: execute}
 	if err := provider.ValidateWorkbookContribution(); err != nil {
 		return nil, err
@@ -133,15 +133,15 @@ type LinkedNoteProvider interface {
 	CreateLinkedNote(context.Context, LinkedNoteCommand) (MutationOutcome, error)
 }
 
-type LinkedNoteDecodeFunc func(io.Reader) (LinkedNoteAdmission, *MutationFailure, error)
-type LinkedNoteExecuteFunc func(context.Context, LinkedNoteCommand) (MutationOutcome, error)
-
 type linkedNoteProvider struct {
-	decode  LinkedNoteDecodeFunc
-	execute LinkedNoteExecuteFunc
+	decode  func(io.Reader) (LinkedNoteAdmission, *MutationFailure, error)
+	execute func(context.Context, LinkedNoteCommand) (MutationOutcome, error)
 }
 
-func NewLinkedNoteProvider(decode LinkedNoteDecodeFunc, execute LinkedNoteExecuteFunc) (LinkedNoteProvider, error) {
+func NewLinkedNoteProvider(
+	decode func(io.Reader) (LinkedNoteAdmission, *MutationFailure, error),
+	execute func(context.Context, LinkedNoteCommand) (MutationOutcome, error),
+) (LinkedNoteProvider, error) {
 	provider := &linkedNoteProvider{decode: decode, execute: execute}
 	if err := provider.ValidateWorkbookContribution(); err != nil {
 		return nil, err
@@ -183,15 +183,15 @@ type SupersedeProvider interface {
 	Supersede(context.Context, SupersedeCommand) (MutationOutcome, error)
 }
 
-type SupersedeDecodeFunc func(io.Reader) (SupersedeAdmission, *MutationFailure, error)
-type SupersedeExecuteFunc func(context.Context, SupersedeCommand) (MutationOutcome, error)
-
 type supersedeProvider struct {
-	decode  SupersedeDecodeFunc
-	execute SupersedeExecuteFunc
+	decode  func(io.Reader) (SupersedeAdmission, *MutationFailure, error)
+	execute func(context.Context, SupersedeCommand) (MutationOutcome, error)
 }
 
-func NewSupersedeProvider(decode SupersedeDecodeFunc, execute SupersedeExecuteFunc) (SupersedeProvider, error) {
+func NewSupersedeProvider(
+	decode func(io.Reader) (SupersedeAdmission, *MutationFailure, error),
+	execute func(context.Context, SupersedeCommand) (MutationOutcome, error),
+) (SupersedeProvider, error) {
 	provider := &supersedeProvider{decode: decode, execute: execute}
 	if err := provider.ValidateWorkbookContribution(); err != nil {
 		return nil, err

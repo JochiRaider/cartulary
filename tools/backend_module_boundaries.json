@@ -2431,6 +2431,39 @@
       "production_only": true
     },
     {
+      "id": "retired-workbook-provider-callback-and-restore-aliases",
+      "tokens": [
+        "type QueryProviderFunc",
+        "type CreateDecodeFunc",
+        "type CreateExecuteFunc",
+        "type PatchDecodeFunc",
+        "type PatchExecuteFunc",
+        "type ConflictDecodeFunc",
+        "type ConflictExecuteFunc",
+        "type ClipboardDecodeFunc",
+        "type ClipboardExecuteFunc",
+        "type BulkDecodeFunc",
+        "type BulkExecuteFunc",
+        "type LinkedNoteDecodeFunc",
+        "type LinkedNoteExecuteFunc",
+        "type SupersedeDecodeFunc",
+        "type SupersedeExecuteFunc",
+        "type Filter =",
+        "type Sort =",
+        "type Registration =",
+        "type Result =",
+        "type Executor =",
+        "RegistrationSchemaID =",
+        "BaseProfile          ="
+      ],
+      "scan_paths": [
+        "internal/modules/workbook/*.go",
+        "internal/modules/workbook/restoreprobe/*.go"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "source-owners-no-workbook-implementation-imports",
       "tokens": [
         "github.com/JochiRaider/cartulary/internal/modules/workbook"

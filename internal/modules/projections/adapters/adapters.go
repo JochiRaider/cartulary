@@ -44,17 +44,18 @@ type Dependencies struct {
 // immutable descriptor facts, consumer-owned interfaces, and typed owner
 // facades; concrete runtime, storage, and query implementations remain private.
 type Ports struct {
-	catalog        *projectionruntime.Catalog
-	store          *projectionruntime.Store
-	restore        *projectionruntime.RestoreRebuilder
-	timeline       timelineprojection.Ports
-	entities       entityprojection.Ports
-	indicators     indicatorprojection.Ports
-	assessments    assessmentprojection.Ports
-	artifacts      artifactprojection.Ports
-	evidence       evidenceprojection.Ports
-	parties        partyprojection.Ports
-	tasksDecisions taskdecisionprojection.Ports
+	catalog         *projectionruntime.Catalog
+	store           *projectionruntime.Store
+	restore         *projectionruntime.RestoreRebuilder
+	workbookQueries map[string]workbook.QueryProvider
+	timeline        timelineprojection.Ports
+	entities        entityprojection.Ports
+	indicators      indicatorprojection.Ports
+	assessments     assessmentprojection.Ports
+	artifacts       artifactprojection.Ports
+	evidence        evidenceprojection.Ports
+	parties         partyprojection.Ports
+	tasksDecisions  taskdecisionprojection.Ports
 }
 
 func New(dependencies Dependencies) (Ports, error) {
@@ -111,6 +112,10 @@ func New(dependencies Dependencies) (Ports, error) {
 	if err := validateRecoveryState(catalog.DescriptorSet(), recoveryState); err != nil {
 		return Ports{}, fmt.Errorf("compose Projections recovery state: %w", err)
 	}
+	workbookQueries, err := newWorkbookQueryProviders(catalog.DescriptorSet(), store)
+	if err != nil {
+		return Ports{}, fmt.Errorf("compose Projections Workbook query providers: %w", err)
+	}
 	restoreRebuilder := projectionruntime.NewRestoreRebuilderFromStore(store)
 	entityRows := projectionruntime.NewEntityRowsFromStore(store, dependencies.Entities.Source())
 	artifactRows := projectionruntime.NewArtifactRowsFromStore(store, dependencies.Artifacts.Source())
@@ -123,9 +128,10 @@ func New(dependencies Dependencies) (Ports, error) {
 		rows: projectionruntime.NewEvidenceRowsFromStore(store, dependencies.Evidence.Source()),
 	}
 	ports := Ports{
-		catalog: catalog,
-		store:   store,
-		restore: restoreRebuilder,
+		catalog:         catalog,
+		store:           store,
+		restore:         restoreRebuilder,
+		workbookQueries: workbookQueries,
 		timeline: timelineprojection.Ports{
 			Writer:    projectionruntime.NewTimelineRowsFromStore(store),
 			Rebuilder: store,
@@ -187,25 +193,8 @@ func (ports Ports) RecoveryStateContribution() recoverystate.Contribution {
 }
 
 func (ports Ports) WorkbookQueryProvider(viewSchemaID string) (workbook.QueryProvider, bool) {
-	if ports.store == nil || !ports.store.Supports(viewSchemaID) {
-		return nil, false
-	}
-	return workbook.QueryProviderFunc(func(ctx context.Context, command workbook.QueryCommand) (querypage.Result, error) {
-		if command.ViewSchemaID != viewSchemaID {
-			return querypage.Result{}, fmt.Errorf(
-				"projection query contribution %q received view schema %q",
-				viewSchemaID,
-				command.ViewSchemaID,
-			)
-		}
-		return ports.store.QueryRowsPage(
-			ctx,
-			command.IncidentID,
-			viewSchemaID,
-			command.Query,
-			command.Window,
-		)
-	}), true
+	provider, ok := ports.workbookQueries[viewSchemaID]
+	return provider, ok
 }
 
 func (ports Ports) RecoveryPorts() restorecontract.ProjectionPorts {
@@ -288,6 +277,9 @@ func (ports Ports) validate() error {
 	if ports.restore == nil {
 		return fmt.Errorf("restore rebuilder is required")
 	}
+	if len(ports.workbookQueries) == 0 {
+		return fmt.Errorf("workbook query providers are required")
+	}
 	ownerPorts := []struct {
 		name  string
 		ready bool
@@ -307,6 +299,47 @@ func (ports Ports) validate() error {
 		}
 	}
 	return nil
+}
+
+func newWorkbookQueryProviders(
+	descriptors providercontract.DescriptorSet,
+	store *projectionruntime.Store,
+) (map[string]workbook.QueryProvider, error) {
+	providers := make(map[string]workbook.QueryProvider)
+	for _, descriptor := range descriptors.All() {
+		if descriptor.Status != providercontract.ProviderStatusActive {
+			continue
+		}
+		for _, candidate := range descriptor.ViewSchemaIDs {
+			if !store.Supports(candidate) {
+				continue
+			}
+			viewSchemaID := candidate
+			provider, err := workbook.NewQueryProvider(
+				func(ctx context.Context, command workbook.QueryCommand) (querypage.Result, error) {
+					if command.ViewSchemaID != viewSchemaID {
+						return querypage.Result{}, fmt.Errorf(
+							"projection query contribution %q received view schema %q",
+							viewSchemaID,
+							command.ViewSchemaID,
+						)
+					}
+					return store.QueryRowsPage(
+						ctx,
+						command.IncidentID,
+						viewSchemaID,
+						command.Query,
+						command.Window,
+					)
+				},
+			)
+			if err != nil {
+				return nil, fmt.Errorf("construct query provider %q: %w", viewSchemaID, err)
+			}
+			providers[viewSchemaID] = provider
+		}
+	}
+	return providers, nil
 }
 
 type evidencePort struct {
