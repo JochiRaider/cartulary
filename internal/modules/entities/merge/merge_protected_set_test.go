@@ -36,6 +36,7 @@ func TestMergeAssessmentRepointRejectsUnprotectedAssessment(t *testing.T) {
 		db,
 		nil,
 		WithAssessmentEffects(assessmentEffects),
+		WithLinkEffects(noopLinkEffects{}),
 		WithWorkbookProjection(mergeProjectionWriterStub{}),
 	)
 	actor := seedMergeProtectedSetUser(t, db, "merge-protected-revalidate@example.test", "Merge Protected Revalidate")
@@ -58,6 +59,19 @@ func TestMergeAssessmentRepointRejectsUnprotectedAssessment(t *testing.T) {
 	if !errors.As(err, &precondition) || precondition.ReasonCode != "protected_set_changed" {
 		t.Fatalf("expected protected_set_changed precondition, got %T %[1]v", err)
 	}
+}
+
+type noopLinkEffects struct{}
+
+func (noopLinkEffects) RepointLinksTx(context.Context, pgx.Tx, RepointLinksCommand) (RepointLinksResult, error) {
+	return RepointLinksResult{
+		Mutations:                 []LinkEffectMutation{},
+		LinkTypesBySourceRecordID: map[uuid.UUID][]string{},
+	}, nil
+}
+
+func (noopLinkEffects) RepointTagsTx(context.Context, pgx.Tx, RepointTagsCommand) (RepointTagsResult, error) {
+	return RepointTagsResult{Mutations: []LinkEffectMutation{}}, nil
 }
 
 type mergeAssessmentProjectionStub struct{}

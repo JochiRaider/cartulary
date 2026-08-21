@@ -9,7 +9,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/links/internal/incidentbundle"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -21,6 +24,16 @@ var (
 	TagIDSurvivor   = uuid.MustParse("40000000-0000-0000-0000-000000000801")
 	TagIDLoser      = uuid.MustParse("40000000-0000-0000-0000-000000000802")
 )
+
+func ImportIncidentBundleFilesTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	files map[string][]byte,
+	actorUserID uuid.UUID,
+	attributions incidentportability.AttributionRecorder,
+) error {
+	return incidentbundle.ImportIncidentBundleFilesTx(ctx, tx, files, actorUserID, attributions)
+}
 
 type LinkFixture struct {
 	RecordLinkID uuid.UUID

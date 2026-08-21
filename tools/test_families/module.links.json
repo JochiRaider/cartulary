@@ -77,6 +77,9 @@
       "selector": {
         "package": "./internal/modules/links",
         "tests": [
+          "TestFieldAwareLinkIdentityAndMergeCharacterization",
+          "TestLinksIncidentBundleRejectsUnknownLinkMembersBeforeMutation",
+          "TestMergeDeduplicatesOnlyFullFieldAwareTupleCharacterization",
           "TestTypedLinksAndTags_Unit"
         ]
       },

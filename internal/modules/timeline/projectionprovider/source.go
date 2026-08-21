@@ -9,7 +9,6 @@ import (
 
 	entityfacts "github.com/JochiRaider/cartulary/internal/modules/entities/timelinefacts"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/collectionfacts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
@@ -18,12 +17,12 @@ import (
 
 // NewSource constructs the canonical Timeline projection source from
 // Timeline's declared source-authority readers.
-func NewSource() *workbookprojection.Source {
+func NewSource(linkReader collectionfacts.LinkReader) *workbookprojection.Source {
 	return workbookprojection.NewSource(
 		timelineEnvelopeReader{store: records.NewStore()},
 		collectionfacts.New(
 			entityfacts.Reader{},
-			links.TimelineFactReader{},
+			linkReader,
 			evidence.TimelineFactReader{},
 		),
 	)

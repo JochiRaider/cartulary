@@ -54,6 +54,13 @@ type FieldProvider interface {
 	CollectFactsTx(context.Context, pgx.Tx, uuid.UUID, map[string][]string) (ProviderOutput, error)
 }
 
+// SupportReferenceProvider supplies source-record-to-target-path relationships
+// under the caller's transaction before immutable snapshot materialization.
+type SupportReferenceProvider interface {
+	ProviderKey() string
+	CollectSupportRefsTx(context.Context, pgx.Tx, uuid.UUID) (map[string][]string, error)
+}
+
 type FieldFact struct {
 	SchemaID                string `json:"schema_id"`
 	Path                    string

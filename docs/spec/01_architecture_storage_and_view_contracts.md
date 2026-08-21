@@ -5103,6 +5103,18 @@ Base-profile relationship mutations surfaced by these view contracts or their ad
 
 - the client MUST NOT send `link_type`, direction flags, table names, or storage-specific routing metadata,
 - the server MUST derive `record_links.link_type`, canonical `src_record_id` and `dst_record_id`, and storage routing from either the active `field_key` or the explicit action route,
+- a relationship created for a schema-declared collection field MUST persist the
+  exact validated canonical `field_key`; an explicit action route with no owning
+  collection field MUST persist `field_key=null`,
+- active field-routed relationship identity MUST include exact `field_key`; two
+  otherwise-identical relationships in different non-null fields are distinct,
+  while two null `field_key` values identify the same explicit-route binding,
+- removal through a collection field MUST target only the active binding whose
+  opaque `item_ref` belongs to the patched record and exact active `field_key`;
+  it MUST NOT remove an otherwise-identical binding owned by another field,
+- the ordinary enclosing `changes[].field_key` selects the active field contract,
+  but a client MUST NOT supply a second storage `field_key` override inside an
+  action payload,
 - the base-profile mappings are:
   - `timeline.host_refs` -> `observed_on_host`, with the Timeline record as `src_record_id` and the resolved host record as `dst_record_id`,
   - `timeline.identity_refs` -> `observed_as_identity`, with the Timeline record as `src_record_id` and the resolved identity record as `dst_record_id`,
@@ -6095,6 +6107,26 @@ snapshot schema, transaction-atomicity, authorization, persisted-data, or
 physical projection ownership contract.
 Profiles: base, import, incident_portability, snapshot_reporting
 Verified by: AC-540, AC-541
+
+**REQ-01-664**
+Links MUST own authoritative `record_links` and `record_tags` source state,
+active-fact meaning, validation, mutation values, merge effects, history
+restoration, and portability SQL. Reporting MUST own its source-provider ports,
+provider DTOs, output paths, content classes, support-reference semantics,
+ordering, missing-target behavior, materialization errors, and immutable export
+model. Application composition MUST be the only production layer that imports
+both boundaries and MUST translate Links-owned facts into Reporting-owned
+values under Reporting §7.1.2.
+
+Links MUST NOT import Reporting DTOs or choose report content, and Reporting
+MUST NOT import Links persistence implementations or query Links tables or
+views. The adapter MUST preserve the caller-owned source-boundary transaction
+and upstream route authorization; it MUST NOT issue source SQL, authorize,
+redact, begin, commit, roll back, replace, or detach the transaction. This
+boundary changes no public route, snapshot, export-model, release, rendered
+artifact, generated client, WebSocket, authorization, or stored-data contract.
+Profiles: snapshot_reporting
+Verified by: AC-553
 
 ## 9. Canonical derivation layer
 

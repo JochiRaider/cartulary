@@ -25,7 +25,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -80,6 +82,11 @@ func TestActiveLinksAndTagsViewsV1Contract(t *testing.T) {
 	}
 	if got := columnNamesPG(t, harness.DB, "active_record_tags_v1"); !slices.Equal(got, wantTagColumns) {
 		t.Fatalf("active_record_tags_v1 columns got %v want %v", got, wantTagColumns)
+	}
+	for _, forbidden := range []string{"note", "description", "comment"} {
+		if slices.Contains(columnNamesPG(t, harness.DB, "record_links"), forbidden) {
+			t.Fatalf("record_links unexpectedly exposes link-local narrative column %q", forbidden)
+		}
 	}
 
 	src := uuid.New()
@@ -255,6 +262,220 @@ func TestRecordLinkOwnerValidation(t *testing.T) {
 	}); !errors.Is(err, links.ErrInvalidRecordLink) {
 		t.Fatalf("deleted endpoint should be rejected, got %v", err)
 	}
+}
+
+func TestFieldAwareLinkIdentityAndMergeCharacterization(t *testing.T) {
+	harness := appsupport.StartStore(t, "links-field-aware-characterization")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "links-field-aware@example.test", "Links Field Aware", "LinksFieldAwarePass1!", false, true, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-links-field-aware-incident", "IR-LINK-FIELD", "Links field identity")
+	ctx := context.Background()
+	now := time.Date(2026, time.August, 21, 18, 40, 0, 0, time.UTC)
+	src := uuid.New()
+	dst := uuid.New()
+	for _, recordID := range []uuid.UUID{src, dst} {
+		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, recordID)
+	}
+	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin field-aware characterization: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	store := links.NewStore()
+	fieldA := "fixture.links.field_a"
+	fieldB := "fixture.links.field_b"
+	linkA, inserted, err := store.UpsertFieldReferenceRecordTx(ctx, tx, incident.ID, src, dst, fieldA, links.LinkTypeReferencesRecord, actor.ID, now)
+	if err != nil || !inserted {
+		t.Fatalf("insert field A link: inserted=%t err=%v", inserted, err)
+	}
+	replayedA, inserted, err := store.UpsertFieldReferenceRecordTx(ctx, tx, incident.ID, src, dst, fieldA, links.LinkTypeReferencesRecord, actor.ID, now.Add(time.Second))
+	if err != nil || inserted || replayedA.RecordLinkID != linkA.RecordLinkID {
+		t.Fatalf("same-field replay = (%s, %t, %v), want original %s without insert", replayedA.RecordLinkID, inserted, err, linkA.RecordLinkID)
+	}
+	linkB, inserted, err := store.UpsertFieldReferenceRecordTx(ctx, tx, incident.ID, src, dst, fieldB, links.LinkTypeReferencesRecord, actor.ID, now)
+	if err != nil || !inserted || linkB.RecordLinkID == linkA.RecordLinkID {
+		t.Fatalf("different-field insert = (%s, %t, %v), want distinct active binding", linkB.RecordLinkID, inserted, err)
+	}
+	unfielded, inserted, err := store.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
+		IncidentID: incident.ID, SrcRecordID: src, DstRecordID: dst,
+		LinkType: links.LinkType(links.LinkTypeReferencesRecord), Provenance: links.LinkProvenance(links.LinkProvenanceManual),
+		OwnerUserID: actor.ID, Now: now,
+	})
+	if err != nil || !inserted {
+		t.Fatalf("insert null-field link: inserted=%t err=%v", inserted, err)
+	}
+	replayedUnfielded, inserted, err := store.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
+		IncidentID: incident.ID, SrcRecordID: src, DstRecordID: dst,
+		LinkType: links.LinkType(links.LinkTypeReferencesRecord), Provenance: links.LinkProvenance(links.LinkProvenanceManual),
+		OwnerUserID: actor.ID, Now: now.Add(time.Second),
+	})
+	if err != nil || inserted || replayedUnfielded.RecordLinkID != unfielded.RecordLinkID {
+		t.Fatalf("null-field replay = (%s, %t, %v), want original %s without insert", replayedUnfielded.RecordLinkID, inserted, err, unfielded.RecordLinkID)
+	}
+
+	if _, err := store.TombstoneFieldReferenceRecordTx(ctx, tx, incident.ID, src, dst, fieldA, links.LinkTypeReferencesRecord, "timeline_event", actor.ID, now.Add(2*time.Second)); err != nil {
+		t.Fatalf("tombstone exact field A binding: %v", err)
+	}
+	if _, err := store.TombstoneFieldReferenceRecordTx(ctx, tx, incident.ID, src, dst, "fixture.links.foreign", links.LinkTypeReferencesRecord, "timeline_event", actor.ID, now.Add(3*time.Second)); !errors.Is(err, links.ErrFieldReferenceNotFound) {
+		t.Fatalf("foreign field removal error = %v, want ErrFieldReferenceNotFound", err)
+	}
+	var activeA, activeB, activeNull int
+	if err := tx.QueryRow(ctx, `
+SELECT
+    count(*) FILTER (WHERE field_key = $4),
+    count(*) FILTER (WHERE field_key = $5),
+    count(*) FILTER (WHERE field_key IS NULL)
+  FROM record_links
+ WHERE incident_id = $1 AND src_record_id = $2 AND dst_record_id = $3
+   AND link_type = 'references_record' AND deleted_at IS NULL
+`, incident.ID, src, dst, fieldA, fieldB).Scan(&activeA, &activeB, &activeNull); err != nil {
+		t.Fatalf("query field-scoped bindings: %v", err)
+	}
+	if activeA != 0 || activeB != 1 || activeNull != 1 {
+		t.Fatalf("active field counts = A:%d B:%d null:%d, want 0/1/1", activeA, activeB, activeNull)
+	}
+}
+
+func TestMergeDeduplicatesOnlyFullFieldAwareTupleCharacterization(t *testing.T) {
+	harness := appsupport.StartStore(t, "links-field-aware-merge-characterization")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "links-field-merge@example.test", "Links Field Merge", "LinksFieldMergePass1!", false, true, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-links-field-merge-incident", "IR-LINK-MERGE", "Links field merge")
+	ctx := context.Background()
+	now := time.Date(2026, time.August, 21, 18, 41, 0, 0, time.UTC)
+	survivor := uuid.New()
+	loser := uuid.New()
+	target := uuid.New()
+	for _, recordID := range []uuid.UUID{survivor, loser, target} {
+		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, recordID)
+	}
+	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin merge characterization: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `
+INSERT INTO record_links (
+    record_link_id, incident_id, src_record_id, dst_record_id, link_type,
+    field_key, provenance, owner_user_id, created_by_user_id, decided_at, created_at
+) VALUES
+    ('00000000-0000-0000-0000-000000000101', $1, $2, $4, 'references_record', 'fixture.links.field_a', 'manual', $5, $5, $6, $6),
+    ('00000000-0000-0000-0000-000000000102', $1, $3, $4, 'references_record', 'fixture.links.field_a', 'manual', $5, $5, $6, $6),
+    ('00000000-0000-0000-0000-000000000103', $1, $3, $4, 'references_record', 'fixture.links.field_b', 'manual', $5, $5, $6, $6)
+`, incident.ID, survivor, loser, target, actor.ID, now); err != nil {
+		t.Fatalf("seed merge links: %v", err)
+	}
+	result, err := links.NewStore().RepointMergedLinksTx(ctx, tx, links.RepointMergedLinksCommand{
+		IncidentID: incident.ID, SurvivorRecordID: survivor, LoserRecordID: loser,
+		ActorUserID: actor.ID, Now: now.Add(time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("repoint merged links: %v", err)
+	}
+	if result.DedupedCount != 1 || result.RepointedCount != 1 || len(result.Mutations) != 3 {
+		t.Fatalf("merge result = deduped:%d repointed:%d mutations:%d, want 1/1/3", result.DedupedCount, result.RepointedCount, len(result.Mutations))
+	}
+	var activeA, activeB, loserActive int
+	if err := tx.QueryRow(ctx, `
+SELECT
+    count(*) FILTER (WHERE src_record_id = $2 AND field_key = 'fixture.links.field_a'),
+    count(*) FILTER (WHERE src_record_id = $2 AND field_key = 'fixture.links.field_b'),
+    count(*) FILTER (WHERE src_record_id = $3)
+  FROM record_links
+ WHERE incident_id = $1 AND dst_record_id = $4
+   AND link_type = 'references_record' AND deleted_at IS NULL
+`, incident.ID, survivor, loser, target).Scan(&activeA, &activeB, &loserActive); err != nil {
+		t.Fatalf("query merged field-aware links: %v", err)
+	}
+	if activeA != 1 || activeB != 1 || loserActive != 0 {
+		t.Fatalf("post-merge active counts = fieldA:%d fieldB:%d loser:%d, want 1/1/0", activeA, activeB, loserActive)
+	}
+}
+
+func TestLinksIncidentBundleRejectsUnknownLinkMembersBeforeMutation(t *testing.T) {
+	descriptor := links.NewIncidentBundleSourcePort().Descriptor()
+	if !slices.Contains(descriptor.InvariantIDs, "links_tags.row_shape_exact") {
+		t.Fatalf("Links source descriptor omits exact row-shape invariant: %#v", descriptor.InvariantIDs)
+	}
+	harness := appsupport.StartStore(t, "links-bundle-unknown-member-characterization")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "links-bundle-shape@example.test", "Links Bundle Shape", "LinksBundleShapePass1!", false, true, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-links-bundle-shape-incident", "IR-LINK-BUNDLE", "Links bundle shape")
+	src := uuid.New()
+	dst := uuid.New()
+	for _, recordID := range []uuid.UUID{src, dst} {
+		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, recordID)
+	}
+	now := time.Date(2026, time.August, 21, 18, 42, 0, 0, time.UTC)
+	tx, err := harness.DB.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin unknown-member import: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	for _, member := range []string{"note", "description", "comment", "future_undeclared_member"} {
+		t.Run(member, func(t *testing.T) {
+			linkID := uuid.New()
+			row := map[string]any{
+				"record_link_id": linkID.String(), "incident_id": incident.ID.String(),
+				"src_record_id": src.String(), "dst_record_id": dst.String(),
+				"link_type": "references_record", "field_key": "fixture.links.bundle",
+				"provenance": "manual", "confidence": nil,
+				"owner_user_id": actor.ID.String(), "created_by_user_id": actor.ID.String(),
+				"decided_at": now.Format(time.RFC3339Nano), "created_at": now.Format(time.RFC3339Nano),
+				"deleted_at": nil, "deleted_by_user_id": nil,
+				member: "unsupported value",
+			}
+			payload, err := json.Marshal(row)
+			if err != nil {
+				t.Fatalf("encode unknown-member link row: %v", err)
+			}
+			attributions := &countingLinkAttributions{}
+			err = linktest.ImportIncidentBundleFilesTx(context.Background(), tx, map[string][]byte{
+				"data/record_links.ndjson": append(payload, '\n'),
+				"data/record_tags.ndjson":  {},
+			}, actor.ID, attributions)
+			var unexpectedColumns *incidentportability.UnexpectedColumnsError
+			if !errors.As(err, &unexpectedColumns) {
+				t.Fatalf("unknown member error = %T %[1]v, want UnexpectedColumnsError", err)
+			}
+			if attributions.calls != 0 {
+				t.Fatalf("unknown member recorded %d attributions before rejection", attributions.calls)
+			}
+			var count int
+			if err := tx.QueryRow(context.Background(), `SELECT count(*) FROM record_links WHERE record_link_id = $1`, linkID).Scan(&count); err != nil {
+				t.Fatalf("query rejected link row: %v", err)
+			}
+			if count != 0 {
+				t.Fatalf("unknown-member import inserted %d rows, want 0", count)
+			}
+		})
+	}
+	facts, err := (links.ActiveFactReader{}).LoadTx(context.Background(), tx, incident.ID)
+	if err != nil {
+		t.Fatalf("load empty active fact set: %v", err)
+	}
+	if facts.RecordLinks == nil || facts.RecordTags == nil || len(facts.RecordLinks) != 0 || len(facts.RecordTags) != 0 {
+		t.Fatalf("empty active facts lost non-nil collection posture: %#v", facts)
+	}
+	if err := tx.Rollback(context.Background()); err != nil {
+		t.Fatalf("close active fact reader transaction: %v", err)
+	}
+	_, err = (links.ActiveFactReader{}).LoadTx(context.Background(), tx, incident.ID)
+	var readFailure *links.ActiveFactsReadError
+	if !errors.As(err, &readFailure) {
+		t.Fatalf("active fact read error = %T %[1]v, want ActiveFactsReadError", err)
+	}
+}
+
+type countingLinkAttributions struct {
+	calls int
+}
+
+func (recorder *countingLinkAttributions) RecordImportedAttribution(string, string, string, string) error {
+	recorder.calls++
+	return nil
+}
+
+func (*countingLinkAttributions) ImportedAttributions() []incidentportability.ImportedAttribution {
+	return []incidentportability.ImportedAttribution{}
 }
 
 func TestTypedLinksAndTags_Unit(t *testing.T) {

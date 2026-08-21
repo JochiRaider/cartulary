@@ -135,6 +135,11 @@ func TestBuildRecordMutationValuesEmitCanonicalMaps(t *testing.T) {
 	if linkValue["record_link_id"] != linkID.String() || linkValue["field_key"] != fieldKey || linkValue["confidence"] != &confidence || linkValue["deleted_by_user_id"] != actorID.String() {
 		t.Fatalf("unexpected link value: %#v", linkValue)
 	}
+	for _, forbidden := range []string{"note", "description", "comment"} {
+		if _, ok := linkValue[forbidden]; ok {
+			t.Fatalf("canonical link mutation value exposes narrative member %q: %#v", forbidden, linkValue)
+		}
+	}
 	if _, err := DecodeRecordLinkMutationValue(linkValue); err != nil {
 		t.Fatalf("built link value should decode: %v", err)
 	}

@@ -1,4 +1,4 @@
-package links
+package incidentbundle
 
 import (
 	"context"
@@ -31,8 +31,29 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
 	specs := []incidentportability.FixedImportSpec{
-		{LogicalBundlePath: "data/record_links.ndjson", AttributionTable: "record_links", StableIdentity: []string{"record_link_id"}, RequiredColumns: []string{"record_link_id", "incident_id"}, InsertSQL: `INSERT INTO record_links SELECT * FROM jsonb_populate_record(NULL::record_links, $1::jsonb)`},
-		{LogicalBundlePath: "data/record_tags.ndjson", AttributionTable: "record_tags", StableIdentity: []string{"record_tag_id"}, RequiredColumns: []string{"record_tag_id", "record_id", "incident_id"}, InsertSQL: `INSERT INTO record_tags SELECT * FROM jsonb_populate_record(NULL::record_tags, $1::jsonb)`},
+		{
+			LogicalBundlePath: "data/record_links.ndjson",
+			AttributionTable:  "record_links",
+			StableIdentity:    []string{"record_link_id"},
+			RequiredColumns:   []string{"record_link_id", "incident_id"},
+			AllowedColumns: []string{
+				"record_link_id", "incident_id", "src_record_id", "dst_record_id",
+				"link_type", "field_key", "provenance", "confidence", "owner_user_id",
+				"created_by_user_id", "decided_at", "created_at", "deleted_at", "deleted_by_user_id",
+			},
+			InsertSQL: `INSERT INTO record_links SELECT * FROM jsonb_populate_record(NULL::record_links, $1::jsonb)`,
+		},
+		{
+			LogicalBundlePath: "data/record_tags.ndjson",
+			AttributionTable:  "record_tags",
+			StableIdentity:    []string{"record_tag_id"},
+			RequiredColumns:   []string{"record_tag_id", "record_id", "incident_id"},
+			AllowedColumns: []string{
+				"record_tag_id", "incident_id", "record_id", "tag_name", "normalized_tag_name",
+				"created_by_user_id", "created_at", "updated_at", "deleted_at", "deleted_by_user_id",
+			},
+			InsertSQL: `INSERT INTO record_tags SELECT * FROM jsonb_populate_record(NULL::record_tags, $1::jsonb)`,
+		},
 	}
 	for _, spec := range specs {
 		if err := incidentportability.ImportFixedBundleFileNDJSON(ctx, tx, spec, files, actorUserID, attributions); err != nil {

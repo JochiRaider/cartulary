@@ -13,7 +13,7 @@ import (
 )
 
 func TestReportingEvidenceProviderMalformedContributionPublishesNoPartialOutput(t *testing.T) {
-	materializer, err := newReportingExportMaterializer(sourceboundary.NewResolver())
+	materializer, err := newReportingExportMaterializer(sourceboundary.NewResolver(), staticSupportRefProvider{})
 	if err != nil {
 		t.Fatalf("construct Reporting materializer: %v", err)
 	}
@@ -43,6 +43,8 @@ func TestReportingEvidenceLogicalSupportIdentity(t *testing.T) {
 }
 
 type staticSupportRefProvider struct{}
+
+func (staticSupportRefProvider) ProviderKey() string { return "links" }
 
 func (staticSupportRefProvider) CollectSupportRefsTx(context.Context, pgx.Tx, uuid.UUID) (map[string][]string, error) {
 	return nil, nil

@@ -1,7 +1,7 @@
 package links
 
 import (
-	"github.com/JochiRaider/cartulary/internal/modules/links/revisionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/links/internal/revisionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 

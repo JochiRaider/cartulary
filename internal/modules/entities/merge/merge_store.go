@@ -361,21 +361,33 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	counts.RepointedMentions = mentionCounts
 	mutations = append(mutations, mentionMutations...)
 
-	linkMutations, repointedLinks, dedupedLinks, linkTypesBySourceRecordID, err := s.ports.links.RepointMergedLinksTx(ctx, tx, incidentID, survivorRecordID, request.LoserRecordID, actor.ID, now)
+	linkResult, err := s.ports.links.RepointLinksTx(ctx, tx, RepointLinksCommand{
+		IncidentID:       incidentID,
+		SurvivorRecordID: survivorRecordID,
+		LoserRecordID:    request.LoserRecordID,
+		ActorUserID:      actor.ID,
+		Now:              now,
+	})
 	if err != nil {
 		return MergeResult{}, err
 	}
-	counts.RepointedLinks = repointedLinks
-	counts.DedupedLinks = dedupedLinks
-	mutations = append(mutations, linkMutations...)
+	counts.RepointedLinks = linkResult.RepointedCount
+	counts.DedupedLinks = linkResult.DedupedCount
+	mutations = append(mutations, mergeMutationsFromLinkEffects(linkResult.Mutations)...)
 
-	tagMutations, repointedTags, dedupedTags, err := s.ports.links.RepointMergedTagsTx(ctx, tx, incidentID, survivorRecordID, request.LoserRecordID, actor.ID, now)
+	tagResult, err := s.ports.links.RepointTagsTx(ctx, tx, RepointTagsCommand{
+		IncidentID:       incidentID,
+		SurvivorRecordID: survivorRecordID,
+		LoserRecordID:    request.LoserRecordID,
+		ActorUserID:      actor.ID,
+		Now:              now,
+	})
 	if err != nil {
 		return MergeResult{}, err
 	}
-	counts.RepointedTags = repointedTags
-	counts.DedupedTags = dedupedTags
-	mutations = append(mutations, tagMutations...)
+	counts.RepointedTags = tagResult.RepointedCount
+	counts.DedupedTags = tagResult.DedupedCount
+	mutations = append(mutations, mergeMutationsFromLinkEffects(tagResult.Mutations)...)
 
 	assessmentMutations, repointedAssessments, err := s.ports.assessments.RepointMergedAssessmentsTx(ctx, tx, incidentID, survivorMeta.RecordType, survivorRecordID, request.LoserRecordID, protectedRecordSet, now)
 	if err != nil {
@@ -637,7 +649,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	if err != nil {
 		return MergeResult{}, err
 	}
-	relationshipTimelineInvalidations, err := s.ports.timeline.LoadRelationshipInvalidationsTx(ctx, tx, linkTypesBySourceRecordID)
+	relationshipTimelineInvalidations, err := s.ports.timeline.LoadRelationshipInvalidationsTx(ctx, tx, linkResult.LinkTypesBySourceRecordID)
 	if err != nil {
 		return MergeResult{}, err
 	}

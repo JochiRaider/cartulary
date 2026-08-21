@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
+	"github.com/JochiRaider/cartulary/internal/app/reportingassembly"
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
@@ -1145,16 +1146,19 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, err
 	}
+	linksReporting := reportingassembly.NewLinksProvider()
 	reportingRouteOptions := reporting.WithJobs(reporting.RouteOptions{
 		JobSuccessFinalizer: extensionassembly.NewReportingJobSuccessFinalizer(extensionJobFinalizer),
 		RenderExportInvoker: renderExportInvoker,
 		SourceBoundary:      sourceboundary.NewResolver(),
+		SupportRefProvider:  linksReporting,
 		GraphSourceProviders: []reporting.GraphSourceProvider{
 			networkFlowModule.ReportingGraphSource(),
 		},
 		ExportFieldProviders: []exportprovider.FieldProvider{
 			artifactReporting,
 			hostIdentityReporting,
+			linksReporting,
 			taskDecisionReporting,
 		},
 	}, jobTransactions, jobManager, runtime.jobRunner)

@@ -41,7 +41,14 @@ type FixedImportSpec struct {
 	AttributionTable  string
 	StableIdentity    []string
 	RequiredColumns   []string
+	AllowedColumns    []string
 	InsertSQL         string
+}
+
+type UnexpectedColumnsError struct{}
+
+func (*UnexpectedColumnsError) Error() string {
+	return "incident portability row contains undeclared columns"
 }
 
 type MalformedPayloadError struct {
@@ -144,6 +151,16 @@ func ImportFixedRows(ctx context.Context, tx pgx.Tx, spec FixedImportSpec, rows 
 		if err := ValidateRequiredColumns(row, spec.RequiredColumns, spec.StableIdentity); err != nil {
 			return err
 		}
+		if spec.AllowedColumns != nil {
+			if len(spec.AllowedColumns) == 0 {
+				return &VerificationFailure{ReasonCode: "malformed_manifest"}
+			}
+			if err := ValidateAllowedColumns(row, spec.AllowedColumns); err != nil {
+				return err
+			}
+		}
+	}
+	for _, row := range rows {
 		if err := RemapTopLevelUserFields(row, spec.AttributionTable, spec.StableIdentity, actorUserID, attributions); err != nil {
 			return err
 		}
@@ -157,6 +174,19 @@ func ImportFixedRows(ctx context.Context, tx pgx.Tx, spec FixedImportSpec, rows 
 		}
 		if tag.RowsAffected() != 1 {
 			return FixedImportFailure(spec.LogicalBundlePath)
+		}
+	}
+	return nil
+}
+
+func ValidateAllowedColumns(row map[string]any, allowed []string) error {
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, column := range allowed {
+		allowedSet[column] = struct{}{}
+	}
+	for column := range row {
+		if _, ok := allowedSet[column]; !ok {
+			return &UnexpectedColumnsError{}
 		}
 	}
 	return nil

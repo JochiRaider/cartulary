@@ -40,6 +40,7 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 		db,
 		appender,
 		entitymerge.WithAssessmentEffects(assessmentEffects),
+		entitymerge.WithLinkEffects(composedMergeLinkEffects{}),
 		entitymerge.WithWorkbookProjection(composedMergeWorkbookProjection{}),
 		entitymerge.WithTimelineEffects(composedMergeTimelineEffects{}),
 		entitymerge.WithCollaborationIntents(composition.Intents),
@@ -71,6 +72,27 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 	if subjectRecordID != survivorID {
 		t.Fatalf("assessment subject = %s, want survivor %s", subjectRecordID, survivorID)
 	}
+}
+
+type composedMergeLinkEffects struct{}
+
+func (composedMergeLinkEffects) RepointLinksTx(
+	context.Context,
+	pgx.Tx,
+	entitymerge.RepointLinksCommand,
+) (entitymerge.RepointLinksResult, error) {
+	return entitymerge.RepointLinksResult{
+		Mutations:                 []entitymerge.LinkEffectMutation{},
+		LinkTypesBySourceRecordID: map[uuid.UUID][]string{},
+	}, nil
+}
+
+func (composedMergeLinkEffects) RepointTagsTx(
+	context.Context,
+	pgx.Tx,
+	entitymerge.RepointTagsCommand,
+) (entitymerge.RepointTagsResult, error) {
+	return entitymerge.RepointTagsResult{Mutations: []entitymerge.LinkEffectMutation{}}, nil
 }
 
 type composedMergeAssessmentProjection struct{}

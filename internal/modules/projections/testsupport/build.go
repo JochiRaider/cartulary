@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
+	"github.com/JochiRaider/cartulary/internal/app/timelinefactassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	entityprovider "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/projectionprovider"
@@ -24,7 +25,7 @@ import (
 func MustBuild(t testing.TB, db postgres.DB) projectionadapters.Ports {
 	t.Helper()
 
-	timelineContribution, err := timelineprojection.NewContribution(timelineprovider.NewSource())
+	timelineContribution, err := timelineprojection.NewContribution(timelineprovider.NewSource(timelinefactassembly.NewLinkReader()))
 	if err != nil {
 		t.Fatalf("compose Timeline projection contribution: %v", err)
 	}

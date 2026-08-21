@@ -12,7 +12,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -23,7 +22,7 @@ type entityStorePorts struct {
 	mentions      entityMentionPort
 	records       entityRecordPort
 	revisions     entityRevisionPort
-	links         entityLinkPort
+	links         LinkEffectsPort
 	projections   workbookprojection.Writer
 	timeline      entityTimelinePort
 	collaboration collaboration.IntentAppender
@@ -42,14 +41,6 @@ type entityRevisionPort interface {
 	AppendMutationTx(context.Context, pgx.Tx, entityMutationParams) error
 	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
 	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
-}
-
-type entityLinkPort interface {
-	GetActiveLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string) (entityRecordLink, error)
-	UpsertLinkCommandTx(context.Context, pgx.Tx, links.UpsertLinkCommand) (entityRecordLink, bool, error)
-	TombstoneLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (entityRecordLink, error)
-	RepointMergedLinksTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) ([]mergeMutation, int, int, map[uuid.UUID][]string, error)
-	RepointMergedTagsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) ([]mergeMutation, int, int, error)
 }
 
 type entityAssessmentPort interface {
@@ -97,20 +88,6 @@ type entityMutationParams struct {
 	AfterValue      any
 }
 
-type entityRecordLink struct {
-	RecordLinkID uuid.UUID
-	IncidentID   uuid.UUID
-	SrcRecordID  uuid.UUID
-	DstRecordID  uuid.UUID
-	LinkType     string
-	Provenance   string
-	Confidence   *int
-	OwnerUserID  uuid.UUID
-	DecidedAt    time.Time
-	CreatedAt    time.Time
-	DeletedAt    *time.Time
-}
-
 var errEntityRecordEnvelopeNotFound = records.ErrEnvelopeNotFound
 
 type entityRecordLockedError struct {
@@ -129,7 +106,6 @@ func newEntityStorePorts(
 	return entityStorePorts{
 		records:     entityRecordAdapter{store: records.NewStore()},
 		revisions:   entityRevisionAdapter{appender: appender},
-		links:       entityLinkAdapter{store: links.NewStore()},
 		projections: projectionWriter,
 	}
 }
@@ -183,94 +159,6 @@ func (a entityRevisionAdapter) AppendRecordMutationTx(ctx context.Context, tx pg
 
 func (a entityRevisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
 	return a.appender.AppendRecordRevisionTx(ctx, tx, params)
-}
-
-type entityLinkAdapter struct {
-	store *links.Store
-}
-
-func (a entityLinkAdapter) GetActiveLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType string) (entityRecordLink, error) {
-	link, err := a.store.GetActiveLinkTx(ctx, tx, incidentID, srcRecordID, dstRecordID, linkType)
-	if err != nil {
-		return entityRecordLink{}, err
-	}
-	return entityRecordLinkFromLinks(link), nil
-}
-
-func (a entityLinkAdapter) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command links.UpsertLinkCommand) (entityRecordLink, bool, error) {
-	link, inserted, err := a.store.UpsertLinkCommandTx(ctx, tx, command)
-	if err != nil {
-		return entityRecordLink{}, false, err
-	}
-	return entityRecordLinkFromLinks(link), inserted, nil
-}
-
-func (a entityLinkAdapter) TombstoneLinkTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID, actorUserID uuid.UUID, now time.Time) (entityRecordLink, error) {
-	link, err := a.store.TombstoneLinkTx(ctx, tx, recordLinkID, actorUserID, now)
-	if err != nil {
-		return entityRecordLink{}, err
-	}
-	return entityRecordLinkFromLinks(link), nil
-}
-
-func (a entityLinkAdapter) RepointMergedLinksTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, actorUserID uuid.UUID, now time.Time) ([]mergeMutation, int, int, map[uuid.UUID][]string, error) {
-	result, err := a.store.RepointMergedLinksTx(ctx, tx, links.RepointMergedLinksCommand{
-		IncidentID:       incidentID,
-		SurvivorRecordID: survivorRecordID,
-		LoserRecordID:    loserRecordID,
-		ActorUserID:      actorUserID,
-		Now:              now,
-	})
-	if err != nil {
-		return nil, 0, 0, nil, err
-	}
-	return mergeMutationsFromLinkMutations(result.Mutations), result.RepointedCount, result.DedupedCount, result.LinkTypesBySourceRecordID, nil
-}
-
-func (a entityLinkAdapter) RepointMergedTagsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, actorUserID uuid.UUID, now time.Time) ([]mergeMutation, int, int, error) {
-	result, err := a.store.RepointMergedTagsTx(ctx, tx, links.RepointMergedTagsCommand{
-		IncidentID:       incidentID,
-		SurvivorRecordID: survivorRecordID,
-		LoserRecordID:    loserRecordID,
-		ActorUserID:      actorUserID,
-		Now:              now,
-	})
-	if err != nil {
-		return nil, 0, 0, err
-	}
-	return mergeMutationsFromLinkMutations(result.Mutations), result.RepointedCount, result.DedupedCount, nil
-}
-
-func entityRecordLinkFromLinks(link links.RecordLink) entityRecordLink {
-	return entityRecordLink{
-		RecordLinkID: link.RecordLinkID,
-		IncidentID:   link.IncidentID,
-		SrcRecordID:  link.SrcRecordID,
-		DstRecordID:  link.DstRecordID,
-		LinkType:     link.LinkType,
-		Provenance:   link.Provenance,
-		Confidence:   link.Confidence,
-		OwnerUserID:  link.OwnerUserID,
-		DecidedAt:    link.DecidedAt,
-		CreatedAt:    link.CreatedAt,
-		DeletedAt:    link.DeletedAt,
-	}
-}
-
-func mergeMutationsFromLinkMutations(mutations []links.MergeMutation) []mergeMutation {
-	result := make([]mergeMutation, 0, len(mutations))
-	for _, mutation := range mutations {
-		result = append(result, mergeMutation{
-			TargetKind:      mutation.TargetKind,
-			TargetID:        mutation.TargetID,
-			OperationKind:   mutation.OperationKind,
-			BeforeVersionID: mutation.BeforeVersionID,
-			AfterVersionID:  mutation.AfterVersionID,
-			BeforeValue:     mutation.BeforeValue,
-			AfterValue:      mutation.AfterValue,
-		})
-	}
-	return result
 }
 
 type entityAssessmentAdapter struct {

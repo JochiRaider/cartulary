@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
+	"github.com/JochiRaider/cartulary/internal/app/timelinefactassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	entityprovider "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/projectionprovider"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
@@ -26,7 +27,7 @@ func Build(db postgres.DB) (*Runtime, error) {
 	if db == nil {
 		return nil, fmt.Errorf("assemble Projections: Postgres is required")
 	}
-	timelineContribution, err := timelineprojection.NewContribution(timelineprovider.NewSource())
+	timelineContribution, err := timelineprojection.NewContribution(timelineprovider.NewSource(timelinefactassembly.NewLinkReader()))
 	if err != nil {
 		return nil, fmt.Errorf("assemble Timeline projection contribution: %w", err)
 	}

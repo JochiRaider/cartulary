@@ -149,7 +149,7 @@ func TestProjectionProviderSQLSourceOwnership(t *testing.T) {
 	sources := []providerSQLSource{
 		{path: "internal/modules/timeline/sourcerepository/repository.go", provider: "timeline"},
 		{path: "internal/modules/entities/timelinefacts/reader.go", provider: "timeline"},
-		{path: "internal/modules/links/timeline_facts.go", provider: "timeline"},
+		{path: "internal/modules/links/active_facts.go", provider: "timeline"},
 		{path: "internal/modules/evidence/timeline_facts.go", provider: "timeline"},
 		{path: "internal/modules/projections/internal/storage/timeline.go", provider: "timeline"},
 		{path: "internal/modules/projections/internal/queryengine/timeline.go", provider: "timeline"},

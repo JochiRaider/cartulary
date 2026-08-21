@@ -38,6 +38,12 @@ func WithTimelineEffects(effects TimelineEffectsPort) StoreOption {
 	}
 }
 
+func WithLinkEffects(effects LinkEffectsPort) StoreOption {
+	return func(ports *entityStorePorts) {
+		ports.links = effects
+	}
+}
+
 func WithCollaborationIntents(appender collaboration.IntentAppender) StoreOption {
 	return func(ports *entityStorePorts) {
 		ports.collaboration = appender
@@ -65,6 +71,9 @@ func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOp
 	}
 	if ports.assessments == nil {
 		panic("compose entity merge store: assessment effects are required")
+	}
+	if ports.links == nil {
+		panic("compose entity merge store: link effects are required")
 	}
 	if ports.projections == nil {
 		panic("compose entity merge store: workbook projection writer is required")

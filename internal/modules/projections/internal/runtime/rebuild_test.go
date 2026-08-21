@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/timelinefactassembly"
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
@@ -62,7 +63,7 @@ func TestTimelineProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *tes
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	source := timelineprovider.NewSource()
+	source := timelineprovider.NewSource(timelinefactassembly.NewLinkReader())
 	first, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 2)
 	if err != nil {
 		t.Fatalf("list first projection source page: %v", err)

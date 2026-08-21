@@ -28,6 +28,7 @@ type RouteOptions struct {
 	JobSuccessFinalizer  JobSuccessFinalizer
 	RenderExportInvoker  RenderExportInvoker
 	ExportFieldProviders []exportprovider.FieldProvider
+	SupportRefProvider   exportprovider.SupportReferenceProvider
 	GraphSourceProviders []GraphSourceProvider
 	SourceBoundary       sourceboundary.Resolver
 	jobAdmission         reportingJobAdmission
@@ -72,7 +73,7 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	if options.jobOperations != nil && options.jobAdmission == nil {
 		return nil, fmt.Errorf("reporting admitted route requires the Jobs transaction service")
 	}
-	exportMaterializer, err := newReportingExportMaterializer(options.SourceBoundary, options.ExportFieldProviders...)
+	exportMaterializer, err := newReportingExportMaterializer(options.SourceBoundary, options.SupportRefProvider, options.ExportFieldProviders...)
 	if err != nil {
 		return nil, fmt.Errorf("compose reporting export materializer: %w", err)
 	}

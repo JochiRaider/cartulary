@@ -8,18 +8,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/links/valuecodec"
+	"github.com/JochiRaider/cartulary/internal/modules/links/internal/valuecodec"
 )
 
 func (s *Store) LoadRecordLinkValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (map[string]any, error) {
-	value, err := s.LoadRecordLinkMutationValueTx(ctx, tx, recordLinkID)
+	value, err := s.loadRecordLinkMutationValueTx(ctx, tx, recordLinkID)
 	if err != nil {
 		return nil, err
 	}
 	return value.Map(), nil
 }
 
-func (s *Store) LoadRecordLinkMutationValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (valuecodec.RecordLinkMutationValue, error) {
+func (s *Store) loadRecordLinkMutationValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (valuecodec.RecordLinkMutationValue, error) {
 	value, err := valuecodec.LoadRecordLinkMutationValueTx(ctx, tx, recordLinkID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return valuecodec.RecordLinkMutationValue{}, ErrRecordLinkNotFound
@@ -31,14 +31,14 @@ func (s *Store) LoadRecordLinkMutationValueTx(ctx context.Context, tx pgx.Tx, re
 }
 
 func (s *Store) LoadRecordTagValueTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID) (map[string]any, error) {
-	value, err := s.LoadRecordTagMutationValueTx(ctx, tx, recordTagID)
+	value, err := s.loadRecordTagMutationValueTx(ctx, tx, recordTagID)
 	if err != nil {
 		return nil, err
 	}
 	return value.Map(), nil
 }
 
-func (s *Store) LoadRecordTagMutationValueTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID) (valuecodec.RecordTagMutationValue, error) {
+func (s *Store) loadRecordTagMutationValueTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID) (valuecodec.RecordTagMutationValue, error) {
 	value, err := valuecodec.LoadRecordTagMutationValueTx(ctx, tx, recordTagID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return valuecodec.RecordTagMutationValue{}, ErrTagNotFound

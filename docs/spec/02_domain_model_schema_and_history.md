@@ -1710,9 +1710,10 @@ A `record_link` MUST include, at minimum:
 - `src_record_id`,
 - `dst_record_id`,
 - `link_type` from the exact closed vocabulary defined in §18,
+- nullable exact canonical `field_key`, where `null` identifies an explicit
+  action route with no owning collection field,
 - `provenance` from the exact closed vocabulary defined in §18,
 - nullable `confidence` in the range `0..100`,
-- optional `note`,
 - `created_by_user_id`,
 - `created_at`,
 - nullable `deleted_at`,
@@ -1738,7 +1739,18 @@ Profiles: base
 Verified by: AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-231
 
 **REQ-02-168**
-There MUST be at most one non-deleted `record_link` for the same `(incident_id, src_record_id, dst_record_id, link_type)` tuple. For active Timeline-to-Timeline `supersedes` links, there MUST also be at most one non-deleted `record_link` whose `link_type='supersedes'` and whose `dst_record_id` is the same superseded `timeline_event`. The same replacement `timeline_event` MAY remain the `src_record_id` for multiple non-deleted `supersedes` links to different superseded Timeline rows.
+There MUST be at most one non-deleted `record_link` for the same
+`(incident_id, src_record_id, dst_record_id, link_type, field_key)` tuple, using
+null-safe `field_key` equality: two null values compare equal for identity and
+two different non-null values remain distinct. A field-routed link MUST carry
+the exact validated canonical field key. A link created by an explicit action
+route with no owning collection field MUST carry `field_key=null`. For active
+Timeline-to-Timeline `supersedes` links, there MUST also be at most one
+non-deleted `record_link` whose `link_type='supersedes'` and whose
+`dst_record_id` is the same superseded `timeline_event`. That
+superseded-destination rule is independent of field-aware tuple identity. The
+same replacement `timeline_event` MAY remain the `src_record_id` for multiple
+non-deleted `supersedes` links to different superseded Timeline rows.
 Profiles: base
 Verified by: AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-231, AC-329
 
@@ -1748,7 +1760,12 @@ Profiles: base
 Verified by: AC-196, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-231, AC-332
 
 **REQ-02-170**
-Merge-time repoint semantics from §9 apply to `record_links`. Incoming and outgoing active links to a losing entity MUST be repointed or deterministically recreated on the survivor in the same `change_set`, and duplicate active tuples created by repointing MUST be deduplicated without losing history.
+Merge-time repoint semantics from §9 apply to `record_links`. Incoming and
+outgoing active links to a losing entity MUST be repointed or deterministically
+recreated on the survivor in the same `change_set`. Duplicate active full tuples
+created by repointing MUST be deduplicated deterministically without losing
+history; otherwise-identical links with different non-null `field_key` values
+MUST remain distinct.
 Profiles: base
 Verified by: AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-231
 
@@ -1841,7 +1858,14 @@ Profiles: base
 Verified by: AC-394, AC-395, AC-397
 
 **REQ-02-180**
-`note` MAY hold free text and operator context, but it MUST NOT carry conformance-critical semantics and MUST NOT be interpreted as an implicit `confidence` value, scoring override, or alternate scoring channel.
+The current profile defines no link-local narrative member. A `record_link`
+MUST NOT contain or accept `note`, `description`, `comment`, or an equivalent
+free-text extension. Narrative requiring authorship, history, search, reporting,
+or reuse MUST be represented by an owning first-class record, Decision, or
+Artifact and related through a typed `record_link`. A future profile may add
+link-local narrative only by defining its complete value, authorization,
+conflict, revision, portability, reporting, disclosure, redaction, search, and
+migration contracts together.
 Profiles: base
 Verified by: AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-231
 

@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
+	"github.com/JochiRaider/cartulary/internal/app/entitymergeassembly"
+	"github.com/JochiRaider/cartulary/internal/app/timelinefactassembly"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
@@ -113,7 +115,7 @@ func compose(dependencies Dependencies) (composition, error) {
 	}
 	collectionFacts := collectionfacts.New(
 		entityfacts.Reader{},
-		links.TimelineFactReader{},
+		timelinefactassembly.NewLinkReader(),
 		evidence.TimelineFactReader{},
 	)
 	timelineWriter := dependencies.TimelineProjection
@@ -168,6 +170,7 @@ func compose(dependencies Dependencies) (composition, error) {
 			dependencies.Postgres,
 			dependencies.Revisions,
 			merge.WithAssessmentEffects(assessmentEffects),
+			merge.WithLinkEffects(entitymergeassembly.NewLinkEffects()),
 			merge.WithTimelineEffects(mentionEffects),
 			merge.WithCollaborationIntents(dependencies.Collaboration),
 			merge.WithWorkbookProjection(entityProjectionWriter),

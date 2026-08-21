@@ -12,7 +12,6 @@ import (
 	entityreporting "github.com/JochiRaider/cartulary/internal/modules/entities/mentions/reportingprovider"
 	evidencereporting "github.com/JochiRaider/cartulary/internal/modules/evidence/reportingprovider"
 	incidentreporting "github.com/JochiRaider/cartulary/internal/modules/incidents/reportingprovider"
-	linkreporting "github.com/JochiRaider/cartulary/internal/modules/links/reportingprovider"
 	partyreporting "github.com/JochiRaider/cartulary/internal/modules/parties/reportingprovider"
 	recordreporting "github.com/JochiRaider/cartulary/internal/modules/records/reportingprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
@@ -24,14 +23,10 @@ type reportingIncidentProvider interface {
 	GetIncidentSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (exportprovider.IncidentSnapshot, error)
 }
 
-type reportingSupportRefProvider interface {
-	CollectSupportRefsTx(context.Context, pgx.Tx, uuid.UUID) (map[string][]string, error)
-}
-
 type reportingExportMaterializer struct {
 	incidentProvider   reportingIncidentProvider
 	sourceBoundary     sourceboundary.Resolver
-	supportRefProvider reportingSupportRefProvider
+	supportRefProvider exportprovider.SupportReferenceProvider
 	fieldProviders     []exportprovider.FieldProvider
 }
 
@@ -39,14 +34,6 @@ type reportingIncidentProviderFunc struct{}
 
 func (reportingIncidentProviderFunc) GetIncidentSnapshotTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (exportprovider.IncidentSnapshot, error) {
 	return incidentreporting.GetIncidentSnapshotTx(ctx, tx, incidentID)
-}
-
-type reportingSupportRefProviderFunc struct {
-	collect func(context.Context, pgx.Tx, uuid.UUID) (map[string][]string, error)
-}
-
-func (p reportingSupportRefProviderFunc) CollectSupportRefsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (map[string][]string, error) {
-	return p.collect(ctx, tx, incidentID)
 }
 
 type reportingExportFieldProviderFunc struct {
@@ -64,17 +51,20 @@ func (p reportingExportFieldProviderFunc) CollectFactsTx(ctx context.Context, tx
 
 func newReportingExportMaterializer(
 	sourceBoundary sourceboundary.Resolver,
+	supportRefProvider exportprovider.SupportReferenceProvider,
 	contributions ...exportprovider.FieldProvider,
 ) (reportingExportMaterializer, error) {
 	if sourceBoundary == nil {
 		return reportingExportMaterializer{}, errors.New("reporting source-boundary resolver is required")
+	}
+	if supportRefProvider == nil || supportRefProvider.ProviderKey() == "" {
+		return reportingExportMaterializer{}, errors.New("reporting support-reference provider is required")
 	}
 	fieldProviders := []exportprovider.FieldProvider{
 		reportingExportFieldProviderFunc{key: "records", collect: recordreporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "timeline", collect: timelinereporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "parties", collect: partyreporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "evidence", collect: evidencereporting.CollectFactsTx},
-		reportingExportFieldProviderFunc{key: "links", collect: linkreporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "entities.mentions", collect: entityreporting.CollectFactsTx},
 	}
 	fieldProviders = append(fieldProviders, contributions...)
@@ -96,18 +86,10 @@ func newReportingExportMaterializer(
 		return fieldProviders[i].ProviderKey() < fieldProviders[j].ProviderKey()
 	})
 	return reportingExportMaterializer{
-		incidentProvider: reportingIncidentProviderFunc{},
-		sourceBoundary:   sourceBoundary,
-		supportRefProvider: reportingSupportRefProviderFunc{
-			collect: func(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (map[string][]string, error) {
-				targets, err := evidencereporting.CollectLogicalSupportTargetsTx(ctx, tx, incidentID)
-				if err != nil {
-					return nil, err
-				}
-				return linkreporting.CollectSupportRefsTx(ctx, tx, incidentID, targets)
-			},
-		},
-		fieldProviders: fieldProviders,
+		incidentProvider:   reportingIncidentProviderFunc{},
+		sourceBoundary:     sourceBoundary,
+		supportRefProvider: supportRefProvider,
+		fieldProviders:     fieldProviders,
 	}, nil
 }
 
@@ -147,7 +129,7 @@ func (m reportingExportMaterializer) ResolveSourceBoundaryTx(
 func (m reportingExportMaterializer) CollectFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]ExportField, error) {
 	supportRefs, err := m.supportRefProvider.CollectSupportRefsTx(ctx, tx, incidentID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("collect reporting support provider %s: %w", m.supportRefProvider.ProviderKey(), err)
 	}
 	fields := []ExportField{}
 	seenPaths := map[string]string{}

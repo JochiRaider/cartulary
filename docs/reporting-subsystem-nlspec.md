@@ -475,6 +475,97 @@ MUST continue to use the logical identity `evidence:{evidence_id}` under the
 `cartulary.reporting_support_ref.v1` grammar. They MUST NOT use a blob identity,
 storage identity, capability identity, or physical object locator.
 
+### 7.1.2 Links provider-output and support-reference contract
+
+**REQ-RPT-026b**
+Reporting MUST receive Links source state through Reporting-owned field-provider
+and support-reference-provider ports. Application composition MUST implement
+both ports by adapting the Links-owned active fact reader and the logical target
+paths produced by eligible source owners. Reporting MUST NOT query
+`record_links`, `record_tags`, or a Links-owned view directly, and Links MUST NOT
+construct Reporting DTOs, paths, content classes, support identifiers,
+selection policy, redaction policy, or canonical output.
+
+The Links reader MUST accept the caller's context, caller-owned transaction, and
+`incident_id`. It MUST return non-nil ordered `record_links[]` and
+`record_tags[]` collections, including empty collections, or one typed Links
+read error with no partial fact set. It MUST select only active link and tag
+facts under Core 02 §10.4.3, including active endpoint eligibility for links.
+It MUST NOT authorize, redact, select report content, expose SQL detail, or
+begin, commit, roll back, replace, or detach the caller's transaction.
+
+**Table 7-A0b. Links-owned active link fact members**
+
+| Member | Required source posture |
+| --- | --- |
+| `record_link_id` | Exact stable link identity. |
+| `src_record_id` | Exact canonical source endpoint identity. |
+| `dst_record_id` | Exact canonical destination endpoint identity. |
+| `link_type` | Exact persisted Core 02 token. |
+| `field_key` | Exact nullable canonical field key; null means no owning field. |
+| `provenance` | Exact persisted Core 02 token. |
+| `confidence` | Exact nullable integer in `0..100`. |
+| `owner_user_id` | Exact current owner attribution. |
+| `created_by_user_id` | Exact creation attribution. |
+| `decided_at` | Exact source timestamp. |
+| `created_at` | Exact source timestamp. |
+
+**Table 7-A0c. Links-owned active tag fact members**
+
+| Member | Required source posture |
+| --- | --- |
+| `record_tag_id` | Exact stable tag-assignment identity. |
+| `record_id` | Exact tagged-record identity. |
+| `tag_name` | Exact stored display form. |
+| `normalized_tag_name` | Exact stored normalized identity. |
+| `created_by_user_id` | Exact creation attribution. |
+| `created_at` | Exact source timestamp. |
+| `updated_at` | Exact source timestamp. |
+
+The reader input already carries `incident_id`; the active fact variants MUST
+NOT duplicate it. Active facts MUST NOT contain tombstone members or
+link-local `note`, `description`, `comment`, extension maps, storage rows, or
+consumer DTOs. Adding a source column MUST NOT add a Reporting value member
+unless this NLSpec adopts it.
+
+**REQ-RPT-026c**
+The application adapter MUST construct provider output with provider key
+`links` and the exact mapping in Table 7-A0d. The adapter MUST issue no SQL,
+perform no authorization or redaction, control no transaction, and duplicate
+no materializer orchestration. Reporting owns its provider ports and DTOs;
+Links owns source fact meaning and errors; only application composition may
+import both boundaries. No shared peer DTO package may become a third owner.
+
+**Table 7-A0d. Links-to-Reporting field mapping**
+
+| Source fact | Path | Source family | Content class | Reporting value |
+| --- | --- | --- | --- | --- |
+| Active link | `/relationships/{record_link_id}` | `record_link` | `derived_analytic` | Every Table 7-A0b member; explicit `deleted_at=null` and `deleted_by_user_id=null`; no `incident_id` or narrative member. |
+| Active tag | `/tags/{record_tag_id}` | `record_tag` | `derived_analytic` | Every Table 7-A0c member; explicit `deleted_at=null` and `deleted_by_user_id=null`; no `incident_id`. |
+
+Final field facts MUST sort by exact path ascending. Zero facts MUST produce an
+empty provider output rather than an omitted or unknown family. A Links read or
+translation failure MUST return one Reporting provider failure with no partial
+field or support output; Reporting owns mapping that provider failure into its
+existing materialization and render error vocabulary.
+
+**REQ-RPT-026d**
+The Links support-reference adapter MUST consider exactly active links whose
+`link_type` is `supported_by`, `references_record`, or `attached_evidence`.
+Eligible facts MUST be processed by `src_record_id` ascending and then
+`dst_record_id` ascending. For each fact, its target path MUST be the non-empty
+logical target path contributed for `dst_record_id`; a missing, nil, or empty
+logical target MUST fall back to `/record_envelopes/{dst_record_id}`. Each
+target MUST be appended to the source record's ordered target list. Repeated
+targets MUST remain repeated in this source output; any later support-index
+deduplication remains Reporting-owned. Zero eligible links MUST return a
+non-nil empty map.
+
+The field-provider and support-reference-provider calls MUST occur while the
+Core-owned source-boundary transaction is open. Once their values are admitted
+to the immutable snapshot, later Reporting stages MUST obey REQ-RPT-025 and
+REQ-RPT-026 and MUST NOT re-read live Links state.
+
 ## 7.2 Release tuple
 
 **REQ-RPT-027**

@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
 
@@ -28,9 +27,9 @@ func TestReaderMapsFactsLosslesslyInOrder(t *testing.T) {
 		{MentionID: uuid.MustParse("66666666-6666-4666-8666-666666666666"), RawText: "host-a", SourceFieldKey: "timeline.host_refs"},
 		{MentionID: uuid.MustParse("77777777-7777-4777-8777-777777777777"), RawText: "host-a", SourceFieldKey: "timeline.host_refs"},
 	}
-	linkFacts := links.TimelineFacts{
-		ResolvedLinks:       []workbookprojection.LinkFact{{TargetRecordID: recordID, LinkType: "observed_on_host"}},
-		Tags:                []workbookprojection.TagFact{{RecordTagID: evidenceIDs[0], TagName: "first"}, {RecordTagID: evidenceIDs[1], TagName: "first"}},
+	linkFacts := LinkFacts{
+		ResolvedLinks:       []LinkFact{{TargetRecordID: recordID, LinkType: "observed_on_host"}},
+		Tags:                []TagFact{{RecordTagID: evidenceIDs[0], TagName: "first"}, {RecordTagID: evidenceIDs[1], TagName: "first"}},
 		AttachedEvidenceIDs: append([]uuid.UUID(nil), evidenceIDs...),
 		ReplacementRecordID: &replacementID,
 	}
@@ -50,8 +49,8 @@ func TestReaderMapsFactsLosslesslyInOrder(t *testing.T) {
 	}
 	want := workbookprojection.CollectionFacts{
 		Mentions:      mentions,
-		ResolvedLinks: linkFacts.ResolvedLinks,
-		Tags:          linkFacts.Tags,
+		ResolvedLinks: []workbookprojection.LinkFact{{TargetRecordID: recordID, LinkType: "observed_on_host"}},
+		Tags:          []workbookprojection.TagFact{{RecordTagID: evidenceIDs[0], TagName: "first"}, {RecordTagID: evidenceIDs[1], TagName: "first"}},
 		AttachedEvidence: []workbookprojection.EvidenceFact{
 			{RecordID: evidenceIDs[0], Title: "Disk image", LifecycleState: "available", UploadState: "available"},
 			{RecordID: evidenceIDs[1], Title: "Memory capture", LifecycleState: "quarantined", UploadState: "quarantined"},
@@ -163,11 +162,11 @@ func (reader *mentionReaderStub) LoadMentionsTx(_ context.Context, tx pgx.Tx, _ 
 type linkReaderStub struct {
 	events *[]string
 	tx     pgx.Tx
-	facts  links.TimelineFacts
+	facts  LinkFacts
 	err    error
 }
 
-func (reader *linkReaderStub) LoadTx(_ context.Context, tx pgx.Tx, _ uuid.UUID, _ uuid.UUID) (links.TimelineFacts, error) {
+func (reader *linkReaderStub) LoadTx(_ context.Context, tx pgx.Tx, _ uuid.UUID, _ uuid.UUID) (LinkFacts, error) {
 	if reader.events != nil {
 		*reader.events = append(*reader.events, "links")
 	}

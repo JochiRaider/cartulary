@@ -1548,6 +1548,19 @@ These criteria provide direct runtime-family verification for substantive base-p
   boundary policy and exact authored verification accounting are generated and
   drift-free.
   - Verifies: REQ-00-072
+- **AC-553**: Links-to-Reporting boundary evidence proves that Links exposes
+  only ordered active source facts with exact field identity and attribution;
+  Reporting owns field and support-reference provider ports, DTOs, paths,
+  content classes, ordering, fallback, duplicate posture, and error mapping;
+  and application composition is the only production layer importing both
+  boundaries. The adapter uses the caller-owned source-boundary transaction,
+  issues no SQL, performs no authorization or redaction, and returns no partial
+  output on failure. Included link types, logical-target fallback, repeated
+  targets, nulls, empty sets, deleted link and endpoint exclusion, paths,
+  values, tags, and ordering match Reporting §7.1.2, while public snapshot,
+  export-model, release, route, authorization, and generated contracts remain
+  unchanged.
+  - Verifies: REQ-01-664, REQ-02-169, REQ-RPT-025..REQ-RPT-026d
 
 ### 9.1B Network Flow Activity Extension Profile criteria
 
@@ -2100,11 +2113,11 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-010..REQ-01-014, REQ-02-032, REQ-03-208, REQ-03-276
 - **AC-206**: A base-profile relationship mutation that attempts to create a self-link, targets a record from a different incident, or targets a non-record mutation object such as `entity_mention` or `indicator_observation` fails closed, creates no durable `record_link`, and leaves no misleading projection update.
   - Verifies: REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-02-163..REQ-02-185, REQ-02-208..REQ-02-209
-- **AC-207**: Sending client-chosen `link_type`, direction flags, table names, or storage-routing metadata in a base-profile relationship mutation fails with `400` and `error.code='invalid_mutation_payload'`; the server accepts only field-key-derived or action-route-derived relationship routing.
+- **AC-207**: Sending client-chosen `link_type`, direction flags, table names, storage-routing metadata, a storage `field_key` override inside an action payload, or link-local `note`, `description`, `comment`, or equivalent narrative in a base-profile relationship mutation fails with `400` and `error.code='invalid_mutation_payload'`; the server accepts only the ordinary enclosing `changes[].field_key` plus field-key-derived or action-route-derived relationship routing, and creates no partial relationship effect.
   - Verifies: REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-02-163..REQ-02-185, REQ-02-208..REQ-02-209
-- **AC-208**: Repeating the same logical relationship add through supported base-profile routes, including duplicate collection actions, idempotent request replay, or a later add of the same `(incident_id, src_record_id, dst_record_id, link_type)` tuple, leaves exactly one non-deleted `record_link` for that tuple while preserving attributable history of the attempted operations.
+- **AC-208**: Repeating the same logical relationship add through supported base-profile routes, including duplicate collection actions, idempotent request replay, or a later add of the same `(incident_id, src_record_id, dst_record_id, link_type, field_key)` tuple using null-safe `field_key` equality, leaves exactly one non-deleted `record_link` for that tuple while preserving attributable history of the attempted operations. Adding the same target and link type through two different non-null canonical field keys leaves two active bindings, and removing either field's opaque item reference tombstones only that field's binding.
   - Verifies: REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-02-163..REQ-02-185, REQ-02-208..REQ-02-209
-- **AC-209**: Merging a host or identity whose incoming or outgoing links collide with links already present on the survivor repoints both incoming and outgoing active links in the same `change_set`, preserves canonical direction, and leaves at most one non-deleted tuple for each `(incident_id, src_record_id, dst_record_id, link_type)` after deduplication.
+- **AC-209**: Merging a host or identity whose incoming or outgoing links collide with links already present on the survivor repoints both incoming and outgoing active links in the same `change_set`, preserves canonical direction and exact nullable `field_key`, deterministically retains at most one non-deleted row for each full `(incident_id, src_record_id, dst_record_id, link_type, field_key)` tuple using null-safe equality, and preserves otherwise-identical bindings owned by different non-null field keys.
   - Verifies: REQ-01-057..REQ-01-088, REQ-01-181..REQ-01-195, REQ-02-054..REQ-02-055, REQ-02-064..REQ-02-066,
     REQ-02-163..REQ-02-185, REQ-02-219..REQ-02-220, REQ-03-247..REQ-03-249
 - **AC-210**: Projection-backed linked-count fields, visible linked-record chips, and any operator-visible current-state export or report field that derives relationships from `record_links` include only links whose own row is not soft-deleted and whose source and destination records are not soft-deleted; the same inactive links remain visible through history or rollback surfaces.
@@ -2387,7 +2400,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
 - **AC-386**: Exporting and importing an incident that contains both currently reversible and currently non-reversible single-entry-addressable history items preserves the authoritative history substrate needed to materialize `GET /api/v1/records/{record_id}/history`, including change-set count, mutation-entry count, and revision count; after projection rebuild, the imported incident's `/history` surface exposes the same logical history items and rollback scopes; the importing deployment MAY emit different opaque `history_entry_ref` values than the source deployment; repeated imported-history reads keep those imported selectors stable within the importing deployment; and rollback using an imported selector succeeds or fails only under the ordinary imported-history preconditions.
   - Verifies: REQ-01-564, REQ-02-238, REQ-02-241
 
-- **AC-332**: Exporting and importing an incident that contains a superseded Timeline row with a committed replacement relation preserves the active Timeline `supersedes` link, and after projection rebuild a Timeline row query against the imported incident returns the same hidden `timeline.replacement_record_id` for that superseded row.
+- **AC-332**: Exporting and importing an incident that contains a superseded Timeline row with a committed replacement relation preserves the active Timeline `supersedes` link, including its exact null `field_key`, and after projection rebuild a Timeline row query against the imported incident returns the same hidden `timeline.replacement_record_id` for that superseded row. The same round trip preserves exact non-null canonical `field_key` values for field-routed links without label translation.
   - Verifies: REQ-01-311..REQ-01-312, REQ-01-448..REQ-01-449, REQ-01-486, REQ-02-169, REQ-02-175, REQ-02-181
 
 

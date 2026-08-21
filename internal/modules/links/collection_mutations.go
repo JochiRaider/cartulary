@@ -28,7 +28,7 @@ func (s *Store) SyncFieldReferenceWithMutationValuesTx(ctx context.Context, tx p
 		if _, retained := after[item.RecordLinkID]; retained {
 			continue
 		}
-		afterValue, err := s.LoadRecordLinkMutationValueTx(ctx, tx, item.RecordLinkID)
+		afterValue, err := s.loadRecordLinkMutationValueTx(ctx, tx, item.RecordLinkID)
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
@@ -96,7 +96,7 @@ SELECT record_link_id
 	}
 	result := make(map[uuid.UUID]fieldReferenceMutationValue, len(ids))
 	for _, id := range ids {
-		value, err := s.LoadRecordLinkMutationValueTx(ctx, tx, id)
+		value, err := s.loadRecordLinkMutationValueTx(ctx, tx, id)
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +149,7 @@ func (s *Store) ApplyRecordRefCollectionWithMutationValuesTx(ctx context.Context
 		if !inserted {
 			continue
 		}
-		afterValue, err := s.LoadRecordLinkMutationValueTx(ctx, tx, record.RecordLinkID)
+		afterValue, err := s.loadRecordLinkMutationValueTx(ctx, tx, record.RecordLinkID)
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
@@ -163,7 +163,7 @@ func (s *Store) ApplyRecordRefCollectionWithMutationValuesTx(ctx context.Context
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
-		beforeValue, err := s.LoadRecordLinkMutationValueTx(ctx, tx, existing.RecordLinkID)
+		beforeValue, err := s.loadRecordLinkMutationValueTx(ctx, tx, existing.RecordLinkID)
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
@@ -171,7 +171,7 @@ func (s *Store) ApplyRecordRefCollectionWithMutationValuesTx(ctx context.Context
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
-		afterValue, err := s.LoadRecordLinkMutationValueTx(ctx, tx, tombstoned.RecordLinkID)
+		afterValue, err := s.loadRecordLinkMutationValueTx(ctx, tx, tombstoned.RecordLinkID)
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
@@ -201,7 +201,7 @@ func (s *Store) ApplyPartyRefCollectionWithMutationValuesTx(ctx context.Context,
 		if !inserted {
 			continue
 		}
-		afterValue, err := s.LoadRecordLinkMutationValueTx(ctx, tx, record.RecordLinkID)
+		afterValue, err := s.loadRecordLinkMutationValueTx(ctx, tx, record.RecordLinkID)
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
@@ -215,7 +215,7 @@ func (s *Store) ApplyPartyRefCollectionWithMutationValuesTx(ctx context.Context,
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
-		beforeValue, err := s.LoadRecordLinkMutationValueTx(ctx, tx, existing.RecordLinkID)
+		beforeValue, err := s.loadRecordLinkMutationValueTx(ctx, tx, existing.RecordLinkID)
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
@@ -223,7 +223,7 @@ func (s *Store) ApplyPartyRefCollectionWithMutationValuesTx(ctx context.Context,
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
-		afterValue, err := s.LoadRecordLinkMutationValueTx(ctx, tx, tombstoned.RecordLinkID)
+		afterValue, err := s.loadRecordLinkMutationValueTx(ctx, tx, tombstoned.RecordLinkID)
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
@@ -255,7 +255,7 @@ func (s *Store) ApplyTagCollectionWithMutationValuesTx(ctx context.Context, tx p
 		if !inserted {
 			continue
 		}
-		afterValue, err := s.LoadRecordTagMutationValueTx(ctx, tx, tagID)
+		afterValue, err := s.loadRecordTagMutationValueTx(ctx, tx, tagID)
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
@@ -265,7 +265,7 @@ func (s *Store) ApplyTagCollectionWithMutationValuesTx(ctx context.Context, tx p
 		if tag.RecordID != command.RecordID {
 			return CollectionMutationResult{}, collectionValidationError(command.FieldKey)
 		}
-		beforeValue, err := s.LoadRecordTagMutationValueTx(ctx, tx, tag.RecordTagID)
+		beforeValue, err := s.loadRecordTagMutationValueTx(ctx, tx, tag.RecordTagID)
 		if errors.Is(err, ErrTagNotFound) {
 			return CollectionMutationResult{}, collectionValidationError(command.FieldKey)
 		}
@@ -279,7 +279,7 @@ func (s *Store) ApplyTagCollectionWithMutationValuesTx(ctx context.Context, tx p
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
-		afterValue, err := s.LoadRecordTagMutationValueTx(ctx, tx, deleted)
+		afterValue, err := s.loadRecordTagMutationValueTx(ctx, tx, deleted)
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}

@@ -8,16 +8,34 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
+
+type LinkFact struct {
+	TargetRecordID uuid.UUID
+	LinkType       string
+	Provenance     string
+	Confidence     *int
+}
+
+type TagFact struct {
+	RecordTagID uuid.UUID
+	TagName     string
+}
+
+type LinkFacts struct {
+	ResolvedLinks       []LinkFact
+	Tags                []TagFact
+	AttachedEvidenceIDs []uuid.UUID
+	ReplacementRecordID *uuid.UUID
+}
 
 type MentionReader interface {
 	LoadMentionsTx(context.Context, pgx.Tx, uuid.UUID) ([]workbookprojection.MentionFact, error)
 }
 
 type LinkReader interface {
-	LoadTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (links.TimelineFacts, error)
+	LoadTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (LinkFacts, error)
 }
 
 type EvidenceReader interface {
@@ -74,10 +92,26 @@ func (reader Reader) LoadTimelineCollectionFactsTx(
 			UploadState:    fact.UploadState,
 		}
 	}
+	resolvedLinks := make([]workbookprojection.LinkFact, len(linkFacts.ResolvedLinks))
+	for index, fact := range linkFacts.ResolvedLinks {
+		resolvedLinks[index] = workbookprojection.LinkFact{
+			TargetRecordID: fact.TargetRecordID,
+			LinkType:       fact.LinkType,
+			Provenance:     fact.Provenance,
+			Confidence:     fact.Confidence,
+		}
+	}
+	tags := make([]workbookprojection.TagFact, len(linkFacts.Tags))
+	for index, fact := range linkFacts.Tags {
+		tags[index] = workbookprojection.TagFact{
+			RecordTagID: fact.RecordTagID,
+			TagName:     fact.TagName,
+		}
+	}
 	return workbookprojection.CollectionFacts{
 		Mentions:            mentions,
-		ResolvedLinks:       linkFacts.ResolvedLinks,
-		Tags:                linkFacts.Tags,
+		ResolvedLinks:       resolvedLinks,
+		Tags:                tags,
 		AttachedEvidence:    attachedEvidence,
 		ReplacementRecordID: linkFacts.ReplacementRecordID,
 	}, nil
