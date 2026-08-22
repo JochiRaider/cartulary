@@ -118,14 +118,14 @@ func (s *Store) PatchEntityRow(ctx context.Context, actor authn.UserRecord, reco
 }
 
 func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, meta entityRecordMeta, recordID uuid.UUID, request PatchRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time) (PatchMutationResult, error) {
-	beforeRecord, err := LoadHostByRecordIDTx(ctx, tx, recordID)
+	beforeRecord, err := loadHostByRecordIDTx(ctx, tx, recordID)
 	if err != nil {
 		return PatchMutationResult{}, err
 	}
 	if err := hydrateHostRecordTx(ctx, tx, &beforeRecord); err != nil {
 		return PatchMutationResult{}, err
 	}
-	beforeRow := BuildHostRow(beforeRecord)
+	beforeRow := buildHostRow(beforeRecord)
 	beforeSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, recordID)
 	if err != nil {
 		return PatchMutationResult{}, err
@@ -166,20 +166,20 @@ func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserR
 	if err := hydrateHostRecordTx(ctx, tx, &next); err != nil {
 		return PatchMutationResult{}, err
 	}
-	afterRow := BuildHostRow(next)
+	afterRow := buildHostRow(next)
 
 	return s.finishEntityPatchTx(ctx, tx, actor, meta.IncidentID, recordID, "host", request, idempotencyKey, requestHash, requestID, now, &beforeSnapshot, beforeRow, afterRow, rowVersion, changedFields, aliasMutations)
 }
 
 func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, meta entityRecordMeta, recordID uuid.UUID, request PatchRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time) (PatchMutationResult, error) {
-	beforeRecord, err := LoadIdentityByRecordIDTx(ctx, tx, recordID)
+	beforeRecord, err := loadIdentityByRecordIDTx(ctx, tx, recordID)
 	if err != nil {
 		return PatchMutationResult{}, err
 	}
 	if err := hydrateIdentityRecordTx(ctx, tx, &beforeRecord); err != nil {
 		return PatchMutationResult{}, err
 	}
-	beforeRow := BuildIdentityRow(beforeRecord)
+	beforeRow := buildIdentityRow(beforeRecord)
 	beforeSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, recordID)
 	if err != nil {
 		return PatchMutationResult{}, err
@@ -220,7 +220,7 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 	if err := hydrateIdentityRecordTx(ctx, tx, &next); err != nil {
 		return PatchMutationResult{}, err
 	}
-	afterRow := BuildIdentityRow(next)
+	afterRow := buildIdentityRow(next)
 
 	return s.finishEntityPatchTx(ctx, tx, actor, meta.IncidentID, recordID, "identity", request, idempotencyKey, requestHash, requestID, now, &beforeSnapshot, beforeRow, afterRow, rowVersion, changedFields, aliasMutations)
 }
@@ -283,7 +283,7 @@ func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.
 		return PatchMutationResult{}, err
 	}
 
-	payload := BuildMutationPayload(request.ViewSchemaID, changeSetID, afterRow)
+	payload := buildMutationPayload(request.ViewSchemaID, changeSetID, afterRow)
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return PatchMutationResult{}, authn.ErrClientTxnConflict

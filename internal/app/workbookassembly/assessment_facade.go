@@ -125,7 +125,7 @@ func (a assessmentRevisionAdapter) AppendAssessmentCreateRevisionTx(ctx context.
 func NewAssessmentMutationContribution(
 	pool postgres.DB,
 	projectionRows assessmentprojection.Rows,
-	entityStore *hostidentity.Store,
+	entitySourceFacts *hostidentity.SourceFacts,
 	appender *revisions.Appender,
 ) (*assessments.Facade, error) {
 	if appender == nil {
@@ -134,7 +134,7 @@ func NewAssessmentMutationContribution(
 	authStore := authn.NewStore(pool)
 	return assessments.NewFacade(pool, assessments.FacadeDependencies{
 		Idempotency:    assessmentIdempotencyAdapter{store: authStore},
-		Subjects:       assessmentassembly.NewSubjectValidator(pool, entityStore),
+		Subjects:       assessmentassembly.NewSubjectValidator(pool, entitySourceFacts),
 		Assessors:      assessmentassembly.NewAssessorValidator(pool),
 		SupportTargets: assessmentassembly.NewSupportTargetValidator(pool),
 		Records:        assessmentassembly.NewRecordEnvelopeCreator(pool),

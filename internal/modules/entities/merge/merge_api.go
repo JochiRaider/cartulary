@@ -59,10 +59,8 @@ type MergeResult struct {
 	LoserRowVersion       int64
 	ChangeSetID           uuid.UUID
 	MergeSummary          MergeSummary
-	TimelineInvalidations []MergeTimelineInvalidation
+	TimelineInvalidations []mentioneffects.TimelineInvalidation
 }
-
-type MergeTimelineInvalidation = mentioneffects.TimelineInvalidation
 
 func DecodeMergeRequest(reader io.Reader) (MergeRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
@@ -143,7 +141,7 @@ func MergeRequestHash(survivorRecordID uuid.UUID, request MergeRequest) []byte {
 	return hash
 }
 
-func BuildMergePayload(result MergeResult) map[string]any {
+func buildMergePayload(result MergeResult) map[string]any {
 	exactMatchClasses := make([]map[string]any, 0, len(result.MergeSummary.ExactMatchClasses))
 	for _, summary := range result.MergeSummary.ExactMatchClasses {
 		exactMatchClasses = append(exactMatchClasses, map[string]any{

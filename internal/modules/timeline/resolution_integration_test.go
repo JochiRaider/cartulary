@@ -897,8 +897,7 @@ UPDATE hosts
 			t.Fatalf("begin borrowed Entities fact transaction: %v", err)
 		}
 		t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
-		projections := mustBuildProjectionRuntime(t, harness.Pool)
-		store := hostidentity.NewStore(harness.Pool, harness.Revisions.Appender(), nil, projections.EntityPorts().Writer)
+		store := hostidentity.NewSourceFacts()
 
 		aliases, err := store.ListEligibleAliasesTx(ctx, tx, incidentID, "host")
 		if err != nil {

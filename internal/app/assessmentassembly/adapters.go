@@ -19,13 +19,13 @@ import (
 )
 
 type subjectValidator struct {
-	entities *hostidentity.Store
+	entities *hostidentity.SourceFacts
 	records  *records.Store
 }
 
 func NewSubjectValidator(
 	pool postgres.DB,
-	entities *hostidentity.Store,
+	entities *hostidentity.SourceFacts,
 ) assessments.SubjectValidator {
 	return subjectValidator{
 		entities: entities,

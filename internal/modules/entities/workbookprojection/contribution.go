@@ -251,9 +251,12 @@ func descriptor(
 			RestoreRebuild:  true,
 			IncidentRebuild: true,
 		},
-		RestoreRebuild:       providercontract.RestoreRebuildRequired,
-		FacadePackages:       []string{"internal/modules/entities/workbookprojection"},
-		RebuildAfter:         rebuildAfter,
-		CharacterizationRefs: []string{"internal/modules/entities/resolution_integration_test.go"},
+		RestoreRebuild: providercontract.RestoreRebuildRequired,
+		FacadePackages: []string{"internal/modules/entities/workbookprojection"},
+		RebuildAfter:   rebuildAfter,
+		CharacterizationRefs: []string{
+			"internal/modules/entities/origin_upsert_integration_test.go",
+			"internal/modules/entities/resolution_route_integration_test.go",
+		},
 	}
 }

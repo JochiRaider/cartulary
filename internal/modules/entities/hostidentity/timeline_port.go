@@ -12,7 +12,13 @@ type EligibleAlias struct {
 	RawText  string
 }
 
-func (*Store) ListEligibleAliasesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string) ([]EligibleAlias, error) {
+type SourceFacts struct{}
+
+func NewSourceFacts() *SourceFacts {
+	return &SourceFacts{}
+}
+
+func (*SourceFacts) ListEligibleAliasesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string) ([]EligibleAlias, error) {
 	var query string
 	switch entityType {
 	case "host":
@@ -38,7 +44,7 @@ func (*Store) ListEligibleAliasesTx(ctx context.Context, tx pgx.Tx, incidentID u
 	return result, rows.Err()
 }
 
-func (*Store) ValidateResolvedTargetTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string, recordID uuid.UUID) error {
+func (*SourceFacts) ValidateResolvedTargetTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string, recordID uuid.UUID) error {
 	var exists bool
 	var query string
 	switch entityType {

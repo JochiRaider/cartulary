@@ -120,7 +120,7 @@ func BuildClipboardPastePlan(request ClipboardPasteRequest) (tabularingest.Tabul
 }
 
 func (request ClipboardPasteRequest) RequestHash() []byte {
-	return EntityClipboardPasteRequestHash(request.ViewSchemaID, request.ClientTxnID, request.ClipboardText, request.Format, request.StartFieldKey, request.Columns)
+	return entityClipboardPasteRequestHash(request.ViewSchemaID, request.ClientTxnID, request.ClipboardText, request.Format, request.StartFieldKey, request.Columns)
 }
 
 func (request ClipboardPasteRequest) mappingRequest() tabularingest.MappingRequest {

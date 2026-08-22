@@ -31,7 +31,7 @@ func TestClipboardPasteRequestDecodePlanAndHash(t *testing.T) {
 	if len(plan.Rows[0].Cells) != 2 || plan.Rows[0].Cells[0].FieldKey != "host.display_name" || plan.Rows[0].Cells[1].FieldKey != "host.hostname" {
 		t.Fatalf("unexpected row cells: %#v", plan.Rows[0].Cells)
 	}
-	expectedHash := EntityClipboardPasteRequestHash(HostsViewSchemaID, "txn-host-paste", "Gateway One\tgateway-one\nGateway Two\tgateway-two", "tsv", "host.display_name", []string{"host.display_name", "host.hostname"})
+	expectedHash := entityClipboardPasteRequestHash(HostsViewSchemaID, "txn-host-paste", "Gateway One\tgateway-one\nGateway Two\tgateway-two", "tsv", "host.display_name", []string{"host.display_name", "host.hostname"})
 	if !bytes.Equal(request.RequestHash(), expectedHash) {
 		t.Fatalf("request hash changed")
 	}

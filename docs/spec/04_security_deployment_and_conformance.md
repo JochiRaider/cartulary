@@ -1592,15 +1592,27 @@ These criteria provide direct runtime-family verification for substantive base-p
   attribution and timestamps; Revisions contains no Links field or target
   grammar.
   - Verifies: REQ-02-267..REQ-02-269
-- **AC-558**: Entities boundary evidence proves that every production root
-  export belongs to the adopted HTTP, source-contribution, bundle, subtype,
-  entity-operation, or owner-internal composition whitelist; direct consumers
-  and imports match the closed adopted topology; child packages do not import
-  the root or application assembly to recover dependencies; and every
-  caller-supplied transaction is borrowed without begin, commit, rollback,
-  nesting, or detachment. Timeline retains automatic-resolution policy and
-  transaction ownership while Entities supplies typed source facts and write
-  operations. Cross-owner effects use injected ports; generic application,
+- **AC-558**: Entities boundary evidence proves that every production export
+  in the bounded root and its production child packages has an exact adopted
+  `retain`, `privatize`, `remove`, or `replace` disposition; every retained
+  export has a live production consumer, required interface method, or source-
+  contribution role; runtime-excluded test support is not treated as a
+  production API; and a synthetic unapproved export fails the executable
+  inventory. Direct consumers and imports match the closed adopted topology;
+  child packages do not import the root or application assembly to recover
+  dependencies; and every caller-supplied transaction is borrowed without
+  begin, commit, rollback, nesting, or detachment. Timeline retains automatic-
+  resolution policy and transaction ownership while Entities supplies typed
+  source facts and write operations. Workbook alone receives the complete
+  Host/Identity store; Timeline and Assessments receive stateless borrowed-
+  transaction source facts; Imports receives its import-create capability; and
+  merge receives one immutable owner-local merge capability. Operational
+  constructors accept explicit dependency structs, reject nil and typed-nil
+  required dependencies without panic, return a nil capability and
+  deterministic declaration-ordered error on failure, and admit no partial,
+  option, `Must`, or fallback construction path. Cross-owner effects use
+  consumer-owned injected ports, with concrete implementation and classified-
+  error translation in application assembly. Generic application,
   frontend/grid, private cross-owner SQL/event, package-init registration,
   mutable-global registry, service-locator, fallback, alias, and dual-dispatch
   paths are absent. Exact harness accounting, focused and service-backed

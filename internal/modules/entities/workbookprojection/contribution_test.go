@@ -32,10 +32,10 @@ func TestRuntimeContributionOwnsTypedEntityDescriptorFacts(t *testing.T) {
 			t.Fatalf("provider %q facade packages = %#v", got.ProviderID, got.FacadePackages)
 		}
 		if got.ProviderID == "host" && !got.Capabilities.Query {
-			t.Fatal("Host provider is not query-capable after its storage/query migration")
+			t.Fatal("Host provider is not query-capable")
 		}
 		if got.ProviderID == "identity" && !got.Capabilities.Query {
-			t.Fatal("Identity provider is not query-capable after its storage/query migration")
+			t.Fatal("Identity provider is not query-capable")
 		}
 	}
 	intents := contribution.ProjectionContribution().SurfaceIntents()

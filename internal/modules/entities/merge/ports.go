@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
@@ -18,13 +17,13 @@ import (
 )
 
 type entityStorePorts struct {
-	assessments   entityAssessmentPort
+	assessments   AssessmentEffectsPort
 	mentions      entityMentionPort
 	records       entityRecordPort
 	revisions     entityRevisionPort
 	links         LinkEffectsPort
 	projections   workbookprojection.Writer
-	timeline      entityTimelinePort
+	timeline      TimelineEffectsPort
 	collaboration collaboration.IntentAppender
 }
 
@@ -43,16 +42,54 @@ type entityRevisionPort interface {
 	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
 }
 
-type entityAssessmentPort interface {
-	LoadMergeProtectedRecordIDsTx(context.Context, pgx.Tx, uuid.UUID, string, uuid.UUID) ([]uuid.UUID, error)
-	RepointMergedAssessmentsTx(context.Context, pgx.Tx, uuid.UUID, string, uuid.UUID, uuid.UUID, map[uuid.UUID]struct{}, time.Time) ([]mergeMutation, int, error)
+type AssessmentProtectedSetCommand struct {
+	IncidentID       uuid.UUID
+	RecordType       string
+	SurvivorRecordID uuid.UUID
+	LoserRecordID    uuid.UUID
+	Now              time.Time
+}
+
+type AssessmentRepointCommand struct {
+	IncidentID         uuid.UUID
+	RecordType         string
+	SurvivorRecordID   uuid.UUID
+	LoserRecordID      uuid.UUID
+	ProtectedRecordIDs []uuid.UUID
+	Now                time.Time
+}
+
+type AssessmentMutation struct {
+	TargetKind     string
+	TargetID       string
+	OperationKind  string
+	BeforeValue    any
+	AfterValue     any
+	BeforeSnapshot *revisions.RecordSnapshot
+	AfterSnapshot  *revisions.RecordSnapshot
+}
+
+type AssessmentRepointResult struct {
+	Mutations      []AssessmentMutation
+	RepointedCount int
+}
+
+type AssessmentProtectedSetChangedError struct {
+	RecordID uuid.UUID
+}
+
+func (e *AssessmentProtectedSetChangedError) Error() string {
+	return "entities: assessment merge protected set changed"
+}
+
+type AssessmentEffectsPort interface {
+	LoadProtectedRecordIDsTx(context.Context, pgx.Tx, AssessmentProtectedSetCommand) ([]uuid.UUID, error)
+	RepointTx(context.Context, pgx.Tx, AssessmentRepointCommand) (AssessmentRepointResult, error)
 }
 
 type entityMentionPort interface {
 	RepointMergedMentionsTx(context.Context, pgx.Tx, uuid.UUID, string, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) ([]mergeMutation, int, map[uuid.UUID][]string, error)
 }
-
-type entityTimelinePort = TimelineEffectsPort
 
 type entityChangeSetParams struct {
 	ChangeSetID *uuid.UUID
@@ -161,41 +198,7 @@ func (a entityRevisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pg
 	return a.appender.AppendRecordRevisionTx(ctx, tx, params)
 }
 
-type entityAssessmentAdapter struct {
-	effects *assessments.MergeEffects
-}
-
-func (a entityAssessmentAdapter) LoadMergeProtectedRecordIDsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordType string, loserRecordID uuid.UUID) ([]uuid.UUID, error) {
-	return a.effects.LoadProtectedRecordIDsTx(ctx, tx, incidentID, recordType, loserRecordID)
-}
-
-func (a entityAssessmentAdapter) RepointMergedAssessmentsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordType string, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, protectedRecordSet map[uuid.UUID]struct{}, now time.Time) ([]mergeMutation, int, error) {
-	mutations, repointedCount, err := a.effects.RepointTx(
-		ctx,
-		tx,
-		incidentID,
-		recordType,
-		survivorRecordID,
-		loserRecordID,
-		protectedRecordSet,
-		now,
-	)
-	if err != nil {
-		var protectedSetChanged *assessments.MergeProtectedSetChangedError
-		if errors.As(err, &protectedSetChanged) {
-			return nil, 0, &MergePreconditionError{
-				ReasonCode: "protected_set_changed",
-				Details: map[string]any{
-					"record_id": protectedSetChanged.RecordID.String(),
-				},
-			}
-		}
-		return nil, 0, err
-	}
-	return mergeMutationsFromAssessmentMutations(mutations), repointedCount, nil
-}
-
-func mergeMutationsFromAssessmentMutations(mutations []assessments.MergeMutation) []mergeMutation {
+func mergeMutationsFromAssessmentMutations(mutations []AssessmentMutation) []mergeMutation {
 	result := make([]mergeMutation, 0, len(mutations))
 	for _, mutation := range mutations {
 		result = append(result, mergeMutation{
@@ -212,7 +215,7 @@ func mergeMutationsFromAssessmentMutations(mutations []assessments.MergeMutation
 }
 
 type entityMentionAdapter struct {
-	store MentionStore
+	store MentionEffectsPort
 }
 
 func (a entityMentionAdapter) RepointMergedMentionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordType string, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, actorUserID uuid.UUID, now time.Time) ([]mergeMutation, int, map[uuid.UUID][]string, error) {

@@ -43,7 +43,7 @@ func TestProjectionCapabilityCallerMatrix(t *testing.T) {
 	}
 
 	want := map[string][]string{
-		"internal/modules/entities/resolution_integration_test.go": {
+		"internal/modules/entities/resolution_route_integration_test.go": {
 			".Projections.RebuildHosts(",
 		},
 		"internal/modules/evidence/lifecycle_integration_test.go": {

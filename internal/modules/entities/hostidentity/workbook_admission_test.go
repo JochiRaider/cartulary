@@ -76,7 +76,7 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 					"host.display_name", "host.hostname", "host.location", "host.os_platform",
 				},
 				buildRow: func() map[string]any {
-					return BuildHostRow(HostRecord{
+					return buildHostRow(HostRecord{
 						RecordID: uuid.MustParse("10000000-0000-4000-8000-000000000001"), RowVersion: 7,
 						DisplayName: "Host Sentinel", AADDeviceID: testStringPointer("AAD-SENTINEL"), FQDN: testStringPointer("sentinel.example.test"),
 						HostState: "canonical", LinkedEventCount: 2, EvidenceCount: 3, Location: nil,
@@ -92,7 +92,7 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 					"identity.privilege_level", "identity.reset_status", "identity.sam_account_name", "identity.upn",
 				},
 				buildRow: func() map[string]any {
-					return BuildIdentityRow(IdentityRecord{
+					return buildIdentityRow(IdentityRecord{
 						RecordID: uuid.MustParse("10000000-0000-4000-8000-000000000002"), RowVersion: 11,
 						DisplayName: "Identity Sentinel", AADObjectID: testStringPointer("AAD-OBJECT-SENTINEL"), SID: testStringPointer("S-1-5-21-200"),
 						IdentityState: "canonical", LinkedEventCount: 4, EvidenceCount: 5, PrivilegeLevel: nil,

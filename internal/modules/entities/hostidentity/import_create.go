@@ -12,32 +12,47 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
+type ImportDependencies struct {
+	Revisions        *revisions.Appender
+	ProjectionWriter workbookprojection.Writer
+}
+
+type importOwner struct {
+	*mutationCore
+}
 
 func NewImportCreateFacade(
 	targetViewSchemaID string,
 	facadeID string,
-	pool postgres.DB,
-	appender *revisions.Appender,
-	projectionWriter workbookprojection.Writer,
+	dependencies ImportDependencies,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
 	if targetViewSchemaID != HostsViewSchemaID && targetViewSchemaID != IdentitiesViewSchemaID {
 		return nil, fmt.Errorf("entity import surface %q not mapped", targetViewSchemaID)
 	}
-	store := NewStore(pool, appender, nil, projectionWriter)
+	for _, dependency := range []struct {
+		name  string
+		value any
+	}{
+		{name: "Revisions", value: dependencies.Revisions},
+		{name: "ProjectionWriter", value: dependencies.ProjectionWriter},
+	} {
+		if isNilStoreDependency(dependency.value) {
+			return nil, fmt.Errorf("compose Host/Identity import create facade: %s is required", dependency.name)
+		}
+	}
+	owner := &importOwner{mutationCore: newMutationCore(dependencies.Revisions, dependencies.ProjectionWriter)}
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
 			TargetViewSchemaID: targetViewSchemaID,
 			FacadeID:           facadeID,
 		},
-		store.CreateImportRowTx,
+		owner.createImportRowTx,
 	)
 }
 
-func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
+func (s *importOwner) createImportRowTx(ctx context.Context, tx pgx.Tx, command ownerfacade.ImportOwnerCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
 	createRequest := entityCreateRequestFromImport(request.ClientTxnID, request.FieldValues)
 	now := command.Now.UTC()
@@ -69,7 +84,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		recordID = record.RecordID
 		rowVersion = record.RowVersion
 		beforeRow = before
-		afterRow = BuildHostRow(record)
+		afterRow = buildHostRow(record)
 		operationKind = operation
 		entityType = "host"
 	case IdentitiesViewSchemaID:
@@ -87,7 +102,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		recordID = record.RecordID
 		rowVersion = record.RowVersion
 		beforeRow = before
-		afterRow = BuildIdentityRow(record)
+		afterRow = buildIdentityRow(record)
 		operationKind = operation
 		entityType = "identity"
 	default:

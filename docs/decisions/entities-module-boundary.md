@@ -25,8 +25,8 @@ Entities remains one bounded source-owner module rooted at
 the current package is not split merely because it publishes several typed
 source-owner contributions.
 
-Every production export from the root belongs to exactly one of these
-responsibilities:
+Every production export from the root and every production child package
+belongs to exactly one of these responsibilities:
 
 - register the two Entities-owned HTTP operations and preserve their existing
   authentication, authorization, CSRF, decoding, and error precedence;
@@ -36,6 +36,15 @@ responsibilities:
 - expose entity-owned merge and mention application operations; or
 - compose typed owner-local providers from direct child packages for one of
   those responsibilities.
+
+An export is retained only when it has a live production consumer, implements
+a required interface method, or publishes a source contribution. Test usage,
+capitalization, historical compatibility, and possible future use do not
+justify a production export. Runtime-excluded owner-local test-support
+packages are outside this production inventory and remain subject to their
+separate import boundary. The executable boundary projection records every
+production export with an exact `retain`, `privatize`, `remove`, or `replace`
+disposition and rejects additions that have not been adopted here.
 
 The bounded root does not own generic Workbook behavior, frontend or grid
 behavior, Timeline automatic-resolution policy, the Timeline source-row
@@ -51,8 +60,12 @@ The production import and composition topology has these properties:
 - the root may import owner-local children and the narrow coordinating
   contracts needed to publish its source contributions, but it does not import
   concrete coordinating stores;
-- `hostidentity` is consumed by Workbook, Imports, Timeline, and Assessment
-  composition through typed APIs;
+- `hostidentity` publishes separate capabilities for its materially distinct
+  consumers: Workbook receives the complete mutation and query store;
+  Timeline and Assessments receive stateless source facts whose operations
+  borrow the caller transaction; Imports receives an import-create facade over
+  the owner-private mutation core; and merge receives one immutable
+  owner-local merge capability;
 - `mentions` is consumed by Timeline and Workbook composition through
   caller-transaction commands and explicit effect ports;
 - `merge` is consumed by Timeline/entity-merge composition and the root route
@@ -63,6 +76,12 @@ The production import and composition topology has these properties:
   Timeline composition and does not own physical projection storage; and
 - the root itself is consumed directly only by Server, Revision, Recovery, and
   Incident Portability assembly.
+
+A cross-owner consumer owns the language of its injected port. Translation
+between that language and another owner's concrete implementation types,
+including classified error translation, belongs in application assembly.
+Owner production packages do not import another owner's concrete
+implementation merely to adapt it to a consumer port.
 
 New direct consumers or imports require an amendment to this adopted decision
 and its executable boundary projection. Package convenience is not sufficient
@@ -94,11 +113,22 @@ other source or of derived projection storage.
 
 ## Construction and compatibility
 
-Dependencies are supplied through constructors, options, or application
-composition. Package `init` registration, mutable global registries, service
-locators, fallback dependency lookup, and runtime plugin discovery are
-prohibited. Package-local immutable descriptor values are permitted when they
-are complete, deterministic, and have no registration API.
+Dependencies are supplied through dependency structs at application
+composition. A constructor that returns an operational capability is fallible
+and succeeds only when every dependency required by any operation on that
+capability is present. It rejects nil and typed-nil dependencies without
+panic, returns a nil capability on failure, and reports missing dependencies
+deterministically in declaration order. Required dependencies do not use
+variadic options, `Must` constructors, delayed fallback, or partial objects.
+Stateless capabilities with no construction-time dependency may use an
+infallible zero-argument constructor.
+
+Package `init` registration, mutable global registries, service locators,
+fallback dependency lookup, and runtime plugin discovery are prohibited.
+Package-local immutable descriptor values are permitted when they are
+complete, deterministic, and have no registration API. Dependency validation
+helpers remain owner-package-local rather than creating a generic cross-module
+construction abstraction.
 
 There is no internal deprecation window, forwarding package, alias, dual
 dispatch, fallback, or compatibility shim for this decision. No public HTTP or
@@ -110,13 +140,23 @@ behavior changes merely because this boundary is adopted.
 
 The decision is implemented only when:
 
-- every root export belongs to the closed responsibility list;
+- every root and production-child export has one exact adopted disposition,
+  every retained export has a live production consumer, required interface
+  method, or source-contribution role, and a synthetic unapproved export is
+  rejected;
 - the direct-consumer and import topology is enforced by authored machine
   policy and owner-local tests;
 - no child imports the root or application assembly to discover dependencies;
 - every caller transaction is borrowed and every cross-owner effect remains
   behind a typed port;
 - Timeline retains automatic-resolution policy and transaction ownership;
+- every operational capability is complete after successful construction,
+  nil and typed-nil dependencies fail without panic, and no partial, option,
+  `Must`, or fallback construction path exists;
+- Workbook, Timeline, Assessments, Imports, and merge consume only their
+  declared Host/Identity capability;
+- consumer-owned ports cross owner boundaries and concrete translation remains
+  in application assembly;
 - no generic facade, private cross-owner SQL/event construction, package-init
   registration, mutable global registry, or service locator exists;
 - every active Entities test has exactly one compatible exact authored harness

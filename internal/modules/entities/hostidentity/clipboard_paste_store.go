@@ -126,7 +126,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			recordID = record.RecordID
 			rowVersion = record.RowVersion
 			beforeRow = before
-			afterRow = BuildHostRow(record)
+			afterRow = buildHostRow(record)
 			operationKind = operation
 			aliasMutations = record.AliasMutations
 		case IdentitiesViewSchemaID:
@@ -144,7 +144,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			recordID = record.RecordID
 			rowVersion = record.RowVersion
 			beforeRow = before
-			afterRow = BuildIdentityRow(record)
+			afterRow = buildIdentityRow(record)
 			operationKind = operation
 			aliasMutations = record.AliasMutations
 		}
@@ -287,7 +287,7 @@ func entityChangedFieldKeys(before map[string]any, after map[string]any) []strin
 	return keys
 }
 
-func EntityClipboardPasteRequestHash(viewSchemaID string, clientTxnID string, clipboardText string, format string, startFieldKey string, columns []string) []byte {
+func entityClipboardPasteRequestHash(viewSchemaID string, clientTxnID string, clipboardText string, format string, startFieldKey string, columns []string) []byte {
 	_ = clientTxnID
 	payload := map[string]any{
 		"view_schema_id":  viewSchemaID,

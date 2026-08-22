@@ -5,16 +5,20 @@
 - **Target path:** `internal/modules/entities`
 - **Target label:** `entities`, derived from the target path and normalized to lowercase kebab case.
 - **Output path:** `docs/handoffs/entities-module-refactor-tracker.md`
-- **Status:** Authorized implementation complete; S-01 through S-06 passed
-  their required exit gates and the final handoff is recorded below.
-- **Allowed change in this session:** The ordered S-01 through S-06 changes
-  named by this tracker and explicitly authorized by the implementation task.
+- **Status:** The original remediation is complete through S-06. The approved
+  Entities Production-Readiness plan is controlling in Sections 14 through
+  22; EPR-S00 through EPR-S06 are complete, EPR-G01 through EPR-G07 are
+  closed, and no successor workstream remains.
+- **Allowed change in this effort:** Execute EPR-S00 through EPR-S06 serially.
+  Only the active workstream may change its declared artifacts, and its tracker
+  checkpoint must pass before a successor begins.
 - **Non-goals:** No package split, OpenAPI operation or route change, schema ID
   or field-key change, database migration, event-shape change, Timeline policy
   relocation, legacy patch shim, feature flag, alias, or dual behavior.
-- **Implementation authorization:** The 2026-08-21 implementation task
-  authorizes S-01 through S-06 in order. A dependent slice MUST NOT start until
-  its predecessor passes, updates this tracker, and passes Markdown lint.
+- **Implementation authorization:** The 2026-08-21 implementation task for
+  S-01 through S-06 is complete. The 2026-08-22 implementation directive
+  authorizes EPR-S00 through EPR-S06, subject to the serial dependency and
+  checkpoint gates in Sections 17 through 20.
 
 ### Normative language and artifact role
 
@@ -761,3 +765,572 @@ The mandatory S-06 gates ran in the prescribed order:
 | 13 | `make agent-finalize` | PASS; `.cartulary/test-results/20260822T043447Z-p1796207`. `RESULTS_DIR` was unset because no qualifying successful full warm-check run had been supplied, so retained-run maintenance was skipped. |
 | 14 | `make check` | Initial related failure 641/642 at `.cartulary/test-results/20260822T043505Z-p1799078` on two ST1005 error-message findings; narrow Go lint passed after correction, and the complete rerun passed 642/642 at `.cartulary/test-results/20260822T044053Z-p1929849`. |
 | Final tracker | `make lint-markdown` | PASS; final handoff checkpoint `.cartulary/test-results/20260822T044725Z-p2044021`. |
+
+## 14. EPR Scope and Planning Posture
+
+EPR is the Entities Production-Readiness iteration. Sections 1 through 13 are
+the completed execution history for the original remediation and remain the
+evidence for that work. EPR does not reopen its owner decision, create-only
+field correction, automatic-resolution evidence, field registry, or final
+validation.
+
+This tracker remains an execution-support artifact rather than product
+authority. Adopted Core specifications and
+`docs/decisions/entities-module-boundary.md` continue to define the behavior
+and owner topology preserved by EPR. The bounded-root, no-package-split
+decision remains in force.
+
+EPR-S00 is a documentation-only rebaseline slice. It changes no production,
+test, authored contract, generated artifact, migration, or application-
+composition file. EPR-S01 explicitly adopts the missing construction,
+production-export, Host/Identity capability, and consumer-port rules in the
+Entities boundary decision and Core 04 AC-558 before implementation begins.
+Core 00 REQ-00-073 already owns the applicable topology rule and receives no
+semantic change. `docs/domain.md` remains unchanged.
+
+### 14.1 Planning baseline
+
+| Baseline fact | EPR-S00 record |
+| --- | --- |
+| Commit | `769131d31ffb4b494ae24e7826ba5e5144323a8a` |
+| Repository posture | Clean worktree before this tracker edit |
+| Date | 2026-08-22 |
+| Entities files | 70 total: 51 production/support and 19 test files |
+| Ordinary-build top-level Go tests | 51 discovered and 51 exactly selected |
+| Entities verification rows | 33 total owner rows; 21 service-backed rows |
+| Prior broad evidence | `make check` passed 642/642 at `.cartulary/test-results/20260822T044053Z-p1929849` |
+| Prior tracker evidence | `make lint-markdown` passed at `.cartulary/test-results/20260822T044725Z-p2044021` |
+
+The prior green roots establish the planning baseline only. They do not prove
+any EPR implementation work, and a later EPR implementation session must
+reconcile live repository state before changing code.
+
+### 14.2 Iteration objective
+
+EPR first adopts the missing owner rules, then removes accidental and test-only
+production surface, replaces partial and panic-based construction with
+complete fallible capabilities, moves cross-owner merge translation to
+application assembly, contracts the Host/Identity merge bridge, and leaves the
+package in a cohesive steady-state layout. It preserves all stable public and
+persisted behavior because those contracts protect active clients, security
+ordering, auditability, recovery, and transaction correctness.
+
+The iteration is repository-internal. Internal Go APIs intentionally break
+without aliases, forwarding wrappers, overloads, `Must` constructors, feature
+flags, or deprecation windows. No public or persisted compatibility layer is
+added solely to retain current implementation shape.
+
+### 14.3 Authority and stop conditions
+
+The sequence is:
+
+`EPR-S00 -> EPR-S01 -> EPR-S02 -> EPR-S03 -> EPR-S04 -> EPR-S05 -> EPR-S06`
+
+Only one slice may be active or validating. A successor is ineligible until
+its predecessor passes focused validation, updates this tracker, and passes
+`make lint-markdown`. A required check failure, unexplained drift, hand-edited
+generated file, incomplete selector account, normative behavior change,
+database migration, or owner contradiction marks the owning slice `BLOCKED`.
+Later slices do not start until that condition is resolved through the
+appropriate owner process.
+
+## 15. EPR Retain, Replace, Remove, and Defer Decisions
+
+| Surface | Disposition | Decision and reason |
+| --- | --- | --- |
+| Root HTTP registration | Retain | `RouteOptions` and `RegisterRoutes` are the bounded owner HTTP facade consumed by server assembly. |
+| Source-owner contributions | Retain | Revision, Recovery, Incident Bundle source/subtype, Reporting, projection, delete/restore, and rollback contributions have live assembly consumers or required interface methods. |
+| `workbookprojection` | Retain | It is the active typed Entities/Projections language, not legacy residue. Redesign requires a separate cross-owner plan. |
+| Timeline fact and write ports | Retain | Timeline owns policy and its borrowed transaction; Entities owns source facts and writes. |
+| Request decoders and hashes used by application assembly | Retain | They are active typed admission boundaries and preserve idempotency identity. |
+| Runtime-excluded Entities test support | Retain | It has current owner and cross-owner test consumers and remains excluded from production imports. |
+| `StoreOption` and `With*` APIs | Replace | Required capabilities become explicit dependency-struct fields on fallible constructors. No compatibility overload remains. |
+| Broad Host/Identity `Store` use by Timeline, Assessments, and Imports | Replace | Workbook retains a complete store; source facts and import mutation use narrow purpose-built capabilities. |
+| Concrete Assessments adapter inside `merge` | Replace | A consumer-owned merge port remains in Entities; concrete conversion moves to `internal/app/entitymergeassembly`. |
+| Free Host/Identity merge bridge functions and aliases | Replace | One immutable merge capability owns the internal source operation surface. |
+| Root `Service` | Privatize | No production caller names the type; route registration is the public capability. |
+| Root Incident Bundle codec functions | Privatize | They are used only by the root source-port contribution. |
+| Unbounded Host/Identity query wrappers | Remove | Production uses paged queries; the wrappers exist only as test conveniences. Tests use the paged contract directly. |
+| Row, payload, alias-item, and clipboard-hash helpers used only in their package | Privatize | Capitalization provides no continuing cross-package value. |
+| Mention HTTP error constructors used only by root routes | Remove and relocate | The root HTTP facade owns transport translation; Mention application errors remain typed. |
+| Implementation-only type aliases | Remove | They do not provide semantic separation and unnecessarily enlarge the compatibility surface. |
+| Stable routes, operation IDs, schema IDs, field keys, bundle version 2, and negative security/upgrade evidence | Retain | These are active contracts or durable evidence, not legacy implementation code. |
+| Persisted idempotency-format redesign | Defer | `route_idempotency` is an active shared cross-owner contract. Its redesign requires an Authentication/platform-owned migration plan and is not dead Entities code. |
+
+## 16. EPR Requirements and Gap Register
+
+### 16.1 Requirements
+
+| Requirement | Planned outcome | Primary evidence |
+| --- | --- | --- |
+| EPR-REQ-001 | Preserve Sections 1 through 13 as completed historical evidence while making Sections 14 through 22 the controlling next-iteration ledger | Tracker review and Markdown lint |
+| EPR-REQ-002 | Execute EPR serially and checkpoint this tracker after every slice before starting its successor | Section 20 ledger |
+| EPR-REQ-003 | Adopt and enforce module-wide production-export closure: every remaining export has a live consumer, contribution role, or required interface method | Entities boundary decision, Core 04 AC-558, exact AST inventory, and reachability report |
+| EPR-REQ-004 | Remove accidental exports and test-only production conveniences without aliases or shims | Zero-reference and export-guard evidence |
+| EPR-REQ-005 | Adopt and implement fallible, complete Host/Identity, Mention, and Merge construction, including nil and typed-nil rejection | Entities boundary decision, Core 04 AC-558, and constructor matrix |
+| EPR-REQ-006 | Adopt and implement separate Workbook, source-fact, import-create, and merge Host/Identity capabilities | Owner amendments, composition, and capability tests |
+| EPR-REQ-007 | Adopt a consumer-owned merge port and move concrete Assessments translation to application assembly | Owner amendments, import graph, and merge port tests |
+| EPR-REQ-008 | Replace the free Host/Identity merge bridge with one immutable owner-local capability | Owner amendments, method-set, and retired-symbol evidence |
+| EPR-REQ-009 | Preserve HTTP, OpenAPI, authorization, idempotency, row, history, rollback, projection, bundle, and Collaboration behavior | Owner and cross-owner suites |
+| EPR-REQ-010 | Keep every active ordinary-build Entities test exactly selected throughout the iteration | AST selector reconciliation |
+| EPR-REQ-011 | Improve steady-state file cohesion without a package split or duplicate implementation | File inventory, review, and owner suites |
+| EPR-REQ-012 | Complete EPR only after broad developer and release gates pass and the handoff records all evidence | EPR-S06 ledger and checklist |
+
+### 16.2 Gap decisions
+
+| Gap | Areas and remediation | Rationale | Expected long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- |
+| EPR-G01 — Completed work is still the active tracker posture | Documentation: retain the completed ledger and append the EPR scope, gaps, workstreams, validation, deferrals, and handoff sections. | Rewriting history loses auditability; leaving it controlling directs later work at closed gaps. | One current execution ledger with intact prior proof. | Documentation only. | A later session can repeat closed work or mistake historical green evidence for EPR completion. | Header distinguishes both iterations; EPR-S00 through EPR-S06 agree; scoped diff and Markdown gates pass. |
+| EPR-G02 — Production exports and reachability are not closed by the adopted owner | Specification, tests, and tracker: adopt module-wide export closure, add an AST exact disposition inventory and synthetic negative fixture, then privatize or remove accidental surfaces in EPR-S04. | Capitalization and test usage do not establish a durable API contract. | A small, deliberate module surface that resists accidental coupling and makes later decomposition safer. | Repository-internal Go breaks only; no aliases or deprecation shims. | Unsupported helpers can become permanent compatibility obligations. | Root and production-child exports are exact; test support is excluded; every retained export has independent justification; the negative fixture fails. |
+| EPR-G03 — Constructors admit partial objects, panics, and delayed nil failures | Specification, implementation, composition, and tests: adopt complete fallible construction, replace variadic options with dependency structs, and reject nil and typed-nil dependencies without panic. | Successful construction must prove every operation on the returned capability is safe to invoke. | Startup-time failure, predictable dependency growth, and simpler composition. | Atomic internal constructor cutover; public and persisted behavior is unchanged. | Missing projections, history, links, or Collaboration capabilities can fail after mutation starts. | Complete dependency matrices return declaration-ordered errors and nil results; valid composition succeeds; no option, `Must`, fallback, or panic path remains. |
+| EPR-G04 — Host/Identity consumers depend on an overbroad, inconsistently initialized store | Specification, implementation, app composition, and tests: separate the complete Workbook store, borrowed-transaction source facts, import creation, and merge source operations. | Workbook, Timeline, Assessments, Imports, and merge need materially different capabilities. | Narrow method-set coupling, explicit transaction ownership, and easier workflow expansion. | Internal compile-time migration only. | Optional fields remain hidden invalid state and unrelated consumers inherit Workbook mutation dependencies. | Workbook alone receives the complete store; other consumers receive only their declared capability; no partial Host/Identity store remains. |
+| EPR-G05 — Merge owns concrete Assessments translation and an ad hoc Host/Identity bridge | Specification, implementation, composition, and tests: adopt a merge-owned Assessment effects port, translate concrete Assessments types in application assembly, and consolidate source operations behind an immutable owner-local merge capability. | A consumer owns its port language; concrete cross-owner conversion belongs at composition. | Cleaner ownership, isolated error translation, and a stable seam for future merge participants. | Internal Go break only; transaction order, protected-set semantics, rollback, and public errors remain exact. | New merge participants would amplify concrete imports, aliases, and scattered wrappers. | Entities production has no concrete Assessments implementation import; protected-set errors retain their code; old bridges and aliases are absent; rollback evidence passes. |
+| EPR-G06 — Mixed files and phase-era layout obscure steady-state responsibilities | Implementation layout and tests: split merge, matching, and oversized test files along existing behavior boundaries; remove transitional names/comments. | The former implementation sequence should not remain encoded in permanent layout. | Smaller review units and clearer change ownership. | Structural only; no new package or verification owner. | Mixed sequencing encourages duplication and unsafe partial edits. | No package split, duplicate sequence, stale path, phase residue, or selector loss remains. |
+| EPR-G07 — Production-readiness deletion evidence is not assembled | Validation and handoff: run exact reachability, owner, cross-owner, generated, browser, broad, build, and release gates and record all roots. | Local compilation cannot prove removed APIs lack hidden consumers. | Reproducible production-readiness evidence. | None beyond earlier internal breaks. | Dead shims, stale routing, or behavior drift can survive narrow tests. | EPR-S06 passes, gaps close, and tracker status, evidence, risks, and checklist agree. |
+
+## 17. EPR Execution Policy and Checkpoint Gate
+
+Every authorized slice is atomic. After implementation and focused validation,
+and before its successor starts, update this tracker with:
+
+- slice status and requirement/gap changes;
+- every authored, moved, generated, and deleted file;
+- exact commands, results, and result or artifact roots;
+- test and verification-row counts when changed;
+- substantive behavior and internal-interface changes;
+- compatibility and migration impact;
+- rollback boundary;
+- failures, causal attribution, skipped checks, and residual risks; and
+- the next eligible slice and its authorization state.
+
+`make lint-markdown` is the last gate for each checkpoint. Generated roots and
+generated Harness topology are changed only through authored inputs and public
+Make targets. Runtime, tests, tools, generators, and conformance code must not
+read or derive facts from this tracker.
+
+EPR-S01 is explicitly authorized to amend
+`docs/decisions/entities-module-boundary.md` and Core 04 AC-558 with the
+construction, export-closure, capability-specific consumer, and consumer-port
+rules required by this plan. No other EPR slice may broaden into a Core or
+specification change, migration, package split, public behavior change, or
+shared idempotency redesign. Such a discovery returns to planning and owner
+adoption rather than receiving a tactical compatibility path.
+
+## 18. EPR Serial Workstreams
+
+| Slice | Workstream | Depends on | Status | Authorization | Rollback boundary | Exit criterion |
+| --- | --- | --- | --- | --- | --- | --- |
+| EPR-S00 | Tracker rebaseline | Completed S-06 | COMPLETE | Authorized and complete | Revert only the EPR planning revision and header posture. | Tracker-only diff and Markdown lint passed; EPR-S01 is ready and inactive. |
+| EPR-S01 | Owner adoption, reachability, and behavior characterization | EPR-S00 checkpoint | COMPLETE | Authorized and complete | Revert the owner amendments, characterization, export guard, and routing changes together. | Owner amendments are adopted; current behavior and every production export have executable dispositions; accounting remains 51/51. |
+| EPR-S02 | Complete construction and Host/Identity capability separation | EPR-S01 checkpoint | COMPLETE | Authorized and complete | Revert constructors, capability split, callers, tests, authored rows, and generated topology together. | Complete construction is fallible, partial stores/options are absent, and accounting is 52/52. |
+| EPR-S03 | Merge ports and owner-boundary cleanup | EPR-S02 checkpoint | COMPLETE | Authorized and complete | Revert merge ports, app adapters, Host/Identity capability, constructor wiring, and tests together. | Concrete Assessments coupling and free bridge wrappers are absent with merge parity green. |
+| EPR-S04 | Accidental API removal and final export closure | EPR-S03 checkpoint | COMPLETE | Authorized and complete | Revert removals, callers, tests, and the final export inventory together. | Retired surfaces have zero references and the final inventory is exact. |
+| EPR-S05 | Steady-state cohesion cleanup | EPR-S04 checkpoint | COMPLETE | Authorized and complete | Revert file/test moves and terminology changes without changing S04 APIs. | Steady-state files are cohesive and all test identities remain exactly routed. |
+| EPR-S06 | Final validation and handoff | EPR-S05 checkpoint | COMPLETE | Authorized and complete | Corrections return to their owning slice; S06 changes evidence and tracker state. | All required developer, browser, security, and release gates pass; EPR-G01 through EPR-G07 are closed. |
+
+### 18.1 EPR-S00 — Tracker rebaseline
+
+- **Areas:** this tracker only.
+- **Remediation:** Update the header and append Sections 14 through 22 as the
+  controlling delta plan. Preserve the completed Sections 1 through 13 except
+  for the header posture needed to distinguish the iterations.
+- **Compatibility:** Documentation only. Domain vocabulary is unchanged and
+  `docs/domain.md` is not edited.
+- **Validation:** `git diff --check --
+  docs/handoffs/entities-module-refactor-tracker.md`, `make lint-markdown`, and
+  final changed-path review.
+- **Exit:** Only this tracker changed; EPR-S00 is `COMPLETE`; EPR-S01 is
+  authorized and `READY`; EPR-S02 through EPR-S06 remain authorized and
+  dependency-gated as `PLANNED`.
+
+### 18.2 EPR-S01 — Reachability and behavior characterization
+
+- Amend `docs/decisions/entities-module-boundary.md` and Core 04 AC-558 to
+  adopt module-wide production-export closure, complete fallible
+  construction, capability-specific Host/Identity consumers, and
+  consumer-owned cross-owner adapter placement. Do not change Core 00 or
+  `docs/domain.md`.
+- Inventory every production export in the root and owner-facing subpackages.
+  Classify it as retain, privatize, remove, or replace with a typed capability.
+- Extend `TestEntitiesProductionImportBoundaries` with an exact AST allowlist
+  and a synthetic negative fixture. Exclude owner-local test support from the
+  production allowlist.
+- Freeze HTTP/OpenAPI identity, authorization and concealment order,
+  idempotent replay, row and hash shapes, merge and mention atomicity,
+  contribution identities, Incident Bundle bytes, rollback, projection, and
+  Collaboration consequences.
+- Validate test catalog, Harness contract, backend boundary, and focused and
+  service-backed Entities slices.
+- Exit at 51 discovered, 51 selected, and no unexplained export or removal
+  candidate.
+
+### 18.3 EPR-S02 — Fail-safe construction and capability separation
+
+Adopt these repository-internal construction surfaces:
+
+- `hostidentity.NewStore(hostidentity.StoreDependencies) (*Store, error)` for
+  complete Workbook behavior;
+- `hostidentity.NewSourceFacts()` for stateless borrowed-transaction alias and
+  target facts;
+- `hostidentity.NewImportCreateFacade(targetViewSchemaID, facadeID,
+  hostidentity.ImportDependencies)` using a private import owner rather than a
+  partial store;
+- `mentions.NewStore(mentions.StoreDependencies) (*Store, error)`; and
+- `merge.NewStore(merge.StoreDependencies) (*Store, error)`.
+
+Remove all `StoreOption` and `With*` APIs. Require Postgres, Revisions,
+projection, Timeline, Collaboration, Links, Mentions, Assessments, query, and
+conflict capabilities wherever the constructed surface needs them. Reject nil
+and typed-nil dependencies deterministically. Do not add `Must` helpers,
+overloads, or transitional constructors.
+
+Rename `TestNewStoreRequiresLinkOperations` and
+`TestWithMentionStoreRetainsInjectedInstance` to complete-construction
+contract names. Add exactly one new top-level test,
+`TestHostIdentityStoreCompositionRequiresCompleteDependencies_Unit`, and one
+exact authored unit row. Regenerate topology through Make. Expected final
+accounting is 52/52, 34 owner rows, and 21 service-backed rows.
+
+Validate Entities, Timeline, Workbook, Imports, Assessments, and app-server
+composition, plus catalog, Harness, boundary, generation, and server-build
+gates.
+
+### 18.4 EPR-S03 — Merge port and owner-boundary cleanup
+
+- Define `merge.AssessmentEffectsPort` and typed assessment mutation and
+  precondition DTOs.
+- Move the concrete Assessments adapter, mutation translation, and
+  `MergeProtectedSetChangedError` translation into
+  `internal/app/entitymergeassembly`.
+- Replace exported exact-match precedence, normalization, transactional
+  load/update, preserved-identifier synchronization, alias synchronization,
+  and bridge aliases with one immutable Host/Identity merge capability.
+- Inject both capabilities through `merge.StoreDependencies`. Timeline keeps
+  merge coordination and borrowed-transaction assembly; no policy moves.
+- Validate Entities, Assessments, Timeline, Revisions, and app-server focused
+  and service-backed paths, including protected-set and merge rollback cases.
+
+### 18.5 EPR-S04 — Dead and accidental API removal
+
+Privatize or remove the proven implementation-only surfaces:
+
+- root `Service`, `ExportIncidentBundleFiles`, and
+  `ImportIncidentBundleFilesTx`;
+- Host/Identity `QueryHostRows` and `QueryIdentityRows` test-convenience
+  wrappers;
+- `BuildHostRow`, `BuildIdentityRow`, `BuildMutationPayload`,
+  `ParseEntityAliasItemRef`, and `EntityClipboardPasteRequestHash`;
+- `merge.BuildMergePayload`;
+- `ImportCreateCommand`, `MergeTimelineInvalidation`, `entityTimelinePort`,
+  and superseded bridge aliases; and
+- Mention HTTP error constructors whose sole caller is the root route facade,
+  moving their transport mapping to root-owned HTTP helpers.
+
+Update the exact export allowlist in the same slice. Keep all Section 15 retain
+decisions. Validate zero references for retired names, 52/52 selector
+accounting, affected owner suites, boundary, Harness, generated state, and
+`make test-fast`.
+
+### 18.6 EPR-S05 — Cohesion and historical-residue cleanup
+
+- Split `merge_store.go` into transaction coordination, protected-set and
+  admission, source carry-forward, collision detection, revision/result, and
+  replay units without changing order or behavior.
+- Split `hostidentity/match.go` into exact matching, upsert,
+  alias synchronization, and preserved-identifier units.
+- Split oversized root tests by route or behavior while preserving all
+  top-level test names and selectors after the explicit S02 renames.
+- Remove phase-era comments and misleading filenames without creating a new
+  package, registry, shared kernel, or duplicate implementation.
+- Validate format, exact paths and selectors, affected owner slices, boundary,
+  catalog, and Harness contract.
+
+### 18.7 EPR-S06 — Final validation and handoff
+
+Run the Section 19 final gates in order. Record every success and failure,
+result root, compatibility conclusion, generated-file provenance, rollback
+posture, skipped check, and residual risk. A failed mandatory gate remains a
+failure and prevents completion.
+
+## 19. EPR Validation Matrix
+
+### 19.1 Per-slice minimums
+
+| Slice | Required minimum validation |
+| --- | --- |
+| EPR-S00 | Tracker-scoped `git diff --check`; `make lint-markdown`; changed-path review |
+| EPR-S01 | `make test-catalog-check`; `make harness-contract`; `make backend-module-boundary-check`; focused and service-backed Entities slices |
+| EPR-S02 | `make format`; `make generate`; catalog, Harness, boundary, generation drift; focused/service-backed Entities, Timeline, Workbook, Imports, Assessments, and app-server paths; `make build-server` |
+| EPR-S03 | `make format`; boundary; focused/service-backed Entities, Assessments, Timeline, Revisions, and app-server paths; exact old-import and bridge scans |
+| EPR-S04 | `make format`; exact export and retired-symbol scans; catalog, Harness, boundary, generated-state gates; affected owner slices; `make test-fast` |
+| EPR-S05 | `make format`; file and selector reconciliation; affected owner slices; catalog, Harness, and boundary gates |
+| EPR-S06 | Complete ordered final matrix below |
+
+Use `make task-guide ROLE=module-author OWNER=<owner-id>` and owner
+explanations at execution time to select the exact affected rows before broad
+runs. Do not substitute direct Go, frontend, or browser tool invocations for
+their public Make targets.
+
+### 19.2 Ordered final matrix
+
+1. Reconcile exact exports, retired symbols, imports, files, and 52/52 test
+   selectors.
+2. `make test-catalog-check`
+3. `make harness-contract`
+4. `make backend-module-boundary-check`
+5. `make generate-drift`
+6. `make generated-artifact-policy-check`
+7. `make json-shape-check`
+8. Run focused and service-backed slices for Entities, Timeline, Assessments,
+   Workbook, Imports, Revisions, Incident Bundles, and app server where live
+   routing reports them affected.
+9. `make frontend-unit`
+10. `make frontend-typecheck`
+11. `make frontend-import-boundary-check`
+12. Run affected `browser-e2e-webserver-backed`, `browser-e2e-stateful`,
+    `browser-e2e-a11y`, and `browser-e2e-visual` targets.
+13. `make build`
+14. Run `make agent-finalize`, supplying `RESULTS_DIR` only for a qualifying
+    current successful full warm-check root.
+15. `make check`
+16. `make release-check`
+17. Run the final tracker-scoped diff check and `make lint-markdown`.
+
+## 20. EPR Tracker and Checkpoint Ledger
+
+### 20.1 Work tracker
+
+| Work item | Description | Slice | Status | Dependency | Evidence | Completion condition |
+| --- | --- | --- | --- | --- | --- | --- |
+| EPR-001 | Rebaseline this tracker and establish the controlling EPR plan. | EPR-S00 | DONE | Completed S-06 | Both staged and unstaged tracker-scoped diff checks passed; Markdown passed at `.cartulary/test-results/20260822T061030Z-p2079549`; changed-path review found only this tracker. | Only the tracker changes; scoped diff and Markdown gates pass. |
+| EPR-002 | Adopt the owner rules and lock the current production export and behavior surface. | EPR-S01 | DONE | EPR-001 | Boundary decision and Core 04 AC-558 adopted the required rules; the exact AST inventory, package discovery, role justifications, and negative fixture passed; 51/51 selectors and 33/21 rows remained exact. | Owner amendments are adopted and every export and removal candidate has executable disposition. |
+| EPR-003 | Replace partial and panic-based construction with complete fallible capabilities. | EPR-S02 | DONE | EPR-002 | Host/Identity, Mention, Merge, and import construction reject every missing and typed-nil dependency without panic, return nil on failure, report declaration-ordered errors, and accept complete composition; all option APIs are absent. | Dependency matrices and affected assembly pass; no option API remains. |
+| EPR-004 | Separate complete Workbook, source-fact, and import Host/Identity capabilities. | EPR-S02 | DONE | EPR-002 | Workbook alone receives `Store`; Timeline and Assessments receive stateless `SourceFacts`; Imports receives a facade over the shared private mutation core. | No partial Host/Identity store exists. |
+| EPR-005 | Move Assessments merge translation and contract the Host/Identity merge bridge. | EPR-S03 | DONE | EPR-003, EPR-004 | Merge owns `AssessmentEffectsPort` and its command, result, mutation, and protected-set error language; `internal/app/entitymergeassembly` owns concrete Assessments translation and defensive cloning; immutable `hostidentity.MergeCapability` replaces the free bridge; exact old-import and old-symbol scans are empty. | Cross-owner adapter location and exact method set pass. |
+| EPR-006 | Remove or privatize accidental production APIs and aliases. | EPR-S04 | DONE | EPR-005 | Root transport and Incident Bundle codecs, Host/Identity serializers/parser/hash, and merge payload are private; unbounded query wrappers, superseded DTO/port aliases, and Mention-owned HTTP mappings are removed; exact scoped scans are empty and the final export inventory accepts retained declarations only. | Zero retired references and exact final export allowlist. |
+| EPR-007 | Establish steady-state implementation and test layout. | EPR-S05 | DONE | EPR-006 | Host/Identity is divided into construction, paged query, create mutation, source persistence/hydration, exact matching, upsert, alias synchronization, and preserved-identifier files; merge is divided into transaction/replay, admission, effects, source carry-forward, collision, and history/result files; the three oversized root tests are split by unchanged top-level behavior. S06 reconciliation also corrected the two authored projection-provider references and test-support caller matrix that still named the removed aggregate test, removed five newly dead fixture helpers, and regenerated the derived topology index. | Cohesive files retain exact behavior and routing; every old path is absent from active owner inputs and generated projections. |
+| EPR-008 | Reconcile final 52/52 selector and 34/21 row accounting. | EPR-S06 | DONE | EPR-007 | Exact source count is 52 top-level Entities tests; `make explain-test-owner OWNER=module.entities` reports 34 rows and 21 service-backed rows; final export, retired-symbol, concrete-import, and stale-path scans are empty in their production scopes. | Counts are exact with zero anomalies. |
+| EPR-009 | Run final validation and publish the production-readiness handoff. | EPR-S06 | DONE | EPR-008 | Section 20.3 records every mandatory final gate, owner root, failure, retry, generated artifact, compatibility conclusion, and rollback boundary; `make check` passed 642/642 and `make release-check` passed 799/799. | Every required gate passes and EPR-G01 through EPR-G07 close. |
+
+### 20.2 Session handoff log
+
+| Time | Session | Current state | Files inspected or touched | Commands and results | Compatibility and rollback | Blockers and next action |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-08-22 | Codex / EPR-S00 planning | EPR tracker rebaseline complete; EPR-S01 ready but unauthorized | Inspected the completed tracker, Entities exports/callers, constructor and merge composition seams, owner task guidance, and current repository status; touched only this tracker | Read-only `rg`, `find`, `sed`, `jq`, `git`, and `make explain-test-owner OWNER=module.entities`; tracker-scoped `git diff --check` passed; `make lint-markdown` passed at `.cartulary/test-results/20260822T054206Z-p2066998`; changed-path review found only this tracker | Documentation only; no runtime, test, contract, generated, migration, or Domain change; rollback reverts the EPR header posture and Sections 14 through 22 | Superseded only as an authorization statement by the later implementation directive; retained as historical evidence |
+| 2026-08-22 | Codex / EPR-S00 authorization rebaseline | Approved EPR plan reconciled; EPR-S00 complete and EPR-S01 ready | Reconciled Sections 14 through 22 and the header against the approved end-to-end directive; touched only this tracker | Both staged and unstaged tracker-scoped diff checks passed; `make lint-markdown` passed at `.cartulary/test-results/20260822T061030Z-p2079549`; changed-path review found only this tracker | Documentation only; no product, test, contract, generated, migration, Core, or Domain change; rollback reverts this authorization rebaseline only | None; activate EPR-S01 after this passed checkpoint |
+| 2026-08-22 | Codex / EPR-S01 owner adoption and characterization | Owner adoption and current-surface closure complete; EPR-S02 ready | Changed `docs/decisions/entities-module-boundary.md`, Core 04 AC-558, `internal/modules/entities/boundary_guard_test.go`, and this tracker; no routing or generated file changed | `make format` passed at `.cartulary/test-results/20260822T061636Z-p2085999`; focused boundary row passed at `.cartulary/test-results/20260822T061619Z-p2085274`; `make test-catalog-check` passed; `make harness-contract` passed at `.cartulary/test-results/20260822T061653Z-p2090207`; `make backend-module-boundary-check` passed at `.cartulary/test-results/20260822T061709Z-p2090807`; focused Entities passed at `.cartulary/test-results/20260822T061714Z-p2091187`; service-backed Entities passed at `.cartulary/test-results/20260822T061900Z-p2144317`; 51/51 selectors, 33 owner rows, and 21 service-backed rows remained exact | Specification and tests only; no public, persisted, generated-contract, migration, Core 00, or Domain change; rollback reverts the decision, AC-558 amendment, and boundary guard together | Preliminary `.cartulary/test-results/20260822T061334Z-p2082468` failed before selector execution because the new helper accepted `testing.TB` while invoking `Run`; corrected to `*testing.T`. `.cartulary/test-results/20260822T061358Z-p2083215` then failed as the deliberately empty inventory exposed all current exports; the reviewed exact dispositions replaced it. No residual blocker; run tracker checkpoint, then activate EPR-S02 |
+| 2026-08-22 | Codex / EPR-S02 complete construction and Host/Identity capability separation | Constructor and capability cutover complete; EPR-S03 ready | Added `internal/modules/entities/hostidentity/store_test.go`; changed Host/Identity store, import facade, source facts, mutation receivers, Mention and Merge constructors/tests, app and test composition, Timeline tests, the boundary inventory, and `tools/test_families/module.entities.json`; generated `tools/execution_topology_render_index.json` only through `make generate`; changed this tracker; no file was deleted | Semantic row IDs derived through `make author-test-row-id`; final `make format` passed at `.cartulary/test-results/20260822T065316Z-p2902466`; `make generate` passed at `.cartulary/test-results/20260822T063336Z-p2224409`; final constructor and boundary rows passed at `.cartulary/test-results/20260822T065320Z-p2906131`; `make test-catalog-check` passed; generation drift passed at `.cartulary/test-results/20260822T063411Z-p2228779`; Harness passed at `.cartulary/test-results/20260822T063420Z-p2231757`; backend boundary passed at `.cartulary/test-results/20260822T063433Z-p2232326`; focused Entities, Timeline, Imports, Assessments, app server, and Workbook passed at `.cartulary/test-results/20260822T063502Z-p2234285`, `.cartulary/test-results/20260822T063502Z-p2234301`, `.cartulary/test-results/20260822T063502Z-p2234319`, `.cartulary/test-results/20260822T063502Z-p2234375`, `.cartulary/test-results/20260822T064036Z-p2509596`, and `.cartulary/test-results/20260822T064136Z-p2548565`; their service-backed slices passed at `.cartulary/test-results/20260822T064405Z-p2605011`, `.cartulary/test-results/20260822T064405Z-p2605015`, `.cartulary/test-results/20260822T064853Z-p2713876`, `.cartulary/test-results/20260822T065117Z-p2810633`, `.cartulary/test-results/20260822T065117Z-p2810632`, and `.cartulary/test-results/20260822T064853Z-p2713867`; `make build-server` passed at `.cartulary/test-results/20260822T065228Z-p2890469`; exact accounting is 52/52 tests, 34 owner rows, and 21 service-backed rows | Internal Go constructor break only; no alias, overload, shim, public or persisted behavior, OpenAPI, generated contract, database migration, Core, or Domain change. Rollback reverts constructors, capability split, all callers and tests, the authored manifest, and generated topology atomically | The first combined format/generate command failed because new authored row IDs were not ASCII-sorted; the manifest was reordered before generation. Concurrent focused runs for app server and Workbook failed at `.cartulary/test-results/20260822T063502Z-p2234388` and `.cartulary/test-results/20260822T063502Z-p2234338` when multiple graphs raced on `tmp/test-service-images/warm.stamp.tmp`; all emitted row results passed, and serial reruns passed. No residual blocker; run tracker checkpoint, then activate EPR-S03 |
+| 2026-08-22 | Codex / EPR-S03 merge ports and owner-boundary cleanup | Merge owner boundaries are closed; EPR-S04 ready | Added `internal/app/entitymergeassembly/assessments.go` and `internal/modules/entities/hostidentity/merge_capability.go`; changed Timeline assembly, Merge ports/store/coordinator and protected-set tests, Host/Identity bridge callers, constructor tests, the exact export guard, and this tracker; no generated, contract, migration, lock, frontend, or Domain file changed and no file was deleted | Final `make format` passed at `.cartulary/test-results/20260822T070753Z-p2957875`; targeted adapter, protected-set, constructor, and boundary rows passed at `.cartulary/test-results/20260822T070757Z-p2961570`; backend boundary passed at `.cartulary/test-results/20260822T070854Z-p2977325`; exact production scans found no concrete Assessments import, `MentionStore`, `IdentifierSeed`, free precedence/normalization bridge, or exported transactional bridge call; focused Entities, Assessments, Timeline, Revisions, and app server passed at `.cartulary/test-results/20260822T070901Z-p2977778`, `.cartulary/test-results/20260822T070901Z-p2977786`, `.cartulary/test-results/20260822T071050Z-p3072596`, `.cartulary/test-results/20260822T071050Z-p3072603`, and `.cartulary/test-results/20260822T071539Z-p3173716`; service-backed Entities, Assessments, Timeline, Revisions, and app server passed at `.cartulary/test-results/20260822T071642Z-p3213242`, `.cartulary/test-results/20260822T071830Z-p3266061`, `.cartulary/test-results/20260822T072802Z-p3403654`, `.cartulary/test-results/20260822T073240Z-p3459930`, and `.cartulary/test-results/20260822T073345Z-p3503293`; final `make build-server` passed at `.cartulary/test-results/20260822T073442Z-p3542254`; accounting remains 52/52 tests, 34 owner rows, and 21 service-backed rows | Internal Go port and constructor break only; transaction order, protected-set error code, rollback, public and persisted behavior remain unchanged. No alias or forwarding shim was retained. Rollback reverts the merge port, application adapter, Host/Identity capability, constructor wiring, and tests atomically | The first server build failed at `.cartulary/test-results/20260822T070400Z-p2916092` because four owner-local Host/Identity callers still used retired exported load functions; all were migrated before the passing build. The initial full Timeline service graph failed at `.cartulary/test-results/20260822T071928Z-p3307054` when the last of 99 blank-row measurement samples timed out after 98 successes; the unchanged exact row passed at `.cartulary/test-results/20260822T072506Z-p3364527` and the unchanged full graph passed 29/29 at `.cartulary/test-results/20260822T072802Z-p3403654`, establishing a transient paint qualification failure unrelated to S03. No residual blocker; run the tracker checkpoint, then activate EPR-S04 |
+| 2026-08-22 | Codex / EPR-S04 accidental API removal and final export closure | Accidental surfaces are absent and final export closure is enforced; EPR-S05 ready | Changed root Entities routes and Incident Bundle portability, Host/Identity API/query/mutation files and package tests, Mention ports, Merge API/ports/coordinator, root Entities tests, the boundary guard, and this tracker; no file was added, generated, deleted, or moved in this slice | Final `make format` passed at `.cartulary/test-results/20260822T074104Z-p3562975`; retained-only export closure and the synthetic negative fixture passed at `.cartulary/test-results/20260822T074006Z-p3561394`; exact scoped scans found zero retired declarations or references; `make test-catalog-check` passed; Harness passed at `.cartulary/test-results/20260822T074119Z-p3567083`; backend boundary passed at `.cartulary/test-results/20260822T074135Z-p3567688`; generation drift passed at `.cartulary/test-results/20260822T074141Z-p3568053`; focused and service-backed Entities passed at `.cartulary/test-results/20260822T074157Z-p3571043` and `.cartulary/test-results/20260822T074344Z-p3624828`; Incident Bundles passed at `.cartulary/test-results/20260822T074544Z-p3678102` and `.cartulary/test-results/20260822T074643Z-p3693731`; app server passed at `.cartulary/test-results/20260822T074743Z-p3709093` and `.cartulary/test-results/20260822T074842Z-p3748627`; `make test-fast` passed 421/421 at `.cartulary/test-results/20260822T074941Z-p3787817`; `make explain-test-owner OWNER=module.entities` reports 34 owner rows and 21 service-backed rows, and exact selector accounting remains 52/52 | Repository-internal Go removals only. No shim, alias, forwarding wrapper, public route/error, persisted payload, OpenAPI, bundle-byte, generated, migration, database, frontend, Core, or Domain change. Rollback reverts all removals, private callers/tests, and the final export inventory together | No S04 failure or residual blocker. The bounded test query window is 100 rows and preserves the fixture assertions without retaining an unbounded compatibility surface; run the tracker checkpoint, then activate EPR-S05 |
+| 2026-08-22 | Codex / EPR-S05 steady-state cohesion cleanup | Cohesive production and test layout complete; EPR-S06 ready | Added eight Host/Identity responsibility files, six Merge responsibility files, four root unit/support files, six resolution integration files, and two support integration files; deleted superseded `hostidentity/store.go`, `hostidentity/match.go`, `merge/merge_store.go`, `unit_test.go`, `resolution_integration_test.go`, and `support_integration_test.go`; updated the boundary guard, `tools/backend_module_boundaries.json`, workbook-projection characterization references, one obsolete migration-era test message, and this tracker; no generated file changed | Final `make format` passed at `.cartulary/test-results/20260822T080652Z-p3931837`; `make test-catalog-check` passed; Harness passed at `.cartulary/test-results/20260822T080140Z-p3822101`; backend boundary passed at `.cartulary/test-results/20260822T080244Z-p3823683`; exact stale-path scans are empty; the export/selector boundary row passed at `.cartulary/test-results/20260822T080033Z-p3817041`; focused Entities passed 38/38 at `.cartulary/test-results/20260822T080257Z-p3824147`; service-backed Entities passed 29/29 at `.cartulary/test-results/20260822T080445Z-p3878470`; 52 top-level tests, 34 owner rows, and 21 service-backed rows remain exact | Structural only. Packages, APIs, transaction sequence, test names, test packages, selectors, public and persisted behavior, generated artifacts, migrations, and Domain vocabulary are unchanged. Rollback restores the six prior aggregate files, old boundary paths and characterization reference without reverting stabilized S04 APIs | Mechanical compile failures at `.cartulary/test-results/20260822T075407Z-p3801872`, `.cartulary/test-results/20260822T075426Z-p3802435`, `.cartulary/test-results/20260822T075536Z-p3808124`, `.cartulary/test-results/20260822T075632Z-p3809841`, and `.cartulary/test-results/20260822T075749Z-p3810920` exposed missing or unused imports while blocks were moved; they were corrected without code changes. `.cartulary/test-results/20260822T075554Z-p3808670` exposed a hard-coded retired merge filename in the boundary test, and `.cartulary/test-results/20260822T080156Z-p3822689` exposed retired SQL-read allowlist paths; both owner inputs now enumerate the new production files and pass. No residual blocker; run the tracker checkpoint, then activate EPR-S06 |
+| 2026-08-22 | Codex / EPR-S06 final validation and handoff | Production-readiness remediation complete; all seven gaps and all binary criteria closed | Reconciled the full 79-path change set; corrected S05 projection/test-support path projections and dead helpers; generated the topology index only through `make generate`; finalized this tracker | Every ordered final gate passed. Exact roots, counts, failures, causal attribution, and retries are in Section 20.3. Final `make check` passed 642/642 at `.cartulary/test-results/20260822T090627Z-p883489`; retained-run finalization passed at `.cartulary/test-results/20260822T091101Z-p996639`; `make release-check` passed 799/799 at `.cartulary/test-results/20260822T091123Z-p999735`; post-handoff Markdown lint passed at `.cartulary/test-results/20260822T092800Z-p1211872`, and staged, unstaged, and whole-worktree diff checks passed | Internal Go cutovers only; no public or persisted behavior, migration, backfill, OpenAPI, schema, bundle, event, authorization, frontend, lockfile, or Domain change. Rollback remains atomic by owning slice; the S05 correction reverts with the layout slice and its derived topology. | No blocker or unclosed EPR risk. Persisted idempotency, workbook-projection redesign, package split, and versioned Incident Bundle retirement remain explicitly deferred. |
+
+Every future checkpoint appends a row rather than rewriting prior evidence.
+
+### 20.3 Final production-readiness handoff
+
+#### Outcome and gap closure
+
+EPR-S00 through EPR-S06 are complete. EPR-G01 through EPR-G07 are closed:
+the ledger is current, the adopted owner closes all production exports and
+construction, Host/Identity and Merge capabilities follow consumer-owned
+boundaries, accidental APIs are gone, steady-state files are cohesive, and
+current broad/release evidence validates the result. The executable final
+export inventory is the retained-only inventory in
+`internal/modules/entities/boundary_guard_test.go`; it discovers the root and
+all production child packages, excludes explicit test-support packages, and
+rejects a synthetic unapproved export.
+
+#### Final changed-file inventory
+
+The final worktree differs from the starting commit
+`769131d31ffb4b494ae24e7826ba5e5144323a8a` in 79 paths: 29 added, 44
+modified, and 6 deleted. Git records the cohesion moves as deletions plus new
+files rather than rename metadata.
+
+- **Added — application adapter:**
+  `internal/app/entitymergeassembly/assessments.go`.
+- **Added — Host/Identity:** `alias_sync.go`, `construction.go`,
+  `create_mutation.go`, `exact_match.go`, `merge_capability.go`,
+  `preserved_identifiers.go`, `query.go`, `source_rows.go`, `store_test.go`,
+  and `upsert.go` under `internal/modules/entities/hostidentity/`.
+- **Added — Merge:** `admission.go`, `collision_detection.go`,
+  `effect_coordination.go`, `history_result.go`, `source_carry_forward.go`, and
+  `transaction.go` under `internal/modules/entities/merge/`.
+- **Added — root tests:** `create_idempotency_integration_test.go`,
+  `create_security_integration_test.go`, `exact_match_unit_test.go`,
+  `mention_unit_test.go`, `merge_route_integration_test.go`,
+  `merge_unit_test.go`, `origin_upsert_integration_test.go`,
+  `resolution_route_integration_test.go`, `resolution_support_test.go`,
+  `support_contract_integration_test.go`, `support_scenario_test.go`, and
+  `unit_support_test.go` under `internal/modules/entities/`.
+- **Deleted:** `internal/modules/entities/hostidentity/match.go`,
+  `internal/modules/entities/hostidentity/store.go`,
+  `internal/modules/entities/merge/merge_store.go`,
+  `internal/modules/entities/resolution_integration_test.go`,
+  `internal/modules/entities/support_integration_test.go`, and
+  `internal/modules/entities/unit_test.go`.
+- **Modified — owners and projections:**
+  `docs/decisions/entities-module-boundary.md`, Core 04, this tracker,
+  `contracts/projection-providers/index.json`,
+  `tools/backend_module_boundaries.json`, and
+  `tools/test_families/module.entities.json`.
+- **Modified — application composition:** the six affected files under
+  `internal/app/assessmentassembly`, `internal/app/importassembly`,
+  `internal/app/timelineassembly`, and `internal/app/workbookassembly` named
+  by the final changed-path audit.
+- **Modified — existing Entities files:** the boundary guard, routes, Incident
+  Bundle source/codec files, twelve Host/Identity files, two Mention files,
+  six Merge files, and two workbook-projection files named by the per-slice
+  ledger above.
+- **Modified — cross-owner/test support:** two Timeline tests,
+  `internal/testutil/appsupport/performancefixture/owners.go`,
+  `internal/testutil/appsupport/workbook.go`, and
+  `internal/testutil/httptestx/httptestx_test.go`.
+- **Generated:** `tools/execution_topology_render_index.json`, derived only
+  through `make generate` from the authored Entities row and projection-owner
+  inputs. No generated root, lockfile, migration, frontend path, or
+  `docs/domain.md` was hand-edited or otherwise changed.
+
+#### Internal interfaces and behavior conclusion
+
+The final code uses complete fallible dependency-struct constructors for
+Host/Identity, Mentions, and Merge. Workbook alone receives the complete
+Host/Identity store; Timeline and Assessments receive stateless borrowed-
+transaction source facts; Imports uses the shared private mutation core; Merge
+receives an immutable Host/Identity capability plus consumer-owned Mention and
+Assessment effect ports. Concrete Assessment translation and protected-set
+error conversion live in application assembly. There is one merge transaction
+sequence and no compatibility constructor, option, alias, forwarding shim, or
+test-only production convenience.
+
+HTTP routes and operation IDs, OpenAPI and schema identities, field keys,
+database state, bundle bytes, event shapes, authorization and concealment
+order, idempotent replay, mutation hashes and rows, transaction order,
+history/rollback, projections, Collaboration intents, and source-contribution
+identities remain unchanged. Frontend and browser gates passed without source
+or visual-golden changes. The compatibility impact is therefore limited to an
+atomic repository-internal Go compile-time cutover; no migration, backfill,
+feature flag, deprecation window, or deployment coordination is required.
+
+#### Exact accounting and owner evidence
+
+Final reconciliation found 52/52 top-level Entities test selectors and
+`make explain-test-owner OWNER=module.entities` reports exactly 34 owner rows,
+21 of them service-backed. Final affected-owner roots are:
+
+| Owner | Focused result | Service-backed result |
+| --- | --- | --- |
+| Entities | 38/38, `.cartulary/test-results/20260822T080959Z-p3944475` | 29/29, `.cartulary/test-results/20260822T081148Z-p3997310` |
+| Timeline | 51/51, `.cartulary/test-results/20260822T081334Z-p4050137` | 29/29, `.cartulary/test-results/20260822T081810Z-p4107134` |
+| Assessments | 27/27, `.cartulary/test-results/20260822T082247Z-p4163702` | 18/18, `.cartulary/test-results/20260822T082346Z-p11508` |
+| Workbook | 65/65, `.cartulary/test-results/20260822T082445Z-p52708` | 37/37, `.cartulary/test-results/20260822T082700Z-p109351` |
+| Imports | 22/22, `.cartulary/test-results/20260822T082914Z-p165792` | 14/14, `.cartulary/test-results/20260822T083026Z-p207234` |
+| Revisions | 27/27, `.cartulary/test-results/20260822T083144Z-p248332` | 20/20, `.cartulary/test-results/20260822T083249Z-p292974` |
+| Incident Bundles | 8/8, `.cartulary/test-results/20260822T083356Z-p336688` | 6/6, `.cartulary/test-results/20260822T083455Z-p352500` |
+| app server | 24/24, `.cartulary/test-results/20260822T083554Z-p368061` | 17/17, `.cartulary/test-results/20260822T083653Z-p407848` |
+
+#### Ordered final validation evidence
+
+| Gate | Result and current evidence |
+| --- | --- |
+| Reconciliation | PASS; retired production symbols, concrete Assessment imports, and active stale paths are absent; 52/52 and 34/21 are exact. |
+| Catalog | `make test-catalog-check` PASS; the standalone target emits no result root. |
+| Harness | PASS at `.cartulary/test-results/20260822T080842Z-p3937804`. |
+| Backend boundary | PASS at `.cartulary/test-results/20260822T080858Z-p3938418`. |
+| Generation drift | Initial PASS at `.cartulary/test-results/20260822T080906Z-p3938797`; post-correction PASS at `.cartulary/test-results/20260822T090549Z-p876637`. |
+| Generated-artifact policy | Initial PASS at `.cartulary/test-results/20260822T080920Z-p3941727`; post-correction PASS at `.cartulary/test-results/20260822T090606Z-p880084`. |
+| JSON shape | Initial PASS at `.cartulary/test-results/20260822T080929Z-p3942179`; post-generation PASS at `.cartulary/test-results/20260822T090559Z-p879599`. |
+| Frontend unit | 390/390 PASS at `.cartulary/test-results/20260822T083752Z-p447061`. |
+| Frontend typecheck | 2/2 PASS at `.cartulary/test-results/20260822T083803Z-p447499`. |
+| Frontend import boundary | 2/2 PASS at `.cartulary/test-results/20260822T083816Z-p448067`. |
+| Browser webserver-backed | 58/58 PASS at `.cartulary/test-results/20260822T083825Z-p448564`. |
+| Browser stateful | 34/34 PASS at `.cartulary/test-results/20260822T084232Z-p500960`. |
+| Browser accessibility | Final 12/12 PASS at `.cartulary/test-results/20260822T084859Z-p584917`. |
+| Browser visual | 12/12 PASS with no golden refresh at `.cartulary/test-results/20260822T085027Z-p626365`. |
+| Build | 7/7 PASS at `.cartulary/test-results/20260822T085210Z-p668197`. |
+| S05 correction | Format PASS at `.cartulary/test-results/20260822T090037Z-p827653`; exact projection rows PASS at `.cartulary/test-results/20260822T090046Z-p831430`; backend integration 92/92 PASS at `.cartulary/test-results/20260822T090144Z-p852201`; generation PASS at `.cartulary/test-results/20260822T090529Z-p873564`. |
+| Finalization | Pre-check no-retained-root PASS at `.cartulary/test-results/20260822T085232Z-p701180`; corrected current-source PASS at `.cartulary/test-results/20260822T090610Z-p880551`; retained full-check validation PASS with zero generated updates at `.cartulary/test-results/20260822T091101Z-p996639`. |
+| Full check | 642/642 PASS at `.cartulary/test-results/20260822T090627Z-p883489`. |
+| Release and security | 799/799 PASS at `.cartulary/test-results/20260822T091123Z-p999735`, including targeted and audit Gosec, `govulncheck`, SBOM, release inventory, readiness, and evidence-contract units. |
+
+#### Failures, retries, skips, and residual risk
+
+- The first accessibility run failed 10/12 at
+  `.cartulary/test-results/20260822T084448Z-p544693` because the claimed
+  Network Flow group timed out waiting for an object-store transport while the
+  container was running. No accessibility assertion failed; the exact
+  unchanged full target then passed 12/12.
+- The first `make check` failed 638/642 at
+  `.cartulary/test-results/20260822T085248Z-p704088`. Two projection/accounting
+  rows still named the removed `resolution_integration_test.go`, the aggregate
+  test-support run inherited the same stale caller-matrix expectation, and
+  Go lint found five dead moved fixture helpers. The owner projections and
+  expectation now name the cohesive files, the helpers are deleted, and exact
+  rows, lint, backend integration, the full check, and release all pass.
+- An attempted non-public `make backend-integration-testutil` command had no
+  Make rule and no result root. The public `make backend-integration` target
+  was used instead and passed 92/92.
+- A correction-time `make agent-finalize` failed at
+  `.cartulary/test-results/20260822T090500Z-p872621`; the confirming
+  `make json-shape-check` failed at
+  `.cartulary/test-results/20260822T090512Z-p873017` because the updated
+  authored projection-provider index required regenerated topology. No
+  generated output was hand-edited: `make generate` produced the exact index,
+  and all drift, shape, policy, finalization, check, and release gates passed.
+- No mandatory check is skipped. The first finalizer correctly omitted
+  retained-run maintenance because no successful current full-check root yet
+  existed; the later finalizer consumed the qualifying 642/642 root and
+  validated it. Visual goldens were intentionally not refreshed because the
+  visual gate passed unchanged.
+
+No EPR implementation risk remains open. The only residual design work is the
+four explicit deferrals in Section 21. Rollback is slice-atomic: revert the
+owning owner/implementation/tests/projections together, regenerate derived
+topology from the reverted authored inputs, and do not introduce a compatibility
+shim. No next EPR slice is permitted or required; future feature work starts
+from this completed production-ready boundary or from a separately adopted
+owner plan.
+
+## 21. EPR Deferrals, Risks, and Rollback Posture
+
+| ID | Decision | Reason | Revisit trigger | Status |
+| --- | --- | --- | --- | --- |
+| EPR-DEF-01 | Do not redesign persisted route idempotency payloads. | `route_idempotency` is shared active behavior and durable replay history, not dead Entities code. | A separately adopted Authentication/platform migration plan covering all route owners. | DEFERRED |
+| EPR-DEF-02 | Do not redesign `workbookprojection`. | It is a live Entities/Projections typed contract with multiple consumers. | A separately authorized cross-owner contract version. | DEFERRED |
+| EPR-DEF-03 | Do not split the Entities bounded root into new owner packages. | The adopted boundary found one cohesive source owner and prohibited speculative package movement. | A new owner decision based on a distinct responsibility and migration evidence. | DEFERRED |
+| EPR-DEF-04 | Do not remove versioned Incident Bundle behavior or negative security/upgrade evidence. | These surfaces protect active compatibility, security, or recovery semantics. | Explicit retirement evidence and owner adoption. | DEFERRED |
+
+The primary execution risks are typed-nil dependency gaps, accidental removal
+of interface-required methods, changed authorization or replay order during
+constructor migration, cross-owner merge error drift, stale Harness selectors,
+and behavior changes hidden by file movement. Their controls are the S01
+characterization, per-slice exact scans and owner gates, atomic checkpoints,
+and final broad/release validation.
+
+Each implementation slice has the rollback boundary recorded in Section 18.
+Do not retain dual constructors, aliases, or both old and new implementations
+as rollback machinery. Before release, revert the affected slice atomically if
+needed. After release, repair the clean capability forward unless an adopted
+owner explicitly requires compatibility restoration.
+
+## 22. EPR Binary Completion Criteria
+
+EPR is complete only when every row is `PASS` with recorded evidence. `TODO`,
+skipped, partial, inferred, or historically green results are not acceptance.
+
+| Criterion | Required evidence | Current result |
+| --- | --- | --- |
+| The completed remediation remains intact and the EPR ledger is controlling. | Header and Sections 14 through 22; tracker-scoped diff and Markdown results. | PASS; EPR-S00 changed only this tracker, scoped diff passed, and Markdown passed at `.cartulary/test-results/20260822T054206Z-p2066998`. |
+| Every production export is deliberate and locked. | Exact AST disposition inventory, production-package discovery, role justifications, and negative fixture. | PASS; the final retained-only inventory closes root and production-child exports and its synthetic unapproved export fails as designed. |
+| All production constructors are fallible and complete. | Nil and typed-nil dependency matrices, declaration-order checks, valid composition, and absence of options/panics. | PASS; EPR-S02 constructor rows passed at `.cartulary/test-results/20260822T065320Z-p2906131`. |
+| Host/Identity capabilities match their consumers. | Workbook, source-fact, import, Assessment, Timeline, and performance composition tests. | PASS; complete store, stateless source facts, and private import owner passed every affected focused and service-backed slice. |
+| Merge depends on typed owner ports without concrete Assessments coupling or free Host/Identity bridge wrappers. | Import graph, adapter tests, old-symbol scans, and merge/rollback suites. | PASS; merge-owned ports, application translation and cloning, immutable Host/Identity capability, exact scans, and all affected focused and service-backed paths passed in EPR-S03. |
+| Accidental APIs and aliases are absent without shims. | Exact zero-reference scans and final export guard. | PASS; every named retired surface has zero references in its owning scope, the inventory contains retained exports only, and its negative fixture rejects additions. |
+| Steady-state files are cohesive without a package split or selector loss. | File inventory, diff review, format, 52/52 reconciliation, and owner suites. | PASS; responsibility files replace the six aggregate files, stale paths are absent, one transaction sequence remains, and all 52 selectors and 34/21 rows pass unchanged. |
+| Public and persisted behavior remains unchanged. | HTTP/OpenAPI, authorization, idempotency, history, rollback, projection, Collaboration, bundle, frontend, and browser evidence. | PASS; all affected owner suites, 390 frontend units, frontend type/import gates, 58 webserver-backed, 34 stateful, 12 accessibility, and 12 visual rows passed without frontend or golden changes; full and release graphs are green. |
+| Generated outputs derive only from authored inputs and no lockfile is hand-edited. | Generation drift, generated policy, JSON shape, Harness, and changed-path review. | PASS; `tools/execution_topology_render_index.json` is the only generated delta and came from `make generate`; final drift, policy, shape, and release gates pass; no lockfile changed. |
+| Developer and release validation is complete. | Build, finalization, `make check`, `make release-check`, final Markdown lint, and retained roots. | PASS; build passed 7/7, retained-run finalization validated the current 642/642 full check with zero updates, release passed 799/799, and the post-handoff Markdown checkpoint passed at `.cartulary/test-results/20260822T092800Z-p1211872`. |
+
+Domain vocabulary is unchanged. `docs/domain.md` was not edited by EPR-S00
+through EPR-S06.

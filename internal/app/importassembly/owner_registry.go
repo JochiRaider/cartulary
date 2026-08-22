@@ -166,15 +166,15 @@ func newOwnerCreateFacade(
 			dependencies.Postgres,
 			dependencies.AssessmentProjections,
 			dependencies.RevisionAppender,
-			dependencies.EntityProjections,
 		)
 	case "module.entities@1":
 		return hostidentity.NewImportCreateFacade(
 			targetViewSchemaID,
 			facadeID,
-			dependencies.Postgres,
-			dependencies.RevisionAppender,
-			dependencies.EntityProjections,
+			hostidentity.ImportDependencies{
+				Revisions:        dependencies.RevisionAppender,
+				ProjectionWriter: dependencies.EntityProjections,
+			},
 		)
 	case "module.evidence@1":
 		binding := dependencies.Evidence.ImportOwnerCreateBinding()

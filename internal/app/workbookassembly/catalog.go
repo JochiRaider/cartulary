@@ -69,13 +69,16 @@ func NewContributionCatalog(input ContributionDependencies) (*workbook.WorkbookC
 
 	keepSaved := NewConflictIdempotencyPort(pool)
 
-	entityStore := hostidentity.NewStore(
-		pool,
-		appender,
-		keepSaved,
-		entityProjections.Writer,
-		hostidentity.WithProjectionReader(entityProjections.Reader),
-	)
+	entityStore, err := hostidentity.NewStore(hostidentity.StoreDependencies{
+		Postgres:             pool,
+		Revisions:            appender,
+		ProjectionWriter:     entityProjections.Writer,
+		ProjectionReader:     entityProjections.Reader,
+		KeepSavedIdempotency: keepSaved,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
+	}
 	return buildContributionCatalog(contributionAssemblyInput{
 		projectionDescriptors: projectionDescriptors,
 		projectionQueries:     projectionQueries,
@@ -200,7 +203,7 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 	assessmentFacade, err := NewAssessmentMutationContribution(
 		pool,
 		assessmentProjections,
-		entityStore,
+		hostidentity.NewSourceFacts(),
 		appender,
 	)
 	if err != nil {

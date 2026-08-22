@@ -9,6 +9,7 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
+	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
@@ -27,12 +28,17 @@ import (
 func TestBindingMode_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "entity_linking-u-4-01")
 	timelineStore := newResolutionTimelineCommands(t, harness.DB)
-	entityStore := hostidentity.NewStore(
-		harness.DB,
-		revisionsupport.MustAppender(t),
-		nil,
-		mustBuildProjectionRuntime(t, harness.DB).EntityPorts().Writer,
-	)
+	entityPorts := mustBuildProjectionRuntime(t, harness.DB).EntityPorts()
+	entityStore, err := hostidentity.NewStore(hostidentity.StoreDependencies{
+		Postgres:             harness.DB,
+		Revisions:            revisionsupport.MustAppender(t),
+		ProjectionWriter:     entityPorts.Writer,
+		ProjectionReader:     entityPorts.Reader,
+		KeepSavedIdempotency: workbookassembly.NewConflictIdempotencyPort(harness.DB),
+	})
+	if err != nil {
+		t.Fatalf("compose Host/Identity store: %v", err)
+	}
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u401@example.test", "U401", "U401EntityLinkingPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-01-incident", "IR-U401", "Record relationships timeline-storage")
 

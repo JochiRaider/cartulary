@@ -9,7 +9,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
-func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Queryer, incidentID uuid.UUID) ([]incidentportability.File, error) {
+func exportIncidentBundleFiles(ctx context.Context, q incidentportability.Queryer, incidentID uuid.UUID) ([]incidentportability.File, error) {
 	specs := []struct {
 		path  string
 		query string
@@ -31,7 +31,7 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 	return files, nil
 }
 
-func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
+func importIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
 	specs := []incidentportability.FixedImportSpec{
 		{LogicalBundlePath: "data/hosts.ndjson", AttributionTable: "hosts", StableIdentity: []string{"record_id"}, RequiredColumns: []string{"record_id", "incident_id"}, InsertSQL: `INSERT INTO hosts SELECT * FROM jsonb_populate_record(NULL::hosts, $1::jsonb)`},
 		{LogicalBundlePath: "data/identities.ndjson", AttributionTable: "identities", StableIdentity: []string{"record_id"}, RequiredColumns: []string{"record_id", "incident_id"}, InsertSQL: `INSERT INTO identities SELECT * FROM jsonb_populate_record(NULL::identities, $1::jsonb)`},

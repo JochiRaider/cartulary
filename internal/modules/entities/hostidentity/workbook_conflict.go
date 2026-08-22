@@ -84,23 +84,23 @@ func (s *Store) loadConflictTarget(
 	var row map[string]any
 	switch meta.RecordType {
 	case "host":
-		record, err := LoadHostByRecordIDTx(ctx, tx, command.RecordID)
+		record, err := loadHostByRecordIDTx(ctx, tx, command.RecordID)
 		if err != nil {
 			return conflictresolution.Target{}, err
 		}
 		if err := hydrateHostRecordTx(ctx, tx, &record); err != nil {
 			return conflictresolution.Target{}, err
 		}
-		row = BuildHostRow(record)
+		row = buildHostRow(record)
 	case "identity":
-		record, err := LoadIdentityByRecordIDTx(ctx, tx, command.RecordID)
+		record, err := loadIdentityByRecordIDTx(ctx, tx, command.RecordID)
 		if err != nil {
 			return conflictresolution.Target{}, err
 		}
 		if err := hydrateIdentityRecordTx(ctx, tx, &record); err != nil {
 			return conflictresolution.Target{}, err
 		}
-		row = BuildIdentityRow(record)
+		row = buildIdentityRow(record)
 	default:
 		return conflictresolution.Target{}, pgx.ErrNoRows
 	}

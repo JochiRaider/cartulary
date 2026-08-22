@@ -10,7 +10,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type entityStorePorts struct {
@@ -68,7 +67,6 @@ type entityMutationParams struct {
 }
 
 func newEntityStorePorts(
-	pool postgres.DB,
 	appender *revisions.Appender,
 	projectionWriter workbookprojection.Writer,
 ) entityStorePorts {

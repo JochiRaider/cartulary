@@ -122,14 +122,17 @@ func compose(dependencies Dependencies) (composition, error) {
 	entityProjectionWriter := dependencies.EntityProjection
 	mentionEffects := mentioneffects.NewProvider(recordsPort, collectionFacts, timelineWriter)
 	linkStore := links.NewStore()
-	entityMentionStore := mentions.NewStore(
-		dependencies.Postgres,
-		dependencies.Revisions,
-		mentions.WithLinkOperations(mentionLinkAdapter{store: linkStore}),
-		mentions.WithTimelineEffects(mentionEffects),
-		mentions.WithCollaborationIntents(dependencies.Collaboration),
-		mentions.WithWorkbookProjection(entityProjectionWriter),
-	)
+	entityMentionStore, err := mentions.NewStore(mentions.StoreDependencies{
+		Postgres:      dependencies.Postgres,
+		Revisions:     dependencies.Revisions,
+		Links:         mentionLinkAdapter{store: linkStore},
+		Projections:   entityProjectionWriter,
+		Timeline:      mentionEffects,
+		Collaboration: dependencies.Collaboration,
+	})
+	if err != nil {
+		return composition{}, fmt.Errorf("compose Timeline bundle: %w", err)
+	}
 	collaborators := timeline.Collaborators{
 		Core: timeline.CoreCollaborators{
 			Idempotency: idempotencyAdapter{store: authn.NewStore(dependencies.Postgres)},
@@ -140,12 +143,7 @@ func compose(dependencies Dependencies) (composition, error) {
 		Collections: timeline.CollectionCollaborators{
 			Links:    linkAdapter{store: linkStore, facts: links.FactReader{}},
 			Mentions: mentionAdapter{store: entityMentionStore},
-			Entities: entityAdapter{store: hostidentity.NewStore(
-				dependencies.Postgres,
-				dependencies.Revisions,
-				nil,
-				entityProjectionWriter,
-			)},
+			Entities: entityAdapter{store: hostidentity.NewSourceFacts()},
 			Evidence: evidenceAdapter{attachments: dependencies.EvidenceAttachments},
 			Facts:    collectionFacts,
 		},
@@ -162,20 +160,29 @@ func compose(dependencies Dependencies) (composition, error) {
 	if err != nil {
 		return composition{}, fmt.Errorf("compose Timeline bundle: assessment merge effects: %w", err)
 	}
+	entityAssessmentEffects, err := entitymergeassembly.NewAssessmentEffects(assessmentEffects)
+	if err != nil {
+		return composition{}, fmt.Errorf("compose Timeline bundle: %w", err)
+	}
+	entityMergeStore, err := merge.NewStore(merge.StoreDependencies{
+		Postgres:      dependencies.Postgres,
+		Revisions:     dependencies.Revisions,
+		HostIdentity:  hostidentity.NewMergeCapability(),
+		Assessments:   entityAssessmentEffects,
+		Mentions:      entityMentionStore,
+		Links:         entitymergeassembly.NewLinkEffects(),
+		Timeline:      mentionEffects,
+		Projections:   entityProjectionWriter,
+		Collaboration: dependencies.Collaboration,
+	})
+	if err != nil {
+		return composition{}, fmt.Errorf("compose Timeline bundle: %w", err)
+	}
 	return composition{
 		mentionEffects:     mentionEffects,
 		entityMentionStore: entityMentionStore,
-		entityMergeStore: merge.NewStore(
-			dependencies.Postgres,
-			dependencies.Revisions,
-			merge.WithAssessmentEffects(assessmentEffects),
-			merge.WithLinkEffects(entitymergeassembly.NewLinkEffects()),
-			merge.WithTimelineEffects(mentionEffects),
-			merge.WithCollaborationIntents(dependencies.Collaboration),
-			merge.WithWorkbookProjection(entityProjectionWriter),
-			merge.WithMentionStore(entityMentionStore),
-		),
-		collaborators: collaborators,
+		entityMergeStore:   entityMergeStore,
+		collaborators:      collaborators,
 	}, nil
 }
 
@@ -567,7 +574,7 @@ func (a mentionAdapter) LoadTimelineCollectionFieldsChangedTx(ctx context.Contex
 }
 
 type entityAdapter struct {
-	store *hostidentity.Store
+	store *hostidentity.SourceFacts
 }
 
 func (a entityAdapter) ListEligibleAliasesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string) ([]timeline.EntityAlias, error) {

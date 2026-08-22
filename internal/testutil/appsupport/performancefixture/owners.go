@@ -68,14 +68,18 @@ func NewOwners(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCode
 		return nil, err
 	}
 	entityPorts := projectionRuntime.EntityPorts()
+	entityStore, err := hostidentity.NewStore(hostidentity.StoreDependencies{
+		Postgres:             pool,
+		Revisions:            appender,
+		ProjectionWriter:     entityPorts.Writer,
+		ProjectionReader:     entityPorts.Reader,
+		KeepSavedIdempotency: workbookassembly.NewConflictIdempotencyPort(pool),
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &Owners{
-		Entities: hostidentity.NewStore(
-			pool,
-			appender,
-			workbookassembly.NewConflictIdempotencyPort(pool),
-			entityPorts.Writer,
-			hostidentity.WithProjectionReader(entityPorts.Reader),
-		),
+		Entities:    entityStore,
 		Timeline:    timelineBundle.PerformanceFixture,
 		Projections: projectionRuntime,
 	}, nil

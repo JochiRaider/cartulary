@@ -4,74 +4,102 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 type mergeProjectionWriterStub struct {
 	workbookprojection.Writer
 }
 
-func TestWithMentionStoreRetainsInjectedInstance(t *testing.T) {
+type mergeStorePostgresStub struct{ postgres.DB }
+type mergeTimelineEffectsStub struct{ TimelineEffectsPort }
+type mergeCollaborationStub struct{ collaboration.IntentAppender }
+type mergeAssessmentEffectsStub struct{ AssessmentEffectsPort }
+
+func TestMergeStoreCompositionRequiresCompleteDependencies_Unit(t *testing.T) {
 	mentionStore := &noopMentionStore{}
-	ports := newEntityStorePorts(nil, nil, nil)
-	WithMentionStore(mentionStore)(&ports)
-	adapter, ok := ports.mentions.(entityMentionAdapter)
-	if !ok {
-		t.Fatalf("mention port = %T, want entityMentionAdapter", ports.mentions)
+	valid := func() StoreDependencies {
+		return StoreDependencies{
+			Postgres:      mergeStorePostgresStub{},
+			Revisions:     &revisions.Appender{},
+			HostIdentity:  hostidentity.NewMergeCapability(),
+			Assessments:   mergeAssessmentEffectsStub{},
+			Mentions:      mentionStore,
+			Links:         noopLinkEffects{},
+			Timeline:      mergeTimelineEffectsStub{},
+			Projections:   mergeProjectionWriterStub{},
+			Collaboration: mergeCollaborationStub{},
+		}
 	}
-	if adapter.store != mentionStore {
-		t.Fatal("mention adapter did not retain the injected store instance")
+	tests := []struct {
+		name       string
+		dependency string
+		mutate     func(*StoreDependencies)
+	}{
+		{name: "missing Postgres", dependency: "Postgres", mutate: func(dependencies *StoreDependencies) { dependencies.Postgres = nil }},
+		{name: "typed-nil Postgres", dependency: "Postgres", mutate: func(dependencies *StoreDependencies) { dependencies.Postgres = (*mergeStorePostgresStub)(nil) }},
+		{name: "missing Revisions", dependency: "Revisions", mutate: func(dependencies *StoreDependencies) { dependencies.Revisions = nil }},
+		{name: "typed-nil Revisions", dependency: "Revisions", mutate: func(dependencies *StoreDependencies) { dependencies.Revisions = (*revisions.Appender)(nil) }},
+		{name: "missing HostIdentity", dependency: "HostIdentity", mutate: func(dependencies *StoreDependencies) { dependencies.HostIdentity = nil }},
+		{name: "typed-nil HostIdentity", dependency: "HostIdentity", mutate: func(dependencies *StoreDependencies) {
+			dependencies.HostIdentity = (*hostidentity.MergeCapability)(nil)
+		}},
+		{name: "missing Assessments", dependency: "Assessments", mutate: func(dependencies *StoreDependencies) { dependencies.Assessments = nil }},
+		{name: "typed-nil Assessments", dependency: "Assessments", mutate: func(dependencies *StoreDependencies) { dependencies.Assessments = (*mergeAssessmentEffectsStub)(nil) }},
+		{name: "missing Mentions", dependency: "Mentions", mutate: func(dependencies *StoreDependencies) { dependencies.Mentions = nil }},
+		{name: "typed-nil Mentions", dependency: "Mentions", mutate: func(dependencies *StoreDependencies) { dependencies.Mentions = (*noopMentionStore)(nil) }},
+		{name: "missing Links", dependency: "Links", mutate: func(dependencies *StoreDependencies) { dependencies.Links = nil }},
+		{name: "typed-nil Links", dependency: "Links", mutate: func(dependencies *StoreDependencies) { dependencies.Links = (*noopLinkEffects)(nil) }},
+		{name: "missing Timeline", dependency: "Timeline", mutate: func(dependencies *StoreDependencies) { dependencies.Timeline = nil }},
+		{name: "typed-nil Timeline", dependency: "Timeline", mutate: func(dependencies *StoreDependencies) { dependencies.Timeline = (*mergeTimelineEffectsStub)(nil) }},
+		{name: "missing Projections", dependency: "Projections", mutate: func(dependencies *StoreDependencies) { dependencies.Projections = nil }},
+		{name: "typed-nil Projections", dependency: "Projections", mutate: func(dependencies *StoreDependencies) { dependencies.Projections = (*mergeProjectionWriterStub)(nil) }},
+		{name: "missing Collaboration", dependency: "Collaboration", mutate: func(dependencies *StoreDependencies) { dependencies.Collaboration = nil }},
+		{name: "typed-nil Collaboration", dependency: "Collaboration", mutate: func(dependencies *StoreDependencies) { dependencies.Collaboration = (*mergeCollaborationStub)(nil) }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dependencies := valid()
+			test.mutate(&dependencies)
+			store, err := NewStore(dependencies)
+			if store != nil {
+				t.Fatalf("NewStore result = %#v, want nil", store)
+			}
+			want := "compose Merge store: " + test.dependency + " is required"
+			if err == nil || err.Error() != want {
+				t.Fatalf("NewStore error = %v, want %q", err, want)
+			}
+		})
+	}
+
+	store, err := NewStore(valid())
+	if err != nil || store == nil {
+		t.Fatalf("valid NewStore result = %#v, %v", store, err)
+	}
+	adapter, ok := store.ports.mentions.(entityMentionAdapter)
+	if !ok || adapter.store != mentionStore {
+		t.Fatalf("mention port = %#v, want adapter retaining %p", store.ports.mentions, mentionStore)
+	}
+	store, err = NewStore(StoreDependencies{})
+	if store != nil || err == nil || err.Error() != "compose Merge store: Postgres is required" {
+		t.Fatalf("empty NewStore result = %#v, %v", store, err)
 	}
 }
 
 func TestMergeAssessmentRepointRejectsUnprotectedAssessment(t *testing.T) {
-	db := pgtest.Start(t).BeginRollbackDBT(t, "merge-protected-set-revalidate")
-	assessmentEffects, err := assessments.NewMergeEffects(
-		mergeAssessmentProjectionStub{},
-		mergeAssessmentSnapshotStub{},
-	)
-	if err != nil {
-		t.Fatalf("construct assessment merge effects: %v", err)
-	}
-	store := NewStore(
-		db,
-		nil,
-		WithAssessmentEffects(assessmentEffects),
-		WithLinkEffects(noopLinkEffects{}),
-		WithMentionStore(noopMentionStore{}),
-		WithWorkbookProjection(mergeProjectionWriterStub{}),
-	)
-	actor := seedMergeProtectedSetUser(t, db, "merge-protected-revalidate@example.test", "Merge Protected Revalidate")
-	incident := createMergeProtectedSetIncident(t, db, actor, "txn-merge-protected-revalidate-incident", "IR-MERGE-PROTECTED-R", "Merge protected set revalidate")
-	survivorID := uuid.New()
-	loserID := uuid.New()
 	assessmentID := uuid.New()
-	seedMergeProtectedSetHost(t, db, incident.ID, actor.ID, survivorID, "Survivor host", "survivor-host")
-	seedMergeProtectedSetHost(t, db, incident.ID, actor.ID, loserID, "Loser host", "loser-host")
-	seedMergeProtectedSetAssessment(t, db, incident.ID, actor.ID, assessmentID, loserID, "host", "confirmed")
-
-	tx, err := db.BeginTx(context.Background(), pgx.TxOptions{})
-	if err != nil {
-		t.Fatalf("begin protected-set revalidation tx: %v", err)
-	}
-	defer func() { _ = tx.Rollback(context.Background()) }()
-
-	_, _, err = store.ports.assessments.RepointMergedAssessmentsTx(context.Background(), tx, incident.ID, "host", survivorID, loserID, uuidSet([]uuid.UUID{survivorID, loserID}), time.Now().UTC())
+	err := classifyAssessmentRepointError(&AssessmentProtectedSetChangedError{RecordID: assessmentID})
 	var precondition *MergePreconditionError
-	if !errors.As(err, &precondition) || precondition.ReasonCode != "protected_set_changed" {
+	if !errors.As(err, &precondition) || precondition.ReasonCode != "protected_set_changed" || precondition.Details["record_id"] != assessmentID.String() {
 		t.Fatalf("expected protected_set_changed precondition, got %T %[1]v", err)
 	}
 }
@@ -96,106 +124,4 @@ func (noopLinkEffects) RepointLinksTx(context.Context, pgx.Tx, RepointLinksComma
 
 func (noopLinkEffects) RepointTagsTx(context.Context, pgx.Tx, RepointTagsCommand) (RepointTagsResult, error) {
 	return RepointTagsResult{Mutations: []LinkEffectMutation{}}, nil
-}
-
-type mergeAssessmentProjectionStub struct{}
-
-func (mergeAssessmentProjectionStub) RefreshAssessmentProjectionTx(
-	context.Context,
-	pgx.Tx,
-	uuid.UUID,
-) error {
-	return nil
-}
-
-type mergeAssessmentSnapshotStub struct{}
-
-func (mergeAssessmentSnapshotStub) CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error) {
-	return revisions.RecordSnapshot{}, nil
-}
-
-func seedMergeProtectedSetUser(t testing.TB, db postgres.DB, email string, displayName string) authn.UserRecord {
-	t.Helper()
-
-	hash, err := authn.HashPassword("MergeProtectedPass1!")
-	if err != nil {
-		t.Fatalf("hash merge protected set password: %v", err)
-	}
-
-	var record authn.UserRecord
-	if err := db.QueryRow(context.Background(), `
-INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
-VALUES ($1, $2, $3, false, true, true)
-RETURNING id, email, display_name, password_hash, mfa_required, is_active, is_deployment_admin, created_at, updated_at, user_version
-`, email, displayName, hash).Scan(
-		&record.ID,
-		&record.Email,
-		&record.DisplayName,
-		&record.PasswordHash,
-		&record.MFARequired,
-		&record.IsActive,
-		&record.IsDeploymentAdmin,
-		&record.CreatedAt,
-		&record.UpdatedAt,
-		&record.UserVersion,
-	); err != nil {
-		t.Fatalf("seed merge protected set user: %v", err)
-	}
-	return record
-}
-
-func createMergeProtectedSetIncident(t testing.TB, db postgres.DB, actor authn.UserRecord, clientTxnID string, incidentKey string, title string) incidents.IncidentRecord {
-	t.Helper()
-
-	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
-		Postgres:            db,
-		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
-	})
-	if err != nil {
-		t.Fatalf("construct Incidents application: %v", err)
-	}
-	result, err := store.CreateIncident(context.Background(), actor, incidents.CreateIncidentRequest{
-		ClientTxnID: clientTxnID,
-		IncidentKey: incidentKey,
-		Title:       title,
-	}, "req-"+clientTxnID, time.Now().UTC())
-	if err != nil {
-		t.Fatalf("create merge protected set incident: %v", err)
-	}
-	return result.Incident
-}
-
-func seedMergeProtectedSetHost(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, hostname string) {
-	t.Helper()
-
-	seedMergeProtectedSetRecord(t, db, incidentID, actorUserID, recordID, "host")
-	if _, err := db.Exec(context.Background(), `
-INSERT INTO hosts (record_id, incident_id, display_name, hostname, host_state, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, $3, $4, 'canonical', $5, $5)
-`, recordID, incidentID, displayName, hostname, actorUserID); err != nil {
-		t.Fatalf("seed merge protected set host: %v", err)
-	}
-}
-
-func seedMergeProtectedSetAssessment(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorUserID uuid.UUID, assessmentID uuid.UUID, subjectID uuid.UUID, subjectType string, state string) {
-	t.Helper()
-
-	seedMergeProtectedSetRecord(t, db, incidentID, actorUserID, assessmentID, "assessment")
-	if _, err := db.Exec(context.Background(), `
-INSERT INTO assessments (record_id, incident_id, subject_record_id, subject_type, assessment_state, rationale, assessor_user_id)
-VALUES ($1, $2, $3, $4, $5, 'Seeded merge protected set assessment.', $6)
-`, assessmentID, incidentID, subjectID, subjectType, state, actorUserID); err != nil {
-		t.Fatalf("seed merge protected set assessment: %v", err)
-	}
-}
-
-func seedMergeProtectedSetRecord(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, recordType string) {
-	t.Helper()
-
-	if _, err := db.Exec(context.Background(), `
-INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, $3, $4, $4)
-`, recordID, incidentID, recordType, actorUserID); err != nil {
-		t.Fatalf("seed merge protected set record: %v", err)
-	}
 }

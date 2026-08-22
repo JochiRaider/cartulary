@@ -3,8 +3,10 @@ package mentions
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,51 +31,55 @@ type Store struct {
 	ports          storePorts
 }
 
-type StoreOption func(*storePorts)
-
-func WithTimelineEffects(effects TimelineEffectsPort) StoreOption {
-	return func(ports *storePorts) {
-		ports.timeline = effects
-	}
+type StoreDependencies struct {
+	Postgres      postgres.DB
+	Revisions     *revisions.Appender
+	Links         LinkOperationsPort
+	Projections   workbookprojection.Writer
+	Timeline      TimelineEffectsPort
+	Collaboration collaboration.IntentAppender
 }
 
-func WithCollaborationIntents(appender collaboration.IntentAppender) StoreOption {
-	return func(ports *storePorts) {
-		ports.collaboration = appender
-	}
-}
-
-func WithWorkbookProjection(writer workbookprojection.Writer) StoreOption {
-	return func(ports *storePorts) {
-		ports.projections = writer
-	}
-}
-
-func WithLinkOperations(operations LinkOperationsPort) StoreOption {
-	return func(ports *storePorts) {
-		ports.links = operations
-	}
-}
-
-func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOption) *Store {
-	ports := newStorePorts(pool)
-	ports.revisions = revisionAdapter{appender: appender}
-	for _, option := range options {
-		if option != nil {
-			option(&ports)
+func NewStore(dependencies StoreDependencies) (*Store, error) {
+	for _, dependency := range []struct {
+		name  string
+		value any
+	}{
+		{name: "Postgres", value: dependencies.Postgres},
+		{name: "Revisions", value: dependencies.Revisions},
+		{name: "Links", value: dependencies.Links},
+		{name: "Projections", value: dependencies.Projections},
+		{name: "Timeline", value: dependencies.Timeline},
+		{name: "Collaboration", value: dependencies.Collaboration},
+	} {
+		if isNilStoreDependency(dependency.value) {
+			return nil, fmt.Errorf("compose Mention store: %s is required", dependency.name)
 		}
 	}
-	if ports.projections == nil {
-		panic("compose entity mention store: workbook projection writer is required")
-	}
-	if ports.links == nil {
-		panic("compose entity mention store: link operations are required")
-	}
+	ports := newStorePorts()
+	ports.revisions = revisionAdapter{appender: dependencies.Revisions}
+	ports.links = dependencies.Links
+	ports.projections = dependencies.Projections
+	ports.timeline = dependencies.Timeline
+	ports.collaboration = dependencies.Collaboration
 	return &Store{
-		pool:           pool,
-		authStore:      authn.NewStore(pool),
-		incidentAccess: admission.NewChecker(pool),
+		pool:           dependencies.Postgres,
+		authStore:      authn.NewStore(dependencies.Postgres),
+		incidentAccess: admission.NewChecker(dependencies.Postgres),
 		ports:          ports,
+	}, nil
+}
+
+func isNilStoreDependency(dependency any) bool {
+	if dependency == nil {
+		return true
+	}
+	value := reflect.ValueOf(dependency)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
 	}
 }
 
@@ -164,7 +170,7 @@ type mutationParams struct {
 	AfterValue      any
 }
 
-func newStorePorts(pool postgres.DB) storePorts {
+func newStorePorts() storePorts {
 	return storePorts{
 		records: recordAdapter{store: records.NewStore()},
 	}
@@ -270,62 +276,4 @@ func formatTimestampPointer(value *time.Time) any {
 		return nil
 	}
 	return value.UTC().Format(time.RFC3339Nano)
-}
-
-func EntityMentionNotFoundError() *httpapi.APIError {
-	return &httpapi.APIError{
-		Status:  http.StatusNotFound,
-		Code:    "entity_mention_not_found",
-		Message: "entity mention not found",
-		Details: map[string]any{},
-	}
-}
-
-func ResolvedRecordNotFoundError() *httpapi.APIError {
-	return &httpapi.APIError{
-		Status:  http.StatusNotFound,
-		Code:    "resolved_record_not_found",
-		Message: "resolved record not found",
-		Details: map[string]any{},
-	}
-}
-
-func RowVersionConflictAPIError(conflict *MentionRowVersionConflictError) *httpapi.APIError {
-	details := map[string]any{}
-	if conflict != nil {
-		details["entity_mention_id"] = conflict.EntityMentionID.String()
-		details["base_mention_row_version"] = conflict.BaseMentionRowVersion
-		details["current_mention_row_version"] = conflict.CurrentMentionRowVersion
-		details["source_record_id"] = conflict.SourceRecordID.String()
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusConflict,
-		Code:    "row_version_conflict",
-		Message: "row version conflict",
-		Details: details,
-	}
-}
-
-func IllegalTransitionAPIError(err *MentionTransitionError) *httpapi.APIError {
-	details := map[string]any{}
-	if err != nil {
-		details["from_status"] = err.FromStatus
-		details["to_status"] = err.ToStatus
-		details["violated_guards"] = append([]string(nil), err.ViolatedGuards...)
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusConflict,
-		Code:    "illegal_transition",
-		Message: "illegal transition",
-		Details: details,
-	}
-}
-
-func RecordDeletedUseRestoreError() *httpapi.APIError {
-	return &httpapi.APIError{
-		Status:  http.StatusConflict,
-		Code:    "record_deleted_use_restore",
-		Message: "record deleted use restore",
-		Details: map[string]any{},
-	}
 }

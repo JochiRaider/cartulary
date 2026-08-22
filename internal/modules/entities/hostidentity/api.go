@@ -161,7 +161,7 @@ type CollectionAction struct {
 	ItemRef        string
 }
 
-func ParseEntityAliasItemRef(itemRef string) (uuid.UUID, error) {
+func parseEntityAliasItemRef(itemRef string) (uuid.UUID, error) {
 	const prefix = "entity_alias:"
 	if !strings.HasPrefix(itemRef, prefix) {
 		return uuid.Nil, fmt.Errorf("invalid entity alias item ref")
@@ -304,15 +304,15 @@ func CreateRequestHash(viewSchemaID string, request CreateRequest) []byte {
 	return hash
 }
 
-func BuildHostRow(record HostRecord) map[string]any {
+func buildHostRow(record HostRecord) map[string]any {
 	return entityFields.buildHostRow(record)
 }
 
-func BuildIdentityRow(record IdentityRecord) map[string]any {
+func buildIdentityRow(record IdentityRecord) map[string]any {
 	return entityFields.buildIdentityRow(record)
 }
 
-func BuildMutationPayload(viewSchemaID string, changeSetID uuid.UUID, row map[string]any) map[string]any {
+func buildMutationPayload(viewSchemaID string, changeSetID uuid.UUID, row map[string]any) map[string]any {
 	return map[string]any{
 		"view_schema_id": viewSchemaID,
 		"change_set_id":  changeSetID.String(),

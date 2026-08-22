@@ -275,17 +275,10 @@ func NewAssessmentOwner(pool postgres.DB) *assessments.Facade {
 		panic(err)
 	}
 	projectionRuntime := mustBuildProjectionRuntime(pool)
-	entityStore := hostidentity.NewStore(
-		pool,
-		revisionRuntime.Appender(),
-		workbookassembly.NewConflictIdempotencyPort(pool),
-		projectionRuntime.EntityPorts().Writer,
-		hostidentity.WithProjectionReader(projectionRuntime.EntityPorts().Reader),
-	)
 	owner, err := workbookassembly.NewAssessmentMutationContribution(
 		pool,
 		projectionRuntime.AssessmentPorts().Rows,
-		entityStore,
+		hostidentity.NewSourceFacts(),
 		revisionRuntime.Appender(),
 	)
 	if err != nil {

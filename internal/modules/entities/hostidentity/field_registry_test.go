@@ -29,7 +29,7 @@ func TestEntityFieldRegistryMatchesOwnerProjection_Unit(t *testing.T) {
 		{
 			viewSchemaID: HostsViewSchemaID,
 			createOnly:   []string{"host.aad_device_id", "host.fqdn"},
-			row: BuildHostRow(HostRecord{
+			row: buildHostRow(HostRecord{
 				RecordID:         uuid.MustParse("21000000-0000-4000-8000-000000000000"),
 				RowVersion:       17,
 				DisplayName:      "Registry Host",
@@ -60,7 +60,7 @@ func TestEntityFieldRegistryMatchesOwnerProjection_Unit(t *testing.T) {
 		{
 			viewSchemaID: IdentitiesViewSchemaID,
 			createOnly:   []string{"identity.aad_object_id", "identity.sid"},
-			row: BuildIdentityRow(IdentityRecord{
+			row: buildIdentityRow(IdentityRecord{
 				RecordID:              uuid.MustParse("22000000-0000-4000-8000-000000000000"),
 				RowVersion:            23,
 				DisplayName:           "Registry Identity",

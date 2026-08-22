@@ -9,19 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-)
-
-type HostRecord = hostidentity.HostRecord
-type IdentityRecord = hostidentity.IdentityRecord
-type CollectionAction = hostidentity.CollectionAction
-type identifierSeed = hostidentity.IdentifierSeed
-
-var (
-	hostExactMatchPrecedence     = hostidentity.HostExactMatchPrecedence()
-	identityExactMatchPrecedence = hostidentity.IdentityExactMatchPrecedence()
 )
 
 func decodeStoredResponse(data []byte) (map[string]any, error) {
@@ -79,15 +67,4 @@ func textPointer(value pgtype.Text) *string {
 	}
 	cloned := value.String
 	return &cloned
-}
-
-func normalizeOptionalIdentifier(identifierClass string, value *string) string {
-	if value == nil {
-		return ""
-	}
-	normalized, ok := fieldnorm.NormalizeIdentifier(identifierClass, *value)
-	if !ok {
-		return ""
-	}
-	return normalized
 }

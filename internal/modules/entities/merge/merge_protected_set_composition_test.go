@@ -2,13 +2,18 @@ package merge_test
 
 import (
 	"context"
+	"errors"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/entitymergeassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	entitymerge "github.com/JochiRaider/cartulary/internal/modules/entities/merge"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
@@ -37,16 +42,85 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("construct assessment merge effects: %v", err)
 	}
-	store := entitymerge.NewStore(
-		db,
-		appender,
-		entitymerge.WithAssessmentEffects(assessmentEffects),
-		entitymerge.WithLinkEffects(composedMergeLinkEffects{}),
-		entitymerge.WithWorkbookProjection(composedMergeWorkbookProjection{}),
-		entitymerge.WithTimelineEffects(composedMergeTimelineEffects{}),
-		entitymerge.WithCollaborationIntents(composition.Intents),
-		entitymerge.WithMentionStore(composedMentionStore{}),
-	)
+	entityAssessmentEffects, err := entitymergeassembly.NewAssessmentEffects(assessmentEffects)
+	if err != nil {
+		t.Fatalf("adapt assessment merge effects: %v", err)
+	}
+	t.Run("assessment adapter translates protected-set drift", func(t *testing.T) {
+		tx, err := db.BeginTx(context.Background(), pgx.TxOptions{})
+		if err != nil {
+			t.Fatalf("begin assessment adapter translation transaction: %v", err)
+		}
+		defer func() { _ = tx.Rollback(context.Background()) }()
+		protectedRecordIDs := []uuid.UUID{survivorID, loserID}
+		slices.SortFunc(protectedRecordIDs, func(left, right uuid.UUID) int {
+			return strings.Compare(left.String(), right.String())
+		})
+		_, err = entityAssessmentEffects.RepointTx(context.Background(), tx, entitymerge.AssessmentRepointCommand{
+			IncidentID:         incident.ID,
+			RecordType:         "host",
+			SurvivorRecordID:   survivorID,
+			LoserRecordID:      loserID,
+			ProtectedRecordIDs: protectedRecordIDs,
+			Now:                time.Now().UTC(),
+		})
+		var changed *entitymerge.AssessmentProtectedSetChangedError
+		if !errors.As(err, &changed) || changed.RecordID != assessmentID {
+			t.Fatalf("translated protected-set error = %T %[1]v, want assessment %s", err, assessmentID)
+		}
+	})
+	t.Run("assessment adapter owns mutable command and result values", func(t *testing.T) {
+		tx, err := db.BeginTx(context.Background(), pgx.TxOptions{})
+		if err != nil {
+			t.Fatalf("begin assessment adapter ownership transaction: %v", err)
+		}
+		defer func() { _ = tx.Rollback(context.Background()) }()
+		protectedRecordIDs := []uuid.UUID{survivorID, loserID, assessmentID}
+		slices.SortFunc(protectedRecordIDs, func(left, right uuid.UUID) int {
+			return strings.Compare(left.String(), right.String())
+		})
+		originalProtectedRecordIDs := append([]uuid.UUID(nil), protectedRecordIDs...)
+		result, err := entityAssessmentEffects.RepointTx(context.Background(), tx, entitymerge.AssessmentRepointCommand{
+			IncidentID:         incident.ID,
+			RecordType:         "host",
+			SurvivorRecordID:   survivorID,
+			LoserRecordID:      loserID,
+			ProtectedRecordIDs: protectedRecordIDs,
+			Now:                time.Now().UTC(),
+		})
+		if err != nil {
+			t.Fatalf("repoint through assessment adapter: %v", err)
+		}
+		if !slices.Equal(protectedRecordIDs, originalProtectedRecordIDs) {
+			t.Fatalf("adapter mutated protected record IDs: got %v want %v", protectedRecordIDs, originalProtectedRecordIDs)
+		}
+		if result.RepointedCount != 1 || len(result.Mutations) != 1 {
+			t.Fatalf("assessment adapter result = %#v, want one repoint", result)
+		}
+		before := result.Mutations[0].BeforeValue.(map[string]any)
+		after := result.Mutations[0].AfterValue.(map[string]any)
+		before["subject_record_id"] = "mutated-by-consumer"
+		if after["subject_record_id"] != survivorID.String() {
+			t.Fatalf("assessment mutation values alias: before=%#v after=%#v", before, after)
+		}
+		if result.Mutations[0].BeforeSnapshot == result.Mutations[0].AfterSnapshot {
+			t.Fatal("assessment mutation snapshots alias")
+		}
+	})
+	store, err := entitymerge.NewStore(entitymerge.StoreDependencies{
+		Postgres:      db,
+		Revisions:     appender,
+		HostIdentity:  hostidentity.NewMergeCapability(),
+		Assessments:   entityAssessmentEffects,
+		Mentions:      composedMentionStore{},
+		Links:         composedMergeLinkEffects{},
+		Timeline:      composedMergeTimelineEffects{},
+		Projections:   composedMergeWorkbookProjection{},
+		Collaboration: composition.Intents,
+	})
+	if err != nil {
+		t.Fatalf("compose Merge store: %v", err)
+	}
 	result, err := store.MergeEntity(
 		context.Background(),
 		actor,

@@ -193,7 +193,7 @@ func decodeAliasPatchActionPayload(viewSchemaID string, fieldKey string, value j
 			if err := json.Unmarshal(rawAction["item_ref"], &itemRef); err != nil {
 				return nil, false
 			}
-			if _, err := ParseEntityAliasItemRef(itemRef); err != nil {
+			if _, err := parseEntityAliasItemRef(itemRef); err != nil {
 				return nil, false
 			}
 			actions = append(actions, CollectionAction{Op: op, ItemRef: itemRef})

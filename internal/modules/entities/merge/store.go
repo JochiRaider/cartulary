@@ -2,12 +2,14 @@ package merge
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
@@ -21,6 +23,7 @@ type Store struct {
 	pool           postgres.DB
 	authStore      *authn.Store
 	incidentAccess *admission.Checker
+	hostIdentity   *hostidentity.MergeCapability
 	ports          entityStorePorts
 }
 
@@ -30,73 +33,65 @@ type TimelineEffectsPort interface {
 	RefreshTimelineProjectionRowsTx(context.Context, pgx.Tx, []uuid.UUID) error
 }
 
-type StoreOption func(*entityStorePorts)
-
-func WithTimelineEffects(effects TimelineEffectsPort) StoreOption {
-	return func(ports *entityStorePorts) {
-		ports.timeline = effects
-	}
-}
-
-func WithLinkEffects(effects LinkEffectsPort) StoreOption {
-	return func(ports *entityStorePorts) {
-		ports.links = effects
-	}
-}
-
-func WithCollaborationIntents(appender collaboration.IntentAppender) StoreOption {
-	return func(ports *entityStorePorts) {
-		ports.collaboration = appender
-	}
-}
-
-func WithAssessmentEffects(effects *assessments.MergeEffects) StoreOption {
-	return func(ports *entityStorePorts) {
-		ports.assessments = entityAssessmentAdapter{effects: effects}
-	}
-}
-
-func WithWorkbookProjection(writer workbookprojection.Writer) StoreOption {
-	return func(ports *entityStorePorts) {
-		ports.projections = writer
-	}
-}
-
-type MentionStore interface {
+type MentionEffectsPort interface {
 	RepointMergedMentionsTx(context.Context, pgx.Tx, mentions.RepointMergedMentionsCommand) (mentions.RepointMergedMentionsResult, error)
 }
 
-func WithMentionStore(store MentionStore) StoreOption {
-	return func(ports *entityStorePorts) {
-		if store != nil {
-			ports.mentions = entityMentionAdapter{store: store}
-		}
-	}
+type StoreDependencies struct {
+	Postgres      postgres.DB
+	Revisions     *revisions.Appender
+	HostIdentity  *hostidentity.MergeCapability
+	Assessments   AssessmentEffectsPort
+	Mentions      MentionEffectsPort
+	Links         LinkEffectsPort
+	Timeline      TimelineEffectsPort
+	Projections   workbookprojection.Writer
+	Collaboration collaboration.IntentAppender
 }
 
-func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOption) *Store {
-	ports := newEntityStorePorts(pool, appender, nil)
-	for _, option := range options {
-		if option != nil {
-			option(&ports)
+func NewStore(dependencies StoreDependencies) (*Store, error) {
+	for _, dependency := range []struct {
+		name  string
+		value any
+	}{
+		{name: "Postgres", value: dependencies.Postgres},
+		{name: "Revisions", value: dependencies.Revisions},
+		{name: "HostIdentity", value: dependencies.HostIdentity},
+		{name: "Assessments", value: dependencies.Assessments},
+		{name: "Mentions", value: dependencies.Mentions},
+		{name: "Links", value: dependencies.Links},
+		{name: "Timeline", value: dependencies.Timeline},
+		{name: "Projections", value: dependencies.Projections},
+		{name: "Collaboration", value: dependencies.Collaboration},
+	} {
+		if isNilStoreDependency(dependency.value) {
+			return nil, fmt.Errorf("compose Merge store: %s is required", dependency.name)
 		}
 	}
-	if ports.assessments == nil {
-		panic("compose entity merge store: assessment effects are required")
-	}
-	if ports.links == nil {
-		panic("compose entity merge store: link effects are required")
-	}
-	if ports.projections == nil {
-		panic("compose entity merge store: workbook projection writer is required")
-	}
-	if ports.mentions == nil {
-		panic("compose entity merge store: mention store is required")
-	}
+	ports := newEntityStorePorts(dependencies.Postgres, dependencies.Revisions, dependencies.Projections)
+	ports.assessments = dependencies.Assessments
+	ports.mentions = entityMentionAdapter{store: dependencies.Mentions}
+	ports.links = dependencies.Links
+	ports.timeline = dependencies.Timeline
+	ports.collaboration = dependencies.Collaboration
 	return &Store{
-		pool:           pool,
-		authStore:      authn.NewStore(pool),
-		incidentAccess: admission.NewChecker(pool),
+		pool:           dependencies.Postgres,
+		authStore:      authn.NewStore(dependencies.Postgres),
+		incidentAccess: admission.NewChecker(dependencies.Postgres),
+		hostIdentity:   dependencies.HostIdentity,
 		ports:          ports,
+	}, nil
+}
+
+func isNilStoreDependency(dependency any) bool {
+	if dependency == nil {
+		return true
+	}
+	value := reflect.ValueOf(dependency)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
 	}
 }
