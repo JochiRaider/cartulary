@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type WorkbookConflictClaims struct {
@@ -82,21 +81,20 @@ func DecodeWorkbookConflictResolveRequest(
 		return WorkbookConflictResolveRequest{}, invalidMutationPayload("resolved_value", "missing_required_field")
 	}
 
-	field, ok := viewschema.LookupField(claims.ViewSchemaID, claims.FieldKey)
-	if !ok || !field.Writable ||
-		(!isEntityDirectPatchField(claims.ViewSchemaID, claims.FieldKey) && !IsAliasCollectionField(claims.FieldKey)) {
+	descriptor, ok := entityFields.lookup(claims.ViewSchemaID, claims.FieldKey)
+	if !ok || !descriptor.owner.Writable || descriptor.patch == entityFieldPatchNone {
 		return WorkbookConflictResolveRequest{}, invalidMutationPayload("field_key", "unsupported_field_key")
 	}
 	change := PatchChange{FieldKey: claims.FieldKey}
-	if IsAliasCollectionField(claims.FieldKey) {
-		actions, ok := decodeAliasPatchActionPayload(claims.FieldKey, resolvedValue)
+	if descriptor.patch == entityFieldPatchCollection {
+		actions, ok := decodeAliasPatchActionPayload(claims.ViewSchemaID, claims.FieldKey, resolvedValue)
 		if !ok {
 			return WorkbookConflictResolveRequest{}, invalidMutationPayload(claims.FieldKey, "invalid_value")
 		}
 		change.CollectionActions = actions
 		request.CanonicalValue = canonicalAliasActions(actions)
 	} else {
-		value, apiErr := decodeEntityPatchValue(claims.FieldKey, field, resolvedValue)
+		value, apiErr := decodeEntityPatchValue(claims.FieldKey, descriptor.owner, resolvedValue)
 		if apiErr != nil {
 			return WorkbookConflictResolveRequest{}, apiErr
 		}

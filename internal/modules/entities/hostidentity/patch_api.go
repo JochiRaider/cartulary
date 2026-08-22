@@ -123,26 +123,27 @@ func decodeEntityPatchChange(viewSchemaID string, raw json.RawMessage) (PatchCha
 	if err := json.Unmarshal(fieldValue, &fieldKey); err != nil {
 		return PatchChange{}, invalidMutationPayload("field_key", "invalid_value")
 	}
-	field, ok := viewschema.LookupField(viewSchemaID, fieldKey)
-	if !ok || !field.Writable || (!isEntityDirectPatchField(viewSchemaID, fieldKey) && !IsAliasCollectionField(fieldKey)) {
+	descriptor, ok := entityFields.lookup(viewSchemaID, fieldKey)
+	if !ok || !descriptor.owner.Writable || descriptor.patch == entityFieldPatchNone {
 		return PatchChange{}, invalidMutationPayload("field_key", "unsupported_field_key")
 	}
+	field := descriptor.owner
 	value, hasValue := object["value"]
 	_, hasActionPayload := object["action_payload"]
 	if hasValue == hasActionPayload {
 		return PatchChange{}, invalidMutationPayload("changes", "invalid_change")
 	}
 	if hasActionPayload {
-		if !IsAliasCollectionField(fieldKey) {
+		if descriptor.patch != entityFieldPatchCollection {
 			return PatchChange{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
-		actions, ok := decodeAliasPatchActionPayload(fieldKey, object["action_payload"])
+		actions, ok := decodeAliasPatchActionPayload(viewSchemaID, fieldKey, object["action_payload"])
 		if !ok {
 			return PatchChange{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		return PatchChange{FieldKey: fieldKey, CollectionActions: actions}, nil
 	}
-	if !hasValue || IsAliasCollectionField(fieldKey) {
+	if !hasValue || descriptor.patch == entityFieldPatchCollection {
 		return PatchChange{}, invalidMutationPayload("value", "missing_required_field")
 	}
 	decoded, apiErr := decodeEntityPatchValue(fieldKey, field, value)
@@ -152,8 +153,9 @@ func decodeEntityPatchChange(viewSchemaID string, raw json.RawMessage) (PatchCha
 	return PatchChange{FieldKey: fieldKey, Value: decoded}, nil
 }
 
-func decodeAliasPatchActionPayload(fieldKey string, value json.RawMessage) ([]CollectionAction, bool) {
-	if !IsAliasCollectionField(fieldKey) {
+func decodeAliasPatchActionPayload(viewSchemaID string, fieldKey string, value json.RawMessage) ([]CollectionAction, bool) {
+	descriptor, ok := entityFields.lookup(viewSchemaID, fieldKey)
+	if !ok || descriptor.patch != entityFieldPatchCollection {
 		return nil, false
 	}
 	var payload struct {
@@ -243,29 +245,6 @@ func canonicalPatchValue(value *string) any {
 
 func isEntityPatchSurface(viewSchemaID string) bool {
 	return viewSchemaID == HostsViewSchemaID || viewSchemaID == IdentitiesViewSchemaID
-}
-
-func isEntityDirectPatchField(viewSchemaID string, fieldKey string) bool {
-	switch viewSchemaID {
-	case HostsViewSchemaID:
-		switch fieldKey {
-		case "host.display_name", "host.hostname", "host.aad_device_id", "host.fqdn",
-			"host.location", "host.os_platform", "host.business_owner", "host.criticality", "host.containment_status":
-			return true
-		default:
-			return false
-		}
-	case IdentitiesViewSchemaID:
-		switch fieldKey {
-		case "identity.display_name", "identity.aad_object_id", "identity.sid", "identity.upn", "identity.email", "identity.sam_account_name",
-			"identity.privilege_level", "identity.mfa_state", "identity.reset_status":
-			return true
-		default:
-			return false
-		}
-	default:
-		return false
-	}
 }
 
 func decodePatchObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {

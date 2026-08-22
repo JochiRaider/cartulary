@@ -1093,7 +1093,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-474`, `AC-480..AC-486`, `AC-545..AC-549`, `AC-551`, `AC-554..AC-556`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-474`, `AC-480..AC-486`, `AC-545..AC-549`, `AC-551`, `AC-554..AC-556`, `AC-558`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -1592,6 +1592,21 @@ These criteria provide direct runtime-family verification for substantive base-p
   attribution and timestamps; Revisions contains no Links field or target
   grammar.
   - Verifies: REQ-02-267..REQ-02-269
+- **AC-558**: Entities boundary evidence proves that every production root
+  export belongs to the adopted HTTP, source-contribution, bundle, subtype,
+  entity-operation, or owner-internal composition whitelist; direct consumers
+  and imports match the closed adopted topology; child packages do not import
+  the root or application assembly to recover dependencies; and every
+  caller-supplied transaction is borrowed without begin, commit, rollback,
+  nesting, or detachment. Timeline retains automatic-resolution policy and
+  transaction ownership while Entities supplies typed source facts and write
+  operations. Cross-owner effects use injected ports; generic application,
+  frontend/grid, private cross-owner SQL/event, package-init registration,
+  mutable-global registry, service-locator, fallback, alias, and dual-dispatch
+  paths are absent. Exact harness accounting, focused and service-backed
+  behavior, generated projections, affected frontend/browser surfaces, and the
+  full repository gate remain owner-conformant.
+  - Verifies: REQ-00-073
 
 ### 9.1B Network Flow Activity Extension Profile criteria
 

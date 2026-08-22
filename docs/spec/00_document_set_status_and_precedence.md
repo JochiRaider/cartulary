@@ -309,8 +309,31 @@ projection, or generated artifact MUST NOT settle such a conflict.
 Profiles: base
 Verified by: AC-552
 
+**REQ-00-073**
+`docs/decisions/entities-module-boundary.md` is an adopted implementation
+architecture decision for the Entities module only. It owns the bounded-root
+responsibility whitelist, direct-consumer and import topology, typed
+cross-owner port boundary, caller-transaction borrowing rule, construction
+rules, and repository-internal compatibility posture named in that decision.
+It MUST NOT redefine public entity routes or payloads, view schemas, query or
+mutation behavior, source records and identifiers, history or rollback
+meaning, Timeline automatic-resolution policy or source transaction,
+Collaboration consequences, portability, recovery, security, or conformance.
+
+Core 01 remains authoritative for application, route, view-schema, query,
+mutation, storage, import, recovery, and portability behavior. Core 02 remains
+authoritative for record, identifier, history, and rollback meaning. Core 03
+remains authoritative for Timeline interaction and Collaboration
+consequences. Core 04 remains authoritative for security and conformance. The
+decision MUST be revised or withdrawn when it conflicts with a later adopted
+behavioral owner; an implementation, tracker, test, contract projection, or
+generated artifact MUST NOT settle such a conflict.
+Profiles: base
+Verified by: AC-558
+
 | Contract family | Primary owner | Allowed secondary sections | Ownership rule | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
+| Entities implementation topology, bounded-root responsibilities, direct-consumer and import boundaries, typed cross-owner ports, caller-transaction borrowing, and repository-internal compatibility posture | `docs/decisions/entities-module-boundary.md` for implementation structure; Core 01 for application and source behavior | Core 02 record/history meaning; Core 03 Timeline and Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The adopted decision owns internal package, constructor, and port topology only. It cannot redefine public entity behavior, source meaning, Timeline policy, history, projections, portability, recovery, or security. | REQ-00-073 | base | AC-558 |
 | Backend Workbook implementation topology, contribution composition, source-adapter placement, and repository-internal compatibility removal | `docs/decisions/workbook-module-boundary.md` for implementation structure; Core 01 for application behavior | Core 02 source/history meaning; Core 03 interaction and Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The adopted decision owns internal package, provider, and constructor structure only. It cannot redefine public Workbook behavior, source state, history, projections, restore results, or security. | REQ-00-072 | base | AC-552 |
 | Revisions implementation topology, source-provider composition, and repository-internal compatibility removal | `docs/decisions/revisions-module-boundary.md` for implementation structure; Core 01 and Core 02 for behavior | Core 03 Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The adopted decision owns internal package and constructor structure only. It cannot redefine source state, retained-history meaning, public contracts, portability, or conformance. | REQ-00-071 | base, incident_portability | AC-529 |
 | Workbook-grid Projections implementation topology and repository-internal compatibility removal | `docs/decisions/projections-module-boundary.md` for implementation structure; Core 01 §8 and §12.2 for behavior | Core 04 §9.1A; Appendix I; implementation guides and trackers | The adopted decision owns exact package and constructor structure only. It cannot redefine projection behavior, storage meaning, source semantics, public contracts, or conformance. | REQ-00-070 | base | AC-539 |

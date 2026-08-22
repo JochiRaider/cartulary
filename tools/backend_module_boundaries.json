@@ -505,6 +505,179 @@
   ],
   "forbidden_go_imports": [
     {
+      "id": "entities-root-direct-consumers",
+      "match_kind": "exact",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/entities"
+      ],
+      "scan_paths": [
+        "internal/app/**",
+        "internal/modules/**"
+      ],
+      "allowed_paths": [
+        "internal/app/incidentportabilityassembly/catalog.go",
+        "internal/app/recoveryassembly/state_catalog.go",
+        "internal/app/revisionassembly/revisions.go",
+        "internal/app/server/runtime_assembly.go"
+      ],
+      "production_only": true
+    },
+    {
+      "id": "entities-child-packages-no-root-import",
+      "match_kind": "exact",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/entities"
+      ],
+      "scan_paths": [
+        "internal/modules/entities/entitycontract/**",
+        "internal/modules/entities/hostidentity/**",
+        "internal/modules/entities/mentions/**",
+        "internal/modules/entities/merge/**",
+        "internal/modules/entities/timelinefacts/**",
+        "internal/modules/entities/workbookprojection/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "entities-child-packages-no-application-assembly",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/app"
+      ],
+      "scan_paths": [
+        "internal/modules/entities/entitycontract/**",
+        "internal/modules/entities/hostidentity/**",
+        "internal/modules/entities/mentions/**",
+        "internal/modules/entities/merge/**",
+        "internal/modules/entities/timelinefacts/**",
+        "internal/modules/entities/workbookprojection/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "entities-no-websocket-implementation",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/platform/ws"
+      ],
+      "scan_paths": [
+        "internal/modules/entities/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "entities-hostidentity-direct-consumers",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+      ],
+      "scan_paths": [
+        "internal/app/**",
+        "internal/modules/**"
+      ],
+      "allowed_paths": [
+        "internal/app/assessmentassembly/**",
+        "internal/app/importassembly/**",
+        "internal/app/projectionassembly/**",
+        "internal/app/server/runtime_assembly.go",
+        "internal/app/timelineassembly/**",
+        "internal/app/workbookassembly/**",
+        "internal/modules/entities/**",
+        "internal/modules/projections/**"
+      ],
+      "production_only": true
+    },
+    {
+      "id": "entities-mentions-direct-consumers",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
+      ],
+      "scan_paths": [
+        "internal/app/**",
+        "internal/modules/**"
+      ],
+      "allowed_paths": [
+        "internal/app/timelineassembly/**",
+        "internal/app/workbookassembly/**",
+        "internal/modules/entities/**",
+        "internal/modules/reporting/export_materializer.go"
+      ],
+      "production_only": true
+    },
+    {
+      "id": "entities-merge-direct-consumers",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/entities/merge"
+      ],
+      "scan_paths": [
+        "internal/app/**",
+        "internal/modules/**"
+      ],
+      "allowed_paths": [
+        "internal/app/entitymergeassembly/**",
+        "internal/app/timelineassembly/**",
+        "internal/modules/entities/**"
+      ],
+      "production_only": true
+    },
+    {
+      "id": "entities-timelinefacts-direct-consumers",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/entities/timelinefacts"
+      ],
+      "scan_paths": [
+        "internal/app/**",
+        "internal/modules/**"
+      ],
+      "allowed_paths": [
+        "internal/app/timelineassembly/**",
+        "internal/modules/entities/**",
+        "internal/modules/timeline/projectionprovider/**"
+      ],
+      "production_only": true
+    },
+    {
+      "id": "entities-workbookprojection-direct-consumers",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+      ],
+      "scan_paths": [
+        "internal/app/**",
+        "internal/modules/**"
+      ],
+      "allowed_paths": [
+        "internal/app/importassembly/**",
+        "internal/app/projectionassembly/**",
+        "internal/app/timelineassembly/**",
+        "internal/app/workbookassembly/**",
+        "internal/modules/entities/**",
+        "internal/modules/projections/**"
+      ],
+      "production_only": true
+    },
+    {
+      "id": "entities-entitycontract-remains-owner-local",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
+      ],
+      "scan_paths": [
+        "internal/app/**",
+        "internal/modules/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/entities/**"
+      ],
+      "production_only": true
+    },
+    {
       "id": "entity-mentions-no-links-implementation",
       "match_kind": "subtree",
       "imports": [
@@ -1018,6 +1191,39 @@
     }
   ],
   "go_import_allowlists": [
+    {
+      "id": "entities-timeline-contract-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/modules/timeline",
+      "scan_paths": ["internal/modules/entities/**"],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects",
+        "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
+      ]
+    },
+    {
+      "id": "entities-root-exact-internal-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
+      "scan_paths": ["internal/modules/entities/*.go"],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/deleterestore",
+        "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/rollbackprovider",
+        "github.com/JochiRaider/cartulary/internal/modules/entities/mentions/rollbackprovider",
+        "github.com/JochiRaider/cartulary/internal/modules/entities/mentions",
+        "github.com/JochiRaider/cartulary/internal/modules/entities/merge",
+        "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport",
+        "github.com/JochiRaider/cartulary/internal/modules/incidentportability",
+        "github.com/JochiRaider/cartulary/internal/modules/incidents/admission",
+        "github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence",
+        "github.com/JochiRaider/cartulary/internal/modules/revisions",
+        "github.com/JochiRaider/cartulary/internal/platform/authn",
+        "github.com/JochiRaider/cartulary/internal/platform/httpapi",
+        "github.com/JochiRaider/cartulary/internal/platform/httpauth"
+      ]
+    },
     {
       "id": "platform-config-kernel-internal-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
@@ -1737,6 +1943,13 @@
     ]
   },
   "forbidden_source_tokens": [
+    {
+      "id": "entities-no-package-init-registration",
+      "tokens": ["func init("],
+      "scan_paths": ["internal/modules/entities/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
     {
       "id": "artifact-mutation-idempotency-lookup-is-centralized",
       "tokens": ["f.idempotency.Get("],

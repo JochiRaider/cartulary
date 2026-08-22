@@ -3,10 +3,14 @@ package hostidentity
 import (
 	"bytes"
 	"encoding/hex"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
@@ -37,7 +41,128 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 	if !bytes.Equal(leftHash, want) {
 		t.Fatalf("create hash = %x, want %x", leftHash, want)
 	}
+
+	t.Run("create-only identifiers remain admitted on Host and Identity create", func(t *testing.T) {
+		host, apiErr := DecodeCreateRequest(HostsViewSchemaID, strings.NewReader(`{
+			"client_txn_id":"txn-host-create-only",
+			"host.aad_device_id":"AAD-DEVICE-CREATE",
+			"host.fqdn":"host.example.test"
+		}`))
+		if apiErr != nil || host.Values["host.aad_device_id"] != "AAD-DEVICE-CREATE" || host.Values["host.fqdn"] != "host.example.test" {
+			t.Fatalf("Host create-only admission mismatch: request=%#v error=%#v", host, apiErr)
+		}
+		identity, apiErr := DecodeCreateRequest(IdentitiesViewSchemaID, strings.NewReader(`{
+			"client_txn_id":"txn-identity-create-only",
+			"identity.aad_object_id":"AAD-OBJECT-CREATE",
+			"identity.sid":"S-1-5-21-100"
+		}`))
+		if apiErr != nil || identity.Values["identity.aad_object_id"] != "AAD-OBJECT-CREATE" || identity.Values["identity.sid"] != "S-1-5-21-100" {
+			t.Fatalf("Identity create-only admission mismatch: request=%#v error=%#v", identity, apiErr)
+		}
+	})
+
+	t.Run("field partitions and materialized row shapes are exact", func(t *testing.T) {
+		cases := []struct {
+			viewSchemaID string
+			createOnly   []string
+			patchable    []string
+			buildRow     func() map[string]any
+		}{
+			{
+				viewSchemaID: HostsViewSchemaID,
+				createOnly:   []string{"host.aad_device_id", "host.fqdn"},
+				patchable: []string{
+					"host.aliases", "host.business_owner", "host.containment_status", "host.criticality",
+					"host.display_name", "host.hostname", "host.location", "host.os_platform",
+				},
+				buildRow: func() map[string]any {
+					return BuildHostRow(HostRecord{
+						RecordID: uuid.MustParse("10000000-0000-4000-8000-000000000001"), RowVersion: 7,
+						DisplayName: "Host Sentinel", AADDeviceID: testStringPointer("AAD-SENTINEL"), FQDN: testStringPointer("sentinel.example.test"),
+						HostState: "canonical", LinkedEventCount: 2, EvidenceCount: 3, Location: nil,
+						UpdatedAt: time.Date(2026, time.August, 21, 12, 0, 0, 0, time.UTC),
+					})
+				},
+			},
+			{
+				viewSchemaID: IdentitiesViewSchemaID,
+				createOnly:   []string{"identity.aad_object_id", "identity.sid"},
+				patchable: []string{
+					"identity.aliases", "identity.display_name", "identity.email", "identity.mfa_state",
+					"identity.privilege_level", "identity.reset_status", "identity.sam_account_name", "identity.upn",
+				},
+				buildRow: func() map[string]any {
+					return BuildIdentityRow(IdentityRecord{
+						RecordID: uuid.MustParse("10000000-0000-4000-8000-000000000002"), RowVersion: 11,
+						DisplayName: "Identity Sentinel", AADObjectID: testStringPointer("AAD-OBJECT-SENTINEL"), SID: testStringPointer("S-1-5-21-200"),
+						IdentityState: "canonical", LinkedEventCount: 4, EvidenceCount: 5, PrivilegeLevel: nil,
+						UpdatedAt: time.Date(2026, time.August, 21, 13, 0, 0, 0, time.UTC),
+					})
+				},
+			},
+		}
+		for _, tc := range cases {
+			t.Run(tc.viewSchemaID, func(t *testing.T) {
+				schema, ok := viewschema.Lookup(tc.viewSchemaID)
+				if !ok {
+					t.Fatalf("missing view schema %s", tc.viewSchemaID)
+				}
+				fields := schema.Fields()
+				if len(fields) != 15 {
+					t.Fatalf("%s field count = %d, want 15", tc.viewSchemaID, len(fields))
+				}
+				var patchable, nonpatchable, createOnly []string
+				for key, field := range fields {
+					if field.Writable {
+						patchable = append(patchable, key)
+					} else {
+						nonpatchable = append(nonpatchable, key)
+					}
+					if field.CreateWritable {
+						createOnly = append(createOnly, key)
+						if field.Writable || field.GridEditable || field.WriteKind != "direct_value" {
+							t.Fatalf("create-only field %s has mismatched flags: %#v", key, field)
+						}
+					}
+				}
+				slices.Sort(patchable)
+				slices.Sort(nonpatchable)
+				slices.Sort(createOnly)
+				if !slices.Equal(patchable, tc.patchable) || len(nonpatchable) != 7 || !slices.Equal(createOnly, tc.createOnly) {
+					t.Fatalf("%s partition mismatch: patchable=%#v nonpatchable=%#v create_only=%#v", tc.viewSchemaID, patchable, nonpatchable, createOnly)
+				}
+
+				row := tc.buildRow()
+				cells := row["cells"].(map[string]any)
+				if len(cells) != 15 || len(row) != 4 || row["record_id"] == nil || row["row_version"] == nil {
+					t.Fatalf("%s row must have exactly 15 cells and root technical members, got %#v", tc.viewSchemaID, row)
+				}
+				for key := range fields {
+					if _, ok := cells[key]; !ok {
+						t.Fatalf("%s materializer omitted %s", tc.viewSchemaID, key)
+					}
+				}
+				for _, key := range []string{"record_id", "row_version"} {
+					if _, leaked := cells[key]; leaked {
+						t.Fatalf("technical member %s must remain outside cells", key)
+					}
+				}
+				prefix := "host"
+				if tc.viewSchemaID == IdentitiesViewSchemaID {
+					prefix = "identity"
+				}
+				for _, key := range []string{prefix + ".aliases", prefix + ".reusable_identifiers"} {
+					collection := cells[key].(map[string]any)["value"].(map[string]any)
+					if collection["kind"] != "collection_value_v1" || collection["ordered"] != false || len(collection["items"].([]map[string]any)) != 0 {
+						t.Fatalf("%s collection shape mismatch: %#v", key, collection)
+					}
+				}
+			})
+		}
+	})
 }
+
+func testStringPointer(value string) *string { return &value }
 
 func TestWorkbookConflictResolveAdmissionAndHashCompatibility(t *testing.T) {
 	claims := WorkbookConflictClaims{
@@ -108,6 +233,30 @@ func TestWorkbookConflictResolveAdmissionRejectsInvalidEntityValues(t *testing.T
 			}(), field: "field_key",
 			body: `{"conflict_token":"opaque","resolution_kind":"use_unsaved","client_txn_id":"txn","resolved_value":1}`,
 		},
+	}
+	for _, createOnly := range []struct {
+		viewSchemaID string
+		fieldKey     string
+	}{
+		{viewSchemaID: HostsViewSchemaID, fieldKey: "host.aad_device_id"},
+		{viewSchemaID: HostsViewSchemaID, fieldKey: "host.fqdn"},
+		{viewSchemaID: IdentitiesViewSchemaID, fieldKey: "identity.aad_object_id"},
+		{viewSchemaID: IdentitiesViewSchemaID, fieldKey: "identity.sid"},
+	} {
+		createOnlyClaims := claims
+		createOnlyClaims.ViewSchemaID = createOnly.viewSchemaID
+		createOnlyClaims.FieldKey = createOnly.fieldKey
+		tests = append(tests, struct {
+			name   string
+			claims WorkbookConflictClaims
+			body   string
+			field  string
+		}{
+			name:   "create-only " + createOnly.fieldKey,
+			claims: createOnlyClaims,
+			field:  "field_key",
+			body:   `{"conflict_token":"opaque","resolution_kind":"use_unsaved","client_txn_id":"txn","resolved_value":{"malformed":true}}`,
+		})
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

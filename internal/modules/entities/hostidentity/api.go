@@ -186,9 +186,9 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 	}
 
 	allowed := map[string]struct{}{"client_txn_id": {}}
-	for fieldKey, field := range schema.Fields() {
-		if field.Writable || field.CreateWritable {
-			allowed[fieldKey] = struct{}{}
+	for _, descriptor := range entityFields.descriptors(viewSchemaID) {
+		if descriptor.participatesInCreate() {
+			allowed[descriptor.fieldKey] = struct{}{}
 		}
 	}
 	for key := range raw {
@@ -206,7 +206,9 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 
 	request.Values = make(map[string]string)
 	request.AliasAdds = make(map[string][]CollectionAction)
-	for fieldKey, field := range schema.Fields() {
+	for _, descriptor := range entityFields.descriptors(viewSchemaID) {
+		fieldKey := descriptor.fieldKey
+		field := descriptor.owner
 		value, ok := raw[fieldKey]
 		if !ok {
 			continue
@@ -214,8 +216,8 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 		if !field.Writable && !field.CreateWritable {
 			return CreateRequest{}, invalidMutationPayload(fieldKey, "readonly_field")
 		}
-		if field.ConflictResolutionClass == "collection_review" {
-			actions, ok := decodeAliasActionPayload(fieldKey, value)
+		if descriptor.patch == entityFieldPatchCollection {
+			actions, ok := decodeAliasActionPayload(viewSchemaID, fieldKey, value)
 			if !ok {
 				return CreateRequest{}, invalidMutationPayload(fieldKey, "invalid_value")
 			}
@@ -303,68 +305,11 @@ func CreateRequestHash(viewSchemaID string, request CreateRequest) []byte {
 }
 
 func BuildHostRow(record HostRecord) map[string]any {
-	row := map[string]any{
-		"record_id":   record.RecordID.String(),
-		"row_version": record.RowVersion,
-		"cells": map[string]any{
-			"host.display_name":  map[string]any{"value": record.DisplayName},
-			"host.aad_device_id": map[string]any{"value": derefString(record.AADDeviceID)},
-			"host.fqdn":          map[string]any{"value": derefString(record.FQDN)},
-			"host.hostname":      map[string]any{"value": derefString(record.Hostname)},
-			"host.aliases":       map[string]any{"value": collectionValue(false, aliasCollectionItems(record.SuggestionOnlyAliases))},
-			"host.reusable_identifiers": map[string]any{
-				"value": collectionValue(false, hostReusableIdentifierCollectionItems(record)),
-			},
-			"host.host_state":         map[string]any{"value": record.HostState},
-			"host.linked_event_count": map[string]any{"value": record.LinkedEventCount},
-			"host.evidence_count":     map[string]any{"value": record.EvidenceCount},
-			"host.location":           map[string]any{"value": derefString(record.Location)},
-			"host.os_platform":        map[string]any{"value": derefString(record.OSPlatform)},
-			"host.business_owner":     map[string]any{"value": derefString(record.BusinessOwner)},
-			"host.criticality":        map[string]any{"value": derefString(record.Criticality)},
-			"host.containment_status": map[string]any{"value": derefString(record.ContainmentStatus)},
-			"host.edited_at":          map[string]any{"value": formatTimestamp(record.UpdatedAt)},
-		},
-	}
-	row["group_values"] = map[string]any{
-		"host.host_state":         record.HostState,
-		"host.criticality":        derefString(record.Criticality),
-		"host.containment_status": derefString(record.ContainmentStatus),
-	}
-	return row
+	return entityFields.buildHostRow(record)
 }
 
 func BuildIdentityRow(record IdentityRecord) map[string]any {
-	row := map[string]any{
-		"record_id":   record.RecordID.String(),
-		"row_version": record.RowVersion,
-		"cells": map[string]any{
-			"identity.display_name":     map[string]any{"value": record.DisplayName},
-			"identity.aad_object_id":    map[string]any{"value": derefString(record.AADObjectID)},
-			"identity.sid":              map[string]any{"value": derefString(record.SID)},
-			"identity.upn":              map[string]any{"value": derefString(record.UPN)},
-			"identity.email":            map[string]any{"value": derefString(record.Email)},
-			"identity.sam_account_name": map[string]any{"value": derefString(record.SamAccountName)},
-			"identity.aliases":          map[string]any{"value": collectionValue(false, aliasCollectionItems(record.SuggestionOnlyAliases))},
-			"identity.reusable_identifiers": map[string]any{
-				"value": collectionValue(false, identityReusableIdentifierCollectionItems(record)),
-			},
-			"identity.identity_state":     map[string]any{"value": record.IdentityState},
-			"identity.linked_event_count": map[string]any{"value": record.LinkedEventCount},
-			"identity.evidence_count":     map[string]any{"value": record.EvidenceCount},
-			"identity.privilege_level":    map[string]any{"value": derefString(record.PrivilegeLevel)},
-			"identity.mfa_state":          map[string]any{"value": derefString(record.MFAState)},
-			"identity.reset_status":       map[string]any{"value": derefString(record.ResetStatus)},
-			"identity.edited_at":          map[string]any{"value": formatTimestamp(record.UpdatedAt)},
-		},
-	}
-	row["group_values"] = map[string]any{
-		"identity.identity_state":  record.IdentityState,
-		"identity.privilege_level": derefString(record.PrivilegeLevel),
-		"identity.mfa_state":       derefString(record.MFAState),
-		"identity.reset_status":    derefString(record.ResetStatus),
-	}
-	return row
+	return entityFields.buildIdentityRow(record)
 }
 
 func BuildMutationPayload(viewSchemaID string, changeSetID uuid.UUID, row map[string]any) map[string]any {
@@ -400,8 +345,9 @@ func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIErr
 	return raw, nil
 }
 
-func decodeAliasActionPayload(fieldKey string, value json.RawMessage) ([]CollectionAction, bool) {
-	if !IsAliasCollectionField(fieldKey) {
+func decodeAliasActionPayload(viewSchemaID string, fieldKey string, value json.RawMessage) ([]CollectionAction, bool) {
+	descriptor, ok := entityFields.lookup(viewSchemaID, fieldKey)
+	if !ok || descriptor.patch != entityFieldPatchCollection {
 		return nil, false
 	}
 
@@ -445,10 +391,6 @@ func decodeAliasActionPayload(fieldKey string, value json.RawMessage) ([]Collect
 		}
 	}
 	return actions, true
-}
-
-func IsAliasCollectionField(fieldKey string) bool {
-	return fieldKey == "host.aliases" || fieldKey == "identity.aliases"
 }
 
 func collectionValue(ordered bool, items []map[string]any) map[string]any {

@@ -1954,6 +1954,17 @@ func startServer(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix stri
 func timelineFacadeWithProjectionFailure(t testing.TB, harness *scenariotest.ServerHarness, fail func(workbookprojection.ProjectionMutation) error) *timeline.Facade {
 	t.Helper()
 
+	return timelineFacadeWithCollaboratorMutation(t, harness, func(collaborators *timeline.Collaborators) {
+		collaborators.Commit.Projection = fakeports.Projection{
+			Delegate:  collaborators.Commit.Projection,
+			FailApply: fail,
+		}
+	})
+}
+
+func timelineFacadeWithCollaboratorMutation(t testing.TB, harness *scenariotest.ServerHarness, mutate func(*timeline.Collaborators)) *timeline.Facade {
+	t.Helper()
+
 	projections := mustBuildProjectionRuntime(t, harness.Pool)
 	conflictTokens := conflicttest.NewCodec("timeline")
 	evidenceOwner := appsupport.NewEvidenceOwnerRuntimeForTimeline(
@@ -1976,9 +1987,8 @@ func timelineFacadeWithProjectionFailure(t testing.TB, harness *scenariotest.Ser
 	if err != nil {
 		t.Fatalf("compose Timeline failure collaborators: %v", err)
 	}
-	collaborators.Commit.Projection = fakeports.Projection{
-		Delegate:  collaborators.Commit.Projection,
-		FailApply: fail,
+	if mutate != nil {
+		mutate(&collaborators)
 	}
 	return timeline.NewFacade(
 		harness.Pool,

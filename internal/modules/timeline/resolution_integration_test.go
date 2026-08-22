@@ -10,10 +10,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
@@ -27,6 +31,98 @@ import (
 	revisiontest "github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
+
+type failAfterMentionInsertPort struct {
+	timeline.MentionPort
+	err error
+}
+
+func (port failAfterMentionInsertPort) InsertTx(ctx context.Context, tx pgx.Tx, params timeline.MentionCreateParams) error {
+	if err := port.MentionPort.InsertTx(ctx, tx, params); err != nil {
+		return err
+	}
+	return port.err
+}
+
+type failAfterLinkUpsertPort struct {
+	timeline.LinkPort
+	err error
+}
+
+func (port failAfterLinkUpsertPort) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command timeline.UpsertLinkCommand) (timeline.RecordLinkCommandResult, error) {
+	result, err := port.LinkPort.UpsertLinkCommandTx(ctx, tx, command)
+	if err != nil {
+		return timeline.RecordLinkCommandResult{}, err
+	}
+	return result, port.err
+}
+
+type failAfterRevisionAppendPort struct {
+	timeline.RevisionPort
+	err error
+}
+
+func (port failAfterRevisionAppendPort) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
+	if err := port.RevisionPort.AppendRecordRevisionTx(ctx, tx, params); err != nil {
+		return err
+	}
+	return port.err
+}
+
+type failAfterEntityProjectionPort struct {
+	timeline.EntityProjectionPort
+	err error
+}
+
+func (port failAfterEntityProjectionPort) RefreshHostTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	if err := port.EntityProjectionPort.RefreshHostTx(ctx, tx, recordID); err != nil {
+		return err
+	}
+	return port.err
+}
+
+func (port failAfterEntityProjectionPort) RefreshIdentityTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	if err := port.EntityProjectionPort.RefreshIdentityTx(ctx, tx, recordID); err != nil {
+		return err
+	}
+	return port.err
+}
+
+type failAfterTimelineProjectionPort struct {
+	workbookprojection.Writer
+	err error
+}
+
+func (port failAfterTimelineProjectionPort) ApplyTimelineMutationTx(ctx context.Context, tx pgx.Tx, mutation workbookprojection.ProjectionMutation) error {
+	if err := port.Writer.ApplyTimelineMutationTx(ctx, tx, mutation); err != nil {
+		return err
+	}
+	return port.err
+}
+
+type failAfterCollaborationPort struct {
+	timeline.CollaborationPort
+	err error
+}
+
+func (port failAfterCollaborationPort) AppendRecordChangeIntentTx(ctx context.Context, tx pgx.Tx, params timeline.RecordChangeIntentParams) error {
+	if err := port.CollaborationPort.AppendRecordChangeIntentTx(ctx, tx, params); err != nil {
+		return err
+	}
+	return port.err
+}
+
+type failAfterIdempotencyPort struct {
+	timeline.IdempotencyPort
+	err error
+}
+
+func (port failAfterIdempotencyPort) InsertRouteIdempotencyPayload(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey, targetUserID *uuid.UUID, requestHash []byte, statusCode int, payload any) error {
+	if err := port.IdempotencyPort.InsertRouteIdempotencyPayload(ctx, tx, key, targetUserID, requestHash, statusCode, payload); err != nil {
+		return err
+	}
+	return port.err
+}
 
 // timeline-resolution / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
 func TestAutoResolutionEligibility_Integration(t *testing.T) {
@@ -48,18 +144,19 @@ func TestAutoResolutionEligibility_Integration(t *testing.T) {
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 
+		patchPayload := timelinetest.TimelineCollectionPatchPayload(
+			timelinetest.FieldHostRefs,
+			1,
+			"txn-entity_linking-u-4-08-host-patch",
+			timelinetest.CollectionActions(
+				timelinetest.AddTokenAction(" vpn   gateway "),
+			),
+		)
 		resp := doJSON(
 			t,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
-			timelinetest.TimelineCollectionPatchPayload(
-				timelinetest.FieldHostRefs,
-				1,
-				"txn-entity_linking-u-4-08-host-patch",
-				timelinetest.CollectionActions(
-					timelinetest.AddTokenAction(" vpn   gateway "),
-				),
-			),
+			patchPayload,
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
@@ -138,6 +235,80 @@ SELECT COUNT(*)
 		}
 		if mention.ResolutionMethod == nil || *mention.ResolutionMethod != linktest.LinkProvenanceAutoMatch {
 			t.Fatalf("expected auto-match resolution_method, got %#v", mention)
+		}
+
+		beforeReplay := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
+		replayResp := doJSON(
+			t,
+			http.MethodPatch,
+			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
+			patchPayload,
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		replayData := requireSuccessEnvelopeWithBody(t, replayResp, http.StatusOK)["data"].(map[string]any)
+		if replayData["change_set_id"] != data["change_set_id"] {
+			t.Fatalf("exact auto-resolution replay must return the original change set: got %#v want %#v", replayData["change_set_id"], data["change_set_id"])
+		}
+		if afterReplay := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID); afterReplay != beforeReplay {
+			t.Fatalf("exact auto-resolution replay must be zero-write: before=%+v after=%+v", beforeReplay, afterReplay)
+		}
+
+		divergentResp := doJSON(
+			t,
+			http.MethodPatch,
+			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
+			timelinetest.TimelineCollectionPatchPayload(
+				timelinetest.FieldHostRefs,
+				1,
+				"txn-entity_linking-u-4-08-host-patch",
+				timelinetest.CollectionActions(timelinetest.AddTokenAction("different alias")),
+			),
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
+		if afterConflict := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID); afterConflict != beforeReplay {
+			t.Fatalf("divergent auto-resolution replay must be zero-write: before=%+v after=%+v", beforeReplay, afterConflict)
+		}
+
+		undoResp := doJSON(
+			t,
+			http.MethodPatch,
+			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
+			timelinetest.TimelineCollectionPatchPayload(
+				timelinetest.FieldHostRefs,
+				2,
+				"txn-entity_linking-u-4-08-host-undo",
+				timelinetest.CollectionActions(map[string]any{
+					"op":       "revert_to_unresolved",
+					"item_ref": item["item_ref"],
+				}),
+			),
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		undoData := requireSuccessEnvelopeWithBody(t, undoResp, http.StatusOK)["data"].(map[string]any)
+		if got := int64(undoData["row"].(map[string]any)["row_version"].(float64)); got != 3 {
+			t.Fatalf("auto-resolution Undo must advance row_version to 3, got %d", got)
+		}
+		undoItem := requireSingleCollectionItem(t, undoData["row"].(map[string]any), timelinetest.FieldHostRefs)
+		if undoItem["item_kind"] != "unresolved_mention" || undoItem["raw_text"] != " vpn   gateway " {
+			t.Fatalf("Undo must restore the authoritative unresolved token, got %#v", undoItem)
+		}
+		undoneMention := lookupMention(t, harness.DB, mentionID)
+		entitytest.RequireMentionStatus(t, undoneMention, entitytest.MentionStatusUnresolved)
+		if undoneMention.ResolvedRecordID != nil || undoneMention.ResolvedByUserID != nil || undoneMention.ResolvedAt != nil || undoneMention.ResolutionMethod != nil {
+			t.Fatalf("Undo must clear active resolution metadata, got %#v", undoneMention)
+		}
+		if got := queryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM record_links
+ WHERE incident_id::text = $1
+   AND src_record_id::text = $2
+   AND deleted_at IS NULL
+`, incidentID, recordID); got != 0 {
+			t.Fatalf("Undo must remove the active auto-match link, got %d", got)
 		}
 	})
 
@@ -280,7 +451,7 @@ SELECT COUNT(*)
 		}
 	})
 
-	t.Run("suppressor and forbidden rewrite tokens remain unresolved", func(t *testing.T) {
+	t.Run("no-match suppressor and forbidden rewrite tokens remain unresolved", func(t *testing.T) {
 		harness := appsupport.StartServer(t, "entity_linking-u-4-08-unresolved")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
@@ -292,7 +463,8 @@ SELECT COUNT(*)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "Host record", "host-record-23")
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "host", "WS-023")
 
-		for _, rawText := range append([]string{}, entitytest.AutoResolutionSuppressedTokens...) {
+		tokenCases := append([]string{"WS-999"}, entitytest.AutoResolutionSuppressedTokens...)
+		for _, rawText := range tokenCases {
 			t.Run(rawText, func(t *testing.T) {
 				created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 					"client_txn_id":                   "txn-entity_linking-u-4-08-unresolved-row-" + strings.ReplaceAll(rawText, " ", "_"),
@@ -463,6 +635,9 @@ SELECT COUNT(*)
 		if len(items) != 2 {
 			t.Fatalf("expected two host ref items after mixed patch, got %#v", items)
 		}
+		if items[0]["raw_text"] != " vpn   gateway " || items[1]["raw_text"] != "WS-023?" {
+			t.Fatalf("mixed auto-resolution batch must preserve submitted action order, got %#v", items)
+		}
 		resolvedItem := requireCollectionItemByRawText(t, items, " vpn   gateway ")
 		unresolvedItem := requireCollectionItemByRawText(t, items, "WS-023?")
 		if resolvedItem["item_kind"] != "resolved_ref" || unresolvedItem["item_kind"] != "unresolved_mention" {
@@ -479,9 +654,292 @@ SELECT COUNT(*)
 		}
 	})
 
-	t.Run("late patch rollback leaves no auto-resolution side effects", func(t *testing.T) {
-		rollbackEnabled := false
-		var rollbackRecordID uuid.UUID
+	t.Run("authorization precedes lifecycle evaluation and both rejection paths are zero-write", func(t *testing.T) {
+		harness := appsupport.StartServer(t, "entity_linking-u-4-08-security-order")
+		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-entity_linking-u-4-08-security-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U408-SECURITY",
+			"title":         "Record relationships Timeline authorization ordering",
+		})
+		incidentID := incident["incident_id"].(string)
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "Security host", "security-host")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "host", "Security Host Alias")
+		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+			"client_txn_id":                   "txn-entity_linking-u-4-08-security-row",
+			"timeline.activity_synopsis_text": "Security ordering row",
+		})
+		recordID := created["row"].(map[string]any)["record_id"].(string)
+		replacement := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+			"client_txn_id":                   "txn-entity_linking-u-4-08-security-replacement",
+			"timeline.activity_synopsis_text": "Security ordering replacement",
+		})
+		replacementID := replacement["row"].(map[string]any)["record_id"].(string)
+		supersedeResp := doJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/records/"+recordID+"/supersede",
+			map[string]any{
+				"base_row_version":      1,
+				"client_txn_id":         "txn-entity_linking-u-4-08-security-supersede",
+				"reason":                "exercise authorization and lifecycle ordering",
+				"replacement_record_id": replacementID,
+			},
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		httptestx.RequireSuccessEnvelope(t, supersedeResp, http.StatusOK)
+
+		viewerEmail := "auto-resolution-viewer@example.test"
+		viewerPassword := "AutoResolutionViewer1!"
+		viewerID := seedLocalUserFlags(t, harness.DB, viewerEmail, "Auto Resolution Viewer", viewerPassword, false, false, true)
+		createMembership(t, harness.Server, incidentID, viewerID, viewerEmail, "viewer", adminLogin)
+		viewerSession, viewerCSRF := loginLocalUser(t, harness.Server, viewerEmail, viewerPassword)
+		before := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
+		viewerTxnID := "txn-entity_linking-u-4-08-security-viewer-patch"
+		viewerResp := doJSON(
+			t,
+			http.MethodPatch,
+			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
+			timelinetest.TimelineCollectionPatchPayload(
+				timelinetest.FieldHostRefs,
+				2,
+				viewerTxnID,
+				timelinetest.CollectionActions(timelinetest.AddTokenAction(" Security   Host Alias ")),
+			),
+			withCookies(viewerSession, viewerCSRF),
+			withHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+		)
+		httptestx.RequireErrorEnvelope(t, viewerResp, http.StatusForbidden, "authorization_denied")
+		if after := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID); after != before {
+			t.Fatalf("authorization rejection must be zero-write: before=%+v after=%+v", before, after)
+		}
+		if got := queryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM route_idempotency
+ WHERE route_key = 'timeline.records.patch'
+   AND actor_user_id::text = $1
+   AND scope_key = $2
+   AND client_txn_id = $3
+`, viewerID, recordID, viewerTxnID); got != 0 {
+			t.Fatalf("authorization rejection must not persist idempotency, got %d", got)
+		}
+
+		adminTxnID := "txn-entity_linking-u-4-08-security-admin-patch"
+		adminResp := doJSON(
+			t,
+			http.MethodPatch,
+			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
+			timelinetest.TimelineCollectionPatchPayload(
+				timelinetest.FieldHostRefs,
+				2,
+				adminTxnID,
+				timelinetest.CollectionActions(timelinetest.AddTokenAction(" Security   Host Alias ")),
+			),
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		httptestx.RequireErrorEnvelope(t, adminResp, http.StatusConflict, "illegal_transition")
+		if after := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID); after != before {
+			t.Fatalf("lifecycle rejection must be zero-write: before=%+v after=%+v", before, after)
+		}
+		if got := queryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id::text = $1`, recordID); got != 0 {
+			t.Fatalf("rejected auto-resolution must not persist mentions, got %d", got)
+		}
+		if got := queryCount(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE src_record_id::text = $1 AND link_type = 'observed_on_host' AND deleted_at IS NULL`, recordID); got != 0 {
+			t.Fatalf("rejected auto-resolution must not persist Host links, got %d", got)
+		}
+		if got := queryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM route_idempotency
+ WHERE route_key = 'timeline.records.patch'
+   AND actor_user_id::text = $1
+   AND scope_key = $2
+   AND client_txn_id = $3
+`, adminID, recordID, adminTxnID); got != 0 {
+			t.Fatalf("lifecycle rejection must not persist idempotency, got %d", got)
+		}
+	})
+
+	t.Run("import create preserves matching tokens as unresolved observations", func(t *testing.T) {
+		harness := appsupport.StartServer(t, "entity_linking-u-4-08-import-ineligible")
+		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-entity_linking-u-4-08-import-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U408-IMPORT",
+			"title":         "Record relationships Timeline import eligibility",
+		})
+		incidentID := mustUUID(t, incident["incident_id"].(string))
+		actorID := mustUUID(t, adminID)
+		seedHostRecord(t, harness.DB, incidentID, actorID, entitytest.CanonicalHostRecordID, "Import host", "import-host")
+		seedEntityAlias(t, harness.DB, incidentID, actorID, entitytest.CanonicalHostRecordID, "host", "Import Host Alias")
+
+		ctx := context.Background()
+		tx, err := harness.Pool.Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin Timeline import transaction: %v", err)
+		}
+		t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
+		now := time.Now().UTC()
+		changeSetID, err := harness.Revisions.Appender().AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
+			IncidentID:  incidentID,
+			ActorUserID: actorID,
+			Source:      "imports.unit.apply",
+			CreatedAt:   now,
+		})
+		if err != nil {
+			t.Fatalf("append Timeline import change set: %v", err)
+		}
+		synopsis := "Imported matching Host token"
+		facade := timelineFacadeWithCollaboratorMutation(t, harness, nil)
+		response, err := facade.CreateImportRowTx(ctx, tx, ownerfacade.ImportOwnerCreateCommand{
+			Request: ownerfacade.ImportOwnerCreateRequest{
+				IncidentID:         incidentID,
+				ActorUserID:        actorID,
+				TargetViewSchemaID: timeline.TimelineViewSchemaID,
+				ImportSessionID:    uuid.New(),
+				ImportUnitID:       uuid.New(),
+				MappingFingerprint: "timeline-auto-resolution-import-ineligible",
+				SourceFileKind:     "csv",
+				ParserProfileID:    "synthetic",
+				ParserVersion:      "1",
+				LocatorKind:        "row",
+				Locator:            "1",
+				ClientTxnID:        "txn-entity_linking-u-4-08-import-row",
+				FieldValues: []ownerfacade.ImportFieldValue{
+					{
+						FieldKey:        "timeline.activity_synopsis_text",
+						NormalizedValue: ownerfacade.ImportScalarValue{Kind: "text", Text: &synopsis},
+					},
+					{
+						FieldKey: timelinetest.FieldHostRefs,
+						NormalizedValue: ownerfacade.ImportScalarValue{
+							Kind: "collection_token",
+							CollectionToken: &ownerfacade.ImportCollectionToken{
+								RawText:        " Import   Host Alias ",
+								NormalizedText: "Import Host Alias",
+							},
+						},
+					},
+				},
+			},
+			ChangeSetID: changeSetID,
+			SequenceNo:  1,
+			Now:         now,
+		})
+		if err != nil {
+			t.Fatalf("create imported Timeline row: %v", err)
+		}
+		item := requireSingleCollectionItem(t, response.RowRefresh, timelinetest.FieldHostRefs)
+		if item["item_kind"] != "unresolved_mention" || item["raw_text"] != " Import   Host Alias " {
+			t.Fatalf("import create must preserve an exact-match token as unresolved, got %#v", item)
+		}
+		var mentionCount int
+		if err := tx.QueryRow(ctx, `
+SELECT COUNT(*)
+  FROM entity_mentions
+ WHERE source_record_id = $1
+   AND resolution_status = 'unresolved'
+   AND resolved_record_id IS NULL
+`, response.RecordID).Scan(&mentionCount); err != nil || mentionCount != 1 {
+			t.Fatalf("import create must persist one unresolved mention in the caller transaction: count=%d err=%v", mentionCount, err)
+		}
+		var linkCount int
+		if err := tx.QueryRow(ctx, `
+SELECT COUNT(*)
+  FROM record_links
+ WHERE incident_id = $1
+   AND src_record_id = $2
+   AND deleted_at IS NULL
+`, incidentID, response.RecordID).Scan(&linkCount); err != nil || linkCount != 0 {
+			t.Fatalf("import create must not auto-create a resolved link: count=%d err=%v", linkCount, err)
+		}
+	})
+
+	t.Run("Entities fact port filters aliases and conceals invalid targets on the borrowed transaction", func(t *testing.T) {
+		harness := appsupport.StartServer(t, "entity_linking-u-4-08-entities-port")
+		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-entity_linking-u-4-08-port-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U408-PORT-A",
+			"title":         "Record relationships Timeline Entities port",
+		})
+		otherIncident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-entity_linking-u-4-08-port-other-incident",
+			"incident_key":  "IR-ENTITY-LINKING-U408-PORT-B",
+			"title":         "Record relationships Timeline Entities port isolation",
+		})
+		incidentID := mustUUID(t, incident["incident_id"].(string))
+		otherIncidentID := mustUUID(t, otherIncident["incident_id"].(string))
+		actorID := mustUUID(t, adminID)
+		activeHostID := uuid.New()
+		mergedHostID := uuid.New()
+		crossIncidentHostID := uuid.New()
+		identityID := uuid.New()
+		seedHostRecord(t, harness.DB, incidentID, actorID, activeHostID, "Active port host", "active-port-host")
+		seedHostRecord(t, harness.DB, incidentID, actorID, mergedHostID, "Merged port host", "merged-port-host")
+		seedHostRecord(t, harness.DB, otherIncidentID, actorID, crossIncidentHostID, "Cross-incident port host", "cross-port-host")
+		seedIdentityRecord(t, harness.DB, incidentID, actorID, identityID, "Port identity", "port@example.test", "port@example.test", "PORT")
+		seedEntityAlias(t, harness.DB, incidentID, actorID, activeHostID, "host", "Active Alias")
+		seedEntityAlias(t, harness.DB, incidentID, actorID, mergedHostID, "host", "Merged Alias")
+		seedEntityAlias(t, harness.DB, otherIncidentID, actorID, crossIncidentHostID, "host", "Cross Alias")
+		if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE hosts
+   SET host_state = 'merged', merged_into_record_id = $1
+ WHERE record_id = $2
+`, activeHostID, mergedHostID); err != nil {
+			t.Fatalf("mark port host merged: %v", err)
+		}
+
+		ctx := context.Background()
+		tx, err := harness.Pool.Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin borrowed Entities fact transaction: %v", err)
+		}
+		t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
+		projections := mustBuildProjectionRuntime(t, harness.Pool)
+		store := hostidentity.NewStore(harness.Pool, harness.Revisions.Appender(), nil, projections.EntityPorts().Writer)
+
+		aliases, err := store.ListEligibleAliasesTx(ctx, tx, incidentID, "host")
+		if err != nil {
+			t.Fatalf("list eligible host aliases: %v", err)
+		}
+		if len(aliases) != 1 || aliases[0].RecordID != activeHostID || aliases[0].RawText != "Active Alias" {
+			t.Fatalf("eligible aliases must contain only same-incident active Host candidates, got %#v", aliases)
+		}
+		unsupportedAliases, err := store.ListEligibleAliasesTx(ctx, tx, incidentID, "indicator")
+		if err != nil || len(unsupportedAliases) != 0 {
+			t.Fatalf("unsupported entity types must have no eligible aliases: aliases=%#v err=%v", unsupportedAliases, err)
+		}
+		if err := store.ValidateResolvedTargetTx(ctx, tx, incidentID, "host", activeHostID); err != nil {
+			t.Fatalf("validate active same-incident Host target: %v", err)
+		}
+		invalidTargets := []struct {
+			name       string
+			entityType string
+			recordID   uuid.UUID
+		}{
+			{name: "cross incident", entityType: "host", recordID: crossIncidentHostID},
+			{name: "wrong entity type", entityType: "host", recordID: identityID},
+			{name: "inactive lifecycle", entityType: "host", recordID: mergedHostID},
+			{name: "missing record", entityType: "host", recordID: uuid.New()},
+			{name: "unsupported entity type", entityType: "indicator", recordID: activeHostID},
+		}
+		for _, target := range invalidTargets {
+			t.Run(target.name, func(t *testing.T) {
+				err := store.ValidateResolvedTargetTx(ctx, tx, incidentID, target.entityType, target.recordID)
+				if !errors.Is(err, hostidentity.ErrHostIdentityRecordNotFound) {
+					t.Fatalf("invalid targets must use the concealed not-found result, got %v", err)
+				}
+			})
+		}
+		var one int
+		if err := tx.QueryRow(ctx, `SELECT 1`).Scan(&one); err != nil || one != 1 {
+			t.Fatalf("Entities fact port must leave the borrowed transaction usable: one=%d err=%v", one, err)
+		}
+	})
+
+	t.Run("every transactional participant rolls back auto-resolution as one unit", func(t *testing.T) {
 		harness := appsupport.StartServer(t, "entity_linking-u-4-08-rollback")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
@@ -492,94 +950,173 @@ SELECT COUNT(*)
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "Gateway record", "gateway-record-03")
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "host", "VPN Gateway")
-		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":                   "txn-entity_linking-u-4-08-rollback-row",
-			"timeline.activity_synopsis_text": "Rollback row",
-		})
-		recordID := created["row"].(map[string]any)["record_id"].(string)
-		rollbackRecordID = mustUUID(t, recordID)
-		rollbackEnabled = true
 
-		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
-		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID)
-		socket := connectTimelineSocket(t, harness.Server, incidentID, adminLogin.sessionCookie.Value)
-		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(mustUUID(t, incidentID), 4)
-		defer unsubscribe()
+		faults := []struct {
+			name   string
+			mutate func(*timeline.Collaborators, error)
+		}{
+			{
+				name: "mention insertion",
+				mutate: func(collaborators *timeline.Collaborators, forced error) {
+					collaborators.Collections.Mentions = failAfterMentionInsertPort{MentionPort: collaborators.Collections.Mentions, err: forced}
+				},
+			},
+			{
+				name: "link upsert",
+				mutate: func(collaborators *timeline.Collaborators, forced error) {
+					collaborators.Collections.Links = failAfterLinkUpsertPort{LinkPort: collaborators.Collections.Links, err: forced}
+				},
+			},
+			{
+				name: "revision append",
+				mutate: func(collaborators *timeline.Collaborators, forced error) {
+					collaborators.Core.Revisions = failAfterRevisionAppendPort{RevisionPort: collaborators.Core.Revisions, err: forced}
+				},
+			},
+			{
+				name: "entity projection refresh",
+				mutate: func(collaborators *timeline.Collaborators, forced error) {
+					collaborators.Commit.EntityProjection = failAfterEntityProjectionPort{EntityProjectionPort: collaborators.Commit.EntityProjection, err: forced}
+				},
+			},
+			{
+				name: "Timeline projection refresh",
+				mutate: func(collaborators *timeline.Collaborators, forced error) {
+					collaborators.Commit.Projection = failAfterTimelineProjectionPort{Writer: collaborators.Commit.Projection, err: forced}
+				},
+			},
+			{
+				name: "collaboration intent publication",
+				mutate: func(collaborators *timeline.Collaborators, forced error) {
+					collaborators.Commit.Collaboration = failAfterCollaborationPort{CollaborationPort: collaborators.Commit.Collaboration, err: forced}
+				},
+			},
+			{
+				name: "idempotency persistence",
+				mutate: func(collaborators *timeline.Collaborators, forced error) {
+					collaborators.Core.Idempotency = failAfterIdempotencyPort{IdempotencyPort: collaborators.Core.Idempotency, err: forced}
+				},
+			},
+		}
 
-		facade := timelineFacadeWithProjectionFailure(t, harness, func(mutation workbookprojection.ProjectionMutation) error {
-			if rollbackEnabled && mutation.RecordID == rollbackRecordID {
-				return errors.New("forced auto-match rollback")
-			}
-			return nil
-		})
-		normalized, ok := fieldnorm.NormalizeMentionToken(" vpn   gateway ")
-		if !ok {
-			t.Fatal("normalize rollback mention token")
-		}
-		request := timeline.PatchRequest{
-			ViewSchemaID:   timeline.TimelineViewSchemaID,
-			BaseRowVersion: 1,
-			ClientTxnID:    "txn-entity_linking-u-4-08-rollback-patch",
-			CanonicalChange: []timeline.PatchChange{{
-				FieldKey: timelinetest.FieldHostRefs,
-				ActionPayload: &timeline.CollectionActionPayload{Actions: []timeline.CollectionAction{{
-					Op:             "add_token",
-					RawText:        " vpn   gateway ",
-					NormalizedText: normalized,
-				}}},
-			}},
-		}
-		_, err := facade.PatchRow(context.Background(), timeline.PatchRowCommand{
-			Actor:       loadTimelineTestUser(t, harness, adminID),
-			RecordID:    rollbackRecordID,
-			Request:     request,
-			RequestHash: timelineadmission.PatchRequestHash(request),
-			RequestID:   "req-entity_linking-u-4-08-rollback-patch",
-			Now:         time.Now().UTC(),
-		})
-		if err == nil || !strings.Contains(err.Error(), "forced auto-match rollback") {
-			t.Fatalf("expected forced projection rollback, got %v", err)
-		}
+		for index, fault := range faults {
+			t.Run(fault.name, func(t *testing.T) {
+				caseKey := strings.NewReplacer(" ", "-", "_", "-").Replace(strings.ToLower(fault.name))
+				created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+					"client_txn_id":                   "txn-entity_linking-u-4-08-rollback-row-" + caseKey,
+					"timeline.activity_synopsis_text": "Rollback row " + fault.name,
+				})
+				recordID := created["row"].(map[string]any)["record_id"].(string)
+				recordUUID := mustUUID(t, recordID)
+				clientTxnID := "txn-entity_linking-u-4-08-rollback-patch-" + caseKey
+				forced := errors.New("forced auto-match rollback after " + fault.name)
 
-		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
-		if afterCounters != beforeCounters {
-			t.Fatalf("rollback must leave counters unchanged, before=%+v after=%+v", beforeCounters, afterCounters)
-		}
-		if got := queryCount(t, harness.DB, `
+				beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
+				beforeCollaboration := queryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM collaboration_event_intents
+ WHERE source_record_id::text = $1
+`, recordID)
+
+				facade := timelineFacadeWithCollaboratorMutation(t, harness, func(collaborators *timeline.Collaborators) {
+					fault.mutate(collaborators, forced)
+				})
+				normalized, ok := fieldnorm.NormalizeMentionToken(" vpn   gateway ")
+				if !ok {
+					t.Fatal("normalize rollback mention token")
+				}
+				request := timeline.PatchRequest{
+					ViewSchemaID:   timeline.TimelineViewSchemaID,
+					BaseRowVersion: 1,
+					ClientTxnID:    clientTxnID,
+					CanonicalChange: []timeline.PatchChange{{
+						FieldKey: timelinetest.FieldHostRefs,
+						ActionPayload: &timeline.CollectionActionPayload{Actions: []timeline.CollectionAction{{
+							Op:             "add_token",
+							RawText:        " vpn   gateway ",
+							NormalizedText: normalized,
+						}}},
+					}},
+				}
+				_, err := facade.PatchRow(context.Background(), timeline.PatchRowCommand{
+					Actor:       loadTimelineTestUser(t, harness, adminID),
+					RecordID:    recordUUID,
+					Request:     request,
+					RequestHash: timelineadmission.PatchRequestHash(request),
+					RequestID:   "req-entity_linking-u-4-08-rollback-patch-" + caseKey,
+					Now:         time.Now().UTC().Add(time.Duration(index) * time.Millisecond),
+				})
+				if err == nil || !strings.Contains(err.Error(), forced.Error()) {
+					t.Fatalf("expected %q, got %v", forced, err)
+				}
+
+				afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
+				if afterCounters != beforeCounters {
+					t.Fatalf("rollback must leave counters unchanged, before=%+v after=%+v", beforeCounters, afterCounters)
+				}
+				if got := queryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM route_idempotency
  WHERE route_key = $1
    AND actor_user_id::text = $2
    AND scope_key = $3
    AND client_txn_id = $4
-`, "timeline.records.patch", adminID, recordID, "txn-entity_linking-u-4-08-rollback-patch"); got != 0 {
-			t.Fatalf("rollback must not persist patch idempotency, got %d rows", got)
-		}
-		if got := queryCount(t, harness.DB, `
+`, "timeline.records.patch", adminID, recordID, clientTxnID); got != 0 {
+					t.Fatalf("rollback must not persist patch idempotency, got %d rows", got)
+				}
+				if got := queryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM entity_mentions
  WHERE source_record_id::text = $1
 `, recordID); got != 0 {
-			t.Fatalf("rollback must not persist auto-match mentions, got %d", got)
-		}
-		if got := queryCount(t, harness.DB, `
+					t.Fatalf("rollback must not persist auto-match mentions, got %d", got)
+				}
+				if got := queryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_links
  WHERE incident_id::text = $1
    AND src_record_id::text = $2
    AND deleted_at IS NULL
 `, incidentID, recordID); got != 0 {
-			t.Fatalf("rollback must not persist active links, got %d", got)
+					t.Fatalf("rollback must not persist active links, got %d", got)
+				}
+				if got := queryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM host_grid_projection
+ WHERE record_id = $1
+`, entitytest.CanonicalHostRecordID); got != 0 {
+					t.Fatalf("rollback must not persist entity projection refresh, got %d", got)
+				}
+				if got := queryCount(t, harness.DB, `
+SELECT row_version
+  FROM timeline_grid_projection
+ WHERE record_id::text = $1
+`, recordID); got != 1 {
+					t.Fatalf("rollback must preserve Timeline projection row_version=1, got %d", got)
+				}
+				if got := queryCount(t, harness.DB, `
+SELECT row_version
+  FROM records
+ WHERE record_id::text = $1
+`, recordID); got != 1 {
+					t.Fatalf("rollback must preserve record envelope row_version=1, got %d", got)
+				}
+				if got := queryCount(t, harness.DB, `
+SELECT row_version
+  FROM timeline_events
+ WHERE record_id::text = $1
+`, recordID); got != 1 {
+					t.Fatalf("rollback must preserve Timeline source row_version=1, got %d", got)
+				}
+				if got := queryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM collaboration_event_intents
+ WHERE source_record_id::text = $1
+`, recordID); got != beforeCollaboration {
+					t.Fatalf("rollback must preserve collaboration intents: got %d want %d", got, beforeCollaboration)
+				}
+			})
 		}
-
-		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
-		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
-		if got := int64(row["row_version"].(float64)); got != 1 {
-			t.Fatalf("rollback must preserve source row_version, got %d", got)
-		}
-		asserttest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
-		expectNoTimelineSocketMessage(t, socket)
 	})
 
 	t.Run("projection rebuild never backfills auto-resolution for previously unresolved tokens", func(t *testing.T) {
@@ -1270,10 +1807,17 @@ func collectionItems(t testing.TB, row map[string]any, fieldKey string) []map[st
 	cells := row["cells"].(map[string]any)
 	cell := cells[fieldKey].(map[string]any)
 	value := cell["value"].(map[string]any)
-	rawItems := value["items"].([]any)
-	items := make([]map[string]any, 0, len(rawItems))
-	for _, rawItem := range rawItems {
-		items = append(items, rawItem.(map[string]any))
+	var items []map[string]any
+	switch rawItems := value["items"].(type) {
+	case []any:
+		items = make([]map[string]any, 0, len(rawItems))
+		for _, rawItem := range rawItems {
+			items = append(items, rawItem.(map[string]any))
+		}
+	case []map[string]any:
+		items = append([]map[string]any(nil), rawItems...)
+	default:
+		t.Fatalf("expected %s collection items, got %#v", fieldKey, value["items"])
 	}
 	return items
 }

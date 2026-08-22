@@ -443,10 +443,11 @@ func TestEntityOriginUpsert_Integration(t *testing.T) {
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":     "txn-entity_linking-i-4-02-host-create",
-				"host.display_name": "Gateway record",
-				"host.hostname":     "GATEWAY-01",
-				"host.fqdn":         "gateway-01.corp.example",
+				"client_txn_id":      "txn-entity_linking-i-4-02-host-create",
+				"host.display_name":  "Gateway record",
+				"host.hostname":      "GATEWAY-01",
+				"host.aad_device_id": "AAD-DEVICE-GATEWAY-01",
+				"host.fqdn":          "gateway-01.corp.example",
 				"host.aliases": map[string]any{
 					"kind": "collection_actions_v1",
 					"actions": []map[string]any{
@@ -467,6 +468,7 @@ func TestEntityOriginUpsert_Integration(t *testing.T) {
 			seedMentionID    sql.NullString
 			displayName      string
 			hostname         string
+			aadDeviceID      sql.NullString
 			fqdn             sql.NullString
 			suggestionAliasN int
 		)
@@ -477,6 +479,7 @@ SELECT
     seed_entity_mention_id::text,
     display_name,
     hostname,
+    aad_device_id,
     fqdn,
     (
       SELECT COUNT(*)
@@ -489,7 +492,7 @@ SELECT
     )
   FROM hosts h
  WHERE record_id = $1
-`, hostRecordID).Scan(&hostState, &entityOrigin, &seedMentionID, &displayName, &hostname, &fqdn, &suggestionAliasN); err != nil {
+`, hostRecordID).Scan(&hostState, &entityOrigin, &seedMentionID, &displayName, &hostname, &aadDeviceID, &fqdn, &suggestionAliasN); err != nil {
 			t.Fatalf("lookup created host row: %v", err)
 		}
 		if hostState != "stub" || entityOrigin != "entity_sheet" || seedMentionID.Valid {
@@ -498,8 +501,8 @@ SELECT
 		requireEntityOriginDefault(t, harness.DB, "hosts", "entity_sheet")
 		requireEntityOriginRejected(t, harness.DB, "hosts", hostRecordID, "direct_create")
 		requireEntityOriginRejected(t, harness.DB, "hosts", hostRecordID, "not_a_core02_origin")
-		if displayName != "Gateway record" || hostname != "GATEWAY-01" || !fqdn.Valid || fqdn.String != "gateway-01.corp.example" || suggestionAliasN != 1 {
-			t.Fatalf("unexpected created host state: display=%q hostname=%q fqdn=%v aliases=%d", displayName, hostname, fqdn, suggestionAliasN)
+		if displayName != "Gateway record" || hostname != "GATEWAY-01" || !aadDeviceID.Valid || aadDeviceID.String != "AAD-DEVICE-GATEWAY-01" || !fqdn.Valid || fqdn.String != "gateway-01.corp.example" || suggestionAliasN != 1 {
+			t.Fatalf("unexpected created host state: display=%q hostname=%q aad=%v fqdn=%v aliases=%d", displayName, hostname, aadDeviceID, fqdn, suggestionAliasN)
 		}
 		if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, hostRecordID); got != 0 {
 			t.Fatalf("entity-origin host create must not synthesize mentions, got %d rows", got)
@@ -513,9 +516,10 @@ SELECT
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":     "txn-entity_linking-i-4-02-host-reuse",
-				"host.display_name": "Gateway reused",
-				"host.fqdn":         "gateway-01.corp.example",
+				"client_txn_id":      "txn-entity_linking-i-4-02-host-reuse",
+				"host.display_name":  "Gateway reused",
+				"host.aad_device_id": "AAD-DEVICE-GATEWAY-01",
+				"host.fqdn":          "gateway-01.corp.example",
 			},
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -607,6 +611,8 @@ SELECT
 			map[string]any{
 				"client_txn_id":             "txn-entity_linking-i-4-02-identity-create",
 				"identity.display_name":     "Alex Analyst",
+				"identity.aad_object_id":    "AAD-OBJECT-ALEX-01",
+				"identity.sid":              "S-1-5-21-401",
 				"identity.email":            "alex.analyst@example.test",
 				"identity.sam_account_name": "ALEXA",
 				"identity.aliases": map[string]any{
@@ -627,6 +633,8 @@ SELECT
 			entityOrigin    string
 			seedMentionID   sql.NullString
 			displayName     string
+			aadObjectID     sql.NullString
+			sid             sql.NullString
 			email           sql.NullString
 			samAccountName  sql.NullString
 			suggestionCount int
@@ -637,6 +645,8 @@ SELECT
     entity_origin,
     seed_entity_mention_id::text,
     display_name,
+    aad_object_id,
+    sid,
     email::text,
     sam_account_name,
     (
@@ -650,7 +660,7 @@ SELECT
     )
   FROM identities i
  WHERE record_id = $1
-`, identityRecordID).Scan(&identityState, &entityOrigin, &seedMentionID, &displayName, &email, &samAccountName, &suggestionCount); err != nil {
+`, identityRecordID).Scan(&identityState, &entityOrigin, &seedMentionID, &displayName, &aadObjectID, &sid, &email, &samAccountName, &suggestionCount); err != nil {
 			t.Fatalf("lookup created identity row: %v", err)
 		}
 		if identityState != "stub" || entityOrigin != "entity_sheet" || seedMentionID.Valid {
@@ -659,8 +669,8 @@ SELECT
 		requireEntityOriginDefault(t, harness.DB, "identities", "entity_sheet")
 		requireEntityOriginRejected(t, harness.DB, "identities", identityRecordID, "direct_create")
 		requireEntityOriginRejected(t, harness.DB, "identities", identityRecordID, "not_a_core02_origin")
-		if displayName != "Alex Analyst" || !email.Valid || email.String != "alex.analyst@example.test" || !samAccountName.Valid || samAccountName.String != "ALEXA" || suggestionCount != 1 {
-			t.Fatalf("unexpected created identity state: display=%q email=%v sam=%v aliases=%d", displayName, email, samAccountName, suggestionCount)
+		if displayName != "Alex Analyst" || !aadObjectID.Valid || aadObjectID.String != "AAD-OBJECT-ALEX-01" || !sid.Valid || sid.String != "S-1-5-21-401" || !email.Valid || email.String != "alex.analyst@example.test" || !samAccountName.Valid || samAccountName.String != "ALEXA" || suggestionCount != 1 {
+			t.Fatalf("unexpected created identity state: display=%q aad=%v sid=%v email=%v sam=%v aliases=%d", displayName, aadObjectID, sid, email, samAccountName, suggestionCount)
 		}
 		if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, identityRecordID); got != 0 {
 			t.Fatalf("entity-origin identity create must not synthesize mentions, got %d rows", got)
@@ -674,9 +684,11 @@ SELECT
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":         "txn-entity_linking-i-4-02-identity-reuse",
-				"identity.display_name": "Alex Analyst Reused",
-				"identity.email":        "alex.analyst@example.test",
+				"client_txn_id":          "txn-entity_linking-i-4-02-identity-reuse",
+				"identity.display_name":  "Alex Analyst Reused",
+				"identity.aad_object_id": "AAD-OBJECT-ALEX-01",
+				"identity.sid":           "S-1-5-21-401",
+				"identity.email":         "alex.analyst@example.test",
 			},
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -968,6 +980,188 @@ UPDATE incident_memberships
 			contractassert.AuthorizationOutcome{Status: http.StatusCreated},
 			contractassert.AuthorizationOutcome{Status: deniedResp.StatusCode, Code: deniedBody["error"].(map[string]any)["code"].(string)},
 		)
+	})
+
+	t.Run("ordinary patch partitions remain complete while create-only identifiers reject without effects", func(t *testing.T) {
+		harness := appsupport.StartServer(t, "entity_linking-i-4-02-create-only-cutover")
+		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-entity-linking-create-only-incident",
+			"incident_key":  "IR-CREATE-ONLY-CUTOVER",
+			"title":         "Entities create-only contract cutover",
+		})
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+		login := appsupport.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
+
+		type entityCase struct {
+			name             string
+			viewSchemaID     string
+			sourceTable      string
+			projectionTable  string
+			createPayload    map[string]any
+			createOnlyValues map[string]string
+			patchChanges     []map[string]any
+		}
+		cases := []entityCase{
+			{
+				name: "Host", viewSchemaID: viewtest.HostsViewSchemaID, sourceTable: "hosts", projectionTable: "host_grid_projection",
+				createPayload: map[string]any{
+					"client_txn_id":      "txn-entity-linking-create-only-host",
+					"host.display_name":  "Create-only Host",
+					"host.hostname":      "CREATE-ONLY-HOST",
+					"host.aad_device_id": "AAD-DEVICE-CREATE-ONLY",
+					"host.fqdn":          "create-only-host.example.test",
+				},
+				createOnlyValues: map[string]string{
+					"host.aad_device_id": "AAD-DEVICE-CREATE-ONLY",
+					"host.fqdn":          "create-only-host.example.test",
+				},
+				patchChanges: []map[string]any{
+					{"field_key": "host.display_name", "value": "Patched Host"},
+					{"field_key": "host.hostname", "value": "PATCHED-HOST"},
+					{"field_key": "host.aliases", "action_payload": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{{"op": "add_alias", "alias_text": "Patched Host Alias"}}}},
+					{"field_key": "host.location", "value": "HQ"},
+					{"field_key": "host.os_platform", "value": "Linux"},
+					{"field_key": "host.business_owner", "value": "Security"},
+					{"field_key": "host.criticality", "value": "high"},
+					{"field_key": "host.containment_status", "value": "contained"},
+				},
+			},
+			{
+				name: "Identity", viewSchemaID: viewtest.IdentitiesViewSchemaID, sourceTable: "identities", projectionTable: "identity_grid_projection",
+				createPayload: map[string]any{
+					"client_txn_id":          "txn-entity-linking-create-only-identity",
+					"identity.display_name":  "Create-only Identity",
+					"identity.upn":           "create-only@example.test",
+					"identity.aad_object_id": "AAD-OBJECT-CREATE-ONLY",
+					"identity.sid":           "S-1-5-21-300",
+				},
+				createOnlyValues: map[string]string{
+					"identity.aad_object_id": "AAD-OBJECT-CREATE-ONLY",
+					"identity.sid":           "S-1-5-21-300",
+				},
+				patchChanges: []map[string]any{
+					{"field_key": "identity.display_name", "value": "Patched Identity"},
+					{"field_key": "identity.upn", "value": "patched@example.test"},
+					{"field_key": "identity.email", "value": "patched.email@example.test"},
+					{"field_key": "identity.sam_account_name", "value": "PATCHED"},
+					{"field_key": "identity.aliases", "action_payload": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{{"op": "add_alias", "alias_text": "Patched Identity Alias"}}}},
+					{"field_key": "identity.privilege_level", "value": "admin"},
+					{"field_key": "identity.mfa_state", "value": "enabled"},
+					{"field_key": "identity.reset_status", "value": "complete"},
+				},
+			},
+		}
+
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				created := createEntityRow(t, harness.Server.HTTP.URL, incidentID.String(), tc.viewSchemaID, login, tc.createPayload, http.StatusCreated)
+				row := created["row"].(map[string]any)
+				recordID := appsupport.MustUUID(t, row["record_id"].(string))
+				cells := row["cells"].(map[string]any)
+				if len(cells) != 15 || len(row) != 4 {
+					t.Fatalf("%s create row must expose exactly 15 cells and root technical members, got %#v", tc.name, row)
+				}
+				for fieldKey, want := range tc.createOnlyValues {
+					if got := cells[fieldKey].(map[string]any)["value"]; got != want {
+						t.Fatalf("%s create-only field %s not visible after create: got %#v want %q", tc.name, fieldKey, got, want)
+					}
+				}
+
+				type patchSnapshot struct {
+					recordVersion     int
+					sourceVersion     int
+					projectionVersion int
+					revisions         int
+					mutations         int
+					collaboration     int
+				}
+				snapshot := func() patchSnapshot {
+					return patchSnapshot{
+						recordVersion:     appsupport.QueryCount(t, harness.DB, `SELECT row_version FROM records WHERE record_id = $1`, recordID),
+						sourceVersion:     appsupport.QueryCount(t, harness.DB, `SELECT row_version FROM `+tc.sourceTable+` WHERE record_id = $1`, recordID),
+						projectionVersion: appsupport.QueryCount(t, harness.DB, `SELECT row_version FROM `+tc.projectionTable+` WHERE record_id = $1`, recordID),
+						revisions:         appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, recordID),
+						mutations:         appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations WHERE target_id = $1`, recordID.String()),
+						collaboration:     appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents WHERE source_record_id = $1`, recordID),
+					}
+				}
+
+				socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), tc.viewSchemaID, adminLogin.SessionCookie.Value)
+				defer socket.Close(1000, "test_complete")
+				beforePatch := snapshot()
+				patchTxnID := "txn-entity-linking-exact-patch-" + strings.ToLower(tc.name)
+				patchResp := appsupport.DoJSON(
+					t,
+					http.MethodPatch,
+					harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(),
+					map[string]any{
+						"view_schema_id":   tc.viewSchemaID,
+						"base_row_version": 1,
+						"client_txn_id":    patchTxnID,
+						"changes":          tc.patchChanges,
+					},
+					appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+					appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+				)
+				patchData := appsupport.RequireSuccessData(t, patchResp, http.StatusOK)
+				if got := int64(patchData["row"].(map[string]any)["row_version"].(float64)); got != 2 {
+					t.Fatalf("%s exact eight-field patch row_version = %d, want 2", tc.name, got)
+				}
+				incidentwstest.RequireRecordChanged(t, socket, recordID.String(), 2)
+				afterPatch := snapshot()
+				if afterPatch.recordVersion != 2 || afterPatch.sourceVersion != 2 || afterPatch.projectionVersion != 2 ||
+					afterPatch.revisions != beforePatch.revisions+1 || afterPatch.mutations <= beforePatch.mutations || afterPatch.collaboration != beforePatch.collaboration+1 {
+					t.Fatalf("%s exact patch effects mismatch: before=%#v after=%#v", tc.name, beforePatch, afterPatch)
+				}
+				if got := appsupport.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM route_idempotency
+ WHERE route_key = 'workbook.records.patch'
+   AND actor_user_id = $1
+   AND scope_key = $2
+   AND client_txn_id = $3
+`, adminUserID, recordID.String(), patchTxnID); got != 1 {
+					t.Fatalf("%s accepted patch idempotency count = %d, want 1", tc.name, got)
+				}
+
+				for fieldKey, originalValue := range tc.createOnlyValues {
+					t.Run("reject "+fieldKey, func(t *testing.T) {
+						beforeReject := snapshot()
+						clientTxnID := "txn-entity-linking-reject-" + strings.NewReplacer(".", "-").Replace(fieldKey)
+						resp := appsupport.DoJSON(
+							t,
+							http.MethodPatch,
+							harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(),
+							map[string]any{
+								"view_schema_id":   tc.viewSchemaID,
+								"base_row_version": 2,
+								"client_txn_id":    clientTxnID,
+								"changes":          []map[string]any{{"field_key": fieldKey, "value": map[string]any{"malformed": true}}},
+							},
+							appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+							appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+						)
+						body := appsupport.RequireErrorBody(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
+						details := body["error"].(map[string]any)["details"].(map[string]any)
+						if details["field"] != "field_key" || details["reason_code"] != "unsupported_field_key" {
+							t.Fatalf("%s must reject before value interpretation with canonical details, got %#v", fieldKey, details)
+						}
+						if afterReject := snapshot(); afterReject != beforeReject {
+							t.Fatalf("%s rejection must have zero durable effects: before=%#v after=%#v", fieldKey, beforeReject, afterReject)
+						}
+						if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'workbook.records.patch' AND actor_user_id = $1 AND scope_key = $2 AND client_txn_id = $3`, adminUserID, recordID.String(), clientTxnID); got != 0 {
+							t.Fatalf("%s rejection must not persist idempotency, got %d", fieldKey, got)
+						}
+						current := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), tc.viewSchemaID, login), recordID.String())
+						if got := current["cells"].(map[string]any)[fieldKey].(map[string]any)["value"]; got != originalValue {
+							t.Fatalf("%s rejection changed the create-only value: got %#v want %q", fieldKey, got, originalValue)
+						}
+					})
+				}
+				incidentwstest.ExpectNoSocketMessage(t, socket)
+			})
+		}
 	})
 }
 

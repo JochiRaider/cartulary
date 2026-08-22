@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:b03f52a155897f6535d03858bb7b9e591f8ffe459f8782ad9371b280f6aaca30",
+  "input_digest": "sha256:f440993e66bb74e1b70dac89f61519fd68d40c8e61c6e1166e6116f953c7dd4e",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -347,12 +347,12 @@
     {
       "path": "contracts/view-schemas/cartulary.view.hosts.v1.json",
       "role": "performance_fixture_source_contract",
-      "hash": "sha256:5bca77d20f569ec7a55e50559c45da9bb313ed82a6c1bdd32389d90ca286dc93"
+      "hash": "sha256:a6160a29953a84d2133b7ee686e923a3cb73431b28fbfd80c3d105d49640215f"
     },
     {
       "path": "contracts/view-schemas/cartulary.view.identities.v1.json",
       "role": "performance_fixture_source_contract",
-      "hash": "sha256:02c6150e9c1d257eef60007be7a2984bb377e93140216621a08d4084c1d906f9"
+      "hash": "sha256:84707207d620c529bb433baa8dc254e43bbc2ee5c08d37ec596d360d976ee2c2"
     },
     {
       "path": "contracts/view-schemas/cartulary.view.timeline.v2.json",
@@ -977,7 +977,7 @@
     {
       "path": "tools/test_families/module.entities.json",
       "role": "test_family_manifest",
-      "hash": "sha256:aa498075ad82cbfdf241ee52a32bd579b229b44ae3c051f2f52c3e543848a3d7"
+      "hash": "sha256:40ef6593dbb3d12b37d2026c37c38fb22456ecfa0e162d2c6329e0188f8abee8"
     },
     {
       "path": "tools/test_families/module.evidence.json",

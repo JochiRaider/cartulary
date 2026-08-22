@@ -42,7 +42,7 @@ func TestAutoResolutionEligibility_Unit(t *testing.T) {
 	})
 
 	t.Run("suppressor and forbidden rewrite tokens remain valid submitted tokens", func(t *testing.T) {
-		tokenCases := append([]string{}, entitytest.AutoResolutionSuppressedTokens...)
+		tokenCases := append([]string{"WS-999"}, entitytest.AutoResolutionSuppressedTokens...)
 		for _, rawText := range tokenCases {
 			t.Run(rawText, func(t *testing.T) {
 				payload := timelinetest.TimelineCollectionPatchPayload(
@@ -68,6 +68,33 @@ func TestAutoResolutionEligibility_Unit(t *testing.T) {
 				}
 			})
 		}
+	})
+
+	t.Run("batch action admission preserves submitted order and per-token normalization", func(t *testing.T) {
+		payload := timelinetest.TimelineCollectionPatchPayload(
+			timelinetest.FieldHostRefs,
+			7,
+			"txn-entity_linking-u-4-08-batch-order",
+			timelinetest.CollectionActions(
+				timelinetest.AddTokenAction(" vpn   gateway "),
+				timelinetest.AddTokenAction("WS-023?"),
+			),
+		)
+		data, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("marshal Record relationships batch payload: %v", err)
+		}
+
+		request, apiErr := timelineadmission.DecodeTimelinePatchRequest(bytes.NewReader(data))
+		if apiErr != nil {
+			t.Fatalf("decode Record relationships batch payload: %#v", apiErr)
+		}
+		actions := request.CanonicalChange[0].ActionPayload.Actions
+		if len(actions) != 2 || actions[0].RawText != " vpn   gateway " || actions[1].RawText != "WS-023?" {
+			t.Fatalf("batch admission must preserve submitted order and raw text, got %#v", actions)
+		}
+		contractassert.RequireWritableStringNormalization(t, actions[0].NormalizedText, "vpn gateway")
+		contractassert.RequireWritableStringNormalization(t, actions[1].NormalizedText, "WS-023?")
 	})
 }
 

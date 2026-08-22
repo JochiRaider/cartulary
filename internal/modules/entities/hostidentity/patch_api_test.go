@@ -1,6 +1,8 @@
 package hostidentity
 
 import (
+	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -33,9 +35,119 @@ func TestPatchRequestDecodeSortsAndHashesEntityChanges(t *testing.T) {
 	if hash := PatchRequestHash(request); len(hash) != 32 {
 		t.Fatalf("unexpected hash length: %d", len(hash))
 	}
+
+	t.Run("Host and Identity accept exactly eight ordinary patch fields", func(t *testing.T) {
+		cases := []struct {
+			viewSchemaID string
+			fields       []string
+		}{
+			{
+				viewSchemaID: HostsViewSchemaID,
+				fields: []string{
+					"host.aliases", "host.business_owner", "host.containment_status", "host.criticality",
+					"host.display_name", "host.hostname", "host.location", "host.os_platform",
+				},
+			},
+			{
+				viewSchemaID: IdentitiesViewSchemaID,
+				fields: []string{
+					"identity.aliases", "identity.display_name", "identity.email", "identity.mfa_state",
+					"identity.privilege_level", "identity.reset_status", "identity.sam_account_name", "identity.upn",
+				},
+			},
+		}
+		for _, tc := range cases {
+			t.Run(tc.viewSchemaID, func(t *testing.T) {
+				changes := make([]map[string]any, 0, len(tc.fields))
+				for _, fieldKey := range tc.fields {
+					change := map[string]any{"field_key": fieldKey, "value": "sentinel-" + fieldKey}
+					if strings.HasSuffix(fieldKey, ".aliases") {
+						change = map[string]any{
+							"field_key": fieldKey,
+							"action_payload": map[string]any{
+								"kind":    "collection_actions_v1",
+								"actions": []map[string]any{{"op": "add_alias", "alias_text": "Sentinel Alias"}},
+							},
+						}
+					}
+					changes = append(changes, change)
+				}
+				payload := map[string]any{
+					"view_schema_id":   tc.viewSchemaID,
+					"base_row_version": 3,
+					"client_txn_id":    "txn-exact-patch-partition",
+					"changes":          changes,
+				}
+				data, err := json.Marshal(payload)
+				if err != nil {
+					t.Fatalf("marshal exact patch partition: %v", err)
+				}
+				decoded, apiErr := DecodePatchRequest(strings.NewReader(string(data)))
+				if apiErr != nil || len(decoded.Changes) != 8 {
+					t.Fatalf("decode exact patch partition: request=%#v error=%#v", decoded, apiErr)
+				}
+				gotKeys := make([]string, 0, len(decoded.Changes))
+				for _, change := range decoded.Changes {
+					gotKeys = append(gotKeys, change.FieldKey)
+				}
+				if !slices.Equal(gotKeys, tc.fields) {
+					t.Fatalf("accepted patch partition mismatch: got %#v want %#v", gotKeys, tc.fields)
+				}
+
+				reversed := append([]map[string]any(nil), changes...)
+				slices.Reverse(reversed)
+				payload["changes"] = reversed
+				reversedData, err := json.Marshal(payload)
+				if err != nil {
+					t.Fatalf("marshal reversed patch partition: %v", err)
+				}
+				reordered, apiErr := DecodePatchRequest(strings.NewReader(string(reversedData)))
+				if apiErr != nil || !slices.Equal(PatchRequestHash(decoded), PatchRequestHash(reordered)) {
+					t.Fatalf("patch hash must be independent of submitted field order: request=%#v error=%#v", reordered, apiErr)
+				}
+			})
+		}
+	})
 }
 
 func TestPatchRequestDecodeRejectsUnsupportedEntityChanges(t *testing.T) {
+	nonpatchable := map[string][]string{
+		HostsViewSchemaID: {
+			"host.aad_device_id", "host.edited_at", "host.evidence_count", "host.fqdn",
+			"host.host_state", "host.linked_event_count", "host.reusable_identifiers",
+		},
+		IdentitiesViewSchemaID: {
+			"identity.aad_object_id", "identity.edited_at", "identity.evidence_count", "identity.identity_state",
+			"identity.linked_event_count", "identity.reusable_identifiers", "identity.sid",
+		},
+	}
+	for viewSchemaID, fieldKeys := range nonpatchable {
+		if len(fieldKeys) != 7 {
+			t.Fatalf("%s nonpatchable field count = %d, want 7", viewSchemaID, len(fieldKeys))
+		}
+		for _, fieldKey := range fieldKeys {
+			t.Run(fieldKey, func(t *testing.T) {
+				payload := map[string]any{
+					"view_schema_id":   viewSchemaID,
+					"base_row_version": 3,
+					"client_txn_id":    "txn-reject-" + fieldKey,
+					"changes": []map[string]any{{
+						"field_key": fieldKey,
+						"value":     map[string]any{"malformed": true},
+					}},
+				}
+				data, err := json.Marshal(payload)
+				if err != nil {
+					t.Fatalf("marshal nonpatchable field: %v", err)
+				}
+				_, apiErr := DecodePatchRequest(strings.NewReader(string(data)))
+				if apiErr == nil || apiErr.Code != "invalid_mutation_payload" || apiErr.Details["field"] != "field_key" || apiErr.Details["reason_code"] != "unsupported_field_key" {
+					t.Fatalf("nonpatchable field must reject before value interpretation, got %#v", apiErr)
+				}
+			})
+		}
+	}
+
 	tests := []struct {
 		name       string
 		body       string

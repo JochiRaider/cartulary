@@ -1,10 +1,14 @@
 package entities
 
 import (
+	"encoding/json"
+	"go/ast"
+	"go/build"
 	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -14,11 +18,11 @@ const entitiesRepoImportPrefix = "github.com/JochiRaider/cartulary/"
 
 func TestEntitiesProductionImportBoundaries(t *testing.T) {
 	allowedSiblingImports := map[string]map[string]bool{
-		entitiesRepoImportPrefix + "internal/modules/collaboration": {
-			"routes.go": true,
+		entitiesRepoImportPrefix + "internal/modules/entities/hostidentity/deleterestore": {
+			"revision_provider_contribution.go": true,
 		},
-		entitiesRepoImportPrefix + "internal/modules/entities/entitycontract": {
-			"routes.go": true,
+		entitiesRepoImportPrefix + "internal/modules/entities/hostidentity/rollbackprovider": {
+			"revision_provider_contribution.go": true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/entities/merge": {
 			"http_helpers.go": true,
@@ -27,11 +31,23 @@ func TestEntitiesProductionImportBoundaries(t *testing.T) {
 		entitiesRepoImportPrefix + "internal/modules/entities/mentions": {
 			"routes.go": true,
 		},
-		entitiesRepoImportPrefix + "internal/modules/incidents": {
-			"routes.go": true,
+		entitiesRepoImportPrefix + "internal/modules/entities/mentions/rollbackprovider": {
+			"revision_provider_contribution.go": true,
+		},
+		entitiesRepoImportPrefix + "internal/modules/incidentbundles/sourceport": {
+			"incident_bundle_source_port.go": true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/incidentportability": {
 			"incident_bundle_portability.go": true,
+		},
+		entitiesRepoImportPrefix + "internal/modules/incidents/admission": {
+			"routes.go": true,
+		},
+		entitiesRepoImportPrefix + "internal/modules/records/subtypepresence": {
+			"incident_bundle_subtype_presence.go": true,
+		},
+		entitiesRepoImportPrefix + "internal/modules/revisions": {
+			"revision_provider_contribution.go": true,
 		},
 	}
 
@@ -57,6 +73,10 @@ func TestEntitiesProductionImportBoundaries(t *testing.T) {
 			}
 		}
 	}
+
+	t.Run("active tests have one exact owner selector", func(t *testing.T) {
+		entitiesReconcileExactTestSelectors(t)
+	})
 }
 
 func TestEntitiesDoNotRegisterWorkbookRowCreateRoutes(t *testing.T) {
@@ -106,10 +126,18 @@ func TestEntitiesRoutesUseCollaborationPublisher(t *testing.T) {
 }
 
 func TestEntitiesRootDoesNotImportHostIdentity(t *testing.T) {
-	for _, fileName := range []string{"routes.go", "http_helpers.go"} {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("read entities package directory: %v", err)
+	}
+	for _, entry := range entries {
+		fileName := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(fileName, ".go") || strings.HasSuffix(fileName, "_test.go") {
+			continue
+		}
 		for _, importPath := range entitiesProductionImports(t, fileName) {
 			if importPath == entitiesRepoImportPrefix+"internal/modules/entities/hostidentity" {
-				t.Fatalf("%s imports hostidentity; root entities must stay route composition only", fileName)
+				t.Fatalf("%s imports the hostidentity application surface; root imports must remain contribution-specific", fileName)
 			}
 		}
 	}
@@ -145,7 +173,7 @@ func TestMentionsUseCommandLevelTimelineEffectsPort(t *testing.T) {
 		t.Fatalf("read mentions/ports.go: %v", err)
 	}
 	content := string(body)
-	if !strings.Contains(content, "type timelineEffectsPort interface") {
+	if !strings.Contains(content, "type TimelineEffectsPort interface") {
 		t.Fatalf("mentions ports must expose command-level timelineEffectsPort")
 	}
 	for _, disallowed := range []string{
@@ -184,5 +212,115 @@ func entitiesAllowedFileNames(files map[string]bool) []string {
 	for name := range files {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return names
+}
+
+type entitiesTestFamilyManifest struct {
+	Rows []struct {
+		Runner   string `json:"runner"`
+		Selector struct {
+			Package string   `json:"package"`
+			Tests   []string `json:"tests"`
+		} `json:"selector"`
+	} `json:"rows"`
+}
+
+func entitiesReconcileExactTestSelectors(t testing.TB) {
+	t.Helper()
+
+	discovered := map[string]bool{}
+	err := filepath.WalkDir(".", func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), "_test.go") {
+			return nil
+		}
+		active, err := build.Default.MatchFile(filepath.Dir(path), entry.Name())
+		if err != nil {
+			return err
+		}
+		if !active {
+			return nil
+		}
+		parsed, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			return err
+		}
+		packagePath := "./internal/modules/entities"
+		if dir := filepath.ToSlash(filepath.Dir(path)); dir != "." {
+			packagePath += "/" + dir
+		}
+		for _, declaration := range parsed.Decls {
+			function, ok := declaration.(*ast.FuncDecl)
+			if !ok || function.Recv != nil || !entitiesIsTopLevelTestName(function.Name.Name) {
+				continue
+			}
+			discovered[packagePath+"\x00"+function.Name.Name] = true
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("discover active entities tests: %v", err)
+	}
+
+	manifestPath := filepath.Join("..", "..", "..", "tools", "test_families", "module.entities.json")
+	body, err := os.ReadFile(filepath.Clean(manifestPath))
+	if err != nil {
+		t.Fatalf("read entities test-family manifest: %v", err)
+	}
+	var manifest entitiesTestFamilyManifest
+	if err := json.Unmarshal(body, &manifest); err != nil {
+		t.Fatalf("decode entities test-family manifest: %v", err)
+	}
+
+	selected := map[string]int{}
+	for _, row := range manifest.Rows {
+		if row.Runner != "go" || (row.Selector.Package != "./internal/modules/entities" &&
+			!strings.HasPrefix(row.Selector.Package, "./internal/modules/entities/")) {
+			continue
+		}
+		for _, testName := range row.Selector.Tests {
+			selected[row.Selector.Package+"\x00"+testName]++
+		}
+	}
+
+	var anomalies []string
+	for key := range discovered {
+		switch selected[key] {
+		case 0:
+			anomalies = append(anomalies, "missing exact selector: "+entitiesDisplayTestKey(key))
+		case 1:
+		default:
+			anomalies = append(anomalies, "duplicate exact selector: "+entitiesDisplayTestKey(key))
+		}
+	}
+	for key, count := range selected {
+		if !discovered[key] {
+			anomalies = append(anomalies, "stale or inactive selector: "+entitiesDisplayTestKey(key))
+		} else if count > 1 {
+			anomalies = append(anomalies, "selector appears more than once: "+entitiesDisplayTestKey(key))
+		}
+	}
+	sort.Strings(anomalies)
+	if len(anomalies) > 0 {
+		t.Fatalf("entities exact-selector reconciliation failed (discovered=%d selected=%d):\n%s",
+			len(discovered), len(selected), strings.Join(anomalies, "\n"))
+	}
+	if len(discovered) != len(selected) {
+		t.Fatalf("entities exact-selector count mismatch: discovered=%d selected=%d", len(discovered), len(selected))
+	}
+}
+
+func entitiesIsTopLevelTestName(name string) bool {
+	if !strings.HasPrefix(name, "Test") || len(name) == len("Test") {
+		return false
+	}
+	next := name[len("Test")]
+	return next < 'a' || next > 'z'
+}
+
+func entitiesDisplayTestKey(key string) string {
+	return strings.Replace(key, "\x00", "::", 1)
 }

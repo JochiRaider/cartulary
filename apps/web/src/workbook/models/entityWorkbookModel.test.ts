@@ -33,6 +33,32 @@ function aliasItem(itemId: string, aliasText: string) {
 }
 
 describe("entityWorkbookModel", () => {
+  it("keeps create-only entity identifiers stable and non-grid-editable", () => {
+    const cases = [
+      {
+        viewSchemaId: hostsViewSchemaId,
+        fieldKeys: ["host.aad_device_id", "host.fqdn"],
+      },
+      {
+        viewSchemaId: identitiesViewSchemaId,
+        fieldKeys: ["identity.aad_object_id", "identity.sid"],
+      },
+    ] as const;
+
+    for (const contractCase of cases) {
+      const contract = requireViewContract(contractCase.viewSchemaId);
+      expect(contract.fields).toHaveLength(15);
+      for (const fieldKey of contractCase.fieldKeys) {
+        expect(contract.fieldMap[fieldKey]).toMatchObject({
+          fieldKey,
+          createWritable: true,
+          gridEditable: false,
+          writeKind: "direct_value",
+        });
+      }
+    }
+  });
+
   it("normalizes host and identity rows with label fallbacks, aliases, identifiers, and counts", () => {
     const host = entityRowFromApi(
       entityRow("host-1", {

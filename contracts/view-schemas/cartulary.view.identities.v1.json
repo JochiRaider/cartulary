@@ -535,7 +535,7 @@
       "groupable": false,
       "read_kind": "text",
       "write_kind": "direct_value",
-      "grid_editable": true,
+      "grid_editable": false,
       "conflict_resolution_class": "atomic_replace",
       "entity_binding_mode": "entity_origin",
       "string_contract_id": null,
@@ -543,8 +543,9 @@
       "direct_reference_contract_id": null,
       "clearable": false,
       "enum_values": null,
-      "writable": true,
+      "writable": false,
       "read_model": "aad_object_id",
+      "create_writable": true,
       "write_target": "identities.aad_object_id"
     },
     {
@@ -557,7 +558,7 @@
       "groupable": false,
       "read_kind": "text",
       "write_kind": "direct_value",
-      "grid_editable": true,
+      "grid_editable": false,
       "conflict_resolution_class": "atomic_replace",
       "entity_binding_mode": "entity_origin",
       "string_contract_id": null,
@@ -565,8 +566,9 @@
       "direct_reference_contract_id": null,
       "clearable": false,
       "enum_values": null,
-      "writable": true,
+      "writable": false,
       "read_model": "sid",
+      "create_writable": true,
       "write_target": "identities.sid"
     },
     {

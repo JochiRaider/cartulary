@@ -135,71 +135,15 @@ func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserR
 	changedFields := make([]string, 0, len(request.Changes))
 	aliasMutations := make([]AliasAppliedMutation, 0)
 	for _, change := range request.Changes {
-		if change.CollectionActions != nil {
-			if change.FieldKey != "host.aliases" {
-				return PatchMutationResult{}, ErrInvalidAliasReference
-			}
-			applied, err := applyEntityAliasActionsTx(ctx, tx, meta.IncidentID, recordID, "host", change.CollectionActions, actor.ID, now)
-			if err != nil {
-				return PatchMutationResult{}, err
-			}
-			if len(applied) > 0 {
-				aliasMutations = append(aliasMutations, applied...)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-			continue
+		changed, applied, err := entityFields.applyHostPatch(
+			ctx, tx, meta.IncidentID, recordID, actor.ID, now, &next, change,
+		)
+		if err != nil {
+			return PatchMutationResult{}, err
 		}
-		switch change.FieldKey {
-		case "host.display_name":
-			if change.Value == nil {
-				return PatchMutationResult{}, ErrNoEffectivePatchChange
-			}
-			if next.DisplayName != *change.Value {
-				next.DisplayName = *change.Value
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "host.hostname":
-			if !stringPointersEqual(next.Hostname, change.Value) {
-				next.Hostname = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "host.aad_device_id":
-			if !stringPointersEqual(next.AADDeviceID, change.Value) {
-				next.AADDeviceID = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "host.fqdn":
-			if !stringPointersEqual(next.FQDN, change.Value) {
-				next.FQDN = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "host.location":
-			if !stringPointersEqual(next.Location, change.Value) {
-				next.Location = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "host.os_platform":
-			if !stringPointersEqual(next.OSPlatform, change.Value) {
-				next.OSPlatform = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "host.business_owner":
-			if !stringPointersEqual(next.BusinessOwner, change.Value) {
-				next.BusinessOwner = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "host.criticality":
-			if !stringPointersEqual(next.Criticality, change.Value) {
-				next.Criticality = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "host.containment_status":
-			if !stringPointersEqual(next.ContainmentStatus, change.Value) {
-				next.ContainmentStatus = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		default:
-			return PatchMutationResult{}, ErrNoEffectivePatchChange
+		if changed {
+			changedFields = append(changedFields, change.FieldKey)
+			aliasMutations = append(aliasMutations, applied...)
 		}
 	}
 	if len(changedFields) == 0 {
@@ -245,71 +189,15 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 	changedFields := make([]string, 0, len(request.Changes))
 	aliasMutations := make([]AliasAppliedMutation, 0)
 	for _, change := range request.Changes {
-		if change.CollectionActions != nil {
-			if change.FieldKey != "identity.aliases" {
-				return PatchMutationResult{}, ErrInvalidAliasReference
-			}
-			applied, err := applyEntityAliasActionsTx(ctx, tx, meta.IncidentID, recordID, "identity", change.CollectionActions, actor.ID, now)
-			if err != nil {
-				return PatchMutationResult{}, err
-			}
-			if len(applied) > 0 {
-				aliasMutations = append(aliasMutations, applied...)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-			continue
+		changed, applied, err := entityFields.applyIdentityPatch(
+			ctx, tx, meta.IncidentID, recordID, actor.ID, now, &next, change,
+		)
+		if err != nil {
+			return PatchMutationResult{}, err
 		}
-		switch change.FieldKey {
-		case "identity.display_name":
-			if change.Value == nil {
-				return PatchMutationResult{}, ErrNoEffectivePatchChange
-			}
-			if next.DisplayName != *change.Value {
-				next.DisplayName = *change.Value
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "identity.aad_object_id":
-			if !stringPointersEqual(next.AADObjectID, change.Value) {
-				next.AADObjectID = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "identity.sid":
-			if !stringPointersEqual(next.SID, change.Value) {
-				next.SID = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "identity.upn":
-			if !stringPointersEqual(next.UPN, change.Value) {
-				next.UPN = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "identity.email":
-			if !stringPointersEqual(next.Email, change.Value) {
-				next.Email = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "identity.sam_account_name":
-			if !stringPointersEqual(next.SamAccountName, change.Value) {
-				next.SamAccountName = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "identity.privilege_level":
-			if !stringPointersEqual(next.PrivilegeLevel, change.Value) {
-				next.PrivilegeLevel = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "identity.mfa_state":
-			if !stringPointersEqual(next.MFAState, change.Value) {
-				next.MFAState = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		case "identity.reset_status":
-			if !stringPointersEqual(next.ResetStatus, change.Value) {
-				next.ResetStatus = cloneStringPointer(change.Value)
-				changedFields = append(changedFields, change.FieldKey)
-			}
-		default:
-			return PatchMutationResult{}, ErrNoEffectivePatchChange
+		if changed {
+			changedFields = append(changedFields, change.FieldKey)
+			aliasMutations = append(aliasMutations, applied...)
 		}
 	}
 	if len(changedFields) == 0 {
