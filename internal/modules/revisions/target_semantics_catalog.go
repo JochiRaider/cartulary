@@ -17,6 +17,7 @@ type compiledTargetSemantics struct {
 	dispatchClass       rollbackcontract.DispatchClass
 	admittedRecordTypes []string
 	history             HistoryFacet
+	historyValidator    HistoryValidator
 	rowProviders        map[string]rollbackcontract.RowSourceProvider
 	nonRowProvider      rollbackcontract.NonRowTargetProvider
 }

@@ -18,7 +18,7 @@ func NewProjectionContribution() (assessmentprojection.Contribution, error) {
 	return assessments.NewProjectionContribution(assessments.ProjectionContributionDependencies{
 		Envelopes: assessmentEnvelopeAdapter{records: recordStore},
 		Support: assessmentSupportAdapter{
-			links:   links.AssessmentFactReader{},
+			links:   links.FactReader{},
 			records: recordStore,
 		},
 	})
@@ -50,7 +50,7 @@ func (adapter assessmentEnvelopeAdapter) LoadAssessmentProjectionEnvelopeTx(
 }
 
 type assessmentSupportAdapter struct {
-	links   links.AssessmentFactReader
+	links   links.FactReader
 	records *records.Store
 }
 
@@ -60,16 +60,22 @@ func (adapter assessmentSupportAdapter) LoadAssessmentProjectionSupportFactsTx(
 	incidentID uuid.UUID,
 	assessmentID uuid.UUID,
 ) (assessmentprojection.SupportFacts, error) {
-	linkFacts, err := adapter.links.LoadSupportFactsTx(ctx, tx, incidentID, assessmentID)
+	linkFacts, err := adapter.links.LoadRecordTx(ctx, tx, incidentID, assessmentID)
 	if err != nil {
 		return assessmentprojection.SupportFacts{}, err
 	}
-	envelopes, err := adapter.records.LoadEnvelopesTx(ctx, tx, linkFacts.TargetRecordIDs, false)
+	targetRecordIDs := make([]uuid.UUID, 0)
+	for _, fact := range linkFacts.RecordLinks {
+		if fact.SrcRecordID == assessmentID && fact.LinkType == links.LinkTypeSupportedBy {
+			targetRecordIDs = append(targetRecordIDs, fact.DstRecordID)
+		}
+	}
+	envelopes, err := adapter.records.LoadEnvelopesTx(ctx, tx, targetRecordIDs, false)
 	if err != nil {
 		return assessmentprojection.SupportFacts{}, err
 	}
 	activeTargets := 0
-	for _, targetID := range linkFacts.TargetRecordIDs {
+	for _, targetID := range targetRecordIDs {
 		envelope, ok := envelopes[targetID]
 		if ok && envelope.IncidentID == incidentID && envelope.DeletedAt == nil {
 			activeTargets++

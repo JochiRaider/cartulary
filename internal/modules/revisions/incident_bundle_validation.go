@@ -23,12 +23,14 @@ func validatePreparedRevisionsBeforeWriteTx(
 ) error {
 	for _, mutation := range prepared.mutations {
 		if !validation.resolvesTargetKind(mutation.TargetKind) ||
-			!canonicalPortableTargetID(mutation.TargetKind, mutation.TargetID) {
+			(validation.targets.requiresGenericPortableTargetID(mutation.TargetKind) &&
+				!canonicalPortableTargetID(mutation.TargetKind, mutation.TargetID)) {
 			return revisionsFailure(revisionsReferencesInvariant)
 		}
 		if _, err := validation.targets.DescribeValues(
 			mutation.TargetKind,
 			mutation.TargetID,
+			mutation.OperationKind,
 			mutation.BeforeValue,
 			mutation.AfterValue,
 		); err != nil {

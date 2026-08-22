@@ -64,7 +64,14 @@ type NonRowProviderContribution struct {
 	SourceOwnerModule SourceOwnerModule
 	TargetKind        string
 	HistoryFacet      HistoryFacet
+	HistoryValidator  HistoryValidator
 	RollbackProvider  rollbackcontract.NonRowTargetProvider
+}
+
+// HistoryValidator is the pure source-owner admission boundary for retained
+// non-row mutation values. Implementations must not query or mutate state.
+type HistoryValidator interface {
+	ValidateHistoryMutation(StoredMutation) error
 }
 
 func buildDeleteRestoreSourceCatalog(contributions []ProviderContribution) (*DeleteRestoreSourceCatalog, error) {

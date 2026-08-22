@@ -247,6 +247,7 @@ field:CreateRevision.RequestID
 field:CreateRevision.RouteKey
 field:CreateRevision.RowVersion
 field:CreateRevision.TargetKind
+field:CreateRevision.LinkMutations
 field:CreateValidationError.Field
 field:CreateValidationError.ReasonCode
 field:FacadeDependencies.Assessors
@@ -277,6 +278,10 @@ field:RecordEnvelopeCreate.IncidentID
 field:RecordEnvelopeCreate.Now
 field:RecordEnvelopeCreate.RecordType
 field:RecordEnvelopeCreate.RowVersion
+field:SupportLinkMutation.AfterValue
+field:SupportLinkMutation.BeforeValue
+field:SupportLinkMutation.Operation
+field:SupportLinkMutation.RecordLinkID
 func:IncidentBundleSubtypeContribution
 func:NewFacade
 func:NewImportCreateFacade
@@ -330,6 +335,7 @@ type:RecordEnvelopeCreate
 type:RecordEnvelopeCreator
 type:SubjectValidator
 type:SupportTargetValidator
+type:SupportLinkMutation
 var:ErrClientTxnConflict
 `)
 

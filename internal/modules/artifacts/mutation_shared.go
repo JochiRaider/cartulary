@@ -39,8 +39,7 @@ type LinkCapability interface {
 	ApplyPartyRefCollectionWithMutationValuesTx(context.Context, pgx.Tx, links.PartyRefCollectionCommand) (links.CollectionMutationResult, error)
 	ApplyRecordRefCollectionWithMutationValuesTx(context.Context, pgx.Tx, links.RecordRefCollectionCommand) (links.CollectionMutationResult, error)
 	ApplyTagCollectionWithMutationValuesTx(context.Context, pgx.Tx, links.TagCollectionCommand) (links.CollectionMutationResult, error)
-	InsertLinkedNoteReferenceTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) (links.RecordLink, bool, error)
-	LoadRecordLinkValueTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
+	UpsertLinkCommandTx(context.Context, pgx.Tx, links.UpsertLinkCommand) (links.RecordLinkCommandResult, error)
 }
 
 type RevisionCapability interface {

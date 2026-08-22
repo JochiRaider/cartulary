@@ -167,23 +167,21 @@ func (f *MutationFacade) executeCreateTx(
 	if err != nil {
 		return artifactCreateTxResult{}, err
 	}
-	var (
-		contextLink         links.RecordLink
-		contextLinkInserted bool
-	)
+	var contextLinkMutation *links.RecordLinkMutation
 	if contextualSourceRecordID != nil {
-		contextLink, contextLinkInserted, err = f.linkStore.InsertLinkedNoteReferenceTx(
-			ctx,
-			tx,
-			incidentID,
-			*contextualSourceRecordID,
-			recordID,
-			command.ActorUserID,
-			now,
-		)
+		contextLink, err := f.linkStore.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
+			IncidentID:  incidentID,
+			SrcRecordID: *contextualSourceRecordID,
+			DstRecordID: recordID,
+			LinkType:    links.LinkType(links.LinkTypeReferencesArtifact),
+			Provenance:  links.LinkProvenance(links.LinkProvenanceManual),
+			OwnerUserID: command.ActorUserID,
+			Now:         now,
+		})
 		if err != nil {
 			return artifactCreateTxResult{}, err
 		}
+		contextLinkMutation = contextLink.Mutation
 	}
 	row, err := f.source.refreshRowTx(ctx, tx, request.ViewSchemaID, recordID)
 	if err != nil {
@@ -224,18 +222,15 @@ func (f *MutationFacade) executeCreateTx(
 	if err != nil {
 		return artifactCreateTxResult{}, err
 	}
-	if contextLinkInserted {
-		linkAfter, err := f.linkStore.LoadRecordLinkValueTx(ctx, tx, contextLink.RecordLinkID)
-		if err != nil {
-			return artifactCreateTxResult{}, err
-		}
+	if contextLinkMutation != nil {
 		if err := f.revisions.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
 			ChangeSetID:   changeSetID,
 			SequenceNo:    nextSequence,
 			TargetKind:    "record_link",
-			TargetID:      contextLink.RecordLinkID.String(),
-			OperationKind: "create",
-			AfterValue:    linkAfter,
+			TargetID:      contextLinkMutation.RecordLinkID.String(),
+			OperationKind: contextLinkMutation.Operation,
+			BeforeValue:   contextLinkMutation.BeforeValue,
+			AfterValue:    contextLinkMutation.AfterValue,
 		}); err != nil {
 			return artifactCreateTxResult{}, err
 		}

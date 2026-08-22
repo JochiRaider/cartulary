@@ -62,8 +62,8 @@ func (s *Store) RepointMergedLinksTx(
 			return validateActiveLinkEndpointsTx(ctx, tx, incidentID, srcRecordID, dstRecordID)
 		},
 		Tombstone: func(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID, actorUserID uuid.UUID, now time.Time) (*time.Time, error) {
-			record, err := s.TombstoneLinkTx(ctx, tx, recordLinkID, actorUserID, now)
-			return record.DeletedAt, err
+			state, err := tombstoneRecordLinkStateTx(ctx, tx, recordLinkID, actorUserID, now)
+			return state.deletedAt, err
 		},
 	})
 	if err != nil {

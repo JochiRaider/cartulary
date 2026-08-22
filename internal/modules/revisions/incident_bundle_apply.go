@@ -47,7 +47,7 @@ INSERT INTO change_sets (
 		}
 	}
 	for _, row := range prepared.mutations {
-		history, err := validation.targets.DescribeValues(row.TargetKind, row.TargetID, row.BeforeValue, row.AfterValue)
+		history, err := validation.targets.DescribeValues(row.TargetKind, row.TargetID, row.OperationKind, row.BeforeValue, row.AfterValue)
 		if err != nil {
 			return revisionsFailure(revisionsHistoryInvariant)
 		}

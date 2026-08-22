@@ -1093,7 +1093,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-474`, `AC-480..AC-486`, `AC-545..AC-549`, `AC-551`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-474`, `AC-480..AC-486`, `AC-545..AC-549`, `AC-551`, `AC-554..AC-556`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -1157,7 +1157,7 @@ Definition of Done:
 - additional requirement selector: `profile:incident_portability`
 - additional acceptance criteria: `AC-164..AC-169`, `AC-236`,
   `AC-273..AC-276`, `AC-327..AC-328`, `AC-332`, `AC-386`, `AC-409`,
-  `AC-440`, `AC-442`, `AC-487..AC-508`, `AC-550`
+  `AC-440`, `AC-442`, `AC-487..AC-508`, `AC-550`, `AC-557`
 - **AC-236**: An Incident Portability claim is conformant only when a Base claim passes, every requirement selected by `profile:incident_portability` is implemented, and every additional acceptance criterion listed in this manifest passes.
   - Verifies: `profile:incident_portability`
 
@@ -1561,6 +1561,37 @@ These criteria provide direct runtime-family verification for substantive base-p
   export-model, release, route, authorization, and generated contracts remain
   unchanged.
   - Verifies: REQ-01-664, REQ-02-169, REQ-RPT-025..REQ-RPT-026d
+- **AC-554**: Links canonical record-link evidence proves that create, metadata
+  patch, delete, merge, mention resolution and retargeting, supersession,
+  contextual linked-note creation, rollback, and no-op paths use one
+  Links-owned encoder. Every emitted value has exactly the fourteen members in
+  REQ-02-267 with canonical scalar types, UUIDs, timestamps, vocabularies,
+  nullability, active-state, attribution, confidence, endpoint, and transition
+  invariants. Every result is returned atomically with its source write through
+  the caller-owned transaction, and recursively fresh maps cannot mutate
+  another result or provider value.
+  - Verifies: REQ-02-267, REQ-02-269
+- **AC-555**: Links canonical record-tag evidence proves that ordinary
+  collection, merge, rollback, export, import, and re-export paths use one
+  Links-owned encoder and values with exactly the ten members in REQ-02-268.
+  Every target uses
+  `record_tag:<canonical-record-uuid>:<canonical-record-tag-uuid>`; create uses
+  the after record, patch and delete use the pre-mutation record, and rollback
+  retains and validates the addressed original target. Bare UUID targets,
+  mismatched components, `tag_id`, and alternate grammars fail closed.
+  - Verifies: REQ-02-268, REQ-02-269
+- **AC-556**: The application-composed Revisions catalog admits one pure
+  Links-owned validator for each Links target. Local append, history
+  description, inverse planning and application invoke it with the exact
+  operation kind and both retained sides before querying or writing. Missing,
+  extra, mistyped, noncanonical UUID or timestamp, invalid enum or nullability,
+  illegal transition, compact, alias, and default-dependent values fail with a
+  safe owner-neutral error and no persisted mutation, partial facts, source
+  change, or invented restoration state. Canonical create, patch, delete, and
+  rollback preserve every retained field exactly, including creation
+  attribution and timestamps; Revisions contains no Links field or target
+  grammar.
+  - Verifies: REQ-02-267..REQ-02-269
 
 ### 9.1B Network Flow Activity Extension Profile criteria
 
@@ -2449,6 +2480,18 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   parsing, and no retired `timeline:` fixture, import translation, alias,
   backfill, dual reader, or dual writer is accepted.
   - Verifies: REQ-01-663, REQ-02-266
+- **AC-557**: Exporting current canonical Links history, importing it into a
+  reset empty deployment, and re-exporting preserves record-link values,
+  record-tag values, composite tag targets, operation kinds, attribution, and
+  timestamps without shape or byte-significant scalar drift. Before any
+  import-side mutation, an unknown or missing member, mistyped or noncanonical
+  scalar, invalid enum or nullability, illegal operation/value pairing,
+  `tag_id`, compact link shape, bare tag UUID target, inferred default, or
+  retired target grammar is rejected through the Incident Bundle failure
+  surface. Pre-cutover databases and retained bundles are discarded and
+  regenerated; no migration, history rewrite, bundle-version translation,
+  compatibility mode, alias, fallback, or dual reader/writer is present.
+  - Verifies: REQ-02-267..REQ-02-269
 - **AC-442**: Successful incident-bundle import persists the submitting internal `user_id` at job admission, creates exactly one target-local membership for the imported incident with that user as `role='admin'`, creates the incident-wide `default_sheet_ref=null` and importer `home_sheet_ref=null` workbook-preference objects, emits one attributed `membership_created` administrative audit event, and makes the incident visible only after those objects, imported source state, and projections commit atomically. Historical actors, actor match hints, provider-subject hints, email hints, saved-view owners, and source-system role information create no additional memberships. Exact replay of a successful import creates no duplicate membership, preference object, audit event, or visible incident. If the submitter is missing, inactive, or no longer a deployment administrator at final publication, the job fails terminally with `incident_bundle_import_rejected` and `reason_code='initial_admin_unavailable'`, leaves no visible incident, leaves no membership or workbook preference object, and emits no successful membership audit event.
   - Verifies: REQ-00-058, REQ-01-448..REQ-01-450, REQ-01-485..REQ-01-486, REQ-01-609, REQ-03-290
 

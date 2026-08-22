@@ -10,12 +10,13 @@ import (
 )
 
 type targetAdmission struct {
-	sourceOwnerID  string
-	dispatchClass  rollbackcontract.DispatchClass
-	recordType     string
-	history        HistoryFacet
-	rowProvider    rollbackcontract.RowSourceProvider
-	nonRowProvider rollbackcontract.NonRowTargetProvider
+	sourceOwnerID    string
+	dispatchClass    rollbackcontract.DispatchClass
+	recordType       string
+	history          HistoryFacet
+	historyValidator HistoryValidator
+	rowProvider      rollbackcontract.RowSourceProvider
+	nonRowProvider   rollbackcontract.NonRowTargetProvider
 }
 
 func compileTargetSemanticsCatalog(requirements []targetSemanticsRequirement, contributions []ProviderContribution) (*TargetSemanticsCatalog, error) {
@@ -53,10 +54,11 @@ func compileTargetSemanticsCatalog(requirements []targetSemanticsRequirement, co
 		}
 		for _, target := range contribution.NonRowTargets {
 			admissions[target.TargetKind] = append(admissions[target.TargetKind], targetAdmission{
-				sourceOwnerID:  string(contribution.SourceOwnerModule),
-				dispatchClass:  rollbackcontract.DispatchNonRow,
-				history:        target.HistoryFacet,
-				nonRowProvider: target.RollbackProvider,
+				sourceOwnerID:    string(contribution.SourceOwnerModule),
+				dispatchClass:    rollbackcontract.DispatchNonRow,
+				history:          target.HistoryFacet,
+				historyValidator: target.HistoryValidator,
+				nonRowProvider:   target.RollbackProvider,
 			})
 		}
 	}
@@ -154,6 +156,10 @@ func compileTargetSemantics(requirement targetSemanticsRequirement, values []tar
 			if nilNonRowTargetProvider(admission.nonRowProvider) {
 				return compiledTargetSemantics{}, fmt.Errorf("%w: target kind %q non-row provider", ErrInvalidTargetSemantics, requirement.TargetKind)
 			}
+			if nilHistoryValidator(admission.historyValidator) {
+				return compiledTargetSemantics{}, fmt.Errorf("%w: target kind %q history validator", ErrInvalidTargetSemantics, requirement.TargetKind)
+			}
+			compiled.historyValidator = admission.historyValidator
 			compiled.nonRowProvider = admission.nonRowProvider
 		}
 	}
@@ -182,6 +188,14 @@ func nilNonRowTargetProvider(provider rollbackcontract.NonRowTargetProvider) boo
 		return true
 	}
 	value := reflect.ValueOf(provider)
+	return value.Kind() == reflect.Pointer && value.IsNil()
+}
+
+func nilHistoryValidator(validator HistoryValidator) bool {
+	if validator == nil {
+		return false
+	}
+	value := reflect.ValueOf(validator)
 	return value.Kind() == reflect.Pointer && value.IsNil()
 }
 

@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -105,11 +104,10 @@ type mentionTargetRecord struct {
 }
 
 type mentionMutationResult struct {
-	Before         mentionActionRecord
-	After          mentionActionRecord
-	ActiveLink     *recordLink
-	CreatedLink    *recordLink
-	TombstonedLink *recordLink
+	Before        mentionActionRecord
+	After         mentionActionRecord
+	ActiveLink    *LinkCommandResult
+	LinkMutations []LinkMutation
 }
 
 type MentionActionAccess struct {
@@ -289,30 +287,15 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		return MentionActionResult{}, err
 	}
 	sequenceNo++
-	if outcome.TombstonedLink != nil {
-		beforeLink := buildLinkMutationValue(*outcome.TombstonedLink, nil)
-		afterLink := buildLinkMutationValue(*outcome.TombstonedLink, outcome.TombstonedLink.DeletedAt)
+	for _, mutation := range outcome.LinkMutations {
 		if err := s.ports.revisions.AppendMutationTx(ctx, tx, mutationParams{
 			ChangeSetID:   changeSetID,
 			SequenceNo:    sequenceNo,
 			TargetKind:    "record_link",
-			TargetID:      outcome.TombstonedLink.RecordLinkID.String(),
-			OperationKind: "delete",
-			BeforeValue:   beforeLink,
-			AfterValue:    afterLink,
-		}); err != nil {
-			return MentionActionResult{}, err
-		}
-		sequenceNo++
-	}
-	if outcome.CreatedLink != nil {
-		if err := s.ports.revisions.AppendMutationTx(ctx, tx, mutationParams{
-			ChangeSetID:   changeSetID,
-			SequenceNo:    sequenceNo,
-			TargetKind:    "record_link",
-			TargetID:      outcome.CreatedLink.RecordLinkID.String(),
-			OperationKind: "create",
-			AfterValue:    buildLinkMutationValue(*outcome.CreatedLink, nil),
+			TargetID:      mutation.RecordLinkID.String(),
+			OperationKind: mutation.Operation,
+			BeforeValue:   mutation.BeforeValue,
+			AfterValue:    mutation.AfterValue,
 		}); err != nil {
 			return MentionActionResult{}, err
 		}
@@ -370,29 +353,30 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	}, nil
 }
 
-func (s *Store) ApplyMentionLifecycleTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, sourceFieldKey string, mentionID uuid.UUID, action string, resolvedRecordID *uuid.UUID, now time.Time) error {
+func (s *Store) ApplyMentionLifecycleTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, sourceFieldKey string, mentionID uuid.UUID, action string, resolvedRecordID *uuid.UUID, now time.Time) ([]LinkMutation, error) {
 	mention, err := loadMentionActionRecordTx(ctx, tx, mentionID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if mention.SourceRecordID != sourceRecordID || mention.SourceFieldKey != sourceFieldKey {
-		return ErrInvalidMentionResolution
+		return nil, ErrInvalidMentionResolution
 	}
 
 	var validatedTarget *mentionTargetRecord
 	if action == "resolve_item" {
 		if resolvedRecordID == nil {
-			return ErrInvalidMentionResolution
+			return nil, ErrInvalidMentionResolution
 		}
 		validatedTarget, err = validateMentionResolvedTargetTx(ctx, tx, actor.ID, mention.IncidentID, mention.EntityType, *resolvedRecordID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	if _, err := s.applyMentionActionTx(ctx, tx, actor.ID, mention, action, validatedTarget, resolutionMethodPointer("explicit_resolve_route"), now.UTC()); err != nil {
-		return err
+	result, err := s.applyMentionActionTx(ctx, tx, actor.ID, mention, action, validatedTarget, resolutionMethodPointer("explicit_resolve_route"), now.UTC())
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return append([]LinkMutation(nil), result.LinkMutations...), nil
 }
 
 func (s *Store) applyMentionActionTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, mention mentionActionRecord, action string, target *mentionTargetRecord, resolutionMethod *string, now time.Time) (mentionMutationResult, error) {
@@ -453,9 +437,8 @@ UPDATE entity_mentions
 	}
 
 	var (
-		activeLink     *recordLink
-		createdLink    *recordLink
-		tombstonedLink *recordLink
+		activeLink    *LinkCommandResult
+		linkMutations = make([]LinkMutation, 0, 2)
 	)
 	if before.ResolvedRecordID != nil && (after.ResolvedRecordID == nil || *after.ResolvedRecordID != *before.ResolvedRecordID) {
 		removeOldLink, err := shouldTombstoneMentionLinkTx(ctx, tx, before, *before.ResolvedRecordID)
@@ -463,36 +446,37 @@ UPDATE entity_mentions
 			return mentionMutationResult{}, err
 		}
 		if removeOldLink {
-			existingLink, err := s.ports.links.GetActiveLinkTx(ctx, tx, before.IncidentID, before.SourceRecordID, *before.ResolvedRecordID, linkType)
-			switch {
-			case errors.Is(err, errRecordLinkNotFound):
-			case err != nil:
+			tombstoned, found, err := s.ports.links.TombstoneActiveMentionLinkTx(ctx, tx, TombstoneLinkCommand{
+				IncidentID:  before.IncidentID,
+				SrcRecordID: before.SourceRecordID,
+				DstRecordID: *before.ResolvedRecordID,
+				LinkType:    LinkType(linkType),
+				ActorUserID: actorUserID,
+				Now:         now.UTC(),
+			})
+			if err != nil {
 				return mentionMutationResult{}, err
-			default:
-				tombstoned, err := s.ports.links.TombstoneLinkTx(ctx, tx, existingLink.RecordLinkID, actorUserID, now.UTC())
-				if err != nil {
-					return mentionMutationResult{}, err
-				}
-				tombstonedLink = &tombstoned
+			}
+			if found && tombstoned.Mutation != nil {
+				linkMutations = append(linkMutations, *tombstoned.Mutation)
 			}
 		}
 	}
 	if after.ResolvedRecordID != nil {
-		link, inserted, err := s.ports.links.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
+		link, err := s.ports.links.UpsertMentionLinkTx(ctx, tx, LinkCommand{
 			IncidentID:  after.IncidentID,
 			SrcRecordID: after.SourceRecordID,
 			DstRecordID: *after.ResolvedRecordID,
-			LinkType:    links.LinkType(linkType),
-			Provenance:  links.LinkProvenance(links.LinkProvenanceManual),
-			OwnerUserID: actorUserID,
+			LinkType:    LinkType(linkType),
+			ActorUserID: actorUserID,
 			Now:         now.UTC(),
 		})
 		if err != nil {
 			return mentionMutationResult{}, err
 		}
 		activeLink = &link
-		if inserted {
-			createdLink = &link
+		if link.Mutation != nil {
+			linkMutations = append(linkMutations, *link.Mutation)
 		}
 	}
 	if err := s.refreshMentionEntityRowsTx(ctx, tx, before, after); err != nil {
@@ -500,11 +484,10 @@ UPDATE entity_mentions
 	}
 
 	return mentionMutationResult{
-		Before:         before,
-		After:          after,
-		ActiveLink:     activeLink,
-		CreatedLink:    createdLink,
-		TombstonedLink: tombstonedLink,
+		Before:        before,
+		After:         after,
+		ActiveLink:    activeLink,
+		LinkMutations: linkMutations,
 	}, nil
 }
 
@@ -706,7 +689,7 @@ func mentionActionState(action string) (string, []string) {
 	}
 }
 
-func buildMentionActionPayload(incidentID uuid.UUID, mention mentionActionRecord, sourceRecordID uuid.UUID, sourceRecordRowVersion int64, changeSetID uuid.UUID, activeLink *recordLink) map[string]any {
+func buildMentionActionPayload(incidentID uuid.UUID, mention mentionActionRecord, sourceRecordID uuid.UUID, sourceRecordRowVersion int64, changeSetID uuid.UUID, activeLink *LinkCommandResult) map[string]any {
 	data := map[string]any{
 		"incident_id": incidentID.String(),
 		"entity_mention": map[string]any{
@@ -729,7 +712,7 @@ func buildMentionActionPayload(incidentID uuid.UUID, mention mentionActionRecord
 		},
 		"change_set_id": changeSetID.String(),
 	}
-	if activeLink != nil && activeLink.DeletedAt == nil {
+	if activeLink != nil {
 		data["active_link"] = map[string]any{
 			"record_link_id": activeLink.RecordLinkID.String(),
 			"src_record_id":  activeLink.SrcRecordID.String(),
@@ -758,20 +741,6 @@ func buildMentionMutationValue(mention mentionActionRecord) map[string]any {
 		"resolved_at":         formatTimestampPointer(mention.ResolvedAt),
 		"resolution_method":   derefString(mention.ResolutionMethod),
 	}
-}
-
-func buildLinkMutationValue(link recordLink, deletedAt *time.Time) map[string]any {
-	value := map[string]any{
-		"record_link_id": link.RecordLinkID.String(),
-		"incident_id":    link.IncidentID.String(),
-		"src_record_id":  link.SrcRecordID.String(),
-		"dst_record_id":  link.DstRecordID.String(),
-		"link_type":      link.LinkType,
-		"provenance":     link.Provenance,
-		"confidence":     link.Confidence,
-		"deleted_at":     formatTimestampPointer(deletedAt),
-	}
-	return value
 }
 
 func mentionVersionID(mentionID uuid.UUID, rowVersion int64) string {

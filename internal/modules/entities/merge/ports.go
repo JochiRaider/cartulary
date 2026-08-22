@@ -212,7 +212,7 @@ func mergeMutationsFromAssessmentMutations(mutations []assessments.MergeMutation
 }
 
 type entityMentionAdapter struct {
-	store *mentions.Store
+	store MentionStore
 }
 
 func (a entityMentionAdapter) RepointMergedMentionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordType string, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, actorUserID uuid.UUID, now time.Time) ([]mergeMutation, int, map[uuid.UUID][]string, error) {

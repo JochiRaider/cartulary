@@ -121,13 +121,12 @@ type EntityProjectionPort interface {
 }
 
 type LinkPort interface {
-	InsertSupersedesCommandTx(context.Context, pgx.Tx, InsertSupersedesCommand) (SupersedesLink, error)
-	UpsertLinkCommandTx(context.Context, pgx.Tx, UpsertLinkCommand) error
+	InsertSupersedesCommandTx(context.Context, pgx.Tx, InsertSupersedesCommand) (RecordLinkCommandResult, error)
+	UpsertLinkCommandTx(context.Context, pgx.Tx, UpsertLinkCommand) (RecordLinkCommandResult, error)
 	HasActiveIncomingSupersedesLinkForUpdateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (bool, error)
-	LoadRecordLinkValueTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
 	ApplyRecordRefCollectionWithMutationValuesTx(context.Context, pgx.Tx, RecordRefCollectionCommand) (CollectionMutationResult, error)
 	ApplyTagCollectionWithMutationValuesTx(context.Context, pgx.Tx, TagCollectionCommand) (CollectionMutationResult, error)
-	LoadTimelineCollectionFieldsChangedTx(context.Context, pgx.Tx, uuid.UUID, time.Time) ([]string, error)
+	LoadCollectionFieldsChangedTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) ([]string, error)
 }
 
 type InsertSupersedesCommand struct {
@@ -154,6 +153,14 @@ type SupersedesLink struct {
 	IncidentID   uuid.UUID
 	SrcRecordID  uuid.UUID
 	DstRecordID  uuid.UUID
+}
+
+type RecordLinkCommandResult struct {
+	RecordLinkID uuid.UUID
+	SrcRecordID  uuid.UUID
+	DstRecordID  uuid.UUID
+	LinkType     string
+	Mutation     *RecordLinkMutation
 }
 
 type RecordRefCollectionCommand struct {
@@ -209,8 +216,8 @@ type RecordTagMutation struct {
 }
 
 type MentionPort interface {
-	ResolveExistingFromMentionTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, *uuid.UUID, time.Time) error
-	ApplyMentionLifecycleTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, string, *uuid.UUID, time.Time) error
+	ResolveExistingFromMentionTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, *uuid.UUID, time.Time) ([]RecordLinkMutation, error)
+	ApplyMentionLifecycleTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, string, *uuid.UUID, time.Time) ([]RecordLinkMutation, error)
 	NextOrdinalTx(context.Context, pgx.Tx, uuid.UUID, string) (int, error)
 	InsertTx(context.Context, pgx.Tx, MentionCreateParams) error
 	LoadTimelineCollectionFieldsChangedTx(context.Context, pgx.Tx, uuid.UUID, time.Time) ([]string, error)

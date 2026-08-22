@@ -14,7 +14,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	mentioneffects "github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
@@ -50,6 +49,12 @@ func WithWorkbookProjection(writer workbookprojection.Writer) StoreOption {
 	}
 }
 
+func WithLinkOperations(operations LinkOperationsPort) StoreOption {
+	return func(ports *storePorts) {
+		ports.links = operations
+	}
+}
+
 func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOption) *Store {
 	ports := newStorePorts(pool)
 	ports.revisions = revisionAdapter{appender: appender}
@@ -60,6 +65,9 @@ func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOp
 	}
 	if ports.projections == nil {
 		panic("compose entity mention store: workbook projection writer is required")
+	}
+	if ports.links == nil {
+		panic("compose entity mention store: link operations are required")
 	}
 	return &Store{
 		pool:           pool,
@@ -72,7 +80,7 @@ func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOp
 type storePorts struct {
 	records       recordPort
 	revisions     revisionPort
-	links         linkPort
+	links         LinkOperationsPort
 	projections   workbookprojection.Writer
 	timeline      TimelineEffectsPort
 	collaboration collaboration.IntentAppender
@@ -90,10 +98,42 @@ type revisionPort interface {
 	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
 }
 
-type linkPort interface {
-	GetActiveLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string) (recordLink, error)
-	UpsertLinkCommandTx(context.Context, pgx.Tx, links.UpsertLinkCommand) (recordLink, bool, error)
-	TombstoneLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (recordLink, error)
+type LinkOperationsPort interface {
+	UpsertMentionLinkTx(context.Context, pgx.Tx, LinkCommand) (LinkCommandResult, error)
+	TombstoneActiveMentionLinkTx(context.Context, pgx.Tx, TombstoneLinkCommand) (LinkCommandResult, bool, error)
+}
+
+type LinkType string
+
+const (
+	LinkTypeObservedOnHost     LinkType = "observed_on_host"
+	LinkTypeObservedAsIdentity LinkType = "observed_as_identity"
+)
+
+type LinkCommand struct {
+	IncidentID  uuid.UUID
+	SrcRecordID uuid.UUID
+	DstRecordID uuid.UUID
+	LinkType    LinkType
+	ActorUserID uuid.UUID
+	Now         time.Time
+}
+
+type TombstoneLinkCommand = LinkCommand
+
+type LinkCommandResult struct {
+	RecordLinkID uuid.UUID
+	SrcRecordID  uuid.UUID
+	DstRecordID  uuid.UUID
+	LinkType     LinkType
+	Mutation     *LinkMutation
+}
+
+type LinkMutation struct {
+	RecordLinkID uuid.UUID
+	Operation    string
+	BeforeValue  map[string]any
+	AfterValue   map[string]any
 }
 
 type TimelineEffectsPort interface {
@@ -124,26 +164,9 @@ type mutationParams struct {
 	AfterValue      any
 }
 
-type recordLink struct {
-	RecordLinkID uuid.UUID
-	IncidentID   uuid.UUID
-	SrcRecordID  uuid.UUID
-	DstRecordID  uuid.UUID
-	LinkType     string
-	Provenance   string
-	Confidence   *int
-	OwnerUserID  uuid.UUID
-	DecidedAt    time.Time
-	CreatedAt    time.Time
-	DeletedAt    *time.Time
-}
-
-var errRecordLinkNotFound = links.ErrRecordLinkNotFound
-
 func newStorePorts(pool postgres.DB) storePorts {
 	return storePorts{
 		records: recordAdapter{store: records.NewStore()},
-		links:   linkAdapter{store: links.NewStore()},
 	}
 }
 
@@ -177,50 +200,6 @@ func (a revisionAdapter) AppendRecordMutationTx(ctx context.Context, tx pgx.Tx, 
 
 func (a revisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
 	return a.appender.AppendRecordRevisionTx(ctx, tx, params)
-}
-
-type linkAdapter struct {
-	store *links.Store
-}
-
-func (a linkAdapter) GetActiveLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType string) (recordLink, error) {
-	link, err := a.store.GetActiveLinkTx(ctx, tx, incidentID, srcRecordID, dstRecordID, linkType)
-	if err != nil {
-		return recordLink{}, err
-	}
-	return recordLinkFromLinks(link), nil
-}
-
-func (a linkAdapter) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command links.UpsertLinkCommand) (recordLink, bool, error) {
-	link, inserted, err := a.store.UpsertLinkCommandTx(ctx, tx, command)
-	if err != nil {
-		return recordLink{}, false, err
-	}
-	return recordLinkFromLinks(link), inserted, nil
-}
-
-func (a linkAdapter) TombstoneLinkTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID, actorUserID uuid.UUID, now time.Time) (recordLink, error) {
-	link, err := a.store.TombstoneLinkTx(ctx, tx, recordLinkID, actorUserID, now)
-	if err != nil {
-		return recordLink{}, err
-	}
-	return recordLinkFromLinks(link), nil
-}
-
-func recordLinkFromLinks(link links.RecordLink) recordLink {
-	return recordLink{
-		RecordLinkID: link.RecordLinkID,
-		IncidentID:   link.IncidentID,
-		SrcRecordID:  link.SrcRecordID,
-		DstRecordID:  link.DstRecordID,
-		LinkType:     link.LinkType,
-		Provenance:   link.Provenance,
-		Confidence:   link.Confidence,
-		OwnerUserID:  link.OwnerUserID,
-		DecidedAt:    link.DecidedAt,
-		CreatedAt:    link.CreatedAt,
-		DeletedAt:    link.DeletedAt,
-	}
 }
 
 func decodeStoredResponse(data []byte) (map[string]any, error) {

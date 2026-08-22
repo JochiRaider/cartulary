@@ -155,7 +155,7 @@ RETURNING recorded_at
 		return MutationResult{}, fmt.Errorf("update timeline action state: %w", err)
 	}
 
-	var insertedLink *SupersedesLink
+	var insertedLink *RecordLinkMutation
 	if routeKey == supersedeRouteKey && validatedReplacementID != nil {
 		link, err := s.linkStore.InsertSupersedesCommandTx(ctx, tx, InsertSupersedesCommand{
 			IncidentID:          current.IncidentID,
@@ -170,7 +170,10 @@ RETURNING recorded_at
 			}
 			return MutationResult{}, err
 		}
-		insertedLink = &link
+		if link.Mutation == nil {
+			return MutationResult{}, errors.New("supersede timeline event: Links returned no create mutation")
+		}
+		insertedLink = link.Mutation
 	}
 
 	afterProjected := projectRecord(next, validatedReplacementID)
@@ -212,18 +215,14 @@ RETURNING recorded_at
 		return MutationResult{}, err
 	}
 	if insertedLink != nil {
-		linkAfter, err := s.linkStore.LoadRecordLinkValueTx(ctx, tx, insertedLink.RecordLinkID)
-		if err != nil {
-			return MutationResult{}, err
-		}
 		if err := s.revisionsStore.AppendMutationTx(ctx, tx, MutationParams{
-			ChangeSetID:    changeSetID,
-			SequenceNo:     2,
-			TargetKind:     "record_link",
-			TargetID:       insertedLink.RecordLinkID.String(),
-			OperationKind:  "create",
-			AfterVersionID: nil,
-			AfterValue:     linkAfter,
+			ChangeSetID:   changeSetID,
+			SequenceNo:    2,
+			TargetKind:    "record_link",
+			TargetID:      insertedLink.RecordLinkID.String(),
+			OperationKind: insertedLink.Operation,
+			BeforeValue:   insertedLink.BeforeValue,
+			AfterValue:    insertedLink.AfterValue,
 		}); err != nil {
 			return MutationResult{}, err
 		}

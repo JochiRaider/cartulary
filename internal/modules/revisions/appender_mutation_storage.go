@@ -30,7 +30,7 @@ func (a *Appender) AppendRecordMutationTx(ctx context.Context, tx pgx.Tx, params
 }
 
 func (a *Appender) appendMutationValuesTx(ctx context.Context, tx pgx.Tx, params AppendNonRowMutationParams) error {
-	description, err := a.targetSemantics.DescribeValues(params.TargetKind, params.TargetID, params.BeforeValue, params.AfterValue)
+	description, err := a.targetSemantics.DescribeValues(params.TargetKind, params.TargetID, params.OperationKind, params.BeforeValue, params.AfterValue)
 	if err != nil {
 		return fmt.Errorf("describe change-set mutation history: %w", err)
 	}

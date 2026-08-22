@@ -345,6 +345,7 @@ SELECT record_tag_id
 `, command.IncidentID, command.SurvivorRecordID, record.NormalizedTagName).Scan(&existingID)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
+			targetID := recordTagTargetID(record.RecordID, record.RecordTagID)
 			if _, err := tx.Exec(ctx, `
 UPDATE record_tags
    SET record_id = $2,
@@ -357,7 +358,7 @@ UPDATE record_tags
 			record.UpdatedAt = command.Now.UTC()
 			result.Mutations = append(result.Mutations, Mutation{
 				TargetKind:    "record_tag",
-				TargetID:      record.RecordTagID.String(),
+				TargetID:      targetID,
 				OperationKind: "patch",
 				BeforeValue:   before,
 				AfterValue:    buildMergeTagValue(record),
@@ -366,6 +367,7 @@ UPDATE record_tags
 		case err != nil:
 			return RepointTagsResult{}, fmt.Errorf("lookup survivor tag collision: %w", err)
 		default:
+			targetID := recordTagTargetID(record.RecordID, record.RecordTagID)
 			if _, err := tx.Exec(ctx, `
 UPDATE record_tags
    SET deleted_at = COALESCE(deleted_at, $2),
@@ -380,7 +382,7 @@ UPDATE record_tags
 			record.UpdatedAt = command.Now.UTC()
 			result.Mutations = append(result.Mutations, Mutation{
 				TargetKind:    "record_tag",
-				TargetID:      record.RecordTagID.String(),
+				TargetID:      targetID,
 				OperationKind: "delete",
 				BeforeValue:   before,
 				AfterValue:    buildMergeTagValue(record),
@@ -508,6 +510,10 @@ func buildMergeTagValue(record mergeTagRecord) map[string]any {
 func timePointer(value time.Time) *time.Time {
 	copy := value.UTC()
 	return &copy
+}
+
+func recordTagTargetID(recordID uuid.UUID, recordTagID uuid.UUID) string {
+	return "record_tag:" + recordID.String() + ":" + recordTagID.String()
 }
 
 func uuidPointerFromPG(value pgtype.UUID) *uuid.UUID {

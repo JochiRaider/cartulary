@@ -62,6 +62,18 @@ func WithWorkbookProjection(writer workbookprojection.Writer) StoreOption {
 	}
 }
 
+type MentionStore interface {
+	RepointMergedMentionsTx(context.Context, pgx.Tx, mentions.RepointMergedMentionsCommand) (mentions.RepointMergedMentionsResult, error)
+}
+
+func WithMentionStore(store MentionStore) StoreOption {
+	return func(ports *entityStorePorts) {
+		if store != nil {
+			ports.mentions = entityMentionAdapter{store: store}
+		}
+	}
+}
+
 func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOption) *Store {
 	ports := newEntityStorePorts(pool, appender, nil)
 	for _, option := range options {
@@ -78,11 +90,9 @@ func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOp
 	if ports.projections == nil {
 		panic("compose entity merge store: workbook projection writer is required")
 	}
-	ports.mentions = entityMentionAdapter{store: mentions.NewStore(
-		pool,
-		appender,
-		mentions.WithWorkbookProjection(ports.projections),
-	)}
+	if ports.mentions == nil {
+		panic("compose entity merge store: mention store is required")
+	}
 	return &Store{
 		pool:           pool,
 		authStore:      authn.NewStore(pool),

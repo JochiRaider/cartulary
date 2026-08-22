@@ -13,11 +13,11 @@ import (
 )
 
 type LinksProvider struct {
-	reader links.ActiveFactReader
+	reader links.FactReader
 }
 
 func NewLinksProvider() LinksProvider {
-	return LinksProvider{reader: links.ActiveFactReader{}}
+	return LinksProvider{reader: links.FactReader{}}
 }
 
 func (LinksProvider) ProviderKey() string {
@@ -33,7 +33,7 @@ func (provider LinksProvider) CollectSupportRefsTx(
 	if err != nil {
 		return nil, err
 	}
-	facts, err := provider.reader.LoadTx(ctx, tx, incidentID)
+	facts, err := provider.reader.LoadIncidentTx(ctx, tx, incidentID)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (provider LinksProvider) CollectFactsTx(
 	incidentID uuid.UUID,
 	supportRefs map[string][]string,
 ) (exportprovider.ProviderOutput, error) {
-	facts, err := provider.reader.LoadTx(ctx, tx, incidentID)
+	facts, err := provider.reader.LoadIncidentTx(ctx, tx, incidentID)
 	if err != nil {
 		return exportprovider.ProviderOutput{}, err
 	}

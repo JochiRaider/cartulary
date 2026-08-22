@@ -87,6 +87,14 @@ type CreateRevision struct {
 	CanonicalRow  map[string]any
 	TargetKind    string
 	OperationKind string
+	LinkMutations []SupportLinkMutation
+}
+
+type SupportLinkMutation struct {
+	RecordLinkID uuid.UUID
+	Operation    string
+	BeforeValue  map[string]any
+	AfterValue   map[string]any
 }
 
 type CreateIdempotencyPort interface {
@@ -111,7 +119,7 @@ type RecordEnvelopeCreator interface {
 }
 
 type InitialSupportLinkApplier interface {
-	ApplyInitialAssessmentSupportLinksTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, []uuid.UUID, time.Time) error
+	ApplyInitialAssessmentSupportLinksTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, []uuid.UUID, time.Time) ([]SupportLinkMutation, error)
 }
 
 type CreateRevisionAppender interface {
@@ -269,7 +277,7 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (CreateResul
 	}); err != nil {
 		return CreateResult{}, err
 	}
-	if err := f.supportLinks.ApplyInitialAssessmentSupportLinksTx(
+	linkMutations, err := f.supportLinks.ApplyInitialAssessmentSupportLinksTx(
 		ctx,
 		tx,
 		command.IncidentID,
@@ -277,7 +285,8 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (CreateResul
 		command.ActorUserID,
 		supportRefs,
 		now,
-	); err != nil {
+	)
+	if err != nil {
 		return CreateResult{}, fmt.Errorf("apply assessment support links: %w", err)
 	}
 	row, err := f.projections.RefreshAndLoadAssessmentRowTx(ctx, tx, recordID)
@@ -301,6 +310,7 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (CreateResul
 		CanonicalRow:  row,
 		TargetKind:    "assessment",
 		OperationKind: "create",
+		LinkMutations: linkMutations,
 	})
 	if err != nil {
 		return CreateResult{}, fmt.Errorf("append assessment create revision: %w", err)

@@ -14,10 +14,11 @@ const (
 )
 
 type StoredMutation struct {
-	TargetKind  string
-	TargetID    string
-	BeforeValue map[string]any
-	AfterValue  map[string]any
+	TargetKind    string
+	TargetID      string
+	OperationKind string
+	BeforeValue   map[string]any
+	AfterValue    map[string]any
 }
 
 type HistoryTargetDescription struct {

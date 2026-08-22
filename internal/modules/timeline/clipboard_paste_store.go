@@ -165,10 +165,10 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 			return ClipboardPasteResult{}, err
 		}
 		sequenceNo++
-		if err := s.insertAttachedEvidenceMutationEntriesTx(ctx, tx, changeSetID, sequenceNo, row.AttachedEvidenceMutations); err != nil {
+		if err := s.insertAttachedEvidenceMutationEntriesTx(ctx, tx, changeSetID, sequenceNo, row.LinkMutations); err != nil {
 			return ClipboardPasteResult{}, err
 		}
-		sequenceNo += len(row.AttachedEvidenceMutations)
+		sequenceNo += len(row.LinkMutations)
 		if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, sequenceNo, row.TagMutations); err != nil {
 			return ClipboardPasteResult{}, err
 		}
@@ -300,17 +300,17 @@ func (s *store) validateOwnerBatchTargetsTx(ctx context.Context, tx pgx.Tx, inci
 }
 
 type clipboardAppliedRow struct {
-	Operation                 string
-	Before                    *workbookprojection.DerivedRecord
-	After                     workbookprojection.DerivedRecord
-	BeforeRow                 map[string]any
-	AfterRow                  map[string]any
-	BeforeSnapshot            *revisions.RecordSnapshot
-	AfterSnapshot             revisions.RecordSnapshot
-	ChangedFieldKeys          []string
-	TagMutations              []recordTagMutation
-	AttachedEvidenceMutations []attachedEvidenceMutation
-	RecordID                  uuid.UUID
+	Operation        string
+	Before           *workbookprojection.DerivedRecord
+	After            workbookprojection.DerivedRecord
+	BeforeRow        map[string]any
+	AfterRow         map[string]any
+	BeforeSnapshot   *revisions.RecordSnapshot
+	AfterSnapshot    revisions.RecordSnapshot
+	ChangedFieldKeys []string
+	TagMutations     []recordTagMutation
+	LinkMutations    []attachedEvidenceMutation
+	RecordID         uuid.UUID
 }
 
 func (s *store) applyOwnerBatchCreateTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, rowPlan ownerBatchRowPlanV1, originKind string, now time.Time) (clipboardAppliedRow, error) {
@@ -377,11 +377,11 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 	if err := insertSourceProvenanceTx(ctx, tx, current.RecordID, rowPlan.Unmapped); err != nil {
 		return clipboardAppliedRow{}, err
 	}
-	mentionProjectionRefresh, err := s.applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, current.RecordID, rowPlan.Cells, originKind, now.UTC())
+	mentionResult, err := s.applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, current.RecordID, rowPlan.Cells, originKind, now.UTC())
 	if err != nil {
 		return clipboardAppliedRow{}, err
 	}
-	if err := s.refreshMentionEntityProjectionsTx(ctx, tx, mentionProjectionRefresh); err != nil {
+	if err := s.refreshMentionEntityProjectionsTx(ctx, tx, mentionResult.Projection); err != nil {
 		return clipboardAppliedRow{}, err
 	}
 	tagMutations, err := s.applyPasteTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, rowPlan.Cells, now.UTC())
@@ -401,15 +401,16 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 	if err != nil {
 		return clipboardAppliedRow{}, err
 	}
+	linkMutations := append(mentionResult.LinkMutations, attachedEvidenceMutations...)
 	return clipboardAppliedRow{
-		Operation:                 "create",
-		After:                     projected,
-		AfterRow:                  afterRow,
-		AfterSnapshot:             afterSnapshot,
-		ChangedFieldKeys:          computeChangedFieldKeys(nil, projected),
-		TagMutations:              tagMutations,
-		AttachedEvidenceMutations: attachedEvidenceMutations,
-		RecordID:                  projected.RecordID,
+		Operation:        "create",
+		After:            projected,
+		AfterRow:         afterRow,
+		AfterSnapshot:    afterSnapshot,
+		ChangedFieldKeys: computeChangedFieldKeys(nil, projected),
+		TagMutations:     tagMutations,
+		LinkMutations:    linkMutations,
+		RecordID:         projected.RecordID,
 	}, nil
 }
 
@@ -434,7 +435,7 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 	acceptedCells := append([]ownerBatchCellV1{}, rowPlan.Cells...)
 	conflicts := make([]map[string]any, 0)
 	if current.RowVersion > baseRowVersion && len(rowPlan.Cells) > 0 {
-		window, err := s.loadPatchConflictWindowTx(ctx, tx, recordID, baseRowVersion, current.RowVersion)
+		window, err := s.loadPatchConflictWindowTx(ctx, tx, current.IncidentID, recordID, baseRowVersion, current.RowVersion)
 		if err != nil {
 			return clipboardAppliedRow{}, nil, err
 		}
@@ -477,14 +478,16 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 	evidenceChanged := pasteCellsIncludeField(acceptedCells, "timeline.attached_evidence_ids")
 	provenanceChanged := len(rowPlan.Unmapped) > 0
 	materialChanged := hasMaterialChange(current, next) || provenanceChanged
+	var mentionLinkMutations []attachedEvidenceMutation
 	if mentionChanged {
-		mentionProjectionRefresh, err := s.applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, acceptedCells, originKind, now.UTC())
+		mentionResult, err := s.applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, acceptedCells, originKind, now.UTC())
 		if err != nil {
 			return clipboardAppliedRow{}, nil, err
 		}
-		if err := s.refreshMentionEntityProjectionsTx(ctx, tx, mentionProjectionRefresh); err != nil {
+		if err := s.refreshMentionEntityProjectionsTx(ctx, tx, mentionResult.Projection); err != nil {
 			return clipboardAppliedRow{}, nil, err
 		}
+		mentionLinkMutations = mentionResult.LinkMutations
 	}
 	var tagMutations []recordTagMutation
 	if tagChanged {
@@ -502,6 +505,7 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 		}
 		evidenceChanged = len(attachedEvidenceMutations) > 0
 	}
+	linkMutations := append(mentionLinkMutations, attachedEvidenceMutations...)
 	if !materialChanged && !mentionChanged && !tagChanged && !evidenceChanged {
 		return clipboardAppliedRow{}, conflicts, nil
 	}
@@ -573,17 +577,17 @@ RETURNING recorded_at
 		return clipboardAppliedRow{}, nil, err
 	}
 	return clipboardAppliedRow{
-		Operation:                 "patch",
-		Before:                    &beforeProjected,
-		After:                     afterProjected,
-		BeforeRow:                 beforeRow,
-		AfterRow:                  afterRow,
-		BeforeSnapshot:            &beforeSnapshot,
-		AfterSnapshot:             afterSnapshot,
-		ChangedFieldKeys:          computeChangedFieldKeys(&beforeProjected, afterProjected),
-		TagMutations:              tagMutations,
-		AttachedEvidenceMutations: attachedEvidenceMutations,
-		RecordID:                  afterProjected.RecordID,
+		Operation:        "patch",
+		Before:           &beforeProjected,
+		After:            afterProjected,
+		BeforeRow:        beforeRow,
+		AfterRow:         afterRow,
+		BeforeSnapshot:   &beforeSnapshot,
+		AfterSnapshot:    afterSnapshot,
+		ChangedFieldKeys: computeChangedFieldKeys(&beforeProjected, afterProjected),
+		TagMutations:     tagMutations,
+		LinkMutations:    linkMutations,
+		RecordID:         afterProjected.RecordID,
 	}, conflicts, nil
 }
 
@@ -620,8 +624,8 @@ func pasteCellsIncludeField(cells []ownerBatchCellV1, fieldKey string) bool {
 	})
 }
 
-func (s *store) applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, cells []ownerBatchCellV1, originKind string, now time.Time) (mentionProjectionRefresh, error) {
-	var refresh mentionProjectionRefresh
+func (s *store) applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, cells []ownerBatchCellV1, originKind string, now time.Time) (mentionApplicationResult, error) {
+	var result mentionApplicationResult
 	for _, cell := range cells {
 		if cell.Change.ActionPayload == nil || (cell.FieldKey != "timeline.host_refs" && cell.FieldKey != "timeline.identity_refs") {
 			continue
@@ -630,16 +634,16 @@ func (s *store) applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor
 		if cell.FieldKey == "timeline.identity_refs" {
 			entityType = "identity"
 		}
-		targets, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actor.ID, incidentID, recordID, cell.FieldKey, entityType, cell.Change.ActionPayload, mentionInsertOptions{
+		applied, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actor.ID, incidentID, recordID, cell.FieldKey, entityType, cell.Change.ActionPayload, mentionInsertOptions{
 			allowInteractiveAutoResolution: true,
 			originKind:                     originKind,
 		}, now)
 		if err != nil {
-			return mentionProjectionRefresh{}, err
+			return mentionApplicationResult{}, err
 		}
-		refresh.merge(targets)
+		result.merge(applied)
 	}
-	return refresh, nil
+	return result, nil
 }
 
 func (s *store) applyPasteTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, cells []ownerBatchCellV1, now time.Time) ([]recordTagMutation, error) {

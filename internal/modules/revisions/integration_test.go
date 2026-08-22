@@ -380,6 +380,7 @@ func TestMergeChangeSetRollback_Integration(t *testing.T) {
 	outgoingLinkID := uuid.New()
 	survivorTag := uuid.New()
 	loserTag := uuid.New()
+	uniqueLoserTag := uuid.New()
 	assessment := uuid.New()
 	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, survivor, "Survivor Host", "survivor-host", "", "")
 	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, loser, "Loser Host", "loser-host", "loser.example.test", "")
@@ -391,9 +392,22 @@ func TestMergeChangeSetRollback_Integration(t *testing.T) {
 	linktest.SeedRecordLink(t, harness.DB, incidentID, actorID, outgoingLinkID, loser, outgoingTarget, "references_record", "manual", nil)
 	linktest.SeedRecordTag(t, harness.DB, incidentID, actorID, survivorTag, survivor, "duplicate-merge-tag")
 	linktest.SeedRecordTag(t, harness.DB, incidentID, actorID, loserTag, loser, "duplicate-merge-tag")
+	linktest.SeedRecordTag(t, harness.DB, incidentID, actorID, uniqueLoserTag, loser, "unique-merge-tag")
+	mergeFixtureCreatedAt := time.Date(2026, 5, 10, 18, 0, 0, 0, time.UTC)
+	if _, err := harness.DB.Exec(`UPDATE record_links SET decided_at = $1, created_at = $1 WHERE record_link_id IN ($2, $3)`, mergeFixtureCreatedAt, linkID, outgoingLinkID); err != nil {
+		t.Fatalf("normalize merge link fixture timestamps: %v", err)
+	}
+	if _, err := harness.DB.Exec(`UPDATE record_tags SET created_at = $1, updated_at = $1 WHERE record_tag_id IN ($2, $3, $4)`, mergeFixtureCreatedAt, survivorTag, loserTag, uniqueLoserTag); err != nil {
+		t.Fatalf("normalize merge tag fixture timestamps: %v", err)
+	}
+	var uniqueTagCreatedAt, uniqueTagUpdatedAt time.Time
+	if err := harness.DB.QueryRow(`SELECT created_at, updated_at FROM record_tags WHERE record_tag_id = $1`, uniqueLoserTag).Scan(&uniqueTagCreatedAt, &uniqueTagUpdatedAt); err != nil {
+		t.Fatalf("load unique loser tag timestamps: %v", err)
+	}
 	assessmenttest.SeedAssessment(t, harness.DB, incidentID, actorID, assessment, loser, "host", "suspected")
 	seedHostProjection(t, harness.DB, incidentID, survivor)
 	seedHostProjection(t, harness.DB, incidentID, loser)
+	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 18, 30, 0, 0, time.UTC))
 
 	mergeData := httptestx.RequireSuccessEnvelope(t, mergeRecords(t, harness, login, survivor, map[string]any{
 		"loser_record_id":           loser.String(),
@@ -430,6 +444,28 @@ SELECT COUNT(*)
 	}
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_tags WHERE record_tag_id = $1 AND deleted_at IS NOT NULL`, loserTag) != 1 {
 		t.Fatalf("merge did not dedupe loser tag")
+	}
+	if countRows(t, harness.DB, `
+SELECT COUNT(*)
+  FROM change_set_mutations
+ WHERE change_set_id::text = $1
+   AND target_kind = 'record_tag'
+   AND target_id = $2
+   AND operation_kind = 'delete'
+`, mergeChangeSetID, "record_tag:"+loser.String()+":"+loserTag.String()) != 1 {
+		t.Fatalf("merge tag delete did not retain the canonical pre-mutation target")
+	}
+	if countRows(t, harness.DB, `
+SELECT COUNT(*)
+  FROM change_set_mutations
+ WHERE change_set_id::text = $1
+   AND target_kind = 'record_tag'
+   AND target_id = $2
+   AND operation_kind = 'patch'
+   AND before_value ->> 'record_id' = $3
+   AND after_value ->> 'record_id' = $4
+`, mergeChangeSetID, "record_tag:"+loser.String()+":"+uniqueLoserTag.String(), loser.String(), survivor.String()) != 1 {
+		t.Fatalf("merge tag patch did not retain the canonical pre-mutation target")
 	}
 	if got := stringScalar(t, harness.DB, `SELECT subject_record_id::text FROM assessments WHERE record_id = $1`, assessment); got != survivor.String() {
 		t.Fatalf("merge did not repoint assessment subject, got %s", got)
@@ -471,8 +507,21 @@ SELECT COUNT(*)
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND src_record_id = $2 AND dst_record_id = $3 AND deleted_at IS NULL`, outgoingLinkID, loser, outgoingTarget) != 1 {
 		t.Fatalf("merge rollback did not restore original loser-sourced active link")
 	}
-	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_tags WHERE record_tag_id IN ($1, $2) AND deleted_at IS NULL`, survivorTag, loserTag) != 2 {
-		t.Fatalf("merge rollback did not restore both duplicate tags")
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_tags WHERE record_tag_id IN ($1, $2, $3) AND deleted_at IS NULL`, survivorTag, loserTag, uniqueLoserTag) != 3 {
+		t.Fatalf("merge rollback did not restore all retained tags")
+	}
+	if countRows(t, harness.DB, `
+SELECT COUNT(*)
+  FROM record_tags
+ WHERE record_tag_id = $1
+   AND record_id = $2
+   AND created_by_user_id = $3
+   AND created_at = $4
+   AND updated_at = $5
+   AND deleted_at IS NULL
+   AND deleted_by_user_id IS NULL
+`, uniqueLoserTag, loser, actorID, uniqueTagCreatedAt, uniqueTagUpdatedAt) != 1 {
+		t.Fatalf("merge rollback did not restore the tag target, attribution, and timestamps exactly")
 	}
 	if got := stringScalar(t, harness.DB, `SELECT subject_record_id::text FROM assessments WHERE record_id = $1`, assessment); got != loser.String() {
 		t.Fatalf("merge rollback did not restore assessment subject, got %s", got)

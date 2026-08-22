@@ -80,6 +80,14 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 	if hostLink.Provenance != "manual" || hostLink.Confidence != nil {
 		t.Fatalf("unexpected heterogeneous support link metadata: %#v", hostLink)
 	}
+	if got := appsupport.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM change_set_mutations
+ WHERE change_set_id = $1
+   AND target_kind = 'record_link'
+`, appsupport.MustUUID(t, data["change_set_id"].(string))); got != 2 {
+		t.Fatalf("assessment support link mutations = %d, want 2", got)
+	}
 	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE record_id = $1 AND record_type = 'assessment'`, recordID); got != 1 {
 		t.Fatalf("expected one assessment record envelope, got %d", got)
 	}

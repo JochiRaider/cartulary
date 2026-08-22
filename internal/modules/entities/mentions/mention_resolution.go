@@ -18,6 +18,7 @@ type MentionResolutionResult struct {
 	OperationKind string
 	BeforeRow     map[string]any
 	AfterRow      map[string]any
+	LinkMutations []LinkMutation
 }
 
 func (s *Store) ResolveExistingFromMentionTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, fieldKey string, mentionID uuid.UUID, resolvedRecordID *uuid.UUID, now time.Time) (MentionResolutionResult, error) {
@@ -62,8 +63,10 @@ func (s *Store) ResolveExistingFromMentionTx(ctx context.Context, tx pgx.Tx, act
 		return MentionResolutionResult{}, ErrInvalidMentionResolution
 	}
 
-	if _, err := s.applyMentionActionTx(ctx, tx, actor.ID, mention, "resolve_item", validatedTarget, resolutionMethod, now.UTC()); err != nil {
+	outcome, err := s.applyMentionActionTx(ctx, tx, actor.ID, mention, "resolve_item", validatedTarget, resolutionMethod, now.UTC())
+	if err != nil {
 		return MentionResolutionResult{}, err
 	}
+	result.LinkMutations = append([]LinkMutation(nil), outcome.LinkMutations...)
 	return result, nil
 }

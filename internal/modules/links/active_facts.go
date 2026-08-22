@@ -13,9 +13,9 @@ type RecordLinkFact struct {
 	RecordLinkID    uuid.UUID
 	SrcRecordID     uuid.UUID
 	DstRecordID     uuid.UUID
-	LinkType        string
+	LinkType        LinkType
 	FieldKey        *string
-	Provenance      string
+	Provenance      LinkProvenance
 	Confidence      *int
 	OwnerUserID     uuid.UUID
 	CreatedByUserID uuid.UUID
@@ -38,32 +38,33 @@ type ActiveFacts struct {
 	RecordTags  []RecordTagFact
 }
 
-type ActiveFactsReadError struct {
+type FactReadError struct {
 	err error
 }
 
-func (e *ActiveFactsReadError) Error() string {
-	return "links: active fact read failed"
+func (e *FactReadError) Error() string {
+	return "links: fact read failed"
 }
 
-func (e *ActiveFactsReadError) Unwrap() error {
+func (e *FactReadError) Unwrap() error {
 	if e == nil {
 		return nil
 	}
 	return e.err
 }
 
-type ActiveFactReader struct{}
+type CollectionChangeFacts struct {
+	LinkFieldKeys []string
+	TagsChanged   bool
+}
 
-func (ActiveFactReader) LoadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (ActiveFacts, error) {
+type FactReader struct{}
+
+func (FactReader) LoadIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (ActiveFacts, error) {
 	return loadActiveFactsTx(ctx, tx, incidentID, nil)
 }
 
-// RecordFactReader provides the same owner facts for one record scope without
-// making callers query the entire incident when they need one record.
-type RecordFactReader struct{}
-
-func (RecordFactReader) LoadTx(
+func (FactReader) LoadRecordTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
@@ -105,21 +106,23 @@ SELECT
 `
 	rows, err := tx.Query(ctx, linkQuery, linkArgs...)
 	if err != nil {
-		return ActiveFacts{}, &ActiveFactsReadError{err: err}
+		return ActiveFacts{}, &FactReadError{err: err}
 	}
 	for rows.Next() {
 		var (
 			fact       RecordLinkFact
 			fieldKey   pgtype.Text
+			linkType   string
+			provenance string
 			confidence pgtype.Int4
 		)
 		if err := rows.Scan(
 			&fact.RecordLinkID,
 			&fact.SrcRecordID,
 			&fact.DstRecordID,
-			&fact.LinkType,
+			&linkType,
 			&fieldKey,
-			&fact.Provenance,
+			&provenance,
 			&confidence,
 			&fact.OwnerUserID,
 			&fact.CreatedByUserID,
@@ -127,8 +130,10 @@ SELECT
 			&fact.CreatedAt,
 		); err != nil {
 			rows.Close()
-			return ActiveFacts{}, &ActiveFactsReadError{err: err}
+			return ActiveFacts{}, &FactReadError{err: err}
 		}
+		fact.LinkType = LinkType(linkType)
+		fact.Provenance = LinkProvenance(provenance)
 		if fieldKey.Valid {
 			value := fieldKey.String
 			fact.FieldKey = &value
@@ -143,7 +148,7 @@ SELECT
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
-		return ActiveFacts{}, &ActiveFactsReadError{err: err}
+		return ActiveFacts{}, &FactReadError{err: err}
 	}
 	rows.Close()
 
@@ -171,7 +176,7 @@ SELECT
 `
 	tagRows, err := tx.Query(ctx, tagQuery, tagArgs...)
 	if err != nil {
-		return ActiveFacts{}, &ActiveFactsReadError{err: err}
+		return ActiveFacts{}, &FactReadError{err: err}
 	}
 	for tagRows.Next() {
 		var fact RecordTagFact
@@ -185,7 +190,7 @@ SELECT
 			&fact.UpdatedAt,
 		); err != nil {
 			tagRows.Close()
-			return ActiveFacts{}, &ActiveFactsReadError{err: err}
+			return ActiveFacts{}, &FactReadError{err: err}
 		}
 		fact.CreatedAt = fact.CreatedAt.UTC()
 		fact.UpdatedAt = fact.UpdatedAt.UTC()
@@ -193,8 +198,55 @@ SELECT
 	}
 	if err := tagRows.Err(); err != nil {
 		tagRows.Close()
-		return ActiveFacts{}, &ActiveFactsReadError{err: err}
+		return ActiveFacts{}, &FactReadError{err: err}
 	}
 	tagRows.Close()
+	return facts, nil
+}
+
+func (FactReader) LoadCollectionChangesTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	recordID uuid.UUID,
+	changedAt time.Time,
+) (CollectionChangeFacts, error) {
+	facts := CollectionChangeFacts{LinkFieldKeys: []string{}}
+	rows, err := tx.Query(ctx, `
+SELECT DISTINCT field_key
+  FROM record_links
+ WHERE incident_id = $1
+   AND src_record_id = $2
+   AND field_key IS NOT NULL
+   AND (created_at = $3 OR deleted_at = $3)
+ ORDER BY field_key
+`, incidentID, recordID, changedAt.UTC())
+	if err != nil {
+		return CollectionChangeFacts{}, &FactReadError{err: err}
+	}
+	for rows.Next() {
+		var fieldKey string
+		if err := rows.Scan(&fieldKey); err != nil {
+			rows.Close()
+			return CollectionChangeFacts{}, &FactReadError{err: err}
+		}
+		facts.LinkFieldKeys = append(facts.LinkFieldKeys, fieldKey)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return CollectionChangeFacts{}, &FactReadError{err: err}
+	}
+	rows.Close()
+	if err := tx.QueryRow(ctx, `
+SELECT EXISTS (
+    SELECT 1
+      FROM record_tags
+     WHERE incident_id = $1
+       AND record_id = $2
+       AND (created_at = $3 OR deleted_at = $3)
+)
+`, incidentID, recordID, changedAt.UTC()).Scan(&facts.TagsChanged); err != nil {
+		return CollectionChangeFacts{}, &FactReadError{err: err}
+	}
 	return facts, nil
 }

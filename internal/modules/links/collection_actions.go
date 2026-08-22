@@ -2,7 +2,6 @@ package links
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -99,39 +98,6 @@ func (s *Store) ValidateRecordRefCollectionTx(ctx context.Context, tx pgx.Tx, co
 	return nil
 }
 
-func (s *Store) ApplyRecordRefCollectionTx(ctx context.Context, tx pgx.Tx, command RecordRefCollectionCommand) (bool, error) {
-	if err := s.ValidateRecordRefCollectionTx(ctx, tx, RecordRefCollectionValidation{
-		IncidentID:         command.IncidentID,
-		FieldKey:           command.FieldKey,
-		LinkType:           command.LinkType,
-		ExpectedTargetType: command.ExpectedTargetType,
-		AddRecordIDs:       command.AddRecordIDs,
-		RemoveRecordIDs:    command.RemoveRecordIDs,
-	}); err != nil {
-		return false, err
-	}
-	changed := false
-	linkType := command.LinkType.String()
-	for _, recordID := range command.AddRecordIDs {
-		applied, err := s.UpsertFieldReferenceTx(ctx, tx, command.IncidentID, command.SourceRecordID, recordID, command.FieldKey, linkType, command.ActorUserID, command.Now)
-		if err != nil {
-			return false, err
-		}
-		changed = changed || applied
-	}
-	for _, recordID := range command.RemoveRecordIDs {
-		applied, err := s.TombstoneFieldReferenceTx(ctx, tx, command.IncidentID, command.SourceRecordID, recordID, command.FieldKey, linkType, command.ExpectedTargetType, command.ActorUserID, command.Now)
-		if err != nil {
-			if errors.Is(err, ErrFieldReferenceNotFound) {
-				return false, collectionValidationError(command.FieldKey)
-			}
-			return false, err
-		}
-		changed = changed || applied
-	}
-	return changed, nil
-}
-
 func (s *Store) ValidatePartyRefCollectionTx(ctx context.Context, tx pgx.Tx, command PartyRefCollectionValidation) error {
 	if err := validateLinkCollectionPolicy(command.FieldKey, command.LinkType); err != nil {
 		return err
@@ -142,39 +108,6 @@ func (s *Store) ValidatePartyRefCollectionTx(ctx context.Context, tx pgx.Tx, com
 		}
 	}
 	return nil
-}
-
-func (s *Store) ApplyPartyRefCollectionTx(ctx context.Context, tx pgx.Tx, command PartyRefCollectionCommand) (bool, error) {
-	if err := s.ValidatePartyRefCollectionTx(ctx, tx, PartyRefCollectionValidation{
-		IncidentID:         command.IncidentID,
-		FieldKey:           command.FieldKey,
-		LinkType:           command.LinkType,
-		ExpectedTargetType: command.ExpectedTargetType,
-		AddPartyIDs:        command.AddPartyIDs,
-		RemovePartyIDs:     command.RemovePartyIDs,
-	}); err != nil {
-		return false, err
-	}
-	changed := false
-	linkType := command.LinkType.String()
-	for _, partyID := range command.AddPartyIDs {
-		applied, err := s.UpsertFieldReferenceTx(ctx, tx, command.IncidentID, command.SourceRecordID, partyID, command.FieldKey, linkType, command.ActorUserID, command.Now)
-		if err != nil {
-			return false, err
-		}
-		changed = changed || applied
-	}
-	for _, partyID := range command.RemovePartyIDs {
-		applied, err := s.TombstoneFieldReferenceTx(ctx, tx, command.IncidentID, command.SourceRecordID, partyID, command.FieldKey, linkType, command.ExpectedTargetType, command.ActorUserID, command.Now)
-		if err != nil {
-			if errors.Is(err, ErrFieldReferenceNotFound) {
-				return false, collectionValidationError(command.FieldKey)
-			}
-			return false, err
-		}
-		changed = changed || applied
-	}
-	return changed, nil
 }
 
 func (s *Store) ValidateTagCollectionTx(ctx context.Context, tx pgx.Tx, command TagCollectionValidation) error {
@@ -194,42 +127,6 @@ func (s *Store) ValidateTagCollectionTx(ctx context.Context, tx pgx.Tx, command 
 		}
 	}
 	return nil
-}
-
-func (s *Store) ApplyTagCollectionTx(ctx context.Context, tx pgx.Tx, command TagCollectionCommand) (bool, error) {
-	if err := s.ValidateTagCollectionTx(ctx, tx, TagCollectionValidation{
-		FieldKey:   command.FieldKey,
-		AddTags:    command.AddTags,
-		RemoveTags: command.RemoveTags,
-	}); err != nil {
-		return false, err
-	}
-	changed := false
-	tags := s.Tags()
-	for _, tag := range command.AddTags {
-		applied, err := tags.UpsertTagTx(ctx, tx, command.IncidentID, command.RecordID, tag.RawText, tag.NormalizedText, command.ActorUserID, command.Now)
-		if err != nil {
-			if errors.Is(err, ErrInvalidTag) {
-				return false, collectionValidationError(command.FieldKey)
-			}
-			return false, err
-		}
-		changed = changed || applied
-	}
-	for _, tag := range command.RemoveTags {
-		if tag.RecordID != command.RecordID {
-			return false, collectionValidationError(command.FieldKey)
-		}
-		applied, err := tags.TombstoneTagTx(ctx, tx, command.IncidentID, command.RecordID, tag.RecordTagID, command.ActorUserID, command.Now)
-		if err != nil {
-			if errors.Is(err, ErrTagNotFound) {
-				return false, collectionValidationError(command.FieldKey)
-			}
-			return false, err
-		}
-		changed = changed || applied
-	}
-	return changed, nil
 }
 
 func validateLinkCollectionPolicy(fieldKey string, linkType LinkType) error {

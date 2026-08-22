@@ -2519,6 +2519,100 @@ destructively reset before current code is deployed.
 Profiles: base, incident_portability
 Verified by: AC-549, AC-550
 
+**REQ-02-267**
+Every current-profile `record_link` mutation value MUST be a closed canonical
+JSON object containing exactly these fourteen members:
+
+1. `record_link_id`;
+2. `incident_id`;
+3. `src_record_id`;
+4. `dst_record_id`;
+5. `link_type`;
+6. `field_key`;
+7. `provenance`;
+8. `confidence`;
+9. `owner_user_id`;
+10. `created_by_user_id`;
+11. `decided_at`;
+12. `created_at`;
+13. `deleted_at`;
+14. `deleted_by_user_id`.
+
+Every member is required. Only `field_key`, `confidence`, `deleted_at`, and
+`deleted_by_user_id` may be JSON `null`; every other member is non-null. UUID
+members MUST be canonical lowercase UUID strings. Timestamp members MUST be
+UTC RFC 3339 values emitted by one Links-owned RFC3339Nano encoder. `link_type`
+and `provenance` MUST use the exact current vocabularies in §18. `field_key`,
+endpoint direction, active identity, and tombstone state MUST satisfy
+§12.1-§12.3. Manual provenance requires `confidence=null`.
+`provenance='auto_match'` is valid only for `observed_on_host` and
+`observed_as_identity`, and requires `confidence=100`. Links is the sole owner
+of this encoding; callers MUST NOT construct partial or alternate link-history
+objects.
+Profiles: base, incident_portability
+Verified by: AC-554, AC-556, AC-557
+
+**REQ-02-268**
+Every current-profile `record_tag` mutation value MUST be a closed canonical
+JSON object containing exactly these ten members:
+
+1. `record_tag_id`;
+2. `incident_id`;
+3. `record_id`;
+4. `tag_name`;
+5. `normalized_tag_name`;
+6. `created_by_user_id`;
+7. `created_at`;
+8. `updated_at`;
+9. `deleted_at`;
+10. `deleted_by_user_id`.
+
+Every member is required. Only `deleted_at` and `deleted_by_user_id` may be JSON
+`null`; every other member is non-null. UUID members MUST be canonical lowercase
+UUID strings, and timestamp members MUST be UTC RFC 3339 values emitted by the
+Links-owned RFC3339Nano encoder. The sole current target identifier grammar is
+`record_tag:<canonical-record-uuid>:<canonical-record-tag-uuid>`. A create
+target uses the after value's `record_id`; a patch or delete target uses the
+before value's `record_id`. The target components MUST match the canonical
+value pair. A bare tag UUID, `tag_id` value member, compact value, inferred
+member, or alternate grammar is invalid. Links is the sole owner of this
+encoding; callers MUST NOT construct partial or alternate tag-history objects.
+Profiles: base, incident_portability
+Verified by: AC-555, AC-556, AC-557
+
+**REQ-02-269**
+The current `record_link` and `record_tag` history operations MUST obey these
+exact invariants:
+
+- `create` has `before_value=null` and one canonical active `after_value`;
+- `patch` has two canonical values with stable target identity and only a legal
+  source-owner transition;
+- `delete` has two canonical values with stable target identity, an active
+  before value, and an after value carrying the exact deletion actor and time;
+- a command that makes no authoritative change emits no mutation; and
+- inverse application requires and validates both retained canonical sides,
+  retains the addressed original target, and restores every retained field
+  exactly, including original creation attribution and timestamps.
+
+Each Links command MUST produce its mutation atomically with the source write in
+the caller-owned transaction. The Links owner MUST contribute one pure history
+validator to the application-composed Revisions target-semantics catalog.
+Revisions MUST invoke that validator with the operation kind and both retained
+sides before local append, history description, inverse planning or
+application, and Incident Bundle mutation. Revisions MUST remain ignorant of
+Links field names and target grammar. Missing, extra, mistyped, noncanonical,
+default-dependent, or operation-inconsistent values and targets fail closed
+through owner-neutral errors before persistence or import-side mutation.
+
+This is a pre-production hard cutover. A database or retained Incident Bundle
+containing an earlier Links history shape or tag-target grammar MUST be
+discarded and regenerated from reset state. The implementation MUST NOT add a
+migration, history rewrite, alias, fallback, inferred default, dual reader,
+dual writer, forwarding shim, compatibility mode, or bundle-version
+translation for the retired values.
+Profiles: base, incident_portability
+Verified by: AC-554, AC-555, AC-556, AC-557
+
 ### 15.3.1 Retained history and rollback horizon
 
 **REQ-02-238**

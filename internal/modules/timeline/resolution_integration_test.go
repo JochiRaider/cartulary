@@ -83,8 +83,8 @@ func TestAutoResolutionEligibility_Integration(t *testing.T) {
 			mustUUID(t, recordID),
 			entitytest.CanonicalHostRecordID,
 			"observed_on_host",
-			linktest.AutoMatchExpectation.Provenance,
-			linktest.AutoMatchExpectation.Confidence,
+			linktest.LinkProvenanceAutoMatch,
+			intPointer(100),
 		)
 		if got := queryCount(t, harness.DB, `
 SELECT COUNT(*)
@@ -185,8 +185,8 @@ SELECT COUNT(*)
 			mustUUID(t, recordID),
 			entitytest.CanonicalIdentityRecordID,
 			"observed_as_identity",
-			linktest.AutoMatchExpectation.Provenance,
-			linktest.AutoMatchExpectation.Confidence,
+			linktest.LinkProvenanceAutoMatch,
+			intPointer(100),
 		)
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
 		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
@@ -230,7 +230,7 @@ SELECT COUNT(*)
 		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusCreated)["data"].(map[string]any)
 		row := data["row"].(map[string]any)
 		recordID := row["record_id"].(string)
-		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-entity_linking-u-4-08-create-row", 1, 1)
+		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-entity_linking-u-4-08-create-row", 3, 1)
 
 		hostLink := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), entitytest.CanonicalHostRecordID, "observed_on_host")
 		linktest.RequireActiveLink(
@@ -239,8 +239,8 @@ SELECT COUNT(*)
 			mustUUID(t, recordID),
 			entitytest.CanonicalHostRecordID,
 			"observed_on_host",
-			linktest.AutoMatchExpectation.Provenance,
-			linktest.AutoMatchExpectation.Confidence,
+			linktest.LinkProvenanceAutoMatch,
+			intPointer(100),
 		)
 		identityLink := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), entitytest.CanonicalIdentityRecordID, "observed_as_identity")
 		linktest.RequireActiveLink(
@@ -249,8 +249,8 @@ SELECT COUNT(*)
 			mustUUID(t, recordID),
 			entitytest.CanonicalIdentityRecordID,
 			"observed_as_identity",
-			linktest.AutoMatchExpectation.Provenance,
-			linktest.AutoMatchExpectation.Confidence,
+			linktest.LinkProvenanceAutoMatch,
+			intPointer(100),
 		)
 
 		hostItem := requireSingleCollectionItem(t, row, timelinetest.FieldHostRefs)
@@ -691,7 +691,7 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 		)
 		createData := requireSuccessEnvelopeWithBody(t, createResp, http.StatusCreated)["data"].(map[string]any)
 		recordID := createData["row"].(map[string]any)["record_id"].(string)
-		requireMutationRecorded(t, harness.DB, createData["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-entity_linking-i-4-09-create-row", 1, 1)
+		requireMutationRecorded(t, harness.DB, createData["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-entity_linking-i-4-09-create-row", 2, 1)
 
 		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), entitytest.CanonicalHostRecordID, "observed_on_host")
 		linktest.RequireActiveLink(
@@ -700,8 +700,8 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 			mustUUID(t, recordID),
 			entitytest.CanonicalHostRecordID,
 			"observed_on_host",
-			linktest.ManualLinkExpectation.Provenance,
-			linktest.ManualLinkExpectation.Confidence,
+			"manual",
+			nil,
 		)
 
 		envelope := queryTimelineEnvelope(t, harness.Server, incidentID, adminLogin)
@@ -723,7 +723,7 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 		if confidence, ok := item["confidence"]; !ok || confidence != nil {
 			t.Fatalf("expected create-route current-state confidence:null, got %#v", item)
 		}
-		if item["provenance"] != linktest.ManualLinkExpectation.Provenance {
+		if item["provenance"] != "manual" {
 			t.Fatalf("unexpected create-route provenance: %#v", item)
 		}
 
@@ -843,7 +843,7 @@ UPDATE incident_memberships
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("unexpected add_resolved_ref row_version: got %d want 2", got)
 		}
-		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID, "timeline.records.patch", "txn-entity_linking-i-4-09-add-patch", 1, 2)
+		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID, "timeline.records.patch", "txn-entity_linking-i-4-09-add-patch", 2, 2)
 
 		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), entitytest.CanonicalHostRecordID, "observed_on_host")
 		linktest.RequireActiveLink(
@@ -852,8 +852,8 @@ UPDATE incident_memberships
 			mustUUID(t, recordID),
 			entitytest.CanonicalHostRecordID,
 			"observed_on_host",
-			linktest.ManualLinkExpectation.Provenance,
-			linktest.ManualLinkExpectation.Confidence,
+			"manual",
+			nil,
 		)
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
 		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
@@ -870,7 +870,7 @@ UPDATE incident_memberships
 		if confidence, ok := item["confidence"]; !ok || confidence != nil {
 			t.Fatalf("expected current-state read to preserve confidence:null, got %#v", item)
 		}
-		if item["provenance"] != linktest.ManualLinkExpectation.Provenance {
+		if item["provenance"] != "manual" {
 			t.Fatalf("unexpected current-state link provenance: %#v", item)
 		}
 
@@ -1015,8 +1015,8 @@ UPDATE incident_memberships
 			mustUUID(t, recordID),
 			entitytest.CanonicalIdentityRecordID,
 			"observed_as_identity",
-			linktest.ManualLinkExpectation.Provenance,
-			linktest.ManualLinkExpectation.Confidence,
+			"manual",
+			nil,
 		)
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
 		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
@@ -1033,7 +1033,7 @@ UPDATE incident_memberships
 		if confidence, ok := item["confidence"]; !ok || confidence != nil {
 			t.Fatalf("expected current-state read to preserve confidence:null, got %#v", item)
 		}
-		if item["provenance"] != linktest.ManualLinkExpectation.Provenance {
+		if item["provenance"] != "manual" {
 			t.Fatalf("unexpected current-state link provenance: %#v", item)
 		}
 	})
@@ -1388,4 +1388,8 @@ VALUES ($1, $2, $3, $4, $5, 'suggestion_only', $6, now())
 `, incidentID, recordID, entityType, rawText, normalized, actorUserID); err != nil {
 		t.Fatalf("seed entity alias: %v", err)
 	}
+}
+
+func intPointer(value int) *int {
+	return &value
 }

@@ -640,6 +640,23 @@ func TestExplicitEntityMerge_Unit(t *testing.T) {
 		linktest.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, outgoingLinkID, entitytest.DuplicateHostRecordID, outgoingTargetID, "references_record", "manual", nil)
 		linktest.SeedRecordTag(t, harness.DB, incident.ID, actor.ID, linktest.TagIDSurvivor, entitytest.CanonicalHostRecordID, "critical-host")
 		linktest.SeedRecordTag(t, harness.DB, incident.ID, actor.ID, linktest.TagIDLoser, entitytest.DuplicateHostRecordID, "critical-host")
+		mergeFixtureCreatedAt := entitytest.BaseTime.Add(-time.Minute)
+		if _, err := harness.DB.Exec(context.Background(), `
+UPDATE record_links
+   SET decided_at = $1,
+       created_at = $1
+ WHERE record_link_id IN ($2, $3)
+`, mergeFixtureCreatedAt, linktest.DuplicateLinkID, outgoingLinkID); err != nil {
+			t.Fatalf("normalize merge link fixture timestamps: %v", err)
+		}
+		if _, err := harness.DB.Exec(context.Background(), `
+UPDATE record_tags
+   SET created_at = $1,
+       updated_at = $1
+ WHERE record_tag_id IN ($2, $3)
+`, mergeFixtureCreatedAt, linktest.TagIDSurvivor, linktest.TagIDLoser); err != nil {
+			t.Fatalf("normalize merge tag fixture timestamps: %v", err)
+		}
 		assessmenttest.SeedAssessment(t, harness.DB, incident.ID, actor.ID, assessmenttest.HostAssessmentID, entitytest.DuplicateHostRecordID, "host", "confirmed")
 		beforeMention := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID)
 
@@ -729,6 +746,15 @@ SELECT COUNT(*)
 		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.RecordID)
 		entitytest.SeedResolvedMention(t, harness.DB, actor.ID, entitytest.IdentityMentionID, timelinetest.RecordID, entitytest.DuplicateIdentityRecordID, timelinetest.FieldIdentityRefs, "identity", "Case Owner")
 		linktest.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, linktest.DuplicateLinkID, timelinetest.RecordID, entitytest.DuplicateIdentityRecordID, "observed_as_identity", "manual", nil)
+		mergeFixtureCreatedAt := entitytest.BaseTime.Add(-time.Minute)
+		if _, err := harness.DB.Exec(context.Background(), `
+UPDATE record_links
+   SET decided_at = $1,
+       created_at = $1
+ WHERE record_link_id = $2
+`, mergeFixtureCreatedAt, linktest.DuplicateLinkID); err != nil {
+			t.Fatalf("normalize merge link fixture timestamps: %v", err)
+		}
 		assessmenttest.SeedAssessment(t, harness.DB, incident.ID, actor.ID, assessmenttest.IdentityAssessmentID, entitytest.DuplicateIdentityRecordID, "identity", "confirmed")
 		beforeMention := entitytest.LookupMention(t, harness.DB, entitytest.IdentityMentionID)
 

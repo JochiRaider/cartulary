@@ -95,6 +95,19 @@ func (a assessmentRevisionAdapter) AppendAssessmentCreateRevisionTx(ctx context.
 	}); err != nil {
 		return uuid.UUID{}, err
 	}
+	for index, mutation := range create.LinkMutations {
+		if err := a.appender.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
+			ChangeSetID:   changeSetID,
+			SequenceNo:    index + 2,
+			TargetKind:    "record_link",
+			TargetID:      mutation.RecordLinkID.String(),
+			OperationKind: mutation.Operation,
+			BeforeValue:   mutation.BeforeValue,
+			AfterValue:    mutation.AfterValue,
+		}); err != nil {
+			return uuid.UUID{}, err
+		}
+	}
 	if err := a.appender.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:   changeSetID,
 		RecordID:      create.RecordID,

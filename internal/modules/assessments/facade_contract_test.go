@@ -307,9 +307,12 @@ func (p *assessmentFacadePorts) ApplyInitialAssessmentSupportLinksTx(
 	_ uuid.UUID,
 	_ []uuid.UUID,
 	_ time.Time,
-) error {
+) ([]assessments.SupportLinkMutation, error) {
 	p.participantCalls++
-	return p.inject("support_links")
+	if err := p.inject("support_links"); err != nil {
+		return nil, err
+	}
+	return []assessments.SupportLinkMutation{}, nil
 }
 
 func (p *assessmentFacadePorts) AppendAssessmentCreateRevisionTx(

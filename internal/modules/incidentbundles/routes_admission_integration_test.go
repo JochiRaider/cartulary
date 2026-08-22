@@ -629,17 +629,8 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	if nonreversibleRef == "" || nonreversibleRef != nonreversibleSecondRef {
 		t.Fatalf("imported nonreversible history selector must be stable across reads: first=%#v second=%#v", nonreversibleFirst, nonreversibleSecond)
 	}
-	if actions, _ := nonreversibleFirst["available_rollback_actions"].([]any); len(actions) != 0 || nonreversibleFirst["reversible"] != false {
-		t.Fatalf("record-tag create history item should remain ordinarily non-reversible: %#v", nonreversibleFirst)
-	}
-	nonreversibleRollback := postRollback(t, targetHarness.Server, targetAdmin, seededState.HistoryHostRecordID, map[string]any{
-		"base_row_version": 2,
-		"client_txn_id":    "txn-imported-nonreversible-rollback",
-		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": nonreversibleRef},
-	})
-	nonreversibleError := httptestx.RequireErrorEnvelope(t, nonreversibleRollback, http.StatusConflict, "rollback_precondition_failed")
-	if details := nonreversibleError["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "target_not_reversible" {
-		t.Fatalf("nonreversible rollback reason mismatch: %#v", details)
+	if actions, _ := nonreversibleFirst["available_rollback_actions"].([]any); len(actions) != 2 || nonreversibleFirst["reversible"] != true {
+		t.Fatalf("canonical imported record-tag create history should remain reversible: %#v", nonreversibleFirst)
 	}
 	reversibleRollback := postRollback(t, targetHarness.Server, targetAdmin, seededState.HistoryHostRecordID, map[string]any{
 		"base_row_version": 2,

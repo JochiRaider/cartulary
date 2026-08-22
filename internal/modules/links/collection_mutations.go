@@ -4,106 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
-	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/JochiRaider/cartulary/internal/modules/links/internal/valuecodec"
 )
-
-func (s *Store) SyncFieldReferenceWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command SyncFieldReferenceCommand) (CollectionMutationResult, error) {
-	before, err := s.loadActiveFieldReferenceMutationValuesTx(ctx, tx, command)
-	if err != nil {
-		return CollectionMutationResult{}, err
-	}
-	if _, err := s.SyncFieldReferenceCommandTx(ctx, tx, command); err != nil {
-		return CollectionMutationResult{}, err
-	}
-	after, err := s.loadActiveFieldReferenceMutationValuesTx(ctx, tx, command)
-	if err != nil {
-		return CollectionMutationResult{}, err
-	}
-	result := CollectionMutationResult{RecordLinks: make([]RecordLinkMutation, 0)}
-	for _, item := range sortedFieldReferenceMutationValues(before) {
-		if _, retained := after[item.RecordLinkID]; retained {
-			continue
-		}
-		afterValue, err := s.loadRecordLinkMutationValueTx(ctx, tx, item.RecordLinkID)
-		if err != nil {
-			return CollectionMutationResult{}, err
-		}
-		result.RecordLinks = append(result.RecordLinks, RecordLinkMutation{
-			RecordLinkID: item.RecordLinkID,
-			Operation:    "delete",
-			BeforeValue:  item.Value,
-			AfterValue:   afterValue.Map(),
-		})
-	}
-	for _, item := range sortedFieldReferenceMutationValues(after) {
-		if _, existed := before[item.RecordLinkID]; existed {
-			continue
-		}
-		result.RecordLinks = append(result.RecordLinks, RecordLinkMutation{
-			RecordLinkID: item.RecordLinkID,
-			Operation:    "create",
-			AfterValue:   item.Value,
-		})
-	}
-	return result, nil
-}
-
-func sortedFieldReferenceMutationValues(values map[uuid.UUID]fieldReferenceMutationValue) []fieldReferenceMutationValue {
-	result := make([]fieldReferenceMutationValue, 0, len(values))
-	for _, value := range values {
-		result = append(result, value)
-	}
-	slices.SortFunc(result, func(left fieldReferenceMutationValue, right fieldReferenceMutationValue) int {
-		return strings.Compare(left.RecordLinkID.String(), right.RecordLinkID.String())
-	})
-	return result
-}
-
-type fieldReferenceMutationValue struct {
-	RecordLinkID uuid.UUID
-	Value        map[string]any
-}
-
-func (s *Store) loadActiveFieldReferenceMutationValuesTx(ctx context.Context, tx pgx.Tx, command SyncFieldReferenceCommand) (map[uuid.UUID]fieldReferenceMutationValue, error) {
-	rows, err := tx.Query(ctx, `
-SELECT record_link_id
-  FROM record_links
- WHERE incident_id = $1
-   AND src_record_id = $2
-   AND field_key = $3
-   AND link_type = $4
-   AND deleted_at IS NULL
- ORDER BY record_link_id
-`, command.IncidentID, command.SrcRecordID, command.FieldKey, command.LinkType.String())
-	if err != nil {
-		return nil, fmt.Errorf("list field-reference mutation values: %w", err)
-	}
-	defer rows.Close()
-	ids := make([]uuid.UUID, 0)
-	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("scan field-reference mutation id: %w", err)
-		}
-		ids = append(ids, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate field-reference mutation ids: %w", err)
-	}
-	result := make(map[uuid.UUID]fieldReferenceMutationValue, len(ids))
-	for _, id := range ids {
-		value, err := s.loadRecordLinkMutationValueTx(ctx, tx, id)
-		if err != nil {
-			return nil, err
-		}
-		result[id] = fieldReferenceMutationValue{RecordLinkID: id, Value: value.Map()}
-	}
-	return result, nil
-}
 
 type CollectionMutationResult struct {
 	RecordLinks []RecordLinkMutation
@@ -125,6 +33,52 @@ type RecordTagMutation struct {
 	AfterValue  map[string]any
 }
 
+func (s *Store) SyncFieldReferenceWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command SyncFieldReferenceCommand) (CollectionMutationResult, error) {
+	if err := validateLinkCollectionPolicy(command.FieldKey, command.LinkType); err != nil {
+		return CollectionMutationResult{}, err
+	}
+	if command.IncidentID == uuid.Nil || command.SrcRecordID == uuid.Nil || command.ActorUserID == uuid.Nil || command.Now.IsZero() {
+		return CollectionMutationResult{}, collectionValidationError(command.FieldKey)
+	}
+	if command.TargetID != nil {
+		if err := validateRecordLinkCommand(command.LinkType.String(), LinkProvenanceManual, nil, command.SrcRecordID, *command.TargetID); err != nil {
+			return CollectionMutationResult{}, err
+		}
+		if err := validateActiveLinkEndpointsTx(ctx, tx, command.IncidentID, command.SrcRecordID, *command.TargetID); err != nil {
+			return CollectionMutationResult{}, err
+		}
+	}
+
+	before, err := listActiveFieldReferenceStatesTx(ctx, tx, command.IncidentID, command.SrcRecordID, command.FieldKey, command.LinkType)
+	if err != nil {
+		return CollectionMutationResult{}, err
+	}
+	result := newCollectionMutationResult()
+	retainedTarget := false
+	for _, state := range before {
+		if command.TargetID != nil && state.dstRecordID == *command.TargetID {
+			retainedTarget = true
+			continue
+		}
+		after, err := tombstoneRecordLinkStateTx(ctx, tx, state.recordLinkID, command.ActorUserID, command.Now.UTC())
+		if err != nil {
+			return CollectionMutationResult{}, err
+		}
+		result.RecordLinks = append(result.RecordLinks, newRecordLinkMutation("delete", &state, &after))
+	}
+	if command.TargetID == nil || retainedTarget {
+		return result, nil
+	}
+	created, inserted, err := upsertFieldReferenceStateTx(ctx, tx, command.IncidentID, command.SrcRecordID, *command.TargetID, command.FieldKey, command.LinkType, command.ActorUserID, command.Now.UTC())
+	if err != nil {
+		return CollectionMutationResult{}, err
+	}
+	if inserted {
+		result.RecordLinks = append(result.RecordLinks, newRecordLinkMutation("create", nil, &created))
+	}
+	return result, nil
+}
+
 func (s *Store) ApplyRecordRefCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command RecordRefCollectionCommand) (CollectionMutationResult, error) {
 	if err := s.ValidateRecordRefCollectionTx(ctx, tx, RecordRefCollectionValidation{
 		IncidentID:         command.IncidentID,
@@ -136,48 +90,17 @@ func (s *Store) ApplyRecordRefCollectionWithMutationValuesTx(ctx context.Context
 	}); err != nil {
 		return CollectionMutationResult{}, err
 	}
-	result := CollectionMutationResult{
-		RecordLinks: make([]RecordLinkMutation, 0),
-		RecordTags:  make([]RecordTagMutation, 0),
-	}
-	linkType := command.LinkType.String()
-	for _, recordID := range command.AddRecordIDs {
-		record, inserted, err := s.UpsertFieldReferenceRecordTx(ctx, tx, command.IncidentID, command.SourceRecordID, recordID, command.FieldKey, linkType, command.ActorUserID, command.Now)
-		if err != nil {
-			return CollectionMutationResult{}, err
-		}
-		if !inserted {
-			continue
-		}
-		afterValue, err := s.loadRecordLinkMutationValueTx(ctx, tx, record.RecordLinkID)
-		if err != nil {
-			return CollectionMutationResult{}, err
-		}
-		result.RecordLinks = append(result.RecordLinks, RecordLinkMutation{RecordLinkID: record.RecordLinkID, Operation: "create", AfterValue: afterValue.Map()})
-	}
-	for _, recordID := range command.RemoveRecordIDs {
-		existing, err := s.GetActiveFieldReferenceTx(ctx, tx, command.IncidentID, command.SourceRecordID, recordID, command.FieldKey, linkType)
-		if errors.Is(err, ErrFieldReferenceNotFound) {
-			return CollectionMutationResult{}, collectionValidationError(command.FieldKey)
-		}
-		if err != nil {
-			return CollectionMutationResult{}, err
-		}
-		beforeValue, err := s.loadRecordLinkMutationValueTx(ctx, tx, existing.RecordLinkID)
-		if err != nil {
-			return CollectionMutationResult{}, err
-		}
-		tombstoned, err := s.TombstoneFieldReferenceRecordTx(ctx, tx, command.IncidentID, command.SourceRecordID, recordID, command.FieldKey, linkType, command.ExpectedTargetType, command.ActorUserID, command.Now)
-		if err != nil {
-			return CollectionMutationResult{}, err
-		}
-		afterValue, err := s.loadRecordLinkMutationValueTx(ctx, tx, tombstoned.RecordLinkID)
-		if err != nil {
-			return CollectionMutationResult{}, err
-		}
-		result.RecordLinks = append(result.RecordLinks, RecordLinkMutation{RecordLinkID: tombstoned.RecordLinkID, Operation: "delete", BeforeValue: beforeValue.Map(), AfterValue: afterValue.Map()})
-	}
-	return result, nil
+	return s.applyReferenceCollectionWithMutationValuesTx(ctx, tx, referenceCollectionCommand{
+		incidentID:         command.IncidentID,
+		sourceRecordID:     command.SourceRecordID,
+		actorUserID:        command.ActorUserID,
+		fieldKey:           command.FieldKey,
+		linkType:           command.LinkType,
+		expectedTargetType: command.ExpectedTargetType,
+		addRecordIDs:       command.AddRecordIDs,
+		removeRecordIDs:    command.RemoveRecordIDs,
+		now:                command.Now,
+	})
 }
 
 func (s *Store) ApplyPartyRefCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command PartyRefCollectionCommand) (CollectionMutationResult, error) {
@@ -191,43 +114,61 @@ func (s *Store) ApplyPartyRefCollectionWithMutationValuesTx(ctx context.Context,
 	}); err != nil {
 		return CollectionMutationResult{}, err
 	}
-	result := CollectionMutationResult{RecordLinks: make([]RecordLinkMutation, 0)}
-	linkType := command.LinkType.String()
-	for _, partyID := range command.AddPartyIDs {
-		record, inserted, err := s.UpsertFieldReferenceRecordTx(ctx, tx, command.IncidentID, command.SourceRecordID, partyID, command.FieldKey, linkType, command.ActorUserID, command.Now)
-		if err != nil {
-			return CollectionMutationResult{}, err
-		}
-		if !inserted {
-			continue
-		}
-		afterValue, err := s.loadRecordLinkMutationValueTx(ctx, tx, record.RecordLinkID)
-		if err != nil {
-			return CollectionMutationResult{}, err
-		}
-		result.RecordLinks = append(result.RecordLinks, RecordLinkMutation{RecordLinkID: record.RecordLinkID, Operation: "create", AfterValue: afterValue.Map()})
+	return s.applyReferenceCollectionWithMutationValuesTx(ctx, tx, referenceCollectionCommand{
+		incidentID:         command.IncidentID,
+		sourceRecordID:     command.SourceRecordID,
+		actorUserID:        command.ActorUserID,
+		fieldKey:           command.FieldKey,
+		linkType:           command.LinkType,
+		expectedTargetType: command.ExpectedTargetType,
+		addRecordIDs:       command.AddPartyIDs,
+		removeRecordIDs:    command.RemovePartyIDs,
+		now:                command.Now,
+	})
+}
+
+type referenceCollectionCommand struct {
+	incidentID         uuid.UUID
+	sourceRecordID     uuid.UUID
+	actorUserID        uuid.UUID
+	fieldKey           string
+	linkType           LinkType
+	expectedTargetType string
+	addRecordIDs       []uuid.UUID
+	removeRecordIDs    []uuid.UUID
+	now                time.Time
+}
+
+func (s *Store) applyReferenceCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command referenceCollectionCommand) (CollectionMutationResult, error) {
+	if command.incidentID == uuid.Nil || command.sourceRecordID == uuid.Nil || command.actorUserID == uuid.Nil || command.now.IsZero() {
+		return CollectionMutationResult{}, collectionValidationError(command.fieldKey)
 	}
-	for _, partyID := range command.RemovePartyIDs {
-		existing, err := s.GetActiveFieldReferenceTx(ctx, tx, command.IncidentID, command.SourceRecordID, partyID, command.FieldKey, linkType)
-		if errors.Is(err, ErrFieldReferenceNotFound) {
-			return CollectionMutationResult{}, collectionValidationError(command.FieldKey)
+	result := newCollectionMutationResult()
+	for _, recordID := range command.addRecordIDs {
+		state, inserted, err := upsertFieldReferenceStateTx(ctx, tx, command.incidentID, command.sourceRecordID, recordID, command.fieldKey, command.linkType, command.actorUserID, command.now.UTC())
+		if err != nil {
+			return CollectionMutationResult{}, err
+		}
+		if inserted {
+			result.RecordLinks = append(result.RecordLinks, newRecordLinkMutation("create", nil, &state))
+		}
+	}
+	for _, recordID := range command.removeRecordIDs {
+		before, err := getActiveFieldReferenceStateTx(ctx, tx, command.incidentID, command.sourceRecordID, recordID, command.fieldKey, command.linkType)
+		if errors.Is(err, errFieldReferenceNotFound) {
+			return CollectionMutationResult{}, collectionValidationError(command.fieldKey)
 		}
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
-		beforeValue, err := s.loadRecordLinkMutationValueTx(ctx, tx, existing.RecordLinkID)
+		after, err := tombstoneFieldReferenceStateTx(ctx, tx, before.recordLinkID, command.expectedTargetType, command.actorUserID, command.now.UTC())
+		if errors.Is(err, errFieldReferenceNotFound) {
+			return CollectionMutationResult{}, collectionValidationError(command.fieldKey)
+		}
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
-		tombstoned, err := s.TombstoneFieldReferenceRecordTx(ctx, tx, command.IncidentID, command.SourceRecordID, partyID, command.FieldKey, linkType, command.ExpectedTargetType, command.ActorUserID, command.Now)
-		if err != nil {
-			return CollectionMutationResult{}, err
-		}
-		afterValue, err := s.loadRecordLinkMutationValueTx(ctx, tx, tombstoned.RecordLinkID)
-		if err != nil {
-			return CollectionMutationResult{}, err
-		}
-		result.RecordLinks = append(result.RecordLinks, RecordLinkMutation{RecordLinkID: tombstoned.RecordLinkID, Operation: "delete", BeforeValue: beforeValue.Map(), AfterValue: afterValue.Map()})
+		result.RecordLinks = append(result.RecordLinks, newRecordLinkMutation("delete", &before, &after))
 	}
 	return result, nil
 }
@@ -240,50 +181,197 @@ func (s *Store) ApplyTagCollectionWithMutationValuesTx(ctx context.Context, tx p
 	}); err != nil {
 		return CollectionMutationResult{}, err
 	}
-	result := CollectionMutationResult{
-		RecordLinks: make([]RecordLinkMutation, 0),
-		RecordTags:  make([]RecordTagMutation, 0),
+	if command.IncidentID == uuid.Nil || command.RecordID == uuid.Nil || command.ActorUserID == uuid.Nil || command.Now.IsZero() {
+		return CollectionMutationResult{}, collectionValidationError(command.FieldKey)
 	}
+	result := newCollectionMutationResult()
 	for _, tag := range command.AddTags {
-		tagID, inserted, err := s.Tags().UpsertTagRecordTx(ctx, tx, command.IncidentID, command.RecordID, tag.RawText, tag.NormalizedText, command.ActorUserID, command.Now)
-		if err != nil {
-			if errors.Is(err, ErrInvalidTag) {
-				return CollectionMutationResult{}, collectionValidationError(command.FieldKey)
-			}
-			return CollectionMutationResult{}, err
+		state, inserted, err := upsertRecordTagStateTx(ctx, tx, command.IncidentID, command.RecordID, tag.RawText, tag.NormalizedText, command.ActorUserID, command.Now.UTC())
+		if errors.Is(err, errInvalidTag) {
+			return CollectionMutationResult{}, collectionValidationError(command.FieldKey)
 		}
-		if !inserted {
-			continue
-		}
-		afterValue, err := s.loadRecordTagMutationValueTx(ctx, tx, tagID)
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
-		result.RecordTags = append(result.RecordTags, RecordTagMutation{RecordTagID: tagID, RecordID: command.RecordID, Operation: "create", AfterValue: afterValue.Map()})
+		if inserted {
+			result.RecordTags = append(result.RecordTags, newRecordTagMutation("create", nil, &state))
+		}
 	}
 	for _, tag := range command.RemoveTags {
 		if tag.RecordID != command.RecordID {
 			return CollectionMutationResult{}, collectionValidationError(command.FieldKey)
 		}
-		beforeValue, err := s.loadRecordTagMutationValueTx(ctx, tx, tag.RecordTagID)
-		if errors.Is(err, ErrTagNotFound) {
+		before, err := getActiveRecordTagStateTx(ctx, tx, command.IncidentID, command.RecordID, tag.RecordTagID)
+		if errors.Is(err, errTagNotFound) {
 			return CollectionMutationResult{}, collectionValidationError(command.FieldKey)
 		}
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
-		deleted, err := s.Tags().TombstoneTagRecordTx(ctx, tx, command.IncidentID, command.RecordID, tag.RecordTagID, command.ActorUserID, command.Now)
-		if errors.Is(err, ErrTagNotFound) {
+		after, err := tombstoneRecordTagStateTx(ctx, tx, tag.RecordTagID, command.ActorUserID, command.Now.UTC())
+		if errors.Is(err, errTagNotFound) {
 			return CollectionMutationResult{}, collectionValidationError(command.FieldKey)
 		}
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
-		afterValue, err := s.loadRecordTagMutationValueTx(ctx, tx, deleted)
-		if err != nil {
-			return CollectionMutationResult{}, err
-		}
-		result.RecordTags = append(result.RecordTags, RecordTagMutation{RecordTagID: deleted, RecordID: command.RecordID, Operation: "delete", BeforeValue: beforeValue.Map(), AfterValue: afterValue.Map()})
+		result.RecordTags = append(result.RecordTags, newRecordTagMutation("delete", &before, &after))
 	}
 	return result, nil
+}
+
+func newCollectionMutationResult() CollectionMutationResult {
+	return CollectionMutationResult{
+		RecordLinks: make([]RecordLinkMutation, 0),
+		RecordTags:  make([]RecordTagMutation, 0),
+	}
+}
+
+type recordTagState struct {
+	recordTagID       uuid.UUID
+	incidentID        uuid.UUID
+	recordID          uuid.UUID
+	tagName           string
+	normalizedTagName string
+	createdByUserID   uuid.UUID
+	createdAt         time.Time
+	updatedAt         time.Time
+	deletedAt         *time.Time
+	deletedByUserID   *uuid.UUID
+}
+
+func upsertRecordTagStateTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, tagName string, normalizedTagName string, actorUserID uuid.UUID, now time.Time) (recordTagState, bool, error) {
+	if tagName == "" || normalizedTagName == "" {
+		return recordTagState{}, false, errInvalidTag
+	}
+	row := tx.QueryRow(ctx, `
+INSERT INTO record_tags (
+    incident_id, record_id, tag_name, normalized_tag_name,
+    created_by_user_id, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $6)
+ON CONFLICT (incident_id, record_id, normalized_tag_name)
+WHERE deleted_at IS NULL
+DO NOTHING
+RETURNING
+    record_tag_id, incident_id, record_id, tag_name, normalized_tag_name,
+    created_by_user_id, created_at, updated_at, deleted_at,
+    deleted_by_user_id
+`, incidentID, recordID, tagName, normalizedTagName, actorUserID, now.UTC())
+	state, err := scanRecordTagState(row)
+	if err == nil {
+		return state, true, nil
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		return recordTagState{}, false, nil
+	}
+	return recordTagState{}, false, fmt.Errorf("upsert record tag state: %w", err)
+}
+
+func getActiveRecordTagStateTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, recordTagID uuid.UUID) (recordTagState, error) {
+	row := tx.QueryRow(ctx, `
+SELECT
+    record_tag_id, incident_id, record_id, tag_name, normalized_tag_name,
+    created_by_user_id, created_at, updated_at, deleted_at,
+    deleted_by_user_id
+  FROM record_tags
+ WHERE incident_id = $1
+   AND record_id = $2
+   AND record_tag_id = $3
+   AND deleted_at IS NULL
+ FOR UPDATE
+`, incidentID, recordID, recordTagID)
+	state, err := scanRecordTagState(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return recordTagState{}, errTagNotFound
+	}
+	if err != nil {
+		return recordTagState{}, fmt.Errorf("get active record tag state: %w", err)
+	}
+	return state, nil
+}
+
+func tombstoneRecordTagStateTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID, actorUserID uuid.UUID, now time.Time) (recordTagState, error) {
+	row := tx.QueryRow(ctx, `
+UPDATE record_tags
+   SET deleted_at = $3,
+       deleted_by_user_id = $2,
+       updated_at = $3
+ WHERE record_tag_id = $1
+   AND deleted_at IS NULL
+RETURNING
+    record_tag_id, incident_id, record_id, tag_name, normalized_tag_name,
+    created_by_user_id, created_at, updated_at, deleted_at,
+    deleted_by_user_id
+`, recordTagID, actorUserID, now.UTC())
+	state, err := scanRecordTagState(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return recordTagState{}, errTagNotFound
+	}
+	if err != nil {
+		return recordTagState{}, fmt.Errorf("tombstone record tag state: %w", err)
+	}
+	return state, nil
+}
+
+func scanRecordTagState(row pgx.Row) (recordTagState, error) {
+	var (
+		state           recordTagState
+		deletedAt       pgtype.Timestamptz
+		deletedByUserID pgtype.UUID
+	)
+	if err := row.Scan(
+		&state.recordTagID,
+		&state.incidentID,
+		&state.recordID,
+		&state.tagName,
+		&state.normalizedTagName,
+		&state.createdByUserID,
+		&state.createdAt,
+		&state.updatedAt,
+		&deletedAt,
+		&deletedByUserID,
+	); err != nil {
+		return recordTagState{}, err
+	}
+	state.createdAt = state.createdAt.UTC()
+	state.updatedAt = state.updatedAt.UTC()
+	if deletedAt.Valid {
+		value := deletedAt.Time.UTC()
+		state.deletedAt = &value
+	}
+	if deletedByUserID.Valid {
+		value := uuid.UUID(deletedByUserID.Bytes)
+		state.deletedByUserID = &value
+	}
+	return state, nil
+}
+
+func (s recordTagState) mutationValue() valuecodec.RecordTagMutationValue {
+	return valuecodec.BuildRecordTagMutationValue(valuecodec.RecordTagMutationInput{
+		RecordTagID:       s.recordTagID,
+		IncidentID:        s.incidentID,
+		RecordID:          s.recordID,
+		TagName:           s.tagName,
+		NormalizedTagName: s.normalizedTagName,
+		CreatedByUserID:   s.createdByUserID,
+		CreatedAt:         s.createdAt,
+		UpdatedAt:         s.updatedAt,
+		DeletedAt:         copyTimePointer(s.deletedAt),
+		DeletedByUserID:   copyUUIDPointer(s.deletedByUserID),
+	})
+}
+
+func newRecordTagMutation(operation string, before *recordTagState, after *recordTagState) RecordTagMutation {
+	mutation := RecordTagMutation{Operation: operation}
+	if before != nil {
+		mutation.RecordTagID = before.recordTagID
+		mutation.RecordID = before.recordID
+		mutation.BeforeValue = before.mutationValue().Map()
+	}
+	if after != nil {
+		mutation.RecordTagID = after.recordTagID
+		mutation.RecordID = after.recordID
+		mutation.AfterValue = after.mutationValue().Map()
+	}
+	return mutation
 }

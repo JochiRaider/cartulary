@@ -12,11 +12,11 @@ import (
 )
 
 type linkReader struct {
-	source links.RecordFactReader
+	source links.FactReader
 }
 
 func NewLinkReader() collectionfacts.LinkReader {
-	return linkReader{source: links.RecordFactReader{}}
+	return linkReader{source: links.FactReader{}}
 }
 
 func (reader linkReader) LoadTx(
@@ -25,7 +25,7 @@ func (reader linkReader) LoadTx(
 	incidentID uuid.UUID,
 	recordID uuid.UUID,
 ) (collectionfacts.LinkFacts, error) {
-	facts, err := reader.source.LoadTx(ctx, tx, incidentID, recordID)
+	facts, err := reader.source.LoadRecordTx(ctx, tx, incidentID, recordID)
 	if err != nil {
 		return collectionfacts.LinkFacts{}, err
 	}
@@ -82,8 +82,8 @@ func (reader linkReader) LoadTx(
 		}
 		mapped := collectionfacts.LinkFact{
 			TargetRecordID: fact.DstRecordID,
-			LinkType:       fact.LinkType,
-			Provenance:     fact.Provenance,
+			LinkType:       fact.LinkType.String(),
+			Provenance:     fact.Provenance.String(),
 		}
 		if fact.Confidence != nil {
 			confidence := *fact.Confidence

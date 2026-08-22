@@ -351,11 +351,11 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 		return MutationResult{}, 0, err
 	}
 
-	mentionProjectionRefresh, err := s.applyCreateMentionActionsTx(ctx, tx, actorUserID, current.IncidentID, current.RecordID, request.HostRefs, request.IdentityRefs, options, now.UTC())
+	mentionResult, err := s.applyCreateMentionActionsTx(ctx, tx, actorUserID, current.IncidentID, current.RecordID, request.HostRefs, request.IdentityRefs, options, now.UTC())
 	if err != nil {
 		return MutationResult{}, 0, err
 	}
-	if err := s.refreshMentionEntityProjectionsTx(ctx, tx, mentionProjectionRefresh); err != nil {
+	if err := s.refreshMentionEntityProjectionsTx(ctx, tx, mentionResult.Projection); err != nil {
 		return MutationResult{}, 0, err
 	}
 	tagMutations, err := s.applyCreateTagActionsTx(ctx, tx, actorUserID, current.IncidentID, current.RecordID, request.Tags, now.UTC())
@@ -373,9 +373,8 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 			return MutationResult{}, 0, err
 		}
 	}
-	mutationSequence, err := allocateMutationSequence(
-		1 + len(attachedEvidenceMutations) + len(tagMutations),
-	)
+	linkMutations := append(mentionResult.LinkMutations, attachedEvidenceMutations...)
+	mutationSequence, err := allocateMutationSequence(1 + len(linkMutations) + len(tagMutations))
 	if err != nil {
 		return MutationResult{}, 0, err
 	}
@@ -397,10 +396,10 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 	}); err != nil {
 		return MutationResult{}, 0, err
 	}
-	if err := s.insertAttachedEvidenceMutationEntriesTx(ctx, tx, changeSetID, mutationSequence+1, attachedEvidenceMutations); err != nil {
+	if err := s.insertAttachedEvidenceMutationEntriesTx(ctx, tx, changeSetID, mutationSequence+1, linkMutations); err != nil {
 		return MutationResult{}, 0, err
 	}
-	if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, mutationSequence+1+len(attachedEvidenceMutations), tagMutations); err != nil {
+	if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, mutationSequence+1+len(linkMutations), tagMutations); err != nil {
 		return MutationResult{}, 0, err
 	}
 	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
@@ -589,7 +588,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 		}
 	}
 	if current.RowVersion > request.BaseRowVersion {
-		window, err := s.loadPatchConflictWindowTx(ctx, tx, recordID, request.BaseRowVersion, current.RowVersion)
+		window, err := s.loadPatchConflictWindowTx(ctx, tx, current.IncidentID, recordID, request.BaseRowVersion, current.RowVersion)
 		if err != nil {
 			return MutationResult{}, err
 		}
@@ -662,14 +661,16 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 		return MutationResult{}, err
 	}
 	materialChanged := hasMaterialChange(current, next)
+	var mentionLinkMutations []attachedEvidenceMutation
 	if mentionChanged {
-		mentionProjectionRefresh, err := s.applyPatchMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, request.CanonicalChange, now.UTC())
+		mentionResult, err := s.applyPatchMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, request.CanonicalChange, now.UTC())
 		if err != nil {
 			return MutationResult{}, err
 		}
-		if err := s.refreshMentionEntityProjectionsTx(ctx, tx, mentionProjectionRefresh); err != nil {
+		if err := s.refreshMentionEntityProjectionsTx(ctx, tx, mentionResult.Projection); err != nil {
 			return MutationResult{}, err
 		}
+		mentionLinkMutations = mentionResult.LinkMutations
 	}
 	var tagMutations []recordTagMutation
 	if tagChanged {
@@ -688,6 +689,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 			return MutationResult{}, err
 		}
 	}
+	linkMutations := append(mentionLinkMutations, attachedEvidenceMutations...)
 	if !materialChanged && !mentionChanged && !tagChanged && !evidenceChanged {
 		return MutationResult{}, ErrNoEffectiveChange
 	}
@@ -780,10 +782,10 @@ RETURNING recorded_at
 	}); err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.insertAttachedEvidenceMutationEntriesTx(ctx, tx, changeSetID, 2, attachedEvidenceMutations); err != nil {
+	if err := s.insertAttachedEvidenceMutationEntriesTx(ctx, tx, changeSetID, 2, linkMutations); err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, 2+len(attachedEvidenceMutations), tagMutations); err != nil {
+	if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, 2+len(linkMutations), tagMutations); err != nil {
 		return MutationResult{}, err
 	}
 	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
@@ -839,7 +841,7 @@ RETURNING recorded_at
 	}, nil
 }
 
-func (s *store) loadPatchConflictWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64) (patchConflictWindow, error) {
+func (s *store) loadPatchConflictWindowTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64) (patchConflictWindow, error) {
 	rows, err := s.revisionsStore.ListRecordRevisionWindowTx(ctx, tx, recordID, baseRowVersion, currentRowVersion)
 	if err != nil {
 		return patchConflictWindow{}, fmt.Errorf("query timeline patch conflict window: %w", err)
@@ -871,7 +873,7 @@ func (s *store) loadPatchConflictWindowTx(ctx context.Context, tx pgx.Tx, record
 				ServerUpdatedAt: entry.CreatedAt.UTC(),
 			}
 		}
-		collectionFields, err := s.timelineCollectionFieldsChangedTx(ctx, tx, recordID, entry.CreatedAt)
+		collectionFields, err := s.timelineCollectionFieldsChangedTx(ctx, tx, incidentID, recordID, entry.CreatedAt)
 		if err != nil {
 			return patchConflictWindow{}, err
 		}
@@ -897,8 +899,8 @@ func ensureEmptyTimelineCollectionCells(row map[string]any) {
 	}
 }
 
-func (s *store) timelineCollectionFieldsChangedTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, createdAt time.Time) ([]string, error) {
-	linkFields, err := s.linkStore.LoadTimelineCollectionFieldsChangedTx(ctx, tx, recordID, createdAt)
+func (s *store) timelineCollectionFieldsChangedTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, createdAt time.Time) ([]string, error) {
+	linkFields, err := s.linkStore.LoadCollectionFieldsChangedTx(ctx, tx, incidentID, recordID, createdAt)
 	if err != nil {
 		return nil, err
 	}

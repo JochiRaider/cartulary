@@ -72,16 +72,26 @@ func (r rollbackQueryRepository) describeRollbackTargetTx(
 	switch dispatch {
 	case rollbackcontract.DispatchRow:
 		history, err := r.store.targetSemantics.DescribeMutation(StoredMutation{
-			TargetKind:  target.TargetKind,
-			TargetID:    target.TargetID,
-			BeforeValue: target.BeforeValue,
-			AfterValue:  target.AfterValue,
+			TargetKind:    target.TargetKind,
+			TargetID:      target.TargetID,
+			OperationKind: target.OperationKind,
+			BeforeValue:   target.BeforeValue,
+			AfterValue:    target.AfterValue,
 		})
 		if err != nil {
 			return rollbackcontract.TargetDescriptor{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 		}
 		return rollbackcontract.TargetDescriptor{AffectedRecordIDs: history.HistoryRecordIDs}, nil
 	case rollbackcontract.DispatchNonRow:
+		if _, err := r.store.targetSemantics.DescribeMutation(StoredMutation{
+			TargetKind:    target.TargetKind,
+			TargetID:      target.TargetID,
+			OperationKind: target.OperationKind,
+			BeforeValue:   target.BeforeValue,
+			AfterValue:    target.AfterValue,
+		}); err != nil {
+			return rollbackcontract.TargetDescriptor{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		}
 		provider, err := r.store.targetSemantics.nonRowProvider(target.TargetKind)
 		if err != nil {
 			return rollbackcontract.TargetDescriptor{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}

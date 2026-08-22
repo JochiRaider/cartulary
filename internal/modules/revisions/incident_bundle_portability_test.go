@@ -240,6 +240,9 @@ func TestRevisionsIncidentBundleInvariantAttribution(t *testing.T) {
 			}
 		})
 	}
+	t.Run("links_history_is_strict_before_import_mutation", func(t *testing.T) {
+		exerciseStrictLinksIncidentBundleAdmission(t)
+	})
 }
 
 func TestRevisionsIncidentBundleInvariantSelectionIsPermutationIndependent(t *testing.T) {
@@ -268,6 +271,97 @@ func TestRevisionsIncidentBundleInvariantSelectionIsPermutationIndependent(t *te
 				harness.applyAndValidate(t, bundle),
 				"revisions.references_complete",
 			)
+		})
+	}
+}
+
+func exerciseStrictLinksIncidentBundleAdmission(t *testing.T) {
+	harness := newRevisionsPortabilityHarness(t, "strict-links-history")
+	destinationID := uuid.MustParse("77777777-7777-4777-8777-777777777777")
+	linkID := uuid.MustParse("88888888-8888-4888-8888-888888888888")
+	tagID := uuid.MustParse("99999999-9999-4999-8999-999999999999")
+
+	linkBundle := func() sourceport.MapBundle {
+		bundle := harness.validBundle(t)
+		rows := decodePortableRows(t, bundle[revisionsTestMutationsPath])
+		rows = append(rows, map[string]any{
+			"change_set_id": harness.changeSet.String(), "sequence_no": 2,
+			"target_kind": "record_link", "target_id": linkID.String(), "operation_kind": "create",
+			"before_version_id": nil, "after_version_id": nil, "before_value": nil,
+			"after_value": canonicalPortableLinkValue(harness, linkID, destinationID),
+		})
+		bundle[revisionsTestMutationsPath] = encodePortableRows(t, rows)
+		return bundle
+	}
+	tagBundle := func() sourceport.MapBundle {
+		bundle := harness.validBundle(t)
+		rows := decodePortableRows(t, bundle[revisionsTestMutationsPath])
+		rows = append(rows, map[string]any{
+			"change_set_id": harness.changeSet.String(), "sequence_no": 2,
+			"target_kind": "record_tag", "target_id": "record_tag:" + harness.recordID.String() + ":" + tagID.String(),
+			"operation_kind": "create", "before_version_id": nil, "after_version_id": nil,
+			"before_value": nil, "after_value": canonicalPortableTagValue(harness, tagID),
+		})
+		bundle[revisionsTestMutationsPath] = encodePortableRows(t, rows)
+		return bundle
+	}
+
+	requireImportMutationCount(t, harness, linkBundle(), 2)
+	requireImportMutationCount(t, harness, tagBundle(), 2)
+
+	tests := []struct {
+		name   string
+		bundle func() sourceport.MapBundle
+		mutate func(map[string]any)
+	}{
+		{name: "link unknown member", bundle: linkBundle, mutate: func(row map[string]any) { row["after_value"].(map[string]any)["legacy"] = true }},
+		{name: "link missing nullable", bundle: linkBundle, mutate: func(row map[string]any) { delete(row["after_value"].(map[string]any), "confidence") }},
+		{name: "link mistyped confidence", bundle: linkBundle, mutate: func(row map[string]any) { row["after_value"].(map[string]any)["confidence"] = "100" }},
+		{name: "link noncanonical uuid", bundle: linkBundle, mutate: func(row map[string]any) {
+			row["after_value"].(map[string]any)["record_link_id"] = "88888888-8888-4888-8888-88888888888A"
+		}},
+		{name: "link noncanonical timestamp", bundle: linkBundle, mutate: func(row map[string]any) {
+			row["after_value"].(map[string]any)["created_at"] = "2026-08-01T08:00:00.123456-04:00"
+		}},
+		{name: "link invalid provenance", bundle: linkBundle, mutate: func(row map[string]any) { row["after_value"].(map[string]any)["provenance"] = "legacy" }},
+		{name: "link compact shape", bundle: linkBundle, mutate: func(row map[string]any) {
+			value := row["after_value"].(map[string]any)
+			for _, key := range []string{"field_key", "provenance", "confidence", "owner_user_id", "created_by_user_id", "decided_at", "created_at", "deleted_at", "deleted_by_user_id"} {
+				delete(value, key)
+			}
+		}},
+		{name: "link illegal create sides", bundle: linkBundle, mutate: func(row map[string]any) {
+			row["before_value"] = clonePortableRow(t, row["after_value"].(map[string]any))
+		}},
+		{name: "tag alias", bundle: tagBundle, mutate: func(row map[string]any) {
+			value := row["after_value"].(map[string]any)
+			value["tag_id"] = value["record_tag_id"]
+			delete(value, "record_tag_id")
+		}},
+		{name: "tag bare target", bundle: tagBundle, mutate: func(row map[string]any) { row["target_id"] = tagID.String() }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bundle := test.bundle()
+			rows := decodePortableRows(t, bundle[revisionsTestMutationsPath])
+			test.mutate(rows[1])
+			bundle[revisionsTestMutationsPath] = encodePortableRows(t, rows)
+			prepared, err := harness.port.PrepareImport(context.Background(), bundle, harness.context)
+			if err != nil {
+				requireRevisionsInvariant(t, err, "revisions.references_complete")
+				return
+			}
+			tx, err := harness.db.BeginTx(context.Background(), pgx.TxOptions{})
+			if err != nil {
+				t.Fatalf("begin strict Links import: %v", err)
+			}
+			defer func() { _ = tx.Rollback(context.Background()) }()
+			err = harness.port.ApplyImportTx(context.Background(), tx, prepared, harness.context)
+			requireRevisionsInvariant(t, err, "revisions.history_reconstruction")
+			var count int
+			if queryErr := tx.QueryRow(context.Background(), `SELECT count(*) FROM change_sets WHERE change_set_id = $1`, harness.changeSet).Scan(&count); queryErr != nil || count != 0 {
+				t.Fatalf("invalid Links history mutated import state: count=%d err=%v", count, queryErr)
+			}
 		})
 	}
 }
@@ -519,6 +613,46 @@ func (h revisionsPortabilityHarness) applyAndValidate(t testing.TB, bundle sourc
 		return err
 	}
 	return h.port.ValidateImportTx(context.Background(), tx, prepared, h.context)
+}
+
+func canonicalPortableLinkValue(h revisionsPortabilityHarness, linkID uuid.UUID, destinationID uuid.UUID) map[string]any {
+	return map[string]any{
+		"record_link_id": linkID.String(), "incident_id": h.incidentID.String(),
+		"src_record_id": h.recordID.String(), "dst_record_id": destinationID.String(),
+		"link_type": "references_record", "field_key": nil, "provenance": "manual", "confidence": nil,
+		"owner_user_id": h.actor.ID.String(), "created_by_user_id": h.actor.ID.String(),
+		"decided_at": h.createdAt.Format(time.RFC3339Nano), "created_at": h.createdAt.Format(time.RFC3339Nano),
+		"deleted_at": nil, "deleted_by_user_id": nil,
+	}
+}
+
+func canonicalPortableTagValue(h revisionsPortabilityHarness, tagID uuid.UUID) map[string]any {
+	return map[string]any{
+		"record_tag_id": tagID.String(), "incident_id": h.incidentID.String(), "record_id": h.recordID.String(),
+		"tag_name": "Portable", "normalized_tag_name": "portable", "created_by_user_id": h.actor.ID.String(),
+		"created_at": h.createdAt.Format(time.RFC3339Nano), "updated_at": h.createdAt.Format(time.RFC3339Nano),
+		"deleted_at": nil, "deleted_by_user_id": nil,
+	}
+}
+
+func requireImportMutationCount(t testing.TB, h revisionsPortabilityHarness, bundle sourceport.MapBundle, want int) {
+	t.Helper()
+	prepared, err := h.port.PrepareImport(context.Background(), bundle, h.context)
+	if err != nil {
+		t.Fatalf("prepare canonical Links history import: %v", err)
+	}
+	tx, err := h.db.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin canonical Links history import: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	if err := h.port.ApplyImportTx(context.Background(), tx, prepared, h.context); err != nil {
+		t.Fatalf("apply canonical Links history import: %v", err)
+	}
+	var count int
+	if err := tx.QueryRow(context.Background(), `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1`, h.changeSet).Scan(&count); err != nil || count != want {
+		t.Fatalf("canonical Links history mutation count=%d want=%d err=%v", count, want, err)
+	}
 }
 
 func requireRevisionsInvariant(t testing.TB, err error, invariantID string) {

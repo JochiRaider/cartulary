@@ -1,5 +1,10 @@
 # links Module Refactoring Tracker and Handoff
 
+> **Current execution authority:** Section 13 is the sole forward plan. Sections
+> 1 through 12 are the completed Iteration 1 historical record. Their inventories,
+> compatibility decisions, future-work language, and execution instructions are
+> descriptive evidence only and are superseded wherever Section 13 differs.
+
 ## 1. Scope and Source Posture
 
 | Item | Posture |
@@ -7,17 +12,16 @@
 | Target path | `internal/modules/links` |
 | Target label | `links`, derived from the final path segment and normalized to lowercase kebab case |
 | Output path | `docs/handoffs/links-module-refactor-tracker.md` |
-| Status | Remediation complete; final evidence retained |
-| Allowed change in this session | Adopted owner specifications, authored contracts, implementation, tests, application composition, boundary policy, and this tracker, one workstream at a time. Generated outputs may change only through their owning Make generators. |
+| Status | Iteration 1 complete; Iteration 2 planned; implementation not started |
+| Allowed change in this session | This tracker only. No implementation, owner specification, migration, generated artifact, harness input, or other documentation change is authorized by this document-update step. |
 | Non-goals | No historical migration rewrite, hand-edited generated artifact, unrelated module redesign, frontend redesign, public route-shape change, authorization relocation, transaction-lifecycle relocation, or AC043 redistribution. |
-| Default posture | Preserve valuable observable behavior. Apply owner-adopted field-identity, no-narrative, exact-input, and active-Reporting corrections only in their named slices; keep structural movement separate. |
+| Current default posture | Pre-production hard cutover: remove all Links legacy readers, aliases, defaults, dead facades, and forwarding shims; reset disposable state rather than migrate or infer historical shapes. Preserve only current owner-required public behavior. |
 | Document class | NLSpec-style refactor execution tracker; not an adopted subsystem NLSpec or product-behavior owner |
 
-The target exists. Its live inventory is 26 Go files plus an empty `.gitkeep`; all
-27 filesystem entries are accounted for in Section 2. The package is a real Links
-and Tags source-owner boundary, but its current public surface also exposes several
-consumer-specific providers and supporting mechanisms. The existence of the
-directory is not, by itself, the reason to retain every current seam.
+The target exists. Iteration 1 began with the inventory recorded in Section 2 and
+completed with the evidence in Sections 6 through 12. Section 13 records the live
+post-Iteration-1 inventory and the only current forward plan. The existence of a
+historical seam or compatibility test is not, by itself, a reason to retain it.
 
 The remediation plan was explicitly authorized on 2026-08-21. This tracker is
 the controlling execution artifact. Owner specifications remain authoritative
@@ -155,7 +159,7 @@ commits ahead of `origin/main` when this session began.
 | Current AC043 topology | Existing Core 04, Core 05, and harness owners | This tracker and path-only implementation notes |
 | Future AC043 redistribution | New Core 04/Core 05/harness owner revision | Migration procedure and benchmark rerun handoff |
 
-## 2. Current-State Repository Inventory
+## 2. Iteration 1 Baseline Repository Inventory (Historical)
 
 | Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -807,7 +811,7 @@ true:
   target scope, owner posture, callers, risks, commands, or rollback points.
 - [x] The authorized remediation is implemented and final evidence is retained.
 
-### Future refactor Definition of Done
+### Iteration 1 Definition of Done
 
 The refactor is complete because retained implementation evidence now satisfies
 every item below.
@@ -838,3 +842,370 @@ Cartulary behavior and do not override Make-owned repository commands:
 - [Go command documentation](https://pkg.go.dev/cmd/go) describes dependency and
   test-package enumeration that MAY support RB-003 investigation; direct Go
   commands are not canonical Cartulary validation.
+
+## 13. Iteration 2: Production Readiness and Legacy Removal
+
+This section is the controlling plan for the next Links iteration. It supersedes
+all Iteration 1 instructions to retain compact link mutation values, the legacy
+`tag_id` alias, restore-time actor or provenance defaults, bare tag target IDs,
+obsolete facade methods, or compatibility shims. Iteration 1 completion evidence
+remains valid evidence of the state from which this iteration begins; it does not
+grant current compatibility authority.
+
+### 13.1 Current Scope and Baseline
+
+| Item | Current posture |
+| --- | --- |
+| Baseline commit | `21c226ce353961f47e438afaf350760bc1e82c6f` on `main`, five commits ahead of `origin/main` |
+| Baseline worktree | Clean at planning inspection |
+| Live target inventory | 26 Go files plus one tracked `.gitkeep` under `internal/modules/links` |
+| Iteration status | Planned; implementation not started |
+| Product posture | Pre-production; every database and retained bundle is disposable |
+| Compatibility posture | Hard cutover with reset/regeneration only; no migration, backfill, alias, inference, dual read, dual write, forwarding shim, or historical-value rewrite |
+| Authorized document-step change | This tracker only |
+| Future implementation scope | Links, directly affected owner specifications and acceptance, application composition, Entity-mentions and Entity merge composition, direct Links mutation callers, tests, and boundary policy |
+| Public behavior freeze | Preserve current HTTP and WebSocket shapes, authorization outcomes, caller-owned transactions, active source-row bundle shape, Recovery tables, frontend behavior, and AC043 identity |
+| Default database action | Reset after the hard-cutover implementation and before service-backed completion evidence |
+
+Planning inspection retained the following passing baselines:
+
+| Evidence | Result | Run root |
+| --- | --- | --- |
+| Markdown lint | Pass | `.cartulary/test-results/20260821T211047Z-p1761480` |
+| Backend module boundary | Pass | `.cartulary/test-results/20260821T211105Z-p1762443` |
+| Links non-service slice | Pass, 14 of 14 units | `.cartulary/test-results/20260821T211111Z-p1762829` |
+
+These runs establish the planning baseline only. They do not prove any Iteration 2
+requirement implemented.
+
+### 13.2 Live Inventory
+
+| Current paths | Count | Current responsibility | Iteration 2 disposition |
+| --- | ---: | --- | --- |
+| `.gitkeep` | 1 | Obsolete placeholder in a non-empty package | Delete in PR-05 |
+| `active_facts.go`, `assessment_facts.go`, `timeline_history_facts.go` | 3 | Incident/record active facts plus consumer-specific Assessment and Timeline reads | Consolidate behind one owner-neutral `FactReader` in PR-06 |
+| `commands.go`, `store.go`, `field_refs.go`, `value_codecs.go` | 4 | Link commands, persistence DTOs, low-level reference/tag operations, and mutation-value loads | Replace broad results and dead helpers with canonical mutation-result commands in PR-02 through PR-05 |
+| `collection_actions.go`, `collection_mutations.go` | 2 | Collection validation plus mutation-aware and legacy non-mutation application paths | Retain mutation-aware paths; delete non-mutation duplicates in PR-05 |
+| `merge_effects.go`, `internal/mergeeffects/merge_effects.go` | 2 | Thin root merge facade and private Links-owned merge mechanics | Retain the facade; canonicalize tag targets and values in PR-04 |
+| `internal/valuecodec/valuecodec.go`, `internal/valuecodec/valuecodec_test.go` | 2 | Canonical encoders plus compact, alias, and defaulting compatibility readers | Make exact and fail closed; delete every legacy branch and fixture in PR-04 |
+| `revision_provider_contribution.go`, `revision_provider_contribution_test.go`, `internal/revisionprovider/provider.go` | 3 | Thin contribution and private history/rollback mechanics | Retain contribution; consume only canonical values and targets after PR-04 |
+| `incident_bundle_source_port.go`, `internal/incidentbundle/portability.go`, `internal/incidentbundle/source_port.go` | 3 | Thin contribution and private Links source-row portability | Retain current source-row shape; reject old full bundles through canonical Revisions validation after PR-04 |
+| `item_refs.go`, `item_refs_test.go` | 2 | Canonical collection item references | Retain exact current item-reference grammar |
+| `recovery_state.go` | 1 | Thin authoritative-table contribution | Retain exactly `record_links` and `record_tags` |
+| `links_tags_test.go` | 1 | 1,004-line mixed store, portability, route, projection, history, and rollback suite | Split without renaming catalog-selected tests in PR-07 |
+| `testsupport/links.go` | 1 | Shared source-owner fixtures plus unused compatibility expectations | Retain live fixtures; delete unused expectation types/constants in PR-05 |
+| `testsupport/performancefixture/production.go`, `testsupport/performancefixture/provider.go` | 2 | Frozen AC043 fixture validation contribution | Retain byte- and identity-equivalent behavior |
+
+Empty untracked directories left by Iteration 1 package moves have no Git identity
+and are not product work. The tracked `.gitkeep` is the only placeholder deletion
+in this iteration.
+
+### 13.3 Gap and Remediation Decisions
+
+| Gap | Remediation and affected areas | Rationale and long-term benefit | Compatibility impact | Risk if unresolved | Completion validation |
+| --- | --- | --- | --- | --- | --- |
+| Current producers still emit compact link history values | Make Links the sole canonical mutation-value producer and return those values with each command. Migrate Entity-mentions, Decision supersession, Timeline supersession, and linked-note creation. Areas: specification, Links, callers, application composition, tests. | One source owner controls reconstruction vocabulary, eliminating partial maps and making future versioning explicit. | Old pre-production history and bundles are discarded; current public responses do not change. | New history remains dependent on permissive decoding and cannot guarantee exact rollback. | Every current producer persists the exact link member set; no production caller constructs a link history map. |
+| Codec accepts `tag_id`, compact links, and restore defaults | Define exact closed current shapes, validate them before description or inverse application, and delete aliases/defaults. Areas: specification, codec, revision provider, tests. | Fail-closed decoding prevents silent attribution invention and converts schema growth into an explicit owner decision. | Deliberate hard break for old disposable values; no migration or shim. | Malformed history can be reported as reversible and restored with invented state. | Alias, compact, missing, malformed, and unknown-member fixtures all fail as not reversible. |
+| Entity merge emits bare tag mutation targets | Emit `record_tag:<pre-mutation-record-id>:<record-tag-id>` for patch/delete and require the same grammar in the provider. Areas: Links merge, Revisions acceptance, tests. | Keeps collection identity deterministic and consistent with the current canonical item reference. | Old merge history is discarded by reset. | Merge-generated history uses a second target grammar and forces permanent fallback support. | Merge patch/delete, history lookup, Incident Bundle round trip, and rollback pass with composite targets; bare UUID fails. |
+| Link commands expose persistence DTOs and post-write reloads | Return one narrow `RecordLinkCommandResult` with minimal identity and an optional canonical mutation. Remove raw row DTOs and value reloads after migration. Areas: Links API, direct callers, tests. | Commands become complete mutation capabilities, reducing race-prone reloads and accidental storage coupling. | Internal Go compile migration only. | Consumers keep duplicating serialization and newly added fields are omitted from history. | Create, patch, delete, and no-op cases return exact results; no retired DTO or loader remains. |
+| Entity-mentions constructs Links internally and serializes Links values | Define an Entities-owned `LinkOperationsPort`, compose a Links adapter in application assembly, and inject one configured mention store into Timeline, mention routes, and Entity merge. Areas: Entities, application composition, Links adapter, tests, boundary policy. | Brings Entity-mentions into the same consumer-port/application-adapter model as Reporting, Timeline facts, and Entity merge effects. | Internal constructor/options change only. | Hidden construction, peer imports, and duplicate mention stores make future owner changes brittle. | Entity-mentions has no Links import; missing link operations fail composition; all mention lifecycle behavior remains equivalent. |
+| Root package retains unused mutation paths and helpers | Delete non-mutation collection application, `TagStore`, boolean-only wrappers, low-level exported field/tag primitives, obsolete errors, specialized linked-note insertion, unused loaders, `.gitkeep`, and dead test expectations. Areas: implementation, tests, boundary policy. | Removes multiple ways to perform the same write and makes mutation/history accounting unavoidable. | Internal Go callers must use the canonical command paths; no forwarding shim. | A future caller can bypass revision-value production or adopt misleading APIs. | Exhaustive tracked-source/config/generator searches find no retired symbol; focused tests and boundary policy pass. |
+| Fact reads have three reader types and embed consumer vocabulary | Use one Links-owned `FactReader` with incident, record, and collection-change methods. Return typed link values and owner-neutral tag-change facts; map `timeline.tags` in Timeline assembly. Areas: Links, application adapters, Assessment, Timeline, Reporting, tests. | One cohesive source-fact boundary is easier to extend without new consumer-specific readers. | Internal Go compile migration only; output remains equivalent. | Reader proliferation and consumer tokens in Links recreate peer coupling. | Ordering, non-nil empty sets, typed errors, active endpoint filtering, projection output, and history fields remain equivalent. |
+| Mixed test file and unused support obscure ownership | Split tests by concern while keeping exact selected test names and remove dead support. Add guards for retired APIs and Entity-to-Links imports. Areas: tests, boundary policy, harness audit. | Smaller suites make failures and future additions easier to locate without changing verification accounting. | No row-ID or test-name change; no AC043 redistribution. | Cleanup regressions become hard to diagnose and deleted APIs can silently return. | Four Links rows and AC043 inputs remain exact; boundary and generated drift pass. |
+
+### 13.4 Canonical History Contract
+
+PR-01 MUST add the following owner rules to Core 02 and matching negative
+acceptance to Core 04 before the strict implementation is admitted.
+
+#### Record-link mutation value
+
+The exact member set is:
+
+1. `record_link_id`
+2. `incident_id`
+3. `src_record_id`
+4. `dst_record_id`
+5. `link_type`
+6. `field_key`
+7. `provenance`
+8. `confidence`
+9. `owner_user_id`
+10. `created_by_user_id`
+11. `decided_at`
+12. `created_at`
+13. `deleted_at`
+14. `deleted_by_user_id`
+
+Every member MUST be present. `field_key`, `confidence`, `deleted_at`, and
+`deleted_by_user_id` MAY be JSON `null`; the remaining members MUST be non-null.
+UUIDs MUST use canonical UUID strings. Timestamps MUST be UTC RFC 3339 values
+using the source owner's canonical encoder. Link type, provenance, confidence,
+endpoint, active-identity, and tombstone invariants MUST satisfy current Core 02.
+
+#### Record-tag mutation value
+
+The exact member set is:
+
+1. `record_tag_id`
+2. `incident_id`
+3. `record_id`
+4. `tag_name`
+5. `normalized_tag_name`
+6. `created_by_user_id`
+7. `created_at`
+8. `updated_at`
+9. `deleted_at`
+10. `deleted_by_user_id`
+
+Every member MUST be present. Only `deleted_at` and `deleted_by_user_id` MAY be
+JSON `null`. The target ID MUST be
+`record_tag:<record_id>:<record_tag_id>`. Patch and delete entries use the
+pre-mutation value's `record_id`; create entries use the after value's
+`record_id`.
+
+Both shapes are closed for the current target-semantics version. Unknown members,
+`tag_id`, bare tag UUID targets, omitted nullable members, invalid values, and
+partial maps MUST fail before history admission, import mutation, description, or
+inverse application. A later shape requires an adopted owner revision and a new
+explicit compatibility decision; permissive member acceptance is not an
+extension mechanism.
+
+### 13.5 Target Interfaces and Boundaries
+
+The Links root retains typed commands, mutation results/errors, canonical item
+references, immutable fact readers, thin Revision/Incident Bundle/Recovery
+contributions, merge effects, and owner-local test support. It MUST NOT expose
+source-row DTOs or alternate persistence primitives.
+
+`RecordLinkCommandResult` has exactly these conceptual fields:
+
+| Field | Meaning |
+| --- | --- |
+| `RecordLinkID` | Stable affected link identity |
+| `SrcRecordID` | Canonical source endpoint |
+| `DstRecordID` | Canonical destination endpoint |
+| `LinkType` | Typed Links-owned relation token |
+| `Mutation` | Optional canonical `RecordLinkMutation`; `nil` means the command was an idempotent no-op |
+
+The command contract is:
+
+- `UpsertLinkCommandTx` returns create or patch mutation data when state changes
+  and `Mutation=nil` when the existing canonical state already matches.
+- `InsertSupersedesCommandTx` returns a create mutation or an error.
+- `TombstoneActiveLinkCommandTx` accepts exact incident, endpoints, link type,
+  actor, and time and returns `(result, found, error)`; `found=false` is the sole
+  absent-link result and carries no mutation.
+- Field and tag collections continue returning `CollectionMutationResult` and
+  become the only collection application paths.
+- Linked-note creation uses the ordinary typed `references_artifact` upsert;
+  there is no Links-local specialized linked-note method.
+- All returned maps are fresh deep copies. A consumer cannot mutate a later
+  result, provider value, or another caller's result through shared map storage.
+
+Entity-mentions defines its own link command, result, mutation, and not-found
+semantics in `LinkOperationsPort`. Application composition performs the only
+Links-to-Entities conversion. `mentions.NewStore` requires
+`mentions.WithLinkOperations`; it MUST fail fast if the port is absent. Timeline
+assembly constructs one fully configured mention store and reuses it for Timeline
+collections, mention routes, and `merge.WithMentionStore`. Entity merge no longer
+constructs a mention store internally.
+
+The consolidated Links `FactReader` exposes:
+
+- `LoadIncidentTx(context, caller-owned transaction, incident_id) ActiveFacts`;
+- `LoadRecordTx(context, caller-owned transaction, incident_id, record_id) ActiveFacts`;
+- `LoadCollectionChangesTx(context, caller-owned transaction, incident_id,
+  record_id, changed_at) CollectionChangeFacts`.
+
+`CollectionChangeFacts` contains non-nil sorted unique `LinkFieldKeys` and a
+`TagsChanged` boolean. It contains no Timeline or Assessment field key. Timeline
+assembly maps `TagsChanged=true` to `timeline.tags`, merges it with link and
+mention facts, deduplicates, and sorts the final field set. `RecordLinkFact` uses
+`LinkType` and `LinkProvenance`, not raw strings. All methods return one typed
+Links fact-read error without partial facts.
+
+### 13.6 Refactor Requirements
+
+| Requirement | Required outcome | Primary workstreams | Acceptance IDs |
+| --- | --- | --- | --- |
+| `LPR-REQ-001` | Current owner specifications define exact closed link/tag mutation values, target identities, and pre-production reset posture. | PR-01 | `LPR-AC-HISTORY-001..008` |
+| `LPR-REQ-002` | Links alone creates link/tag mutation values and returns them atomically with commands. | PR-02, PR-03 | `LPR-AC-MUTATION-001..008` |
+| `LPR-REQ-003` | Entity-mentions owns its port and has no Links implementation import or serializer. | PR-03 | `LPR-AC-ENTITY-001..008` |
+| `LPR-REQ-004` | Every legacy alias, compact/defaulting decoder, target fallback, and old pre-production retained value is removed. | PR-04 | `LPR-AC-LEGACY-001..008` |
+| `LPR-REQ-005` | Every listed dead facade, wrapper, loader, DTO, error, placeholder, and test-support value is absent without a shim. | PR-05 | `LPR-AC-DEAD-001..006` |
+| `LPR-REQ-006` | One owner-neutral `FactReader` replaces the three current readers without output drift. | PR-06 | `LPR-AC-FACTS-001..008` |
+| `LPR-REQ-007` | Test ownership remains exact while tests are split and retired surfaces receive durable guards. | PR-07 | `LPR-AC-TEST-001..006` |
+| `LPR-REQ-008` | Public behavior, source-row portability, Recovery, authorization, transactions, and AC043 remain frozen through final validation. | All, PR-08 | `LPR-AC-FREEZE-001..006`, `LPR-AC-DONE-001..006` |
+
+### 13.7 Binary Acceptance Matrix
+
+| Acceptance ID | Pass condition |
+| --- | --- |
+| `LPR-AC-HISTORY-001` | Every link create, patch, and delete value has exactly the 14 named members with valid types and nullability. |
+| `LPR-AC-HISTORY-002` | Every tag create, patch, and delete value has exactly the 10 named members with valid types and nullability. |
+| `LPR-AC-HISTORY-003` | Link/tag values emitted by ordinary collections, mention resolution, supersession, linked-note creation, merge, and rollback use the same owner encoder. |
+| `LPR-AC-HISTORY-004` | Tag merge patch/delete uses the pre-mutation record ID in its canonical composite target. |
+| `LPR-AC-HISTORY-005` | Exact canonical values export, import, describe, inverse, and re-export without shape drift. |
+| `LPR-AC-HISTORY-006` | Unknown members fail before history admission or Incident Bundle mutation. |
+| `LPR-AC-HISTORY-007` | Nullable members remain explicitly present when null. |
+| `LPR-AC-HISTORY-008` | Core 02 and Core 04 owner text is adopted before strict implementation completion. |
+| `LPR-AC-MUTATION-001` | Upsert create returns one canonical create mutation. |
+| `LPR-AC-MUTATION-002` | Upsert metadata change returns one canonical patch mutation. |
+| `LPR-AC-MUTATION-003` | Idempotent upsert returns the current identity with no mutation. |
+| `LPR-AC-MUTATION-004` | Active-link tombstone returns exact before/after values and absence returns `found=false`. |
+| `LPR-AC-MUTATION-005` | Supersedes and linked-note callers consume the returned mutation without a value reload. |
+| `LPR-AC-MUTATION-006` | Collection results preserve deterministic mutation order and exact no-op behavior. |
+| `LPR-AC-MUTATION-007` | Mutating one returned map cannot alter another result or provider value. |
+| `LPR-AC-MUTATION-008` | Every command runs entirely in the caller-owned transaction. |
+| `LPR-AC-ENTITY-001` | `internal/modules/entities/mentions` has no production import of Links. |
+| `LPR-AC-ENTITY-002` | Entity-mentions contains no link mutation-value serializer. |
+| `LPR-AC-ENTITY-003` | Missing `LinkOperationsPort` fails composition before serving. |
+| `LPR-AC-ENTITY-004` | One configured mention store is reused by Timeline collection, route, and merge composition. |
+| `LPR-AC-ENTITY-005` | Resolve, idempotent resolve, retarget, dismiss, and revert produce equivalent active link state and route payloads. |
+| `LPR-AC-ENTITY-006` | Mention-driven link mutations use exact canonical values and remain reversible. |
+| `LPR-AC-ENTITY-007` | Mention projection, changed fields, collaboration intents, and row versions remain equivalent. |
+| `LPR-AC-ENTITY-008` | Upstream authorization and incident-open checks remain in their current owners. |
+| `LPR-AC-LEGACY-001` | `tag_id` mutation values fail closed. |
+| `LPR-AC-LEGACY-002` | Compact link values fail closed. |
+| `LPR-AC-LEGACY-003` | Missing field, confidence, tombstone, attribution, or timestamp members fail closed even when a former default exists. |
+| `LPR-AC-LEGACY-004` | Invalid owner UUID and provenance fail rather than defaulting to the actor or `rollback`. |
+| `LPR-AC-LEGACY-005` | Bare record-tag target UUIDs fail closed. |
+| `LPR-AC-LEGACY-006` | No legacy helper, alias branch, fallback function, dual reader, or compatibility fixture remains. |
+| `LPR-AC-LEGACY-007` | Existing pre-cutover databases are reset; no history row is rewritten. |
+| `LPR-AC-LEGACY-008` | Pre-cutover bundles are rejected and regenerated; no version-2 permissive mode is retained. |
+| `LPR-AC-DEAD-001` | `.gitkeep`, `TagStore`, `NewTagStore`, and `Store.Tags` are absent. |
+| `LPR-AC-DEAD-002` | Non-mutation `Apply*CollectionTx` methods and boolean-only field/tag wrappers are absent. |
+| `LPR-AC-DEAD-003` | `RecordLink`, `SupersedesLink`, old get/tombstone/value-load methods, and specialized linked-note insertion are absent. |
+| `LPR-AC-DEAD-004` | Obsolete exported errors and lower-level record-returning field/tag helpers are private or deleted. |
+| `LPR-AC-DEAD-005` | Unused test-support compatibility expectations are absent; live owner fixtures remain. |
+| `LPR-AC-DEAD-006` | Tracked-source, configuration, generator, and boundary searches find no retired symbol or forwarding shim. |
+| `LPR-AC-FACTS-001` | `FactReader.LoadIncidentTx` preserves Reporting facts and deterministic ordering. |
+| `LPR-AC-FACTS-002` | `FactReader.LoadRecordTx` preserves Timeline facts, tags, and replacement selection. |
+| `LPR-AC-FACTS-003` | Assessment derives only outbound `supported_by` targets from record facts. |
+| `LPR-AC-FACTS-004` | Collection-change facts are incident-scoped, non-nil, sorted, and unique. |
+| `LPR-AC-FACTS-005` | Links returns `TagsChanged`; only Timeline maps it to `timeline.tags`. |
+| `LPR-AC-FACTS-006` | Empty facts are non-nil empty collections. |
+| `LPR-AC-FACTS-007` | Any query/scan/iteration failure returns the typed Links error and no partial result. |
+| `LPR-AC-FACTS-008` | Links contains no Assessment- or Timeline-named fact reader or field token. |
+| `LPR-AC-TEST-001` | The four active Links verification rows retain their row IDs, test names, evidence classes, and ownership. |
+| `LPR-AC-TEST-002` | Splitting files does not change catalog selectors or duplicate execution. |
+| `LPR-AC-TEST-003` | Boundary policy rejects Entity-mention imports of Links. |
+| `LPR-AC-TEST-004` | Boundary policy rejects every retired production symbol. |
+| `LPR-AC-TEST-005` | Dead test support is removed without breaking cross-owner fixtures. |
+| `LPR-AC-TEST-006` | AC043 owner, descriptor, counts, stride, order, receipt, digests, keys, and bindings are unchanged. |
+| `LPR-AC-FREEZE-001` | HTTP and WebSocket paths, envelopes, statuses, error codes, replay behavior, and payload shapes remain equivalent. |
+| `LPR-AC-FREEZE-002` | Caller-owned transactions and upstream authorization remain unchanged. |
+| `LPR-AC-FREEZE-003` | Active Links source-row bundle paths, field order, attribution, and bytes remain unchanged for newly generated bundles. |
+| `LPR-AC-FREEZE-004` | Recovery continues to register exactly `record_links` and `record_tags`. |
+| `LPR-AC-FREEZE-005` | Reporting, Assessment, Timeline, projections, saved views, and frontend behavior remain equivalent. |
+| `LPR-AC-FREEZE-006` | No historical migration or generated artifact is hand edited. |
+| `LPR-AC-DONE-001` | Every workstream checkpoint passes Markdown lint before the next workstream begins. |
+| `LPR-AC-DONE-002` | Every required focused owner row passes after its affected slice. |
+| `LPR-AC-DONE-003` | Boundary and applicable generation/drift/shape checks pass. |
+| `LPR-AC-DONE-004` | The pre-production reset and bundle regeneration posture is recorded with no migration artifact. |
+| `LPR-AC-DONE-005` | `make agent-finalize`, `make test-fast`, the webserver-backed browser gate, and `make check` pass. |
+| `LPR-AC-DONE-006` | Final handoff names changed files, commands, run roots, failures, resets, rollback points, and any remaining blocker. |
+
+### 13.8 Workstreams and Sequence
+
+Every row is a separate implementation workstream. After each row, including a
+blocked or dropped row, update Sections 13.9 and 13.10 and run
+`make lint-markdown`. The next row MUST NOT begin until that checkpoint passes.
+
+| Workstream | Dependencies | Intended change and principal risk | Exit criteria |
+| --- | --- | --- | --- |
+| PR-00 Tracker update | None | Make Section 13 the current authority, record the live baseline, close design choices, and preserve Iteration 1 evidence. Risk: historical and current instructions remain ambiguous. | This section is decision-complete; only the tracker changed; Markdown lint and whitespace validation pass. |
+| PR-01 Canonical history owner repair | PR-00 | Amend Core 02 and Core 04 with Section 13.4 exact shapes, target grammar, negative cases, and reset-only compatibility posture. Risk: implementation otherwise invents stored-history behavior. | Owner text is adopted, self-consistent, and maps `LPR-AC-HISTORY-001..008` plus all legacy negatives. |
+| PR-02 Links-owned mutation results | PR-01 | Add canonical command results, atomic before/after production, deep-copy semantics, active tuple tombstoning, and complete create/patch/delete/no-op behavior. Keep old callers temporarily compiling only inside this slice. Risk: incomplete results or shared maps. | `LPR-AC-MUTATION-001..008` pass in Links tests; canonical result API exists before any decoder removal. |
+| PR-03 Caller and Entity-mention migration | PR-02 | Migrate Timeline, Tasks/Decisions, Artifacts, and Entity-mentions; add the Entities-owned port and application adapter; compose one mention store and inject it into merge. Risk: route/history/projection drift or hidden nil dependencies. | All current producers consume Links mutations; Entity-mentions imports no Links; `LPR-AC-ENTITY-001..008` pass. |
+| PR-04 Legacy hard cutover | PR-03 | Canonicalize merge tag targets, make the codec exact, delete aliases/defaults/fallbacks, update current fixtures, reset databases, and reject old bundles. Risk: removing a fallback before the last producer migrates or rewriting immutable history. | `LPR-AC-HISTORY-*` and `LPR-AC-LEGACY-*` pass; reset is recorded; no migration/backfill exists. |
+| PR-05 Dead surface deletion | PR-04 | Delete every Section 13.3 dead facade, DTO, wrapper, loader, error, placeholder, and test-support value without a shim. Risk: an undiscovered caller or alternate unrevisioned write path. | `LPR-AC-DEAD-001..006` pass and direct source/config/generator searches are empty. |
+| PR-06 Fact-reader consolidation | PR-03, PR-05 | Introduce the single owner-neutral reader, migrate Reporting/Timeline/Assessment adapters, move tag-field mapping to Timeline, and delete old readers. Risk: ordering, empty-set, error, or projection drift. | `LPR-AC-FACTS-001..008` and affected owner parity evidence pass. |
+| PR-07 Test and boundary cleanup | PR-04 through PR-06 | Split the mixed Links test file, preserve test names/accounting, remove dead support, and add durable import/symbol guards. Risk: catalog drift or accidental AC043 change. | `LPR-AC-TEST-001..006`, boundary, drift, and exact Links rows pass. |
+| PR-08 Validation and handoff | PR-07 | Run final narrow-to-broad validation, close all checklists, and retain reset/evidence/rollback details. Risk: declaring completion from partial or stale evidence. | Every `LPR-AC-FREEZE-*` and `LPR-AC-DONE-*` case passes; no TODO, blocker, legacy seam, or unrecorded skip remains. |
+
+### 13.9 Iteration 2 Work Tracker
+
+| Workstream | Status | Changed areas when executed | Required checkpoint evidence | Next executable slice |
+| --- | --- | --- | --- | --- |
+| PR-00 Tracker update | DONE | This tracker only | Markdown lint `.cartulary/test-results/20260821T211724Z-p1802679`; `git diff --check` passed; one-file diff audit passed | PR-01 after separate implementation authorization |
+| PR-01 Canonical history owner repair | DONE | Core 02 exact Links mutation contracts; Core 04 `AC-554..AC-557` and claim mappings | Markdown lint `.cartulary/test-results/20260821T214452Z-p1813175`; `git diff --check` passed; owner acceptance mapped | PR-02 |
+| PR-02 Links-owned mutation results | DONE | Canonical Links command results, complete internal state, tuple tombstoning, mutation-aware collections, recursive copies, focused tests; compile-only caller adaptations | Links rows `.cartulary/test-results/20260821T220018Z-p1986280` and `.cartulary/test-results/20260821T220102Z-p2026043`; format and boundary passed | PR-03 |
+| PR-03 Caller and Entity-mention migration | DONE | Canonical mutation consumption in Assessment, Timeline, Artifacts, Tasks/Decisions, Entity-mentions, Entity merge, and application composition | Affected owner slices, boundary, format, and Markdown checkpoint passed | PR-04 |
+| PR-04 Legacy hard cutover | DONE | Exact Links codec/provider/merge targets, owner validation through Revisions, fresh-state reset and bundle evidence | Links, Revisions, and Incident Bundle slices passed on reset state; boundary and Markdown checkpoint passed | PR-05 |
+| PR-05 Dead surface deletion | DONE | Deleted alternate Links mutation facades, DTOs, loaders, exported sentinels, placeholder, and dead test expectations; canonicalized characterization coverage | Zero-consumer searches, all Links rows, boundary, fast tests, format, and Markdown checkpoint passed | PR-06 |
+| PR-06 Fact-reader consolidation | DONE | One typed owner-neutral Links fact reader; Reporting, Timeline, and Assessment adapters; incident-scoped collection changes and assembly-owned tag mapping | Affected owner rows, parity, boundary, fast tests, source audit, and Markdown checkpoint passed | PR-07 |
+| PR-07 Test and boundary cleanup | DONE | Concern-specific Links tests and durable Entity-import/retired-symbol boundary rules; no test-family ownership change | Exact four Links rows, boundary, generation/drift/shape, AC043 audit, fast tests, and Markdown checkpoint passed | PR-08 |
+| PR-08 Validation and handoff | DONE | Deterministic Entity merge history fixture chronology and final tracker evidence | Focused Entities rows, retained-run finalization, fast and browser gates, authoritative full check, freeze audits, and final Markdown/whitespace checks passed | None |
+
+### 13.10 Checkpoint and Handoff Protocol
+
+Each workstream handoff entry MUST record:
+
+- workstream ID and status;
+- exact changed files and substantive changes;
+- commands and selected row IDs;
+- run roots and summary artifacts;
+- failures, including whether they are related to the slice;
+- database reset or bundle-regeneration action when applicable;
+- reversible rollback point for source movement;
+- non-reversible compatibility consequence of the approved hard cutover;
+- blockers and the next executable slice.
+
+The only allowed statuses are `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`,
+`DEFERRED`, and `DROPPED`. A skipped required service-backed check leaves the
+workstream `BLOCKED`, not `DONE`. Because all environments are confirmed
+disposable, discovery of pre-cutover data does not open a migration branch; the
+required action is reset and regeneration.
+
+### 13.11 Validation Order
+
+1. After every specification or tracker checkpoint, run `make lint-markdown`.
+2. Use `make task-guide ROLE=module-author OWNER=<owner-id>` before selecting
+   narrow owner evidence.
+3. Run `make test-slice OWNER=module.links` and
+   `make service-backed-test-slice OWNER=module.links`, preserving all four active
+   Links rows.
+4. Run affected owner slices for Revisions, Entities, Timeline, Assessments,
+   Artifacts, Tasks and Decisions, Incident Bundles, and Reporting.
+5. After package, caller, or policy changes, run
+   `make backend-module-boundary-check`.
+6. When authored contract or harness inputs change, run `make generate`,
+   `make generate-drift`, `make generated-artifact-policy-check`, and
+   `make json-shape-check`. Generated files are never hand edited.
+7. Run `make db-reset` at the PR-04 checkpoint, then rerun all required
+   service-backed evidence against fresh state. Do not add or edit a migration.
+8. Run `make agent-finalize`; pass a retained successful `RESULTS_DIR` when one
+   exists, otherwise record the skipped retained-run maintenance explicitly.
+9. Finish with `make test-fast`, `make browser-e2e-webserver-backed`, and
+   `make check`.
+
+### 13.12 Iteration 2 Definition of Done
+
+- [x] PR-00 records a passing document-only checkpoint.
+- [x] PR-01 adopts exact current mutation value and reset rules.
+- [x] PR-02 makes Links the sole canonical link/tag mutation-value producer.
+- [x] PR-03 brings Entity-mentions and all other current producers onto the
+  canonical result boundary.
+- [x] PR-04 removes every legacy reader, alias, default, target fallback, old
+  retained value, and old bundle expectation through a reset-only cutover.
+- [x] PR-05 deletes every proven dead API and placeholder without a shim.
+- [x] PR-06 leaves one owner-neutral Links fact reader and no consumer token.
+- [x] PR-07 preserves exact verification ownership and AC043 while adding durable
+  boundary guards.
+- [x] PR-08 passes all focused and broad gates and publishes a complete handoff.
+
+### 13.13 Iteration 2 Handoff Log
+
+| Date and workstream | Status and substantive change | Changed files | Validation and retained evidence | Rollback point | Next action |
+| --- | --- | --- | --- | --- | --- |
+| 2026-08-21 PR-00 | DONE. Made Section 13 the sole current forward authority; recorded the live post-Iteration-1 inventory, pre-production hard cutover, exact history shapes, target interfaces, workstreams, acceptance, reset posture, and completion gates. | `docs/handoffs/links-module-refactor-tracker.md` only | `make lint-markdown` passed at `.cartulary/test-results/20260821T211724Z-p1802679`; `git diff --check` passed; `git diff --name-only` returned only this tracker. Planning baselines are recorded in Section 13.1. | Revert the PR-00 tracker-only diff; no product, schema, data, generated, harness, or other documentation state changed. | Obtain separate implementation authorization, then execute PR-01 and checkpoint it before PR-02. |
+| 2026-08-21 PR-01 | DONE. Adopted exact closed record-link and record-tag mutation values, canonical tag target grammar, operation and validation invariants, exact restoration, and reset-only legacy rejection. Added `AC-554..AC-557` and mapped them to Base and Incident Portability claims. No database reset or bundle regeneration occurred in this specification-only slice. | `docs/spec/02_domain_model_schema_and_history.md`; `docs/spec/04_security_deployment_and_conformance.md`; this tracker | `make lint-markdown` passed at `.cartulary/test-results/20260821T214452Z-p1813175`; `git diff --check` passed. No owner runtime row applied to a specification-only change. | Revert the two owner-document edits and this PR-01 checkpoint while retaining PR-00. No schema, data, generated artifact, harness, or product source changed. The adopted hard cutover intentionally provides no compatibility path once PR-04 resets state. | Execute PR-02 Links-owned mutation results; checkpoint it before PR-03. |
+| 2026-08-21 PR-02 | DONE. Added `RecordLinkCommandResult`, canonical create/patch/delete/no-op mutations, exact active-tuple tombstoning, complete private link/tag row state, scalar-safe canonical encoding, recursive copy isolation, and mutation-aware collections that capture values from locked/returned state without post-write value reloads. `auto_match` now requires exactly `100`. Minimal caller signature adaptations preserve compilation; mutation consumption remains PR-03. No database reset or bundle regeneration occurred, and no compatibility artifact was added. | `internal/modules/links/commands.go`; `internal/modules/links/record_link_commands.go`; `internal/modules/links/store.go`; `internal/modules/links/field_refs.go`; `internal/modules/links/collection_mutations.go`; `internal/modules/links/internal/valuecodec/valuecodec.go`; `internal/modules/links/internal/valuecodec/valuecodec_test.go`; `internal/modules/links/links_tags_test.go`; `internal/app/assessmentassembly/adapters.go`; `internal/app/timelineassembly/assembly.go`; `internal/modules/entities/mentions/ports.go`; `internal/modules/tasksdecisions/mutation_capabilities.go`; this tracker | `make task-guide ROLE=module-author OWNER=module.links`; `make format` passed at `.cartulary/test-results/20260821T220007Z-p1982168`; all four active Links rows passed through `make test-slice OWNER=module.links` at `.cartulary/test-results/20260821T220018Z-p1986280` and `make service-backed-test-slice OWNER=module.links` at `.cartulary/test-results/20260821T220102Z-p2026043`; `make backend-module-boundary-check` passed at `.cartulary/test-results/20260821T220011Z-p1985865`; `git diff --check` passed. Related intermediate failures: `.cartulary/test-results/20260821T215234Z-p1825410` exposed caller assignment mismatches and `.cartulary/test-results/20260821T215827Z-p1980961` exposed a file-scoped `records` boundary; both were repaired and rerun. | Revert the twelve PR-02 source/test files and this checkpoint while retaining PR-00/PR-01. This slice changed no schema, generated artifact, database, or bundle. After PR-04, operational rollback instead requires source revert plus another disposable-state reset because no backward conversion will exist. | Execute PR-03 caller and Entity-mention migration; checkpoint it before PR-04. |
+| 2026-08-21 PR-03 | DONE. Migrated Assessment support creation, Timeline auto-resolution, explicit mention lifecycle, clipboard collections and supersession, Decision supersession, and contextual linked-note creation to consume Links-owned canonical mutations in their owning change sets. Entity-mentions now owns `LinkOperationsPort` and no Links import or serializer; Timeline assembly creates one configured mention store and injects it into collection operations, routes, and required Entity merge composition. No database reset or bundle regeneration occurred, and no compatibility shim was added. | `internal/app/assessmentassembly/adapters.go`; `internal/app/timelineassembly/assembly.go`; `internal/app/workbookassembly/assessment_facade.go`; `internal/modules/artifacts/mutation_create.go`; `internal/modules/artifacts/mutation_shared.go`; `internal/modules/assessments/assessments_integration_test.go`; `internal/modules/assessments/export_surface_test.go`; `internal/modules/assessments/facade.go`; `internal/modules/assessments/facade_contract_test.go`; `internal/modules/entities/mentions/mention_lifecycle.go`; `internal/modules/entities/mentions/mention_resolution.go`; `internal/modules/entities/mentions/ports.go`; `internal/modules/entities/mentions/ports_test.go`; `internal/modules/entities/merge/merge_protected_set_composition_test.go`; `internal/modules/entities/merge/merge_protected_set_test.go`; `internal/modules/entities/merge/ports.go`; `internal/modules/entities/merge/store.go`; `internal/modules/tasksdecisions/mutation_capabilities.go`; `internal/modules/tasksdecisions/supersede_facade.go`; `internal/modules/timeline/clipboard_paste_store.go`; `internal/modules/timeline/lifecycle_store.go`; `internal/modules/timeline/mentions_collections_store.go`; `internal/modules/timeline/performance_fixture_store.go`; `internal/modules/timeline/ports.go`; `internal/modules/timeline/resolution_integration_test.go`; `internal/modules/timeline/store.go`; this tracker | Task guides ran for `module.links`, `module.entities`, `module.timeline`, `module.assessments`, `module.artifacts`, and `module.tasksdecisions`. Non-service slices passed: Links `.cartulary/test-results/20260821T221452Z-p2076443`, Entities `.cartulary/test-results/20260821T222416Z-p2401947`, Timeline `.cartulary/test-results/20260821T222704Z-p2496275`, Assessments `.cartulary/test-results/20260821T222602Z-p2455045`, Artifacts `.cartulary/test-results/20260821T221452Z-p2076536`, and Tasks/Decisions `.cartulary/test-results/20260821T222129Z-p2358160`. Service-backed slices passed: Links `.cartulary/test-results/20260821T223140Z-p2552926`, Entities `.cartulary/test-results/20260821T223633Z-p2644825`, Timeline `.cartulary/test-results/20260821T223819Z-p2697528`, Assessments `.cartulary/test-results/20260821T224300Z-p2753848`, Artifacts `.cartulary/test-results/20260821T224631Z-p2810430`, and Tasks/Decisions `.cartulary/test-results/20260821T224710Z-p2825545`. `make format` passed at `.cartulary/test-results/20260821T222404Z-p2398185`; boundary passed at `.cartulary/test-results/20260821T222223Z-p2396891`; Markdown checkpoint passed at `.cartulary/test-results/20260821T224849Z-p2864331`; zero-consumer and Entity-to-Links searches plus `git diff --check` passed. Repaired product evidence: Timeline’s first run `.cartulary/test-results/20260821T221452Z-p2076492` exposed old mutation-count assertions. Parallel Assessment and Tasks/Decisions runs `.cartulary/test-results/20260821T221452Z-p2076490` and `.cartulary/test-results/20260821T221452Z-p2076541` contended while building test-service images; serial reruns passed. Entities `.cartulary/test-results/20260821T223225Z-p2591306` and Artifacts `.cartulary/test-results/20260821T224358Z-p2794767` had object-store readiness timeouts; immediate serial reruns passed with no source change. | Revert the listed PR-03 application, module, and test edits plus this checkpoint while retaining PR-00 through PR-02. This slice changed no schema, migration, generated artifact, database, or retained bundle. Once PR-04 removes compatibility, operational rollback requires source revert and another disposable-state reset; no backward data conversion will exist. | Execute PR-04 legacy hard cutover, reset disposable databases, regenerate retained bundles, and checkpoint before PR-05. |
+| 2026-08-21 PR-04 | DONE. Replaced permissive Links history decoding with exact closed 14-member link and 10-member tag values, canonical scalar and operation validation, exact restoration of creation attribution/timestamps, reversible link patches, and composite pre-mutation merge tag targets. Added the pure Links validator to Revisions generic target semantics and invoked it before local append, description, inverse planning/application, and Incident Bundle writes without teaching Revisions Links grammar. Added strict negative import matrices, canonical merge patch/delete and rollback evidence, and fresh-state bundle round trips. Removed alias, compact, defaulting, and bare-target acceptance; no migration, backfill, history rewrite, bundle translation, fallback, or dual reader/writer was added. | `internal/modules/links/internal/valuecodec/valuecodec.go`; `internal/modules/links/internal/valuecodec/valuecodec_test.go`; `internal/modules/links/internal/revisionprovider/provider.go`; `internal/modules/links/internal/mergeeffects/merge_effects.go`; `internal/modules/links/revision_provider_contribution.go`; `internal/modules/links/revision_provider_contribution_test.go`; `internal/modules/revisions/provider_contributions.go`; `internal/modules/revisions/target_history_facets.go`; `internal/modules/revisions/target_semantics_catalog.go`; `internal/modules/revisions/target_semantics_compiler.go`; `internal/modules/revisions/target_semantics_lookup.go`; `internal/modules/revisions/appender_mutation_storage.go`; `internal/modules/revisions/incident_bundle_validation.go`; `internal/modules/revisions/incident_bundle_apply.go`; `internal/modules/revisions/rollback_query_companions.go`; `internal/modules/revisions/rollback_apply_nonrow.go`; `internal/modules/revisions/catalog_admission_test.go`; `internal/modules/revisions/history_components_test.go`; `internal/modules/revisions/incident_bundle_portability_test.go`; `internal/modules/revisions/integration_test.go`; `internal/modules/revisions/rollback_test.go`; `internal/modules/incidentbundles/routes_helpers_integration_test.go`; `internal/modules/incidentbundles/routes_admission_integration_test.go`; this tracker | Task guides ran for `module.links`, `module.revisions`, and `module.incidentbundles`. `make backend-unit` passed at `.cartulary/test-results/20260821T231709Z-p2996631`. Non-service slices passed: Links 14/14 at `.cartulary/test-results/20260821T232221Z-p3112596`, Revisions 27/27 at `.cartulary/test-results/20260821T233154Z-p3312265`, and Incident Bundles 8/8 at `.cartulary/test-results/20260821T232622Z-p3191653`. After the hard reset, service-backed slices passed: Links 13/13 at `.cartulary/test-results/20260821T232804Z-p3208982`, Revisions 20/20 at `.cartulary/test-results/20260821T232857Z-p3247870`, and Incident Bundles 6/6 at `.cartulary/test-results/20260821T233012Z-p3292594`; those Incident Bundle rows generated, imported, and re-exported current canonical bundles and no tracked retained bundle artifact exists. Latest format passed at `.cartulary/test-results/20260821T233150Z-p3308606`; boundary passed at `.cartulary/test-results/20260821T233120Z-p3307982`; Markdown checkpoint passed at `.cartulary/test-results/20260821T233410Z-p3356707`; `git diff --check`, migration-diff search, and legacy-branch searches passed. `make db-reset` required its Make-variable confirmation: unconfirmed attempts failed safely at `.cartulary/test-results/20260821T232723Z-p3207177` and `.cartulary/test-results/20260821T232729Z-p3207580`; `make db-reset CARTULARY_DESTRUCTIVE_CONFIRM=db-reset` passed at `.cartulary/test-results/20260821T232736Z-p3207988`. Repaired related failures: Links `.cartulary/test-results/20260821T225856Z-p2873400` exposed PostgreSQL timestamp encoding drift; Revisions `.cartulary/test-results/20260821T231836Z-p3020608` exposed noncanonical fixture chronology and a duplicate fixture ID; Incident Bundles `.cartulary/test-results/20260821T232307Z-p3151165` exposed generic target parsing of owner-validated composite IDs and `.cartulary/test-results/20260821T232438Z-p3170520` exposed a retired non-reversible tag expectation. | Revert the PR-04 source/test/tracker edits, then reset disposable database and bundle state again. The cutover deliberately has no backward conversion: operational rollback after this point is source revert plus reset, and pre-cutover history/bundles remain rejected. | Execute PR-05 dead surface deletion; checkpoint it before PR-06. |
+| 2026-08-21 PR-05 | DONE. Deleted the non-mutation collection methods, boolean-only field/tag wrappers, `TagStore`, raw root link DTOs, old get/tombstone/value loaders, specialized linked-note insertion, exported internal sentinels, `.gitkeep`, and unused test expectation wrappers without aliases or forwarding shims. Merge now calls the private canonical tombstone state operation, and field-aware and Timeline characterization uses canonical mutation commands plus live test tokens/helpers. No database reset, bundle regeneration, schema, migration, generated artifact, contract, or harness input changed in this slice. | Deleted `internal/modules/links/.gitkeep` and `internal/modules/links/value_codecs.go`; changed `internal/modules/links/store.go`; `internal/modules/links/field_refs.go`; `internal/modules/links/collection_actions.go`; `internal/modules/links/collection_mutations.go`; `internal/modules/links/record_link_commands.go`; `internal/modules/links/merge_effects.go`; `internal/modules/links/internal/revisionprovider/provider.go`; `internal/modules/links/internal/valuecodec/valuecodec.go`; `internal/modules/links/links_tags_test.go`; `internal/modules/links/testsupport/links.go`; `internal/modules/timeline/resolution_integration_test.go`; this tracker | `make task-guide ROLE=module-author OWNER=module.links`; `make format` passed at `.cartulary/test-results/20260821T234228Z-p3362122`; all four active Links rows passed through `make test-slice OWNER=module.links` at `.cartulary/test-results/20260821T234249Z-p3366247` and `make service-backed-test-slice OWNER=module.links` at `.cartulary/test-results/20260821T234340Z-p3406424`; `make backend-module-boundary-check` passed at `.cartulary/test-results/20260821T234249Z-p3366350`; `make test-fast` passed 416/416 at `.cartulary/test-results/20260821T234427Z-p3444883`; the Markdown checkpoint passed at `.cartulary/test-results/20260821T234608Z-p3453784`; exact retired-symbol searches across tracked Go, configuration, generator, and policy inputs, `.gitkeep` absence, and `git diff --check` passed. No failure occurred in this slice. | Revert the listed PR-05 source/test deletions and edits plus this checkpoint while retaining PR-00 through PR-04. No state reset is needed to reverse this source-only slice; because PR-04 remains a hard cutover, any rollback across PR-04 still requires source revert plus disposable-state reset and offers no backward conversion. | Execute PR-06 fact-reader consolidation; checkpoint it before PR-07. |
+| 2026-08-22 PR-06 | DONE. Replaced `ActiveFactReader`, `RecordFactReader`, `AssessmentFactReader`, and the Links Timeline-named history method with one `FactReader` exposing incident, record, and incident-scoped collection-change reads. Link facts now use typed Links link/provenance values; all reads provide non-nil empty collections and one `FactReadError` without partial facts. Reporting and Timeline fact adapters consume the unified reader, Assessment derives outbound `supported_by` targets from record facts, and Timeline assembly alone maps `TagsChanged` to `timeline.tags`. Active filtering, deterministic ordering, replacement selection, route/projection behavior, and reporting output remain covered. No database reset, bundle regeneration, schema, migration, generated artifact, contract, or harness input changed. | Deleted `internal/modules/links/assessment_facts.go` and `internal/modules/links/timeline_history_facts.go`; changed `internal/modules/links/active_facts.go`; `internal/modules/links/links_tags_test.go`; `internal/app/reportingassembly/links.go`; `internal/app/timelinefactassembly/links.go`; `internal/app/assessmentassembly/projection_source.go`; `internal/app/timelineassembly/assembly.go`; `internal/modules/timeline/ports.go`; `internal/modules/timeline/store.go`; `internal/modules/timeline/clipboard_paste_store.go`; this tracker | Task guides ran for `module.links`, `module.reporting`, `module.timeline`, and `module.assessments`. Latest non-service slices passed: Links 14/14 at `.cartulary/test-results/20260822T000547Z-p3820795`, Reporting 5/5 at `.cartulary/test-results/20260821T235154Z-p3506735`, Timeline 51/51 at `.cartulary/test-results/20260821T235154Z-p3506730`, and Assessments 27/27 at `.cartulary/test-results/20260821T235154Z-p3506743`. Service-backed slices passed: Links 13/13 at `.cartulary/test-results/20260822T000636Z-p3859488`, Reporting 4/4 at `.cartulary/test-results/20260821T235810Z-p3697424`, Timeline 29/29 at `.cartulary/test-results/20260821T235955Z-p3753470`, and Assessments 18/18 at `.cartulary/test-results/20260821T235853Z-p3712616`. Latest format passed at `.cartulary/test-results/20260822T000537Z-p3816978`; boundary passed at `.cartulary/test-results/20260821T235041Z-p3462677`; `make test-fast` passed 416/416 at `.cartulary/test-results/20260822T000726Z-p3898093`; the Markdown checkpoint passed at `.cartulary/test-results/20260822T000839Z-p3903449`; corrected owner-scoped reader/token searches and `git diff --check` passed. One preliminary all-application symbol search exited 1 because it intentionally encountered the live Entities mention-history method; the corrected Links-reader scope passed and required no source change. | Revert the listed PR-06 source/test edits and deletions plus this checkpoint while retaining PR-00 through PR-05. No state reset is needed for this source-only slice; rollback across the retained PR-04 hard cutover still requires source revert plus disposable-state reset and has no backward conversion. | Execute PR-07 test and boundary cleanup; checkpoint it before PR-08. |
+| 2026-08-22 PR-07 | DONE. Split the 1,291-line mixed Links suite into store, merge, portability, route/projection/history, and shared-helper files without renaming any catalog-selected test. Added boundary-owner rules that reject production Entity-mention imports of Links, every retired Links declaration in the owner root, and calls to every retired mutation facade across production. The authored Links family, its four row IDs/selectors/evidence classes/ownership, generated topology, and AC043 profile, version, seed, contribution order/dependency, receipts, counts, stride-bearing implementation, digests, keys, verification bindings, and claim bindings remain unchanged. No database reset, bundle regeneration, product source, schema, migration, contract, test-family manifest, or generated artifact changed. | Deleted `internal/modules/links/links_tags_test.go`; added `internal/modules/links/store_test.go`; `internal/modules/links/merge_test.go`; `internal/modules/links/portability_test.go`; `internal/modules/links/route_projection_history_test.go`; `internal/modules/links/test_helpers_test.go`; changed `tools/backend_module_boundaries.json`; this tracker | `make format` passed at `.cartulary/test-results/20260822T001426Z-p3951683`; `make generate` passed at `.cartulary/test-results/20260822T001435Z-p3955392` with no generated diff; `make generate-drift` passed at `.cartulary/test-results/20260822T001530Z-p3959489`; `make generated-artifact-policy-check` at `.cartulary/test-results/20260822T001530Z-p3959509`; `make json-shape-check` at `.cartulary/test-results/20260822T001530Z-p3959524`; and `make backend-module-boundary-check` at `.cartulary/test-results/20260822T001531Z-p3959778`. `make explain-test-owner OWNER=module.links` reports exactly four active rows: one browser, integration, store, and unit row with three service-backed. Those exact rows passed 14/14 at `.cartulary/test-results/20260822T001549Z-p3963716` and 13/13 service-backed at `.cartulary/test-results/20260822T001650Z-p4003193`. The AC043 runtime/assembler, snapshot-key, and source-owner-assembler rows passed at `.cartulary/test-results/20260822T001549Z-p3963719`; every named AC043 and Links accounting artifact is byte-identical to baseline `21c226ce353961f47e438afaf350760bc1e82c6f`. `make test-fast` passed 416/416 at `.cartulary/test-results/20260822T001734Z-p4041790`; the Markdown checkpoint passed at `.cartulary/test-results/20260822T001914Z-p4047559`; retired-source/import searches and `git diff --check` passed. The first post-split Links run failed at `.cartulary/test-results/20260822T001315Z-p3911579` because the route test file lacked the live Timeline test-support import; adding that import repaired all three Go row builds and the exact rerun passed. | Revert the PR-07 test split, boundary-owner edit, and this checkpoint while retaining PR-00 through PR-06. No data reset is needed; generated output did not change. Rollback across PR-04 still requires source revert plus disposable-state reset and provides no backward conversion. | Execute PR-08 final validation and handoff completion. |
+| 2026-08-22 PR-08 | DONE. Closed every `LPR-AC-FREEZE-*` and `LPR-AC-DONE-*` case with current-source evidence. The broad gate exposed a stale Entity merge fixture whose database-default creation time followed its fixed mutation clock; the fixture now deterministically places link/tag creation one minute before merge, preserving strict production admission rather than weakening it. Public HTTP/WebSocket and frontend surfaces, authorization and caller-owned transaction ownership, active Links bundle sources, Recovery membership, projections/reporting behavior, and AC043 identity remain frozen. No migration, generated artifact, retained history, or bundle was rewritten; PR-04's reset and fresh bundle round trips remain authoritative. There is no blocker, skip, TODO workstream, compatibility seam, or next slice. | `internal/modules/entities/unit_test.go`; this tracker | The first `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260821T201046Z-p1616597` failed safely at `.cartulary/test-results/20260822T002038Z-p4050083` because the old run's source digest did not match current source; it changed no file. The first preliminary `make check` failed 636/637 at `.cartulary/test-results/20260822T002115Z-p4050867`, correctly identifying the related Entity merge fixture chronology. An initial task-guide call with `OWNER=entities` failed as a usage error without a run root; the corrected `make task-guide ROLE=module-author OWNER=module.entities` passed. `make format` passed at `.cartulary/test-results/20260822T002833Z-p4174107`; Entity rows passed 33/33 at `.cartulary/test-results/20260822T002841Z-p4177883` and 29/29 service-backed at `.cartulary/test-results/20260822T002841Z-p4177889`. A current-source preliminary `make check` passed 637/637 at `.cartulary/test-results/20260822T003032Z-p89495`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260822T003032Z-p89495` then passed at `.cartulary/test-results/20260822T003455Z-p201534`, validating performance/evidence and reporting zero generated updates. The prescribed final sequence passed: `make test-fast` 416/416 at `.cartulary/test-results/20260822T003515Z-p204499`, `make browser-e2e-webserver-backed` 58/58 at `.cartulary/test-results/20260822T003528Z-p205454`, and `make check` 637/637 at `.cartulary/test-results/20260822T003932Z-p257609`. Baseline diff audits found no change under migrations, generated roots, `apps/web`, `docs/domain.md`, Links active bundle-source files, or Recovery; the contribution still registers exactly `record_links` and `record_tags`. The final Markdown checkpoint passed at `.cartulary/test-results/20260822T004530Z-p364782`; `git diff --check` passed. | Revert the PR-08 fixture and tracker checkpoint while retaining PR-00 through PR-07; no additional state reset is needed for PR-08 alone. Any operational rollback across PR-04 remains source revert plus another disposable-state reset, with no backward conversion for rejected pre-cutover history or bundles. | None. Iteration 2 is complete. |

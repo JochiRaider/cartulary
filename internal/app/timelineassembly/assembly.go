@@ -121,6 +121,15 @@ func compose(dependencies Dependencies) (composition, error) {
 	timelineWriter := dependencies.TimelineProjection
 	entityProjectionWriter := dependencies.EntityProjection
 	mentionEffects := mentioneffects.NewProvider(recordsPort, collectionFacts, timelineWriter)
+	linkStore := links.NewStore()
+	entityMentionStore := mentions.NewStore(
+		dependencies.Postgres,
+		dependencies.Revisions,
+		mentions.WithLinkOperations(mentionLinkAdapter{store: linkStore}),
+		mentions.WithTimelineEffects(mentionEffects),
+		mentions.WithCollaborationIntents(dependencies.Collaboration),
+		mentions.WithWorkbookProjection(entityProjectionWriter),
+	)
 	collaborators := timeline.Collaborators{
 		Core: timeline.CoreCollaborators{
 			Idempotency: idempotencyAdapter{store: authn.NewStore(dependencies.Postgres)},
@@ -129,12 +138,8 @@ func compose(dependencies Dependencies) (composition, error) {
 			Revisions:   revisionAdapter{appender: dependencies.Revisions, reader: conflicttokens.NewRevisionWindowReader()},
 		},
 		Collections: timeline.CollectionCollaborators{
-			Links: linkAdapter{store: links.NewStore()},
-			Mentions: mentionAdapter{store: mentions.NewStore(
-				nil,
-				dependencies.Revisions,
-				mentions.WithWorkbookProjection(entityProjectionWriter),
-			)},
+			Links:    linkAdapter{store: linkStore, facts: links.FactReader{}},
+			Mentions: mentionAdapter{store: entityMentionStore},
 			Entities: entityAdapter{store: hostidentity.NewStore(
 				dependencies.Postgres,
 				dependencies.Revisions,
@@ -158,14 +163,8 @@ func compose(dependencies Dependencies) (composition, error) {
 		return composition{}, fmt.Errorf("compose Timeline bundle: assessment merge effects: %w", err)
 	}
 	return composition{
-		mentionEffects: mentionEffects,
-		entityMentionStore: mentions.NewStore(
-			dependencies.Postgres,
-			dependencies.Revisions,
-			mentions.WithTimelineEffects(mentionEffects),
-			mentions.WithCollaborationIntents(dependencies.Collaboration),
-			mentions.WithWorkbookProjection(entityProjectionWriter),
-		),
+		mentionEffects:     mentionEffects,
+		entityMentionStore: entityMentionStore,
 		entityMergeStore: merge.NewStore(
 			dependencies.Postgres,
 			dependencies.Revisions,
@@ -174,6 +173,7 @@ func compose(dependencies Dependencies) (composition, error) {
 			merge.WithTimelineEffects(mentionEffects),
 			merge.WithCollaborationIntents(dependencies.Collaboration),
 			merge.WithWorkbookProjection(entityProjectionWriter),
+			merge.WithMentionStore(entityMentionStore),
 		),
 		collaborators: collaborators,
 	}, nil
@@ -336,15 +336,86 @@ func (a revisionAdapter) ListRecordRevisionWindowTx(ctx context.Context, tx pgx.
 
 type linkAdapter struct {
 	store *links.Store
+	facts links.FactReader
 }
 
-func (a linkAdapter) InsertSupersedesCommandTx(ctx context.Context, tx pgx.Tx, command timeline.InsertSupersedesCommand) (timeline.SupersedesLink, error) {
+type mentionLinkAdapter struct {
+	store *links.Store
+}
+
+func (a mentionLinkAdapter) UpsertMentionLinkTx(ctx context.Context, tx pgx.Tx, command mentions.LinkCommand) (mentions.LinkCommandResult, error) {
+	result, err := a.store.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
+		IncidentID:  command.IncidentID,
+		SrcRecordID: command.SrcRecordID,
+		DstRecordID: command.DstRecordID,
+		LinkType:    links.LinkType(command.LinkType),
+		Provenance:  links.LinkProvenance(links.LinkProvenanceManual),
+		OwnerUserID: command.ActorUserID,
+		Now:         command.Now,
+	})
+	if err != nil {
+		return mentions.LinkCommandResult{}, err
+	}
+	return mentionLinkResult(result), nil
+}
+
+func (a mentionLinkAdapter) TombstoneActiveMentionLinkTx(ctx context.Context, tx pgx.Tx, command mentions.TombstoneLinkCommand) (mentions.LinkCommandResult, bool, error) {
+	result, found, err := a.store.TombstoneActiveLinkCommandTx(ctx, tx, links.TombstoneActiveLinkCommand{
+		IncidentID:  command.IncidentID,
+		SrcRecordID: command.SrcRecordID,
+		DstRecordID: command.DstRecordID,
+		LinkType:    links.LinkType(command.LinkType),
+		ActorUserID: command.ActorUserID,
+		Now:         command.Now,
+	})
+	if err != nil {
+		return mentions.LinkCommandResult{}, false, err
+	}
+	if !found {
+		return mentions.LinkCommandResult{}, false, nil
+	}
+	return mentionLinkResult(result), true, nil
+}
+
+func mentionLinkResult(result links.RecordLinkCommandResult) mentions.LinkCommandResult {
+	converted := mentions.LinkCommandResult{
+		RecordLinkID: result.RecordLinkID,
+		SrcRecordID:  result.SrcRecordID,
+		DstRecordID:  result.DstRecordID,
+		LinkType:     mentions.LinkType(result.LinkType),
+	}
+	if result.Mutation != nil {
+		converted.Mutation = &mentions.LinkMutation{
+			RecordLinkID: result.Mutation.RecordLinkID,
+			Operation:    result.Mutation.Operation,
+			BeforeValue:  cloneLinkMutationMap(result.Mutation.BeforeValue),
+			AfterValue:   cloneLinkMutationMap(result.Mutation.AfterValue),
+		}
+	}
+	return converted
+}
+
+func cloneLinkMutationMap(value map[string]any) map[string]any {
+	if value == nil {
+		return nil
+	}
+	cloned := make(map[string]any, len(value))
+	for key, item := range value {
+		cloned[key] = item
+	}
+	return cloned
+}
+
+func (a linkAdapter) InsertSupersedesCommandTx(ctx context.Context, tx pgx.Tx, command timeline.InsertSupersedesCommand) (timeline.RecordLinkCommandResult, error) {
 	link, err := a.store.InsertSupersedesCommandTx(ctx, tx, links.InsertSupersedesCommand(command))
-	return timeline.SupersedesLink(link), err
+	if err != nil {
+		return timeline.RecordLinkCommandResult{}, err
+	}
+	return timelineLinkResult(link), nil
 }
 
-func (a linkAdapter) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command timeline.UpsertLinkCommand) error {
-	_, _, err := a.store.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
+func (a linkAdapter) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command timeline.UpsertLinkCommand) (timeline.RecordLinkCommandResult, error) {
+	result, err := a.store.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
 		IncidentID:  command.IncidentID,
 		SrcRecordID: command.SrcRecordID,
 		DstRecordID: command.DstRecordID,
@@ -354,15 +425,14 @@ func (a linkAdapter) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command
 		OwnerUserID: command.OwnerUserID,
 		Now:         command.Now,
 	})
-	return err
+	if err != nil {
+		return timeline.RecordLinkCommandResult{}, err
+	}
+	return timelineLinkResult(result), nil
 }
 
 func (a linkAdapter) HasActiveIncomingSupersedesLinkForUpdateTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (bool, error) {
 	return a.store.HasActiveIncomingSupersedesLinkForUpdateTx(ctx, tx, incidentID, recordID)
-}
-
-func (a linkAdapter) LoadRecordLinkValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (map[string]any, error) {
-	return a.store.LoadRecordLinkValueTx(ctx, tx, recordLinkID)
 }
 
 func (a linkAdapter) ApplyRecordRefCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command timeline.RecordRefCollectionCommand) (timeline.CollectionMutationResult, error) {
@@ -378,6 +448,24 @@ func (a linkAdapter) ApplyRecordRefCollectionWithMutationValuesTx(ctx context.Co
 		Now:                command.Now,
 	})
 	return collectionResult(result), err
+}
+
+func timelineLinkResult(result links.RecordLinkCommandResult) timeline.RecordLinkCommandResult {
+	converted := timeline.RecordLinkCommandResult{
+		RecordLinkID: result.RecordLinkID,
+		SrcRecordID:  result.SrcRecordID,
+		DstRecordID:  result.DstRecordID,
+		LinkType:     result.LinkType.String(),
+	}
+	if result.Mutation != nil {
+		converted.Mutation = &timeline.RecordLinkMutation{
+			RecordLinkID: result.Mutation.RecordLinkID,
+			Operation:    result.Mutation.Operation,
+			BeforeValue:  cloneLinkMutationMap(result.Mutation.BeforeValue),
+			AfterValue:   cloneLinkMutationMap(result.Mutation.AfterValue),
+		}
+	}
+	return converted
 }
 
 func (a linkAdapter) ApplyTagCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command timeline.TagCollectionCommand) (timeline.CollectionMutationResult, error) {
@@ -401,8 +489,16 @@ func (a linkAdapter) ApplyTagCollectionWithMutationValuesTx(ctx context.Context,
 	return collectionResult(result), err
 }
 
-func (a linkAdapter) LoadTimelineCollectionFieldsChangedTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, changedAt time.Time) ([]string, error) {
-	return a.store.LoadTimelineCollectionFieldsChangedTx(ctx, tx, recordID, changedAt)
+func (a linkAdapter) LoadCollectionFieldsChangedTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, changedAt time.Time) ([]string, error) {
+	facts, err := a.facts.LoadCollectionChangesTx(ctx, tx, incidentID, recordID, changedAt)
+	if err != nil {
+		return nil, err
+	}
+	fields := append([]string(nil), facts.LinkFieldKeys...)
+	if facts.TagsChanged {
+		fields = append(fields, "timeline.tags")
+	}
+	return fields, nil
 }
 
 func collectionResult(result links.CollectionMutationResult) timeline.CollectionMutationResult {
@@ -423,20 +519,39 @@ type mentionAdapter struct {
 	store *mentions.Store
 }
 
-func (a mentionAdapter) ResolveExistingFromMentionTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, fieldKey string, mentionID uuid.UUID, resolvedRecordID *uuid.UUID, now time.Time) error {
-	_, err := a.store.ResolveExistingFromMentionTx(ctx, tx, actor, sourceRecordID, fieldKey, mentionID, resolvedRecordID, now)
+func (a mentionAdapter) ResolveExistingFromMentionTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, fieldKey string, mentionID uuid.UUID, resolvedRecordID *uuid.UUID, now time.Time) ([]timeline.RecordLinkMutation, error) {
+	result, err := a.store.ResolveExistingFromMentionTx(ctx, tx, actor, sourceRecordID, fieldKey, mentionID, resolvedRecordID, now)
 	if errors.Is(err, mentions.ErrResolvedRecordNotFound) {
-		return timeline.ErrResolvedRecordNotFound
+		return nil, timeline.ErrResolvedRecordNotFound
 	}
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return timelineMentionLinkMutations(result.LinkMutations), nil
 }
 
-func (a mentionAdapter) ApplyMentionLifecycleTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, sourceFieldKey string, mentionID uuid.UUID, action string, resolvedRecordID *uuid.UUID, now time.Time) error {
-	err := a.store.ApplyMentionLifecycleTx(ctx, tx, actor, sourceRecordID, sourceFieldKey, mentionID, action, resolvedRecordID, now)
+func (a mentionAdapter) ApplyMentionLifecycleTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, sourceFieldKey string, mentionID uuid.UUID, action string, resolvedRecordID *uuid.UUID, now time.Time) ([]timeline.RecordLinkMutation, error) {
+	mutations, err := a.store.ApplyMentionLifecycleTx(ctx, tx, actor, sourceRecordID, sourceFieldKey, mentionID, action, resolvedRecordID, now)
 	if errors.Is(err, mentions.ErrResolvedRecordNotFound) {
-		return timeline.ErrResolvedRecordNotFound
+		return nil, timeline.ErrResolvedRecordNotFound
 	}
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return timelineMentionLinkMutations(mutations), nil
+}
+
+func timelineMentionLinkMutations(mutations []mentions.LinkMutation) []timeline.RecordLinkMutation {
+	converted := make([]timeline.RecordLinkMutation, 0, len(mutations))
+	for _, mutation := range mutations {
+		converted = append(converted, timeline.RecordLinkMutation{
+			RecordLinkID: mutation.RecordLinkID,
+			Operation:    mutation.Operation,
+			BeforeValue:  cloneLinkMutationMap(mutation.BeforeValue),
+			AfterValue:   cloneLinkMutationMap(mutation.AfterValue),
+		})
+	}
+	return converted
 }
 
 func (a mentionAdapter) NextOrdinalTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string) (int, error) {

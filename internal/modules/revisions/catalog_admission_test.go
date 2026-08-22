@@ -50,6 +50,16 @@ func (*catalogAdmissionNonRowProvider) ApplyInverseTx(context.Context, pgx.Tx, r
 	return rollbackcontract.ApplyInverseResult{}, nil
 }
 
+type catalogAdmissionHistoryValidator struct {
+	mutation StoredMutation
+	err      error
+}
+
+func (validator *catalogAdmissionHistoryValidator) ValidateHistoryMutation(mutation StoredMutation) error {
+	validator.mutation = mutation
+	return validator.err
+}
+
 func TestCatalogAdmissionSnapshotCaptureBuildsCanonicalOpaqueEnvelope(t *testing.T) {
 	recordID := uuid.New()
 	sourceValue := map[string]any{
@@ -161,8 +171,10 @@ func TestCatalogAdmissionSnapshotCaptureRejectsInvalidShapeAndMissingRegistratio
 
 func TestTargetSemanticsCatalogCompilesGenericRowAndOwnerNonRowEntries(t *testing.T) {
 	provider := &catalogAdmissionNonRowProvider{}
+	validator := &catalogAdmissionHistoryValidator{}
 	requirements := catalogAdmissionTargetRequirements()
 	contributions := catalogAdmissionTargetContributions(provider)
+	contributions[0].NonRowTargets[0].HistoryValidator = validator
 	catalog, err := compileTargetSemanticsCatalog(requirements, contributions)
 	if err != nil {
 		t.Fatalf("compile target semantics: %v", err)
@@ -198,8 +210,9 @@ func TestTargetSemanticsCatalogCompilesGenericRowAndOwnerNonRowEntries(t *testin
 	first := uuid.MustParse("11111111-1111-4111-8111-111111111111")
 	second := uuid.MustParse("22222222-2222-4222-8222-222222222222")
 	description, err := catalog.DescribeMutation(StoredMutation{
-		TargetKind: "child",
-		TargetID:   "child-1",
+		TargetKind:    "child",
+		TargetID:      "child-1",
+		OperationKind: "patch",
 		BeforeValue: map[string]any{
 			"record_id": second.String(),
 		},
@@ -213,6 +226,13 @@ func TestTargetSemanticsCatalogCompilesGenericRowAndOwnerNonRowEntries(t *testin
 	want := []uuid.UUID{first, second}
 	if !reflect.DeepEqual(description.HistoryRecordIDs, want) || !reflect.DeepEqual(description.HistoryEntryRecordIDs, want) {
 		t.Fatalf("history description = %#v, want ids %#v", description, want)
+	}
+	if validator.mutation.OperationKind != "patch" || validator.mutation.TargetID != "child-1" {
+		t.Fatalf("owner validator did not receive stored mutation: %#v", validator.mutation)
+	}
+	validator.err = errors.New("owner detail must not escape")
+	if _, err := catalog.DescribeMutation(StoredMutation{TargetKind: "child", TargetID: "child-2", OperationKind: "create"}); !errors.Is(err, ErrInvalidTargetSemantics) || errors.Is(err, validator.err) {
+		t.Fatalf("owner validation error was not normalized: %v", err)
 	}
 }
 

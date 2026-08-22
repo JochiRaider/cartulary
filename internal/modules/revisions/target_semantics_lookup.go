@@ -16,10 +16,15 @@ func (catalog *TargetSemanticsCatalog) DescribeMutation(mutation StoredMutation)
 	if !ok {
 		return HistoryTargetDescription{}, fmt.Errorf("%w: target kind %q", ErrMissingTargetSemantics, mutation.TargetKind)
 	}
+	if entry.historyValidator != nil {
+		if err := entry.historyValidator.ValidateHistoryMutation(mutation); err != nil {
+			return HistoryTargetDescription{}, fmt.Errorf("%w: target kind %q history value", ErrInvalidTargetSemantics, mutation.TargetKind)
+		}
+	}
 	return entry.history.DescribeMutation(mutation)
 }
 
-func (catalog *TargetSemanticsCatalog) DescribeValues(targetKind string, targetID string, beforeValue any, afterValue any) (HistoryTargetDescription, error) {
+func (catalog *TargetSemanticsCatalog) DescribeValues(targetKind string, targetID string, operationKind string, beforeValue any, afterValue any) (HistoryTargetDescription, error) {
 	beforeObject, err := historyMutationObject(beforeValue)
 	if err != nil {
 		return HistoryTargetDescription{}, err
@@ -29,10 +34,11 @@ func (catalog *TargetSemanticsCatalog) DescribeValues(targetKind string, targetI
 		return HistoryTargetDescription{}, err
 	}
 	return catalog.DescribeMutation(StoredMutation{
-		TargetKind:  targetKind,
-		TargetID:    targetID,
-		BeforeValue: beforeObject,
-		AfterValue:  afterObject,
+		TargetKind:    targetKind,
+		TargetID:      targetID,
+		OperationKind: operationKind,
+		BeforeValue:   beforeObject,
+		AfterValue:    afterObject,
 	})
 }
 
@@ -60,6 +66,14 @@ func (catalog *TargetSemanticsCatalog) hasTargetKind(targetKind string) bool {
 	}
 	_, ok := catalog.byTargetKind[targetKind]
 	return ok
+}
+
+func (catalog *TargetSemanticsCatalog) requiresGenericPortableTargetID(targetKind string) bool {
+	if catalog == nil {
+		return true
+	}
+	entry, ok := catalog.byTargetKind[targetKind]
+	return !ok || entry.historyValidator == nil
 }
 
 func (catalog *TargetSemanticsCatalog) targetKinds() []string {

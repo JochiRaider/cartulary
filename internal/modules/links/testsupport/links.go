@@ -46,16 +46,6 @@ type LinkFixture struct {
 	DeletedAt    *time.Time
 }
 
-type LinkExpectation struct {
-	Provenance string
-	Confidence *int
-}
-
-var (
-	ManualLinkExpectation = LinkExpectation{Provenance: "manual"}
-	AutoMatchExpectation  = LinkExpectation{Provenance: LinkProvenanceAutoMatch, Confidence: intPointer(100)}
-)
-
 func RequireActiveLink(
 	t testing.TB,
 	link LinkFixture,
@@ -169,10 +159,6 @@ SELECT record_link_id::text, incident_id::text, src_record_id::text, dst_record_
 		link.DeletedAt = &value
 	}
 	return link
-}
-
-func intPointer(value int) *int {
-	return &value
 }
 
 type rowScanner interface {

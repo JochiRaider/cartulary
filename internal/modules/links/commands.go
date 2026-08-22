@@ -46,3 +46,20 @@ type InsertSupersedesCommand struct {
 	OwnerUserID         uuid.UUID
 	Now                 time.Time
 }
+
+type TombstoneActiveLinkCommand struct {
+	IncidentID  uuid.UUID
+	SrcRecordID uuid.UUID
+	DstRecordID uuid.UUID
+	LinkType    LinkType
+	ActorUserID uuid.UUID
+	Now         time.Time
+}
+
+type RecordLinkCommandResult struct {
+	RecordLinkID uuid.UUID
+	SrcRecordID  uuid.UUID
+	DstRecordID  uuid.UUID
+	LinkType     LinkType
+	Mutation     *RecordLinkMutation
+}

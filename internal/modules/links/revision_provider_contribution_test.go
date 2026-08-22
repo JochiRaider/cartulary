@@ -20,7 +20,7 @@ func TestRevisionProviderContributionOwnsLinkAndTagHistoryFacet_Unit(t *testing.
 	destinationID := uuid.MustParse("22222222-2222-4222-8222-222222222222")
 	recordID := uuid.MustParse("33333333-3333-4333-8333-333333333333")
 	for _, target := range contribution.NonRowTargets {
-		if target.RollbackProvider == nil {
+		if target.RollbackProvider == nil || target.HistoryValidator == nil {
 			t.Fatalf("target %q has incomplete semantics", target.TargetKind)
 		}
 		var mutation revisions.StoredMutation

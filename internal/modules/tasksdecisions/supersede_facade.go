@@ -194,7 +194,9 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 		}
 		return SupersedeMutationResult{}, err
 	}
-	linkID := link.RecordLinkID
+	if link.Mutation == nil {
+		return SupersedeMutationResult{}, errors.New("supersede decision: Links returned no create mutation")
+	}
 
 	sourceVersion, err := f.recordStore.AdvanceVersionTx(ctx, tx, sourceRecordID, command.ActorUserID, now)
 	if err != nil {
@@ -278,15 +280,10 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 		ChangeSetID:   changeSetID,
 		SequenceNo:    3,
 		TargetKind:    "record_link",
-		TargetID:      linkID.String(),
-		OperationKind: "create",
-		AfterValue: map[string]any{
-			"record_link_id": linkID.String(),
-			"incident_id":    targetMeta.IncidentID.String(),
-			"src_record_id":  sourceRecordID.String(),
-			"dst_record_id":  command.TargetRecordID.String(),
-			"link_type":      "supersedes",
-		},
+		TargetID:      link.Mutation.RecordLinkID.String(),
+		OperationKind: link.Mutation.Operation,
+		BeforeValue:   link.Mutation.BeforeValue,
+		AfterValue:    link.Mutation.AfterValue,
 	}); err != nil {
 		return SupersedeMutationResult{}, err
 	}

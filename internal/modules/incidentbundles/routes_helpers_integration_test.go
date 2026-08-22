@@ -508,8 +508,11 @@ func seedPortableRecordTagCreateHistory(t testing.TB, db *sql.DB, incidentID uui
 	t.Helper()
 	recordTagID := uuid.New()
 	afterValue := map[string]any{
-		"record_id": recordID.String(),
-		"tag_name":  "ExtensionProfile History",
+		"record_tag_id": recordTagID.String(), "incident_id": incidentID.String(),
+		"record_id": recordID.String(), "tag_name": "ExtensionProfile History",
+		"normalized_tag_name": "extension_profile-history", "created_by_user_id": actorID.String(),
+		"created_at": createdAt.UTC().Format(time.RFC3339Nano), "updated_at": createdAt.UTC().Format(time.RFC3339Nano),
+		"deleted_at": nil, "deleted_by_user_id": nil,
 	}
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO record_tags (record_tag_id, incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id, created_at, updated_at)
@@ -529,7 +532,7 @@ INSERT INTO change_set_mutations (
     before_value, after_value, history_record_ids, history_entry_record_ids
 )
 VALUES ($1, 1, 'record_tag', $2, 'create', NULL, $3, ARRAY[$4::uuid], ARRAY[$4::uuid])
-`, changeSetID, recordTagID.String(), jsonRaw(t, afterValue), recordID); err != nil {
+`, changeSetID, "record_tag:"+recordID.String()+":"+recordTagID.String(), jsonRaw(t, afterValue), recordID); err != nil {
 		t.Fatalf("seed portable record-tag mutation: %v", err)
 	}
 }

@@ -33,6 +33,16 @@ type mentionProjectionRefresh struct {
 	Identities map[uuid.UUID]struct{}
 }
 
+type mentionApplicationResult struct {
+	Projection    mentionProjectionRefresh
+	LinkMutations []attachedEvidenceMutation
+}
+
+func (r *mentionApplicationResult) merge(other mentionApplicationResult) {
+	r.Projection.merge(other.Projection)
+	r.LinkMutations = append(r.LinkMutations, other.LinkMutations...)
+}
+
 func (s *store) refreshMentionEntityProjectionsTx(ctx context.Context, tx pgx.Tx, refresh mentionProjectionRefresh) error {
 	hostIDs := mapKeys(refresh.Hosts)
 	identityIDs := mapKeys(refresh.Identities)
@@ -87,30 +97,30 @@ func compareUUIDs(left uuid.UUID, right uuid.UUID) int {
 	return strings.Compare(left.String(), right.String())
 }
 
-func (s *store) applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, hostRefs *CollectionActionPayload, identityRefs *CollectionActionPayload, options createRowOptions, now time.Time) (mentionProjectionRefresh, error) {
-	var refresh mentionProjectionRefresh
+func (s *store) applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, hostRefs *CollectionActionPayload, identityRefs *CollectionActionPayload, options createRowOptions, now time.Time) (mentionApplicationResult, error) {
+	var result mentionApplicationResult
 	insertOptions := mentionInsertOptions{
 		allowInteractiveAutoResolution: options.allowInteractiveAutoResolution,
 	}
-	hostTargets, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actorUserID, incidentID, recordID, "timeline.host_refs", collectionEntityType("timeline.host_refs"), hostRefs, insertOptions, now)
+	hostResult, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actorUserID, incidentID, recordID, "timeline.host_refs", collectionEntityType("timeline.host_refs"), hostRefs, insertOptions, now)
 	if err != nil {
-		return mentionProjectionRefresh{}, err
+		return mentionApplicationResult{}, err
 	}
-	refresh.merge(hostTargets)
-	identityTargets, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actorUserID, incidentID, recordID, "timeline.identity_refs", collectionEntityType("timeline.identity_refs"), identityRefs, insertOptions, now)
+	result.merge(hostResult)
+	identityResult, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actorUserID, incidentID, recordID, "timeline.identity_refs", collectionEntityType("timeline.identity_refs"), identityRefs, insertOptions, now)
 	if err != nil {
-		return mentionProjectionRefresh{}, err
+		return mentionApplicationResult{}, err
 	}
-	refresh.merge(identityTargets)
-	return refresh, nil
+	result.merge(identityResult)
+	return result, nil
 }
 
 func (s *store) applyCreateTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, tags *CollectionActionPayload, now time.Time) ([]recordTagMutation, error) {
 	return s.applyTimelineTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, tags, now)
 }
 
-func (s *store) applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) (mentionProjectionRefresh, error) {
-	var refresh mentionProjectionRefresh
+func (s *store) applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) (mentionApplicationResult, error) {
+	var result mentionApplicationResult
 	for _, change := range changes {
 		if change.ActionPayload == nil {
 			continue
@@ -119,35 +129,43 @@ func (s *store) applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor
 		for _, action := range change.ActionPayload.Actions {
 			switch action.Op {
 			case "add_token", "add_resolved_ref":
-				targets, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actor.ID, incidentID, recordID, change.FieldKey, entityType, &CollectionActionPayload{Actions: []CollectionAction{action}}, mentionInsertOptions{
+				applied, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actor.ID, incidentID, recordID, change.FieldKey, entityType, &CollectionActionPayload{Actions: []CollectionAction{action}}, mentionInsertOptions{
 					allowInteractiveAutoResolution: true,
 				}, now)
 				if err != nil {
-					return mentionProjectionRefresh{}, err
+					return mentionApplicationResult{}, err
 				}
-				refresh.merge(targets)
+				result.merge(applied)
 			case "resolve_item":
 				mentionID, err := mentionIDFromItemRef(action.ItemRef)
 				if err != nil {
-					return mentionProjectionRefresh{}, err
+					return mentionApplicationResult{}, err
 				}
-				if err := s.mentionStore.ResolveExistingFromMentionTx(ctx, tx, actor, recordID, change.FieldKey, mentionID, action.ResolvedRecord, now); err != nil {
-					return mentionProjectionRefresh{}, err
+				mutations, err := s.mentionStore.ResolveExistingFromMentionTx(ctx, tx, actor, recordID, change.FieldKey, mentionID, action.ResolvedRecord, now)
+				if err != nil {
+					return mentionApplicationResult{}, err
+				}
+				for _, mutation := range mutations {
+					result.LinkMutations = append(result.LinkMutations, attachedEvidenceMutation(mutation))
 				}
 			case "dismiss_item", "revert_to_unresolved":
 				mentionID, err := mentionIDFromItemRef(action.ItemRef)
 				if err != nil {
-					return mentionProjectionRefresh{}, err
+					return mentionApplicationResult{}, err
 				}
-				if err := s.mentionStore.ApplyMentionLifecycleTx(ctx, tx, actor, recordID, change.FieldKey, mentionID, action.Op, nil, now); err != nil {
-					return mentionProjectionRefresh{}, err
+				mutations, err := s.mentionStore.ApplyMentionLifecycleTx(ctx, tx, actor, recordID, change.FieldKey, mentionID, action.Op, nil, now)
+				if err != nil {
+					return mentionApplicationResult{}, err
+				}
+				for _, mutation := range mutations {
+					result.LinkMutations = append(result.LinkMutations, attachedEvidenceMutation(mutation))
 				}
 			default:
-				return mentionProjectionRefresh{}, fmt.Errorf("unsupported mention action: %s", action.Op)
+				return mentionApplicationResult{}, fmt.Errorf("unsupported mention action: %s", action.Op)
 			}
 		}
 	}
-	return refresh, nil
+	return result, nil
 }
 
 func (s *store) applyPatchTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) ([]recordTagMutation, error) {
@@ -345,9 +363,9 @@ func timelineTagCollectionCommand(incidentID uuid.UUID, recordID uuid.UUID, acto
 	}, nil
 }
 
-func (s *store) insertMentionActionsTx(ctx context.Context, tx pgx.Tx, linkStore LinkPort, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, fieldKey string, entityType string, payload *CollectionActionPayload, options mentionInsertOptions, now time.Time) (mentionProjectionRefresh, error) {
+func (s *store) insertMentionActionsTx(ctx context.Context, tx pgx.Tx, linkStore LinkPort, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, fieldKey string, entityType string, payload *CollectionActionPayload, options mentionInsertOptions, now time.Time) (mentionApplicationResult, error) {
 	if payload == nil || len(payload.Actions) == 0 {
-		return mentionProjectionRefresh{}, nil
+		return mentionApplicationResult{}, nil
 	}
 	originKind := options.originKind
 	if strings.TrimSpace(originKind) == "" {
@@ -355,12 +373,12 @@ func (s *store) insertMentionActionsTx(ctx context.Context, tx pgx.Tx, linkStore
 	}
 	nextOrdinal, err := s.mentionStore.NextOrdinalTx(ctx, tx, recordID, fieldKey)
 	if err != nil {
-		return mentionProjectionRefresh{}, err
+		return mentionApplicationResult{}, err
 	}
-	var refresh mentionProjectionRefresh
+	var result mentionApplicationResult
 	for _, action := range payload.Actions {
 		if action.Op != "add_token" && action.Op != "add_resolved_ref" {
-			return mentionProjectionRefresh{}, fmt.Errorf("unsupported mention action: %s", action.Op)
+			return mentionApplicationResult{}, fmt.Errorf("unsupported mention action: %s", action.Op)
 		}
 		resolutionStatus := "unresolved"
 		var resolvedRecordID *uuid.UUID
@@ -371,10 +389,10 @@ func (s *store) insertMentionActionsTx(ctx context.Context, tx pgx.Tx, linkStore
 		var linkConfidence *int
 		if action.Op == "add_resolved_ref" {
 			if action.ResolvedRecord == nil {
-				return mentionProjectionRefresh{}, fmt.Errorf("missing resolved record for action: %s", action.Op)
+				return mentionApplicationResult{}, fmt.Errorf("missing resolved record for action: %s", action.Op)
 			}
 			if err := s.entityStore.ValidateResolvedTargetTx(ctx, tx, incidentID, entityType, *action.ResolvedRecord); err != nil {
-				return mentionProjectionRefresh{}, err
+				return mentionApplicationResult{}, err
 			}
 			resolutionStatus = "resolved"
 			resolvedRecordID = action.ResolvedRecord
@@ -387,7 +405,7 @@ func (s *store) insertMentionActionsTx(ctx context.Context, tx pgx.Tx, linkStore
 		} else if options.allowInteractiveAutoResolution {
 			match, err := s.lookupInteractiveAutoResolutionMatchTx(ctx, tx, incidentID, fieldKey, action.RawText)
 			if err != nil {
-				return mentionProjectionRefresh{}, err
+				return mentionApplicationResult{}, err
 			}
 			if match != nil {
 				resolutionStatus = "resolved"
@@ -420,14 +438,14 @@ func (s *store) insertMentionActionsTx(ctx context.Context, tx pgx.Tx, linkStore
 			ResolvedAt:       resolvedAt,
 			ResolutionMethod: resolutionMethod,
 		}); err != nil {
-			return mentionProjectionRefresh{}, fmt.Errorf("insert entity mention: %w", err)
+			return mentionApplicationResult{}, fmt.Errorf("insert entity mention: %w", err)
 		}
 		if resolvedRecordID != nil {
 			relationshipType, ok := timelineRelationshipLinkType(fieldKey)
 			if !ok {
-				return mentionProjectionRefresh{}, fmt.Errorf("unsupported link field: %s", fieldKey)
+				return mentionApplicationResult{}, fmt.Errorf("unsupported link field: %s", fieldKey)
 			}
-			if err := linkStore.UpsertLinkCommandTx(ctx, tx, UpsertLinkCommand{
+			linkResult, err := linkStore.UpsertLinkCommandTx(ctx, tx, UpsertLinkCommand{
 				IncidentID:  incidentID,
 				SrcRecordID: recordID,
 				DstRecordID: *resolvedRecordID,
@@ -436,14 +454,18 @@ func (s *store) insertMentionActionsTx(ctx context.Context, tx pgx.Tx, linkStore
 				Confidence:  linkConfidence,
 				OwnerUserID: actorUserID,
 				Now:         now.UTC(),
-			}); err != nil {
-				return mentionProjectionRefresh{}, fmt.Errorf("upsert record link: %w", err)
+			})
+			if err != nil {
+				return mentionApplicationResult{}, fmt.Errorf("upsert record link: %w", err)
 			}
-			refresh.include(fieldKey, *resolvedRecordID)
+			if linkResult.Mutation != nil {
+				result.LinkMutations = append(result.LinkMutations, attachedEvidenceMutation(*linkResult.Mutation))
+			}
+			result.Projection.include(fieldKey, *resolvedRecordID)
 		}
 		nextOrdinal++
 	}
-	return refresh, nil
+	return result, nil
 }
 
 func timelineRelationshipLinkType(fieldKey string) (string, bool) {

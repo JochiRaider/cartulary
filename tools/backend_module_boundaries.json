@@ -152,6 +152,52 @@
           "internal/testutil/pgtest/**"
         ],
         "production_only": true
+      },
+      {
+        "id": "links-retired-production-declarations",
+        "symbols": [
+          "ActiveFactReader",
+          "ApplyPartyRefCollectionTx",
+          "ApplyRecordRefCollectionTx",
+          "ApplyTagCollectionTx",
+          "AssessmentFactReader",
+          "AssessmentSupportFacts",
+          "AutoMatchExpectation",
+          "ErrFieldReferenceNotFound",
+          "ErrInvalidRecordLink",
+          "ErrInvalidTag",
+          "ErrRecordLinkNotFound",
+          "ErrTagNotFound",
+          "GetActiveFieldReferenceTx",
+          "GetActiveLinkTx",
+          "InsertLinkedNoteReferenceTx",
+          "LinkExpectation",
+          "LoadRecordLinkValueTx",
+          "LoadRecordTagValueTx",
+          "ManualLinkExpectation",
+          "NewTagStore",
+          "RecordFactReader",
+          "RecordLink",
+          "SupersedesLink",
+          "SyncFieldReferenceCommandTx",
+          "TagStore",
+          "Tags",
+          "TombstoneActiveLinkTx",
+          "TombstoneFieldReferenceRecordTx",
+          "TombstoneFieldReferenceTx",
+          "TombstoneLinkTx",
+          "TombstoneTagRecordTx",
+          "TombstoneTagTx",
+          "UpsertFieldReferenceRecordTx",
+          "UpsertFieldReferenceTx",
+          "UpsertTagRecordTx",
+          "UpsertTagTx"
+        ],
+        "scan_paths": [
+          "internal/modules/links/*.go"
+        ],
+        "allowed_paths": [],
+        "production_only": false
       }
     ],
     "exact_calls": [
@@ -458,6 +504,18 @@
     }
   ],
   "forbidden_go_imports": [
+    {
+      "id": "entity-mentions-no-links-implementation",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/links"
+      ],
+      "scan_paths": [
+        "internal/modules/entities/mentions/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
     {
       "id": "app-server-publication-no-persistence-or-logging-imports",
       "match_kind": "subtree",
@@ -1610,7 +1668,26 @@
     {
       "id": "links-retired-string-mutators",
       "symbols": [
+        ".ApplyPartyRefCollectionTx(",
+        ".ApplyRecordRefCollectionTx(",
+        ".ApplyTagCollectionTx(",
+        ".GetActiveFieldReferenceTx(",
+        ".GetActiveLinkTx(",
+        ".InsertLinkedNoteReferenceTx(",
+        ".LoadRecordLinkValueTx(",
+        ".LoadRecordTagValueTx(",
+        ".SyncFieldReferenceCommandTx(",
+        ".Tags(",
+        ".TombstoneFieldReferenceRecordTx(",
+        ".TombstoneFieldReferenceTx(",
+        ".TombstoneLinkTx(",
+        ".TombstoneTagRecordTx(",
+        ".TombstoneTagTx(",
         ".UpsertLinkTx(",
+        ".UpsertFieldReferenceRecordTx(",
+        ".UpsertFieldReferenceTx(",
+        ".UpsertTagRecordTx(",
+        ".UpsertTagTx(",
         ".SyncFieldReferenceTx(",
         ".InsertSupersedesTx("
       ],

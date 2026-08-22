@@ -22,6 +22,15 @@ func (a rollbackTransactionalApplier) applyNonRowRollbackMutationTx(ctx context.
 }
 
 func (a rollbackTransactionalApplier) executeNonRowInverseTx(ctx context.Context, tx pgx.Tx, actor ActorID, incidentID uuid.UUID, target rollbackMutationTarget, now time.Time) (rollbackcontract.ApplyInverseResult, error) {
+	if _, err := a.targetSemantics.DescribeMutation(StoredMutation{
+		TargetKind:    target.TargetKind,
+		TargetID:      target.TargetID,
+		OperationKind: target.OperationKind,
+		BeforeValue:   target.BeforeValue,
+		AfterValue:    target.AfterValue,
+	}); err != nil {
+		return rollbackcontract.ApplyInverseResult{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+	}
 	provider, err := a.targetSemantics.nonRowProvider(target.TargetKind)
 	if err != nil {
 		return rollbackcontract.ApplyInverseResult{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}

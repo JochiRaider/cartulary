@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -21,6 +22,19 @@ import (
 
 type mergeProjectionWriterStub struct {
 	workbookprojection.Writer
+}
+
+func TestWithMentionStoreRetainsInjectedInstance(t *testing.T) {
+	mentionStore := &noopMentionStore{}
+	ports := newEntityStorePorts(nil, nil, nil)
+	WithMentionStore(mentionStore)(&ports)
+	adapter, ok := ports.mentions.(entityMentionAdapter)
+	if !ok {
+		t.Fatalf("mention port = %T, want entityMentionAdapter", ports.mentions)
+	}
+	if adapter.store != mentionStore {
+		t.Fatal("mention adapter did not retain the injected store instance")
+	}
 }
 
 func TestMergeAssessmentRepointRejectsUnprotectedAssessment(t *testing.T) {
@@ -37,6 +51,7 @@ func TestMergeAssessmentRepointRejectsUnprotectedAssessment(t *testing.T) {
 		nil,
 		WithAssessmentEffects(assessmentEffects),
 		WithLinkEffects(noopLinkEffects{}),
+		WithMentionStore(noopMentionStore{}),
 		WithWorkbookProjection(mergeProjectionWriterStub{}),
 	)
 	actor := seedMergeProtectedSetUser(t, db, "merge-protected-revalidate@example.test", "Merge Protected Revalidate")
@@ -62,6 +77,15 @@ func TestMergeAssessmentRepointRejectsUnprotectedAssessment(t *testing.T) {
 }
 
 type noopLinkEffects struct{}
+
+type noopMentionStore struct{}
+
+func (noopMentionStore) RepointMergedMentionsTx(context.Context, pgx.Tx, mentions.RepointMergedMentionsCommand) (mentions.RepointMergedMentionsResult, error) {
+	return mentions.RepointMergedMentionsResult{
+		Mutations:             []mentions.MergeMutation{},
+		TimelineInvalidations: map[uuid.UUID][]string{},
+	}, nil
+}
 
 func (noopLinkEffects) RepointLinksTx(context.Context, pgx.Tx, RepointLinksCommand) (RepointLinksResult, error) {
 	return RepointLinksResult{

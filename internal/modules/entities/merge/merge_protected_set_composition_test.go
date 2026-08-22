@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	entitymerge "github.com/JochiRaider/cartulary/internal/modules/entities/merge"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
@@ -44,6 +45,7 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 		entitymerge.WithWorkbookProjection(composedMergeWorkbookProjection{}),
 		entitymerge.WithTimelineEffects(composedMergeTimelineEffects{}),
 		entitymerge.WithCollaborationIntents(composition.Intents),
+		entitymerge.WithMentionStore(composedMentionStore{}),
 	)
 	result, err := store.MergeEntity(
 		context.Background(),
@@ -75,6 +77,15 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 }
 
 type composedMergeLinkEffects struct{}
+
+type composedMentionStore struct{}
+
+func (composedMentionStore) RepointMergedMentionsTx(context.Context, pgx.Tx, mentions.RepointMergedMentionsCommand) (mentions.RepointMergedMentionsResult, error) {
+	return mentions.RepointMergedMentionsResult{
+		Mutations:             []mentions.MergeMutation{},
+		TimelineInvalidations: map[uuid.UUID][]string{},
+	}, nil
+}
 
 func (composedMergeLinkEffects) RepointLinksTx(
 	context.Context,

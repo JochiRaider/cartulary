@@ -175,9 +175,10 @@ func (a supportLinkApplier) ApplyInitialAssessmentSupportLinksTx(
 	actorUserID uuid.UUID,
 	supportRecordIDs []uuid.UUID,
 	now time.Time,
-) error {
+) ([]assessments.SupportLinkMutation, error) {
+	mutations := make([]assessments.SupportLinkMutation, 0, len(supportRecordIDs))
 	for _, supportRecordID := range supportRecordIDs {
-		if _, _, err := a.links.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
+		result, err := a.links.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
 			IncidentID:  incidentID,
 			SrcRecordID: assessmentID,
 			DstRecordID: supportRecordID,
@@ -185,11 +186,31 @@ func (a supportLinkApplier) ApplyInitialAssessmentSupportLinksTx(
 			Provenance:  links.LinkProvenance(links.LinkProvenanceManual),
 			OwnerUserID: actorUserID,
 			Now:         now,
-		}); err != nil {
-			return err
+		})
+		if err != nil {
+			return nil, err
+		}
+		if result.Mutation != nil {
+			mutations = append(mutations, assessments.SupportLinkMutation{
+				RecordLinkID: result.Mutation.RecordLinkID,
+				Operation:    result.Mutation.Operation,
+				BeforeValue:  cloneMutationMap(result.Mutation.BeforeValue),
+				AfterValue:   cloneMutationMap(result.Mutation.AfterValue),
+			})
 		}
 	}
-	return nil
+	return mutations, nil
+}
+
+func cloneMutationMap(value map[string]any) map[string]any {
+	if value == nil {
+		return nil
+	}
+	cloned := make(map[string]any, len(value))
+	for key, item := range value {
+		cloned[key] = item
+	}
+	return cloned
 }
 
 type projectionPort struct {

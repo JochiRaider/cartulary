@@ -115,7 +115,7 @@ func TestCurrentTargetKindHistoryAddressability_Unit(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.targetKind, func(t *testing.T) {
-			description, err := catalog.DescribeValues(test.targetKind, test.targetID, nil, test.value)
+			description, err := catalog.DescribeValues(test.targetKind, test.targetID, "create", nil, test.value)
 			if err != nil {
 				t.Fatalf("describe history: %v", err)
 			}
@@ -211,6 +211,16 @@ func TestHistoryQueryRepositoryMapsPersistenceRows_Integration(t *testing.T) {
 	recordID := uuid.New()
 	envelopetest.SeedRecordEnvelope(t, database, incidentResult.Incident.ID, actor.ID, recordID, "host")
 	changeSetID := uuid.New()
+	recordTagID := uuid.New()
+	tagValue, err := json.Marshal(map[string]any{
+		"record_tag_id": recordTagID.String(), "incident_id": incidentResult.Incident.ID.String(),
+		"record_id": recordID.String(), "tag_name": "History Repository", "normalized_tag_name": "history repository",
+		"created_by_user_id": actor.ID.String(), "created_at": now.Format(time.RFC3339Nano),
+		"updated_at": now.Format(time.RFC3339Nano), "deleted_at": nil, "deleted_by_user_id": nil,
+	})
+	if err != nil {
+		t.Fatalf("marshal canonical record-tag value: %v", err)
+	}
 	if _, err := database.Exec(context.Background(), `
 INSERT INTO change_sets (change_set_id, incident_id, actor_user_id, source, created_at)
 VALUES ($1, $2, $3, 'history_repository_test', $4)
@@ -221,8 +231,8 @@ VALUES ($1, $2, $3, 'history_repository_test', $4)
 INSERT INTO change_set_mutations (
     change_set_id, sequence_no, target_kind, target_id, operation_kind, before_value, after_value,
     history_record_ids, history_entry_record_ids
-) VALUES ($1, 1, 'record_tag', $3, 'create', NULL, jsonb_build_object('record_id', $2::text), ARRAY[$2::uuid], ARRAY[$2::uuid])
-`, changeSetID, recordID, uuid.New().String()); err != nil {
+) VALUES ($1, 1, 'record_tag', $3, 'create', NULL, $4, ARRAY[$2::uuid], ARRAY[$2::uuid])
+`, changeSetID, recordID, "record_tag:"+recordID.String()+":"+recordTagID.String(), tagValue); err != nil {
 		t.Fatalf("seed change-set mutation: %v", err)
 	}
 	beforeSnapshot := map[string]any{
