@@ -1093,7 +1093,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-474`, `AC-480..AC-486`, `AC-545..AC-549`, `AC-551`, `AC-554..AC-556`, `AC-558`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-474`, `AC-480..AC-486`, `AC-545..AC-549`, `AC-551`, `AC-554..AC-556`, `AC-558..AC-559`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -1619,6 +1619,25 @@ These criteria provide direct runtime-family verification for substantive base-p
   behavior, generated projections, affected frontend/browser surfaces, and the
   full repository gate remain owner-conformant.
   - Verifies: REQ-00-073
+- **AC-559**: A clean install and valid upgrade create the adopted Entities
+  source constraints and deterministically backfill exactly the active Host
+  and Identity claims defined by Core 02. Concurrent same-tuple create and
+  upsert converge on one record; multi-class matches spanning records fail
+  atomically; deleted and merged records hold no claims; delete releases,
+  restore reacquires or returns the safe conflict, rollback rekeys, and merge
+  transfers loser claims only after complete canonical locking. Import,
+  clipboard, Incident Bundle import, and recovery produce the same claim set.
+  Go and SQL normalization agree for the versioned corpus and reject unknown
+  classes. Every declared Entities bundle invariant has an independent
+  deterministic negative fixture, valid version-2 bytes round-trip exactly,
+  and claim rows appear in neither portable nor authoritative backup content.
+  Invalid source rows or duplicate active claims block migration, import, or
+  recovery before partial publication and without guessing or exposing SQL,
+  relation, constraint, value, credential, or internal topology details.
+  Existing routes, operation IDs, request and success shapes, authorization
+  and concealment order, replay, history, projections, Collaboration events,
+  schema IDs, and field keys remain exact.
+  - Verifies: REQ-01-639..REQ-01-642, REQ-01-665..REQ-01-667, REQ-02-060..REQ-02-063, REQ-02-066, REQ-02-270
 
 ### 9.1B Network Flow Activity Extension Profile criteria
 
@@ -3208,6 +3227,9 @@ Recovery classes are:
 
 - `schema_usage`: schema `USAGE`;
 - `table_restore`: table `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`;
+- `table_rebuild`: table `SELECT`, `TRUNCATE`; valid only for excluded,
+  rebuildable derived state whose owner-provided recovery routine reconstructs
+  every row;
 - `table_read_only`: table `SELECT`;
 - `table_no_access`: no table privilege;
 - `migration_ledger_read`: migration metadata `SELECT` only;

@@ -65,7 +65,7 @@ func TestDestructiveOperationLocks_Unit(t *testing.T) {
 
 	t.Run("link protected set lock wins before stale row version", func(t *testing.T) {
 		src, dst, linkID := seedRollbackRecordLinkCreate(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000602"))
-		mustExec(t, harness.DB, `UPDATE records SET row_version = 2 WHERE record_id = $1`, src)
+		advanceRecordFixture(t, harness.DB, src, 2)
 		historyEntryRef := historyEntryRefForTarget(t, harness, login, src, "record_link", linkID.String())
 		requireRollbackLockPrecedence(t, harness, login, dst, src, historyEntryRef, "txn-u-7-06-link-lock")
 	})
@@ -120,7 +120,7 @@ func TestDestructiveOperationLocks_Unit(t *testing.T) {
 
 	t.Run("merge record lock wins before stale row version", func(t *testing.T) {
 		survivor, loser := seedRollbackHostPair(t, harness.DB, incidentID, actorID, "Merge Lock Survivor", "Merge Lock Loser")
-		mustExec(t, harness.DB, `UPDATE records SET row_version = 2 WHERE record_id = $1`, survivor)
+		advanceRecordFixture(t, harness.DB, survivor, 2)
 		lockTx, err := harness.DB.BeginTx(context.Background(), nil)
 		if err != nil {
 			t.Fatalf("begin merge lock holder: %v", err)

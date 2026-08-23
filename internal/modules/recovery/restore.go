@@ -579,9 +579,30 @@ func (mutation *vNextRestoreMutation) RestoreObject(
 	return nil
 }
 
-func (*vNextRestoreMutation) RunCatalogAlgorithm(context.Context, string) error {
-	// PreparePostgresTables invalidates every excluded table. Owner projection
-	// rebuilders run once after authoritative state commits.
+func (mutation *vNextRestoreMutation) RunCatalogAlgorithm(ctx context.Context, algorithmID string) error {
+	switch algorithmID {
+	case "entities.restore_active_identifier_claims.v1":
+		var rebuiltCount int64
+		if err := mutation.tx.QueryRow(
+			ctx,
+			`SELECT public.entities_rebuild_active_identifier_claims_v1()`,
+		).Scan(&rebuiltCount); err != nil {
+			return fmt.Errorf("rebuild Entities active identifier claims: %w", err)
+		}
+		var valid bool
+		if err := mutation.tx.QueryRow(
+			ctx,
+			`SELECT public.entities_active_identifier_claims_are_valid_v1()`,
+		).Scan(&valid); err != nil {
+			return fmt.Errorf("validate rebuilt Entities active identifier claims: %w", err)
+		}
+		if !valid {
+			return fmt.Errorf("%w: rebuilt Entities active identifier claims are invalid", ErrVNextBackup)
+		}
+	default:
+		// PreparePostgresTables invalidates excluded projections whose owner
+		// rebuilders run once after authoritative state commits.
+	}
 	return nil
 }
 

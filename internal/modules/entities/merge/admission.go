@@ -75,6 +75,32 @@ func uuidSet(recordIDs []uuid.UUID) map[uuid.UUID]struct{} {
 	return result
 }
 
+func sameUUIDSet(left []uuid.UUID, right []uuid.UUID) bool {
+	leftSet := uuidSet(left)
+	rightSet := uuidSet(right)
+	if len(leftSet) != len(rightSet) {
+		return false
+	}
+	for recordID := range leftSet {
+		if _, ok := rightSet[recordID]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func mergeIdentifierConflict(entityType string, conflict *hostidentity.ActiveIdentifierTransitionConflict) error {
+	return &MergePreconditionError{
+		ReasonCode: "carry_forward_identifier_collision",
+		Details: map[string]any{
+			"record_type":        entityType,
+			"identifier_class":   conflict.IdentifierClass,
+			"normalized_value":   conflict.NormalizedValue,
+			"blocking_record_id": conflict.BlockingRecordID.String(),
+		},
+	}
+}
+
 func sortedUUIDSet(recordIDs map[uuid.UUID]struct{}) []uuid.UUID {
 	result := make([]uuid.UUID, 0, len(recordIDs))
 	for recordID := range recordIDs {

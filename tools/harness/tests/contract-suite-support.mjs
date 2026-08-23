@@ -86,9 +86,9 @@ assert.deepEqual(
   ["ac043_large_grid_snapshot_v1"],
 );
 assert.deepEqual(catalog.postgresFixturePolicy.counts, {
-  postgres_dedicated: 258,
+  postgres_dedicated: 261,
   postgres_migration: 9,
-  postgres_transaction: 82,
+  postgres_transaction: 83,
 });
 
 function assertPostgresFixturePolicyClosesSharedRows() {

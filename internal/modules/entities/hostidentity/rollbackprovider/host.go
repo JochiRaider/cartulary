@@ -13,8 +13,17 @@ import (
 type HostProvider struct{}
 
 var _ rollbackcontract.RowSourceProvider = HostProvider{}
+var _ rollbackcontract.IdentifierClaimRestoreProvider = HostProvider{}
 
 func NewHostProvider() HostProvider { return HostProvider{} }
+
+func (HostProvider) PrepareIdentifierClaimRestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.IdentifierClaimRestoreRequest) error {
+	return prepareIdentifierClaimRestoreTx(ctx, tx, "host", request)
+}
+
+func (HostProvider) FinalizeIdentifierClaimRestoreTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
+	return finalizeIdentifierClaimRestoreTx(ctx, tx, recordIDs)
+}
 
 func (HostProvider) ValidateRollbackValue(value map[string]any) error {
 	source, ok := hostSourceForRollbackValue(value)

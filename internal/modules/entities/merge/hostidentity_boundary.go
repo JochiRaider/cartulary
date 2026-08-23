@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
@@ -58,13 +57,5 @@ func derefString(value *string) any {
 
 func stringPointer(value string) *string {
 	cloned := value
-	return &cloned
-}
-
-func textPointer(value pgtype.Text) *string {
-	if !value.Valid {
-		return nil
-	}
-	cloned := value.String
 	return &cloned
 }

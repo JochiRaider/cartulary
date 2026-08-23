@@ -212,6 +212,18 @@
       "filename": "00035_assessment_create_idempotency_v1.sql",
       "sha256": "f5800e4d9b733a279d93743506d6e12ca86f9b2d8a3637161c4b6072678dfacb",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 36,
+      "filename": "00036_entities_source_integrity.sql",
+      "sha256": "b42a7676d6cbf37094697d6d21ede0ad7efc8171f6de44e279dd7a6f9d2b3ca7",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 37,
+      "filename": "00037_entities_active_identifier_claims.sql",
+      "sha256": "b79529d6a876c1284a14899cce2a2b4f769fb535ea4250f3b24fab95c75976fa",
+      "historical_phase_shaped": false
     }
   ]
 }

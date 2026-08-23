@@ -113,10 +113,15 @@ func SeedHostRecord(
 	if _, err := execDB(db, `
 INSERT INTO hosts (
     record_id, incident_id, display_name, hostname, fqdn, aad_device_id,
-    host_state, created_by_user_id, updated_by_user_id
+    host_state, row_version, created_at, updated_at,
+    created_by_user_id, updated_by_user_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, 'canonical', $7, $7)
-`, recordID, incidentID, displayName, hostname, fqdnValue, aadDeviceValue, actorUserID); err != nil {
+SELECT $1, $2, $3, $4, $5, $6, 'canonical',
+       r.row_version, r.created_at, r.updated_at,
+       r.created_by_user_id, r.updated_by_user_id
+  FROM records r
+ WHERE r.record_id = $1
+`, recordID, incidentID, displayName, hostname, fqdnValue, aadDeviceValue); err != nil {
 		t.Fatalf("seed host record: %v", err)
 	}
 }
@@ -137,10 +142,15 @@ func SeedIdentityRecord(
 	if _, err := execDB(db, `
 INSERT INTO identities (
     record_id, incident_id, display_name, upn, email, sam_account_name,
-    identity_state, created_by_user_id, updated_by_user_id
+    identity_state, row_version, created_at, updated_at,
+    created_by_user_id, updated_by_user_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, 'canonical', $7, $7)
-`, recordID, incidentID, displayName, upn, email, samAccountName, actorUserID); err != nil {
+SELECT $1, $2, $3, $4, $5, $6, 'canonical',
+       r.row_version, r.created_at, r.updated_at,
+       r.created_by_user_id, r.updated_by_user_id
+  FROM records r
+ WHERE r.record_id = $1
+`, recordID, incidentID, displayName, upn, email, samAccountName); err != nil {
 		t.Fatalf("seed identity record: %v", err)
 	}
 }

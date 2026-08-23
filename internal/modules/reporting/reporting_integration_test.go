@@ -1212,7 +1212,7 @@ INSERT INTO entity_mentions (
     source_record_id, entity_type, source_field_key, origin_kind, origin_locator,
     raw_text, normalized_text, resolution_status, ordinal, created_by_user_id
 )
-VALUES ($1, 'host', 'timeline.activity_synopsis_text', 'manual', 'summary:1', 'host-reporting-01', 'host-reporting-01', 'unresolved', 1, $2)
+VALUES ($1, 'host', 'timeline.activity_synopsis_text', 'manual_entry', 'summary:1', 'host-reporting-01', 'host-reporting-01', 'unresolved', 1, $2)
 `, ids["timeline"], actorID); err != nil {
 		t.Fatalf("seed reporting entity mention: %v", err)
 	}

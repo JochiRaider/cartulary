@@ -827,7 +827,7 @@ func TestMigrationDatabaseTargetedOperationValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("hash canonical migration catalog: %v", err)
 	}
-	const wantHash = "de5c92c0f487cb67dae58a5b3bc367b9a69e41f3bb9fcef6daa6762d6c24f8fc"
+	const wantHash = "41c3911446f8db0b1d3e79bb91bf80bcb7d72359cc4a60f3844e1d6589fba4f2"
 	if hash != wantHash {
 		t.Fatalf("canonical migration schema hash = %s, want %s", hash, wantHash)
 	}

@@ -87,7 +87,7 @@ Verified by: AC-509, AC-510, AC-511, AC-512, AC-515
 
 Authored migration history is append-only by default. Existing numbered migrations MUST be treated as potentially applied and shared unless an operator supplies applied-version evidence and the relevant owner explicitly authorizes a rewrite, rename, squash, reset, or rebaseline. Ordinary remediation MUST use a new forward migration or a migration-runner preflight when a historical boundary needs better diagnostics but the historical SQL bytes must remain stable.
 
-When an owner-authorized production DDL rebaseline is adopted, the runnable migration line MUST identify its lineage in the database and repository migration source. The current production DDL lineage is `cartulary.prod_ddl_rebaseline.v2`; its repository head and immutable boundary are both version `29`. A database with v1 lineage, another lineage, unmarked nonzero Goose history, or pre-existing Cartulary application objects is not a v2 upgrade source. Repository migration tooling MUST reject it before executing v2 DDL with boundary `prod_ddl_rebaseline_v2`, reason code `historical_migration_lineage`, and the exact remediation hint `Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1.`
+When an owner-authorized production DDL rebaseline is adopted, the runnable migration line MUST identify its lineage in the database and repository migration source. The current production DDL lineage is `cartulary.prod_ddl_rebaseline.v2`; its immutable boundary is version `29`, and its current repository head is version `37`. A database with v1 lineage, another lineage, unmarked nonzero Goose history, or pre-existing Cartulary application objects is not a v2 upgrade source. Repository migration tooling MUST reject it before executing v2 DDL with boundary `prod_ddl_rebaseline_v2`, reason code `historical_migration_lineage`, and the exact remediation hint `Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1.`
 
 The v2 transition is pre-production and reset-only. The current profile defines no export/import transition, row transformation, data bridge, migration 62, compatibility view, dual catalog, downgrade, automatic remediation, or retained executable v1 source. A requirement to preserve database content blocks the v2 rebaseline and requires a separately adopted data-migration contract. Version `30` is the first permissible later forward migration after the v2 line.
 
@@ -170,8 +170,8 @@ Verified by: AC-537
 **REQ-01-661**
 The immutable Production DDL Rebaseline v2 baseline MUST contain exactly 29
 contiguous authored SQL migrations, versions `1..29`. The current source MUST
-contain exactly 31 contiguous authored SQL migrations: that immutable baseline
-plus owner-approved additive migrations 30 and 31. It MUST use the application schema
+contain exactly 37 contiguous authored SQL migrations: that immutable baseline
+plus owner-approved additive migrations `30..37`. It MUST use the application schema
 `public`, Goose ledger `public.goose_db_version`, and lineage relation
 `public.schema_migration_lineage` on PostgreSQL major 16. The exact filenames,
 bytes, hashes, order, physical object allocation, dependencies, FK coverage,
@@ -1444,7 +1444,7 @@ Contract tables. The tables in §3.3.5 through §3.3.5.5 are the compact owner-l
 | `POST /api/v1/records/{record_id}/mark-reviewed` | Timeline capture-state action | Required `base_row_version`, `client_txn_id`; optional `reason` | Keyed by `(actor_user_id, record_id, client_txn_id)` | `200 OK` with updated lifecycle state summary | `client_txn_conflict`, `row_version_conflict`, `illegal_transition`, `record_deleted_use_restore` |
 | `POST /api/v1/records/{record_id}/supersede` | Timeline capture-state action or Decision supersession action, selected by authoritative `records.record_type` | Required `base_row_version`, `client_txn_id`, non-empty `reason`; Timeline target optional `replacement_record_id`; Decision target required `replacement_record_id` | Keyed by `(actor_user_id, record_id, client_txn_id)` | `200 OK` with either the Timeline lifecycle summary or the Decision supersession summary for the selected target type | `client_txn_conflict`, `row_version_conflict`, `illegal_transition`, `record_deleted_use_restore` |
 | `DELETE /api/v1/records/{record_id}` | First-class record soft-delete | Required `base_row_version`, `client_txn_id`; optional `reason` | Keyed by `(actor_user_id, record_id, client_txn_id)` | `200 OK` with record-scoped delete summary | `client_txn_conflict`, `row_version_conflict`, `record_already_deleted`, `record_delete_blocked` |
-| `POST /api/v1/records/{record_id}/restore` | First-class record restore | Required `base_row_version`, `client_txn_id`; optional `reason` | Keyed by `(actor_user_id, record_id, client_txn_id)` and participates in destructive-operation locking | `200 OK` with record-scoped restore summary | `client_txn_conflict`, `row_version_conflict`, `record_not_deleted`, `record_locked` |
+| `POST /api/v1/records/{record_id}/restore` | First-class record restore | Required `base_row_version`, `client_txn_id`; optional `reason` | Keyed by `(actor_user_id, record_id, client_txn_id)` and participates in destructive-operation locking | `200 OK` with record-scoped restore summary | `client_txn_conflict`, `row_version_conflict`, `record_not_deleted`, `record_restore_blocked`, `record_locked` |
 | `POST /api/v1/records/{record_id}/rollback` | Record-history reversal | Required `base_row_version`, `client_txn_id`, and `target` | Keyed by `(actor_user_id, record_id, client_txn_id)` and participates in destructive-operation locking | `200 OK` with rollback summary for the selected target | `invalid_rollback_request`, `client_txn_conflict`, `row_version_conflict`, `rollback_target_not_found`, `rollback_precondition_failed`, `record_locked` |
 | `POST /api/v1/records/{survivor_record_id}/merge` | Entity merge | Required `loser_record_id`, `survivor_base_row_version`, `loser_base_row_version`, `client_txn_id`; optional `reason` | Keyed by `(actor_user_id, survivor_record_id, loser_record_id, client_txn_id)` and participates in destructive-operation locking | `200 OK` with merge summary and carried-forward identifiers | `invalid_mutation_payload`, `incident_not_found`, `authorization_denied`, `client_txn_conflict`, `row_version_conflict`, `merge_precondition_failed`, `record_locked` |
 | `POST /api/v1/entity-mentions/{entity_mention_id}/resolve` | Single mention action | Required `base_mention_row_version`, `client_txn_id`, `action`; optional `resolved_record_id` and `reason` | Keyed by `(actor_user_id, entity_mention_id, client_txn_id)` | `200 OK` with `entity_mention`, `source_record`, and `change_set_id` | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, `entity_mention_not_found`, `resolved_record_not_found`, `illegal_transition`, `record_deleted_use_restore` |
@@ -1518,6 +1518,28 @@ them. Cursor or query mismatch fails with `invalid_pagination_request` and no
 partial page.
 Profiles: base
 Verified by: AC-532
+
+**REQ-01-667**
+`records` is the authoritative lifecycle envelope for every Host and Identity.
+Any retained subtype mirror of row version, timestamps, or actor attribution
+is compatibility data only and MUST equal the Records envelope; it MUST NOT be
+used as a fallback authority. Entities source constraints enforce matching
+record type and incident ownership, legal Host and Identity lifecycle and
+merge-lineage tuples, legal alias and preserved-identifier owner tuples, and
+legal mention origin and resolution tuples for every writer, including direct
+SQL, rollback, Incident Bundle import, and recovery.
+
+`entity_active_identifier_claims` is Entities-owned rebuildable coordination
+state with the key and activeness rules of Core 02 REQ-02-270. Recovery MUST
+classify it `derived`, `excluded_rebuildable`, and `rebuild`, with algorithm ID
+`entities.restore_active_identifier_claims.v1`. The algorithm restores no
+claim bytes, rebuilds deterministically from authoritative Records and
+Entities rows, validates exact set equality, and blocks readiness on duplicate
+claims, malformed source state, or claim-set drift without choosing a winner.
+The claim relation is absent from Incident Bundle paths and authoritative
+backup content.
+Profiles: base, incident_portability
+Verified by: AC-559
 
 **Table 3.3.5-B. Row-create request members**
 
@@ -1749,7 +1771,7 @@ Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
 **REQ-01-076**
-`PATCH /api/v1/records/{record_id}` against a currently soft-deleted record MUST fail with `409` and `error.code = record_deleted_use_restore`. `DELETE /api/v1/records/{record_id}` against an already soft-deleted record MUST fail with `409` and `error.code = record_already_deleted`, except that idempotent replay of the same normalized delete request by the same actor with the same `(record_id, client_txn_id)` MUST return the original success response. `DELETE /api/v1/records/{record_id}` against an otherwise delete-eligible record whose record-type owner defines an active incoming-reference precondition MUST fail with `409`, `error.code = record_delete_blocked`, and `error.details.reason_code` from that owner-defined precondition rather than committing a partial tombstone. `POST /api/v1/records/{record_id}/restore` against a record that is not currently soft-deleted MUST fail with `409` and `error.code = record_not_deleted`, except that idempotent replay of the same normalized restore request by the same actor with the same `(record_id, client_txn_id)` MUST return the original success response.
+`PATCH /api/v1/records/{record_id}` against a currently soft-deleted record MUST fail with `409` and `error.code = record_deleted_use_restore`. `DELETE /api/v1/records/{record_id}` against an already soft-deleted record MUST fail with `409` and `error.code = record_already_deleted`, except that idempotent replay of the same normalized delete request by the same actor with the same `(record_id, client_txn_id)` MUST return the original success response. `DELETE /api/v1/records/{record_id}` against an otherwise delete-eligible record whose record-type owner defines an active incoming-reference precondition MUST fail with `409`, `error.code = record_delete_blocked`, and `error.details.reason_code` from that owner-defined precondition rather than committing a partial tombstone. `POST /api/v1/records/{record_id}/restore` against a record that is not currently soft-deleted MUST fail with `409` and `error.code = record_not_deleted`, except that idempotent replay of the same normalized restore request by the same actor with the same `(record_id, client_txn_id)` MUST return the original success response. A Host or Identity restore whose exact identifiers are claimed by another active same-incident record MUST fail atomically with `409`, `error.code = record_restore_blocked`, and `error.details.reason_code = active_entity_identifier_conflict`.
 Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
@@ -1767,6 +1789,28 @@ Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-
 A successful delete or restore MUST recompute or invalidate any surviving derived rows whose chips, counts, or linked-record summaries change because of the delete or restore. Projection rows remain derived state, not authority.
 Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
+
+**REQ-01-665**
+Revisions MUST ask every source owner to prepare both delete and restore before
+changing the Records envelope. Its consumer-owned source port uses one closed
+delete-or-restore transition kind and returns structured blocked state. The
+preparation call MAY acquire source-owned identity locks, but it MUST borrow
+the caller transaction and MUST NOT commit, roll back, or expose database
+error text. The delete-only preparation method is not a compatibility surface
+and MUST be removed when this contract is implemented; no forwarding method
+or dual port is permitted.
+
+For Host and Identity restore, ordinary authentication, CSRF, hidden-resource,
+role, destructive-lock, replay, and row-version gates precede active-claim
+conflict disclosure. After those gates, safe conflict details MAY contain only
+`entity_type`, `identifier_class`, `normalized_value`, and
+`blocking_record_id`. Rollback that would recreate the same conflict fails
+through `rollback_precondition_failed` with
+`reason_code=active_entity_identifier_conflict`. Successful route, operation,
+request, response, history, projection, Collaboration, and replay contracts do
+not otherwise change.
+Profiles: base
+Verified by: AC-181, AC-182, AC-218, AC-353, AC-559
 
 **REQ-01-080**
 A successful delete or restore MUST return `200 OK` using the common success envelope. `data` MUST include at least `record_id`, `incident_id`, `row_version`, `deleted`, `deleted_at`, `deleted_by_user_id`, and `change_set_id`. On successful restore, `deleted` MUST be `false` and `deleted_at` plus `deleted_by_user_id` MUST be `null`. Because these routes are record-scoped rather than view-scoped, the success response MUST NOT require view-shaped row cells.
@@ -1795,7 +1839,7 @@ point. The initial port has exactly these responsibilities:
 | `SnapshotTx` | Return the schema-identified canonical authoritative envelope/source snapshot for one record from the supplied transaction. |
 | `UpdateSourceDeleteStateTx` | Apply or clear only the source owner's current delete-state consequence in the supplied transaction. |
 | `ViewSchemaID` | Return the source-owned view consequence for the record. |
-| `ValidateDeletePreconditionsTx` | Return the source-owned typed blocker tuple without applying a mutation. |
+| `PrepareStateTransitionTx` | Prepare one closed `delete` or `restore` transition before envelope mutation, acquire any source-owned locks, and return a structured source-owned blocker without applying the envelope mutation. |
 
 The catalog MUST fail application assembly for an empty, missing, duplicate,
 unknown, or typed-nil adapter; unknown record type; incomplete current-profile
@@ -3333,6 +3377,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `record_deleted_use_restore` | `409` | `false` | The caller targeted a currently soft-deleted record with an operation that requires the record to be restored first. |  |  |  |
 | `record_already_deleted` | `409` | `false` | The caller attempted to soft-delete an already soft-deleted record outside an idempotent replay of the original delete. |  |  |  |
 | `record_delete_blocked` | `409` | `false` | The caller attempted to soft-delete a record whose type-specific owner preconditions reject deletion while active incoming references or equivalent integrity dependencies exist. `error.details.reason_code` MUST identify the blocking precondition. |  |  |  |
+| `record_restore_blocked` | `409` | `false` | The caller attempted to restore a record whose type-specific owner preconditions reject restoration. For Host and Identity active-claim collision, `error.details.reason_code` is `active_entity_identifier_conflict`. | REQ-01-665 | base | AC-559 |
 | `record_not_deleted` | `409` | `false` | The caller attempted to restore a record that is not currently soft-deleted. |  |  |  |
 | `record_locked` | `409` | `true` | An overlapping in-flight destructive operation already holds one or more required protected-set locks for the requested restore, rollback, or merge. |  |  |  |
 | `evidence_attach_rejected` | `409` | `false` | An Evidence initial-blob create or existing-record attach cannot commit because the supplied blob is not visible or attachable, is already associated, the target Evidence row is quarantined or inconsistent, or observed upload bytes violate the accepted blob contract. `error.details.reason_code` MUST use the `evidence_attach_rejected` registry in §3.3.6.2. |  |  |  |
@@ -3656,6 +3701,7 @@ spelling `missing_minimum_create_signal` MUST NOT be accepted or emitted.
 | `entry_requires_change_set` | The selected logical history item belongs to a multi-target or destructive change that MUST be reversed as a whole `change_set`. | REQ-01-239 | base | AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231 |
 | `dependent_later_changes` | Later committed changes touched the same mutation target, or otherwise make isolated reversal ambiguous. |  |  |  |
 | `stale_target` | The selected historical target exists but is no longer a legal rollback point for current authoritative state because a later reversal or equivalent committed change already superseded it. |  |  |  |
+| `active_entity_identifier_conflict` | Restoring the selected Host or Identity source state would assign an exact-match claim already held by another active same-incident record. | REQ-01-665 | base | AC-559 |
 
 `evidence_access_unavailable` `error.details.reason_code` values:
 
@@ -7754,6 +7800,60 @@ archive order, and database error text MUST NOT select it.
 | Links and Tags | Link endpoints are valid same-incident records; type, direction, field key, uniqueness, and deletion tuples are legal; tags are normalized; `tags.ndjson` exactly equals the distinct `(tag_name, normalized_tag_name)` catalog derived from imported record tags. |
 | Revisions | Referenced change sets, mutations, revisions, records, and actors exist; mutation sequence is contiguous; `(record_id, row_version)` is unique; before/after history reconstructs imported current state; sequence repair runs only after validation. |
 | Saved Views | Every bounded logical row has the exact adopted shape and types; UUIDs, incident/schema references, scope/owner tuple, display name, query, layout, version, and timestamps are valid; transaction state equals admitted input; absent optional Reference Packs degrade only admitted overlays. |
+
+**REQ-01-666**
+For Incident Bundle version `2`, source family `entities`, contract major `1`,
+each non-empty row of the five Entities files MUST be one exact JSON object.
+Unknown, missing, duplicate, aliased, wrongly typed, noncanonical, blank-line,
+multivalue, or trailing-content input fails admission. Nullable members remain
+present as JSON `null`; import MUST NOT repair, skip, merge, default, or
+normalize input.
+
+The exact required member sets are:
+
+| Logical path | Exact required members |
+| --- | --- |
+| `data/hosts.ndjson` | `record_id`, `incident_id`, `display_name`, `hostname`, `aad_device_id`, `fqdn`, `entity_origin`, `seed_entity_mention_id`, `host_state`, `merged_into_record_id`, `row_version`, `created_at`, `updated_at`, `created_by_user_id`, `updated_by_user_id`, `location`, `os_platform`, `business_owner`, `criticality`, `containment_status` |
+| `data/identities.ndjson` | `record_id`, `incident_id`, `display_name`, `upn`, `email`, `sam_account_name`, `aad_object_id`, `sid`, `entity_origin`, `seed_entity_mention_id`, `identity_state`, `merged_into_record_id`, `row_version`, `created_at`, `updated_at`, `created_by_user_id`, `updated_by_user_id`, `privilege_level`, `mfa_state`, `reset_status` |
+| `data/entity_mentions.ndjson` | `entity_mention_id`, `source_record_id`, `entity_type`, `source_field_key`, `origin_kind`, `origin_locator`, `raw_text`, `normalized_text`, `resolution_status`, `row_version`, `ordinal`, `created_by_user_id`, `created_at`, `resolved_record_id`, `resolved_by_user_id`, `resolved_at`, `resolution_method` |
+| `data/entity_preserved_identifiers.ndjson` | `entity_preserved_identifier_id`, `incident_id`, `record_id`, `entity_type`, `identifier_type`, `raw_value`, `normalized_value`, `classification`, `created_by_user_id`, `created_at`, `deleted_at` |
+| `data/entity_aliases.ndjson` | `entity_alias_id`, `incident_id`, `record_id`, `entity_type`, `raw_text`, `normalized_text`, `classification`, `created_by_user_id`, `created_at`, `deleted_at` |
+
+Canonical UUIDs use lowercase hyphenated text. Timestamps use UTC RFC3339Nano
+with `+00:00` and at most six fractional digits. Positive version and ordinal
+members use canonical JSON integers. Export preserves the current logical path
+set and sorts mentions by `entity_mention_id`, Hosts and Identities by
+`record_id`, preserved identifiers by `entity_preserved_identifier_id`, and
+aliases by `entity_alias_id`, all ascending. Physical relation column order,
+`SELECT *`, `to_jsonb(table_row)`, and database record-population functions are
+not portable-shape authority.
+
+Entities assigns every semantic defect to exactly one invariant in this
+precedence order:
+
+| Precedence | Invariant ID | Exclusive acceptance rule |
+| ---: | --- | --- |
+| 1 | `entities.source_identity_admitted` | Every path has its exact row shape and every declared stable identity is canonical and unique within that path. |
+| 2 | `entities.mentions_observational` | Mention source text, locator, type, origin, positive version and ordinal, and observational lifecycle fields use the closed Entities vocabulary. |
+| 3 | `entities.envelope_type_scope` | Every Host and Identity has exactly one same-incident Records envelope of the matching record type, and retained envelope fields agree. |
+| 4 | `entities.resolution_merge_coherent` | Mention resolution tuples and Host/Identity active-or-merged lineage tuples are complete, same-incident, type-correct, and non-self-referential. |
+| 5 | `entities.alias_identifier_normalized` | Alias and preserved-identifier normalized values already equal their adopted owner normalizers; import never repairs them. |
+| 6 | `entities.alias_identifier_classified` | Entity type, alias classification, preserved-identifier classification, and identifier class combinations use only the closed owner vocabularies. |
+| 7 | `entities.alias_identifier_unique` | Active aliases are unique per owner tuple, active preserved identifiers are unique per owner tuple, and Records-active exact identifier claims are unique across records. |
+| 8 | `entities.alias_identifier_same_incident` | Every alias and preserved identifier targets exactly one same-incident Host or Identity of the declared type. |
+
+Prepare performs bounded exact decoding, canonical scalar parsing, row-local
+checks, normalization recomputation, and deterministic candidate ordering
+without database mutation. Apply accepts only the prepared value bound to the
+same port, operation, incident, bundle version, and contract major and uses
+explicit fixed-column parameterized SQL with affected-row equality. Validate
+compares admitted rows with transaction state and proves cross-row,
+same-incident, reference, uniqueness, lifecycle, and claim invariants before
+publication. Multiple defects select the lowest precedence number, then
+logical path and valid stable identity ascending; neither PostgreSQL error
+order nor raw database text may select or describe the public failure.
+Profiles: incident_portability
+Verified by: AC-559
 
 For Incident Bundle version `2`, source family `indicators`, contract
 major `1`, each non-empty row of the three Indicator files MUST be one exact

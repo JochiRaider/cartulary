@@ -94,13 +94,29 @@ VALUES ($1, $2, 'ExtensionProfile Portability', 'extension_profile-portability',
 
 	historyHostID := uuid.New()
 	insertHostRecord(t, harness.DB, incidentUUID, historyHostID, actorUUID, "portable host before", "portable-host")
-	if _, err := harness.DB.Exec(`
+	envelopeTx, err := harness.DB.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("begin portable host envelope normalization: %v", err)
+	}
+	defer func() { _ = envelopeTx.Rollback() }()
+	if _, err := envelopeTx.Exec(`
 UPDATE records
    SET created_at = '2026-05-25T16:59:00Z',
        updated_at = '2026-05-25T16:59:00Z'
  WHERE record_id = $1
 `, historyHostID); err != nil {
 		t.Fatalf("normalize portable host envelope time: %v", err)
+	}
+	if _, err := envelopeTx.Exec(`
+UPDATE hosts
+   SET created_at = '2026-05-25T16:59:00Z',
+       updated_at = '2026-05-25T16:59:00Z'
+ WHERE record_id = $1
+`, historyHostID); err != nil {
+		t.Fatalf("normalize portable host source time: %v", err)
+	}
+	if err := envelopeTx.Commit(); err != nil {
+		t.Fatalf("commit portable host envelope normalization: %v", err)
 	}
 
 	identityID := uuid.New()
@@ -113,14 +129,18 @@ VALUES ($1, $2, 'identity', $3, $3)
 	if _, err := harness.DB.Exec(`
 INSERT INTO identities (
     record_id, incident_id, display_name, upn, email, sam_account_name,
-    entity_origin, identity_state, created_by_user_id, updated_by_user_id
+    entity_origin, identity_state, row_version, created_at, updated_at,
+    created_by_user_id, updated_by_user_id
 )
-VALUES (
-    $1, $2, 'Portable Identity', 'portable.identity@example.test',
+SELECT
+    envelope.record_id, envelope.incident_id, 'Portable Identity', 'portable.identity@example.test',
     'portable.identity@example.test', 'portable.identity', 'entity_import',
-    'canonical', $3, $3
-)
-`, identityID, incidentUUID, actorUUID); err != nil {
+    'canonical', envelope.row_version, envelope.created_at, envelope.updated_at,
+    envelope.created_by_user_id, envelope.updated_by_user_id
+  FROM records AS envelope
+ WHERE envelope.record_id = $1
+   AND envelope.incident_id = $2
+`, identityID, incidentUUID); err != nil {
 		t.Fatalf("seed identity row: %v", err)
 	}
 	assessmentID := uuid.New()
@@ -178,7 +198,7 @@ INSERT INTO entity_mentions (
     raw_text, normalized_text, resolution_status, row_version, ordinal,
     created_by_user_id, resolved_record_id, resolved_by_user_id, resolved_at, resolution_method
 )
-VALUES ($1, 'host', 'timeline.activity_synopsis_text', 'manual', 'extension_profile', 'portable host', 'portable host', 'resolved', 1, 1, $2, $3, $2, now(), 'fixture')
+VALUES ($1, 'host', 'timeline.activity_synopsis_text', 'manual_entry', 'extension_profile', 'portable host', 'portable host', 'resolved', 1, 1, $2, $3, $2, now(), 'fixture')
 `, timelineUUID, actorUUID, historyHostID); err != nil {
 		t.Fatalf("seed entity mention: %v", err)
 	}
@@ -443,23 +463,34 @@ VALUES ($1, $2, 'host', $3, $3)
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO hosts (
     record_id, incident_id, display_name, hostname, host_state,
-    row_version, created_by_user_id, updated_by_user_id
+    row_version, created_at, updated_at, created_by_user_id, updated_by_user_id
 )
-VALUES ($1, $2, $3, $4, 'canonical', 1, $5, $5)
-`, recordID, incidentID, displayName, hostname, actorID); err != nil {
+SELECT envelope.record_id, envelope.incident_id, $3, $4, 'canonical',
+       envelope.row_version, envelope.created_at, envelope.updated_at,
+       envelope.created_by_user_id, envelope.updated_by_user_id
+  FROM records AS envelope
+ WHERE envelope.record_id = $1
+   AND envelope.incident_id = $2
+`, recordID, incidentID, displayName, hostname); err != nil {
 		t.Fatalf("seed host row: %v", err)
 	}
 }
 
 func seedPortableRollbackHostPatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID, createdAt time.Time, beforeName string, afterName string) {
 	t.Helper()
+	ctx := context.Background()
 	beforeRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 1}
 	afterRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 2}
 	beforeSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": beforeName, "hostname": "portable-host", "host_state": "canonical", "row_version": 1}
 	afterSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": afterName, "hostname": "portable-host", "host_state": "canonical", "row_version": 2}
 	beforeValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": beforeRecord, "source": beforeSource}
 	afterValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": afterRecord, "source": afterSource}
-	if _, err := db.ExecContext(context.Background(), `
+	envelopeTx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("begin portable rollback host transition: %v", err)
+	}
+	defer func() { _ = envelopeTx.Rollback() }()
+	if _, err := envelopeTx.ExecContext(ctx, `
 UPDATE records
    SET row_version = 2,
        updated_at = $4,
@@ -469,7 +500,7 @@ UPDATE records
 `, recordID, incidentID, actorID, createdAt); err != nil {
 		t.Fatalf("advance portable rollback host envelope: %v", err)
 	}
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := envelopeTx.ExecContext(ctx, `
 UPDATE hosts
    SET display_name = $3,
        row_version = 2,
@@ -477,8 +508,11 @@ UPDATE hosts
        updated_by_user_id = $5
  WHERE record_id = $1
    AND incident_id = $2
-`, recordID, incidentID, afterName, createdAt, actorID); err != nil {
+	`, recordID, incidentID, afterName, createdAt, actorID); err != nil {
 		t.Fatalf("advance portable rollback host source: %v", err)
+	}
+	if err := envelopeTx.Commit(); err != nil {
+		t.Fatalf("commit portable rollback host transition: %v", err)
 	}
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO change_sets (change_set_id, incident_id, actor_user_id, source, reason, client_txn_id, request_id, created_at)

@@ -140,9 +140,10 @@ SELECT
     r.created_by_user_id,
     r.updated_by_user_id
   FROM hosts h
-  JOIN records r
+ JOIN records r
     ON r.record_id = h.record_id
  WHERE h.record_id = $1
+ FOR UPDATE OF h, r
 `, recordID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return HostRecord{}, ErrHostIdentityRecordNotFound
@@ -177,9 +178,10 @@ SELECT
     r.created_by_user_id,
     r.updated_by_user_id
   FROM identities i
-  JOIN records r
+ JOIN records r
     ON r.record_id = i.record_id
  WHERE i.record_id = $1
+ FOR UPDATE OF i, r
 `, recordID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return IdentityRecord{}, ErrHostIdentityRecordNotFound

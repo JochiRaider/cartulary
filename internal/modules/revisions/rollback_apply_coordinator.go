@@ -77,6 +77,9 @@ func (a rollbackTransactionalApplier) applyChangeSetRollbackPlanTx(ctx context.C
 		}
 		nextVersions[recordID] = nextRowVersion
 	}
+	if err := a.syncRollbackEnvelopeMirrorsTx(ctx, tx, plan.Affected); err != nil {
+		return nil, err
+	}
 
 	for _, step := range plan.ApplyOrder {
 		target := step.Target

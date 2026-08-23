@@ -236,9 +236,14 @@ INSERT INTO records (
 	if _, err := harness.db.Exec(context.Background(), `
 INSERT INTO hosts (
     record_id, incident_id, display_name, hostname, host_state,
-    created_by_user_id, updated_by_user_id
-) VALUES ($1, $2, 'Assessment membership host', 'assessment-membership-host', 'canonical', $3, $3)
-`, hostID, harness.incidentID, harness.actor.ID); err != nil {
+    row_version, created_at, updated_at, created_by_user_id, updated_by_user_id
+)
+SELECT r.record_id, r.incident_id, 'Assessment membership host',
+       'assessment-membership-host', 'canonical', r.row_version,
+       r.created_at, r.updated_at, r.created_by_user_id, r.updated_by_user_id
+  FROM records r
+ WHERE r.record_id = $1
+`, hostID); err != nil {
 		t.Fatalf("seed membership host: %v", err)
 	}
 }

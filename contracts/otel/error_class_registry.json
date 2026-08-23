@@ -25,7 +25,7 @@
     },
     {
       "error_class": "lifecycle_conflict",
-      "error_codes": ["job_cancel_rejected", "incident_closed", "illegal_transition", "record_deleted_use_restore", "record_already_deleted", "record_delete_blocked", "record_not_deleted", "record_locked", "rollback_precondition_failed", "last_deployment_admin", "user_inactive", "membership_exists_use_patch", "last_incident_admin", "merge_precondition_failed", "import_state_conflict", "import_apply_blocked", "release_state_conflict", "release_approval_rejected", "reference_pack_state_conflict", "reference_pack_activation_rejected"]
+      "error_codes": ["job_cancel_rejected", "incident_closed", "illegal_transition", "record_deleted_use_restore", "record_already_deleted", "record_delete_blocked", "record_restore_blocked", "record_not_deleted", "record_locked", "rollback_precondition_failed", "last_deployment_admin", "user_inactive", "membership_exists_use_patch", "last_incident_admin", "merge_precondition_failed", "import_state_conflict", "import_apply_blocked", "release_state_conflict", "release_approval_rejected", "reference_pack_state_conflict", "reference_pack_activation_rejected"]
     },
     {
       "error_class": "not_found",

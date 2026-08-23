@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 )
 
 func (a rollbackTransactionalApplier) insertRollbackRecordRevisionSnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, changeSetID uuid.UUID, beforeSnapshot rollbackAffectedRecordSnapshot, rowVersion int64) (RollbackRecordChange, error) {
@@ -110,5 +112,29 @@ func (a rollbackTransactionalApplier) advanceRollbackAffectedRecordsTx(ctx conte
 		}
 		nextVersions[recordID] = nextRowVersion
 	}
+	if err := a.syncRollbackEnvelopeMirrorsTx(ctx, tx, recordIDs); err != nil {
+		return nil, err
+	}
 	return nextVersions, nil
+}
+
+func (a rollbackTransactionalApplier) syncRollbackEnvelopeMirrorsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
+	for _, recordID := range canonicalRecordIDs(recordIDs) {
+		record, err := a.repository.loadRollbackRecordEnvelopeTx(ctx, tx, recordID, false)
+		if err != nil {
+			return err
+		}
+		source, ok := a.deleteRestoreSources.Source(record.RecordType)
+		if !ok {
+			continue
+		}
+		mirror, ok := source.(deleterestorecontract.EnvelopeMirrorSource)
+		if !ok {
+			continue
+		}
+		if err := mirror.SyncEnvelopeMirrorTx(ctx, tx, recordID); err != nil {
+			return err
+		}
+	}
+	return nil
 }

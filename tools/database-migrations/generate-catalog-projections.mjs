@@ -49,6 +49,7 @@ const ownersByVersion = new Map([
   [27, "extensions"], [28, "audit"], [29, "collaboration"],
   [30, "evidence"], [31, "evidence"], [32, "networkflow"],
   [33, "networkflow"], [34, "graphprojection"], [35, "assessments"],
+  [36, "entities"], [37, "entities"],
 ]);
 for (const [index, filename] of migrationFiles.entries()) {
   const version = index + 1;
@@ -187,19 +188,29 @@ function collectRoutineEvents(source, version, filename) {
 }
 
 function collectTriggerEvents(source, version, filename) {
-  const regex = /\b(CREATE|DROP)\s+TRIGGER\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)[\s\S]{0,500}?\s+ON\s+([A-Za-z_][A-Za-z0-9_.]*)/giu;
+  const regex = /\b(CREATE|DROP)\s+(CONSTRAINT\s+)?TRIGGER\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)[\s\S]{0,500}?\s+ON\s+([A-Za-z_][A-Za-z0-9_.]*)/giu;
   for (const match of source.matchAll(regex)) {
-    const table = match[3] ? qualify(match[3]) : "public.unknown";
-    const name = `${table}.${match[2]}`;
+    const table = match[4] ? qualify(match[4]) : "public.unknown";
+    const name = `${table}.${match[3]}`;
     const key = `trigger:${name}`;
-    if (match[1].toUpperCase() === "DROP") objects.delete(key);
-    else setObject(key, "trigger", name, version, filename, match.index ?? 0, source, [`table:${table}`]);
+    const constraintKey = `constraint:${name}`;
+    if (match[1].toUpperCase() === "DROP") {
+      objects.delete(key);
+      if (match[2]) objects.delete(constraintKey);
+    } else {
+      setObject(key, "trigger", name, version, filename, match.index ?? 0, source, [`table:${table}`]);
+      if (match[2]) {
+        setObject(constraintKey, "constraint", name, version, filename, match.index ?? 0, source, [`table:${table}`]);
+      }
+    }
   }
 }
 
 function collectConstraintEvents(source, version, filename) {
   const regex = /\b(ADD|DROP)?\s*CONSTRAINT\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)/giu;
   for (const match of source.matchAll(regex)) {
+    const definition = source.slice((match.index ?? 0) + match[0].length, (match.index ?? 0) + match[0].length + 1200);
+    if (!match[1] && match[2].toUpperCase() === "TRIGGER") continue;
     const prefix = source.slice(0, match.index ?? 0);
     const tableMatches = [...prefix.matchAll(/\b(?:ALTER\s+TABLE(?:\s+ONLY)?|CREATE\s+TABLE)\s+([A-Za-z_][A-Za-z0-9_.]*)/giu)];
     const table = tableMatches.length > 0 ? qualify(tableMatches.at(-1)[1]) : "public.unknown";
@@ -209,7 +220,6 @@ function collectConstraintEvents(source, version, filename) {
       objects.delete(key);
       continue;
     }
-    const definition = source.slice((match.index ?? 0) + match[0].length, (match.index ?? 0) + match[0].length + 1200);
     const tableForeignKey = /^\s+FOREIGN\s+KEY\s*\(([^)]+)\)\s+REFERENCES\s+([A-Za-z_][A-Za-z0-9_.]*)/iu.exec(definition);
     const columnForeignKey = /^\s+REFERENCES\s+([A-Za-z_][A-Za-z0-9_.]*)/iu.exec(definition);
     const referencedTable = tableForeignKey?.[2] ?? columnForeignKey?.[1];
@@ -281,6 +291,11 @@ function validateCatalogPolicy(filename, body) {
     if (/\bSECURITY\s+DEFINER\b/iu.test(definition) && !new Set([
       "revisions_incident_bundle_sequence_begin_v1",
       "revisions_incident_bundle_sequence_finish_v1",
+      "entities_refresh_active_identifier_claims_v1",
+      "entities_release_active_identifier_claims_v1",
+      "entities_sync_active_identifier_claims_v1",
+      "entities_rebuild_active_identifier_claims_v1",
+      "entities_active_identifier_claims_are_valid_v1",
     ]).has(routineName)) {
       violations.push("routine_security_class");
     }
@@ -326,10 +341,15 @@ function toManifestEntry(object) {
     "administrative_audit_projections",
     "deployment_admin_audit_events",
   ]);
-  const runtimeApplicationRoutines = new Set([
+  const derivedReadOnlyTables = new Set([
+    "entity_active_identifier_claims",
+  ]);
+  const sharedApplicationRoutines = new Set([
     "cartulary_confidence_band",
     "change_set_mutations_history_ids_are_canonical",
     "enforce_indicator_support_ref_incident",
+    "entities_source_codepoints_admitted_v1",
+    "entities_trim_unicode_space_v1",
     "indicator_support_refs_are_valid",
     "network_flow_reject_immutable_update",
     "reject_administrative_audit_mutation",
@@ -338,8 +358,15 @@ function toManifestEntry(object) {
     "sync_indicator_active_identity_from_indicator",
     "sync_indicator_active_identity_from_record",
   ]);
+  const runtimeApplicationRoutines = new Set([
+    ...sharedApplicationRoutines,
+    "entities_refresh_active_identifier_claims_v1",
+    "entities_release_active_identifier_claims_v1",
+  ]);
   const recoveryRoutines = new Set([
-    ...runtimeApplicationRoutines,
+    ...sharedApplicationRoutines,
+    "entities_active_identifier_claims_are_valid_v1",
+    "entities_rebuild_active_identifier_claims_v1",
     "indicator_active_identities_are_valid",
     "rebuild_indicator_active_identities",
   ]);
@@ -350,13 +377,19 @@ function toManifestEntry(object) {
         ? "table_no_access"
         : runtimeAppendOnlyTables.has(bareName)
           ? "table_append_only"
+          : derivedReadOnlyTables.has(bareName)
+            ? "table_read_only"
           : "table_read_write",
     view: "view_read_only",
     sequence: "sequence_use",
     routine: runtimeApplicationRoutines.has(bareName) ? "routine_application" : "routine_private",
   }[object.object_kind] ?? "not_applicable";
   const recoveryAccessClass = {
-    table: bareName === "schema_migration_lineage" ? "migration_ledger_read" : "table_restore",
+    table: bareName === "schema_migration_lineage"
+      ? "migration_ledger_read"
+      : derivedReadOnlyTables.has(bareName)
+        ? "table_rebuild"
+        : "table_restore",
     view: "view_read_only",
     sequence: "sequence_restore",
     routine: recoveryRoutines.has(bareName) ? "routine_recovery" : "routine_private",

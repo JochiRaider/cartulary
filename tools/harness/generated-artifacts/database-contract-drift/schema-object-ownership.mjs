@@ -28,7 +28,8 @@ const ownerByVersion = new Map([
   [24, "reportcomposition"], [25, "incidentbundles"], [26, "reference_data"],
   [27, "extensions"], [28, "audit"], [29, "collaboration"], [30, "evidence"],
   [31, "evidence"], [32, "networkflow"], [33, "networkflow"],
-  [34, "graphprojection"],
+  [34, "graphprojection"], [35, "assessments"], [36, "entities"],
+  [37, "entities"],
 ]);
 const manifestKeys = new Set([
   "schema_id", "migration_root", "supported_postgres_major", "application_schemas",
@@ -58,7 +59,7 @@ const runtimeClasses = new Set([
   "not_applicable",
 ]);
 const recoveryAccessClasses = new Set([
-  "schema_usage", "table_restore", "table_read_only", "table_no_access",
+  "schema_usage", "table_restore", "table_rebuild", "table_read_only", "table_no_access",
   "migration_ledger_read", "sequence_restore", "sequence_no_access", "view_read_only",
   "routine_recovery", "routine_private", "type_use", "type_no_access", "not_applicable",
 ]);
@@ -302,17 +303,25 @@ function scanEvents(source, regex, kind, version, filename, objects) {
 }
 
 function scanTriggerEvents(source, version, filename, objects) {
-  const regex = /\b(CREATE|DROP)\s+TRIGGER\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)[\s\S]{0,500}?\s+ON\s+([A-Za-z_][A-Za-z0-9_.]*)/giu;
+  const regex = /\b(CREATE|DROP)\s+(CONSTRAINT\s+)?TRIGGER\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)[\s\S]{0,500}?\s+ON\s+([A-Za-z_][A-Za-z0-9_.]*)/giu;
   for (const match of source.matchAll(regex)) {
-    const identity = `trigger:${qualify(match[3])}.${match[2]}`;
-    if (match[1].toUpperCase() === "DROP") objects.delete(identity);
-    else objects.set(identity, { version, filename, relation: qualify(match[3]) });
+    const relation = qualify(match[4]);
+    const identity = `trigger:${relation}.${match[3]}`;
+    const constraintIdentity = `constraint:${relation}.${match[3]}`;
+    if (match[1].toUpperCase() === "DROP") {
+      objects.delete(identity);
+      if (match[2]) objects.delete(constraintIdentity);
+    } else {
+      objects.set(identity, { version, filename, relation });
+      if (match[2]) objects.set(constraintIdentity, { version, filename, relation });
+    }
   }
 }
 
 function scanConstraintEvents(source, version, filename, objects) {
   const regex = /\b(ADD|DROP)?\s*CONSTRAINT\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)(?:\s+(PRIMARY\s+KEY|UNIQUE))?/giu;
   for (const match of source.matchAll(regex)) {
+    if (!match[1] && match[2].toUpperCase() === "TRIGGER") continue;
     const prefix = source.slice(0, match.index ?? 0);
     const tableMatches = [...prefix.matchAll(/\b(?:ALTER\s+TABLE(?:\s+ONLY)?|CREATE\s+TABLE)\s+([A-Za-z_][A-Za-z0-9_.]*)/giu)];
     const table = tableMatches.length > 0 ? qualify(tableMatches.at(-1)[1]) : "public.unknown";

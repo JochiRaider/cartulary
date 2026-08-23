@@ -131,6 +131,18 @@ func recordDeleteBlockedError(details map[string]any) *platformhttpapi.APIError 
 	}
 }
 
+func recordRestoreBlockedError(details map[string]any) *platformhttpapi.APIError {
+	if details == nil {
+		details = map[string]any{}
+	}
+	return &platformhttpapi.APIError{
+		Status:  http.StatusConflict,
+		Code:    "record_restore_blocked",
+		Message: "record restore blocked",
+		Details: details,
+	}
+}
+
 func recordNotDeletedError() *platformhttpapi.APIError {
 	return &platformhttpapi.APIError{Status: http.StatusConflict, Code: "record_not_deleted", Details: map[string]any{}}
 }

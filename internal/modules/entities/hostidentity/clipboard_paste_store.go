@@ -112,11 +112,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 		)
 		switch viewSchemaID {
 		case HostsViewSchemaID:
-			beforeSnapshot, err = s.captureHostSnapshotBeforeUpsertTx(ctx, tx, incidentID, request)
-			if err != nil {
-				return ClipboardPasteResult{}, err
-			}
-			record, before, operation, _, err := s.upsertHostTx(ctx, tx, actor, incidentID, request, now.UTC())
+			record, before, operation, _, snapshot, err := s.upsertHostTx(ctx, tx, actor, incidentID, request, now.UTC())
 			if err != nil {
 				return ClipboardPasteResult{}, err
 			}
@@ -126,15 +122,12 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			recordID = record.RecordID
 			rowVersion = record.RowVersion
 			beforeRow = before
+			beforeSnapshot = snapshot
 			afterRow = buildHostRow(record)
 			operationKind = operation
 			aliasMutations = record.AliasMutations
 		case IdentitiesViewSchemaID:
-			beforeSnapshot, err = s.captureIdentitySnapshotBeforeUpsertTx(ctx, tx, incidentID, request)
-			if err != nil {
-				return ClipboardPasteResult{}, err
-			}
-			record, before, operation, _, err := s.upsertIdentityTx(ctx, tx, actor, incidentID, request, now.UTC())
+			record, before, operation, _, snapshot, err := s.upsertIdentityTx(ctx, tx, actor, incidentID, request, now.UTC())
 			if err != nil {
 				return ClipboardPasteResult{}, err
 			}
@@ -144,6 +137,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			recordID = record.RecordID
 			rowVersion = record.RowVersion
 			beforeRow = before
+			beforeSnapshot = snapshot
 			afterRow = buildIdentityRow(record)
 			operationKind = operation
 			aliasMutations = record.AliasMutations

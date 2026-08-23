@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"slices"
 )
 
 type rollbackCoordinator struct {
@@ -75,6 +76,22 @@ func (c rollbackCoordinator) execute(ctx context.Context, command RollbackComman
 	if err != nil {
 		return RollbackResult{}, err
 	}
+	var (
+		preparedClaims  []preparedIdentifierClaimRestore
+		claimPrepareErr error
+	)
+	if protected.DeferredErr == nil {
+		preLockPlan, preLockErr := c.loadPlanTx(ctx, tx, record, request.Target)
+		if preLockErr == nil {
+			preLockEnvelopes, envelopeErr := c.repository.loadRollbackRecordEnvelopesTx(ctx, tx, preLockPlan.Affected)
+			if envelopeErr == nil {
+				preLockPlan, preLockErr = c.planner.finalize(preLockPlan, preLockEnvelopes)
+			}
+			if preLockErr == nil {
+				preparedClaims, claimPrepareErr = c.applier.prepareIdentifierClaimRestoresTx(ctx, tx, record, preLockPlan)
+			}
+		}
+	}
 	if err := c.locker.lockTx(ctx, tx, protected.Affected); err != nil {
 		return RollbackResult{}, err
 	}
@@ -94,18 +111,7 @@ func (c rollbackCoordinator) execute(ctx context.Context, command RollbackComman
 	if protected.DeferredErr != nil {
 		return RollbackResult{}, protected.DeferredErr
 	}
-
-	var plan rollbackPlan
-	switch request.Target.Kind {
-	case "history_entry":
-		plan, err = c.repository.loadHistoryEntryRollbackPlanTx(ctx, tx, record, request.Target.HistoryEntryRef)
-	case "change_set":
-		plan, err = c.repository.loadChangeSetRollbackPlanTx(ctx, tx, record, request.Target.ChangeSetID)
-	case "row_restore":
-		plan, err = c.repository.loadRowRestorePlanTx(ctx, tx, record, request.Target.RestoreToRevisionNo)
-	default:
-		err = &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
-	}
+	plan, err := c.loadPlanTx(ctx, tx, record, request.Target)
 	if err != nil {
 		return RollbackResult{}, err
 	}
@@ -122,12 +128,17 @@ func (c rollbackCoordinator) execute(ctx context.Context, command RollbackComman
 	if err != nil {
 		return RollbackResult{}, err
 	}
+	if !slices.Equal(canonicalRecordIDs(protected.Affected), canonicalRecordIDs(plan.Affected)) {
+		return RollbackResult{}, &RollbackPreconditionError{ReasonCode: "stale_target"}
+	}
 	if request.Target.Kind != "row_restore" {
 		if err := c.repository.ensurePlanCurrentTx(ctx, tx, plan); err != nil {
 			return RollbackResult{}, err
 		}
 	}
-
+	if claimPrepareErr != nil {
+		return RollbackResult{}, claimPrepareErr
+	}
 	var applied rollbackApplyResult
 	if request.Target.Kind == "row_restore" {
 		applied, err = c.applier.applyRowRestorePlanTx(ctx, tx, command.Actor, record, plan, request, command.RequestID, command.effectiveAt)
@@ -135,6 +146,9 @@ func (c rollbackCoordinator) execute(ctx context.Context, command RollbackComman
 		applied, err = c.applier.applyRollbackPlanTx(ctx, tx, command.Actor, record, plan, request, command.RequestID, command.effectiveAt)
 	}
 	if err != nil {
+		return RollbackResult{}, err
+	}
+	if err := finalizeIdentifierClaimRestoresTx(ctx, tx, preparedClaims); err != nil {
 		return RollbackResult{}, err
 	}
 	payload := c.results.payload(record, request.Target, plan, applied)
@@ -145,4 +159,17 @@ func (c rollbackCoordinator) execute(ctx context.Context, command RollbackComman
 		return RollbackResult{}, fmt.Errorf("commit rollback transaction: %w", err)
 	}
 	return c.results.committed(payload, record.IncidentID, request.ClientTxnID, applied.Changes), nil
+}
+
+func (c rollbackCoordinator) loadPlanTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, target RollbackTarget) (rollbackPlan, error) {
+	switch target.Kind {
+	case "history_entry":
+		return c.repository.loadHistoryEntryRollbackPlanTx(ctx, tx, record, target.HistoryEntryRef)
+	case "change_set":
+		return c.repository.loadChangeSetRollbackPlanTx(ctx, tx, record, target.ChangeSetID)
+	case "row_restore":
+		return c.repository.loadRowRestorePlanTx(ctx, tx, record, target.RestoreToRevisionNo)
+	default:
+		return rollbackPlan{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+	}
 }

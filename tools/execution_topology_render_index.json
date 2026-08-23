@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:9b35af72ad4cad6cb073f30c2edb6c376fa533a8a84e5ab772bcc5f26e8a42b0",
+  "input_digest": "sha256:90fc73d80d22b7a3c43c965621f0a72d2b0259ea46b91d11ef1056fe52b96127",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -552,7 +552,7 @@
     {
       "path": "tools/harness/generated-artifacts/check-json-shapes.mjs",
       "role": "renderer_source",
-      "hash": "sha256:df8f9b622c1e8406849f894c74d2c2a68167b2487cd63440e210f5131d6c2609"
+      "hash": "sha256:4fcc3f6fef2b2d8ccd4b041deeb3950e9d5716096342bc6e2d2cf7a64c1159e3"
     },
     {
       "path": "tools/harness/generated-artifacts/contracts/index.mjs",
@@ -582,7 +582,7 @@
     {
       "path": "tools/harness/generated-artifacts/database-contract-drift/schema-object-ownership.mjs",
       "role": "renderer_source",
-      "hash": "sha256:c4887aeba0a1dba350d54d33ac4cdff56d18386ffc42ca695d8572b9c664b118"
+      "hash": "sha256:bbc7e351faa21284dcb18afaec9ce99e4bec2d6d3cef8464516ef48484ffc300"
     },
     {
       "path": "tools/harness/generated-artifacts/design-presentation/design-presentation-cli.mjs",
@@ -882,7 +882,7 @@
     {
       "path": "tools/postgres_fixture_policy_registry.json",
       "role": "postgres_fixture_policy_registry",
-      "hash": "sha256:a7e0d3934599b9fda0233e808c5e76afc1fc5f88fc8b5035c3b96eec63cc0819"
+      "hash": "sha256:a48e7f75d79227ffb72329df4d6563e98089f07850a62762705a87d1b18218e1"
     },
     {
       "path": "tools/scheduler_resource_registry.json",
@@ -977,7 +977,7 @@
     {
       "path": "tools/test_families/module.entities.json",
       "role": "test_family_manifest",
-      "hash": "sha256:abb68aa85497a40bd8b0c33a5078b2a151c24c8d83efad7c37614f3e5e0dd884"
+      "hash": "sha256:d1debc47baacac9260cfd58ad360fd63ead2e221d8983bd4bf3be61afafce47a"
     },
     {
       "path": "tools/test_families/module.evidence.json",

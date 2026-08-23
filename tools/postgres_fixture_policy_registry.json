@@ -35,6 +35,7 @@
     "module.entities.store.dismiss_and_restore_store_operations_preserve_ra_df842d8c6d",
     "module.entities.store.exact_match_precedence_resolves_reuse_decisions_949743e789",
     "module.entities.store.explicit_merge_store_behavior_repoints_live_ment_0560122310",
+    "module.entities.support_integration.entity_incident_bundle_invariant_closure_92db429a94",
     "module.evidence.store.blob_association_reuse_is_concealed_8b3e27a14f",
     "module.evidence.store.blob_create_idempotency_is_keyed_by_actor_user_i_f161d12732",
     "module.evidence.store.evidence_lifecycle_state_remains_separate_from_b_df4f302819",

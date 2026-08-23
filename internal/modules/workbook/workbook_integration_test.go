@@ -646,9 +646,15 @@ SELECT
 				subjectID := uuid.New()
 				envelopetest.SeedRecordEnvelope(t, harness.DB, incidentID, adminUserID, subjectID, "host")
 				execSeed(t, harness, `
-INSERT INTO hosts (record_id, incident_id, display_name, host_state, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, 'Assessment subject', 'canonical', $3, $3)
-`, subjectID, incidentID, adminUserID)
+INSERT INTO hosts (
+    record_id, incident_id, display_name, host_state, row_version,
+    created_at, updated_at, created_by_user_id, updated_by_user_id
+)
+SELECT r.record_id, r.incident_id, 'Assessment subject', 'canonical', r.row_version,
+       r.created_at, r.updated_at, r.created_by_user_id, r.updated_by_user_id
+  FROM records r
+ WHERE r.record_id = $1
+`, subjectID)
 				execSeed(t, harness, `
 INSERT INTO assessments (record_id, incident_id, subject_record_id, subject_type, assessment_state, confidence_score, rationale, assessor_user_id)
 VALUES ($1, $2, $3, 'host', 'confirmed', 80, 'Seeded test assessment rationale.', $4)
@@ -1033,9 +1039,15 @@ INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, up
 VALUES ($1, $2, 'host', $3, $3)
 `, recordID, incidentID, actorID)
 	execSeed(t, harness, `
-INSERT INTO hosts (record_id, incident_id, display_name, hostname, host_state, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, $3, lower($3), 'canonical', $4, $4)
-`, recordID, incidentID, displayName, actorID)
+INSERT INTO hosts (
+    record_id, incident_id, display_name, hostname, host_state, row_version,
+    created_at, updated_at, created_by_user_id, updated_by_user_id
+)
+SELECT r.record_id, r.incident_id, $2, lower($2), 'canonical', r.row_version,
+       r.created_at, r.updated_at, r.created_by_user_id, r.updated_by_user_id
+  FROM records r
+ WHERE r.record_id = $1
+`, recordID, displayName)
 	execSeed(t, harness, `
 INSERT INTO host_grid_projection (record_id, incident_id, row_version, display_name, hostname, host_state, edited_at)
 VALUES ($1, $2, 1, $3, lower($3), 'canonical', now())
@@ -1044,19 +1056,37 @@ VALUES ($1, $2, 1, $3, lower($3), 'canonical', now())
 
 func updateHostDisplayNameForPaging(t testing.TB, harness *appsupport.ServerHarness, recordID uuid.UUID, displayName string, rowVersion int64) {
 	t.Helper()
-	execSeed(t, harness, `
+	ctx := context.Background()
+	tx, err := harness.DB.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("begin host paging update: %v", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+	if _, err := tx.ExecContext(ctx, `
 UPDATE records
    SET row_version = $2,
        updated_at = now()
  WHERE record_id = $1
-`, recordID, rowVersion)
-	execSeed(t, harness, `
-UPDATE hosts
+`, recordID, rowVersion); err != nil {
+		t.Fatalf("advance host paging envelope: %v", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+UPDATE hosts h
    SET display_name = $2,
-       row_version = $3,
-       updated_at = now()
- WHERE record_id = $1
-`, recordID, displayName, rowVersion)
+       row_version = r.row_version,
+       updated_at = r.updated_at,
+       updated_by_user_id = r.updated_by_user_id
+  FROM records r
+ WHERE h.record_id = $1
+   AND r.record_id = h.record_id
+`, recordID, displayName); err != nil {
+		t.Fatalf("update host paging source: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit host paging update: %v", err)
+	}
 	execSeed(t, harness, `
 UPDATE host_grid_projection
    SET display_name = $2,

@@ -36,6 +36,6 @@ func (Source) ViewSchemaID(context.Context, pgx.Tx, uuid.UUID) (string, error) {
 	return "cartulary.view.evidence.v1", nil
 }
 
-func (Source) ValidateDeletePreconditionsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (string, bool, error) {
-	return "", false, nil
+func (Source) PrepareStateTransitionTx(context.Context, pgx.Tx, deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
+	return deleterestorecontract.StateTransitionPreparation{}, nil
 }

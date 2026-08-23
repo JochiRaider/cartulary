@@ -19,6 +19,7 @@ var (
 	ErrRecordDeletedUseRestore = errors.New("revisions: record deleted use restore")
 	ErrRecordAlreadyDeleted    = errors.New("revisions: record already deleted")
 	ErrRecordDeleteBlocked     = errors.New("revisions: record delete blocked")
+	ErrRecordRestoreBlocked    = errors.New("revisions: record restore blocked")
 	ErrRecordNotDeleted        = errors.New("revisions: record not deleted")
 	ErrRecordLocked            = errors.New("revisions: record locked")
 	ErrUnsupportedRecordType   = errors.New("revisions: unsupported record type")
@@ -61,6 +62,33 @@ func (e *RecordLockedError) Unwrap() error {
 type RecordDeleteBlockedError struct {
 	RecordID   uuid.UUID
 	ReasonCode string
+}
+
+type RecordRestoreBlockedError struct {
+	RecordID uuid.UUID
+	Block    deleterestorecontract.StateTransitionBlock
+}
+
+func (e *RecordRestoreBlockedError) Error() string {
+	return ErrRecordRestoreBlocked.Error()
+}
+
+func (e *RecordRestoreBlockedError) Unwrap() error {
+	return ErrRecordRestoreBlocked
+}
+
+func (e *RecordRestoreBlockedError) Details() map[string]any {
+	details := map[string]any{
+		"record_id":   e.RecordID.String(),
+		"reason_code": e.Block.ReasonCode,
+	}
+	if conflict := e.Block.ActiveIdentifierConflict; conflict != nil {
+		details["entity_type"] = conflict.EntityType
+		details["identifier_class"] = conflict.IdentifierClass
+		details["normalized_value"] = conflict.NormalizedValue
+		details["blocking_record_id"] = conflict.BlockingRecordID.String()
+	}
+	return details
 }
 
 func (e *RecordDeleteBlockedError) Error() string {
@@ -141,7 +169,7 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 		}
 	}
 
-	record, err := s.loadDeleteRestoreRecordTx(ctx, tx, recordID)
+	record, err := s.loadDeleteRestoreRecordTx(ctx, tx, recordID, !deleting)
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
@@ -169,10 +197,31 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 	if !deleting && record.DeletedAt == nil {
 		return DeleteRestoreResult{}, ErrRecordNotDeleted
 	}
+	transitionKind := deleterestorecontract.StateTransitionDelete
+	if !deleting {
+		transitionKind = deleterestorecontract.StateTransitionRestore
+	}
+	if err := prepareStateTransitionTx(ctx, tx, sourceAdapter, record, transitionKind); err != nil {
+		return DeleteRestoreResult{}, err
+	}
 	if deleting {
-		if err := validateDeletePreconditionsTx(ctx, tx, sourceAdapter, record); err != nil {
+		protected, err := s.loadDeleteRestoreRecordTx(ctx, tx, recordID, true)
+		if err != nil {
 			return DeleteRestoreResult{}, err
 		}
+		if protected.IncidentID != record.IncidentID ||
+			protected.RecordType != record.RecordType ||
+			protected.RowVersion != request.BaseRowVersion {
+			return DeleteRestoreResult{}, &RowVersionConflictError{
+				RecordID:          recordID,
+				BaseRowVersion:    request.BaseRowVersion,
+				CurrentRowVersion: protected.RowVersion,
+			}
+		}
+		if protected.DeletedAt != nil {
+			return DeleteRestoreResult{}, ErrRecordAlreadyDeleted
+		}
+		record = protected
 	}
 
 	beforeSnapshot, err := s.appender.CaptureRecordSnapshotTx(ctx, tx, record.RecordID)
@@ -252,7 +301,7 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 	}); err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	current, err := s.loadDeleteRestoreRecordTx(ctx, tx, recordID)
+	current, err := s.loadDeleteRestoreRecordTx(ctx, tx, recordID, true)
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
@@ -275,26 +324,36 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 	}, nil
 }
 
-func (s *commandStore) loadDeleteRestoreRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (deleteRestoreRecord, error) {
-	record, err := s.envelopes.LoadEnvelopeTx(ctx, tx, recordID, true)
+func (s *commandStore) loadDeleteRestoreRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, lock bool) (deleteRestoreRecord, error) {
+	record, err := s.envelopes.LoadEnvelopeTx(ctx, tx, recordID, lock)
 	if err != nil {
 		return deleteRestoreRecord{}, adaptEnvelopeError(err)
 	}
 	return record, nil
 }
 
-func validateDeletePreconditionsTx(ctx context.Context, tx pgx.Tx, source deleterestorecontract.DeleteRestoreSource, record deleteRestoreRecord) error {
-	reasonCode, blocked, err := source.ValidateDeletePreconditionsTx(ctx, tx, record.IncidentID, record.RecordID)
+func prepareStateTransitionTx(ctx context.Context, tx pgx.Tx, source deleterestorecontract.DeleteRestoreSource, record deleteRestoreRecord, kind deleterestorecontract.StateTransitionKind) error {
+	preparation, err := source.PrepareStateTransitionTx(ctx, tx, deleterestorecontract.StateTransitionRequest{
+		Kind:       kind,
+		IncidentID: record.IncidentID,
+		RecordID:   record.RecordID,
+	})
 	if err != nil {
 		return err
 	}
-	if blocked {
+	if preparation.Blocked == nil {
+		return nil
+	}
+	if kind == deleterestorecontract.StateTransitionDelete {
 		return &RecordDeleteBlockedError{
 			RecordID:   record.RecordID,
-			ReasonCode: reasonCode,
+			ReasonCode: preparation.Blocked.ReasonCode,
 		}
 	}
-	return nil
+	return &RecordRestoreBlockedError{
+		RecordID: record.RecordID,
+		Block:    *preparation.Blocked,
+	}
 }
 
 func (s *commandStore) lockDestructiveOperationRecordsNowaitTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {

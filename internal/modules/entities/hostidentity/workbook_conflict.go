@@ -67,7 +67,7 @@ func (s *Store) loadConflictTarget(
 	tx pgx.Tx,
 	command conflictresolution.Command,
 ) (conflictresolution.Target, error) {
-	meta, err := loadEntityRecordMetaForUpdateTx(ctx, tx, command.RecordID)
+	meta, err := loadEntityRecordMetaTx(ctx, tx, command.RecordID, true)
 	if err != nil {
 		return conflictresolution.Target{}, err
 	}

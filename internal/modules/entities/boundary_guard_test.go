@@ -36,10 +36,18 @@ func TestEntitiesProductionImportBoundaries(t *testing.T) {
 			"revision_provider_contribution.go": true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/incidentbundles/sourceport": {
-			"incident_bundle_source_port.go": true,
+			"incident_bundle_portability.go":       true,
+			"incident_bundle_portable_apply.go":    true,
+			"incident_bundle_portable_encode.go":   true,
+			"incident_bundle_portable_model.go":    true,
+			"incident_bundle_portable_prepare.go":  true,
+			"incident_bundle_portable_validate.go": true,
+			"incident_bundle_source_port.go":       true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/incidentportability": {
-			"incident_bundle_portability.go": true,
+			"incident_bundle_portability.go":      true,
+			"incident_bundle_portable_encode.go":  true,
+			"incident_bundle_portable_prepare.go": true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/incidents/admission": {
 			"routes.go": true,
@@ -124,12 +132,12 @@ var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition
 		ConflictCommand CreateRequest CreateRequestHash DecodeClipboardPasteRequest DecodeCreateRequest DecodePatchRequest
 		DecodeWorkbookConflictResolveRequest EligibleAlias
 		ErrHostIdentityRecordNotFound ErrInvalidAliasReference ErrInvalidCreateRequest ErrNoEffectivePatchChange
-		ExactMatchConflictError ExactMatchConflictError.EntityMatchConflictDetails ExactMatchConflictError.Error
+		ActiveIdentifierTransitionConflict ExactMatchConflictError ExactMatchConflictError.EntityMatchConflictDetails ExactMatchConflictError.Error
 		HostRecord HostsViewSchemaID IdentitiesViewSchemaID IdentityRecord ImportDependencies MergeCapability
 		MergeCapability.HostCanonicalNormalized MergeCapability.HostExactMatchPrecedence MergeCapability.IdentityCanonicalNormalized
-		MergeCapability.IdentityExactMatchPrecedence MergeCapability.LoadHostTx MergeCapability.LoadIdentityTx MergeCapability.SyncAliasesTx
+		MergeCapability.IdentityExactMatchPrecedence MergeCapability.LoadHostTx MergeCapability.LoadIdentityTx MergeCapability.PrepareIdentifierClaimsTx MergeCapability.SyncAliasesTx
 		MergeCapability.SyncPreservedIdentifierTx MergeCapability.UpdateHostTx MergeCapability.UpdateIdentityTx MutationResult
-		NewImportCreateFacade NewMergeCapability NewSourceFacts NewStore PatchChange PatchMutationResult PatchRequest PatchRequestHash
+		NewImportCreateFacade NewMergeCapability NewSourceFacts NewStore PatchChange PatchMutationResult PatchRequest PatchRequestHash PrepareActiveIdentifierStateTransitionTx
 		ReusableIdentifier RowVersionConflictError RowVersionConflictError.Error Store Store.ApplyClipboardPastePlan Store.CreateHostRow
 		Store.CreateIdentityRow Store.PatchEntityRow
 		Store.QueryHostRowsPage Store.QueryIdentityRowsPage
@@ -137,8 +145,8 @@ var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition
 		WorkbookConflictClaims WorkbookConflictResolveRequest WorkbookConflictResolveRequestHash
 	`),
 	"hostidentity/deleterestore": entitiesExportInventory(`
-		HostSource HostSource.SnapshotTx HostSource.UpdateSourceDeleteStateTx HostSource.ValidateDeletePreconditionsTx HostSource.ViewSchemaID
-		IdentitySource IdentitySource.SnapshotTx IdentitySource.UpdateSourceDeleteStateTx IdentitySource.ValidateDeletePreconditionsTx IdentitySource.ViewSchemaID
+		HostSource HostSource.PrepareStateTransitionTx HostSource.SnapshotTx HostSource.SyncEnvelopeMirrorTx HostSource.UpdateSourceDeleteStateTx HostSource.ViewSchemaID
+		IdentitySource IdentitySource.PrepareStateTransitionTx IdentitySource.SnapshotTx IdentitySource.SyncEnvelopeMirrorTx IdentitySource.UpdateSourceDeleteStateTx IdentitySource.ViewSchemaID
 		NewHostSource NewIdentitySource
 	`),
 	"hostidentity/projectionprovider": entitiesExportInventory(`
@@ -148,9 +156,9 @@ var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition
 		New Provider Provider.CollectFactsTx Provider.CollectFieldsTx Provider.ProviderKey
 	`),
 	"hostidentity/rollbackprovider": entitiesExportInventory(`
-		CollectionProvider CollectionProvider.ApplyInverseTx CollectionProvider.DescribeTx
-		HostProvider HostProvider.RestoreTx HostProvider.ValidateRollbackValue
-		IdentityProvider IdentityProvider.RestoreTx IdentityProvider.ValidateRollbackValue
+		CollectionProvider CollectionProvider.ApplyInverseTx CollectionProvider.DescribeTx CollectionProvider.IdentifierClaimRecordTx
+		HostProvider HostProvider.FinalizeIdentifierClaimRestoreTx HostProvider.PrepareIdentifierClaimRestoreTx HostProvider.RestoreTx HostProvider.ValidateRollbackValue
+		IdentityProvider IdentityProvider.FinalizeIdentifierClaimRestoreTx IdentityProvider.PrepareIdentifierClaimRestoreTx IdentityProvider.RestoreTx IdentityProvider.ValidateRollbackValue
 		NewCollectionProvider NewHostProvider NewIdentityProvider
 	`),
 	"mentions": entitiesExportInventory(`
@@ -481,6 +489,36 @@ func TestMergeDoesNotWriteMentionOrProjectionTablesDirectly(t *testing.T) {
 			}
 		}
 	}
+
+	t.Run("carry-forward planning is read-only", func(t *testing.T) {
+		path := filepath.Clean(filepath.Join("merge", "source_carry_forward.go"))
+		parsed, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			t.Fatalf("parse %s: %v", path, err)
+		}
+		for _, declaration := range parsed.Decls {
+			function, ok := declaration.(*ast.FuncDecl)
+			if !ok || function.Body == nil || !strings.HasPrefix(function.Name.Name, "plan") {
+				continue
+			}
+			ast.Inspect(function.Body, func(node ast.Node) bool {
+				call, ok := node.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				selector, ok := call.Fun.(*ast.SelectorExpr)
+				if !ok {
+					return true
+				}
+				for _, mutationPrefix := range []string{"Sync", "Update", "Insert", "Delete", "Exec"} {
+					if strings.HasPrefix(selector.Sel.Name, mutationPrefix) {
+						t.Fatalf("%s calls mutation-capable method %s", function.Name.Name, selector.Sel.Name)
+					}
+				}
+				return true
+			})
+		}
+	})
 }
 
 func TestMentionsUseCommandLevelTimelineEffectsPort(t *testing.T) {

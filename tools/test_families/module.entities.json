@@ -520,6 +520,36 @@
       ]
     },
     {
+      "row_id": "module.entities.support_integration.active_identifier_claims_8f302d2a40",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.support_integration",
+      "collaborator_ids": [
+        "module.recovery",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestEntityActiveIdentifierClaimsAndConcurrentMatching_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.entities.support_integration.entity_alias_migration_31",
       "owner_id": "module.entities",
       "family_id": "module.entities.support_integration",
@@ -534,6 +564,92 @@
         "package": "./internal/modules/entities",
         "tests": [
           "TestEntityAliasHeadSchemaContract_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.entities.support_integration.entity_identifier_claims_37_3ba3e2aaaf",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.support_integration",
+      "collaborator_ids": [
+        "module.database_migrations",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestEntityIdentifierNormalizationAndClaimsMigration_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.entities.support_integration.entity_incident_bundle_invariant_closure_92db429a94",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.support_integration",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestEntityIncidentBundleInvariantClosure_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.entities.support_integration.entity_source_integrity_migration_36_e6d97d1e54",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.support_integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestEntitySourceIntegrityMigration_Integration"
         ]
       },
       "evidence_class": "integration",

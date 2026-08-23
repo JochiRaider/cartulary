@@ -36,8 +36,8 @@ func (TaskRequestSource) ViewSchemaID(context.Context, pgx.Tx, uuid.UUID) (strin
 	return "cartulary.view.task_requests.v1", nil
 }
 
-func (TaskRequestSource) ValidateDeletePreconditionsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (string, bool, error) {
-	return "", false, nil
+func (TaskRequestSource) PrepareStateTransitionTx(context.Context, pgx.Tx, deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
+	return deleterestorecontract.StateTransitionPreparation{}, nil
 }
 
 type DecisionSource struct{}
@@ -66,6 +66,6 @@ func (DecisionSource) ViewSchemaID(context.Context, pgx.Tx, uuid.UUID) (string, 
 	return "cartulary.view.decisions.v1", nil
 }
 
-func (DecisionSource) ValidateDeletePreconditionsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (string, bool, error) {
-	return "", false, nil
+func (DecisionSource) PrepareStateTransitionTx(context.Context, pgx.Tx, deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
+	return deleterestorecontract.StateTransitionPreparation{}, nil
 }

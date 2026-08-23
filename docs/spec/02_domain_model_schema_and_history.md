@@ -605,7 +605,45 @@ Verified by: AC-028, AC-029, AC-231, AC-279
 **REQ-02-063**
 If a create or update would assign one of the exact-match keys to more than one active entity or party row, the operation MUST fail as a merge or conflict case rather than silently rekeying, linking, or merging entities or parties.
 Profiles: base
-Verified by: AC-028, AC-029, AC-231, AC-279, AC-280
+Verified by: AC-028, AC-029, AC-231, AC-279, AC-280, AC-559
+
+**REQ-02-270**
+Host and Identity exact-match identity MUST be enforced through one
+Entities-owned, database-enforced active-claim model. The claim key is exactly
+`(incident_id, entity_type, identifier_type, normalized_value)`, and the claim
+target is exactly one `record_id`. A claim exists if and only if the Records
+envelope is not soft-deleted, the source row is in `stub` or `canonical` state,
+and the value is either a populated canonical field named by REQ-02-060 or an
+active preserved identifier of the same class classified
+`exact_match_reuse`. Canonical and preserved copies of the same normalized
+value on one record form one claim. Merged and soft-deleted records hold no
+claim.
+
+The version-1 Host/Identity identifier normalizer is a closed function over
+the eight classes named by REQ-02-060. It applies Unicode NFC, removes leading
+and trailing Unicode White_Space scalars, rejects empty output and any Unicode
+`Cc` or `Cf` scalar, lowercases `aad_device_id`, `fqdn`, `hostname`,
+`aad_object_id`, `upn`, `email`, and `sam_account_name`, and uppercases `sid`.
+An unknown class is invalid; it MUST NOT fall through to generic line
+normalization. Go and PostgreSQL projections MUST be proven equal against one
+versioned owner corpus before either projection changes.
+
+Every mutation that may acquire, release, or transfer claims MUST lock the
+complete old, current, and proposed normalized claim tuples in canonical
+lexical tuple order before matching or mutation. Database uniqueness remains
+the final integrity boundary for direct or future writers. When submitted
+identifiers match active claims, all matched claims MUST resolve to the same
+record before REQ-02-060 precedence selects that record. Matches distributed
+across records fail through `entity_match_conflict` without mutation. Delete
+releases claims; restore reacquires them or fails closed; rollback, merge,
+import, Incident Bundle import, and recovery MUST reproduce the same claim set
+atomically.
+
+The claim relation is derived and rebuildable. It is not an incident source
+record, revision target, portable row, or authoritative backup member, and it
+MUST NOT become a generic cross-module identity service.
+Profiles: base, import, incident_portability
+Verified by: AC-022, AC-023, AC-028, AC-029, AC-231, AC-559
 
 ## 9. Merge behavior
 
@@ -637,8 +675,16 @@ When two entities are merged:
 - for loser-side `suggestion_only` alias values, every normalized-distinct value MUST be copied to the survivor and duplicates already present on the survivor are no-op,
 - for loser-side `provenance_only` values, the historical loser row MUST preserve them; an optional copy to survivor provenance MAY occur only when it cannot affect matching, reuse, suggestions, or merge preconditions,
 - no value capable of affecting future exact-match reuse may be silently dropped; each `exact_match_reuse` value MUST be promoted, carried as an active secondary reusable value, treated as a duplicate no-op, or rejected through fail-closed merge-precondition failure.
+
+Merge planning MUST be read-only. After acquiring the complete protected
+record set and the complete normalized claim tuple set, the transaction MUST
+revalidate both source records and all third-record collision facts, release
+the loser's active claims, apply survivor promotion and carry-forward, and
+mark the loser merged in one deterministic effect sequence. Planning MUST NOT
+insert preserved identifiers, mutate canonical fields, or otherwise rely on
+effects that occur before the lock set is complete.
 Profiles: base
-Verified by: AC-023, AC-186, AC-187, AC-209, AC-231
+Verified by: AC-023, AC-186, AC-187, AC-209, AC-231, AC-559
 
 ## 10. Notes, artifacts, indicators, and assessments
 

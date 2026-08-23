@@ -148,7 +148,7 @@ func assertManifestAccessClass(t testing.TB, entry schemaObjectManifestEntry) {
 		"schema":             {{"schema_usage"}, {"schema_usage"}},
 		"extension":          {{"type_use"}, {"type_use"}},
 		"migration_metadata": {{"migration_ledger_read"}, {"migration_ledger_read"}},
-		"table":              {{"table_read_write", "table_append_only", "table_read_only", "table_no_access", "migration_ledger_read"}, {"table_restore", "table_read_only", "table_no_access", "migration_ledger_read"}},
+		"table":              {{"table_read_write", "table_append_only", "table_read_only", "table_no_access", "migration_ledger_read"}, {"table_restore", "table_rebuild", "table_read_only", "table_no_access", "migration_ledger_read"}},
 		"view":               {{"view_read_only"}, {"view_read_only"}},
 		"sequence":           {{"sequence_use", "sequence_no_access"}, {"sequence_restore", "sequence_no_access"}},
 		"routine":            {{"routine_application", "routine_private"}, {"routine_recovery", "routine_private"}},
@@ -178,7 +178,7 @@ func assertRecoveryCardinality(t testing.TB, manifest schemaObjectManifest) {
 	if err := json.Unmarshal(data, &recovery); err != nil {
 		t.Fatal(err)
 	}
-	if recovery.SchemaID != "cartulary.recovery_state_catalog.v1" || len(recovery.Tables) != 113 {
+	if recovery.SchemaID != "cartulary.recovery_state_catalog.v1" || len(recovery.Tables) != 114 {
 		t.Fatalf("Recovery catalog identity/cardinality = %q/%d", recovery.SchemaID, len(recovery.Tables))
 	}
 	authoritative := 0
@@ -204,7 +204,7 @@ func assertRecoveryCardinality(t testing.TB, manifest schemaObjectManifest) {
 			revisionConflictFacts++
 		}
 	}
-	if authoritative != 84 || revisionConflictFacts != 1 || len(manifestTables) != 113 {
+	if authoritative != 84 || revisionConflictFacts != 1 || len(manifestTables) != 114 {
 		t.Fatalf("Recovery facts = tables %d/%d, authoritative %d, revision conflict facts %d", len(recovery.Tables), len(manifestTables), authoritative, revisionConflictFacts)
 	}
 }
@@ -330,7 +330,15 @@ WHERE namespace.nspname = 'public'
           FROM pg_catalog.aclexplode(COALESCE(routine.proacl, pg_catalog.acldefault('f', routine.proowner))) AS acl
           WHERE acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
       )
-      OR (routine.prosecdef <> (routine.proname IN ('revisions_incident_bundle_sequence_begin_v1', 'revisions_incident_bundle_sequence_finish_v1')))
+      OR (routine.prosecdef <> (routine.proname IN (
+          'revisions_incident_bundle_sequence_begin_v1',
+          'revisions_incident_bundle_sequence_finish_v1',
+          'entities_refresh_active_identifier_claims_v1',
+          'entities_release_active_identifier_claims_v1',
+          'entities_sync_active_identifier_claims_v1',
+          'entities_rebuild_active_identifier_claims_v1',
+          'entities_active_identifier_claims_are_valid_v1'
+      )))
   )
 `).Scan(&unsafeRoutines); err != nil || unsafeRoutines != 0 {
 		t.Fatalf("unsafe routine count = %d: %v", unsafeRoutines, err)

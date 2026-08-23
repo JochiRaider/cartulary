@@ -267,6 +267,19 @@
       "typescript_projections": [],
       "activation_dependency_ids": [],
       "description": "Implementation-facing performance fixtures, observable predicates, thresholds, and policy bindings."
+    },
+    {
+      "family_id": "entities",
+      "contract_root": "contracts/entities",
+      "generation_status": "active",
+      "go_name": "EntitiesArtifacts",
+      "output_order": 16,
+      "generated_outputs": [
+        "internal/gen/contractentities/artifacts_gen.go"
+      ],
+      "typescript_projections": [],
+      "activation_dependency_ids": [],
+      "description": "Backend-only Entities identifier-normalization corpus projected from adopted Core owners."
     }
   ]
 }

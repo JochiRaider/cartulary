@@ -147,6 +147,6 @@ func NormalizeIdentifier(identifierClass string, raw string) (string, bool) {
 	case "sid":
 		return strings.ToUpper(normalized), true
 	default:
-		return normalized, true
+		return "", false
 	}
 }

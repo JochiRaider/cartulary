@@ -18,8 +18,20 @@ import (
 type CollectionProvider struct{}
 
 var _ rollbackcontract.NonRowTargetProvider = CollectionProvider{}
+var _ rollbackcontract.IdentifierClaimNonRowProvider = CollectionProvider{}
 
 func NewCollectionProvider() CollectionProvider { return CollectionProvider{} }
+
+func (CollectionProvider) IdentifierClaimRecordTx(_ context.Context, _ pgx.Tx, target rollbackcontract.NonRowTarget) (uuid.UUID, error) {
+	identity, err := parseCollectionTarget(target)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if identity.targetKind != "entity_preserved_identifier" || identity.classification != "exact_match_reuse" {
+		return uuid.Nil, nil
+	}
+	return identity.recordID, nil
+}
 
 type collectionIdentity struct {
 	targetKind      string

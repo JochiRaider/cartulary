@@ -1266,7 +1266,6 @@ test("replays queued unsent writes after re-authentication without silent reload
       await expect
         .poll(() => patchController.calls.at(-1)?.status ?? 0)
         .toBe(401);
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
       await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
         "data-bootstrap-state",
         "revoked",

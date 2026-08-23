@@ -12,65 +12,49 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-func (s *mutationCore) upsertHostTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, now time.Time) (HostRecord, map[string]any, string, int, error) {
+func (s *mutationCore) upsertHostTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, now time.Time) (HostRecord, map[string]any, string, int, *revisions.RecordSnapshot, error) {
 	input, err := hostInputFromCreateRequest(request)
 	if err != nil {
-		return HostRecord{}, nil, "", 0, err
-	}
-	return s.upsertHostWithInputTx(ctx, tx, actor, incidentID, input, now)
-}
-
-func (s *mutationCore) upsertIdentityTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, now time.Time) (IdentityRecord, map[string]any, string, int, error) {
-	input, err := identityInputFromCreateRequest(request)
-	if err != nil {
-		return IdentityRecord{}, nil, "", 0, err
-	}
-	return s.upsertIdentityWithInputTx(ctx, tx, actor, incidentID, input, now)
-}
-
-func (s *mutationCore) captureHostSnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request CreateRequest) (*revisions.RecordSnapshot, error) {
-	input, err := hostInputFromCreateRequest(request)
-	if err != nil {
-		return nil, err
+		return HostRecord{}, nil, "", 0, nil, err
 	}
 	current, matched, err := matchHostTx(ctx, tx, incidentID, input)
 	if err != nil {
-		return nil, err
+		return HostRecord{}, nil, "", 0, nil, err
 	}
-	if !matched {
-		return nil, nil
+	var beforeSnapshot *revisions.RecordSnapshot
+	if matched {
+		snapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
+		if err != nil {
+			return HostRecord{}, nil, "", 0, nil, err
+		}
+		beforeSnapshot = &snapshot
 	}
-	snapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
-	if err != nil {
-		return nil, err
-	}
-	return &snapshot, nil
+	record, before, operation, status, err := s.applyHostUpsertTx(ctx, tx, actor, incidentID, input, current, matched, now)
+	return record, before, operation, status, beforeSnapshot, err
 }
 
-func (s *mutationCore) captureIdentitySnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request CreateRequest) (*revisions.RecordSnapshot, error) {
+func (s *mutationCore) upsertIdentityTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, now time.Time) (IdentityRecord, map[string]any, string, int, *revisions.RecordSnapshot, error) {
 	input, err := identityInputFromCreateRequest(request)
 	if err != nil {
-		return nil, err
+		return IdentityRecord{}, nil, "", 0, nil, err
 	}
 	current, matched, err := matchIdentityTx(ctx, tx, incidentID, input)
 	if err != nil {
-		return nil, err
+		return IdentityRecord{}, nil, "", 0, nil, err
 	}
-	if !matched {
-		return nil, nil
+	var beforeSnapshot *revisions.RecordSnapshot
+	if matched {
+		snapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
+		if err != nil {
+			return IdentityRecord{}, nil, "", 0, nil, err
+		}
+		beforeSnapshot = &snapshot
 	}
-	snapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
-	if err != nil {
-		return nil, err
-	}
-	return &snapshot, nil
+	record, before, operation, status, err := s.applyIdentityUpsertTx(ctx, tx, actor, incidentID, input, current, matched, now)
+	return record, before, operation, status, beforeSnapshot, err
 }
 
-func (s *mutationCore) upsertHostWithInputTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, input hostUpsertInput, now time.Time) (HostRecord, map[string]any, string, int, error) {
-	current, matched, err := matchHostTx(ctx, tx, incidentID, input)
-	if err != nil {
-		return HostRecord{}, nil, "", 0, err
-	}
+func (s *mutationCore) applyHostUpsertTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, input hostUpsertInput, current HostRecord, matched bool, now time.Time) (HostRecord, map[string]any, string, int, error) {
 	if !matched {
 		record := HostRecord{
 			IncidentID:    incidentID,
@@ -202,11 +186,7 @@ func (s *mutationCore) upsertHostWithInputTx(ctx context.Context, tx pgx.Tx, act
 	return next, beforeRow, "patch", httpStatusOK, nil
 }
 
-func (s *mutationCore) upsertIdentityWithInputTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, input identityUpsertInput, now time.Time) (IdentityRecord, map[string]any, string, int, error) {
-	current, matched, err := matchIdentityTx(ctx, tx, incidentID, input)
-	if err != nil {
-		return IdentityRecord{}, nil, "", 0, err
-	}
+func (s *mutationCore) applyIdentityUpsertTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, input identityUpsertInput, current IdentityRecord, matched bool, now time.Time) (IdentityRecord, map[string]any, string, int, error) {
 	if !matched {
 		record := IdentityRecord{
 			IncidentID:     incidentID,

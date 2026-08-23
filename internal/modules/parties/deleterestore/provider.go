@@ -39,7 +39,10 @@ func (Source) ViewSchemaID(context.Context, pgx.Tx, uuid.UUID) (string, error) {
 	return "cartulary.view.parties.v1", nil
 }
 
-func (Source) ValidateDeletePreconditionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (string, bool, error) {
+func (Source) PrepareStateTransitionTx(ctx context.Context, tx pgx.Tx, request deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
+	if request.Kind != deleterestorecontract.StateTransitionDelete {
+		return deleterestorecontract.StateTransitionPreparation{}, nil
+	}
 	var exists bool
 	if err := tx.QueryRow(ctx, `
 SELECT EXISTS (
@@ -72,11 +75,13 @@ SELECT EXISTS (
        AND rl.link_type = 'references_record'
        AND rl.field_key IN ('comm_log.audience_party_ids', 'comm_log.attendee_party_ids')
 )
-`, incidentID, recordID).Scan(&exists); err != nil {
-		return "", false, fmt.Errorf("validate party delete references: %w", err)
+`, request.IncidentID, request.RecordID).Scan(&exists); err != nil {
+		return deleterestorecontract.StateTransitionPreparation{}, fmt.Errorf("validate party delete references: %w", err)
 	}
 	if exists {
-		return ActiveIncomingPartyReferenceReason, true, nil
+		return deleterestorecontract.StateTransitionPreparation{Blocked: &deleterestorecontract.StateTransitionBlock{
+			ReasonCode: ActiveIncomingPartyReferenceReason,
+		}}, nil
 	}
-	return "", false, nil
+	return deleterestorecontract.StateTransitionPreparation{}, nil
 }

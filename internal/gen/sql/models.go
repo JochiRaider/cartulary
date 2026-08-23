@@ -445,6 +445,14 @@ type EnterpriseAuthTransaction struct {
 	SamlStagedAt           pgtype.Timestamptz `json:"saml_staged_at"`
 }
 
+type EntityActiveIdentifierClaim struct {
+	IncidentID      pgtype.UUID `json:"incident_id"`
+	EntityType      string      `json:"entity_type"`
+	IdentifierType  string      `json:"identifier_type"`
+	NormalizedValue string      `json:"normalized_value"`
+	RecordID        pgtype.UUID `json:"record_id"`
+}
+
 type EntityAlias struct {
 	EntityAliasID   pgtype.UUID        `json:"entity_alias_id"`
 	IncidentID      pgtype.UUID        `json:"incident_id"`

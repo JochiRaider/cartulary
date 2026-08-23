@@ -1083,6 +1083,9 @@ function validateContractFamilyRegistryShape(file) {
   if (!familyIDs.includes("performance")) {
     throw new Error(`${file}.families must declare performance`);
   }
+  if (!familyIDs.includes("entities")) {
+    throw new Error(`${file}.families must declare entities`);
+  }
   const expectedActiveIDs = [
     "openapi",
     "ws",
@@ -1100,6 +1103,7 @@ function validateContractFamilyRegistryShape(file) {
     "artifacts",
     "database-migrations",
     "performance",
+    "entities",
   ];
   if (activeIDsByOrder.filter(Boolean).join("\n") !== expectedActiveIDs.join("\n")) {
     throw new Error(

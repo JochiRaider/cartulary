@@ -2,6 +2,7 @@ package entities_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -114,9 +115,6 @@ UPDATE identities
 					ClientTxnID: "txn-entity_linking-u-4-05-" + tc.suffix,
 					Values:      tc.values,
 				}, []byte("txn-entity_linking-u-4-05-"+tc.suffix), "req-"+tc.suffix, entitytest.BaseTime)
-				if err != nil {
-					t.Fatalf("host exact-match reuse: %v", err)
-				}
 
 				wantRecordID := hostHostnameRecordID
 				switch tc.wantSelector {
@@ -124,6 +122,19 @@ UPDATE identities
 					wantRecordID = hostAADRecordID
 				case "fqdn":
 					wantRecordID = hostFQDNRecordID
+				}
+				if tc.wantSelector != "hostname" {
+					var conflict *hostidentity.ExactMatchConflictError
+					if !errors.As(err, &conflict) || conflict.IdentifierClass != map[string]string{
+						"aad":  "aad_device_id",
+						"fqdn": "fqdn",
+					}[tc.wantSelector] || len(conflict.CandidateRecords) < 2 {
+						t.Fatalf("host cross-record match error = %#v, want ordered conflict", err)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatalf("host exact-match reuse: %v", err)
 				}
 				if reuse.RecordID != wantRecordID || reuse.StatusCode != 200 {
 					t.Fatalf("unexpected host precedence result: got %#v want_record=%s", reuse, wantRecordID)
@@ -214,10 +225,6 @@ UPDATE identities
 					ClientTxnID: "txn-entity_linking-u-4-05-" + tc.suffix,
 					Values:      tc.values,
 				}, []byte("txn-entity_linking-u-4-05-"+tc.suffix), "req-"+tc.suffix, entitytest.BaseTime.Add(2*time.Minute))
-				if err != nil {
-					t.Fatalf("identity exact-match reuse: %v", err)
-				}
-
 				wantRecordID := identitySAMRecordID
 				switch tc.wantSelector {
 				case "aad":
@@ -228,6 +235,21 @@ UPDATE identities
 					wantRecordID = identityUPNRecordID
 				case "email":
 					wantRecordID = identityEmailRecordID
+				}
+				if tc.wantSelector != "sam" {
+					var conflict *hostidentity.ExactMatchConflictError
+					if !errors.As(err, &conflict) || conflict.IdentifierClass != map[string]string{
+						"aad":   "aad_object_id",
+						"sid":   "sid",
+						"upn":   "upn",
+						"email": "email",
+					}[tc.wantSelector] || len(conflict.CandidateRecords) < 2 {
+						t.Fatalf("identity cross-record match error = %#v, want ordered conflict", err)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatalf("identity exact-match reuse: %v", err)
 				}
 				if reuse.RecordID != wantRecordID || reuse.StatusCode != 200 {
 					t.Fatalf("unexpected identity precedence result: got %#v want_record=%s", reuse, wantRecordID)

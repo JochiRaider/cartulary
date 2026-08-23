@@ -159,23 +159,24 @@ SELECT
 		)
 		appsupport.RequireErrorBody(t, aliasPayloadOnly, http.StatusBadRequest, "invalid_mutation_payload")
 
-		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "Conflict Host A", "COLLISION-01", "", "")
-		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "Conflict Host B", "COLLISION-01", "", "")
+		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "Conflict Host A", "COLLISION-01", "", "AAD-COLLISION-A")
+		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "Conflict Host B", "COLLISION-02", "", "AAD-COLLISION-B")
 		conflictResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":     "txn-entity_linking-i-4-02-host-conflict",
-				"host.display_name": "Conflict Host",
-				"host.hostname":     "COLLISION-01",
+				"client_txn_id":      "txn-entity_linking-i-4-02-host-conflict",
+				"host.display_name":  "Conflict Host",
+				"host.aad_device_id": "AAD-COLLISION-B",
+				"host.hostname":      "COLLISION-01",
 			},
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
 		conflictBody := appsupport.RequireErrorBody(t, conflictResp, http.StatusConflict, "entity_match_conflict")
 		details := conflictBody["error"].(map[string]any)["details"].(map[string]any)
-		if details["reason_code"] != "merge_required" || details["entity_type"] != "host" || details["identifier_class"] != "hostname" {
+		if details["reason_code"] != "merge_required" || details["entity_type"] != "host" || details["identifier_class"] != "aad_device_id" {
 			t.Fatalf("unexpected host conflict details: %#v", details)
 		}
 		candidateIDs := details["candidate_record_ids"].([]any)
@@ -335,16 +336,17 @@ SELECT COUNT(*)
 		)
 		appsupport.RequireErrorBody(t, aliasPayloadOnly, http.StatusBadRequest, "invalid_mutation_payload")
 
-		entitytest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalIdentityRecordID, "Conflict Identity A", "collision@example.test", "collision@example.test", "COLLISION-A")
-		entitytest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateIdentityRecordID, "Conflict Identity B", "collision@example.test", "collision@example.test", "COLLISION-B")
+		entitytest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalIdentityRecordID, "Conflict Identity A", "collision-a@example.test", "collision-a@example.test", "COLLISION-A")
+		entitytest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateIdentityRecordID, "Conflict Identity B", "collision-b@example.test", "collision-b@example.test", "COLLISION-B")
 		conflictResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":         "txn-entity_linking-i-4-02-identity-conflict",
-				"identity.display_name": "Conflict Identity",
-				"identity.email":        "collision@example.test",
+				"client_txn_id":             "txn-entity_linking-i-4-02-identity-conflict",
+				"identity.display_name":     "Conflict Identity",
+				"identity.email":            "collision-a@example.test",
+				"identity.sam_account_name": "COLLISION-B",
 			},
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),

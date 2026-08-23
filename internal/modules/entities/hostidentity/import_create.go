@@ -66,15 +66,10 @@ func (s *importOwner) createImportRowTx(ctx context.Context, tx pgx.Tx, command 
 		operationKind  string
 		entityType     string
 		beforeSnapshot *revisions.RecordSnapshot
-		err            error
 	)
 	switch request.TargetViewSchemaID {
 	case HostsViewSchemaID:
-		beforeSnapshot, err = s.captureHostSnapshotBeforeUpsertTx(ctx, tx, request.IncidentID, createRequest)
-		if err != nil {
-			return ownerfacade.ImportOwnerCreateResponse{}, err
-		}
-		record, before, operation, _, err := s.upsertHostTx(ctx, tx, actor, request.IncidentID, createRequest, now)
+		record, before, operation, _, snapshot, err := s.upsertHostTx(ctx, tx, actor, request.IncidentID, createRequest, now)
 		if err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
@@ -84,15 +79,12 @@ func (s *importOwner) createImportRowTx(ctx context.Context, tx pgx.Tx, command 
 		recordID = record.RecordID
 		rowVersion = record.RowVersion
 		beforeRow = before
+		beforeSnapshot = snapshot
 		afterRow = buildHostRow(record)
 		operationKind = operation
 		entityType = "host"
 	case IdentitiesViewSchemaID:
-		beforeSnapshot, err = s.captureIdentitySnapshotBeforeUpsertTx(ctx, tx, request.IncidentID, createRequest)
-		if err != nil {
-			return ownerfacade.ImportOwnerCreateResponse{}, err
-		}
-		record, before, operation, _, err := s.upsertIdentityTx(ctx, tx, actor, request.IncidentID, createRequest, now)
+		record, before, operation, _, snapshot, err := s.upsertIdentityTx(ctx, tx, actor, request.IncidentID, createRequest, now)
 		if err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
@@ -102,6 +94,7 @@ func (s *importOwner) createImportRowTx(ctx context.Context, tx pgx.Tx, command 
 		recordID = record.RecordID
 		rowVersion = record.RowVersion
 		beforeRow = before
+		beforeSnapshot = snapshot
 		afterRow = buildIdentityRow(record)
 		operationKind = operation
 		entityType = "identity"

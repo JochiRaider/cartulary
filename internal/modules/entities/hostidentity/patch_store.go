@@ -89,7 +89,7 @@ func (s *Store) PatchEntityRow(ctx context.Context, actor authn.UserRecord, reco
 		_ = tx.Rollback(ctx)
 	}()
 
-	meta, err := loadEntityRecordMetaForUpdateTx(ctx, tx, recordID)
+	meta, err := loadEntityRecordMetaTx(ctx, tx, recordID, false)
 	if err != nil {
 		return PatchMutationResult{}, err
 	}
@@ -106,6 +106,34 @@ func (s *Store) PatchEntityRow(ctx context.Context, actor authn.UserRecord, reco
 			CurrentRowVersion: meta.RowVersion,
 		}
 	}
+	identifierTuples, err := recordIdentifierTuplesTx(ctx, tx, meta.IncidentID, meta.RecordType, recordID)
+	if err != nil {
+		return PatchMutationResult{}, err
+	}
+	switch request.ViewSchemaID {
+	case HostsViewSchemaID:
+		identifierTuples = mergeNormalizedIdentifierTuples(identifierTuples, hostPatchIdentifierTuples(request.Changes))
+	case IdentitiesViewSchemaID:
+		identifierTuples = mergeNormalizedIdentifierTuples(identifierTuples, identityPatchIdentifierTuples(request.Changes))
+	}
+	if err := prepareIdentifierMutationTx(ctx, tx, meta.IncidentID, meta.RecordType, recordID, identifierTuples); err != nil {
+		return PatchMutationResult{}, err
+	}
+	lockedMeta, err := loadEntityRecordMetaTx(ctx, tx, recordID, true)
+	if err != nil {
+		return PatchMutationResult{}, err
+	}
+	if lockedMeta.IncidentID != meta.IncidentID || lockedMeta.RecordType != meta.RecordType {
+		return PatchMutationResult{}, pgx.ErrNoRows
+	}
+	if lockedMeta.RowVersion != request.BaseRowVersion {
+		return PatchMutationResult{}, &RowVersionConflictError{
+			RecordID:          recordID,
+			BaseRowVersion:    request.BaseRowVersion,
+			CurrentRowVersion: lockedMeta.RowVersion,
+		}
+	}
+	meta = lockedMeta
 
 	switch request.ViewSchemaID {
 	case HostsViewSchemaID:
@@ -130,7 +158,6 @@ func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserR
 	if err != nil {
 		return PatchMutationResult{}, err
 	}
-
 	next := beforeRecord
 	changedFields := make([]string, 0, len(request.Changes))
 	aliasMutations := make([]AliasAppliedMutation, 0)
@@ -184,7 +211,6 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 	if err != nil {
 		return PatchMutationResult{}, err
 	}
-
 	next := beforeRecord
 	changedFields := make([]string, 0, len(request.Changes))
 	aliasMutations := make([]AliasAppliedMutation, 0)
@@ -312,15 +338,18 @@ type entityRecordMeta struct {
 	RowVersion int64
 }
 
-func loadEntityRecordMetaForUpdateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (entityRecordMeta, error) {
+func loadEntityRecordMetaTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, lock bool) (entityRecordMeta, error) {
 	var meta entityRecordMeta
 	var deletedAt sql.NullTime
-	err := tx.QueryRow(ctx, `
+	query := `
 SELECT incident_id, record_type, row_version, deleted_at
   FROM records
  WHERE record_id = $1
- FOR UPDATE
-`, recordID).Scan(&meta.IncidentID, &meta.RecordType, &meta.RowVersion, &deletedAt)
+`
+	if lock {
+		query += " FOR UPDATE"
+	}
+	err := tx.QueryRow(ctx, query, recordID).Scan(&meta.IncidentID, &meta.RecordType, &meta.RowVersion, &deletedAt)
 	if err != nil {
 		return entityRecordMeta{}, err
 	}

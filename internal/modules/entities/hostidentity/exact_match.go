@@ -82,12 +82,143 @@ type identityUpsertInput struct {
 	AllowDisplayNameUpdate bool
 }
 
-type preservedIdentifierRecord struct {
-	RecordID        uuid.UUID
-	EntityType      string
+type normalizedIdentifierTuple struct {
 	IdentifierType  string
 	NormalizedValue string
-	Classification  string
+}
+
+type ActiveIdentifierTransitionConflict struct {
+	IdentifierClass  string
+	NormalizedValue  string
+	BlockingRecordID uuid.UUID
+}
+
+func PrepareActiveIdentifierStateTransitionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string, recordID uuid.UUID, releasing bool) (*ActiveIdentifierTransitionConflict, error) {
+	tuples, err := recordIdentifierTuplesTx(ctx, tx, incidentID, entityType, recordID)
+	if err != nil {
+		return nil, err
+	}
+	if err := lockIdentifierTuplesTx(ctx, tx, incidentID, entityType, tuples); err != nil {
+		return nil, err
+	}
+	if releasing {
+		if _, err := tx.Exec(ctx, `SELECT public.entities_release_active_identifier_claims_v1($1)`, recordID); err != nil {
+			return nil, fmt.Errorf("release active entity identifier claims: %w", err)
+		}
+		return nil, nil
+	}
+	for _, tuple := range tuples {
+		var blockingRecordID uuid.UUID
+		err := tx.QueryRow(ctx, `
+SELECT record_id
+  FROM entity_active_identifier_claims
+ WHERE incident_id = $1
+   AND entity_type = $2
+   AND identifier_type = $3
+   AND normalized_value = $4
+`, incidentID, entityType, tuple.IdentifierType, tuple.NormalizedValue).Scan(&blockingRecordID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("validate restored active entity identifier claim: %w", err)
+		}
+		if blockingRecordID != recordID {
+			return &ActiveIdentifierTransitionConflict{
+				IdentifierClass:  tuple.IdentifierType,
+				NormalizedValue:  tuple.NormalizedValue,
+				BlockingRecordID: blockingRecordID,
+			}, nil
+		}
+	}
+	return nil, nil
+}
+
+func recordIdentifierTuplesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string, recordID uuid.UUID) ([]normalizedIdentifierTuple, error) {
+	seeds := make([]identifierSeed, 0, 8)
+	switch entityType {
+	case "host":
+		var aadDeviceID, fqdn, hostname pgtype.Text
+		if err := tx.QueryRow(ctx, `
+SELECT aad_device_id, fqdn, hostname
+  FROM hosts
+ WHERE incident_id = $1
+   AND record_id = $2
+`, incidentID, recordID).Scan(&aadDeviceID, &fqdn, &hostname); err != nil {
+			return nil, fmt.Errorf("load Host transition identifiers: %w", err)
+		}
+		for identifierType, value := range map[string]pgtype.Text{
+			"aad_device_id": aadDeviceID,
+			"fqdn":          fqdn,
+			"hostname":      hostname,
+		} {
+			if value.Valid {
+				seeds = append(seeds, identifierSeed{IdentifierType: identifierType, RawValue: value.String})
+			}
+		}
+	case "identity":
+		var aadObjectID, sid, upn, email, samAccountName pgtype.Text
+		if err := tx.QueryRow(ctx, `
+SELECT aad_object_id, sid, upn, email::text, sam_account_name
+  FROM identities
+ WHERE incident_id = $1
+   AND record_id = $2
+`, incidentID, recordID).Scan(&aadObjectID, &sid, &upn, &email, &samAccountName); err != nil {
+			return nil, fmt.Errorf("load Identity transition identifiers: %w", err)
+		}
+		for identifierType, value := range map[string]pgtype.Text{
+			"aad_object_id":    aadObjectID,
+			"sid":              sid,
+			"upn":              upn,
+			"email":            email,
+			"sam_account_name": samAccountName,
+		} {
+			if value.Valid {
+				seeds = append(seeds, identifierSeed{IdentifierType: identifierType, RawValue: value.String})
+			}
+		}
+	default:
+		return nil, fmt.Errorf("unsupported active entity identifier type %q", entityType)
+	}
+	tuples := normalizedIdentifierTuples(seeds)
+	rows, err := tx.Query(ctx, `
+SELECT identifier_type, normalized_value
+  FROM entity_preserved_identifiers
+ WHERE incident_id = $1
+   AND entity_type = $2
+   AND record_id = $3
+   AND classification = 'exact_match_reuse'
+   AND deleted_at IS NULL
+`, incidentID, entityType, recordID)
+	if err != nil {
+		return nil, fmt.Errorf("load transition preserved identifiers: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var tuple normalizedIdentifierTuple
+		if err := rows.Scan(&tuple.IdentifierType, &tuple.NormalizedValue); err != nil {
+			return nil, fmt.Errorf("scan transition preserved identifier: %w", err)
+		}
+		tuples = append(tuples, tuple)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate transition preserved identifiers: %w", err)
+	}
+	unique := make(map[string]normalizedIdentifierTuple, len(tuples))
+	for _, tuple := range tuples {
+		unique[tuple.IdentifierType+"\x1f"+tuple.NormalizedValue] = tuple
+	}
+	tuples = tuples[:0]
+	for _, tuple := range unique {
+		tuples = append(tuples, tuple)
+	}
+	slices.SortFunc(tuples, func(left normalizedIdentifierTuple, right normalizedIdentifierTuple) int {
+		if compared := strings.Compare(left.IdentifierType, right.IdentifierType); compared != 0 {
+			return compared
+		}
+		return strings.Compare(left.NormalizedValue, right.NormalizedValue)
+	})
+	return tuples, nil
 }
 
 func hostInputFromCreateRequest(request CreateRequest) (hostUpsertInput, error) {
@@ -189,284 +320,224 @@ func identityIdentifierSeeds(input identityUpsertInput) []identifierSeed {
 }
 
 func matchHostTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, input hostUpsertInput) (HostRecord, bool, error) {
-	records, err := loadActiveHostsTx(ctx, tx, incidentID)
+	recordID, matched, err := matchClaimedRecordTx(
+		ctx,
+		tx,
+		incidentID,
+		"host",
+		hostExactMatchPrecedence,
+		normalizedIdentifierTuples(hostIdentifierSeeds(input)),
+	)
 	if err != nil {
 		return HostRecord{}, false, err
 	}
-	preserved, err := loadActivePreservedIdentifiersTx(ctx, tx, incidentID, "host")
+	if !matched {
+		return HostRecord{}, false, nil
+	}
+	record, err := loadHostByRecordIDTx(ctx, tx, recordID)
 	if err != nil {
 		return HostRecord{}, false, err
 	}
-	recordIndex := make(map[uuid.UUID]HostRecord, len(records))
-	for _, record := range records {
-		recordIndex[record.RecordID] = record
+	if record.IncidentID != incidentID || record.HostState == "merged" {
+		return HostRecord{}, false, fmt.Errorf("active Host claim points to an inactive source record")
 	}
-
-	candidates := map[string]*string{
-		"aad_device_id": input.AADDeviceID,
-		"fqdn":          input.FQDN,
-		"hostname":      input.Hostname,
-	}
-	for _, identifierClass := range hostExactMatchPrecedence {
-		raw := candidates[identifierClass]
-		if raw == nil {
-			continue
-		}
-		normalized, ok := fieldnorm.NormalizeIdentifier(identifierClass, *raw)
-		if !ok {
-			continue
-		}
-		matched := make(map[uuid.UUID]HostRecord)
-		for _, record := range records {
-			if hostCanonicalNormalized(record, identifierClass) == normalized {
-				matched[record.RecordID] = record
-			}
-		}
-		for _, identifier := range preserved {
-			if identifier.IdentifierType != identifierClass || identifier.Classification != "exact_match_reuse" || identifier.NormalizedValue != normalized {
-				continue
-			}
-			record, ok := recordIndex[identifier.RecordID]
-			if ok {
-				matched[record.RecordID] = record
-			}
-		}
-		switch len(matched) {
-		case 0:
-			continue
-		case 1:
-			for _, record := range matched {
-				return record, true, nil
-			}
-		default:
-			return HostRecord{}, false, &ExactMatchConflictError{
-				EntityType:       "host",
-				IdentifierClass:  identifierClass,
-				CandidateRecords: sortedRecordIDs(matched),
-			}
-		}
-	}
-	return HostRecord{}, false, nil
+	return record, true, nil
 }
 
 func matchIdentityTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, input identityUpsertInput) (IdentityRecord, bool, error) {
-	records, err := loadActiveIdentitiesTx(ctx, tx, incidentID)
+	recordID, matched, err := matchClaimedRecordTx(
+		ctx,
+		tx,
+		incidentID,
+		"identity",
+		identityExactMatchPrecedence,
+		normalizedIdentifierTuples(identityIdentifierSeeds(input)),
+	)
 	if err != nil {
 		return IdentityRecord{}, false, err
 	}
-	preserved, err := loadActivePreservedIdentifiersTx(ctx, tx, incidentID, "identity")
+	if !matched {
+		return IdentityRecord{}, false, nil
+	}
+	record, err := loadIdentityByRecordIDTx(ctx, tx, recordID)
 	if err != nil {
 		return IdentityRecord{}, false, err
 	}
-	recordIndex := make(map[uuid.UUID]IdentityRecord, len(records))
-	for _, record := range records {
-		recordIndex[record.RecordID] = record
+	if record.IncidentID != incidentID || record.IdentityState == "merged" {
+		return IdentityRecord{}, false, fmt.Errorf("active Identity claim points to an inactive source record")
 	}
+	return record, true, nil
+}
 
-	candidates := map[string]*string{
-		"aad_object_id":    input.AADObjectID,
-		"sid":              input.SID,
-		"upn":              input.UPN,
-		"email":            input.Email,
-		"sam_account_name": input.SamAccountName,
-	}
-	for _, identifierClass := range identityExactMatchPrecedence {
-		raw := candidates[identifierClass]
-		if raw == nil {
-			continue
-		}
-		normalized, ok := fieldnorm.NormalizeIdentifier(identifierClass, *raw)
+func normalizedIdentifierTuples(seeds []identifierSeed) []normalizedIdentifierTuple {
+	unique := make(map[string]normalizedIdentifierTuple, len(seeds))
+	for _, seed := range seeds {
+		normalized, ok := fieldnorm.NormalizeIdentifier(seed.IdentifierType, seed.RawValue)
 		if !ok {
 			continue
 		}
-		matched := make(map[uuid.UUID]IdentityRecord)
-		for _, record := range records {
-			if identityCanonicalNormalized(record, identifierClass) == normalized {
-				matched[record.RecordID] = record
-			}
+		tuple := normalizedIdentifierTuple{
+			IdentifierType:  seed.IdentifierType,
+			NormalizedValue: normalized,
 		}
-		for _, identifier := range preserved {
-			if identifier.IdentifierType != identifierClass || identifier.Classification != "exact_match_reuse" || identifier.NormalizedValue != normalized {
-				continue
-			}
-			record, ok := recordIndex[identifier.RecordID]
-			if ok {
-				matched[record.RecordID] = record
-			}
+		unique[tuple.IdentifierType+"\x1f"+tuple.NormalizedValue] = tuple
+	}
+	tuples := make([]normalizedIdentifierTuple, 0, len(unique))
+	for _, tuple := range unique {
+		tuples = append(tuples, tuple)
+	}
+	slices.SortFunc(tuples, func(left normalizedIdentifierTuple, right normalizedIdentifierTuple) int {
+		if compared := strings.Compare(left.IdentifierType, right.IdentifierType); compared != 0 {
+			return compared
 		}
-		switch len(matched) {
-		case 0:
+		return strings.Compare(left.NormalizedValue, right.NormalizedValue)
+	})
+	return tuples
+}
+
+func lockIdentifierTuplesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string, tuples []normalizedIdentifierTuple) error {
+	for _, tuple := range tuples {
+		lockKey := incidentID.String() + "\x1f" + entityType + "\x1f" + tuple.IdentifierType + "\x1f" + tuple.NormalizedValue
+		if _, err := tx.Exec(ctx, `
+SELECT pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended($1, 0)
+)
+`, lockKey); err != nil {
+			return fmt.Errorf("lock active entity identifier claim: %w", err)
+		}
+	}
+	return nil
+}
+
+func matchClaimedRecordTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string, precedence []string, tuples []normalizedIdentifierTuple) (uuid.UUID, bool, error) {
+	if err := lockIdentifierTuplesTx(ctx, tx, incidentID, entityType, tuples); err != nil {
+		return uuid.Nil, false, err
+	}
+	byType := make(map[string]normalizedIdentifierTuple, len(tuples))
+	for _, tuple := range tuples {
+		byType[tuple.IdentifierType] = tuple
+	}
+	matched := make(map[uuid.UUID]struct{})
+	firstMatchedClass := ""
+	for _, identifierType := range precedence {
+		tuple, ok := byType[identifierType]
+		if !ok {
 			continue
-		case 1:
-			for _, record := range matched {
-				return record, true, nil
-			}
-		default:
-			return IdentityRecord{}, false, &ExactMatchConflictError{
-				EntityType:       "identity",
-				IdentifierClass:  identifierClass,
-				CandidateRecords: sortedRecordIDs(matched),
-			}
 		}
-	}
-	return IdentityRecord{}, false, nil
-}
-
-func loadActiveHostsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]HostRecord, error) {
-	rows, err := tx.Query(ctx, `
-SELECT
-    h.record_id,
-    h.incident_id,
-    h.display_name,
-    h.aad_device_id,
-    h.fqdn,
-    h.hostname,
-    h.location,
-    h.os_platform,
-    h.business_owner,
-    h.criticality,
-    h.containment_status,
-    h.host_state,
-    h.merged_into_record_id,
-    h.entity_origin,
-    h.seed_entity_mention_id,
-    r.row_version,
-    r.created_at,
-    r.updated_at,
-    r.created_by_user_id,
-    r.updated_by_user_id
-  FROM hosts h
-  JOIN records r
-    ON r.record_id = h.record_id
- WHERE h.incident_id = $1
-   AND h.host_state IN ('stub', 'canonical')
- FOR UPDATE OF h, r
-`, incidentID)
-	if err != nil {
-		return nil, fmt.Errorf("load active hosts: %w", err)
-	}
-	defer rows.Close()
-
-	records := make([]HostRecord, 0)
-	for rows.Next() {
-		record, err := scanHostRecord(rows)
+		var recordID uuid.UUID
+		err := tx.QueryRow(ctx, `
+SELECT record_id
+  FROM entity_active_identifier_claims
+ WHERE incident_id = $1
+   AND entity_type = $2
+   AND identifier_type = $3
+   AND normalized_value = $4
+`, incidentID, entityType, tuple.IdentifierType, tuple.NormalizedValue).Scan(&recordID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
 		if err != nil {
-			return nil, err
+			return uuid.Nil, false, fmt.Errorf("lookup active entity identifier claim: %w", err)
 		}
-		records = append(records, record)
+		if firstMatchedClass == "" {
+			firstMatchedClass = identifierType
+		}
+		matched[recordID] = struct{}{}
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate active hosts: %w", err)
+	if len(matched) == 0 {
+		return uuid.Nil, false, nil
 	}
-	return records, nil
+	if len(matched) > 1 {
+		return uuid.Nil, false, &ExactMatchConflictError{
+			EntityType:       entityType,
+			IdentifierClass:  firstMatchedClass,
+			CandidateRecords: sortedRecordIDs(matched),
+		}
+	}
+	for recordID := range matched {
+		return recordID, true, nil
+	}
+	return uuid.Nil, false, nil
 }
 
-func loadActiveIdentitiesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]IdentityRecord, error) {
-	rows, err := tx.Query(ctx, `
-SELECT
-    i.record_id,
-    i.incident_id,
-    i.display_name,
-    i.aad_object_id,
-    i.sid,
-    i.upn,
-    i.email::text,
-    i.sam_account_name,
-    i.privilege_level,
-    i.mfa_state,
-    i.reset_status,
-    i.identity_state,
-    i.merged_into_record_id,
-    i.entity_origin,
-    i.seed_entity_mention_id,
-    r.row_version,
-    r.created_at,
-    r.updated_at,
-    r.created_by_user_id,
-    r.updated_by_user_id
-  FROM identities i
-  JOIN records r
-    ON r.record_id = i.record_id
- WHERE i.incident_id = $1
-   AND i.identity_state IN ('stub', 'canonical')
- FOR UPDATE OF i, r
-`, incidentID)
-	if err != nil {
-		return nil, fmt.Errorf("load active identities: %w", err)
+func prepareIdentifierMutationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string, recordID uuid.UUID, tuples []normalizedIdentifierTuple) error {
+	if err := lockIdentifierTuplesTx(ctx, tx, incidentID, entityType, tuples); err != nil {
+		return err
 	}
-	defer rows.Close()
-
-	records := make([]IdentityRecord, 0)
-	for rows.Next() {
-		record, err := scanIdentityRecord(rows)
+	for _, tuple := range tuples {
+		var claimedRecordID uuid.UUID
+		err := tx.QueryRow(ctx, `
+SELECT record_id
+  FROM entity_active_identifier_claims
+ WHERE incident_id = $1
+   AND entity_type = $2
+   AND identifier_type = $3
+   AND normalized_value = $4
+`, incidentID, entityType, tuple.IdentifierType, tuple.NormalizedValue).Scan(&claimedRecordID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
 		if err != nil {
-			return nil, err
+			return fmt.Errorf("validate active entity identifier claim: %w", err)
 		}
-		records = append(records, record)
+		if claimedRecordID != recordID {
+			return &ExactMatchConflictError{
+				EntityType:       entityType,
+				IdentifierClass:  tuple.IdentifierType,
+				CandidateRecords: []uuid.UUID{claimedRecordID},
+			}
+		}
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate active identities: %w", err)
-	}
-	return records, nil
+	return nil
 }
 
-func loadActivePreservedIdentifiersTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string) ([]preservedIdentifierRecord, error) {
-	query := `
-SELECT epi.record_id, epi.entity_type, epi.identifier_type, epi.normalized_value, epi.classification
-  FROM entity_preserved_identifiers epi
-`
-	switch entityType {
-	case "host":
-		query += `
-  JOIN hosts h
-    ON h.record_id = epi.record_id
-   AND h.incident_id = epi.incident_id
-`
-	case "identity":
-		query += `
-  JOIN identities i
-    ON i.record_id = epi.record_id
-   AND i.incident_id = epi.incident_id
-`
-	default:
-		return nil, fmt.Errorf("load preserved identifiers: unsupported entity type %q", entityType)
-	}
-	query += `
- WHERE epi.incident_id = $1
-   AND epi.entity_type = $2
-   AND epi.deleted_at IS NULL
-   AND epi.classification = 'exact_match_reuse'
-`
-	switch entityType {
-	case "host":
-		query += `
-   AND h.host_state IN ('stub', 'canonical')
- FOR UPDATE OF epi, h
-`
-	case "identity":
-		query += `
-   AND i.identity_state IN ('stub', 'canonical')
- FOR UPDATE OF epi, i
-`
-	}
-	rows, err := tx.Query(ctx, query, incidentID, entityType)
-	if err != nil {
-		return nil, fmt.Errorf("load preserved identifiers: %w", err)
-	}
-	defer rows.Close()
-
-	records := make([]preservedIdentifierRecord, 0)
-	for rows.Next() {
-		var record preservedIdentifierRecord
-		if err := rows.Scan(&record.RecordID, &record.EntityType, &record.IdentifierType, &record.NormalizedValue, &record.Classification); err != nil {
-			return nil, fmt.Errorf("scan preserved identifier: %w", err)
+func hostPatchIdentifierTuples(changes []PatchChange) []normalizedIdentifierTuple {
+	seeds := make([]identifierSeed, 0, 1)
+	for _, change := range changes {
+		if change.FieldKey == "host.hostname" && change.Value != nil {
+			seeds = append(seeds, identifierSeed{IdentifierType: "hostname", RawValue: *change.Value})
 		}
-		records = append(records, record)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate preserved identifiers: %w", err)
+	return normalizedIdentifierTuples(seeds)
+}
+
+func identityPatchIdentifierTuples(changes []PatchChange) []normalizedIdentifierTuple {
+	seeds := make([]identifierSeed, 0, 3)
+	for _, change := range changes {
+		identifierType := ""
+		switch change.FieldKey {
+		case "identity.upn":
+			identifierType = "upn"
+		case "identity.email":
+			identifierType = "email"
+		case "identity.sam_account_name":
+			identifierType = "sam_account_name"
+		}
+		if identifierType != "" && change.Value != nil {
+			seeds = append(seeds, identifierSeed{IdentifierType: identifierType, RawValue: *change.Value})
+		}
 	}
-	return records, nil
+	return normalizedIdentifierTuples(seeds)
+}
+
+func mergeNormalizedIdentifierTuples(groups ...[]normalizedIdentifierTuple) []normalizedIdentifierTuple {
+	unique := make(map[string]normalizedIdentifierTuple)
+	for _, group := range groups {
+		for _, tuple := range group {
+			unique[tuple.IdentifierType+"\x1f"+tuple.NormalizedValue] = tuple
+		}
+	}
+	merged := make([]normalizedIdentifierTuple, 0, len(unique))
+	for _, tuple := range unique {
+		merged = append(merged, tuple)
+	}
+	slices.SortFunc(merged, func(left normalizedIdentifierTuple, right normalizedIdentifierTuple) int {
+		if compared := strings.Compare(left.IdentifierType, right.IdentifierType); compared != 0 {
+			return compared
+		}
+		return strings.Compare(left.NormalizedValue, right.NormalizedValue)
+	})
+	return merged
 }
 
 func hasPendingIdentifierSeedsTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string, seeds []identifierSeed) (bool, error) {

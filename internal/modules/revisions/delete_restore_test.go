@@ -22,6 +22,7 @@ import (
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	projectiontest "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -161,14 +162,17 @@ func TestDeleteRestoreConcreteSourceAdapterMatrix_Integration(t *testing.T) {
 				t.Fatalf("%s live projection row unexpectedly matches the authoritative {record, source} snapshot: %#v", recordType, projectionRow)
 			}
 		}
-		reasonCode, blocked, err := contribution.DeleteRestoreSource.ValidateDeletePreconditionsTx(
+		preparation, err := contribution.DeleteRestoreSource.PrepareStateTransitionTx(
 			ctx,
 			tx,
-			incidentID,
-			recordID,
+			deleterestorecontract.StateTransitionRequest{
+				Kind:       deleterestorecontract.StateTransitionDelete,
+				IncidentID: incidentID,
+				RecordID:   recordID,
+			},
 		)
-		if err != nil || blocked || reasonCode != "" {
-			t.Fatalf("%s delete precondition = reason %q blocked %v err %v", recordType, reasonCode, blocked, err)
+		if err != nil || preparation.Blocked != nil {
+			t.Fatalf("%s delete preparation = %#v err %v", recordType, preparation, err)
 		}
 		if err := contribution.DeleteRestoreSource.UpdateSourceDeleteStateTx(
 			ctx,
@@ -329,6 +333,9 @@ func TestRestoreTombstonePreconditions_Unit(t *testing.T) {
 	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 12, 10, 0, 0, time.UTC))
 	deletePayload := httptestx.RequireSuccessEnvelope(t, deleteRecord(t, harness, login, recordID, map[string]any{"base_row_version": 1, "client_txn_id": "txn-u-7-04-delete"}), http.StatusOK)["data"].(map[string]any)
 	tombstoneVersion := int64(deletePayload["row_version"].(float64))
+	if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM entity_active_identifier_claims WHERE record_id = $1`, recordID); got != 0 {
+		t.Fatalf("deleted Host retained %d active identifier claims", got)
+	}
 
 	setMembershipRole(t, harness.DB, incidentID, actorID, "editor")
 	forbidden := restoreRecord(t, harness, login, recordID, map[string]any{"base_row_version": tombstoneVersion, "client_txn_id": "txn-u-7-04-forbidden"})
@@ -366,6 +373,9 @@ func TestRestoreTombstonePreconditions_Unit(t *testing.T) {
 	if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM host_grid_projection WHERE record_id = $1`, recordID); got != 1 {
 		t.Fatalf("restored host was not eligible for ordinary projection, count=%d", got)
 	}
+	if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM entity_active_identifier_claims WHERE record_id = $1`, recordID); got != 1 {
+		t.Fatalf("restored Host reacquired %d active identifier claims, want 1", got)
+	}
 	if countRecordMutations(t, harness.DB, recordID, "soft_delete") != 1 || countRecordMutations(t, harness.DB, recordID, "restore") != 1 {
 		t.Fatalf("delete/restore history mutations were not append-only")
 	}
@@ -393,6 +403,35 @@ func TestRestoreTombstonePreconditions_Unit(t *testing.T) {
 	}), http.StatusOK)["data"].(map[string]any)
 	if got := nullableChangeSetReason(t, harness.DB, reasonedRestore["change_set_id"].(string)); got == nil || *got != "Restore approval reason" {
 		t.Fatalf("non-empty restore reason must persist normalized text, got %#v", got)
+	}
+
+	blockedRecordID := uuid.New()
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, blockedRecordID, "Blocked Restore Host", "blocked-restore-host", "", "")
+	blockedDelete := httptestx.RequireSuccessEnvelope(t, deleteRecord(t, harness, login, blockedRecordID, map[string]any{
+		"base_row_version": 1,
+		"client_txn_id":    "txn-u-7-04-delete-blocked",
+	}), http.StatusOK)["data"].(map[string]any)
+	blockingRecordID := uuid.New()
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, blockingRecordID, "Blocking Active Host", "blocked-restore-host", "", "")
+	blockedVersion := int64(blockedDelete["row_version"].(float64))
+	blocked := restoreRecord(t, harness, login, blockedRecordID, map[string]any{
+		"base_row_version": blockedVersion,
+		"client_txn_id":    "txn-u-7-04-restore-blocked",
+	})
+	blockedEnvelope := httptestx.RequireErrorEnvelope(t, blocked, http.StatusConflict, "record_restore_blocked")
+	details := blockedEnvelope["error"].(map[string]any)["details"].(map[string]any)
+	if details["reason_code"] != "active_entity_identifier_conflict" ||
+		details["entity_type"] != "host" ||
+		details["identifier_class"] != "hostname" ||
+		details["normalized_value"] != "blocked-restore-host" ||
+		details["blocking_record_id"] != blockingRecordID.String() {
+		t.Fatalf("unsafe or incomplete restore conflict details: %#v", details)
+	}
+	if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM records WHERE record_id = $1 AND row_version = $2 AND deleted_at IS NOT NULL`, blockedRecordID, blockedVersion); got != 1 {
+		t.Fatalf("blocked restore changed the tombstone envelope, count=%d", got)
+	}
+	if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations WHERE target_id = $1 AND operation_kind = 'restore'`, blockedRecordID.String()); got != 0 {
+		t.Fatalf("blocked restore appended %d history mutations", got)
 	}
 
 	notDeleted := restoreRecord(t, harness, login, recordID, map[string]any{"base_row_version": tombstoneVersion + 1, "client_txn_id": "txn-u-7-04-not-deleted"})

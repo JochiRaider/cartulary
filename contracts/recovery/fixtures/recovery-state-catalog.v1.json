@@ -1,6 +1,6 @@
 {
   "schema_id": "cartulary.recovery_state_catalog.v1",
-  "catalog_digest_sha256": "96ab9cac942a3729afcefa47a02bbfe910a2c09af0fb25ee32f7b610b6352055",
+  "catalog_digest_sha256": "1b4c1816a2559ef0672212bc3f45ac6e56844e580b67bded694c6c25d1a07562",
   "contribution_digests": [
     {
       "owner_id": "module.artifacts",
@@ -32,7 +32,7 @@
     },
     {
       "owner_id": "module.entities",
-      "sha256": "2ddb034becceefcd35c2523e07858bded84e34665beb4773f5a91d8c066eb5dd"
+      "sha256": "26dd66a33c34418b14da12b68858851eb91fe165375df9b58607f399cbc2bd23"
     },
     {
       "owner_id": "module.evidence",
@@ -339,6 +339,15 @@
       "restore_action": "invalidate",
       "codec_id": null,
       "algorithm_id": "auth.invalidate_enterprise_transactions.v1"
+    },
+    {
+      "owner_id": "module.entities",
+      "table_name": "entity_active_identifier_claims",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "entities.restore_active_identifier_claims.v1"
     },
     {
       "owner_id": "module.entities",

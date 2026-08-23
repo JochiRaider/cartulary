@@ -41,6 +41,58 @@ func seedRecord(t testing.TB, db *sql.DB, server *httptestx.Server, login appsup
 	return incidentID, recordID
 }
 
+// advanceRecordFixture keeps the retained Host/Identity envelope mirror exact
+// while synthetic revision fixtures advance an envelope outside the production
+// writer. Migration 36 intentionally rejects a committed half-update.
+func advanceRecordFixture(t testing.TB, db *sql.DB, recordID uuid.UUID, rowVersion int64) {
+	t.Helper()
+	advanceRecordFixtureWithAudit(t, db, recordID, rowVersion, nil, nil)
+}
+
+func advanceRecordFixtureWithAudit(
+	t testing.TB,
+	db *sql.DB,
+	recordID uuid.UUID,
+	rowVersion int64,
+	updatedAt *time.Time,
+	updatedBy *uuid.UUID,
+) {
+	t.Helper()
+	ctx := context.Background()
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("begin record fixture advance: %v", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, `
+UPDATE records
+   SET row_version = GREATEST(row_version, $2),
+       updated_at = COALESCE($3, updated_at),
+       updated_by_user_id = COALESCE($4, updated_by_user_id)
+ WHERE record_id = $1
+`, recordID, rowVersion, updatedAt, updatedBy); err != nil {
+		t.Fatalf("advance record fixture envelope: %v", err)
+	}
+	for _, table := range []string{"hosts", "identities"} {
+		if _, err := tx.ExecContext(ctx, `
+UPDATE `+table+` AS source
+   SET row_version = envelope.row_version,
+       created_at = envelope.created_at,
+       updated_at = envelope.updated_at,
+       created_by_user_id = envelope.created_by_user_id,
+       updated_by_user_id = envelope.updated_by_user_id
+  FROM records AS envelope
+ WHERE source.record_id = envelope.record_id
+   AND envelope.record_id = $1
+`, recordID); err != nil {
+			t.Fatalf("advance record fixture %s mirror: %v", table, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit record fixture advance: %v", err)
+	}
+}
+
 func seedHistoryChangeSet(t testing.TB, db *sql.DB, seed historySeed) {
 	t.Helper()
 	seedChangeSet(t, db, seed)
@@ -74,9 +126,7 @@ ON CONFLICT (record_id, row_version) DO NOTHING
 `, seed.ChangeSetID, seed.RecordID, seed.RowVersion, beforeJSON, afterJSON, seed.CreatedAt); err != nil {
 			t.Fatalf("seed record revision: %v", err)
 		}
-		if _, err := db.ExecContext(context.Background(), `UPDATE records SET row_version = GREATEST(row_version, $1) WHERE record_id = $2`, seed.RowVersion, seed.RecordID); err != nil {
-			t.Fatalf("advance record row version: %v", err)
-		}
+		advanceRecordFixture(t, db, seed.RecordID, seed.RowVersion)
 	}
 }
 

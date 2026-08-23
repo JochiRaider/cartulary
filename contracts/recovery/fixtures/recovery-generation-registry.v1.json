@@ -7,10 +7,10 @@
       "catalog": {
         "artifact_path": "fixtures/recovery-state-catalog.v1.json",
         "schema_id": "cartulary.recovery_state_catalog.v1",
-        "canonical_sha256": "bb93606ff29b008c8ab41a8b1964bf215b02a0db9213ec337db4c424e82a4840",
-        "catalog_digest_sha256": "96ab9cac942a3729afcefa47a02bbfe910a2c09af0fb25ee32f7b610b6352055",
+        "canonical_sha256": "9d37a3bde756fec9b4d30ec03e0085a399d2c154371e8b9c42791757735e6d1c",
+        "catalog_digest_sha256": "1b4c1816a2559ef0672212bc3f45ac6e56844e580b67bded694c6c25d1a07562",
         "contribution_count": 30,
-        "authored_table_count": 113,
+        "authored_table_count": 114,
         "required_table_count": 84,
         "object_family_count": 6
       },
@@ -37,7 +37,7 @@
         "implementation_binding": {
           "artifact_path": "fixtures/graph-projection-restore-implementation-binding.v3.json",
           "schema_id": "cartulary.graph_projection_restore_implementation_binding.v3",
-          "canonical_sha256": "113056a35ec55e42532fca7fd15f557450cd585cd54fb70c657ea1bfb4b61673"
+          "canonical_sha256": "18f7c517c18b0ed25d1950ccb950bc06fad63eb28d3a68176f0d795eaf65bbd9"
         }
       }
     },

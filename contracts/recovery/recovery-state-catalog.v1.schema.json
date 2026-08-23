@@ -34,7 +34,7 @@
     "tables": {
       "type": "array",
       "minItems": 113,
-      "maxItems": 113,
+      "maxItems": 114,
       "items": {
         "type": "object",
         "additionalProperties": false,

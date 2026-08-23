@@ -183,6 +183,8 @@ func assertTableAccessClass(t testing.TB, db *sql.DB, objectName string, class s
 		want = truePrivileges("SELECT")
 	case "table_restore":
 		want = truePrivileges("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE")
+	case "table_rebuild":
+		want = truePrivileges("SELECT", "TRUNCATE")
 	case "table_no_access":
 	case "not_applicable":
 		return
@@ -521,7 +523,7 @@ func assertPublicAndDefaultPrivileges(t testing.TB, db *sql.DB) {
 			t.Fatal(err)
 		}
 		if count != 0 {
-			t.Fatalf("PUBLIC/default privilege query found %d violations", count)
+			t.Fatalf("PUBLIC/default privilege query found %d violations: %s", count, query)
 		}
 	}
 }

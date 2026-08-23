@@ -111,12 +111,12 @@ var evidenceExportClassifications = map[string]map[string]exportDisposition{
 		"StorageRefScheme":          exportRetain,
 	},
 	"deleterestore": {
-		"NewSource":                            exportRetain,
-		"Source":                               exportRetain,
-		"Source.SnapshotTx":                    exportRetain,
-		"Source.UpdateSourceDeleteStateTx":     exportRetain,
-		"Source.ValidateDeletePreconditionsTx": exportRetain,
-		"Source.ViewSchemaID":                  exportRetain,
+		"NewSource":                        exportRetain,
+		"Source":                           exportRetain,
+		"Source.SnapshotTx":                exportRetain,
+		"Source.UpdateSourceDeleteStateTx": exportRetain,
+		"Source.PrepareStateTransitionTx":  exportRetain,
+		"Source.ViewSchemaID":              exportRetain,
 	},
 	"internal/policy": {
 		"AllowedNonTerminalFinalizeFailures":         exportRetain,

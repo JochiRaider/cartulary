@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.entities_identifier_normalization_corpus.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "normalizer_id", "cases"],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.entities_identifier_normalization_corpus.v1"
+    },
+    "normalizer_id": {
+      "const": "entities.identifier_normalization.v1"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "identifier_type",
+          "raw_value",
+          "admitted",
+          "normalized_value"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "identifier_type": { "type": "string" },
+          "raw_value": { "type": "string" },
+          "admitted": { "type": "boolean" },
+          "normalized_value": {
+            "type": ["string", "null"]
+          }
+        }
+      }
+    }
+  }
+}

@@ -59,11 +59,7 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
-	beforeSnapshot, err := s.captureHostSnapshotBeforeUpsertTx(ctx, tx, incidentID, request)
-	if err != nil {
-		return MutationResult{}, err
-	}
-	record, beforeRow, operationKind, statusCode, err := s.upsertHostTx(ctx, tx, actor, incidentID, request, now)
+	record, beforeRow, operationKind, statusCode, beforeSnapshot, err := s.upsertHostTx(ctx, tx, actor, incidentID, request, now)
 	if err != nil {
 		return MutationResult{}, err
 	}
@@ -191,11 +187,7 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
-	beforeSnapshot, err := s.captureIdentitySnapshotBeforeUpsertTx(ctx, tx, incidentID, request)
-	if err != nil {
-		return MutationResult{}, err
-	}
-	record, beforeRow, operationKind, statusCode, err := s.upsertIdentityTx(ctx, tx, actor, incidentID, request, now)
+	record, beforeRow, operationKind, statusCode, beforeSnapshot, err := s.upsertIdentityTx(ctx, tx, actor, incidentID, request, now)
 	if err != nil {
 		return MutationResult{}, err
 	}

@@ -1,0 +1,97 @@
+{
+  "schema_id": "cartulary.entities_identifier_normalization_corpus.v1",
+  "normalizer_id": "entities.identifier_normalization.v1",
+  "cases": [
+    {
+      "case_id": "aad_device_id_ascii_case",
+      "identifier_type": "aad_device_id",
+      "raw_value": " AAD-ABC-123 ",
+      "admitted": true,
+      "normalized_value": "aad-abc-123"
+    },
+    {
+      "case_id": "fqdn_unicode_whitespace",
+      "identifier_type": "fqdn",
+      "raw_value": "\u2003Gateway.Example.TEST\u2003",
+      "admitted": true,
+      "normalized_value": "gateway.example.test"
+    },
+    {
+      "case_id": "hostname_nfc",
+      "identifier_type": "hostname",
+      "raw_value": "CAFE\u0301-HOST",
+      "admitted": true,
+      "normalized_value": "café-host"
+    },
+    {
+      "case_id": "aad_object_id_case",
+      "identifier_type": "aad_object_id",
+      "raw_value": "ABCDEF00-1234-5678-90AB-ABCDEF123456",
+      "admitted": true,
+      "normalized_value": "abcdef00-1234-5678-90ab-abcdef123456"
+    },
+    {
+      "case_id": "sid_uppercase",
+      "identifier_type": "sid",
+      "raw_value": " s-1-5-21-abcd ",
+      "admitted": true,
+      "normalized_value": "S-1-5-21-ABCD"
+    },
+    {
+      "case_id": "upn_case",
+      "identifier_type": "upn",
+      "raw_value": "User@Example.TEST",
+      "admitted": true,
+      "normalized_value": "user@example.test"
+    },
+    {
+      "case_id": "email_case",
+      "identifier_type": "email",
+      "raw_value": "Analyst@Example.TEST",
+      "admitted": true,
+      "normalized_value": "analyst@example.test"
+    },
+    {
+      "case_id": "sam_account_name_case",
+      "identifier_type": "sam_account_name",
+      "raw_value": "CORP\\Analyst",
+      "admitted": true,
+      "normalized_value": "corp\\analyst"
+    },
+    {
+      "case_id": "empty_after_unicode_trim",
+      "identifier_type": "hostname",
+      "raw_value": "\u2003\u00a0",
+      "admitted": false,
+      "normalized_value": null
+    },
+    {
+      "case_id": "c0_control_rejected",
+      "identifier_type": "hostname",
+      "raw_value": "host\u0007name",
+      "admitted": false,
+      "normalized_value": null
+    },
+    {
+      "case_id": "c1_control_rejected",
+      "identifier_type": "hostname",
+      "raw_value": "host\u0085name",
+      "admitted": false,
+      "normalized_value": null
+    },
+    {
+      "case_id": "format_character_rejected",
+      "identifier_type": "hostname",
+      "raw_value": "host\u200bname",
+      "admitted": false,
+      "normalized_value": null
+    },
+    {
+      "case_id": "unknown_class_rejected",
+      "identifier_type": "future_identifier",
+      "raw_value": "value",
+      "admitted": false,
+      "normalized_value": null
+    }
+  ]
+}

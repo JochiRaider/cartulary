@@ -237,9 +237,18 @@ func seedHostRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID 
 		aadDeviceValue = aadDeviceID
 	}
 	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO hosts (record_id, incident_id, display_name, hostname, fqdn, aad_device_id, host_state, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, $3, $4, $5, $6, 'canonical', $7, $7)
-`, recordID, incidentID, displayName, hostname, fqdnValue, aadDeviceValue, actorUserID); err != nil {
+INSERT INTO hosts (
+    record_id, incident_id, display_name, hostname, fqdn, aad_device_id,
+    host_state, row_version, created_at, updated_at,
+    created_by_user_id, updated_by_user_id
+)
+SELECT r.record_id, r.incident_id, $3, $4, $5, $6,
+       'canonical', r.row_version, r.created_at, r.updated_at,
+       r.created_by_user_id, r.updated_by_user_id
+  FROM records r
+ WHERE r.record_id = $1
+   AND r.incident_id = $2
+`, recordID, incidentID, displayName, hostname, fqdnValue, aadDeviceValue); err != nil {
 		t.Fatalf("seed host record: %v", err)
 	}
 }
@@ -289,7 +298,7 @@ INSERT INTO entity_mentions (
     resolved_at,
     resolution_method
 )
-VALUES ($1, $2, 'host', $3, 'interactive_cell', 'merge-test', $4, $4, 'resolved', 1, 1, $5, $6, $5, now(), 'explicit_resolve_route')
+VALUES ($1, $2, 'host', $3, 'manual_entry', 'merge-test', $4, $4, 'resolved', 1, 1, $5, $6, $5, now(), 'explicit_resolve_route')
 `, mentionID, sourceRecordID, sourceFieldKey, rawText, actorUserID, resolvedRecordID); err != nil {
 		t.Fatalf("seed resolved mention: %v", err)
 	}

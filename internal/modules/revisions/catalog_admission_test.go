@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -29,8 +30,8 @@ func (catalogAdmissionSnapshotSource) ViewSchemaID(context.Context, pgx.Tx, uuid
 	return "cartulary.view.catalog_admission.v1", nil
 }
 
-func (catalogAdmissionSnapshotSource) ValidateDeletePreconditionsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (string, bool, error) {
-	return "", false, nil
+func (catalogAdmissionSnapshotSource) PrepareStateTransitionTx(context.Context, pgx.Tx, deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
+	return deleterestorecontract.StateTransitionPreparation{}, nil
 }
 
 type catalogAdmissionRowProvider struct{}

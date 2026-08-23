@@ -140,8 +140,13 @@ func productionDDLPolicyViolations(body string) []string {
 		}
 	}
 	allowedDefiners := map[string]bool{
-		"revisions_incident_bundle_sequence_begin_v1":  true,
-		"revisions_incident_bundle_sequence_finish_v1": true,
+		"revisions_incident_bundle_sequence_begin_v1":    true,
+		"revisions_incident_bundle_sequence_finish_v1":   true,
+		"entities_refresh_active_identifier_claims_v1":   true,
+		"entities_release_active_identifier_claims_v1":   true,
+		"entities_sync_active_identifier_claims_v1":      true,
+		"entities_rebuild_active_identifier_claims_v1":   true,
+		"entities_active_identifier_claims_are_valid_v1": true,
 	}
 	for _, match := range ddlRoutinePattern.FindAllStringSubmatch(up, -1) {
 		definition := match[0]

@@ -41,10 +41,10 @@ func TestRecordHistoryEnvelope_Unit(t *testing.T) {
 		TargetKind: "record", Operation: "envelope_update",
 	})
 	tombstone := base.Add(3 * time.Minute)
+	advanceRecordFixture(t, harness.DB, recordID, 5)
 	if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE records
-   SET row_version = 5,
-       deleted_at = $1,
+	SET deleted_at = $1,
        deleted_by_user_id = $2
  WHERE record_id = $3
 `, tombstone, actorID, recordID); err != nil {
@@ -192,20 +192,20 @@ func TestRetainedHistoryInvariants_Unit(t *testing.T) {
 		CreatedAt: base.Add(time.Minute), Source: "rollback", SequenceNo: 1,
 		TargetKind: "host", Operation: "rollback", RowVersion: 3,
 	})
+	advanceRecordFixture(t, harness.DB, recordID, 4)
 	if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE records
    SET deleted_at = $1,
-       deleted_by_user_id = $2,
-       row_version = 4
+	   deleted_by_user_id = $2
  WHERE record_id = $3
 `, base.Add(2*time.Minute), actorID, recordID); err != nil {
 		t.Fatalf("seed delete cycle tombstone: %v", err)
 	}
+	advanceRecordFixture(t, harness.DB, recordID, 5)
 	if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE records
    SET deleted_at = NULL,
-       deleted_by_user_id = NULL,
-       row_version = 5
+	   deleted_by_user_id = NULL
  WHERE record_id = $1
 `, recordID); err != nil {
 		t.Fatalf("seed restore cycle: %v", err)

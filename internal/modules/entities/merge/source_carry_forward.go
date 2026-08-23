@@ -35,28 +35,11 @@ func (s *Store) planHostMergeCarryForwardTx(ctx context.Context, tx pgx.Tx, inci
 				next.Hostname = stringPointer(candidate.Seed.RawValue)
 			}
 		}
-		if _, err := s.hostIdentity.SyncPreservedIdentifierTx(ctx, tx, incidentID, survivor.RecordID, "host", candidate.Seed.IdentifierType, candidate.Seed.RawValue, candidate.Seed.Classification, actorUserID, now); err != nil {
-			return mergeCarryPlan{}, err
-		}
-		plan.IdentifierMutations = append(plan.IdentifierMutations, mergeIdentifierMutation{
-			After: buildMergePreservedIdentifierValueFromSeed(incidentID, survivor.RecordID, "host", candidate.Seed),
-		})
 	}
 	plan.SurvivorHost = next
-	if len(loserAliases) > 0 {
-		actions := aliasActionsFromRecords(loserAliases)
-		syncResult, err := s.hostIdentity.SyncAliasesTx(ctx, tx, incidentID, survivor.RecordID, "host", actions, actorUserID, now)
-		if err != nil {
-			return mergeCarryPlan{}, err
-		}
-		plan.SuggestionAliasesCopiedCount += len(syncResult.Added)
-		plan.SuggestionAliasDuplicateNoop += syncResult.DuplicateNoopCount
-		for _, alias := range syncResult.Added {
-			plan.AliasMutations = append(plan.AliasMutations, mergeAliasMutation{
-				After: alias.MutationValue(),
-			})
-		}
-	}
+	plan.AliasActions = aliasActionsFromRecords(loserAliases)
+	_ = actorUserID
+	_ = now
 	return plan, nil
 }
 
@@ -92,29 +75,68 @@ func (s *Store) planIdentityMergeCarryForwardTx(ctx context.Context, tx pgx.Tx, 
 				next.SamAccountName = stringPointer(candidate.Seed.RawValue)
 			}
 		}
-		if _, err := s.hostIdentity.SyncPreservedIdentifierTx(ctx, tx, incidentID, survivor.RecordID, "identity", candidate.Seed.IdentifierType, candidate.Seed.RawValue, candidate.Seed.Classification, actorUserID, now); err != nil {
-			return mergeCarryPlan{}, err
-		}
-		plan.IdentifierMutations = append(plan.IdentifierMutations, mergeIdentifierMutation{
-			After: buildMergePreservedIdentifierValueFromSeed(incidentID, survivor.RecordID, "identity", candidate.Seed),
-		})
 	}
 	plan.SurvivorIdentity = next
-	if len(loserAliases) > 0 {
-		actions := aliasActionsFromRecords(loserAliases)
-		syncResult, err := s.hostIdentity.SyncAliasesTx(ctx, tx, incidentID, survivor.RecordID, "identity", actions, actorUserID, now)
+	plan.AliasActions = aliasActionsFromRecords(loserAliases)
+	_ = actorUserID
+	_ = now
+	return plan, nil
+}
+
+func (s *Store) applyMergeCarryForwardTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	entityType string,
+	survivorRecordID uuid.UUID,
+	actorUserID uuid.UUID,
+	now time.Time,
+	plan *mergeCarryPlan,
+) error {
+	for _, candidate := range plan.IdentifierInserts {
+		created, err := s.hostIdentity.SyncPreservedIdentifierTx(
+			ctx,
+			tx,
+			incidentID,
+			survivorRecordID,
+			entityType,
+			candidate.Seed.IdentifierType,
+			candidate.Seed.RawValue,
+			candidate.Seed.Classification,
+			actorUserID,
+			now,
+		)
 		if err != nil {
-			return mergeCarryPlan{}, err
+			return err
 		}
-		plan.SuggestionAliasesCopiedCount += len(syncResult.Added)
-		plan.SuggestionAliasDuplicateNoop += syncResult.DuplicateNoopCount
-		for _, alias := range syncResult.Added {
-			plan.AliasMutations = append(plan.AliasMutations, mergeAliasMutation{
-				After: alias.MutationValue(),
+		if created {
+			plan.IdentifierMutations = append(plan.IdentifierMutations, mergeIdentifierMutation{
+				After: buildMergePreservedIdentifierValueFromSeed(incidentID, survivorRecordID, entityType, candidate.Seed),
 			})
 		}
 	}
-	return plan, nil
+	if len(plan.AliasActions) == 0 {
+		return nil
+	}
+	syncResult, err := s.hostIdentity.SyncAliasesTx(
+		ctx,
+		tx,
+		incidentID,
+		survivorRecordID,
+		entityType,
+		plan.AliasActions,
+		actorUserID,
+		now,
+	)
+	if err != nil {
+		return err
+	}
+	plan.SuggestionAliasesCopiedCount += len(syncResult.Added)
+	plan.SuggestionAliasDuplicateNoop += syncResult.DuplicateNoopCount
+	for _, alias := range syncResult.Added {
+		plan.AliasMutations = append(plan.AliasMutations, mergeAliasMutation{After: alias.MutationValue()})
+	}
+	return nil
 }
 
 func (s *Store) applyCarryPlanTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, precedence []string, survivorExisting map[string]map[string]struct{}, canonicalFilled map[string]bool, candidates map[string][]mergeExactMatchCandidate, summary map[string]MergeExactMatchClassSummary, actorUserID uuid.UUID, now time.Time) (mergeCarryPlan, error) {

@@ -41,6 +41,53 @@ func (*MergeCapability) LoadIdentityTx(ctx context.Context, tx pgx.Tx, recordID 
 	return loadIdentityByRecordIDTx(ctx, tx, recordID)
 }
 
+func (*MergeCapability) PrepareIdentifierClaimsTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	entityType string,
+	survivorRecordID uuid.UUID,
+	loserRecordID uuid.UUID,
+) (*ActiveIdentifierTransitionConflict, error) {
+	survivorTuples, err := recordIdentifierTuplesTx(ctx, tx, incidentID, entityType, survivorRecordID)
+	if err != nil {
+		return nil, err
+	}
+	loserTuples, err := recordIdentifierTuplesTx(ctx, tx, incidentID, entityType, loserRecordID)
+	if err != nil {
+		return nil, err
+	}
+	tuples := mergeNormalizedIdentifierTuples(survivorTuples, loserTuples)
+	if err := lockIdentifierTuplesTx(ctx, tx, incidentID, entityType, tuples); err != nil {
+		return nil, err
+	}
+	for _, tuple := range tuples {
+		var claimedRecordID uuid.UUID
+		err := tx.QueryRow(ctx, `
+SELECT record_id
+  FROM entity_active_identifier_claims
+ WHERE incident_id = $1
+   AND entity_type = $2
+   AND identifier_type = $3
+   AND normalized_value = $4
+`, incidentID, entityType, tuple.IdentifierType, tuple.NormalizedValue).Scan(&claimedRecordID)
+		if err == pgx.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if claimedRecordID != survivorRecordID && claimedRecordID != loserRecordID {
+			return &ActiveIdentifierTransitionConflict{
+				IdentifierClass:  tuple.IdentifierType,
+				NormalizedValue:  tuple.NormalizedValue,
+				BlockingRecordID: claimedRecordID,
+			}, nil
+		}
+	}
+	return nil, nil
+}
+
 func (*MergeCapability) UpdateHostTx(ctx context.Context, tx pgx.Tx, record HostRecord) error {
 	return updateHostTx(ctx, tx, record)
 }

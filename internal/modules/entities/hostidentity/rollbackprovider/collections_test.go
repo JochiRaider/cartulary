@@ -1,6 +1,7 @@
 package rollbackprovider
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -77,6 +78,47 @@ func TestCollectionChangedFieldsRemainOwnerDefined(t *testing.T) {
 	preserved := collectionIdentity{targetKind: "entity_preserved_identifier", entityType: "host", classification: "exact_match_reuse"}
 	if got := collectionChangedFieldKeys(preserved); len(got) != 1 || got[0] != "host.reusable_identifiers" {
 		t.Fatalf("identifier changed keys = %v", got)
+	}
+	t.Run("only exact preserved identifiers nominate claim preparation", testCollectionClaimPreparationNomination)
+}
+
+func testCollectionClaimPreparationNomination(t *testing.T) {
+	incidentID, recordID := uuid.New(), uuid.New()
+	provider := CollectionProvider{}
+	exact := rollbackcontract.NonRowTarget{
+		TargetKind: "entity_preserved_identifier", OperationKind: "create", IncidentID: incidentID,
+		AfterValue: map[string]any{
+			"incident_id": incidentID.String(), "record_id": recordID.String(), "entity_type": "host",
+			"identifier_type": "fqdn", "raw_value": "Example.Test", "normalized_value": "example.test",
+			"classification": "exact_match_reuse",
+		},
+	}
+	identity, err := parseCollectionTargetWithoutTargetID(exact)
+	if err != nil {
+		t.Fatalf("build exact target: %v", err)
+	}
+	exact.TargetID = collectionTargetID(identity)
+	got, err := provider.IdentifierClaimRecordTx(context.Background(), nil, exact)
+	if err != nil || got != recordID {
+		t.Fatalf("exact preserved identifier claim record = %s, %v; want %s", got, err, recordID)
+	}
+
+	suggestion := rollbackcontract.NonRowTarget{
+		TargetKind: "entity_preserved_identifier", OperationKind: "create", IncidentID: incidentID,
+		AfterValue: map[string]any{
+			"incident_id": incidentID.String(), "record_id": recordID.String(), "entity_type": "host",
+			"identifier_type": "fqdn", "raw_value": "Example.Test", "normalized_value": "example.test",
+			"classification": "suggestion_only",
+		},
+	}
+	identity, err = parseCollectionTargetWithoutTargetID(suggestion)
+	if err != nil {
+		t.Fatalf("build suggestion target: %v", err)
+	}
+	suggestion.TargetID = collectionTargetID(identity)
+	got, err = provider.IdentifierClaimRecordTx(context.Background(), nil, suggestion)
+	if err != nil || got != uuid.Nil {
+		t.Fatalf("suggestion-only claim record = %s, %v; want nil", got, err)
 	}
 }
 

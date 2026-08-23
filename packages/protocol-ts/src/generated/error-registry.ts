@@ -264,6 +264,11 @@ const value = {
       "summary": "The addressed record cannot be soft-deleted while owner-defined active incoming references or integrity dependencies remain."
     },
     {
+      "code": "record_restore_blocked",
+      "http_status": 409,
+      "summary": "The addressed record cannot be restored while owner-defined active identity or integrity dependencies conflict."
+    },
+    {
       "code": "record_not_deleted",
       "http_status": 409,
       "summary": "The addressed record is not currently soft-deleted."
@@ -1772,6 +1777,10 @@ const value = {
         {
           "code": "stale_target",
           "summary": "The selected historical target is no longer a legal rollback point because a later reversal or equivalent committed change already superseded it."
+        },
+        {
+          "code": "active_entity_identifier_conflict",
+          "summary": "The rollback would restore an exact entity identifier currently owned by another active record."
         }
       ]
     },

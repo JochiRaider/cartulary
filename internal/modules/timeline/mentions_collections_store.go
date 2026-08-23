@@ -369,7 +369,7 @@ func (s *store) insertMentionActionsTx(ctx context.Context, tx pgx.Tx, linkStore
 	}
 	originKind := options.originKind
 	if strings.TrimSpace(originKind) == "" {
-		originKind = "interactive_cell"
+		originKind = "manual_entry"
 	}
 	nextOrdinal, err := s.mentionStore.NextOrdinalTx(ctx, tx, recordID, fieldKey)
 	if err != nil {

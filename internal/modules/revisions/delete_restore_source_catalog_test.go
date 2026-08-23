@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 )
 
 type testDeleteRestoreSource struct{}
@@ -24,8 +26,8 @@ func (testDeleteRestoreSource) ViewSchemaID(context.Context, pgx.Tx, uuid.UUID) 
 	return "cartulary.view.test.v1", nil
 }
 
-func (testDeleteRestoreSource) ValidateDeletePreconditionsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (string, bool, error) {
-	return "", false, nil
+func (testDeleteRestoreSource) PrepareStateTransitionTx(context.Context, pgx.Tx, deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
+	return deleterestorecontract.StateTransitionPreparation{}, nil
 }
 
 func TestDeleteRestoreSourceCatalogFailsClosed(t *testing.T) {

@@ -3287,6 +3287,102 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.entity-active-identifier-claims.entity-active-identifier-claims-entity-type-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.entity_active_identifier_claims.entity_active_identifier_claims_entity_type_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [
+        "table.public.entity-active-identifier-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.entity-active-identifier-claims.entity-active-identifier-claims-identifier-class-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.entity_active_identifier_claims.entity_active_identifier_claims_identifier_class_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [
+        "table.public.entity-active-identifier-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.entity-active-identifier-claims.entity-active-identifier-claims-pkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.entity_active_identifier_claims.entity_active_identifier_claims_pkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [
+        "table.public.entity-active-identifier-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.entity-active-identifier-claims.entity-active-identifier-claims-record-envelope-fkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.entity_active_identifier_claims.entity_active_identifier_claims_record_envelope_fkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [
+        "table.public.entity-active-identifier-claims",
+        "table.public.records"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.entity-active-identifier-claims.entity-active-identifier-claims-value-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.entity_active_identifier_claims.entity_active_identifier_claims_value_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [
+        "table.public.entity-active-identifier-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.entity-aliases.entity-aliases-alias-text-controls-ck",
       "object_kind": "constraint",
       "qualified_name": "public.entity_aliases.entity_aliases_alias_text_controls_ck",
@@ -3518,6 +3614,25 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.entity-mentions.entity-mentions-origin-kind-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.entity_mentions.entity_mentions_origin_kind_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.entity-mentions"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.entity-mentions.entity-mentions-pkey",
       "object_kind": "constraint",
       "qualified_name": "public.entity_mentions.entity_mentions_pkey",
@@ -3525,6 +3640,25 @@
       "source_owner": "entities",
       "migration_version": 11,
       "migration_file": "00011_entities.sql",
+      "dependency_object_ids": [
+        "table.public.entity-mentions"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.entity-mentions.entity-mentions-required-text-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.entity_mentions.entity_mentions_required_text_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
       "dependency_object_ids": [
         "table.public.entity-mentions"
       ],
@@ -3556,6 +3690,25 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.entity-mentions.entity-mentions-resolution-tuple-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.entity_mentions.entity_mentions_resolution_tuple_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.entity-mentions"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.entity-mentions.entity-mentions-resolved-by-user-id-fkey",
       "object_kind": "constraint",
       "qualified_name": "public.entity_mentions.entity_mentions_resolved_by_user_id_fkey",
@@ -3573,6 +3726,25 @@
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.entity-mentions.entity-mentions-row-version-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.entity_mentions.entity_mentions_row_version_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.entity-mentions"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
       "approval": null
     },
     {
@@ -3654,6 +3826,25 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.entity-preserved-identifiers.entity-preserved-identifiers-identifier-class-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.entity_preserved_identifiers.entity_preserved_identifiers_identifier_class_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.entity-preserved-identifiers"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.entity-preserved-identifiers.entity-preserved-identifiers-incident-id-fkey",
       "object_kind": "constraint",
       "qualified_name": "public.entity_preserved_identifiers.entity_preserved_identifiers_incident_id_fkey",
@@ -3681,6 +3872,25 @@
       "source_owner": "entities",
       "migration_version": 11,
       "migration_file": "00011_entities.sql",
+      "dependency_object_ids": [
+        "table.public.entity-preserved-identifiers"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.entity-preserved-identifiers.entity-preserved-identifiers-value-nonempty-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.entity_preserved_identifiers.entity_preserved_identifiers_value_nonempty_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
       "dependency_object_ids": [
         "table.public.entity-preserved-identifiers"
       ],
@@ -6214,6 +6424,25 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.hosts.entities-reject-host-source-delete",
+      "object_kind": "constraint",
+      "qualified_name": "public.hosts.entities_reject_host_source_delete",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.hosts"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.hosts.hosts-created-by-user-id-fkey",
       "object_kind": "constraint",
       "qualified_name": "public.hosts.hosts_created_by_user_id_fkey",
@@ -6406,6 +6635,25 @@
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.identities.entities-reject-identity-source-delete",
+      "object_kind": "constraint",
+      "qualified_name": "public.identities.entities_reject_identity_source_delete",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.identities"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
       "approval": null
     },
     {
@@ -13030,6 +13278,25 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.records.entities-assert-entity-envelope-update",
+      "object_kind": "constraint",
+      "qualified_name": "public.records.entities_assert_entity_envelope_update",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.records"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.records.records-created-by-user-id-fkey",
       "object_kind": "constraint",
       "qualified_name": "public.records.records_created_by_user_id_fkey",
@@ -18907,6 +19174,64 @@
       "approval": null
     },
     {
+      "object_id": "index.public.entity-active-identifier-claims-pkey",
+      "object_kind": "index",
+      "qualified_name": "public.entity_active_identifier_claims_pkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [
+        "constraint.public.entity-active-identifier-claims.entity-active-identifier-claims-pkey",
+        "table.public.entity-active-identifier-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.entity-active-identifier-claims-record-envelope-idx",
+      "object_kind": "index",
+      "qualified_name": "public.entity_active_identifier_claims_record_envelope_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [
+        "table.public.entity-active-identifier-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.entity-active-identifier-claims-record-lookup-idx",
+      "object_kind": "index",
+      "qualified_name": "public.entity_active_identifier_claims_record_lookup_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [
+        "table.public.entity-active-identifier-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "index.public.entity-aliases-created-by-user-id-fk-idx",
       "object_kind": "index",
       "qualified_name": "public.entity_aliases_created_by_user_id_fk_idx",
@@ -19102,25 +19427,6 @@
       "object_id": "index.public.entity-preserved-identifiers-created-by-user-id-fk-idx",
       "object_kind": "index",
       "qualified_name": "public.entity_preserved_identifiers_created_by_user_id_fk_idx",
-      "management_class": "cartulary_authored",
-      "source_owner": "entities",
-      "migration_version": 11,
-      "migration_file": "00011_entities.sql",
-      "dependency_object_ids": [
-        "table.public.entity-preserved-identifiers"
-      ],
-      "runtime_access_class": "not_applicable",
-      "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
-      "recovery_classification": "not_applicable",
-      "sqlc_input": false,
-      "foreign_key_index_status": "not_applicable",
-      "approval": null
-    },
-    {
-      "object_id": "index.public.entity-preserved-identifiers-exact-lookup-idx",
-      "object_kind": "index",
-      "qualified_name": "public.entity_preserved_identifiers_exact_lookup_idx",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
       "migration_version": 11,
@@ -20440,66 +20746,9 @@
       "approval": null
     },
     {
-      "object_id": "index.public.hosts-incident-aad-device-id-idx",
-      "object_kind": "index",
-      "qualified_name": "public.hosts_incident_aad_device_id_idx",
-      "management_class": "cartulary_authored",
-      "source_owner": "entities",
-      "migration_version": 11,
-      "migration_file": "00011_entities.sql",
-      "dependency_object_ids": [
-        "table.public.hosts"
-      ],
-      "runtime_access_class": "not_applicable",
-      "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
-      "recovery_classification": "not_applicable",
-      "sqlc_input": false,
-      "foreign_key_index_status": "not_applicable",
-      "approval": null
-    },
-    {
       "object_id": "index.public.hosts-incident-display-name-idx",
       "object_kind": "index",
       "qualified_name": "public.hosts_incident_display_name_idx",
-      "management_class": "cartulary_authored",
-      "source_owner": "entities",
-      "migration_version": 11,
-      "migration_file": "00011_entities.sql",
-      "dependency_object_ids": [
-        "table.public.hosts"
-      ],
-      "runtime_access_class": "not_applicable",
-      "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
-      "recovery_classification": "not_applicable",
-      "sqlc_input": false,
-      "foreign_key_index_status": "not_applicable",
-      "approval": null
-    },
-    {
-      "object_id": "index.public.hosts-incident-fqdn-idx",
-      "object_kind": "index",
-      "qualified_name": "public.hosts_incident_fqdn_idx",
-      "management_class": "cartulary_authored",
-      "source_owner": "entities",
-      "migration_version": 11,
-      "migration_file": "00011_entities.sql",
-      "dependency_object_ids": [
-        "table.public.hosts"
-      ],
-      "runtime_access_class": "not_applicable",
-      "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
-      "recovery_classification": "not_applicable",
-      "sqlc_input": false,
-      "foreign_key_index_status": "not_applicable",
-      "approval": null
-    },
-    {
-      "object_id": "index.public.hosts-incident-hostname-idx",
-      "object_kind": "index",
-      "qualified_name": "public.hosts_incident_hostname_idx",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
       "migration_version": 11,
@@ -20650,47 +20899,9 @@
       "approval": null
     },
     {
-      "object_id": "index.public.identities-incident-aad-object-id-idx",
-      "object_kind": "index",
-      "qualified_name": "public.identities_incident_aad_object_id_idx",
-      "management_class": "cartulary_authored",
-      "source_owner": "entities",
-      "migration_version": 11,
-      "migration_file": "00011_entities.sql",
-      "dependency_object_ids": [
-        "table.public.identities"
-      ],
-      "runtime_access_class": "not_applicable",
-      "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
-      "recovery_classification": "not_applicable",
-      "sqlc_input": false,
-      "foreign_key_index_status": "not_applicable",
-      "approval": null
-    },
-    {
       "object_id": "index.public.identities-incident-display-name-idx",
       "object_kind": "index",
       "qualified_name": "public.identities_incident_display_name_idx",
-      "management_class": "cartulary_authored",
-      "source_owner": "entities",
-      "migration_version": 11,
-      "migration_file": "00011_entities.sql",
-      "dependency_object_ids": [
-        "table.public.identities"
-      ],
-      "runtime_access_class": "not_applicable",
-      "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
-      "recovery_classification": "not_applicable",
-      "sqlc_input": false,
-      "foreign_key_index_status": "not_applicable",
-      "approval": null
-    },
-    {
-      "object_id": "index.public.identities-incident-email-idx",
-      "object_kind": "index",
-      "qualified_name": "public.identities_incident_email_idx",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
       "migration_version": 11,
@@ -20729,63 +20940,6 @@
       "object_id": "index.public.identities-incident-merged-into-idx",
       "object_kind": "index",
       "qualified_name": "public.identities_incident_merged_into_idx",
-      "management_class": "cartulary_authored",
-      "source_owner": "entities",
-      "migration_version": 11,
-      "migration_file": "00011_entities.sql",
-      "dependency_object_ids": [
-        "table.public.identities"
-      ],
-      "runtime_access_class": "not_applicable",
-      "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
-      "recovery_classification": "not_applicable",
-      "sqlc_input": false,
-      "foreign_key_index_status": "not_applicable",
-      "approval": null
-    },
-    {
-      "object_id": "index.public.identities-incident-sam-account-name-idx",
-      "object_kind": "index",
-      "qualified_name": "public.identities_incident_sam_account_name_idx",
-      "management_class": "cartulary_authored",
-      "source_owner": "entities",
-      "migration_version": 11,
-      "migration_file": "00011_entities.sql",
-      "dependency_object_ids": [
-        "table.public.identities"
-      ],
-      "runtime_access_class": "not_applicable",
-      "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
-      "recovery_classification": "not_applicable",
-      "sqlc_input": false,
-      "foreign_key_index_status": "not_applicable",
-      "approval": null
-    },
-    {
-      "object_id": "index.public.identities-incident-sid-idx",
-      "object_kind": "index",
-      "qualified_name": "public.identities_incident_sid_idx",
-      "management_class": "cartulary_authored",
-      "source_owner": "entities",
-      "migration_version": 11,
-      "migration_file": "00011_entities.sql",
-      "dependency_object_ids": [
-        "table.public.identities"
-      ],
-      "runtime_access_class": "not_applicable",
-      "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
-      "recovery_classification": "not_applicable",
-      "sqlc_input": false,
-      "foreign_key_index_status": "not_applicable",
-      "approval": null
-    },
-    {
-      "object_id": "index.public.identities-incident-upn-idx",
-      "object_kind": "index",
-      "qualified_name": "public.identities_incident_upn_idx",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
       "migration_version": 11,
@@ -26207,6 +26361,227 @@
       "approval": null
     },
     {
+      "object_id": "routine.public.entities-active-identifier-claims-are-valid-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.entities_active_identifier_claims_are_valid_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_private",
+      "recovery_access_class": "routine_recovery",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.entities-assert-entity-child-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.entities_assert_entity_child_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_private",
+      "recovery_access_class": "routine_private",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.entities-assert-entity-envelope-update-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.entities_assert_entity_envelope_update_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_private",
+      "recovery_access_class": "routine_private",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.entities-assert-entity-source-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.entities_assert_entity_source_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_private",
+      "recovery_access_class": "routine_private",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.entities-expected-active-identifier-claims-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.entities_expected_active_identifier_claims_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_private",
+      "recovery_access_class": "routine_private",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.entities-normalize-identifier-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.entities_normalize_identifier_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_private",
+      "recovery_access_class": "routine_private",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.entities-rebuild-active-identifier-claims-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.entities_rebuild_active_identifier_claims_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_private",
+      "recovery_access_class": "routine_recovery",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.entities-refresh-active-identifier-claims-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.entities_refresh_active_identifier_claims_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_application",
+      "recovery_access_class": "routine_private",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.entities-reject-entity-source-delete-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.entities_reject_entity_source_delete_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_private",
+      "recovery_access_class": "routine_private",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.entities-release-active-identifier-claims-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.entities_release_active_identifier_claims_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_application",
+      "recovery_access_class": "routine_private",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.entities-source-codepoints-admitted-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.entities_source_codepoints_admitted_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_application",
+      "recovery_access_class": "routine_recovery",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.entities-sync-active-identifier-claims-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.entities_sync_active_identifier_claims_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_private",
+      "recovery_access_class": "routine_private",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.entities-trim-unicode-space-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.entities_trim_unicode_space_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_application",
+      "recovery_access_class": "routine_recovery",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "routine.public.evidence-reject-cleanup-claimed-association",
       "object_kind": "routine",
       "qualified_name": "public.evidence_reject_cleanup_claimed_association",
@@ -26831,6 +27206,23 @@
       "recovery_access_class": "table_restore",
       "extension_profile_id": "enterprise_authentication",
       "recovery_classification": "excluded_security_state",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "table.public.entity-active-identifier-claims",
+      "object_kind": "table",
+      "qualified_name": "public.entity_active_identifier_claims",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "table_read_only",
+      "recovery_access_class": "table_rebuild",
+      "extension_profile_id": null,
+      "recovery_classification": "excluded_rebuildable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
       "approval": null
@@ -28387,6 +28779,82 @@
       "approval": null
     },
     {
+      "object_id": "trigger.public.entity-aliases.entities-assert-entity-alias",
+      "object_kind": "trigger",
+      "qualified_name": "public.entity_aliases.entities_assert_entity_alias",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.entity-aliases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "trigger.public.entity-mentions.entities-assert-entity-mention",
+      "object_kind": "trigger",
+      "qualified_name": "public.entity_mentions.entities_assert_entity_mention",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.entity-mentions"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "trigger.public.entity-preserved-identifiers.entities-assert-entity-preserved-identifier",
+      "object_kind": "trigger",
+      "qualified_name": "public.entity_preserved_identifiers.entities_assert_entity_preserved_identifier",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.entity-preserved-identifiers"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "trigger.public.entity-preserved-identifiers.entity-preserved-identifiers-sync-active-claims",
+      "object_kind": "trigger",
+      "qualified_name": "public.entity_preserved_identifiers.entity_preserved_identifiers_sync_active_claims",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [
+        "table.public.entity-preserved-identifiers"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "trigger.public.evidence.evidence-reject-cleanup-claimed-association",
       "object_kind": "trigger",
       "qualified_name": "public.evidence.evidence_reject_cleanup_claimed_association",
@@ -28457,6 +28925,120 @@
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
       "extension_profile_id": "network_flow_activity",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "trigger.public.hosts.entities-assert-host-source",
+      "object_kind": "trigger",
+      "qualified_name": "public.hosts.entities_assert_host_source",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.hosts"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "trigger.public.hosts.entities-reject-host-source-delete",
+      "object_kind": "trigger",
+      "qualified_name": "public.hosts.entities_reject_host_source_delete",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.hosts"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "trigger.public.hosts.hosts-sync-active-identifier-claims",
+      "object_kind": "trigger",
+      "qualified_name": "public.hosts.hosts_sync_active_identifier_claims",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [
+        "table.public.hosts"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "trigger.public.identities.entities-assert-identity-source",
+      "object_kind": "trigger",
+      "qualified_name": "public.identities.entities_assert_identity_source",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.identities"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "trigger.public.identities.entities-reject-identity-source-delete",
+      "object_kind": "trigger",
+      "qualified_name": "public.identities.entities_reject_identity_source_delete",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.identities"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "trigger.public.identities.identities-sync-active-identifier-claims",
+      "object_kind": "trigger",
+      "qualified_name": "public.identities.identities_sync_active_identifier_claims",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [
+        "table.public.identities"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -28548,6 +29130,44 @@
       "migration_file": "00031_evidence_blob_cleanup_claims.sql",
       "dependency_object_ids": [
         "table.public.object-blobs"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "trigger.public.records.entities-assert-entity-envelope-update",
+      "object_kind": "trigger",
+      "qualified_name": "public.records.entities_assert_entity_envelope_update",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 36,
+      "migration_file": "00036_entities_source_integrity.sql",
+      "dependency_object_ids": [
+        "table.public.records"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "trigger.public.records.records-sync-entity-active-identifier-claims",
+      "object_kind": "trigger",
+      "qualified_name": "public.records.records_sync_entity_active_identifier_claims",
+      "management_class": "cartulary_authored",
+      "source_owner": "entities",
+      "migration_version": 37,
+      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "dependency_object_ids": [
+        "table.public.records"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",

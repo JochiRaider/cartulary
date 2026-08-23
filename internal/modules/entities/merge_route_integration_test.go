@@ -343,7 +343,18 @@ SELECT COUNT(*)
 		incidentID := mustUUID(t, incident["incident_id"].(string))
 		seedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "Survivor Host", "SURVIVOR", "", "")
 		seedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "Loser Host", "LOSER", "", "")
-		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE records SET row_version = CASE record_id WHEN $1 THEN 2 ELSE 3 END WHERE record_id IN ($1, $2)`, entitytest.CanonicalHostRecordID, entitytest.DuplicateHostRecordID); err != nil {
+		if _, err := harness.DB.ExecContext(context.Background(), `
+WITH updated_records AS (
+    UPDATE records
+       SET row_version = CASE record_id WHEN $1 THEN 2 ELSE 3 END
+     WHERE record_id IN ($1, $2)
+ RETURNING record_id, row_version
+)
+UPDATE hosts h
+   SET row_version = u.row_version
+  FROM updated_records u
+ WHERE h.record_id = u.record_id
+`, entitytest.CanonicalHostRecordID, entitytest.DuplicateHostRecordID); err != nil {
 			t.Fatalf("advance merge fixture versions: %v", err)
 		}
 
@@ -388,7 +399,24 @@ SELECT COUNT(*)
 
 		seedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "Survivor Host", "SURVIVOR-HOST", "survivor-host.corp.example.test", "")
 		seedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "Loser Host", "LOSER-HOST", "blocked-host.corp.example.test", "")
-		seedHostRecord(t, harness.DB, incidentID, adminUserID, blockingRecordID, "Blocking Host", "BLOCKING-HOST", "blocked-host.corp.example.test", "")
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, blockingRecordID, "Blocking Host", "BLOCKING-HOST", "blocking-host.corp.example.test", "")
+		if _, err := harness.DB.Exec(`
+DELETE FROM entity_active_identifier_claims
+ WHERE incident_id = $1
+   AND entity_type = 'host'
+   AND identifier_type = 'fqdn'
+	   AND normalized_value = 'blocked-host.corp.example.test'
+`, incidentID); err != nil {
+			t.Fatalf("release loser claim for collision fixture: %v", err)
+		}
+		if _, err := harness.DB.Exec(`
+INSERT INTO entity_active_identifier_claims (
+    incident_id, entity_type, identifier_type, normalized_value, record_id
+)
+VALUES ($1, 'host', 'fqdn', 'blocked-host.corp.example.test', $2)
+`, incidentID, blockingRecordID); err != nil {
+			t.Fatalf("seed authoritative-claim collision: %v", err)
+		}
 
 		mergeResp := doEntitiesJSON(
 			t,

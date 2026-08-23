@@ -5,20 +5,22 @@
 - **Target path:** `internal/modules/entities`
 - **Target label:** `entities`, derived from the target path and normalized to lowercase kebab case.
 - **Output path:** `docs/handoffs/entities-module-refactor-tracker.md`
-- **Status:** The original remediation is complete through S-06. The approved
-  Entities Production-Readiness plan is controlling in Sections 14 through
-  22; EPR-S00 through EPR-S06 are complete, EPR-G01 through EPR-G07 are
-  closed, and no successor workstream remains.
-- **Allowed change in this effort:** Execute EPR-S00 through EPR-S06 serially.
-  Only the active workstream may change its declared artifacts, and its tracker
-  checkpoint must pass before a successor begins.
-- **Non-goals:** No package split, OpenAPI operation or route change, schema ID
-  or field-key change, database migration, event-shape change, Timeline policy
-  relocation, legacy patch shim, feature flag, alias, or dual behavior.
-- **Implementation authorization:** The 2026-08-21 implementation task for
-  S-01 through S-06 is complete. The 2026-08-22 implementation directive
-  authorizes EPR-S00 through EPR-S06, subject to the serial dependency and
-  checkpoint gates in Sections 17 through 20.
+- **Status:** The original remediation is complete through S-06, and the
+  Entities Production-Readiness iteration in Sections 14 through 22 is
+  complete through EPR-S06. Sections 23 through 31 are the controlling plan
+  for the Entities Source Integrity iteration. ESI-S00 through ESI-S07 are
+  complete, and the iteration is handed off with current release evidence.
+- **Allowed change in this effort:** Execute ESI-S01 through ESI-S07 serially
+  under the 2026-08-22 implementation directive, with the tracker checkpoint
+  completed before each successor begins.
+- **Non-goals for ESI-S00:** No product, test, contract, generated, migration,
+  domain, application-composition, route, operation, schema, field-key, event,
+  authorization, idempotency, or visual-golden change.
+- **Implementation authorization:** The 2026-08-21 and 2026-08-22 directives
+  for S-01 through S-06 and EPR-S00 through EPR-S06 are complete historical
+  authority. The 2026-08-22 ESI implementation directive authorizes ESI-S01
+  through ESI-S07, subject to the serial dependency and checkpoint gates in
+  Sections 26 through 29.
 
 ### Normative language and artifact role
 
@@ -1334,3 +1336,686 @@ skipped, partial, inferred, or historically green results are not acceptance.
 
 Domain vocabulary is unchanged. `docs/domain.md` was not edited by EPR-S00
 through EPR-S06.
+
+## 23. ESI Scope, Baseline, and Planning Posture
+
+ESI is the Entities Source Integrity iteration. Sections 1 through 13 remain
+the completed history for the original remediation, and Sections 14 through
+22 remain the completed EPR history. ESI does not reopen their closed owner
+topology, constructor, export-closure, cohesion, or final-validation work.
+
+This tracker remains an execution-support artifact. Adopted Core owners and
+`docs/decisions/entities-module-boundary.md` continue to outrank it. ESI-S01
+must adopt every new behavior named here before an implementation slice may
+rely on it. No runtime, test, contract, generator, or verification code may
+read this tracker as an executable requirement source.
+
+ESI-S00 was the documentation-only rebaseline requested on 2026-08-22. The
+later 2026-08-22 implementation directive authorizes the remaining serial
+slices. `docs/domain.md` remains unchanged because ESI introduces no
+vocabulary or owner-navigation change.
+
+### 23.1 Planning baseline
+
+| Baseline fact | ESI-S00 record |
+| --- | --- |
+| Commit | `4998e011fd1a70cbefb02fec136723d8f59505a2` |
+| Commit subject | `Entities Production-Readiness` |
+| Repository posture | Clean worktree before this tracker edit |
+| Date | 2026-08-22 |
+| Migration posture | Immutable boundary 29; repository migration head 35 |
+| Ordinary-build top-level Entities tests | 52 discovered and exactly selected |
+| Entities verification rows | 34 owner rows; 21 service-backed rows |
+| Completed predecessor | EPR-S00 through EPR-S06; EPR-G01 through EPR-G07 closed |
+| Current authorization | ESI-S01 through ESI-S07 authorized and complete; no ESI successor slice remains |
+
+Historical green results establish the planning baseline only. They do not
+prove any ESI implementation work. Each implementation slice must reconcile
+the live commit, worktree, migration head, selector count, owner routing, and
+owner documents before changing an artifact.
+
+### 23.2 Iteration objective
+
+ESI makes active Host and Identity exact-match identity authoritative at the
+database boundary, closes source-table invariants, makes concurrent and
+lifecycle mutation deterministic, and validates every declared Entities
+Incident Bundle invariant. The target is one indexed, rebuildable active-claim
+model shared by all mutation paths without a generic cross-module identity
+service or a package split.
+
+Existing successful public behavior remains stable. ESI intentionally rejects
+ambiguous multi-identifier input and invalid persisted source state instead of
+preserving behavior that can create competing active identities. It adds only
+the owner-adopted restore and rollback conflict vocabulary needed to fail those
+paths safely.
+
+### 23.3 Sequence and authority
+
+The sequence is:
+
+`ESI-S00 -> ESI-S01 -> ESI-S02 -> ESI-S03 -> ESI-S04 -> ESI-S05 -> ESI-S06 -> ESI-S07`
+
+Only one slice may be active or validating. A successor remains ineligible
+until its predecessor completes focused validation, updates this tracker, and
+passes the checkpoint gate in Section 26. ESI-S00 through ESI-S07 completed
+in that order; Section 29 records every checkpoint and the final handoff.
+
+## 24. ESI Requirements and Gap Register
+
+### 24.1 Requirements
+
+| Requirement | Planned outcome | Primary evidence |
+| --- | --- | --- |
+| ESI-REQ-001 | Preserve completed Sections 1 through 22 while making Sections 23 through 31 the sole ESI ledger. | Tracker review and Markdown lint |
+| ESI-REQ-002 | Execute ESI serially and checkpoint the tracker after every slice. | Section 29 ledger |
+| ESI-REQ-003 | Make active exact-match identity database-enforced, indexed, concurrent, and tombstone-aware. | Owner requirements, migrations 36 and 37, claim and concurrency tests |
+| ESI-REQ-004 | Reject submitted exact identifiers that resolve to different active records; use precedence only when all matches converge. | Characterization and mutation tests |
+| ESI-REQ-005 | Enforce the adopted Host, Identity, alias, preserved-identifier, mention, envelope, and merge-lineage invariants at the source boundary. | Migration preflight, constraints, triggers, and negative fixtures |
+| ESI-REQ-006 | Maintain active claims through every creation, mutation, lifecycle, merge, rollback, portability, and recovery path. | Owner and cross-owner integration tests |
+| ESI-REQ-007 | Keep active claims derived, rebuildable, least-privileged, and absent from portable and backup-domain content. | Recovery catalog, bundle inventory, privileges, and rebuild evidence |
+| ESI-REQ-008 | Replace table-shaped Entities bundle serialization with explicit version-2 portable rows and close all eight declared invariant IDs. | Typed codec and invariant-closure suite |
+| ESI-REQ-009 | Preserve routes, operation IDs, request/success shapes, security order, idempotent replay, history, projections, Collaboration, and valid bundle bytes. | Characterization, owner, frontend, browser, and release evidence |
+| ESI-REQ-010 | Reach 56/56 Entities selectors, 38 owner rows, and 25 service-backed rows without selector loss. | Catalog and exact accounting |
+| ESI-REQ-011 | Complete ESI only after migration, recovery, portability, owner, browser, build, security, and release gates pass. | ESI-S07 handoff |
+
+### 24.2 Gap decisions
+
+| Gap | Areas and remediation | Rationale | Expected long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- |
+| ESI-G01 — The tracker has no successor posture | Documentation: retain completed history, update the opening posture, and append the ESI gaps, target design, serial slices, validation, ledger, risks, and completion criteria. | Leaving EPR as the terminal posture hides known integrity work; rewriting it would destroy auditability. | One current serial ledger with intact predecessor evidence. | Documentation only in ESI-S00. | Later sessions can infer authority or completion from historical green results. | Header and Sections 23 through 31 agree; only the tracker changes; scoped diff and Markdown lint pass. |
+| ESI-G02 — Exact matching is neither authoritative nor concurrency-safe | Specification, implementation, migrations, recovery, and tests: replace incident-wide Go scans with a database-enforced active identifier claim model and deterministic advisory locking. Exclude deleted and merged records. Reject cross-record submitted matches. | Application scans cannot close an empty-incident race or prevent canonical and preserved identifiers from diverging. | Indexed lookup, one concurrency model, predictable expansion to later identity classes, and fewer mutation-time races. | Intentional behavior change for ambiguous multi-key requests; clean databases receive a forward migration. | Duplicate active identities, deleted-record reuse errors, request-time races, and O(N) growth remain possible. | Concurrent creates converge; every mutation path maintains claims; cross-record input returns `entity_match_conflict`; query plans use the claim key. |
+| ESI-G03 — Source tables under-enforce adopted invariants | Specification, migrations, tests, and generated ownership projections: add preflight, constraints, and triggers for envelope/type/incident ownership, identifier classes and normalization, mention vocabulary and resolution tuples, and merge lineage. | Source invariants must survive direct SQL, import, recovery, and future callers rather than depending on individual Go paths. | Durable local consistency and simpler application reasoning. | Migration blocks invalid existing rows with safe aggregate findings; it never guesses or repairs them. | Invalid tuples can enter through non-HTTP paths and later break portability, resolution, merge, or recovery. | Clean install and valid upgrade pass; each invalid fixture fails before partial schema change; ownership, privileges, Down, and Up evidence pass. |
+| ESI-G04 — Lifecycle and recovery do not own active identity consistently | Specification, Revisions port, implementation, recovery, and tests: prepare both delete and restore transitions, maintain claims through delete, restore, rollback, merge, import, bundle import, and recovery, and add safe public conflict vocabulary. | Identity ownership changes with envelope lifecycle; delete-only preconditions cannot make restore or rollback safe. | Atomic lifecycle semantics and deterministic reconstruction after restore. | Adds `record_restore_blocked` and one rollback reason; successful shapes and routes remain unchanged. | Restore or rollback can recreate a competing active identity or expose a raw database failure. | Delete releases claims; restore reacquires or fails safely; rollback, merge, bundle import, and recovery reproduce the exact claim set with no partial effects. |
+| ESI-G05 — Incident Bundle validation declares more than it enforces | Specification, contracts, implementation, and tests: use typed fixed version-2 rows, row-local prepare validation, post-apply cross-row validation, and one negative fixture for each declared invariant. | Generic table-shaped JSON couples bundles to future columns and converts owner failures into database accidents. | Stable portable bytes, exact failure attribution, and safe schema evolution. | Valid v2 bytes remain stable; malformed bundles may fail earlier and more precisely. | Invalid portable state can pass preparation, fail with unsafe storage details, or survive until a later subsystem consumes it. | All eight invariant IDs are independently reachable; invalid imports are atomic; claims are absent from the bundle and rebuilt from authoritative rows. |
+| ESI-G06 — Merge and mutation ordering cannot safely hand off unique claims | Specification, implementation, and tests: make merge planning read-only, lock the complete identity set in canonical order, release loser claims before carry-forward, and retain one transaction sequence. | Mutating during planning conflicts with a unique claim model and makes lock ownership difficult to prove. | Clear transaction phases, deadlock-resistant ordering, and a stable seam for later merge participants. | Internal Go refactor only; public merge order, errors, history, projections, Collaboration, replay, and rollback remain exact. | Claim uniqueness can turn existing merge helpers into mid-transaction collisions or duplicated sequencing. | Pure-plan tests, lock-order evidence, claim handoff, protected-set revalidation, merge rollback, and exact history/result tests pass. |
+| ESI-G07 — Production-readiness evidence does not cover the new integrity boundary | Validation and handoff: run exact reconciliation plus migration, recovery, portability, owner, frontend, browser, build, full-check, security, and release gates. | Focused tests cannot prove every writer, recovery path, generated projection, and hidden consumer moved together. | Reproducible release evidence for later feature work. | None beyond the adopted changes above. | Stale writers, missing triggers, recovery drift, unsafe errors, or hidden compatibility breaks can ship. | Every mandatory ESI-S07 result is `PASS`; all gaps and binary criteria close with current evidence. |
+
+## 25. ESI Adopted Target Design
+
+ESI-S01 must adopt the following target before implementation. The design is
+not runtime authority while ESI-S01 remains unauthorized or incomplete.
+
+### 25.1 Active identifier claims
+
+- Add derived table `entity_active_identifier_claims` with columns
+  `incident_id`, `entity_type`, `identifier_type`, `normalized_value`, and
+  `record_id`.
+- Use `(incident_id, entity_type, identifier_type, normalized_value)` as the
+  primary or unique claim key and add a record-oriented lookup index.
+- Define the claim domain as the union of non-null canonical exact-match fields
+  and active preserved identifiers classified `exact_match_reuse`.
+- A claim exists only while the Records envelope is non-deleted and the owner
+  subtype state is `stub` or `canonical`. Merged and deleted entities hold no
+  active claim.
+- Keep the table derived and rebuildable. It is absent from Incident Bundle
+  files and backup-domain authoritative content.
+
+### 25.2 Normalization and locking
+
+- Add a private versioned SQL normalizer equivalent to
+  `fieldnorm.NormalizeIdentifier`: NFC normalization, Unicode-whitespace trim,
+  empty rejection, Cc/Cf rejection, lowercase for `aad_device_id`, `fqdn`,
+  `hostname`, `aad_object_id`, `upn`, `email`, and `sam_account_name`, and
+  uppercase for `sid`.
+- Project a versioned golden corpus under `contracts/entities` and prove Go and
+  SQL parity for ordinary, Unicode, whitespace, case, control, empty, and
+  invalid-class inputs.
+- Acquire transaction advisory locks for every normalized identity tuple in
+  canonical lexical tuple order before lookup or mutation. Patch, rollback,
+  merge, and carry-forward lock the union of old, current, and proposed tuples.
+- Exact precedence selects a record only after all supplied matching claims
+  resolve to that same record. Matches distributed across records fail with
+  the existing `entity_match_conflict` contract.
+
+### 25.3 Schema integrity and migration posture
+
+- Add append-only `00036_entities_source_integrity.sql` for preflight and
+  source constraints or triggers.
+- Add append-only `00037_entities_active_identifier_claims.sql` for the
+  normalizer, claim relation, indexes, `ENABLE ALWAYS` maintenance triggers,
+  deterministic rebuild and validation routines, backfill, and grants.
+- Assign versions 36 and 37 to source owner `entities` in the authored
+  migration-owner map and derive history, schema ownership, and topology only
+  through `make generate`.
+- If either version is occupied before ESI-S02 begins, mark the slice
+  `BLOCKED: migration head drift` and rebaseline the owner plan; do not rename
+  or reorder migrations silently.
+- Migration preflight reports safe aggregate counts and a remediation hint for
+  invalid or duplicate current state. It never auto-merges, discards, or
+  chooses a winner.
+- Correct Core 01 so version 29 remains the immutable Production DDL Rebaseline
+  v2 boundary while repository head becomes 37. No mixed-version writer window
+  is required because server startup requires repository-head schema.
+
+### 25.4 Lifecycle and public conflict surface
+
+- Replace Revisions' delete-only `ValidateDeletePreconditionsTx` with the
+  consumer-owned `PrepareStateTransitionTx` port method. It receives a closed
+  delete/restore transition kind, may acquire owner identity locks, and returns
+  structured blocked state without exposing database errors.
+- Invoke the port for both delete and restore before envelope state changes.
+  Migrate all providers atomically; retain no forwarding method or dual port.
+- Add `409 record_restore_blocked` with
+  `reason_code=active_entity_identifier_conflict`.
+- After ordinary authentication, visibility, role, destructive-lock, replay,
+  and row-version gates, safe conflict details may include `entity_type`,
+  `identifier_class`, `normalized_value`, and `blocking_record_id`, matching
+  the existing merge collision disclosure boundary.
+- Extend `rollback_precondition_failed` with
+  `active_entity_identifier_conflict` for rollback rekey collisions.
+- Preserve every route, operation ID, request body, success body, schema ID,
+  field key, event shape, authorization/concealment order, and idempotent replay
+  rule.
+
+### 25.5 Portability and recovery
+
+- Replace `to_jsonb(table)` and `jsonb_populate_record` coupling with
+  owner-local typed portable rows and explicit version-2 column lists.
+- Preserve the exact valid version-2 logical paths, stable identities, row
+  ordering, and serialized member set unless S01 characterization proves the
+  current table-shaped output contains non-contract columns. Any required byte
+  correction returns to owner adoption rather than being inferred.
+- Validate row-local facts during prepare and cross-row facts after apply.
+  Every declared failure must use exactly one of:
+  `entities.source_identity_admitted`, `entities.mentions_observational`,
+  `entities.envelope_type_scope`, `entities.resolution_merge_coherent`,
+  `entities.alias_identifier_normalized`,
+  `entities.alias_identifier_classified`,
+  `entities.alias_identifier_unique`, or
+  `entities.alias_identifier_same_incident`.
+- Register `entities.restore_active_identifier_claims.v1` as a deterministic
+  recovery algorithm. Recovery restores authoritative source rows, rebuilds
+  claims, validates the result, and publishes no claim table as authoritative
+  backup content.
+
+## 26. ESI Execution Policy and Checkpoint Gate
+
+Every implementation slice is atomic. After implementation and focused
+validation, and before a successor begins, update this tracker with:
+
+- slice, requirement, gap, and binary-criterion status;
+- every authored, moved, generated, and deleted file;
+- exact commands, results, result roots, and relevant summary artifacts;
+- selector and verification-row counts when changed;
+- public, persisted, internal-interface, migration, and deployment impact;
+- generated-file provenance and changed-path review;
+- rollback boundary;
+- failures, causal attribution, skipped checks, and residual risks; and
+- the next eligible slice and its authorization state.
+
+Then run:
+
+1. `git diff --check -- docs/handoffs/entities-module-refactor-tracker.md`
+2. `make lint-markdown`
+
+A required check failure, unexplained baseline or selector drift, owner
+contradiction, hand-edited generated artifact, undocumented public behavior,
+invalid migration data without an adopted disposition, or occupied migration
+version marks the active slice `BLOCKED`. Do not begin its successor.
+
+Use public Make targets and current task guidance. Do not invoke direct Go,
+frontend, browser, migration, or generator commands as verification evidence.
+Generated artifacts are changed only by editing their owner inputs and running
+the applicable Make generator.
+
+## 27. ESI Serial Workstreams
+
+| Slice | Workstream | Depends on | Current status | Authorization | Rollback boundary | Exit criterion |
+| --- | --- | --- | --- | --- | --- | --- |
+| ESI-S00 | Tracker rebaseline | Completed EPR-S06 | COMPLETE | Authorized by the documentation request | Revert the ESI header posture and Sections 23 through 31 only. | Tracker-only diff; scoped diff check and Markdown lint pass. |
+| ESI-S01 | Owner adoption and characterization | ESI-S00 checkpoint | COMPLETE | Authorized and completed under the current directive | Revert owner amendments and this checkpoint together. | Owners adopt every new behavior; baseline accounting remains 52/34/21. |
+| ESI-S02 | Source-integrity migration | ESI-S01 checkpoint | COMPLETE | Authorized and completed under the current directive | Revert migration 36, owner inputs, generated projections, test, and row together. | Clean/upgrade/invalid/Down/Up evidence passes at 53/35/22. |
+| ESI-S03 | Active claims and concurrent matching | ESI-S02 checkpoint | COMPLETE | Authorized and completed under the current directive | Revert migration 37, claim repository, mutation callers, recovery contribution, corpus, tests, rows, and generated projections together. | Claim parity, lifecycle/rebuild, and concurrency pass at 55/37/24. |
+| ESI-S04 | Lifecycle, rollback, and merge integration | ESI-S03 checkpoint | COMPLETE | Authorized and completed under the current directive | Revert the Revisions port, providers, public error projection, merge ordering, migration-37 pre-deployment refinements, and tests atomically. | Delete/restore/rollback/merge claim ownership and existing behavior are exact. |
+| ESI-S05 | Incident Bundle invariant closure | ESI-S04 checkpoint | COMPLETE | Authorized and completed under the current directive | Revert typed codecs, validation, test, authored row, and generated topology together. | All eight invariant failures and valid round trips pass at 56/38/25. |
+| ESI-S06 | Cleanup and exact reconciliation | ESI-S05 checkpoint | COMPLETE | Authorized and completed under the current directive | Revert cleanup without reverting stabilized S05 behavior. | No old scan path, stale index, selector loss, or inventory drift remains. |
+| ESI-S07 | Final validation and handoff | ESI-S06 checkpoint | COMPLETE | Authorized and completed under the current directive | Corrections returned to their owning slice, then the complete invalidated matrix restarted; S07 closes evidence and tracker state. | Every mandatory current gate passes and ESI-G01 through ESI-G07 close. |
+
+### 27.1 ESI-S00 — Tracker rebaseline
+
+- Change the opening posture and append Sections 23 through 31.
+- Preserve all completed implementation and evidence history.
+- Change no product, test, owner, contract, generated, migration, application,
+  or domain artifact.
+- Exit only after changed-path review, tracker-scoped diff check, and Markdown
+  lint pass.
+
+### 27.2 ESI-S01 — Owner adoption and characterization
+
+- Amend Core 02 entity matching, active-state, normalization, conflict, and
+  merge carry-forward requirements.
+- Amend Core 01 restore errors, rollback reasons, Incident Bundle version-2
+  owner behavior, recovery semantics, and immutable-boundary/current-head
+  wording.
+- Add Core 04 AC-559 as the Entity analogue to AC-533 and include AC-559 in
+  the base-profile acceptance manifest.
+- Characterize deleted-record exclusion, cross-class multi-record conflict,
+  restore collision, rollback rekey collision, merge claim handoff, current
+  valid bundle bytes, failure ordering, replay, and atomicity through subtests
+  under existing top-level selectors.
+- Run catalog, Harness, backend boundary, focused Entities, service-backed
+  Entities, Revisions, Incident Bundles, and migration-owner guidance selected
+  at execution time.
+- Exit with adopted owners and exact 52 tests, 34 owner rows, and 21
+  service-backed rows.
+
+### 27.3 ESI-S02 — Source-integrity migration
+
+- Add migration 36 with safe preflight and source enforcement for envelope
+  type and incident ownership, valid identifier classes and normalization,
+  mention origin/status/resolution tuples, and same-incident non-self merge
+  lineage.
+- Do not broaden seed-mention semantics unless S01 adopts the missing tuple
+  relationship explicitly.
+- Add `TestEntitySourceIntegrityMigration_Integration` and one authored
+  service-backed Entities row derived through `make author-test-row-id`.
+- Update the authored migration-owner input and run `make generate`; do not
+  hand-edit history, schema-ownership, or execution-topology projections.
+- Validate empty installation, valid 35-to-36 upgrade, every rejected invalid
+  fixture, no partial DDL, disposable Down and Up, least privilege, schema
+  ownership, migration drift, catalog, Harness, and affected owner slices.
+- Exit at 53/53 tests, 35 owner rows, and 22 service-backed rows.
+
+### 27.4 ESI-S03 — Active claims and concurrent matching
+
+- Add migration 37, the SQL normalizer, claim table, indexes, backfill,
+  `ENABLE ALWAYS` triggers, rebuild/validation functions, and minimum grants.
+- Add the versioned normalization corpus and the Entities recovery
+  contribution for `entities.restore_active_identifier_claims.v1`.
+- Replace incident-wide exact-match scans with indexed claims and remove the
+  redundant second create-path match.
+- Apply deterministic tuple locking to create, upsert, patch, import, and
+  clipboard mutation paths.
+- Add
+  `TestEntityActiveIdentifierClaimsFollowLifecycleAndRebuild_Integration` and
+  `TestConcurrentEntityExactMatchConverges_Integration`, with two authored
+  service-backed Entities rows.
+- Validate Go/SQL parity, valid and invalid migration backfill, concurrent
+  convergence, deleted/merged exclusion, create/upsert/import/clipboard paths,
+  trigger order, recovery rebuild, corruption detection, privileges, query
+  plans, drift, and affected owner suites.
+- Exit at 55/55 tests, 37 owner rows, and 24 service-backed rows.
+
+### 27.5 ESI-S04 — Lifecycle, rollback, and merge integration
+
+- Replace the Revisions delete-only source method with
+  `PrepareStateTransitionTx`, define a closed delete/restore transition kind,
+  and migrate every source provider and catalog test atomically.
+- Acquire identity locks and prepare owner state before delete or restore
+  changes the Records envelope. Release claims on delete; reacquire them or
+  return `record_restore_blocked` on restore.
+- Make row and collection rollback lock and validate every resulting exact
+  identifier and use the adopted rollback conflict reason.
+- Make merge planning read-only. Lock survivor, loser, protected records, and
+  the complete old/new/carry identifier set; release loser claims before
+  survivor carry-forward; then execute the existing single effect sequence.
+- Preserve destructive-lock ordering, protected-set revalidation, history,
+  projections, Collaboration intents, replay, public merge errors, and
+  transaction rollback.
+- Add subtests under existing selectors and do not change 55/37/24 accounting.
+
+### 27.6 ESI-S05 — Incident Bundle invariant closure
+
+- Introduce typed owner-local version-2 portable rows with explicit field
+  lists and deterministic ordering for the five existing Entities paths.
+- Validate row-local invariants during prepare and cross-row invariants after
+  apply, using only the eight declared Entities invariant IDs.
+- Add one negative fixture per invariant and prove every rejection leaves no
+  partial imported state or unsafe database detail.
+- Prove valid version-2 round trips retain the characterized bytes, active
+  claims are not serialized, and import triggers reconstruct the expected
+  claims.
+- Add `TestEntityIncidentBundleInvariantClosure_Integration` and one authored
+  service-backed Entities row.
+- Validate Entities and Incident Bundles focused/service-backed slices,
+  portability catalogs, Revisions validation, recovery interaction, catalog,
+  Harness, generation drift, generated policy, and JSON shape.
+- Exit at 56/56 tests, 38 owner rows, and 25 service-backed rows.
+
+### 27.7 ESI-S06 — Cleanup and exact reconciliation
+
+- Remove superseded full-scan matching helpers only after exact zero-reference
+  evidence.
+- Remove now-redundant indexes only when current query-plan evidence proves no
+  production or recovery query uses them. Otherwise retain and record the live
+  role rather than optimizing speculatively.
+- Reconcile exact exports, production imports, files, selectors, authored
+  rows, migrations, schema ownership, recovery catalog, Incident Bundle
+  catalog, and generated topology.
+- Do not split packages, create a shared identity kernel, or retain forwarding
+  wrappers, dual paths, or compatibility indexes without a live query.
+- Exit with exact 56/56 selectors, 38 owner rows, 25 service-backed rows, and
+  no stale path or duplicate implementation.
+
+### 27.8 ESI-S07 — Final validation and handoff
+
+Run the Section 28 final matrix in order. Record all current results, result
+roots, causal attribution, generated provenance, compatibility conclusions,
+rollback posture, skipped checks, and residual risks. A failed mandatory gate
+prevents completion and returns corrections to the owning earlier slice.
+
+## 28. ESI Validation Matrix
+
+### 28.1 Test accounting
+
+| Slice | Added top-level Entities test | Expected tests | Expected owner rows | Expected service-backed rows |
+| --- | --- | --- | --- | --- |
+| ESI-S00 and ESI-S01 | None; characterization uses subtests | 52 | 34 | 21 |
+| ESI-S02 | `TestEntitySourceIntegrityMigration_Integration` | 53 | 35 | 22 |
+| ESI-S03 | `TestEntityActiveIdentifierClaimsFollowLifecycleAndRebuild_Integration`; `TestConcurrentEntityExactMatchConverges_Integration` | 55 | 37 | 24 |
+| ESI-S04 | None; lifecycle and merge cases use subtests | 55 | 37 | 24 |
+| ESI-S05 through ESI-S07 | `TestEntityIncidentBundleInvariantClosure_Integration` | 56 | 38 | 25 |
+
+Every new row ID is derived with `make author-test-row-id`. Update the authored
+owner manifest, then run `make generate`. Generated topology is never edited
+directly.
+
+### 28.2 Required behavioral scenarios
+
+- Concurrent identical creates converge on one active entity and one claim.
+- Submitted identifiers that map to different active records fail without
+  mutation, while same-record multi-key matches retain precedence behavior.
+- Deleted and merged records are excluded; delete releases claims; restore
+  reacquires them or returns the exact safe conflict.
+- Patch, upsert, import, clipboard, row rollback, collection rollback, merge,
+  and bundle import rekey claims atomically.
+- Go and SQL normalization agree for NFC, case, Unicode whitespace, Cc/Cf,
+  empty, unknown-class, canonical, and preserved-identifier fixtures.
+- Empty install, valid 35-to-37 upgrade, invalid-data preflight, Down, Up,
+  trigger recovery order, rebuild, corruption detection, ownership, and
+  privileges pass.
+- Every Entities Incident Bundle invariant has an exact negative fixture,
+  deterministic failure ID, and no partial-import effect.
+- Existing valid routes, success payloads, authorization and concealment
+  ordering, idempotent replay, history, projections, Collaboration, and
+  version-2 bundle bytes remain exact.
+
+### 28.3 Per-slice minimums
+
+| Slice | Required minimum validation |
+| --- | --- |
+| ESI-S00 | Tracker-only changed-path review; tracker-scoped diff check; `make lint-markdown` |
+| ESI-S01 | Owner-document reconciliation; catalog; Harness; backend boundary; focused/service-backed Entities and affected owner characterization |
+| ESI-S02 | Format; migration input/drift; generation and policy drift; schema ownership; catalog; Harness; migration, Entities, and app startup slices |
+| ESI-S03 | Format; generation and drift; normalization parity; recovery catalog; query plans; focused/service-backed Entities, Imports, Workbook, Timeline, Assessments, Recovery, and app server |
+| ESI-S04 | Format; Revisions port closure; public error and OpenAPI checks; focused/service-backed Entities, Revisions, Timeline, Assessments, Workbook, Imports, and app server; merge/rollback cases |
+| ESI-S05 | Format; bundle catalog and byte reconciliation; all invariant fixtures; Entities, Incident Bundles, Revisions, and Recovery slices; generated policy and JSON shape |
+| ESI-S06 | Exact symbol, file, migration, schema, recovery, bundle, export, selector, row, and generated reconciliation; catalog; Harness; boundary; affected owner slices |
+| ESI-S07 | Complete ordered final matrix below |
+
+Use `make task-guide ROLE=module-author OWNER=<owner-id>` and explanation
+targets immediately before execution to select exact affected rows.
+
+### 28.4 Ordered final matrix
+
+1. Reconcile exports, retired scans, production imports, files, migration head
+   37, schema objects, recovery catalog, bundle catalog, 56/56 selectors, 38
+   owner rows, and 25 service-backed rows.
+2. `make test-catalog-check`
+3. `make harness-contract`
+4. `make backend-module-boundary-check`
+5. `make migration-drift`
+6. `make generate-drift`
+7. `make generated-artifact-policy-check`
+8. `make json-shape-check`
+9. Run current focused and service-backed task-guidance selections for
+   Entities, Revisions, Records, Timeline, Assessments, Workbook, Imports,
+   Incident Bundles, Recovery, Database Migrations, and app server.
+10. `make frontend-unit`
+11. `make frontend-typecheck`
+12. `make frontend-import-boundary-check`
+13. `make browser-e2e-webserver-backed`
+14. `make browser-e2e-stateful`
+15. `make browser-e2e-a11y`
+16. `make browser-e2e-visual`; any visual change is a failure and no golden is
+    refreshed.
+17. `make build`
+18. `make agent-finalize`, supplying `RESULTS_DIR` only for a qualifying
+    successful current full warm-check root.
+19. `make check`
+20. `make release-check`
+21. Final changed-path review, tracker-scoped diff check, and
+    `make lint-markdown`.
+
+## 29. ESI Tracker and Checkpoint Ledger
+
+### 29.1 Work tracker
+
+| Work item | Description | Slice | Status | Dependency | Evidence | Completion condition |
+| --- | --- | --- | --- | --- | --- | --- |
+| ESI-001 | Rebaseline the tracker and establish the ESI plan. | ESI-S00 | DONE | Completed EPR-S06 | Baseline commit, migration head, counts, authority, target design, workstreams, validation, and handoff rules are recorded in Sections 23 through 31. | Only the tracker changes; scoped diff and Markdown gates pass. |
+| ESI-002 | Adopt source-integrity, exact-match, lifecycle, portability, recovery, and public conflict behavior. | ESI-S01 | DONE | ESI-001 | Core 01 owns lifecycle, recovery, migration-head, exact v2 portability, and conflict behavior; Core 02 owns normalization, claims, convergence, and merge sequencing; Core 04 owns AC-559. Catalog, Harness, boundary, and Entities focused/service-backed characterization passed. | Core 01, Core 02, and Core 04 own every behavior before implementation begins. |
+| ESI-003 | Enforce source-table integrity through migration 36. | ESI-S02 | DONE | ESI-002 | Migration 36 preflights existing source rows and enforces envelope, lifecycle, child ownership, identifier, normalization, mention, and resolution invariants; clean, upgrade, invalid, atomic, Down/Up, privilege, ownership, catalog, and owner evidence passes at 53/35/22. | Valid install/upgrade and every invalid preflight case pass at 53/35/22. |
+| ESI-004 | Add derived claims and concurrent indexed matching through migration 37. | ESI-S03 | DONE | ESI-003 | Migration 37, the v1 corpus, indexed repository, tuple locks, immediate `ENABLE ALWAYS` triggers, least-privilege recovery and handoff routines, recovery dispatch, concurrency and corruption fixtures, and current affected-owner evidence pass at 55/37/24. | Parity, claim lifecycle/rebuild, and concurrent convergence pass at 55/37/24. |
+| ESI-005 | Integrate claims with delete, restore, rollback, and merge. | ESI-S04 | DONE | ESI-004 | The lifecycle port is atomically replaced; delete/restore, row and collection rollback, patch, and merge use ordered claim preparation; safe public conflicts, pure merge planning, protected-set revalidation, handoff, replay, and rollback evidence pass at 55/37/24. | Lifecycle and merge ownership are atomic with public behavior exact. |
+| ESI-006 | Close all declared Entities Incident Bundle invariants. | ESI-S05 | DONE | ESI-005 | Explicit typed v2 rows, exact member decoding and fixed-column SQL replace table-shaped serialization; all eight closed invariants, atomicity, claim reconstruction, and valid byte-stable round trips pass at 56/38/25. | Eight negative invariants and valid v2 round trips pass at 56/38/25. |
+| ESI-007 | Remove superseded paths and reconcile the final surface. | ESI-S06 | DONE | ESI-006 | Dead incident-wide scans and duplicate match calls are absent; nine lookup-only indexes retire in migration 37 with exact Down recreation; file, selector, migration, schema, recovery, bundle, export, and generated inventories agree at 56/38/25. | Exact symbol, file, selector, migration, recovery, bundle, and generated inventories agree. |
+| ESI-008 | Run final gates and publish the ESI handoff. | ESI-S07 | DONE | ESI-007 | The ordered matrix passes on the final corrected state; Section 29.10 records compatibility, rollback, failures, generated provenance, and current result roots. | Every mandatory current gate passes and ESI-G01 through ESI-G07 close. |
+
+### 29.2 Session handoff log
+
+| Time | Session | Current state | Files inspected or touched | Commands and results | Compatibility and rollback | Blockers and next action |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-08-22 | Codex / ESI-S00 planning and rebaseline | ESI plan recorded; ESI-S00 complete; ESI-S01 ready but not authorized | Inspected the completed tracker, Core owner rules, Entities matching, source schema, portability, recovery, Revisions lifecycle port, migration catalog, test routing, and repository baseline; touched only this tracker | Read-only repository inspection established commit `4998e011fd1a70cbefb02fec136723d8f59505a2`, migration head 35, clean pre-edit worktree, and 52/34/21 accounting; tracker-scoped `git diff --check` passed; `make lint-markdown` passed at `.cartulary/test-results/20260822T143308Z-p1279330` | Documentation only; no product, test, owner, contract, generated, migration, application, or Domain artifact changed; rollback removes the ESI header posture and Sections 23 through 31 | No implementation blocker established; ESI-S01 requires a later explicit directive |
+| 2026-08-22 | Codex / ESI-S01 owner adoption and characterization | ESI-S01 complete; ESI-S02 is the next eligible authorized slice | Touched `docs/spec/01_architecture_storage_and_view_contracts.md`, `docs/spec/02_domain_model_schema_and_history.md`, `docs/spec/04_security_deployment_and_conformance.md`, and this tracker; inspected the current catalog, Harness, boundary, and Entities characterization | `make test-catalog-check` passed; `make harness-contract` passed at `.cartulary/test-results/20260822T151401Z-p1293270`; `make backend-module-boundary-check` passed at `.cartulary/test-results/20260822T151414Z-p1293782`; `make test-slice OWNER=module.entities` passed 38/38 at `.cartulary/test-results/20260822T151416Z-p1294133`; `make service-backed-test-slice OWNER=module.entities` passed 29/29 at `.cartulary/test-results/20260822T151600Z-p1347198`; tracker diff check and `make lint-markdown` passed at `.cartulary/test-results/20260822T152107Z-p1401031`; selector and authored-row accounting remains 52/34/21 | Specification-only product posture: existing successful public and persisted behavior is retained except for the newly adopted ambiguous-match, restore, and rollback conflicts; no runtime, schema, migration, generated, test-routing, or Domain artifact changed; rollback reverts the three owner-document changes and this checkpoint together | No skipped mandatory check or residual S01 blocker; ESI-S02 is authorized and eligible after the checkpoint below |
+| 2026-08-22 | Codex / ESI-S02 source-integrity migration | ESI-S02 and ESI-G03 complete; ESI-S03 is the next eligible authorized slice | Added `db/migrations/00036_entities_source_integrity.sql` and `internal/modules/entities/source_integrity_migration_test.go`; changed the Host/Identity delete/restore provider, merge and resolution fixtures, shared Entities test support, Timeline mention-origin writer and fixtures, migration catalog generator and source-hash tests, authored Entities test-family row, Harness fixture-count assertion, generated execution-topology, migration-history, and schema-ownership projections, and this tracker; no file was moved or deleted and `docs/domain.md` is unchanged | Final format passed at `.cartulary/test-results/20260822T155258Z-p1692842`; generation passed at `.cartulary/test-results/20260822T155302Z-p1696548`; Entities focused and service-backed passed 38/38 and 29/29 at `.cartulary/test-results/20260822T154322Z-p1537111` and `.cartulary/test-results/20260822T154514Z-p1591313`; Database Migrations passed 9/9 and 4/4 at `.cartulary/test-results/20260822T155311Z-p1699417` and `.cartulary/test-results/20260822T155416Z-p1715337`; app server passed 24/24 and 17/17 at `.cartulary/test-results/20260822T155518Z-p1730811` and `.cartulary/test-results/20260822T155613Z-p1770850`; final migration drift, generation drift, generated policy, Harness, and boundary passed at `.cartulary/test-results/20260822T155712Z-p1809996`, `.cartulary/test-results/20260822T155719Z-p1812812`, `.cartulary/test-results/20260822T155727Z-p1815698`, `.cartulary/test-results/20260822T155730Z-p1816486`, and `.cartulary/test-results/20260822T155743Z-p1817044`; catalog passed and exact accounting is 53/53 selectors, 35 owner rows, and 22 service-backed rows | Migration 36 is an append-only persisted boundary: invalid pre-existing data blocks atomically with aggregate counts and an operator remediation hint; successful public routes and responses do not change. Internal fixture and Timeline-origin corrections project already adopted vocabulary and retained envelopes. Rollback before deployment reverts migration, owner input, generator support, implementation/test changes, authored row, generated projections, and checkpoint together; the disposable Down/Up path is tested, while a deployed migration is repaired forward | Initial format, generator-security, SQL-cast, and PgError-detail failures were corrected before the dedicated selector passed. The first broad Entities run exposed stale envelope fixtures and `interactive_cell`; the first Harness run exposed its pinned dedicated-row count. Database Migrations then exposed constraint-trigger projection and migration-source-hash fixtures; both were corrected and all invalidated gates rerun. No mandatory check is skipped and no residual S02 blocker remains; ESI-S03 is authorized and eligible after the checkpoint below |
+| 2026-08-22 | Codex / ESI-S03 active claims and concurrent matching | ESI-S03 and the active-claim portion of ESI-G02 and ESI-G04 complete; ESI-S04 is the next eligible authorized slice | Added the two `contracts/entities/identifier-normalization-corpus.v1*` inputs, `db/migrations/00037_entities_active_identifier_claims.sql`, `internal/gen/contractentities/artifacts_gen.go`, and `internal/modules/entities/active_identifier_claims_integration_test.go`; changed the contract and Recovery indexes/fixtures/schema, Recovery assembly/catalog/dispatcher and generated projections, migration catalog generator and projections, `fieldnorm`, Host/Identity exact matching, patch/source loading, merge claim lookup/handoff, Entities characterization, Workbook and Assessment envelope fixtures, the Entities authored rows, Harness count, generated topology, and this tracker. No file was moved or deleted; `docs/domain.md` and lockfiles are unchanged | Final format passed at `.cartulary/test-results/20260822T174226Z-p3301010`; generation passed at `.cartulary/test-results/20260822T170820Z-p2513557`; dedicated parity/migration and concurrency/lifecycle selectors passed 4/4 at `.cartulary/test-results/20260822T170833Z-p2520085`; current Entities focused and service-backed passed 39/39 and 30/30 at `.cartulary/test-results/20260822T173630Z-p3193562` and `.cartulary/test-results/20260822T173630Z-p3193564`. Imports passed 22/22 and 14/14 at `.cartulary/test-results/20260822T165657Z-p2320421` and `.cartulary/test-results/20260822T165657Z-p2320423`; Workbook 65/65 and 37/37 at `.cartulary/test-results/20260822T171401Z-p2632609` and `.cartulary/test-results/20260822T171401Z-p2632611`; Timeline 51/51 and 29/29 at `.cartulary/test-results/20260822T171832Z-p2746005` and `.cartulary/test-results/20260822T171832Z-p2746007`; Assessments 27/27 and 18/18 at `.cartulary/test-results/20260822T173127Z-p3024498` and `.cartulary/test-results/20260822T173128Z-p3024500`; current Recovery 24/24 and 19/19 at `.cartulary/test-results/20260822T174230Z-p3304756` and `.cartulary/test-results/20260822T174230Z-p3304758`; app server 24/24 and 17/17 at `.cartulary/test-results/20260822T173326Z-p3107497` and `.cartulary/test-results/20260822T173326Z-p3107499`. Migration drift, generation drift, generated policy, Harness, and boundary passed at `.cartulary/test-results/20260822T173550Z-p3187022`, `.cartulary/test-results/20260822T173550Z-p3187014`, `.cartulary/test-results/20260822T173550Z-p3187016`, `.cartulary/test-results/20260822T173550Z-p3187088`, and `.cartulary/test-results/20260822T173550Z-p3187078`; catalog passed and exact accounting is 55/55 selectors, 37 owner rows, and 24 service-backed rows | Migration 37 is the append-only persisted/deployment boundary. Claims are derived and excluded from authoritative backup rows, Recovery has only SELECT/TRUNCATE plus rebuild/validate execution, runtime has SELECT and the narrow loser-handoff routine but no table DML, and restore rebuild/validation is atomic. Ambiguous multi-key input now returns the adopted conflict; successful APIs remain exact. This pre-production repository adds no ESI compatibility generation for nonexistent old backups; the two pre-existing historical Recovery generations remain outside ESI scope. Rollback before deployment reverts migration 37, corpus, implementation, recovery inputs, tests, rows, generated projections, and checkpoint together; deployed schema is repaired forward | Deferred claim triggers first hid same-transaction writes and collided at merge commit; immediate triggers plus explicit claim handoff and record-column filtering resolved the cause. Recovery reset exposed missing derived-table TRUNCATE privilege. A bulk Timeline fixture then exposed a global per-row projection with quadratic behavior; record-scoped refresh completed the same graph. Stale Workbook and Assessment direct-SQL fixtures were corrected to mirror Records exactly. The production Recovery dispatcher was found and corrected from no-op to rebuild plus validate. All invalidated gates were rerun; no mandatory check is skipped and S04 owns restore/rollback public conflicts, complete tuple locking, pure merge planning, and failure-boundary coverage |
+| 2026-08-22 | Codex / ESI-S04 lifecycle, rollback, and merge integration | ESI-S04, ESI-G04, and ESI-G06 complete; ESI-S05 is the next eligible authorized slice | Added `internal/modules/revisions/rollback_identifier_claims.go` and `internal/modules/entities/hostidentity/rollbackprovider/claims.go`. Changed `contracts/errors/index.json`, `contracts/otel/error_class_registry.json`, Core 01, migration 37, all nine delete/restore providers, Revisions lifecycle/rollback contracts, stores, coordinators, error projection, route tests and fixtures, Host/Identity delete/restore, patch, merge and rollback providers, merge planning/apply files, Entities boundary and merge tests, shared Assessment, Workbook, Import, Timeline, and Revisions fixtures, migration characterization/policy tests, source hashes, contract-family and schema-ownership validators, and generated error, schema-ownership, migration-history, and topology projections. No file was moved or deleted; `docs/domain.md` and lockfiles are unchanged | Final format passed at `.cartulary/test-results/20260822T192145Z-p765178`; final generation passed at `.cartulary/test-results/20260822T191934Z-p744868`. Revisions passed 27/27 and 20/20 at `.cartulary/test-results/20260822T191028Z-p519787` and `.cartulary/test-results/20260822T191143Z-p566355`; Entities passed 39/39 and 30/30 at `.cartulary/test-results/20260822T191249Z-p610242` and `.cartulary/test-results/20260822T191444Z-p664286`, with the post-index active-claims selector passing 3/3 at `.cartulary/test-results/20260822T192710Z-p904216`; Timeline passed 51/51 and 29/29 at `.cartulary/test-results/20260822T192803Z-p919698` and `.cartulary/test-results/20260822T193247Z-p978636`; Assessments passed 27/27 and 18/18 at `.cartulary/test-results/20260822T193729Z-p1035423` and `.cartulary/test-results/20260822T193729Z-p1035425`; Workbook passed 65/65 and 37/37 at `.cartulary/test-results/20260822T193926Z-p1118820` and `.cartulary/test-results/20260822T193926Z-p1118822`; Imports passed 22/22 and 14/14 at `.cartulary/test-results/20260822T194840Z-p1318488` and `.cartulary/test-results/20260822T194725Z-p1277289`; app server passed 24/24 and 17/17 at `.cartulary/test-results/20260822T194956Z-p1359710` and `.cartulary/test-results/20260822T195408Z-p1439112`; Recovery passed 24/24 and 19/19 at `.cartulary/test-results/20260822T192415Z-p800626` and `.cartulary/test-results/20260822T192535Z-p852860`; Database Migrations passed 9/9 and 4/4 at `.cartulary/test-results/20260822T192152Z-p768958` and `.cartulary/test-results/20260822T192306Z-p785058`; OpenAPI passed 4/4 at `.cartulary/test-results/20260822T184305Z-p156704`. Final catalog passed; Harness, boundary, migration drift, generation drift, generated policy, and JSON shape passed at `.cartulary/test-results/20260822T195513Z-p1478474`, `.cartulary/test-results/20260822T195513Z-p1478464`, `.cartulary/test-results/20260822T195513Z-p1478408`, `.cartulary/test-results/20260822T195513Z-p1478400`, `.cartulary/test-results/20260822T195513Z-p1478402`, and `.cartulary/test-results/20260822T195513Z-p1478404`; accounting remains exactly 55/55 selectors, 37 owner rows, and 24 service-backed rows | Public behavior adds only the adopted `record_restore_blocked` error and rollback conflict reason; successful routes, operation IDs, schemas, security order, replay, history, projections, Collaboration intents, and merge results remain exact. The internal lifecycle port has no forwarding method or dual interface. Migration 37 was strengthened in place before any deployment because this repository is pre-production and has no old backups; head remains 37 and no compatibility generation was added. Rollback before deployment reverts the S04 port, providers, migration refinement, generated projections, tests, and checkpoint together; after deployment repair is forward | An attempted new top-level collection test violated fixed S04 accounting and was converted to a subtest. JSON shape exposed stale active-family, migration-owner, and constraint-trigger validators; Database Migrations exposed the missing FK support index, Recovery cardinality, approved-definer mirrors, and source hashes; all were corrected and invalidated gates rerun. Two earlier Timeline full runs, the first Imports focused run, and the first app-server service run failed only at service readiness; current complete retries pass, and the isolated Timeline product row also passed at `.cartulary/test-results/20260822T185026Z-p215079`. OpenAPI has no service-backed rows, so its service-backed invocation was non-applicable rather than skipped. No mandatory S04 check or residual S04 blocker remains; S05 owns the typed Incident Bundle codec and eight invariant fixtures |
+
+| 2026-08-22 | Codex / ESI-S05 Incident Bundle invariant closure | ESI-S05, ESI-G05, and ESI-REQ-008 complete; ESI-S06 is the next eligible authorized slice | Added `internal/modules/entities/incident_bundle_portable_model.go`, `incident_bundle_portable_prepare.go`, `incident_bundle_portable_apply.go`, `incident_bundle_portable_encode.go`, `incident_bundle_portable_validate.go`, and `incident_bundle_invariant_closure_integration_test.go`; replaced the generic implementation in `incident_bundle_portability.go` and `incident_bundle_source_port.go`; changed the Entities boundary guard, the Incident Bundles direct-SQL fixtures, the authored Entities test family, PostgreSQL fixture policy, Harness assertion, backend-boundary policy, generated execution topology, and this tracker. No file was moved or deleted; `docs/domain.md`, migrations, public schemas, and lockfiles are unchanged | Final format passed at `.cartulary/test-results/20260822T202721Z-p1634991`; generation passed at `.cartulary/test-results/20260822T202923Z-p1646118`. The new invariant-closure row passed 3/3 focused and service-backed units at `.cartulary/test-results/20260822T202938Z-p1649077` and `.cartulary/test-results/20260822T203022Z-p1664769`. Entities passed 40/40 and 31/31 at `.cartulary/test-results/20260822T203103Z-p1680374` and `.cartulary/test-results/20260822T203304Z-p1734433`; Incident Bundles passed 8/8 and 6/6 at `.cartulary/test-results/20260822T203500Z-p1787691` and `.cartulary/test-results/20260822T203559Z-p1803534`; Revisions passed 27/27 and 20/20 at `.cartulary/test-results/20260822T203744Z-p1819368` and `.cartulary/test-results/20260822T203851Z-p1863893`; Recovery passed 24/24 and 19/19 at `.cartulary/test-results/20260822T203958Z-p1907749` and `.cartulary/test-results/20260822T204117Z-p1959537`. Catalog passed; final Harness, boundary, migration drift, generation drift, generated policy, and JSON shape passed at `.cartulary/test-results/20260822T204322Z-p2012041`, `.cartulary/test-results/20260822T204440Z-p2014062`, `.cartulary/test-results/20260822T204450Z-p2014480`, `.cartulary/test-results/20260822T204500Z-p2017301`, `.cartulary/test-results/20260822T204514Z-p2020274`, and `.cartulary/test-results/20260822T204518Z-p2020724`. Catalog accounting is exactly 56/56 selectors, 38 owner rows, and 25 service-backed rows | Valid version-2 member sets, nullability, timestamps, stable identities, ordering, exports, and re-export bytes remain exact. Malformed bundles now fail earlier through the closed invariant vocabulary; no v3, translation layer, dual codec, or backup compatibility generation exists. Claims remain derived, are never serialized, and are reconstructed from imported source rows. Rollback before deployment reverts the typed codec, dedicated test, authored row, policy inputs, generated topology, fixture corrections, and this checkpoint together; migration head remains 37 | Initial generation identified the missing direct-SQL transaction approval and ordering; initial Incident Bundle runs identified S02-era fixtures that separately mutated retained Records and Host mirrors; initial Harness and boundary runs identified the new authored-row count and exact source-port importer/read policy. Each causal defect was corrected and every invalidated gate rerun. No mandatory S05 check is skipped and no residual S05 blocker remains; ESI-S06 is authorized and eligible after the checkpoint below |
+
+| 2026-08-22 | Codex / ESI-S06 cleanup and exact reconciliation | ESI-S06 and ESI-007 complete; ESI-S07 is the next eligible authorized slice | Changed migration 37, the active-claims migration selector, Host/Identity exact matching, upsert, create, import, and clipboard callers, canonical migration-hash fixtures, generated migration history and schema ownership, and this tracker. Removed three unreferenced incident-wide scan helpers, their private row type, two duplicate snapshot-match helpers, and nine exact-lookup-only indexes from the head schema. No file was added, moved, or deleted; `docs/domain.md`, public contracts, portability catalogs, Recovery catalogs, and lockfiles are unchanged | Final format passed at `.cartulary/test-results/20260822T211929Z-p2640220`; generation passed at `.cartulary/test-results/20260822T205243Z-p2030212`. The migration/index selector passed 3/3 focused and service-backed at `.cartulary/test-results/20260822T205309Z-p2033384` and `.cartulary/test-results/20260822T205401Z-p2049663`. Entities passed 40/40 and 31/31 at `.cartulary/test-results/20260822T205759Z-p2106618` and `.cartulary/test-results/20260822T205956Z-p2161224`; Imports passed 22/22 and 14/14 at `.cartulary/test-results/20260822T210327Z-p2222941` and `.cartulary/test-results/20260822T210441Z-p2265232`; Workbook passed 65/65 and 37/37 at `.cartulary/test-results/20260822T210554Z-p2306506` and `.cartulary/test-results/20260822T210820Z-p2366320`; Revisions passed 27/27 and 20/20 at `.cartulary/test-results/20260822T211037Z-p2422939` and `.cartulary/test-results/20260822T211145Z-p2467885`; Database Migrations passed 9/9 and 4/4 at `.cartulary/test-results/20260822T211435Z-p2528513` and `.cartulary/test-results/20260822T211542Z-p2544514`; app server passed 24/24 and 17/17 at `.cartulary/test-results/20260822T211650Z-p2560171` and `.cartulary/test-results/20260822T211750Z-p2600381`. Catalog passed; Harness, boundary, migration drift, generation drift, generated policy, and JSON shape passed at `.cartulary/test-results/20260822T210219Z-p2215003`, `.cartulary/test-results/20260822T210236Z-p2215636`, `.cartulary/test-results/20260822T210246Z-p2216060`, `.cartulary/test-results/20260822T210257Z-p2218997`, `.cartulary/test-results/20260822T210309Z-p2221956`, and `.cartulary/test-results/20260822T210318Z-p2222447`. Exact reconciliation reports head 37, 56 unique selectors, 38 rows, 25 service-backed rows, five exact bundle paths, derived/excluded/rebuildable claims, zero stale symbols, and zero stale head-schema indexes | Public routes, successes, errors, replay, history, projections, portability v2 bytes, and recovery semantics are unchanged. Each create/upsert/import/clipboard row now matches exactly once and captures its pre-mutation snapshot from that protected result. Migration 37 retires only nine exact-lookup indexes whose production matcher now demonstrably uses the active-claim primary key; display, lineage, foreign-key, and record-local indexes remain. The disposable Down recreates every retired index exactly. This pre-production repository adds no migration generation or old-backup compatibility path. Rollback reverts the S06 implementation, migration refinement, generated projections, tests, hash fixtures, and checkpoint together | The first complete Entities run failed only because the refactor left one unused local variable; the complete retry passed. An initial Database Migrations command used the wrong hyphenated owner ID and was a usage error. The first correctly routed migration-owner run then exposed the two expected source-hash pins; both were updated and all four focused/service-backed units passed on retry. No mandatory S06 check is skipped and no residual S06 blocker remains; ESI-S07 is authorized and eligible after the checkpoint below |
+| 2026-08-22 | Codex / ESI-S07 final validation and handoff | ESI-S07, ESI-008, ESI-G01 through ESI-G07, and ESI-REQ-001 through ESI-REQ-011 complete; no successor slice remains | Final validation returned corrections to their owning S01/S03/S06 boundaries. Changed `apps/web/e2e/collaboration.spec.ts`, `db/migrations/00037_entities_active_identifier_claims.sql`, `docs/spec/04_security_deployment_and_conformance.md`, `internal/app/operator/operator_migration_evidence_test.go`, `internal/modules/database_migrations/catalog_characterization_test.go`, `internal/modules/database_migrations/rebaseline_manifest_integration_test.go`, `internal/modules/entities/active_identifier_claims_integration_test.go`, `internal/modules/reporting/reporting_integration_test.go`, `internal/platform/postgres/postgres_role_integration_test.go`, `internal/testutil/pgtest/pgtest_test.go`, `tools/database-migrations/generate-catalog-projections.mjs`, `tools/harness/generated-artifacts/database-contract-drift/schema-object-ownership.mjs`, and this tracker. `make generate` produced `tools/migration_history_manifest.json` and `tools/schema_object_ownership_manifest.json` from migration 37 and the generator. No file was added, moved, or deleted in S07; `docs/domain.md`, lockfiles, public success schemas, bundle version, and visual goldens are unchanged | Final generation passed at `.cartulary/test-results/20260822T224710Z-p200176`. Exact review reports migration head 37, 56/56 top-level selectors, 38 owner rows, 25 service-backed rows, five typed bundle paths, derived/excluded/rebuildable claims, and no retired matcher or head-schema index reference. `make test-catalog-check` passed. Harness, boundary, migration drift, generation drift, generated policy, and JSON shape passed at `.cartulary/test-results/20260822T225323Z-p298913`, `.cartulary/test-results/20260822T225336Z-p299478`, `.cartulary/test-results/20260822T225338Z-p299823`, `.cartulary/test-results/20260822T225346Z-p302759`, `.cartulary/test-results/20260822T225354Z-p305671`, and `.cartulary/test-results/20260822T225356Z-p306096`. Focused/service-backed results were: Entities 40/40 and 31/31 at `.cartulary/test-results/20260822T225403Z-p306582` and `.cartulary/test-results/20260822T225558Z-p360624`; Revisions 27/27 and 20/20 at `.cartulary/test-results/20260822T225757Z-p413954` and `.cartulary/test-results/20260822T225905Z-p458502`; Records 8/8 and 5/5 at `.cartulary/test-results/20260822T230012Z-p502391` and `.cartulary/test-results/20260822T230052Z-p518095`; Timeline 51/51 and 29/29 at `.cartulary/test-results/20260822T230134Z-p533671` and `.cartulary/test-results/20260822T230617Z-p592486`; Assessments 27/27 and 18/18 at `.cartulary/test-results/20260822T231056Z-p649294` and `.cartulary/test-results/20260822T231157Z-p691548`; Workbook 65/65 and 37/37 at `.cartulary/test-results/20260822T231256Z-p733042` and `.cartulary/test-results/20260822T231516Z-p792538`; Imports 22/22 and 14/14 at `.cartulary/test-results/20260822T231730Z-p849205` and `.cartulary/test-results/20260822T231844Z-p891185`; Incident Bundles 8/8 and 6/6 at `.cartulary/test-results/20260822T232011Z-p932921` and `.cartulary/test-results/20260822T232110Z-p948730`; Recovery 24/24 and 19/19 at `.cartulary/test-results/20260822T232208Z-p964377` and `.cartulary/test-results/20260822T232326Z-p1015968`; Database Migrations 9/9 and 4/4 at `.cartulary/test-results/20260822T232445Z-p1067095` and `.cartulary/test-results/20260822T232601Z-p1082761`; app server 24/24 and 17/17 at `.cartulary/test-results/20260822T232721Z-p1098435` and `.cartulary/test-results/20260822T232821Z-p1138264`. Frontend unit, typecheck, and import boundary passed 390/390, 2/2, and 2/2 at `.cartulary/test-results/20260822T232919Z-p1177632`, `.cartulary/test-results/20260822T233049Z-p1213766`, and `.cartulary/test-results/20260822T233059Z-p1214265`. Browser webserver-backed, stateful, accessibility, and visual passed 58/58, 34/34, 12/12, and 12/12 at `.cartulary/test-results/20260822T233107Z-p1214742`, `.cartulary/test-results/20260822T233512Z-p1267291`, `.cartulary/test-results/20260822T233723Z-p1311187`, and `.cartulary/test-results/20260822T233849Z-p1352769`, with no golden refresh. Build and agent-finalize passed 7/7 and 1/1 at `.cartulary/test-results/20260822T234033Z-p1394751` and `.cartulary/test-results/20260822T234054Z-p1427663`; retained-run maintenance was correctly skipped because `RESULTS_DIR` was unset before a qualifying current full warm check existed. `make check` passed 642/642 at `.cartulary/test-results/20260822T234111Z-p1430572`; `make release-check` passed 801/801 at `.cartulary/test-results/20260822T234615Z-p1544218` | Successful APIs, authorization and concealment order, replay, history, projections, Collaboration replay, and valid bundle-v2 bytes remain exact. The only intentional public changes remain the adopted ambiguous-match and restore/rollback conflicts. The final privilege correction gives runtime claim `SELECT`, recovery claim `SELECT`/`TRUNCATE`, and only narrow owner routines; `table_rebuild` now states that least-privilege derived-state posture. Migration 37 remains undeployed head 37 and was refined in place; this pre-production project has no old backups and adds no backup generation, compatibility migration, dual path, or rollback shim. Rollback before deployment reverts each owning slice atomically; after deployment repair is forward | The first webserver-backed run failed 56/58 at `.cartulary/test-results/20260822T215908Z-p3560083` because a redundant pending-queue assertion raced the already-characterized revoked-session shell after a real 401; the isolated Collaboration row and complete retry passed. The first `make check` failed 639/642 at `.cartulary/test-results/20260822T221656Z-p3913935`, exposing a stale Operator evidence digest, a Reporting fixture using retired mention origin `manual`, and incomplete claim-object privilege projection. Follow-on ACL runs identified `PUBLIC` row-type usage, private/application routine misclassification, and the need for recovery-only claim truncation; the owner adopted `table_rebuild`, migration 37 now revokes row-type `PUBLIC` access and grants no direct row DML, generated projections were refreshed, and all invalidated gates restarted. One intermediate Entities run failed 35/40 at `.cartulary/test-results/20260822T224350Z-p139634` only because removing recovery `TRUNCATE` prevented harness reset; the final class preserves the required reset capability without broad DML. An underscored Incident Bundles owner name and an Operator service-backed command with no service-backed row were usage/non-applicable attempts, not skipped mandatory checks. No causal failure, skipped mandatory gate, or residual ESI blocker remains |
+
+### 29.3 ESI-S00 checkpoint
+
+| Check | Required result | Current result |
+| --- | --- | --- |
+| Changed-path review | Only `docs/handoffs/entities-module-refactor-tracker.md` changed | PASS |
+| Tracker-scoped `git diff --check` | No whitespace error | PASS |
+| `make lint-markdown` | Current tracker passes the public Markdown gate | PASS at `.cartulary/test-results/20260822T143308Z-p1279330` |
+| Authorization transition | ESI-S00 complete; ESI-S01 ready but not authorized | PASS |
+
+### 29.4 ESI-S01 checkpoint
+
+| Check | Required result | Current result |
+| --- | --- | --- |
+| Owner adoption | Core 01, Core 02, and Core 04 own every ESI implementation behavior | PASS; REQ-01-665 through REQ-01-667, REQ-02-270, and AC-559 adopt the lifecycle, recovery, portability, normalization, claims, concurrency, and merge posture |
+| Characterization accounting | No new top-level selector; retain 52/52 selectors, 34 owner rows, and 21 service-backed rows | PASS; accounting is unchanged at 52/52, 34, and 21 |
+| Catalog, Harness, and boundary | Current gates pass | PASS; catalog passed, Harness passed at `.cartulary/test-results/20260822T151401Z-p1293270`, and boundary passed at `.cartulary/test-results/20260822T151414Z-p1293782` |
+| Focused and service-backed Entities characterization | Current affected selections pass | PASS; focused passed 38/38 at `.cartulary/test-results/20260822T151416Z-p1294133` and service-backed passed 29/29 at `.cartulary/test-results/20260822T151600Z-p1347198` |
+| Changed-path and provenance review | Owner documents and tracker only; no generated file or Domain change | PASS; all four files are authored Markdown, `docs/domain.md` is unchanged, and no generated or lockfile path changed |
+| Public, persisted, interface, deployment, and migration impact | All changes are owner adoption only | PASS; no implementation interface, public API, persisted state, deployment input, or migration changed in S01 |
+| Rollback, failures, skips, and residual risk | Atomic owner/checkpoint rollback; no unexplained failure or skip | PASS; revert the three owner documents and this checkpoint together; S02 remains responsible for enforcing adopted source invariants |
+| Authorization transition | ESI-S01 complete; ESI-S02 authorized and ready | PASS |
+| Tracker checkpoint | Scoped diff check and current Markdown lint pass before S02 begins | PASS; `make lint-markdown` passed at `.cartulary/test-results/20260822T152107Z-p1401031` |
+
+### 29.5 ESI-S02 checkpoint
+
+| Check | Required result | Current result |
+| --- | --- | --- |
+| Requirement and gap closure | ESI-REQ-005 and ESI-G03 are enforced at the source boundary | PASS; migration 36 preflights and rejects invalid Host, Identity, alias, preserved-identifier, mention, envelope, lifecycle, and merge-lineage tuples without repair |
+| Install, upgrade, invalid data, and rollback | Empty install, valid 35-to-36 upgrade, deterministic invalid fixtures, atomic failure, and disposable Down/Up pass | PASS; `TestEntitySourceIntegrityMigration_Integration` covers the complete migration boundary in the passing Entities owner results |
+| Ownership and least privilege | Migration owner, schema objects, routines, triggers, constraints, grants, and runtime/recovery access agree | PASS; owner input assigns 36 to Entities, generated schema ownership models constraint triggers exactly, PUBLIC execute is revoked, and migration/catalog parity passes |
+| Accounting | Reach exactly 53/53 selectors, 35 owner rows, and 22 service-backed rows | PASS; selector reconciliation is enforced by the passing boundary row and `make explain-test-owner OWNER=module.entities` reports 35 rows and 22 service-backed rows |
+| Affected product owners | Entities, Database Migrations, and app-server startup selections pass | PASS; focused/service-backed results are 38/38 and 29/29, 9/9 and 4/4, and 24/24 and 17/17, with roots recorded in Section 29.2 |
+| Generation and repository gates | Format, migration drift, generation drift, generated policy, catalog, Harness, and backend boundary pass | PASS; current result roots are recorded in Section 29.2; `make test-catalog-check` also passed |
+| Generated provenance and changed paths | Generated projections come only from owner inputs and `make generate`; no unrelated or Domain change exists | PASS; `tools/execution_topology_render_index.json`, `tools/migration_history_manifest.json`, and `tools/schema_object_ownership_manifest.json` were regenerated; `docs/domain.md` and lockfiles are unchanged; no file was moved or deleted |
+| Impact and rollback | Persisted, internal-interface, deployment, and compatibility effects are explicit | PASS; migration 36 is the persisted/deployment boundary, no public success contract changed, no mixed-version window exists, and the slice rollback boundary is recorded in Sections 27 and 29.2 |
+| Failures, skips, and residual risk | Every causal failure is resolved; no mandatory gate is skipped | PASS; formatting, migration-policy, fixture, Harness-count, constraint-trigger projection, and source-hash failures are attributed in Section 29.2; all invalidated checks passed and claim enforcement remains explicitly owned by S03 |
+| Authorization transition | ESI-S02 complete; ESI-S03 authorized and ready | PASS |
+| Tracker checkpoint | Scoped diff check and current Markdown lint pass before S03 begins | PASS; scoped `git diff --check` passed and `make lint-markdown` passed at `.cartulary/test-results/20260822T155849Z-p1817736` |
+
+### 29.6 ESI-S03 checkpoint
+
+| Check | Required result | Current result |
+| --- | --- | --- |
+| Requirement and gap closure | ESI-REQ-003, ESI-REQ-004, and ESI-REQ-007 active-claim behavior is authoritative; lifecycle/merge completion remains assigned to S04 | PASS; canonical and `exact_match_reuse` identifiers project into one indexed derived claim key, unknown classes fail closed, deleted and merged sources are excluded, and cross-record submitted matches return `entity_match_conflict` |
+| Migration, normalization, and rollback | Empty install, valid 36-to-37 upgrade, duplicate preflight, Go/SQL corpus parity, deterministic backfill, and disposable Down/Up pass | PASS; the migration selector covers NFC, Unicode whitespace, case, Cc/Cf, empty and unknown classes, atomic duplicate blocking, object presence, ownership, privileges, and Down/Up |
+| Concurrency and indexed lookup | Concurrent identical creates converge; same-record multi-class matches retain precedence; cross-record matches fail atomically; the claim-key plan is indexed | PASS; the concurrency selector proves one record and claim, ordered conflicts, primary-key query-plan use, and no direct runtime table DML |
+| Claim maintenance and recovery | Source/envelope triggers, delete/merge exclusion, restore reacquisition, corruption detection, deterministic rebuild, and production Recovery dispatch agree | PASS; immediate `ENABLE ALWAYS` triggers expose same-transaction writes, Recovery owns SELECT/TRUNCATE plus rebuild/validate only, and `entities.restore_active_identifier_claims.v1` rebuilds and validates inside the restore transaction |
+| Mutation and handoff coverage | Create, upsert, import, clipboard, patch, and current merge behavior use claim lookup/locks without a competing scan | PASS for S03 paths; patch locks old/current/proposed tuples, create/upsert/import/clipboard share the indexed matcher, and merge collision lookup plus loser release use claim authority. S04 owns rollback locking, pure planning, protected-set revalidation, and exact failure injection |
+| Scalability | Trigger refresh is record-scoped and rebuild remains global | PASS; the first Timeline run exposed and was cancelled for a quadratic global per-row projection, then the record-parameterized SQL projection advanced through the large-grid fixture and Timeline passed 51/51 and 29/29 |
+| Accounting | Reach exactly 55/55 selectors, 37 owner rows, and 24 service-backed rows | PASS; top-level selector reconciliation is 55, `make explain-test-owner OWNER=module.entities` reports 37 rows and 24 service-backed rows, and catalog/Harness checks pass |
+| Affected product owners | Entities, Imports, Workbook, Timeline, Assessments, Recovery, and app-server focused/service-backed selections pass | PASS; current or post-change roots and exact unit counts are recorded in Section 29.2, with the final Entities and Recovery evidence rerun after their last production changes |
+| Generation and repository gates | Format, migration drift, generation drift, generated policy, catalog, Harness, and backend boundary pass | PASS; current result roots are recorded in Section 29.2 and `make test-catalog-check` passed |
+| Generated provenance and changed paths | Generated files come only from owner inputs and `make generate`; no unrelated, Domain, lockfile, moved, or deleted path exists | PASS; contract, Recovery, SQL, migration-history, schema-ownership, and topology outputs were regenerated from their authored inputs; the changed-path inventory is recorded in Section 29.2 |
+| Impact and rollback | Public, persisted, internal-interface, deployment, compatibility, and pre-production backup posture are explicit | PASS; migration 37 and repository head 37 are the persisted/deployment change, successful APIs are stable, ambiguous input is intentionally stricter, no mixed-version window or old-backup ESI generation exists, and rollback is slice-atomic before deployment |
+| Failures, skips, and residual risk | Every causal failure is resolved; no mandatory gate is skipped | PASS; trigger visibility/order, recovery privilege, merge collision-fixture, quadratic refresh, stale envelope-fixture, and Recovery-dispatch defects are attributed in Section 29.2; S04 residual work is explicit rather than hidden |
+| Authorization transition | ESI-S03 complete; ESI-S04 authorized and ready | PASS |
+| Tracker checkpoint | Scoped diff check and current Markdown lint pass before S04 begins | PASS; scoped `git diff --check` passed and `make lint-markdown` passed at `.cartulary/test-results/20260822T174645Z-p3408885` |
+
+### 29.7 ESI-S04 checkpoint
+
+| Check | Required result | Current result |
+| --- | --- | --- |
+| Requirement and gap closure | ESI-REQ-006 lifecycle, rollback, and merge behavior closes ESI-G04 and ESI-G06 | PASS; delete and restore prepare owner state before envelope mutation, row and exact preserved-identifier rollback batch complete lexical tuple unions, and merge has pure plan, protected-set revalidation, loser release, and one apply sequence |
+| Lifecycle port and public errors | One closed delete/restore port with no forwarding method; safe restore and rollback conflicts | PASS; every provider implements `PrepareStateTransitionTx`, the old method has zero references, restore returns exact `record_restore_blocked` detail after ordinary security/version gates, and rollback uses `active_entity_identifier_conflict` without leaking storage errors |
+| Claim ordering and atomicity | Patch, delete, restore, row and collection rollback, and merge lock and transfer claims without partial effects | PASS; patch locks old/current/proposed tuples, rollback batches each complete entity-type tuple union before release, exact preserved-identifier inverses nominate their owner record, delete releases, restore reacquires, and failure-injection plus collision tests leave envelope, history, and claims unchanged |
+| Merge purity and compatibility | Planning is read-only; claim handoff precedes carry-forward; protected state and effect order remain exact | PASS; structural AST coverage rejects mutation-capable planning calls, the protected set is re-planned under locks, loser claims release before survivor carry-forward, and merge result, history, projection, Collaboration, replay, and rollback cases pass |
+| Migration and recovery reconciliation | Pre-deployment migration 37 refinements, schema objects, privileges, Recovery state, and source hashes agree | PASS; deferred rollback refresh is transaction-local, the envelope FK has a supporting index, approved routines remain least-privileged, Recovery has 114 tables with claims excluded/rebuildable, and Database Migrations plus Recovery focused/service-backed suites pass |
+| Accounting | Retain exactly 55/55 selectors, 37 owner rows, and 24 service-backed rows | PASS; the new collection case is a subtest, the Entities boundary selector reconciles 55, and `make explain-test-owner OWNER=module.entities` reports 37 rows and 24 service-backed rows |
+| Affected product owners | Current Entities, Revisions, Timeline, Assessments, Workbook, Imports, app-server, OpenAPI, migration, and Recovery evidence passes | PASS; exact counts and current result roots are recorded in Section 29.2; infrastructure-only readiness failures were replaced by complete passing retries |
+| Generation and repository gates | Format, generation, catalog, Harness, boundary, migration drift, generation drift, generated policy, and JSON shape pass | PASS; final roots are recorded in Section 29.2 and `make test-catalog-check` passed without findings |
+| Generated provenance and changed paths | Generated files come only from authored inputs and `make generate`; every S04 path is recorded; no unrelated, Domain, lockfile, moved, or deleted path exists | PASS; generated error, SQL, migration-history, schema-ownership, and topology artifacts came from the error contracts, migration, and generator inputs; `docs/domain.md` and lockfiles are unchanged; no file was moved or deleted |
+| Impact and rollback | Public, persisted, internal-interface, deployment, migration, compatibility, and pre-production backup effects are explicit | PASS; only the adopted conflict vocabulary changes public failures, migration head remains 37, the lifecycle and rollback ports change atomically, no mixed writer or dual port exists, and no old-backup compatibility generation is present |
+| Failures, skips, and residual risk | Every causal failure is resolved; no mandatory check is skipped | PASS; selector accounting, JSON validators, FK indexing, Recovery count, routine policy, hash fixtures, and service-readiness retries are attributed in Section 29.2; OpenAPI service-backed is non-applicable because it owns no such row; Incident Bundle closure remains explicitly assigned to S05 |
+| Authorization transition | ESI-S04 complete; ESI-S05 authorized and ready | PASS |
+| Tracker checkpoint | Scoped diff check and current Markdown lint pass before S05 begins | PASS; scoped `git diff --check` passed and `make lint-markdown` passed at `.cartulary/test-results/20260822T195808Z-p1486259` |
+
+### 29.8 ESI-S05 checkpoint
+
+| Check | Required result | Current result |
+| --- | --- | --- |
+| Requirement and gap closure | ESI-REQ-008 and ESI-G05 close the declared Entities version-2 portability boundary | PASS; all five paths use explicit typed rows, exact decoding, fixed-column SQL, affected-row equality, and deterministic prepare and postapply validation |
+| Invariant attribution and atomicity | All eight invariant IDs are independently reachable with deterministic precedence and no partial state | PASS; the dedicated integration row exercises each closed invariant, multi-defect precedence, affected-row atomicity, and postapply typed-set equality |
+| Byte and claim behavior | Valid version-2 exports remain byte-stable and active claims are reconstructed rather than serialized | PASS; import, apply, validate, export, and re-export bytes agree for all five paths, bundle bytes contain no claims, and claim rows exactly match imported source state |
+| Accounting | Reach exactly 56/56 selectors, 38 owner rows, and 25 service-backed rows | PASS; the single authored service-backed row adds one top-level selector and catalog reconciliation reports exactly 56, 38, and 25 |
+| Affected product owners | Current Entities, Incident Bundles, Revisions, and Recovery focused and service-backed selections pass | PASS; exact unit counts and current result roots are recorded in Section 29.2 |
+| Generation and repository gates | Format, generation, catalog, Harness, boundary, migration drift, generation drift, generated policy, and JSON shape pass | PASS; current result roots are recorded in Section 29.2 and `make test-catalog-check` passed without findings |
+| Generated provenance and changed paths | Generated topology comes only from the authored row and `make generate`; every S05 path is recorded; no unrelated, Domain, migration, lockfile, moved, or deleted path exists | PASS; only `tools/execution_topology_render_index.json` is generated in S05, its owner input is `tools/test_families/module.entities.json`, and the complete changed-path inventory is recorded in Section 29.2 |
+| Impact and rollback | Public, persisted, internal-interface, deployment, migration, portability, and pre-production backup effects are explicit | PASS; successful public APIs and valid v2 bytes are stable, malformed bundles gain precise failures, no persisted schema or migration changes, no dual codec or old-backup generation exists, and rollback is slice-atomic before deployment |
+| Failures, skips, and residual risk | Every causal failure is resolved; no mandatory check is skipped | PASS; direct-SQL mirror fixtures, transaction approval, Harness accounting, and boundary policies are attributed in Section 29.2 and all invalidated checks passed |
+| Authorization transition | ESI-S05 complete; ESI-S06 authorized and ready | PASS |
+| Tracker checkpoint | Scoped diff check and current Markdown lint pass before S06 begins | PASS; scoped `git diff --check` passed and `make lint-markdown` passed at `.cartulary/test-results/20260822T204900Z-p2022633` |
+
+### 29.9 ESI-S06 checkpoint
+
+| Check | Required result | Current result |
+| --- | --- | --- |
+| Superseded path closure | No incident-wide matcher, duplicate create match, forwarding helper, dual codec, or old lifecycle port remains | PASS; zero-reference searches are empty and Host/Identity create, upsert, import, and clipboard each match once before snapshot and mutation |
+| Index reconciliation | Remove only lookup indexes made redundant by the measured claim-key plan; retain every independently live index | PASS; the active matcher plan uses `entity_active_identifier_claims_pkey`, nine exact-lookup-only indexes retire, and display, lineage, foreign-key, uniqueness, and record-local indexes remain |
+| Migration and rollback | Head stays 37 and disposable Down/Up exactly restores/removes retired indexes | PASS; the dedicated migration selector proves all nine indexes absent after Up, present after Down or failed preflight, and absent after re-Up without partial schema mutation |
+| Exact inventories | Files, exports, production imports, migrations, schema, Recovery, bundle paths, selectors, rows, and generated topology agree | PASS; exact reconciliation reports head 37, five v2 paths, derived/excluded/rebuildable claims, no stale schema index, and no stale symbol |
+| Accounting | Retain exactly 56/56 selectors, 38 owner rows, and 25 service-backed rows | PASS; selectors are unique and exact, with unchanged authored and service-backed row counts |
+| Affected product owners | Current Entities, Imports, Workbook, Revisions, Database Migrations, and app-server focused/service-backed selections pass | PASS; exact counts and current result roots are recorded in Section 29.2 |
+| Generation and repository gates | Format, generation, catalog, Harness, boundary, migration drift, generation drift, generated policy, and JSON shape pass | PASS; current result roots are recorded in Section 29.2 and `make test-catalog-check` passed without findings |
+| Generated provenance and changed paths | Migration history and schema ownership come only from migration 37 plus `make generate`; no unrelated, Domain, public-contract, lockfile, moved, or deleted path exists | PASS; the complete S06 path inventory and generator root are recorded in Section 29.2 |
+| Impact and rollback | Public, persisted, internal-interface, deployment, migration, compatibility, and pre-production backup effects are explicit | PASS; public behavior is unchanged, matching is single-pass internally, only redundant indexes leave persisted state, Down recreates them, and no new migration or backup compatibility generation exists |
+| Failures, skips, and residual risk | Every causal failure is resolved; no mandatory check is skipped | PASS; the compile-only local, owner-ID usage error, and two migration-hash pins are attributed in Section 29.2 and all invalidated gates passed |
+| Authorization transition | ESI-S06 complete; ESI-S07 authorized and ready | PASS |
+| Tracker checkpoint | Scoped diff check and current Markdown lint pass before S07 begins | PASS; scoped `git diff --check` passed and `make lint-markdown` passed at `.cartulary/test-results/20260822T212058Z-p2644606` |
+
+### 29.10 ESI-S07 checkpoint
+
+| Check | Required result | Current result |
+| --- | --- | --- |
+| Requirement and gap closure | Close ESI-REQ-001 through ESI-REQ-011 and ESI-G01 through ESI-G07 with current evidence | PASS; every work item is `DONE`, every slice is `COMPLETE`, and Section 31 has no pending criterion |
+| Exact repository accounting | Head 37, 56/56 selectors, 38 owner rows, 25 service-backed rows, five typed bundle paths, derived claims, and no stale path | PASS; current source count, owner explanation, catalog, symbol review, migration manifest, schema ownership, Recovery catalog, and bundle inventory agree |
+| Ordered repository gates | Catalog, Harness, boundary, migration drift, generation drift, generated policy, and JSON shape pass before product suites | PASS; current result roots are recorded in Section 29.2 and catalog completed without findings |
+| Owner matrix | Current focused and service-backed task-guidance selections pass for all eleven required owners | PASS; all 22 applicable owner selections pass with exact counts and result roots in Section 29.2 |
+| Frontend and browser | Unit, type, import-boundary, webserver-backed, stateful, accessibility, and unchanged visual-golden gates pass | PASS; 390/390, 2/2, 2/2, 58/58, 34/34, 12/12, and 12/12 pass with no golden refresh |
+| Build, full check, and release | Build, finalize, complete repository check, and release check pass on the final state | PASS; build 7/7, finalize 1/1, check 642/642, and release 801/801 pass at the roots in Section 29.2 |
+| Generated provenance and changed paths | Every S07 path and generated output is recorded; generated files come only from owner inputs and `make generate` | PASS; migration 37 and the catalog generator produced the migration-history and schema-ownership projections; no lockfile, Domain, golden, moved, or deleted path exists |
+| Public and persisted compatibility | Only adopted conflicts change; successful interfaces and valid v2 bytes remain exact; migration posture is explicit | PASS; migration head is 37, claims are derived and excluded, `table_rebuild` grants recovery only `SELECT`/`TRUNCATE`, and no mixed writer, compatibility path, or old-backup generation exists |
+| Failures, skips, and residual risk | Every failure is causally attributed, corrected at its owning boundary, and followed by all invalidated gates | PASS; the Collaboration race assertion, Reporting vocabulary fixture, evidence pins, privilege projection, and recovery reset class are resolved; only non-applicable/usage attempts were omitted and no mandatory gate was skipped |
+| Rollback and handoff | State the rollback boundary and leave no eligible ESI successor | PASS; pre-deployment rollback remains slice-atomic, post-deployment repair is forward, ESI-S07 is complete, and no successor slice or residual blocker remains |
+| Tracker checkpoint | Final tracker-scoped diff and current Markdown lint pass | PASS; scoped `git diff --check` passed and `make lint-markdown` passed at `.cartulary/test-results/20260823T000307Z-p1755898` before this terminal status update |
+
+## 30. ESI Compatibility, Risks, Deferrals, and Rollback
+
+### 30.1 Compatibility and migration
+
+- ESI-S00 is documentation-only.
+- ESI-S02 and ESI-S03 use forward, append-only migrations. Invalid or
+  duplicate source state blocks upgrade and requires explicit operator
+  remediation; ESI performs no automatic merge or data loss.
+- Migration 37 was refined before deployment during S04. This project is
+  pre-production and has no old backups, so ESI adds no historical backup
+  generation, migration replacement, or compatibility restoration path.
+- ESI-S05 keeps the exact version-2 portable member contract and valid bytes
+  while replacing physical-table reflection with typed rows. Claims are never
+  serialized; malformed bundles fail earlier through closed safe invariants.
+- ESI-S06 refines undeployed migration 37 without changing its version. The
+  head schema drops only exact-lookup indexes superseded by the measured claim
+  primary-key plan; Down recreates them exactly, and no compatibility indexes
+  or historical backup generation remain.
+- No rolling mixed-version writer support, feature flag, dual schema, or
+  compatibility trigger is added. Server startup already requires repository
+  migration head before runtime construction.
+- Ambiguous submitted identifiers intentionally change from precedence-based
+  selection to `entity_match_conflict` when matches span records.
+- Restore identity collisions add `record_restore_blocked` with
+  `active_entity_identifier_conflict`; rollback collisions add the same reason
+  to `rollback_precondition_failed`.
+- Routes, operation IDs, request members, success payloads, schema IDs, field
+  keys, event shapes, authorization order, idempotent replay, and valid bundle
+  version remain unchanged.
+
+### 30.2 Principal risks and controls
+
+| Risk | Control |
+| --- | --- |
+| Go and SQL normalization drift | One versioned corpus exercised by both implementations; migration backfill uses the SQL function. |
+| Advisory-lock deadlock | Canonical lexical tuple order over the complete identity set; concurrency tests cover opposing mutations. |
+| Trigger recursion or recovery-order drift | Owner-local refresh functions, `ENABLE ALWAYS` triggers, deterministic rebuild/validation, recovery-order tests, and corruption fixtures. |
+| Invalid existing production data | Preflight before irreversible DDL, aggregate safe report, no automatic repair, and `BLOCKED` status until disposition. |
+| Merge collision after uniqueness | Pure planning, complete lock set, loser release before carry-forward, one effect sequence, and rollback tests. |
+| Unsafe public database error | Owner-adopted restore and rollback classifiers after ordinary concealment and authorization gates. |
+| Portable-byte drift | S01 characterization, explicit fixed v2 members, golden comparison, and no version bump without separate owner adoption. |
+| Generated or routing drift | Authored owner inputs, `make generate`, exact counts, catalog, Harness, drift, and policy gates. |
+
+### 30.3 Deferrals
+
+| ID | Decision | Reason | Revisit trigger | Status |
+| --- | --- | --- | --- | --- |
+| ESI-DEF-01 | Do not redesign persisted route idempotency payloads. | This remains a shared Authentication/platform migration concern. | Separately adopted cross-owner idempotency migration. | DEFERRED |
+| ESI-DEF-02 | Do not redesign `workbookprojection`. | It is a live typed cross-owner contract. | Separately adopted contract version. | DEFERRED |
+| ESI-DEF-03 | Do not split the Entities bounded root. | No new owner responsibility justifies a package boundary. | New owner decision with decomposition evidence. | DEFERRED |
+| ESI-DEF-04 | Do not retire Incident Bundle version 2. | It is an active portability contract; this iteration stabilizes its exact owner shape. | Explicit version retirement or successor adoption. | DEFERRED |
+| ESI-DEF-05 | Do not make active claims a generic identity platform. | The claim language and lifecycle are Entities-owned. | A separately adopted cross-module identity requirement. | DEFERRED |
+
+### 30.4 Rollback posture
+
+Rollback is slice-atomic. Revert each slice's owner, migration, implementation,
+tests, authored verification rows, and generated projections together. Do not
+keep old and new matchers, dual lifecycle ports, forwarding wrappers,
+compatibility triggers, or unused indexes as rollback machinery.
+
+Before release, a failed product slice is reverted at its Section 27 boundary.
+After a migration reaches an environment, repair forward unless the adopted
+migration owner explicitly authorizes and validates a Down transition for that
+environment. ESI-S07 changes evidence only; product corrections return to the
+earlier owning slice.
+
+## 31. ESI Binary Completion Criteria
+
+ESI is complete only when every row is `PASS` with current recorded evidence.
+`TODO`, planned, skipped, partial, inferred, or historical-only results are not
+acceptance.
+
+| Criterion | Required evidence | Current result |
+| --- | --- | --- |
+| The ESI tracker is current without rewriting completed history. | Header, Sections 23 through 31, changed-path review, scoped diff, and Markdown result. | PASS for ESI-S00; Sections 1 through 22 remain historical evidence and only this tracker changed. |
+| Owner documents adopt the exact-match, schema, lifecycle, portability, recovery, and public conflict behavior. | Core 01, Core 02, Core 04 AC-559, manifest, and characterization. | PASS; owner adoption and current 52/34/21 characterization completed in ESI-S01. |
+| Source schema rejects every invalid owned tuple without guessing. | Migration 36 clean, upgrade, invalid preflight, Down/Up, ownership, and privilege evidence. | PASS; ESI-S02 migration and affected-owner evidence is recorded in Sections 29.2 and 29.5 at exact 53/35/22 accounting. |
+| Active exact identity is indexed, unique, concurrent, and rebuildable. | Migration 37, normalization parity, claims, query plans, concurrency, lifecycle, and recovery evidence. | PASS; ESI-S03 migration, corpus, indexed repository, concurrency, lifecycle, rebuild, production Recovery dispatch, affected-owner evidence, and exact 55/37/24 accounting are recorded in Sections 29.2 and 29.6. |
+| Delete, restore, rollback, and merge transfer claims atomically. | Revisions port, public error, rollback reason, pure merge planning, claim handoff, history, projection, Collaboration, replay, and rollback evidence. | PASS; ESI-S04 lifecycle, ordered row/collection rollback, pure merge plan/apply, safe conflict, failure-boundary, affected-owner, and exact 55/37/24 evidence is recorded in Sections 29.2 and 29.7. |
+| Every declared Entities Incident Bundle invariant is enforced. | Typed v2 codec, eight negative fixtures, valid byte-stable round trip, claim exclusion, and atomic import evidence. | PASS; ESI-S05 explicit typed-row codecs, all eight deterministic failures, zero-partial-state checks, valid byte equality, and exact claim reconstruction are recorded in Sections 29.2 and 29.8. |
+| Superseded matching paths and unnecessary indexes are absent without compatibility residue. | Exact symbol, query-plan, index, export, file, selector, migration, recovery, bundle, and generated reconciliation. | PASS; ESI-S06 removes the zero-reference scans and duplicate match calls, retires only nine claim-superseded indexes with exact Down recreation, and records complete inventory and affected-owner evidence in Sections 29.2 and 29.9. |
+| Final accounting is exact. | 56/56 selectors, 38 owner rows, and 25 service-backed rows. | PASS; current ESI-S07 reconciliation confirms 56 unique top-level selectors, 38 owner rows, and 25 service-backed rows with catalog, Harness, and owner suites passing. |
+| Public compatibility changes are limited to the adopted conflict behavior. | OpenAPI, HTTP mapping, authorization/concealment order, replay, success-shape, frontend, and browser evidence. | PASS; current owner, frontend, browser, full-check, and release evidence preserves successful behavior and limits new failures to the adopted exact-match, restore, and rollback conflicts. |
+| Developer, migration, security, and release validation is complete. | Section 28.4 current result roots and final handoff. | PASS; every ordered gate completed on the final state, including 642/642 `make check` and 801/801 `make release-check`; Section 29.2 records all roots and Section 29.10 closes the handoff. |
+
+Domain vocabulary remains unchanged. `docs/domain.md` is not an ESI artifact
+and remains unchanged throughout ESI.

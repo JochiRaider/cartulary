@@ -14,8 +14,17 @@ import (
 type IdentityProvider struct{}
 
 var _ rollbackcontract.RowSourceProvider = IdentityProvider{}
+var _ rollbackcontract.IdentifierClaimRestoreProvider = IdentityProvider{}
 
 func NewIdentityProvider() IdentityProvider { return IdentityProvider{} }
+
+func (IdentityProvider) PrepareIdentifierClaimRestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.IdentifierClaimRestoreRequest) error {
+	return prepareIdentifierClaimRestoreTx(ctx, tx, "identity", request)
+}
+
+func (IdentityProvider) FinalizeIdentifierClaimRestoreTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
+	return finalizeIdentifierClaimRestoreTx(ctx, tx, recordIDs)
+}
 
 func (IdentityProvider) ValidateRollbackValue(value map[string]any) error {
 	source, ok := identitySourceForRollbackValue(value)

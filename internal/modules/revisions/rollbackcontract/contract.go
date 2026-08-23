@@ -13,6 +13,7 @@ var (
 	ErrTargetNotFound      = errors.New("rollback provider: target not found")
 	ErrStaleTarget         = errors.New("rollback provider: stale target")
 	ErrTargetNotReversible = errors.New("rollback provider: target not reversible")
+	ErrIdentifierConflict  = errors.New("rollback provider: active identifier conflict")
 )
 
 type TargetReference struct {
@@ -86,4 +87,30 @@ type RestoreRequest struct {
 type RowSourceProvider interface {
 	ValidateRollbackValue(value map[string]any) error
 	RestoreTx(ctx context.Context, tx pgx.Tx, request RestoreRequest) error
+}
+
+type IdentifierClaimRestoreRequest struct {
+	IncidentID        uuid.UUID
+	AffectedRecordIDs []uuid.UUID
+	Records           []IdentifierClaimRestoreRecord
+}
+
+type IdentifierClaimRestoreRecord struct {
+	RecordID      uuid.UUID
+	RetainedValue map[string]any
+}
+
+// IdentifierClaimRestoreProvider is implemented only by row owners whose
+// rollback changes active exact identifiers. Revisions coordinates these
+// derived-claim preparations around the complete rollback effect sequence.
+type IdentifierClaimRestoreProvider interface {
+	PrepareIdentifierClaimRestoreTx(context.Context, pgx.Tx, IdentifierClaimRestoreRequest) error
+	FinalizeIdentifierClaimRestoreTx(context.Context, pgx.Tx, []uuid.UUID) error
+}
+
+// IdentifierClaimNonRowProvider is implemented by a non-row owner when an
+// inverse can change the active exact-identifier set of one owning record. A
+// nil record ID means that the specific inverse has no active-claim effect.
+type IdentifierClaimNonRowProvider interface {
+	IdentifierClaimRecordTx(context.Context, pgx.Tx, NonRowTarget) (uuid.UUID, error)
 }

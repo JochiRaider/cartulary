@@ -115,6 +115,7 @@ type mergeCarryPlan struct {
 	ExactMatchClasses            []MergeExactMatchClassSummary
 	IdentifierMutations          []mergeIdentifierMutation
 	AliasMutations               []mergeAliasMutation
+	AliasActions                 []hostidentity.CollectionAction
 	SuggestionAliasesCopiedCount int
 	SuggestionAliasDuplicateNoop int
 }
@@ -193,6 +194,27 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	if err != nil {
 		return MergeResult{}, err
 	}
+	preLockSurvivorMeta, survivorMetaErr := loadMergeTargetMetaTx(ctx, tx, survivorRecordID)
+	preLockLoserMeta, loserMetaErr := loadMergeTargetMetaTx(ctx, tx, request.LoserRecordID)
+	if survivorMetaErr == nil && loserMetaErr == nil &&
+		preLockSurvivorMeta.IncidentID == preLockLoserMeta.IncidentID &&
+		preLockSurvivorMeta.RecordType == preLockLoserMeta.RecordType &&
+		(preLockSurvivorMeta.RecordType == "host" || preLockSurvivorMeta.RecordType == "identity") {
+		conflict, prepareErr := s.hostIdentity.PrepareIdentifierClaimsTx(
+			ctx,
+			tx,
+			preLockSurvivorMeta.IncidentID,
+			preLockSurvivorMeta.RecordType,
+			survivorRecordID,
+			request.LoserRecordID,
+		)
+		if prepareErr != nil {
+			return MergeResult{}, prepareErr
+		}
+		if conflict != nil {
+			return MergeResult{}, mergeIdentifierConflict(preLockSurvivorMeta.RecordType, conflict)
+		}
+	}
 	if err := s.ports.revisions.LockDestructiveOperationRecordsNowaitTx(ctx, tx, protectedRecordIDs); err != nil {
 		var locked *entityRecordLockedError
 		if errors.As(err, &locked) {
@@ -204,6 +226,13 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		return MergeResult{}, err
 	}
 	protectedRecordSet := uuidSet(protectedRecordIDs)
+	revalidatedProtectedRecordIDs, err := s.planMergeProtectedRecordIDsTx(ctx, tx, survivorRecordID, request.LoserRecordID, now)
+	if err != nil {
+		return MergeResult{}, err
+	}
+	if !sameUUIDSet(protectedRecordIDs, revalidatedProtectedRecordIDs) {
+		return MergeResult{}, &MergePreconditionError{ReasonCode: "protected_set_changed"}
+	}
 
 	survivorMeta, err := loadMergeTargetMetaTx(ctx, tx, survivorRecordID)
 	if errors.Is(err, ErrMergeTargetNotFound) {
@@ -330,7 +359,6 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	if err != nil {
 		return MergeResult{}, err
 	}
-
 	var carryPlan mergeCarryPlan
 	switch survivorMeta.RecordType {
 	case "host":
@@ -339,6 +367,12 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		carryPlan, err = s.planIdentityMergeCarryForwardTx(ctx, tx, incidentID, survivorIdentity, loserIdentity, survivorIdentifiers, loserIdentifiers, survivorAliases, loserAliases, actor.ID, now)
 	}
 	if err != nil {
+		return MergeResult{}, err
+	}
+	if _, err := tx.Exec(ctx, `SELECT public.entities_release_active_identifier_claims_v1($1)`, request.LoserRecordID); err != nil {
+		return MergeResult{}, fmt.Errorf("release loser active identifier claims: %w", err)
+	}
+	if err := s.applyMergeCarryForwardTx(ctx, tx, incidentID, survivorMeta.RecordType, survivorRecordID, actor.ID, now, &carryPlan); err != nil {
 		return MergeResult{}, err
 	}
 
