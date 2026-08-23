@@ -35,7 +35,7 @@ func TestCanonicalizeRegistryAndDedupe(t *testing.T) {
 					DefangedValue: stringPointer("presentation-only"),
 					STIXPattern:   stringPointer("[presentation:only = true]"),
 				}
-				if IsIPType(indicatorType.name) && valueKind != "atomic" {
+				if isIPType(indicatorType.name) && valueKind != "atomic" {
 					assertValidationField(t, input, "value_kind")
 					return
 				}

@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -44,10 +45,12 @@ func newTestNetworkFlowStore(
 		t.Fatalf("compose Projections: %v", err)
 	}
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:    db,
-		Revisions:   appender,
-		Projections: projection.IndicatorPorts().Rows,
-		SourceText:  indicatorassembly.NewSourceTextPort(projection.SourceTextRows()),
+		Postgres:        db,
+		Revisions:       appender,
+		RecordEnvelopes: records.NewStore(db),
+		Projections:     projection.IndicatorPorts().Rows,
+		SourceText:      indicatorassembly.NewSourceTextPort(projection.SourceTextRows()),
+		Clock:           func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test owner: %v", err)

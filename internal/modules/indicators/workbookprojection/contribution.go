@@ -74,8 +74,8 @@ func NewContribution(source SourceReader) (Contribution, error) {
 	}
 	contract, err := providercontract.NewContribution(
 		"indicators",
-		[]providercontract.ProviderDescriptor{Descriptor()},
-		[]providercontract.SurfaceIntent{SurfaceIntent()},
+		[]providercontract.ProviderDescriptor{descriptor()},
+		[]providercontract.SurfaceIntent{surfaceIntent()},
 	)
 	if err != nil {
 		return Contribution{}, err
@@ -91,7 +91,7 @@ func (contribution Contribution) Source() SourceReader {
 	return contribution.source
 }
 
-func Descriptor() providercontract.ProviderDescriptor {
+func descriptor() providercontract.ProviderDescriptor {
 	return providercontract.ProviderDescriptor{
 		SchemaVersion:                providercontract.DescriptorSchemaVersion,
 		Status:                       providercontract.ProviderStatusActive,
@@ -115,7 +115,7 @@ func Descriptor() providercontract.ProviderDescriptor {
 	}
 }
 
-func SurfaceIntent() providercontract.SurfaceIntent {
+func surfaceIntent() providercontract.SurfaceIntent {
 	return providercontract.SurfaceIntent{
 		ViewSchemaID: indicatorViewSchemaID,
 		FieldKeys: []string{

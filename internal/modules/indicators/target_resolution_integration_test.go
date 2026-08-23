@@ -27,10 +27,10 @@ func TestIndicatorTargetRoleFailuresAreAtomic_Integration(t *testing.T) {
 	foreignIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-target-role-foreign-incident", "IR-IND-TARGET-FOREIGN", "Foreign Indicator target roles")
 	now := time.Date(2026, 8, 3, 22, 0, 0, 0, time.UTC)
 
-	mainIndicator := createTargetRoleIndicator(t, store, actor, incident.ID, "main-target.example", "main", now)
-	deletedIndicator := createTargetRoleIndicator(t, store, actor, incident.ID, "deleted-target.example", "deleted", now.Add(time.Second))
-	priorIndicator := createTargetRoleIndicator(t, store, actor, incident.ID, "prior-target.example", "prior", now.Add(2*time.Second))
-	foreignIndicator := createTargetRoleIndicator(t, store, actor, foreignIncident.ID, "foreign-target.example", "foreign", now.Add(3*time.Second))
+	mainIndicator := createTargetRoleIndicator(t, store, actor, incident.ID, "main-target.example", "main")
+	deletedIndicator := createTargetRoleIndicator(t, store, actor, incident.ID, "deleted-target.example", "deleted")
+	priorIndicator := createTargetRoleIndicator(t, store, actor, incident.ID, "prior-target.example", "prior")
+	foreignIndicator := createTargetRoleIndicator(t, store, actor, foreignIncident.ID, "foreign-target.example", "foreign")
 
 	validSource := uuid.New()
 	wrongTypeTarget := uuid.New()
@@ -103,7 +103,7 @@ func TestIndicatorTargetRoleFailuresAreAtomic_Integration(t *testing.T) {
 			_, callErr := store.ResolveIndicatorObservation(ctx, actor, indicators.IndicatorObservationResolveParams{
 				ObservationID: unresolved.Observation.ObservationID, ResolvedIndicatorRecordID: targetID,
 				BaseRowVersion: 1, ClientTxnID: "txn-target-role-transition-" + suffix,
-				RequestID: "req-target-role-transition-" + suffix, RequestHash: []byte("hash-target-role-transition-" + suffix),
+				RequestID: "req-target-role-transition-" + suffix,
 			})
 			return callErr
 		})
@@ -142,27 +142,27 @@ func TestIndicatorTargetRoleFailuresAreAtomic_Integration(t *testing.T) {
 	assertFailure("unavailable prior source", indicators.ErrIndicatorObservationNotFound, func() error {
 		_, callErr := store.DismissIndicatorObservation(ctx, actor, indicators.IndicatorObservationActionParams{
 			ObservationID: priorSourceObservation.Observation.ObservationID, BaseRowVersion: 1,
-			ClientTxnID: "txn-target-role-prior-source-dismiss", RequestID: "req-target-role-prior-source-dismiss", RequestHash: []byte("hash-target-role-prior-source-dismiss"),
+			ClientTxnID: "txn-target-role-prior-source-dismiss", RequestID: "req-target-role-prior-source-dismiss",
 		})
 		return callErr
 	})
 	assertFailure("unavailable prior target", indicators.ErrIndicatorObservationNotFound, func() error {
 		_, callErr := store.DismissIndicatorObservation(ctx, actor, indicators.IndicatorObservationActionParams{
 			ObservationID: priorTargetObservation.Observation.ObservationID, BaseRowVersion: 1,
-			ClientTxnID: "txn-target-role-prior-target-dismiss", RequestID: "req-target-role-prior-target-dismiss", RequestHash: []byte("hash-target-role-prior-target-dismiss"),
+			ClientTxnID: "txn-target-role-prior-target-dismiss", RequestID: "req-target-role-prior-target-dismiss",
 		})
 		return callErr
 	})
 }
 
-func createTargetRoleIndicator(t testing.TB, store *indicators.Store, actor authn.UserRecord, incidentID uuid.UUID, value string, suffix string, now time.Time) uuid.UUID {
+func createTargetRoleIndicator(t testing.TB, store *indicators.Store, actor authn.UserRecord, incidentID uuid.UUID, value string, suffix string) uuid.UUID {
 	t.Helper()
 	result, err := store.CreateIndicatorRow(context.Background(), actor, incidentID, indicators.CreateCommand{
 		ClientTxnID:   "txn-target-role-indicator-" + suffix,
 		IndicatorType: "domain_name",
 		ValueKind:     "atomic",
 		DisplayValue:  value,
-	}, []byte("hash-target-role-indicator-"+suffix), "req-target-role-indicator-"+suffix, now)
+	}, "req-target-role-indicator-"+suffix)
 	if err != nil {
 		t.Fatalf("create target-role Indicator %s: %v", suffix, err)
 	}

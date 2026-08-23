@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -296,12 +297,18 @@ type inertIndicatorSourceText struct {
 	indicators.SourceTextPort
 }
 
+type inertIndicatorRecordEnvelopes struct {
+	indicators.RecordEnvelopePort
+}
+
 func inertIndicatorOwner() *indicators.Store {
 	owner, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:    inertOwnerRegistryDB{},
-		Revisions:   &revisions.Appender{},
-		Projections: inertIndicatorProjectionRows{},
-		SourceText:  inertIndicatorSourceText{},
+		Postgres:        inertOwnerRegistryDB{},
+		Revisions:       &revisions.Appender{},
+		RecordEnvelopes: inertIndicatorRecordEnvelopes{},
+		Projections:     inertIndicatorProjectionRows{},
+		SourceText:      inertIndicatorSourceText{},
+		Clock:           func() time.Time { return time.Unix(0, 0).UTC() },
 	})
 	if err != nil {
 		panic(err)

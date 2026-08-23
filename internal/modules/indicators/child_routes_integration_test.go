@@ -24,15 +24,16 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 		"title":         "Indicator child route acceptance",
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+	example := indicatortest.PrimaryExample()
 
 	indicatorResponse := childRouteJSON(t, harness, login, http.MethodPost,
 		"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IndicatorsViewSchemaID+"/rows",
 		map[string]any{
 			"client_txn_id":              "txn-indicator-child-routes-indicator",
-			"indicator.indicator_type":   indicatortest.Examples[0].IndicatorType,
-			"indicator.value_kind":       indicatortest.Examples[0].ValueKind,
-			"indicator.display_value":    indicatortest.Examples[0].DisplayValue,
-			"indicator.normalized_value": indicatortest.Examples[0].NormalizedValue,
+			"indicator.indicator_type":   example.IndicatorType,
+			"indicator.value_kind":       example.ValueKind,
+			"indicator.display_value":    example.DisplayValue,
+			"indicator.normalized_value": example.NormalizedValue,
 		},
 	)
 	indicatorData := httptestx.RequireSuccessEnvelope(t, indicatorResponse, http.StatusCreated)["data"].(map[string]any)
@@ -102,6 +103,13 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	if dismissed["observation"].(map[string]any)["resolution_status"] != "dismissed" {
 		t.Fatalf("dismissed observation = %#v", dismissed)
 	}
+	dismissReplay := httptestx.RequireSuccessEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, dismissPath, dismissBody), http.StatusOK)["data"].(map[string]any)
+	if dismissReplay["replayed"] != true || dismissReplay["change_set_id"] != dismissed["change_set_id"] {
+		t.Fatalf("dismiss replay = %#v", dismissReplay)
+	}
+	dismissDivergent := cloneMap(dismissBody)
+	dismissDivergent["base_row_version"] = 2
+	httptestx.RequireErrorEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, dismissPath, dismissDivergent), http.StatusConflict, "client_txn_conflict")
 	illegalDismiss := map[string]any{"client_txn_id": "txn-indicator-child-routes-dismiss-again", "base_row_version": 2}
 	httptestx.RequireErrorEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, dismissPath, illegalDismiss), http.StatusConflict, "illegal_transition")
 
@@ -112,6 +120,11 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	if restored["observation"].(map[string]any)["resolution_status"] != "unresolved" {
 		t.Fatalf("restored observation = %#v", restored)
 	}
+	restoreReplayBody := map[string]any{"client_txn_id": "txn-indicator-child-routes-restore", "base_row_version": 2}
+	restoreReplay := httptestx.RequireSuccessEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, restorePath, restoreReplayBody), http.StatusOK)["data"].(map[string]any)
+	if restoreReplay["replayed"] != true || restoreReplay["change_set_id"] != restored["change_set_id"] {
+		t.Fatalf("restore replay = %#v", restoreReplay)
+	}
 
 	resolvePath := "/api/v1/indicator-observations/" + secondID.String() + "/resolve"
 	resolved := httptestx.RequireSuccessEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, resolvePath, map[string]any{
@@ -120,6 +133,16 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	if resolved["observation"].(map[string]any)["resolution_status"] != "resolved" {
 		t.Fatalf("resolved observation = %#v", resolved)
 	}
+	resolveReplayBody := map[string]any{
+		"client_txn_id": "txn-indicator-child-routes-resolve", "base_row_version": 3, "resolved_indicator_record_id": indicatorID.String(),
+	}
+	resolveReplay := httptestx.RequireSuccessEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, resolvePath, resolveReplayBody), http.StatusOK)["data"].(map[string]any)
+	if resolveReplay["replayed"] != true || resolveReplay["change_set_id"] != resolved["change_set_id"] {
+		t.Fatalf("resolve replay = %#v", resolveReplay)
+	}
+	resolveDivergent := cloneMap(resolveReplayBody)
+	resolveDivergent["resolved_indicator_record_id"] = uuid.New().String()
+	httptestx.RequireErrorEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, resolvePath, resolveDivergent), http.StatusConflict, "client_txn_conflict")
 	httptestx.RequireErrorEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, resolvePath, map[string]any{
 		"client_txn_id": "txn-indicator-child-routes-resolve-again", "base_row_version": 4, "resolved_indicator_record_id": indicatorID.String(),
 	}), http.StatusConflict, "illegal_transition")
@@ -144,6 +167,9 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	if lifecycleReplay["replayed"] != true || lifecycleReplay["change_set_id"] != lifecycle["change_set_id"] {
 		t.Fatalf("lifecycle replay = %#v", lifecycleReplay)
 	}
+	lifecycleDivergent := cloneMap(lifecycleBody)
+	lifecycleDivergent["confidence"] = 79
+	httptestx.RequireErrorEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, lifecyclePath, lifecycleDivergent), http.StatusConflict, "client_txn_conflict")
 	intervals := httptestx.RequireSuccessEnvelope(t, childRouteJSON(t, harness, login, http.MethodGet, lifecyclePath, nil), http.StatusOK)["data"].(map[string]any)["intervals"].([]any)
 	if len(intervals) != 1 {
 		t.Fatalf("lifecycle list = %#v", intervals)

@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (sourceRepository) lockDedupeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorType string, dedupeKey string) error {
+func lockIndicatorDedupeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorType string, dedupeKey string) error {
 	identity := incidentID.String() + ":" + indicatorType + ":" + dedupeKey
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, identity); err != nil {
 		return fmt.Errorf("lock indicator dedupe identity: %w", err)
@@ -17,8 +17,7 @@ func (sourceRepository) lockDedupeTx(ctx context.Context, tx pgx.Tx, incidentID 
 	return nil
 }
 
-func (sourceRepository) loadByDedupeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorType string, dedupeKey string) (indicatorRecord, bool, error) {
-	record, err := scanIndicatorRecord(tx.QueryRow(ctx, `
+const loadIndicatorByDedupeSQL = `
 SELECT
     i.record_id,
     i.incident_id,
@@ -49,7 +48,10 @@ SELECT
    AND r.deleted_at IS NULL
  LIMIT 1
  FOR UPDATE OF active_identity, i, r
-`, incidentID, indicatorType, dedupeKey))
+`
+
+func loadIndicatorByDedupeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorType string, dedupeKey string) (indicatorRecord, bool, error) {
+	record, err := scanIndicatorRecord(tx.QueryRow(ctx, loadIndicatorByDedupeSQL, incidentID, indicatorType, dedupeKey))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return indicatorRecord{}, false, nil
 	}
@@ -59,7 +61,7 @@ SELECT
 	return record, true, nil
 }
 
-func (sourceRepository) insertTx(ctx context.Context, tx pgx.Tx, record *indicatorRecord) error {
+func insertIndicatorTx(ctx context.Context, tx pgx.Tx, record *indicatorRecord) error {
 	return tx.QueryRow(ctx, `
 INSERT INTO indicators (
     record_id,
@@ -79,7 +81,7 @@ RETURNING record_id
 `, record.RecordID, record.IncidentID, record.IndicatorType, record.ValueKind, record.DisplayValue, record.NormalizedValue, record.DedupeKey, record.DefangedValue, record.HashAlgorithm, record.HashValue, record.STIXPattern).Scan(&record.RecordID)
 }
 
-func (sourceRepository) updateTx(ctx context.Context, tx pgx.Tx, record indicatorRecord) error {
+func updateIndicatorTx(ctx context.Context, tx pgx.Tx, record indicatorRecord) error {
 	tag, err := tx.Exec(ctx, `
 UPDATE indicators
    SET defanged_value = $2,

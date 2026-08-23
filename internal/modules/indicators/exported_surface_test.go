@@ -30,7 +30,6 @@ var indicatorExportedSurfaceAllowlist = map[string]struct{}{
 	"IndicatorCreateValidationError.Error":        {},
 	"IndicatorFindOrCreateParticipantCommand":     {},
 	"IndicatorFindOrCreateParticipantResult":      {},
-	"IndicatorFindOrCreateParticipantV1":          {},
 	"IndicatorLifecycleAppendParams":              {},
 	"IndicatorLifecycleIntervalRecord":            {},
 	"IndicatorLifecycleMutationResult":            {},
@@ -45,6 +44,7 @@ var indicatorExportedSurfaceAllowlist = map[string]struct{}{
 	"NewRevisionContribution":                     {},
 	"NewStore":                                    {},
 	"RecoveryStateContribution":                   {},
+	"RecordEnvelopePort":                          {},
 	"SourceTextPort":                              {},
 	"SourceTextValue":                             {},
 	"Store":                                       {},
@@ -85,7 +85,7 @@ var indicatorExportRoles = indicatorExportRoleInventory(map[string]string{
 		NewRevisionContribution RecoveryStateContribution
 	`,
 	"complete Indicators store construction and transaction participant capability": `
-		IndicatorFindOrCreateParticipantV1 NewStore Store StoreDependencies
+		NewStore RecordEnvelopePort Store StoreDependencies
 	`,
 	"live Indicators application operation consumed by HTTP, Workbook, Imports, or Network Flow": `
 		Store.AppendIndicatorLifecycleInterval Store.CreateIndicatorObservation Store.CreateIndicatorRow
@@ -123,6 +123,102 @@ func TestIndicatorExportedSurfaceReachabilityLock(t *testing.T) {
 	t.Run("production import topology", func(t *testing.T) {
 		assertIndicatorsProductionImportBoundaries(t)
 	})
+	t.Run("owner-local helpers remain private", func(t *testing.T) {
+		assertIndicatorOwnerLocalHelpersPrivate(t)
+	})
+	t.Run("test fixtures are value-returning and minimal", func(t *testing.T) {
+		assertIndicatorTestFixturesMinimal(t)
+	})
+}
+
+func assertIndicatorOwnerLocalHelpersPrivate(t testing.TB) {
+	t.Helper()
+	assertFunctionInventory(t, filepath.Join("internal", "identity", "identity.go"),
+		[]string{"normalizeIndicatorType", "normalizeValueKind", "normalizeValue", "isIPType", "dedupeKey"},
+		[]string{"NormalizeIndicatorType", "NormalizeValueKind", "NormalizeValue", "IsIPType", "DedupeKey"},
+	)
+	assertFunctionInventory(t, filepath.Join("workbookprojection", "contribution.go"),
+		[]string{"descriptor", "surfaceIntent"},
+		[]string{"Descriptor", "SurfaceIntent"},
+	)
+}
+
+func assertFunctionInventory(t testing.TB, path string, required []string, forbidden []string) {
+	t.Helper()
+	parsed, err := parser.ParseFile(token.NewFileSet(), filepath.Clean(path), nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+	functions := make(map[string]struct{})
+	for _, declaration := range parsed.Decls {
+		function, ok := declaration.(*ast.FuncDecl)
+		if ok && function.Recv == nil {
+			functions[function.Name.Name] = struct{}{}
+		}
+	}
+	for _, name := range required {
+		if _, ok := functions[name]; !ok {
+			t.Fatalf("%s is missing private helper %s", path, name)
+		}
+	}
+	for _, name := range forbidden {
+		if _, ok := functions[name]; ok {
+			t.Fatalf("%s retains test-only exported helper %s", path, name)
+		}
+	}
+}
+
+func assertIndicatorTestFixturesMinimal(t testing.TB) {
+	t.Helper()
+	path := filepath.Join("testsupport", "fixtures.go")
+	parsed, err := parser.ParseFile(token.NewFileSet(), filepath.Clean(path), nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+	functions := make(map[string]struct{})
+	var exampleFields []string
+	for _, declaration := range parsed.Decls {
+		switch typed := declaration.(type) {
+		case *ast.FuncDecl:
+			if typed.Recv == nil {
+				functions[typed.Name.Name] = struct{}{}
+			}
+		case *ast.GenDecl:
+			for _, specification := range typed.Specs {
+				switch spec := specification.(type) {
+				case *ast.ValueSpec:
+					for _, name := range spec.Names {
+						switch name.Name {
+						case "Examples", "BaseTime", "PastTime":
+							t.Fatalf("%s retains mutable fixture global %s", path, name.Name)
+						}
+					}
+				case *ast.TypeSpec:
+					if spec.Name.Name != "Example" {
+						continue
+					}
+					structure, ok := spec.Type.(*ast.StructType)
+					if !ok {
+						t.Fatalf("%s Example is not a struct", path)
+					}
+					for _, field := range structure.Fields.List {
+						for _, name := range field.Names {
+							exampleFields = append(exampleFields, name.Name)
+						}
+					}
+				}
+			}
+		}
+	}
+	wantFields := []string{"IndicatorType", "ValueKind", "DisplayValue", "NormalizedValue"}
+	if strings.Join(exampleFields, " ") != strings.Join(wantFields, " ") {
+		t.Fatalf("%s Example fields = %v, want %v", path, exampleFields, wantFields)
+	}
+	for _, name := range []string{"PrimaryExample", "BaseTime", "PastTime"} {
+		if _, ok := functions[name]; !ok {
+			t.Fatalf("%s is missing value-returning fixture %s", path, name)
+		}
+	}
 }
 
 func indicatorExportRoleInventory(groups map[string]string) map[string]string {

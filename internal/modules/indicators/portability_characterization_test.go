@@ -30,7 +30,7 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		IndicatorType: "domain_name",
 		ValueKind:     "atomic",
 		DisplayValue:  "PORTABLE[.]EXAMPLE.TEST",
-	}, []byte("indicator-portability-create"), "req-indicator-portability-create", indicatortest.BaseTime)
+	}, "req-indicator-portability-create")
 	if err != nil {
 		t.Fatalf("create indicator: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		t.Fatalf("create observation: %v", err)
 	}
 	if _, err := store.AppendIndicatorLifecycleInterval(ctx, actor, lifecycleAppendParams(
-		incident.ID, created.RecordID, 2, indicatortest.PastTime, "txn-indicator-portability-lifecycle",
+		incident.ID, created.RecordID, 2, indicatortest.PastTime(), "txn-indicator-portability-lifecycle",
 	)); err != nil {
 		t.Fatalf("append interval: %v", err)
 	}

@@ -2,8 +2,13 @@ package revisions_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"encoding/json"
+	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +16,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -23,10 +29,12 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, _ := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I706")
 	store, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:    harness.Pool,
-		Revisions:   harness.Revisions.Appender(),
-		Projections: harness.Projections.IndicatorProjectionPort(),
-		SourceText:  harness.IndicatorSourceText,
+		Postgres:        harness.Pool,
+		Revisions:       harness.Revisions.Appender(),
+		RecordEnvelopes: records.NewStore(harness.Pool),
+		Projections:     harness.Projections.IndicatorProjectionPort(),
+		SourceText:      harness.IndicatorSourceText,
+		Clock:           func() time.Time { return time.Date(2026, 7, 9, 15, 0, 0, 0, time.UTC) },
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test owner: %v", err)
@@ -135,7 +143,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		observation := created.Observation
 		resolvedResult, err := store.ResolveIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationResolveParams{
 			ObservationID: observation.ObservationID, ResolvedIndicatorRecordID: indicatorID, BaseRowVersion: 1,
-			ClientTxnID: "txn-i-7-06-observation-resolve", RequestID: "req-i-7-06-observation-resolve", RequestHash: []byte("hash-i-7-06-observation-resolve"),
+			ClientTxnID: "txn-i-7-06-observation-resolve", RequestID: "req-i-7-06-observation-resolve",
 		})
 		if err != nil || resolvedResult.Observation.RowVersion != 2 {
 			t.Fatalf("resolve observation = %#v, %v", resolvedResult, err)
@@ -175,7 +183,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		observation := created.Observation
 		resolved, err := store.ResolveIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationResolveParams{
 			ObservationID: observation.ObservationID, ResolvedIndicatorRecordID: newIndicatorID, BaseRowVersion: 1,
-			ClientTxnID: "txn-i-7-06-observation-reresolve", RequestID: "req-i-7-06-observation-reresolve", RequestHash: []byte("hash-i-7-06-observation-reresolve"),
+			ClientTxnID: "txn-i-7-06-observation-reresolve", RequestID: "req-i-7-06-observation-reresolve",
 		})
 		if err != nil {
 			t.Fatalf("re-resolve observation: %v", err)
@@ -229,6 +237,161 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 			t.Fatal("tombstoned interval remained in lifecycle selection")
 		}
 	})
+
+	t.Run("row rollback rejects malformed retained history without durable effects", func(t *testing.T) {
+		malformed := []struct {
+			name   string
+			mutate func(map[string]any, uuid.UUID, uuid.UUID)
+		}{
+			{name: "record identity mismatch", mutate: func(source map[string]any, _ uuid.UUID, _ uuid.UUID) {
+				source["record_id"] = uuid.New().String()
+			}},
+			{name: "incident identity mismatch", mutate: func(source map[string]any, _ uuid.UUID, _ uuid.UUID) {
+				source["incident_id"] = uuid.New().String()
+			}},
+			{name: "dedupe mismatch", mutate: func(source map[string]any, _ uuid.UUID, _ uuid.UUID) {
+				source["dedupe_key"] = strings.Repeat("f", 64)
+			}},
+			{name: "malformed hash pair", mutate: func(source map[string]any, _ uuid.UUID, _ uuid.UUID) {
+				source["hash_algorithm"] = "sha256"
+			}},
+			{name: "noncanonical presentation", mutate: func(source map[string]any, _ uuid.UUID, _ uuid.UUID) {
+				source["display_value"] = " retained-malformed.example.test "
+			}},
+			{name: "unknown source member", mutate: func(source map[string]any, _ uuid.UUID, _ uuid.UUID) {
+				source["row_version"] = float64(1)
+			}},
+		}
+		for index, testCase := range malformed {
+			t.Run(testCase.name, func(t *testing.T) {
+				suffix := "malformed-" + string(rune('a'+index))
+				current := indicatorRollbackSource(uuid.Nil, incidentID, "current-"+suffix+".example.test")
+				retained := indicatorRollbackSource(uuid.Nil, incidentID, "retained-"+suffix+".example.test")
+				recordID, historyRef := seedIndicatorRowRollback(t, harness.DB, incidentID, actorID, suffix, current, retained)
+				testCase.mutate(retained, recordID, incidentID)
+				updateIndicatorRollbackBeforeValue(t, harness.DB, historyRef, indicatorRollbackSnapshot(recordID, incidentID, 1, retained))
+				before := indicatorRollbackDurableState(t, harness.DB, incidentID, recordID)
+				requireRollbackReasonCode(t, rollbackRecord(t, harness, login, recordID, map[string]any{
+					"base_row_version": 2,
+					"client_txn_id":    "txn-i-7-06-indicator-row-" + suffix,
+					"target":           map[string]any{"kind": "history_entry", "history_entry_ref": historyRef},
+				}), "target_not_reversible")
+				after := indicatorRollbackDurableState(t, harness.DB, incidentID, recordID)
+				if after != before {
+					t.Fatalf("malformed Indicator rollback changed durable state:\nbefore=%s\nafter=%s", before, after)
+				}
+			})
+		}
+	})
+
+	t.Run("row rollback restores full partial and explicitly cleared source patches", func(t *testing.T) {
+		const hashValue = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+		cases := []struct {
+			name     string
+			current  func(uuid.UUID) map[string]any
+			retained func(uuid.UUID) map[string]any
+			expected func(uuid.UUID) map[string]any
+		}{
+			{
+				name: "full snapshot rekeys and restores representations",
+				current: func(recordID uuid.UUID) map[string]any {
+					return indicatorRollbackSource(recordID, incidentID, "current-full.example.test")
+				},
+				retained: func(recordID uuid.UUID) map[string]any {
+					source := indicatorRollbackSource(recordID, incidentID, "retained-full.example.test")
+					source["defanged_value"] = "retained-full[.]example[.]test"
+					source["hash_algorithm"] = "sha256"
+					source["hash_value"] = hashValue
+					source["stix_pattern"] = "[domain-name:value = 'retained-full.example.test']"
+					refreshIndicatorRollbackDedupe(source)
+					return source
+				},
+				expected: func(recordID uuid.UUID) map[string]any {
+					source := indicatorRollbackSource(recordID, incidentID, "retained-full.example.test")
+					source["defanged_value"] = "retained-full[.]example[.]test"
+					source["hash_algorithm"] = "sha256"
+					source["hash_value"] = hashValue
+					source["stix_pattern"] = "[domain-name:value = 'retained-full.example.test']"
+					refreshIndicatorRollbackDedupe(source)
+					return source
+				},
+			},
+			{
+				name: "partial patch preserves omitted representations",
+				current: func(recordID uuid.UUID) map[string]any {
+					source := indicatorRollbackSource(recordID, incidentID, "current-partial.example.test")
+					source["defanged_value"] = "current-partial[.]example[.]test"
+					source["hash_algorithm"] = "sha256"
+					source["hash_value"] = hashValue
+					source["stix_pattern"] = "[domain-name:value = 'current-partial.example.test']"
+					refreshIndicatorRollbackDedupe(source)
+					return source
+				},
+				retained: func(recordID uuid.UUID) map[string]any {
+					source := map[string]any{
+						"record_id": recordID.String(), "incident_id": incidentID.String(),
+						"display_value": "retained-partial.example.test", "normalized_value": "retained-partial.example.test",
+					}
+					source["dedupe_key"] = indicatorRollbackDedupe("domain_name", "atomic", "retained-partial.example.test", "retained-partial.example.test", "sha256", hashValue)
+					return source
+				},
+				expected: func(recordID uuid.UUID) map[string]any {
+					source := indicatorRollbackSource(recordID, incidentID, "retained-partial.example.test")
+					source["defanged_value"] = "current-partial[.]example[.]test"
+					source["hash_algorithm"] = "sha256"
+					source["hash_value"] = hashValue
+					source["stix_pattern"] = "[domain-name:value = 'current-partial.example.test']"
+					refreshIndicatorRollbackDedupe(source)
+					return source
+				},
+			},
+			{
+				name: "explicit nulls clear nullable representations",
+				current: func(recordID uuid.UUID) map[string]any {
+					source := indicatorRollbackSource(recordID, incidentID, "current-clear.example.test")
+					source["defanged_value"] = "current-clear[.]example[.]test"
+					source["hash_algorithm"] = "sha256"
+					source["hash_value"] = hashValue
+					source["stix_pattern"] = "[domain-name:value = 'current-clear.example.test']"
+					refreshIndicatorRollbackDedupe(source)
+					return source
+				},
+				retained: func(recordID uuid.UUID) map[string]any {
+					return map[string]any{
+						"record_id": recordID.String(), "incident_id": incidentID.String(),
+						"dedupe_key":     indicatorRollbackDedupe("domain_name", "atomic", "current-clear.example.test", "current-clear.example.test", "", ""),
+						"defanged_value": nil, "hash_algorithm": nil, "hash_value": nil, "stix_pattern": nil,
+					}
+				},
+				expected: func(recordID uuid.UUID) map[string]any {
+					return indicatorRollbackSource(recordID, incidentID, "current-clear.example.test")
+				},
+			},
+		}
+		for index, testCase := range cases {
+			t.Run(testCase.name, func(t *testing.T) {
+				suffix := "valid-" + string(rune('a'+index))
+				recordID := uuid.New()
+				current := testCase.current(recordID)
+				retained := testCase.retained(recordID)
+				recordID, historyRef := seedIndicatorRowRollbackWithID(t, harness.DB, incidentID, actorID, recordID, suffix, current, retained)
+				httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, recordID, map[string]any{
+					"base_row_version": 2,
+					"client_txn_id":    "txn-i-7-06-indicator-row-" + suffix,
+					"target":           map[string]any{"kind": "history_entry", "history_entry_ref": historyRef},
+				}), 200)
+				got := loadIndicatorRollbackSource(t, harness.DB, recordID)
+				if want := testCase.expected(recordID); !reflect.DeepEqual(got, want) {
+					t.Fatalf("restored Indicator source = %#v, want %#v", got, want)
+				}
+				if countRows(t, harness.DB, `SELECT COUNT(*) FROM records WHERE record_id = $1 AND row_version = 3`, recordID) != 1 ||
+					countRows(t, harness.DB, `SELECT COUNT(*) FROM indicator_active_identities WHERE indicator_record_id = $1 AND dedupe_key = $2`, recordID, got["dedupe_key"]) != 1 ||
+					countRows(t, harness.DB, `SELECT COUNT(*) FROM indicator_grid_projection WHERE record_id = $1 AND dedupe_key = $2`, recordID, got["dedupe_key"]) != 1 {
+					t.Fatal("Indicator rollback did not preserve envelope, active identity, and projection consequences")
+				}
+			})
+		}
+	})
 }
 
 func indicatorChildObservationParams(incidentID uuid.UUID, sourceID uuid.UUID, fieldKey string, resolvedID *uuid.UUID, clientTxnID string) indicators.IndicatorObservationCreateParams {
@@ -236,7 +399,7 @@ func indicatorChildObservationParams(incidentID uuid.UUID, sourceID uuid.UUID, f
 		IncidentID: incidentID, SourceRecordID: sourceID, BaseRowVersion: 1,
 		SourceFieldKey: fieldKey, SpanStartByte: 0, SpanEndByte: len("record-support-source-row"),
 		ResolvedIndicatorRecordID: resolvedID, ClientTxnID: clientTxnID,
-		RequestID: "req-" + clientTxnID, RequestHash: []byte("hash-" + clientTxnID),
+		RequestID: "req-" + clientTxnID,
 	}
 }
 
@@ -244,7 +407,7 @@ func indicatorChildLifecycleParams(incidentID uuid.UUID, indicatorID uuid.UUID, 
 	return indicators.IndicatorLifecycleAppendParams{
 		IncidentID: incidentID, IndicatorRecordID: indicatorID, BaseRowVersion: baseRowVersion,
 		LifecycleState: "active", ValidFrom: validFrom, SupportRefs: []uuid.UUID{},
-		ClientTxnID: clientTxnID, RequestID: "req-" + clientTxnID, RequestHash: []byte("hash-" + clientTxnID),
+		ClientTxnID: clientTxnID, RequestID: "req-" + clientTxnID,
 	}
 }
 
@@ -254,6 +417,118 @@ func seedIndicatorChildRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, ac
 	value := "history_revision-" + suffix + ".example.test"
 	indicatortest.SeedRecord(t, db, incidentID, actorID, recordID, "domain_name", "atomic", value)
 	return recordID
+}
+
+func indicatorRollbackSource(recordID uuid.UUID, incidentID uuid.UUID, displayValue string) map[string]any {
+	source := map[string]any{
+		"record_id": recordID.String(), "incident_id": incidentID.String(),
+		"indicator_type": "domain_name", "value_kind": "atomic",
+		"display_value": displayValue, "normalized_value": displayValue,
+		"defanged_value": nil, "hash_algorithm": nil, "hash_value": nil, "stix_pattern": nil,
+	}
+	refreshIndicatorRollbackDedupe(source)
+	return source
+}
+
+func refreshIndicatorRollbackDedupe(source map[string]any) {
+	source["dedupe_key"] = indicatorRollbackDedupe(
+		source["indicator_type"].(string), source["value_kind"].(string), source["display_value"].(string),
+		nullableIndicatorRollbackText(source["normalized_value"]), nullableIndicatorRollbackText(source["hash_algorithm"]), nullableIndicatorRollbackText(source["hash_value"]),
+	)
+}
+
+func indicatorRollbackDedupe(indicatorType string, valueKind string, displayValue string, normalizedValue string, hashAlgorithm string, hashValue string) string {
+	sum := sha256.Sum256([]byte(strings.Join([]string{indicatorType, valueKind, displayValue, normalizedValue, hashAlgorithm, hashValue}, "\x1f")))
+	return hex.EncodeToString(sum[:])
+}
+
+func nullableIndicatorRollbackText(value any) string {
+	text, _ := value.(string)
+	return text
+}
+
+func seedIndicatorRowRollback(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, suffix string, current map[string]any, retained map[string]any) (uuid.UUID, string) {
+	t.Helper()
+	recordID := uuid.New()
+	current["record_id"] = recordID.String()
+	current["incident_id"] = incidentID.String()
+	retained["record_id"] = recordID.String()
+	retained["incident_id"] = incidentID.String()
+	return seedIndicatorRowRollbackWithID(t, db, incidentID, actorID, recordID, suffix, current, retained)
+}
+
+func seedIndicatorRowRollbackWithID(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, suffix string, current map[string]any, retained map[string]any) (uuid.UUID, string) {
+	t.Helper()
+	indicatortest.SeedRecord(t, db, incidentID, actorID, recordID, current["indicator_type"].(string), current["value_kind"].(string), current["display_value"].(string))
+	mustExec(t, db, `
+UPDATE indicators
+   SET indicator_type = $2, value_kind = $3, display_value = $4, normalized_value = $5,
+       dedupe_key = $6, defanged_value = $7, hash_algorithm = $8, hash_value = $9, stix_pattern = $10
+ WHERE record_id = $1
+`, recordID, current["indicator_type"], current["value_kind"], current["display_value"], current["normalized_value"], current["dedupe_key"], current["defanged_value"], current["hash_algorithm"], current["hash_value"], current["stix_pattern"])
+	advancedAt := time.Date(2026, 7, 9, 18, 0, 0, 0, time.UTC)
+	advanceRecordFixtureWithAudit(t, db, recordID, 2, &advancedAt, &actorID)
+	changeSetID := uuid.New()
+	historyRef := "href-indicator-row-" + suffix + "-rollback"
+	seedRollbackMutationWithRef(
+		t, db, incidentID, actorID, recordID, changeSetID, 1, "indicator", recordID.String(), "field_update",
+		indicatorRollbackSnapshot(recordID, incidentID, 1, retained), indicatorRollbackSnapshot(recordID, incidentID, 2, current), historyRef,
+	)
+	return recordID, historyRef
+}
+
+func indicatorRollbackSnapshot(recordID uuid.UUID, incidentID uuid.UUID, rowVersion int64, source map[string]any) map[string]any {
+	return map[string]any{
+		"snapshot_schema_id": "cartulary.revisions.snapshot.indicator.v1",
+		"record": map[string]any{
+			"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "indicator", "row_version": rowVersion,
+		},
+		"source": source,
+	}
+}
+
+func updateIndicatorRollbackBeforeValue(t testing.TB, db *sql.DB, historyRef string, before map[string]any) {
+	t.Helper()
+	mustExec(t, db, `
+UPDATE change_set_mutations AS mutation
+   SET before_value = $2
+  FROM record_history_entry_refs AS history_ref
+ WHERE history_ref.history_entry_ref = $1
+   AND mutation.change_set_id = history_ref.change_set_id
+   AND mutation.sequence_no = history_ref.mutation_sequence_no
+`, historyRef, jsonOrNil(t, before))
+}
+
+func indicatorRollbackDurableState(t testing.TB, db *sql.DB, incidentID uuid.UUID, recordID uuid.UUID) string {
+	t.Helper()
+	return stringScalar(t, db, `
+SELECT jsonb_build_object(
+    'record', to_jsonb(record_row),
+    'source', to_jsonb(indicator_row),
+    'identity', (SELECT to_jsonb(identity_row) FROM indicator_active_identities AS identity_row WHERE identity_row.indicator_record_id = $1),
+    'projection', (SELECT to_jsonb(projection_row) FROM indicator_grid_projection AS projection_row WHERE projection_row.record_id = $1),
+    'change_sets', (SELECT COUNT(*) FROM change_sets WHERE incident_id = $2),
+    'mutations', (SELECT COUNT(*) FROM change_set_mutations AS mutation JOIN change_sets AS change_set USING (change_set_id) WHERE change_set.incident_id = $2),
+    'revisions', (SELECT COUNT(*) FROM record_revisions WHERE record_id = $1),
+    'idempotency', (SELECT COUNT(*) FROM route_idempotency WHERE scope_key = $1::text)
+)::text
+  FROM records AS record_row
+  JOIN indicators AS indicator_row ON indicator_row.record_id = record_row.record_id
+ WHERE record_row.record_id = $1
+`, recordID, incidentID)
+}
+
+func loadIndicatorRollbackSource(t testing.TB, db *sql.DB, recordID uuid.UUID) map[string]any {
+	t.Helper()
+	var encoded []byte
+	if err := db.QueryRowContext(context.Background(), `SELECT to_jsonb(indicator_row) FROM indicators AS indicator_row WHERE record_id = $1`, recordID).Scan(&encoded); err != nil {
+		t.Fatalf("load restored Indicator source: %v", err)
+	}
+	var source map[string]any
+	if err := json.Unmarshal(encoded, &source); err != nil {
+		t.Fatalf("decode restored Indicator source: %v", err)
+	}
+	return source
 }
 
 func sameUUIDSet(left []uuid.UUID, right []uuid.UUID) bool {

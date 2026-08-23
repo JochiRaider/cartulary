@@ -19,6 +19,7 @@ import (
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -203,10 +204,12 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 		panic(err)
 	}
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:    pool,
-		Revisions:   appender,
-		Projections: projectionRuntime.IndicatorPorts().Rows,
-		SourceText:  indicatorassembly.NewSourceTextPort(projectionRuntime.SourceTextRows()),
+		Postgres:        pool,
+		Revisions:       appender,
+		RecordEnvelopes: records.NewStore(pool),
+		Projections:     projectionRuntime.IndicatorPorts().Rows,
+		SourceText:      indicatorassembly.NewSourceTextPort(projectionRuntime.SourceTextRows()),
+		Clock:           func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
 	})
 	if err != nil {
 		panic(err)

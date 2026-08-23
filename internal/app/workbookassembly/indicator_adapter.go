@@ -49,9 +49,7 @@ func newIndicatorCreateProvider(owner *indicators.Store) (workbook.CreateProvide
 				command.Actor,
 				command.IncidentID,
 				admitted.command,
-				preferredRequestHash(command.RequestHash, indicatoradmission.CreateRequestHash(admitted.command)),
 				command.RequestID,
-				command.Now,
 			)
 			if failure, safe := indicatorCreateFailure(err, admitted.command.ClientTxnID); safe {
 				return workbook.RejectedMutation(failure), nil

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"mime"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -32,19 +33,23 @@ type ownerApplication interface {
 	ListIndicatorLifecycleIntervals(context.Context, uuid.UUID, *time.Time, *uuid.UUID, int) ([]indicators.IndicatorLifecycleIntervalRecord, error)
 }
 
-type Service struct {
+type recordEnvelopeReader interface {
+	LoadEnvelope(context.Context, uuid.UUID) (records.Envelope, error)
+}
+
+type service struct {
 	owner       ownerApplication
 	incidents   *admission.Checker
-	records     *records.Store
+	records     recordEnvelopeReader
 	authStore   *authn.Store
 	keys        authn.MasterKeys
 	cursorCodec *pagination.Codec
 	now         func() time.Time
 }
 
-func RegisterRoutes(owner ownerApplication) platformhttpapi.RouteRegistrar {
+func RegisterRoutes(owner ownerApplication, recordEnvelopes recordEnvelopeReader) platformhttpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps platformhttpapi.DependencySet) error {
-		service, err := newService(deps, owner)
+		service, err := newService(deps, owner, recordEnvelopes)
 		if err != nil {
 			return err
 		}
@@ -61,39 +66,57 @@ func RegisterRoutes(owner ownerApplication) platformhttpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps platformhttpapi.DependencySet, owner ownerApplication) (*Service, error) {
-	if owner == nil {
+func newService(deps platformhttpapi.DependencySet, owner ownerApplication, recordEnvelopes recordEnvelopeReader) (*service, error) {
+	if nilHTTPDependency(owner) {
 		return nil, errors.New("indicator routes: owner is required")
+	}
+	if nilHTTPDependency(recordEnvelopes) {
+		return nil, errors.New("indicator routes: RecordEnvelopes is required")
+	}
+	postgres := deps.PostgresHandle()
+	if nilHTTPDependency(postgres) {
+		return nil, errors.New("indicator routes: Postgres is required")
+	}
+	if deps.Now == nil {
+		return nil, errors.New("indicator routes: Now is required")
 	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
-	}
-	now := deps.Now
-	if now == nil {
-		now = func() time.Time { return time.Now().UTC() }
 	}
 	codec := deps.CursorCodec
 	if codec == nil {
 		key := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 		codec = pagination.NewCodec(key[:])
 	}
-	postgres := deps.PostgresHandle()
-	return &Service{
-		owner: owner, incidents: admission.NewChecker(postgres), records: records.NewStore(postgres),
-		authStore: authn.NewStore(postgres), keys: keys, cursorCodec: codec, now: now,
+	return &service{
+		owner: owner, incidents: admission.NewChecker(postgres), records: recordEnvelopes,
+		authStore: authn.NewStore(postgres), keys: keys, cursorCodec: codec, now: deps.Now,
 	}, nil
 }
 
-func (s *Service) handleListSourceObservations(w http.ResponseWriter, r *http.Request) {
+func nilHTTPDependency(dependency any) bool {
+	if dependency == nil {
+		return true
+	}
+	value := reflect.ValueOf(dependency)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
+}
+
+func (s *service) handleListSourceObservations(w http.ResponseWriter, r *http.Request) {
 	s.handleObservationList(w, r, true)
 }
 
-func (s *Service) handleListIndicatorObservations(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleListIndicatorObservations(w http.ResponseWriter, r *http.Request) {
 	s.handleObservationList(w, r, false)
 }
 
-func (s *Service) handleObservationList(w http.ResponseWriter, r *http.Request, bySource bool) {
+func (s *service) handleObservationList(w http.ResponseWriter, r *http.Request, bySource bool) {
 	principal, ok := s.authenticate(w, r, false)
 	if !ok {
 		return
@@ -152,7 +175,7 @@ func (s *Service) handleObservationList(w http.ResponseWriter, r *http.Request, 
 	_ = platformhttpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"observations": page}, platformhttpapi.PagingMeta{Limit: binding.Limit, HasMore: next != nil, NextCursor: next})
 }
 
-func (s *Service) handleCreateObservation(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleCreateObservation(w http.ResponseWriter, r *http.Request) {
 	principal, ok := s.authenticate(w, r, true)
 	if !ok {
 		return
@@ -188,19 +211,19 @@ func (s *Service) handleCreateObservation(w http.ResponseWriter, r *http.Request
 	s.writeMutation(w, r, &principal, status, result)
 }
 
-func (s *Service) handleResolveObservation(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleResolveObservation(w http.ResponseWriter, r *http.Request) {
 	s.handleObservationAction(w, r, "resolve")
 }
 
-func (s *Service) handleDismissObservation(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleDismissObservation(w http.ResponseWriter, r *http.Request) {
 	s.handleObservationAction(w, r, "dismiss")
 }
 
-func (s *Service) handleRestoreObservation(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleRestoreObservation(w http.ResponseWriter, r *http.Request) {
 	s.handleObservationAction(w, r, "restore")
 }
 
-func (s *Service) handleObservationAction(w http.ResponseWriter, r *http.Request, action string) {
+func (s *service) handleObservationAction(w http.ResponseWriter, r *http.Request, action string) {
 	principal, ok := s.authenticate(w, r, true)
 	if !ok {
 		return
@@ -235,7 +258,7 @@ func (s *Service) handleObservationAction(w http.ResponseWriter, r *http.Request
 		clientTxnID = request.ClientTxnID
 		result, err = s.owner.ResolveIndicatorObservation(r.Context(), principal.User, indicators.IndicatorObservationResolveParams{
 			ObservationID: observationID, ResolvedIndicatorRecordID: request.ResolvedIndicatorRecordID,
-			BaseRowVersion: request.BaseRowVersion, ClientTxnID: request.ClientTxnID, RequestID: requestID, RequestHash: requestHash(request),
+			BaseRowVersion: request.BaseRowVersion, ClientTxnID: request.ClientTxnID, RequestID: requestID,
 		})
 	} else {
 		request, apiErr := decodeObservationAction(r.Body)
@@ -244,7 +267,7 @@ func (s *Service) handleObservationAction(w http.ResponseWriter, r *http.Request
 			return
 		}
 		clientTxnID = request.ClientTxnID
-		params := indicators.IndicatorObservationActionParams{ObservationID: observationID, BaseRowVersion: request.BaseRowVersion, ClientTxnID: request.ClientTxnID, RequestID: requestID, RequestHash: requestHash(request)}
+		params := indicators.IndicatorObservationActionParams{ObservationID: observationID, BaseRowVersion: request.BaseRowVersion, ClientTxnID: request.ClientTxnID, RequestID: requestID}
 		if action == "dismiss" {
 			result, err = s.owner.DismissIndicatorObservation(r.Context(), principal.User, params)
 		} else {
@@ -258,7 +281,7 @@ func (s *Service) handleObservationAction(w http.ResponseWriter, r *http.Request
 	s.writeMutation(w, r, &principal, http.StatusOK, result)
 }
 
-func (s *Service) handleListLifecycle(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleListLifecycle(w http.ResponseWriter, r *http.Request) {
 	principal, ok := s.authenticate(w, r, false)
 	if !ok {
 		return
@@ -299,7 +322,7 @@ func (s *Service) handleListLifecycle(w http.ResponseWriter, r *http.Request) {
 	_ = platformhttpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"intervals": page}, platformhttpapi.PagingMeta{Limit: binding.Limit, HasMore: next != nil, NextCursor: next})
 }
 
-func (s *Service) handleAppendLifecycle(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleAppendLifecycle(w http.ResponseWriter, r *http.Request) {
 	principal, ok := s.authenticate(w, r, true)
 	if !ok {
 		return
@@ -327,7 +350,7 @@ func (s *Service) handleAppendLifecycle(w http.ResponseWriter, r *http.Request) 
 		IncidentID: envelope.IncidentID, IndicatorRecordID: indicatorID, BaseRowVersion: request.BaseRowVersion,
 		LifecycleState: request.LifecycleState, ValidFrom: request.ValidFrom, ValidTo: request.ValidTo,
 		Confidence: request.Confidence, Rationale: request.Rationale, SupportRefs: request.SupportRefs, Assessor: request.Assessor,
-		ClientTxnID: request.ClientTxnID, RequestID: platformhttpapi.RequestIDFromContext(r.Context()), RequestHash: requestHash(request),
+		ClientTxnID: request.ClientTxnID, RequestID: platformhttpapi.RequestIDFromContext(r.Context()),
 	})
 	if err != nil {
 		writeAPIError(w, r, mutationError(err, request.ClientTxnID))
@@ -340,7 +363,7 @@ func (s *Service) handleAppendLifecycle(w http.ResponseWriter, r *http.Request) 
 	s.writeMutation(w, r, &principal, status, result)
 }
 
-func (s *Service) authenticate(w http.ResponseWriter, r *http.Request, changing bool) (httpauth.Principal, bool) {
+func (s *service) authenticate(w http.ResponseWriter, r *http.Request, changing bool) (httpauth.Principal, bool) {
 	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: changing})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -349,7 +372,7 @@ func (s *Service) authenticate(w http.ResponseWriter, r *http.Request, changing 
 	return principal, true
 }
 
-func (s *Service) visibleEnvelope(ctx context.Context, actorID uuid.UUID, recordID uuid.UUID, expectedType string, mutation bool) (records.Envelope, *platformhttpapi.APIError) {
+func (s *service) visibleEnvelope(ctx context.Context, actorID uuid.UUID, recordID uuid.UUID, expectedType string, mutation bool) (records.Envelope, *platformhttpapi.APIError) {
 	envelope, err := s.records.LoadEnvelope(ctx, recordID)
 	if err != nil || envelope.DeletedAt != nil || (expectedType != "" && envelope.RecordType != expectedType) {
 		if expectedType == "indicator" {
@@ -367,7 +390,7 @@ func (s *Service) visibleEnvelope(ctx context.Context, actorID uuid.UUID, record
 	return envelope, nil
 }
 
-func (s *Service) writeMutation(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, status int, value any) {
+func (s *service) writeMutation(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, status int, value any) {
 	if err := s.slide(r.Context(), principal, r); err != nil {
 		writeAPIError(w, r, internalError())
 		return
@@ -375,7 +398,7 @@ func (s *Service) writeMutation(w http.ResponseWriter, r *http.Request, principa
 	_ = platformhttpapi.WriteSuccess(w, r, status, value)
 }
 
-func (s *Service) slide(ctx context.Context, principal *httpauth.Principal, r *http.Request) error {
+func (s *service) slide(ctx context.Context, principal *httpauth.Principal, r *http.Request) error {
 	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, r.Method, r.URL.Path, s.now)
 }
 

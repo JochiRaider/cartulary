@@ -16,16 +16,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, command CreateCommand, requestHash []byte, requestID string, now time.Time) (CreateResult, error) {
-	return s.createService.createIndicatorRow(ctx, actor, incidentID, command, requestHash, requestID, now)
-}
-
-type indicatorCreateService struct {
-	owner *Store
-}
-
-func (service indicatorCreateService) createIndicatorRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, command CreateCommand, requestHash []byte, requestID string, now time.Time) (CreateResult, error) {
-	s := service.owner
+func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, command CreateCommand, requestID string) (CreateResult, error) {
+	requestHash := createIndicatorRequestHash(command)
 	scopeKey := incidentID.String() + ":" + ViewSchemaID
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    indicatorCreateRouteKey,
@@ -64,6 +56,7 @@ func (service indicatorCreateService) createIndicatorRow(ctx context.Context, ac
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return CreateResult{}, fmt.Errorf("query indicator create idempotency: %w", err)
 	}
+	now := s.now().UTC()
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -171,7 +164,7 @@ func (s *Store) captureIndicatorSnapshotBeforeUpsertTx(ctx context.Context, tx p
 	if err != nil {
 		return nil, err
 	}
-	current, matched, err := s.sources.loadByDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey)
+	current, matched, err := loadIndicatorByDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
@@ -219,7 +212,7 @@ func (s *Store) FindOrCreateIndicatorParticipantTx(ctx context.Context, tx pgx.T
 		status = "created"
 	}
 	return IndicatorFindOrCreateParticipantResult{
-		SchemaID:  IndicatorFindOrCreateParticipantV1,
+		SchemaID:  indicatorFindOrCreateParticipantV1,
 		Status:    status,
 		Indicator: referenceFromRecord(record),
 	}, nil
@@ -230,10 +223,10 @@ func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.Us
 	if err != nil {
 		return indicatorRecord{}, nil, "", 0, err
 	}
-	if err := s.sources.lockDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey); err != nil {
+	if err := lockIndicatorDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey); err != nil {
 		return indicatorRecord{}, nil, "", 0, err
 	}
-	current, matched, err := s.sources.loadByDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey)
+	current, matched, err := loadIndicatorByDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return indicatorRecord{}, nil, "", 0, err
 	}
@@ -268,7 +261,7 @@ func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.Us
 			return indicatorRecord{}, nil, "", 0, err
 		}
 		record.RecordID = recordID
-		if err := s.sources.insertTx(ctx, tx, &record); err != nil {
+		if err := insertIndicatorTx(ctx, tx, &record); err != nil {
 			return indicatorRecord{}, nil, "", 0, err
 		}
 		return record, nil, "create", httpStatusCreated, nil
@@ -304,7 +297,7 @@ func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.Us
 		}
 		next.UpdatedAt = now.UTC()
 		next.UpdatedByUser = actor.ID
-		if err := s.sources.updateTx(ctx, tx, next); err != nil {
+		if err := updateIndicatorTx(ctx, tx, next); err != nil {
 			return indicatorRecord{}, nil, "", 0, err
 		}
 	}

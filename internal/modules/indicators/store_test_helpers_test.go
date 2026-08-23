@@ -12,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -23,10 +24,12 @@ func newIndicatorTestStore(t testing.TB, db postgres.DB, appender *revisions.App
 		t.Fatalf("compose Projections: %v", err)
 	}
 	store, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:    db,
-		Revisions:   appender,
-		Projections: projection.IndicatorPorts().Rows,
-		SourceText:  indicatorassembly.NewSourceTextPort(projection.SourceTextRows()),
+		Postgres:        db,
+		Revisions:       appender,
+		RecordEnvelopes: records.NewStore(db),
+		Projections:     projection.IndicatorPorts().Rows,
+		SourceText:      indicatorassembly.NewSourceTextPort(projection.SourceTextRows()),
+		Clock:           func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test store: %v", err)
@@ -48,7 +51,7 @@ func manualObservationParams(incidentID uuid.UUID, sourceID uuid.UUID, fieldKey 
 		IncidentID: incidentID, SourceRecordID: sourceID, BaseRowVersion: 1,
 		SourceFieldKey: fieldKey, SpanStartByte: 0, SpanEndByte: len("record-support-source-row"),
 		ResolvedIndicatorRecordID: resolvedID, ClientTxnID: clientTxnID,
-		RequestID: "req-" + clientTxnID, RequestHash: []byte("hash-" + clientTxnID),
+		RequestID: "req-" + clientTxnID,
 	}
 }
 
@@ -56,7 +59,7 @@ func lifecycleAppendParams(incidentID uuid.UUID, indicatorID uuid.UUID, baseRowV
 	return indicators.IndicatorLifecycleAppendParams{
 		IncidentID: incidentID, IndicatorRecordID: indicatorID, BaseRowVersion: baseRowVersion,
 		LifecycleState: "active", ValidFrom: validFrom, SupportRefs: []uuid.UUID{},
-		ClientTxnID: clientTxnID, RequestID: "req-" + clientTxnID, RequestHash: []byte("hash-" + clientTxnID),
+		ClientTxnID: clientTxnID, RequestID: "req-" + clientTxnID,
 	}
 }
 

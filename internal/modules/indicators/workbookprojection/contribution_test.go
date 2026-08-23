@@ -22,11 +22,11 @@ func TestRuntimeContributionOwnsCompleteIndicatorProjectionContract(t *testing.T
 		t.Fatal("Indicator projection contribution has no source")
 	}
 	descriptors := contribution.ProjectionContribution().Descriptors()
-	if len(descriptors) != 1 || !reflect.DeepEqual(descriptors[0], Descriptor()) {
+	if len(descriptors) != 1 || !reflect.DeepEqual(descriptors[0], descriptor()) {
 		t.Fatalf("Indicator descriptors = %#v", descriptors)
 	}
 	intents := contribution.ProjectionContribution().SurfaceIntents()
-	if len(intents) != 1 || !reflect.DeepEqual(intents[0], SurfaceIntent()) {
+	if len(intents) != 1 || !reflect.DeepEqual(intents[0], surfaceIntent()) {
 		t.Fatalf("Indicator semantic intents = %#v", intents)
 	}
 }

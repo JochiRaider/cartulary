@@ -52,6 +52,11 @@ not justify a production export. The guarded root baseline at adoption is 55
 declarations. The same remediation contracts this to exactly 50 by replacing
 the exported `CreateOutcome` type and its four constants with the two
 consumer-required `CreateResult.Created` and `CreateResult.Replayed` fields.
+Iteration 2 preserves that exact count by replacing the test-convenience
+`IndicatorFindOrCreateParticipantV1` export with the production
+`RecordEnvelopePort` construction boundary; the participant schema value
+remains private and its returned bytes remain unchanged. Test convenience is
+never sufficient reason for a root export.
 No alias, forwarding package, dual result, or deprecation period is allowed.
 Any other export addition or removal requires an amendment to this decision
 and its executable inventory.
@@ -65,8 +70,11 @@ cross-module registry.
 
 ## Import, transaction, and composition rules
 
-Application composition injects Records, Revisions, projection, source-text,
-and platform dependencies. The owner-local `admission` and `httpapi` adapters
+Application composition constructs one Records adapter and injects its narrow
+transactional envelope capability into the root Store and its narrow
+single-envelope reader capability into HTTP routing. It also injects
+Revisions, projection, source-text, clock, and platform dependencies. The
+owner-local `admission` and `httpapi` adapters
 may import root DTO and application-operation contracts; no production child
 imports the root to recover dependencies, and no production child imports
 `internal/app`. The root may import owner-local children and narrow
@@ -103,6 +111,25 @@ and typed-nil dependencies without panic, returns no partial capability on
 failure, and reports deterministic owner-safe errors. Immutable facts are
 defensively copied; no mutable registration API is exposed.
 
+Indicators Store construction requires Postgres, Revisions,
+`RecordEnvelopePort`, projection rows, source text, and a clock. HTTP
+construction separately requires an owner application, a Records envelope
+reader, Postgres, and `DependencySet.Now`. Neither boundary constructs Records
+or falls back to wall-clock time. Create, observation, transition, lifecycle,
+and list orchestration lives directly on Store; self-referential service
+objects, empty repository namespace receivers, and Revisions forwarding
+adapters are prohibited. Concern-specific SQL remains in named package
+functions.
+
+Indicators derives replay identity from the exact validated logical command;
+callers do not supply request hashes. The five deployed JSON preimages for
+create, observation create, observation resolve, dismiss/restore, and
+lifecycle append retain their existing member presence, null, route/scope,
+and support-reference ordering semantics and are hashed with SHA-256. Hashes
+are derived before normalization or sorting can alter a deployed preimage.
+Existing idempotency rows replay without rewriting, alternate digests, or a
+version compatibility branch.
+
 Package `init` registration, mutable global registries, service locators,
 fallback dependency lookup, and runtime plugin discovery are prohibited.
 Package-local immutable vocabulary and descriptor values are permitted only
@@ -122,8 +149,8 @@ defects.
 The decision is implemented only when:
 
 - every root export has an exact reviewed disposition and role, the surface is
-  exactly 50 declarations after the authorized contraction, and a synthetic
-  unapproved export is rejected;
+  exactly 50 declarations after the authorized contraction and Iteration 2
+  constant-to-port exchange, and a synthetic unapproved export is rejected;
 - production imports match the closed owner-local topology; only `admission`
   and `httpapi` import root contracts, and no child imports the root or
   application assembly to recover dependencies;
@@ -131,6 +158,14 @@ The decision is implemented only when:
   validation and the two standalone Records SQL validation helpers are absent;
 - caller transactions are borrowed and cross-owner effects remain behind
   typed ports supplied at application composition;
+- root and HTTP construction reject required nil and typed-nil dependencies,
+  use one composition-owned Records adapter, and use injected clocks without
+  wall-clock fallback;
+- orchestration is owned directly by Store, concern SQL uses named package
+  functions, and no self-referential service, empty repository namespace, or
+  Revisions forwarding adapter remains;
+- Indicators alone derives the exact five deployed replay hashes before
+  preimage-changing normalization, while persisted replay remains compatible;
 - one immutable runtime vocabulary owns Indicator type, value-kind,
   observation-status, and lifecycle-state membership while context-specific
   admission behavior remains explicit;

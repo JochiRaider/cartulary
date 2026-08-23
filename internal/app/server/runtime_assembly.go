@@ -42,6 +42,7 @@ import (
 	indicatorshttpapi "github.com/JochiRaider/cartulary/internal/modules/indicators/httpapi"
 	"github.com/JochiRaider/cartulary/internal/modules/jobapi"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/reportcomposition"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
@@ -919,12 +920,14 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Timeline bundle: %w", err)
 	}
+	indicatorRecords := records.NewStore(postgresHandle)
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:    postgresHandle,
-		Revisions:   revisionRuntime.Appender(),
-		Projections: projectionRuntime.IndicatorPorts().Rows,
-		SourceText:  indicatorassembly.NewSourceTextPort(projectionRuntime.SourceTextRows()),
-		Clock:       now,
+		Postgres:        postgresHandle,
+		Revisions:       revisionRuntime.Appender(),
+		RecordEnvelopes: indicatorRecords,
+		Projections:     projectionRuntime.IndicatorPorts().Rows,
+		SourceText:      indicatorassembly.NewSourceTextPort(projectionRuntime.SourceTextRows()),
+		Clock:           now,
 	})
 	if err != nil {
 		runtime.Close()
@@ -1256,7 +1259,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			Owner: timelineFacade,
 		})},
 		{id: "revisions", registrar: revisionRoutes},
-		{id: "indicators", registrar: indicatorshttpapi.RegisterRoutes(indicatorOwner)},
+		{id: "indicators", registrar: indicatorshttpapi.RegisterRoutes(indicatorOwner, indicatorRecords)},
 	}, []extensionRouteBinding{
 		{
 			id: "enterprise_authentication_routes",

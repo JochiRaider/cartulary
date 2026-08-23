@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
@@ -19,32 +20,13 @@ var _ rollbackcontract.RowSourceProvider = Provider{}
 func NewProvider() Provider { return Provider{} }
 
 func (Provider) ValidateRollbackValue(value map[string]any) error {
-	source, ok := sourceForRollbackValue(value)
-	if !ok {
-		return rollbackcontract.ErrTargetNotReversible
-	}
-	for _, key := range []string{"indicator_type", "value_kind", "display_value", "dedupe_key"} {
-		if raw, present := source[key]; present {
-			text, valid := raw.(string)
-			if !valid || strings.TrimSpace(text) == "" {
-				return rollbackcontract.ErrTargetNotReversible
-			}
-		}
-	}
-	if raw, present := source["indicator_type"]; present {
-		if !vocabulary.IsIndicatorType(raw.(string)) {
-			return rollbackcontract.ErrTargetNotReversible
-		}
-	}
-	if raw, present := source["value_kind"]; present {
-		if !vocabulary.IsValueKind(raw.(string)) {
-			return rollbackcontract.ErrTargetNotReversible
-		}
-	}
-	return nil
+	_, err := parseIndicatorSourcePatch(value)
+	return err
 }
 
 type rowState struct {
+	recordID      uuid.UUID
+	incidentID    uuid.UUID
 	indicatorType string
 	valueKind     string
 	displayValue  string
@@ -56,21 +38,39 @@ type rowState struct {
 	stixPattern   *string
 }
 
+type nullableTextPatch struct {
+	present bool
+	value   *string
+}
+
+type indicatorSourcePatch struct {
+	recordID      *uuid.UUID
+	incidentID    *uuid.UUID
+	indicatorType *string
+	valueKind     *string
+	displayValue  *string
+	normalized    nullableTextPatch
+	dedupeKey     *string
+	defanged      nullableTextPatch
+	hashAlgorithm nullableTextPatch
+	hashValue     nullableTextPatch
+	stixPattern   nullableTextPatch
+}
+
 func (Provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest) error {
-	source, ok := sourceForRollbackValue(request.RetainedValue)
-	if !ok {
-		return rollbackcontract.ErrTargetNotReversible
-	}
-	if err := (Provider{}).ValidateRollbackValue(request.RetainedValue); err != nil {
+	patch, err := parseIndicatorSourcePatch(request.RetainedValue)
+	if err != nil {
 		return err
 	}
 	var state rowState
 	if err := tx.QueryRow(ctx, `
-SELECT indicator_type, value_kind, display_value, normalized_value, dedupe_key,
+SELECT record_id, incident_id, indicator_type, value_kind, display_value, normalized_value, dedupe_key,
        defanged_value, hash_algorithm, hash_value, stix_pattern
   FROM indicators
  WHERE record_id = $1
+ FOR UPDATE
 `, request.RecordID).Scan(
+		&state.recordID, &state.incidentID,
 		&state.indicatorType, &state.valueKind, &state.displayValue, &state.normalized, &state.dedupeKey,
 		&state.defanged, &state.hashAlgorithm, &state.hashValue, &state.stixPattern,
 	); err != nil {
@@ -79,14 +79,9 @@ SELECT indicator_type, value_kind, display_value, normalized_value, dedupe_key,
 		}
 		return err
 	}
-	applyText(source, "indicator_type", &state.indicatorType)
-	applyText(source, "value_kind", &state.valueKind)
-	applyText(source, "display_value", &state.displayValue)
-	applyNullableText(source, "normalized_value", &state.normalized)
-	applyNullableText(source, "defanged_value", &state.defanged)
-	applyNullableText(source, "hash_algorithm", &state.hashAlgorithm)
-	applyNullableText(source, "hash_value", &state.hashValue)
-	applyNullableText(source, "stix_pattern", &state.stixPattern)
+	if !patch.overlay(&state) {
+		return rollbackcontract.ErrTargetNotReversible
+	}
 	canonical, err := identity.Canonicalize(identity.Input{
 		IndicatorType:   state.indicatorType,
 		ValueKind:       state.valueKind,
@@ -100,7 +95,7 @@ SELECT indicator_type, value_kind, display_value, normalized_value, dedupe_key,
 	if err != nil || !identityMatchesCanonical(state, canonical) {
 		return rollbackcontract.ErrTargetNotReversible
 	}
-	if raw, present := source["dedupe_key"]; present && raw.(string) != canonical.DedupeKey {
+	if patch.dedupeKey != nil && *patch.dedupeKey != canonical.DedupeKey {
 		return rollbackcontract.ErrTargetNotReversible
 	}
 	state.dedupeKey = canonical.DedupeKey
@@ -126,39 +121,150 @@ UPDATE indicators
 	return nil
 }
 
-func sourceForRollbackValue(value map[string]any) (map[string]any, bool) {
-	if source, ok := objectMap(value, "source"); ok {
-		return source, len(source) > 0
+func parseIndicatorSourcePatch(value map[string]any) (indicatorSourcePatch, error) {
+	rawSource, present := value["source"]
+	if !present || rawSource == nil {
+		return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
 	}
-	return nil, false
+	source, ok := rawSource.(map[string]any)
+	if !ok || len(source) == 0 {
+		return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
+	}
+	var patch indicatorSourcePatch
+	for key, raw := range source {
+		switch key {
+		case "record_id":
+			parsed, valid := parsePatchUUID(raw)
+			if !valid {
+				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
+			}
+			patch.recordID = &parsed
+		case "incident_id":
+			parsed, valid := parsePatchUUID(raw)
+			if !valid {
+				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
+			}
+			patch.incidentID = &parsed
+		case "indicator_type":
+			text, valid := parseRequiredPatchText(raw)
+			if !valid || !vocabulary.IsIndicatorType(text) {
+				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
+			}
+			patch.indicatorType = &text
+		case "value_kind":
+			text, valid := parseRequiredPatchText(raw)
+			if !valid || !vocabulary.IsValueKind(text) {
+				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
+			}
+			patch.valueKind = &text
+		case "display_value":
+			text, valid := parseRequiredPatchText(raw)
+			if !valid {
+				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
+			}
+			patch.displayValue = &text
+		case "dedupe_key":
+			text, valid := parseRequiredPatchText(raw)
+			if !valid {
+				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
+			}
+			patch.dedupeKey = &text
+		case "normalized_value":
+			parsed, valid := parseNullablePatchText(raw)
+			if !valid {
+				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
+			}
+			patch.normalized = parsed
+		case "defanged_value":
+			parsed, valid := parseNullablePatchText(raw)
+			if !valid {
+				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
+			}
+			patch.defanged = parsed
+		case "hash_algorithm":
+			parsed, valid := parseNullablePatchText(raw)
+			if !valid {
+				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
+			}
+			patch.hashAlgorithm = parsed
+		case "hash_value":
+			parsed, valid := parseNullablePatchText(raw)
+			if !valid {
+				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
+			}
+			patch.hashValue = parsed
+		case "stix_pattern":
+			parsed, valid := parseNullablePatchText(raw)
+			if !valid {
+				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
+			}
+			patch.stixPattern = parsed
+		default:
+			return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
+		}
+	}
+	return patch, nil
 }
 
-func objectMap(value map[string]any, key string) (map[string]any, bool) {
-	raw, ok := value[key]
-	if !ok || raw == nil {
-		return nil, false
+func parsePatchUUID(raw any) (uuid.UUID, bool) {
+	text, ok := raw.(string)
+	if !ok || !validPatchText(text) {
+		return uuid.Nil, false
 	}
-	typed, ok := raw.(map[string]any)
-	return typed, ok
+	parsed, err := uuid.Parse(text)
+	return parsed, err == nil && parsed != uuid.Nil && parsed.String() == text
 }
 
-func applyText(source map[string]any, key string, destination *string) {
-	if raw, present := source[key]; present {
-		*destination, _ = raw.(string)
-	}
+func parseRequiredPatchText(raw any) (string, bool) {
+	text, ok := raw.(string)
+	return text, ok && validPatchText(text)
 }
 
-func applyNullableText(source map[string]any, key string, destination **string) {
-	raw, present := source[key]
-	if !present {
-		return
+func parseNullablePatchText(raw any) (nullableTextPatch, bool) {
+	if raw == nil {
+		return nullableTextPatch{present: true}, true
 	}
-	text, valid := raw.(string)
-	if !valid || strings.TrimSpace(text) == "" {
-		*destination = nil
-		return
+	text, ok := raw.(string)
+	if !ok || !validPatchText(text) {
+		return nullableTextPatch{}, false
 	}
-	*destination = &text
+	return nullableTextPatch{present: true, value: &text}, true
+}
+
+func validPatchText(text string) bool {
+	return text != "" && strings.TrimSpace(text) != "" && !strings.ContainsRune(text, 0)
+}
+
+func (patch indicatorSourcePatch) overlay(state *rowState) bool {
+	if state == nil || (patch.recordID != nil && *patch.recordID != state.recordID) ||
+		(patch.incidentID != nil && *patch.incidentID != state.incidentID) {
+		return false
+	}
+	if patch.indicatorType != nil {
+		state.indicatorType = *patch.indicatorType
+	}
+	if patch.valueKind != nil {
+		state.valueKind = *patch.valueKind
+	}
+	if patch.displayValue != nil {
+		state.displayValue = *patch.displayValue
+	}
+	if patch.normalized.present {
+		state.normalized = patch.normalized.value
+	}
+	if patch.defanged.present {
+		state.defanged = patch.defanged.value
+	}
+	if patch.hashAlgorithm.present {
+		state.hashAlgorithm = patch.hashAlgorithm.value
+	}
+	if patch.hashValue.present {
+		state.hashValue = patch.hashValue.value
+	}
+	if patch.stixPattern.present {
+		state.stixPattern = patch.stixPattern.value
+	}
+	return true
 }
 
 func identityMatchesCanonical(state rowState, canonical identity.Canonical) bool {
@@ -166,6 +272,8 @@ func identityMatchesCanonical(state rowState, canonical identity.Canonical) bool
 		state.valueKind == canonical.ValueKind &&
 		state.displayValue == canonical.DisplayValue &&
 		equalStringPointers(state.normalized, canonical.NormalizedValue) &&
+		equalStringPointers(state.defanged, canonical.DefangedValue) &&
 		equalStringPointers(state.hashAlgorithm, canonical.HashAlgorithm) &&
-		equalStringPointers(state.hashValue, canonical.HashValue)
+		equalStringPointers(state.hashValue, canonical.HashValue) &&
+		equalStringPointers(state.stixPattern, canonical.STIXPattern)
 }

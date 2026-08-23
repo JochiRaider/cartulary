@@ -992,6 +992,7 @@
       "selector": {
         "package": "./internal/modules/indicators/internal/providers/rollback",
         "tests": [
+          "TestIndicatorRollbackSourcePatchIsClosedAndPresenceAware",
           "TestRollbackVocabularyAndLifecycleSupportReferencesAreExact"
         ]
       },

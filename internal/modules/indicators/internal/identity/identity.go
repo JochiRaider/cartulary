@@ -62,18 +62,18 @@ func Canonicalize(input Input) (Canonical, error) {
 		}
 	}
 
-	indicatorType, err := NormalizeIndicatorType(input.IndicatorType)
+	indicatorType, err := normalizeIndicatorType(input.IndicatorType)
 	if err != nil {
 		return Canonical{}, invalid("indicator_type", "invalid_value")
 	}
-	valueKind, err := NormalizeValueKind(input.ValueKind)
+	valueKind, err := normalizeValueKind(input.ValueKind)
 	if err != nil {
 		return Canonical{}, invalid("value_kind", "invalid_value")
 	}
-	if IsIPType(indicatorType) && valueKind != "atomic" {
+	if isIPType(indicatorType) && valueKind != "atomic" {
 		return Canonical{}, invalid("value_kind", "invalid_value")
 	}
-	displayValue, normalizedValue, err := NormalizeValue(indicatorType, input.DisplayValue, input.NormalizedValue)
+	displayValue, normalizedValue, err := normalizeValue(indicatorType, input.DisplayValue, input.NormalizedValue)
 	if err != nil {
 		field := "display_value"
 		if strings.Contains(err.Error(), "normalized_value") {
@@ -89,7 +89,7 @@ func Canonicalize(input Input) (Canonical, error) {
 		}
 		return Canonical{}, invalid(field, "invalid_value")
 	}
-	if IsIPType(indicatorType) && (hashAlgorithm != nil || hashValue != nil) {
+	if isIPType(indicatorType) && (hashAlgorithm != nil || hashValue != nil) {
 		return Canonical{}, invalid("hash_algorithm", "invalid_value")
 	}
 	canonical := Canonical{
@@ -102,25 +102,25 @@ func Canonicalize(input Input) (Canonical, error) {
 		HashValue:       cloneString(hashValue),
 		STIXPattern:     cloneString(input.STIXPattern),
 	}
-	canonical.DedupeKey = DedupeKey(canonical)
+	canonical.DedupeKey = dedupeKey(canonical)
 	return canonical, nil
 }
 
-func NormalizeIndicatorType(raw string) (string, error) {
+func normalizeIndicatorType(raw string) (string, error) {
 	if normalized, ok := vocabulary.CanonicalIndicatorType(raw); ok {
 		return normalized, nil
 	}
 	return "", fmt.Errorf("unsupported indicator_type")
 }
 
-func NormalizeValueKind(raw string) (string, error) {
+func normalizeValueKind(raw string) (string, error) {
 	if normalized, ok := vocabulary.CanonicalValueKind(raw); ok {
 		return normalized, nil
 	}
 	return "", fmt.Errorf("unsupported value_kind")
 }
 
-func NormalizeValue(indicatorType string, rawDisplay string, rawNormalized *string) (string, *string, error) {
+func normalizeValue(indicatorType string, rawDisplay string, rawNormalized *string) (string, *string, error) {
 	displayValue := strings.TrimSpace(rawDisplay)
 	switch indicatorType {
 	case "ipv4_addr", "ipv6_addr":
@@ -164,7 +164,7 @@ func NormalizeValue(indicatorType string, rawDisplay string, rawNormalized *stri
 
 func NormalizeObservationCandidate(parsedType *string, normalizedCandidate *string, observedText string) (*string, *string, error) {
 	if parsedType != nil && strings.TrimSpace(*parsedType) != "" {
-		indicatorType, err := NormalizeIndicatorType(*parsedType)
+		indicatorType, err := normalizeIndicatorType(*parsedType)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -196,11 +196,11 @@ func NormalizeObservationCandidate(parsedType *string, normalizedCandidate *stri
 	return stringPointer(guessType), stringPointer(candidate), nil
 }
 
-func IsIPType(indicatorType string) bool {
+func isIPType(indicatorType string) bool {
 	return indicatorType == "ipv4_addr" || indicatorType == "ipv6_addr"
 }
 
-func DedupeKey(input Canonical) string {
+func dedupeKey(input Canonical) string {
 	parts := []string{
 		input.IndicatorType,
 		input.ValueKind,

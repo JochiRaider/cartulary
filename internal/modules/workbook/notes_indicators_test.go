@@ -25,6 +25,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -141,10 +142,12 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 	timelineBundle, projections := newWorkbookTimelineComposition(t, harness.DB, appender, revisionComposition.Intents)
 	workbookStore, _ := newCatalogBackedWorkbookCatalog(t, harness.DB, timelineBundle, projections, appender, revisionComposition.Intents)
 	indicatorStore, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:    harness.DB,
-		Revisions:   appender,
-		Projections: projections.IndicatorPorts().Rows,
-		SourceText:  indicatorassembly.NewSourceTextPort(projections.SourceTextRows()),
+		Postgres:        harness.DB,
+		Revisions:       appender,
+		RecordEnvelopes: records.NewStore(harness.DB),
+		Projections:     projections.IndicatorPorts().Rows,
+		SourceText:      indicatorassembly.NewSourceTextPort(projections.SourceTextRows()),
+		Clock:           func() time.Time { return time.Date(2026, 5, 17, 16, 5, 0, 0, time.UTC) },
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test owner: %v", err)
@@ -174,7 +177,7 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 		IndicatorType: "ipv4_addr",
 		ValueKind:     "atomic",
 		DisplayValue:  "203.0.113.45",
-	}, []byte("txn-workbook_interaction-i-9-02-indicator"), "req-workbook_interaction-i-9-02-indicator", time.Date(2026, 5, 17, 16, 5, 0, 0, time.UTC))
+	}, "req-workbook_interaction-i-9-02-indicator")
 	if err != nil {
 		t.Fatalf("create projection indicator: %v", err)
 	}
@@ -578,10 +581,12 @@ func newCatalogBackedWorkbookCatalog(
 		t.Fatalf("compose Artifacts mutation contribution: %v", err)
 	}
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:    pool,
-		Revisions:   appender,
-		Projections: projections.IndicatorPorts().Rows,
-		SourceText:  indicatorassembly.NewSourceTextPort(projections.SourceTextRows()),
+		Postgres:        pool,
+		Revisions:       appender,
+		RecordEnvelopes: records.NewStore(pool),
+		Projections:     projections.IndicatorPorts().Rows,
+		SourceText:      indicatorassembly.NewSourceTextPort(projections.SourceTextRows()),
+		Clock:           func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
 	})
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)

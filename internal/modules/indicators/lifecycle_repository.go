@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (lifecycleRepository) insertTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, params IndicatorLifecycleAppendParams, createdAt time.Time) (IndicatorLifecycleIntervalRecord, error) {
+func insertIndicatorLifecycleIntervalTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, params IndicatorLifecycleAppendParams, createdAt time.Time) (IndicatorLifecycleIntervalRecord, error) {
 	if strings.TrimSpace(params.LifecycleState) == "" {
 		return IndicatorLifecycleIntervalRecord{}, ErrInvalidCreateRequest
 	}
@@ -61,7 +61,7 @@ RETURNING indicator_state_interval_id
 	return record, nil
 }
 
-func (lifecycleRepository) list(ctx context.Context, db interface {
+func listIndicatorLifecycleIntervals(ctx context.Context, db interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }, indicatorID uuid.UUID, afterValidFrom *time.Time, afterID *uuid.UUID, limit int) ([]IndicatorLifecycleIntervalRecord, error) {
 	if limit < 1 {

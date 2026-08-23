@@ -81,8 +81,8 @@ func mutationPayload(value any) (map[string]any, error) {
 	return result, nil
 }
 
-func validateChildMutationIdentity(clientTxnID string, requestID string, requestHash []byte, baseRowVersion int64) error {
-	if strings.TrimSpace(clientTxnID) == "" || strings.TrimSpace(requestID) == "" || len(requestHash) == 0 || baseRowVersion < 1 {
+func validateChildMutationIdentity(clientTxnID string, requestID string, baseRowVersion int64) error {
+	if strings.TrimSpace(clientTxnID) == "" || strings.TrimSpace(requestID) == "" || baseRowVersion < 1 {
 		return ErrInvalidCreateRequest
 	}
 	return nil

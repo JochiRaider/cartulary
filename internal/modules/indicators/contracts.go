@@ -17,7 +17,7 @@ import (
 const (
 	ViewSchemaID = "cartulary.view.indicators.v1"
 
-	IndicatorFindOrCreateParticipantV1 = "indicator_find_or_create_participant_v1"
+	indicatorFindOrCreateParticipantV1 = "indicator_find_or_create_participant_v1"
 
 	observationCreateSource  = "indicators.observations.capture"
 	observationResolveSource = "indicators.observations.resolve"
@@ -121,7 +121,6 @@ type IndicatorObservationCreateParams struct {
 	ResolvedIndicatorRecordID *uuid.UUID
 	RequestID                 string
 	ClientTxnID               string
-	RequestHash               []byte
 	originKind                indicatororigin.ObservationOrigin
 	originLocator             string
 	observedText              string
@@ -134,7 +133,6 @@ type IndicatorObservationResolveParams struct {
 	BaseRowVersion            int64
 	RequestID                 string
 	ClientTxnID               string
-	RequestHash               []byte
 }
 
 type IndicatorObservationActionParams struct {
@@ -142,7 +140,6 @@ type IndicatorObservationActionParams struct {
 	BaseRowVersion int64
 	RequestID      string
 	ClientTxnID    string
-	RequestHash    []byte
 }
 
 type IndicatorLifecycleAppendParams struct {
@@ -158,7 +155,6 @@ type IndicatorLifecycleAppendParams struct {
 	Assessor          *string
 	RequestID         string
 	ClientTxnID       string
-	RequestHash       []byte
 }
 
 type IndicatorObservationRecord struct {

@@ -14,7 +14,7 @@ import (
 	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
 )
 
-func (repository observationRepository) insertTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, params IndicatorObservationCreateParams, createdAt time.Time) (IndicatorObservationRecord, error) {
+func insertIndicatorObservationTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, params IndicatorObservationCreateParams, createdAt time.Time) (IndicatorObservationRecord, error) {
 	if params.IncidentID == uuid.Nil || params.SourceRecordID == uuid.Nil {
 		return IndicatorObservationRecord{}, ErrInvalidCreateRequest
 	}
@@ -92,10 +92,6 @@ RETURNING indicator_observation_id
 	return record, nil
 }
 
-func (observationRepository) loadTx(ctx context.Context, tx pgx.Tx, observationID uuid.UUID, forUpdate bool) (IndicatorObservationRecord, error) {
-	return loadIndicatorObservation(ctx, tx, observationID, forUpdate)
-}
-
 func loadIndicatorObservation(ctx context.Context, db interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }, observationID uuid.UUID, forUpdate bool) (IndicatorObservationRecord, error) {
@@ -136,7 +132,7 @@ SELECT
 	return record, nil
 }
 
-func (observationRepository) updateTransitionTx(ctx context.Context, tx pgx.Tx, next IndicatorObservationRecord, expectedVersion int64) error {
+func updateIndicatorObservationTransitionTx(ctx context.Context, tx pgx.Tx, next IndicatorObservationRecord, expectedVersion int64) error {
 	tag, err := tx.Exec(ctx, `
 UPDATE indicator_observations
    SET resolution_status = $2,
@@ -158,13 +154,13 @@ UPDATE indicator_observations
 	return nil
 }
 
-func (observationRepository) listBySource(ctx context.Context, db interface {
+func listSourceRecordIndicatorObservations(ctx context.Context, db interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }, sourceRecordID uuid.UUID, afterCreatedAt *time.Time, afterID *uuid.UUID, limit int) ([]IndicatorObservationRecord, error) {
 	return listObservationRows(ctx, db, `o.source_record_id = $1`, sourceRecordID, afterCreatedAt, afterID, limit)
 }
 
-func (observationRepository) listByIndicator(ctx context.Context, db interface {
+func listResolvedIndicatorObservations(ctx context.Context, db interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }, indicatorID uuid.UUID, afterCreatedAt *time.Time, afterID *uuid.UUID, limit int) ([]IndicatorObservationRecord, error) {
 	return listObservationRows(ctx, db, `o.resolved_indicator_record_id = $1`, indicatorID, afterCreatedAt, afterID, limit)

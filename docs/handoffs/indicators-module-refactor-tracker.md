@@ -734,3 +734,607 @@ Tracker completion and implementation readiness are separate states. W-00 throug
 | S-06 completed the required narrow-to-broad validation order and final handoff. | PASS | Section 10 records every owner and gate root, the repaired Operator golden, the explicit `RESULTS_DIR` posture, the 69-path ledger, and the final protected-invariant audit. |
 
 The overall tracker is complete. Every active work row is `DONE`; the only remaining items are explicitly dropped, conditionally inactive, or deferred outside this authorization.
+
+## 13. Iteration 2 Charter and Planning Posture
+
+Iteration 1 remains complete history. Sections 1 through 12 are not reopened,
+reinterpreted, or replaced by this iteration. Iteration 2 begins with a
+document-only activation and plans a separately authorized production-readiness
+pass over the same bounded Indicators owner module.
+
+| Item | Iteration 2 decision or live evidence |
+| --- | --- |
+| Planning baseline | Clean `main` at `0f7a33b0cf1c9405484b2c6ae17432d916da9a97` on 2026-08-23. |
+| Target | `internal/modules/indicators` and only the direct owner, application-composition, verification, policy, and test consumers named by an active workstream. |
+| Live package inventory | 78 Go files. The exact 50-declaration root export guard remains green at this baseline. |
+| Live verification inventory | 37 owner-routed rows: 35 Go and two Vitest; 24 unit and 13 integration; 13 service-backed. |
+| Current compound-query evidence | `loadByDedupeTx` lines 20 through 61 retain `sha256:3343ded88d9e54fe69ba516dbfe1df22c35be956a626d1682fa52ec823a85af4`. |
+| Current status | `I2-DOC-00`, `I2-DOC-01`, and `I2-S00` through `I2-S06` are `DONE`; all Iteration 2 acceptance rows are closed with no unresolved blocker. |
+| Tracker authority | This tracker controls sequencing, evidence, rollback, and handoff only. Adopted owners continue to govern product behavior. |
+| Compatibility posture | Broader retirement was permitted for planning, but live evidence supports no feature-level retirement. Internal Go and test seams may break atomically without shims when their production replacement is named here. |
+| Public behavior posture | Preserve all adopted public HTTP, authorization, cursor, JSON, idempotency, history, projection, Collaboration, portability, Recovery, and Network Flow behavior. |
+| Migration posture | No database migration is planned. Existing production idempotency rows must remain replayable. |
+
+### 13.1 Active and retained capabilities
+
+Absence of a repository-internal caller is not sufficient evidence that a
+public capability is dead. The live client, adopted owners, portability
+catalog, and source-state catalog were reviewed together. The following
+capabilities remain materially useful to the production shape and are retained.
+
+| Capability | Live evidence | Iteration 2 disposition |
+| --- | --- | --- |
+| Eight Indicator child HTTP operations | All eight are adopted by Core 01/Core 04, registered by `httpapi.RegisterRoutes`, and referenced by the Workbook web client. | Retain paths, operation IDs, admission, statuses, request/success shapes, and authorization order. |
+| Indicator, observation, and lifecycle portable families | All three are authoritative source-owner contributions with current bundle schemas, tests, Recovery classification, and history behavior. | Retain the exact three portability descriptors and valid bytes. |
+| Indicator type, value-kind, observation-status, lifecycle-state, and origin vocabularies | The closed sets are adopted and consumed at creation, HTTP, rollback, and portability boundaries. | Retain exact membership, including owner-required `ipv4_addr`. |
+| Network Flow Indicator participant | Network Flow has live transaction-participant callers and Core-owned `binding_only` behavior. | Retain result shape, schema ID value, status values, and explicit `OperationOccurred`. |
+| Compound canonical-dedupe query | Iteration 1 deliberately deferred decomposition because no replacement cross-owner lock protocol exists. | Keep byte-for-byte unchanged under `IND-DEDUPE-001`. |
+
+### 13.2 Scope and exclusions
+
+Iteration 2 may amend the adopted Indicators boundary decision and `AC-560`
+only for the exact internal topology and export changes in `I2-S01` and
+`I2-S02`. It does not authorize a new product feature, public route, public
+error code, database schema, migration, portable schema/version, browser
+behavior, or owner relocation.
+
+The following remain excluded:
+
+- frontend, Inspector, grid-adapter, OpenAPI, and generated protocol changes;
+- canonical-dedupe SQL or lock-order changes;
+- removal or reinterpretation of `ipv4_addr` or another adopted token;
+- idempotency-row deletion, rehash migration, silent repair, or replay
+  invalidation;
+- compatibility aliases, forwarding wrappers, dual constructors, or
+  deprecation periods;
+- hand edits to generated artifacts or existing migrations; and
+- opportunistic cleanup in another owner.
+
+An unexpected public contract, frontend, Inspector, database, portable-byte,
+or generated protocol diff stops the active workstream. The tracker records
+`BLOCKED: scope expansion` and implementation does not continue without new
+authorization. An adopted-owner contradiction is recorded as
+`BLOCKED: owner contradiction` without selecting a side.
+
+## 14. Iteration 2 Delta Inventory and Remediation Matrix
+
+Staticcheck and the Go compiler already reject ordinary unreachable local
+code. The cleanup candidates below are production-reachability, construction,
+ownership, malformed-state, and compatibility-surface findings established by
+live source and caller inspection.
+
+| ID | Gap and live evidence | Remediation and areas | Rationale and long-term benefit | Compatibility or migration impact | Risk if unresolved | Completion evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| `I2-GAP-001` | Construction contradicts the adopted boundary: Indicators constructs a concrete Records store, accepts nil Clock fallback, and checks interface dependencies only with `== nil`. HTTP also falls back to wall-clock time. | **Specification, implementation, tests:** amend the boundary decision and `AC-560`; inject a typed Records envelope port; require Clock; reject nil and typed-nil dependencies; require the HTTP clock. | Makes application composition the single dependency boundary, converts latent startup panics into deterministic errors, and keeps time testable. | Internal Go constructor migration only. Production assembly already supplies a clock. No wire or data migration. | A typed-nil dependency can survive startup and panic later; hidden clock fallback makes behavior nondeterministic and violates fail-fast construction. | Nil/typed-nil matrices pass; no partial Store or route service is returned; source scans find no Records construction or clock fallback in Indicators. |
+| `I2-GAP-002` | Store owns three forwarding service objects that point back to the Store, three empty repository namespace values, and a revision adapter whose only purpose is method forwarding. | **Implementation, tests:** make Store methods the direct application entry points; replace stateless repository methods with explicitly named package functions in their concern files; align the private Revisions port with the real appender methods; delete obsolete types, fields, and `repositories.go`. | Removes cyclic self-reference and layers with no independent state or policy. Each concern remains cohesive without pretending to be a separate service or repository object. | Internal-only compile-time migration. No method behavior, SQL, transaction, or result change. | New behavior can be placed in the wrong layer, dependencies stay hidden, and high-fanout changes remain harder to reason about. | Removed-symbol and Store-field scans pass; all mutation/list/transaction tests pass; the dedupe query digest is unchanged. |
+| `I2-GAP-003` | Mutation application methods trust hashes supplied by Workbook or HTTP adapters. Tests and internal callers can substitute arbitrary replay identity. | **Specification, implementation, tests:** make Indicators privately derive all five established logical hash forms; remove hash arguments and fields and the exported admission hash; remove only the Indicator use of Workbook preferred-hash override. | The owner that validates the semantic command also owns its replay identity, preventing false replay/conflict behavior and eliminating adapter coupling. | Internal Go break only. Preserve the exact deployed preimages and SHA-256 bytes so existing idempotency rows replay. No rehash or data migration. | A caller can cause an unrelated payload to replay or force a conflict, and future adapters can drift from owner normalization. | Golden preimages/digests, seeded retained-row replay, divergent payload, route-scope, and no-caller-override tests pass; stored JSON/status behavior is unchanged. |
+| `I2-GAP-004` | Rollback validation re-reads untyped maps, uses unchecked assertions after partial validation, silently converts malformed nullable values to `nil`, ignores unknown-only patches, and omits complete presentation-field equality. | **Implementation, tests:** introduce one closed, fallible typed row-patch parser used by validation and restore; distinguish absent from explicit `null`; reject unknown, empty, blank, or wrongly typed patches; validate the complete canonical state before SQL. | Converts malformed retained history into a safe classified failure instead of a destructive clear and provides one extension point when a versioned field is added later. | Invalid historical values that were never owner-conformant are rejected with the existing safe error. Valid partial patches and explicit clears remain supported. No migration. | Malformed retained history can silently erase values, panic, or mutate a row using a partially validated identity. | Complete malformed-field matrix proves `ErrTargetNotReversible` and zero SQL effects; valid partial, clear, omission, dedupe, hash, defanged, and STIX cases pass. |
+| `I2-GAP-005` | Several symbols are exported only for same-package implementation or test convenience: the HTTP service type, participant schema constant, five identity helpers, two projection fact helpers, and the admission hash. | **Specification, implementation, tests:** exchange the participant constant for the production Records port in the exact 50-root-export inventory; privatize owner-local helpers; make cross-owner tests consume the production projection contribution. | Prevents tests and future code from coupling to implementation facts while retaining the smallest production contract surface. | Internal Go break with atomic repository caller migration. Returned schema ID and projection facts remain exact. No aliases. | Test-only usage becomes permanent compatibility burden and blocks later structural changes. | Exact 50-role guard and repository-wide definition/caller scans pass; production contribution parity remains exact. |
+| `I2-GAP-006` | Test support publishes a mutable four-example slice although only entry zero is used, includes four unused fields, and exposes mutable time variables. | **Tests/test support:** replace it with one immutable value-returning fixture containing only used fields and value-returning time helpers. | Makes fixtures intention-revealing, mutation-safe, and cheaper to extend without implying unsupported coverage. | Test-only compile-time migration. | Dead examples misrepresent coverage and shared mutable fixtures permit order-dependent tests. | No `Examples` slice or mutable time global remains; all migrated fixtures and owner rows pass. |
+| `I2-GAP-007` | New or moved tests can drift from authored verification rows, generated topology, and export/import policy. | **Tests, tooling, tracker:** reconcile authored routing after each implementation slice and regenerate only through Make when an authored generator input changes. | Keeps executable evidence aligned with semantic ownership and makes the final handoff resumable. | Harness-only. Runtime must not read evidence or Markdown. | Coverage can become unselected, duplicated, or attributed to the wrong owner. | Every active test resolves once; harness, generation, artifact, shape, boundary, and catalog checks pass. |
+
+## 15. Iteration 2 Execution Policy and Tracker Gate
+
+Workstreams are serial. An implementation session performs this checkpoint
+protocol for every active workstream:
+
+1. Reconfirm live callers, adopted owners, worktree state, and dependency
+   workstream status; record the workstream `IN_PROGRESS` in this tracker.
+2. Make only the independently reversible change named by that workstream.
+3. Run the narrow affected-owner unit/static evidence, then service-backed
+   evidence where applicable, then the workstream's policy checks.
+4. On a related failure, retain its result root, record diagnosis and rollback
+   decision, and do not begin the next workstream.
+5. On success, record changed files, substantive behavior, commands and roots,
+   failures and their resolution, skips, rollback posture, remaining risks,
+   and next action; mark the workstream `DONE`.
+6. Run and record `make lint-markdown` after the checkpoint update and before
+   beginning the next workstream.
+
+Only the latest independently failing workstream may be rolled back. Tests,
+owners, policies, and generated checks are not weakened to obtain a pass. User
+changes outside the active slice are preserved. The next workstream may begin
+only when every declared dependency is `DONE` and the preceding checkpoint is
+complete.
+
+## 16. Iteration 2 Sequential Workstreams
+
+| ID | Workstream | Depends on | Planned change | Required evidence and exit criteria | Primary risk and rollback | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| `I2-DOC-00` | Document-only activation | Iteration 1 complete | Append Sections 13 through 19; preserve Sections 1 through 12; change no product, owner, test, contract, migration, or generated artifact. | Only this tracker differs; post-edit Markdown lint and scoped whitespace/status checks pass. | Accidental implementation or history rewrite. Revert only the appended planning body if the path audit is not tracker-only. | DONE |
+| `I2-S00` | Rebaseline and characterize | `I2-DOC-00`; `I2-DOC-01`; separate implementation authorization | Refresh branch, commit, worktree, package/export inventory, production callers, test routing, dedupe digest, five idempotency preimages, retained-row replay, and valid/malformed rollback behavior. Classify every proposed deletion by production, test, tool, generated, and owner use. | Indicators focused and service-backed slices, backend boundary, and `test-fast` pass from the live baseline. Every repair case is assigned without committing a skipped or failing test. | Live drift can invalidate a deletion or hash assumption. Amend this plan before mutation; do not preserve a stale candidate. | DONE |
+| `I2-S01` | Construction and facade cohesion | `I2-S00` | Amend the boundary decision and `AC-560` atomically with the implementation. Inject `RecordEnvelopePort`; require Clock and typed dependency validity; use Store time for autonomous create/child mutations; preserve participant time. Privatize HTTP service; remove service self-wrappers, repository namespace values, revision forwarding, and the obsolete exported schema constant. | Exact 50 reviewed root exports; nil/typed-nil and clock tests; app.server, Indicators, Records, Workbook, Network Flow, and Revisions affected slices; build and backend boundary pass. No concrete Records construction or time fallback remains in Indicators. Dedupe source/digest is exact. | Broad constructor migration can miss a composition or test caller. Roll back S01 atomically if a live caller cannot use the typed port; do not add an overload or default. | DONE |
+| `I2-S02` | Owner-controlled idempotency | `I2-S01` | Amend the boundary decision/`AC-560` as needed for owner hash responsibility. Move exact create, observation-create, resolve, action, and lifecycle hashes into private owner code; remove hash arguments/fields, admission export, and Indicator preferred-hash use. | Golden current digests, existing persisted-hash replay, exact/divergent replay, route scope, no-side-effect, stored-byte, Workbook, HTTP, and Indicators transaction tests pass. No migration or compatibility branch exists. | A changed preimage would convert a valid retry into conflict. Seed the old digest before exercising new code; roll back S02 on any mismatch rather than versioning or deleting rows. | DONE |
+| `I2-S03` | Rollback hardening | `I2-S02` | Replace permissive map helpers with one closed typed patch parser shared by validate/restore; make all recognized fields, nullability, partial-patch, canonicalization, and unknown-member behavior explicit. | Indicators and Revisions rollback rows pass; every malformed recognized or unknown value fails safely before update; valid partial and clear cases, history effects, and portability round trips remain exact. | An overly strict parser could reject valid current snapshots. Exercise actual source snapshots and partial selections; roll back S03 if a valid owner snapshot cannot be represented without weakening the closed parser. | DONE |
+| `I2-S04` | Dead surface and test-support removal | `I2-S03` | Privatize remaining caller-free identity/projection helpers; migrate Projections tests to the production contribution; replace dead/mutable Indicators test fixtures; delete obsolete tests/comments after callers move. | Repository-wide callers are classified; Indicators and Projections focused/service-backed slices pass; export, private-package, contribution-parity, immutable-fixture, and removed-symbol scans pass with no alias. | A tool or generator can be a non-obvious consumer. Refresh repository-wide scans before deletion and restore only a proven production contract, not test convenience. | DONE |
+| `I2-S05` | Harness and policy reconciliation | `I2-S04` | Reconcile authored verification/family rows, root export reasons, backend boundaries, and generated topology activated by S01 through S04. Run `make generate` only if an authored input changed. | Every test resolves exactly once; no stale selector, duplicate row, unapproved import/export, generated drift, artifact-policy failure, or JSON-shape mismatch remains. | Generated output may expose a stale authored owner fact. Repair the authored fact and regenerate; never hand-edit the generated output. | DONE |
+| `I2-S06` | Validation and handoff | `I2-S05` | Remove any final proven residue, execute Section 18 in order, reconcile final inventory and compatibility assertions, append complete handoff evidence, and close every acceptance row. | Every applicable target passes with retained roots; failures/skips are classified; no obsolete path, contradiction, excluded diff, migration edit, browser claim, or generated hand edit remains. | Broad validation can expose baseline failures. Related failures return to their owning I2 slice; unrelated failures are recorded without rewriting user work. | DONE |
+
+### 16.1 Checkpoint ledger
+
+| Workstream | Started | Completed | Status | Files, commands, roots, outcome, rollback, and next action |
+| --- | --- | --- | --- | --- |
+| `I2-DOC-00` | 2026-08-23 | 2026-08-23 | DONE | Changed only `docs/handoffs/indicators-module-refactor-tracker.md`; preserved Sections 1 through 12 and appended the Iteration 2 charter, inventory, remediation, serial plan, interface migration, validation, acceptance, deferrals, and handoff templates. Planning-body Markdown lint passed at `.cartulary/test-results/20260823T144036Z-p3457725`; the final evidence-replacement lint passed at `.cartulary/test-results/20260823T144134Z-p3458907`. No implementation, owner, test, contract, migration, generated artifact, rollback, or skip. `I2-S00` remains inactive pending separate authorization. |
+| `I2-S00` | 2026-08-23 | 2026-08-23 | DONE | Reconfirmed `main` at `0f7a33b0cf1c9405484b2c6ae17432d916da9a97`, the staged-plus-unstaged tracker-only worktree, 78 Indicators files, exactly 50 guarded root exports, and 37 routed rows with 13 service-backed. Classified every named constructor, Store-method, hash, rollback, identity, projection, fixture, tool, and generated caller; no stale candidate invalidated the plan. The Iteration 1 wrapper digest remains `3343ded88d9e54fe69ba516dbfe1df22c35be956a626d1682fa52ec823a85af4`; the protected SQL digest is `d665f06c2526b0118e33eaa887da279ad54025967618662c2a0b47b7bfde857b`. Indicators focused passed 19/19 execution units at `.cartulary/test-results/20260823T150223Z-p3470731`; service-backed passed 8/8 at `.cartulary/test-results/20260823T150314Z-p3486834`; backend boundary passed 3/3 at `.cartulary/test-results/20260823T150402Z-p3502714`; `test-fast` passed 425/425 at `.cartulary/test-results/20260823T150407Z-p3503164`; checkpoint Markdown passed at `.cartulary/test-results/20260823T150449Z-p3504047`. No characterization test, production edit, failure, skip, rollback, drift, or blocker. `I2-S01` is the sole next action. |
+| `I2-S01` | 2026-08-23 | 2026-08-23 | DONE | Added the required root Records port and private HTTP reader, composed one Records Store in `internal/app/server/runtime_assembly.go`, required injected clocks and nil/typed-nil validity, moved orchestration directly to Store, converted repository receivers to named functions, assigned Revisions directly, privatized HTTP Service and the participant schema constant, deleted `repositories.go`, protected the exact SQL literal, migrated all callers, and amended the boundary decision and `AC-560`. The first focused run failed at `.cartulary/test-results/20260823T151500Z-p3514021` because the Store field retained the removed private interface name; it was corrected and all reruns passed. Final format passed at `.cartulary/test-results/20260823T152556Z-p3793110`; Indicators focused 19/19 at `.cartulary/test-results/20260823T152600Z-p3796871`; HTTP construction row at `.cartulary/test-results/20260823T151643Z-p3547616`; Indicators service-backed 8/8 at `.cartulary/test-results/20260823T151729Z-p3548588`; Records 8/8 at `.cartulary/test-results/20260823T151816Z-p3564626`; Workbook 65/65 at `.cartulary/test-results/20260823T151851Z-p3580400`; Network Flow 35/35 at `.cartulary/test-results/20260823T152104Z-p3638160`; Revisions 27/27 at `.cartulary/test-results/20260823T152314Z-p3695080`; app.server 24/24 at `.cartulary/test-results/20260823T152417Z-p3740194`; build-server at `.cartulary/test-results/20260823T152515Z-p3780492`; backend boundary 3/3 at `.cartulary/test-results/20260823T152529Z-p3792514`; checkpoint Markdown lint at `.cartulary/test-results/20260823T152740Z-p3813453`. No skip, compatibility shim, migration, generated edit, or rollback was required. The raw SQL digest remains `d665f06c2526b0118e33eaa887da279ad54025967618662c2a0b47b7bfde857b`; exact 50 exports and public behavior remain green. `I2-S02` is the sole next action. |
+| `I2-S02` | 2026-08-23 | 2026-08-23 | DONE | Added one private owner hash boundary for the exact create, observation-create, observation-resolve, dismiss/restore action, and lifecycle JSON forms; derives before owner normalization, preserves nullable and optional membership and caller support-reference order, and uses current JSON plus SHA-256 semantics. Removed all Indicator `RequestHash` fields and parameters, the admission hash export, HTTP hash derivation, and only Indicator use of Workbook's preferred override. Added exact preimage/digest goldens, hard-coded deployed-row replay with zero durable record effects, route/scope isolation, exact/divergent route replays, and defensive lifecycle sorting. The first `make format` preflight failed without a retained root because the admission test entrypoint had been renamed; restoring its routed name corrected the authored-selector mismatch without changing evidence semantics. Final format passed at `.cartulary/test-results/20260823T154602Z-p4053706`; full Indicators focused passed 19/19 at `.cartulary/test-results/20260823T154222Z-p3975144`; the final hash-golden row passed at `.cartulary/test-results/20260823T154606Z-p4057481`; Indicators service-backed passed 8/8 at `.cartulary/test-results/20260823T154316Z-p3992309`; Workbook focused passed 65/65 at `.cartulary/test-results/20260823T153646Z-p3855798` and service-backed 37/37 at `.cartulary/test-results/20260823T153901Z-p3913600`; Revisions focused passed 27/27 at `.cartulary/test-results/20260823T154403Z-p4008143`; backend boundary passed 3/3 at `.cartulary/test-results/20260823T154627Z-p4058429`; build-server passed at `.cartulary/test-results/20260823T154629Z-p4058877`; checkpoint Markdown lint passed at `.cartulary/test-results/20260823T154728Z-p4071103`. No persisted row, route, status/JSON contract, migration, alternate digest, compatibility branch, generated artifact, skip, or rollback changed. `I2-S03` is the sole next action. |
+| `I2-S03` | 2026-08-23 | 2026-08-23 | DONE | Replaced the permissive rollback helpers with one closed typed parser shared by validation and restore, locked and overlaid the current Indicator row, validated canonical identity and presentation before UPDATE, and made identity/dedupe mismatch safe. Added parser matrices plus public rollback evidence for malformed-history atomicity and valid full, partial, omitted-field, explicit-clear, rekey, hash, defanged, and STIX restoration. Final format passed at `.cartulary/test-results/20260823T160057Z-p4102141`; the focused parser row passed at `.cartulary/test-results/20260823T155858Z-p4085121`; Indicators focused passed 19/19 at `.cartulary/test-results/20260823T160109Z-p4106022` and service-backed passed 8/8, including portability rows, at `.cartulary/test-results/20260823T160225Z-p4167640`; Revisions focused passed 27/27 at `.cartulary/test-results/20260823T160109Z-p4106019`; the Indicator rollback plus transaction-failure service rows passed 3/3 at `.cartulary/test-results/20260823T160225Z-p4167646`. The first public rollback-row run also passed 3/3 at `.cartulary/test-results/20260823T155905Z-p4085550`; checkpoint Markdown lint passed at `.cartulary/test-results/20260823T160402Z-p5424`. No failure, rerun after failure, skip, migration, portable-schema change, generated edit, compatibility path, or rollback was required. The SQL literal digest remains exact. `I2-S04` is the sole next action. |
+| `I2-S04` | 2026-08-23 | 2026-08-23 | DONE | Privatized five identity helpers and both projection fact helpers with no aliases; moved the cross-owner compiled-plan test through fallible `NewContribution`; replaced the mutable four-example/time globals with `PrimaryExample()`, `BaseTime()`, and `PastTime()` value factories; removed four unused fixture fields; migrated every caller; renamed the obsolete Indicator rollback-helper test; and extended the exact export guard to lock private helper and minimal immutable-fixture structure. Format passed at `.cartulary/test-results/20260823T160916Z-p9406`; Indicators focused passed 19/19 at `.cartulary/test-results/20260823T160934Z-p13386` and service-backed passed 8/8 at `.cartulary/test-results/20260823T161027Z-p47647`; Projections focused passed 15/15 at `.cartulary/test-results/20260823T160934Z-p13392` and service-backed passed 11/11 at `.cartulary/test-results/20260823T161027Z-p47646`; the exact 50-export/private-helper/fixture guard passed at `.cartulary/test-results/20260823T161135Z-p79613`; the production-contribution catalog parity row passed 3/3 at `.cartulary/test-results/20260823T161135Z-p79622`; checkpoint Markdown lint passed at `.cartulary/test-results/20260823T161301Z-p95800`. Repository-wide production, test, tool, and generated caller scans found no stale Indicator export, mutable fixture, direct projection-fact caller, obsolete helper name, or alias. No failure, skip, generated edit, compatibility path, or rollback occurred. `I2-S05` is the sole next action. |
+| `I2-S05` | 2026-08-23 | 2026-08-23 | DONE | Added the renamed closed rollback-parser entrypoint to the existing Indicators rollback-admission selector and removed its temporary duplicate invocation from the vocabulary entrypoint. Ran `make generate` immediately after the authored family change; only the tool-managed execution-topology render-index digests changed. Generation passed at `.cartulary/test-results/20260823T161449Z-p98676`; format passed at `.cartulary/test-results/20260823T161512Z-p101836`; `test-catalog-check` passed with no retained run root emitted; Indicators focused passed 19/19 at `.cartulary/test-results/20260823T161534Z-p106008`; harness contract passed 2/2 at `.cartulary/test-results/20260823T161624Z-p123318`; backend boundary passed 3/3 at `.cartulary/test-results/20260823T161624Z-p123274`; generation drift passed 4/4 at `.cartulary/test-results/20260823T161624Z-p122965`; generated-artifact policy passed 3/3 at `.cartulary/test-results/20260823T161624Z-p122993`; JSON shape passed 3/3 at `.cartulary/test-results/20260823T161624Z-p123021`; checkpoint Markdown lint passed at `.cartulary/test-results/20260823T161715Z-p127843`. Every active selected test resolves exactly once; no stale selector, duplicate row, unapproved boundary, generated hand edit, failure, rerun, skip, or rollback remains. `I2-S06` is the sole next action. |
+| `I2-S06` | 2026-08-23 | 2026-08-23 | DONE | Re-ran every affected focused and service-backed owner slice, then completed the Section 18 ladder in the required order. Focused roots: Indicators 19/19 `.cartulary/test-results/20260823T161829Z-p130197`, Records 8/8 `.cartulary/test-results/20260823T161829Z-p130188`, Workbook 65/65 `.cartulary/test-results/20260823T161829Z-p130170`, Projections 15/15 `.cartulary/test-results/20260823T161829Z-p130194`, Network Flow 35/35 `.cartulary/test-results/20260823T162051Z-p234870`, Revisions 27/27 `.cartulary/test-results/20260823T162051Z-p234863`, and app.server 24/24 `.cartulary/test-results/20260823T162051Z-p234879`. Service-backed roots: Indicators 8/8 `.cartulary/test-results/20260823T162326Z-p376017`, Records 5/5 `.cartulary/test-results/20260823T162326Z-p376028`, Workbook 37/37 `.cartulary/test-results/20260823T162326Z-p376038`, Projections 11/11 `.cartulary/test-results/20260823T162326Z-p376052`, Network Flow 30/30 `.cartulary/test-results/20260823T162549Z-p479816`, Revisions 20/20 `.cartulary/test-results/20260823T162549Z-p479810`, and app.server 17/17 `.cartulary/test-results/20260823T162549Z-p479813`. Ordered ladder roots: backend boundary 3/3 `.cartulary/test-results/20260823T162817Z-p618836`; `test-catalog-check` passed without a retained root; harness 2/2 `.cartulary/test-results/20260823T162833Z-p619708`; generation drift 4/4 `.cartulary/test-results/20260823T162849Z-p620284`; artifact policy 3/3 `.cartulary/test-results/20260823T162901Z-p623254`; JSON shape 3/3 `.cartulary/test-results/20260823T162907Z-p623716`; migration drift 5/5 `.cartulary/test-results/20260823T162913Z-p624190`; build-server `.cartulary/test-results/20260823T162924Z-p627273`; build-migrate `.cartulary/test-results/20260823T162937Z-p639374`; agent-finalize 1/1 `.cartulary/test-results/20260823T162944Z-p641198`; test-fast 425/425 `.cartulary/test-results/20260823T163000Z-p644097`; check 646/646 `.cartulary/test-results/20260823T163046Z-p650930`; ladder Markdown lint `.cartulary/test-results/20260823T163515Z-p769696`; completed-handoff Markdown lint `.cartulary/test-results/20260823T164024Z-p772549`. `RESULTS_DIR` was unset because no qualifying successful full warm-check root existed before agent-finalize, so retained-run maintenance was intentionally skipped. Final branch/HEAD, 52-path worktree, staged-user-work, whitespace, generated-root, protected-SQL, excluded-path, removed-symbol, eight-operation, and exact-50-export audits passed. No S06 failure, rerun, unexplained skip, rollback, owner contradiction, browser claim, or remaining workstream exists. |
+
+## 17. Iteration 2 Internal Interface Migration Map
+
+These are repository-internal Go changes. All callers migrate in the owning
+workstream without aliases, overloads, forwarding packages, or a deprecation
+period.
+
+| Current interface or surface | Planned interface or disposition | Compatibility invariant |
+| --- | --- | --- |
+| `StoreDependencies` constructs Records internally. | Add required `RecordEnvelopePort` with `InsertTx`, `LoadEnvelopesTx`, and `AdvanceVersionTx`; application/test composition supplies the Records implementation. | Records owns envelopes and caller transactions remain borrowed. |
+| Optional `StoreDependencies.Clock` and HTTP wall-clock fallback. | Clock is required and nil is a deterministic construction error. Store time owns autonomous create and child mutations. | Network Flow participant continues to use required `OperationOccurred`; public timestamp meanings remain unchanged. |
+| `CreateIndicatorRow(ctx, actor, incidentID, command, requestHash, requestID, now)`. | `CreateIndicatorRow(ctx, actor, incidentID, command, requestID)`. | Owner-derived hash bytes and production timestamps remain compatible. |
+| Observation/lifecycle parameter structs include `RequestHash`. | Remove every `RequestHash` field; owner derives the exact current preimage before mutation normalization changes its representation. | Existing production idempotency rows replay; same key plus divergent semantic payload still conflicts. |
+| Exported `admission.CreateRequestHash`. | Delete; retain only private owner hash construction and golden evidence. | Workbook request admission and public payloads are unchanged. |
+| Exported `IndicatorFindOrCreateParticipantV1`. | Private exact-value constant; add exported production `RecordEnvelopePort` so the reviewed root total stays 50. | Returned `SchemaID`, `Status`, and result shape remain exact. |
+| Exported `httpapi.Service`. | Private `service`; `RegisterRoutes` remains the production route entry point. | All eight registered operations remain exact. |
+| Exported same-package identity helpers. | Privatize `NormalizeIndicatorType`, `NormalizeValueKind`, `NormalizeValue`, `IsIPType`, and `DedupeKey`; keep cross-package semantic entry points only. | Canonical values and dedupe bytes remain exact. |
+| Exported projection `Descriptor` and `SurfaceIntent`. | Private facts reached through the fallible production `NewContribution`. | Descriptor, intent, field, source, and ordering parity remain exact. |
+| Four-element mutable `testsupport.Examples` plus mutable `BaseTime`/`PastTime`. | One value-returning primary example with only used fields and value-returning time helpers. | Test semantics remain deterministic; no production API is involved. |
+
+The current idempotency hash preimages are deliberately preserved rather than
+redesigned. They retain the current client transaction membership and current
+support-reference ordering even where those facts are redundant with the
+route key or later semantic sorting. This is not a general compatibility shim:
+it is the single owner implementation required to compare new retries with
+already committed production rows. A future incompatible hash algorithm would
+require an explicit versioned owner contract and migration strategy.
+
+## 18. Iteration 2 Validation and Binary Acceptance
+
+### 18.1 Workstream routing
+
+`I2-S00` runs:
+
+1. `make test-slice OWNER=module.indicators`
+2. `make service-backed-test-slice OWNER=module.indicators`
+3. `make backend-module-boundary-check`
+4. `make test-fast`
+5. `make lint-markdown`
+
+Every implementation workstream begins with the narrowest changed-owner rows,
+then the full affected owner slice, then its service-backed slice when present.
+The affected owner set is expanded only by live changed paths:
+
+- `I2-S01`: Indicators, Records, Workbook, Network Flow, Revisions, and
+  `app.server`;
+- `I2-S02`: Indicators and Workbook plus route/service-backed replay evidence;
+- `I2-S03`: Indicators and Revisions;
+- `I2-S04`: Indicators and Projections; and
+- `I2-S05`: every owner whose authored verification or boundary input changed.
+
+`make generate` runs immediately after an authored generator input changes and
+before drift checks. It does not run merely to rewrite stable outputs.
+
+### 18.2 Final validation order
+
+`I2-S06` runs changed-owner focused and service-backed slices, then:
+
+1. `make backend-module-boundary-check`
+2. `make harness-contract`
+3. `make generate-drift`
+4. `make generated-artifact-policy-check`
+5. `make json-shape-check`
+6. `make migration-drift`
+7. `make build-server`
+8. `make build-migrate`
+9. `make agent-finalize`, with `RESULTS_DIR` only when a qualifying retained
+   successful full warm-check root exists; otherwise record that retained-run
+   maintenance was skipped because it was unset.
+10. `make test-fast`
+11. `make check`
+12. `make lint-markdown`
+
+No direct browser row is required because frontend behavior is outside the
+active plan. An unexpected frontend, Inspector, OpenAPI, generated protocol,
+or browser-family diff activates `IND-BROWSER-001`, stops the current
+workstream, and requires separate authorization before merge.
+
+### 18.3 Binary acceptance criteria
+
+| ID | Requirement | Pass condition | Current state |
+| --- | --- | --- | --- |
+| `I2-AC-001` | Historical integrity and activation | Sections 1 through 12 remain intact; only this tracker changed in `I2-DOC-00`; every later slice remains separately authorized and serial. | DONE |
+| `I2-AC-002` | Fail-fast construction | Records, time, projections, source text, Revisions, and Postgres dependencies have one explicit construction path that rejects nil and typed nil without partial capability or fallback. | DONE — `I2-S01` |
+| `I2-AC-003` | Cohesive Store | No forwarding service/self-cycle, stateless repository namespace value, revision forwarding adapter, concrete Records construction, or obsolete repository file remains. | DONE — `I2-S01` |
+| `I2-AC-004` | Minimal production surface | The root has exactly 50 production-role exports after the constant/port exchange; named child/helper exports are private and no alias remains. | DONE — `I2-S04` |
+| `I2-AC-005` | Owner idempotency | The owner derives every exact established hash; existing stored rows replay; divergence conflicts; no caller override or rehash migration exists. | DONE — `I2-S02` |
+| `I2-AC-006` | Safe rollback | One closed typed parser handles validation and restore; malformed history fails safely before SQL; valid partial and explicit-clear behavior remains exact. | DONE — `I2-S03` |
+| `I2-AC-007` | Dead test support removed | Only used immutable fixtures remain; no dead example, unused field, mutable time global, obsolete test, or stale comment remains. | DONE — `I2-S04` |
+| `I2-AC-008` | Protected behavior | Eight HTTP operations, public bytes, authorization order, canonical identity, history, projection, Collaboration, 3/1/3 source inventory, portability, Recovery, participant behavior, and current vocabularies remain owner-conformant. | DONE — `I2-S06` |
+| `I2-AC-009` | Dedupe protection | `loadByDedupeTx`, its lock order, and its focused digest remain unchanged. | DONE — `I2-S01` |
+| `I2-AC-010` | Harness and generated integrity | Every test resolves once; all boundary, generation, artifact, shape, migration, build, and harness checks pass without a generated hand edit. | DONE — `I2-S06` |
+| `I2-AC-011` | Final handoff | Section 18.2 passes in order; every failure, skip, result root, changed file, rollback, deferred item, and final status is recorded. | DONE — `I2-S06` |
+
+## 19. Iteration 2 Deferrals and Handoff
+
+### 19.1 Deferred items
+
+| ID | Item | Reason and activation rule | Status |
+| --- | --- | --- | --- |
+| `I2-DEF-001` | Decompose `loadByDedupeTx`. | Still requires the separately authorized `IND-DEDUPE-001` cross-owner lock protocol and concurrency proof. | DEFERRED |
+| `I2-DEF-002` | Retire a public Indicator operation or source family. | Every current operation/family is adopted and live. Activate only with product-owner evidence, replacement/retention policy, and explicit authorization. | DEFERRED |
+| `I2-DEF-003` | Change `ipv4_addr` or another adopted token. | Core 02 requires the token and existing state depends on its exact meaning. Requires a versioned vocabulary and data/API migration plan. | DEFERRED |
+| `I2-DEF-004` | Redesign or version idempotency hashes. | Existing committed rows must replay. Activate only with an owner-approved version discriminator and safe transition strategy. | DEFERRED |
+| `I2-DEF-005` | Frontend, Inspector, grid, OpenAPI, protocol, or browser work. | Inactive for this backend iteration. Any named diff activates `IND-BROWSER-001` and requires separate authorization. | RESOLVED — CONDITIONAL |
+
+### 19.2 Document-only handoff
+
+| Date | Scope | Files changed | Verification | Outcome |
+| --- | --- | --- | --- | --- |
+| 2026-08-23 | Iteration 2 document-only planning and activation | `docs/handoffs/indicators-module-refactor-tracker.md` only | Markdown lint passed at `.cartulary/test-results/20260823T144036Z-p3457725` and `.cartulary/test-results/20260823T144134Z-p3458907`; scoped Git status and whitespace audit | Sections 1 through 12 remain Iteration 1 history; `I2-DOC-00` is complete; `I2-S00` through `I2-S06` and `I2-AC-002` through `I2-AC-011` remain `PLANNED`; no implementation or owner artifact changed. |
+
+### 19.3 Future implementation handoff template
+
+Every future checkpoint and the final handoff record:
+
+- branch, commit, worktree state, and active authorization;
+- files added, modified, deleted, or generated through Make;
+- substantive owner, implementation, test, policy, and documentation edits;
+- exact commands, result roots, row counts, failures, reruns, and skips;
+- compatibility evidence for public bytes, persisted hashes, timestamps,
+  canonical identity, history, portability, and participant results;
+- rollback taken or explicitly not required;
+- blocker transitions and deferred-item activation state; and
+- the only eligible next workstream.
+
+Iteration 2 implementation readiness is intentionally false after
+`I2-DOC-00`. The next permitted action is a separately authorized `I2-S00`
+rebaseline and characterization pass, not a production edit.
+
+## 20. Iteration 2 Decision-Complete Amendment
+
+### 20.1 Amendment checkpoint
+
+| Workstream | Started | Completed | Status | Files, commands, roots, outcome, rollback, and next action |
+| --- | --- | --- | --- | --- |
+| `I2-DOC-01` | 2026-08-23 | 2026-08-23 | DONE | Appended only Section 20 to this tracker; preserved Sections 1 through 19 and changed no owner, implementation, test, contract, migration, or generated artifact. Recorded the split Records capabilities, required clocks and typed-nil posture, protected SQL-literal digest, five exact replay forms, closed rollback fields, amended sequence, and binary evidence. Planning-body and post-checkpoint Markdown lint passed at `.cartulary/test-results/20260823T150108Z-p3468205` and `.cartulary/test-results/20260823T150138Z-p3469410`; no failure, skip, rollback, or blocker. `I2-S00` is the sole next action. |
+
+### 20.2 Controlling clarifications
+
+This amendment is additive. Sections 1 through 12 remain closed Iteration 1
+history, and Sections 13 through 19 retain the `I2-DOC-00` planning record.
+Where an Iteration 2 detail below is more specific, it controls `I2-S00`
+through `I2-S06` without changing any adopted product behavior.
+
+1. Application composition MUST construct one Records adapter and supply it to
+   both the root Store and the HTTP adapter. The root exports
+   `RecordEnvelopePort` with `InsertTx`, `LoadEnvelopesTx`, and
+   `AdvanceVersionTx`; HTTP accepts a separate private read-only capability
+   with `LoadEnvelope`. No production Indicators package constructs Records.
+2. Store construction MUST reject nil or typed-nil Postgres, Revisions,
+   Records, Projections, SourceText, or Clock dependencies and return no
+   partial Store. HTTP construction MUST likewise reject nil or typed-nil
+   owner and Records capabilities and a nil Clock. No Indicators wall-clock
+   fallback remains.
+3. The Iteration 1 line-range digest
+   `sha256:3343ded88d9e54fe69ba516dbfe1df22c35be956a626d1682fa52ec823a85af4`
+   remains historical evidence. Iteration 2 protects the raw compound-query
+   SQL bytes and lock order with
+   `sha256:d665f06c2526b0118e33eaa887da279ad54025967618662c2a0b47b7bfde857b`.
+   Receiver removal may change wrapper bytes but MUST NOT change this SQL
+   digest, parameter order, joins, predicates, limit, or `FOR UPDATE` set.
+4. Indicators privately derives the five deployed SHA-256 replay forms before
+   later service normalization can change their representation: create;
+   observation create; observation resolve; dismiss/restore action; and
+   lifecycle append. Create hashes the view schema, client transaction,
+   required identity fields, and only present optional representation fields.
+   Child hashes preserve the current admitted JSON members. Lifecycle hashing
+   retains nullable members as JSON `null` and preserves caller support-ref
+   order before service sorting. Route and scope keys remain outside these
+   preimages exactly as deployed.
+5. Indicator row rollback accepts only `record_id`, `incident_id`,
+   `indicator_type`, `value_kind`, `display_value`, `normalized_value`,
+   `dedupe_key`, `defanged_value`, `hash_algorithm`, `hash_value`, and
+   `stix_pattern` in the retained `source` object. Absent members retain the
+   current value. Explicit `null` clears only nullable members. Unknown,
+   empty, blank, NUL-containing, null-required, wrongly typed, invalid-token,
+   invalid-UUID, malformed hash-pair, identity-mismatched, or dedupe-mismatched
+   input returns the existing safe target-not-reversible classification before
+   UPDATE. Validation and restore use the same typed parser and validate the
+   complete overlaid canonical state, including presentation-field equality.
+6. `docs/domain.md` remains unchanged because this iteration changes internal
+   topology and conformance rather than domain vocabulary. Database,
+   frontend, Inspector, grid, OpenAPI, generated protocol, portable schema,
+   public route, and feature-retirement work remain excluded.
+
+### 20.3 Amended workstream sequence
+
+The strict dependency chain is now `I2-DOC-00` → `I2-DOC-01` → `I2-S00`
+→ `I2-S01` → `I2-S02` → `I2-S03` → `I2-S04` → `I2-S05` →
+`I2-S06`. Every workstream MUST be marked `IN_PROGRESS` before its first
+non-tracker edit and `DONE` with retained evidence before its successor begins.
+
+`I2-S01` owns construction, direct Store orchestration, stateless repository
+receiver removal, direct Revisions-port alignment, the participant-constant to
+Records-port export exchange, HTTP service privatization, owner decision and
+`AC-560` amendments, and complete caller migration. `I2-S02` owns replay-hash
+derivation and removal of all Indicators caller hash overrides. `I2-S03` owns
+the typed rollback parser. `I2-S04` owns remaining owner-local export and test
+fixture cleanup. `I2-S05` owns authored verification and generated topology
+reconciliation. `I2-S06` owns final validation and handoff.
+
+### 20.4 Amended binary evidence
+
+- The root export surface remains exactly 50 declarations by exchanging
+  `IndicatorFindOrCreateParticipantV1` for `RecordEnvelopePort`.
+- `CreateIndicatorRow` accepts only context, actor, incident, command, and
+  request ID. A non-replay captures Store time once. Import time and Network
+  Flow `OperationOccurred` retain their distinct owner semantics.
+- Observation and lifecycle parameter structs contain no `RequestHash`.
+  Existing committed idempotency rows replay against byte-identical owner
+  digests without migration, rehash, alternate algorithm, or compatibility
+  branch.
+- The malformed rollback matrix proves safe classification and zero UPDATE,
+  revision, projection, idempotency-success, or Collaboration effect. Full
+  snapshots, valid partial patches, omissions, explicit nullable clears,
+  rekeys, hash pairs, defanged values, and STIX values remain reversible.
+- Final validation runs affected owner slices followed by backend boundary,
+  test catalog, harness, generation drift, generated-artifact policy, JSON
+  shape, migration drift, server and migrate builds, agent finalization,
+  `test-fast`, `check`, Markdown lint, and final protected-invariant and scope
+  audits in that order.
+
+### 20.5 `I2-S01` changed-path record
+
+The completed construction and cohesion slice changed no generated, migration,
+frontend, OpenAPI, protocol, portable-schema, or domain-vocabulary path.
+
+- Owner decisions: `docs/decisions/indicators-module-boundary.md` and
+  `docs/spec/04_security_deployment_and_conformance.md`.
+- Application and test composition:
+  `internal/app/server/runtime_assembly.go`,
+  `internal/app/importassembly/owner_registry_test.go`,
+  `internal/app/importassembly/tasksdecisions_integration_test.go`,
+  `internal/app/workbookassembly/indicator_adapter.go`, and
+  `internal/testutil/appsupport/workbook.go`.
+- Indicators production:
+  `internal/modules/indicators/contracts.go`, `create_service.go`,
+  `store_composition.go`, `revision_append_port.go`,
+  `source_repository.go`, `observation_service.go`,
+  `observation_repository.go`, `lifecycle_service.go`,
+  `lifecycle_repository.go`, and `httpapi/routes.go`; deleted
+  `internal/modules/indicators/repositories.go`.
+- Indicators evidence:
+  `internal/modules/indicators/exported_surface_test.go`,
+  `store_composition_test.go`, `store_test_helpers_test.go`,
+  `transaction_atomicity_test.go`, `indicators_test.go`, `unit_test.go`,
+  `active_identity_claims_integration_test.go`,
+  `portability_characterization_test.go`,
+  `target_resolution_integration_test.go`,
+  `httpapi/construction_test.go`, and
+  `httpapi/vocabulary_admission_test.go`.
+- Adjacent-owner evidence: `internal/modules/networkflow/store_test.go`,
+  `internal/modules/revisions/indicator_children_test.go`, and
+  `internal/modules/workbook/notes_indicators_test.go`.
+- Controlling execution record:
+  `docs/handoffs/indicators-module-refactor-tracker.md`.
+
+The only related failure was the recorded stale Store field type on the first
+focused compile. The correction was local, no rollback or compatibility path
+was introduced, no required evidence was skipped, and the sole remaining
+construction risk is future application composition adding a dependency
+without extending the closed constructor matrices. `I2-S02` is active and is
+the only eligible successor.
+
+### 20.6 `I2-S02` changed-path record
+
+The completed owner-idempotency slice added
+`internal/modules/indicators/idempotency_hash.go` and
+`internal/modules/indicators/idempotency_hash_test.go`; changed
+`internal/modules/indicators/contracts.go`, `create_service.go`,
+`observation_service.go`, `lifecycle_service.go`, `child_coordination.go`,
+`httpapi/decoding.go`, `httpapi/routes.go`, `admission/create.go`,
+`admission/create_test.go`, `store_composition_test.go`,
+`production_contract_test.go`, `child_routes_integration_test.go`,
+`unit_test.go`, `transaction_atomicity_test.go`,
+`store_test_helpers_test.go`, `indicators_test.go`,
+`active_identity_claims_integration_test.go`,
+`portability_characterization_test.go`, and
+`target_resolution_integration_test.go`. Direct consumers changed in
+`internal/app/workbookassembly/indicator_adapter.go`,
+`internal/modules/workbook/notes_indicators_test.go`, and
+`internal/modules/revisions/indicator_children_test.go`. This controlling
+tracker records the slice; the owner decision and `AC-560` already contained
+the decision-complete hash amendment from `I2-S01`.
+
+No database, generated, frontend, Inspector, grid, OpenAPI, protocol,
+portable-schema, domain-vocabulary, or feature path changed. The selector-name
+preflight failure and correction are preserved in the ledger. No evidence was
+skipped, no rollback was required, and the remaining risk is confined to
+malformed retained rollback data owned by `I2-S03`, now the only eligible
+successor.
+
+### 20.7 `I2-S03` changed-path record
+
+The completed rollback-hardening slice changed
+`internal/modules/indicators/internal/providers/rollback/provider.go`,
+`provider_test.go`, and `vocabulary_test.go`, plus the cross-owner public
+transaction evidence in
+`internal/modules/revisions/indicator_children_test.go`. The parser recognizes
+only the eleven owner fields listed in Section 20.2, represents omission and
+nullable clear distinctly, validates exact tokens and UUIDs without unchecked
+assertions, and is the sole admission path for validation and restore. Restore
+locks the current Indicator source row, overlays the patch, canonicalizes the
+complete result, verifies identity, representation, and supplied dedupe facts,
+and performs no UPDATE on an invalid result.
+
+Malformed parser inputs were exercised without a transaction capability to
+prove rejection before any query. Public retained-history cases additionally
+proved that unknown fields, mismatched record or incident identity, malformed
+hash pairs, noncanonical presentation, and incorrect dedupe return
+`target_not_reversible` with byte-identical durable Records, Indicators,
+active-identity, projection, change-set, mutation, revision, and idempotency
+state. Valid full and partial snapshots proved omission, explicit nullable
+clears, rekeying, hash pairs, defanged values, STIX values, projection rebuild,
+and active-identity synchronization. The complete Indicators service-backed
+slice retained its portability evidence.
+
+No owner specification, database migration, portable schema, frontend,
+Inspector, grid contract, OpenAPI, protocol, generated artifact, public route,
+or domain vocabulary changed. No check failed or was skipped, no rollback was
+required, and the remaining mutable production/test surface is confined to
+`I2-S04`, the only eligible successor after the checkpoint lint.
+
+### 20.8 `I2-S04` changed-path record
+
+The completed dead-surface slice changed
+`internal/modules/indicators/internal/identity/identity.go` and
+`identity_test.go`;
+`internal/modules/indicators/workbookprojection/contribution.go` and
+`contribution_test.go`;
+`internal/modules/indicators/testsupport/fixtures.go`;
+`internal/modules/indicators/exported_surface_test.go`, `unit_test.go`,
+`resolution_integration_test.go`, `child_routes_integration_test.go`,
+`portability_characterization_test.go`, and
+`internal/providers/rollback/provider_test.go`; plus the cross-owner consumer
+`internal/modules/projections/internal/runtime/query_plans_test.go`. This
+tracker is the only documentation path in the slice.
+
+`NormalizeIndicatorType`, `NormalizeValueKind`, `NormalizeValue`, `IsIPType`,
+and `DedupeKey` are now owner-local implementation functions. Indicator
+projection descriptor and semantic-intent facts are likewise private and are
+observed across owners only through `NewContribution`. The root remains
+exactly 50 reviewed production-role exports. Test support now returns one
+four-field primary example by value and returns both fixed times by value;
+there is no mutable example slice, mutable time global, unused fixture field,
+compatibility alias, or forwarding helper.
+
+No specification, database migration, portable schema, frontend, Inspector,
+grid contract, OpenAPI, protocol, generated artifact, public route, replay
+hash, persisted row, or domain vocabulary changed. All caller classes were
+rescanned after the migration. No check failed or was skipped, no rollback was
+required, and authored selector reconciliation for the renamed rollback test
+is intentionally confined to `I2-S05`, the only eligible successor after the
+checkpoint lint.
+
+### 20.9 `I2-S05` changed-path record
+
+The completed harness slice changed the authored selector
+`tools/test_families/module.indicators.json` and the corresponding test
+organization in
+`internal/modules/indicators/internal/providers/rollback/vocabulary_test.go`.
+`make generate` changed only the tool-managed input hashes in
+`tools/execution_topology_render_index.json`; it changed no task surface,
+execution schedule, product contract, generated Go or TypeScript, migration,
+or runtime path. This tracker is the only documentation path in the slice.
+
+The closed rollback-parser matrix and rollback vocabulary checks now each have
+one explicit selected entrypoint in their existing owner row. Catalog closure,
+harness contract, backend boundaries, generation drift, generated-artifact
+policy, and JSON shape all pass. The 37-row Indicators baseline remains 37
+rows; the existing row now names both active tests without duplication or
+selector drift.
+
+No specification, database migration, portable schema, frontend, Inspector,
+grid contract, OpenAPI, protocol, public route, replay hash, persisted row, or
+domain vocabulary changed. No generated file was hand-edited, no check failed
+or was skipped, no rollback was required, and `I2-S06` is the only eligible
+successor after the checkpoint lint.
+
+### 20.10 `I2-S06` final handoff and 52-path ledger
+
+Iteration 2 is complete on branch `main` at unchanged implementation-base HEAD
+`0f7a33b0cf1c9405484b2c6ae17432d916da9a97`. The pre-existing staged tracker
+work remains staged and preserved; all implementation-session changes remain
+visible in the shared worktree. The final status contains exactly 52 paths:
+three added files, one deleted file, 47 authored modified files, and one
+Make-generated modified index.
+
+- Owner and handoff documentation:
+  `docs/decisions/indicators-module-boundary.md`,
+  `docs/handoffs/indicators-module-refactor-tracker.md`, and
+  `docs/spec/04_security_deployment_and_conformance.md`.
+- Application composition and adjacent-owner evidence:
+  `internal/app/importassembly/owner_registry_test.go`,
+  `internal/app/importassembly/tasksdecisions_integration_test.go`,
+  `internal/app/server/runtime_assembly.go`,
+  `internal/app/workbookassembly/indicator_adapter.go`,
+  `internal/modules/networkflow/store_test.go`,
+  `internal/modules/projections/internal/runtime/query_plans_test.go`,
+  `internal/modules/revisions/indicator_children_test.go`,
+  `internal/modules/workbook/notes_indicators_test.go`, and
+  `internal/testutil/appsupport/workbook.go`.
+- Indicators production implementation:
+  `internal/modules/indicators/admission/create.go`,
+  `internal/modules/indicators/child_coordination.go`,
+  `internal/modules/indicators/contracts.go`,
+  `internal/modules/indicators/create_service.go`,
+  `internal/modules/indicators/httpapi/decoding.go`,
+  `internal/modules/indicators/httpapi/routes.go`,
+  added `internal/modules/indicators/idempotency_hash.go`,
+  `internal/modules/indicators/internal/identity/identity.go`,
+  `internal/modules/indicators/internal/providers/rollback/provider.go`,
+  `internal/modules/indicators/lifecycle_repository.go`,
+  `internal/modules/indicators/lifecycle_service.go`,
+  `internal/modules/indicators/observation_repository.go`,
+  `internal/modules/indicators/observation_service.go`,
+  `internal/modules/indicators/revision_append_port.go`,
+  `internal/modules/indicators/source_repository.go`,
+  `internal/modules/indicators/store_composition.go`,
+  `internal/modules/indicators/workbookprojection/contribution.go`, and deleted
+  `internal/modules/indicators/repositories.go`.
+- Indicators tests and test support:
+  `internal/modules/indicators/active_identity_claims_integration_test.go`,
+  `internal/modules/indicators/admission/create_test.go`,
+  `internal/modules/indicators/child_routes_integration_test.go`,
+  `internal/modules/indicators/exported_surface_test.go`, added
+  `internal/modules/indicators/httpapi/construction_test.go`,
+  `internal/modules/indicators/httpapi/vocabulary_admission_test.go`, added
+  `internal/modules/indicators/idempotency_hash_test.go`,
+  `internal/modules/indicators/indicators_test.go`,
+  `internal/modules/indicators/internal/identity/identity_test.go`,
+  `internal/modules/indicators/internal/providers/rollback/provider_test.go`,
+  `internal/modules/indicators/portability_characterization_test.go`,
+  `internal/modules/indicators/production_contract_test.go`,
+  `internal/modules/indicators/resolution_integration_test.go`,
+  `internal/modules/indicators/store_composition_test.go`,
+  `internal/modules/indicators/store_test_helpers_test.go`,
+  `internal/modules/indicators/target_resolution_integration_test.go`,
+  `internal/modules/indicators/testsupport/fixtures.go`,
+  `internal/modules/indicators/transaction_atomicity_test.go`,
+  `internal/modules/indicators/unit_test.go`, and
+  `internal/modules/indicators/workbookprojection/contribution_test.go`.
+- Harness inputs and generated evidence:
+  `tools/test_families/module.indicators.json` and Make-generated
+  `tools/execution_topology_render_index.json`.
+
+The final diff has no database migration, `docs/domain.md`, frontend,
+Inspector, grid-contract, OpenAPI, generated protocol, portable-schema,
+feature-retirement, or browser path. Generated Go and TypeScript roots are
+untouched; the one generated index was produced by `make generate` and passes
+drift and artifact-policy checks. The protected SQL literal independently
+hashes to
+`d665f06c2526b0118e33eaa887da279ad54025967618662c2a0b47b7bfde857b`,
+the root export guard remains exactly 50, and all eight HTTP operations remain
+registered.
+
+The complete failure history is preserved: the first S01 focused compile at
+`.cartulary/test-results/20260823T151500Z-p3514021` exposed the stale removed
+Store field type and passed after the local correction; the first S02 format
+preflight emitted no retained root and exposed a temporarily renamed authored
+selector, which was restored until its deliberate S05 reconciliation. No
+other workstream or final-ladder check failed. No rollback was required.
+Direct browser evidence was not run because no frontend or browser claim is in
+scope. `RESULTS_DIR` was unset for `agent-finalize` because no qualifying full
+warm-check root existed at that ordered point; retained-run maintenance was
+therefore the only intentional skip.
+
+`I2-DEF-001` through `I2-DEF-004` remain deferred behind their stated future
+authorization gates, and the conditional browser gate remains inactive. No
+database or public-contract migration occurred: repository-internal Go callers
+migrated atomically while routes, operation IDs, status/JSON bytes, persisted
+idempotency rows, canonical identity, history, projections, portability,
+Recovery, Collaboration, and Network Flow participation remained compatible.
+Every Iteration 2 workstream and acceptance row is `DONE`; there is no next
+eligible Iteration 2 slice or unresolved blocker.

@@ -34,7 +34,7 @@ func TestIndicatorActiveIdentityClaimsFollowRecordsAndRebuild_Integration(t *tes
 		IndicatorType: "domain_name",
 		ValueKind:     "atomic",
 		DisplayValue:  "claims.example",
-	}, []byte("indicator-claims-create"), "request-indicator-claims-create", now)
+	}, "request-indicator-claims-create")
 	if err != nil {
 		t.Fatalf("create Indicator: %v", err)
 	}
@@ -64,7 +64,7 @@ UPDATE records
 		IndicatorType: "domain_name",
 		ValueKind:     "atomic",
 		DisplayValue:  "claims.example",
-	}, []byte("indicator-claims-reuse"), "request-indicator-claims-reuse", now.Add(2*time.Minute))
+	}, "request-indicator-claims-reuse")
 	if err != nil {
 		t.Fatalf("reuse identity after deletion: %v", err)
 	}

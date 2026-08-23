@@ -128,6 +128,22 @@ func (store failingIndicatorRecordStore) AdvanceVersionTx(context.Context, pgx.T
 
 func TestIndicatorLifecycleVocabulary(t *testing.T) {
 	t.Parallel()
+	t.Run("sorts an owner copy without changing caller order", func(t *testing.T) {
+		first := uuid.MustParse("00000000-0000-4000-8000-000000000222")
+		second := uuid.MustParse("00000000-0000-4000-8000-000000000111")
+		callerOrder := []uuid.UUID{first, second}
+		params := validLifecycleContractParams("active")
+		params.SupportRefs = callerOrder
+		if err := normalizeLifecycleAppendParams(&params); err != nil {
+			t.Fatalf("normalize support references: %v", err)
+		}
+		if callerOrder[0] != first || callerOrder[1] != second {
+			t.Fatalf("caller support-reference order changed: %v", callerOrder)
+		}
+		if params.SupportRefs[0] != second || params.SupportRefs[1] != first {
+			t.Fatalf("owner support-reference order = %v", params.SupportRefs)
+		}
+	})
 	for _, state := range []string{"active", "benign", "false_positive", "retired"} {
 		state := state
 		t.Run("accept/"+state, func(t *testing.T) {

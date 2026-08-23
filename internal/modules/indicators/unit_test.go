@@ -2,6 +2,7 @@ package indicators_test
 
 import (
 	"context"
+	"encoding/hex"
 	"testing"
 
 	"github.com/google/uuid"
@@ -21,15 +22,43 @@ func TestIndicatorObservationSeparation_Integration(t *testing.T) {
 	store := newIndicatorTestStore(t, harness.DB, revisionsupport.MustAppender(t))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u407@example.test", "U407", "U407EntityLinkingPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-07-incident", "IR-U407", "Record relationships indicators")
+	legacyRecordID := uuid.MustParse("00000000-0000-4000-8000-000000000407")
+	legacyChangeSetID := uuid.MustParse("00000000-0000-4000-8000-000000000408")
+	legacyHash, err := hex.DecodeString("49dd4b43356f985be78b671d6b57cfe912dcfc2782573acc9fb6c2cda8b5e6a6")
+	if err != nil {
+		t.Fatalf("decode deployed Indicator create hash: %v", err)
+	}
+	if _, err := harness.DB.Exec(context.Background(), `
+INSERT INTO route_idempotency (
+    route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_code, response_json
+) VALUES ($1, $2, $3, $4, $5, 201, $6::jsonb)
+`, "indicators.rows.create", incident.ID.String()+":"+indicators.ViewSchemaID, "txn-indicator", actor.ID, legacyHash,
+		`{"view_schema_id":"cartulary.view.indicators.v1","change_set_id":"00000000-0000-4000-8000-000000000408","row":{"record_id":"00000000-0000-4000-8000-000000000407","row_version":17}}`); err != nil {
+		t.Fatalf("seed deployed Indicator idempotency row: %v", err)
+	}
+	legacyReplay, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateCommand{
+		ClientTxnID: "txn-indicator", IndicatorType: "ipv4_addr", ValueKind: "atomic", DisplayValue: "203[.]0[.]113[.]7",
+	}, "req-deployed-indicator-replay")
+	if err != nil {
+		t.Fatalf("replay deployed Indicator idempotency row: %v", err)
+	}
+	if !legacyReplay.Replayed || legacyReplay.RecordID != legacyRecordID || legacyReplay.ChangeSetID != legacyChangeSetID || legacyReplay.RowVersion != 17 {
+		t.Fatalf("deployed Indicator replay = %#v", legacyReplay)
+	}
+	var legacyDurableRows int
+	if err := harness.DB.QueryRow(context.Background(), `SELECT COUNT(*) FROM records WHERE record_id = $1`, legacyRecordID).Scan(&legacyDurableRows); err != nil || legacyDurableRows != 0 {
+		t.Fatalf("deployed replay durable record count = %d, %v", legacyDurableRows, err)
+	}
 
 	create := func(clientTxnID string) indicators.CreateResult {
 		t.Helper()
+		example := indicatortest.PrimaryExample()
 		result, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateCommand{
 			ClientTxnID:   clientTxnID,
-			IndicatorType: indicatortest.Examples[0].IndicatorType,
-			ValueKind:     indicatortest.Examples[0].ValueKind,
-			DisplayValue:  indicatortest.Examples[0].DisplayValue,
-		}, []byte(clientTxnID), "req-"+clientTxnID, indicatortest.BaseTime)
+			IndicatorType: example.IndicatorType,
+			ValueKind:     example.ValueKind,
+			DisplayValue:  example.DisplayValue,
+		}, "req-"+clientTxnID)
 		if err != nil {
 			t.Fatalf("create indicator: %v", err)
 		}
@@ -61,7 +90,7 @@ func TestIndicatorObservationSeparation_Integration(t *testing.T) {
 		}
 	}
 	if _, err := store.AppendIndicatorLifecycleInterval(context.Background(), actor, lifecycleAppendParams(
-		incident.ID, first.RecordID, 3, indicatortest.PastTime, "txn-entity-linking-lifecycle",
+		incident.ID, first.RecordID, 3, indicatortest.PastTime(), "txn-entity-linking-lifecycle",
 	)); err != nil {
 		t.Fatalf("append lifecycle interval: %v", err)
 	}

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"io"
 	"strings"
@@ -249,12 +248,6 @@ func isJSONNull(value json.RawMessage) bool {
 	return string(value) == "null"
 }
 
-func requestHash(value any) []byte {
-	encoded, _ := json.Marshal(value)
-	digest := sha256.Sum256(encoded)
-	return digest[:]
-}
-
 func invalidMutationPayload(field string, reason string) *platformhttpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
@@ -271,6 +264,6 @@ func createParams(incidentID uuid.UUID, sourceID uuid.UUID, request observationC
 		IncidentID: incidentID, SourceRecordID: sourceID, BaseRowVersion: request.BaseRowVersion,
 		SourceFieldKey: request.SourceFieldKey, SpanStartByte: request.SpanStartByte, SpanEndByte: request.SpanEndByte,
 		ParsedIndicatorType: request.ParsedIndicatorType, ResolvedIndicatorRecordID: request.ResolvedIndicatorRecordID,
-		ClientTxnID: request.ClientTxnID, RequestID: requestID, RequestHash: requestHash(request),
+		ClientTxnID: request.ClientTxnID, RequestID: requestID,
 	}
 }

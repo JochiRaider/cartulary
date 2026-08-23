@@ -3,6 +3,7 @@ package indicators
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,23 +18,17 @@ import (
 )
 
 type Store struct {
-	pool               postgres.DB
-	authStore          *authn.Store
-	incidentAccess     incidentLifecycleAccess
-	recordStore        indicatorRecordStore
-	revisionsStore     revisionAppendPort
-	projections        indicatorprojection.Rows
-	sourceText         SourceTextPort
-	now                func() time.Time
-	sources            sourceRepository
-	observations       observationRepository
-	lifecycles         lifecycleRepository
-	createService      indicatorCreateService
-	observationService indicatorObservationService
-	lifecycleService   indicatorLifecycleService
+	pool           postgres.DB
+	authStore      *authn.Store
+	incidentAccess incidentLifecycleAccess
+	recordStore    RecordEnvelopePort
+	revisionsStore revisionAppendPort
+	projections    indicatorprojection.Rows
+	sourceText     SourceTextPort
+	now            func() time.Time
 }
 
-type indicatorRecordStore interface {
+type RecordEnvelopePort interface {
 	InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error)
 	LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID, bool) (map[uuid.UUID]records.Envelope, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
@@ -44,47 +39,54 @@ type incidentLifecycleAccess interface {
 }
 
 type StoreDependencies struct {
-	Postgres    postgres.DB
-	Revisions   *revisions.Appender
-	Projections indicatorprojection.Rows
-	SourceText  SourceTextPort
-	Clock       func() time.Time
+	Postgres        postgres.DB
+	Revisions       *revisions.Appender
+	RecordEnvelopes RecordEnvelopePort
+	Projections     indicatorprojection.Rows
+	SourceText      SourceTextPort
+	Clock           func() time.Time
 }
 
 func NewStore(dependencies StoreDependencies) (*Store, error) {
-	if dependencies.Postgres == nil {
-		return nil, fmt.Errorf("compose Indicators store: Postgres is required")
+	checks := []struct {
+		name  string
+		value any
+	}{
+		{name: "Postgres", value: dependencies.Postgres},
+		{name: "Revisions", value: dependencies.Revisions},
+		{name: "RecordEnvelopes", value: dependencies.RecordEnvelopes},
+		{name: "Projections", value: dependencies.Projections},
+		{name: "SourceText", value: dependencies.SourceText},
+		{name: "Clock", value: dependencies.Clock},
 	}
-	if dependencies.Revisions == nil {
-		return nil, fmt.Errorf("compose Indicators store: Revisions is required")
+	for _, check := range checks {
+		if nilStoreDependency(check.value) {
+			return nil, fmt.Errorf("compose Indicators store: %s is required", check.name)
+		}
 	}
-	if dependencies.Projections == nil {
-		return nil, fmt.Errorf("compose Indicators store: Projections is required")
-	}
-	if dependencies.SourceText == nil {
-		return nil, fmt.Errorf("compose Indicators store: SourceText is required")
-	}
-	now := dependencies.Clock
-	if now == nil {
-		now = func() time.Time { return time.Now().UTC() }
-	}
-	store := &Store{
+	return &Store{
 		pool:           dependencies.Postgres,
 		authStore:      authn.NewStore(dependencies.Postgres),
 		incidentAccess: admission.NewChecker(dependencies.Postgres),
-		recordStore:    records.NewStore(),
-		revisionsStore: newRevisionAppendAdapter(dependencies.Revisions),
+		recordStore:    dependencies.RecordEnvelopes,
+		revisionsStore: dependencies.Revisions,
 		projections:    dependencies.Projections,
 		sourceText:     dependencies.SourceText,
-		now:            now,
-		sources:        sourceRepository{},
-		observations:   observationRepository{},
-		lifecycles:     lifecycleRepository{},
+		now:            dependencies.Clock,
+	}, nil
+}
+
+func nilStoreDependency(dependency any) bool {
+	if dependency == nil {
+		return true
 	}
-	store.createService = indicatorCreateService{owner: store}
-	store.observationService = indicatorObservationService{owner: store}
-	store.lifecycleService = indicatorLifecycleService{owner: store}
-	return store, nil
+	value := reflect.ValueOf(dependency)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }
 
 func (s *Store) refreshProjectionRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {

@@ -26,12 +26,13 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 		"title":         "Record relationships indicator route",
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+	example := indicatortest.PrimaryExample()
 	payload := map[string]any{
 		"client_txn_id":              "txn-entity_linking-i-4-07-create",
-		"indicator.indicator_type":   indicatortest.Examples[0].IndicatorType,
-		"indicator.value_kind":       indicatortest.Examples[0].ValueKind,
-		"indicator.display_value":    indicatortest.Examples[0].DisplayValue,
-		"indicator.normalized_value": indicatortest.Examples[0].NormalizedValue,
+		"indicator.indicator_type":   example.IndicatorType,
+		"indicator.value_kind":       example.ValueKind,
+		"indicator.display_value":    example.DisplayValue,
+		"indicator.normalized_value": example.NormalizedValue,
 	}
 	response := appsupport.DoJSON(
 		t,
@@ -103,7 +104,7 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 		}
 	}
 	if _, err := store.AppendIndicatorLifecycleInterval(context.Background(), authn.UserRecord{ID: adminUserID}, lifecycleAppendParams(
-		incidentID, recordID, 3, indicatortest.PastTime, "txn-entity-linking-route-lifecycle",
+		incidentID, recordID, 3, indicatortest.PastTime(), "txn-entity-linking-route-lifecycle",
 	)); err != nil {
 		t.Fatalf("append lifecycle: %v", err)
 	}

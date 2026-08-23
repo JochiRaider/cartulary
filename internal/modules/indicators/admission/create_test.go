@@ -1,8 +1,7 @@
 package admission
 
 import (
-	"bytes"
-	"encoding/hex"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -25,22 +24,8 @@ func TestIndicatorCreateAdmissionAndHashCompatibility(t *testing.T) {
 	if apiErr != nil {
 		t.Fatalf("decode reordered indicator create: %v", apiErr)
 	}
-	leftHash := CreateRequestHash(left)
-	if !bytes.Equal(leftHash, CreateRequestHash(right)) {
-		t.Fatal("member order changed Indicator request hash")
-	}
-	wantHash, err := hex.DecodeString("49dd4b43356f985be78b671d6b57cfe912dcfc2782573acc9fb6c2cda8b5e6a6")
-	if err != nil {
-		t.Fatalf("decode expected hash: %v", err)
-	}
-	if !bytes.Equal(leftHash, wantHash) {
-		t.Fatalf("request hash = %x, want %x", leftHash, wantHash)
-	}
-
-	differentTxn := right
-	differentTxn.ClientTxnID = "txn-indicator-other"
-	if bytes.Equal(leftHash, CreateRequestHash(differentTxn)) {
-		t.Fatal("client transaction ID must remain part of the Indicator replay hash")
+	if !reflect.DeepEqual(left, right) {
+		t.Fatalf("reordered wire members changed admitted command: left=%#v right=%#v", left, right)
 	}
 }
 

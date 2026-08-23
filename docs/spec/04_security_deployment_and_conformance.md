@@ -1644,14 +1644,30 @@ These criteria provide direct runtime-family verification for substantive base-p
   vocabulary and source-state packages, and typed source providers match the
   adopted topology. Every root export has one reviewed disposition and role;
   the authorized 55-to-50 contraction removes only `CreateOutcome` and its
-  four constants, replaces no public bytes, and leaves no alias, forwarding,
-  dual-result, or deprecation path. Only owner-local admission and HTTP
+  four constants, and the Iteration 2 exchange replaces the exported
+  test-convenience participant schema constant with production
+  `RecordEnvelopePort` while retaining exactly 50 exports and identical
+  participant schema bytes. No alias, forwarding, dual-result, or deprecation
+  path remains. Only owner-local admission and HTTP
   adapters import root contracts; no child imports the root or application
-  assembly to recover dependencies. Records supplies one sorted
+  assembly to recover dependencies. Application composition constructs one
+  Records adapter and injects separate narrow root transaction and HTTP reader
+  capabilities. Root construction rejects nil and typed-nil Postgres,
+  Revisions, Records, projections, source text, or clock dependencies; HTTP
+  construction rejects nil and typed-nil owner, Records, or Postgres
+  dependencies and a nil `DependencySet.Now`; neither boundary constructs
+  Records or uses wall-clock fallback. Create, observation, transition,
+  lifecycle, and list orchestration lives directly on Store, concern SQL uses
+  named package functions, and self-referential services, empty repository
+  namespaces, and Revisions forwarding adapters are absent. Records supplies one sorted
   caller-transaction locking snapshot for affected-record validation, private
   Records validation SQL is absent, storage failures remain safe internal
-  failures, and the compound canonical-dedupe query and lock order remain
-  unchanged. Caller transactions are borrowed, cross-owner effects use typed
+  failures, and the protected raw canonical-dedupe SQL literal and lock order
+  remain byte-stable. Indicators derives the five deployed SHA-256 replay
+  identities from their exact logical JSON preimages before normalization or
+  sorting can change membership or order; callers cannot override hashes and
+  existing persisted rows replay without rewrite or compatibility branches.
+  Caller transactions are borrowed, cross-owner effects use typed
   injected ports, one immutable exact runtime vocabulary owns all four
   Indicator token families, and one fallibly validated immutable source-state
   catalog produces the exact three authoritative, one rebuildable, and three

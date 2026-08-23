@@ -8,6 +8,7 @@ import (
 
 func TestIndicatorHTTPVocabularyAdmissionIsExact(t *testing.T) {
 	t.Parallel()
+	t.Run("composition rejects missing dependencies", testIndicatorHTTPCompositionRejectsMissingDependencies)
 	for _, value := range []string{"DOMAIN_NAME", " domain_name", "domain_name ", "domain", "unknown"} {
 		value := value
 		t.Run("Indicator type/"+value, func(t *testing.T) {

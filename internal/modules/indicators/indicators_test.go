@@ -30,7 +30,7 @@ func TestIndicatorsCanonicalObservationLifecycle_Integration(t *testing.T) {
 		ValueKind:     "atomic",
 		DisplayValue:  "203.0.113.88",
 		DefangedValue: &defangedValue,
-	}, []byte("txn-workbook_interaction-u-9-04-indicator-create"), "req-workbook_interaction-u-9-04-indicator-create", time.Date(2026, 5, 17, 17, 0, 0, 0, time.UTC))
+	}, "req-workbook_interaction-u-9-04-indicator-create")
 	if err != nil {
 		t.Fatalf("create canonical indicator: %v", err)
 	}
@@ -40,12 +40,20 @@ func TestIndicatorsCanonicalObservationLifecycle_Integration(t *testing.T) {
 		ValueKind:     "atomic",
 		DisplayValue:  "203.0.113.88",
 		STIXPattern:   &stixPattern,
-	}, []byte("txn-workbook_interaction-u-9-04-indicator-dedupe"), "req-workbook_interaction-u-9-04-indicator-dedupe", time.Date(2026, 5, 17, 17, 1, 0, 0, time.UTC))
+	}, "req-workbook_interaction-u-9-04-indicator-dedupe")
 	if err != nil {
 		t.Fatalf("dedupe canonical indicator: %v", err)
 	}
 	if updated.RecordID != created.RecordID || updated.Created || updated.Replayed {
 		t.Fatalf("expected same canonical indicator identity on representation update, got first=%#v update=%#v", created, updated)
+	}
+	wantStoreTime := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	var createdAt, updatedAt time.Time
+	if err := harness.DB.QueryRow(context.Background(), `SELECT created_at, updated_at FROM records WHERE record_id = $1`, created.RecordID).Scan(&createdAt, &updatedAt); err != nil {
+		t.Fatalf("query Indicator envelope timestamps: %v", err)
+	}
+	if !createdAt.Equal(wantStoreTime) || !updatedAt.Equal(wantStoreTime) {
+		t.Fatalf("Indicator envelope timestamps = (%s, %s), want injected Clock %s", createdAt, updatedAt, wantStoreTime)
 	}
 	requireEntityCount(t, harness, `
 SELECT count(*)
@@ -135,7 +143,7 @@ func TestNetworkFlowCore02_IndicatorFindOrCreateParticipantRollback(t *testing.T
 	if err != nil {
 		t.Fatalf("first participant create: %v", err)
 	}
-	if first.SchemaID != indicators.IndicatorFindOrCreateParticipantV1 || first.Status != "created" {
+	if first.SchemaID != "indicator_find_or_create_participant_v1" || first.Status != "created" {
 		t.Fatalf("unexpected first participant result: %#v", first)
 	}
 	if first.Indicator.DisplayValue != "2001:db8::1" || first.Indicator.NormalizedValue == nil || *first.Indicator.NormalizedValue != "2001:db8::1" {

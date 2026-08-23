@@ -16,24 +16,16 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-type indicatorLifecycleService struct {
-	owner *Store
-}
-
 func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor authn.UserRecord, params IndicatorLifecycleAppendParams) (IndicatorLifecycleMutationResult, error) {
-	return s.lifecycleService.appendInterval(ctx, actor, params)
-}
-
-func (service indicatorLifecycleService) appendInterval(ctx context.Context, actor authn.UserRecord, params IndicatorLifecycleAppendParams) (IndicatorLifecycleMutationResult, error) {
-	s := service.owner
-	if err := validateChildMutationIdentity(params.ClientTxnID, params.RequestID, params.RequestHash, params.BaseRowVersion); err != nil {
+	requestHash := lifecycleAppendRequestHash(params)
+	if err := validateChildMutationIdentity(params.ClientTxnID, params.RequestID, params.BaseRowVersion); err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
 	if err := normalizeLifecycleAppendParams(&params); err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
 	replayKey := s.childReplayKey(lifecycleAppendRouteKey, actor.ID, params.IndicatorRecordID, params.ClientTxnID)
-	if replay, found, err := loadLifecycleReplay(ctx, s.authStore, replayKey, params.RequestHash); err != nil || found {
+	if replay, found, err := loadLifecycleReplay(ctx, s.authStore, replayKey, requestHash); err != nil || found {
 		return replay, err
 	}
 
@@ -69,7 +61,7 @@ func (service indicatorLifecycleService) appendInterval(ctx context.Context, act
 		return IndicatorLifecycleMutationResult{}, err
 	}
 	createdAt := s.now().UTC().Truncate(time.Microsecond)
-	record, err := s.lifecycles.insertTx(ctx, tx, actor.ID, params, createdAt)
+	record, err := insertIndicatorLifecycleIntervalTx(ctx, tx, actor.ID, params, createdAt)
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
@@ -80,7 +72,7 @@ func (service indicatorLifecycleService) appendInterval(ctx context.Context, act
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
-	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
+	if err := s.revisionsStore.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
 		ChangeSetID: changeSetID, SequenceNo: 1, TargetKind: "indicator_state_interval",
 		TargetID: record.IntervalID.String(), OperationKind: "create",
 		AfterVersionID: stringPointer(fmt.Sprintf("indicator_state_interval:%s:%d", record.IntervalID, record.RowVersion)),
@@ -111,7 +103,7 @@ func (service indicatorLifecycleService) appendInterval(ctx context.Context, act
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, replayKey, nil, params.RequestHash, http.StatusCreated, payload); err != nil {
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, replayKey, nil, requestHash, http.StatusCreated, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return IndicatorLifecycleMutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -144,6 +136,7 @@ func normalizeLifecycleAppendParams(params *IndicatorLifecycleAppendParams) erro
 	if !validOptionalLifecycleText(params.Rationale) || !validOptionalLifecycleText(params.Assessor) || len(params.SupportRefs) > 64 {
 		return ErrInvalidCreateRequest
 	}
+	params.SupportRefs = append([]uuid.UUID(nil), params.SupportRefs...)
 	seen := make(map[uuid.UUID]struct{}, len(params.SupportRefs))
 	for _, recordID := range params.SupportRefs {
 		if recordID == uuid.Nil {
@@ -165,5 +158,5 @@ func validOptionalLifecycleText(value *string) bool {
 }
 
 func (s *Store) ListIndicatorLifecycleIntervals(ctx context.Context, indicatorID uuid.UUID, afterValidFrom *time.Time, afterID *uuid.UUID, limit int) ([]IndicatorLifecycleIntervalRecord, error) {
-	return s.lifecycles.list(ctx, s.pool, indicatorID, afterValidFrom, afterID, limit)
+	return listIndicatorLifecycleIntervals(ctx, s.pool, indicatorID, afterValidFrom, afterID, limit)
 }

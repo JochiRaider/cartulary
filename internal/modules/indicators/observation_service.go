@@ -16,24 +16,16 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-type indicatorObservationService struct {
-	owner *Store
-}
-
 func (s *Store) CreateIndicatorObservation(ctx context.Context, actor authn.UserRecord, params IndicatorObservationCreateParams) (IndicatorObservationMutationResult, error) {
-	return s.observationService.createManualObservation(ctx, actor, params)
-}
-
-func (service indicatorObservationService) createManualObservation(ctx context.Context, actor authn.UserRecord, params IndicatorObservationCreateParams) (IndicatorObservationMutationResult, error) {
-	s := service.owner
-	if err := validateChildMutationIdentity(params.ClientTxnID, params.RequestID, params.RequestHash, params.BaseRowVersion); err != nil {
+	requestHash := observationCreateRequestHash(params)
+	if err := validateChildMutationIdentity(params.ClientTxnID, params.RequestID, params.BaseRowVersion); err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
 	if params.IncidentID == uuid.Nil || params.SourceRecordID == uuid.Nil || params.SourceFieldKey == "" {
 		return IndicatorObservationMutationResult{}, ErrInvalidCreateRequest
 	}
 	replayKey := s.childReplayKey(observationCreateRouteKey, actor.ID, params.SourceRecordID, params.ClientTxnID)
-	if replay, found, err := loadObservationReplay(ctx, s.authStore, replayKey, params.RequestHash); err != nil || found {
+	if replay, found, err := loadObservationReplay(ctx, s.authStore, replayKey, requestHash); err != nil || found {
 		return replay, err
 	}
 
@@ -84,7 +76,7 @@ func (service indicatorObservationService) createManualObservation(ctx context.C
 		return IndicatorObservationMutationResult{}, err
 	}
 	createdAt := s.now().UTC().Truncate(time.Microsecond)
-	record, err := s.observations.insertTx(ctx, tx, actor.ID, params, createdAt)
+	record, err := insertIndicatorObservationTx(ctx, tx, actor.ID, params, createdAt)
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
@@ -95,7 +87,7 @@ func (service indicatorObservationService) createManualObservation(ctx context.C
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
-	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
+	if err := s.revisionsStore.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
 		ChangeSetID: changeSetID, SequenceNo: 1, TargetKind: "indicator_observation",
 		TargetID: record.ObservationID.String(), OperationKind: "create",
 		AfterVersionID: stringPointer(fmt.Sprintf("indicator_observation:%s:%d", record.ObservationID, record.RowVersion)),
@@ -123,7 +115,7 @@ func (service indicatorObservationService) createManualObservation(ctx context.C
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, replayKey, nil, params.RequestHash, http.StatusCreated, payload); err != nil {
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, replayKey, nil, requestHash, http.StatusCreated, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return IndicatorObservationMutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -136,15 +128,15 @@ func (service indicatorObservationService) createManualObservation(ctx context.C
 }
 
 func (s *Store) ResolveIndicatorObservation(ctx context.Context, actor authn.UserRecord, params IndicatorObservationResolveParams) (IndicatorObservationMutationResult, error) {
-	return s.observationService.transitionObservation(ctx, actor, observationTransitionResolve, params.ObservationID, params.ResolvedIndicatorRecordID, params.BaseRowVersion, params.ClientTxnID, params.RequestID, params.RequestHash)
+	return s.transitionIndicatorObservation(ctx, actor, observationTransitionResolve, params.ObservationID, params.ResolvedIndicatorRecordID, params.BaseRowVersion, params.ClientTxnID, params.RequestID, observationResolveRequestHash(params))
 }
 
 func (s *Store) DismissIndicatorObservation(ctx context.Context, actor authn.UserRecord, params IndicatorObservationActionParams) (IndicatorObservationMutationResult, error) {
-	return s.observationService.transitionObservation(ctx, actor, observationTransitionDismiss, params.ObservationID, uuid.Nil, params.BaseRowVersion, params.ClientTxnID, params.RequestID, params.RequestHash)
+	return s.transitionIndicatorObservation(ctx, actor, observationTransitionDismiss, params.ObservationID, uuid.Nil, params.BaseRowVersion, params.ClientTxnID, params.RequestID, observationActionRequestHash(params))
 }
 
 func (s *Store) RestoreIndicatorObservation(ctx context.Context, actor authn.UserRecord, params IndicatorObservationActionParams) (IndicatorObservationMutationResult, error) {
-	return s.observationService.transitionObservation(ctx, actor, observationTransitionRestore, params.ObservationID, uuid.Nil, params.BaseRowVersion, params.ClientTxnID, params.RequestID, params.RequestHash)
+	return s.transitionIndicatorObservation(ctx, actor, observationTransitionRestore, params.ObservationID, uuid.Nil, params.BaseRowVersion, params.ClientTxnID, params.RequestID, observationActionRequestHash(params))
 }
 
 type observationTransition string
@@ -155,12 +147,11 @@ const (
 	observationTransitionRestore observationTransition = "restore"
 )
 
-func (service indicatorObservationService) transitionObservation(ctx context.Context, actor authn.UserRecord, transition observationTransition, observationID uuid.UUID, targetID uuid.UUID, baseRowVersion int64, clientTxnID string, requestID string, requestHash []byte) (IndicatorObservationMutationResult, error) {
-	s := service.owner
+func (s *Store) transitionIndicatorObservation(ctx context.Context, actor authn.UserRecord, transition observationTransition, observationID uuid.UUID, targetID uuid.UUID, baseRowVersion int64, clientTxnID string, requestID string, requestHash []byte) (IndicatorObservationMutationResult, error) {
 	if observationID == uuid.Nil || (transition == observationTransitionResolve && targetID == uuid.Nil) {
 		return IndicatorObservationMutationResult{}, ErrInvalidCreateRequest
 	}
-	if err := validateChildMutationIdentity(clientTxnID, requestID, requestHash, baseRowVersion); err != nil {
+	if err := validateChildMutationIdentity(clientTxnID, requestID, baseRowVersion); err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
 	routeKey := map[observationTransition]string{
@@ -177,7 +168,7 @@ func (service indicatorObservationService) transitionObservation(ctx context.Con
 		return IndicatorObservationMutationResult{}, fmt.Errorf("begin Indicator observation transition: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	current, err := s.observations.loadTx(ctx, tx, observationID, true)
+	current, err := loadIndicatorObservation(ctx, tx, observationID, true)
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
@@ -227,7 +218,7 @@ func (service indicatorObservationService) transitionObservation(ctx context.Con
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
-	if err := s.observations.updateTransitionTx(ctx, tx, next, current.RowVersion); err != nil {
+	if err := updateIndicatorObservationTransitionTx(ctx, tx, next, current.RowVersion); err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
 	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
@@ -237,7 +228,7 @@ func (service indicatorObservationService) transitionObservation(ctx context.Con
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
-	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
+	if err := s.revisionsStore.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
 		ChangeSetID: changeSetID, SequenceNo: 1, TargetKind: "indicator_observation",
 		TargetID: next.ObservationID.String(), OperationKind: string(transition),
 		BeforeVersionID: stringPointer(fmt.Sprintf("indicator_observation:%s:%d", current.ObservationID, current.RowVersion)),
@@ -352,11 +343,11 @@ func (s *Store) afterObservationAffectedRowsTx(ctx context.Context, tx pgx.Tx, s
 }
 
 func (s *Store) ListSourceRecordIndicatorObservations(ctx context.Context, sourceRecordID uuid.UUID, afterCreatedAt *time.Time, afterID *uuid.UUID, limit int) ([]IndicatorObservationRecord, error) {
-	return s.observations.listBySource(ctx, s.pool, sourceRecordID, afterCreatedAt, afterID, limit)
+	return listSourceRecordIndicatorObservations(ctx, s.pool, sourceRecordID, afterCreatedAt, afterID, limit)
 }
 
 func (s *Store) ListIndicatorObservations(ctx context.Context, indicatorID uuid.UUID, afterCreatedAt *time.Time, afterID *uuid.UUID, limit int) ([]IndicatorObservationRecord, error) {
-	return s.observations.listByIndicator(ctx, s.pool, indicatorID, afterCreatedAt, afterID, limit)
+	return listResolvedIndicatorObservations(ctx, s.pool, indicatorID, afterCreatedAt, afterID, limit)
 }
 
 func (s *Store) GetIndicatorObservation(ctx context.Context, observationID uuid.UUID) (IndicatorObservationRecord, error) {

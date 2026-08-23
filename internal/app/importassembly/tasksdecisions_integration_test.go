@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -219,10 +220,12 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 		t.Fatalf("compose Timeline: %v", err)
 	}
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:    storeHarness.DB,
-		Revisions:   appender,
-		Projections: projections.IndicatorPorts().Rows,
-		SourceText:  indicatorassembly.NewSourceTextPort(projections.SourceTextRows()),
+		Postgres:        storeHarness.DB,
+		Revisions:       appender,
+		RecordEnvelopes: records.NewStore(storeHarness.DB),
+		Projections:     projections.IndicatorPorts().Rows,
+		SourceText:      indicatorassembly.NewSourceTextPort(projections.SourceTextRows()),
+		Clock:           func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
 	})
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)

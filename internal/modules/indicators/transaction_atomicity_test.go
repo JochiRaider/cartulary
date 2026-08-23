@@ -14,6 +14,7 @@ import (
 	indicatorprovider "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
 	indicatorcontract "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	projectionfixture "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport/fixturewriter"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -24,17 +25,19 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
 	db := postgresHarness.BeginRollbackDBT(t, "indicator-repository-atomicity")
+	now := time.Date(2026, 8, 3, 19, 0, 0, 0, time.UTC)
 	owner, err := NewStore(StoreDependencies{
-		Postgres:    db,
-		Revisions:   &revisions.Appender{},
-		Projections: newTransactionTestProjectionPort(t, db),
-		SourceText:  transactionTestSourceTextPort{},
+		Postgres:        db,
+		Revisions:       &revisions.Appender{},
+		RecordEnvelopes: records.NewStore(db),
+		Projections:     newTransactionTestProjectionPort(t, db),
+		SourceText:      transactionTestSourceTextPort{},
+		Clock:           func() time.Time { return now },
 	})
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)
 	}
 	actor := authstoretest.SeedLocalUserRecord(t, db, "indicator-atomicity@example.test", "Indicator Atomicity", "IndicatorAtomicity1!", false, false, true)
-	now := time.Date(2026, 8, 3, 19, 0, 0, 0, time.UTC)
 	incidentApplication, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            db,
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
@@ -59,7 +62,7 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 		ValueKind:     "atomic",
 		DisplayValue:  "failed.example",
 	}
-	if _, createErr := owner.CreateIndicatorRow(ctx, actor, incidentID, failedCommand, []byte("failed-create"), "request-failed-create", now); !errors.Is(createErr, errInjectedIndicatorRevision) {
+	if _, createErr := owner.CreateIndicatorRow(ctx, actor, incidentID, failedCommand, "request-failed-create"); !errors.Is(createErr, errInjectedIndicatorRevision) {
 		t.Fatalf("create revision failure = %v", createErr)
 	}
 	requireIndicatorAtomicCounts(t, db, incidentID, failedCommand.ClientTxnID, 0, 0, 0, 0, 0, 0)
@@ -71,7 +74,7 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 		ValueKind:     "atomic",
 		DisplayValue:  "projection-failure.example",
 	}
-	if _, projectionErr := owner.CreateIndicatorRow(ctx, actor, incidentID, projectionFailureCommand, []byte("projection-failure"), "request-projection-failure", now.Add(30*time.Second)); !errors.Is(projectionErr, errInjectedIndicatorProjection) {
+	if _, projectionErr := owner.CreateIndicatorRow(ctx, actor, incidentID, projectionFailureCommand, "request-projection-failure"); !errors.Is(projectionErr, errInjectedIndicatorProjection) {
 		t.Fatalf("create projection failure = %v", projectionErr)
 	}
 	requireIndicatorAtomicCounts(t, db, incidentID, projectionFailureCommand.ClientTxnID, 0, 0, 0, 0, 0, 0)
@@ -108,7 +111,6 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 		ResolvedIndicatorRecordID: &created.RecordID,
 		ClientTxnID:               "txn-indicator-atomicity-observation",
 		RequestID:                 "request-indicator-atomicity-observation",
-		RequestHash:               []byte("indicator-atomicity-observation"),
 	}); !errors.Is(observationErr, errInjectedIndicatorRevision) {
 		t.Fatalf("observation revision failure = %v", observationErr)
 	}
@@ -126,7 +128,6 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 		SupportRefs:       []uuid.UUID{},
 		ClientTxnID:       "txn-indicator-atomicity-lifecycle",
 		RequestID:         "request-indicator-atomicity-lifecycle",
-		RequestHash:       []byte("indicator-atomicity-lifecycle"),
 	}); !errors.Is(lifecycleErr, errInjectedIndicatorRevision) {
 		t.Fatalf("lifecycle revision failure = %v", lifecycleErr)
 	}
@@ -207,7 +208,7 @@ func (port *failingIndicatorRevisionPort) CaptureRecordSnapshotTx(_ context.Cont
 	return revisions.RecordSnapshot{}, nil
 }
 
-func (port *failingIndicatorRevisionPort) AppendMutationTx(_ context.Context, _ pgx.Tx, _ revisions.AppendNonRowMutationParams) error {
+func (port *failingIndicatorRevisionPort) AppendNonRowMutationTx(_ context.Context, _ pgx.Tx, _ revisions.AppendNonRowMutationParams) error {
 	return port.shouldFail()
 }
 

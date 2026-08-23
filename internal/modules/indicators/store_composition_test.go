@@ -2,40 +2,78 @@ package indicators
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
 func TestIndicatorStoreCompositionAndRepositoryBoundaries(t *testing.T) {
 	t.Parallel()
+	t.Run("deployed replay preimages and digests", testIndicatorReplayHashCompatibility)
 
-	if _, err := NewStore(StoreDependencies{}); err == nil || !strings.Contains(err.Error(), "Postgres is required") {
-		t.Fatalf("missing Postgres dependency error = %v", err)
+	fixedTime := time.Date(2026, 8, 23, 12, 34, 56, 789, time.UTC)
+	complete := StoreDependencies{
+		Postgres:        inertIndicatorDB{},
+		Revisions:       &revisions.Appender{},
+		RecordEnvelopes: records.NewStore(inertIndicatorDB{}),
+		Projections:     inertIndicatorProjectionPort{},
+		SourceText:      inertIndicatorSourceTextPort{},
+		Clock:           func() time.Time { return fixedTime },
 	}
-	if _, err := NewStore(StoreDependencies{Postgres: inertIndicatorDB{}}); err == nil || !strings.Contains(err.Error(), "Revisions is required") {
-		t.Fatalf("missing Revisions dependency error = %v", err)
+	var (
+		typedNilPostgres   *inertIndicatorDB
+		typedNilRevisions  *revisions.Appender
+		typedNilRecords    *records.Store
+		typedNilProjection *inertIndicatorProjectionPort
+		typedNilSourceText *inertIndicatorSourceTextPort
+	)
+	tests := []struct {
+		name string
+		deps StoreDependencies
+		want string
+	}{
+		{name: "nil Postgres", deps: StoreDependencies{}, want: "Postgres is required"},
+		{name: "typed nil Postgres", deps: StoreDependencies{Postgres: typedNilPostgres}, want: "Postgres is required"},
+		{name: "nil Revisions", deps: StoreDependencies{Postgres: complete.Postgres}, want: "Revisions is required"},
+		{name: "typed nil Revisions", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: typedNilRevisions}, want: "Revisions is required"},
+		{name: "nil RecordEnvelopes", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: complete.Revisions}, want: "RecordEnvelopes is required"},
+		{name: "typed nil RecordEnvelopes", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: complete.Revisions, RecordEnvelopes: typedNilRecords}, want: "RecordEnvelopes is required"},
+		{name: "nil Projections", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: complete.Revisions, RecordEnvelopes: complete.RecordEnvelopes}, want: "Projections is required"},
+		{name: "typed nil Projections", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: complete.Revisions, RecordEnvelopes: complete.RecordEnvelopes, Projections: typedNilProjection}, want: "Projections is required"},
+		{name: "nil SourceText", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: complete.Revisions, RecordEnvelopes: complete.RecordEnvelopes, Projections: complete.Projections}, want: "SourceText is required"},
+		{name: "typed nil SourceText", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: complete.Revisions, RecordEnvelopes: complete.RecordEnvelopes, Projections: complete.Projections, SourceText: typedNilSourceText}, want: "SourceText is required"},
+		{name: "nil Clock", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: complete.Revisions, RecordEnvelopes: complete.RecordEnvelopes, Projections: complete.Projections, SourceText: complete.SourceText}, want: "Clock is required"},
 	}
-	if _, err := NewStore(StoreDependencies{Postgres: inertIndicatorDB{}, Revisions: &revisions.Appender{}}); err == nil || !strings.Contains(err.Error(), "Projections is required") {
-		t.Fatalf("missing Projections dependency error = %v", err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			owner, err := NewStore(test.deps)
+			if err == nil || !strings.Contains(err.Error(), test.want) || owner != nil {
+				t.Fatalf("compose result owner=%#v error=%v, want nil owner and %q", owner, err, test.want)
+			}
+		})
 	}
-	if _, err := NewStore(StoreDependencies{Postgres: inertIndicatorDB{}, Revisions: &revisions.Appender{}, Projections: inertIndicatorProjectionPort{}}); err == nil || !strings.Contains(err.Error(), "SourceText is required") {
-		t.Fatalf("missing SourceText dependency error = %v", err)
-	}
-	owner, err := NewStore(StoreDependencies{
-		Postgres:    inertIndicatorDB{},
-		Revisions:   &revisions.Appender{},
-		Projections: inertIndicatorProjectionPort{},
-		SourceText:  inertIndicatorSourceTextPort{},
-	})
+	owner, err := NewStore(complete)
 	if err != nil || owner == nil {
 		t.Fatalf("compose complete Indicators owner: owner=%#v err=%v", owner, err)
+	}
+	if got := owner.now(); !got.Equal(fixedTime) {
+		t.Fatalf("injected Clock returned %s, want %s", got, fixedTime)
+	}
+	if got := fmt.Sprintf("%x", sha256.Sum256([]byte(loadIndicatorByDedupeSQL))); got != "d665f06c2526b0118e33eaa887da279ad54025967618662c2a0b47b7bfde857b" {
+		t.Fatalf("canonical dedupe SQL digest = %s", got)
+	}
+	if _, statErr := os.Stat("repositories.go"); !os.IsNotExist(statErr) {
+		t.Fatalf("obsolete repository namespace file remains: %v", statErr)
 	}
 
 	for _, path := range []string{
