@@ -331,8 +331,33 @@ generated artifact MUST NOT settle such a conflict.
 Profiles: base
 Verified by: AC-558
 
+**REQ-00-074**
+`docs/decisions/indicators-module-boundary.md` is an adopted implementation
+architecture decision for the Indicators module only. It owns the bounded
+source-owner responsibility whitelist, owner-local package and import
+topology, caller-transaction borrowing, construction posture, immutable
+vocabulary and source-state placement, and repository-internal compatibility
+contraction named in that decision. It MUST NOT redefine public Indicator
+routes or payloads, view schemas, canonical identity, observation or lifecycle
+meaning, history or rollback behavior, source storage, portability, Recovery,
+Workbook or Collaboration consequences, Network Flow behavior, security, or
+conformance.
+
+Core 01 remains authoritative for application, route, view-schema, query,
+mutation, storage, import, recovery, and portability behavior. Core 02 remains
+authoritative for Indicator identity, observation, lifecycle, history,
+rollback, and closed-vocabulary meaning. Core 03 remains authoritative for
+Workbook interaction and Collaboration consequences. Core 04 remains
+authoritative for security and conformance. The decision MUST be revised or
+withdrawn when it conflicts with a later adopted behavioral owner; an
+implementation, tracker, test, contract projection, or generated artifact
+MUST NOT settle such a conflict.
+Profiles: base
+Verified by: AC-560
+
 | Contract family | Primary owner | Allowed secondary sections | Ownership rule | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
+| Indicators implementation topology, bounded source-owner responsibilities, Records capability boundary, immutable vocabulary and source-state placement, caller-transaction borrowing, and repository-internal compatibility contraction | `docs/decisions/indicators-module-boundary.md` for implementation structure; Core 01 and Core 02 for application and source behavior | Core 03 Workbook/Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary navigation; implementation trackers | The adopted decision owns internal package, constructor, import, and port topology only. It cannot redefine public Indicator behavior, identity, observation or lifecycle meaning, history, projections, portability, recovery, Network Flow behavior, or security. | REQ-00-074 | base | AC-560 |
 | Entities implementation topology, bounded-root responsibilities, direct-consumer and import boundaries, typed cross-owner ports, caller-transaction borrowing, and repository-internal compatibility posture | `docs/decisions/entities-module-boundary.md` for implementation structure; Core 01 for application and source behavior | Core 02 record/history meaning; Core 03 Timeline and Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The adopted decision owns internal package, constructor, and port topology only. It cannot redefine public entity behavior, source meaning, Timeline policy, history, projections, portability, recovery, or security. | REQ-00-073 | base | AC-558 |
 | Backend Workbook implementation topology, contribution composition, source-adapter placement, and repository-internal compatibility removal | `docs/decisions/workbook-module-boundary.md` for implementation structure; Core 01 for application behavior | Core 02 source/history meaning; Core 03 interaction and Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The adopted decision owns internal package, provider, and constructor structure only. It cannot redefine public Workbook behavior, source state, history, projections, restore results, or security. | REQ-00-072 | base | AC-552 |
 | Revisions implementation topology, source-provider composition, and repository-internal compatibility removal | `docs/decisions/revisions-module-boundary.md` for implementation structure; Core 01 and Core 02 for behavior | Core 03 Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The adopted decision owns internal package and constructor structure only. It cannot redefine source state, retained-history meaning, public contracts, portability, or conformance. | REQ-00-071 | base, incident_portability | AC-529 |

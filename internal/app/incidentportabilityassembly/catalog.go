@@ -28,7 +28,10 @@ import (
 
 func NewCatalog() (*sourceport.Catalog, error) {
 	taskDecisionContribution := tasksdecisions.NewIncidentBundleContribution()
-	indicatorContribution := indicators.NewIncidentBundleContribution()
+	indicatorContribution, err := indicators.NewIncidentBundleContribution()
+	if err != nil {
+		return nil, fmt.Errorf("incident portability assembly: Indicators contribution: %w", err)
+	}
 	recordSubtypeCatalog, err := subtypepresence.NewCatalog([]subtypepresence.Contribution{
 		timeline.IncidentBundleSubtypeContribution(),
 		entities.IncidentBundleSubtypeContribution(),

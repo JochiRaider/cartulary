@@ -46,7 +46,10 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		t.Fatalf("append interval: %v", err)
 	}
 
-	contribution := indicators.NewIncidentBundleContribution()
+	contribution, err := indicators.NewIncidentBundleContribution()
+	if err != nil {
+		t.Fatalf("construct Indicator incident-bundle contribution: %v", err)
+	}
 	first, err := contribution.SourcePort.Export(ctx, sourceport.ExportContext{Query: harness.DB, IncidentID: incident.ID})
 	if err != nil {
 		t.Fatalf("first export: %v", err)

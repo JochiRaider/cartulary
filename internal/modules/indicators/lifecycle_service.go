@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/vocabulary"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -45,14 +46,17 @@ func (service indicatorLifecycleService) appendInterval(ctx context.Context, act
 		return IndicatorLifecycleMutationResult{}, err
 	}
 	lockIDs := sortedRecordIDs(append([]uuid.UUID{params.IndicatorRecordID}, params.SupportRefs...)...)
-	envelopes, err := s.lockAffectedRecordsTx(ctx, tx, params.IncidentID, lockIDs)
+	envelopes, err := s.lockAffectedRecordsTx(ctx, tx, lockIDs)
 	if err != nil {
-		return IndicatorLifecycleMutationResult{}, ErrInvalidCreateRequest
+		return IndicatorLifecycleMutationResult{}, err
+	}
+	if err := validateAddressedIndicatorEnvelope(envelopes, params.IncidentID, params.IndicatorRecordID); err != nil {
+		return IndicatorLifecycleMutationResult{}, err
+	}
+	if err := validateLifecycleSupportEnvelopes(envelopes, params.IncidentID, params.SupportRefs); err != nil {
+		return IndicatorLifecycleMutationResult{}, err
 	}
 	indicatorEnvelope := envelopes[params.IndicatorRecordID]
-	if err := validateIndicatorEnvelope(indicatorEnvelope); err != nil {
-		return IndicatorLifecycleMutationResult{}, ErrIndicatorNotFound
-	}
 	if indicatorEnvelope.RowVersion != params.BaseRowVersion {
 		return IndicatorLifecycleMutationResult{}, ErrRowVersionConflict
 	}
@@ -123,9 +127,7 @@ func normalizeLifecycleAppendParams(params *IndicatorLifecycleAppendParams) erro
 	if params == nil || params.IncidentID == uuid.Nil || params.IndicatorRecordID == uuid.Nil || params.ValidFrom.IsZero() {
 		return ErrInvalidCreateRequest
 	}
-	switch params.LifecycleState {
-	case "active", "benign", "false_positive", "retired":
-	default:
+	if !vocabulary.IsLifecycleState(params.LifecycleState) {
 		return ErrInvalidCreateRequest
 	}
 	params.ValidFrom = params.ValidFrom.UTC().Truncate(time.Microsecond)

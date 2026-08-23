@@ -27,7 +27,10 @@
     "indicator_state_interval_id": { "$ref": "#/$defs/uuid" },
     "incident_id": { "$ref": "#/$defs/uuid" },
     "indicator_record_id": { "$ref": "#/$defs/uuid" },
-    "lifecycle_state": { "$ref": "#/$defs/nonempty_text" },
+    "lifecycle_state": {
+      "type": "string",
+      "enum": ["active", "benign", "false_positive", "retired"]
+    },
     "valid_from": { "$ref": "#/$defs/timestamp" },
     "valid_to": { "$ref": "#/$defs/nullable_timestamp" },
     "confidence": {
@@ -39,7 +42,8 @@
     "rationale": { "$ref": "#/$defs/nullable_text" },
     "support_refs": {
       "type": "array",
-      "items": { "$ref": "#/$defs/uuid" }
+      "items": { "$ref": "#/$defs/uuid" },
+      "uniqueItems": true
     },
     "assessor": { "$ref": "#/$defs/nullable_text" },
     "assessed_at": { "$ref": "#/$defs/timestamp" },

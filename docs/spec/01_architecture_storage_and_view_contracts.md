@@ -7904,12 +7904,12 @@ input.
 | `indicator_state_interval_id` | Canonical lowercase hyphenated UUID string, stable and unique in the interval file. |
 | `incident_id` | Canonical UUID equal to the immutable import context and manifest incident. |
 | `indicator_record_id` | Canonical UUID resolving exactly once to an admitted same-incident Indicator. |
-| `lifecycle_state` | Non-empty JSON string without NUL in the adopted Indicator lifecycle vocabulary. |
+| `lifecycle_state` | Exactly `active`, `benign`, `false_positive`, or `retired`; no trimming, case folding, alias, or fallback is permitted. |
 | `valid_from` | Canonical timestamp. |
 | `valid_to` | JSON `null` or a canonical timestamp not earlier than `valid_from`. |
 | `confidence` | JSON `null` or a canonical JSON integer from `0` through `100`. |
 | `rationale` | JSON `null` or a JSON string without NUL, preserved exactly. |
-| `support_refs` | JSON array of canonical UUID strings; each resolves exactly once to an admitted same-incident Records envelope. |
+| `support_refs` | JSON array of unique canonical UUID strings; each resolves exactly once to an admitted same-incident Records envelope. Duplicate UUIDs are invalid rather than deduplicated. |
 | `assessor` | JSON `null` or a JSON string without NUL, preserved exactly. |
 | `assessed_at` | Canonical timestamp distinct in meaning from observation time and interval validity. |
 | `row_version` | Canonical positive JSON integer greater than or equal to `1`. |

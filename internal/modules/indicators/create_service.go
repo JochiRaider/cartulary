@@ -58,7 +58,7 @@ func (service indicatorCreateService) createIndicatorRow(ctx context.Context, ac
 			return CreateResult{}, err
 		}
 		return CreateResult{
-			Outcome: CreateOutcomeReplayed, CanonicalRow: row,
+			Replayed: true, CanonicalRow: row,
 			RecordID: recordID, ChangeSetID: changeSetID, RowVersion: rowVersion,
 		}, nil
 	} else if !errors.Is(err, authn.ErrNotFound) {
@@ -144,14 +144,10 @@ func (service indicatorCreateService) createIndicatorRow(ctx context.Context, ac
 		}
 	}
 
-	outcome := CreateOutcomeCreated
-	statusCode := httpStatusCreated
-	if beforeRow != nil {
-		outcome = CreateOutcomeReused
-		statusCode = httpStatusOK
-		if !jsonEqual(beforeRow, afterRow) {
-			outcome = CreateOutcomeUpdated
-		}
+	created := beforeRow == nil
+	statusCode := httpStatusOK
+	if created {
+		statusCode = httpStatusCreated
 	}
 	payload := buildStoredCreateResponse(changeSetID, afterRow)
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, statusCode, payload); err != nil {
@@ -165,7 +161,7 @@ func (service indicatorCreateService) createIndicatorRow(ctx context.Context, ac
 	}
 
 	return CreateResult{
-		Outcome: outcome, CanonicalRow: afterRow, RecordID: record.RecordID,
+		Created: created, CanonicalRow: afterRow, RecordID: record.RecordID,
 		ChangeSetID: changeSetID, RowVersion: record.RowVersion,
 	}, nil
 }

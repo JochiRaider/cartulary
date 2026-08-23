@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/vocabulary"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -163,8 +164,8 @@ func parseChildValue(targetKind string, value map[string]any) (childIdentity, er
 			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
 		}
 		identity.sourceFieldKey = requiredChildText(value, "source_field_key")
-		identity.resolutionStatus = requiredChildText(value, "resolution_status")
-		if identity.sourceFieldKey == "" || !validObservationStatus(identity.resolutionStatus) {
+		identity.resolutionStatus, _ = value["resolution_status"].(string)
+		if identity.sourceFieldKey == "" || !vocabulary.IsObservationStatus(identity.resolutionStatus) {
 			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
 		}
 		for _, key := range []string{"origin_kind", "origin_locator", "observed_text", "created_by_user_id", "created_at"} {
@@ -208,7 +209,8 @@ func parseChildValue(targetKind string, value map[string]any) (childIdentity, er
 		if identity.indicatorID, err = requiredChildUUID(value, "indicator_record_id"); err != nil {
 			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
 		}
-		if requiredChildText(value, "lifecycle_state") == "" || requiredChildText(value, "valid_from") == "" || requiredChildText(value, "created_by_user_id") == "" || requiredChildText(value, "created_at") == "" {
+		lifecycleState, _ := value["lifecycle_state"].(string)
+		if !vocabulary.IsLifecycleState(lifecycleState) || requiredChildText(value, "valid_from") == "" || requiredChildText(value, "created_by_user_id") == "" || requiredChildText(value, "created_at") == "" {
 			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
 		}
 		validFrom, err := time.Parse(time.RFC3339Nano, requiredChildText(value, "valid_from"))
@@ -223,10 +225,8 @@ func parseChildValue(targetKind string, value map[string]any) (childIdentity, er
 			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
 		}
 		if raw, present := value["support_refs"]; present && raw != nil {
-			if _, valid := raw.([]any); !valid {
-				if _, validStrings := raw.([]string); !validStrings {
-					return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-				}
+			if !validChildSupportRefs(raw) {
+				return childIdentity{}, rollbackcontract.ErrTargetNotReversible
 			}
 		}
 		identity.resolvedIDs = []uuid.UUID{identity.indicatorID}
@@ -467,13 +467,35 @@ func compactStrings(values []string) []string {
 	return result
 }
 
-func validObservationStatus(value string) bool {
-	switch value {
-	case "unresolved", "resolved", "dismissed":
-		return true
+func validChildSupportRefs(raw any) bool {
+	var values []string
+	switch typed := raw.(type) {
+	case []any:
+		values = make([]string, 0, len(typed))
+		for _, value := range typed {
+			text, valid := value.(string)
+			if !valid {
+				return false
+			}
+			values = append(values, text)
+		}
+	case []string:
+		values = typed
 	default:
 		return false
 	}
+	seen := make(map[uuid.UUID]struct{}, len(values))
+	for _, value := range values {
+		parsed, err := uuid.Parse(value)
+		if err != nil || parsed == uuid.Nil || parsed.String() != value {
+			return false
+		}
+		if _, duplicate := seen[parsed]; duplicate {
+			return false
+		}
+		seen[parsed] = struct{}{}
+	}
+	return true
 }
 
 func requiredChildUUID(value map[string]any, key string) (uuid.UUID, error) {

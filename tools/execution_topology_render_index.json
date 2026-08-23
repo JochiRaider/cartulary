@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:90fc73d80d22b7a3c43c965621f0a72d2b0259ea46b91d11ef1056fe52b96127",
+  "input_digest": "sha256:e9e526ea7e3d8a9c30b4460830beeb3d8c9e9293e080fd68c14b0058d663dc55",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -132,7 +132,7 @@
     {
       "path": "contracts/verification/owners/module.indicators.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:1442d6ddbe99062ddb9c4d784c693cd4857010940e7fa8afb5a88505cbf819d0"
+      "hash": "sha256:03e1a0ede9c53963ad9068d1f9106ec1c8f82618ca8432dd720bd9661e5fdf98"
     },
     {
       "path": "contracts/verification/owners/module.jobapi.json",
@@ -582,7 +582,7 @@
     {
       "path": "tools/harness/generated-artifacts/database-contract-drift/schema-object-ownership.mjs",
       "role": "renderer_source",
-      "hash": "sha256:bbc7e351faa21284dcb18afaec9ce99e4bec2d6d3cef8464516ef48484ffc300"
+      "hash": "sha256:fff789a8d82db3da33423e1ffdc509867018e184a11de0026c64df50a757d792"
     },
     {
       "path": "tools/harness/generated-artifacts/design-presentation/design-presentation-cli.mjs",
@@ -882,7 +882,7 @@
     {
       "path": "tools/postgres_fixture_policy_registry.json",
       "role": "postgres_fixture_policy_registry",
-      "hash": "sha256:a48e7f75d79227ffb72329df4d6563e98089f07850a62762705a87d1b18218e1"
+      "hash": "sha256:937cd934ce518c78c6f13508a9147a86ecd91363f9870832b9eada06887e636a"
     },
     {
       "path": "tools/scheduler_resource_registry.json",
@@ -1012,7 +1012,7 @@
     {
       "path": "tools/test_families/module.indicators.json",
       "role": "test_family_manifest",
-      "hash": "sha256:8612ea7e49b5aad6e8eb604f9d7364f0dc6ea362582cc7bac400d61059d6d3e0"
+      "hash": "sha256:67db11149c362a132ce807c70fee724c87b76343d434be2519fad5cd41ad0579"
     },
     {
       "path": "tools/test_families/module.jobapi.json",

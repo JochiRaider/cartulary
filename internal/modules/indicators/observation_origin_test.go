@@ -68,7 +68,7 @@ func TestObservationProducerSurfaceHasNoSystemConstructor(t *testing.T) {
 
 func TestInvalidObservationProducerFailsBeforeTransaction(t *testing.T) {
 	t.Parallel()
-	parsed, err := parser.ParseFile(token.NewFileSet(), "store.go", nil, 0)
+	parsed, err := parser.ParseFile(token.NewFileSet(), "contracts.go", nil, 0)
 	if err != nil {
 		t.Fatalf("parse Indicator observation command: %v", err)
 	}

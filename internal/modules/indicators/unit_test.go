@@ -37,8 +37,10 @@ func TestIndicatorObservationSeparation_Integration(t *testing.T) {
 	}
 	first := create("txn-entity_linking-u-4-07-first")
 	second := create("txn-entity_linking-u-4-07-second")
-	if first.RecordID != second.RecordID || second.Outcome != indicators.CreateOutcomeReused {
-		t.Fatalf("canonical indicator dedupe failed: first=%#v second=%#v", first, second)
+	replayed := create("txn-entity_linking-u-4-07-second")
+	if first.RecordID != second.RecordID || !first.Created || first.Replayed || second.Created || second.Replayed ||
+		!replayed.Replayed || replayed.Created || replayed.RecordID != second.RecordID || replayed.ChangeSetID != second.ChangeSetID {
+		t.Fatalf("canonical indicator dedupe/replay failed: first=%#v second=%#v replay=%#v", first, second, replayed)
 	}
 
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.RecordID)

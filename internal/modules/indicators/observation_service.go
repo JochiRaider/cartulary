@@ -2,6 +2,7 @@ package indicators
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -50,21 +51,21 @@ func (service indicatorObservationService) createManualObservation(ctx context.C
 		affectedIDs = append(affectedIDs, *params.ResolvedIndicatorRecordID)
 	}
 	affectedIDs = sortedRecordIDs(affectedIDs...)
-	envelopes, err := s.lockAffectedRecordsTx(ctx, tx, params.IncidentID, affectedIDs)
+	envelopes, err := s.lockAffectedRecordsTx(ctx, tx, affectedIDs)
 	if err != nil {
-		return IndicatorObservationMutationResult{}, ErrIndicatorSourceNotFound
+		return IndicatorObservationMutationResult{}, err
 	}
-	if err := validateSourceEnvelope(envelopes[params.SourceRecordID], params.BaseRowVersion); err != nil {
+	if err := validateObservationSourceEnvelope(envelopes, params.IncidentID, params.SourceRecordID, params.BaseRowVersion); err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
 	if params.ResolvedIndicatorRecordID != nil {
-		if err := validateIndicatorEnvelope(envelopes[*params.ResolvedIndicatorRecordID]); err != nil {
+		if err := validateResolvedIndicatorEnvelope(envelopes, params.IncidentID, *params.ResolvedIndicatorRecordID); err != nil {
 			return IndicatorObservationMutationResult{}, err
 		}
 	}
 	source, err := s.sourceText.LoadTextTx(ctx, tx, params.SourceRecordID, envelopes[params.SourceRecordID].RecordType, params.SourceFieldKey)
 	if err != nil {
-		return IndicatorObservationMutationResult{}, ErrIndicatorSourceNotFound
+		return IndicatorObservationMutationResult{}, err
 	}
 	observedText, err := sourceSpan(source.Text, params.SpanStartByte, params.SpanEndByte)
 	if err != nil {
@@ -199,18 +200,24 @@ func (service indicatorObservationService) transitionObservation(ctx context.Con
 		affectedIDs = append(affectedIDs, *next.ResolvedIndicatorRecordID)
 	}
 	affectedIDs = sortedRecordIDs(affectedIDs...)
-	envelopes, err := s.lockAffectedRecordsTx(ctx, tx, current.IncidentID, affectedIDs)
+	envelopes, err := s.lockAffectedRecordsTx(ctx, tx, affectedIDs)
 	if err != nil {
-		return IndicatorObservationMutationResult{}, ErrIndicatorObservationNotFound
+		return IndicatorObservationMutationResult{}, err
+	}
+	if err := validatePriorObservationDependencies(envelopes, current); err != nil {
+		return IndicatorObservationMutationResult{}, err
 	}
 	if transition == observationTransitionResolve {
-		if err := validateIndicatorEnvelope(envelopes[targetID]); err != nil {
+		if err := validateResolvedIndicatorEnvelope(envelopes, current.IncidentID, targetID); err != nil {
 			return IndicatorObservationMutationResult{}, err
 		}
 	}
 	sourceRow, err := s.sourceText.LoadRowTx(ctx, tx, current.SourceRecordID, envelopes[current.SourceRecordID].RecordType, current.SourceFieldKey)
 	if err != nil {
-		return IndicatorObservationMutationResult{}, ErrIndicatorObservationNotFound
+		if errors.Is(err, ErrSourceTextUnavailable) {
+			return IndicatorObservationMutationResult{}, ErrIndicatorObservationNotFound
+		}
+		return IndicatorObservationMutationResult{}, err
 	}
 	beforeRows, err := s.beforeObservationAffectedRowsTx(ctx, tx, current.SourceRecordID, sourceRow, affectedIDs)
 	if err != nil {

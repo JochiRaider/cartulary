@@ -12,7 +12,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
 func (repository observationRepository) insertTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, params IndicatorObservationCreateParams, createdAt time.Time) (IndicatorObservationRecord, error) {
@@ -30,9 +29,6 @@ func (repository observationRepository) insertTx(ctx context.Context, tx pgx.Tx,
 	if observedText == "" || strings.ContainsRune(observedText, 0) {
 		return IndicatorObservationRecord{}, ErrInvalidCreateRequest
 	}
-	if err := repository.validateSourceIncidentTx(ctx, tx, params.IncidentID, params.SourceRecordID); err != nil {
-		return IndicatorObservationRecord{}, err
-	}
 	parsedIndicatorType, normalizedCandidate, err := identity.NormalizeObservationCandidate(params.ParsedIndicatorType, params.normalizedCandidate, observedText)
 	if err != nil {
 		return IndicatorObservationRecord{}, err
@@ -42,9 +38,6 @@ func (repository observationRepository) insertTx(ctx context.Context, tx pgx.Tx,
 	var resolvedAt *time.Time
 	var resolutionMethod *string
 	if params.ResolvedIndicatorRecordID != nil {
-		if err := (sourceRepository{}).validateIncidentTx(ctx, tx, params.IncidentID, *params.ResolvedIndicatorRecordID); err != nil {
-			return IndicatorObservationRecord{}, err
-		}
 		resolutionStatus = "resolved"
 		resolvedByUserID = &actorUserID
 		value := createdAt.UTC()
@@ -161,24 +154,6 @@ UPDATE indicator_observations
 	}
 	if tag.RowsAffected() != 1 {
 		return ErrRowVersionConflict
-	}
-	return nil
-}
-
-func (observationRepository) validateSourceIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, sourceRecordID uuid.UUID) error {
-	var exists bool
-	if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM records
-     WHERE record_id = $1
-       AND incident_id = $2
-)
-`, sourceRecordID, incidentID).Scan(&exists); err != nil {
-		return fmt.Errorf("validate source record incident: %w", err)
-	}
-	if !exists {
-		return revisions.ErrRecordDeletedUseRestore
 	}
 	return nil
 }

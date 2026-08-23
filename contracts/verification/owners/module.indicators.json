@@ -116,8 +116,22 @@
       "public_target": "test"
     },
     {
+      "verification_id": "module.indicators.verification.source_state_catalog",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
       "verification_id": "module.indicators.verification.storage_contraction",
       "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.indicators.verification.target_role_resolution",
+      "behavior_class": "security",
       "profile": "base",
       "evidence_kinds": ["go_test"],
       "public_target": "test"
@@ -132,6 +146,13 @@
     {
       "verification_id": "module.indicators.verification.transition_atomicity",
       "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.indicators.verification.vocabulary_convergence",
+      "behavior_class": "architecture",
       "profile": "base",
       "evidence_kinds": ["go_test"],
       "public_target": "test"

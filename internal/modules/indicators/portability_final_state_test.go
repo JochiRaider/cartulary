@@ -97,7 +97,11 @@ func TestIndicatorPortableFinalStateInvariants_Integration(t *testing.T) {
 				}
 			}
 			importContext := scenario.importContext(t, recorder, "indicator-final-state-"+testCase.name)
-			port := indicators.NewIncidentBundleContribution().SourcePort
+			contribution, err := indicators.NewIncidentBundleContribution()
+			if err != nil {
+				t.Fatalf("construct Indicator incident-bundle contribution: %v", err)
+			}
+			port := contribution.SourcePort
 			prepared, err := port.PrepareImport(ctx, scenario.bundle(t), importContext)
 			if err != nil {
 				t.Fatalf("prepare portable scenario: %v", err)

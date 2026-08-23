@@ -14,24 +14,70 @@ import (
 const indicatorsRepoImportPrefix = "github.com/JochiRaider/cartulary/"
 
 func TestIndicatorsProductionImportBoundaries(t *testing.T) {
+	assertIndicatorsProductionImportBoundaries(t)
+}
+
+func assertIndicatorsProductionImportBoundaries(t testing.TB) {
+	t.Helper()
+
 	allowedSiblingImports := map[string]map[string]bool{
+		indicatorsRepoImportPrefix + "internal/modules/indicators": {
+			"create.go":   true,
+			"decoding.go": true,
+			"routes.go":   true,
+		},
 		indicatorsRepoImportPrefix + "internal/modules/imports/ownerfacade": {
 			"import_create.go": true,
 			"query.go":         true,
 		},
-		indicatorsRepoImportPrefix + "internal/modules/incidents": {
-			"store.go": true,
+		indicatorsRepoImportPrefix + "internal/modules/incidents/admission": {
+			"routes.go":            true,
+			"store_composition.go": true,
+		},
+		indicatorsRepoImportPrefix + "internal/modules/incidentbundles/sourceport": {
+			"incident_bundle_contribution.go": true,
+			"portable_apply.go":               true,
+			"portable_export.go":              true,
+			"portable_model.go":               true,
+			"portable_prepare.go":             true,
+			"portable_validate.go":            true,
+			"source_port.go":                  true,
 		},
 		indicatorsRepoImportPrefix + "internal/modules/incidentportability": {
-			"incident_bundle_portability.go": true,
+			"portable_export.go":   true,
+			"portable_prepare.go":  true,
+			"portable_validate.go": true,
+		},
+		indicatorsRepoImportPrefix + "internal/modules/projections/providercontract": {
+			"contribution.go": true,
 		},
 		indicatorsRepoImportPrefix + "internal/modules/records": {
-			"api.go":   true,
-			"store.go": true,
+			"child_coordination.go":  true,
+			"create_service.go":      true,
+			"observation_service.go": true,
+			"routes.go":              true,
+			"store_composition.go":   true,
+		},
+		indicatorsRepoImportPrefix + "internal/modules/records/subtypepresence": {
+			"incident_bundle_contribution.go": true,
+			"subtype_presence.go":             true,
 		},
 		indicatorsRepoImportPrefix + "internal/modules/revisions": {
-			"api.go":   true,
-			"store.go": true,
+			"child_coordination.go":             true,
+			"create_service.go":                 true,
+			"lifecycle_service.go":              true,
+			"observation_repository.go":         true,
+			"observation_service.go":            true,
+			"revision_append_port.go":           true,
+			"revision_provider_contribution.go": true,
+			"store_composition.go":              true,
+		},
+		indicatorsRepoImportPrefix + "internal/modules/revisions/deleterestorecontract": {
+			"provider.go": true,
+		},
+		indicatorsRepoImportPrefix + "internal/modules/revisions/rollbackcontract": {
+			"children.go": true,
+			"provider.go": true,
 		},
 	}
 
@@ -40,6 +86,9 @@ func TestIndicatorsProductionImportBoundaries(t *testing.T) {
 			return err
 		}
 		if entry.IsDir() {
+			if filepath.ToSlash(path) == "testsupport" {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		fileName := filepath.Base(path)
@@ -47,6 +96,12 @@ func TestIndicatorsProductionImportBoundaries(t *testing.T) {
 			return nil
 		}
 		for _, importPath := range indicatorsProductionImports(t, path) {
+			if strings.HasPrefix(importPath, indicatorsRepoImportPrefix+"internal/app") {
+				t.Fatalf("%s imports application assembly %s", filepath.ToSlash(path), importPath)
+			}
+			if strings.HasPrefix(importPath, indicatorsRepoImportPrefix+"internal/modules/indicators/") {
+				continue
+			}
 			if !strings.HasPrefix(importPath, indicatorsRepoImportPrefix+"internal/modules/") {
 				continue
 			}
@@ -92,7 +147,13 @@ func TestIndicatorsDoNotUseEntitiesSourcePrefixes(t *testing.T) {
 }
 
 func TestIndicatorAdmissionIsTransportNeutral(t *testing.T) {
-	for _, fileName := range []string{"api.go", "store.go"} {
+	for _, fileName := range []string{
+		"contracts.go",
+		"persistence_scanners.go",
+		"replay_codec.go",
+		"store_composition.go",
+		"value_serialization.go",
+	} {
 		for _, importPath := range indicatorsProductionImports(t, fileName) {
 			switch importPath {
 			case "net/http",

@@ -55,6 +55,7 @@
     "module.indicators.portability.state_invariants",
     "module.indicators.store.indicator_storage_keeps_source_bound_observation_07c064324e",
     "module.indicators.store.indicators_persist_as_canonical_indicator_record_3998750e91",
+    "module.indicators.target_resolution.role_failures_are_atomic",
     "module.indicators.transaction.indicator_repository_writes_roll_back_when_revis_c37659989d",
     "module.links.store.typed_links_and_tags_persist_as_structured_rows_8daeea1ad1",
     "module.networkflow.integration.extension_state_v3_mixed_graph_admission",

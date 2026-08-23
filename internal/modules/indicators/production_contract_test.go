@@ -1,13 +1,130 @@
 package indicators
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
+
+func TestIndicatorTargetEnvelopeRoleClassification(t *testing.T) {
+	t.Parallel()
+	incidentID := uuid.New()
+	otherIncidentID := uuid.New()
+	sourceID := uuid.New()
+	indicatorID := uuid.New()
+	deletedAt := time.Date(2026, 8, 3, 11, 0, 0, 0, time.UTC)
+	envelopes := map[uuid.UUID]records.Envelope{
+		sourceID:    {RecordID: sourceID, IncidentID: incidentID, RecordType: "timeline_event", RowVersion: 7},
+		indicatorID: {RecordID: indicatorID, IncidentID: incidentID, RecordType: "indicator", RowVersion: 3},
+	}
+
+	if err := validateObservationSourceEnvelope(envelopes, incidentID, sourceID, 7); err != nil {
+		t.Fatalf("valid source envelope: %v", err)
+	}
+	if err := validateResolvedIndicatorEnvelope(envelopes, incidentID, indicatorID); err != nil {
+		t.Fatalf("valid resolved Indicator envelope: %v", err)
+	}
+	if err := validateAddressedIndicatorEnvelope(envelopes, incidentID, indicatorID); err != nil {
+		t.Fatalf("valid addressed Indicator envelope: %v", err)
+	}
+	if err := validateLifecycleSupportEnvelopes(envelopes, incidentID, []uuid.UUID{sourceID, indicatorID}); err != nil {
+		t.Fatalf("valid support envelopes: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		envelope  records.Envelope
+		validate  func(map[uuid.UUID]records.Envelope) error
+		wantError error
+	}{
+		{name: "missing source", validate: func(values map[uuid.UUID]records.Envelope) error {
+			return validateObservationSourceEnvelope(values, incidentID, uuid.New(), 1)
+		}, wantError: ErrIndicatorSourceNotFound},
+		{name: "foreign source", envelope: records.Envelope{RecordID: sourceID, IncidentID: otherIncidentID, RecordType: "timeline_event", RowVersion: 7}, validate: func(values map[uuid.UUID]records.Envelope) error {
+			return validateObservationSourceEnvelope(values, incidentID, sourceID, 7)
+		}, wantError: ErrIndicatorSourceNotFound},
+		{name: "deleted source", envelope: records.Envelope{RecordID: sourceID, IncidentID: incidentID, RecordType: "timeline_event", RowVersion: 7, DeletedAt: &deletedAt}, validate: func(values map[uuid.UUID]records.Envelope) error {
+			return validateObservationSourceEnvelope(values, incidentID, sourceID, 7)
+		}, wantError: ErrIndicatorSourceNotFound},
+		{name: "stale source", envelope: envelopes[sourceID], validate: func(values map[uuid.UUID]records.Envelope) error {
+			return validateObservationSourceEnvelope(values, incidentID, sourceID, 6)
+		}, wantError: ErrRowVersionConflict},
+		{name: "wrong resolved target type", envelope: records.Envelope{RecordID: indicatorID, IncidentID: incidentID, RecordType: "timeline_event"}, validate: func(values map[uuid.UUID]records.Envelope) error {
+			return validateResolvedIndicatorEnvelope(values, incidentID, indicatorID)
+		}, wantError: ErrResolvedIndicatorNotFound},
+		{name: "foreign resolved target", envelope: records.Envelope{RecordID: indicatorID, IncidentID: otherIncidentID, RecordType: "indicator"}, validate: func(values map[uuid.UUID]records.Envelope) error {
+			return validateResolvedIndicatorEnvelope(values, incidentID, indicatorID)
+		}, wantError: ErrResolvedIndicatorNotFound},
+		{name: "wrong addressed target type", envelope: records.Envelope{RecordID: indicatorID, IncidentID: incidentID, RecordType: "timeline_event"}, validate: func(values map[uuid.UUID]records.Envelope) error {
+			return validateAddressedIndicatorEnvelope(values, incidentID, indicatorID)
+		}, wantError: ErrIndicatorNotFound},
+		{name: "foreign addressed target", envelope: records.Envelope{RecordID: indicatorID, IncidentID: otherIncidentID, RecordType: "indicator"}, validate: func(values map[uuid.UUID]records.Envelope) error {
+			return validateAddressedIndicatorEnvelope(values, incidentID, indicatorID)
+		}, wantError: ErrIndicatorNotFound},
+		{name: "foreign support", envelope: records.Envelope{RecordID: sourceID, IncidentID: otherIncidentID, RecordType: "timeline_event"}, validate: func(values map[uuid.UUID]records.Envelope) error {
+			return validateLifecycleSupportEnvelopes(values, incidentID, []uuid.UUID{sourceID})
+		}, wantError: ErrInvalidCreateRequest},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			values := map[uuid.UUID]records.Envelope{}
+			if test.envelope.RecordID != uuid.Nil {
+				values[test.envelope.RecordID] = test.envelope
+			}
+			if err := test.validate(values); !errors.Is(err, test.wantError) {
+				t.Fatalf("role classification error = %v, want %v", err, test.wantError)
+			}
+		})
+	}
+
+	prior := IndicatorObservationRecord{IncidentID: incidentID, SourceRecordID: sourceID, ResolvedIndicatorRecordID: &indicatorID}
+	for name, values := range map[string]map[uuid.UUID]records.Envelope{
+		"missing source":    {indicatorID: envelopes[indicatorID]},
+		"missing Indicator": {sourceID: envelopes[sourceID]},
+		"wrong Indicator": {
+			sourceID:    envelopes[sourceID],
+			indicatorID: {RecordID: indicatorID, IncidentID: incidentID, RecordType: "timeline_event"},
+		},
+	} {
+		if err := validatePriorObservationDependencies(values, prior); !errors.Is(err, ErrIndicatorObservationNotFound) {
+			t.Fatalf("%s prior dependency error = %v, want ErrIndicatorObservationNotFound", name, err)
+		}
+	}
+}
+
+func TestIndicatorLockedEnvelopeStorageFailurePropagates(t *testing.T) {
+	t.Parallel()
+	want := errors.New("injected record-envelope storage failure")
+	store := &Store{recordStore: failingIndicatorRecordStore{err: want}}
+	if _, err := store.lockAffectedRecordsTx(context.Background(), nil, []uuid.UUID{uuid.New()}); !errors.Is(err, want) {
+		t.Fatalf("locked envelope failure = %v, want injected storage failure", err)
+	}
+}
+
+type failingIndicatorRecordStore struct {
+	err error
+}
+
+func (store failingIndicatorRecordStore) InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error) {
+	panic("unexpected InsertTx")
+}
+
+func (store failingIndicatorRecordStore) LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID, bool) (map[uuid.UUID]records.Envelope, error) {
+	return nil, store.err
+}
+
+func (store failingIndicatorRecordStore) AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error) {
+	panic("unexpected AdvanceVersionTx")
+}
 
 func TestIndicatorLifecycleVocabulary(t *testing.T) {
 	t.Parallel()

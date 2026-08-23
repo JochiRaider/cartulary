@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/vocabulary"
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -71,7 +72,7 @@ func decodeObservationCreate(reader io.Reader) (observationCreateRequest, *platf
 		return observationCreateRequest{}, invalidMutationPayload("span_end_byte", "invalid_value")
 	}
 	if value, ok := raw["parsed_indicator_type"]; ok {
-		if isJSONNull(value) || json.Unmarshal(value, &request.ParsedIndicatorType) != nil || request.ParsedIndicatorType == nil || !validIndicatorType(*request.ParsedIndicatorType) {
+		if isJSONNull(value) || json.Unmarshal(value, &request.ParsedIndicatorType) != nil || request.ParsedIndicatorType == nil || !vocabulary.IsIndicatorType(*request.ParsedIndicatorType) {
 			return observationCreateRequest{}, invalidMutationPayload("parsed_indicator_type", "invalid_value")
 		}
 	}
@@ -136,7 +137,7 @@ func decodeLifecycleAppend(reader io.Reader) (lifecycleAppendRequest, *platformh
 	if !decodeRequired(raw, "base_row_version", &request.BaseRowVersion) || request.BaseRowVersion < 1 {
 		return lifecycleAppendRequest{}, invalidMutationPayload("base_row_version", "invalid_value")
 	}
-	if !decodeRequired(raw, "lifecycle_state", &request.LifecycleState) || !validLifecycleState(request.LifecycleState) {
+	if !decodeRequired(raw, "lifecycle_state", &request.LifecycleState) || !vocabulary.IsLifecycleState(request.LifecycleState) {
 		return lifecycleAppendRequest{}, invalidMutationPayload("lifecycle_state", "invalid_value")
 	}
 	validFrom, valid := decodeCanonicalTimestamp(raw["valid_from"])
@@ -242,24 +243,6 @@ func decodeCanonicalTimestamp(raw json.RawMessage) (time.Time, bool) {
 
 func validClientTxnID(value string) bool {
 	return value != "" && strings.TrimSpace(value) != "" && !strings.ContainsRune(value, 0)
-}
-
-func validIndicatorType(value string) bool {
-	switch value {
-	case "ipv4_addr", "ipv6_addr", "domain_name", "url", "sha256", "email_addr", "registry_key", "process_name", "text":
-		return true
-	default:
-		return false
-	}
-}
-
-func validLifecycleState(value string) bool {
-	switch value {
-	case "active", "benign", "false_positive", "retired":
-		return true
-	default:
-		return false
-	}
 }
 
 func isJSONNull(value json.RawMessage) bool {

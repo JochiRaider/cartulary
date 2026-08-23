@@ -2741,7 +2741,7 @@ Verified by: AC-231, AC-234
 **REQ-02-222**
 This section owns the exact token sets for closed vocabularies that are persisted in structured state or surfaced through contract-backed views, portability bundles, or public API payloads. Earlier descriptive wording is resolved here, but conformant public-boundary sections MUST already use the exact tokens listed here rather than relying on this registry for disambiguation. A conformant implementation MUST persist and emit the exact tokens listed here.
 Profiles: base, incident_portability
-Verified by: AC-076, AC-077, AC-078, AC-079, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-122, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-236, AC-252, AC-253, AC-277, AC-284, AC-285, AC-287, AC-425
+Verified by: AC-076, AC-077, AC-078, AC-079, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-122, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-236, AC-252, AC-253, AC-277, AC-284, AC-285, AC-287, AC-425, AC-532, AC-533
 
 Where an earlier section also defines lifecycle rules, semantic meanings, or guard behavior for a token family, that earlier section remains authoritative for those semantics. This registry owns the exact token spellings and membership of the token set.
 
@@ -2758,6 +2758,8 @@ Where an earlier section also defines lifecycle rules, semantic meanings, or gua
 | `credential_state.totp_state` | `not_enrolled`, `pending`, `active` |
 | `indicator.indicator_type` | `ipv4_addr`, `ipv6_addr`, `domain_name`, `url`, `sha256`, `email_addr`, `registry_key`, `process_name`, `text` |
 | `indicator.value_kind` | `atomic`, `pattern`, `reference` |
+| `indicator_observation.resolution_status` | `unresolved`, `resolved`, `dismissed` |
+| `indicator_state_interval.lifecycle_state` | `active`, `benign`, `false_positive`, `retired` |
 | `assessment_state` | `unknown`, `suspected`, `confirmed`, `disproven`, `cleared` |
 | `task_request.task_kind` | `question`, `request`, `collection`, `containment`, `follow_up` |
 | `task_request.status` | `open`, `in_progress`, `blocked`, `done`, `canceled` |

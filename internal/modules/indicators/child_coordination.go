@@ -103,36 +103,64 @@ func sortedRecordIDs(values ...uuid.UUID) []uuid.UUID {
 	return result
 }
 
-func (s *Store) lockAffectedRecordsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) (map[uuid.UUID]records.Envelope, error) {
-	envelopes, err := s.recordStore.LoadEnvelopesTx(ctx, tx, recordIDs, true)
-	if err != nil {
-		return nil, err
-	}
-	if len(envelopes) != len(recordIDs) {
-		return nil, ErrIndicatorNotFound
-	}
-	for _, recordID := range recordIDs {
-		envelope := envelopes[recordID]
-		if envelope.IncidentID != incidentID || envelope.DeletedAt != nil {
-			return nil, ErrIndicatorNotFound
-		}
-	}
-	return envelopes, nil
+func (s *Store) lockAffectedRecordsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]records.Envelope, error) {
+	return s.recordStore.LoadEnvelopesTx(ctx, tx, sortedRecordIDs(recordIDs...), true)
 }
 
-func validateSourceEnvelope(envelope records.Envelope, expectedVersion int64) error {
-	if envelope.RecordID == uuid.Nil || envelope.DeletedAt != nil || envelope.RowVersion != expectedVersion {
-		if envelope.RowVersion != expectedVersion {
-			return ErrRowVersionConflict
-		}
+func activeIncidentEnvelope(envelopes map[uuid.UUID]records.Envelope, incidentID uuid.UUID, recordID uuid.UUID) (records.Envelope, bool) {
+	envelope, found := envelopes[recordID]
+	if !found || envelope.IncidentID != incidentID || envelope.DeletedAt != nil {
+		return records.Envelope{}, false
+	}
+	return envelope, true
+}
+
+func validateObservationSourceEnvelope(envelopes map[uuid.UUID]records.Envelope, incidentID uuid.UUID, recordID uuid.UUID, expectedVersion int64) error {
+	envelope, available := activeIncidentEnvelope(envelopes, incidentID, recordID)
+	if !available {
 		return ErrIndicatorSourceNotFound
+	}
+	if envelope.RowVersion != expectedVersion {
+		return ErrRowVersionConflict
 	}
 	return nil
 }
 
-func validateIndicatorEnvelope(envelope records.Envelope) error {
-	if envelope.RecordType != "indicator" || envelope.DeletedAt != nil {
+func validateResolvedIndicatorEnvelope(envelopes map[uuid.UUID]records.Envelope, incidentID uuid.UUID, recordID uuid.UUID) error {
+	envelope, available := activeIncidentEnvelope(envelopes, incidentID, recordID)
+	if !available || envelope.RecordType != "indicator" {
 		return ErrResolvedIndicatorNotFound
+	}
+	return nil
+}
+
+func validateAddressedIndicatorEnvelope(envelopes map[uuid.UUID]records.Envelope, incidentID uuid.UUID, recordID uuid.UUID) error {
+	envelope, available := activeIncidentEnvelope(envelopes, incidentID, recordID)
+	if !available || envelope.RecordType != "indicator" {
+		return ErrIndicatorNotFound
+	}
+	return nil
+}
+
+func validatePriorObservationDependencies(envelopes map[uuid.UUID]records.Envelope, current IndicatorObservationRecord) error {
+	if _, available := activeIncidentEnvelope(envelopes, current.IncidentID, current.SourceRecordID); !available {
+		return ErrIndicatorObservationNotFound
+	}
+	if current.ResolvedIndicatorRecordID == nil {
+		return nil
+	}
+	envelope, available := activeIncidentEnvelope(envelopes, current.IncidentID, *current.ResolvedIndicatorRecordID)
+	if !available || envelope.RecordType != "indicator" {
+		return ErrIndicatorObservationNotFound
+	}
+	return nil
+}
+
+func validateLifecycleSupportEnvelopes(envelopes map[uuid.UUID]records.Envelope, incidentID uuid.UUID, supportRefs []uuid.UUID) error {
+	for _, recordID := range supportRefs {
+		if _, available := activeIncidentEnvelope(envelopes, incidentID, recordID); !available {
+			return ErrInvalidCreateRequest
+		}
 	}
 	return nil
 }

@@ -58,7 +58,10 @@ func TestIndicatorProviderImplementationsAreInternal(t *testing.T) {
 	if projection.Source() == nil || len(projection.ProjectionContribution().SurfaceIntents()) != 1 {
 		t.Fatalf("incomplete Indicator projection contribution: %#v", projection.ProjectionContribution().SurfaceIntents())
 	}
-	bundle := NewIncidentBundleContribution()
+	bundle, err := NewIncidentBundleContribution()
+	if err != nil {
+		t.Fatalf("construct Indicator incident-bundle contribution: %v", err)
+	}
 	if bundle.SourcePort == nil || bundle.SubtypePresence.Source == nil {
 		t.Fatal("incomplete Indicator incident-bundle contribution")
 	}

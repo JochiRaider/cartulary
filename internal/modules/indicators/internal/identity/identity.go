@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/vocabulary"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
 
@@ -106,23 +107,17 @@ func Canonicalize(input Input) (Canonical, error) {
 }
 
 func NormalizeIndicatorType(raw string) (string, error) {
-	normalized := strings.ToLower(strings.TrimSpace(raw))
-	switch normalized {
-	case "ipv4_addr", "ipv6_addr", "domain_name", "url", "sha256", "email_addr", "registry_key", "process_name", "text":
+	if normalized, ok := vocabulary.CanonicalIndicatorType(raw); ok {
 		return normalized, nil
-	default:
-		return "", fmt.Errorf("unsupported indicator_type")
 	}
+	return "", fmt.Errorf("unsupported indicator_type")
 }
 
 func NormalizeValueKind(raw string) (string, error) {
-	normalized := strings.ToLower(strings.TrimSpace(raw))
-	switch normalized {
-	case "atomic", "pattern", "reference":
+	if normalized, ok := vocabulary.CanonicalValueKind(raw); ok {
 		return normalized, nil
-	default:
-		return "", fmt.Errorf("unsupported value_kind")
 	}
+	return "", fmt.Errorf("unsupported value_kind")
 }
 
 func NormalizeValue(indicatorType string, rawDisplay string, rawNormalized *string) (string, *string, error) {

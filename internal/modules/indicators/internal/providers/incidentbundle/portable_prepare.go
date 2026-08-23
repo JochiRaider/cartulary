@@ -10,6 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/vocabulary"
 )
 
 var (
@@ -188,16 +189,14 @@ func preparePortableIndicatorRow(
 	if !ok {
 		return representationFailure()
 	}
-	canonicalType, err := identity.NormalizeIndicatorType(indicatorType)
-	if err != nil || canonicalType != indicatorType {
+	if !vocabulary.IsIndicatorType(indicatorType) {
 		return representationFailure()
 	}
 	valueKind, ok := portableText(raw["value_kind"], false)
 	if !ok {
 		return representationFailure()
 	}
-	canonicalKind, err := identity.NormalizeValueKind(valueKind)
-	if err != nil || canonicalKind != valueKind {
+	if !vocabulary.IsValueKind(valueKind) {
 		return representationFailure()
 	}
 	displayValue, ok := portableText(raw["display_value"], false)
@@ -339,8 +338,7 @@ func preparePortableObservationRow(
 		return representationFailure()
 	}
 	if parsedIndicatorType != nil {
-		canonicalType, err := identity.NormalizeIndicatorType(*parsedIndicatorType)
-		if err != nil || canonicalType != *parsedIndicatorType {
+		if !vocabulary.IsIndicatorType(*parsedIndicatorType) {
 			return representationFailure()
 		}
 	}
@@ -349,7 +347,7 @@ func preparePortableObservationRow(
 		return representationFailure()
 	}
 	resolutionStatus, ok := portableText(raw["resolution_status"], true)
-	if !ok {
+	if !ok || !vocabulary.IsObservationStatus(resolutionStatus) {
 		return representationFailure()
 	}
 	resolvedIndicatorID, ok := nullablePortableUUID(raw["resolved_indicator_record_id"])
@@ -460,7 +458,7 @@ func preparePortableIntervalRow(
 		return representationFailure()
 	}
 	lifecycleState, ok := portableText(raw["lifecycle_state"], true)
-	if !ok {
+	if !ok || !vocabulary.IsLifecycleState(lifecycleState) {
 		return representationFailure()
 	}
 	validFrom, ok := canonicalPortableTimestamp(raw["valid_from"])
@@ -492,11 +490,16 @@ func preparePortableIntervalRow(
 		return representationFailure()
 	}
 	supportRefs := make([]uuid.UUID, 0, len(supportValues))
+	seenSupportRefs := make(map[uuid.UUID]struct{}, len(supportValues))
 	for _, value := range supportValues {
 		parsed, ok := canonicalPortableUUID(value)
 		if !ok {
 			return representationFailure()
 		}
+		if _, duplicate := seenSupportRefs[parsed]; duplicate {
+			return representationFailure()
+		}
+		seenSupportRefs[parsed] = struct{}{}
 		supportRefs = append(supportRefs, parsed)
 	}
 	assessor, ok := nullablePortableText(raw["assessor"], true)
@@ -542,8 +545,7 @@ func preparePortableIntervalRow(
 		(deletedAt != nil && deletedAt.Before(createdAt)) {
 		failures = append(failures, indicatorFailure(intervalOrderedInvariant, intervalsBundlePath, identityText, raw))
 	}
-	if strings.TrimSpace(lifecycleState) == "" || strings.TrimSpace(lifecycleState) != lifecycleState ||
-		(confidence != nil && (*confidence < 0 || *confidence > 100)) {
+	if confidence != nil && (*confidence < 0 || *confidence > 100) {
 		failures = append(failures, indicatorFailure(intervalCoherentInvariant, intervalsBundlePath, identityText, raw))
 	}
 	return row, failures

@@ -16,11 +16,6 @@ import (
 var indicatorExportedSurfaceAllowlist = map[string]struct{}{
 	"AffectedRecordVersion":                       {},
 	"CreateCommand":                               {},
-	"CreateOutcome":                               {},
-	"CreateOutcomeCreated":                        {},
-	"CreateOutcomeReplayed":                       {},
-	"CreateOutcomeReused":                         {},
-	"CreateOutcomeUpdated":                        {},
 	"CreateResult":                                {},
 	"ErrIllegalTransition":                        {},
 	"ErrIndicatorNotFound":                        {},
@@ -71,6 +66,37 @@ var indicatorExportedSurfaceAllowlist = map[string]struct{}{
 	"ViewSchemaID":                                {},
 }
 
+// indicatorExportRoles records a production responsibility for every retained
+// declaration in the guarded surface.
+var indicatorExportRoles = indicatorExportRoleInventory(map[string]string{
+	"owner application command, result, validation, or classified error contract": `
+		AffectedRecordVersion CreateCommand CreateResult ErrIllegalTransition ErrIndicatorNotFound
+		ErrIndicatorObservationNotFound ErrIndicatorSourceNotFound ErrInvalidCreateRequest
+		ErrResolvedIndicatorNotFound ErrRowVersionConflict ErrSourceTextUnavailable
+		IndicatorCreateValidationError IndicatorCreateValidationError.Error
+		IndicatorFindOrCreateParticipantCommand IndicatorFindOrCreateParticipantResult
+		IndicatorLifecycleAppendParams IndicatorLifecycleIntervalRecord IndicatorLifecycleMutationResult
+		IndicatorObservationActionParams IndicatorObservationCreateParams IndicatorObservationMutationResult
+		IndicatorObservationRecord IndicatorObservationResolveParams IndicatorReference
+		SourceTextPort SourceTextValue ValidateCreateCommand ViewSchemaID
+	`,
+	"typed source-owner contribution consumed by application assembly": `
+		IncidentBundleContribution NewImportCreateFacade NewIncidentBundleContribution
+		NewRevisionContribution RecoveryStateContribution
+	`,
+	"complete Indicators store construction and transaction participant capability": `
+		IndicatorFindOrCreateParticipantV1 NewStore Store StoreDependencies
+	`,
+	"live Indicators application operation consumed by HTTP, Workbook, Imports, or Network Flow": `
+		Store.AppendIndicatorLifecycleInterval Store.CreateIndicatorObservation Store.CreateIndicatorRow
+		Store.DismissIndicatorObservation Store.FindOrCreateIndicatorParticipantTx
+		Store.GetActiveIndicatorParticipant Store.GetActiveIndicatorParticipantTx
+		Store.GetIndicatorObservation Store.ListIndicatorLifecycleIntervals
+		Store.ListIndicatorObservations Store.ListSourceRecordIndicatorObservations
+		Store.ResolveIndicatorObservation Store.RestoreIndicatorObservation
+	`,
+})
+
 func TestIndicatorExportedSurfaceReachabilityLock(t *testing.T) {
 	t.Parallel()
 
@@ -80,6 +106,44 @@ func TestIndicatorExportedSurfaceReachabilityLock(t *testing.T) {
 	if len(missingClassifications) != 0 || len(staleClassifications) != 0 {
 		t.Fatalf("Indicator exported surface violates the production allowlist: unapproved=%v stale=%v", missingClassifications, staleClassifications)
 	}
+	missingRoles := difference(indicatorExportedSurfaceAllowlist, indicatorExportRoleKeys())
+	staleRoles := difference(indicatorExportRoleKeys(), indicatorExportedSurfaceAllowlist)
+	if len(missingRoles) != 0 || len(staleRoles) != 0 {
+		t.Fatalf("Indicator exported surface role inventory disagrees with allowlist: missing=%v stale=%v", missingRoles, staleRoles)
+	}
+	if len(actual) != 50 {
+		t.Fatalf("Indicator exported surface contains %d declarations, want exact reviewed surface of 50", len(actual))
+	}
+	for declaration, role := range indicatorExportRoles {
+		if strings.TrimSpace(role) == "" {
+			t.Fatalf("Indicator export %s has no production-role reason", declaration)
+		}
+	}
+
+	t.Run("production import topology", func(t *testing.T) {
+		assertIndicatorsProductionImportBoundaries(t)
+	})
+}
+
+func indicatorExportRoleInventory(groups map[string]string) map[string]string {
+	roles := make(map[string]string)
+	for role, declarations := range groups {
+		for _, declaration := range strings.Fields(declarations) {
+			if _, exists := roles[declaration]; exists {
+				panic("duplicate Indicator export role: " + declaration)
+			}
+			roles[declaration] = role
+		}
+	}
+	return roles
+}
+
+func indicatorExportRoleKeys() map[string]struct{} {
+	result := make(map[string]struct{}, len(indicatorExportRoles))
+	for declaration := range indicatorExportRoles {
+		result[declaration] = struct{}{}
+	}
+	return result
 }
 
 func exportedRootDeclarations(t *testing.T) map[string]struct{} {

@@ -30,7 +30,7 @@ func TestIndicatorPortablePreparationUsesCanonicalIdentity(t *testing.T) {
 		t.Fatalf("canonicalize fixture: %v", err)
 	}
 	row := portableIdentityRow("00000000-0000-4000-8000-000000000001", canonical)
-	port := NewIncidentBundleContribution().SourcePort
+	port := mustIndicatorSourcePort(t)
 	importContext := portableImportContext(t, "indicator-identity-portability")
 
 	if _, err := port.PrepareImport(context.Background(), portableIdentityBundle(t, row), importContext); err != nil {
@@ -53,6 +53,15 @@ func TestIndicatorPortablePreparationUsesCanonicalIdentity(t *testing.T) {
 	invalidOriginBundle["data/indicator_observations.ndjson"] = marshalNDJSONRows(t, []map[string]any{invalidObservation})
 	_, err = port.PrepareImport(context.Background(), invalidOriginBundle, importContext)
 	assertIndicatorInvariantFailure(t, err, "indicators.observation_coherent")
+}
+
+func mustIndicatorSourcePort(t testing.TB) sourceport.Port {
+	t.Helper()
+	contribution, err := NewIncidentBundleContribution()
+	if err != nil {
+		t.Fatalf("construct Indicator incident-bundle contribution: %v", err)
+	}
+	return contribution.SourcePort
 }
 
 func portableIdentityRow(recordID string, canonical identity.Canonical) map[string]any {

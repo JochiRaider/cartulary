@@ -77,7 +77,7 @@ func TestIndicatorPortablePrepareInvariantPartition(t *testing.T) {
 			},
 		},
 	}
-	port := NewIncidentBundleContribution().SourcePort
+	port := mustIndicatorSourcePort(t)
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
@@ -95,7 +95,7 @@ func TestIndicatorPortablePrepareInvariantPartition(t *testing.T) {
 
 func TestIndicatorPortableMultiDefectSelectionIsDeterministic(t *testing.T) {
 	t.Parallel()
-	port := NewIncidentBundleContribution().SourcePort
+	port := mustIndicatorSourcePort(t)
 	for permutation := 0; permutation < 3; permutation++ {
 		bundle := portableIdentityBundle(t, portableCanonicalIndicatorRow(t))
 		indicatorRow := portableCanonicalIndicatorRow(t)
@@ -178,7 +178,7 @@ func TestIndicatorPortableStrictDecodingAndSafeFailure(t *testing.T) {
 			},
 		},
 	}
-	port := NewIncidentBundleContribution().SourcePort
+	port := mustIndicatorSourcePort(t)
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
@@ -201,7 +201,7 @@ func TestIndicatorPortableStrictDecodingAndSafeFailure(t *testing.T) {
 
 func TestIndicatorPortablePreparedValuesAreContextBound(t *testing.T) {
 	t.Parallel()
-	port := NewIncidentBundleContribution().SourcePort
+	port := mustIndicatorSourcePort(t)
 	importContext := portableImportContext(t, "indicator-prepared-binding")
 	prepared, err := port.PrepareImport(
 		context.Background(), portableIdentityBundle(t, portableCanonicalIndicatorRow(t)), importContext,

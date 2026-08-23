@@ -9990,8 +9990,8 @@
       "qualified_name": "public.indicator_state_intervals.indicator_state_intervals_support_refs_ck",
       "management_class": "cartulary_authored",
       "source_owner": "indicators",
-      "migration_version": 12,
-      "migration_file": "00012_indicators.sql",
+      "migration_version": 38,
+      "migration_file": "00038_indicators_lifecycle_integrity.sql",
       "dependency_object_ids": [
         "table.public.indicator-state-intervals"
       ],
@@ -26655,8 +26655,8 @@
       "qualified_name": "public.indicator_support_refs_are_valid",
       "management_class": "cartulary_authored",
       "source_owner": "indicators",
-      "migration_version": 12,
-      "migration_file": "00012_indicators.sql",
+      "migration_version": 38,
+      "migration_file": "00038_indicators_lifecycle_integrity.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_application",
       "recovery_access_class": "routine_recovery",

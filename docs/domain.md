@@ -881,7 +881,10 @@ Declared scope: token families named in current `domain.md` because the family i
 | `host.entity_origin` and `identity.entity_origin` | Core 02 closed-vocabulary registry | Host/identity creation provenance. | Pointer-only. |
 | Host and identity preserved identifier classification | Core 02 closed-vocabulary registry | Exact-match reuse, suggestions, and provenance treatment. | Pointer-only. |
 | `party.party_kind` | Core 02 closed-vocabulary registry | Party classification. | Pointer-only. |
+| `indicator.indicator_type` | Core 02 closed-vocabulary registry | Canonical Indicator type family. | Pointer-only. |
 | `indicator.value_kind` | Core 02 closed-vocabulary registry | Indicator value family. | Pointer-only. |
+| `indicator_observation.resolution_status` | Core 02 closed-vocabulary registry and observation lifecycle owner section | Observation resolution state. | Pointer-only. |
+| `indicator_state_interval.lifecycle_state` | Core 02 closed-vocabulary registry and Indicator lifecycle owner section | Indicator lifecycle interval state. | Pointer-only. |
 | `assessment_state` | Core 02 closed-vocabulary registry | Compromise-assessment state. | Pointer-only. |
 | `task_request.task_kind` | Core 02 closed-vocabulary registry | Task-request type. | Pointer-only. |
 | `task_request.status` | Core 02/Core 03 owner sections | Task-request lifecycle. | Pointer-only. |

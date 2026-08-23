@@ -87,8 +87,8 @@ assert.deepEqual(
 );
 assert.deepEqual(catalog.postgresFixturePolicy.counts, {
   postgres_dedicated: 261,
-  postgres_migration: 9,
-  postgres_transaction: 83,
+  postgres_migration: 10,
+  postgres_transaction: 84,
 });
 
 function assertPostgresFixturePolicyClosesSharedRows() {

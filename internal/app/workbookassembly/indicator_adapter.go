@@ -94,7 +94,7 @@ func indicatorMutationResult(
 	clientTxnID string,
 ) workbook.MutationResult {
 	statusCode := http.StatusOK
-	if result.Outcome == indicators.CreateOutcomeCreated {
+	if result.Created {
 		statusCode = http.StatusCreated
 	}
 	return workbook.MutationResult{
@@ -104,7 +104,7 @@ func indicatorMutationResult(
 			result.CanonicalRow,
 		),
 		StatusCode:   statusCode,
-		Replayed:     result.Outcome == indicators.CreateOutcomeReplayed,
+		Replayed:     result.Replayed,
 		IncidentID:   incidentID,
 		RecordID:     result.RecordID,
 		ChangeSetID:  result.ChangeSetID,

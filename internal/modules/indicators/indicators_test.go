@@ -34,7 +34,7 @@ func TestIndicatorsCanonicalObservationLifecycle_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create canonical indicator: %v", err)
 	}
-	replayed, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateCommand{
+	updated, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateCommand{
 		ClientTxnID:   "txn-workbook_interaction-u-9-04-indicator-dedupe",
 		IndicatorType: "ipv4_addr",
 		ValueKind:     "atomic",
@@ -44,8 +44,8 @@ func TestIndicatorsCanonicalObservationLifecycle_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dedupe canonical indicator: %v", err)
 	}
-	if replayed.RecordID != created.RecordID || replayed.Outcome != indicators.CreateOutcomeUpdated {
-		t.Fatalf("expected same canonical indicator identity on duplicate create, got first=%#v replay=%#v", created, replayed)
+	if updated.RecordID != created.RecordID || updated.Created || updated.Replayed {
+		t.Fatalf("expected same canonical indicator identity on representation update, got first=%#v update=%#v", created, updated)
 	}
 	requireEntityCount(t, harness, `
 SELECT count(*)

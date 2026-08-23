@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/vocabulary"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -31,12 +32,12 @@ func (Provider) ValidateRollbackValue(value map[string]any) error {
 		}
 	}
 	if raw, present := source["indicator_type"]; present {
-		if _, err := identity.NormalizeIndicatorType(raw.(string)); err != nil {
+		if !vocabulary.IsIndicatorType(raw.(string)) {
 			return rollbackcontract.ErrTargetNotReversible
 		}
 	}
 	if raw, present := source["value_kind"]; present {
-		if _, err := identity.NormalizeValueKind(raw.(string)); err != nil {
+		if !vocabulary.IsValueKind(raw.(string)) {
 			return rollbackcontract.ErrTargetNotReversible
 		}
 	}

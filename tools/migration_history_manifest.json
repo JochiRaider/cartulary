@@ -224,6 +224,12 @@
       "filename": "00037_entities_active_identifier_claims.sql",
       "sha256": "b79529d6a876c1284a14899cce2a2b4f769fb535ea4250f3b24fab95c75976fa",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 38,
+      "filename": "00038_indicators_lifecycle_integrity.sql",
+      "sha256": "0eaed9efe6779975b85c00c9db28790c02f4c6194fd09237526a99f9579293ed",
+      "historical_phase_shaped": false
     }
   ]
 }

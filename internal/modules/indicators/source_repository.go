@@ -96,23 +96,3 @@ UPDATE indicators
 	}
 	return nil
 }
-
-func (sourceRepository) validateIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) error {
-	var exists bool
-	if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM records
-     WHERE record_id = $1
-       AND incident_id = $2
-       AND record_type = 'indicator'
-       AND deleted_at IS NULL
-)
-`, recordID, incidentID).Scan(&exists); err != nil {
-		return fmt.Errorf("validate indicator record incident: %w", err)
-	}
-	if !exists {
-		return ErrIndicatorNotFound
-	}
-	return nil
-}
