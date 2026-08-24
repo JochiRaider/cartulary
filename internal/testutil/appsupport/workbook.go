@@ -312,14 +312,17 @@ func NewPartyOwner(
 		panic(err)
 	}
 	projectionRuntime := mustBuildProjectionRuntime(pool)
-	return parties.NewMutationFacade(
+	owner, err := workbookassembly.NewPartyMutationContribution(
 		pool,
 		conflictTokens,
 		revisionRuntime.Appender(),
 		revisionRuntime.ConflictFieldResolver(),
-		workbookassembly.NewConflictIdempotencyPort(pool),
 		projectionRuntime.PartyPorts().Rows,
 	)
+	if err != nil {
+		panic(err)
+	}
+	return owner
 }
 
 type unavailableEvidenceObjectStore struct{}

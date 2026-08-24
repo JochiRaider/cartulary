@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cartulary.incident_bundle.indicator_state_intervals.row.v1",
   "title": "Indicator state intervals incident bundle row",
-  "description": "Exact append-only Indicator lifecycle interval row used by Incident Bundle version 2.",
+  "description": "Exact append-only Indicator lifecycle interval row used by Incident Bundle version 3.",
   "type": "object",
   "additionalProperties": false,
   "required": [

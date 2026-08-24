@@ -14,7 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
-const ContractMajor = 1
+const ContractMajor = 2
 
 var (
 	ErrInvalidCatalog  = errors.New("incident bundle source-port catalog is invalid")

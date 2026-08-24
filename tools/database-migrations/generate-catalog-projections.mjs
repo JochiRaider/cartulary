@@ -49,7 +49,8 @@ const ownersByVersion = new Map([
   [27, "extensions"], [28, "audit"], [29, "collaboration"],
   [30, "evidence"], [31, "evidence"], [32, "networkflow"],
   [33, "networkflow"], [34, "graphprojection"], [35, "assessments"],
-  [36, "entities"], [37, "entities"], [38, "indicators"],
+  [36, "entities"], [37, "entities"], [38, "indicators"], [39, "parties"],
+  [40, "parties"],
 ]);
 for (const [index, filename] of migrationFiles.entries()) {
   const version = index + 1;
@@ -296,6 +297,11 @@ function validateCatalogPolicy(filename, body) {
       "entities_sync_active_identifier_claims_v1",
       "entities_rebuild_active_identifier_claims_v1",
       "entities_active_identifier_claims_are_valid_v1",
+      "parties_refresh_active_key_claims_v1",
+      "parties_release_active_key_claims_v1",
+      "parties_sync_active_key_claims_v1",
+      "parties_rebuild_active_key_claims_v1",
+      "parties_active_key_claims_are_valid_v1",
     ]).has(routineName)) {
       violations.push("routine_security_class");
     }
@@ -343,6 +349,7 @@ function toManifestEntry(object) {
   ]);
   const derivedReadOnlyTables = new Set([
     "entity_active_identifier_claims",
+    "party_active_key_claims",
   ]);
   const sharedApplicationRoutines = new Set([
     "cartulary_confidence_band",
@@ -362,12 +369,20 @@ function toManifestEntry(object) {
     ...sharedApplicationRoutines,
     "entities_refresh_active_identifier_claims_v1",
     "entities_release_active_identifier_claims_v1",
+    "parties_normalize_active_key_v1",
+    "parties_refresh_active_key_claims_v1",
+    "parties_release_active_key_claims_v1",
+    "parties_trim_unicode_space_v1",
   ]);
   const recoveryRoutines = new Set([
     ...sharedApplicationRoutines,
     "entities_active_identifier_claims_are_valid_v1",
     "entities_rebuild_active_identifier_claims_v1",
     "indicator_active_identities_are_valid",
+    "parties_active_key_claims_are_valid_v1",
+    "parties_normalize_active_key_v1",
+    "parties_rebuild_active_key_claims_v1",
+    "parties_trim_unicode_space_v1",
     "rebuild_indicator_active_identities",
   ]);
   const runtimeClass = {

@@ -1,7 +1,9 @@
 package parties_test
 
 import (
+	"bytes"
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -11,98 +13,161 @@ import (
 )
 
 func TestPartyMutationAdmissionAndReplayHashing_Unit(t *testing.T) {
-	t.Run("create", func(t *testing.T) {
-		request, apiErr := parties.DecodeCreateRequest(strings.NewReader(
-			`{"client_txn_id":"txn-create","party.party_kind":"organization","party.display_name":" Acme "}`,
-		))
-		if apiErr != nil {
-			t.Fatalf("decode Party create request: %#v", apiErr)
-		}
-		if request.ViewSchemaID != parties.ViewSchemaID || request.ClientTxnID != "txn-create" {
-			t.Fatalf("unexpected create identity: %#v", request)
-		}
-		if got := *request.Values["party.display_name"].Text; got != "Acme" {
-			t.Fatalf("normalized display name = %q, want Acme", got)
-		}
-		if got := hex.EncodeToString(parties.CreateRequestHash(request)); got != "fe9207b00d24a2580278277efe883ef49962cb0011407c3dee054ef3961c138b" {
-			t.Fatalf("create request hash = %s", got)
-		}
-	})
+	create, apiErr := parties.AdmitCreateJSON(strings.NewReader(
+		`{"client_txn_id":"txn-create","party.party_kind":"organization","party.display_name":" Acme "}`,
+	))
+	if apiErr != nil {
+		t.Fatalf("admit Party create request: %#v", apiErr)
+	}
+	if create.AdmittedViewSchemaID() != parties.ViewSchemaID || create.ClientTransactionID() != "txn-create" {
+		t.Fatalf("unexpected create identity")
+	}
+	if got := hex.EncodeToString(create.RequestHash()); got != "62ec84f72b5d719aa98c540998dc2c967b22cb6947ef928db85ce171d5ee86a1" {
+		t.Fatalf("create request hash = %s", got)
+	}
 
-	t.Run("patch", func(t *testing.T) {
-		request, apiErr := parties.DecodePatchRequest(strings.NewReader(
-			`{"view_schema_id":"cartulary.view.parties.v1","base_row_version":4,"client_txn_id":"txn-patch","changes":[{"field_key":"party.display_name","value":" Acme "}]}`,
-		))
-		if apiErr != nil {
-			t.Fatalf("decode Party patch request: %#v", apiErr)
-		}
-		if len(request.Changes) != 1 || request.Changes[0].CanonicalValue != "Acme" {
-			t.Fatalf("unexpected canonical patch: %#v", request)
-		}
-		if got := hex.EncodeToString(parties.PatchRequestHash(request)); got != "374c89ae3fd19215cabebd9c166b743fe391cee74c06de94a9fe79d35c01d791" {
-			t.Fatalf("patch request hash = %s", got)
-		}
-	})
+	patch, apiErr := parties.AdmitPatchJSON(strings.NewReader(
+		`{"view_schema_id":"cartulary.view.parties.v1","base_row_version":4,"client_txn_id":"txn-patch","changes":[{"field_key":"party.display_name","value":" Acme "}]}`,
+	))
+	if apiErr != nil {
+		t.Fatalf("admit Party patch request: %#v", apiErr)
+	}
+	if patch.AdmittedBaseRowVersion() != 4 || patch.ClientTransactionID() != "txn-patch" {
+		t.Fatalf("unexpected patch identity")
+	}
+	if got := hex.EncodeToString(patch.RequestHash()); got != "b8838d0c04b72734af771f7e38abca9e94f4f8b4b6ac1e8235204ad9e814139e" {
+		t.Fatalf("patch request hash = %s", got)
+	}
 
-	t.Run("conflict", func(t *testing.T) {
-		recordID := uuid.MustParse("11111111-2222-3333-4444-555555555555")
-		claims := parties.ConflictClaims{
-			RecordID: recordID, ViewSchemaID: parties.ViewSchemaID,
-			FieldKey: "party.display_name", CurrentRowVersion: 7,
-		}
-		request, apiErr := parties.DecodeConflictResolveRequest(
-			strings.NewReader(`{"conflict_token":"opaque","resolution_kind":"merged_value","client_txn_id":"txn-conflict","resolved_value":" Merged "}`),
-			"opaque",
-			claims,
-		)
-		if apiErr != nil {
-			t.Fatalf("decode Party conflict request: %#v", apiErr)
-		}
-		if request.Patch == nil || request.Patch.BaseRowVersion != 7 || request.CanonicalValue != "Merged" {
-			t.Fatalf("unexpected admitted conflict: %#v", request)
-		}
-		if got := hex.EncodeToString(parties.ConflictResolveRequestHash(claims, request)); got != "fdfee5e346e6b8db016f01b00eb0f80cc6fdea77c82ba099d91753baac2f6bfa" {
-			t.Fatalf("conflict request hash = %s", got)
-		}
-	})
+	claims := parties.ConflictClaims{
+		RecordID:     uuid.MustParse("11111111-2222-3333-4444-555555555555"),
+		ViewSchemaID: parties.ViewSchemaID, FieldKey: "party.display_name", CurrentRowVersion: 7,
+	}
+	conflict, apiErr := parties.AdmitConflictResolveJSON(
+		strings.NewReader(`{"conflict_token":"opaque","resolution_kind":"merged_value","client_txn_id":"txn-conflict","resolved_value":" Merged "}`),
+		"opaque",
+		claims,
+	)
+	if apiErr != nil {
+		t.Fatalf("admit Party conflict request: %#v", apiErr)
+	}
+	if conflict.ResolutionKind() != "merged_value" || conflict.ClientTransactionID() != "txn-conflict" {
+		t.Fatalf("unexpected conflict identity")
+	}
+	if got := hex.EncodeToString(conflict.RequestHash()); got != "2b424f63a70372b4f5dcd4209e9948a4c9000a9d8e20c426148461554798b885" {
+		t.Fatalf("conflict request hash = %s", got)
+	}
+}
 
-	for name, testCase := range map[string]struct {
-		body   string
-		decode func(string) bool
+func TestPartyMutationHashNormalizationEquivalence_Unit(t *testing.T) {
+	createHash := func(t *testing.T, email, externalRef, notes string) []byte {
+		t.Helper()
+		admission, apiErr := parties.AdmitCreateJSON(strings.NewReader(fmt.Sprintf(
+			`{"client_txn_id":"ignored","party.display_name":"José","party.party_kind":"person","party.primary_email":%q,"party.external_ref":%q,"party.notes":%q}`,
+			email,
+			externalRef,
+			notes,
+		)))
+		if apiErr != nil {
+			t.Fatalf("admit hash-equivalence create: %#v", apiErr)
+		}
+		return admission.RequestHash()
+	}
+	left := createHash(t, "Analyst@Example.COM", "Directory/AbC", "first\r\nsecond")
+	right := createHash(t, "analyst@example.com", "Directory/AbC", "first\nsecond")
+	if !bytes.Equal(left, right) {
+		t.Fatalf("equivalent NFC/email/line-ending requests hash differently: %x != %x", left, right)
+	}
+	caseVariant := createHash(t, "analyst@example.com", "Directory/abc", "first\nsecond")
+	if bytes.Equal(left, caseVariant) {
+		t.Fatalf("external-reference case variants hash equally: %x", left)
+	}
+}
+
+func TestPartyMutationFieldBoundariesAndClears_Unit(t *testing.T) {
+	for _, testCase := range []struct {
+		name      string
+		fieldKey  string
+		max       int
+		character string
 	}{
-		"unknown create field": {
-			body: `{"client_txn_id":"txn","party.display_name":"Acme","party.party_kind":"organization","legacy":true}`,
-			decode: func(body string) bool {
-				_, apiErr := parties.DecodeCreateRequest(strings.NewReader(body))
-				return apiErr != nil
-			},
+		{name: "display", fieldKey: "party.display_name", max: 256, character: "d"},
+		{name: "organization", fieldKey: "party.organization_name", max: 256, character: "o"},
+		{name: "role", fieldKey: "party.role_title", max: 256, character: "r"},
+		{name: "email", fieldKey: "party.primary_email", max: 320, character: "e"},
+		{name: "external", fieldKey: "party.external_ref", max: 1024, character: "x"},
+		{name: "notes", fieldKey: "party.notes", max: 16384, character: "n"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			maxValue := strings.Repeat(testCase.character, testCase.max)
+			if testCase.fieldKey == "party.primary_email" {
+				maxValue = strings.Repeat("e", testCase.max-2) + "@x"
+			}
+			assertPartyPatchAdmission(t, testCase.fieldKey, maxValue, true)
+			assertPartyPatchAdmission(t, testCase.fieldKey, maxValue+testCase.character, false)
+		})
+	}
+	for _, optional := range []string{
+		"party.organization_name", "party.role_title", "party.primary_email",
+		"party.timezone_name", "party.external_ref", "party.notes",
+	} {
+		assertPartyPatchAdmission(t, optional, nil, true)
+		assertPartyPatchAdmission(t, optional, " \t ", true)
+	}
+	assertPartyPatchAdmission(t, "party.display_name", nil, false)
+	assertPartyPatchAdmission(t, "party.party_kind", "Person", false)
+	assertPartyPatchAdmission(t, "party.party_kind", " person ", false)
+	assertPartyPatchAdmission(t, "party.primary_email", "a@@b", false)
+	assertPartyPatchAdmission(t, "party.primary_email", "a b@example.test", false)
+	assertPartyPatchAdmission(t, "party.timezone_name", "America/New_York", true)
+	assertPartyPatchAdmission(t, "party.timezone_name", "US/Eastern", true)
+	assertPartyPatchAdmission(t, "party.timezone_name", "america/new_york", false)
+	assertPartyPatchAdmission(t, "party.timezone_name", "EST", false)
+	assertPartyPatchAdmission(t, "party.timezone_name", "+05:00", false)
+	assertPartyPatchAdmission(t, "party.timezone_name", "../America/New_York", false)
+	assertPartyPatchAdmission(t, "party.notes", "allowed\tline\nnext", true)
+	assertPartyPatchAdmission(t, "party.notes", "forbidden\x00control", false)
+}
+
+func TestPartyMutationRejectsUnknownAndDuplicateMembers_Unit(t *testing.T) {
+	for name, reject := range map[string]func() bool{
+		"unknown create field": func() bool {
+			_, apiErr := parties.AdmitCreateJSON(strings.NewReader(`{"client_txn_id":"txn","party.display_name":"Acme","party.party_kind":"organization","legacy":true}`))
+			return apiErr != nil
 		},
-		"invalid kind": {
-			body: `{"client_txn_id":"txn","party.display_name":"Acme","party.party_kind":"legacy"}`,
-			decode: func(body string) bool {
-				_, apiErr := parties.DecodeCreateRequest(strings.NewReader(body))
-				return apiErr != nil
-			},
+		"wrong patch surface": func() bool {
+			_, apiErr := parties.AdmitPatchJSON(strings.NewReader(`{"view_schema_id":"cartulary.view.evidence.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"party.display_name","value":"Acme"}]}`))
+			return apiErr != nil
 		},
-		"wrong patch surface": {
-			body: `{"view_schema_id":"cartulary.view.evidence.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"party.display_name","value":"Acme"}]}`,
-			decode: func(body string) bool {
-				_, apiErr := parties.DecodePatchRequest(strings.NewReader(body))
-				return apiErr != nil
-			},
-		},
-		"duplicate patch field": {
-			body: `{"view_schema_id":"cartulary.view.parties.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"party.display_name","value":"A"},{"field_key":"party.display_name","value":"B"}]}`,
-			decode: func(body string) bool {
-				_, apiErr := parties.DecodePatchRequest(strings.NewReader(body))
-				return apiErr != nil
-			},
+		"duplicate patch field": func() bool {
+			_, apiErr := parties.AdmitPatchJSON(strings.NewReader(`{"view_schema_id":"cartulary.view.parties.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"party.display_name","value":"A"},{"field_key":"party.display_name","value":"B"}]}`))
+			return apiErr != nil
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if !testCase.decode(testCase.body) {
-				t.Fatalf("expected malformed Party mutation to be rejected: %s", testCase.body)
+			if !reject() {
+				t.Fatal("expected malformed Party mutation rejection")
 			}
 		})
 	}
+}
+
+func assertPartyPatchAdmission(t *testing.T, fieldKey string, value any, accepted bool) {
+	t.Helper()
+	payload := fmt.Sprintf(
+		`{"view_schema_id":"cartulary.view.parties.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":%q,"value":%s}]}`,
+		fieldKey,
+		jsonLiteral(value),
+	)
+	_, apiErr := parties.AdmitPatchJSON(strings.NewReader(payload))
+	if (apiErr == nil) != accepted {
+		t.Fatalf("admission for %s value %#v accepted=%t, error=%#v", fieldKey, value, accepted, apiErr)
+	}
+}
+
+func jsonLiteral(value any) string {
+	if value == nil {
+		return "null"
+	}
+	return fmt.Sprintf("%q", value)
 }

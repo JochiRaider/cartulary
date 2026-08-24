@@ -37,7 +37,7 @@ func TestIncidentBundleRetiredVersionIsRejectedWithoutEffects_Integration(t *tes
 		if err := json.Unmarshal(original, &manifest); err != nil {
 			t.Fatalf("decode current manifest: %v", err)
 		}
-		manifest["bundle_version"] = float64(1)
+		manifest["bundle_version"] = float64(2)
 		payload, err := json.Marshal(manifest)
 		if err != nil {
 			t.Fatalf("encode retired-version manifest: %v", err)

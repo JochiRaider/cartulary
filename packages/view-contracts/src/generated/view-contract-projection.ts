@@ -7244,7 +7244,7 @@ const value = [
         "writeKind": "direct_value"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
         "createWritable": false,
         "defaultHidden": false,
@@ -7268,7 +7268,7 @@ const value = [
         "writeKind": "direct_value"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
         "createWritable": false,
         "defaultHidden": false,
@@ -7289,7 +7289,7 @@ const value = [
         "writeKind": "direct_value"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "atomic_replace",
         "createWritable": false,
         "defaultHidden": false,
@@ -7313,7 +7313,7 @@ const value = [
         "writeKind": "direct_value"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "atomic_replace",
         "createWritable": false,
         "defaultHidden": false,
@@ -7334,7 +7334,7 @@ const value = [
         "writeKind": "direct_value"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "atomic_replace",
         "createWritable": false,
         "defaultHidden": false,
@@ -7358,7 +7358,7 @@ const value = [
         "writeKind": "direct_value"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
         "createWritable": false,
         "defaultHidden": true,

@@ -48,9 +48,9 @@ func revisionsIncidentBundleDescriptor() sourceport.Descriptor {
 		OwnerID: "module.revisions", OwnerRelationIDs: []string{"record-revisions"},
 		Dependencies: []string{"links_tags"},
 		Paths: []sourceport.Path{
-			{LogicalPath: "data/change_sets.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.change_sets.row.v1", Versions: []int{2}, StableIdentity: []string{"change_set_id"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
-			{LogicalPath: "data/change_set_mutations.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.change_set_mutations.row.v1", Versions: []int{2}, StableIdentity: []string{"change_set_id", "sequence_no"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
-			{LogicalPath: "data/record_revisions.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.record_revisions.row.v1", Versions: []int{2}, StableIdentity: []string{"revision_id"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
+			{LogicalPath: "data/change_sets.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.change_sets.row.v1", Versions: []int{3}, StableIdentity: []string{"change_set_id"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
+			{LogicalPath: "data/change_set_mutations.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.change_set_mutations.row.v1", Versions: []int{3}, StableIdentity: []string{"change_set_id", "sequence_no"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
+			{LogicalPath: "data/record_revisions.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.record_revisions.row.v1", Versions: []int{3}, StableIdentity: []string{"revision_id"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
 		},
 		InvariantIDs: []string{
 			"revisions.references_complete", "revisions.actor_references_complete",

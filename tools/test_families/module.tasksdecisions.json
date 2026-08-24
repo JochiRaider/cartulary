@@ -296,6 +296,32 @@
       "service_dependencies": [
         "postgres"
       ]
+    },
+    {
+      "row_id": "module.tasksdecisions.unit.task_decision_direct_references_admit_exact_stab_7bf2beff80",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.unit",
+      "collaborator_ids": [
+        "module.parties"
+      ],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/parties",
+        "tests": [
+          "TestDirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

@@ -599,6 +599,24 @@ func (mutation *vNextRestoreMutation) RunCatalogAlgorithm(ctx context.Context, a
 		if !valid {
 			return fmt.Errorf("%w: rebuilt Entities active identifier claims are invalid", ErrVNextBackup)
 		}
+	case "parties.restore_active_key_claims.v1":
+		var rebuiltCount int64
+		if err := mutation.tx.QueryRow(
+			ctx,
+			`SELECT public.parties_rebuild_active_key_claims_v1()`,
+		).Scan(&rebuiltCount); err != nil {
+			return fmt.Errorf("rebuild Parties active key claims: %w", err)
+		}
+		var valid bool
+		if err := mutation.tx.QueryRow(
+			ctx,
+			`SELECT public.parties_active_key_claims_are_valid_v1()`,
+		).Scan(&valid); err != nil {
+			return fmt.Errorf("validate rebuilt Parties active key claims: %w", err)
+		}
+		if !valid {
+			return fmt.Errorf("%w: rebuilt Parties active key claims are invalid", ErrVNextBackup)
+		}
 	default:
 		// PreparePostgresTables invalidates excluded projections whose owner
 		// rebuilders run once after authoritative state commits.

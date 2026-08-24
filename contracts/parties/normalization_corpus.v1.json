@@ -1,0 +1,139 @@
+{
+  "schema_id": "cartulary.parties.normalization_corpus.v1",
+  "field_registry_id": "cartulary.parties.field_registry.v1",
+  "timezone_registry_id": "cartulary.timezone_name_registry.v1",
+  "cases": [
+    {
+      "case_id": "display_name_nfc_trim",
+      "field_key": "party.display_name",
+      "input": "  Jose\u0301  Silva  ",
+      "accepted": true,
+      "stored_value": "Jos\u00e9 Silva",
+      "equality_value": "Jos\u00e9 Silva",
+      "claim_value": null,
+      "canonical_hash_value": "Jos\u00e9 Silva"
+    },
+    {
+      "case_id": "display_name_empty_rejected",
+      "field_key": "party.display_name",
+      "input": " \t ",
+      "accepted": false,
+      "reason_code": "field_required"
+    },
+    {
+      "case_id": "party_kind_exact",
+      "field_key": "party.party_kind",
+      "input": "distribution_list",
+      "accepted": true,
+      "stored_value": "distribution_list",
+      "equality_value": "distribution_list",
+      "claim_value": null,
+      "canonical_hash_value": "distribution_list"
+    },
+    {
+      "case_id": "party_kind_case_rejected",
+      "field_key": "party.party_kind",
+      "input": "Person",
+      "accepted": false,
+      "reason_code": "invalid_enum_value"
+    },
+    {
+      "case_id": "organization_empty_clears",
+      "field_key": "party.organization_name",
+      "input": "  ",
+      "accepted": true,
+      "stored_value": null,
+      "equality_value": null,
+      "claim_value": null,
+      "canonical_hash_value": null
+    },
+    {
+      "case_id": "role_null_clears",
+      "field_key": "party.role_title",
+      "input": null,
+      "accepted": true,
+      "stored_value": null,
+      "equality_value": null,
+      "claim_value": null,
+      "canonical_hash_value": null
+    },
+    {
+      "case_id": "email_case_preserved_identity_folded",
+      "field_key": "party.primary_email",
+      "input": "  Analyst@Example.COM  ",
+      "accepted": true,
+      "stored_value": "Analyst@Example.COM",
+      "equality_value": "analyst@example.com",
+      "claim_value": "analyst@example.com",
+      "canonical_hash_value": "analyst@example.com"
+    },
+    {
+      "case_id": "email_missing_domain_rejected",
+      "field_key": "party.primary_email",
+      "input": "analyst",
+      "accepted": false,
+      "reason_code": "invalid_email_address"
+    },
+    {
+      "case_id": "timezone_zone_preserved",
+      "field_key": "party.timezone_name",
+      "input": " America/New_York ",
+      "accepted": true,
+      "stored_value": "America/New_York",
+      "equality_value": "America/New_York",
+      "claim_value": null,
+      "canonical_hash_value": "America/New_York"
+    },
+    {
+      "case_id": "timezone_link_preserved",
+      "field_key": "party.timezone_name",
+      "input": "US/Eastern",
+      "accepted": true,
+      "stored_value": "US/Eastern",
+      "equality_value": "US/Eastern",
+      "claim_value": null,
+      "canonical_hash_value": "US/Eastern"
+    },
+    {
+      "case_id": "timezone_case_rejected",
+      "field_key": "party.timezone_name",
+      "input": "america/new_york",
+      "accepted": false,
+      "reason_code": "invalid_timezone_name"
+    },
+    {
+      "case_id": "timezone_traversal_rejected",
+      "field_key": "party.timezone_name",
+      "input": "../America/New_York",
+      "accepted": false,
+      "reason_code": "invalid_timezone_name"
+    },
+    {
+      "case_id": "external_ref_case_sensitive",
+      "field_key": "party.external_ref",
+      "input": "  Directory/AbC-123  ",
+      "accepted": true,
+      "stored_value": "Directory/AbC-123",
+      "equality_value": "Directory/AbC-123",
+      "claim_value": "Directory/AbC-123",
+      "canonical_hash_value": "Directory/AbC-123"
+    },
+    {
+      "case_id": "notes_line_endings",
+      "field_key": "party.notes",
+      "input": "  first\r\nsecond\rthird  ",
+      "accepted": true,
+      "stored_value": "first\nsecond\nthird",
+      "equality_value": "first\nsecond\nthird",
+      "claim_value": null,
+      "canonical_hash_value": "first\nsecond\nthird"
+    },
+    {
+      "case_id": "notes_nul_rejected",
+      "field_key": "party.notes",
+      "input": "first\u0000second",
+      "accepted": false,
+      "reason_code": "control_character_not_allowed"
+    }
+  ]
+}

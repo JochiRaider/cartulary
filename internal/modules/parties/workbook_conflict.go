@@ -3,34 +3,43 @@ package parties
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	partysource "github.com/JochiRaider/cartulary/internal/modules/parties/internal/source"
 	conflictresolution "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type ConflictCommand struct {
-	Mechanics      conflictresolution.Command
-	Actor          authn.UserRecord
-	ResolutionKind string
-	Patch          *PatchRequest
-	Now            time.Time
+	Mechanics   conflictresolution.Command
+	ActorUserID uuid.UUID
+	Admission   ConflictResolveAdmission
+	Now         time.Time
 }
 
 func (f *MutationFacade) ResolveConflict(
 	ctx context.Context,
 	command ConflictCommand,
 ) (MutationResult, error) {
-	if command.ResolutionKind != "keep_saved" {
+	admission := command.Admission
+	if command.Mechanics.RouteKey != workbookConflictResolveOperation ||
+		command.Mechanics.ActorUserID != command.ActorUserID ||
+		command.Mechanics.RecordID != admission.claims.RecordID ||
+		command.Mechanics.Claims.ViewSchemaID != admission.claims.ViewSchemaID ||
+		command.Mechanics.Claims.FieldKey != admission.claims.FieldKey ||
+		command.Mechanics.Claims.CurrentRowVersion != admission.claims.CurrentRowVersion {
+		return MutationResult{}, &ValidationError{Field: "conflict_token", ReasonCode: "invalid_value"}
+	}
+	command.Mechanics.RequestHash = admission.RequestHash()
+	command.Mechanics.ClientTxnID = admission.clientTxnID
+	if admission.resolutionKind != "keep_saved" {
 		return f.Patch(ctx, PatchCommand{
-			Actor:            command.Actor,
+			ActorUserID:      command.ActorUserID,
 			RecordID:         command.Mechanics.RecordID,
-			Request:          *command.Patch,
-			RequestHash:      command.Mechanics.RequestHash,
+			Admission:        *admission.patch,
 			RequestID:        command.Mechanics.RequestID,
 			RouteKey:         command.Mechanics.RouteKey,
 			ConflictRouteKey: command.Mechanics.RouteKey,
@@ -40,10 +49,9 @@ func (f *MutationFacade) ResolveConflict(
 	if f.keepSaved == nil {
 		return MutationResult{}, fmt.Errorf("parties: keep-saved idempotency is not configured")
 	}
-	result, err := conflictresolution.KeepSaved(
+	result, err := f.keepSaved.KeepSaved(
 		ctx,
 		f.pool,
-		f.keepSaved,
 		command.Mechanics,
 		f.loadConflictTarget,
 	)
@@ -51,9 +59,8 @@ func (f *MutationFacade) ResolveConflict(
 		return MutationResult{}, err
 	}
 	return MutationResult{
-		Payload:      result.Payload,
-		StatusCode:   http.StatusOK,
-		Replayed:     result.Replayed,
+		Outcome:      conflictMutationOutcome(result.Replayed),
+		Row:          result.Row,
 		IncidentID:   result.IncidentID,
 		RecordID:     result.RecordID,
 		ClientTxnID:  result.ClientTxnID,
@@ -67,7 +74,7 @@ func (f *MutationFacade) loadConflictTarget(
 	tx pgx.Tx,
 	command conflictresolution.Command,
 ) (conflictresolution.Target, error) {
-	meta, err := loadPartyRecordMetaForUpdateTx(ctx, tx, command.RecordID)
+	meta, err := partysource.LoadRecordMetaForUpdateTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return conflictresolution.Target{}, err
 	}
@@ -91,4 +98,11 @@ func (f *MutationFacade) loadConflictTarget(
 		RowVersion: meta.RowVersion,
 		Row:        row,
 	}, nil
+}
+
+func conflictMutationOutcome(replayed bool) MutationOutcome {
+	if replayed {
+		return MutationReplayed
+	}
+	return MutationKeptSaved
 }

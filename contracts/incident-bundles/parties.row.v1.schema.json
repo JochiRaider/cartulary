@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.incident_bundle.parties.row.v1",
+  "title": "Parties incident bundle row",
+  "description": "Exact ten-member authoritative Party row used only by Incident Bundle version 3. Normalization and timezone-registry membership remain Party owner validations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_id",
+    "incident_id",
+    "display_name",
+    "party_kind",
+    "organization_name",
+    "role_title",
+    "primary_email",
+    "timezone_name",
+    "external_ref",
+    "notes"
+  ],
+  "properties": {
+    "record_id": { "$ref": "#/$defs/uuid" },
+    "incident_id": { "$ref": "#/$defs/uuid" },
+    "display_name": { "$ref": "#/$defs/display_name" },
+    "party_kind": {
+      "enum": ["person", "team", "organization", "distribution_list", "other"]
+    },
+    "organization_name": { "$ref": "#/$defs/nullable_display_name" },
+    "role_title": { "$ref": "#/$defs/nullable_display_name" },
+    "primary_email": { "$ref": "#/$defs/nullable_email" },
+    "timezone_name": { "$ref": "#/$defs/nullable_timezone" },
+    "external_ref": { "$ref": "#/$defs/nullable_locator" },
+    "notes": { "$ref": "#/$defs/nullable_notes" }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "nullable_display_name": {
+      "oneOf": [
+        { "$ref": "#/$defs/display_name" },
+        { "type": "null" }
+      ]
+    },
+    "email": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 320,
+      "pattern": "^[^\\s@\\u0000-\\u001f\\u007f]+@[^\\s@\\u0000-\\u001f\\u007f]+$"
+    },
+    "nullable_email": {
+      "oneOf": [
+        { "$ref": "#/$defs/email" },
+        { "type": "null" }
+      ]
+    },
+    "timezone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._+-]+(?:/[A-Za-z0-9._+-]+)*$"
+    },
+    "nullable_timezone": {
+      "oneOf": [
+        { "$ref": "#/$defs/timezone" },
+        { "type": "null" }
+      ]
+    },
+    "locator": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "nullable_locator": {
+      "oneOf": [
+        { "$ref": "#/$defs/locator" },
+        { "type": "null" }
+      ]
+    },
+    "notes": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384,
+      "pattern": "^[^\\u0000\\r]*$"
+    },
+    "nullable_notes": {
+      "oneOf": [
+        { "$ref": "#/$defs/notes" },
+        { "type": "null" }
+      ]
+    }
+  }
+}

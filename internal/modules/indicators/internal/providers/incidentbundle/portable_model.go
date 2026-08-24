@@ -136,7 +136,7 @@ func (binding portableBinding) matches(importContext sourceport.ImportContext) b
 		binding.incidentID != uuid.Nil &&
 		binding.incidentID == importContext.IncidentID &&
 		binding.bundleVersion == importContext.BundleVersion &&
-		binding.bundleVersion == 2 &&
+		binding.bundleVersion == 3 &&
 		binding.contractMajor == sourceport.ContractMajor
 }
 

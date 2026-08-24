@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.parties.normalization_corpus.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "field_registry_id", "timezone_registry_id", "cases"],
+  "properties": {
+    "schema_id": { "const": "cartulary.parties.normalization_corpus.v1" },
+    "field_registry_id": { "const": "cartulary.parties.field_registry.v1" },
+    "timezone_registry_id": { "const": "cartulary.timezone_name_registry.v1" },
+    "cases": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/accepted" },
+          { "$ref": "#/$defs/rejected" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "field_key": {
+      "enum": [
+        "party.display_name",
+        "party.party_kind",
+        "party.organization_name",
+        "party.role_title",
+        "party.primary_email",
+        "party.timezone_name",
+        "party.external_ref",
+        "party.notes"
+      ]
+    },
+    "input": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "null" }
+      ]
+    },
+    "result_value": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "null" }
+      ]
+    },
+    "accepted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "field_key", "input", "accepted", "stored_value", "equality_value", "claim_value", "canonical_hash_value"],
+      "properties": {
+        "case_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "field_key": { "$ref": "#/$defs/field_key" },
+        "input": { "$ref": "#/$defs/input" },
+        "accepted": { "const": true },
+        "stored_value": { "$ref": "#/$defs/result_value" },
+        "equality_value": { "$ref": "#/$defs/result_value" },
+        "claim_value": { "$ref": "#/$defs/result_value" },
+        "canonical_hash_value": { "$ref": "#/$defs/result_value" }
+      }
+    },
+    "rejected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "field_key", "input", "accepted", "reason_code"],
+      "properties": {
+        "case_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "field_key": { "$ref": "#/$defs/field_key" },
+        "input": { "$ref": "#/$defs/input" },
+        "accepted": { "const": false },
+        "reason_code": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+      }
+    }
+  }
+}

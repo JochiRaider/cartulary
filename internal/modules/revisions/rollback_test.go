@@ -54,7 +54,7 @@ func TestRollbackSelectorUnion_Unit(t *testing.T) {
 		_ = historyOpenAPIObjectAt(t, schemas, "RecordRollbackData")
 		errorsDocument := contracttest.ErrorRegistryDocument(t)
 		requireErrorReasonRegistry(t, errorsDocument, "invalid_rollback_request", "request_not_object", "missing_required_field", "unknown_field", "invalid_base_row_version", "invalid_value", "target_not_object", "unsupported_target_kind")
-		requireErrorReasonRegistry(t, errorsDocument, "rollback_precondition_failed", "target_not_reversible", "entry_requires_change_set", "dependent_later_changes", "stale_target", "active_entity_identifier_conflict")
+		requireErrorReasonRegistry(t, errorsDocument, "rollback_precondition_failed", "target_not_reversible", "entry_requires_change_set", "dependent_later_changes", "stale_target", "active_entity_identifier_conflict", "exact_match_key_claimed")
 	})
 
 	t.Run("strict validation", func(t *testing.T) {
@@ -345,6 +345,45 @@ UPDATE hosts
 		}
 		if got := stringScalar(t, harness.DB, `SELECT hostname FROM hosts WHERE record_id = $1`, recordID); got != "rollback-rekey-current" {
 			t.Fatalf("blocked rollback rekey changed hostname to %q", got)
+		}
+	})
+
+	t.Run("Party rollback claim collision fails atomically", func(t *testing.T) {
+		changeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000550")
+		recordID := seedRollbackPartyClaimPatch(
+			t,
+			harness.DB,
+			incidentID,
+			actorID,
+			changeSetID,
+			"party-rollback-old@example.test",
+			"party-rollback-current@example.test",
+		)
+		blockingRecordID := uuid.New()
+		envelopetest.SeedRecordEnvelope(t, harness.DB, incidentID, actorID, blockingRecordID, "party")
+		mustExec(t, harness.DB, `
+INSERT INTO parties (record_id, incident_id, display_name, party_kind, primary_email, updated_at)
+VALUES ($1, $2, 'Party Rollback Blocker', 'person', 'party-rollback-old@example.test', $3)
+`, blockingRecordID, incidentID, time.Now().UTC())
+
+		before := StateCounts(t, harness.DB, recordID)
+		response := rollbackRecord(t, harness, login, recordID, map[string]any{
+			"base_row_version": 2,
+			"client_txn_id":    "txn-party-row-restore-claim-conflict",
+			"target": map[string]any{
+				"kind":              "history_entry",
+				"history_entry_ref": "href-party-claim-rollback",
+			},
+		})
+		requireRollbackReasonCode(t, response, "exact_match_key_claimed")
+		if after := StateCounts(t, harness.DB, recordID); after != before {
+			t.Fatalf("blocked Party rollback mutated state: before=%+v after=%+v", before, after)
+		}
+		if got := stringScalar(t, harness.DB, `SELECT primary_email FROM parties WHERE record_id = $1`, recordID); got != "party-rollback-current@example.test" {
+			t.Fatalf("blocked Party rollback changed primary_email to %q", got)
+		}
+		if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE source = 'rollback' AND client_txn_id = 'txn-party-row-restore-claim-conflict'`); got != 0 {
+			t.Fatalf("blocked Party rollback created %d rollback change sets", got)
 		}
 	})
 
@@ -989,6 +1028,29 @@ func seedRollbackPartyPatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, acto
 	before := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v1", 1, map[string]any{"display_name": beforeName, "party_kind": "person"})
 	after := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v1", 2, map[string]any{"display_name": afterName, "party_kind": "person"})
 	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "record", recordID.String(), "patch", before, after, "href-party-rollback")
+	return recordID
+}
+
+func seedRollbackPartyClaimPatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID, beforeEmail string, afterEmail string) uuid.UUID {
+	t.Helper()
+	recordID := uuid.New()
+	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "party")
+	mustExec(t, db, `
+INSERT INTO parties (record_id, incident_id, display_name, party_kind, primary_email, updated_at)
+VALUES ($1, $2, 'Party Claim Rollback', 'person', $3, $4)
+`, recordID, incidentID, afterEmail, time.Now().UTC())
+	advanceRecordFixture(t, db, recordID, 2)
+	before := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v1", 1, map[string]any{
+		"display_name":  "Party Claim Rollback",
+		"party_kind":    "person",
+		"primary_email": beforeEmail,
+	})
+	after := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v1", 2, map[string]any{
+		"display_name":  "Party Claim Rollback",
+		"party_kind":    "person",
+		"primary_email": afterEmail,
+	})
+	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "record", recordID.String(), "patch", before, after, "href-party-claim-rollback")
 	return recordID
 }
 

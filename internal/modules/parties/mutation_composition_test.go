@@ -1,0 +1,179 @@
+package parties
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+)
+
+func TestMutationContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
+	if _, err := NewMutationContribution(nil, conflicttokens.ConflictTokenCodec{}, MutationDependencies{}); err == nil || !strings.Contains(err.Error(), "Postgres is required") {
+		t.Fatalf("nil Postgres error = %v", err)
+	}
+	tests := []struct {
+		name string
+		want string
+		drop func(*MutationDependencies)
+	}{
+		{name: "incident state", want: "Incident admission", drop: func(d *MutationDependencies) { d.IncidentState = nil }},
+		{name: "idempotency", want: "Route idempotency", drop: func(d *MutationDependencies) { d.Idempotency = nil }},
+		{name: "records", want: "Record envelopes", drop: func(d *MutationDependencies) { d.RecordEnvelopes = nil }},
+		{name: "projections", want: "Projections", drop: func(d *MutationDependencies) { d.Projections = nil }},
+		{name: "revisions", want: "Revisions/history", drop: func(d *MutationDependencies) { d.Revisions = nil }},
+		{name: "conflict fields", want: "Conflict fields", drop: func(d *MutationDependencies) { d.ConflictFields = nil }},
+		{name: "keep saved", want: "Keep-saved resolution", drop: func(d *MutationDependencies) { d.KeepSaved = nil }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dependencies := completeMutationDependencies()
+			test.drop(&dependencies)
+			if _, err := NewMutationContribution(compositionDB{}, conflicttokens.ConflictTokenCodec{}, dependencies); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("missing %s error = %v", test.name, err)
+			}
+		})
+	}
+}
+
+func TestMutationContributionSharesOneFacade_Unit(t *testing.T) {
+	facade, err := NewMutationContribution(
+		compositionDB{},
+		conflicttokens.ConflictTokenCodec{},
+		completeMutationDependencies(),
+	)
+	if err != nil {
+		t.Fatalf("construct mutation contribution: %v", err)
+	}
+	var create interface {
+		Create(context.Context, CreateCommand) (MutationResult, error)
+	} = facade
+	var patch interface {
+		Patch(context.Context, PatchCommand) (MutationResult, error)
+	} = facade
+	var conflict interface {
+		ResolveConflict(context.Context, ConflictCommand) (MutationResult, error)
+	} = facade
+	if create != facade || patch != facade || conflict != facade {
+		t.Fatal("mutation consumers did not retain the one facade instance")
+	}
+}
+
+func TestImportContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
+	if _, err := NewImportContribution("cartulary.view.unknown.v1", "parties.unknown", completeImportDependencies()); err == nil || !strings.Contains(err.Error(), "not mapped") {
+		t.Fatalf("unknown import surface error = %v", err)
+	}
+	tests := []struct {
+		name string
+		want string
+		drop func(*ImportDependencies)
+	}{
+		{name: "records", want: "Records insert", drop: func(d *ImportDependencies) { d.RecordEnvelopes = nil }},
+		{name: "projections", want: "Projection refresh/load", drop: func(d *ImportDependencies) { d.Projections = nil }},
+		{name: "revisions", want: "Revision finalization", drop: func(d *ImportDependencies) { d.Revisions = nil }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dependencies := completeImportDependencies()
+			test.drop(&dependencies)
+			if _, err := NewImportContribution(ViewSchemaID, "parties.create", dependencies); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("missing %s error = %v", test.name, err)
+			}
+		})
+	}
+}
+
+func completeMutationDependencies() MutationDependencies {
+	operations := compositionOperations{}
+	resolver, err := conflicttokens.NewFieldResolverCatalog(nil)
+	if err != nil {
+		panic(err)
+	}
+	return MutationDependencies{
+		IncidentState: operations, Idempotency: compositionIdempotency{},
+		RecordEnvelopes: operations, Projections: operations, Revisions: operations,
+		ConflictFields: resolver, KeepSaved: compositionKeepSaved{},
+	}
+}
+
+func completeImportDependencies() ImportDependencies {
+	operations := compositionOperations{}
+	return ImportDependencies{RecordEnvelopes: operations, Projections: operations, Revisions: operations}
+}
+
+type compositionDB struct{}
+
+func (compositionDB) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
+	return pgconn.NewCommandTag(""), errors.New("unexpected composition DB execution")
+}
+func (compositionDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return nil, errors.New("unexpected composition DB query")
+}
+func (compositionDB) QueryRow(context.Context, string, ...any) pgx.Row { return compositionRow{} }
+func (compositionDB) BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error) {
+	return nil, errors.New("unexpected composition transaction")
+}
+
+type compositionRow struct{}
+
+func (compositionRow) Scan(...any) error { return errors.New("unexpected composition row scan") }
+
+type compositionIdempotency struct{}
+
+func (compositionIdempotency) Get(context.Context, IdempotencyKey, []byte) (IdempotencyRecord, error) {
+	return IdempotencyRecord{}, ErrIdempotencyNotFound
+}
+func (compositionIdempotency) PutTx(context.Context, pgx.Tx, IdempotencyKey, []byte, StoredMutationResult) error {
+	return nil
+}
+
+type compositionKeepSaved struct{}
+
+func (compositionKeepSaved) KeepSaved(
+	context.Context,
+	conflicttokens.TransactionRunner,
+	conflicttokens.Command,
+	conflicttokens.TargetLoader,
+) (KeepSavedResult, error) {
+	return KeepSavedResult{}, nil
+}
+
+type compositionOperations struct{}
+
+func (compositionOperations) RequireOpenTx(context.Context, pgx.Tx, uuid.UUID) error { return nil }
+func (compositionOperations) InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
+func (compositionOperations) AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error) {
+	return 1, nil
+}
+func (compositionOperations) RefreshPartyTx(context.Context, pgx.Tx, uuid.UUID) error { return nil }
+func (compositionOperations) LoadPartyTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error) {
+	return map[string]any{}, nil
+}
+func (compositionOperations) RebuildPartiesTx(context.Context, pgx.Tx, uuid.UUID) error {
+	return nil
+}
+func (compositionOperations) CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error) {
+	return revisions.RecordSnapshot{}, nil
+}
+func (compositionOperations) AppendChangeSetTx(context.Context, pgx.Tx, revisions.AppendChangeSetParams) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
+func (compositionOperations) AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error {
+	return nil
+}
+func (compositionOperations) AppendRecordRevisionAndIntentTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error {
+	return nil
+}
+func (compositionOperations) LoadRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]conflicttokens.RevisionWindowRow, error) {
+	return nil, nil
+}

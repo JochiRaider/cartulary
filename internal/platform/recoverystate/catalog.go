@@ -19,7 +19,7 @@ const (
 	CatalogSchemaID      = "cartulary.recovery_state_catalog.v1"
 	PostgresUnitCodecID  = "cartulary.postgres_snapshot_unit.v1"
 
-	AuthoredTableCount  = 114
+	AuthoredTableCount  = 115
 	RequiredTableCount  = 84
 	ContributionCount   = 30
 	ObjectFamilyCount   = 6

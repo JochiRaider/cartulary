@@ -15,6 +15,7 @@ import (
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
@@ -80,6 +81,147 @@ func TestTimelineProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *tes
 	if len(second.Inputs) != 1 || second.NextRecordID != nil ||
 		second.Inputs[0].RecordID.String() != "10000000-0000-4000-8000-000000000003" {
 		t.Fatalf("unexpected second projection source page: %#v", second)
+	}
+}
+
+func TestPartyProjectionSourceEnumerationIsDeterministicCompleteAndActiveOnly(t *testing.T) {
+	ctx := context.Background()
+	harness := appsupport.StartStore(t, "projection-party-source-paging")
+	actor := authstoretest.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"party-projection-page@example.test",
+		"Party Projection Page",
+		"PartyProjectionPage1!",
+		false,
+		false,
+		true,
+	)
+	incident := appsupport.CreateIncidentInStore(
+		t,
+		harness.DB,
+		actor,
+		"txn-party-projection-page-incident",
+		"IR-PARTY-PROJECTION-PAGE",
+		"Party projection paging",
+	)
+	foreignIncident := appsupport.CreateIncidentInStore(
+		t,
+		harness.DB,
+		actor,
+		"txn-party-projection-page-foreign-incident",
+		"IR-PARTY-PROJECTION-FOREIGN",
+		"Foreign Party projection paging",
+	)
+	recordIDs := []uuid.UUID{
+		uuid.MustParse("20000000-0000-4000-8000-000000000003"),
+		uuid.MustParse("20000000-0000-4000-8000-000000000001"),
+		uuid.MustParse("20000000-0000-4000-8000-000000000002"),
+	}
+	updatedAt := time.Date(2026, 8, 24, 1, 0, 0, 0, time.FixedZone("fixture", 2*60*60))
+	for _, recordID := range recordIDs {
+		if _, err := harness.DB.Exec(ctx, `
+INSERT INTO records (
+    record_id, incident_id, record_type, created_by_user_id, updated_by_user_id,
+    row_version
+) VALUES ($1, $2, 'party', $3, $3, 7)
+`, recordID, incident.ID, actor.ID); err != nil {
+			t.Fatalf("seed Party projection envelope %s: %v", recordID, err)
+		}
+		if _, err := harness.DB.Exec(ctx, `
+INSERT INTO parties (
+    record_id, incident_id, display_name, party_kind, organization_name,
+    role_title, primary_email, timezone_name, external_ref, notes, updated_at
+) VALUES ($1, $2, $3, 'organization', $4, $5, $6, $7, $8, $9, $10)
+`, recordID, incident.ID, "Party "+recordID.String(), nil, nil, nil, nil, nil, nil, updatedAt); err != nil {
+			t.Fatalf("seed Party projection source %s: %v", recordID, err)
+		}
+	}
+	fullRecordID := recordIDs[1]
+	if _, err := harness.DB.Exec(ctx, `
+UPDATE parties
+   SET organization_name = 'Coordination',
+       role_title = 'Lead',
+       primary_email = 'Owner@Example.Test',
+       timezone_name = 'US/Eastern',
+       external_ref = 'EXT-Party',
+       notes = E'Line one\nLine two'
+ WHERE record_id = $1
+`, fullRecordID); err != nil {
+		t.Fatalf("populate Party projection optionals: %v", err)
+	}
+	deletedRecordID := recordIDs[2]
+	if _, err := harness.DB.Exec(ctx, `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, deletedRecordID, actor.ID); err != nil {
+		t.Fatalf("delete Party projection source: %v", err)
+	}
+	foreignRecordID := uuid.MustParse("20000000-0000-4000-8000-000000000000")
+	if _, err := harness.DB.Exec(ctx, `
+INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
+VALUES ($1, $2, 'party', $3, $3)
+`, foreignRecordID, foreignIncident.ID, actor.ID); err != nil {
+		t.Fatalf("seed foreign Party projection envelope: %v", err)
+	}
+	if _, err := harness.DB.Exec(ctx, `
+INSERT INTO parties (record_id, incident_id, display_name, party_kind)
+VALUES ($1, $2, 'Foreign Party', 'team')
+`, foreignRecordID, foreignIncident.ID); err != nil {
+		t.Fatalf("seed foreign Party projection source: %v", err)
+	}
+
+	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin Party projection source transaction: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	contribution, err := parties.NewProjectionContribution()
+	if err != nil {
+		t.Fatalf("construct Party projection contribution: %v", err)
+	}
+	source := contribution.Source()
+	if _, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 0); err == nil {
+		t.Fatal("zero Party projection page limit unexpectedly succeeded")
+	}
+	if _, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 1001); err == nil {
+		t.Fatal("oversized Party projection page limit unexpectedly succeeded")
+	}
+	first, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 1)
+	if err != nil {
+		t.Fatalf("list first Party projection source page: %v", err)
+	}
+	if len(first.Inputs) != 1 || first.NextRecordID == nil || first.Inputs[0].RecordID != fullRecordID {
+		t.Fatalf("unexpected first Party projection source page: %#v", first)
+	}
+	input := first.Inputs[0]
+	if input.RowVersion != 7 || input.OrganizationName == nil || *input.OrganizationName != "Coordination" ||
+		input.RoleTitle == nil || *input.RoleTitle != "Lead" ||
+		input.PrimaryEmail == nil || *input.PrimaryEmail != "Owner@Example.Test" ||
+		input.TimezoneName == nil || *input.TimezoneName != "US/Eastern" ||
+		input.ExternalRef == nil || *input.ExternalRef != "EXT-Party" ||
+		input.Notes == nil || *input.Notes != "Line one\nLine two" ||
+		input.UpdatedAt.Location() != time.UTC {
+		t.Fatalf("Party projection source lost typed values: %#v", input)
+	}
+	second, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, first.NextRecordID, 1)
+	if err != nil {
+		t.Fatalf("list second Party projection source page: %v", err)
+	}
+	if len(second.Inputs) != 1 || second.NextRecordID != nil || second.Inputs[0].RecordID != recordIDs[0] {
+		t.Fatalf("unexpected second Party projection source page: %#v", second)
+	}
+	if second.Inputs[0].OrganizationName != nil || second.Inputs[0].RoleTitle != nil ||
+		second.Inputs[0].PrimaryEmail != nil || second.Inputs[0].TimezoneName != nil ||
+		second.Inputs[0].ExternalRef != nil || second.Inputs[0].Notes != nil {
+		t.Fatalf("Party projection nulls were not preserved: %#v", second.Inputs[0])
+	}
+	if _, found, err := source.LoadProjectionInputTx(ctx, tx, fullRecordID); err != nil || !found {
+		t.Fatalf("load active Party projection source: found=%t err=%v", found, err)
+	}
+	if _, found, err := source.LoadProjectionInputTx(ctx, tx, deletedRecordID); err != nil || found {
+		t.Fatalf("load deleted Party projection source: found=%t err=%v", found, err)
+	}
+	if _, found, err := source.LoadProjectionInputTx(ctx, tx, uuid.New()); err != nil || found {
+		t.Fatalf("load absent Party projection source: found=%t err=%v", found, err)
 	}
 }
 

@@ -115,7 +115,7 @@ func portableImportContext(t testing.TB, operationID string) sourceport.ImportCo
 	}
 	return sourceport.ImportContext{
 		IncidentID: uuid.MustParse(portableIncidentID), ActorUserID: actorID,
-		BundleVersion: 2, OperationID: operationID, Actors: actors,
+		BundleVersion: 3, OperationID: operationID, Actors: actors,
 	}
 }
 

@@ -14,9 +14,9 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		OwnerID: "module.timeline", OwnerRelationIDs: []string{"timeline-source"},
 		Dependencies: []string{"records"},
 		Paths: []sourceport.Path{
-			{LogicalPath: timelineBundleProfilesPath, ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"incident_id"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
-			{LogicalPath: timelineBundleRecordsPath, ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
-			{LogicalPath: timelineBundleProvenancePath, ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"record_id", "source_row_ordinal", "source_column_ordinal", "source_identity_sha256"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
+			{LogicalPath: timelineBundleProfilesPath, ContentRole: "source_rows", Versions: []int{3}, StableIdentity: []string{"incident_id"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
+			{LogicalPath: timelineBundleRecordsPath, ContentRole: "source_rows", Versions: []int{3}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
+			{LogicalPath: timelineBundleProvenancePath, ContentRole: "source_rows", Versions: []int{3}, StableIdentity: []string{"record_id", "source_row_ordinal", "source_column_ordinal", "source_identity_sha256"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
 		},
 		InvariantIDs: []string{
 			"timeline.version_shape_exact", "timeline.envelope_type_scope",

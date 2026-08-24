@@ -72,7 +72,7 @@ SELECT record_id
 			return fmt.Errorf("validate rollback entity identifier claim: %w", err)
 		}
 		if _, ok := affected[claimedRecordID]; !ok {
-			return rollbackcontract.ErrIdentifierConflict
+			return rollbackcontract.ErrEntityIdentifierConflict
 		}
 	}
 	if _, err := tx.Exec(ctx, `SELECT pg_catalog.set_config('cartulary.entities_defer_active_identifier_claims', 'on', true)`); err != nil {
@@ -94,7 +94,7 @@ func finalizeIdentifierClaimRestoreTx(ctx context.Context, tx pgx.Tx, recordIDs 
 		if _, err := tx.Exec(ctx, `SELECT public.entities_refresh_active_identifier_claims_v1($1)`, recordID); err != nil {
 			var postgresError *pgconn.PgError
 			if errors.As(err, &postgresError) && postgresError.Code == "23505" {
-				return rollbackcontract.ErrIdentifierConflict
+				return rollbackcontract.ErrEntityIdentifierConflict
 			}
 			return fmt.Errorf("refresh rollback entity identifier claims: %w", err)
 		}

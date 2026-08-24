@@ -12,7 +12,7 @@ import (
 	entityreporting "github.com/JochiRaider/cartulary/internal/modules/entities/mentions/reportingprovider"
 	evidencereporting "github.com/JochiRaider/cartulary/internal/modules/evidence/reportingprovider"
 	incidentreporting "github.com/JochiRaider/cartulary/internal/modules/incidents/reportingprovider"
-	partyreporting "github.com/JochiRaider/cartulary/internal/modules/parties/reportingprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	recordreporting "github.com/JochiRaider/cartulary/internal/modules/records/reportingprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/sourceboundary"
@@ -63,7 +63,7 @@ func newReportingExportMaterializer(
 	fieldProviders := []exportprovider.FieldProvider{
 		reportingExportFieldProviderFunc{key: "records", collect: recordreporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "timeline", collect: timelinereporting.CollectFactsTx},
-		reportingExportFieldProviderFunc{key: "parties", collect: partyreporting.CollectFactsTx},
+		parties.NewReportingContribution(),
 		reportingExportFieldProviderFunc{key: "evidence", collect: evidencereporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "entities.mentions", collect: entityreporting.CollectFactsTx},
 	}

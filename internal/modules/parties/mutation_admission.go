@@ -3,21 +3,24 @@ package parties
 import (
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"io"
-	"net/http"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/gen/partypolicy"
+	"github.com/JochiRaider/cartulary/internal/modules/parties/internal/policy"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 )
 
-const maxPatchChanges = 32
+const (
+	maxPatchChanges                  = 32
+	workbookCreateOperation          = "workbook.rows.create"
+	workbookPatchOperation           = "workbook.records.patch"
+	workbookConflictResolveOperation = "workbook.records.conflicts.resolve"
+)
 
 type ConflictClaims struct {
 	RecordID          uuid.UUID
@@ -26,218 +29,262 @@ type ConflictClaims struct {
 	CurrentRowVersion int64
 }
 
-type ConflictResolveRequest struct {
-	ConflictToken  string
-	ResolutionKind string
-	ClientTxnID    string
-	Patch          *PatchRequest
-	CanonicalValue any
+// AdmissionError is Party's transport-neutral closed validation failure.
+// Workbook alone selects the public status, code, message, and detail shape.
+type AdmissionError struct {
+	Field          string
+	ReasonCode     string
+	requestedCount int
+	maxCount       int
+	hasLimit       bool
 }
 
-// DecodeCreateRequest admits the fixed Party create surface. Party field
-// policy and normalization stay beside the Party mutation owner.
-func DecodeCreateRequest(reader io.Reader) (CreateRequest, *httpapi.APIError) {
-	schema, ok := viewschema.Lookup(ViewSchemaID)
-	if !ok || !schema.CreateCapable {
-		return CreateRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
+func (e *AdmissionError) Error() string { return "parties: invalid mutation admission" }
+
+func (e *AdmissionError) Limit() (requestedCount int, maxCount int, ok bool) {
+	if e == nil || !e.hasLimit {
+		return 0, 0, false
 	}
-	raw, err := httpapi.DecodeStrictJSONObject(reader)
+	return e.requestedCount, e.maxCount, true
+}
+
+// CreateAdmission is an immutable admitted Party create request. Its field
+// values and owner-derived request hash are intentionally inaccessible to
+// callers outside Parties.
+type CreateAdmission struct {
+	clientTxnID string
+	values      map[string]policy.Value
+	requestHash [sha256.Size]byte
+}
+
+func (a CreateAdmission) ClientTransactionID() string  { return a.clientTxnID }
+func (a CreateAdmission) AdmittedViewSchemaID() string { return ViewSchemaID }
+func (a CreateAdmission) RequestHash() []byte {
+	return append([]byte(nil), a.requestHash[:]...)
+}
+
+// PatchAdmission is an immutable field-key-sorted Party patch request.
+type PatchAdmission struct {
+	operationID    string
+	baseRowVersion int64
+	clientTxnID    string
+	changes        []patchChange
+	requestHash    [sha256.Size]byte
+}
+
+func (a PatchAdmission) ClientTransactionID() string   { return a.clientTxnID }
+func (a PatchAdmission) AdmittedViewSchemaID() string  { return ViewSchemaID }
+func (a PatchAdmission) AdmittedBaseRowVersion() int64 { return a.baseRowVersion }
+func (a PatchAdmission) RequestHash() []byte {
+	return append([]byte(nil), a.requestHash[:]...)
+}
+
+type patchChange struct {
+	fieldKey string
+	value    policy.Value
+}
+
+// ConflictResolveAdmission is an immutable admitted Party resolution request.
+type ConflictResolveAdmission struct {
+	conflictToken  string
+	resolutionKind string
+	clientTxnID    string
+	claims         ConflictClaims
+	patch          *PatchAdmission
+	resolvedValue  any
+	requestHash    [sha256.Size]byte
+}
+
+func (a ConflictResolveAdmission) ClientTransactionID() string { return a.clientTxnID }
+func (a ConflictResolveAdmission) ResolutionKind() string      { return a.resolutionKind }
+func (a ConflictResolveAdmission) RequestHash() []byte {
+	return append([]byte(nil), a.requestHash[:]...)
+}
+
+// AdmitCreateJSON admits the closed Party create surface, calculates all four
+// normalized representations once, and binds the named owner request hash.
+func AdmitCreateJSON(reader io.Reader) (CreateAdmission, *AdmissionError) {
+	raw, err := strictjson.DecodeObject(reader)
 	if err != nil {
-		return CreateRequest{}, invalidMutationPayload("", "request_not_object")
+		return CreateAdmission{}, invalidMutationPayload("", "request_not_object")
 	}
 	allowed := map[string]struct{}{"client_txn_id": {}}
-	for fieldKey, field := range schema.Fields() {
-		if field.Writable || field.CreateWritable {
-			allowed[fieldKey] = struct{}{}
-		}
+	for _, fieldKey := range policy.FieldKeys() {
+		allowed[fieldKey] = struct{}{}
 	}
 	for key := range raw {
 		if _, admitted := allowed[key]; !admitted {
-			return CreateRequest{}, invalidMutationPayload(key, "unknown_field")
+			return CreateAdmission{}, invalidMutationPayload(key, "unknown_field")
 		}
 	}
 
-	request := CreateRequest{ViewSchemaID: ViewSchemaID, Values: map[string]FieldValue{}}
+	admission := CreateAdmission{values: make(map[string]policy.Value, len(policy.FieldKeys()))}
 	if value, present := raw["client_txn_id"]; !present {
-		return CreateRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
-	} else if json.Unmarshal(value, &request.ClientTxnID) != nil || strings.TrimSpace(request.ClientTxnID) == "" {
-		return CreateRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+		return CreateAdmission{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	} else if json.Unmarshal(value, &admission.clientTxnID) != nil || strings.TrimSpace(admission.clientTxnID) == "" {
+		return CreateAdmission{}, invalidMutationPayload("client_txn_id", "missing_required_field")
 	}
-	for fieldKey, field := range schema.Fields() {
+	for _, fieldKey := range policy.FieldKeys() {
+		field, _ := policy.LookupField(fieldKey)
 		value, present := raw[fieldKey]
 		if !present {
+			if field.Required {
+				return CreateAdmission{}, invalidMutationPayload(fieldKey, "missing_required_field")
+			}
+			normalized, _ := policy.Admit(fieldKey, nil)
+			admission.values[fieldKey] = normalized
 			continue
 		}
-		admitted, _, apiErr := decodePartyValue(fieldKey, field, value, false)
+		normalized, apiErr := admitPartyJSONValue(fieldKey, value)
 		if apiErr != nil {
-			return CreateRequest{}, apiErr
+			return CreateAdmission{}, apiErr
 		}
-		request.Values[fieldKey] = admitted
+		admission.values[fieldKey] = normalized
 	}
-	if err := ValidateCreateParams(CreateParams{Values: request.Values}); err != nil {
-		var validation *ValidationError
-		if errors.As(err, &validation) {
-			return CreateRequest{}, invalidMutationPayload(validation.Field, validation.ReasonCode)
-		}
-		return CreateRequest{}, invalidMutationPayload("payload", "invalid_value")
+	hash, hashErr := createMutationRequestHash(admission.values)
+	if hashErr != nil {
+		return CreateAdmission{}, invalidMutationPayload("payload", "invalid_value")
 	}
-	return request, nil
+	admission.requestHash = hash
+	return admission, nil
 }
 
-// DecodePatchRequest admits only Party patch fields and returns a canonical,
-// field-key-sorted owner request.
-func DecodePatchRequest(reader io.Reader) (PatchRequest, *httpapi.APIError) {
-	raw, err := httpapi.DecodeStrictJSONObject(reader)
+// AdmitPatchJSON admits the closed Party patch surface and binds the named
+// owner request hash. A clear remains present as a change with value null.
+func AdmitPatchJSON(reader io.Reader) (PatchAdmission, *AdmissionError) {
+	raw, err := strictjson.DecodeObject(reader)
 	if err != nil {
-		return PatchRequest{}, invalidMutationPayload("", "request_not_object")
+		return PatchAdmission{}, invalidMutationPayload("", "request_not_object")
 	}
 	allowed := map[string]struct{}{
 		"view_schema_id": {}, "base_row_version": {}, "client_txn_id": {}, "changes": {},
 	}
 	for key := range raw {
 		if _, admitted := allowed[key]; !admitted {
-			return PatchRequest{}, invalidMutationPayload(key, "unknown_field")
+			return PatchAdmission{}, invalidMutationPayload(key, "unknown_field")
 		}
 	}
-	var request PatchRequest
+	var viewSchemaID string
 	if value, present := raw["view_schema_id"]; !present {
-		return PatchRequest{}, invalidMutationPayload("view_schema_id", "missing_required_field")
-	} else if json.Unmarshal(value, &request.ViewSchemaID) != nil || request.ViewSchemaID != ViewSchemaID {
-		return PatchRequest{}, invalidMutationPayload("view_schema_id", "invalid_view_schema_id")
+		return PatchAdmission{}, invalidMutationPayload("view_schema_id", "missing_required_field")
+	} else if json.Unmarshal(value, &viewSchemaID) != nil || viewSchemaID != ViewSchemaID {
+		return PatchAdmission{}, invalidMutationPayload("view_schema_id", "invalid_view_schema_id")
 	}
+	admission := PatchAdmission{operationID: workbookPatchOperation}
 	if value, present := raw["base_row_version"]; !present {
-		return PatchRequest{}, invalidMutationPayload("base_row_version", "missing_required_field")
-	} else if json.Unmarshal(value, &request.BaseRowVersion) != nil || request.BaseRowVersion < 1 {
-		return PatchRequest{}, invalidMutationPayload("base_row_version", "invalid_base_row_version")
+		return PatchAdmission{}, invalidMutationPayload("base_row_version", "missing_required_field")
+	} else if json.Unmarshal(value, &admission.baseRowVersion) != nil || admission.baseRowVersion < 1 {
+		return PatchAdmission{}, invalidMutationPayload("base_row_version", "invalid_base_row_version")
 	}
 	if value, present := raw["client_txn_id"]; !present {
-		return PatchRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
-	} else if json.Unmarshal(value, &request.ClientTxnID) != nil || strings.TrimSpace(request.ClientTxnID) == "" {
-		return PatchRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+		return PatchAdmission{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	} else if json.Unmarshal(value, &admission.clientTxnID) != nil || strings.TrimSpace(admission.clientTxnID) == "" {
+		return PatchAdmission{}, invalidMutationPayload("client_txn_id", "missing_required_field")
 	}
 	rawChanges, apiErr := decodeRawChanges(raw["changes"])
 	if apiErr != nil {
-		return PatchRequest{}, apiErr
+		return PatchAdmission{}, apiErr
 	}
 	seen := make(map[string]struct{}, len(rawChanges))
 	for _, rawChange := range rawChanges {
 		change, apiErr := decodePartyPatchChange(rawChange)
 		if apiErr != nil {
-			return PatchRequest{}, apiErr
+			return PatchAdmission{}, apiErr
 		}
-		if _, duplicate := seen[change.FieldKey]; duplicate {
-			return PatchRequest{}, invalidMutationPayload("changes", "duplicate_field_key")
+		if _, duplicate := seen[change.fieldKey]; duplicate {
+			return PatchAdmission{}, invalidMutationPayload("changes", "duplicate_field_key")
 		}
-		seen[change.FieldKey] = struct{}{}
-		request.Changes = append(request.Changes, change)
+		seen[change.fieldKey] = struct{}{}
+		admission.changes = append(admission.changes, change)
 	}
-	slices.SortFunc(request.Changes, func(left PatchChange, right PatchChange) int {
-		return strings.Compare(left.FieldKey, right.FieldKey)
+	slices.SortFunc(admission.changes, func(left, right patchChange) int {
+		return strings.Compare(left.fieldKey, right.fieldKey)
 	})
-	return request, nil
+	hash, hashErr := patchMutationRequestHash(admission.baseRowVersion, admission.changes)
+	if hashErr != nil {
+		return PatchAdmission{}, invalidMutationPayload("payload", "invalid_value")
+	}
+	admission.requestHash = hash
+	return admission, nil
 }
 
-func DecodeConflictResolveRequest(
+func AdmitConflictResolveJSON(
 	reader io.Reader,
 	token string,
 	claims ConflictClaims,
-) (ConflictResolveRequest, *httpapi.APIError) {
+) (ConflictResolveAdmission, *AdmissionError) {
 	if claims.RecordID == uuid.Nil || claims.ViewSchemaID != ViewSchemaID || claims.CurrentRowVersion < 1 {
-		return ConflictResolveRequest{}, invalidMutationPayload("conflict_token", "invalid_value")
+		return ConflictResolveAdmission{}, invalidMutationPayload("conflict_token", "invalid_value")
 	}
-	raw, err := httpapi.DecodeStrictJSONObject(reader)
+	raw, err := strictjson.DecodeObject(reader)
 	if err != nil {
-		return ConflictResolveRequest{}, invalidMutationPayload("", "request_not_object")
+		return ConflictResolveAdmission{}, invalidMutationPayload("", "request_not_object")
 	}
 	allowed := map[string]struct{}{
 		"conflict_token": {}, "resolution_kind": {}, "client_txn_id": {}, "resolved_value": {},
 	}
 	for key := range raw {
 		if _, admitted := allowed[key]; !admitted {
-			return ConflictResolveRequest{}, invalidMutationPayload(key, "unknown_field")
+			return ConflictResolveAdmission{}, invalidMutationPayload(key, "unknown_field")
 		}
 	}
-	request := ConflictResolveRequest{ConflictToken: token}
+	admission := ConflictResolveAdmission{conflictToken: token, claims: claims}
 	if value, present := raw["conflict_token"]; !present {
-		return ConflictResolveRequest{}, invalidMutationPayload("conflict_token", "missing_required_field")
-	} else if json.Unmarshal(value, &request.ConflictToken) != nil || request.ConflictToken != token {
-		return ConflictResolveRequest{}, invalidMutationPayload("conflict_token", "invalid_value")
+		return ConflictResolveAdmission{}, invalidMutationPayload("conflict_token", "missing_required_field")
+	} else if json.Unmarshal(value, &admission.conflictToken) != nil || admission.conflictToken != token {
+		return ConflictResolveAdmission{}, invalidMutationPayload("conflict_token", "invalid_value")
 	}
 	if value, present := raw["resolution_kind"]; !present {
-		return ConflictResolveRequest{}, invalidMutationPayload("resolution_kind", "missing_required_field")
-	} else if json.Unmarshal(value, &request.ResolutionKind) != nil {
-		return ConflictResolveRequest{}, invalidMutationPayload("resolution_kind", "invalid_value")
+		return ConflictResolveAdmission{}, invalidMutationPayload("resolution_kind", "missing_required_field")
+	} else if json.Unmarshal(value, &admission.resolutionKind) != nil {
+		return ConflictResolveAdmission{}, invalidMutationPayload("resolution_kind", "invalid_value")
 	}
-	switch request.ResolutionKind {
+	switch admission.resolutionKind {
 	case "keep_saved", "use_unsaved", "merged_value":
 	default:
-		return ConflictResolveRequest{}, invalidMutationPayload("resolution_kind", "invalid_value")
+		return ConflictResolveAdmission{}, invalidMutationPayload("resolution_kind", "invalid_value")
 	}
 	if value, present := raw["client_txn_id"]; !present {
-		return ConflictResolveRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
-	} else if json.Unmarshal(value, &request.ClientTxnID) != nil || strings.TrimSpace(request.ClientTxnID) == "" {
-		return ConflictResolveRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+		return ConflictResolveAdmission{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	} else if json.Unmarshal(value, &admission.clientTxnID) != nil || strings.TrimSpace(admission.clientTxnID) == "" {
+		return ConflictResolveAdmission{}, invalidMutationPayload("client_txn_id", "missing_required_field")
 	}
 	resolvedValue, present := raw["resolved_value"]
-	if request.ResolutionKind == "keep_saved" {
+	if admission.resolutionKind == "keep_saved" {
 		if present {
-			return ConflictResolveRequest{}, invalidMutationPayload("resolved_value", "forbidden_field")
+			return ConflictResolveAdmission{}, invalidMutationPayload("resolved_value", "forbidden_field")
 		}
-		return request, nil
+	} else {
+		if !present {
+			return ConflictResolveAdmission{}, invalidMutationPayload("resolved_value", "missing_required_field")
+		}
+		if _, ok := policy.LookupField(claims.FieldKey); !ok {
+			return ConflictResolveAdmission{}, invalidMutationPayload("field_key", "unsupported_field_key")
+		}
+		value, apiErr := admitPartyJSONValue(claims.FieldKey, resolvedValue)
+		if apiErr != nil {
+			return ConflictResolveAdmission{}, apiErr
+		}
+		admission.resolvedValue = value.CanonicalHashValue()
+		admission.patch = &PatchAdmission{
+			operationID:    workbookConflictResolveOperation,
+			baseRowVersion: claims.CurrentRowVersion,
+			clientTxnID:    admission.clientTxnID,
+			changes:        []patchChange{{fieldKey: claims.FieldKey, value: value}},
+		}
 	}
-	if !present {
-		return ConflictResolveRequest{}, invalidMutationPayload("resolved_value", "missing_required_field")
+	hash, hashErr := conflictMutationRequestHash(admission)
+	if hashErr != nil {
+		return ConflictResolveAdmission{}, invalidMutationPayload("payload", "invalid_value")
 	}
-	field, ok := viewschema.LookupField(ViewSchemaID, claims.FieldKey)
-	if !ok || !field.Writable {
-		return ConflictResolveRequest{}, invalidMutationPayload("field_key", "unsupported_field_key")
+	admission.requestHash = hash
+	if admission.patch != nil {
+		admission.patch.requestHash = hash
 	}
-	value, canonical, apiErr := decodePartyValue(claims.FieldKey, field, resolvedValue, true)
-	if apiErr != nil {
-		return ConflictResolveRequest{}, apiErr
-	}
-	request.Patch = &PatchRequest{
-		ViewSchemaID: ViewSchemaID, BaseRowVersion: claims.CurrentRowVersion,
-		ClientTxnID: request.ClientTxnID,
-		Changes:     []PatchChange{{FieldKey: claims.FieldKey, Value: &value, CanonicalValue: canonical}},
-	}
-	request.CanonicalValue = canonical
-	return request, nil
+	return admission, nil
 }
 
-func CreateRequestHash(request CreateRequest) []byte {
-	values := make(map[string]any, len(request.Values))
-	for fieldKey, value := range request.Values {
-		values[fieldKey] = canonicalPartyValue(value)
-	}
-	return hashMutationPayload(map[string]any{
-		"view_schema_id": ViewSchemaID,
-		"values":         values,
-		"collection_ops": map[string]any{},
-		"create_inputs":  map[string]any{},
-	})
-}
-
-func PatchRequestHash(request PatchRequest) []byte {
-	changes := make([]map[string]any, 0, len(request.Changes))
-	for _, change := range request.Changes {
-		changes = append(changes, map[string]any{"field_key": change.FieldKey, "value": change.CanonicalValue})
-	}
-	return hashMutationPayload(map[string]any{
-		"view_schema_id": ViewSchemaID, "base_row_version": request.BaseRowVersion, "changes": changes,
-	})
-}
-
-func ConflictResolveRequestHash(claims ConflictClaims, request ConflictResolveRequest) []byte {
-	return hashMutationPayload(map[string]any{
-		"conflict_token": request.ConflictToken, "resolution_kind": request.ResolutionKind,
-		"record_id": claims.RecordID, "view_schema_id": claims.ViewSchemaID,
-		"field_key": claims.FieldKey, "current_row_version": claims.CurrentRowVersion,
-		"resolved_value": request.CanonicalValue,
-	})
-}
-
-func decodeRawChanges(raw json.RawMessage) ([]json.RawMessage, *httpapi.APIError) {
+func decodeRawChanges(raw json.RawMessage) ([]json.RawMessage, *AdmissionError) {
 	if raw == nil {
 		return nil, invalidMutationPayload("changes", "missing_required_field")
 	}
@@ -249,118 +296,117 @@ func decodeRawChanges(raw json.RawMessage) ([]json.RawMessage, *httpapi.APIError
 		return nil, invalidMutationPayload("changes", "empty_changes")
 	}
 	if len(changes) > maxPatchChanges {
-		return nil, invalidMutationPayloadWithDetails("changes", "change_count_exceeded", map[string]any{
-			"requested_count": len(changes), "max_count": maxPatchChanges,
-		})
+		return nil, invalidMutationLimit("changes", "change_count_exceeded", len(changes), maxPatchChanges)
 	}
 	return changes, nil
 }
 
-func decodePartyPatchChange(raw json.RawMessage) (PatchChange, *httpapi.APIError) {
+func decodePartyPatchChange(raw json.RawMessage) (patchChange, *AdmissionError) {
 	var object map[string]json.RawMessage
 	if json.Unmarshal(raw, &object) != nil {
-		return PatchChange{}, invalidMutationPayload("changes", "invalid_change")
+		return patchChange{}, invalidMutationPayload("changes", "invalid_change")
 	}
 	allowed := map[string]struct{}{"field_key": {}, "value": {}, "action_payload": {}}
 	for key := range object {
 		if _, admitted := allowed[key]; !admitted {
-			return PatchChange{}, invalidMutationPayload("changes", "unknown_field")
+			return patchChange{}, invalidMutationPayload("changes", "unknown_field")
 		}
 	}
 	var fieldKey string
 	if value, present := object["field_key"]; !present {
-		return PatchChange{}, invalidMutationPayload("changes", "missing_field_key")
+		return patchChange{}, invalidMutationPayload("changes", "missing_field_key")
 	} else if json.Unmarshal(value, &fieldKey) != nil {
-		return PatchChange{}, invalidMutationPayload("field_key", "invalid_value")
+		return patchChange{}, invalidMutationPayload("field_key", "invalid_value")
 	}
-	field, ok := viewschema.LookupField(ViewSchemaID, fieldKey)
-	if !ok || !field.Writable {
-		return PatchChange{}, invalidMutationPayload(fieldKey, "unsupported_field_key")
+	if _, ok := policy.LookupField(fieldKey); !ok {
+		return patchChange{}, invalidMutationPayload(fieldKey, "unsupported_field_key")
 	}
 	value, hasValue := object["value"]
 	_, hasActionPayload := object["action_payload"]
 	if hasValue == hasActionPayload {
-		return PatchChange{}, invalidMutationPayload("changes", "invalid_change")
+		return patchChange{}, invalidMutationPayload("changes", "invalid_change")
 	}
 	if !hasValue {
-		return PatchChange{}, invalidMutationPayload("value", "missing_required_field")
+		return patchChange{}, invalidMutationPayload("value", "missing_required_field")
 	}
-	admitted, canonical, apiErr := decodePartyValue(fieldKey, field, value, true)
+	normalized, apiErr := admitPartyJSONValue(fieldKey, value)
 	if apiErr != nil {
-		return PatchChange{}, apiErr
+		return patchChange{}, apiErr
 	}
-	return PatchChange{FieldKey: fieldKey, Value: &admitted, CanonicalValue: canonical}, nil
+	return patchChange{fieldKey: fieldKey, value: normalized}, nil
 }
 
-func decodePartyValue(
-	fieldKey string,
-	field viewschema.Field,
-	raw json.RawMessage,
-	patch bool,
-) (FieldValue, any, *httpapi.APIError) {
-	if string(raw) == "null" {
-		if !patch || field.Clearable {
-			return FieldValue{}, nil, nil
-		}
-		return FieldValue{}, nil, invalidMutationPayload(fieldKey, "field_not_nullable")
+func admitPartyJSONValue(fieldKey string, raw json.RawMessage) (policy.Value, *AdmissionError) {
+	var text *string
+	if json.Unmarshal(raw, &text) != nil {
+		return policy.Value{}, invalidMutationPayload(fieldKey, "invalid_value")
 	}
-	var rawText string
-	if json.Unmarshal(raw, &rawText) != nil {
-		return FieldValue{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
+	value, admissionErr := policy.Admit(fieldKey, text)
+	if admissionErr != nil {
+		return policy.Value{}, invalidMutationPayload(fieldKey, admissionErr.ReasonCode)
 	}
-	var normalized string
-	var ok bool
-	if field.StringContractID != nil && *field.StringContractID == "multiline_body_v1" {
-		normalized, ok = fieldnorm.NormalizeNote(rawText)
-	} else {
-		normalized, ok = fieldnorm.NormalizeLine(rawText)
-	}
-	if !ok {
-		return FieldValue{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
-	}
-	return FieldValue{Text: &normalized}, normalized, nil
+	return value, nil
 }
 
-func canonicalPartyValue(value FieldValue) any {
-	switch {
-	case value.Text != nil:
-		return *value.Text
-	case value.Timestamp != nil:
-		return value.Timestamp.UTC().Format(time.RFC3339Nano)
-	case value.UUID != nil:
-		return value.UUID.String()
-	case value.Number != nil:
-		return *value.Number
-	case value.Bool != nil:
-		return *value.Bool
-	default:
-		return nil
+func createMutationRequestHash(values map[string]policy.Value) ([sha256.Size]byte, error) {
+	fields := make(map[string]any, len(policy.FieldKeys()))
+	for _, fieldKey := range policy.FieldKeys() {
+		fields[fieldKey] = values[fieldKey].CanonicalHashValue()
 	}
+	return mutationRequestHash(map[string]any{
+		"algorithm_id":   partypolicy.MutationRequestHashAlgorithmID,
+		"operation_id":   workbookCreateOperation,
+		"view_schema_id": ViewSchemaID,
+		"fields":         fields,
+	})
 }
 
-func hashMutationPayload(payload any) []byte {
-	data, _ := json.Marshal(payload)
-	sum := sha256.Sum256(data)
-	return append([]byte(nil), sum[:]...)
+func patchMutationRequestHash(baseRowVersion int64, changes []patchChange) ([sha256.Size]byte, error) {
+	preimageChanges := make([]map[string]any, 0, len(changes))
+	for _, change := range changes {
+		preimageChanges = append(preimageChanges, map[string]any{
+			"field_key": change.fieldKey,
+			"value":     change.value.CanonicalHashValue(),
+		})
+	}
+	return mutationRequestHash(map[string]any{
+		"algorithm_id":     partypolicy.MutationRequestHashAlgorithmID,
+		"operation_id":     workbookPatchOperation,
+		"view_schema_id":   ViewSchemaID,
+		"base_row_version": baseRowVersion,
+		"changes":          preimageChanges,
+	})
 }
 
-func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
-	return invalidMutationPayloadWithDetails(field, reasonCode, nil)
+func conflictMutationRequestHash(admission ConflictResolveAdmission) ([sha256.Size]byte, error) {
+	return mutationRequestHash(map[string]any{
+		"algorithm_id":        partypolicy.MutationRequestHashAlgorithmID,
+		"operation_id":        workbookConflictResolveOperation,
+		"record_id":           admission.claims.RecordID.String(),
+		"view_schema_id":      admission.claims.ViewSchemaID,
+		"field_key":           admission.claims.FieldKey,
+		"current_row_version": admission.claims.CurrentRowVersion,
+		"conflict_token":      admission.conflictToken,
+		"resolution_kind":     admission.resolutionKind,
+		"resolved_value":      admission.resolvedValue,
+	})
 }
 
-func invalidMutationPayloadWithDetails(field string, reasonCode string, extra map[string]any) *httpapi.APIError {
-	details := map[string]any{}
-	if field != "" {
-		details["field"] = field
+func mutationRequestHash(preimage any) ([sha256.Size]byte, error) {
+	canonical, err := canonicaljson.Marshal(preimage)
+	if err != nil {
+		return [sha256.Size]byte{}, err
 	}
-	if reasonCode != "" {
-		details["reason_code"] = reasonCode
-	}
-	for key, value := range extra {
-		details[key] = value
-	}
-	return &httpapi.APIError{
-		Status: http.StatusBadRequest, Code: "invalid_mutation_payload",
-		Message: "invalid mutation payload", Details: details,
+	return sha256.Sum256(canonical), nil
+}
+
+func invalidMutationPayload(field string, reasonCode string) *AdmissionError {
+	return &AdmissionError{Field: field, ReasonCode: reasonCode}
+}
+
+func invalidMutationLimit(field string, reasonCode string, requestedCount int, maxCount int) *AdmissionError {
+	return &AdmissionError{
+		Field: field, ReasonCode: reasonCode,
+		requestedCount: requestedCount, maxCount: maxCount, hasLimit: true,
 	}
 }

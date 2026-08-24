@@ -3,6 +3,7 @@ package ownerfacade
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -84,12 +85,29 @@ type ImportOwnerCreateResponse struct {
 const ImportOwnerCreateValidationFailed = "owner_create_validation_failed"
 
 type ImportOwnerCreateError struct {
-	OwnerCode  string
-	ReasonCode string
-	Field      string
-	Guard      string
-	Retryable  bool
-	cause      error
+	OwnerCode            string
+	ReasonCode           string
+	Field                string
+	Guard                string
+	PartyReasonCode      string
+	ConflictingFieldKeys []string
+	Retryable            bool
+	cause                error
+}
+
+func NewPartyMatchConflictError(
+	partyReasonCode string,
+	conflictingFieldKeys []string,
+	cause error,
+) *ImportOwnerCreateError {
+	return &ImportOwnerCreateError{
+		OwnerCode:            ImportOwnerCreateValidationFailed,
+		ReasonCode:           "party_match_conflict",
+		PartyReasonCode:      partyReasonCode,
+		ConflictingFieldKeys: append([]string(nil), conflictingFieldKeys...),
+		Retryable:            false,
+		cause:                cause,
+	}
 }
 
 func (e *ImportOwnerCreateError) Error() string {
@@ -124,6 +142,9 @@ func ImportOwnerCreateErrorDetail(err error) (map[string]any, bool) {
 		ownerErr.Retryable {
 		return nil, false
 	}
+	if ownerErr.ReasonCode == "party_match_conflict" && !validPartyMatchDetail(ownerErr) {
+		return nil, false
+	}
 	safeDetails := map[string]any{"reason_code": ownerErr.ReasonCode}
 	if ownerErr.Field != "" {
 		safeDetails["field"] = ownerErr.Field
@@ -131,11 +152,35 @@ func ImportOwnerCreateErrorDetail(err error) (map[string]any, bool) {
 	if ownerErr.Guard != "" {
 		safeDetails["guard"] = ownerErr.Guard
 	}
+	if ownerErr.ReasonCode == "party_match_conflict" {
+		safeDetails["party_reason_code"] = ownerErr.PartyReasonCode
+		safeDetails["conflicting_field_keys"] = append([]string(nil), ownerErr.ConflictingFieldKeys...)
+	}
 	return map[string]any{
 		"owner_code":   ownerErr.OwnerCode,
 		"retryable":    ownerErr.Retryable,
 		"safe_details": safeDetails,
 	}, true
+}
+
+func validPartyMatchDetail(ownerErr *ImportOwnerCreateError) bool {
+	switch ownerErr.PartyReasonCode {
+	case "ambiguous_exact_match", "cross_key_exact_match", "exact_match_key_claimed":
+	default:
+		return false
+	}
+	fields := ownerErr.ConflictingFieldKeys
+	if len(fields) == 0 || len(fields) > 2 || !slices.IsSorted(fields) {
+		return false
+	}
+	previous := ""
+	for _, field := range fields {
+		if (field != "party.external_ref" && field != "party.primary_email") || field == previous {
+			return false
+		}
+		previous = field
+	}
+	return true
 }
 
 func NormalizeImportScalar(viewSchemaID string, fieldKey string, raw string, emptyValuePolicy string) (ImportScalarValue, bool, error) {
@@ -261,7 +306,8 @@ func validImportOwnerCreateReason(reasonCode string) bool {
 		"invalid_exact_uuid",
 		"invalid_integer",
 		"invalid_boolean",
-		"invalid_text":
+		"invalid_text",
+		"party_match_conflict":
 		return true
 	default:
 		return false

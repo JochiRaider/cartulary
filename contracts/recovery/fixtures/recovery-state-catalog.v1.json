@@ -1,6 +1,6 @@
 {
   "schema_id": "cartulary.recovery_state_catalog.v1",
-  "catalog_digest_sha256": "1b4c1816a2559ef0672212bc3f45ac6e56844e580b67bded694c6c25d1a07562",
+  "catalog_digest_sha256": "0151062c203e5330933273c0baef9834d76d4be88c9f8253180c89e4b0156f72",
   "contribution_digests": [
     {
       "owner_id": "module.artifacts",
@@ -72,7 +72,7 @@
     },
     {
       "owner_id": "module.parties",
-      "sha256": "7681119049274289ac31e6fa2282a5e1e00d67e34aa844a9312f7c43a9fab9e4"
+      "sha256": "e8ddbda1e2c4a7b67f57f7b32cab5517858a25b02ce760a6cb9c98e483fb2501"
     },
     {
       "owner_id": "module.platform_jobs",
@@ -816,6 +816,15 @@
       "restore_action": "restore",
       "codec_id": "cartulary.postgres_snapshot_unit.v1",
       "algorithm_id": null
+    },
+    {
+      "owner_id": "module.parties",
+      "table_name": "party_active_key_claims",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "parties.restore_active_key_claims.v1"
     },
     {
       "owner_id": "module.projections",

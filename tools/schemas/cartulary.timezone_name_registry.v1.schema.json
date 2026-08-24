@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.timezone_name_registry.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "snapshot_id", "provenance_schema_id", "normalization", "link_posture", "identifier_count", "identifier_set_sha256", "identifier_set_digest_input", "identifiers"],
+  "properties": {
+    "schema_id": { "const": "cartulary.timezone_name_registry.v1" },
+    "snapshot_id": { "const": "iana.tzdb.2026c" },
+    "provenance_schema_id": { "const": "cartulary.timezone_name_registry_provenance.v1" },
+    "normalization": { "const": "nfc_outer_unicode_trim_exact_case_sensitive_membership" },
+    "link_posture": { "const": "preserve_admitted_spelling" },
+    "identifier_count": { "const": 598 },
+    "identifier_set_sha256": { "const": "88139b0a64dc08a6a01016ed61f133260d0659de91b928f7dbf5bf172c928031" },
+    "identifier_set_digest_input": { "const": "utf8_name_tab_kind_lf_sorted_bytewise" },
+    "identifiers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "kind"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._+-]+(?:/[A-Za-z0-9._+-]+)*$"
+          },
+          "kind": { "enum": ["zone", "link"] }
+        }
+      }
+    }
+  }
+}

@@ -161,7 +161,7 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 				if err := json.Unmarshal(original, &manifest); err != nil {
 					t.Fatalf("decode manifest: %v", err)
 				}
-				manifest["bundle_version"] = float64(3)
+				manifest["bundle_version"] = float64(2)
 				payload, err := json.Marshal(manifest)
 				if err != nil {
 					t.Fatalf("encode manifest: %v", err)

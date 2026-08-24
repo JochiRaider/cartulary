@@ -3,7 +3,9 @@ package runtime_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -183,18 +185,15 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	}, map[string]workbookroutetest.CollectionActionPayload{
 		"note.tags": {Actions: []workbookroutetest.CollectionAction{{Op: "add_tag", RawText: "projection-parity", NormalizedText: "projection-parity"}}},
 	}, time.Date(2026, 7, 1, 13, 2, 0, 0, time.UTC))
-	partyDisplayName := "Projection Party"
-	partyKind := "person"
-	partyRequest := parties.CreateRequest{
-		ViewSchemaID: parties.ViewSchemaID, ClientTxnID: "txn-projection-parity-party",
-		Values: map[string]parties.FieldValue{
-			"party.display_name": {Text: &partyDisplayName},
-			"party.party_kind":   {Text: &partyKind},
-		},
+	partyAdmission, apiErr := parties.AdmitCreateJSON(strings.NewReader(fmt.Sprintf(
+		`{"client_txn_id":"txn-projection-parity-party","party.display_name":%q,"party.party_kind":"person"}`,
+		"Projection Party",
+	)))
+	if apiErr != nil {
+		t.Fatalf("admit Party projection parity row: %#v", apiErr)
 	}
 	party, err := partyOwner.Create(ctx, parties.CreateCommand{
-		Actor: actor, IncidentID: incident.ID, Request: partyRequest,
-		RequestHash: parties.CreateRequestHash(partyRequest), RequestID: "req-txn-projection-parity-party",
+		ActorUserID: actor.ID, IncidentID: incident.ID, Admission: partyAdmission, RequestID: "req-txn-projection-parity-party",
 		RouteKey: "workbook.rows.create", Now: time.Date(2026, 7, 1, 13, 3, 0, 0, time.UTC),
 	})
 	if err != nil {

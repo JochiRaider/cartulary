@@ -1,0 +1,2324 @@
+{
+  "schema_id": "cartulary.timezone_name_registry.v1",
+  "snapshot_id": "iana.tzdb.2026c",
+  "provenance_schema_id": "cartulary.timezone_name_registry_provenance.v1",
+  "normalization": "nfc_outer_unicode_trim_exact_case_sensitive_membership",
+  "link_posture": "preserve_admitted_spelling",
+  "identifier_count": 578,
+  "identifier_set_sha256": "08cb492381c1e7c53c4e49cdce16432f66136dec7d9a5b673a957c055021eb68",
+  "identifier_set_digest_input": "utf8_name_tab_kind_lf_sorted_bytewise",
+  "identifiers": [
+    {
+      "name": "Africa/Abidjan",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Accra",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Addis_Ababa",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Algiers",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Asmara",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Asmera",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Bamako",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Bangui",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Banjul",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Bissau",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Blantyre",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Brazzaville",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Bujumbura",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Cairo",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Casablanca",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Ceuta",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Conakry",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Dakar",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Dar_es_Salaam",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Djibouti",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Douala",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/El_Aaiun",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Freetown",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Gaborone",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Harare",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Johannesburg",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Juba",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Kampala",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Khartoum",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Kigali",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Kinshasa",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Lagos",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Libreville",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Lome",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Luanda",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Lubumbashi",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Lusaka",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Malabo",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Maputo",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Maseru",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Mbabane",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Mogadishu",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Monrovia",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Nairobi",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Ndjamena",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Niamey",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Nouakchott",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Ouagadougou",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Porto-Novo",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Sao_Tome",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Timbuktu",
+      "kind": "link"
+    },
+    {
+      "name": "Africa/Tripoli",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Tunis",
+      "kind": "zone"
+    },
+    {
+      "name": "Africa/Windhoek",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Adak",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Anchorage",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Anguilla",
+      "kind": "link"
+    },
+    {
+      "name": "America/Antigua",
+      "kind": "link"
+    },
+    {
+      "name": "America/Araguaina",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Argentina/Buenos_Aires",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Argentina/Catamarca",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Argentina/ComodRivadavia",
+      "kind": "link"
+    },
+    {
+      "name": "America/Argentina/Cordoba",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Argentina/Jujuy",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Argentina/La_Rioja",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Argentina/Mendoza",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Argentina/Rio_Gallegos",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Argentina/Salta",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Argentina/San_Juan",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Argentina/San_Luis",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Argentina/Tucuman",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Argentina/Ushuaia",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Aruba",
+      "kind": "link"
+    },
+    {
+      "name": "America/Asuncion",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Atikokan",
+      "kind": "link"
+    },
+    {
+      "name": "America/Atka",
+      "kind": "link"
+    },
+    {
+      "name": "America/Bahia",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Bahia_Banderas",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Barbados",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Belem",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Belize",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Blanc-Sablon",
+      "kind": "link"
+    },
+    {
+      "name": "America/Boa_Vista",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Bogota",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Boise",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Buenos_Aires",
+      "kind": "link"
+    },
+    {
+      "name": "America/Cambridge_Bay",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Campo_Grande",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Cancun",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Caracas",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Catamarca",
+      "kind": "link"
+    },
+    {
+      "name": "America/Cayenne",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Cayman",
+      "kind": "link"
+    },
+    {
+      "name": "America/Chicago",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Chihuahua",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Ciudad_Juarez",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Coral_Harbour",
+      "kind": "link"
+    },
+    {
+      "name": "America/Cordoba",
+      "kind": "link"
+    },
+    {
+      "name": "America/Costa_Rica",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Coyhaique",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Creston",
+      "kind": "link"
+    },
+    {
+      "name": "America/Cuiaba",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Curacao",
+      "kind": "link"
+    },
+    {
+      "name": "America/Danmarkshavn",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Dawson",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Dawson_Creek",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Denver",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Detroit",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Dominica",
+      "kind": "link"
+    },
+    {
+      "name": "America/Edmonton",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Eirunepe",
+      "kind": "zone"
+    },
+    {
+      "name": "America/El_Salvador",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Ensenada",
+      "kind": "link"
+    },
+    {
+      "name": "America/Fort_Nelson",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Fort_Wayne",
+      "kind": "link"
+    },
+    {
+      "name": "America/Fortaleza",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Glace_Bay",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Godthab",
+      "kind": "link"
+    },
+    {
+      "name": "America/Goose_Bay",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Grand_Turk",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Grenada",
+      "kind": "link"
+    },
+    {
+      "name": "America/Guadeloupe",
+      "kind": "link"
+    },
+    {
+      "name": "America/Guatemala",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Guayaquil",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Guyana",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Halifax",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Havana",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Hermosillo",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Indiana/Indianapolis",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Indiana/Knox",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Indiana/Marengo",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Indiana/Petersburg",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Indiana/Tell_City",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Indiana/Vevay",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Indiana/Vincennes",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Indiana/Winamac",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Indianapolis",
+      "kind": "link"
+    },
+    {
+      "name": "America/Inuvik",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Iqaluit",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Jamaica",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Jujuy",
+      "kind": "link"
+    },
+    {
+      "name": "America/Juneau",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Kentucky/Louisville",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Kentucky/Monticello",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Knox_IN",
+      "kind": "link"
+    },
+    {
+      "name": "America/Kralendijk",
+      "kind": "link"
+    },
+    {
+      "name": "America/La_Paz",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Lima",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Los_Angeles",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Louisville",
+      "kind": "link"
+    },
+    {
+      "name": "America/Lower_Princes",
+      "kind": "link"
+    },
+    {
+      "name": "America/Maceio",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Managua",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Manaus",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Marigot",
+      "kind": "link"
+    },
+    {
+      "name": "America/Martinique",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Matamoros",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Mazatlan",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Mendoza",
+      "kind": "link"
+    },
+    {
+      "name": "America/Menominee",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Merida",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Metlakatla",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Mexico_City",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Miquelon",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Moncton",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Monterrey",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Montevideo",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Montreal",
+      "kind": "link"
+    },
+    {
+      "name": "America/Montserrat",
+      "kind": "link"
+    },
+    {
+      "name": "America/Nassau",
+      "kind": "link"
+    },
+    {
+      "name": "America/New_York",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Nipigon",
+      "kind": "link"
+    },
+    {
+      "name": "America/Nome",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Noronha",
+      "kind": "zone"
+    },
+    {
+      "name": "America/North_Dakota/Beulah",
+      "kind": "zone"
+    },
+    {
+      "name": "America/North_Dakota/Center",
+      "kind": "zone"
+    },
+    {
+      "name": "America/North_Dakota/New_Salem",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Nuuk",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Ojinaga",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Panama",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Pangnirtung",
+      "kind": "link"
+    },
+    {
+      "name": "America/Paramaribo",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Phoenix",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Port-au-Prince",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Port_of_Spain",
+      "kind": "link"
+    },
+    {
+      "name": "America/Porto_Acre",
+      "kind": "link"
+    },
+    {
+      "name": "America/Porto_Velho",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Puerto_Rico",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Punta_Arenas",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Rainy_River",
+      "kind": "link"
+    },
+    {
+      "name": "America/Rankin_Inlet",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Recife",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Regina",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Resolute",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Rio_Branco",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Rosario",
+      "kind": "link"
+    },
+    {
+      "name": "America/Santa_Isabel",
+      "kind": "link"
+    },
+    {
+      "name": "America/Santarem",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Santiago",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Santo_Domingo",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Sao_Paulo",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Scoresbysund",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Shiprock",
+      "kind": "link"
+    },
+    {
+      "name": "America/Sitka",
+      "kind": "zone"
+    },
+    {
+      "name": "America/St_Barthelemy",
+      "kind": "link"
+    },
+    {
+      "name": "America/St_Johns",
+      "kind": "zone"
+    },
+    {
+      "name": "America/St_Kitts",
+      "kind": "link"
+    },
+    {
+      "name": "America/St_Lucia",
+      "kind": "link"
+    },
+    {
+      "name": "America/St_Thomas",
+      "kind": "link"
+    },
+    {
+      "name": "America/St_Vincent",
+      "kind": "link"
+    },
+    {
+      "name": "America/Swift_Current",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Tegucigalpa",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Thule",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Thunder_Bay",
+      "kind": "link"
+    },
+    {
+      "name": "America/Tijuana",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Toronto",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Tortola",
+      "kind": "link"
+    },
+    {
+      "name": "America/Vancouver",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Virgin",
+      "kind": "link"
+    },
+    {
+      "name": "America/Whitehorse",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Winnipeg",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Yakutat",
+      "kind": "zone"
+    },
+    {
+      "name": "America/Yellowknife",
+      "kind": "link"
+    },
+    {
+      "name": "Antarctica/Casey",
+      "kind": "zone"
+    },
+    {
+      "name": "Antarctica/Davis",
+      "kind": "zone"
+    },
+    {
+      "name": "Antarctica/DumontDUrville",
+      "kind": "link"
+    },
+    {
+      "name": "Antarctica/Macquarie",
+      "kind": "zone"
+    },
+    {
+      "name": "Antarctica/Mawson",
+      "kind": "zone"
+    },
+    {
+      "name": "Antarctica/McMurdo",
+      "kind": "link"
+    },
+    {
+      "name": "Antarctica/Palmer",
+      "kind": "zone"
+    },
+    {
+      "name": "Antarctica/Rothera",
+      "kind": "zone"
+    },
+    {
+      "name": "Antarctica/South_Pole",
+      "kind": "link"
+    },
+    {
+      "name": "Antarctica/Syowa",
+      "kind": "link"
+    },
+    {
+      "name": "Antarctica/Troll",
+      "kind": "zone"
+    },
+    {
+      "name": "Antarctica/Vostok",
+      "kind": "zone"
+    },
+    {
+      "name": "Arctic/Longyearbyen",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Aden",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Almaty",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Amman",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Anadyr",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Aqtau",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Aqtobe",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Ashgabat",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Ashkhabad",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Atyrau",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Baghdad",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Bahrain",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Baku",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Bangkok",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Barnaul",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Beirut",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Bishkek",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Brunei",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Calcutta",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Chita",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Choibalsan",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Chongqing",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Chungking",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Colombo",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Dacca",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Damascus",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Dhaka",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Dili",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Dubai",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Dushanbe",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Famagusta",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Gaza",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Harbin",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Hebron",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Ho_Chi_Minh",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Hong_Kong",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Hovd",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Irkutsk",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Istanbul",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Jakarta",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Jayapura",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Jerusalem",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Kabul",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Kamchatka",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Karachi",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Kashgar",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Kathmandu",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Katmandu",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Khandyga",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Kolkata",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Krasnoyarsk",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Kuala_Lumpur",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Kuching",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Kuwait",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Macao",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Macau",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Magadan",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Makassar",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Manila",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Muscat",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Nicosia",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Novokuznetsk",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Novosibirsk",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Omsk",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Oral",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Phnom_Penh",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Pontianak",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Pyongyang",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Qatar",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Qostanay",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Qyzylorda",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Rangoon",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Riyadh",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Saigon",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Sakhalin",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Samarkand",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Seoul",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Shanghai",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Singapore",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Srednekolymsk",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Taipei",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Tashkent",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Tbilisi",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Tehran",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Tel_Aviv",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Thimbu",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Thimphu",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Tokyo",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Tomsk",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Ujung_Pandang",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Ulaanbaatar",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Ulan_Bator",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Urumqi",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Ust-Nera",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Vientiane",
+      "kind": "link"
+    },
+    {
+      "name": "Asia/Vladivostok",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Yakutsk",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Yangon",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Yekaterinburg",
+      "kind": "zone"
+    },
+    {
+      "name": "Asia/Yerevan",
+      "kind": "zone"
+    },
+    {
+      "name": "Atlantic/Azores",
+      "kind": "zone"
+    },
+    {
+      "name": "Atlantic/Bermuda",
+      "kind": "zone"
+    },
+    {
+      "name": "Atlantic/Canary",
+      "kind": "zone"
+    },
+    {
+      "name": "Atlantic/Cape_Verde",
+      "kind": "zone"
+    },
+    {
+      "name": "Atlantic/Faeroe",
+      "kind": "link"
+    },
+    {
+      "name": "Atlantic/Faroe",
+      "kind": "zone"
+    },
+    {
+      "name": "Atlantic/Jan_Mayen",
+      "kind": "link"
+    },
+    {
+      "name": "Atlantic/Madeira",
+      "kind": "zone"
+    },
+    {
+      "name": "Atlantic/Reykjavik",
+      "kind": "link"
+    },
+    {
+      "name": "Atlantic/South_Georgia",
+      "kind": "zone"
+    },
+    {
+      "name": "Atlantic/St_Helena",
+      "kind": "link"
+    },
+    {
+      "name": "Atlantic/Stanley",
+      "kind": "zone"
+    },
+    {
+      "name": "Australia/ACT",
+      "kind": "link"
+    },
+    {
+      "name": "Australia/Adelaide",
+      "kind": "zone"
+    },
+    {
+      "name": "Australia/Brisbane",
+      "kind": "zone"
+    },
+    {
+      "name": "Australia/Broken_Hill",
+      "kind": "zone"
+    },
+    {
+      "name": "Australia/Canberra",
+      "kind": "link"
+    },
+    {
+      "name": "Australia/Currie",
+      "kind": "link"
+    },
+    {
+      "name": "Australia/Darwin",
+      "kind": "zone"
+    },
+    {
+      "name": "Australia/Eucla",
+      "kind": "zone"
+    },
+    {
+      "name": "Australia/Hobart",
+      "kind": "zone"
+    },
+    {
+      "name": "Australia/LHI",
+      "kind": "link"
+    },
+    {
+      "name": "Australia/Lindeman",
+      "kind": "zone"
+    },
+    {
+      "name": "Australia/Lord_Howe",
+      "kind": "zone"
+    },
+    {
+      "name": "Australia/Melbourne",
+      "kind": "zone"
+    },
+    {
+      "name": "Australia/NSW",
+      "kind": "link"
+    },
+    {
+      "name": "Australia/North",
+      "kind": "link"
+    },
+    {
+      "name": "Australia/Perth",
+      "kind": "zone"
+    },
+    {
+      "name": "Australia/Queensland",
+      "kind": "link"
+    },
+    {
+      "name": "Australia/South",
+      "kind": "link"
+    },
+    {
+      "name": "Australia/Sydney",
+      "kind": "zone"
+    },
+    {
+      "name": "Australia/Tasmania",
+      "kind": "link"
+    },
+    {
+      "name": "Australia/Victoria",
+      "kind": "link"
+    },
+    {
+      "name": "Australia/West",
+      "kind": "link"
+    },
+    {
+      "name": "Australia/Yancowinna",
+      "kind": "link"
+    },
+    {
+      "name": "Brazil/Acre",
+      "kind": "link"
+    },
+    {
+      "name": "Brazil/DeNoronha",
+      "kind": "link"
+    },
+    {
+      "name": "Brazil/East",
+      "kind": "link"
+    },
+    {
+      "name": "Brazil/West",
+      "kind": "link"
+    },
+    {
+      "name": "Canada/Atlantic",
+      "kind": "link"
+    },
+    {
+      "name": "Canada/Central",
+      "kind": "link"
+    },
+    {
+      "name": "Canada/Eastern",
+      "kind": "link"
+    },
+    {
+      "name": "Canada/Mountain",
+      "kind": "link"
+    },
+    {
+      "name": "Canada/Newfoundland",
+      "kind": "link"
+    },
+    {
+      "name": "Canada/Pacific",
+      "kind": "link"
+    },
+    {
+      "name": "Canada/Saskatchewan",
+      "kind": "link"
+    },
+    {
+      "name": "Canada/Yukon",
+      "kind": "link"
+    },
+    {
+      "name": "Chile/Continental",
+      "kind": "link"
+    },
+    {
+      "name": "Chile/EasterIsland",
+      "kind": "link"
+    },
+    {
+      "name": "Cuba",
+      "kind": "link"
+    },
+    {
+      "name": "Egypt",
+      "kind": "link"
+    },
+    {
+      "name": "Eire",
+      "kind": "link"
+    },
+    {
+      "name": "Etc/GMT",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT+0",
+      "kind": "link"
+    },
+    {
+      "name": "Etc/GMT+1",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT+10",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT+11",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT+12",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT+2",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT+3",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT+4",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT+5",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT+6",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT+7",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT+8",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT+9",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT-0",
+      "kind": "link"
+    },
+    {
+      "name": "Etc/GMT-1",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT-10",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT-11",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT-12",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT-13",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT-14",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT-2",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT-3",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT-4",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT-5",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT-6",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT-7",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT-8",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT-9",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/GMT0",
+      "kind": "link"
+    },
+    {
+      "name": "Etc/Greenwich",
+      "kind": "link"
+    },
+    {
+      "name": "Etc/UCT",
+      "kind": "link"
+    },
+    {
+      "name": "Etc/UTC",
+      "kind": "zone"
+    },
+    {
+      "name": "Etc/Universal",
+      "kind": "link"
+    },
+    {
+      "name": "Etc/Zulu",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Amsterdam",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Andorra",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Astrakhan",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Athens",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Belfast",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Belgrade",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Berlin",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Bratislava",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Brussels",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Bucharest",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Budapest",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Busingen",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Chisinau",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Copenhagen",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Dublin",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Gibraltar",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Guernsey",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Helsinki",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Isle_of_Man",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Istanbul",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Jersey",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Kaliningrad",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Kiev",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Kirov",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Kyiv",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Lisbon",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Ljubljana",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/London",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Luxembourg",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Madrid",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Malta",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Mariehamn",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Minsk",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Monaco",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Moscow",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Nicosia",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Oslo",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Paris",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Podgorica",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Prague",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Riga",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Rome",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Samara",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/San_Marino",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Sarajevo",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Saratov",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Simferopol",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Skopje",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Sofia",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Stockholm",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Tallinn",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Tirane",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Tiraspol",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Ulyanovsk",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Uzhgorod",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Vaduz",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Vatican",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Vienna",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Vilnius",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Volgograd",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Warsaw",
+      "kind": "zone"
+    },
+    {
+      "name": "Europe/Zagreb",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Zaporozhye",
+      "kind": "link"
+    },
+    {
+      "name": "Europe/Zurich",
+      "kind": "zone"
+    },
+    {
+      "name": "Factory",
+      "kind": "zone"
+    },
+    {
+      "name": "GB",
+      "kind": "link"
+    },
+    {
+      "name": "GB-Eire",
+      "kind": "link"
+    },
+    {
+      "name": "Hongkong",
+      "kind": "link"
+    },
+    {
+      "name": "Iceland",
+      "kind": "link"
+    },
+    {
+      "name": "Indian/Antananarivo",
+      "kind": "link"
+    },
+    {
+      "name": "Indian/Chagos",
+      "kind": "zone"
+    },
+    {
+      "name": "Indian/Christmas",
+      "kind": "link"
+    },
+    {
+      "name": "Indian/Cocos",
+      "kind": "link"
+    },
+    {
+      "name": "Indian/Comoro",
+      "kind": "link"
+    },
+    {
+      "name": "Indian/Kerguelen",
+      "kind": "link"
+    },
+    {
+      "name": "Indian/Mahe",
+      "kind": "link"
+    },
+    {
+      "name": "Indian/Maldives",
+      "kind": "zone"
+    },
+    {
+      "name": "Indian/Mauritius",
+      "kind": "zone"
+    },
+    {
+      "name": "Indian/Mayotte",
+      "kind": "link"
+    },
+    {
+      "name": "Indian/Reunion",
+      "kind": "link"
+    },
+    {
+      "name": "Iran",
+      "kind": "link"
+    },
+    {
+      "name": "Israel",
+      "kind": "link"
+    },
+    {
+      "name": "Jamaica",
+      "kind": "link"
+    },
+    {
+      "name": "Japan",
+      "kind": "link"
+    },
+    {
+      "name": "Kwajalein",
+      "kind": "link"
+    },
+    {
+      "name": "Libya",
+      "kind": "link"
+    },
+    {
+      "name": "Mexico/BajaNorte",
+      "kind": "link"
+    },
+    {
+      "name": "Mexico/BajaSur",
+      "kind": "link"
+    },
+    {
+      "name": "Mexico/General",
+      "kind": "link"
+    },
+    {
+      "name": "NZ",
+      "kind": "link"
+    },
+    {
+      "name": "NZ-CHAT",
+      "kind": "link"
+    },
+    {
+      "name": "Navajo",
+      "kind": "link"
+    },
+    {
+      "name": "PRC",
+      "kind": "link"
+    },
+    {
+      "name": "Pacific/Apia",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Auckland",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Bougainville",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Chatham",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Chuuk",
+      "kind": "link"
+    },
+    {
+      "name": "Pacific/Easter",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Efate",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Enderbury",
+      "kind": "link"
+    },
+    {
+      "name": "Pacific/Fakaofo",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Fiji",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Funafuti",
+      "kind": "link"
+    },
+    {
+      "name": "Pacific/Galapagos",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Gambier",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Guadalcanal",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Guam",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Honolulu",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Johnston",
+      "kind": "link"
+    },
+    {
+      "name": "Pacific/Kanton",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Kiritimati",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Kosrae",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Kwajalein",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Majuro",
+      "kind": "link"
+    },
+    {
+      "name": "Pacific/Marquesas",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Midway",
+      "kind": "link"
+    },
+    {
+      "name": "Pacific/Nauru",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Niue",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Norfolk",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Noumea",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Pago_Pago",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Palau",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Pitcairn",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Pohnpei",
+      "kind": "link"
+    },
+    {
+      "name": "Pacific/Ponape",
+      "kind": "link"
+    },
+    {
+      "name": "Pacific/Port_Moresby",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Rarotonga",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Saipan",
+      "kind": "link"
+    },
+    {
+      "name": "Pacific/Samoa",
+      "kind": "link"
+    },
+    {
+      "name": "Pacific/Tahiti",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Tarawa",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Tongatapu",
+      "kind": "zone"
+    },
+    {
+      "name": "Pacific/Truk",
+      "kind": "link"
+    },
+    {
+      "name": "Pacific/Wake",
+      "kind": "link"
+    },
+    {
+      "name": "Pacific/Wallis",
+      "kind": "link"
+    },
+    {
+      "name": "Pacific/Yap",
+      "kind": "link"
+    },
+    {
+      "name": "Poland",
+      "kind": "link"
+    },
+    {
+      "name": "Portugal",
+      "kind": "link"
+    },
+    {
+      "name": "ROC",
+      "kind": "link"
+    },
+    {
+      "name": "ROK",
+      "kind": "link"
+    },
+    {
+      "name": "Singapore",
+      "kind": "link"
+    },
+    {
+      "name": "Turkey",
+      "kind": "link"
+    },
+    {
+      "name": "US/Alaska",
+      "kind": "link"
+    },
+    {
+      "name": "US/Aleutian",
+      "kind": "link"
+    },
+    {
+      "name": "US/Arizona",
+      "kind": "link"
+    },
+    {
+      "name": "US/Central",
+      "kind": "link"
+    },
+    {
+      "name": "US/East-Indiana",
+      "kind": "link"
+    },
+    {
+      "name": "US/Eastern",
+      "kind": "link"
+    },
+    {
+      "name": "US/Hawaii",
+      "kind": "link"
+    },
+    {
+      "name": "US/Indiana-Starke",
+      "kind": "link"
+    },
+    {
+      "name": "US/Michigan",
+      "kind": "link"
+    },
+    {
+      "name": "US/Mountain",
+      "kind": "link"
+    },
+    {
+      "name": "US/Pacific",
+      "kind": "link"
+    },
+    {
+      "name": "US/Samoa",
+      "kind": "link"
+    },
+    {
+      "name": "W-SU",
+      "kind": "link"
+    }
+  ]
+}

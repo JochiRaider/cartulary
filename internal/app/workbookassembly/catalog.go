@@ -94,7 +94,6 @@ func NewContributionCatalog(input ContributionDependencies) (*workbook.WorkbookC
 		conflictFields:        conflictFields,
 		appender:              appender,
 		pool:                  pool,
-		keepSaved:             keepSaved,
 	})
 }
 
@@ -176,7 +175,6 @@ type contributionAssemblyInput struct {
 	conflictTokens        conflicttokens.ConflictTokenCodec
 	conflictFields        conflicttokens.FieldResolver
 	appender              *revisions.Appender
-	keepSaved             conflicttokens.IdempotencyPort
 }
 
 func buildContributionCatalog(input contributionAssemblyInput) (*workbook.WorkbookContributionCatalog, error) {
@@ -194,7 +192,6 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 	conflictTokens := input.conflictTokens
 	conflictFields := input.conflictFields
 	appender := input.appender
-	keepSaved := input.keepSaved
 
 	entityProviders, err := newEntityProviderSet(entityStore)
 	if err != nil {
@@ -213,14 +210,16 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
 	}
-	partyOwner := parties.NewMutationFacade(
+	partyOwner, err := NewPartyMutationContribution(
 		pool,
 		conflictTokens,
 		appender,
 		conflictFields,
-		keepSaved,
 		partyProjections,
 	)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
+	}
 	partyProviders, err := newPartyProviderSet(partyOwner)
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)

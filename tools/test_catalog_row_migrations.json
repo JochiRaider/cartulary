@@ -17,6 +17,15 @@
       "reason": "Exact-target exclusion plus honest graph-level PostgreSQL resource claims replace the service-global reader/writer lock, preserving exact cleanup without a collision-prone second admission layer."
     },
     {
+      "retired_row_id": "module.parties.store.direct_party_and_decision_reference_writes_accep_27ac8d297b",
+      "replacement_row_ids": [
+        "module.evidence.unit.evidence_direct_party_references_admit_exact_sta_d51415ee2a",
+        "module.parties.references.party_reference_targets_must_be_active_parties_i_6ca84ebe53",
+        "module.tasksdecisions.unit.task_decision_direct_references_admit_exact_stab_7bf2beff80"
+      ],
+      "reason": "The predecessor combined Evidence admission, Tasks and Decisions admission, and Party target-integrity assertions while falsely claiming Party portability; the replacements assign each selector to its normative semantic owner and direct Party portability rows now carry the portability verification."
+    },
+    {
       "retired_row_id": "module.timeline.measurement.the_isolated_measurement_suite_proves_one_real_s_6a3649dbd5",
       "replacement_row_ids": [
         "module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",

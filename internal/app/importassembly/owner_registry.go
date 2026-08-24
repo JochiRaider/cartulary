@@ -195,12 +195,14 @@ func newOwnerCreateFacade(
 			dependencies.Indicators,
 		)
 	case "module.parties@1":
-		return parties.NewImportCreateFacade(
+		return parties.NewImportContribution(
 			targetViewSchemaID,
 			facadeID,
-			dependencies.Postgres,
-			dependencies.RevisionAppender,
-			dependencies.PartyProjections,
+			parties.ImportDependencies{
+				RecordEnvelopes: records.NewStore(),
+				Projections:     dependencies.PartyProjections,
+				Revisions:       dependencies.RevisionAppender,
+			},
 		)
 	case "module.tasksdecisions@1":
 		return tasksdecisions.NewImportContribution(

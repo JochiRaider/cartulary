@@ -577,12 +577,21 @@ Exact-match selection MUST follow this precedence order:
 
 - hosts: `aad_device_id`, then `fqdn`, then `hostname`,
 - identities: `aad_object_id`, then `sid`, then `upn`, then `email`, then `sam_account_name`,
-- parties: normalized `primary_email`, then `external_ref`.
+- parties: `primary_email` compared by the locale-independent case-insensitive
+  equality value produced by `email_address_v1`, then `external_ref` compared
+  by the exact Unicode code-point sequence produced by `locator_text_v1`.
 Profiles: base
 Verified by: AC-022, AC-028, AC-186, AC-187, AC-231, AC-279
 
 **REQ-02-061**
 A unique exact match on one of these keys MUST reuse the existing active entity or party row. For hosts and identities, the search domain for each exact-match class is the union of that class's canonical field plus every active preserved identifier of the same class classified as `exact_match_reuse` on that record. Comparison and normalization for this search MUST use the same deterministic substrate already used for create-or-upsert and deduplication. For parties, exact-match reuse remains limited to the canonical fields named in REQ-02-060.
+
+Party matching MUST resolve every supplied non-null exact-match key before
+precedence is applied. A key that resolves to multiple active same-incident
+Parties is ambiguous and MUST fail. Supplied keys that resolve to different
+Parties MUST fail. Only when all non-empty matches converge on one Party may
+that Party be reused; precedence then selects only the internal match reason.
+Reuse MUST NOT overwrite or enrich the matched Party.
 Profiles: base
 Verified by: AC-022, AC-028, AC-186, AC-187, AC-231, AC-279
 
@@ -604,6 +613,13 @@ Verified by: AC-028, AC-029, AC-231, AC-279
 
 **REQ-02-063**
 If a create or update would assign one of the exact-match keys to more than one active entity or party row, the operation MUST fail as a merge or conflict case rather than silently rekeying, linking, or merging entities or parties.
+
+For Parties, the closed conflict reasons are `ambiguous_exact_match`,
+`cross_key_exact_match`, and `exact_match_key_claimed`. A Party conflict MUST
+identify only a sorted, duplicate-free, non-empty subset of
+`party.primary_email` and `party.external_ref`; source values, Party
+identifiers, database diagnostics, and storage topology are forbidden from the
+safe result.
 Profiles: base
 Verified by: AC-028, AC-029, AC-231, AC-279, AC-280, AC-559
 
@@ -644,6 +660,37 @@ record, revision target, portable row, or authoritative backup member, and it
 MUST NOT become a generic cross-module identity service.
 Profiles: base, import, incident_portability
 Verified by: AC-022, AC-023, AC-028, AC-029, AC-231, AC-559
+
+**REQ-02-271**
+Party exact-match identity MUST be enforced through one Parties-owned,
+database-enforced active-claim model. The claim key is exactly
+`(incident_id, party_key_kind, normalized_value)`, where `party_key_kind` is
+exactly `primary_email` or `external_ref`, and the claim target is exactly one
+`party_record_id`. A claim exists if and only if the Records envelope is
+active and the corresponding Party field is non-null. Claims are derived and
+rebuildable; they are not records, workbook rows, links, portable rows,
+authoritative backup members, or a generic identity service.
+
+Every create, reuse, patch, clear, delete, restore, rollback, Imports write,
+Incident Bundle import, and recovery operation that can affect Party identity
+MUST use the Party field registry and maintain the exact claim set in the same
+transaction. Before resolution or mutation it MUST lock the complete old,
+current, and proposed claim tuples in ascending UTF-8 byte order. An absent
+tuple MUST be serialized with a transaction-scoped advisory lock, and database
+uniqueness remains the final integrity boundary. Clear and delete release
+claims; restore and rollback reacquire the exact resulting set or fail
+atomically. Recovery rebuilds claims from authoritative Records and Party rows,
+validates exact set equality, and blocks readiness on duplicate or divergent
+state.
+
+Migration preflight MUST reject invalid normalized values and competing active
+claims without choosing, merging, deleting, or editing a winner. Operator
+diagnostics may contain only bounded counts, record identifiers, field keys,
+and closed safe reasons. No rejected Party operation may commit a source or
+Records change, claim, revision, projection refresh, Collaboration event,
+idempotent success, or Imports outcome.
+Profiles: base, import, incident_portability
+Verified by: AC-231, AC-561
 
 ## 9. Merge behavior
 
@@ -2852,9 +2899,9 @@ Profiles: base
 Verified by: AC-231, AC-279
 
 **REQ-02-230**
-For direct party creation or explicit create-from-text flows, the implementation MUST reuse an existing active same-incident party only on a unique exact match by normalized `primary_email` or, failing that, `external_ref`. Display name, organization, role title, and phone-like text MAY inform suggestions but MUST NOT be auto-upsert keys.
+For direct party creation or explicit create-from-text flows, the implementation MUST admit every supplied field and evaluate exact committed replay before reading current Party or claim state. A divergent replay MUST fail as `client_txn_conflict`. Fresh evaluation MUST resolve every supplied active same-incident `primary_email` and `external_ref` claim under REQ-02-271, fail an ambiguous or divergent result, reuse the one converged Party without enrichment, or create one Party only after acquiring every proposed claim. Display name, organization, role title, and phone-like text MAY inform suggestions but MUST NOT be auto-upsert keys.
 Profiles: base
-Verified by: AC-231, AC-279
+Verified by: AC-231, AC-279, AC-561
 
 **REQ-02-231**
 A `*_party_id` write MUST fail unless the referenced `party` row is active and belongs to the same incident as the referencing record. Deleting a `party` row that still has active incoming references MUST fail closed.

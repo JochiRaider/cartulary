@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.parties.field_registry.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "algorithm_id", "view_schema_id", "fields"],
+  "properties": {
+    "schema_id": { "const": "cartulary.parties.field_registry.v1" },
+    "algorithm_id": { "const": "cartulary.parties.mutation_request_hash.v1" },
+    "view_schema_id": { "const": "cartulary.view.parties.v1" },
+    "fields": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/field" }
+    }
+  },
+  "$defs": {
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field_key",
+        "source_column",
+        "required",
+        "create_omission",
+        "clearable",
+        "string_contract_id",
+        "max_unicode_scalars",
+        "enum_values",
+        "stored_value_posture",
+        "equality_posture",
+        "claim_role",
+        "canonical_hash_posture",
+        "conflict_class"
+      ],
+      "properties": {
+        "field_key": {
+          "enum": [
+            "party.display_name",
+            "party.party_kind",
+            "party.organization_name",
+            "party.role_title",
+            "party.primary_email",
+            "party.timezone_name",
+            "party.external_ref",
+            "party.notes"
+          ]
+        },
+        "source_column": {
+          "enum": [
+            "display_name",
+            "party_kind",
+            "organization_name",
+            "role_title",
+            "primary_email",
+            "timezone_name",
+            "external_ref",
+            "notes"
+          ]
+        },
+        "required": { "type": "boolean" },
+        "create_omission": { "enum": ["invalid", "null"] },
+        "clearable": { "type": "boolean" },
+        "string_contract_id": {
+          "oneOf": [
+            { "enum": ["display_name_line_v1", "email_address_v1", "timezone_name_v1", "locator_text_v1", "multiline_body_v1"] },
+            { "type": "null" }
+          ]
+        },
+        "max_unicode_scalars": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1, "maximum": 16384 },
+            { "type": "null" }
+          ]
+        },
+        "enum_values": {
+          "oneOf": [
+            {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1 }
+            },
+            { "type": "null" }
+          ]
+        },
+        "stored_value_posture": {
+          "enum": [
+            "contract_normalized",
+            "contract_normalized_or_null",
+            "contract_normalized_case_preserved_or_null",
+            "exact_registry_identifier_or_null",
+            "exact_token",
+            "nfc_outer_trim_lf_or_null"
+          ]
+        },
+        "equality_posture": { "enum": ["stored_value_exact", "locale_independent_case_insensitive"] },
+        "claim_role": {
+          "oneOf": [
+            { "enum": ["primary_email", "external_ref"] },
+            { "type": "null" }
+          ]
+        },
+        "canonical_hash_posture": { "enum": ["stored_value", "stored_value_or_null", "equality_value_or_null"] },
+        "conflict_class": { "enum": ["atomic_replace", "text_compare_merge"] }
+      }
+    }
+  }
+}

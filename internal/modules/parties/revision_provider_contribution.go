@@ -1,12 +1,12 @@
 package parties
 
 import (
-	"github.com/JochiRaider/cartulary/internal/modules/parties/deleterestore"
-	"github.com/JochiRaider/cartulary/internal/modules/parties/rollbackprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/parties/internal/providers/deleterestore"
+	partyrollback "github.com/JochiRaider/cartulary/internal/modules/parties/internal/providers/rollback"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
-func RevisionProviderContribution() revisions.ProviderContribution {
+func NewRevisionContribution() revisions.ProviderContribution {
 	return revisions.ProviderContribution{
 		SourceOwnerModule: revisions.SourceOwnerParties,
 		Records: []revisions.RecordProviderContribution{{
@@ -14,7 +14,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			RecordType:          "party",
 			SnapshotSchemaID:    "cartulary.revisions.snapshot.party.v1",
 			DeleteRestoreSource: deleterestore.NewSource(),
-			RowRollbackProvider: rollbackprovider.NewPartyProvider(),
+			RowRollbackProvider: partyrollback.NewProvider(),
 			RecordViewRoutes: []revisions.RecordViewRouteContribution{{
 				ContributionID: "parties.parties",
 				ViewSchemaIDs:  []string{ViewSchemaID},

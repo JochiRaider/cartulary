@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cartulary.incident_bundle.saved_views.row.v1",
   "title": "Saved Views incident bundle row",
-  "description": "Exact portable Saved Views row shape used by Incident Bundle version 2. Runtime registry admission, Unicode normalization, cross-field timestamp ordering, and schema-specific query/layout semantics remain owner validations.",
+  "description": "Exact portable Saved Views row shape used by Incident Bundle version 3. Runtime registry admission, Unicode normalization, cross-field timestamp ordering, and schema-specific query/layout semantics remain owner validations.",
   "type": "object",
   "additionalProperties": false,
   "required": [

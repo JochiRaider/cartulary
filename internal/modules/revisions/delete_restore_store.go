@@ -88,6 +88,9 @@ func (e *RecordRestoreBlockedError) Details() map[string]any {
 		details["normalized_value"] = conflict.NormalizedValue
 		details["blocking_record_id"] = conflict.BlockingRecordID.String()
 	}
+	if len(e.Block.ConflictingFieldKeys) > 0 {
+		details["conflicting_field_keys"] = append([]string(nil), e.Block.ConflictingFieldKeys...)
+	}
 	return details
 }
 

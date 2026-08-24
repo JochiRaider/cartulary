@@ -38,21 +38,85 @@
       ]
     },
     {
-      "row_id": "module.parties.store.direct_party_and_decision_reference_writes_accep_27ac8d297b",
+      "row_id": "module.parties.claims.party_active_claims_are_migration_safe_concurren_9ad2db3764",
       "owner_id": "module.parties",
-      "family_id": "module.parties.store",
-      "collaborator_ids": [],
+      "family_id": "module.parties.claims",
+      "collaborator_ids": [
+        "module.database_migrations",
+        "module.recovery"
+      ],
       "verification_ids": [
-        "module.parties.verification.behavior_contract",
-        "module.parties.verification.incident_portability"
+        "module.parties.verification.behavior_contract"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/modules/parties",
         "tests": [
-          "TestDirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs_Unit",
-          "TestDirectPartyReferencesAcceptOnlyExactStableIDs_Unit",
-          "TestDirectPartyReferencesRequireSameIncidentActiveParties_Unit"
+          "TestPartyActiveKeyClaimsMigration_Integration",
+          "TestPartyConcurrentCreateAndRecoveryClaims_Integration",
+          "TestPartyMutationHashMigration_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.parties.composition.party_mutation_and_import_composition_exposes_on_8a69574087",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.composition",
+      "collaborator_ids": [
+        "module.imports",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.parties.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/parties",
+        "tests": [
+          "TestImportContributionRejectsIncompleteDependencies_Unit",
+          "TestMutationContributionRejectsIncompleteDependencies_Unit",
+          "TestMutationContributionSharesOneFacade_Unit",
+          "TestPartyExportedSurfaceLock_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.parties.idempotency.party_replay_storage_preserves_semantic_results_478b92a552",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.idempotency",
+      "collaborator_ids": [
+        "module.auth",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.parties.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/workbookassembly",
+        "tests": [
+          "TestPartyIdempotencyAdapterPreservesSemanticResultsAndReplayOrder_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -65,6 +129,147 @@
       "service_dependencies": [
         "postgres"
       ]
+    },
+    {
+      "row_id": "module.parties.portability.party_portable_apply_preserves_exact_state_claim_7a428a3abd",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.portability",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records"
+      ],
+      "verification_ids": [
+        "module.parties.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/parties/internal/providers/incidentbundle",
+        "tests": [
+          "TestPartyIncidentBundleClaimCollisionRollsBack_Integration",
+          "TestPartyIncidentBundleExactStateClaimsAndFailureAtomicity_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.parties.portability.party_portable_preparation_enforces_strict_shape_fdfc4a86c9",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.portability",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.parties.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/parties/internal/providers/incidentbundle",
+        "tests": [
+          "TestPartyIncidentBundlePreparationAndInvariantPrecedence_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.parties.portability.party_portable_public_failures_are_closed_and_at_cc2b089315",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.portability",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.parties.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestPartyIncidentBundleFailuresAreClosedAndAtomic_Integration"
+        ]
+      },
+      "evidence_class": "security",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "backend_capacity_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.parties.references.party_reference_targets_must_be_active_parties_i_6ca84ebe53",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.references",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "module.parties.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/parties",
+        "tests": [
+          "TestPartyReferenceTargetsRequireSameIncidentActiveParties_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.parties.rollback.party_rollback_source_preserves_field_presence_a_cb156a5868",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.rollback",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.parties.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+		"package": "./internal/modules/parties/internal/providers/rollback",
+        "tests": [
+          "TestPartyProviderRejectsInvalidRequiredValues",
+          "TestPartySourceForRollbackValuePreservesPresence"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.parties.store.party_create_reuses_exactly_one_active_same_inci_f7f18f1c5c",

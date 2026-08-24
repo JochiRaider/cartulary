@@ -2,6 +2,10 @@ package parties_test
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,6 +26,26 @@ import (
 
 type partyTestAttributionResolver struct{}
 
+type partyFieldValue struct{ Text *string }
+
+type partyCreateRequest struct {
+	ViewSchemaID string
+	ClientTxnID  string
+	Values       map[string]partyFieldValue
+}
+
+type partyPatchRequest struct {
+	ViewSchemaID   string
+	BaseRowVersion int64
+	ClientTxnID    string
+	Changes        []partyPatchChange
+}
+
+type partyPatchChange struct {
+	FieldKey string
+	Value    *partyFieldValue
+}
+
 func (partyTestAttributionResolver) ResolveImportedSourceActorsTx(context.Context, pgx.Tx, uuid.UUID, string, string, []string) (map[string]string, error) {
 	return map[string]string{}, nil
 }
@@ -34,10 +58,10 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-05-incident", "IR-U905", "Workbook inspector party-storage")
 	otherIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-05-other-incident", "IR-U905B", "Workbook inspector party-storage Other")
 
-	createdByEmail, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
+	createdByEmail, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-email",
-		Values: map[string]parties.FieldValue{
+		Values: map[string]partyFieldValue{
 			"party.display_name":  textChange("IR Vendor"),
 			"party.party_kind":    textChange("organization"),
 			"party.primary_email": textChange("Vendor@Example.Test"),
@@ -46,10 +70,10 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create party by email: %v", err)
 	}
-	reusedByEmail, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
+	reusedByEmail, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-email-reuse",
-		Values: map[string]parties.FieldValue{
+		Values: map[string]partyFieldValue{
 			"party.display_name":  textChange("Phone-like label must not drive reuse"),
 			"party.party_kind":    textChange("person"),
 			"party.primary_email": textChange(" vendor@example.test "),
@@ -58,15 +82,56 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reuse party by email: %v", err)
 	}
-	if reusedByEmail.RecordID != createdByEmail.RecordID || reusedByEmail.StatusCode != 200 {
+	if reusedByEmail.RecordID != createdByEmail.RecordID || reusedByEmail.Outcome != parties.MutationReused {
 		t.Fatalf("expected normalized same-incident email reuse, got created=%#v reused=%#v", createdByEmail, reusedByEmail)
 	}
 	requirePartyCount(t, harness, incident.ID, "lower(primary_email) = lower('vendor@example.test')", 1)
+	emailCaseNoop, admissionErr := admitPartyPatchRequest(partyPatchRequest{
+		ViewSchemaID: parties.ViewSchemaID, BaseRowVersion: 1,
+		ClientTxnID: "txn-workbook_interaction-u-9-05-party-email-case-noop",
+		Changes: []partyPatchChange{{
+			FieldKey: "party.primary_email", Value: fieldValuePointer(textChange("vendor@example.test")),
+		}},
+	})
+	if admissionErr != nil {
+		t.Fatalf("admit Party email-case no-op: %v", admissionErr)
+	}
+	_, err = partyOwner.Patch(context.Background(), parties.PatchCommand{
+		ActorUserID: actor.ID, RecordID: createdByEmail.RecordID, Admission: emailCaseNoop,
+		RequestID: "req-workbook_interaction-u-9-05-party-email-case-noop",
+		RouteKey:  "workbook.records.patch", ConflictRouteKey: "workbook.records.conflicts.resolve",
+		Now: time.Date(2026, 5, 18, 12, 1, 30, 0, time.UTC),
+	})
+	var noEffect *parties.ValidationError
+	if !errors.As(err, &noEffect) || noEffect.ReasonCode != "no_effective_change" {
+		t.Fatalf("email equality no-op error = %v, want no_effective_change", err)
+	}
+	var storedEmail string
+	var emailRowVersion int64
+	if err := harness.DB.QueryRow(context.Background(), `
+SELECT p.primary_email, r.row_version
+  FROM parties p JOIN records r ON r.record_id = p.record_id
+ WHERE p.record_id = $1
+`, createdByEmail.RecordID).Scan(&storedEmail, &emailRowVersion); err != nil {
+		t.Fatalf("load Party after email equality no-op: %v", err)
+	}
+	if storedEmail != "Vendor@Example.Test" || emailRowVersion != 1 {
+		t.Fatalf("email equality no-op changed source state: email=%q version=%d", storedEmail, emailRowVersion)
+	}
+	var emailNoopReplayRows int
+	if err := harness.DB.QueryRow(context.Background(), `
+SELECT count(*) FROM route_idempotency
+ WHERE route_key = 'workbook.records.patch'
+   AND scope_key = $1
+   AND client_txn_id = 'txn-workbook_interaction-u-9-05-party-email-case-noop'
+`, createdByEmail.RecordID.String()).Scan(&emailNoopReplayRows); err != nil || emailNoopReplayRows != 0 {
+		t.Fatalf("email equality no-op retained replay state: count=%d err=%v", emailNoopReplayRows, err)
+	}
 
-	createdByExternalRef, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
+	createdByExternalRef, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-external-ref",
-		Values: map[string]parties.FieldValue{
+		Values: map[string]partyFieldValue{
 			"party.display_name": textChange("Outside Counsel"),
 			"party.party_kind":   textChange("organization"),
 			"party.external_ref": textChange("EXT-42"),
@@ -75,27 +140,96 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create party by external ref: %v", err)
 	}
-	reusedByExternalRef, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
+	reusedByExternalRef, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-external-ref-reuse",
-		Values: map[string]parties.FieldValue{
+		Values: map[string]partyFieldValue{
 			"party.display_name": textChange("Outside Counsel Alias"),
 			"party.party_kind":   textChange("organization"),
-			"party.external_ref": textChange(" ext-42 "),
+			"party.external_ref": textChange(" EXT-42 "),
 		},
 	}, "req-workbook_interaction-u-9-05-party-external-ref-reuse", time.Date(2026, 5, 18, 12, 3, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("reuse party by external ref: %v", err)
 	}
-	if reusedByExternalRef.RecordID != createdByExternalRef.RecordID || reusedByExternalRef.StatusCode != 200 {
+	if reusedByExternalRef.RecordID != createdByExternalRef.RecordID || reusedByExternalRef.Outcome != parties.MutationReused {
 		t.Fatalf("expected normalized same-incident external_ref reuse, got created=%#v reused=%#v", createdByExternalRef, reusedByExternalRef)
 	}
-	requirePartyCount(t, harness, incident.ID, "lower(external_ref) = lower('ext-42')", 1)
+	requirePartyCount(t, harness, incident.ID, "trim(external_ref) = 'EXT-42'", 1)
+	caseVariantExternalRef, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
+		ViewSchemaID: parties.ViewSchemaID,
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-external-ref-case-variant",
+		Values: map[string]partyFieldValue{
+			"party.display_name": textChange("Outside Counsel Case Variant"),
+			"party.party_kind":   textChange("organization"),
+			"party.external_ref": textChange("ext-42"),
+		},
+	}, "req-workbook_interaction-u-9-05-party-external-ref-case-variant", time.Date(2026, 5, 18, 12, 3, 10, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create case-sensitive external ref variant: %v", err)
+	}
+	if caseVariantExternalRef.RecordID == createdByExternalRef.RecordID || caseVariantExternalRef.Outcome != parties.MutationCreated {
+		t.Fatalf("external_ref case variant must create a distinct Party: %#v", caseVariantExternalRef)
+	}
+	conflictingPatch := partyPatchRequest{
+		ViewSchemaID: parties.ViewSchemaID, BaseRowVersion: 1,
+		ClientTxnID: "txn-workbook_interaction-u-9-05-party-external-ref-conflict",
+		Changes: []partyPatchChange{{
+			FieldKey: "party.external_ref", Value: fieldValuePointer(textChange("EXT-42")),
+		}},
+	}
+	conflictingAdmission, admissionErr := admitPartyPatchRequest(conflictingPatch)
+	if admissionErr != nil {
+		t.Fatalf("admit conflicting Party patch: %v", admissionErr)
+	}
+	_, err = partyOwner.Patch(context.Background(), parties.PatchCommand{
+		ActorUserID: actor.ID, RecordID: caseVariantExternalRef.RecordID, Admission: conflictingAdmission,
+		RequestID: "req-workbook_interaction-u-9-05-party-external-ref-conflict",
+		RouteKey:  "workbook.records.patch", ConflictRouteKey: "workbook.records.conflicts.resolve",
+		Now: time.Date(2026, 5, 18, 12, 3, 20, 0, time.UTC),
+	})
+	var keyClaimed *parties.PartyMatchConflictError
+	if !errors.As(err, &keyClaimed) || keyClaimed.ReasonCode != parties.PartyMatchExactKeyClaimed || strings.Join(keyClaimed.ConflictingFieldKeys, ",") != "party.external_ref" {
+		t.Fatalf("expected value-free external_ref claim conflict, got %v", err)
+	}
+	requirePartyCount(t, harness, incident.ID, "p.record_id = '"+caseVariantExternalRef.RecordID.String()+"' AND external_ref = 'ext-42'", 1)
 
-	displayOnly, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
+	clearExternalRef := partyPatchRequest{
+		ViewSchemaID: parties.ViewSchemaID, BaseRowVersion: 1,
+		ClientTxnID: "txn-workbook_interaction-u-9-05-party-external-ref-clear",
+		Changes: []partyPatchChange{{
+			FieldKey: "party.external_ref", Value: &partyFieldValue{},
+		}},
+	}
+	clearAdmission, admissionErr := admitPartyPatchRequest(clearExternalRef)
+	if admissionErr != nil {
+		t.Fatalf("admit Party external-ref clear: %v", admissionErr)
+	}
+	if _, err := partyOwner.Patch(context.Background(), parties.PatchCommand{
+		ActorUserID: actor.ID, RecordID: caseVariantExternalRef.RecordID, Admission: clearAdmission,
+		RequestID: "req-workbook_interaction-u-9-05-party-external-ref-clear",
+		RouteKey:  "workbook.records.patch", ConflictRouteKey: "workbook.records.conflicts.resolve",
+		Now: time.Date(2026, 5, 18, 12, 3, 30, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("clear Party external_ref claim: %v", err)
+	}
+	replacementCaseVariant, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
+		ViewSchemaID: parties.ViewSchemaID,
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-external-ref-reacquire",
+		Values: map[string]partyFieldValue{
+			"party.display_name": textChange("Outside Counsel Replacement"),
+			"party.party_kind":   textChange("organization"),
+			"party.external_ref": textChange("ext-42"),
+		},
+	}, "req-workbook_interaction-u-9-05-party-external-ref-reacquire", time.Date(2026, 5, 18, 12, 3, 40, 0, time.UTC))
+	if err != nil || replacementCaseVariant.Outcome != parties.MutationCreated || replacementCaseVariant.RecordID == caseVariantExternalRef.RecordID {
+		t.Fatalf("reacquire released Party external_ref: result=%#v err=%v", replacementCaseVariant, err)
+	}
+
+	displayOnly, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-display-only",
-		Values: map[string]parties.FieldValue{
+		Values: map[string]partyFieldValue{
 			"party.display_name":      textChange("Duplicate Display"),
 			"party.party_kind":        textChange("person"),
 			"party.organization_name": textChange("Duplicate Org"),
@@ -105,10 +239,10 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create display-only party: %v", err)
 	}
-	displayOnlyAgain, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
+	displayOnlyAgain, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-display-only-again",
-		Values: map[string]parties.FieldValue{
+		Values: map[string]partyFieldValue{
 			"party.display_name":      textChange("Duplicate Display"),
 			"party.party_kind":        textChange("person"),
 			"party.organization_name": textChange("Duplicate Org"),
@@ -123,10 +257,10 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	}
 	requirePartyCount(t, harness, incident.ID, "display_name = 'Duplicate Display'", 2)
 
-	phoneLike, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
+	phoneLike, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-phone-like",
-		Values: map[string]parties.FieldValue{
+		Values: map[string]partyFieldValue{
 			"party.display_name":      textChange("+1 555 0100"),
 			"party.party_kind":        textChange("person"),
 			"party.organization_name": textChange("+1 555 0100"),
@@ -136,10 +270,10 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create phone-like party: %v", err)
 	}
-	phoneLikeAgain, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
+	phoneLikeAgain, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-phone-like-again",
-		Values: map[string]parties.FieldValue{
+		Values: map[string]partyFieldValue{
 			"party.display_name":      textChange("+1 555 0100"),
 			"party.party_kind":        textChange("person"),
 			"party.organization_name": textChange("+1 555 0100"),
@@ -154,53 +288,39 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	}
 	requirePartyCount(t, harness, incident.ID, "display_name = '+1 555 0100'", 2)
 
-	ambiguousAnchor, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
+	var partiesBeforeCrossKey int
+	if err := harness.DB.QueryRow(context.Background(), `SELECT count(*) FROM parties WHERE incident_id = $1`, incident.ID).Scan(&partiesBeforeCrossKey); err != nil {
+		t.Fatalf("count Parties before cross-key conflict: %v", err)
+	}
+	_, err = createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-ambiguous-anchor",
-		Values: map[string]parties.FieldValue{
-			"party.display_name":  textChange("Ambiguous Anchor"),
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-cross-key",
+		Values: map[string]partyFieldValue{
+			"party.display_name":  textChange("Cross-Key Candidate"),
 			"party.party_kind":    textChange("organization"),
-			"party.primary_email": textChange("ambiguous@example.test"),
+			"party.primary_email": textChange("vendor@example.test"),
+			"party.external_ref":  textChange("EXT-42"),
 		},
-	}, "req-workbook_interaction-u-9-05-party-ambiguous-anchor", time.Date(2026, 5, 18, 12, 3, 50, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create ambiguous anchor party: %v", err)
+	}, "req-workbook_interaction-u-9-05-party-cross-key", time.Date(2026, 5, 18, 12, 3, 59, 0, time.UTC))
+	var matchConflict *parties.PartyMatchConflictError
+	if !errors.As(err, &matchConflict) || matchConflict.ReasonCode != parties.PartyMatchCrossKeyExactMatch {
+		t.Fatalf("expected cross-key exact-match conflict, got %v", err)
 	}
-	ambiguousDuplicate, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
-		ViewSchemaID: parties.ViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-ambiguous-duplicate",
-		Values: map[string]parties.FieldValue{
-			"party.display_name": textChange("Ambiguous Duplicate"),
-			"party.party_kind":   textChange("organization"),
-		},
-	}, "req-workbook_interaction-u-9-05-party-ambiguous-duplicate", time.Date(2026, 5, 18, 12, 3, 55, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create ambiguous duplicate party: %v", err)
+	if got := strings.Join(matchConflict.ConflictingFieldKeys, ","); got != "party.external_ref,party.primary_email" {
+		t.Fatalf("unexpected cross-key fields: %q", got)
 	}
-	if _, err := harness.DB.Exec(context.Background(), `UPDATE parties SET primary_email = 'ambiguous@example.test' WHERE record_id = $1`, ambiguousDuplicate.RecordID); err != nil {
-		t.Fatalf("seed ambiguous party email: %v", err)
+	var partiesAfterCrossKey int
+	if err := harness.DB.QueryRow(context.Background(), `SELECT count(*) FROM parties WHERE incident_id = $1`, incident.ID).Scan(&partiesAfterCrossKey); err != nil {
+		t.Fatalf("count Parties after cross-key conflict: %v", err)
 	}
-	ambiguousCreate, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
-		ViewSchemaID: parties.ViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-ambiguous-create",
-		Values: map[string]parties.FieldValue{
-			"party.display_name":  textChange("Ambiguous Create"),
-			"party.party_kind":    textChange("organization"),
-			"party.primary_email": textChange(" ambiguous@example.test "),
-		},
-	}, "req-workbook_interaction-u-9-05-party-ambiguous-create", time.Date(2026, 5, 18, 12, 3, 59, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create party with ambiguous email: %v", err)
+	if partiesAfterCrossKey != partiesBeforeCrossKey {
+		t.Fatalf("cross-key conflict created a Party: before=%d after=%d", partiesBeforeCrossKey, partiesAfterCrossKey)
 	}
-	if ambiguousCreate.RecordID == ambiguousAnchor.RecordID || ambiguousCreate.RecordID == ambiguousDuplicate.RecordID {
-		t.Fatalf("ambiguous same-incident email match must not select a party implicitly")
-	}
-	requirePartyCount(t, harness, incident.ID, "lower(trim(primary_email)) = lower('ambiguous@example.test')", 3)
 
-	otherIncidentParty, err := createPartyRow(context.Background(), partyOwner, actor, otherIncident.ID, parties.CreateRequest{
+	otherIncidentParty, err := createPartyRow(context.Background(), partyOwner, actor, otherIncident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-other-party",
-		Values: map[string]parties.FieldValue{
+		Values: map[string]partyFieldValue{
 			"party.display_name":  textChange("Other Incident Vendor"),
 			"party.party_kind":    textChange("organization"),
 			"party.primary_email": textChange("vendor@example.test"),
@@ -213,10 +333,10 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 		t.Fatalf("party reuse crossed incidents: %#v", otherIncidentParty)
 	}
 
-	deletedEmailParty, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
+	deletedEmailParty, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-deleted-email-party",
-		Values: map[string]parties.FieldValue{
+		Values: map[string]partyFieldValue{
 			"party.display_name":  textChange("Deleted Email Party"),
 			"party.party_kind":    textChange("organization"),
 			"party.primary_email": textChange("deleted-email@example.test"),
@@ -226,10 +346,10 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 		t.Fatalf("create deleted email party: %v", err)
 	}
 	softDeletePartyFor(t, harness, actor, deletedEmailParty.RecordID, "txn-workbook_interaction-u-9-05-delete-email-party")
-	replacementEmailParty, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
+	replacementEmailParty, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-replacement-email-party",
-		Values: map[string]parties.FieldValue{
+		Values: map[string]partyFieldValue{
 			"party.display_name":  textChange("Replacement Email Party"),
 			"party.party_kind":    textChange("organization"),
 			"party.primary_email": textChange(" deleted-email@example.test "),
@@ -238,15 +358,24 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create replacement email party: %v", err)
 	}
-	if replacementEmailParty.RecordID == deletedEmailParty.RecordID || replacementEmailParty.StatusCode != 201 {
+	if replacementEmailParty.RecordID == deletedEmailParty.RecordID || replacementEmailParty.Outcome != parties.MutationCreated {
 		t.Fatalf("deleted email match must not drive reuse, got deleted=%#v replacement=%#v", deletedEmailParty, replacementEmailParty)
 	}
 	requirePartyCount(t, harness, incident.ID, "lower(trim(primary_email)) = lower('deleted-email@example.test')", 1)
+	restoreErr := restorePartyFor(t, harness, actor, deletedEmailParty.RecordID, "txn-workbook_interaction-u-9-05-restore-email-party")
+	var restoreBlocked *revisions.RecordRestoreBlockedError
+	if !errors.As(restoreErr, &restoreBlocked) || restoreBlocked.Block.ReasonCode != "exact_match_key_claimed" || strings.Join(restoreBlocked.Block.ConflictingFieldKeys, ",") != "party.primary_email" {
+		t.Fatalf("expected Party restore claim conflict, got %v", restoreErr)
+	}
+	var deletedStill bool
+	if err := harness.DB.QueryRow(context.Background(), `SELECT deleted_at IS NOT NULL FROM records WHERE record_id = $1`, deletedEmailParty.RecordID).Scan(&deletedStill); err != nil || !deletedStill {
+		t.Fatalf("rejected Party restore changed envelope: deleted=%t err=%v", deletedStill, err)
+	}
 
-	deletedExternalRefParty, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
+	deletedExternalRefParty, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-deleted-external-ref-party",
-		Values: map[string]parties.FieldValue{
+		Values: map[string]partyFieldValue{
 			"party.display_name": textChange("Deleted External Ref Party"),
 			"party.party_kind":   textChange("organization"),
 			"party.external_ref": textChange("DELETED-EXT-42"),
@@ -256,10 +385,10 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 		t.Fatalf("create deleted external ref party: %v", err)
 	}
 	softDeletePartyFor(t, harness, actor, deletedExternalRefParty.RecordID, "txn-workbook_interaction-u-9-05-delete-external-ref-party")
-	replacementExternalRefParty, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, parties.CreateRequest{
+	replacementExternalRefParty, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-replacement-external-ref-party",
-		Values: map[string]parties.FieldValue{
+		Values: map[string]partyFieldValue{
 			"party.display_name": textChange("Replacement External Ref Party"),
 			"party.party_kind":   textChange("organization"),
 			"party.external_ref": textChange(" deleted-ext-42 "),
@@ -268,7 +397,7 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create replacement external ref party: %v", err)
 	}
-	if replacementExternalRefParty.RecordID == deletedExternalRefParty.RecordID || replacementExternalRefParty.StatusCode != 201 {
+	if replacementExternalRefParty.RecordID == deletedExternalRefParty.RecordID || replacementExternalRefParty.Outcome != parties.MutationCreated {
 		t.Fatalf("deleted external_ref match must not drive reuse, got deleted=%#v replacement=%#v", deletedExternalRefParty, replacementExternalRefParty)
 	}
 	requirePartyCount(t, harness, incident.ID, "lower(trim(external_ref)) = lower('deleted-ext-42')", 1)
@@ -303,9 +432,11 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	requireCellValue(t, phoneTextEvidence.Payload["row"].(map[string]any), "evidence.collector_party_id", nil)
 }
 
-func textChange(value string) parties.FieldValue {
-	return parties.FieldValue{Text: &value}
+func textChange(value string) partyFieldValue {
+	return partyFieldValue{Text: &value}
 }
+
+func fieldValuePointer(value partyFieldValue) *partyFieldValue { return &value }
 
 func evidenceTextChange(value string) evidence.FieldValue {
 	return evidence.FieldValue{Text: &value}
@@ -332,15 +463,59 @@ func createPartyRow(
 	owner *parties.MutationFacade,
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
-	request parties.CreateRequest,
+	request partyCreateRequest,
 	requestID string,
 	now time.Time,
 ) (parties.MutationResult, error) {
+	admission, err := admitPartyCreateRequest(request)
+	if err != nil {
+		return parties.MutationResult{}, err
+	}
 	return owner.Create(ctx, parties.CreateCommand{
-		Actor: actor, IncidentID: incidentID, Request: request,
-		RequestHash: parties.CreateRequestHash(request), RequestID: requestID,
+		ActorUserID: actor.ID, IncidentID: incidentID, Admission: admission, RequestID: requestID,
 		RouteKey: "workbook.rows.create", Now: now,
 	})
+}
+
+func admitPartyCreateRequest(request partyCreateRequest) (parties.CreateAdmission, error) {
+	payload := map[string]any{"client_txn_id": request.ClientTxnID}
+	for fieldKey, value := range request.Values {
+		payload[fieldKey] = value.Text
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return parties.CreateAdmission{}, fmt.Errorf("marshal Party create request: %w", err)
+	}
+	admission, apiErr := parties.AdmitCreateJSON(strings.NewReader(string(encoded)))
+	if apiErr != nil {
+		return parties.CreateAdmission{}, fmt.Errorf("admit Party create request: %s", apiErr.ReasonCode)
+	}
+	return admission, nil
+}
+
+func admitPartyPatchRequest(request partyPatchRequest) (parties.PatchAdmission, error) {
+	changes := make([]map[string]any, 0, len(request.Changes))
+	for _, change := range request.Changes {
+		var value any
+		if change.Value != nil {
+			value = change.Value.Text
+		}
+		changes = append(changes, map[string]any{"field_key": change.FieldKey, "value": value})
+	}
+	encoded, err := json.Marshal(map[string]any{
+		"view_schema_id":   request.ViewSchemaID,
+		"base_row_version": request.BaseRowVersion,
+		"client_txn_id":    request.ClientTxnID,
+		"changes":          changes,
+	})
+	if err != nil {
+		return parties.PatchAdmission{}, fmt.Errorf("marshal Party patch request: %w", err)
+	}
+	admission, apiErr := parties.AdmitPatchJSON(strings.NewReader(string(encoded)))
+	if apiErr != nil {
+		return parties.PatchAdmission{}, fmt.Errorf("admit Party patch request: %s", apiErr.ReasonCode)
+	}
+	return admission, nil
 }
 
 func requireCellValue(t testing.TB, row map[string]any, fieldKey string, want any) {
@@ -395,4 +570,29 @@ func softDeletePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor au
 	}); err != nil {
 		t.Fatalf("soft-delete party %s: %v", recordID, err)
 	}
+}
+
+func restorePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor authn.UserRecord, recordID uuid.UUID, clientTxnID string) error {
+	t.Helper()
+	revisionComposition := revisionsupport.MustComposition(t)
+	projections, err := projectionassembly.Build(harness.DB)
+	if err != nil {
+		t.Fatalf("compose Projections: %v", err)
+	}
+	store, err := revisionComposition.Runtime.NewCommandService(
+		harness.DB,
+		partyTestAttributionResolver{},
+		projections.RevisionRebuilder(),
+		projections.RevisionLiveRecords(),
+		func() time.Time { return time.Date(2026, 5, 18, 12, 4, 25, 0, time.UTC) },
+	)
+	if err != nil {
+		t.Fatalf("compose revisions command service: %v", err)
+	}
+	request := revisions.DeleteRestoreRequest{BaseRowVersion: 2, ClientTxnID: clientTxnID}
+	_, err = store.RestoreRecord(context.Background(), revisions.DeleteRestoreCommand{
+		Actor: revisions.NewActorID(actor.ID), RecordID: recordID, Request: request,
+		RequestHash: revisions.DeleteRestoreRequestHash(request), RequestID: "req-" + clientTxnID,
+	})
+	return err
 }

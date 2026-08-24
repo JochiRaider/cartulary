@@ -19,7 +19,7 @@ import (
 
 const (
 	bundleFormat              = "cartulary.incident_bundle"
-	bundleVersion             = 2
+	bundleVersion             = 3
 	sourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 	tarTypeRegA               = byte(0)
 )
@@ -29,7 +29,7 @@ var incidentBundleOptionalSectionTokens = map[string]struct{}{
 	"snapshots":       {},
 }
 
-var requiredStructuredFilesV2 = []string{
+var requiredStructuredFilesV3 = []string{
 	"data/incident.json",
 	"data/actors.ndjson",
 	"data/records.ndjson",
@@ -69,7 +69,7 @@ var requiredStructuredFilesV2 = []string{
 // requiredStructuredFiles is the current export surface. It remains a named
 // value because tests and manifest construction intentionally prove that the
 // current source-file registry is closed.
-var requiredStructuredFiles = requiredStructuredFilesV2
+var requiredStructuredFiles = requiredStructuredFilesV3
 
 type manifestInput struct {
 	BundleID             string
@@ -355,7 +355,7 @@ func parseBundleVersion(manifestBytes []byte) (int, error) {
 func requiredStructuredFilesForVersion(version int) ([]string, error) {
 	switch version {
 	case bundleVersion:
-		return requiredStructuredFilesV2, nil
+		return requiredStructuredFilesV3, nil
 	default:
 		return nil, &verificationError{ReasonCode: "unsupported_bundle_version"}
 	}

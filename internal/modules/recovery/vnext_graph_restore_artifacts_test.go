@@ -18,7 +18,7 @@ import (
 
 func TestVNextGraphRestoreV3ProjectionContract_Unit(t *testing.T) {
 	t.Parallel()
-	if got, want := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256, "18f7c517c18b0ed25d1950ccb950bc06fad63eb28d3a68176f0d795eaf65bbd9"; got != want {
+	if got, want := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256, "f14dde266c452350ac5eda9d4630f230a901b01e24f162e913a80e6370805657"; got != want {
 		t.Fatalf("current Workbook-owned Graph v3 binding digest = %s, want %s", got, want)
 	}
 	if got, want := contractrecovery.RecoveryGenerations[1].GraphImplementationBindingSHA256, "6ec244d0b82466a18adbdb82554be29f5e4baac384175538acbc92e56f14b8d5"; got != want {

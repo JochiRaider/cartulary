@@ -14,9 +14,9 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		OwnerID: "module.evidence", OwnerRelationIDs: []string{"evidence-source-and-handles"},
 		Dependencies: []string{"tasks_decisions"},
 		Paths: []sourceport.Path{
-			{LogicalPath: "data/evidence_records.ndjson", ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
-			{LogicalPath: "data/evidence_custody_events.ndjson", ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"custody_event_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
-			{LogicalPath: "data/object_blobs.ndjson", ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"object_blob_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
+			{LogicalPath: "data/evidence_records.ndjson", ContentRole: "source_rows", Versions: []int{3}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
+			{LogicalPath: "data/evidence_custody_events.ndjson", ContentRole: "source_rows", Versions: []int{3}, StableIdentity: []string{"custody_event_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
+			{LogicalPath: "data/object_blobs.ndjson", ContentRole: "source_rows", Versions: []int{3}, StableIdentity: []string{"object_blob_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
 		},
 		InvariantIDs: []string{
 			"evidence.envelope_type_scope", "evidence.object_metadata_agree",

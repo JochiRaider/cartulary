@@ -17,7 +17,7 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		OwnerID: "module.incidents", OwnerRelationIDs: []string{"incident-core"},
 		Paths: []sourceport.Path{{
 			LogicalPath: "data/incident.json", ContentRole: "singleton_json",
-			Versions: []int{2}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "incident.source_identity_admitted",
+			Versions: []int{3}, StableIdentity: []string{"id"}, StableIdentityInvariantID: "incident.source_identity_admitted",
 		}},
 		InvariantIDs: []string{
 			"incident.exact_shape", "incident.identity_key_lifecycle",

@@ -67,3 +67,39 @@ func TestNormalizeImportScalarRejectsNullForNonNullableCreateField(t *testing.T)
 		t.Fatalf("safe detail = %#v", detail)
 	}
 }
+
+func TestPartyMatchConflictDetailIsClosedSortedAndValueFree(t *testing.T) {
+	t.Parallel()
+
+	err := NewPartyMatchConflictError(
+		"cross_key_exact_match",
+		[]string{"party.external_ref", "party.primary_email"},
+		errors.New("private source value and storage diagnostic"),
+	)
+	detail, ok := ImportOwnerCreateErrorDetail(err)
+	if !ok {
+		t.Fatal("valid Party match conflict did not produce safe detail")
+	}
+	safeDetails, _ := detail["safe_details"].(map[string]any)
+	fields, _ := safeDetails["conflicting_field_keys"].([]string)
+	if detail["owner_code"] != ImportOwnerCreateValidationFailed ||
+		detail["retryable"] != false ||
+		safeDetails["reason_code"] != "party_match_conflict" ||
+		safeDetails["party_reason_code"] != "cross_key_exact_match" ||
+		len(fields) != 2 || fields[0] != "party.external_ref" || fields[1] != "party.primary_email" {
+		t.Fatalf("Party safe detail = %#v", detail)
+	}
+	if _, leaked := safeDetails["cause"]; leaked {
+		t.Fatalf("Party safe detail leaked cause: %#v", detail)
+	}
+
+	for _, invalid := range []*ImportOwnerCreateError{
+		NewPartyMatchConflictError("unknown", []string{"party.primary_email"}, nil),
+		NewPartyMatchConflictError("exact_match_key_claimed", []string{"party.primary_email", "party.external_ref"}, nil),
+		NewPartyMatchConflictError("exact_match_key_claimed", []string{"party.primary_email", "party.primary_email"}, nil),
+	} {
+		if detail, ok := ImportOwnerCreateErrorDetail(invalid); ok || detail != nil {
+			t.Fatalf("invalid Party match conflict produced detail: %#v", detail)
+		}
+	}
+}

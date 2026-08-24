@@ -154,8 +154,8 @@ func TestBundleManifestChecksumDeterministic_Unit(t *testing.T) {
 	if first.ManifestSHA256 == "" || len(first.ChecksumLines) == 0 {
 		t.Fatalf("bundle result must expose manifest hash and checksums: %#v", first)
 	}
-	if first.Manifest.BundleVersion != 2 {
-		t.Fatalf("manifest bundle_version must be numeric 2, got %#v", first.Manifest.BundleVersion)
+	if first.Manifest.BundleVersion != 3 {
+		t.Fatalf("manifest bundle_version must be numeric 3, got %#v", first.Manifest.BundleVersion)
 	}
 	if first.Manifest.SourceChangeSetHighWatermark == "" {
 		t.Fatalf("manifest must expose source_change_set_high_watermark: %#v", first.Manifest)
@@ -432,8 +432,8 @@ func TestVerifyBundleRejectsMalformedManifestVersion_Unit(t *testing.T) {
 	cases := map[string]func(map[string]any){
 		"omitted":     func(manifest map[string]any) { delete(manifest, "bundle_version") },
 		"null":        func(manifest map[string]any) { manifest["bundle_version"] = nil },
-		"string":      func(manifest map[string]any) { manifest["bundle_version"] = "2" },
-		"non_integer": func(manifest map[string]any) { manifest["bundle_version"] = 2.5 },
+		"string":      func(manifest map[string]any) { manifest["bundle_version"] = "3" },
+		"non_integer": func(manifest map[string]any) { manifest["bundle_version"] = 3.5 },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -459,7 +459,7 @@ func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.
 	if err != nil {
 		t.Fatalf("buildBundleArchive: %v", err)
 	}
-	for _, version := range []int{1, 3} {
+	for _, version := range []int{1, 2, 4} {
 		t.Run(fmt.Sprintf("unsupported_version_%d", version), func(t *testing.T) {
 			unsupported := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) {
 				manifest["bundle_version"] = version
@@ -506,7 +506,7 @@ func TestWorkerRejectsRetiredVersionBeforePreparationAndTransaction_Unit(t *test
 		t.Fatalf("buildBundleArchive: %v", err)
 	}
 	retired := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) {
-		manifest["bundle_version"] = 1
+		manifest["bundle_version"] = 2
 	})
 	stagingRef, err := ParseBundleStagingRef("incident-bundles/imports/retired-version.bundle")
 	if err != nil {

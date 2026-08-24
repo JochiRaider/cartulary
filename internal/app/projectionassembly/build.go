@@ -9,7 +9,7 @@ import (
 	entityprovider "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/projectionprovider"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	indicatorprovider "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
-	partyprovider "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	taskdecisionprovider "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -51,7 +51,7 @@ func Build(db postgres.DB) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("assemble Evidence projection contribution: %w", err)
 	}
-	partiesContribution, err := partyprovider.NewContribution()
+	partiesContribution, err := parties.NewProjectionContribution()
 	if err != nil {
 		return nil, fmt.Errorf("assemble Parties projection contribution: %w", err)
 	}

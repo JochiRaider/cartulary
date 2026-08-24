@@ -1,0 +1,36 @@
+{
+  "schema_id": "cartulary.timezone_name_registry_provenance.v1",
+  "registry_id": "cartulary.timezone_name_registry.v1",
+  "snapshot_id": "iana.tzdb.2026c",
+  "iana_version": "2026c",
+  "source_archive": {
+    "file_name": "tzdata2026c.tar.gz",
+    "url": "https://data.iana.org/time-zones/releases/tzdata2026c.tar.gz",
+    "media_type": "application/gzip",
+    "size_bytes": 475694,
+    "sha256": "e4a178a4477f3d0ea77cc31828ff72aa38feff8d61aa13e7e99e142e9d902be4"
+  },
+  "detached_signature": {
+    "file_name": "tzdata2026c.tar.gz.asc",
+    "url": "https://data.iana.org/time-zones/releases/tzdata2026c.tar.gz.asc",
+    "media_type": "application/pgp-signature",
+    "size_bytes": 833,
+    "sha256": "26cd02e034eed682aa911d224bca3247ff15914df317e3bb0b1a01dc557b46fe",
+    "openpgp_fingerprint": "7E3792A9D8ACF7D633BC1588ED97E90E62AA7E34"
+  },
+  "source_files": [
+    "africa",
+    "antarctica",
+    "asia",
+    "australasia",
+    "backward",
+    "etcetera",
+    "europe",
+    "factory",
+    "northamerica",
+    "southamerica"
+  ],
+  "selection": "reviewed_zone_and_link_identifiers_excluding_abbreviation_and_posix_spellings",
+  "host_timezone_database_authoritative": false,
+  "retain_previously_admitted_identifiers": true
+}

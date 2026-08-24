@@ -26,7 +26,7 @@ func TestModuleEvidenceProviderContributionClosure(t *testing.T) {
 		t.Parallel()
 		descriptor := NewIncidentBundleSourcePort().Descriptor()
 		if descriptor.FamilyID != "evidence" ||
-			descriptor.ContractMajor != 1 ||
+			descriptor.ContractMajor != 2 ||
 			descriptor.OwnerID != "module.evidence" {
 			t.Fatalf("unexpected Evidence incident-bundle descriptor: %#v", descriptor)
 		}

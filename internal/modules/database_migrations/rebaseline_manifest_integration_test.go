@@ -178,7 +178,7 @@ func assertRecoveryCardinality(t testing.TB, manifest schemaObjectManifest) {
 	if err := json.Unmarshal(data, &recovery); err != nil {
 		t.Fatal(err)
 	}
-	if recovery.SchemaID != "cartulary.recovery_state_catalog.v1" || len(recovery.Tables) != 114 {
+	if recovery.SchemaID != "cartulary.recovery_state_catalog.v1" || len(recovery.Tables) != 115 {
 		t.Fatalf("Recovery catalog identity/cardinality = %q/%d", recovery.SchemaID, len(recovery.Tables))
 	}
 	authoritative := 0
@@ -204,7 +204,7 @@ func assertRecoveryCardinality(t testing.TB, manifest schemaObjectManifest) {
 			revisionConflictFacts++
 		}
 	}
-	if authoritative != 84 || revisionConflictFacts != 1 || len(manifestTables) != 114 {
+	if authoritative != 84 || revisionConflictFacts != 1 || len(manifestTables) != 115 {
 		t.Fatalf("Recovery facts = tables %d/%d, authoritative %d, revision conflict facts %d", len(recovery.Tables), len(manifestTables), authoritative, revisionConflictFacts)
 	}
 }
@@ -337,7 +337,12 @@ WHERE namespace.nspname = 'public'
           'entities_release_active_identifier_claims_v1',
           'entities_sync_active_identifier_claims_v1',
           'entities_rebuild_active_identifier_claims_v1',
-          'entities_active_identifier_claims_are_valid_v1'
+          'entities_active_identifier_claims_are_valid_v1',
+          'parties_refresh_active_key_claims_v1',
+          'parties_release_active_key_claims_v1',
+          'parties_sync_active_key_claims_v1',
+          'parties_rebuild_active_key_claims_v1',
+          'parties_active_key_claims_are_valid_v1'
       )))
   )
 `).Scan(&unsafeRoutines); err != nil || unsafeRoutines != 0 {

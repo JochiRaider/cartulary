@@ -17,7 +17,7 @@ import (
 	evidencecontract "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	indicatorprovider "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
-	partyprovider "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	taskdecisionprovider "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
@@ -263,7 +263,7 @@ func projectionManifestEvidenceContribution(t testing.TB) evidencecontract.Contr
 
 func projectionManifestPartiesContribution(t testing.TB) partyprojection.Contribution {
 	t.Helper()
-	contribution, err := partyprovider.NewContribution()
+	contribution, err := parties.NewProjectionContribution()
 	if err != nil {
 		t.Fatalf("construct Parties projection contribution: %v", err)
 	}

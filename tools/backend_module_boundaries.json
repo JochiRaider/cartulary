@@ -301,7 +301,8 @@
         "internal/modules/indicators/portability_invariants_test.go",
         "internal/modules/links/incident_bundle_source_port.go",
         "internal/modules/links/internal/incidentbundle/source_port.go",
-        "internal/modules/parties/incident_bundle_source_port.go",
+        "internal/modules/parties/internal/providers/incidentbundle/**",
+        "internal/modules/parties/provider_contributions.go",
         "internal/modules/records/incident_bundle_source_port.go",
         "internal/modules/records/incident_bundle_source_port_test.go",
         "internal/modules/revisions/incident_bundle_apply.go",
@@ -433,13 +434,28 @@
     },
     {
       "id": "party-delete-restore-provider-import",
-      "import": "github.com/JochiRaider/cartulary/internal/modules/parties/deleterestore",
-      "allowed_importers": ["internal/modules/parties/**"]
+      "import": "github.com/JochiRaider/cartulary/internal/modules/parties/internal/providers/deleterestore",
+      "allowed_importers": ["internal/modules/parties/revision_provider_contribution.go"]
+    },
+    {
+      "id": "party-incident-bundle-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/parties/internal/providers/incidentbundle",
+      "allowed_importers": ["internal/modules/parties/provider_contributions.go"]
+    },
+    {
+      "id": "party-projection-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/parties/internal/providers/projection",
+      "allowed_importers": ["internal/modules/parties/provider_contributions.go"]
+    },
+    {
+      "id": "party-reporting-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/parties/internal/providers/reporting",
+      "allowed_importers": ["internal/modules/parties/provider_contributions.go"]
     },
     {
       "id": "party-rollback-provider-import",
-      "import": "github.com/JochiRaider/cartulary/internal/modules/parties/rollbackprovider",
-      "allowed_importers": ["internal/modules/parties/**"]
+      "import": "github.com/JochiRaider/cartulary/internal/modules/parties/internal/providers/rollback",
+      "allowed_importers": ["internal/modules/parties/revision_provider_contribution.go"]
     },
     {
       "id": "tasks-decisions-delete-restore-provider-import",
@@ -495,7 +511,7 @@
         "internal/modules/entities/hostidentity/deleterestore/provider.go",
         "internal/modules/evidence/deleterestore/provider.go",
         "internal/modules/indicators/internal/providers/deleterestore/provider.go",
-        "internal/modules/parties/deleterestore/provider.go",
+        "internal/modules/parties/internal/providers/deleterestore/provider.go",
         "internal/modules/revisions/**",
         "internal/modules/tasksdecisions/internal/providers/deleterestore/provider.go",
         "internal/modules/timeline/deleterestore/provider.go"
@@ -1462,7 +1478,7 @@
 		"internal/modules/tasksdecisions/internal/source/inserts.go",
 		"internal/modules/tasksdecisions/internal/source/lifecycle.go",
         "internal/modules/tasksdecisions/internal/providers/rollback/provider.go",
-        "internal/modules/parties/deleterestore/provider.go"
+        "internal/modules/parties/internal/providers/deleterestore/provider.go"
       ]
     },
     {
@@ -1852,12 +1868,12 @@
         "internal/modules/links/internal/incidentbundle/source_port.go",
         "internal/modules/links/internal/revisionprovider/provider.go",
         "internal/modules/links/store.go",
-        "internal/modules/parties/deleterestore/provider.go",
-        "internal/modules/parties/incident_bundle_source_port.go",
-        "internal/modules/parties/projectionprovider/source.go",
-        "internal/modules/parties/reportingprovider/provider.go",
-        "internal/modules/parties/store.go",
-        "internal/modules/parties/workbook_facade.go",
+        "internal/modules/parties/internal/providers/deleterestore/provider.go",
+        "internal/modules/parties/internal/providers/incidentbundle/portability.go",
+        "internal/modules/parties/internal/providers/incidentbundle/source_port.go",
+		"internal/modules/parties/internal/source/facts.go",
+        "internal/modules/parties/internal/providers/projection/source.go",
+        "internal/modules/parties/internal/providers/reporting/provider.go",
         "internal/modules/projections/internal/queryengine/**",
         "internal/modules/records/**",
         "internal/modules/recovery/application/service.go",
@@ -2897,7 +2913,7 @@
         "internal/modules/entities/hostidentity/deleterestore/**",
         "internal/modules/evidence/deleterestore/**",
         "internal/modules/indicators/internal/providers/deleterestore/**",
-        "internal/modules/parties/deleterestore/**",
+		"internal/modules/parties/internal/providers/deleterestore/**",
         "internal/modules/tasksdecisions/internal/providers/deleterestore/**",
         "internal/modules/timeline/deleterestore/**"
       ],

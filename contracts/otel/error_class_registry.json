@@ -21,7 +21,7 @@
     },
     {
       "error_class": "concurrency_conflict",
-      "error_codes": ["client_txn_conflict", "row_version_conflict", "incident_key_conflict", "incident_version_conflict", "same_field_conflict", "user_version_conflict", "preferences_version_conflict", "membership_version_conflict", "auth_binding_conflict", "saved_view_version_conflict", "snapshot_source_boundary_conflict"]
+      "error_codes": ["client_txn_conflict", "party_match_conflict", "row_version_conflict", "incident_key_conflict", "incident_version_conflict", "same_field_conflict", "user_version_conflict", "preferences_version_conflict", "membership_version_conflict", "auth_binding_conflict", "saved_view_version_conflict", "snapshot_source_boundary_conflict"]
     },
     {
       "error_class": "lifecycle_conflict",

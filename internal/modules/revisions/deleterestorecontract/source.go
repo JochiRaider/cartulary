@@ -32,6 +32,7 @@ type ActiveIdentifierConflict struct {
 type StateTransitionBlock struct {
 	ReasonCode               string
 	ActiveIdentifierConflict *ActiveIdentifierConflict
+	ConflictingFieldKeys     []string
 }
 
 type StateTransitionPreparation struct {

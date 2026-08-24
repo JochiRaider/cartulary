@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.parties.safe_error_fixtures.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "party_reason_codes", "field_keys", "workbook", "imports", "forbidden_member_tokens"],
+  "properties": {
+    "schema_id": { "const": "cartulary.parties.safe_error_fixtures.v1" },
+    "party_reason_codes": {
+      "const": ["ambiguous_exact_match", "cross_key_exact_match", "exact_match_key_claimed"]
+    },
+    "field_keys": {
+      "const": ["party.external_ref", "party.primary_email"]
+    },
+    "workbook": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["http_status", "error_code", "retryable", "detail_members"],
+      "properties": {
+        "http_status": { "const": 409 },
+        "error_code": { "const": "party_match_conflict" },
+        "retryable": { "const": false },
+        "detail_members": { "const": ["conflicting_field_keys", "reason_code"] }
+      }
+    },
+    "imports": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_error_code", "unit_reason_code", "owner_code", "owner_retryable", "safe_reason_code", "safe_detail_members"],
+      "properties": {
+        "unit_error_code": { "const": "import_apply_blocked" },
+        "unit_reason_code": { "const": "owner_create_validation_failed" },
+        "owner_code": { "const": "owner_create_validation_failed" },
+        "owner_retryable": { "const": false },
+        "safe_reason_code": { "const": "party_match_conflict" },
+        "safe_detail_members": { "const": ["conflicting_field_keys", "party_reason_code", "reason_code"] }
+      }
+    },
+    "forbidden_member_tokens": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+    }
+  }
+}

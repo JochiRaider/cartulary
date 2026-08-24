@@ -40,6 +40,26 @@ func ValidateObject(data []byte) error {
 	return nil
 }
 
+// DecodeObject admits exactly one duplicate-free JSON object and preserves
+// each member as raw JSON for owner-specific semantic admission.
+func DecodeObject(reader io.Reader) (map[string]json.RawMessage, error) {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrMalformed, err)
+	}
+	if err := ValidateObject(data); err != nil {
+		return nil, err
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrMalformed, err)
+	}
+	if raw == nil {
+		return nil, ErrNotObject
+	}
+	return raw, nil
+}
+
 func consumeObject(decoder *json.Decoder) error {
 	seen := make(map[string]struct{})
 	for decoder.More() {

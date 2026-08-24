@@ -965,7 +965,7 @@ function validateContractFamilyRegistryShape(file) {
       if (!Array.isArray(entry.typescript_projections)) {
         throw new Error(`${label}.typescript_projections must be an array`);
       }
-      if (["openapi", "imports", "recovery", "database-migrations"].includes(familyID) && entry.typescript_projections.length !== 0) {
+      if (["openapi", "imports", "recovery", "database-migrations", "parties", "string-contracts"].includes(familyID) && entry.typescript_projections.length !== 0) {
         throw new Error(`${label}.typescript_projections must stay empty for protected backend-only inputs`);
       }
       for (const [projectionIndex, rawProjection] of entry.typescript_projections.entries()) {
@@ -1086,6 +1086,12 @@ function validateContractFamilyRegistryShape(file) {
   if (!familyIDs.includes("entities")) {
     throw new Error(`${file}.families must declare entities`);
   }
+  if (!familyIDs.includes("parties")) {
+    throw new Error(`${file}.families must declare parties`);
+  }
+  if (!familyIDs.includes("string-contracts")) {
+    throw new Error(`${file}.families must declare string-contracts`);
+  }
   const expectedActiveIDs = [
     "openapi",
     "ws",
@@ -1104,6 +1110,8 @@ function validateContractFamilyRegistryShape(file) {
     "database-migrations",
     "performance",
     "entities",
+    "parties",
+    "string-contracts",
   ];
   if (activeIDsByOrder.filter(Boolean).join("\n") !== expectedActiveIDs.join("\n")) {
     throw new Error(

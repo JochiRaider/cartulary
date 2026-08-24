@@ -47,7 +47,7 @@ func prepareIndicatorImport(
 	}}
 	if bundle == nil || importContext.OperationID == "" || importContext.IncidentID == uuid.Nil ||
 		importContext.ActorUserID == uuid.Nil ||
-		importContext.BundleVersion != 2 {
+		importContext.BundleVersion != 3 {
 		return preparedIndicatorImport{}, indicatorSourceFailure(representationInvariant)
 	}
 

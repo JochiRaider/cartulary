@@ -572,19 +572,17 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	requireManualLinkConfidenceNull(t, harness, incident.ID, decisionResult.RecordID, supportID, "supported_by")
 	requireManualLinkConfidenceNull(t, harness, incident.ID, decisionResult.RecordID, supportID, "references_record")
 
-	partyRequest := parties.CreateRequest{
-		ViewSchemaID: parties.ViewSchemaID, ClientTxnID: "txn-workbook_interaction-u-9-12-coord-party",
-		Values: map[string]parties.FieldValue{
-			"party.display_name": {Text: textPtr("Coordination party confidence remains null")},
-			"party.party_kind":   {Text: textPtr("team")},
-		},
+	partyAdmission, apiErr := parties.AdmitCreateJSON(strings.NewReader(
+		`{"client_txn_id":"txn-workbook_interaction-u-9-12-coord-party","party.display_name":"Coordination party confidence remains null","party.party_kind":"team"}`,
+	))
+	if apiErr != nil {
+		t.Fatalf("admit coordination party target: %#v", apiErr)
 	}
 	coordParty, err := partyOwner.Create(ctx, parties.CreateCommand{
-		Actor: actor, IncidentID: incident.ID, Request: partyRequest,
-		RequestHash: parties.CreateRequestHash(partyRequest),
-		RequestID:   "req-workbook_interaction-u-9-12-coord-party",
-		RouteKey:    "workbook.rows.create",
-		Now:         time.Date(2026, 5, 17, 18, 50, 0, 0, time.UTC),
+		ActorUserID: actor.ID, IncidentID: incident.ID, Admission: partyAdmission,
+		RequestID: "req-workbook_interaction-u-9-12-coord-party",
+		RouteKey:  "workbook.rows.create",
+		Now:       time.Date(2026, 5, 17, 18, 50, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatalf("create coordination party target: %v", err)

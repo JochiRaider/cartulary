@@ -65,7 +65,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 	if err != nil {
 		return nil, fmt.Errorf("incident portability assembly: Artifacts source port: %w", err)
 	}
-	v2 := []string{
+	v3 := []string{
 		"data/incident.json", "data/actors.ndjson", "data/records.ndjson",
 		"data/timeline_time_profiles.ndjson", "data/timeline_records.ndjson",
 		"data/timeline_source_provenance.ndjson", "data/parties.ndjson",
@@ -92,7 +92,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 			incidents.NewIncidentBundleSourcePort(),
 			records.NewIncidentBundleSourcePort(recordSubtypeCatalog),
 			timeline.NewIncidentBundleSourcePort(),
-			parties.NewIncidentBundleSourcePort(),
+			parties.NewIncidentBundleContribution(),
 			entities.NewIncidentBundleSourcePort(),
 			indicatorContribution.SourcePort,
 			artifactsSourcePort,
@@ -103,7 +103,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 			revisions.NewIncidentBundleSourcePort(revisionsValidation),
 			savedviews.NewIncidentBundleSourcePort(),
 		},
-		RequiredPathsByVersion: map[int][]string{2: v2},
+		RequiredPathsByVersion: map[int][]string{3: v3},
 		AllowedRelationIDs: map[string]struct{}{
 			"incident-core": {}, "record-envelope": {}, "record-revisions": {},
 			"timeline-source": {},
@@ -112,7 +112,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 			"evidence-source-and-handles": {}, "assessment-source": {},
 			"links-and-tags": {}, "savedviews": {},
 		},
-		SpecialConsumers: map[int]map[string]string{2: special},
+		SpecialConsumers: map[int]map[string]string{3: special},
 	})
 }
 

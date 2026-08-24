@@ -230,6 +230,18 @@
       "filename": "00038_indicators_lifecycle_integrity.sql",
       "sha256": "0eaed9efe6779975b85c00c9db28790c02f4c6194fd09237526a99f9579293ed",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 39,
+      "filename": "00039_parties_active_key_claims.sql",
+      "sha256": "02af5462b596973a1a292efda0e99b6e23a80c0887c01d44e0f6e9551a41b467",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 40,
+      "filename": "00040_parties_mutation_request_hash_v1.sql",
+      "sha256": "7609c33e820cb85080a4c48279043bc020b7b15a888325ff6ca437431e365f94",
+      "historical_phase_shaped": false
     }
   ]
 }

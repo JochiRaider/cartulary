@@ -1342,6 +1342,13 @@ type Party struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
+type PartyActiveKeyClaim struct {
+	IncidentID      pgtype.UUID `json:"incident_id"`
+	KeyKind         string      `json:"key_kind"`
+	NormalizedValue string      `json:"normalized_value"`
+	PartyRecordID   pgtype.UUID `json:"party_record_id"`
+}
+
 type PartyGridProjection struct {
 	RecordID         pgtype.UUID        `json:"record_id"`
 	IncidentID       pgtype.UUID        `json:"incident_id"`

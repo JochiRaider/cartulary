@@ -380,8 +380,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.incident_bundle_source_catalog.v3",
-      "path": "tools/schemas/cartulary.incident_bundle_source_catalog.v3.schema.json",
+      "schema_id": "cartulary.incident_bundle_source_catalog.v4",
+      "path": "tools/schemas/cartulary.incident_bundle_source_catalog.v4.schema.json",
       "classification": "owner_input",
       "producer": "Incident Bundles source-port catalog owner",
       "validation": "json-shape-check"
@@ -538,6 +538,27 @@
       "path": "tools/schemas/cartulary.otel_signal_registry.v1.schema.json",
       "classification": "owner_input",
       "producer": "OpenTelemetry instrumentation owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.parties.field_registry.v1",
+      "path": "tools/schemas/cartulary.parties.field_registry.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "Parties field contract owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.parties.normalization_corpus.v1",
+      "path": "tools/schemas/cartulary.parties.normalization_corpus.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "Parties normalization contract owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.parties.safe_error_fixtures.v1",
+      "path": "tools/schemas/cartulary.parties.safe_error_fixtures.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "Parties safe failure contract owner",
       "validation": "json-shape-check"
     },
     {
@@ -881,6 +902,20 @@
       "path": "tools/schemas/cartulary.test_target_summary.v4.schema.json",
       "classification": "public_contract",
       "producer": "target summary",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.timezone_name_registry.v1",
+      "path": "tools/schemas/cartulary.timezone_name_registry.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "Core string-contract registry owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.timezone_name_registry_provenance.v1",
+      "path": "tools/schemas/cartulary.timezone_name_registry_provenance.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "Core string-contract registry owner",
       "validation": "json-shape-check"
     },
     {

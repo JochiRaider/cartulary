@@ -11,7 +11,7 @@ import (
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	evidenceprovider "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
 	indicatorprovider "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
-	partyprovider "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	taskdecisionprovider "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
 	timelineprovider "github.com/JochiRaider/cartulary/internal/modules/timeline/projectionprovider"
@@ -49,7 +49,7 @@ func MustBuild(t testing.TB, db postgres.DB) projectionadapters.Ports {
 	if err != nil {
 		t.Fatalf("compose Evidence projection contribution: %v", err)
 	}
-	partiesContribution, err := partyprovider.NewContribution()
+	partiesContribution, err := parties.NewProjectionContribution()
 	if err != nil {
 		t.Fatalf("compose Parties projection contribution: %v", err)
 	}

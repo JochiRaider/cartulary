@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.timezone_name_registry_provenance.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "registry_id", "snapshot_id", "iana_version", "source_archive", "detached_signature", "source_files", "selection", "host_timezone_database_authoritative", "retain_previously_admitted_identifiers"],
+  "properties": {
+    "schema_id": { "const": "cartulary.timezone_name_registry_provenance.v1" },
+    "registry_id": { "const": "cartulary.timezone_name_registry.v1" },
+    "snapshot_id": { "const": "iana.tzdb.2026c" },
+    "iana_version": { "const": "2026c" },
+    "source_archive": { "$ref": "#/$defs/archive" },
+    "detached_signature": { "$ref": "#/$defs/signature" },
+    "source_files": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z]+$" }
+    },
+    "selection": { "const": "all_zone_and_link_identifiers" },
+    "host_timezone_database_authoritative": { "const": false },
+    "retain_previously_admitted_identifiers": { "const": true }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "archive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file_name", "url", "media_type", "size_bytes", "sha256"],
+      "properties": {
+        "file_name": { "const": "tzdata2026c.tar.gz" },
+        "url": { "const": "https://data.iana.org/time-zones/releases/tzdata2026c.tar.gz" },
+        "media_type": { "const": "application/gzip" },
+        "size_bytes": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file_name", "url", "media_type", "size_bytes", "sha256", "openpgp_fingerprint"],
+      "properties": {
+        "file_name": { "const": "tzdata2026c.tar.gz.asc" },
+        "url": { "const": "https://data.iana.org/time-zones/releases/tzdata2026c.tar.gz.asc" },
+        "media_type": { "const": "application/pgp-signature" },
+        "size_bytes": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "openpgp_fingerprint": { "type": "string", "pattern": "^[A-F0-9]{40}$" }
+      }
+    }
+  }
+}

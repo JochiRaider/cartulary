@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 
 	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
@@ -16,21 +15,7 @@ var (
 )
 
 func DecodeStrictJSONObject(reader io.Reader) (map[string]json.RawMessage, error) {
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrStrictJSONMalformed, err)
-	}
-	if err := ValidateStrictJSONObject(data); err != nil {
-		return nil, err
-	}
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrStrictJSONMalformed, err)
-	}
-	if raw == nil {
-		return nil, ErrStrictJSONNotObject
-	}
-	return raw, nil
+	return strictjson.DecodeObject(reader)
 }
 
 func ValidateStrictJSONObject(data []byte) error {

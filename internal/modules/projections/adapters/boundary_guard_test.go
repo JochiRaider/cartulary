@@ -128,6 +128,9 @@ func projectionProviderAssemblyImportAllowed(relPath string, importPath string) 
 		"internal/modules/indicators/projectionprovider": {
 			cartularyImportPrefix + "internal/modules/indicators/internal/providers/projection": {},
 		},
+		"internal/modules/parties": {
+			cartularyImportPrefix + "internal/modules/parties/internal/providers/projection": {},
+		},
 		"internal/modules/tasksdecisions/projectionprovider": {
 			cartularyImportPrefix + "internal/modules/tasksdecisions/internal/providers/projection": {},
 		},
@@ -135,7 +138,7 @@ func projectionProviderAssemblyImportAllowed(relPath string, importPath string) 
 			cartularyImportPrefix + "internal/modules/entities/hostidentity/projectionprovider": {},
 			cartularyImportPrefix + "internal/modules/evidence/projectionprovider":              {},
 			cartularyImportPrefix + "internal/modules/indicators/projectionprovider":            {},
-			cartularyImportPrefix + "internal/modules/parties/projectionprovider":               {},
+			cartularyImportPrefix + "internal/modules/parties":                                  {},
 			cartularyImportPrefix + "internal/modules/tasksdecisions/projectionprovider":        {},
 			cartularyImportPrefix + "internal/modules/timeline/projectionprovider":              {},
 		},
@@ -160,6 +163,16 @@ func TestProjectionProviderAssemblyAllowlistMatchesFinalTopology(t *testing.T) {
 			path:       "internal/modules/assessments/projection_provider_contribution.go",
 			importPath: cartularyImportPrefix + "internal/modules/assessments/internal/providers/projection",
 			want:       true,
+		},
+		"party root contribution": {
+			path:       "internal/modules/parties/provider_contributions.go",
+			importPath: cartularyImportPrefix + "internal/modules/parties/internal/providers/projection",
+			want:       true,
+		},
+		"projection assembly uses Party root": {
+			path:       "internal/app/projectionassembly/build.go",
+			importPath: cartularyImportPrefix + "internal/modules/parties/internal/providers/projection",
+			want:       false,
 		},
 		"assessment application assembly uses root": {
 			path:       "internal/app/assessmentassembly/projection_source.go",

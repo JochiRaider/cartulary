@@ -379,6 +379,34 @@
       ]
     },
     {
+      "row_id": "module.projections.source.party_projection_source_enumeration_is_determini_69ccf7df7c",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.source",
+      "collaborator_ids": [
+        "module.parties"
+      ],
+      "verification_ids": [
+        "module.projections.verification.query_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections/internal/runtime",
+        "tests": [
+          "TestPartyProjectionSourceEnumerationIsDeterministicCompleteAndActiveOnly"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.projections.storage.query_row_parity_157462a15a",
       "owner_id": "module.projections",
       "family_id": "module.projections.storage",

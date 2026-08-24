@@ -147,6 +147,11 @@ func productionDDLPolicyViolations(body string) []string {
 		"entities_sync_active_identifier_claims_v1":      true,
 		"entities_rebuild_active_identifier_claims_v1":   true,
 		"entities_active_identifier_claims_are_valid_v1": true,
+		"parties_refresh_active_key_claims_v1":           true,
+		"parties_release_active_key_claims_v1":           true,
+		"parties_sync_active_key_claims_v1":              true,
+		"parties_rebuild_active_key_claims_v1":           true,
+		"parties_active_key_claims_are_valid_v1":         true,
 	}
 	for _, match := range ddlRoutinePattern.FindAllStringSubmatch(up, -1) {
 		definition := match[0]

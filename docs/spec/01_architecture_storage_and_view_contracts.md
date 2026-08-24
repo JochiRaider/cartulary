@@ -1489,9 +1489,9 @@ Verified by: AC-532
 `row_version`, creation and update timestamps, creation and update actors, and
 deletion tuple. Indicator source persistence MUST NOT retain an authoritative
 or fallback copy of those fields. Portable Indicator rows retain the admitted
-source-major-`1` shape by joining Indicator subtype state to the Records
+source-major-`2` shape by joining Indicator subtype state to the Records
 envelope; neither storage contraction nor claim rebuild changes valid bundle
-version 2 bytes.
+version 3 bytes.
 
 `indicator_active_identities` is Indicator-owned rebuildable coordination
 state keyed by `(incident_id, indicator_type, dedupe_key)` and maps one active
@@ -1504,7 +1504,7 @@ rebuildable from active Records-authoritative Indicator rows. A duplicate
 active identity, ambiguous envelope drift, or malformed source row blocks
 backfill or rebuild rather than selecting a winner.
 Profiles: base, incident_portability
-Verified by: AC-533
+Verified by: AC-531, AC-533, AC-563
 
 **REQ-01-654**
 Observation collection routes order active rows by `(created_at DESC,
@@ -3702,6 +3702,7 @@ spelling `missing_minimum_create_signal` MUST NOT be accepted or emitted.
 | `dependent_later_changes` | Later committed changes touched the same mutation target, or otherwise make isolated reversal ambiguous. |  |  |  |
 | `stale_target` | The selected historical target exists but is no longer a legal rollback point for current authoritative state because a later reversal or equivalent committed change already superseded it. |  |  |  |
 | `active_entity_identifier_conflict` | Restoring the selected Host or Identity source state would assign an exact-match claim already held by another active same-incident record. | REQ-01-665 | base | AC-559 |
+| `exact_match_key_claimed` | Restoring selected Party source state would assign an exact-match key already held by another active same-incident Party. | REQ-02-271 | base | AC-561 |
 
 `evidence_access_unavailable` `error.details.reason_code` values:
 
@@ -7409,7 +7410,7 @@ Verified by: AC-164, AC-166, AC-236, AC-487, AC-490
 ```json
 {
   "bundle_format": "cartulary.incident_bundle",
-  "bundle_version": 2,
+  "bundle_version": 3,
   "bundle_id": "uuid",
   "incident_id": "uuid",
   "incident_key": "string",
@@ -7612,15 +7613,15 @@ projections and MUST NOT add, remove, or reinterpret a row in these registries.
 
 **REQ-01-635**
 Every newly generated Incident Bundle MUST use
-`bundle_format='cartulary.incident_bundle'` and numeric `bundle_version=2`.
-Version `2` is the sole admitted version. Import MUST parse
+`bundle_format='cartulary.incident_bundle'` and numeric `bundle_version=3`.
+Version `3` is the sole admitted version. Import MUST parse
 `manifest.bundle_version` before interpreting any source payload and MUST
 select exactly one codec only from that numeric value. Filename presence, file
 order, archive order, prior import history, and caller input MUST NOT select or
 override a codec. Omitted, JSON `null`, or non-integer
 `bundle_version` MUST fail before source preparation with
 `incident_bundle_import_rejected` and `reason_code='malformed_manifest'`.
-Every integer other than `2`, including retired numeric version `1`, MUST fail
+Every integer other than `3`, including retired numeric versions `1` and `2`, MUST fail
 at the same boundary with `reason_code='unsupported_bundle_version'`. No
 fallback version exists.
 
@@ -7628,16 +7629,16 @@ The required Timeline path set is exactly:
 
 | Version | Export | Import | Exact Timeline paths |
 | --- | --- | --- | --- |
-| `2` | Required current output | Required | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
+| `3` | Required current output | Required | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
 
 A retired Timeline path, a mixed retired/current path set, or an incomplete
-current path set under version `2` MUST fail before source preparation with
+current path set under version `3` MUST fail before source preparation with
 `reason_code='malformed_manifest'`. The admitted version has the following
 closed required core path registry; a missing, duplicate, or unknown member
 under `data/` MUST fail closed and every required path MUST have exactly one
 declared consumer or validator:
 
-| Family or special consumer | Version `2` paths |
+| Family or special consumer | Version `3` paths |
 | --- | --- |
 | Incident | `data/incident.json` |
 | Actors | `data/actors.ndjson` |
@@ -7661,7 +7662,7 @@ Profiles: incident_portability
 Verified by: AC-487, AC-489, AC-490, AC-496, AC-506
 
 **REQ-01-636**
-The version `2` Timeline row contracts are the following closed shapes.
+The version `3` Timeline row contracts are the following closed shapes.
 “Required” means the member MUST be present. A member absent from the allowed
 set MUST fail closed. A required member MAY be JSON `null` only when its
 source-owner semantic contract admits null.
@@ -7672,7 +7673,7 @@ source-owner semantic contract admits null.
 | `timeline_records.ndjson` | `record_id` | `record_id`, `incident_id`, `capture_state`, `activity_utc_generated`, `activity_local_generated`, `activity_time_pair_state` | Required members plus `reviewed_by_user_id`, `reviewed_at`, `superseded_by_user_id`, `superseded_at`, `date_entered_text`, `analyst_text`, `mitre_stage_text`, `device_object_text`, `ip_address_text`, `activity_utc_text`, `activity_local_text`, `raw_activity_text`, `activity_synopsis_text`, `data_source_text` |
 | `timeline_source_provenance.ndjson` | `(record_id, source_row_ordinal, source_column_ordinal, source_identity_sha256)` | `record_id`, `source_identity_sha256`, `source_row_ordinal`, `source_column_ordinal`, `source_kind`, `source_metadata`, `source_header`, `raw_value`, `created_at` | Required members plus `cell_kind` |
 
-The v2 Timeline record-envelope fields `row_version`, `created_at`,
+The version-3 Timeline record-envelope fields `row_version`, `created_at`,
 `updated_at`, `created_by_user_id`, and `updated_by_user_id` MUST come from the
 same-record row in `data/records.ndjson`; they MUST NOT be duplicated or
 independently resolved from `timeline_records.ndjson`.
@@ -7743,6 +7744,10 @@ Every port MUST provide the following behavioral interface:
 | Apply import transaction | Supplied transaction, matching prepared value, and immutable import context | Success or typed failure | Uses fixed owner-controlled SQL or SQLC, writes only owner relations, and requires affected-row equality. |
 | Validate import transaction | Supplied transaction, matching prepared value, and immutable import context | Success or typed failure | Compares admitted input with transaction state and proves aggregate, cross-row, and declared cross-family invariants before publication. |
 
+The current source-port contract major is `2`. A prepared value is bound to
+that major in addition to its creating port, operation, incident, and admitted
+bundle version.
+
 A prepared value is bound to its creating port and operation and MUST be passed
 only to that same port. The catalog MUST reject duplicate family IDs, duplicate
 logical paths, uncovered required paths, paths claimed more than once,
@@ -7760,14 +7765,14 @@ Profiles: incident_portability
 Verified by: AC-496, AC-498, AC-501, AC-503
 
 **REQ-01-640**
-The current contract-major-`1` source catalog and closed invariant IDs are:
+The current contract-major-`2` source catalog and closed invariant IDs are:
 
 | Family | Dependencies | Required invariant IDs |
 | --- | --- | --- |
 | `incident` | `[]` | `incident.source_identity_admitted`, `incident.exact_shape`, `incident.identity_key_lifecycle`, `incident.attribution_version` |
 | `records` | `incident` | `records.source_identity_admitted`, `records.incident_scope`, `records.envelope_legal`, `records.subtype_complete` |
 | `timeline` | `records` | `timeline.source_identity_admitted`, `timeline.version_shape_exact`, `timeline.envelope_type_scope`, `timeline.lifecycle_coherent`, `timeline.generated_time_coherent`, `timeline.paired_time_coherent`, `timeline.provenance_unique`, `timeline.provenance_non_orphaned` |
-| `parties` | `timeline` | `parties.source_identity_admitted`, `parties.envelope_type_scope`, `parties.identity_lifecycle`, `parties.normalization_exact` |
+| `parties` | `timeline` | `parties.source_identity_admitted`, `parties.version_shape_exact`, `parties.envelope_type_scope`, `parties.identity_lifecycle`, `parties.normalization_exact` |
 | `entities` | `parties` | `entities.source_identity_admitted`, `entities.mentions_observational`, `entities.envelope_type_scope`, `entities.resolution_merge_coherent`, `entities.alias_identifier_normalized`, `entities.alias_identifier_classified`, `entities.alias_identifier_unique`, `entities.alias_identifier_same_incident` |
 | `indicators` | `entities` | `indicators.source_identity_admitted`, `indicators.representation_legal`, `indicators.normalization_exact`, `indicators.identity_unique`, `indicators.observation_same_incident`, `indicators.observation_ordered`, `indicators.observation_coherent`, `indicators.interval_same_incident`, `indicators.interval_ordered`, `indicators.interval_coherent`, `indicators.repeated_observations_preserved` |
 | `artifacts` | `indicators` | `artifacts.source_identity_admitted`, `artifacts.envelope_type_scope`, `artifacts.subtype_exact`, `artifacts.lifecycle_fields_legal`, `artifacts.handoff_risk_target`, `artifacts.references_same_incident` |
@@ -7789,8 +7794,8 @@ archive order, and database error text MUST NOT select it.
 | Family | Required invariant meaning |
 | --- | --- |
 | Records | Every row belongs to the imported incident; record type, row version, timestamps, actor attribution, and deletion tuples are legal; every subtype-required envelope has exactly its admitted owner row. |
-| Timeline | Version `2` has its exact shape; every row binds a same-incident `timeline_event` envelope; capture, review, supersession, generated-time, and paired-time state are coherent; provenance identities are unique and non-orphaned. |
-| Parties | Every row has a same-incident party envelope; required identity fields and lifecycle state are valid; normalized string/reference pairs equal the owner normalization result. |
+| Timeline | Version `3` has its exact shape; every row binds a same-incident `timeline_event` envelope; capture, review, supersession, generated-time, and paired-time state are coherent; provenance identities are unique and non-orphaned. |
+| Parties | Every row has the exact version-3 closed shape; every row has a same-incident party envelope; required identity fields, lifecycle state, and active claims are exact; every string equals the Party field-registry stored representation. |
 | Entities | Mentions remain observations; hosts and identities have the correct envelopes; resolution and merge-lineage tuples are coherent; aliases and preserved identifiers are normalized, classified, unique, and same-incident. |
 | Indicators | Type/value/hash representation and normalization are legal; duplicate identities are rejected; observations and state intervals are same-incident, ordered, and coherent; repeated observations are not silently merged. |
 | Artifacts | Every artifact has the correct envelope and exactly the admitted subtype; subtype lifecycle and required fields are legal; handoff-risk references target handoffs; all references are same-incident. |
@@ -7802,7 +7807,7 @@ archive order, and database error text MUST NOT select it.
 | Saved Views | Every bounded logical row has the exact adopted shape and types; UUIDs, incident/schema references, scope/owner tuple, display name, query, layout, version, and timestamps are valid; transaction state equals admitted input; absent optional Reference Packs degrade only admitted overlays. |
 
 **REQ-01-666**
-For Incident Bundle version `2`, source family `entities`, contract major `1`,
+For Incident Bundle version `3`, source family `entities`, contract major `2`,
 each non-empty row of the five Entities files MUST be one exact JSON object.
 Unknown, missing, duplicate, aliased, wrongly typed, noncanonical, blank-line,
 multivalue, or trailing-content input fails admission. Nullable members remain
@@ -7855,8 +7860,8 @@ order nor raw database text may select or describe the public failure.
 Profiles: incident_portability
 Verified by: AC-559
 
-For Incident Bundle version `2`, source family `indicators`, contract
-major `1`, each non-empty row of the three Indicator files MUST be one exact
+For Incident Bundle version `3`, source family `indicators`, contract
+major `2`, each non-empty row of the three Indicator files MUST be one exact
 JSON object. Every member listed below is required, including members whose
 value may be JSON `null`. Unknown, missing, duplicate, aliased, wrongly typed,
 noncanonical, blank-line, multivalue, or trailing-content input fails
@@ -7960,8 +7965,8 @@ operator output. Selection MUST NOT depend on archive order, NDJSON row order,
 filesystem order, map iteration, unsorted SQL output, constraint-reporting
 order, PostgreSQL error text, or a descriptor-default invariant.
 
-For Incident Bundle version `2`, source family `revisions`, contract
-major `1`, each non-empty row of the three Revisions files MUST be one exact
+For Incident Bundle version `3`, source family `revisions`, contract
+major `2`, each non-empty row of the three Revisions files MUST be one exact
 JSON object. Every member listed below is required, including members whose
 value may be JSON `null`. Unknown, missing, duplicate, aliased, wrongly typed,
 noncanonical, blank-line, multivalue, or trailing-content input fails
@@ -8024,7 +8029,7 @@ consumer port whose providers are constructed by authoritative source owners
 and whose complete immutable catalog is validated by application composition.
 
 **REQ-01-659**
-For Incident Bundle version `2`, the outer exact member sets,
+For Incident Bundle version `3`, the outer exact member sets,
 ordering, contract major, attribution behavior, sequence repair, invariant
 precedence, and no-live-publication behavior of the Revisions source family
 remain unchanged. Every non-null `before_value`, `after_value`, `before_json`,
@@ -8094,7 +8099,7 @@ Verified by: AC-488, AC-489, AC-491, AC-496, AC-497, AC-498, AC-499,
  AC-507, AC-508, AC-525, AC-527
 
 **REQ-01-651**
-For source contract major `1`, every nonblank row in
+For source contract major `2`, every nonblank row in
 `data/records.ndjson` MUST be one exact JSON object with exactly these
 members:
 
@@ -8145,7 +8150,7 @@ The exact Records invariant rules are:
 | `records.envelope_legal` | Exact shape, stable identity, UUIDs, record type, positive version, canonical timestamps, actor references, and deletion tuple satisfy this requirement. |
 | `records.subtype_complete` | Every envelope has exactly one compatible primary source-owner binding, and no primary source-owner binding targets a missing, different-incident, or incompatible envelope. |
 
-Version `2` uses this contract-major-`1` Records row and type mapping. It has no
+Version `3` uses this contract-major-`2` Records row and type mapping. It has no
 additive-field tolerance, and no legacy-invalid-record switch exists. Export
 MUST emit the exact shape in `record_id` order and MUST preserve portable
 source actor attribution on re-export. Apply MUST use fixed parameterized SQL
@@ -8242,7 +8247,10 @@ Verified by: AC-490, AC-499, AC-502, AC-503, AC-507, AC-525
 **REQ-01-643**
 The adopted compatibility state, closed source catalog, and
 requirement-to-acceptance-to-verification mappings MUST have versioned typed
-machine projections. Each REQ-01-635 through REQ-01-646 requirement MUST map to
+machine projections. The source catalog projection is
+`cartulary.incident_bundle_source_catalog.v4`, declares contract major `2`, and
+admits only path version `[3]` for every required source and special consumer.
+Each REQ-01-635 through REQ-01-646 requirement MUST map to
 at least one binary Core 04 acceptance criterion, and every such criterion MUST
 map back to an adopted requirement and selected verification owner and test
 family. Active verification rows MUST have exactly one owning row identity and
@@ -8253,9 +8261,72 @@ generated files and dependency lockfiles MUST NOT be hand-edited.
 Profiles: incident_portability
 Verified by: AC-504, AC-505
 
+**REQ-01-670**
+For sole admitted Incident Bundle version `3`, source family `parties`, and
+source contract major `2`, every nonblank line of `data/parties.ndjson` MUST
+be one closed JSON object with exactly these ten required members:
+`record_id`, `incident_id`, `display_name`, `party_kind`,
+`organization_name`, `role_title`, `primary_email`, `timezone_name`,
+`external_ref`, and `notes`. `record_id` and `incident_id` are canonical
+lowercase hyphenated UUID strings; `incident_id` equals the immutable import
+context. `display_name` is non-null and canonical under
+`display_name_line_v1`; `party_kind` is one exact REQ-01-501 token. Each other
+field is either explicit JSON `null` or the exact stored representation from
+`cartulary.parties.field_registry.v1`.
+
+Omitted optional members, aliases, unknown or duplicate members, wrong types,
+noncanonical values, blank rows, multivalue lines, and trailing content are
+invalid. `custom_attrs`, envelope version or timestamps, actors, deletion
+tuples, idempotency values, claim values, projections, and every other member
+are forbidden. Records and Actors remain the sole envelope and attribution
+authorities. Export MUST select and map the ten fields explicitly, sort by
+`record_id` ascending, and MUST NOT use `SELECT *`, whole-row JSON conversion,
+database record-population functions, or physical relation topology as wire
+authority. The authored schema path is
+`contracts/incident-bundles/parties.row.v1.schema.json` and its schema ID is
+`cartulary.incident_bundle.parties.row.v1`. An incident with no Party rows
+MUST export `data/parties.ndjson` as a present zero-byte member; prepare MUST
+admit that member as exactly zero rows.
+
+Parties assigns every defect to exactly one invariant in this precedence:
+
+1. `parties.source_identity_admitted`: both identifiers are present,
+   canonical, in scope, and unique;
+2. `parties.version_shape_exact`: the line and object have exactly the
+   version-3 member set, types, nullability, and framing;
+3. `parties.envelope_type_scope`: exactly one same-incident `party` Records
+   envelope exists, with no orphan, wrong type, duplicate subtype, or
+   cross-incident binding;
+4. `parties.identity_lifecycle`: required fields, lifecycle, and active Party
+   claim state are exact;
+5. `parties.normalization_exact`: every string equals the field-registry
+   stored representation.
+
+Prepare MUST perform bounded duplicate-aware exact decoding, canonical scalar
+parsing, row-local admission, normalization recomputation, and deterministic
+candidate ordering without mutation. Apply MUST accept only the prepared value
+bound to the same port, operation, incident, version, and major, then use
+fixed-column parameterized owner SQL with affected-row equality. Validate MUST
+compare the complete admitted row set to transaction state, prove all five
+invariants and exact active-claim state, and run before publication in the one
+final transaction. Multiple defects select the lowest invariant number, then
+canonical `record_id`, independently of archive order, row order, map
+iteration, unsorted SQL, constraint-reporting order, or database text.
+
+Failures expose only `source_family_id='parties'` and the selected declared
+invariant when safe. They expose no row value, Party identity, SQL, relation,
+constraint, path, driver diagnostic, or storage topology. Cancellation or
+failure in prepare, apply, validation, claim validation, projection rebuild,
+or publication leaves no visible incident, Party, claim, projection,
+attribution, success result, or final object. Version `2` and every other
+integer are unsupported; no version-2 reader, converter, translator, feature
+flag, alias, fallback, or dual decoder exists.
+Profiles: incident_portability
+Verified by: AC-563
+
 **REQ-01-644**
-For Incident Bundle version `2`, source family `saved_views`,
-contract major `1`, each non-empty logical row of
+For Incident Bundle version `3`, source family `saved_views`,
+contract major `2`, each non-empty logical row of
 `data/saved_views.ndjson` MUST be one JSON object containing exactly these
 eleven required members:
 
@@ -8284,7 +8355,7 @@ Verified by: AC-508
 
 **REQ-01-645**
 `data/saved_views.ndjson` MUST be present exactly once for admitted bundle
-version `2`. Export MUST include every incident-owned private, shared,
+version `3`. Export MUST include every incident-owned private, shared,
 and system saved view, order rows by `saved_view_id` ascending, serialize
 lexicographically ordered canonical JSON with exactly one trailing LF per row,
 and emit a zero-byte member when no rows exist. Export MUST select and map the
@@ -9845,10 +9916,21 @@ Verified by: AC-175, AC-176, AC-178, AC-231, AC-247, AC-277, AC-279, AC-311, AC-
 - reject every C0 or C1 control code point,
 - preserve interior characters exactly,
 - enforce a maximum length of 128 Unicode scalar values after normalization,
-- any non-null value MUST validate as one canonical IANA timezone name known to the runtime timezone database,
+- any non-null value MUST be an exact, case-sensitive member of the packaged
+  `cartulary.timezone_name_registry.v1` registry after normalization,
 - normalized-empty input MUST clear to authoritative `null`.
+
+The initial registry snapshot is `iana.tzdb.2026c` and contains only reviewed
+IANA Zone and Link identifiers. An admitted Link spelling is preserved and is
+not rewritten to its target. Abbreviations, numeric offsets, POSIX
+expressions, filesystem paths, traversal-like values, case variants, and all
+nonmembers are invalid. The packaged registry is exhaustive: host tzdb,
+locale, network lookup, a latest-version selector, and Network Flow runtime
+packages are not admission authorities. A later registry revision MUST retain
+previously admitted identifiers unless an adopted migration contract disposes
+them. Party rows do not store the snapshot identifier.
 Profiles: base
-Verified by: AC-277, AC-231
+Verified by: AC-277, AC-231, AC-562
 
 **REQ-01-521**
 `local_password_provision_v1` is the required exact-string secret-input contract for local-password provisioning surfaces.
@@ -10004,8 +10086,94 @@ Verified by: AC-117, AC-118, AC-231, AC-277
   - `party.external_ref`: read `external_ref`; write target the `external_ref` field on the underlying `party` record; `string_contract_id=locator_text_v1`; `conflict_resolution_class=atomic_replace`
   - `party.notes`: read `notes`; write target the `notes` field on the underlying `party` record; `string_contract_id=multiline_body_v1`; `conflict_resolution_class=text_compare_merge`
 - read-only computed fields: `party.updated_at`
+
+`party.display_name` and `party.party_kind` are required, have no create
+default, and are not clearable. The other six writable fields are optional:
+create omission defaults to authoritative `null`, patch omission means
+unchanged, and explicit JSON `null` or a string that normalizes to empty is an
+authoritative clear. The exact post-normalization maximum lengths are 256 for
+display name, organization name, and role title; 320 for primary email; 128
+for timezone name; 1024 for external reference; and 16384 for notes.
+`party.party_kind` admits exactly `person`, `team`, `organization`,
+`distribution_list`, or `other` without trimming or case folding.
 Profiles: base
-Verified by: AC-118, AC-231, AC-277
+Verified by: AC-118, AC-231, AC-277, AC-562
+
+**REQ-01-668**
+The versioned machine projection
+`cartulary.parties.field_registry.v1` is the sole Party registry of writable
+field keys, required/default and clearability posture, value contract, scalar
+bound, stored and equality representation, exact-match claim role, canonical
+hash representation, and conflict-resolution class. Party admission MUST
+return one immutable normalized value carrying `stored_value`,
+`equality_value`, `exact_match_claim_value`, and `canonical_hash_value`.
+Workbook create, patch, and conflict resolution; Imports owner create; source
+persistence; no-op and changed-field detection; Revisions; field conflicts;
+active claims; request hashing; and Incident Bundle validation MUST consume
+that same result. No consumer may infer semantics from a field name, database
+column, visible label, generic line-versus-note distinction, or newline
+presence.
+
+The exact registry entries and clearability are those in REQ-01-501.
+`primary_email` storage may preserve admitted letter case while equality and
+claim values are locale-independent case-insensitive values. `external_ref`
+uses exact code-point equality after `locator_text_v1` normalization. Notes use
+NFC, outer trim, and CRLF/CR-to-LF normalization while preserving admitted
+interior whitespace and line breaks. No additional Party field,
+`custom_attrs`, fallback contract, or consumer-specific normalization is
+admitted.
+Profiles: base, import, incident_portability
+Verified by: AC-562, AC-563
+
+**REQ-01-669**
+`cartulary.parties.mutation_request_hash.v1` is the sole Party mutation-request
+hash algorithm. It is the raw 32-byte SHA-256 digest of RFC 8785 canonical JSON
+over one of these closed preimages after REQ-01-668 admission:
+
+- `workbook.rows.create`: `algorithm_id`, `operation_id`, `view_schema_id`,
+  and `fields` containing all eight Party field keys; every omitted,
+  explicit-null, or normalized-empty optional field is canonical JSON `null`;
+- `workbook.records.patch`: `algorithm_id`, `operation_id`,
+  `view_schema_id`, `base_row_version`, and non-empty `changes` sorted by
+  `field_key`; omission is absent and a clear is `value=null`;
+- `workbook.records.conflicts.resolve`: `algorithm_id`, `operation_id`,
+  `record_id`, `view_schema_id`, `field_key`, `current_row_version`,
+  `conflict_token`, `resolution_kind`, and `resolved_value`, where an
+  operation without a value uses canonical JSON `null`.
+
+`client_txn_id`, actor, and incident lookup scope are excluded except where a
+listed preimage member expressly carries scope. Equivalent NFC, email-case,
+and notes-line-ending inputs hash equally; external-reference case variants
+hash differently. Invalid input never enters the hash domain. Callers cannot
+provide or recompute an alternate hash. Exact committed replay MUST be
+returned before fresh Party-state evaluation and divergent replay remains
+`client_txn_conflict`; a replay returns its original committed result rather
+than current source state.
+
+The clean cutover removes only deterministically identified Party create,
+patch, and conflict-resolution replay rows. Every unrelated owner's replay row
+remains byte-for-byte unchanged. Pre-cutover Party transactions are not
+replayable after cutover, and no old hasher, dual comparison, fallback, or
+compatibility reader remains.
+
+Workbook maps a recognized Party match conflict to HTTP `409`,
+`error.code='party_match_conflict'`, `error.retryable=false`, and
+`error.details` containing exactly `reason_code` and
+`conflicting_field_keys`. `reason_code` is one closed Core 02 Party reason;
+`conflicting_field_keys` is the sorted field-key set.
+
+Imports preserves unit `error_code='import_apply_blocked'`, unit
+`reason_code='owner_create_validation_failed'`, and unit `retryable=false`.
+Its `details.reason_code` is `owner_create_validation_failed` and
+`details.owner_error` contains exactly
+`owner_code='owner_create_validation_failed'`, `retryable=false`, and
+`safe_details`. `safe_details` contains exactly
+`reason_code='party_match_conflict'`, `party_reason_code` equal to one closed
+Core 02 Party reason, and `conflicting_field_keys` equal to the same sorted
+field-key set. Neither surface may expose source values, Party identifiers,
+SQL, constraint or relation names, driver text, or storage topology.
+Profiles: base, import
+Verified by: AC-561, AC-562
 
 **REQ-01-502**
 Hidden writable party-link fields on other base-profile surfaces MUST remain supplemental to the visible source-preserving text fields. In particular, `task.requester_party_id`, `evidence.collector_party_id`, and `evidence.source_party_id` MAY be written through inspector or same-surface enrichment flows, but they MUST NOT replace the visible text fields or require those fields to be shown as mandatory grid columns.

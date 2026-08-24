@@ -49,7 +49,7 @@ func CurrentProviderContributions() ([]revisions.ProviderContribution, error) {
 		evidence.RevisionProviderContribution(),
 		indicators.NewRevisionContribution(),
 		links.RevisionProviderContribution(),
-		parties.RevisionProviderContribution(),
+		parties.NewRevisionContribution(),
 		tasksdecisions.NewRevisionContribution(),
 		timeline.RevisionProviderContribution(),
 	}, nil

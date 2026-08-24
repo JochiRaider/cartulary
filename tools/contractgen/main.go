@@ -93,6 +93,12 @@ func main() {
 	if err := writeArtifactSourceCatalogGo(root); err != nil {
 		fatal(err)
 	}
+	if err := writePartyFieldRegistryGo(root); err != nil {
+		fatal(err)
+	}
+	if err := writeTimezoneNameRegistryGo(root); err != nil {
+		fatal(err)
+	}
 	plan.Families = families
 	if err := writeTypeScript(root, plan); err != nil {
 		fatal(err)

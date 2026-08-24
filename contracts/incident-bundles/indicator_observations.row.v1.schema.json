@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cartulary.incident_bundle.indicator_observations.row.v1",
   "title": "Indicator observations incident bundle row",
-  "description": "Exact source-bound Indicator observation row used by Incident Bundle version 2.",
+  "description": "Exact source-bound Indicator observation row used by Incident Bundle version 3.",
   "type": "object",
   "additionalProperties": false,
   "required": [

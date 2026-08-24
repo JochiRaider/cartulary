@@ -24,7 +24,7 @@ func TestIndicatorLifecycleIntegrityMigration_Integration(t *testing.T) {
 	t.Run("clean install enforces unique lifecycle support references", func(t *testing.T) {
 		harness := pgtest.Start(t)
 		migrationDB := harness.MigrationDatabaseT(t)
-		requireIndicatorMigrationHead(t, migrationDB.SQL(), 38)
+		requireIndicatorMigrationHead(t, migrationDB.SQL(), 40)
 		requireIndicatorSupportRefsValidity(t, migrationDB.SQL(), duplicateLifecycleSupportRefs(), false)
 	})
 

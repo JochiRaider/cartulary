@@ -2,6 +2,8 @@ package workbook_test
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,19 +22,18 @@ import (
 
 func mustCreatePartyFor(t testing.TB, pool postgres.DB, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, displayName string) uuid.UUID {
 	t.Helper()
-	partyKind := "organization"
-	request := parties.CreateRequest{
-		ViewSchemaID: parties.ViewSchemaID, ClientTxnID: clientTxnID,
-		Values: map[string]parties.FieldValue{
-			"party.display_name": {Text: &displayName},
-			"party.party_kind":   {Text: &partyKind},
-		},
+	admission, apiErr := parties.AdmitCreateJSON(strings.NewReader(fmt.Sprintf(
+		`{"client_txn_id":%q,"party.display_name":%q,"party.party_kind":"organization"}`,
+		clientTxnID,
+		displayName,
+	)))
+	if apiErr != nil {
+		t.Fatalf("admit party %s: %#v", clientTxnID, apiErr)
 	}
 	result, err := appsupport.NewPartyOwner(pool, workbookTestConflictTokens()).Create(
 		context.Background(),
 		parties.CreateCommand{
-			Actor: actor, IncidentID: incidentID, Request: request,
-			RequestHash: parties.CreateRequestHash(request), RequestID: "req-" + clientTxnID,
+			ActorUserID: actor.ID, IncidentID: incidentID, Admission: admission, RequestID: "req-" + clientTxnID,
 			RouteKey: "workbook.rows.create", Now: time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC),
 		},
 	)

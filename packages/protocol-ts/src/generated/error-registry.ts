@@ -94,6 +94,11 @@ const value = {
       "summary": "The client_txn_id was replayed with a different request payload."
     },
     {
+      "code": "party_match_conflict",
+      "http_status": 409,
+      "summary": "The requested Party exact-match keys are ambiguous, divergent, or already claimed."
+    },
+    {
       "code": "job_cancel_rejected",
       "http_status": 409,
       "summary": "A visible job exists, but the current job state does not accept cancellation."
@@ -1727,6 +1732,23 @@ const value = {
       ]
     },
     {
+      "error_code": "party_match_conflict",
+      "reason_codes": [
+        {
+          "code": "ambiguous_exact_match",
+          "summary": "At least one supplied exact-match field resolves to more than one active same-incident Party."
+        },
+        {
+          "code": "cross_key_exact_match",
+          "summary": "The supplied exact-match fields resolve to different active same-incident Parties."
+        },
+        {
+          "code": "exact_match_key_claimed",
+          "summary": "An active same-incident Party already owns an exact-match key required by the mutation."
+        }
+      ]
+    },
+    {
       "error_code": "invalid_rollback_request",
       "reason_codes": [
         {
@@ -1781,6 +1803,10 @@ const value = {
         {
           "code": "active_entity_identifier_conflict",
           "summary": "The rollback would restore an exact entity identifier currently owned by another active record."
+        },
+        {
+          "code": "exact_match_key_claimed",
+          "summary": "The rollback would restore a Party exact-match key currently owned by another active same-incident Party."
         }
       ]
     },

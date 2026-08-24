@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -30,6 +31,7 @@ const (
 	MutationFailureNoEffectiveChange         MutationFailureKind = "no_effective_change"
 	MutationFailureIllegalTransition         MutationFailureKind = "illegal_transition"
 	MutationFailureEntityMatchConflict       MutationFailureKind = "entity_match_conflict"
+	MutationFailurePartyMatchConflict        MutationFailureKind = "party_match_conflict"
 	MutationFailureEvidenceAttach            MutationFailureKind = "evidence_attach_rejected"
 	MutationFailureObjectStoreInvalid        MutationFailureKind = "object_store_invalid"
 	MutationFailureObjectStoreAccessRejected MutationFailureKind = "object_store_access_rejected"
@@ -139,6 +141,13 @@ type entityMatchConflictFailureDetail struct {
 
 func (entityMatchConflictFailureDetail) mutationFailureDetail() {}
 
+type partyMatchConflictFailureDetail struct {
+	reasonCode           string
+	conflictingFieldKeys []string
+}
+
+func (partyMatchConflictFailureDetail) mutationFailureDetail() {}
+
 type reasonFailureDetail struct{ reasonCode string }
 
 func (reasonFailureDetail) mutationFailureDetail() {}
@@ -175,7 +184,7 @@ func InvalidPayloadFailure(field string, reasonCode string) *MutationFailure {
 	}
 }
 
-func invalidPayloadLimitFailure(field string, reasonCode string, requestedCount int, maxCount int, fieldKey string) *MutationFailure {
+func InvalidPayloadLimitFailure(field string, reasonCode string, requestedCount int, maxCount int, fieldKey string) *MutationFailure {
 	return &MutationFailure{
 		kind: MutationFailureInvalidPayload,
 		detail: invalidPayloadFailureDetail{
@@ -209,6 +218,16 @@ func RowVersionConflictFailure(recordID uuid.UUID, baseRowVersion int64, current
 		kind: MutationFailureRowVersionConflict,
 		detail: rowVersionConflictFailureDetail{
 			recordID: recordID, baseRowVersion: baseRowVersion, currentRowVersion: currentRowVersion,
+		},
+	}
+}
+
+func PartyMatchConflictFailure(reasonCode string, conflictingFieldKeys []string) *MutationFailure {
+	return &MutationFailure{
+		kind: MutationFailurePartyMatchConflict,
+		detail: partyMatchConflictFailureDetail{
+			reasonCode:           reasonCode,
+			conflictingFieldKeys: append([]string(nil), conflictingFieldKeys...),
 		},
 	}
 }
@@ -484,6 +503,19 @@ func mutationFailureAPIError(failure *MutationFailure) *httpapi.APIError {
 			return internalAPIError(nil)
 		}
 		return entityMatchConflictError(detail.entityType, detail.identifierClass, detail.candidateRecordIDs)
+	case MutationFailurePartyMatchConflict:
+		detail, ok := failure.detail.(partyMatchConflictFailureDetail)
+		if !ok || !validPartyMatchFailureDetail(detail) {
+			return internalAPIError(nil)
+		}
+		return &httpapi.APIError{
+			Status: http.StatusConflict, Code: "party_match_conflict", Message: "party match conflict",
+			Retryable: false,
+			Details: map[string]any{
+				"reason_code":            detail.reasonCode,
+				"conflicting_field_keys": append([]string(nil), detail.conflictingFieldKeys...),
+			},
+		}
 	case MutationFailureEvidenceAttach:
 		detail, ok := failure.detail.(reasonFailureDetail)
 		if !ok {
@@ -525,6 +557,25 @@ func mutationFailureAPIError(failure *MutationFailure) *httpapi.APIError {
 	}
 }
 
+func validPartyMatchFailureDetail(detail partyMatchConflictFailureDetail) bool {
+	switch detail.reasonCode {
+	case "ambiguous_exact_match", "cross_key_exact_match", "exact_match_key_claimed":
+	default:
+		return false
+	}
+	if len(detail.conflictingFieldKeys) == 0 || len(detail.conflictingFieldKeys) > 2 || !slices.IsSorted(detail.conflictingFieldKeys) {
+		return false
+	}
+	previous := ""
+	for _, field := range detail.conflictingFieldKeys {
+		if (field != "party.external_ref" && field != "party.primary_email") || field == previous {
+			return false
+		}
+		previous = field
+	}
+	return true
+}
+
 func mutationFailureFromAPIError(apiErr *httpapi.APIError) (*MutationFailure, error) {
 	if apiErr == nil {
 		return nil, nil
@@ -538,7 +589,7 @@ func mutationFailureFromAPIError(apiErr *httpapi.APIError) (*MutationFailure, er
 	maxCount, maxOK := apiErr.Details["max_count"].(int)
 	fieldKey, _ := apiErr.Details["field_key"].(string)
 	if requestedOK || maxOK || fieldKey != "" {
-		return invalidPayloadLimitFailure(field, reasonCode, requestedCount, maxCount, fieldKey), nil
+		return InvalidPayloadLimitFailure(field, reasonCode, requestedCount, maxCount, fieldKey), nil
 	}
 	return InvalidPayloadFailure(field, reasonCode), nil
 }

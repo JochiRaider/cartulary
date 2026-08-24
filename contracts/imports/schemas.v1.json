@@ -163,37 +163,74 @@
           "const": false
         },
         "safe_details": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "reason_code"
-          ],
-          "properties": {
-            "reason_code": {
-              "enum": [
-                "field_not_import_writable",
-                "collection_owner_support_required",
-                "field_not_nullable",
-                "invalid_empty_value_policy",
-                "invalid_timestamp",
-                "invalid_uuid",
-                "invalid_exact_uuid",
-                "invalid_integer",
-                "invalid_boolean",
-                "invalid_text"
-              ]
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "reason_code"
+              ],
+              "properties": {
+                "reason_code": {
+                  "enum": [
+                    "field_not_import_writable",
+                    "collection_owner_support_required",
+                    "field_not_nullable",
+                    "invalid_empty_value_policy",
+                    "invalid_timestamp",
+                    "invalid_uuid",
+                    "invalid_exact_uuid",
+                    "invalid_integer",
+                    "invalid_boolean",
+                    "invalid_text"
+                  ]
+                },
+                "field": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "guard": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
             },
-            "field": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            },
-            "guard": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "reason_code",
+                "party_reason_code",
+                "conflicting_field_keys"
+              ],
+              "properties": {
+                "reason_code": {
+                  "const": "party_match_conflict"
+                },
+                "party_reason_code": {
+                  "enum": [
+                    "ambiguous_exact_match",
+                    "cross_key_exact_match",
+                    "exact_match_key_claimed"
+                  ]
+                },
+                "conflicting_field_keys": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 2,
+                  "uniqueItems": true,
+                  "items": {
+                    "enum": [
+                      "party.external_ref",
+                      "party.primary_email"
+                    ]
+                  }
+                }
+              }
             }
-          }
+          ]
         }
       }
     },

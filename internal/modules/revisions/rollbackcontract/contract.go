@@ -10,10 +10,11 @@ import (
 )
 
 var (
-	ErrTargetNotFound      = errors.New("rollback provider: target not found")
-	ErrStaleTarget         = errors.New("rollback provider: stale target")
-	ErrTargetNotReversible = errors.New("rollback provider: target not reversible")
-	ErrIdentifierConflict  = errors.New("rollback provider: active identifier conflict")
+	ErrTargetNotFound            = errors.New("rollback provider: target not found")
+	ErrStaleTarget               = errors.New("rollback provider: stale target")
+	ErrTargetNotReversible       = errors.New("rollback provider: target not reversible")
+	ErrEntityIdentifierConflict  = errors.New("rollback provider: active entity identifier conflict")
+	ErrPartyExactMatchKeyClaimed = errors.New("rollback provider: Party exact-match key claimed")
 )
 
 type TargetReference struct {

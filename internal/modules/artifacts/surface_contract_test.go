@@ -111,7 +111,7 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 			t.Fatalf("construct Artifacts incident-bundle source port: %v", err)
 		}
 		descriptor := port.Descriptor()
-		if descriptor.FamilyID != "artifacts" || descriptor.ContractMajor != 1 || descriptor.OwnerID != "module.artifacts" {
+		if descriptor.FamilyID != "artifacts" || descriptor.ContractMajor != 2 || descriptor.OwnerID != "module.artifacts" {
 			t.Fatalf("artifact incident-bundle descriptor identity = %#v", descriptor)
 		}
 		if !slices.Equal(descriptor.OwnerRelationIDs, []string{"artifacts-and-optional-surfaces"}) ||
@@ -135,7 +135,7 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 			got := descriptor.Paths[index]
 			if got.LogicalPath != wantPath.path || got.ContentRole != "source_rows" ||
 				got.StableIdentityInvariantID != "artifacts.source_identity_admitted" ||
-				!slices.Equal(got.Versions, []int{2}) || !slices.Equal(got.StableIdentity, []string{wantPath.identity}) {
+				!slices.Equal(got.Versions, []int{3}) || !slices.Equal(got.StableIdentity, []string{wantPath.identity}) {
 				t.Fatalf("artifact incident-bundle path %d = %#v, want %s/%s", index, got, wantPath.path, wantPath.identity)
 			}
 		}

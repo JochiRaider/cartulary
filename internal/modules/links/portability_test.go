@@ -21,8 +21,8 @@ import (
 
 func TestLinksIncidentBundleRejectsUnknownLinkMembersBeforeMutation(t *testing.T) {
 	descriptor := links.NewIncidentBundleSourcePort().Descriptor()
-	if !slices.Contains(descriptor.InvariantIDs, "links_tags.row_shape_exact") {
-		t.Fatalf("Links source descriptor omits exact row-shape invariant: %#v", descriptor.InvariantIDs)
+	if !slices.Contains(descriptor.InvariantIDs, "links_tags.link_tuple_legal") {
+		t.Fatalf("Links source descriptor omits link-tuple invariant: %#v", descriptor.InvariantIDs)
 	}
 	harness := appsupport.StartStore(t, "links-bundle-unknown-member-characterization")
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "links-bundle-shape@example.test", "Links Bundle Shape", "LinksBundleShapePass1!", false, true, true)

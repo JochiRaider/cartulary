@@ -29,7 +29,7 @@ func NewSourcePort() sourceport.Port {
 			err := ImportIncidentBundleFilesTx(ctx, tx, map[string][]byte(value.(sourceport.PreparedFiles)), importContext.ActorUserID, importContext.Attributions)
 			var unexpectedColumns *incidentportability.UnexpectedColumnsError
 			if errors.As(err, &unexpectedColumns) {
-				return descriptor.DeclaredFailure("links_tags.row_shape_exact")
+				return descriptor.DeclaredFailure("links_tags.link_tuple_legal")
 			}
 			return err
 		},
@@ -60,15 +60,15 @@ func linksIncidentBundleDescriptor() sourceport.Descriptor {
 		OwnerID: "module.links", OwnerRelationIDs: []string{"links-and-tags"},
 		Dependencies: []string{"assessments"},
 		Paths: []sourceport.Path{
-			{LogicalPath: "data/record_links.ndjson", ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"record_link_id"}, StableIdentityInvariantID: "links_tags.source_identity_admitted"},
-			{LogicalPath: "data/tags.ndjson", ContentRole: "validation_rows", Versions: []int{2}, StableIdentity: []string{"normalized_tag_name", "tag_name"}, StableIdentityInvariantID: "links_tags.source_identity_admitted"},
-			{LogicalPath: "data/record_tags.ndjson", ContentRole: "source_rows", Versions: []int{2}, StableIdentity: []string{"record_tag_id"}, StableIdentityInvariantID: "links_tags.source_identity_admitted"},
+			{LogicalPath: "data/record_links.ndjson", ContentRole: "source_rows", Versions: []int{3}, StableIdentity: []string{"record_link_id"}, StableIdentityInvariantID: "links_tags.source_identity_admitted"},
+			{LogicalPath: "data/tags.ndjson", ContentRole: "validation_rows", Versions: []int{3}, StableIdentity: []string{"normalized_tag_name", "tag_name"}, StableIdentityInvariantID: "links_tags.source_identity_admitted"},
+			{LogicalPath: "data/record_tags.ndjson", ContentRole: "source_rows", Versions: []int{3}, StableIdentity: []string{"record_tag_id"}, StableIdentityInvariantID: "links_tags.source_identity_admitted"},
 		},
 		InvariantIDs: []string{
 			"links_tags.endpoints_same_incident", "links_tags.link_tuple_legal",
 			"links_tags.link_unique", "links_tags.deletion_tuple_legal",
 			"links_tags.tag_normalized", "links_tags.tag_catalog_exact",
-			"links_tags.source_identity_admitted", "links_tags.row_shape_exact",
+			"links_tags.source_identity_admitted",
 		},
 	}
 }
