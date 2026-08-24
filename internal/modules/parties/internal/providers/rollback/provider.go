@@ -3,15 +3,12 @@ package rollback
 import (
 	"context"
 	"errors"
-	"fmt"
-	"slices"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/parties/internal/policy"
+	partysource "github.com/JochiRaider/cartulary/internal/modules/parties/internal/source"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -27,19 +24,8 @@ func (Provider) ValidateRollbackValue(value map[string]any) error {
 	if !ok {
 		return rollbackcontract.ErrTargetNotReversible
 	}
-	if raw, present := source["display_name"]; present {
-		text, valid := raw.(string)
-		if !valid || strings.TrimSpace(text) == "" {
-			return rollbackcontract.ErrTargetNotReversible
-		}
-	}
-	if raw, present := source["party_kind"]; present {
-		text, valid := raw.(string)
-		if !valid || !validPartyKind(text) {
-			return rollbackcontract.ErrTargetNotReversible
-		}
-	}
-	return nil
+	_, err := admitRollbackSourceValues(source)
+	return err
 }
 
 func (Provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest) error {
@@ -50,15 +36,19 @@ func (Provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontra
 	if err := (Provider{}).ValidateRollbackValue(request.RetainedValue); err != nil {
 		return err
 	}
-	values := make([]any, 0, 18)
-	for _, key := range []string{
-		"display_name", "party_kind", "organization_name", "role_title", "primary_email",
-		"timezone_name", "external_ref", "notes",
-	} {
-		value, present := source[key]
-		values = append(values, present, value)
+	admitted, err := admitRollbackSourceValues(source)
+	if err != nil {
+		return err
 	}
-	_, err := tx.Exec(ctx, `
+	values := make([]any, 0, 16)
+	for _, fieldKey := range []string{
+		"party.display_name", "party.party_kind", "party.organization_name", "party.role_title",
+		"party.primary_email", "party.timezone_name", "party.external_ref", "party.notes",
+	} {
+		value, present := admitted[fieldKey]
+		values = append(values, present, rollbackDBValue(value))
+	}
+	_, err = tx.Exec(ctx, `
 UPDATE parties
    SET display_name = CASE WHEN $2 THEN $3::text ELSE display_name END,
        party_kind = CASE WHEN $4 THEN $5::text ELSE party_kind END,
@@ -74,145 +64,77 @@ UPDATE parties
 	return err
 }
 
-type partyClaimTuple struct {
-	keyKind         string
-	normalizedValue string
-}
-
 func (Provider) PrepareIdentifierClaimRestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.IdentifierClaimRestoreRequest) error {
-	unique := make(map[string]partyClaimTuple)
 	recordIDs := make([]uuid.UUID, 0, len(request.Records))
+	proposedValueSets := make([]map[string]policy.Value, 0, len(request.Records))
 	for _, record := range request.Records {
 		if record.RecordID == uuid.Nil {
 			return rollbackcontract.ErrTargetNotReversible
 		}
 		recordIDs = append(recordIDs, record.RecordID)
-		tuples, err := partyRollbackClaimTuplesTx(ctx, tx, record.RecordID, record.RetainedValue)
+		values, err := partyRollbackValuesTx(ctx, tx, request.IncidentID, record.RecordID, record.RetainedValue)
 		if err != nil {
 			return err
 		}
-		for _, tuple := range tuples {
-			unique[tuple.keyKind+"\x1f"+tuple.normalizedValue] = tuple
-		}
+		proposedValueSets = append(proposedValueSets, values)
 	}
-	tuples := make([]partyClaimTuple, 0, len(unique))
-	for _, tuple := range unique {
-		tuples = append(tuples, tuple)
-	}
-	slices.SortFunc(tuples, comparePartyClaimTuples)
 	affected := make(map[uuid.UUID]struct{}, len(request.AffectedRecordIDs))
 	for _, recordID := range request.AffectedRecordIDs {
 		affected[recordID] = struct{}{}
 	}
-	for _, tuple := range tuples {
-		lockKey := request.IncidentID.String() + "\x1f" + tuple.keyKind + "\x1f" + tuple.normalizedValue
-		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, lockKey); err != nil {
-			return fmt.Errorf("lock rollback Party claim: %w", err)
-		}
-		var ownerID uuid.UUID
-		err := tx.QueryRow(ctx, `
-SELECT party_record_id
-  FROM party_active_key_claims
- WHERE incident_id = $1
-   AND key_kind = $2
-   AND normalized_value = $3
-`, request.IncidentID, tuple.keyKind, tuple.normalizedValue).Scan(&ownerID)
-		if errors.Is(err, pgx.ErrNoRows) {
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("validate rollback Party claim: %w", err)
-		}
-		if _, ok := affected[ownerID]; !ok {
+	if err := partysource.ValidateActiveKeyClaimsTx(ctx, tx, request.IncidentID, proposedValueSets, affected); err != nil {
+		var matchConflict *partysource.MatchConflictError
+		if errors.As(err, &matchConflict) {
 			return rollbackcontract.ErrPartyExactMatchKeyClaimed
 		}
+		return err
 	}
-	if _, err := tx.Exec(ctx, `SELECT set_config('cartulary.parties_defer_active_key_claims', 'on', true)`); err != nil {
-		return fmt.Errorf("defer rollback Party claim refresh: %w", err)
+	if err := partysource.SetActiveKeyClaimsDeferredTx(ctx, tx, true); err != nil {
+		return err
 	}
-	slices.SortFunc(recordIDs, func(left, right uuid.UUID) int {
-		return strings.Compare(left.String(), right.String())
-	})
-	for _, recordID := range recordIDs {
-		if _, err := tx.Exec(ctx, `SELECT public.parties_release_active_key_claims_v1($1)`, recordID); err != nil {
-			return fmt.Errorf("release rollback Party claims: %w", err)
-		}
-	}
-	return nil
+	return partysource.ReleaseActiveKeyClaimsTx(ctx, tx, recordIDs)
 }
 
 func (Provider) FinalizeIdentifierClaimRestoreTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
-	if _, err := tx.Exec(ctx, `SELECT set_config('cartulary.parties_defer_active_key_claims', 'off', true)`); err != nil {
-		return fmt.Errorf("enable rollback Party claim refresh: %w", err)
+	if err := partysource.SetActiveKeyClaimsDeferredTx(ctx, tx, false); err != nil {
+		return err
 	}
-	for _, recordID := range recordIDs {
-		if _, err := tx.Exec(ctx, `SELECT public.parties_refresh_active_key_claims_v1($1)`, recordID); err != nil {
-			var postgresError *pgconn.PgError
-			if errors.As(err, &postgresError) && postgresError.Code == "23505" {
-				return rollbackcontract.ErrPartyExactMatchKeyClaimed
-			}
-			return fmt.Errorf("refresh rollback Party claims: %w", err)
+	if err := partysource.RefreshActiveKeyClaimsTx(ctx, tx, recordIDs); err != nil {
+		var matchConflict *partysource.MatchConflictError
+		if errors.As(err, &matchConflict) {
+			return rollbackcontract.ErrPartyExactMatchKeyClaimed
 		}
+		return err
 	}
 	return nil
 }
 
-func partyRollbackClaimTuplesTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, retained map[string]any) ([]partyClaimTuple, error) {
-	source, hasRetainedSource := objectMap(retained, "source")
-	if retained != nil && !hasRetainedSource {
+func partyRollbackValuesTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	recordID uuid.UUID,
+	retained map[string]any,
+) (map[string]policy.Value, error) {
+	source, ok := partySourceForRollbackValue(retained)
+	if !ok {
 		return nil, rollbackcontract.ErrTargetNotReversible
 	}
-	var email, externalRef pgtype.Text
-	if err := tx.QueryRow(ctx, `SELECT primary_email, external_ref FROM parties WHERE record_id = $1`, recordID).Scan(&email, &externalRef); err != nil {
+	loadedIncidentID, current, err := partysource.LoadPartyValuesForUpdateTx(ctx, tx, recordID)
+	if err != nil {
 		return nil, err
 	}
-	values := map[string]*string{
-		"primary_email": pgTextPointer(email),
-		"external_ref":  pgTextPointer(externalRef),
+	if loadedIncidentID != incidentID {
+		return nil, rollbackcontract.ErrTargetNotReversible
 	}
-	for keyKind := range values {
-		if raw, present := source[keyKind]; hasRetainedSource && present {
-			if raw == nil {
-				values[keyKind] = nil
-				continue
-			}
-			text, ok := raw.(string)
-			if !ok {
-				return nil, rollbackcontract.ErrTargetNotReversible
-			}
-			values[keyKind] = &text
-		}
+	admitted, err := admitRollbackSourceValues(source)
+	if err != nil {
+		return nil, err
 	}
-	var tuples []partyClaimTuple
-	for keyKind, raw := range values {
-		if raw == nil {
-			continue
-		}
-		var normalized *string
-		if err := tx.QueryRow(ctx, `SELECT public.parties_normalize_active_key_v1($1, $2)`, keyKind, *raw).Scan(&normalized); err != nil {
-			return nil, err
-		}
-		if normalized == nil {
-			return nil, rollbackcontract.ErrTargetNotReversible
-		}
-		tuples = append(tuples, partyClaimTuple{keyKind: keyKind, normalizedValue: *normalized})
+	for fieldKey, value := range admitted {
+		current[fieldKey] = value
 	}
-	slices.SortFunc(tuples, comparePartyClaimTuples)
-	return tuples, nil
-}
-
-func comparePartyClaimTuples(left, right partyClaimTuple) int {
-	if compared := strings.Compare(left.keyKind, right.keyKind); compared != 0 {
-		return compared
-	}
-	return strings.Compare(left.normalizedValue, right.normalizedValue)
-}
-
-func pgTextPointer(value pgtype.Text) *string {
-	if !value.Valid {
-		return nil
-	}
-	return &value.String
+	return current, nil
 }
 
 func partySourceForRollbackValue(value map[string]any) (map[string]any, bool) {
@@ -231,11 +153,39 @@ func objectMap(value map[string]any, key string) (map[string]any, bool) {
 	return typed, ok
 }
 
-func validPartyKind(value string) bool {
-	switch value {
-	case "person", "team", "organization", "distribution_list", "other":
-		return true
-	default:
-		return false
+func admitRollbackSourceValues(source map[string]any) (map[string]policy.Value, error) {
+	admitted := make(map[string]policy.Value)
+	for _, fieldKey := range policy.FieldKeys() {
+		field, _ := policy.LookupField(fieldKey)
+		raw, present := source[field.SourceColumn]
+		if !present {
+			continue
+		}
+		var text *string
+		if raw != nil {
+			value, ok := raw.(string)
+			if !ok {
+				return nil, rollbackcontract.ErrTargetNotReversible
+			}
+			text = &value
+		}
+		value, admissionErr := policy.AdmitStored(fieldKey, text)
+		if admissionErr != nil || !canonicalStoredValue(value, text) {
+			return nil, rollbackcontract.ErrTargetNotReversible
+		}
+		admitted[fieldKey] = value
 	}
+	return admitted, nil
+}
+
+func canonicalStoredValue(value policy.Value, raw *string) bool {
+	stored, present := value.StoredValue()
+	return (raw != nil) == present && (!present || stored == *raw)
+}
+
+func rollbackDBValue(value policy.Value) any {
+	if stored, present := value.StoredValue(); present {
+		return stored
+	}
+	return nil
 }

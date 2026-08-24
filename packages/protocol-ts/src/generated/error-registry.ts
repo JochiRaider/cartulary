@@ -96,7 +96,7 @@ const value = {
     {
       "code": "party_match_conflict",
       "http_status": 409,
-      "summary": "The requested Party exact-match keys are ambiguous, divergent, or already claimed."
+      "summary": "The requested Party exact-match keys are divergent or already claimed."
     },
     {
       "code": "job_cancel_rejected",
@@ -1734,10 +1734,6 @@ const value = {
     {
       "error_code": "party_match_conflict",
       "reason_codes": [
-        {
-          "code": "ambiguous_exact_match",
-          "summary": "At least one supplied exact-match field resolves to more than one active same-incident Party."
-        },
         {
           "code": "cross_key_exact_match",
           "summary": "The supplied exact-match fields resolve to different active same-incident Parties."

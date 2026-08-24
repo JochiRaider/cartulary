@@ -165,7 +165,7 @@ func ImportOwnerCreateErrorDetail(err error) (map[string]any, bool) {
 
 func validPartyMatchDetail(ownerErr *ImportOwnerCreateError) bool {
 	switch ownerErr.PartyReasonCode {
-	case "ambiguous_exact_match", "cross_key_exact_match", "exact_match_key_claimed":
+	case "cross_key_exact_match", "exact_match_key_claimed":
 	default:
 		return false
 	}

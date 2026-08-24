@@ -34,7 +34,7 @@ func mustCreatePartyFor(t testing.TB, pool postgres.DB, actor authn.UserRecord, 
 		context.Background(),
 		parties.CreateCommand{
 			ActorUserID: actor.ID, IncidentID: incidentID, Admission: admission, RequestID: "req-" + clientTxnID,
-			RouteKey: "workbook.rows.create", Now: time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC),
+			Now: time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC),
 		},
 	)
 	if err != nil {

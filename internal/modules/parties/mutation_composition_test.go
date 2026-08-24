@@ -20,6 +20,10 @@ func TestMutationContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
 	if _, err := NewMutationContribution(nil, conflicttokens.ConflictTokenCodec{}, MutationDependencies{}); err == nil || !strings.Contains(err.Error(), "Postgres is required") {
 		t.Fatalf("nil Postgres error = %v", err)
 	}
+	var typedNilPostgres *compositionDB
+	if _, err := NewMutationContribution(typedNilPostgres, conflicttokens.ConflictTokenCodec{}, completeMutationDependencies()); err == nil || !strings.Contains(err.Error(), "Postgres is required") {
+		t.Fatalf("typed-nil Postgres error = %v", err)
+	}
 	tests := []struct {
 		name string
 		want string
@@ -42,7 +46,36 @@ func TestMutationContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
 			}
 		})
 	}
+
+	typedNilOperations := (*compositionOperations)(nil)
+	typedNilIdempotency := (*compositionIdempotency)(nil)
+	typedNilKeepSaved := (*compositionKeepSaved)(nil)
+	var typedNilConflictFields *typedNilConflictFieldResolver
+	typedNilTests := []struct {
+		name string
+		want string
+		drop func(*MutationDependencies)
+	}{
+		{name: "incident state", want: "Incident admission", drop: func(d *MutationDependencies) { d.IncidentState = typedNilOperations }},
+		{name: "idempotency", want: "Route idempotency", drop: func(d *MutationDependencies) { d.Idempotency = typedNilIdempotency }},
+		{name: "records", want: "Record envelopes", drop: func(d *MutationDependencies) { d.RecordEnvelopes = typedNilOperations }},
+		{name: "projections", want: "Projections", drop: func(d *MutationDependencies) { d.Projections = typedNilOperations }},
+		{name: "revisions", want: "Revisions/history", drop: func(d *MutationDependencies) { d.Revisions = typedNilOperations }},
+		{name: "conflict fields", want: "Conflict fields", drop: func(d *MutationDependencies) { d.ConflictFields = typedNilConflictFields }},
+		{name: "keep saved", want: "Keep-saved resolution", drop: func(d *MutationDependencies) { d.KeepSaved = typedNilKeepSaved }},
+	}
+	for _, test := range typedNilTests {
+		t.Run("typed nil "+test.name, func(t *testing.T) {
+			dependencies := completeMutationDependencies()
+			test.drop(&dependencies)
+			if _, err := NewMutationContribution(compositionDB{}, conflicttokens.ConflictTokenCodec{}, dependencies); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("typed-nil %s error = %v", test.name, err)
+			}
+		})
+	}
 }
+
+type typedNilConflictFieldResolver struct{ conflicttokens.FieldResolver }
 
 func TestMutationContributionSharesOneFacade_Unit(t *testing.T) {
 	facade, err := NewMutationContribution(
@@ -67,6 +100,28 @@ func TestMutationContributionSharesOneFacade_Unit(t *testing.T) {
 	}
 }
 
+func TestRowVersionConsumptionRequiresExactInt64_Unit(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		row  map[string]any
+	}{
+		{name: "missing", row: map[string]any{}},
+		{name: "int", row: map[string]any{"row_version": int(1)}},
+		{name: "int32", row: map[string]any{"row_version": int32(1)}},
+		{name: "float64", row: map[string]any{"row_version": float64(1)}},
+		{name: "zero", row: map[string]any{"row_version": int64(0)}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := rowVersionFromGenericRow(test.row); err == nil {
+				t.Fatalf("row version %#v was admitted", test.row["row_version"])
+			}
+		})
+	}
+	if value, err := rowVersionFromGenericRow(map[string]any{"row_version": int64(7)}); err != nil || value != 7 {
+		t.Fatalf("exact int64 row version = %d, err %v", value, err)
+	}
+}
+
 func TestImportContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
 	if _, err := NewImportContribution("cartulary.view.unknown.v1", "parties.unknown", completeImportDependencies()); err == nil || !strings.Contains(err.Error(), "not mapped") {
 		t.Fatalf("unknown import surface error = %v", err)
@@ -86,6 +141,25 @@ func TestImportContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
 			test.drop(&dependencies)
 			if _, err := NewImportContribution(ViewSchemaID, "parties.create", dependencies); err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("missing %s error = %v", test.name, err)
+			}
+		})
+	}
+	typedNilOperations := (*compositionOperations)(nil)
+	typedNilTests := []struct {
+		name string
+		want string
+		drop func(*ImportDependencies)
+	}{
+		{name: "records", want: "Records insert", drop: func(d *ImportDependencies) { d.RecordEnvelopes = typedNilOperations }},
+		{name: "projections", want: "Projection refresh/load", drop: func(d *ImportDependencies) { d.Projections = typedNilOperations }},
+		{name: "revisions", want: "Revision finalization", drop: func(d *ImportDependencies) { d.Revisions = typedNilOperations }},
+	}
+	for _, test := range typedNilTests {
+		t.Run("typed nil "+test.name, func(t *testing.T) {
+			dependencies := completeImportDependencies()
+			test.drop(&dependencies)
+			if _, err := NewImportContribution(ViewSchemaID, "parties.create", dependencies); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("typed-nil %s error = %v", test.name, err)
 			}
 		})
 	}
@@ -128,8 +202,8 @@ func (compositionRow) Scan(...any) error { return errors.New("unexpected composi
 
 type compositionIdempotency struct{}
 
-func (compositionIdempotency) Get(context.Context, IdempotencyKey, []byte) (IdempotencyRecord, error) {
-	return IdempotencyRecord{}, ErrIdempotencyNotFound
+func (compositionIdempotency) Get(context.Context, IdempotencyKey, []byte) (StoredMutationResult, bool, error) {
+	return StoredMutationResult{}, false, nil
 }
 func (compositionIdempotency) PutTx(context.Context, pgx.Tx, IdempotencyKey, []byte, StoredMutationResult) error {
 	return nil
@@ -155,12 +229,12 @@ func (compositionOperations) InsertTx(context.Context, pgx.Tx, records.InsertPar
 func (compositionOperations) AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error) {
 	return 1, nil
 }
+func (compositionOperations) LoadEnvelope(context.Context, uuid.UUID) (records.Envelope, error) {
+	return records.Envelope{}, nil
+}
 func (compositionOperations) RefreshPartyTx(context.Context, pgx.Tx, uuid.UUID) error { return nil }
 func (compositionOperations) LoadPartyTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error) {
 	return map[string]any{}, nil
-}
-func (compositionOperations) RebuildPartiesTx(context.Context, pgx.Tx, uuid.UUID) error {
-	return nil
 }
 func (compositionOperations) CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error) {
 	return revisions.RecordSnapshot{}, nil

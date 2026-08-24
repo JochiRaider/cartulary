@@ -521,6 +521,35 @@ func TestSourceOwnerConflictContributions_Integration(t *testing.T) {
 		"resolved_value":  "Party local",
 	})
 	requireCellValue(t, partyResolved["row"].(map[string]any), "party.display_name", "Party local")
+	partyKeep := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.parties.v1", map[string]any{
+		"client_txn_id":      "txn-workbook-source-conflict-party-keep-create",
+		"party.display_name": "Party keep base",
+		"party.party_kind":   "organization",
+	})["row"].(map[string]any)
+	partyKeepID := appsupport.MustUUID(t, partyKeep["record_id"].(string))
+	partyKeepConflict := createAtomicConflict(
+		t,
+		harness,
+		login,
+		partyKeepID,
+		"cartulary.view.parties.v1",
+		"party.display_name",
+		"Party saved again",
+		"Party local again",
+		"party-keep",
+	)
+	partyKeepBody := map[string]any{
+		"conflict_token":  partyKeepConflict["conflict_token"].(string),
+		"resolution_kind": "keep_saved",
+		"client_txn_id":   "txn-workbook-source-conflict-party-keep",
+	}
+	partyKept := ResolveConflict(t, harness, login, partyKeepID, partyKeepConflict["conflict_token"].(string), partyKeepBody)
+	RequireNoChangeSetID(t, partyKept)
+	requireCellValue(t, partyKept["row"].(map[string]any), "party.display_name", "Party saved again")
+	partyKeepReplay := ResolveConflict(t, harness, login, partyKeepID, partyKeepConflict["conflict_token"].(string), partyKeepBody)
+	if !reflect.DeepEqual(partyKeepReplay, partyKept) {
+		t.Fatalf("source-owned Party keep_saved replay changed the original success:\nfirst  %#v\nreplay %#v", partyKept, partyKeepReplay)
+	}
 
 	evidence := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.evidence.v1", map[string]any{
 		"client_txn_id":  "txn-workbook-source-conflict-evidence-create",

@@ -18,7 +18,6 @@ var partyExportedSurfaceAllowlist = []string{
 	"const:MutationReplayed",
 	"const:MutationReused",
 	"const:MutationUpdated",
-	"const:PartyMatchAmbiguousExactMatch",
 	"const:PartyMatchCrossKeyExactMatch",
 	"const:PartyMatchExactKeyClaimed",
 	"const:StoredMutationCreate",
@@ -40,18 +39,12 @@ var partyExportedSurfaceAllowlist = []string{
 	"method:AdmissionError.Error",
 	"method:AdmissionError.Limit",
 	"method:ConflictResolveAdmission.ClientTransactionID",
-	"method:ConflictResolveAdmission.RequestHash",
-	"method:ConflictResolveAdmission.ResolutionKind",
-	"method:CreateAdmission.AdmittedViewSchemaID",
 	"method:CreateAdmission.ClientTransactionID",
-	"method:CreateAdmission.RequestHash",
 	"method:MutationFacade.Create",
 	"method:MutationFacade.Patch",
 	"method:MutationFacade.ResolveConflict",
 	"method:PatchAdmission.AdmittedBaseRowVersion",
-	"method:PatchAdmission.AdmittedViewSchemaID",
 	"method:PatchAdmission.ClientTransactionID",
-	"method:PatchAdmission.RequestHash",
 	"method:RowVersionConflictError.Error",
 	"method:SameFieldConflictError.Error",
 	"method:StoredMutationResult.Kind",
@@ -65,8 +58,6 @@ var partyExportedSurfaceAllowlist = []string{
 	"type:CreateCommand",
 	"type:IdempotencyCapability",
 	"type:IdempotencyKey",
-	"type:IdempotencyRecord",
-	"type:ImportCreateCommand",
 	"type:ImportDependencies",
 	"type:ImportRecordEnvelopeCapability",
 	"type:IncidentStateCapability",
@@ -90,7 +81,6 @@ var partyExportedSurfaceAllowlist = []string{
 	"type:StoredRowMutationResult",
 	"type:ValidationError",
 	"var:ErrClientTxnConflict",
-	"var:ErrIdempotencyNotFound",
 	"var:ErrStoredMutationKindMismatch",
 }
 
@@ -101,14 +91,16 @@ func TestPartyExportedSurfaceLock_Unit(t *testing.T) {
 	}
 
 	assertPartyStructFields(t, reflect.TypeOf(CreateCommand{}), []string{
-		"ActorUserID", "IncidentID", "Admission", "RequestID", "RouteKey", "Now",
+		"ActorUserID", "IncidentID", "Admission", "RequestID", "Now",
 	})
 	assertPartyStructFields(t, reflect.TypeOf(PatchCommand{}), []string{
-		"ActorUserID", "RecordID", "Admission", "RequestID", "RouteKey", "ConflictRouteKey", "Now",
+		"ActorUserID", "RecordID", "Admission", "RequestID", "Now",
+	})
+	assertPartyStructFields(t, reflect.TypeOf(ConflictCommand{}), []string{
+		"ActorUserID", "Admission", "RequestID", "Now",
 	})
 	assertPartyStructFields(t, reflect.TypeOf(MutationResult{}), []string{
-		"Outcome", "Row", "IncidentID", "RecordID", "ChangeSetID", "ClientTxnID",
-		"RowVersion", "ViewSchemaID", "ChangedFieldKeys",
+		"Outcome", "Row", "IncidentID", "RecordID", "ChangeSetID", "RowVersion", "ChangedFieldKeys",
 	})
 }
 

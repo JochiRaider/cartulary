@@ -62,14 +62,14 @@ func newPartyCreateProvider(owner *parties.MutationFacade) (workbook.CreateProvi
 		},
 		func(ctx context.Context, command workbook.CreateCommand) (workbook.MutationOutcome, error) {
 			admitted, ok := command.Admission.(partyCreateAdmission)
-			if !ok || command.ViewSchemaID != parties.ViewSchemaID || admitted.admission.AdmittedViewSchemaID() != parties.ViewSchemaID {
+			if !ok || command.ViewSchemaID != parties.ViewSchemaID {
 				return workbook.RejectedMutation(
 					workbook.InvalidPayloadFailure("view_schema_id", "invalid_view_schema_id"),
 				), nil
 			}
 			result, err := owner.Create(ctx, parties.CreateCommand{
 				ActorUserID: command.Actor.ID, IncidentID: command.IncidentID, Admission: admitted.admission,
-				RequestID: command.RequestID, RouteKey: workbookCreateOperation, Now: command.Now,
+				RequestID: command.RequestID, Now: command.Now,
 			})
 			if failure, safe := partyMutationFailure(err, admitted.admission.ClientTransactionID()); safe {
 				return workbook.RejectedMutation(failure), nil
@@ -77,7 +77,7 @@ func newPartyCreateProvider(owner *parties.MutationFacade) (workbook.CreateProvi
 			if err != nil {
 				return workbook.MutationOutcome{}, err
 			}
-			converted, err := partyMutationResult(result)
+			converted, err := partyMutationResult(result, admitted.admission.ClientTransactionID())
 			if err != nil {
 				return workbook.MutationOutcome{}, err
 			}
@@ -92,7 +92,7 @@ func (value partyPatchAdmission) ClientTransactionID() string {
 	return value.admission.ClientTransactionID()
 }
 func (value partyPatchAdmission) AdmittedViewSchemaID() string {
-	return value.admission.AdmittedViewSchemaID()
+	return parties.ViewSchemaID
 }
 func (value partyPatchAdmission) AdmittedBaseRowVersion() int64 {
 	return value.admission.AdmittedBaseRowVersion()
@@ -112,13 +112,12 @@ func newPartyPatchProvider(owner *parties.MutationFacade) (workbook.PatchProvide
 		},
 		func(ctx context.Context, command workbook.PatchCommand) (workbook.MutationOutcome, error) {
 			admitted, ok := command.Admission.(partyPatchAdmission)
-			if !ok || command.AuthoritativeRecordType != "party" || admitted.admission.AdmittedViewSchemaID() != parties.ViewSchemaID {
+			if !ok || command.AuthoritativeRecordType != "party" {
 				return workbook.RejectedMutation(workbook.TargetNotFoundFailure()), nil
 			}
 			result, err := owner.Patch(ctx, parties.PatchCommand{
 				ActorUserID: command.Actor.ID, RecordID: command.RecordID, Admission: admitted.admission,
-				RequestID: command.RequestID, RouteKey: workbookPatchOperation,
-				ConflictRouteKey: workbookConflictResolveOperation, Now: command.Now,
+				RequestID: command.RequestID, Now: command.Now,
 			})
 			if failure, safe := partyMutationFailure(err, admitted.admission.ClientTransactionID()); safe {
 				return workbook.RejectedMutation(failure), nil
@@ -126,7 +125,7 @@ func newPartyPatchProvider(owner *parties.MutationFacade) (workbook.PatchProvide
 			if err != nil {
 				return workbook.MutationOutcome{}, err
 			}
-			converted, err := partyMutationResult(result)
+			converted, err := partyMutationResult(result, admitted.admission.ClientTransactionID())
 			if err != nil {
 				return workbook.MutationOutcome{}, err
 			}
@@ -173,12 +172,8 @@ func newPartyConflictProvider(owner *parties.MutationFacade) (workbook.ConflictP
 				return workbook.RejectedMutation(workbook.TargetNotFoundFailure()), nil
 			}
 			result, err := owner.ResolveConflict(ctx, parties.ConflictCommand{
-				Mechanics: conflicttokens.Command{
-					ActorUserID: command.Actor.ID, RecordID: command.RecordID,
-					Claims: partyConflictClaims(command.Claims), RequestID: command.RequestID,
-					RouteKey: command.Claims.RouteKey,
-				},
-				ActorUserID: command.Actor.ID, Admission: admitted.admission, Now: command.Now,
+				ActorUserID: command.Actor.ID, Admission: admitted.admission,
+				RequestID: command.RequestID, Now: command.Now,
 			})
 			if failure, safe := partyMutationFailure(err, admitted.admission.ClientTransactionID()); safe {
 				return workbook.RejectedMutation(failure), nil
@@ -186,7 +181,7 @@ func newPartyConflictProvider(owner *parties.MutationFacade) (workbook.ConflictP
 			if err != nil {
 				return workbook.MutationOutcome{}, err
 			}
-			converted, err := partyMutationResult(result)
+			converted, err := partyMutationResult(result, admitted.admission.ClientTransactionID())
 			if err != nil {
 				return workbook.MutationOutcome{}, err
 			}
@@ -259,7 +254,7 @@ func partyAdmissionFailure(err *parties.AdmissionError) *workbook.MutationFailur
 	return workbook.InvalidPayloadFailure(err.Field, err.ReasonCode)
 }
 
-func partyMutationResult(result parties.MutationResult) (workbook.MutationResult, error) {
+func partyMutationResult(result parties.MutationResult, clientTxnID string) (workbook.MutationResult, error) {
 	status := http.StatusOK
 	switch result.Outcome {
 	case parties.MutationCreated:
@@ -268,24 +263,16 @@ func partyMutationResult(result parties.MutationResult) (workbook.MutationResult
 	default:
 		return workbook.MutationResult{}, fmt.Errorf("compose Party Workbook result: unknown outcome %q", result.Outcome)
 	}
-	payload := map[string]any{"view_schema_id": result.ViewSchemaID, "row": result.Row}
-	if result.ChangeSetID != uuid.Nil {
-		payload["change_set_id"] = result.ChangeSetID.String()
+	payload := map[string]any{"view_schema_id": parties.ViewSchemaID, "row": result.Row}
+	changeSetID := uuid.Nil
+	if result.ChangeSetID != nil {
+		changeSetID = *result.ChangeSetID
+		payload["change_set_id"] = changeSetID.String()
 	}
 	return workbook.MutationResult{
 		Payload: payload, StatusCode: status, Replayed: result.Outcome == parties.MutationReplayed,
-		IncidentID: result.IncidentID, RecordID: result.RecordID, ChangeSetID: result.ChangeSetID,
-		ClientTxnID: result.ClientTxnID, RowVersion: result.RowVersion, ViewSchemaID: result.ViewSchemaID,
+		IncidentID: result.IncidentID, RecordID: result.RecordID, ChangeSetID: changeSetID,
+		ClientTxnID: clientTxnID, RowVersion: result.RowVersion, ViewSchemaID: parties.ViewSchemaID,
 		ChangedFieldKeys: append([]string(nil), result.ChangedFieldKeys...),
 	}, nil
-}
-
-func partyConflictClaims(claims workbook.ConflictClaims) conflicttokens.ConflictTokenClaims {
-	return conflicttokens.ConflictTokenClaims{
-		Version: claims.Version, RecordID: claims.RecordID.String(),
-		ViewSchemaID: claims.ViewSchemaID, RouteKey: claims.RouteKey,
-		FieldKey: claims.FieldKey, ConflictResolutionClass: claims.ConflictResolutionClass,
-		BaseRowVersion: claims.BaseRowVersion, CurrentRowVersion: claims.CurrentRowVersion,
-		RequestHash: claims.RequestHash, IssuedAt: claims.IssuedAt, ExpiresAt: claims.ExpiresAt,
-	}
 }

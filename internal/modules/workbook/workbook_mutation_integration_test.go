@@ -1,15 +1,17 @@
 package workbook_test
 
 import (
+	"bytes"
 	"context"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
@@ -76,6 +78,62 @@ func TestPartiesSurface_Integration(t *testing.T) {
 	partyID := appsupport.MustUUID(t, partyRow["record_id"].(string))
 	requireCellValue(t, partyRow, "party.display_name", "Acme Legal")
 	requireCellValue(t, partyRow, "party.party_kind", "organization")
+
+	patchRequest := map[string]any{
+		"view_schema_id":   "cartulary.view.parties.v1",
+		"base_row_version": partyRow["row_version"],
+		"client_txn_id":    "txn-entity_linking-party-patch-replay",
+		"changes": []map[string]any{
+			{"field_key": "party.notes", "value": "stored replay value"},
+		},
+	}
+	firstPatchResponse := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", partyID, patchRequest)
+	firstPatchData := httptestx.RequireSuccessEnvelope(t, firstPatchResponse, http.StatusOK)["data"].(map[string]any)
+	firstPatchRow := firstPatchData["row"].(map[string]any)
+	var storedStatusBefore int
+	var storedResponseBefore []byte
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT status_code, response_json
+  FROM route_idempotency
+ WHERE route_key = 'workbook.records.patch'
+   AND actor_user_id = $1
+   AND scope_key = $2
+   AND client_txn_id = $3
+`, adminUserID, partyID.String(), patchRequest["client_txn_id"]).Scan(&storedStatusBefore, &storedResponseBefore); err != nil {
+		t.Fatalf("load Party stored patch response: %v", err)
+	}
+	requireWorkbookPatch(t, harness, adminLogin, partyID, map[string]any{
+		"view_schema_id":   "cartulary.view.parties.v1",
+		"base_row_version": firstPatchRow["row_version"],
+		"client_txn_id":    "txn-entity_linking-party-patch-after-stored-replay",
+		"changes": []map[string]any{
+			{"field_key": "party.notes", "value": "new current value"},
+		},
+	})
+	changeSetsBeforeReplay := appsupport.QueryCount(t, harness.DB, `SELECT count(*) FROM change_sets WHERE incident_id = $1`, incidentID)
+	replayResponse := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", partyID, patchRequest)
+	replayData := httptestx.RequireSuccessEnvelope(t, replayResponse, http.StatusOK)["data"].(map[string]any)
+	if !reflect.DeepEqual(replayData, firstPatchData) {
+		t.Fatalf("Party replay data changed with current state: got %#v want %#v", replayData, firstPatchData)
+	}
+	if got := appsupport.QueryCount(t, harness.DB, `SELECT count(*) FROM change_sets WHERE incident_id = $1`, incidentID); got != changeSetsBeforeReplay {
+		t.Fatalf("Party replay appended change set: got %d want %d", got, changeSetsBeforeReplay)
+	}
+	var storedStatusAfter int
+	var storedResponseAfter []byte
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT status_code, response_json
+  FROM route_idempotency
+ WHERE route_key = 'workbook.records.patch'
+   AND actor_user_id = $1
+   AND scope_key = $2
+   AND client_txn_id = $3
+`, adminUserID, partyID.String(), patchRequest["client_txn_id"]).Scan(&storedStatusAfter, &storedResponseAfter); err != nil {
+		t.Fatalf("reload Party stored patch response: %v", err)
+	}
+	if storedStatusAfter != storedStatusBefore || !bytes.Equal(storedResponseAfter, storedResponseBefore) {
+		t.Fatalf("Party replay changed stored response/status")
+	}
 
 	queryResp := appsupport.DoJSON(
 		t,

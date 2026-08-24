@@ -1689,14 +1689,19 @@ These criteria provide direct runtime-family verification for substantive base-p
   in UTF-8 byte order, serializes absent tuples, and maintains exactly the
   Records-active claim set atomically. Email equality is case-insensitive and
   external-reference equality is case-sensitive. A single converged match is
-  reused without enrichment; ambiguous, cross-key, and already-claimed results
-  return the exact closed Party conflict and sorted field keys. Workbook and
-  Imports preserve their owner-defined safe envelopes and expose no Party
-  identity, source value, SQL, relation, constraint, driver diagnostic, or
-  topology. Exact committed replay wins before current-state evaluation,
-  divergent replay is rejected, and every rejected or replayed request has the
-  required zero or original side-effect set.
-  - Verifies: REQ-01-669, REQ-02-060..REQ-02-063, REQ-02-230, REQ-02-271
+  reused without enrichment; cross-key and already-claimed results return the
+  exact closed Party conflict and sorted field keys. Competing active source or
+  claim state blocks migration, Incident Bundle publication, recovery, or
+  serving readiness rather than producing a public Party conflict or selecting
+  a winner. Party patch fields admit only direct `value` writes, and a supplied
+  `action_payload` fails with `invalid_mutation_payload` and
+  `reason_code='unknown_field'` without effects. Workbook and Imports preserve
+  their owner-defined safe envelopes and expose no Party identity, source
+  value, SQL, relation, constraint, driver diagnostic, or topology. Exact
+  committed replay wins before current-state evaluation, divergent replay is
+  rejected, and every rejected or replayed request has the required zero or
+  original side-effect set.
+  - Verifies: REQ-01-501, REQ-01-669, REQ-02-060..REQ-02-063, REQ-02-230, REQ-02-271
 
 - **AC-562**: The authored Party field registry and generated runtime/view
   projections agree exactly on all eight field keys, required/default and

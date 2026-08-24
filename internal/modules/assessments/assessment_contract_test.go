@@ -581,7 +581,6 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	coordParty, err := partyOwner.Create(ctx, parties.CreateCommand{
 		ActorUserID: actor.ID, IncidentID: incident.ID, Admission: partyAdmission,
 		RequestID: "req-workbook_interaction-u-9-12-coord-party",
-		RouteKey:  "workbook.rows.create",
 		Now:       time.Date(2026, 5, 17, 18, 50, 0, 0, time.UTC),
 	})
 	if err != nil {

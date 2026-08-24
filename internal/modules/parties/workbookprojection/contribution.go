@@ -18,7 +18,6 @@ const partyViewSchemaID = "cartulary.view.parties.v1"
 type Rows interface {
 	RefreshPartyTx(context.Context, pgx.Tx, uuid.UUID) error
 	LoadPartyTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-	RebuildPartiesTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
 type ProjectionInput struct {
@@ -46,13 +45,8 @@ type SourceReader interface {
 	ListProjectionInputsTx(context.Context, pgx.Tx, uuid.UUID, *uuid.UUID, int) (ProjectionInputPage, error)
 }
 
-type Rebuilder interface {
-	RebuildParties(context.Context, uuid.UUID) error
-}
-
 type Ports struct {
-	Rows      Rows
-	Rebuilder Rebuilder
+	Rows Rows
 }
 
 type Contribution struct {

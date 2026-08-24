@@ -166,8 +166,7 @@ func New(dependencies Dependencies) (Ports, error) {
 			SupportEffects: projectionruntime.NewEvidenceAssociationEffectsFromStore(store),
 		},
 		parties: partyprojection.Ports{
-			Rows:      projectionruntime.NewPartyRowsFromStore(store, dependencies.Parties.Source()),
-			Rebuilder: store,
+			Rows: projectionruntime.NewPartyRowsFromStore(store, dependencies.Parties.Source()),
 		},
 		tasksDecisions: taskdecisionprojection.Ports{
 			Rows:      taskDecisionRows,
@@ -290,7 +289,7 @@ func (ports Ports) validate() error {
 		{name: "Assessments", ready: ports.assessments.Rows != nil && ports.assessments.Rebuilder != nil},
 		{name: "Artifacts", ready: ports.artifacts.Rows != nil && ports.artifacts.Rebuilder != nil && ports.artifacts.Reader != nil},
 		{name: "Evidence", ready: ports.evidence.Rows != nil && ports.evidence.Rebuilder != nil && ports.evidence.SupportEffects != nil},
-		{name: "Parties", ready: ports.parties.Rows != nil && ports.parties.Rebuilder != nil},
+		{name: "Parties", ready: ports.parties.Rows != nil},
 		{name: "Tasks/Decisions", ready: ports.tasksDecisions.Rows != nil && ports.tasksDecisions.Rebuilder != nil && ports.tasksDecisions.Reader != nil},
 	}
 	for _, owner := range ownerPorts {

@@ -309,7 +309,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/parties",
+        "package": "./internal/modules/tasksdecisions",
         "tests": [
           "TestDirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs_Unit"
         ]

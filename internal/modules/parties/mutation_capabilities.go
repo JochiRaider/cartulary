@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,7 +19,6 @@ import (
 const ViewSchemaID = "cartulary.view.parties.v1"
 
 var (
-	ErrIdempotencyNotFound        = errors.New("parties: idempotency result not found")
 	ErrClientTxnConflict          = errors.New("parties: client transaction conflict")
 	ErrStoredMutationKindMismatch = errors.New("parties: stored mutation kind mismatch")
 )
@@ -30,11 +30,6 @@ type IdempotencyKey struct {
 	ClientTxnID string
 }
 
-type IdempotencyRecord struct {
-	RequestHash []byte
-	Result      StoredMutationResult
-}
-
 type StoredMutationKind string
 
 const (
@@ -43,11 +38,14 @@ const (
 )
 
 type StoredRowMutationResult struct {
-	Outcome      MutationOutcome
-	ViewSchemaID string
-	RecordID     uuid.UUID
-	ChangeSetID  uuid.UUID
-	Row          map[string]any
+	Outcome          MutationOutcome
+	ViewSchemaID     string
+	IncidentID       uuid.UUID
+	RecordID         uuid.UUID
+	ChangeSetID      uuid.UUID
+	RowVersion       int64
+	ChangedFieldKeys []string
+	Row              map[string]any
 }
 
 // StoredMutationResult is a closed operation-tagged union. Application
@@ -79,13 +77,14 @@ type IncidentStateCapability interface {
 }
 
 type IdempotencyCapability interface {
-	Get(context.Context, IdempotencyKey, []byte) (IdempotencyRecord, error)
+	Get(context.Context, IdempotencyKey, []byte) (StoredMutationResult, bool, error)
 	PutTx(context.Context, pgx.Tx, IdempotencyKey, []byte, StoredMutationResult) error
 }
 
 type RecordEnvelopeCapability interface {
 	InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
+	LoadEnvelope(context.Context, uuid.UUID) (records.Envelope, error)
 }
 
 type RevisionCapability interface {
@@ -141,11 +140,24 @@ func (d MutationDependencies) validate() error {
 		{name: "Keep-saved resolution", value: d.KeepSaved},
 	}
 	for _, dependency := range required {
-		if dependency.value == nil {
+		if nilDependency(dependency.value) {
 			return fmt.Errorf("parties mutation dependencies: %s is required", dependency.name)
 		}
 	}
 	return nil
+}
+
+func nilDependency(value any) bool {
+	if value == nil {
+		return true
+	}
+	reflected := reflect.ValueOf(value)
+	switch reflected.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return reflected.IsNil()
+	default:
+		return false
+	}
 }
 
 type ValidationError struct {

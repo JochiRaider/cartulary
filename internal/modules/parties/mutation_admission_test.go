@@ -1,8 +1,6 @@
 package parties_test
 
 import (
-	"bytes"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"testing"
@@ -12,18 +10,15 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 )
 
-func TestPartyMutationAdmissionAndReplayHashing_Unit(t *testing.T) {
+func TestPartyMutationAdmissionPublicIdentity_Unit(t *testing.T) {
 	create, apiErr := parties.AdmitCreateJSON(strings.NewReader(
 		`{"client_txn_id":"txn-create","party.party_kind":"organization","party.display_name":" Acme "}`,
 	))
 	if apiErr != nil {
 		t.Fatalf("admit Party create request: %#v", apiErr)
 	}
-	if create.AdmittedViewSchemaID() != parties.ViewSchemaID || create.ClientTransactionID() != "txn-create" {
+	if create.ClientTransactionID() != "txn-create" {
 		t.Fatalf("unexpected create identity")
-	}
-	if got := hex.EncodeToString(create.RequestHash()); got != "62ec84f72b5d719aa98c540998dc2c967b22cb6947ef928db85ce171d5ee86a1" {
-		t.Fatalf("create request hash = %s", got)
 	}
 
 	patch, apiErr := parties.AdmitPatchJSON(strings.NewReader(
@@ -34,9 +29,6 @@ func TestPartyMutationAdmissionAndReplayHashing_Unit(t *testing.T) {
 	}
 	if patch.AdmittedBaseRowVersion() != 4 || patch.ClientTransactionID() != "txn-patch" {
 		t.Fatalf("unexpected patch identity")
-	}
-	if got := hex.EncodeToString(patch.RequestHash()); got != "b8838d0c04b72734af771f7e38abca9e94f4f8b4b6ac1e8235204ad9e814139e" {
-		t.Fatalf("patch request hash = %s", got)
 	}
 
 	claims := parties.ConflictClaims{
@@ -51,36 +43,8 @@ func TestPartyMutationAdmissionAndReplayHashing_Unit(t *testing.T) {
 	if apiErr != nil {
 		t.Fatalf("admit Party conflict request: %#v", apiErr)
 	}
-	if conflict.ResolutionKind() != "merged_value" || conflict.ClientTransactionID() != "txn-conflict" {
+	if conflict.ClientTransactionID() != "txn-conflict" {
 		t.Fatalf("unexpected conflict identity")
-	}
-	if got := hex.EncodeToString(conflict.RequestHash()); got != "2b424f63a70372b4f5dcd4209e9948a4c9000a9d8e20c426148461554798b885" {
-		t.Fatalf("conflict request hash = %s", got)
-	}
-}
-
-func TestPartyMutationHashNormalizationEquivalence_Unit(t *testing.T) {
-	createHash := func(t *testing.T, email, externalRef, notes string) []byte {
-		t.Helper()
-		admission, apiErr := parties.AdmitCreateJSON(strings.NewReader(fmt.Sprintf(
-			`{"client_txn_id":"ignored","party.display_name":"José","party.party_kind":"person","party.primary_email":%q,"party.external_ref":%q,"party.notes":%q}`,
-			email,
-			externalRef,
-			notes,
-		)))
-		if apiErr != nil {
-			t.Fatalf("admit hash-equivalence create: %#v", apiErr)
-		}
-		return admission.RequestHash()
-	}
-	left := createHash(t, "Analyst@Example.COM", "Directory/AbC", "first\r\nsecond")
-	right := createHash(t, "analyst@example.com", "Directory/AbC", "first\nsecond")
-	if !bytes.Equal(left, right) {
-		t.Fatalf("equivalent NFC/email/line-ending requests hash differently: %x != %x", left, right)
-	}
-	caseVariant := createHash(t, "analyst@example.com", "Directory/abc", "first\nsecond")
-	if bytes.Equal(left, caseVariant) {
-		t.Fatalf("external-reference case variants hash equally: %x", left)
 	}
 }
 

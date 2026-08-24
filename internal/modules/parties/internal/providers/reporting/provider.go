@@ -15,14 +15,6 @@ func New() *Provider { return &Provider{} }
 
 func (*Provider) ProviderKey() string { return "parties" }
 
-func (provider *Provider) CollectFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) ([]exportprovider.Field, error) {
-	output, err := provider.CollectFactsTx(ctx, tx, incidentID, supportRefs)
-	if err != nil {
-		return nil, err
-	}
-	return output.Fields(), nil
-}
-
 func (*Provider) CollectFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) (exportprovider.ProviderOutput, error) {
 	return exportprovider.CollectQueryProviderOutputTx(ctx, tx, incidentID, "parties", supportRefs, []exportprovider.FieldQuery{{
 		Prefix:                       "parties",

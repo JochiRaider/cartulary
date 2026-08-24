@@ -559,7 +559,7 @@ func mutationFailureAPIError(failure *MutationFailure) *httpapi.APIError {
 
 func validPartyMatchFailureDetail(detail partyMatchConflictFailureDetail) bool {
 	switch detail.reasonCode {
-	case "ambiguous_exact_match", "cross_key_exact_match", "exact_match_key_claimed":
+	case "cross_key_exact_match", "exact_match_key_claimed":
 	default:
 		return false
 	}

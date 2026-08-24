@@ -85,6 +85,26 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	if reusedByEmail.RecordID != createdByEmail.RecordID || reusedByEmail.Outcome != parties.MutationReused {
 		t.Fatalf("expected normalized same-incident email reuse, got created=%#v reused=%#v", createdByEmail, reusedByEmail)
 	}
+	reusedByEmailReplay, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
+		ViewSchemaID: parties.ViewSchemaID,
+		ClientTxnID:  "txn-workbook_interaction-u-9-05-party-email-reuse",
+		Values: map[string]partyFieldValue{
+			"party.display_name":  textChange("Phone-like label must not drive reuse"),
+			"party.party_kind":    textChange("person"),
+			"party.primary_email": textChange(" vendor@example.test "),
+		},
+	}, "req-workbook_interaction-u-9-05-party-email-reuse", time.Date(2026, 5, 18, 12, 1, 1, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("replay Party reuse by email: %v", err)
+	}
+	if reusedByEmailReplay.Outcome != parties.MutationReplayed ||
+		reusedByEmailReplay.IncidentID != incident.ID ||
+		reusedByEmailReplay.RecordID != createdByEmail.RecordID ||
+		reusedByEmailReplay.ChangeSetID == nil ||
+		reusedByEmailReplay.RowVersion != 1 ||
+		len(reusedByEmailReplay.ChangedFieldKeys) != 0 {
+		t.Fatalf("incomplete Party reuse replay semantics: %#v", reusedByEmailReplay)
+	}
 	requirePartyCount(t, harness, incident.ID, "lower(primary_email) = lower('vendor@example.test')", 1)
 	emailCaseNoop, admissionErr := admitPartyPatchRequest(partyPatchRequest{
 		ViewSchemaID: parties.ViewSchemaID, BaseRowVersion: 1,
@@ -99,8 +119,7 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	_, err = partyOwner.Patch(context.Background(), parties.PatchCommand{
 		ActorUserID: actor.ID, RecordID: createdByEmail.RecordID, Admission: emailCaseNoop,
 		RequestID: "req-workbook_interaction-u-9-05-party-email-case-noop",
-		RouteKey:  "workbook.records.patch", ConflictRouteKey: "workbook.records.conflicts.resolve",
-		Now: time.Date(2026, 5, 18, 12, 1, 30, 0, time.UTC),
+		Now:       time.Date(2026, 5, 18, 12, 1, 30, 0, time.UTC),
 	})
 	var noEffect *parties.ValidationError
 	if !errors.As(err, &noEffect) || noEffect.ReasonCode != "no_effective_change" {
@@ -185,8 +204,7 @@ SELECT count(*) FROM route_idempotency
 	_, err = partyOwner.Patch(context.Background(), parties.PatchCommand{
 		ActorUserID: actor.ID, RecordID: caseVariantExternalRef.RecordID, Admission: conflictingAdmission,
 		RequestID: "req-workbook_interaction-u-9-05-party-external-ref-conflict",
-		RouteKey:  "workbook.records.patch", ConflictRouteKey: "workbook.records.conflicts.resolve",
-		Now: time.Date(2026, 5, 18, 12, 3, 20, 0, time.UTC),
+		Now:       time.Date(2026, 5, 18, 12, 3, 20, 0, time.UTC),
 	})
 	var keyClaimed *parties.PartyMatchConflictError
 	if !errors.As(err, &keyClaimed) || keyClaimed.ReasonCode != parties.PartyMatchExactKeyClaimed || strings.Join(keyClaimed.ConflictingFieldKeys, ",") != "party.external_ref" {
@@ -208,8 +226,7 @@ SELECT count(*) FROM route_idempotency
 	if _, err := partyOwner.Patch(context.Background(), parties.PatchCommand{
 		ActorUserID: actor.ID, RecordID: caseVariantExternalRef.RecordID, Admission: clearAdmission,
 		RequestID: "req-workbook_interaction-u-9-05-party-external-ref-clear",
-		RouteKey:  "workbook.records.patch", ConflictRouteKey: "workbook.records.conflicts.resolve",
-		Now: time.Date(2026, 5, 18, 12, 3, 30, 0, time.UTC),
+		Now:       time.Date(2026, 5, 18, 12, 3, 30, 0, time.UTC),
 	}); err != nil {
 		t.Fatalf("clear Party external_ref claim: %v", err)
 	}
@@ -473,7 +490,7 @@ func createPartyRow(
 	}
 	return owner.Create(ctx, parties.CreateCommand{
 		ActorUserID: actor.ID, IncidentID: incidentID, Admission: admission, RequestID: requestID,
-		RouteKey: "workbook.rows.create", Now: now,
+		Now: now,
 	})
 }
 

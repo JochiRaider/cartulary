@@ -104,7 +104,7 @@ func TestNewReturnsReadyPortsAndImmutableDescriptorSet(t *testing.T) {
 		ports.Assessments().Rows == nil || ports.Assessments().Rebuilder == nil ||
 		ports.Artifacts().Rows == nil || ports.Artifacts().Rebuilder == nil || ports.Artifacts().Reader == nil ||
 		ports.Evidence().Rows == nil || ports.Evidence().Rebuilder == nil ||
-		ports.Parties().Rows == nil || ports.Parties().Rebuilder == nil ||
+		ports.Parties().Rows == nil ||
 		ports.TasksDecisions().Rows == nil || ports.TasksDecisions().Rebuilder == nil || ports.TasksDecisions().Reader == nil {
 		t.Fatalf("projection ports are incomplete: %#v", ports)
 	}

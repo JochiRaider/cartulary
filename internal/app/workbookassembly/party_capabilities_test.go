@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -23,18 +25,33 @@ func TestPartyIdempotencyAdapterPreservesSemanticResultsAndReplayOrder_Integrati
 		t, db, "parties-idempotency@example.test",
 		"Parties Idempotency", "PartiesIdempotency1!", false, false, true,
 	)
-	adapter := partyIdempotency{store: authn.NewStore(db)}
-	key := parties.IdempotencyKey{
-		RouteKey: workbookCreateOperation, ActorUserID: actor.ID,
-		ScopeKey:    uuid.NewString() + ":" + parties.ViewSchemaID,
-		ClientTxnID: "txn-parties-idempotency-adapter",
-	}
+	incidentID := uuid.New()
 	recordID := uuid.New()
 	changeSetID := uuid.New()
+	rowVersion := int64(1)
+	key := parties.IdempotencyKey{
+		RouteKey: workbookCreateOperation, ActorUserID: actor.ID,
+		ScopeKey:    incidentID.String() + ":" + parties.ViewSchemaID,
+		ClientTxnID: "txn-parties-idempotency-adapter",
+	}
+	adapter := partyIdempotency{
+		store: authn.NewStore(db),
+		metadata: partyReplayMetadataLoaderFunc(func(_ context.Context, gotChangeSetID uuid.UUID, gotRecordID uuid.UUID) (partyReplayMetadata, error) {
+			if gotChangeSetID != changeSetID || gotRecordID != recordID {
+				return partyReplayMetadata{}, fmt.Errorf("unexpected replay identity %s/%s", gotChangeSetID, gotRecordID)
+			}
+			return partyReplayMetadata{
+				IncidentID: incidentID, ActorUserID: actor.ID, Source: workbookCreateOperation,
+				ClientTxnID: key.ClientTxnID, OperationKind: "create", RowVersion: &rowVersion,
+				ChangedFieldKeys: []string{"party.display_name"},
+			}, nil
+		}),
+	}
 	result := parties.NewStoredCreateResult(parties.StoredRowMutationResult{
 		Outcome: parties.MutationCreated, ViewSchemaID: parties.ViewSchemaID,
-		RecordID: recordID, ChangeSetID: changeSetID,
-		Row: map[string]any{"record_id": recordID.String()},
+		IncidentID: incidentID, RecordID: recordID, ChangeSetID: changeSetID, RowVersion: rowVersion,
+		ChangedFieldKeys: []string{"party.display_name"},
+		Row:              map[string]any{"record_id": recordID.String(), "row_version": rowVersion},
 	})
 
 	t.Run("operation mismatch", func(t *testing.T) {
@@ -64,21 +81,41 @@ func TestPartyIdempotencyAdapterPreservesSemanticResultsAndReplayOrder_Integrati
 		t.Fatalf("commit first idempotency result: %v", err)
 	}
 	var status int
-	if err := db.QueryRow(ctx, `SELECT status_code FROM route_idempotency WHERE route_key = $1 AND actor_user_id = $2 AND scope_key = $3 AND client_txn_id = $4`, key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID).Scan(&status); err != nil {
+	var storedResponseBefore []byte
+	if err := db.QueryRow(ctx, `SELECT status_code, response_json FROM route_idempotency WHERE route_key = $1 AND actor_user_id = $2 AND scope_key = $3 AND client_txn_id = $4`, key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID).Scan(&status, &storedResponseBefore); err != nil {
 		t.Fatalf("load stored status: %v", err)
 	}
 	if status != 201 {
 		t.Fatalf("created Party replay status = %d, want 201", status)
 	}
 
-	stored, err := adapter.Get(ctx, key, []byte("hash"))
+	stored, found, err := adapter.Get(ctx, key, []byte("hash"))
 	if err != nil {
 		t.Fatalf("load exact replay: %v", err)
 	}
-	row, ok := stored.Result.RowMutationResult()
-	if !ok || stored.Result.Kind() != parties.StoredMutationCreate || row.RecordID != recordID || row.ChangeSetID != changeSetID {
-		t.Fatalf("stored semantic result = %#v", stored.Result)
+	row, ok := stored.RowMutationResult()
+	if !found || !ok || stored.Kind() != parties.StoredMutationCreate || row.RecordID != recordID ||
+		row.ChangeSetID != changeSetID || row.IncidentID != incidentID || row.RowVersion != rowVersion ||
+		!slices.Equal(row.ChangedFieldKeys, []string{"party.display_name"}) {
+		t.Fatalf("stored semantic result = %#v", stored)
 	}
+	var storedStatusAfter int
+	var storedResponseAfter []byte
+	if err := db.QueryRow(ctx, `SELECT status_code, response_json FROM route_idempotency WHERE route_key = $1 AND actor_user_id = $2 AND scope_key = $3 AND client_txn_id = $4`, key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID).Scan(&storedStatusAfter, &storedResponseAfter); err != nil {
+		t.Fatalf("reload stored response: %v", err)
+	}
+	if storedStatusAfter != status || !bytes.Equal(storedResponseAfter, storedResponseBefore) {
+		t.Fatalf("replay changed stored payload/status: before=(%d,%s) after=(%d,%s)", status, storedResponseBefore, storedStatusAfter, storedResponseAfter)
+	}
+
+	t.Run("miss is distinct", func(t *testing.T) {
+		missKey := key
+		missKey.ClientTxnID = "txn-parties-missing"
+		_, found, err := adapter.Get(ctx, missKey, []byte("hash"))
+		if err != nil || found {
+			t.Fatalf("missing lookup = found %t, err %v", found, err)
+		}
+	})
 
 	t.Run("platform uniqueness conflict", func(t *testing.T) {
 		tx, err := db.BeginTx(ctx, pgx.TxOptions{})
@@ -110,16 +147,23 @@ func TestPartyIdempotencyAdapterPreservesSemanticResultsAndReplayOrder_Integrati
 			t.Fatalf("commit malformed replay: %v", err)
 		}
 
-		conflictRecord, err := adapter.Get(ctx, malformedKey, []byte("changed-request-hash"))
-		if err != nil {
-			t.Fatalf("changed-hash lookup decoded malformed payload: %v", err)
+		_, found, err := adapter.Get(ctx, malformedKey, []byte("changed-request-hash"))
+		if !errors.Is(err, parties.ErrClientTxnConflict) || found {
+			t.Fatalf("changed-hash lookup = found %t, err %v", found, err)
 		}
-		if !bytes.Equal(conflictRecord.RequestHash, storedHash) || conflictRecord.Result.Kind() != "" {
-			t.Fatalf("changed-hash lookup = %#v", conflictRecord)
-		}
-		_, err = adapter.Get(ctx, malformedKey, storedHash)
+		_, found, err = adapter.Get(ctx, malformedKey, storedHash)
 		if err == nil || !strings.Contains(err.Error(), "decode Parties stored mutation result") {
-			t.Fatalf("exact replay malformed-payload error = %v", err)
+			t.Fatalf("exact replay malformed-payload = found %t, err %v", found, err)
 		}
 	})
+}
+
+type partyReplayMetadataLoaderFunc func(context.Context, uuid.UUID, uuid.UUID) (partyReplayMetadata, error)
+
+func (load partyReplayMetadataLoaderFunc) Load(
+	ctx context.Context,
+	changeSetID uuid.UUID,
+	recordID uuid.UUID,
+) (partyReplayMetadata, error) {
+	return load(ctx, changeSetID, recordID)
 }

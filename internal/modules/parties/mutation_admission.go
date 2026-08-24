@@ -57,11 +57,7 @@ type CreateAdmission struct {
 	requestHash [sha256.Size]byte
 }
 
-func (a CreateAdmission) ClientTransactionID() string  { return a.clientTxnID }
-func (a CreateAdmission) AdmittedViewSchemaID() string { return ViewSchemaID }
-func (a CreateAdmission) RequestHash() []byte {
-	return append([]byte(nil), a.requestHash[:]...)
-}
+func (a CreateAdmission) ClientTransactionID() string { return a.clientTxnID }
 
 // PatchAdmission is an immutable field-key-sorted Party patch request.
 type PatchAdmission struct {
@@ -73,11 +69,7 @@ type PatchAdmission struct {
 }
 
 func (a PatchAdmission) ClientTransactionID() string   { return a.clientTxnID }
-func (a PatchAdmission) AdmittedViewSchemaID() string  { return ViewSchemaID }
 func (a PatchAdmission) AdmittedBaseRowVersion() int64 { return a.baseRowVersion }
-func (a PatchAdmission) RequestHash() []byte {
-	return append([]byte(nil), a.requestHash[:]...)
-}
 
 type patchChange struct {
 	fieldKey string
@@ -96,10 +88,6 @@ type ConflictResolveAdmission struct {
 }
 
 func (a ConflictResolveAdmission) ClientTransactionID() string { return a.clientTxnID }
-func (a ConflictResolveAdmission) ResolutionKind() string      { return a.resolutionKind }
-func (a ConflictResolveAdmission) RequestHash() []byte {
-	return append([]byte(nil), a.requestHash[:]...)
-}
 
 // AdmitCreateJSON admits the closed Party create surface, calculates all four
 // normalized representations once, and binds the named owner request hash.
@@ -118,29 +106,29 @@ func AdmitCreateJSON(reader io.Reader) (CreateAdmission, *AdmissionError) {
 		}
 	}
 
-	admission := CreateAdmission{values: make(map[string]policy.Value, len(policy.FieldKeys()))}
+	admission := CreateAdmission{}
 	if value, present := raw["client_txn_id"]; !present {
 		return CreateAdmission{}, invalidMutationPayload("client_txn_id", "missing_required_field")
 	} else if json.Unmarshal(value, &admission.clientTxnID) != nil || strings.TrimSpace(admission.clientTxnID) == "" {
 		return CreateAdmission{}, invalidMutationPayload("client_txn_id", "missing_required_field")
 	}
+	inputs := make(map[string]createValueInput, len(raw)-1)
 	for _, fieldKey := range policy.FieldKeys() {
-		field, _ := policy.LookupField(fieldKey)
-		value, present := raw[fieldKey]
+		rawValue, present := raw[fieldKey]
 		if !present {
-			if field.Required {
-				return CreateAdmission{}, invalidMutationPayload(fieldKey, "missing_required_field")
-			}
-			normalized, _ := policy.Admit(fieldKey, nil)
-			admission.values[fieldKey] = normalized
 			continue
 		}
-		normalized, apiErr := admitPartyJSONValue(fieldKey, value)
-		if apiErr != nil {
-			return CreateAdmission{}, apiErr
+		var text *string
+		if json.Unmarshal(rawValue, &text) != nil {
+			return CreateAdmission{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
-		admission.values[fieldKey] = normalized
+		inputs[fieldKey] = createValueInput{present: true, text: text}
 	}
+	values, valueErr := admitCreateValues(inputs)
+	if valueErr != nil {
+		return CreateAdmission{}, invalidMutationPayload(valueErr.field, valueErr.reasonCode)
+	}
+	admission.values = values
 	hash, hashErr := createMutationRequestHash(admission.values)
 	if hashErr != nil {
 		return CreateAdmission{}, invalidMutationPayload("payload", "invalid_value")
@@ -306,7 +294,7 @@ func decodePartyPatchChange(raw json.RawMessage) (patchChange, *AdmissionError) 
 	if json.Unmarshal(raw, &object) != nil {
 		return patchChange{}, invalidMutationPayload("changes", "invalid_change")
 	}
-	allowed := map[string]struct{}{"field_key": {}, "value": {}, "action_payload": {}}
+	allowed := map[string]struct{}{"field_key": {}, "value": {}}
 	for key := range object {
 		if _, admitted := allowed[key]; !admitted {
 			return patchChange{}, invalidMutationPayload("changes", "unknown_field")
@@ -322,10 +310,6 @@ func decodePartyPatchChange(raw json.RawMessage) (patchChange, *AdmissionError) 
 		return patchChange{}, invalidMutationPayload(fieldKey, "unsupported_field_key")
 	}
 	value, hasValue := object["value"]
-	_, hasActionPayload := object["action_payload"]
-	if hasValue == hasActionPayload {
-		return patchChange{}, invalidMutationPayload("changes", "invalid_change")
-	}
 	if !hasValue {
 		return patchChange{}, invalidMutationPayload("value", "missing_required_field")
 	}

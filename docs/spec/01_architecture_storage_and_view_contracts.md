@@ -10162,6 +10162,12 @@ Workbook maps a recognized Party match conflict to HTTP `409`,
 `conflicting_field_keys`. `reason_code` is one closed Core 02 Party reason;
 `conflicting_field_keys` is the sorted field-key set.
 
+Every writable Party field in REQ-01-501 is a direct-write field. A Party
+patch `changes[]` entry therefore admits `field_key` plus `value` only;
+`action_payload` is outside the closed Party change-object grammar and MUST
+fail as `invalid_mutation_payload` with `reason_code='unknown_field'`. No Party
+field has a dormant, fallback, or future-implied write-action grammar.
+
 Imports preserves unit `error_code='import_apply_blocked'`, unit
 `reason_code='owner_create_validation_failed'`, and unit `retryable=false`.
 Its `details.reason_code` is `owner_create_validation_failed` and

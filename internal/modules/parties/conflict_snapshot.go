@@ -2,7 +2,7 @@ package parties
 
 import conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 
-func newPartyConflictSnapshotProjector() conflicttokens.RevisionSnapshotProjector {
+func newPartyConflictSnapshotProjector() (conflicttokens.RevisionSnapshotProjector, error) {
 	projector, err := conflicttokens.NewRevisionSnapshotProjector(
 		"cartulary.revisions.snapshot.party.v1",
 		map[string]string{
@@ -17,7 +17,7 @@ func newPartyConflictSnapshotProjector() conflicttokens.RevisionSnapshotProjecto
 		},
 	)
 	if err != nil {
-		panic(err)
+		return conflicttokens.RevisionSnapshotProjector{}, err
 	}
-	return projector
+	return projector, nil
 }

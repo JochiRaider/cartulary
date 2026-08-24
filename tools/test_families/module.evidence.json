@@ -1244,7 +1244,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/parties",
+        "package": "./internal/modules/evidence",
         "tests": [
           "TestDirectPartyReferencesAcceptOnlyExactStableIDs_Unit"
         ]

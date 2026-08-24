@@ -14,9 +14,9 @@ import (
 )
 
 type ConflictCommand struct {
-	Mechanics   conflictresolution.Command
 	ActorUserID uuid.UUID
 	Admission   ConflictResolveAdmission
+	RequestID   string
 	Now         time.Time
 }
 
@@ -25,47 +25,72 @@ func (f *MutationFacade) ResolveConflict(
 	command ConflictCommand,
 ) (MutationResult, error) {
 	admission := command.Admission
-	if command.Mechanics.RouteKey != workbookConflictResolveOperation ||
-		command.Mechanics.ActorUserID != command.ActorUserID ||
-		command.Mechanics.RecordID != admission.claims.RecordID ||
-		command.Mechanics.Claims.ViewSchemaID != admission.claims.ViewSchemaID ||
-		command.Mechanics.Claims.FieldKey != admission.claims.FieldKey ||
-		command.Mechanics.Claims.CurrentRowVersion != admission.claims.CurrentRowVersion {
+	if admission.claims.RecordID == uuid.Nil || admission.claims.ViewSchemaID != ViewSchemaID ||
+		admission.claims.FieldKey == "" || admission.claims.CurrentRowVersion < 1 {
 		return MutationResult{}, &ValidationError{Field: "conflict_token", ReasonCode: "invalid_value"}
 	}
-	command.Mechanics.RequestHash = admission.RequestHash()
-	command.Mechanics.ClientTxnID = admission.clientTxnID
 	if admission.resolutionKind != "keep_saved" {
 		return f.Patch(ctx, PatchCommand{
-			ActorUserID:      command.ActorUserID,
-			RecordID:         command.Mechanics.RecordID,
-			Admission:        *admission.patch,
-			RequestID:        command.Mechanics.RequestID,
-			RouteKey:         command.Mechanics.RouteKey,
-			ConflictRouteKey: command.Mechanics.RouteKey,
-			Now:              command.Now,
+			ActorUserID: command.ActorUserID,
+			RecordID:    admission.claims.RecordID,
+			Admission:   *admission.patch,
+			RequestID:   command.RequestID,
+			Now:         command.Now,
 		})
 	}
 	if f.keepSaved == nil {
 		return MutationResult{}, fmt.Errorf("parties: keep-saved idempotency is not configured")
 	}
+	mechanics := conflictresolution.Command{
+		ActorUserID: command.ActorUserID,
+		RecordID:    admission.claims.RecordID,
+		Claims: conflictresolution.ConflictTokenClaims{
+			RouteKey:          workbookConflictResolveOperation,
+			RecordID:          admission.claims.RecordID.String(),
+			ViewSchemaID:      admission.claims.ViewSchemaID,
+			FieldKey:          admission.claims.FieldKey,
+			CurrentRowVersion: admission.claims.CurrentRowVersion,
+		},
+		ClientTxnID: admission.clientTxnID,
+		RequestHash: append([]byte(nil), admission.requestHash[:]...),
+		RequestID:   command.RequestID,
+		RouteKey:    workbookConflictResolveOperation,
+	}
 	result, err := f.keepSaved.KeepSaved(
 		ctx,
 		f.pool,
-		command.Mechanics,
+		mechanics,
 		f.loadConflictTarget,
 	)
 	if err != nil {
 		return MutationResult{}, err
 	}
+	rowVersion, parseErr := rowVersionFromGenericRow(result.Row)
+	if parseErr != nil {
+		return MutationResult{}, fmt.Errorf("parties: keep-saved result: %w", parseErr)
+	}
+	if result.RowVersion != 0 && result.RowVersion != rowVersion {
+		return MutationResult{}, fmt.Errorf("parties: keep-saved result row version mismatch")
+	}
+	incidentID := result.IncidentID
+	if incidentID == uuid.Nil {
+		envelope, err := f.recordStore.LoadEnvelope(ctx, result.RecordID)
+		if err != nil {
+			return MutationResult{}, fmt.Errorf("parties: load immutable keep-saved record identity: %w", err)
+		}
+		if envelope.RecordType != "party" {
+			return MutationResult{}, fmt.Errorf("parties: keep-saved record identity is not a Party")
+		}
+		incidentID = envelope.IncidentID
+	}
 	return MutationResult{
-		Outcome:      conflictMutationOutcome(result.Replayed),
-		Row:          result.Row,
-		IncidentID:   result.IncidentID,
-		RecordID:     result.RecordID,
-		ClientTxnID:  result.ClientTxnID,
-		RowVersion:   result.RowVersion,
-		ViewSchemaID: result.ViewSchemaID,
+		Outcome:          conflictMutationOutcome(result.Replayed),
+		Row:              result.Row,
+		IncidentID:       incidentID,
+		RecordID:         result.RecordID,
+		ChangeSetID:      nil,
+		RowVersion:       rowVersion,
+		ChangedFieldKeys: []string{},
 	}, nil
 }
 

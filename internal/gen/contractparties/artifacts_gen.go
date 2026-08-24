@@ -21,8 +21,8 @@ var Artifacts = []Artifact{
 	},
 	{
 		Path:   "contracts/parties/safe_error_fixtures.v1.json",
-		JSON:   "{\"field_keys\":[\"party.external_ref\",\"party.primary_email\"],\"forbidden_member_tokens\":[\"claim\",\"constraint\",\"email\",\"external_ref\",\"party_id\",\"record_id\",\"relation\",\"sql\",\"table\"],\"imports\":{\"owner_code\":\"owner_create_validation_failed\",\"owner_retryable\":false,\"safe_detail_members\":[\"conflicting_field_keys\",\"party_reason_code\",\"reason_code\"],\"safe_reason_code\":\"party_match_conflict\",\"unit_error_code\":\"import_apply_blocked\",\"unit_reason_code\":\"owner_create_validation_failed\"},\"party_reason_codes\":[\"ambiguous_exact_match\",\"cross_key_exact_match\",\"exact_match_key_claimed\"],\"schema_id\":\"cartulary.parties.safe_error_fixtures.v1\",\"workbook\":{\"detail_members\":[\"conflicting_field_keys\",\"reason_code\"],\"error_code\":\"party_match_conflict\",\"http_status\":409,\"retryable\":false}}",
-		SHA256: "e905ce4edf0fc02452d33c1e757a8e7bfc55cd33235f585426518cb846348da2",
+		JSON:   "{\"field_keys\":[\"party.external_ref\",\"party.primary_email\"],\"forbidden_member_tokens\":[\"claim\",\"constraint\",\"email\",\"external_ref\",\"party_id\",\"record_id\",\"relation\",\"sql\",\"table\"],\"imports\":{\"owner_code\":\"owner_create_validation_failed\",\"owner_retryable\":false,\"safe_detail_members\":[\"conflicting_field_keys\",\"party_reason_code\",\"reason_code\"],\"safe_reason_code\":\"party_match_conflict\",\"unit_error_code\":\"import_apply_blocked\",\"unit_reason_code\":\"owner_create_validation_failed\"},\"party_reason_codes\":[\"cross_key_exact_match\",\"exact_match_key_claimed\"],\"schema_id\":\"cartulary.parties.safe_error_fixtures.v1\",\"workbook\":{\"detail_members\":[\"conflicting_field_keys\",\"reason_code\"],\"error_code\":\"party_match_conflict\",\"http_status\":409,\"retryable\":false}}",
+		SHA256: "1f9cf867c96b92fceb45a41f9ce0a9e97c4a6eb21e4abf53a4c6a8499e6afd45",
 	},
 }
 

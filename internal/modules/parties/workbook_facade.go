@@ -1,7 +1,6 @@
 package parties
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -14,7 +13,6 @@ import (
 
 	partysource "github.com/JochiRaider/cartulary/internal/modules/parties/internal/source"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -38,18 +36,15 @@ type CreateCommand struct {
 	IncidentID  uuid.UUID
 	Admission   CreateAdmission
 	RequestID   string
-	RouteKey    string
 	Now         time.Time
 }
 
 type PatchCommand struct {
-	ActorUserID      uuid.UUID
-	RecordID         uuid.UUID
-	Admission        PatchAdmission
-	RequestID        string
-	RouteKey         string
-	ConflictRouteKey string
-	Now              time.Time
+	ActorUserID uuid.UUID
+	RecordID    uuid.UUID
+	Admission   PatchAdmission
+	RequestID   string
+	Now         time.Time
 }
 
 type MutationOutcome string
@@ -67,10 +62,8 @@ type MutationResult struct {
 	Row              map[string]any
 	IncidentID       uuid.UUID
 	RecordID         uuid.UUID
-	ChangeSetID      uuid.UUID
-	ClientTxnID      string
+	ChangeSetID      *uuid.UUID
 	RowVersion       int64
-	ViewSchemaID     string
 	ChangedFieldKeys []string
 }
 
@@ -117,11 +110,15 @@ func NewMutationContribution(
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	dependencies MutationDependencies,
 ) (*MutationFacade, error) {
-	if pool == nil {
+	if nilDependency(pool) {
 		return nil, fmt.Errorf("parties mutation composition: Postgres is required")
 	}
 	if err := dependencies.validate(); err != nil {
 		return nil, err
+	}
+	conflictSnapshots, err := newPartyConflictSnapshotProjector()
+	if err != nil {
+		return nil, fmt.Errorf("parties mutation composition: construct conflict snapshot projector: %w", err)
 	}
 	return &MutationFacade{
 		pool:              pool,
@@ -132,46 +129,39 @@ func NewMutationContribution(
 		revisions:         dependencies.Revisions,
 		conflictTokens:    conflictTokens,
 		conflictFields:    dependencies.ConflictFields,
-		conflictSnapshots: newPartyConflictSnapshotProjector(),
+		conflictSnapshots: conflictSnapshots,
 		keepSaved:         dependencies.KeepSaved,
 	}, nil
 }
 
 func (f *MutationFacade) Create(ctx context.Context, command CreateCommand) (MutationResult, error) {
 	request := command.Admission
-	if command.RouteKey != workbookCreateOperation {
-		return MutationResult{}, &ValidationError{Field: "operation_id", ReasonCode: "invalid_value"}
-	}
 	idempotencyKey := IdempotencyKey{
-		RouteKey:    command.RouteKey,
+		RouteKey:    workbookCreateOperation,
 		ActorUserID: command.ActorUserID,
 		ScopeKey:    command.IncidentID.String() + ":" + ViewSchemaID,
 		ClientTxnID: request.clientTxnID,
 	}
-	if existing, err := f.idempotency.Get(ctx, idempotencyKey, request.requestHash[:]); err == nil {
-		if !bytes.Equal(existing.RequestHash, request.requestHash[:]) {
-			return MutationResult{}, ErrClientTxnConflict
-		}
-		if existing.Result.Kind() != StoredMutationCreate {
+	existing, found, err := f.idempotency.Get(ctx, idempotencyKey, request.requestHash[:])
+	if err != nil {
+		return MutationResult{}, fmt.Errorf("query party create idempotency: %w", err)
+	}
+	if found {
+		if existing.Kind() != StoredMutationCreate {
 			return MutationResult{}, ErrStoredMutationKindMismatch
 		}
-		stored, ok := existing.Result.RowMutationResult()
-		if !ok || stored.ViewSchemaID != ViewSchemaID {
+		stored, ok := existing.RowMutationResult()
+		if !ok || stored.ViewSchemaID != ViewSchemaID || stored.IncidentID != command.IncidentID ||
+			stored.RecordID == uuid.Nil || stored.ChangeSetID == uuid.Nil || stored.RowVersion < 1 ||
+			(stored.Outcome != MutationCreated && stored.Outcome != MutationReused) {
 			return MutationResult{}, ErrStoredMutationKindMismatch
 		}
 		return MutationResult{
 			Outcome: MutationReplayed, Row: stored.Row, IncidentID: command.IncidentID,
-			RecordID: stored.RecordID, ChangeSetID: stored.ChangeSetID,
-			ViewSchemaID: ViewSchemaID, ClientTxnID: request.clientTxnID,
+			RecordID: stored.RecordID, ChangeSetID: uuidPointer(stored.ChangeSetID),
+			RowVersion: stored.RowVersion, ChangedFieldKeys: append([]string(nil), stored.ChangedFieldKeys...),
 		}, nil
-	} else if !errors.Is(err, ErrIdempotencyNotFound) {
-		return MutationResult{}, fmt.Errorf("query party create idempotency: %w", err)
 	}
-	params := partysource.CreateParams{Values: request.values}
-	if err := validateCreateParams(params); err != nil {
-		return MutationResult{}, err
-	}
-
 	tx, err := f.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return MutationResult{}, fmt.Errorf("begin party create transaction: %w", err)
@@ -182,11 +172,20 @@ func (f *MutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 		return MutationResult{}, err
 	}
 	now := command.Now.UTC()
-	if recordID, found, err := partysource.FindReusablePartyTx(ctx, tx, command.IncidentID, params); err != nil || found {
-		if err != nil {
-			return MutationResult{}, err
-		}
-		result, err := f.reuseCreateTx(ctx, tx, command, idempotencyKey, recordID, now)
+	created, err := createOrReusePartyTx(
+		ctx,
+		tx,
+		f.recordStore,
+		command.IncidentID,
+		command.ActorUserID,
+		request.values,
+		now,
+	)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	if !created.created {
+		result, err := f.reuseCreateTx(ctx, tx, command, idempotencyKey, created.recordID, now)
 		if err != nil {
 			return MutationResult{}, err
 		}
@@ -195,22 +194,7 @@ func (f *MutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 		}
 		return result, nil
 	}
-
-	recordID, err := f.recordStore.InsertTx(ctx, tx, records.InsertParams{
-		IncidentID:      command.IncidentID,
-		RecordType:      "party",
-		CreatedByUserID: command.ActorUserID,
-		CreatedAt:       now,
-		UpdatedByUserID: command.ActorUserID,
-		UpdatedAt:       now,
-		RowVersion:      1,
-	})
-	if err != nil {
-		return MutationResult{}, err
-	}
-	if err := partysource.InsertPartyTx(ctx, tx, recordID, command.IncidentID, params, now); err != nil {
-		return MutationResult{}, err
-	}
+	recordID := created.recordID
 	if err := f.projectionRows.RefreshPartyTx(ctx, tx, recordID); err != nil {
 		return MutationResult{}, err
 	}
@@ -221,7 +205,7 @@ func (f *MutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 	changeSetID, err := f.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  command.IncidentID,
 		ActorUserID: command.ActorUserID,
-		Source:      command.RouteKey,
+		Source:      workbookCreateOperation,
 		ClientTxnID: &request.clientTxnID,
 		RequestID:   &command.RequestID,
 		CreatedAt:   now,
@@ -254,8 +238,11 @@ func (f *MutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 	}); err != nil {
 		return MutationResult{}, err
 	}
+	changedFields := changedFieldKeys(nil, row)
 	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, request.requestHash[:], NewStoredCreateResult(StoredRowMutationResult{
-		Outcome: MutationCreated, ViewSchemaID: ViewSchemaID, RecordID: recordID, ChangeSetID: changeSetID, Row: row,
+		Outcome: MutationCreated, ViewSchemaID: ViewSchemaID, IncidentID: command.IncidentID,
+		RecordID: recordID, ChangeSetID: changeSetID, RowVersion: 1,
+		ChangedFieldKeys: changedFields, Row: row,
 	})); err != nil {
 		return MutationResult{}, err
 	}
@@ -267,11 +254,9 @@ func (f *MutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 		Row:              row,
 		IncidentID:       command.IncidentID,
 		RecordID:         recordID,
-		ChangeSetID:      changeSetID,
-		ClientTxnID:      request.clientTxnID,
+		ChangeSetID:      uuidPointer(changeSetID),
 		RowVersion:       1,
-		ViewSchemaID:     ViewSchemaID,
-		ChangedFieldKeys: changedFieldKeys(nil, row),
+		ChangedFieldKeys: changedFields,
 	}, nil
 }
 
@@ -287,7 +272,7 @@ func (f *MutationFacade) reuseCreateTx(ctx context.Context, tx pgx.Tx, command C
 	changeSetID, err := f.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  command.IncidentID,
 		ActorUserID: command.ActorUserID,
-		Source:      command.RouteKey,
+		Source:      workbookCreateOperation,
 		ClientTxnID: &request.clientTxnID,
 		RequestID:   &command.RequestID,
 		CreatedAt:   now,
@@ -316,7 +301,9 @@ func (f *MutationFacade) reuseCreateTx(ctx context.Context, tx pgx.Tx, command C
 		return MutationResult{}, err
 	}
 	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, request.requestHash[:], NewStoredCreateResult(StoredRowMutationResult{
-		Outcome: MutationReused, ViewSchemaID: ViewSchemaID, RecordID: recordID, ChangeSetID: changeSetID, Row: row,
+		Outcome: MutationReused, ViewSchemaID: ViewSchemaID, IncidentID: command.IncidentID,
+		RecordID: recordID, ChangeSetID: changeSetID, RowVersion: rowVersion,
+		ChangedFieldKeys: []string{}, Row: row,
 	})); err != nil {
 		return MutationResult{}, err
 	}
@@ -325,44 +312,43 @@ func (f *MutationFacade) reuseCreateTx(ctx context.Context, tx pgx.Tx, command C
 		Row:              row,
 		IncidentID:       command.IncidentID,
 		RecordID:         recordID,
-		ChangeSetID:      changeSetID,
-		ClientTxnID:      request.clientTxnID,
+		ChangeSetID:      uuidPointer(changeSetID),
 		RowVersion:       rowVersion,
-		ViewSchemaID:     ViewSchemaID,
 		ChangedFieldKeys: []string{},
 	}, nil
 }
 
 func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (MutationResult, error) {
 	request := command.Admission
-	if command.RouteKey != request.operationID ||
-		(request.operationID != workbookPatchOperation && request.operationID != workbookConflictResolveOperation) {
+	if request.operationID != workbookPatchOperation && request.operationID != workbookConflictResolveOperation {
 		return MutationResult{}, &ValidationError{Field: "operation_id", ReasonCode: "invalid_value"}
 	}
+	routeKey := request.operationID
 	idempotencyKey := IdempotencyKey{
-		RouteKey:    command.RouteKey,
+		RouteKey:    routeKey,
 		ActorUserID: command.ActorUserID,
 		ScopeKey:    command.RecordID.String(),
 		ClientTxnID: request.clientTxnID,
 	}
-	if existing, err := f.idempotency.Get(ctx, idempotencyKey, request.requestHash[:]); err == nil {
-		if !bytes.Equal(existing.RequestHash, request.requestHash[:]) {
-			return MutationResult{}, ErrClientTxnConflict
-		}
-		if existing.Result.Kind() != StoredMutationPatch {
+	existing, found, err := f.idempotency.Get(ctx, idempotencyKey, request.requestHash[:])
+	if err != nil {
+		return MutationResult{}, fmt.Errorf("query party patch idempotency: %w", err)
+	}
+	if found {
+		if existing.Kind() != StoredMutationPatch {
 			return MutationResult{}, ErrStoredMutationKindMismatch
 		}
-		stored, ok := existing.Result.RowMutationResult()
-		if !ok || stored.ViewSchemaID != ViewSchemaID || stored.RecordID != command.RecordID {
+		stored, ok := existing.RowMutationResult()
+		if !ok || stored.ViewSchemaID != ViewSchemaID || stored.RecordID != command.RecordID ||
+			stored.IncidentID == uuid.Nil || stored.ChangeSetID == uuid.Nil || stored.RowVersion < 1 ||
+			stored.Outcome != MutationUpdated {
 			return MutationResult{}, ErrStoredMutationKindMismatch
 		}
 		return MutationResult{
-			Outcome: MutationReplayed, Row: stored.Row, RecordID: command.RecordID,
-			ChangeSetID: stored.ChangeSetID, ViewSchemaID: ViewSchemaID,
-			ClientTxnID: request.clientTxnID,
+			Outcome: MutationReplayed, Row: stored.Row, IncidentID: stored.IncidentID,
+			RecordID: command.RecordID, ChangeSetID: uuidPointer(stored.ChangeSetID),
+			RowVersion: stored.RowVersion, ChangedFieldKeys: append([]string(nil), stored.ChangedFieldKeys...),
 		}, nil
-	} else if !errors.Is(err, ErrIdempotencyNotFound) {
-		return MutationResult{}, fmt.Errorf("query party patch idempotency: %w", err)
 	}
 
 	tx, err := f.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -404,7 +390,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 				return MutationResult{}, err
 			}
 			conflictPayload, err := buildPartySameFieldConflict(partySameFieldConflictParams{
-				RouteKey:          command.ConflictRouteKey,
+				RouteKey:          workbookConflictResolveOperation,
 				RecordID:          command.RecordID,
 				ViewSchemaID:      ViewSchemaID,
 				BaseRowVersion:    request.baseRowVersion,
@@ -432,10 +418,14 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if err := partysource.PreparePatchActiveKeysTx(ctx, tx, meta.IncidentID, command.RecordID, sourcePatchChanges(request.changes)); err != nil {
-		return MutationResult{}, err
-	}
-	changed, err := f.applyPatchTx(ctx, tx, command.RecordID, request, command.Now.UTC())
+	changed, err := partysource.ApplyPatchTx(
+		ctx,
+		tx,
+		meta.IncidentID,
+		command.RecordID,
+		sourcePatchChanges(request.changes),
+		command.Now.UTC(),
+	)
 	if err != nil {
 		return MutationResult{}, err
 	}
@@ -444,9 +434,6 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	}
 	rowVersion, err := f.recordStore.AdvanceVersionTx(ctx, tx, command.RecordID, command.ActorUserID, command.Now.UTC())
 	if err != nil {
-		return MutationResult{}, err
-	}
-	if err := partysource.TouchPartyTx(ctx, tx, command.RecordID, command.Now.UTC()); err != nil {
 		return MutationResult{}, err
 	}
 	if err := f.projectionRows.RefreshPartyTx(ctx, tx, command.RecordID); err != nil {
@@ -463,7 +450,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	changeSetID, err := f.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  meta.IncidentID,
 		ActorUserID: command.ActorUserID,
-		Source:      command.RouteKey,
+		Source:      routeKey,
 		ClientTxnID: &request.clientTxnID,
 		RequestID:   &command.RequestID,
 		CreatedAt:   command.Now.UTC(),
@@ -502,8 +489,11 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	}); err != nil {
 		return MutationResult{}, err
 	}
+	changedFields := changedFieldKeys(beforeRow, afterRow)
 	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, request.requestHash[:], NewStoredPatchResult(StoredRowMutationResult{
-		Outcome: MutationUpdated, ViewSchemaID: ViewSchemaID, RecordID: command.RecordID, ChangeSetID: changeSetID, Row: afterRow,
+		Outcome: MutationUpdated, ViewSchemaID: ViewSchemaID, IncidentID: meta.IncidentID,
+		RecordID: command.RecordID, ChangeSetID: changeSetID, RowVersion: rowVersion,
+		ChangedFieldKeys: changedFields, Row: afterRow,
 	})); err != nil {
 		return MutationResult{}, err
 	}
@@ -515,27 +505,10 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 		Row:              afterRow,
 		IncidentID:       meta.IncidentID,
 		RecordID:         command.RecordID,
-		ChangeSetID:      changeSetID,
-		ClientTxnID:      request.clientTxnID,
+		ChangeSetID:      uuidPointer(changeSetID),
 		RowVersion:       rowVersion,
-		ViewSchemaID:     ViewSchemaID,
-		ChangedFieldKeys: changedFieldKeys(beforeRow, afterRow),
+		ChangedFieldKeys: changedFields,
 	}, nil
-}
-
-func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, request PatchAdmission, now time.Time) (bool, error) {
-	changed := false
-	for _, change := range request.changes {
-		applied, err := partysource.ApplyDirectChangeTx(ctx, tx, recordID, partysource.PatchChange{
-			FieldKey: change.fieldKey,
-			Value:    change.value,
-		}, now)
-		if err != nil {
-			return false, err
-		}
-		changed = changed || applied
-	}
-	return changed, nil
 }
 
 func changedFieldKeys(before map[string]any, after map[string]any) []string {
@@ -559,32 +532,17 @@ func rowVersionFromGenericRow(row map[string]any) (int64, error) {
 	if !ok {
 		return 0, fmt.Errorf("generic row missing row_version")
 	}
-	switch value := raw.(type) {
-	case int64:
-		return value, nil
-	case int:
-		return int64(value), nil
-	case int32:
-		return int64(value), nil
-	case float64:
-		return int64(value), nil
-	default:
-		return 0, fmt.Errorf("generic row has unexpected row_version type %T", value)
+	value, ok := raw.(int64)
+	if !ok || value < 1 {
+		return 0, fmt.Errorf("generic row has invalid row_version type/value %T", raw)
 	}
+	return value, nil
 }
+
+func uuidPointer(value uuid.UUID) *uuid.UUID { return &value }
 
 func workbookVersionID(recordID uuid.UUID, rowVersion int64) string {
 	return fmt.Sprintf("record:%s:%d", recordID.String(), rowVersion)
-}
-
-func validateCreateParams(params partysource.CreateParams) error {
-	if !partysource.HasStoredText(params.Values, "party.display_name") {
-		return &ValidationError{Field: "party.display_name", ReasonCode: "missing_required_field"}
-	}
-	if !partysource.HasStoredText(params.Values, "party.party_kind") {
-		return &ValidationError{Field: "party.party_kind", ReasonCode: "missing_required_field"}
-	}
-	return nil
 }
 
 func sourcePatchChanges(changes []patchChange) []partysource.PatchChange {

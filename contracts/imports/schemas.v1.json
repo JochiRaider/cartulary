@@ -211,7 +211,6 @@
                 },
                 "party_reason_code": {
                   "enum": [
-                    "ambiguous_exact_match",
                     "cross_key_exact_match",
                     "exact_match_key_claimed"
                   ]

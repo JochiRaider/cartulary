@@ -177,7 +177,7 @@ func TestProjectionAssemblyPortsAreCompleteAndDescriptorsImmutable(t *testing.T)
 		bundle.AssessmentPorts().Rows == nil || bundle.AssessmentPorts().Rebuilder == nil ||
 		bundle.ArtifactPorts().Rows == nil || bundle.ArtifactPorts().Rebuilder == nil || bundle.ArtifactPorts().Reader == nil ||
 		bundle.EvidencePorts().Rows == nil || bundle.EvidencePorts().Rebuilder == nil ||
-		bundle.PartyPorts().Rows == nil || bundle.PartyPorts().Rebuilder == nil ||
+		bundle.PartyPorts().Rows == nil ||
 		bundle.TaskDecisionPorts().Rows == nil || bundle.TaskDecisionPorts().Rebuilder == nil || bundle.TaskDecisionPorts().Reader == nil ||
 		bundle.RestoreProbeQuery() == nil || bundle.RevisionRebuilder() == nil || bundle.RevisionLiveRecords() == nil || bundle.SourceTextRows() == nil {
 		t.Fatalf("projection assembly consumer ports are incomplete")

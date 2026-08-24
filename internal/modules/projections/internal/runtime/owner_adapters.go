@@ -331,16 +331,7 @@ func (r *PartyRows) LoadPartyTx(ctx context.Context, tx pgx.Tx, recordID uuid.UU
 	return r.loadTx(ctx, tx, partiesViewSchemaID, recordID)
 }
 
-func (r *PartyRows) RebuildPartiesTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-) error {
-	return r.store.rebuildIncidentPartiesTxCore(ctx, tx, incidentID, r.source)
-}
-
 var _ partyprojection.Rows = (*PartyRows)(nil)
-var _ partyprojection.Rebuilder = (*Store)(nil)
 
 type TaskDecisionRows struct {
 	store             *Store

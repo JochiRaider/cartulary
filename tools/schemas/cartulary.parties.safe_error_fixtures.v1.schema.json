@@ -7,7 +7,7 @@
   "properties": {
     "schema_id": { "const": "cartulary.parties.safe_error_fixtures.v1" },
     "party_reason_codes": {
-      "const": ["ambiguous_exact_match", "cross_key_exact_match", "exact_match_key_claimed"]
+      "const": ["cross_key_exact_match", "exact_match_key_claimed"]
     },
     "field_keys": {
       "const": ["party.external_ref", "party.primary_email"]

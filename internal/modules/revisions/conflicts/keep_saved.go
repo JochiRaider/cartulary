@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -140,15 +141,30 @@ func KeepSaved(
 }
 
 func DecodeStoredTarget(data []byte) (StoredTarget, error) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
 	var payload map[string]any
-	if err := json.Unmarshal(data, &payload); err != nil {
+	if err := decoder.Decode(&payload); err != nil {
 		return StoredTarget{}, err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return StoredTarget{}, fmt.Errorf("decode replayed conflict keep-saved target")
 	}
 	viewSchemaID, viewOK := payload["view_schema_id"].(string)
 	row, rowOK := payload["row"].(map[string]any)
 	if !viewOK || !rowOK {
 		return StoredTarget{}, fmt.Errorf("decode replayed conflict keep-saved target")
 	}
+	rawRowVersion, ok := row["row_version"].(json.Number)
+	if !ok {
+		return StoredTarget{}, fmt.Errorf("decode replayed conflict keep-saved row version")
+	}
+	rowVersion, err := rawRowVersion.Int64()
+	if err != nil || rowVersion < 1 {
+		return StoredTarget{}, fmt.Errorf("decode replayed conflict keep-saved row version")
+	}
+	row["row_version"] = rowVersion
 	return StoredTarget{ViewSchemaID: viewSchemaID, Row: row}, nil
 }
 

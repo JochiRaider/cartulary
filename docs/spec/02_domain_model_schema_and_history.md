@@ -586,12 +586,15 @@ Verified by: AC-022, AC-028, AC-186, AC-187, AC-231, AC-279
 **REQ-02-061**
 A unique exact match on one of these keys MUST reuse the existing active entity or party row. For hosts and identities, the search domain for each exact-match class is the union of that class's canonical field plus every active preserved identifier of the same class classified as `exact_match_reuse` on that record. Comparison and normalization for this search MUST use the same deterministic substrate already used for create-or-upsert and deduplication. For parties, exact-match reuse remains limited to the canonical fields named in REQ-02-060.
 
-Party matching MUST resolve every supplied non-null exact-match key before
-precedence is applied. A key that resolves to multiple active same-incident
-Parties is ambiguous and MUST fail. Supplied keys that resolve to different
-Parties MUST fail. Only when all non-empty matches converge on one Party may
-that Party be reused; precedence then selects only the internal match reason.
-Reuse MUST NOT overwrite or enrich the matched Party.
+Party matching MUST resolve every supplied non-null exact-match claim before
+precedence is applied. In a valid serving state, the REQ-02-271 claim key has
+at most one active owner. Competing authoritative values are an upgrade,
+Incident Bundle import, or recovery/readiness failure and MUST be rejected
+before serving or publication; they are not a public Party mutation outcome.
+Supplied keys that resolve to different Parties MUST fail. Only when all
+non-empty matches converge on one Party may that Party be reused; precedence
+then selects only the internal match reason. Reuse MUST NOT overwrite or
+enrich the matched Party.
 Profiles: base
 Verified by: AC-022, AC-028, AC-186, AC-187, AC-231, AC-279
 
@@ -614,12 +617,16 @@ Verified by: AC-028, AC-029, AC-231, AC-279
 **REQ-02-063**
 If a create or update would assign one of the exact-match keys to more than one active entity or party row, the operation MUST fail as a merge or conflict case rather than silently rekeying, linking, or merging entities or parties.
 
-For Parties, the closed conflict reasons are `ambiguous_exact_match`,
-`cross_key_exact_match`, and `exact_match_key_claimed`. A Party conflict MUST
-identify only a sorted, duplicate-free, non-empty subset of
-`party.primary_email` and `party.external_ref`; source values, Party
+For Parties, the closed conflict reasons are `cross_key_exact_match` and
+`exact_match_key_claimed`. `cross_key_exact_match` means supplied claim keys
+resolve to different active Parties. `exact_match_key_claimed` means a patch,
+restore, or rollback would acquire a claim owned by another active Party. A
+Party conflict MUST identify only a sorted, duplicate-free, non-empty subset
+of `party.primary_email` and `party.external_ref`; source values, Party
 identifiers, database diagnostics, and storage topology are forbidden from the
-safe result.
+safe result. Competing source rows or claim rows cannot introduce another
+public reason: migration, Incident Bundle import, and recovery MUST fail their
+operator/readiness boundary without choosing a winner.
 Profiles: base
 Verified by: AC-028, AC-029, AC-231, AC-279, AC-280, AC-559
 

@@ -194,7 +194,7 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	}
 	party, err := partyOwner.Create(ctx, parties.CreateCommand{
 		ActorUserID: actor.ID, IncidentID: incident.ID, Admission: partyAdmission, RequestID: "req-txn-projection-parity-party",
-		RouteKey: "workbook.rows.create", Now: time.Date(2026, 7, 1, 13, 3, 0, 0, time.UTC),
+		Now: time.Date(2026, 7, 1, 13, 3, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatalf("create Party projection parity row: %v", err)

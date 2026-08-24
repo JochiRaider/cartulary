@@ -715,7 +715,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-01-498 | Core 01 §18 Writable-string contract registry | base | AC-231, AC-277, AC-562 |
 | REQ-01-499 | Core 01 §19 Parties system-view addendum | base | AC-116..AC-118, AC-231, AC-277 |
 | REQ-01-500 | Core 01 §19 Parties system-view addendum | base | AC-117..AC-118, AC-231, AC-277 |
-| REQ-01-501 | Core 01 §19 Parties system-view addendum | base | AC-118, AC-231, AC-277, AC-562 |
+| REQ-01-501 | Core 01 §19 Parties system-view addendum | base | AC-118, AC-231, AC-277, AC-561..AC-562 |
 | REQ-01-502 | Core 01 §19 Parties system-view addendum | base | AC-118, AC-231, AC-278..AC-279, AC-318 |
 | REQ-01-503 | Core 01 §19 Additional coordination and optional artifact-backed surface addenda | base | AC-116..AC-118, AC-231, AC-281, AC-300..AC-303 |
 | REQ-01-504 | Core 01 §19 Additional coordination and optional artifact-backed surface addenda | base | AC-116..AC-118, AC-231, AC-282, AC-300..AC-303 |
@@ -2020,7 +2020,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | AC-551 | REQ-04-160 |
 | AC-559 | REQ-01-639..REQ-01-642, REQ-01-665..REQ-01-667, REQ-02-060..REQ-02-063, REQ-02-066, REQ-02-270 |
 | AC-560 | REQ-00-074 |
-| AC-561 | REQ-01-669, REQ-02-060..REQ-02-063, REQ-02-230, REQ-02-271 |
+| AC-561 | REQ-01-501, REQ-01-669, REQ-02-060..REQ-02-063, REQ-02-230, REQ-02-271 |
 | AC-562 | REQ-01-498, REQ-01-501, REQ-01-668..REQ-01-669 |
 | AC-563 | REQ-01-635..REQ-01-646, REQ-01-653, REQ-01-668, REQ-01-670, REQ-02-271 |
 | PC-001 | REQ-05-003, REQ-05-006, REQ-05-009 |
