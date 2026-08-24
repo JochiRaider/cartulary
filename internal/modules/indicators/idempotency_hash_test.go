@@ -159,15 +159,15 @@ func testIndicatorReplayHashCompatibility(t *testing.T) {
 		t.Fatalf("omitted observation members entered replay preimage: %s", omittedObservationPreimage)
 	}
 
-	store := &Store{}
+	application := &Application{}
 	actorID := uuid.MustParse("00000000-0000-4000-8000-000000000444")
 	scopeID := uuid.MustParse("00000000-0000-4000-8000-000000000555")
-	dismissKey := store.childReplayKey(observationDismissRouteKey, actorID, scopeID, "txn-shared-action")
-	restoreKey := store.childReplayKey(observationRestoreRouteKey, actorID, scopeID, "txn-shared-action")
+	dismissKey := application.childReplayKey(observationDismissRouteKey, actorID, scopeID, "txn-shared-action")
+	restoreKey := application.childReplayKey(observationRestoreRouteKey, actorID, scopeID, "txn-shared-action")
 	if dismissKey == restoreKey || dismissKey.RouteKey == restoreKey.RouteKey {
 		t.Fatalf("dismiss and restore route keys were not isolated: dismiss=%#v restore=%#v", dismissKey, restoreKey)
 	}
-	otherScope := store.childReplayKey(observationDismissRouteKey, actorID, uuid.MustParse("00000000-0000-4000-8000-000000000556"), "txn-shared-action")
+	otherScope := application.childReplayKey(observationDismissRouteKey, actorID, uuid.MustParse("00000000-0000-4000-8000-000000000556"), "txn-shared-action")
 	if dismissKey == otherScope || dismissKey.ScopeKey == otherScope.ScopeKey {
 		t.Fatalf("Indicator replay scopes were not isolated: first=%#v second=%#v", dismissKey, otherScope)
 	}

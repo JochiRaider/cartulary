@@ -498,7 +498,7 @@
       ]
     },
     {
-      "row_id": "module.indicators.projection.indicator_mutations_delegate_row_refresh_and_loa_026301a7c8",
+      "row_id": "module.indicators.projection.application_mutations_delegate_row_refresh_and__026301a7c8",
       "owner_id": "module.indicators",
       "family_id": "module.indicators.projection",
       "collaborator_ids": [
@@ -511,7 +511,62 @@
       "selector": {
         "package": "./internal/modules/indicators",
         "tests": [
-          "TestIndicatorStoreDelegatesProjectionRefreshAndLoad"
+          "TestIndicatorApplicationDelegatesProjectionRefreshAndLoad"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.indicators.projection.owner_contribution_identity_and_surface_parity",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.projection",
+      "collaborator_ids": [
+        "module.imports",
+        "module.projections"
+      ],
+      "verification_ids": [
+        "module.indicators.verification.contribution_identity"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestContributionOwnsCompleteIndicatorSurfaceIntent",
+          "TestIndicatorImportContributionOwnsStableIdentity"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.indicators.projection.typed_workbook_projection_contract",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.projection",
+      "collaborator_ids": [
+        "module.projections"
+      ],
+      "verification_ids": [
+        "module.indicators.verification.contribution_identity"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators/workbookprojection",
+        "tests": [
+          "TestNewContributionRequiresSource",
+          "TestRuntimeContributionOwnsCompleteIndicatorProjectionContract"
         ]
       },
       "evidence_class": "unit",
@@ -691,7 +746,7 @@
       ]
     },
     {
-      "row_id": "module.indicators.structure.indicator_store_requires_complete_composition_an_6ecc4edf41",
+      "row_id": "module.indicators.structure.indicator_application_requires_complete_composition_6ecc4edf41",
       "owner_id": "module.indicators",
       "family_id": "module.indicators.structure",
       "collaborator_ids": [],
@@ -702,9 +757,13 @@
       "selector": {
         "package": "./internal/modules/indicators",
         "tests": [
+          "TestIndicatorAdmissionIsTransportNeutral",
+          "TestIndicatorApplicationCompositionAndRepositoryBoundaries",
+          "TestIndicatorApplicationRejectsNilActorBeforeDependencies",
           "TestIndicatorProviderImplementationsAreInternal",
           "TestIndicatorSourceSQLDoesNotUseEnvelopeMirrors",
-          "TestIndicatorStoreCompositionAndRepositoryBoundaries"
+          "TestIndicatorsDoNotUseEntitiesSourcePrefixes",
+          "TestIndicatorsProductionImportBoundaries"
         ]
       },
       "evidence_class": "unit",
@@ -834,7 +893,8 @@
       "selector": {
         "package": "./internal/modules/indicators",
         "tests": [
-          "TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration"
+          "TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration",
+          "TestNetworkFlowCore02_IndicatorFindOrCreateParticipantRollback"
         ]
       },
       "evidence_class": "integration",
@@ -992,7 +1052,10 @@
       "selector": {
         "package": "./internal/modules/indicators/internal/providers/rollback",
         "tests": [
+          "TestChildChangedFieldsCoverSourceAndCanonicalIndicators",
           "TestIndicatorRollbackSourcePatchIsClosedAndPresenceAware",
+          "TestParseObservationResolveRejectsIdentityDrift",
+          "TestParseObservationTargetTreatsMissingTombstonesAsActive",
           "TestRollbackVocabularyAndLifecycleSupportReferencesAreExact"
         ]
       },

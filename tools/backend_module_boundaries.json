@@ -419,7 +419,7 @@
       "id": "indicator-projection-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/projection",
       "allowed_importers": [
-        "internal/modules/indicators/projectionprovider/contribution.go"
+        "internal/modules/indicators/projection_provider_contribution.go"
       ]
     },
     {

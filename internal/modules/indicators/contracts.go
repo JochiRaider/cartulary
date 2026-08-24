@@ -11,7 +11,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 const (
@@ -73,7 +72,7 @@ type CreateResult struct {
 
 type IndicatorFindOrCreateParticipantCommand struct {
 	IncidentID        uuid.UUID
-	Actor             authn.UserRecord
+	ActorUserID       uuid.UUID
 	IndicatorType     string
 	ValueKind         string
 	DisplayValue      string

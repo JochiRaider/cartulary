@@ -18,13 +18,13 @@ import (
 
 func TestIndicatorsCanonicalObservationLifecycle_Integration(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-u-9-04-indicators")
-	store := newIndicatorTestStore(t, harness.DB, revisionsupport.MustAppender(t))
+	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u904@example.test", "U904 Indicators", "U904IndicatorsPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-04-incident", "IR-U904", "Workbook inspector indicator-storage")
 	defangedValue := "203(.)0(.)113(.)88"
 	stixPattern := "[ipv4-addr:value = '203.0.113.88']"
 
-	created, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateCommand{
+	created, err := application.CreateIndicatorRow(context.Background(), actor.ID, incident.ID, indicators.CreateCommand{
 		ClientTxnID:   "txn-workbook_interaction-u-9-04-indicator-create",
 		IndicatorType: "ipv4_addr",
 		ValueKind:     "atomic",
@@ -34,7 +34,7 @@ func TestIndicatorsCanonicalObservationLifecycle_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create canonical indicator: %v", err)
 	}
-	updated, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateCommand{
+	updated, err := application.CreateIndicatorRow(context.Background(), actor.ID, incident.ID, indicators.CreateCommand{
 		ClientTxnID:   "txn-workbook_interaction-u-9-04-indicator-dedupe",
 		IndicatorType: "ipv4_addr",
 		ValueKind:     "atomic",
@@ -69,14 +69,14 @@ SELECT count(*)
 	sourceTwo := uuid.New()
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceOne)
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceTwo)
-	observationOneResult, err := store.CreateIndicatorObservation(context.Background(), actor, manualObservationParams(
+	observationOneResult, err := application.CreateIndicatorObservation(context.Background(), actor.ID, manualObservationParams(
 		incident.ID, sourceOne, "timeline.activity_synopsis_text", &created.RecordID, "txn-indicator-observation-one",
 	))
 	if err != nil {
 		t.Fatalf("create first observation: %v", err)
 	}
 	observationOne := observationOneResult.Observation
-	observationTwoResult, err := store.CreateIndicatorObservation(context.Background(), actor, manualObservationParams(
+	observationTwoResult, err := application.CreateIndicatorObservation(context.Background(), actor.ID, manualObservationParams(
 		incident.ID, sourceTwo, "timeline.raw_activity_text", &created.RecordID, "txn-indicator-observation-two",
 	))
 	if err != nil {
@@ -90,7 +90,7 @@ SELECT count(*)
 		t.Fatalf("repeated observation origins = %q, %q; want manual_entry", observationOne.OriginKind, observationTwo.OriginKind)
 	}
 	lifecycleTime := time.Date(2026, 5, 17, 15, 0, 0, 0, time.UTC)
-	intervalResult, err := store.AppendIndicatorLifecycleInterval(context.Background(), actor, lifecycleAppendParams(
+	intervalResult, err := application.AppendIndicatorLifecycleInterval(context.Background(), actor.ID, lifecycleAppendParams(
 		incident.ID, created.RecordID, 4, lifecycleTime, "txn-indicator-lifecycle",
 	))
 	if err != nil {
@@ -119,7 +119,7 @@ SELECT count(*)
 func TestNetworkFlowCore02_IndicatorFindOrCreateParticipantRollback(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "network-flow-core02-indicator-participant")
-	store := newIndicatorTestStore(t, harness.DB, revisionsupport.MustAppender(t))
+	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "nfc02@example.test", "Network Flow Core 02", "NFCore02Pass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-network-flow-core02-incident", "IR-NFC02", "Network Flow Core 02")
 
@@ -130,9 +130,9 @@ func TestNetworkFlowCore02_IndicatorFindOrCreateParticipantRollback(t *testing.T
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	normalized := "2001:0db8:0:0:0:0:0:1"
-	first, err := store.FindOrCreateIndicatorParticipantTx(ctx, tx, indicators.IndicatorFindOrCreateParticipantCommand{
+	first, err := application.FindOrCreateIndicatorParticipantTx(ctx, tx, indicators.IndicatorFindOrCreateParticipantCommand{
 		IncidentID:        incident.ID,
-		Actor:             actor,
+		ActorUserID:       actor.ID,
 		IndicatorType:     "ipv6_addr",
 		ValueKind:         "atomic",
 		DisplayValue:      "2001:db8::1",
@@ -150,9 +150,9 @@ func TestNetworkFlowCore02_IndicatorFindOrCreateParticipantRollback(t *testing.T
 		t.Fatalf("participant did not return canonical IPv6 identity: %#v", first.Indicator)
 	}
 
-	second, err := store.FindOrCreateIndicatorParticipantTx(ctx, tx, indicators.IndicatorFindOrCreateParticipantCommand{
+	second, err := application.FindOrCreateIndicatorParticipantTx(ctx, tx, indicators.IndicatorFindOrCreateParticipantCommand{
 		IncidentID:        incident.ID,
-		Actor:             actor,
+		ActorUserID:       actor.ID,
 		IndicatorType:     "ipv6_addr",
 		ValueKind:         "atomic",
 		DisplayValue:      "2001:0db8:0000:0000:0000:0000:0000:0001",

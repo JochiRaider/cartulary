@@ -1647,19 +1647,32 @@ These criteria provide direct runtime-family verification for substantive base-p
   four constants, and the Iteration 2 exchange replaces the exported
   test-convenience participant schema constant with production
   `RecordEnvelopePort` while retaining exactly 50 exports and identical
-  participant schema bytes. No alias, forwarding, dual-result, or deprecation
-  path remains. Only owner-local admission and HTTP
+  participant schema bytes. Iteration 3 replaces the four Store-facing root
+  declarations with their Application equivalents and adds
+  `IdempotencyPort`, `IncidentStatePort`, `RevisionPort`, and
+  `NewProjectionContribution`, producing exactly 54 reviewed root exports.
+  No alias, forwarding, dual-result, or deprecation path remains. Only
+  owner-local admission and HTTP
   adapters import root contracts; no child imports the root or application
-  assembly to recover dependencies. Application composition constructs one
-  Records adapter and injects separate narrow root transaction and HTTP reader
-  capabilities. Root construction rejects nil and typed-nil Postgres,
-  Revisions, Records, projections, source text, or clock dependencies; HTTP
-  construction rejects nil and typed-nil owner, Records, or Postgres
-  dependencies and a nil `DependencySet.Now`; neither boundary constructs
-  Records or uses wall-clock fallback. Create, observation, transition,
-  lifecycle, and list orchestration lives directly on Store, concern SQL uses
+  assembly to recover dependencies. Application composition constructs Auth,
+  Incidents, Records, and Revisions adapters and injects narrow capabilities.
+  Root construction rejects nil and typed-nil Postgres, idempotency,
+  incident-state, Revisions, Records, projections, source text, or clock
+  dependencies; HTTP construction rejects nil and typed-nil owner, Records,
+  incident-admission, or Auth session dependencies and a nil
+  `DependencySet.Now`; neither boundary constructs a peer store or uses
+  wall-clock fallback. Create, observation, transition, lifecycle, and list
+  orchestration lives directly on Application, concern SQL uses
   named package functions, and self-referential services, empty repository
-  namespaces, and Revisions forwarding adapters are absent. Records supplies one sorted
+  namespaces, and Revisions forwarding adapters are absent. Root mutations
+  and transaction-participant commands accept actor UUIDs, reject the nil UUID
+  before effects, and Imports creates no synthetic authentication record.
+  Workbook admission imports strict JSON directly, returns only the closed
+  Indicator field/reason validation error, and has one Workbook-owned
+  semantic-to-wire translation. Projection and import contributions are
+  published directly from the root, the forwarding projection-provider
+  package is absent, and Indicators fixes its own contribution identities.
+  Records supplies one sorted
   caller-transaction locking snapshot for affected-record validation, private
   Records validation SQL is absent, storage failures remain safe internal
   failures, and the protected raw canonical-dedupe SQL literal and lock order

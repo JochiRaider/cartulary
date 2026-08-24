@@ -111,7 +111,7 @@ func (c *transactionCapability) WriteIndicatorLink(ctx context.Context, mutation
 	case "create_indicator":
 		var result indicators.IndicatorFindOrCreateParticipantResult
 		result, err = c.store.indicators.FindOrCreateIndicatorParticipantTx(ctx, c.tx, indicators.IndicatorFindOrCreateParticipantCommand{
-			IncidentID: mutation.IncidentID, Actor: mutation.Actor,
+			IncidentID: mutation.IncidentID, ActorUserID: mutation.Actor.ID,
 			IndicatorType: mutation.Request.Target.IndicatorType, ValueKind: "atomic",
 			DisplayValue: mutation.Resolved.CandidateValue, NormalizedValue: &mutation.Resolved.CandidateValue,
 			OperationContext:  "network_flow_indicator_link",

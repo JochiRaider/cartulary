@@ -11,23 +11,38 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	indicatorprovider "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	indicatorcontract "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	projectionfixture "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport/fixturewriter"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
+
+type transactionTestIdempotencyPort struct {
+	store *authn.Store
+}
+
+func (port transactionTestIdempotencyPort) GetRouteIdempotency(ctx context.Context, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
+	return port.store.GetRouteIdempotency(ctx, key)
+}
+
+func (transactionTestIdempotencyPort) InsertRouteIdempotencyPayload(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey, requestHash []byte, statusCode int, payload any) error {
+	return authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, statusCode, payload)
+}
 
 func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
 	db := postgresHarness.BeginRollbackDBT(t, "indicator-repository-atomicity")
 	now := time.Date(2026, 8, 3, 19, 0, 0, 0, time.UTC)
-	owner, err := NewStore(StoreDependencies{
+	owner, err := NewApplication(ApplicationDependencies{
 		Postgres:        db,
+		Idempotency:     transactionTestIdempotencyPort{store: authn.NewStore(db)},
+		IncidentState:   admission.NewChecker(db),
 		Revisions:       &revisions.Appender{},
 		RecordEnvelopes: records.NewStore(db),
 		Projections:     newTransactionTestProjectionPort(t, db),
@@ -55,14 +70,14 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	}
 	incidentID := incidentResult.Incident.ID
 
-	owner.revisionsStore = &failingIndicatorRevisionPort{failAt: 3}
+	owner.revisions = &failingIndicatorRevisionPort{failAt: 3}
 	failedCommand := CreateCommand{
 		ClientTxnID:   "txn-indicator-atomicity-failed-create",
 		IndicatorType: "domain_name",
 		ValueKind:     "atomic",
 		DisplayValue:  "failed.example",
 	}
-	if _, createErr := owner.CreateIndicatorRow(ctx, actor, incidentID, failedCommand, "request-failed-create"); !errors.Is(createErr, errInjectedIndicatorRevision) {
+	if _, createErr := owner.CreateIndicatorRow(ctx, actor.ID, incidentID, failedCommand, "request-failed-create"); !errors.Is(createErr, errInjectedIndicatorRevision) {
 		t.Fatalf("create revision failure = %v", createErr)
 	}
 	requireIndicatorAtomicCounts(t, db, incidentID, failedCommand.ClientTxnID, 0, 0, 0, 0, 0, 0)
@@ -74,7 +89,7 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 		ValueKind:     "atomic",
 		DisplayValue:  "projection-failure.example",
 	}
-	if _, projectionErr := owner.CreateIndicatorRow(ctx, actor, incidentID, projectionFailureCommand, "request-projection-failure"); !errors.Is(projectionErr, errInjectedIndicatorProjection) {
+	if _, projectionErr := owner.CreateIndicatorRow(ctx, actor.ID, incidentID, projectionFailureCommand, "request-projection-failure"); !errors.Is(projectionErr, errInjectedIndicatorProjection) {
 		t.Fatalf("create projection failure = %v", projectionErr)
 	}
 	requireIndicatorAtomicCounts(t, db, incidentID, projectionFailureCommand.ClientTxnID, 0, 0, 0, 0, 0, 0)
@@ -84,7 +99,7 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	if err != nil {
 		t.Fatalf("begin baseline source transaction: %v", err)
 	}
-	created, _, _, _, err := owner.upsertIndicatorTx(ctx, tx, actor, incidentID, CreateCommand{
+	created, _, _, _, err := owner.upsertIndicatorTx(ctx, tx, actor.ID, incidentID, CreateCommand{
 		ClientTxnID:   "txn-indicator-atomicity-source",
 		IndicatorType: "domain_name",
 		ValueKind:     "atomic",
@@ -100,8 +115,8 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 		t.Fatalf("commit baseline Indicator: %v", err)
 	}
 
-	owner.revisionsStore = &failingIndicatorRevisionPort{failAt: 1}
-	if _, observationErr := owner.CreateIndicatorObservation(ctx, actor, IndicatorObservationCreateParams{
+	owner.revisions = &failingIndicatorRevisionPort{failAt: 1}
+	if _, observationErr := owner.CreateIndicatorObservation(ctx, actor.ID, IndicatorObservationCreateParams{
 		IncidentID:                incidentID,
 		SourceRecordID:            created.RecordID,
 		BaseRowVersion:            1,
@@ -118,8 +133,8 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 		t.Fatalf("failed observation left %d rows", got)
 	}
 
-	owner.revisionsStore = &failingIndicatorRevisionPort{failAt: 1}
-	if _, lifecycleErr := owner.AppendIndicatorLifecycleInterval(ctx, actor, IndicatorLifecycleAppendParams{
+	owner.revisions = &failingIndicatorRevisionPort{failAt: 1}
+	if _, lifecycleErr := owner.AppendIndicatorLifecycleInterval(ctx, actor.ID, IndicatorLifecycleAppendParams{
 		IncidentID:        incidentID,
 		IndicatorRecordID: created.RecordID,
 		BaseRowVersion:    1,
@@ -174,7 +189,7 @@ func (transactionTestSourceTextPort) RefreshAndLoadRowTx(context.Context, pgx.Tx
 
 func newTransactionTestProjectionPort(t testing.TB, db postgres.DB) indicatorcontract.Rows {
 	t.Helper()
-	contribution, err := indicatorprovider.NewContribution()
+	contribution, err := NewProjectionContribution()
 	if err != nil {
 		t.Fatalf("construct Indicator projection contribution: %v", err)
 	}

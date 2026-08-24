@@ -17,6 +17,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -219,8 +220,10 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 	if err != nil {
 		t.Fatalf("compose Timeline: %v", err)
 	}
-	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
+	indicatorOwner, err := indicators.NewApplication(indicators.ApplicationDependencies{
 		Postgres:        storeHarness.DB,
+		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(storeHarness.DB)),
+		IncidentState:   admission.NewChecker(storeHarness.DB),
 		Revisions:       appender,
 		RecordEnvelopes: records.NewStore(storeHarness.DB),
 		Projections:     projections.IndicatorPorts().Rows,

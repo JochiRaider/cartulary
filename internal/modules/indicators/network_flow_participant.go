@@ -15,13 +15,13 @@ type indicatorRecordQuerier interface {
 
 // GetActiveIndicatorParticipant reads an indicator through the Indicator
 // owner. Consumers never query the indicators or records tables directly.
-func (s *Store) GetActiveIndicatorParticipant(ctx context.Context, incidentID uuid.UUID, indicatorID uuid.UUID) (IndicatorReference, error) {
+func (s *Application) GetActiveIndicatorParticipant(ctx context.Context, incidentID uuid.UUID, indicatorID uuid.UUID) (IndicatorReference, error) {
 	return getActiveIndicatorParticipant(ctx, s.pool, incidentID, indicatorID)
 }
 
 // GetActiveIndicatorParticipantTx participates in a consumer-owned atomic
 // operation without taking ownership of the outer transaction.
-func (*Store) GetActiveIndicatorParticipantTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorID uuid.UUID) (IndicatorReference, error) {
+func (*Application) GetActiveIndicatorParticipantTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorID uuid.UUID) (IndicatorReference, error) {
 	return getActiveIndicatorParticipant(ctx, tx, incidentID, indicatorID)
 }
 

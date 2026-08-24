@@ -4,34 +4,32 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-func NewImportCreateFacade(
-	targetViewSchemaID string,
-	facadeID string,
-	store *Store,
-) (ownerfacade.ImportOwnerCreateFacade, error) {
-	if targetViewSchemaID != ViewSchemaID {
-		return nil, fmt.Errorf("indicator import surface %q not mapped", targetViewSchemaID)
-	}
-	if store == nil {
+const indicatorImportContributionID = "indicators.import_create"
+
+func NewImportContribution(application *Application) (ownerfacade.ImportOwnerCreateFacade, error) {
+	if application == nil {
 		return nil, fmt.Errorf("indicator import owner facade is required")
 	}
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
-			TargetViewSchemaID: targetViewSchemaID,
-			FacadeID:           facadeID,
+			TargetViewSchemaID: ViewSchemaID,
+			FacadeID:           indicatorImportContributionID,
 		},
-		store.createImportRowTx,
+		application.createImportRowTx,
 	)
 }
 
-func (s *Store) createImportRowTx(ctx context.Context, tx pgx.Tx, command ownerfacade.ImportOwnerCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
+func (s *Application) createImportRowTx(ctx context.Context, tx pgx.Tx, command ownerfacade.ImportOwnerCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
+	if request.ActorUserID == uuid.Nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, &IndicatorCreateValidationError{Field: "actor_user_id", ReasonCode: "missing_required_field"}
+	}
 	if request.TargetViewSchemaID != ViewSchemaID {
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("indicator import surface %q not mapped", request.TargetViewSchemaID)
 	}
@@ -40,7 +38,7 @@ func (s *Store) createImportRowTx(ctx context.Context, tx pgx.Tx, command ownerf
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	record, beforeRow, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, authn.UserRecord{ID: request.ActorUserID}, request.IncidentID, createCommand, command.Now.UTC())
+	record, beforeRow, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, request.ActorUserID, request.IncidentID, createCommand, command.Now.UTC())
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
@@ -67,7 +65,7 @@ func (s *Store) createImportRowTx(ctx context.Context, tx pgx.Tx, command ownerf
 			}
 		}
 	}
-	return ownerfacade.FinalizeRecordRevisionAndIntentTx(ctx, tx, s.revisionsStore, ownerfacade.FinalizeCommand{
+	return ownerfacade.FinalizeRecordRevisionAndIntentTx(ctx, tx, s.revisions, ownerfacade.FinalizeCommand{
 		Request:         request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,

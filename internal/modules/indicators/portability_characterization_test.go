@@ -23,9 +23,9 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 	harness := appsupport.StartStore(t, "indicator-portable-rows-characterization")
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "indicator-portability@example.test", "Indicator Portability", "IndicatorPortabilityPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-indicator-portability-incident", "IR-IND-PORT", "Indicator portability characterization")
-	store := newIndicatorTestStore(t, harness.DB, revisionsupport.MustAppender(t))
+	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
 
-	created, err := store.CreateIndicatorRow(ctx, actor, incident.ID, indicators.CreateCommand{
+	created, err := application.CreateIndicatorRow(ctx, actor.ID, incident.ID, indicators.CreateCommand{
 		ClientTxnID:   "txn-indicator-portability-create",
 		IndicatorType: "domain_name",
 		ValueKind:     "atomic",
@@ -35,12 +35,12 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		t.Fatalf("create indicator: %v", err)
 	}
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.RecordID)
-	if _, err := store.CreateIndicatorObservation(ctx, actor, manualObservationParams(
+	if _, err := application.CreateIndicatorObservation(ctx, actor.ID, manualObservationParams(
 		incident.ID, timelinetest.RecordID, timelinetest.FieldSourceText, &created.RecordID, "txn-indicator-portability-observation",
 	)); err != nil {
 		t.Fatalf("create observation: %v", err)
 	}
-	if _, err := store.AppendIndicatorLifecycleInterval(ctx, actor, lifecycleAppendParams(
+	if _, err := application.AppendIndicatorLifecycleInterval(ctx, actor.ID, lifecycleAppendParams(
 		incident.ID, created.RecordID, 2, indicatortest.PastTime(), "txn-indicator-portability-lifecycle",
 	)); err != nil {
 		t.Fatalf("append interval: %v", err)

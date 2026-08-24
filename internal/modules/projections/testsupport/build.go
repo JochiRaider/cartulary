@@ -10,7 +10,7 @@ import (
 	entityprovider "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/projectionprovider"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	evidenceprovider "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
-	indicatorprovider "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
+	indicatorowner "github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	taskdecisionprovider "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
@@ -33,7 +33,7 @@ func MustBuild(t testing.TB, db postgres.DB) projectionadapters.Ports {
 	if err != nil {
 		t.Fatalf("compose Entities projection contribution: %v", err)
 	}
-	indicatorsContribution, err := indicatorprovider.NewContribution()
+	indicatorsContribution, err := indicatorowner.NewProjectionContribution()
 	if err != nil {
 		t.Fatalf("compose Indicators projection contribution: %v", err)
 	}

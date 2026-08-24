@@ -10,21 +10,25 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-func newIndicatorTestStore(t testing.TB, db postgres.DB, appender *revisions.Appender) *indicators.Store {
+func newIndicatorTestApplication(t testing.TB, db postgres.DB, appender *revisions.Appender) *indicators.Application {
 	t.Helper()
 	projection, err := projectionassembly.Build(db)
 	if err != nil {
 		t.Fatalf("compose Projections: %v", err)
 	}
-	store, err := indicators.NewStore(indicators.StoreDependencies{
+	application, err := indicators.NewApplication(indicators.ApplicationDependencies{
 		Postgres:        db,
+		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(db)),
+		IncidentState:   admission.NewChecker(db),
 		Revisions:       appender,
 		RecordEnvelopes: records.NewStore(db),
 		Projections:     projection.IndicatorPorts().Rows,
@@ -32,9 +36,9 @@ func newIndicatorTestStore(t testing.TB, db postgres.DB, appender *revisions.App
 		Clock:           func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
 	})
 	if err != nil {
-		t.Fatalf("compose Indicator test store: %v", err)
+		t.Fatalf("compose Indicator test application: %v", err)
 	}
-	return store
+	return application
 }
 
 func newIndicatorTestProjectionRows(t testing.TB, db postgres.DB) indicatorprojection.Rows {

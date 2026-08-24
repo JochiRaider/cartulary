@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
-	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
 )
 
 const indicatorProviderImportPrefix = "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/"
@@ -51,7 +49,7 @@ func TestIndicatorProviderImplementationsAreInternal(t *testing.T) {
 		}
 	}
 
-	projection, err := indicatorprojection.NewContribution()
+	projection, err := NewProjectionContribution()
 	if err != nil {
 		t.Fatalf("construct Indicator projection contribution: %v", err)
 	}

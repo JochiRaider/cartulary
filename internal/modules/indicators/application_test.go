@@ -13,17 +13,22 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-func TestIndicatorStoreCompositionAndRepositoryBoundaries(t *testing.T) {
+func TestIndicatorApplicationCompositionAndRepositoryBoundaries(t *testing.T) {
 	t.Parallel()
 	t.Run("deployed replay preimages and digests", testIndicatorReplayHashCompatibility)
 
 	fixedTime := time.Date(2026, 8, 23, 12, 34, 56, 789, time.UTC)
-	complete := StoreDependencies{
+	complete := ApplicationDependencies{
 		Postgres:        inertIndicatorDB{},
+		Idempotency:     &inertIndicatorIdempotencyPort{},
+		IncidentState:   &inertIndicatorIncidentStatePort{},
 		Revisions:       &revisions.Appender{},
 		RecordEnvelopes: records.NewStore(inertIndicatorDB{}),
 		Projections:     inertIndicatorProjectionPort{},
@@ -31,38 +36,66 @@ func TestIndicatorStoreCompositionAndRepositoryBoundaries(t *testing.T) {
 		Clock:           func() time.Time { return fixedTime },
 	}
 	var (
-		typedNilPostgres   *inertIndicatorDB
-		typedNilRevisions  *revisions.Appender
-		typedNilRecords    *records.Store
-		typedNilProjection *inertIndicatorProjectionPort
-		typedNilSourceText *inertIndicatorSourceTextPort
+		typedNilPostgres    *inertIndicatorDB
+		typedNilIdempotency *inertIndicatorIdempotencyPort
+		typedNilIncident    *inertIndicatorIncidentStatePort
+		typedNilRevisions   *revisions.Appender
+		typedNilRecords     *records.Store
+		typedNilProjection  *inertIndicatorProjectionPort
+		typedNilSourceText  *inertIndicatorSourceTextPort
 	)
+	without := func(name string, value any) ApplicationDependencies {
+		deps := complete
+		switch name {
+		case "Postgres":
+			deps.Postgres, _ = value.(postgres.DB)
+		case "Idempotency":
+			deps.Idempotency, _ = value.(IdempotencyPort)
+		case "IncidentState":
+			deps.IncidentState, _ = value.(IncidentStatePort)
+		case "Revisions":
+			deps.Revisions, _ = value.(RevisionPort)
+		case "RecordEnvelopes":
+			deps.RecordEnvelopes, _ = value.(RecordEnvelopePort)
+		case "Projections":
+			deps.Projections, _ = value.(indicatorprojection.Rows)
+		case "SourceText":
+			deps.SourceText, _ = value.(SourceTextPort)
+		case "Clock":
+			deps.Clock, _ = value.(func() time.Time)
+		}
+		return deps
+	}
 	tests := []struct {
 		name string
-		deps StoreDependencies
+		deps ApplicationDependencies
 		want string
 	}{
-		{name: "nil Postgres", deps: StoreDependencies{}, want: "Postgres is required"},
-		{name: "typed nil Postgres", deps: StoreDependencies{Postgres: typedNilPostgres}, want: "Postgres is required"},
-		{name: "nil Revisions", deps: StoreDependencies{Postgres: complete.Postgres}, want: "Revisions is required"},
-		{name: "typed nil Revisions", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: typedNilRevisions}, want: "Revisions is required"},
-		{name: "nil RecordEnvelopes", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: complete.Revisions}, want: "RecordEnvelopes is required"},
-		{name: "typed nil RecordEnvelopes", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: complete.Revisions, RecordEnvelopes: typedNilRecords}, want: "RecordEnvelopes is required"},
-		{name: "nil Projections", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: complete.Revisions, RecordEnvelopes: complete.RecordEnvelopes}, want: "Projections is required"},
-		{name: "typed nil Projections", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: complete.Revisions, RecordEnvelopes: complete.RecordEnvelopes, Projections: typedNilProjection}, want: "Projections is required"},
-		{name: "nil SourceText", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: complete.Revisions, RecordEnvelopes: complete.RecordEnvelopes, Projections: complete.Projections}, want: "SourceText is required"},
-		{name: "typed nil SourceText", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: complete.Revisions, RecordEnvelopes: complete.RecordEnvelopes, Projections: complete.Projections, SourceText: typedNilSourceText}, want: "SourceText is required"},
-		{name: "nil Clock", deps: StoreDependencies{Postgres: complete.Postgres, Revisions: complete.Revisions, RecordEnvelopes: complete.RecordEnvelopes, Projections: complete.Projections, SourceText: complete.SourceText}, want: "Clock is required"},
+		{name: "nil Postgres", deps: without("Postgres", nil), want: "Postgres is required"},
+		{name: "typed nil Postgres", deps: without("Postgres", typedNilPostgres), want: "Postgres is required"},
+		{name: "nil Idempotency", deps: without("Idempotency", nil), want: "Idempotency is required"},
+		{name: "typed nil Idempotency", deps: without("Idempotency", typedNilIdempotency), want: "Idempotency is required"},
+		{name: "nil IncidentState", deps: without("IncidentState", nil), want: "IncidentState is required"},
+		{name: "typed nil IncidentState", deps: without("IncidentState", typedNilIncident), want: "IncidentState is required"},
+		{name: "nil Revisions", deps: without("Revisions", nil), want: "Revisions is required"},
+		{name: "typed nil Revisions", deps: without("Revisions", typedNilRevisions), want: "Revisions is required"},
+		{name: "nil RecordEnvelopes", deps: without("RecordEnvelopes", nil), want: "RecordEnvelopes is required"},
+		{name: "typed nil RecordEnvelopes", deps: without("RecordEnvelopes", typedNilRecords), want: "RecordEnvelopes is required"},
+		{name: "nil Projections", deps: without("Projections", nil), want: "Projections is required"},
+		{name: "typed nil Projections", deps: without("Projections", typedNilProjection), want: "Projections is required"},
+		{name: "nil SourceText", deps: without("SourceText", nil), want: "SourceText is required"},
+		{name: "typed nil SourceText", deps: without("SourceText", typedNilSourceText), want: "SourceText is required"},
+		{name: "nil Clock", deps: without("Clock", nil), want: "Clock is required"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			owner, err := NewStore(test.deps)
+			owner, err := NewApplication(test.deps)
 			if err == nil || !strings.Contains(err.Error(), test.want) || owner != nil {
 				t.Fatalf("compose result owner=%#v error=%v, want nil owner and %q", owner, err, test.want)
 			}
 		})
 	}
-	owner, err := NewStore(complete)
+	owner, err := NewApplication(complete)
 	if err != nil || owner == nil {
 		t.Fatalf("compose complete Indicators owner: owner=%#v err=%v", owner, err)
 	}
@@ -101,14 +134,14 @@ func TestIndicatorStoreCompositionAndRepositoryBoundaries(t *testing.T) {
 	}
 }
 
-func TestIndicatorStoreDelegatesProjectionRefreshAndLoad(t *testing.T) {
+func TestIndicatorApplicationDelegatesProjectionRefreshAndLoad(t *testing.T) {
 	t.Parallel()
 
 	recordID := uuid.MustParse("00000000-0000-4000-8000-000000000404")
 	wantRow := map[string]any{"record_id": recordID.String(), "row_version": int64(4)}
 	port := &recordingIndicatorProjectionPort{row: wantRow}
-	store := &Store{projections: port}
-	gotRow, err := store.refreshAndLoadProjectionRowTx(context.Background(), nil, recordID)
+	application := &Application{projections: port}
+	gotRow, err := application.refreshAndLoadProjectionRowTx(context.Background(), nil, recordID)
 	if err != nil {
 		t.Fatalf("refresh and load Indicator projection row: %v", err)
 	}
@@ -125,6 +158,22 @@ type inertIndicatorDB struct{}
 type inertIndicatorProjectionPort struct{}
 
 type inertIndicatorSourceTextPort struct{}
+
+type inertIndicatorIdempotencyPort struct{}
+
+type inertIndicatorIncidentStatePort struct{}
+
+func (*inertIndicatorIdempotencyPort) GetRouteIdempotency(context.Context, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
+	panic("unexpected GetRouteIdempotency")
+}
+
+func (*inertIndicatorIdempotencyPort) InsertRouteIdempotencyPayload(context.Context, pgx.Tx, authn.RouteIdempotencyKey, []byte, int, any) error {
+	panic("unexpected InsertRouteIdempotencyPayload")
+}
+
+func (*inertIndicatorIncidentStatePort) RequireOpenTx(context.Context, pgx.Tx, uuid.UUID) error {
+	panic("unexpected RequireOpenTx")
+}
 
 type recordingIndicatorProjectionPort struct {
 	calls []string

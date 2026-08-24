@@ -18,7 +18,7 @@ import (
 func TestIndicatorActiveIdentityClaimsFollowRecordsAndRebuild_Integration(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "indicators-active-identity-claims")
-	store := newIndicatorTestStore(t, harness.DB, revisionsupport.MustAppender(t))
+	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
 	actor := authstoretest.SeedLocalUserRecord(
 		t, harness.DB, "indicator-claims@example.test", "Indicator Claims",
 		"IndicatorClaimsPass1!", false, false, true,
@@ -29,7 +29,7 @@ func TestIndicatorActiveIdentityClaimsFollowRecordsAndRebuild_Integration(t *tes
 	)
 	now := time.Date(2026, 8, 3, 20, 0, 0, 0, time.UTC)
 
-	created, err := store.CreateIndicatorRow(ctx, actor, incident.ID, indicators.CreateCommand{
+	created, err := application.CreateIndicatorRow(ctx, actor.ID, incident.ID, indicators.CreateCommand{
 		ClientTxnID:   "txn-indicator-claims-create",
 		IndicatorType: "domain_name",
 		ValueKind:     "atomic",
@@ -59,7 +59,7 @@ UPDATE records
 	}
 	requireNoActiveIdentityClaim(t, harness, created.RecordID)
 
-	replacement, err := store.CreateIndicatorRow(ctx, actor, incident.ID, indicators.CreateCommand{
+	replacement, err := application.CreateIndicatorRow(ctx, actor.ID, incident.ID, indicators.CreateCommand{
 		ClientTxnID:   "txn-indicator-claims-reuse",
 		IndicatorType: "domain_name",
 		ValueKind:     "atomic",

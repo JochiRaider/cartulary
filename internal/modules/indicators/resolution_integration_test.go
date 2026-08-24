@@ -85,7 +85,7 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 		t.Fatalf("indicator route readback mismatch: %#v", queried)
 	}
 	recordID := appsupport.MustUUID(t, row["record_id"].(string))
-	store := newIndicatorTestStore(t, harness.Pool, harness.Revisions.Appender())
+	application := newIndicatorTestApplication(t, harness.Pool, harness.Revisions.Appender())
 	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.RecordID)
 	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.SiblingRecordID)
 	for index, sourceRecordID := range []struct {
@@ -96,14 +96,14 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 		{id: timelinetest.SiblingRecordID.String(), field: timelinetest.FieldSummary},
 	} {
 		sourceID := appsupport.MustUUID(t, sourceRecordID.id)
-		if _, err := store.CreateIndicatorObservation(context.Background(), authn.UserRecord{ID: adminUserID}, manualObservationParams(
+		if _, err := application.CreateIndicatorObservation(context.Background(), adminUserID, manualObservationParams(
 			incidentID, sourceID, sourceRecordID.field, &recordID,
 			"txn-entity-linking-route-observation-"+string(rune('1'+index)),
 		)); err != nil {
 			t.Fatalf("create observation %d: %v", index, err)
 		}
 	}
-	if _, err := store.AppendIndicatorLifecycleInterval(context.Background(), authn.UserRecord{ID: adminUserID}, lifecycleAppendParams(
+	if _, err := application.AppendIndicatorLifecycleInterval(context.Background(), adminUserID, lifecycleAppendParams(
 		incidentID, recordID, 3, indicatortest.PastTime(), "txn-entity-linking-route-lifecycle",
 	)); err != nil {
 		t.Fatalf("append lifecycle: %v", err)

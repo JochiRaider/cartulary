@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
@@ -44,8 +45,10 @@ func newTestNetworkFlowStore(
 	if err != nil {
 		t.Fatalf("compose Projections: %v", err)
 	}
-	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
+	indicatorOwner, err := indicators.NewApplication(indicators.ApplicationDependencies{
 		Postgres:        db,
+		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(db)),
+		IncidentState:   admission.NewChecker(db),
 		Revisions:       appender,
 		RecordEnvelopes: records.NewStore(db),
 		Projections:     projection.IndicatorPorts().Rows,

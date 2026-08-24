@@ -1338,3 +1338,363 @@ idempotency rows, canonical identity, history, projections, portability,
 Recovery, Collaboration, and Network Flow participation remained compatible.
 Every Iteration 2 workstream and acceptance row is `DONE`; there is no next
 eligible Iteration 2 slice or unresolved blocker.
+
+## 21. Indicators Iteration 3 — Production Boundary and Legacy-Code Removal
+
+This section is an additive document-only activation. Sections 1 through 20
+remain completed history and are not reopened, reinterpreted, or replaced.
+Iteration 3 plans a separately authorized clean cutover from the remaining
+legacy Store topology to the final Indicators application boundary. It carries
+forward only behavior required by adopted owners or live production
+capabilities and introduces no compatibility layer for repository-internal Go
+callers.
+
+### 21.1 Charter, authority, and clean baseline
+
+| Item | Iteration 3 decision or evidence |
+| --- | --- |
+| Planning baseline | Clean `main` at `283ef6343d1079a5d0c27a294654f48abb0878ca` on 2026-08-24. |
+| Indicators focused | PASS, 19/19 with no failure or skip at `.cartulary/test-results/20260824T181053Z-p2583510`. |
+| Backend boundaries | PASS, 3/3 with no failure or skip at `.cartulary/test-results/20260824T181153Z-p2599911`. |
+| Indicators service-backed | PASS, 8/8 with no failure or skip at `.cartulary/test-results/20260824T181159Z-p2600297`. |
+| Source posture | All three manifests identify the planning commit and `source_state: clean`. Earlier evidence at `b48b44863658682e97fb15e8538815e90e9fe341` remains retained history but is not the current Iteration 3 baseline. |
+| Current status | `I3-DOC-00` through `I3-S06` are `DONE`; all Iteration 3 acceptance rows are closed with no unresolved blocker. |
+| Tracker authority | This tracker controls sequencing, evidence, rollback, and handoff. The adopted Indicators boundary decision and normative Core owner sections continue to define required behavior. |
+| Protected query | The raw `loadByDedupeTx` SQL and lock order remain protected at `sha256:d665f06c2526b0118e33eaa887da279ad54025967618662c2a0b47b7bfde857b`. |
+| Product posture | Preserve public behavior and durable state while removing internal compatibility burdens, caller-selected owner identity, transport leakage, forwarding structure, and concrete peer-store construction. |
+| Migration posture | Repository-internal Go callers migrate atomically. No database, frontend, browser, OpenAPI, generated-protocol, portable-schema, or domain-vocabulary migration is planned. |
+
+The 2026-08-24 implementation request authorizes `I3-S00` through `I3-S06` in
+the exact serial order below. It does not broaden the stated scope or activate
+an explicit deferral.
+
+### 21.2 Serial execution and checkpoint policy
+
+#### Iteration 3 remediation matrix
+
+| ID | Gap and affected areas | Durable remediation | Compatibility and unresolved risk | Completion evidence |
+| --- | --- | --- | --- | --- |
+| `I3-GAP-001` | The root is named Store, constructs Auth and Incidents peers, accepts a concrete Revisions dependency, and exposes authentication records where only actor identity is used. Specification, implementation, tests, policy, and tracker are affected. | Adopt one Application with eight required injected capabilities; application assembly constructs peer adapters; HTTP receives composition-owned Records, incident-admission, and Auth session capabilities; every root mutation uses and validates an actor UUID. | Internal Go callers migrate atomically with no alias. Wire, data, transaction order, and replay remain exact. If unresolved, hidden construction, typed-nil failures, auth representation leakage, and high-fanout change remain. | Nil/typed-nil and actor matrices, exact 54-export guard, predecessor/concrete-construction scans, mutation/replay/transaction/route tests, and protected SQL digest pass. |
+| `I3-GAP-002` | Workbook create admission imports HTTP and returns an HTTP API error. Specification, implementation, tests, and tracker are affected. | Decode with `strictjson`, return only the existing field/reason validation error, and translate it once in Workbook assembly. | Exact strict-object behavior and public bytes remain. If unresolved, transport coupling and competing error translation persist. | Exhaustive semantic admission negatives, exact Workbook failure bytes, reordered valid payload parity, and transport-import guards pass. |
+| `I3-GAP-003` | A forwarding projection package remains and import callers select owner identity. Specification, implementation, tests, policy, and tracker are affected. | Publish projection and import contributions directly from the root and fix both Indicator identities inside the owner. | Internal imports migrate atomically; projection/import bytes and behavior remain exact. If unresolved, wrappers and caller-controlled identity become permanent coupling. | Contribution parity, independent generated-catalog mismatch failure, wrapper-removal scans, and Projections/Imports slices pass. |
+| `I3-GAP-004` | Legacy symbols, allowances, tests, comments, or empty paths can survive the cutover. Implementation, tests, policy, and tracker are affected. | Remove all proven predecessor residue and replace historical guards with final construction, capability, actor, transport, contribution, and export guards. | No adopted feature or source family is removed. If unresolved, stale topology remains an attractive dependency and false evidence hides drift. | Exact 54-role inventory, synthetic-export rejection, predecessor scans, and protected-capability audit pass. |
+| `I3-GAP-005` | Relocated tests and policy paths can drift from authored verification and generated topology; the current child contribution test has no authored selector. Tests, verification inputs, generated projections, and tracker are affected. | Route every active assertion once, update authored boundary and test-family inputs, and regenerate only through Make. | Harness-only; runtime reads no evidence metadata. If unresolved, tests can be unselected, duplicated, or mis-owned. | Test catalog, harness contract, backend boundary, generation drift, artifact policy, and JSON shape pass with no stale package. |
+
+The strict dependency chain is:
+
+`I3-DOC-00` → `I3-S00` → `I3-S01` → `I3-S02` → `I3-S03` →
+`I3-S04` → `I3-S05` → `I3-S06`.
+
+Every implementation slice follows this checkpoint protocol:
+
+1. Reconfirm the live branch, commit, worktree, adopted owners, complete
+   caller inventory, and predecessor evidence. Mark the slice `IN_PROGRESS`
+   before its first non-tracker edit.
+2. Make only the cohesive structural change assigned to the active slice. Do
+   not introduce aliases, overloads, forwarding packages, parallel
+   composition, fallbacks, dual registration, or speculative abstractions.
+3. Run the narrow affected-owner evidence, service-backed evidence where
+   applicable, and the slice policy checks.
+4. A related failure reopens its owning slice. Retain and record its result
+   root, diagnosis, correction or rollback, and rerun; do not begin the
+   successor, and repeat any invalidated downstream validation.
+5. On success, update this tracker with every changed path, substantive edit,
+   command and result root, failure and rerun, skip and reason, rollback
+   posture, remaining risk, compatibility disposition, and the sole next
+   action. Every checkpoint MUST contain the exact statement
+   `domain vocabulary unchanged`.
+6. Run and record a successful `make lint-markdown` after the checkpoint
+   update. A successor may begin only after the preceding slice and its
+   Markdown checkpoint are `DONE`.
+
+Generated outputs are changed only through their Make-owned generator after
+an authored input changes. Tests, owners, policies, or acceptance criteria are
+not weakened to obtain a pass, and unrelated user changes remain preserved.
+
+### 21.3 Sequential workstreams
+
+| ID | Workstream | Depends on and authorization | Planned change and exit criteria | Status |
+| --- | --- | --- | --- | --- |
+| `I3-DOC-00` | Document-only activation | Iteration 2 complete; current user authorization | Append only Section 21, preserve Sections 1 through 20, record the clean planning baseline and decision-complete Iteration 3 plan, and pass Markdown plus scoped document audits. | DONE |
+| `I3-S00` | Rebaseline and adopt the final boundary | `I3-DOC-00`; authorized by the 2026-08-24 implementation request | Refresh every production, test, tool, generated, application, and retained-evidence caller before deletion. Amend `IND-BOUNDARY-001` and Core 04 `AC-560` to adopt the root Application boundary, explicit capability injection, final contribution topology, and exact 54-declaration export inventory. Exit only when every deletion and replacement has a caller disposition and adopted topology route, with the protected SQL digest exact. | DONE |
+| `I3-S01` | Replace the legacy Store boundary | `I3-S00` | Atomically rename `Store`, `StoreDependencies`, and `NewStore`; inject `IdempotencyPort`, `IncidentStatePort`, and promoted `RevisionPort`; move concrete Auth, Incidents, Records, and Revisions adapter construction to application composition; accept actor UUIDs instead of authentication records; preserve transaction and durable behavior. Exit with one cohesive Application, no compatibility path, and the exact transitional 53-export guard passing; `I3-S03` adds `NewProjectionContribution` as the fifty-fourth final export. | DONE |
+| `I3-S02` | Semantic, transport-neutral admission | `I3-S01` | Return only the closed semantic `Field` and `ReasonCode` error from Indicators admission, use `internal/platform/strictjson` directly, and move Workbook error-envelope construction to `internal/app/workbookassembly`. Exit with no Indicators admission import of an HTTP transport package and exactly one semantic-to-wire translation, while exact public bytes and admission semantics remain unchanged. | DONE |
+| `I3-S03` | Remove contribution wrappers and caller-selected identity | `I3-S02` | Add root `NewProjectionContribution()` and `NewImportContribution(application)`, delete `internal/modules/indicators/projectionprovider`, retain `workbookprojection` as the typed cross-owner projection contract, and derive the view schema and `indicators.import_create` identity inside Indicators. Migrate Projections, Imports, server assembly, tests, and boundary manifests atomically without changing provider identity or behavior. | DONE |
+| `I3-S04` | Complete the dead-code and surface audit | `I3-S03` | Rescan all caller classes after cutover; remove predecessor symbols and paths, wrapper-specific helpers and tests, stale comments and allowances, unused imports, and empty directories. Replace deleted structural tests with constructor, capability, export-surface, transport-isolation, and provider-contribution guards. Exit with no alias, forwarding helper, fallback, dual registration, stale predecessor, or unreviewed export. | DONE |
+| `I3-S05` | Reconcile harness and generated topology | `I3-S04` | Update authored boundary, verification, test-family, and topology inputs for renamed tests or packages; run `make generate` only after authored inputs change. Exit with every active test resolving exactly once, no removed selector or package in generated schedules, and generation drift, artifact policy, JSON shape, harness contract, and backend boundaries passing. | DONE |
+| `I3-S06` | Final validation and handoff | `I3-S05` | Run Section 21.6 in order, remove any final proven residue, reconcile the complete change inventory and compatibility map, record failures/reruns/skips/risks, and close every binary acceptance row. Any failure returns to its owning slice and invalidates downstream evidence. | DONE |
+
+### 21.4 Final application and contribution boundary
+
+The clean cutover is exact and atomic:
+
+| Predecessor | Final interface | Compatibility disposition |
+| --- | --- | --- |
+| `Store` | `Application` | Rename the cohesive root application object; no type alias or parallel Store remains. |
+| `StoreDependencies` | `ApplicationDependencies` | Rename and extend the single explicit dependency set; no compatibility struct or default lookup remains. |
+| `NewStore` | `NewApplication` | Replace the constructor and migrate every caller in the same slice; no forwarding constructor or overload remains. |
+| `NewImportCreateFacade(targetViewSchemaID, facadeID, application)` | `NewImportContribution(application)` | Indicators fixes its own view schema and `indicators.import_create` identity; callers no longer select owner identity. |
+| `projectionprovider.NewContribution()` | `indicators.NewProjectionContribution()` | Delete the wrapper package; `workbookprojection` remains the sole typed cross-owner projection contract. |
+| Root-facing `authn.UserRecord` | `ActorUserID uuid.UUID` or an actor UUID argument | HTTP retains the authenticated principal but passes only its ID. Imports passes the request actor ID directly and does not synthesize a user record. |
+| Admission `*httpapi.APIError` | Existing closed semantic validation error with only `Field` and `ReasonCode` | Workbook assembly alone supplies `invalid_mutation_payload`, HTTP status, message, details, and failure-envelope bytes. |
+
+The three new root capabilities are narrow and behavior-preserving:
+
+- `IdempotencyPort` owns the existing replay lookup and caller-transaction
+  persistence operations used by Indicators without exposing a concrete Auth
+  store. Its insert operation omits the unused platform target-user argument;
+  the application adapter supplies `nil` at the platform call.
+- `IncidentStatePort` owns open-incident enforcement through the current
+  caller transaction without exposing a concrete Incidents checker.
+- `RevisionPort` promotes the existing private revision method set required
+  for snapshots, change sets, mutations, and revision intents without
+  exposing a concrete Revisions appender.
+
+`ApplicationDependencies` also retains the existing Postgres,
+`RecordEnvelopePort`, projection rows, `SourceTextPort`, and clock
+dependencies. Application composition constructs and injects every adapter.
+Indicators retains Postgres only to begin its own transactions and execute
+Indicators-owned SQL; it does not construct concrete Auth, Incidents, Records,
+or Revisions stores.
+
+HTTP registration receives the Application, Records envelope reader, incident
+admission checker, and a private Auth session store/slider capability. It
+continues to receive environment, clock, cursor, and other transport facts
+from the platform dependency set, but does not construct a Postgres-backed
+peer store or require Postgres solely for that construction.
+
+The root allowlist is exactly 54 declarations: the existing 50 declarations
+with the four clean root API renames, plus `IdempotencyPort`,
+`IncidentStatePort`, `RevisionPort`, and `NewProjectionContribution`.
+Application receiver names replace Store receiver names mechanically without
+adding parallel methods. Every declaration retains one reviewed production
+role, and a synthetic unapproved export must fail the guard.
+
+The serial cutover therefore has one deliberate intermediate count:
+`I3-S01` guards exactly 53 declarations after adding the three application
+ports, and `I3-S03` adds `NewProjectionContribution` to reach the adopted final
+count of 54. Adding a placeholder or dual projection-contribution path in
+`I3-S01` would violate the slice boundary and the no-compatibility-path rule.
+
+### 21.5 Compatibility and binary acceptance
+
+Iteration 3 preserves all of the following exactly:
+
+- the eight adopted Indicator HTTP operations, paths, operation IDs,
+  authorization and concealment order, statuses, JSON bodies, cursors, and
+  request hashing;
+- the view schema, canonical identity, source families, replay hashes and
+  persisted rows, statement order, timestamps, error identity, history,
+  projections, and durable transaction effects;
+- Collaboration consequences, Incident Bundle portability, Recovery,
+  rollback, delete/restore, Network Flow participation, and revision behavior;
+  and
+- strict-object handling, duplicate and unknown-member rejection, field
+  normalization, and exact Workbook success and failure bytes.
+
+Repository-internal Go callers migrate atomically. No compatibility alias,
+forwarding package, dual constructor, dual registration, deprecation period,
+or runtime fallback is permitted. `I3-S04` does not remove any adopted HTTP
+operation, source family, `testsupport`, portability, Recovery, rollback,
+delete/restore, Network Flow, or revision capability merely because an
+incidental repository-internal caller is absent.
+
+Iteration 3 is complete only when all of the following are true:
+
+- no `Store`, `StoreDependencies`, `NewStore`,
+  `NewImportCreateFacade`, or `projectionprovider` production reference
+  remains;
+- Indicators production admission imports no HTTP transport package and
+  Workbook performs exactly one semantic-to-wire error translation;
+- root application methods and participant commands accept actor IDs rather
+  than authentication records, and Imports creates no synthetic user;
+- application composition alone constructs concrete peer and platform
+  adapters, while Indicators retains only its owned Postgres behavior;
+- the exact 54-declaration root allowlist and all constructor, capability,
+  transport-isolation, contribution, replay, transaction, and provider guards
+  pass;
+- every required check passes with retained evidence and no unexplained skip;
+  and
+- every changed file, substantive edit, failure, rerun, skip, rollback,
+  remaining risk, and compatibility disposition is recorded in this tracker.
+
+| Acceptance ID | Binary pass condition | Status |
+| --- | --- | --- |
+| `I3-AC-001` | The boundary decision and `AC-560` adopt the exact Application, HTTP capability, actor, contribution, and 54-export topology. | DONE — `I3-S00` |
+| `I3-AC-002` | Application and HTTP construction reject every nil and typed-nil required capability and construct no peer store. | DONE — `I3-S01` |
+| `I3-AC-003` | Root operations use validated actor UUIDs; Imports synthesizes no user; transactions, replay, and protected SQL remain exact. | DONE — `I3-S01` |
+| `I3-AC-004` | Workbook admission is transport-neutral and preserves exact public admission and failure behavior. | DONE — `I3-S02` |
+| `I3-AC-005` | Root projection/import contributions preserve exact identity and behavior, with no forwarding package or caller-selected identity. | DONE — `I3-S03` |
+| `I3-AC-006` | No predecessor, alias, fallback, stale allowance, empty directory, or unreviewed export remains. | DONE — `I3-S04` |
+| `I3-AC-007` | Every active test resolves exactly once and all authored/generated policy gates pass. | DONE — `I3-S05` |
+| `I3-AC-008` | All protected public, durable, transaction, portability, recovery, revision, and Network Flow behavior remains exact. | DONE — `I3-S06` |
+| `I3-AC-009` | The ordered final ladder and complete tracker handoff pass without unexplained failure, skip, drift, or blocker. | DONE — `I3-S06` |
+
+No database migration, frontend change, browser claim, protocol regeneration,
+or `docs/domain.md` edit is planned. Browser validation activates only if an
+unexpected frontend, route, OpenAPI, or generated-protocol diff enters the
+worktree. At every checkpoint: `domain vocabulary unchanged`.
+
+### 21.6 Final validation order
+
+`I3-S06` runs the following in order:
+
+1. Run `make task-guide` and the focused and service-backed slices for
+   Indicators, Records, Workbook, Imports, Network Flow, Revisions,
+   Projections, and `app.server`.
+2. Run the exact constructor, export-surface, admission-wire, replay,
+   transaction, provider, and startup/catalog tests.
+3. Run `make backend-module-boundary-check`.
+4. Run `make test-catalog-check`.
+5. Run `make harness-contract`.
+6. Run `make generate-drift`.
+7. Run `make generated-artifact-policy-check`.
+8. Run `make json-shape-check`.
+9. Run `make migration-drift`.
+10. Run `make build-server`.
+11. Run `make build-migrate`.
+12. Run `make agent-finalize`; omit `RESULTS_DIR` unless a qualifying
+    successful full warm-check root exists at that ordered point.
+13. Run `make test-fast`.
+14. Run `make check`.
+15. Append the final tracker handoff and run `make lint-markdown`.
+
+Any failure reopens its owning slice, blocks the successor, and requires all
+invalidated downstream validation to be repeated. Browser evidence remains
+inactive unless the conditional browser gate in Section 21.5 activates.
+
+### 21.7 Explicit deferrals
+
+`I2-DEF-001` through `I2-DEF-004` remain unchanged and are not opportunistic
+Iteration 3 cleanup:
+
+| ID | Deferred work | Activation gate | Status |
+| --- | --- | --- | --- |
+| `I2-DEF-001` | Decompose `loadByDedupeTx`. | Requires the existing separately authorized cross-owner lock protocol and concurrency proof. | DEFERRED |
+| `I2-DEF-002` | Retire a public Indicator operation or source family. | Requires product-owner evidence, replacement or retention policy, and explicit authorization. | DEFERRED |
+| `I2-DEF-003` | Change `ipv4_addr` or another adopted vocabulary token. | Requires a versioned vocabulary plus data and API migration plan. | DEFERRED |
+| `I2-DEF-004` | Redesign or version idempotency hashes. | Requires an owner-approved version discriminator and safe transition for committed replay rows. | DEFERRED |
+
+### 21.8 Checkpoint ledger and future handoff
+
+| Workstream | Started | Completed | Status | Files, commands, roots, outcome, rollback, vocabulary, and next action |
+| --- | --- | --- | --- | --- |
+| `I3-DOC-00` | 2026-08-24 | 2026-08-24 | DONE | Appended only Section 21 to `docs/handoffs/indicators-module-refactor-tracker.md`; preserved Sections 1 through 20 and changed no owner, implementation, test, contract, migration, generated artifact, or frontend path. Current-HEAD focused, backend-boundary, and service-backed baselines passed at the roots in Section 21.1. Planning-body and completed-checkpoint Markdown lint passed at `.cartulary/test-results/20260824T181441Z-p2616884` and `.cartulary/test-results/20260824T181603Z-p2618259`; scoped document audits follow this evidence update. No failure, skip, rollback, or implementation authorization. `I3-S00` is inactive pending separate authorization. `domain vocabulary unchanged`. |
+| `I3-S00` | 2026-08-24 | 2026-08-24 | DONE | Reconfirmed `main@283ef6343d1079a5d0c27a294654f48abb0878ca`, the user-owned staged tracker as the sole baseline change, 50 guarded root declarations, 37 routed Indicators rows, the complete production/test/application/policy caller classes, the currently unrouted child projection-contribution test, and protected SQL `d665f06c2526b0118e33eaa887da279ad54025967618662c2a0b47b7bfde857b`. Added the five-gap matrix, exact interface and HTTP capability posture, and nine binary acceptance rows; amended `docs/decisions/indicators-module-boundary.md` and Core 04 `AC-560` to adopt the Application, actor UUID, semantic admission, direct contribution, and exact 54-export boundary. Changed only those two owner documents and this tracker. Indicators focused passed with 19 execution units and 37 evidence rows at `.cartulary/test-results/20260824T183328Z-p2628073`; backend boundary passed 3/3 at `.cartulary/test-results/20260824T183328Z-p2628192`; Markdown passed at `.cartulary/test-results/20260824T183328Z-p2628226`; scoped whitespace and staged-baseline audits passed. No failure, skip, rollback, generated edit, owner contradiction, or scope expansion. `I3-S01` is the sole next action. `domain vocabulary unchanged`. |
+| `I3-S01` | 2026-08-24 | 2026-08-24 | DONE | Replaced the Indicators `Store`, dependencies, constructor, and all receivers/callers atomically with `Application`; added the eight-dependency constructor with injected idempotency, incident-state, revision, record-envelope, projection, source-text, Postgres, and clock capabilities; added the application-owned Auth idempotency adapter with the unused target-user field fixed to `nil`; and made HTTP take shared Records, incident-admission, and Auth session capabilities without a Postgres construction dependency. Migrated every root mutation, Workbook call, Import callback, HTTP call, and Network Flow participant command to actor UUIDs; added dependency-free nil-actor rejection evidence; and preserved the user-owned staged tracker baseline. The guarded intermediate surface is exactly 53 because the separately sequenced `NewProjectionContribution` is added in `I3-S03`, where the final count becomes 54; no placeholder or dual path was introduced. Final format passed at `.cartulary/test-results/20260824T184736Z-p2681342`; Indicators focused and service-backed passed at `.cartulary/test-results/20260824T184740Z-p2685163` and `.cartulary/test-results/20260824T184936Z-p2718373`; Workbook, Network Flow, Revisions, and app.server focused slices passed at `.cartulary/test-results/20260824T185031Z-p2735225`, `.cartulary/test-results/20260824T185243Z-p2793331`, `.cartulary/test-results/20260824T185453Z-p2850361`, and `.cartulary/test-results/20260824T185557Z-p2895720`; build-server passed at `.cartulary/test-results/20260824T184831Z-p2702102`; `test-fast` passed 427/427 at `.cartulary/test-results/20260824T185721Z-p2936558`; backend boundaries passed 3/3 at `.cartulary/test-results/20260824T185817Z-p2945094`; checkpoint Markdown passed at `.cartulary/test-results/20260824T185930Z-p2945868`; and scoped source, compatibility, generated/frontend/database, staged-baseline, and whitespace audits passed. The first focused run `.cartulary/test-results/20260824T184455Z-p2654385` exposed two remaining private references to the promoted revision port; the second `.cartulary/test-results/20260824T184532Z-p2663189` exposed the intentionally stale 50-export allowlist. Both were corrected structurally before the green rerun. No skip, compatibility shim, database or public-contract change, generated edit, operational rollback, owner contradiction, scope expansion, or residual concrete peer construction exists. Whole-change revert remains the rollback posture. Protected SQL remains `d665f06c2526b0118e33eaa887da279ad54025967618662c2a0b47b7bfde857b`. `I3-S02` is the sole next action. `domain vocabulary unchanged`. |
+| `I3-S02` | 2026-08-24 | 2026-08-24 | DONE | Replaced Indicators admission's HTTP JSON wrapper and `APIError` result with direct `strictjson.DecodeObject` use and the closed `IndicatorCreateValidationError{Field, ReasonCode}` result. Workbook assembly now has one semantic-to-`InvalidPayloadFailure` translation shared by decoder and owner-validation failures. Expanded the admission matrix across empty, malformed, non-object, duplicate top-level and nested members, trailing data, missing/null/numeric/blank transaction identity, unknown and read-only members, nullability, non-string and blank values, missing owner identity, and invalid vocabulary; retained valid normalization and reordered-member command equality. Added Workbook adapter parity evidence and a source guard rejecting HTTP imports, the wrapper, and `APIError` in production admission. Changed only Indicators admission/tests and Workbook's Indicator adapter/test in this slice; no shared strict-JSON, generic Workbook failure, route, OpenAPI, protocol, frontend, database, generated, or domain path changed. Format passed at `.cartulary/test-results/20260824T190332Z-p2949237`; Indicators focused and service-backed passed at `.cartulary/test-results/20260824T190335Z-p2953065` and `.cartulary/test-results/20260824T190852Z-p3085600`; Workbook focused and service-backed passed at `.cartulary/test-results/20260824T190428Z-p2970228` and `.cartulary/test-results/20260824T190640Z-p3028212`; backend boundaries passed 3/3 at `.cartulary/test-results/20260824T190941Z-p3101851`; build-server passed at `.cartulary/test-results/20260824T190943Z-p3102316`; checkpoint Markdown passed at `.cartulary/test-results/20260824T191031Z-p3114655`; source and whitespace guards passed. Exact field/reason pairs therefore continue through the existing Workbook failure mapper with unchanged 400 status, `invalid_mutation_payload` code and message, details membership, and response serialization. No failure, rerun, skip, compatibility path, rollback, owner contradiction, scope expansion, or residual transport coupling occurred. Whole-change revert remains the rollback posture. `I3-S03` is the sole next action. `domain vocabulary unchanged`. |
+| `I3-S03` | 2026-08-24 | 2026-08-24 | DONE | Added root `NewProjectionContribution()` backed by the private projection source and root `NewImportContribution(application)` with `cartulary.view.indicators.v1` and `indicators.import_create` fixed inside Indicators. Migrated production Projections assembly, projection manifest evidence, projection test support, transaction fixtures, provider encapsulation, Imports assembly, and the exact export-role guard. Imports now compares the source-owner binding to the generated target entry and fails startup for either view-schema or facade-ID drift, so the generated catalog remains an independent validator rather than an identity supplier. Moved complete projection surface-intent evidence to the root package; updated the directly invalidated projection and backend import policies; deleted both forwarding-package files and removed the empty `internal/modules/indicators/projectionprovider` directory. Recovery is by whole-change revert. The guarded root surface is now the adopted final 54 declarations. No projection descriptor, source reader, field order, import binding, result code, durable behavior, or generated manifest byte changed. Format passed at `.cartulary/test-results/20260824T191508Z-p3118424`; Indicators, Projections, and Imports focused slices passed at `.cartulary/test-results/20260824T191516Z-p3122311`, `.cartulary/test-results/20260824T191607Z-p3139680`, and `.cartulary/test-results/20260824T191649Z-p3156324`; their service-backed slices passed at `.cartulary/test-results/20260824T191944Z-p3256815`, `.cartulary/test-results/20260824T191758Z-p3198845`, and `.cartulary/test-results/20260824T191835Z-p3214961`; backend boundaries passed 3/3 at `.cartulary/test-results/20260824T192033Z-p3272916`; build-server passed at `.cartulary/test-results/20260824T192035Z-p3273365`; checkpoint Markdown passed at `.cartulary/test-results/20260824T192113Z-p3285640`; wrapper-path, predecessor-constructor, directory, source, and whitespace guards passed. No failure, rerun, skip, compatibility shim, generated edit, database/public/frontend change, rollback execution, owner contradiction, scope expansion, or wrapper residue occurred. `I3-S04` is the sole next action. `domain vocabulary unchanged`. |
+| `I3-S04` | 2026-08-24 | 2026-08-24 | DONE | Reconfirmed unchanged `main@283ef6343d1079a5d0c27a294654f48abb0878ca` and preserved the user-owned staged tracker index. Renamed `store_composition.go`, `store_composition_test.go`, and `store_test_helpers_test.go` to `application.go`, `application_test.go`, and `application_test_helpers_test.go`; renamed their application-oriented tests and fixture; removed stale Store-named locals across Indicators integration evidence and direct Revisions/Workbook consumers; and changed the target-role helper to accept an actor UUID. Updated `internal/modules/indicators/boundary_guard_test.go` to remove predecessor allowances and allow only the final Application-to-Records contract. Extended `exported_surface_test.go` to prove rejection of a synthetic fifty-fifth export and to reject predecessor declarations/selectors/aliases, the deleted wrapper path, concrete peer construction, synthetic users, and dual HTTP registration across production and test callers. Updated the two directly invalidated authored selector rows in `tools/test_families/module.indicators.json`; generated reconciliation remains exclusively in `I3-S05`. Other touched S04 evidence is `active_identity_claims_integration_test.go`, `idempotency_hash_test.go`, `identity_concurrency_test.go`, `indicators_test.go`, `observation_origin_integration_test.go`, `portability_characterization_test.go`, `production_contract_test.go`, `resolution_integration_test.go`, `target_resolution_integration_test.go`, `unit_test.go`, `internal/modules/revisions/indicator_children_test.go`, and `internal/modules/workbook/notes_indicators_test.go`. The first `make format` failed before a retained run root because the renamed structural selector list was not ASCII-sorted; sorting it corrected the authored input, and format passed at `.cartulary/test-results/20260824T192812Z-p3290085`. The first narrow structural run failed at `.cartulary/test-results/20260824T192833Z-p3294199` because the audit had removed the legitimate `application.go` Records-port allowance; restoring that one final-topology allowance produced the green 3-row rerun at `.cartulary/test-results/20260824T192858Z-p3295472`. Indicators focused passed 19/19 at `.cartulary/test-results/20260824T192907Z-p3296391`, service-backed passed 8/8 at `.cartulary/test-results/20260824T192956Z-p3314251`, backend boundaries passed 3/3 at `.cartulary/test-results/20260824T193113Z-p3330570`, build-server passed at `.cartulary/test-results/20260824T193120Z-p3331055`, and `test-fast` passed 427/427 at `.cartulary/test-results/20260824T193133Z-p3343178`. Checkpoint Markdown passed at `.cartulary/test-results/20260824T193309Z-p3352671`. Repository scans and `git diff --check` found no root predecessor declaration/reference, concrete peer construction, synthetic root-facing user, wrapper path, empty Indicators directory, whitespace error, or unapproved export; the exact 54-role guard and protected SQL `d665f06c2526b0118e33eaa887da279ad54025967618662c2a0b47b7bfde857b` pass. No evidence was skipped, no compatibility path or runtime behavior changed, no rollback was executed, and whole-change revert remains the rollback posture. Browser activation remains inactive; all deferrals remain inactive. `I3-S05` is the sole next action. `domain vocabulary unchanged`. |
+| `I3-S05` | 2026-08-24 | 2026-08-24 | DONE | The first checkpoint at `.cartulary/test-results/20260824T193906Z-p3401008` was reopened when S06 proved callable but unselected tests remained. The correction expanded `tools/test_families/module.indicators.json` to route actor rejection, transport/import boundaries, the typed workbook-projection contract, Network Flow participant rollback, and three retained rollback-child assertions; added dedicated rows in `tools/test_families/module.workbook.json` and `module.imports.json` for the single Workbook semantic translation and independent generated-catalog drift rejection; and removed duplicate import-boundary execution from `internal/modules/indicators/exported_surface_test.go`. The existing `contracts/verification/owners/module.indicators.json` contribution-identity verification covers both root and typed projection contributions. Make-owned generation passed at `.cartulary/test-results/20260824T200702Z-p4028456` and, after the stricter audit found the three retained rollback tests, at `.cartulary/test-results/20260824T201848Z-p100057`; only `tools/execution_topology_render_index.json` input hashes changed. Format passed at `.cartulary/test-results/20260824T200654Z-p4024610` and `.cartulary/test-results/20260824T201839Z-p96207`. The five-row Indicators correction passed at `.cartulary/test-results/20260824T200720Z-p4031303`; Workbook and Imports correction rows passed at `.cartulary/test-results/20260824T200801Z-p4047754` and `.cartulary/test-results/20260824T200805Z-p4048123`; the retained rollback row passed at `.cartulary/test-results/20260824T201901Z-p102863`. Affected focused slices passed Indicators 20/20 at `.cartulary/test-results/20260824T200817Z-p4048526`, Workbook 66/66 at `.cartulary/test-results/20260824T200901Z-p4065541`, and Imports 23/23 at `.cartulary/test-results/20260824T201117Z-p4125937`; service-backed slices passed 8/8, 37/37, and 14/14 at `.cartulary/test-results/20260824T201234Z-p4168800`, `.cartulary/test-results/20260824T201317Z-p4184902`, and `.cartulary/test-results/20260824T201529Z-p48392`. The final Indicators focused rerun after the retained-test addition passed 20/20 at `.cartulary/test-results/20260824T201926Z-p103393`; the service-backed selection was not invalidated because the added rollback row is fast and service-free. A package-plus-test audit now proves all 64 Indicators top-level tests and all three changed application-assembly tests resolve exactly once across 39 Indicators rows. Final `make test-catalog-check` passed without a retained root; harness contract passed 2/2 at `.cartulary/test-results/20260824T202035Z-p120934`; generation drift passed 4/4 at `.cartulary/test-results/20260824T202050Z-p121503`; generated-artifact policy passed 3/3 at `.cartulary/test-results/20260824T202101Z-p124472`; JSON shape passed 3/3 at `.cartulary/test-results/20260824T202105Z-p124937`; backend boundaries passed 3/3 at `.cartulary/test-results/20260824T202118Z-p125487`; and the repeated checkpoint Markdown passed at `.cartulary/test-results/20260824T202213Z-p126261`. Stale-selector, generated-product, whitespace, and staged-index audits pass. No assertion or policy gate failed after correction; no check was skipped; no runtime behavior, compatibility path, manual generated edit, rollback execution, scope expansion, or owner contradiction occurred. Whole-change revert remains the rollback posture; browser activation and all deferrals remain inactive. `I3-S06` is the sole next action. `domain vocabulary unchanged`. |
+| `I3-S06` | 2026-08-24 | 2026-08-24 | DONE | The first owner ladder and its app.server infrastructure rerun remain recorded above in the S05 return history. After the repeated S05 checkpoint at `.cartulary/test-results/20260824T202213Z-p126261`, S06 restarted from task guidance and repeated every owner slice. Final focused roots are Indicators 20/20 `.cartulary/test-results/20260824T202421Z-p130369`, Records 8/8 `.cartulary/test-results/20260824T202504Z-p146565`, Workbook 66/66 `.cartulary/test-results/20260824T202540Z-p162562`, Imports 23/23 `.cartulary/test-results/20260824T202751Z-p220040`, Network Flow 35/35 `.cartulary/test-results/20260824T202900Z-p261972`, Revisions 27/27 `.cartulary/test-results/20260824T203108Z-p318605`, Projections 15/15 `.cartulary/test-results/20260824T203212Z-p363343`, and app.server 24/24 `.cartulary/test-results/20260824T203248Z-p379490`. Final service-backed roots are Indicators 8/8 `.cartulary/test-results/20260824T203349Z-p419945`, Records 5/5 `.cartulary/test-results/20260824T203433Z-p436029`, Workbook 37/37 `.cartulary/test-results/20260824T203508Z-p451908`, Imports 14/14 `.cartulary/test-results/20260824T203720Z-p509214`, Network Flow 30/30 `.cartulary/test-results/20260824T203829Z-p551040`, Revisions 20/20 `.cartulary/test-results/20260824T204036Z-p607316`, Projections 11/11 `.cartulary/test-results/20260824T204139Z-p651756`, and app.server 17/17 `.cartulary/test-results/20260824T204215Z-p667942`. Exact Indicators scenarios passed 7/7 at `.cartulary/test-results/20260824T204319Z-p707918`; Workbook translation, Imports catalog identity, and app.server startup scenarios passed at `.cartulary/test-results/20260824T204359Z-p723897`, `.cartulary/test-results/20260824T204402Z-p724260`, and `.cartulary/test-results/20260824T204418Z-p724734`. Backend boundaries passed 3/3 at `.cartulary/test-results/20260824T204430Z-p725208`; test catalog passed without a retained root; harness contract passed 2/2 at `.cartulary/test-results/20260824T204449Z-p726067`; generation drift passed 4/4 at `.cartulary/test-results/20260824T204507Z-p726642`; artifact policy passed 3/3 at `.cartulary/test-results/20260824T204518Z-p729628`; JSON shape passed 3/3 at `.cartulary/test-results/20260824T204523Z-p730083`; migration drift passed 5/5 at `.cartulary/test-results/20260824T204534Z-p730564`; server and migrate builds passed at `.cartulary/test-results/20260824T204545Z-p733558` and `.cartulary/test-results/20260824T204559Z-p745712`; agent finalization passed at `.cartulary/test-results/20260824T204610Z-p747577`, with retained-run maintenance skipped because `RESULTS_DIR` was unset; and `test-fast` passed 430/430 at `.cartulary/test-results/20260824T204632Z-p750524`. The first `make check` failed 655/656 at `.cartulary/test-results/20260824T204712Z-p755523` solely when the unrelated `harness.browser.unit.object_store_fixture_admission` capability probe timed out against its started object store; its exact unchanged row passed 3/3 at `.cartulary/test-results/20260824T205430Z-p877193`, then the unchanged full rerun passed 656/656 at `.cartulary/test-results/20260824T205512Z-p893165`. Section 21.9 contains the complete 64-path, compatibility, migration, skip, rollback, and risk handoff. The handoff-content Markdown checkpoint passed at `.cartulary/test-results/20260824T210231Z-p1003483`. No product assertion failed, no product correction or rollback followed either infrastructure timeout, and no required check remains. `domain vocabulary unchanged`. |
+
+### 21.9 Final change inventory, compatibility, and handoff
+
+The final worktree remains on `main` at unchanged implementation-base HEAD
+`283ef6343d1079a5d0c27a294654f48abb0878ca`. The user-owned staged tracker is
+still the sole index path; this session neither staged nor reset it. The final
+64-path inventory is seven added paths, five deleted paths, and 52 modified
+paths, including the tracker with both staged baseline and working-tree
+checkpoint edits.
+
+- Specification, verification, tracker, and Make-owned topology:
+  `contracts/verification/owners/module.indicators.json`,
+  `docs/decisions/indicators-module-boundary.md`,
+  `docs/handoffs/indicators-module-refactor-tracker.md`,
+  `docs/spec/04_security_deployment_and_conformance.md`,
+  `tools/backend_module_boundaries.json`,
+  `tools/execution_topology_render_index.json`,
+  `tools/test_families/module.imports.json`,
+  `tools/test_families/module.indicators.json`, and
+  `tools/test_families/module.workbook.json`.
+- Application assembly and assembly evidence:
+  added `internal/app/indicatorassembly/idempotency.go`;
+  `internal/app/importassembly/owner_registry.go`,
+  `internal/app/importassembly/owner_registry_test.go`, and
+  `internal/app/importassembly/tasksdecisions_integration_test.go`;
+  `internal/app/projectionassembly/build.go` and
+  `internal/app/projectionassembly/catalog_manifest_test.go`;
+  `internal/app/server/runtime_assembly.go`; and
+  `internal/app/workbookassembly/catalog.go`,
+  `internal/app/workbookassembly/indicator_adapter.go`, and
+  `internal/app/workbookassembly/indicator_adapter_test.go`.
+- Indicators production, contracts, and deleted topology:
+  added `internal/modules/indicators/application.go` and
+  `internal/modules/indicators/projection_provider_contribution.go`;
+  `internal/modules/indicators/admission/create.go`,
+  `internal/modules/indicators/child_coordination.go`,
+  `internal/modules/indicators/contracts.go`,
+  `internal/modules/indicators/create_service.go`,
+  `internal/modules/indicators/httpapi/routes.go`,
+  `internal/modules/indicators/import_create.go`,
+  `internal/modules/indicators/lifecycle_service.go`,
+  `internal/modules/indicators/network_flow_participant.go`,
+  `internal/modules/indicators/observation_service.go`, and
+  `internal/modules/indicators/revision_append_port.go`; deleted
+  `internal/modules/indicators/projectionprovider/contribution.go`,
+  `internal/modules/indicators/projectionprovider/contribution_test.go`,
+  `internal/modules/indicators/store_composition.go`,
+  `internal/modules/indicators/store_composition_test.go`, and
+  `internal/modules/indicators/store_test_helpers_test.go`.
+- Indicators tests and structural evidence:
+  added `internal/modules/indicators/application_actor_test.go`,
+  `internal/modules/indicators/application_test.go`,
+  `internal/modules/indicators/application_test_helpers_test.go`, and
+  `internal/modules/indicators/projection_provider_contribution_test.go`;
+  `internal/modules/indicators/active_identity_claims_integration_test.go`,
+  `internal/modules/indicators/admission/create_test.go`,
+  `internal/modules/indicators/boundary_guard_test.go`,
+  `internal/modules/indicators/exported_surface_test.go`,
+  `internal/modules/indicators/httpapi/construction_test.go`,
+  `internal/modules/indicators/idempotency_hash_test.go`,
+  `internal/modules/indicators/identity_concurrency_test.go`,
+  `internal/modules/indicators/indicators_test.go`,
+  `internal/modules/indicators/observation_origin_integration_test.go`,
+  `internal/modules/indicators/portability_characterization_test.go`,
+  `internal/modules/indicators/production_contract_test.go`,
+  `internal/modules/indicators/provider_encapsulation_test.go`,
+  `internal/modules/indicators/resolution_integration_test.go`,
+  `internal/modules/indicators/target_resolution_integration_test.go`,
+  `internal/modules/indicators/transaction_atomicity_test.go`, and
+  `internal/modules/indicators/unit_test.go`.
+- Cross-owner consumers, policies, and reusable test composition:
+  `internal/modules/imports/boundary_guard_test.go`,
+  `internal/modules/networkflow/store_test.go` and
+  `internal/modules/networkflow/transaction_participants.go`,
+  `internal/modules/projections/adapters/boundary_guard_test.go` and
+  `internal/modules/projections/testsupport/build.go`,
+  `internal/modules/revisions/indicator_children_test.go`,
+  `internal/modules/workbook/notes_indicators_test.go`, and
+  `internal/testutil/appsupport/workbook.go`.
+
+Compatibility is an atomic repository-internal Go cutover. No type alias,
+forwarding constructor or package, overload, feature flag, fallback, dual
+registration, deprecation path, database migration, data rewrite, replay
+rewrite, or public wire change exists. Operational rollback is a whole-change
+revert; no data rollback is required. Existing startup, route, idempotency,
+and internal-error telemetry remain the deployment signals.
+
+Final scope audits show no diff under `docs/domain.md`, `apps/web`,
+`db/migrations`, `db/queries`, generated Go or TypeScript product roots,
+OpenAPI, protocol, or portable-schema paths. Browser validation remained
+inactive because no frontend or public-contract diff activated it. Retained
+run maintenance was the only skipped sub-operation and was correctly omitted
+because no qualifying successful full warm-check root existed when
+`make agent-finalize` ran. No other required evidence was skipped.
+
+The protected SQL digest remains
+`d665f06c2526b0118e33eaa887da279ad54025967618662c2a0b47b7bfde857b`;
+the root surface remains exactly 54 reviewed production declarations; all 64
+Indicators top-level tests and the three changed application-assembly tests
+resolve exactly once. No predecessor selector, concrete peer construction,
+synthetic actor record, wrapper directory, empty Indicators directory,
+generated drift, owner contradiction, scope expansion, or unresolved product
+risk remains. The two recorded object-store readiness timeouts recovered on
+unchanged reruns and are retained as infrastructure evidence, not hidden as
+product success. Rollout is one atomic repository cutover after the final
+Markdown checkpoint. `domain vocabulary unchanged`.
+
+Iteration 3 is complete. All authorized workstreams and binary acceptance rows
+are closed, the final validation ladder is green after the recorded unchanged
+infrastructure rerun, and the tracker contains the complete implementation and
+handoff ledger. No successor workstream remains.

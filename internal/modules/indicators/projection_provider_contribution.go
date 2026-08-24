@@ -1,4 +1,4 @@
-package projectionprovider
+package indicators
 
 import (
 	"context"
@@ -10,13 +10,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 )
 
-func NewContribution() (workbookprojection.Contribution, error) {
-	return workbookprojection.NewContribution(source{})
+func NewProjectionContribution() (workbookprojection.Contribution, error) {
+	return workbookprojection.NewContribution(projectionSource{})
 }
 
-type source struct{}
+type projectionSource struct{}
 
-func (source) LoadProjectionInputTx(
+func (projectionSource) LoadProjectionInputTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	recordID uuid.UUID,
@@ -24,7 +24,7 @@ func (source) LoadProjectionInputTx(
 	return indicatorprojection.LoadProjectionInputTx(ctx, tx, recordID)
 }
 
-func (source) ListProjectionInputsTx(
+func (projectionSource) ListProjectionInputsTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,

@@ -24,16 +24,15 @@ func (value indicatorCreateAdmission) ClientTransactionID() string {
 	return value.command.ClientTxnID
 }
 
-func newIndicatorCreateProvider(owner *indicators.Store) (workbook.CreateProvider, error) {
+func newIndicatorCreateProvider(owner *indicators.Application) (workbook.CreateProvider, error) {
 	if owner == nil {
 		return nil, fmt.Errorf("compose Indicator Workbook adapter: owner is required")
 	}
 	return workbook.NewCreateProvider(
 		func(reader io.Reader) (workbook.CreateAdmission, *workbook.MutationFailure, error) {
-			command, apiErr := indicatoradmission.DecodeCreateRequest(reader)
-			if apiErr != nil {
-				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+			command, validation := indicatoradmission.DecodeCreateRequest(reader)
+			if validation != nil {
+				return nil, indicatorValidationFailure(validation), nil
 			}
 			return indicatorCreateAdmission{command: command}, nil, nil
 		},
@@ -46,7 +45,7 @@ func newIndicatorCreateProvider(owner *indicators.Store) (workbook.CreateProvide
 			}
 			result, err := owner.CreateIndicatorRow(
 				ctx,
-				command.Actor,
+				command.Actor.ID,
 				command.IncidentID,
 				admitted.command,
 				command.RequestID,
@@ -81,9 +80,16 @@ func indicatorCreateFailure(err error, clientTxnID string) (*workbook.MutationFa
 	}
 	var validation *indicators.IndicatorCreateValidationError
 	if errors.As(err, &validation) {
-		return workbook.InvalidPayloadFailure(validation.Field, validation.ReasonCode), true
+		return indicatorValidationFailure(validation), true
 	}
 	return nil, false
+}
+
+func indicatorValidationFailure(validation *indicators.IndicatorCreateValidationError) *workbook.MutationFailure {
+	if validation == nil {
+		return nil
+	}
+	return workbook.InvalidPayloadFailure(validation.Field, validation.ReasonCode)
 }
 
 func indicatorMutationResult(

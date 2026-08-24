@@ -16,16 +16,19 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, command CreateCommand, requestID string) (CreateResult, error) {
+func (s *Application) CreateIndicatorRow(ctx context.Context, actorUserID uuid.UUID, incidentID uuid.UUID, command CreateCommand, requestID string) (CreateResult, error) {
+	if actorUserID == uuid.Nil {
+		return CreateResult{}, &IndicatorCreateValidationError{Field: "actor_user_id", ReasonCode: "missing_required_field"}
+	}
 	requestHash := createIndicatorRequestHash(command)
 	scopeKey := incidentID.String() + ":" + ViewSchemaID
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    indicatorCreateRouteKey,
-		ActorUserID: actor.ID,
+		ActorUserID: actorUserID,
 		ScopeKey:    scopeKey,
 		ClientTxnID: command.ClientTxnID,
 	}
-	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
+	if existing, err := s.idempotency.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return CreateResult{}, authn.ErrClientTxnConflict
 		}
@@ -66,18 +69,18 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 		_ = tx.Rollback(ctx)
 	}()
 
-	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentState.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return CreateResult{}, err
 	}
 	beforeSnapshot, err := s.captureIndicatorSnapshotBeforeUpsertTx(ctx, tx, incidentID, command)
 	if err != nil {
 		return CreateResult{}, err
 	}
-	record, beforeRow, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, actor, incidentID, command, now)
+	record, beforeRow, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, actorUserID, incidentID, command, now)
 	if err != nil {
 		return CreateResult{}, err
 	}
-	afterSnapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, record.RecordID)
+	afterSnapshot, err := s.revisions.CaptureRecordSnapshotTx(ctx, tx, record.RecordID)
 	if err != nil {
 		return CreateResult{}, err
 	}
@@ -86,9 +89,9 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 		return CreateResult{}, err
 	}
 
-	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
+	changeSetID, err := s.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  incidentID,
-		ActorUserID: actor.ID,
+		ActorUserID: actorUserID,
 		Source:      indicatorCreateRouteKey,
 		ClientTxnID: &command.ClientTxnID,
 		RequestID:   &requestID,
@@ -108,7 +111,7 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 		beforeVersionID = &value
 	}
 	afterVersionID := entityVersionID("indicator", record.RecordID, record.RowVersion)
-	if err := s.revisionsStore.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
+	if err := s.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "indicator",
@@ -122,7 +125,7 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 		return CreateResult{}, err
 	}
 	if beforeRow == nil || !jsonEqual(beforeRow, afterRow) {
-		if err := s.revisionsStore.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+		if err := s.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID:    changeSetID,
 			RecordID:       record.RecordID,
 			RowVersion:     record.RowVersion,
@@ -143,7 +146,7 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 		statusCode = httpStatusCreated
 	}
 	payload := buildStoredCreateResponse(changeSetID, afterRow)
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, statusCode, payload); err != nil {
+	if err := s.idempotency.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, requestHash, statusCode, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return CreateResult{}, authn.ErrClientTxnConflict
 		}
@@ -159,7 +162,7 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 	}, nil
 }
 
-func (s *Store) captureIndicatorSnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, command CreateCommand) (*revisions.RecordSnapshot, error) {
+func (s *Application) captureIndicatorSnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, command CreateCommand) (*revisions.RecordSnapshot, error) {
 	input, err := indicatorInputFromCreateCommand(command)
 	if err != nil {
 		return nil, err
@@ -171,18 +174,18 @@ func (s *Store) captureIndicatorSnapshotBeforeUpsertTx(ctx context.Context, tx p
 	if !matched {
 		return nil, nil
 	}
-	snapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
+	snapshot, err := s.revisions.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
 	if err != nil {
 		return nil, err
 	}
 	return &snapshot, nil
 }
 
-func (s *Store) FindOrCreateIndicatorParticipantTx(ctx context.Context, tx pgx.Tx, command IndicatorFindOrCreateParticipantCommand) (IndicatorFindOrCreateParticipantResult, error) {
+func (s *Application) FindOrCreateIndicatorParticipantTx(ctx context.Context, tx pgx.Tx, command IndicatorFindOrCreateParticipantCommand) (IndicatorFindOrCreateParticipantResult, error) {
 	if command.IncidentID == uuid.Nil {
 		return IndicatorFindOrCreateParticipantResult{}, &IndicatorCreateValidationError{Field: "incident_id", ReasonCode: "missing_required_field"}
 	}
-	if command.Actor.ID == uuid.Nil {
+	if command.ActorUserID == uuid.Nil {
 		return IndicatorFindOrCreateParticipantResult{}, &IndicatorCreateValidationError{Field: "actor_user_id", ReasonCode: "missing_required_field"}
 	}
 	if strings.TrimSpace(command.OperationContext) == "" {
@@ -191,11 +194,11 @@ func (s *Store) FindOrCreateIndicatorParticipantTx(ctx context.Context, tx pgx.T
 	if command.OperationOccurred.IsZero() {
 		return IndicatorFindOrCreateParticipantResult{}, &IndicatorCreateValidationError{Field: "operation_occurred", ReasonCode: "missing_required_field"}
 	}
-	if err := s.incidentAccess.RequireOpenTx(ctx, tx, command.IncidentID); err != nil {
+	if err := s.incidentState.RequireOpenTx(ctx, tx, command.IncidentID); err != nil {
 		return IndicatorFindOrCreateParticipantResult{}, err
 	}
 
-	record, _, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, command.Actor, command.IncidentID, CreateCommand{
+	record, _, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, command.ActorUserID, command.IncidentID, CreateCommand{
 		IndicatorType:   command.IndicatorType,
 		ValueKind:       command.ValueKind,
 		DisplayValue:    command.DisplayValue,
@@ -218,7 +221,7 @@ func (s *Store) FindOrCreateIndicatorParticipantTx(ctx context.Context, tx pgx.T
 	}, nil
 }
 
-func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, command CreateCommand, now time.Time) (indicatorRecord, map[string]any, string, int, error) {
+func (s *Application) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, command CreateCommand, now time.Time) (indicatorRecord, map[string]any, string, int, error) {
 	input, err := indicatorInputFromCreateCommand(command)
 	if err != nil {
 		return indicatorRecord{}, nil, "", 0, err
@@ -245,15 +248,15 @@ func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.Us
 			RowVersion:      1,
 			CreatedAt:       now.UTC(),
 			UpdatedAt:       now.UTC(),
-			CreatedByUser:   actor.ID,
-			UpdatedByUser:   actor.ID,
+			CreatedByUser:   actorUserID,
+			UpdatedByUser:   actorUserID,
 		}
-		recordID, err := s.recordStore.InsertTx(ctx, tx, records.InsertParams{
+		recordID, err := s.recordEnvelopes.InsertTx(ctx, tx, records.InsertParams{
 			IncidentID:      incidentID,
 			RecordType:      "indicator",
-			CreatedByUserID: actor.ID,
+			CreatedByUserID: actorUserID,
 			CreatedAt:       record.CreatedAt,
-			UpdatedByUserID: actor.ID,
+			UpdatedByUserID: actorUserID,
 			UpdatedAt:       record.UpdatedAt,
 			RowVersion:      record.RowVersion,
 		})
@@ -291,12 +294,12 @@ func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.Us
 		fieldChanged = true
 	}
 	if fieldChanged {
-		next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
+		next.RowVersion, err = s.recordEnvelopes.AdvanceVersionTx(ctx, tx, current.RecordID, actorUserID, now.UTC())
 		if err != nil {
 			return indicatorRecord{}, nil, "", 0, err
 		}
 		next.UpdatedAt = now.UTC()
-		next.UpdatedByUser = actor.ID
+		next.UpdatedByUser = actorUserID
 		if err := updateIndicatorTx(ctx, tx, next); err != nil {
 			return indicatorRecord{}, nil, "", 0, err
 		}

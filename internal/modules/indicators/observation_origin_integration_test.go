@@ -17,11 +17,11 @@ func TestIndicatorObservationOriginConstraint_Integration(t *testing.T) {
 	harness := appsupport.StartStore(t, "indicator-observation-origin-constraint")
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "indicator-origin@example.test", "Indicator Origin", "IndicatorOriginPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-indicator-origin-incident", "IR-IND-ORIGIN", "Indicator observation origin")
-	store := newIndicatorTestStore(t, harness.DB, revisionsupport.MustAppender(t))
+	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
 
 	sourceID := uuid.New()
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceID)
-	result, err := store.CreateIndicatorObservation(ctx, actor, manualObservationParams(
+	result, err := application.CreateIndicatorObservation(ctx, actor.ID, manualObservationParams(
 		incident.ID, sourceID, timelinetest.FieldSourceText, nil, "txn-origin-constraint-test",
 	))
 	if err != nil {

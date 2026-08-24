@@ -16,7 +16,7 @@ import (
 func TestConcurrentIndicatorFindOrCreateConvergesOnOneActiveIdentity_Integration(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "indicators-concurrent-identity")
-	store := newIndicatorTestStore(t, harness.DB, revisionsupport.MustAppender(t))
+	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "indicator-concurrency@example.test", "Indicator Concurrency", "IndicatorConcurrencyPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-indicator-concurrency-incident", "IR-IND-CONCURRENCY", "Indicator identity convergence")
 
@@ -31,9 +31,9 @@ func TestConcurrentIndicatorFindOrCreateConvergesOnOneActiveIdentity_Integration
 	}
 	defer func() { _ = secondTx.Rollback(ctx) }()
 
-	first, err := store.FindOrCreateIndicatorParticipantTx(ctx, firstTx, indicators.IndicatorFindOrCreateParticipantCommand{
+	first, err := application.FindOrCreateIndicatorParticipantTx(ctx, firstTx, indicators.IndicatorFindOrCreateParticipantCommand{
 		IncidentID:        incident.ID,
-		Actor:             actor,
+		ActorUserID:       actor.ID,
 		IndicatorType:     "ipv6_addr",
 		ValueKind:         "atomic",
 		DisplayValue:      "2001:db8::9",
@@ -53,9 +53,9 @@ func TestConcurrentIndicatorFindOrCreateConvergesOnOneActiveIdentity_Integration
 	}
 	secondOutcome := make(chan outcome, 1)
 	go func() {
-		result, callErr := store.FindOrCreateIndicatorParticipantTx(ctx, secondTx, indicators.IndicatorFindOrCreateParticipantCommand{
+		result, callErr := application.FindOrCreateIndicatorParticipantTx(ctx, secondTx, indicators.IndicatorFindOrCreateParticipantCommand{
 			IncidentID:        incident.ID,
-			Actor:             actor,
+			ActorUserID:       actor.ID,
 			IndicatorType:     "ipv6_addr",
 			ValueKind:         "atomic",
 			DisplayValue:      "2001:0db8:0:0:0:0:0:9",

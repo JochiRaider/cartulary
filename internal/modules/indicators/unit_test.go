@@ -19,7 +19,7 @@ import (
 // indicator-storage / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
 func TestIndicatorObservationSeparation_Integration(t *testing.T) {
 	harness := appsupport.StartStore(t, "entity_linking-u-4-07-indicators")
-	store := newIndicatorTestStore(t, harness.DB, revisionsupport.MustAppender(t))
+	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u407@example.test", "U407", "U407EntityLinkingPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-07-incident", "IR-U407", "Record relationships indicators")
 	legacyRecordID := uuid.MustParse("00000000-0000-4000-8000-000000000407")
@@ -36,7 +36,7 @@ INSERT INTO route_idempotency (
 		`{"view_schema_id":"cartulary.view.indicators.v1","change_set_id":"00000000-0000-4000-8000-000000000408","row":{"record_id":"00000000-0000-4000-8000-000000000407","row_version":17}}`); err != nil {
 		t.Fatalf("seed deployed Indicator idempotency row: %v", err)
 	}
-	legacyReplay, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateCommand{
+	legacyReplay, err := application.CreateIndicatorRow(context.Background(), actor.ID, incident.ID, indicators.CreateCommand{
 		ClientTxnID: "txn-indicator", IndicatorType: "ipv4_addr", ValueKind: "atomic", DisplayValue: "203[.]0[.]113[.]7",
 	}, "req-deployed-indicator-replay")
 	if err != nil {
@@ -53,7 +53,7 @@ INSERT INTO route_idempotency (
 	create := func(clientTxnID string) indicators.CreateResult {
 		t.Helper()
 		example := indicatortest.PrimaryExample()
-		result, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateCommand{
+		result, err := application.CreateIndicatorRow(context.Background(), actor.ID, incident.ID, indicators.CreateCommand{
 			ClientTxnID:   clientTxnID,
 			IndicatorType: example.IndicatorType,
 			ValueKind:     example.ValueKind,
@@ -81,7 +81,7 @@ INSERT INTO route_idempotency (
 		{id: timelinetest.RecordID, field: timelinetest.FieldSourceText},
 		{id: timelinetest.SiblingRecordID, field: timelinetest.FieldSummary},
 	} {
-		result, err := store.CreateIndicatorObservation(context.Background(), actor, manualObservationParams(
+		result, err := application.CreateIndicatorObservation(context.Background(), actor.ID, manualObservationParams(
 			incident.ID, sourceRecordID.id, sourceRecordID.field, &first.RecordID,
 			"txn-entity-linking-observation-"+string(rune('1'+index)),
 		))
@@ -89,7 +89,7 @@ INSERT INTO route_idempotency (
 			t.Fatalf("create source-bound observation %d: %#v %v", index, result, err)
 		}
 	}
-	if _, err := store.AppendIndicatorLifecycleInterval(context.Background(), actor, lifecycleAppendParams(
+	if _, err := application.AppendIndicatorLifecycleInterval(context.Background(), actor.ID, lifecycleAppendParams(
 		incident.ID, first.RecordID, 3, indicatortest.PastTime(), "txn-entity-linking-lifecycle",
 	)); err != nil {
 		t.Fatalf("append lifecycle interval: %v", err)

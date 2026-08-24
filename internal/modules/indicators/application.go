@@ -9,23 +9,26 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-type Store struct {
-	pool           postgres.DB
-	authStore      *authn.Store
-	incidentAccess incidentLifecycleAccess
-	recordStore    RecordEnvelopePort
-	revisionsStore revisionAppendPort
-	projections    indicatorprojection.Rows
-	sourceText     SourceTextPort
-	now            func() time.Time
+type Application struct {
+	pool            postgres.DB
+	idempotency     IdempotencyPort
+	incidentState   IncidentStatePort
+	recordEnvelopes RecordEnvelopePort
+	revisions       RevisionPort
+	projections     indicatorprojection.Rows
+	sourceText      SourceTextPort
+	now             func() time.Time
+}
+
+type IdempotencyPort interface {
+	GetRouteIdempotency(context.Context, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error)
+	InsertRouteIdempotencyPayload(context.Context, pgx.Tx, authn.RouteIdempotencyKey, []byte, int, any) error
 }
 
 type RecordEnvelopePort interface {
@@ -34,25 +37,29 @@ type RecordEnvelopePort interface {
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
 }
 
-type incidentLifecycleAccess interface {
+type IncidentStatePort interface {
 	RequireOpenTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
-type StoreDependencies struct {
+type ApplicationDependencies struct {
 	Postgres        postgres.DB
-	Revisions       *revisions.Appender
+	Idempotency     IdempotencyPort
+	IncidentState   IncidentStatePort
+	Revisions       RevisionPort
 	RecordEnvelopes RecordEnvelopePort
 	Projections     indicatorprojection.Rows
 	SourceText      SourceTextPort
 	Clock           func() time.Time
 }
 
-func NewStore(dependencies StoreDependencies) (*Store, error) {
+func NewApplication(dependencies ApplicationDependencies) (*Application, error) {
 	checks := []struct {
 		name  string
 		value any
 	}{
 		{name: "Postgres", value: dependencies.Postgres},
+		{name: "Idempotency", value: dependencies.Idempotency},
+		{name: "IncidentState", value: dependencies.IncidentState},
 		{name: "Revisions", value: dependencies.Revisions},
 		{name: "RecordEnvelopes", value: dependencies.RecordEnvelopes},
 		{name: "Projections", value: dependencies.Projections},
@@ -60,23 +67,23 @@ func NewStore(dependencies StoreDependencies) (*Store, error) {
 		{name: "Clock", value: dependencies.Clock},
 	}
 	for _, check := range checks {
-		if nilStoreDependency(check.value) {
-			return nil, fmt.Errorf("compose Indicators store: %s is required", check.name)
+		if nilApplicationDependency(check.value) {
+			return nil, fmt.Errorf("compose Indicators application: %s is required", check.name)
 		}
 	}
-	return &Store{
-		pool:           dependencies.Postgres,
-		authStore:      authn.NewStore(dependencies.Postgres),
-		incidentAccess: admission.NewChecker(dependencies.Postgres),
-		recordStore:    dependencies.RecordEnvelopes,
-		revisionsStore: dependencies.Revisions,
-		projections:    dependencies.Projections,
-		sourceText:     dependencies.SourceText,
-		now:            dependencies.Clock,
+	return &Application{
+		pool:            dependencies.Postgres,
+		idempotency:     dependencies.Idempotency,
+		incidentState:   dependencies.IncidentState,
+		recordEnvelopes: dependencies.RecordEnvelopes,
+		revisions:       dependencies.Revisions,
+		projections:     dependencies.Projections,
+		sourceText:      dependencies.SourceText,
+		now:             dependencies.Clock,
 	}, nil
 }
 
-func nilStoreDependency(dependency any) bool {
+func nilApplicationDependency(dependency any) bool {
 	if dependency == nil {
 		return true
 	}
@@ -89,15 +96,15 @@ func nilStoreDependency(dependency any) bool {
 	}
 }
 
-func (s *Store) refreshProjectionRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+func (s *Application) refreshProjectionRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
 	return s.projections.RefreshIndicatorTx(ctx, tx, recordID)
 }
 
-func (s *Store) loadProjectionRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+func (s *Application) loadProjectionRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
 	return s.projections.LoadIndicatorTx(ctx, tx, recordID)
 }
 
-func (s *Store) refreshAndLoadProjectionRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+func (s *Application) refreshAndLoadProjectionRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
 	if err := s.refreshProjectionRowTx(ctx, tx, recordID); err != nil {
 		return nil, err
 	}

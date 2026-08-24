@@ -8,20 +8,20 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 // DecodeCreateRequest admits the Workbook create wire shape into the Indicator
 // owner's command vocabulary. Indicator field policy must remain here rather
 // than in Workbook's generic transport boundary.
-func DecodeCreateRequest(reader io.Reader) (indicators.CreateCommand, *httpapi.APIError) {
+func DecodeCreateRequest(reader io.Reader) (indicators.CreateCommand, *indicators.IndicatorCreateValidationError) {
 	schema, ok := viewschema.Lookup(indicators.ViewSchemaID)
 	if !ok {
 		return indicators.CreateCommand{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
 	}
 
-	raw, err := httpapi.DecodeStrictJSONObject(reader)
+	raw, err := strictjson.DecodeObject(reader)
 	if err != nil {
 		return indicators.CreateCommand{}, invalidMutationPayload("", "request_not_object")
 	}
@@ -124,18 +124,6 @@ func optionalValue(values map[string]string, key string) *string {
 	return &value
 }
 
-func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
-	details := map[string]any{}
-	if field != "" {
-		details["field"] = field
-	}
-	if reasonCode != "" {
-		details["reason_code"] = reasonCode
-	}
-	return &httpapi.APIError{
-		Status:  400,
-		Code:    "invalid_mutation_payload",
-		Message: "invalid mutation payload",
-		Details: details,
-	}
+func invalidMutationPayload(field string, reasonCode string) *indicators.IndicatorCreateValidationError {
+	return &indicators.IndicatorCreateValidationError{Field: field, ReasonCode: reasonCode}
 }

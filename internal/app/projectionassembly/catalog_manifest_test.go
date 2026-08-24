@@ -15,7 +15,7 @@ import (
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
 	evidencecontract "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
-	indicatorprovider "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
+	indicatorowner "github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
@@ -227,7 +227,7 @@ func projectionManifestEntitiesContribution(t testing.TB) entityprojection.Contr
 
 func projectionManifestIndicatorsContribution(t testing.TB) indicatorprojection.Contribution {
 	t.Helper()
-	contribution, err := indicatorprovider.NewContribution()
+	contribution, err := indicatorowner.NewProjectionContribution()
 	if err != nil {
 		t.Fatalf("construct Indicators projection contribution: %v", err)
 	}

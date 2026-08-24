@@ -22,6 +22,7 @@ import (
 	assessmentadmission "github.com/JochiRaider/cartulary/internal/modules/assessments/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
@@ -30,6 +31,7 @@ import (
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -141,8 +143,10 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 	appender := revisionComposition.Runtime.Appender()
 	timelineBundle, projections := newWorkbookTimelineComposition(t, harness.DB, appender, revisionComposition.Intents)
 	workbookStore, _ := newCatalogBackedWorkbookCatalog(t, harness.DB, timelineBundle, projections, appender, revisionComposition.Intents)
-	indicatorStore, err := indicators.NewStore(indicators.StoreDependencies{
+	indicatorApplication, err := indicators.NewApplication(indicators.ApplicationDependencies{
 		Postgres:        harness.DB,
+		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(harness.DB)),
+		IncidentState:   admission.NewChecker(harness.DB),
 		Revisions:       appender,
 		RecordEnvelopes: records.NewStore(harness.DB),
 		Projections:     projections.IndicatorPorts().Rows,
@@ -172,7 +176,7 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 	}
 	requireQueriedRow(t, noteRows, note.RecordID)
 
-	indicator, err := indicatorStore.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateCommand{
+	indicator, err := indicatorApplication.CreateIndicatorRow(context.Background(), actor.ID, incident.ID, indicators.CreateCommand{
 		ClientTxnID:   "txn-workbook_interaction-i-9-02-indicator",
 		IndicatorType: "ipv4_addr",
 		ValueKind:     "atomic",
@@ -580,8 +584,10 @@ func newCatalogBackedWorkbookCatalog(
 	if err != nil {
 		t.Fatalf("compose Artifacts mutation contribution: %v", err)
 	}
-	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
+	indicatorOwner, err := indicators.NewApplication(indicators.ApplicationDependencies{
 		Postgres:        pool,
+		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(pool)),
+		IncidentState:   admission.NewChecker(pool),
 		Revisions:       appender,
 		RecordEnvelopes: records.NewStore(pool),
 		Projections:     projections.IndicatorPorts().Rows,

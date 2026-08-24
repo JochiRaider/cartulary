@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -24,6 +25,7 @@ import (
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -203,8 +205,10 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 	if err != nil {
 		panic(err)
 	}
-	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
+	indicatorOwner, err := indicators.NewApplication(indicators.ApplicationDependencies{
 		Postgres:        pool,
+		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(pool)),
+		IncidentState:   admission.NewChecker(pool),
 		Revisions:       appender,
 		RecordEnvelopes: records.NewStore(pool),
 		Projections:     projectionRuntime.IndicatorPorts().Rows,

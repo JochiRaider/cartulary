@@ -2,12 +2,48 @@ package workbookassembly
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 )
+
+func TestIndicatorValidationFailuresHaveOneWorkbookTranslation(t *testing.T) {
+	t.Parallel()
+
+	provider, err := newIndicatorCreateProvider(&indicators.Application{})
+	if err != nil {
+		t.Fatalf("compose Indicator create provider: %v", err)
+	}
+	_, decoderFailure, err := provider.DecodeCreate(strings.NewReader(`{"client_txn_id":"txn","unknown":"value"}`))
+	if err != nil {
+		t.Fatalf("decode Indicator create: %v", err)
+	}
+	assertIndicatorFailureDetail(t, decoderFailure, "unknown", "unknown_field")
+
+	ownerFailure, safe := indicatorCreateFailure(&indicators.IndicatorCreateValidationError{
+		Field: "indicator.indicator_type", ReasonCode: "invalid_value",
+	}, "txn")
+	if !safe {
+		t.Fatal("owner validation was not classified as a safe Workbook failure")
+	}
+	assertIndicatorFailureDetail(t, ownerFailure, "indicator.indicator_type", "invalid_value")
+}
+
+func assertIndicatorFailureDetail(t testing.TB, failure interface {
+	InvalidPayloadDetail() (string, string, bool)
+}, wantField string, wantReason string) {
+	t.Helper()
+	if failure == nil {
+		t.Fatal("Workbook failure is nil")
+	}
+	field, reason, ok := failure.InvalidPayloadDetail()
+	if !ok || field != wantField || reason != wantReason {
+		t.Fatalf("Workbook failure detail = (%q, %q, %t), want (%q, %q, true)", field, reason, ok, wantField, wantReason)
+	}
+}
 
 func TestIndicatorMutationResultUsesOnlyConsumerRequiredSignals(t *testing.T) {
 	t.Parallel()

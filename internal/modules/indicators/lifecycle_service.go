@@ -16,7 +16,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor authn.UserRecord, params IndicatorLifecycleAppendParams) (IndicatorLifecycleMutationResult, error) {
+func (s *Application) AppendIndicatorLifecycleInterval(ctx context.Context, actorUserID uuid.UUID, params IndicatorLifecycleAppendParams) (IndicatorLifecycleMutationResult, error) {
+	if actorUserID == uuid.Nil {
+		return IndicatorLifecycleMutationResult{}, ErrInvalidCreateRequest
+	}
 	requestHash := lifecycleAppendRequestHash(params)
 	if err := validateChildMutationIdentity(params.ClientTxnID, params.RequestID, params.BaseRowVersion); err != nil {
 		return IndicatorLifecycleMutationResult{}, err
@@ -24,8 +27,8 @@ func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor auth
 	if err := normalizeLifecycleAppendParams(&params); err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
-	replayKey := s.childReplayKey(lifecycleAppendRouteKey, actor.ID, params.IndicatorRecordID, params.ClientTxnID)
-	if replay, found, err := loadLifecycleReplay(ctx, s.authStore, replayKey, requestHash); err != nil || found {
+	replayKey := s.childReplayKey(lifecycleAppendRouteKey, actorUserID, params.IndicatorRecordID, params.ClientTxnID)
+	if replay, found, err := loadLifecycleReplay(ctx, s.idempotency, replayKey, requestHash); err != nil || found {
 		return replay, err
 	}
 
@@ -34,7 +37,7 @@ func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor auth
 		return IndicatorLifecycleMutationResult{}, fmt.Errorf("begin Indicator lifecycle transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := s.incidentAccess.RequireOpenTx(ctx, tx, params.IncidentID); err != nil {
+	if err := s.incidentState.RequireOpenTx(ctx, tx, params.IncidentID); err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
 	lockIDs := sortedRecordIDs(append([]uuid.UUID{params.IndicatorRecordID}, params.SupportRefs...)...)
@@ -56,23 +59,23 @@ func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor auth
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
-	beforeSnapshots, err := captureAffectedRecordSnapshotsTx(ctx, tx, s.revisionsStore, []uuid.UUID{params.IndicatorRecordID})
+	beforeSnapshots, err := captureAffectedRecordSnapshotsTx(ctx, tx, s.revisions, []uuid.UUID{params.IndicatorRecordID})
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
 	createdAt := s.now().UTC().Truncate(time.Microsecond)
-	record, err := insertIndicatorLifecycleIntervalTx(ctx, tx, actor.ID, params, createdAt)
+	record, err := insertIndicatorLifecycleIntervalTx(ctx, tx, actorUserID, params, createdAt)
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
-	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
-		IncidentID: params.IncidentID, ActorUserID: actor.ID, Source: lifecycleAppendSource,
+	changeSetID, err := s.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
+		IncidentID: params.IncidentID, ActorUserID: actorUserID, Source: lifecycleAppendSource,
 		ClientTxnID: &params.ClientTxnID, RequestID: &params.RequestID, CreatedAt: createdAt,
 	})
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
-	if err := s.revisionsStore.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
+	if err := s.revisions.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
 		ChangeSetID: changeSetID, SequenceNo: 1, TargetKind: "indicator_state_interval",
 		TargetID: record.IntervalID.String(), OperationKind: "create",
 		AfterVersionID: stringPointer(fmt.Sprintf("indicator_state_interval:%s:%d", record.IntervalID, record.RowVersion)),
@@ -80,7 +83,7 @@ func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor auth
 	}); err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
-	versions, err := s.advanceAffectedRecordsTx(ctx, tx, actor.ID, createdAt, []uuid.UUID{params.IndicatorRecordID})
+	versions, err := s.advanceAffectedRecordsTx(ctx, tx, actorUserID, createdAt, []uuid.UUID{params.IndicatorRecordID})
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
@@ -88,11 +91,11 @@ func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor auth
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
-	afterSnapshots, err := captureAffectedRecordSnapshotsTx(ctx, tx, s.revisionsStore, []uuid.UUID{params.IndicatorRecordID})
+	afterSnapshots, err := captureAffectedRecordSnapshotsTx(ctx, tx, s.revisions, []uuid.UUID{params.IndicatorRecordID})
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
-	if err := appendAffectedRecordRevisionsTx(ctx, tx, s.revisionsStore, changeSetID, versions, beforeSnapshots, afterSnapshots,
+	if err := appendAffectedRecordRevisionsTx(ctx, tx, s.revisions, changeSetID, versions, beforeSnapshots, afterSnapshots,
 		map[uuid.UUID]map[string]any{params.IndicatorRecordID: beforeRow},
 		map[uuid.UUID]map[string]any{params.IndicatorRecordID: afterRow},
 	); err != nil {
@@ -103,7 +106,7 @@ func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor auth
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, replayKey, nil, requestHash, http.StatusCreated, payload); err != nil {
+	if err := s.idempotency.InsertRouteIdempotencyPayload(ctx, tx, replayKey, requestHash, http.StatusCreated, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return IndicatorLifecycleMutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -157,6 +160,6 @@ func validOptionalLifecycleText(value *string) bool {
 	return value == nil || (*value != "" && !strings.ContainsRune(*value, 0))
 }
 
-func (s *Store) ListIndicatorLifecycleIntervals(ctx context.Context, indicatorID uuid.UUID, afterValidFrom *time.Time, afterID *uuid.UUID, limit int) ([]IndicatorLifecycleIntervalRecord, error) {
+func (s *Application) ListIndicatorLifecycleIntervals(ctx context.Context, indicatorID uuid.UUID, afterValidFrom *time.Time, afterID *uuid.UUID, limit int) ([]IndicatorLifecycleIntervalRecord, error) {
 	return listIndicatorLifecycleIntervals(ctx, s.pool, indicatorID, afterValidFrom, afterID, limit)
 }

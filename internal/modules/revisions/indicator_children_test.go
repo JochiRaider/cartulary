@@ -14,6 +14,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -28,8 +30,10 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, "history_revision-i-7-06-indicator-child-rollback")
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, _ := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I706")
-	store, err := indicators.NewStore(indicators.StoreDependencies{
+	application, err := indicators.NewApplication(indicators.ApplicationDependencies{
 		Postgres:        harness.Pool,
+		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(harness.Pool)),
+		IncidentState:   admission.NewChecker(harness.Pool),
 		Revisions:       harness.Revisions.Appender(),
 		RecordEnvelopes: records.NewStore(harness.Pool),
 		Projections:     harness.Projections.IndicatorProjectionPort(),
@@ -46,7 +50,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
 		indicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "create")
 		createdAt := time.Date(2026, 7, 9, 15, 0, 0, 0, time.UTC)
-		created, err := store.CreateIndicatorObservation(context.Background(), actor, indicatorChildObservationParams(
+		created, err := application.CreateIndicatorObservation(context.Background(), actor.ID, indicatorChildObservationParams(
 			incidentID, sourceID, "timeline.raw_activity_text", &indicatorID, "txn-i-7-06-observation-create",
 		))
 		if err != nil {
@@ -134,14 +138,14 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
 		indicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "resolve")
 		createdAt := time.Date(2026, 7, 9, 16, 0, 0, 0, time.UTC)
-		created, err := store.CreateIndicatorObservation(context.Background(), actor, indicatorChildObservationParams(
+		created, err := application.CreateIndicatorObservation(context.Background(), actor.ID, indicatorChildObservationParams(
 			incidentID, sourceID, "timeline.activity_synopsis_text", nil, "txn-i-7-06-observation-unresolved",
 		))
 		if err != nil {
 			t.Fatalf("create unresolved observation: %v", err)
 		}
 		observation := created.Observation
-		resolvedResult, err := store.ResolveIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationResolveParams{
+		resolvedResult, err := application.ResolveIndicatorObservation(context.Background(), actor.ID, indicators.IndicatorObservationResolveParams{
 			ObservationID: observation.ObservationID, ResolvedIndicatorRecordID: indicatorID, BaseRowVersion: 1,
 			ClientTxnID: "txn-i-7-06-observation-resolve", RequestID: "req-i-7-06-observation-resolve",
 		})
@@ -174,14 +178,14 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		oldIndicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "reresolve-old")
 		newIndicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "reresolve-new")
 		createdAt := time.Date(2026, 7, 9, 16, 30, 0, 0, time.UTC)
-		created, err := store.CreateIndicatorObservation(context.Background(), actor, indicatorChildObservationParams(
+		created, err := application.CreateIndicatorObservation(context.Background(), actor.ID, indicatorChildObservationParams(
 			incidentID, sourceID, "timeline.activity_synopsis_text", &oldIndicatorID, "txn-i-7-06-observation-reresolve-create",
 		))
 		if err != nil {
 			t.Fatalf("create initially resolved observation: %v", err)
 		}
 		observation := created.Observation
-		resolved, err := store.ResolveIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationResolveParams{
+		resolved, err := application.ResolveIndicatorObservation(context.Background(), actor.ID, indicators.IndicatorObservationResolveParams{
 			ObservationID: observation.ObservationID, ResolvedIndicatorRecordID: newIndicatorID, BaseRowVersion: 1,
 			ClientTxnID: "txn-i-7-06-observation-reresolve", RequestID: "req-i-7-06-observation-reresolve",
 		})
@@ -214,7 +218,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 	t.Run("lifecycle create reversal tombstones and clears lifecycle projection", func(t *testing.T) {
 		indicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "interval")
 		createdAt := time.Date(2026, 7, 9, 17, 0, 0, 0, time.UTC)
-		created, err := store.AppendIndicatorLifecycleInterval(context.Background(), actor, indicatorChildLifecycleParams(
+		created, err := application.AppendIndicatorLifecycleInterval(context.Background(), actor.ID, indicatorChildLifecycleParams(
 			incidentID, indicatorID, 1, createdAt, "txn-i-7-06-interval-create",
 		))
 		if err != nil {

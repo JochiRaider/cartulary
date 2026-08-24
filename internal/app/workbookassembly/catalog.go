@@ -37,7 +37,7 @@ type ContributionDependencies struct {
 	EntityProjections     entityprojection.Ports
 	AssessmentProjections assessmentprojection.Rows
 	PartyProjections      partyprojection.Rows
-	IndicatorOwner        *indicators.Store
+	IndicatorOwner        *indicators.Application
 	TimelineOwner         *timeline.Facade
 	EvidenceOwner         evidence.MutationContribution
 	ArtifactOwner         *artifacts.MutationFacade
@@ -167,7 +167,7 @@ type contributionAssemblyInput struct {
 	entityStore           *hostidentity.Store
 	assessmentProjections assessmentprojection.Rows
 	partyProjections      partyprojection.Rows
-	indicatorOwner        *indicators.Store
+	indicatorOwner        *indicators.Application
 	timelineOwner         *timeline.Facade
 	evidenceOwner         evidence.MutationContribution
 	artifactOwner         *artifacts.MutationFacade

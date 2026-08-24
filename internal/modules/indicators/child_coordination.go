@@ -27,12 +27,12 @@ const (
 	lifecycleAppendRouteKey    = "indicators.lifecycle.append"
 )
 
-func (s *Store) childReplayKey(routeKey string, actorID uuid.UUID, scopeID uuid.UUID, clientTxnID string) authn.RouteIdempotencyKey {
+func (s *Application) childReplayKey(routeKey string, actorID uuid.UUID, scopeID uuid.UUID, clientTxnID string) authn.RouteIdempotencyKey {
 	return authn.RouteIdempotencyKey{RouteKey: routeKey, ActorUserID: actorID, ScopeKey: scopeID.String(), ClientTxnID: clientTxnID}
 }
 
-func loadObservationReplay(ctx context.Context, store *authn.Store, key authn.RouteIdempotencyKey, requestHash []byte) (IndicatorObservationMutationResult, bool, error) {
-	existing, err := store.GetRouteIdempotency(ctx, key)
+func loadObservationReplay(ctx context.Context, idempotency IdempotencyPort, key authn.RouteIdempotencyKey, requestHash []byte) (IndicatorObservationMutationResult, bool, error) {
+	existing, err := idempotency.GetRouteIdempotency(ctx, key)
 	if errors.Is(err, authn.ErrNotFound) {
 		return IndicatorObservationMutationResult{}, false, nil
 	}
@@ -50,8 +50,8 @@ func loadObservationReplay(ctx context.Context, store *authn.Store, key authn.Ro
 	return result, true, nil
 }
 
-func loadLifecycleReplay(ctx context.Context, store *authn.Store, key authn.RouteIdempotencyKey, requestHash []byte) (IndicatorLifecycleMutationResult, bool, error) {
-	existing, err := store.GetRouteIdempotency(ctx, key)
+func loadLifecycleReplay(ctx context.Context, idempotency IdempotencyPort, key authn.RouteIdempotencyKey, requestHash []byte) (IndicatorLifecycleMutationResult, bool, error) {
+	existing, err := idempotency.GetRouteIdempotency(ctx, key)
 	if errors.Is(err, authn.ErrNotFound) {
 		return IndicatorLifecycleMutationResult{}, false, nil
 	}
@@ -103,8 +103,8 @@ func sortedRecordIDs(values ...uuid.UUID) []uuid.UUID {
 	return result
 }
 
-func (s *Store) lockAffectedRecordsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]records.Envelope, error) {
-	return s.recordStore.LoadEnvelopesTx(ctx, tx, sortedRecordIDs(recordIDs...), true)
+func (s *Application) lockAffectedRecordsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]records.Envelope, error) {
+	return s.recordEnvelopes.LoadEnvelopesTx(ctx, tx, sortedRecordIDs(recordIDs...), true)
 }
 
 func activeIncidentEnvelope(envelopes map[uuid.UUID]records.Envelope, incidentID uuid.UUID, recordID uuid.UUID) (records.Envelope, bool) {
@@ -183,10 +183,10 @@ func sourceOriginLocator(recordID uuid.UUID, fieldKey string, start int, end int
 	return fmt.Sprintf("record:%s:field:%s:bytes:%d-%d", recordID, fieldKey, start, end)
 }
 
-func (s *Store) advanceAffectedRecordsTx(ctx context.Context, tx pgx.Tx, actorID uuid.UUID, now time.Time, recordIDs []uuid.UUID) ([]AffectedRecordVersion, error) {
+func (s *Application) advanceAffectedRecordsTx(ctx context.Context, tx pgx.Tx, actorID uuid.UUID, now time.Time, recordIDs []uuid.UUID) ([]AffectedRecordVersion, error) {
 	result := make([]AffectedRecordVersion, 0, len(recordIDs))
 	for _, recordID := range recordIDs {
-		rowVersion, err := s.recordStore.AdvanceVersionTx(ctx, tx, recordID, actorID, now)
+		rowVersion, err := s.recordEnvelopes.AdvanceVersionTx(ctx, tx, recordID, actorID, now)
 		if err != nil {
 			return nil, err
 		}
@@ -195,7 +195,7 @@ func (s *Store) advanceAffectedRecordsTx(ctx context.Context, tx pgx.Tx, actorID
 	return result, nil
 }
 
-func captureAffectedRecordSnapshotsTx(ctx context.Context, tx pgx.Tx, appender revisionAppendPort, recordIDs []uuid.UUID) (map[uuid.UUID]revisions.RecordSnapshot, error) {
+func captureAffectedRecordSnapshotsTx(ctx context.Context, tx pgx.Tx, appender RevisionPort, recordIDs []uuid.UUID) (map[uuid.UUID]revisions.RecordSnapshot, error) {
 	snapshots := make(map[uuid.UUID]revisions.RecordSnapshot, len(recordIDs))
 	for _, recordID := range recordIDs {
 		snapshot, err := appender.CaptureRecordSnapshotTx(ctx, tx, recordID)
@@ -210,7 +210,7 @@ func captureAffectedRecordSnapshotsTx(ctx context.Context, tx pgx.Tx, appender r
 func appendAffectedRecordRevisionsTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	appender revisionAppendPort,
+	appender RevisionPort,
 	changeSetID uuid.UUID,
 	versions []AffectedRecordVersion,
 	beforeSnapshots map[uuid.UUID]revisions.RecordSnapshot,

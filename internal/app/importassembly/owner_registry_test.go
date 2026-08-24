@@ -9,18 +9,23 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 func TestOwnerCreateRegistryComposesEveryCurrentViewTarget(t *testing.T) {
@@ -65,6 +70,34 @@ func TestOwnerCreateRegistryComposesEveryCurrentViewTarget(t *testing.T) {
 		if byTarget[target] != facade {
 			t.Fatalf("binding for %s = %q, want %q", target, byTarget[target], facade)
 		}
+	}
+}
+
+func TestIndicatorOwnerContributionRejectsGeneratedCatalogIdentityDrift(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name         string
+		viewSchemaID string
+		facadeID     string
+	}{
+		{name: "view schema", viewSchemaID: "cartulary.view.indicators.v2", facadeID: "indicators.import_create"},
+		{name: "facade", viewSchemaID: indicators.ViewSchemaID, facadeID: "indicators.import_create.v2"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			facade, err := newOwnerCreateFacade(
+				"module.indicators@1",
+				test.viewSchemaID,
+				test.facadeID,
+				OwnerRegistryDependencies{Indicators: inertIndicatorOwner()},
+				artifacts.ImportDependencies{},
+				tasksdecisions.ImportDependencies{},
+			)
+			if err == nil || facade != nil {
+				t.Fatalf("mismatched catalog contribution = %#v, error=%v", facade, err)
+			}
+		})
 	}
 }
 
@@ -301,9 +334,11 @@ type inertIndicatorRecordEnvelopes struct {
 	indicators.RecordEnvelopePort
 }
 
-func inertIndicatorOwner() *indicators.Store {
-	owner, err := indicators.NewStore(indicators.StoreDependencies{
+func inertIndicatorOwner() *indicators.Application {
+	owner, err := indicators.NewApplication(indicators.ApplicationDependencies{
 		Postgres:        inertOwnerRegistryDB{},
+		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(inertOwnerRegistryDB{})),
+		IncidentState:   admission.NewChecker(inertOwnerRegistryDB{}),
 		Revisions:       &revisions.Appender{},
 		RecordEnvelopes: inertIndicatorRecordEnvelopes{},
 		Projections:     inertIndicatorProjectionRows{},

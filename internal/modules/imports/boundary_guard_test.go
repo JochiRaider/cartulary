@@ -60,7 +60,7 @@ func TestImportsOwnerApplyUsesInjectedFacadeRegistry(t *testing.T) {
 		"assessments.NewStore(",
 		"hostidentity.NewStore(",
 		"evidence.NewStore(",
-		"indicators.NewStore(",
+		"indicators.NewApplication(",
 		"parties.NewStore(",
 		"tasksdecisions.NewStore(",
 		"FROM users",

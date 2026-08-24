@@ -838,9 +838,10 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose incident terminal effects: %w", err)
 	}
+	incidentAdmission := admission.NewChecker(postgresHandle)
 	incidentRoutes := incidentshttpapi.RegisterRoutes(incidentshttpapi.Dependencies{
 		Application:                 incidentApplication,
-		AdmissionChecker:            admission.NewChecker(postgresHandle),
+		AdmissionChecker:            incidentAdmission,
 		TerminalMutationCoordinator: incidentEffects,
 	})
 	incidentBundleImportFinalizer, err := incidents.NewIncidentBundleImportFinalizer(workbookPreferenceBootstrap)
@@ -921,8 +922,11 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		return nil, fmt.Errorf("compose Timeline bundle: %w", err)
 	}
 	indicatorRecords := records.NewStore(postgresHandle)
-	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
+	indicatorAuth := authn.NewStore(postgresHandle)
+	indicatorOwner, err := indicators.NewApplication(indicators.ApplicationDependencies{
 		Postgres:        postgresHandle,
+		Idempotency:     indicatorassembly.NewIdempotencyPort(indicatorAuth),
+		IncidentState:   incidentAdmission,
 		Revisions:       revisionRuntime.Appender(),
 		RecordEnvelopes: indicatorRecords,
 		Projections:     projectionRuntime.IndicatorPorts().Rows,
@@ -1259,7 +1263,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			Owner: timelineFacade,
 		})},
 		{id: "revisions", registrar: revisionRoutes},
-		{id: "indicators", registrar: indicatorshttpapi.RegisterRoutes(indicatorOwner, indicatorRecords)},
+		{id: "indicators", registrar: indicatorshttpapi.RegisterRoutes(indicatorOwner, indicatorRecords, incidentAdmission, indicatorAuth)},
 	}, []extensionRouteBinding{
 		{
 			id: "enterprise_authentication_routes",

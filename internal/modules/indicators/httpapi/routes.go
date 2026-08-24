@@ -22,11 +22,11 @@ import (
 )
 
 type ownerApplication interface {
-	CreateIndicatorObservation(context.Context, authn.UserRecord, indicators.IndicatorObservationCreateParams) (indicators.IndicatorObservationMutationResult, error)
-	ResolveIndicatorObservation(context.Context, authn.UserRecord, indicators.IndicatorObservationResolveParams) (indicators.IndicatorObservationMutationResult, error)
-	DismissIndicatorObservation(context.Context, authn.UserRecord, indicators.IndicatorObservationActionParams) (indicators.IndicatorObservationMutationResult, error)
-	RestoreIndicatorObservation(context.Context, authn.UserRecord, indicators.IndicatorObservationActionParams) (indicators.IndicatorObservationMutationResult, error)
-	AppendIndicatorLifecycleInterval(context.Context, authn.UserRecord, indicators.IndicatorLifecycleAppendParams) (indicators.IndicatorLifecycleMutationResult, error)
+	CreateIndicatorObservation(context.Context, uuid.UUID, indicators.IndicatorObservationCreateParams) (indicators.IndicatorObservationMutationResult, error)
+	ResolveIndicatorObservation(context.Context, uuid.UUID, indicators.IndicatorObservationResolveParams) (indicators.IndicatorObservationMutationResult, error)
+	DismissIndicatorObservation(context.Context, uuid.UUID, indicators.IndicatorObservationActionParams) (indicators.IndicatorObservationMutationResult, error)
+	RestoreIndicatorObservation(context.Context, uuid.UUID, indicators.IndicatorObservationActionParams) (indicators.IndicatorObservationMutationResult, error)
+	AppendIndicatorLifecycleInterval(context.Context, uuid.UUID, indicators.IndicatorLifecycleAppendParams) (indicators.IndicatorLifecycleMutationResult, error)
 	GetIndicatorObservation(context.Context, uuid.UUID) (indicators.IndicatorObservationRecord, error)
 	ListSourceRecordIndicatorObservations(context.Context, uuid.UUID, *time.Time, *uuid.UUID, int) ([]indicators.IndicatorObservationRecord, error)
 	ListIndicatorObservations(context.Context, uuid.UUID, *time.Time, *uuid.UUID, int) ([]indicators.IndicatorObservationRecord, error)
@@ -37,19 +37,28 @@ type recordEnvelopeReader interface {
 	LoadEnvelope(context.Context, uuid.UUID) (records.Envelope, error)
 }
 
+type incidentAdmission interface {
+	Check(context.Context, uuid.UUID, uuid.UUID, admission.Requirement) (admission.Grant, error)
+}
+
+type sessionStoreSlider interface {
+	httpauth.SessionStore
+	httpauth.SessionSlider
+}
+
 type service struct {
 	owner       ownerApplication
-	incidents   *admission.Checker
+	incidents   incidentAdmission
 	records     recordEnvelopeReader
-	authStore   *authn.Store
+	sessions    sessionStoreSlider
 	keys        authn.MasterKeys
 	cursorCodec *pagination.Codec
 	now         func() time.Time
 }
 
-func RegisterRoutes(owner ownerApplication, recordEnvelopes recordEnvelopeReader) platformhttpapi.RouteRegistrar {
+func RegisterRoutes(owner ownerApplication, recordEnvelopes recordEnvelopeReader, incidents incidentAdmission, sessions sessionStoreSlider) platformhttpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps platformhttpapi.DependencySet) error {
-		service, err := newService(deps, owner, recordEnvelopes)
+		service, err := newService(deps, owner, recordEnvelopes, incidents, sessions)
 		if err != nil {
 			return err
 		}
@@ -66,16 +75,18 @@ func RegisterRoutes(owner ownerApplication, recordEnvelopes recordEnvelopeReader
 	}
 }
 
-func newService(deps platformhttpapi.DependencySet, owner ownerApplication, recordEnvelopes recordEnvelopeReader) (*service, error) {
+func newService(deps platformhttpapi.DependencySet, owner ownerApplication, recordEnvelopes recordEnvelopeReader, incidents incidentAdmission, sessions sessionStoreSlider) (*service, error) {
 	if nilHTTPDependency(owner) {
 		return nil, errors.New("indicator routes: owner is required")
 	}
 	if nilHTTPDependency(recordEnvelopes) {
 		return nil, errors.New("indicator routes: RecordEnvelopes is required")
 	}
-	postgres := deps.PostgresHandle()
-	if nilHTTPDependency(postgres) {
-		return nil, errors.New("indicator routes: Postgres is required")
+	if nilHTTPDependency(incidents) {
+		return nil, errors.New("indicator routes: IncidentAdmission is required")
+	}
+	if nilHTTPDependency(sessions) {
+		return nil, errors.New("indicator routes: Sessions is required")
 	}
 	if deps.Now == nil {
 		return nil, errors.New("indicator routes: Now is required")
@@ -90,8 +101,8 @@ func newService(deps platformhttpapi.DependencySet, owner ownerApplication, reco
 		codec = pagination.NewCodec(key[:])
 	}
 	return &service{
-		owner: owner, incidents: admission.NewChecker(postgres), records: recordEnvelopes,
-		authStore: authn.NewStore(postgres), keys: keys, cursorCodec: codec, now: deps.Now,
+		owner: owner, incidents: incidents, records: recordEnvelopes,
+		sessions: sessions, keys: keys, cursorCodec: codec, now: deps.Now,
 	}, nil
 }
 
@@ -199,7 +210,7 @@ func (s *service) handleCreateObservation(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.owner.CreateIndicatorObservation(r.Context(), principal.User, createParams(envelope.IncidentID, sourceID, request, platformhttpapi.RequestIDFromContext(r.Context())))
+	result, err := s.owner.CreateIndicatorObservation(r.Context(), principal.User.ID, createParams(envelope.IncidentID, sourceID, request, platformhttpapi.RequestIDFromContext(r.Context())))
 	if err != nil {
 		writeAPIError(w, r, mutationError(err, request.ClientTxnID))
 		return
@@ -256,7 +267,7 @@ func (s *service) handleObservationAction(w http.ResponseWriter, r *http.Request
 			return
 		}
 		clientTxnID = request.ClientTxnID
-		result, err = s.owner.ResolveIndicatorObservation(r.Context(), principal.User, indicators.IndicatorObservationResolveParams{
+		result, err = s.owner.ResolveIndicatorObservation(r.Context(), principal.User.ID, indicators.IndicatorObservationResolveParams{
 			ObservationID: observationID, ResolvedIndicatorRecordID: request.ResolvedIndicatorRecordID,
 			BaseRowVersion: request.BaseRowVersion, ClientTxnID: request.ClientTxnID, RequestID: requestID,
 		})
@@ -269,9 +280,9 @@ func (s *service) handleObservationAction(w http.ResponseWriter, r *http.Request
 		clientTxnID = request.ClientTxnID
 		params := indicators.IndicatorObservationActionParams{ObservationID: observationID, BaseRowVersion: request.BaseRowVersion, ClientTxnID: request.ClientTxnID, RequestID: requestID}
 		if action == "dismiss" {
-			result, err = s.owner.DismissIndicatorObservation(r.Context(), principal.User, params)
+			result, err = s.owner.DismissIndicatorObservation(r.Context(), principal.User.ID, params)
 		} else {
-			result, err = s.owner.RestoreIndicatorObservation(r.Context(), principal.User, params)
+			result, err = s.owner.RestoreIndicatorObservation(r.Context(), principal.User.ID, params)
 		}
 	}
 	if err != nil {
@@ -346,7 +357,7 @@ func (s *service) handleAppendLifecycle(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.owner.AppendIndicatorLifecycleInterval(r.Context(), principal.User, indicators.IndicatorLifecycleAppendParams{
+	result, err := s.owner.AppendIndicatorLifecycleInterval(r.Context(), principal.User.ID, indicators.IndicatorLifecycleAppendParams{
 		IncidentID: envelope.IncidentID, IndicatorRecordID: indicatorID, BaseRowVersion: request.BaseRowVersion,
 		LifecycleState: request.LifecycleState, ValidFrom: request.ValidFrom, ValidTo: request.ValidTo,
 		Confidence: request.Confidence, Rationale: request.Rationale, SupportRefs: request.SupportRefs, Assessor: request.Assessor,
@@ -364,7 +375,7 @@ func (s *service) handleAppendLifecycle(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *service) authenticate(w http.ResponseWriter, r *http.Request, changing bool) (httpauth.Principal, bool) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: changing})
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.sessions, Keys: s.keys, Now: s.now, StateChanging: changing})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return httpauth.Principal{}, false
@@ -399,7 +410,7 @@ func (s *service) writeMutation(w http.ResponseWriter, r *http.Request, principa
 }
 
 func (s *service) slide(ctx context.Context, principal *httpauth.Principal, r *http.Request) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, r.Method, r.URL.Path, s.now)
+	return httpauth.SlideSessionIfNeeded(ctx, s.sessions, principal, r.Method, r.URL.Path, s.now)
 }
 
 func requireJSON(r *http.Request) *platformhttpapi.APIError {
@@ -459,7 +470,7 @@ func resolvedIndicatorNotFoundError() *platformhttpapi.APIError {
 	return &platformhttpapi.APIError{Status: http.StatusNotFound, Code: "resolved_indicator_not_found", Details: map[string]any{}}
 }
 
-func requireIncidentAdmission(ctx context.Context, checker *admission.Checker, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *platformhttpapi.APIError) {
+func requireIncidentAdmission(ctx context.Context, checker incidentAdmission, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *platformhttpapi.APIError) {
 	grant, err := checker.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleAny})
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):

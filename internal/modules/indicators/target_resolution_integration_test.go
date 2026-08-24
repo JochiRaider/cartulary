@@ -12,7 +12,6 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -21,16 +20,16 @@ import (
 func TestIndicatorTargetRoleFailuresAreAtomic_Integration(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "indicator-target-role-resolution")
-	store := newIndicatorTestStore(t, harness.DB, revisionsupport.MustAppender(t))
+	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "indicator-target-role@example.test", "Indicator Target Role", "IndicatorTargetRolePass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-target-role-incident", "IR-IND-TARGET-ROLE", "Indicator target roles")
 	foreignIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-target-role-foreign-incident", "IR-IND-TARGET-FOREIGN", "Foreign Indicator target roles")
 	now := time.Date(2026, 8, 3, 22, 0, 0, 0, time.UTC)
 
-	mainIndicator := createTargetRoleIndicator(t, store, actor, incident.ID, "main-target.example", "main")
-	deletedIndicator := createTargetRoleIndicator(t, store, actor, incident.ID, "deleted-target.example", "deleted")
-	priorIndicator := createTargetRoleIndicator(t, store, actor, incident.ID, "prior-target.example", "prior")
-	foreignIndicator := createTargetRoleIndicator(t, store, actor, foreignIncident.ID, "foreign-target.example", "foreign")
+	mainIndicator := createTargetRoleIndicator(t, application, actor.ID, incident.ID, "main-target.example", "main")
+	deletedIndicator := createTargetRoleIndicator(t, application, actor.ID, incident.ID, "deleted-target.example", "deleted")
+	priorIndicator := createTargetRoleIndicator(t, application, actor.ID, incident.ID, "prior-target.example", "prior")
+	foreignIndicator := createTargetRoleIndicator(t, application, actor.ID, foreignIncident.ID, "foreign-target.example", "foreign")
 
 	validSource := uuid.New()
 	wrongTypeTarget := uuid.New()
@@ -46,15 +45,15 @@ func TestIndicatorTargetRoleFailuresAreAtomic_Integration(t *testing.T) {
 	deleteTargetRoleEnvelope(t, harness.DB, deletedIndicator, actor.ID, now.Add(4*time.Second))
 	deleteTargetRoleEnvelope(t, harness.DB, deletedSource, actor.ID, now.Add(5*time.Second))
 
-	unresolved, err := store.CreateIndicatorObservation(ctx, actor, manualObservationParams(incident.ID, transitionSource, timelinetest.FieldSourceText, nil, "txn-target-role-unresolved"))
+	unresolved, err := application.CreateIndicatorObservation(ctx, actor.ID, manualObservationParams(incident.ID, transitionSource, timelinetest.FieldSourceText, nil, "txn-target-role-unresolved"))
 	if err != nil {
 		t.Fatalf("create unresolved observation: %v", err)
 	}
-	priorSourceObservation, err := store.CreateIndicatorObservation(ctx, actor, manualObservationParams(incident.ID, priorSourceDependency, timelinetest.FieldSourceText, nil, "txn-target-role-prior-source"))
+	priorSourceObservation, err := application.CreateIndicatorObservation(ctx, actor.ID, manualObservationParams(incident.ID, priorSourceDependency, timelinetest.FieldSourceText, nil, "txn-target-role-prior-source"))
 	if err != nil {
 		t.Fatalf("create prior-source observation: %v", err)
 	}
-	priorTargetObservation, err := store.CreateIndicatorObservation(ctx, actor, manualObservationParams(incident.ID, priorTargetDependency, timelinetest.FieldSourceText, &priorIndicator, "txn-target-role-prior-target"))
+	priorTargetObservation, err := application.CreateIndicatorObservation(ctx, actor.ID, manualObservationParams(incident.ID, priorTargetDependency, timelinetest.FieldSourceText, &priorIndicator, "txn-target-role-prior-target"))
 	if err != nil {
 		t.Fatalf("create prior-target observation: %v", err)
 	}
@@ -82,7 +81,7 @@ func TestIndicatorTargetRoleFailuresAreAtomic_Integration(t *testing.T) {
 		name, sourceID := name, sourceID
 		suffix := strings.ReplaceAll(name, " ", "-")
 		assertFailure(name, indicators.ErrIndicatorSourceNotFound, func() error {
-			_, callErr := store.CreateIndicatorObservation(ctx, actor, manualObservationParams(incident.ID, sourceID, timelinetest.FieldSourceText, nil, "txn-target-role-"+suffix))
+			_, callErr := application.CreateIndicatorObservation(ctx, actor.ID, manualObservationParams(incident.ID, sourceID, timelinetest.FieldSourceText, nil, "txn-target-role-"+suffix))
 			return callErr
 		})
 	}
@@ -96,11 +95,11 @@ func TestIndicatorTargetRoleFailuresAreAtomic_Integration(t *testing.T) {
 		name, targetID := name, targetID
 		suffix := strings.ReplaceAll(name, " ", "-")
 		assertFailure(name, indicators.ErrResolvedIndicatorNotFound, func() error {
-			_, callErr := store.CreateIndicatorObservation(ctx, actor, manualObservationParams(incident.ID, validSource, timelinetest.FieldSourceText, &targetID, "txn-target-role-"+suffix))
+			_, callErr := application.CreateIndicatorObservation(ctx, actor.ID, manualObservationParams(incident.ID, validSource, timelinetest.FieldSourceText, &targetID, "txn-target-role-"+suffix))
 			return callErr
 		})
 		assertFailure("transition "+name, indicators.ErrResolvedIndicatorNotFound, func() error {
-			_, callErr := store.ResolveIndicatorObservation(ctx, actor, indicators.IndicatorObservationResolveParams{
+			_, callErr := application.ResolveIndicatorObservation(ctx, actor.ID, indicators.IndicatorObservationResolveParams{
 				ObservationID: unresolved.Observation.ObservationID, ResolvedIndicatorRecordID: targetID,
 				BaseRowVersion: 1, ClientTxnID: "txn-target-role-transition-" + suffix,
 				RequestID: "req-target-role-transition-" + suffix,
@@ -119,7 +118,7 @@ func TestIndicatorTargetRoleFailuresAreAtomic_Integration(t *testing.T) {
 		suffix := strings.ReplaceAll(name, " ", "-")
 		assertFailure(name, indicators.ErrIndicatorNotFound, func() error {
 			params := lifecycleAppendParams(incident.ID, targetID, 1, now.Add(time.Hour), "txn-target-role-"+suffix)
-			_, callErr := store.AppendIndicatorLifecycleInterval(ctx, actor, params)
+			_, callErr := application.AppendIndicatorLifecycleInterval(ctx, actor.ID, params)
 			return callErr
 		})
 	}
@@ -134,20 +133,20 @@ func TestIndicatorTargetRoleFailuresAreAtomic_Integration(t *testing.T) {
 		assertFailure(name, indicators.ErrInvalidCreateRequest, func() error {
 			params := lifecycleAppendParams(incident.ID, mainIndicator, 1, now.Add(2*time.Hour), "txn-target-role-"+suffix)
 			params.SupportRefs = []uuid.UUID{supportID}
-			_, callErr := store.AppendIndicatorLifecycleInterval(ctx, actor, params)
+			_, callErr := application.AppendIndicatorLifecycleInterval(ctx, actor.ID, params)
 			return callErr
 		})
 	}
 
 	assertFailure("unavailable prior source", indicators.ErrIndicatorObservationNotFound, func() error {
-		_, callErr := store.DismissIndicatorObservation(ctx, actor, indicators.IndicatorObservationActionParams{
+		_, callErr := application.DismissIndicatorObservation(ctx, actor.ID, indicators.IndicatorObservationActionParams{
 			ObservationID: priorSourceObservation.Observation.ObservationID, BaseRowVersion: 1,
 			ClientTxnID: "txn-target-role-prior-source-dismiss", RequestID: "req-target-role-prior-source-dismiss",
 		})
 		return callErr
 	})
 	assertFailure("unavailable prior target", indicators.ErrIndicatorObservationNotFound, func() error {
-		_, callErr := store.DismissIndicatorObservation(ctx, actor, indicators.IndicatorObservationActionParams{
+		_, callErr := application.DismissIndicatorObservation(ctx, actor.ID, indicators.IndicatorObservationActionParams{
 			ObservationID: priorTargetObservation.Observation.ObservationID, BaseRowVersion: 1,
 			ClientTxnID: "txn-target-role-prior-target-dismiss", RequestID: "req-target-role-prior-target-dismiss",
 		})
@@ -155,9 +154,9 @@ func TestIndicatorTargetRoleFailuresAreAtomic_Integration(t *testing.T) {
 	})
 }
 
-func createTargetRoleIndicator(t testing.TB, store *indicators.Store, actor authn.UserRecord, incidentID uuid.UUID, value string, suffix string) uuid.UUID {
+func createTargetRoleIndicator(t testing.TB, application *indicators.Application, actorUserID uuid.UUID, incidentID uuid.UUID, value string, suffix string) uuid.UUID {
 	t.Helper()
-	result, err := store.CreateIndicatorRow(context.Background(), actor, incidentID, indicators.CreateCommand{
+	result, err := application.CreateIndicatorRow(context.Background(), actorUserID, incidentID, indicators.CreateCommand{
 		ClientTxnID:   "txn-target-role-indicator-" + suffix,
 		IndicatorType: "domain_name",
 		ValueKind:     "atomic",

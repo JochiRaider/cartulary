@@ -104,8 +104,8 @@ func TestIndicatorTargetEnvelopeRoleClassification(t *testing.T) {
 func TestIndicatorLockedEnvelopeStorageFailurePropagates(t *testing.T) {
 	t.Parallel()
 	want := errors.New("injected record-envelope storage failure")
-	store := &Store{recordStore: failingIndicatorRecordStore{err: want}}
-	if _, err := store.lockAffectedRecordsTx(context.Background(), nil, []uuid.UUID{uuid.New()}); !errors.Is(err, want) {
+	application := &Application{recordEnvelopes: failingIndicatorRecordStore{err: want}}
+	if _, err := application.lockAffectedRecordsTx(context.Background(), nil, []uuid.UUID{uuid.New()}); !errors.Is(err, want) {
 		t.Fatalf("locked envelope failure = %v, want injected storage failure", err)
 	}
 }

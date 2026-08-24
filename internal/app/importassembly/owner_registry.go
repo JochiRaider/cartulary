@@ -35,7 +35,7 @@ type OwnerRegistryDependencies struct {
 	Evidence                ownerfacade.ImportOwnerCreateFacade
 	PartyProjections        partyprojection.Rows
 	TaskDecisionProjections taskdecisionprojection.Rows
-	Indicators              *indicators.Store
+	Indicators              *indicators.Application
 }
 
 func NewOwnerCreateRegistry(
@@ -189,11 +189,21 @@ func newOwnerCreateFacade(
 		}
 		return dependencies.Evidence, nil
 	case "module.indicators@1":
-		return indicators.NewImportCreateFacade(
-			targetViewSchemaID,
-			facadeID,
-			dependencies.Indicators,
-		)
+		contribution, err := indicators.NewImportContribution(dependencies.Indicators)
+		if err != nil {
+			return nil, err
+		}
+		binding := contribution.ImportOwnerCreateBinding()
+		if binding.TargetViewSchemaID != targetViewSchemaID || binding.FacadeID != facadeID {
+			return nil, fmt.Errorf(
+				"indicator owner contribution binding = %s/%s, generated catalog requires %s/%s",
+				binding.TargetViewSchemaID,
+				binding.FacadeID,
+				targetViewSchemaID,
+				facadeID,
+			)
+		}
+		return contribution, nil
 	case "module.parties@1":
 		return parties.NewImportContribution(
 			targetViewSchemaID,

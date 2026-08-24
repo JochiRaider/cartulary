@@ -56,7 +56,14 @@ Iteration 2 preserves that exact count by replacing the test-convenience
 `IndicatorFindOrCreateParticipantV1` export with the production
 `RecordEnvelopePort` construction boundary; the participant schema value
 remains private and its returned bytes remain unchanged. Test convenience is
-never sufficient reason for a root export.
+never sufficient reason for a root export. Iteration 3 replaces `Store`,
+`StoreDependencies`, `NewStore`, and `NewImportCreateFacade` with
+`Application`, `ApplicationDependencies`, `NewApplication`, and
+`NewImportContribution`, and adds the production `IdempotencyPort`,
+`IncidentStatePort`, `RevisionPort`, and `NewProjectionContribution`
+declarations. The resulting guarded root surface is exactly 54 declarations.
+The owner fixes its import binding identity and publishes its projection
+contribution directly; callers do not select either identity.
 No alias, forwarding package, dual result, or deprecation period is allowed.
 Any other export addition or removal requires an amendment to this decision
 and its executable inventory.
@@ -70,10 +77,12 @@ cross-module registry.
 
 ## Import, transaction, and composition rules
 
-Application composition constructs one Records adapter and injects its narrow
-transactional envelope capability into the root Store and its narrow
-single-envelope reader capability into HTTP routing. It also injects
-Revisions, projection, source-text, clock, and platform dependencies. The
+Application composition constructs the Auth, Incidents, Records, and
+Revisions adapters used by Indicators. It injects narrow idempotency,
+incident-state, record-envelope, revision, projection, source-text, and clock
+capabilities into the root Application. It supplies the same composition-owned
+Records, incident-admission, and Auth session capabilities to HTTP routing.
+Indicators code constructs no concrete peer or platform store. The
 owner-local `admission` and `httpapi` adapters
 may import root DTO and application-operation contracts; no production child
 imports the root to recover dependencies, and no production child imports
@@ -111,15 +120,38 @@ and typed-nil dependencies without panic, returns no partial capability on
 failure, and reports deterministic owner-safe errors. Immutable facts are
 defensively copied; no mutable registration API is exposed.
 
-Indicators Store construction requires Postgres, Revisions,
-`RecordEnvelopePort`, projection rows, source text, and a clock. HTTP
-construction separately requires an owner application, a Records envelope
-reader, Postgres, and `DependencySet.Now`. Neither boundary constructs Records
-or falls back to wall-clock time. Create, observation, transition, lifecycle,
-and list orchestration lives directly on Store; self-referential service
+Indicators Application construction requires Postgres, `IdempotencyPort`,
+`IncidentStatePort`, `RecordEnvelopePort`, `RevisionPort`, projection rows,
+source text, and a clock. HTTP construction separately requires the owner
+application, a Records envelope reader, incident admission, Auth session
+store/slider capabilities, and `DependencySet.Now`; it does not require
+Postgres merely to construct those capabilities. Neither boundary constructs
+a peer store or falls back to wall-clock time. Create, observation,
+transition, lifecycle, and list orchestration lives directly on Application;
+self-referential service
 objects, empty repository namespace receivers, and Revisions forwarding
 adapters are prohibited. Concern-specific SQL remains in named package
 functions.
+
+Root mutation operations and transaction-participant commands receive only
+the authenticated actor user UUID required for attribution. They reject the
+nil UUID before replay lookup, transaction acquisition, or another side
+effect. HTTP retains the authenticated principal only at the transport edge;
+Workbook, Imports, Network Flow, and HTTP pass the actor UUID into Indicators.
+Imports does not synthesize an authentication record.
+
+Indicators Workbook admission uses the transport-neutral strict-JSON
+primitive and returns only the existing closed validation error containing
+`Field` and `ReasonCode`. Workbook assembly alone translates that error into
+its mutation failure and public HTTP error envelope. Indicators production
+admission does not import the HTTP transport package or HTTP JSON wrapper.
+
+The root constructs its projection contribution directly from the private
+projection provider; the forwarding `projectionprovider` package is absent.
+The root import contribution fixes `cartulary.view.indicators.v1` and
+`indicators.import_create` internally. The generated Imports catalog remains
+an independent startup consistency check rather than the source of owner
+identity.
 
 Indicators derives replay identity from the exact validated logical command;
 callers do not supply request hashes. The five deployed JSON preimages for
@@ -149,8 +181,8 @@ defects.
 The decision is implemented only when:
 
 - every root export has an exact reviewed disposition and role, the surface is
-  exactly 50 declarations after the authorized contraction and Iteration 2
-  constant-to-port exchange, and a synthetic unapproved export is rejected;
+  exactly 54 declarations after the Iteration 3 Application, capability, and
+  contribution cutover, and a synthetic unapproved export is rejected;
 - production imports match the closed owner-local topology; only `admission`
   and `httpapi` import root contracts, and no child imports the root or
   application assembly to recover dependencies;
@@ -159,11 +191,19 @@ The decision is implemented only when:
 - caller transactions are borrowed and cross-owner effects remain behind
   typed ports supplied at application composition;
 - root and HTTP construction reject required nil and typed-nil dependencies,
-  use one composition-owned Records adapter, and use injected clocks without
-  wall-clock fallback;
-- orchestration is owned directly by Store, concern SQL uses named package
+  use composition-owned Records, incident-admission, and Auth capabilities,
+  and use injected clocks without wall-clock fallback;
+- orchestration is owned directly by Application, concern SQL uses named package
   functions, and no self-referential service, empty repository namespace, or
   Revisions forwarding adapter remains;
+- root operations accept actor user UUIDs, reject the nil UUID before effects,
+  and import execution creates no synthetic authentication record;
+- Workbook admission returns only its closed semantic validation error,
+  imports strict JSON directly, and has exactly one Workbook-owned
+  semantic-to-wire translation;
+- projection and import contributions are constructed at the root, the
+  projection forwarding package is absent, and caller-selected Indicator
+  contribution identities are impossible;
 - Indicators alone derives the exact five deployed replay hashes before
   preimage-changing normalization, while persisted replay remains compatible;
 - one immutable runtime vocabulary owns Indicator type, value-kind,

@@ -125,7 +125,7 @@ func projectionProviderAssemblyImportAllowed(relPath string, importPath string) 
 		"internal/modules/assessments": {
 			cartularyImportPrefix + "internal/modules/assessments/internal/providers/projection": {},
 		},
-		"internal/modules/indicators/projectionprovider": {
+		"internal/modules/indicators": {
 			cartularyImportPrefix + "internal/modules/indicators/internal/providers/projection": {},
 		},
 		"internal/modules/parties": {
@@ -137,7 +137,7 @@ func projectionProviderAssemblyImportAllowed(relPath string, importPath string) 
 		"internal/app/projectionassembly": {
 			cartularyImportPrefix + "internal/modules/entities/hostidentity/projectionprovider": {},
 			cartularyImportPrefix + "internal/modules/evidence/projectionprovider":              {},
-			cartularyImportPrefix + "internal/modules/indicators/projectionprovider":            {},
+			cartularyImportPrefix + "internal/modules/indicators":                               {},
 			cartularyImportPrefix + "internal/modules/parties":                                  {},
 			cartularyImportPrefix + "internal/modules/tasksdecisions/projectionprovider":        {},
 			cartularyImportPrefix + "internal/modules/timeline/projectionprovider":              {},
@@ -167,6 +167,21 @@ func TestProjectionProviderAssemblyAllowlistMatchesFinalTopology(t *testing.T) {
 		"party root contribution": {
 			path:       "internal/modules/parties/provider_contributions.go",
 			importPath: cartularyImportPrefix + "internal/modules/parties/internal/providers/projection",
+			want:       true,
+		},
+		"indicator root contribution": {
+			path:       "internal/modules/indicators/projection_provider_contribution.go",
+			importPath: cartularyImportPrefix + "internal/modules/indicators/internal/providers/projection",
+			want:       true,
+		},
+		"projection assembly uses Indicator root": {
+			path:       "internal/app/projectionassembly/build.go",
+			importPath: cartularyImportPrefix + "internal/modules/indicators/internal/providers/projection",
+			want:       false,
+		},
+		"projection assembly consumes Indicator root": {
+			path:       "internal/app/projectionassembly/build.go",
+			importPath: cartularyImportPrefix + "internal/modules/indicators",
 			want:       true,
 		},
 		"projection assembly uses Party root": {

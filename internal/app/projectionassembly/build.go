@@ -8,7 +8,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	entityprovider "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/projectionprovider"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
-	indicatorprovider "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
+	indicatorowner "github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	taskdecisionprovider "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
@@ -35,7 +35,7 @@ func Build(db postgres.DB) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("assemble Entities projection contribution: %w", err)
 	}
-	indicatorsContribution, err := indicatorprovider.NewContribution()
+	indicatorsContribution, err := indicatorowner.NewProjectionContribution()
 	if err != nil {
 		return nil, fmt.Errorf("assemble Indicators projection contribution: %w", err)
 	}

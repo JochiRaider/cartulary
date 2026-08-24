@@ -31,8 +31,7 @@ func assertIndicatorsProductionImportBoundaries(t testing.TB) {
 			"query.go":         true,
 		},
 		indicatorsRepoImportPrefix + "internal/modules/incidents/admission": {
-			"routes.go":            true,
-			"store_composition.go": true,
+			"routes.go": true,
 		},
 		indicatorsRepoImportPrefix + "internal/modules/incidentbundles/sourceport": {
 			"incident_bundle_contribution.go": true,
@@ -52,11 +51,11 @@ func assertIndicatorsProductionImportBoundaries(t testing.TB) {
 			"contribution.go": true,
 		},
 		indicatorsRepoImportPrefix + "internal/modules/records": {
+			"application.go":         true,
 			"child_coordination.go":  true,
 			"create_service.go":      true,
 			"observation_service.go": true,
 			"routes.go":              true,
-			"store_composition.go":   true,
 		},
 		indicatorsRepoImportPrefix + "internal/modules/records/subtypepresence": {
 			"incident_bundle_contribution.go": true,
@@ -70,7 +69,6 @@ func assertIndicatorsProductionImportBoundaries(t testing.TB) {
 			"observation_service.go":            true,
 			"revision_append_port.go":           true,
 			"revision_provider_contribution.go": true,
-			"store_composition.go":              true,
 		},
 		indicatorsRepoImportPrefix + "internal/modules/revisions/deleterestorecontract": {
 			"provider.go": true,
@@ -148,10 +146,10 @@ func TestIndicatorsDoNotUseEntitiesSourcePrefixes(t *testing.T) {
 
 func TestIndicatorAdmissionIsTransportNeutral(t *testing.T) {
 	for _, fileName := range []string{
+		"application.go",
 		"contracts.go",
 		"persistence_scanners.go",
 		"replay_codec.go",
-		"store_composition.go",
 		"value_serialization.go",
 	} {
 		for _, importPath := range indicatorsProductionImports(t, fileName) {
