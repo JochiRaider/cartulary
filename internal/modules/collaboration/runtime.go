@@ -24,6 +24,12 @@ type Options struct {
 	PublicationCatalog *PublicationCatalog
 }
 
+type routeDependencies struct {
+	acceptSocket   protocol.AcceptSocket
+	checkOrigin    protocol.CheckBrowserOrigin
+	serviceVersion string
+}
+
 // Runtime is Collaboration's application facade. Concrete live-session and
 // dispatch components remain private to the owner.
 type Runtime struct {
@@ -31,7 +37,7 @@ type Runtime struct {
 	store        *privatestream.PostgresStream
 	dispatcher   *privatestream.Dispatcher
 	publications PublicationAppender
-	options      Options
+	routes       routeDependencies
 }
 
 func NewRuntime(options Options) (*Runtime, error) {
@@ -59,7 +65,11 @@ func NewRuntime(options Options) (*Runtime, error) {
 		store:        store,
 		dispatcher:   privatestream.NewDispatcher(store, liveHub, options.Now),
 		publications: publications,
-		options:      options,
+		routes: routeDependencies{
+			acceptSocket:   options.AcceptSocket,
+			checkOrigin:    options.CheckBrowserOrigin,
+			serviceVersion: options.ServiceVersion,
+		},
 	}, nil
 }
 
@@ -109,25 +119,4 @@ func (runtime *Runtime) NotifyIncidentMembershipRevoked(_ context.Context, _ uui
 		return
 	}
 	runtime.hub.RevokeIncidentAccess(incidentID, userID)
-}
-
-// IncidentEventObserver is a semantic observation capability used by
-// application-level tests. It exposes neither hub identity nor lifecycle.
-type IncidentEventObserver interface {
-	SubscribeIncident(uuid.UUID, int) (<-chan protocol.Message, func())
-}
-
-type incidentEventObserver struct {
-	hub *hub
-}
-
-func (observer incidentEventObserver) SubscribeIncident(incidentID uuid.UUID, buffer int) (<-chan protocol.Message, func()) {
-	return observer.hub.SubscribeIncident(incidentID, buffer)
-}
-
-func (runtime *Runtime) IncidentEvents() IncidentEventObserver {
-	if runtime == nil {
-		return incidentEventObserver{}
-	}
-	return incidentEventObserver{hub: runtime.hub}
 }

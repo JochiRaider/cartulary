@@ -26,6 +26,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
@@ -38,7 +39,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 
 	t.Run("create patch review and supersede replays stay single-write and preserve substrate", func(t *testing.T) {
-		server, db, harness := startServer(t, runtime, "timeline_mutation-i-3-01-replay")
+		server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-01-replay")
 
 		adminLogin, adminID := provisionBootstrapAdmin(t, server)
 		incident := createIncident(t, server, adminLogin, map[string]any{
@@ -49,8 +50,6 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		incidentID := incident["incident_id"].(string)
 		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(mustUUID(t, incidentID), 24)
-		defer unsubscribe()
 
 		createResp := doJSON(
 			t,
@@ -76,7 +75,6 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			t.Fatalf("expected zero-field create to start rough, got %#v", createCells["timeline.capture_state"])
 		}
 		requireTimelineSocketChange(t, socket, recordID, 1)
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second)
 		requireMutationRecorded(t, db, createData["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-i-3-01-row-create-zero", 1, 1)
 		asserttest.RequireTimelineRecordMutation(t, asserttest.SQLDatabase(db), createData["change_set_id"].(string), asserttest.TimelineRecordMutationExpectation{
 			SequenceNo:      1,
@@ -109,7 +107,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if createReplayData["change_set_id"] != createData["change_set_id"] {
 			t.Fatalf("expected create replay to return original payload, got %#v", createReplayData)
 		}
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
 			FirstStatus:     http.StatusCreated,
 			ReplayStatus:    http.StatusOK,
@@ -139,7 +137,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentCreate, http.StatusConflict, "client_txn_conflict")
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		replacement := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-i-3-01-replacement",
@@ -151,7 +149,6 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			t.Fatalf("expected one-value create to start rough, got %#v", replacementRow)
 		}
 		requireTimelineSocketChange(t, socket, replacementID, 1)
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second)
 
 		patchResp := doJSON(
 			t,
@@ -175,7 +172,6 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			t.Fatalf("unexpected patch row_version: %#v", patchedRow)
 		}
 		requireTimelineSocketChange(t, socket, recordID, 2)
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second)
 		requireMutationRecorded(t, db, patchData["change_set_id"].(string), recordID, adminID, "timeline.records.patch", "txn-i-3-01-row-patch", 1, 2)
 		asserttest.RequireTimelineRecordMutation(t, asserttest.SQLDatabase(db), patchData["change_set_id"].(string), asserttest.TimelineRecordMutationExpectation{
 			SequenceNo:       1,
@@ -221,7 +217,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if patchReplayData["change_set_id"] != patchData["change_set_id"] {
 			t.Fatalf("expected patch replay to return original payload, got %#v", patchReplayData)
 		}
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 		countersAfterPatchReplay := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
 			FirstStatus:     http.StatusOK,
@@ -256,7 +252,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentPatch, http.StatusConflict, "client_txn_conflict")
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		reviewResp := doJSON(
 			t,
@@ -275,7 +271,6 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			t.Fatalf("unexpected review payload: %#v", reviewData)
 		}
 		requireTimelineSocketChange(t, socket, recordID, 3)
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second)
 		requireMutationRecorded(t, db, reviewData["change_set_id"].(string), recordID, adminID, "timeline.records.mark_reviewed", "txn-i-3-01-row-review", 1, 3)
 		asserttest.RequireTimelineRecordMutation(t, asserttest.SQLDatabase(db), reviewData["change_set_id"].(string), asserttest.TimelineRecordMutationExpectation{
 			SequenceNo:       1,
@@ -309,7 +304,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if reviewReplayData["change_set_id"] != reviewData["change_set_id"] {
 			t.Fatalf("expected review replay to return original payload, got %#v", reviewReplayData)
 		}
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 		reviewCountsAfterReplay := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
 			FirstStatus:     http.StatusOK,
@@ -341,7 +336,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, reviewDivergent, http.StatusConflict, "client_txn_conflict")
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		supersedeResp := doJSON(
 			t,
@@ -361,7 +356,6 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			t.Fatalf("unexpected supersede payload: %#v", supersedeData)
 		}
 		requireTimelineSocketChange(t, socket, recordID, 4)
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second)
 		requireMutationRecorded(t, db, supersedeData["change_set_id"].(string), recordID, adminID, "timeline.records.supersede", "txn-i-3-01-row-supersede", 2, 4)
 		asserttest.RequireSupersedeCoupledChangeSet(t, asserttest.SQLDatabase(db), supersedeData["change_set_id"].(string), recordID, replacementID, 4)
 		asserttest.RequireRecordLinkCreateMutation(t, asserttest.SQLDatabase(db), supersedeData["change_set_id"].(string), asserttest.RecordLinkMutationExpectation{
@@ -398,7 +392,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if supersedeReplayData["change_set_id"] != supersedeData["change_set_id"] {
 			t.Fatalf("expected supersede replay to return original payload, got %#v", supersedeReplayData)
 		}
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 		supersedeCountsAfterReplay := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
 			FirstStatus:     http.StatusOK,
@@ -431,7 +425,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, supersedeDivergentReason, http.StatusConflict, "client_txn_conflict")
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		supersedeDivergentReplacement := doJSON(
 			t,
@@ -447,7 +441,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, supersedeDivergentReplacement, http.StatusConflict, "client_txn_conflict")
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 	})
 
 	t.Run("late transaction failures roll back source history projection and collaboration", func(t *testing.T) {
@@ -463,8 +457,6 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		incidentID := incident["incident_id"].(string)
 		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(mustUUID(t, incidentID), 4)
-		defer unsubscribe()
 
 		facade := timelineFacadeWithProjectionFailure(t, harness, func(workbookprojection.ProjectionMutation) error {
 			return errors.New("forced timeline rollback")
@@ -501,7 +493,10 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if got := queryCount(t, db, `SELECT COUNT(*) FROM timeline_grid_projection WHERE incident_id::text = $1`, incidentID); got != 0 {
 			t.Fatalf("rollback must clear timeline_grid_projection, got %d", got)
 		}
-		asserttest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+		requireNoTimelineCollaborationEmission(t, socket)
+		if got := collaborationsupport.CountIntents(t, db, collaborationsupport.IntentSelector{IncidentID: incidentID}); got != 0 {
+			t.Fatalf("rollback left %d collaboration intents", got)
+		}
 	})
 }
 
@@ -1130,7 +1125,7 @@ func TestAuthorizationLifecycleAndSupersedeTransitions_Integration(t *testing.T)
 	runtime := scenariotest.StartRuntime(t)
 
 	t.Run("authorization re-derives, reasons normalize, and supersede guards hold", func(t *testing.T) {
-		server, db, harness := startServer(t, runtime, "timeline_mutation-i-3-03")
+		server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-03")
 		defer db.Close()
 
 		adminLogin, adminID := provisionBootstrapAdmin(t, server)
@@ -1217,8 +1212,6 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(db), incidentID)
 		socket := connectTimelineSocket(t, server, incidentID, reviewerSession.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(mustUUID(t, incidentID), 16)
-		defer unsubscribe()
 
 		reviewDenied := doJSON(
 			t,
@@ -1233,7 +1226,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, reviewDenied, http.StatusForbidden, "authorization_denied")
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		updateMembershipRole(t, server, incidentID, reviewerID, 1, "reviewer", adminLogin)
 		beforeAuth := contractassert.AuthorizationOutcome{Status: http.StatusForbidden, Code: "authorization_denied"}
@@ -1254,7 +1247,6 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			t.Fatalf("unexpected reviewed payload: %#v", reviewedData)
 		}
 		requireTimelineSocketChange(t, socket, recordID, 2)
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second)
 		requireMutationRecorded(t, db, reviewedData["change_set_id"].(string), recordID, reviewerID, "timeline.records.mark_reviewed", "txn-i-3-03-reviewed-1", 1, 2)
 		if projection := asserttest.LookupProjectionRow(t, asserttest.SQLDatabase(db), recordID); projection.CaptureState != "reviewed" {
 			t.Fatalf("expected reviewed projection row, got %#v", projection)
@@ -1278,7 +1270,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if reviewReplayData["change_set_id"] != reviewedData["change_set_id"] {
 			t.Fatalf("expected review replay to return original payload, got %#v", reviewReplayData)
 		}
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 		reviewCountsAfterReplay := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
 			FirstStatus:     http.StatusOK,
@@ -1310,7 +1302,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, reviewDivergent, http.StatusConflict, "client_txn_conflict")
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		materialEdit := doJSON(
 			t,
@@ -1333,7 +1325,6 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			t.Fatalf("expected reviewed row to demote back to enriched, got %#v", demotedRow)
 		}
 		requireTimelineSocketChange(t, socket, recordID, 3)
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second)
 		requireMutationRecorded(t, db, demoted["change_set_id"].(string), recordID, reviewerID, "timeline.records.patch", "txn-i-3-03-demote", 1, 3)
 		asserttest.RequireTimelineRecordMutation(t, asserttest.SQLDatabase(db), demoted["change_set_id"].(string), asserttest.TimelineRecordMutationExpectation{
 			SequenceNo:       1,
@@ -1360,7 +1351,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, recordID, selfBefore, selfSupersede, "enriched", "superseded", []string{"replacement_must_be_different_timeline_record"})
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		crossBefore := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 		crossIncidentSupersede := doJSON(
@@ -1377,7 +1368,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, recordID, crossBefore, crossIncidentSupersede, "enriched", "superseded", []string{"replacement_must_be_visible_active_same_incident_timeline_record"})
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		supersededReplacementBefore := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 		supersededReplacementResp := doJSON(
@@ -1394,7 +1385,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, recordID, supersededReplacementBefore, supersededReplacementResp, "enriched", "superseded", []string{"replacement_must_not_be_superseded"})
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		missingReplacementID := uuid.New().String()
 		missingReplacementBefore := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
@@ -1412,7 +1403,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, recordID, missingReplacementBefore, missingReplacementResp, "enriched", "superseded", []string{"replacement_must_be_visible_active_same_incident_timeline_record"})
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		activeIncomingBefore := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, activeIncomingTargetID)
 		activeIncomingResp := doJSON(
@@ -1429,7 +1420,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, activeIncomingTargetID, activeIncomingBefore, activeIncomingResp, "rough", "superseded", []string{"target_must_not_have_active_replacement"})
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		supersede := doJSON(
 			t,
@@ -1449,7 +1440,6 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			t.Fatalf("unexpected supersede payload: %#v", superseded)
 		}
 		requireTimelineSocketChange(t, socket, recordID, 4)
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second)
 		requireMutationRecorded(t, db, superseded["change_set_id"].(string), recordID, reviewerID, "timeline.records.supersede", "txn-i-3-03-supersede", 2, 4)
 		asserttest.RequireSupersedeCoupledChangeSet(t, asserttest.SQLDatabase(db), superseded["change_set_id"].(string), recordID, replacementID, 4)
 		if got := asserttest.CountActiveSupersedesLinks(t, asserttest.SQLDatabase(db), incidentID, replacementID, recordID); got != 1 {
@@ -1492,7 +1482,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if supersedeReplayData["change_set_id"] != superseded["change_set_id"] {
 			t.Fatalf("expected supersede replay to return original payload, got %#v", supersedeReplayData)
 		}
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 		supersedeCountsAfterReplay := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
 			FirstStatus:     http.StatusOK,
@@ -1525,7 +1515,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, supersedeDivergentReason, http.StatusConflict, "client_txn_conflict")
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		supersedeDivergentReplacement := doJSON(
 			t,
@@ -1541,7 +1531,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, supersedeDivergentReplacement, http.StatusConflict, "client_txn_conflict")
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		patchAfterSupersede := doJSON(
 			t,
@@ -1559,7 +1549,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, patchAfterSupersede, http.StatusConflict, "illegal_transition")
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		illegalReview := doJSON(
 			t,
@@ -1573,7 +1563,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, illegalReview, http.StatusConflict, "illegal_transition")
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 
 		updateMembershipRole(t, server, incidentID, reviewerID, 2, "viewer", adminLogin)
 		patchDeniedAgain := doJSON(
@@ -1592,7 +1582,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, patchDeniedAgain, http.StatusForbidden, "authorization_denied")
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 		contractassert.RequireAuthorizationReDerived(t, contractassert.AuthorizationOutcome{Status: http.StatusOK}, contractassert.AuthorizationOutcome{Status: http.StatusForbidden, Code: "authorization_denied"})
 	})
 
@@ -1622,8 +1612,6 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(db), incidentID)
 		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(mustUUID(t, incidentID), 8)
-		defer unsubscribe()
 
 		before := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 		rollbackEnabled = true
@@ -1677,7 +1665,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if row["group_values"].(map[string]any)["timeline.capture_state"] != "rough" {
 			t.Fatalf("rollback must restore rough capture state, got %#v", row)
 		}
-		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+		requireNoTimelineCollaborationEmission(t, socket)
 	})
 }
 
@@ -2084,11 +2072,10 @@ func requireMutationRecorded(t testing.TB, db *sql.DB, changeSetID string, recor
 	}
 }
 
-func requireNoTimelineCollaborationEmission(t testing.TB, client *scenariotest.TimelineSocketClient, changes <-chan platformws.Message) {
+func requireNoTimelineCollaborationEmission(t testing.TB, client *scenariotest.TimelineSocketClient) {
 	t.Helper()
 
 	scenariotest.ExpectNoTimelineSocketMessage(t, client)
-	asserttest.RequireNoRecordChange(t, changes, 300*time.Millisecond)
 }
 
 func requireRejectedMutationStable(t testing.TB, db *sql.DB, incidentID string, recordID string, before asserttest.Counters, resp *http.Response, wantFrom string, wantTo string, wantGuards []string) {

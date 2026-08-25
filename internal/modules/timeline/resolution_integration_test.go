@@ -1650,8 +1650,6 @@ UPDATE incident_memberships
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID)
 		socket := connectTimelineSocket(t, harness.Server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(mustUUID(t, incidentID), 4)
-		defer unsubscribe()
 
 		resp := doJSON(
 			t,
@@ -1719,7 +1717,6 @@ SELECT COUNT(*)
 			t.Fatalf("rejected payload must not refresh misleading resolution state, got %#v", item)
 		}
 
-		asserttest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
 		expectNoTimelineSocketMessage(t, socket)
 	})
 }

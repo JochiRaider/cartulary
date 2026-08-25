@@ -73,7 +73,7 @@ INSERT INTO extension_job_commit_proofs (
 `, specialID, "expiry-proof-"+specialID.String(), cutoff); err != nil {
 		t.Fatal(err)
 	}
-	intenttest.InsertLegacyJobProgressV1(
+	intenttest.InsertPersistedJobProgressIntentFixture(
 		t,
 		pool,
 		"expiry-intent-"+specialID.String(),

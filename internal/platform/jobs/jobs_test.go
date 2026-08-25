@@ -275,7 +275,6 @@ func TestManagerTerminalSuccessRetainsJobResource(t *testing.T) {
 }
 
 func TestManagerPersistsCanonicalIncidentProgressIntents_Integration(t *testing.T) {
-	ctx := context.Background()
 	manager, actorID, incidentID, pool := newJobsHarnessWithPool(
 		t,
 		"jobs-progress-intent",
@@ -312,21 +311,6 @@ func TestManagerPersistsCanonicalIncidentProgressIntents_Integration(t *testing.
 		scope["incident_id"] != incidentID.String() ||
 		progress["completed"] != float64(0) {
 		t.Fatalf("unexpected canonical job progress payload: %#v", canonical)
-	}
-
-	legacyKey := "job_progress:" + resource.JobID + ":legacy-v1"
-	intenttest.InsertLegacyJobProgressV1(
-		t, pool, legacyKey, incidentID, intentRecord.CanonicalPayload, "job:"+resource.JobID, resource.UpdatedAt,
-	)
-	execution := claimTestExecution(t, manager, uuid.MustParse(resource.JobID))
-	if _, err := manager.UpdateProgress(ctx, execution, jobs.Progress{Completed: 0}, nil); err != nil {
-		t.Fatalf("publish v2 progress beside legacy v1: %v", err)
-	}
-	legacyCount, v2Count := intenttest.CountLegacyAndV2JobProgress(
-		t, pool, legacyKey, "job_progress:v2:"+resource.JobID+":%", "job:"+resource.JobID,
-	)
-	if legacyCount != 1 || v2Count != 2 {
-		t.Fatalf("job progress intent coexistence = v1 %d v2 %d want 1/2", legacyCount, v2Count)
 	}
 }
 

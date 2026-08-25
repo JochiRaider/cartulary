@@ -13,6 +13,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 )
 
+const (
+	dispatchInterval   = 100 * time.Millisecond
+	dispatchBackoffMax = 30 * time.Second
+)
+
 type replayBroadcaster interface {
 	DeliverReplayable(protocol.Message) error
 }

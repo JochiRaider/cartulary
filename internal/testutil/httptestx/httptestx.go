@@ -21,7 +21,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -75,15 +74,7 @@ func (capability *JobsCapability) Create(ctx context.Context, params jobs.Enqueu
 
 type CollaborationCapability struct {
 	runtime      *collaboration.Runtime
-	events       collaboration.IncidentEventObserver
 	publications collaboration.PublicationAppender
-}
-
-func (capability *CollaborationCapability) SubscribeIncident(incidentID uuid.UUID, buffer int) (<-chan collabprotocol.Message, func()) {
-	if capability == nil || capability.events == nil {
-		return nil, func() {}
-	}
-	return capability.events.SubscribeIncident(incidentID, buffer)
 }
 
 func (capability *CollaborationCapability) RevokeSession(sessionID uuid.UUID, reasonCode string) {
@@ -227,7 +218,6 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		ObserveCollaboration: func(runtime *collaboration.Runtime) {
 			collaborationCapability = &CollaborationCapability{
 				runtime:      runtime,
-				events:       runtime.IncidentEvents(),
 				publications: runtime.Publications(),
 			}
 		},

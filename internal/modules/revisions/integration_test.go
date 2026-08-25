@@ -18,6 +18,7 @@ import (
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -32,12 +33,12 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	seedHostProjection(t, harness.DB, incidentID, recordID)
 
 	indicatorID := seedIndicatorRecord(t, harness.DB, incidentID, actorID)
-	hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(incidentID, 16)
-	defer unsubscribe()
+	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.hosts.v1", login.SessionCookie.Value)
+	defer socket.Close(1000, "test_complete")
 
 	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 0, 0, 0, time.UTC))
 	deletePayload := httptestx.RequireSuccessEnvelope(t, deleteRecord(t, harness, login, recordID, map[string]any{"base_row_version": 1, "client_txn_id": "txn-i-7-01-delete-host"}), http.StatusOK)["data"].(map[string]any)
-	requireDeleteRestoreRecordChange(t, asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second), recordID, 2, "remove", "cartulary.view.hosts.v1")
+	requireDeleteRestoreRecordChange(t, incidentwstest.RequireRecordChangedEvent(t, socket, recordID, 2), recordID, 2, "remove", "cartulary.view.hosts.v1")
 	deleteChangeSetID := deletePayload["change_set_id"].(string)
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'records.delete' AND actor_user_id = $2`, deleteChangeSetID, actorID) != 1 {
 		t.Fatalf("delete did not create attributed change_set")
@@ -61,7 +62,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 
 	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 1, 0, 0, time.UTC))
 	restorePayload := httptestx.RequireSuccessEnvelope(t, restoreRecord(t, harness, login, recordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-i-7-01-restore-host"}), http.StatusOK)["data"].(map[string]any)
-	requireDeleteRestoreRecordChange(t, asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second), recordID, 3, "invalidate", "cartulary.view.hosts.v1")
+	requireDeleteRestoreRecordChange(t, incidentwstest.RequireRecordChangedEvent(t, socket, recordID, 3), recordID, 3, "invalidate", "cartulary.view.hosts.v1")
 	restoreChangeSetID := restorePayload["change_set_id"].(string)
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'records.restore' AND actor_user_id = $2`, restoreChangeSetID, actorID) != 1 {
 		t.Fatalf("restore did not create attributed change_set")
@@ -89,7 +90,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 		"client_txn_id":    "txn-i-7-01-rollback-host",
 		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": rollbackRef},
 	}), http.StatusOK)["data"].(map[string]any)
-	requireRollbackRecordChange(t, asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second), rollbackRecordID, 3, "cartulary.view.hosts.v1")
+	requireRollbackRecordChange(t, incidentwstest.RequireRecordChangedEvent(t, socket, rollbackRecordID, 3), rollbackRecordID, 3, "cartulary.view.hosts.v1")
 	rollbackChangeSetID := rollbackPayload["rollback_change_set_id"].(string)
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'rollback' AND actor_user_id = $2`, rollbackChangeSetID, actorID) != 1 {
 		t.Fatalf("rollback did not create attributed rollback change_set")
@@ -118,10 +119,9 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 		"client_txn_id":    "txn-i-7-01-rollback-link",
 		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": linkRollbackRef},
 	}), http.StatusOK)["data"].(map[string]any)
-	requireRollbackRecordChangesAnyOrder(t, []platformws.RecordChangedEvent{
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
-	}, map[uuid.UUID]int64{linkSrc: 2, linkDst: 2}, "cartulary.view.hosts.v1")
+	requireRollbackRecordChangesAnyOrder(t,
+		incidentwstest.RequireRecordChangedEvents(t, socket, map[uuid.UUID]int64{linkSrc: 2, linkDst: 2}),
+		map[uuid.UUID]int64{linkSrc: 2, linkDst: 2}, "cartulary.view.hosts.v1")
 	requireAffectedRecords(t, linkRollbackPayload, linkSrc, linkDst)
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND deleted_at IS NOT NULL`, linkID) != 1 {
 		t.Fatalf("link rollback did not tombstone active link")
@@ -143,10 +143,9 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 		"client_txn_id":    "txn-i-7-01-rollback-whole-change-set",
 		"target":           map[string]any{"kind": "change_set", "change_set_id": wholeChangeSetID.String()},
 	}), http.StatusOK)["data"].(map[string]any)
-	requireRollbackRecordChangesAnyOrder(t, []platformws.RecordChangedEvent{
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
-	}, map[uuid.UUID]int64{wholeLeft: 3, wholeRight: 3}, "cartulary.view.hosts.v1")
+	requireRollbackRecordChangesAnyOrder(t,
+		incidentwstest.RequireRecordChangedEvents(t, socket, map[uuid.UUID]int64{wholeLeft: 3, wholeRight: 3}),
+		map[uuid.UUID]int64{wholeLeft: 3, wholeRight: 3}, "cartulary.view.hosts.v1")
 	requireAffectedRecords(t, wholeRollbackPayload, wholeLeft, wholeRight)
 	if got := hostDisplayName(t, harness.DB, wholeLeft); got != "left before" {
 		t.Fatalf("whole change-set rollback did not update left source row, got %q", got)
@@ -183,7 +182,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 		"client_txn_id":    "txn-i-7-01-row-restore",
 		"target":           map[string]any{"kind": "row_restore", "restore_to_revision_no": 2},
 	}), http.StatusOK)["data"].(map[string]any)
-	requireRollbackRecordChange(t, asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second), rowRestoreID, 4, "cartulary.view.hosts.v1")
+	requireRollbackRecordChange(t, incidentwstest.RequireRecordChangedEvent(t, socket, rowRestoreID, 4), rowRestoreID, 4, "cartulary.view.hosts.v1")
 	requireAffectedRecords(t, rowRestorePayload, rowRestoreID)
 	if got := hostDisplayName(t, harness.DB, rowRestoreID); got != "integration row snapshot" {
 		t.Fatalf("row restore did not update source row, got %q", got)
@@ -216,10 +215,9 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 		"client_txn_id":    "txn-i-7-01-rollback-attached-evidence-create",
 		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": attachedCreateRef},
 	}), http.StatusOK)["data"].(map[string]any)
-	requireRollbackRecordChangesByRecord(t, []platformws.RecordChangedEvent{
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
-	}, map[uuid.UUID]rollbackRecordChangeExpectation{
+	requireRollbackRecordChangesByRecord(t, incidentwstest.RequireRecordChangedEvents(t, socket, map[uuid.UUID]int64{
+		attachedCreateSrc: 2, attachedCreateEvidence: 2,
+	}), map[uuid.UUID]rollbackRecordChangeExpectation{
 		attachedCreateSrc: {
 			rowVersion:       2,
 			viewSchemaID:     "cartulary.view.timeline.v2",
@@ -254,10 +252,9 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 		"client_txn_id":    "txn-i-7-01-rollback-attached-evidence-delete",
 		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": attachedDeleteRef},
 	}), http.StatusOK)["data"].(map[string]any)
-	requireRollbackRecordChangesByRecord(t, []platformws.RecordChangedEvent{
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
-		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
-	}, map[uuid.UUID]rollbackRecordChangeExpectation{
+	requireRollbackRecordChangesByRecord(t, incidentwstest.RequireRecordChangedEvents(t, socket, map[uuid.UUID]int64{
+		attachedDeleteSrc: 2, attachedDeleteEvidence: 2,
+	}), map[uuid.UUID]rollbackRecordChangeExpectation{
 		attachedDeleteSrc: {
 			rowVersion:       2,
 			viewSchemaID:     "cartulary.view.timeline.v2",
@@ -570,11 +567,11 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 	}
 	asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID.String())
 	before := StateCounts(t, harness.DB, recordID)
-	hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(incidentID, 4)
-	defer unsubscribe()
+	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.hosts.v1", login.SessionCookie.Value)
+	defer socket.Close(1000, "test_complete")
 	stale := restoreRecord(t, harness, login, recordID, map[string]any{"base_row_version": 1, "client_txn_id": "txn-i-7-03-stale-restore"})
 	httptestx.RequireErrorEnvelope(t, stale, http.StatusConflict, "row_version_conflict")
-	asserttest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+	incidentwstest.ExpectNoRecordChanged(t, socket, recordID)
 	after := StateCounts(t, harness.DB, recordID)
 	if before != after {
 		t.Fatalf("stale restore mutated state: before=%+v after=%+v", before, after)
@@ -592,7 +589,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": rollbackRef},
 	})
 	httptestx.RequireErrorEnvelope(t, staleRollback, http.StatusConflict, "row_version_conflict")
-	asserttest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+	incidentwstest.ExpectNoRecordChanged(t, socket, rollbackRecordID)
 	afterRollback := StateCounts(t, harness.DB, rollbackRecordID)
 	if beforeRollback != afterRollback {
 		t.Fatalf("stale rollback mutated state: before=%+v after=%+v", beforeRollback, afterRollback)
@@ -613,7 +610,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 		"target":           map[string]any{"kind": "row_restore", "restore_to_revision_no": 2},
 	})
 	httptestx.RequireErrorEnvelope(t, staleRowRestore, http.StatusConflict, "row_version_conflict")
-	asserttest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+	incidentwstest.ExpectNoRecordChanged(t, socket, rowRestoreRecordID)
 	afterRowRestore := StateCounts(t, harness.DB, rowRestoreRecordID)
 	if beforeRowRestore != afterRowRestore {
 		t.Fatalf("stale row restore mutated state: before=%+v after=%+v", beforeRowRestore, afterRowRestore)
@@ -633,7 +630,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 		"target":           map[string]any{"kind": "change_set", "change_set_id": wholeChangeSetID.String()},
 	})
 	httptestx.RequireErrorEnvelope(t, staleWhole, http.StatusConflict, "row_version_conflict")
-	asserttest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+	incidentwstest.ExpectNoRecordChangedMessage(t, socket)
 	if afterWholeLeft := StateCounts(t, harness.DB, wholeLeft); beforeWholeLeft != afterWholeLeft {
 		t.Fatalf("stale whole rollback mutated left state: before=%+v after=%+v", beforeWholeLeft, afterWholeLeft)
 	}
@@ -653,7 +650,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 		"target":           map[string]any{"kind": "change_set", "change_set_id": unsupportedChangeSetID.String()},
 	})
 	httptestx.RequireErrorEnvelope(t, unsupported, http.StatusConflict, "rollback_precondition_failed")
-	asserttest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+	incidentwstest.ExpectNoRecordChanged(t, socket, unsupportedRecordID)
 	afterUnsupported := StateCounts(t, harness.DB, unsupportedRecordID)
 	if beforeUnsupported != afterUnsupported {
 		t.Fatalf("unsupported whole rollback mutated state: before=%+v after=%+v", beforeUnsupported, afterUnsupported)

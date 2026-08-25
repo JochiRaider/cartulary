@@ -15,8 +15,6 @@ import (
 	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
 )
 
-var ErrIntentKeyCollision = errors.New("collaboration intent key collision")
-
 type PublicationContribution struct {
 	ContributionID string
 	SourceOwnerID  string
@@ -168,15 +166,15 @@ type PublicationAppender interface {
 }
 
 type publicationAppender struct {
-	catalog  *PublicationCatalog
-	delegate *privatestream.PostgresStream
+	catalog *PublicationCatalog
+	writer  privatestream.IntentWriter
 }
 
 func NewPublicationAppender(catalog *PublicationCatalog) (PublicationAppender, error) {
 	if catalog == nil {
 		return nil, errors.New("collaboration publication catalog is required")
 	}
-	return &publicationAppender{catalog: catalog, delegate: privatestream.NewPostgresStream(nil, nil)}, nil
+	return &publicationAppender{catalog: catalog}, nil
 }
 
 func (appender *publicationAppender) AppendRecordChangedTx(ctx context.Context, tx pgx.Tx, input RecordChangeIntentInput) error {
@@ -204,14 +202,13 @@ func (appender *publicationAppender) AppendExtensionResourceChangedTx(ctx contex
 }
 
 func (appender *publicationAppender) appendTx(ctx context.Context, tx pgx.Tx, intent privatestream.EventIntent) error {
-	if appender == nil || appender.delegate == nil || appender.catalog == nil {
+	if appender == nil || appender.catalog == nil {
 		return errors.New("collaboration publication appender is not configured")
 	}
-	err := appender.delegate.AppendIntentTx(ctx, tx, intent)
-	if errors.Is(err, privatestream.ErrIntentKeyCollision) {
-		return fmt.Errorf("%w: %v", ErrIntentKeyCollision, err)
+	if err := appender.writer.AppendTx(ctx, tx, intent); err != nil {
+		return fmt.Errorf("append collaboration publication intent: %w", err)
 	}
-	return err
+	return nil
 }
 
 func (appender *publicationAppender) recordChangedIntent(input RecordChangeIntentInput) (privatestream.EventIntent, error) {

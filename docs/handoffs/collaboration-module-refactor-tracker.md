@@ -11,7 +11,8 @@
 | Planning session | `2026-08-24T17:26:00-04:00` |
 | NLSpec-style revision session | `2026-08-24T18:22:06-04:00`; the tracker was already staged as a new file and no other tracked change was present. |
 | Execution session | Authorized `2026-08-24T19:09:01-04:00` from commit `169ba53197681aa45767914b70cd86d8759d0d3f`; the tracker remained the only staged path and no index change was authorized. |
-| Status | Remediation complete; `WF-EXEC-00` through `WF-SL-08` are `DONE`, all binary exits pass, and no required follow-up remains. |
+| Status | Iterations 1 and 2 are complete. `PR2-PLAN-00` and `PR2-WF-00` through `PR2-WF-07` are `DONE`; all final exact and broad validation gates passed. |
+| Iteration 2 planning baseline | Clean `main` at commit `9e933f7bd1189f7492fec86acb468c99b0ad7513` on `2026-08-25`; `docs/domain.md` was consulted as terminology authority and remains unchanged. |
 | Allowed change | The specification, authored contract, implementation, test, test-support, harness-policy, generated projection, and handoff paths required by `WF-EXEC-00` through `WF-SL-08`. Generated roots may change only through their Make-owned generators. |
 | Non-goals | No public route, message family, CLI grammar, database schema, Incident Bundle version, authorization precedence, or telemetry-vocabulary change; no compatibility alias, dual path, feature flag, backfill, or production-data migration; no agent-created commit, staging change, or index reset. |
 | Deployment posture | Pre-production. Incompatible disposable state uses the adopted reset-only profile; this posture does not weaken any public or security contract. |
@@ -135,7 +136,7 @@ Each requirement is defined once here and referenced by ID elsewhere.
 | Commands, run roots, row results, and failure classifications | Tracker and retained harness evidence | Record exact execution evidence and status. | Treating prose or a phase map as proof that a test passed. |
 | Rationale, external implementation guidance, and research | Research notes or decision rationale | Use only to explain a conforming recommendation. | Promoting supporting research into Cartulary authority. |
 
-### 1.3 Authorized remediation execution
+### 1.3 Iteration 1 authorized remediation execution (historical)
 
 The selected architecture is the independent-port topology: source owners
 derive separate private Revisions facts and public Collaboration effects from
@@ -178,7 +179,7 @@ compatibility result, rollback scope, residual risk, and binary exit. Run and
 record `make lint-markdown` after the checkpoint edit. A failed workstream stays
 `IN_PROGRESS` or becomes `BLOCKED`; its successor does not start.
 
-## 2. Current-State Repository Inventory
+## 2. Iteration 1 Discovery Inventory (Historical Baseline)
 
 | Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1089,7 +1090,7 @@ NLSpec-style revision validation: `make lint-markdown` passed on 2026-08-24
 with run root `.cartulary/test-results/20260824T222840Z-p1033205`. No product
 test, generation, conformance, owner-slice, or broad-check target was run.
 
-## 9. Top-Level Work Tracker
+## 9. Iteration 1 Top-Level Work Tracker
 
 | ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -1233,3 +1234,734 @@ At planning completion, all criteria in this historical section passed and
 `RB-001` through `RB-003` remained future gates. The authorized execution
 record above subsequently resolved those gates and completed every
 slice-specific criterion.
+
+## 13. Iteration 2: Legacy Removal and Production Readiness
+
+This section controls the next Collaboration refactoring iteration. Sections
+1 through 12 retain the completed Iteration 1 discovery, execution, validation,
+and handoff record. Statements in those sections that no follow-up remained
+describe the closure state of Iteration 1 and do not cancel this separately
+authorized planning step.
+
+The planning-only document update did not authorize Iteration 2 implementation.
+The user's later implementation request on `2026-08-25` authorized the strictly
+sequenced workstreams below. That authorization did not broaden the behavior
+freeze, owner hierarchy, generated-file policy, or index-preservation rules.
+
+### 13.1 Planning posture and evidence
+
+| Field | Value |
+| --- | --- |
+| Planning workstream | `PR2-PLAN-00` |
+| Planning status | `DONE`; only this tracker changed, diff review passed, and final Markdown lint passed. |
+| Starting HEAD | `9e933f7bd1189f7492fec86acb468c99b0ad7513` |
+| Starting status | Clean `main`, aligned with `origin/main`; no staged, tracked, or untracked repository change. |
+| Planning start | `2026-08-25T06:40:38-04:00` |
+| Planning end | `2026-08-25T06:44:18-04:00` |
+| Allowed planning change | `docs/handoffs/collaboration-module-refactor-tracker.md` only. |
+| Deployment posture | Pre-production; atomic cutovers without aliases, dual paths, backfills, or production-data migrations. |
+| Terminology authority | `docs/domain.md` was consulted and remains unchanged. Collaboration remains an implementation and supporting capability, not a domain bounded context. |
+| Pre-edit Markdown baseline | `make lint-markdown` passed at `.cartulary/test-results/20260825T103546Z-p2661879/adhoc/lint-markdown`. |
+| Product validation posture | No product, generated, contract, harness, or source validation is claimed by this documentation-only workstream. |
+
+Repository reachability inspection found the following concrete Iteration 2
+inputs:
+
+- `IncidentEventObserver`, `Runtime.IncidentEvents`, and the matching HTTP test
+  harness capability exist only to let source-owner tests subscribe directly
+  to the private live hub;
+- eleven source-owner call sites use
+  `harness.Collaboration.SubscribeIncident`: five in Timeline, one in Network
+  Flow, two in Workbook, and three in Revisions-owned tests;
+- root `ErrIntentKeyCollision` and `protocol.IsClientMessageType` have no
+  repository consumer outside their definitions and internal implementation;
+- `NewPublicationAppender` constructs `NewPostgresStream(nil, nil)` solely to
+  reach transaction-bound intent append behavior;
+- the Platform Jobs suite carries an unowned v1/v2 job-progress intent-key
+  coexistence assertion, while the expiry test needs only a neutral persisted
+  intent fixture;
+- malformed persisted intent coverage is production resilience evidence and
+  remains required, but its current `legacy` naming incorrectly suggests a
+  compatibility obligation;
+- `Runtime` retains the complete construction `Options` after validation even
+  though routes require only the socket acceptor, Origin checker, and service
+  version; and
+- root `protocol.go`, the route source, the private stream store, and the
+  durable-stream integration source combine responsibilities or use names that
+  obscure the current adopted topology.
+
+These findings are implementation evidence, not new behavioral authority. The
+adopted Collaboration boundary already requires private hub, stream,
+dispatcher, and recovery mechanics and forbids compatibility aliases. If an
+implementation workstream discovers a conflict with an adopted owner, it must
+record `BLOCKED: owner contradiction` and stop rather than resolving the
+conflict from this tracker.
+
+### 13.2 Iteration 2 requirements
+
+| ID | Requirement | Authority/status |
+| --- | --- | --- |
+| `PR2-REQ-001` | Public `/ws/v1/` routes, message families, authentication, authorization, Origin handling, revocation, close-code precedence, replay behavior, telemetry vocabulary, CLI behavior, and database schema MUST remain unchanged. | Adopted-owner trace; active and verified unchanged. |
+| `PR2-REQ-002` | Compatibility-only fixtures and names without an adopted owner MUST be removed. Malformed persisted-state quarantine and recovery evidence MUST be retained under neutral corruption terminology. | Adopted pre-production posture plus Iteration 2 execution gate; implemented and verified. |
+| `PR2-REQ-003` | Production Collaboration APIs MUST NOT expose live-hub observation solely for tests. Delivery tests MUST use the authenticated socket boundary; transaction non-publication tests MUST use semantic durable-effect assertions. | Adopted private-hub boundary plus Iteration 2 execution gate; implemented and verified. |
+| `PR2-REQ-004` | Dead exported symbols MUST be removed atomically without aliases. Intent append persistence MUST use a zero-dependency owner-private writer rather than a nil-configured replay/dispatcher store. | Adopted private-store boundary plus Iteration 2 execution gate; implemented and verified. |
+| `PR2-REQ-005` | Runtime state MUST retain only owned lifecycle components and narrow route dependencies after construction validation. | Adopted runtime-facade boundary; implemented and verified. |
+| `PR2-REQ-006` | Source layout MUST make hub, route registration, socket session, socket transport, intent writing, replay/resume, sequencing/quarantine, and tailing/retention responsibilities explicit without creating new public packages or compatibility layers. | Maintainability execution gate; implemented and verified. |
+| `PR2-REQ-007` | Existing owner-row entrypoints and selectors MUST remain stable unless behavioral coverage cannot be preserved otherwise. Authored inputs MUST precede any Make-owned generated refresh. | Testing Harness NLSpec and repository generation policy; verified unchanged. |
+| `PR2-REQ-008` | Every implementation workstream MUST checkpoint this tracker and pass Markdown lint before its successor begins. | Tracker execution gate; completed and verified. |
+| `PR2-REQ-009` | The final implementation workstream MUST enforce retired-surface absence mechanically and close exact validation and handoff accounting. | Tracker and harness execution gate; implemented and verified. |
+
+### 13.3 Gap register
+
+#### PR2-G-01: compatibility-only job-progress fixtures
+
+- **Remediation and areas:** Remove the v1/v2 coexistence assertion and
+  `CountLegacyAndV2JobProgress`. Rename the expiry fixture to
+  `InsertPersistedJobProgressIntentFixture`. Rename `appendLegacyIntent` and
+  malformed-intent cases to neutral persisted-corruption terminology. Touch
+  only tests, test support, and boundary policy in the implementation slice.
+- **Rationale:** No adopted owner requires legacy intent-key coexistence.
+  Malformed persisted-row quarantine remains valuable resilience evidence.
+- **Long-term benefit:** Test fixtures cannot become accidental compatibility
+  contracts, and retained corruption tests state their real purpose.
+- **Compatibility and migration:** Atomic test-only cutover. No runtime,
+  schema, payload, or stored-data change.
+- **Risk if unresolved:** Future job-progress work remains constrained by an
+  unowned v1 key format, while misleading names obscure required behavior.
+- **Validation:** No retired helper or `legacy-invalid` reference remains;
+  Platform Jobs and Collaboration owner slices pass; malformed rows still
+  quarantine without replay.
+
+#### PR2-G-02: production API used only for test observation
+
+- **Remediation and areas:** Replace all eleven direct test subscribers with
+  authenticated socket observation for delivery, payload, or ordering and
+  semantic intent assertions for rollback or non-publication. Remove
+  `IncidentEventObserver`, `Runtime.IncidentEvents`, the harness event field,
+  `SubscribeIncident`, and owner-local channel helpers rendered unreachable.
+  Touch implementation, tests, test support, and policy.
+- **Rationale:** Tests should exercise the public security and wire boundary or
+  the durable semantic effect they claim. The production facade should not
+  expose a hub-adjacent observer solely for tests.
+- **Long-term benefit:** Integration evidence covers admission, encoding, and
+  delivery while the runtime facade remains production-focused.
+- **Compatibility and migration:** Internal test API removal only. Public
+  WebSocket and application behavior remain unchanged.
+- **Risk if unresolved:** Production and test topology remain coupled to the
+  hub, and source-owner integration tests can bypass the live route boundary.
+- **Validation:** Exact caller audit is empty; Timeline, Network Flow,
+  Workbook, Revisions, and Collaboration owner slices pass; negative tests use
+  durable absence assertions instead of timing-only hub waits.
+
+#### PR2-G-03: dead exports and nil-backed intent writer
+
+- **Remediation and areas:** Remove root `ErrIntentKeyCollision` and
+  `protocol.IsClientMessageType`. Extract transaction-bound intent append into
+  an owner-private, zero-dependency `stream.IntentWriter`; stop constructing
+  `NewPostgresStream(nil, nil)`. Preserve private collision detection and add
+  contextual error wrapping. Touch implementation, tests, and policy.
+- **Rationale:** Unused exports create false contracts. A broad store with nil
+  dependencies hides the actual persistence responsibility and weakens
+  invariants.
+- **Long-term benefit:** Intent writing has one explicit purpose and future
+  replay/store dependencies cannot accidentally enter transaction-bound
+  publication.
+- **Compatibility and migration:** Atomic internal Go API cutover without an
+  alias. No caller branches on the removed root sentinel.
+- **Risk if unresolved:** Dead APIs attract callers and nil-configured objects
+  can acquire methods that require unavailable dependencies.
+- **Validation:** Repository-wide reachability audit, collision/idempotency and
+  rollback tests, absence of nil-backed store construction, Collaboration owner
+  slices, and backend boundary checks.
+
+#### PR2-G-04: runtime retains broad construction state
+
+- **Remediation and areas:** Validate `Options` once and retain only a private
+  immutable route-dependency value containing the socket acceptor, Origin
+  checker, and service version. Do not retain PostgreSQL, catalog, clock, or
+  the original `Options` value. Touch implementation and tests.
+- **Rationale:** Runtime state should express owned lifecycle and capabilities,
+  not constructor history.
+- **Long-term benefit:** Route work cannot begin depending on unrelated
+  persistence or catalog configuration simply because it remains reachable.
+- **Compatibility and migration:** No constructor signature or observable
+  behavior change.
+- **Risk if unresolved:** The runtime facade remains more coupled and mutable
+  than its adopted responsibility requires.
+- **Validation:** Constructor-negative, route/security/socket, lifecycle, and
+  shutdown tests plus an exact audit that `Runtime` no longer stores `Options`.
+
+#### PR2-G-05: misleading hub and route organization
+
+- **Remediation and areas:** Rename root `protocol.go` to `hub.go`. Keep
+  `routes.go` for registration and dependency assembly; move session
+  handshake/loop logic to `socket_session.go` and frame/error/close behavior to
+  `socket_transport.go`. Split mixed hub and protocol tests while retaining
+  their selected test names. Touch implementation and tests.
+- **Rationale:** The current filename conflicts conceptually with the actual
+  `protocol` package, and one route file combines security admission, session
+  orchestration, and transport mechanics.
+- **Long-term benefit:** Authorization, session, and frame changes gain smaller
+  review and regression surfaces.
+- **Compatibility and migration:** File-layout-only change. Registrar, route,
+  precedence, timeouts, close codes, telemetry, and wire behavior remain
+  frozen.
+- **Risk if unresolved:** Future security and protocol work continues through
+  a large, ambiguous source surface.
+- **Validation:** Collaboration owner slices, socket/browser coverage,
+  lifecycle telemetry, formatting, and unchanged owner-row identities.
+
+#### PR2-G-06: durable stream and integration-test monoliths
+
+- **Remediation and areas:** Split the owner-private store into shared store
+  state and limits, intent writing, replay/resume, sequencing/quarantine, and
+  tailing/retention sources. Keep one `PostgresStream` for runtime storage and
+  the stateless `IntentWriter` for borrowed-transaction append. Split the large
+  integration source into matching files while retaining
+  `TestDurableIncidentStream_Integration` as the canonical owner-row entrypoint.
+  Correct the contradictory store comment. Touch implementation and tests.
+- **Rationale:** Smaller cohesive files reduce change blast radius without
+  fragmenting the storage model or adding public abstractions.
+- **Long-term benefit:** Append, replay, retry, quarantine, and retention can be
+  reasoned about and reviewed independently while harness routing stays stable.
+- **Compatibility and migration:** No schema, SQL meaning, ordering, intent
+  key, resume token, quarantine, recovery, or retention change.
+- **Risk if unresolved:** Unrelated persistence concerns remain difficult to
+  isolate and misleading comments invite unsafe assumptions.
+- **Validation:** Complete durable-stream integration, multi-process tailing,
+  collision/idempotency, replay/reset, quarantine/requeue, retention,
+  PostgreSQL ownership, and service-backed Collaboration coverage.
+
+#### PR2-G-07: regression enforcement and handoff closure
+
+- **Remediation and areas:** Extend backend-boundary policy against the retired
+  observer, legacy fixture names, dead exports, nil-backed store construction,
+  and direct non-owner hub observation. Finish exact reachability, import, and
+  SQL audits and complete tracker evidence. Touch policy, validation, and this
+  tracker.
+- **Rationale:** Removal is durable only when old coupling fails immediately on
+  reintroduction.
+- **Long-term benefit:** The production-ready topology remains mechanically
+  protected and future handoffs remain reproducible.
+- **Compatibility and migration:** Internal enforcement only.
+- **Risk if unresolved:** Deleted paths can silently return and prose can claim
+  completion without executable evidence.
+- **Validation:** Boundary and JSON checks, exact audits, finalization, full
+  `make check`, and completed handoff records.
+
+### 13.4 Interface and behavior decisions
+
+Iteration 2 removes these repository-internal interfaces without aliases:
+
+- `collaboration.IncidentEventObserver`;
+- `Runtime.IncidentEvents`;
+- test-harness `SubscribeIncident`;
+- root `collaboration.ErrIntentKeyCollision`;
+- `protocol.IsClientMessageType`; and
+- legacy job-progress coexistence helpers and owner-local channel assertion
+  helpers rendered unreachable by the socket and semantic-intent migration.
+
+Iteration 2 adds only one owner-private persistence role:
+`stream.IntentWriter`. Its zero-value instance appends validated intents through
+a borrowed transaction. It owns no database handle, clock, dispatcher, replay,
+or lifecycle. The existing private collision sentinel remains an implementation
+detail and is not forwarded through a new public error.
+
+The following remain unchanged unless an adopted owner is amended in a
+separate specification task:
+
+- `/ws/v1/incidents/{incident_id}` and all public message families;
+- authentication, authorization, Origin, revocation, and close-code
+  precedence;
+- intent keys generated by current production writers;
+- database schema and existing storage meanings;
+- replay ordering, resume tokens, quarantine, recovery, and retention;
+- CLI and frontend behavior, telemetry vocabulary, and Incident Bundle
+  contracts; and
+- the one borrowed source transaction rule for publication intent append.
+
+### 13.5 Strictly sequenced workstreams
+
+| Sequence | Workstream | Scope | Status | Dependency | Binary exit |
+| ---: | --- | --- | --- | --- | --- |
+| P | `PR2-PLAN-00` | Add and validate this Iteration 2 controlling plan without changing product state. | `DONE` | Iteration 1 complete. | Only this tracker changed; diff review and Markdown lint passed. |
+| 0 | `PR2-WF-00` | Establish retained B2 and prove the reachability case for every planned removal. | `DONE` | Later implementation authorization and `PR2-PLAN-00` `DONE`. | Both Collaboration owner slices, backend boundary, and harness contract pass or every non-pass is classified. |
+| 1 | `PR2-WF-01` | Remove compatibility-only job-progress fixtures and neutralize persisted-corruption naming. | `DONE` | `PR2-WF-00` `DONE`. | No v1 coexistence contract or retired legacy identifier remains; Platform Jobs and Collaboration validation pass. |
+| 2 | `PR2-WF-02` | Remove production direct-event observation and migrate all eleven source-owner callers. | `DONE` | `PR2-WF-01` `DONE`. | Source-owner tests use authenticated sockets or semantic durable-effect assertions; no external direct hub subscriber remains. |
+| 3 | `PR2-WF-03` | Remove dead exports and isolate transaction-bound intent writing. | `DONE` | `PR2-WF-02` `DONE`. | Dead exports and nil-backed construction are absent; collision, idempotency, and rollback behavior pass. |
+| 4 | `PR2-WF-04` | Narrow retained runtime route dependencies. | `DONE` | `PR2-WF-03` `DONE`. | Runtime no longer stores full `Options`; lifecycle and route behavior pass unchanged. |
+| 5 | `PR2-WF-05` | Clarify hub, route, socket-session, and socket-transport source layout. | `DONE` | `PR2-WF-04` `DONE`. | Cohesive source layout, stable selected test names, and unchanged socket/security behavior. |
+| 6 | `PR2-WF-06` | Decompose durable stream implementation and integration sources by responsibility. | `DONE` | `PR2-WF-05` `DONE`. | Stable owner-row entrypoint and complete stream behavior without schema or selector change. |
+| 7 | `PR2-WF-07` | Enforce removed surfaces, run broad validation, and complete the handoff. | `DONE` | `PR2-WF-06` `DONE`. | All workstreams are `DONE`; exact audits and broad checks pass or unrelated failures are fully classified. |
+
+#### PR2-WF-00: establish B2 and prove reachability
+
+- Capture starting HEAD/status and exact reference inventories for every
+  removal.
+- Run `make task-guide ROLE=module-author OWNER=module.collaboration`, both
+  Collaboration owner slices, `make backend-module-boundary-check`, and
+  `make harness-contract`.
+- Retain exact run roots and row outcomes as B2.
+
+Execution record: `DONE`. The workstream ran from
+`2026-08-25T06:52:43-04:00` through `2026-08-25T06:56:21-04:00` from HEAD
+`9e933f7bd1189f7492fec86acb468c99b0ad7513`. The starting and ending tracked
+status contained only the user-staged tracker; the index was not changed.
+Reachability found the expected eleven direct source-owner subscribers and no
+owner contradiction. `make test-slice OWNER=module.collaboration` passed
+`32/32` units at
+`.cartulary/test-results/20260825T105305Z-pr2-wf00-test-slice`;
+`make service-backed-test-slice OWNER=module.collaboration` passed `23/23`
+units at
+`.cartulary/test-results/20260825T105500Z-pr2-wf00-service-slice`;
+`make backend-module-boundary-check` passed `3/3` units at
+`.cartulary/test-results/20260825T105650Z-pr2-wf00-boundary`; and
+`make harness-contract` passed `2/2` units at
+`.cartulary/test-results/20260825T105700Z-pr2-wf00-harness`. There were no
+non-pass outcomes. `make lint-markdown` passed at
+`.cartulary/test-results/20260825T105730Z-pr2-wf00-lint`. Compatibility is unchanged because this slice was
+read-only. Rollback is not applicable beyond removing ignored retained run
+artifacts. The next action is `PR2-WF-01` after the checkpoint Markdown lint.
+
+#### PR2-WF-01: remove legacy-only fixtures
+
+- Implement `PR2-G-01` without changing production behavior.
+- Preserve the expiry physical-storage assertion and malformed persisted-row
+  quarantine behavior under neutral names.
+- Validate `platform.jobs` and `module.collaboration` through their canonical
+  owner slices and run the exact retired-token audit.
+
+Execution record: `DONE`. The workstream ran from
+`2026-08-25T06:58:19-04:00` through `2026-08-25T07:04:34-04:00` from HEAD
+`9e933f7bd1189f7492fec86acb468c99b0ad7513` with the tracker staged and its
+`PR2-WF-00` checkpoint unstaged. It removed the unowned v1/v2 coexistence
+assertion and count helper, retained the expiry fixture as
+`InsertPersistedJobProgressIntentFixture`, and renamed malformed persisted-row
+coverage without changing production code. The first Platform Jobs focused
+run failed during compilation because the removal left local `ctx` unused;
+the failure is related and fully corrected. Its run root is
+`.cartulary/test-results/20260825T105900Z-pr2-wf01-jobs-test`. The corrected
+Platform Jobs focused run passed `6/6` units at
+`.cartulary/test-results/20260825T110050Z-pr2-wf01-jobs-test-rerun` and its
+service-backed run passed `5/5` at
+`.cartulary/test-results/20260825T110130Z-pr2-wf01-jobs-service`.
+Collaboration focused and service-backed runs passed `32/32` and `23/23` at
+`.cartulary/test-results/20260825T110220Z-pr2-wf01-collab-test` and
+`.cartulary/test-results/20260825T110350Z-pr2-wf01-collab-service`.
+`make format` passed, `git diff --check` passed, and the exact retired-token
+audit was empty. `make lint-markdown` passed at
+`.cartulary/test-results/20260825T110500Z-pr2-wf01-lint`. Compatibility is test-only; runtime, schema, and stored-data
+meaning are unchanged. Rollback is limited to the four test/test-support
+paths changed by this slice. No residual risk remains before `PR2-WF-02` other
+than the mandatory tracker Markdown lint.
+
+#### PR2-WF-02: remove direct event observation
+
+- Expand `internal/testutil/collaborationsupport/incidentwstest` with shared
+  record-change, extension-resource-change, and filtered no-event assertions.
+- Use authenticated socket observation for delivered payloads, ordering, and
+  other wire-visible effects.
+- Use semantic intent presence or absence for transaction rollback and
+  non-publication; do not replace direct hub observation with timing-only
+  socket silence when durable absence is the real claim.
+- Remove the runtime and harness observer plus dead owner-local channel helpers.
+- Validate `module.timeline`, `module.networkflow`, `module.workbook`,
+  `module.revisions`, and `module.collaboration` through their applicable
+  no-service and service-backed owner slices.
+
+Execution record: `DONE`. The workstream ran from
+`2026-08-25T07:05:53-04:00` through `2026-08-25T07:48:44-04:00` from HEAD
+`9e933f7bd1189f7492fec86acb468c99b0ad7513` with the user-staged tracker and
+the unstaged `PR2-WF-00`/`PR2-WF-01` checkpoints and implementation changes;
+the index was not changed. This slice changed eleven implementation,
+source-owner test, and shared test-support paths for `PR2-G-02` and
+`PR2-REQ-003`: it enriched the shared authenticated socket helper, migrated
+all eleven direct source-owner subscribers, added durable intent counts to
+rollback and rejection state snapshots through the typed Collaboration test
+support selector, and removed `IncidentEventObserver`,
+`Runtime.IncidentEvents`, harness `SubscribeIncident`, and their retained
+channel state. Exact audits found no external direct subscriber and no raw
+Collaboration stream SQL in Timeline, Network Flow, Workbook, or Revisions.
+
+`make format` passed, most recently at
+`.cartulary/test-results/20260825T114534Z-p3544001`. Timeline's first focused
+run failed at
+`.cartulary/test-results/20260825T111300Z-pr2-wf02-timeline-test` because one
+removed subscriber left an unused local; this related compile failure was
+corrected. Its full rerun completed `49/51` at
+`.cartulary/test-results/20260825T112100Z-pr2-wf02-timeline-test-rerun`: all
+changed Go rows passed, while the untouched
+`module.timeline.browser_support.verify_full_keyboard_clipboard_contract_one_clic_ec36b90e7b`
+row timed out after 60 seconds in `apps/web/e2e/keyboard.spec.ts`. The harness
+classified that isolated non-pass as infrastructure/timing; it is unrelated
+to this backend/test-support slice. Timeline's service-backed run passed
+`29/29` at
+`.cartulary/test-results/20260825T112500Z-pr2-wf02-timeline-service`.
+Centralizing the final durable-count query first exposed a related missing
+import at
+`.cartulary/test-results/20260825T115000Z-pr2-wf02-timeline-final-rows`; after
+correction, the three affected service-backed rows passed `3/3` at
+`.cartulary/test-results/20260825T115200Z-pr2-wf02-timeline-final-rows-rerun`.
+
+Network Flow passed `35/35` focused and `30/30` service-backed units at
+`.cartulary/test-results/20260825T113000Z-pr2-wf02-networkflow-test` and
+`.cartulary/test-results/20260825T113300Z-pr2-wf02-networkflow-service`.
+Workbook passed `66/66` and `37/37` at
+`.cartulary/test-results/20260825T113600Z-pr2-wf02-workbook-test` and
+`.cartulary/test-results/20260825T113900Z-pr2-wf02-workbook-service`.
+Revisions passed `27/27` and `20/20` at
+`.cartulary/test-results/20260825T114200Z-pr2-wf02-revisions-test` and
+`.cartulary/test-results/20260825T114400Z-pr2-wf02-revisions-service`; its
+three final affected service-backed rows passed `3/3` at
+`.cartulary/test-results/20260825T115400Z-pr2-wf02-revisions-final-rows`.
+Collaboration passed `32/32` and `23/23` at
+`.cartulary/test-results/20260825T114600Z-pr2-wf02-collab-test` and
+`.cartulary/test-results/20260825T114800Z-pr2-wf02-collab-service`.
+`git diff --check` passed, and `make lint-markdown` passed at
+`.cartulary/test-results/20260825T115700Z-pr2-wf02-lint`; the completed-state
+lint passed at
+`.cartulary/test-results/20260825T115900Z-pr2-wf02-final-lint`. Public routes,
+secured wire payloads, ordering,
+authorization, schema, and stored-data meaning are unchanged; the removal is
+an atomic repository-internal production/test API cutover with no migration.
+Rollback is limited to these eleven slice paths and this checkpoint. The
+unrelated Timeline keyboard timeout remains recorded but does not block the
+owner-backed final rows; no change-related residual risk remains before
+`PR2-WF-03`.
+
+#### PR2-WF-03: remove dead APIs and isolate intent writing
+
+- Remove both dead exports atomically without aliases.
+- Move intent construction, validation, append, exact replay, and collision
+  details into the cohesive private intent source and zero-dependency writer.
+- Keep replay, dispatcher, clock, and database-handle concerns out of the
+  writer.
+- Validate Collaboration owner slices, append rollback/idempotency/collision
+  tests, formatting, and backend boundaries.
+
+Execution record: `DONE`. The workstream ran from
+`2026-08-25T07:50:14-04:00` through `2026-08-25T07:57:38-04:00` from HEAD
+`9e933f7bd1189f7492fec86acb468c99b0ad7513`; the index still contained only
+the user-staged tracker, while prior checkpoints and implementation remained
+unstaged. For `PR2-G-03`, `PR2-REQ-004`, and the frozen compatibility posture,
+the slice removed root `collaboration.ErrIntentKeyCollision` and
+`protocol.IsClientMessageType` without aliases. It moved `EventIntent`
+construction, canonical validation, append, exact-duplicate handling,
+collision diagnostics, and the now-private collision cause into
+`internal/stream/intent_writer.go`. The stateless zero-value `IntentWriter`
+borrows only the caller's transaction and owns no database handle, clock,
+replay, dispatcher, or lifecycle. The publication appender now owns that
+writer by value and adds operation context while preserving the private error
+cause. No `NewPostgresStream(nil, nil)`, removed export, or old
+`AppendIntentTx` reference remains.
+
+`make format` passed at
+`.cartulary/test-results/20260825T115320Z-p3583715`.
+`make test-slice OWNER=module.collaboration` passed `32/32` units at
+`.cartulary/test-results/20260825T120500Z-pr2-wf03-collab-test`, covering
+canonical validation, transaction rollback, exact replay, collision
+diagnostics, sequencing, quarantine, replay, and retention.
+`make service-backed-test-slice OWNER=module.collaboration` passed `23/23` at
+`.cartulary/test-results/20260825T120700Z-pr2-wf03-collab-service`.
+`make backend-module-boundary-check` passed `3/3` at
+`.cartulary/test-results/20260825T120900Z-pr2-wf03-boundary`. Exact symbol and
+constructor audits and `git diff --check` passed with no non-pass outcome.
+`make lint-markdown` passed at
+`.cartulary/test-results/20260825T121100Z-pr2-wf03-lint`.
+Public wire, storage, transaction, and error-response behavior are unchanged;
+the removed sentinels had no consumers, so the atomic internal cutover needs
+no migration. Rollback is limited to the five WF-03 implementation/test paths
+and this checkpoint. No change-related residual risk remains before
+`PR2-WF-04`.
+
+#### PR2-WF-04: narrow runtime state
+
+- Keep `Options` as the application construction input.
+- Validate it once, build owned components, and retain one immutable private
+  route-dependency value with only socket acceptance, Origin checking, and
+  service version.
+- Validate constructor failures, runtime start/close, route admission, Origin,
+  revocation, shutdown, and socket behavior.
+
+Execution record: `DONE`. The workstream ran from
+`2026-08-25T07:58:30-04:00` through `2026-08-25T08:03:10-04:00` from HEAD
+`9e933f7bd1189f7492fec86acb468c99b0ad7513` with only the tracker staged and
+all prior execution work unstaged; the index was not changed. For
+`PR2-G-04`, `PR2-REQ-005`, and the frozen route/security posture, NewRuntime
+continues to accept and validate `Options` once, but `Runtime` no longer
+retains that input. It retains only its owned hub, stream, dispatcher, and
+publication components plus an immutable private value containing the socket
+acceptor, Origin checker, and service version. Route authentication storage,
+master keys, and clock continue to resolve from `httpapi.DependencySet`.
+PostgreSQL, publication-catalog, and construction-clock history are not
+route-reachable.
+
+`make format` passed at
+`.cartulary/test-results/20260825T115902Z-p3686916`.
+`make test-slice OWNER=module.collaboration` passed `32/32` units at
+`.cartulary/test-results/20260825T121600Z-pr2-wf04-collab-test`, and
+`make service-backed-test-slice OWNER=module.collaboration` passed `23/23` at
+`.cartulary/test-results/20260825T121800Z-pr2-wf04-collab-service`. The exact
+Runtime-field audit and `git diff --check` passed with no non-pass outcome.
+`make lint-markdown` passed at
+`.cartulary/test-results/20260825T122100Z-pr2-wf04-lint`.
+The constructor signature, lifecycle, public routes, Origin behavior,
+authentication, membership, revocation, close behavior, telemetry version,
+and socket messages are unchanged, so no migration is required. Rollback is
+limited to `runtime.go`, `routes.go`, and this checkpoint. No change-related
+residual risk remains before `PR2-WF-05`.
+
+#### PR2-WF-05: clarify hub and socket layout
+
+- Rename and split the sources exactly as specified by `PR2-G-05`.
+- Preserve package names, symbols, selected test function names, and harness
+  row identities.
+- Run `make format`, Collaboration owner slices, lifecycle telemetry coverage,
+  backend boundaries, `make harness-contract`, and generated drift checks.
+
+Execution record: `DONE`. The workstream ran from
+`2026-08-25T08:04:06-04:00` through `2026-08-25T08:19:51-04:00` from HEAD
+`9e933f7bd1189f7492fec86acb468c99b0ad7513` with only the tracker staged and
+all preceding checkpoints and implementation unstaged; the index was not
+changed. For `PR2-G-05` and `PR2-REQ-006`, root `protocol.go` became `hub.go`;
+`routes.go` now contains route dependencies, registration, construction, and
+HTTP admission helpers; session establishment, presence, heartbeat,
+authorization rechecks, revocation, and the live loop moved to
+`socket_session.go`; and frame decoding/encoding, read/write loops, terminal
+emission, close handling, and decode-failure behavior moved to
+`socket_transport.go`. Hub cases are under `hub_test.go` and
+`hub_state_test.go`; handshake/session cases are under
+`socket_session_test.go`, while the unchanged strict frame and close-code
+case is under `socket_transport_test.go`.
+
+The first focused Collaboration run failed during compilation because the
+test split retained one unused `bytes` import; this related mechanical failure
+was corrected and is retained at
+`.cartulary/test-results/20260825T122700Z-pr2-wf05-collab-test`. The first
+corrected rerun reached `31/32` before the final test-service suite failed to
+start with `infra/service_readiness_timeout`; no test assertion failed, and
+the unrelated infrastructure outcome is retained at
+`.cartulary/test-results/20260825T123000Z-pr2-wf05-collab-test-rerun`. The
+fresh rerun passed `32/32` at
+`.cartulary/test-results/20260825T123500Z-pr2-wf05-collab-test-rerun2`, and
+the service-backed slice passed `23/23` at
+`.cartulary/test-results/20260825T123700Z-pr2-wf05-collab-service`.
+The explicit lifecycle-telemetry row passed `1/1` at
+`.cartulary/test-results/20260825T123900Z-pr2-wf05-lifecycle-telemetry`;
+backend boundaries passed `3/3` at
+`.cartulary/test-results/20260825T124000Z-pr2-wf05-boundary`; harness contract
+passed `2/2` at
+`.cartulary/test-results/20260825T124100Z-pr2-wf05-harness`; and generated
+drift passed `4/4` at
+`.cartulary/test-results/20260825T124200Z-pr2-wf05-generate-drift`.
+`make format` most recently passed at
+`.cartulary/test-results/20260825T121050Z-p3843948`. Exact HEAD-to-current
+comparisons found no changed top-level test name or literal subtest label;
+obsolete `protocol.go`, `protocol_test.go`, `socket.go`, and `socket_test.go`
+paths are absent, and `git diff --check` passed. `make lint-markdown` passed
+at `.cartulary/test-results/20260825T124500Z-pr2-wf05-lint`. This is a
+source-layout-only
+change: package symbols, route, timeouts, close codes and precedence, security,
+wire payloads, telemetry, owner rows, and generated artifacts are unchanged.
+Rollback is limited to the eleven old/new layout paths and this checkpoint.
+No change-related residual risk remains before `PR2-WF-06`.
+
+#### PR2-WF-06: decompose durable stream internals
+
+- Split sources by the responsibilities in `PR2-G-06` without introducing an
+  interface per method, another public package, or multiple store lifecycles.
+- Keep `TestDurableIncidentStream_Integration` as the owner-routed entrypoint;
+  move cohesive subtest bodies and fixtures across `_test.go` files without
+  changing its selected name.
+- Validate the full stream suite, recovery paths, PostgreSQL ownership,
+  formatting, harness routing, and generated drift.
+
+Execution record: `DONE`. The workstream ran from
+`2026-08-25T08:20:47-04:00` through `2026-08-25T08:38:29-04:00` from HEAD
+`9e933f7bd1189f7492fec86acb468c99b0ad7513` with only the tracker staged and
+all prior execution work unstaged; the index was not changed. For
+`PR2-G-06`, `PR2-REQ-006`, and `PR2-REQ-007`, `PostgresStream` remains the
+single stateful lifecycle and `store.go` now contains only that state and its
+constructor. `intent_writer.go` owns append concerns; `replay.go` owns high
+water, resume tokens, bounded replay, and replay-message construction;
+`sequencing.go` owns pending selection, per-incident sequence assignment,
+retry, and quarantine progression; `tailing.go` owns initial cursor and
+multi-process durable reads; and `retention.go` owns pruning and retention
+limits. Dispatcher-only constants moved beside dispatcher orchestration, and
+the misleading route-facing store comment was replaced with the complete
+stateful responsibility statement.
+
+The 1,088-line integration monolith became one entrypoint plus cohesive
+intent, tailing, sequencing/recovery, retention, and support sources.
+`TestDurableIncidentStream_Integration` remains the sole owner-routed
+entrypoint. All literal and dynamic subtest labels retain their WF-06 starting
+order; comparison to HEAD shows only the earlier, required `PR2-WF-01`
+`legacy invalid` to `persisted corrupt` terminology change. Moving recovery
+scenarios also narrowed the boundary-policy allowance for
+`NewRecoveryCapability` from the obsolete monolith to the exact entrypoint and
+recovery scenario paths.
+
+The first canonical-row run failed during compilation on mechanical split
+imports and on retention's dependency on the tailing scenario identity. This
+related failure was corrected without changing assertions and is retained at
+`.cartulary/test-results/20260825T125200Z-pr2-wf06-stream-row`. The corrected
+row passed `3/3` at
+`.cartulary/test-results/20260825T125500Z-pr2-wf06-stream-row-rerun`, and the
+final fidelity rerun passed `3/3` at
+`.cartulary/test-results/20260825T130900Z-pr2-wf06-stream-row-final`.
+Collaboration passed `32/32` focused and `23/23` service-backed units at
+`.cartulary/test-results/20260825T125700Z-pr2-wf06-collab-test` and
+`.cartulary/test-results/20260825T125900Z-pr2-wf06-collab-service`.
+Platform/PostgreSQL passed `4/4` and `3/3` at
+`.cartulary/test-results/20260825T130100Z-pr2-wf06-postgres-test` and
+`.cartulary/test-results/20260825T130300Z-pr2-wf06-postgres-service`.
+Backend boundaries passed `3/3` at
+`.cartulary/test-results/20260825T130500Z-pr2-wf06-boundary`; harness contract
+passed `2/2` at
+`.cartulary/test-results/20260825T130600Z-pr2-wf06-harness`; and generated
+drift passed `4/4` at
+`.cartulary/test-results/20260825T130700Z-pr2-wf06-generate-drift`.
+`make format` most recently passed at
+`.cartulary/test-results/20260825T123619Z-p4174800`, and exact topology,
+selector, subtest-order, recovery-allowance, and `git diff --check` audits
+passed. `make lint-markdown` passed at
+`.cartulary/test-results/20260825T131200Z-pr2-wf06-lint`. Schema, SQL meaning,
+event families, keys, ordering, replay/reset,
+quarantine/requeue, recovery, cancellation, retention, and PostgreSQL
+ownership are unchanged; no migration is required. Rollback is limited to the
+fourteen old/new production, test, and policy paths plus this checkpoint. No
+change-related residual risk remains before `PR2-WF-07`.
+
+#### PR2-WF-07: enforce, validate, and hand off
+
+- Add exact boundary rules for retired observer APIs, helper names, dead
+  exports, nil-backed construction, and non-owner direct hub observation.
+- Run exact symbol, import, SQL, path, selector, and public-contract audits.
+- Run `make agent-finalize` with an exact-source retained successful full-check
+  root when one exists. Otherwise leave `RESULTS_DIR` unset and record that
+  retained-run maintenance was skipped for that reason.
+- Run `make check`, complete all tracker statuses and handoff rows, and record
+  every non-pass classification, compatibility result, rollback scope, and
+  residual risk.
+
+Execution record: `DONE`. The workstream ran from
+`2026-08-25T08:39:24-04:00` through `2026-08-25T08:51:39-04:00` at unchanged
+HEAD `9e933f7bd1189f7492fec86acb468c99b0ad7513`. Starting status contained the
+user-staged tracker plus the unstaged, checkpointed Iteration 2 implementation;
+the index was not changed. This slice changes
+`tools/backend_module_boundaries.json` and this tracker for `PR2-REQ-001`,
+`PR2-REQ-008`, `PR2-REQ-009`, and `PR2-G-07`.
+
+The backend policy now rejects the retired observer, compatibility-fixture,
+dead-export, nil-backed-store, and obsolete helper surfaces; confines direct
+private-hub subscription to the socket-session implementation and exact owner
+unit-test paths; forbids the obsolete hub, socket, and stream source paths; and
+guards the single Runtime, PostgresStream, and shared test-harness ownership
+shape. The split recovery-test allowance names only the canonical entrypoint
+and recovery scenario files.
+
+Validation on the exact source passed as follows:
+
+- backend boundaries passed `3/3` at
+  `.cartulary/test-results/20260825T134500Z-pr2-wf07-boundary`;
+- JSON shape passed `3/3` at
+  `.cartulary/test-results/20260825T134600Z-pr2-wf07-json-shape`;
+- generated-artifact policy passed `3/3` at
+  `.cartulary/test-results/20260825T134700Z-pr2-wf07-generated-policy`;
+- generated drift passed `4/4` at
+  `.cartulary/test-results/20260825T134800Z-pr2-wf07-generate-drift`;
+- harness contract passed `2/2` at
+  `.cartulary/test-results/20260825T134900Z-pr2-wf07-harness`;
+- pre-check finalization passed `1/1` without `RESULTS_DIR` at
+  `.cartulary/test-results/20260825T135000Z-pr2-wf07-agent-finalize` because no
+  exact-source successful full-check root yet existed;
+- full `make check` passed `656/656` at
+  `.cartulary/test-results/20260825T135100Z-pr2-wf07-check`; and
+- retained-run finalization against that exact full-check root passed `1/1` at
+  `.cartulary/test-results/20260825T135700Z-pr2-wf07-agent-finalize-retained`.
+
+Exact audits found no retired symbol or helper, no obsolete source path, one
+canonical durable-stream test entrypoint and selector, and direct hub
+subscriptions only in `socket_session.go`, `hub_test.go`, and
+`hub_state_test.go`. The root-import audit found only shared Collaboration test
+support and a pre-existing Workbook test dependency on the production
+`RecordChangedAppender` contract; neither reaches private hub or store
+internals. The four affected source-owner trees contain no raw Collaboration
+storage SQL. No specification, `docs/domain.md`, contract, migration, schema,
+generated root, or lockfile changed. `git diff --check` passed. The only
+retained non-passes are the corrected intermediate compile misses and unrelated
+transient readiness/keyboard timeout already classified in their originating
+workstreams; all final gates passed. Compatibility is unchanged across public,
+security, storage, CLI, telemetry, browser, and Incident Bundle surfaces, and
+no migration is required. Rollback is limited to the policy file and this
+checkpoint for this slice, or to each preceding workstream's recorded atomic
+paths for the full iteration. No change-related residual risk remains. Final
+tracker lint and the binary status transition are complete: checkpoint
+Markdown lint passed at
+`.cartulary/test-results/20260825T135900Z-pr2-wf07-lint-checkpoint`, and final
+Markdown lint passed at
+`.cartulary/test-results/20260825T140200Z-pr2-wf07-lint-final`.
+
+### 13.6 Checkpoint protocol
+
+At the end of every implementation workstream, before its successor starts:
+
+1. Record start and end time, starting HEAD, and exact `git status`.
+2. Record files changed, requirement and gap IDs, and substantive outcome.
+3. Record exact Make commands, stable command IDs where available, run roots,
+   selected row count, and every non-pass classification.
+4. Record compatibility and migration outcome, rollback scope, residual risk,
+   and binary exit.
+5. Run `make lint-markdown` after updating this tracker and record its run root.
+6. Mark the workstream `DONE` only after its validation and tracker lint pass.
+   Otherwise leave it `IN_PROGRESS` or mark it `BLOCKED`; do not start its
+   successor.
+
+### 13.7 Planning workstream handoff
+
+| Time | Workstream | Starting state | Files changed | Commands and evidence | Compatibility result | Rollback | Residual risk and next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-08-25T06:40:38-04:00 to 2026-08-25T06:44:18-04:00 | `PR2-PLAN-00` | Clean `main` at `9e933f7bd1189f7492fec86acb468c99b0ad7513`; Iteration 1 complete. | This tracker only; `docs/domain.md` consulted but unchanged. | Read-only source/reachability inspection; pre-edit `make lint-markdown` passed at `.cartulary/test-results/20260825T103546Z-p2661879/adhoc/lint-markdown`; `git diff --check` passed; preliminary `CARTULARY_TEST_RUN_ID=20260825T104500Z-pr2-plan-00-preliminary make lint-markdown` passed at its matching `adhoc/lint-markdown` root; final `CARTULARY_TEST_RUN_ID=20260825T104800Z-pr2-plan-00-final make lint-markdown` passed at its matching root. The first command-line-variable attempt was rejected before execution as `config/configuration_error` because `CARTULARY_TEST_RUN_ID` is not an admitted Make command-line input; it created no run root and was corrected by supplying the variable through the environment. | Documentation only; no product compatibility effect and no product validation claim. | Revert this tracker update. | Implementation remains unauthorized. `PR2-WF-00` is the next workstream only after a later implementation request. |
+| 2026-08-25T06:52:43-04:00 to 2026-08-25T06:56:21-04:00 | `PR2-WF-00` | HEAD `9e933f7bd1189f7492fec86acb468c99b0ad7513`; only the tracker was user-staged. | Tracker checkpoint only; retained results are ignored artifacts. | Reachability matched all planned removals and eleven direct subscribers. Collaboration focused `32/32`, service-backed `23/23`, boundary `3/3`, harness `2/2`, and tracker Markdown lint passed at the run roots recorded in the execution record. | Read-only baseline; public and private behavior unchanged. | No product rollback; discard ignored B2 artifacts if required. | No residual baseline failure or owner contradiction. `PR2-WF-01` is unblocked. |
+| 2026-08-25T06:58:19-04:00 to 2026-08-25T07:04:34-04:00 | `PR2-WF-01` | HEAD `9e933f7bd1189f7492fec86acb468c99b0ad7513`; staged tracker plus unstaged B2 checkpoint. | Four test/test-support paths plus this tracker. | One related unused-local compile failure was corrected; Platform Jobs passed `6/6` focused and `5/5` service units; Collaboration passed `32/32` and `23/23`; format, diff, and exact audits passed. Exact roots are in the execution record. | Test-only atomic removal; product and stored-data behavior unchanged. | Revert the four slice paths and this checkpoint without changing the index. | No legacy token or unowned coexistence claim remains. Proceed to `PR2-WF-02` after tracker lint. |
+| 2026-08-25T07:05:53-04:00 to 2026-08-25T07:48:44-04:00 | `PR2-WF-02` | HEAD `9e933f7bd1189f7492fec86acb468c99b0ad7513`; user-staged tracker plus unstaged prior checkpoints and `PR2-WF-01` paths. | Eleven runtime, source-owner test, and shared test-support paths plus this tracker. | All affected backend owner matrices passed; one unrelated Timeline browser-support timeout and two corrected compile misses are retained at the exact roots in the execution record. Exact subscriber and owner-external SQL audits, formatting, diff checks, and tracker Markdown lint passed. | Internal observer removal only; authenticated public socket and durable persistence behavior remain unchanged. | Revert the eleven slice paths and this checkpoint without changing the index. | No change-related residual risk; `PR2-WF-03` is unblocked. |
+| 2026-08-25T07:50:14-04:00 to 2026-08-25T07:57:38-04:00 | `PR2-WF-03` | HEAD `9e933f7bd1189f7492fec86acb468c99b0ad7513`; user-staged tracker plus unstaged prior checkpoints and implementation. | Five writer, store, publication, protocol, and integration-test paths plus this tracker. | Collaboration passed `32/32` focused and `23/23` service-backed units; boundary passed `3/3`; format, exact removal/constructor audits, diff checks, and tracker lint passed at roots in the execution record. | Internal atomic cutover; public wire, storage, transaction, and error-response behavior unchanged. | Revert the five slice paths and this checkpoint without changing the index. | No change-related residual risk; `PR2-WF-04` is unblocked. |
+| 2026-08-25T07:58:30-04:00 to 2026-08-25T08:03:10-04:00 | `PR2-WF-04` | HEAD `9e933f7bd1189f7492fec86acb468c99b0ad7513`; user-staged tracker plus unstaged prior checkpoints and implementation. | `runtime.go`, `routes.go`, and this tracker. | Collaboration passed `32/32` focused and `23/23` service-backed units; format, exact Runtime-field audit, diff check, and tracker lint passed at roots in the execution record. | Constructor and all observable lifecycle, security, telemetry, and wire behavior are unchanged. | Revert the two slice paths and this checkpoint without changing the index. | No change-related residual risk; `PR2-WF-05` is unblocked. |
+| 2026-08-25T08:04:06-04:00 to 2026-08-25T08:19:51-04:00 | `PR2-WF-05` | HEAD `9e933f7bd1189f7492fec86acb468c99b0ad7513`; user-staged tracker plus unstaged prior checkpoints and implementation. | Eleven old/new hub, route, session, transport, and test-layout paths plus this tracker. | One corrected unused-import compile failure and one unrelated service-readiness timeout are retained; the fresh owner runs, lifecycle telemetry, boundary, harness, generated drift, format, exact name/label/path audits, diff check, and tracker lint passed at roots in the execution record. | File-layout-only cutover; public, security, timing, telemetry, selector, and wire behavior unchanged. | Revert the eleven layout paths and this checkpoint without changing the index. | No change-related residual risk; `PR2-WF-06` is unblocked. |
+| 2026-08-25T08:20:47-04:00 to 2026-08-25T08:38:29-04:00 | `PR2-WF-06` | HEAD `9e933f7bd1189f7492fec86acb468c99b0ad7513`; user-staged tracker plus unstaged prior checkpoints and implementation. | Fourteen old/new stream, scenario-test, and exact boundary-policy paths plus this tracker. | One corrected compile-only split failure is retained; canonical row, both Collaboration and Platform/PostgreSQL matrices, boundary, harness, generated drift, format, topology/selector/subtest/policy audits, diff check, and tracker lint passed at roots in the execution record. | Owner-private source-layout cutover only; schema, SQL meaning, storage lifecycle, replay/recovery/retention behavior, and selector remain unchanged. | Revert the fourteen slice paths and this checkpoint without changing the index. | No change-related residual risk; `PR2-WF-07` is unblocked. |
+| 2026-08-25T08:39:24-04:00 to 2026-08-25T08:51:39-04:00 | `PR2-WF-07` | HEAD `9e933f7bd1189f7492fec86acb468c99b0ad7513`; user-staged tracker plus unstaged completed Iteration 2 implementation. | Exact backend-boundary policy and this tracker. | Boundary, JSON, generated-policy, generated-drift, harness, pre-check and retained-run finalization, `656/656` full check, exact audits, diff check, and checkpoint/final tracker lint passed at roots in the execution record. | Enforcement and handoff only; all frozen public, security, storage, CLI, telemetry, browser, and Incident Bundle contracts remain unchanged; no migration. | Revert the policy file and this checkpoint without changing the index; full rollback follows each prior workstream's recorded atomic path set. | No change-related residual risk. Iteration 2 is complete; historical transient non-passes remain classified in their originating records. |
+
+### 13.8 Planning completion criteria
+
+- [x] Sections 1 through 12 remain intact as Iteration 1 historical evidence.
+- [x] Section 13 is explicit that it alone controls Iteration 2.
+- [x] Every gap has a remediation, affected areas, rationale, long-term benefit,
+  compatibility impact, unresolved risk, and validation criteria.
+- [x] Every implementation workstream is `PLANNED`, strictly sequenced, and
+  blocked on later implementation authorization.
+- [x] Public and security behavior freezes are explicit.
+- [x] `docs/domain.md` is recorded as consulted and unchanged.
+- [x] The final diff changes only this tracker and passes `git diff --check`.
+- [x] Final `make lint-markdown` passes and its exact run root is recorded.
+- [x] `PR2-PLAN-00` alone is `DONE`; no product validation or implementation
+  completion is claimed.
+
+### 13.9 Iteration 2 execution completion
+
+- [x] All seven registered gaps are closed and mechanically guarded.
+- [x] Production runtime and test harnesses expose no test-only live-event
+  observer.
+- [x] Affected source-owner tests use authenticated sockets or durable semantic
+  assertions.
+- [x] Transaction-bound append uses the stateless private `IntentWriter`; no
+  nil-backed `PostgresStream` construction remains.
+- [x] Runtime retains only owned lifecycle state and narrow immutable route
+  dependencies.
+- [x] Hub, route, session, transport, replay, sequencing, tailing, and retention
+  responsibilities are source-visible and cohesive.
+- [x] Public, security, storage, CLI, telemetry, browser, and Incident Bundle
+  contracts remain unchanged, and no migration is required.
+- [x] All final exact audits and broad checks pass; earlier unrelated or
+  corrected non-passes are classified in their originating workstreams.
+- [x] Every Iteration 2 workstream is `DONE`, with a linted checkpoint and a
+  complete handoff row.

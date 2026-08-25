@@ -62,10 +62,11 @@ func PostgresDatabase(db postgres.DB) Database {
 }
 
 type Counters struct {
-	ChangeSets     int
-	MutationRows   int
-	Revisions      int
-	ProjectionRows int
+	ChangeSets           int
+	MutationRows         int
+	Revisions            int
+	ProjectionRows       int
+	CollaborationIntents int
 }
 
 type ChangeSetRow struct {
@@ -130,6 +131,10 @@ func SnapshotCounters(t testing.TB, db Database, incidentID string, recordID str
 		MutationRows:   queryCount(t, db, `SELECT COUNT(*) FROM change_set_mutations m JOIN change_sets c ON c.change_set_id = m.change_set_id WHERE c.incident_id::text = $1`, incidentID),
 		Revisions:      queryCount(t, db, `SELECT COUNT(*) FROM record_revisions WHERE record_id::text = $1`, recordID),
 		ProjectionRows: queryCount(t, db, `SELECT COUNT(*) FROM timeline_grid_projection WHERE incident_id::text = $1`, incidentID),
+		CollaborationIntents: collaborationsupport.CountIntents(t, db.collaborationDB, collaborationsupport.IntentSelector{
+			IncidentID:     incidentID,
+			SourceRecordID: recordID,
+		}),
 	}
 }
 

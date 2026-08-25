@@ -1962,7 +1962,8 @@
       ],
       "allowed_paths": [
         "internal/app/operator/operator_collaboration.go",
-        "internal/modules/collaboration/stream_integration_test.go"
+        "internal/modules/collaboration/stream_integration_entrypoint_test.go",
+        "internal/modules/collaboration/stream_recovery_integration_test.go"
       ]
     },
     {
@@ -3055,6 +3056,99 @@
         "internal/modules/imports/boundary_guard_test.go"
       ],
       "production_only": true
+    },
+    {
+      "id": "collaboration-retired-observer-and-compatibility-surfaces",
+      "tokens": [
+        "IncidentEventObserver",
+        "IncidentEvents",
+        "CountLegacyAndV2JobProgress",
+        "InsertLegacyJobProgressV1",
+        "appendLegacyIntent",
+        "legacy-invalid",
+        "ErrIntentKeyCollision",
+        "IsClientMessageType",
+        "AppendIntentTx",
+        "NewPostgresStream(nil, nil)",
+        "requireHubRecordChange"
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "collaboration-private-hub-subscription-owned-by-session-and-owner-tests",
+      "tokens": [
+        ".SubscribeIncident("
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/collaboration/hub_test.go",
+        "internal/modules/collaboration/hub_state_test.go",
+        "internal/modules/collaboration/socket_session.go"
+      ],
+      "production_only": false
+    },
+    {
+      "id": "collaboration-obsolete-source-paths-remain-retired",
+      "tokens": [
+        "package "
+      ],
+      "scan_paths": [
+        "internal/modules/collaboration/protocol.go",
+        "internal/modules/collaboration/protocol_test.go",
+        "internal/modules/collaboration/socket.go",
+        "internal/modules/collaboration/socket_test.go",
+        "internal/modules/collaboration/stream.go",
+        "internal/modules/collaboration/stream_integration_test.go",
+        "internal/modules/collaboration/internal/stream/stream.go"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "collaboration-runtime-state-has-one-owner-definition",
+      "tokens": [
+        "type Runtime struct"
+      ],
+      "scan_paths": [
+        "internal/modules/collaboration/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/collaboration/runtime.go"
+      ],
+      "production_only": false
+    },
+    {
+      "id": "collaboration-postgres-stream-state-has-one-owner-definition",
+      "tokens": [
+        "type PostgresStream struct"
+      ],
+      "scan_paths": [
+        "internal/modules/collaboration/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/collaboration/internal/stream/store.go"
+      ],
+      "production_only": false
+    },
+    {
+      "id": "collaboration-owner-tests-use-shared-runtime-harness",
+      "tokens": [
+        "type RuntimeHarness struct",
+        "type ServerHarness struct",
+        "func StartRuntime(",
+        "func StartServer("
+      ],
+      "scan_paths": [
+        "internal/modules/collaboration/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
     }
   ],
   "forbidden_test_build_tokens": [

@@ -23,6 +23,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -88,8 +89,8 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 			t.Fatalf("release affected Indicator lock: %v", err)
 		}
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID.String())
-		changes, unsubscribe := harness.Collaboration.SubscribeIncident(incidentID, 8)
-		defer unsubscribe()
+		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.timeline.v2", login.SessionCookie.Value)
+		defer socket.Close(1000, "test_complete")
 		httptestx.SetClockFixed(t, harness.Server, createdAt.Add(time.Minute))
 		body := map[string]any{
 			"base_row_version": 2,
@@ -98,8 +99,9 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		}
 		payload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, sourceID, body), 200)["data"].(map[string]any)
 		requireAffectedRecords(t, payload, sourceID, indicatorID)
-		firstChange := asserttest.AwaitRecordChange(t, changes, 5*time.Second)
-		secondChange := asserttest.AwaitRecordChange(t, changes, 5*time.Second)
+		changes := incidentwstest.RequireRecordChangedEvents(t, socket, map[uuid.UUID]int64{sourceID: 3, indicatorID: 3})
+		firstChange := changes[0]
+		secondChange := changes[1]
 		received := []uuid.UUID{firstChange.RecordID, secondChange.RecordID}
 		if !sameUUIDSet(received, []uuid.UUID{sourceID, indicatorID}) {
 			t.Fatalf("ordinary rollback events = %v", received)

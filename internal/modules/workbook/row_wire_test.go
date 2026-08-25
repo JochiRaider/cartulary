@@ -7,12 +7,12 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -119,8 +119,8 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 	})
 	patchEvidenceRow := patchEvidenceCreated["row"].(map[string]any)
 	patchEvidenceRecordID := appsupport.MustUUID(t, patchEvidenceRow["record_id"].(string))
-	hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(incidentID, 4)
-	defer unsubscribe()
+	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.evidence.v1", adminLogin.SessionCookie.Value)
+	defer socket.Close(1000, "test_complete")
 	patched := requireWorkbookPatch(t, harness, adminLogin, patchEvidenceRecordID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
 		"base_row_version": patchEvidenceRow["row_version"],
@@ -130,7 +130,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 		},
 	})
 	patchedRow := patched["row"].(map[string]any)
-	change := requireHubRecordChange(t, hubChanges, patchEvidenceRecordID, int64(patchedRow["row_version"].(float64)))
+	change := incidentwstest.RequireRecordChangedEvent(t, socket, patchEvidenceRecordID, int64(patchedRow["row_version"].(float64)))
 	payload := platformws.RecordChangePayload(change)
 	changedKeys := payload["changed_field_keys"].([]string)
 	if !slices.IsSorted(changedKeys) || len(changedKeys) != len(slices.Compact(append([]string(nil), changedKeys...))) || !slices.Contains(changedKeys, "evidence.received_at") {
@@ -175,8 +175,8 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	})
 	partyID := appsupport.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
 
-	hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(incidentID, 16)
-	defer unsubscribe()
+	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.evidence.v1", adminLogin.SessionCookie.Value)
+	defer socket.Close(1000, "test_complete")
 
 	evidenceData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{
 		"client_txn_id":                 "txn-saved_view_query-ac368-evidence",
@@ -197,7 +197,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 			{"field_key": "evidence.collector_party_id", "value": nil},
 		},
 	})["row"].(map[string]any)
-	collectorPatch := requireSparsePatchForChange(t, hubChanges, evidenceID, clearedCollector, "cartulary.view.evidence.v1")
+	collectorPatch := requireSparsePatchForChange(t, socket, evidenceID, clearedCollector, "cartulary.view.evidence.v1")
 	requireSparsePatchNullCell(t, collectorPatch, "evidence.collector_party_id")
 	requireSparsePatchOmitsCells(t, collectorPatch, "evidence.title", "evidence.source_party_id")
 
@@ -218,7 +218,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 			{"field_key": "task.requester_party_id", "value": nil},
 		},
 	})["row"].(map[string]any)
-	requesterPatch := requireSparsePatchForChange(t, hubChanges, taskID, clearedRequester, "cartulary.view.task_requests.v1")
+	requesterPatch := requireSparsePatchForChange(t, socket, taskID, clearedRequester, "cartulary.view.task_requests.v1")
 	requireSparsePatchNullCell(t, requesterPatch, "task.requester_party_id")
 	requireSparsePatchOmitsCells(t, requesterPatch, "task.title", "task.requester_party_text")
 
@@ -237,7 +237,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 			{"field_key": "note.tags", "action_payload": collectionActions(addToken("triage"))},
 		},
 	})["row"].(map[string]any)
-	notePatch := requireSparsePatchForChange(t, hubChanges, noteID, patchedNote, "cartulary.view.notes.v1")
+	notePatch := requireSparsePatchForChange(t, socket, noteID, patchedNote, "cartulary.view.notes.v1")
 	noteTags := requireSparsePatchCellValue(t, notePatch, "note.tags").(map[string]any)
 	if noteTags["kind"] != "collection_value_v1" || noteTags["ordered"] != false {
 		t.Fatalf("note.tags sparse patch must carry collection_value_v1, got %#v", noteTags)
@@ -302,9 +302,9 @@ func int64Value(value any) int64 {
 	}
 }
 
-func requireSparsePatchForChange(t testing.TB, changes <-chan platformws.Message, recordID uuid.UUID, row map[string]any, viewSchemaID string) map[string]any {
+func requireSparsePatchForChange(t testing.TB, socket *incidentwstest.Client, recordID uuid.UUID, row map[string]any, viewSchemaID string) map[string]any {
 	t.Helper()
-	change := requireHubRecordChange(t, changes, recordID, int64Value(row["row_version"]))
+	change := incidentwstest.RequireRecordChangedEvent(t, socket, recordID, int64Value(row["row_version"]))
 	payload := platformws.RecordChangePayload(change)
 	changedKeys := payload["changed_field_keys"].([]string)
 	if !slices.IsSorted(changedKeys) || len(changedKeys) != len(slices.Compact(append([]string(nil), changedKeys...))) {
@@ -374,30 +374,6 @@ func findRowByID(t testing.TB, rows []map[string]any, recordID uuid.UUID) map[st
 	}
 	t.Fatalf("missing row %s in %#v", recordID, rows)
 	return nil
-}
-
-func requireHubRecordChange(t testing.TB, changes <-chan platformws.Message, recordID uuid.UUID, rowVersion int64) platformws.RecordChangedEvent {
-	t.Helper()
-	deadline := time.After(5 * time.Second)
-	var last platformws.RecordChangedEvent
-	for {
-		select {
-		case message := <-changes:
-			if message.Type != "record_changed" {
-				continue
-			}
-			change, err := platformws.RecordChangeFromSequencedMessage(message)
-			if err != nil {
-				t.Fatalf("decode record change: %v", err)
-			}
-			last = change
-			if change.RecordID == recordID && change.RowVersion == rowVersion {
-				return change
-			}
-		case <-deadline:
-			t.Fatalf("timed out waiting for record change record=%s version=%d after %#v", recordID, rowVersion, last)
-		}
-	}
 }
 
 func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {

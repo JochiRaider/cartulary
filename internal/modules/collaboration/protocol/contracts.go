@@ -130,15 +130,6 @@ func IsReplayableMessageType(messageType string) bool {
 	}
 }
 
-func IsClientMessageType(messageType string) bool {
-	switch messageType {
-	case "hello", "resume", "pong", "presence_update":
-		return true
-	default:
-		return false
-	}
-}
-
 func IsServerMessageType(messageType string) bool {
 	switch messageType {
 	case "hello_ack", "resume_ack", "presence_snapshot", "presence_delta",

@@ -585,12 +585,13 @@ VALUES ($1, $2, $3, 'History tag', 'history_revision tag', $4)
 }
 
 type MutationState struct {
-	DeletedRecords int
-	ChangeSets     int
-	Mutations      int
-	Revisions      int
-	Idempotency    int
-	ProjectionRows int
+	DeletedRecords       int
+	ChangeSets           int
+	Mutations            int
+	Revisions            int
+	Idempotency          int
+	ProjectionRows       int
+	CollaborationIntents int
 }
 
 func StateCounts(t testing.TB, db *sql.DB, recordID uuid.UUID) MutationState {
@@ -602,6 +603,9 @@ func StateCounts(t testing.TB, db *sql.DB, recordID uuid.UUID) MutationState {
 		Revisions:      countRows(t, db, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, recordID),
 		Idempotency:    countRows(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE scope_key = $1`, recordID.String()),
 		ProjectionRows: countRows(t, db, `SELECT COUNT(*) FROM host_grid_projection WHERE record_id = $1`, recordID),
+		CollaborationIntents: collaborationsupport.CountIntents(t, db, collaborationsupport.IntentSelector{
+			SourceRecordID: recordID.String(),
+		}),
 	}
 }
 
