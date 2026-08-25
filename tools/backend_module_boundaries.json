@@ -2967,6 +2967,17 @@
       "production_only": true
     },
     {
+      "id": "tasks-decisions-no-http-transport-imports",
+      "tokens": [
+        "\"net/http\"",
+        "internal/platform/httpapi",
+        "internal/platform/httpauth"
+      ],
+      "scan_paths": ["internal/modules/tasksdecisions/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "tasks-decisions-retired-composition-surfaces",
       "tokens": [
         "type WorkbookFacade struct",

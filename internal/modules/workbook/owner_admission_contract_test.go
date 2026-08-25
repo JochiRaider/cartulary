@@ -328,17 +328,17 @@ func TestTaskDecisionRelationshipConfidenceRejected(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name+" create", func(t *testing.T) {
-			if _, apiErr := tasksdecisions.DecodeCreateRequest(tc.viewSchemaID, strings.NewReader(tc.createBody)); apiErr == nil {
+			if _, admissionFailure := tasksdecisions.AdmitCreateJSON(tc.viewSchemaID, strings.NewReader(tc.createBody)); admissionFailure == nil {
 				t.Fatalf("expected create confidence on %s to fail", tc.fieldKey)
-			} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
-				t.Fatalf("unexpected create error for %s: %#v", tc.fieldKey, apiErr)
+			} else if admissionFailure.ReasonCode() != "invalid_value" {
+				t.Fatalf("unexpected create error for %s: %#v", tc.fieldKey, admissionFailure)
 			}
 		})
 		t.Run(tc.name+" patch", func(t *testing.T) {
-			if _, apiErr := tasksdecisions.DecodePatchRequest(strings.NewReader(tc.patchBody)); apiErr == nil {
+			if _, admissionFailure := tasksdecisions.AdmitPatchJSON(strings.NewReader(tc.patchBody)); admissionFailure == nil {
 				t.Fatalf("expected patch confidence on %s to fail", tc.fieldKey)
-			} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
-				t.Fatalf("unexpected patch error for %s: %#v", tc.fieldKey, apiErr)
+			} else if admissionFailure.ReasonCode() != "invalid_value" {
+				t.Fatalf("unexpected patch error for %s: %#v", tc.fieldKey, admissionFailure)
 			}
 		})
 	}
@@ -393,18 +393,18 @@ func TestDirectPartyReferenceDecoderAcceptsOnlyExactStableIDs(t *testing.T) {
 func TestDirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs(t *testing.T) {
 	stableDecisionID := "11111111-2222-3333-4444-555555555555"
 	valid := `{"view_schema_id":"cartulary.view.task_requests.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"task.decision_record_id","value":"` + stableDecisionID + `"}]}`
-	request, apiErr := tasksdecisions.DecodePatchRequest(strings.NewReader(valid))
-	if apiErr != nil {
-		t.Fatalf("expected exact stable decision id to decode: %#v", apiErr)
+	request, admissionFailure := tasksdecisions.AdmitPatchJSON(strings.NewReader(valid))
+	if admissionFailure != nil {
+		t.Fatalf("expected exact stable decision id to decode: %#v", admissionFailure)
 	}
 	if got := request.Changes[0].Value.UUID.String(); got != stableDecisionID {
 		t.Fatalf("unexpected decoded decision id: got %s want %s", got, stableDecisionID)
 	}
 
 	clear := `{"view_schema_id":"cartulary.view.task_requests.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"task.decision_record_id","value":null}]}`
-	request, apiErr = tasksdecisions.DecodePatchRequest(strings.NewReader(clear))
-	if apiErr != nil {
-		t.Fatalf("expected direct null clear to decode: %#v", apiErr)
+	request, admissionFailure = tasksdecisions.AdmitPatchJSON(strings.NewReader(clear))
+	if admissionFailure != nil {
+		t.Fatalf("expected direct null clear to decode: %#v", admissionFailure)
 	}
 	if request.Changes[0].Value == nil || request.Changes[0].Value.Text != nil || request.Changes[0].Value.Timestamp != nil ||
 		request.Changes[0].Value.UUID != nil || request.Changes[0].Value.Number != nil || request.Changes[0].Value.Bool != nil {
@@ -425,25 +425,23 @@ func TestDirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs(t *testing.T) {
 	}
 	for _, rawValue := range invalidValues {
 		body := `{"view_schema_id":"cartulary.view.task_requests.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"task.decision_record_id","value":` + rawValue + `}]}`
-		if _, apiErr := tasksdecisions.DecodePatchRequest(strings.NewReader(body)); apiErr == nil {
+		if _, admissionFailure := tasksdecisions.AdmitPatchJSON(strings.NewReader(body)); admissionFailure == nil {
 			t.Fatalf("expected invalid direct decision ref %s to fail", rawValue)
 		}
 	}
 
 	actionPayloadClear := `{"view_schema_id":"cartulary.view.task_requests.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"task.decision_record_id","action_payload":{"kind":"collection_actions_v1","actions":[{"op":"remove_record_ref","item_ref":"record_ref:` + stableDecisionID + `"}]}}]}`
-	if _, apiErr := tasksdecisions.DecodePatchRequest(strings.NewReader(actionPayloadClear)); apiErr == nil {
+	if _, admissionFailure := tasksdecisions.AdmitPatchJSON(strings.NewReader(actionPayloadClear)); admissionFailure == nil {
 		t.Fatalf("expected non-direct clear shape to fail")
 	}
 }
 
 func TestTaskOwnerNullClearRejectedAtDecoder(t *testing.T) {
 	clear := `{"view_schema_id":"cartulary.view.task_requests.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"task.owner_user_id","value":null}]}`
-	if _, apiErr := tasksdecisions.DecodePatchRequest(strings.NewReader(clear)); apiErr == nil {
+	if _, admissionFailure := tasksdecisions.AdmitPatchJSON(strings.NewReader(clear)); admissionFailure == nil {
 		t.Fatalf("expected task owner null clear to fail")
-	} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
-		t.Fatalf("unexpected task owner null clear error: %#v", apiErr)
-	} else if apiErr.Details["field"] != "task.owner_user_id" || apiErr.Details["reason_code"] != "field_not_nullable" {
-		t.Fatalf("unexpected task owner null clear details: %#v", apiErr.Details)
+	} else if admissionFailure.Field() != "task.owner_user_id" || admissionFailure.ReasonCode() != "field_not_nullable" {
+		t.Fatalf("unexpected task owner null clear failure: %#v", admissionFailure)
 	}
 }
 

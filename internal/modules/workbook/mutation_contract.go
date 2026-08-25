@@ -184,6 +184,15 @@ func InvalidPayloadFailure(field string, reasonCode string) *MutationFailure {
 	}
 }
 
+func InvalidPayloadCollectionFailure(field string, reasonCode string, fieldKey string) *MutationFailure {
+	return &MutationFailure{
+		kind: MutationFailureInvalidPayload,
+		detail: invalidPayloadFailureDetail{
+			field: field, reasonCode: reasonCode, fieldKey: fieldKey,
+		},
+	}
+}
+
 func InvalidPayloadLimitFailure(field string, reasonCode string, requestedCount int, maxCount int, fieldKey string) *MutationFailure {
 	return &MutationFailure{
 		kind: MutationFailureInvalidPayload,

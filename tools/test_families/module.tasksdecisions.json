@@ -3,6 +3,32 @@
   "owner_id": "module.tasksdecisions",
   "rows": [
     {
+      "row_id": "module.tasksdecisions.admission_adapter.transport_neutral_failure_mapping",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.admission_adapter",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/workbookassembly",
+        "tests": [
+          "TestTaskDecisionAdmissionFailureMapping_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.tasksdecisions.browser.the_browser_workbook_opens_task_requests_and_dec_8048a75ceb",
       "owner_id": "module.tasksdecisions",
       "family_id": "module.tasksdecisions.browser",

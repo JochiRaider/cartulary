@@ -96,9 +96,9 @@ func mustDecodeTimestampPatch(t testing.TB, value string) tasksdecisions.PatchRe
 func mustDecodePatch(t testing.TB, viewSchemaID string, fieldKey string, value any) tasksdecisions.PatchRequest {
 	t.Helper()
 	payload := patchPayload(t, viewSchemaID, fieldKey, value)
-	request, apiErr := tasksdecisions.DecodePatchRequest(strings.NewReader(payload))
-	if apiErr != nil {
-		t.Fatalf("decode patch unexpectedly failed for %s=%#v: %#v", fieldKey, value, apiErr)
+	request, admissionFailure := tasksdecisions.AdmitPatchJSON(strings.NewReader(payload))
+	if admissionFailure != nil {
+		t.Fatalf("admit patch unexpectedly failed for %s=%#v: %#v", fieldKey, value, admissionFailure)
 	}
 	return request
 }
@@ -106,7 +106,7 @@ func mustDecodePatch(t testing.TB, viewSchemaID string, fieldKey string, value a
 func expectDecodePatchRejected(t testing.TB, viewSchemaID string, fieldKey string, value any) {
 	t.Helper()
 	payload := patchPayload(t, viewSchemaID, fieldKey, value)
-	if _, apiErr := tasksdecisions.DecodePatchRequest(strings.NewReader(payload)); apiErr == nil {
+	if _, admissionFailure := tasksdecisions.AdmitPatchJSON(strings.NewReader(payload)); admissionFailure == nil {
 		t.Fatalf("expected timestamp patch %s=%#v to fail closed", fieldKey, value)
 	}
 }

@@ -220,10 +220,9 @@ func (value decisionSupersedeAdmission) AdmittedBaseRowVersion() int64 {
 }
 
 func decodeDecisionSupersede(reader io.Reader) (workbook.SupersedeAdmission, *workbook.MutationFailure, error) {
-	request, apiErr := tasksdecisions.DecodeSupersedeRequest(reader)
-	if apiErr != nil {
-		failure, err := workbook.DecodeMutationFailure(apiErr)
-		return nil, failure, err
+	request, admissionFailure := tasksdecisions.AdmitSupersedeJSON(reader)
+	if admissionFailure != nil {
+		return nil, taskDecisionAdmissionFailure(admissionFailure), nil
 	}
 	return decisionSupersedeAdmission{request: request}, nil, nil
 }

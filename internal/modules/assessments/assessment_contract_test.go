@@ -896,8 +896,10 @@ func expectOwnerDecodeCreateRejected(t testing.TB, viewSchemaID string, body map
 		t.Fatalf("marshal workbook create body: %v", err)
 	}
 	if viewSchemaID == tasksdecisions.TaskRequestsViewSchemaID || viewSchemaID == tasksdecisions.DecisionsViewSchemaID {
-		_, apiErr := tasksdecisions.DecodeCreateRequest(viewSchemaID, strings.NewReader(string(data)))
-		requireOwnerDecodeRejected(t, apiErr, body)
+		_, admissionFailure := tasksdecisions.AdmitCreateJSON(viewSchemaID, strings.NewReader(string(data)))
+		if admissionFailure == nil {
+			t.Fatalf("expected Tasks/Decisions mutation body to be rejected: %#v", body)
+		}
 		return
 	}
 	_, apiErr := artifacts.DecodeCreateRequest(viewSchemaID, strings.NewReader(string(data)))
@@ -912,8 +914,10 @@ func expectOwnerDecodePatchRejected(t testing.TB, body map[string]any) {
 	}
 	viewSchemaID, _ := body["view_schema_id"].(string)
 	if viewSchemaID == tasksdecisions.TaskRequestsViewSchemaID || viewSchemaID == tasksdecisions.DecisionsViewSchemaID {
-		_, apiErr := tasksdecisions.DecodePatchRequest(strings.NewReader(string(data)))
-		requireOwnerDecodeRejected(t, apiErr, body)
+		_, admissionFailure := tasksdecisions.AdmitPatchJSON(strings.NewReader(string(data)))
+		if admissionFailure == nil {
+			t.Fatalf("expected Tasks/Decisions mutation body to be rejected: %#v", body)
+		}
 		return
 	}
 	_, apiErr := artifacts.DecodePatchRequest(strings.NewReader(string(data)))

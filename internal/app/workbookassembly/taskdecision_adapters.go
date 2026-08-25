@@ -69,10 +69,9 @@ func (value taskDecisionCreateAdmission) ClientTransactionID() string {
 func newTaskDecisionCreateProvider(viewSchemaID string, owner *tasksdecisions.MutationFacade) (workbook.CreateProvider, error) {
 	return workbook.NewCreateProvider(
 		func(reader io.Reader) (workbook.CreateAdmission, *workbook.MutationFailure, error) {
-			request, apiErr := tasksdecisions.DecodeCreateRequest(viewSchemaID, reader)
-			if apiErr != nil {
-				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+			request, admissionFailure := tasksdecisions.AdmitCreateJSON(viewSchemaID, reader)
+			if admissionFailure != nil {
+				return nil, taskDecisionAdmissionFailure(admissionFailure), nil
 			}
 			return taskDecisionCreateAdmission{request: request}, nil, nil
 		},
@@ -112,10 +111,9 @@ func (value taskDecisionPatchAdmission) AdmittedBaseRowVersion() int64 {
 func newTaskDecisionPatchProvider(recordType, viewSchemaID string, owner *tasksdecisions.MutationFacade) (workbook.PatchProvider, error) {
 	return workbook.NewPatchProvider(
 		func(reader io.Reader) (workbook.PatchAdmission, *workbook.MutationFailure, error) {
-			request, apiErr := tasksdecisions.DecodePatchRequest(reader)
-			if apiErr != nil {
-				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+			request, admissionFailure := tasksdecisions.AdmitPatchJSON(reader)
+			if admissionFailure != nil {
+				return nil, taskDecisionAdmissionFailure(admissionFailure), nil
 			}
 			return taskDecisionPatchAdmission{request: request}, nil, nil
 		},
@@ -160,10 +158,9 @@ func newTaskDecisionConflictProvider(recordType, viewSchemaID string, owner *tas
 				RecordID: claims.RecordID, ViewSchemaID: claims.ViewSchemaID,
 				FieldKey: claims.FieldKey, CurrentRowVersion: claims.CurrentRowVersion,
 			}
-			request, apiErr := tasksdecisions.DecodeConflictResolveRequest(reader, token, ownerClaims)
-			if apiErr != nil {
-				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+			request, admissionFailure := tasksdecisions.AdmitConflictResolveJSON(reader, token, ownerClaims)
+			if admissionFailure != nil {
+				return nil, taskDecisionAdmissionFailure(admissionFailure), nil
 			}
 			return taskDecisionConflictAdmission{request: request, claims: ownerClaims}, nil, nil
 		},
@@ -191,6 +188,24 @@ func newTaskDecisionConflictProvider(recordType, viewSchemaID string, owner *tas
 			return workbook.SuccessfulRowMutation(taskDecisionMutationResult(result)), nil
 		},
 	)
+}
+
+func taskDecisionAdmissionFailure(failure *tasksdecisions.AdmissionFailure) *workbook.MutationFailure {
+	if failure == nil {
+		return nil
+	}
+	fieldKey, hasFieldKey := failure.CollectionFieldKey()
+	if requestedCount, maxCount, hasLimit := failure.CountLimit(); hasLimit {
+		return workbook.InvalidPayloadLimitFailure(
+			failure.Field(), failure.ReasonCode(), requestedCount, maxCount, fieldKey,
+		)
+	}
+	if hasFieldKey {
+		return workbook.InvalidPayloadCollectionFailure(
+			failure.Field(), failure.ReasonCode(), fieldKey,
+		)
+	}
+	return workbook.InvalidPayloadFailure(failure.Field(), failure.ReasonCode())
 }
 
 func taskDecisionMutationFailure(err error, clientTxnID string) (*workbook.MutationFailure, bool) {
