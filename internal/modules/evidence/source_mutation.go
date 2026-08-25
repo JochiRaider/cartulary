@@ -20,7 +20,7 @@ func newSourceMutationService(
 	pool postgres.DB,
 	projectionRows evidenceprojection.Rows,
 	appender *revisions.Appender,
-	intents collaboration.IntentAppender,
+	intents collaboration.RecordChangedAppender,
 ) (*sourceMutationService, error) {
 	if pool == nil {
 		return nil, errors.New("compose Evidence source mutations: Postgres is required")

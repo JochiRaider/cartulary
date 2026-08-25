@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -58,7 +58,8 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 	if !reflect.DeepEqual(patchCells, map[string]any{"note.title": cells["note.title"]}) {
 		t.Fatalf("sparse patch must include only changed cells, got %#v", patchCells)
 	}
-	directPayload := platformws.RecordChangePayload(platformws.RecordChange{
+	directPatch := platformws.BuildViewRowPatch(rows[0], []string{"note.title", "note.body"})
+	directPayload := platformws.RecordChangePayload(platformws.RecordChangedEvent{
 		IncidentID:       incidentID,
 		RecordID:         recordID,
 		RowVersion:       2,
@@ -66,8 +67,9 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 		ClientTxnID:      "txn-saved_view_query-u-8-10-patch",
 		ActorUserID:      actorID,
 		ChangedFieldKeys: []string{"note.title", "note.body", "note.title"},
-		ViewSchemaID:     "cartulary.view.notes.v1",
-		PatchCells:       platformws.BuildViewRowPatch(rows[0], []string{"note.title", "note.body"}),
+		AffectedViews: []platformws.RecordChangedView{{
+			ViewSchemaID: "cartulary.view.notes.v1", ChangeKind: "patch", PatchCells: directPatch,
+		}},
 	})
 	if got := directPayload["changed_field_keys"]; !reflect.DeepEqual(got, []string{"note.body", "note.title"}) {
 		t.Fatalf("changed_field_keys must be canonical, got %#v", got)
@@ -268,7 +270,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 		t.Fatalf("grouped sparse patch included unchanged sibling cell: %#v", groupPatchCells)
 	}
 
-	invalidatePayload := platformws.RecordChangePayload(platformws.RecordChange{
+	invalidatePayload := platformws.RecordChangePayload(platformws.RecordChangedEvent{
 		IncidentID:       incidentID,
 		RecordID:         uuid.New(),
 		RowVersion:       3,
@@ -276,7 +278,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 		ClientTxnID:      "txn-saved_view_query-ac368-invalidate",
 		ActorUserID:      actorID,
 		ChangedFieldKeys: []string{"note.title"},
-		ViewSchemaID:     "cartulary.view.notes.v1",
+		AffectedViews:    []platformws.RecordChangedView{{ViewSchemaID: "cartulary.view.notes.v1", ChangeKind: "invalidate"}},
 	})
 	affectedViews := invalidatePayload["affected_views"].([]map[string]any)
 	if len(affectedViews) != 1 || affectedViews[0]["change_kind"] != "invalidate" {
@@ -374,10 +376,10 @@ func findRowByID(t testing.TB, rows []map[string]any, recordID uuid.UUID) map[st
 	return nil
 }
 
-func requireHubRecordChange(t testing.TB, changes <-chan platformws.Message, recordID uuid.UUID, rowVersion int64) platformws.RecordChange {
+func requireHubRecordChange(t testing.TB, changes <-chan platformws.Message, recordID uuid.UUID, rowVersion int64) platformws.RecordChangedEvent {
 	t.Helper()
 	deadline := time.After(5 * time.Second)
-	var last platformws.RecordChange
+	var last platformws.RecordChangedEvent
 	for {
 		select {
 		case message := <-changes:

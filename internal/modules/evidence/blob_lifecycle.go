@@ -72,7 +72,7 @@ type blobLifecycleService struct {
 	revisionStore  revisionAppendPort
 	projections    evidenceprojection.Rows
 	supportEffects evidenceprojection.SupportProjectionEffectsTx
-	collaboration  collaboration.IntentAppender
+	collaboration  collaboration.RecordChangedAppender
 	blobSlots      blobSlotRepository
 	blobs          blobRepository
 	evidenceRows   evidenceRecordRepository
@@ -85,7 +85,7 @@ type blobLifecycleDependencies struct {
 	Revisions      *revisions.Appender
 	Projections    evidenceprojection.Rows
 	SupportEffects evidenceprojection.SupportProjectionEffectsTx
-	Collaboration  collaboration.IntentAppender
+	Collaboration  collaboration.RecordChangedAppender
 }
 
 type blobSlotParams struct {
@@ -598,10 +598,11 @@ func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 	}); err != nil {
 		return attachBlobResult{}, err
 	}
-	if err := s.revisionStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	changedFieldKeys := sortedChangedKeys(beforeRow, afterRow)
+	if err := s.revisionStore.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID: changeSetID, RecordID: recordID, RowVersion: rowVersion,
 		BeforeSnapshot: &beforeSnapshot, AfterSnapshot: &afterSnapshot,
-		LiveChange: revisions.LiveRecordChange{BeforeValue: beforeRow, AfterValue: afterRow},
+		ConflictFacts: evidenceRevisionFacts(beforeRow, afterRow, changedFieldKeys),
 	}); err != nil {
 		return attachBlobResult{}, err
 	}
@@ -609,7 +610,6 @@ func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 	if err != nil {
 		return attachBlobResult{}, err
 	}
-	changedFieldKeys := sortedChangedKeys(beforeRow, afterRow)
 	if err := appendEvidenceRecordChangeIntentsTx(
 		ctx,
 		tx,
@@ -792,10 +792,11 @@ UPDATE evidence
 		}); err != nil {
 			return quarantineBlobResult{}, err
 		}
-		if err := s.revisionStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
+		changedFieldKeys := sortedChangedKeys(beforeRows[recordID], afterRow)
+		if err := s.revisionStore.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 			ChangeSetID: changeSetID, RecordID: recordID, RowVersion: rowVersion,
 			BeforeSnapshot: &beforeSnapshot, AfterSnapshot: &afterSnapshot,
-			LiveChange: revisions.LiveRecordChange{BeforeValue: beforeRows[recordID], AfterValue: afterRow},
+			ConflictFacts: evidenceRevisionFacts(beforeRows[recordID], afterRow, changedFieldKeys),
 		}); err != nil {
 			return quarantineBlobResult{}, err
 		}
@@ -805,7 +806,7 @@ UPDATE evidence
 		}
 		primaryChange := attachRecordChange{
 			RecordID: recordID, RowVersion: rowVersion, ViewSchemaID: ViewSchemaID,
-			ChangedFieldKeys: sortedChangedKeys(beforeRows[recordID], afterRow),
+			ChangedFieldKeys: changedFieldKeys,
 		}
 		if err := appendEvidenceRecordChangeIntentsTx(
 			ctx,

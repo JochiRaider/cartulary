@@ -97,13 +97,12 @@ type incidentBundleWorker struct {
 	transactions      transactionCoordinator
 	projectionRebuild ImportProjectionRebuilder
 	sourceCatalog     sourcePortCatalog
-	historicalIntents HistoricalIntentPolicy
 	blobPort          BlobPortability
 	limits            Limits
 	now               func() time.Time
 }
 
-func newIncidentBundleWorker(store *store, pool *pgxpool.Pool, jobManager JobOperations, jobRunner JobRunner, storage BundleStorage, importFinalizer importfinalizerport.Finalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, publicationLock IncidentPublicationLock, projectionRebuild ImportProjectionRebuilder, sourceCatalog *sourceport.Catalog, historicalIntents HistoricalIntentPolicy, blobPort BlobPortability, limits Limits, now func() time.Time) *incidentBundleWorker {
+func newIncidentBundleWorker(store *store, pool *pgxpool.Pool, jobManager JobOperations, jobRunner JobRunner, storage BundleStorage, importFinalizer importfinalizerport.Finalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, publicationLock IncidentPublicationLock, projectionRebuild ImportProjectionRebuilder, sourceCatalog *sourceport.Catalog, blobPort BlobPortability, limits Limits, now func() time.Time) *incidentBundleWorker {
 	return &incidentBundleWorker{
 		store:             store,
 		pool:              pool,
@@ -117,7 +116,6 @@ func newIncidentBundleWorker(store *store, pool *pgxpool.Pool, jobManager JobOpe
 		publicationLock:   publicationLock,
 		projectionRebuild: projectionRebuild,
 		sourceCatalog:     sourceCatalog,
-		historicalIntents: historicalIntents,
 		blobPort:          blobPort,
 		limits:            limits,
 		now:               now,
@@ -291,7 +289,6 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 		finalizer:         w.importFinalizer,
 		projectionRebuild: w.projectionRebuild,
 		sourceCatalog:     w.sourceCatalog,
-		historicalIntents: w.historicalIntents,
 	}
 	importParams := importParams{
 		ActorUserID: payload.ActorUserID,

@@ -21,6 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -475,12 +476,9 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	)
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM change_sets WHERE incident_id = $1`, incidentID, "change_set count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM record_revisions rr JOIN records r ON r.record_id = rr.record_id WHERE r.incident_id = $1`, incidentID, "revision count")
-	if got := countRows(
-		t,
-		targetHarness.DB,
-		`SELECT count(*) FROM collaboration_event_intents WHERE incident_id = $1 AND event_family = 'record_changed'`,
-		incidentID,
-	); got != 0 {
+	if got := collaborationsupport.CountIntents(t, targetHarness.DB, collaborationsupport.IntentSelector{
+		IncidentID: incidentID, EventFamily: "record_changed",
+	}); got != 0 {
 		t.Fatalf("historical revision import emitted %d live record_changed intents, want 0", got)
 	}
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM record_links WHERE incident_id = $1`, incidentID, "record-link count")

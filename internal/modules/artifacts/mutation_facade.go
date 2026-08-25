@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/sourcecatalog"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -24,6 +25,7 @@ type MutationFacade struct {
 	conflictFields    conflicttokens.FieldResolver
 	conflictSnapshots conflicttokens.RevisionSnapshotProjector
 	keepSaved         conflicttokens.IdempotencyPort
+	publications      collaboration.RecordChangedAppender
 }
 
 type CreateRequest struct {
@@ -178,5 +180,6 @@ func NewMutationContribution(
 		conflictFields:    dependencies.ConflictFields,
 		conflictSnapshots: conflictSnapshots,
 		keepSaved:         dependencies.KeepSavedIdempotency,
+		publications:      dependencies.Collaboration,
 	}, nil
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/coder/websocket"
 
-	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"

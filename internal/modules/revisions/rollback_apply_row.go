@@ -80,17 +80,26 @@ func (a rollbackTransactionalApplier) applyRowRestorePlanTx(ctx context.Context,
 	}); err != nil {
 		return rollbackApplyResult{}, err
 	}
-	if err := a.publication.appendRecordRevisionAndIntentTx(ctx, tx, AppendRecordRevisionParams{
+	changedFieldKeys := rollbackChangedFieldKeys(beforeLiveRecord, afterLiveRecord)
+	conflictFacts, err := revisionFactsForFields(beforeLiveRecord, afterLiveRecord, changedFieldKeys)
+	if err != nil {
+		return rollbackApplyResult{}, err
+	}
+	if err := a.publication.appendLiveRevisionTx(ctx, tx, LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       record.RecordID,
 		RowVersion:     nextRowVersion,
 		BeforeSnapshot: &beforeSnapshot,
 		AfterSnapshot:  &afterSnapshot,
-		LiveChange: LiveRecordChange{
-			BeforeValue: beforeLiveRecord,
-			AfterValue:  afterLiveRecord,
-		},
+		ConflictFacts:  conflictFacts,
 	}); err != nil {
+		return rollbackApplyResult{}, err
+	}
+	publication, err := a.publication.recordPublicationEffectTx(ctx, tx, changeSetID, record.RecordID, nextRowVersion, viewSchemaID, "invalidate", changedFieldKeys)
+	if err != nil {
+		return rollbackApplyResult{}, err
+	}
+	if err := a.publication.appendRecordChangedTx(ctx, tx, publication); err != nil {
 		return rollbackApplyResult{}, err
 	}
 	change := RollbackRecordChange{
@@ -98,7 +107,7 @@ func (a rollbackTransactionalApplier) applyRowRestorePlanTx(ctx context.Context,
 		RowVersion:       nextRowVersion,
 		ChangeSetID:      changeSetID,
 		ViewSchemaID:     viewSchemaID,
-		ChangedFieldKeys: rollbackChangedFieldKeys(beforeLiveRecord, afterLiveRecord),
+		ChangedFieldKeys: changedFieldKeys,
 	}
 	return rollbackApplyResult{ChangeSetID: changeSetID, Changes: []RollbackRecordChange{change}}, nil
 }
@@ -217,17 +226,26 @@ func (a rollbackTransactionalApplier) applyRowBackedRollbackTx(ctx context.Conte
 		return RollbackRecordChange{}, err
 	}
 	(*sequenceNo)++
-	if err := a.publication.appendRecordRevisionAndIntentTx(ctx, tx, AppendRecordRevisionParams{
+	changedFieldKeys := rollbackChangedFieldKeys(beforeLiveRecord, afterLiveRecord)
+	conflictFacts, err := revisionFactsForFields(beforeLiveRecord, afterLiveRecord, changedFieldKeys)
+	if err != nil {
+		return RollbackRecordChange{}, err
+	}
+	if err := a.publication.appendLiveRevisionTx(ctx, tx, LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       targetRecordID,
 		RowVersion:     nextRowVersion,
 		BeforeSnapshot: &beforeSnapshot,
 		AfterSnapshot:  &afterSnapshot,
-		LiveChange: LiveRecordChange{
-			BeforeValue: beforeLiveRecord,
-			AfterValue:  afterLiveRecord,
-		},
+		ConflictFacts:  conflictFacts,
 	}); err != nil {
+		return RollbackRecordChange{}, err
+	}
+	publication, err := a.publication.recordPublicationEffectTx(ctx, tx, changeSetID, targetRecordID, nextRowVersion, viewSchemaID, "invalidate", changedFieldKeys)
+	if err != nil {
+		return RollbackRecordChange{}, err
+	}
+	if err := a.publication.appendRecordChangedTx(ctx, tx, publication); err != nil {
 		return RollbackRecordChange{}, err
 	}
 	return RollbackRecordChange{
@@ -235,7 +253,7 @@ func (a rollbackTransactionalApplier) applyRowBackedRollbackTx(ctx context.Conte
 		RowVersion:       nextRowVersion,
 		ChangeSetID:      changeSetID,
 		ViewSchemaID:     viewSchemaID,
-		ChangedFieldKeys: rollbackChangedFieldKeys(beforeLiveRecord, afterLiveRecord),
+		ChangedFieldKeys: changedFieldKeys,
 	}, nil
 }
 

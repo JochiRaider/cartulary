@@ -921,6 +921,7 @@
       "scan_paths": ["internal/modules/assessments/**"],
       "allowed_paths": [
         "internal/modules/assessments/incident_bundle_subtype_presence.go",
+        "internal/modules/assessments/import_create.go",
         "internal/modules/assessments/internal/providers/incidentbundle/subtype_presence.go",
         "internal/modules/assessments/workbookprojection/**"
       ],
@@ -1069,14 +1070,25 @@
       "production_only": true
     },
     {
-      "id": "collaboration-incident-effects-notifier-has-no-storage-dependency",
+      "id": "collaboration-no-revisions-implementation-import",
       "match_kind": "subtree",
       "imports": [
-        "github.com/JochiRaider/cartulary/internal/platform/authn",
-        "github.com/JochiRaider/cartulary/internal/platform/postgres"
+        "github.com/JochiRaider/cartulary/internal/modules/revisions"
       ],
       "scan_paths": [
-        "internal/modules/collaboration/incident_session_notifier.go"
+        "internal/modules/collaboration/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "revisions-no-collaboration-implementation-import",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/collaboration"
+      ],
+      "scan_paths": [
+        "internal/modules/revisions/**"
       ],
       "allowed_paths": [],
       "production_only": true
@@ -1935,18 +1947,22 @@
       ]
     },
     {
-      "id": "collaboration-intent-appender-construction-owned-by-composition",
+      "id": "collaboration-publication-appender-construction-owned-by-composition",
       "symbols": [
-        "collaboration.NewIntentAppender("
+        "collaboration.NewPublicationAppender("
       ],
       "allowed_paths": [
-        "internal/app/revisionassembly/revisions_test.go",
-        "internal/app/server/runtime_assembly.go",
-        "internal/modules/revisions/delete_restore_test.go",
-        "internal/testutil/appsupport/workbook.go",
-        "internal/testutil/collaborationsupport/intents.go",
-        "internal/testutil/networkflowsupport/intents.go",
-        "internal/testutil/revisionsupport/revisionsupport.go"
+        "internal/testutil/collaborationsupport/intents.go"
+      ]
+    },
+    {
+      "id": "collaboration-recovery-construction-owned-by-operator-and-owner-tests",
+      "symbols": [
+        "collaboration.NewRecoveryCapability("
+      ],
+      "allowed_paths": [
+        "internal/app/operator/operator_collaboration.go",
+        "internal/modules/collaboration/stream_integration_test.go"
       ]
     },
     {
@@ -2080,6 +2096,30 @@
       "production_only": false
     },
     {
+      "id": "collaboration-no-retired-root-lifecycle-or-forwarding-exports",
+      "tokens": [
+        "ErrIntentKeyCollision = privatestream.ErrIntentKeyCollision",
+        "func NewDispatcher(",
+        "func NewDispatcherForTest(",
+        "func NewHub(",
+        "func NewReplayStore(",
+        "func NewService(",
+        "type Dispatcher struct",
+        "type Hub struct",
+        "type ReplayStore struct",
+        "type Service struct",
+        "type Settings struct"
+      ],
+      "scan_paths": [
+        "internal/modules/collaboration/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/collaboration/internal/**",
+        "internal/modules/collaboration/protocol/**"
+      ],
+      "production_only": false
+    },
+    {
       "id": "platform-ws-no-collaboration-semantic-symbols",
       "tokens": [
         "type ExtensionResourceChangePayload struct",
@@ -2097,18 +2137,88 @@
       "production_only": false
     },
     {
-      "id": "revisions-no-retired-collaboration-catalog-or-raw-historical-setting",
+      "id": "collaboration-fact-ports-have-no-retired-or-combined-api",
       "tokens": [
         "RecordProducerCatalog",
         "RecordProducerViewSchema",
-        "cartulary.collaboration.suppress_historical_intents"
+        "cartulary.collaboration.suppress_historical_intents",
+        "AppendRecordRevisionAndIntentTx",
+        "AppendRecordRevisionParams",
+        "ChangedCellKeys",
+        "HistoricalIntentPolicy",
+        "LiveRecordChange",
+        "NewHistoricalIntentPolicy",
+        "NewIntentAppender"
       ],
       "scan_paths": [
         "internal/**"
       ],
       "allowed_paths": [
-        "internal/modules/collaboration/historical_restore.go"
+        "internal/modules/revisions/production_readiness_cleanup_test.go"
       ],
+      "production_only": false
+    },
+    {
+      "id": "collaboration-recovery-facade-has-no-persistence-or-transaction-mechanics",
+      "tokens": [
+        "administrativeaudit",
+        "BeginTx(",
+        "Commit(",
+        "FOR UPDATE",
+        "Rollback(",
+        "collaboration_event_intents",
+        "collaboration_incident_stream_cursors"
+      ],
+      "scan_paths": [
+        "internal/modules/collaboration/recovery.go"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "collaboration-no-retired-root-recovery-service",
+      "tokens": [
+        "collaboration.NewRecoveryService(",
+        "type RecoveryService struct"
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "collaboration-table-sql-is-owner-or-physical-evidence-only",
+      "tokens": [
+        "collaboration_event_intents",
+        "collaboration_incident_stream_cursors",
+        "collaboration_replay_events",
+        "collaboration_resume_tokens"
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [
+        "internal/app/recoveryassembly/state_catalog_test.go",
+        "internal/gen/**",
+        "internal/modules/collaboration/**",
+        "internal/modules/recovery/operatortest/operator_process_test.go",
+        "internal/platform/postgres/postgres_role_integration_test.go",
+        "internal/platform/recoverystate/**",
+        "internal/testutil/collaborationsupport/**"
+      ],
+      "production_only": false
+    },
+    {
+      "id": "collaboration-no-retired-owner-local-test-support-import",
+      "tokens": [
+        "internal/modules/collaboration/testsupport"
+      ],
+      "scan_paths": [
+        "internal/**",
+        "tools/**"
+      ],
+      "allowed_paths": [],
       "production_only": false
     },
     {

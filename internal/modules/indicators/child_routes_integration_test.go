@@ -12,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -179,21 +180,18 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	if err := harness.DB.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM indicator_observations WHERE incident_id = $1 AND deleted_at IS NULL`, incidentID).Scan(&observationCount); err != nil || observationCount != 2 {
 		t.Fatalf("committed observation count = %d, %v", observationCount, err)
 	}
-	var collaborationIntentCount int
-	if err := harness.DB.QueryRowContext(context.Background(), `
-SELECT COUNT(*)
-  FROM collaboration_event_intents intent
-  JOIN change_sets change_set ON change_set.change_set_id = intent.source_change_set_id
- WHERE change_set.incident_id = $1
-   AND change_set.source IN (
-       'indicators.observations.capture',
-       'indicators.observations.resolve',
-       'indicators.observations.dismiss',
-       'indicators.observations.restore',
-       'indicators.lifecycle.append'
-   )
-`, incidentID).Scan(&collaborationIntentCount); err != nil || collaborationIntentCount != 8 {
-		t.Fatalf("Indicator child collaboration intents = %d, %v", collaborationIntentCount, err)
+	collaborationIntentCount := collaborationsupport.CountIntentsForChangeSetSources(
+		t,
+		harness.DB,
+		incidentID.String(),
+		"indicators.observations.capture",
+		"indicators.observations.resolve",
+		"indicators.observations.dismiss",
+		"indicators.observations.restore",
+		"indicators.lifecycle.append",
+	)
+	if collaborationIntentCount != 8 {
+		t.Fatalf("Indicator child collaboration intents = %d", collaborationIntentCount)
 	}
 }
 

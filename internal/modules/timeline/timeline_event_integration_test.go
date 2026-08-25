@@ -15,8 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
@@ -27,6 +26,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
@@ -1971,14 +1971,14 @@ func timelineFacadeWithCollaboratorMutation(t testing.TB, harness *scenariotest.
 		harness.Pool,
 		conflictTokens,
 		harness.Revisions.Appender(),
-		harness.Collaboration.IntentAppender(),
+		harness.Collaboration.Publications(),
 		projections,
 	)
 	collaborators, err := timelineassembly.NewCollaborators(timelineassembly.Dependencies{
 		Postgres:            harness.Pool,
 		ConflictTokens:      conflictTokens,
 		Revisions:           harness.Revisions.Appender(),
-		Collaboration:       harness.Collaboration.IntentAppender(),
+		Collaboration:       harness.Collaboration.Publications(),
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,

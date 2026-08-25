@@ -16,6 +16,19 @@ type IntentRecord struct {
 	CanonicalPayload []byte
 }
 
+func CountBySourceIdentity(t testing.TB, pool *pgxpool.Pool, sourceIdentity string) int {
+	t.Helper()
+	var count int
+	if err := pool.QueryRow(context.Background(), `
+SELECT count(*)
+  FROM collaboration_event_intents
+ WHERE source_identity = $1
+`, sourceIdentity).Scan(&count); err != nil {
+		t.Fatalf("count Collaboration intents: %v", err)
+	}
+	return count
+}
+
 func LoadBySourceIdentity(t testing.TB, pool *pgxpool.Pool, sourceIdentity string) IntentRecord {
 	t.Helper()
 	var record IntentRecord

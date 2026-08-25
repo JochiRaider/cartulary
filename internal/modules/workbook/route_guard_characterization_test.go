@@ -13,6 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -287,10 +288,6 @@ SELECT COUNT(*)
   JOIN records r ON r.record_id = rr.record_id
  WHERE r.incident_id = $1
 `, incidentID),
-		Collaboration: appsupport.QueryCount(t, harness.DB, `
-SELECT COUNT(*)
-  FROM collaboration_event_intents
- WHERE incident_id = $1
-`, incidentID),
+		Collaboration: collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{IncidentID: incidentID.String()}),
 	}
 }

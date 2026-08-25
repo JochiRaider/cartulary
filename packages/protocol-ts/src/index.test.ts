@@ -828,52 +828,54 @@ describe("@cartulary/protocol-ts family conformance", () => {
     expect(JSON.stringify(invalid)).not.toContain("must-not-leak");
   });
 
-  it("characterizes all WebSocket message families and payload-free failures", () => {
+  it("decodes every server WebSocket family with its complete envelope", () => {
+    const envelope = {
+      emitted_at: "2026-08-03T23:00:00Z",
+      event_id: "event-1",
+      incident_id: "incident-1",
+    } as const;
     const messages = [
       {
-        type: "hello",
-        payload: { client_instance_id: "client-1", presence: {} },
-      },
-      {
-        type: "resume",
-        payload: {
-          client_instance_id: "client-1",
-          last_seen_stream_seq: 1,
-          presence: {},
-          resume_token: "resume-1",
-        },
-      },
-      { type: "pong", payload: {} },
-      { type: "presence_update", payload: { presence: {} } },
-      {
+        ...envelope,
         type: "hello_ack",
         payload: {
           connection_id: "connection-1",
-          heartbeat_interval_ms: 10_000,
-          presence_ttl_ms: 30_000,
+          heartbeat_interval_ms: 15_000,
+          presence_ttl_ms: 45_000,
           resume_token: "resume-1",
-          resume_window_ms: 60_000,
+          resume_window_ms: 300_000,
           server_time: "2026-08-03T23:00:00Z",
         },
       },
       {
+        ...envelope,
         type: "resume_ack",
         payload: {
           resume_token: "resume-2",
           server_high_water_stream_seq: 4,
-          status: "resumed",
+          status: "replayed",
         },
       },
-      { type: "presence_snapshot", payload: { presences: [] } },
+      { ...envelope, type: "presence_snapshot", payload: { presences: [] } },
       {
+        ...envelope,
         type: "presence_delta",
-        payload: { delta_kind: "upsert", presence: {} },
+        payload: {
+          delta_kind: "remove",
+          presence: { connection_id: "connection-1" },
+        },
       },
       {
+        ...envelope,
         type: "record_changed",
         payload: {
           actor_user_id: "user-1",
-          affected_views: [],
+          affected_views: [
+            {
+              change_kind: "invalidate",
+              view_schema_id: "cartulary.view.timeline.v2",
+            },
+          ],
           change_set_id: "change-1",
           changed_field_keys: [],
           client_txn_id: "txn-1",
@@ -883,29 +885,32 @@ describe("@cartulary/protocol-ts family conformance", () => {
         stream_seq: 1,
       },
       {
+        ...envelope,
         type: "extension_resource_changed",
         payload: {
           change_kind: "invalidate",
           extension_profile_id: "network_flow_activity",
-          reason_code: "changed",
+          reason_code: "renamed",
           resource_id: "resource-1",
-          resource_kind: "table",
+          resource_kind: "network_flow_table",
         },
         stream_seq: 2,
       },
       {
+        ...envelope,
         type: "job_progress",
         payload: {
           job_id: "job-1",
           progress: { completed: 0, total: null },
-          scope: { kind: "deployment" },
+          scope: { incident_id: "incident-1", kind: "incident" },
           status: "queued",
           updated_at: "2026-08-03T23:00:00Z",
         },
         stream_seq: 3,
       },
-      { type: "ping", payload: {} },
+      { ...envelope, type: "ping", payload: {} },
       {
+        ...envelope,
         type: "error",
         payload: {
           code: "invalid_message",
@@ -914,16 +919,13 @@ describe("@cartulary/protocol-ts family conformance", () => {
         },
       },
       {
+        ...envelope,
         type: "session_revoked",
         payload: { reason_code: "membership_removed" },
       },
     ] as const;
 
     expect(messages.map((message) => message.type)).toEqual([
-      "hello",
-      "resume",
-      "pong",
-      "presence_update",
       "hello_ack",
       "resume_ack",
       "presence_snapshot",
@@ -939,37 +941,197 @@ describe("@cartulary/protocol-ts family conformance", () => {
       const result = incidentStreamMessageDecoder.decode(message);
       expect(result).toEqual({ ok: true, value: message });
       if (result.ok) {
-        expect(result.value).toBe(message);
+        expect(result.value).not.toBe(message);
+        expect(result.value.payload).not.toBe(message.payload);
       }
     }
+  });
 
-    // Non-replayable messages tolerate additive members at the message level.
-    expect(
-      incidentStreamMessageDecoder.decode({
-        type: "ping",
-        payload: {},
-        stream_seq: 99,
-      }),
-    ).toEqual(expect.objectContaining({ ok: true }));
+  it("projects replayable messages to fresh known members at every additive boundary", () => {
+    const envelope = {
+      emitted_at: "2026-08-03T23:00:00Z",
+      event_id: "event-1",
+      incident_id: "incident-1",
+      ignored_envelope: { route: "/must-not-dispatch" },
+    } as const;
+    const fixtures = [
+      {
+        input: {
+          ...envelope,
+          type: "record_changed",
+          payload: {
+            actor_user_id: "user-1",
+            affected_views: [
+              {
+                change_kind: "patch",
+                ignored_view: "must-not-render",
+                patch_cells: {
+                  cells: {
+                    "timeline.title": {
+                      ignored_cell: "must-not-render",
+                      value: { retained_owner_value: true },
+                    },
+                  },
+                  group_values: {
+                    "timeline.group": { retained_owner_value: true },
+                  },
+                  ignored_patch: "must-not-render",
+                  record_id: "record-1",
+                  row_version: 2,
+                },
+                view_schema_id: "cartulary.view.timeline.v2",
+              },
+            ],
+            change_set_id: "change-1",
+            changed_field_keys: ["timeline.title"],
+            client_txn_id: "txn-1",
+            ignored_payload: { action: "must-not-execute" },
+            record_id: "record-1",
+            row_version: 2,
+          },
+          stream_seq: 1,
+        },
+        forbidden: [
+          "ignored_envelope",
+          "ignored_payload",
+          "ignored_view",
+          "ignored_patch",
+          "ignored_cell",
+        ],
+      },
+      {
+        input: {
+          ...envelope,
+          type: "extension_resource_changed",
+          payload: {
+            change_kind: "invalidate",
+            extension_profile_id: "network_flow_activity",
+            ignored_payload: { discriminator: "must-not-dispatch" },
+            reason_code: "retained_owner_reason",
+            resource_id: "resource-1",
+            resource_kind: "network_flow_table",
+            workspace_refs: [
+              {
+                extension_profile_id: "network_flow_activity",
+                ignored_workspace: "must-not-render",
+                kind: "extension_workspace",
+                workspace_key: "network_analysis",
+              },
+            ],
+          },
+          stream_seq: 2,
+        },
+        forbidden: ["ignored_envelope", "ignored_payload", "ignored_workspace"],
+      },
+      {
+        input: {
+          ...envelope,
+          type: "job_progress",
+          payload: {
+            error_summary: {
+              code: "job_failed",
+              details: { retained_owner_detail: { nested: true } },
+              ignored_summary: "must-not-render",
+              message: "Failed.",
+              retryable: false,
+            },
+            ignored_payload: { route: "/must-not-follow" },
+            job_id: "job-1",
+            progress: { completed: 1, ignored_progress: 100, total: 2 },
+            scope: {
+              ignored_scope: "deployment",
+              incident_id: "incident-1",
+              kind: "incident",
+            },
+            status: "failed",
+            updated_at: "2026-08-03T23:00:00Z",
+          },
+          stream_seq: 3,
+        },
+        forbidden: [
+          "ignored_envelope",
+          "ignored_payload",
+          "ignored_progress",
+          "ignored_scope",
+          "ignored_summary",
+        ],
+      },
+    ] as const;
 
+    for (const fixture of fixtures) {
+      const result = incidentStreamMessageDecoder.decode(fixture.input);
+      expect(result.ok).toBe(true);
+      if (!result.ok) continue;
+      expect(result.value).not.toBe(fixture.input);
+      const encoded = JSON.stringify(result.value);
+      for (const member of fixture.forbidden) {
+        expect(encoded).not.toContain(member);
+      }
+      expect(encoded).toContain("retained_owner");
+    }
+  });
+
+  it("rejects incomplete envelopes, invalid payloads, and non-server families", () => {
+    const validRecordPayload = {
+      actor_user_id: "user-1",
+      affected_views: [
+        {
+          change_kind: "invalidate",
+          view_schema_id: "cartulary.view.timeline.v2",
+        },
+      ],
+      change_set_id: "change-1",
+      changed_field_keys: [],
+      client_txn_id: "txn-1",
+      record_id: "record-1",
+      row_version: 2,
+    } as const;
     for (const invalid of [
       { type: "unknown", payload: { secret: "must-not-leak" } },
-      { type: "hello", payload: null, secret: "must-not-leak" },
+      { type: "hello", payload: { secret: "must-not-leak" } },
       {
+        emitted_at: "2026-08-03T23:00:00Z",
+        incident_id: "incident-1",
+        payload: validRecordPayload,
+        stream_seq: 1,
         type: "record_changed",
-        payload: messages[8].payload,
-        secret: "must-not-leak",
       },
       {
-        type: "extension_resource_changed",
-        payload: messages[9].payload,
-        stream_seq: 0,
-        secret: "must-not-leak",
+        emitted_at: "2026-08-03T23:00:00Z",
+        event_id: "event-1",
+        incident_id: "incident-1",
+        payload: validRecordPayload,
+        type: "record_changed",
       },
       {
-        type: "job_progress",
-        payload: { ...messages[10].payload, unexpected: "must-not-leak" },
+        emitted_at: "2026-08-03T23:00:00Z",
+        event_id: "event-1",
+        incident_id: "incident-1",
+        payload: {},
+        stream_seq: 99,
+        type: "ping",
+      },
+      {
+        emitted_at: "2026-08-03T23:00:00Z",
+        event_id: "event-1",
+        incident_id: "incident-1",
+        payload: { ...validRecordPayload, affected_views: [] },
+        stream_seq: 1,
+        type: "record_changed",
+      },
+      {
+        emitted_at: "2026-08-03T23:00:00Z",
+        event_id: "event-1",
+        incident_id: "incident-1",
+        payload: {
+          job_id: "job-1",
+          progress: { completed: 0, total: null },
+          scope: { kind: "deployment" },
+          status: "queued",
+          updated_at: "2026-08-03T23:00:00Z",
+        },
         stream_seq: 3,
+        type: "job_progress",
       },
     ]) {
       const result = incidentStreamMessageDecoder.decode(invalid);

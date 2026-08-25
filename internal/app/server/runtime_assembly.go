@@ -83,7 +83,7 @@ type Options struct {
 	ObjectStore               objectstore.Store
 	Now                       func() time.Time
 	ObserveJobs               func(*jobs.Manager, *jobs.TransactionService, *jobs.Runner, *pgxpool.Pool)
-	ObserveCollaboration      func(*collaboration.Hub, *collaboration.Dispatcher, collaboration.IntentAppender)
+	ObserveCollaboration      func(*collaboration.Runtime)
 	ObserveEvidenceCleanup    func(*evidence.CleanupDispatcher)
 	ObserveNetworkFlowCleanup func(*networkflow.GraphResultCleanupDispatcher)
 	ObserveProjections        func(*projectionassembly.Runtime)
@@ -100,7 +100,7 @@ type Runtime struct {
 	handler                      http.Handler
 	stagedJanitor                *stagedobjects.Janitor
 	jobRunner                    *jobs.Runner
-	collaborationDispatcher      *collaboration.Dispatcher
+	collaborationRuntime         *collaboration.Runtime
 	evidenceCleanupDispatcher    evidenceCleanupLifecycle
 	networkFlowCleanupDispatcher evidenceCleanupLifecycle
 	processLease                 *processlease.ApplicationProcessLease
@@ -673,16 +673,31 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("seed minimum disconnected reference packs: %w", err)
 		}
 	}
-	hub := dependencies.newCollaborationHub()
-	intentAppender := collaboration.NewIntentAppender()
-	runtime.collaborationDispatcher = collaboration.NewDispatcher(postgresHandle, hub, now)
-	dispatcher := runtime.collaborationDispatcher
+	providerContributions, err := revisionassembly.CurrentProviderContributions()
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Revisions provider contributions: %w", err)
+	}
+	collaborationPublicationCatalog, err := buildCollaborationPublicationCatalog(providerContributions)
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	collaborationOptions := settingsProjection.Collaboration(postgresHandle, socketTransport, now)
+	collaborationOptions.PublicationCatalog = collaborationPublicationCatalog
+	collaborationRuntime, err := dependencies.newCollaborationRuntime(collaborationOptions)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Collaboration runtime: %w", err)
+	}
+	runtime.collaborationRuntime = collaborationRuntime
 	runtime.own(func() {
 		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = dispatcher.Close(closeCtx)
+		_ = collaborationRuntime.Close(closeCtx)
 	})
-	intentAdapters := newCollaborationIntentTranslator(intentAppender)
+	publicationAppender := collaborationRuntime.Publications()
+	intentAdapters := newCollaborationIntentTranslator(publicationAppender)
 	jobOwnerPorts := jobOwnerTransactionAdapters{}
 	extensionJobDefinitions, err := extensionassembly.JobDefinitions(publicationCatalog)
 	if err != nil {
@@ -797,7 +812,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("compose extension job finalizer: %w", err)
 		}
 	}
-	hub.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
 	listenerPlanSHA256 := extensionPlan.Summary().ListenerPlanSHA256
 
 	httpOptions := options.HTTP
@@ -832,7 +846,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	}
 	incidentEffects, err := incidenteffects.New(
 		incidentApplication,
-		collaboration.NewIncidentSessionNotifier(hub),
+		collaborationRuntime,
 	)
 	if err != nil {
 		runtime.Close()
@@ -849,19 +863,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose incident bundle import finalizer: %w", err)
 	}
-	historicalIntentPolicy := collaboration.NewHistoricalIntentPolicy()
-	providerContributions, err := revisionassembly.CurrentProviderContributions()
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("compose Revisions provider contributions: %w", err)
-	}
-	revisionRuntime, err := revisionassembly.Build(
-		revisionassembly.Dependencies{
-			HistoricalIntentPolicy: historicalIntentPolicy,
-			IntentAppender:         intentAppender,
-		},
-		providerContributions...,
-	)
+	revisionRuntime, err := revisionassembly.Build(providerContributions...)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Revisions runtime: %w", err)
@@ -888,7 +890,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		Postgres:            postgresHandle,
 		ConflictTokens:      &workbookConflictTokens,
 		Revisions:           revisionRuntime.Appender(),
-		Collaboration:       intentAppender,
+		Collaboration:       publicationAppender,
 		ObjectStore:         typedObjectStore,
 		ConflictFields:      revisionRuntime.ConflictFieldResolver(),
 		ConflictIdempotency: workbookassembly.NewConflictIdempotencyPort(postgresHandle),
@@ -911,7 +913,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		Postgres:            postgresHandle,
 		ConflictTokens:      workbookConflictTokens,
 		Revisions:           revisionRuntime.Appender(),
-		Collaboration:       intentAppender,
+		Collaboration:       publicationAppender,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projectionRuntime.TimelinePorts().Writer,
 		EntityProjection:    projectionRuntime.EntityPorts().Writer,
@@ -931,6 +933,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		RecordEnvelopes: indicatorRecords,
 		Projections:     projectionRuntime.IndicatorPorts().Rows,
 		SourceText:      indicatorassembly.NewSourceTextPort(projectionRuntime.SourceTextRows()),
+		Collaboration:   publicationAppender,
 		Clock:           now,
 	})
 	if err != nil {
@@ -943,6 +946,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		projectionRuntime.RevisionRebuilder(),
 		projectionRuntime.RevisionLiveRecords(),
 		now,
+		publicationAppender,
 	)
 	if err != nil {
 		runtime.Close()
@@ -1017,7 +1021,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		IncidentPublicationLock: incidentTransactionParticipant,
 		ProjectionRebuilder:     projectionRuntime.ImportRebuilder(),
 		SourceCatalog:           incidentSourceCatalog,
-		HistoricalIntentPolicy:  historicalIntentPolicy,
 		BlobPortability:         evidenceBlobPort,
 		Now:                     now,
 	})
@@ -1088,7 +1091,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		importassembly.OwnerRegistryDependencies{
 			Postgres:                postgresHandle,
 			RevisionAppender:        revisionRuntime.Appender(),
-			Intents:                 intentAppender,
+			Collaboration:           publicationAppender,
 			Timeline:                timelineFacade,
 			EntityProjections:       projectionRuntime.EntityPorts().Writer,
 			AssessmentProjections:   projectionRuntime.AssessmentPorts().Rows,
@@ -1187,7 +1190,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	authRouteOptions = append(
 		authRouteOptions,
 		auth.WithPublicOrigin(normalizedCfg.Application.PublicOrigin),
-		auth.WithSessionRevocations(hub),
+		auth.WithSessionRevocations(collaborationRuntime),
 	)
 	if enterpriseAuthenticationAdmitted {
 		authRouteOptions = append(authRouteOptions, auth.WithEnterpriseAuthBindings())
@@ -1198,6 +1201,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		revisionRuntime.Appender(),
 		revisionRuntime.ConflictFieldResolver(),
 		projectionRuntime.TaskDecisionPorts().Rows,
+		publicationAppender,
 	)
 	if err != nil {
 		runtime.Close()
@@ -1209,6 +1213,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		revisionRuntime.Appender(),
 		revisionRuntime.ConflictFieldResolver(),
 		projectionRuntime.ArtifactPorts().Rows,
+		publicationAppender,
 	)
 	if err != nil {
 		runtime.Close()
@@ -1230,7 +1235,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			ConflictTokens:        workbookConflictTokens,
 			ConflictFields:        revisionRuntime.ConflictFieldResolver(),
 			Revisions:             revisionRuntime.Appender(),
-			CollaborationIntents:  intentAppender,
+			CollaborationIntents:  publicationAppender,
 		},
 	)
 	if err != nil {
@@ -1244,7 +1249,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		{id: "jobs", registrar: jobapi.RegisterRoutes(jobManager)},
 		{id: "saved_views", registrar: savedviews.RegisterRoutes()},
 		{id: "view_schemas", registrar: viewschemas.RegisterRoutes()},
-		{id: "collaboration", registrar: collaboration.RegisterRoutes(settingsProjection.Collaboration(hub, socketTransport))},
+		{id: "collaboration", registrar: collaboration.RegisterRoutes(collaborationRuntime)},
 		{id: "entities", registrar: entities.RegisterRoutes(entities.RouteOptions{
 			MergeStore:   timelineBundle.EntityMergeStore,
 			MentionStore: timelineBundle.EntityMentionStore,
@@ -1386,7 +1391,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		options.ObserveJobs(jobManager, jobTransactions, runtime.jobRunner, postgresPool)
 	}
 	if options.ObserveCollaboration != nil {
-		options.ObserveCollaboration(hub, runtime.collaborationDispatcher, intentAppender)
+		options.ObserveCollaboration(collaborationRuntime)
 	}
 	if options.ObserveEvidenceCleanup != nil {
 		options.ObserveEvidenceCleanup(cleanupDispatcher)
@@ -1722,8 +1727,8 @@ func (r *Runtime) ActivatePublication() error {
 	if err := r.publication.serve(); err != nil {
 		return err
 	}
-	if r.collaborationDispatcher != nil {
-		if err := r.collaborationDispatcher.Start(context.Background()); err != nil {
+	if r.collaborationRuntime != nil {
+		if err := r.collaborationRuntime.Start(context.Background()); err != nil {
 			r.publication.componentLost("collaboration_dispatcher")
 			return fmt.Errorf("activate collaboration dispatcher: %w", err)
 		}

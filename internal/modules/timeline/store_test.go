@@ -941,14 +941,14 @@ func newEventTimelineCommandsWithProjectionFailure(t testing.TB, pool postgres.D
 		pool,
 		conflictTokens,
 		appender,
-		revisionComposition.Intents,
+		revisionComposition.Publications,
 		projections,
 	)
 	bundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            pool,
 		ConflictTokens:      conflictTokens,
 		Revisions:           appender,
-		Collaboration:       revisionComposition.Intents,
+		Collaboration:       revisionComposition.Publications,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,

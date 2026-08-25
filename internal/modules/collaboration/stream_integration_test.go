@@ -18,17 +18,19 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	collabscenariotest "github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/scenariotest"
+	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
+	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	timelinemodule "github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestDurableIncidentStream_Integration(t *testing.T) {
-	runtime := collabscenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	harness, admin, adminID, atomicIncidentID := setupSocketIncidentWithAdminID(
 		t,
 		runtime,
@@ -42,9 +44,9 @@ func TestDurableIncidentStream_Integration(t *testing.T) {
 	}
 
 	pool := harness.Pool
-	intents := harness.Collaboration.IntentAppender()
-	replay := collaboration.NewReplayStore(pool, nil)
-	recovery := collaboration.NewRecoveryService(pool)
+	replay := privatestream.NewPostgresStream(pool, nil)
+	intents := replay
+	recovery := collaboration.NewRecoveryCapability(pool)
 	atomicIncidentUUID := uuid.MustParse(atomicIncidentID)
 
 	t.Run("intent and source state commit or roll back together", func(t *testing.T) {
@@ -125,9 +127,9 @@ SELECT count(*)
 			t.Fatalf("begin divergent intent transaction: %v", err)
 		}
 		err = intents.AppendIntentTx(ctx, tx, divergent)
-		if !errors.Is(err, collaboration.ErrIntentKeyCollision) {
+		if !errors.Is(err, privatestream.ErrIntentKeyCollision) {
 			_ = tx.Rollback(ctx)
-			t.Fatalf("divergent intent error = %v want ErrIntentKeyCollision", err)
+			t.Fatalf("divergent intent error = %v want private stream collision", err)
 		}
 		if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
 			t.Fatalf("roll back divergent intent transaction: %v", rollbackErr)
@@ -169,7 +171,7 @@ SELECT count(*) FROM collaboration_replay_events WHERE incident_id = $1
 		}
 
 		broadcaster := &recordingBroadcaster{failRemaining: 1}
-		failingDispatcher := collaboration.NewDispatcher(pool, broadcaster, func() time.Time { return clockNow })
+		failingDispatcher := newDispatcherForTest(pool, broadcaster, func() time.Time { return clockNow })
 		if _, err := failingDispatcher.RunOnce(ctx); err == nil {
 			t.Fatal("failing local tailer did not report injected delivery failure")
 		}
@@ -198,7 +200,7 @@ SELECT replay.event_id, replay.stream_seq, intent.dispatch_state
 		}
 
 		clockNow = clockNow.Add(time.Millisecond)
-		restartedDispatcher := collaboration.NewDispatcher(pool, broadcaster, func() time.Time { return clockNow })
+		restartedDispatcher := newDispatcherForTest(pool, broadcaster, func() time.Time { return clockNow })
 		if _, err := restartedDispatcher.RunOnce(ctx); err != nil {
 			t.Fatalf("run restarted dispatcher: %v", err)
 		}
@@ -212,7 +214,7 @@ SELECT replay.event_id, replay.stream_seq, intent.dispatch_state
 
 		clockNow = clockNow.Add(time.Second)
 		appendCommittedIntent(t, pool, intents, requireJobIntent(t, dispatchIncidentUUID, "no-subscribers", clockNow))
-		noSubscriberDispatcher := harness.Collaboration.NewDispatcher(pool, func() time.Time { return clockNow })
+		noSubscriberDispatcher := newDispatcherForTest(pool, &recordingBroadcaster{}, func() time.Time { return clockNow })
 		if _, err := noSubscriberDispatcher.RunOnce(ctx); err != nil {
 			t.Fatalf("deliver with no subscribers: %v", err)
 		}
@@ -237,8 +239,8 @@ SELECT dispatch_state = 'sequenced'
 
 		firstBroadcaster := &recordingBroadcaster{}
 		secondBroadcaster := &recordingBroadcaster{}
-		firstDispatcher := collaboration.NewDispatcher(pool, firstBroadcaster, func() time.Time { return claimNow })
-		secondDispatcher := collaboration.NewDispatcher(pool, secondBroadcaster, func() time.Time { return claimNow })
+		firstDispatcher := newDispatcherForTest(pool, firstBroadcaster, func() time.Time { return claimNow })
+		secondDispatcher := newDispatcherForTest(pool, secondBroadcaster, func() time.Time { return claimNow })
 		if _, err := firstDispatcher.RunOnce(ctx); err != nil {
 			t.Fatalf("run first process tailer: %v", err)
 		}
@@ -259,17 +261,17 @@ SELECT dispatch_state = 'sequenced'
 		poisonIncidentID := createDurableStreamIncident(t, harness, admin, "poison")
 		poisonIncidentUUID := uuid.MustParse(poisonIncidentID)
 		quarantineNow := clockNow.Add(2 * time.Second)
-		invalidIntent := collaboration.EventIntent{
+		invalidIntent := privatestream.EventIntent{
 			IntentKey:        "record_changed:invalid-payload",
 			IncidentID:       poisonIncidentUUID,
-			EventFamily:      collaboration.EventFamilyRecordChanged,
+			EventFamily:      privatestream.EventFamilyRecordChanged,
 			CanonicalPayload: json.RawMessage(`{"not":"a record change"}`),
 			SourceIdentity:   "record:invalid-payload",
 			CreatedAt:        quarantineNow,
 		}
 		appendLegacyIntent(t, pool, invalidIntent)
 
-		dispatcher := collaboration.NewDispatcher(
+		dispatcher := newDispatcherForTest(
 			pool,
 			&recordingBroadcaster{},
 			func() time.Time { return quarantineNow },
@@ -366,7 +368,7 @@ DELETE FROM collaboration_event_intents
 		for _, operationID := range operationIDs {
 			go func() {
 				<-start
-				result, err := collaboration.NewRecoveryService(pool).RequeueIncident(
+				result, err := collaboration.NewRecoveryCapability(pool).RequeueIncident(
 					context.Background(),
 					collaboration.RequeueRequest{
 						OperationID: operationID,
@@ -637,7 +639,7 @@ SELECT cursor.failure_count, cursor.quarantined_at, intent.attempt_count
 			false,
 			clockNow.Add(40*time.Second),
 		)
-		service := collaboration.NewRecoveryService(requeueCommitFailureDB{DB: pool})
+		service := collaboration.NewRecoveryCapability(requeueCommitFailureDB{DB: pool})
 		if _, err := requeueCollaborationIncident(service, ctx, incidentID, clockNow.Add(41*time.Second)); requeueFailureKind(err) != collaboration.RequeueFailureCommitOutcomeUnknown {
 			t.Fatalf("injected commit failure result = %v", err)
 		}
@@ -705,15 +707,15 @@ SELECT quarantined_at
 			family  string
 			payload json.RawMessage
 		}{
-			{name: "job", family: collaboration.EventFamilyJobProgress, payload: json.RawMessage(`{"job_id":"legacy-invalid"}`)},
-			{name: "extension", family: collaboration.EventFamilyExtensionResourceChange, payload: json.RawMessage(`{"extension_profile_id":"network_flow_activity","resource_kind":"network_flow_table","resource_id":"nft_invalid","change_kind":"remove","reason_code":"renamed"}`)},
+			{name: "job", family: privatestream.EventFamilyJobProgress, payload: json.RawMessage(`{"job_id":"legacy-invalid"}`)},
+			{name: "extension", family: privatestream.EventFamilyExtensionResourceChange, payload: json.RawMessage(`{"extension_profile_id":"network_flow_activity","resource_kind":"network_flow_table","resource_id":"nft_invalid","change_kind":"remove","reason_code":"renamed"}`)},
 		}
 		for index, testCase := range cases {
 			t.Run(testCase.name, func(t *testing.T) {
 				incidentID := createDurableStreamIncident(t, harness, admin, "invalid-"+testCase.name)
 				incidentUUID := uuid.MustParse(incidentID)
 				attemptedAt := clockNow.Add(time.Duration(20+index) * time.Second)
-				intent := collaboration.EventIntent{
+				intent := privatestream.EventIntent{
 					IntentKey:        "legacy-invalid:" + testCase.name,
 					IncidentID:       incidentUUID,
 					EventFamily:      testCase.family,
@@ -722,7 +724,7 @@ SELECT quarantined_at
 					CreatedAt:        attemptedAt,
 				}
 				appendLegacyIntent(t, pool, intent)
-				dispatcher := collaboration.NewDispatcher(pool, &recordingBroadcaster{}, func() time.Time { return attemptedAt.Add(time.Second) })
+				dispatcher := newDispatcherForTest(pool, &recordingBroadcaster{}, func() time.Time { return attemptedAt.Add(time.Second) })
 				if _, err := dispatcher.RunOnce(ctx); err != nil {
 					t.Fatalf("attempt legacy invalid sequencing: %v", err)
 				}
@@ -793,7 +795,7 @@ SELECT token_hash
 			t.Fatalf("resume token was not stored exclusively by hash")
 		}
 
-		restartedReplay := collaboration.NewReplayStore(pool, nil)
+		restartedReplay := privatestream.NewPostgresStream(pool, nil)
 		replay, err := restartedReplay.ReplayMessages(
 			ctx,
 			sessionID,
@@ -806,7 +808,7 @@ SELECT token_hash
 		if err != nil {
 			t.Fatalf("replay after store restart: %v", err)
 		}
-		if replay.Status != collaboration.ResumeStatusReplayed || len(replay.Messages) != 2 {
+		if replay.Status != collabprotocol.ResumeStatusReplayed || len(replay.Messages) != 2 {
 			t.Fatalf("restart replay result = status %q messages %d want replayed/2", replay.Status, len(replay.Messages))
 		}
 		if replay.Messages[0].StreamSeq == nil || replay.Messages[1].StreamSeq == nil ||
@@ -825,7 +827,7 @@ SELECT token_hash
 		if err != nil {
 			t.Fatalf("validate mismatched token: %v", err)
 		}
-		if reset.Status != collaboration.ResumeStatusResetNeeded || len(reset.Messages) != 0 {
+		if reset.Status != collabprotocol.ResumeStatusResetNeeded || len(reset.Messages) != 0 {
 			t.Fatalf("mismatched token replayed data: %#v", reset)
 		}
 
@@ -858,7 +860,7 @@ SELECT gen_random_uuid(),
 `, retentionIncidentUUID, retentionNow); err != nil {
 			t.Fatalf("seed retention events: %v", err)
 		}
-		retentionDispatcher := harness.Collaboration.NewDispatcher(pool, func() time.Time { return retentionNow })
+		retentionDispatcher := newDispatcherForTest(pool, &recordingBroadcaster{}, func() time.Time { return retentionNow })
 		if _, err := retentionDispatcher.RunOnce(ctx); err != nil {
 			t.Fatalf("prune retained replay events: %v", err)
 		}
@@ -881,7 +883,7 @@ SELECT count(*), min(stream_seq)
 
 func createDurableStreamIncident(
 	t testing.TB,
-	harness *collabscenariotest.ServerHarness,
+	harness *appsupport.ServerHarness,
 	admin flowtest.LoginResult,
 	suffix string,
 ) string {
@@ -896,7 +898,7 @@ func createDurableStreamIncident(
 
 func seedCurrentQuarantinedIncident(
 	t testing.TB,
-	harness *collabscenariotest.ServerHarness,
+	harness *appsupport.ServerHarness,
 	admin flowtest.LoginResult,
 	pool *pgxpool.Pool,
 	suffix string,
@@ -907,7 +909,7 @@ func seedCurrentQuarantinedIncident(
 	incidentID := uuid.MustParse(createDurableStreamIncident(t, harness, admin, suffix))
 	intent := requireJobIntent(t, incidentID, suffix, seededAt)
 	if invalidPayload {
-		intent.EventFamily = collaboration.EventFamilyRecordChanged
+		intent.EventFamily = privatestream.EventFamilyRecordChanged
 		intent.CanonicalPayload = json.RawMessage(`{"not":"a record change"}`)
 		intent.IntentKey = "record_changed:" + suffix
 		intent.SourceIdentity = "record:" + suffix
@@ -950,7 +952,7 @@ func jsonValuesEqual(left []byte, right []byte) bool {
 }
 
 func requeueCollaborationIncident(
-	service *collaboration.RecoveryService,
+	service collaboration.RecoveryCapability,
 	ctx context.Context,
 	incidentID uuid.UUID,
 	mutatedAt time.Time,
@@ -990,17 +992,17 @@ func (requeueCommitFailureTx) Commit(context.Context) error {
 	return errors.New("injected collaboration requeue commit failure")
 }
 
-func requireJobIntent(t testing.TB, incidentID uuid.UUID, identity string, createdAt time.Time) collaboration.EventIntent {
+func requireJobIntent(t testing.TB, incidentID uuid.UUID, identity string, createdAt time.Time) privatestream.EventIntent {
 	t.Helper()
-	intent, err := collaboration.NewEventIntent(
+	intent, err := privatestream.NewEventIntent(
 		"job_progress:"+identity,
 		incidentID,
-		collaboration.EventFamilyJobProgress,
-		collaboration.NewIncidentJobProgressPayload(
+		privatestream.EventFamilyJobProgress,
+		collabprotocol.NewIncidentJobProgressPayload(
 			identity,
 			incidentID,
-			collaboration.JobStatusQueued,
-			collaboration.JobProgress{Completed: 0},
+			collabprotocol.JobStatusQueued,
+			collabprotocol.JobProgress{Completed: 0},
 			createdAt,
 		),
 		"job:"+identity,
@@ -1013,7 +1015,7 @@ func requireJobIntent(t testing.TB, incidentID uuid.UUID, identity string, creat
 	return intent
 }
 
-func appendLegacyIntent(t testing.TB, pool *pgxpool.Pool, intent collaboration.EventIntent) {
+func appendLegacyIntent(t testing.TB, pool *pgxpool.Pool, intent privatestream.EventIntent) {
 	t.Helper()
 	if _, err := pool.Exec(context.Background(), `
 INSERT INTO collaboration_event_intents (
@@ -1025,7 +1027,7 @@ INSERT INTO collaboration_event_intents (
 	}
 }
 
-func appendCommittedIntent(t testing.TB, pool *pgxpool.Pool, intents collaboration.IntentAppender, intent collaboration.EventIntent) {
+func appendCommittedIntent(t testing.TB, pool *pgxpool.Pool, intents *privatestream.PostgresStream, intent privatestream.EventIntent) {
 	t.Helper()
 	ctx := context.Background()
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
@@ -1044,10 +1046,20 @@ func appendCommittedIntent(t testing.TB, pool *pgxpool.Pool, intents collaborati
 type recordingBroadcaster struct {
 	mu            sync.Mutex
 	failRemaining int
-	messages      []collaboration.Message
+	messages      []collabprotocol.Message
 }
 
-func (b *recordingBroadcaster) DeliverReplayable(message collaboration.Message) error {
+func newDispatcherForTest(
+	db postgres.DB,
+	broadcaster interface {
+		DeliverReplayable(collabprotocol.Message) error
+	},
+	now func() time.Time,
+) *privatestream.Dispatcher {
+	return privatestream.NewDispatcher(privatestream.NewPostgresStream(db, now), broadcaster, now)
+}
+
+func (b *recordingBroadcaster) DeliverReplayable(message collabprotocol.Message) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.messages = append(b.messages, message)
@@ -1058,14 +1070,14 @@ func (b *recordingBroadcaster) DeliverReplayable(message collaboration.Message) 
 	return nil
 }
 
-func (b *recordingBroadcaster) snapshot() []collaboration.Message {
+func (b *recordingBroadcaster) snapshot() []collabprotocol.Message {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return append([]collaboration.Message(nil), b.messages...)
+	return append([]collabprotocol.Message(nil), b.messages...)
 }
 
-func messagesForIncident(messages []collaboration.Message, incidentID string) []collaboration.Message {
-	filtered := make([]collaboration.Message, 0, len(messages))
+func messagesForIncident(messages []collabprotocol.Message, incidentID string) []collabprotocol.Message {
+	filtered := make([]collabprotocol.Message, 0, len(messages))
 	for _, message := range messages {
 		if message.IncidentID == incidentID {
 			filtered = append(filtered, message)

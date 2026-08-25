@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 )
 
 func TestPresenceReplayRevocationTransport(t *testing.T) {
 	t.Run("presence snapshots are incident scoped sorted and expire", func(t *testing.T) {
-		hub := NewHub()
+		hub := newHub()
 		incidentID := uuid.New()
 		otherIncidentID := uuid.New()
 		userID := uuid.New()
@@ -19,17 +21,17 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 		firstConnectionID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
 		secondConnectionID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 
-		hub.UpsertPresence(incidentID, firstConnectionID, userID, "Analyst", PresenceInput{
+		hub.UpsertPresence(incidentID, firstConnectionID, userID, "Analyst", collabprotocol.PresenceInput{
 			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v2"},
 			Mode:     "viewing",
 		}, now)
-		hub.UpsertPresence(incidentID, secondConnectionID, userID, "Analyst", PresenceInput{
+		hub.UpsertPresence(incidentID, secondConnectionID, userID, "Analyst", collabprotocol.PresenceInput{
 			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v2"},
 			Mode:     "editing",
 			RecordID: stringPointer(uuid.NewString()),
 			FieldKey: stringPointer("timeline.activity_synopsis_text"),
 		}, now)
-		hub.UpsertPresence(otherIncidentID, uuid.New(), userID, "Other", PresenceInput{
+		hub.UpsertPresence(otherIncidentID, uuid.New(), userID, "Other", collabprotocol.PresenceInput{
 			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v2"},
 			Mode:     "viewing",
 		}, now)
@@ -47,14 +49,14 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			}
 		}
 
-		expired := hub.PresenceSnapshot(incidentID, now.Add(PresenceTTL+time.Nanosecond))
+		expired := hub.PresenceSnapshot(incidentID, now.Add(collabprotocol.PresenceTTL+time.Nanosecond))
 		if len(expired) != 0 {
 			t.Fatalf("expired presence must be pruned, got %#v", expired)
 		}
 	})
 
 	t.Run("revocation subscribers preserve public reason codes and incident user isolation", func(t *testing.T) {
-		hub := NewHub()
+		hub := newHub()
 		sessionID := uuid.New()
 		incidentID := uuid.New()
 		userID := uuid.New()
@@ -82,7 +84,7 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 	t.Run("subscription teardown is idempotent and safe during publish", func(t *testing.T) {
 		const iterations = 256
 		for iteration := 0; iteration < iterations; iteration++ {
-			hub := NewHub()
+			hub := newHub()
 			incidentID := uuid.New()
 			messages, unsubscribeIncident := hub.SubscribeIncident(incidentID, 1)
 			start := make(chan struct{})
@@ -144,11 +146,11 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 				"timeline.raw_activity_text": "not-a-group-key",
 			},
 		}
-		patch := BuildViewRowPatch(row, []string{
+		patch := collabprotocol.BuildViewRowPatch(row, []string{
 			"timeline.activity_synopsis_text",
 			"timeline.capture_state",
 		})
-		payload := RecordChangePayload(RecordChange{
+		payload := collabprotocol.RecordChangePayload(collabprotocol.RecordChangedEvent{
 			IncidentID:       incidentID,
 			RecordID:         recordID,
 			RowVersion:       7,
@@ -156,8 +158,10 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			ClientTxnID:      "txn-collaboration-patch",
 			ActorUserID:      actorUserID,
 			ChangedFieldKeys: []string{"timeline.activity_synopsis_text", "timeline.capture_state"},
-			ViewSchemaID:     "cartulary.view.timeline.v2",
-			PatchCells:       patch,
+			AffectedViews: []collabprotocol.RecordChangedView{{
+				ViewSchemaID: "cartulary.view.timeline.v2",
+				ChangeKind:   "patch", PatchCells: patch,
+			}},
 		})
 
 		changedKeys, _ := payload["changed_field_keys"].([]string)
@@ -181,7 +185,7 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			t.Fatalf("patch group_values = %#v", groupValues)
 		}
 
-		fallback := RecordChangePayload(RecordChange{
+		fallback := collabprotocol.RecordChangePayload(collabprotocol.RecordChangedEvent{
 			IncidentID:       incidentID,
 			RecordID:         recordID,
 			RowVersion:       8,
@@ -189,7 +193,10 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			ClientTxnID:      "txn-collaboration-invalidate",
 			ActorUserID:      actorUserID,
 			ChangedFieldKeys: []string{"timeline.activity_synopsis_text"},
-			ViewSchemaID:     "cartulary.view.timeline.v2",
+			AffectedViews: []collabprotocol.RecordChangedView{{
+				ViewSchemaID: "cartulary.view.timeline.v2",
+				ChangeKind:   "invalidate",
+			}},
 		})
 		fallbackViews, _ := fallback["affected_views"].([]map[string]any)
 		if len(fallbackViews) != 1 || fallbackViews[0]["change_kind"] != "invalidate" {
@@ -198,40 +205,42 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 	})
 }
 
-func sequencedJobMessage(incidentID uuid.UUID, streamSeq int64) Message {
+func sequencedJobMessage(incidentID uuid.UUID, streamSeq int64) collabprotocol.Message {
 	now := time.Now().UTC()
-	return Message{
+	return collabprotocol.Message{
 		Type:       "job_progress",
 		IncidentID: incidentID.String(),
 		EventID:    uuid.NewString(),
 		EmittedAt:  now.Format(time.RFC3339Nano),
 		StreamSeq:  &streamSeq,
-		Payload: RawPayload(NewIncidentJobProgressPayload(
+		Payload: collabprotocol.RawPayload(collabprotocol.NewIncidentJobProgressPayload(
 			"job-subscription-teardown",
 			incidentID,
-			JobStatusRunning,
-			JobProgress{},
+			collabprotocol.JobStatusRunning,
+			collabprotocol.JobProgress{},
 			now,
 		)),
 	}
 }
 
-func sequencedRecordMessage(incidentID uuid.UUID, streamSeq int64) Message {
+func sequencedRecordMessage(incidentID uuid.UUID, streamSeq int64) collabprotocol.Message {
 	now := time.Now().UTC()
-	return Message{
+	return collabprotocol.Message{
 		Type:       "record_changed",
 		IncidentID: incidentID.String(),
 		EventID:    uuid.NewString(),
 		EmittedAt:  now.Format(time.RFC3339Nano),
 		StreamSeq:  &streamSeq,
-		Payload: RawPayload(RecordChangePayload(RecordChange{
+		Payload: collabprotocol.RawPayload(collabprotocol.RecordChangePayload(collabprotocol.RecordChangedEvent{
 			IncidentID:       incidentID,
 			RecordID:         uuid.New(),
 			RowVersion:       1,
 			ChangeSetID:      uuid.New(),
 			ActorUserID:      uuid.New(),
 			ChangedFieldKeys: []string{},
-			ViewSchemaID:     "cartulary.view.timeline.v2",
+			AffectedViews: []collabprotocol.RecordChangedView{{
+				ViewSchemaID: "cartulary.view.timeline.v2", ChangeKind: "invalidate",
+			}},
 		})),
 	}
 }

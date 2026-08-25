@@ -7,13 +7,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 )
 
 func TestCollaborationCodecSemanticContract(t *testing.T) {
-	codec := Codec{}
+	codec := collabprotocol.Codec{}
 	incidentID := uuid.MustParse("10000000-0000-4000-8000-000000000001")
-	message := EphemeralMessage(incidentID, "resume_ack", map[string]any{
-		"status":       ResumeStatusReplayed,
+	message := collabprotocol.EphemeralMessage(incidentID, "resume_ack", map[string]any{
+		"status":       collabprotocol.ResumeStatusReplayed,
 		"resume_token": "token",
 	}, time.Date(2026, 7, 27, 12, 0, 0, 0, time.UTC))
 
@@ -24,7 +26,7 @@ func TestCollaborationCodecSemanticContract(t *testing.T) {
 	if bytes.HasSuffix(encoded, []byte("\n")) {
 		t.Fatalf("encoded message has a trailing LF: %q", encoded)
 	}
-	decoded, err := codec.Decode(MessageText, appendUnknownMembers(encoded))
+	decoded, err := codec.Decode(collabprotocol.MessageText, appendUnknownMembers(encoded))
 	if err != nil {
 		t.Fatalf("decode message with additive members: %v", err)
 	}
@@ -33,51 +35,51 @@ func TestCollaborationCodecSemanticContract(t *testing.T) {
 	}
 
 	for name, testCase := range map[string]struct {
-		kind     MessageKind
+		kind     collabprotocol.MessageKind
 		payload  []byte
-		wantKind DecodeFailureKind
+		wantKind collabprotocol.DecodeFailureKind
 		wantSize bool
 	}{
 		"binary": {
-			kind:     MessageBinary,
+			kind:     collabprotocol.MessageBinary,
 			payload:  []byte(`{"type":"pong","payload":{}}`),
-			wantKind: DecodeFailureBinaryMessage,
+			wantKind: collabprotocol.DecodeFailureBinaryMessage,
 		},
 		"malformed": {
-			kind:     MessageText,
+			kind:     collabprotocol.MessageText,
 			payload:  []byte(`{"type":`),
-			wantKind: DecodeFailureInvalidJSON,
+			wantKind: collabprotocol.DecodeFailureInvalidJSON,
 		},
 		"invalid UTF-8": {
-			kind:     MessageText,
+			kind:     collabprotocol.MessageText,
 			payload:  []byte{0xff},
-			wantKind: DecodeFailureInvalidJSON,
+			wantKind: collabprotocol.DecodeFailureInvalidJSON,
 		},
 		"duplicate envelope member": {
-			kind:     MessageText,
+			kind:     collabprotocol.MessageText,
 			payload:  []byte(`{"type":"pong","type":"pong","payload":{}}`),
-			wantKind: DecodeFailureDuplicateMember,
+			wantKind: collabprotocol.DecodeFailureDuplicateMember,
 		},
 		"duplicate nested member": {
-			kind:     MessageText,
+			kind:     collabprotocol.MessageText,
 			payload:  []byte(`{"type":"pong","payload":{"value":1,"value":2}}`),
-			wantKind: DecodeFailureDuplicateMember,
+			wantKind: collabprotocol.DecodeFailureDuplicateMember,
 		},
 		"oversized": {
-			kind:     MessageText,
-			payload:  bytes.Repeat([]byte("x"), MaximumMessageBytes+1),
+			kind:     collabprotocol.MessageText,
+			payload:  bytes.Repeat([]byte("x"), collabprotocol.MaximumMessageBytes+1),
 			wantSize: true,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := codec.Decode(testCase.kind, testCase.payload)
 			if testCase.wantSize {
-				if !errors.Is(err, ErrMessageTooLarge) {
-					t.Fatalf("error = %v want ErrMessageTooLarge", err)
+				if !errors.Is(err, collabprotocol.ErrMessageTooLarge) {
+					t.Fatalf("error = %v want collabprotocol.ErrMessageTooLarge", err)
 				}
 				return
 			}
-			var failure *DecodeFailure
+			var failure *collabprotocol.DecodeFailure
 			if !errors.As(err, &failure) || failure.Kind != testCase.wantKind {
 				t.Fatalf("failure = %#v / %v want kind %d", failure, err, testCase.wantKind)
 			}

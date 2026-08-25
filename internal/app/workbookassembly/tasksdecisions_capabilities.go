@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -266,12 +267,12 @@ func (a taskDecisionRevisions) AppendRecordMutationTx(
 	return a.appender.AppendRecordMutationTx(ctx, tx, params)
 }
 
-func (a taskDecisionRevisions) AppendRecordRevisionAndIntentTx(
+func (a taskDecisionRevisions) AppendLiveRevisionTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	params revisions.AppendRecordRevisionParams,
+	input revisions.LiveRevisionInput,
 ) error {
-	return a.appender.AppendRecordRevisionAndIntentTx(ctx, tx, params)
+	return a.appender.AppendLiveRevisionTx(ctx, tx, input)
 }
 
 func (a taskDecisionRevisions) LoadRevisionWindowTx(
@@ -289,6 +290,7 @@ func newTaskDecisionMutationDependencies(
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,
 	projectionRows taskdecisionprojection.Rows,
+	publications collaboration.RecordChangedAppender,
 ) tasksdecisions.MutationDependencies {
 	authStore := authn.NewStore(pool)
 	return tasksdecisions.MutationDependencies{
@@ -301,6 +303,7 @@ func newTaskDecisionMutationDependencies(
 		Revisions:            taskDecisionRevisions{appender: appender, history: conflicttokens.NewRevisionWindowReader()},
 		ConflictFields:       conflictFields,
 		KeepSavedIdempotency: NewConflictIdempotencyPort(pool),
+		Collaboration:        publications,
 	}
 }
 
@@ -310,6 +313,7 @@ func NewTaskDecisionMutationContribution(
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,
 	projectionRows taskdecisionprojection.Rows,
+	publications collaboration.RecordChangedAppender,
 ) (*tasksdecisions.MutationFacade, error) {
 	if appender == nil {
 		return nil, fmt.Errorf("compose Tasks/Decisions mutation contribution: Revisions appender is required")
@@ -317,7 +321,7 @@ func NewTaskDecisionMutationContribution(
 	facade, err := tasksdecisions.NewMutationContribution(
 		pool,
 		conflictTokens,
-		newTaskDecisionMutationDependencies(pool, appender, conflictFields, projectionRows),
+		newTaskDecisionMutationDependencies(pool, appender, conflictFields, projectionRows, publications),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("compose Tasks/Decisions mutation contribution: %w", err)

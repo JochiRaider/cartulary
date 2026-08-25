@@ -110,7 +110,7 @@ func (s *Application) CreateIndicatorObservation(ctx context.Context, actorUserI
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
-	if err := appendAffectedRecordRevisionsTx(ctx, tx, s.revisions, changeSetID, versions, beforeSnapshots, afterSnapshots, beforeRows, afterRows); err != nil {
+	if err := appendAffectedRecordRevisionsTx(ctx, tx, s.revisions, s.publications, params.IncidentID, actorUserID, params.ClientTxnID, createdAt, changeSetID, versions, beforeSnapshots, afterSnapshots, beforeRows, afterRows); err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
 	result := IndicatorObservationMutationResult{Observation: record, ChangeSetID: changeSetID, AffectedRecords: versions}
@@ -255,7 +255,7 @@ func (s *Application) transitionIndicatorObservation(ctx context.Context, actorU
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
-	if err := appendAffectedRecordRevisionsTx(ctx, tx, s.revisions, changeSetID, versions, beforeSnapshots, afterSnapshots, beforeRows, afterRows); err != nil {
+	if err := appendAffectedRecordRevisionsTx(ctx, tx, s.revisions, s.publications, current.IncidentID, actorUserID, clientTxnID, transitionAt, changeSetID, versions, beforeSnapshots, afterSnapshots, beforeRows, afterRows); err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
 	result := IndicatorObservationMutationResult{Observation: next, ChangeSetID: changeSetID, AffectedRecords: versions}

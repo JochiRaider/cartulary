@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
@@ -299,8 +300,8 @@ func (a partyRevisions) AppendRecordMutationTx(ctx context.Context, tx pgx.Tx, p
 	return a.appender.AppendRecordMutationTx(ctx, tx, params)
 }
 
-func (a partyRevisions) AppendRecordRevisionAndIntentTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
-	return a.appender.AppendRecordRevisionAndIntentTx(ctx, tx, params)
+func (a partyRevisions) AppendLiveRevisionTx(ctx context.Context, tx pgx.Tx, input revisions.LiveRevisionInput) error {
+	return a.appender.AppendLiveRevisionTx(ctx, tx, input)
 }
 
 func (a partyRevisions) LoadRevisionWindowTx(
@@ -318,6 +319,7 @@ func newPartyMutationDependencies(
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,
 	projectionRows partyprojection.Rows,
+	publications collaboration.RecordChangedAppender,
 ) parties.MutationDependencies {
 	return parties.MutationDependencies{
 		IncidentState: admission.NewChecker(pool),
@@ -329,6 +331,7 @@ func newPartyMutationDependencies(
 		Revisions:       partyRevisions{appender: appender, history: conflicttokens.NewRevisionWindowReader()},
 		ConflictFields:  conflictFields,
 		KeepSaved:       partyKeepSaved{idempotency: NewConflictIdempotencyPort(pool)},
+		Collaboration:   publications,
 	}
 }
 
@@ -338,6 +341,7 @@ func NewPartyMutationContribution(
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,
 	projectionRows partyprojection.Rows,
+	publications collaboration.RecordChangedAppender,
 ) (*parties.MutationFacade, error) {
 	if appender == nil {
 		return nil, fmt.Errorf("compose Parties mutation contribution: Revisions appender is required")
@@ -345,7 +349,7 @@ func NewPartyMutationContribution(
 	facade, err := parties.NewMutationContribution(
 		pool,
 		conflictTokens,
-		newPartyMutationDependencies(pool, appender, conflictFields, projectionRows),
+		newPartyMutationDependencies(pool, appender, conflictFields, projectionRows, publications),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("compose Parties mutation contribution: %w", err)

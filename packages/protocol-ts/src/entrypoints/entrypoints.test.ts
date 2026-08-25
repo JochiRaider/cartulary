@@ -27,9 +27,28 @@ import {
 
 describe("Protocol-TS authored family entrypoints", () => {
   it("keeps collaboration decoding family-confined and payload-safe", () => {
-    expect(
-      incidentStreamMessageDecoder.decode({ type: "ping", payload: {} }),
-    ).toEqual({ ok: true, value: { type: "ping", payload: {} } });
+    const ping = {
+      emitted_at: "2026-08-03T23:00:00Z",
+      event_id: "event-1",
+      ignored: "must-not-leak",
+      incident_id: "incident-1",
+      payload: { ignored: "must-not-leak" },
+      type: "ping",
+    };
+    const decoded = incidentStreamMessageDecoder.decode(ping);
+    expect(decoded).toEqual({
+      ok: true,
+      value: {
+        emitted_at: "2026-08-03T23:00:00Z",
+        event_id: "event-1",
+        incident_id: "incident-1",
+        payload: {},
+        type: "ping",
+      },
+    });
+    if (decoded.ok) {
+      expect(decoded.value).not.toBe(ping);
+    }
 
     const invalid = incidentStreamMessageDecoder.decode({
       type: "unknown",

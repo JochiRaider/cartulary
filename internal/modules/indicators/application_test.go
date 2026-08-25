@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -33,16 +34,18 @@ func TestIndicatorApplicationCompositionAndRepositoryBoundaries(t *testing.T) {
 		RecordEnvelopes: records.NewStore(inertIndicatorDB{}),
 		Projections:     inertIndicatorProjectionPort{},
 		SourceText:      inertIndicatorSourceTextPort{},
+		Collaboration:   &inertIndicatorPublicationPort{},
 		Clock:           func() time.Time { return fixedTime },
 	}
 	var (
-		typedNilPostgres    *inertIndicatorDB
-		typedNilIdempotency *inertIndicatorIdempotencyPort
-		typedNilIncident    *inertIndicatorIncidentStatePort
-		typedNilRevisions   *revisions.Appender
-		typedNilRecords     *records.Store
-		typedNilProjection  *inertIndicatorProjectionPort
-		typedNilSourceText  *inertIndicatorSourceTextPort
+		typedNilPostgres      *inertIndicatorDB
+		typedNilIdempotency   *inertIndicatorIdempotencyPort
+		typedNilIncident      *inertIndicatorIncidentStatePort
+		typedNilRevisions     *revisions.Appender
+		typedNilRecords       *records.Store
+		typedNilProjection    *inertIndicatorProjectionPort
+		typedNilSourceText    *inertIndicatorSourceTextPort
+		typedNilCollaboration *inertIndicatorPublicationPort
 	)
 	without := func(name string, value any) ApplicationDependencies {
 		deps := complete
@@ -61,6 +64,8 @@ func TestIndicatorApplicationCompositionAndRepositoryBoundaries(t *testing.T) {
 			deps.Projections, _ = value.(indicatorprojection.Rows)
 		case "SourceText":
 			deps.SourceText, _ = value.(SourceTextPort)
+		case "Collaboration":
+			deps.Collaboration, _ = value.(collaboration.RecordChangedAppender)
 		case "Clock":
 			deps.Clock, _ = value.(func() time.Time)
 		}
@@ -85,6 +90,8 @@ func TestIndicatorApplicationCompositionAndRepositoryBoundaries(t *testing.T) {
 		{name: "typed nil Projections", deps: without("Projections", typedNilProjection), want: "Projections is required"},
 		{name: "nil SourceText", deps: without("SourceText", nil), want: "SourceText is required"},
 		{name: "typed nil SourceText", deps: without("SourceText", typedNilSourceText), want: "SourceText is required"},
+		{name: "nil Collaboration", deps: without("Collaboration", nil), want: "Collaboration is required"},
+		{name: "typed nil Collaboration", deps: without("Collaboration", typedNilCollaboration), want: "Collaboration is required"},
 		{name: "nil Clock", deps: without("Clock", nil), want: "Clock is required"},
 	}
 	for _, test := range tests {
@@ -132,6 +139,12 @@ func TestIndicatorApplicationCompositionAndRepositoryBoundaries(t *testing.T) {
 			}
 		}
 	}
+}
+
+type inertIndicatorPublicationPort struct{}
+
+func (*inertIndicatorPublicationPort) AppendRecordChangedTx(context.Context, pgx.Tx, collaboration.RecordChangeIntentInput) error {
+	return nil
 }
 
 func TestIndicatorApplicationDelegatesProjectionRefreshAndLoad(t *testing.T) {

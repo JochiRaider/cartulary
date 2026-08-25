@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,6 +18,20 @@ import (
 )
 
 var ErrMergeTargetNotFound = errors.New("entities: merge target not found")
+
+func cloneMergeHostRecord(record hostidentity.HostRecord) hostidentity.HostRecord {
+	record.SuggestionOnlyAliases = slices.Clone(record.SuggestionOnlyAliases)
+	record.AliasMutations = slices.Clone(record.AliasMutations)
+	record.ReusableIdentifiers = slices.Clone(record.ReusableIdentifiers)
+	return record
+}
+
+func cloneMergeIdentityRecord(record hostidentity.IdentityRecord) hostidentity.IdentityRecord {
+	record.SuggestionOnlyAliases = slices.Clone(record.SuggestionOnlyAliases)
+	record.AliasMutations = slices.Clone(record.AliasMutations)
+	record.ReusableIdentifiers = slices.Clone(record.ReusableIdentifiers)
+	return record
+}
 
 type MergePreconditionError struct {
 	ReasonCode string
@@ -342,6 +357,10 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	default:
 		return MergeResult{}, &MergePreconditionError{ReasonCode: "unsupported_record_type"}
 	}
+	beforeSurvivorHost := cloneMergeHostRecord(survivorHost)
+	beforeLoserHost := cloneMergeHostRecord(loserHost)
+	beforeSurvivorIdentity := cloneMergeIdentityRecord(survivorIdentity)
+	beforeLoserIdentity := cloneMergeIdentityRecord(loserIdentity)
 
 	survivorAliases, err := loadMergeAliasesTx(ctx, tx, survivorRecordID, survivorMeta.RecordType)
 	if err != nil {
@@ -578,21 +597,23 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			return MergeResult{}, err
 		}
 		sequenceNo++
-		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
+		if err := s.ports.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 			ChangeSetID:    changeSetID,
 			RecordID:       survivorHost.RecordID,
 			RowVersion:     survivorHost.RowVersion,
 			BeforeSnapshot: &survivorBeforeSnapshot,
 			AfterSnapshot:  &survivorAfterSnapshot,
+			ConflictFacts:  s.hostIdentity.HostRevisionConflictFacts(beforeSurvivorHost, survivorHost, mergePublicFieldKeys("host", true)),
 		}); err != nil {
 			return MergeResult{}, err
 		}
-		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
+		if err := s.ports.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 			ChangeSetID:    changeSetID,
 			RecordID:       loserHost.RecordID,
 			RowVersion:     loserHost.RowVersion,
 			BeforeSnapshot: &loserBeforeSnapshot,
 			AfterSnapshot:  &loserAfterSnapshot,
+			ConflictFacts:  s.hostIdentity.HostRevisionConflictFacts(beforeLoserHost, loserHost, mergePublicFieldKeys("host", false)),
 		}); err != nil {
 			return MergeResult{}, err
 		}
@@ -629,21 +650,23 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			return MergeResult{}, err
 		}
 		sequenceNo++
-		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
+		if err := s.ports.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 			ChangeSetID:    changeSetID,
 			RecordID:       survivorIdentity.RecordID,
 			RowVersion:     survivorIdentity.RowVersion,
 			BeforeSnapshot: &survivorBeforeSnapshot,
 			AfterSnapshot:  &survivorAfterSnapshot,
+			ConflictFacts:  s.hostIdentity.IdentityRevisionConflictFacts(beforeSurvivorIdentity, survivorIdentity, mergePublicFieldKeys("identity", true)),
 		}); err != nil {
 			return MergeResult{}, err
 		}
-		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
+		if err := s.ports.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 			ChangeSetID:    changeSetID,
 			RecordID:       loserIdentity.RecordID,
 			RowVersion:     loserIdentity.RowVersion,
 			BeforeSnapshot: &loserBeforeSnapshot,
 			AfterSnapshot:  &loserAfterSnapshot,
+			ConflictFacts:  s.hostIdentity.IdentityRevisionConflictFacts(beforeLoserIdentity, loserIdentity, mergePublicFieldKeys("identity", false)),
 		}); err != nil {
 			return MergeResult{}, err
 		}

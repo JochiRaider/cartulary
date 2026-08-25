@@ -3,8 +3,14 @@ import { interpretNetworkFlowCollaborationMessage } from "./networkFlowCollabora
 
 describe("interpretNetworkFlowCollaborationMessage", () => {
   it("admits only closed Network Flow table changes", () => {
+    const envelope = {
+      emitted_at: "2026-07-13T12:00:00Z",
+      event_id: "event-1",
+      incident_id: "incident-1",
+    } as const;
     expect(
       interpretNetworkFlowCollaborationMessage({
+        ...envelope,
         type: "extension_resource_changed",
         stream_seq: 1,
         payload: {
@@ -22,6 +28,7 @@ describe("interpretNetworkFlowCollaborationMessage", () => {
     });
     expect(
       interpretNetworkFlowCollaborationMessage({
+        ...envelope,
         type: "extension_resource_changed",
         stream_seq: 1,
         payload: {

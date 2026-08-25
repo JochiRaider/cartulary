@@ -24,6 +24,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/routeinventory"
@@ -157,7 +158,7 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences`); got != 0 {
 			t.Fatalf("rollback must leave no user workbook preferences, got %d", got)
 		}
-		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents`); got != 0 {
+		if got := collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{}); got != 0 {
 			t.Fatalf("rollback must leave no collaboration intents, got %d", got)
 		}
 		mutationtest.RequireNoMutationArtifacts(

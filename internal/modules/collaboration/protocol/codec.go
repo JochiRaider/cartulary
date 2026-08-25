@@ -1,4 +1,4 @@
-package collaboration
+package protocol
 
 import (
 	"bytes"
@@ -44,34 +44,28 @@ type DecodeFailure struct {
 	err  error
 }
 
-func (e *DecodeFailure) Error() string {
-	if e == nil || e.err == nil {
+func (failure *DecodeFailure) Error() string {
+	if failure == nil || failure.err == nil {
 		return "invalid collaboration websocket message"
 	}
-	return e.err.Error()
+	return failure.err.Error()
 }
 
-func (e *DecodeFailure) Unwrap() error {
-	if e == nil {
+func (failure *DecodeFailure) Unwrap() error {
+	if failure == nil {
 		return nil
 	}
-	return e.err
+	return failure.err
 }
 
 type Codec struct{}
 
 func (Codec) Decode(kind MessageKind, data []byte) (Message, error) {
 	if kind == MessageBinary {
-		return Message{}, &DecodeFailure{
-			Kind: DecodeFailureBinaryMessage,
-			err:  errors.New("binary application messages are unsupported"),
-		}
+		return Message{}, &DecodeFailure{Kind: DecodeFailureBinaryMessage, err: errors.New("binary application messages are unsupported")}
 	}
 	if kind != MessageText || !utf8.Valid(data) {
-		return Message{}, &DecodeFailure{
-			Kind: DecodeFailureInvalidJSON,
-			err:  errors.New("application message is not valid UTF-8 JSON"),
-		}
+		return Message{}, &DecodeFailure{Kind: DecodeFailureInvalidJSON, err: errors.New("application message is not valid UTF-8 JSON")}
 	}
 	if len(data) > MaximumMessageBytes {
 		return Message{}, ErrMessageTooLarge
@@ -104,39 +98,10 @@ func (Codec) Encode(message Message) ([]byte, error) {
 	return encoded, nil
 }
 
-func IsClientMessageType(messageType string) bool {
-	switch messageType {
-	case "hello", "resume", "pong", "presence_update":
-		return true
-	default:
-		return false
-	}
-}
+type duplicateMemberError struct{ Name string }
 
-func IsServerMessageType(messageType string) bool {
-	switch messageType {
-	case "hello_ack",
-		"resume_ack",
-		"presence_snapshot",
-		"presence_delta",
-		"record_changed",
-		"extension_resource_changed",
-		"job_progress",
-		"ping",
-		"error",
-		"session_revoked":
-		return true
-	default:
-		return false
-	}
-}
-
-type duplicateMemberError struct {
-	Name string
-}
-
-func (e *duplicateMemberError) Error() string {
-	return fmt.Sprintf("duplicate JSON object member %q", e.Name)
+func (failure *duplicateMemberError) Error() string {
+	return fmt.Sprintf("duplicate JSON object member %q", failure.Name)
 }
 
 func validateJSONMembers(data []byte) error {
@@ -167,44 +132,29 @@ func validateJSONValue(decoder *json.Decoder) error {
 	case '{':
 		seen := map[string]struct{}{}
 		for decoder.More() {
-			nameToken, err := decoder.Token()
-			if err != nil {
-				return err
+			nameToken, tokenErr := decoder.Token()
+			if tokenErr != nil {
+				return tokenErr
 			}
-			name, ok := nameToken.(string)
-			if !ok {
+			name, valid := nameToken.(string)
+			if !valid {
 				return errors.New("JSON object member name is invalid")
 			}
 			if _, duplicate := seen[name]; duplicate {
 				return &duplicateMemberError{Name: name}
 			}
 			seen[name] = struct{}{}
-			if err := validateJSONValue(decoder); err != nil {
-				return err
+			if valueErr := validateJSONValue(decoder); valueErr != nil {
+				return valueErr
 			}
-		}
-		end, err := decoder.Token()
-		if err != nil {
-			return err
-		}
-		if end != json.Delim('}') {
-			return errors.New("JSON object is not terminated")
 		}
 	case '[':
 		for decoder.More() {
-			if err := validateJSONValue(decoder); err != nil {
-				return err
+			if valueErr := validateJSONValue(decoder); valueErr != nil {
+				return valueErr
 			}
 		}
-		end, err := decoder.Token()
-		if err != nil {
-			return err
-		}
-		if end != json.Delim(']') {
-			return errors.New("JSON array is not terminated")
-		}
-	default:
-		return errors.New("unexpected JSON delimiter")
 	}
-	return nil
+	_, err = decoder.Token()
+	return err
 }

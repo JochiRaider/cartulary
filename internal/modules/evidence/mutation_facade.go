@@ -34,7 +34,7 @@ type mutationFacade struct {
 	conflictFields    conflicttokens.FieldResolver
 	conflictSnapshots conflicttokens.RevisionSnapshotProjector
 	keepSaved         conflicttokens.IdempotencyPort
-	collaboration     collaboration.IntentAppender
+	collaboration     collaboration.RecordChangedAppender
 	mutations         evidenceSourceMutationKernel
 	objects           objectstore.TypedStore
 }
@@ -135,7 +135,7 @@ func newMutationFacade(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
-	intents collaboration.IntentAppender,
+	intents collaboration.RecordChangedAppender,
 	sourceMutations *sourceMutationService,
 	objects objectstore.TypedStore,
 	conflictFields conflicttokens.FieldResolver,

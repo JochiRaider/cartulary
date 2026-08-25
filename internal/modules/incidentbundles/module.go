@@ -30,7 +30,6 @@ type ModuleDependencies struct {
 	IncidentPublicationLock IncidentPublicationLock
 	ProjectionRebuilder     ImportProjectionRebuilder
 	SourceCatalog           *sourceport.Catalog
-	HistoricalIntentPolicy  HistoricalIntentPolicy
 	BlobPortability         BlobPortability
 	Now                     func() time.Time
 }
@@ -78,8 +77,6 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		return nil, errors.New("incident bundle projection rebuilder dependency is required")
 	case dependencies.SourceCatalog == nil:
 		return nil, errors.New("incident bundle source catalog dependency is required")
-	case dependencies.HistoricalIntentPolicy == nil:
-		return nil, errors.New("incident bundle historical intent policy dependency is required")
 	case dependencies.BlobPortability == nil:
 		return nil, errors.New("incident bundle blob portability dependency is required")
 	}
@@ -95,7 +92,6 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		finalizer:         dependencies.ImportFinalizer,
 		projectionRebuild: dependencies.ProjectionRebuilder,
 		sourceCatalog:     dependencies.SourceCatalog,
-		historicalIntents: dependencies.HistoricalIntentPolicy,
 	}
 	worker := newIncidentBundleWorker(
 		store,
@@ -109,7 +105,6 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		dependencies.IncidentPublicationLock,
 		dependencies.ProjectionRebuilder,
 		dependencies.SourceCatalog,
-		dependencies.HistoricalIntentPolicy,
 		dependencies.BlobPortability,
 		dependencies.Limits,
 		now,

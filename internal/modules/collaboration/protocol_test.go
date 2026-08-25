@@ -8,11 +8,14 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/google/uuid"
+
+	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
+	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 )
 
 func TestHubSessionRevocationSubscribers(t *testing.T) {
 	t.Run("revoke notifies each registered listener exactly once", func(t *testing.T) {
-		hub := NewHub()
+		hub := newHub()
 		sessionID := uuid.New()
 
 		first, unregisterFirst := hub.RegisterSession(sessionID)
@@ -33,7 +36,7 @@ func TestHubSessionRevocationSubscribers(t *testing.T) {
 	})
 
 	t.Run("unregister prevents later delivery", func(t *testing.T) {
-		hub := NewHub()
+		hub := newHub()
 		sessionID := uuid.New()
 
 		revocations, unregister := hub.RegisterSession(sessionID)
@@ -50,7 +53,7 @@ func TestHubSessionRevocationSubscribers(t *testing.T) {
 }
 
 func TestHubIncidentTerminalSubscribers(t *testing.T) {
-	hub := NewHub()
+	hub := newHub()
 	incidentID := uuid.New()
 
 	first, unregisterFirst := hub.RegisterIncidentTerminal(incidentID)
@@ -58,10 +61,10 @@ func TestHubIncidentTerminalSubscribers(t *testing.T) {
 	second, unregisterSecond := hub.RegisterIncidentTerminal(incidentID)
 	defer unregisterSecond()
 
-	hub.TerminateIncident(incidentID, IncidentTerminalClosed)
+	hub.TerminateIncident(incidentID, collabprotocol.IncidentTerminalClosed)
 
-	requireRevocationReason(t, first, IncidentTerminalClosed)
-	requireRevocationReason(t, second, IncidentTerminalClosed)
+	requireRevocationReason(t, first, collabprotocol.IncidentTerminalClosed)
+	requireRevocationReason(t, second, collabprotocol.IncidentTerminalClosed)
 	requireNoRevocationReason(t, first)
 	requireNoRevocationReason(t, second)
 
@@ -103,17 +106,20 @@ func TestWSContractJobProgressPayloadShape(t *testing.T) {
 	scope := requireObject(t, properties, "scope")
 	scopeProperties := requireObject(t, scope, "properties")
 	kind := requireObject(t, scopeProperties, "kind")
-	if got := requireStringArray(t, kind, "enum"); !reflect.DeepEqual(got, []string{"incident", "deployment"}) {
-		t.Fatalf("job_progress scope.kind enum = %#v", got)
+	if got := kind["const"]; got != collabprotocol.JobScopeKindIncident {
+		t.Fatalf("job_progress scope.kind const = %#v, want %q", got, collabprotocol.JobScopeKindIncident)
+	}
+	if got := requireStringArray(t, scope, "required"); !reflect.DeepEqual(got, []string{"kind", "incident_id"}) {
+		t.Fatalf("job_progress scope required fields = %#v", got)
 	}
 	status := requireObject(t, properties, "status")
 	if got := requireStringArray(t, status, "enum"); !reflect.DeepEqual(got, []string{
-		JobStatusQueued,
-		JobStatusRunning,
-		JobStatusCancelRequested,
-		JobStatusSucceeded,
-		JobStatusFailed,
-		JobStatusCanceled,
+		collabprotocol.JobStatusQueued,
+		collabprotocol.JobStatusRunning,
+		collabprotocol.JobStatusCancelRequested,
+		collabprotocol.JobStatusSucceeded,
+		collabprotocol.JobStatusFailed,
+		collabprotocol.JobStatusCanceled,
 	}) {
 		t.Fatalf("job_progress status enum = %#v", got)
 	}
@@ -146,8 +152,8 @@ func TestWSContractExtensionResourceChangedPayloadShape(t *testing.T) {
 	properties := requireObject(t, payloadSchema, "properties")
 	changeKind := requireObject(t, properties, "change_kind")
 	if got := requireStringArray(t, changeKind, "enum"); !reflect.DeepEqual(got, []string{
-		ExtensionResourceChangeKindInvalidate,
-		ExtensionResourceChangeKindRemove,
+		collabprotocol.ExtensionResourceChangeKindInvalidate,
+		collabprotocol.ExtensionResourceChangeKindRemove,
 	}) {
 		t.Fatalf("extension_resource_changed change_kind enum = %#v", got)
 	}
@@ -160,9 +166,58 @@ func TestWSContractExtensionResourceChangedPayloadShape(t *testing.T) {
 	}
 }
 
+func TestReplayableIntentValidationAdmitsOwnerAdditiveMembers(t *testing.T) {
+	incidentID := uuid.New()
+	recordID := uuid.New()
+	changeSetID := uuid.New()
+	actorUserID := uuid.New()
+	for name, testCase := range map[string]struct {
+		family  string
+		payload json.RawMessage
+	}{
+		"record_changed": {
+			family: privatestream.EventFamilyRecordChanged,
+			payload: collabprotocol.RawPayload(map[string]any{
+				"record_id": recordID.String(), "row_version": 2,
+				"change_set_id": changeSetID.String(), "client_txn_id": "txn-additive",
+				"actor_user_id": actorUserID.String(), "changed_field_keys": []string{"timeline.title"},
+				"future_payload": map[string]any{"action": "ignored"},
+				"affected_views": []map[string]any{{
+					"view_schema_id": "cartulary.view.timeline.v2", "change_kind": "invalidate",
+					"future_view_member": []any{"ignored"},
+				}},
+			}),
+		},
+		"job_progress": {
+			family: privatestream.EventFamilyJobProgress,
+			payload: collabprotocol.RawPayload(map[string]any{
+				"job_id":     "job-additive",
+				"scope":      map[string]any{"kind": collabprotocol.JobScopeKindIncident, "incident_id": incidentID.String(), "future_scope": true},
+				"status":     collabprotocol.JobStatusRunning,
+				"progress":   map[string]any{"completed": 1, "total": 2, "future_progress": true},
+				"updated_at": time.Now().UTC(), "future_payload": true,
+			}),
+		},
+		"extension_resource_changed": {
+			family: privatestream.EventFamilyExtensionResourceChange,
+			payload: collabprotocol.RawPayload(map[string]any{
+				"extension_profile_id": "network_flow_activity", "resource_kind": "network_flow_table",
+				"resource_id": "nft_additive", "change_kind": collabprotocol.ExtensionResourceChangeKindInvalidate,
+				"reason_code": "future_owner_reason", "future_payload": map[string]any{"ignored": true},
+			}),
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := privatestream.ValidateEventFamilyPayload(incidentID, testCase.family, testCase.payload); err != nil {
+				t.Fatalf("validate owner-additive payload: %v", err)
+			}
+		})
+	}
+}
+
 func TestHubDeliverJobProgress(t *testing.T) {
 	t.Run("emits typed incident scoped payload", func(t *testing.T) {
-		hub := NewHub()
+		hub := newHub()
 		incidentID := uuid.New()
 		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
 		defer unsubscribe()
@@ -170,23 +225,23 @@ func TestHubDeliverJobProgress(t *testing.T) {
 		total := int64(4)
 		now := time.Date(2026, 4, 24, 12, 30, 0, 123, time.UTC)
 		cancelable := true
-		payload := NewIncidentJobProgressPayload("job-1", incidentID, JobStatusRunning, JobProgress{
+		payload := collabprotocol.NewIncidentJobProgressPayload("job-1", incidentID, collabprotocol.JobStatusRunning, collabprotocol.JobProgress{
 			Completed: 1,
 			Total:     &total,
 		}, now)
 		payload.Cancelable = &cancelable
 		payload.Message = "Importing rows"
-		if err := ValidateIncidentJobProgressPayload(incidentID, payload); err != nil {
+		if err := collabprotocol.ValidateIncidentJobProgressPayload(incidentID, payload); err != nil {
 			t.Fatalf("validate job_progress: %v", err)
 		}
 		streamSeq := int64(1)
-		if err := hub.DeliverReplayable(Message{
+		if err := hub.DeliverReplayable(collabprotocol.Message{
 			Type:       "job_progress",
 			IncidentID: incidentID.String(),
 			EventID:    uuid.NewString(),
 			EmittedAt:  now.Format(time.RFC3339Nano),
 			StreamSeq:  &streamSeq,
-			Payload:    RawPayload(payload),
+			Payload:    collabprotocol.RawPayload(payload),
 		}); err != nil {
 			t.Fatalf("deliver job_progress: %v", err)
 		}
@@ -206,11 +261,11 @@ func TestHubDeliverJobProgress(t *testing.T) {
 		if err := json.Unmarshal(message.Payload, &got); err != nil {
 			t.Fatalf("decode job_progress payload: %v", err)
 		}
-		if got["job_id"] != "job-1" || got["status"] != JobStatusRunning || got["updated_at"] != now.Format(time.RFC3339Nano) {
+		if got["job_id"] != "job-1" || got["status"] != collabprotocol.JobStatusRunning || got["updated_at"] != now.Format(time.RFC3339Nano) {
 			t.Fatalf("unexpected job_progress payload: %#v", got)
 		}
 		scope := got["scope"].(map[string]any)
-		if scope["kind"] != JobScopeKindIncident || scope["incident_id"] != incidentID.String() {
+		if scope["kind"] != collabprotocol.JobScopeKindIncident || scope["incident_id"] != incidentID.String() {
 			t.Fatalf("unexpected job_progress scope: %#v", scope)
 		}
 		progress := got["progress"].(map[string]any)
@@ -223,31 +278,31 @@ func TestHubDeliverJobProgress(t *testing.T) {
 	})
 
 	t.Run("disconnects a slow subscriber instead of silently dropping", func(t *testing.T) {
-		hub := NewHub()
+		hub := newHub()
 		incidentID := uuid.New()
 		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
 		defer unsubscribe()
 		now := time.Now().UTC()
 
 		firstSequence := int64(1)
-		if err := hub.DeliverReplayable(Message{
+		if err := hub.DeliverReplayable(collabprotocol.Message{
 			Type:       "job_progress",
 			IncidentID: incidentID.String(),
 			EventID:    uuid.NewString(),
 			EmittedAt:  now.Format(time.RFC3339Nano),
 			StreamSeq:  &firstSequence,
-			Payload:    RawPayload(map[string]any{"job_id": "first"}),
+			Payload:    collabprotocol.RawPayload(map[string]any{"job_id": "first"}),
 		}); err != nil {
 			t.Fatalf("deliver first slow-consumer event: %v", err)
 		}
 		secondSequence := int64(2)
-		if err := hub.DeliverReplayable(Message{
+		if err := hub.DeliverReplayable(collabprotocol.Message{
 			Type:       "job_progress",
 			IncidentID: incidentID.String(),
 			EventID:    uuid.NewString(),
 			EmittedAt:  now.Format(time.RFC3339Nano),
 			StreamSeq:  &secondSequence,
-			Payload:    RawPayload(map[string]any{"job_id": "second"}),
+			Payload:    collabprotocol.RawPayload(map[string]any{"job_id": "second"}),
 		}); err != nil {
 			t.Fatalf("deliver second slow-consumer event: %v", err)
 		}
@@ -262,13 +317,13 @@ func TestHubDeliverJobProgress(t *testing.T) {
 
 	t.Run("rejects deployment scoped payload on incident stream", func(t *testing.T) {
 		incidentID := uuid.New()
-		err := ValidateIncidentJobProgressPayload(incidentID, JobProgressPayload{
+		err := collabprotocol.ValidateIncidentJobProgressPayload(incidentID, collabprotocol.JobProgressPayload{
 			JobID: "job-deployment",
-			Scope: JobScope{
-				Kind: JobScopeKindDeployment,
+			Scope: collabprotocol.JobScope{
+				Kind: collabprotocol.JobScopeKindDeployment,
 			},
-			Status:    JobStatusQueued,
-			Progress:  JobProgress{Completed: 0},
+			Status:    collabprotocol.JobStatusQueued,
+			Progress:  collabprotocol.JobProgress{Completed: 0},
 			UpdatedAt: time.Now().UTC(),
 		})
 		if err == nil {
@@ -279,32 +334,32 @@ func TestHubDeliverJobProgress(t *testing.T) {
 
 func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 	t.Run("emits replayable stable network flow invalidation without labels", func(t *testing.T) {
-		hub := NewHub()
+		hub := newHub()
 		incidentID := uuid.New()
 		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
 		defer unsubscribe()
 
-		payload := canonicalExtensionResourceChangePayload(ExtensionResourceChangePayload{
+		payload := collabprotocol.CanonicalExtensionResourceChangePayload(collabprotocol.ExtensionResourceChangePayload{
 			ExtensionProfileID: "network_flow_activity",
 			ResourceKind:       "network_flow_table",
 			ResourceID:         "nft_00000000000000000000000001",
-			ChangeKind:         ExtensionResourceChangeKindInvalidate,
-			ReasonCode:         ExtensionResourceReasonRenamed,
-			WorkspaceRefs: []ExtensionWorkspaceRef{
+			ChangeKind:         collabprotocol.ExtensionResourceChangeKindInvalidate,
+			ReasonCode:         collabprotocol.ExtensionResourceReasonRenamed,
+			WorkspaceRefs: []collabprotocol.ExtensionWorkspaceRef{
 				{Kind: "extension_workspace", ExtensionProfileID: "network_flow_activity", WorkspaceKey: "network_analysis"},
 			},
 		})
-		if err := ValidateExtensionResourceChangePayload(payload); err != nil {
+		if err := collabprotocol.ValidateExtensionResourceChangePayload(payload); err != nil {
 			t.Fatalf("validate extension_resource_changed: %v", err)
 		}
 		streamSeq := int64(1)
-		if err := hub.DeliverReplayable(Message{
+		if err := hub.DeliverReplayable(collabprotocol.Message{
 			Type:       "extension_resource_changed",
 			IncidentID: incidentID.String(),
 			EventID:    uuid.NewString(),
 			EmittedAt:  time.Date(2026, 7, 10, 13, 45, 0, 0, time.UTC).Format(time.RFC3339Nano),
 			StreamSeq:  &streamSeq,
-			Payload:    RawPayload(payload),
+			Payload:    collabprotocol.RawPayload(payload),
 		}); err != nil {
 			t.Fatalf("deliver extension_resource_changed: %v", err)
 		}
@@ -324,7 +379,7 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 		if got["extension_profile_id"] != "network_flow_activity" || got["resource_kind"] != "network_flow_table" || got["resource_id"] != "nft_00000000000000000000000001" {
 			t.Fatalf("unexpected resource identity: %#v", got)
 		}
-		if got["change_kind"] != ExtensionResourceChangeKindInvalidate || got["reason_code"] != ExtensionResourceReasonRenamed {
+		if got["change_kind"] != collabprotocol.ExtensionResourceChangeKindInvalidate || got["reason_code"] != collabprotocol.ExtensionResourceReasonRenamed {
 			t.Fatalf("unexpected invalidation semantics: %#v", got)
 		}
 		if _, ok := got["display_name"]; ok {
@@ -339,13 +394,13 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 	})
 
 	t.Run("validates reason and workspace identity", func(t *testing.T) {
-		err := ValidateExtensionResourceChangePayload(ExtensionResourceChangePayload{
+		err := collabprotocol.ValidateExtensionResourceChangePayload(collabprotocol.ExtensionResourceChangePayload{
 			ExtensionProfileID: "network_flow_activity",
 			ResourceKind:       "network_flow_table",
 			ResourceID:         "nft_00000000000000000000000001",
-			ChangeKind:         ExtensionResourceChangeKindRemove,
-			ReasonCode:         ExtensionResourceReasonRenamed,
-			WorkspaceRefs: []ExtensionWorkspaceRef{
+			ChangeKind:         collabprotocol.ExtensionResourceChangeKindRemove,
+			ReasonCode:         collabprotocol.ExtensionResourceReasonRenamed,
+			WorkspaceRefs: []collabprotocol.ExtensionWorkspaceRef{
 				{Kind: "extension_workspace", ExtensionProfileID: "network_flow_activity", WorkspaceKey: "network_analysis"},
 			},
 		})
@@ -355,33 +410,33 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 	})
 
 	t.Run("emits authorization loss as remove without resource detail", func(t *testing.T) {
-		hub := NewHub()
+		hub := newHub()
 		incidentID := uuid.New()
 		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
 		defer unsubscribe()
 
-		payload := canonicalExtensionResourceChangePayload(ExtensionResourceChangePayload{
+		payload := collabprotocol.CanonicalExtensionResourceChangePayload(collabprotocol.ExtensionResourceChangePayload{
 			ExtensionProfileID: "network_flow_activity",
 			ResourceKind:       "network_flow_table",
 			ResourceID:         "nft_00000000000000000000000002",
-			ChangeKind:         ExtensionResourceChangeKindRemove,
-			ReasonCode:         ExtensionResourceReasonAuthorizationLost,
-			WorkspaceRefs: []ExtensionWorkspaceRef{
+			ChangeKind:         collabprotocol.ExtensionResourceChangeKindRemove,
+			ReasonCode:         collabprotocol.ExtensionResourceReasonAuthorizationLost,
+			WorkspaceRefs: []collabprotocol.ExtensionWorkspaceRef{
 				{Kind: "extension_workspace", ExtensionProfileID: "network_flow_activity", WorkspaceKey: "network_analysis"},
 			},
 		})
-		if err := ValidateExtensionResourceChangePayload(payload); err != nil {
+		if err := collabprotocol.ValidateExtensionResourceChangePayload(payload); err != nil {
 			t.Fatalf("validate authorization_lost extension_resource_changed: %v", err)
 		}
 		streamSeq := int64(1)
 		now := time.Now().UTC()
-		if err := hub.DeliverReplayable(Message{
+		if err := hub.DeliverReplayable(collabprotocol.Message{
 			Type:       "extension_resource_changed",
 			IncidentID: incidentID.String(),
 			EventID:    uuid.NewString(),
 			EmittedAt:  now.Format(time.RFC3339Nano),
 			StreamSeq:  &streamSeq,
-			Payload:    RawPayload(payload),
+			Payload:    collabprotocol.RawPayload(payload),
 		}); err != nil {
 			t.Fatalf("deliver authorization_lost extension_resource_changed: %v", err)
 		}
@@ -390,7 +445,7 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 		if err := json.Unmarshal(message.Payload, &got); err != nil {
 			t.Fatalf("decode authorization_lost payload: %v", err)
 		}
-		if got["change_kind"] != ExtensionResourceChangeKindRemove || got["reason_code"] != ExtensionResourceReasonAuthorizationLost {
+		if got["change_kind"] != collabprotocol.ExtensionResourceChangeKindRemove || got["reason_code"] != collabprotocol.ExtensionResourceReasonAuthorizationLost {
 			t.Fatalf("unexpected authorization_lost semantics: %#v", got)
 		}
 		if _, ok := got["authorization_diagnostics"]; ok {
@@ -400,7 +455,7 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 }
 
 func TestValidatePresenceInputAcceptsExtensionWorkspace(t *testing.T) {
-	err := ValidatePresenceInput(PresenceInput{
+	err := collabprotocol.ValidatePresenceInput(collabprotocol.PresenceInput{
 		SheetRef: map[string]string{
 			"kind":                 "extension_workspace",
 			"extension_profile_id": "network_flow_activity",
@@ -413,7 +468,7 @@ func TestValidatePresenceInputAcceptsExtensionWorkspace(t *testing.T) {
 	}
 
 	recordID := "rec_1"
-	err = ValidatePresenceInput(PresenceInput{
+	err = collabprotocol.ValidatePresenceInput(collabprotocol.PresenceInput{
 		SheetRef: map[string]string{
 			"kind":                 "extension_workspace",
 			"extension_profile_id": "network_flow_activity",
@@ -450,7 +505,7 @@ func requireNoRevocationReason(t testing.TB, revocations <-chan string) {
 	}
 }
 
-func requireIncidentMessage(t testing.TB, messages <-chan Message) Message {
+func requireIncidentMessage(t testing.TB, messages <-chan collabprotocol.Message) collabprotocol.Message {
 	t.Helper()
 
 	select {
@@ -458,11 +513,11 @@ func requireIncidentMessage(t testing.TB, messages <-chan Message) Message {
 		return got
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for websocket incident message")
-		return Message{}
+		return collabprotocol.Message{}
 	}
 }
 
-func requireNoIncidentMessage(t testing.TB, messages <-chan Message) {
+func requireNoIncidentMessage(t testing.TB, messages <-chan collabprotocol.Message) {
 	t.Helper()
 
 	select {

@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 )
 
@@ -142,7 +143,9 @@ SELECT count(*)
 			}
 			requireCount(t, harness, `SELECT count(*) FROM records WHERE record_id = $1`, created.RecordID, 1)
 			requireCount(t, harness, `SELECT count(*) FROM record_revisions WHERE record_id = $1`, created.RecordID, 1)
-			requireCount(t, harness, `SELECT count(*) FROM collaboration_event_intents WHERE source_change_set_id = $1 AND source_record_id = $2 AND event_family = 'record_changed'`, created.ChangeSetID, created.RecordID, 1)
+			collaborationsupport.RequireIntentCount(t, harness.DB, collaborationsupport.IntentSelector{
+				EventFamily: "record_changed", SourceChangeSetID: created.ChangeSetID.String(), SourceRecordID: created.RecordID.String(),
+			}, 1)
 
 			conflicting := command
 			conflicting.RequestHash = []byte("changed-" + clientTxnID)
@@ -185,7 +188,9 @@ SELECT count(*)
 				t.Fatalf("patch replay = %#v, %v; want original record", patchReplay, err)
 			}
 			requireCount(t, harness, `SELECT count(*) FROM record_revisions WHERE record_id = $1`, created.RecordID, 2)
-			requireCount(t, harness, `SELECT count(*) FROM collaboration_event_intents WHERE source_change_set_id = $1 AND source_record_id = $2 AND event_family = 'record_changed'`, patched.ChangeSetID, created.RecordID, 1)
+			collaborationsupport.RequireIntentCount(t, harness.DB, collaborationsupport.IntentSelector{
+				EventFamily: "record_changed", SourceChangeSetID: patched.ChangeSetID.String(), SourceRecordID: created.RecordID.String(),
+			}, 1)
 		})
 	}
 }

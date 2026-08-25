@@ -7,28 +7,21 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
 
 type ResourceIntentAppender struct {
-	appender collaboration.IntentAppender
+	appender collaboration.PublicationAppender
 }
 
 func NewResourceIntentAppender() ResourceIntentAppender {
-	return ResourceIntentAppender{appender: collaboration.NewIntentAppender()}
+	return ResourceIntentAppender{appender: collaborationsupport.NewPublicationAppender()}
 }
 
 func (a ResourceIntentAppender) AppendResourceIntentTx(ctx context.Context, tx pgx.Tx, source networkflow.ResourceIntent) error {
-	intent, err := collaboration.NewEventIntent(
-		source.IntentKey,
-		source.IncidentID,
-		collaboration.EventFamilyExtensionResourceChange,
-		source.CanonicalPayload,
-		source.SourceIdentity,
-		0,
-		source.CreatedAt,
-	)
-	if err != nil {
-		return err
-	}
-	return a.appender.AppendIntentTx(ctx, tx, intent)
+	return a.appender.AppendExtensionResourceChangedTx(ctx, tx, collaboration.ExtensionResourceChangeIntentInput{
+		IntentKey: source.IntentKey, IncidentID: source.IncidentID,
+		CanonicalPayload: source.CanonicalPayload, SourceIdentity: source.SourceIdentity,
+		CreatedAt: source.CreatedAt,
+	})
 }

@@ -301,12 +301,14 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		}
 		sequenceNo++
 	}
-	if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	timelineChangedFieldKeys := mentionRowChangedFieldKeys(timelineResult.BeforeRow, timelineResult.AfterRow)
+	if err := s.ports.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       timelineResult.SourceRecordID,
 		RowVersion:     timelineResult.RowVersion,
 		BeforeSnapshot: &beforeSnapshot,
 		AfterSnapshot:  &afterSnapshot,
+		ConflictFacts:  mentionRevisionFacts(timelineResult.BeforeRow, timelineResult.AfterRow, timelineChangedFieldKeys),
 	}); err != nil {
 		return MentionActionResult{}, err
 	}

@@ -95,7 +95,7 @@ func (s *Application) AppendIndicatorLifecycleInterval(ctx context.Context, acto
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
-	if err := appendAffectedRecordRevisionsTx(ctx, tx, s.revisions, changeSetID, versions, beforeSnapshots, afterSnapshots,
+	if err := appendAffectedRecordRevisionsTx(ctx, tx, s.revisions, s.publications, params.IncidentID, actorUserID, params.ClientTxnID, createdAt, changeSetID, versions, beforeSnapshots, afterSnapshots,
 		map[uuid.UUID]map[string]any{params.IndicatorRecordID: beforeRow},
 		map[uuid.UUID]map[string]any{params.IndicatorRecordID: afterRow},
 	); err != nil {

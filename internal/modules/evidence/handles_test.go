@@ -89,7 +89,7 @@ func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
 func TestHandleRedemptionRechecksCurrentState_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "evidence_lifecycle-handle-current-state")
 	revisionComposition := revisionsupport.MustComposition(t)
-	store := newTestRouteOperations(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
+	store := newTestRouteOperations(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Publications)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-handle-current@example.test", "EvidenceLifecycle Handle Current", "EvidenceLifecycleHandleCurrent1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-handle-current-incident", "IR-P5-HANDLE-CURRENT", "Evidence handle current state")
 

@@ -259,6 +259,7 @@ field:FacadeDependencies.Subjects
 field:FacadeDependencies.SupportLinks
 field:FacadeDependencies.SupportTargets
 field:ImportCreateDependencies.Assessors
+field:ImportCreateDependencies.Collaboration
 field:ImportCreateDependencies.Projections
 field:ImportCreateDependencies.Records
 field:ImportCreateDependencies.Revisions

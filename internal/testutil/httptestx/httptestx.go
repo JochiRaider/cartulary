@@ -21,6 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -73,44 +74,37 @@ func (capability *JobsCapability) Create(ctx context.Context, params jobs.Enqueu
 }
 
 type CollaborationCapability struct {
-	hub        *collaboration.Hub
-	dispatcher *collaboration.Dispatcher
-	intents    collaboration.IntentAppender
+	runtime      *collaboration.Runtime
+	events       collaboration.IncidentEventObserver
+	publications collaboration.PublicationAppender
 }
 
-func (capability *CollaborationCapability) SubscribeIncident(incidentID uuid.UUID, buffer int) (<-chan collaboration.Message, func()) {
-	if capability == nil || capability.hub == nil {
+func (capability *CollaborationCapability) SubscribeIncident(incidentID uuid.UUID, buffer int) (<-chan collabprotocol.Message, func()) {
+	if capability == nil || capability.events == nil {
 		return nil, func() {}
 	}
-	return capability.hub.SubscribeIncident(incidentID, buffer)
+	return capability.events.SubscribeIncident(incidentID, buffer)
 }
 
 func (capability *CollaborationCapability) RevokeSession(sessionID uuid.UUID, reasonCode string) {
-	if capability == nil || capability.hub == nil {
+	if capability == nil || capability.runtime == nil {
 		return
 	}
-	capability.hub.RevokeSession(sessionID, reasonCode)
+	capability.runtime.RevokeSession(sessionID, reasonCode)
 }
 
 func (capability *CollaborationCapability) CloseDispatcher(ctx context.Context) error {
-	if capability == nil || capability.dispatcher == nil {
+	if capability == nil || capability.runtime == nil {
 		return errors.New("collaboration dispatcher capability is unavailable")
 	}
-	return capability.dispatcher.Close(ctx)
+	return capability.runtime.Close(ctx)
 }
 
-func (capability *CollaborationCapability) NewDispatcher(pool *pgxpool.Pool, now func() time.Time) *collaboration.Dispatcher {
-	if capability == nil || capability.hub == nil || pool == nil {
-		return nil
-	}
-	return collaboration.NewDispatcher(pool, capability.hub, now)
-}
-
-func (capability *CollaborationCapability) IntentAppender() collaboration.IntentAppender {
+func (capability *CollaborationCapability) Publications() collaboration.PublicationAppender {
 	if capability == nil {
 		return nil
 	}
-	return capability.intents
+	return capability.publications
 }
 
 type RevisionsCapability struct {
@@ -230,8 +224,12 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		ObserveJobs: func(manager *jobs.Manager, transactions *jobs.TransactionService, _ *jobs.Runner, pool *pgxpool.Pool) {
 			jobsCapability = &JobsCapability{manager: manager, transactions: transactions, pool: pool, now: clock.Now}
 		},
-		ObserveCollaboration: func(hub *collaboration.Hub, dispatcher *collaboration.Dispatcher, intents collaboration.IntentAppender) {
-			collaborationCapability = &CollaborationCapability{hub: hub, dispatcher: dispatcher, intents: intents}
+		ObserveCollaboration: func(runtime *collaboration.Runtime) {
+			collaborationCapability = &CollaborationCapability{
+				runtime:      runtime,
+				events:       runtime.IncidentEvents(),
+				publications: runtime.Publications(),
+			}
 		},
 		ObserveProjections: func(runtime *projectionassembly.Runtime) {
 			projectionCapability = projectiontestsupport.New(projectiontestsupport.Dependencies{

@@ -291,17 +291,26 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 	}); err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	if err := s.appender.AppendRecordRevisionAndIntentTx(ctx, tx, AppendRecordRevisionParams{
+	changedFieldKeys := rollbackChangedFieldKeys(beforeLiveRecord, afterLiveRecord)
+	conflictFacts, err := revisionFactsForFields(beforeLiveRecord, afterLiveRecord, changedFieldKeys)
+	if err != nil {
+		return DeleteRestoreResult{}, err
+	}
+	if err := s.appender.AppendLiveRevisionTx(ctx, tx, LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       record.RecordID,
 		RowVersion:     nextRowVersion,
 		BeforeSnapshot: &beforeSnapshot,
 		AfterSnapshot:  &afterSnapshot,
-		LiveChange: LiveRecordChange{
-			BeforeValue: beforeLiveRecord,
-			AfterValue:  afterLiveRecord,
-		},
+		ConflictFacts:  conflictFacts,
 	}); err != nil {
+		return DeleteRestoreResult{}, err
+	}
+	publication, err := s.recordPublicationEffectTx(ctx, tx, changeSetID, record.RecordID, nextRowVersion, viewSchemaID, changeKind, changedFieldKeys)
+	if err != nil {
+		return DeleteRestoreResult{}, err
+	}
+	if err := s.recordPublications.AppendRecordChangedTx(ctx, tx, publication); err != nil {
 		return DeleteRestoreResult{}, err
 	}
 	current, err := s.loadDeleteRestoreRecordTx(ctx, tx, recordID, true)

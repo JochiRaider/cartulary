@@ -355,8 +355,40 @@ MUST NOT settle such a conflict.
 Profiles: base
 Verified by: AC-560
 
+**REQ-00-075**
+`docs/decisions/collaboration-module-boundary.md` is an adopted implementation
+architecture decision for the Collaboration capability only. It owns the
+exact runtime-facade, protocol, private route/hub, stream-store, dispatcher,
+recovery, test-support, import-direction, application-composition,
+source-owner fact-port, transition, and repository-internal compatibility
+topology named in that decision. It MUST NOT create a Collaboration domain
+bounded context or redefine public WebSocket, view-row, replay, job,
+extension-event, recovery CLI, history, conflict, portability, authorization,
+storage-schema, or telemetry behavior.
+
+Core 01 remains authoritative for public routes, envelopes, view rows, durable
+stream behavior, jobs, extensions, recovery transport, storage boundaries, and
+portability. Core 02 remains authoritative for source records, history,
+rollback, and private conflict-fact meaning. Core 03 remains authoritative for
+Workbook Interaction presence, Collaboration behavior, publication effects,
+and client consequences. Core 04 remains authoritative for security,
+deployment-local recovery authority, and conformance. `docs/domain.md` remains
+authoritative for classifying Collaboration as implementation-support language
+rather than a bounded context.
+
+Source owners derive private Revisions facts and public Collaboration effects
+independently and pass them through separate consumer-owned ports in one
+borrowed source transaction. Revisions and Collaboration MUST NOT derive from,
+import, call, or translate one another's representations. The decision MUST be
+revised or withdrawn when it conflicts with a later adopted behavioral owner;
+an implementation, tracker, test, contract projection, or generated artifact
+MUST NOT settle such a conflict.
+Profiles: base, incident_portability
+Verified by: AC-564
+
 | Contract family | Primary owner | Allowed secondary sections | Ownership rule | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
+| Collaboration implementation topology, runtime lifecycle, private stream/recovery placement, independent source-owner fact ports, test-support placement, and repository-internal compatibility removal | `docs/decisions/collaboration-module-boundary.md` for implementation structure; Core 01 and Core 03 for public and interaction behavior | Core 02 history/conflict meaning; Core 04 security/conformance; `docs/domain.md` vocabulary; Revisions decision for the separate private-fact consumer; implementation trackers | The adopted decision owns internal package, constructor, lifecycle, import, port, and compatibility topology only. It cannot create a domain context or redefine public WebSocket, view-row, stream, recovery, history, portability, authorization, schema, or telemetry behavior. | REQ-00-075 | base, incident_portability | AC-564 |
 | Indicators implementation topology, bounded source-owner responsibilities, Records capability boundary, immutable vocabulary and source-state placement, caller-transaction borrowing, and repository-internal compatibility contraction | `docs/decisions/indicators-module-boundary.md` for implementation structure; Core 01 and Core 02 for application and source behavior | Core 03 Workbook/Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary navigation; implementation trackers | The adopted decision owns internal package, constructor, import, and port topology only. It cannot redefine public Indicator behavior, identity, observation or lifecycle meaning, history, projections, portability, recovery, Network Flow behavior, or security. | REQ-00-074 | base | AC-560 |
 | Entities implementation topology, bounded-root responsibilities, direct-consumer and import boundaries, typed cross-owner ports, caller-transaction borrowing, and repository-internal compatibility posture | `docs/decisions/entities-module-boundary.md` for implementation structure; Core 01 for application and source behavior | Core 02 record/history meaning; Core 03 Timeline and Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The adopted decision owns internal package, constructor, and port topology only. It cannot redefine public entity behavior, source meaning, Timeline policy, history, projections, portability, recovery, or security. | REQ-00-073 | base | AC-558 |
 | Backend Workbook implementation topology, contribution composition, source-adapter placement, and repository-internal compatibility removal | `docs/decisions/workbook-module-boundary.md` for implementation structure; Core 01 for application behavior | Core 02 source/history meaning; Core 03 interaction and Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The adopted decision owns internal package, provider, and constructor structure only. It cannot redefine public Workbook behavior, source state, history, projections, restore results, or security. | REQ-00-072 | base | AC-552 |

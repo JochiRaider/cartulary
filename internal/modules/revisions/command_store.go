@@ -17,6 +17,7 @@ type commandStore struct {
 	liveRecords          LiveRecordReader
 	deleteRestoreSources *DeleteRestoreSourceCatalog
 	targetSemantics      *TargetSemanticsCatalog
+	recordPublications   RecordPublicationPort
 }
 
 type ImportedAttributionResolver interface {

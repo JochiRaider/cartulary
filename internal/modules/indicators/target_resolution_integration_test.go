@@ -14,6 +14,7 @@ import (
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
@@ -201,10 +202,10 @@ SELECT
     (SELECT COUNT(*) FROM indicator_observations),
     (SELECT COUNT(*) FROM indicator_state_intervals),
     (SELECT COUNT(*) FROM change_sets),
-    (SELECT COUNT(*) FROM collaboration_event_intents),
     (SELECT COUNT(*) FROM route_idempotency)
-`).Scan(&result.RecordsVersionSum, &result.Observations, &result.Intervals, &result.ChangeSets, &result.Collaboration, &result.Idempotency); err != nil {
+`).Scan(&result.RecordsVersionSum, &result.Observations, &result.Intervals, &result.ChangeSets, &result.Idempotency); err != nil {
 		t.Fatalf("load Indicator mutation footprint: %v", err)
 	}
+	result.Collaboration = int64(collaborationsupport.CountIntents(t, db, collaborationsupport.IntentSelector{}))
 	return result
 }

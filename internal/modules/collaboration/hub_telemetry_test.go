@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 )
 
 func TestWebSocketTelemetrySafeVocabulary(t *testing.T) {
@@ -44,22 +46,22 @@ func TestWebSocketTelemetrySafeVocabulary(t *testing.T) {
 }
 
 func TestWebSocketEventSendTelemetryNoSDK(t *testing.T) {
-	hub := NewHub()
+	hub := newHub()
 	hub.ConfigureTelemetry("0.0.0+unknown")
 	incidentID := uuid.MustParse("10000000-0000-4000-8000-000000000001")
-	hub.BroadcastPresenceDelta(incidentID, "updated", PresenceRecord{
+	hub.BroadcastPresenceDelta(incidentID, "updated", collabprotocol.PresenceRecord{
 		ConnectionID: uuid.NewString(),
 		UserID:       uuid.NewString(),
 		DisplayName:  "Operator",
 		SheetRef:     map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v2"},
 		Mode:         "viewing",
 		ObservedAt:   time.Now().UTC().Format(time.RFC3339Nano),
-		ExpiresAt:    time.Now().UTC().Add(PresenceTTL).Format(time.RFC3339Nano),
+		ExpiresAt:    time.Now().UTC().Add(collabprotocol.PresenceTTL).Format(time.RFC3339Nano),
 	}, time.Now().UTC())
 }
 
 func TestActiveConnectionTelemetryGaugeNoSDK(t *testing.T) {
-	hub := NewHub()
+	hub := newHub()
 	hub.ConfigureTelemetry("0.0.0+unknown")
 	hub.ConfigureTelemetry("0.0.0+unknown")
 	if got := hub.ActiveConnections(); got != 0 {

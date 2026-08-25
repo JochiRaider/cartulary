@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
@@ -266,18 +267,17 @@ SELECT
     (SELECT count(*) FROM change_set_mutations m JOIN change_sets c USING (change_set_id) WHERE c.incident_id = $1),
     (SELECT count(*) FROM record_revisions WHERE record_id = $2),
     (SELECT count(*) FROM route_idempotency WHERE scope_key = $2::text),
-    (SELECT count(*) FROM collaboration_event_intents WHERE source_record_id = $2),
     (SELECT row_version FROM records WHERE record_id = $2)
 `, incidentID, recordID).Scan(
 		&effects.ChangeSets,
 		&effects.Mutations,
 		&effects.RecordRevisions,
 		&effects.RouteIdempotency,
-		&effects.CollaborationIntents,
 		&effects.RowVersion,
 	); err != nil {
 		t.Fatalf("snapshot Tasks/Decisions conflict effects: %v", err)
 	}
+	effects.CollaborationIntents = collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{SourceRecordID: recordID.String()})
 	return effects
 }
 

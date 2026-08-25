@@ -36,6 +36,18 @@ class FakeWebSocket {
   }
 }
 
+let serverEventOrdinal = 0;
+
+function serverMessage(message: Record<string, unknown>) {
+  serverEventOrdinal += 1;
+  return {
+    emitted_at: "2026-07-13T12:00:00Z",
+    event_id: `event-${serverEventOrdinal}`,
+    incident_id: "incident-1",
+    ...message,
+  };
+}
+
 function Consumer({
   onEvent,
   sheetId,
@@ -89,6 +101,7 @@ describe("IncidentCollaborationSession", () => {
   afterEach(() => {
     cleanup();
     FakeWebSocket.instances = [];
+    serverEventOrdinal = 0;
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
@@ -121,17 +134,19 @@ describe("IncidentCollaborationSession", () => {
     });
     act(() => {
       socket?.onmessage?.({
-        data: JSON.stringify({
-          type: "hello_ack",
-          payload: {
-            connection_id: "connection-1",
-            resume_token: "resume-1",
-            server_time: "2026-07-13T12:00:00Z",
-            heartbeat_interval_ms: 15_000,
-            presence_ttl_ms: 45_000,
-            resume_window_ms: 60_000,
-          },
-        }),
+        data: JSON.stringify(
+          serverMessage({
+            type: "hello_ack",
+            payload: {
+              connection_id: "connection-1",
+              resume_token: "resume-1",
+              server_time: "2026-07-13T12:00:00Z",
+              heartbeat_interval_ms: 15_000,
+              presence_ttl_ms: 45_000,
+              resume_window_ms: 300_000,
+            },
+          }),
+        ),
       });
     });
 
@@ -152,7 +167,8 @@ describe("IncidentCollaborationSession", () => {
       payload: { presence: { sheet_ref: { id: "notes" } } },
     });
 
-    const change = {
+    const change = serverMessage({
+      ignored_envelope_route: "/must-not-follow",
       type: "extension_resource_changed",
       stream_seq: 1,
       payload: {
@@ -160,9 +176,10 @@ describe("IncidentCollaborationSession", () => {
         resource_kind: "network_flow_table",
         resource_id: "nft-1",
         change_kind: "invalidate",
+        ignored_payload_action: "must-not-execute",
         reason_code: "changed",
       },
-    };
+    });
     act(() => {
       socket?.onmessage?.({ data: JSON.stringify(change) });
       socket?.onmessage?.({ data: JSON.stringify(change) });
@@ -170,15 +187,21 @@ describe("IncidentCollaborationSession", () => {
         data: JSON.stringify({ ...change, stream_seq: 3 }),
       });
       socket?.onmessage?.({
-        data: JSON.stringify({ type: "ping", payload: {} }),
+        data: JSON.stringify(serverMessage({ type: "ping", payload: {} })),
       });
       socket?.onmessage?.({
-        data: JSON.stringify({ type: "future_extension", payload: {} }),
+        data: JSON.stringify(
+          serverMessage({
+            type: "future_extension",
+            payload: {},
+          }),
+        ),
       });
     });
     expect(
       onEvent.mock.calls.filter(([event]) => event.kind === "message"),
     ).toHaveLength(1);
+    expect(JSON.stringify(onEvent.mock.calls)).not.toContain("must-not");
     expect(onEvent).toHaveBeenCalledWith({
       generation: 1,
       kind: "reset_required",
@@ -237,30 +260,34 @@ describe("IncidentCollaborationSession", () => {
       }
       socket?.onopen?.();
       socket?.onmessage?.({
-        data: JSON.stringify({
-          type: "hello_ack",
-          payload: {
-            connection_id: "connection-1",
-            resume_token: "resume-private",
-            server_time: "2026-07-13T12:00:00Z",
-            heartbeat_interval_ms: 15_000,
-            presence_ttl_ms: 45_000,
-            resume_window_ms: 60_000,
-          },
-        }),
+        data: JSON.stringify(
+          serverMessage({
+            type: "hello_ack",
+            payload: {
+              connection_id: "connection-1",
+              resume_token: "resume-private",
+              server_time: "2026-07-13T12:00:00Z",
+              heartbeat_interval_ms: 15_000,
+              presence_ttl_ms: 45_000,
+              resume_window_ms: 300_000,
+            },
+          }),
+        ),
       });
       socket?.onmessage?.({
-        data: JSON.stringify({
-          type: "extension_resource_changed",
-          stream_seq: 7,
-          payload: {
-            extension_profile_id: "network_flow_activity",
-            resource_kind: "network_flow_table",
-            resource_id: "nft-1",
-            change_kind: "invalidate",
-            reason_code: "changed",
-          },
-        }),
+        data: JSON.stringify(
+          serverMessage({
+            type: "extension_resource_changed",
+            stream_seq: 7,
+            payload: {
+              extension_profile_id: "network_flow_activity",
+              resource_kind: "network_flow_table",
+              resource_id: "nft-1",
+              change_kind: "invalidate",
+              reason_code: "changed",
+            },
+          }),
+        ),
       });
     });
     expect(JSON.parse(socket?.sent[0] ?? "{}")).toMatchObject({
@@ -315,44 +342,46 @@ describe("IncidentCollaborationSession", () => {
       }
       socket?.onopen?.();
       socket?.onmessage?.({
-        data: JSON.stringify({
-          type: "hello_ack",
-          payload: {
-            connection_id: "connection-1",
-            resume_token: "resume-private",
-            server_time: "2026-07-13T12:00:00Z",
-            heartbeat_interval_ms: 15_000,
-            presence_ttl_ms: 45_000,
-            resume_window_ms: 60_000,
-            server_high_water_stream_seq: 1,
-          },
-        }),
+        data: JSON.stringify(
+          serverMessage({
+            type: "resume_ack",
+            payload: {
+              resume_token: "resume-private",
+              server_high_water_stream_seq: 1,
+              status: "replayed",
+            },
+          }),
+        ),
       });
       socket?.onmessage?.({
-        data: JSON.stringify({
-          type: "extension_resource_changed",
-          stream_seq: 3,
-          payload: {
-            extension_profile_id: "network_flow_activity",
-            resource_kind: "network_flow_table",
-            resource_id: "nft-1",
-            change_kind: "invalidate",
-            reason_code: "changed",
-          },
-        }),
+        data: JSON.stringify(
+          serverMessage({
+            type: "extension_resource_changed",
+            stream_seq: 3,
+            payload: {
+              extension_profile_id: "network_flow_activity",
+              resource_kind: "network_flow_table",
+              resource_id: "nft-1",
+              change_kind: "invalidate",
+              reason_code: "changed",
+            },
+          }),
+        ),
       });
       socket?.onmessage?.({
-        data: JSON.stringify({
-          type: "extension_resource_changed",
-          stream_seq: 4,
-          payload: {
-            extension_profile_id: "network_flow_activity",
-            resource_kind: "network_flow_table",
-            resource_id: "nft-1",
-            change_kind: "invalidate",
-            reason_code: "changed",
-          },
-        }),
+        data: JSON.stringify(
+          serverMessage({
+            type: "extension_resource_changed",
+            stream_seq: 4,
+            payload: {
+              extension_profile_id: "network_flow_activity",
+              resource_kind: "network_flow_table",
+              resource_id: "nft-1",
+              change_kind: "invalidate",
+              reason_code: "changed",
+            },
+          }),
+        ),
       });
     });
 
@@ -396,23 +425,27 @@ describe("IncidentCollaborationSession", () => {
       }
       socket?.onopen?.();
       socket?.onmessage?.({
-        data: JSON.stringify({
-          type: "hello_ack",
-          payload: {
-            connection_id: "connection-1",
-            resume_token: "resume-private",
-            server_time: "2026-07-13T12:00:00Z",
-            heartbeat_interval_ms: 15_000,
-            presence_ttl_ms: 45_000,
-            resume_window_ms: 60_000,
-          },
-        }),
+        data: JSON.stringify(
+          serverMessage({
+            type: "hello_ack",
+            payload: {
+              connection_id: "connection-1",
+              resume_token: "resume-private",
+              server_time: "2026-07-13T12:00:00Z",
+              heartbeat_interval_ms: 15_000,
+              presence_ttl_ms: 45_000,
+              resume_window_ms: 300_000,
+            },
+          }),
+        ),
       });
       socket?.onmessage?.({
-        data: JSON.stringify({
-          type: "session_revoked",
-          payload: { reason_code: "session_revoked" },
-        }),
+        data: JSON.stringify(
+          serverMessage({
+            type: "session_revoked",
+            payload: { reason_code: "session_revoked" },
+          }),
+        ),
       });
       vi.advanceTimersByTime(5_000);
     });

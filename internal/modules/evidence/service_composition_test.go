@@ -11,7 +11,7 @@ import (
 func newTestBlobLifecycleService(
 	pool postgres.DB,
 	appender *revisions.Appender,
-	intents collaboration.IntentAppender,
+	intents collaboration.RecordChangedAppender,
 ) *evidence.BlobLifecycleService {
 	projectionRuntime, err := projectionassembly.Build(pool)
 	if err != nil {
@@ -33,7 +33,7 @@ func newTestBlobLifecycleService(
 func newTestRouteOperations(
 	pool postgres.DB,
 	appender *revisions.Appender,
-	intents collaboration.IntentAppender,
+	intents collaboration.RecordChangedAppender,
 ) *evidence.RouteOperations {
 	blobs := newTestBlobLifecycleService(pool, appender, intents)
 	access, err := evidence.NewAccessHandleService(pool)

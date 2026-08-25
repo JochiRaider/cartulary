@@ -10,6 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
+	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -29,33 +31,22 @@ const (
 	invalidMessageReason = "invalid_message"
 )
 
-type Service struct {
+type routeService struct {
 	incidentAccess *admission.Checker
 	authStore      *authn.Store
-	hub            *Hub
-	replay         *ReplayStore
+	hub            *hub
+	replay         *privatestream.PostgresStream
 	keys           authn.MasterKeys
-	acceptSocket   AcceptSocket
-	checkOrigin    CheckBrowserOrigin
-	codec          Codec
+	acceptSocket   protocol.AcceptSocket
+	checkOrigin    protocol.CheckBrowserOrigin
+	codec          protocol.Codec
 	serviceVersion string
 	now            func() time.Time
 }
 
-type Settings struct {
-	AcceptSocket       AcceptSocket
-	CheckBrowserOrigin CheckBrowserOrigin
-	Hub                *Hub
-	ServiceVersion     string
-}
-
-func RegisterRoutes(settings ...Settings) httpapi.RouteRegistrar {
-	resolved := Settings{}
-	if len(settings) > 0 {
-		resolved = settings[0]
-	}
+func RegisterRoutes(runtime *Runtime) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps, resolved)
+		service, err := newRouteService(deps, runtime)
 		if err != nil {
 			return err
 		}
@@ -64,15 +55,15 @@ func RegisterRoutes(settings ...Settings) httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet, settings Settings) (*Service, error) {
-	if settings.AcceptSocket == nil {
+func newRouteService(deps httpapi.DependencySet, runtime *Runtime) (*routeService, error) {
+	if runtime == nil || runtime.hub == nil {
+		return nil, errors.New("collaboration runtime dependency is required")
+	}
+	if runtime.options.AcceptSocket == nil {
 		return nil, errors.New("collaboration WebSocket accept dependency is required")
 	}
-	if settings.CheckBrowserOrigin == nil {
+	if runtime.options.CheckBrowserOrigin == nil {
 		return nil, errors.New("collaboration WebSocket Origin dependency is required")
-	}
-	if settings.Hub == nil {
-		return nil, errors.New("collaboration Hub dependency is required")
 	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
@@ -82,20 +73,20 @@ func newService(deps httpapi.DependencySet, settings Settings) (*Service, error)
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	return &Service{
+	return &routeService{
 		incidentAccess: admission.NewChecker(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
-		hub:            settings.Hub,
-		replay:         NewReplayStore(deps.PostgresHandle(), now),
+		hub:            runtime.hub,
+		replay:         runtime.store,
 		keys:           keys,
-		acceptSocket:   settings.AcceptSocket,
-		checkOrigin:    settings.CheckBrowserOrigin,
-		serviceVersion: settings.ServiceVersion,
+		acceptSocket:   runtime.options.AcceptSocket,
+		checkOrigin:    runtime.options.CheckBrowserOrigin,
+		serviceVersion: runtime.options.ServiceVersion,
 		now:            now,
 	}, nil
 }
 
-func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
+func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 	ctx, finishLifecycle := s.startWebSocketLifecycle(r.Context(), "connect")
 	lifecycleResult := "failed"
 	lifecycleErrorCode := ""
@@ -172,7 +163,7 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 		}
 		lifecycleResult = "rejected"
 		lifecycleErrorCode = "invalid_websocket_handshake"
-		_ = s.writeThenClose(ctx, conn, EphemeralMessage(incidentID, "error", map[string]any{
+		_ = s.writeThenClose(ctx, conn, protocol.EphemeralMessage(incidentID, "error", map[string]any{
 			"code":      "invalid_websocket_handshake",
 			"message":   err.Error(),
 			"retryable": false,
@@ -186,7 +177,7 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 
 	defer s.removePresence(incidentID, connectionID)
 
-	incoming := make(chan Message, defaultSocketBuffer)
+	incoming := make(chan protocol.Message, defaultSocketBuffer)
 	readErrors := make(chan error, 1)
 	go s.readLoop(ctx, conn, incoming, readErrors)
 
@@ -222,9 +213,9 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				lifecycleResult = "dropped"
 				lifecycleErrorCode = slowConsumerReason
-				_ = s.writeThenClose(ctx, conn, EphemeralMessage(incidentID, "resume_ack", map[string]any{
+				_ = s.writeThenClose(ctx, conn, protocol.EphemeralMessage(incidentID, "resume_ack", map[string]any{
 					"connection_id":                connectionID.String(),
-					"status":                       ResumeStatusResetNeeded,
+					"status":                       protocol.ResumeStatusResetNeeded,
 					"resume_token":                 "",
 					"server_high_water_stream_seq": handshake.LiveAfterStreamSeq,
 				}, s.now()), 1013, slowConsumerReason)
@@ -243,7 +234,7 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			if terminal, terminalErr := s.incidentClosed(ctx, incidentID, principal.User.ID); terminalErr != nil || terminal {
 				lifecycleResult = "canceled"
-				if s.writeTerminalIncidentError(ctx, conn, incidentID, IncidentTerminalClosed) {
+				if s.writeTerminalIncidentError(ctx, conn, incidentID, protocol.IncidentTerminalClosed) {
 					closed = true
 				}
 				return
@@ -275,14 +266,14 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 				}
 				return
 			}
-			if now.Sub(lastInbound) > HeartbeatTimeout {
+			if now.Sub(lastInbound) > protocol.HeartbeatTimeout {
 				lifecycleResult = "timeout"
 				_ = conn.Close(1008, heartbeatCloseReason)
 				closed = true
 				return
 			}
-			if now.Sub(lastSent) >= HeartbeatInterval {
-				if s.writeMessage(ctx, conn, EphemeralMessage(incidentID, "ping", map[string]any{}, now)) != nil {
+			if now.Sub(lastSent) >= protocol.HeartbeatInterval {
+				if s.writeMessage(ctx, conn, protocol.EphemeralMessage(incidentID, "ping", map[string]any{}, now)) != nil {
 					lifecycleResult = "failed"
 					return
 				}
@@ -297,12 +288,12 @@ type establishedSession struct {
 	LiveAfterStreamSeq int64
 }
 
-func (s *Service) establishSession(ctx context.Context, conn Socket, incidentID uuid.UUID, principal httpauth.Principal, connectionID uuid.UUID, ownMessages <-chan Message, message Message) (establishedSession, error) {
+func (s *routeService) establishSession(ctx context.Context, conn protocol.Socket, incidentID uuid.UUID, principal httpauth.Principal, connectionID uuid.UUID, ownMessages <-chan protocol.Message, message protocol.Message) (establishedSession, error) {
 	switch message.Type {
 	case "hello":
 		var payload struct {
-			ClientInstanceID string        `json:"client_instance_id"`
-			Presence         PresenceInput `json:"presence"`
+			ClientInstanceID string                 `json:"client_instance_id"`
+			Presence         protocol.PresenceInput `json:"presence"`
 		}
 		if err := decodePayloadObject(message.Payload, &payload); err != nil {
 			return establishedSession{}, err
@@ -310,13 +301,13 @@ func (s *Service) establishSession(ctx context.Context, conn Socket, incidentID 
 		if strings.TrimSpace(payload.ClientInstanceID) == "" {
 			return establishedSession{}, errors.New("client_instance_id is required")
 		}
-		if err := ValidatePresenceInput(payload.Presence); err != nil {
+		if err := protocol.ValidatePresenceInput(payload.Presence); err != nil {
 			return establishedSession{}, err
 		}
 		if closed, err := s.incidentClosed(ctx, incidentID, principal.User.ID); err != nil {
 			return establishedSession{}, err
 		} else if closed {
-			_ = s.writeTerminalIncidentError(ctx, conn, incidentID, IncidentTerminalClosed)
+			_ = s.writeTerminalIncidentError(ctx, conn, incidentID, protocol.IncidentTerminalClosed)
 			return establishedSession{}, terminalIncidentError{}
 		}
 		now := s.now()
@@ -329,17 +320,17 @@ func (s *Service) establishSession(ctx context.Context, conn Socket, incidentID 
 			return establishedSession{}, err
 		}
 		presence := s.hub.UpsertPresence(incidentID, connectionID, principal.User.ID, principal.User.DisplayName, payload.Presence, now)
-		if err := s.writeMessage(ctx, conn, EphemeralMessage(incidentID, "hello_ack", map[string]any{
+		if err := s.writeMessage(ctx, conn, protocol.EphemeralMessage(incidentID, "hello_ack", map[string]any{
 			"connection_id":         connectionID.String(),
 			"resume_token":          resumeToken,
 			"server_time":           now.UTC().Format(time.RFC3339Nano),
-			"heartbeat_interval_ms": int(HeartbeatInterval / time.Millisecond),
-			"presence_ttl_ms":       int(PresenceTTL / time.Millisecond),
-			"resume_window_ms":      int(ResumeWindow / time.Millisecond),
+			"heartbeat_interval_ms": int(protocol.HeartbeatInterval / time.Millisecond),
+			"presence_ttl_ms":       int(protocol.PresenceTTL / time.Millisecond),
+			"resume_window_ms":      int(protocol.ResumeWindow / time.Millisecond),
 		}, now)); err != nil {
 			return establishedSession{}, err
 		}
-		if err := s.writeMessage(ctx, conn, PresenceSnapshotMessage(incidentID, s.hub.PresenceSnapshot(incidentID, now), now)); err != nil {
+		if err := s.writeMessage(ctx, conn, protocol.PresenceSnapshotMessage(incidentID, s.hub.PresenceSnapshot(incidentID, now), now)); err != nil {
 			return establishedSession{}, err
 		}
 		s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now, ownMessages)
@@ -347,10 +338,10 @@ func (s *Service) establishSession(ctx context.Context, conn Socket, incidentID 
 
 	case "resume":
 		var payload struct {
-			ClientInstanceID  string        `json:"client_instance_id"`
-			ResumeToken       string        `json:"resume_token"`
-			LastSeenStreamSeq int64         `json:"last_seen_stream_seq"`
-			Presence          PresenceInput `json:"presence"`
+			ClientInstanceID  string                 `json:"client_instance_id"`
+			ResumeToken       string                 `json:"resume_token"`
+			LastSeenStreamSeq int64                  `json:"last_seen_stream_seq"`
+			Presence          protocol.PresenceInput `json:"presence"`
 		}
 		if err := decodePayloadObject(message.Payload, &payload); err != nil {
 			return establishedSession{}, err
@@ -358,7 +349,7 @@ func (s *Service) establishSession(ctx context.Context, conn Socket, incidentID 
 		if strings.TrimSpace(payload.ClientInstanceID) == "" || strings.TrimSpace(payload.ResumeToken) == "" {
 			return establishedSession{}, errors.New("client_instance_id and resume_token are required")
 		}
-		if err := ValidatePresenceInput(payload.Presence); err != nil {
+		if err := protocol.ValidatePresenceInput(payload.Presence); err != nil {
 			return establishedSession{}, err
 		}
 		if _, apiErr := s.requireIncidentMembership(ctx, incidentID, principal.User.ID); apiErr != nil {
@@ -367,7 +358,7 @@ func (s *Service) establishSession(ctx context.Context, conn Socket, incidentID 
 		if closed, err := s.incidentClosed(ctx, incidentID, principal.User.ID); err != nil {
 			return establishedSession{}, err
 		} else if closed {
-			_ = s.writeTerminalIncidentError(ctx, conn, incidentID, IncidentTerminalClosed)
+			_ = s.writeTerminalIncidentError(ctx, conn, incidentID, protocol.IncidentTerminalClosed)
 			return establishedSession{}, terminalIncidentError{}
 		}
 		now := s.now()
@@ -380,7 +371,7 @@ func (s *Service) establishSession(ctx context.Context, conn Socket, incidentID 
 			return establishedSession{}, err
 		}
 		presence := s.hub.UpsertPresence(incidentID, connectionID, principal.User.ID, principal.User.DisplayName, payload.Presence, now)
-		if err := s.writeMessage(ctx, conn, EphemeralMessage(incidentID, "resume_ack", map[string]any{
+		if err := s.writeMessage(ctx, conn, protocol.EphemeralMessage(incidentID, "resume_ack", map[string]any{
 			"connection_id":                connectionID.String(),
 			"status":                       replay.Status,
 			"resume_token":                 resumeToken,
@@ -388,14 +379,14 @@ func (s *Service) establishSession(ctx context.Context, conn Socket, incidentID 
 		}, now)); err != nil {
 			return establishedSession{}, err
 		}
-		if replay.Status == ResumeStatusReplayed {
+		if replay.Status == protocol.ResumeStatusReplayed {
 			for _, replayed := range replay.Messages {
 				if err := s.writeMessage(ctx, conn, replayed); err != nil {
 					return establishedSession{}, err
 				}
 			}
 		}
-		if err := s.writeMessage(ctx, conn, PresenceSnapshotMessage(incidentID, s.hub.PresenceSnapshot(incidentID, now), now)); err != nil {
+		if err := s.writeMessage(ctx, conn, protocol.PresenceSnapshotMessage(incidentID, s.hub.PresenceSnapshot(incidentID, now), now)); err != nil {
 			return establishedSession{}, err
 		}
 		s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now, ownMessages)
@@ -411,7 +402,7 @@ func (terminalIncidentError) Error() string {
 	return "terminal incident websocket"
 }
 
-func (s *Service) handleClientMessage(ctx context.Context, conn Socket, incidentID uuid.UUID, connectionID uuid.UUID, ownMessages <-chan Message, principal httpauth.Principal, clientInstanceID string, message Message) bool {
+func (s *routeService) handleClientMessage(ctx context.Context, conn protocol.Socket, incidentID uuid.UUID, connectionID uuid.UUID, ownMessages <-chan protocol.Message, principal httpauth.Principal, clientInstanceID string, message protocol.Message) bool {
 	switch message.Type {
 	case "pong":
 		var payload map[string]any
@@ -422,13 +413,13 @@ func (s *Service) handleClientMessage(ctx context.Context, conn Socket, incident
 		return true
 	case "presence_update":
 		var payload struct {
-			Presence PresenceInput `json:"presence"`
+			Presence protocol.PresenceInput `json:"presence"`
 		}
 		if err := decodePayloadObject(message.Payload, &payload); err != nil {
 			s.writeInvalidLaterMessage(ctx, conn, incidentID, err.Error())
 			return false
 		}
-		if err := ValidatePresenceInput(payload.Presence); err != nil {
+		if err := protocol.ValidatePresenceInput(payload.Presence); err != nil {
 			s.writeInvalidLaterMessage(ctx, conn, incidentID, err.Error())
 			return false
 		}
@@ -446,7 +437,7 @@ func (s *Service) handleClientMessage(ctx context.Context, conn Socket, incident
 	}
 }
 
-func (s *Service) removePresence(incidentID uuid.UUID, connectionID uuid.UUID) {
+func (s *routeService) removePresence(incidentID uuid.UUID, connectionID uuid.UUID) {
 	now := s.now()
 	presence, ok := s.hub.RemovePresence(incidentID, connectionID, now)
 	if ok {
@@ -454,21 +445,21 @@ func (s *Service) removePresence(incidentID uuid.UUID, connectionID uuid.UUID) {
 	}
 }
 
-func (s *Service) writeSessionRevoked(ctx context.Context, conn Socket, incidentID uuid.UUID, reasonCode string) bool {
-	return s.writeThenClose(ctx, conn, EphemeralMessage(incidentID, "session_revoked", map[string]any{
+func (s *routeService) writeSessionRevoked(ctx context.Context, conn protocol.Socket, incidentID uuid.UUID, reasonCode string) bool {
+	return s.writeThenClose(ctx, conn, protocol.EphemeralMessage(incidentID, "session_revoked", map[string]any{
 		"reason_code": reasonCode,
 	}, s.now()), 1008, sessionRevokedReason) == nil
 }
 
-func (s *Service) writeTerminalIncidentError(ctx context.Context, conn Socket, incidentID uuid.UUID, reasonCode string) bool {
-	return s.writeThenClose(ctx, conn, EphemeralMessage(incidentID, "error", map[string]any{
+func (s *routeService) writeTerminalIncidentError(ctx context.Context, conn protocol.Socket, incidentID uuid.UUID, reasonCode string) bool {
+	return s.writeThenClose(ctx, conn, protocol.EphemeralMessage(incidentID, "error", map[string]any{
 		"code":      reasonCode,
 		"message":   "incident closed",
 		"retryable": false,
 	}, s.now()), 1008, incidentClosedReason) == nil
 }
 
-func (s *Service) incidentClosed(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (bool, error) {
+func (s *routeService) incidentClosed(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (bool, error) {
 	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{
 		AllowedRoles: admission.RolesMember,
 		Lifecycle:    admission.LifecycleAny,
@@ -479,13 +470,13 @@ func (s *Service) incidentClosed(ctx context.Context, incidentID uuid.UUID, user
 	return grant.IncidentStatus == admission.IncidentStatusClosed, nil
 }
 
-func (s *Service) readFirstMessage(ctx context.Context, conn Socket) (Message, error) {
+func (s *routeService) readFirstMessage(ctx context.Context, conn protocol.Socket) (protocol.Message, error) {
 	readCtx, cancel := context.WithTimeout(ctx, firstMessageTimeout)
 	defer cancel()
 	return s.readMessage(readCtx, conn)
 }
 
-func (s *Service) readLoop(ctx context.Context, conn Socket, incoming chan<- Message, errors chan<- error) {
+func (s *routeService) readLoop(ctx context.Context, conn protocol.Socket, incoming chan<- protocol.Message, errors chan<- error) {
 	for {
 		message, err := s.readMessage(ctx, conn)
 		if err != nil {
@@ -503,60 +494,60 @@ func (s *Service) readLoop(ctx context.Context, conn Socket, incoming chan<- Mes
 	}
 }
 
-func (s *Service) readMessage(ctx context.Context, conn Socket) (Message, error) {
+func (s *routeService) readMessage(ctx context.Context, conn protocol.Socket) (protocol.Message, error) {
 	kind, payload, err := conn.Read(ctx)
 	if err != nil {
-		return Message{}, err
+		return protocol.Message{}, err
 	}
 	return s.codec.Decode(kind, payload)
 }
 
-func (s *Service) writeMessage(ctx context.Context, conn Socket, message Message) error {
+func (s *routeService) writeMessage(ctx context.Context, conn protocol.Socket, message protocol.Message) error {
 	writeCtx, cancel := context.WithTimeout(ctx, writeTimeout)
 	defer cancel()
 	encoded, err := s.codec.Encode(message)
 	if err != nil {
 		return err
 	}
-	return conn.Write(writeCtx, MessageText, encoded)
+	return conn.Write(writeCtx, protocol.MessageText, encoded)
 }
 
-func (s *Service) writeThenClose(ctx context.Context, conn Socket, message Message, status uint16, reason string) error {
+func (s *routeService) writeThenClose(ctx context.Context, conn protocol.Socket, message protocol.Message, status uint16, reason string) error {
 	if err := s.writeMessage(ctx, conn, message); err != nil {
 		return err
 	}
 	return conn.Close(status, reason)
 }
 
-func (s *Service) writeInvalidLaterMessage(ctx context.Context, conn Socket, incidentID uuid.UUID, message string) {
-	_ = s.writeThenClose(ctx, conn, EphemeralMessage(incidentID, "error", map[string]any{
+func (s *routeService) writeInvalidLaterMessage(ctx context.Context, conn protocol.Socket, incidentID uuid.UUID, message string) {
+	_ = s.writeThenClose(ctx, conn, protocol.EphemeralMessage(incidentID, "error", map[string]any{
 		"code":      "invalid_websocket_message",
 		"message":   message,
 		"retryable": false,
 	}, s.now()), 1008, invalidMessageReason)
 }
 
-func (s *Service) closeForDecodeFailure(
+func (s *routeService) closeForDecodeFailure(
 	ctx context.Context,
-	conn Socket,
+	conn protocol.Socket,
 	incidentID uuid.UUID,
 	err error,
 	first bool,
 ) {
-	if errors.Is(err, ErrMessageTooLarge) {
+	if errors.Is(err, protocol.ErrMessageTooLarge) {
 		_ = conn.Close(1009, "message_too_large")
 		return
 	}
-	var failure *DecodeFailure
+	var failure *protocol.DecodeFailure
 	if errors.As(err, &failure) {
 		switch failure.Kind {
-		case DecodeFailureBinaryMessage:
+		case protocol.DecodeFailureBinaryMessage:
 			_ = conn.Close(1003, "binary_message_unsupported")
-		case DecodeFailureInvalidJSON:
+		case protocol.DecodeFailureInvalidJSON:
 			_ = conn.Close(1007, "invalid_json")
-		case DecodeFailureDuplicateMember:
+		case protocol.DecodeFailureDuplicateMember:
 			if first {
-				_ = s.writeThenClose(ctx, conn, EphemeralMessage(incidentID, "error", map[string]any{
+				_ = s.writeThenClose(ctx, conn, protocol.EphemeralMessage(incidentID, "error", map[string]any{
 					"code":      "invalid_websocket_handshake",
 					"message":   failure.Error(),
 					"retryable": false,
@@ -581,7 +572,7 @@ func decodePayloadObject(payload json.RawMessage, target any) error {
 	return nil
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
+func (s *routeService) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (admission.Grant, *httpapi.APIError) {
 	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{
 		AllowedRoles: admission.RolesMember,
 		Lifecycle:    admission.LifecycleAny,

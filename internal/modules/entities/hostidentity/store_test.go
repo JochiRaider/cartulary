@@ -3,6 +3,7 @@ package hostidentity
 import (
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
@@ -13,6 +14,9 @@ type storePostgresStub struct{ postgres.DB }
 type storeProjectionWriterStub struct{ workbookprojection.Writer }
 type storeProjectionReaderStub struct{ workbookprojection.Reader }
 type storeIdempotencyStub struct{ conflicts.IdempotencyPort }
+type storePublicationStub struct {
+	collaboration.RecordChangedAppender
+}
 
 func TestHostIdentityStoreCompositionRequiresCompleteDependencies_Unit(t *testing.T) {
 	valid := func() StoreDependencies {
@@ -22,6 +26,7 @@ func TestHostIdentityStoreCompositionRequiresCompleteDependencies_Unit(t *testin
 			ProjectionWriter:     storeProjectionWriterStub{},
 			ProjectionReader:     storeProjectionReaderStub{},
 			KeepSavedIdempotency: storeIdempotencyStub{},
+			Collaboration:        storePublicationStub{},
 		}
 	}
 	tests := []struct {
@@ -44,6 +49,10 @@ func TestHostIdentityStoreCompositionRequiresCompleteDependencies_Unit(t *testin
 		{name: "missing KeepSavedIdempotency", dependency: "KeepSavedIdempotency", mutate: func(dependencies *StoreDependencies) { dependencies.KeepSavedIdempotency = nil }},
 		{name: "typed-nil KeepSavedIdempotency", dependency: "KeepSavedIdempotency", mutate: func(dependencies *StoreDependencies) {
 			dependencies.KeepSavedIdempotency = (*storeIdempotencyStub)(nil)
+		}},
+		{name: "missing Collaboration", dependency: "Collaboration", mutate: func(dependencies *StoreDependencies) { dependencies.Collaboration = nil }},
+		{name: "typed-nil Collaboration", dependency: "Collaboration", mutate: func(dependencies *StoreDependencies) {
+			dependencies.Collaboration = (*storePublicationStub)(nil)
 		}},
 	}
 	for _, test := range tests {
@@ -78,6 +87,7 @@ func TestHostIdentityStoreCompositionRequiresCompleteDependencies_Unit(t *testin
 			return ImportDependencies{
 				Revisions:        &revisions.Appender{},
 				ProjectionWriter: storeProjectionWriterStub{},
+				Collaboration:    storePublicationStub{},
 			}
 		}
 		importTests := []struct {
@@ -90,6 +100,10 @@ func TestHostIdentityStoreCompositionRequiresCompleteDependencies_Unit(t *testin
 			{name: "missing ProjectionWriter", dependency: "ProjectionWriter", mutate: func(dependencies *ImportDependencies) { dependencies.ProjectionWriter = nil }},
 			{name: "typed-nil ProjectionWriter", dependency: "ProjectionWriter", mutate: func(dependencies *ImportDependencies) {
 				dependencies.ProjectionWriter = (*storeProjectionWriterStub)(nil)
+			}},
+			{name: "missing Collaboration", dependency: "Collaboration", mutate: func(dependencies *ImportDependencies) { dependencies.Collaboration = nil }},
+			{name: "typed-nil Collaboration", dependency: "Collaboration", mutate: func(dependencies *ImportDependencies) {
+				dependencies.Collaboration = (*storePublicationStub)(nil)
 			}},
 		}
 		for _, test := range importTests {

@@ -79,7 +79,7 @@ var (
 	extensionInputCatalogKeys = stringSet("$schema", "schema_id", "artifacts")
 	extensionInputEntryKeys   = stringSet("path", "schema_id", "owner_id", "artifact_class")
 	extensionArtifactClasses  = stringSet("owner_fragment", "profile_contract", "specification_input", "build_input", "validation_input")
-	wsIndexKeys               = stringSet("$schema", "$id", "title", "description", "type", "additionalProperties", "properties", "required")
+	wsIndexKeys               = stringSet("$schema", "$id", "$defs", "title", "description", "type", "additionalProperties", "properties", "required")
 )
 
 func validateContractInput(familyDir, relativePath string, value any) error {
@@ -1238,6 +1238,9 @@ func validateWSIndex(value any) error {
 		return err
 	}
 	if _, err := requiredString(object, "description", "contracts/ws/index.schema.json"); err != nil {
+		return err
+	}
+	if _, err := asObject(object["$defs"], "contracts/ws/index.schema.json.$defs"); err != nil {
 		return err
 	}
 	if typ, err := requiredString(object, "type", "contracts/ws/index.schema.json"); err != nil {

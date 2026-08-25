@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
 
 func TestAssessmentAssessorMembershipContract_Integration(t *testing.T) {
@@ -379,13 +380,12 @@ func assessmentMembershipEffectCounts(
 		`SELECT count(*) FROM change_sets WHERE incident_id = $1`,
 		`SELECT count(*) FROM change_set_mutations mutation JOIN change_sets change_set USING (change_set_id) WHERE change_set.incident_id = $1`,
 		`SELECT count(*) FROM record_revisions revision JOIN records record USING (record_id) WHERE record.incident_id = $1`,
-		`SELECT count(*) FROM collaboration_event_intents WHERE incident_id = $1`,
 		`SELECT count(*) FROM route_idempotency WHERE route_key = 'assessments.rows.create' AND scope_key = $1`,
 	}
 	counts := assessmentMembershipCounts{}
 	values := []*int{
 		&counts.records, &counts.assessments, &counts.projections, &counts.links,
-		&counts.changeSets, &counts.mutations, &counts.revisions, &counts.intents,
+		&counts.changeSets, &counts.mutations, &counts.revisions,
 		&counts.idempotency,
 	}
 	arguments := []any{harness.incidentID}
@@ -397,6 +397,7 @@ func assessmentMembershipEffectCounts(
 			t.Fatalf("query assessment membership effect %d: %v", index, err)
 		}
 	}
+	counts.intents = collaborationsupport.CountIntents(t, harness.db, collaborationsupport.IntentSelector{IncidentID: harness.incidentID.String()})
 	return counts
 }
 

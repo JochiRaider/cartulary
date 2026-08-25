@@ -111,17 +111,18 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 		return MutationResult{}, err
 	}
 	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-		if err := s.ports.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+		changedFields := entityChangedFieldKeys(beforeRow, afterRow)
+		if err := s.ports.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 			ChangeSetID:    changeSetID,
 			RecordID:       record.RecordID,
 			RowVersion:     record.RowVersion,
 			BeforeSnapshot: beforeSnapshot,
 			AfterSnapshot:  &afterSnapshot,
-			LiveChange: revisions.LiveRecordChange{
-				BeforeValue: beforeRow,
-				AfterValue:  afterRow,
-			},
+			ConflictFacts:  entityRevisionFacts(beforeRow, afterRow, changedFields),
 		}); err != nil {
+			return MutationResult{}, err
+		}
+		if err := s.appendRecordChangedTx(ctx, tx, incidentID, actor.ID, request.ClientTxnID, changeSetID, record.RecordID, record.RowVersion, 0, now, HostsViewSchemaID, afterRow, changedFields); err != nil {
 			return MutationResult{}, err
 		}
 	}
@@ -239,17 +240,18 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		return MutationResult{}, err
 	}
 	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-		if err := s.ports.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+		changedFields := entityChangedFieldKeys(beforeRow, afterRow)
+		if err := s.ports.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 			ChangeSetID:    changeSetID,
 			RecordID:       record.RecordID,
 			RowVersion:     record.RowVersion,
 			BeforeSnapshot: beforeSnapshot,
 			AfterSnapshot:  &afterSnapshot,
-			LiveChange: revisions.LiveRecordChange{
-				BeforeValue: beforeRow,
-				AfterValue:  afterRow,
-			},
+			ConflictFacts:  entityRevisionFacts(beforeRow, afterRow, changedFields),
 		}); err != nil {
+			return MutationResult{}, err
+		}
+		if err := s.appendRecordChangedTx(ctx, tx, incidentID, actor.ID, request.ClientTxnID, changeSetID, record.RecordID, record.RowVersion, 0, now, IdentitiesViewSchemaID, afterRow, changedFields); err != nil {
 			return MutationResult{}, err
 		}
 	}

@@ -10,20 +10,21 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
-	collabscenariotest "github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/scenariotest"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 func TestTwoClientsPresenceReplay_Integration(t *testing.T) {
-	runtime := collabscenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	t.Run("two clients exchange canonical presence and replay in order", func(t *testing.T) {
 		harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-i-6-01-presence-replay")
@@ -75,7 +76,7 @@ func TestTwoClientsPresenceReplay_Integration(t *testing.T) {
 }
 
 func TestIncidentSocketRevocationSources(t *testing.T) {
-	runtime := collabscenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	harness, admin, _, incidentID := setupSocketIncidentWithAdminID(t, runtime, "collaboration-support-socket-revocations")
 
 	logoutUser := flowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-support-socket-logout@example.test", "Collaboration Logout", "CollaborationLogoutPass1!", false, false, true)
@@ -201,7 +202,7 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 }
 
 func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
-	runtime := collabscenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-support-closed-socket")
 
 	initial := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
@@ -299,7 +300,7 @@ func requireClosedIncidentTerminal(t testing.TB, ctx context.Context, conn *wste
 }
 
 func TestResumeReplaysReplayableMessagesOnly_Integration(t *testing.T) {
-	runtime := collabscenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-i-6-02-replayable-only")
 
 	source := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
@@ -347,7 +348,7 @@ func TestResumeReplaysReplayableMessagesOnly_Integration(t *testing.T) {
 }
 
 func TestCookieSocketRejectsUntrustedOrigin_Integration(t *testing.T) {
-	runtime := collabscenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-i-6-04-origin")
 
 	incidentwstest.RequireDialRejectedStatus(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
@@ -366,10 +367,14 @@ func TestCookieSocketRejectsUntrustedOrigin_Integration(t *testing.T) {
 	}
 }
 
-func setupSocketIncidentWithAdminID(t testing.TB, runtime *collabscenariotest.RuntimeHarness, prefix string) (*collabscenariotest.ServerHarness, flowtest.LoginResult, uuid.UUID, string) {
+func setupSocketIncidentWithAdminID(t testing.TB, runtime *appsupport.Runtime, prefix string) (*appsupport.ServerHarness, flowtest.LoginResult, uuid.UUID, string) {
 	t.Helper()
 
-	harness := runtime.StartServer(t, prefix)
+	harness := runtime.StartServer(t, appsupport.ServerOptions{
+		Prefix:        prefix,
+		Dependencies:  httpapi.DependencySet{},
+		TestRouteMode: httptestx.TestRouteModeDisabled,
+	})
 	admin, adminID := flowtest.ProvisionBootstrapAdminUUID(t, harness.Server.HTTP.URL)
 	incident := incidentscenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-" + prefix,
@@ -379,7 +384,7 @@ func setupSocketIncidentWithAdminID(t testing.TB, runtime *collabscenariotest.Ru
 	return harness, admin, adminID, incident["incident_id"].(string)
 }
 
-func publishJobProgress(t testing.TB, harness *collabscenariotest.ServerHarness, incidentID string, jobID string, status string) {
+func publishJobProgress(t testing.TB, harness *appsupport.ServerHarness, incidentID string, jobID string, status string) {
 	t.Helper()
 	_ = jobID
 	_ = status
@@ -418,7 +423,7 @@ SELECT user_id::text
 
 func intPointer(value int) *int { return &value }
 
-func waitForReplayEventCount(t testing.TB, harness *collabscenariotest.ServerHarness, incidentID string, want int) {
+func waitForReplayEventCount(t testing.TB, harness *appsupport.ServerHarness, incidentID string, want int) {
 	t.Helper()
 
 	deadline := time.Now().Add(5 * time.Second)
@@ -441,7 +446,7 @@ SELECT count(*)
 	}
 }
 
-func queryMembershipVersion(t testing.TB, harness *collabscenariotest.ServerHarness, incidentID string, userID string) int64 {
+func queryMembershipVersion(t testing.TB, harness *appsupport.ServerHarness, incidentID string, userID string) int64 {
 	t.Helper()
 
 	var version int64

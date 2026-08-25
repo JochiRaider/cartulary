@@ -46,7 +46,7 @@ type StoreDependencies struct {
 	Links         LinkEffectsPort
 	Timeline      TimelineEffectsPort
 	Projections   workbookprojection.Writer
-	Collaboration collaboration.IntentAppender
+	Collaboration collaboration.RecordChangedAppender
 }
 
 func NewStore(dependencies StoreDependencies) (*Store, error) {

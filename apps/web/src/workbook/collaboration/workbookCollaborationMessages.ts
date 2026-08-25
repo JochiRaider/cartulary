@@ -1,32 +1,16 @@
+import type { IncidentCollaborationMessage } from "../../collaboration/IncidentCollaborationSession";
 import type { SheetRef } from "../../shared/sheetRef";
 import type {
   WorkbookPresenceInput,
   WorkbookPresenceMode,
 } from "../utils/workbookPresence";
 
-export type RecordChangedPayload = {
-  record_id: string;
-  row_version: number;
-  change_set_id: string;
-  client_txn_id: string;
-  actor_user_id: string;
-  changed_field_keys: string[];
-  affected_views: Array<{
-    patch_cells?: {
-      record_id: string;
-      row_version: number;
-      cells: Record<string, { value: unknown }>;
-      group_values?: Record<string, unknown>;
-    };
-    view_schema_id: string;
-    change_kind: string;
-  }>;
-};
+type RecordChangedMessage = Extract<
+  IncidentCollaborationMessage,
+  { type: "record_changed" }
+>;
 
-type CollaborationMessage = {
-  type: string;
-  payload?: unknown;
-};
+export type RecordChangedPayload = RecordChangedMessage["payload"];
 
 export type WorkbookPresenceDraft = {
   readonly fieldKey: string | null;
@@ -84,24 +68,9 @@ export function buildWorkbookPresenceUpdateMessage(
 }
 
 export function isRecordChangedMessage(
-  message: unknown,
-): message is { type: "record_changed"; payload: RecordChangedPayload } {
-  if (!message || typeof message !== "object") {
-    return false;
-  }
-  const candidate = message as CollaborationMessage;
-  if (candidate.type !== "record_changed") {
-    return false;
-  }
-
-  const payload = candidate.payload;
-  if (!payload || typeof payload !== "object") {
-    return false;
-  }
-
-  return (
-    "client_txn_id" in payload && typeof payload.client_txn_id === "string"
-  );
+  message: IncidentCollaborationMessage,
+): message is RecordChangedMessage {
+  return message.type === "record_changed";
 }
 
 export function buildMentionActionPayload(

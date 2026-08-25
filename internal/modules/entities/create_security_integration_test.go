@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 )
 
 func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T) {

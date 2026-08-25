@@ -21,6 +21,7 @@ type CommandServiceDependencies struct {
 	TargetSemantics             *TargetSemanticsCatalog
 	Appender                    *Appender
 	RecordEnvelopes             RecordEnvelopePort
+	RecordPublications          RecordPublicationPort
 	Clock                       func() time.Time
 }
 
@@ -45,6 +46,7 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 		{name: "target semantics", value: dependencies.TargetSemantics},
 		{name: "appender", value: dependencies.Appender},
 		{name: "record envelopes", value: dependencies.RecordEnvelopes},
+		{name: "record publications", value: dependencies.RecordPublications},
 		{name: "clock", value: dependencies.Clock},
 	}
 	for _, check := range checks {
@@ -62,6 +64,7 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 		liveRecords:          dependencies.LiveRecords,
 		deleteRestoreSources: dependencies.DeleteRestoreSources,
 		targetSemantics:      dependencies.TargetSemantics,
+		recordPublications:   dependencies.RecordPublications,
 	}
 	return &CommandService{
 		commands: store,

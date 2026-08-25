@@ -289,20 +289,37 @@ function collaborationDefinitions(wsIndex, expectedMessageTypes) {
   if (!Array.isArray(messages)) {
     throw new Error("collaboration contract is missing messages.default");
   }
-  const definitions = {};
+  const definitions = structuredClone(
+    requireObject(wsIndex.$defs, "collaboration shared definitions"),
+  );
   const schemaIDs = new Map();
   const actualMessageTypes = [];
+  const incidentStreamDefinitionNames = [];
   for (const entry of messages) {
     const type = requireString(entry?.type, "collaboration message type");
     actualMessageTypes.push(type);
     const name = `${pascalCase(type)}Message`;
     const schemaID = `cartulary.ws.${type}.v1`;
+    if (Object.hasOwn(definitions, name)) {
+      throw new Error(`collaboration definition name ${name} is duplicated`);
+    }
+    const serverOriginated = entry.direction === "server_to_client";
+    if (!serverOriginated && entry.direction !== "client_to_server") {
+      throw new Error(`collaboration ${type} has an invalid direction`);
+    }
     definitions[name] = {
       x_schema_id: schemaID,
       type: "object",
-      additionalProperties: true,
+      additionalProperties: serverOriginated,
       properties: {
         type: { const: type },
+        ...(serverOriginated
+          ? {
+              incident_id: { type: "string", minLength: 1 },
+              event_id: { type: "string", minLength: 1 },
+              emitted_at: { type: "string", format: "date-time" },
+            }
+          : {}),
         payload: requireObject(
           entry.payload_schema ?? { type: "object" },
           `collaboration ${type} payload_schema`,
@@ -313,10 +330,17 @@ function collaborationDefinitions(wsIndex, expectedMessageTypes) {
       },
       required: [
         "type",
+        ...(serverOriginated ? ["incident_id", "event_id", "emitted_at"] : []),
         "payload",
         ...(entry.replayable === true ? ["stream_seq"] : []),
       ],
+      ...(serverOriginated && entry.replayable !== true
+        ? { not: { required: ["stream_seq"] } }
+        : {}),
     };
+    if (serverOriginated) {
+      incidentStreamDefinitionNames.push(name);
+    }
     schemaIDs.set(schemaID, name);
   }
   if (
@@ -326,10 +350,210 @@ function collaborationDefinitions(wsIndex, expectedMessageTypes) {
     throw new Error("collaboration entrypoint message types drifted from the WS contract");
   }
   definitions.IncidentStreamMessage = {
-    oneOf: [...schemaIDs.values()].map((name) => ({ $ref: `#/$defs/${name}` })),
+    oneOf: incidentStreamDefinitionNames.map((name) => ({ $ref: `#/$defs/${name}` })),
   };
   schemaIDs.set("cartulary.ws.incident_stream_message.v1", "IncidentStreamMessage");
   return { definitions, schemaIDs };
+}
+
+function collaborationProjectionDescriptor(schema, definitions, stack = []) {
+  if (schema === true || typeof schema === "undefined") {
+    return { kind: "json" };
+  }
+  if (schema === false || !schema || typeof schema !== "object") {
+    throw new Error("collaboration projection schema must be an object or boolean");
+  }
+  if (typeof schema.$ref === "string") {
+    const prefix = "#/$defs/";
+    if (!schema.$ref.startsWith(prefix)) {
+      throw new Error(`unsupported collaboration projection reference ${schema.$ref}`);
+    }
+    const name = schema.$ref.slice(prefix.length);
+    if (stack.includes(name)) {
+      throw new Error(`recursive collaboration projection reference ${name}`);
+    }
+    const definition = definitions[name];
+    if (!definition) {
+      throw new Error(`missing collaboration projection definition ${name}`);
+    }
+    return collaborationProjectionDescriptor(definition, definitions, [...stack, name]);
+  }
+  const union = schema.oneOf ?? schema.anyOf;
+  if (Array.isArray(union)) {
+    return {
+      kind: "union",
+      options: union.map((entry) =>
+        collaborationProjectionDescriptor(entry, definitions, stack),
+      ),
+    };
+  }
+  const types = Array.isArray(schema.type) ? schema.type : [schema.type];
+  if (types.includes("array")) {
+    return {
+      kind: "array",
+      items: collaborationProjectionDescriptor(schema.items, definitions, stack),
+    };
+  }
+  if (
+    types.includes("object") ||
+    schema.properties ||
+    schema.additionalProperties !== undefined
+  ) {
+    if (schema.x_projection === "keyed_map") {
+      return {
+        kind: "map",
+        values: collaborationProjectionDescriptor(
+          schema.additionalProperties,
+          definitions,
+          stack,
+        ),
+      };
+    }
+    if (
+      schema.x_projection !== undefined &&
+      schema.x_projection !== "known_members"
+    ) {
+      throw new Error(`unsupported collaboration x_projection ${schema.x_projection}`);
+    }
+    return {
+      kind: "object",
+      nullable: types.includes("null"),
+      properties: Object.fromEntries(
+        Object.entries(schema.properties ?? {}).map(([name, propertySchema]) => [
+          name,
+          collaborationProjectionDescriptor(propertySchema, definitions, stack),
+        ]),
+      ),
+      required: schema.required ?? [],
+    };
+  }
+  return {
+    kind: "scalar",
+    ...(Object.hasOwn(schema, "const") ? { constant: schema.const } : {}),
+    types: types.filter((type) => typeof type === "string"),
+  };
+}
+
+function collaborationProjectorSource(collaboration) {
+  const descriptors = {};
+  for (const [schemaID, name] of collaboration.schemaIDs) {
+    if (schemaID === "cartulary.ws.incident_stream_message.v1") {
+      continue;
+    }
+    const definition = collaboration.definitions[name];
+    const type = definition?.properties?.type?.const;
+    if (typeof type !== "string") {
+      throw new Error(`collaboration projection ${name} has no type discriminator`);
+    }
+    descriptors[type] = collaborationProjectionDescriptor(
+      definition,
+      collaboration.definitions,
+      [name],
+    );
+  }
+  return `\nconst cartularyCollaborationProjectionDescriptors = ${JSON.stringify(
+    descriptors,
+  )};
+
+function cartularyCloneJSON(value) {
+  if (Array.isArray(value)) {
+    return value.map(cartularyCloneJSON);
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, cartularyCloneJSON(entry)]),
+    );
+  }
+  return value;
+}
+
+function cartularyProjectionMatches(value, descriptor) {
+  if (descriptor.kind === "object") {
+    if (value === null) return descriptor.nullable === true;
+    if (typeof value !== "object" || Array.isArray(value)) return false;
+    if (descriptor.required.some((name) => !Object.hasOwn(value, name))) return false;
+    return Object.entries(descriptor.properties).every(([name, property]) =>
+      !Object.hasOwn(property, "constant") || value[name] === property.constant,
+    );
+  }
+  if (descriptor.kind === "array") return Array.isArray(value);
+  if (descriptor.kind === "map") {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+  if (descriptor.kind === "scalar") {
+    if (Object.hasOwn(descriptor, "constant")) return value === descriptor.constant;
+    return descriptor.types.length === 0 || descriptor.types.some((type) =>
+      type === "null" ? value === null :
+      type === "integer" ? Number.isInteger(value) :
+      type === "number" ? typeof value === "number" :
+      typeof value === type,
+    );
+  }
+  return true;
+}
+
+function cartularyProjectKnownMembers(value, descriptor) {
+  if (descriptor.kind === "json" || descriptor.kind === "scalar") {
+    return cartularyCloneJSON(value);
+  }
+  if (descriptor.kind === "union") {
+    const selected = descriptor.options.find((option) =>
+      cartularyProjectionMatches(value, option),
+    );
+    if (!selected) throw new Error("validated collaboration union has no projection branch");
+    return cartularyProjectKnownMembers(value, selected);
+  }
+  if (descriptor.kind === "array") {
+    return value.map((entry) => cartularyProjectKnownMembers(entry, descriptor.items));
+  }
+  if (descriptor.kind === "map") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [
+        key,
+        cartularyProjectKnownMembers(entry, descriptor.values),
+      ]),
+    );
+  }
+  if (value === null && descriptor.nullable === true) return null;
+  const projected = {};
+  for (const [name, property] of Object.entries(descriptor.properties)) {
+    if (Object.hasOwn(value, name)) {
+      projected[name] = cartularyProjectKnownMembers(value[name], property);
+    }
+  }
+  return projected;
+}
+
+export function projectCartularyWsIncidentStreamMessageV1(value) {
+  const descriptor = cartularyCollaborationProjectionDescriptors[value.type];
+  if (!descriptor) throw new Error("validated collaboration message has no projector");
+  return cartularyProjectKnownMembers(value, descriptor);
+}
+`;
+}
+
+function collaborationProjectedTypeSchema(value) {
+  if (Array.isArray(value)) {
+    return value.map(collaborationProjectedTypeSchema);
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  const projected = Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [
+      key,
+      collaborationProjectedTypeSchema(entry),
+    ]),
+  );
+  const types = Array.isArray(value.type) ? value.type : [value.type];
+  if (
+    value.x_projection !== "keyed_map" &&
+    (types.includes("object") || value.properties)
+  ) {
+    projected.additionalProperties = false;
+  }
+  delete projected.x_projection;
+  return projected;
 }
 
 async function generatedTypes(bundle, rootName) {
@@ -381,6 +605,7 @@ function validatorSource(entries) {
     strictRequired: false,
   });
   ajv.addKeyword("x_schema_id");
+  ajv.addKeyword("x_projection");
   // OpenAPI discriminators are routing metadata. The projected schemas retain
   // their oneOf branches and branch-local const requirements as the executable
   // validation contract, so AJV must accept but need not interpret this keyword.
@@ -920,11 +1145,15 @@ const collaborationBundle = schemaBundle(
   "https://contracts.cartulary.local/generated/collaboration.v1",
   collaboration.definitions,
 );
+const collaborationProjectedTypeBundle = schemaBundle(
+  "https://contracts.cartulary.local/generated/collaboration-projected.v1",
+  collaborationProjectedTypeSchema(collaboration.definitions),
+);
 
 const [networkFlowTypes, coreHTTPTypes, collaborationTypes] = await Promise.all([
   generatedTypes(networkFlowBundle, "NetworkFlowPublicSchemas"),
   generatedTypes(coreHTTPBundle, "CoreHTTPEntrypoints"),
-  generatedTypes(collaborationBundle, "CollaborationMessages"),
+  generatedTypes(collaborationProjectedTypeBundle, "CollaborationMessages"),
 ]);
 
 const descriptor = {
@@ -961,12 +1190,12 @@ writeFilesAtomically([
   },
   {
     path: path.join(generatedRoot, "collaboration-validators.ts"),
-    content: validatorSource([
+    content: `${validatorSource([
       {
         bundle: collaborationBundle,
         publicDefinitions: collaboration.schemaIDs,
       },
-    ]),
+    ])}${collaborationProjectorSource(collaboration)}`,
   },
   {
     path: path.join(generatedRoot, "http-operation-bindings.ts"),

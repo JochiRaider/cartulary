@@ -24,7 +24,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
@@ -180,31 +180,22 @@ INSERT INTO incidents (
 `, incidentID, "operator-collaboration-"+incidentID.String(), actorID, seededAt); err != nil {
 		t.Fatalf("insert collaboration operator incident: %v", err)
 	}
-	intent, err := collaboration.NewEventIntent(
-		"job_progress:operator-collaboration-requeue",
-		incidentID,
-		collaboration.EventFamilyJobProgress,
-		collaboration.NewIncidentJobProgressPayload(
+	intentPayload := collabprotocol.RawPayload(
+		collabprotocol.NewIncidentJobProgressPayload(
 			"operator-collaboration-requeue",
 			incidentID,
-			collaboration.JobStatusQueued,
-			collaboration.JobProgress{Completed: 0},
+			collabprotocol.JobStatusQueued,
+			collabprotocol.JobProgress{Completed: 0},
 			seededAt,
 		),
-		"job:operator-collaboration-requeue",
-		0,
-		seededAt,
 	)
-	if err != nil {
-		t.Fatalf("construct collaboration operator intent: %v", err)
-	}
 	if _, err := db.ExecContext(ctx, `
 INSERT INTO collaboration_event_intents (
     intent_key, incident_id, event_family, canonical_payload, source_identity,
     mutation_ordinal, attempt_count, next_attempt_at, last_error_code,
     created_at, updated_at
 ) VALUES ($1, $2, $3, $4::jsonb, $5, 0, 12, $6, 'invalid_event_payload', $6, $6)
-`, intent.IntentKey, intent.IncidentID, intent.EventFamily, intent.CanonicalPayload, intent.SourceIdentity, seededAt); err != nil {
+`, "job_progress:operator-collaboration-requeue", incidentID, "job_progress", intentPayload, "job:operator-collaboration-requeue", seededAt); err != nil {
 		t.Fatalf("insert collaboration operator intent: %v", err)
 	}
 	if _, err := db.ExecContext(ctx, `
@@ -270,7 +261,7 @@ SELECT cursor.quarantined_at,
   JOIN collaboration_event_intents AS intent
     ON intent.incident_id = cursor.incident_id
  WHERE cursor.incident_id = $1
-`, incidentID, intent.CanonicalPayload).Scan(&quarantinedAt, &attemptCount, &lastErrorCode, &dispatchState, &payloadPreserved, &journalCount, &journalOperation); err != nil {
+`, incidentID, intentPayload).Scan(&quarantinedAt, &attemptCount, &lastErrorCode, &dispatchState, &payloadPreserved, &journalCount, &journalOperation); err != nil {
 		t.Fatalf("load collaboration requeue process state: %v", err)
 	}
 	if quarantinedAt != nil || attemptCount != 0 || lastErrorCode != nil || dispatchState != "pending" ||

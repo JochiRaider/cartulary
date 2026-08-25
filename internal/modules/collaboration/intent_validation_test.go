@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
 )
 
 func TestEventIntentValidatesEveryEventFamily_Unit(t *testing.T) {
@@ -14,10 +14,10 @@ func TestEventIntentValidatesEveryEventFamily_Unit(t *testing.T) {
 	now := time.Date(2026, 7, 28, 5, 0, 0, 0, time.UTC)
 
 	t.Run("job progress", func(t *testing.T) {
-		_, err := collaboration.NewEventIntent(
+		_, err := privatestream.NewEventIntent(
 			"job_progress:invalid",
 			incidentID,
-			collaboration.EventFamilyJobProgress,
+			privatestream.EventFamilyJobProgress,
 			map[string]any{"job_id": "job-invalid"},
 			"job:job-invalid",
 			0,
@@ -26,10 +26,10 @@ func TestEventIntentValidatesEveryEventFamily_Unit(t *testing.T) {
 		if err == nil {
 			t.Fatal("invalid job progress payload was admitted")
 		}
-		_, err = collaboration.NewEventIntent(
+		_, err = privatestream.NewEventIntent(
 			"job_progress:valid",
 			incidentID,
-			collaboration.EventFamilyJobProgress,
+			privatestream.EventFamilyJobProgress,
 			map[string]any{
 				"job_id": "job-valid",
 				"scope": map[string]any{
@@ -51,10 +51,10 @@ func TestEventIntentValidatesEveryEventFamily_Unit(t *testing.T) {
 	})
 
 	t.Run("extension resource change", func(t *testing.T) {
-		_, err := collaboration.NewEventIntent(
+		_, err := privatestream.NewEventIntent(
 			"extension_resource_changed:invalid",
 			incidentID,
-			collaboration.EventFamilyExtensionResourceChange,
+			privatestream.EventFamilyExtensionResourceChange,
 			map[string]any{
 				"extension_profile_id": "network_flow_activity",
 				"resource_kind":        "network_flow_table",
@@ -69,10 +69,10 @@ func TestEventIntentValidatesEveryEventFamily_Unit(t *testing.T) {
 		if err == nil {
 			t.Fatal("invalid extension resource payload was admitted")
 		}
-		_, err = collaboration.NewEventIntent(
+		_, err = privatestream.NewEventIntent(
 			"extension_resource_changed:valid",
 			incidentID,
-			collaboration.EventFamilyExtensionResourceChange,
+			privatestream.EventFamilyExtensionResourceChange,
 			map[string]any{
 				"extension_profile_id": "network_flow_activity",
 				"resource_kind":        "network_flow_table",
@@ -96,10 +96,10 @@ func TestEventIntentValidatesEveryEventFamily_Unit(t *testing.T) {
 	})
 
 	t.Run("record change", func(t *testing.T) {
-		_, err := collaboration.NewEventIntent(
+		_, err := privatestream.NewEventIntent(
 			"record_changed:invalid",
 			incidentID,
-			collaboration.EventFamilyRecordChanged,
+			privatestream.EventFamilyRecordChanged,
 			map[string]any{"not": "a record change"},
 			"record:invalid",
 			0,

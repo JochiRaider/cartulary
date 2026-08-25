@@ -8,10 +8,11 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 )
 
-func (h *Hub) ConfigureTelemetry(serviceVersion string) {
+func (h *hub) ConfigureTelemetry(serviceVersion string) {
 	if h == nil {
 		return
 	}
@@ -35,7 +36,7 @@ func (h *Hub) ConfigureTelemetry(serviceVersion string) {
 	)
 }
 
-func (h *Hub) startEventSend(eventType string) func(result string, dropReason string) {
+func (h *hub) startEventSend(eventType string) func(result string, dropReason string) {
 	ctx, span := telemetry.Tracer(telemetry.ScopeCollaboration, h.telemetryServiceVersion()).Start(
 		context.Background(),
 		"cartulary.collaboration.event_send",
@@ -47,7 +48,7 @@ func (h *Hub) startEventSend(eventType string) func(result string, dropReason st
 	}
 }
 
-func (h *Hub) finishEventSend(ctx context.Context, span trace.Span, eventType string, result string, dropReason string) {
+func (h *hub) finishEventSend(ctx context.Context, span trace.Span, eventType string, result string, dropReason string) {
 	eventType = safeWebSocketEventType(eventType)
 	result = safeWebSocketResult(result)
 	attrs := telemetry.SafeAttributes(
@@ -71,7 +72,7 @@ func (h *Hub) finishEventSend(ctx context.Context, span trace.Span, eventType st
 	counter.Add(ctx, 1, metric.WithAttributes(attrs...))
 }
 
-func (h *Hub) telemetryServiceVersion() string {
+func (h *hub) telemetryServiceVersion() string {
 	if h != nil && h.serviceVersion != "" {
 		return h.serviceVersion
 	}
@@ -79,7 +80,7 @@ func (h *Hub) telemetryServiceVersion() string {
 }
 
 func safeWebSocketEventType(eventType string) string {
-	if IsServerMessageType(eventType) {
+	if protocol.IsServerMessageType(eventType) {
 		return eventType
 	}
 	return "other"

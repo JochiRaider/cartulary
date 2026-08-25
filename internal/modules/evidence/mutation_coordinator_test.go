@@ -171,7 +171,7 @@ func (port coordinatorRevisions) AppendRecordMutationTx(context.Context, pgx.Tx,
 	return nil
 }
 
-func (port coordinatorRevisions) AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error {
+func (port coordinatorRevisions) AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error {
 	*port.events = append(*port.events, "record-revision")
 	return nil
 }
@@ -180,7 +180,7 @@ type coordinatorCollaboration struct {
 	events *[]string
 }
 
-func (port coordinatorCollaboration) AppendIntentTx(context.Context, pgx.Tx, collaboration.EventIntent) error {
+func (port coordinatorCollaboration) AppendRecordChangedTx(context.Context, pgx.Tx, collaboration.RecordChangeIntentInput) error {
 	*port.events = append(*port.events, "collaboration-intent")
 	return nil
 }

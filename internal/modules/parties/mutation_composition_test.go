@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
@@ -174,13 +175,13 @@ func completeMutationDependencies() MutationDependencies {
 	return MutationDependencies{
 		IncidentState: operations, Idempotency: compositionIdempotency{},
 		RecordEnvelopes: operations, Projections: operations, Revisions: operations,
-		ConflictFields: resolver, KeepSaved: compositionKeepSaved{},
+		ConflictFields: resolver, KeepSaved: compositionKeepSaved{}, Collaboration: operations,
 	}
 }
 
 func completeImportDependencies() ImportDependencies {
 	operations := compositionOperations{}
-	return ImportDependencies{RecordEnvelopes: operations, Projections: operations, Revisions: operations}
+	return ImportDependencies{RecordEnvelopes: operations, Projections: operations, Revisions: operations, Collaboration: operations}
 }
 
 type compositionDB struct{}
@@ -245,7 +246,11 @@ func (compositionOperations) AppendChangeSetTx(context.Context, pgx.Tx, revision
 func (compositionOperations) AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error {
 	return nil
 }
-func (compositionOperations) AppendRecordRevisionAndIntentTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error {
+func (compositionOperations) AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error {
+	return nil
+}
+
+func (compositionOperations) AppendRecordChangedTx(context.Context, pgx.Tx, collaboration.RecordChangeIntentInput) error {
 	return nil
 }
 func (compositionOperations) LoadRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]conflicttokens.RevisionWindowRow, error) {

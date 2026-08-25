@@ -25,6 +25,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
@@ -194,7 +195,7 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 	)
 	revisionComposition := revisionsupport.MustComposition(t)
 	appender := revisionComposition.Runtime.Appender()
-	intents := revisionComposition.Intents
+	intents := revisionComposition.Publications
 	projections, err := projectionassembly.Build(storeHarness.DB)
 	if err != nil {
 		t.Fatalf("compose Projections: %v", err)
@@ -228,6 +229,7 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 		RecordEnvelopes: records.NewStore(storeHarness.DB),
 		Projections:     projections.IndicatorPorts().Rows,
 		SourceText:      indicatorassembly.NewSourceTextPort(projections.SourceTextRows()),
+		Collaboration:   intents,
 		Clock:           func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
 	})
 	if err != nil {
@@ -236,7 +238,7 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 	registry, err := importassembly.NewOwnerCreateRegistry(importassembly.OwnerRegistryDependencies{
 		Postgres:                storeHarness.DB,
 		RevisionAppender:        appender,
-		Intents:                 intents,
+		Collaboration:           intents,
 		Timeline:                timelineBundle.Facade,
 		EntityProjections:       projections.EntityPorts().Writer,
 		AssessmentProjections:   projections.AssessmentPorts().Rows,
@@ -441,15 +443,15 @@ func tasksDecisionsImportEffectCounts(t testing.TB, db postgres.DB, incidentID u
 		`SELECT count(*) FROM change_set_mutations mutation JOIN change_sets change_set USING (change_set_id) WHERE change_set.incident_id = $1`,
 		`SELECT count(*) FROM record_revisions revision JOIN records record USING (record_id) WHERE record.incident_id = $1`,
 		`SELECT (SELECT count(*) FROM task_request_grid_projection WHERE incident_id = $1) + (SELECT count(*) FROM decision_grid_projection WHERE incident_id = $1)`,
-		`SELECT count(*) FROM collaboration_event_intents WHERE incident_id = $1`,
 	}
 	values := []*int{}
 	counts := tasksDecisionsImportCounts{}
-	values = append(values, &counts.records, &counts.tasks, &counts.decisions, &counts.changeSets, &counts.mutations, &counts.revisions, &counts.projections, &counts.intents)
+	values = append(values, &counts.records, &counts.tasks, &counts.decisions, &counts.changeSets, &counts.mutations, &counts.revisions, &counts.projections)
 	for index, query := range queries {
 		if err := db.QueryRow(ctx, query, incidentID).Scan(values[index]); err != nil {
 			t.Fatalf("query task/decision import effect %d: %v", index, err)
 		}
 	}
+	counts.intents = collaborationsupport.CountIntents(t, db, collaborationsupport.IntentSelector{IncidentID: incidentID.String()})
 	return counts
 }

@@ -125,17 +125,18 @@ func (s *Application) CreateIndicatorRow(ctx context.Context, actorUserID uuid.U
 		return CreateResult{}, err
 	}
 	if beforeRow == nil || !jsonEqual(beforeRow, afterRow) {
-		if err := s.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+		changedFieldKeys := indicatorChangedFieldKeys(beforeRow, afterRow)
+		if err := s.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 			ChangeSetID:    changeSetID,
 			RecordID:       record.RecordID,
 			RowVersion:     record.RowVersion,
 			BeforeSnapshot: beforeSnapshot,
 			AfterSnapshot:  &afterSnapshot,
-			LiveChange: revisions.LiveRecordChange{
-				BeforeValue: beforeRow,
-				AfterValue:  afterRow,
-			},
+			ConflictFacts:  indicatorRevisionFacts(beforeRow, afterRow, changedFieldKeys),
 		}); err != nil {
+			return CreateResult{}, err
+		}
+		if err := appendIndicatorPublicationTx(ctx, tx, s.publications, incidentID, actorUserID, command.ClientTxnID, changeSetID, record.RecordID, record.RowVersion, 0, now, afterRow, changedFieldKeys); err != nil {
 			return CreateResult{}, err
 		}
 	}

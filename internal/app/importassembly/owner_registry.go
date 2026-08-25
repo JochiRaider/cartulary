@@ -27,7 +27,7 @@ import (
 type OwnerRegistryDependencies struct {
 	Postgres                postgres.DB
 	RevisionAppender        *revisions.Appender
-	Intents                 collaboration.IntentAppender
+	Collaboration           collaboration.RecordChangedAppender
 	Timeline                ownerfacade.ImportOwnerCreateTx
 	EntityProjections       entityprojection.Writer
 	AssessmentProjections   assessmentprojection.Rows
@@ -49,7 +49,7 @@ func NewOwnerCreateRegistry(
 			"compose import owner-create registry: Revisions appender is required",
 		)
 	}
-	if dependencies.Intents == nil {
+	if dependencies.Collaboration == nil {
 		return nil, fmt.Errorf(
 			"compose import owner-create registry: Collaboration intents are required",
 		)
@@ -100,12 +100,14 @@ func NewOwnerCreateRegistry(
 		Links:           links.NewStore(),
 		Projections:     dependencies.TaskDecisionProjections,
 		Revisions:       dependencies.RevisionAppender,
+		Collaboration:   dependencies.Collaboration,
 	}
 	artifactImportDependencies := artifacts.ImportDependencies{
 		RecordEnvelopes: artifactRecordInserter{store: records.NewStore()},
 		ActiveUsers:     artifactActiveUserLookup{},
 		Projections:     artifactProjectionAdapter{rows: dependencies.ArtifactProjections},
 		Revisions:       dependencies.RevisionAppender,
+		Collaboration:   dependencies.Collaboration,
 	}
 
 	facades := make([]ownerfacade.ImportOwnerCreateFacade, 0)
@@ -166,6 +168,7 @@ func newOwnerCreateFacade(
 			dependencies.Postgres,
 			dependencies.AssessmentProjections,
 			dependencies.RevisionAppender,
+			dependencies.Collaboration,
 		)
 	case "module.entities@1":
 		return hostidentity.NewImportCreateFacade(
@@ -174,6 +177,7 @@ func newOwnerCreateFacade(
 			hostidentity.ImportDependencies{
 				Revisions:        dependencies.RevisionAppender,
 				ProjectionWriter: dependencies.EntityProjections,
+				Collaboration:    dependencies.Collaboration,
 			},
 		)
 	case "module.evidence@1":
@@ -212,6 +216,7 @@ func newOwnerCreateFacade(
 				RecordEnvelopes: records.NewStore(),
 				Projections:     dependencies.PartyProjections,
 				Revisions:       dependencies.RevisionAppender,
+				Collaboration:   dependencies.Collaboration,
 			},
 		)
 	case "module.tasksdecisions@1":

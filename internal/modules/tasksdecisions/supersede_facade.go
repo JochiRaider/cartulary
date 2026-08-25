@@ -287,24 +287,32 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 	}); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	sourceFields := changedFieldKeys(beforeSourceRow, afterSourceRow)
+	if err := f.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       sourceRecordID,
 		RowVersion:     sourceVersion,
 		BeforeSnapshot: &beforeSourceSnapshot,
 		AfterSnapshot:  &afterSourceSnapshot,
-		LiveChange:     revisions.LiveRecordChange{BeforeValue: beforeSourceRow, AfterValue: afterSourceRow},
+		ConflictFacts:  taskDecisionRevisionFacts(beforeSourceRow, afterSourceRow, sourceFields),
 	}); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	targetFields := changedFieldKeys(beforeTargetRow, afterTargetRow)
+	if err := f.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       command.TargetRecordID,
 		RowVersion:     targetVersion,
 		BeforeSnapshot: &beforeTargetSnapshot,
 		AfterSnapshot:  &afterTargetSnapshot,
-		LiveChange:     revisions.LiveRecordChange{BeforeValue: beforeTargetRow, AfterValue: afterTargetRow},
+		ConflictFacts:  taskDecisionRevisionFacts(beforeTargetRow, afterTargetRow, targetFields),
 	}); err != nil {
+		return SupersedeMutationResult{}, err
+	}
+	if err := f.appendTaskDecisionRecordChangedTx(ctx, tx, targetMeta.IncidentID, command.ActorUserID, request.ClientTxnID, changeSetID, sourceRecordID, sourceVersion, 0, command.Now, DecisionsViewSchemaID, afterSourceRow, sourceFields); err != nil {
+		return SupersedeMutationResult{}, err
+	}
+	if err := f.appendTaskDecisionRecordChangedTx(ctx, tx, targetMeta.IncidentID, command.ActorUserID, request.ClientTxnID, changeSetID, command.TargetRecordID, targetVersion, 1, command.Now, DecisionsViewSchemaID, afterTargetRow, targetFields); err != nil {
 		return SupersedeMutationResult{}, err
 	}
 
@@ -333,7 +341,7 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       targetVersion,
 		ViewSchemaID:     DecisionsViewSchemaID,
-		ChangedFieldKeys: changedFieldKeys(beforeTargetRow, afterTargetRow),
+		ChangedFieldKeys: targetFields,
 	}
 	sourceChange := SupersedeMutationResult{
 		Row:              afterSourceRow,
@@ -343,7 +351,7 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       sourceVersion,
 		ViewSchemaID:     DecisionsViewSchemaID,
-		ChangedFieldKeys: changedFieldKeys(beforeSourceRow, afterSourceRow),
+		ChangedFieldKeys: sourceFields,
 	}
 	return SupersedeMutationResult{
 		IncidentID:              targetMeta.IncidentID,

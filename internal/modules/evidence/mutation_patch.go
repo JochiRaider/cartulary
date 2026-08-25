@@ -164,17 +164,17 @@ func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	}); err != nil {
 		return MutationResult{}, err
 	}
-	if err := f.revisionAppender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	patchChangedFieldKeys := changedFieldKeys(beforeRow, afterRow)
+	if err := f.revisionAppender.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       command.RecordID,
 		RowVersion:     rowVersion,
 		BeforeSnapshot: &beforeSnapshot,
 		AfterSnapshot:  &afterSnapshot,
-		LiveChange:     revisions.LiveRecordChange{BeforeValue: beforeRow, AfterValue: afterRow},
+		ConflictFacts:  evidenceRevisionFacts(beforeRow, afterRow, patchChangedFieldKeys),
 	}); err != nil {
 		return MutationResult{}, err
 	}
-	patchChangedFieldKeys := changedFieldKeys(beforeRow, afterRow)
 	var affectedChanges []attachRecordChange
 	if slices.Contains(patchChangedFieldKeys, "evidence.lifecycle_state") {
 		affectedChanges, err = refreshEvidenceSupportProjectionsTx(

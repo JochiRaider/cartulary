@@ -163,6 +163,7 @@ The following decisions resolve overloaded or easily-confused language for curre
 | `system view` versus `system` saved view | A system view is a contract-backed workbook surface identified by `view_schema_id`. A `scope='system'` saved view is an implementation-owned saved-view configuration object. | Treating a `system` saved view as the required system view itself. | Core 01 §7.4; Core 03 §2.3 |
 | `view_schema_id` versus visible label | `view_schema_id` is the canonical workbook-surface identity. Visible titles and labels are display hints. | Deriving behavior from tab labels, column labels, visible row order, projection names, or storage names. | Core 01 §3.3.1, §7.4 |
 | Projection versus source state | A workbook projection is a derived read model for workbook query, row refresh, sorting, filtering, and grouping. Source state is the authoritative typed record, link, evidence, history, or admin state. | Mutating projections as source of truth or treating projection corruption as source-state corruption. | Core 01 §8; Core 02 §1, §15 |
+| Collaboration capability versus bounded context | `Collaboration` names the repository implementation/supporting capability for live protocol, publication, durable stream, session effects, and recovery. Presence, save/conflict state, and live-update interaction remain Workbook Interaction language. | Creating a Collaboration domain bounded context, moving presence out of Workbook Interaction, or treating a Go module, WebSocket route, stream table, dispatcher, or recovery command as a domain-language owner. | `docs/decisions/collaboration-module-boundary.md`; Core 01/Core 03; §10 Workbook Interaction |
 | Administrative audit versus incident revision history | Administrative audit is deployment-local administrative evidence for auth, deployment administration, incident-membership administration, import bootstrap, and recovery-operation summaries. Incident revision history is source-state row/version history inside incident data. | Treating `/api/v1/administrative-audit-events` as incident row revision history, exporting it in incident portability bundles, or creating a separate audit bounded context before Core 01/Core 04 widen audit beyond deployment-local admin/auth evidence. | Core 00 §5.1; Core 01 §3.3.5.1A; Core 04 §9.10 |
 | Workbook projection versus graph projection | Workbook projections are Core-owned workbook read models with their own workbook restore rebuilder. Graph projection is a pure graph-oriented derivation subsystem with a distinct catalog-resolved Graph restore participant. | Applying Graph result or restore rules to workbook tables, routes, saved views, `view_row_v1`, or the workbook provider registry; treating workbook rebuild and the Graph participant as aliases. | Core 01 §8, §12.2; Graph Projection NLSpec §9 |
 | Core saved view versus Network Flow saved graph | A Core saved view is workbook query/layout configuration. A Network Flow saved graph is an incident-shared authoritative declaration of a semantic Network Flow graph query and its selected immutable result. | Implementing a saved graph through Core saved-view storage, treating graph layout as declaration authority, or calling a Core saved view a graph view. | Core 03 saved-view owner; Network Flow Activity NLSpec §19.1 |
@@ -204,6 +205,14 @@ An implementation detail MAY appear in `docs/domain.md` only as an implementatio
 | Projection | Workbook projection table or equivalent denormalized read model. | Projection state is disposable and derived, not authoritative source state; graph projection is a separate adopted subsystem and is not workbook authority. |
 | Object blob | Object storage metadata and upload slot. | The object-store key is implementation realization, not public evidence identity. |
 | Import unit | `import_unit`, locator kind, mapping fingerprint. | XLSX worksheet, used range, table, and named range are locator examples, not cross-module semantics. |
+
+The repository's `collaboration` module, protocol package, durable stream,
+dispatcher, and recovery capability are classified as
+`implementation-support`. They realize owner-defined behavior but do not add a
+row to §10. Presence and live save/conflict interaction remain in the Workbook
+Interaction bounded context. A document or code comment using “Collaboration
+bounded context” is terminology drift and MUST be repaired to name either the
+implementation capability or the exact Workbook Interaction behavior.
 
 ### 6.1 Term classification decision tree
 

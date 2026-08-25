@@ -24,7 +24,7 @@ type entityStorePorts struct {
 	links         LinkEffectsPort
 	projections   workbookprojection.Writer
 	timeline      TimelineEffectsPort
-	collaboration collaboration.IntentAppender
+	collaboration collaboration.RecordChangedAppender
 }
 
 type entityRecordPort interface {
@@ -39,7 +39,7 @@ type entityRevisionPort interface {
 	AppendChangeSetTx(context.Context, pgx.Tx, entityChangeSetParams) (uuid.UUID, error)
 	AppendMutationTx(context.Context, pgx.Tx, entityMutationParams) error
 	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
-	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
+	AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error
 }
 
 type AssessmentProtectedSetCommand struct {
@@ -194,8 +194,8 @@ func (a entityRevisionAdapter) AppendRecordMutationTx(ctx context.Context, tx pg
 	return a.appender.AppendRecordMutationTx(ctx, tx, params)
 }
 
-func (a entityRevisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
-	return a.appender.AppendRecordRevisionTx(ctx, tx, params)
+func (a entityRevisionAdapter) AppendLiveRevisionTx(ctx context.Context, tx pgx.Tx, input revisions.LiveRevisionInput) error {
+	return a.appender.AppendLiveRevisionTx(ctx, tx, input)
 }
 
 func mergeMutationsFromAssessmentMutations(mutations []AssessmentMutation) []mergeMutation {

@@ -235,17 +235,21 @@ func (f *MutationFacade) executeCreateTx(
 			return artifactCreateTxResult{}, err
 		}
 	}
-	if err := f.revisions.AppendRecordRevisionAndIntentTx(
+	changedFields := changedFieldKeys(nil, row)
+	if err := f.revisions.AppendLiveRevisionTx(
 		ctx,
 		tx,
-		revisions.AppendRecordRevisionParams{
+		revisions.LiveRevisionInput{
 			ChangeSetID:   changeSetID,
 			RecordID:      recordID,
 			RowVersion:    1,
 			AfterSnapshot: &afterSnapshot,
-			LiveChange:    revisions.LiveRecordChange{AfterValue: row},
+			ConflictFacts: artifactRevisionFacts(nil, row, changedFields),
 		},
 	); err != nil {
+		return artifactCreateTxResult{}, err
+	}
+	if err := f.appendRecordChangedTx(ctx, tx, incidentID, command.ActorUserID, request.ClientTxnID, changeSetID, recordID, 1, 0, now, request.ViewSchemaID, row, changedFields); err != nil {
 		return artifactCreateTxResult{}, err
 	}
 	return artifactCreateTxResult{

@@ -26,6 +26,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	revisiontest "github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -62,8 +63,8 @@ type failAfterRevisionAppendPort struct {
 	err error
 }
 
-func (port failAfterRevisionAppendPort) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
-	if err := port.RevisionPort.AppendRecordRevisionTx(ctx, tx, params); err != nil {
+func (port failAfterRevisionAppendPort) AppendLiveRevisionTx(ctx context.Context, tx pgx.Tx, input revisions.LiveRevisionInput) error {
+	if err := port.RevisionPort.AppendLiveRevisionTx(ctx, tx, input); err != nil {
 		return err
 	}
 	return port.err
@@ -1011,11 +1012,7 @@ UPDATE hosts
 				forced := errors.New("forced auto-match rollback after " + fault.name)
 
 				beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
-				beforeCollaboration := queryCount(t, harness.DB, `
-SELECT COUNT(*)
-  FROM collaboration_event_intents
- WHERE source_record_id::text = $1
-`, recordID)
+				beforeCollaboration := collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{SourceRecordID: recordID})
 
 				facade := timelineFacadeWithCollaboratorMutation(t, harness, func(collaborators *timeline.Collaborators) {
 					fault.mutate(collaborators, forced)
@@ -1107,11 +1104,7 @@ SELECT row_version
 `, recordID); got != 1 {
 					t.Fatalf("rollback must preserve Timeline source row_version=1, got %d", got)
 				}
-				if got := queryCount(t, harness.DB, `
-SELECT COUNT(*)
-  FROM collaboration_event_intents
- WHERE source_record_id::text = $1
-`, recordID); got != beforeCollaboration {
+				if got := collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{SourceRecordID: recordID}); got != beforeCollaboration {
 					t.Fatalf("rollback must preserve collaboration intents: got %d want %d", got, beforeCollaboration)
 				}
 			})

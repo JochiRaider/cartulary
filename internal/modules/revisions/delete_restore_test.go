@@ -18,12 +18,12 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	projectiontest "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -61,17 +61,11 @@ func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 	if !reflect.DeepEqual(gotAdapters, wantAdapters) {
 		t.Fatalf("delete/restore adapter matrix = %#v, want %#v", gotAdapters, wantAdapters)
 	}
-	runtime, err := revisionassembly.Build(
-		revisionassembly.Dependencies{
-			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
-			IntentAppender:         collaboration.NewIntentAppender(),
-		},
-		contributions...,
-	)
+	runtime, err := revisionassembly.Build(contributions...)
 	if err != nil {
 		t.Fatalf("build Revisions runtime: %v", err)
 	}
-	_, err = runtime.NewCommandService(nil, nil, nil, nil, nil)
+	_, err = runtime.NewCommandService(nil, nil, nil, nil, nil, nil)
 	if !errors.Is(err, revisions.ErrInvalidCommandServiceDependency) {
 		t.Fatalf("application composition did not complete every provider catalog before dependency validation: %v", err)
 	}
@@ -463,22 +457,7 @@ func requireSingleRecordChangeIntent(
 	changeKind string,
 ) {
 	t.Helper()
-	if got := countRows(t, db, `
-SELECT count(*)
-  FROM collaboration_event_intents
- WHERE source_change_set_id = $1
-   AND source_record_id = $2
-   AND event_family = 'record_changed'
-   AND canonical_payload -> 'affected_views' -> 0 ->> 'change_kind' = $3
-`, changeSetID, recordID, changeKind); got != 1 {
-		t.Fatalf(
-			"record change intent count for change set %s record %s kind %s = %d, want 1",
-			changeSetID,
-			recordID,
-			changeKind,
-			got,
-		)
-	}
+	collaborationsupport.RequireSingleRecordChangedIntent(t, db, changeSetID, recordID.String(), changeKind)
 }
 
 func seedHostProjection(t testing.TB, db *sql.DB, incidentID uuid.UUID, recordID uuid.UUID) {

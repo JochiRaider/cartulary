@@ -12,7 +12,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
-	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
@@ -118,7 +118,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 		"client_txn_id":    "txn-i-7-01-rollback-link",
 		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": linkRollbackRef},
 	}), http.StatusOK)["data"].(map[string]any)
-	requireRollbackRecordChangesAnyOrder(t, []platformws.RecordChange{
+	requireRollbackRecordChangesAnyOrder(t, []platformws.RecordChangedEvent{
 		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
 		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
 	}, map[uuid.UUID]int64{linkSrc: 2, linkDst: 2}, "cartulary.view.hosts.v1")
@@ -143,7 +143,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 		"client_txn_id":    "txn-i-7-01-rollback-whole-change-set",
 		"target":           map[string]any{"kind": "change_set", "change_set_id": wholeChangeSetID.String()},
 	}), http.StatusOK)["data"].(map[string]any)
-	requireRollbackRecordChangesAnyOrder(t, []platformws.RecordChange{
+	requireRollbackRecordChangesAnyOrder(t, []platformws.RecordChangedEvent{
 		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
 		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
 	}, map[uuid.UUID]int64{wholeLeft: 3, wholeRight: 3}, "cartulary.view.hosts.v1")
@@ -216,7 +216,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 		"client_txn_id":    "txn-i-7-01-rollback-attached-evidence-create",
 		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": attachedCreateRef},
 	}), http.StatusOK)["data"].(map[string]any)
-	requireRollbackRecordChangesByRecord(t, []platformws.RecordChange{
+	requireRollbackRecordChangesByRecord(t, []platformws.RecordChangedEvent{
 		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
 		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
 	}, map[uuid.UUID]rollbackRecordChangeExpectation{
@@ -254,7 +254,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 		"client_txn_id":    "txn-i-7-01-rollback-attached-evidence-delete",
 		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": attachedDeleteRef},
 	}), http.StatusOK)["data"].(map[string]any)
-	requireRollbackRecordChangesByRecord(t, []platformws.RecordChange{
+	requireRollbackRecordChangesByRecord(t, []platformws.RecordChangedEvent{
 		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
 		asserttest.AwaitRecordChange(t, hubChanges, 5*time.Second),
 	}, map[uuid.UUID]rollbackRecordChangeExpectation{
@@ -663,9 +663,10 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 	}
 }
 
-func requireDeleteRestoreRecordChange(t testing.TB, change platformws.RecordChange, recordID uuid.UUID, rowVersion int64, changeKind string, viewSchemaID string) {
+func requireDeleteRestoreRecordChange(t testing.TB, change platformws.RecordChangedEvent, recordID uuid.UUID, rowVersion int64, changeKind string, viewSchemaID string) {
 	t.Helper()
-	if change.RecordID != recordID || change.RowVersion != rowVersion || change.ChangeKind != changeKind || change.ViewSchemaID != viewSchemaID {
+	view := requireSingleAffectedView(t, change)
+	if change.RecordID != recordID || change.RowVersion != rowVersion || view.ChangeKind != changeKind || view.ViewSchemaID != viewSchemaID {
 		t.Fatalf("unexpected record_changed event: %+v", change)
 	}
 	if len(change.ChangedFieldKeys) != 0 {
@@ -681,9 +682,10 @@ func requireDeleteRestoreRecordChange(t testing.TB, change platformws.RecordChan
 	}
 }
 
-func requireRollbackRecordChange(t testing.TB, change platformws.RecordChange, recordID uuid.UUID, rowVersion int64, viewSchemaID string) {
+func requireRollbackRecordChange(t testing.TB, change platformws.RecordChangedEvent, recordID uuid.UUID, rowVersion int64, viewSchemaID string) {
 	t.Helper()
-	if change.RecordID != recordID || change.RowVersion != rowVersion || change.ChangeKind != "invalidate" || change.ViewSchemaID != viewSchemaID {
+	view := requireSingleAffectedView(t, change)
+	if change.RecordID != recordID || change.RowVersion != rowVersion || view.ChangeKind != "invalidate" || view.ViewSchemaID != viewSchemaID {
 		t.Fatalf("unexpected rollback record_changed event: %+v", change)
 	}
 	payload := platformws.RecordChangePayload(change)
@@ -696,7 +698,7 @@ func requireRollbackRecordChange(t testing.TB, change platformws.RecordChange, r
 	}
 }
 
-func requireRollbackRecordChangesAnyOrder(t testing.TB, changes []platformws.RecordChange, expected map[uuid.UUID]int64, viewSchemaID string) {
+func requireRollbackRecordChangesAnyOrder(t testing.TB, changes []platformws.RecordChangedEvent, expected map[uuid.UUID]int64, viewSchemaID string) {
 	t.Helper()
 	seen := map[uuid.UUID]bool{}
 	for _, change := range changes {
@@ -718,7 +720,7 @@ type rollbackRecordChangeExpectation struct {
 	changedFieldKeys []string
 }
 
-func requireRollbackRecordChangesByRecord(t testing.TB, changes []platformws.RecordChange, expected map[uuid.UUID]rollbackRecordChangeExpectation) {
+func requireRollbackRecordChangesByRecord(t testing.TB, changes []platformws.RecordChangedEvent, expected map[uuid.UUID]rollbackRecordChangeExpectation) {
 	t.Helper()
 	seen := map[uuid.UUID]bool{}
 	for _, change := range changes {
@@ -726,7 +728,8 @@ func requireRollbackRecordChangesByRecord(t testing.TB, changes []platformws.Rec
 		if !ok {
 			t.Fatalf("unexpected rollback changed record: %+v", change)
 		}
-		if change.RowVersion != want.rowVersion || change.ChangeKind != "invalidate" || change.ViewSchemaID != want.viewSchemaID {
+		view := requireSingleAffectedView(t, change)
+		if change.RowVersion != want.rowVersion || view.ChangeKind != "invalidate" || view.ViewSchemaID != want.viewSchemaID {
 			t.Fatalf("unexpected rollback record_changed event: got %+v want row_version=%d view_schema_id=%s", change, want.rowVersion, want.viewSchemaID)
 		}
 		if !slices.Equal(change.ChangedFieldKeys, want.changedFieldKeys) {
@@ -745,6 +748,14 @@ func requireRollbackRecordChangesByRecord(t testing.TB, changes []platformws.Rec
 	if len(seen) != len(expected) {
 		t.Fatalf("rollback changed records got %v want %v", seen, expected)
 	}
+}
+
+func requireSingleAffectedView(t testing.TB, change platformws.RecordChangedEvent) platformws.RecordChangedView {
+	t.Helper()
+	if len(change.AffectedViews) != 1 {
+		t.Fatalf("record_changed affected views = %#v, want one", change.AffectedViews)
+	}
+	return change.AffectedViews[0]
 }
 
 func requireHostState(t testing.TB, db *sql.DB, recordID uuid.UUID, wantState string, wantMergedInto *uuid.UUID, wantRowVersion int64, wantFQDN string) {

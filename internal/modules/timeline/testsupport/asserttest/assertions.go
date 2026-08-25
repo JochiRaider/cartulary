@@ -12,9 +12,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/versionid"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
 
 type rowScanner interface {
@@ -28,13 +29,15 @@ type rows interface {
 }
 
 type Database struct {
-	queryRow func(context.Context, string, ...any) rowScanner
-	query    func(context.Context, string, ...any) (rows, error)
-	close    func(rows)
+	queryRow        func(context.Context, string, ...any) rowScanner
+	query           func(context.Context, string, ...any) (rows, error)
+	close           func(rows)
+	collaborationDB any
 }
 
 func SQLDatabase(db *sql.DB) Database {
 	return Database{
+		collaborationDB: db,
 		queryRow: func(ctx context.Context, query string, args ...any) rowScanner {
 			return db.QueryRowContext(ctx, query, args...)
 		},
@@ -47,6 +50,7 @@ func SQLDatabase(db *sql.DB) Database {
 
 func PostgresDatabase(db postgres.DB) Database {
 	return Database{
+		collaborationDB: db,
 		queryRow: func(ctx context.Context, query string, args ...any) rowScanner {
 			return db.QueryRow(ctx, query, args...)
 		},
@@ -115,22 +119,7 @@ func RowVersion(value int64) *int64 {
 // tailers independently deliver the committed replay log to their own hubs.
 func AwaitIncidentStreamIdle(t testing.TB, db Database, incidentID string) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		pending := queryCount(t, db, `
-SELECT COUNT(*)
- FROM collaboration_event_intents
- WHERE incident_id::text = $1
-   AND dispatch_state = 'pending'
-`, incidentID)
-		if pending == 0 {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("collaboration stream for incident %s did not become idle; pending=%d", incidentID, pending)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	collaborationsupport.AwaitIncidentStreamIdle(t, db.collaborationDB, incidentID, 5*time.Second)
 }
 
 func SnapshotCounters(t testing.TB, db Database, incidentID string, recordID string) Counters {
@@ -309,7 +298,7 @@ WHERE record_id::text = $1
 	return row
 }
 
-func AwaitRecordChange(t testing.TB, messages <-chan platformws.Message, timeout time.Duration) platformws.RecordChange {
+func AwaitRecordChange(t testing.TB, messages <-chan platformws.Message, timeout time.Duration) platformws.RecordChangedEvent {
 	t.Helper()
 
 	if timeout <= 0 {
@@ -333,7 +322,7 @@ func AwaitRecordChange(t testing.TB, messages <-chan platformws.Message, timeout
 			return change
 		case <-deadline:
 			t.Fatal("timed out waiting for record change")
-			return platformws.RecordChange{}
+			return platformws.RecordChangedEvent{}
 		}
 	}
 }

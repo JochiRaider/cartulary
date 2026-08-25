@@ -22,7 +22,9 @@ type mergeProjectionWriterStub struct {
 
 type mergeStorePostgresStub struct{ postgres.DB }
 type mergeTimelineEffectsStub struct{ TimelineEffectsPort }
-type mergeCollaborationStub struct{ collaboration.IntentAppender }
+type mergeCollaborationStub struct {
+	collaboration.RecordChangedAppender
+}
 type mergeAssessmentEffectsStub struct{ AssessmentEffectsPort }
 
 func TestMergeStoreCompositionRequiresCompleteDependencies_Unit(t *testing.T) {

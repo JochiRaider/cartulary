@@ -45,10 +45,10 @@ func (commandServiceTestProjection) LoadRowTx(context.Context, pgx.Tx, string, u
 	return nil, pgx.ErrNoRows
 }
 
-type commandServiceTestHistoricalPolicy struct{}
+type commandServiceTestPublications struct{}
 
-func (commandServiceTestHistoricalPolicy) IsSuppressedTx(context.Context, pgx.Tx) (bool, error) {
-	return false, nil
+func (commandServiceTestPublications) AppendRecordChangedTx(context.Context, pgx.Tx, RecordPublicationEffect) error {
+	return nil
 }
 
 type commandServiceTestAuthorizer struct{}
@@ -154,12 +154,10 @@ func validCommandServiceDependencies(t testing.TB) CommandServiceDependencies {
 		LiveRecords:                 commandServiceTestProjection{},
 		DeleteRestoreSources:        deleteRestoreSources,
 		TargetSemantics:             targetSemantics,
-		Appender: &Appender{
-			recordViews:      &RecordViewCatalog{},
-			historicalPolicy: commandServiceTestHistoricalPolicy{},
-		},
-		RecordEnvelopes: commandServiceTestEnvelopes{},
-		Clock:           func() time.Time { return time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC) },
+		Appender:                    &Appender{},
+		RecordEnvelopes:             commandServiceTestEnvelopes{},
+		RecordPublications:          commandServiceTestPublications{},
+		Clock:                       func() time.Time { return time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC) },
 	}
 }
 

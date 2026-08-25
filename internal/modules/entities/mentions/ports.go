@@ -37,7 +37,7 @@ type StoreDependencies struct {
 	Links         LinkOperationsPort
 	Projections   workbookprojection.Writer
 	Timeline      TimelineEffectsPort
-	Collaboration collaboration.IntentAppender
+	Collaboration collaboration.RecordChangedAppender
 }
 
 func NewStore(dependencies StoreDependencies) (*Store, error) {
@@ -89,7 +89,7 @@ type storePorts struct {
 	links         LinkOperationsPort
 	projections   workbookprojection.Writer
 	timeline      TimelineEffectsPort
-	collaboration collaboration.IntentAppender
+	collaboration collaboration.RecordChangedAppender
 }
 
 type recordPort interface {
@@ -101,7 +101,7 @@ type revisionPort interface {
 	AppendChangeSetTx(context.Context, pgx.Tx, changeSetParams) (uuid.UUID, error)
 	AppendMutationTx(context.Context, pgx.Tx, mutationParams) error
 	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
-	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
+	AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error
 }
 
 type LinkOperationsPort interface {
@@ -204,8 +204,8 @@ func (a revisionAdapter) AppendRecordMutationTx(ctx context.Context, tx pgx.Tx, 
 	return a.appender.AppendRecordMutationTx(ctx, tx, params)
 }
 
-func (a revisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
-	return a.appender.AppendRecordRevisionTx(ctx, tx, params)
+func (a revisionAdapter) AppendLiveRevisionTx(ctx context.Context, tx pgx.Tx, input revisions.LiveRevisionInput) error {
+	return a.appender.AppendLiveRevisionTx(ctx, tx, input)
 }
 
 func decodeStoredResponse(data []byte) (map[string]any, error) {

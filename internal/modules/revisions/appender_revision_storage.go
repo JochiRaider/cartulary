@@ -4,14 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 )
 
-func (*Appender) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params AppendRecordRevisionParams) error {
+func (*Appender) AppendLiveRevisionTx(ctx context.Context, tx pgx.Tx, params LiveRevisionInput) error {
 	beforeValue, afterValue, err := recordSnapshotPair(params.RecordID, params.BeforeSnapshot, params.AfterSnapshot)
 	if err != nil {
 		return err
@@ -26,9 +26,9 @@ func (*Appender) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params A
 	if err != nil {
 		return err
 	}
-	facts, err := recordRevisionConflictFacts(params.LiveChange)
+	facts, err := canonicalRevisionConflictFacts(params.ConflictFacts)
 	if err != nil {
-		return fmt.Errorf("derive record revision conflict facts: %w", err)
+		return fmt.Errorf("validate record revision conflict facts: %w", err)
 	}
 	for _, fact := range facts {
 		beforeValue, err := revisionConflictFactValue(fact.BeforeValue, fact.BeforePresent)
@@ -54,6 +54,21 @@ VALUES ($1, $2, $3, $4, $5, $6)
 		}
 	}
 	return nil
+}
+
+func (*Appender) AppendHistoricalRevisionTx(ctx context.Context, tx pgx.Tx, params HistoricalRevisionInput) error {
+	beforeValue, afterValue, err := recordSnapshotPair(params.RecordID, params.BeforeSnapshot, params.AfterSnapshot)
+	if err != nil {
+		return err
+	}
+	_, err = appendRecordRevisionValuesTx(ctx, tx, appendRecordRevisionValuesParams{
+		ChangeSetID: params.ChangeSetID,
+		RecordID:    params.RecordID,
+		RowVersion:  params.RowVersion,
+		BeforeValue: beforeValue,
+		AfterValue:  afterValue,
+	})
+	return err
 }
 
 type appendRecordRevisionValuesParams struct {
@@ -82,14 +97,6 @@ RETURNING revision_id
 	return revisionID, nil
 }
 
-type recordRevisionConflictFact struct {
-	FieldKey      string
-	BeforePresent bool
-	BeforeValue   any
-	AfterPresent  bool
-	AfterValue    any
-}
-
 func revisionConflictFactValue(value any, present bool) (any, error) {
 	if !present {
 		return nil, nil
@@ -101,78 +108,18 @@ func revisionConflictFactValue(value any, present bool) (any, error) {
 	return payload, nil
 }
 
-func recordRevisionConflictFacts(change LiveRecordChange) ([]recordRevisionConflictFact, error) {
-	beforeRow, err := collaborationRow(change.BeforeValue)
-	if err != nil {
-		return nil, err
-	}
-	afterRow, err := collaborationRow(change.AfterValue)
-	if err != nil {
-		return nil, err
-	}
-	changedFieldKeys, err := collaboration.ChangedCellKeys(beforeRow, afterRow)
-	if err != nil {
-		return nil, err
-	}
-	beforeCells, err := revisionConflictCells(beforeRow)
-	if err != nil {
-		return nil, err
-	}
-	afterCells, err := revisionConflictCells(afterRow)
-	if err != nil {
-		return nil, err
-	}
-	facts := make([]recordRevisionConflictFact, 0, len(changedFieldKeys))
-	for _, fieldKey := range changedFieldKeys {
-		beforeValue, beforePresent := beforeCells[fieldKey]
-		afterValue, afterPresent := afterCells[fieldKey]
-		facts = append(facts, recordRevisionConflictFact{
-			FieldKey:      fieldKey,
-			BeforePresent: beforePresent,
-			BeforeValue:   beforeValue,
-			AfterPresent:  afterPresent,
-			AfterValue:    afterValue,
-		})
+func canonicalRevisionConflictFacts(input []RevisionConflictFact) ([]RevisionConflictFact, error) {
+	facts := append([]RevisionConflictFact(nil), input...)
+	slices.SortFunc(facts, func(left RevisionConflictFact, right RevisionConflictFact) int {
+		return strings.Compare(left.FieldKey, right.FieldKey)
+	})
+	for index, fact := range facts {
+		if strings.TrimSpace(fact.FieldKey) == "" || fact.FieldKey != strings.TrimSpace(fact.FieldKey) {
+			return nil, fmt.Errorf("field key %q is invalid", fact.FieldKey)
+		}
+		if index > 0 && facts[index-1].FieldKey == fact.FieldKey {
+			return nil, fmt.Errorf("field key %q is duplicated", fact.FieldKey)
+		}
 	}
 	return facts, nil
-}
-
-func revisionConflictCells(row map[string]any) (map[string]any, error) {
-	if row == nil || row["cells"] == nil {
-		return map[string]any{}, nil
-	}
-	cells, ok := row["cells"].(map[string]any)
-	if ok {
-		return cells, nil
-	}
-	encoded, err := json.Marshal(row["cells"])
-	if err != nil {
-		return nil, err
-	}
-	var decoded map[string]any
-	if err := json.Unmarshal(encoded, &decoded); err != nil {
-		return nil, err
-	}
-	if decoded == nil {
-		decoded = map[string]any{}
-	}
-	return decoded, nil
-}
-
-func collaborationRow(value any) (map[string]any, error) {
-	if value == nil {
-		return nil, nil
-	}
-	if row, ok := value.(map[string]any); ok {
-		return row, nil
-	}
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		return nil, err
-	}
-	var row map[string]any
-	if err := json.Unmarshal(encoded, &row); err != nil {
-		return nil, err
-	}
-	return row, nil
 }

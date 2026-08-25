@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/intenttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -72,17 +73,15 @@ INSERT INTO extension_job_commit_proofs (
 `, specialID, "expiry-proof-"+specialID.String(), cutoff); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `
-INSERT INTO collaboration_event_intents (
-    intent_key, incident_id, event_family, canonical_payload, source_identity,
-    mutation_ordinal, next_attempt_at, created_at, updated_at
-) VALUES (
-    $1, $2, 'job_progress', '{"status":"succeeded"}', $3,
-    0, $4::timestamptz - interval '7 days', $4::timestamptz - interval '7 days', $4::timestamptz - interval '7 days'
-)
-`, "expiry-intent-"+specialID.String(), incidentID, "job:"+specialID.String(), cutoff); err != nil {
-		t.Fatal(err)
-	}
+	intenttest.InsertLegacyJobProgressV1(
+		t,
+		pool,
+		"expiry-intent-"+specialID.String(),
+		incidentID,
+		[]byte(`{"status":"succeeded"}`),
+		"job:"+specialID.String(),
+		cutoff.Add(-7*24*time.Hour),
+	)
 	if _, err := pool.Exec(ctx, `
 INSERT INTO jobs (
     scope_kind, status, cancelable, submitted_by_user_id, submitted_at, updated_at,
@@ -183,9 +182,7 @@ SELECT job_kind, progress_unit_id, handler_name, extension_owner_profile_id, sta
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM extension_job_commit_proofs WHERE job_id = $1`, specialID).Scan(&proofCount); err != nil {
 		t.Fatal(err)
 	}
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM collaboration_event_intents WHERE source_identity = $1`, "job:"+specialID.String()).Scan(&eventCount); err != nil {
-		t.Fatal(err)
-	}
+	eventCount = intenttest.CountBySourceIdentity(t, pool, "job:"+specialID.String())
 	if proofCount != 1 || eventCount != 1 {
 		t.Fatalf("compaction changed proof/event rows: proof=%d event=%d", proofCount, eventCount)
 	}

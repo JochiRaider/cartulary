@@ -70,6 +70,17 @@ export type TimelineWebSocketMock = {
 
 const timelineWebSockets: TimelineWebSocketMock[] = [];
 const recordChangedSequenceBySocket = new WeakMap<object, number>();
+let timelineServerEventOrdinal = 0;
+
+function timelineServerMessage(message: Record<string, unknown>) {
+  timelineServerEventOrdinal += 1;
+  return {
+    emitted_at: "2026-07-13T12:00:00Z",
+    event_id: `timeline-event-${timelineServerEventOrdinal}`,
+    incident_id: "10000000-0000-4000-8000-000000000001",
+    ...message,
+  };
+}
 
 type TimelineRowOptions = {
   recordId: string;
@@ -114,21 +125,13 @@ type RecordChangedPayloadOptions = {
   changeSetId?: string;
   actorUserId?: string;
   changedFieldKeys?: string[];
-  affectedViews?: Array<{
-    patch_cells?: {
-      record_id: string;
-      row_version: number;
-      cells: Record<string, { value: unknown }>;
-      group_values?: Record<string, unknown>;
-    };
-    view_schema_id: string;
-    change_kind: string;
-  }>;
+  affectedViews?: RecordChangedPayload["affected_views"];
 };
 
 export function installTimelineWorkbookTestGlobals(): TimelineWorkbookFetchMock {
   const fetchMock = vi.fn();
   timelineWebSockets.splice(0);
+  timelineServerEventOrdinal = 0;
   vi.stubGlobal("fetch", fetchMock);
   vi.stubGlobal(
     "WebSocket",
@@ -156,7 +159,7 @@ export function installTimelineWorkbookTestGlobals(): TimelineWorkbookFetchMock 
       emit(message: Record<string, unknown>) {
         this.onmessage?.(
           new MessageEvent("message", {
-            data: JSON.stringify(message),
+            data: JSON.stringify(timelineServerMessage(message)),
           }),
         );
       }
@@ -495,11 +498,13 @@ export function emitRecordChanged(
   recordChangedSequenceBySocket.set(socket, streamSequence);
   socket?.onmessage?.(
     new MessageEvent("message", {
-      data: JSON.stringify({
-        type: "record_changed",
-        stream_seq: streamSequence,
-        payload,
-      }),
+      data: JSON.stringify(
+        timelineServerMessage({
+          type: "record_changed",
+          stream_seq: streamSequence,
+          payload,
+        }),
+      ),
     }),
   );
 }

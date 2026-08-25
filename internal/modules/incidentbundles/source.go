@@ -42,13 +42,6 @@ type importer struct {
 	finalizer         importfinalizerport.Finalizer
 	projectionRebuild ImportProjectionRebuilder
 	sourceCatalog     sourcePortCatalog
-	historicalIntents HistoricalIntentPolicy
-}
-
-// HistoricalIntentPolicy suppresses reconstructed collaboration history while
-// an imported incident is being projected.
-type HistoricalIntentPolicy interface {
-	SuppressTx(context.Context, pgx.Tx) error
 }
 
 type builtIncidentBundle struct {
@@ -399,12 +392,6 @@ func (i importer) prepareImport(ctx context.Context, verified verifiedBundle, pa
 func (i importer) applyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared *preparedImport, params importParams) (uuid.UUID, error) {
 	if tx == nil || prepared == nil || prepared.IncidentID == uuid.Nil {
 		return uuid.UUID{}, errors.New("prepared incident bundle import is required")
-	}
-	if i.historicalIntents == nil {
-		return uuid.UUID{}, errors.New("incident bundle historical intent policy is required")
-	}
-	if err := i.historicalIntents.SuppressTx(ctx, tx); err != nil {
-		return uuid.UUID{}, err
 	}
 	revisionSequenceOriginalNext, err := revisions.BeginIncidentBundleImportedRevisionSequenceTx(ctx, tx)
 	if err != nil {

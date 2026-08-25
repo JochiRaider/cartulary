@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/timelinefactassembly"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
@@ -38,7 +39,7 @@ type Dependencies struct {
 	Postgres            postgres.DB
 	ConflictTokens      conflicttokens.ConflictTokenCodec
 	Revisions           *revisions.Appender
-	Collaboration       collaboration.IntentAppender
+	Collaboration       collaboration.RecordChangedAppender
 	EvidenceAttachments evidence.TimelineAttachmentContribution
 	TimelineProjection  workbookprojection.Writer
 	EntityProjection    entityprojection.Writer
@@ -187,27 +188,35 @@ func compose(dependencies Dependencies) (composition, error) {
 }
 
 type collaborationAdapter struct {
-	appender collaboration.IntentAppender
+	appender collaboration.RecordChangedAppender
 }
 
 func (a collaborationAdapter) AppendRecordChangeIntentTx(ctx context.Context, tx pgx.Tx, params timeline.RecordChangeIntentParams) error {
-	intent, err := collaboration.NewRecordChangeIntent(collaboration.RecordChange{
-		IncidentID:       params.IncidentID,
-		RecordID:         params.RecordID,
-		RowVersion:       params.RowVersion,
-		ChangeSetID:      params.ChangeSetID,
-		ClientTxnID:      params.ClientTxnID,
-		ActorUserID:      params.ActorUserID,
-		ChangedFieldKeys: params.ChangedFieldKeys,
-		ViewSchemaID:     params.ViewSchemaID,
-		ChangeKind:       params.ChangeKind,
-		Row:              params.Row,
-		PatchCells:       params.PatchCells,
-	}, params.MutationOrdinal, params.CreatedAt)
-	if err != nil {
-		return err
+	changeKind := params.ChangeKind
+	patch := params.PatchCells
+	if patch == nil && params.Row != nil && changeKind == "" {
+		patch = collabprotocol.BuildViewRowPatch(params.Row, params.ChangedFieldKeys)
 	}
-	return a.appender.AppendIntentTx(ctx, tx, intent)
+	if patch != nil {
+		changeKind = "patch"
+	} else if changeKind == "" {
+		changeKind = "invalidate"
+	}
+	return a.appender.AppendRecordChangedTx(ctx, tx, collaboration.RecordChangeIntentInput{
+		IncidentID:      params.IncidentID,
+		RecordID:        params.RecordID,
+		ChangeSetID:     params.ChangeSetID,
+		ActorUserID:     params.ActorUserID,
+		RowVersion:      params.RowVersion,
+		ClientTxnID:     params.ClientTxnID,
+		MutationOrdinal: params.MutationOrdinal,
+		CreatedAt:       params.CreatedAt,
+		PublicFieldKeys: params.ChangedFieldKeys,
+		AffectedViews: []collaboration.AffectedViewChange{{
+			ViewSchemaID: params.ViewSchemaID, RecordID: params.RecordID, RowVersion: params.RowVersion,
+			ChangeKind: changeKind, PatchCells: patch,
+		}},
+	})
 }
 
 type idempotencyAdapter struct {
@@ -318,8 +327,8 @@ func (a revisionAdapter) AppendRecordMutationTx(ctx context.Context, tx pgx.Tx, 
 	return a.appender.AppendRecordMutationTx(ctx, tx, params)
 }
 
-func (a revisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
-	return a.appender.AppendRecordRevisionTx(ctx, tx, params)
+func (a revisionAdapter) AppendLiveRevisionTx(ctx context.Context, tx pgx.Tx, input revisions.LiveRevisionInput) error {
+	return a.appender.AppendLiveRevisionTx(ctx, tx, input)
 }
 
 func (a revisionAdapter) ListRecordRevisionWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, firstVersion int64, lastVersion int64) ([]timeline.RecordRevisionWindowEntry, error) {

@@ -1093,7 +1093,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-474`, `AC-480..AC-486`, `AC-545..AC-549`, `AC-551`, `AC-554..AC-556`, `AC-558..AC-562`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-474`, `AC-480..AC-486`, `AC-545..AC-549`, `AC-551`, `AC-554..AC-556`, `AC-558..AC-562`, `AC-564`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -1754,6 +1754,34 @@ These criteria provide direct runtime-family verification for substantive base-p
   visible state; public and retained diagnostics expose only the safe Party
   source family and selected invariant.
   - Verifies: REQ-01-635..REQ-01-646, REQ-01-668, REQ-01-670, REQ-02-271
+
+- **AC-564**: Collaboration boundary evidence proves that exactly one root
+  runtime facade and one server-facing route registrar own Collaboration
+  construction and lifecycle; concrete transport remains in Platform; and
+  route/hub orchestration, stream persistence, dispatcher process mechanics,
+  and recovery persistence remain separate owner-private responsibilities.
+  Every live source-owner and Revisions-owned destructive path supplies
+  explicit source-semantic `RevisionConflictFact` values and independently
+  derived catalog-admitted public record-change effects through separate
+  consumer-owned ports in one borrowed transaction. Historical reconstruction
+  supplies neither live facts nor public effects. The immutable application
+  catalog rejects incomplete, duplicate, unknown, typed-nil, cross-owner, and
+  invalid public field, view, or patch contributions before serving. Failure
+  injection proves source state, current envelope, revision/private facts,
+  projection effects, exactly one record-change intent, and idempotency result
+  are atomic; replay and post-commit dispatcher/response failure do not repeat
+  effects. Static and negative-runtime evidence rejects a Revisions-to-
+  Collaboration or Collaboration-to-Revisions import/representation path,
+  whole-row diff, projection-as-source inference, broad source-owner event
+  intent, combined revision/publication operation, retired constructor,
+  forwarding alias, direct ordinary cross-owner Collaboration SQL, stale test
+  support path, incomplete catalog, or lifecycle escape. Stream, replay,
+  recovery, Operator, source-owner, application, socket, browser, harness,
+  boundary, generated-state, security, and broad checks preserve every adopted
+  public route, WebSocket family, CLI, storage schema, portability,
+  authorization, and telemetry contract.
+  - Verifies: REQ-00-075, REQ-01-267, REQ-01-271A, REQ-02-204,
+    REQ-02-216..REQ-02-218, REQ-03-066, REQ-03-075
 
 ### 9.1B Network Flow Activity Extension Profile criteria
 

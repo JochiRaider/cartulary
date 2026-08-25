@@ -34,7 +34,7 @@ func TestOwnerCreateRegistryComposesEveryCurrentViewTarget(t *testing.T) {
 	registry, err := NewOwnerCreateRegistry(OwnerRegistryDependencies{
 		Postgres:                inertOwnerRegistryDB{},
 		RevisionAppender:        &revisions.Appender{},
-		Intents:                 inertIntentAppender{},
+		Collaboration:           inertIntentAppender{},
 		Timeline:                inertTimelineFacade(),
 		EntityProjections:       inertEntityProjectionWriter{},
 		AssessmentProjections:   inertAssessmentProjectionRows{},
@@ -129,7 +129,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			name: "postgres",
 			deps: OwnerRegistryDependencies{
 				RevisionAppender:        &revisions.Appender{},
-				Intents:                 inertIntentAppender{},
+				Collaboration:           inertIntentAppender{},
 				Timeline:                inertTimelineFacade(),
 				EntityProjections:       inertEntityProjectionWriter{},
 				AssessmentProjections:   inertAssessmentProjectionRows{},
@@ -144,7 +144,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			name: "revisions",
 			deps: OwnerRegistryDependencies{
 				Postgres:                inertOwnerRegistryDB{},
-				Intents:                 inertIntentAppender{},
+				Collaboration:           inertIntentAppender{},
 				Timeline:                inertTimelineFacade(),
 				EntityProjections:       inertEntityProjectionWriter{},
 				AssessmentProjections:   inertAssessmentProjectionRows{},
@@ -175,7 +175,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			deps: OwnerRegistryDependencies{
 				Postgres:                inertOwnerRegistryDB{},
 				RevisionAppender:        &revisions.Appender{},
-				Intents:                 inertIntentAppender{},
+				Collaboration:           inertIntentAppender{},
 				EntityProjections:       inertEntityProjectionWriter{},
 				AssessmentProjections:   inertAssessmentProjectionRows{},
 				ArtifactProjections:     inertArtifactProjectionRows{},
@@ -190,7 +190,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			deps: OwnerRegistryDependencies{
 				Postgres:                inertOwnerRegistryDB{},
 				RevisionAppender:        &revisions.Appender{},
-				Intents:                 inertIntentAppender{},
+				Collaboration:           inertIntentAppender{},
 				Timeline:                inertTimelineFacade(),
 				AssessmentProjections:   inertAssessmentProjectionRows{},
 				ArtifactProjections:     inertArtifactProjectionRows{},
@@ -205,7 +205,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			deps: OwnerRegistryDependencies{
 				Postgres:                inertOwnerRegistryDB{},
 				RevisionAppender:        &revisions.Appender{},
-				Intents:                 inertIntentAppender{},
+				Collaboration:           inertIntentAppender{},
 				Timeline:                inertTimelineFacade(),
 				EntityProjections:       inertEntityProjectionWriter{},
 				ArtifactProjections:     inertArtifactProjectionRows{},
@@ -220,7 +220,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			deps: OwnerRegistryDependencies{
 				Postgres:                inertOwnerRegistryDB{},
 				RevisionAppender:        &revisions.Appender{},
-				Intents:                 inertIntentAppender{},
+				Collaboration:           inertIntentAppender{},
 				Timeline:                inertTimelineFacade(),
 				EntityProjections:       inertEntityProjectionWriter{},
 				AssessmentProjections:   inertAssessmentProjectionRows{},
@@ -235,7 +235,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			deps: OwnerRegistryDependencies{
 				Postgres:                inertOwnerRegistryDB{},
 				RevisionAppender:        &revisions.Appender{},
-				Intents:                 inertIntentAppender{},
+				Collaboration:           inertIntentAppender{},
 				Timeline:                inertTimelineFacade(),
 				EntityProjections:       inertEntityProjectionWriter{},
 				AssessmentProjections:   inertAssessmentProjectionRows{},
@@ -250,7 +250,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			deps: OwnerRegistryDependencies{
 				Postgres:                inertOwnerRegistryDB{},
 				RevisionAppender:        &revisions.Appender{},
-				Intents:                 inertIntentAppender{},
+				Collaboration:           inertIntentAppender{},
 				Timeline:                inertTimelineFacade(),
 				EntityProjections:       inertEntityProjectionWriter{},
 				AssessmentProjections:   inertAssessmentProjectionRows{},
@@ -265,7 +265,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			deps: OwnerRegistryDependencies{
 				Postgres:              inertOwnerRegistryDB{},
 				RevisionAppender:      &revisions.Appender{},
-				Intents:               inertIntentAppender{},
+				Collaboration:         inertIntentAppender{},
 				Timeline:              inertTimelineFacade(),
 				EntityProjections:     inertEntityProjectionWriter{},
 				AssessmentProjections: inertAssessmentProjectionRows{},
@@ -280,7 +280,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			deps: OwnerRegistryDependencies{
 				Postgres:                inertOwnerRegistryDB{},
 				RevisionAppender:        &revisions.Appender{},
-				Intents:                 inertIntentAppender{},
+				Collaboration:           inertIntentAppender{},
 				Timeline:                inertTimelineFacade(),
 				EntityProjections:       inertEntityProjectionWriter{},
 				AssessmentProjections:   inertAssessmentProjectionRows{},
@@ -340,6 +340,7 @@ func inertIndicatorOwner() *indicators.Application {
 		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(inertOwnerRegistryDB{})),
 		IncidentState:   admission.NewChecker(inertOwnerRegistryDB{}),
 		Revisions:       &revisions.Appender{},
+		Collaboration:   inertIntentAppender{},
 		RecordEnvelopes: inertIndicatorRecordEnvelopes{},
 		Projections:     inertIndicatorProjectionRows{},
 		SourceText:      inertIndicatorSourceText{},
@@ -411,10 +412,10 @@ func (inertOwnerRegistryDB) BeginTx(
 
 type inertIntentAppender struct{}
 
-func (inertIntentAppender) AppendIntentTx(
+func (inertIntentAppender) AppendRecordChangedTx(
 	context.Context,
 	pgx.Tx,
-	collaboration.EventIntent,
+	collaboration.RecordChangeIntentInput,
 ) error {
 	panic("owner registry construction must not append intents")
 }

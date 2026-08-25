@@ -16,6 +16,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
@@ -51,6 +52,7 @@ func TestArtifactLinkedNoteAtomicity(t *testing.T) {
 		revisionsupport.MustAppender(t),
 		conflictFields,
 		appsupport.ArtifactProjectionRows(harness.DB),
+		collaborationsupport.NewPublicationAppender(),
 	)
 	if err != nil {
 		t.Fatalf("compose Artifacts mutation facade: %v", err)

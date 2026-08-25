@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 )
 
@@ -545,11 +546,11 @@ func requireDecisionSupersessionChangeSetEffects(t testing.TB, db interface {
 	if err := db.QueryRow(context.Background(), `
 SELECT
     (SELECT count(*) FROM change_sets WHERE change_set_id = $1),
-    (SELECT count(*) FROM record_revisions WHERE change_set_id = $1),
-    (SELECT count(*) FROM collaboration_event_intents WHERE source_change_set_id = $1)
-`, changeSetID).Scan(&effects.changeSets, &effects.revisions, &effects.intents); err != nil {
+    (SELECT count(*) FROM record_revisions WHERE change_set_id = $1)
+`, changeSetID).Scan(&effects.changeSets, &effects.revisions); err != nil {
 		t.Fatalf("query decision supersession change-set effects: %v", err)
 	}
+	effects.intents = collaborationsupport.CountIntents(t, db, collaborationsupport.IntentSelector{SourceChangeSetID: changeSetID.String()})
 	if effects != (decisionSupersessionEffects{changeSets: 1, revisions: 2, intents: 2}) {
 		t.Fatalf("decision supersession change-set effects = %+v; want one change set, two revisions, and two intents", effects)
 	}
@@ -565,11 +566,11 @@ SELECT
     (SELECT count(*) FROM change_sets WHERE incident_id = $1),
     (SELECT count(*) FROM record_revisions revision
        JOIN records record USING (record_id)
-      WHERE record.incident_id = $1),
-    (SELECT count(*) FROM collaboration_event_intents WHERE incident_id = $1)
-`, incidentID).Scan(&effects.changeSets, &effects.revisions, &effects.intents); err != nil {
+      WHERE record.incident_id = $1)
+`, incidentID).Scan(&effects.changeSets, &effects.revisions); err != nil {
 		t.Fatalf("query decision supersession incident effects: %v", err)
 	}
+	effects.intents = collaborationsupport.CountIntents(t, db, collaborationsupport.IntentSelector{IncidentID: incidentID.String()})
 	return effects
 }
 

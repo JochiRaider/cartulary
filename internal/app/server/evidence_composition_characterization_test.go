@@ -18,7 +18,7 @@ func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 		"handler":                      {},
 		"stagedJanitor":                {},
 		"jobRunner":                    {},
-		"collaborationDispatcher":      {},
+		"collaborationRuntime":         {},
 		"evidenceCleanupDispatcher":    {},
 		"networkFlowCleanupDispatcher": {},
 		"processLease":                 {},

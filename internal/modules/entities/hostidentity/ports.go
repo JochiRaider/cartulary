@@ -29,7 +29,7 @@ type entityRevisionPort interface {
 	AppendChangeSetTx(context.Context, pgx.Tx, entityChangeSetParams) (uuid.UUID, error)
 	AppendMutationTx(context.Context, pgx.Tx, entityMutationParams) error
 	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
-	AppendRecordRevisionAndIntentTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
+	AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error
 }
 
 type entityChangeSetParams struct {
@@ -113,6 +113,6 @@ func (a entityRevisionAdapter) AppendRecordMutationTx(ctx context.Context, tx pg
 	return a.appender.AppendRecordMutationTx(ctx, tx, params)
 }
 
-func (a entityRevisionAdapter) AppendRecordRevisionAndIntentTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
-	return a.appender.AppendRecordRevisionAndIntentTx(ctx, tx, params)
+func (a entityRevisionAdapter) AppendLiveRevisionTx(ctx context.Context, tx pgx.Tx, input revisions.LiveRevisionInput) error {
+	return a.appender.AppendLiveRevisionTx(ctx, tx, input)
 }

@@ -66,7 +66,7 @@ type collaborationExecutor struct {
 }
 
 func newCollaborationRecoveryPort(db postgres.DB) collaborationRecoveryPort {
-	return collaboration.NewRecoveryService(db)
+	return collaboration.NewRecoveryCapability(db)
 }
 
 func (executor collaborationExecutor) runCommand(ctx context.Context, args []string) int {

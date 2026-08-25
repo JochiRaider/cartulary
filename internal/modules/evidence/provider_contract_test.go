@@ -10,13 +10,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
 
 func TestModuleEvidenceProviderContributionClosure(t *testing.T) {
@@ -111,7 +111,7 @@ func TestEvidenceServiceConstructionRejectsIncompleteDependencies(t *testing.T) 
 		Revisions:      &revisions.Appender{},
 		Projections:    constructionProjectionRows{},
 		SupportEffects: constructionSupportEffects{},
-		Collaboration:  collaboration.NewIntentAppender(),
+		Collaboration:  collaborationsupport.NewPublicationAppender(),
 	}
 	tests := []struct {
 		name   string
@@ -175,7 +175,7 @@ func TestEvidenceOwnerRuntimeRejectsIncompleteDependencies(t *testing.T) {
 		Postgres:            constructionDB{},
 		ConflictTokens:      &codec,
 		Revisions:           &revisions.Appender{},
-		Collaboration:       collaboration.NewIntentAppender(),
+		Collaboration:       collaborationsupport.NewPublicationAppender(),
 		ObjectStore:         constructionObjectStore{},
 		ConflictFields:      constructionConflictFields{},
 		ConflictIdempotency: constructionConflictIdempotency{},

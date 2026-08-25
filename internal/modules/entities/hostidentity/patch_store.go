@@ -295,17 +295,17 @@ func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.
 			return PatchMutationResult{}, err
 		}
 	}
-	if err := s.ports.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	if err := s.ports.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       recordID,
 		RowVersion:     rowVersion,
 		BeforeSnapshot: beforeSnapshot,
 		AfterSnapshot:  &afterSnapshot,
-		LiveChange: revisions.LiveRecordChange{
-			BeforeValue: beforeRow,
-			AfterValue:  afterRow,
-		},
+		ConflictFacts:  entityRevisionFacts(beforeRow, afterRow, changedFields),
 	}); err != nil {
+		return PatchMutationResult{}, err
+	}
+	if err := s.appendRecordChangedTx(ctx, tx, incidentID, actor.ID, request.ClientTxnID, changeSetID, recordID, rowVersion, 0, now, request.ViewSchemaID, afterRow, changedFields); err != nil {
 		return PatchMutationResult{}, err
 	}
 

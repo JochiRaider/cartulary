@@ -20,15 +20,6 @@
       "rationale": "Auth bootstrap, flow, route, and store helpers for auth-owned tests."
     },
     {
-      "path": "internal/modules/collaboration/testsupport",
-      "owner": "collaboration",
-      "posture": "owner_local",
-      "runtime_scan": "excluded",
-      "support_scan": "included",
-      "service_starting": true,
-      "rationale": "Collaboration scenario and incident WebSocket lifecycle helpers."
-    },
-    {
       "path": "internal/modules/entities/hostidentity/testsupport",
       "owner": "entities.hostidentity",
       "posture": "owner_local",

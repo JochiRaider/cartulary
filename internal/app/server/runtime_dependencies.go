@@ -24,7 +24,7 @@ type runtimeDependencies struct {
 	ensureSchemaReady              func(context.Context, *pgxpool.Pool, *database_migrations.Source) error
 	setupObjectStore               func(context.Context, objectstore.Settings, objectstore.Instrumentation) (objectstore.Store, error)
 	runBootstrap                   func(context.Context, bootstrap.Settings, *pgxpool.Pool) error
-	newCollaborationHub            func() *collaboration.Hub
+	newCollaborationRuntime        func(collaboration.Options) (*collaboration.Runtime, error)
 	newHTTPHandler                 func(...httpapi.Options) (http.Handler, error)
 	readSecureFile                 secureDocumentReader
 	acquireApplicationProcessLease func(context.Context, *pgxpool.Pool, time.Duration, time.Duration) (*processlease.ApplicationProcessLease, error)
@@ -40,7 +40,7 @@ func productionRuntimeDependencies() runtimeDependencies {
 		ensureSchemaReady:              database_migrations.EnsureSchemaReady,
 		setupObjectStore:               objectstore.Setup,
 		runBootstrap:                   bootstrap.Preflight,
-		newCollaborationHub:            collaboration.NewHub,
+		newCollaborationRuntime:        collaboration.NewRuntime,
 		newHTTPHandler:                 httpapi.NewHandler,
 		readSecureFile:                 securefile.Read,
 		acquireApplicationProcessLease: processlease.AcquireApplicationProcess,

@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	partysource "github.com/JochiRaider/cartulary/internal/modules/parties/internal/source"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -29,6 +30,7 @@ type MutationFacade struct {
 	conflictFields    conflicttokens.FieldResolver
 	conflictSnapshots conflicttokens.RevisionSnapshotProjector
 	keepSaved         KeepSavedCapability
+	publications      collaboration.RecordChangedAppender
 }
 
 type CreateCommand struct {
@@ -131,6 +133,7 @@ func NewMutationContribution(
 		conflictFields:    dependencies.ConflictFields,
 		conflictSnapshots: conflictSnapshots,
 		keepSaved:         dependencies.KeepSaved,
+		publications:      dependencies.Collaboration,
 	}, nil
 }
 
@@ -229,16 +232,19 @@ func (f *MutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 	}); err != nil {
 		return MutationResult{}, err
 	}
-	if err := f.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	changedFields := changedFieldKeys(nil, row)
+	if err := f.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:   changeSetID,
 		RecordID:      recordID,
 		RowVersion:    1,
 		AfterSnapshot: &afterSnapshot,
-		LiveChange:    revisions.LiveRecordChange{AfterValue: row},
+		ConflictFacts: partyRevisionFacts(nil, row, changedFields),
 	}); err != nil {
 		return MutationResult{}, err
 	}
-	changedFields := changedFieldKeys(nil, row)
+	if err := f.appendPartyRecordChangedTx(ctx, tx, command.IncidentID, command.ActorUserID, request.clientTxnID, changeSetID, recordID, 1, command.Now, row, changedFields); err != nil {
+		return MutationResult{}, err
+	}
 	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, request.requestHash[:], NewStoredCreateResult(StoredRowMutationResult{
 		Outcome: MutationCreated, ViewSchemaID: ViewSchemaID, IncidentID: command.IncidentID,
 		RecordID: recordID, ChangeSetID: changeSetID, RowVersion: 1,
@@ -476,20 +482,20 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	}); err != nil {
 		return MutationResult{}, err
 	}
-	if err := f.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	changedFields := changedFieldKeys(beforeRow, afterRow)
+	if err := f.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       command.RecordID,
 		RowVersion:     rowVersion,
 		BeforeSnapshot: &beforeSnapshot,
 		AfterSnapshot:  &afterSnapshot,
-		LiveChange: revisions.LiveRecordChange{
-			BeforeValue: beforeRow,
-			AfterValue:  afterRow,
-		},
+		ConflictFacts:  partyRevisionFacts(beforeRow, afterRow, changedFields),
 	}); err != nil {
 		return MutationResult{}, err
 	}
-	changedFields := changedFieldKeys(beforeRow, afterRow)
+	if err := f.appendPartyRecordChangedTx(ctx, tx, meta.IncidentID, command.ActorUserID, request.clientTxnID, changeSetID, command.RecordID, rowVersion, command.Now, afterRow, changedFields); err != nil {
+		return MutationResult{}, err
+	}
 	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, request.requestHash[:], NewStoredPatchResult(StoredRowMutationResult{
 		Outcome: MutationUpdated, ViewSchemaID: ViewSchemaID, IncidentID: meta.IncidentID,
 		RecordID: command.RecordID, ChangeSetID: changeSetID, RowVersion: rowVersion,

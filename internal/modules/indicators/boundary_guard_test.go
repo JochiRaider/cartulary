@@ -21,6 +21,13 @@ func assertIndicatorsProductionImportBoundaries(t testing.TB) {
 	t.Helper()
 
 	allowedSiblingImports := map[string]map[string]bool{
+		indicatorsRepoImportPrefix + "internal/modules/collaboration": {
+			"application.go":        true,
+			"child_coordination.go": true,
+		},
+		indicatorsRepoImportPrefix + "internal/modules/collaboration/protocol": {
+			"child_coordination.go": true,
+		},
 		indicatorsRepoImportPrefix + "internal/modules/indicators": {
 			"create.go":   true,
 			"decoding.go": true,

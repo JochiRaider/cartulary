@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/parties/internal/policy"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
@@ -21,7 +22,8 @@ type ImportRecordEnvelopeCapability interface {
 type ImportDependencies struct {
 	RecordEnvelopes ImportRecordEnvelopeCapability
 	Projections     partyprojection.Rows
-	Revisions       ownerfacade.RecordRevisionAndIntentAppender
+	Revisions       ownerfacade.LiveRecordRevisionAppender
+	Collaboration   collaboration.RecordChangedAppender
 }
 
 func (d ImportDependencies) validate() error {
@@ -33,6 +35,9 @@ func (d ImportDependencies) validate() error {
 	}
 	if nilDependency(d.Revisions) {
 		return fmt.Errorf("parties import dependencies: Revision finalization is required")
+	}
+	if nilDependency(d.Collaboration) {
+		return fmt.Errorf("parties import dependencies: Collaboration publication is required")
 	}
 	return nil
 }
@@ -106,10 +111,10 @@ func (o *importOwner) CreateImportRowTx(
 		operation = "create"
 		createdOrReused = "created"
 	}
-	return ownerfacade.FinalizeRecordRevisionAndIntentTx(ctx, tx, o.dependencies.Revisions, ownerfacade.FinalizeCommand{
+	return ownerfacade.FinalizeLiveRecordTx(ctx, tx, o.dependencies.Revisions, o.dependencies.Collaboration, ownerfacade.FinalizeCommand{
 		Request: request, ChangeSetID: command.ChangeSetID, SequenceNo: command.SequenceNo,
 		RecordID: created.recordID, Operation: operation, CreatedOrReused: createdOrReused,
-		OwnerResultCode: createdOrReused, Row: row,
+		OwnerResultCode: createdOrReused, Row: row, CreatedAt: command.Now,
 	})
 }
 

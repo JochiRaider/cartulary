@@ -1,4 +1,4 @@
-package collaboration_test
+package collaboration
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 )
 
 func TestRecordChangeIntentBuildsSortedCompactPatch(t *testing.T) {
@@ -17,24 +17,33 @@ func TestRecordChangeIntentBuildsSortedCompactPatch(t *testing.T) {
 func testRecordChangeIntentBuildsSortedCompactPatch(t *testing.T) {
 	changeSetID := uuid.New()
 	recordID := uuid.New()
-	intent, err := collaboration.NewRecordChangeIntent(collaboration.RecordChange{
-		IncidentID:       uuid.New(),
-		RecordID:         recordID,
-		RowVersion:       3,
-		ChangeSetID:      changeSetID,
-		ClientTxnID:      "txn-publisher",
-		ActorUserID:      uuid.New(),
-		ChangedFieldKeys: []string{"note.body", "note.title", "note.body"},
-		ViewSchemaID:     "cartulary.view.notes.v1",
-		Row: map[string]any{
-			"record_id":   recordID.String(),
-			"row_version": int64(3),
-			"cells": map[string]any{
-				"note.title": map[string]any{"value": "Title"},
-				"note.body":  map[string]any{"value": "Body"},
-			},
+	catalog, err := NewPublicationCatalog([]PublicationContribution{{
+		ContributionID: "test.record-change", SourceOwnerID: "test", RecordTypes: []string{"test"},
+		AffectedViews: []ViewPublicationContribution{
+			{ViewSchemaID: "cartulary.view.notes.v1", PublicFieldKeys: []string{"note.body", "note.title"}, PatchFieldKeys: []string{"note.body", "note.title"}},
+			{ViewSchemaID: "cartulary.view.hosts.v1", PublicFieldKeys: []string{"host.evidence_count"}, PatchFieldKeys: []string{"host.evidence_count"}},
+			{ViewSchemaID: "cartulary.view.timeline.v2", PublicFieldKeys: []string{"timeline.evidence_count"}, PatchFieldKeys: []string{"timeline.evidence_count"}},
 		},
-	}, 2, time.Date(2026, time.July, 26, 12, 0, 0, 0, time.UTC))
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	appender := &publicationAppender{catalog: catalog}
+	patch := collabprotocol.BuildViewRowPatch(map[string]any{
+		"record_id": recordID.String(), "row_version": int64(3),
+		"cells": map[string]any{"note.title": map[string]any{"value": "Title"}, "note.body": map[string]any{"value": "Body"}},
+	}, []string{"note.body", "note.title"})
+	intent, err := appender.recordChangedIntent(RecordChangeIntentInput{
+		IncidentID:      uuid.New(),
+		RecordID:        recordID,
+		RowVersion:      3,
+		ChangeSetID:     changeSetID,
+		ClientTxnID:     "txn-publisher",
+		ActorUserID:     uuid.New(),
+		PublicFieldKeys: []string{"note.body", "note.title", "note.body"},
+		AffectedViews:   []AffectedViewChange{{ViewSchemaID: "cartulary.view.notes.v1", RecordID: recordID, RowVersion: 3, ChangeKind: "patch", PatchCells: patch}},
+		MutationOrdinal: 2, CreatedAt: time.Date(2026, time.July, 26, 12, 0, 0, 0, time.UTC),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,28 +63,29 @@ func testRecordChangeIntentBuildsSortedCompactPatch(t *testing.T) {
 		t.Fatalf("changed keys = %#v want %#v", got, want)
 	}
 	affectedViews := payload["affected_views"].([]any)
-	patch := affectedViews[0].(map[string]any)["patch_cells"].(map[string]any)
-	cells := patch["cells"].(map[string]any)
+	decodedPatch := affectedViews[0].(map[string]any)["patch_cells"].(map[string]any)
+	cells := decodedPatch["cells"].(map[string]any)
 	if cells["note.title"].(map[string]any)["value"] != "Title" {
-		t.Fatalf("missing note.title patch: %#v", patch)
+		t.Fatalf("missing note.title patch: %#v", decodedPatch)
 	}
 	if cells["note.body"].(map[string]any)["value"] != "Body" {
-		t.Fatalf("missing note.body patch: %#v", patch)
+		t.Fatalf("missing note.body patch: %#v", decodedPatch)
 	}
 
-	multiViewIntent, err := collaboration.NewRecordChangeIntent(collaboration.RecordChange{
-		IncidentID:       uuid.New(),
-		RecordID:         recordID,
-		RowVersion:       4,
-		ChangeSetID:      changeSetID,
-		ClientTxnID:      "txn-multi-view",
-		ActorUserID:      uuid.New(),
-		ChangedFieldKeys: []string{"host.evidence_count", "timeline.evidence_count"},
-		AffectedViews: []collaboration.AffectedViewChange{
-			{ViewSchemaID: "cartulary.view.timeline.v2", ChangeKind: "invalidate"},
-			{ViewSchemaID: "cartulary.view.hosts.v1", ChangeKind: "invalidate"},
+	multiViewIntent, err := appender.recordChangedIntent(RecordChangeIntentInput{
+		IncidentID:      uuid.New(),
+		RecordID:        recordID,
+		RowVersion:      4,
+		ChangeSetID:     changeSetID,
+		ClientTxnID:     "txn-multi-view",
+		ActorUserID:     uuid.New(),
+		PublicFieldKeys: []string{"host.evidence_count", "timeline.evidence_count"},
+		AffectedViews: []AffectedViewChange{
+			{ViewSchemaID: "cartulary.view.timeline.v2", RecordID: recordID, RowVersion: 4, ChangeKind: "invalidate"},
+			{ViewSchemaID: "cartulary.view.hosts.v1", RecordID: recordID, RowVersion: 4, ChangeKind: "invalidate"},
 		},
-	}, 3, time.Date(2026, time.July, 26, 12, 1, 0, 0, time.UTC))
+		MutationOrdinal: 3, CreatedAt: time.Date(2026, time.July, 26, 12, 1, 0, 0, time.UTC),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +100,7 @@ func testRecordChangeIntentBuildsSortedCompactPatch(t *testing.T) {
 		t.Fatalf("multi-view intent order = %#v", multiViews)
 	}
 	streamSeq := int64(11)
-	parsed, err := collaboration.RecordChangeFromSequencedMessage(collaboration.Message{
+	parsed, err := collabprotocol.RecordChangeFromSequencedMessage(collabprotocol.Message{
 		Type:       "record_changed",
 		IncidentID: "",
 		EventID:    uuid.NewString(),
@@ -103,13 +113,13 @@ func testRecordChangeIntentBuildsSortedCompactPatch(t *testing.T) {
 	}
 
 	incidentID := uuid.New()
-	parsed, err = collaboration.RecordChangeFromSequencedMessage(collaboration.Message{
+	parsed, err = collabprotocol.RecordChangeFromSequencedMessage(collabprotocol.Message{
 		Type:       "record_changed",
 		IncidentID: incidentID.String(),
 		EventID:    uuid.NewString(),
 		EmittedAt:  time.Date(2026, time.July, 26, 12, 1, 1, 0, time.UTC).Format(time.RFC3339Nano),
 		StreamSeq:  &streamSeq,
-		Payload:    collaboration.RawPayload(multiPayload),
+		Payload:    collabprotocol.RawPayload(multiPayload),
 	})
 	if err != nil {
 		t.Fatalf("parse canonical multi-view message: %v", err)
@@ -118,17 +128,18 @@ func testRecordChangeIntentBuildsSortedCompactPatch(t *testing.T) {
 		t.Fatalf("parsed multi-view changes = %#v", parsed.AffectedViews)
 	}
 
-	_, err = collaboration.NewRecordChangeIntent(collaboration.RecordChange{
+	_, err = appender.recordChangedIntent(RecordChangeIntentInput{
 		IncidentID:  uuid.New(),
 		RecordID:    recordID,
 		RowVersion:  5,
 		ChangeSetID: changeSetID,
 		ActorUserID: uuid.New(),
-		AffectedViews: []collaboration.AffectedViewChange{
-			{ViewSchemaID: "cartulary.view.hosts.v1", ChangeKind: "invalidate"},
-			{ViewSchemaID: "cartulary.view.hosts.v1", ChangeKind: "invalidate"},
+		AffectedViews: []AffectedViewChange{
+			{ViewSchemaID: "cartulary.view.hosts.v1", RecordID: recordID, RowVersion: 5, ChangeKind: "invalidate"},
+			{ViewSchemaID: "cartulary.view.hosts.v1", RecordID: recordID, RowVersion: 5, ChangeKind: "invalidate"},
 		},
-	}, 4, time.Date(2026, time.July, 26, 12, 2, 0, 0, time.UTC))
+		MutationOrdinal: 4, CreatedAt: time.Date(2026, time.July, 26, 12, 2, 0, 0, time.UTC),
+	})
 	if err == nil {
 		t.Fatal("duplicate affected views must be rejected")
 	}

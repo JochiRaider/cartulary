@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -33,7 +34,7 @@ type ImportLinkCapability interface {
 }
 
 type ImportRevisionCapability interface {
-	ownerfacade.RecordRevisionAndIntentAppender
+	ownerfacade.LiveRecordRevisionAppender
 	AppendNonRowMutationTx(context.Context, pgx.Tx, revisions.AppendNonRowMutationParams) error
 }
 
@@ -42,6 +43,7 @@ type ImportDependencies struct {
 	Links           ImportLinkCapability
 	Projections     taskdecisionprojection.Rows
 	Revisions       ImportRevisionCapability
+	Collaboration   collaboration.RecordChangedAppender
 }
 
 func (d ImportDependencies) validate() error {
@@ -56,6 +58,9 @@ func (d ImportDependencies) validate() error {
 	}
 	if d.Revisions == nil {
 		return fmt.Errorf("tasks/decisions import dependencies: Revision finalization is required")
+	}
+	if d.Collaboration == nil {
+		return fmt.Errorf("tasks/decisions import dependencies: Collaboration publication is required")
 	}
 	return nil
 }
@@ -179,7 +184,7 @@ func (o *importOwner) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, comman
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	response, err := ownerfacade.FinalizeRecordRevisionAndIntentTx(ctx, tx, o.dependencies.Revisions, ownerfacade.FinalizeCommand{
+	response, err := ownerfacade.FinalizeLiveRecordTx(ctx, tx, o.dependencies.Revisions, o.dependencies.Collaboration, ownerfacade.FinalizeCommand{
 		Request:         command.Request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      firstSequence,
@@ -188,6 +193,7 @@ func (o *importOwner) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, comman
 		CreatedOrReused: "created",
 		OwnerResultCode: "created",
 		Row:             row,
+		CreatedAt:       command.Now,
 	})
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err

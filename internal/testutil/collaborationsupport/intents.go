@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 const TestJobKind = "test_platform.generic_v1"
@@ -103,11 +105,45 @@ func TestWorkerRuntimeContracts(definitions []jobs.Definition) []jobs.WorkerRunt
 // IntentAdapters supplies the same narrow source-to-Collaboration translation
 // used by application composition to service-backed tests.
 type IntentAdapters struct {
-	appender collaboration.IntentAppender
+	appender collaboration.PublicationAppender
 }
 
 func NewIntentAdapters() IntentAdapters {
-	return IntentAdapters{appender: collaboration.NewIntentAppender()}
+	return IntentAdapters{appender: NewPublicationAppender()}
+}
+
+// NewPublicationAppender builds the same complete, immutable disclosure
+// catalog used by application composition for service-backed tests.
+func NewPublicationAppender() collaboration.PublicationAppender {
+	resources := viewschema.ListPublicResources()
+	views := make([]collaboration.ViewPublicationContribution, 0, len(resources))
+	for _, resource := range resources {
+		fieldKeys := make([]string, 0, len(resource.Fields))
+		for _, field := range resource.Fields {
+			fieldKeys = append(fieldKeys, field.FieldKey)
+		}
+		if len(fieldKeys) == 0 {
+			continue
+		}
+		slices.Sort(fieldKeys)
+		views = append(views, collaboration.ViewPublicationContribution{
+			ViewSchemaID: resource.ViewSchemaID, PublicFieldKeys: fieldKeys, PatchFieldKeys: slices.Clone(fieldKeys),
+		})
+	}
+	catalog, err := collaboration.NewPublicationCatalog([]collaboration.PublicationContribution{{
+		ContributionID: "test.collaboration.publication.v1",
+		SourceOwnerID:  "test.collaboration",
+		RecordTypes:    []string{"test_record"},
+		AffectedViews:  views,
+	}})
+	if err != nil {
+		panic(err)
+	}
+	appender, err := collaboration.NewPublicationAppender(catalog)
+	if err != nil {
+		panic(err)
+	}
+	return appender
 }
 
 func NewJobTransactions() *jobs.TransactionService {
@@ -200,17 +236,9 @@ func testAuthRouteKey(key jobs.RouteIdempotencyKey) authn.RouteIdempotencyKey {
 }
 
 func (a IntentAdapters) AppendProgressIntentTx(ctx context.Context, tx pgx.Tx, source jobs.ProgressIntent) error {
-	intent, err := collaboration.NewEventIntent(
-		source.IntentKey,
-		source.IncidentID,
-		collaboration.EventFamilyJobProgress,
-		source.CanonicalPayload,
-		source.SourceIdentity,
-		0,
-		source.CreatedAt,
-	)
-	if err != nil {
-		return err
-	}
-	return a.appender.AppendIntentTx(ctx, tx, intent)
+	return a.appender.AppendJobProgressTx(ctx, tx, collaboration.JobProgressIntentInput{
+		IntentKey: source.IntentKey, IncidentID: source.IncidentID,
+		CanonicalPayload: source.CanonicalPayload, SourceIdentity: source.SourceIdentity,
+		CreatedAt: source.CreatedAt,
+	})
 }

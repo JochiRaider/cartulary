@@ -160,7 +160,12 @@ describe("useTimelineCollaborationBindings", () => {
         client_txn_id: "remote-stale",
         actor_user_id: "user-2",
         changed_field_keys: [],
-        affected_views: [],
+        affected_views: [
+          {
+            view_schema_id: timelineViewSchemaId,
+            change_kind: "invalidate",
+          },
+        ],
       }),
     ).toEqual({ kind: "stale" });
 

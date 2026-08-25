@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 	"github.com/coder/websocket"
@@ -369,7 +369,7 @@ func newEvidenceLifecycleTestService(harness *appsupport.ServerHarness) *evidenc
 		Revisions:      harness.Revisions.Appender(),
 		Projections:    harness.Projections.EvidencePort(),
 		SupportEffects: harness.Projections.EvidenceSupportEffects(),
-		Collaboration:  harness.Collaboration.IntentAppender(),
+		Collaboration:  harness.Collaboration.Publications(),
 	})
 	if err != nil {
 		panic(err)

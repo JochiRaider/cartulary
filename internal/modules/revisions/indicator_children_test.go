@@ -35,6 +35,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		Idempotency:     indicatorassembly.NewIdempotencyPort(authn.NewStore(harness.Pool)),
 		IncidentState:   admission.NewChecker(harness.Pool),
 		Revisions:       harness.Revisions.Appender(),
+		Collaboration:   harness.Collaboration.Publications(),
 		RecordEnvelopes: records.NewStore(harness.Pool),
 		Projections:     harness.Projections.IndicatorProjectionPort(),
 		SourceText:      harness.IndicatorSourceText,

@@ -45,7 +45,7 @@ type ContributionDependencies struct {
 	ConflictTokens        conflicttokens.ConflictTokenCodec
 	ConflictFields        conflicttokens.FieldResolver
 	Revisions             *revisions.Appender
-	CollaborationIntents  collaboration.IntentAppender
+	CollaborationIntents  collaboration.RecordChangedAppender
 }
 
 func NewContributionCatalog(input ContributionDependencies) (*workbook.WorkbookContributionCatalog, error) {
@@ -75,6 +75,7 @@ func NewContributionCatalog(input ContributionDependencies) (*workbook.WorkbookC
 		ProjectionWriter:     entityProjections.Writer,
 		ProjectionReader:     entityProjections.Reader,
 		KeepSavedIdempotency: keepSaved,
+		Collaboration:        input.CollaborationIntents,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
@@ -93,6 +94,7 @@ func NewContributionCatalog(input ContributionDependencies) (*workbook.WorkbookC
 		conflictTokens:        conflictTokens,
 		conflictFields:        conflictFields,
 		appender:              appender,
+		collaborationIntents:  input.CollaborationIntents,
 		pool:                  pool,
 	})
 }
@@ -175,6 +177,7 @@ type contributionAssemblyInput struct {
 	conflictTokens        conflicttokens.ConflictTokenCodec
 	conflictFields        conflicttokens.FieldResolver
 	appender              *revisions.Appender
+	collaborationIntents  collaboration.RecordChangedAppender
 }
 
 func buildContributionCatalog(input contributionAssemblyInput) (*workbook.WorkbookContributionCatalog, error) {
@@ -202,6 +205,7 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 		assessmentProjections,
 		hostidentity.NewSourceFacts(),
 		appender,
+		input.collaborationIntents,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
@@ -216,6 +220,7 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 		appender,
 		conflictFields,
 		partyProjections,
+		input.collaborationIntents,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)

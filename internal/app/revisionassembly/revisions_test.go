@@ -43,6 +43,12 @@ func (revisionsCompositionTestAttribution) ResolveImportedSourceActorsTx(context
 
 type revisionsCompositionTestProjection struct{}
 
+type revisionsCompositionTestPublications struct{}
+
+func (revisionsCompositionTestPublications) AppendRecordChangedTx(context.Context, pgx.Tx, collaboration.RecordChangeIntentInput) error {
+	return nil
+}
+
 func (revisionsCompositionTestProjection) RebuildIncidentTx(context.Context, pgx.Tx, uuid.UUID) error {
 	return nil
 }
@@ -280,13 +286,7 @@ func TestRevisionsRuntimeRejectsIncompleteOrAmbiguousRecordViewCatalogs(t *testi
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := Build(
-				Dependencies{
-					HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
-					IntentAppender:         collaboration.NewIntentAppender(),
-				},
-				test.mutate(cloneProviderContributions(mustCurrentProviderContributions(t)))...,
-			)
+			_, err := Build(test.mutate(cloneProviderContributions(mustCurrentProviderContributions(t)))...)
 			if !errors.Is(err, test.want) {
 				t.Fatalf("build error = %v, want %v", err, test.want)
 			}
@@ -296,13 +296,7 @@ func TestRevisionsRuntimeRejectsIncompleteOrAmbiguousRecordViewCatalogs(t *testi
 
 func TestRevisionsRuntimeReusesAppenderForCommandService(t *testing.T) {
 	t.Parallel()
-	runtime, err := Build(
-		Dependencies{
-			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
-			IntentAppender:         collaboration.NewIntentAppender(),
-		},
-		mustCurrentProviderContributions(t)...,
-	)
+	runtime, err := Build(mustCurrentProviderContributions(t)...)
 	if err != nil {
 		t.Fatalf("build Revisions runtime: %v", err)
 	}
@@ -312,6 +306,7 @@ func TestRevisionsRuntimeReusesAppenderForCommandService(t *testing.T) {
 		revisionsCompositionTestProjection{},
 		revisionsCompositionTestProjection{},
 		func() time.Time { return time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC) },
+		revisionsCompositionTestPublications{},
 	)
 	if err != nil {
 		t.Fatalf("compose Revisions command service: %v", err)
@@ -323,13 +318,7 @@ func TestRevisionsRuntimeReusesAppenderForCommandService(t *testing.T) {
 
 func TestRevisionsRuntimeBuildsOwnerComposedConflictFieldResolver(t *testing.T) {
 	t.Parallel()
-	runtime, err := Build(
-		Dependencies{
-			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
-			IntentAppender:         collaboration.NewIntentAppender(),
-		},
-		mustCurrentProviderContributions(t)...,
-	)
+	runtime, err := Build(mustCurrentProviderContributions(t)...)
 	if err != nil {
 		t.Fatalf("build Revisions runtime: %v", err)
 	}

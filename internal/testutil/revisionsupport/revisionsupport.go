@@ -6,30 +6,25 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
 
 type Composition struct {
-	Runtime *revisionassembly.Runtime
-	Intents collaboration.IntentAppender
+	Runtime      *revisionassembly.Runtime
+	Publications collaboration.PublicationAppender
 }
 
 func NewComposition() (Composition, error) {
-	intents := collaboration.NewIntentAppender()
+	publications := collaborationsupport.NewPublicationAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
 		return Composition{}, err
 	}
-	runtime, err := revisionassembly.Build(
-		revisionassembly.Dependencies{
-			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
-			IntentAppender:         intents,
-		},
-		contributions...,
-	)
+	runtime, err := revisionassembly.Build(contributions...)
 	if err != nil {
 		return Composition{}, err
 	}
-	return Composition{Runtime: runtime, Intents: intents}, nil
+	return Composition{Runtime: runtime, Publications: publications}, nil
 }
 
 func NewRuntime() (*revisionassembly.Runtime, error) {

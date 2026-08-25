@@ -759,7 +759,6 @@ var incidentBundleExportAllowlist = map[string]struct{}{
 	"ExtensionPayload":                            {},
 	"ExtensionPayloadSchema":                      {},
 	"ExtensionPolicy":                             {},
-	"HistoricalIntentPolicy":                      {},
 	"ImportInvocation":                            {},
 	"ImportPreparation":                           {},
 	"ImportProjectionRebuilder":                   {},
@@ -1084,7 +1083,6 @@ func TestClaimedIncidentPortabilityRejectsMissingJobsBeforePublication_Unit(t *t
 		{name: "publication lock", want: "publication lock", mutate: func(dependencies *ModuleDependencies) { dependencies.IncidentPublicationLock = nil }},
 		{name: "projection rebuild", want: "projection rebuilder", mutate: func(dependencies *ModuleDependencies) { dependencies.ProjectionRebuilder = nil }},
 		{name: "source catalog", want: "source catalog", mutate: func(dependencies *ModuleDependencies) { dependencies.SourceCatalog = nil }},
-		{name: "historical intents", want: "historical intent policy", mutate: func(dependencies *ModuleDependencies) { dependencies.HistoricalIntentPolicy = nil }},
 		{name: "blob portability", want: "blob portability", mutate: func(dependencies *ModuleDependencies) { dependencies.BlobPortability = nil }},
 	}
 	for _, test := range tests {
@@ -1112,7 +1110,6 @@ func moduleTestDependencies() ModuleDependencies {
 		IncidentPublicationLock: publicationLockStub{},
 		ProjectionRebuilder:     projectionRebuilderStub{},
 		SourceCatalog:           &sourceport.Catalog{},
-		HistoricalIntentPolicy:  historicalIntentPolicyStub{},
 		BlobPortability:         &recordingBlobPortability{},
 	}
 }
@@ -1156,10 +1153,6 @@ func (jobAdmissionStub) CreateQueuedTx(context.Context, pgx.Tx, jobs.EnqueuePara
 func (jobAdmissionStub) ValidateExecutionTx(context.Context, pgx.Tx, jobs.Execution) error {
 	return nil
 }
-
-type historicalIntentPolicyStub struct{}
-
-func (historicalIntentPolicyStub) SuppressTx(context.Context, pgx.Tx) error { return nil }
 
 type bundleStorageStub struct{}
 

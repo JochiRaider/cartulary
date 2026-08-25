@@ -9,13 +9,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
@@ -678,7 +679,9 @@ UPDATE incident_memberships
 						projectionVersion: appsupport.QueryCount(t, harness.DB, `SELECT row_version FROM `+tc.projectionTable+` WHERE record_id = $1`, recordID),
 						revisions:         appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, recordID),
 						mutations:         appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations WHERE target_id = $1`, recordID.String()),
-						collaboration:     appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents WHERE source_record_id = $1`, recordID),
+						collaboration: collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{
+							SourceRecordID: recordID.String(),
+						}),
 					}
 				}
 

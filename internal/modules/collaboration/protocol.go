@@ -3,137 +3,26 @@ package collaboration
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"slices"
 	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 )
 
-const (
-	HeartbeatInterval       = 15 * time.Second
-	HeartbeatTimeout        = 45 * time.Second
-	PresenceTTL             = 45 * time.Second
-	ResumeWindow            = 5 * time.Minute
-	ResumeStatusReplayed    = "replayed"
-	ResumeStatusResetNeeded = "reset_required"
-	IncidentTerminalClosed  = "incident_closed"
-)
-
-type Message struct {
-	Type       string          `json:"type"`
-	IncidentID string          `json:"incident_id,omitempty"`
-	EventID    string          `json:"event_id,omitempty"`
-	EmittedAt  string          `json:"emitted_at,omitempty"`
-	StreamSeq  *int64          `json:"stream_seq,omitempty"`
-	Payload    json.RawMessage `json:"payload"`
-}
-
-func RawPayload(payload any) json.RawMessage {
-	if payload == nil {
-		return nil
-	}
-
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return nil
-	}
-
-	return data
-}
-
-type Hub struct {
+type hub struct {
 	mu                    sync.Mutex
 	sessions              map[uuid.UUID]map[chan string]struct{}
 	incidentUsers         map[incidentUserKey]map[chan string]struct{}
 	incidentTerminals     map[uuid.UUID]map[chan string]struct{}
-	incidentStreams       map[uuid.UUID]map[chan Message]struct{}
-	presences             map[uuid.UUID]map[string]PresenceRecord
+	incidentStreams       map[uuid.UUID]map[chan protocol.Message]struct{}
+	presences             map[uuid.UUID]map[string]protocol.PresenceRecord
 	serviceVersion        string
 	activeConnections     atomic.Int64
 	activeGaugeRegistered bool
-}
-
-const (
-	ExtensionResourceChangeKindInvalidate = "invalidate"
-	ExtensionResourceChangeKindRemove     = "remove"
-
-	ExtensionResourceReasonRenamed           = "renamed"
-	ExtensionResourceReasonSoftDeleted       = "soft_deleted"
-	ExtensionResourceReasonAuthorizationLost = "authorization_lost"
-)
-
-type ExtensionWorkspaceRef struct {
-	Kind               string `json:"kind"`
-	ExtensionProfileID string `json:"extension_profile_id"`
-	WorkspaceKey       string `json:"workspace_key"`
-}
-
-type ExtensionResourceChangePayload struct {
-	ExtensionProfileID string                  `json:"extension_profile_id"`
-	ResourceKind       string                  `json:"resource_kind"`
-	ResourceID         string                  `json:"resource_id"`
-	ChangeKind         string                  `json:"change_kind"`
-	ReasonCode         string                  `json:"reason_code"`
-	WorkspaceRefs      []ExtensionWorkspaceRef `json:"workspace_refs,omitempty"`
-}
-
-const (
-	JobScopeKindIncident   = "incident"
-	JobScopeKindDeployment = "deployment"
-
-	JobStatusQueued          = "queued"
-	JobStatusRunning         = "running"
-	JobStatusCancelRequested = "cancel_requested"
-	JobStatusSucceeded       = "succeeded"
-	JobStatusFailed          = "failed"
-	JobStatusCanceled        = "canceled"
-)
-
-type JobScope struct {
-	Kind       string `json:"kind"`
-	IncidentID string `json:"incident_id,omitempty"`
-}
-
-type JobProgress struct {
-	Completed int64  `json:"completed"`
-	Total     *int64 `json:"total"`
-}
-
-type JobProgressPayload struct {
-	JobID         string      `json:"job_id"`
-	Scope         JobScope    `json:"scope"`
-	Status        string      `json:"status"`
-	Progress      JobProgress `json:"progress"`
-	UpdatedAt     time.Time   `json:"updated_at"`
-	Cancelable    *bool       `json:"cancelable,omitempty"`
-	Message       string      `json:"message,omitempty"`
-	ResultSummary any         `json:"result_summary,omitempty"`
-	ErrorSummary  any         `json:"error_summary,omitempty"`
-	RetainedUntil *time.Time  `json:"retained_until,omitempty"`
-}
-
-type PresenceInput struct {
-	SheetRef map[string]string `json:"sheet_ref"`
-	RecordID *string           `json:"record_id,omitempty"`
-	FieldKey *string           `json:"field_key,omitempty"`
-	Mode     string            `json:"mode"`
-}
-
-type PresenceRecord struct {
-	ConnectionID string            `json:"connection_id"`
-	UserID       string            `json:"user_id"`
-	DisplayName  string            `json:"display_name"`
-	SheetRef     map[string]string `json:"sheet_ref"`
-	RecordID     *string           `json:"record_id,omitempty"`
-	FieldKey     *string           `json:"field_key,omitempty"`
-	Mode         string            `json:"mode"`
-	ObservedAt   string            `json:"observed_at"`
-	ExpiresAt    string            `json:"expires_at"`
 }
 
 type incidentUserKey struct {
@@ -141,20 +30,20 @@ type incidentUserKey struct {
 	UserID     uuid.UUID
 }
 
-func NewHub() *Hub {
-	return &Hub{
+func newHub() *hub {
+	return &hub{
 		sessions:          make(map[uuid.UUID]map[chan string]struct{}),
 		incidentUsers:     make(map[incidentUserKey]map[chan string]struct{}),
 		incidentTerminals: make(map[uuid.UUID]map[chan string]struct{}),
-		incidentStreams:   make(map[uuid.UUID]map[chan Message]struct{}),
-		presences:         make(map[uuid.UUID]map[string]PresenceRecord),
+		incidentStreams:   make(map[uuid.UUID]map[chan protocol.Message]struct{}),
+		presences:         make(map[uuid.UUID]map[string]protocol.PresenceRecord),
 	}
 }
 
 // DeliverReplayable delivers an already sequenced durable event. Collaboration
-// owns event identity, sequence, replay, and retry; the Hub owns only ephemeral
+// owns event identity, sequence, replay, and retry; the hub owns only ephemeral
 // fan-out.
-func (h *Hub) DeliverReplayable(message Message) error {
+func (h *hub) DeliverReplayable(message protocol.Message) error {
 	if h == nil {
 		return errors.New("websocket hub is unavailable")
 	}
@@ -162,14 +51,14 @@ func (h *Hub) DeliverReplayable(message Message) error {
 	if err != nil || incidentID == uuid.Nil || message.EventID == "" || message.StreamSeq == nil || *message.StreamSeq < 1 {
 		return errors.New("invalid sequenced websocket message")
 	}
-	if !IsReplayableMessageType(message.Type) || !json.Valid(message.Payload) {
+	if !protocol.IsReplayableMessageType(message.Type) || !json.Valid(message.Payload) {
 		return errors.New("invalid replayable websocket message")
 	}
 	finishTelemetry := h.startEventSend(message.Type)
 
 	h.mu.Lock()
 	if message.Type == "record_changed" {
-		if _, err := RecordChangeFromSequencedMessage(message); err != nil {
+		if _, err := protocol.RecordChangeFromSequencedMessage(message); err != nil {
 			h.mu.Unlock()
 			finishTelemetry("rejected", "")
 			return err
@@ -197,20 +86,20 @@ func (h *Hub) DeliverReplayable(message Message) error {
 	return nil
 }
 
-func (h *Hub) SubscribeIncident(incidentID uuid.UUID, buffer int) (<-chan Message, func()) {
+func (h *hub) SubscribeIncident(incidentID uuid.UUID, buffer int) (<-chan protocol.Message, func()) {
 	if h == nil {
-		ch := make(chan Message)
+		ch := make(chan protocol.Message)
 		close(ch)
 		return ch, func() {}
 	}
 	if buffer < 1 {
 		buffer = 1
 	}
-	ch := make(chan Message, buffer)
+	ch := make(chan protocol.Message, buffer)
 	h.mu.Lock()
 	subscribers := h.incidentStreams[incidentID]
 	if subscribers == nil {
-		subscribers = make(map[chan Message]struct{})
+		subscribers = make(map[chan protocol.Message]struct{})
 		h.incidentStreams[incidentID] = subscribers
 	}
 	subscribers[ch] = struct{}{}
@@ -228,17 +117,8 @@ func (h *Hub) SubscribeIncident(incidentID uuid.UUID, buffer int) (<-chan Messag
 	}
 }
 
-func IsReplayableMessageType(messageType string) bool {
-	switch messageType {
-	case "record_changed", "extension_resource_changed", "job_progress":
-		return true
-	default:
-		return false
-	}
-}
-
-func (h *Hub) UpsertPresence(incidentID uuid.UUID, connectionID uuid.UUID, userID uuid.UUID, displayName string, input PresenceInput, now time.Time) PresenceRecord {
-	record := PresenceRecord{
+func (h *hub) UpsertPresence(incidentID uuid.UUID, connectionID uuid.UUID, userID uuid.UUID, displayName string, input protocol.PresenceInput, now time.Time) protocol.PresenceRecord {
+	record := protocol.PresenceRecord{
 		ConnectionID: connectionID.String(),
 		UserID:       userID.String(),
 		DisplayName:  displayName,
@@ -247,13 +127,13 @@ func (h *Hub) UpsertPresence(incidentID uuid.UUID, connectionID uuid.UUID, userI
 		FieldKey:     cloneStringPointer(input.FieldKey),
 		Mode:         input.Mode,
 		ObservedAt:   now.UTC().Format(time.RFC3339Nano),
-		ExpiresAt:    now.UTC().Add(PresenceTTL).Format(time.RFC3339Nano),
+		ExpiresAt:    now.UTC().Add(protocol.PresenceTTL).Format(time.RFC3339Nano),
 	}
 	h.mu.Lock()
 	h.prunePresenceLocked(incidentID, now)
 	incidentPresences := h.presences[incidentID]
 	if incidentPresences == nil {
-		incidentPresences = make(map[string]PresenceRecord)
+		incidentPresences = make(map[string]protocol.PresenceRecord)
 		h.presences[incidentID] = incidentPresences
 	}
 	incidentPresences[record.ConnectionID] = record
@@ -261,16 +141,16 @@ func (h *Hub) UpsertPresence(incidentID uuid.UUID, connectionID uuid.UUID, userI
 	return record
 }
 
-func (h *Hub) RemovePresence(incidentID uuid.UUID, connectionID uuid.UUID, now time.Time) (PresenceRecord, bool) {
+func (h *hub) RemovePresence(incidentID uuid.UUID, connectionID uuid.UUID, now time.Time) (protocol.PresenceRecord, bool) {
 	if h == nil {
-		return PresenceRecord{}, false
+		return protocol.PresenceRecord{}, false
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.prunePresenceLocked(incidentID, now)
 	incidentPresences := h.presences[incidentID]
 	if incidentPresences == nil {
-		return PresenceRecord{}, false
+		return protocol.PresenceRecord{}, false
 	}
 	record, ok := incidentPresences[connectionID.String()]
 	if ok {
@@ -282,7 +162,7 @@ func (h *Hub) RemovePresence(incidentID uuid.UUID, connectionID uuid.UUID, now t
 	return record, ok
 }
 
-func (h *Hub) PresenceSnapshot(incidentID uuid.UUID, now time.Time) []PresenceRecord {
+func (h *hub) PresenceSnapshot(incidentID uuid.UUID, now time.Time) []protocol.PresenceRecord {
 	if h == nil {
 		return nil
 	}
@@ -290,7 +170,7 @@ func (h *Hub) PresenceSnapshot(incidentID uuid.UUID, now time.Time) []PresenceRe
 	defer h.mu.Unlock()
 	h.prunePresenceLocked(incidentID, now)
 	incidentPresences := h.presences[incidentID]
-	presences := make([]PresenceRecord, 0, len(incidentPresences))
+	presences := make([]protocol.PresenceRecord, 0, len(incidentPresences))
 	for _, record := range incidentPresences {
 		presences = append(presences, record)
 	}
@@ -300,24 +180,24 @@ func (h *Hub) PresenceSnapshot(incidentID uuid.UUID, now time.Time) []PresenceRe
 	return presences
 }
 
-func (h *Hub) BroadcastPresenceDelta(incidentID uuid.UUID, kind string, presence PresenceRecord, now time.Time, excluded ...<-chan Message) {
+func (h *hub) BroadcastPresenceDelta(incidentID uuid.UUID, kind string, presence protocol.PresenceRecord, now time.Time, excluded ...<-chan protocol.Message) {
 	if h == nil {
 		return
 	}
 	finishTelemetry := h.startEventSend("presence_delta")
 	defer finishTelemetry("success", "")
-	message := EphemeralMessage(incidentID, "presence_delta", map[string]any{
+	message := protocol.EphemeralMessage(incidentID, "presence_delta", map[string]any{
 		"delta_kind": kind,
 		"presence":   presence,
 	}, now)
-	var excludedSubscriber <-chan Message
+	var excludedSubscriber <-chan protocol.Message
 	if len(excluded) > 0 {
 		excludedSubscriber = excluded[0]
 	}
 	h.broadcastIncidentExcept(incidentID, message, excludedSubscriber)
 }
 
-func (h *Hub) RegisterIncidentUser(incidentID uuid.UUID, userID uuid.UUID) (<-chan string, func()) {
+func (h *hub) RegisterIncidentUser(incidentID uuid.UUID, userID uuid.UUID) (<-chan string, func()) {
 	if h == nil {
 		return nil, func() {}
 	}
@@ -343,7 +223,7 @@ func (h *Hub) RegisterIncidentUser(incidentID uuid.UUID, userID uuid.UUID) (<-ch
 	}
 }
 
-func (h *Hub) RegisterIncidentTerminal(incidentID uuid.UUID) (<-chan string, func()) {
+func (h *hub) RegisterIncidentTerminal(incidentID uuid.UUID) (<-chan string, func()) {
 	if h == nil {
 		return nil, func() {}
 	}
@@ -368,7 +248,7 @@ func (h *Hub) RegisterIncidentTerminal(incidentID uuid.UUID) (<-chan string, fun
 	}
 }
 
-func (h *Hub) TrackActiveConnection() func() {
+func (h *hub) TrackActiveConnection() func() {
 	if h == nil {
 		return func() {}
 	}
@@ -378,7 +258,7 @@ func (h *Hub) TrackActiveConnection() func() {
 	}
 }
 
-func (h *Hub) ActiveConnections() int64 {
+func (h *hub) ActiveConnections() int64 {
 	if h == nil {
 		return 0
 	}
@@ -389,7 +269,7 @@ func (h *Hub) ActiveConnections() int64 {
 	return count
 }
 
-func (h *Hub) RevokeIncidentUser(incidentID uuid.UUID, userID uuid.UUID, reasonCode string) {
+func (h *hub) RevokeIncidentUser(incidentID uuid.UUID, userID uuid.UUID, reasonCode string) {
 	if h == nil {
 		return
 	}
@@ -407,11 +287,11 @@ func (h *Hub) RevokeIncidentUser(incidentID uuid.UUID, userID uuid.UUID, reasonC
 	}
 }
 
-func (h *Hub) RevokeIncidentAccess(incidentID uuid.UUID, userID uuid.UUID) {
+func (h *hub) RevokeIncidentAccess(incidentID uuid.UUID, userID uuid.UUID) {
 	h.RevokeIncidentUser(incidentID, userID, "incident_access_revoked")
 }
 
-func (h *Hub) TerminateIncident(incidentID uuid.UUID, reasonCode string) {
+func (h *hub) TerminateIncident(incidentID uuid.UUID, reasonCode string) {
 	if h == nil {
 		return
 	}
@@ -428,7 +308,7 @@ func (h *Hub) TerminateIncident(incidentID uuid.UUID, reasonCode string) {
 	}
 }
 
-func (h *Hub) RegisterSession(sessionID uuid.UUID) (<-chan string, func()) {
+func (h *hub) RegisterSession(sessionID uuid.UUID) (<-chan string, func()) {
 	if h == nil {
 		return nil, func() {}
 	}
@@ -459,7 +339,7 @@ func (h *Hub) RegisterSession(sessionID uuid.UUID) (<-chan string, func()) {
 	}
 }
 
-func (h *Hub) RevokeSession(sessionID uuid.UUID, reasonCode string) {
+func (h *hub) RevokeSession(sessionID uuid.UUID, reasonCode string) {
 	if h == nil {
 		return
 	}
@@ -483,11 +363,11 @@ func (h *Hub) RevokeSession(sessionID uuid.UUID, reasonCode string) {
 	}
 }
 
-func (h *Hub) broadcastIncidentExcept(incidentID uuid.UUID, message Message, excluded <-chan Message) {
+func (h *hub) broadcastIncidentExcept(incidentID uuid.UUID, message protocol.Message, excluded <-chan protocol.Message) {
 	h.mu.Lock()
-	subscribers := make([]chan Message, 0, len(h.incidentStreams[incidentID]))
+	subscribers := make([]chan protocol.Message, 0, len(h.incidentStreams[incidentID]))
 	for subscriber := range h.incidentStreams[incidentID] {
-		if excluded != nil && (<-chan Message)(subscriber) == excluded {
+		if excluded != nil && (<-chan protocol.Message)(subscriber) == excluded {
 			continue
 		}
 		subscribers = append(subscribers, subscriber)
@@ -501,7 +381,7 @@ func (h *Hub) broadcastIncidentExcept(incidentID uuid.UUID, message Message, exc
 	}
 }
 
-func (h *Hub) prunePresenceLocked(incidentID uuid.UUID, now time.Time) {
+func (h *hub) prunePresenceLocked(incidentID uuid.UUID, now time.Time) {
 	incidentPresences := h.presences[incidentID]
 	if len(incidentPresences) == 0 {
 		return
@@ -515,373 +395,6 @@ func (h *Hub) prunePresenceLocked(incidentID uuid.UUID, now time.Time) {
 	if len(incidentPresences) == 0 {
 		delete(h.presences, incidentID)
 	}
-}
-
-func EphemeralMessage(incidentID uuid.UUID, messageType string, payload any, now time.Time) Message {
-	return Message{
-		Type:       messageType,
-		IncidentID: incidentID.String(),
-		EventID:    uuid.New().String(),
-		EmittedAt:  now.UTC().Format(time.RFC3339Nano),
-		Payload:    RawPayload(nonNilPayload(payload)),
-	}
-}
-
-func RecordChangeFromSequencedMessage(message Message) (RecordChange, error) {
-	var payload struct {
-		RecordID         string           `json:"record_id"`
-		RowVersion       int64            `json:"row_version"`
-		ChangeSetID      string           `json:"change_set_id"`
-		ClientTxnID      string           `json:"client_txn_id"`
-		ActorUserID      string           `json:"actor_user_id"`
-		ChangedFieldKeys []string         `json:"changed_field_keys"`
-		AffectedViews    []map[string]any `json:"affected_views"`
-	}
-	if err := json.Unmarshal(message.Payload, &payload); err != nil {
-		return RecordChange{}, fmt.Errorf("decode sequenced record_changed payload: %w", err)
-	}
-	incidentID, incidentErr := uuid.Parse(message.IncidentID)
-	recordID, recordErr := uuid.Parse(payload.RecordID)
-	changeSetID, changeSetErr := uuid.Parse(payload.ChangeSetID)
-	actorUserID, actorErr := uuid.Parse(payload.ActorUserID)
-	eventID, eventErr := uuid.Parse(message.EventID)
-	emittedAt, emittedErr := time.Parse(time.RFC3339Nano, message.EmittedAt)
-	if incidentErr != nil || recordErr != nil || changeSetErr != nil || actorErr != nil ||
-		eventErr != nil || emittedErr != nil || payload.RowVersion < 1 || len(payload.AffectedViews) == 0 {
-		return RecordChange{}, errors.New("invalid sequenced record_changed identity")
-	}
-	affectedViews := make([]AffectedViewChange, 0, len(payload.AffectedViews))
-	for _, rawView := range payload.AffectedViews {
-		viewSchemaID, _ := rawView["view_schema_id"].(string)
-		changeKind, _ := rawView["change_kind"].(string)
-		var patchCells map[string]any
-		if value, ok := rawView["patch_cells"].(map[string]any); ok {
-			patchCells = value
-		}
-		if viewSchemaID == "" || !validAffectedViewChangeKind(changeKind) ||
-			(changeKind == "patch") != (patchCells != nil) {
-			return RecordChange{}, errors.New("invalid sequenced record_changed affected view")
-		}
-		affectedViews = append(affectedViews, AffectedViewChange{
-			ViewSchemaID: viewSchemaID,
-			ChangeKind:   changeKind,
-			PatchCells:   patchCells,
-		})
-	}
-	if !slices.IsSortedFunc(affectedViews, func(left AffectedViewChange, right AffectedViewChange) int {
-		return strings.Compare(left.ViewSchemaID, right.ViewSchemaID)
-	}) {
-		return RecordChange{}, errors.New("invalid sequenced record_changed affected view order")
-	}
-	for index := 1; index < len(affectedViews); index++ {
-		if affectedViews[index-1].ViewSchemaID == affectedViews[index].ViewSchemaID {
-			return RecordChange{}, errors.New("invalid sequenced record_changed duplicate affected view")
-		}
-	}
-	firstView := affectedViews[0]
-	return RecordChange{
-		IncidentID:       incidentID,
-		RecordID:         recordID,
-		RowVersion:       payload.RowVersion,
-		ChangeSetID:      changeSetID,
-		ClientTxnID:      payload.ClientTxnID,
-		ActorUserID:      actorUserID,
-		ChangedFieldKeys: payload.ChangedFieldKeys,
-		ViewSchemaID:     firstView.ViewSchemaID,
-		ChangeKind:       firstView.ChangeKind,
-		PatchCells:       firstView.PatchCells,
-		AffectedViews:    affectedViews,
-		StreamSeq:        *message.StreamSeq,
-		EventID:          eventID,
-		EmittedAt:        emittedAt,
-	}, nil
-}
-
-func validAffectedViewChangeKind(changeKind string) bool {
-	switch changeKind {
-	case "invalidate", "patch", "remove":
-		return true
-	default:
-		return false
-	}
-}
-
-func RecordChangePayload(change RecordChange) map[string]any {
-	changedKeys := append(make([]string, 0, len(change.ChangedFieldKeys)), change.ChangedFieldKeys...)
-	slices.Sort(changedKeys)
-	changedKeys = slices.Compact(changedKeys)
-	affectedChanges := normalizedAffectedViewChanges(change)
-	affectedViews := make([]map[string]any, 0, len(affectedChanges))
-	for _, affected := range affectedChanges {
-		view := map[string]any{
-			"view_schema_id": affected.ViewSchemaID,
-			"change_kind":    affected.ChangeKind,
-		}
-		if affected.PatchCells != nil {
-			view["change_kind"] = "patch"
-			view["patch_cells"] = affected.PatchCells
-		}
-		affectedViews = append(affectedViews, view)
-	}
-	return map[string]any{
-		"record_id":          change.RecordID.String(),
-		"row_version":        change.RowVersion,
-		"change_set_id":      change.ChangeSetID.String(),
-		"client_txn_id":      change.ClientTxnID,
-		"actor_user_id":      change.ActorUserID.String(),
-		"changed_field_keys": changedKeys,
-		"affected_views":     affectedViews,
-	}
-}
-
-func normalizedAffectedViewChanges(change RecordChange) []AffectedViewChange {
-	if len(change.AffectedViews) > 0 {
-		result := append([]AffectedViewChange(nil), change.AffectedViews...)
-		slices.SortFunc(result, func(left AffectedViewChange, right AffectedViewChange) int {
-			return strings.Compare(left.ViewSchemaID, right.ViewSchemaID)
-		})
-		return result
-	}
-	changeKind := change.ChangeKind
-	if changeKind == "" {
-		changeKind = "invalidate"
-	}
-	if change.PatchCells != nil {
-		changeKind = "patch"
-	}
-	if change.ViewSchemaID == "" {
-		return nil
-	}
-	return []AffectedViewChange{{
-		ViewSchemaID: change.ViewSchemaID,
-		ChangeKind:   changeKind,
-		PatchCells:   change.PatchCells,
-	}}
-}
-
-func BuildViewRowPatch(row map[string]any, changedFieldKeys []string) map[string]any {
-	if row == nil {
-		return nil
-	}
-	recordID, ok := row["record_id"]
-	if !ok {
-		return nil
-	}
-	rowVersion, ok := row["row_version"]
-	if !ok {
-		return nil
-	}
-	cells, ok := row["cells"].(map[string]any)
-	if !ok {
-		return nil
-	}
-
-	changed := make(map[string]struct{}, len(changedFieldKeys))
-	for _, fieldKey := range changedFieldKeys {
-		changed[fieldKey] = struct{}{}
-	}
-
-	patchCells := make(map[string]any, len(changed))
-	for fieldKey := range changed {
-		if cell, ok := cells[fieldKey]; ok {
-			patchCells[fieldKey] = cell
-		}
-	}
-	if len(patchCells) == 0 {
-		return nil
-	}
-
-	patch := map[string]any{
-		"record_id":   recordID,
-		"row_version": rowVersion,
-		"cells":       patchCells,
-	}
-	if groupValues, ok := row["group_values"].(map[string]any); ok {
-		patchGroupValues := make(map[string]any)
-		for fieldKey := range changed {
-			if value, ok := groupValues[fieldKey]; ok {
-				patchGroupValues[fieldKey] = value
-			}
-		}
-		if len(patchGroupValues) > 0 {
-			patch["group_values"] = patchGroupValues
-		}
-	}
-	return patch
-}
-
-func NewIncidentJobProgressPayload(jobID string, incidentID uuid.UUID, status string, progress JobProgress, updatedAt time.Time) JobProgressPayload {
-	return JobProgressPayload{
-		JobID: jobID,
-		Scope: JobScope{
-			Kind:       JobScopeKindIncident,
-			IncidentID: incidentID.String(),
-		},
-		Status:    status,
-		Progress:  progress,
-		UpdatedAt: updatedAt.UTC(),
-	}
-}
-
-func ValidateIncidentJobProgressPayload(incidentID uuid.UUID, payload JobProgressPayload) error {
-	if strings.TrimSpace(payload.JobID) == "" {
-		return fmt.Errorf("job_progress.job_id is required")
-	}
-	if payload.Scope.Kind != JobScopeKindIncident {
-		return fmt.Errorf("job_progress.scope.kind must be incident")
-	}
-	scopeIncidentID, err := uuid.Parse(payload.Scope.IncidentID)
-	if err != nil {
-		return fmt.Errorf("job_progress.scope.incident_id is invalid")
-	}
-	if scopeIncidentID != incidentID {
-		return fmt.Errorf("job_progress.scope.incident_id must match envelope incident_id")
-	}
-	switch payload.Status {
-	case JobStatusQueued, JobStatusRunning, JobStatusCancelRequested, JobStatusSucceeded, JobStatusFailed, JobStatusCanceled:
-	default:
-		return fmt.Errorf("job_progress.status is invalid")
-	}
-	if payload.Progress.Completed < 0 {
-		return fmt.Errorf("job_progress.progress.completed must be non-negative")
-	}
-	if payload.Progress.Total != nil {
-		if *payload.Progress.Total <= 0 {
-			return fmt.Errorf("job_progress.progress.total must be positive or null")
-		}
-		if payload.Progress.Completed > *payload.Progress.Total {
-			return fmt.Errorf("job_progress.progress.completed must not exceed total")
-		}
-	}
-	if payload.UpdatedAt.IsZero() {
-		return fmt.Errorf("job_progress.updated_at is required")
-	}
-	return nil
-}
-
-func ValidateExtensionResourceChangePayload(payload ExtensionResourceChangePayload) error {
-	if strings.TrimSpace(payload.ExtensionProfileID) == "" {
-		return fmt.Errorf("extension_resource_changed.extension_profile_id is required")
-	}
-	if strings.TrimSpace(payload.ResourceKind) == "" {
-		return fmt.Errorf("extension_resource_changed.resource_kind is required")
-	}
-	if strings.TrimSpace(payload.ResourceID) == "" {
-		return fmt.Errorf("extension_resource_changed.resource_id is required")
-	}
-	switch payload.ChangeKind {
-	case ExtensionResourceChangeKindInvalidate, ExtensionResourceChangeKindRemove:
-	default:
-		return fmt.Errorf("extension_resource_changed.change_kind is invalid")
-	}
-	switch payload.ReasonCode {
-	case ExtensionResourceReasonRenamed:
-		if payload.ChangeKind != ExtensionResourceChangeKindInvalidate {
-			return fmt.Errorf("extension_resource_changed.renamed requires invalidate")
-		}
-	case ExtensionResourceReasonSoftDeleted, ExtensionResourceReasonAuthorizationLost:
-		if payload.ChangeKind != ExtensionResourceChangeKindRemove {
-			return fmt.Errorf("extension_resource_changed.%s requires remove", payload.ReasonCode)
-		}
-	default:
-		return fmt.Errorf("extension_resource_changed.reason_code is invalid")
-	}
-	lastWorkspaceKey := ""
-	seenWorkspaceKeys := map[string]struct{}{}
-	for _, ref := range payload.WorkspaceRefs {
-		if ref.Kind != "extension_workspace" {
-			return fmt.Errorf("extension_resource_changed.workspace_refs.kind must be extension_workspace")
-		}
-		if ref.ExtensionProfileID != payload.ExtensionProfileID {
-			return fmt.Errorf("extension_resource_changed.workspace_refs.extension_profile_id must match payload")
-		}
-		if strings.TrimSpace(ref.WorkspaceKey) == "" {
-			return fmt.Errorf("extension_resource_changed.workspace_refs.workspace_key is required")
-		}
-		if _, exists := seenWorkspaceKeys[ref.WorkspaceKey]; exists {
-			return fmt.Errorf("extension_resource_changed.workspace_refs duplicate workspace_key")
-		}
-		seenWorkspaceKeys[ref.WorkspaceKey] = struct{}{}
-		if lastWorkspaceKey != "" && ref.WorkspaceKey < lastWorkspaceKey {
-			return fmt.Errorf("extension_resource_changed.workspace_refs must be sorted by workspace_key")
-		}
-		lastWorkspaceKey = ref.WorkspaceKey
-	}
-	return nil
-}
-
-func PresenceSnapshotMessage(incidentID uuid.UUID, presences []PresenceRecord, now time.Time) Message {
-	if presences == nil {
-		presences = []PresenceRecord{}
-	}
-	return EphemeralMessage(incidentID, "presence_snapshot", map[string]any{"presences": presences}, now)
-}
-
-func ValidatePresenceInput(input PresenceInput) error {
-	if input.SheetRef == nil || input.SheetRef["kind"] == "" {
-		return fmt.Errorf("presence.sheet_ref is required")
-	}
-	switch input.SheetRef["kind"] {
-	case "view_schema", "saved_view":
-		if input.SheetRef["id"] == "" || !sheetRefHasOnlyKeys(input.SheetRef, "kind", "id") {
-			return fmt.Errorf("presence.sheet_ref is invalid")
-		}
-	case "extension_workspace":
-		if input.SheetRef["extension_profile_id"] == "" || input.SheetRef["workspace_key"] == "" || !sheetRefHasOnlyKeys(input.SheetRef, "kind", "extension_profile_id", "workspace_key") {
-			return fmt.Errorf("presence.sheet_ref is invalid")
-		}
-		if input.RecordID != nil || input.FieldKey != nil {
-			return fmt.Errorf("presence extension workspace anchors are unsupported")
-		}
-	default:
-		return fmt.Errorf("presence.sheet_ref.kind is invalid")
-	}
-	switch input.Mode {
-	case "viewing", "editing", "idle":
-	default:
-		return fmt.Errorf("presence.mode is invalid")
-	}
-	if input.FieldKey != nil && input.Mode != "editing" {
-		return fmt.Errorf("presence.field_key requires editing mode")
-	}
-	return nil
-}
-
-func sheetRefHasOnlyKeys(sheetRef map[string]string, keys ...string) bool {
-	allowed := make(map[string]struct{}, len(keys))
-	for _, key := range keys {
-		allowed[key] = struct{}{}
-	}
-	for key := range sheetRef {
-		if _, ok := allowed[key]; !ok {
-			return false
-		}
-	}
-	return true
-}
-
-func canonicalExtensionResourceChangePayload(payload ExtensionResourceChangePayload) ExtensionResourceChangePayload {
-	payload.ExtensionProfileID = strings.TrimSpace(payload.ExtensionProfileID)
-	payload.ResourceKind = strings.TrimSpace(payload.ResourceKind)
-	payload.ResourceID = strings.TrimSpace(payload.ResourceID)
-	payload.ChangeKind = strings.TrimSpace(payload.ChangeKind)
-	payload.ReasonCode = strings.TrimSpace(payload.ReasonCode)
-	if len(payload.WorkspaceRefs) == 0 {
-		return payload
-	}
-	refs := make([]ExtensionWorkspaceRef, 0, len(payload.WorkspaceRefs))
-	for _, ref := range payload.WorkspaceRefs {
-		refs = append(refs, ExtensionWorkspaceRef{
-			Kind:               strings.TrimSpace(ref.Kind),
-			ExtensionProfileID: strings.TrimSpace(ref.ExtensionProfileID),
-			WorkspaceKey:       strings.TrimSpace(ref.WorkspaceKey),
-		})
-	}
-	sort.Slice(refs, func(i, j int) bool {
-		return refs[i].WorkspaceKey < refs[j].WorkspaceKey
-	})
-	payload.WorkspaceRefs = refs
-	return payload
 }
 
 func cloneSheetRef(input map[string]string) map[string]string {
@@ -901,11 +414,4 @@ func cloneStringPointer(value *string) *string {
 	}
 	cloned := *value
 	return &cloned
-}
-
-func nonNilPayload(payload any) any {
-	if payload == nil {
-		return map[string]any{}
-	}
-	return payload
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -86,6 +87,7 @@ func completeMutationDependencies() MutationDependencies {
 		Revisions:            operations,
 		ConflictFields:       fieldResolver,
 		KeepSavedIdempotency: compositionKeepSavedIdempotency{},
+		Collaboration:        operations,
 	}
 }
 
@@ -173,7 +175,11 @@ func (compositionOperations) AppendRecordMutationTx(context.Context, pgx.Tx, rev
 	return nil
 }
 
-func (compositionOperations) AppendRecordRevisionAndIntentTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error {
+func (compositionOperations) AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error {
+	return nil
+}
+
+func (compositionOperations) AppendRecordChangedTx(context.Context, pgx.Tx, collaboration.RecordChangeIntentInput) error {
 	return nil
 }
 

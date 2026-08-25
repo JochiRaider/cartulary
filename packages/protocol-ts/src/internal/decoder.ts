@@ -74,12 +74,13 @@ function validationPath(error: GeneratedValidationError | undefined): string {
 export function createDecoder<T>(
   schemaId: string,
   validate: GeneratedValidator,
+  project: (value: unknown) => T = (value) => value as T,
 ): Decoder<T> {
   return Object.freeze({
     schemaId,
     decode(value: unknown): DecodeResult<T> {
       if (validate(value)) {
-        return { ok: true, value: value as T };
+        return { ok: true, value: project(value) };
       }
       const firstError = validate.errors?.[0];
       return {

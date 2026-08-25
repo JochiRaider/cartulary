@@ -13,7 +13,7 @@ type revisionAppendPort interface {
 	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error)
 	AppendChangeSetTx(context.Context, pgx.Tx, revisions.AppendChangeSetParams) (uuid.UUID, error)
 	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
-	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
+	AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error
 }
 
 type revisionAppendAdapter struct{ appender *revisions.Appender }
@@ -34,6 +34,6 @@ func (a revisionAppendAdapter) AppendRecordMutationTx(ctx context.Context, tx pg
 	return a.appender.AppendRecordMutationTx(ctx, tx, params)
 }
 
-func (a revisionAppendAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
-	return a.appender.AppendRecordRevisionTx(ctx, tx, params)
+func (a revisionAppendAdapter) AppendLiveRevisionTx(ctx context.Context, tx pgx.Tx, input revisions.LiveRevisionInput) error {
+	return a.appender.AppendLiveRevisionTx(ctx, tx, input)
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
 
 var errUnavailableEvidenceObjectStore = errors.New("test Evidence object store is unavailable")
@@ -44,7 +45,7 @@ func NewEvidenceOwnerRuntime(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
-	intents collaboration.IntentAppender,
+	intents collaboration.RecordChangedAppender,
 	objects objectstore.TypedStore,
 	conflictFields conflicttokens.FieldResolver,
 	keepSaved conflicttokens.IdempotencyPort,
@@ -72,7 +73,7 @@ func NewEvidenceOwnerRuntimeForTimeline(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
-	intents collaboration.IntentAppender,
+	intents collaboration.RecordChangedAppender,
 	projectionRuntime *projectionassembly.Runtime,
 ) *evidence.OwnerRuntime {
 	conflictFields, err := revisionassembly.CurrentConflictFieldResolver()
@@ -97,18 +98,12 @@ func NewEvidenceMutationOwner(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 ) evidence.MutationContribution {
-	intents := collaboration.NewIntentAppender()
+	intents := collaborationsupport.NewPublicationAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
 		panic(err)
 	}
-	revisionRuntime, err := revisionassembly.Build(
-		revisionassembly.Dependencies{
-			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
-			IntentAppender:         intents,
-		},
-		contributions...,
-	)
+	revisionRuntime, err := revisionassembly.Build(contributions...)
 	if err != nil {
 		panic(err)
 	}
@@ -133,18 +128,12 @@ func UnavailableEvidenceObjectStore() objectstore.TypedStore {
 // NewTaskDecisionOwner composes the source-owner mutation facade for tests
 // that verify Task/Decision lifecycle behavior directly.
 func NewTaskDecisionOwner(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *tasksdecisions.MutationFacade {
-	intents := collaboration.NewIntentAppender()
+	intents := collaborationsupport.NewPublicationAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
 		panic(err)
 	}
-	revisionRuntime, err := revisionassembly.Build(
-		revisionassembly.Dependencies{
-			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
-			IntentAppender:         intents,
-		},
-		contributions...,
-	)
+	revisionRuntime, err := revisionassembly.Build(contributions...)
 	if err != nil {
 		panic(err)
 	}
@@ -154,6 +143,7 @@ func NewTaskDecisionOwner(pool postgres.DB, conflictTokens conflicttokens.Confli
 		revisionRuntime.Appender(),
 		revisionRuntime.ConflictFieldResolver(),
 		mustBuildProjectionRuntime(pool).TaskDecisionPorts().Rows,
+		intents,
 	)
 	if err != nil {
 		panic(err)
@@ -164,18 +154,12 @@ func NewTaskDecisionOwner(pool postgres.DB, conflictTokens conflicttokens.Confli
 // NewWorkbookCatalog composes the same immutable provider catalog used by the
 // server for focused generic coordination tests.
 func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *workbook.WorkbookContributionCatalog {
-	intents := collaboration.NewIntentAppender()
+	intents := collaborationsupport.NewPublicationAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
 		panic(err)
 	}
-	revisionRuntime, err := revisionassembly.Build(
-		revisionassembly.Dependencies{
-			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
-			IntentAppender:         intents,
-		},
-		contributions...,
-	)
+	revisionRuntime, err := revisionassembly.Build(contributions...)
 	if err != nil {
 		panic(err)
 	}
@@ -213,6 +197,7 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 		RecordEnvelopes: records.NewStore(pool),
 		Projections:     projectionRuntime.IndicatorPorts().Rows,
 		SourceText:      indicatorassembly.NewSourceTextPort(projectionRuntime.SourceTextRows()),
+		Collaboration:   intents,
 		Clock:           func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
 	})
 	if err != nil {
@@ -224,6 +209,7 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 		appender,
 		conflictFields,
 		projectionRuntime.TaskDecisionPorts().Rows,
+		intents,
 	)
 	if err != nil {
 		panic(err)
@@ -234,6 +220,7 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 		appender,
 		conflictFields,
 		projectionRuntime.ArtifactPorts().Rows,
+		intents,
 	)
 	if err != nil {
 		panic(err)
@@ -266,18 +253,12 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 // NewAssessmentOwner composes the Assessment owner for tests that exercise
 // source semantics through its owner facade.
 func NewAssessmentOwner(pool postgres.DB) *assessments.Facade {
-	intents := collaboration.NewIntentAppender()
+	intents := collaborationsupport.NewPublicationAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
 		panic(err)
 	}
-	revisionRuntime, err := revisionassembly.Build(
-		revisionassembly.Dependencies{
-			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
-			IntentAppender:         intents,
-		},
-		contributions...,
-	)
+	revisionRuntime, err := revisionassembly.Build(contributions...)
 	if err != nil {
 		panic(err)
 	}
@@ -287,6 +268,7 @@ func NewAssessmentOwner(pool postgres.DB) *assessments.Facade {
 		projectionRuntime.AssessmentPorts().Rows,
 		hostidentity.NewSourceFacts(),
 		revisionRuntime.Appender(),
+		intents,
 	)
 	if err != nil {
 		panic(err)
@@ -300,18 +282,12 @@ func NewPartyOwner(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 ) *parties.MutationFacade {
-	intents := collaboration.NewIntentAppender()
+	intents := collaborationsupport.NewPublicationAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
 		panic(err)
 	}
-	revisionRuntime, err := revisionassembly.Build(
-		revisionassembly.Dependencies{
-			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
-			IntentAppender:         intents,
-		},
-		contributions...,
-	)
+	revisionRuntime, err := revisionassembly.Build(contributions...)
 	if err != nil {
 		panic(err)
 	}
@@ -322,6 +298,7 @@ func NewPartyOwner(
 		revisionRuntime.Appender(),
 		revisionRuntime.ConflictFieldResolver(),
 		projectionRuntime.PartyPorts().Rows,
+		intents,
 	)
 	if err != nil {
 		panic(err)

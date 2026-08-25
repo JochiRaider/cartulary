@@ -173,18 +173,17 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 			return ClipboardPasteResult{}, err
 		}
 		sequenceNo += len(row.TagMutations)
-		revision := revisions.AppendRecordRevisionParams{
+		revision := revisions.LiveRevisionInput{
 			ChangeSetID:   changeSetID,
 			RecordID:      row.After.RecordID,
 			RowVersion:    row.After.RowVersion,
 			AfterSnapshot: &row.AfterSnapshot,
-			LiveChange:    revisions.LiveRecordChange{AfterValue: row.AfterRow},
+			ConflictFacts: timelineRevisionFacts(row.BeforeRow, row.AfterRow, row.ChangedFieldKeys),
 		}
 		if row.Before != nil {
 			revision.BeforeSnapshot = row.BeforeSnapshot
-			revision.LiveChange.BeforeValue = row.BeforeRow
 		}
-		if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revision); err != nil {
+		if err := s.revisionsStore.AppendLiveRevisionTx(ctx, tx, revision); err != nil {
 			return ClipboardPasteResult{}, err
 		}
 		if err := s.upsertProjectionTx(ctx, tx, row.After); err != nil {

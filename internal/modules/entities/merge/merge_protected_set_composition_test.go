@@ -116,7 +116,7 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 		Links:         composedMergeLinkEffects{},
 		Timeline:      composedMergeTimelineEffects{},
 		Projections:   composedMergeWorkbookProjection{},
-		Collaboration: composition.Intents,
+		Collaboration: composition.Publications,
 	})
 	if err != nil {
 		t.Fatalf("compose Merge store: %v", err)

@@ -11,7 +11,7 @@ func TestProductionReadinessComponentsRemainDecomposed_Unit(t *testing.T) {
 	required := []string{
 		"appender_change_set_storage.go",
 		"appender_facade.go",
-		"appender_intent_publication.go",
+		"record_publication.go",
 		"appender_mutation_storage.go",
 		"appender_revision_storage.go",
 		"target_history_facets.go",

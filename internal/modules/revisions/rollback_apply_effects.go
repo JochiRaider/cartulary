@@ -27,17 +27,26 @@ func (a rollbackTransactionalApplier) insertRollbackRecordRevisionSnapshotTx(ctx
 	if err != nil {
 		return RollbackRecordChange{}, err
 	}
-	if err := a.publication.appendRecordRevisionAndIntentTx(ctx, tx, AppendRecordRevisionParams{
+	changedFieldKeys := rollbackChangedFieldKeys(beforeSnapshot.live, afterLiveRecord)
+	conflictFacts, err := revisionFactsForFields(beforeSnapshot.live, afterLiveRecord, changedFieldKeys)
+	if err != nil {
+		return RollbackRecordChange{}, err
+	}
+	if err := a.publication.appendLiveRevisionTx(ctx, tx, LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       recordID,
 		RowVersion:     rowVersion,
 		BeforeSnapshot: &beforeSnapshot.captured,
 		AfterSnapshot:  &afterSnapshot,
-		LiveChange: LiveRecordChange{
-			BeforeValue: beforeSnapshot.live,
-			AfterValue:  afterLiveRecord,
-		},
+		ConflictFacts:  conflictFacts,
 	}); err != nil {
+		return RollbackRecordChange{}, err
+	}
+	publication, err := a.publication.recordPublicationEffectTx(ctx, tx, changeSetID, recordID, rowVersion, beforeSnapshot.viewSchemaID, "invalidate", changedFieldKeys)
+	if err != nil {
+		return RollbackRecordChange{}, err
+	}
+	if err := a.publication.appendRecordChangedTx(ctx, tx, publication); err != nil {
 		return RollbackRecordChange{}, err
 	}
 	return RollbackRecordChange{
@@ -45,7 +54,7 @@ func (a rollbackTransactionalApplier) insertRollbackRecordRevisionSnapshotTx(ctx
 		RowVersion:       rowVersion,
 		ChangeSetID:      changeSetID,
 		ViewSchemaID:     beforeSnapshot.viewSchemaID,
-		ChangedFieldKeys: rollbackChangedFieldKeys(beforeSnapshot.live, afterLiveRecord),
+		ChangedFieldKeys: changedFieldKeys,
 	}, nil
 }
 

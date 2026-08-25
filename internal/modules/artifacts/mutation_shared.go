@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -47,7 +48,7 @@ type RevisionCapability interface {
 	AppendChangeSetTx(context.Context, pgx.Tx, revisions.AppendChangeSetParams) (uuid.UUID, error)
 	AppendNonRowMutationTx(context.Context, pgx.Tx, revisions.AppendNonRowMutationParams) error
 	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
-	AppendRecordRevisionAndIntentTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
+	AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error
 	LoadRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]conflicts.RevisionWindowRow, error)
 }
 
@@ -71,6 +72,7 @@ type MutationDependencies struct {
 	Revisions            RevisionCapability
 	ConflictFields       conflicts.FieldResolver
 	KeepSavedIdempotency conflicts.IdempotencyPort
+	Collaboration        collaboration.RecordChangedAppender
 }
 
 func (d MutationDependencies) validate() error {
@@ -87,6 +89,7 @@ func (d MutationDependencies) validate() error {
 		{name: "Revisions/history", value: d.Revisions},
 		{name: "Conflict fields", value: d.ConflictFields},
 		{name: "Keep-saved idempotency", value: d.KeepSavedIdempotency},
+		{name: "Collaboration publication", value: d.Collaboration},
 	}
 	for _, dependency := range required {
 		if dependency.value == nil {

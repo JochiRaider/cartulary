@@ -12,6 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
@@ -34,7 +35,7 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 	entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, supportHostID, "Assessment support host", "assess-support-host", "", "")
 	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, supportID)
 
-	intentsBeforeCreate := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents WHERE incident_id = $1`, incidentID)
+	intentsBeforeCreate := collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{IncidentID: incidentID.String()})
 	body := map[string]any{
 		"client_txn_id":               "txn-assessments-create",
 		"assessment.subject_ref":      hostID.String(),
@@ -91,7 +92,7 @@ SELECT COUNT(*)
 	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE record_id = $1 AND record_type = 'assessment'`, recordID); got != 1 {
 		t.Fatalf("expected one assessment record envelope, got %d", got)
 	}
-	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents WHERE incident_id = $1`, incidentID); got != intentsBeforeCreate+1 {
+	if got := collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{IncidentID: incidentID.String()}); got != intentsBeforeCreate+1 {
 		t.Fatalf("assessment create publication intents = %d, want %d", got, intentsBeforeCreate+1)
 	}
 	revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, data["change_set_id"].(string))
@@ -116,7 +117,7 @@ SELECT COUNT(*)
 	if got := replayData["row"].(map[string]any)["record_id"]; got != recordID.String() {
 		t.Fatalf("expected idempotent replay of record %s, got %#v", recordID, replayData)
 	}
-	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents WHERE incident_id = $1`, incidentID); got != intentsBeforeCreate+1 {
+	if got := collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{IncidentID: incidentID.String()}); got != intentsBeforeCreate+1 {
 		t.Fatalf("assessment replay published an extra intent: got %d want %d", got, intentsBeforeCreate+1)
 	}
 	revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, data["change_set_id"].(string))
@@ -128,7 +129,7 @@ SELECT COUNT(*)
 		"assessment.rationale":        "Different payload.",
 	}
 	appsupport.RequireErrorBody(t, postAssessment(t, harness, adminLogin, incidentID, conflictBody), http.StatusConflict, "client_txn_conflict")
-	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents WHERE incident_id = $1`, incidentID); got != intentsBeforeCreate+1 {
+	if got := collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{IncidentID: incidentID.String()}); got != intentsBeforeCreate+1 {
 		t.Fatalf("assessment divergent replay published an intent: got %d want %d", got, intentsBeforeCreate+1)
 	}
 
@@ -361,6 +362,6 @@ func loadAssessmentDurableState(t testing.TB, harness *appsupport.ServerHarness,
 		mutations:    appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations m JOIN change_sets c ON c.change_set_id = m.change_set_id WHERE c.incident_id = $1 AND c.source = 'assessments.rows.create'`, incidentID),
 		revisions:    appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_revisions rr JOIN records r ON r.record_id = rr.record_id WHERE r.incident_id = $1 AND r.record_type = 'assessment'`, incidentID),
 		idempotency:  appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'assessments.rows.create' AND scope_key = $1`, incidentID.String()+":"+assessments.AssessmentsViewSchemaID),
-		publications: appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents WHERE incident_id = $1`, incidentID),
+		publications: collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{IncidentID: incidentID.String()}),
 	}
 }

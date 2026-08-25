@@ -227,13 +227,14 @@ RETURNING recorded_at
 			return MutationResult{}, err
 		}
 	}
-	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	changedFieldKeys := computeChangedFieldKeys(&beforeProjected, afterProjected)
+	if err := s.revisionsStore.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       current.RecordID,
 		RowVersion:     next.RowVersion,
 		BeforeSnapshot: &beforeSnapshot,
 		AfterSnapshot:  &afterSnapshot,
-		LiveChange:     revisions.LiveRecordChange{BeforeValue: beforeRow, AfterValue: afterRow},
+		ConflictFacts:  timelineRevisionFacts(beforeRow, afterRow, changedFieldKeys),
 	}); err != nil {
 		return MutationResult{}, err
 	}
@@ -251,7 +252,7 @@ RETURNING recorded_at
 		changeSetID,
 		clientTxnID,
 		actor.ID,
-		computeChangedFieldKeys(&beforeProjected, afterProjected),
+		changedFieldKeys,
 		afterRow,
 		0,
 		now,
@@ -275,7 +276,7 @@ RETURNING recorded_at
 		ChangeSetID:      changeSetID,
 		ClientTxnID:      clientTxnID,
 		RowVersion:       afterProjected.RowVersion,
-		ChangedFieldKeys: computeChangedFieldKeys(&beforeProjected, afterProjected),
+		ChangedFieldKeys: changedFieldKeys,
 		Row:              afterProjected,
 	}, nil
 }

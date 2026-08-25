@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -36,6 +37,7 @@ type MutationFacade struct {
 	revisions        RevisionCapability
 	conflictTokens   conflicttokens.ConflictTokenCodec
 	conflictFields   conflicttokens.FieldResolver
+	publications     collaboration.RecordChangedAppender
 }
 
 type CreateRequest struct {
@@ -164,6 +166,7 @@ func NewMutationContribution(
 		revisions:        dependencies.Revisions,
 		conflictTokens:   conflictTokens,
 		conflictFields:   dependencies.ConflictFields,
+		publications:     dependencies.Collaboration,
 	}, nil
 }
 
@@ -284,13 +287,17 @@ func (f *MutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 	if err := f.appendRecordLinkMutationsTx(ctx, tx, changeSetID, 2, collectionMutations); err != nil {
 		return MutationResult{}, err
 	}
-	if err := f.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	changedFields := changedFieldKeys(nil, row)
+	if err := f.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:   changeSetID,
 		RecordID:      recordID,
 		RowVersion:    1,
 		AfterSnapshot: &afterSnapshot,
-		LiveChange:    revisions.LiveRecordChange{AfterValue: row},
+		ConflictFacts: taskDecisionRevisionFacts(nil, row, changedFields),
 	}); err != nil {
+		return MutationResult{}, err
+	}
+	if err := f.appendTaskDecisionRecordChangedTx(ctx, tx, command.IncidentID, command.ActorUserID, request.ClientTxnID, changeSetID, recordID, 1, 0, command.Now, request.ViewSchemaID, row, changedFields); err != nil {
 		return MutationResult{}, err
 	}
 	storedResult := NewStoredCreateResult(StoredRowMutationResult{
@@ -314,7 +321,7 @@ func (f *MutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       1,
 		ViewSchemaID:     request.ViewSchemaID,
-		ChangedFieldKeys: changedFieldKeys(nil, row),
+		ChangedFieldKeys: changedFields,
 	}, nil
 }
 
@@ -473,14 +480,18 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	if err := f.appendRecordLinkMutationsTx(ctx, tx, changeSetID, 2, collectionMutations); err != nil {
 		return MutationResult{}, err
 	}
-	if err := f.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	changedFields := changedFieldKeys(beforeRow, afterRow)
+	if err := f.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       command.RecordID,
 		RowVersion:     rowVersion,
 		BeforeSnapshot: &beforeSnapshot,
 		AfterSnapshot:  &afterSnapshot,
-		LiveChange:     revisions.LiveRecordChange{BeforeValue: beforeRow, AfterValue: afterRow},
+		ConflictFacts:  taskDecisionRevisionFacts(beforeRow, afterRow, changedFields),
 	}); err != nil {
+		return MutationResult{}, err
+	}
+	if err := f.appendTaskDecisionRecordChangedTx(ctx, tx, meta.IncidentID, command.ActorUserID, request.ClientTxnID, changeSetID, command.RecordID, rowVersion, 0, command.Now, request.ViewSchemaID, afterRow, changedFields); err != nil {
 		return MutationResult{}, err
 	}
 	storedResult := NewStoredPatchResult(StoredRowMutationResult{
@@ -503,7 +514,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       rowVersion,
 		ViewSchemaID:     request.ViewSchemaID,
-		ChangedFieldKeys: changedFieldKeys(beforeRow, afterRow),
+		ChangedFieldKeys: changedFields,
 	}, nil
 }
 

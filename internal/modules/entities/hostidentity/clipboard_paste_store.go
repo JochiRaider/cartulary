@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -175,17 +176,19 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 		}
 		sequenceNo += len(aliasMutations)
 		if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-			if err := s.ports.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+			changedFields := entityChangedFieldKeys(beforeRow, afterRow)
+			mutationOrdinal := sequenceNo - len(aliasMutations) - 2
+			if err := s.ports.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 				ChangeSetID:    changeSetID,
 				RecordID:       recordID,
 				RowVersion:     rowVersion,
 				BeforeSnapshot: beforeSnapshot,
 				AfterSnapshot:  &afterSnapshot,
-				LiveChange: revisions.LiveRecordChange{
-					BeforeValue: beforeRow,
-					AfterValue:  afterRow,
-				},
+				ConflictFacts:  entityRevisionFacts(beforeRow, afterRow, changedFields),
 			}); err != nil {
+				return ClipboardPasteResult{}, err
+			}
+			if err := s.appendRecordChangedTx(ctx, tx, incidentID, actor.ID, plan.ClientTxnID, changeSetID, recordID, rowVersion, mutationOrdinal, now, viewSchemaID, afterRow, changedFields); err != nil {
 				return ClipboardPasteResult{}, err
 			}
 		}
@@ -267,17 +270,24 @@ func entityCreateRequestFromRowPlan(clientTxnID string, rowPlan tabularingest.Ro
 }
 
 func entityChangedFieldKeys(before map[string]any, after map[string]any) []string {
-	cells, _ := after["cells"].(map[string]any)
-	keys := make([]string, 0, len(cells))
-	for fieldKey := range cells {
-		if before != nil {
-			beforeCells, _ := before["cells"].(map[string]any)
-			if reflect.DeepEqual(beforeCells[fieldKey], cells[fieldKey]) {
-				continue
-			}
-		}
-		keys = append(keys, fieldKey)
+	beforeCells, _ := before["cells"].(map[string]any)
+	afterCells, _ := after["cells"].(map[string]any)
+	candidates := make(map[string]struct{}, len(beforeCells)+len(afterCells))
+	for fieldKey := range beforeCells {
+		candidates[fieldKey] = struct{}{}
 	}
+	for fieldKey := range afterCells {
+		candidates[fieldKey] = struct{}{}
+	}
+	keys := make([]string, 0, len(candidates))
+	for fieldKey := range candidates {
+		beforeValue, beforePresent := beforeCells[fieldKey]
+		afterValue, afterPresent := afterCells[fieldKey]
+		if beforePresent != afterPresent || !reflect.DeepEqual(beforeValue, afterValue) {
+			keys = append(keys, fieldKey)
+		}
+	}
+	slices.Sort(keys)
 	return keys
 }
 

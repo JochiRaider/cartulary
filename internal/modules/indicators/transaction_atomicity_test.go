@@ -19,6 +19,7 @@ import (
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -47,6 +48,7 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 		RecordEnvelopes: records.NewStore(db),
 		Projections:     newTransactionTestProjectionPort(t, db),
 		SourceText:      transactionTestSourceTextPort{},
+		Collaboration:   collaborationsupport.NewPublicationAppender(),
 		Clock:           func() time.Time { return now },
 	})
 	if err != nil {
@@ -231,7 +233,7 @@ func (port *failingIndicatorRevisionPort) AppendRecordMutationTx(_ context.Conte
 	return port.shouldFail()
 }
 
-func (port *failingIndicatorRevisionPort) AppendRecordRevisionAndIntentTx(_ context.Context, _ pgx.Tx, _ revisions.AppendRecordRevisionParams) error {
+func (port *failingIndicatorRevisionPort) AppendLiveRevisionTx(_ context.Context, _ pgx.Tx, _ revisions.LiveRevisionInput) error {
 	return port.shouldFail()
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -11,6 +12,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -62,7 +65,8 @@ func (assessmentIdempotencyAdapter) StoreCreateTx(ctx context.Context, tx pgx.Tx
 }
 
 type assessmentRevisionAdapter struct {
-	appender *revisions.Appender
+	appender     *revisions.Appender
+	publications collaboration.RecordChangedAppender
 }
 
 func (a assessmentRevisionAdapter) AppendAssessmentCreateRevisionTx(ctx context.Context, tx pgx.Tx, create assessments.CreateRevision) (uuid.UUID, error) {
@@ -108,14 +112,26 @@ func (a assessmentRevisionAdapter) AppendAssessmentCreateRevisionTx(ctx context.
 			return uuid.UUID{}, err
 		}
 	}
-	if err := a.appender.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	fieldKeys := assessmentRowFieldKeys(create.CanonicalRow)
+	if err := a.appender.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:   changeSetID,
 		RecordID:      create.RecordID,
 		RowVersion:    create.RowVersion,
 		AfterSnapshot: &afterSnapshot,
-		LiveChange: revisions.LiveRecordChange{
-			AfterValue: create.CanonicalRow,
-		},
+		ConflictFacts: assessmentRevisionFacts(create.CanonicalRow, fieldKeys),
+	}); err != nil {
+		return uuid.UUID{}, err
+	}
+	patch := collabprotocol.BuildViewRowPatch(create.CanonicalRow, fieldKeys)
+	changeKind := "invalidate"
+	if patch != nil {
+		changeKind = "patch"
+	}
+	if err := a.publications.AppendRecordChangedTx(ctx, tx, collaboration.RecordChangeIntentInput{
+		IncidentID: create.IncidentID, RecordID: create.RecordID, ChangeSetID: changeSetID,
+		ActorUserID: create.ActorUserID, RowVersion: create.RowVersion, ClientTxnID: create.ClientTxnID,
+		CreatedAt: create.CreatedAt, PublicFieldKeys: fieldKeys,
+		AffectedViews: []collaboration.AffectedViewChange{{ViewSchemaID: assessments.AssessmentsViewSchemaID, RecordID: create.RecordID, RowVersion: create.RowVersion, ChangeKind: changeKind, PatchCells: patch}},
 	}); err != nil {
 		return uuid.UUID{}, err
 	}
@@ -127,6 +143,7 @@ func NewAssessmentMutationContribution(
 	projectionRows assessmentprojection.Rows,
 	entitySourceFacts *hostidentity.SourceFacts,
 	appender *revisions.Appender,
+	publications collaboration.RecordChangedAppender,
 ) (*assessments.Facade, error) {
 	if appender == nil {
 		return nil, errors.New("compose assessment facade: revision appender is required")
@@ -139,7 +156,27 @@ func NewAssessmentMutationContribution(
 		SupportTargets: assessmentassembly.NewSupportTargetValidator(pool),
 		Records:        assessmentassembly.NewRecordEnvelopeCreator(pool),
 		SupportLinks:   assessmentassembly.NewSupportLinkApplier(),
-		Revisions:      assessmentRevisionAdapter{appender: appender},
+		Revisions:      assessmentRevisionAdapter{appender: appender, publications: publications},
 		Projections:    assessmentassembly.NewProjectionPort(projectionRows),
 	})
+}
+
+func assessmentRowFieldKeys(row map[string]any) []string {
+	cells, _ := row["cells"].(map[string]any)
+	keys := make([]string, 0, len(cells))
+	for key := range cells {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+func assessmentRevisionFacts(row map[string]any, fieldKeys []string) []revisions.RevisionConflictFact {
+	cells, _ := row["cells"].(map[string]any)
+	facts := make([]revisions.RevisionConflictFact, 0, len(fieldKeys))
+	for _, key := range fieldKeys {
+		value, present := cells[key]
+		facts = append(facts, revisions.RevisionConflictFact{FieldKey: key, AfterPresent: present, AfterValue: value})
+	}
+	return facts
 }

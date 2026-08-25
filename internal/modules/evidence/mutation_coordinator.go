@@ -39,7 +39,7 @@ type evidenceSourceMutationKernel struct {
 	incidents     evidenceIncidentAdmissionPort
 	source        evidenceSourceKernel
 	revisions     revisionAppendPort
-	collaboration collaboration.IntentAppender
+	collaboration collaboration.RecordChangedAppender
 }
 
 func (coordinator evidenceSourceMutationKernel) createTx(
@@ -121,16 +121,16 @@ func (coordinator evidenceSourceMutationKernel) createTx(
 	}); err != nil {
 		return evidenceCreateTxResult{}, err
 	}
-	if err := coordinator.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	changedFieldKeys := changedFieldKeys(nil, row)
+	if err := coordinator.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:   changeSetID,
 		RecordID:      recordID,
 		RowVersion:    1,
 		AfterSnapshot: &afterSnapshot,
-		LiveChange:    revisions.LiveRecordChange{AfterValue: row},
+		ConflictFacts: evidenceRevisionFacts(nil, row, changedFieldKeys),
 	}); err != nil {
 		return evidenceCreateTxResult{}, err
 	}
-	changedFieldKeys := changedFieldKeys(nil, row)
 	if err := appendEvidenceRecordChangeIntentsTx(
 		ctx,
 		tx,

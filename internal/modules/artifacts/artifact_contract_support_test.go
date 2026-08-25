@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
@@ -81,26 +82,12 @@ func requireArtifactRecordChangedIntent(
 	actorID uuid.UUID,
 ) {
 	t.Helper()
-	requireCount(
-		t,
-		harness,
-		`SELECT count(*) FROM collaboration_event_intents WHERE source_change_set_id = $1 AND source_record_id = $2 AND source_row_version = $3 AND event_family = 'record_changed'`,
-		result.ChangeSetID,
-		result.RecordID,
-		result.RowVersion,
-		1,
-	)
-	var raw []byte
-	if err := harness.DB.QueryRow(context.Background(), `
-SELECT canonical_payload
-  FROM collaboration_event_intents
- WHERE source_change_set_id = $1
-   AND source_record_id = $2
-   AND source_row_version = $3
-   AND event_family = 'record_changed'
-`, result.ChangeSetID, result.RecordID, result.RowVersion).Scan(&raw); err != nil {
-		t.Fatalf("load artifact record_changed intent: %v", err)
+	selector := collaborationsupport.IntentSelector{
+		EventFamily: "record_changed", SourceChangeSetID: result.ChangeSetID.String(),
+		SourceRecordID: result.RecordID.String(), SourceRowVersion: &result.RowVersion,
 	}
+	collaborationsupport.RequireIntentCount(t, harness.DB, selector, 1)
+	raw := collaborationsupport.LoadLatestIntent(t, harness.DB, selector).CanonicalPayload
 	var payload map[string]any
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		t.Fatalf("decode artifact record_changed intent: %v", err)
@@ -220,7 +207,7 @@ type failingArtifactImportAppender struct {
 	*revisions.Appender
 }
 
-func (failingArtifactImportAppender) AppendRecordRevisionAndIntentTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error {
+func (failingArtifactImportAppender) AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error {
 	return errInjectedArtifactImportFinalization
 }
 
@@ -236,6 +223,7 @@ func artifactImportDependencies(database postgres.DB, appender *revisions.Append
 		ActiveUsers:     artifactImportActiveUserLookup{},
 		Projections:     appsupport.ArtifactProjectionRows(database),
 		Revisions:       appender,
+		Collaboration:   collaborationsupport.NewPublicationAppender(),
 	}
 }
 
@@ -274,6 +262,7 @@ func mustArtifactMutationFacade(
 		revisionsupport.MustAppender(t),
 		mustConflictFieldResolver(t),
 		appsupport.ArtifactProjectionRows(pool),
+		collaborationsupport.NewPublicationAppender(),
 	)
 	if err != nil {
 		t.Fatalf("compose Artifacts mutation facade: %v", err)

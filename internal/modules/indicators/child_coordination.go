@@ -14,6 +14,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -211,6 +213,11 @@ func appendAffectedRecordRevisionsTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	appender RevisionPort,
+	publications collaboration.RecordChangedAppender,
+	incidentID uuid.UUID,
+	actorUserID uuid.UUID,
+	clientTxnID string,
+	createdAt time.Time,
 	changeSetID uuid.UUID,
 	versions []AffectedRecordVersion,
 	beforeSnapshots map[uuid.UUID]revisions.RecordSnapshot,
@@ -218,22 +225,124 @@ func appendAffectedRecordRevisionsTx(
 	beforeRows map[uuid.UUID]map[string]any,
 	afterRows map[uuid.UUID]map[string]any,
 ) error {
-	for _, version := range versions {
+	for ordinal, version := range versions {
 		beforeSnapshot := beforeSnapshots[version.RecordID]
 		afterSnapshot := afterSnapshots[version.RecordID]
-		if err := appender.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+		changedFieldKeys := indicatorChangedFieldKeys(beforeRows[version.RecordID], afterRows[version.RecordID])
+		if err := appender.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 			ChangeSetID:    changeSetID,
 			RecordID:       version.RecordID,
 			RowVersion:     version.RowVersion,
 			BeforeSnapshot: &beforeSnapshot,
 			AfterSnapshot:  &afterSnapshot,
-			LiveChange: revisions.LiveRecordChange{
-				BeforeValue: beforeRows[version.RecordID],
-				AfterValue:  afterRows[version.RecordID],
-			},
+			ConflictFacts:  indicatorRevisionFacts(beforeRows[version.RecordID], afterRows[version.RecordID], changedFieldKeys),
 		}); err != nil {
+			return err
+		}
+		if err := appendIndicatorPublicationTx(ctx, tx, publications, incidentID, actorUserID, clientTxnID, changeSetID, version.RecordID, version.RowVersion, ordinal, createdAt, afterRows[version.RecordID], changedFieldKeys); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func indicatorChangedFieldKeys(beforeRow map[string]any, afterRow map[string]any) []string {
+	before := indicatorCanonicalCells(beforeRow)
+	after := indicatorCanonicalCells(afterRow)
+	candidates := map[string]struct{}{}
+	for key := range before {
+		candidates[key] = struct{}{}
+	}
+	for key := range after {
+		candidates[key] = struct{}{}
+	}
+	changed := make([]string, 0, len(candidates))
+	for key := range candidates {
+		left, leftOK := before[key]
+		right, rightOK := after[key]
+		if leftOK != rightOK || !bytes.Equal(left, right) {
+			changed = append(changed, key)
+		}
+	}
+	sort.Strings(changed)
+	return changed
+}
+
+func indicatorCanonicalCells(row map[string]any) map[string]json.RawMessage {
+	if row == nil || row["cells"] == nil {
+		return map[string]json.RawMessage{}
+	}
+	payload, _ := json.Marshal(row["cells"])
+	var cells map[string]json.RawMessage
+	_ = json.Unmarshal(payload, &cells)
+	if cells == nil {
+		cells = map[string]json.RawMessage{}
+	}
+	return cells
+}
+
+func indicatorRevisionFacts(beforeRow map[string]any, afterRow map[string]any, fieldKeys []string) []revisions.RevisionConflictFact {
+	before, _ := beforeRow["cells"].(map[string]any)
+	after, _ := afterRow["cells"].(map[string]any)
+	facts := make([]revisions.RevisionConflictFact, 0, len(fieldKeys))
+	for _, key := range fieldKeys {
+		beforeValue, beforePresent := before[key]
+		afterValue, afterPresent := after[key]
+		facts = append(facts, revisions.RevisionConflictFact{
+			FieldKey: key, BeforePresent: beforePresent, BeforeValue: beforeValue,
+			AfterPresent: afterPresent, AfterValue: afterValue,
+		})
+	}
+	return facts
+}
+
+func appendIndicatorPublicationTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	publications collaboration.RecordChangedAppender,
+	incidentID uuid.UUID,
+	actorUserID uuid.UUID,
+	clientTxnID string,
+	changeSetID uuid.UUID,
+	recordID uuid.UUID,
+	rowVersion int64,
+	ordinal int,
+	createdAt time.Time,
+	row map[string]any,
+	fieldKeys []string,
+) error {
+	viewSchemaID := indicatorViewSchemaID(row)
+	patch := collabprotocol.BuildViewRowPatch(row, fieldKeys)
+	changeKind := "invalidate"
+	if patch != nil {
+		changeKind = "patch"
+	}
+	return publications.AppendRecordChangedTx(ctx, tx, collaboration.RecordChangeIntentInput{
+		IncidentID: incidentID, RecordID: recordID, ChangeSetID: changeSetID, ActorUserID: actorUserID,
+		RowVersion: rowVersion, ClientTxnID: clientTxnID, MutationOrdinal: ordinal, CreatedAt: createdAt,
+		PublicFieldKeys: fieldKeys,
+		AffectedViews: []collaboration.AffectedViewChange{{
+			ViewSchemaID: viewSchemaID, RecordID: recordID, RowVersion: rowVersion,
+			ChangeKind: changeKind, PatchCells: patch,
+		}},
+	})
+}
+
+func indicatorViewSchemaID(row map[string]any) string {
+	cells, _ := row["cells"].(map[string]any)
+	for key := range cells {
+		switch {
+		case strings.HasPrefix(key, "indicator."):
+			return ViewSchemaID
+		case strings.HasPrefix(key, "host."):
+			return "cartulary.view.hosts.v1"
+		case strings.HasPrefix(key, "identity."):
+			return "cartulary.view.identities.v1"
+		case strings.HasPrefix(key, "timeline."):
+			return "cartulary.view.timeline.v2"
+		case strings.HasPrefix(key, "evidence."):
+			return "cartulary.view.evidence.v1"
+		}
+	}
+	return ViewSchemaID
 }

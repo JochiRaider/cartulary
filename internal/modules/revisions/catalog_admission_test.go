@@ -108,12 +108,21 @@ func TestCatalogAdmissionSnapshotCaptureBuildsCanonicalOpaqueEnvelope(t *testing
 		t.Fatalf("record snapshot retained mutable source input: %#v", got)
 	}
 
-	facts, err := recordRevisionConflictFacts(LiveRecordChange{
-		BeforeValue: map[string]any{"cells": map[string]any{"catalog_admission.tags": map[string]any{"value": []any{"before"}}}},
-		AfterValue:  map[string]any{"cells": map[string]any{"catalog_admission.tags": map[string]any{"value": []any{"after"}}}},
-	})
-	if err != nil || len(facts) != 1 || facts[0].FieldKey != "catalog_admission.tags" || !facts[0].BeforePresent || !facts[0].AfterPresent {
-		t.Fatalf("derived live conflict facts = %#v, err = %v", facts, err)
+	facts, err := canonicalRevisionConflictFacts([]RevisionConflictFact{{
+		FieldKey: "catalog_admission.title", BeforePresent: true, BeforeValue: "before title",
+		AfterPresent: true, AfterValue: "after title",
+	}, {
+		FieldKey: "catalog_admission.tags", BeforePresent: true, BeforeValue: []any{"before"},
+		AfterPresent: true, AfterValue: []any{"after"},
+	}})
+	if err != nil || len(facts) != 2 || facts[0].FieldKey != "catalog_admission.tags" || facts[1].FieldKey != "catalog_admission.title" || !facts[0].BeforePresent || !facts[0].AfterPresent {
+		t.Fatalf("canonical explicit live conflict facts = %#v, err = %v", facts, err)
+	}
+	if _, err := canonicalRevisionConflictFacts([]RevisionConflictFact{{FieldKey: "duplicate"}, {FieldKey: "duplicate"}}); err == nil {
+		t.Fatal("duplicate explicit conflict facts must be rejected")
+	}
+	if _, err := canonicalRevisionConflictFacts([]RevisionConflictFact{{FieldKey: " invalid"}}); err == nil {
+		t.Fatal("non-canonical explicit conflict field key must be rejected")
 	}
 	nullPayload, err := revisionConflictFactValue(nil, true)
 	if err != nil || string(nullPayload.([]byte)) != "null" {

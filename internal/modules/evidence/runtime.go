@@ -54,7 +54,7 @@ type OwnerRuntimeDependencies struct {
 	Postgres            postgres.DB
 	ConflictTokens      *conflicttokens.ConflictTokenCodec
 	Revisions           *revisions.Appender
-	Collaboration       collaboration.IntentAppender
+	Collaboration       collaboration.RecordChangedAppender
 	ObjectStore         objectstore.TypedStore
 	ConflictFields      conflicttokens.FieldResolver
 	ConflictIdempotency conflicttokens.IdempotencyPort

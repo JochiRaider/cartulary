@@ -23,6 +23,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -895,12 +896,9 @@ SELECT COUNT(*)
 `, sessionID, changeSetID); got != 2 {
 		t.Fatalf("expected two Timeline journal rows in the unit change set, got %d", got)
 	}
-	if got := dbassert.CountSQL(t, harness.DB, `
-SELECT COUNT(*)
-  FROM collaboration_event_intents
- WHERE source_change_set_id::text = $1
-   AND event_family = 'record_changed'
-`, changeSetID); got != 2 {
+	if got := collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{
+		SourceChangeSetID: changeSetID, EventFamily: "record_changed",
+	}); got != 2 {
 		t.Fatalf("expected two Timeline record-change intents, got %d", got)
 	}
 
@@ -1082,16 +1080,12 @@ EXECUTE FUNCTION public.fail_import_journal_timeline_rs04()
 			t.Fatalf("%s survived failed Timeline unit transaction: %d", table, got)
 		}
 	}
-	if got := dbassert.CountSQL(t, harness.DB, `
-SELECT COUNT(*)
-  FROM collaboration_event_intents intent
-  JOIN change_sets change_set
-    ON change_set.change_set_id = intent.source_change_set_id
- WHERE change_set.incident_id::text = $1
-   AND change_set.source = 'imports.apply'
-   AND change_set.client_txn_id = $2
-   AND intent.event_family = 'record_changed'
-`, incidentID, "import:"+sessionID+":"+unitID+":txn-extension_profile-import-timeline-rollback-apply"); got != 0 {
+	if got := collaborationsupport.CountImportApplyIntents(
+		t,
+		harness.DB,
+		incidentID,
+		"import:"+sessionID+":"+unitID+":txn-extension_profile-import-timeline-rollback-apply",
+	); got != 0 {
 		t.Fatalf("failed Timeline owner transaction retained %d record-change intents", got)
 	}
 	if got := dbassert.CountSQL(t, harness.DB, `
@@ -2586,15 +2580,17 @@ SELECT (to_jsonb(e) - 'record_id' - 'incident_id' - 'created_at' - 'updated_at')
 	}
 	for _, recordID := range []string{ordinaryRecordID, importedRecordID} {
 		for effect, query := range map[string]string{
-			"record revision":      `SELECT COUNT(*) FROM record_revisions WHERE record_id::text = $1 AND row_version = 1`,
-			"change-set mutation":  `SELECT COUNT(*) FROM change_set_mutations WHERE target_kind = 'record' AND target_id = $1 AND operation_kind = 'create'`,
-			"Collaboration intent": `SELECT COUNT(*) FROM collaboration_event_intents WHERE source_record_id::text = $1 AND event_family = 'record_changed'`,
-			"projection row":       `SELECT COUNT(*) FROM evidence_grid_projection WHERE record_id::text = $1 AND row_version = 1`,
+			"record revision":     `SELECT COUNT(*) FROM record_revisions WHERE record_id::text = $1 AND row_version = 1`,
+			"change-set mutation": `SELECT COUNT(*) FROM change_set_mutations WHERE target_kind = 'record' AND target_id = $1 AND operation_kind = 'create'`,
+			"projection row":      `SELECT COUNT(*) FROM evidence_grid_projection WHERE record_id::text = $1 AND row_version = 1`,
 		} {
 			if got := dbassert.CountSQL(t, harness.DB, query, recordID); got != 1 {
 				t.Fatalf("%s count for Evidence record %s = %d, want 1", effect, recordID, got)
 			}
 		}
+		collaborationsupport.RequireIntentCount(t, harness.DB, collaborationsupport.IntentSelector{
+			SourceRecordID: recordID, EventFamily: "record_changed",
+		}, 1)
 	}
 	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM import_apply_journal WHERE import_session_id::text = $1`, sessionID); got != 1 {
 		t.Fatalf("expected one import apply journal row, got %d", got)

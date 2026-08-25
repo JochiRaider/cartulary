@@ -30,8 +30,16 @@ func (p rollbackPublicationService) appendRecordMutationTx(ctx context.Context, 
 	return p.store.appender.AppendRecordMutationTx(ctx, tx, params)
 }
 
-func (p rollbackPublicationService) appendRecordRevisionAndIntentTx(ctx context.Context, tx pgx.Tx, params AppendRecordRevisionParams) error {
-	return p.store.appender.AppendRecordRevisionAndIntentTx(ctx, tx, params)
+func (p rollbackPublicationService) appendLiveRevisionTx(ctx context.Context, tx pgx.Tx, input LiveRevisionInput) error {
+	return p.store.appender.AppendLiveRevisionTx(ctx, tx, input)
+}
+
+func (p rollbackPublicationService) recordPublicationEffectTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, recordID uuid.UUID, rowVersion int64, viewSchemaID string, changeKind string, publicFieldKeys []string) (RecordPublicationEffect, error) {
+	return p.store.recordPublicationEffectTx(ctx, tx, changeSetID, recordID, rowVersion, viewSchemaID, changeKind, publicFieldKeys)
+}
+
+func (p rollbackPublicationService) appendRecordChangedTx(ctx context.Context, tx pgx.Tx, effect RecordPublicationEffect) error {
+	return p.store.recordPublications.AppendRecordChangedTx(ctx, tx, effect)
 }
 
 func (p rollbackPublicationService) rebuildProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {

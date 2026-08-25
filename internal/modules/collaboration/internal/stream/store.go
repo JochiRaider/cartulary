@@ -1,4 +1,4 @@
-package collaboration
+package stream
 
 import (
 	"bytes"
@@ -11,13 +11,12 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -54,36 +53,18 @@ type EventIntent struct {
 	CreatedAt         time.Time
 }
 
-type IntentAppender interface {
-	AppendIntentTx(context.Context, pgx.Tx, EventIntent) error
-}
-
-type intentAppender struct{}
-
-// NewIntentAppender returns the stateless Collaboration-owned intent
-// persistence capability. Application composition shares one instance with
-// every source-owner adapter whose transaction must publish Collaboration
-// work.
-func NewIntentAppender() IntentAppender {
-	return &intentAppender{}
-}
-
-func (*intentAppender) AppendIntentTx(ctx context.Context, tx pgx.Tx, intent EventIntent) error {
-	return appendIntentTx(ctx, tx, intent)
-}
-
-// ReplayStore is the route-facing durable replay and resume-token capability.
+// PostgresStream is the route-facing durable replay and resume-token capability.
 // It exposes no append, dispatch, retention, quarantine, or recovery methods.
-type ReplayStore struct {
+type PostgresStream struct {
 	db  postgres.DB
 	now func() time.Time
 }
 
-func NewReplayStore(db postgres.DB, now func() time.Time) *ReplayStore {
+func NewPostgresStream(db postgres.DB, now func() time.Time) *PostgresStream {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	return &ReplayStore{db: db, now: now}
+	return &PostgresStream{db: db, now: now}
 }
 
 func NewEventIntent(
@@ -117,7 +98,7 @@ func NewEventIntent(
 // appendIntentTx persists one validated intent through the caller's
 // transaction. It is reachable outside Collaboration only through the narrow
 // IntentAppender capability.
-func appendIntentTx(ctx context.Context, tx pgx.Tx, intent EventIntent) error {
+func (*PostgresStream) AppendIntentTx(ctx context.Context, tx pgx.Tx, intent EventIntent) error {
 	if tx == nil {
 		return errors.New("collaboration intent transaction is not configured")
 	}
@@ -244,10 +225,10 @@ func validateEventIntent(intent EventIntent) error {
 	if len(intent.CanonicalPayload) > maxIntentPayload {
 		return fmt.Errorf("collaboration event intent payload exceeds %d bytes", maxIntentPayload)
 	}
-	return validateEventFamilyPayload(intent.IncidentID, intent.EventFamily, intent.CanonicalPayload)
+	return ValidateEventFamilyPayload(intent.IncidentID, intent.EventFamily, intent.CanonicalPayload)
 }
 
-func validateEventFamilyPayload(incidentID uuid.UUID, family string, payload json.RawMessage) error {
+func ValidateEventFamilyPayload(incidentID uuid.UUID, family string, payload json.RawMessage) error {
 	switch family {
 	case EventFamilyRecordChanged:
 		message := replayMessage(
@@ -258,23 +239,23 @@ func validateEventFamilyPayload(incidentID uuid.UUID, family string, payload jso
 			payload,
 			time.Unix(0, 0).UTC(),
 		)
-		if _, err := RecordChangeFromSequencedMessage(message); err != nil {
+		if err := validateRecordChangeMessage(message); err != nil {
 			return fmt.Errorf("invalid record-change payload: %w", err)
 		}
 	case EventFamilyJobProgress:
-		var progress JobProgressPayload
+		var progress protocol.JobProgressPayload
 		if err := json.Unmarshal(payload, &progress); err != nil {
 			return fmt.Errorf("invalid job-progress payload: %w", err)
 		}
-		if err := ValidateIncidentJobProgressPayload(incidentID, progress); err != nil {
+		if err := protocol.ValidateIncidentJobProgressPayload(incidentID, progress); err != nil {
 			return fmt.Errorf("invalid job-progress payload: %w", err)
 		}
 	case EventFamilyExtensionResourceChange:
-		var change ExtensionResourceChangePayload
+		var change protocol.ExtensionResourceChangePayload
 		if err := json.Unmarshal(payload, &change); err != nil {
 			return fmt.Errorf("invalid extension-resource-change payload: %w", err)
 		}
-		if err := ValidateExtensionResourceChangePayload(change); err != nil {
+		if err := protocol.ValidateExtensionResourceChangePayload(change); err != nil {
 			return fmt.Errorf("invalid extension-resource-change payload: %w", err)
 		}
 	default:
@@ -285,11 +266,11 @@ func validateEventFamilyPayload(incidentID uuid.UUID, family string, payload jso
 
 type ReplayResult struct {
 	Status    string
-	Messages  []Message
+	Messages  []protocol.Message
 	HighWater int64
 }
 
-func (s *ReplayStore) CurrentHighWater(ctx context.Context, incidentID uuid.UUID) (int64, error) {
+func (s *PostgresStream) CurrentHighWater(ctx context.Context, incidentID uuid.UUID) (int64, error) {
 	if s == nil || s.db == nil || incidentID == uuid.Nil {
 		return 0, errors.New("collaboration stream store is not configured")
 	}
@@ -306,7 +287,7 @@ SELECT COALESCE((
 	return highWater, nil
 }
 
-func (s *ReplayStore) IssueResumeToken(
+func (s *PostgresStream) IssueResumeToken(
 	ctx context.Context,
 	sessionID uuid.UUID,
 	incidentID uuid.UUID,
@@ -322,7 +303,7 @@ func (s *ReplayStore) IssueResumeToken(
 		return "", time.Time{}, err
 	}
 	now = now.UTC()
-	expiresAt := now.Add(ResumeWindow)
+	expiresAt := now.Add(protocol.ResumeWindow)
 	if sessionExpiresAt.Before(expiresAt) {
 		expiresAt = sessionExpiresAt.UTC()
 	}
@@ -354,7 +335,7 @@ INSERT INTO collaboration_resume_tokens (
 	return token, expiresAt, nil
 }
 
-func (s *ReplayStore) ReplayMessages(
+func (s *PostgresStream) ReplayMessages(
 	ctx context.Context,
 	sessionID uuid.UUID,
 	incidentID uuid.UUID,
@@ -363,7 +344,7 @@ func (s *ReplayStore) ReplayMessages(
 	lastSeenStreamSeq int64,
 	now time.Time,
 ) (ReplayResult, error) {
-	result := ReplayResult{Status: ResumeStatusResetNeeded, Messages: []Message{}}
+	result := ReplayResult{Status: protocol.ResumeStatusResetNeeded, Messages: []protocol.Message{}}
 	if s == nil || s.db == nil || lastSeenStreamSeq < 0 {
 		return result, nil
 	}
@@ -441,7 +422,7 @@ SELECT event_id, event_family, stream_seq, canonical_payload, emitted_at
 			replayBytes += len(payload)
 			if len(result.Messages) >= maxReplayEvents || replayBytes > maxReplayBytes {
 				rows.Close()
-				result.Messages = []Message{}
+				result.Messages = []protocol.Message{}
 				return result, nil
 			}
 			result.Messages = append(result.Messages, replayMessage(eventID, incidentID, family, streamSeq, payload, emittedAt))
@@ -455,166 +436,21 @@ SELECT event_id, event_family, stream_seq, canonical_payload, emitted_at
 			break
 		}
 	}
-	result.Status = ResumeStatusReplayed
+	result.Status = protocol.ResumeStatusReplayed
 	return result, nil
-}
-
-type replayBroadcaster interface {
-	DeliverReplayable(Message) error
-}
-
-type notificationConnectionAcquirer interface {
-	Acquire(context.Context) (*pgxpool.Conn, error)
-}
-
-type dispatcherRepository struct {
-	db postgres.DB
-}
-
-type Dispatcher struct {
-	repository  *dispatcherRepository
-	broadcaster replayBroadcaster
-	now         func() time.Time
-	interval    time.Duration
-
-	mu              sync.Mutex
-	runMu           sync.Mutex
-	cancel          context.CancelFunc
-	done            chan struct{}
-	tailCursor      map[uuid.UUID]int64
-	tailInitialized bool
-}
-
-func NewDispatcher(db postgres.DB, broadcaster replayBroadcaster, now func() time.Time) *Dispatcher {
-	if now == nil {
-		now = func() time.Time { return time.Now().UTC() }
-	}
-	return &Dispatcher{
-		repository:  &dispatcherRepository{db: db},
-		broadcaster: broadcaster,
-		now:         now,
-		interval:    dispatchInterval,
-		tailCursor:  make(map[uuid.UUID]int64),
-	}
-}
-
-func (d *Dispatcher) Start(parent context.Context) error {
-	if d == nil || d.repository == nil || d.repository.db == nil || d.broadcaster == nil {
-		return errors.New("collaboration dispatcher is not configured")
-	}
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.cancel != nil {
-		return nil
-	}
-	d.runMu.Lock()
-	if err := d.seedTailCursor(parent); err != nil {
-		d.runMu.Unlock()
-		return err
-	}
-	d.tailInitialized = true
-	d.runMu.Unlock()
-	ctx, cancel := context.WithCancel(parent)
-	d.cancel = cancel
-	d.done = make(chan struct{})
-	go d.run(ctx, d.done)
-	return nil
-}
-
-func (d *Dispatcher) Close(ctx context.Context) error {
-	if d == nil {
-		return nil
-	}
-	d.mu.Lock()
-	cancel := d.cancel
-	done := d.done
-	d.cancel = nil
-	d.done = nil
-	d.mu.Unlock()
-	if cancel == nil {
-		return nil
-	}
-	cancel()
-	select {
-	case <-done:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-func (d *Dispatcher) run(ctx context.Context, done chan<- struct{}) {
-	defer close(done)
-	notifications := make(chan struct{}, 1)
-	listenerDone := make(chan struct{})
-	if acquirer, ok := d.repository.db.(notificationConnectionAcquirer); ok {
-		go d.listenReplayNotifications(ctx, acquirer, notifications, listenerDone)
-	} else {
-		close(listenerDone)
-	}
-	backoff := d.interval
-	for {
-		_, err := d.RunOnce(ctx)
-		delay := d.interval
-		if err != nil {
-			delay = backoff
-			backoff *= 2
-			if backoff > dispatchBackoffMax {
-				backoff = dispatchBackoffMax
-			}
-		} else {
-			backoff = d.interval
-		}
-		timer := time.NewTimer(delay)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			<-listenerDone
-			return
-		case <-notifications:
-			timer.Stop()
-		case <-timer.C:
-		}
-	}
-}
-
-func (d *Dispatcher) listenReplayNotifications(
-	ctx context.Context,
-	acquirer notificationConnectionAcquirer,
-	notifications chan<- struct{},
-	done chan<- struct{},
-) {
-	defer close(done)
-	connection, err := acquirer.Acquire(ctx)
-	if err != nil {
-		return
-	}
-	defer connection.Release()
-	if _, err := connection.Exec(ctx, `LISTEN cartulary_collaboration_replay`); err != nil {
-		return
-	}
-	for {
-		if _, err := connection.Conn().WaitForNotification(ctx); err != nil {
-			return
-		}
-		select {
-		case notifications <- struct{}{}:
-		default:
-		}
-	}
 }
 
 // seedTailCursor starts a newly launched API process at the current durable
 // high-water mark. Existing events remain available through authenticated
 // resume; only events committed after process startup are fanned out as live
 // messages.
-func (d *Dispatcher) seedTailCursor(ctx context.Context) error {
-	rows, err := d.repository.db.Query(ctx, `
+func (s *PostgresStream) SeedTailCursor(ctx context.Context) (map[uuid.UUID]int64, error) {
+	rows, err := s.db.Query(ctx, `
 SELECT incident_id, high_water_stream_seq
   FROM collaboration_incident_stream_cursors
 `)
 	if err != nil {
-		return fmt.Errorf("seed collaboration replay tail cursor: %w", err)
+		return nil, fmt.Errorf("seed collaboration replay tail cursor: %w", err)
 	}
 	defer rows.Close()
 	cursor := make(map[uuid.UUID]int64)
@@ -622,49 +458,14 @@ SELECT incident_id, high_water_stream_seq
 		var incidentID uuid.UUID
 		var highWater int64
 		if err := rows.Scan(&incidentID, &highWater); err != nil {
-			return fmt.Errorf("scan collaboration replay tail cursor: %w", err)
+			return nil, fmt.Errorf("scan collaboration replay tail cursor: %w", err)
 		}
 		cursor[incidentID] = highWater
 	}
 	if err := rows.Err(); err != nil {
-		return fmt.Errorf("iterate collaboration replay tail cursor: %w", err)
+		return nil, fmt.Errorf("iterate collaboration replay tail cursor: %w", err)
 	}
-	d.tailCursor = cursor
-	return nil
-}
-
-func (d *Dispatcher) RunOnce(ctx context.Context) (processed int, runErr error) {
-	if d == nil || d.repository == nil || d.repository.db == nil || d.broadcaster == nil {
-		return 0, errors.New("collaboration dispatcher is not configured")
-	}
-	d.runMu.Lock()
-	defer d.runMu.Unlock()
-	defer func() {
-		d.recordDispatcherRun(ctx, processed, runErr)
-	}()
-	if err := ctx.Err(); err != nil {
-		return 0, err
-	}
-	// Direct RunOnce callers are test and operator harnesses. Starting them at
-	// zero makes durable replay behavior observable without changing the
-	// production Start contract.
-	if !d.tailInitialized {
-		d.tailCursor = make(map[uuid.UUID]int64)
-		d.tailInitialized = true
-	}
-	now := d.now().UTC()
-	sequenced, err := d.sequencePending(ctx, now)
-	if err != nil {
-		return 0, err
-	}
-	tailed, err := d.tailReplay(ctx)
-	if err != nil {
-		return sequenced, err
-	}
-	if err := d.pruneReplay(ctx, now); err != nil {
-		return sequenced + tailed, err
-	}
-	return sequenced + tailed, nil
+	return cursor, nil
 }
 
 type pendingIntent struct {
@@ -675,8 +476,8 @@ type pendingIntent struct {
 	Payload    []byte
 }
 
-func (d *Dispatcher) sequencePending(ctx context.Context, now time.Time) (int, error) {
-	tx, err := d.repository.db.BeginTx(ctx, pgx.TxOptions{})
+func (s *PostgresStream) SequencePending(ctx context.Context, now time.Time) (int, error) {
+	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("begin collaboration intent sequencing: %w", err)
 	}
@@ -755,7 +556,7 @@ SELECT intent_id, intent_key, incident_id, event_family, canonical_payload
 			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
 				return 0, fmt.Errorf("roll back invalid collaboration event sequencing: %w", rollbackErr)
 			}
-			if retryErr := d.retrySequencingFailure(ctx, intent, now); retryErr != nil {
+			if retryErr := s.retrySequencingFailure(ctx, intent, now); retryErr != nil {
 				return 0, retryErr
 			}
 			return 0, nil
@@ -806,11 +607,11 @@ SELECT pg_notify('cartulary_collaboration_replay', $1)
 }
 
 func validateReplayPayload(intent pendingIntent) error {
-	return validateEventFamilyPayload(intent.IncidentID, intent.Family, intent.Payload)
+	return ValidateEventFamilyPayload(intent.IncidentID, intent.Family, intent.Payload)
 }
 
-func (d *Dispatcher) retrySequencingFailure(ctx context.Context, intent pendingIntent, now time.Time) error {
-	tx, err := d.repository.db.BeginTx(ctx, pgx.TxOptions{})
+func (s *PostgresStream) retrySequencingFailure(ctx context.Context, intent pendingIntent, now time.Time) error {
+	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("begin collaboration sequencing retry: %w", err)
 	}
@@ -871,12 +672,12 @@ UPDATE collaboration_incident_stream_cursors
 	return nil
 }
 
-func (d *Dispatcher) tailReplay(ctx context.Context) (int, error) {
-	cursorJSON, err := json.Marshal(d.tailCursor)
+func (s *PostgresStream) TailReplay(ctx context.Context, cursor map[uuid.UUID]int64) ([]protocol.Message, error) {
+	cursorJSON, err := json.Marshal(cursor)
 	if err != nil {
-		return 0, fmt.Errorf("encode collaboration replay tail cursor: %w", err)
+		return nil, fmt.Errorf("encode collaboration replay tail cursor: %w", err)
 	}
-	rows, err := d.repository.db.Query(ctx, `
+	rows, err := s.db.Query(ctx, `
 SELECT event_id, incident_id, event_family, stream_seq, canonical_payload, emitted_at
   FROM collaboration_replay_events AS event
  WHERE event.stream_seq > COALESCE(
@@ -887,11 +688,11 @@ SELECT event_id, incident_id, event_family, stream_seq, canonical_payload, emitt
  LIMIT $2
 `, cursorJSON, dispatchBatchLimit)
 	if err != nil {
-		return 0, fmt.Errorf("tail collaboration replay events: %w", err)
+		return nil, fmt.Errorf("tail collaboration replay events: %w", err)
 	}
 	defer rows.Close()
 
-	processed := 0
+	messages := make([]protocol.Message, 0, dispatchBatchLimit)
 	for rows.Next() {
 		var (
 			eventID    uuid.UUID
@@ -902,31 +703,27 @@ SELECT event_id, incident_id, event_family, stream_seq, canonical_payload, emitt
 			emittedAt  time.Time
 		)
 		if err := rows.Scan(&eventID, &incidentID, &family, &streamSeq, &payload, &emittedAt); err != nil {
-			return processed, fmt.Errorf("scan collaboration replay tail event: %w", err)
+			return nil, fmt.Errorf("scan collaboration replay tail event: %w", err)
 		}
-		if err := d.broadcaster.DeliverReplayable(
+		messages = append(messages,
 			replayMessage(eventID, incidentID, family, streamSeq, payload, emittedAt),
-		); err != nil {
-			return processed, fmt.Errorf("deliver collaboration replay tail event: %w", err)
-		}
-		d.tailCursor[incidentID] = streamSeq
-		processed++
+		)
 	}
 	if err := rows.Err(); err != nil {
-		return processed, fmt.Errorf("iterate collaboration replay tail events: %w", err)
+		return nil, fmt.Errorf("iterate collaboration replay tail events: %w", err)
 	}
-	return processed, nil
+	return messages, nil
 }
 
-func (d *Dispatcher) pruneReplay(ctx context.Context, now time.Time) error {
-	_, err := d.repository.db.Exec(ctx, `
+func (s *PostgresStream) PruneReplay(ctx context.Context, now time.Time) error {
+	_, err := s.db.Exec(ctx, `
 DELETE FROM collaboration_replay_events
  WHERE emitted_at < $1
 `, now.Add(-maxRetentionAge))
 	if err != nil {
 		return fmt.Errorf("prune collaboration replay maximum age: %w", err)
 	}
-	_, err = d.repository.db.Exec(ctx, `
+	_, err = s.db.Exec(ctx, `
 WITH ranked AS (
     SELECT
         event_id,
@@ -950,11 +747,11 @@ DELETE FROM collaboration_replay_events AS event
        ranked.recency_rank > $2
        OR ranked.retained_bytes > $3
    )
-`, now.Add(-ResumeWindow), maxRetainedEvents, maxRetainedBytes)
+`, now.Add(-protocol.ResumeWindow), maxRetainedEvents, maxRetainedBytes)
 	if err != nil {
 		return fmt.Errorf("prune collaboration replay capacity: %w", err)
 	}
-	_, err = d.repository.db.Exec(ctx, `
+	_, err = s.db.Exec(ctx, `
 WITH expired AS (
     SELECT intent.intent_id
       FROM collaboration_event_intents AS intent
@@ -974,7 +771,7 @@ DELETE FROM collaboration_event_intents AS intent
 	if err != nil {
 		return fmt.Errorf("prune sequenced collaboration intents: %w", err)
 	}
-	_, err = d.repository.db.Exec(ctx, `
+	_, err = s.db.Exec(ctx, `
 WITH expired AS (
     SELECT token_hash
       FROM collaboration_resume_tokens
@@ -992,8 +789,8 @@ DELETE FROM collaboration_resume_tokens AS token
 	return nil
 }
 
-func replayMessage(eventID uuid.UUID, incidentID uuid.UUID, family string, streamSeq int64, payload []byte, emittedAt time.Time) Message {
-	return Message{
+func replayMessage(eventID uuid.UUID, incidentID uuid.UUID, family string, streamSeq int64, payload []byte, emittedAt time.Time) protocol.Message {
+	return protocol.Message{
 		Type:       family,
 		IncidentID: incidentID.String(),
 		EventID:    eventID.String(),

@@ -3,6 +3,229 @@
   "$id": "cartulary.ws.incident_stream.index.v1",
   "title": "Cartulary Incident WebSocket Contract Index",
   "description": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
+  "$defs": {
+    "ClientSheetRef": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "view_schema" },
+            "id": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "id"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "saved_view" },
+            "id": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "id"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "extension_workspace" },
+            "extension_profile_id": { "type": "string", "minLength": 1 },
+            "workspace_key": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "extension_profile_id", "workspace_key"]
+        }
+      ]
+    },
+    "ServerSheetRef": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "kind": { "const": "view_schema" },
+            "id": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "id"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "kind": { "const": "saved_view" },
+            "id": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "id"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "kind": { "const": "extension_workspace" },
+            "extension_profile_id": { "type": "string", "minLength": 1 },
+            "workspace_key": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "extension_profile_id", "workspace_key"]
+        }
+      ]
+    },
+    "ClientPresence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sheet_ref": { "$ref": "#/$defs/ClientSheetRef" },
+        "record_id": { "type": "string", "minLength": 1 },
+        "field_key": { "type": "string", "minLength": 1 },
+        "mode": { "enum": ["viewing", "editing", "idle"] }
+      },
+      "required": ["sheet_ref", "mode"]
+    },
+    "PresenceRecord": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "connection_id": { "type": "string", "minLength": 1 },
+        "user_id": { "type": "string", "minLength": 1 },
+        "display_name": { "type": "string" },
+        "sheet_ref": { "$ref": "#/$defs/ServerSheetRef" },
+        "record_id": { "type": "string", "minLength": 1 },
+        "field_key": { "type": "string", "minLength": 1 },
+        "mode": { "enum": ["viewing", "editing", "idle"] },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "connection_id",
+        "user_id",
+        "display_name",
+        "sheet_ref",
+        "mode",
+        "observed_at",
+        "expires_at"
+      ]
+    },
+    "PresenceRemoval": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "connection_id": { "type": "string", "minLength": 1 },
+        "user_id": { "type": "string", "minLength": 1 },
+        "display_name": { "type": "string" },
+        "sheet_ref": { "$ref": "#/$defs/ServerSheetRef" },
+        "record_id": { "type": "string", "minLength": 1 },
+        "field_key": { "type": "string", "minLength": 1 },
+        "mode": { "enum": ["viewing", "editing", "idle"] },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["connection_id"]
+    },
+    "ViewCell": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": { "value": true },
+      "required": ["value"]
+    },
+    "ViewRowPatch": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "record_id": { "type": "string", "minLength": 1 },
+        "row_version": { "type": "integer", "minimum": 1 },
+        "cells": {
+          "type": "object",
+          "x_projection": "keyed_map",
+          "additionalProperties": { "$ref": "#/$defs/ViewCell" }
+        },
+        "group_values": {
+          "type": "object",
+          "x_projection": "keyed_map",
+          "additionalProperties": true
+        }
+      },
+      "required": ["record_id", "row_version", "cells"]
+    },
+    "AffectedViewChange": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "view_schema_id": { "type": "string", "minLength": 1 },
+            "change_kind": { "const": "patch" },
+            "patch_cells": { "$ref": "#/$defs/ViewRowPatch" }
+          },
+          "required": ["view_schema_id", "change_kind", "patch_cells"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "view_schema_id": { "type": "string", "minLength": 1 },
+            "change_kind": { "const": "invalidate" }
+          },
+          "required": ["view_schema_id", "change_kind"],
+          "not": { "required": ["patch_cells"] }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "view_schema_id": { "type": "string", "minLength": 1 },
+            "change_kind": { "const": "remove" }
+          },
+          "required": ["view_schema_id", "change_kind"],
+          "not": { "required": ["patch_cells"] }
+        }
+      ]
+    },
+    "JobResultSummary": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "code": { "type": "string", "minLength": 1 },
+            "message": { "type": "string" },
+            "resource_refs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "kind": { "type": "string", "minLength": 1 },
+                  "id": { "type": "string", "minLength": 1 },
+                  "route": { "type": "string", "pattern": "^/api/v1/" }
+                },
+                "required": ["kind", "id"]
+              }
+            }
+          },
+          "required": ["code", "message"]
+        }
+      ]
+    },
+    "JobErrorSummary": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "code": { "type": "string", "minLength": 1 },
+            "message": { "type": "string" },
+            "retryable": { "type": "boolean" },
+            "details": {
+              "type": "object",
+              "x_projection": "keyed_map",
+              "additionalProperties": true
+            }
+          },
+          "required": ["code", "message", "retryable"]
+        }
+      ]
+    }
+  },
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -34,29 +257,12 @@
               "session_revoked"
             ]
           },
-          "version": {
-            "const": "v1"
-          },
-          "direction": {
-            "enum": [
-              "client_to_server",
-              "server_to_client"
-            ]
-          },
-          "replayable": {
-            "type": "boolean"
-          },
-          "payload_schema": {
-            "type": "object"
-          }
+          "version": { "const": "v1" },
+          "direction": { "enum": ["client_to_server", "server_to_client"] },
+          "replayable": { "type": "boolean" },
+          "payload_schema": { "type": "object" }
         },
-        "required": [
-          "type",
-          "version",
-          "direction",
-          "replayable",
-          "payload_schema"
-        ]
+        "required": ["type", "version", "direction", "replayable", "payload_schema"]
       },
       "default": [
         {
@@ -66,10 +272,12 @@
           "replayable": false,
           "payload_schema": {
             "type": "object",
-            "required": [
-              "client_instance_id",
-              "presence"
-            ]
+            "additionalProperties": false,
+            "properties": {
+              "client_instance_id": { "type": "string", "minLength": 1 },
+              "presence": { "$ref": "#/$defs/ClientPresence" }
+            },
+            "required": ["client_instance_id", "presence"]
           }
         },
         {
@@ -79,12 +287,14 @@
           "replayable": false,
           "payload_schema": {
             "type": "object",
-            "required": [
-              "client_instance_id",
-              "resume_token",
-              "last_seen_stream_seq",
-              "presence"
-            ]
+            "additionalProperties": false,
+            "properties": {
+              "client_instance_id": { "type": "string", "minLength": 1 },
+              "resume_token": { "type": "string", "minLength": 1 },
+              "last_seen_stream_seq": { "type": "integer", "minimum": 0 },
+              "presence": { "$ref": "#/$defs/ClientPresence" }
+            },
+            "required": ["client_instance_id", "resume_token", "last_seen_stream_seq", "presence"]
           }
         },
         {
@@ -93,7 +303,9 @@
           "direction": "client_to_server",
           "replayable": false,
           "payload_schema": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {}
           }
         },
         {
@@ -103,9 +315,9 @@
           "replayable": false,
           "payload_schema": {
             "type": "object",
-            "required": [
-              "presence"
-            ]
+            "additionalProperties": false,
+            "properties": { "presence": { "$ref": "#/$defs/ClientPresence" } },
+            "required": ["presence"]
           }
         },
         {
@@ -115,14 +327,16 @@
           "replayable": false,
           "payload_schema": {
             "type": "object",
-            "required": [
-              "connection_id",
-              "resume_token",
-              "server_time",
-              "heartbeat_interval_ms",
-              "presence_ttl_ms",
-              "resume_window_ms"
-            ]
+            "additionalProperties": true,
+            "properties": {
+              "connection_id": { "type": "string", "minLength": 1 },
+              "resume_token": { "type": "string", "minLength": 1 },
+              "server_time": { "type": "string", "format": "date-time" },
+              "heartbeat_interval_ms": { "type": "integer", "const": 15000 },
+              "presence_ttl_ms": { "type": "integer", "const": 45000 },
+              "resume_window_ms": { "type": "integer", "minimum": 300000 }
+            },
+            "required": ["connection_id", "resume_token", "server_time", "heartbeat_interval_ms", "presence_ttl_ms", "resume_window_ms"]
           }
         },
         {
@@ -132,11 +346,13 @@
           "replayable": false,
           "payload_schema": {
             "type": "object",
-            "required": [
-              "status",
-              "resume_token",
-              "server_high_water_stream_seq"
-            ]
+            "additionalProperties": true,
+            "properties": {
+              "status": { "enum": ["replayed", "reset_required", "rejected"] },
+              "resume_token": { "type": "string", "minLength": 1 },
+              "server_high_water_stream_seq": { "type": "integer", "minimum": 0 }
+            },
+            "required": ["status", "resume_token", "server_high_water_stream_seq"]
           }
         },
         {
@@ -146,9 +362,11 @@
           "replayable": false,
           "payload_schema": {
             "type": "object",
-            "required": [
-              "presences"
-            ]
+            "additionalProperties": true,
+            "properties": {
+              "presences": { "type": "array", "items": { "$ref": "#/$defs/PresenceRecord" } }
+            },
+            "required": ["presences"]
           }
         },
         {
@@ -157,10 +375,25 @@
           "direction": "server_to_client",
           "replayable": false,
           "payload_schema": {
-            "type": "object",
-            "required": [
-              "delta_kind",
-              "presence"
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "delta_kind": { "const": "upsert" },
+                  "presence": { "$ref": "#/$defs/PresenceRecord" }
+                },
+                "required": ["delta_kind", "presence"]
+              },
+              {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "delta_kind": { "const": "remove" },
+                  "presence": { "$ref": "#/$defs/PresenceRemoval" }
+                },
+                "required": ["delta_kind", "presence"]
+              }
             ]
           }
         },
@@ -171,15 +404,25 @@
           "replayable": true,
           "payload_schema": {
             "type": "object",
-            "required": [
-              "record_id",
-              "row_version",
-              "change_set_id",
-              "client_txn_id",
-              "actor_user_id",
-              "changed_field_keys",
-              "affected_views"
-            ]
+            "additionalProperties": true,
+            "properties": {
+              "record_id": { "type": "string", "minLength": 1 },
+              "row_version": { "type": "integer", "minimum": 1 },
+              "change_set_id": { "type": "string", "minLength": 1 },
+              "client_txn_id": { "type": "string", "minLength": 1 },
+              "actor_user_id": { "type": "string", "minLength": 1 },
+              "changed_field_keys": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 },
+                "uniqueItems": true
+              },
+              "affected_views": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "$ref": "#/$defs/AffectedViewChange" }
+              }
+            },
+            "required": ["record_id", "row_version", "change_set_id", "client_txn_id", "actor_user_id", "changed_field_keys", "affected_views"]
           }
         },
         {
@@ -189,57 +432,28 @@
           "replayable": true,
           "payload_schema": {
             "type": "object",
-            "additionalProperties": false,
+            "additionalProperties": true,
             "properties": {
-              "extension_profile_id": {
-                "type": "string"
-              },
-              "resource_kind": {
-                "type": "string"
-              },
-              "resource_id": {
-                "type": "string"
-              },
-              "change_kind": {
-                "enum": [
-                  "invalidate",
-                  "remove"
-                ]
-              },
-              "reason_code": {
-                "type": "string"
-              },
+              "extension_profile_id": { "type": "string", "minLength": 1 },
+              "resource_kind": { "type": "string", "minLength": 1 },
+              "resource_id": { "type": "string", "minLength": 1 },
+              "change_kind": { "enum": ["invalidate", "remove"] },
+              "reason_code": { "type": "string", "minLength": 1 },
               "workspace_refs": {
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "additionalProperties": false,
+                  "additionalProperties": true,
                   "properties": {
-                    "kind": {
-                      "const": "extension_workspace"
-                    },
-                    "extension_profile_id": {
-                      "type": "string"
-                    },
-                    "workspace_key": {
-                      "type": "string"
-                    }
+                    "kind": { "const": "extension_workspace" },
+                    "extension_profile_id": { "type": "string", "minLength": 1 },
+                    "workspace_key": { "type": "string", "minLength": 1 }
                   },
-                  "required": [
-                    "kind",
-                    "extension_profile_id",
-                    "workspace_key"
-                  ]
+                  "required": ["kind", "extension_profile_id", "workspace_key"]
                 }
               }
             },
-            "required": [
-              "extension_profile_id",
-              "resource_kind",
-              "resource_id",
-              "change_kind",
-              "reason_code"
-            ]
+            "required": ["extension_profile_id", "resource_kind", "resource_id", "change_kind", "reason_code"]
           }
         },
         {
@@ -249,140 +463,41 @@
           "replayable": true,
           "payload_schema": {
             "type": "object",
-            "additionalProperties": false,
+            "additionalProperties": true,
             "properties": {
-              "job_id": {
-                "type": "string"
-              },
+              "job_id": { "type": "string", "minLength": 1 },
               "scope": {
                 "type": "object",
-                "additionalProperties": false,
+                "additionalProperties": true,
                 "properties": {
-                  "kind": {
-                    "enum": [
-                      "incident",
-                      "deployment"
-                    ]
-                  },
-                  "incident_id": {
-                    "type": "string",
-                    "format": "uuid"
-                  }
+                  "kind": { "const": "incident" },
+                  "incident_id": { "type": "string", "minLength": 1 }
                 },
-                "required": [
-                  "kind"
-                ],
-                "allOf": [
-                  {
-                    "if": {
-                      "properties": {
-                        "kind": {
-                          "const": "incident"
-                        }
-                      },
-                      "required": [
-                        "kind"
-                      ]
-                    },
-                    "then": {
-                      "required": [
-                        "incident_id"
-                      ]
-                    }
-                  },
-                  {
-                    "if": {
-                      "properties": {
-                        "kind": {
-                          "const": "deployment"
-                        }
-                      },
-                      "required": [
-                        "kind"
-                      ]
-                    },
-                    "then": {
-                      "not": {
-                        "required": [
-                          "incident_id"
-                        ]
-                      }
-                    }
-                  }
-                ]
+                "required": ["kind", "incident_id"]
               },
-              "status": {
-                "enum": [
-                  "queued",
-                  "running",
-                  "cancel_requested",
-                  "succeeded",
-                  "failed",
-                  "canceled"
-                ]
-              },
+              "status": { "enum": ["queued", "running", "cancel_requested", "succeeded", "failed", "canceled"] },
               "progress": {
                 "type": "object",
-                "additionalProperties": false,
+                "additionalProperties": true,
                 "properties": {
-                  "completed": {
-                    "type": "integer",
-                    "minimum": 0
-                  },
+                  "completed": { "type": "integer", "minimum": 0 },
                   "total": {
                     "anyOf": [
-                      {
-                        "type": "integer",
-                        "minimum": 1
-                      },
-                      {
-                        "type": "null"
-                      }
+                      { "type": "integer", "minimum": 1 },
+                      { "type": "null" }
                     ]
                   }
                 },
-                "required": [
-                  "completed",
-                  "total"
-                ]
+                "required": ["completed", "total"]
               },
-              "updated_at": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "cancelable": {
-                "type": "boolean"
-              },
-              "message": {
-                "type": "string"
-              },
-              "result_summary": {
-                "type": [
-                  "object",
-                  "null"
-                ]
-              },
-              "error_summary": {
-                "type": [
-                  "object",
-                  "null"
-                ]
-              },
-              "retained_until": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "format": "date-time"
-              }
+              "updated_at": { "type": "string", "format": "date-time" },
+              "cancelable": { "type": "boolean" },
+              "message": { "type": "string" },
+              "result_summary": { "$ref": "#/$defs/JobResultSummary" },
+              "error_summary": { "$ref": "#/$defs/JobErrorSummary" },
+              "retained_until": { "type": ["string", "null"], "format": "date-time" }
             },
-            "required": [
-              "job_id",
-              "scope",
-              "status",
-              "progress",
-              "updated_at"
-            ]
+            "required": ["job_id", "scope", "status", "progress", "updated_at"]
           }
         },
         {
@@ -391,7 +506,10 @@
           "direction": "server_to_client",
           "replayable": false,
           "payload_schema": {
-            "type": "object"
+            "type": "object",
+            "x_projection": "known_members",
+            "additionalProperties": true,
+            "properties": {}
           }
         },
         {
@@ -401,11 +519,18 @@
           "replayable": false,
           "payload_schema": {
             "type": "object",
-            "required": [
-              "code",
-              "message",
-              "retryable"
-            ]
+            "additionalProperties": true,
+            "properties": {
+              "code": { "type": "string", "minLength": 1 },
+              "message": { "type": "string" },
+              "retryable": { "type": "boolean" },
+              "details": {
+                "type": "object",
+                "x_projection": "keyed_map",
+                "additionalProperties": true
+              }
+            },
+            "required": ["code", "message", "retryable"]
           }
         },
         {
@@ -415,16 +540,16 @@
           "replayable": false,
           "payload_schema": {
             "type": "object",
-            "required": [
-              "reason_code"
-            ]
+            "additionalProperties": true,
+            "properties": {
+              "reason_code": { "type": "string", "minLength": 1 },
+              "message": { "type": "string" }
+            },
+            "required": ["reason_code"]
           }
         }
       ]
     }
   },
-  "required": [
-    "route",
-    "messages"
-  ]
+  "required": ["route", "messages"]
 }

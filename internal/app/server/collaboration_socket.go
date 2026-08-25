@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	protocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
@@ -21,12 +21,12 @@ func newCollaborationSocketTransport(publicOrigin string) collaborationSocketTra
 	return collaborationSocketTransport{publicOrigin: publicOrigin}
 }
 
-func (transport collaborationSocketTransport) Accept(w http.ResponseWriter, r *http.Request) (collaboration.Socket, error) {
+func (transport collaborationSocketTransport) Accept(w http.ResponseWriter, r *http.Request) (protocol.Socket, error) {
 	connection, err := platformws.Accept(w, r, transport.publicOrigin)
 	if err != nil {
 		return nil, err
 	}
-	connection.SetReadLimit(collaboration.MaximumMessageBytes)
+	connection.SetReadLimit(protocol.MaximumMessageBytes)
 	return &collaborationSocket{connection: connection}, nil
 }
 
@@ -34,19 +34,19 @@ func (transport collaborationSocketTransport) CheckBrowserOrigin(w http.Response
 	return platformws.RejectUntrustedBrowserOrigin(w, r, transport.publicOrigin)
 }
 
-func (s *collaborationSocket) Read(ctx context.Context) (collaboration.MessageKind, []byte, error) {
+func (s *collaborationSocket) Read(ctx context.Context) (protocol.MessageKind, []byte, error) {
 	kind, payload, err := s.connection.Read(ctx)
 	if errors.Is(err, platformws.ErrMessageTooLarge) {
-		return 0, nil, collaboration.ErrMessageTooLarge
+		return 0, nil, protocol.ErrMessageTooLarge
 	}
 	if err != nil {
 		return 0, nil, err
 	}
 	switch kind {
 	case platformws.MessageText:
-		return collaboration.MessageText, payload, nil
+		return protocol.MessageText, payload, nil
 	case platformws.MessageBinary:
-		return collaboration.MessageBinary, payload, nil
+		return protocol.MessageBinary, payload, nil
 	default:
 		return 0, nil, errors.New("unsupported WebSocket transport message kind")
 	}
@@ -54,13 +54,13 @@ func (s *collaborationSocket) Read(ctx context.Context) (collaboration.MessageKi
 
 func (s *collaborationSocket) Write(
 	ctx context.Context,
-	kind collaboration.MessageKind,
+	kind protocol.MessageKind,
 	payload []byte,
 ) error {
 	switch kind {
-	case collaboration.MessageText:
+	case protocol.MessageText:
 		return s.connection.Write(ctx, platformws.MessageText, payload)
-	case collaboration.MessageBinary:
+	case protocol.MessageBinary:
 		return s.connection.Write(ctx, platformws.MessageBinary, payload)
 	default:
 		return errors.New("unsupported Collaboration message kind")

@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-Status: Adopted through Core 00 REQ-00-071.
+Status: Adopted through Core 00 REQ-00-071 and amended with REQ-00-075.
 
 This decision owns only the repository-internal Go topology, composition
 boundary, and compatibility removal for Revisions. Core 01 owns application,
@@ -32,14 +32,18 @@ The final boundary has these properties:
   the caller transaction. The captured value is opaque to generic
   coordination and has the canonical envelope
   `{snapshot_schema_id, record, source}`.
-- Projection or view rows may supply a separate live-change value for
-  Collaboration materialization. They are never persisted as history and are
-  never a snapshot fallback or compatibility authority.
-- Each ordinary live record revision derives narrow field-keyed conflict facts
-  from that explicit live-change value in the same transaction. These facts
-  support revision-window conflict detection for values intentionally excluded
-  from canonical snapshots; they never become row-history, rollback,
-  projection, or portability authority.
+- Each ordinary live record revision receives explicit source-semantic
+  `RevisionConflictFact` values through `AppendLiveRevisionTx` in the caller
+  transaction. A fact names one stable field key and represents before and
+  after presence and value independently. Revisions validates and persists the
+  facts but does not derive them from snapshots, whole-row JSON, projections,
+  view cells, Collaboration effects, or public payloads. These facts support
+  revision-window conflict detection for values intentionally excluded from
+  canonical snapshots; they never become row-history, rollback, projection,
+  publication, or portability authority.
+- Historical reconstruction uses a distinct historical-revision operation
+  that accepts no live conflict facts and has no Collaboration-publication
+  effect. A live operation does not accept a historical/suppression flag.
 - One immutable target-semantics catalog is compiled from source-owner
   contributions. Every exact target kind has one pure history facet and one
   rollback dispatch class. Unknown, duplicate, incomplete, typed-nil, or
@@ -52,12 +56,15 @@ The final boundary has these properties:
   rollback code may branch only between `row` and `non_row`; source vocabulary,
   companion selection, revalidation, and inverse application remain behind
   source facets and providers.
-- Revisions retains transaction order, canonical locking, idempotency,
-  append-only history publication, projection refresh, Collaboration intent
-  publication, safe error mapping, and stable opaque selectors.
-- Revision assembly resolves declared view-schema IDs and copies immutable
-  conflict descriptors at startup. Revisions contains no global view-schema
-  lookup.
+- Revisions retains its history-local transaction order, canonical locking,
+  idempotency participation, append-only history persistence, safe error
+  mapping, and stable opaque selectors. Source application coordination owns
+  the complete mutation sequence; projection refresh and Collaboration intent
+  publication are independent transaction participants and are not Revisions
+  responsibilities.
+- Revision assembly copies immutable source-owned conflict descriptors at
+  startup. Revisions contains no global view-schema or Collaboration
+  publication lookup.
 - Conflict key-ring parsing consumes an explicit environment snapshot or
   resolver. Server assembly owns process-environment capture; an explicit
   empty input never consults the host process.
@@ -65,16 +72,20 @@ The final boundary has these properties:
 Providers never own authorization, transport decoding, transaction
 completion, idempotency, history append, projection refresh, Collaboration
 publication, dynamic SQL, runtime relation names, network calls, or object
-storage.
+storage. Revisions and Collaboration do not import, construct, or translate
+one another. Source owners derive their private revision facts and public
+Collaboration effects independently and pass them to separate consumer-owned
+ports through one borrowed transaction.
 
 ## Transition and compatibility
 
-The transition is characterization, owner adoption, independent boundary
-corrections, candidate typed interfaces, one source-owner contribution at a
-time, and three atomic cutovers: canonical snapshots/events, indexed history,
-and provider-driven rollback. Temporary old and candidate Go surfaces may
-coexist only during the named transition and are deleted at cutover. There is
-no internal deprecation window or runtime fallback.
+The original transition completed canonical snapshots/events, indexed
+history, and provider-driven rollback. The Collaboration separation is one
+additional atomic repository-wide cutover to `LiveRevisionInput`,
+`RevisionConflictFact`, `AppendLiveRevisionTx`, and the distinct historical
+operation. Temporary old and candidate Go surfaces may coexist only inside
+that active cutover workstream and are deleted before it completes. There is no
+internal deprecation window or runtime fallback.
 
 Existing databases containing Revisions mutation rows from before the
 canonical snapshot boundary are pre-production disposable state and must be
@@ -101,7 +112,11 @@ The decision is implemented only when:
 - history association arrays are canonical, complete, indexed, and the sole
   generic mutation-history lookup source;
 - live conflict facts are revision-bound, field-keyed, transactionally atomic,
-  and used only for optimistic-concurrency reconstruction;
+  derived explicitly by source owners, and used only for
+  optimistic-concurrency reconstruction;
+- the live and historical operations are distinct, and neither Revisions nor
+  its fact representation imports, derives, or publishes Collaboration
+  effects;
 - generic Revisions production code contains no concrete Records
   construction, projection snapshot read, global view-schema lookup, ambient
   environment read, source JSON-key history predicate, or source-kind rollback

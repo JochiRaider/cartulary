@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
@@ -39,11 +38,9 @@ func TestModuleSettingsProjection_Unit(t *testing.T) {
 	}
 	projection := newApplicationSettingsProjection(cfg)
 
-	hub := collaboration.NewHub()
-	collaborationConfig := projection.Collaboration(hub, newCollaborationSocketTransport(cfg.Application.PublicOrigin))
+	collaborationConfig := projection.Collaboration(nil, newCollaborationSocketTransport(cfg.Application.PublicOrigin), nil)
 	if collaborationConfig.AcceptSocket == nil ||
 		collaborationConfig.CheckBrowserOrigin == nil ||
-		collaborationConfig.Hub != hub ||
 		collaborationConfig.ServiceVersion != "2026.7.25" {
 		t.Fatalf("collaboration settings = %#v", collaborationConfig)
 	}

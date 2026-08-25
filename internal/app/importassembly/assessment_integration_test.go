@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
 
 func TestAssessmentImportCreateFacadeContract_Integration(t *testing.T) {
@@ -303,7 +304,6 @@ SELECT subject_record_id, subject_type, assessment_state, confidence_score,
 		"projection": `SELECT count(*) FROM assessment_grid_projection WHERE record_id = $1`,
 		"mutation":   `SELECT count(*) FROM change_set_mutations WHERE target_id = $1`,
 		"revision":   `SELECT count(*) FROM record_revisions WHERE record_id = $1`,
-		"intent":     `SELECT count(*) FROM collaboration_event_intents WHERE source_record_id = $1 AND event_family = 'record_changed' AND source_row_version = 1`,
 	} {
 		var count int
 		if err := harness.db.QueryRow(context.Background(), query, recordID).Scan(&count); err != nil {
@@ -313,6 +313,12 @@ SELECT subject_record_id, subject_type, assessment_state, confidence_score,
 			t.Fatalf("imported assessment %s rows = %d, want 1", label, count)
 		}
 	}
+	rowVersion := int64(1)
+	collaborationsupport.RequireIntentCount(t, harness.db, collaborationsupport.IntentSelector{
+		EventFamily:      "record_changed",
+		SourceRecordID:   recordID.String(),
+		SourceRowVersion: &rowVersion,
+	}, 1)
 }
 
 func equalOptionalInt64(left *int64, right *int64) bool {

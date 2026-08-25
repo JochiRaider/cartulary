@@ -10,6 +10,12 @@ const transactionIds = {
   create: (prefix: string) => `${prefix}-txn`,
 };
 
+const serverEnvelope = {
+  emitted_at: "2026-07-13T12:00:00Z",
+  event_id: "event-1",
+  incident_id: "incident-1",
+} as const;
+
 function projectionFixture(
   initialSheetRef:
     | { readonly kind: "view_schema"; readonly id: string }
@@ -142,6 +148,7 @@ describe("WorkbookCollaborationCoordinator", () => {
     fixture.emit({
       kind: "message",
       message: {
+        ...serverEnvelope,
         type: "presence_snapshot",
         payload: {
           presences: [
@@ -205,6 +212,7 @@ describe("WorkbookCollaborationCoordinator", () => {
     fixture.emit({
       kind: "message",
       message: {
+        ...serverEnvelope,
         type: "record_changed",
         stream_seq: 1,
         payload: {
@@ -251,6 +259,7 @@ describe("WorkbookCollaborationCoordinator", () => {
     fixture.emit({
       kind: "message",
       message: {
+        ...serverEnvelope,
         type: "record_changed",
         stream_seq: 2,
         payload: {
@@ -260,7 +269,12 @@ describe("WorkbookCollaborationCoordinator", () => {
           client_txn_id: "remote-2",
           actor_user_id: "user-other",
           changed_field_keys: [],
-          affected_views: [],
+          affected_views: [
+            {
+              view_schema_id: "cartulary.view.timeline.v2",
+              change_kind: "invalidate",
+            },
+          ],
         },
       },
     } as IncidentCollaborationEvent);

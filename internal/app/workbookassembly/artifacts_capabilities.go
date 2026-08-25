@@ -13,6 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -199,8 +200,8 @@ func (a artifactRevisions) AppendRecordMutationTx(ctx context.Context, tx pgx.Tx
 	return a.appender.AppendRecordMutationTx(ctx, tx, params)
 }
 
-func (a artifactRevisions) AppendRecordRevisionAndIntentTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
-	return a.appender.AppendRecordRevisionAndIntentTx(ctx, tx, params)
+func (a artifactRevisions) AppendLiveRevisionTx(ctx context.Context, tx pgx.Tx, input revisions.LiveRevisionInput) error {
+	return a.appender.AppendLiveRevisionTx(ctx, tx, input)
 }
 
 func (a artifactRevisions) LoadRevisionWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, baseVersion int64, currentVersion int64) ([]conflicttokens.RevisionWindowRow, error) {
@@ -213,6 +214,7 @@ func NewArtifactMutationContribution(
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,
 	projectionRows artifactprojection.Rows,
+	publications collaboration.RecordChangedAppender,
 ) (*artifacts.MutationFacade, error) {
 	if appender == nil {
 		return nil, fmt.Errorf("compose Artifacts mutation contribution: Revisions appender is required")
@@ -228,6 +230,7 @@ func NewArtifactMutationContribution(
 		Revisions:            artifactRevisions{appender: appender, history: conflicttokens.NewRevisionWindowReader()},
 		ConflictFields:       conflictFields,
 		KeepSavedIdempotency: NewConflictIdempotencyPort(pool),
+		Collaboration:        publications,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("compose Artifacts mutation contribution: %w", err)

@@ -13,9 +13,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/intenttest"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/intenttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 

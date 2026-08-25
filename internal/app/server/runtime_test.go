@@ -64,9 +64,9 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	}
 
 	var wsHubCalls int
-	dependencies.newCollaborationHub = func() *collaboration.Hub {
+	dependencies.newCollaborationRuntime = func(options collaboration.Options) (*collaboration.Runtime, error) {
 		wsHubCalls++
-		return collaboration.NewHub()
+		return collaboration.NewRuntime(options)
 	}
 
 	var handlerCalls int

@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -1004,9 +1003,6 @@ func seedHistoricalRecordRevision(
 	defer func() {
 		_ = tx.Rollback()
 	}()
-	if err := collaboration.NewHistoricalIntentPolicy().SuppressSQLTx(ctx, tx); err != nil {
-		t.Fatalf("suppress seeded historical revision intent: %v", err)
-	}
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO record_revisions (change_set_id, record_id, row_version, before_json, after_json, created_at)
 VALUES ($1, $2, 2, $3, $4, $5)

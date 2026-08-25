@@ -33,14 +33,14 @@ func newTestTimelineComposition(
 		pool,
 		conflictTokens,
 		revisionComposition.Runtime.Appender(),
-		revisionComposition.Intents,
+		revisionComposition.Publications,
 		projections,
 	)
 	bundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            pool,
 		ConflictTokens:      conflictTokens,
 		Revisions:           revisionComposition.Runtime.Appender(),
-		Collaboration:       revisionComposition.Intents,
+		Collaboration:       revisionComposition.Publications,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,

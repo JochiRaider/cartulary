@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/sourcecatalog"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 )
 
@@ -20,7 +21,8 @@ type ImportDependencies struct {
 	RecordEnvelopes recordEnvelopeInserter
 	ActiveUsers     activeUserLookup
 	Projections     artifactProjectionRows
-	Revisions       ownerfacade.RecordRevisionAndIntentAppender
+	Revisions       ownerfacade.LiveRecordRevisionAppender
+	Collaboration   collaboration.RecordChangedAppender
 }
 
 func (d ImportDependencies) validate() error {
@@ -32,6 +34,7 @@ func (d ImportDependencies) validate() error {
 		{name: "Active-user lookup", value: d.ActiveUsers},
 		{name: "Projection refresh/load", value: d.Projections},
 		{name: "Revision and intent appender", value: d.Revisions},
+		{name: "Collaboration publication appender", value: d.Collaboration},
 	}
 	for _, dependency := range required {
 		if dependency.value == nil {
@@ -44,7 +47,8 @@ func (d ImportDependencies) validate() error {
 type artifactImportCreateAdapter struct {
 	source           artifactSourceKernel
 	activeUsers      activeUserLookup
-	revisionAppender ownerfacade.RecordRevisionAndIntentAppender
+	revisionAppender ownerfacade.LiveRecordRevisionAppender
+	publications     collaboration.RecordChangedAppender
 }
 
 func NewImportContribution(
@@ -70,6 +74,7 @@ func NewImportContribution(
 		},
 		activeUsers:      dependencies.ActiveUsers,
 		revisionAppender: dependencies.Revisions,
+		publications:     dependencies.Collaboration,
 	}
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
@@ -121,7 +126,7 @@ func (a *artifactImportCreateAdapter) createImportRowTx(
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	return ownerfacade.FinalizeRecordRevisionAndIntentTx(ctx, tx, a.revisionAppender, ownerfacade.FinalizeCommand{
+	return ownerfacade.FinalizeLiveRecordTx(ctx, tx, a.revisionAppender, a.publications, ownerfacade.FinalizeCommand{
 		Request:         request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,
@@ -130,6 +135,7 @@ func (a *artifactImportCreateAdapter) createImportRowTx(
 		CreatedOrReused: "created",
 		OwnerResultCode: "created",
 		Row:             row,
+		CreatedAt:       command.Now,
 	})
 }
 

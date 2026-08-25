@@ -24,7 +24,7 @@ type artifactImportRecordStub struct{ recordEnvelopeInserter }
 type artifactImportActiveUserStub struct{ activeUserLookup }
 type artifactImportProjectionStub struct{ artifactProjectionRows }
 type artifactImportRevisionStub struct {
-	ownerfacade.RecordRevisionAndIntentAppender
+	ownerfacade.LiveRecordRevisionAppender
 }
 
 func completeArtifactMutationDependencies() MutationDependencies {

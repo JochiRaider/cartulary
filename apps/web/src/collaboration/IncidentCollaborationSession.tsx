@@ -99,24 +99,23 @@ function tabClientInstanceId(): string {
   }
 }
 
-function recordValue(value: unknown): Record<string, unknown> {
-  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  return {};
-}
+type ReplayableIncidentStreamMessage = Extract<
+  IncidentStreamMessage,
+  { stream_seq: number }
+>;
 
-function streamSequence(message: IncidentStreamMessage): number | null {
-  const value = message.stream_seq;
-  return typeof value === "number" ? value : null;
-}
-
-function replayable(message: IncidentStreamMessage): boolean {
+function replayable(
+  message: IncidentStreamMessage,
+): message is ReplayableIncidentStreamMessage {
   return (
     message.type === "record_changed" ||
     message.type === "extension_resource_changed" ||
     message.type === "job_progress"
   );
+}
+
+function streamSequence(message: IncidentStreamMessage): number | null {
+  return replayable(message) ? message.stream_seq : null;
 }
 
 export function IncidentCollaborationSession({
@@ -283,36 +282,38 @@ export function IncidentCollaborationSession({
         return;
       }
       if (message.type === "hello_ack" || message.type === "resume_ack") {
-        const payload = recordValue(message.payload);
+        const payload = message.payload;
         const resumeToken = payload.resume_token;
-        if (typeof resumeToken === "string") {
-          resumeTokenRef.current = resumeToken;
-        }
-        const serverHighWater = payload.server_high_water_stream_seq;
-        if (typeof serverHighWater === "number") {
+        resumeTokenRef.current = resumeToken;
+        const serverHighWater =
+          message.type === "resume_ack"
+            ? message.payload.server_high_water_stream_seq
+            : undefined;
+        if (serverHighWater !== undefined) {
           lastSeenStreamSeqRef.current = Math.max(
             lastSeenStreamSeqRef.current,
             serverHighWater,
           );
         }
         const resetRequired =
-          message.type === "resume_ack" && payload.status === "reset_required";
-        if (typeof payload.connection_id === "string") {
-          setConnectionId(payload.connection_id);
+          message.type === "resume_ack" &&
+          message.payload.status === "reset_required";
+        if (message.type === "hello_ack") {
+          setConnectionId(message.payload.connection_id);
         }
         updateStatus(resetRequired ? "resetting" : "connected");
         emit({
           kind: "established",
           messageType: message.type,
           payload: {
-            ...(typeof payload.connection_id === "string"
-              ? { connection_id: payload.connection_id }
+            ...(message.type === "hello_ack"
+              ? { connection_id: message.payload.connection_id }
               : {}),
-            ...(typeof serverHighWater === "number"
+            ...(serverHighWater !== undefined
               ? { server_high_water_stream_seq: serverHighWater }
               : {}),
-            ...(typeof payload.status === "string"
-              ? { status: payload.status }
+            ...(message.type === "resume_ack"
+              ? { status: message.payload.status }
               : {}),
           },
         });
@@ -331,8 +332,7 @@ export function IncidentCollaborationSession({
         return;
       }
       if (message.type === "error") {
-        const payload = recordValue(message.payload);
-        if (payload.code === "incident_closed") {
+        if (message.payload.code === "incident_closed") {
           terminate("incident_closed", { kind: "incident_closed" });
           return;
         }

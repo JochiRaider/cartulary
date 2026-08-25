@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
 
 func newIndicatorTestApplication(t testing.TB, db postgres.DB, appender *revisions.Appender) *indicators.Application {
@@ -33,6 +34,7 @@ func newIndicatorTestApplication(t testing.TB, db postgres.DB, appender *revisio
 		RecordEnvelopes: records.NewStore(db),
 		Projections:     projection.IndicatorPorts().Rows,
 		SourceText:      indicatorassembly.NewSourceTextPort(projection.SourceTextRows()),
+		Collaboration:   collaborationsupport.NewPublicationAppender(),
 		Clock:           func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
 	})
 	if err != nil {

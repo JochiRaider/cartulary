@@ -1,12 +1,16 @@
 package revisionassembly
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
@@ -22,11 +26,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
-
-type Dependencies struct {
-	HistoricalIntentPolicy revisions.HistoricalIntentPolicy
-	IntentAppender         revisions.IntentAppender
-}
 
 // Runtime is the composition-scoped Revisions boundary. Build completes all
 // immutable catalog validation before mutable source facades are constructed.
@@ -75,16 +74,12 @@ func NewRecordEnvelopeReader(db postgres.DB) revisions.RecordEnvelopeReader {
 	return recordEnvelopeAdapter{store: records.NewStore(db)}
 }
 
-func Build(dependencies Dependencies, contributions ...revisions.ProviderContribution) (*Runtime, error) {
-	if dependencies.HistoricalIntentPolicy == nil {
-		return nil, errors.New("revision assembly: historical intent policy is required")
-	}
+func Build(contributions ...revisions.ProviderContribution) (*Runtime, error) {
 	copied := cloneProviderContributions(contributions)
 	if err := revisions.ValidateProviderContributions(copied); err != nil {
 		return nil, fmt.Errorf("revision assembly: validate provider contributions: %w", err)
 	}
-	recordViews, err := buildRecordViewCatalog(copied)
-	if err != nil {
+	if _, err := buildRecordViewCatalog(copied); err != nil {
 		return nil, fmt.Errorf("revision assembly: build record/view catalog: %w", err)
 	}
 	fieldResolver, err := buildConflictFieldResolver(copied)
@@ -104,12 +99,9 @@ func Build(dependencies Dependencies, contributions ...revisions.ProviderContrib
 		return nil, fmt.Errorf("revision assembly: build delete/restore source catalog: %w", err)
 	}
 	appender, err := revisions.NewAppender(
-		recordViews,
 		recordEnvelopeAdapter{store: records.NewStore()},
 		snapshotCaptures,
 		targetSemantics,
-		dependencies.HistoricalIntentPolicy,
-		dependencies.IntentAppender,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("revision assembly: build appender: %w", err)
@@ -142,6 +134,7 @@ func (r *Runtime) NewCommandService(
 	projections revisions.ProjectionRebuilder,
 	liveRecords revisions.LiveRecordReader,
 	clock func() time.Time,
+	publications collaboration.RecordChangedAppender,
 ) (*revisions.CommandService, error) {
 	if r == nil || r.appender == nil || r.deleteRestore == nil || r.targetSemantics == nil {
 		return nil, errors.New("revision assembly: runtime is required")
@@ -157,7 +150,25 @@ func (r *Runtime) NewCommandService(
 		TargetSemantics:             r.targetSemantics,
 		Appender:                    r.appender,
 		RecordEnvelopes:             recordEnvelopeAdapter{store: records.NewStore(db)},
+		RecordPublications:          recordPublicationAdapter{appender: publications},
 		Clock:                       clock,
+	})
+}
+
+type recordPublicationAdapter struct {
+	appender collaboration.RecordChangedAppender
+}
+
+func (adapter recordPublicationAdapter) AppendRecordChangedTx(ctx context.Context, tx pgx.Tx, effect revisions.RecordPublicationEffect) error {
+	return adapter.appender.AppendRecordChangedTx(ctx, tx, collaboration.RecordChangeIntentInput{
+		IncidentID: effect.IncidentID, RecordID: effect.RecordID, ChangeSetID: effect.ChangeSetID,
+		ActorUserID: effect.ActorUserID, RowVersion: effect.RowVersion, ClientTxnID: effect.ClientTxnID,
+		MutationOrdinal: effect.MutationOrdinal, CreatedAt: effect.CreatedAt,
+		PublicFieldKeys: effect.PublicFieldKeys,
+		AffectedViews: []collaboration.AffectedViewChange{{
+			ViewSchemaID: effect.ViewSchemaID, RecordID: effect.RecordID, RowVersion: effect.RowVersion,
+			ChangeKind: effect.ChangeKind,
+		}},
 	})
 }
 

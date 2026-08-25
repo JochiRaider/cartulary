@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -17,6 +18,7 @@ import (
 type ImportDependencies struct {
 	Revisions        *revisions.Appender
 	ProjectionWriter workbookprojection.Writer
+	Collaboration    collaboration.RecordChangedAppender
 }
 
 type importOwner struct {
@@ -37,12 +39,13 @@ func NewImportCreateFacade(
 	}{
 		{name: "Revisions", value: dependencies.Revisions},
 		{name: "ProjectionWriter", value: dependencies.ProjectionWriter},
+		{name: "Collaboration", value: dependencies.Collaboration},
 	} {
 		if isNilStoreDependency(dependency.value) {
 			return nil, fmt.Errorf("compose Host/Identity import create facade: %s is required", dependency.name)
 		}
 	}
-	owner := &importOwner{mutationCore: newMutationCore(dependencies.Revisions, dependencies.ProjectionWriter)}
+	owner := &importOwner{mutationCore: newMutationCore(dependencies.Revisions, dependencies.ProjectionWriter, dependencies.Collaboration)}
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
 			TargetViewSchemaID: targetViewSchemaID,
@@ -124,7 +127,7 @@ func (s *importOwner) createImportRowTx(ctx context.Context, tx pgx.Tx, command 
 	if operation == "" {
 		operation = entityType + "_import_create"
 	}
-	return ownerfacade.FinalizeRecordRevisionAndIntentTx(ctx, tx, s.revisionAppender, ownerfacade.FinalizeCommand{
+	return ownerfacade.FinalizeLiveRecordTx(ctx, tx, s.revisionAppender, s.publications, ownerfacade.FinalizeCommand{
 		Request:         request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,
@@ -136,6 +139,7 @@ func (s *importOwner) createImportRowTx(ctx context.Context, tx pgx.Tx, command 
 		BeforeValue:     beforeValue,
 		BeforeSnapshot:  beforeSnapshot,
 		Row:             afterRow,
+		CreatedAt:       now,
 	})
 }
 

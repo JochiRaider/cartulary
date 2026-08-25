@@ -8,41 +8,22 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 )
-
-type HistoricalIntentPolicy interface {
-	IsSuppressedTx(context.Context, pgx.Tx) (bool, error)
-}
-
-type IntentAppender interface {
-	AppendIntentTx(context.Context, pgx.Tx, collaboration.EventIntent) error
-}
 
 // Appender is the composition-scoped Revisions write facade. Callers retain
 // transaction ownership and can acquire no history-query or command
 // capabilities through it.
 type Appender struct {
-	recordViews      *RecordViewCatalog
 	recordEnvelopes  RecordEnvelopeTxReader
 	snapshotCaptures *RecordSnapshotCaptureCatalog
 	targetSemantics  *TargetSemanticsCatalog
-	historicalPolicy HistoricalIntentPolicy
-	intents          IntentAppender
 }
 
 func NewAppender(
-	recordViews *RecordViewCatalog,
 	recordEnvelopes RecordEnvelopeTxReader,
 	snapshotCaptures *RecordSnapshotCaptureCatalog,
 	targetSemantics *TargetSemanticsCatalog,
-	historicalPolicy HistoricalIntentPolicy,
-	intents IntentAppender,
 ) (*Appender, error) {
-	if recordViews == nil {
-		return nil, errors.New("revisions: record/view catalog is required")
-	}
 	if recordEnvelopes == nil {
 		return nil, errors.New("revisions: record envelope reader is required")
 	}
@@ -52,19 +33,10 @@ func NewAppender(
 	if targetSemantics == nil {
 		return nil, errors.New("revisions: target semantics catalog is required")
 	}
-	if historicalPolicy == nil {
-		return nil, errors.New("revisions: historical intent policy is required")
-	}
-	if intents == nil {
-		return nil, errors.New("revisions: Collaboration intent appender is required")
-	}
 	return &Appender{
-		recordViews:      recordViews,
 		recordEnvelopes:  recordEnvelopes,
 		snapshotCaptures: snapshotCaptures,
 		targetSemantics:  targetSemantics,
-		historicalPolicy: historicalPolicy,
-		intents:          intents,
 	}, nil
 }
 
@@ -94,11 +66,6 @@ type AppendNonRowMutationParams struct {
 	AfterValue      any
 }
 
-type LiveRecordChange struct {
-	BeforeValue any
-	AfterValue  any
-}
-
 type AppendRecordMutationParams struct {
 	ChangeSetID     uuid.UUID
 	SequenceNo      int
@@ -111,13 +78,29 @@ type AppendRecordMutationParams struct {
 	AfterSnapshot   *RecordSnapshot
 }
 
-type AppendRecordRevisionParams struct {
+type RevisionConflictFact struct {
+	FieldKey      string
+	BeforePresent bool
+	BeforeValue   any
+	AfterPresent  bool
+	AfterValue    any
+}
+
+type LiveRevisionInput struct {
 	ChangeSetID    uuid.UUID
 	RecordID       uuid.UUID
 	RowVersion     int64
 	BeforeSnapshot *RecordSnapshot
 	AfterSnapshot  *RecordSnapshot
-	LiveChange     LiveRecordChange
+	ConflictFacts  []RevisionConflictFact
+}
+
+type HistoricalRevisionInput struct {
+	ChangeSetID    uuid.UUID
+	RecordID       uuid.UUID
+	RowVersion     int64
+	BeforeSnapshot *RecordSnapshot
+	AfterSnapshot  *RecordSnapshot
 }
 
 func (a *Appender) CaptureRecordSnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (RecordSnapshot, error) {

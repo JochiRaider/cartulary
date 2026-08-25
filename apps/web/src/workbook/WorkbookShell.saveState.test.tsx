@@ -112,7 +112,7 @@ describe("WorkbookShell save-state status strip", () => {
         server_time: "2026-07-13T12:00:00Z",
         heartbeat_interval_ms: 15_000,
         presence_ttl_ms: 45_000,
-        resume_window_ms: 60_000,
+        resume_window_ms: 300_000,
       },
     });
     socket?.emit({

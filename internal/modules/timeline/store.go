@@ -402,12 +402,13 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 	if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, mutationSequence+1+len(linkMutations), tagMutations); err != nil {
 		return MutationResult{}, 0, err
 	}
-	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	changedFieldKeys := computeChangedFieldKeys(nil, projected)
+	if err := s.revisionsStore.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:   changeSetID,
 		RecordID:      current.RecordID,
 		RowVersion:    projected.RowVersion,
 		AfterSnapshot: &afterSnapshot,
-		LiveChange:    revisions.LiveRecordChange{AfterValue: afterRow},
+		ConflictFacts: timelineRevisionFacts(nil, afterRow, changedFieldKeys),
 	}); err != nil {
 		return MutationResult{}, 0, err
 	}
@@ -425,7 +426,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 		changeSetID,
 		request.ClientTxnID,
 		actorUserID,
-		computeChangedFieldKeys(nil, projected),
+		changedFieldKeys,
 		afterRow,
 		0,
 		now,
@@ -788,13 +789,14 @@ RETURNING recorded_at
 	if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, 2+len(linkMutations), tagMutations); err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	changedFieldKeys := computeChangedFieldKeys(&beforeProjected, afterProjected)
+	if err := s.revisionsStore.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       current.RecordID,
 		RowVersion:     next.RowVersion,
 		BeforeSnapshot: &beforeSnapshot,
 		AfterSnapshot:  &afterSnapshot,
-		LiveChange:     revisions.LiveRecordChange{BeforeValue: beforeRow, AfterValue: afterRow},
+		ConflictFacts:  timelineRevisionFacts(beforeRow, afterRow, changedFieldKeys),
 	}); err != nil {
 		return MutationResult{}, err
 	}
@@ -812,7 +814,7 @@ RETURNING recorded_at
 		changeSetID,
 		request.ClientTxnID,
 		actor.ID,
-		computeChangedFieldKeys(&beforeProjected, afterProjected),
+		changedFieldKeys,
 		afterRow,
 		0,
 		now,
@@ -836,7 +838,7 @@ RETURNING recorded_at
 		ChangeSetID:      changeSetID,
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       afterProjected.RowVersion,
-		ChangedFieldKeys: computeChangedFieldKeys(&beforeProjected, afterProjected),
+		ChangedFieldKeys: changedFieldKeys,
 		Row:              afterProjected,
 	}, nil
 }

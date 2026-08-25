@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -30,6 +31,7 @@ type Store struct {
 type mutationCore struct {
 	revisionAppender *revisions.Appender
 	ports            entityStorePorts
+	publications     collaboration.RecordChangedAppender
 }
 
 type StoreDependencies struct {
@@ -38,6 +40,7 @@ type StoreDependencies struct {
 	ProjectionWriter     workbookprojection.Writer
 	ProjectionReader     workbookprojection.Reader
 	KeepSavedIdempotency conflicts.IdempotencyPort
+	Collaboration        collaboration.RecordChangedAppender
 }
 
 func NewStore(dependencies StoreDependencies) (*Store, error) {
@@ -50,13 +53,14 @@ func NewStore(dependencies StoreDependencies) (*Store, error) {
 		{name: "ProjectionWriter", value: dependencies.ProjectionWriter},
 		{name: "ProjectionReader", value: dependencies.ProjectionReader},
 		{name: "KeepSavedIdempotency", value: dependencies.KeepSavedIdempotency},
+		{name: "Collaboration", value: dependencies.Collaboration},
 	} {
 		if isNilStoreDependency(dependency.value) {
 			return nil, fmt.Errorf("compose Host/Identity store: %s is required", dependency.name)
 		}
 	}
 	return &Store{
-		mutationCore:     newMutationCore(dependencies.Revisions, dependencies.ProjectionWriter),
+		mutationCore:     newMutationCore(dependencies.Revisions, dependencies.ProjectionWriter, dependencies.Collaboration),
 		pool:             dependencies.Postgres,
 		authStore:        authn.NewStore(dependencies.Postgres),
 		incidentAccess:   admission.NewChecker(dependencies.Postgres),
@@ -65,10 +69,11 @@ func NewStore(dependencies StoreDependencies) (*Store, error) {
 	}, nil
 }
 
-func newMutationCore(appender *revisions.Appender, projectionWriter workbookprojection.Writer) *mutationCore {
+func newMutationCore(appender *revisions.Appender, projectionWriter workbookprojection.Writer, publications collaboration.RecordChangedAppender) *mutationCore {
 	return &mutationCore{
 		revisionAppender: appender,
 		ports:            newEntityStorePorts(appender, projectionWriter),
+		publications:     publications,
 	}
 }
 

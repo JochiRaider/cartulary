@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type applicationSettingsProjection struct {
@@ -23,15 +25,17 @@ func newApplicationSettingsProjection(cfg configassembly.Deployment) application
 }
 
 func (projection applicationSettingsProjection) Collaboration(
-	hub *collaboration.Hub,
+	db postgres.DB,
 	transport collaborationSocketTransport,
-) collaboration.Settings {
+	now func() time.Time,
+) collaboration.Options {
 	cfg := projection.deployment
-	return collaboration.Settings{
+	return collaboration.Options{
+		Postgres:           db,
 		AcceptSocket:       transport.Accept,
 		CheckBrowserOrigin: transport.CheckBrowserOrigin,
-		Hub:                hub,
 		ServiceVersion:     cfg.Telemetry.Resource.ServiceVersion,
+		Now:                now,
 	}
 }
 

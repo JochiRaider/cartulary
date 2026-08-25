@@ -15,7 +15,9 @@ import (
 type mentionStorePostgresStub struct{ postgres.DB }
 type mentionLinkOperationsStub struct{ LinkOperationsPort }
 type mentionTimelineEffectsStub struct{ TimelineEffectsPort }
-type mentionCollaborationStub struct{ collaboration.IntentAppender }
+type mentionCollaborationStub struct {
+	collaboration.RecordChangedAppender
+}
 
 func TestMentionStoreCompositionRequiresCompleteDependencies_Unit(t *testing.T) {
 	valid := func() StoreDependencies {

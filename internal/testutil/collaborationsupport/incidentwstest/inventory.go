@@ -44,7 +44,7 @@ func SocketEventInventory() []HarnessInventoryEntry {
 	return []HarnessInventoryEntry{
 		{
 			Key:     "incident_socket_upgrade",
-			Surface: "GET /ws/incidents/{incident_id}",
+			Surface: "GET /ws/v1/incidents/{incident_id}",
 			Requirements: requiredHarnesses(
 				HarnessEnvelopeConsistency,
 				HarnessAuthorizationRederived,

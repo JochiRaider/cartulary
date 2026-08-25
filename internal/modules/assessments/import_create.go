@@ -7,24 +7,27 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 )
 
 type ImportCreateDependencies struct {
-	Subjects    SubjectValidator
-	Assessors   AssessorValidator
-	Records     RecordEnvelopeCreator
-	Revisions   ownerfacade.RecordRevisionAndIntentAppender
-	Projections AssessmentProjectionPort
+	Subjects      SubjectValidator
+	Assessors     AssessorValidator
+	Records       RecordEnvelopeCreator
+	Revisions     ownerfacade.LiveRecordRevisionAppender
+	Projections   AssessmentProjectionPort
+	Collaboration collaboration.RecordChangedAppender
 }
 
 type importCreateFacade struct {
-	source      assessmentSourceRepository
-	subjects    SubjectValidator
-	assessors   AssessorValidator
-	records     RecordEnvelopeCreator
-	revisions   ownerfacade.RecordRevisionAndIntentAppender
-	projections AssessmentProjectionPort
+	source       assessmentSourceRepository
+	subjects     SubjectValidator
+	assessors    AssessorValidator
+	records      RecordEnvelopeCreator
+	revisions    ownerfacade.LiveRecordRevisionAppender
+	projections  AssessmentProjectionPort
+	publications collaboration.RecordChangedAppender
 }
 
 func NewImportCreateFacade(
@@ -46,14 +49,17 @@ func NewImportCreateFacade(
 		return nil, errors.New("construct assessment import facade: revision appender is required")
 	case dependencies.Projections == nil:
 		return nil, errors.New("construct assessment import facade: projection port is required")
+	case dependencies.Collaboration == nil:
+		return nil, errors.New("construct assessment import facade: Collaboration publication appender is required")
 	}
 	owner := &importCreateFacade{
-		source:      assessmentSourceRepository{},
-		subjects:    dependencies.Subjects,
-		assessors:   dependencies.Assessors,
-		records:     dependencies.Records,
-		revisions:   dependencies.Revisions,
-		projections: dependencies.Projections,
+		source:       assessmentSourceRepository{},
+		subjects:     dependencies.Subjects,
+		assessors:    dependencies.Assessors,
+		records:      dependencies.Records,
+		revisions:    dependencies.Revisions,
+		projections:  dependencies.Projections,
+		publications: dependencies.Collaboration,
 	}
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
@@ -168,7 +174,7 @@ func (f *importCreateFacade) CreateImportRowTx(
 			err,
 		)
 	}
-	response, err := ownerfacade.FinalizeRecordRevisionAndIntentTx(ctx, tx, f.revisions, ownerfacade.FinalizeCommand{
+	response, err := ownerfacade.FinalizeLiveRecordTx(ctx, tx, f.revisions, f.publications, ownerfacade.FinalizeCommand{
 		Request:         request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,
@@ -177,6 +183,7 @@ func (f *importCreateFacade) CreateImportRowTx(
 		CreatedOrReused: "created",
 		OwnerResultCode: "created",
 		Row:             row,
+		CreatedAt:       command.Now,
 	})
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("finalize imported assessment: %w", err)

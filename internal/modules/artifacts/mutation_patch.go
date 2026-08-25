@@ -173,17 +173,18 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	if _, err := f.appendCollectionMutationsTx(ctx, tx, changeSetID, 2, collectionMutations); err != nil {
 		return MutationResult{}, err
 	}
-	if err := f.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
+	changedFields := changedFieldKeys(beforeRow, afterRow)
+	if err := f.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       command.RecordID,
 		RowVersion:     rowVersion,
 		BeforeSnapshot: &beforeSnapshot,
 		AfterSnapshot:  &afterSnapshot,
-		LiveChange: revisions.LiveRecordChange{
-			BeforeValue: beforeRow,
-			AfterValue:  afterRow,
-		},
+		ConflictFacts:  artifactRevisionFacts(beforeRow, afterRow, changedFields),
 	}); err != nil {
+		return MutationResult{}, err
+	}
+	if err := f.appendRecordChangedTx(ctx, tx, meta.IncidentID, command.ActorUserID, request.ClientTxnID, changeSetID, command.RecordID, rowVersion, 0, command.Now, request.ViewSchemaID, afterRow, changedFields); err != nil {
 		return MutationResult{}, err
 	}
 	storedResult := NewStoredPatchResult(StoredMutationPayload{
@@ -204,7 +205,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       rowVersion,
 		ViewSchemaID:     request.ViewSchemaID,
-		ChangedFieldKeys: changedFieldKeys(beforeRow, afterRow),
+		ChangedFieldKeys: changedFields,
 	}, nil
 }
 

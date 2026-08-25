@@ -481,29 +481,16 @@ func samePublicJobState(left, right jobs.Resource) bool {
 
 func correctionIntentCount(t testing.TB, pool *pgxpool.Pool, jobID uuid.UUID) int {
 	t.Helper()
-	var count int
-	if err := pool.QueryRow(context.Background(), `
-SELECT count(*)
-  FROM collaboration_event_intents
- WHERE source_identity = $1
-`, "job:"+jobID.String()).Scan(&count); err != nil {
-		t.Fatal(err)
-	}
-	return count
+	return collaborationsupport.CountIntents(t, pool, collaborationsupport.IntentSelector{
+		SourceIdentity: "job:" + jobID.String(),
+	})
 }
 
 func assertLatestIntentMatchesResource(t testing.TB, pool *pgxpool.Pool, resource jobs.Resource) {
 	t.Helper()
-	var payload []byte
-	if err := pool.QueryRow(context.Background(), `
-SELECT canonical_payload
-  FROM collaboration_event_intents
- WHERE source_identity = $1
- ORDER BY created_at DESC, intent_key DESC
- LIMIT 1
-`, "job:"+resource.JobID).Scan(&payload); err != nil {
-		t.Fatal(err)
-	}
+	payload := collaborationsupport.LoadLatestIntent(t, pool, collaborationsupport.IntentSelector{
+		SourceIdentity: "job:" + resource.JobID,
+	}).CanonicalPayload
 	var projected struct {
 		Status    string        `json:"status"`
 		Progress  jobs.Progress `json:"progress"`

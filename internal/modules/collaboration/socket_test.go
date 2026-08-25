@@ -11,16 +11,18 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
-	collabscenariotest "github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/scenariotest"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
-	runtime := collabscenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	t.Run("first application message rejects every closed token except hello or resume", func(t *testing.T) {
 		harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-u-6-07-first-message")
@@ -207,7 +209,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 }
 
 func TestIncidentSocketFrameFailureContract_Unit(t *testing.T) {
-	runtime := collabscenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	for _, testCase := range []struct {
 		name        string
@@ -391,7 +393,7 @@ func invalidFirstMessagePayload(messageType string) json.RawMessage {
 }
 
 func TestIncidentSocketHeartbeatIdleExpiry_Unit(t *testing.T) {
-	runtime := collabscenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	harness, admin, adminID, incidentID := setupSocketIncidentWithAdminID(t, runtime, "collaboration-u-6-08-heartbeat-idle")
 	sessionID := sessionIDForCookie(t, harness, adminID.String())
 	before := querySessionTiming(t, harness, sessionID)
@@ -433,7 +435,7 @@ func TestIncidentSocketHeartbeatIdleExpiry_Unit(t *testing.T) {
 }
 
 func TestIncidentSocketPresenceScopeEphemeral_Unit(t *testing.T) {
-	runtime := collabscenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	harness, admin, _, incidentA := setupSocketIncidentWithAdminID(t, runtime, "collaboration-u-6-08-presence-scope-a")
 	incidentBResource := incidentscenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-collaboration-u-6-08-presence-scope-b",
@@ -502,10 +504,14 @@ func TestIncidentSocketPresenceScopeEphemeral_Unit(t *testing.T) {
 	}
 }
 
-func setupSocketIncident(t testing.TB, runtime *collabscenariotest.RuntimeHarness, prefix string) (*collabscenariotest.ServerHarness, flowtest.LoginResult, string) {
+func setupSocketIncident(t testing.TB, runtime *appsupport.Runtime, prefix string) (*appsupport.ServerHarness, flowtest.LoginResult, string) {
 	t.Helper()
 
-	harness := runtime.StartServer(t, prefix)
+	harness := runtime.StartServer(t, appsupport.ServerOptions{
+		Prefix:        prefix,
+		Dependencies:  httpapi.DependencySet{},
+		TestRouteMode: httptestx.TestRouteModeDisabled,
+	})
 	admin, _ := flowtest.ProvisionBootstrapAdminUUID(t, harness.Server.HTTP.URL)
 	incident := incidentscenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-" + prefix,
@@ -593,7 +599,7 @@ func requirePresenceDelta(t testing.TB, client *incidentwstest.Client, kind stri
 	return payload.Presence
 }
 
-func sessionIDForCookie(t testing.TB, harness *collabscenariotest.ServerHarness, userID string) string {
+func sessionIDForCookie(t testing.TB, harness *appsupport.ServerHarness, userID string) string {
 	t.Helper()
 
 	var sessionID string
@@ -617,7 +623,7 @@ type SessionTiming struct {
 	RevokeReasonCode         string
 }
 
-func querySessionTiming(t testing.TB, harness *collabscenariotest.ServerHarness, sessionID string) SessionTiming {
+func querySessionTiming(t testing.TB, harness *appsupport.ServerHarness, sessionID string) SessionTiming {
 	t.Helper()
 
 	var timing SessionTiming

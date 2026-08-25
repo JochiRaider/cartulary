@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -21,6 +22,7 @@ type Application struct {
 	incidentState   IncidentStatePort
 	recordEnvelopes RecordEnvelopePort
 	revisions       RevisionPort
+	publications    collaboration.RecordChangedAppender
 	projections     indicatorprojection.Rows
 	sourceText      SourceTextPort
 	now             func() time.Time
@@ -46,6 +48,7 @@ type ApplicationDependencies struct {
 	Idempotency     IdempotencyPort
 	IncidentState   IncidentStatePort
 	Revisions       RevisionPort
+	Collaboration   collaboration.RecordChangedAppender
 	RecordEnvelopes RecordEnvelopePort
 	Projections     indicatorprojection.Rows
 	SourceText      SourceTextPort
@@ -61,6 +64,7 @@ func NewApplication(dependencies ApplicationDependencies) (*Application, error) 
 		{name: "Idempotency", value: dependencies.Idempotency},
 		{name: "IncidentState", value: dependencies.IncidentState},
 		{name: "Revisions", value: dependencies.Revisions},
+		{name: "Collaboration", value: dependencies.Collaboration},
 		{name: "RecordEnvelopes", value: dependencies.RecordEnvelopes},
 		{name: "Projections", value: dependencies.Projections},
 		{name: "SourceText", value: dependencies.SourceText},
@@ -77,6 +81,7 @@ func NewApplication(dependencies ApplicationDependencies) (*Application, error) 
 		incidentState:   dependencies.IncidentState,
 		recordEnvelopes: dependencies.RecordEnvelopes,
 		revisions:       dependencies.Revisions,
+		publications:    dependencies.Collaboration,
 		projections:     dependencies.Projections,
 		sourceText:      dependencies.SourceText,
 		now:             dependencies.Clock,
