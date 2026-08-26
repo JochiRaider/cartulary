@@ -20,7 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
-	taskdecisionprovider "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -272,7 +272,7 @@ func projectionManifestPartiesContribution(t testing.TB) partyprojection.Contrib
 
 func projectionManifestTaskDecisionContribution(t testing.TB) taskdecisionprojection.Contribution {
 	t.Helper()
-	contribution, err := taskdecisionprovider.NewContribution()
+	contribution, err := tasksdecisions.NewProjectionContribution()
 	if err != nil {
 		t.Fatalf("construct Tasks/Decisions projection contribution: %v", err)
 	}

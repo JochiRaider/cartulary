@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_id": "cartulary.tasksdecisions.source_catalog.v1",
+  "catalog_id": "cartulary.tasksdecisions.sources.v1",
+  "surfaces": [
+    {
+      "view_schema_id": "cartulary.view.decisions.v1",
+      "record_type": "decision",
+      "base_projection": "decision_grid_projection",
+      "source_table": "decisions",
+      "revision_snapshot_schema_id": "cartulary.revisions.snapshot.decision.v1",
+      "direct_fields": [
+        { "field_key": "decision.decided_at", "column": "decided_at" },
+        { "field_key": "decision.decision_type", "column": "decision_type" },
+        { "field_key": "decision.owner_user_id", "column": "owner_user_id", "reference_role": "incident_member_user" },
+        { "field_key": "decision.rationale", "column": "rationale" },
+        { "field_key": "decision.status", "column": "status" },
+        { "field_key": "decision.summary", "column": "summary" }
+      ],
+      "collection_fields": [
+        { "field_key": "decision.affected_record_ids", "collection_family": "record_ref", "allowed_operations": ["add_record_ref", "remove_record_ref"], "link_type": "references_record" },
+        { "field_key": "decision.support_refs", "collection_family": "record_ref", "allowed_operations": ["add_record_ref", "remove_record_ref"], "link_type": "supported_by" }
+      ]
+    },
+    {
+      "view_schema_id": "cartulary.view.task_requests.v1",
+      "record_type": "task_request",
+      "base_projection": "task_request_grid_projection",
+      "source_table": "task_requests",
+      "revision_snapshot_schema_id": "cartulary.revisions.snapshot.task_request.v1",
+      "direct_fields": [
+        { "field_key": "task.blocked_reason", "column": "blocked_reason" },
+        { "field_key": "task.closure_summary", "column": "closure_summary" },
+        { "field_key": "task.completed_at", "column": "completed_at" },
+        { "field_key": "task.decision_record_id", "column": "decision_record_id", "reference_role": "same_incident_record", "expected_target_record_type": "decision", "mirror_link_type": "references_record" },
+        { "field_key": "task.due_at", "column": "due_at" },
+        { "field_key": "task.external_ticket_ref", "column": "external_ticket_ref" },
+        { "field_key": "task.owner_user_id", "column": "owner_user_id", "reference_role": "incident_member_user" },
+        { "field_key": "task.priority", "column": "priority" },
+        { "field_key": "task.requester_party_id", "column": "requester_party_id", "reference_role": "same_incident_record", "expected_target_record_type": "party" },
+        { "field_key": "task.requester_party_text", "column": "requester_party_text" },
+        { "field_key": "task.status", "column": "status" },
+        { "field_key": "task.task_kind", "column": "task_kind" },
+        { "field_key": "task.title", "column": "title" },
+        { "field_key": "task.workstream", "column": "workstream" }
+      ],
+      "collection_fields": [
+        { "field_key": "task.linked_record_ids", "collection_family": "record_ref", "allowed_operations": ["add_record_ref", "remove_record_ref"], "link_type": "references_record" }
+      ]
+    }
+  ]
+}

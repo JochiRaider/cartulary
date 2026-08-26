@@ -3,7 +3,6 @@ package tasksdecisions
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -15,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/sourcecatalog"
 	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
 )
 
@@ -67,6 +67,7 @@ func (d ImportDependencies) validate() error {
 
 type importOwner struct {
 	dependencies ImportDependencies
+	catalog      *sourcecatalog.Catalog
 }
 
 func NewImportContribution(
@@ -74,14 +75,17 @@ func NewImportContribution(
 	facadeID string,
 	dependencies ImportDependencies,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
-	if targetViewSchemaID != TaskRequestsViewSchemaID &&
-		targetViewSchemaID != DecisionsViewSchemaID {
+	catalog, err := sourcecatalog.Load()
+	if err != nil {
+		return nil, fmt.Errorf("compose Tasks/Decisions source catalog: %w", err)
+	}
+	if _, ok := catalog.SurfaceByViewID(targetViewSchemaID); !ok {
 		return nil, fmt.Errorf("tasks/decisions import surface %q not mapped", targetViewSchemaID)
 	}
 	if err := dependencies.validate(); err != nil {
 		return nil, err
 	}
-	owner := &importOwner{dependencies: dependencies}
+	owner := &importOwner{dependencies: dependencies, catalog: catalog}
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
 			TargetViewSchemaID: targetViewSchemaID,
@@ -93,23 +97,27 @@ func NewImportContribution(
 
 func (o *importOwner) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
-	if err := validateImportedOwnerShape(request); err != nil {
+	if err := validateImportedOwnerShape(o.catalog, request); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	values := taskDecisionValuesFromImport(ownerfacade.ValuesByField(request.FieldValues))
 	now := command.Now.UTC()
+	surface, ok := o.catalog.SurfaceByViewID(request.TargetViewSchemaID)
+	if !ok {
+		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("tasks/decisions import surface %q not mapped", request.TargetViewSchemaID)
+	}
 	switch request.TargetViewSchemaID {
 	case TaskRequestsViewSchemaID:
-		params := TaskCreateParams{Values: values}
+		params := policy.TaskCreateParams{Values: values}
 		if err := policy.ValidateTaskCreateParams(params); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		if err := validateImportCreateReferencesTx(ctx, tx, request.IncidentID, request.ActorUserID, taskOwnerUserFieldKey, values); err != nil {
+		if err := validateImportCreateReferencesTx(ctx, tx, o.catalog, request.IncidentID, request.ActorUserID, taskOwnerUserFieldKey, values); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		recordID, err := o.dependencies.RecordEnvelopes.InsertTx(ctx, tx, records.InsertParams{
 			IncidentID:      request.IncidentID,
-			RecordType:      "task_request",
+			RecordType:      surface.RecordType,
 			CreatedByUserID: request.ActorUserID,
 			CreatedAt:       now,
 			UpdatedByUserID: request.ActorUserID,
@@ -123,24 +131,24 @@ func (o *importOwner) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command 
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		linkMutations, err := syncTaskDecisionReferenceTx(
-			ctx, tx, o.dependencies.Links, request.IncidentID, recordID,
-			request.ActorUserID, values[TaskDecisionRecordFieldKey].UUID, now,
+			ctx, tx, o.catalog, o.dependencies.Links, request.IncidentID, recordID,
+			request.ActorUserID, values[taskDecisionRecordFieldKey].UUID, now,
 		)
 		if err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		return o.finalizeImportRowTx(ctx, tx, command, recordID, linkMutations)
 	case DecisionsViewSchemaID:
-		params := DecisionCreateParams{Values: values}
+		params := policy.DecisionCreateParams{Values: values}
 		if err := policy.ValidateDecisionCreateParams(params); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		if err := validateImportCreateReferencesTx(ctx, tx, request.IncidentID, request.ActorUserID, decisionOwnerUserFieldKey, values); err != nil {
+		if err := validateImportCreateReferencesTx(ctx, tx, o.catalog, request.IncidentID, request.ActorUserID, decisionOwnerUserFieldKey, values); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		recordID, err := o.dependencies.RecordEnvelopes.InsertTx(ctx, tx, records.InsertParams{
 			IncidentID:      request.IncidentID,
-			RecordType:      "decision",
+			RecordType:      surface.RecordType,
 			CreatedByUserID: request.ActorUserID,
 			CreatedAt:       now,
 			UpdatedByUserID: request.ActorUserID,
@@ -159,17 +167,14 @@ func (o *importOwner) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command 
 	}
 }
 
-func validateImportedOwnerShape(request ownerfacade.ImportOwnerCreateRequest) error {
-	ownerField := taskOwnerUserFieldKey
-	if request.TargetViewSchemaID == DecisionsViewSchemaID {
-		ownerField = decisionOwnerUserFieldKey
-	}
+func validateImportedOwnerShape(catalog *sourcecatalog.Catalog, request ownerfacade.ImportOwnerCreateRequest) error {
 	for _, field := range request.FieldValues {
-		if field.FieldKey != ownerField {
+		policy, ok := catalog.Field(field.FieldKey)
+		if !ok || policy.ViewSchemaID != request.TargetViewSchemaID || policy.Reference.Role != "incident_member_user" {
 			continue
 		}
 		if field.NormalizedValue.Kind != "uuid" || field.NormalizedValue.UUID == nil {
-			return &ValidationError{Field: ownerField, ReasonCode: "invalid_value"}
+			return &ValidationError{Field: field.FieldKey, ReasonCode: "invalid_value"}
 		}
 	}
 	return nil
@@ -244,6 +249,7 @@ func taskDecisionValuesFromImport(values map[string]ownerfacade.ImportScalarValu
 func validateImportCreateReferencesTx(
 	ctx context.Context,
 	tx pgx.Tx,
+	catalog *sourcecatalog.Catalog,
 	incidentID uuid.UUID,
 	actorUserID uuid.UUID,
 	ownerField string,
@@ -260,12 +266,13 @@ func validateImportCreateReferencesTx(
 		if value.UUID == nil {
 			continue
 		}
-		if strings.HasSuffix(fieldKey, "_user_id") {
+		if isMemberUserReferenceField(catalog, fieldKey) {
 			continue
 		}
 		if err := validateDirectReferenceTx(
 			ctx,
 			tx,
+			catalog,
 			incidentID,
 			fieldKey,
 			*value.UUID,

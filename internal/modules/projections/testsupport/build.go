@@ -13,7 +13,7 @@ import (
 	indicatorowner "github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
-	taskdecisionprovider "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	timelineprovider "github.com/JochiRaider/cartulary/internal/modules/timeline/projectionprovider"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -53,7 +53,7 @@ func MustBuild(t testing.TB, db postgres.DB) projectionadapters.Ports {
 	if err != nil {
 		t.Fatalf("compose Parties projection contribution: %v", err)
 	}
-	taskDecisionContribution, err := taskdecisionprovider.NewContribution()
+	taskDecisionContribution, err := tasksdecisions.NewProjectionContribution()
 	if err != nil {
 		t.Fatalf("compose Tasks/Decisions projection contribution: %v", err)
 	}

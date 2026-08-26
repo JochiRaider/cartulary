@@ -965,7 +965,7 @@ function validateContractFamilyRegistryShape(file) {
       if (!Array.isArray(entry.typescript_projections)) {
         throw new Error(`${label}.typescript_projections must be an array`);
       }
-      if (["openapi", "imports", "recovery", "database-migrations", "parties", "string-contracts"].includes(familyID) && entry.typescript_projections.length !== 0) {
+      if (["openapi", "imports", "recovery", "tasksdecisions", "database-migrations", "parties", "string-contracts"].includes(familyID) && entry.typescript_projections.length !== 0) {
         throw new Error(`${label}.typescript_projections must stay empty for protected backend-only inputs`);
       }
       for (const [projectionIndex, rawProjection] of entry.typescript_projections.entries()) {
@@ -1077,6 +1077,9 @@ function validateContractFamilyRegistryShape(file) {
   if (!familyIDs.includes("artifacts")) {
     throw new Error(`${file}.families must declare artifacts`);
   }
+  if (!familyIDs.includes("tasksdecisions")) {
+    throw new Error(`${file}.families must declare tasksdecisions`);
+  }
   if (!familyIDs.includes("database-migrations")) {
     throw new Error(`${file}.families must declare database-migrations`);
   }
@@ -1107,6 +1110,7 @@ function validateContractFamilyRegistryShape(file) {
     "revisions",
     "view-inspector",
     "artifacts",
+    "tasksdecisions",
     "database-migrations",
     "performance",
     "entities",

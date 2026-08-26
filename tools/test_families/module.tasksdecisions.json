@@ -80,7 +80,8 @@
         "tests": [
           "TestImportContributionRejectsIncompleteDependencies_Unit",
           "TestMutationContributionRejectsIncompleteDependencies_Unit",
-          "TestMutationContributionSharesOneFacade_Unit"
+          "TestMutationContributionSharesOneFacade_Unit",
+          "TestTasksDecisionsExportedSurfaceAllowlist_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -255,6 +256,31 @@
         "tests": [
           "TestProvidersRejectInvalidOwnerValues",
           "TestTaskSourcePreservesNullAndExcludesCollections"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.tasksdecisions.source_catalog.generated_owner_facts_fail_closed",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.source_catalog",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/tasksdecisions/internal/sourcecatalog",
+        "tests": [
+          "TestCatalogLookupsAreIndexedAndDefensive",
+          "TestCatalogRejectsGeneratedOwnerFactDrift"
         ]
       },
       "evidence_class": "unit",

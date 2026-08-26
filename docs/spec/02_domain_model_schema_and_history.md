@@ -1215,8 +1215,7 @@ A `decision` record and its Decision view MUST also support, at minimum, the fol
 
 - `support_refs[]`,
 - `affected_record_ids[]`,
-- read-only projected `supersedes_record_id` derived from the authoritative supersession relation,
-- `review_class`.
+- read-only projected `supersedes_record_id` derived from the authoritative supersession relation.
 Profiles: base, snapshot_reporting
 Verified by: AC-086, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-233
 

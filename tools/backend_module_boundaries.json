@@ -475,7 +475,7 @@
     {
       "id": "tasks-decisions-projection-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/projection",
-      "allowed_importers": ["internal/modules/tasksdecisions/**"]
+      "allowed_importers": ["internal/modules/tasksdecisions/projection_contribution.go"]
     },
     {
       "id": "tasks-decisions-reporting-provider-import",
@@ -1298,7 +1298,8 @@
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
-        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/sourcecatalog"
       ]
     },
     {
@@ -1896,8 +1897,7 @@
         "internal/modules/tasksdecisions/internal/source/references.go",
         "internal/modules/tasksdecisions/internal/providers/deleterestore/provider.go",
         "internal/modules/tasksdecisions/internal/providers/rollback/provider.go",
-        "internal/modules/tasksdecisions/supersede_facade.go",
-        "internal/modules/tasksdecisions/workbook_facade.go",
+        "internal/modules/tasksdecisions/mutation_supersede.go",
         "internal/modules/timeline/incident_bundle_portability.go",
         "internal/modules/timeline/deleterestore/provider.go",
         "internal/modules/timeline/incident_bundle_source_port.go",

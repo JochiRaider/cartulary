@@ -358,7 +358,7 @@
         "party"
       ],
       "characterization_refs": [
-        "internal/modules/tasksdecisions/task_decisions_store_test.go",
+        "internal/modules/tasksdecisions/task_mutation_store_test.go",
         "internal/modules/projections/internal/runtime/query_test.go"
       ]
     },
@@ -396,7 +396,7 @@
         "task_request"
       ],
       "characterization_refs": [
-        "internal/modules/tasksdecisions/task_decisions_store_test.go",
+        "internal/modules/tasksdecisions/decision_mutation_store_test.go",
         "internal/modules/projections/internal/runtime/query_test.go"
       ]
     }

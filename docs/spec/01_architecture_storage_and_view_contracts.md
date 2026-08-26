@@ -6155,6 +6155,45 @@ physical projection ownership contract.
 Profiles: base, import, incident_portability, snapshot_reporting
 Verified by: AC-540, AC-541
 
+**REQ-01-671**
+The internal `tasksdecisions` refinement MUST own authoritative source state
+for records whose current envelope has `record_type='task_request'` or
+`record_type='decision'`. Its ownership includes Task Request and Decision
+source rows, source-field validation and defaults, owner-specific lifecycle
+and supersession meaning, source-owned collection and direct-reference
+semantics, same-field conflict revalidation, and construction of typed source
+contributions consumed by Workbook, Imports, Projections, Revisions,
+Reporting, Recovery, Incident Portability, Links, and Collaboration.
+
+The refinement MUST expose module-native mutation commands, results, errors,
+and narrow caller-transaction capabilities. It MUST NOT own authentication or
+route authorization, HTTP status or payload translation, current record
+envelope storage, generic link storage, physical projection storage, generic
+revision, reporting, import, recovery, portability, link, collaboration, or
+workbook coordination. One caller-owned transaction MUST continue to contain
+every source write and its related link, revision, projection, idempotency,
+and Collaboration effects.
+
+Every supported Tasks/Decisions surface and writable source field MUST be
+admitted through one closed, versioned, machine-readable source catalog
+projected from this owner boundary. The catalog MUST distinguish source-owner
+facts from canonical view-schema facts and MUST validate their exact
+agreement. Production construction and generation MUST fail closed on a
+missing, duplicate, cross-surface, read-only, unknown, unsafe, or mismatched
+entry. Surface and record routing, direct SQL identifier selection,
+direct-reference roles, collection policy, conflict source keys, and revision
+source routes MUST derive from the validated catalog rather than independent
+handwritten allowlists. Lifecycle machines, create requirements and defaults,
+portable row formats, and typed projection algorithms remain explicit
+owner-behavior policy rather than generic catalog inference.
+
+This requirement changes no public route, OpenAPI or WebSocket shape,
+view-schema ID, field key, lifecycle transition, authorization rule,
+transaction atomicity, persisted data, database schema, snapshot, report, or
+physical projection ownership contract.
+Profiles: base
+Verified by: AC-565
+
 **REQ-01-664**
 Links MUST own authoritative `record_links` and `record_tags` source state,
 active-fact meaning, validation, mutation values, merge effects, history

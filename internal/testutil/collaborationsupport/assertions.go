@@ -64,6 +64,20 @@ func RequireIntentCount(t testing.TB, db any, selector IntentSelector, want int)
 	}
 }
 
+func OrderedRecordChangeIntentRecordIDs(t testing.TB, db any, changeSetID string) []string {
+	t.Helper()
+	var recordIDs []string
+	if err := queryRow(t, db, `
+SELECT array_agg(source_record_id::text ORDER BY mutation_ordinal)
+  FROM collaboration_event_intents
+ WHERE source_change_set_id::text = $1
+   AND event_family = 'record_changed'
+`, changeSetID).Scan(&recordIDs); err != nil {
+		t.Fatalf("load ordered record-change intents: %v", err)
+	}
+	return recordIDs
+}
+
 func RequireSingleRecordChangedIntent(
 	t testing.TB,
 	db any,

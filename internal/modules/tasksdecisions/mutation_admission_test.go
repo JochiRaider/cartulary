@@ -2,6 +2,7 @@ package tasksdecisions
 
 import (
 	"bytes"
+	"encoding/hex"
 	"slices"
 	"strings"
 	"testing"
@@ -33,13 +34,22 @@ func TestTaskDecisionMutationAdmissionAndReplayHashing(t *testing.T) {
 		if !slices.Equal(CreateRequestHash(request), CreateRequestHash(reordered)) {
 			t.Fatal("create hash depends on map order or client transaction ID")
 		}
+		requireHashGolden(t, CreateRequestHash(request), "d0a52c09050580f048fc083dc38fbd1a721636fa4b8f99c1acaab332599e1c51")
+		changed := reordered
+		changed.Values = map[string]FieldValue{
+			"task.task_kind": request.Values["task.task_kind"],
+			"task.title":     {Text: stringPointer("Collect different endpoint logs")},
+		}
+		if slices.Equal(CreateRequestHash(request), CreateRequestHash(changed)) {
+			t.Fatal("meaningfully different normalized create values hash equally")
+		}
 		if _, admissionFailure := AdmitCreateJSON("cartulary.view.notes.v1", strings.NewReader(`{}`)); admissionFailure == nil {
 			t.Fatal("Task/Decision admission accepted a foreign view")
 		}
 	})
 
 	t.Run("patch and conflict admission own record-reference collections", func(t *testing.T) {
-		recordID := uuid.New()
+		recordID := uuid.MustParse("10000000-0000-4000-8000-000000000001")
 		body := `{
 			"view_schema_id":"cartulary.view.decisions.v1",
 			"base_row_version":2,
@@ -58,7 +68,7 @@ func TestTaskDecisionMutationAdmissionAndReplayHashing(t *testing.T) {
 			t.Fatalf("unexpected collection admission: %#v", change)
 		}
 		claims := ConflictClaims{
-			RecordID: uuid.New(), ViewSchemaID: DecisionsViewSchemaID,
+			RecordID: uuid.MustParse("20000000-0000-4000-8000-000000000002"), ViewSchemaID: DecisionsViewSchemaID,
 			FieldKey: "decision.rationale", CurrentRowVersion: 3,
 		}
 		conflict, admissionFailure := AdmitConflictResolveJSON(
@@ -80,10 +90,12 @@ func TestTaskDecisionMutationAdmissionAndReplayHashing(t *testing.T) {
 		if len(ConflictResolveRequestHash(claims, conflict)) != 32 || len(PatchRequestHash(request)) != 32 {
 			t.Fatal("owner hashes are not SHA-256 values")
 		}
+		requireHashGolden(t, PatchRequestHash(request), "f15969c36cac7c6e7f6af111dbdcced3ca22e5b191705ed8aa68f550a910d9b3")
+		requireHashGolden(t, ConflictResolveRequestHash(claims, conflict), "1b3c4a5b84e02adef381b72af19c46d4876eec6aac7c0cfd03c43acc529c0763")
 	})
 
 	t.Run("decision supersede admission and hash are owner local", func(t *testing.T) {
-		replacement := uuid.New()
+		replacement := uuid.MustParse("30000000-0000-4000-8000-000000000003")
 		body := []byte(`{
 			"base_row_version":4,
 			"client_txn_id":"txn-decision-supersede",
@@ -100,6 +112,7 @@ func TestTaskDecisionMutationAdmissionAndReplayHashing(t *testing.T) {
 		if len(SupersedeRequestHash(request)) != 32 {
 			t.Fatal("supersede hash is not SHA-256")
 		}
+		requireHashGolden(t, SupersedeRequestHash(request), "6f287bdccd47088f99cda59cc956ce80890b34694f81d213e915b6442c89877d")
 	})
 
 	t.Run("admission failures expose closed semantic detail variants", func(t *testing.T) {
@@ -147,6 +160,15 @@ func TestTaskDecisionMutationAdmissionAndReplayHashing(t *testing.T) {
 		)
 	})
 }
+
+func requireHashGolden(t testing.TB, hash []byte, want string) {
+	t.Helper()
+	if got := hex.EncodeToString(hash); got != want {
+		t.Fatalf("request hash = %s, want %s", got, want)
+	}
+}
+
+func stringPointer(value string) *string { return &value }
 
 func requireAdmissionFailure(
 	t testing.TB,

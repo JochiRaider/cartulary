@@ -117,6 +117,8 @@ func validateContractInput(familyDir, relativePath string, value any) error {
 		return validateCollaborationContractInput(relativePath, value)
 	case "artifacts":
 		return validateArtifactContractInput(relativePath, value)
+	case "tasksdecisions":
+		return validateTasksDecisionsContractInput(relativePath, value)
 	case "database-migrations":
 		return validateDatabaseMigrationsContractInput(relativePath, value)
 	default:
@@ -139,6 +141,9 @@ func validateContractFamily(root, familyDir string) error {
 	}
 	if familyDir == "artifacts" {
 		return validateArtifactSourceCatalogFamily(root)
+	}
+	if familyDir == "tasksdecisions" {
+		return validateTasksDecisionsSourceCatalogFamily(root)
 	}
 	if familyDir == "database-migrations" {
 		return validateDatabaseMigrationsContractFamily(root)

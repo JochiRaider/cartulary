@@ -11,7 +11,7 @@ import (
 	indicatorowner "github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
-	taskdecisionprovider "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineprovider "github.com/JochiRaider/cartulary/internal/modules/timeline/projectionprovider"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
@@ -55,7 +55,7 @@ func Build(db postgres.DB) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("assemble Parties projection contribution: %w", err)
 	}
-	taskDecisionContribution, err := taskdecisionprovider.NewContribution()
+	taskDecisionContribution, err := tasksdecisions.NewProjectionContribution()
 	if err != nil {
 		return nil, fmt.Errorf("assemble Tasks/Decisions projection contribution: %w", err)
 	}

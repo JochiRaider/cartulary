@@ -62,7 +62,7 @@ func (f *MutationFacade) loadConflictTarget(
 	if err != nil {
 		return conflictresolution.Target{}, err
 	}
-	if !recordTypeMatchesView(meta.RecordType, command.Claims.ViewSchemaID) {
+	if !recordTypeMatchesView(f.catalog, meta.RecordType, command.Claims.ViewSchemaID) {
 		return conflictresolution.Target{}, pgx.ErrNoRows
 	}
 	if _, err := f.conflictFields.ResolveWritableField(command.Claims.ViewSchemaID, command.Claims.FieldKey); err != nil {

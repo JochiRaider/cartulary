@@ -243,11 +243,25 @@
       "description": "Backend-only Artifacts source catalog and generated source policy bindings."
     },
     {
+      "family_id": "tasksdecisions",
+      "contract_root": "contracts/tasksdecisions",
+      "generation_status": "active",
+      "go_name": "TasksDecisionsSourceArtifacts",
+      "output_order": 14,
+      "generated_outputs": [
+        "internal/gen/contracttasksdecisions/artifacts_gen.go",
+        "internal/gen/contracttasksdecisions/source_catalog_gen.go"
+      ],
+      "typescript_projections": [],
+      "activation_dependency_ids": [],
+      "description": "Backend-only Tasks/Decisions source catalog and generated owner policy bindings."
+    },
+    {
       "family_id": "database-migrations",
       "contract_root": "contracts/database-migrations",
       "generation_status": "active",
       "go_name": "DatabaseMigrationArtifacts",
-      "output_order": 14,
+      "output_order": 15,
       "generated_outputs": [
         "internal/gen/contractdatabasemigrations/artifacts_gen.go"
       ],
@@ -260,7 +274,7 @@
       "contract_root": "contracts/performance",
       "generation_status": "active",
       "go_name": "PerformanceArtifacts",
-      "output_order": 15,
+      "output_order": 16,
       "generated_outputs": [
         "internal/gen/contractperformance/artifacts_gen.go"
       ],
@@ -273,7 +287,7 @@
       "contract_root": "contracts/entities",
       "generation_status": "active",
       "go_name": "EntitiesArtifacts",
-      "output_order": 16,
+      "output_order": 17,
       "generated_outputs": [
         "internal/gen/contractentities/artifacts_gen.go"
       ],
@@ -286,7 +300,7 @@
       "contract_root": "contracts/parties",
       "generation_status": "active",
       "go_name": "PartiesArtifacts",
-      "output_order": 17,
+      "output_order": 18,
       "generated_outputs": [
         "internal/gen/contractparties/artifacts_gen.go",
         "internal/gen/partypolicy/registry_gen.go"
@@ -300,7 +314,7 @@
       "contract_root": "contracts/string-contracts",
       "generation_status": "active",
       "go_name": "StringContractArtifacts",
-      "output_order": 18,
+      "output_order": 19,
       "generated_outputs": [
         "internal/gen/contractstringcontracts/artifacts_gen.go",
         "internal/gen/stringcontracts/timezone_name_registry_gen.go"

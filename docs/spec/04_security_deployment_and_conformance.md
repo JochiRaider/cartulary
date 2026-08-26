@@ -1093,7 +1093,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-474`, `AC-480..AC-486`, `AC-545..AC-549`, `AC-551`, `AC-554..AC-556`, `AC-558..AC-562`, `AC-564`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-474`, `AC-480..AC-486`, `AC-545..AC-549`, `AC-551`, `AC-554..AC-556`, `AC-558..AC-562`, `AC-564..AC-565`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -1782,6 +1782,21 @@ These criteria provide direct runtime-family verification for substantive base-p
   authorization, and telemetry contract.
   - Verifies: REQ-00-075, REQ-01-267, REQ-01-271A, REQ-02-204,
     REQ-02-216..REQ-02-218, REQ-03-066, REQ-03-075
+
+- **AC-565**: Tasks/Decisions source-catalog evidence proves exact set equality
+  among the two supported surfaces, 20 writable direct source fields, three
+  writable collection fields, and their canonical view-schema projections.
+  Generation and production construction reject missing, duplicate,
+  cross-surface, read-only, unknown, unsafe-identifier, stale-view,
+  direct-reference, collection-policy, and revision-route mismatches. Surface
+  and record routing, direct update storage, direct-reference roles,
+  collection admission, conflict source keys, and revision routes derive from
+  the validated catalog. Adding a surface or writable field through only one
+  projection fails closed. Mutation, import, projection, revision, reporting,
+  recovery, portability, link, and Collaboration evidence proves unchanged
+  public shapes, lifecycle, authorization, transaction atomicity, persisted
+  data, and effect ordering across the catalog cutover.
+  - Verifies: REQ-01-336..REQ-01-341, REQ-01-671
 
 ### 9.1B Network Flow Activity Extension Profile criteria
 

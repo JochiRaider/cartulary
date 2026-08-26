@@ -10,21 +10,19 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/sourcecatalog"
 )
 
-const TaskDecisionRecordFieldKey = policy.TaskDecisionRecordField
+const taskDecisionRecordFieldKey = policy.TaskDecisionRecordField
 
 type FieldValue = policy.FieldValue
-type TaskCreateParams = policy.TaskCreateParams
-type DecisionCreateParams = policy.DecisionCreateParams
 type LifecycleValidationError = policy.LifecycleValidationError
 type ValidationError = policy.ValidationError
-type TaskLifecycleState = policy.TaskLifecycleState
-type DecisionMachineState = policy.DecisionMachineState
 
 func applyTaskDirectChangeTx(
 	ctx context.Context,
 	tx pgx.Tx,
+	catalog *sourcecatalog.Catalog,
 	linkStore LinkCapability,
 	incidentID uuid.UUID,
 	recordID uuid.UUID,
@@ -33,14 +31,14 @@ func applyTaskDirectChangeTx(
 	value FieldValue,
 	now time.Time,
 ) (bool, []links.RecordLinkMutation, error) {
-	scalarChanged, err := tasksource.ApplyTaskDirectChangeTx(ctx, tx, recordID, fieldKey, value, now)
+	scalarChanged, err := tasksource.ApplyTaskDirectChangeTx(ctx, tx, catalog, recordID, fieldKey, value, now)
 	if err != nil {
 		return false, nil, err
 	}
-	if fieldKey != TaskDecisionRecordFieldKey {
+	if fieldKey != taskDecisionRecordFieldKey {
 		return scalarChanged, nil, nil
 	}
-	linkMutations, err := syncTaskDecisionReferenceTx(ctx, tx, linkStore, incidentID, recordID, actorID, value.UUID, now)
+	linkMutations, err := syncTaskDecisionReferenceTx(ctx, tx, catalog, linkStore, incidentID, recordID, actorID, value.UUID, now)
 	if err != nil {
 		return false, nil, err
 	}
@@ -50,6 +48,7 @@ func applyTaskDirectChangeTx(
 func syncTaskDecisionReferenceTx(
 	ctx context.Context,
 	tx pgx.Tx,
+	catalog *sourcecatalog.Catalog,
 	linkStore interface {
 		SyncFieldReferenceWithMutationValuesTx(context.Context, pgx.Tx, links.SyncFieldReferenceCommand) (links.CollectionMutationResult, error)
 	},
@@ -59,12 +58,16 @@ func syncTaskDecisionReferenceTx(
 	targetID *uuid.UUID,
 	now time.Time,
 ) ([]links.RecordLinkMutation, error) {
+	field, ok := catalog.Field(taskDecisionRecordFieldKey)
+	if !ok || field.Reference.MirrorLinkType == "" {
+		return nil, &ValidationError{Field: taskDecisionRecordFieldKey, ReasonCode: "unsupported_field_key"}
+	}
 	result, err := linkStore.SyncFieldReferenceWithMutationValuesTx(ctx, tx, links.SyncFieldReferenceCommand{
 		IncidentID:  incidentID,
 		SrcRecordID: recordID,
 		TargetID:    targetID,
-		FieldKey:    TaskDecisionRecordFieldKey,
-		LinkType:    links.LinkType(links.LinkTypeReferencesRecord),
+		FieldKey:    taskDecisionRecordFieldKey,
+		LinkType:    links.LinkType(field.Reference.MirrorLinkType),
 		ActorUserID: actorID,
 		Now:         now,
 	})

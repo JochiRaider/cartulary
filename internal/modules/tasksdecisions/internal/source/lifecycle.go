@@ -9,18 +9,17 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/sourcecatalog"
 )
 
-func TouchTaskRequestTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, now time.Time) error {
-	if _, err := tx.Exec(ctx, `UPDATE task_requests SET updated_at = $2 WHERE record_id = $1`, recordID, now); err != nil {
-		return fmt.Errorf("touch task request row: %w", err)
+func TouchSourceRowTx(ctx context.Context, tx pgx.Tx, catalog *sourcecatalog.Catalog, viewSchemaID string, recordID uuid.UUID, now time.Time) error {
+	surface, ok := catalog.SurfaceByViewID(viewSchemaID)
+	if !ok {
+		return &policy.ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
 	}
-	return nil
-}
-
-func TouchDecisionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, now time.Time) error {
-	if _, err := tx.Exec(ctx, `UPDATE decisions SET updated_at = $2 WHERE record_id = $1`, recordID, now); err != nil {
-		return fmt.Errorf("touch decision row: %w", err)
+	table := pgx.Identifier{surface.SourceTable}.Sanitize()
+	if _, err := tx.Exec(ctx, fmt.Sprintf("UPDATE %s SET updated_at = $2 WHERE record_id = $1", table), recordID, now); err != nil {
+		return fmt.Errorf("touch Tasks/Decisions source row: %w", err)
 	}
 	return nil
 }

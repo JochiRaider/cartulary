@@ -10,12 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/sourcecatalog"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
-)
-
-const (
-	taskRequestsViewSchemaID = "cartulary.view.task_requests.v1"
-	decisionsViewSchemaID    = "cartulary.view.decisions.v1"
 )
 
 type TaskRequestProjectionInput struct {
@@ -132,11 +128,15 @@ func NewContribution(
 	if decisionSource == nil {
 		return Contribution{}, fmt.Errorf("decision projection source is required")
 	}
-	intents, err := SurfaceIntents()
+	catalog, err := sourcecatalog.Load()
+	if err != nil {
+		return Contribution{}, fmt.Errorf("compose Tasks/Decisions projection catalog: %w", err)
+	}
+	intents, err := surfaceIntents(catalog)
 	if err != nil {
 		return Contribution{}, err
 	}
-	contract, err := providercontract.NewContribution("tasksdecisions", Descriptors(), intents)
+	contract, err := providercontract.NewContribution("tasksdecisions", descriptors(catalog), intents)
 	if err != nil {
 		return Contribution{}, err
 	}
@@ -160,56 +160,87 @@ func (contribution Contribution) DecisionSource() DecisionSourceReader {
 }
 
 func Descriptors() []providercontract.ProviderDescriptor {
-	return []providercontract.ProviderDescriptor{
-		{
+	catalog, err := sourcecatalog.Load()
+	if err != nil {
+		return nil
+	}
+	return descriptors(catalog)
+}
+
+func descriptors(catalog *sourcecatalog.Catalog) []providercontract.ProviderDescriptor {
+	result := make([]providercontract.ProviderDescriptor, 0, 2)
+	for _, recordType := range []string{"task_request", "decision"} {
+		surface, ok := catalog.SurfaceByRecordType(recordType)
+		if !ok {
+			return nil
+		}
+		descriptor := providercontract.ProviderDescriptor{
 			SchemaVersion:                providercontract.DescriptorSchemaVersion,
 			Status:                       providercontract.ProviderStatusActive,
-			ProviderID:                   "task_request",
+			ProviderID:                   surface.RecordType,
 			SourceOwnerModule:            "tasksdecisions",
-			ViewSchemaIDs:                []string{taskRequestsViewSchemaID},
-			SourceRecordTypes:            []string{"task_request"},
+			ViewSchemaIDs:                []string{surface.ViewSchemaID},
+			SourceRecordTypes:            []string{surface.RecordType},
 			SourceAuthorityModules:       []string{"links", "records", "tasksdecisions"},
-			ProjectionTableIDs:           []string{"task_request_grid_projection"},
+			ProjectionTableIDs:           []string{surface.BaseProjection},
 			ProjectionStorageOwnerModule: "projections",
 			Capabilities: providercontract.ProviderCapabilities{
 				Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true,
 			},
-			RestoreRebuild: providercontract.RestoreRebuildRequired,
-			FacadePackages: []string{"internal/modules/tasksdecisions/workbookprojection"},
-			RebuildAfter:   []string{"party"},
-			CharacterizationRefs: []string{
-				"internal/modules/tasksdecisions/task_decisions_store_test.go",
-				"internal/modules/projections/internal/runtime/query_test.go",
-			},
-		},
-		{
-			SchemaVersion:                providercontract.DescriptorSchemaVersion,
-			Status:                       providercontract.ProviderStatusActive,
-			ProviderID:                   "decision",
-			SourceOwnerModule:            "tasksdecisions",
-			ViewSchemaIDs:                []string{decisionsViewSchemaID},
-			SourceRecordTypes:            []string{"decision"},
-			SourceAuthorityModules:       []string{"links", "records", "tasksdecisions"},
-			ProjectionTableIDs:           []string{"decision_grid_projection"},
-			ProjectionStorageOwnerModule: "projections",
-			Capabilities: providercontract.ProviderCapabilities{
-				Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true,
-			},
-			RestoreRebuild: providercontract.RestoreRebuildRequired,
-			FacadePackages: []string{"internal/modules/tasksdecisions/workbookprojection"},
-			RebuildAfter:   []string{"task_request"},
-			CharacterizationRefs: []string{
-				"internal/modules/tasksdecisions/task_decisions_store_test.go",
-				"internal/modules/projections/internal/runtime/query_test.go",
-			},
-		},
+			RestoreRebuild:       providercontract.RestoreRebuildRequired,
+			FacadePackages:       []string{"internal/modules/tasksdecisions/workbookprojection"},
+			RebuildAfter:         projectionRebuildAfter(surface.RecordType),
+			CharacterizationRefs: projectionCharacterizationRefs(surface.RecordType),
+		}
+		result = append(result, descriptor)
+	}
+	return result
+}
+
+func projectionCharacterizationRefs(recordType string) []string {
+	switch recordType {
+	case "task_request":
+		return []string{
+			"internal/modules/tasksdecisions/task_mutation_store_test.go",
+			"internal/modules/projections/internal/runtime/query_test.go",
+		}
+	case "decision":
+		return []string{
+			"internal/modules/tasksdecisions/decision_mutation_store_test.go",
+			"internal/modules/projections/internal/runtime/query_test.go",
+		}
+	default:
+		return nil
+	}
+}
+
+func projectionRebuildAfter(recordType string) []string {
+	switch recordType {
+	case "task_request":
+		return []string{"party"}
+	case "decision":
+		return []string{"task_request"}
+	default:
+		return nil
 	}
 }
 
 func SurfaceIntents() ([]providercontract.SurfaceIntent, error) {
+	catalog, err := sourcecatalog.Load()
+	if err != nil {
+		return nil, fmt.Errorf("compose Tasks/Decisions projection catalog: %w", err)
+	}
+	return surfaceIntents(catalog)
+}
+
+func surfaceIntents(catalog *sourcecatalog.Catalog) ([]providercontract.SurfaceIntent, error) {
 	intents := make([]providercontract.SurfaceIntent, 0, 2)
-	for _, viewSchemaID := range []string{taskRequestsViewSchemaID, decisionsViewSchemaID} {
-		intent, err := surfaceIntent(viewSchemaID)
+	for _, recordType := range []string{"task_request", "decision"} {
+		surface, ok := catalog.SurfaceByRecordType(recordType)
+		if !ok {
+			return nil, fmt.Errorf("Tasks/Decisions projection record type %q has no source catalog entry", recordType)
+		}
+		intent, err := surfaceIntent(surface.ViewSchemaID)
 		if err != nil {
 			return nil, err
 		}

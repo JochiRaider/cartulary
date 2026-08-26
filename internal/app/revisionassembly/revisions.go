@@ -41,6 +41,10 @@ func CurrentProviderContributions() ([]revisions.ProviderContribution, error) {
 	if err != nil {
 		return nil, fmt.Errorf("revision assembly: compose Artifacts contribution: %w", err)
 	}
+	tasksDecisionsContribution, err := tasksdecisions.NewRevisionContribution()
+	if err != nil {
+		return nil, fmt.Errorf("revision assembly: compose Tasks/Decisions contribution: %w", err)
+	}
 	return []revisions.ProviderContribution{
 		artifactContribution,
 		assessments.RevisionProviderContribution(),
@@ -49,7 +53,7 @@ func CurrentProviderContributions() ([]revisions.ProviderContribution, error) {
 		indicators.NewRevisionContribution(),
 		links.RevisionProviderContribution(),
 		parties.NewRevisionContribution(),
-		tasksdecisions.NewRevisionContribution(),
+		tasksDecisionsContribution,
 		timeline.RevisionProviderContribution(),
 	}, nil
 }

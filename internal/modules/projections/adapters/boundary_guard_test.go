@@ -131,7 +131,7 @@ func projectionProviderAssemblyImportAllowed(relPath string, importPath string) 
 		"internal/modules/parties": {
 			cartularyImportPrefix + "internal/modules/parties/internal/providers/projection": {},
 		},
-		"internal/modules/tasksdecisions/projectionprovider": {
+		"internal/modules/tasksdecisions": {
 			cartularyImportPrefix + "internal/modules/tasksdecisions/internal/providers/projection": {},
 		},
 		"internal/app/projectionassembly": {
@@ -139,7 +139,7 @@ func projectionProviderAssemblyImportAllowed(relPath string, importPath string) 
 			cartularyImportPrefix + "internal/modules/evidence/projectionprovider":              {},
 			cartularyImportPrefix + "internal/modules/indicators":                               {},
 			cartularyImportPrefix + "internal/modules/parties":                                  {},
-			cartularyImportPrefix + "internal/modules/tasksdecisions/projectionprovider":        {},
+			cartularyImportPrefix + "internal/modules/tasksdecisions":                           {},
 			cartularyImportPrefix + "internal/modules/timeline/projectionprovider":              {},
 		},
 	}
@@ -183,6 +183,21 @@ func TestProjectionProviderAssemblyAllowlistMatchesFinalTopology(t *testing.T) {
 			path:       "internal/app/projectionassembly/build.go",
 			importPath: cartularyImportPrefix + "internal/modules/indicators",
 			want:       true,
+		},
+		"tasks decisions root contribution": {
+			path:       "internal/modules/tasksdecisions/projection_contribution.go",
+			importPath: cartularyImportPrefix + "internal/modules/tasksdecisions/internal/providers/projection",
+			want:       true,
+		},
+		"projection assembly consumes Tasks Decisions root": {
+			path:       "internal/app/projectionassembly/build.go",
+			importPath: cartularyImportPrefix + "internal/modules/tasksdecisions",
+			want:       true,
+		},
+		"projection assembly cannot bypass Tasks Decisions root": {
+			path:       "internal/app/projectionassembly/build.go",
+			importPath: cartularyImportPrefix + "internal/modules/tasksdecisions/internal/providers/projection",
+			want:       false,
 		},
 		"projection assembly uses Party root": {
 			path:       "internal/app/projectionassembly/build.go",

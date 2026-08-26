@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -18,58 +17,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
 )
-
-const DecisionsViewSchemaID = "cartulary.view.decisions.v1"
-
-type SupersedeRequest struct {
-	BaseRowVersion      int64
-	ClientTxnID         string
-	Reason              string
-	ReplacementRecordID *uuid.UUID
-}
-
-type SupersedeCommand struct {
-	ActorUserID    uuid.UUID
-	TargetRecordID uuid.UUID
-	Request        SupersedeRequest
-	RequestHash    []byte
-	RequestID      string
-	RouteKey       string
-	Now            time.Time
-}
-
-type SupersedeMutationResult struct {
-	Row                     map[string]any
-	Replayed                bool
-	IncidentID              uuid.UUID
-	RecordID                uuid.UUID
-	ChangeSetID             uuid.UUID
-	ClientTxnID             string
-	RowVersion              int64
-	ViewSchemaID            string
-	ChangedFieldKeys        []string
-	AdditionalRecordChanges []SupersedeMutationResult
-	Facts                   SupersedeFacts
-}
-
-type SupersedeFacts struct {
-	TargetRecordID        uuid.UUID
-	SupersedingRecordID   uuid.UUID
-	TargetRowVersion      int64
-	SupersedingRowVersion int64
-	TargetStatus          string
-	Reason                string
-}
-
-type SupersedeRowVersionConflictError struct {
-	RecordID          uuid.UUID
-	BaseRowVersion    int64
-	CurrentRowVersion int64
-}
-
-func (e *SupersedeRowVersionConflictError) Error() string {
-	return "tasksdecisions: row version conflict"
-}
 
 func (f *MutationFacade) SupersedeDecision(ctx context.Context, command SupersedeCommand) (SupersedeMutationResult, error) {
 	request := command.Request

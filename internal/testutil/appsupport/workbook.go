@@ -129,6 +129,17 @@ func UnavailableEvidenceObjectStore() objectstore.TypedStore {
 // that verify Task/Decision lifecycle behavior directly.
 func NewTaskDecisionOwner(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *tasksdecisions.MutationFacade {
 	intents := collaborationsupport.NewPublicationAppender()
+	return NewTaskDecisionOwnerWithPublications(pool, conflictTokens, intents)
+}
+
+// NewTaskDecisionOwnerWithPublications composes the source-owner mutation
+// facade with a caller-supplied Collaboration appender for transaction-bound
+// failure and publication characterization tests.
+func NewTaskDecisionOwnerWithPublications(
+	pool postgres.DB,
+	conflictTokens conflicttokens.ConflictTokenCodec,
+	intents collaboration.RecordChangedAppender,
+) *tasksdecisions.MutationFacade {
 	contributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
 		panic(err)

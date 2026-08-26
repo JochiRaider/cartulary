@@ -167,49 +167,6 @@ func ValidateDecisionCreateParams(params DecisionCreateParams) error {
 	return nil
 }
 
-func ValidateTaskDirectPatchChange(fieldKey string, value FieldValue) error {
-	switch fieldKey {
-	case "task.title", "task.owner_user_id", "task.workstream", "task.due_at",
-		"task.requester_party_text", "task.requester_party_id", "task.blocked_reason",
-		"task.completed_at", "task.external_ticket_ref", "task.closure_summary",
-		TaskDecisionRecordField:
-		return nil
-	case "task.status":
-		if value.Text != nil && !ValidTaskStatus(*value.Text) {
-			return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
-		}
-	case "task.task_kind":
-		if value.Text != nil && !ValidTaskKind(*value.Text) {
-			return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
-		}
-	case "task.priority":
-		if value.Text != nil && !ValidTaskPriority(*value.Text) {
-			return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
-		}
-	default:
-		return &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
-	}
-	return nil
-}
-
-func ValidateDecisionDirectPatchChange(fieldKey string, value FieldValue) error {
-	switch fieldKey {
-	case "decision.summary", "decision.owner_user_id", "decision.decided_at", "decision.rationale":
-		return nil
-	case "decision.status":
-		if value.Text != nil && !ValidDecisionStatus(*value.Text) {
-			return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
-		}
-	case "decision.decision_type":
-		if value.Text != nil && !ValidDecisionType(*value.Text) {
-			return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
-		}
-	default:
-		return &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
-	}
-	return nil
-}
-
 func ValidateTaskState(state TaskLifecycleState) error {
 	violated := TaskLifecycleViolations(state)
 	if len(violated) == 0 {
@@ -303,21 +260,6 @@ func ValidateDecisionMachineState(state DecisionMachineState) error {
 
 func DecisionSupersedeValidationError(guards ...string) error {
 	return &LifecycleValidationError{ReasonCode: "decision_supersede_not_allowed", ViolatedGuards: append([]string(nil), guards...)}
-}
-
-func IsMemberUserReferenceField(fieldKey string) bool {
-	return strings.HasSuffix(fieldKey, "_user_id")
-}
-
-func DirectReferenceRecordType(fieldKey string) (string, bool) {
-	switch fieldKey {
-	case "task.requester_party_id":
-		return "party", true
-	case TaskDecisionRecordField:
-		return "decision", true
-	default:
-		return "", false
-	}
 }
 
 func hasText(values map[string]FieldValue, field string) bool {
