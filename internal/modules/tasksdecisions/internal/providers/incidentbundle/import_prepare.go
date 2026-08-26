@@ -1,79 +1,18 @@
 package incidentbundle
 
 import (
-	"context"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 )
 
-const (
-	taskRequestsBundlePath = "data/task_requests.ndjson"
-	decisionsBundlePath    = "data/decisions.ndjson"
-)
-
-func exportIncidentBundleFiles(ctx context.Context, q incidentportability.Queryer, incidentID uuid.UUID) ([]incidentportability.File, error) {
-	specs := []struct {
-		path  string
-		query string
-	}{
-		{taskRequestsBundlePath, `SELECT to_jsonb(t) FROM task_requests t WHERE incident_id = $1 ORDER BY record_id`},
-		{decisionsBundlePath, `SELECT to_jsonb(t) FROM decisions t WHERE incident_id = $1 ORDER BY record_id`},
-	}
-	files := make([]incidentportability.File, 0, len(specs))
-	for _, spec := range specs {
-		file, err := incidentportability.ExportNDJSON(ctx, q, incidentID, spec.path, spec.query)
-		if err != nil {
-			return nil, err
-		}
-		files = append(files, file)
-	}
-	return files, nil
-}
-
 type preparedTasksDecisionsImport struct {
 	tasks     []portableTaskRequest
 	decisions []portableDecision
-}
-
-type portableTaskRequest struct {
-	RecordID            uuid.UUID
-	IncidentID          uuid.UUID
-	Title               string
-	Status              string
-	PortableOwnerUserID *uuid.UUID
-	Priority            string
-	TaskKind            string
-	Workstream          *string
-	DueAt               *time.Time
-	RequesterPartyText  *string
-	RequesterPartyID    *uuid.UUID
-	BlockedReason       *string
-	CompletedAt         *time.Time
-	ExternalTicketRef   *string
-	ClosureSummary      *string
-	DecisionRecordID    *uuid.UUID
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
-}
-
-type portableDecision struct {
-	RecordID            uuid.UUID
-	IncidentID          uuid.UUID
-	Summary             string
-	Status              string
-	PortableOwnerUserID uuid.UUID
-	DecisionType        string
-	DecidedAt           time.Time
-	Rationale           string
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
 }
 
 func prepareTasksDecisionsImport(
@@ -250,166 +189,6 @@ func preparePortableDecision(raw map[string]any, importContext sourceport.Import
 	}, nil
 }
 
-func exactPortableMembers(row map[string]any, required []string) bool {
-	if len(row) != len(required) {
-		return false
-	}
-	for _, member := range required {
-		if _, ok := row[member]; !ok {
-			return false
-		}
-	}
-	return true
-}
-
-func canonicalPortableUUID(value any) (uuid.UUID, bool) {
-	text, ok := value.(string)
-	if !ok {
-		return uuid.Nil, false
-	}
-	parsed, err := uuid.Parse(text)
-	return parsed, err == nil && parsed.String() == text
-}
-
-func nullableCanonicalPortableUUID(value any) (*uuid.UUID, bool) {
-	if value == nil {
-		return nil, true
-	}
-	parsed, ok := canonicalPortableUUID(value)
-	if !ok {
-		return nil, false
-	}
-	return &parsed, true
-}
-
-func admittedPortableActor(value any, importContext sourceport.ImportContext) (uuid.UUID, bool) {
-	actorID, ok := canonicalPortableUUID(value)
-	if !ok {
-		return uuid.Nil, false
-	}
-	_, admitted := importContext.Actors.Lookup(actorID.String())
-	return actorID, admitted
-}
-
-func nullableAdmittedPortableActor(value any, importContext sourceport.ImportContext) (*uuid.UUID, bool) {
-	if value == nil {
-		return nil, true
-	}
-	actorID, ok := admittedPortableActor(value, importContext)
-	if !ok {
-		return nil, false
-	}
-	return &actorID, true
-}
-
-func portableString(value any) (string, bool) {
-	text, ok := value.(string)
-	return text, ok
-}
-
-func nullablePortableString(value any) (*string, bool) {
-	if value == nil {
-		return nil, true
-	}
-	text, ok := portableString(value)
-	if !ok {
-		return nil, false
-	}
-	return &text, true
-}
-
-func canonicalPortableTime(value any) (time.Time, bool) {
-	text, ok := value.(string)
-	if !ok {
-		return time.Time{}, false
-	}
-	parsed, err := time.Parse(time.RFC3339Nano, text)
-	if err != nil {
-		return time.Time{}, false
-	}
-	_, offset := parsed.Zone()
-	canonicalText := text
-	if strings.HasSuffix(canonicalText, "+00:00") {
-		canonicalText = strings.TrimSuffix(canonicalText, "+00:00") + "Z"
-	}
-	if offset != 0 || parsed.UTC().Format(time.RFC3339Nano) != canonicalText {
-		return time.Time{}, false
-	}
-	return parsed.UTC(), true
-}
-
-func nullableCanonicalPortableTime(value any) (*time.Time, bool) {
-	if value == nil {
-		return nil, true
-	}
-	parsed, ok := canonicalPortableTime(value)
-	if !ok {
-		return nil, false
-	}
-	return &parsed, true
-}
-
 func tasksDecisionsInvariantFailure(invariantID string) error {
 	return tasksDecisionsSourceDescriptor().DeclaredFailure(invariantID)
-}
-
-func applyPreparedTasksDecisionsImportTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	prepared preparedTasksDecisionsImport,
-	actorUserID uuid.UUID,
-	attributions incidentportability.AttributionRecorder,
-) error {
-	for _, row := range prepared.tasks {
-		if attributions != nil && row.PortableOwnerUserID != nil {
-			if err := attributions.RecordImportedAttribution("task_requests", row.RecordID.String(), "owner_user_id", row.PortableOwnerUserID.String()); err != nil {
-				return err
-			}
-		}
-		var runtimeOwnerUserID *uuid.UUID
-		if row.PortableOwnerUserID != nil {
-			runtimeOwnerUserID = &actorUserID
-		}
-		tag, err := tx.Exec(ctx, `
-INSERT INTO task_requests (
-    record_id, incident_id, title, status, owner_user_id, priority, task_kind,
-    workstream, due_at, requester_party_text, requester_party_id, blocked_reason,
-    completed_at, external_ticket_ref, closure_summary, decision_record_id,
-    created_at, updated_at
-) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
-)
-`, row.RecordID, row.IncidentID, row.Title, row.Status, runtimeOwnerUserID, row.Priority,
-			row.TaskKind, row.Workstream, row.DueAt, row.RequesterPartyText,
-			row.RequesterPartyID, row.BlockedReason, row.CompletedAt,
-			row.ExternalTicketRef, row.ClosureSummary, row.DecisionRecordID,
-			row.CreatedAt, row.UpdatedAt)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() != 1 {
-			return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
-		}
-	}
-	for _, row := range prepared.decisions {
-		if attributions != nil {
-			if err := attributions.RecordImportedAttribution("decisions", row.RecordID.String(), "owner_user_id", row.PortableOwnerUserID.String()); err != nil {
-				return err
-			}
-		}
-		tag, err := tx.Exec(ctx, `
-INSERT INTO decisions (
-    record_id, incident_id, summary, status, owner_user_id, decision_type,
-    decided_at, rationale, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-`, row.RecordID, row.IncidentID, row.Summary, row.Status, actorUserID,
-			row.DecisionType, row.DecidedAt, row.Rationale, row.CreatedAt, row.UpdatedAt)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() != 1 {
-			return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
-		}
-	}
-	return nil
 }

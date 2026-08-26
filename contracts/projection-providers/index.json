@@ -352,7 +352,7 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/tasksdecisions/workbookprojection"
+        "internal/modules/tasksdecisions/projectioncontract"
       ],
       "rebuild_after": [
         "party"
@@ -390,13 +390,13 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/tasksdecisions/workbookprojection"
+        "internal/modules/tasksdecisions/projectioncontract"
       ],
       "rebuild_after": [
         "task_request"
       ],
       "characterization_refs": [
-        "internal/modules/tasksdecisions/decision_mutation_store_test.go",
+        "internal/modules/tasksdecisions/decision_supersession_store_test.go",
         "internal/modules/projections/internal/runtime/query_test.go"
       ]
     }

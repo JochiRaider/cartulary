@@ -18,7 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -289,13 +289,12 @@ func newTaskDecisionMutationDependencies(
 	pool postgres.DB,
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,
-	projectionRows taskdecisionprojection.Rows,
+	projectionRows taskdecisionprojection.MutationRows,
 	publications collaboration.RecordChangedAppender,
 ) tasksdecisions.MutationDependencies {
 	authStore := authn.NewStore(pool)
 	return tasksdecisions.MutationDependencies{
 		IncidentState:        admission.NewChecker(pool),
-		MemberReferences:     tasksdecisions.NewMemberReferenceCapability(),
 		Idempotency:          taskDecisionIdempotency{store: authStore},
 		RecordEnvelopes:      records.NewStore(),
 		Links:                links.NewStore(),
@@ -312,7 +311,7 @@ func NewTaskDecisionMutationContribution(
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,
-	projectionRows taskdecisionprojection.Rows,
+	projectionRows taskdecisionprojection.MutationRows,
 	publications collaboration.RecordChangedAppender,
 ) (*tasksdecisions.MutationFacade, error) {
 	if appender == nil {

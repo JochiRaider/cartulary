@@ -245,7 +245,7 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 		ArtifactProjections:     projections.ArtifactPorts().Rows,
 		Evidence:                inertEvidenceImportFacade(t),
 		PartyProjections:        projections.PartyPorts().Rows,
-		TaskDecisionProjections: projections.TaskDecisionPorts().Rows,
+		TaskDecisionProjections: projections.TaskDecisionMutationRows(),
 		Indicators:              indicatorOwner,
 	})
 	if err != nil {

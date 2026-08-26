@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	taskprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
 )
 
 type TaskRequestSource struct{}

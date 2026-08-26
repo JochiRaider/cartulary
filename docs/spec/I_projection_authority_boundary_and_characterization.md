@@ -44,14 +44,17 @@ Graph restore participant never enters the workbook provider registry.
 ## I.3 Query Characterization Matrix
 
 Public query behavior is owned by Core 01 §3.3.4 and §3.3.4.1. Source-owner
-`workbookprojection` packages contribute immutable semantic `SurfaceIntent`
-values. Private `internal/modules/projections/internal/queryengine` plans bind
-those intents to physical tables, expressions, joins, scanning, and row
-materialization; `internal/modules/projections/internal/runtime` coordinates the
-validated plans. Neither package is a normative source of truth. The production
-Workbook port supplies a validated `querypage.Window`, each provider applies a
-normalized keyset predicate plus `LIMIT limit+1`, and Workbook alone encodes the
-last emitted row into the existing opaque cursor token.
+projection-contract packages contribute immutable semantic `SurfaceIntent`
+values. Tasks/Decisions uses its `projectioncontract` package for those values
+and typed authoritative source readers; its separate `projectionports` package
+contains only the mutation-row and Reporting consumer contracts. Private
+`internal/modules/projections/internal/queryengine` plans bind semantic intents
+to physical tables, expressions, joins, scanning, and row materialization;
+`internal/modules/projections/internal/runtime` coordinates the validated plans.
+None of these packages is a normative source of truth. The production Workbook
+port supplies a validated `querypage.Window`, each provider applies a normalized
+keyset predicate plus `LIMIT limit+1`, and Workbook alone encodes the last
+emitted row into the existing opaque cursor token.
 
 | Surface family | Current query path | Characterized behavior | Current evidence | Required parity posture |
 | -------------- | ------------------ | ---------------------- | ---------------- | ----------------------- |
@@ -59,7 +62,7 @@ last emitted row into the existing opaque cursor token.
 | Artifact-backed rows | Artifact intents to private plans for notes, communications log, handoff, status review, lesson, findings, investigative queries, and forensic keywords. | Artifact subtype filtering, collection cell shape, default sort, unsupported field behavior, saved-view validation. | Private runtime query tests and Workbook coordination-surface tests. | Every artifact discriminator remains private and exactly matches its semantic intent and view schema. |
 | Evidence rows | Evidence intent to private compiled plan and bound Workbook query port. | Attachment-state cells, null cells, filter/sort semantics, row version, paging. | Private runtime query tests and Evidence integration tests. | Route-owned validation and `internal_error` behavior remain unchanged for unexpected provider failures. |
 | Parties rows | Party intent to private compiled plan and bound Workbook query port. | Party text cells, scope/authorization envelope, grouping, row refresh shape. | Private runtime query tests and Workbook party integration tests. | Party source meaning remains Party-owned while table access remains Projections-owned. |
-| Task and decision rows | Separate task-request and decision intents to separate private plans and one typed source-owner facade. | Queue fields, supersession cells, collection fields, filters, sort order, row snapshots. | Private runtime query tests and Tasks/Decisions store tests. | Revision and change-set row snapshots remain stable. |
+| Task and decision rows | Separate task-request and decision intents enter through `tasksdecisions/projectioncontract`; separate least-authority mutation and Reporting ports leave Projections through `tasksdecisions/projectionports`. | Queue fields, supersession cells, collection fields, filters, sort order, row snapshots. | Private runtime query tests, contribution characterization, Reporting characterization, and Tasks/Decisions store tests. | Revision and change-set row snapshots remain stable; neither consumer port acquires rebuild coordination. |
 | Timeline and indicators | Owner-specific semantic intents to private compiled plans and bound Workbook query ports. | Route dispatch, row shape, bounded keyset retrieval, projection refresh, rebuild behavior, and source/storage ownership. | Timeline and Indicator integration tests, compiled-plan equality, and manifest parity tests. | Each provider implements the same neutral page window and nulls-last keyset semantics without moving source meaning into Projections. |
 | Hosts and identities | Typed Entities query readers call private Projections host/identity plans, then hydrate only the returned bounded identifiers through Entities. | Differential filter/sort/null-order behavior, `limit+1`, exact-ID hydration, complete rows, and continuation pages. | Private query-engine differential tests and Entities/Workbook integration tests. | Host and Identity remain query-capable descriptors without leaking through the generic Workbook adapter. |
 
@@ -68,6 +71,15 @@ Keyset continuation preserves the normalized sort tuple, default sort tail, fina
 ## I.4 Restore Rebuild Characterization
 
 Recovery owns restore orchestration. Projection modules own projection rebuild mechanics. The workbook path delegates through its narrow projections restore rebuilder adapter. Graph Projection has a separate narrow borrowed-Postgres restore adapter; it is not the full retained Graph store and is not a workbook provider.
+
+For workbook providers, one immutable catalog and its descriptor order govern
+every multi-provider rebuild entry point. Incident creation or repair,
+Incident Bundle import, generic Revisions reconstruction, and Recovery restore
+delegate to that catalog-driven Projections coordination. Task-request and
+decision rebuild callbacks remain private provider implementation details; no
+Tasks/Decisions mutation or Reporting port exposes them. This keeps the four
+caller contexts behaviorally distinct while giving them one provider
+selection, ordering, capability-validation, and failure boundary.
 
 | Restore condition | Characterized default | Evidence to preserve |
 | ----------------- | --------------------- | -------------------- |
@@ -112,7 +124,7 @@ the JSON shape changes.
 | `capabilities` | Explicit capability map using exactly `query`, `refresh_row`, `incident_rebuild`, and `restore_rebuild`. | Missing capabilities are invalid in code-backed descriptors and manifests. |
 | `restore_rebuild` | Restore rebuild participation. | Must be `required`, `nonparticipating`, or `unsupported`. |
 | `status` | Provider status. | Must be `active`, `deprecated`, or `experimental`. |
-| `facade_packages` | Source-owner facade package boundary declared by each provider. | Package-level owner evidence; test imports remain separate. Timeline declares `internal/modules/timeline/workbookprojection` so source extraction stays timeline-owned while projection storage writes stay in `projections`. |
+| `facade_packages` | Source-owner facade package boundary declared by each provider. | Package-level owner evidence; test imports remain separate. Timeline declares `internal/modules/timeline/workbookprojection`; Tasks/Decisions declares `internal/modules/tasksdecisions/projectioncontract`. Source extraction stays owner-owned while projection storage writes stay in `projections`. |
 | `import_policy` | Validation-manifest import policy for projection root, adapter, and contract packages. | Root production importer list is empty; adapter and contract packages are approved by exact package path. |
 
 `make json-shape-check` validates the manifest shape.
@@ -146,9 +158,11 @@ Test-only imports are intentionally not production permissions. Production
 imports of Projections internals, source-owner projection-provider internals,
 rebuild internals, and projection test fixtures remain forbidden outside exact
 assembly allowances. Only `internal/app/projectionassembly` imports the adapter.
-Source-owner `workbookprojection` facades may import the stable provider
+Source-owner projection contribution facades may import the stable provider
 contract so they can contribute descriptors and semantic intent without
-importing Projections runtime code.
+importing Projections runtime code. Tasks/Decisions keeps that facade in
+`projectioncontract`; its consumer-directed `projectionports` package does not
+import the Projections provider contract or runtime.
 
 ## I.7 Boundary Guard Test Guide
 

@@ -11,17 +11,29 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 )
 
-func TaskSnapshot(t testing.TB, db interface {
+type taskState struct {
+	RowVersion    int64
+	Status        string
+	BlockedReason sql.NullString
+	CompletedAt   sql.NullTime
+	OwnerUserID   sql.NullString
+}
+
+func taskSnapshot(t testing.TB, db interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
-}, recordID uuid.UUID) TaskState {
+}, recordID uuid.UUID) taskState {
 	t.Helper()
-	var state TaskState
+	var state taskState
 	if err := db.QueryRow(context.Background(), `
 SELECT r.row_version, t.status, t.blocked_reason, t.completed_at, t.owner_user_id::text
   FROM task_requests t
@@ -34,7 +46,7 @@ SELECT r.row_version, t.status, t.blocked_reason, t.completed_at, t.owner_user_i
 	return state
 }
 
-func requireTaskSnapshot(t testing.TB, got TaskState, want TaskState, context string) {
+func requireTaskSnapshot(t testing.TB, got taskState, want taskState, context string) {
 	t.Helper()
 	if got.RowVersion != want.RowVersion ||
 		got.Status != want.Status ||
@@ -46,7 +58,7 @@ func requireTaskSnapshot(t testing.TB, got TaskState, want TaskState, context st
 	}
 }
 
-type DecisionState struct {
+type decisionState struct {
 	RowVersion         int64
 	Status             string
 	Rationale          string
@@ -54,11 +66,11 @@ type DecisionState struct {
 	OutgoingSupersedes int
 }
 
-func DecisionSnapshot(t testing.TB, db interface {
+func decisionSnapshot(t testing.TB, db interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
-}, recordID uuid.UUID) DecisionState {
+}, recordID uuid.UUID) decisionState {
 	t.Helper()
-	var state DecisionState
+	var state decisionState
 	if err := db.QueryRow(context.Background(), `
 SELECT r.row_version,
        d.status,
@@ -91,11 +103,76 @@ SELECT r.row_version,
 	return state
 }
 
-func requireDecisionSnapshot(t testing.TB, got DecisionState, want DecisionState, context string) {
+func requireDecisionSnapshot(t testing.TB, got decisionState, want decisionState, context string) {
 	t.Helper()
 	if got != want {
 		t.Fatalf("%s changed decision snapshot: got %#v want %#v", context, got, want)
 	}
+}
+
+func mustCreateDecision(t testing.TB, owner *tasksdecisions.MutationFacade, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, status string, summary string) uuid.UUID {
+	t.Helper()
+	return mustCreateDecisionWithCollections(t, owner, actor, incidentID, clientTxnID, status, summary, nil).RecordID
+}
+
+func mustCreateEvidence(t testing.TB, pool postgres.DB, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
+	t.Helper()
+	request := evidence.CreateRequest{
+		ViewSchemaID: evidence.ViewSchemaID, ClientTxnID: clientTxnID,
+		Values: map[string]evidence.FieldValue{
+			"evidence.title": {Text: &title},
+		},
+	}
+	result, err := appsupport.NewEvidenceMutationOwner(pool, conflicttest.NewCodec("workbook")).Create(
+		context.Background(),
+		evidence.CreateCommand{
+			Actor: actor, IncidentID: incidentID, Request: request,
+			RequestHash: evidence.CreateRequestHash(request), RequestID: "req-" + clientTxnID,
+			RouteKey: "workbook.rows.create", Now: testTime(0),
+		},
+	)
+	if err != nil {
+		t.Fatalf("create evidence %s: %v", clientTxnID, err)
+	}
+	return result.RecordID
+}
+
+func createTaskDecision(
+	owner *tasksdecisions.MutationFacade,
+	actor authn.UserRecord,
+	incidentID uuid.UUID,
+	request tasksdecisions.CreateRequest,
+	requestID string,
+	now time.Time,
+) (tasksdecisions.MutationResult, error) {
+	return owner.Create(context.Background(), tasksdecisions.CreateCommand{
+		ActorUserID: actor.ID, IncidentID: incidentID, Request: request,
+		RequestHash: tasksdecisions.CreateRequestHash(request), RequestID: requestID,
+		RouteKey: "workbook.rows.create", Now: now,
+	})
+}
+
+func mustCreateDecisionWithCollections(t testing.TB, owner *tasksdecisions.MutationFacade, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, status string, summary string, collections map[string]tasksdecisions.CollectionActionPayload) tasksdecisions.MutationResult {
+	t.Helper()
+	values := map[string]tasksdecisions.FieldValue{
+		"decision.summary":       {Text: &summary},
+		"decision.decision_type": {Text: stringPtr("containment")},
+		"decision.rationale":     {Text: stringPtr("The decision is needed for coordinated response.")},
+	}
+	if status != "" {
+		values["decision.status"] = tasksdecisions.FieldValue{Text: &status}
+	}
+	request := tasksdecisions.CreateRequest{
+		ViewSchemaID: tasksdecisions.DecisionsViewSchemaID,
+		ClientTxnID:  clientTxnID,
+		Values:       values,
+		Collections:  collections,
+	}
+	result, err := createTaskDecision(owner, actor, incidentID, request, "req-"+clientTxnID, testTime(0))
+	if err != nil {
+		t.Fatalf("create decision %s: %v", clientTxnID, err)
+	}
+	return result
 }
 
 func mustCreateTask(t testing.TB, owner *tasksdecisions.MutationFacade, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, values map[string]tasksdecisions.FieldValue, collections map[string]tasksdecisions.CollectionActionPayload) tasksdecisions.MutationResult {
@@ -106,14 +183,14 @@ func mustCreateTask(t testing.TB, owner *tasksdecisions.MutationFacade, actor au
 		Values:       values,
 		Collections:  collections,
 	}
-	result, err := createTaskDecision(owner, actor, incidentID, request, "req-"+clientTxnID, Time(0))
+	result, err := createTaskDecision(owner, actor, incidentID, request, "req-"+clientTxnID, testTime(0))
 	if err != nil {
 		t.Fatalf("create task %s: %v", clientTxnID, err)
 	}
 	return result
 }
 
-func Patch(owner *tasksdecisions.MutationFacade, actor authn.UserRecord, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, clientTxnID string, changes ...tasksdecisions.PatchChange) (tasksdecisions.MutationResult, error) {
+func patchRecord(owner *tasksdecisions.MutationFacade, actor authn.UserRecord, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, clientTxnID string, changes ...tasksdecisions.PatchChange) (tasksdecisions.MutationResult, error) {
 	request := tasksdecisions.PatchRequest{
 		ViewSchemaID:   viewSchemaID,
 		BaseRowVersion: baseRowVersion,
@@ -124,28 +201,28 @@ func Patch(owner *tasksdecisions.MutationFacade, actor authn.UserRecord, recordI
 		ActorUserID: actor.ID, RecordID: recordID, Request: request,
 		RequestHash: tasksdecisions.PatchRequestHash(request), RequestID: "req-" + clientTxnID,
 		RouteKey: "workbook.records.patch", ConflictRouteKey: "workbook.records.conflicts.resolve",
-		Now: Time(30 * time.Minute),
+		Now: testTime(30 * time.Minute),
 	})
 }
 
 func mustPatch(t testing.TB, owner *tasksdecisions.MutationFacade, actor authn.UserRecord, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, clientTxnID string, changes ...tasksdecisions.PatchChange) tasksdecisions.MutationResult {
 	t.Helper()
-	result, err := Patch(owner, actor, recordID, viewSchemaID, baseRowVersion, clientTxnID, changes...)
+	result, err := patchRecord(owner, actor, recordID, viewSchemaID, baseRowVersion, clientTxnID, changes...)
 	if err != nil {
 		t.Fatalf("patch %s: %v", clientTxnID, err)
 	}
 	return result
 }
 
-func ValueChange(fieldKey string, value tasksdecisions.FieldValue) tasksdecisions.PatchChange {
+func valueChange(fieldKey string, value tasksdecisions.FieldValue) tasksdecisions.PatchChange {
 	return tasksdecisions.PatchChange{FieldKey: fieldKey, Value: &value}
 }
 
-func CollectionChange(fieldKey string, value tasksdecisions.CollectionActionPayload) tasksdecisions.PatchChange {
+func collectionChange(fieldKey string, value tasksdecisions.CollectionActionPayload) tasksdecisions.PatchChange {
 	return tasksdecisions.PatchChange{FieldKey: fieldKey, Collection: &value}
 }
 
-func Collection(actions ...tasksdecisions.CollectionAction) tasksdecisions.CollectionActionPayload {
+func collectionActions(actions ...tasksdecisions.CollectionAction) tasksdecisions.CollectionActionPayload {
 	return tasksdecisions.CollectionActionPayload{Actions: actions}
 }
 
@@ -168,7 +245,7 @@ func countRecords(t testing.TB, db interface {
 	return count
 }
 
-func RecordVersion(t testing.TB, db interface {
+func recordVersion(t testing.TB, db interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }, recordID uuid.UUID) int64 {
 	t.Helper()
@@ -268,7 +345,7 @@ INSERT INTO record_links (
 	}
 }
 
-func QueryOne(t testing.TB, store *workbook.WorkbookContributionCatalog, incidentID uuid.UUID, viewSchemaID string, fieldKey string, value any, recordID uuid.UUID) map[string]any {
+func queryOne(t testing.TB, store *workbook.WorkbookContributionCatalog, incidentID uuid.UUID, viewSchemaID string, fieldKey string, value any, recordID uuid.UUID) map[string]any {
 	t.Helper()
 	rows, err := store.QueryRows(context.Background(), incidentID, viewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: fieldKey, Op: "eq", Arg: map[string]any{"value": value}}},
@@ -286,7 +363,7 @@ func QueryOne(t testing.TB, store *workbook.WorkbookContributionCatalog, inciden
 	return nil
 }
 
-func RowsContain(rows []map[string]any, recordID uuid.UUID) bool {
+func rowsContain(rows []map[string]any, recordID uuid.UUID) bool {
 	for _, row := range rows {
 		if row["record_id"] == recordID.String() {
 			return true
@@ -376,7 +453,7 @@ func requireCollectionItemCount(t testing.TB, row map[string]any, fieldKey strin
 	}
 }
 
-func Time(offset time.Duration) time.Time {
+func testTime(offset time.Duration) time.Time {
 	return time.Date(2026, 5, 18, 16, 0, 0, 0, time.UTC).Add(offset)
 }
 

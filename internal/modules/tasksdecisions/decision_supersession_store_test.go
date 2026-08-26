@@ -2,7 +2,6 @@ package tasksdecisions_test
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"slices"
@@ -15,10 +14,8 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -44,7 +41,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 			"decision.decision_type": {Text: stringPtr("scope")},
 		},
 	}
-	_, err := createTaskDecision(owner, actor, incident.ID, minimumRequest, "req-workbook_interaction-task-decision-decision-minimum-fail", Time(0))
+	_, err := createTaskDecision(owner, actor, incident.ID, minimumRequest, "req-workbook_interaction-task-decision-decision-minimum-fail", testTime(0))
 	requireMutationValidation(t, err, "decision.summary", "missing_required_field")
 	if got := countRecords(t, harness.DB, incident.ID); got != beforeRecords {
 		t.Fatalf("rejected minimum decision create wrote records: got %d want %d", got, beforeRecords)
@@ -59,15 +56,15 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 			"decision.status":        {Text: stringPtr("superseded")},
 		},
 	}
-	_, err = createTaskDecision(owner, actor, incident.ID, supersededRequest, "req-workbook_interaction-task-decision-decision-create-superseded", Time(0))
+	_, err = createTaskDecision(owner, actor, incident.ID, supersededRequest, "req-workbook_interaction-task-decision-decision-create-superseded", testTime(0))
 	requireLifecycle(t, err)
 
 	support := mustCreateEvidence(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-support", "Decision support record")
 	affectedOne := mustCreateEvidence(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-affected-one", "Decision affected record one")
 	affectedTwo := mustCreateEvidence(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-affected-two", "Decision affected record two")
 	relationshipDecision := mustCreateDecisionWithCollections(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-relationships", "proposed", "Relationship decision", map[string]tasksdecisions.CollectionActionPayload{
-		"decision.support_refs":        Collection(addOptionalSurfaceRecordRef(support)),
-		"decision.affected_record_ids": Collection(addOptionalSurfaceRecordRef(affectedOne), addOptionalSurfaceRecordRef(affectedOne)),
+		"decision.support_refs":        collectionActions(addOptionalSurfaceRecordRef(support)),
+		"decision.affected_record_ids": collectionActions(addOptionalSurfaceRecordRef(affectedOne), addOptionalSurfaceRecordRef(affectedOne)),
 	})
 	relationshipRow := relationshipDecision.Row
 	requireCollectionItemCount(t, relationshipRow, "decision.support_refs", 1)
@@ -77,14 +74,14 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	requireManualReferenceLink(t, harness.DB, relationshipDecision.RecordID, affectedOne, "decision.affected_record_ids", "references_record")
 
 	relationshipDecision = mustPatch(t, owner, actor, relationshipDecision.RecordID, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-affected-add",
-		CollectionChange("decision.affected_record_ids", Collection(addOptionalSurfaceRecordRef(affectedTwo))))
+		collectionChange("decision.affected_record_ids", collectionActions(addOptionalSurfaceRecordRef(affectedTwo))))
 	relationshipRow = relationshipDecision.Row
 	requireCollectionItemCount(t, relationshipRow, "decision.affected_record_ids", 2)
 	requireCellNumericValue(t, relationshipRow, "decision.affected_record_count", 2)
 	requireManualReferenceLink(t, harness.DB, relationshipDecision.RecordID, affectedTwo, "decision.affected_record_ids", "references_record")
 
 	relationshipDecision = mustPatch(t, owner, actor, relationshipDecision.RecordID, tasksdecisions.DecisionsViewSchemaID, 2, "txn-workbook_interaction-task-decision-decision-affected-remove",
-		CollectionChange("decision.affected_record_ids", Collection(removeRecordRef(affectedOne))))
+		collectionChange("decision.affected_record_ids", collectionActions(removeRecordRef(affectedOne))))
 	relationshipRow = relationshipDecision.Row
 	requireCollectionItemCount(t, relationshipRow, "decision.affected_record_ids", 1)
 	requireCellNumericValue(t, relationshipRow, "decision.affected_record_count", 1)
@@ -96,18 +93,18 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	source := mustCreateDecision(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-source", "approved", "Superseding decision")
 	executed := mustCreateDecision(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-executed", "approved", "Executed decision")
 	executedRow := mustPatch(t, owner, actor, executed, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-approved-executed",
-		ValueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr("executed")}))
+		valueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr("executed")}))
 	requireCellValue(t, executedRow.Row, "decision.status", "executed")
 
-	_, err = Patch(owner, actor, target, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-direct-superseded",
-		ValueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr("superseded")}))
+	_, err = patchRecord(owner, actor, target, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-direct-superseded",
+		valueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr("superseded")}))
 	requireLifecycle(t, err)
 	rejected := mustCreateDecision(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-rejected", "rejected", "Rejected decision")
-	_, err = Patch(owner, actor, rejected, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-rejected-proposed",
-		ValueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr("proposed")}))
+	_, err = patchRecord(owner, actor, rejected, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-rejected-proposed",
+		valueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr("proposed")}))
 	requireLifecycle(t, err)
-	_, err = Patch(owner, actor, executed, tasksdecisions.DecisionsViewSchemaID, 2, "txn-workbook_interaction-task-decision-decision-executed-approved",
-		ValueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr("approved")}))
+	_, err = patchRecord(owner, actor, executed, tasksdecisions.DecisionsViewSchemaID, 2, "txn-workbook_interaction-task-decision-decision-executed-approved",
+		valueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr("approved")}))
 	requireLifecycle(t, err)
 
 	request := tasksdecisions.SupersedeRequest{
@@ -116,7 +113,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 		Reason:              "Supersede with better containment rationale.",
 		ReplacementRecordID: &source,
 	}
-	result, err := supersedeDecision(ctx, owner, actor, target, request, "req-workbook_interaction-task-decision-decision-supersede", Time(time.Hour))
+	result, err := supersedeDecision(ctx, owner, actor, target, request, "req-workbook_interaction-task-decision-decision-supersede", testTime(time.Hour))
 	if err != nil {
 		t.Fatalf("supersede proposed target: %v", err)
 	}
@@ -137,7 +134,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query decision superseded projection: %v", err)
 	}
-	if !RowsContain(decisionRows, target) {
+	if !rowsContain(decisionRows, target) {
 		t.Fatalf("superseded target missing from projection rows: %#v", decisionRows)
 	}
 	sourceRows, err := store.QueryRows(ctx, incident.ID, tasksdecisions.DecisionsViewSchemaID, viewschema.QueryMeta{
@@ -151,7 +148,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 		t.Fatalf("superseding decision missing from projection rows: %#v", sourceRows)
 	}
 	afterSupersessionEffects := decisionSupersessionIncidentEffects(t, harness.DB, incident.ID)
-	replay, err := supersedeDecision(ctx, owner, actor, target, request, "req-workbook_interaction-task-decision-decision-supersede-replay", Time(2*time.Hour))
+	replay, err := supersedeDecision(ctx, owner, actor, target, request, "req-workbook_interaction-task-decision-decision-supersede-replay", testTime(2*time.Hour))
 	if err != nil {
 		t.Fatalf("replay decision supersede: %v", err)
 	}
@@ -167,7 +164,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	rejectedRequest := request
 	rejectedRequest.BaseRowVersion = result.RowVersion
 	rejectedRequest.ClientTxnID = "txn-workbook_interaction-task-decision-decision-supersede-rejected"
-	_, err = supersedeDecision(ctx, owner, actor, target, rejectedRequest, "req-workbook_interaction-task-decision-decision-supersede-rejected", Time(2*time.Hour))
+	_, err = supersedeDecision(ctx, owner, actor, target, rejectedRequest, "req-workbook_interaction-task-decision-decision-supersede-rejected", testTime(2*time.Hour))
 	requireLifecycle(t, err)
 	if got := decisionSupersessionIncidentEffects(t, harness.DB, incident.ID); got != afterSupersessionEffects {
 		t.Fatalf("rejected decision supersede changed durable effects: before=%+v after=%+v", afterSupersessionEffects, got)
@@ -182,10 +179,10 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 		Reason:              "Supersede executed decision.",
 		ReplacementRecordID: &executedSource,
 	}
-	if _, err := supersedeDecision(ctx, owner, actor, executedTarget, executedRequest, "req-workbook_interaction-task-decision-decision-supersede-executed", Time(3*time.Hour)); err != nil {
+	if _, err := supersedeDecision(ctx, owner, actor, executedTarget, executedRequest, "req-workbook_interaction-task-decision-decision-supersede-executed", testTime(3*time.Hour)); err != nil {
 		t.Fatalf("supersede executed target: %v", err)
 	}
-	row := QueryOne(t, store, incident.ID, tasksdecisions.DecisionsViewSchemaID, "decision.is_superseded", true, executedTarget)
+	row := queryOne(t, store, incident.ID, tasksdecisions.DecisionsViewSchemaID, "decision.is_superseded", true, executedTarget)
 	requireCellValue(t, row, "decision.status", "executed")
 	requireCellValue(t, row, "decision.is_superseded", true)
 
@@ -196,37 +193,37 @@ INSERT INTO record_links (
     incident_id, src_record_id, dst_record_id, link_type, field_key,
     provenance, confidence, owner_user_id, created_by_user_id, decided_at, created_at
 ) VALUES ($1, $2, $3, 'supersedes', NULL, 'manual', NULL, $4, $4, $5, $5)
-`, incident.ID, badSource, badTarget, actor.ID, Time(4*time.Hour)); err != nil {
+`, incident.ID, badSource, badTarget, actor.ID, testTime(4*time.Hour)); err != nil {
 		t.Fatalf("seed inconsistent supersedes link: %v", err)
 	}
-	_, err = Patch(owner, actor, badSource, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-inconsistent-fail",
-		ValueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr("approved")}))
+	_, err = patchRecord(owner, actor, badSource, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-inconsistent-fail",
+		valueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr("approved")}))
 	requireLifecycle(t, err)
-	beforeInconsistentVersion := RecordVersion(t, harness.DB, badSource)
-	_, err = Patch(owner, actor, badSource, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-inconsistent-rationale-fail",
-		ValueChange("decision.rationale", tasksdecisions.FieldValue{Text: stringPtr("Ordinary scalar edits must fail closed.")}))
+	beforeInconsistentVersion := recordVersion(t, harness.DB, badSource)
+	_, err = patchRecord(owner, actor, badSource, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-inconsistent-rationale-fail",
+		valueChange("decision.rationale", tasksdecisions.FieldValue{Text: stringPtr("Ordinary scalar edits must fail closed.")}))
 	requireLifecycle(t, err)
-	if got := RecordVersion(t, harness.DB, badSource); got != beforeInconsistentVersion {
+	if got := recordVersion(t, harness.DB, badSource); got != beforeInconsistentVersion {
 		t.Fatalf("inconsistent decision scalar patch changed row version: got %d want %d", got, beforeInconsistentVersion)
 	}
 	beforeSupportLinks := countReferenceLinks(t, harness.DB, badSource, "decision.support_refs")
-	_, err = Patch(owner, actor, badSource, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-inconsistent-support-fail",
-		CollectionChange("decision.support_refs", Collection(addOptionalSurfaceRecordRef(support))))
+	_, err = patchRecord(owner, actor, badSource, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-inconsistent-support-fail",
+		collectionChange("decision.support_refs", collectionActions(addOptionalSurfaceRecordRef(support))))
 	requireLifecycle(t, err)
 	if got := countReferenceLinks(t, harness.DB, badSource, "decision.support_refs"); got != beforeSupportLinks {
 		t.Fatalf("inconsistent decision support patch changed links: got %d want %d", got, beforeSupportLinks)
 	}
-	if got := RecordVersion(t, harness.DB, badSource); got != beforeInconsistentVersion {
+	if got := recordVersion(t, harness.DB, badSource); got != beforeInconsistentVersion {
 		t.Fatalf("inconsistent decision support patch changed row version: got %d want %d", got, beforeInconsistentVersion)
 	}
 	beforeAffectedLinks := countReferenceLinks(t, harness.DB, badSource, "decision.affected_record_ids")
-	_, err = Patch(owner, actor, badSource, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-inconsistent-affected-fail",
-		CollectionChange("decision.affected_record_ids", Collection(addOptionalSurfaceRecordRef(affectedTwo))))
+	_, err = patchRecord(owner, actor, badSource, tasksdecisions.DecisionsViewSchemaID, 1, "txn-workbook_interaction-task-decision-decision-inconsistent-affected-fail",
+		collectionChange("decision.affected_record_ids", collectionActions(addOptionalSurfaceRecordRef(affectedTwo))))
 	requireLifecycle(t, err)
 	if got := countReferenceLinks(t, harness.DB, badSource, "decision.affected_record_ids"); got != beforeAffectedLinks {
 		t.Fatalf("inconsistent decision affected patch changed links: got %d want %d", got, beforeAffectedLinks)
 	}
-	if got := RecordVersion(t, harness.DB, badSource); got != beforeInconsistentVersion {
+	if got := recordVersion(t, harness.DB, badSource); got != beforeInconsistentVersion {
 		t.Fatalf("inconsistent decision affected patch changed row version: got %d want %d", got, beforeInconsistentVersion)
 	}
 }
@@ -265,8 +262,8 @@ func requireSupersessionPublicationRollback(
 			clientTxnID := fmt.Sprintf("txn-workbook_interaction-task-decision-supersede-publication-failure-%d", failOn)
 			target := mustCreateDecision(t, successOwner, actor, incidentID, clientTxnID+"-target", "proposed", "Publication rollback target")
 			source := mustCreateDecision(t, successOwner, actor, incidentID, clientTxnID+"-source", "approved", "Publication rollback source")
-			targetBefore := DecisionSnapshot(t, pool, target)
-			sourceBefore := DecisionSnapshot(t, pool, source)
+			targetBefore := decisionSnapshot(t, pool, target)
+			sourceBefore := decisionSnapshot(t, pool, source)
 			effectsBefore := decisionSupersessionIncidentEffects(t, pool, incidentID)
 			request := tasksdecisions.SupersedeRequest{
 				BaseRowVersion:      targetBefore.RowVersion,
@@ -279,12 +276,12 @@ func requireSupersessionPublicationRollback(
 				failOn:   failOn,
 			}
 			failingOwner := appsupport.NewTaskDecisionOwnerWithPublications(pool, codec, failingPublications)
-			_, err := supersedeDecision(context.Background(), failingOwner, actor, target, request, "req-"+clientTxnID, Time(5*time.Hour))
+			_, err := supersedeDecision(context.Background(), failingOwner, actor, target, request, "req-"+clientTxnID, testTime(5*time.Hour))
 			if !errors.Is(err, errInjectedSupersessionPublication) {
 				t.Fatalf("supersession publication failure %d = %v; want injected failure", failOn, err)
 			}
-			requireDecisionSnapshot(t, DecisionSnapshot(t, pool, target), targetBefore, "target after injected publication failure")
-			requireDecisionSnapshot(t, DecisionSnapshot(t, pool, source), sourceBefore, "source after injected publication failure")
+			requireDecisionSnapshot(t, decisionSnapshot(t, pool, target), targetBefore, "target after injected publication failure")
+			requireDecisionSnapshot(t, decisionSnapshot(t, pool, source), sourceBefore, "source after injected publication failure")
 			if got := countSupersedesLinks(t, pool, source, target); got != 0 {
 				t.Fatalf("publication failure %d retained supersedes link: got %d want 0", failOn, got)
 			}
@@ -292,7 +289,7 @@ func requireSupersessionPublicationRollback(
 				t.Fatalf("publication failure %d retained durable effects: before=%+v after=%+v", failOn, effectsBefore, got)
 			}
 
-			retry, err := supersedeDecision(context.Background(), successOwner, actor, target, request, "req-"+clientTxnID+"-retry", Time(6*time.Hour))
+			retry, err := supersedeDecision(context.Background(), successOwner, actor, target, request, "req-"+clientTxnID+"-retry", testTime(6*time.Hour))
 			if err != nil {
 				t.Fatalf("retry after publication failure %d: %v", failOn, err)
 			}
@@ -362,22 +359,22 @@ func TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit(t *testing.T) {
 	inconsistentSource := mustCreateDecision(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-inconsistent-source", "proposed", "Inconsistent source")
 	sourceExistingTarget := mustCreateDecision(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-inconsistent-source-existing-target", "proposed", "Existing target")
 	validTarget := mustCreateDecision(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-source-fail-target", "proposed", "Source fail target")
-	insertSupersedesLink(t, harness.DB, incident.ID, inconsistentSource, sourceExistingTarget, actor.ID, Time(time.Hour))
+	insertSupersedesLink(t, harness.DB, incident.ID, inconsistentSource, sourceExistingTarget, actor.ID, testTime(time.Hour))
 
-	sourceBefore := DecisionSnapshot(t, harness.DB, inconsistentSource)
-	sourceExistingTargetBefore := DecisionSnapshot(t, harness.DB, sourceExistingTarget)
-	validTargetBefore := DecisionSnapshot(t, harness.DB, validTarget)
+	sourceBefore := decisionSnapshot(t, harness.DB, inconsistentSource)
+	sourceExistingTargetBefore := decisionSnapshot(t, harness.DB, sourceExistingTarget)
+	validTargetBefore := decisionSnapshot(t, harness.DB, validTarget)
 	sourceRequest := tasksdecisions.SupersedeRequest{
 		BaseRowVersion:      validTargetBefore.RowVersion,
 		ClientTxnID:         "txn-workbook_interaction-task-decision-decision-inconsistent-source-route",
 		Reason:              "Attempt explicit supersession with inconsistent source.",
 		ReplacementRecordID: &inconsistentSource,
 	}
-	_, err := supersedeDecision(ctx, owner, actor, validTarget, sourceRequest, "req-workbook_interaction-task-decision-decision-inconsistent-source-route", Time(2*time.Hour))
+	_, err := supersedeDecision(ctx, owner, actor, validTarget, sourceRequest, "req-workbook_interaction-task-decision-decision-inconsistent-source-route", testTime(2*time.Hour))
 	requireLifecycle(t, err)
-	requireDecisionSnapshot(t, DecisionSnapshot(t, harness.DB, inconsistentSource), sourceBefore, "inconsistent source supersede")
-	requireDecisionSnapshot(t, DecisionSnapshot(t, harness.DB, sourceExistingTarget), sourceExistingTargetBefore, "inconsistent source existing target")
-	requireDecisionSnapshot(t, DecisionSnapshot(t, harness.DB, validTarget), validTargetBefore, "valid target rejected by inconsistent source")
+	requireDecisionSnapshot(t, decisionSnapshot(t, harness.DB, inconsistentSource), sourceBefore, "inconsistent source supersede")
+	requireDecisionSnapshot(t, decisionSnapshot(t, harness.DB, sourceExistingTarget), sourceExistingTargetBefore, "inconsistent source existing target")
+	requireDecisionSnapshot(t, decisionSnapshot(t, harness.DB, validTarget), validTargetBefore, "valid target rejected by inconsistent source")
 	if got := countSupersedesLinks(t, harness.DB, inconsistentSource, validTarget); got != 0 {
 		t.Fatalf("inconsistent source supersede wrote link to attempted target: got %d want 0", got)
 	}
@@ -391,22 +388,22 @@ func TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit(t *testing.T) {
 	validSource := mustCreateDecision(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-target-fail-source", "approved", "Valid source")
 	inconsistentTarget := mustCreateDecision(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-inconsistent-target", "proposed", "Inconsistent target")
 	targetExistingSource := mustCreateDecision(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-inconsistent-target-existing-source", "approved", "Existing superseding source")
-	insertSupersedesLink(t, harness.DB, incident.ID, targetExistingSource, inconsistentTarget, actor.ID, Time(3*time.Hour))
+	insertSupersedesLink(t, harness.DB, incident.ID, targetExistingSource, inconsistentTarget, actor.ID, testTime(3*time.Hour))
 
-	validSourceBefore := DecisionSnapshot(t, harness.DB, validSource)
-	inconsistentTargetBefore := DecisionSnapshot(t, harness.DB, inconsistentTarget)
-	targetExistingSourceBefore := DecisionSnapshot(t, harness.DB, targetExistingSource)
+	validSourceBefore := decisionSnapshot(t, harness.DB, validSource)
+	inconsistentTargetBefore := decisionSnapshot(t, harness.DB, inconsistentTarget)
+	targetExistingSourceBefore := decisionSnapshot(t, harness.DB, targetExistingSource)
 	targetRequest := tasksdecisions.SupersedeRequest{
 		BaseRowVersion:      inconsistentTargetBefore.RowVersion,
 		ClientTxnID:         "txn-workbook_interaction-task-decision-decision-inconsistent-target-route",
 		Reason:              "Attempt explicit supersession against inconsistent target.",
 		ReplacementRecordID: &validSource,
 	}
-	_, err = supersedeDecision(ctx, owner, actor, inconsistentTarget, targetRequest, "req-workbook_interaction-task-decision-decision-inconsistent-target-route", Time(4*time.Hour))
+	_, err = supersedeDecision(ctx, owner, actor, inconsistentTarget, targetRequest, "req-workbook_interaction-task-decision-decision-inconsistent-target-route", testTime(4*time.Hour))
 	requireLifecycle(t, err)
-	requireDecisionSnapshot(t, DecisionSnapshot(t, harness.DB, validSource), validSourceBefore, "valid source rejected by inconsistent target")
-	requireDecisionSnapshot(t, DecisionSnapshot(t, harness.DB, inconsistentTarget), inconsistentTargetBefore, "inconsistent target supersede")
-	requireDecisionSnapshot(t, DecisionSnapshot(t, harness.DB, targetExistingSource), targetExistingSourceBefore, "inconsistent target existing source")
+	requireDecisionSnapshot(t, decisionSnapshot(t, harness.DB, validSource), validSourceBefore, "valid source rejected by inconsistent target")
+	requireDecisionSnapshot(t, decisionSnapshot(t, harness.DB, inconsistentTarget), inconsistentTargetBefore, "inconsistent target supersede")
+	requireDecisionSnapshot(t, decisionSnapshot(t, harness.DB, targetExistingSource), targetExistingSourceBefore, "inconsistent target existing source")
 	if got := countSupersedesLinks(t, harness.DB, validSource, inconsistentTarget); got != 0 {
 		t.Fatalf("inconsistent target supersede wrote attempted link: got %d want 0", got)
 	}
@@ -416,69 +413,6 @@ func TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit(t *testing.T) {
 	if got := countReferenceLinks(t, harness.DB, inconsistentTarget, "decision.affected_record_ids"); got != 0 {
 		t.Fatalf("inconsistent target supersede wrote affected links: got %d want 0", got)
 	}
-}
-
-func TestDecisionTerminalTransitionMatrix_Unit(t *testing.T) {
-	harness := appsupport.StartStore(t, "workbook_interaction-task-decision-decision-terminal-matrix")
-	codec := conflicttest.NewCodec("workbook")
-	store := appsupport.NewWorkbookCatalog(harness.DB, codec)
-	owner := appsupport.NewTaskDecisionOwner(harness.DB, codec)
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "task-decision-decision-terminal@example.test", "TaskDecision Decision Terminal", "TaskDecisionDecisionTerminal1!", false, false, true)
-	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-decision-terminal-incident", "IR-TASK-DECISION-DECISION-TERMINAL", "Workbook inspector task and decision workflow decision terminal matrix")
-
-	for _, from := range []string{"rejected", "executed", "superseded"} {
-		for _, to := range []string{"proposed", "approved", "rejected", "executed", "superseded"} {
-			name := from + "-to-" + to
-			decisionID := mustCreateDecisionInTerminalState(t, store, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-terminal-base-"+name, from)
-			before := DecisionSnapshot(t, harness.DB, decisionID)
-			changes := []tasksdecisions.PatchChange{
-				ValueChange("decision.status", tasksdecisions.FieldValue{Text: stringPtr(to)}),
-			}
-			if from == to {
-				changes = append(changes, ValueChange("decision.rationale", tasksdecisions.FieldValue{Text: stringPtr("Idempotent in-state terminal write remains ordinary scalar work.")}))
-			}
-			_, err := Patch(owner, actor, decisionID, tasksdecisions.DecisionsViewSchemaID, before.RowVersion, "txn-workbook_interaction-task-decision-decision-terminal-"+name, changes...)
-			if from == to && from != "superseded" {
-				if err != nil {
-					t.Fatalf("%s should allow in-state terminal write, got %v", name, err)
-				}
-				after := DecisionSnapshot(t, harness.DB, decisionID)
-				if after.Status != from || after.Rationale != "Idempotent in-state terminal write remains ordinary scalar work." || after.RowVersion <= before.RowVersion {
-					t.Fatalf("%s unexpected in-state result: before=%#v after=%#v", name, before, after)
-				}
-				continue
-			}
-			requireLifecycle(t, err)
-			requireDecisionSnapshot(t, DecisionSnapshot(t, harness.DB, decisionID), before, name)
-		}
-	}
-}
-
-func mustCreateDecision(t testing.TB, owner *tasksdecisions.MutationFacade, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, status string, summary string) uuid.UUID {
-	t.Helper()
-	return mustCreateDecisionWithCollections(t, owner, actor, incidentID, clientTxnID, status, summary, nil).RecordID
-}
-
-func mustCreateEvidence(t testing.TB, pool postgres.DB, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
-	t.Helper()
-	request := evidence.CreateRequest{
-		ViewSchemaID: evidence.ViewSchemaID, ClientTxnID: clientTxnID,
-		Values: map[string]evidence.FieldValue{
-			"evidence.title": {Text: &title},
-		},
-	}
-	result, err := appsupport.NewEvidenceMutationOwner(pool, conflicttest.NewCodec("workbook")).Create(
-		context.Background(),
-		evidence.CreateCommand{
-			Actor: actor, IncidentID: incidentID, Request: request,
-			RequestHash: evidence.CreateRequestHash(request), RequestID: "req-" + clientTxnID,
-			RouteKey: "workbook.rows.create", Now: Time(0),
-		},
-	)
-	if err != nil {
-		t.Fatalf("create evidence %s: %v", clientTxnID, err)
-	}
-	return result.RecordID
 }
 
 func supersedeDecision(
@@ -495,69 +429,4 @@ func supersedeDecision(
 		RequestHash: tasksdecisions.SupersedeRequestHash(request), RequestID: requestID,
 		RouteKey: "workbook.records.supersede", Now: now,
 	})
-}
-
-func createTaskDecision(
-	owner *tasksdecisions.MutationFacade,
-	actor authn.UserRecord,
-	incidentID uuid.UUID,
-	request tasksdecisions.CreateRequest,
-	requestID string,
-	now time.Time,
-) (tasksdecisions.MutationResult, error) {
-	return owner.Create(context.Background(), tasksdecisions.CreateCommand{
-		ActorUserID: actor.ID, IncidentID: incidentID, Request: request,
-		RequestHash: tasksdecisions.CreateRequestHash(request), RequestID: requestID,
-		RouteKey: "workbook.rows.create", Now: now,
-	})
-}
-
-func mustCreateDecisionInTerminalState(t testing.TB, _ *workbook.WorkbookContributionCatalog, owner *tasksdecisions.MutationFacade, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, status string) uuid.UUID {
-	t.Helper()
-	if status != "superseded" {
-		return mustCreateDecision(t, owner, actor, incidentID, clientTxnID, status, "Terminal "+status)
-	}
-	target := mustCreateDecision(t, owner, actor, incidentID, clientTxnID+"-target", "proposed", "Superseded target")
-	source := mustCreateDecision(t, owner, actor, incidentID, clientTxnID+"-source", "approved", "Superseding source")
-	request := tasksdecisions.SupersedeRequest{
-		BaseRowVersion:      1,
-		ClientTxnID:         clientTxnID + "-supersede",
-		Reason:              "Create explicit superseded terminal state.",
-		ReplacementRecordID: &source,
-	}
-	if _, err := supersedeDecision(context.Background(), owner, actor, target, request, "req-"+clientTxnID+"-supersede", Time(time.Hour)); err != nil {
-		t.Fatalf("create superseded decision %s: %v", clientTxnID, err)
-	}
-	return target
-}
-
-func mustCreateDecisionWithCollections(t testing.TB, owner *tasksdecisions.MutationFacade, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, status string, summary string, collections map[string]tasksdecisions.CollectionActionPayload) tasksdecisions.MutationResult {
-	t.Helper()
-	values := map[string]tasksdecisions.FieldValue{
-		"decision.summary":       {Text: &summary},
-		"decision.decision_type": {Text: stringPtr("containment")},
-		"decision.rationale":     {Text: stringPtr("The decision is needed for coordinated response.")},
-	}
-	if status != "" {
-		values["decision.status"] = tasksdecisions.FieldValue{Text: &status}
-	}
-	request := tasksdecisions.CreateRequest{
-		ViewSchemaID: tasksdecisions.DecisionsViewSchemaID,
-		ClientTxnID:  clientTxnID,
-		Values:       values,
-		Collections:  collections,
-	}
-	result, err := createTaskDecision(owner, actor, incidentID, request, "req-"+clientTxnID, Time(0))
-	if err != nil {
-		t.Fatalf("create decision %s: %v", clientTxnID, err)
-	}
-	return result
-}
-
-type TaskState struct {
-	RowVersion    int64
-	Status        string
-	BlockedReason sql.NullString
-	CompletedAt   sql.NullTime
-	OwnerUserID   sql.NullString
 }

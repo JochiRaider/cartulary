@@ -15,7 +15,7 @@ import (
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/internal/queryengine"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -333,74 +333,71 @@ func (r *PartyRows) LoadPartyTx(ctx context.Context, tx pgx.Tx, recordID uuid.UU
 
 var _ partyprojection.Rows = (*PartyRows)(nil)
 
-type TaskDecisionRows struct {
+type TaskDecisionMutationRows struct {
 	store             *Store
 	taskRequestSource TaskRequestSource
 	decisionSource    DecisionSource
-	taskReader        taskdecisionprojection.TaskReader
-	decisionReader    interface {
-		CollectDecisionDerivedFactsTx(context.Context, pgx.Tx, uuid.UUID) ([]taskdecisionprojection.DecisionDerivedFact, error)
-	}
 }
 
-func NewTaskDecisionRowsFromStore(
+func NewTaskDecisionMutationRowsFromStore(
 	store *Store,
 	taskRequestSource TaskRequestSource,
 	decisionSource DecisionSource,
-) *TaskDecisionRows {
-	return &TaskDecisionRows{
+) *TaskDecisionMutationRows {
+	return &TaskDecisionMutationRows{
 		store:             store,
 		taskRequestSource: taskRequestSource,
 		decisionSource:    decisionSource,
-		taskReader:        queryengine.NewTaskReader(),
-		decisionReader:    queryengine.NewDecisionReader(),
 	}
 }
 
-func (r *TaskDecisionRows) CollectDecisionDerivedFactsTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-) ([]taskdecisionprojection.DecisionDerivedFact, error) {
-	if r == nil || r.decisionReader == nil {
-		return nil, errors.New("decision projection reader is required")
-	}
-	return r.decisionReader.CollectDecisionDerivedFactsTx(ctx, tx, incidentID)
-}
-
-func (r *TaskDecisionRows) RefreshTaskRequestTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+func (r *TaskDecisionMutationRows) RefreshTaskRequestTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
 	return r.store.refreshTaskRequestTxCore(ctx, tx, recordID, r.taskRequestSource)
 }
 
-func (r *TaskDecisionRows) RefreshDecisionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+func (r *TaskDecisionMutationRows) RefreshDecisionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
 	return r.store.refreshDecisionTxCore(ctx, tx, recordID, r.decisionSource)
 }
 
-func (r *TaskDecisionRows) LoadTaskRequestTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+func (r *TaskDecisionMutationRows) LoadTaskRequestTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
 	return r.loadTx(ctx, tx, taskRequestsViewSchemaID, recordID)
 }
 
-func (r *TaskDecisionRows) LoadDecisionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+func (r *TaskDecisionMutationRows) LoadDecisionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
 	return r.loadTx(ctx, tx, decisionsViewSchemaID, recordID)
 }
 
-func (r *TaskDecisionRows) RebuildTaskRequestsTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-) error {
-	return r.store.rebuildIncidentTaskRequestsTxCore(ctx, tx, incidentID, r.taskRequestSource)
+var _ taskdecisionprojection.MutationRows = (*TaskDecisionMutationRows)(nil)
+
+type taskDerivedFactReader interface {
+	CollectTaskDerivedFactsTx(
+		context.Context,
+		pgx.Tx,
+		uuid.UUID,
+	) ([]taskdecisionprojection.TaskDerivedFact, error)
 }
 
-func (r *TaskDecisionRows) RebuildDecisionsTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-) error {
-	return r.store.rebuildIncidentDecisionsTxCore(ctx, tx, incidentID, r.decisionSource)
+type decisionDerivedFactReader interface {
+	CollectDecisionDerivedFactsTx(
+		context.Context,
+		pgx.Tx,
+		uuid.UUID,
+	) ([]taskdecisionprojection.DecisionDerivedFact, error)
 }
 
-func (r *TaskDecisionRows) CollectTaskDerivedFactsTx(
+type TaskDecisionReportingReader struct {
+	taskReader     taskDerivedFactReader
+	decisionReader decisionDerivedFactReader
+}
+
+func NewTaskDecisionReportingReader() *TaskDecisionReportingReader {
+	return &TaskDecisionReportingReader{
+		taskReader:     queryengine.NewTaskReader(),
+		decisionReader: queryengine.NewDecisionReader(),
+	}
+}
+
+func (r *TaskDecisionReportingReader) CollectTaskDerivedFactsTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
@@ -411,9 +408,18 @@ func (r *TaskDecisionRows) CollectTaskDerivedFactsTx(
 	return r.taskReader.CollectTaskDerivedFactsTx(ctx, tx, incidentID)
 }
 
-var _ taskdecisionprojection.Rows = (*TaskDecisionRows)(nil)
-var _ taskdecisionprojection.Rebuilder = (*Store)(nil)
-var _ taskdecisionprojection.Reader = (*TaskDecisionRows)(nil)
+func (r *TaskDecisionReportingReader) CollectDecisionDerivedFactsTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+) ([]taskdecisionprojection.DecisionDerivedFact, error) {
+	if r == nil || r.decisionReader == nil {
+		return nil, errors.New("decision projection reader is required")
+	}
+	return r.decisionReader.CollectDecisionDerivedFactsTx(ctx, tx, incidentID)
+}
+
+var _ taskdecisionprojection.ReportingReader = (*TaskDecisionReportingReader)(nil)
 
 func (r *AssessmentRows) loadTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
 	return loadProviderRowTx(ctx, tx, r.store, viewSchemaID, recordID)
@@ -427,7 +433,7 @@ func (r *PartyRows) loadTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, 
 	return loadProviderRowTx(ctx, tx, r.store, viewSchemaID, recordID)
 }
 
-func (r *TaskDecisionRows) loadTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
+func (r *TaskDecisionMutationRows) loadTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
 	return loadProviderRowTx(ctx, tx, r.store, viewSchemaID, recordID)
 }
 

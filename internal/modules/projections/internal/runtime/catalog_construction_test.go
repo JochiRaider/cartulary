@@ -13,7 +13,7 @@ import (
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	projectionstorage "github.com/JochiRaider/cartulary/internal/modules/projections/internal/storage"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -76,10 +76,13 @@ func TestCanonicalRuntimeServicesShareOneStore(t *testing.T) {
 	artifactRows := NewArtifactRowsFromStore(store, sources.Artifacts)
 	evidenceRows := NewEvidenceRowsFromStore(store, sources.Evidence)
 	partyRows := NewPartyRowsFromStore(store, sources.Parties)
-	taskDecisionRows := NewTaskDecisionRowsFromStore(store, sources.TaskRequests, sources.Decisions)
+	taskDecisionRows := NewTaskDecisionMutationRowsFromStore(store, sources.TaskRequests, sources.Decisions)
+	taskDecisionReader := NewTaskDecisionReportingReader()
 	if timelineRows.store != store || entityRows.store != store || indicatorRows.store != store ||
 		assessmentRows.store != store || artifactRows.store != store || evidenceRows.store != store ||
-		partyRows.store != store || taskDecisionRows.store != store || NewRestoreRebuilderFromStore(store).store != store {
+		partyRows.store != store || taskDecisionRows.store != store ||
+		taskDecisionReader.taskReader == nil || taskDecisionReader.decisionReader == nil ||
+		NewRestoreRebuilderFromStore(store).store != store {
 		t.Fatal("projection service graph does not share one canonical store")
 	}
 }
@@ -311,6 +314,10 @@ func validCanonicalCatalogFixture() canonicalCatalogFixture {
 		intents:     map[string][]providercontract.SurfaceIntent{},
 	}
 	for _, provider := range providers {
+		facadePackage := "internal/modules/" + provider.owner + "/workbookprojection"
+		if provider.owner == "tasksdecisions" {
+			facadePackage = "internal/modules/tasksdecisions/projectioncontract"
+		}
 		fixture.descriptors[provider.owner] = append(fixture.descriptors[provider.owner], providercontract.ProviderDescriptor{
 			SchemaVersion:                providercontract.DescriptorSchemaVersion,
 			Status:                       providercontract.ProviderStatusActive,
@@ -325,7 +332,7 @@ func validCanonicalCatalogFixture() canonicalCatalogFixture {
 				Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true,
 			},
 			RestoreRebuild: providercontract.RestoreRebuildRequired,
-			FacadePackages: []string{"internal/modules/" + provider.owner + "/workbookprojection"},
+			FacadePackages: []string{facadePackage},
 			RebuildAfter:   append([]string(nil), provider.after...),
 		})
 		for _, viewSchemaID := range provider.views {

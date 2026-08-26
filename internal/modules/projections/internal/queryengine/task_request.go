@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	taskprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 )
 
 const taskRequestsViewSchemaID = "cartulary.view.task_requests.v1"

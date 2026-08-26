@@ -62,7 +62,7 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 		return SupersedeMutationResult{}, err
 	}
 	if targetMeta.RowVersion != request.BaseRowVersion {
-		return SupersedeMutationResult{}, &SupersedeRowVersionConflictError{RecordID: command.TargetRecordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: targetMeta.RowVersion}
+		return SupersedeMutationResult{}, &RowVersionConflictError{RecordID: command.TargetRecordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: targetMeta.RowVersion}
 	}
 
 	sourceRecordID := *request.ReplacementRecordID

@@ -570,7 +570,7 @@ func newCatalogBackedWorkbookCatalog(
 		conflictTokens,
 		appender,
 		conflictFields,
-		projections.TaskDecisionPorts().Rows,
+		projections.TaskDecisionMutationRows(),
 		intents,
 	)
 	if err != nil {

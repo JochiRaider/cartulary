@@ -14,7 +14,7 @@ import (
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -104,8 +104,8 @@ func TestNewReturnsReadyPortsAndImmutableDescriptorSet(t *testing.T) {
 		ports.Assessments().Rows == nil || ports.Assessments().Rebuilder == nil ||
 		ports.Artifacts().Rows == nil || ports.Artifacts().Rebuilder == nil || ports.Artifacts().Reader == nil ||
 		ports.Evidence().Rows == nil || ports.Evidence().Rebuilder == nil ||
-		ports.Parties().Rows == nil ||
-		ports.TasksDecisions().Rows == nil || ports.TasksDecisions().Rebuilder == nil || ports.TasksDecisions().Reader == nil {
+		ports.Parties().Rows == nil || ports.TaskDecisionMutationRows() == nil ||
+		ports.TaskDecisionReportingReader() == nil {
 		t.Fatalf("projection ports are incomplete: %#v", ports)
 	}
 

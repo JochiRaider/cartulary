@@ -11,7 +11,7 @@ import (
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/internal/queryengine"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -59,10 +59,14 @@ func TestPrivateCompiledPlansExactlyMatchSemanticIntentsAndViewSchemas(t *testin
 		t.Fatalf("construct Indicator projection contribution: %v", err)
 	}
 	indicatorIntents := indicatorContribution.ProjectionContribution().SurfaceIntents()
-	taskDecisionIntents, err := taskdecisionprojection.SurfaceIntents()
+	taskDecisionContribution, err := taskdecisionprojection.NewContribution(
+		&catalogTaskRequestSource{},
+		&catalogDecisionSource{},
+	)
 	if err != nil {
-		t.Fatalf("Tasks/Decisions semantic intents: %v", err)
+		t.Fatalf("construct Tasks/Decisions projection contribution: %v", err)
 	}
+	taskDecisionIntents := taskDecisionContribution.ProjectionContribution().SurfaceIntents()
 	intents := []providercontract.SurfaceIntent{
 		timelineprojection.SurfaceIntent(),
 		assessmentprojection.SurfaceIntent(),

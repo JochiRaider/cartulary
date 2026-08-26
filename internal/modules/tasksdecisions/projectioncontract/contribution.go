@@ -1,4 +1,4 @@
-package workbookprojection
+package projectioncontract
 
 import (
 	"context"
@@ -73,45 +73,6 @@ type DecisionSourceReader interface {
 	ListDecisionProjectionInputsTx(context.Context, pgx.Tx, uuid.UUID, *uuid.UUID, int) (DecisionProjectionInputPage, error)
 }
 
-type TaskDerivedFact struct {
-	RecordID uuid.UUID
-	Value    map[string]any
-}
-
-type TaskReader interface {
-	CollectTaskDerivedFactsTx(context.Context, pgx.Tx, uuid.UUID) ([]TaskDerivedFact, error)
-}
-
-type DecisionDerivedFact struct {
-	RecordID uuid.UUID
-	Value    map[string]any
-}
-
-type Reader interface {
-	TaskReader
-	CollectDecisionDerivedFactsTx(context.Context, pgx.Tx, uuid.UUID) ([]DecisionDerivedFact, error)
-}
-
-type Rows interface {
-	RefreshTaskRequestTx(context.Context, pgx.Tx, uuid.UUID) error
-	LoadTaskRequestTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-	RebuildTaskRequestsTx(context.Context, pgx.Tx, uuid.UUID) error
-	RefreshDecisionTx(context.Context, pgx.Tx, uuid.UUID) error
-	LoadDecisionTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-	RebuildDecisionsTx(context.Context, pgx.Tx, uuid.UUID) error
-}
-
-type Rebuilder interface {
-	RebuildTaskRequests(context.Context, uuid.UUID) error
-	RebuildDecisions(context.Context, uuid.UUID) error
-}
-
-type Ports struct {
-	Rows      Rows
-	Rebuilder Rebuilder
-	Reader    Reader
-}
-
 type Contribution struct {
 	contract          providercontract.Contribution
 	taskRequestSource TaskRequestSourceReader
@@ -159,14 +120,6 @@ func (contribution Contribution) DecisionSource() DecisionSourceReader {
 	return contribution.decisionSource
 }
 
-func Descriptors() []providercontract.ProviderDescriptor {
-	catalog, err := sourcecatalog.Load()
-	if err != nil {
-		return nil
-	}
-	return descriptors(catalog)
-}
-
 func descriptors(catalog *sourcecatalog.Catalog) []providercontract.ProviderDescriptor {
 	result := make([]providercontract.ProviderDescriptor, 0, 2)
 	for _, recordType := range []string{"task_request", "decision"} {
@@ -188,7 +141,7 @@ func descriptors(catalog *sourcecatalog.Catalog) []providercontract.ProviderDesc
 				Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true,
 			},
 			RestoreRebuild:       providercontract.RestoreRebuildRequired,
-			FacadePackages:       []string{"internal/modules/tasksdecisions/workbookprojection"},
+			FacadePackages:       []string{"internal/modules/tasksdecisions/projectioncontract"},
 			RebuildAfter:         projectionRebuildAfter(surface.RecordType),
 			CharacterizationRefs: projectionCharacterizationRefs(surface.RecordType),
 		}
@@ -206,7 +159,7 @@ func projectionCharacterizationRefs(recordType string) []string {
 		}
 	case "decision":
 		return []string{
-			"internal/modules/tasksdecisions/decision_mutation_store_test.go",
+			"internal/modules/tasksdecisions/decision_supersession_store_test.go",
 			"internal/modules/projections/internal/runtime/query_test.go",
 		}
 	default:
@@ -223,14 +176,6 @@ func projectionRebuildAfter(recordType string) []string {
 	default:
 		return nil
 	}
-}
-
-func SurfaceIntents() ([]providercontract.SurfaceIntent, error) {
-	catalog, err := sourcecatalog.Load()
-	if err != nil {
-		return nil, fmt.Errorf("compose Tasks/Decisions projection catalog: %w", err)
-	}
-	return surfaceIntents(catalog)
 }
 
 func surfaceIntents(catalog *sourcecatalog.Catalog) ([]providercontract.SurfaceIntent, error) {

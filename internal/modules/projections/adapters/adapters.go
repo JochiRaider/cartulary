@@ -19,7 +19,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskdecisioncontract "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
+	taskdecisionports "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	workbookrestoreprobe "github.com/JochiRaider/cartulary/internal/modules/workbook/restoreprobe"
@@ -37,25 +38,26 @@ type Dependencies struct {
 	Artifacts      artifactprojection.Contribution
 	Evidence       evidenceprojection.Contribution
 	Parties        partyprojection.Contribution
-	TasksDecisions taskdecisionprojection.Contribution
+	TasksDecisions taskdecisioncontract.Contribution
 }
 
 // Ports is the fail-closed projection composition result. It exposes only
 // immutable descriptor facts, consumer-owned interfaces, and typed owner
 // facades; concrete runtime, storage, and query implementations remain private.
 type Ports struct {
-	catalog         *projectionruntime.Catalog
-	store           *projectionruntime.Store
-	restore         *projectionruntime.RestoreRebuilder
-	workbookQueries map[string]workbook.QueryProvider
-	timeline        timelineprojection.Ports
-	entities        entityprojection.Ports
-	indicators      indicatorprojection.Ports
-	assessments     assessmentprojection.Ports
-	artifacts       artifactprojection.Ports
-	evidence        evidenceprojection.Ports
-	parties         partyprojection.Ports
-	tasksDecisions  taskdecisionprojection.Ports
+	catalog                     *projectionruntime.Catalog
+	store                       *projectionruntime.Store
+	restore                     *projectionruntime.RestoreRebuilder
+	workbookQueries             map[string]workbook.QueryProvider
+	timeline                    timelineprojection.Ports
+	entities                    entityprojection.Ports
+	indicators                  indicatorprojection.Ports
+	assessments                 assessmentprojection.Ports
+	artifacts                   artifactprojection.Ports
+	evidence                    evidenceprojection.Ports
+	parties                     partyprojection.Ports
+	taskDecisionMutationRows    taskdecisionports.MutationRows
+	taskDecisionReportingReader taskdecisionports.ReportingReader
 }
 
 func New(dependencies Dependencies) (Ports, error) {
@@ -119,11 +121,12 @@ func New(dependencies Dependencies) (Ports, error) {
 	restoreRebuilder := projectionruntime.NewRestoreRebuilderFromStore(store)
 	entityRows := projectionruntime.NewEntityRowsFromStore(store, dependencies.Entities.Source())
 	artifactRows := projectionruntime.NewArtifactRowsFromStore(store, dependencies.Artifacts.Source())
-	taskDecisionRows := projectionruntime.NewTaskDecisionRowsFromStore(
+	taskDecisionMutationRows := projectionruntime.NewTaskDecisionMutationRowsFromStore(
 		store,
 		dependencies.TasksDecisions.TaskRequestSource(),
 		dependencies.TasksDecisions.DecisionSource(),
 	)
+	taskDecisionReportingReader := projectionruntime.NewTaskDecisionReportingReader()
 	evidenceRows := &evidencePort{
 		rows: projectionruntime.NewEvidenceRowsFromStore(store, dependencies.Evidence.Source()),
 	}
@@ -168,11 +171,8 @@ func New(dependencies Dependencies) (Ports, error) {
 		parties: partyprojection.Ports{
 			Rows: projectionruntime.NewPartyRowsFromStore(store, dependencies.Parties.Source()),
 		},
-		tasksDecisions: taskdecisionprojection.Ports{
-			Rows:      taskDecisionRows,
-			Rebuilder: store,
-			Reader:    taskDecisionRows,
-		},
+		taskDecisionMutationRows:    taskDecisionMutationRows,
+		taskDecisionReportingReader: taskDecisionReportingReader,
 	}
 	if err := ports.validate(); err != nil {
 		return Ports{}, fmt.Errorf("compose Projections ports: %w", err)
@@ -264,7 +264,13 @@ func (ports Ports) Evidence() evidenceprojection.Ports { return ports.evidence }
 
 func (ports Ports) Parties() partyprojection.Ports { return ports.parties }
 
-func (ports Ports) TasksDecisions() taskdecisionprojection.Ports { return ports.tasksDecisions }
+func (ports Ports) TaskDecisionMutationRows() taskdecisionports.MutationRows {
+	return ports.taskDecisionMutationRows
+}
+
+func (ports Ports) TaskDecisionReportingReader() taskdecisionports.ReportingReader {
+	return ports.taskDecisionReportingReader
+}
 
 func (ports Ports) validate() error {
 	if ports.catalog == nil || ports.DescriptorSet().Len() == 0 {
@@ -290,7 +296,7 @@ func (ports Ports) validate() error {
 		{name: "Artifacts", ready: ports.artifacts.Rows != nil && ports.artifacts.Rebuilder != nil && ports.artifacts.Reader != nil},
 		{name: "Evidence", ready: ports.evidence.Rows != nil && ports.evidence.Rebuilder != nil && ports.evidence.SupportEffects != nil},
 		{name: "Parties", ready: ports.parties.Rows != nil},
-		{name: "Tasks/Decisions", ready: ports.tasksDecisions.Rows != nil && ports.tasksDecisions.Rebuilder != nil && ports.tasksDecisions.Reader != nil},
+		{name: "Tasks/Decisions", ready: ports.taskDecisionMutationRows != nil && ports.taskDecisionReportingReader != nil},
 	}
 	for _, owner := range ownerPorts {
 		if !owner.ready {

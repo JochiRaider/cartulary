@@ -79,7 +79,6 @@ func completeMutationDependencies() MutationDependencies {
 	}
 	return MutationDependencies{
 		IncidentState:        operations,
-		MemberReferences:     operations,
 		Idempotency:          compositionIdempotency{},
 		RecordEnvelopes:      records.NewStore(),
 		Links:                links.NewStore(),
@@ -135,10 +134,6 @@ type compositionOperations struct{}
 
 func (compositionOperations) RequireOpenTx(context.Context, pgx.Tx, uuid.UUID) error { return nil }
 
-func (compositionOperations) ValidateIncidentMemberUserTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, string) error {
-	return nil
-}
-
 func (compositionOperations) RefreshTaskRequestTx(context.Context, pgx.Tx, uuid.UUID) error {
 	return nil
 }
@@ -152,12 +147,6 @@ func (compositionOperations) LoadTaskRequestTx(context.Context, pgx.Tx, uuid.UUI
 func (compositionOperations) LoadDecisionTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error) {
 	return map[string]any{}, nil
 }
-
-func (compositionOperations) RebuildTaskRequestsTx(context.Context, pgx.Tx, uuid.UUID) error {
-	return nil
-}
-
-func (compositionOperations) RebuildDecisionsTx(context.Context, pgx.Tx, uuid.UUID) error { return nil }
 
 func (compositionOperations) CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error) {
 	return revisions.RecordSnapshot{}, nil

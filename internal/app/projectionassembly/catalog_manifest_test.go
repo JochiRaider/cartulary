@@ -21,7 +21,7 @@ import (
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -178,7 +178,7 @@ func TestProjectionAssemblyPortsAreCompleteAndDescriptorsImmutable(t *testing.T)
 		bundle.ArtifactPorts().Rows == nil || bundle.ArtifactPorts().Rebuilder == nil || bundle.ArtifactPorts().Reader == nil ||
 		bundle.EvidencePorts().Rows == nil || bundle.EvidencePorts().Rebuilder == nil ||
 		bundle.PartyPorts().Rows == nil ||
-		bundle.TaskDecisionPorts().Rows == nil || bundle.TaskDecisionPorts().Rebuilder == nil || bundle.TaskDecisionPorts().Reader == nil ||
+		bundle.TaskDecisionMutationRows() == nil || bundle.TaskDecisionReportingReader() == nil ||
 		bundle.RestoreProbeQuery() == nil || bundle.RevisionRebuilder() == nil || bundle.RevisionLiveRecords() == nil || bundle.SourceTextRows() == nil {
 		t.Fatalf("projection assembly consumer ports are incomplete")
 	}

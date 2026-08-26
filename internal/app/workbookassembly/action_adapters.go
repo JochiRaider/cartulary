@@ -416,7 +416,7 @@ func taskDecisionActionFailure(err error, clientTxnID string) (*workbook.Mutatio
 	if errors.Is(err, revisions.ErrRecordDeletedUseRestore) {
 		return workbook.RecordDeletedFailure(), true
 	}
-	var rowConflict *tasksdecisions.SupersedeRowVersionConflictError
+	var rowConflict *tasksdecisions.RowVersionConflictError
 	if errors.As(err, &rowConflict) {
 		return workbook.RowVersionConflictFailure(rowConflict.RecordID, rowConflict.BaseRowVersion, rowConflict.CurrentRowVersion), true
 	}

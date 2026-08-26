@@ -154,8 +154,11 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/tasksdecisions/workbookprojection",
+        "package": "./internal/modules/tasksdecisions/projectioncontract",
         "tests": [
+          "TestNewContributionRequiresBothSources",
+          "TestTaskDecisionProjectionContractOwnsTwoSemanticSurfaces",
+          "TestTaskDecisionProjectionContributionDefensivelyCopiesFactsAndRetainsTypedSources",
           "TestTaskDecisionProjectionIntentRejectsUnknownViewSchema"
         ]
       },

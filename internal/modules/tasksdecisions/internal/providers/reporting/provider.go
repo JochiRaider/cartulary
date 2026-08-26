@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
-	taskprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 )
 
 func CollectFactsTx(
@@ -16,7 +16,7 @@ func CollectFactsTx(
 	tx pgx.Tx,
 	incidentID uuid.UUID,
 	supportRefs map[string][]string,
-	reader taskprojection.Reader,
+	reader taskprojection.ReportingReader,
 ) (exportprovider.ProviderOutput, error) {
 	if reader == nil {
 		return exportprovider.ProviderOutput{}, fmt.Errorf("collect Tasks/Decisions reporting facts: projection reader is required")

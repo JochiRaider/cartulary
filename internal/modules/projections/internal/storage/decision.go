@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	decisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	decisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
 )
 
 func (store *Store) InsertDecisionTx(ctx context.Context, tx pgx.Tx, input decisionprojection.DecisionProjectionInput) error {

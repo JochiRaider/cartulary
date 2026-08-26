@@ -1,4 +1,4 @@
-package workbookprojection
+package projectioncontract
 
 import (
 	"context"
@@ -28,7 +28,12 @@ func TestNewContributionRequiresBothSources(t *testing.T) {
 }
 
 func TestTaskDecisionProjectionContractOwnsTwoSemanticSurfaces(t *testing.T) {
-	descriptors := Descriptors()
+	contribution, err := NewContribution(contractSource{}, contractSource{})
+	if err != nil {
+		t.Fatalf("construct Tasks/Decisions contribution: %v", err)
+	}
+	contract := contribution.ProjectionContribution()
+	descriptors := contract.Descriptors()
 	if len(descriptors) != 2 ||
 		descriptors[0].ProviderID != "task_request" ||
 		descriptors[1].ProviderID != "decision" {
@@ -38,14 +43,11 @@ func TestTaskDecisionProjectionContractOwnsTwoSemanticSurfaces(t *testing.T) {
 		if descriptor.SourceOwnerModule != "tasksdecisions" ||
 			descriptor.ProjectionStorageOwnerModule != "projections" ||
 			len(descriptor.FacadePackages) != 1 ||
-			descriptor.FacadePackages[0] != "internal/modules/tasksdecisions/workbookprojection" {
+			descriptor.FacadePackages[0] != "internal/modules/tasksdecisions/projectioncontract" {
 			t.Fatalf("unexpected Tasks/Decisions descriptor: %#v", descriptor)
 		}
 	}
-	intents, err := SurfaceIntents()
-	if err != nil {
-		t.Fatalf("Tasks/Decisions semantic intents: %v", err)
-	}
+	intents := contract.SurfaceIntents()
 	if len(intents) != 2 || len(intents[0].FieldKeys) == 0 || len(intents[1].FieldKeys) == 0 {
 		t.Fatalf("incomplete Tasks/Decisions semantic intents: %#v", intents)
 	}
@@ -59,10 +61,7 @@ func TestTaskDecisionProjectionIntentRejectsUnknownViewSchema(t *testing.T) {
 }
 
 func TestTaskDecisionProjectionContributionDefensivelyCopiesFactsAndRetainsTypedSources(t *testing.T) {
-	contribution, err := NewContribution(
-		contractSource{},
-		contractSource{},
-	)
+	contribution, err := NewContribution(contractSource{}, contractSource{})
 	if err != nil {
 		t.Fatalf("construct Tasks/Decisions projection contribution: %v", err)
 	}
@@ -72,7 +71,7 @@ func TestTaskDecisionProjectionContributionDefensivelyCopiesFactsAndRetainsTyped
 	semantic[0].FieldKeys[0] = "mutated"
 
 	again := contribution.ProjectionContribution()
-	if got := again.Descriptors()[0].FacadePackages[0]; got != "internal/modules/tasksdecisions/workbookprojection" {
+	if got := again.Descriptors()[0].FacadePackages[0]; got != "internal/modules/tasksdecisions/projectioncontract" {
 		t.Fatalf("descriptor mutation escaped contribution: %q", got)
 	}
 	if got := again.SurfaceIntents()[0].FieldKeys[0]; got == "mutated" {
@@ -88,12 +87,15 @@ type contractSource struct{}
 func (contractSource) LoadTaskRequestProjectionInputTx(context.Context, pgx.Tx, uuid.UUID) (TaskRequestProjectionInput, bool, error) {
 	return TaskRequestProjectionInput{}, false, nil
 }
+
 func (contractSource) ListTaskRequestProjectionInputsTx(context.Context, pgx.Tx, uuid.UUID, *uuid.UUID, int) (TaskRequestProjectionInputPage, error) {
 	return TaskRequestProjectionInputPage{}, nil
 }
+
 func (contractSource) LoadDecisionProjectionInputTx(context.Context, pgx.Tx, uuid.UUID) (DecisionProjectionInput, bool, error) {
 	return DecisionProjectionInput{}, false, nil
 }
+
 func (contractSource) ListDecisionProjectionInputsTx(context.Context, pgx.Tx, uuid.UUID, *uuid.UUID, int) (DecisionProjectionInputPage, error) {
 	return DecisionProjectionInputPage{}, nil
 }

@@ -153,7 +153,7 @@ func NewTaskDecisionOwnerWithPublications(
 		conflictTokens,
 		revisionRuntime.Appender(),
 		revisionRuntime.ConflictFieldResolver(),
-		mustBuildProjectionRuntime(pool).TaskDecisionPorts().Rows,
+		mustBuildProjectionRuntime(pool).TaskDecisionMutationRows(),
 		intents,
 	)
 	if err != nil {
@@ -219,7 +219,7 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 		conflictTokens,
 		appender,
 		conflictFields,
-		projectionRuntime.TaskDecisionPorts().Rows,
+		projectionRuntime.TaskDecisionMutationRows(),
 		intents,
 	)
 	if err != nil {

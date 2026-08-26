@@ -19,7 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -34,7 +34,7 @@ type OwnerRegistryDependencies struct {
 	ArtifactProjections     artifactprojection.Rows
 	Evidence                ownerfacade.ImportOwnerCreateFacade
 	PartyProjections        partyprojection.Rows
-	TaskDecisionProjections taskdecisionprojection.Rows
+	TaskDecisionProjections taskdecisionprojection.MutationRows
 	Indicators              *indicators.Application
 }
 

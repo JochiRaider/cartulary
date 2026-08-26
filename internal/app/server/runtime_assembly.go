@@ -1098,7 +1098,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			ArtifactProjections:     projectionRuntime.ArtifactPorts().Rows,
 			Evidence:                evidenceOwner.ImportCreateFacade(),
 			PartyProjections:        projectionRuntime.PartyPorts().Rows,
-			TaskDecisionProjections: projectionRuntime.TaskDecisionPorts().Rows,
+			TaskDecisionProjections: projectionRuntime.TaskDecisionMutationRows(),
 			Indicators:              indicatorOwner,
 		},
 	)
@@ -1151,7 +1151,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, err
 	}
-	taskDecisionReporting, err := tasksdecisions.NewReportingContribution(projectionRuntime.TaskDecisionPorts().Reader)
+	taskDecisionReporting, err := tasksdecisions.NewReportingContribution(projectionRuntime.TaskDecisionReportingReader())
 	if err != nil {
 		runtime.Close()
 		return nil, err
@@ -1200,7 +1200,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		workbookConflictTokens,
 		revisionRuntime.Appender(),
 		revisionRuntime.ConflictFieldResolver(),
-		projectionRuntime.TaskDecisionPorts().Rows,
+		projectionRuntime.TaskDecisionMutationRows(),
 		publicationAppender,
 	)
 	if err != nil {

@@ -67,7 +67,7 @@ INSERT INTO task_requests (
 		t.Fatalf("seed portable canceled task: %v", err)
 	}
 
-	port := tasksdecisions.NewIncidentBundleContribution().SourcePort
+	port := tasksdecisions.NewIncidentBundleSourcePort()
 	exported, err := port.Export(ctx, sourceport.ExportContext{
 		Query: harness.db, IncidentID: harness.incidentID,
 	})
@@ -232,7 +232,7 @@ func TestIncidentBundleTasksDecisionsDiagnosticsAreSafe(t *testing.T) {
 		recordID := uuid.New()
 		row := validPortableTask(harness, recordID, now)
 		row["hostile_unknown_member"] = "secret-value-should-never-escape"
-		_, err := tasksdecisions.NewIncidentBundleContribution().SourcePort.PrepareImport(
+		_, err := tasksdecisions.NewIncidentBundleSourcePort().PrepareImport(
 			context.Background(),
 			taskDecisionBundle([]map[string]any{row}, nil),
 			taskDecisionImportContext(harness, "strict-prepare"),
@@ -363,7 +363,7 @@ func filesToTaskDecisionBundle(t testing.TB, files []incidentportability.File) s
 func applyAndValidateTaskDecisionBundle(t testing.TB, harness tasksDecisionsPortabilityHarness, bundle sourceport.MapBundle, operationID string) error {
 	t.Helper()
 	ctx := context.Background()
-	port := tasksdecisions.NewIncidentBundleContribution().SourcePort
+	port := tasksdecisions.NewIncidentBundleSourcePort()
 	importContext := taskDecisionImportContext(harness, operationID)
 	prepared, err := port.PrepareImport(ctx, bundle, importContext)
 	if err != nil {

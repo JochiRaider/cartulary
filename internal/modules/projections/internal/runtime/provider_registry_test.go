@@ -1,9 +1,14 @@
 package runtime
 
 import (
+	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/internal/queryengine"
@@ -42,6 +47,63 @@ func TestProjectionProviderRegistryOrdersAndIndexesContributions(t *testing.T) {
 	if got, want := providerKeys(multiViewRegistry.evidenceAssociationProviders("host")), []string{"host", "identity"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("deterministic host Evidence association providers: got %#v want %#v", got, want)
 	}
+
+	t.Run("generic rebuild callers share descriptor order and failure boundary", func(t *testing.T) {
+		providers := registryValidationProviders()
+		calls := make([]string, 0, len(providers))
+		for index := range providers {
+			providerID := providers[index].descriptor.ProviderID
+			providers[index].rebuildIncidentTx = func(context.Context, *Store, pgx.Tx, uuid.UUID) error {
+				calls = append(calls, providerID)
+				return nil
+			}
+		}
+		registry, err := newProviderRegistry(providers)
+		if err != nil {
+			t.Fatalf("generic rebuild registry: %v", err)
+		}
+		store := &Store{registry: registry}
+		incidentID := uuid.New()
+		want := []string{"host", "identity"}
+		for name, rebuild := range map[string]func() error{
+			"incident": func() error {
+				return store.RebuildIncidentTx(t.Context(), nil, incidentID)
+			},
+			"import": func() error {
+				return store.RebuildImportedIncidentTx(t.Context(), nil, incidentID)
+			},
+			"selected views": func() error {
+				return store.RebuildIncidentViewsTx(
+					t.Context(),
+					nil,
+					incidentID,
+					[]string{identitiesViewSchemaID, hostsViewSchemaID},
+				)
+			},
+		} {
+			t.Run(name, func(t *testing.T) {
+				calls = calls[:0]
+				if err := rebuild(); err != nil {
+					t.Fatalf("%s rebuild: %v", name, err)
+				}
+				if !reflect.DeepEqual(calls, want) {
+					t.Fatalf("%s rebuild order: got %#v want %#v", name, calls, want)
+				}
+			})
+		}
+
+		sentinel := errors.New("characterized provider failure")
+		registry.rebuildOrder[1].rebuildIncidentTx = func(context.Context, *Store, pgx.Tx, uuid.UUID) error {
+			return sentinel
+		}
+		calls = calls[:0]
+		if err := store.RebuildImportedIncidentTx(t.Context(), nil, incidentID); !errors.Is(err, sentinel) {
+			t.Fatalf("generic rebuild failure = %v, want %v", err, sentinel)
+		}
+		if got := calls; !reflect.DeepEqual(got, []string{"host"}) {
+			t.Fatalf("providers called before failure: got %#v want host only", got)
+		}
+	})
 }
 
 func TestProjectionProviderRegistryRejectsInvalidContributions(t *testing.T) {

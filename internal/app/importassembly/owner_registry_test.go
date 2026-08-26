@@ -23,7 +23,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -319,7 +319,7 @@ type inertPartyProjectionRows struct {
 }
 
 type inertTaskDecisionProjectionRows struct {
-	taskdecisionprojection.Rows
+	taskdecisionprojection.MutationRows
 }
 
 type inertIndicatorProjectionRows struct {

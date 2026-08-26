@@ -13,21 +13,22 @@ conflict, the adopted owner controls and the session MUST record
 | Target path | `internal/modules/tasksdecisions` |
 | Target label | `tasksdecisions`, derived from the target directory and normalized to lowercase kebab case |
 | Output path | `docs/handoffs/tasksdecisions-module-refactor-tracker.md` |
-| Current status | `RS-08A` remains complete historical work. Iteration 2 remediation is complete against bound commit `dd06b39a1ec901b0c610c87606546324552693da`; every `RM-00..RM-11` row and acceptance criterion is `DONE`/`PASS`. |
-| Administrative authorization | The 2026-08-25 implementation request closes `RB-001` against repository commit `bbb0fb7298e746210a5b8123d4d251aece8e585e` and pre-revision tracker SHA-256 `aa2f8e4f725afeb4775b915ae7b9caf54f517211470d84265ea5929b0a1093c2`. |
-| Presently authorized production change | The serial `RM-00..RM-11` remediation ledger in Section 13 is complete; no additional production change is authorized by this tracker. |
-| Pending planned work | None within the authorized remediation iteration. |
-| Non-goals | No public route, wire schema, lifecycle, authorization, event, transaction, database schema, frontend behavior, or persisted-data change; no generalized review/approval engine and no compatibility wrapper for intentionally retired internal Go APIs. |
+| Current status | `RS-08A`, Iteration 2, and Iteration 3, "Legacy Removal and Production Readiness," are complete historical work. `I3-00..I3-08` are closed with passing acceptance evidence. |
+| Administrative authorization | The 2026-08-25 implementation request activates Iteration 3 against `main` commit `6bfc77b10cf0cba13991e3b94c833d8c84aaed51`, pre-implementation tracker SHA-256 `b3efdf265499dde020ab6234489ec2282e342878adb8af28b9f4a1dcd63b8047`, and a worktree whose only pre-existing change was the user-owned staged Section 14 planning draft in this file. |
+| Presently authorized production change | Serial workstreams `I3-00..I3-08` in Section 14 after `I3-00` releases fresh baselines. The adopted Projections implementation-boundary decision and its non-normative Appendix I explanation may be amended before the projection code cutover. |
+| Pending planned work | None for Iteration 3; `I3-00..I3-08` are `DONE`. |
+| Non-goals | No public route, wire schema, lifecycle, authorization, event, transaction, database schema, frontend behavior, persisted-data, dependency, domain-vocabulary, or behavioral-owner change; no compatibility wrapper for intentionally retired internal Go APIs. |
 | Generated files | Generated outputs MAY change only through `make generate`; generated roots MUST NOT be hand-edited. |
 
 The following states are distinct and MUST NOT be conflated:
 
 | State | Meaning | Current disposition |
 | --- | --- | --- |
-| Administrative authorization | An explicit request authorizes a bounded implementation against identified repository and tracker revisions. | Closed for `RS-08A` and Iteration 2; unplanned observable behavior change remains unauthorized. |
-| Baseline release | The owner, service-backed, and backend-boundary baselines pass before production edits. | Released for Iteration 2 by `RM-00` evidence in Section 13. |
-| Slice progress | One independently revertible slice has its specified implementation and evidence. | Every `RM-00..RM-11` slice is checkpointed `DONE`. |
-| Refactor completion | Every required slice is `DONE` or a justified no-op and final handoff evidence is complete. | Reached by the `RM-11` validation and handoff checkpoint. |
+| Planning adoption | A document-only request records a decision-complete future iteration without authorizing its implementation. | Closed for Iteration 3 when the implementation request activated `I3-00`. |
+| Administrative authorization | An explicit implementation request authorizes bounded production work against identified repository and tracker revisions. | Granted for Iteration 3 against the binding recorded above. |
+| Baseline release | The owner, service-backed, affected-owner, backend-boundary, and full-check baselines pass before production edits. | Released for Iteration 3 by `I3-00`; no production edit preceded the baseline. |
+| Slice progress | One independently revertible slice has its specified implementation and evidence. | `I3-00..I3-08` are `DONE`. |
+| Refactor completion | Every required slice is `DONE` or an evidenced `NO-OP` and final handoff evidence is complete. | Reached for Iterations 2 and 3. |
 
 The source hierarchy is:
 
@@ -78,7 +79,11 @@ The governing execution requirements are:
 | TD-REQ-009 | A failing affected product assertion, boundary rule, generated drift check, or owner contradiction MUST stop the active slice. Infrastructure failures MUST be repaired and rerun; they MUST NOT be reported as product passes. |
 | TD-REQ-010 | Each slice MUST have one rollback unit and MUST record exact changed files, commands, retained result roots, failures, skipped checks, and completion evidence. |
 
-## 2. Current-State Repository Inventory
+Sections 2 through 12 preserve the Iteration 1 planning baseline and execution
+history. Section 13 preserves the completed Iteration 2 evidence. Neither is a
+current-state inventory or active plan; Section 14 is the sole current plan.
+
+## 2. Iteration 1 Baseline Repository Inventory (Historical)
 
 Every one of the 38 current target files is inventoried below. No target file
 is out of scope.
@@ -512,3 +517,356 @@ sets the active row to `BLOCKED` and stops later work.
 | Supersession | Retain one atomic `MutationFacade` coordinator and the narrow publication helper. |
 | Dependency | Retain Testcontainers `v0.42.0`; resolve `github.com/moby/go-archive` to `v0.3.3` through Go module tooling. |
 | Domain and NLSpecs | `docs/domain.md` remains unchanged; Core 01, Core 02, and Core 04 already own the required normative scopes. |
+
+## 14. Iteration 3 Legacy Removal and Production Readiness
+
+### Planning authority and baseline
+
+The 2026-08-25 planning request authorized adoption of this section. The
+planning inspection was performed on clean branch `main` at commit
+`6bfc77b10cf0cba13991e3b94c833d8c84aaed51`, with pre-update tracker SHA-256
+`91f28fa265b1cd9d2b385bacdb70aaca56673068ef753c69b8b7e5da52ce3052`.
+These values establish planning provenance, not an implementation binding.
+
+The 2026-08-25 implementation request activates `I3-00` against the commit,
+tracker digest, and staged planning-draft state recorded in Section 1. It
+authorizes the serial ledger after fresh baselines pass. It also resolves the
+planning contradiction identified before execution: the adopted Projections
+implementation-boundary decision MUST be amended before removing the
+Tasks/Decisions-specific rebuild port, and Appendix I MUST be reconciled with
+that decision. No production edit is permitted until `I3-00` is `DONE`.
+
+`docs/domain.md` and behavioral owner specifications require no change. This
+iteration changes no domain vocabulary or owner-required behavior. It amends
+one adopted implementation-topology decision, reconciles its non-normative
+explanation, removes dead, duplicated, misleading, or unnecessarily broad
+repository-internal Go surfaces, and decomposes mixed implementation and test
+units.
+
+### Checkpoint protocol
+
+The allowed Iteration 3 states are `PLANNED`, `IN_PROGRESS`, `BLOCKED`, `DONE`,
+`NO-OP`, and `SUPERSEDED`. Every ledger row starts as `PLANNED`; no row is
+active at adoption time.
+
+The workstreams MUST execute strictly in ledger order and MUST NOT overlap.
+After completing each workstream, and before activating the next, the session
+MUST update this tracker with:
+
+- the bound input commit and tracker digest;
+- exact changed files and the independently revertible rollback unit;
+- every command, retained result root, failure, repair, rerun, and skipped
+  check with its reason;
+- compatibility and migration posture;
+- acceptance evidence and the exact next slice; and
+- a passing `make lint-markdown` checkpoint.
+
+An owner contradiction, unintended observable-contract drift, affected test
+failure, backend-boundary failure, generated drift, unresolved security
+failure, or unexplained worktree change MUST set the active row to `BLOCKED`
+and stop later work. An affected failure MUST NOT be dispositioned as
+acceptable. `NO-OP` is permitted only when repository evidence proves that a
+planned change is already satisfied and records the validating commands.
+
+Generated roots and generated topology MUST change only through
+`make generate`. File-only moves MUST NOT create new verification identities.
+Authored test rows may change only when a package or selected test identity
+actually changes.
+
+### Current findings and remediation decisions
+
+Planning inspection found 56 Go files and 8,855 Go lines below the owner root.
+The largest remaining mixed units are the 563-line Decision mutation test, the
+415-line Incident Bundle portability implementation, and the 410-line rollback
+provider. The active projection contract also exposes unused rebuild surfaces
+and combines opposite integration directions under the Workbook-specific
+package name. Repository-wide symbol tracing found the specific dead or
+duplicated surfaces governed below; it did not justify removing any adopted
+Task Request or Decision feature.
+
+#### I3-G1 Directional projection boundary
+
+- **Remediation and areas:** Replace
+  `internal/modules/tasksdecisions/workbookprojection` with
+  `projectioncontract` for source-directed inputs, source readers, and the
+  projection `Contribution`, and `projectionports` for consumer-directed
+  mutation and Reporting ports. Update implementation, the code-backed
+  provider manifest, application assembly, boundary policy, tests, and harness
+  accounting together.
+- **Runtime contract:** `projectionports.MutationRows` contains only
+  `RefreshTaskRequestTx`, `LoadTaskRequestTx`, `RefreshDecisionTx`, and
+  `LoadDecisionTx`. `projectionports.ReportingReader` directly declares the
+  two existing derived-fact collection methods and retains the current Task
+  and Decision derived-fact value shapes.
+- **Removal:** Delete the old `Rows`, `Ports`, `Rebuilder`, and `TaskReader`
+  interfaces, package-level `Descriptors` and `SurfaceIntents`, aggregate
+  `TaskDecisionPorts`, and every unused task-specific rebuild method on the
+  Projections runtime and row adapter. Do not add a forwarding package, alias,
+  or replacement aggregate.
+- **Rationale and long-term benefit:** The two packages make integration
+  direction and ownership explicit, apply least authority to mutation and
+  import callers, and prevent dead restore APIs from becoming a compatibility
+  obligation. New projection capabilities can grow without expanding one
+  Workbook-named kitchen-sink contract.
+- **Compatibility and migration:** This is an atomic repository-internal Go
+  import and signature break. Provider IDs, capabilities, rebuild ordering,
+  view-schema IDs, semantic intents, projection tables, query behavior, and
+  persisted rows remain unchanged. The provider manifest changes only its
+  Tasks/Decisions facade package path.
+- **Risk if unresolved:** Mutation, Imports, Reporting, Recovery, and
+  Projections remain unnecessarily coupled, and unused rebuild entry points
+  may be mistaken for supported APIs or evolve inconsistently with the generic
+  catalog-driven rebuild path.
+- **Validation:** The old directory and imports are absent; exact export locks
+  pass for both replacement packages; mutation refresh/load and Reporting fact
+  behavior remain equivalent; generic incident and restore rebuild tests pass;
+  provider-manifest, Projections, Reporting, Imports, Workbook, Recovery,
+  boundary, generation, and harness evidence is green.
+
+#### I3-G2 Root contribution facade cleanup
+
+- **Remediation and areas:** Replace `IncidentBundleContribution` and
+  `NewIncidentBundleContribution` with `NewIncidentBundleSourcePort` and
+  `IncidentBundleSubtypeContribution`. Make the Reporting implementation
+  private and make `NewReportingContribution` return
+  `exportprovider.FieldProvider`. Rename `NewRecoveryContribution` to
+  `RecoveryStateContribution`. Remove the owner-local `ImportCreateCommand`
+  alias and use the Imports owner-facade command type internally. Update root
+  implementation, application assembly, boundary tests, and affected owner
+  tests atomically.
+- **Rationale and long-term benefit:** Each root constructor will expose one
+  owner contribution without publishing an otherwise-unused concrete wrapper
+  or local alias. Composition roots receive the narrow capability they need,
+  making future owner contributions independently extensible.
+- **Compatibility and migration:** Repository-internal Go callers break and
+  are updated in the same slice. There are no compatibility shims and no wire,
+  database, data, or provider-identity changes.
+- **Risk if unresolved:** Thin concrete wrappers and combined contributions
+  accumulate accidental API commitments and force unrelated consumers to
+  depend on one aggregate shape.
+- **Validation:** Removed declarations have zero definitions and callers;
+  Incident Bundles, Reporting, Recovery, Imports, server composition, root
+  export locks, and boundary checks pass with identical provider outputs and
+  recovery-state declarations.
+
+#### I3-G3 Mutation indirection and duplicate conflict type
+
+- **Remediation and areas:** Remove `MemberReferenceCapability`,
+  `NewMemberReferenceCapability`, the corresponding dependency and facade
+  fields, and Workbook assembly injection. Mutation admission calls the
+  existing owner-private member-reference validator directly, as Imports
+  already does. Replace `SupersedeRowVersionConflictError` with the identical
+  common `RowVersionConflictError`. Rename `workbook_conflict.go` to
+  `mutation_conflict_resolution.go`; retain `mutation_conflicts.go` for
+  conflict construction helpers.
+- **Rationale and long-term benefit:** Owner-internal validation no longer
+  leaves the module solely to be injected back into the same owner. One row
+  conflict type eliminates duplicate error evolution and gives every mutation
+  path one stable internal vocabulary. Mutation files describe owner behavior
+  instead of a downstream adapter.
+- **Compatibility and migration:** Internal constructor and error-type callers
+  change atomically, with no aliases. Validation order, error details,
+  idempotency, transaction ownership, rollback, supersession ordering, and
+  Workbook failure mapping remain exact.
+- **Risk if unresolved:** Duplicate errors can drift in fields or mapping, and
+  the self-injected validator creates needless composition coupling and a false
+  extension point.
+- **Validation:** Create and patch member-reference cases preserve success and
+  failure precedence; supersession maps the common row conflict identically;
+  owner, service-backed, Workbook, Imports, Collaboration, replay, rollback,
+  and export-surface checks pass.
+
+#### I3-G4 Test topology and dead support
+
+- **Remediation and areas:** Make shared external-test helpers private, move
+  the misplaced Task state helper into shared support, remove the unused
+  terminal-state catalog parameter and its dead construction, and split
+  Decision mutation coverage from supersession coverage without renaming
+  routed tests. Update authored selectors only if a selected test identity
+  actually changes.
+- **Rationale and long-term benefit:** Test support stops presenting accidental
+  API-like names, behavior suites become easier to navigate, and dead setup no
+  longer obscures real dependencies.
+- **Compatibility and migration:** Test-only source organization changes. Test
+  names, assertions, service fixtures, and harness identities remain stable.
+- **Risk if unresolved:** Future maintainers can mistake test helpers for
+  reusable contracts, while oversized suites and unused construction hide
+  ownership and make regressions harder to localize.
+- **Validation:** All former test names still resolve, no dead parameter or
+  construction remains, owner/service-backed slices pass, and harness contract
+  reports every selector as real.
+
+#### I3-G5 Portability and rollback cohesion
+
+- **Remediation and areas:** Replace the Incident Bundle `portability.go`
+  catch-all with cohesive export, portable-value decoding, import preparation,
+  and import application units. Replace rollback `provider.go` with task
+  provider, decision provider, and shared value-decoding units. Keep the same
+  packages and do not introduce generic reflection, dynamic dispatch, or a
+  shared cross-owner framework.
+- **Rationale and long-term benefit:** Export, strict admission, persistence,
+  Task lifecycle restoration, and Decision machine restoration evolve in
+  isolated files while retaining high owner cohesion.
+- **Compatibility and migration:** Same-package code movement only. Bundle
+  paths, NDJSON bytes, invariant identifiers, attribution, SQL, snapshot
+  schemas, reference validation, and rollback results remain exact.
+- **Risk if unresolved:** Changes to one portability phase or record family
+  continue to require editing mixed high-risk files, increasing regression and
+  review cost.
+- **Validation:** Byte and ordering fixtures, malformed/duplicate/cross-
+  incident negatives, attribution, atomic import, nullable rollback,
+  lifecycle, reference, revision, and service-backed tests all pass.
+
+#### I3-G6 Durable boundary and completion enforcement
+
+- **Remediation and areas:** Upgrade the AST surface lock to include exported
+  constants, variables, types, functions, and methods in the owner root and
+  both new projection packages. Add a negative fixture, cohesive declaration
+  assertions, and absence checks for retired symbols, catch-all files, and the
+  old package path. Reconcile backend boundaries, provider metadata, authored
+  test routing, and generated topology.
+- **Rationale and long-term benefit:** Production readiness becomes an
+  enforced repository property rather than a one-time review conclusion.
+- **Compatibility and migration:** Test, boundary-policy, machine-metadata,
+  harness, and generated-topology changes only. File moves do not create new
+  test identities.
+- **Risk if unresolved:** Dead surfaces or stale paths can return silently,
+  exported methods can bypass the current top-level-only guard, and moved tests
+  can lose owner routing.
+- **Validation:** Negative AST fixtures fail as designed; retired-path and
+  declaration searches are empty; `make generate`, drift, generated-policy,
+  JSON-shape, boundary, and harness-contract gates pass.
+
+### Bound internal interface disposition
+
+`I3-01` freezes the complete current top-level export inventory below. A name
+listed as retained remains intentionally public in the same package unless a
+later row explicitly names its destination. No unlisted compatibility alias or
+forwarder is permitted.
+
+| Current root export | Iteration 3 disposition |
+| --- | --- |
+| `AdmissionFailure`, `AdmitConflictResolveJSON`, `AdmitCreateJSON`, `AdmitPatchJSON`, `AdmitSupersedeJSON`, `CollectionAction`, `CollectionActionPayload`, `ConflictClaims`, `ConflictCommand`, `ConflictResolveRequest`, `ConflictResolveRequestHash`, `CreateCommand`, `CreateRequest`, `CreateRequestHash`, `DecisionsViewSchemaID`, `ErrClientTxnConflict`, `ErrIdempotencyNotFound`, `ErrStoredMutationKindMismatch`, `FieldValue`, `IdempotencyCapability`, `IdempotencyKey`, `IdempotencyRecord`, `ImportDependencies`, `ImportLinkCapability`, `ImportRecordEnvelopeCapability`, `ImportRevisionCapability`, `IncidentStateCapability`, `LifecycleValidationError`, `LinkCapability`, `MutationDependencies`, `MutationFacade`, `MutationResult`, `NewImportContribution`, `NewMutationContribution`, `NewProjectionContribution`, `NewReportingContribution`, `NewRevisionContribution`, `NewStoredCreateResult`, `NewStoredDecisionSupersessionResult`, `NewStoredPatchResult`, `OptionalConflictValue`, `PatchChange`, `PatchCommand`, `PatchRequest`, `PatchRequestHash`, `RecordEnvelopeCapability`, `RevisionCapability`, `RowVersionConflictError`, `SameFieldConflict`, `SameFieldConflictError`, `StoredDecisionSupersessionResult`, `StoredMutationCreate`, `StoredMutationDecisionSupersession`, `StoredMutationKind`, `StoredMutationPatch`, `StoredMutationResult`, `StoredRowMutationResult`, `SupersedeCommand`, `SupersedeFacts`, `SupersedeMutationResult`, `SupersedeRequest`, `SupersedeRequestHash`, `TaskRequestsViewSchemaID`, `ValidationError` | Retain. `NewReportingContribution` keeps its name but returns the narrow `exportprovider.FieldProvider` interface instead of an exported concrete implementation. |
+| `ImportCreateCommand` | Delete; use `ownerfacade.ImportOwnerCreateCommand` internally. |
+| `IncidentBundleContribution`, `NewIncidentBundleContribution` | Delete; replace the aggregate constructor with `NewIncidentBundleSourcePort` and `IncidentBundleSubtypeContribution`. |
+| `MemberReferenceCapability`, `NewMemberReferenceCapability` | Delete; call owner-private member validation directly. |
+| `NewRecoveryContribution` | Rename to `RecoveryStateContribution` without an alias. |
+| `ReportingContribution` | Make private; do not replace it with another exported concrete type. |
+| `SupersedeRowVersionConflictError` | Delete; supersession returns the common `RowVersionConflictError`. |
+
+| Current `workbookprojection` export | Iteration 3 disposition |
+| --- | --- |
+| `TaskRequestProjectionInput`, `TaskRequestProjectionInputPage`, `TaskRequestSourceReader`, `DecisionProjectionInput`, `DecisionProjectionInputPage`, `DecisionSourceReader`, `Contribution`, `NewContribution` | Move without semantic change to `projectioncontract`. |
+| `Contribution.ProjectionContribution`, `Contribution.TaskRequestSource`, `Contribution.DecisionSource` | Retain as the three accessors on `projectioncontract.Contribution`. |
+| `TaskDerivedFact`, `DecisionDerivedFact` | Move without semantic change to `projectionports`. |
+| `Rows` | Replace with four-method `projectionports.MutationRows`; omit both transaction rebuild methods. |
+| `Reader`, `TaskReader` | Replace with one directly declared, two-method `projectionports.ReportingReader`. |
+| `Ports`, `Rebuilder` | Delete without replacement; expose mutation rows and Reporting reader separately and retain generic catalog-driven rebuild. |
+| `Descriptors`, `SurfaceIntents` | Delete package-level test conveniences; inspect the constructed contribution's immutable facts. |
+| `tasksdecisions/workbookprojection` | Delete after the atomic move; retain no forwarding directory or import. |
+
+The intentional breaks above are internal to the repository. There is no HTTP,
+OpenAPI, TypeScript, WebSocket, database, persisted-data, request-hash,
+lifecycle, authorization, frontend, dependency, domain, or adopted-owner
+migration. All callers MUST be updated atomically, and no compatibility alias,
+forwarder, or dual path may remain.
+
+### Iteration 3 ledger
+
+| ID | Workstream | Status | Depends on | Rollback unit | Exit evidence |
+| --- | --- | --- | --- | --- | --- |
+| I3-00 | Authorization rebind and baseline | DONE | none | Section 14 activation, bound inputs, and baseline record | Bound `main` commit, tracker digest, and staged draft state are recorded; Tasks/Decisions unit/service, all eight affected-owner unit/service pairs, boundary, and 658-unit full-check baselines pass before production edits. |
+| I3-01 | Specification alignment and characterization freeze | DONE | I3-00 | Adopted decision, Appendix I, export disposition, and focused characterization tests | The adopted topology assigns Tasks/Decisions rebuild exclusively to generic catalog coordination; the complete top-level export inventory is dispositioned; contribution facts, generic rebuild order/failure, Reporting facts/failure, and existing mutation ordering are routed and green. |
+| I3-02 | Directional projection-contract split | DONE | I3-01 | New packages, all callers, manifest, boundaries, tests, and topology | Exact source and consumer contracts compile across all callers; mutation and Reporting are exposed separately; generic rebuild consumers pass; old package and task-specific rebuild APIs are absent. |
+| I3-03 | Contribution facade cleanup | DONE | I3-02 | Root contribution APIs and every application caller | Incident Bundle source/subtype capabilities are independent, Reporting returns an interface, Recovery uses owner-standard naming, Imports uses the owner command directly, and every legacy wrapper/alias is absent. |
+| I3-04 | Mutation API and error cleanup | DONE | I3-03 | Mutation dependencies, validator calls, error type, adapter, and file rename | Member validation stays owner-private, all row conflicts use one type, the conflict-resolution filename is owner-semantic, and mutation/failure behavior is equivalent. |
+| I3-05 | Test topology cleanup | DONE | I3-04 | Test support and behavior-file organization | Helpers are private, dead setup is gone, behavior files are cohesive, preserved test names pass, and every authored selector remains real. |
+| I3-06 | Portability and rollback decomposition | DONE | I3-05 | Same-package provider source splits | Mixed provider files are absent; bundle bytes, SQL, validation, attribution, lifecycle, references, and rollback behavior remain exact. |
+| I3-07 | Boundary and harness accounting | DONE | I3-06 | Export locks, absence guards, boundary policy, authored routing, and generated topology | Root and replacement-package surfaces are exact; retired paths are rejected; generation, drift, policy, shape, boundary, and harness gates pass. |
+| I3-08 | Validation and handoff completion | DONE | I3-07 | Final tracker evidence only | Every row is `DONE` or an evidenced `NO-OP`; the final ladder passes, the worktree contains only intended changes, and the iteration is unambiguously closed. |
+
+### Iteration 3 workstream checkpoints
+
+| Time | Workstream | Bound input | Changed files and rollback | Commands and retained roots | Result, compatibility, and next action |
+| --- | --- | --- | --- | --- | --- |
+| 2026-08-25T23:15:00-04:00 | I3-00 | HEAD `6bfc77b10cf0cba13991e3b94c833d8c84aaed51`; pre-implementation tracker SHA-256 `b3efdf265499dde020ab6234489ec2282e342878adb8af28b9f4a1dcd63b8047`; `main` worktree initially contained only the user-owned staged planning draft in this tracker | `docs/handoffs/tasksdecisions-module-refactor-tracker.md`; rollback is the Iteration 3 authorization rebind and baseline checkpoint only | `make task-guide ROLE=module-author OWNER=module.tasksdecisions` and `make explain-test-owner OWNER=module.tasksdecisions` pass; Tasks/Decisions unit `.cartulary/test-results/20260826T024800Z-p2464074` and service `.cartulary/test-results/20260826T024847Z-p2504318`; Projections unit `.cartulary/test-results/20260826T024939Z-p2544429` and service `.cartulary/test-results/20260826T025016Z-p2560974`; Workbook unit `.cartulary/test-results/20260826T025053Z-p2577487` and service `.cartulary/test-results/20260826T025306Z-p2635280`; Imports unit `.cartulary/test-results/20260826T025519Z-p2692987` and service `.cartulary/test-results/20260826T025628Z-p2735377`; Reporting unit `.cartulary/test-results/20260826T025737Z-p2777713` and service `.cartulary/test-results/20260826T025818Z-p2793925`; Recovery unit `.cartulary/test-results/20260826T025858Z-p2810171` and service `.cartulary/test-results/20260826T030012Z-p2862655`; Incident Bundles unit `.cartulary/test-results/20260826T030126Z-p2915134` and service `.cartulary/test-results/20260826T030222Z-p2931538`; Revisions unit `.cartulary/test-results/20260826T030318Z-p2947907` and service `.cartulary/test-results/20260826T030421Z-p2992852`; Collaboration unit `.cartulary/test-results/20260826T030524Z-p3037817` and service `.cartulary/test-results/20260826T030651Z-p3085624`; boundary `.cartulary/test-results/20260826T030821Z-p3133528`; full check 658/658 `.cartulary/test-results/20260826T030823Z-p3133960`; initial `make lint-markdown CARTULARY_TEST_RESULTS_DIR=... CARTULARY_TEST_RUN_ID=...` invocation rejected before execution because harness identity is not an allowed Make command-line input; corrected environment-scoped checkpoint Markdown `.cartulary/test-results/i3-00-checkpoint` | Baseline released before production edits. The only failure was the recorded checkpoint-command configuration error; no test or Markdown content failed, no check was skipped, and the supported rerun passed. This checkpoint changes planning and execution metadata only: no specification, product, schema, data, public contract, frontend, dependency, domain, or compatibility migration exists. After the recorded Markdown pass, activate `I3-01`; amend the adopted Projections implementation-boundary decision and Appendix I before any projection cutover. |
+| 2026-08-25T23:26:05-04:00 | I3-01 | `I3-00` checkpoint complete against the same bound HEAD and preserved staged planning draft | `docs/decisions/projections-module-boundary.md`; `docs/spec/I_projection_authority_boundary_and_characterization.md`; `internal/modules/projections/internal/runtime/provider_registry_test.go`; new `internal/modules/tasksdecisions/reporting_contribution_test.go`; authored `tools/test_families/{module.projections,module.tasksdecisions}.json`; generated `tools/execution_topology_render_index.json`; this tracker. Rollback is the adopted-decision/Appendix amendment, characterization tests, authored selector changes, generated index, and checkpoint together. | Format 2/2 `.cartulary/test-results/20260826T032032Z-p3249756`; initial generate `.cartulary/test-results/20260826T032038Z-p3253680` and final generate `.cartulary/test-results/20260826T032425Z-p3335690`; Tasks/Decisions 20/20 `.cartulary/test-results/20260826T032100Z-p3256727`; initial Projections 15/15 `.cartulary/test-results/20260826T032150Z-p3297809` and final expanded selector 15/15 `.cartulary/test-results/20260826T032438Z-p3338630`; Reporting 5/5 `.cartulary/test-results/20260826T032234Z-p3314798`; initial drift/policy/shape/harness `.cartulary/test-results/20260826T032324Z-p3331151`, `.cartulary/test-results/20260826T032335Z-p3334108`, `.cartulary/test-results/20260826T032338Z-p3334535`, `.cartulary/test-results/20260826T032345Z-p3335049`; final drift `.cartulary/test-results/20260826T032523Z-p3355445`, policy `.cartulary/test-results/20260826T032531Z-p3358352`, shape `.cartulary/test-results/20260826T032532Z-p3358762`, and harness `.cartulary/test-results/20260826T032536Z-p3359241`; `git diff --check` pass; checkpoint Markdown `.cartulary/test-results/i3-01-checkpoint` | No command failed or was skipped. The second generation/gate pass incorporates the expanded projection-contribution characterization selector, not a repair. The adopted decision now authorizes generic-only Tasks/Decisions rebuild; Appendix I explains the directional contracts; every current top-level export is dispositioned. Generic incident/import rebuild order and first-failure propagation, immutable contribution facts, Reporting order/copy/failures, and existing source-before-target mutation ordering are protected. This is an internal topology amendment with no Core behavior, `docs/domain.md`, wire, schema, data, frontend, dependency, provider identity, or compatibility migration. After Markdown passes, activate `I3-02` for the atomic package and caller cutover. |
+| 2026-08-25T23:53:02-04:00 | I3-02 | `I3-01` checkpoint complete against the same bound HEAD and intended cumulative worktree | Added `internal/modules/tasksdecisions/projectioncontract/{contribution.go,contribution_test.go}` and `projectionports/ports.go`; deleted `workbookprojection/{contribution.go,contribution_test.go}` and its directory; updated Tasks/Decisions projection construction, mutation/import/Reporting consumers and provider imports/tests; Projections adapter, runtime, query, storage, and tests; projection/import/workbook/server application assembly and test support; `contracts/projection-providers/index.json`; authored boundary and Projections test-family inputs; generated topology render index; this tracker. Rollback is the two-package split, every atomic caller/manifest/policy/selector migration, old-package deletion, and checkpoint together. | Format 2/2 `.cartulary/test-results/20260826T033220Z-p3363343`; Tasks/Decisions 20/20 `.cartulary/test-results/20260826T033227Z-p3367325` and service 15/15 `.cartulary/test-results/20260826T033445Z-p3429741`; Projections 15/15 `.cartulary/test-results/20260826T033324Z-p3409051` and service 11/11 `.cartulary/test-results/20260826T033531Z-p3470002`; generate `.cartulary/test-results/20260826T033414Z-p3426243`; boundary 3/3 `.cartulary/test-results/20260826T033432Z-p3429340`; Workbook 66/66 `.cartulary/test-results/20260826T033615Z-p3486565` and service 37/37 `.cartulary/test-results/20260826T033827Z-p3544848`; Imports 23/23 `.cartulary/test-results/20260826T034038Z-p3602591` and service 14/14 `.cartulary/test-results/20260826T034148Z-p3645421`; Reporting 5/5 `.cartulary/test-results/20260826T034304Z-p3687827` and service 4/4 `.cartulary/test-results/20260826T034344Z-p3704284`; Recovery 24/24 `.cartulary/test-results/20260826T034424Z-p3720557` and service 19/19 `.cartulary/test-results/20260826T034538Z-p3773833`; Incident Bundles 8/8 `.cartulary/test-results/20260826T034700Z-p3826429` and service 6/6 `.cartulary/test-results/20260826T034757Z-p3843047`; Revisions 27/27 `.cartulary/test-results/20260826T034854Z-p3859430` and service 20/20 `.cartulary/test-results/20260826T034959Z-p3905328`; drift `.cartulary/test-results/20260826T035113Z-p3950299`; generated policy `.cartulary/test-results/20260826T035121Z-p3953213`; JSON shape `.cartulary/test-results/20260826T035122Z-p3953623`; harness `.cartulary/test-results/20260826T035126Z-p3954095`; fast 432/432 `.cartulary/test-results/20260826T035144Z-p3954720`; corrected absence/export inventory search and `git diff --check` pass; checkpoint Markdown `.cartulary/test-results/i3-02-checkpoint` | `projectioncontract` now contains only the six source value/reader types plus `Contribution`, its constructor, and three accessors; `projectionports` contains only two fact types, four-method `MutationRows`, and two-method `ReportingReader`. Projection assembly exposes those ports separately. All task-specific adapter/runtime rebuild methods, aggregate ports, old imports, and old directory are absent; generic incident/import/Revisions/restore behavior is green. The first absence command incorrectly matched legitimate other-owner `Rows`/`Rebuilder` interfaces and returned nonzero; an owner-qualified rerun passed. No product test failed or was skipped. Provider IDs, order, capabilities, tables, schemas, facts, storage, queries, public contracts, data, and dependencies are unchanged; internal Go callers migrated atomically with no shim or migration. After Markdown passes, activate `I3-03` for root contribution cleanup. |
+| 2026-08-26T00:05:30-04:00 | I3-03 | `I3-02` checkpoint complete against the same bound HEAD and intended cumulative worktree | `internal/modules/tasksdecisions/{incident_bundle_contribution.go,incident_bundle_source_port_test.go,reporting_contribution.go,recovery_state.go,import_create.go,exported_surface_test.go}`; `internal/app/{incidentportabilityassembly/catalog.go,recoveryassembly/state_catalog.go}`; this tracker. Rollback is the four root-facade changes, their exact callers/export lock, and checkpoint together. | Format 2/2 `.cartulary/test-results/20260826T035507Z-p3963227`; Tasks/Decisions 20/20 `.cartulary/test-results/20260826T035515Z-p3967170`; Incident Bundles 8/8 `.cartulary/test-results/20260826T035613Z-p4008568` and service 6/6 `.cartulary/test-results/20260826T035710Z-p4025180`; Reporting 5/5 `.cartulary/test-results/20260826T035806Z-p4041561` and service 4/4 `.cartulary/test-results/20260826T035845Z-p4057999`; Recovery 24/24 `.cartulary/test-results/20260826T035932Z-p4074295` and service 19/19 `.cartulary/test-results/20260826T040046Z-p4127635`; Imports 23/23 `.cartulary/test-results/20260826T040202Z-p4180505` and service 14/14 `.cartulary/test-results/20260826T040311Z-p29248`; boundary 3/3 `.cartulary/test-results/20260826T040428Z-p71796`; fast 432/432 `.cartulary/test-results/20260826T040430Z-p72217`; legacy-declaration/caller and replacement-call search plus `git diff --check` pass; checkpoint Markdown `.cartulary/test-results/i3-03-checkpoint` | No command failed or was skipped. Incident Bundle source and subtype contributions are independently composed; the Reporting implementation is private and returned only as `exportprovider.FieldProvider`; Recovery uses `RecoveryStateContribution`; import code directly accepts `ownerfacade.ImportOwnerCreateCommand`. `IncidentBundleContribution`, `NewIncidentBundleContribution`, exported `ReportingContribution`, `NewRecoveryContribution`, and `ImportCreateCommand` have no Tasks/Decisions declaration or caller. Provider output, subtype catalog, Recovery inventory, import atomicity, and server-wide compilation remain equivalent. This is an internal Go surface break with no wire, provider identity, schema, data, frontend, dependency, or compatibility migration. After Markdown passes, activate `I3-04` for mutation validation and conflict cleanup. |
+| 2026-08-26T00:20:41-04:00 | I3-04 | `I3-03` checkpoint complete against the same bound HEAD and intended cumulative worktree | `internal/modules/tasksdecisions/{mutation_capabilities.go,mutation_construction.go,mutation_create.go,mutation_patch.go,mutation_contracts.go,mutation_supersede.go,mutation_composition_test.go,exported_surface_test.go}`; deleted `workbook_conflict.go` and added `mutation_conflict_resolution.go`; `internal/app/workbookassembly/{tasksdecisions_capabilities.go,action_adapters.go}`; this tracker. Rollback is the validator de-injection, common conflict type, filename move, Workbook mapping, export lock, and checkpoint together. | Format 2/2 `.cartulary/test-results/20260826T040803Z-p80750`; Tasks/Decisions 20/20 `.cartulary/test-results/20260826T040810Z-p84704` and service 15/15 `.cartulary/test-results/20260826T040907Z-p126193`; Workbook 66/66 `.cartulary/test-results/20260826T040953Z-p166426` and service 37/37 `.cartulary/test-results/20260826T041206Z-p224488`; Imports 23/23 `.cartulary/test-results/20260826T041424Z-p282287` and service 14/14 `.cartulary/test-results/20260826T041534Z-p325061`; Collaboration 32/32 `.cartulary/test-results/20260826T041643Z-p367431` and service 23/23 `.cartulary/test-results/20260826T041810Z-p415820`; boundary 3/3 `.cartulary/test-results/20260826T041941Z-p463821`; fast 432/432 `.cartulary/test-results/20260826T041943Z-p464242`; retired-symbol/file, direct-validator/common-conflict, and `git diff --check` searches pass; checkpoint Markdown `.cartulary/test-results/i3-04-checkpoint` | No command failed or was skipped. Create and patch call the existing owner-private member validator at the same reference-admission position; mutation dependencies and Workbook assembly no longer inject an owner capability back into its owner. Supersession now returns `RowVersionConflictError`, and the action adapter maps the same safe fields/status/code as before. `MemberReferenceCapability`, its constructor/fields, `SupersedeRowVersionConflictError`, and `workbook_conflict.go` are absent; `mutation_conflict_resolution.go` retains the exact conflict-resolution implementation. Member-reference precedence, source-before-target publication, replay, rollback, transaction ownership, and rejected-effect absence remain green. This internal cleanup has no wire, schema, data, frontend, dependency, or compatibility migration. After Markdown passes, activate `I3-05` for test topology cleanup. |
+| 2026-08-26T00:30:53-04:00 | I3-05 | `I3-04` checkpoint complete against the same bound HEAD and intended cumulative worktree | `internal/modules/tasksdecisions/mutation_store_test_support_test.go`; deleted `decision_mutation_store_test.go`; added `decision_supersession_store_test.go` and `decision_lifecycle_store_test.go`; `task_mutation_store_test.go`; this tracker. Rollback is the private-helper rename, shared-support move, behavior-file split, dead catalog removal, and checkpoint together. | Initial format 2/2 `.cartulary/test-results/20260826T042558Z-p474405`; the first owner invocation used invalid `OWNER=tasksdecisions` and exited with a usage error before creating a run root; the corrected owner run exposed two mechanical compile errors and retained 18/20 evidence at `.cartulary/test-results/20260826T042616Z-p478673`; restoring the real `MutationFacade.Patch` method call and `PatchChange.Collection` field followed by format 2/2 `.cartulary/test-results/20260826T042730Z-p519847` produced Tasks/Decisions 20/20 `.cartulary/test-results/20260826T042739Z-p523792` and service 15/15 `.cartulary/test-results/20260826T042829Z-p564429`; harness 2/2 `.cartulary/test-results/20260826T042944Z-p604936`; boundary 3/3 `.cartulary/test-results/20260826T043000Z-p605527`; fast 432/432 `.cartulary/test-results/20260826T043006Z-p605978`; exact pre/post `Test*` inventory comparison, external-test export search, dead-catalog/file search, and `git diff --check` pass; checkpoint Markdown `.cartulary/test-results/i3-05-checkpoint` | Both failures were related to command naming or the mechanical helper rename and were corrected in-slice; no validation was skipped. All shared external-test helpers and types are private, including `taskState` in shared support. Supersession behavior and helpers live in `decision_supersession_store_test.go`; terminal lifecycle behavior lives in `decision_lifecycle_store_test.go`; the ignored catalog parameter and construction are absent. Every prior `Test*` identity is byte-for-byte preserved, so authored routing and generated topology required no change; the owner slice and harness prove selectors resolve. This is test-only organization with no production, wire, schema, data, frontend, dependency, or compatibility migration. After Markdown passes, activate `I3-06` for same-package portability and rollback decomposition. |
+| 2026-08-26T00:45:20-04:00 | I3-06 | `I3-05` checkpoint complete against the same bound HEAD and intended cumulative worktree | Deleted `internal/modules/tasksdecisions/internal/providers/incidentbundle/portability.go` and added `export.go`, `portable_values.go`, `import_prepare.go`, and `import_apply.go`; deleted `internal/modules/tasksdecisions/internal/providers/rollback/provider.go` and added `task_provider.go`, `decision_provider.go`, and `value_decode.go`; `tools/backend_module_boundaries.json`; this tracker. Rollback is both same-package decompositions, the exact boundary allowlist update, and checkpoint together. | Format 2/2 `.cartulary/test-results/20260826T043632Z-p614610`; focused portability/rollback rows 4/4 `.cartulary/test-results/20260826T043643Z-p618571`; Tasks/Decisions 20/20 `.cartulary/test-results/20260826T043733Z-p635626` and service 15/15 `.cartulary/test-results/20260826T043822Z-p676417`; Incident Bundles 8/8 `.cartulary/test-results/20260826T043913Z-p716729` and service 6/6 `.cartulary/test-results/20260826T044014Z-p733413`; Revisions 27/27 `.cartulary/test-results/20260826T044115Z-p749893` and service 20/20 `.cartulary/test-results/20260826T044223Z-p795769`; the first boundary run correctly rejected stale exact file grants at 2/3 `.cartulary/test-results/20260826T044332Z-p840987`; after replacing them with least-authority new-file grants, boundary 3/3 `.cartulary/test-results/20260826T044413Z-p841908`; JSON shape 3/3 `.cartulary/test-results/20260826T044420Z-p842272`; fast 432/432 `.cartulary/test-results/20260826T044429Z-p842798`; catch-all path/policy searches and `git diff --check` pass; checkpoint Markdown `.cartulary/test-results/i3-06-checkpoint` | The boundary failure was related and corrected in-slice; no validation was skipped. Export, portable-value decoding, import preparation, and import application now change independently; Task lifecycle restoration, Decision machine restoration, and common value decoding likewise have distinct files. No declaration, SQL text, ordering, attribution, validation, or dispatch behavior changed. Exact bundle bytes/order, invariant selection, atomic import, nullable rollback, lifecycle, same-incident references, SQL effects, and negative cases remain green. Boundary grants name only files that require each capability; no generated or routing input changed, so generation was not required. This same-package cleanup has no public, schema, data, frontend, dependency, or compatibility migration. After Markdown passes, activate `I3-07` for durable boundary and harness accounting. |
+| 2026-08-26T01:00:22-04:00 | I3-07 | `I3-06` checkpoint complete against the same bound HEAD and intended cumulative worktree | `internal/modules/tasksdecisions/exported_surface_test.go`; `internal/modules/tasksdecisions/projectioncontract/contribution.go`; `contracts/projection-providers/index.json`; regenerated `tools/execution_topology_render_index.json`; this tracker. Existing `tools/backend_module_boundaries.json` and authored family selectors were reconciled and required no further edit. Rollback is the AST/absence/cohesion lock, characterization reference, manifest projection, regenerated digest, and checkpoint together. | Format 2/2 `.cartulary/test-results/20260826T045324Z-p853327`; focused negative/export/cohesion/absence guard row 1/1 `.cartulary/test-results/20260826T045335Z-p857364`; initial generation passed `.cartulary/test-results/20260826T045345Z-p857973`, after which review identified that the source descriptor and authored provider index are separate projections; updating the authored index and rerunning generation passed `.cartulary/test-results/20260826T045451Z-p861734`; Tasks/Decisions 20/20 `.cartulary/test-results/20260826T045505Z-p864678` and service 15/15 `.cartulary/test-results/20260826T045558Z-p905697`; Projections 15/15 `.cartulary/test-results/20260826T045649Z-p946022` and service 11/11 `.cartulary/test-results/20260826T045737Z-p963093`; boundary 3/3 `.cartulary/test-results/20260826T045819Z-p979720`; generation drift 4/4 `.cartulary/test-results/20260826T045826Z-p980085`; generated policy 3/3 `.cartulary/test-results/20260826T045838Z-p983032`; JSON shape 3/3 `.cartulary/test-results/20260826T045842Z-p983466`; harness 2/2 `.cartulary/test-results/20260826T045849Z-p983968`; fast 432/432 `.cartulary/test-results/20260826T045907Z-p984626`; owner-qualified retired path/symbol/import searches and `git diff --check` pass; checkpoint Markdown `.cartulary/test-results/i3-07-checkpoint` | No Make target failed or was skipped. Two preliminary raw symbol searches exited nonzero because their scope included valid same-named APIs owned by Indicators, Parties, and Artifacts; the corrected owner-qualified search is empty. The routed AST lock now distinguishes constants, variables, types, functions, concrete qualified methods, interface methods, and interface embeddings across the owner root, `projectioncontract`, and `projectionports`; its synthetic unexpected-method fixture proves method drift is rejected. Exact declaration-file inventories protect the portability and rollback decomposition, and repository AST/path guards reject every retired Tasks/Decisions API, task-specific rebuild path, external-test helper export, old import, directory, and catch-all file. The provider index references the real supersession characterization file; boundary policy, authored selectors, generated topology, and harness agree. This verification change has no public, schema, data, frontend, dependency, or compatibility migration. After Markdown passes, activate `I3-08` for final validation and handoff completion. |
+| 2026-08-26T01:39:16-04:00 | I3-08 | `I3-07` checkpoint complete against the same bound HEAD and intended cumulative worktree | Final validation changed only this tracker. The intended cumulative worktree is the adopted Projections boundary/Appendix amendment; the directional Tasks/Decisions packages and all atomic callers; root facade, mutation, test, portability, and rollback cleanup; boundary/provider/harness metadata; generated topology; and their tests. Rollback for this slice is the final evidence/status row only. | Tasks/Decisions 20/20 `.cartulary/test-results/20260826T050148Z-p991689` and service 15/15 `.cartulary/test-results/20260826T050234Z-p1032013`; Projections 15/15 `.cartulary/test-results/20260826T050328Z-p1072325` and service 11/11 `.cartulary/test-results/20260826T050405Z-p1088903`; Workbook 66/66 `.cartulary/test-results/20260826T050442Z-p1105470` and service 37/37 `.cartulary/test-results/20260826T050654Z-p1163333`; Imports 23/23 `.cartulary/test-results/20260826T050907Z-p1221155` and service 14/14 `.cartulary/test-results/20260826T051016Z-p1263640`; Reporting 5/5 `.cartulary/test-results/20260826T051125Z-p1306065` and service 4/4 `.cartulary/test-results/20260826T051206Z-p1322405`; Recovery 24/24 `.cartulary/test-results/20260826T051245Z-p1338672` and service 19/19 `.cartulary/test-results/20260826T051403Z-p1391567`; Incident Bundles 8/8 `.cartulary/test-results/20260826T051518Z-p1444189` and service 6/6 `.cartulary/test-results/20260826T051614Z-p1460612`; Revisions 27/27 `.cartulary/test-results/20260826T051710Z-p1477050` and service 20/20 `.cartulary/test-results/20260826T051816Z-p1522238`; Collaboration 32/32 `.cartulary/test-results/20260826T051918Z-p1567227` and service 23/23 `.cartulary/test-results/20260826T052045Z-p1615528`; boundary 3/3 `.cartulary/test-results/20260826T052216Z-p1663598`; drift 4/4 `.cartulary/test-results/20260826T052218Z-p1663944`; generated policy 3/3 `.cartulary/test-results/20260826T052227Z-p1666865`; JSON shape 3/3 `.cartulary/test-results/20260826T052228Z-p1667274`; harness 2/2 `.cartulary/test-results/20260826T052231Z-p1667768`; agent finalization 1/1 `.cartulary/test-results/20260826T052249Z-p1668339`; OpenAPI 4/4 `.cartulary/test-results/20260826T052306Z-p1671191`; browser 58/58 `.cartulary/test-results/20260826T052315Z-p1671871`; fast 432/432 `.cartulary/test-results/20260826T052725Z-p1725806`; vulnerability 4/4 `.cartulary/test-results/20260826T052741Z-p1726608`; targeted gosec 4/4 `.cartulary/test-results/20260826T052749Z-p1727437`; build 7/7 `.cartulary/test-results/20260826T052802Z-p1757353`; initial full check 657/658 `.cartulary/test-results/20260826T052824Z-p1791296`; exact unrelated Jobs telemetry rerun 3/3 `.cartulary/test-results/20260826T053335Z-p1910908`; final full check 658/658 `.cartulary/test-results/20260826T053422Z-p1927308`; independent repository-wide retired-surface audit passes; checkpoint Markdown `.cartulary/test-results/i3-08-checkpoint` | The initial full check's sole failure was the untouched `platform.jobs.integration.operational_telemetry` expiry-counter timing assertion; its exact service-backed row and the complete graph passed unchanged on rerun. `agent-finalize` intentionally received no `RESULTS_DIR` because the ladder places it before the final full check; retained-run selection, closure, and timing maintenance record `results-dir-not-provided`, while all non-retained finalization work passed. No affected validation, security gate, or required command was skipped. The final intended-worktree review preserves the user-owned staged tracker draft and contains no unrelated change; `docs/domain.md`, public contracts, authorization, lifecycle, transaction/data/schema behavior, dependencies, and frontend sources remain unchanged. No compatibility shim, alias, forwarding package, fallback, dual path, database reset, commit, deployment, or migration was introduced. Iteration 3 is closed. |
+
+### Slice verification posture
+
+`I3-00` MUST begin with:
+
+1. `make task-guide ROLE=module-author OWNER=module.tasksdecisions`
+2. `make explain-test-owner OWNER=module.tasksdecisions`
+3. `make test-slice OWNER=module.tasksdecisions`
+4. `make service-backed-test-slice OWNER=module.tasksdecisions`
+5. task-guide-directed affected-owner baselines for Projections, Workbook,
+   Imports, Reporting, Recovery, Incident Bundles, Revisions, and
+   Collaboration
+6. `make backend-module-boundary-check`
+7. `make check`
+
+Each Go implementation slice MUST run `make format`, its narrow Tasks/Decisions
+owner rows, and every directly affected owner row before checkpointing. A slice
+that changes authored generation or test-routing inputs MUST also run
+`make generate` and the corresponding drift, policy, shape, and harness gates
+before it can be `DONE`.
+
+### Final validation ladder
+
+`I3-08` MUST run the following from the repository root, narrowest first:
+
+1. `make test-slice OWNER=module.tasksdecisions`
+2. `make service-backed-test-slice OWNER=module.tasksdecisions`
+3. task-guide-directed unit and service-backed rows for
+   `module.projections`, `module.workbook`, `module.imports`,
+   `module.reporting`, `module.recovery`, `module.incidentbundles`,
+   `module.revisions`, and `module.collaboration`
+4. `make backend-module-boundary-check`
+5. `make generate-drift`
+6. `make generated-artifact-policy-check`
+7. `make json-shape-check`
+8. `make harness-contract`
+9. `make agent-finalize`, recording whether retained-run maintenance used a
+   supplied `RESULTS_DIR`
+10. `make openapi-compatibility-check`
+11. `make browser-e2e-webserver-backed`
+12. `make test-fast`
+13. `make go-vulncheck`
+14. `make go-gosec-targeted`
+15. `make build`
+16. `make check`
+17. repository-wide retired-symbol, retired-file, and retired-import searches
+18. `make lint-markdown`
+19. `git diff --check`
+20. final intended-worktree review
+
+An affected failure, unexplained skip, stale generated artifact, unresolved
+security finding, or compatibility shim prevents `I3-08` completion.
+
+### Iteration 3 acceptance
+
+| Acceptance ID | Binary criterion | Required evidence | Status |
+| --- | --- | --- | --- |
+| I3-AC-001 | The old projection package is absent; the source contribution and runtime consumer directions are represented by separate exact contracts. | Package/import absence, AST surface locks, Projections and affected-owner tests | PASS |
+| I3-AC-002 | Unused task-specific rebuild interfaces and methods are absent while generic catalog-driven incident and restore rebuilding remains green. | Retired-symbol search, provider registry, incident rebuild, and restore tests | PASS |
+| I3-AC-003 | Combined Incident Bundle, concrete Reporting, legacy Recovery naming, and import alias surfaces are absent without shims. | Root export lock, application composition, affected owner slices | PASS |
+| I3-AC-004 | Member-reference validation is owner-private and direct, and supersession uses the common row-version conflict type with unchanged failure mapping. | Owner/service, Workbook, Imports, conflict, supersession, and rollback evidence | PASS |
+| I3-AC-005 | Test helpers and behavior suites are private and cohesive; every preserved or changed selector resolves through authored routing. | AST/file assertions, owner slices, harness contract | PASS |
+| I3-AC-006 | Portability and rollback catch-all files are absent, with exact bundle, invariant, attribution, SQL, reference, lifecycle, and rollback behavior. | Incident Bundle, Revisions, owner, and service-backed evidence | PASS |
+| I3-AC-007 | Boundary policy, provider metadata, authored routing, and generated topology agree with the final package graph. | Generation, drift, policy, JSON-shape, boundary, and harness roots | PASS |
+| I3-AC-008 | Public and persisted behavior remains compatible and no shim, schema, data, dependency, frontend, domain, or specification migration exists. | OpenAPI, browser, security, build, full check, searches, and Git review | PASS |
+| I3-AC-009 | Every workstream has a complete checkpoint and the final worktree contains only intended changes. | Section 14 checkpoint log and final handoff | PASS |
+
+### Completion and handoff posture
+
+Iteration 3 is complete: every `I3-*` row is `DONE`, every `I3-AC-*` row is
+`PASS`, all final gates are green, and this tracker records exact retained
+roots and migration posture. The final handoff is closed through `I3-08`.

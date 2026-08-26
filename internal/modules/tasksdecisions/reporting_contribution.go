@@ -9,25 +9,25 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
 	taskdecisionreporting "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/reporting"
-	taskprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 )
 
-type ReportingContribution struct {
-	reader taskprojection.Reader
+type reportingContribution struct {
+	reader taskprojection.ReportingReader
 }
 
-func NewReportingContribution(reader taskprojection.Reader) (ReportingContribution, error) {
+func NewReportingContribution(reader taskprojection.ReportingReader) (exportprovider.FieldProvider, error) {
 	if reader == nil {
-		return ReportingContribution{}, fmt.Errorf("compose Tasks/Decisions reporting provider: projection reader is required")
+		return nil, fmt.Errorf("compose Tasks/Decisions reporting provider: projection reader is required")
 	}
-	return ReportingContribution{reader: reader}, nil
+	return reportingContribution{reader: reader}, nil
 }
 
-func (ReportingContribution) ProviderKey() string {
+func (reportingContribution) ProviderKey() string {
 	return "tasksdecisions"
 }
 
-func (contribution ReportingContribution) CollectFactsTx(
+func (contribution reportingContribution) CollectFactsTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
@@ -36,4 +36,4 @@ func (contribution ReportingContribution) CollectFactsTx(
 	return taskdecisionreporting.CollectFactsTx(ctx, tx, incidentID, supportRefs, contribution.reader)
 }
 
-var _ exportprovider.FieldProvider = ReportingContribution{}
+var _ exportprovider.FieldProvider = reportingContribution{}

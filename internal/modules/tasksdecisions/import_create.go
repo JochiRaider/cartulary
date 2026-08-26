@@ -15,10 +15,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/sourcecatalog"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 )
-
-type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
 
 const (
 	taskOwnerUserFieldKey     = "task.owner_user_id"
@@ -41,7 +39,7 @@ type ImportRevisionCapability interface {
 type ImportDependencies struct {
 	RecordEnvelopes ImportRecordEnvelopeCapability
 	Links           ImportLinkCapability
-	Projections     taskdecisionprojection.Rows
+	Projections     taskdecisionprojection.MutationRows
 	Revisions       ImportRevisionCapability
 	Collaboration   collaboration.RecordChangedAppender
 }
@@ -95,7 +93,7 @@ func NewImportContribution(
 	)
 }
 
-func (o *importOwner) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
+func (o *importOwner) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ownerfacade.ImportOwnerCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
 	if err := validateImportedOwnerShape(o.catalog, request); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
@@ -180,7 +178,7 @@ func validateImportedOwnerShape(catalog *sourcecatalog.Catalog, request ownerfac
 	return nil
 }
 
-func (o *importOwner) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand, recordID uuid.UUID, linkMutations []links.RecordLinkMutation) (ownerfacade.ImportOwnerCreateResponse, error) {
+func (o *importOwner) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, command ownerfacade.ImportOwnerCreateCommand, recordID uuid.UUID, linkMutations []links.RecordLinkMutation) (ownerfacade.ImportOwnerCreateResponse, error) {
 	row, err := o.refreshImportRowTx(ctx, tx, command.Request.TargetViewSchemaID, recordID)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err

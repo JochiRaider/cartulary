@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	decisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	decisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 )
 
 const decisionsViewSchemaID = "cartulary.view.decisions.v1"

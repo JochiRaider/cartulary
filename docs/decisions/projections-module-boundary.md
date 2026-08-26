@@ -2,7 +2,8 @@
 
 ## Status and scope
 
-Status: Adopted through Core 00 REQ-00-070.
+Status: Adopted through Core 00 REQ-00-070; Tasks/Decisions port topology
+amended 2026-08-25.
 
 This decision owns only the repository-internal Go topology and transition for
 the workbook-grid Projections module. Core 01 owns projection behavior and Core
@@ -60,9 +61,21 @@ required successful port is non-nil.
 - Revisions' consumer-owned projection services;
 - the immutable Projections recovery-state contribution;
 - typed Timeline, Entities, Indicators, Assessments, Artifacts, Evidence,
-  Parties, and Tasks/Decisions writer/rebuild/reader ports; and
+  and Parties writer/rebuild/reader ports;
+- a four-method Tasks/Decisions mutation-row port and a separate two-method
+  Tasks/Decisions Reporting reader; and
 - typed artifact, host/identity, and task/decision derived-fact readers used by
   source-owner Reporting providers.
+
+Tasks/Decisions exposes no source-owner-specific rebuild port. Its task-request
+and decision providers remain required, ordered members of the same immutable
+provider catalog as every other workbook projection provider. Generic
+catalog-driven Projections coordination exclusively performs their incident,
+import, Revisions, and restore rebuilds. The mutation-row port contains only
+typed refresh and load operations for task requests and decisions. The
+Reporting reader contains only the two derived-fact collection operations.
+Neither port can begin or commit a transaction, select rebuild scope, or invoke
+provider-catalog coordination.
 
 Projections does not import Reporting. Source owners retain
 `exportprovider.FieldProvider` implementations, content class, source family,
@@ -86,10 +99,13 @@ indicator deletion remain. No new deletion behavior is created.
 The sequence is characterization, adapter/contracts, application consumers,
 eight source-owner facades, ten physical providers in rebuild order, query-seam
 closure, test capability migration, policy reconciliation, and root removal.
-Every slice has an independently green validation boundary. Temporary
-delegation may exist only inside an active slice and is deleted when its last
-caller migrates. There is no deprecation or release compatibility window for
-the repository-internal root API.
+The Tasks/Decisions amendment additionally separates its source contribution,
+mutation-row consumption, and Reporting consumption, then deletes its obsolete
+rebuild facade after every generic caller is characterized. Every slice has an
+independently green validation boundary. Temporary delegation may exist only
+inside an active slice and is deleted when its last caller migrates. There is
+no deprecation or release compatibility window for the repository-internal
+root API, and no forwarding package or compatibility alias is retained.
 
 Descriptor schema v3 and validation manifest v4 remain current unless their
 serialized shapes change. Host and identity become query-capable projection
@@ -107,6 +123,11 @@ The decision is implemented only when:
 
 - root production imports and exports are empty;
 - exact ten-table SQL ownership and four-way set equality pass;
+- Tasks/Decisions has separate source-contribution, mutation-row, and Reporting
+  contracts, with no owner-specific rebuild interface or adapter/runtime method;
+- generic catalog-driven incident, import, Revisions, and restore rebuild
+  evidence includes the task-request and decision providers in descriptor
+  order;
 - constructor, transaction, deletion, query, Reporting, restore, rebuild,
   telemetry, and test-capability matrices pass before and after migration;
 - generated and migration drift checks pass; and

@@ -128,16 +128,6 @@ func (e *RowVersionConflictError) Error() string {
 	return "tasksdecisions: row version conflict"
 }
 
-type SupersedeRowVersionConflictError struct {
-	RecordID          uuid.UUID
-	BaseRowVersion    int64
-	CurrentRowVersion int64
-}
-
-func (e *SupersedeRowVersionConflictError) Error() string {
-	return "tasksdecisions: row version conflict"
-}
-
 type SameFieldConflictError struct {
 	Conflict SameFieldConflict
 }

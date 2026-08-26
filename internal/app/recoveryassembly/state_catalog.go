@@ -72,7 +72,7 @@ func CurrentRecoveryStateContributions() ([]recoverystate.Contribution, error) {
 		reporting.RecoveryStateContribution(),
 		revisions.RecoveryStateContribution(),
 		savedviews.RecoveryStateContribution(),
-		tasksdecisions.NewRecoveryContribution(),
+		tasksdecisions.RecoveryStateContribution(),
 		timeline.RecoveryStateContribution(),
 		workbook.RecoveryStateContribution(),
 	}, nil

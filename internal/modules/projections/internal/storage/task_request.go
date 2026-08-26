@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	taskprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
 )
 
 func (store *Store) InsertTaskRequestTx(ctx context.Context, tx pgx.Tx, input taskprojection.TaskRequestProjectionInput) error {

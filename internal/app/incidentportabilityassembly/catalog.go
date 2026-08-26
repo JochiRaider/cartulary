@@ -27,7 +27,6 @@ import (
 )
 
 func NewCatalog() (*sourceport.Catalog, error) {
-	taskDecisionContribution := tasksdecisions.NewIncidentBundleContribution()
 	indicatorContribution, err := indicators.NewIncidentBundleContribution()
 	if err != nil {
 		return nil, fmt.Errorf("incident portability assembly: Indicators contribution: %w", err)
@@ -38,7 +37,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 		parties.IncidentBundleSubtypeContribution(),
 		indicatorContribution.SubtypePresence,
 		artifacts.IncidentBundleSubtypeContribution(),
-		taskDecisionContribution.SubtypePresence,
+		tasksdecisions.IncidentBundleSubtypeContribution(),
 		evidence.IncidentBundleSubtypeContribution(),
 		assessments.IncidentBundleSubtypeContribution(),
 	})
@@ -96,7 +95,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 			entities.NewIncidentBundleSourcePort(),
 			indicatorContribution.SourcePort,
 			artifactsSourcePort,
-			taskDecisionContribution.SourcePort,
+			tasksdecisions.NewIncidentBundleSourcePort(),
 			evidence.NewIncidentBundleSourcePort(),
 			assessments.NewIncidentBundleSourcePort(),
 			links.NewIncidentBundleSourcePort(),

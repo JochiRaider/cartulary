@@ -6,14 +6,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/incidentbundle"
 )
 
-type IncidentBundleContribution struct {
-	SourcePort      sourceport.Port
-	SubtypePresence subtypepresence.Contribution
+func NewIncidentBundleSourcePort() sourceport.Port {
+	return incidentbundle.NewSourcePort()
 }
 
-func NewIncidentBundleContribution() IncidentBundleContribution {
-	return IncidentBundleContribution{
-		SourcePort:      incidentbundle.NewSourcePort(),
-		SubtypePresence: incidentbundle.SubtypeContribution(),
-	}
+func IncidentBundleSubtypeContribution() subtypepresence.Contribution {
+	return incidentbundle.SubtypeContribution()
 }

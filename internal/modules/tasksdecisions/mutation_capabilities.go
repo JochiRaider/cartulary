@@ -14,7 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 )
 
 // ErrIdempotencyNotFound is returned when no committed route result exists.
@@ -103,12 +103,6 @@ type IncidentStateCapability interface {
 	RequireOpenTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
-// MemberReferenceCapability validates the stable active same-incident user
-// reference required by Task/Decision source semantics.
-type MemberReferenceCapability interface {
-	ValidateIncidentMemberUserTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, string) error
-}
-
 // IdempotencyCapability preserves the existing lookup-before-validation and
 // transaction-bound write order without exposing the platform auth store.
 type IdempotencyCapability interface {
@@ -148,11 +142,10 @@ type RevisionCapability interface {
 // facade does not construct platform or peer-owner stores.
 type MutationDependencies struct {
 	IncidentState        IncidentStateCapability
-	MemberReferences     MemberReferenceCapability
 	Idempotency          IdempotencyCapability
 	RecordEnvelopes      RecordEnvelopeCapability
 	Links                LinkCapability
-	Projections          taskdecisionprojection.Rows
+	Projections          taskdecisionprojection.MutationRows
 	Revisions            RevisionCapability
 	ConflictFields       conflicts.FieldResolver
 	KeepSavedIdempotency conflicts.IdempotencyPort
@@ -165,7 +158,6 @@ func (d MutationDependencies) validate() error {
 		value any
 	}{
 		{name: "Incident admission", value: d.IncidentState},
-		{name: "Member validation", value: d.MemberReferences},
 		{name: "Route idempotency", value: d.Idempotency},
 		{name: "Record envelopes", value: d.RecordEnvelopes},
 		{name: "Links", value: d.Links},
@@ -181,22 +173,4 @@ func (d MutationDependencies) validate() error {
 		}
 	}
 	return nil
-}
-
-type memberReferenceValidator struct{}
-
-// NewMemberReferenceCapability constructs the source-owned reference policy;
-// application composition decides where it is used.
-func NewMemberReferenceCapability() MemberReferenceCapability {
-	return memberReferenceValidator{}
-}
-
-func (memberReferenceValidator) ValidateIncidentMemberUserTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-	userID uuid.UUID,
-	field string,
-) error {
-	return validateIncidentMemberUserTx(ctx, tx, incidentID, userID, field)
 }

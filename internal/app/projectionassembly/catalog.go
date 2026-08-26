@@ -18,7 +18,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	taskdecisioncontract "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	taskdecisioncontract "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
+	taskdecisionports "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	workbookrestoreprobe "github.com/JochiRaider/cartulary/internal/modules/workbook/restoreprobe"
@@ -169,11 +170,18 @@ func (runtime *Runtime) PartyPorts() partycontract.Ports {
 	return runtime.ports.Parties()
 }
 
-func (runtime *Runtime) TaskDecisionPorts() taskdecisioncontract.Ports {
+func (runtime *Runtime) TaskDecisionMutationRows() taskdecisionports.MutationRows {
 	if runtime == nil {
-		return taskdecisioncontract.Ports{}
+		return nil
 	}
-	return runtime.ports.TasksDecisions()
+	return runtime.ports.TaskDecisionMutationRows()
+}
+
+func (runtime *Runtime) TaskDecisionReportingReader() taskdecisionports.ReportingReader {
+	if runtime == nil {
+		return nil
+	}
+	return runtime.ports.TaskDecisionReportingReader()
 }
 
 // NewEvidenceContribution keeps executable Evidence source construction at
