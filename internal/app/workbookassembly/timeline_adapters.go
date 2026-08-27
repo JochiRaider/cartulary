@@ -28,7 +28,7 @@ type TimelineOperations interface {
 }
 
 func newTimelineProviderSet(owner TimelineOperations) (timelineProviderSet, error) {
-	if isNilContributionDependency(owner) {
+	if isNilDependency(owner) {
 		return timelineProviderSet{}, fmt.Errorf("compose Timeline Workbook adapters: owner is required")
 	}
 	create, err := newTimelineCreateProvider(owner)
@@ -46,31 +46,26 @@ func newTimelineProviderSet(owner TimelineOperations) (timelineProviderSet, erro
 	return timelineProviderSet{create: create, patch: patch, conflict: conflict}, nil
 }
 
-type timelineCreateAdmission struct{ request timeline.CreateRequest }
-
-func (value timelineCreateAdmission) ClientTransactionID() string { return value.request.ClientTxnID }
-
 func newTimelineCreateProvider(owner TimelineOperations) (workbook.CreateProvider, error) {
 	return workbook.NewCreateProvider(
-		func(reader io.Reader) (workbook.CreateAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader) (timeline.CreateRequest, bool, *workbook.MutationFailure, error) {
 			request, apiErr := timelineadmission.DecodeTimelineCreateRequest(reader)
 			if apiErr != nil {
 				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+				return timeline.CreateRequest{}, false, failure, err
 			}
-			return timelineCreateAdmission{request: request}, nil, nil
+			return request, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.CreateCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(timelineCreateAdmission)
-			if !ok || command.ViewSchemaID != timeline.TimelineViewSchemaID {
+		func(ctx context.Context, command workbook.CreateCommand, request timeline.CreateRequest) (workbook.MutationOutcome, error) {
+			if command.ViewSchemaID != timeline.TimelineViewSchemaID {
 				return workbook.RejectedMutation(workbook.InvalidPayloadFailure("view_schema_id", "invalid_view_schema_id")), nil
 			}
 			result, err := owner.CreateRow(ctx, timeline.CreateRowCommand{
-				Actor: command.Actor, IncidentID: command.IncidentID, Request: admitted.request,
-				RequestHash: preferredRequestHash(command.RequestHash, timelineadmission.CreateRequestHash(admitted.request)),
+				Actor: command.Actor, IncidentID: command.IncidentID, Request: request,
+				RequestHash: timelineadmission.CreateRequestHash(request),
 				RequestID:   command.RequestID, Now: command.Now,
 			})
-			if failure, safe := timelineActionFailure(err, admitted.request.ClientTxnID, "", ""); safe {
+			if failure, safe := timelineActionFailure(err, request.ClientTxnID, "", ""); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -79,39 +74,29 @@ func newTimelineCreateProvider(owner TimelineOperations) (workbook.CreateProvide
 			return workbook.SuccessfulRowMutation(timelineMutationResult(result, timeline.TimelineViewSchemaID)), nil
 		},
 	)
-}
-
-type timelinePatchAdmission struct{ request timeline.PatchRequest }
-
-func (value timelinePatchAdmission) ClientTransactionID() string { return value.request.ClientTxnID }
-func (value timelinePatchAdmission) AdmittedViewSchemaID() string {
-	return timeline.TimelineViewSchemaID
-}
-func (value timelinePatchAdmission) AdmittedBaseRowVersion() int64 {
-	return value.request.BaseRowVersion
 }
 
 func newTimelinePatchProvider(owner TimelineOperations) (workbook.PatchProvider, error) {
 	return workbook.NewPatchProvider(
-		func(reader io.Reader) (workbook.PatchAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader) (timeline.PatchRequest, bool, *workbook.MutationFailure, error) {
 			request, apiErr := timelineadmission.DecodeTimelinePatchRequest(reader)
 			if apiErr != nil {
 				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+				return timeline.PatchRequest{}, false, failure, err
 			}
-			return timelinePatchAdmission{request: request}, nil, nil
+			return request, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.PatchCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(timelinePatchAdmission)
-			if !ok || command.AuthoritativeRecordType != "timeline_event" {
+		func(timeline.PatchRequest) string { return timeline.TimelineViewSchemaID },
+		func(ctx context.Context, command workbook.PatchCommand, request timeline.PatchRequest) (workbook.MutationOutcome, error) {
+			if command.AuthoritativeRecordType != "timeline_event" {
 				return workbook.RejectedMutation(workbook.TargetNotFoundFailure()), nil
 			}
 			result, err := owner.PatchRow(ctx, timeline.PatchRowCommand{
-				Actor: command.Actor, RecordID: command.RecordID, Request: admitted.request,
-				RequestHash: preferredRequestHash(command.RequestHash, timelineadmission.PatchRequestHash(admitted.request)),
+				Actor: command.Actor, RecordID: command.RecordID, Request: request,
+				RequestHash: timelineadmission.PatchRequestHash(request),
 				RequestID:   command.RequestID, Now: command.Now,
 			})
-			if failure, safe := timelineActionFailure(err, admitted.request.ClientTxnID, "changes", "superseded_terminal"); safe {
+			if failure, safe := timelineActionFailure(err, request.ClientTxnID, "changes", "superseded_terminal"); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -122,38 +107,31 @@ func newTimelinePatchProvider(owner TimelineOperations) (workbook.PatchProvider,
 	)
 }
 
-type timelineConflictAdmission struct {
-	request timeline.ConflictResolveRequest
-}
-
-func (value timelineConflictAdmission) ClientTransactionID() string { return value.request.ClientTxnID }
-
 func newTimelineConflictProvider(owner TimelineOperations) (workbook.ConflictProvider, error) {
 	return workbook.NewConflictProvider(
-		func(reader io.Reader, token string, claims workbook.ConflictClaims) (workbook.ConflictAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader, token string, claims workbook.ConflictClaims) (timeline.ConflictResolveRequest, bool, *workbook.MutationFailure, error) {
 			if claims.RouteKey != timeline.ConflictResolveRouteKey || claims.ViewSchemaID != timeline.TimelineViewSchemaID {
-				return nil, workbook.InvalidPayloadFailure("conflict_token", "invalid_value"), nil
+				return timeline.ConflictResolveRequest{}, false, workbook.InvalidPayloadFailure("conflict_token", "invalid_value"), nil
 			}
 			request, apiErr := timelineadmission.DecodeTimelineConflictResolveRequest(reader, token, timelineConflictTokenClaims(claims))
 			if apiErr != nil {
 				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+				return timeline.ConflictResolveRequest{}, false, failure, err
 			}
-			return timelineConflictAdmission{request: request}, nil, nil
+			return request, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.ConflictCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(timelineConflictAdmission)
-			if !ok || command.AuthoritativeRecordType != "timeline_event" || command.RecordID != command.Claims.RecordID ||
+		func(ctx context.Context, command workbook.ConflictCommand, request timeline.ConflictResolveRequest) (workbook.MutationOutcome, error) {
+			if command.AuthoritativeRecordType != "timeline_event" || command.RecordID != command.Claims.RecordID ||
 				command.Claims.RouteKey != timeline.ConflictResolveRouteKey || command.Claims.ViewSchemaID != timeline.TimelineViewSchemaID {
 				return workbook.RejectedMutation(workbook.TargetNotFoundFailure()), nil
 			}
 			claims := timelineConflictTokenClaims(command.Claims)
 			result, err := owner.ResolveConflict(ctx, timeline.ConflictResolveCommand{
-				Actor: command.Actor, RecordID: command.RecordID, Claims: claims, Request: admitted.request,
-				RequestHash: preferredRequestHash(command.RequestHash, timelineadmission.ConflictResolveRequestHash(claims, admitted.request)),
+				Actor: command.Actor, RecordID: command.RecordID, Claims: claims, Request: request,
+				RequestHash: timelineadmission.ConflictResolveRequestHash(claims, request),
 				RequestID:   command.RequestID, Now: command.Now,
 			})
-			if failure, safe := timelineActionFailure(err, admitted.request.ClientTxnID, "", ""); safe {
+			if failure, safe := timelineActionFailure(err, request.ClientTxnID, "", ""); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {

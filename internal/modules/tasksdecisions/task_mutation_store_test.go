@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
 
 func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
@@ -60,7 +61,7 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	requireManualReferenceLink(t, harness.DB, taskID, decision, "task.decision_record_id", "references_record")
 	requireManualReferenceLink(t, harness.DB, taskID, support, "task.linked_record_ids", "references_record")
 
-	taskRows, err := store.QueryRows(ctx, incident.ID, tasksdecisions.TaskRequestsViewSchemaID, viewschema.QueryMeta{
+	taskRows, err := workbookroutetest.QueryRows(store, ctx, incident.ID, tasksdecisions.TaskRequestsViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{
 			{FieldKey: "task.status", Op: "eq", Arg: map[string]any{"value": "open"}},
 			{FieldKey: "task.owner_user_id", Op: "eq", Arg: map[string]any{"value": actor.ID.String()}},
@@ -88,7 +89,7 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 		valueChange("task.due_at", tasksdecisions.FieldValue{Timestamp: &queueDueAt}))
 	requireCellValue(t, queueTask.Row, "task.priority", "high")
 	requireCellNonEmpty(t, queueTask.Row, "task.due_at")
-	priorityRows, err := store.QueryRows(ctx, incident.ID, tasksdecisions.TaskRequestsViewSchemaID, viewschema.QueryMeta{
+	priorityRows, err := workbookroutetest.QueryRows(store, ctx, incident.ID, tasksdecisions.TaskRequestsViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{
 			{FieldKey: "task.priority", Op: "eq", Arg: map[string]any{"value": "high"}},
 			{FieldKey: "task.due_at", Op: "range", Arg: map[string]any{"lte": queueDueAt.Format(time.RFC3339Nano)}},
@@ -106,7 +107,7 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 		"task.task_kind": {Text: stringPtr("follow_up")},
 		"task.priority":  {Text: stringPtr("urgent")},
 	}, nil)
-	sortedRows, err := store.QueryRows(ctx, incident.ID, tasksdecisions.TaskRequestsViewSchemaID, viewschema.QueryMeta{
+	sortedRows, err := workbookroutetest.QueryRows(store, ctx, incident.ID, tasksdecisions.TaskRequestsViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: "task.status", Op: "eq", Arg: map[string]any{"value": "open"}}},
 		Sort:    []viewschema.SortEntry{{FieldKey: "task.priority", Direction: "desc"}, {FieldKey: "record_id", Direction: "asc"}},
 	})
@@ -119,7 +120,7 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	queueTask = mustPatch(t, owner, actor, queueTaskID, tasksdecisions.TaskRequestsViewSchemaID, 2, "txn-workbook_interaction-task-decision-task-queue-clear-due",
 		valueChange("task.due_at", tasksdecisions.FieldValue{}))
 	requireCellValue(t, queueTask.Row, "task.due_at", nil)
-	clearedDueRows, err := store.QueryRows(ctx, incident.ID, tasksdecisions.TaskRequestsViewSchemaID, viewschema.QueryMeta{
+	clearedDueRows, err := workbookroutetest.QueryRows(store, ctx, incident.ID, tasksdecisions.TaskRequestsViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{
 			{FieldKey: "task.priority", Op: "eq", Arg: map[string]any{"value": "high"}},
 			{FieldKey: "task.due_at", Op: "range", Arg: map[string]any{"lte": queueDueAt.Format(time.RFC3339Nano)}},

@@ -2,7 +2,7 @@ package workbook
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"time"
 
@@ -11,207 +11,206 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-// ClipboardAdmission exposes only the routing facts Workbook owns. The
-// concrete decoded value remains private to the contributing adapter.
-type ClipboardAdmission interface {
-	ClientTransactionID() string
-	AdmittedViewSchemaID() string
-}
-
 type ClipboardCommand struct {
 	Actor        authn.UserRecord
 	IncidentID   uuid.UUID
 	ViewSchemaID string
-	Admission    ClipboardAdmission
 	RequestID    string
 	Now          time.Time
 }
 
-type ClipboardProvider interface {
-	ValidateWorkbookContribution() error
-	DecodeClipboard(io.Reader) (ClipboardAdmission, *MutationFailure, error)
-	ApplyClipboard(context.Context, ClipboardCommand) (MutationOutcome, error)
-}
-
-type clipboardProvider struct {
-	decode  func(io.Reader) (ClipboardAdmission, *MutationFailure, error)
+type ClipboardOperation struct {
 	execute func(context.Context, ClipboardCommand) (MutationOutcome, error)
 }
 
-func NewClipboardProvider(
-	decode func(io.Reader) (ClipboardAdmission, *MutationFailure, error),
-	execute func(context.Context, ClipboardCommand) (MutationOutcome, error),
+func (operation ClipboardOperation) Execute(ctx context.Context, command ClipboardCommand) (MutationOutcome, error) {
+	if operation.execute == nil {
+		return MutationOutcome{}, errors.New("workbook clipboard operation is not initialized")
+	}
+	return operation.execute(ctx, command)
+}
+
+type ClipboardProvider interface {
+	DecodeClipboard(io.Reader) (ClipboardOperation, *MutationFailure, error)
+}
+
+type clipboardProvider[T any] struct {
+	decode  func(io.Reader) (T, bool, *MutationFailure, error)
+	execute func(context.Context, ClipboardCommand, T) (MutationOutcome, error)
+}
+
+func NewClipboardProvider[T any](
+	decode func(io.Reader) (T, bool, *MutationFailure, error),
+	execute func(context.Context, ClipboardCommand, T) (MutationOutcome, error),
 ) (ClipboardProvider, error) {
-	provider := &clipboardProvider{decode: decode, execute: execute}
-	if err := provider.ValidateWorkbookContribution(); err != nil {
-		return nil, err
+	if decode == nil || execute == nil {
+		return nil, errors.New("clipboard provider requires decode and apply functions")
 	}
-	return provider, nil
+	return &clipboardProvider[T]{decode: decode, execute: execute}, nil
 }
 
-func (provider *clipboardProvider) ValidateWorkbookContribution() error {
-	if provider == nil || provider.decode == nil || provider.execute == nil {
-		return fmt.Errorf("clipboard provider requires decode and apply functions")
+func (provider *clipboardProvider[T]) DecodeClipboard(reader io.Reader) (ClipboardOperation, *MutationFailure, error) {
+	value, present, failure, err := provider.decode(reader)
+	if validationErr := validateDecodedMutationValue("clipboard", value, present, failure, err); validationErr != nil {
+		return ClipboardOperation{}, nil, validationErr
 	}
-	return nil
-}
-
-func (provider *clipboardProvider) DecodeClipboard(reader io.Reader) (ClipboardAdmission, *MutationFailure, error) {
-	return provider.decode(reader)
-}
-
-func (provider *clipboardProvider) ApplyClipboard(ctx context.Context, command ClipboardCommand) (MutationOutcome, error) {
-	return provider.execute(ctx, command)
-}
-
-type BulkAdmission interface {
-	ClientTransactionID() string
-	AdmittedViewSchemaID() string
+	if failure != nil {
+		return ClipboardOperation{}, failure, nil
+	}
+	return ClipboardOperation{execute: func(ctx context.Context, command ClipboardCommand) (MutationOutcome, error) {
+		return provider.execute(ctx, command, value)
+	}}, nil, nil
 }
 
 type BulkCommand struct {
 	Actor        authn.UserRecord
 	IncidentID   uuid.UUID
 	ViewSchemaID string
-	Admission    BulkAdmission
 	RequestID    string
 	Now          time.Time
 }
 
-type BulkProvider interface {
-	ValidateWorkbookContribution() error
-	DecodeBulk(io.Reader) (BulkAdmission, *MutationFailure, error)
-	ApplyBulk(context.Context, BulkCommand) (MutationOutcome, error)
-}
-
-type bulkProvider struct {
-	decode  func(io.Reader) (BulkAdmission, *MutationFailure, error)
+type BulkOperation struct {
 	execute func(context.Context, BulkCommand) (MutationOutcome, error)
 }
 
-func NewBulkProvider(
-	decode func(io.Reader) (BulkAdmission, *MutationFailure, error),
-	execute func(context.Context, BulkCommand) (MutationOutcome, error),
+func (operation BulkOperation) Execute(ctx context.Context, command BulkCommand) (MutationOutcome, error) {
+	if operation.execute == nil {
+		return MutationOutcome{}, errors.New("workbook bulk operation is not initialized")
+	}
+	return operation.execute(ctx, command)
+}
+
+type BulkProvider interface {
+	DecodeBulk(io.Reader) (BulkOperation, *MutationFailure, error)
+}
+
+type bulkProvider[T any] struct {
+	decode  func(io.Reader) (T, bool, *MutationFailure, error)
+	execute func(context.Context, BulkCommand, T) (MutationOutcome, error)
+}
+
+func NewBulkProvider[T any](
+	decode func(io.Reader) (T, bool, *MutationFailure, error),
+	execute func(context.Context, BulkCommand, T) (MutationOutcome, error),
 ) (BulkProvider, error) {
-	provider := &bulkProvider{decode: decode, execute: execute}
-	if err := provider.ValidateWorkbookContribution(); err != nil {
-		return nil, err
+	if decode == nil || execute == nil {
+		return nil, errors.New("bulk provider requires decode and apply functions")
 	}
-	return provider, nil
+	return &bulkProvider[T]{decode: decode, execute: execute}, nil
 }
 
-func (provider *bulkProvider) ValidateWorkbookContribution() error {
-	if provider == nil || provider.decode == nil || provider.execute == nil {
-		return fmt.Errorf("bulk provider requires decode and apply functions")
+func (provider *bulkProvider[T]) DecodeBulk(reader io.Reader) (BulkOperation, *MutationFailure, error) {
+	value, present, failure, err := provider.decode(reader)
+	if validationErr := validateDecodedMutationValue("bulk", value, present, failure, err); validationErr != nil {
+		return BulkOperation{}, nil, validationErr
 	}
-	return nil
-}
-
-func (provider *bulkProvider) DecodeBulk(reader io.Reader) (BulkAdmission, *MutationFailure, error) {
-	return provider.decode(reader)
-}
-
-func (provider *bulkProvider) ApplyBulk(ctx context.Context, command BulkCommand) (MutationOutcome, error) {
-	return provider.execute(ctx, command)
-}
-
-type LinkedNoteAdmission interface {
-	ClientTransactionID() string
+	if failure != nil {
+		return BulkOperation{}, failure, nil
+	}
+	return BulkOperation{execute: func(ctx context.Context, command BulkCommand) (MutationOutcome, error) {
+		return provider.execute(ctx, command, value)
+	}}, nil, nil
 }
 
 type LinkedNoteCommand struct {
 	Actor     authn.UserRecord
 	Target    RecordTarget
-	Admission LinkedNoteAdmission
 	RequestID string
 	Now       time.Time
 }
 
-type LinkedNoteProvider interface {
-	ValidateWorkbookContribution() error
-	DecodeLinkedNote(io.Reader) (LinkedNoteAdmission, *MutationFailure, error)
-	CreateLinkedNote(context.Context, LinkedNoteCommand) (MutationOutcome, error)
-}
-
-type linkedNoteProvider struct {
-	decode  func(io.Reader) (LinkedNoteAdmission, *MutationFailure, error)
+type LinkedNoteOperation struct {
 	execute func(context.Context, LinkedNoteCommand) (MutationOutcome, error)
 }
 
-func NewLinkedNoteProvider(
-	decode func(io.Reader) (LinkedNoteAdmission, *MutationFailure, error),
-	execute func(context.Context, LinkedNoteCommand) (MutationOutcome, error),
+func (operation LinkedNoteOperation) Execute(ctx context.Context, command LinkedNoteCommand) (MutationOutcome, error) {
+	if operation.execute == nil {
+		return MutationOutcome{}, errors.New("workbook linked-note operation is not initialized")
+	}
+	return operation.execute(ctx, command)
+}
+
+type LinkedNoteProvider interface {
+	DecodeLinkedNote(io.Reader) (LinkedNoteOperation, *MutationFailure, error)
+}
+
+type linkedNoteProvider[T any] struct {
+	decode  func(io.Reader) (T, bool, *MutationFailure, error)
+	execute func(context.Context, LinkedNoteCommand, T) (MutationOutcome, error)
+}
+
+func NewLinkedNoteProvider[T any](
+	decode func(io.Reader) (T, bool, *MutationFailure, error),
+	execute func(context.Context, LinkedNoteCommand, T) (MutationOutcome, error),
 ) (LinkedNoteProvider, error) {
-	provider := &linkedNoteProvider{decode: decode, execute: execute}
-	if err := provider.ValidateWorkbookContribution(); err != nil {
-		return nil, err
+	if decode == nil || execute == nil {
+		return nil, errors.New("linked-note provider requires decode and create functions")
 	}
-	return provider, nil
+	return &linkedNoteProvider[T]{decode: decode, execute: execute}, nil
 }
 
-func (provider *linkedNoteProvider) ValidateWorkbookContribution() error {
-	if provider == nil || provider.decode == nil || provider.execute == nil {
-		return fmt.Errorf("linked-note provider requires decode and create functions")
+func (provider *linkedNoteProvider[T]) DecodeLinkedNote(reader io.Reader) (LinkedNoteOperation, *MutationFailure, error) {
+	value, present, failure, err := provider.decode(reader)
+	if validationErr := validateDecodedMutationValue("linked-note", value, present, failure, err); validationErr != nil {
+		return LinkedNoteOperation{}, nil, validationErr
 	}
-	return nil
-}
-
-func (provider *linkedNoteProvider) DecodeLinkedNote(reader io.Reader) (LinkedNoteAdmission, *MutationFailure, error) {
-	return provider.decode(reader)
-}
-
-func (provider *linkedNoteProvider) CreateLinkedNote(ctx context.Context, command LinkedNoteCommand) (MutationOutcome, error) {
-	return provider.execute(ctx, command)
-}
-
-type SupersedeAdmission interface {
-	ClientTransactionID() string
-	AdmittedBaseRowVersion() int64
+	if failure != nil {
+		return LinkedNoteOperation{}, failure, nil
+	}
+	return LinkedNoteOperation{execute: func(ctx context.Context, command LinkedNoteCommand) (MutationOutcome, error) {
+		return provider.execute(ctx, command, value)
+	}}, nil, nil
 }
 
 type SupersedeCommand struct {
 	Actor     authn.UserRecord
 	Target    RecordTarget
-	Admission SupersedeAdmission
 	RequestID string
 	Now       time.Time
 }
 
-type SupersedeProvider interface {
-	ValidateWorkbookContribution() error
-	DecodeSupersede(io.Reader) (SupersedeAdmission, *MutationFailure, error)
-	Supersede(context.Context, SupersedeCommand) (MutationOutcome, error)
-}
-
-type supersedeProvider struct {
-	decode  func(io.Reader) (SupersedeAdmission, *MutationFailure, error)
+type SupersedeOperation struct {
 	execute func(context.Context, SupersedeCommand) (MutationOutcome, error)
 }
 
-func NewSupersedeProvider(
-	decode func(io.Reader) (SupersedeAdmission, *MutationFailure, error),
-	execute func(context.Context, SupersedeCommand) (MutationOutcome, error),
+func (operation SupersedeOperation) Execute(ctx context.Context, command SupersedeCommand) (MutationOutcome, error) {
+	if operation.execute == nil {
+		return MutationOutcome{}, errors.New("workbook supersede operation is not initialized")
+	}
+	return operation.execute(ctx, command)
+}
+
+type SupersedeProvider interface {
+	DecodeSupersede(io.Reader) (SupersedeOperation, *MutationFailure, error)
+}
+
+type supersedeProvider[T any] struct {
+	decode  func(io.Reader) (T, bool, *MutationFailure, error)
+	execute func(context.Context, SupersedeCommand, T) (MutationOutcome, error)
+}
+
+func NewSupersedeProvider[T any](
+	decode func(io.Reader) (T, bool, *MutationFailure, error),
+	execute func(context.Context, SupersedeCommand, T) (MutationOutcome, error),
 ) (SupersedeProvider, error) {
-	provider := &supersedeProvider{decode: decode, execute: execute}
-	if err := provider.ValidateWorkbookContribution(); err != nil {
-		return nil, err
+	if decode == nil || execute == nil {
+		return nil, errors.New("supersede provider requires decode and supersede functions")
 	}
-	return provider, nil
+	return &supersedeProvider[T]{decode: decode, execute: execute}, nil
 }
 
-func (provider *supersedeProvider) ValidateWorkbookContribution() error {
-	if provider == nil || provider.decode == nil || provider.execute == nil {
-		return fmt.Errorf("supersede provider requires decode and supersede functions")
+func (provider *supersedeProvider[T]) DecodeSupersede(reader io.Reader) (SupersedeOperation, *MutationFailure, error) {
+	value, present, failure, err := provider.decode(reader)
+	if validationErr := validateDecodedMutationValue("supersede", value, present, failure, err); validationErr != nil {
+		return SupersedeOperation{}, nil, validationErr
 	}
-	return nil
-}
-
-func (provider *supersedeProvider) DecodeSupersede(reader io.Reader) (SupersedeAdmission, *MutationFailure, error) {
-	return provider.decode(reader)
-}
-
-func (provider *supersedeProvider) Supersede(ctx context.Context, command SupersedeCommand) (MutationOutcome, error) {
-	return provider.execute(ctx, command)
+	if failure != nil {
+		return SupersedeOperation{}, failure, nil
+	}
+	return SupersedeOperation{execute: func(ctx context.Context, command SupersedeCommand) (MutationOutcome, error) {
+		return provider.execute(ctx, command, value)
+	}}, nil, nil
 }
 
 type ClipboardContribution struct {

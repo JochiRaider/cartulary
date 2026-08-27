@@ -33,14 +33,14 @@ func (s *service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unsupported_view_schema"))
 		return
 	}
-	mutationAdmission, failure, err := provider.DecodeBulk(r.Body)
-	if apiErr := decodeMutationAPIError(mutationAdmission, failure, err); apiErr != nil {
+	operation, failure, err := provider.DecodeBulk(r.Body)
+	if apiErr := decodeMutationAPIError(operation.execute != nil, failure, err); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	outcome, err := provider.ApplyBulk(r.Context(), BulkCommand{
+	outcome, err := operation.Execute(r.Context(), BulkCommand{
 		Actor: principal.User, IncidentID: incidentID, ViewSchemaID: viewSchemaID,
-		Admission: mutationAdmission, RequestID: httpapi.RequestIDFromContext(r.Context()), Now: s.now(),
+		RequestID: httpapi.RequestIDFromContext(r.Context()), Now: s.now(),
 	})
 	result, outcomeErr := resolveMutationOutcome(outcome, err)
 	writeResolvedMutationResult(w, r, s, &principal, result, outcomeErr)
@@ -71,14 +71,14 @@ func (s *service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unsupported_view_schema"))
 		return
 	}
-	mutationAdmission, failure, err := provider.DecodeClipboard(r.Body)
-	if apiErr := decodeMutationAPIError(mutationAdmission, failure, err); apiErr != nil {
+	operation, failure, err := provider.DecodeClipboard(r.Body)
+	if apiErr := decodeMutationAPIError(operation.execute != nil, failure, err); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	outcome, err := provider.ApplyClipboard(r.Context(), ClipboardCommand{
+	outcome, err := operation.Execute(r.Context(), ClipboardCommand{
 		Actor: principal.User, IncidentID: incidentID, ViewSchemaID: viewSchemaID,
-		Admission: mutationAdmission, RequestID: httpapi.RequestIDFromContext(r.Context()), Now: s.now(),
+		RequestID: httpapi.RequestIDFromContext(r.Context()), Now: s.now(),
 	})
 	result, outcomeErr := resolveMutationOutcome(outcome, err)
 	writeResolvedMutationResult(w, r, s, &principal, result, outcomeErr)

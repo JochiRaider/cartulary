@@ -16,30 +16,21 @@ import (
 
 const assessmentCreateRouteKey = "assessments.rows.create"
 
-type assessmentCreateAdmission struct {
-	input assessments.CreateInput
-}
-
-func (value assessmentCreateAdmission) ClientTransactionID() string {
-	return value.input.ClientTxnID
-}
-
 func newAssessmentCreateProvider(owner *assessments.Facade) (workbook.CreateProvider, error) {
 	if owner == nil {
 		return nil, fmt.Errorf("compose Assessment Workbook adapter: owner is required")
 	}
 	return workbook.NewCreateProvider(
-		func(reader io.Reader) (workbook.CreateAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader) (assessments.CreateInput, bool, *workbook.MutationFailure, error) {
 			input, apiErr := assessmentadmission.DecodeCreateRequest(reader)
 			if apiErr != nil {
 				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+				return assessments.CreateInput{}, false, failure, err
 			}
-			return assessmentCreateAdmission{input: input}, nil, nil
+			return input, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.CreateCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(assessmentCreateAdmission)
-			if !ok || command.ViewSchemaID != assessments.AssessmentsViewSchemaID {
+		func(ctx context.Context, command workbook.CreateCommand, input assessments.CreateInput) (workbook.MutationOutcome, error) {
+			if command.ViewSchemaID != assessments.AssessmentsViewSchemaID {
 				return workbook.RejectedMutation(
 					workbook.InvalidPayloadFailure("view_schema_id", "invalid_view_schema_id"),
 				), nil
@@ -47,21 +38,18 @@ func newAssessmentCreateProvider(owner *assessments.Facade) (workbook.CreateProv
 			result, err := owner.Create(ctx, assessments.CreateCommand{
 				ActorUserID: command.Actor.ID,
 				IncidentID:  command.IncidentID,
-				Input:       admitted.input,
+				Input:       input,
 				Idempotency: assessments.CreateIdempotencyKey{
 					RouteKey:    assessmentCreateRouteKey,
 					ActorUserID: command.Actor.ID,
 					ScopeKey:    command.IncidentID.String() + ":" + assessments.AssessmentsViewSchemaID,
-					ClientTxnID: admitted.input.ClientTxnID,
-					RequestHash: preferredRequestHash(
-						command.RequestHash,
-						assessmentadmission.CreateRequestHash(admitted.input),
-					),
+					ClientTxnID: input.ClientTxnID,
+					RequestHash: assessmentadmission.CreateRequestHash(input),
 				},
 				RequestID: command.RequestID,
 				Now:       command.Now,
 			})
-			if failure, safe := assessmentCreateFailure(err, admitted.input.ClientTxnID); safe {
+			if failure, safe := assessmentCreateFailure(err, input.ClientTxnID); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -70,7 +58,7 @@ func newAssessmentCreateProvider(owner *assessments.Facade) (workbook.CreateProv
 			return workbook.SuccessfulRowMutation(assessmentMutationResult(
 				result,
 				command.IncidentID,
-				admitted.input.ClientTxnID,
+				input.ClientTxnID,
 			)), nil
 		},
 	)

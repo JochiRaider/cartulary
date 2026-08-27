@@ -39,7 +39,7 @@ func TestTimelineOperationsCapabilityBoundary_Unit(t *testing.T) {
 	if _, err := newTimelineProviderSet(typedNil); err == nil || err.Error() != "compose Timeline Workbook adapters: owner is required" {
 		t.Fatalf("typed-nil Timeline owner must preserve the construction error, got %v", err)
 	}
-	if !isNilContributionDependency(typedNil) {
+	if !isNilDependency(typedNil) {
 		t.Fatal("typed-nil Timeline capability was not rejected by contribution validation")
 	}
 

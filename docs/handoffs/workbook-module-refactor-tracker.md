@@ -7,10 +7,10 @@
 | Target path | `internal/modules/workbook` |
 | Target label | `workbook` (derived from the path and normalized to lowercase kebab case) |
 | Output path | `docs/handoffs/workbook-module-refactor-tracker.md` |
-| Status | First iteration complete through WS-18; production-readiness iteration complete through WS-23 |
-| Allowed change | WS-19 through WS-23 are complete. This dirty worktree is the final retained handoff and MUST be preserved. |
+| Status | First iteration complete through WS-18; production-readiness iteration complete through WS-23; legacy-removal and production-hardening iteration complete through WS-28 |
+| Allowed change | No workstream remains active or eligible. |
 | Non-goals | No unowned public behavior change, database migration, compatibility shim, dependency update, frontend redesign, or hand edit of generated artifacts |
-| Implementation authority | The adopted Workbook boundary governs structure. This tracker records the completed implementation and its retained evidence. |
+| Implementation authority | The adopted Workbook boundary governs structure. This tracker preserves completed evidence and controls the planned third iteration. |
 
 Source hierarchy used by this tracker:
 
@@ -44,6 +44,10 @@ an implementer MUST NOT select a side.
 | `WBR-REQ-009` | Slices MUST run in dependency order, remain independently reversible, and satisfy their binary completion criteria before a dependent slice begins. |
 | `WBR-REQ-010` | Completion MUST be based on actual retained Make results and the current workstream exit criteria. Unrun, skipped, missing, or unmapped evidence MUST be reported rather than inferred. |
 | `WBR-REQ-011` | A failed validation MUST keep the current workstream active for evidence-led diagnosis, repair within the same rollback unit, and an identical rerun. It MUST block later workstreams but MUST NOT stop repair of the active workstream. `BLOCKED` is reserved for an owner contradiction, missing authority, or external dependency that cannot be repaired within the repository. |
+| `WBR-REQ-012` | Production Workbook APIs MUST NOT be retained solely for test convenience. Test-only catalog dispatch belongs under `internal/testutil`. |
+| `WBR-REQ-013` | Source-owner adapters MUST derive canonical mutation request hashes. Workbook commands and test helpers MUST NOT supply an override path. |
+| `WBR-REQ-014` | Mutation providers MUST bind decoded owner-native values without opaque admissions, runtime downcasts, forwarding wrappers, or alternate execution paths. |
+| `WBR-REQ-015` | Workbook startup construction MUST reject missing and typed-nil dependencies before serving; no implicit workspace registry or late unavailable-store mode is authorized. |
 
 Unless a row states otherwise, omission of an implementation detail means
 **follow the adopted behavioral owner and the Section 1.1 boundary decision**.
@@ -333,3 +337,216 @@ The iteration is complete only when:
 | 2026-08-21 09:33 EDT | WS-22 completion | Replaced both positional constructors with `ContributionCatalogInput` and `ContributionDependencies`; cut over server, application test support, integration fixtures, and direct catalog tests without an overload or forwarding wrapper. Workbook now clones query/create/patch/conflict/action collections and nested keys at admission, normalizes input separately, and publishes the validated maps through a private immutable-index constructor. Application assembly validates every database, descriptor, projection port, owner, conflict, Revisions, and Collaboration dependency—including typed-nil interfaces and a zero conflict codec—before constructing owner adapters; one private aggregate feeds the existing per-owner builders. Added mapped immutability and fail-closed dependency coverage. No public, persistence, generated, domain, or migration contract changed. | Formatting PASS at `.cartulary/test-results/20260821T131420Z-p3662641`; focused catalog/restore rows 2/2 PASS at `.cartulary/test-results/20260821T131424Z-p3666294`; query/create and route-inventory service rows 4/4 PASS at `.cartulary/test-results/20260821T131435Z-p3667024`. Affected owner slices PASS: Workbook 65/65 `.cartulary/test-results/20260821T131526Z-p3682662`; Artifacts 7/7 `.cartulary/test-results/20260821T131739Z-p3739199`; Assessments 27/27 `.cartulary/test-results/20260821T131815Z-p3754558`; Entities 33/33 `.cartulary/test-results/20260821T131912Z-p3795906`; Evidence 35/35 `.cartulary/test-results/20260821T132053Z-p3848703`; Indicators 14/14 `.cartulary/test-results/20260821T132206Z-p3896899`; Parties 13/13 `.cartulary/test-results/20260821T132244Z-p3912480`; Tasks/Decisions 18/18 `.cartulary/test-results/20260821T132332Z-p3950838`; Timeline 51/51 `.cartulary/test-results/20260821T132418Z-p3989365`; Projections 15/15 `.cartulary/test-results/20260821T132852Z-p4045729`; Recovery 24/24 `.cartulary/test-results/20260821T132930Z-p4061479`. Workbook service-backed 37/37 PASS at `.cartulary/test-results/20260821T133053Z-p4112451`; boundary 3/3 PASS at `.cartulary/test-results/20260821T133315Z-p4168770`; server build PASS at `.cartulary/test-results/20260821T133315Z-p4168960`; catalog check, positional-signature scans, and diff checks PASS; generated truth remains 92 rows and 57 service-backed. Superseded focused roots `.cartulary/test-results/20260821T131008Z-p3642522`, `.cartulary/test-results/20260821T131237Z-p3652693`, and `.cartulary/test-results/20260821T131315Z-p3657291` respectively exposed an unused private aggregate field, invalid nil assignment to the value codec, and a test-owned slice mutation; each was repaired and the identical row passed at `.cartulary/test-results/20260821T131058Z-p3647677`, `.cartulary/test-results/20260821T131343Z-p3661695`, and `.cartulary/test-results/20260821T131343Z-p3661695`. | Rollback is the two input structs, constructor/caller cutover, dependency validator, private assembly aggregate, input cloning/indexing files, and mapped test extensions together. The failed roots remain diagnosis history only. No blocker or compatibility surface remains; WS-23 becomes eligible only after this checkpoint is lint-clean. |
 | 2026-08-21 09:34 EDT | WS-23 activation | Confirmed WS-22 `DONE`, Markdown lint passed at `.cartulary/test-results/20260821T133411Z-p4181545`, and staged/unstaged diff checks passed; marked only WS-23 `IN_PROGRESS`. | Activation checkpoint only; production validation follows in the recorded order. | WS-23 alone is active. No implementation workstream remains pending behind it. |
 | 2026-08-21 10:10 EDT | WS-23 completion | Reconciled the final generated inventory at 92 Workbook rows: 37 Go, 25 Vitest, and 30 Playwright; 57 are service-backed. Confirmed the exact thirteen-route/eight-family catalog, immutable copied inputs, fail-closed dependency admission, direct restore contracts, minimal production import boundary, and absence of the retired helpers, aliases, callback types, positional signatures, compatibility paths, source-aware Workbook branches, and stale Store terminology. No public HTTP, WebSocket, OpenAPI, frontend, persistence, Incident Bundle, restore, event, Collaboration, configuration, specification, domain, migration, generated, or dependency contract changed. Measurement was skipped because the current task guide and release topology did not select it. | Harness 2/2, JSON shape 3/3, drift 4/4, generated policy 3/3, and boundary 3/3 PASS at `.cartulary/test-results/20260821T133502Z-p4183248`, `.cartulary/test-results/20260821T133502Z-p4182895`, `.cartulary/test-results/20260821T133502Z-p4182816`, `.cartulary/test-results/20260821T133502Z-p4182887`, and `.cartulary/test-results/20260821T133502Z-p4183212`; catalog check PASS. OpenAPI 4/4, targeted gosec 4/4, and vulnerability scanning 4/4 PASS at `.cartulary/test-results/20260821T133522Z-p4187748`, `.cartulary/test-results/20260821T133522Z-p4188039`, and `.cartulary/test-results/20260821T133522Z-p4188040`. Pre-broad finalization PASS at `.cartulary/test-results/20260821T133554Z-p23368` with retained-run maintenance skipped because `RESULTS_DIR` was unset. Accessibility 12/12, support 15/15, visual 12/12, stateful 34/34, and webserver-backed 58/58 PASS at `.cartulary/test-results/20260821T133613Z-p26300`, `.cartulary/test-results/20260821T133740Z-p67333`, `.cartulary/test-results/20260821T133855Z-p114631`, `.cartulary/test-results/20260821T134039Z-p156112`, and `.cartulary/test-results/20260821T134255Z-p199415`. Fast verification 416/416 PASS at `.cartulary/test-results/20260821T134700Z-p251263`. The first check reached 636/637 and found staticcheck ST1005 at `.cartulary/test-results/20260821T134740Z-p256264`; the exact lint graph passed 11/11 at `.cartulary/test-results/20260821T135232Z-p370264`, and the identical full check passed 637/637 at `.cartulary/test-results/20260821T135249Z-p375944`. Release passed 794/794 at `.cartulary/test-results/20260821T135714Z-p488390`; retained-evidence finalization with the successful check root passed at `.cartulary/test-results/20260821T141001Z-p695869`. Final removed-symbol, positional-signature, domain-diff, generated-accounting, and status audits PASS. Final Markdown lint passed at `.cartulary/test-results/20260821T141121Z-p699330`; staged and unstaged diff checks passed. | No rollback unit, blocker, pending workstream, migration, compatibility support, or residual behavior risk remains open. All superseded failure roots are retained as diagnosis history and are not acceptance evidence. No further workstream remains. |
+
+## 3. Legacy-Removal and Production-Hardening Iteration
+
+### 3.1 Execution posture and current baseline
+
+This third iteration begins from the completed WS-00 through WS-23 baseline.
+The WS-24 request authorizes this tracker update only. No Go implementation,
+owner specification, domain document, machine contract, generated artifact,
+migration, dependency, or lockfile change is authorized until a later request
+activates WS-25.
+
+The planning audit covered declarations and reference use across all 54 files
+under `internal/modules/workbook` and all 26 files under
+`internal/app/workbookassembly`, including 45 production Go files and 35 Go
+test files across both roots. The current generated Workbook family contains
+93 rows: 38 Go, 25 Vitest, and 30 Playwright; 57 are service-backed. The change
+from the historical WS-23 count is current generated repository truth and does
+not revise the retained WS-23 evidence.
+
+The live module-author task guide currently selects the Workbook unit and
+service-backed slices, accessibility, stateful, support, visual,
+webserver-backed, and fast verification. Measurement remains conditional on
+the task guide or release topology that exists when WS-28 runs.
+
+`docs/domain.md` requires no change. This iteration changes no workbook-surface
+identity, bounded-context vocabulary, source ownership, or owner navigation.
+`docs/research/nlspec-spec.md` supplies planning doctrine only; it is not an
+adopted behavioral owner and creates no product requirement.
+
+Assessment migration `00035_assessment_create_idempotency_v1.sql`, canonical
+and legacy replay fixtures, and negative legacy-payload rejection tests remain
+in place. They protect migration and persisted replay boundaries and are not
+runtime compatibility aliases, dual dispatch, or forwarding shims.
+
+### 3.2 Gap register
+
+| Gap | Remediation and areas | Benefit and rationale | Compatibility and unresolved risk | Completion criteria |
+| --- | --- | --- | --- | --- |
+| `G-24` — Completed-only tracker posture | **Documentation.** Add the third-iteration baseline, gap register, controlling ledger, interface decisions, verification plan, and final acceptance while retaining WS-00 through WS-23 evidence. | Leaves one current, executable next-iteration plan without erasing diagnosis or release history. | Documentation-only. An incomplete rebaseline could make a completed ledger appear active or prematurely authorize implementation. | WS-24 alone is `DONE`, WS-25 through WS-28 are `PENDING`, current generated counts are recorded, and documentation checks pass. |
+| `G-25` — Test-only catalog APIs in production | **Implementation and tests.** Delete `WorkbookContributionCatalog.QuerySurfaceIDs`, `QueryRows`, and `QueryRowsPage`; move unpaged test querying to `internal/testutil/workbookroutetest` through `QueryFor` and `QueryProvider.QueryRowsPage`. | Keeps the production catalog limited to route dispatch and exact capability lookup while preserving reusable test composition. | Repository-internal test callers break intentionally and move atomically. Query behavior, paging, and restore-probe ownership do not change. | The three production methods are absent, every affected test uses the test helper or exact provider contract, selector accounting remains exact, and affected owner slices pass. |
+| `G-26` — Admission wrappers, downcasts, and hash override seams | **Implementation, tests, and boundary policy.** Replace seven split decode/admission/execute families with constructor-bound typed operations; delete admission interfaces, `Command.Admission`, 26 application-assembly downcasts, redundant provider self-validation methods, create/patch/conflict command `RequestHash`, test-helper hash arguments, and `preferredRequestHash`. | Removes adapter boilerplate and test-only override paths while keeping future source-owner additions typed, local, and mechanically uniform. Canonical hash authority remains with the source owner. | Repository-internal Go interfaces change without aliases. Incorrect operation binding could alter rejection, telemetry, hashing, or effect ordering and therefore requires the complete mapped matrix. | All seven families decode into initialized typed operations, patch telemetry receives the admitted `view_schema_id`, zero or contradictory decoder results fail content-safely, source-owner hashes are always derived, retired symbols have zero references, and focused plus affected-owner tests pass. |
+| `G-27` — Optional and late-failing startup construction | **Implementation and tests.** Replace variadic `startup.NewStore` construction with one closed dependency input returning `(*Store, error)`; validate preference storage, unit of work, and workspace resolution at construction; remove the implicit empty registry, `ErrStoreUnavailable`, and method-level nil fallbacks. | Converts a test-oriented permissive constructor into a fail-fast production boundary and makes future workspace growth explicit at composition. | Repository-internal constructor callers break intentionally and move atomically. Startup selection and public preference behavior must remain unchanged. | Missing and typed-nil dependencies fail construction; every no-extension caller supplies an explicit empty registry; late unavailable-store paths are absent; startup, Incidents, route, and server composition tests pass. |
+| `G-28` — Production evidence and handoff | **Tests, security, and documentation.** Run focused, affected-owner, service-backed, boundary, browser, security, broad, and release verification; reconcile generated truth and retain actual run roots. | Proves the reduced internal surface remains owner-compliant, content-safe, and ready for future provider and workspace growth. | No migration or rollout mechanism is required. Any public behavior difference is a defect in the active rollback unit. | Every mandatory gate passes, final counts come from generated truth, all failures and repairs are retained, conditional skips are explained, and no rollback unit remains open. |
+
+### 3.3 Controlling third-iteration ledger
+
+| ID | Workstream | Depends on | Status | Binary exit condition |
+| --- | --- | --- | --- | --- |
+| WS-24 | Tracker rebaseline | WS-23 | DONE | The third-iteration posture, gap register, ledger, interface decisions, verification plan, and acceptance criteria are present; current counts and retained compatibility fixtures are accurate; Markdown and diff checks pass. |
+| WS-25 | Dead catalog surface removal | WS-24 | DONE | The three test-only catalog methods are absent; query tests use test-owned dispatch; affected owner slices and boundary checks pass without selector drift. |
+| WS-26 | Typed mutation-operation contraction | WS-25 | DONE | Seven provider families use constructor-bound typed operations; admission wrappers, downcasts, redundant validation methods, hash override seams, and compatibility paths are absent; behavior and effect-order matrices pass. |
+| WS-27 | Startup construction hardening | WS-26 | DONE | Closed startup dependencies fail fast on nil and typed-nil values; implicit defaults and late unavailable-store paths are absent; startup and composition checks pass. |
+| WS-28 | Production validation and handoff | WS-27 | DONE | Required focused and broad gates pass, final generated counts and retained roots are recorded, conditional skips are explained, and the iteration is complete. |
+
+Implementation MUST proceed strictly in ledger order. A later request activates
+only the next eligible workstream. The active row remains `IN_PROGRESS` during
+diagnosis and repair, and an identical failed gate MUST pass before a successor
+begins. `BLOCKED` remains reserved for an adopted-owner contradiction, missing
+authority, or external dependency that cannot be repaired within the
+repository.
+
+### 3.4 Interface and construction decisions
+
+- `WorkbookContributionCatalog` retains exact `QueryFor`, `CreateFor`,
+  `PatchFor`, `ConflictFor`, `ClipboardFor`, `BulkFor`, `LinkedNoteFor`, and
+  `SupersedeFor` lookups. It loses `QuerySurfaceIDs`, `QueryRows`, and
+  `QueryRowsPage`; production routes continue to dispatch through the exact
+  provider lookup they already own.
+- `internal/testutil/workbookroutetest.QueryRows` becomes the only unpaged
+  catalog-query convenience. It rejects a nil catalog and unknown surface,
+  calls `QueryFor`, and invokes `QueryRowsPage` with the existing effectively
+  unbounded test window. It creates no production facade or alternate query
+  behavior.
+- The seven mutation families use a constructor-created typed operation that
+  captures one admitted source-native value and an executor. `Execute` accepts
+  the existing neutral route command without an admission or request-hash
+  field. The operation zero value returns an internal error rather than
+  panicking. A patch operation also carries the exact admitted
+  `view_schema_id` used by bounded Workbook telemetry.
+- `NewCreateProvider`, `NewPatchProvider`, `NewConflictProvider`,
+  `NewClipboardProvider`, `NewBulkProvider`, `NewLinkedNoteProvider`, and
+  `NewSupersedeProvider` become generic over the owner-native decoded value.
+  Their decoders return presence explicitly, and their executors receive that
+  typed value as a separate argument. Construction rejects nil decoder,
+  metadata, or executor callbacks. Decode rejects failure-plus-error,
+  admitted-value-plus-failure, and missing admitted values before execution.
+- Provider interfaces expose only their family decode operation. The redundant
+  `ValidateWorkbookContribution` method is deleted. Application assembly MUST
+  use the validated constructors; the catalog continues to reject nil and
+  typed-nil providers and to enforce exact query, mutation, batch, and action
+  capability closure.
+- Create, patch, and conflict commands no longer contain `RequestHash`.
+  `workbookroutetest.CreateWorkbookRow` and `PatchWorkbookRow` no longer accept
+  caller-supplied hashes. Every source adapter invokes its owner-defined
+  canonical hash function after typed admission; no override, fallback,
+  preference rule, or raw-body hash is added.
+- `workbookstartup.Dependencies` contains required `Preferences
+  PreferenceStore`, `UnitOfWork UnitOfWork`, and `Workspaces
+  WorkspaceResolver` fields. `workbookstartup.NewStore(Dependencies)` returns
+  `(*Store, error)` and rejects nil and typed-nil interfaces before publishing
+  the store.
+- `workbookassembly.NewStartupStore` also returns `(*workbookstartup.Store,
+  error)`; `NewStartupStoreFromDependencies` propagates that result. Tests and
+  Incidents composition that need no claimed extension workspace pass
+  `NewWorkspaceRegistryFromPublication(nil)` explicitly.
+- Public HTTP and WebSocket methods, paths, operation IDs, request and response
+  shapes, error precedence, cursor behavior, view schemas, startup selection,
+  OpenAPI, frontend contracts, persistence, Incident Bundles, restore,
+  Collaboration effects, telemetry vocabulary, and configuration remain
+  unchanged. No alias, forwarding facade, dual path, runtime discovery,
+  migration, or deprecation period is authorized.
+
+### 3.5 Verification plan
+
+Existing mapped tests MUST be extended where they already own the behavior.
+New top-level selectors are not expected. The initial focused Workbook rows
+are:
+
+- `module.workbook.unit.registry_derived_writable_conflict_capabilities_c0614db52a`
+- `module.workbook.unit.the_owner_mutation_admission_enforces_direct_re_b3fec12cf8`
+- `module.workbook.integration.registry_derived_query_and_create_surface_coverage_7bd7f5a120`
+- `module.workbook.support_integration.workbook_startup_preferences_bootstrap_and_upser_6ac935eac8`
+- `module.workbook.support_unit.workbook_preferences_put_decoders_canonicalize_s_d015eb1407`
+- `module.workbook.support_integration.shared_harness_workbook_route_inventory_coverage_3ec58ba4dc`
+
+For WS-25 through WS-27:
+
+1. Run `make task-guide ROLE=module-author OWNER=module.workbook` and reconcile
+   the live mandatory task surface before editing.
+2. Run `make format` for authored Go changes.
+3. Run the narrowest applicable `make test-slice`; use
+   `make service-backed-test-slice` when database or application composition
+   participates.
+4. Run `make backend-module-boundary-check`, `make test-catalog-check`, and
+   staged and unstaged `git diff --check`.
+5. Record commands, results, retained roots, diagnosis and identical-rerun
+   history, rollback unit, and next eligible row before continuing.
+
+WS-25 runs the affected Workbook, Assessments, Parties, Tasks/Decisions, and
+Projections slices after moving catalog-query test callers. WS-26 runs the
+Workbook, Artifacts, Assessments, Entities, Evidence, Indicators, Parties,
+Tasks/Decisions, Timeline, and Projections slices, followed by the Workbook
+service-backed slice. WS-27 runs focused startup rows, then Workbook,
+Incidents, and `app.server` slices plus `make build-server`.
+
+WS-28 runs:
+
+- `make harness-contract`
+- `make json-shape-check`
+- `make test-catalog-check`
+- `make generate-drift`
+- `make generated-artifact-policy-check`
+- `make backend-module-boundary-check`
+- `make openapi-compatibility-check`
+- `make go-gosec-targeted`
+- `make go-vulncheck`
+- `make agent-finalize` before broad verification
+- `make browser-e2e-a11y`
+- `make browser-e2e-stateful`
+- `make browser-e2e-support`
+- `make browser-e2e-visual`
+- `make browser-e2e-webserver-backed`
+- `make test-fast`
+- `make check`
+- `make release-check`
+- `make agent-finalize RESULTS_DIR=<successful-check-root>`
+- `make lint-markdown`
+- staged and unstaged `git diff --check`
+
+Measurement is skipped unless the live task guide or release topology selects
+it. Generation is not expected. If authored topology or policy inputs require
+generation, update the owner input first and use the Make-owned generator;
+generated roots and lockfiles MUST NOT be hand-edited.
+
+### 3.6 Final acceptance
+
+The third iteration is complete only when:
+
+- the production catalog exposes no test-only surface enumeration or unpaged
+  query convenience;
+- every test-only unpaged query uses `internal/testutil` and the same exact
+  provider query contract as production;
+- all seven mutation families use constructor-bound typed operations with no
+  admission interface, opaque payload, application-assembly downcast, or
+  redundant provider validation method;
+- source owners exclusively derive create, patch, conflict, clipboard, bulk,
+  linked-note, and supersede request hashes;
+- zero, missing, contradictory, and malformed decoded operations fail through
+  content-safe internal handling without panic or side effect;
+- startup construction rejects missing and typed-nil dependencies before
+  serving and every empty workspace set is explicit;
+- the retained assessment migration and replay fixtures remain unchanged;
+- no public, persistence, migration, restore, Collaboration, telemetry,
+  frontend, generated, dependency, or configuration contract changed;
+- selector ownership remains exact and final counts come from generated truth;
+- all mandatory verification is green and every failure root remains diagnosis
+  history rather than acceptance evidence; and
+- `docs/domain.md` remains unchanged because vocabulary and ownership did not
+  change.
+
+### 3.7 Third-iteration execution log
+
+| Completed at | Workstream | Files and substantive result | Validation | Risk, rollback, and next workstream |
+| --- | --- | --- | --- | --- |
+| 2026-08-26 22:11 EDT | WS-24 completion | Rebaselined this tracker in place while preserving WS-00 through WS-23 history and retained roots. Added G-24 through G-28, the controlling WS-24 through WS-28 ledger, typed-operation and startup-construction decisions, current verification routing, and binary final acceptance. Recorded the live 93-row Workbook inventory and retained assessment migration/replay evidence. Confirmed `docs/domain.md` requires no change. No implementation, owner, domain, machine-contract, generated, migration, dependency, test, or lockfile changed. | `make lint-markdown` PASS at `.cartulary/test-results/20260827T021059Z-p1567556`; staged and unstaged `git diff --check` PASS. | Rollback is this tracker-only third-iteration section and the coordinated top-level posture update. No implementation work has started. WS-25 remains `PENDING` until a later implementation request authorizes it. |
+| 2026-08-26 22:23 EDT | WS-25 activation | Confirmed WS-24 `DONE`, reran the live module-author task guide, and marked only WS-25 `IN_PROGRESS`. | Activation checkpoint only; dead catalog surface validation follows the implementation change. | WS-25 alone is active. WS-26 through WS-28 remain gated. |
+| 2026-08-26 22:33 EDT | WS-25 completion | Deleted the production catalog's surface enumeration and unpaged query conveniences; added the test-owned `workbookroutetest.QueryRows` exact-provider helper; moved only catalog-backed test callers; and replaced enumeration assertions with exact known/unknown lookup coverage. Production query, paging, and restore-probe behavior did not change. | Formatting 2/2 PASS at `.cartulary/test-results/20260827T022607Z-p1575699`; focused unit 1/1 and service-backed 4/4 PASS at `.cartulary/test-results/20260827T022619Z-p1579678` and `.cartulary/test-results/20260827T022632Z-p1580589`. Affected slices PASS: Workbook 66/66 `.cartulary/test-results/20260827T022723Z-p1597458`; Assessments 27/27 `.cartulary/test-results/20260827T022936Z-p1655934`; Parties 20/20 `.cartulary/test-results/20260827T023032Z-p1698976`; Tasks/Decisions 20/20 `.cartulary/test-results/20260827T023122Z-p1739853`; Projections 15/15 `.cartulary/test-results/20260827T023208Z-p1780351`. Boundary 3/3 PASS at `.cartulary/test-results/20260827T023311Z-p1797500`; catalog, removed-symbol, and staged/unstaged diff checks PASS. | Rollback is the three method deletions, test-owned helper, caller cutover, and catalog assertion update together. No selector, generated artifact, public behavior, or compatibility path changed. WS-26 becomes eligible only after this checkpoint is lint-clean. |
+| 2026-08-26 22:34 EDT | WS-26 activation | Confirmed WS-25 `DONE`; Markdown lint passed at `.cartulary/test-results/20260827T023353Z-p1798434`; staged and unstaged diff checks passed; reran the live module-author task guide; and marked only WS-26 `IN_PROGRESS`. | Activation checkpoint only; typed-operation validation follows the implementation change. | WS-26 alone is active. WS-27 and WS-28 remain gated. |
+| 2026-08-26 23:12 EDT | WS-26 completion | Replaced all seven opaque mutation-admission contracts with constructor-bound, family-specific typed operations; removed command admissions and create/patch/conflict hash overrides; bound every source adapter directly to its owner-native decoded value and canonical owner hash; deleted redundant provider self-validation and application-assembly downcasts; removed hash injection from the shared route test helper; retained only private composite owner values where claims and decoded requests genuinely travel together; and added authored retired-symbol boundary rules. Extended the mapped catalog tests across all seven families for nil callbacks, missing and typed-nil values, contradictory decoder states, safe failures, admitted patch telemetry metadata, and zero-operation fail-closed behavior. Public routes, persistence, migrations, replay fixtures, effects, telemetry vocabulary, and generated contracts remain unchanged. | Final formatting 2/2 PASS at `.cartulary/test-results/20260827T031119Z-p2305997`. Focused catalog and admission rows PASS at `.cartulary/test-results/20260827T025117Z-p1815272` and `.cartulary/test-results/20260827T025134Z-p1815787`; registry-backed integration and shared-harness rows PASS 3/3 at `.cartulary/test-results/20260827T025145Z-p1816193` and `.cartulary/test-results/20260827T025303Z-p1833380`. Affected owner slices PASS: Artifacts 7/7 `.cartulary/test-results/20260827T025344Z-p1849741`; Assessments 27/27 `.cartulary/test-results/20260827T025426Z-p1866403`; Entities 40/40 `.cartulary/test-results/20260827T025527Z-p1909820`; Evidence 35/35 `.cartulary/test-results/20260827T025720Z-p1965020`; Indicators 20/20 `.cartulary/test-results/20260827T025837Z-p2015218`; Parties 20/20 `.cartulary/test-results/20260827T025924Z-p2032378`; Tasks/Decisions 20/20 `.cartulary/test-results/20260827T030018Z-p2073206`; Timeline 52/52 `.cartulary/test-results/20260827T030111Z-p2113762`; Projections 15/15 `.cartulary/test-results/20260827T030556Z-p2172432`; Workbook 66/66 `.cartulary/test-results/20260827T030642Z-p2189512`; Workbook service-backed 37/37 `.cartulary/test-results/20260827T030902Z-p2247899`. Boundary 3/3 PASS at `.cartulary/test-results/20260827T031128Z-p2310029`; catalog PASS at `.cartulary/test-results/20260827T031138Z-p2310554`; retired-symbol/downcast scans and staged/unstaged diff checks PASS. Initial focused compile failure `.cartulary/test-results/20260827T024459Z-p1807396` exposed legacy catalog-test providers; identical reruns `.cartulary/test-results/20260827T025020Z-p1813760` and `.cartulary/test-results/20260827T025042Z-p1814295` exposed, respectively, a test helper signature and remaining caller hash arguments. The same rollback unit repaired each issue, and the identical gate then passed at `.cartulary/test-results/20260827T025117Z-p1815272`; all failed roots are diagnosis history only. | Rollback is the operation/provider contracts, routes, source adapters, shared test helpers and callers, mapped catalog tests, and boundary policy together. No alias, forwarding wrapper, alternate hash path, or residual blocker remains. WS-27 is eligible only after this tracker passes Markdown lint and both diff checks. |
+| 2026-08-26 23:14 EDT | WS-27 activation | Confirmed WS-26 `DONE`; Markdown lint passed at `.cartulary/test-results/20260827T031321Z-p2311461`; staged and unstaged diff checks passed; reran the live module-author task guide; and marked only WS-27 `IN_PROGRESS`. | Activation checkpoint only; fail-fast startup construction validation follows the implementation change. | WS-27 alone is active. WS-28 remains gated. |
+| 2026-08-26 23:26 EDT | WS-27 completion | Introduced the closed `workbookstartup.Dependencies` input and changed `NewStore` to return `(*Store, error)` only after validating required preferences, unit-of-work, and workspace resolver dependencies, including typed-nil interfaces. Removed the variadic resolver, implicit empty registry, `ErrStoreUnavailable`, and method-level nil fallbacks. Changed Workbook assembly startup constructors to reject nil and typed-nil PostgreSQL and resolver inputs before wrapping them and to propagate construction errors directly. Updated every caller to handle construction errors and every no-extension caller to inject `NewWorkspaceRegistryFromPublication(nil)` explicitly. Existing mapped tests now use explicit no-op fakes, cover all dependency matrices, prove no invalid store is published, and prove route composition stops on factory failure. Added boundary rules for the retired permissive construction paths. Startup selection, preference, compare-and-clear, claim-loss, visibility, and response behavior remain unchanged. | Formatting 2/2 PASS at `.cartulary/test-results/20260827T031907Z-p2315567`. Focused preference unit 1/1 PASS at `.cartulary/test-results/20260827T031915Z-p2319553`; startup construction/behavior and shared-route rows PASS 3/3 at `.cartulary/test-results/20260827T031936Z-p2320261` and `.cartulary/test-results/20260827T032018Z-p2337182`. Owner slices PASS: Workbook 66/66 `.cartulary/test-results/20260827T032107Z-p2353640`; Incidents 27/27 `.cartulary/test-results/20260827T032324Z-p2412132`; app.server 24/24 `.cartulary/test-results/20260827T032452Z-p2457706`. `make build-server` PASS at `.cartulary/test-results/20260827T032551Z-p2499104`; boundary 3/3 PASS at `.cartulary/test-results/20260827T032606Z-p2511461`; catalog PASS at `.cartulary/test-results/20260827T032614Z-p2511964`; retired-symbol/implicit-registry scans and staged/unstaged diff checks PASS. No failed run or superseded acceptance root occurred. | Rollback is the dependency struct, core constructor, assembly propagation, all callers and explicit fakes, mapped tests, generic assembly nil helper rename, and boundary policy together. No implicit default, late unavailable-store branch, compatibility shim, or residual blocker remains. WS-28 is eligible only after this tracker passes Markdown lint and both diff checks. |
+| 2026-08-26 23:27 EDT | WS-28 activation | Confirmed WS-27 `DONE`; Markdown lint passed at `.cartulary/test-results/20260827T032700Z-p2512565`; staged and unstaged diff checks passed; reran the live module-author task guide; and marked only WS-28 `IN_PROGRESS`. The guide selects a11y, stateful, support, visual, webserver-backed, and `test-fast`; it does not directly select measurement. | Activation checkpoint only; production validation and final inventory reconciliation follow. | WS-28 alone is active. Measurement remains conditional on the release topology evaluated by `release-check`. |
+| 2026-08-27 00:16 EDT | WS-28 completion | Reconciled current verification truth at exactly 93 active Workbook rows: 38 Go, 25 Vitest, and 30 Playwright, with 57 service-backed. Reconfirmed exact thirteen-route and eight-capability-family closure; owner-derived hashes; closed safe-failure mapping; authorization precedence; effect ordering; startup selection and preference behavior; restore probes; browser behavior; and the absence of catalog enumeration/unpaged production helpers, admission interfaces, application-assembly downcasts, redundant provider validation, command/test-helper hash overrides, permissive startup construction, implicit workspace registries, and compatibility shims. The changed-file inventory contains no owner specification, `docs/domain.md`, public contract, persisted schema, migration, generated contract, dependency, configuration, or lockfile. Assessment migration `00035_assessment_create_idempotency_v1.sql` and canonical/legacy replay fixtures remain unchanged. | Prescribed gates PASS: harness 2/2 `.cartulary/test-results/20260827T032757Z-p2513986`; JSON shape 3/3 `.cartulary/test-results/20260827T032813Z-p2514530`; catalog `.cartulary/test-results/20260827T032824Z-p2515108`; generation drift 4/4 `.cartulary/test-results/20260827T032832Z-p2515320`; generated policy 3/3 `.cartulary/test-results/20260827T032852Z-p2518296`; boundary 3/3 `.cartulary/test-results/20260827T032857Z-p2518790`; OpenAPI 4/4 `.cartulary/test-results/20260827T032906Z-p2519171`; targeted gosec 4/4 `.cartulary/test-results/20260827T032918Z-p2519844`; vulnerability scan 4/4 `.cartulary/test-results/20260827T032931Z-p2549634`; pre-broad finalization 1/1 `.cartulary/test-results/20260827T032939Z-p2550338`; a11y 12/12 `.cartulary/test-results/20260827T032956Z-p2553277`; stateful 34/34 `.cartulary/test-results/20260827T033126Z-p2596261`; support 15/15 `.cartulary/test-results/20260827T033338Z-p2641440`; visual 12/12 `.cartulary/test-results/20260827T033453Z-p2690598`; webserver-backed 58/58 `.cartulary/test-results/20260827T033643Z-p2733893`; fast 433/433 `.cartulary/test-results/20260827T034051Z-p2787607`; full check 659/659 `.cartulary/test-results/20260827T034141Z-p2795315`; release 819/819 `.cartulary/test-results/20260827T040119Z-p3131525`; retained-check finalization 1/1 `.cartulary/test-results/20260827T041449Z-p3345000`; Markdown lint `.cartulary/test-results/20260827T041658Z-p3348629`; staged and unstaged diff checks. Release topology selected measurement despite its omission from the module-author guide. The first release run reached 817/819 at `.cartulary/test-results/20260827T034618Z-p2916321` when one Timeline blank-row paint measurement timed out after mutation acceptance; no changed backend/startup path, source defect, or golden difference was implicated. The unchanged identical `make release-check` rerun passed 819/819, so the failed root is diagnosis history only. Final retired-symbol, generated-accounting, domain/specification-diff, and changed-file audits PASS. | No rollback unit, residual risk, blocker, pending workstream, migration, compatibility support, or follow-up implementation remains open. All superseded roots are retained as diagnosis history and are not acceptance evidence. This ledger is the complete operative handoff. |

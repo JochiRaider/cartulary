@@ -1,10 +1,14 @@
 package startup_test
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -192,7 +196,14 @@ func TestExtensionWorkspaceRegistrySeparatesClaimDeclarationAndVisibility(t *tes
 		},
 	}
 	registry := workbookstartup.NewWorkspaceRegistryFromPublication(workspaces)
-	store := workbookstartup.NewStore(nil, nil, registry)
+	store, err := workbookstartup.NewStore(workbookstartup.Dependencies{
+		Preferences: apiNoopPreferenceStore{},
+		UnitOfWork:  apiNoopUnitOfWork{},
+		Workspaces:  registry,
+	})
+	if err != nil {
+		t.Fatalf("construct workspace-validation store: %v", err)
+	}
 	viewerRows := registry.AvailableWorkspaces("viewer")
 	if len(viewerRows) != 1 || viewerRows[0].ExtensionProfileID != "network_flow_activity" || viewerRows[0].WorkspaceKey != "network_analysis" {
 		t.Fatalf("viewer availability must contain only the claimed authorized workspace: %#v", viewerRows)
@@ -215,6 +226,30 @@ func TestExtensionWorkspaceRegistrySeparatesClaimDeclarationAndVisibility(t *tes
 
 	restricted := []byte(`{"kind":"extension_workspace","extension_profile_id":"restricted_extension","workspace_key":"restricted_workspace"}`)
 	requireStartupAPIError(t, store.ValidateExplicitSheetRef(restricted, "viewer"), http.StatusBadRequest, "invalid_startup_request", "sheet_ref_id", "extension_workspace_not_visible")
+}
+
+type apiNoopPreferenceStore struct{}
+
+func (apiNoopPreferenceStore) GetDefaultPreferences(context.Context, uuid.UUID) (workbookstartup.DefaultPreferencesRecord, error) {
+	return workbookstartup.DefaultPreferencesRecord{}, nil
+}
+
+func (apiNoopPreferenceStore) PutDefaultPreferences(context.Context, uuid.UUID, uuid.UUID, []byte, time.Time) (workbookstartup.DefaultPreferencesRecord, error) {
+	return workbookstartup.DefaultPreferencesRecord{}, nil
+}
+
+func (apiNoopPreferenceStore) GetUserPreferences(context.Context, uuid.UUID, uuid.UUID) (workbookstartup.UserPreferencesRecord, error) {
+	return workbookstartup.UserPreferencesRecord{}, nil
+}
+
+func (apiNoopPreferenceStore) PutUserPreferences(context.Context, uuid.UUID, uuid.UUID, []byte, time.Time) (workbookstartup.UserPreferencesRecord, error) {
+	return workbookstartup.UserPreferencesRecord{}, nil
+}
+
+type apiNoopUnitOfWork struct{}
+
+func (apiNoopUnitOfWork) Run(context.Context, func(workbookstartup.Session) (workbookstartup.Record, error)) (workbookstartup.Record, error) {
+	return workbookstartup.Record{}, nil
 }
 
 func requireStartupAPIError(t testing.TB, apiErr *httpapi.APIError, wantStatus int, wantCode string, wantField string, wantReason string) {

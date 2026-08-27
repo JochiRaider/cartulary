@@ -22,6 +22,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
 
 func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
@@ -127,7 +128,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	if got := countSupersedesLinks(t, harness.DB, source, target); got != 1 {
 		t.Fatalf("decision supersedes link count: got %d want 1", got)
 	}
-	decisionRows, err := store.QueryRows(ctx, incident.ID, tasksdecisions.DecisionsViewSchemaID, viewschema.QueryMeta{
+	decisionRows, err := workbookroutetest.QueryRows(store, ctx, incident.ID, tasksdecisions.DecisionsViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: "decision.is_superseded", Op: "eq", Arg: map[string]any{"value": true}}},
 		Sort:    []viewschema.SortEntry{{FieldKey: "decision.updated_at", Direction: "desc"}},
 	})
@@ -137,7 +138,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	if !rowsContain(decisionRows, target) {
 		t.Fatalf("superseded target missing from projection rows: %#v", decisionRows)
 	}
-	sourceRows, err := store.QueryRows(ctx, incident.ID, tasksdecisions.DecisionsViewSchemaID, viewschema.QueryMeta{
+	sourceRows, err := workbookroutetest.QueryRows(store, ctx, incident.ID, tasksdecisions.DecisionsViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: "decision.supersedes_record_id", Op: "eq", Arg: map[string]any{"value": target.String()}}},
 		Sort:    []viewschema.SortEntry{{FieldKey: "decision.updated_at", Direction: "desc"}},
 	})

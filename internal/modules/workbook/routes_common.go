@@ -71,15 +71,15 @@ func isRecordTargetNotFound(err error) bool {
 	return errors.Is(err, ErrRecordTargetNotFound)
 }
 
-func decodeMutationAPIError(admission any, failure *MutationFailure, err error) *httpapi.APIError {
-	if err != nil || (failure != nil && !isNilContributionProvider(admission)) {
+func decodeMutationAPIError(operationPresent bool, failure *MutationFailure, err error) *httpapi.APIError {
+	if err != nil || (failure != nil && operationPresent) {
 		return internalAPIError(err)
 	}
 	if failure != nil {
 		return mutationFailureAPIError(failure)
 	}
-	if isNilContributionProvider(admission) {
-		return internalAPIError(errors.New("workbook provider returned nil admission without a failure"))
+	if !operationPresent {
+		return internalAPIError(errors.New("workbook provider returned no operation or failure"))
 	}
 	return nil
 }

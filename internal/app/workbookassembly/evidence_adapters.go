@@ -51,36 +51,31 @@ func nilEvidenceOwner(owner evidence.MutationContribution) bool {
 	return value.Kind() == reflect.Pointer && value.IsNil()
 }
 
-type evidenceCreateAdmission struct{ request evidence.CreateRequest }
-
-func (value evidenceCreateAdmission) ClientTransactionID() string { return value.request.ClientTxnID }
-
 func newEvidenceCreateProvider(owner evidence.MutationContribution) (workbook.CreateProvider, error) {
 	if nilEvidenceOwner(owner) {
 		return nil, fmt.Errorf("compose Evidence create adapter: owner is required")
 	}
 	return workbook.NewCreateProvider(
-		func(reader io.Reader) (workbook.CreateAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader) (evidence.CreateRequest, bool, *workbook.MutationFailure, error) {
 			request, apiErr := evidence.DecodeCreateRequest(reader)
 			if apiErr != nil {
 				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+				return evidence.CreateRequest{}, false, failure, err
 			}
-			return evidenceCreateAdmission{request: request}, nil, nil
+			return request, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.CreateCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(evidenceCreateAdmission)
-			if !ok || command.ViewSchemaID != evidence.ViewSchemaID || admitted.request.ViewSchemaID != evidence.ViewSchemaID {
+		func(ctx context.Context, command workbook.CreateCommand, request evidence.CreateRequest) (workbook.MutationOutcome, error) {
+			if command.ViewSchemaID != evidence.ViewSchemaID || request.ViewSchemaID != evidence.ViewSchemaID {
 				return workbook.RejectedMutation(
 					workbook.InvalidPayloadFailure("view_schema_id", "invalid_view_schema_id"),
 				), nil
 			}
 			result, err := owner.Create(ctx, evidence.CreateCommand{
-				Actor: command.Actor, IncidentID: command.IncidentID, Request: admitted.request,
-				RequestHash: preferredRequestHash(command.RequestHash, evidence.CreateRequestHash(admitted.request)),
+				Actor: command.Actor, IncidentID: command.IncidentID, Request: request,
+				RequestHash: evidence.CreateRequestHash(request),
 				RequestID:   command.RequestID, RouteKey: workbookCreateOperation, Now: command.Now,
 			})
-			if failure, safe := evidenceMutationFailure(err, admitted.request.ClientTxnID); safe {
+			if failure, safe := evidenceMutationFailure(err, request.ClientTxnID); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -89,14 +84,6 @@ func newEvidenceCreateProvider(owner evidence.MutationContribution) (workbook.Cr
 			return workbook.SuccessfulRowMutation(evidenceMutationResult(result)), nil
 		},
 	)
-}
-
-type evidencePatchAdmission struct{ request evidence.PatchRequest }
-
-func (value evidencePatchAdmission) ClientTransactionID() string  { return value.request.ClientTxnID }
-func (value evidencePatchAdmission) AdmittedViewSchemaID() string { return value.request.ViewSchemaID }
-func (value evidencePatchAdmission) AdmittedBaseRowVersion() int64 {
-	return value.request.BaseRowVersion
 }
 
 func newEvidencePatchProvider(owner evidence.MutationContribution) (workbook.PatchProvider, error) {
@@ -104,26 +91,26 @@ func newEvidencePatchProvider(owner evidence.MutationContribution) (workbook.Pat
 		return nil, fmt.Errorf("compose Evidence patch adapter: owner is required")
 	}
 	return workbook.NewPatchProvider(
-		func(reader io.Reader) (workbook.PatchAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader) (evidence.PatchRequest, bool, *workbook.MutationFailure, error) {
 			request, apiErr := evidence.DecodePatchRequest(reader)
 			if apiErr != nil {
 				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+				return evidence.PatchRequest{}, false, failure, err
 			}
-			return evidencePatchAdmission{request: request}, nil, nil
+			return request, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.PatchCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(evidencePatchAdmission)
-			if !ok || command.AuthoritativeRecordType != "evidence" || admitted.request.ViewSchemaID != evidence.ViewSchemaID {
+		func(request evidence.PatchRequest) string { return request.ViewSchemaID },
+		func(ctx context.Context, command workbook.PatchCommand, request evidence.PatchRequest) (workbook.MutationOutcome, error) {
+			if command.AuthoritativeRecordType != "evidence" || request.ViewSchemaID != evidence.ViewSchemaID {
 				return workbook.RejectedMutation(workbook.TargetNotFoundFailure()), nil
 			}
 			result, err := owner.Patch(ctx, evidence.PatchCommand{
-				Actor: command.Actor, RecordID: command.RecordID, Request: admitted.request,
-				RequestHash: preferredRequestHash(command.RequestHash, evidence.PatchRequestHash(admitted.request)),
+				Actor: command.Actor, RecordID: command.RecordID, Request: request,
+				RequestHash: evidence.PatchRequestHash(request),
 				RequestID:   command.RequestID, RouteKey: workbookPatchOperation,
 				ConflictRouteKey: workbookConflictResolveOperation, Now: command.Now,
 			})
-			if failure, safe := evidenceMutationFailure(err, admitted.request.ClientTxnID); safe {
+			if failure, safe := evidenceMutationFailure(err, request.ClientTxnID); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -134,12 +121,10 @@ func newEvidencePatchProvider(owner evidence.MutationContribution) (workbook.Pat
 	)
 }
 
-type evidenceConflictAdmission struct {
+type evidenceConflictValue struct {
 	request evidence.ConflictResolveRequest
 	claims  evidence.ConflictClaims
 }
-
-func (value evidenceConflictAdmission) ClientTransactionID() string { return value.request.ClientTxnID }
 
 func newEvidenceConflictProvider(owner evidence.MutationContribution) (workbook.ConflictProvider, error) {
 	if nilEvidenceOwner(owner) {
@@ -150,9 +135,9 @@ func newEvidenceConflictProvider(owner evidence.MutationContribution) (workbook.
 			reader io.Reader,
 			token string,
 			claims workbook.ConflictClaims,
-		) (workbook.ConflictAdmission, *workbook.MutationFailure, error) {
+		) (evidenceConflictValue, bool, *workbook.MutationFailure, error) {
 			if claims.RouteKey != workbookConflictResolveOperation || claims.ViewSchemaID != evidence.ViewSchemaID {
-				return nil, workbook.InvalidPayloadFailure("conflict_token", "invalid_value"), nil
+				return evidenceConflictValue{}, false, workbook.InvalidPayloadFailure("conflict_token", "invalid_value"), nil
 			}
 			ownerClaims := evidence.ConflictClaims{
 				RecordID: claims.RecordID, ViewSchemaID: claims.ViewSchemaID,
@@ -161,20 +146,16 @@ func newEvidenceConflictProvider(owner evidence.MutationContribution) (workbook.
 			request, apiErr := evidence.DecodeConflictResolveRequest(reader, token, ownerClaims)
 			if apiErr != nil {
 				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+				return evidenceConflictValue{}, false, failure, err
 			}
-			return evidenceConflictAdmission{request: request, claims: ownerClaims}, nil, nil
+			return evidenceConflictValue{request: request, claims: ownerClaims}, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.ConflictCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(evidenceConflictAdmission)
-			if !ok || command.AuthoritativeRecordType != "evidence" || command.RecordID != command.Claims.RecordID ||
+		func(ctx context.Context, command workbook.ConflictCommand, admitted evidenceConflictValue) (workbook.MutationOutcome, error) {
+			if command.AuthoritativeRecordType != "evidence" || command.RecordID != command.Claims.RecordID ||
 				command.Claims.RouteKey != workbookConflictResolveOperation || command.Claims.ViewSchemaID != evidence.ViewSchemaID {
 				return workbook.RejectedMutation(workbook.TargetNotFoundFailure()), nil
 			}
-			requestHash := preferredRequestHash(
-				command.RequestHash,
-				evidence.ConflictResolveRequestHash(admitted.claims, admitted.request),
-			)
+			requestHash := evidence.ConflictResolveRequestHash(admitted.claims, admitted.request)
 			result, err := owner.ResolveConflict(ctx, evidence.ConflictCommand{
 				Mechanics: conflicttokens.Command{
 					ActorUserID: command.Actor.ID, RecordID: command.RecordID,

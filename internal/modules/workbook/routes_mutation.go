@@ -28,17 +28,16 @@ func (s *service) handleCreate(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unsupported_view_schema"))
 		return
 	}
-	mutationAdmission, failure, err := provider.DecodeCreate(r.Body)
-	if apiErr := decodeMutationAPIError(mutationAdmission, failure, err); apiErr != nil {
+	operation, failure, err := provider.DecodeCreate(r.Body)
+	if apiErr := decodeMutationAPIError(operation.execute != nil, failure, err); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 	ctx, finishTelemetry := s.startWorkbookMutation(r.Context(), viewSchemaID, "create")
-	outcome, err := provider.Create(ctx, CreateCommand{
+	outcome, err := operation.Execute(ctx, CreateCommand{
 		Actor:        principal.User,
 		IncidentID:   incidentID,
 		ViewSchemaID: viewSchemaID,
-		Admission:    mutationAdmission,
 		RequestID:    httpapi.RequestIDFromContext(ctx),
 		Now:          s.now(),
 	})
@@ -76,17 +75,16 @@ func (s *service) handlePatch(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	}
-	mutationAdmission, failure, err := provider.DecodePatch(r.Body)
-	if apiErr := decodeMutationAPIError(mutationAdmission, failure, err); apiErr != nil {
+	operation, failure, err := provider.DecodePatch(r.Body)
+	if apiErr := decodeMutationAPIError(operation.execute != nil, failure, err); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	ctx, finishTelemetry := s.startWorkbookMutation(r.Context(), mutationAdmission.AdmittedViewSchemaID(), "patch")
-	outcome, err := provider.Patch(ctx, PatchCommand{
+	ctx, finishTelemetry := s.startWorkbookMutation(r.Context(), operation.AdmittedViewSchemaID(), "patch")
+	outcome, err := operation.Execute(ctx, PatchCommand{
 		Actor:                   principal.User,
 		RecordID:                recordID,
 		AuthoritativeRecordType: target.RecordType,
-		Admission:               mutationAdmission,
 		RequestID:               httpapi.RequestIDFromContext(ctx),
 		Now:                     s.now(),
 	})
@@ -130,17 +128,16 @@ func (s *service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
 		return
 	}
-	mutationAdmission, failure, err := provider.DecodeConflict(r.Body, token, claims)
-	if apiErr := decodeMutationAPIError(mutationAdmission, failure, err); apiErr != nil {
+	operation, failure, err := provider.DecodeConflict(r.Body, token, claims)
+	if apiErr := decodeMutationAPIError(operation.execute != nil, failure, err); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	outcome, err := provider.ResolveConflict(r.Context(), ConflictCommand{
+	outcome, err := operation.Execute(r.Context(), ConflictCommand{
 		Actor:                   principal.User,
 		RecordID:                recordID,
 		AuthoritativeRecordType: target.RecordType,
 		Claims:                  claims,
-		Admission:               mutationAdmission,
 		RequestID:               httpapi.RequestIDFromContext(r.Context()),
 		Now:                     s.now(),
 	})

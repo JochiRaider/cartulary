@@ -85,30 +85,21 @@ type entityCreateFunc func(
 	time.Time,
 ) (hostidentity.MutationResult, error)
 
-type entityCreateAdmission struct {
-	request hostidentity.CreateRequest
-}
-
-func (value entityCreateAdmission) ClientTransactionID() string {
-	return value.request.ClientTxnID
-}
-
 func newEntityCreateProvider(viewSchemaID string, create entityCreateFunc) (workbook.CreateProvider, error) {
 	if !isEntityViewSchema(viewSchemaID) || create == nil {
 		return nil, fmt.Errorf("compose Entity create adapter: complete binding is required")
 	}
 	return workbook.NewCreateProvider(
-		func(reader io.Reader) (workbook.CreateAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader) (hostidentity.CreateRequest, bool, *workbook.MutationFailure, error) {
 			request, apiErr := hostidentity.DecodeCreateRequest(viewSchemaID, reader)
 			if apiErr != nil {
 				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+				return hostidentity.CreateRequest{}, false, failure, err
 			}
-			return entityCreateAdmission{request: request}, nil, nil
+			return request, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.CreateCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(entityCreateAdmission)
-			if !ok || command.ViewSchemaID != viewSchemaID {
+		func(ctx context.Context, command workbook.CreateCommand, request hostidentity.CreateRequest) (workbook.MutationOutcome, error) {
+			if command.ViewSchemaID != viewSchemaID {
 				return workbook.RejectedMutation(
 					workbook.InvalidPayloadFailure("view_schema_id", "invalid_view_schema_id"),
 				), nil
@@ -117,12 +108,12 @@ func newEntityCreateProvider(viewSchemaID string, create entityCreateFunc) (work
 				ctx,
 				command.Actor,
 				command.IncidentID,
-				admitted.request,
-				preferredRequestHash(command.RequestHash, hostidentity.CreateRequestHash(viewSchemaID, admitted.request)),
+				request,
+				hostidentity.CreateRequestHash(viewSchemaID, request),
 				command.RequestID,
 				command.Now,
 			)
-			if failure, safe := entityMutationFailure(err, admitted.request.ClientTxnID); safe {
+			if failure, safe := entityMutationFailure(err, request.ClientTxnID); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -132,26 +123,10 @@ func newEntityCreateProvider(viewSchemaID string, create entityCreateFunc) (work
 				result,
 				viewSchemaID,
 				command.IncidentID,
-				admitted.request.ClientTxnID,
+				request.ClientTxnID,
 			)), nil
 		},
 	)
-}
-
-type entityPatchAdmission struct {
-	request hostidentity.PatchRequest
-}
-
-func (value entityPatchAdmission) ClientTransactionID() string {
-	return value.request.ClientTxnID
-}
-
-func (value entityPatchAdmission) AdmittedViewSchemaID() string {
-	return value.request.ViewSchemaID
-}
-
-func (value entityPatchAdmission) AdmittedBaseRowVersion() int64 {
-	return value.request.BaseRowVersion
 }
 
 func newEntityPatchProvider(
@@ -163,30 +138,30 @@ func newEntityPatchProvider(
 		return nil, fmt.Errorf("compose Entity patch adapter: complete binding is required")
 	}
 	return workbook.NewPatchProvider(
-		func(reader io.Reader) (workbook.PatchAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader) (hostidentity.PatchRequest, bool, *workbook.MutationFailure, error) {
 			request, apiErr := hostidentity.DecodePatchRequest(reader)
 			if apiErr != nil {
 				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+				return hostidentity.PatchRequest{}, false, failure, err
 			}
-			return entityPatchAdmission{request: request}, nil, nil
+			return request, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.PatchCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(entityPatchAdmission)
-			if !ok || command.AuthoritativeRecordType != recordType || admitted.request.ViewSchemaID != viewSchemaID {
+		func(request hostidentity.PatchRequest) string { return request.ViewSchemaID },
+		func(ctx context.Context, command workbook.PatchCommand, request hostidentity.PatchRequest) (workbook.MutationOutcome, error) {
+			if command.AuthoritativeRecordType != recordType || request.ViewSchemaID != viewSchemaID {
 				return workbook.RejectedMutation(workbook.TargetNotFoundFailure()), nil
 			}
 			result, err := owner.PatchEntityRow(
 				ctx,
 				command.Actor,
 				command.RecordID,
-				admitted.request,
-				preferredRequestHash(command.RequestHash, hostidentity.PatchRequestHash(admitted.request)),
+				request,
+				hostidentity.PatchRequestHash(request),
 				command.RequestID,
 				command.Now,
 				workbookPatchOperation,
 			)
-			if failure, safe := entityMutationFailure(err, admitted.request.ClientTxnID); safe {
+			if failure, safe := entityMutationFailure(err, request.ClientTxnID); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -197,13 +172,9 @@ func newEntityPatchProvider(
 	)
 }
 
-type entityConflictAdmission struct {
+type entityConflictValue struct {
 	request hostidentity.WorkbookConflictResolveRequest
 	claims  hostidentity.WorkbookConflictClaims
-}
-
-func (value entityConflictAdmission) ClientTransactionID() string {
-	return value.request.ClientTxnID
 }
 
 func newEntityConflictProvider(
@@ -219,10 +190,10 @@ func newEntityConflictProvider(
 			reader io.Reader,
 			token string,
 			claims workbook.ConflictClaims,
-		) (workbook.ConflictAdmission, *workbook.MutationFailure, error) {
+		) (entityConflictValue, bool, *workbook.MutationFailure, error) {
 			if claims.RouteKey != workbookConflictResolveOperation ||
 				claims.ViewSchemaID != viewSchemaID {
-				return nil, workbook.InvalidPayloadFailure("conflict_token", "invalid_value"), nil
+				return entityConflictValue{}, false, workbook.InvalidPayloadFailure("conflict_token", "invalid_value"), nil
 			}
 			ownerClaims := hostidentity.WorkbookConflictClaims{
 				RecordID: claims.RecordID, ViewSchemaID: claims.ViewSchemaID,
@@ -231,22 +202,18 @@ func newEntityConflictProvider(
 			request, apiErr := hostidentity.DecodeWorkbookConflictResolveRequest(reader, token, ownerClaims)
 			if apiErr != nil {
 				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+				return entityConflictValue{}, false, failure, err
 			}
-			return entityConflictAdmission{request: request, claims: ownerClaims}, nil, nil
+			return entityConflictValue{request: request, claims: ownerClaims}, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.ConflictCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(entityConflictAdmission)
-			if !ok || command.AuthoritativeRecordType != recordType ||
+		func(ctx context.Context, command workbook.ConflictCommand, admitted entityConflictValue) (workbook.MutationOutcome, error) {
+			if command.AuthoritativeRecordType != recordType ||
 				command.RecordID != command.Claims.RecordID ||
 				command.Claims.RouteKey != workbookConflictResolveOperation ||
 				command.Claims.ViewSchemaID != viewSchemaID {
 				return workbook.RejectedMutation(workbook.TargetNotFoundFailure()), nil
 			}
-			requestHash := preferredRequestHash(
-				command.RequestHash,
-				hostidentity.WorkbookConflictResolveRequestHash(admitted.claims, admitted.request),
-			)
+			requestHash := hostidentity.WorkbookConflictResolveRequestHash(admitted.claims, admitted.request)
 			result, err := owner.ResolveWorkbookConflict(ctx, hostidentity.ConflictCommand{
 				Mechanics: conflicttokens.Command{
 					ActorUserID: command.Actor.ID,
@@ -283,25 +250,20 @@ func newEntityClipboardProvider(viewSchemaID string, owner *hostidentity.Store) 
 		return nil, fmt.Errorf("compose Entity clipboard adapter: complete binding is required")
 	}
 	return workbook.NewClipboardProvider(
-		func(reader io.Reader) (workbook.ClipboardAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader) (entityClipboardValue, bool, *workbook.MutationFailure, error) {
 			request, apiErr := hostidentity.DecodeClipboardPasteRequest(reader, viewSchemaID)
 			if apiErr != nil {
 				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+				return entityClipboardValue{}, false, failure, err
 			}
 			plan, err := hostidentity.BuildClipboardPastePlan(request)
 			if err != nil {
-				return nil, workbook.InvalidPayloadFailure("clipboard_text", "invalid_value"), nil
+				return entityClipboardValue{}, false, workbook.InvalidPayloadFailure("clipboard_text", "invalid_value"), nil
 			}
-			return clipboardAdmission[entityClipboardValue]{
-				clientTxnID:  request.ClientTxnID,
-				viewSchemaID: request.ViewSchemaID,
-				value:        entityClipboardValue{request: request, plan: plan},
-			}, nil, nil
+			return entityClipboardValue{request: request, plan: plan}, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.ClipboardCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(clipboardAdmission[entityClipboardValue])
-			if !ok || command.ViewSchemaID != viewSchemaID || admitted.viewSchemaID != viewSchemaID {
+		func(ctx context.Context, command workbook.ClipboardCommand, admitted entityClipboardValue) (workbook.MutationOutcome, error) {
+			if command.ViewSchemaID != viewSchemaID || admitted.request.ViewSchemaID != viewSchemaID {
 				return workbook.RejectedMutation(
 					workbook.InvalidPayloadFailure("view_schema_id", "invalid_view_schema_id"),
 				), nil
@@ -311,12 +273,12 @@ func newEntityClipboardProvider(viewSchemaID string, owner *hostidentity.Store) 
 				command.Actor,
 				command.IncidentID,
 				viewSchemaID,
-				admitted.value.plan,
-				admitted.value.request.RequestHash(),
+				admitted.plan,
+				admitted.request.RequestHash(),
 				command.RequestID,
 				command.Now,
 			)
-			if failure, safe := entityMutationFailure(err, admitted.clientTxnID); safe {
+			if failure, safe := entityMutationFailure(err, admitted.request.ClientTxnID); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {

@@ -3,6 +3,8 @@ package startup
 import (
 	"context"
 	"errors"
+	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,10 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-var (
-	ErrPreferencesNotFound = errors.New("workbook startup: preferences not found")
-	ErrStoreUnavailable    = errors.New("workbook startup: persistence is unavailable")
-)
+var ErrPreferencesNotFound = errors.New("workbook startup: preferences not found")
 
 // PreferenceStore is the non-transactional preference surface Workbook needs
 // for its public preference routes. The PostgreSQL implementation is owned by
@@ -48,15 +47,42 @@ type Store struct {
 	workspaceAvailability WorkspaceResolver
 }
 
-func NewStore(preferences PreferenceStore, unitOfWork UnitOfWork, workspaceResolvers ...WorkspaceResolver) *Store {
-	resolver := WorkspaceResolver(NewWorkspaceRegistryFromPublication(nil))
-	if len(workspaceResolvers) > 0 && workspaceResolvers[0] != nil {
-		resolver = workspaceResolvers[0]
+type Dependencies struct {
+	Preferences PreferenceStore
+	UnitOfWork  UnitOfWork
+	Workspaces  WorkspaceResolver
+}
+
+func NewStore(dependencies Dependencies) (*Store, error) {
+	for _, dependency := range []struct {
+		name  string
+		value any
+	}{
+		{name: "preferences", value: dependencies.Preferences},
+		{name: "unit of work", value: dependencies.UnitOfWork},
+		{name: "workspace resolver", value: dependencies.Workspaces},
+	} {
+		if isNilDependency(dependency.value) {
+			return nil, fmt.Errorf("workbook startup: %s is required", dependency.name)
+		}
 	}
 	return &Store{
-		preferences:           preferences,
-		unitOfWork:            unitOfWork,
-		workspaceAvailability: resolver,
+		preferences:           dependencies.Preferences,
+		unitOfWork:            dependencies.UnitOfWork,
+		workspaceAvailability: dependencies.Workspaces,
+	}, nil
+}
+
+func isNilDependency(dependency any) bool {
+	if dependency == nil {
+		return true
+	}
+	value := reflect.ValueOf(dependency)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
 	}
 }
 
@@ -112,37 +138,22 @@ func extensionReasonField(prefix string, reasonCode string) string {
 }
 
 func (s *Store) GetDefaultPreferences(ctx context.Context, incidentID uuid.UUID) (DefaultPreferencesRecord, error) {
-	if s.preferences == nil {
-		return DefaultPreferencesRecord{}, ErrStoreUnavailable
-	}
 	return s.preferences.GetDefaultPreferences(ctx, incidentID)
 }
 
 func (s *Store) PutDefaultPreferences(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, defaultSheetRef []byte, now time.Time) (DefaultPreferencesRecord, error) {
-	if s.preferences == nil {
-		return DefaultPreferencesRecord{}, ErrStoreUnavailable
-	}
 	return s.preferences.PutDefaultPreferences(ctx, incidentID, actorUserID, defaultSheetRef, now)
 }
 
 func (s *Store) GetUserPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (UserPreferencesRecord, error) {
-	if s.preferences == nil {
-		return UserPreferencesRecord{}, ErrStoreUnavailable
-	}
 	return s.preferences.GetUserPreferences(ctx, incidentID, userID)
 }
 
 func (s *Store) PutUserPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, homeSheetRef []byte, now time.Time) (UserPreferencesRecord, error) {
-	if s.preferences == nil {
-		return UserPreferencesRecord{}, ErrStoreUnavailable
-	}
 	return s.preferences.PutUserPreferences(ctx, incidentID, userID, homeSheetRef, now)
 }
 
 func (s *Store) Resolve(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, role string, explicitSheetRef []byte, now time.Time) (Record, error) {
-	if s.unitOfWork == nil {
-		return Record{}, ErrStoreUnavailable
-	}
 	availability := ExtensionWorkspaceAvailability{
 		SchemaID:   ExtensionWorkspaceAvailabilitySchemaID,
 		IncidentID: incidentID.String(),

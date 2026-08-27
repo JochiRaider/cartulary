@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
 
 type taskState struct {
@@ -347,7 +348,7 @@ INSERT INTO record_links (
 
 func queryOne(t testing.TB, store *workbook.WorkbookContributionCatalog, incidentID uuid.UUID, viewSchemaID string, fieldKey string, value any, recordID uuid.UUID) map[string]any {
 	t.Helper()
-	rows, err := store.QueryRows(context.Background(), incidentID, viewSchemaID, viewschema.QueryMeta{
+	rows, err := workbookroutetest.QueryRows(store, context.Background(), incidentID, viewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: fieldKey, Op: "eq", Arg: map[string]any{"value": value}}},
 		Sort:    []viewschema.SortEntry{{FieldKey: "decision.updated_at", Direction: "desc"}},
 	})

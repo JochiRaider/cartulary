@@ -57,10 +57,13 @@ func TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit(t *
 		t.Fatalf("unexpected bootstrap membership: %#v", membership)
 	}
 
-	startupStore := workbookassembly.NewStartupStore(
+	startupStore, err := workbookassembly.NewStartupStore(
 		harness.DB,
 		workbookstartup.NewWorkspaceRegistryFromPublication(nil),
 	)
+	if err != nil {
+		t.Fatalf("construct startup store: %v", err)
+	}
 	defaultPrefs, err := startupStore.GetDefaultPreferences(context.Background(), result.Incident.ID)
 	if err != nil {
 		t.Fatalf("lookup incident workbook preferences: %v", err)

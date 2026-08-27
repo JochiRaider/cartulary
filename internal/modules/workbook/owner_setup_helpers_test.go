@@ -74,7 +74,7 @@ func mustCreateTaskFor(t testing.TB, store *workbook.WorkbookContributionCatalog
 			"task.title":     {Kind: "text", Text: &title},
 			"task.task_kind": {Kind: "text", Text: stringPtr("request")},
 		},
-	}, []byte(clientTxnID), "req-"+clientTxnID, time.Date(2026, 5, 18, 12, 2, 0, 0, time.UTC))
+	}, "req-"+clientTxnID, time.Date(2026, 5, 18, 12, 2, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create task %s: %v", clientTxnID, err)
 	}
@@ -95,7 +95,7 @@ func mustCreateDecision(t testing.TB, store *workbook.WorkbookContributionCatalo
 		ViewSchemaID: tasksdecisions.DecisionsViewSchemaID,
 		ClientTxnID:  clientTxnID,
 		Values:       values,
-	}, []byte(clientTxnID), "req-"+clientTxnID, Time(0))
+	}, "req-"+clientTxnID, Time(0))
 	if err != nil {
 		t.Fatalf("create decision %s: %v", clientTxnID, err)
 	}

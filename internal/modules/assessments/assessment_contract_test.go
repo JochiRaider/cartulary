@@ -115,7 +115,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		{FieldKey: "assessment.assessed_at", Direction: "desc"},
 		{FieldKey: "record_id", Direction: "asc"},
 	}
-	rows, err := workbookStore.QueryRows(ctx, incident.ID, assessments.AssessmentsViewSchemaID, query)
+	rows, err := workbookroutetest.QueryRows(workbookStore, ctx, incident.ID, assessments.AssessmentsViewSchemaID, query)
 	if err != nil {
 		t.Fatalf("query assessment rows sorted by confidence band: %v", err)
 	}
@@ -544,7 +544,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 				Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}},
 			},
 		},
-	}, []byte("txn-workbook_interaction-u-9-12-task-null-confidence"), "req-workbook_interaction-u-9-12-task-null-confidence", time.Date(2026, 5, 17, 18, 30, 0, 0, time.UTC))
+	}, "req-workbook_interaction-u-9-12-task-null-confidence", time.Date(2026, 5, 17, 18, 30, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create task with manual link: %v", err)
 	}
@@ -564,7 +564,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 				Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}},
 			},
 		},
-	}, []byte("txn-workbook_interaction-u-9-12-decision-null-confidence"), "req-workbook_interaction-u-9-12-decision-null-confidence", time.Date(2026, 5, 17, 18, 45, 0, 0, time.UTC))
+	}, "req-workbook_interaction-u-9-12-decision-null-confidence", time.Date(2026, 5, 17, 18, 45, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create decision with manual links: %v", err)
 	}
@@ -593,7 +593,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 			"task.title":     {Kind: "text", Text: textPtr("Coordination task confidence remains null")},
 			"task.task_kind": {Kind: "text", Text: textPtr("follow_up")},
 		},
-	}, []byte("txn-workbook_interaction-u-9-12-coord-task"), "req-workbook_interaction-u-9-12-coord-task", time.Date(2026, 5, 17, 18, 51, 0, 0, time.UTC))
+	}, "req-workbook_interaction-u-9-12-coord-task", time.Date(2026, 5, 17, 18, 51, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create coordination task target: %v", err)
 	}
@@ -605,7 +605,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 			"decision.decision_type": {Kind: "text", Text: textPtr("containment")},
 			"decision.rationale":     {Kind: "text", Text: textPtr("Coordination manual relationship confidence remains null.")},
 		},
-	}, []byte("txn-workbook_interaction-u-9-12-coord-decision"), "req-workbook_interaction-u-9-12-coord-decision", time.Date(2026, 5, 17, 18, 52, 0, 0, time.UTC))
+	}, "req-workbook_interaction-u-9-12-coord-decision", time.Date(2026, 5, 17, 18, 52, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create coordination decision target: %v", err)
 	}
@@ -640,7 +640,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 			"comm_log.action_task_ids":    {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
 			"comm_log.audience_party_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_party_ref", PartyID: &coordParty.RecordID}}},
 		},
-	}, []byte("txn-workbook_interaction-u-9-12-comm-null-confidence"), "req-workbook_interaction-u-9-12-comm-null-confidence", time.Date(2026, 5, 17, 18, 54, 0, 0, time.UTC))
+	}, "req-workbook_interaction-u-9-12-comm-null-confidence", time.Date(2026, 5, 17, 18, 54, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create comm log manual links: %v", err)
 	}
@@ -660,7 +660,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 			"handoff.open_decision_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordDecision.RecordID}}},
 			"handoff.open_risk_refs":    {Actions: []workbookroutetest.CollectionAction{{Op: "add_risk_ref", RiskRefText: "Manual risk refs have no confidence", NormalizedText: "manual risk refs have no confidence"}}},
 		},
-	}, []byte("txn-workbook_interaction-u-9-12-handoff-null-confidence"), "req-workbook_interaction-u-9-12-handoff-null-confidence", time.Date(2026, 5, 17, 18, 55, 0, 0, time.UTC))
+	}, "req-workbook_interaction-u-9-12-handoff-null-confidence", time.Date(2026, 5, 17, 18, 55, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create handoff manual links: %v", err)
 	}
@@ -684,7 +684,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 			"status_review.pending_evidence_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordEvidence.RecordID}}},
 			"status_review.open_decision_ids":    {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordDecision.RecordID}}},
 		},
-	}, []byte("txn-workbook_interaction-u-9-12-status-null-confidence"), "req-workbook_interaction-u-9-12-status-null-confidence", time.Date(2026, 5, 17, 18, 56, 0, 0, time.UTC))
+	}, "req-workbook_interaction-u-9-12-status-null-confidence", time.Date(2026, 5, 17, 18, 56, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create status review manual links: %v", err)
 	}
@@ -702,7 +702,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 			"lesson.follow_up_task_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
 			"lesson.evidence_refs":      {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordEvidence.RecordID}}},
 		},
-	}, []byte("txn-workbook_interaction-u-9-12-lesson-null-confidence"), "req-workbook_interaction-u-9-12-lesson-null-confidence", time.Date(2026, 5, 17, 18, 57, 0, 0, time.UTC))
+	}, "req-workbook_interaction-u-9-12-lesson-null-confidence", time.Date(2026, 5, 17, 18, 57, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create lesson manual links: %v", err)
 	}
@@ -803,7 +803,7 @@ func requireQueriedRecordIDs(t testing.TB, store *workbook.WorkbookContributionC
 	t.Helper()
 	query := assessmentQueryMeta(t)
 	query.Filters = []viewschema.Filter{filter}
-	rows, err := store.QueryRows(context.Background(), incidentID, assessments.AssessmentsViewSchemaID, query)
+	rows, err := workbookroutetest.QueryRows(store, context.Background(), incidentID, assessments.AssessmentsViewSchemaID, query)
 	if err != nil {
 		t.Fatalf("query assessment rows for %#v: %v", filter, err)
 	}

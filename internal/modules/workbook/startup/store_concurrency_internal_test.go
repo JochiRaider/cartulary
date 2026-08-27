@@ -10,6 +10,33 @@ import (
 )
 
 func TestWorkbookStartupCompareAndClearRestartsAfterConcurrentReplacement_Integration(t *testing.T) {
+	t.Run("constructor rejects missing and typed-nil dependencies", func(t *testing.T) {
+		validPreferences := noopPreferenceStore{}
+		validUnitOfWork := replacementUnitOfWork{}
+		validWorkspaces := NewWorkspaceRegistryFromPublication(nil)
+		var typedNilPreferences *noopPreferenceStore
+		var typedNilUnitOfWork *replacementUnitOfWork
+		var typedNilWorkspaces *WorkspaceRegistry
+		for _, test := range []struct {
+			name         string
+			dependencies Dependencies
+		}{
+			{name: "nil preferences", dependencies: Dependencies{UnitOfWork: validUnitOfWork, Workspaces: validWorkspaces}},
+			{name: "typed-nil preferences", dependencies: Dependencies{Preferences: typedNilPreferences, UnitOfWork: validUnitOfWork, Workspaces: validWorkspaces}},
+			{name: "nil unit of work", dependencies: Dependencies{Preferences: validPreferences, Workspaces: validWorkspaces}},
+			{name: "typed-nil unit of work", dependencies: Dependencies{Preferences: validPreferences, UnitOfWork: typedNilUnitOfWork, Workspaces: validWorkspaces}},
+			{name: "nil workspaces", dependencies: Dependencies{Preferences: validPreferences, UnitOfWork: validUnitOfWork}},
+			{name: "typed-nil workspaces", dependencies: Dependencies{Preferences: validPreferences, UnitOfWork: validUnitOfWork, Workspaces: typedNilWorkspaces}},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				store, err := NewStore(test.dependencies)
+				if err == nil || store != nil {
+					t.Fatalf("invalid dependencies published a store: store=%#v err=%v", store, err)
+				}
+			})
+		}
+	})
+
 	incidentID := uuid.New()
 	userID := uuid.New()
 	invalid := []byte(`{"kind":"view_schema","id":"cartulary.view.removed.v1"}`)
@@ -18,7 +45,14 @@ func TestWorkbookStartupCompareAndClearRestartsAfterConcurrentReplacement_Integr
 		initial:     invalid,
 		replacement: replacement,
 	}
-	store := NewStore(nil, replacementUnitOfWork{session: session})
+	store, err := NewStore(Dependencies{
+		Preferences: noopPreferenceStore{},
+		UnitOfWork:  replacementUnitOfWork{session: session},
+		Workspaces:  NewWorkspaceRegistryFromPublication(nil),
+	})
+	if err != nil {
+		t.Fatalf("construct startup store: %v", err)
+	}
 
 	result, err := store.Resolve(
 		context.Background(),
@@ -43,6 +77,24 @@ func TestWorkbookStartupCompareAndClearRestartsAfterConcurrentReplacement_Integr
 	if !bytes.Equal(result.HomeSheetRef, replacement) || len(result.ClearedPointers) != 0 {
 		t.Fatalf("comparison miss must not report or expose a clear: %#v", result)
 	}
+}
+
+type noopPreferenceStore struct{}
+
+func (noopPreferenceStore) GetDefaultPreferences(context.Context, uuid.UUID) (DefaultPreferencesRecord, error) {
+	return DefaultPreferencesRecord{}, nil
+}
+
+func (noopPreferenceStore) PutDefaultPreferences(context.Context, uuid.UUID, uuid.UUID, []byte, time.Time) (DefaultPreferencesRecord, error) {
+	return DefaultPreferencesRecord{}, nil
+}
+
+func (noopPreferenceStore) GetUserPreferences(context.Context, uuid.UUID, uuid.UUID) (UserPreferencesRecord, error) {
+	return UserPreferencesRecord{}, nil
+}
+
+func (noopPreferenceStore) PutUserPreferences(context.Context, uuid.UUID, uuid.UUID, []byte, time.Time) (UserPreferencesRecord, error) {
+	return UserPreferencesRecord{}, nil
 }
 
 type replacementUnitOfWork struct {

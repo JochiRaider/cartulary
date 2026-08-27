@@ -16,29 +16,20 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-type indicatorCreateAdmission struct {
-	command indicators.CreateCommand
-}
-
-func (value indicatorCreateAdmission) ClientTransactionID() string {
-	return value.command.ClientTxnID
-}
-
 func newIndicatorCreateProvider(owner *indicators.Application) (workbook.CreateProvider, error) {
 	if owner == nil {
 		return nil, fmt.Errorf("compose Indicator Workbook adapter: owner is required")
 	}
 	return workbook.NewCreateProvider(
-		func(reader io.Reader) (workbook.CreateAdmission, *workbook.MutationFailure, error) {
-			command, validation := indicatoradmission.DecodeCreateRequest(reader)
+		func(reader io.Reader) (indicators.CreateCommand, bool, *workbook.MutationFailure, error) {
+			request, validation := indicatoradmission.DecodeCreateRequest(reader)
 			if validation != nil {
-				return nil, indicatorValidationFailure(validation), nil
+				return indicators.CreateCommand{}, false, indicatorValidationFailure(validation), nil
 			}
-			return indicatorCreateAdmission{command: command}, nil, nil
+			return request, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.CreateCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(indicatorCreateAdmission)
-			if !ok || command.ViewSchemaID != indicators.ViewSchemaID {
+		func(ctx context.Context, command workbook.CreateCommand, request indicators.CreateCommand) (workbook.MutationOutcome, error) {
+			if command.ViewSchemaID != indicators.ViewSchemaID {
 				return workbook.RejectedMutation(
 					workbook.InvalidPayloadFailure("view_schema_id", "invalid_view_schema_id"),
 				), nil
@@ -47,10 +38,10 @@ func newIndicatorCreateProvider(owner *indicators.Application) (workbook.CreateP
 				ctx,
 				command.Actor.ID,
 				command.IncidentID,
-				admitted.command,
+				request,
 				command.RequestID,
 			)
-			if failure, safe := indicatorCreateFailure(err, admitted.command.ClientTxnID); safe {
+			if failure, safe := indicatorCreateFailure(err, request.ClientTxnID); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -59,7 +50,7 @@ func newIndicatorCreateProvider(owner *indicators.Application) (workbook.CreateP
 			return workbook.SuccessfulRowMutation(indicatorMutationResult(
 				result,
 				command.IncidentID,
-				admitted.command.ClientTxnID,
+				request.ClientTxnID,
 			)), nil
 		},
 	)
@@ -116,11 +107,4 @@ func indicatorMutationResult(
 		RowVersion:   result.RowVersion,
 		ViewSchemaID: indicators.ViewSchemaID,
 	}
-}
-
-func preferredRequestHash(provided []byte, derived []byte) []byte {
-	if len(provided) > 0 {
-		return append([]byte(nil), provided...)
-	}
-	return append([]byte(nil), derived...)
 }

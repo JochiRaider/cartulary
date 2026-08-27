@@ -60,32 +60,25 @@ func newTaskDecisionProviderSet(owner *tasksdecisions.MutationFacade) (taskDecis
 	return result, nil
 }
 
-type taskDecisionCreateAdmission struct{ request tasksdecisions.CreateRequest }
-
-func (value taskDecisionCreateAdmission) ClientTransactionID() string {
-	return value.request.ClientTxnID
-}
-
 func newTaskDecisionCreateProvider(viewSchemaID string, owner *tasksdecisions.MutationFacade) (workbook.CreateProvider, error) {
 	return workbook.NewCreateProvider(
-		func(reader io.Reader) (workbook.CreateAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader) (tasksdecisions.CreateRequest, bool, *workbook.MutationFailure, error) {
 			request, admissionFailure := tasksdecisions.AdmitCreateJSON(viewSchemaID, reader)
 			if admissionFailure != nil {
-				return nil, taskDecisionAdmissionFailure(admissionFailure), nil
+				return tasksdecisions.CreateRequest{}, false, taskDecisionAdmissionFailure(admissionFailure), nil
 			}
-			return taskDecisionCreateAdmission{request: request}, nil, nil
+			return request, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.CreateCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(taskDecisionCreateAdmission)
-			if !ok || command.ViewSchemaID != viewSchemaID || admitted.request.ViewSchemaID != viewSchemaID {
+		func(ctx context.Context, command workbook.CreateCommand, request tasksdecisions.CreateRequest) (workbook.MutationOutcome, error) {
+			if command.ViewSchemaID != viewSchemaID || request.ViewSchemaID != viewSchemaID {
 				return workbook.RejectedMutation(workbook.InvalidPayloadFailure("view_schema_id", "invalid_view_schema_id")), nil
 			}
 			result, err := owner.Create(ctx, tasksdecisions.CreateCommand{
-				ActorUserID: command.Actor.ID, IncidentID: command.IncidentID, Request: admitted.request,
-				RequestHash: preferredRequestHash(command.RequestHash, tasksdecisions.CreateRequestHash(admitted.request)),
+				ActorUserID: command.Actor.ID, IncidentID: command.IncidentID, Request: request,
+				RequestHash: tasksdecisions.CreateRequestHash(request),
 				RequestID:   command.RequestID, RouteKey: workbookCreateOperation, Now: command.Now,
 			})
-			if failure, safe := taskDecisionMutationFailure(err, admitted.request.ClientTxnID); safe {
+			if failure, safe := taskDecisionMutationFailure(err, request.ClientTxnID); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -94,41 +87,29 @@ func newTaskDecisionCreateProvider(viewSchemaID string, owner *tasksdecisions.Mu
 			return workbook.SuccessfulRowMutation(taskDecisionMutationResult(result)), nil
 		},
 	)
-}
-
-type taskDecisionPatchAdmission struct{ request tasksdecisions.PatchRequest }
-
-func (value taskDecisionPatchAdmission) ClientTransactionID() string {
-	return value.request.ClientTxnID
-}
-func (value taskDecisionPatchAdmission) AdmittedViewSchemaID() string {
-	return value.request.ViewSchemaID
-}
-func (value taskDecisionPatchAdmission) AdmittedBaseRowVersion() int64 {
-	return value.request.BaseRowVersion
 }
 
 func newTaskDecisionPatchProvider(recordType, viewSchemaID string, owner *tasksdecisions.MutationFacade) (workbook.PatchProvider, error) {
 	return workbook.NewPatchProvider(
-		func(reader io.Reader) (workbook.PatchAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader) (tasksdecisions.PatchRequest, bool, *workbook.MutationFailure, error) {
 			request, admissionFailure := tasksdecisions.AdmitPatchJSON(reader)
 			if admissionFailure != nil {
-				return nil, taskDecisionAdmissionFailure(admissionFailure), nil
+				return tasksdecisions.PatchRequest{}, false, taskDecisionAdmissionFailure(admissionFailure), nil
 			}
-			return taskDecisionPatchAdmission{request: request}, nil, nil
+			return request, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.PatchCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(taskDecisionPatchAdmission)
-			if !ok || command.AuthoritativeRecordType != recordType || admitted.request.ViewSchemaID != viewSchemaID {
+		func(request tasksdecisions.PatchRequest) string { return request.ViewSchemaID },
+		func(ctx context.Context, command workbook.PatchCommand, request tasksdecisions.PatchRequest) (workbook.MutationOutcome, error) {
+			if command.AuthoritativeRecordType != recordType || request.ViewSchemaID != viewSchemaID {
 				return workbook.RejectedMutation(workbook.TargetNotFoundFailure()), nil
 			}
 			result, err := owner.Patch(ctx, tasksdecisions.PatchCommand{
-				ActorUserID: command.Actor.ID, RecordID: command.RecordID, Request: admitted.request,
-				RequestHash: preferredRequestHash(command.RequestHash, tasksdecisions.PatchRequestHash(admitted.request)),
+				ActorUserID: command.Actor.ID, RecordID: command.RecordID, Request: request,
+				RequestHash: tasksdecisions.PatchRequestHash(request),
 				RequestID:   command.RequestID, RouteKey: workbookPatchOperation,
 				ConflictRouteKey: workbookConflictResolveOperation, Now: command.Now,
 			})
-			if failure, safe := taskDecisionMutationFailure(err, admitted.request.ClientTxnID); safe {
+			if failure, safe := taskDecisionMutationFailure(err, request.ClientTxnID); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -139,20 +120,16 @@ func newTaskDecisionPatchProvider(recordType, viewSchemaID string, owner *tasksd
 	)
 }
 
-type taskDecisionConflictAdmission struct {
+type taskDecisionConflictValue struct {
 	request tasksdecisions.ConflictResolveRequest
 	claims  tasksdecisions.ConflictClaims
 }
 
-func (value taskDecisionConflictAdmission) ClientTransactionID() string {
-	return value.request.ClientTxnID
-}
-
 func newTaskDecisionConflictProvider(recordType, viewSchemaID string, owner *tasksdecisions.MutationFacade) (workbook.ConflictProvider, error) {
 	return workbook.NewConflictProvider(
-		func(reader io.Reader, token string, claims workbook.ConflictClaims) (workbook.ConflictAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader, token string, claims workbook.ConflictClaims) (taskDecisionConflictValue, bool, *workbook.MutationFailure, error) {
 			if claims.RouteKey != workbookConflictResolveOperation || claims.ViewSchemaID != viewSchemaID {
-				return nil, workbook.InvalidPayloadFailure("conflict_token", "invalid_value"), nil
+				return taskDecisionConflictValue{}, false, workbook.InvalidPayloadFailure("conflict_token", "invalid_value"), nil
 			}
 			ownerClaims := tasksdecisions.ConflictClaims{
 				RecordID: claims.RecordID, ViewSchemaID: claims.ViewSchemaID,
@@ -160,17 +137,16 @@ func newTaskDecisionConflictProvider(recordType, viewSchemaID string, owner *tas
 			}
 			request, admissionFailure := tasksdecisions.AdmitConflictResolveJSON(reader, token, ownerClaims)
 			if admissionFailure != nil {
-				return nil, taskDecisionAdmissionFailure(admissionFailure), nil
+				return taskDecisionConflictValue{}, false, taskDecisionAdmissionFailure(admissionFailure), nil
 			}
-			return taskDecisionConflictAdmission{request: request, claims: ownerClaims}, nil, nil
+			return taskDecisionConflictValue{request: request, claims: ownerClaims}, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.ConflictCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(taskDecisionConflictAdmission)
-			if !ok || command.AuthoritativeRecordType != recordType || command.RecordID != command.Claims.RecordID ||
+		func(ctx context.Context, command workbook.ConflictCommand, admitted taskDecisionConflictValue) (workbook.MutationOutcome, error) {
+			if command.AuthoritativeRecordType != recordType || command.RecordID != command.Claims.RecordID ||
 				command.Claims.RouteKey != workbookConflictResolveOperation || command.Claims.ViewSchemaID != viewSchemaID {
 				return workbook.RejectedMutation(workbook.TargetNotFoundFailure()), nil
 			}
-			requestHash := preferredRequestHash(command.RequestHash, tasksdecisions.ConflictResolveRequestHash(admitted.claims, admitted.request))
+			requestHash := tasksdecisions.ConflictResolveRequestHash(admitted.claims, admitted.request)
 			result, err := owner.ResolveConflict(ctx, tasksdecisions.ConflictCommand{
 				Mechanics: conflicttokens.Command{
 					ActorUserID: command.Actor.ID, RecordID: command.RecordID,

@@ -11,6 +11,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -64,6 +65,31 @@ type PatchRequest struct {
 	Changes        []PatchChange
 }
 
+// QueryRows invokes the exact query-provider boundary used by Workbook routes
+// with the effectively unbounded window needed by focused integration tests.
+func QueryRows(
+	catalog *workbook.WorkbookContributionCatalog,
+	ctx context.Context,
+	incidentID uuid.UUID,
+	viewSchemaID string,
+	query viewschema.QueryMeta,
+) ([]map[string]any, error) {
+	if catalog == nil {
+		return nil, fmt.Errorf("workbook contribution catalog is required")
+	}
+	provider, ok := catalog.QueryFor(viewSchemaID)
+	if !ok {
+		return nil, fmt.Errorf("workbook query surface %q is not registered", viewSchemaID)
+	}
+	page, err := provider.QueryRowsPage(ctx, workbook.QueryCommand{
+		IncidentID:   incidentID,
+		ViewSchemaID: viewSchemaID,
+		Query:        query,
+		Window:       querypage.Window{Limit: int(^uint(0)>>1) - 1},
+	})
+	return page.Rows, err
+}
+
 // MutationFailureError preserves the catalog's closed failure value without
 // recreating Workbook's deleted legacy error hierarchy.
 type MutationFailureError struct {
@@ -86,7 +112,6 @@ func CreateWorkbookRow(
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
 	request CreateRequest,
-	requestHash []byte,
 	requestID string,
 	now time.Time,
 ) (workbook.MutationResult, error) {
@@ -101,16 +126,16 @@ func CreateWorkbookRow(
 	if err != nil {
 		return workbook.MutationResult{}, err
 	}
-	admission, failure, err := provider.DecodeCreate(bytes.NewReader(payload))
+	operation, failure, err := provider.DecodeCreate(bytes.NewReader(payload))
 	if err != nil {
 		return workbook.MutationResult{}, err
 	}
 	if failure != nil {
 		return workbook.MutationResult{}, &MutationFailureError{Failure: failure}
 	}
-	outcome, err := provider.Create(ctx, workbook.CreateCommand{
+	outcome, err := operation.Execute(ctx, workbook.CreateCommand{
 		Actor: actor, IncidentID: incidentID, ViewSchemaID: request.ViewSchemaID,
-		Admission: admission, RequestHash: requestHash, RequestID: requestID, Now: now,
+		RequestID: requestID, Now: now,
 	})
 	return mutationResult(outcome, err)
 }
@@ -123,7 +148,6 @@ func PatchWorkbookRow(
 	actor authn.UserRecord,
 	recordID uuid.UUID,
 	request PatchRequest,
-	requestHash []byte,
 	requestID string,
 	now time.Time,
 ) (workbook.MutationResult, error) {
@@ -143,16 +167,16 @@ func PatchWorkbookRow(
 	if err != nil {
 		return workbook.MutationResult{}, err
 	}
-	admission, failure, err := provider.DecodePatch(bytes.NewReader(payload))
+	operation, failure, err := provider.DecodePatch(bytes.NewReader(payload))
 	if err != nil {
 		return workbook.MutationResult{}, err
 	}
 	if failure != nil {
 		return workbook.MutationResult{}, &MutationFailureError{Failure: failure}
 	}
-	outcome, err := provider.Patch(ctx, workbook.PatchCommand{
+	outcome, err := operation.Execute(ctx, workbook.PatchCommand{
 		Actor: actor, RecordID: recordID, AuthoritativeRecordType: authoritativeRecordType,
-		Admission: admission, RequestHash: requestHash, RequestID: requestID, Now: now,
+		RequestID: requestID, Now: now,
 	})
 	return mutationResult(outcome, err)
 }

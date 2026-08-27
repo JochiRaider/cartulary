@@ -127,7 +127,7 @@ SELECT count(*)
    AND target_id = $2
 `, linked.ChangeSetID, sourceRecordID.String()+":references_artifact:"+linked.RecordID.String(), 0)
 
-	rows, err := store.QueryRows(context.Background(), incident.ID, artifacts.NotesViewSchemaID, mustQueryMeta(t, artifacts.NotesViewSchemaID))
+	rows, err := workbookroutetest.QueryRows(store, context.Background(), incident.ID, artifacts.NotesViewSchemaID, mustQueryMeta(t, artifacts.NotesViewSchemaID))
 	if err != nil {
 		t.Fatalf("query notes rows: %v", err)
 	}
@@ -167,11 +167,11 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 			"note.title": textChange("Projection-backed note"),
 			"note.body":  textChange("query token workbook_interaction-note-projection"),
 		},
-	}, []byte("txn-workbook_interaction-i-9-02-note"), "req-workbook_interaction-i-9-02-note", time.Date(2026, 5, 17, 16, 0, 0, 0, time.UTC))
+	}, "req-workbook_interaction-i-9-02-note", time.Date(2026, 5, 17, 16, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create projection note: %v", err)
 	}
-	noteRows, err := workbookStore.QueryRows(context.Background(), incident.ID, artifacts.NotesViewSchemaID, mustQueryMeta(t, artifacts.NotesViewSchemaID))
+	noteRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, artifacts.NotesViewSchemaID, mustQueryMeta(t, artifacts.NotesViewSchemaID))
 	if err != nil {
 		t.Fatalf("query notes projection: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 	if err != nil {
 		t.Fatalf("create projection indicator: %v", err)
 	}
-	indicatorRows, err := workbookStore.QueryRows(context.Background(), incident.ID, indicators.ViewSchemaID, mustQueryMeta(t, indicators.ViewSchemaID))
+	indicatorRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, indicators.ViewSchemaID, mustQueryMeta(t, indicators.ViewSchemaID))
 	if err != nil {
 		t.Fatalf("query indicators through workbook store: %v", err)
 	}
@@ -240,7 +240,7 @@ func TestAssessmentsQueryThroughWorkbookProjections_Integration(t *testing.T) {
 	query.Filters = []viewschema.Filter{
 		{FieldKey: "assessment.confidence_band", Op: "eq", Arg: map[string]any{"value": "high"}},
 	}
-	rows, err := workbookStore.QueryRows(context.Background(), incident.ID, assessments.AssessmentsViewSchemaID, query)
+	rows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, assessments.AssessmentsViewSchemaID, query)
 	if err != nil {
 		t.Fatalf("query assessments through workbook projection: %v", err)
 	}
@@ -277,14 +277,14 @@ func TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration(t *
 			"decision.support_refs":        {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}}},
 			"decision.affected_record_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &affectedID}}},
 		},
-	}, []byte("txn-workbook_interaction-i-9-02-decision"), "req-workbook_interaction-i-9-02-decision", time.Date(2026, 5, 17, 16, 15, 0, 0, time.UTC))
+	}, "req-workbook_interaction-i-9-02-decision", time.Date(2026, 5, 17, 16, 15, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create projection decision: %v", err)
 	}
 
 	decisionQuery := mustQueryMeta(t, tasksdecisions.DecisionsViewSchemaID)
 	decisionQuery.Filters = []viewschema.Filter{{FieldKey: "decision.status", Op: "eq", Arg: map[string]any{"value": "proposed"}}}
-	decisionRows, err := workbookStore.QueryRows(context.Background(), incident.ID, tasksdecisions.DecisionsViewSchemaID, decisionQuery)
+	decisionRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, tasksdecisions.DecisionsViewSchemaID, decisionQuery)
 	if err != nil {
 		t.Fatalf("query decisions through workbook projection: %v", err)
 	}
@@ -307,7 +307,7 @@ func TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration(t *
 		Collections: map[string]workbookroutetest.CollectionActionPayload{
 			"task.linked_record_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}}},
 		},
-	}, []byte("txn-workbook_interaction-i-9-02-task"), "req-workbook_interaction-i-9-02-task", time.Date(2026, 5, 17, 16, 20, 0, 0, time.UTC))
+	}, "req-workbook_interaction-i-9-02-task", time.Date(2026, 5, 17, 16, 20, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create projection task: %v", err)
 	}
@@ -318,7 +318,7 @@ func TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration(t *
 		{FieldKey: "task.owner_user_id", Op: "eq", Arg: map[string]any{"value": actor.ID.String()}},
 		{FieldKey: "task.due_at", Op: "range", Arg: map[string]any{"lte": dueAt.Format(time.RFC3339Nano)}},
 	}
-	taskRows, err := workbookStore.QueryRows(context.Background(), incident.ID, tasksdecisions.TaskRequestsViewSchemaID, taskQuery)
+	taskRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, tasksdecisions.TaskRequestsViewSchemaID, taskQuery)
 	if err != nil {
 		t.Fatalf("query task requests through workbook projection: %v", err)
 	}
@@ -372,7 +372,7 @@ SELECT count(*)
 		Values: map[string]workbookroutetest.ValueChange{
 			"note.title": textChange("Projection table note"),
 		},
-	}, []byte("txn-workbook_interaction-i-9-02-hot-note"), "req-workbook_interaction-i-9-02-hot-note", time.Date(2026, 6, 30, 13, 2, 0, 0, time.UTC))
+	}, "req-workbook_interaction-i-9-02-hot-note", time.Date(2026, 6, 30, 13, 2, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create artifact projection row: %v", err)
 	}
@@ -446,7 +446,7 @@ func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *test
 		{FieldKey: "comm_log.comm_type", Op: "eq", Arg: map[string]any{"value": "briefing"}},
 		{FieldKey: "comm_log.next_report_day", Op: "eq", Arg: map[string]any{"value": "2026-05-24"}},
 	}
-	commRows, err := workbookStore.QueryRows(context.Background(), incident.ID, artifacts.CommLogViewSchemaID, commQuery)
+	commRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, artifacts.CommLogViewSchemaID, commQuery)
 	if err != nil {
 		t.Fatalf("query comm log projection: %v", err)
 	}
@@ -468,7 +468,7 @@ func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *test
 	}, time.Date(2026, 5, 22, 13, 0, 0, 0, time.UTC))
 	handoffQuery := mustQueryMeta(t, artifacts.HandoffViewSchemaID)
 	handoffQuery.Filters = []viewschema.Filter{{FieldKey: "handoff.ack_state", Op: "eq", Arg: map[string]any{"value": "acknowledged"}}}
-	handoffRows, err := workbookStore.QueryRows(context.Background(), incident.ID, artifacts.HandoffViewSchemaID, handoffQuery)
+	handoffRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, artifacts.HandoffViewSchemaID, handoffQuery)
 	if err != nil {
 		t.Fatalf("query handoff projection: %v", err)
 	}
@@ -489,7 +489,7 @@ func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *test
 	}, time.Date(2026, 5, 23, 15, 0, 0, 0, time.UTC))
 	statusQuery := mustQueryMeta(t, artifacts.StatusReviewViewSchemaID)
 	statusQuery.Filters = []viewschema.Filter{{FieldKey: "status_review.next_report_day", Op: "eq", Arg: map[string]any{"value": "2026-05-25"}}}
-	statusRows, err := workbookStore.QueryRows(context.Background(), incident.ID, artifacts.StatusReviewViewSchemaID, statusQuery)
+	statusRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, artifacts.StatusReviewViewSchemaID, statusQuery)
 	if err != nil {
 		t.Fatalf("query status review projection: %v", err)
 	}
@@ -508,7 +508,7 @@ func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *test
 	}, time.Date(2026, 5, 24, 16, 0, 0, 0, time.UTC))
 	lessonQuery := mustQueryMeta(t, artifacts.LessonViewSchemaID)
 	lessonQuery.Filters = []viewschema.Filter{{FieldKey: "lesson.closure_state", Op: "eq", Arg: map[string]any{"value": "closed"}}}
-	lessonRows, err := workbookStore.QueryRows(context.Background(), incident.ID, artifacts.LessonViewSchemaID, lessonQuery)
+	lessonRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, artifacts.LessonViewSchemaID, lessonQuery)
 	if err != nil {
 		t.Fatalf("query lesson projection: %v", err)
 	}
@@ -715,7 +715,7 @@ func hasQueriedRow(rows []map[string]any, recordID uuid.UUID) bool {
 
 func mustProjectionRows(t testing.TB, store *workbook.WorkbookContributionCatalog, incidentID uuid.UUID, viewSchemaID string) []map[string]any {
 	t.Helper()
-	rows, err := store.QueryRows(context.Background(), incidentID, viewSchemaID, mustQueryMeta(t, viewSchemaID))
+	rows, err := workbookroutetest.QueryRows(store, context.Background(), incidentID, viewSchemaID, mustQueryMeta(t, viewSchemaID))
 	if err != nil {
 		t.Fatalf("query %s projection rows: %v", viewSchemaID, err)
 	}

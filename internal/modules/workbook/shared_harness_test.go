@@ -2,6 +2,7 @@ package workbook_test
 
 import (
 	"context"
+	"errors"
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -12,7 +13,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	workbookroutetest "github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
@@ -39,6 +43,19 @@ func TestWorkbookRouteInventoryCoverage(t *testing.T) {
 			t.Fatalf("workbook route inventory must require %s, got %v", harness, required)
 		}
 	}
+
+	t.Run("startup construction errors stop route composition", func(t *testing.T) {
+		constructionErr := errors.New("startup construction failed")
+		registrar := workbook.RegisterRoutes(workbook.RouteDependencies{
+			StartupStoreFactory: func(httpapi.DependencySet) (*workbookstartup.Store, error) {
+				return nil, constructionErr
+			},
+		})
+		err := registrar(http.NewServeMux(), httpapi.DependencySet{})
+		if !errors.Is(err, constructionErr) {
+			t.Fatalf("route composition did not propagate startup construction error: %v", err)
+		}
+	})
 }
 
 func TestWorkbookRouteConformance(t *testing.T) {

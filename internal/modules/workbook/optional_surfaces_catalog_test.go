@@ -35,7 +35,7 @@ func TestOptionalStandardizedSurfacesCatalogBehavior_Unit(t *testing.T) {
 		Values: map[string]workbookroutetest.ValueChange{
 			"finding.kind": Text("finding"),
 		},
-	}, []byte("txn-workbook_interaction-optional-finding-reject"), "req-workbook_interaction-optional-finding-reject", Time(0))
+	}, "req-workbook_interaction-optional-finding-reject", Time(0))
 	requireMutationValidation(t, err, "finding.statement", "missing_required_field")
 	requireOptionalSurfaceDurableState(t, harness.DB, incident.ID, before, "rejected finding create")
 
@@ -307,7 +307,7 @@ func requireOptionalSurfaceResources(t testing.TB) {
 
 func requireOptionalSurfaceBandQuery(t testing.TB, store *workbook.WorkbookContributionCatalog, incidentID uuid.UUID, band string, want []uuid.UUID) {
 	t.Helper()
-	rows, err := store.QueryRows(context.Background(), incidentID, artifacts.FindingsViewSchemaID, viewschema.QueryMeta{
+	rows, err := workbookroutetest.QueryRows(store, context.Background(), incidentID, artifacts.FindingsViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: "finding.confidence_band", Op: "eq", Arg: map[string]any{"value": band}}},
 		Sort: []viewschema.SortEntry{
 			{FieldKey: "finding.confidence_score", Direction: "asc"},
@@ -346,7 +346,7 @@ func Patch(store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, 
 		BaseRowVersion: baseRowVersion,
 		ClientTxnID:    clientTxnID,
 		Changes:        changes,
-	}, []byte(clientTxnID), "req-"+clientTxnID, Time(0))
+	}, "req-"+clientTxnID, Time(0))
 }
 
 func ValueChange(fieldKey string, value workbookroutetest.ValueChange) workbookroutetest.PatchChange {

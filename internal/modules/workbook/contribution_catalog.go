@@ -285,53 +285,6 @@ func (c *WorkbookContributionCatalog) PatchFor(recordType string) (PatchProvider
 	return provider, ok
 }
 
-func (c *WorkbookContributionCatalog) QuerySurfaceIDs() []string {
-	if c == nil {
-		return []string{}
-	}
-	ids := make([]string, 0, len(c.queries))
-	for viewSchemaID := range c.queries {
-		ids = append(ids, viewSchemaID)
-	}
-	slices.Sort(ids)
-	return ids
-}
-
-func (c *WorkbookContributionCatalog) QueryRows(
-	ctx context.Context,
-	incidentID uuid.UUID,
-	viewSchemaID string,
-	query viewschema.QueryMeta,
-) ([]map[string]any, error) {
-	page, err := c.QueryRowsPage(
-		ctx,
-		incidentID,
-		viewSchemaID,
-		query,
-		querypage.Window{Limit: int(^uint(0)>>1) - 1},
-	)
-	return page.Rows, err
-}
-
-func (c *WorkbookContributionCatalog) QueryRowsPage(
-	ctx context.Context,
-	incidentID uuid.UUID,
-	viewSchemaID string,
-	query viewschema.QueryMeta,
-	window querypage.Window,
-) (querypage.Result, error) {
-	provider, ok := c.QueryFor(viewSchemaID)
-	if !ok {
-		return querypage.Result{}, fmt.Errorf("workbook query surface %q is not registered", viewSchemaID)
-	}
-	return provider.QueryRowsPage(ctx, QueryCommand{
-		IncidentID:   incidentID,
-		ViewSchemaID: viewSchemaID,
-		Query:        query,
-		Window:       window,
-	})
-}
-
 type expectedQuerySurface struct {
 	sourceOwnerKey    string
 	sourceRecordTypes []string
@@ -376,9 +329,6 @@ func validateCreateContributions(
 		if isNilContributionProvider(contribution.Provider) {
 			return nil, fmt.Errorf("workbook create contribution %q has nil provider", contribution.ViewSchemaID)
 		}
-		if err := contribution.Provider.ValidateWorkbookContribution(); err != nil {
-			return nil, fmt.Errorf("workbook create contribution %q is invalid: %w", contribution.ViewSchemaID, err)
-		}
 		creates[contribution.ViewSchemaID] = contribution.Provider
 	}
 	for viewSchemaID := range expected {
@@ -420,9 +370,6 @@ func validatePatchContributions(contributions []PatchContribution) (map[string]P
 		}
 		if isNilContributionProvider(contribution.Provider) {
 			return nil, fmt.Errorf("workbook patch contribution %q has nil provider", contribution.RecordType)
-		}
-		if err := contribution.Provider.ValidateWorkbookContribution(); err != nil {
-			return nil, fmt.Errorf("workbook patch contribution %q is invalid: %w", contribution.RecordType, err)
 		}
 		patches[contribution.RecordType] = contribution.Provider
 	}
@@ -471,9 +418,6 @@ func validateConflictContributions(
 				"workbook conflict contribution %q has nil provider",
 				contribution.RecordType,
 			)
-		}
-		if err := contribution.Provider.ValidateWorkbookContribution(); err != nil {
-			return nil, fmt.Errorf("workbook conflict contribution %q is invalid: %w", contribution.RecordType, err)
 		}
 		conflicts[contribution.RecordType] = contribution.Provider
 	}
@@ -551,9 +495,6 @@ func validateClipboardContributions(contributions []ClipboardContribution, expec
 		if isNilContributionProvider(contribution.Provider) {
 			return nil, fmt.Errorf("workbook clipboard contribution %q has nil provider", contribution.ViewSchemaID)
 		}
-		if err := contribution.Provider.ValidateWorkbookContribution(); err != nil {
-			return nil, fmt.Errorf("workbook clipboard contribution %q is invalid: %w", contribution.ViewSchemaID, err)
-		}
 		providers[contribution.ViewSchemaID] = contribution.Provider
 	}
 	for viewSchemaID := range expected {
@@ -579,9 +520,6 @@ func validateBulkContributions(contributions []BulkContribution, expected map[st
 		if isNilContributionProvider(contribution.Provider) {
 			return nil, fmt.Errorf("workbook bulk contribution %q has nil provider", contribution.ViewSchemaID)
 		}
-		if err := contribution.Provider.ValidateWorkbookContribution(); err != nil {
-			return nil, fmt.Errorf("workbook bulk contribution %q is invalid: %w", contribution.ViewSchemaID, err)
-		}
 		providers[contribution.ViewSchemaID] = contribution.Provider
 	}
 	for viewSchemaID := range expected {
@@ -604,9 +542,6 @@ func validateLinkedNoteContributions(contributions []LinkedNoteContribution, exp
 		if isNilContributionProvider(contribution.Provider) {
 			return nil, fmt.Errorf("workbook linked-note contribution %q has nil provider", contribution.RecordType)
 		}
-		if err := contribution.Provider.ValidateWorkbookContribution(); err != nil {
-			return nil, fmt.Errorf("workbook linked-note contribution %q is invalid: %w", contribution.RecordType, err)
-		}
 		providers[contribution.RecordType] = contribution.Provider
 	}
 	for recordType := range expected {
@@ -628,9 +563,6 @@ func validateSupersedeContributions(contributions []SupersedeContribution, expec
 		}
 		if isNilContributionProvider(contribution.Provider) {
 			return nil, fmt.Errorf("workbook supersede contribution %q has nil provider", contribution.RecordType)
-		}
-		if err := contribution.Provider.ValidateWorkbookContribution(); err != nil {
-			return nil, fmt.Errorf("workbook supersede contribution %q is invalid: %w", contribution.RecordType, err)
 		}
 		providers[contribution.RecordType] = contribution.Provider
 	}

@@ -19,13 +19,23 @@ func NewStartupStoreFromDependencies(deps httpapi.DependencySet) (*workbookstart
 	return NewStartupStore(
 		deps.PostgresHandle(),
 		workbookstartup.NewWorkspaceRegistryFromPublication(httpapi.ExtensionWorkspacesFromDependencies(deps)),
-	), nil
+	)
 }
 
-func NewStartupStore(db postgres.DB, workspaceResolver workbookstartup.WorkspaceResolver) *workbookstartup.Store {
+func NewStartupStore(db postgres.DB, workspaceResolver workbookstartup.WorkspaceResolver) (*workbookstartup.Store, error) {
+	if isNilDependency(db) {
+		return nil, fmt.Errorf("compose workbook startup store: PostgreSQL is required")
+	}
+	if isNilDependency(workspaceResolver) {
+		return nil, fmt.Errorf("compose workbook startup store: workspace resolver is required")
+	}
 	preferences := workbookstartuppostgres.NewRepository(db)
 	unitOfWork := startupUnitOfWork{db: db}
-	return workbookstartup.NewStore(preferences, unitOfWork, workspaceResolver)
+	return workbookstartup.NewStore(workbookstartup.Dependencies{
+		Preferences: preferences,
+		UnitOfWork:  unitOfWork,
+		Workspaces:  workspaceResolver,
+	})
 }
 
 type startupUnitOfWork struct {

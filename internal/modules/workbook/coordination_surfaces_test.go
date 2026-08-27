@@ -86,7 +86,7 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 			ViewSchemaID: tc.viewSchemaID,
 			ClientTxnID:  "txn-workbook_interaction-collaboration-" + tc.name,
 			Values:       tc.values,
-		}, []byte("txn-workbook_interaction-collaboration-"+tc.name), "req-workbook_interaction-collaboration-"+tc.name, Time(0))
+		}, "req-workbook_interaction-collaboration-"+tc.name, Time(0))
 		requireMutationValidation(t, err, tc.wantField, "missing_required_field")
 		requireDurableState(t, harness, incident.ID, before, tc.name)
 	}
@@ -241,10 +241,13 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 		"title":         "Workbook inspector collaboration workflow coordination saved views",
 	})
 	incidentID := uuid.MustParse(incidentResource["incident_id"].(string))
-	startupStore := workbookassembly.NewStartupStore(
+	startupStore, err := workbookassembly.NewStartupStore(
 		harness.Pool,
 		workbookstartup.NewWorkspaceRegistryFromPublication(nil),
 	)
+	if err != nil {
+		t.Fatalf("construct startup store: %v", err)
+	}
 	workbookStore := appsupport.NewWorkbookCatalog(harness.Pool, workbookTestConflictTokens())
 
 	for _, viewSchemaID := range []string{
@@ -287,7 +290,7 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 			if startup.SelectedSavedView.ViewSchemaID != viewSchemaID {
 				t.Fatalf("startup selected saved view changed identity: got %q want %q", startup.SelectedSavedView.ViewSchemaID, viewSchemaID)
 			}
-			if _, err := workbookStore.QueryRows(ctx, incidentID, viewSchemaID, DefaultQueryMeta(t, viewSchemaID)); err != nil {
+			if _, err := workbookroutetest.QueryRows(workbookStore, ctx, incidentID, viewSchemaID, DefaultQueryMeta(t, viewSchemaID)); err != nil {
 				t.Fatalf("canonical query changed identity for %s: %v", viewSchemaID, err)
 			}
 		})
@@ -379,14 +382,14 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 		Sort:    []viewschema.SortEntry{{FieldKey: "handoff.outgoing_owner_user_id", Direction: "asc"}, {FieldKey: "record_id", Direction: "asc"}},
 		GroupBy: StringPtr("handoff.ack_state"),
 	}, handoffAck.RecordID, "handoff.ack_state", "acknowledged")
-	ackAsc, err := store.QueryRows(context.Background(), incident.ID, artifacts.HandoffViewSchemaID, viewschema.QueryMeta{
+	ackAsc, err := workbookroutetest.QueryRows(store, context.Background(), incident.ID, artifacts.HandoffViewSchemaID, viewschema.QueryMeta{
 		Sort: []viewschema.SortEntry{{FieldKey: "handoff.ack_state", Direction: "asc"}, {FieldKey: "record_id", Direction: "asc"}},
 	})
 	if err != nil {
 		t.Fatalf("query handoff ack_state ascending order: %v", err)
 	}
 	requireRecordOrder(t, ackAsc, []uuid.UUID{handoffPending.RecordID, handoffAck.RecordID})
-	ackDesc, err := store.QueryRows(context.Background(), incident.ID, artifacts.HandoffViewSchemaID, viewschema.QueryMeta{
+	ackDesc, err := workbookroutetest.QueryRows(store, context.Background(), incident.ID, artifacts.HandoffViewSchemaID, viewschema.QueryMeta{
 		Sort: []viewschema.SortEntry{{FieldKey: "handoff.ack_state", Direction: "desc"}, {FieldKey: "record_id", Direction: "asc"}},
 	})
 	if err != nil {
@@ -473,7 +476,7 @@ func TestCoordinationDeclaredQueryFieldsAreMapped_Unit(t *testing.T) {
 			}
 			for _, fieldKey := range schema.SortFields() {
 				sort := []viewschema.SortEntry{{FieldKey: fieldKey, Direction: "asc"}, {FieldKey: "record_id", Direction: "asc"}}
-				if _, err := store.QueryRows(context.Background(), incident.ID, viewSchemaID, viewschema.QueryMeta{Sort: sort}); err != nil {
+				if _, err := workbookroutetest.QueryRows(store, context.Background(), incident.ID, viewSchemaID, viewschema.QueryMeta{Sort: sort}); err != nil {
 					t.Fatalf("%s sort field %s is not queryable: %v", viewSchemaID, fieldKey, err)
 				}
 			}
@@ -482,13 +485,13 @@ func TestCoordinationDeclaredQueryFieldsAreMapped_Unit(t *testing.T) {
 					Filters: []viewschema.Filter{{FieldKey: fieldKey, Op: "eq", Arg: map[string]any{"value": nil}}},
 					Sort:    schema.DefaultSort(),
 				}
-				if _, err := store.QueryRows(context.Background(), incident.ID, viewSchemaID, query); err != nil {
+				if _, err := workbookroutetest.QueryRows(store, context.Background(), incident.ID, viewSchemaID, query); err != nil {
 					t.Fatalf("%s filter field %s is not queryable: %v", viewSchemaID, fieldKey, err)
 				}
 			}
 			for _, fieldKey := range schema.GroupingFields() {
 				groupBy := fieldKey
-				rows, err := store.QueryRows(context.Background(), incident.ID, viewSchemaID, viewschema.QueryMeta{
+				rows, err := workbookroutetest.QueryRows(store, context.Background(), incident.ID, viewSchemaID, viewschema.QueryMeta{
 					Sort:    schema.DefaultSort(),
 					GroupBy: &groupBy,
 				})
@@ -519,7 +522,7 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 			"handoff.incoming_owner_user_id": UUID(alternate.ID),
 			"handoff.current_state_summary":  Text("Non-member owner must fail"),
 		},
-	}, []byte("txn-workbook_interaction-collaboration-filter-nonmember-owner"), "req-workbook_interaction-collaboration-filter-nonmember-owner", Time(0))
+	}, "req-workbook_interaction-collaboration-filter-nonmember-owner", Time(0))
 	requireMutationValidation(t, err, "handoff.incoming_owner_user_id", "invalid_value")
 	incidentstoretest.SeedMembership(t, harness.DB, incident.ID, alternate.ID, alternate.DisplayName, "editor", actor.ID)
 
@@ -832,7 +835,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 				ClientTxnID:  clientTxnID,
 				Values:       MinimumValues(actor.ID, field.viewSchemaID),
 				Collections:  map[string]workbookroutetest.CollectionActionPayload{field.fieldKey: Collection(addOptionalSurfaceRecordRef(invalid.id))},
-			}, []byte(clientTxnID), "req-"+clientTxnID, Time(2*time.Hour))
+			}, "req-"+clientTxnID, Time(2*time.Hour))
 			requireMutationValidation(t, err, field.fieldKey, "invalid_value")
 			requireDurableState(t, harness, incident.ID, before, field.fieldKey+" "+invalid.name)
 		}
@@ -854,7 +857,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 				ClientTxnID:  clientTxnID,
 				Values:       MinimumValues(actor.ID, artifacts.CommLogViewSchemaID),
 				Collections:  map[string]workbookroutetest.CollectionActionPayload{fieldKey: Collection(workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &invalid.id})},
-			}, []byte(clientTxnID), "req-"+clientTxnID, Time(3*time.Hour))
+			}, "req-"+clientTxnID, Time(3*time.Hour))
 			requireMutationValidation(t, err, fieldKey, "invalid_value")
 			requireDurableState(t, harness, incident.ID, before, fieldKey+" "+invalid.name)
 		}
@@ -1018,7 +1021,7 @@ func mustCreateRow(t testing.TB, store *workbook.WorkbookContributionCatalog, ac
 		ClientTxnID:  clientTxnID,
 		Values:       values,
 		Collections:  collections,
-	}, []byte(clientTxnID), "req-"+clientTxnID, now)
+	}, "req-"+clientTxnID, now)
 	if err != nil {
 		t.Fatalf("create %s: %v", clientTxnID, err)
 	}
@@ -1384,7 +1387,7 @@ func requireItemString(t testing.TB, item map[string]any, key string, want strin
 
 func requireFilterMatchesOnly(t testing.TB, store *workbook.WorkbookContributionCatalog, incidentID uuid.UUID, viewSchemaID string, filter viewschema.Filter, wantRecordID uuid.UUID) {
 	t.Helper()
-	rows, err := store.QueryRows(context.Background(), incidentID, viewSchemaID, viewschema.QueryMeta{
+	rows, err := workbookroutetest.QueryRows(store, context.Background(), incidentID, viewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{filter},
 		Sort:    []viewschema.SortEntry{{FieldKey: "record_id", Direction: "asc"}},
 	})
@@ -1398,7 +1401,7 @@ func requireFilterMatchesOnly(t testing.TB, store *workbook.WorkbookContribution
 
 func requireProjectedRow(t testing.TB, store *workbook.WorkbookContributionCatalog, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta, recordID uuid.UUID, groupField string, groupValue any) {
 	t.Helper()
-	rows, err := store.QueryRows(context.Background(), incidentID, viewSchemaID, query)
+	rows, err := workbookroutetest.QueryRows(store, context.Background(), incidentID, viewSchemaID, query)
 	if err != nil {
 		t.Fatalf("query %s projections: %v", viewSchemaID, err)
 	}

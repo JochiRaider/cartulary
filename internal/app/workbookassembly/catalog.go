@@ -100,32 +100,32 @@ func NewContributionCatalog(input ContributionDependencies) (*workbook.WorkbookC
 }
 
 func validateContributionDependencies(input ContributionDependencies) error {
-	if isNilContributionDependency(input.Postgres) {
+	if isNilDependency(input.Postgres) {
 		return fmt.Errorf("compose workbook contribution catalog: Postgres is required")
 	}
 	if input.ProjectionDescriptors.Len() == 0 {
 		return fmt.Errorf("compose workbook contribution catalog: projection descriptors are required")
 	}
-	if isNilContributionDependency(input.ProjectionQueries) {
+	if isNilDependency(input.ProjectionQueries) {
 		return fmt.Errorf("compose workbook contribution catalog: projection queries are required")
 	}
-	if isNilContributionDependency(input.EntityProjections.Writer) ||
-		isNilContributionDependency(input.EntityProjections.Reader) {
+	if isNilDependency(input.EntityProjections.Writer) ||
+		isNilDependency(input.EntityProjections.Reader) {
 		return fmt.Errorf("compose workbook contribution catalog: Entities projection ports are required")
 	}
-	if isNilContributionDependency(input.AssessmentProjections) {
+	if isNilDependency(input.AssessmentProjections) {
 		return fmt.Errorf("compose workbook contribution catalog: Assessments projection rows are required")
 	}
-	if isNilContributionDependency(input.PartyProjections) {
+	if isNilDependency(input.PartyProjections) {
 		return fmt.Errorf("compose workbook contribution catalog: Parties projection rows are required")
 	}
 	if input.IndicatorOwner == nil {
 		return fmt.Errorf("compose workbook contribution catalog: Indicators owner is required")
 	}
-	if isNilContributionDependency(input.TimelineOwner) {
+	if isNilDependency(input.TimelineOwner) {
 		return fmt.Errorf("compose workbook contribution catalog: Timeline owner is required")
 	}
-	if isNilContributionDependency(input.EvidenceOwner) {
+	if isNilDependency(input.EvidenceOwner) {
 		return fmt.Errorf("compose workbook contribution catalog: Evidence contribution is required")
 	}
 	if input.ArtifactOwner == nil {
@@ -137,19 +137,19 @@ func validateContributionDependencies(input ContributionDependencies) error {
 	if reflect.ValueOf(input.ConflictTokens).IsZero() {
 		return fmt.Errorf("compose workbook contribution catalog: conflict token codec is required")
 	}
-	if isNilContributionDependency(input.ConflictFields) {
+	if isNilDependency(input.ConflictFields) {
 		return fmt.Errorf("compose workbook contribution catalog: Revisions conflict field resolver is required")
 	}
 	if input.Revisions == nil {
 		return fmt.Errorf("compose workbook contribution catalog: Revisions appender is required")
 	}
-	if isNilContributionDependency(input.CollaborationIntents) {
+	if isNilDependency(input.CollaborationIntents) {
 		return fmt.Errorf("compose workbook contribution catalog: Collaboration intent appender is required")
 	}
 	return nil
 }
 
-func isNilContributionDependency(dependency any) bool {
+func isNilDependency(dependency any) bool {
 	if dependency == nil {
 		return true
 	}

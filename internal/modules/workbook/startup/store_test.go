@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
@@ -16,10 +18,44 @@ import (
 
 func TestWorkbookStartupPreferencesBootstrapAndUpsert(t *testing.T) {
 	harness := storetest.StartStore(t, "workbook-startup-prefs")
-	store := workbookassembly.NewStartupStore(
+	emptyWorkspaces := workbookstartup.NewWorkspaceRegistryFromPublication(nil)
+	var typedNilDB *pgxpool.Pool
+	var typedNilWorkspaces *workbookstartup.WorkspaceRegistry
+	for _, test := range []struct {
+		name      string
+		construct func() (*workbookstartup.Store, error)
+	}{
+		{name: "nil database", construct: func() (*workbookstartup.Store, error) {
+			return workbookassembly.NewStartupStore(nil, emptyWorkspaces)
+		}},
+		{name: "typed-nil database", construct: func() (*workbookstartup.Store, error) {
+			return workbookassembly.NewStartupStore(typedNilDB, emptyWorkspaces)
+		}},
+		{name: "nil workspace resolver", construct: func() (*workbookstartup.Store, error) {
+			return workbookassembly.NewStartupStore(harness.DB, nil)
+		}},
+		{name: "typed-nil workspace resolver", construct: func() (*workbookstartup.Store, error) {
+			return workbookassembly.NewStartupStore(harness.DB, typedNilWorkspaces)
+		}},
+		{name: "dependency-set propagation", construct: func() (*workbookstartup.Store, error) {
+			return workbookassembly.NewStartupStoreFromDependencies(httpapi.DependencySet{})
+		}},
+	} {
+		t.Run("construction/"+test.name, func(t *testing.T) {
+			store, err := test.construct()
+			if err == nil || store != nil {
+				t.Fatalf("invalid assembly dependencies published a store: store=%#v err=%v", store, err)
+			}
+		})
+	}
+
+	store, err := workbookassembly.NewStartupStore(
 		harness.DB,
-		workbookstartup.NewWorkspaceRegistryFromPublication(nil),
+		emptyWorkspaces,
 	)
+	if err != nil {
+		t.Fatalf("construct startup store: %v", err)
+	}
 	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
@@ -166,10 +202,13 @@ func TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
 			MinimumRole:  "viewer",
 		},
 	}
-	claimedStore := workbookassembly.NewStartupStore(
+	claimedStore, err := workbookassembly.NewStartupStore(
 		harness.DB,
 		workbookstartup.NewWorkspaceRegistryFromPublication(claimedWorkspaces),
 	)
+	if err != nil {
+		t.Fatalf("construct claimed startup store: %v", err)
+	}
 	extensionRef := []byte(`{"kind":"extension_workspace","extension_profile_id":"network_flow_activity","workspace_key":"network_analysis"}`)
 	now := time.Date(2026, 7, 10, 18, 0, 0, 0, time.UTC)
 	if _, err := claimedStore.PutUserPreferences(context.Background(), result.Incident.ID, actor.ID, extensionRef, now); err != nil {
@@ -190,10 +229,13 @@ func TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
 		t.Fatalf("claimed startup availability mismatch: %#v", startup.ExtensionWorkspaceAvailability)
 	}
 
-	unclaimedStore := workbookassembly.NewStartupStore(
+	unclaimedStore, err := workbookassembly.NewStartupStore(
 		harness.DB,
 		workbookstartup.NewWorkspaceRegistryFromPublication(nil),
 	)
+	if err != nil {
+		t.Fatalf("construct unclaimed startup store: %v", err)
+	}
 	fallback, err := unclaimedStore.Resolve(context.Background(), result.Incident.ID, actor.ID, "admin", nil, now.Add(2*time.Minute))
 	if err != nil {
 		t.Fatalf("resolve startup after extension claim loss: %v", err)

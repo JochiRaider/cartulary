@@ -152,7 +152,7 @@ func mustCreateTaskFor(t testing.TB, store *workbook.WorkbookContributionCatalog
 			"task.title":     {Kind: "text", Text: &title},
 			"task.task_kind": {Kind: "text", Text: stringPtr("request")},
 		},
-	}, []byte(clientTxnID), "req-"+clientTxnID, time.Date(2026, 5, 18, 12, 2, 0, 0, time.UTC))
+	}, "req-"+clientTxnID, time.Date(2026, 5, 18, 12, 2, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create task %s: %v", clientTxnID, err)
 	}
@@ -202,7 +202,7 @@ func patchPartyRefResultFor(store *workbook.WorkbookContributionCatalog, evidenc
 		Changes: []workbookroutetest.PatchChange{
 			{FieldKey: fieldKey, Value: &value},
 		},
-	}, []byte(clientTxnID), "req-"+clientTxnID, time.Date(2026, 5, 18, 12, 3, 0, 0, time.UTC))
+	}, "req-"+clientTxnID, time.Date(2026, 5, 18, 12, 3, 0, 0, time.UTC))
 }
 
 func mutationValidationDetails(t testing.TB, err error) (string, string) {

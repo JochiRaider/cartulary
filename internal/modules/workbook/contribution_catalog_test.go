@@ -36,15 +36,13 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 	}
 
 	resources := viewschema.ListPublicResources()
-	wantIDs := make([]string, 0, len(resources))
 	for _, resource := range resources {
-		wantIDs = append(wantIDs, resource.ViewSchemaID)
 		if provider, ok := catalog.QueryFor(resource.ViewSchemaID); !ok || provider == nil {
 			t.Fatalf("active surface %s did not resolve exactly once", resource.ViewSchemaID)
 		}
 	}
-	if got := catalog.QuerySurfaceIDs(); !reflect.DeepEqual(got, wantIDs) {
-		t.Fatalf("catalog surface IDs:\ngot  %v\nwant %v", got, wantIDs)
+	if provider, ok := catalog.QueryFor("cartulary.view.unknown.v1"); ok || provider != nil {
+		t.Fatalf("unknown surface unexpectedly resolved: %#v", provider)
 	}
 
 	tests := []struct {
@@ -277,7 +275,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 		{
 			name: "typed nil provider",
 			edit: func(input []CreateContribution) []CreateContribution {
-				var provider *neutralCreateProvider
+				var provider *neutralCreateProvider[catalogMutationValue]
 				input[0].Provider = provider
 				return input
 			},
@@ -347,7 +345,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 		{
 			name: "typed nil provider",
 			edit: func(input []PatchContribution) []PatchContribution {
-				var provider *neutralPatchProvider
+				var provider *neutralPatchProvider[catalogMutationValue]
 				input[0].Provider = provider
 				return input
 			},
@@ -417,7 +415,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 		{
 			name: "typed nil provider",
 			edit: func(input []ConflictContribution) []ConflictContribution {
-				var provider *neutralConflictProvider
+				var provider *neutralConflictProvider[catalogMutationValue]
 				input[0].Provider = provider
 				return input
 			},
@@ -480,7 +478,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 		{
 			name: "clipboard typed nil",
 			edit: func(input *MutationActionContributions) {
-				var provider *clipboardProvider
+				var provider *clipboardProvider[catalogMutationValue]
 				input.Clipboard[0].Provider = provider
 			},
 			want: "clipboard contribution \"cartulary.view.hosts.v1\" has nil provider",
@@ -491,9 +489,12 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 			want: "bulk contribution missing required surface",
 		},
 		{
-			name: "bulk incomplete provider",
-			edit: func(input *MutationActionContributions) { input.Bulk[0].Provider = &bulkProvider{} },
-			want: "bulk contribution \"cartulary.view.timeline.v2\" is invalid",
+			name: "bulk typed nil",
+			edit: func(input *MutationActionContributions) {
+				var provider *bulkProvider[catalogMutationValue]
+				input.Bulk[0].Provider = provider
+			},
+			want: "bulk contribution \"cartulary.view.timeline.v2\" has nil provider",
 		},
 		{
 			name: "linked-note missing",
@@ -615,110 +616,16 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 		}
 	})
 
-	t.Run("neutral mutation providers reject incomplete construction", func(t *testing.T) {
-		createDecode := func(io.Reader) (CreateAdmission, *MutationFailure, error) { return nil, nil, nil }
-		createExecute := func(context.Context, CreateCommand) (MutationOutcome, error) {
-			return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}), nil
-		}
-		if _, err := NewCreateProvider(nil, createExecute); err == nil {
-			t.Fatal("create provider accepted a nil decoder")
-		}
-		if _, err := NewCreateProvider(createDecode, nil); err == nil {
-			t.Fatal("create provider accepted a nil executor")
-		}
+	t.Run("typed mutation providers reject incomplete construction", func(t *testing.T) {
+		assertMutationProviderConstructorsRejectNil(t)
+	})
 
-		patchDecode := func(io.Reader) (PatchAdmission, *MutationFailure, error) { return nil, nil, nil }
-		patchExecute := func(context.Context, PatchCommand) (MutationOutcome, error) {
-			return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}), nil
-		}
-		if _, err := NewPatchProvider(nil, patchExecute); err == nil {
-			t.Fatal("patch provider accepted a nil decoder")
-		}
-		if _, err := NewPatchProvider(patchDecode, nil); err == nil {
-			t.Fatal("patch provider accepted a nil executor")
-		}
+	t.Run("typed mutation decoders enforce exclusive states", func(t *testing.T) {
+		assertMutationDecoderStates(t)
+	})
 
-		conflictDecode := func(io.Reader, string, ConflictClaims) (ConflictAdmission, *MutationFailure, error) {
-			return nil, nil, nil
-		}
-		conflictExecute := func(context.Context, ConflictCommand) (MutationOutcome, error) {
-			return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}), nil
-		}
-		if _, err := NewConflictProvider(nil, conflictExecute); err == nil {
-			t.Fatal("conflict provider accepted a nil decoder")
-		}
-		if _, err := NewConflictProvider(conflictDecode, nil); err == nil {
-			t.Fatal("conflict provider accepted a nil executor")
-		}
-
-		clipboardDecode := func(io.Reader) (ClipboardAdmission, *MutationFailure, error) { return nil, nil, nil }
-		clipboardExecute := func(context.Context, ClipboardCommand) (MutationOutcome, error) {
-			return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}), nil
-		}
-		if _, err := NewClipboardProvider(nil, clipboardExecute); err == nil {
-			t.Fatal("clipboard provider accepted a nil decoder")
-		}
-		if _, err := NewClipboardProvider(clipboardDecode, nil); err == nil {
-			t.Fatal("clipboard provider accepted a nil executor")
-		}
-
-		bulkDecode := func(io.Reader) (BulkAdmission, *MutationFailure, error) { return nil, nil, nil }
-		bulkExecute := func(context.Context, BulkCommand) (MutationOutcome, error) {
-			return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}), nil
-		}
-		if _, err := NewBulkProvider(nil, bulkExecute); err == nil {
-			t.Fatal("bulk provider accepted a nil decoder")
-		}
-		if _, err := NewBulkProvider(bulkDecode, nil); err == nil {
-			t.Fatal("bulk provider accepted a nil executor")
-		}
-
-		linkedNoteDecode := func(io.Reader) (LinkedNoteAdmission, *MutationFailure, error) { return nil, nil, nil }
-		linkedNoteExecute := func(context.Context, LinkedNoteCommand) (MutationOutcome, error) {
-			return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}), nil
-		}
-		if _, err := NewLinkedNoteProvider(nil, linkedNoteExecute); err == nil {
-			t.Fatal("linked-note provider accepted a nil decoder")
-		}
-		if _, err := NewLinkedNoteProvider(linkedNoteDecode, nil); err == nil {
-			t.Fatal("linked-note provider accepted a nil executor")
-		}
-
-		supersedeDecode := func(io.Reader) (SupersedeAdmission, *MutationFailure, error) { return nil, nil, nil }
-		supersedeExecute := func(context.Context, SupersedeCommand) (MutationOutcome, error) {
-			return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}), nil
-		}
-		if _, err := NewSupersedeProvider(nil, supersedeExecute); err == nil {
-			t.Fatal("supersede provider accepted a nil decoder")
-		}
-		if _, err := NewSupersedeProvider(supersedeDecode, nil); err == nil {
-			t.Fatal("supersede provider accepted a nil executor")
-		}
-
-		invalidCreates := cloneCreateContributions(creates)
-		invalidCreates[0].Provider = &neutralCreateProvider{}
-		if _, err := NewWorkbookContributionCatalog(catalogInput(
-			mustDescriptorSet(t, descriptors), queries, invalidCreates, patches, conflicts,
-			validActionRequirements(), validActionContributions(),
-		)); err == nil || !strings.Contains(err.Error(), "create contribution") {
-			t.Fatalf("catalog accepted incomplete create provider: %v", err)
-		}
-		invalidPatches := clonePatchContributions(patches)
-		invalidPatches[0].Provider = &neutralPatchProvider{}
-		if _, err := NewWorkbookContributionCatalog(catalogInput(
-			mustDescriptorSet(t, descriptors), queries, creates, invalidPatches, conflicts,
-			validActionRequirements(), validActionContributions(),
-		)); err == nil || !strings.Contains(err.Error(), "patch contribution") {
-			t.Fatalf("catalog accepted incomplete patch provider: %v", err)
-		}
-		invalidConflicts := cloneConflictContributions(conflicts)
-		invalidConflicts[0].Provider = &neutralConflictProvider{}
-		if _, err := NewWorkbookContributionCatalog(catalogInput(
-			mustDescriptorSet(t, descriptors), queries, creates, patches, invalidConflicts,
-			validActionRequirements(), validActionContributions(),
-		)); err == nil || !strings.Contains(err.Error(), "conflict contribution") {
-			t.Fatalf("catalog accepted incomplete conflict provider: %v", err)
-		}
+	t.Run("zero mutation operations fail without effects", func(t *testing.T) {
+		assertZeroMutationOperations(t)
 	})
 
 	t.Run("mutation outcome is exclusive and details are copied", func(t *testing.T) {
@@ -927,14 +834,12 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 		}
 	})
 
-	t.Run("decoder admissions and outcomes fail closed", func(t *testing.T) {
-		var typedNil *catalogTestClipboardAdmission
-		if apiErr := decodeMutationAPIError(typedNil, nil, nil); apiErr == nil || apiErr.Code != "internal_error" {
-			t.Fatalf("typed-nil admission was not rejected: %#v", apiErr)
+	t.Run("decoder operations and outcomes fail closed", func(t *testing.T) {
+		if apiErr := decodeMutationAPIError(false, nil, nil); apiErr == nil || apiErr.Code != "internal_error" {
+			t.Fatalf("missing operation was not rejected: %#v", apiErr)
 		}
-		admission := &catalogTestClipboardAdmission{}
-		if apiErr := decodeMutationAPIError(admission, InvalidPayloadFailure("field", "invalid_value"), nil); apiErr == nil || apiErr.Code != "internal_error" {
-			t.Fatalf("admission plus failure was not rejected: %#v", apiErr)
+		if apiErr := decodeMutationAPIError(true, InvalidPayloadFailure("field", "invalid_value"), nil); apiErr == nil || apiErr.Code != "internal_error" {
+			t.Fatalf("operation plus failure was not rejected: %#v", apiErr)
 		}
 		if _, apiErr := resolveMutationOutcome(MutationOutcome{}, errors.New("secret provider failure")); apiErr == nil || apiErr.Message != "internal_error" {
 			t.Fatalf("unexpected provider error was not content-safe: %#v", apiErr)
@@ -942,11 +847,197 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 	})
 }
 
-type catalogTestClipboardAdmission struct{}
+type catalogMutationValue struct {
+	viewSchemaID string
+}
 
-func (*catalogTestClipboardAdmission) ClientTransactionID() string { return "txn" }
-func (*catalogTestClipboardAdmission) AdmittedViewSchemaID() string {
-	return "cartulary.view.timeline.v2"
+func assertMutationProviderConstructorsRejectNil(t testing.TB) {
+	t.Helper()
+	decode := func(io.Reader) (*catalogMutationValue, bool, *MutationFailure, error) {
+		return &catalogMutationValue{viewSchemaID: "cartulary.view.timeline.v2"}, true, nil, nil
+	}
+	conflictDecode := func(io.Reader, string, ConflictClaims) (*catalogMutationValue, bool, *MutationFailure, error) {
+		return &catalogMutationValue{}, true, nil, nil
+	}
+	rowOutcome := func() MutationOutcome {
+		return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}})
+	}
+	createExecute := func(context.Context, CreateCommand, *catalogMutationValue) (MutationOutcome, error) {
+		return rowOutcome(), nil
+	}
+	patchExecute := func(context.Context, PatchCommand, *catalogMutationValue) (MutationOutcome, error) {
+		return rowOutcome(), nil
+	}
+	conflictExecute := func(context.Context, ConflictCommand, *catalogMutationValue) (MutationOutcome, error) {
+		return rowOutcome(), nil
+	}
+	clipboardExecute := func(context.Context, ClipboardCommand, *catalogMutationValue) (MutationOutcome, error) {
+		return rowOutcome(), nil
+	}
+	bulkExecute := func(context.Context, BulkCommand, *catalogMutationValue) (MutationOutcome, error) {
+		return rowOutcome(), nil
+	}
+	linkedNoteExecute := func(context.Context, LinkedNoteCommand, *catalogMutationValue) (MutationOutcome, error) {
+		return rowOutcome(), nil
+	}
+	supersedeExecute := func(context.Context, SupersedeCommand, *catalogMutationValue) (MutationOutcome, error) {
+		return rowOutcome(), nil
+	}
+
+	checks := []struct {
+		name string
+		err  error
+	}{
+		{name: "create decoder", err: constructorError(NewCreateProvider[*catalogMutationValue](nil, createExecute))},
+		{name: "create executor", err: constructorError(NewCreateProvider[*catalogMutationValue](decode, nil))},
+		{name: "patch decoder", err: constructorError(NewPatchProvider[*catalogMutationValue](nil, func(value *catalogMutationValue) string { return value.viewSchemaID }, patchExecute))},
+		{name: "patch metadata", err: constructorError(NewPatchProvider[*catalogMutationValue](decode, nil, patchExecute))},
+		{name: "patch executor", err: constructorError(NewPatchProvider[*catalogMutationValue](decode, func(value *catalogMutationValue) string { return value.viewSchemaID }, nil))},
+		{name: "conflict decoder", err: constructorError(NewConflictProvider[*catalogMutationValue](nil, conflictExecute))},
+		{name: "conflict executor", err: constructorError(NewConflictProvider[*catalogMutationValue](conflictDecode, nil))},
+		{name: "clipboard decoder", err: constructorError(NewClipboardProvider[*catalogMutationValue](nil, clipboardExecute))},
+		{name: "clipboard executor", err: constructorError(NewClipboardProvider[*catalogMutationValue](decode, nil))},
+		{name: "bulk decoder", err: constructorError(NewBulkProvider[*catalogMutationValue](nil, bulkExecute))},
+		{name: "bulk executor", err: constructorError(NewBulkProvider[*catalogMutationValue](decode, nil))},
+		{name: "linked-note decoder", err: constructorError(NewLinkedNoteProvider[*catalogMutationValue](nil, linkedNoteExecute))},
+		{name: "linked-note executor", err: constructorError(NewLinkedNoteProvider[*catalogMutationValue](decode, nil))},
+		{name: "supersede decoder", err: constructorError(NewSupersedeProvider[*catalogMutationValue](nil, supersedeExecute))},
+		{name: "supersede executor", err: constructorError(NewSupersedeProvider[*catalogMutationValue](decode, nil))},
+	}
+	for _, check := range checks {
+		if check.err == nil {
+			t.Errorf("%s was accepted", check.name)
+		}
+	}
+}
+
+func constructorError(_ any, err error) error { return err }
+
+type catalogDecoderState struct {
+	value   *catalogMutationValue
+	present bool
+	failure *MutationFailure
+	err     error
+}
+
+func assertMutationDecoderStates(t *testing.T) {
+	t.Helper()
+	safeFailure := InvalidPayloadFailure("field", "invalid_value")
+	internalErr := errors.New("secret decoder detail")
+	tests := []struct {
+		name        string
+		state       catalogDecoderState
+		wantPresent bool
+		wantFailure bool
+		wantError   bool
+	}{
+		{name: "value", state: catalogDecoderState{value: &catalogMutationValue{viewSchemaID: "cartulary.view.timeline.v2"}, present: true}, wantPresent: true},
+		{name: "safe failure", state: catalogDecoderState{failure: safeFailure}, wantFailure: true},
+		{name: "missing", state: catalogDecoderState{}, wantError: true},
+		{name: "typed nil", state: catalogDecoderState{present: true}, wantError: true},
+		{name: "value and failure", state: catalogDecoderState{value: &catalogMutationValue{}, present: true, failure: safeFailure}, wantError: true},
+		{name: "value and error", state: catalogDecoderState{value: &catalogMutationValue{}, present: true, err: internalErr}, wantError: true},
+		{name: "failure and error", state: catalogDecoderState{failure: safeFailure, err: internalErr}, wantError: true},
+	}
+	for _, family := range []string{"create", "patch", "conflict", "clipboard", "bulk", "linked-note", "supersede"} {
+		for _, test := range tests {
+			t.Run(family+"/"+test.name, func(t *testing.T) {
+				present, failure, err := decodeCatalogMutationFamily(t, family, test.state)
+				if present != test.wantPresent || (failure != nil) != test.wantFailure || (err != nil) != test.wantError {
+					t.Fatalf("state mismatch: present=%t failure=%#v err=%v", present, failure, err)
+				}
+				if test.wantFailure && failure != safeFailure {
+					t.Fatalf("safe failure identity changed: got %#v want %#v", failure, safeFailure)
+				}
+			})
+		}
+	}
+}
+
+func decodeCatalogMutationFamily(t testing.TB, family string, state catalogDecoderState) (bool, *MutationFailure, error) {
+	t.Helper()
+	decode := func(io.Reader) (*catalogMutationValue, bool, *MutationFailure, error) {
+		return state.value, state.present, state.failure, state.err
+	}
+	conflictDecode := func(io.Reader, string, ConflictClaims) (*catalogMutationValue, bool, *MutationFailure, error) {
+		return state.value, state.present, state.failure, state.err
+	}
+	rowExecute := func(context.Context, CreateCommand, *catalogMutationValue) (MutationOutcome, error) {
+		return MutationOutcome{}, nil
+	}
+	switch family {
+	case "create":
+		provider, _ := NewCreateProvider(decode, rowExecute)
+		operation, failure, err := provider.DecodeCreate(strings.NewReader("{}"))
+		return operation.execute != nil, failure, err
+	case "patch":
+		provider, _ := NewPatchProvider(decode, func(value *catalogMutationValue) string { return value.viewSchemaID }, func(context.Context, PatchCommand, *catalogMutationValue) (MutationOutcome, error) {
+			return MutationOutcome{}, nil
+		})
+		operation, failure, err := provider.DecodePatch(strings.NewReader("{}"))
+		if operation.execute != nil && operation.AdmittedViewSchemaID() != state.value.viewSchemaID {
+			t.Fatalf("patch admitted schema mismatch: %q", operation.AdmittedViewSchemaID())
+		}
+		return operation.execute != nil, failure, err
+	case "conflict":
+		provider, _ := NewConflictProvider(conflictDecode, func(context.Context, ConflictCommand, *catalogMutationValue) (MutationOutcome, error) {
+			return MutationOutcome{}, nil
+		})
+		operation, failure, err := provider.DecodeConflict(strings.NewReader("{}"), "token", ConflictClaims{})
+		return operation.execute != nil, failure, err
+	case "clipboard":
+		provider, _ := NewClipboardProvider(decode, func(context.Context, ClipboardCommand, *catalogMutationValue) (MutationOutcome, error) {
+			return MutationOutcome{}, nil
+		})
+		operation, failure, err := provider.DecodeClipboard(strings.NewReader("{}"))
+		return operation.execute != nil, failure, err
+	case "bulk":
+		provider, _ := NewBulkProvider(decode, func(context.Context, BulkCommand, *catalogMutationValue) (MutationOutcome, error) {
+			return MutationOutcome{}, nil
+		})
+		operation, failure, err := provider.DecodeBulk(strings.NewReader("{}"))
+		return operation.execute != nil, failure, err
+	case "linked-note":
+		provider, _ := NewLinkedNoteProvider(decode, func(context.Context, LinkedNoteCommand, *catalogMutationValue) (MutationOutcome, error) {
+			return MutationOutcome{}, nil
+		})
+		operation, failure, err := provider.DecodeLinkedNote(strings.NewReader("{}"))
+		return operation.execute != nil, failure, err
+	case "supersede":
+		provider, _ := NewSupersedeProvider(decode, func(context.Context, SupersedeCommand, *catalogMutationValue) (MutationOutcome, error) {
+			return MutationOutcome{}, nil
+		})
+		operation, failure, err := provider.DecodeSupersede(strings.NewReader("{}"))
+		return operation.execute != nil, failure, err
+	default:
+		t.Fatalf("unknown mutation family %q", family)
+		return false, nil, nil
+	}
+}
+
+func assertZeroMutationOperations(t testing.TB) {
+	t.Helper()
+	checks := []struct {
+		name string
+		err  error
+	}{
+		{name: "create", err: operationError((CreateOperation{}).Execute(context.Background(), CreateCommand{}))},
+		{name: "patch", err: operationError((PatchOperation{}).Execute(context.Background(), PatchCommand{}))},
+		{name: "conflict", err: operationError((ConflictOperation{}).Execute(context.Background(), ConflictCommand{}))},
+		{name: "clipboard", err: operationError((ClipboardOperation{}).Execute(context.Background(), ClipboardCommand{}))},
+		{name: "bulk", err: operationError((BulkOperation{}).Execute(context.Background(), BulkCommand{}))},
+		{name: "linked-note", err: operationError((LinkedNoteOperation{}).Execute(context.Background(), LinkedNoteCommand{}))},
+		{name: "supersede", err: operationError((SupersedeOperation{}).Execute(context.Background(), SupersedeCommand{}))},
+	}
+	for _, check := range checks {
+		if check.err == nil || !strings.Contains(check.err.Error(), "not initialized") {
+			t.Errorf("zero %s operation returned %v", check.name, check.err)
+		}
+	}
+}
+
+func operationError(_ MutationOutcome, err error) error {
+	return err
 }
 
 func mustUUIDForCatalogTest(t testing.TB, raw string) uuid.UUID {
@@ -990,13 +1081,16 @@ func validCatalogInputs(t testing.TB) (
 	descriptors := make([]providercontract.ProviderDescriptor, 0, len(resources))
 	contributions := make([]QueryContribution, 0, len(resources))
 	creates := make([]CreateContribution, 0, len(resources))
-	createProvider := neutralCreateProvider{
-		decode: func(io.Reader) (CreateAdmission, *MutationFailure, error) {
-			return nil, nil, nil
+	createProvider, err := NewCreateProvider(
+		func(io.Reader) (catalogMutationValue, bool, *MutationFailure, error) {
+			return catalogMutationValue{}, true, nil, nil
 		},
-		execute: func(context.Context, CreateCommand) (MutationOutcome, error) {
+		func(context.Context, CreateCommand, catalogMutationValue) (MutationOutcome, error) {
 			return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}), nil
 		},
+	)
+	if err != nil {
+		t.Fatalf("construct catalog create provider: %v", err)
 	}
 	for _, resource := range resources {
 		ownerKey := "owner:" + resource.ViewSchemaID
@@ -1029,36 +1123,43 @@ func validCatalogInputs(t testing.TB) (
 				ViewSchemaID:      resource.ViewSchemaID,
 				SourceOwnerKey:    ownerKey,
 				SourceRecordTypes: append([]string(nil), resource.SourceRecordTypes...),
-				Provider:          &createProvider,
+				Provider:          createProvider,
 			})
 		}
 	}
-	patchProvider := neutralPatchProvider{
-		decode: func(io.Reader) (PatchAdmission, *MutationFailure, error) {
-			return nil, nil, nil
+	patchProvider, err := NewPatchProvider(
+		func(io.Reader) (catalogMutationValue, bool, *MutationFailure, error) {
+			return catalogMutationValue{viewSchemaID: "cartulary.view.timeline.v2"}, true, nil, nil
 		},
-		execute: func(context.Context, PatchCommand) (MutationOutcome, error) {
+		func(value catalogMutationValue) string { return value.viewSchemaID },
+		func(context.Context, PatchCommand, catalogMutationValue) (MutationOutcome, error) {
 			return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}), nil
 		},
+	)
+	if err != nil {
+		t.Fatalf("construct catalog patch provider: %v", err)
 	}
-	conflictProvider := neutralConflictProvider{
-		decode: func(
+	conflictProvider, err := NewConflictProvider(
+		func(
 			io.Reader,
 			string,
 			ConflictClaims,
-		) (ConflictAdmission, *MutationFailure, error) {
-			return nil, nil, nil
+		) (catalogMutationValue, bool, *MutationFailure, error) {
+			return catalogMutationValue{}, true, nil, nil
 		},
-		execute: func(context.Context, ConflictCommand) (MutationOutcome, error) {
+		func(context.Context, ConflictCommand, catalogMutationValue) (MutationOutcome, error) {
 			return SuccessfulRowMutation(MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}), nil
 		},
+	)
+	if err != nil {
+		t.Fatalf("construct catalog conflict provider: %v", err)
 	}
 	patches := make([]PatchContribution, 0, len(expectedPatchSurfaces()))
 	for recordType, viewSchemaIDs := range expectedPatchSurfaces() {
 		patches = append(patches, PatchContribution{
 			RecordType:    recordType,
 			ViewSchemaIDs: append([]string(nil), viewSchemaIDs...),
-			Provider:      &patchProvider,
+			Provider:      patchProvider,
 		})
 	}
 	conflicts := make([]ConflictContribution, 0, len(expectedConflictSurfaces()))
@@ -1066,7 +1167,7 @@ func validCatalogInputs(t testing.TB) (
 		conflicts = append(conflicts, ConflictContribution{
 			RecordType:    recordType,
 			ViewSchemaIDs: append([]string(nil), viewSchemaIDs...),
-			Provider:      &conflictProvider,
+			Provider:      conflictProvider,
 		})
 	}
 	return descriptors, contributions, creates, patches, conflicts
@@ -1081,8 +1182,10 @@ func validActionContributions() MutationActionContributions {
 	}}
 	supersedeResult := MutationResult{StatusCode: 200, Payload: map[string]any{"row": map[string]any{}}}
 	clipboardProvider, err := NewClipboardProvider(
-		func(io.Reader) (ClipboardAdmission, *MutationFailure, error) { return nil, nil, nil },
-		func(context.Context, ClipboardCommand) (MutationOutcome, error) {
+		func(io.Reader) (catalogMutationValue, bool, *MutationFailure, error) {
+			return catalogMutationValue{}, true, nil, nil
+		},
+		func(context.Context, ClipboardCommand, catalogMutationValue) (MutationOutcome, error) {
 			return SuccessfulBatchMutation(batchResult), nil
 		},
 	)
@@ -1090,8 +1193,10 @@ func validActionContributions() MutationActionContributions {
 		panic(err)
 	}
 	bulkProvider, err := NewBulkProvider(
-		func(io.Reader) (BulkAdmission, *MutationFailure, error) { return nil, nil, nil },
-		func(context.Context, BulkCommand) (MutationOutcome, error) {
+		func(io.Reader) (catalogMutationValue, bool, *MutationFailure, error) {
+			return catalogMutationValue{}, true, nil, nil
+		},
+		func(context.Context, BulkCommand, catalogMutationValue) (MutationOutcome, error) {
 			return SuccessfulBatchMutation(batchResult), nil
 		},
 	)
@@ -1099,8 +1204,10 @@ func validActionContributions() MutationActionContributions {
 		panic(err)
 	}
 	linkedNoteProvider, err := NewLinkedNoteProvider(
-		func(io.Reader) (LinkedNoteAdmission, *MutationFailure, error) { return nil, nil, nil },
-		func(context.Context, LinkedNoteCommand) (MutationOutcome, error) {
+		func(io.Reader) (catalogMutationValue, bool, *MutationFailure, error) {
+			return catalogMutationValue{}, true, nil, nil
+		},
+		func(context.Context, LinkedNoteCommand, catalogMutationValue) (MutationOutcome, error) {
 			return SuccessfulLinkedNoteMutation(linkedNoteResult), nil
 		},
 	)
@@ -1108,8 +1215,10 @@ func validActionContributions() MutationActionContributions {
 		panic(err)
 	}
 	supersedeProvider, err := NewSupersedeProvider(
-		func(io.Reader) (SupersedeAdmission, *MutationFailure, error) { return nil, nil, nil },
-		func(context.Context, SupersedeCommand) (MutationOutcome, error) {
+		func(io.Reader) (catalogMutationValue, bool, *MutationFailure, error) {
+			return catalogMutationValue{}, true, nil, nil
+		},
+		func(context.Context, SupersedeCommand, catalogMutationValue) (MutationOutcome, error) {
 			return SuccessfulSupersedeMutation(supersedeResult), nil
 		},
 	)

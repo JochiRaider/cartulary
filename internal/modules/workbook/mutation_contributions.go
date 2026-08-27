@@ -3,6 +3,7 @@ package workbook
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
@@ -11,112 +12,120 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-type CreateAdmission interface {
-	ClientTransactionID() string
-}
-
 type CreateCommand struct {
 	Actor        authn.UserRecord
 	IncidentID   uuid.UUID
 	ViewSchemaID string
-	Admission    CreateAdmission
-	RequestHash  []byte
 	RequestID    string
 	Now          time.Time
 }
 
-type CreateProvider interface {
-	ValidateWorkbookContribution() error
-	DecodeCreate(io.Reader) (CreateAdmission, *MutationFailure, error)
-	Create(context.Context, CreateCommand) (MutationOutcome, error)
-}
-
-type neutralCreateProvider struct {
-	decode  func(io.Reader) (CreateAdmission, *MutationFailure, error)
+type CreateOperation struct {
 	execute func(context.Context, CreateCommand) (MutationOutcome, error)
 }
 
-func NewCreateProvider(
-	decode func(io.Reader) (CreateAdmission, *MutationFailure, error),
-	execute func(context.Context, CreateCommand) (MutationOutcome, error),
+func (operation CreateOperation) Execute(ctx context.Context, command CreateCommand) (MutationOutcome, error) {
+	if operation.execute == nil {
+		return MutationOutcome{}, errors.New("workbook create operation is not initialized")
+	}
+	return operation.execute(ctx, command)
+}
+
+type CreateProvider interface {
+	DecodeCreate(io.Reader) (CreateOperation, *MutationFailure, error)
+}
+
+type neutralCreateProvider[T any] struct {
+	decode  func(io.Reader) (T, bool, *MutationFailure, error)
+	execute func(context.Context, CreateCommand, T) (MutationOutcome, error)
+}
+
+func NewCreateProvider[T any](
+	decode func(io.Reader) (T, bool, *MutationFailure, error),
+	execute func(context.Context, CreateCommand, T) (MutationOutcome, error),
 ) (CreateProvider, error) {
-	provider := &neutralCreateProvider{decode: decode, execute: execute}
-	if err := provider.ValidateWorkbookContribution(); err != nil {
-		return nil, err
+	if decode == nil || execute == nil {
+		return nil, errors.New("create provider requires decode and create functions")
 	}
-	return provider, nil
+	return &neutralCreateProvider[T]{decode: decode, execute: execute}, nil
 }
 
-func (provider *neutralCreateProvider) ValidateWorkbookContribution() error {
-	if provider == nil || provider.decode == nil || provider.execute == nil {
-		return errors.New("create provider requires decode and create functions")
+func (provider *neutralCreateProvider[T]) DecodeCreate(reader io.Reader) (CreateOperation, *MutationFailure, error) {
+	value, present, failure, err := provider.decode(reader)
+	if validationErr := validateDecodedMutationValue("create", value, present, failure, err); validationErr != nil {
+		return CreateOperation{}, nil, validationErr
 	}
-	return nil
-}
-
-func (provider *neutralCreateProvider) DecodeCreate(reader io.Reader) (CreateAdmission, *MutationFailure, error) {
-	return provider.decode(reader)
-}
-
-func (provider *neutralCreateProvider) Create(ctx context.Context, command CreateCommand) (MutationOutcome, error) {
-	return provider.execute(ctx, command)
-}
-
-type PatchAdmission interface {
-	ClientTransactionID() string
-	AdmittedViewSchemaID() string
-	AdmittedBaseRowVersion() int64
+	if failure != nil {
+		return CreateOperation{}, failure, nil
+	}
+	return CreateOperation{execute: func(ctx context.Context, command CreateCommand) (MutationOutcome, error) {
+		return provider.execute(ctx, command, value)
+	}}, nil, nil
 }
 
 type PatchCommand struct {
 	Actor                   authn.UserRecord
 	RecordID                uuid.UUID
 	AuthoritativeRecordType string
-	Admission               PatchAdmission
-	RequestHash             []byte
 	RequestID               string
 	Now                     time.Time
 }
 
+type PatchOperation struct {
+	viewSchemaID string
+	execute      func(context.Context, PatchCommand) (MutationOutcome, error)
+}
+
+func (operation PatchOperation) AdmittedViewSchemaID() string {
+	return operation.viewSchemaID
+}
+
+func (operation PatchOperation) Execute(ctx context.Context, command PatchCommand) (MutationOutcome, error) {
+	if operation.execute == nil {
+		return MutationOutcome{}, errors.New("workbook patch operation is not initialized")
+	}
+	return operation.execute(ctx, command)
+}
+
 type PatchProvider interface {
-	ValidateWorkbookContribution() error
-	DecodePatch(io.Reader) (PatchAdmission, *MutationFailure, error)
-	Patch(context.Context, PatchCommand) (MutationOutcome, error)
+	DecodePatch(io.Reader) (PatchOperation, *MutationFailure, error)
 }
 
-type neutralPatchProvider struct {
-	decode  func(io.Reader) (PatchAdmission, *MutationFailure, error)
-	execute func(context.Context, PatchCommand) (MutationOutcome, error)
+type neutralPatchProvider[T any] struct {
+	decode       func(io.Reader) (T, bool, *MutationFailure, error)
+	viewSchemaID func(T) string
+	execute      func(context.Context, PatchCommand, T) (MutationOutcome, error)
 }
 
-func NewPatchProvider(
-	decode func(io.Reader) (PatchAdmission, *MutationFailure, error),
-	execute func(context.Context, PatchCommand) (MutationOutcome, error),
+func NewPatchProvider[T any](
+	decode func(io.Reader) (T, bool, *MutationFailure, error),
+	viewSchemaID func(T) string,
+	execute func(context.Context, PatchCommand, T) (MutationOutcome, error),
 ) (PatchProvider, error) {
-	provider := &neutralPatchProvider{decode: decode, execute: execute}
-	if err := provider.ValidateWorkbookContribution(); err != nil {
-		return nil, err
+	if decode == nil || viewSchemaID == nil || execute == nil {
+		return nil, errors.New("patch provider requires decode, view-schema, and patch functions")
 	}
-	return provider, nil
+	return &neutralPatchProvider[T]{decode: decode, viewSchemaID: viewSchemaID, execute: execute}, nil
 }
 
-func (provider *neutralPatchProvider) ValidateWorkbookContribution() error {
-	if provider == nil || provider.decode == nil || provider.execute == nil {
-		return errors.New("patch provider requires decode and patch functions")
+func (provider *neutralPatchProvider[T]) DecodePatch(reader io.Reader) (PatchOperation, *MutationFailure, error) {
+	value, present, failure, err := provider.decode(reader)
+	if validationErr := validateDecodedMutationValue("patch", value, present, failure, err); validationErr != nil {
+		return PatchOperation{}, nil, validationErr
 	}
-	return nil
-}
-
-func (provider *neutralPatchProvider) DecodePatch(reader io.Reader) (PatchAdmission, *MutationFailure, error) {
-	return provider.decode(reader)
-}
-
-func (provider *neutralPatchProvider) Patch(ctx context.Context, command PatchCommand) (MutationOutcome, error) {
-	return provider.execute(ctx, command)
-}
-
-type ConflictAdmission interface {
-	ClientTransactionID() string
+	if failure != nil {
+		return PatchOperation{}, failure, nil
+	}
+	viewSchemaID := provider.viewSchemaID(value)
+	if viewSchemaID == "" {
+		return PatchOperation{}, nil, errors.New("workbook patch decoder returned an empty view_schema_id")
+	}
+	return PatchOperation{
+		viewSchemaID: viewSchemaID,
+		execute: func(ctx context.Context, command PatchCommand) (MutationOutcome, error) {
+			return provider.execute(ctx, command, value)
+		},
+	}, nil, nil
 }
 
 type ConflictCommand struct {
@@ -124,56 +133,78 @@ type ConflictCommand struct {
 	RecordID                uuid.UUID
 	AuthoritativeRecordType string
 	Claims                  ConflictClaims
-	Admission               ConflictAdmission
-	RequestHash             []byte
 	RequestID               string
 	Now                     time.Time
 }
 
-type ConflictProvider interface {
-	ValidateWorkbookContribution() error
-	DecodeConflict(
-		io.Reader,
-		string,
-		ConflictClaims,
-	) (ConflictAdmission, *MutationFailure, error)
-	ResolveConflict(context.Context, ConflictCommand) (MutationOutcome, error)
-}
-
-type neutralConflictProvider struct {
-	decode  func(io.Reader, string, ConflictClaims) (ConflictAdmission, *MutationFailure, error)
+type ConflictOperation struct {
 	execute func(context.Context, ConflictCommand) (MutationOutcome, error)
 }
 
-func NewConflictProvider(
-	decode func(io.Reader, string, ConflictClaims) (ConflictAdmission, *MutationFailure, error),
-	execute func(context.Context, ConflictCommand) (MutationOutcome, error),
+func (operation ConflictOperation) Execute(ctx context.Context, command ConflictCommand) (MutationOutcome, error) {
+	if operation.execute == nil {
+		return MutationOutcome{}, errors.New("workbook conflict operation is not initialized")
+	}
+	return operation.execute(ctx, command)
+}
+
+type ConflictProvider interface {
+	DecodeConflict(io.Reader, string, ConflictClaims) (ConflictOperation, *MutationFailure, error)
+}
+
+type neutralConflictProvider[T any] struct {
+	decode  func(io.Reader, string, ConflictClaims) (T, bool, *MutationFailure, error)
+	execute func(context.Context, ConflictCommand, T) (MutationOutcome, error)
+}
+
+func NewConflictProvider[T any](
+	decode func(io.Reader, string, ConflictClaims) (T, bool, *MutationFailure, error),
+	execute func(context.Context, ConflictCommand, T) (MutationOutcome, error),
 ) (ConflictProvider, error) {
-	provider := &neutralConflictProvider{decode: decode, execute: execute}
-	if err := provider.ValidateWorkbookContribution(); err != nil {
-		return nil, err
+	if decode == nil || execute == nil {
+		return nil, errors.New("conflict provider requires decode and resolve functions")
 	}
-	return provider, nil
+	return &neutralConflictProvider[T]{decode: decode, execute: execute}, nil
 }
 
-func (provider *neutralConflictProvider) ValidateWorkbookContribution() error {
-	if provider == nil || provider.decode == nil || provider.execute == nil {
-		return errors.New("conflict provider requires decode and resolve functions")
-	}
-	return nil
-}
-
-func (provider *neutralConflictProvider) DecodeConflict(
+func (provider *neutralConflictProvider[T]) DecodeConflict(
 	reader io.Reader,
 	token string,
 	claims ConflictClaims,
-) (ConflictAdmission, *MutationFailure, error) {
-	return provider.decode(reader, token, claims)
+) (ConflictOperation, *MutationFailure, error) {
+	value, present, failure, err := provider.decode(reader, token, claims)
+	if validationErr := validateDecodedMutationValue("conflict", value, present, failure, err); validationErr != nil {
+		return ConflictOperation{}, nil, validationErr
+	}
+	if failure != nil {
+		return ConflictOperation{}, failure, nil
+	}
+	return ConflictOperation{execute: func(ctx context.Context, command ConflictCommand) (MutationOutcome, error) {
+		return provider.execute(ctx, command, value)
+	}}, nil, nil
 }
 
-func (provider *neutralConflictProvider) ResolveConflict(
-	ctx context.Context,
-	command ConflictCommand,
-) (MutationOutcome, error) {
-	return provider.execute(ctx, command)
+func validateDecodedMutationValue[T any](
+	family string,
+	value T,
+	present bool,
+	failure *MutationFailure,
+	err error,
+) error {
+	if err != nil {
+		if present || failure != nil {
+			return fmt.Errorf("workbook %s decoder returned contradictory value, failure, and error state", family)
+		}
+		return err
+	}
+	if failure != nil {
+		if present {
+			return fmt.Errorf("workbook %s decoder returned both an admitted value and failure", family)
+		}
+		return nil
+	}
+	if !present || isNilContributionProvider(value) {
+		return fmt.Errorf("workbook %s decoder returned no admitted value or failure", family)
+	}
+	return nil
 }

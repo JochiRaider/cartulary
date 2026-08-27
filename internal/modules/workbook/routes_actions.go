@@ -41,13 +41,13 @@ func (s *service) handleLinkedNoteCreate(w http.ResponseWriter, r *http.Request)
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	}
-	mutationAdmission, failure, err := provider.DecodeLinkedNote(r.Body)
-	if apiErr := decodeMutationAPIError(mutationAdmission, failure, err); apiErr != nil {
+	operation, failure, err := provider.DecodeLinkedNote(r.Body)
+	if apiErr := decodeMutationAPIError(operation.execute != nil, failure, err); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	outcome, err := provider.CreateLinkedNote(r.Context(), LinkedNoteCommand{
-		Actor: principal.User, Target: target, Admission: mutationAdmission,
+	outcome, err := operation.Execute(r.Context(), LinkedNoteCommand{
+		Actor: principal.User, Target: target,
 		RequestID: httpapi.RequestIDFromContext(r.Context()), Now: s.now(),
 	})
 	result, outcomeErr := resolveMutationOutcome(outcome, err)
@@ -92,13 +92,13 @@ func (s *service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 		)))
 		return
 	}
-	mutationAdmission, failure, err := provider.DecodeSupersede(r.Body)
-	if apiErr := decodeMutationAPIError(mutationAdmission, failure, err); apiErr != nil {
+	operation, failure, err := provider.DecodeSupersede(r.Body)
+	if apiErr := decodeMutationAPIError(operation.execute != nil, failure, err); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	outcome, err := provider.Supersede(r.Context(), SupersedeCommand{
-		Actor: principal.User, Target: target, Admission: mutationAdmission,
+	outcome, err := operation.Execute(r.Context(), SupersedeCommand{
+		Actor: principal.User, Target: target,
 		RequestID: httpapi.RequestIDFromContext(r.Context()), Now: s.now(),
 	})
 	result, outcomeErr := resolveMutationOutcome(outcome, err)

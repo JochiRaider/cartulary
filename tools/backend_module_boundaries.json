@@ -2896,6 +2896,67 @@
       "production_only": true
     },
     {
+      "id": "retired-workbook-admission-and-command-hash-contracts",
+      "tokens": [
+        "type CreateAdmission interface",
+        "type PatchAdmission interface",
+        "type ConflictAdmission interface",
+        "type ClipboardAdmission interface",
+        "type BulkAdmission interface",
+        "type LinkedNoteAdmission interface",
+        "type SupersedeAdmission interface",
+        "ValidateWorkbookContribution",
+        "RequestHash []byte"
+      ],
+      "scan_paths": [
+        "internal/modules/workbook/mutation_contributions.go",
+        "internal/modules/workbook/action_contributions.go",
+        "internal/modules/workbook/contribution_catalog.go"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-workbook-adapter-admission-dispatch-and-hash-override",
+      "tokens": [
+        "command.Admission",
+        "preferredRequestHash("
+      ],
+      "scan_paths": ["internal/app/workbookassembly/*_adapters.go"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-workbook-route-test-hash-override",
+      "tokens": ["requestHash []byte"],
+      "scan_paths": ["internal/testutil/workbookroutetest/catalog.go"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-workbook-permissive-startup-construction",
+      "tokens": [
+        "ErrStoreUnavailable",
+        "func NewStore(preferences",
+        "workspaceResolvers ...WorkspaceResolver",
+        "s.preferences == nil",
+        "s.unitOfWork == nil",
+        "NewWorkspaceRegistryFromPublication(nil)"
+      ],
+      "scan_paths": ["internal/modules/workbook/startup/store.go"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-workbook-startup-assembly-nonfailing-constructor",
+      "tokens": [
+        "func NewStartupStore(db postgres.DB, workspaceResolver workbookstartup.WorkspaceResolver) *workbookstartup.Store"
+      ],
+      "scan_paths": ["internal/app/workbookassembly/startup.go"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
       "id": "source-owners-no-workbook-implementation-imports",
       "tokens": [
         "github.com/JochiRaider/cartulary/internal/modules/workbook"

@@ -374,7 +374,7 @@ func mustCreateWorkbookProjectionRow(
 		ClientTxnID:  clientTxnID,
 		Values:       values,
 		Collections:  collections,
-	}, []byte(clientTxnID), "req-"+clientTxnID, now)
+	}, "req-"+clientTxnID, now)
 	if err != nil {
 		t.Fatalf("create %s row: %v", viewSchemaID, err)
 	}

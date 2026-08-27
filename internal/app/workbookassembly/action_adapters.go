@@ -20,15 +20,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-type clipboardAdmission[T any] struct {
-	clientTxnID  string
-	viewSchemaID string
-	value        T
-}
-
-func (value clipboardAdmission[T]) ClientTransactionID() string  { return value.clientTxnID }
-func (value clipboardAdmission[T]) AdmittedViewSchemaID() string { return value.viewSchemaID }
-
 type timelineClipboardValue struct {
 	request timelineadmission.ClipboardPasteRequest
 	plan    tabularingest.TabularRowPlanV1
@@ -36,30 +27,26 @@ type timelineClipboardValue struct {
 
 func newTimelineClipboardProvider(owner TimelineOperations) (workbook.ClipboardProvider, error) {
 	return workbook.NewClipboardProvider(
-		func(reader io.Reader) (workbook.ClipboardAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader) (timelineClipboardValue, bool, *workbook.MutationFailure, error) {
 			request, apiErr := timelineadmission.DecodeClipboardPasteRequest(reader)
 			if apiErr != nil {
 				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+				return timelineClipboardValue{}, false, failure, err
 			}
 			plan, err := timelineadmission.BuildClipboardPlan(request)
 			if err != nil {
-				return nil, workbook.InvalidPayloadFailure("clipboard_text", "invalid_value"), nil
+				return timelineClipboardValue{}, false, workbook.InvalidPayloadFailure("clipboard_text", "invalid_value"), nil
 			}
-			return clipboardAdmission[timelineClipboardValue]{
-				clientTxnID: request.ClientTxnID, viewSchemaID: request.ViewSchemaID,
-				value: timelineClipboardValue{request: request, plan: plan},
-			}, nil, nil
+			return timelineClipboardValue{request: request, plan: plan}, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.ClipboardCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(clipboardAdmission[timelineClipboardValue])
-			if !ok || command.ViewSchemaID != timeline.TimelineViewSchemaID {
+		func(ctx context.Context, command workbook.ClipboardCommand, admitted timelineClipboardValue) (workbook.MutationOutcome, error) {
+			if command.ViewSchemaID != timeline.TimelineViewSchemaID || admitted.request.ViewSchemaID != timeline.TimelineViewSchemaID {
 				return workbook.RejectedMutation(workbook.InvalidPayloadFailure("view_schema_id", "invalid_view_schema_id")), nil
 			}
-			request := admitted.value.request
+			request := admitted.request
 			result, err := owner.ApplyClipboardPaste(ctx, timeline.ClipboardPasteCommand{
 				Actor: command.Actor, IncidentID: command.IncidentID, ClientTxnID: request.ClientTxnID,
-				Plan: admitted.value.plan, Targets: request.Targets,
+				Plan: admitted.plan, Targets: request.Targets,
 				RequestHash: timelineadmission.ClipboardPasteRequestHash(request),
 				RequestID:   command.RequestID, Now: command.Now,
 			})
@@ -74,29 +61,20 @@ func newTimelineClipboardProvider(owner TimelineOperations) (workbook.ClipboardP
 	)
 }
 
-type bulkAdmission struct {
-	request timelineadmission.BulkMutationRequest
-}
-
-func (value bulkAdmission) ClientTransactionID() string  { return value.request.ClientTxnID }
-func (value bulkAdmission) AdmittedViewSchemaID() string { return value.request.ViewSchemaID }
-
 func newTimelineBulkProvider(owner TimelineOperations) (workbook.BulkProvider, error) {
 	return workbook.NewBulkProvider(
-		func(reader io.Reader) (workbook.BulkAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader) (timelineadmission.BulkMutationRequest, bool, *workbook.MutationFailure, error) {
 			request, apiErr := timelineadmission.DecodeBulkMutationRequest(reader, timeline.TimelineViewSchemaID)
 			if apiErr != nil {
 				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+				return timelineadmission.BulkMutationRequest{}, false, failure, err
 			}
-			return bulkAdmission{request: request}, nil, nil
+			return request, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.BulkCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(bulkAdmission)
-			if !ok || command.ViewSchemaID != timeline.TimelineViewSchemaID {
+		func(ctx context.Context, command workbook.BulkCommand, request timelineadmission.BulkMutationRequest) (workbook.MutationOutcome, error) {
+			if command.ViewSchemaID != timeline.TimelineViewSchemaID || request.ViewSchemaID != timeline.TimelineViewSchemaID {
 				return workbook.RejectedMutation(workbook.InvalidPayloadFailure("view_schema_id", "invalid_view_schema_id")), nil
 			}
-			request := admitted.request
 			var result timeline.BatchMutationResult
 			var err error
 			switch request.Kind {
@@ -126,28 +104,17 @@ func newTimelineBulkProvider(owner TimelineOperations) (workbook.BulkProvider, e
 	)
 }
 
-type linkedNoteAdmission struct {
-	request artifacts.ContextualNoteCreateRequest
-}
-
-func (value linkedNoteAdmission) ClientTransactionID() string { return value.request.ClientTxnID }
-
 func newLinkedNoteProvider(owner *artifacts.MutationFacade) (workbook.LinkedNoteProvider, error) {
 	return workbook.NewLinkedNoteProvider(
-		func(reader io.Reader) (workbook.LinkedNoteAdmission, *workbook.MutationFailure, error) {
+		func(reader io.Reader) (artifacts.ContextualNoteCreateRequest, bool, *workbook.MutationFailure, error) {
 			request, apiErr := artifacts.DecodeContextualNoteCreateRequest(reader)
 			if apiErr != nil {
 				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return nil, failure, err
+				return artifacts.ContextualNoteCreateRequest{}, false, failure, err
 			}
-			return linkedNoteAdmission{request: request}, nil, nil
+			return request, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.LinkedNoteCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(linkedNoteAdmission)
-			if !ok {
-				return workbook.RejectedMutation(workbook.InvalidPayloadFailure("", "invalid_value")), nil
-			}
-			request := admitted.request
+		func(ctx context.Context, command workbook.LinkedNoteCommand, request artifacts.ContextualNoteCreateRequest) (workbook.MutationOutcome, error) {
 			result, err := owner.CreateContextualNote(ctx, artifacts.ContextualNoteCreateCommand{
 				ActorUserID: command.Actor.ID, SourceRecordID: command.Target.RecordID,
 				Request:     request,
@@ -165,33 +132,22 @@ func newLinkedNoteProvider(owner *artifacts.MutationFacade) (workbook.LinkedNote
 	)
 }
 
-type timelineSupersedeAdmission struct{ request timeline.SupersedeRequest }
-
-func (value timelineSupersedeAdmission) ClientTransactionID() string {
-	return value.request.ClientTxnID
-}
-func (value timelineSupersedeAdmission) AdmittedBaseRowVersion() int64 {
-	return value.request.BaseRowVersion
-}
-
-func decodeTimelineSupersede(reader io.Reader) (workbook.SupersedeAdmission, *workbook.MutationFailure, error) {
+func decodeTimelineSupersede(reader io.Reader) (timeline.SupersedeRequest, bool, *workbook.MutationFailure, error) {
 	request, apiErr := timelineadmission.DecodeTimelineSupersedeRequest(reader)
 	if apiErr != nil {
 		failure, err := workbook.DecodeMutationFailure(apiErr)
-		return nil, failure, err
+		return timeline.SupersedeRequest{}, false, failure, err
 	}
-	return timelineSupersedeAdmission{request: request}, nil, nil
+	return request, true, nil, nil
 }
 
 func newTimelineSupersedeProvider(owner TimelineOperations) (workbook.SupersedeProvider, error) {
 	return workbook.NewSupersedeProvider(
 		decodeTimelineSupersede,
-		func(ctx context.Context, command workbook.SupersedeCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(timelineSupersedeAdmission)
-			if !ok || command.Target.RecordType != "timeline_event" {
+		func(ctx context.Context, command workbook.SupersedeCommand, request timeline.SupersedeRequest) (workbook.MutationOutcome, error) {
+			if command.Target.RecordType != "timeline_event" {
 				return unsupportedSupersedeOutcome(), nil
 			}
-			request := admitted.request
 			result, err := owner.SupersedeRow(ctx, timeline.SupersedeCommand{
 				Actor: command.Actor, RecordID: command.Target.RecordID, Request: request,
 				RequestHash: timelineadmission.ActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID),
@@ -208,34 +164,21 @@ func newTimelineSupersedeProvider(owner TimelineOperations) (workbook.SupersedeP
 	)
 }
 
-type decisionSupersedeAdmission struct {
-	request tasksdecisions.SupersedeRequest
-}
-
-func (value decisionSupersedeAdmission) ClientTransactionID() string {
-	return value.request.ClientTxnID
-}
-func (value decisionSupersedeAdmission) AdmittedBaseRowVersion() int64 {
-	return value.request.BaseRowVersion
-}
-
-func decodeDecisionSupersede(reader io.Reader) (workbook.SupersedeAdmission, *workbook.MutationFailure, error) {
+func decodeDecisionSupersede(reader io.Reader) (tasksdecisions.SupersedeRequest, bool, *workbook.MutationFailure, error) {
 	request, admissionFailure := tasksdecisions.AdmitSupersedeJSON(reader)
 	if admissionFailure != nil {
-		return nil, taskDecisionAdmissionFailure(admissionFailure), nil
+		return tasksdecisions.SupersedeRequest{}, false, taskDecisionAdmissionFailure(admissionFailure), nil
 	}
-	return decisionSupersedeAdmission{request: request}, nil, nil
+	return request, true, nil, nil
 }
 
 func newDecisionSupersedeProvider(owner *tasksdecisions.MutationFacade) (workbook.SupersedeProvider, error) {
 	return workbook.NewSupersedeProvider(
 		decodeDecisionSupersede,
-		func(ctx context.Context, command workbook.SupersedeCommand) (workbook.MutationOutcome, error) {
-			admitted, ok := command.Admission.(decisionSupersedeAdmission)
-			if !ok || command.Target.RecordType != "decision" {
+		func(ctx context.Context, command workbook.SupersedeCommand, request tasksdecisions.SupersedeRequest) (workbook.MutationOutcome, error) {
+			if command.Target.RecordType != "decision" {
 				return unsupportedSupersedeOutcome(), nil
 			}
-			request := admitted.request
 			result, err := owner.SupersedeDecision(ctx, tasksdecisions.SupersedeCommand{
 				ActorUserID: command.Actor.ID, TargetRecordID: command.Target.RecordID,
 				Request:     request,
