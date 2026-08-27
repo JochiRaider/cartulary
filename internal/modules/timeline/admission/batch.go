@@ -2,6 +2,7 @@ package admission
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 
@@ -9,42 +10,12 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/mutationpolicy"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/valuecodec"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
-
-const (
-	maxBatchRows = 500
-	maxBatchCols = 64
-)
-
-var timelineV2ExactHeaderFieldKeys = []string{
-	"timeline.date_entered_text",
-	"timeline.analyst_text",
-	"timeline.mitre_stage_text",
-	"timeline.device_object_text",
-	"timeline.ip_address_text",
-	"timeline.activity_utc_text",
-	"timeline.activity_local_text",
-	"timeline.raw_activity_text",
-	"timeline.activity_synopsis_text",
-	"timeline.data_source_text",
-}
-
-var timelineV2ExactHeaderLabels = []string{
-	"Date Entered",
-	"Analyst",
-	"MITRE",
-	"Device/Object",
-	"IP Address",
-	"Activity Date (UTC)",
-	"Activity Date (Local Time)",
-	"RAW Activity",
-	"Activity Synopsis",
-	"Data Source",
-}
 
 type ClipboardPasteRequest struct {
 	ViewSchemaID  string
@@ -53,13 +24,7 @@ type ClipboardPasteRequest struct {
 	Format        string
 	StartFieldKey string
 	Columns       []string
-	Targets       []BatchTarget
-}
-
-type BatchTarget struct {
-	Kind           string
-	RecordID       uuid.UUID
-	BaseRowVersion int64
+	Targets       []timeline.OwnerBatchTargetV1
 }
 
 func DecodeClipboardPasteRequest(reader io.Reader) (ClipboardPasteRequest, *httpapi.APIError) {
@@ -121,7 +86,7 @@ func DecodeClipboardPasteRequest(reader io.Reader) (ClipboardPasteRequest, *http
 	}
 	if value, ok := raw["columns"]; !ok {
 		return ClipboardPasteRequest{}, invalidMutationPayload("columns", "missing_required_field")
-	} else if err := json.Unmarshal(value, &request.Columns); err != nil || len(request.Columns) == 0 || len(request.Columns) > maxBatchCols {
+	} else if err := json.Unmarshal(value, &request.Columns); err != nil || len(request.Columns) == 0 || len(request.Columns) > tabularingest.MaxClipboardCols {
 		return ClipboardPasteRequest{}, invalidMutationPayload("columns", "invalid_value")
 	}
 	for _, fieldKey := range request.Columns {
@@ -138,6 +103,10 @@ func DecodeClipboardPasteRequest(reader io.Reader) (ClipboardPasteRequest, *http
 }
 
 func BuildClipboardPlan(request ClipboardPasteRequest) (tabularingest.TabularRowPlanV1, error) {
+	exactHeaderLabels, exactHeaderFieldKeys, err := timelineV2ExactHeaders()
+	if err != nil {
+		return tabularingest.TabularRowPlanV1{}, err
+	}
 	return tabularingest.BuildTabularRowPlanV1(tabularingest.MappingRequest{
 		ViewSchemaID:         request.ViewSchemaID,
 		ClientTxnID:          request.ClientTxnID,
@@ -146,10 +115,27 @@ func BuildClipboardPlan(request ClipboardPasteRequest) (tabularingest.TabularRow
 		Format:               request.Format,
 		StartFieldKey:        request.StartFieldKey,
 		Columns:              request.Columns,
-		ExactHeaderLabels:    timelineV2ExactHeaderLabels,
-		ExactHeaderFieldKeys: timelineV2ExactHeaderFieldKeys,
+		ExactHeaderLabels:    exactHeaderLabels,
+		ExactHeaderFieldKeys: exactHeaderFieldKeys,
 		RequireTargets:       len(request.Targets),
 	})
+}
+
+func timelineV2ExactHeaders() ([]string, []string, error) {
+	resource, ok := viewschema.LookupPublicResource(timeline.TimelineViewSchemaID)
+	if !ok {
+		return nil, nil, fmt.Errorf("timeline public view schema is unavailable")
+	}
+	labels := make([]string, 0, len(resource.Fields))
+	fieldKeys := make([]string, 0, len(resource.Fields))
+	for _, field := range resource.Fields {
+		if field.DefaultHidden || !field.GridEditable {
+			continue
+		}
+		labels = append(labels, field.Label)
+		fieldKeys = append(fieldKeys, field.FieldKey)
+	}
+	return labels, fieldKeys, nil
 }
 
 func ClipboardPasteRequestHash(request ClipboardPasteRequest) []byte {
@@ -180,7 +166,7 @@ type BulkMutationRequest struct {
 	Value         string
 	TagName       string
 	NormalizedTag string
-	Targets       []BatchTarget
+	Targets       []timeline.OwnerBatchTargetV1
 }
 
 func DecodeBulkMutationRequest(reader io.Reader, pathViewSchemaID string) (BulkMutationRequest, *httpapi.APIError) {
@@ -296,12 +282,12 @@ func BulkMutationRequestHash(request BulkMutationRequest) []byte {
 	})
 }
 
-func decodeBatchTargets(raw json.RawMessage, allowCreate bool, out *[]BatchTarget) error {
+func decodeBatchTargets(raw json.RawMessage, allowCreate bool, out *[]timeline.OwnerBatchTargetV1) error {
 	var items []map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &items); err != nil || len(items) == 0 || len(items) > maxBatchRows {
+	if err := json.Unmarshal(raw, &items); err != nil || len(items) == 0 || len(items) > mutationpolicy.MaxOwnerBatchTargets {
 		return invalidTargetValueError{}
 	}
-	targets := make([]BatchTarget, 0, len(items))
+	targets := make([]timeline.OwnerBatchTargetV1, 0, len(items))
 	for _, item := range items {
 		if allowCreate {
 			if !objectHasOnlyFields(item, "kind") && !objectHasOnlyFields(item, "kind", "record_id", "base_row_version") {
@@ -310,7 +296,7 @@ func decodeBatchTargets(raw json.RawMessage, allowCreate bool, out *[]BatchTarge
 		} else if !objectHasOnlyFields(item, "record_id", "base_row_version") {
 			return invalidTargetValueError{}
 		}
-		target := BatchTarget{}
+		target := timeline.OwnerBatchTargetV1{}
 		if rawKind, ok := item["kind"]; ok {
 			if err := json.Unmarshal(rawKind, &target.Kind); err != nil {
 				return invalidTargetValueError{}

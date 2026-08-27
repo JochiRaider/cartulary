@@ -1919,6 +1919,33 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.timeline.unit.workbook_timeline_capability_is_exact_typed_nil_68fc3f3a6f",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.capability_boundary",
+        "module.timeline.verification.cleanup"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/workbookassembly",
+        "tests": [
+          "TestTimelineOperationsCapabilityBoundary_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.timeline.visual.the_visual_harness_captures_a_deterministic_grou_ac01b2d810",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.visual",

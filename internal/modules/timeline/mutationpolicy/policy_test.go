@@ -37,8 +37,8 @@ func TestTimelineMutationPolicyIsClosedAndImmutable(t *testing.T) {
 			t.Fatalf("unexpected direct writable field %q", fieldKey)
 		}
 	}
-	if MaxPatchChanges != 32 || MaxCollectionActions != 64 || MaxVisibleTextRunes != 32_768 {
-		t.Fatalf("unexpected mutation limits: changes=%d actions=%d runes=%d", MaxPatchChanges, MaxCollectionActions, MaxVisibleTextRunes)
+	if MaxPatchChanges != 32 || MaxCollectionActions != 64 || MaxOwnerBatchTargets != 500 || MaxVisibleTextRunes != 32_768 {
+		t.Fatalf("unexpected mutation limits: changes=%d actions=%d targets=%d runes=%d", MaxPatchChanges, MaxCollectionActions, MaxOwnerBatchTargets, MaxVisibleTextRunes)
 	}
 }
 

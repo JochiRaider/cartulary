@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/mutationpolicy"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/google/uuid"
 )
@@ -97,10 +98,33 @@ func TestClipboardPasteRejectsCrossIncidentRecordTarget(t *testing.T) {
 		IncidentID: otherIncidentID,
 	}
 
-	if err := ensureClipboardPasteRecordIncident(current, authorizedIncidentID); !errors.Is(err, ErrRecordNotFound) {
+	if err := ensureOwnerBatchRecordIncident(current, authorizedIncidentID); !errors.Is(err, ErrRecordNotFound) {
 		t.Fatalf("cross-incident paste target must be hidden as not found, got %v", err)
 	}
-	if err := ensureClipboardPasteRecordIncident(current, otherIncidentID); err != nil {
+	if err := ensureOwnerBatchRecordIncident(current, otherIncidentID); err != nil {
 		t.Fatalf("same-incident paste target should be accepted: %v", err)
+	}
+
+	assertOwnerBatchShapeTargetLimit(t)
+}
+
+func assertOwnerBatchShapeTargetLimit(t *testing.T) {
+	t.Helper()
+	valid := ownerBatchApplyV1{
+		ClientTxnID: "txn-owner-batch-boundary",
+		Operation:   OwnerBatchOperationClipboardPasteV1,
+		Targets:     make([]OwnerBatchTargetV1, mutationpolicy.MaxOwnerBatchTargets),
+		Rows:        make([]ownerBatchRowPlanV1, mutationpolicy.MaxOwnerBatchTargets),
+		RequestHash: []byte("hash"),
+	}
+	if err := validateOwnerBatchShape(valid); err != nil {
+		t.Fatalf("500 aligned owner-batch targets must be admitted: %v", err)
+	}
+
+	oversized := ownerBatchApplyV1{
+		Targets: make([]OwnerBatchTargetV1, mutationpolicy.MaxOwnerBatchTargets+1),
+	}
+	if err := validateOwnerBatchShape(oversized); err == nil || !strings.Contains(err.Error(), "target count exceeds") {
+		t.Fatalf("501 owner-batch targets must fail the first shape check, got %v", err)
 	}
 }

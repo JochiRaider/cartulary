@@ -19,17 +19,17 @@ type MutationResult struct {
 	Row              workbookprojection.DerivedRecord
 }
 
-type ClipboardPasteResult struct {
+type BatchMutationResult struct {
 	Payload     map[string]any
 	StatusCode  int
 	Replayed    bool
 	IncidentID  uuid.UUID
 	ChangeSetID uuid.UUID
 	ClientTxnID string
-	Rows        []ClipboardPasteRowResult
+	Rows        []BatchMutationRowResult
 }
 
-type ClipboardPasteRowResult struct {
+type BatchMutationRowResult struct {
 	RecordID         uuid.UUID
 	RowVersion       int64
 	ChangedFieldKeys []string

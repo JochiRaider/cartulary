@@ -1489,6 +1489,16 @@ Any same-field conflicts arising from that paste MUST remain outside that commit
 Profiles: base
 Verified by: AC-003, AC-231
 
+**REQ-03-308**
+Timeline exact-header recognition MUST derive its ordered header labels and
+field keys from the fields of `cartulary.view.timeline.v2`, in schema order,
+for which `default_hidden=false` and `grid_editable=true`. A derived label
+authorizes exact-header recognition only. It MUST NOT define source identity,
+source-field ownership, create or patch write authority, or permission to
+mutate a hidden or non-editable field.
+Profiles: base
+Verified by: AC-545
+
 ### 11.2 Import Extension Profile
 
 File-based structured import beyond clipboard paste belongs to the **Import Extension Profile**.

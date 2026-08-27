@@ -1460,6 +1460,18 @@ Contract tables. The tables in §3.3.5 through §3.3.5.5 are the compact owner-l
 
 Clipboard-paste and explicit bulk-mutation record targets MUST be scoped to the path `{incident_id}` before row-version evaluation, conflict-window loading, same-field conflict construction, mutation side effects, change-set persistence, projection refresh, live-event publication, idempotent success persistence, or response row serialization. A missing, foreign-incident, wrong-view, wrong-type, or deleted record target is not a same-field conflict; it MUST abort the whole batch without committing creates, patches, conflicts-only success payloads, change sets, revisions, projections, or live events. Clipboard-paste and explicit bulk-mutation batch results MUST use the common success envelope on valid batch evaluation, including when every target cell becomes a same-field conflict and no row mutation commits. In that conflicts-only case, `rows[]` MUST be empty and `change_set_id` MUST be omitted. Same-field conflict entries in `conflicts[]` MUST use the Core 03 §3.3.4 conflict object. `same_field_conflict` remains the error code for single-record patch conflict responses; clipboard-paste and bulk batch conflicts are batch result members rather than a separate public error family.
 
+**REQ-01-672**
+Timeline clipboard-paste requests MUST admit at most 64 columns. Timeline
+clipboard-paste and explicit bulk-mutation requests MUST each admit at most
+500 targets. An over-limit request MUST fail after authorization succeeds and
+before idempotency lookup, transaction acquisition, row locking, mutation,
+change-set or revision persistence, projection refresh, or Collaboration
+intent creation. The Timeline source owner MUST enforce the target limit at
+its mutation boundary even when a future internal caller bypasses public
+admission.
+Profiles: base
+Verified by: AC-545
+
 **REQ-01-652**
 The Indicator child-route family in Table 3.3.5-A is the complete
 current-profile public route contract for observation and lifecycle access.

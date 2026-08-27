@@ -23,7 +23,7 @@ func NewFacade(pool postgres.DB, collaborators Collaborators, conflictTokens con
 }
 
 func (f *Facade) RecordIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {
-	return f.store.GetRecordIncident(ctx, recordID)
+	return f.store.getRecordIncident(ctx, recordID)
 }
 
 func (f *Facade) GetTimeConversionProfile(ctx context.Context, incidentID uuid.UUID, now time.Time) (TimeConversionProfile, error) {
@@ -55,13 +55,13 @@ func (f *Facade) ResolveConflict(ctx context.Context, command ConflictResolveCom
 	return f.store.ResolveConflict(ctx, command.Actor, command.RecordID, command.Claims, command.Request, command.RequestHash, command.RequestID, command.Now)
 }
 
-func (f *Facade) ApplyClipboardPaste(ctx context.Context, command ClipboardPasteCommand) (ClipboardPasteResult, error) {
+func (f *Facade) ApplyClipboardPaste(ctx context.Context, command ClipboardPasteCommand) (BatchMutationResult, error) {
 	if err := requireRequestFingerprint(command.RequestHash); err != nil {
-		return ClipboardPasteResult{}, err
+		return BatchMutationResult{}, err
 	}
 	rows, err := buildClipboardOwnerRows(command.Plan)
 	if err != nil {
-		return ClipboardPasteResult{}, err
+		return BatchMutationResult{}, err
 	}
 	return f.store.applyOwnerBatchV1(ctx, command.Actor, command.IncidentID, ownerBatchApplyV1{
 		ClientTxnID: command.ClientTxnID,
@@ -74,13 +74,13 @@ func (f *Facade) ApplyClipboardPaste(ctx context.Context, command ClipboardPaste
 	})
 }
 
-func (f *Facade) ApplyFillDown(ctx context.Context, command FillDownCommand) (ClipboardPasteResult, error) {
+func (f *Facade) ApplyFillDown(ctx context.Context, command FillDownCommand) (BatchMutationResult, error) {
 	if err := requireRequestFingerprint(command.RequestHash); err != nil {
-		return ClipboardPasteResult{}, err
+		return BatchMutationResult{}, err
 	}
 	rows, err := buildFillDownOwnerRows(command.FieldKey, command.Value, len(command.Targets))
 	if err != nil {
-		return ClipboardPasteResult{}, err
+		return BatchMutationResult{}, err
 	}
 	return f.store.applyOwnerBatchV1(ctx, command.Actor, command.IncidentID, ownerBatchApplyV1{
 		ClientTxnID: command.ClientTxnID,
@@ -93,13 +93,13 @@ func (f *Facade) ApplyFillDown(ctx context.Context, command FillDownCommand) (Cl
 	})
 }
 
-func (f *Facade) ApplyMultiRowTagAssignment(ctx context.Context, command MultiRowTagAssignmentCommand) (ClipboardPasteResult, error) {
+func (f *Facade) ApplyMultiRowTagAssignment(ctx context.Context, command MultiRowTagAssignmentCommand) (BatchMutationResult, error) {
 	if err := requireRequestFingerprint(command.RequestHash); err != nil {
-		return ClipboardPasteResult{}, err
+		return BatchMutationResult{}, err
 	}
 	rows, err := buildTagAssignmentOwnerRows(command.TagName, command.NormalizedTag, len(command.Targets))
 	if err != nil {
-		return ClipboardPasteResult{}, err
+		return BatchMutationResult{}, err
 	}
 	return f.store.applyOwnerBatchV1(ctx, command.Actor, command.IncidentID, ownerBatchApplyV1{
 		ClientTxnID: command.ClientTxnID,

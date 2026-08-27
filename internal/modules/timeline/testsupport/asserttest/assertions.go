@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/versionid"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
@@ -301,63 +300,6 @@ WHERE record_id::text = $1
 		row.ReplacementRecordID = &replacement.String
 	}
 	return row
-}
-
-func AwaitRecordChange(t testing.TB, messages <-chan platformws.Message, timeout time.Duration) platformws.RecordChangedEvent {
-	t.Helper()
-
-	if timeout <= 0 {
-		timeout = 5 * time.Second
-	}
-
-	deadline := time.After(timeout)
-	for {
-		select {
-		case message, ok := <-messages:
-			if !ok {
-				t.Fatal("incident stream closed before record change")
-			}
-			if message.Type != "record_changed" {
-				continue
-			}
-			change, err := platformws.RecordChangeFromSequencedMessage(message)
-			if err != nil {
-				t.Fatalf("decode record change: %v", err)
-			}
-			return change
-		case <-deadline:
-			t.Fatal("timed out waiting for record change")
-			return platformws.RecordChangedEvent{}
-		}
-	}
-}
-
-func RequireNoRecordChange(t testing.TB, messages <-chan platformws.Message, timeout time.Duration) {
-	t.Helper()
-
-	if timeout <= 0 {
-		timeout = 300 * time.Millisecond
-	}
-
-	deadline := time.After(timeout)
-	for {
-		select {
-		case message, ok := <-messages:
-			if !ok {
-				return
-			}
-			if message.Type != "record_changed" {
-				continue
-			}
-			change, err := platformws.RecordChangeFromSequencedMessage(message)
-			if err != nil {
-				t.Fatalf("decode unexpected record change: %v", err)
-			}
-			t.Fatalf("expected no record change, got %+v", change)
-		case <-deadline:
-			return
-		}
-	}
 }
 
 func queryCount(t testing.TB, db Database, query string, args ...any) int {

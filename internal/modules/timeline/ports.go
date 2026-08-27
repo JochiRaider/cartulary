@@ -148,13 +148,6 @@ type UpsertLinkCommand struct {
 	Now         time.Time
 }
 
-type SupersedesLink struct {
-	RecordLinkID uuid.UUID
-	IncidentID   uuid.UUID
-	SrcRecordID  uuid.UUID
-	DstRecordID  uuid.UUID
-}
-
 type RecordLinkCommandResult struct {
 	RecordLinkID uuid.UUID
 	SrcRecordID  uuid.UUID

@@ -38,7 +38,7 @@ type ContributionDependencies struct {
 	AssessmentProjections assessmentprojection.Rows
 	PartyProjections      partyprojection.Rows
 	IndicatorOwner        *indicators.Application
-	TimelineOwner         *timeline.Facade
+	TimelineOwner         TimelineOperations
 	EvidenceOwner         evidence.MutationContribution
 	ArtifactOwner         *artifacts.MutationFacade
 	TaskDecisionOwner     *tasksdecisions.MutationFacade
@@ -122,7 +122,7 @@ func validateContributionDependencies(input ContributionDependencies) error {
 	if input.IndicatorOwner == nil {
 		return fmt.Errorf("compose workbook contribution catalog: Indicators owner is required")
 	}
-	if input.TimelineOwner == nil {
+	if isNilContributionDependency(input.TimelineOwner) {
 		return fmt.Errorf("compose workbook contribution catalog: Timeline owner is required")
 	}
 	if isNilContributionDependency(input.EvidenceOwner) {
@@ -170,7 +170,7 @@ type contributionAssemblyInput struct {
 	assessmentProjections assessmentprojection.Rows
 	partyProjections      partyprojection.Rows
 	indicatorOwner        *indicators.Application
-	timelineOwner         *timeline.Facade
+	timelineOwner         TimelineOperations
 	evidenceOwner         evidence.MutationContribution
 	artifactOwner         *artifacts.MutationFacade
 	taskDecisionOwner     *tasksdecisions.MutationFacade

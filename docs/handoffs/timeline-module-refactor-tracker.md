@@ -8,12 +8,13 @@
 | Target label | `timeline`, derived from the final path component and normalized to lowercase kebab case |
 | Output path | `docs/handoffs/timeline-module-refactor-tracker.md` |
 | Original repository baseline | Clean `main` at `f4856b78ec6fce6fcbdc609596d460cab6b89b77` before this tracker was created |
-| Next-iteration planning baseline | Clean `main` at `870f2726c29053288094bb62796f14f26b5967b5e`; 88 Timeline files and 69 active Timeline test rows after TL-S06 |
+| Second-iteration planning baseline | Clean `main` at `870f2726c29053288094bb62796f14f26b5967b5e`; 88 Timeline files and 69 active Timeline test rows after TL-S06 |
+| Third-iteration planning baseline | Clean `main` at `0154c17692e1dd61f2d3b87571d5f092f4170dc0`; 90 Timeline files and 70 routed Timeline rows: 40 service-backed, 39 Go, 14 Vitest, and 17 Playwright |
 | Original planning posture | Planning and documentation only; tracker-only changes; later authorization required. This row preserves the posture under which the historical planning rows were written. |
-| Current mode | Authorized second-iteration implementation and handoff complete; TL-S07 through TL-S11 are `DONE` |
-| Allowed changes in this step | Timeline and the minimum adjacent tests, owner code, authored harness metadata, generator-produced outputs, and tracker evidence identified by TL-S07 through TL-S11. Each slice is gated by its tracker checkpoint. |
-| Non-goals | No public HTTP, OpenAPI, WebSocket, view-schema, frontend, projection-storage, authorization, or database-schema contract change; no migration, alias, translation, dual read/write, or legacy fixture for the Timeline version cutover |
-| Implementation authorization | The user authorized and completed TL-S00A through TL-S06 on 2026-08-20 and explicitly authorized implementation of TL-S07 through TL-S11 on the same date. No schema, data, migration, reset, compatibility layer, or public-contract change is authorized. |
+| Current mode | Third production-readiness iteration documented; TL3-S00 through TL3-S05 are `PLANNED`, and Sections 13 through 18 control that iteration |
+| Allowed changes in this step | This tracker only. `docs/domain.md`, adopted owners, contracts, generated artifacts, tests, and product code remain unchanged. |
+| Non-goals | No domain-vocabulary, public HTTP, OpenAPI, WebSocket, view-schema, frontend, Reporting, portability, recovery, projection-storage, authorization, database-schema, migration, retained-data, or generated-contract change |
+| Implementation authorization | TL-S00A through TL-S11 remain completed history. This documentation step does not authorize TL3 implementation, schema or data operations, migrations, resets, compatibility layers, or public-contract changes. |
 | Future compatibility posture | Pre-production hard cutover: later implementation MUST remove superseded Timeline-owned forms instead of adding aliases, dual writes, backfills, migrations, or legacy fixtures. |
 
 The source hierarchy used for this tracker is:
@@ -1068,3 +1069,229 @@ This work
 requires no migration or database reset. The unrelated first-iteration
 environment cutover remains undeclared because the real destructive reset was
 not separately authorized.
+
+## 13. Third Production-Readiness Iteration: Current Posture and Contract Freeze
+
+Sections 1 through 12 remain the completed historical record for TL-S00A
+through TL-S11. Sections 13 through 18 are the controlling plan for the third
+Timeline production-readiness iteration, identified as TL3. The user's
+2026-08-26 implementation authorization supersedes the earlier tracker-only
+posture for Sections 13 through 18. TL3 slices execute strictly in order and
+the tracker checkpoint for one slice must pass before the next becomes
+`IN_PROGRESS`.
+
+### 13.1 Clean Baseline
+
+| Baseline item | Recorded value |
+| --- | --- |
+| Repository | Clean `main` at `0154c17692e1dd61f2d3b87571d5f092f4170dc0` before this tracker-only edit |
+| Timeline inventory | 90 files under `internal/modules/timeline` |
+| Routed Timeline rows | 70 total: 39 Go, 14 Vitest, and 17 Playwright |
+| Service-backed Timeline rows | 40 |
+| Focused baseline | `make test-slice OWNER=module.timeline` passed 51/51 |
+| Focused run root | `.cartulary/test-results/20260826T103623Z-p2134494` |
+| Implementation posture | TL3-S00 through TL3-S05 are `DONE`; final validation and handoff are complete |
+
+### 13.2 Frozen Boundaries
+
+TL3 is an owner clarification plus internal cleanup and decomposition
+iteration. Core 01, Core 03, Core 04, and Appendix F may change only to adopt
+the missing batch-bound and exact-header rules and their conformance evidence.
+The following remain unchanged throughout it:
+
+- domain vocabulary and all other adopted owner requirements;
+- public HTTP, OpenAPI, WebSocket, view-schema, and frontend behavior;
+- authorization decisions and error precedence;
+- database schemas, migrations, persisted or retained data, and transaction
+  ownership;
+- generated contracts and their public wire shapes;
+- Reporting, portability, recovery, projection-storage, Revisions, Incident
+  Bundles, Imports, and performance-fixture behavior; and
+- canonical request and response bytes, hashes, replay results, conflict
+  behavior, projections, revision contributions, and Collaboration output.
+
+Internal Go API breaks named by this plan are intentional and must land
+atomically. They do not authorize aliases, deprecated names, forwarding
+wrappers, dual paths, or other compatibility shims.
+
+## 14. Production-Readiness Findings and Binary Acceptance Criteria
+
+### 14.1 Findings
+
+| ID | Finding | Required disposition |
+| --- | --- | --- |
+| TL3-F00 | The 500-target and 64-column limits and Timeline exact-header derivation rule exist only in contracts or code, not in an adopted owner specification. | Adopt REQ-01-672 and REQ-03-308 before implementation; extend REQ-04-160, AC-545/546/551, and Appendix F without changing public behavior. |
+| TL3-F01 | The 500-target owner-batch ceiling is duplicated rather than owned by one Timeline mutation policy. | Define one Timeline limit and enforce it at admission and store entry points. |
+| TL3-F02 | Timeline repeats the shared 64-column clipboard limit and maintains copied clipboard headers and field keys. | Use `tabularingest.MaxClipboardCols` and derive ordered labels and keys from visible, grid-editable Timeline view-schema fields. |
+| TL3-F03 | Admission duplicates `timeline.OwnerBatchTargetV1`, and Workbook assembly converts between equivalent target forms. | Consume the Timeline type directly and delete the duplicate type and conversion helper. |
+| TL3-F04 | Generic owner-batch result types, implementation names, and diagnostics retain paste-specific terminology. | Hard-rename the generic surfaces to batch-neutral terminology while retaining feature-specific clipboard contracts. |
+| TL3-F05 | Workbook assembly depends on the concrete Timeline facade despite needing only seven operations. | Introduce a Workbook-assembly-owned seven-method `TimelineOperations` interface. |
+| TL3-F06 | `timeline.SupersedesLink`, `timelineassembly.Bundle.MentionEffects`, `Bundle.Collaborators`, and two record-change test helpers are dead or broader than their consumers require. | Delete or collapse each surface after TL3-S00 proves that it has no protected consumer. |
+| TL3-F07 | Timeline store mutation responsibilities and Timeline application assembly are concentrated in oversized files. | Split each by stable responsibility without changing packages, behavior, or introducing another abstraction layer. |
+
+Active versioned contracts and Timeline contributions to Reporting,
+Projections, Revisions, Recovery, Incident Bundles, Imports, and performance
+fixtures are retained. Their existence is not evidence of legacy status.
+
+### 14.2 Binary Acceptance Criteria
+
+| Criterion | Pass condition |
+| --- | --- |
+| TL3-FREEZE-001 | Domain vocabulary and public HTTP, OpenAPI, WebSocket, view-schema, database, generated-contract, and frontend interfaces have no diff; adopted-owner diffs are limited to TL3-F00. |
+| TL3-FREEZE-002 | Authorization, transaction ownership, error precedence, persisted and retained data, migrations, Reporting, portability, recovery, and projection-storage behavior are unchanged. |
+| TL3-FREEZE-003 | Batch decoding, canonical hashes, target validation, replay, rollback, conflicts, revisions, projections, Collaboration output, and public response bytes match the TL3-S00 characterization. |
+| TL3-BATCH-001 | One Timeline mutation-policy constant owns the exact 500-target limit, and both admission and store entry points enforce 500 accepted and 501 rejected. |
+| TL3-BATCH-002 | Clipboard ingestion uses `tabularingest.MaxClipboardCols`, with 64 columns accepted and 65 rejected. |
+| TL3-BATCH-003 | Exact clipboard labels and field keys are derived from ordered, visible, grid-editable Timeline view-schema fields; no copied arrays remain. |
+| TL3-BATCH-004 | Timeline admission uses `timeline.OwnerBatchTargetV1` directly; `admission.BatchTarget` and the Workbook conversion helper are absent. |
+| TL3-BATCH-005 | `BatchMutationResult` and `BatchMutationRowResult` are the only generic owner-batch result names; the old exported names and compatibility shims are absent. |
+| TL3-CAP-001 | Workbook assembly owns a `TimelineOperations` interface with exactly create, patch, conflict resolution, clipboard, fill-down, tag assignment, and supersede operations. |
+| TL3-CAP-002 | Workbook assembly production code has no concrete `*timeline.Facade` dependency, and boundary tests prove the narrow interface assignment. |
+| TL3-CLEAN-001 | `timeline.SupersedesLink`, `timelineassembly.Bundle.MentionEffects`, `Bundle.Collaborators`, `AwaitRecordChange`, and `RequireNoRecordChange` are absent. |
+| TL3-CLEAN-002 | `NewCollaborators` remains only as the characterized failure-injection factory and composes collaborators directly. |
+| TL3-CLEAN-003 | The unexported store's record-incident lookup is private, with no exported `GetRecordIncident` method. |
+| TL3-CLEAN-004 | Generic owner-batch files, helpers, and internal diagnostics are batch-neutral; feature-specific clipboard commands, route keys, wire fields, and provenance tokens remain unchanged. |
+| TL3-STRUCT-001 | Store code is separated into construction/shared state, create mutation, patch mutation, and conflict-value files without package, method-set, transaction, error, or behavior drift. |
+| TL3-STRUCT-002 | Timeline application assembly is separated into composition, core adapters, relationship adapters, and entity/evidence adapters without a new abstraction layer or import-boundary expansion. |
+| TL3-DONE-001 | Final file, export, facade-method, routed-row, service-backed-row, generated-topology, and dead-symbol inventories are reconciled in this tracker. |
+| TL3-DONE-002 | Every required validation row passes or has a documented conditional skip; exact run roots, failures, retries, rollback posture, and final status are recorded. |
+
+Any proposed removal that TL3-S00 finds to have a normative, generated,
+production, or external consumer is `BLOCKED: owner decision`. It must not be
+retained through an alias or shim.
+
+## 15. TL3 Execution Plan
+
+| Slice | Status | Depends on | Planned work | Exit condition |
+| --- | --- | --- | --- | --- |
+| TL3-S00 — Owner cleanup, rebaseline, and characterize | `DONE` | Implementation authorization | Adopt REQ-01-672 and REQ-03-308; extend Core 04 and Appendix F; confirm `docs/domain.md` needs no change; reconfirm inventories and characterize batch request decoding, exact headers, canonical hashes, target validation, replay, rollback, conflicts, revisions, projections, Collaboration output, and public response bytes. Search adopted owners, generated code, production callers, tests, and external surfaces before every removal. | Owner rules and traceability are adopted; focused and service-backed Timeline and Workbook baselines pass; every removal is proven internal and unprescribed. No owner-decision blocker was found. |
+| TL3-S01 — Canonicalize batch ownership | `DONE` | TL3-S00 | Add one Timeline mutation-policy limit for the 500-target owner batch and enforce it in admission and store entry points. Use `tabularingest.MaxClipboardCols`. Derive exact clipboard labels and keys from the ordered visible, grid-editable Timeline view schema. Use `timeline.OwnerBatchTargetV1` directly and delete the duplicate admission type and Workbook conversion helper. | TL3-BATCH-001 through TL3-BATCH-004 pass, including 500/501-target, 64/65-column, schema-order, create-target, and record-target cases. |
+| TL3-S02 — Remove paste-centric generic naming | `DONE` | TL3-S01 | Hard-rename `ClipboardPasteResult` and `ClipboardPasteRowResult` to `BatchMutationResult` and `BatchMutationRowResult`. Rename generic owner-batch implementation files, helpers, and diagnostics to batch-neutral terms. Retain clipboard-specific commands, route keys, wire fields, provenance tokens, and behavior. | Old generic type names and paste-centric generic internals are absent; no aliases or forwarding paths exist; hashes, replay, rollback, conflicts, fill-down, and tag behavior pass. |
+| TL3-S03 — Minimize capabilities and delete dead surfaces | `DONE` | TL3-S00, TL3-S02 | Add the Workbook-owned `TimelineOperations` interface; remove production concrete-facade requirements. Delete the named dead types, fields, and test helpers. Remove `Bundle.Collaborators`; retain only the characterized `NewCollaborators` failure-injection factory with direct composition. Privatize the store's record-incident lookup. | TL3-CAP-001, TL3-CAP-002, and TL3-CLEAN-001 through TL3-CLEAN-004 pass with boundary and failure-injection coverage. |
+| TL3-S04 — Production-oriented decomposition | `DONE` | TL3-S03 | Split the Timeline store into construction/shared state, create mutation, patch mutation, and conflict-value files. Split Timeline application assembly into composition, core adapters, relationship adapters, and entity/evidence adapters. | TL3-STRUCT-001 and TL3-STRUCT-002 pass; package boundaries, transactions, errors, method sets, and observable behavior are unchanged. |
+| TL3-S05 — Validate and hand off | `DONE` | TL3-S01 through TL3-S04 | Reconcile files, exports, facade methods, routed rows, generated topology, and dead-symbol scans. Run the scoped-to-broad validation matrix and record exact evidence. | TL3-DONE-001 and TL3-DONE-002 pass, all prior criteria are closed, and the tracker records `DONE` only after every mandatory gate succeeds. |
+
+Each slice is independently reviewable but not independently compatible with
+partially landed internal API changes. Within a slice, producers, consumers,
+tests, and static checks must change atomically.
+
+## 16. Validation Matrix and Conditional Checks
+
+### 16.1 Per-Workstream Tracker Checkpoint
+
+The following checks close every TL3 workstream before the next begins:
+
+| Check | Required result |
+| --- | --- |
+| `make lint-markdown` | Pass |
+| `git diff --check -- docs/handoffs/timeline-module-refactor-tracker.md` | Pass |
+| Workstream ledger | Changed files, decisions, commands, run roots, failures and retries, skips, counts, rollback posture, and `DONE` or `BLOCKED` status are current |
+
+The focused Timeline result in Section 13.1 remains pre-authorization baseline
+evidence, not TL3 completion evidence.
+
+### 16.2 Future Implementation Gates
+
+| Phase | Required validation |
+| --- | --- |
+| Characterization and batch changes | Focused and service-backed Timeline and Workbook slices; explicit 500/501 target, 64/65 column, schema-derived header order, create/record target, canonical hash, replay, rollback, conflict, fill-down, and tag cases |
+| Capability and assembly changes | Boundary tests proving Workbook assembly accepts only `TimelineOperations` and has no production `*timeline.Facade` dependency; focused and service-backed Timeline and Workbook slices |
+| Assembly movement | Affected focused and service-backed Links, Entities, and Evidence slices in addition to Timeline and Workbook |
+| Structural reconciliation | `make format`; backend and frontend import-boundary checks as applicable; catalog, harness, generated-artifact, generation-drift, migration-drift, toolchain-drift, and JSON-shape checks selected through the Make-owned task surface |
+| Browser behavior | Required browser support, webserver-backed, and stateful suites; measurement, accessibility, and visual suites only when their owned routing or artifacts are affected |
+| Finalization | `make agent-finalize`, followed by fresh `make check` and `make release-check` evidence |
+
+Before running broad gates, the implementer must use `make task-guide
+ROLE=module-author OWNER=<owner-id>` and the Make-owned explanation targets to
+select exact rows. A conditional gate may be skipped only when its owned inputs
+and outputs are unchanged and the handoff records that reason.
+
+## 17. Handoff Ledger, Risks, and Deferrals
+
+### 17.1 TL3 Ledger
+
+| Date | Slice | Status | Evidence and handoff |
+| --- | --- | --- | --- |
+| 2026-08-26 | TL3 planning | `PLANNED` | Clean `main@0154c17692e1dd61f2d3b87571d5f092f4170dc0`; 90 Timeline files; 70 routed rows, including 40 service-backed, 39 Go, 14 Vitest, and 17 Playwright; focused Timeline baseline passed 51/51 at `.cartulary/test-results/20260826T103623Z-p2134494`. No product change or implementation authorization. |
+| 2026-08-26 | TL3-S00 | `DONE` | Changed `docs/spec/01_architecture_storage_and_view_contracts.md`, `docs/spec/03_workbook_interaction_collaboration_and_workflows.md`, `docs/spec/04_security_deployment_and_conformance.md`, `docs/spec/F_source_traceability_matrix.md`, and this tracker. Adopted REQ-01-672 and REQ-03-308; extended REQ-04-160 and AC-545/546/551; updated bidirectional and Base traceability. `docs/domain.md` was inspected and remains unchanged. Rebaseline confirmed `main@0154c17692e1dd61f2d3b87571d5f092f4170dc0`, the preserved user-owned tracker diff, 90 Timeline files, 70 routed rows (39 Go, 14 Vitest, 17 Playwright), and 40 service-backed rows. The schema currently derives the exact ordered ten labels/keys and excludes every hidden/non-editable field. Existing tests characterize decoding, hashes, replay, rollback, conflicts, revisions, projections, Collaboration output, public result shaping, `NewCollaborators` failures, and bundle consumers. Complete owner/contract/generated/production/test scans found no protected consumer for the Timeline-owned deletions; the Links-owned `SupersedesLink` is distinct and retained. `make test-slice OWNER=module.timeline` passed 51/51 at `.cartulary/test-results/20260826T221142Z-p2339915`; `make test-slice OWNER=module.workbook` passed 66/66 at `.cartulary/test-results/20260826T221620Z-p2397968`; `make service-backed-test-slice OWNER=module.timeline` passed 29/29 execution units at `.cartulary/test-results/20260826T221836Z-p2455849`; `make service-backed-test-slice OWNER=module.workbook` passed 37/37 at `.cartulary/test-results/20260826T222313Z-p2513930`. `make lint-markdown` and `git diff --check` passed; Markdown run root `.cartulary/test-results/20260826T222605Z-p2572084`. No failure, retry, or conditional skip occurred. Rollback is whole-S00 reversal of the four owner/trace edits plus the S00 tracker ledger; no data or generated artifact changed. |
+| 2026-08-26 | TL3-S01 | `DONE` | Changed `internal/modules/timeline/mutationpolicy/policy.go` and `policy_test.go`, `internal/modules/timeline/admission/batch.go` and `batch_test.go`, `internal/modules/timeline/clipboard_paste_store.go` and `clipboard_paste_test.go`, `internal/app/workbookassembly/action_adapters.go`, and this tracker. `MaxOwnerBatchTargets=500` is the sole production target ceiling and is enforced by admission plus the first store shape check; clipboard columns use `tabularingest.MaxClipboardCols`; exact labels/keys derive from ordered public schema fields filtered by `!default_hidden && grid_editable`; admission decodes directly into `[]timeline.OwnerBatchTargetV1`; the duplicate DTO, arrays, constants, and Workbook conversion are absent. Routed tests prove 500/501 targets, 64/65 columns, all ten exact ordered fields, hidden/non-editable exclusion, create and record decoding, exact/non-header mapping fingerprints, and clipboard/fill/tag canonical hash goldens. `make format` passed at `.cartulary/test-results/20260826T223247Z-p2589718`; the three targeted rows passed 3/3 at `.cartulary/test-results/20260826T223250Z-p2593645`; full focused Timeline passed 51/51 at `.cartulary/test-results/20260826T223307Z-p2594409`, Workbook 66/66 at `.cartulary/test-results/20260826T223751Z-p2653565`, and Tabular Ingest 1/1 at `.cartulary/test-results/20260826T224007Z-p2711961`; service-backed Timeline passed 29/29 execution units at `.cartulary/test-results/20260826T224015Z-p2712350` and Workbook 37/37 at `.cartulary/test-results/20260826T224453Z-p2770405`. Tabular Ingest service-backed was skipped because its owner manifest has zero service-backed rows. Three expected fixture-calibration runs failed before passing: 2/3 at `.cartulary/test-results/20260826T223130Z-p2583229` exposed the clipboard hash, 0/1 at `.cartulary/test-results/20260826T223157Z-p2584460` exposed both mapping fingerprints, and 0/1 at `.cartulary/test-results/20260826T223223Z-p2589040` exposed the bulk hash goldens; no production defect was found. Counts remain 90 Timeline files and 70 routed rows (39 Go, 14 Vitest, 17 Playwright), including 40 service-backed. Public/generated contracts, migrations, frontend, and `docs/domain.md` have no diff. `make lint-markdown` and `git diff --check` passed; Markdown run root `.cartulary/test-results/20260826T224738Z-p2828924`. Rollback is whole-S01 reversal to the passing S00 checkpoint; no data migration or compatibility path exists. |
+| 2026-08-26 | TL3-S02 | `DONE` | Changed `internal/modules/timeline/results.go`, `facade.go`, `performance_fixture_store.go`, and `clipboard_paste_test.go`; renamed `clipboard_paste_store.go` to `batch_mutation_store.go`; updated `internal/app/workbookassembly/action_adapters.go`; and updated this tracker. Hard-renamed the Timeline generic result types to `BatchMutationResult` and `BatchMutationRowResult`, the generic applied-row and incident/cell/effect helpers to batch-neutral names, and every generic store diagnostic to `timeline batch mutation` terminology. Static scans prove the old Timeline names, file, aliases, forwarding paths, and paste-centric generic diagnostics are absent. The preserved whitelist is exactly `ApplyClipboardPaste`, clipboard request/command and mapping vocabulary, `clipboard_text`, the clipboard route key, operation/provenance tokens, and raw-capture behavior; separate Entities clipboard types were intentionally untouched. `make format` passed at `.cartulary/test-results/20260826T225104Z-p2831298`; targeted rows passed 2/2 at `.cartulary/test-results/20260826T225108Z-p2835220`; focused Timeline passed 51/51 at `.cartulary/test-results/20260826T225120Z-p2836153` and Workbook 66/66 at `.cartulary/test-results/20260826T225559Z-p2895219`; service-backed Timeline passed 29/29 execution units at `.cartulary/test-results/20260826T225820Z-p2953781` and Workbook 37/37 at `.cartulary/test-results/20260826T230300Z-p3011876`. No failure, retry, or conditional skip occurred. Timeline remains 90 files and routing remains 70 rows with 40 service-backed. Public/generated contracts, migrations, frontend, and data are unchanged. Rollback is whole-S02 reversal to the passing S01 checkpoint; no alias or migration is available. |
+| 2026-08-26 | TL3-S02 | `DONE` | Tracker checkpoint passed with `make lint-markdown` at `.cartulary/test-results/20260826T230539Z-p3070060` and `git diff --check`; this supplements the S02 evidence above. |
+| 2026-08-26 | TL3-S03 | `DONE` | Changed `internal/app/workbookassembly/catalog.go`, `timeline_adapters.go`, `action_adapters.go`, and new `timeline_capabilities_test.go`; changed `internal/app/timelineassembly/assembly.go`; changed Timeline `ports.go`, `facade.go`, `store.go`, `store_test.go`, and `testsupport/asserttest/assertions.go`; updated `tools/test_families/module.timeline.json`, generator-produced `tools/execution_topology_render_index.json`, and this tracker. Workbook assembly now owns `TimelineOperations` with exactly seven methods and every Timeline provider/dependency uses it; `isNilContributionDependency` rejects typed nil with exact existing construction text. The authored row `module.timeline.unit.workbook_timeline_capability_is_exact_typed_nil_68fc3f3a6f` has collaborator `module.workbook` and proves reflection, compile assignment, typed nil, and the production AST boundary. Deleted Timeline `SupersedesLink`, `Bundle.MentionEffects`, `Bundle.Collaborators`, both record-change helpers, and the unused composed mention-effects field; privatized `getRecordIncident`. `NewCollaborators` validates dependencies and calls `compose` directly, while existing fault-injection tests continue to use it. `make format` passed at `.cartulary/test-results/20260826T230856Z-p3072685`; `make generate` passed at `.cartulary/test-results/20260826T230859Z-p3076586`; the new row passed 1/1 at `.cartulary/test-results/20260826T230920Z-p3079852`; focused Timeline passed 52/52 at `.cartulary/test-results/20260826T230940Z-p3080442` and Workbook 66/66 at `.cartulary/test-results/20260826T231423Z-p3141702`; service-backed Timeline passed 29/29 execution units at `.cartulary/test-results/20260826T231639Z-p3200287` and Workbook 37/37 at `.cartulary/test-results/20260826T232121Z-p3258355`; `make generate-drift` passed at `.cartulary/test-results/20260826T232337Z-p3316549`; `make backend-module-boundary-check` passed at `.cartulary/test-results/20260826T232345Z-p3319536`. No failure, retry, or conditional skip occurred. Counts are 90 Timeline files and 71 routed rows: 40 Go, 14 Vitest, 17 Playwright, with 40 service-backed. Static scans find no protected dead symbol or production Workbook `*timeline.Facade`. Rollback is whole-S03 reversal to the passing S02 checkpoint, including regeneration from the prior authored catalog; no data or compatibility rollback exists. |
+| 2026-08-26 | TL3-S03 | `DONE` | Tracker checkpoint passed with `make lint-markdown` at `.cartulary/test-results/20260826T232426Z-p3320370` and `git diff --check`; this supplements the S03 evidence above. |
+| 2026-08-26 | TL3-S04 | `DONE` | Changed Timeline `store.go` and added `store_create.go`, `store_patch.go`, and `conflict_values.go`; changed Timeline application `assembly.go` and added `core_adapters.go`, `relationship_adapters.go`, and `entity_evidence_adapters.go`; updated this tracker. `store.go` now retains errors, shared state and types, construction, the private incident lookup, and shared helpers; create, patch/conflict coordination, and conflict representation/token construction are separated without a package or port change. Timeline application assembly retains dependency validation and composition while its foundational/commit, relationship, and entity/evidence adapters are separated by consumer responsibility. Static inspection finds no delegation wrapper, and Timeline now has exactly 93 files. `make format` passed at `.cartulary/test-results/20260827T000456Z-p4163426`; the targeted create/patch tests passed 2/2 at `.cartulary/test-results/20260826T232956Z-p3341898`; `make backend-module-boundary-check` passed at `.cartulary/test-results/20260827T000500Z-p4167405`. Focused roots are Workbook `.cartulary/test-results/20260826T234028Z-p3445171`, Links `20260826T234240Z-p3503623`, Entities `20260826T234323Z-p3544034`, Evidence `20260826T234515Z-p3599165`, Records `20260826T234629Z-p3649304`, Revisions `20260826T234705Z-p3665806`, Projections `20260826T234809Z-p3711724`, and Collaboration `20260826T234848Z-p3728587`; every unit passed. Timeline focused executed 50/52 at `.cartulary/test-results/20260826T233036Z-p3344109` because the final blank-row browser sample timed out after 44 successful samples; the isolated routed retry passed 13/13 at `.cartulary/test-results/20260826T233721Z-p3404033`, closing the failed row without a source change. Service-backed roots are Timeline `.cartulary/test-results/20260826T235021Z-p3777026` (29/29), Workbook `20260826T235459Z-p3834984` (37/37), Links `20260826T235711Z-p3892848` (13/13), Entities `20260826T235754Z-p3932990` (31/31), Evidence `20260826T235948Z-p3987426` (25/25), Records `20260827T000101Z-p4037153` (5/5), Revisions `20260827T000137Z-p4053551` (20/20), Projections `20260827T000241Z-p4098656` (11/11), and Collaboration `20260827T000317Z-p4115275` (23/23). Initial `make format` failed at `.cartulary/test-results/20260826T232818Z-p3323605` because generated patch text contained literal tab escapes; after correcting imports, format passed at `20260826T232856Z-p3328204`. Two targeted build attempts then exposed omitted moved imports: 0/2 at `20260826T232907Z-p3332244` for `strings`, and 1/2 at `20260826T232931Z-p3337041` for `errors` and `links`; import-only corrections produced the passing targeted root. No conditional check was skipped. Rollback is whole-S04 source reversal to the passing S03 checkpoint; the change is same-package movement with no data, contract, topology, or compatibility rollback. |
+| 2026-08-27 | TL3-S04 | `DONE` | Tracker checkpoint passed with `make lint-markdown` at `.cartulary/test-results/20260827T000559Z-p4168171` and `git diff --check`; this supplements the S04 evidence above. |
+| 2026-08-27 | TL3-S05 | `DONE` | S05 changed only this tracker; the final worktree contains the owner/trace changes from S00, batch policy/admission/tests from S01, batch-neutral rename from S02, capability and cleanup changes plus authored/generated routing from S03, and same-package decomposition from S04. Final reconciliation is exact: 93 Timeline files; 121 exported declarations in the root Timeline package and 226 across Timeline plus its subpackages; 11 `Facade` methods; exactly seven `TimelineOperations` methods; 71 active Timeline rows comprising 40 Go, 14 Vitest, and 17 Playwright rows; 40 service-backed rows. Static scans find no targeted dead symbol, compatibility shim, duplicate target DTO/converter, duplicate production batch ceiling, copied header list, or production Workbook `*timeline.Facade`. The only generated diff is generator-produced `tools/execution_topology_render_index.json`; public contracts, generated contract roots, migrations, authored SQL, frontend, and `docs/domain.md` have no diff. Focused roots are Timeline `.cartulary/test-results/20260827T000815Z-p4172911` (52/52), Workbook `20260827T001255Z-p36916` (66/66), Tabular Ingest `20260827T001507Z-p94908` (1/1), Links `20260827T001509Z-p95158` (14/14), Entities `20260827T001552Z-p135321` (40/40), Evidence `20260827T001742Z-p189866` (35/35), Records `20260827T001856Z-p239618` (8/8), Revisions `20260827T001932Z-p256000` (27/27), Projections `20260827T002034Z-p301122` (15/15), Collaboration `20260827T002111Z-p317732` (32/32), Imports `20260827T002238Z-p365700` (23/23), Incident Bundles `20260827T002347Z-p408706` (8/8), Recovery `20260827T002444Z-p425441` (24/24), and Reporting `20260827T002555Z-p478889` (5/5). |
+| 2026-08-27 | TL3-S05 | `DONE` | Service-backed roots are Timeline `.cartulary/test-results/20260827T002651Z-p495952` (29/29), Workbook `20260827T003126Z-p553935` (37/37), Links `20260827T003338Z-p611824` (13/13), Entities `20260827T003421Z-p651968` (31/31), Evidence `20260827T003611Z-p706438` (25/25), Records `20260827T003724Z-p756146` (5/5), Revisions `20260827T003759Z-p772498` (20/20), Projections `20260827T003903Z-p817610` (11/11), Collaboration `20260827T003940Z-p834235` (23/23), Imports `20260827T004106Z-p882190` (14/14), Incident Bundles `20260827T004215Z-p924703` (6/6), Recovery `20260827T004310Z-p941163` (19/19), and Reporting `20260827T004425Z-p993910` (4/4). Tabular Ingest service-backed was skipped because `make explain-test-owner OWNER=module.tabularingest` reports exactly zero service-backed rows. `make format`, boundary, generation drift, generated-policy, JSON-shape, migration-drift, toolchain-drift, and harness-contract passed respectively at `.cartulary/test-results/20260827T004510Z-p1010316`, `20260827T004514Z-p1014297`, `20260827T004516Z-p1014626`, `20260827T004524Z-p1017538`, `20260827T004525Z-p1017942`, `20260827T004529Z-p1018354`, `20260827T004537Z-p1021197`, and `20260827T004538Z-p1021631`; Markdown passed at `20260827T004551Z-p1022208`, and `git diff --check` passed. Browser support, webserver-backed, and stateful passed 15/15, 58/58, and 34/34 at `.cartulary/test-results/20260827T004609Z-p1023297`, `20260827T004718Z-p1072439`, and `20260827T005119Z-p1126061`. A standalone measurement run was skipped because no performance-fixture input or routing changed; all four Timeline measurement rows passed in the fresh 52/52 Timeline focused graph. Accessibility and visual were skipped because no rendered/frontend input, route, or artifact changed. |
+| 2026-08-27 | TL3-S05 | `DONE` | `make go-gosec-targeted` passed 4/4 at `.cartulary/test-results/20260827T005336Z-p1171168`; `make go-vulncheck` passed 4/4 at `20260827T005347Z-p1201036`. `RESULTS_DIR` was unset, so retained-run maintenance was skipped; `make agent-finalize` passed at `.cartulary/test-results/20260827T005400Z-p1201786`. Fresh `make check` passed 659/659 at `.cartulary/test-results/20260827T005420Z-p1204676`, and `make release-check` passed 819/819 at `.cartulary/test-results/20260827T005857Z-p1329884`. S05 had no failure or retry. All TL3 acceptance criteria are `PASS`; no owner blocker, compatibility path, stale generated artifact, unrouted test, or unexplained diff remains. Whole-TL3 rollback is source reversal by completed workstream to the prior passing tracker checkpoint; no database, data, migration, wire, authorization, generated-contract, or frontend rollback is required. |
+| 2026-08-27 | TL3-S05 | `DONE` | The post-status tracker checkpoint passed with `make lint-markdown` at `.cartulary/test-results/20260827T011447Z-p1545607`, scoped tracker `git diff --check`, and whole-worktree `git diff --check`. This closes the final workstream and the TL3 handoff. |
+
+### 17.2 Risks and Rollback Posture
+
+| Risk | Control and rollback posture |
+| --- | --- |
+| A copied limit or header list survives under another name. | Scan the complete Timeline and adjacent consumer graphs, then assert the single owner and schema-derived order in tests. Revert the incomplete slice rather than supporting both paths. |
+| A hard rename leaks into a public clipboard contract. | Freeze route keys, wire fields, provenance tokens, response bytes, and generated contracts before mutation. Roll back the slice on any public diff. |
+| Interface narrowing misses an assembly-only operation. | Compile-time boundary assignments and exact-method tests must fail before merge. Add an operation only when a real Workbook consumer requires it, not for anticipated compatibility. |
+| A dead surface has an overlooked protected consumer. | TL3-S00 blocks deletion for an owner decision. Do not add an alias, wrapper, or deprecated retention. |
+| File decomposition changes transaction or error behavior. | Move code mechanically under characterization coverage, preserve method sets, and compare focused plus service-backed behavior after each responsibility split. |
+| Broad validation obscures a local regression. | Run owner-focused and service-backed slices first, record fresh run roots, then broaden through structural, browser, finalization, check, and release gates. |
+
+No data rollback, migration rollback, or compatibility rollback is planned
+because TL3 does not change schemas, migrations, retained data, or public
+contracts. Code rollback is whole-slice reversion to the last passing checkpoint.
+
+### 17.3 Explicit Deferrals
+
+- Reporting fact-boundary redesign remains separately owned work.
+- Broader cross-owner DTO migration remains separately owned work.
+- Active Timeline contributions to Reporting, Projections, Revisions, Recovery,
+  Incident Bundles, Imports, and performance fixtures remain in scope for
+  preservation, not deletion.
+- Any change to domain vocabulary, adopted requirements, public contracts,
+  authorization, schemas, migrations, retained data, generated contracts, or
+  frontend behavior requires separate owner authority and a new plan.
+
+## 18. TL3 Completion Checklist
+
+### 18.1 Documentation-Step Completion
+
+| Criterion | Status |
+| --- | --- |
+| Sections 1 through 12 remain completed history. | `PASS` |
+| Sections 13 through 18 identify the controlling TL3 plan. | `PASS` |
+| TL3 implementation authorization and strict sequential checkpointing are recorded. | `PASS` |
+| The clean commit, file and routing counts, and focused baseline run root are recorded. | `PASS` |
+| Frozen public, owner, data, generated, and frontend boundaries are explicit. | `PASS` |
+| Only this tracker is changed and the Section 16.1 checks pass. | `PASS` |
+
+### 18.2 Implementation Completion
+
+TL3 is `DONE`. All of the following are true:
+
+- TL3-S00 through TL3-S05 each satisfy their exit condition with fresh evidence;
+- every Section 14 acceptance criterion is `PASS`, with no unresolved protected
+  consumer or owner contradiction;
+- the final repository contains no named dead surface, old generic result name,
+  compatibility shim, or duplicate policy/schema list targeted by TL3;
+- focused, service-backed, affected cross-owner, structural, generated, browser,
+  finalization, broad check, and release gates pass or have an allowed and
+  recorded conditional skip;
+- exact run roots, failures, retries, changed-file inventory, rollback posture,
+  file/export/facade/row counts, and final status are recorded in Section 17;
+  and
+- domain vocabulary, public contracts, authorization, schemas, migrations,
+  retained data, generated contracts, and frontend behavior remain unchanged;
+  the only owner-document changes are the TL3-F00 clarification and its
+  conformance trace.
+
+### 18.3 Final Acceptance Status
+
+| Criteria | Status | Evidence summary |
+| --- | --- | --- |
+| TL3-FREEZE-001 through TL3-FREEZE-003 | `PASS` | Frozen-path diff scans are empty; focused, service-backed, browser, broad, and release graphs preserve characterized behavior. |
+| TL3-BATCH-001 through TL3-BATCH-005 | `PASS` | One 500-target policy, the shared 64-column limit, schema-derived ordered headers, the owner target type, and batch-neutral result names are enforced and covered. |
+| TL3-CAP-001 and TL3-CAP-002 | `PASS` | The Workbook-owned interface has exactly seven methods; compile, typed-nil, and production AST boundary evidence passes. |
+| TL3-CLEAN-001 through TL3-CLEAN-004 | `PASS` | Every named dead or over-broad surface is absent; `NewCollaborators` composes directly; clipboard-specific public vocabulary is preserved. |
+| TL3-STRUCT-001 and TL3-STRUCT-002 | `PASS` | Store and application assembly are split by stable responsibility in their existing packages, with no delegation wrapper or boundary expansion. |
+| TL3-DONE-001 and TL3-DONE-002 | `PASS` | Exact inventories, generated topology, all run roots, failures/retries, skips, and rollback posture are reconciled in Section 17. |

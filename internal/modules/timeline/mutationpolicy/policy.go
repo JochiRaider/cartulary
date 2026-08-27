@@ -5,6 +5,7 @@ import "slices"
 const (
 	MaxPatchChanges      = 32
 	MaxCollectionActions = 64
+	MaxOwnerBatchTargets = 500
 	MaxVisibleTextRunes  = 32_768
 )
 

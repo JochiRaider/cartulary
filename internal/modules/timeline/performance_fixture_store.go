@@ -111,12 +111,12 @@ func (s *store) createPerformanceFixtureRows(ctx context.Context, command Perfor
 			}
 			cells = append(cells, ownerBatchCellV1{FieldKey: field.key, Value: field.value, Change: change})
 		}
-		mentionResult, err := s.applyPasteMentionActionsTx(ctx, tx, command.Actor, command.IncidentID, recordIDs[index], cells, "clipboard_paste", now)
+		mentionResult, err := s.applyBatchMentionActionsTx(ctx, tx, command.Actor, command.IncidentID, recordIDs[index], cells, "clipboard_paste", now)
 		if err != nil {
 			return PerformanceFixtureResult{}, err
 		}
 		entityRefresh.merge(mentionResult.Projection)
-		if _, err := s.applyPasteTagActionsTx(ctx, tx, command.Actor.ID, command.IncidentID, recordIDs[index], cells, now); err != nil {
+		if _, err := s.applyBatchTagActionsTx(ctx, tx, command.Actor.ID, command.IncidentID, recordIDs[index], cells, now); err != nil {
 			return PerformanceFixtureResult{}, err
 		}
 		derived := projectRecord(sourcerepository.Snapshot{

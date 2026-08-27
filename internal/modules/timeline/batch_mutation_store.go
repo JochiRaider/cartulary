@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/mutationpolicy"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/versionid"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
@@ -34,14 +35,14 @@ type ownerBatchApplyV1 struct {
 	Now         time.Time
 }
 
-func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request ownerBatchApplyV1) (ClipboardPasteResult, error) {
+func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request ownerBatchApplyV1) (BatchMutationResult, error) {
 	if err := validateOwnerBatchShape(request); err != nil {
-		return ClipboardPasteResult{}, err
+		return BatchMutationResult{}, err
 	}
 	scopeKey := incidentID.String() + ":" + TimelineViewSchemaID
 	routeKey, originKind, err := ownerBatchOperationMetadata(request.Operation)
 	if err != nil {
-		return ClipboardPasteResult{}, err
+		return BatchMutationResult{}, err
 	}
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    routeKey,
@@ -51,13 +52,13 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 	}
 	if existing, err := s.idempotencyStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
 		if !hashesEqual(existing.RequestHash, request.RequestHash) {
-			return ClipboardPasteResult{}, authn.ErrClientTxnConflict
+			return BatchMutationResult{}, authn.ErrClientTxnConflict
 		}
 		payload, err := decodeStoredResponse(existing.ResponseJSON)
 		if err != nil {
-			return ClipboardPasteResult{}, fmt.Errorf("decode replayed timeline clipboard paste payload: %w", err)
+			return BatchMutationResult{}, fmt.Errorf("decode replayed timeline batch mutation payload: %w", err)
 		}
-		return ClipboardPasteResult{
+		return BatchMutationResult{
 			Payload:     payload,
 			StatusCode:  http.StatusOK,
 			Replayed:    true,
@@ -65,24 +66,24 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 			ClientTxnID: request.ClientTxnID,
 		}, nil
 	} else if !errors.Is(err, authn.ErrNotFound) {
-		return ClipboardPasteResult{}, fmt.Errorf("query timeline clipboard paste idempotency: %w", err)
+		return BatchMutationResult{}, fmt.Errorf("query timeline batch mutation idempotency: %w", err)
 	}
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return ClipboardPasteResult{}, fmt.Errorf("begin timeline clipboard paste transaction: %w", err)
+		return BatchMutationResult{}, fmt.Errorf("begin timeline batch mutation transaction: %w", err)
 	}
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
 	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
-		return ClipboardPasteResult{}, err
+		return BatchMutationResult{}, err
 	}
 	if err := s.validateOwnerBatchTargetsTx(ctx, tx, incidentID, request.Operation, request.Targets); err != nil {
-		return ClipboardPasteResult{}, err
+		return BatchMutationResult{}, err
 	}
 
-	applied := make([]clipboardAppliedRow, 0, len(request.Rows))
+	applied := make([]batchAppliedRow, 0, len(request.Rows))
 	conflicts := make([]map[string]any, 0)
 	for index, rowPlan := range request.Rows {
 		target := request.Targets[index]
@@ -90,20 +91,20 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 		case "create":
 			row, err := s.applyOwnerBatchCreateTx(ctx, tx, actor, incidentID, rowPlan, originKind, request.Now.UTC())
 			if err != nil {
-				return ClipboardPasteResult{}, err
+				return BatchMutationResult{}, err
 			}
 			applied = append(applied, row)
 		case "record":
 			row, rowConflicts, err := s.applyOwnerBatchPatchTx(ctx, tx, actor, incidentID, target.RecordID, target.BaseRowVersion, request.RequestHash, rowPlan, originKind, request.Now.UTC())
 			if err != nil {
-				return ClipboardPasteResult{}, err
+				return BatchMutationResult{}, err
 			}
 			conflicts = append(conflicts, rowConflicts...)
 			if row.RecordID != uuid.Nil {
 				applied = append(applied, row)
 			}
 		default:
-			return ClipboardPasteResult{}, fmt.Errorf("unsupported paste target kind: %s", target.Kind)
+			return BatchMutationResult{}, fmt.Errorf("unsupported batch target kind: %s", target.Kind)
 		}
 	}
 	if len(applied) == 0 {
@@ -114,14 +115,14 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 		}
 		if err := s.idempotencyStore.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, request.RequestHash, http.StatusOK, payload); err != nil {
 			if authn.IsUniqueViolation(err) {
-				return ClipboardPasteResult{}, authn.ErrClientTxnConflict
+				return BatchMutationResult{}, authn.ErrClientTxnConflict
 			}
-			return ClipboardPasteResult{}, err
+			return BatchMutationResult{}, err
 		}
 		if err := tx.Commit(ctx); err != nil {
-			return ClipboardPasteResult{}, fmt.Errorf("commit timeline clipboard paste conflicts-only transaction: %w", err)
+			return BatchMutationResult{}, fmt.Errorf("commit timeline batch mutation conflicts-only transaction: %w", err)
 		}
-		return ClipboardPasteResult{
+		return BatchMutationResult{
 			Payload:     payload,
 			StatusCode:  http.StatusOK,
 			IncidentID:  incidentID,
@@ -138,11 +139,11 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 		CreatedAt:   request.Now.UTC(),
 	})
 	if err != nil {
-		return ClipboardPasteResult{}, err
+		return BatchMutationResult{}, err
 	}
 
 	sequenceNo := 1
-	resultRows := make([]ClipboardPasteRowResult, 0, len(applied))
+	resultRows := make([]BatchMutationRowResult, 0, len(applied))
 	payloadRows := make([]map[string]any, 0, len(applied))
 	for _, row := range applied {
 		beforeVersion := ""
@@ -162,15 +163,15 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 			params.BeforeSnapshot = row.BeforeSnapshot
 		}
 		if err := s.revisionsStore.AppendRecordMutationTx(ctx, tx, params); err != nil {
-			return ClipboardPasteResult{}, err
+			return BatchMutationResult{}, err
 		}
 		sequenceNo++
 		if err := s.insertAttachedEvidenceMutationEntriesTx(ctx, tx, changeSetID, sequenceNo, row.LinkMutations); err != nil {
-			return ClipboardPasteResult{}, err
+			return BatchMutationResult{}, err
 		}
 		sequenceNo += len(row.LinkMutations)
 		if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, sequenceNo, row.TagMutations); err != nil {
-			return ClipboardPasteResult{}, err
+			return BatchMutationResult{}, err
 		}
 		sequenceNo += len(row.TagMutations)
 		revision := revisions.LiveRevisionInput{
@@ -184,12 +185,12 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 			revision.BeforeSnapshot = row.BeforeSnapshot
 		}
 		if err := s.revisionsStore.AppendLiveRevisionTx(ctx, tx, revision); err != nil {
-			return ClipboardPasteResult{}, err
+			return BatchMutationResult{}, err
 		}
 		if err := s.upsertProjectionTx(ctx, tx, row.After); err != nil {
-			return ClipboardPasteResult{}, err
+			return BatchMutationResult{}, err
 		}
-		result := ClipboardPasteRowResult{
+		result := BatchMutationRowResult{
 			RecordID:         row.After.RecordID,
 			RowVersion:       row.After.RowVersion,
 			ChangedFieldKeys: row.ChangedFieldKeys,
@@ -209,7 +210,7 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 			len(resultRows),
 			request.Now,
 		); err != nil {
-			return ClipboardPasteResult{}, err
+			return BatchMutationResult{}, err
 		}
 		resultRows = append(resultRows, result)
 		payloadRows = append(payloadRows, row.AfterRow)
@@ -223,14 +224,14 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 	}
 	if err := s.idempotencyStore.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, request.RequestHash, http.StatusOK, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
-			return ClipboardPasteResult{}, authn.ErrClientTxnConflict
+			return BatchMutationResult{}, authn.ErrClientTxnConflict
 		}
-		return ClipboardPasteResult{}, err
+		return BatchMutationResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return ClipboardPasteResult{}, fmt.Errorf("commit timeline clipboard paste transaction: %w", err)
+		return BatchMutationResult{}, fmt.Errorf("commit timeline batch mutation transaction: %w", err)
 	}
-	return ClipboardPasteResult{
+	return BatchMutationResult{
 		Payload:     payload,
 		StatusCode:  http.StatusOK,
 		IncidentID:  incidentID,
@@ -241,6 +242,9 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 }
 
 func validateOwnerBatchShape(request ownerBatchApplyV1) error {
+	if len(request.Targets) > mutationpolicy.MaxOwnerBatchTargets {
+		return fmt.Errorf("owner_batch_apply_v1 target count exceeds %d", mutationpolicy.MaxOwnerBatchTargets)
+	}
 	if strings.TrimSpace(request.ClientTxnID) == "" {
 		return fmt.Errorf("owner_batch_apply_v1 client transaction ID is required")
 	}
@@ -298,7 +302,7 @@ func (s *store) validateOwnerBatchTargetsTx(ctx context.Context, tx pgx.Tx, inci
 	return nil
 }
 
-type clipboardAppliedRow struct {
+type batchAppliedRow struct {
 	Operation        string
 	Before           *workbookprojection.DerivedRecord
 	After            workbookprojection.DerivedRecord
@@ -312,7 +316,7 @@ type clipboardAppliedRow struct {
 	RecordID         uuid.UUID
 }
 
-func (s *store) applyOwnerBatchCreateTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, rowPlan ownerBatchRowPlanV1, originKind string, now time.Time) (clipboardAppliedRow, error) {
+func (s *store) applyOwnerBatchCreateTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, rowPlan ownerBatchRowPlanV1, originKind string, now time.Time) (batchAppliedRow, error) {
 	recordID := uuid.New()
 	current := sourcerepository.Snapshot{
 		RecordID:              recordID,
@@ -330,7 +334,7 @@ func (s *store) applyOwnerBatchCreateTx(ctx context.Context, tx pgx.Tx, actor au
 	}
 	profile, err := getTimeConversionProfileTx(ctx, tx, incidentID, now.UTC())
 	if err != nil {
-		return clipboardAppliedRow{}, err
+		return batchAppliedRow{}, err
 	}
 	applyTimelineTimeConversion(&current, profile)
 	if _, err := s.recordStore.InsertTx(ctx, tx, RecordCreateParams{
@@ -343,7 +347,7 @@ func (s *store) applyOwnerBatchCreateTx(ctx context.Context, tx pgx.Tx, actor au
 		UpdatedAt:       now.UTC(),
 		RowVersion:      1,
 	}); err != nil {
-		return clipboardAppliedRow{}, fmt.Errorf("insert clipboard paste record envelope: %w", err)
+		return batchAppliedRow{}, fmt.Errorf("insert timeline batch record envelope: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `
 INSERT INTO timeline_events (
@@ -371,37 +375,37 @@ INSERT INTO timeline_events (
 )
 VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rough', 1, $4, $4, $3, $3)
 `, current.RecordID, incidentID, actor.ID, now.UTC(), current.DateEnteredText, current.AnalystText, current.MitreStageText, current.DeviceObjectText, current.IPAddressText, current.ActivityUTCText, current.ActivityLocalText, current.RawActivityText, current.ActivitySynopsisText, current.DataSourceText, current.ActivityUTCGenerated, current.ActivityLocalGenerated, current.ActivityTimePairState); err != nil {
-		return clipboardAppliedRow{}, fmt.Errorf("insert clipboard paste timeline row: %w", err)
+		return batchAppliedRow{}, fmt.Errorf("insert timeline batch row: %w", err)
 	}
 	if err := insertSourceProvenanceTx(ctx, tx, current.RecordID, rowPlan.Unmapped); err != nil {
-		return clipboardAppliedRow{}, err
+		return batchAppliedRow{}, err
 	}
-	mentionResult, err := s.applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, current.RecordID, rowPlan.Cells, originKind, now.UTC())
+	mentionResult, err := s.applyBatchMentionActionsTx(ctx, tx, actor, current.IncidentID, current.RecordID, rowPlan.Cells, originKind, now.UTC())
 	if err != nil {
-		return clipboardAppliedRow{}, err
+		return batchAppliedRow{}, err
 	}
 	if err := s.refreshMentionEntityProjectionsTx(ctx, tx, mentionResult.Projection); err != nil {
-		return clipboardAppliedRow{}, err
+		return batchAppliedRow{}, err
 	}
-	tagMutations, err := s.applyPasteTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, rowPlan.Cells, now.UTC())
+	tagMutations, err := s.applyBatchTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, rowPlan.Cells, now.UTC())
 	if err != nil {
-		return clipboardAppliedRow{}, err
+		return batchAppliedRow{}, err
 	}
-	attachedEvidenceMutations, err := s.applyPasteAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, rowPlan.Cells, now.UTC())
+	attachedEvidenceMutations, err := s.applyBatchAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, rowPlan.Cells, now.UTC())
 	if err != nil {
-		return clipboardAppliedRow{}, err
+		return batchAppliedRow{}, err
 	}
 	projected := projectRecord(current, nil)
 	if err := s.hydrateProjectedCollections(ctx, tx, &projected); err != nil {
-		return clipboardAppliedRow{}, err
+		return batchAppliedRow{}, err
 	}
 	afterRow := buildRow(projected)
 	afterSnapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
 	if err != nil {
-		return clipboardAppliedRow{}, err
+		return batchAppliedRow{}, err
 	}
 	linkMutations := append(mentionResult.LinkMutations, attachedEvidenceMutations...)
-	return clipboardAppliedRow{
+	return batchAppliedRow{
 		Operation:        "create",
 		After:            projected,
 		AfterRow:         afterRow,
@@ -413,41 +417,41 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 	}, nil
 }
 
-func ensureClipboardPasteRecordIncident(current sourcerepository.Snapshot, incidentID uuid.UUID) error {
+func ensureOwnerBatchRecordIncident(current sourcerepository.Snapshot, incidentID uuid.UUID) error {
 	if current.IncidentID != incidentID {
 		return ErrRecordNotFound
 	}
 	return nil
 }
 
-func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, baseRowVersion int64, requestHash []byte, rowPlan ownerBatchRowPlanV1, originKind string, now time.Time) (clipboardAppliedRow, []map[string]any, error) {
+func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, baseRowVersion int64, requestHash []byte, rowPlan ownerBatchRowPlanV1, originKind string, now time.Time) (batchAppliedRow, []map[string]any, error) {
 	current, err := s.loadSourceRecordForIncidentTx(ctx, tx, incidentID, recordID)
 	if err != nil {
-		return clipboardAppliedRow{}, nil, err
+		return batchAppliedRow{}, nil, err
 	}
-	if err := ensureClipboardPasteRecordIncident(current, incidentID); err != nil {
-		return clipboardAppliedRow{}, nil, err
+	if err := ensureOwnerBatchRecordIncident(current, incidentID); err != nil {
+		return batchAppliedRow{}, nil, err
 	}
 	if current.RowVersion < baseRowVersion {
-		return clipboardAppliedRow{}, nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
+		return batchAppliedRow{}, nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
 	}
 	acceptedCells := append([]ownerBatchCellV1{}, rowPlan.Cells...)
 	conflicts := make([]map[string]any, 0)
 	if current.RowVersion > baseRowVersion && len(rowPlan.Cells) > 0 {
 		window, err := s.loadPatchConflictWindowTx(ctx, tx, current.IncidentID, recordID, baseRowVersion, current.RowVersion)
 		if err != nil {
-			return clipboardAppliedRow{}, nil, err
+			return batchAppliedRow{}, nil, err
 		}
 		currentProjected := projectRecord(current, nil)
 		if err := s.hydrateProjectedCollections(ctx, tx, &currentProjected); err != nil {
-			return clipboardAppliedRow{}, nil, err
+			return batchAppliedRow{}, nil, err
 		}
 		kept := acceptedCells[:0]
 		for _, cell := range acceptedCells {
 			if changed, ok := window.ChangedFields[cell.FieldKey]; ok {
 				conflict, err := s.buildSameFieldConflict(recordID, currentProjected, baseRowVersion, requestHash, window, cell.Change, changed)
 				if err != nil {
-					return clipboardAppliedRow{}, nil, err
+					return batchAppliedRow{}, nil, err
 				}
 				conflicts = append(conflicts, conflict.Conflict.PublicValue())
 				continue
@@ -457,7 +461,7 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 		acceptedCells = kept
 	}
 	if current.CaptureState == "superseded" {
-		return clipboardAppliedRow{}, nil, newIllegalTransitionError("superseded_terminal", current.CaptureState, captureStateEnriched)
+		return batchAppliedRow{}, nil, newIllegalTransitionError("superseded_terminal", current.CaptureState, captureStateEnriched)
 	}
 	next := current
 	for _, cell := range acceptedCells {
@@ -465,54 +469,54 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 	}
 	profile, err := getTimeConversionProfileTx(ctx, tx, current.IncidentID, now.UTC())
 	if err != nil {
-		return clipboardAppliedRow{}, nil, err
+		return batchAppliedRow{}, nil, err
 	}
 	applyTimelineTimeConversion(&next, profile)
 	beforeProjected := projectRecord(current, nil)
 	if err := s.hydrateProjectedCollections(ctx, tx, &beforeProjected); err != nil {
-		return clipboardAppliedRow{}, nil, err
+		return batchAppliedRow{}, nil, err
 	}
-	mentionChanged := pasteCellsIncludeField(acceptedCells, "timeline.host_refs") || pasteCellsIncludeField(acceptedCells, "timeline.identity_refs")
-	tagChanged := pasteCellsIncludeField(acceptedCells, "timeline.tags")
-	evidenceChanged := pasteCellsIncludeField(acceptedCells, "timeline.attached_evidence_ids")
+	mentionChanged := batchCellsIncludeField(acceptedCells, "timeline.host_refs") || batchCellsIncludeField(acceptedCells, "timeline.identity_refs")
+	tagChanged := batchCellsIncludeField(acceptedCells, "timeline.tags")
+	evidenceChanged := batchCellsIncludeField(acceptedCells, "timeline.attached_evidence_ids")
 	provenanceChanged := len(rowPlan.Unmapped) > 0
 	materialChanged := hasMaterialChange(current, next) || provenanceChanged
 	var mentionLinkMutations []attachedEvidenceMutation
 	if mentionChanged {
-		mentionResult, err := s.applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, acceptedCells, originKind, now.UTC())
+		mentionResult, err := s.applyBatchMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, acceptedCells, originKind, now.UTC())
 		if err != nil {
-			return clipboardAppliedRow{}, nil, err
+			return batchAppliedRow{}, nil, err
 		}
 		if err := s.refreshMentionEntityProjectionsTx(ctx, tx, mentionResult.Projection); err != nil {
-			return clipboardAppliedRow{}, nil, err
+			return batchAppliedRow{}, nil, err
 		}
 		mentionLinkMutations = mentionResult.LinkMutations
 	}
 	var tagMutations []recordTagMutation
 	if tagChanged {
-		tagMutations, err = s.applyPasteTagActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, acceptedCells, now.UTC())
+		tagMutations, err = s.applyBatchTagActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, acceptedCells, now.UTC())
 		if err != nil {
-			return clipboardAppliedRow{}, nil, err
+			return batchAppliedRow{}, nil, err
 		}
 		tagChanged = len(tagMutations) > 0
 	}
 	var attachedEvidenceMutations []attachedEvidenceMutation
 	if evidenceChanged {
-		attachedEvidenceMutations, err = s.applyPasteAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, acceptedCells, now.UTC())
+		attachedEvidenceMutations, err = s.applyBatchAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, acceptedCells, now.UTC())
 		if err != nil {
-			return clipboardAppliedRow{}, nil, err
+			return batchAppliedRow{}, nil, err
 		}
 		evidenceChanged = len(attachedEvidenceMutations) > 0
 	}
 	linkMutations := append(mentionLinkMutations, attachedEvidenceMutations...)
 	if !materialChanged && !mentionChanged && !tagChanged && !evidenceChanged {
-		return clipboardAppliedRow{}, conflicts, nil
+		return batchAppliedRow{}, conflicts, nil
 	}
 	stateMaterialChanged := materialChanged || mentionChanged || evidenceChanged
 	if stateMaterialChanged {
 		nextState, err := captureStateAfterMaterialPatch(current.CaptureState)
 		if err != nil {
-			return clipboardAppliedRow{}, nil, err
+			return batchAppliedRow{}, nil, err
 		}
 		next.CaptureState = nextState
 	} else {
@@ -520,11 +524,11 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 	}
 	beforeSnapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
 	if err != nil {
-		return clipboardAppliedRow{}, nil, err
+		return batchAppliedRow{}, nil, err
 	}
 	next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
 	if err != nil {
-		return clipboardAppliedRow{}, nil, err
+		return batchAppliedRow{}, nil, err
 	}
 	next.EditedAt = now.UTC()
 	next.UpdatedByUserID = actor.ID
@@ -558,24 +562,24 @@ UPDATE timeline_events
 RETURNING recorded_at
 `, recordID, next.DateEnteredText, next.AnalystText, next.MitreStageText, next.DeviceObjectText, next.IPAddressText, next.ActivityUTCText, next.ActivityLocalText, next.RawActivityText, next.ActivitySynopsisText, next.DataSourceText, next.ActivityUTCGenerated, next.ActivityLocalGenerated, next.ActivityTimePairState, next.CaptureState, next.RowVersion, next.EditedAt, actor.ID, next.ReviewedAt, next.ReviewedByUserID, incidentID).Scan(&next.RecordedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return clipboardAppliedRow{}, nil, ErrRecordNotFound
+			return batchAppliedRow{}, nil, ErrRecordNotFound
 		}
-		return clipboardAppliedRow{}, nil, fmt.Errorf("update timeline clipboard paste record: %w", err)
+		return batchAppliedRow{}, nil, fmt.Errorf("update timeline batch record: %w", err)
 	}
 	if err := insertSourceProvenanceTx(ctx, tx, recordID, rowPlan.Unmapped); err != nil {
-		return clipboardAppliedRow{}, nil, err
+		return batchAppliedRow{}, nil, err
 	}
 	afterProjected := projectRecord(next, nil)
 	if err := s.hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
-		return clipboardAppliedRow{}, nil, err
+		return batchAppliedRow{}, nil, err
 	}
 	beforeRow := buildRow(beforeProjected)
 	afterRow := buildRow(afterProjected)
 	afterSnapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
 	if err != nil {
-		return clipboardAppliedRow{}, nil, err
+		return batchAppliedRow{}, nil, err
 	}
-	return clipboardAppliedRow{
+	return batchAppliedRow{
 		Operation:        "patch",
 		Before:           &beforeProjected,
 		After:            afterProjected,
@@ -617,13 +621,13 @@ func applyPatchChangeToSource(record *sourcerepository.Snapshot, change PatchCha
 	}
 }
 
-func pasteCellsIncludeField(cells []ownerBatchCellV1, fieldKey string) bool {
+func batchCellsIncludeField(cells []ownerBatchCellV1, fieldKey string) bool {
 	return slices.ContainsFunc(cells, func(cell ownerBatchCellV1) bool {
 		return cell.FieldKey == fieldKey && cell.Change.ActionPayload != nil && len(cell.Change.ActionPayload.Actions) > 0
 	})
 }
 
-func (s *store) applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, cells []ownerBatchCellV1, originKind string, now time.Time) (mentionApplicationResult, error) {
+func (s *store) applyBatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, cells []ownerBatchCellV1, originKind string, now time.Time) (mentionApplicationResult, error) {
 	var result mentionApplicationResult
 	for _, cell := range cells {
 		if cell.Change.ActionPayload == nil || (cell.FieldKey != "timeline.host_refs" && cell.FieldKey != "timeline.identity_refs") {
@@ -645,7 +649,7 @@ func (s *store) applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor
 	return result, nil
 }
 
-func (s *store) applyPasteTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, cells []ownerBatchCellV1, now time.Time) ([]recordTagMutation, error) {
+func (s *store) applyBatchTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, cells []ownerBatchCellV1, now time.Time) ([]recordTagMutation, error) {
 	mutations := make([]recordTagMutation, 0)
 	for _, cell := range cells {
 		if cell.FieldKey != "timeline.tags" || cell.Change.ActionPayload == nil {
@@ -660,7 +664,7 @@ func (s *store) applyPasteTagActionsTx(ctx context.Context, tx pgx.Tx, actorUser
 	return mutations, nil
 }
 
-func (s *store) applyPasteAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, cells []ownerBatchCellV1, now time.Time) ([]attachedEvidenceMutation, error) {
+func (s *store) applyBatchAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, cells []ownerBatchCellV1, now time.Time) ([]attachedEvidenceMutation, error) {
 	mutations := make([]attachedEvidenceMutation, 0)
 	for _, cell := range cells {
 		if cell.FieldKey != "timeline.attached_evidence_ids" || cell.Change.ActionPayload == nil {

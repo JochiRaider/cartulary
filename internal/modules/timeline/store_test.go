@@ -944,7 +944,7 @@ func newEventTimelineCommandsWithProjectionFailure(t testing.TB, pool postgres.D
 		revisionComposition.Publications,
 		projections,
 	)
-	bundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
+	collaborators, err := timelineassembly.NewCollaborators(timelineassembly.Dependencies{
 		Postgres:            pool,
 		ConflictTokens:      conflictTokens,
 		Revisions:           appender,
@@ -955,9 +955,8 @@ func newEventTimelineCommandsWithProjectionFailure(t testing.TB, pool postgres.D
 		AssessmentRows:      projections.AssessmentPorts().Rows,
 	})
 	if err != nil {
-		t.Fatalf("compose Timeline bundle with projection failure: %v", err)
+		t.Fatalf("compose Timeline collaborators with projection failure: %v", err)
 	}
-	collaborators := bundle.Collaborators
 	collaborators.Commit.Projection = fakeports.Projection{Delegate: collaborators.Commit.Projection, FailApply: fail}
 	return &eventTimelineCommands{
 		facade:      timeline.NewFacade(pool, collaborators, conflicttest.NewCodec("timeline")),

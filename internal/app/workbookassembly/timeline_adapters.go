@@ -17,8 +17,18 @@ type timelineProviderSet struct {
 	conflict workbook.ConflictProvider
 }
 
-func newTimelineProviderSet(owner *timeline.Facade) (timelineProviderSet, error) {
-	if owner == nil {
+type TimelineOperations interface {
+	CreateRow(context.Context, timeline.CreateRowCommand) (timeline.MutationResult, error)
+	PatchRow(context.Context, timeline.PatchRowCommand) (timeline.MutationResult, error)
+	ResolveConflict(context.Context, timeline.ConflictResolveCommand) (timeline.MutationResult, error)
+	ApplyClipboardPaste(context.Context, timeline.ClipboardPasteCommand) (timeline.BatchMutationResult, error)
+	ApplyFillDown(context.Context, timeline.FillDownCommand) (timeline.BatchMutationResult, error)
+	ApplyMultiRowTagAssignment(context.Context, timeline.MultiRowTagAssignmentCommand) (timeline.BatchMutationResult, error)
+	SupersedeRow(context.Context, timeline.SupersedeCommand) (timeline.MutationResult, error)
+}
+
+func newTimelineProviderSet(owner TimelineOperations) (timelineProviderSet, error) {
+	if isNilContributionDependency(owner) {
 		return timelineProviderSet{}, fmt.Errorf("compose Timeline Workbook adapters: owner is required")
 	}
 	create, err := newTimelineCreateProvider(owner)
@@ -40,7 +50,7 @@ type timelineCreateAdmission struct{ request timeline.CreateRequest }
 
 func (value timelineCreateAdmission) ClientTransactionID() string { return value.request.ClientTxnID }
 
-func newTimelineCreateProvider(owner *timeline.Facade) (workbook.CreateProvider, error) {
+func newTimelineCreateProvider(owner TimelineOperations) (workbook.CreateProvider, error) {
 	return workbook.NewCreateProvider(
 		func(reader io.Reader) (workbook.CreateAdmission, *workbook.MutationFailure, error) {
 			request, apiErr := timelineadmission.DecodeTimelineCreateRequest(reader)
@@ -81,7 +91,7 @@ func (value timelinePatchAdmission) AdmittedBaseRowVersion() int64 {
 	return value.request.BaseRowVersion
 }
 
-func newTimelinePatchProvider(owner *timeline.Facade) (workbook.PatchProvider, error) {
+func newTimelinePatchProvider(owner TimelineOperations) (workbook.PatchProvider, error) {
 	return workbook.NewPatchProvider(
 		func(reader io.Reader) (workbook.PatchAdmission, *workbook.MutationFailure, error) {
 			request, apiErr := timelineadmission.DecodeTimelinePatchRequest(reader)
@@ -118,7 +128,7 @@ type timelineConflictAdmission struct {
 
 func (value timelineConflictAdmission) ClientTransactionID() string { return value.request.ClientTxnID }
 
-func newTimelineConflictProvider(owner *timeline.Facade) (workbook.ConflictProvider, error) {
+func newTimelineConflictProvider(owner TimelineOperations) (workbook.ConflictProvider, error) {
 	return workbook.NewConflictProvider(
 		func(reader io.Reader, token string, claims workbook.ConflictClaims) (workbook.ConflictAdmission, *workbook.MutationFailure, error) {
 			if claims.RouteKey != timeline.ConflictResolveRouteKey || claims.ViewSchemaID != timeline.TimelineViewSchemaID {

@@ -1065,11 +1065,14 @@ Verified by: AC-043, AC-044, AC-045
 
 **REQ-04-160**
 Timeline implementation conformance MUST prove all of the following as one
-owner-routed family: one immutable mutation-policy vocabulary; consumer-owned
-least-capability interfaces and fixture-only bulk authority; one canonical
-value and hash encoding vocabulary; one typed collection-fact reader used by
-separate composition roots; one current version-identifier writer grammar;
-and complete removal and verification accounting for superseded artifacts.
+owner-routed family: one immutable mutation-policy vocabulary, including the
+owner-batch target ceiling; schema-derived Timeline exact-header recognition;
+consumer-owned least-capability interfaces and fixture-only bulk authority;
+one canonical value and hash encoding vocabulary; one typed collection-fact
+reader used by separate composition roots; one current version-identifier
+writer grammar; batch-neutral generic mutation results and implementation
+terminology; cohesive store and application-assembly structure; and complete
+removal and verification accounting for superseded artifacts.
 
 Evidence MUST cover exact boundary values, byte-level persisted and published
 representations, caller-transaction identity, failure precedence, nil and
@@ -1483,20 +1486,27 @@ These criteria provide direct runtime-family verification for substantive base-p
 
 - **AC-545**: Timeline policy evidence proves that direct writable field
   membership, the 32-change patch limit, the 64-action collection limit, the
-  32,768-rune visible-text limit, and allowed control characters have one
-  immutable implementation owner. Root mutation, admission, import,
-  clipboard, conflict, and fixture validation use that owner directly;
+  32,768-rune visible-text limit, the 500-target owner-batch limit, and allowed
+  control characters have one immutable implementation owner. Root mutation,
+  admission, import, clipboard, conflict, and fixture validation use that
+  owner directly. Timeline clipboard admission uses the shared 64-column
+  tabular-ingest limit, and exact headers derive in order from the visible,
+  grid-editable fields of `cartulary.view.timeline.v2` without transferring
+  source identity or write authority;
   vectors at 31/32/33 changes, 63/64/65 actions, and
-  32,767/32,768/32,769 runes preserve exact accepted values, error codes,
-  details, null behavior, and hashes; and no copied map, limit, or validator
-  remains.
-  - Verifies: REQ-04-160
+  32,767/32,768/32,769 runes, 499/500/501 targets, and 63/64/65 columns
+  preserve exact accepted values, error codes, details, null behavior, and
+  hashes; and no copied map, limit, header list, or validator remains.
+  - Verifies: REQ-01-672, REQ-03-308, REQ-04-160
 - **AC-546**: Timeline capability evidence proves that admission, Workbook,
   and Imports depend only on their consumer-owned operation sets; Imports'
   create operation preserves caller-transaction ownership; performance
   fixture construction is exposed as a distinct fixture-only contribution;
-  the ordinary Timeline facade has no fixture methods; nil and error behavior
-  remains exact; and no production or test boundary allowlist expands.
+  the Workbook assembly Timeline capability has exactly create, patch,
+  conflict resolution, clipboard paste, fill-down, multi-row tag assignment,
+  and supersede operations; the ordinary Timeline facade has no fixture
+  methods; concrete-facade and typed-nil boundary behavior remains exact; and
+  no production or test boundary allowlist expands.
   - Verifies: REQ-04-160
 - **AC-547**: Timeline canonical-value evidence proves byte-exact parity for
   optional strings and UUIDs, UTC RFC3339Nano timestamps, UTC dates,
@@ -1524,9 +1534,15 @@ These criteria provide direct runtime-family verification for substantive base-p
   - Verifies: REQ-02-266, REQ-04-160
 - **AC-551**: Timeline cleanup evidence proves that empty scaffolding and every
   superseded compatibility, adapter, formatter, and helper artifact is absent;
+  generic owner-batch result and implementation names are batch-neutral;
+  Timeline store and application assembly code is divided by cohesive stable
+  responsibility without a new package, port, delegation layer, or changed
+  method set;
   executable tests have exact authored verification-contract and test-family
-  ownership; generated topology is generator-produced and drift-free; and
-  the final module inventory reconciles without an orphan or dead symbol.
+  ownership and expected language/service-backed accounting; generated
+  topology is generator-produced and drift-free; and the final module and
+  exported-symbol inventories reconcile without an orphan, dead symbol,
+  compatibility alias, or forwarding path.
   - Verifies: REQ-04-160
 - **AC-552**: Backend Workbook boundary evidence proves that one private
   application facade registers the exact thirteen adopted Workbook operations;

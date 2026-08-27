@@ -34,7 +34,7 @@ type timelineClipboardValue struct {
 	plan    tabularingest.TabularRowPlanV1
 }
 
-func newTimelineClipboardProvider(owner *timeline.Facade) (workbook.ClipboardProvider, error) {
+func newTimelineClipboardProvider(owner TimelineOperations) (workbook.ClipboardProvider, error) {
 	return workbook.NewClipboardProvider(
 		func(reader io.Reader) (workbook.ClipboardAdmission, *workbook.MutationFailure, error) {
 			request, apiErr := timelineadmission.DecodeClipboardPasteRequest(reader)
@@ -59,7 +59,7 @@ func newTimelineClipboardProvider(owner *timeline.Facade) (workbook.ClipboardPro
 			request := admitted.value.request
 			result, err := owner.ApplyClipboardPaste(ctx, timeline.ClipboardPasteCommand{
 				Actor: command.Actor, IncidentID: command.IncidentID, ClientTxnID: request.ClientTxnID,
-				Plan: admitted.value.plan, Targets: timelineBatchTargets(request.Targets),
+				Plan: admitted.value.plan, Targets: request.Targets,
 				RequestHash: timelineadmission.ClipboardPasteRequestHash(request),
 				RequestID:   command.RequestID, Now: command.Now,
 			})
@@ -81,7 +81,7 @@ type bulkAdmission struct {
 func (value bulkAdmission) ClientTransactionID() string  { return value.request.ClientTxnID }
 func (value bulkAdmission) AdmittedViewSchemaID() string { return value.request.ViewSchemaID }
 
-func newTimelineBulkProvider(owner *timeline.Facade) (workbook.BulkProvider, error) {
+func newTimelineBulkProvider(owner TimelineOperations) (workbook.BulkProvider, error) {
 	return workbook.NewBulkProvider(
 		func(reader io.Reader) (workbook.BulkAdmission, *workbook.MutationFailure, error) {
 			request, apiErr := timelineadmission.DecodeBulkMutationRequest(reader, timeline.TimelineViewSchemaID)
@@ -97,19 +97,19 @@ func newTimelineBulkProvider(owner *timeline.Facade) (workbook.BulkProvider, err
 				return workbook.RejectedMutation(workbook.InvalidPayloadFailure("view_schema_id", "invalid_view_schema_id")), nil
 			}
 			request := admitted.request
-			var result timeline.ClipboardPasteResult
+			var result timeline.BatchMutationResult
 			var err error
 			switch request.Kind {
 			case timeline.OwnerBatchOperationFillDownV1:
 				result, err = owner.ApplyFillDown(ctx, timeline.FillDownCommand{
 					Actor: command.Actor, IncidentID: command.IncidentID, ClientTxnID: request.ClientTxnID,
-					FieldKey: request.FieldKey, Value: request.Value, Targets: timelineBatchTargets(request.Targets),
+					FieldKey: request.FieldKey, Value: request.Value, Targets: request.Targets,
 					RequestHash: timelineadmission.BulkMutationRequestHash(request), RequestID: command.RequestID, Now: command.Now,
 				})
 			case timeline.OwnerBatchOperationMultiRowTagAssignmentV1:
 				result, err = owner.ApplyMultiRowTagAssignment(ctx, timeline.MultiRowTagAssignmentCommand{
 					Actor: command.Actor, IncidentID: command.IncidentID, ClientTxnID: request.ClientTxnID,
-					TagName: request.TagName, NormalizedTag: request.NormalizedTag, Targets: timelineBatchTargets(request.Targets),
+					TagName: request.TagName, NormalizedTag: request.NormalizedTag, Targets: request.Targets,
 					RequestHash: timelineadmission.BulkMutationRequestHash(request), RequestID: command.RequestID, Now: command.Now,
 				})
 			default:
@@ -183,7 +183,7 @@ func decodeTimelineSupersede(reader io.Reader) (workbook.SupersedeAdmission, *wo
 	return timelineSupersedeAdmission{request: request}, nil, nil
 }
 
-func newTimelineSupersedeProvider(owner *timeline.Facade) (workbook.SupersedeProvider, error) {
+func newTimelineSupersedeProvider(owner TimelineOperations) (workbook.SupersedeProvider, error) {
 	return workbook.NewSupersedeProvider(
 		decodeTimelineSupersede,
 		func(ctx context.Context, command workbook.SupersedeCommand) (workbook.MutationOutcome, error) {
@@ -259,17 +259,7 @@ func unsupportedSupersedeOutcome() workbook.MutationOutcome {
 	))
 }
 
-func timelineBatchTargets(targets []timelineadmission.BatchTarget) []timeline.OwnerBatchTargetV1 {
-	result := make([]timeline.OwnerBatchTargetV1, 0, len(targets))
-	for _, target := range targets {
-		result = append(result, timeline.OwnerBatchTargetV1{
-			Kind: target.Kind, RecordID: target.RecordID, BaseRowVersion: target.BaseRowVersion,
-		})
-	}
-	return result
-}
-
-func timelineBatchResult(result timeline.ClipboardPasteResult) workbook.MutationResult {
+func timelineBatchResult(result timeline.BatchMutationResult) workbook.MutationResult {
 	return workbook.MutationResult{
 		Payload: result.Payload, StatusCode: result.StatusCode, Replayed: result.Replayed,
 		IncidentID: result.IncidentID, ChangeSetID: result.ChangeSetID, ClientTxnID: result.ClientTxnID,
