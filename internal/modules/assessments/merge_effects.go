@@ -45,10 +45,10 @@ type MergeEffects struct {
 }
 
 func NewMergeEffects(projections MergeProjectionPort, snapshots MergeSnapshotCapturePort) (*MergeEffects, error) {
-	if projections == nil {
+	if isNilDependency(projections) {
 		return nil, errors.New("construct assessment merge effects: projection port is required")
 	}
-	if snapshots == nil {
+	if isNilDependency(snapshots) {
 		return nil, errors.New("construct assessment merge effects: snapshot capture port is required")
 	}
 	return &MergeEffects{projections: projections, snapshots: snapshots}, nil

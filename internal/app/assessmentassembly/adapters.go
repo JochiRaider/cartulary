@@ -26,11 +26,17 @@ type subjectValidator struct {
 func NewSubjectValidator(
 	pool postgres.DB,
 	entities *hostidentity.SourceFacts,
-) assessments.SubjectValidator {
+) (assessments.SubjectValidator, error) {
+	if isNilDependency(pool) {
+		return nil, errors.New("compose assessment subject validator: database is required")
+	}
+	if isNilDependency(entities) {
+		return nil, errors.New("compose assessment subject validator: entity source facts are required")
+	}
 	return subjectValidator{
 		entities: entities,
 		records:  records.NewStore(pool),
-	}
+	}, nil
 }
 
 func (a subjectValidator) ValidateAssessmentSubjectTx(
@@ -70,11 +76,14 @@ type assessorValidator struct {
 	incidents *admission.Checker
 }
 
-func NewAssessorValidator(pool postgres.DB) assessments.AssessorValidator {
+func NewAssessorValidator(pool postgres.DB) (assessments.AssessorValidator, error) {
+	if isNilDependency(pool) {
+		return nil, errors.New("compose assessment assessor validator: database is required")
+	}
 	return assessorValidator{
 		auth:      authn.NewStore(pool),
 		incidents: admission.NewChecker(pool),
-	}
+	}, nil
 }
 
 func (a assessorValidator) ValidateAssessmentAssessorTx(
@@ -107,8 +116,11 @@ type supportTargetValidator struct {
 
 func NewSupportTargetValidator(
 	pool postgres.DB,
-) assessments.SupportTargetValidator {
-	return supportTargetValidator{records: records.NewStore(pool)}
+) (assessments.SupportTargetValidator, error) {
+	if isNilDependency(pool) {
+		return nil, errors.New("compose assessment support-target validator: database is required")
+	}
+	return supportTargetValidator{records: records.NewStore(pool)}, nil
 }
 
 func (a supportTargetValidator) ValidateAssessmentSupportTargetsTx(
@@ -139,8 +151,11 @@ type recordEnvelopeCreator struct {
 
 func NewRecordEnvelopeCreator(
 	pool postgres.DB,
-) assessments.RecordEnvelopeCreator {
-	return recordEnvelopeCreator{records: records.NewStore(pool)}
+) (assessments.RecordEnvelopeCreator, error) {
+	if isNilDependency(pool) {
+		return nil, errors.New("compose assessment record-envelope creator: database is required")
+	}
+	return recordEnvelopeCreator{records: records.NewStore(pool)}, nil
 }
 
 func (a recordEnvelopeCreator) CreateAssessmentEnvelopeTx(
@@ -150,12 +165,12 @@ func (a recordEnvelopeCreator) CreateAssessmentEnvelopeTx(
 ) (uuid.UUID, error) {
 	return a.records.InsertTx(ctx, tx, records.InsertParams{
 		IncidentID:      create.IncidentID,
-		RecordType:      create.RecordType,
+		RecordType:      "assessment",
 		CreatedByUserID: create.ActorID,
 		CreatedAt:       create.Now,
 		UpdatedByUserID: create.ActorID,
 		UpdatedAt:       create.Now,
-		RowVersion:      create.RowVersion,
+		RowVersion:      1,
 	})
 }
 
@@ -219,8 +234,11 @@ type projectionPort struct {
 
 func NewProjectionPort(
 	rows assessmentprojection.Rows,
-) assessments.AssessmentProjectionPort {
-	return projectionPort{rows: rows}
+) (assessments.AssessmentProjectionPort, error) {
+	if isNilDependency(rows) {
+		return nil, errors.New("compose assessment projection port: rows are required")
+	}
+	return projectionPort{rows: rows}, nil
 }
 
 func (a projectionPort) RefreshAndLoadAssessmentRowTx(
@@ -239,8 +257,11 @@ type mergeProjectionPort struct {
 }
 
 func NewMergeEffects(rows assessmentprojection.Rows, snapshots assessments.MergeSnapshotCapturePort) (*assessments.MergeEffects, error) {
-	if rows == nil {
+	if isNilDependency(rows) {
 		return nil, errors.New("compose assessment merge effects: projection rows are required")
+	}
+	if isNilDependency(snapshots) {
+		return nil, errors.New("compose assessment merge effects: snapshot capture port is required")
 	}
 	return assessments.NewMergeEffects(mergeProjectionPort{rows: rows}, snapshots)
 }

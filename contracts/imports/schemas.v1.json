@@ -120,10 +120,177 @@
         "locator": true,
         "source_rect_a1": true,
         "source_row_ref": true,
-        "field_values": true,
+        "field_values": {
+          "type": "array",
+          "x_unique_by": "field_key",
+          "items": {
+            "$ref": "#/$defs/OwnerCreateFieldValue"
+          }
+        },
         "unknown_values": true,
         "source_row_provenance": true
       }
+    },
+    "OwnerCreateFieldValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field_key",
+        "normalized_value",
+        "source_column_ordinal",
+        "source_header_text",
+        "raw_value",
+        "cell_kind",
+        "transform_id",
+        "empty_value_policy",
+        "entity_binding_mode"
+      ],
+      "properties": {
+        "field_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "normalized_value": {
+          "$ref": "#/$defs/ImportScalarValue"
+        },
+        "source_column_ordinal": true,
+        "source_header_text": true,
+        "raw_value": true,
+        "cell_kind": true,
+        "transform_id": true,
+        "empty_value_policy": true,
+        "entity_binding_mode": true
+      }
+    },
+    "ImportCollectionToken": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_text",
+        "normalized_text"
+      ],
+      "properties": {
+        "raw_text": {
+          "type": "string"
+        },
+        "normalized_text": {
+          "type": "string"
+        }
+      }
+    },
+    "ImportScalarValue": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "null"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "text"
+          ],
+          "properties": {
+            "kind": {
+              "const": "text"
+            },
+            "text": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "timestamp"
+          ],
+          "properties": {
+            "kind": {
+              "const": "timestamp"
+            },
+            "timestamp": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "uuid"
+          ],
+          "properties": {
+            "kind": {
+              "const": "uuid"
+            },
+            "uuid": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "number"
+          ],
+          "properties": {
+            "kind": {
+              "const": "number"
+            },
+            "number": {
+              "type": "integer"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "bool"
+          ],
+          "properties": {
+            "kind": {
+              "const": "bool"
+            },
+            "bool": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "collection_token"
+          ],
+          "properties": {
+            "kind": {
+              "const": "collection_token"
+            },
+            "collection_token": {
+              "$ref": "#/$defs/ImportCollectionToken"
+            }
+          }
+        }
+      ]
     },
     "OwnerCreateResult": {
       "x_schema_id": "cartulary.imports.owner_create_result.v1",

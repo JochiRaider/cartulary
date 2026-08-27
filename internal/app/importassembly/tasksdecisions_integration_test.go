@@ -378,7 +378,7 @@ func tasksDecisionsImportFacade(t testing.TB, harness tasksDecisionsImportHarnes
 
 func tasksDecisionsImportFields(viewSchemaID string, ownerID *uuid.UUID, explicitNull bool) []ownerfacade.ImportFieldValue {
 	text := func(field string, value string) ownerfacade.ImportFieldValue {
-		return ownerfacade.ImportFieldValue{FieldKey: field, NormalizedValue: ownerfacade.ImportScalarValue{Kind: "text", Text: &value}}
+		return ownerfacade.ImportFieldValue{FieldKey: field, NormalizedValue: ownerfacade.NewTextImportScalar(value)}
 	}
 	var fields []ownerfacade.ImportFieldValue
 	ownerField := "task.owner_user_id"
@@ -395,12 +395,12 @@ func tasksDecisionsImportFields(viewSchemaID string, ownerID *uuid.UUID, explici
 	if ownerID != nil {
 		fields = append(fields, ownerfacade.ImportFieldValue{
 			FieldKey:        ownerField,
-			NormalizedValue: ownerfacade.ImportScalarValue{Kind: "uuid", UUID: ownerID},
+			NormalizedValue: ownerfacade.NewUUIDImportScalar(*ownerID),
 		})
 	} else if explicitNull {
 		fields = append(fields, ownerfacade.ImportFieldValue{
 			FieldKey:        ownerField,
-			NormalizedValue: ownerfacade.ImportScalarValue{Kind: "null"},
+			NormalizedValue: ownerfacade.NewNullImportScalar(),
 		})
 	}
 	return fields

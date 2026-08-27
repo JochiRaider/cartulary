@@ -46,14 +46,6 @@ type recordFinalizationAppender interface {
 	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
 }
 
-func ValuesByField(fields []ImportFieldValue) map[string]ImportScalarValue {
-	values := make(map[string]ImportScalarValue, len(fields))
-	for _, field := range fields {
-		values[field.FieldKey] = field.NormalizedValue
-	}
-	return values
-}
-
 func FinalizeHistoricalRecordTx(ctx context.Context, tx pgx.Tx, revisionAppender HistoricalRecordRevisionAppender, command FinalizeCommand) (ImportOwnerCreateResponse, error) {
 	if revisionAppender == nil {
 		return ImportOwnerCreateResponse{}, fmt.Errorf("finalize import owner row: revision appender is required")

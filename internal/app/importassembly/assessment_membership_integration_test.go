@@ -11,7 +11,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
-	assessmentadmission "github.com/JochiRaider/cartulary/internal/modules/assessments/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -203,7 +202,10 @@ func TestAssessmentAssessorMembershipContract_Integration(t *testing.T) {
 
 	t.Run("validator_locks_membership_before_user_state", func(t *testing.T) {
 		lockedMember := seedTasksDecisionsImportUser(t, harness, true, true)
-		validator := assessmentassembly.NewAssessorValidator(harness.db)
+		validator, err := assessmentassembly.NewAssessorValidator(harness.db)
+		if err != nil {
+			t.Fatalf("compose assessment assessor validator: %v", err)
+		}
 		assertAssessmentValidationBlocksConcurrentMutation(
 			t,
 			harness,
@@ -269,15 +271,8 @@ func createAssessmentMembershipRow(
 		ActorUserID: actor.ID,
 		IncidentID:  incidentID,
 		Input:       input,
-		Idempotency: assessments.CreateIdempotencyKey{
-			RouteKey:    "assessments.rows.create",
-			ActorUserID: actor.ID,
-			ScopeKey:    incidentID.String() + ":" + assessments.AssessmentsViewSchemaID,
-			ClientTxnID: clientTxnID,
-			RequestHash: assessmentadmission.CreateRequestHash(input),
-		},
-		RequestID: "req-" + clientTxnID,
-		Now:       time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC),
+		RequestID:   "req-" + clientTxnID,
+		Now:         time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC),
 	})
 }
 

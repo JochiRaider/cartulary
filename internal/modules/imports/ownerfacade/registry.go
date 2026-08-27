@@ -134,6 +134,9 @@ func (f *boundImportOwnerCreateFacade) CreateImportRowTx(
 			command.Request.TargetViewSchemaID,
 		)
 	}
+	if _, err := IndexImportFieldValues(command.Request.FieldValues); err != nil {
+		return ImportOwnerCreateResponse{}, err
+	}
 	return f.create(ctx, tx, command)
 }
 

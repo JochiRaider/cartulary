@@ -48,7 +48,6 @@ type CreateCommand struct {
 	ActorUserID uuid.UUID
 	IncidentID  uuid.UUID
 	Input       CreateInput
-	Idempotency CreateIdempotencyKey
 	RequestID   string
 	Now         time.Time
 }
@@ -68,10 +67,8 @@ type CreateIdempotencyRecord struct {
 
 type RecordEnvelopeCreate struct {
 	IncidentID uuid.UUID
-	RecordType string
 	ActorID    uuid.UUID
 	Now        time.Time
-	RowVersion int64
 }
 
 type CreateRevision struct {
@@ -83,10 +80,7 @@ type CreateRevision struct {
 	CreatedAt     time.Time
 	RecordID      uuid.UUID
 	RowVersion    int64
-	AfterVersion  string
 	CanonicalRow  map[string]any
-	TargetKind    string
-	OperationKind string
 	LinkMutations []SupportLinkMutation
 }
 
@@ -143,49 +137,46 @@ type FacadeDependencies struct {
 
 type Facade struct {
 	pool         postgres.DB
-	source       assessmentSourceRepository
 	idempotency  CreateIdempotencyPort
-	subjects     SubjectValidator
-	assessors    AssessorValidator
 	support      SupportTargetValidator
-	records      RecordEnvelopeCreator
 	supportLinks InitialSupportLinkApplier
 	revisions    CreateRevisionAppender
-	projections  AssessmentProjectionPort
+	creator      assessmentCreateService
 }
 
 func NewFacade(pool postgres.DB, dependencies FacadeDependencies) (*Facade, error) {
 	switch {
-	case pool == nil:
+	case isNilDependency(pool):
 		return nil, errors.New("construct assessment facade: database is required")
-	case dependencies.Idempotency == nil:
+	case isNilDependency(dependencies.Idempotency):
 		return nil, errors.New("construct assessment facade: idempotency port is required")
-	case dependencies.Subjects == nil:
+	case isNilDependency(dependencies.Subjects):
 		return nil, errors.New("construct assessment facade: subject validator is required")
-	case dependencies.Assessors == nil:
+	case isNilDependency(dependencies.Assessors):
 		return nil, errors.New("construct assessment facade: assessor validator is required")
-	case dependencies.SupportTargets == nil:
+	case isNilDependency(dependencies.SupportTargets):
 		return nil, errors.New("construct assessment facade: support-target validator is required")
-	case dependencies.Records == nil:
+	case isNilDependency(dependencies.Records):
 		return nil, errors.New("construct assessment facade: record-envelope creator is required")
-	case dependencies.SupportLinks == nil:
+	case isNilDependency(dependencies.SupportLinks):
 		return nil, errors.New("construct assessment facade: support-link applier is required")
-	case dependencies.Revisions == nil:
+	case isNilDependency(dependencies.Revisions):
 		return nil, errors.New("construct assessment facade: revision appender is required")
-	case dependencies.Projections == nil:
+	case isNilDependency(dependencies.Projections):
 		return nil, errors.New("construct assessment facade: projection port is required")
 	}
 	return &Facade{
 		pool:         pool,
-		source:       assessmentSourceRepository{},
 		idempotency:  dependencies.Idempotency,
-		subjects:     dependencies.Subjects,
-		assessors:    dependencies.Assessors,
 		support:      dependencies.SupportTargets,
-		records:      dependencies.Records,
 		supportLinks: dependencies.SupportLinks,
 		revisions:    dependencies.Revisions,
-		projections:  dependencies.Projections,
+		creator: newAssessmentCreateService(
+			dependencies.Subjects,
+			dependencies.Assessors,
+			dependencies.Records,
+			dependencies.Projections,
+		),
 	}, nil
 }
 
@@ -196,7 +187,10 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (CreateResul
 	if err := validateFacadeCreateCommand(command); err != nil {
 		return CreateResult{}, err
 	}
-	key := command.Idempotency
+	if err := f.creator.validateInput(command.Input); err != nil {
+		return CreateResult{}, err
+	}
+	key := createIdempotencyKey(command)
 	existing, found, err := f.idempotency.LookupCreate(ctx, key)
 	if err != nil {
 		return CreateResult{}, fmt.Errorf("query assessment create idempotency: %w", err)
@@ -219,16 +213,19 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (CreateResul
 	}()
 
 	input := command.Input
-	valid, err := f.subjects.ValidateAssessmentSubjectTx(ctx, tx, command.IncidentID, input.SubjectType, input.SubjectRef)
-	if err != nil {
-		return CreateResult{}, fmt.Errorf("validate assessment subject: %w", err)
+	now := command.Now.UTC()
+	create := assessmentCreateContext{
+		IncidentID:  command.IncidentID,
+		ActorUserID: command.ActorUserID,
+		Input:       input,
+		Now:         now,
 	}
-	if !valid {
-		return CreateResult{}, &CreateValidationError{Field: "assessment.subject_ref", ReasonCode: "invalid_value"}
+	if err := f.creator.validateSubjectTx(ctx, tx, create); err != nil {
+		return CreateResult{}, err
 	}
 
 	supportRefs := uniqueUUIDs(input.SupportRefs)
-	valid, err = f.support.ValidateAssessmentSupportTargetsTx(ctx, tx, command.IncidentID, supportRefs)
+	valid, err := f.support.ValidateAssessmentSupportTargetsTx(ctx, tx, command.IncidentID, supportRefs)
 	if err != nil {
 		return CreateResult{}, fmt.Errorf("validate assessment support targets: %w", err)
 	}
@@ -236,45 +233,13 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (CreateResul
 		return CreateResult{}, &CreateValidationError{Field: "assessment.support_refs", ReasonCode: "invalid_value"}
 	}
 
-	assessorID := command.ActorUserID
-	if input.Assessor != nil {
-		assessorID = *input.Assessor
-	}
-	valid, err = f.assessors.ValidateAssessmentAssessorTx(ctx, tx, command.IncidentID, assessorID)
+	assessorID, err := f.creator.resolveAssessorTx(ctx, tx, create)
 	if err != nil {
-		return CreateResult{}, fmt.Errorf("validate assessment assessor: %w", err)
-	}
-	if !valid {
-		return CreateResult{}, &CreateValidationError{Field: "assessment.assessor", ReasonCode: "invalid_value"}
+		return CreateResult{}, err
 	}
 
-	now := command.Now.UTC()
-	assessedAt := now
-	if input.AssessedAt != nil {
-		assessedAt = input.AssessedAt.UTC()
-	}
-	recordID, err := f.records.CreateAssessmentEnvelopeTx(ctx, tx, RecordEnvelopeCreate{
-		IncidentID: command.IncidentID,
-		RecordType: "assessment",
-		ActorID:    command.ActorUserID,
-		Now:        now,
-		RowVersion: 1,
-	})
+	recordID, err := f.creator.insertTx(ctx, tx, create, assessorID)
 	if err != nil {
-		return CreateResult{}, fmt.Errorf("create assessment record envelope: %w", err)
-	}
-	if err := f.source.InsertTx(ctx, tx, assessmentSourceCreate{
-		RecordID:        recordID,
-		IncidentID:      command.IncidentID,
-		SubjectRef:      input.SubjectRef,
-		SubjectType:     input.SubjectType,
-		AssessmentState: input.AssessmentState,
-		ConfidenceScore: input.ConfidenceScore,
-		Rationale:       input.Rationale,
-		Assessor:        assessorID,
-		AssessedAt:      assessedAt,
-		Now:             now,
-	}); err != nil {
 		return CreateResult{}, err
 	}
 	linkMutations, err := f.supportLinks.ApplyInitialAssessmentSupportLinksTx(
@@ -289,9 +254,9 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (CreateResul
 	if err != nil {
 		return CreateResult{}, fmt.Errorf("apply assessment support links: %w", err)
 	}
-	row, err := f.projections.RefreshAndLoadAssessmentRowTx(ctx, tx, recordID)
+	row, err := f.creator.refreshProjectionTx(ctx, tx, recordID)
 	if err != nil {
-		return CreateResult{}, fmt.Errorf("refresh assessment projection: %w", err)
+		return CreateResult{}, err
 	}
 	rowVersion, err := canonicalRowVersion(row)
 	if err != nil {
@@ -306,10 +271,7 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (CreateResul
 		CreatedAt:     now,
 		RecordID:      recordID,
 		RowVersion:    rowVersion,
-		AfterVersion:  assessmentVersionID(recordID, rowVersion),
 		CanonicalRow:  row,
-		TargetKind:    "assessment",
-		OperationKind: "create",
 		LinkMutations: linkMutations,
 	})
 	if err != nil {
@@ -336,24 +298,14 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (CreateResul
 }
 
 func validateFacadeCreateCommand(command CreateCommand) error {
-	input := command.Input
 	switch {
 	case command.ActorUserID == uuid.Nil:
 		return errors.New("create assessment: actor user id is required")
 	case command.IncidentID == uuid.Nil:
 		return errors.New("create assessment: incident id is required")
-	case strings.TrimSpace(command.Idempotency.RouteKey) == "":
-		return errors.New("create assessment: idempotency route key is required")
-	case strings.TrimSpace(command.Idempotency.ScopeKey) == "":
-		return errors.New("create assessment: idempotency scope key is required")
-	case command.Idempotency.ActorUserID != command.ActorUserID:
-		return errors.New("create assessment: idempotency actor does not match command actor")
-	case command.Idempotency.ClientTxnID != input.ClientTxnID:
-		return errors.New("create assessment: idempotency client transaction does not match input")
-	case len(command.Idempotency.RequestHash) == 0:
-		return errors.New("create assessment: request hash is required")
+	default:
+		return nil
 	}
-	return validateCreateInputShape(input)
 }
 
 func validateCreateInputShape(input CreateInput) error {
@@ -370,7 +322,7 @@ func validateCreateInputShape(input CreateInput) error {
 		return &CreateValidationError{Field: "assessment.rationale", ReasonCode: "missing_required_field"}
 	case !validConfidenceScore(input.ConfidenceScore):
 		return &CreateValidationError{Field: "assessment.confidence_score", ReasonCode: "invalid_value"}
-	case len(input.SupportRefs) > maxSupportActions:
+	case len(input.SupportRefs) > assessmentpolicy.MaxInitialSupportReferences:
 		return &CreateValidationError{Field: "assessment.support_refs", ReasonCode: "invalid_value"}
 	default:
 		return nil
@@ -407,8 +359,4 @@ func uniqueUUIDs(values []uuid.UUID) []uuid.UUID {
 		unique = append(unique, value)
 	}
 	return unique
-}
-
-func assessmentVersionID(recordID uuid.UUID, rowVersion int64) string {
-	return fmt.Sprintf("assessment:%s:%d", recordID.String(), rowVersion)
 }

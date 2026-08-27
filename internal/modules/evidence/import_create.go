@@ -32,7 +32,11 @@ func (s *sourceMutationService) CreateImportRowTx(ctx context.Context, tx pgx.Tx
 	if request.TargetViewSchemaID != ViewSchemaID {
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("evidence import surface %q not mapped", request.TargetViewSchemaID)
 	}
-	params := createParams{Values: evidenceValuesFromImport(ownerfacade.ValuesByField(request.FieldValues))}
+	values, err := ownerfacade.IndexImportFieldValues(request.FieldValues)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	params := createParams{Values: evidenceValuesFromImport(values)}
 	if err := validateCreateParams(params); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
@@ -66,13 +70,23 @@ func (s *sourceMutationService) CreateImportRowTx(ctx context.Context, tx pgx.Tx
 func evidenceValuesFromImport(values map[string]ownerfacade.ImportScalarValue) map[string]FieldValue {
 	result := make(map[string]FieldValue, len(values))
 	for field, value := range values {
-		result[field] = FieldValue{
-			Text:      value.Text,
-			Timestamp: value.Timestamp,
-			UUID:      value.UUID,
-			Number:    value.Number,
-			Bool:      value.Bool,
+		converted := FieldValue{}
+		if scalar, ok := value.Text(); ok {
+			converted.Text = &scalar
 		}
+		if scalar, ok := value.Timestamp(); ok {
+			converted.Timestamp = &scalar
+		}
+		if scalar, ok := value.UUID(); ok {
+			converted.UUID = &scalar
+		}
+		if scalar, ok := value.Number(); ok {
+			converted.Number = &scalar
+		}
+		if scalar, ok := value.Bool(); ok {
+			converted.Bool = &scalar
+		}
+		result[field] = converted
 	}
 	return result
 }

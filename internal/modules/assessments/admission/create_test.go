@@ -1,13 +1,13 @@
 package admission
 
 import (
-	"encoding/hex"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
+func TestCreateRequestAdmissionCompatibility(t *testing.T) {
 	t.Parallel()
 	input, apiErr := DecodeCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-assessment-owner",
@@ -42,14 +42,45 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 	if len(input.SupportRefs) != 2 || input.SupportRefs[0].String() != "30000000-0000-4000-8000-000000000003" {
 		t.Fatalf("support refs = %v", input.SupportRefs)
 	}
-	if got := hex.EncodeToString(CreateRequestHash(input)); got != "6406c647a1b4e4adc65a4161ac1b168775e88376860a1e0bcd6d3f9e699055fb" {
-		t.Fatalf("Assessment create hash = %s", got)
-	}
+}
 
-	input.SupportRefs[0], input.SupportRefs[1] = input.SupportRefs[1], input.SupportRefs[0]
-	if got := hex.EncodeToString(CreateRequestHash(input)); got != "6406c647a1b4e4adc65a4161ac1b168775e88376860a1e0bcd6d3f9e699055fb" {
-		t.Fatalf("reordered Assessment create hash = %s", got)
+func TestCreateRequestAdmissionEnforcesSupportReferenceLimit(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name       string
+		count      int
+		wantReason string
+	}{
+		{name: "maximum accepted", count: 64},
+		{name: "over maximum rejected", count: 65, wantReason: "collection_action_count_exceeded"},
+	} {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			input, apiErr := DecodeCreateRequest(strings.NewReader(supportReferencesBody(test.count)))
+			if test.wantReason == "" {
+				if apiErr != nil || len(input.SupportRefs) != test.count {
+					t.Fatalf("support reference admission = input:%#v error:%#v", input, apiErr)
+				}
+				return
+			}
+			if apiErr == nil || apiErr.Details["reason_code"] != test.wantReason || apiErr.Details["max_count"] != 64 {
+				t.Fatalf("support reference limit error = %#v", apiErr)
+			}
+		})
 	}
+}
+
+func supportReferencesBody(count int) string {
+	actions := make([]string, 0, count)
+	for index := 0; index < count; index++ {
+		actions = append(actions, fmt.Sprintf(
+			`{"op":"add_record_ref","linked_record_id":"20000000-0000-4000-8000-%012d"}`,
+			index+1,
+		))
+	}
+	return `{"client_txn_id":"txn-limit","assessment.support_refs":{"kind":"collection_actions_v1","actions":[` +
+		strings.Join(actions, ",") + `]}}`
 }
 
 func TestCreateRequestAdmissionRejectsNonContractualShapes(t *testing.T) {

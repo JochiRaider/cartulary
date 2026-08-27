@@ -76,7 +76,11 @@ func (o *importOwner) CreateImportRowTx(
 	if request.TargetViewSchemaID != ViewSchemaID {
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("party import surface %q not mapped", request.TargetViewSchemaID)
 	}
-	values, err := valuesFromImport(ownerfacade.ValuesByField(request.FieldValues))
+	indexed, err := ownerfacade.IndexImportFieldValues(request.FieldValues)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	values, err := valuesFromImport(indexed)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
@@ -137,17 +141,22 @@ func valuesFromImport(values map[string]ownerfacade.ImportScalarValue) (map[stri
 	inputs := make(map[string]createValueInput, len(values))
 	for fieldKey, value := range values {
 		field, known := policy.LookupField(fieldKey)
-		if !known || !wellFormedPartyImportScalar(value) {
+		if !known || !value.IsValid() ||
+			(value.Kind() != ownerfacade.ImportScalarText && value.Kind() != ownerfacade.ImportScalarNull) {
 			guard := "party_field_registry"
 			if known {
 				guard = field.StringContractID
 			}
 			return nil, ownerfacade.NewImportOwnerCreateValidationError(
 				"invalid_text", fieldKey, guard,
-				fmt.Errorf("party import scalar kind %q is not admitted", value.Kind),
+				fmt.Errorf("party import scalar kind %q is not admitted", value.Kind()),
 			)
 		}
-		inputs[fieldKey] = createValueInput{present: true, text: value.Text}
+		var text *string
+		if scalar, ok := value.Text(); ok {
+			text = &scalar
+		}
+		inputs[fieldKey] = createValueInput{present: true, text: text}
 	}
 	result, admissionErr := admitCreateValues(inputs)
 	if admissionErr == nil {
@@ -158,16 +167,4 @@ func valuesFromImport(values map[string]ownerfacade.ImportScalarValue) (map[stri
 		"invalid_text", admissionErr.field, registryField.StringContractID,
 		fmt.Errorf("party field admission failed: %s", admissionErr.reasonCode),
 	)
-}
-
-func wellFormedPartyImportScalar(value ownerfacade.ImportScalarValue) bool {
-	otherVariantPresent := value.Timestamp != nil || value.UUID != nil || value.Number != nil || value.Bool != nil || value.CollectionToken != nil
-	switch value.Kind {
-	case "text":
-		return value.Text != nil && !otherVariantPresent
-	case "null":
-		return value.Text == nil && !otherVariantPresent
-	default:
-		return false
-	}
 }

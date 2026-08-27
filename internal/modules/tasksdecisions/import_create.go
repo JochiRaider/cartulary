@@ -98,7 +98,11 @@ func (o *importOwner) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command 
 	if err := validateImportedOwnerShape(o.catalog, request); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	values := taskDecisionValuesFromImport(ownerfacade.ValuesByField(request.FieldValues))
+	indexed, err := ownerfacade.IndexImportFieldValues(request.FieldValues)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	values := taskDecisionValuesFromImport(indexed)
 	now := command.Now.UTC()
 	surface, ok := o.catalog.SurfaceByViewID(request.TargetViewSchemaID)
 	if !ok {
@@ -171,7 +175,7 @@ func validateImportedOwnerShape(catalog *sourcecatalog.Catalog, request ownerfac
 		if !ok || policy.ViewSchemaID != request.TargetViewSchemaID || policy.Reference.Role != "incident_member_user" {
 			continue
 		}
-		if field.NormalizedValue.Kind != "uuid" || field.NormalizedValue.UUID == nil {
+		if _, ok := field.NormalizedValue.UUID(); !ok {
 			return &ValidationError{Field: field.FieldKey, ReasonCode: "invalid_value"}
 		}
 	}
@@ -233,13 +237,23 @@ func (o *importOwner) refreshImportRowTx(ctx context.Context, tx pgx.Tx, viewSch
 func taskDecisionValuesFromImport(values map[string]ownerfacade.ImportScalarValue) map[string]FieldValue {
 	result := make(map[string]FieldValue, len(values))
 	for field, value := range values {
-		result[field] = FieldValue{
-			Text:      value.Text,
-			Timestamp: value.Timestamp,
-			UUID:      value.UUID,
-			Number:    value.Number,
-			Bool:      value.Bool,
+		converted := FieldValue{}
+		if scalar, ok := value.Text(); ok {
+			converted.Text = &scalar
 		}
+		if scalar, ok := value.Timestamp(); ok {
+			converted.Timestamp = &scalar
+		}
+		if scalar, ok := value.UUID(); ok {
+			converted.UUID = &scalar
+		}
+		if scalar, ok := value.Number(); ok {
+			converted.Number = &scalar
+		}
+		if scalar, ok := value.Bool(); ok {
+			converted.Bool = &scalar
+		}
+		result[field] = converted
 	}
 	return result
 }

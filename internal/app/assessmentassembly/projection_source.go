@@ -41,7 +41,6 @@ func (adapter assessmentEnvelopeAdapter) LoadAssessmentProjectionEnvelopeTx(
 		return assessmentprojection.Envelope{}, false, err
 	}
 	return assessmentprojection.Envelope{
-		RecordID:   envelope.RecordID,
 		IncidentID: envelope.IncidentID,
 		RecordType: envelope.RecordType,
 		RowVersion: envelope.RowVersion,

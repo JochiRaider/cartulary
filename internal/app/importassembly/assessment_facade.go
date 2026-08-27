@@ -1,6 +1,8 @@
 package importassembly
 
 import (
+	"fmt"
+
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
@@ -19,15 +21,31 @@ func newAssessmentImportCreateFacade(
 	appender *revisions.Appender,
 	publications collaboration.RecordChangedAppender,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
+	subjects, err := assessmentassembly.NewSubjectValidator(pool, hostidentity.NewSourceFacts())
+	if err != nil {
+		return nil, fmt.Errorf("compose assessment import facade: %w", err)
+	}
+	assessors, err := assessmentassembly.NewAssessorValidator(pool)
+	if err != nil {
+		return nil, fmt.Errorf("compose assessment import facade: %w", err)
+	}
+	records, err := assessmentassembly.NewRecordEnvelopeCreator(pool)
+	if err != nil {
+		return nil, fmt.Errorf("compose assessment import facade: %w", err)
+	}
+	projections, err := assessmentassembly.NewProjectionPort(projectionRows)
+	if err != nil {
+		return nil, fmt.Errorf("compose assessment import facade: %w", err)
+	}
 	return assessments.NewImportCreateFacade(
 		targetViewSchemaID,
 		facadeID,
 		assessments.ImportCreateDependencies{
-			Subjects:      assessmentassembly.NewSubjectValidator(pool, hostidentity.NewSourceFacts()),
-			Assessors:     assessmentassembly.NewAssessorValidator(pool),
-			Records:       assessmentassembly.NewRecordEnvelopeCreator(pool),
+			Subjects:      subjects,
+			Assessors:     assessors,
+			Records:       records,
 			Revisions:     appender,
-			Projections:   assessmentassembly.NewProjectionPort(projectionRows),
+			Projections:   projections,
 			Collaboration: publications,
 		},
 	)

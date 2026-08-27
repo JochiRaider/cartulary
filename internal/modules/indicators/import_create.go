@@ -84,10 +84,10 @@ func (s *Application) createImportRowTx(ctx context.Context, tx pgx.Tx, command 
 func indicatorImportCreateCommand(clientTxnID string, fields []ownerfacade.ImportFieldValue) CreateCommand {
 	command := CreateCommand{ClientTxnID: clientTxnID}
 	for _, field := range fields {
-		if field.NormalizedValue.Text == nil {
+		value, ok := field.NormalizedValue.Text()
+		if !ok {
 			continue
 		}
-		value := *field.NormalizedValue.Text
 		switch field.FieldKey {
 		case "indicator.indicator_type":
 			command.IndicatorType = value

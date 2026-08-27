@@ -9101,7 +9101,18 @@ Verified by: AC-264B
 | --- | --- |
 | `import_owner_create_request_v1` | `incident_id`, `actor_user_id`, `target_view_schema_id`, `import_session_id`, `import_unit_id`, `mapping_fingerprint`, `source_file_kind`, `source_content_sha256`, `parser_profile_id`, `parser_version`, `locator_kind`, `locator`, `source_rect_a1`, `source_row_ref`, `field_values[]`, `unknown_values[]`, `source_row_provenance` |
 | `field_values[]` item | `field_key`, `normalized_value`, `source_column_ordinal`, `source_header_text`, `raw_value`, `cell_kind`, `transform_id`, `empty_value_policy`, `entity_binding_mode` |
+| `normalized_value` | Exactly one closed scalar variant: `null`, `text`, `timestamp`, `uuid`, `number`, `bool`, or `collection_token` |
 | `import_owner_create_response_v1` | `record_id`, `row_version`, `change_set_mutation_ref`, `created_or_reused`, `owner_result_code`, `row_refresh` |
+
+Each `field_values[]` item MUST have a non-empty `field_key`, and one owner-create
+request MUST NOT contain the same `field_key` more than once. A
+`normalized_value` with `kind = null` carries no payload. Every other variant
+MUST carry exactly one payload matching its declared kind and MUST NOT carry a
+payload for another kind. The shared Imports owner-create facade MUST reject an
+empty or duplicate `field_key`, a zero scalar value, an unknown kind, a missing
+matching payload, or mixed payload variants before invoking the bound owner.
+Such structural failures use only `owner_create_validation_failed` and MUST NOT
+expose the raw value, a source error, or owner-specific safe details.
 
 **Table 17.2-F. `cartulary.imports.analytical_facade_binding.v1`**
 

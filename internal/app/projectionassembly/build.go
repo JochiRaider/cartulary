@@ -24,8 +24,8 @@ import (
 // subsystem. It constructs source-owner contributions and delegates the
 // executable module graph to adapters.New.
 func Build(db postgres.DB) (*Runtime, error) {
-	if db == nil {
-		return nil, fmt.Errorf("assemble Projections: Postgres is required")
+	if isNilDependency(db) {
+		return nil, fmt.Errorf("assemble projections: postgres is required")
 	}
 	timelineContribution, err := timelineprojection.NewContribution(timelineprovider.NewSource(timelinefactassembly.NewLinkReader()))
 	if err != nil {

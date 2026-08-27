@@ -96,7 +96,6 @@ func TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipant
 	replayedChangeSetID := uuid.New()
 	replayPorts := &assessmentFacadePorts{
 		replay: &assessments.CreateIdempotencyRecord{
-			RequestHash: []byte("stable-hash"),
 			Result: assessments.CreateResult{
 				Outcome:      assessments.CreateOutcomeCommitted,
 				CanonicalRow: map[string]any{"record_id": replayedRecordID.String(), "row_version": int64(4)},
@@ -205,6 +204,63 @@ func TestAssessmentLiveRowVersionBoundary(t *testing.T) {
 	}
 }
 
+func TestAssessmentFacadeCreateParticipantOrder(t *testing.T) {
+	harness := appsupport.StartStore(t, "assessments-facade-order")
+	actor := authstoretest.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"assessment-order@example.test",
+		"Assessment Order",
+		"AssessmentOrderPass1!",
+		false,
+		false,
+		true,
+	)
+	incident := appsupport.CreateIncidentInStore(
+		t,
+		harness.DB,
+		actor,
+		"txn-assessment-order-incident",
+		"IR-ASSESSMENT-ORDER",
+		"Assessment participant order",
+	)
+	subjectID := uuid.New()
+	entitytest.SeedHostRecord(
+		t,
+		harness.DB,
+		incident.ID,
+		actor.ID,
+		subjectID,
+		"Assessment order host",
+		"assessment-order-host",
+		"",
+		"",
+	)
+
+	ports := &assessmentFacadePorts{}
+	facade := newAssessmentFacadeForTest(t, harness.DB, ports)
+	if _, err := facade.Create(
+		context.Background(),
+		assessmentFacadeCommand(actor.ID, incident.ID, subjectID, "txn-participant-order"),
+	); err != nil {
+		t.Fatalf("create assessment in participant order test: %v", err)
+	}
+	want := []string{
+		"idempotency_lookup",
+		"subject",
+		"support_targets",
+		"assessor",
+		"records",
+		"support_links",
+		"projection",
+		"revisions",
+		"idempotency_store",
+	}
+	if fmt.Sprint(ports.calls) != fmt.Sprint(want) {
+		t.Fatalf("assessment participant order = %v, want %v", ports.calls, want)
+	}
+}
+
 type assessmentFacadePorts struct {
 	failure                 string
 	replay                  *assessments.CreateIdempotencyRecord
@@ -213,17 +269,23 @@ type assessmentFacadePorts struct {
 	participantCalls        int
 	revisionCalls           int
 	idempotencyStoreCalls   int
+	calls                   []string
 }
 
 func (p *assessmentFacadePorts) LookupCreate(
 	_ context.Context,
-	_ assessments.CreateIdempotencyKey,
+	key assessments.CreateIdempotencyKey,
 ) (assessments.CreateIdempotencyRecord, bool, error) {
+	p.call("idempotency_lookup")
 	if p.failure == "idempotency_lookup" {
 		return assessments.CreateIdempotencyRecord{}, false, errors.New("injected idempotency lookup failure")
 	}
 	if p.replay != nil {
-		return *p.replay, true, nil
+		replay := *p.replay
+		if replay.RequestHash == nil {
+			replay.RequestHash = append([]byte(nil), key.RequestHash...)
+		}
+		return replay, true, nil
 	}
 	return assessments.CreateIdempotencyRecord{}, false, nil
 }
@@ -234,6 +296,7 @@ func (p *assessmentFacadePorts) StoreCreateTx(
 	_ assessments.CreateIdempotencyKey,
 	_ assessments.CreateResult,
 ) error {
+	p.call("idempotency_store")
 	p.participantCalls++
 	p.idempotencyStoreCalls++
 	return p.inject("idempotency_store")
@@ -246,6 +309,7 @@ func (p *assessmentFacadePorts) ValidateAssessmentSubjectTx(
 	_ string,
 	_ uuid.UUID,
 ) (bool, error) {
+	p.call("subject")
 	p.participantCalls++
 	if err := p.inject("subject"); err != nil {
 		return false, err
@@ -259,6 +323,7 @@ func (p *assessmentFacadePorts) ValidateAssessmentAssessorTx(
 	_ uuid.UUID,
 	_ uuid.UUID,
 ) (bool, error) {
+	p.call("assessor")
 	p.participantCalls++
 	if err := p.inject("assessor"); err != nil {
 		return false, err
@@ -272,6 +337,7 @@ func (p *assessmentFacadePorts) ValidateAssessmentSupportTargetsTx(
 	_ uuid.UUID,
 	_ []uuid.UUID,
 ) (bool, error) {
+	p.call("support_targets")
 	p.participantCalls++
 	if err := p.inject("support_targets"); err != nil {
 		return false, err
@@ -284,18 +350,19 @@ func (p *assessmentFacadePorts) CreateAssessmentEnvelopeTx(
 	tx pgx.Tx,
 	create assessments.RecordEnvelopeCreate,
 ) (uuid.UUID, error) {
+	p.call("records")
 	p.participantCalls++
 	if err := p.inject("records"); err != nil {
 		return uuid.Nil, err
 	}
 	return records.NewStore().InsertTx(ctx, tx, records.InsertParams{
 		IncidentID:      create.IncidentID,
-		RecordType:      create.RecordType,
+		RecordType:      "assessment",
 		CreatedByUserID: create.ActorID,
 		CreatedAt:       create.Now,
 		UpdatedByUserID: create.ActorID,
 		UpdatedAt:       create.Now,
-		RowVersion:      create.RowVersion,
+		RowVersion:      1,
 	})
 }
 
@@ -308,6 +375,7 @@ func (p *assessmentFacadePorts) ApplyInitialAssessmentSupportLinksTx(
 	_ []uuid.UUID,
 	_ time.Time,
 ) ([]assessments.SupportLinkMutation, error) {
+	p.call("support_links")
 	p.participantCalls++
 	if err := p.inject("support_links"); err != nil {
 		return nil, err
@@ -320,6 +388,7 @@ func (p *assessmentFacadePorts) AppendAssessmentCreateRevisionTx(
 	_ pgx.Tx,
 	_ assessments.CreateRevision,
 ) (uuid.UUID, error) {
+	p.call("revisions")
 	p.participantCalls++
 	p.revisionCalls++
 	if err := p.inject("revisions"); err != nil {
@@ -333,6 +402,7 @@ func (p *assessmentFacadePorts) RefreshAndLoadAssessmentRowTx(
 	_ pgx.Tx,
 	recordID uuid.UUID,
 ) (map[string]any, error) {
+	p.call("projection")
 	p.participantCalls++
 	if err := p.inject("projection"); err != nil {
 		return nil, err
@@ -352,6 +422,10 @@ func (p *assessmentFacadePorts) inject(participant string) error {
 		return errors.New("injected " + participant + " failure")
 	}
 	return nil
+}
+
+func (p *assessmentFacadePorts) call(participant string) {
+	p.calls = append(p.calls, participant)
 }
 
 func newAssessmentFacadeForTest(
@@ -391,13 +465,6 @@ func assessmentFacadeCommand(
 			SubjectType:     "host",
 			AssessmentState: "confirmed",
 			Rationale:       "Assessment facade transaction rationale.",
-		},
-		Idempotency: assessments.CreateIdempotencyKey{
-			RouteKey:    "assessments.rows.create",
-			ActorUserID: actorID,
-			ScopeKey:    incidentID.String() + ":" + assessments.AssessmentsViewSchemaID,
-			ClientTxnID: clientTxnID,
-			RequestHash: []byte("stable-hash"),
 		},
 		RequestID: "req-" + clientTxnID,
 		Now:       time.Date(2026, 7, 30, 18, 0, 0, 0, time.UTC),

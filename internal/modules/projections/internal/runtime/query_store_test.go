@@ -16,7 +16,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
-	assessmentadmission "github.com/JochiRaider/cartulary/internal/modules/assessments/admission"
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
@@ -139,15 +138,8 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 		ActorUserID: actor.ID,
 		IncidentID:  incident.ID,
 		Input:       assessmentInput,
-		Idempotency: assessments.CreateIdempotencyKey{
-			RouteKey:    "assessments.rows.create",
-			ActorUserID: actor.ID,
-			ScopeKey:    incident.ID.String() + ":" + assessments.AssessmentsViewSchemaID,
-			ClientTxnID: assessmentInput.ClientTxnID,
-			RequestHash: assessmentadmission.CreateRequestHash(assessmentInput),
-		},
-		RequestID: "req-projection-parity-assessment",
-		Now:       time.Date(2026, 7, 1, 13, 0, 0, 0, time.UTC),
+		RequestID:   "req-projection-parity-assessment",
+		Now:         time.Date(2026, 7, 1, 13, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatalf("create assessment parity row: %v", err)

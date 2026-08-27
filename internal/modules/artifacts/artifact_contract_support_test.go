@@ -29,10 +29,8 @@ func importTextFields(entries ...string) []ownerfacade.ImportFieldValue {
 	for index := 0; index < len(entries); index += 2 {
 		value := entries[index+1]
 		fields = append(fields, ownerfacade.ImportFieldValue{
-			FieldKey: entries[index],
-			NormalizedValue: ownerfacade.ImportScalarValue{
-				Kind: "text", Text: &value,
-			},
+			FieldKey:        entries[index],
+			NormalizedValue: ownerfacade.NewTextImportScalar(value),
 		})
 	}
 	return fields

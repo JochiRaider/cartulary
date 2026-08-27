@@ -26,8 +26,20 @@ func TestAssessmentMergeEffectsConstruction(t *testing.T) {
 			wantError: "construct assessment merge effects: projection port is required",
 		},
 		{
+			name:        "typed nil projection required",
+			projections: (*typedNilMergeProjection)(nil),
+			snapshots:   assessmentMergeSnapshotStub{},
+			wantError:   "construct assessment merge effects: projection port is required",
+		},
+		{
 			name:        "snapshot capture required",
 			projections: assessmentMergeProjectionStub{},
+			wantError:   "construct assessment merge effects: snapshot capture port is required",
+		},
+		{
+			name:        "typed nil snapshot capture required",
+			projections: assessmentMergeProjectionStub{},
+			snapshots:   (*typedNilMergeSnapshot)(nil),
 			wantError:   "construct assessment merge effects: snapshot capture port is required",
 		},
 		{
@@ -61,4 +73,11 @@ type assessmentMergeSnapshotStub struct{}
 
 func (assessmentMergeSnapshotStub) CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error) {
 	return revisions.RecordSnapshot{}, nil
+}
+
+type typedNilMergeProjection struct {
+	assessments.MergeProjectionPort
+}
+type typedNilMergeSnapshot struct {
+	assessments.MergeSnapshotCapturePort
 }

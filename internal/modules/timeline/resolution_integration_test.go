@@ -810,17 +810,16 @@ SELECT COUNT(*)
 				FieldValues: []ownerfacade.ImportFieldValue{
 					{
 						FieldKey:        "timeline.activity_synopsis_text",
-						NormalizedValue: ownerfacade.ImportScalarValue{Kind: "text", Text: &synopsis},
+						NormalizedValue: ownerfacade.NewTextImportScalar(synopsis),
 					},
 					{
 						FieldKey: timelinetest.FieldHostRefs,
-						NormalizedValue: ownerfacade.ImportScalarValue{
-							Kind: "collection_token",
-							CollectionToken: &ownerfacade.ImportCollectionToken{
+						NormalizedValue: ownerfacade.NewCollectionTokenImportScalar(
+							ownerfacade.ImportCollectionToken{
 								RawText:        " Import   Host Alias ",
 								NormalizedText: "Import Host Alias",
 							},
-						},
+						),
 					},
 				},
 			},

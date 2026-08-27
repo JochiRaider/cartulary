@@ -3,6 +3,7 @@ package workbookprojection
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -39,18 +40,31 @@ type Contribution struct {
 }
 
 func NewContribution(source SourceReader) (Contribution, error) {
-	if source == nil {
+	if isNilSource(source) {
 		return Contribution{}, fmt.Errorf("assessments projection source is required")
 	}
 	contract, err := providercontract.NewContribution(
 		"assessments",
-		[]providercontract.ProviderDescriptor{Descriptor()},
-		[]providercontract.SurfaceIntent{SurfaceIntent()},
+		[]providercontract.ProviderDescriptor{descriptor()},
+		[]providercontract.SurfaceIntent{surfaceIntent()},
 	)
 	if err != nil {
 		return Contribution{}, err
 	}
 	return Contribution{contract: contract, source: source}, nil
+}
+
+func isNilSource(source SourceReader) bool {
+	if source == nil {
+		return true
+	}
+	value := reflect.ValueOf(source)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }
 
 func (contribution Contribution) ProjectionContribution() providercontract.Contribution {
@@ -61,7 +75,7 @@ func (contribution Contribution) Source() SourceReader {
 	return contribution.source
 }
 
-func Descriptor() providercontract.ProviderDescriptor {
+func descriptor() providercontract.ProviderDescriptor {
 	return providercontract.ProviderDescriptor{
 		SchemaVersion:                providercontract.DescriptorSchemaVersion,
 		Status:                       providercontract.ProviderStatusActive,
@@ -88,7 +102,7 @@ func Descriptor() providercontract.ProviderDescriptor {
 	}
 }
 
-func SurfaceIntent() providercontract.SurfaceIntent {
+func surfaceIntent() providercontract.SurfaceIntent {
 	return providercontract.SurfaceIntent{
 		ViewSchemaID: assessmentsViewSchemaID,
 		FieldKeys: []string{

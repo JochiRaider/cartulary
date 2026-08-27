@@ -59,6 +59,11 @@ func TestPrivateCompiledPlansExactlyMatchSemanticIntentsAndViewSchemas(t *testin
 		t.Fatalf("construct Indicator projection contribution: %v", err)
 	}
 	indicatorIntents := indicatorContribution.ProjectionContribution().SurfaceIntents()
+	assessmentContribution, err := assessmentprojection.NewContribution(assessmentProjectionIntentSourceStub{})
+	if err != nil {
+		t.Fatalf("construct Assessment projection contribution: %v", err)
+	}
+	assessmentIntents := assessmentContribution.ProjectionContribution().SurfaceIntents()
 	taskDecisionContribution, err := taskdecisionprojection.NewContribution(
 		&catalogTaskRequestSource{},
 		&catalogDecisionSource{},
@@ -69,10 +74,10 @@ func TestPrivateCompiledPlansExactlyMatchSemanticIntentsAndViewSchemas(t *testin
 	taskDecisionIntents := taskDecisionContribution.ProjectionContribution().SurfaceIntents()
 	intents := []providercontract.SurfaceIntent{
 		timelineprojection.SurfaceIntent(),
-		assessmentprojection.SurfaceIntent(),
 		evidenceIntent,
 		partyIntent,
 	}
+	intents = append(intents, assessmentIntents...)
 	intents = append(intents, artifactIntents...)
 	intents = append(intents, indicatorIntents...)
 	intents = append(intents, taskDecisionIntents...)
@@ -122,6 +127,10 @@ func TestPrivateCompiledPlansExactlyMatchSemanticIntentsAndViewSchemas(t *testin
 
 type artifactProjectionIntentSourceStub struct {
 	artifactprojection.SourceReader
+}
+
+type assessmentProjectionIntentSourceStub struct {
+	assessmentprojection.SourceReader
 }
 
 type indicatorProjectionIntentSourceStub struct {

@@ -3,6 +3,7 @@ package workbookassembly
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 
@@ -87,13 +88,13 @@ func (a assessmentRevisionAdapter) AppendAssessmentCreateRevisionTx(ctx context.
 	if err != nil {
 		return uuid.UUID{}, err
 	}
-	afterVersion := create.AfterVersion
+	afterVersion := fmt.Sprintf("assessment:%s:%d", create.RecordID.String(), create.RowVersion)
 	if err := a.appender.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
-		TargetKind:     create.TargetKind,
+		TargetKind:     "assessment",
 		RecordID:       create.RecordID,
-		OperationKind:  create.OperationKind,
+		OperationKind:  "create",
 		AfterVersionID: &afterVersion,
 		AfterSnapshot:  &afterSnapshot,
 	}); err != nil {
@@ -145,19 +146,42 @@ func NewAssessmentMutationContribution(
 	appender *revisions.Appender,
 	publications collaboration.RecordChangedAppender,
 ) (*assessments.Facade, error) {
-	if appender == nil {
+	if isNilDependency(appender) {
 		return nil, errors.New("compose assessment facade: revision appender is required")
+	}
+	if isNilDependency(publications) {
+		return nil, errors.New("compose assessment facade: collaboration publication appender is required")
+	}
+	subjects, err := assessmentassembly.NewSubjectValidator(pool, entitySourceFacts)
+	if err != nil {
+		return nil, fmt.Errorf("compose assessment facade: %w", err)
+	}
+	assessors, err := assessmentassembly.NewAssessorValidator(pool)
+	if err != nil {
+		return nil, fmt.Errorf("compose assessment facade: %w", err)
+	}
+	supportTargets, err := assessmentassembly.NewSupportTargetValidator(pool)
+	if err != nil {
+		return nil, fmt.Errorf("compose assessment facade: %w", err)
+	}
+	recordEnvelopes, err := assessmentassembly.NewRecordEnvelopeCreator(pool)
+	if err != nil {
+		return nil, fmt.Errorf("compose assessment facade: %w", err)
+	}
+	projections, err := assessmentassembly.NewProjectionPort(projectionRows)
+	if err != nil {
+		return nil, fmt.Errorf("compose assessment facade: %w", err)
 	}
 	authStore := authn.NewStore(pool)
 	return assessments.NewFacade(pool, assessments.FacadeDependencies{
 		Idempotency:    assessmentIdempotencyAdapter{store: authStore},
-		Subjects:       assessmentassembly.NewSubjectValidator(pool, entitySourceFacts),
-		Assessors:      assessmentassembly.NewAssessorValidator(pool),
-		SupportTargets: assessmentassembly.NewSupportTargetValidator(pool),
-		Records:        assessmentassembly.NewRecordEnvelopeCreator(pool),
+		Subjects:       subjects,
+		Assessors:      assessors,
+		SupportTargets: supportTargets,
+		Records:        recordEnvelopes,
 		SupportLinks:   assessmentassembly.NewSupportLinkApplier(),
 		Revisions:      assessmentRevisionAdapter{appender: appender, publications: publications},
-		Projections:    assessmentassembly.NewProjectionPort(projectionRows),
+		Projections:    projections,
 	})
 }
 

@@ -762,15 +762,8 @@ func createAssessment(
 		ActorUserID: actor.ID,
 		IncidentID:  incidentID,
 		Input:       input,
-		Idempotency: assessments.CreateIdempotencyKey{
-			RouteKey:    "assessments.rows.create",
-			ActorUserID: actor.ID,
-			ScopeKey:    incidentID.String() + ":" + assessments.AssessmentsViewSchemaID,
-			ClientTxnID: input.ClientTxnID,
-			RequestHash: assessmentadmission.CreateRequestHash(input),
-		},
-		RequestID: requestID,
-		Now:       now,
+		RequestID:   requestID,
+		Now:         now,
 	})
 }
 
@@ -875,15 +868,8 @@ func expectAssessmentCreateRejected(
 		ActorUserID: actor.ID,
 		IncidentID:  incidentID,
 		Input:       input,
-		Idempotency: assessments.CreateIdempotencyKey{
-			RouteKey:    "assessments.rows.create",
-			ActorUserID: actor.ID,
-			ScopeKey:    incidentID.String() + ":" + assessments.AssessmentsViewSchemaID,
-			ClientTxnID: input.ClientTxnID,
-			RequestHash: assessmentadmission.CreateRequestHash(input),
-		},
-		RequestID: "req-" + input.ClientTxnID,
-		Now:       time.Now().UTC(),
+		RequestID:   "req-" + input.ClientTxnID,
+		Now:         time.Now().UTC(),
 	}); err == nil {
 		t.Fatalf("expected assessment create body to be rejected: %#v", body)
 	}

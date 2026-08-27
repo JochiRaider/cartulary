@@ -21,13 +21,9 @@ type ImportCreateDependencies struct {
 }
 
 type importCreateFacade struct {
-	source       assessmentSourceRepository
-	subjects     SubjectValidator
-	assessors    AssessorValidator
-	records      RecordEnvelopeCreator
 	revisions    ownerfacade.LiveRecordRevisionAppender
-	projections  AssessmentProjectionPort
 	publications collaboration.RecordChangedAppender
+	creator      assessmentCreateService
 }
 
 func NewImportCreateFacade(
@@ -39,38 +35,39 @@ func NewImportCreateFacade(
 		return nil, fmt.Errorf("assessment import surface %q not mapped", targetViewSchemaID)
 	}
 	switch {
-	case dependencies.Subjects == nil:
+	case isNilDependency(dependencies.Subjects):
 		return nil, errors.New("construct assessment import facade: subject validator is required")
-	case dependencies.Assessors == nil:
+	case isNilDependency(dependencies.Assessors):
 		return nil, errors.New("construct assessment import facade: assessor validator is required")
-	case dependencies.Records == nil:
+	case isNilDependency(dependencies.Records):
 		return nil, errors.New("construct assessment import facade: record-envelope creator is required")
-	case dependencies.Revisions == nil:
+	case isNilDependency(dependencies.Revisions):
 		return nil, errors.New("construct assessment import facade: revision appender is required")
-	case dependencies.Projections == nil:
+	case isNilDependency(dependencies.Projections):
 		return nil, errors.New("construct assessment import facade: projection port is required")
-	case dependencies.Collaboration == nil:
-		return nil, errors.New("construct assessment import facade: Collaboration publication appender is required")
+	case isNilDependency(dependencies.Collaboration):
+		return nil, errors.New("construct assessment import facade: collaboration publication appender is required")
 	}
 	owner := &importCreateFacade{
-		source:       assessmentSourceRepository{},
-		subjects:     dependencies.Subjects,
-		assessors:    dependencies.Assessors,
-		records:      dependencies.Records,
 		revisions:    dependencies.Revisions,
-		projections:  dependencies.Projections,
 		publications: dependencies.Collaboration,
+		creator: newAssessmentCreateService(
+			dependencies.Subjects,
+			dependencies.Assessors,
+			dependencies.Records,
+			dependencies.Projections,
+		),
 	}
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
 			TargetViewSchemaID: targetViewSchemaID,
 			FacadeID:           facadeID,
 		},
-		owner.CreateImportRowTx,
+		owner.createImportRowTx,
 	)
 }
 
-func (f *importCreateFacade) CreateImportRowTx(
+func (f *importCreateFacade) createImportRowTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	command ownerfacade.ImportOwnerCreateCommand,
@@ -82,97 +79,35 @@ func (f *importCreateFacade) CreateImportRowTx(
 			request.TargetViewSchemaID,
 		)
 	}
-	input, err := assessmentCreateInputFromImport(
-		request,
-		ownerfacade.ValuesByField(request.FieldValues),
-	)
+	input, err := assessmentCreateInputFromImport(request)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	if err := validateCreateInputShape(input); err != nil {
+	if err := f.creator.validateInput(input); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	valid, err := f.subjects.ValidateAssessmentSubjectTx(
-		ctx,
-		tx,
-		request.IncidentID,
-		input.SubjectType,
-		input.SubjectRef,
-	)
-	if err != nil {
-		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf(
-			"validate assessment import subject: %w",
-			err,
-		)
+	create := assessmentCreateContext{
+		IncidentID:  request.IncidentID,
+		ActorUserID: request.ActorUserID,
+		Input:       input,
+		Now:         command.Now.UTC(),
 	}
-	if !valid {
-		return ownerfacade.ImportOwnerCreateResponse{}, &CreateValidationError{
-			Field:      "assessment.subject_ref",
-			ReasonCode: "invalid_value",
-		}
+	if err := f.creator.validateSubjectTx(ctx, tx, create); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 
-	assessorID := request.ActorUserID
-	if input.Assessor != nil {
-		assessorID = *input.Assessor
-	}
-	valid, err = f.assessors.ValidateAssessmentAssessorTx(
-		ctx,
-		tx,
-		request.IncidentID,
-		assessorID,
-	)
+	assessorID, err := f.creator.resolveAssessorTx(ctx, tx, create)
 	if err != nil {
-		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf(
-			"validate assessment import assessor: %w",
-			err,
-		)
-	}
-	if !valid {
-		return ownerfacade.ImportOwnerCreateResponse{}, &CreateValidationError{
-			Field:      "assessment.assessor",
-			ReasonCode: "invalid_value",
-		}
-	}
-
-	now := command.Now.UTC()
-	assessedAt := now
-	if input.AssessedAt != nil {
-		assessedAt = input.AssessedAt.UTC()
-	}
-	recordID, err := f.records.CreateAssessmentEnvelopeTx(ctx, tx, RecordEnvelopeCreate{
-		IncidentID: request.IncidentID,
-		RecordType: "assessment",
-		ActorID:    request.ActorUserID,
-		Now:        now,
-		RowVersion: 1,
-	})
-	if err != nil {
-		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf(
-			"create imported assessment envelope: %w",
-			err,
-		)
-	}
-	if err := f.source.InsertTx(ctx, tx, assessmentSourceCreate{
-		RecordID:        recordID,
-		IncidentID:      request.IncidentID,
-		SubjectRef:      input.SubjectRef,
-		SubjectType:     input.SubjectType,
-		AssessmentState: input.AssessmentState,
-		ConfidenceScore: input.ConfidenceScore,
-		Rationale:       input.Rationale,
-		Assessor:        assessorID,
-		AssessedAt:      assessedAt,
-		Now:             now,
-	}); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	row, err := f.projections.RefreshAndLoadAssessmentRowTx(ctx, tx, recordID)
+
+	recordID, err := f.creator.insertTx(ctx, tx, create, assessorID)
 	if err != nil {
-		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf(
-			"refresh imported assessment projection: %w",
-			err,
-		)
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	row, err := f.creator.refreshProjectionTx(ctx, tx, recordID)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	response, err := ownerfacade.FinalizeLiveRecordTx(ctx, tx, f.revisions, f.publications, ownerfacade.FinalizeCommand{
 		Request:         request,
@@ -193,30 +128,99 @@ func (f *importCreateFacade) CreateImportRowTx(
 
 func assessmentCreateInputFromImport(
 	request ownerfacade.ImportOwnerCreateRequest,
-	values map[string]ownerfacade.ImportScalarValue,
 ) (CreateInput, error) {
+	if _, err := ownerfacade.IndexImportFieldValues(request.FieldValues); err != nil {
+		return CreateInput{}, err
+	}
 	result := CreateInput{ClientTxnID: request.ClientTxnID}
-	if value, ok := values["assessment.subject_ref"]; ok && value.UUID != nil {
-		result.SubjectRef = *value.UUID
-	}
-	if value, ok := values["assessment.subject_type"]; ok && value.Text != nil {
-		result.SubjectType = *value.Text
-	}
-	if value, ok := values["assessment.assessment_state"]; ok && value.Text != nil {
-		result.AssessmentState = *value.Text
-	}
-	if value, ok := values["assessment.confidence_score"]; ok && value.Number != nil {
-		score := int(*value.Number)
-		result.ConfidenceScore = &score
-	}
-	if value, ok := values["assessment.rationale"]; ok && value.Text != nil {
-		result.Rationale = *value.Text
-	}
-	if value, ok := values["assessment.assessor"]; ok && value.UUID != nil {
-		result.Assessor = value.UUID
-	}
-	if value, ok := values["assessment.assessed_at"]; ok && value.Timestamp != nil {
-		result.AssessedAt = value.Timestamp
+	for _, field := range request.FieldValues {
+		value := field.NormalizedValue
+		expected, ok := assessmentImportFieldKinds[field.FieldKey]
+		if !ok {
+			if field.FieldKey == "assessment.support_refs" {
+				return CreateInput{}, ownerfacade.NewImportOwnerCreateValidationError(
+					"collection_owner_support_required",
+					field.FieldKey,
+					"collection_review",
+					nil,
+				)
+			}
+			return CreateInput{}, ownerfacade.NewImportOwnerCreateValidationError(
+				"field_not_import_writable",
+				field.FieldKey,
+				"create_writable",
+				nil,
+			)
+		}
+		if value.Kind() == ownerfacade.ImportScalarNull {
+			return CreateInput{}, ownerfacade.NewImportOwnerCreateValidationError(
+				"field_not_nullable",
+				field.FieldKey,
+				"clearable",
+				nil,
+			)
+		}
+		if value.Kind() != expected.kind {
+			return CreateInput{}, ownerfacade.NewImportOwnerCreateValidationError(
+				expected.reasonCode,
+				field.FieldKey,
+				expected.guard,
+				nil,
+			)
+		}
+		switch field.FieldKey {
+		case "assessment.subject_ref":
+			result.SubjectRef, _ = value.UUID()
+		case "assessment.subject_type":
+			result.SubjectType, _ = value.Text()
+		case "assessment.assessment_state":
+			result.AssessmentState, _ = value.Text()
+		case "assessment.confidence_score":
+			if number, present := value.Number(); present {
+				score := int(number)
+				result.ConfidenceScore = &score
+			}
+		case "assessment.rationale":
+			result.Rationale, _ = value.Text()
+		case "assessment.assessor":
+			if id, present := value.UUID(); present {
+				result.Assessor = &id
+			}
+		case "assessment.assessed_at":
+			if timestamp, present := value.Timestamp(); present {
+				result.AssessedAt = &timestamp
+			}
+		}
 	}
 	return result, nil
+}
+
+type assessmentImportFieldKind struct {
+	kind       ownerfacade.ImportScalarKind
+	reasonCode string
+	guard      string
+}
+
+var assessmentImportFieldKinds = map[string]assessmentImportFieldKind{
+	"assessment.subject_ref": {
+		kind: ownerfacade.ImportScalarUUID, reasonCode: "invalid_uuid", guard: "uuid",
+	},
+	"assessment.subject_type": {
+		kind: ownerfacade.ImportScalarText, reasonCode: "invalid_text", guard: "line_v1",
+	},
+	"assessment.assessment_state": {
+		kind: ownerfacade.ImportScalarText, reasonCode: "invalid_text", guard: "line_v1",
+	},
+	"assessment.confidence_score": {
+		kind: ownerfacade.ImportScalarNumber, reasonCode: "invalid_integer", guard: "number",
+	},
+	"assessment.rationale": {
+		kind: ownerfacade.ImportScalarText, reasonCode: "invalid_text", guard: "multiline_body_v1",
+	},
+	"assessment.assessor": {
+		kind: ownerfacade.ImportScalarUUID, reasonCode: "invalid_uuid", guard: "uuid",
+	},
+	"assessment.assessed_at": {
+		kind: ownerfacade.ImportScalarTimestamp, reasonCode: "invalid_timestamp", guard: "timestamp_instant_v1",
+	},
 }

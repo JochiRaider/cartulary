@@ -24,7 +24,7 @@ type assessmentSourceCreate struct {
 	Now             time.Time
 }
 
-func (assessmentSourceRepository) InsertTx(ctx context.Context, tx pgx.Tx, create assessmentSourceCreate) error {
+func (assessmentSourceRepository) insertTx(ctx context.Context, tx pgx.Tx, create assessmentSourceCreate) error {
 	_, err := tx.Exec(ctx, `
 INSERT INTO assessments (
     record_id,

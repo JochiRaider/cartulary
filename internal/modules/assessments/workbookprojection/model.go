@@ -113,7 +113,6 @@ type ProjectionInputPage struct {
 }
 
 type Envelope struct {
-	RecordID   uuid.UUID
 	IncidentID uuid.UUID
 	RecordType string
 	RowVersion int64

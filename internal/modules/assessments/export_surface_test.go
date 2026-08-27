@@ -28,6 +28,12 @@ func TestAssessmentExportSurface(t *testing.T) {
 			expected:    assessmentRootExportSurface,
 		},
 		{
+			name:        "admission",
+			directory:   "admission",
+			packageName: "admission",
+			expected:    assessmentAdmissionExportSurface,
+		},
+		{
 			name:        "workbook projection",
 			directory:   "workbookprojection",
 			packageName: "workbookprojection",
@@ -63,6 +69,29 @@ func InjectedConvenienceExport() {}
 	if differences := exportSurfaceDifferences(actual, []string{"package:assessments"}); len(differences) != 1 || differences[0] != "missing func:InjectedConvenienceExport" {
 		t.Fatalf("synthetic missing-export differences = %v", differences)
 	}
+}
+
+func TestAssessmentExportSurfaceClassifiesReceiverVisibility(t *testing.T) {
+	t.Parallel()
+
+	file, err := parser.ParseFile(token.NewFileSet(), "receivers.go", `package assessments
+
+type ExportedReceiver struct{}
+func (ExportedReceiver) ExportedMethod() {}
+
+type privateReceiver struct{}
+func (privateReceiver) ExportedSpelling() {}
+`, 0)
+	if err != nil {
+		t.Fatalf("parse synthetic receiver fixture: %v", err)
+	}
+	actual := exportedSurface("assessments", []*ast.File{file})
+	want := []string{
+		"method:ExportedReceiver.ExportedMethod",
+		"package:assessments",
+		"type:ExportedReceiver",
+	}
+	assertExactExportSurface(t, want, actual)
 }
 
 func exportedSurfaceFromDirectory(directory string, packageName string) ([]string, error) {
@@ -103,7 +132,10 @@ func exportedSurface(packageName string, files []*ast.File) []string {
 					entries["func:"+typed.Name.Name] = struct{}{}
 					continue
 				}
-				entries["method:"+receiverTypeName(typed.Recv.List[0].Type)+"."+typed.Name.Name] = struct{}{}
+				receiverName := receiverTypeName(typed.Recv.List[0].Type)
+				if ast.IsExported(receiverName) {
+					entries["method:"+receiverName+"."+typed.Name.Name] = struct{}{}
+				}
 			}
 		}
 	}
@@ -209,7 +241,6 @@ const:AssessmentsViewSchemaID
 const:CreateOutcomeCommitted
 const:CreateOutcomeReplayed
 field:CreateCommand.ActorUserID
-field:CreateCommand.Idempotency
 field:CreateCommand.IncidentID
 field:CreateCommand.Input
 field:CreateCommand.Now
@@ -236,17 +267,14 @@ field:CreateResult.Outcome
 field:CreateResult.RecordID
 field:CreateResult.RowVersion
 field:CreateRevision.ActorUserID
-field:CreateRevision.AfterVersion
 field:CreateRevision.CanonicalRow
 field:CreateRevision.ClientTxnID
 field:CreateRevision.CreatedAt
 field:CreateRevision.IncidentID
-field:CreateRevision.OperationKind
 field:CreateRevision.RecordID
 field:CreateRevision.RequestID
 field:CreateRevision.RouteKey
 field:CreateRevision.RowVersion
-field:CreateRevision.TargetKind
 field:CreateRevision.LinkMutations
 field:CreateValidationError.Field
 field:CreateValidationError.ReasonCode
@@ -277,8 +305,6 @@ field:ProjectionContributionDependencies.Support
 field:RecordEnvelopeCreate.ActorID
 field:RecordEnvelopeCreate.IncidentID
 field:RecordEnvelopeCreate.Now
-field:RecordEnvelopeCreate.RecordType
-field:RecordEnvelopeCreate.RowVersion
 field:SupportLinkMutation.AfterValue
 field:SupportLinkMutation.BeforeValue
 field:SupportLinkMutation.Operation
@@ -307,8 +333,6 @@ method:Facade.Create
 method:MergeEffects.LoadProtectedRecordIDsTx
 method:MergeEffects.RepointTx
 method:MergeProtectedSetChangedError.Error
-method:assessmentSourceRepository.InsertTx
-method:importCreateFacade.CreateImportRowTx
 package:assessments
 type:AssessmentProjectionPort
 type:AssessorValidator
@@ -340,12 +364,16 @@ type:SupportLinkMutation
 var:ErrClientTxnConflict
 `)
 
+var assessmentAdmissionExportSurface = strings.Fields(`
+func:DecodeCreateRequest
+package:admission
+`)
+
 var assessmentWorkbookProjectionExportSurface = strings.Fields(`
 const:ProjectionMutationDelete
 const:ProjectionMutationUpsert
 field:Envelope.DeletedAt
 field:Envelope.IncidentID
-field:Envelope.RecordID
 field:Envelope.RecordType
 field:Envelope.RowVersion
 field:Ports.Rebuilder
@@ -368,9 +396,7 @@ field:ProjectionMutation.Input
 field:ProjectionMutation.Kind
 field:ProjectionMutation.RecordID
 field:SupportFacts.ActiveTargetCount
-func:Descriptor
 func:NewContribution
-func:SurfaceIntent
 interface:EnvelopeReader.LoadAssessmentProjectionEnvelopeTx
 interface:Rebuilder.RebuildAssessments
 interface:Rows.ApplyAssessmentMutationTx

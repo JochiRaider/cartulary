@@ -15,12 +15,12 @@ type ProjectionContributionDependencies struct {
 func NewProjectionContribution(
 	dependencies ProjectionContributionDependencies,
 ) (workbookprojection.Contribution, error) {
-	if dependencies.Envelopes == nil {
+	if isNilDependency(dependencies.Envelopes) {
 		return workbookprojection.Contribution{}, errors.New(
 			"construct assessment projection contribution: envelope reader is required",
 		)
 	}
-	if dependencies.Support == nil {
+	if isNilDependency(dependencies.Support) {
 		return workbookprojection.Contribution{}, errors.New(
 			"construct assessment projection contribution: support fact reader is required",
 		)

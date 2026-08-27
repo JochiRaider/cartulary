@@ -1,5 +1,7 @@
 package policy
 
+const MaxInitialSupportReferences = 64
+
 func ValidSubjectType(value string) bool {
 	return value == "host" || value == "identity"
 }

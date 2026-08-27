@@ -19,7 +19,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
-	assessmentadmission "github.com/JochiRaider/cartulary/internal/modules/assessments/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
@@ -222,15 +221,8 @@ func TestAssessmentsQueryThroughWorkbookProjections_Integration(t *testing.T) {
 		ActorUserID: actor.ID,
 		IncidentID:  incident.ID,
 		Input:       input,
-		Idempotency: assessments.CreateIdempotencyKey{
-			RouteKey:    "assessments.rows.create",
-			ActorUserID: actor.ID,
-			ScopeKey:    incident.ID.String() + ":" + assessments.AssessmentsViewSchemaID,
-			ClientTxnID: input.ClientTxnID,
-			RequestHash: assessmentadmission.CreateRequestHash(input),
-		},
-		RequestID: "req-workbook_interaction-i-9-02-assessment",
-		Now:       time.Date(2026, 5, 17, 16, 10, 0, 0, time.UTC),
+		RequestID:   "req-workbook_interaction-i-9-02-assessment",
+		Now:         time.Date(2026, 5, 17, 16, 10, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatalf("create projection assessment: %v", err)

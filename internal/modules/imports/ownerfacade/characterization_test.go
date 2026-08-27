@@ -14,7 +14,7 @@ func TestNormalizeImportScalarUsesCanonicalEmptyValuePolicy(t *testing.T) {
 		"",
 		"write_null",
 	)
-	if err != nil || !include || value.Kind != "null" {
+	if err != nil || !include || value.Kind() != ImportScalarNull || !value.IsValid() {
 		t.Fatalf("write_null = value %#v include=%v err=%v", value, include, err)
 	}
 
@@ -24,7 +24,7 @@ func TestNormalizeImportScalarUsesCanonicalEmptyValuePolicy(t *testing.T) {
 		"",
 		"omit_field",
 	)
-	if err != nil || include || value.Kind != "" {
+	if err != nil || include || value.IsValid() {
 		t.Fatalf("omit_field = value %#v include=%v err=%v", value, include, err)
 	}
 

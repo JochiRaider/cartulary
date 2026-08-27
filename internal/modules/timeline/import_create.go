@@ -51,7 +51,7 @@ func normalizeImportField(
 					fieldKey,
 				)
 			}
-			return ownerfacade.ImportScalarValue{Kind: "null"}, true, nil
+			return ownerfacade.NewNullImportScalar(), true, nil
 		default:
 			return ownerfacade.ImportScalarValue{}, false, fmt.Errorf(
 				"unsupported Timeline empty value policy %q",
@@ -66,11 +66,7 @@ func normalizeImportField(
 				fieldKey,
 			)
 		}
-		value := raw
-		return ownerfacade.ImportScalarValue{
-			Kind: "text",
-			Text: &value,
-		}, true, nil
+		return ownerfacade.NewTextImportScalar(raw), true, nil
 	}
 	switch fieldKey {
 	case "timeline.host_refs", "timeline.identity_refs":
@@ -103,13 +99,12 @@ func importCollectionToken(
 	raw string,
 	normalized string,
 ) ownerfacade.ImportScalarValue {
-	return ownerfacade.ImportScalarValue{
-		Kind: "collection_token",
-		CollectionToken: &ownerfacade.ImportCollectionToken{
+	return ownerfacade.NewCollectionTokenImportScalar(
+		ownerfacade.ImportCollectionToken{
 			RawText:        raw,
 			NormalizedText: normalized,
 		},
-	}
+	)
 }
 
 func (f *Facade) CreateImportRowTx(
@@ -194,7 +189,8 @@ func appendTimelineImportToken(
 	value ownerfacade.ImportScalarValue,
 	operation string,
 ) error {
-	if value.Kind != "collection_token" || value.CollectionToken == nil {
+	token, ok := value.CollectionToken()
+	if !ok {
 		return fmt.Errorf("invalid imported Timeline collection value")
 	}
 	if *payload == nil {
@@ -202,8 +198,8 @@ func appendTimelineImportToken(
 	}
 	(*payload).Actions = append((*payload).Actions, CollectionAction{
 		Op:             operation,
-		RawText:        value.CollectionToken.RawText,
-		NormalizedText: value.CollectionToken.NormalizedText,
+		RawText:        token.RawText,
+		NormalizedText: token.NormalizedText,
 	})
 	return nil
 }
@@ -214,13 +210,14 @@ func setTimelineImportScalar(
 	value ownerfacade.ImportScalarValue,
 ) error {
 	var text *string
-	switch value.Kind {
-	case "null":
-	case "text":
-		if value.Text == nil {
+	switch value.Kind() {
+	case ownerfacade.ImportScalarNull:
+	case ownerfacade.ImportScalarText:
+		scalar, ok := value.Text()
+		if !ok {
 			return fmt.Errorf("invalid imported Timeline field %s", fieldKey)
 		}
-		text = value.Text
+		text = &scalar
 	default:
 		return fmt.Errorf("invalid imported Timeline field %s", fieldKey)
 	}

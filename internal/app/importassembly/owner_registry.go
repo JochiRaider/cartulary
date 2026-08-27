@@ -41,55 +41,55 @@ type OwnerRegistryDependencies struct {
 func NewOwnerCreateRegistry(
 	dependencies OwnerRegistryDependencies,
 ) (*ownerfacade.ImportOwnerCreateRegistry, error) {
-	if dependencies.Postgres == nil {
+	if isNilDependency(dependencies.Postgres) {
 		return nil, fmt.Errorf("compose import owner-create registry: Postgres is required")
 	}
-	if dependencies.RevisionAppender == nil {
+	if isNilDependency(dependencies.RevisionAppender) {
 		return nil, fmt.Errorf(
 			"compose import owner-create registry: Revisions appender is required",
 		)
 	}
-	if dependencies.Collaboration == nil {
+	if isNilDependency(dependencies.Collaboration) {
 		return nil, fmt.Errorf(
 			"compose import owner-create registry: Collaboration intents are required",
 		)
 	}
-	if dependencies.Timeline == nil {
+	if isNilDependency(dependencies.Timeline) {
 		return nil, fmt.Errorf(
 			"compose import owner-create registry: Timeline owner is required",
 		)
 	}
-	if dependencies.EntityProjections == nil {
+	if isNilDependency(dependencies.EntityProjections) {
 		return nil, fmt.Errorf(
 			"compose import owner-create registry: Entities projection writer is required",
 		)
 	}
-	if dependencies.AssessmentProjections == nil {
+	if isNilDependency(dependencies.AssessmentProjections) {
 		return nil, fmt.Errorf(
 			"compose import owner-create registry: Assessments projection rows are required",
 		)
 	}
-	if dependencies.ArtifactProjections == nil {
+	if isNilDependency(dependencies.ArtifactProjections) {
 		return nil, fmt.Errorf(
 			"compose import owner-create registry: Artifacts projection rows are required",
 		)
 	}
-	if dependencies.Evidence == nil {
+	if isNilDependency(dependencies.Evidence) {
 		return nil, fmt.Errorf(
 			"compose import owner-create registry: Evidence owner facade is required",
 		)
 	}
-	if dependencies.PartyProjections == nil {
+	if isNilDependency(dependencies.PartyProjections) {
 		return nil, fmt.Errorf(
 			"compose import owner-create registry: Parties projection rows are required",
 		)
 	}
-	if dependencies.TaskDecisionProjections == nil {
+	if isNilDependency(dependencies.TaskDecisionProjections) {
 		return nil, fmt.Errorf(
 			"compose import owner-create registry: Tasks/Decisions projection rows are required",
 		)
 	}
-	if dependencies.Indicators == nil {
+	if isNilDependency(dependencies.Indicators) {
 		return nil, fmt.Errorf(
 			"compose import owner-create registry: Indicators owner is required",
 		)

@@ -879,7 +879,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	projectionRuntime, err := projectionassembly.Build(postgresHandle)
 	if err != nil {
 		runtime.Close()
-		return nil, fmt.Errorf("compose Projections runtime: %w", err)
+		return nil, fmt.Errorf("compose projections runtime: %w", err)
 	}
 	cleanupObserver, err := newEvidenceCleanupTelemetryObserver(normalizedCfg.Telemetry.Resource.ServiceVersion)
 	if err != nil {
@@ -921,7 +921,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	})
 	if err != nil {
 		runtime.Close()
-		return nil, fmt.Errorf("compose Timeline bundle: %w", err)
+		return nil, fmt.Errorf("compose timeline bundle: %w", err)
 	}
 	indicatorRecords := records.NewStore(postgresHandle)
 	indicatorAuth := authn.NewStore(postgresHandle)
@@ -1104,7 +1104,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	)
 	if err != nil {
 		runtime.Close()
-		return nil, fmt.Errorf("compose Imports owner registry: %w", err)
+		return nil, fmt.Errorf("compose imports owner registry: %w", err)
 	}
 	importRoutes := imports.RegisterRoutes(
 		imports.WithJobs(jobTransactions, jobManager, runtime.jobRunner),
@@ -1205,7 +1205,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	)
 	if err != nil {
 		runtime.Close()
-		return nil, fmt.Errorf("compose Workbook Tasks/Decisions mutation contribution: %w", err)
+		return nil, fmt.Errorf("compose workbook tasks/decisions mutation contribution: %w", err)
 	}
 	artifactMutation, err := workbookassembly.NewArtifactMutationContribution(
 		postgresHandle,
@@ -1217,7 +1217,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	)
 	if err != nil {
 		runtime.Close()
-		return nil, fmt.Errorf("compose Workbook Artifacts mutation contribution: %w", err)
+		return nil, fmt.Errorf("compose workbook artifacts mutation contribution: %w", err)
 	}
 	workbookContributionCatalog, err := workbookassembly.NewContributionCatalog(
 		workbookassembly.ContributionDependencies{
@@ -1240,7 +1240,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	)
 	if err != nil {
 		runtime.Close()
-		return nil, fmt.Errorf("compose Workbook contribution catalog: %w", err)
+		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
 	}
 	builtInRoutes, err := newApplicationRouteCatalog(publicationCatalog).Bind([]routeContribution{
 		{id: "auth", registrar: auth.RegisterRoutes(authRouteOptions...)},

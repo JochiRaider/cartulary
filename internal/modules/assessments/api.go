@@ -1,9 +1,6 @@
 package assessments
 
-const (
-	AssessmentsViewSchemaID = "cartulary.view.assessments.v1"
-	maxSupportActions       = 64
-)
+const AssessmentsViewSchemaID = "cartulary.view.assessments.v1"
 
 type CreateValidationError struct {
 	Field      string

@@ -3,6 +3,8 @@ package importassembly_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -74,6 +76,99 @@ func TestAssessmentImportCreateFacadeContract_Integration(t *testing.T) {
 		})
 	})
 
+	t.Run("imported_score_boundaries_use_owner_bands", func(t *testing.T) {
+		for _, boundary := range []struct {
+			score int64
+			band  string
+		}{
+			{score: 0, band: "low"},
+			{score: 39, band: "low"},
+			{score: 40, band: "medium"},
+			{score: 69, band: "medium"},
+			{score: 70, band: "high"},
+			{score: 100, band: "high"},
+		} {
+			boundary := boundary
+			t.Run(boundary.band+"-"+fmt.Sprint(boundary.score), func(t *testing.T) {
+				result := runAssessmentImportCreate(t, harness, assessmentImportCase{
+					subjectID: hostID, subjectType: "host", state: "confirmed",
+					rationale: "Imported confidence boundary.", score: &boundary.score, commit: true,
+				})
+				if result.err != nil {
+					t.Fatalf("create imported boundary %d: %v", boundary.score, result.err)
+				}
+				if got := assessmentImportCellValue(t, result.response.RowRefresh, "assessment.confidence_band"); got != boundary.band {
+					t.Fatalf("imported boundary %d band = %#v, want %s", boundary.score, got, boundary.band)
+				}
+			})
+		}
+	})
+
+	t.Run("interactive_and_import_creation_share_owner_invariants", func(t *testing.T) {
+		now := time.Date(2026, time.August, 2, 14, 30, 0, 0, time.UTC)
+		assessedAt := time.Date(2026, time.August, 2, 13, 15, 0, 0, time.UTC)
+		interactiveScore := 40
+		importScore := int64(interactiveScore)
+		owner := appsupport.NewAssessmentOwner(harness.db)
+		interactive, err := owner.Create(context.Background(), assessments.CreateCommand{
+			ActorUserID: harness.actor.ID,
+			IncidentID:  harness.incidentID,
+			Input: assessments.CreateInput{
+				ClientTxnID:     "txn-assessment-cross-path-interactive",
+				SubjectRef:      hostID,
+				SubjectType:     "host",
+				AssessmentState: "suspected",
+				ConfidenceScore: &interactiveScore,
+				Rationale:       "Cross-path invariant parity.",
+				Assessor:        &harness.actor.ID,
+				AssessedAt:      &assessedAt,
+			},
+			RequestID: "req-assessment-cross-path-interactive",
+			Now:       now,
+		})
+		if err != nil {
+			t.Fatalf("create interactive assessment for parity: %v", err)
+		}
+		imported := runAssessmentImportCreate(t, harness, assessmentImportCase{
+			subjectID: hostID, subjectType: "host", state: "suspected",
+			rationale: "Cross-path invariant parity.", score: &importScore,
+			assessor: &harness.actor.ID, assessedAt: &assessedAt, now: now, commit: true,
+		})
+		if imported.err != nil {
+			t.Fatalf("create imported assessment for parity: %v", imported.err)
+		}
+		for _, fieldKey := range []string{
+			"assessment.subject_ref",
+			"assessment.subject_type",
+			"assessment.assessment_state",
+			"assessment.confidence_score",
+			"assessment.confidence_band",
+			"assessment.rationale",
+			"assessment.assessor",
+			"assessment.assessed_at",
+		} {
+			interactiveValue := assessmentImportCellValue(t, interactive.CanonicalRow, fieldKey)
+			importedValue := assessmentImportCellValue(t, imported.response.RowRefresh, fieldKey)
+			if !reflect.DeepEqual(interactiveValue, importedValue) {
+				t.Fatalf("%s parity: interactive=%#v imported=%#v", fieldKey, interactiveValue, importedValue)
+			}
+		}
+		for _, recordID := range []uuid.UUID{interactive.RecordID, imported.response.RecordID} {
+			var recordType string
+			var rowVersion int64
+			if err := harness.db.QueryRow(
+				context.Background(),
+				`SELECT record_type, row_version FROM records WHERE record_id = $1`,
+				recordID,
+			).Scan(&recordType, &rowVersion); err != nil {
+				t.Fatalf("query parity envelope %s: %v", recordID, err)
+			}
+			if recordType != "assessment" || rowVersion != 1 {
+				t.Fatalf("parity envelope %s = %s/%d", recordID, recordType, rowVersion)
+			}
+		}
+	})
+
 	t.Run("invalid_shape_and_subjects_have_no_effects", func(t *testing.T) {
 		foreignIncident := appsupport.CreateIncidentInStore(
 			t, harness.db, harness.actor, "txn-assessment-import-foreign-"+uuid.NewString(),
@@ -105,6 +200,74 @@ func TestAssessmentImportCreateFacadeContract_Integration(t *testing.T) {
 		after := assessmentImportEffectCounts(t, harness, harness.incidentID)
 		if after != before {
 			t.Fatalf("rejected imports changed effects: before=%+v after=%+v", before, after)
+		}
+	})
+
+	t.Run("invalid_import_field_kinds_fail_safely_before_effects", func(t *testing.T) {
+		collection := ownerfacade.NewCollectionTokenImportScalar(ownerfacade.ImportCollectionToken{
+			RawText:        uuid.NewString(),
+			NormalizedText: uuid.NewString(),
+		})
+		cases := []struct {
+			name       string
+			field      ownerfacade.ImportFieldValue
+			wantReason string
+		}{
+			{
+				name: "unknown field",
+				field: ownerfacade.ImportFieldValue{
+					FieldKey: "assessment.future", NormalizedValue: ownerfacade.NewTextImportScalar("future"),
+				},
+				wantReason: "field_not_import_writable",
+			},
+			{
+				name: "null rationale",
+				field: ownerfacade.ImportFieldValue{
+					FieldKey: "assessment.rationale", NormalizedValue: ownerfacade.NewNullImportScalar(),
+				},
+				wantReason: "field_not_nullable",
+			},
+			{
+				name: "text score",
+				field: ownerfacade.ImportFieldValue{
+					FieldKey: "assessment.confidence_score", NormalizedValue: ownerfacade.NewTextImportScalar("70"),
+				},
+				wantReason: "invalid_integer",
+			},
+			{
+				name: "collection in scalar field",
+				field: ownerfacade.ImportFieldValue{
+					FieldKey: "assessment.rationale", NormalizedValue: collection,
+				},
+				wantReason: "invalid_text",
+			},
+			{
+				name: "support collection",
+				field: ownerfacade.ImportFieldValue{
+					FieldKey: "assessment.support_refs", NormalizedValue: collection,
+				},
+				wantReason: "collection_owner_support_required",
+			},
+		}
+		for _, test := range cases {
+			t.Run(test.name, func(t *testing.T) {
+				before := assessmentImportEffectCounts(t, harness, harness.incidentID)
+				result := runAssessmentImportCreate(t, harness, assessmentImportCase{
+					fields: []ownerfacade.ImportFieldValue{test.field},
+				})
+				detail, ok := ownerfacade.ImportOwnerCreateErrorDetail(result.err)
+				if !ok {
+					t.Fatalf("unsafe field error = %T %v", result.err, result.err)
+				}
+				safe := detail["safe_details"].(map[string]any)
+				if safe["reason_code"] != test.wantReason || safe["field"] != test.field.FieldKey {
+					t.Fatalf("unsafe field detail = %#v", detail)
+				}
+				after := assessmentImportEffectCounts(t, harness, harness.incidentID)
+				if after != before {
+					t.Fatalf("unsafe field changed effects: before=%+v after=%+v", before, after)
+				}
+			})
 		}
 	})
 
@@ -156,6 +319,7 @@ type assessmentImportCase struct {
 	assessedAt  *time.Time
 	now         time.Time
 	commit      bool
+	fields      []ownerfacade.ImportFieldValue
 }
 
 type assessmentImportResult struct {
@@ -188,6 +352,10 @@ func runAssessmentImportCreate(
 		t.Fatalf("append assessment import change set: %v", err)
 	}
 	importUnitID := uuid.New()
+	fieldValues := tc.fields
+	if fieldValues == nil {
+		fieldValues = assessmentImportFields(tc)
+	}
 	response, createErr := assessmentImportFacade(t, harness).CreateImportRowTx(
 		ctx,
 		tx,
@@ -199,7 +367,7 @@ func runAssessmentImportCreate(
 				MappingFingerprint: "assessment-import-mapping", SourceFileKind: "csv",
 				ParserProfileID: "synthetic", ParserVersion: "1", LocatorKind: "row",
 				Locator: "1", ClientTxnID: "txn-" + uuid.NewString(),
-				FieldValues: assessmentImportFields(tc),
+				FieldValues: fieldValues,
 			},
 			ChangeSetID: changeSetID, SequenceNo: 1, Now: now,
 		},
@@ -236,27 +404,27 @@ func assessmentImportCellValue(t testing.TB, row map[string]any, fieldKey string
 
 func assessmentImportFields(tc assessmentImportCase) []ownerfacade.ImportFieldValue {
 	text := func(key string, value string) ownerfacade.ImportFieldValue {
-		return ownerfacade.ImportFieldValue{FieldKey: key, NormalizedValue: ownerfacade.ImportScalarValue{Kind: "text", Text: &value}}
+		return ownerfacade.ImportFieldValue{FieldKey: key, NormalizedValue: ownerfacade.NewTextImportScalar(value)}
 	}
 	fields := []ownerfacade.ImportFieldValue{
-		{FieldKey: "assessment.subject_ref", NormalizedValue: ownerfacade.ImportScalarValue{Kind: "uuid", UUID: &tc.subjectID}},
+		{FieldKey: "assessment.subject_ref", NormalizedValue: ownerfacade.NewUUIDImportScalar(tc.subjectID)},
 		text("assessment.subject_type", tc.subjectType),
 		text("assessment.assessment_state", tc.state),
 		text("assessment.rationale", tc.rationale),
 	}
 	if tc.score != nil {
 		fields = append(fields, ownerfacade.ImportFieldValue{
-			FieldKey: "assessment.confidence_score", NormalizedValue: ownerfacade.ImportScalarValue{Kind: "number", Number: tc.score},
+			FieldKey: "assessment.confidence_score", NormalizedValue: ownerfacade.NewNumberImportScalar(*tc.score),
 		})
 	}
 	if tc.assessor != nil {
 		fields = append(fields, ownerfacade.ImportFieldValue{
-			FieldKey: "assessment.assessor", NormalizedValue: ownerfacade.ImportScalarValue{Kind: "uuid", UUID: tc.assessor},
+			FieldKey: "assessment.assessor", NormalizedValue: ownerfacade.NewUUIDImportScalar(*tc.assessor),
 		})
 	}
 	if tc.assessedAt != nil {
 		fields = append(fields, ownerfacade.ImportFieldValue{
-			FieldKey: "assessment.assessed_at", NormalizedValue: ownerfacade.ImportScalarValue{Kind: "timestamp", Timestamp: tc.assessedAt},
+			FieldKey: "assessment.assessed_at", NormalizedValue: ownerfacade.NewTimestampImportScalar(*tc.assessedAt),
 		})
 	}
 	return fields

@@ -21,8 +21,9 @@ func TestTimelineImportNormalizerPreservesOwnerSemantics(t *testing.T) {
 			raw,
 			"omit_field",
 		)
-		if err != nil || !include || value.Kind != "text" ||
-			value.Text == nil || *value.Text != raw {
+		text, textOK := value.Text()
+		if err != nil || !include || value.Kind() != ownerfacade.ImportScalarText ||
+			!textOK || text != raw {
 			t.Fatalf(
 				"unexpected Timeline visible-text normalization: value=%#v include=%t err=%v",
 				value,
@@ -41,7 +42,8 @@ func TestTimelineImportNormalizerPreservesOwnerSemantics(t *testing.T) {
 				raw,
 				"omit_field",
 			)
-			if err != nil || !include || value.Text == nil || *value.Text != raw {
+			text, textOK := value.Text()
+			if err != nil || !include || !textOK || text != raw {
 				t.Fatalf("%d-rune Timeline text mismatch: value=%#v include=%t err=%v", runeCount, value, include, err)
 			}
 		}
@@ -61,9 +63,10 @@ func TestTimelineImportNormalizerPreservesOwnerSemantics(t *testing.T) {
 			"  Host   One  ",
 			"omit_field",
 		)
-		if err != nil || !include || mention.CollectionToken == nil ||
-			mention.CollectionToken.RawText != "  Host   One  " ||
-			mention.CollectionToken.NormalizedText != "Host One" {
+		mentionToken, mentionOK := mention.CollectionToken()
+		if err != nil || !include || !mentionOK ||
+			mentionToken.RawText != "  Host   One  " ||
+			mentionToken.NormalizedText != "Host One" {
 			t.Fatalf(
 				"unexpected Timeline mention normalization: value=%#v include=%t err=%v",
 				mention,
@@ -76,9 +79,10 @@ func TestTimelineImportNormalizerPreservesOwnerSemantics(t *testing.T) {
 			" Urgent ",
 			"omit_field",
 		)
-		if err != nil || !include || tag.CollectionToken == nil ||
-			tag.CollectionToken.RawText != "Urgent" ||
-			tag.CollectionToken.NormalizedText != "urgent" {
+		tagToken, tagOK := tag.CollectionToken()
+		if err != nil || !include || !tagOK ||
+			tagToken.RawText != "Urgent" ||
+			tagToken.NormalizedText != "urgent" {
 			t.Fatalf(
 				"unexpected Timeline tag normalization: value=%#v include=%t err=%v",
 				tag,
@@ -102,7 +106,7 @@ func TestTimelineImportNormalizerPreservesOwnerSemantics(t *testing.T) {
 			"",
 			"write_null",
 		)
-		if err != nil || !include || value.Kind != "null" {
+		if err != nil || !include || value.Kind() != ownerfacade.ImportScalarNull {
 			t.Fatalf(
 				"Timeline write_null = value %#v, include %t, error %v",
 				value,
@@ -161,11 +165,8 @@ func TestTimelineImportRequestRetainsDurableProvenance(t *testing.T) {
 			SourceRowRef:        2,
 			ClientTxnID:         "import-row-2",
 			FieldValues: []ownerfacade.ImportFieldValue{{
-				FieldKey: fieldKey,
-				NormalizedValue: ownerfacade.ImportScalarValue{
-					Kind: "text",
-					Text: &text,
-				},
+				FieldKey:        fieldKey,
+				NormalizedValue: ownerfacade.NewTextImportScalar(text),
 			}},
 			UnknownValues: []ownerfacade.ImportUnknownValue{{
 				SourceColumnOrdinal: 2,

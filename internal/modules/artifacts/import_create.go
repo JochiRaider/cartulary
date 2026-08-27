@@ -94,7 +94,11 @@ func (a *artifactImportCreateAdapter) createImportRowTx(
 	if !isArtifactBackedView(request.TargetViewSchemaID) {
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("artifact import surface %q not mapped", request.TargetViewSchemaID)
 	}
-	values := artifactValuesFromImport(ownerfacade.ValuesByField(request.FieldValues))
+	indexed, err := ownerfacade.IndexImportFieldValues(request.FieldValues)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	values := artifactValuesFromImport(indexed)
 	params := createParams{ViewSchemaID: request.TargetViewSchemaID, Values: values}
 	if err := validateCreateParams(params); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
@@ -142,13 +146,23 @@ func (a *artifactImportCreateAdapter) createImportRowTx(
 func artifactValuesFromImport(values map[string]ownerfacade.ImportScalarValue) map[string]FieldValue {
 	result := make(map[string]FieldValue, len(values))
 	for field, value := range values {
-		result[field] = FieldValue{
-			Text:      value.Text,
-			Timestamp: value.Timestamp,
-			UUID:      value.UUID,
-			Number:    value.Number,
-			Bool:      value.Bool,
+		converted := FieldValue{}
+		if scalar, ok := value.Text(); ok {
+			converted.Text = &scalar
 		}
+		if scalar, ok := value.Timestamp(); ok {
+			converted.Timestamp = &scalar
+		}
+		if scalar, ok := value.UUID(); ok {
+			converted.UUID = &scalar
+		}
+		if scalar, ok := value.Number(); ok {
+			converted.Number = &scalar
+		}
+		if scalar, ok := value.Bool(); ok {
+			converted.Bool = &scalar
+		}
+		result[field] = converted
 	}
 	return result
 }

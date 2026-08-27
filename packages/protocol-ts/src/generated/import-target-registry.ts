@@ -32,9 +32,9 @@ export type ImportTargetFrontendProjection = {
 };
 
 export const importTargetRegistry = {
-  "registry_sha256": "ba38be1259722390d1abe2ce8c916f8a80d1e19fa9dc7ee9a6c3ddc7cb526ddd",
+  "registry_sha256": "3272038e2d5c6cb05312b0090475d40226197bfccbc1e82032f497d411356441",
   "schema_id": "cartulary.import_target_frontend_projection.v1",
-  "source_sha256": "93e00b319c368648dc553b5bdee736b0990de4d3d4677b42c48af6d353d53395",
+  "source_sha256": "bbde4abff7a0f3a409fa62f342d2fe4f59fde45f6e4ff8a287da5cf7e04878bd",
   "targets": [
     {
       "activation_policy": "always",

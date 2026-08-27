@@ -41,9 +41,9 @@ func TestPartyImportCreateScalarAdmissionMatrix_Unit(t *testing.T) {
 	displayName := "Acme"
 	partyKind := "organization"
 	values, err := valuesFromImport(map[string]ownerfacade.ImportScalarValue{
-		"party.display_name": {Kind: "text", Text: &displayName},
-		"party.party_kind":   {Kind: "text", Text: &partyKind},
-		"party.notes":        {Kind: "null"},
+		"party.display_name": ownerfacade.NewTextImportScalar(displayName),
+		"party.party_kind":   ownerfacade.NewTextImportScalar(partyKind),
+		"party.notes":        ownerfacade.NewNullImportScalar(),
 	})
 	if err != nil {
 		t.Fatalf("admit text/null Party import values: %v", err)
@@ -57,23 +57,18 @@ func TestPartyImportCreateScalarAdmissionMatrix_Unit(t *testing.T) {
 
 	timestamp := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
 	id := uuid.New()
-	number := int64(1)
-	boolean := true
 	for name, malformed := range map[string]ownerfacade.ImportScalarValue{
-		"timestamp":         {Kind: "timestamp", Timestamp: &timestamp},
-		"uuid":              {Kind: "uuid", UUID: &id},
-		"number":            {Kind: "number", Number: &number},
-		"bool":              {Kind: "bool", Bool: &boolean},
-		"collection":        {Kind: "collection", CollectionToken: &ownerfacade.ImportCollectionToken{}},
-		"unknown":           {Kind: "future_scalar"},
-		"text_without_text": {Kind: "text"},
-		"null_with_text":    {Kind: "null", Text: &displayName},
-		"mixed_variant":     {Kind: "text", Text: &displayName, Bool: &boolean},
+		"zero":       {},
+		"timestamp":  ownerfacade.NewTimestampImportScalar(timestamp),
+		"uuid":       ownerfacade.NewUUIDImportScalar(id),
+		"number":     ownerfacade.NewNumberImportScalar(1),
+		"bool":       ownerfacade.NewBoolImportScalar(true),
+		"collection": ownerfacade.NewCollectionTokenImportScalar(ownerfacade.ImportCollectionToken{}),
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := valuesFromImport(map[string]ownerfacade.ImportScalarValue{
 				"party.display_name": malformed,
-				"party.party_kind":   {Kind: "text", Text: &partyKind},
+				"party.party_kind":   ownerfacade.NewTextImportScalar(partyKind),
 			})
 			detail, ok := ownerfacade.ImportOwnerCreateErrorDetail(err)
 			if !ok {

@@ -8,16 +8,27 @@ import (
 )
 
 type assessmentContributionSource struct{ SourceReader }
+type typedNilContributionSource struct{ SourceReader }
 
 func TestNewContributionRequiresSource(t *testing.T) {
 	t.Parallel()
-	if _, err := NewContribution(nil); err == nil {
-		t.Fatal("source-less Assessment projection contribution unexpectedly constructed")
+	for _, source := range []SourceReader{nil, (*typedNilContributionSource)(nil)} {
+		if contribution, err := NewContribution(source); err == nil || !contribution.ProjectionContribution().IsZero() {
+			t.Fatalf("source-less Assessment projection contribution = %#v, %v", contribution, err)
+		}
 	}
 }
 
 func TestAssessmentProjectionContractOwnsTypedImmutableFacts(t *testing.T) {
-	descriptor := Descriptor()
+	contribution, err := NewContribution(&assessmentContributionSource{})
+	if err != nil {
+		t.Fatalf("construct assessment projection contribution: %v", err)
+	}
+	descriptors := contribution.ProjectionContribution().Descriptors()
+	if len(descriptors) != 1 {
+		t.Fatalf("assessment descriptor count = %d", len(descriptors))
+	}
+	descriptor := descriptors[0]
 	if descriptor.ProviderID != "assessment" ||
 		descriptor.SourceOwnerModule != "assessments" ||
 		descriptor.ProjectionStorageOwnerModule != "projections" ||
@@ -26,11 +37,6 @@ func TestAssessmentProjectionContractOwnsTypedImmutableFacts(t *testing.T) {
 		t.Fatalf("unexpected assessment descriptor: %#v", descriptor)
 	}
 
-	contribution, err := NewContribution(&assessmentContributionSource{})
-	if err != nil {
-		t.Fatalf("construct assessment projection contribution: %v", err)
-	}
-	descriptors := contribution.ProjectionContribution().Descriptors()
 	descriptors[0].FacadePackages[0] = "mutated"
 	intents := contribution.ProjectionContribution().SurfaceIntents()
 	intents[0].FieldKeys[0] = "mutated"

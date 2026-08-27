@@ -150,19 +150,19 @@ func entityCreateRequestFromImport(clientTxnID string, fields []ownerfacade.Impo
 		AliasAdds:   make(map[string][]CollectionAction),
 	}
 	for _, field := range fields {
-		value := field.NormalizedValue.Text
-		if value == nil {
+		value, ok := field.NormalizedValue.Text()
+		if !ok {
 			continue
 		}
 		switch field.FieldKey {
 		case "host.aliases", "identity.aliases":
 			request.AliasAdds[field.FieldKey] = append(request.AliasAdds[field.FieldKey], CollectionAction{
 				Op:             "add_alias",
-				RawText:        *value,
-				NormalizedText: *value,
+				RawText:        value,
+				NormalizedText: value,
 			})
 		default:
-			request.Values[field.FieldKey] = *value
+			request.Values[field.FieldKey] = value
 		}
 	}
 	return request

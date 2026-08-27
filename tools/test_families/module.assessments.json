@@ -507,11 +507,23 @@
       "selector": {
         "package": "./internal/modules/assessments",
         "tests": [
+          "TestAssessmentAssemblyConstructorsRejectInvalidDependencies",
+          "TestAssessmentCreateIdentityCompatibility",
+          "TestAssessmentCreateInputFromImportAcceptsExactFieldKinds",
+          "TestAssessmentCreateInputFromImportRejectsNullForEveryField",
+          "TestAssessmentCreateInputFromImportRejectsUnsafeFieldKinds",
+          "TestAssessmentCreateInputFromImportRetainsSharedStructuralRejection",
           "TestAssessmentExportSurface",
+          "TestAssessmentExportSurfaceClassifiesReceiverVisibility",
           "TestAssessmentExportSurfaceRejectsInjectedExport",
+          "TestAssessmentFacadeConstructionRejectsNilAndTypedNilDependencies",
+          "TestAssessmentFacadeCreateParticipantOrder",
           "TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipants",
+          "TestAssessmentImportFacadeConstructionRejectsNilAndTypedNilDependencies",
           "TestAssessmentLiveRowVersionBoundary",
-          "TestAssessmentMergeEffectsConstruction"
+          "TestAssessmentMergeAssemblyRejectsNilAndTypedNilDependencies",
+          "TestAssessmentMergeEffectsConstruction",
+          "TestAssessmentProjectionConstructionRejectsNilAndTypedNilDependencies"
         ]
       },
       "evidence_class": "integration",
@@ -636,7 +648,8 @@
       "selector": {
         "package": "./internal/modules/assessments/admission",
         "tests": [
-          "TestCreateRequestAdmissionAndHashCompatibility",
+          "TestCreateRequestAdmissionCompatibility",
+          "TestCreateRequestAdmissionEnforcesSupportReferenceLimit",
           "TestCreateRequestAdmissionRejectsNonContractualShapes"
         ]
       },

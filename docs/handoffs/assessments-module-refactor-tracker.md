@@ -7,11 +7,16 @@
 | Target path | internal/modules/assessments |
 | Target label | assessments |
 | Output path | docs/handoffs/assessments-module-refactor-tracker.md |
-| Repository baseline | Historical remediation baseline: main at 8c8c52a43069; APR planning baseline: main at 6cb809190bf107e805720a9552a894783db10cbc on 2026-08-19 |
-| Status | AS-S00A through AS-S06, the Sections 14-15 follow-up, and APR-S00 through APR-S05 are COMPLETE; the APR iteration is COMPLETE |
-| Allowed change | APR-S01 through APR-S05 are authorized by the 2026-08-19 implementation request and must follow the serial checkpoint protocol in Section 18 |
-| Non-goals | APR-S00 makes no product, contract, migration, generated-artifact, test-catalog, or other documentation change. The planned iteration does not change public routes, OpenAPI, view schemas, bundle formats, frontend behavior, or public protocols |
-| Execution authority | The 2026-08-19 implementation request authorized APR-S01 through APR-S05; all serial dependency checkpoints are complete |
+| Repository baseline | Historical remediation baseline: main at 8c8c52a43069; APR planning baseline: main at 6cb809190bf107e805720a9552a894783db10cbc on 2026-08-19; current ALR planning baseline: main at ac610e028d9676929836e5a56bd65fdcc02a61c8 on 2026-08-27 |
+| Status | AS-S00A through AS-S06, the Sections 14-15 follow-up, and APR-S00 through APR-S05 are COMPLETE historical iterations; amended ALR-S00 through ALR-S05 are COMPLETE |
+| Allowed change | The 2026-08-27 implementation request authorizes the complete amended ALR sequence in Section 27. Each successor remains blocked on its predecessor's implementation, validation, and tracker checkpoint |
+| Non-goals | ALR does not change public routes, OpenAPI, view schemas, Incident Bundle v3, database migrations, persisted Assessment idempotency v1, dependency manifests, lockfiles, or valid public behavior. Core 01 and the Imports v1 typed projection may be tightened only to reject structurally invalid internal owner-create states |
+| Execution authority | ALR-S01 through ALR-S05 are authorized as one serial effort. The checkpoint gate controls sequencing and does not require repeated user authorization |
+
+Sections 1-21 preserve the state, decisions, and execution evidence of earlier
+iterations. Their inventories, routing counts, and completion statements are
+historical rather than current repository truth. The current planning posture
+begins in Section 22.
 
 The target began with 21 files. Authorized additions and relocations are added
 to the inventory as they land. The normalized label is
@@ -1473,3 +1478,996 @@ The following remain deliberately outside APR:
 - implementation based solely on the documentation-only APR-S00 checkpoint;
   APR-S01 through APR-S05 instead used the separate 2026-08-19 implementation
   authorization recorded above.
+
+## 22. ALR Iteration Scope and Planning Posture
+
+ALR is the Assessment Legacy Removal and Production Hardening iteration.
+Sections 1-21 remain historical evidence for the completed AS and APR work;
+ALR does not rewrite their inventories, routing counts, commands, failures, or
+completion claims. Current truth and planned work are recorded from this
+section onward.
+
+This 2026-08-27 request authorizes the tracker update only. ALR-S01 through
+ALR-S05 are decision-complete implementation plans, but remain pending until a
+later request grants implementation authority. Completing a checkpoint never
+grants authority for its successor.
+
+### 22.1 ALR planning baseline
+
+| Baseline fact | ALR-S00 record |
+| --- | --- |
+| Commit | `ac610e028d9676929836e5a56bd65fdcc02a61c8` |
+| Date | 2026-08-27 |
+| Assessments Go inventory | 31 files under `internal/modules/assessments` |
+| Assessments owner rows | 21 active rows |
+| Assessments service-backed rows | 12 active rows |
+| Owner families | Browser 3, frontend 6, store 11, unit 1 |
+| Focused route | `make test-slice OWNER=module.assessments` passed 27/27 |
+| Focused result root | `.cartulary/test-results/20260827T112709Z-p3441128` |
+| Service-backed route | `make service-backed-test-slice OWNER=module.assessments` passed 18/18 |
+| Service-backed result root | `.cartulary/test-results/20260827T112812Z-p3483903` |
+| Current broader routes | `make browser-e2e-webserver-backed`; `make test-fast` |
+
+The baseline is frozen for ALR planning. An implementation request must first
+confirm the commit, live task guide, owner routing, migration inventory, and
+worktree. If any materially changed fact invalidates a slice, execution must
+stop and update this tracker before modifying production code.
+
+### 22.2 Authority separation
+
+- Adopted Core owners and adopted subsystem boundary decisions define required
+  runtime behavior and architectural ownership.
+- `docs/domain.md` owns vocabulary and owner navigation within its stated
+  boundary. Its compromise-assessment and view-identity descriptions guide
+  terminology but do not independently create runtime behavior.
+- `docs/research/nlspec-spec.md` supplies planning doctrine for complete
+  behavior, interface, boundary, traceability, and acceptance coverage. It is
+  not an adopted Assessment behavior owner.
+- Typed contracts and generated projections contain executable downstream
+  facts. They do not supersede their adopted owners and must not be hand-edited.
+- This tracker is an execution-support and handoff artifact. Its ALR
+  requirements constrain an authorized refactor but do not amend product
+  requirements.
+
+No owner contradiction or missing Assessment-specific adopted NLSpec was
+found. ALR therefore preserves existing owner-defined behavior and requires no
+Core, domain, or subsystem-specification change.
+
+### 22.3 Objective and retained production boundaries
+
+ALR removes internal caller-controlled identity, duplicate creation mechanics,
+permissive owner admission, dead DTO state, false extension points, and
+fail-late construction. The intended result is a smaller package whose fixed
+rules are owner-derived, whose create paths share one set of mechanics, and
+whose dependencies fail during composition rather than during a request.
+
+The following remain because they materially support the production design:
+
+- the public Workbook route, OpenAPI surface, and
+  `cartulary.view.assessments.v1` behavior;
+- append-only Assessment history, create replay, import, support-link,
+  projection, revision, and collaboration semantics;
+- Incident Bundle v3 and persisted Assessment idempotency v1;
+- migration 35, its Up/Down evidence, and legacy-negative fixtures;
+- the Assessments `Facade`, typed cross-owner ports, `workbookprojection`, and
+  source-owner contribution facades; and
+- dual-driver Assessment test support required by current cross-owner tests.
+
+ALR adds no compatibility aliases, deprecated wrappers, alternate hash, second
+decoder, `Must` constructor, broad repository interface, or speculative
+extension hook.
+
+## 23. ALR Requirements and Gap Register
+
+### 23.1 ALR requirements
+
+| Requirement | Planned outcome | Primary evidence |
+| --- | --- | --- |
+| ALR-REQ-001 | Preserve Sections 1-21 as historical evidence and keep current truth in Sections 22 onward | Tracker and diff review |
+| ALR-REQ-002 | Execute ALR serially, with explicit later authorization and a completed tracker checkpoint before each successor | Section 24 ledger |
+| ALR-REQ-003 | Remove caller-supplied create idempotency metadata and derive the canonical identity inside Assessments | Facade and adapter tests |
+| ALR-REQ-004 | Preserve exact canonical request-hash bytes, replay precedence, persisted v1 behavior, and fail-closed malformed-state handling | Hash goldens and replay tests |
+| ALR-REQ-005 | Use one create decoder dispatch and one private owner policy for the support-reference limit | Admission and boundary tests |
+| ALR-REQ-006 | Share Assessment creation mechanics without merging the different transaction or finalization responsibilities of interactive create and Imports | Unit, integration, and rollback parity |
+| ALR-REQ-007 | Reject malformed Assessment import scalar shapes instead of silently ignoring or coercing them | Imports admission matrix |
+| ALR-REQ-008 | Remove private methods that are exported only by spelling, unused projection helpers, and unread DTO state | AST and symbol searches |
+| ALR-REQ-009 | Remove configurable envelope and revision fields whose values are fixed or owner-derived | Port and adapter tests |
+| ALR-REQ-010 | Make the exact export guard represent real package API and cover the root, admission, and workbook-projection packages | Positive and negative AST tests |
+| ALR-REQ-011 | Reject nil and typed-nil dependencies during owner and assembly construction | Constructor matrices and composition tests |
+| ALR-REQ-012 | Preserve public HTTP, OpenAPI, view-schema, bundle, frontend, field-key, and generated-protocol behavior | Contract and browser validation |
+| ALR-REQ-013 | Retain narrow typed ports, contribution facades, `workbookprojection`, migration evidence, and dual-driver test support | Surface guard and boundary checks |
+| ALR-REQ-014 | Retire internal APIs without aliases, parallel paths, or a compatibility window | Exact repository searches |
+| ALR-REQ-015 | Complete ALR only after every requirement, gap, file, failure, skip, and compatibility decision maps to recorded evidence | ALR-S05 handoff |
+
+### 23.2 ALR gap decisions
+
+| Gap | Required remediation | Long-term reason | Compatibility impact | Completion evidence |
+| --- | --- | --- | --- | --- |
+| Create identity is assembled outside the owner and the admission allowlist can drift from decoding | Derive route, actor, incident/view scope, client transaction ID, and canonical hash inside the facade; keep one decoder dispatch; centralize the support-reference limit in private Assessment policy | Future fields have one admission path and callers cannot invent owner identity | Internal Go call-site break only; public payload and replay results remain exact | Hash golden, exact replay, conflict, malformed persisted-v1, admission, and limit tests |
+| Interactive and imported creation duplicate validation, defaults, source insertion, and projection mechanics while import scalar admission is permissive | Extract private staged creation services; keep path-specific sequencing explicit; add strict import scalar classification | One implementation owns Assessment invariants without obscuring transaction and finalization differences | Valid imports remain exact; malformed internal owner requests fail earlier and safely | Parity, kind/variant, rollback, borrowed-transaction, and effect-order tests |
+| Export enforcement freezes private implementation and DTOs expose unused or invariant choices | Contract private methods and projection helpers; remove dead and false-choice fields; correct and extend the AST guard | The package surface reflects supported capabilities rather than implementation accidents | Atomic internal caller migration with no aliases; no public protocol change | Exact surface tests, compilation, boundary checks, and retired-symbol searches |
+| Interface-typed dependencies can hide typed nils until a request executes | Add private nil-or-typed-nil guards in owner constructors and make dependency-bearing assembly constructors return errors | Future composition growth fails predictably at startup | Internal constructor signature changes only; valid startup is unchanged | Nil/typed-nil matrices and real server, import, workbook, and timeline composition tests |
+
+### 23.3 Interface and compatibility decisions
+
+ALR-S01 through ALR-S04 make these intentional repository-internal changes:
+
+- Remove `CreateCommand.Idempotency`. `Facade.Create` constructs the
+  `CreateIdempotencyKey` passed to its port from the fixed
+  `assessments.rows.create` route, actor, incident and view identity,
+  `CreateInput.ClientTxnID`, and a private canonical hash.
+- Retain `CreateIdempotencyKey` as the typed owner-to-storage port DTO. Its
+  values are no longer accepted from the command caller.
+- Remove exported `admission.CreateRequestHash`; request hashing becomes a
+  private root implementation. `admission.DecodeCreateRequest` is the only
+  planned exported admission function.
+- Remove `RecordEnvelopeCreate.RecordType` and `RowVersion`; the Assessment
+  envelope adapter supplies record type `assessment` and initial version 1.
+- Remove `CreateRevision.TargetKind`, `OperationKind`, and `AfterVersion`;
+  their adapter derives the Assessment target, create operation, and
+  after-version from the authoritative created row version.
+- Rename `assessmentSourceRepository.InsertTx` and
+  `importCreateFacade.CreateImportRowTx` to private methods.
+- Make workbook-projection descriptor and surface-intent builders private and
+  remove `workbookprojection.Envelope.RecordID`.
+- Change dependency-bearing Assessment assembly constructors to return
+  `(port, error)` and propagate those errors. `NewSupportLinkApplier` remains
+  infallible because it accepts no dependency.
+
+The private Assessment route and hash are single-source rules, not exported
+constants. The existing canonical hash algorithm and goldens, including
+`6406c647a1b4e4adc65a4161ac1b168775e88376860a1e0bcd6d3f9e699055fb`,
+must remain byte-identical. There is no dual-hash lookup or persisted payload
+migration in ALR.
+
+## 24. ALR Serial Workstreams
+
+Sequence:
+
+`ALR-S00 -> ALR-S01 -> ALR-S02 -> ALR-S03 -> ALR-S04 -> ALR-S05`
+
+| Slice | Purpose | Dependency | Status | Authorization |
+| --- | --- | --- | --- | --- |
+| ALR-S00 | Tracker rebaseline and decision-complete plan | Completed APR and current repository inspection | COMPLETE | Authorized tracker-only slice |
+| ALR-S01 | Owner-derived identity and create admission cleanup | ALR-S00 checkpoint | PENDING | Requires later implementation authorization |
+| ALR-S02 | Shared creation mechanics and strict Imports admission | ALR-S01 checkpoint | PENDING | Requires later implementation authorization |
+| ALR-S03 | Dead and false surface contraction | ALR-S02 checkpoint | PENDING | Requires later implementation authorization |
+| ALR-S04 | Fail-fast owner and assembly construction | ALR-S03 checkpoint | PENDING | Requires later implementation authorization |
+| ALR-S05 | Production validation, traceability, and final handoff | ALR-S04 checkpoint | PENDING | Requires later implementation authorization |
+
+### 24.1 ALR checkpoint protocol
+
+Before an authorized implementation slice starts, run the live task guide and
+owner explanation, confirm its predecessor is complete, and record any
+rebaseline. After implementation and focused checks pass, update this tracker
+before starting the successor with:
+
+- status, requirements, gaps, and interface decisions closed by the slice;
+- every authored, moved, generated, and deleted path;
+- exact commands, results, and result or artifact roots;
+- owner and service-backed row counts and any authored selector changes;
+- behavior, compatibility, migration, generated, dependency, and lockfile
+  effects;
+- failures, causal attribution, retries, skips, and residual risks; and
+- the next eligible slice and its independent authorization state.
+
+Do not advance with an unexplained failure, stale route, incomplete
+checkpoint, hand-edited generated output, unintended public diff, or unrelated
+worktree change. Use Make-owned generation after authored topology changes.
+
+### 24.2 ALR-S00 - Tracker rebaseline
+
+Refresh the opening posture and append Sections 22-26. Preserve Sections 1-21
+as historical evidence except for the opening posture needed to identify ALR
+as current. Record the exact baseline, authority separation, gap decisions,
+interface removals, validation ladder, and blank implementation checkpoints.
+
+Exit criteria:
+
+- this tracker is the only changed path;
+- `make lint-markdown` and staged and unstaged `git diff --check` pass;
+- baseline commit, 31-file inventory, 21/12 routing, and both passing focused
+  result roots are recorded;
+- ALR-S00 is `COMPLETE`; and
+- ALR-S01 through ALR-S05 remain `PENDING` and authorization-gated.
+
+### 24.3 ALR-S01 - Owner-derived identity and admission cleanup
+
+Remove command-level idempotency input. The facade must validate actor,
+incident, request ID, time, and `CreateInput`, then derive one key with:
+
+- route `assessments.rows.create`;
+- `ActorUserID` from `CreateCommand.ActorUserID`;
+- scope `IncidentID.String() + ":" + AssessmentsViewSchemaID`;
+- `ClientTxnID` from `CreateInput.ClientTxnID`; and
+- `RequestHash` from the existing canonical, support-order-independent hash.
+
+Keep the existing effect order: exact committed replay is returned before a
+transaction or participant mutation; the same transaction ID with a different
+hash conflicts; fresh work occurs transactionally; malformed stored v1 state
+remains a hard error. Delete the Workbook adapter's Assessment route constant
+and hash construction. Do not add a fallback hash or reinterpret persisted
+results.
+
+Replace the independent `createFields` allowlist with one decoder dispatch in
+which every admitted key has its decoder. Unknown keys remain rejected and a
+future field is not admitted without an explicit decoder. Define the maximum
+support-reference count once as private Assessment policy and consume it from
+both admission and facade validation.
+
+Move hash compatibility evidence into the root package while retaining public
+request admission tests in `admission`. Update the existing authored selectors
+and generate downstream topology if package movement requires it; do not add a
+new owner row. Expected routing remains 21 total and 12 service-backed rows.
+
+Exit criteria:
+
+- command callers cannot provide route, scope, actor, client transaction ID,
+  or request hash separately from the authoritative command fields;
+- canonical hash goldens, support-order normalization, replay, conflict, and
+  malformed-state tests pass;
+- known, missing, invalid, null, and unknown public field matrices pass;
+- one policy value governs both support-reference guards;
+- retired hash and adapter symbols have zero references; and
+- Assessments and Workbook focused and service-backed evidence, topology
+  drift, and the ALR-S01 checkpoint pass.
+
+### 24.4 ALR-S02 - Shared creation mechanics and strict Imports admission
+
+Create a private staged creation service rather than a mode flag, callback
+pipeline, or new public abstraction. Its private operations own the shared
+input validation, subject validation, assessor default and validation,
+assessed-time default, fixed envelope/source insertion, and projection refresh.
+Interactive and import coordinators call those operations in their existing
+observable order.
+
+Interactive create continues to own idempotency and the database transaction,
+validates and deduplicates support targets between subject and assessor
+validation, applies support links between source insertion and projection
+refresh, and performs the existing revision/idempotency completion. Import
+create continues to borrow the Imports transaction, admits no support
+collection, and uses `ownerfacade.FinalizeLiveRecordTx` for revision,
+collaboration, and result finalization.
+
+Before using `ownerfacade.ValuesByField`, classify the Assessment field values
+in one pass so duplicate keys are not lost. Permit only these exact scalar
+shapes:
+
+| Assessment field | Required scalar shape |
+| --- | --- |
+| `assessment.subject_ref` | `Kind` UUID with only `UUID` populated |
+| `assessment.subject_type` | `Kind` text with only `Text` populated |
+| `assessment.assessment_state` | `Kind` text with only `Text` populated |
+| `assessment.confidence_score` | `Kind` number with only `Number` populated |
+| `assessment.rationale` | `Kind` text with only `Text` populated |
+| `assessment.assessor` | `Kind` UUID with only `UUID` populated |
+| `assessment.assessed_at` | `Kind` timestamp with only `Timestamp` populated |
+
+Reject unknown or duplicate field keys, an empty or mismatched `Kind`, zero or
+multiple populated variants, collection tokens, `assessment.support_refs`, and
+null or absent variants for a supplied non-clearable field. Preserve the
+existing safe owner error type and field/guard attribution; do not expose raw
+source values or wrapped causes. Existing valid normalized imports, including
+omitted optional fields, remain exact.
+
+Make the source-repository insertion method private and place persistence
+behind the staged service. Do not change transaction ownership or introduce a
+generic cross-owner creation service.
+
+Exit criteria:
+
+- interactive and import tests prove identical subject, assessor, default,
+  envelope, source, and projection outcomes for equivalent valid inputs;
+- import tests cover every allowed scalar, score boundaries, unknown and
+  duplicate keys, kind/variant mismatch, collection rejection, and safe
+  errors;
+- participant failure tests prove rollback and no effect reordering;
+- borrowed import transactions are never committed or rolled back by
+  Assessments;
+- duplicate creation mechanics and exported repository method references are
+  absent; and
+- Assessments, Imports, Workbook, Projections, Revisions, and Collaboration
+  affected slices plus the ALR-S02 checkpoint pass.
+
+### 24.5 ALR-S03 - Dead and false surface contraction
+
+Rename the import owner callback and source insertion method to private names;
+passing a private method value to the generic Imports facade remains valid.
+Make the workbook-projection descriptor and surface-intent builders private.
+Tests that need their facts must inspect the published
+`ProjectionContribution()` instead of calling construction helpers.
+
+Remove the unread `workbookprojection.Envelope.RecordID` and its adapter
+assignment. Remove record type and initial row version from
+`RecordEnvelopeCreate`, and remove target kind, operation kind, and derived
+after-version from `CreateRevision`. The application adapters supply or derive
+those invariants at the owning boundary; valid revision values remain exact.
+
+Correct the standard-library AST export guard so an exported method is part of
+the guarded API only when its receiver type is exported. Freeze the exact
+post-cleanup exports of the root, `admission`, and `workbookprojection`
+packages. Retain positive comparison and synthetic unexpected-export and
+missing-export failures.
+
+Exit criteria:
+
+- private-receiver methods are absent from the allowlist and real public
+  declarations remain exact;
+- `admission` exports only its intentional create decoder surface;
+- descriptor and surface-intent behavior is verified through the published
+  contribution;
+- dead fields and false-choice fields have zero definitions and callers;
+- no alias, deprecated copy, or replacement convenience export exists; and
+- Assessments, Imports, Workbook, Projections, Revisions, module boundaries,
+  and the ALR-S03 checkpoint pass.
+
+### 24.6 ALR-S04 - Fail-fast owner and assembly construction
+
+Add private nil-or-typed-nil checks, following existing repository reflection
+patterns, without exporting a generic dependency helper. Apply them to every
+interface dependency of `NewFacade`, `NewImportCreateFacade`,
+`NewProjectionContribution`, `NewMergeEffects`, and
+`workbookprojection.NewContribution`.
+
+Harden the dependency-bearing application constructors:
+
+- `NewSubjectValidator` returns `(assessments.SubjectValidator, error)` and
+  validates the database and Entities source facts;
+- `NewAssessorValidator`, `NewSupportTargetValidator`, and
+  `NewRecordEnvelopeCreator` return their port and an error and validate the
+  database;
+- `NewProjectionPort` returns `(assessments.AssessmentProjectionPort, error)`
+  and validates projection rows; and
+- the existing error-returning `NewMergeEffects` validates both projection
+  rows and snapshot capture before wrapping either dependency.
+
+Propagate stable, lower-case contextual errors through Assessment mutation,
+Workbook, Imports, server, and Timeline composition. Constructors must return
+the zero port and an error for missing dependencies and must never publish a
+wrapper containing a typed-nil value. `NewSupportLinkApplier` remains unchanged
+because it has no injected dependency.
+
+Exit criteria:
+
+- every dependency has nil and typed-nil rejection evidence with the intended
+  contextual error;
+- valid constructors return usable ports and contributions;
+- real server startup, import registry, Workbook mutation composition, and
+  Timeline merge composition pass;
+- no panic, `Must` helper, late nil branch, or partially valid wrapper is
+  introduced; and
+- affected owner slices, `make lint-go`, module boundaries, and the ALR-S04
+  checkpoint pass.
+
+### 24.7 ALR-S05 - Production validation and handoff
+
+Reconcile the final repository against every ALR requirement, gap, interface
+decision, removal, retained surface, and test row. Run the validation ladder in
+Section 25 from narrow evidence to release evidence, record exact run roots and
+failure attribution, and inspect the final diff. No applicable failure may be
+waived without an owner-backed reason recorded as a blocker.
+
+Exit criteria:
+
+- all ALR requirements and gaps map to passing evidence;
+- the final Go-file inventory and owner routing match generated repository
+  truth rather than the planning estimate;
+- retired-symbol searches are empty and retained historical migration and
+  bundle evidence remains present;
+- public and generated protocol surfaces, dependencies, and lockfiles are
+  unchanged;
+- every applicable final gate passes with no unexplained failure; and
+- ALR-S01 through ALR-S05 and the iteration are marked `COMPLETE` only after
+  their separately authorized implementation and checkpoints finish.
+
+## 25. ALR Validation and Acceptance Matrix
+
+### 25.1 ALR slice evidence
+
+| Slice | Required evidence | Required narrow owners or gates |
+| --- | --- | --- |
+| ALR-S00 | Tracker-only diff, current baseline, Markdown validity, and whitespace validity | `make lint-markdown`; staged and unstaged diff checks; status inspection |
+| ALR-S01 | Owner-derived key, exact hash, replay/conflict, decoder dispatch, shared support limit, and unchanged 21/12 routing | Assessments and Workbook slices; harness and generation drift |
+| ALR-S02 | Shared creation parity, strict scalar matrix, borrowed transaction, effect order, rollback, revision, collaboration, and refresh | Assessments, Imports, Workbook, Projections, Revisions, and Collaboration affected rows |
+| ALR-S03 | Private/dead/false surface absence and exact three-package export guards | Assessments, Imports, Workbook, Projections, Revisions, and backend boundaries |
+| ALR-S04 | Nil and typed-nil matrices, stable errors, and valid production composition | Assessments, Workbook, Imports, Timeline, app-server composition, and Go lint |
+| ALR-S05 | Complete traceability, retained-surface proof, broad regression, security, release, and final diff evidence | Final ladder and handoff inspection |
+
+### 25.2 ALR final validation ladder
+
+Run public Make targets from narrow discovery to broad release evidence:
+
+1. Run `make task-guide ROLE=module-author OWNER=module.assessments` and
+   `make explain-test-owner OWNER=module.assessments`; record current row and
+   service-backed counts rather than assuming the 21/12 planning baseline.
+2. Run focused and service-backed slices for Assessments and every owner named
+   by the completed checkpoints. At minimum this includes Workbook, Imports,
+   Projections, Revisions, Entities, Timeline, and app-server composition when
+   their code or construction changed.
+3. Run `make format` only for touched Go or frontend sources, then run
+   `make lint-go`, `make backend-module-boundary-check`,
+   `make harness-contract`, `make json-shape-check`,
+   `make generate-drift`, `make generated-artifact-policy-check`,
+   `make migration-drift`, and `make openapi-compatibility-check`.
+4. Run `make go-gosec-targeted` and `make go-vulncheck`. Record any
+   environment or advisory failure separately from product failures; do not
+   waive an applicable product failure.
+5. Run `make frontend-typecheck`, `make frontend-unit`,
+   `make frontend-import-boundary-check`, and
+   `make browser-e2e-webserver-backed` to prove unchanged public integration.
+6. Run `make agent-finalize` before the broad gates, then run
+   `make test-fast`, `make check`, and `make release-check`. If a successful
+   full warm-check run root is available, finish with
+   `make agent-finalize RESULTS_DIR=<successful-run-root>`; otherwise record
+   that retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+7. Finish with `make lint-markdown`, staged and unstaged `git diff --check`,
+   exact status inspection, retired-symbol searches, and inspection of
+   generated roots, migrations, dependency manifests, and lockfiles.
+
+If an authored test selector moves, update its owner manifest and use the
+Make-owned generator. Never hand-edit generated topology, generated protocol
+roots, `go.sum`, `pnpm-lock.yaml`, or tool-managed install artifacts.
+
+### 25.3 ALR acceptance assertions
+
+ALR is complete only when all of the following are true:
+
+- public create, replay, import, revision, collaboration, support-link,
+  projection, bundle, and frontend behavior is unchanged;
+- fixed Assessment identity and invariant DTO values have one owner-derived
+  source;
+- interactive and import creation share mechanics without sharing transaction
+  or finalization ownership;
+- malformed imports and typed-nil composition fail safely and early;
+- removed symbols and false choices have no definitions, references, aliases,
+  or alternate paths;
+- retained contribution facades, narrow ports, `workbookprojection`, bundle
+  v3, idempotency v1, migration 35, and dual-driver test support remain; and
+- every selected gate is green and every failure, retry, skip, generated
+  output, and compatibility effect is recorded.
+
+## 26. ALR Checkpoint Ledger and Handoff
+
+### 26.1 ALR checkpoint ledger
+
+| Checkpoint | Status | Files changed | Commands and evidence | Compatibility or risk | Next eligible slice |
+| --- | --- | --- | --- | --- | --- |
+| ALR-S00 | COMPLETE | `docs/handoffs/assessments-module-refactor-tracker.md` only | Baseline focused 27/27 at `.cartulary/test-results/20260827T112709Z-p3441128`; service-backed 18/18 at `.cartulary/test-results/20260827T112812Z-p3483903`; final Markdown and diff checks recorded in Section 26.2 | Planning only; no product, source, owner, contract, migration, catalog, generated, dependency, lockfile, or public compatibility effect | ALR-S01 remains pending later authorization |
+| ALR-S01 | PENDING | Not started | Not run | No implementation authority | None |
+| ALR-S02 | PENDING | Not started | Not run | No implementation authority | None |
+| ALR-S03 | PENDING | Not started | Not run | No implementation authority | None |
+| ALR-S04 | PENDING | Not started | Not run | No implementation authority | None |
+| ALR-S05 | PENDING | Not started | Not run | No implementation authority | None |
+
+### 26.2 ALR-S00 document checkpoint
+
+| Field | ALR-S00 record |
+| --- | --- |
+| Slice and status | ALR-S00 `COMPLETE`, 2026-08-27 |
+| Baseline | `ac610e028d9676929836e5a56bd65fdcc02a61c8`; 31 Assessment Go files; 21 active owner rows; 12 service-backed rows |
+| Authored files | This tracker only; Sections 1-21 retained as historical evidence and Sections 22-26 added as the current plan |
+| Product and contract effects | None; this is a documentation-only planning checkpoint |
+| Baseline verification | Assessments focused 27/27 at `.cartulary/test-results/20260827T112709Z-p3441128`; service-backed 18/18 at `.cartulary/test-results/20260827T112812Z-p3483903` |
+| Document verification | `make lint-markdown` passed at `.cartulary/test-results/20260827T114221Z-p3531053`; staged and unstaged `git diff --check` and exact tracker-only status inspection passed |
+| Generated and dependency state | No generated artifact, dependency manifest, or lockfile change is authorized or expected |
+| Residual risk | Implementation facts may change before later authorization; every implementation start must rebaseline live repository truth |
+| Next slice | ALR-S01 is decision-complete but `PENDING`; this checkpoint does not authorize it |
+
+### 26.3 Future implementation checkpoint template
+
+For each separately authorized ALR-S01 through ALR-S05 slice, replace the
+corresponding pending ledger row and append a checkpoint containing:
+
+| Field | Required record |
+| --- | --- |
+| Slice and status | Slice ID, `COMPLETE` or `BLOCKED`, and date |
+| Baseline and worktree | Starting commit, predecessor state, and unrelated pre-existing changes |
+| Authored changes | Added, modified, moved, and deleted paths with their purpose |
+| Generated changes | Generator target, authored input, output paths, and drift result |
+| Requirements and gaps | Exact ALR requirement and gap closure |
+| Interface and compatibility | Removed and retained surfaces plus public behavior evidence |
+| Verification | Exact commands, results, counts, run roots, and artifacts |
+| Failures and skips | Cause, relationship to the slice, correction or blocker, and rerun evidence |
+| Retired and retained symbols | Exact searches for removals and assertions for valuable retained history/surfaces |
+| Residual risk | Remaining production, rollout, maintenance, or validation risk |
+| Next slice | Eligibility, dependency checkpoint, and separate authorization state |
+
+### 26.4 Deferred and excluded scope
+
+ALR deliberately excludes:
+
+- creation of an Assessment NLSpec or changes to Core owners,
+  `docs/domain.md`, or `docs/research/nlspec-spec.md`;
+- public route, HTTP, WebSocket, OpenAPI, view-schema, bundle-version,
+  frontend, public protocol, field-key, or generated-protocol changes;
+- database schema or migration changes, including removal of migration 35 or
+  its historical and rollback fixtures;
+- persisted idempotency format changes, historical Assessment rewrites, or a
+  compatibility alias, deprecated copy, alternate hash, or parallel decoder;
+- removal of source-owner contribution facades, narrow typed ports,
+  `workbookprojection`, or dual-driver test support; and
+- implementation based solely on this tracker-only checkpoint without a later
+  authorization request and live rebaseline.
+
+## 27. ALR Implementation Amendment
+
+This amendment records the 2026-08-27 implementation authority and supersedes
+only conflicting ALR planning statements in Sections 22-26. Sections 1-21 and
+the original ALR-S00 evidence remain historical. The authorized serial
+sequence is:
+
+`ALR-S01 -> ALR-S02A -> ALR-S02B -> ALR-S03 -> ALR-S04 -> ALR-S05`
+
+Each slice is independently implemented and validated. Its checkpoint must be
+written to this tracker and pass Markdown and diff validation before its
+successor begins. The single implementation request authorizes the full
+sequence; checkpoint eligibility, rather than repeated authorization, gates
+successors.
+
+### 27.1 Complete remediation register
+
+| Gap | Remediation | Areas | Rationale and long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- |
+| G0: incomplete execution plan | Preserve historical evidence and add this authorization, complete gap register, S02A/S02B split, dependencies, validation, and checkpoint protocol | Tracker documentation | Makes execution decision-complete and prevents scope or evidence drift | No product effect; preserves the staged ALR-S00 artifact | Later work can silently narrow shared-contract repair or skip evidence | Every gap and requirement maps to one slice and final evidence; Markdown and both diff checks pass |
+| G1: caller-assembled Assessment create identity | Remove `CreateCommand.Idempotency` and derive route, actor, incident/view scope, transaction ID, and canonical hash inside Assessments | Implementation, tests, tracker | Keeps replay and isolation identity with the source owner | Internal Go break only; route, scope, hash bytes, stored v1 payloads, and migration 35 remain exact | Caller drift can create false replay/conflict results or weaken scope isolation | Hash golden, replay-before-effects, conflict, malformed stored-state, migration, and retired-symbol tests pass |
+| G2: admission allowlist and support limit can drift | Replace the independent allowlist with one decoder dispatch and one private Assessment 64-reference policy | Implementation, tests, tracker | Gives future fields one admission extension point and one limit source | No valid public behavior change | A field can be accepted without semantics or two entry points can enforce different limits | Field matrix and 64/65 tests pass; one definition remains |
+| G3: shared Imports scalar permits invalid variants and duplicate collapse | Tighten Core 01 and Imports v1 schema to a closed scalar union; make the Go value opaque and constructor-only; reject empty/duplicate keys and invalid values before owner dispatch; replace unchecked indexing; migrate all owners | Specification, contract, generated artifacts, implementation, tests, tracker | Makes invalid shared states unrepresentable and protects every current and future owner | Keep `cartulary.imports.owner_create_request.v1`; malformed states were never valid. Internal Go callers migrate atomically. Import-target digests may change while target identity/order/availability remain exact. No database or public migration | Owners can overwrite, ignore, or coerce malformed data and duplicate the same unsafe checks | Contract shape, every scalar constructor/accessor, structural rejection, safe generic failure, all-owner regression, generation, and target stability pass |
+| G4: duplicate create mechanics and permissive Assessment import classification | Add a private staged Assessment creation service shared by interactive and import coordinators and an exact Assessment field/kind classifier | Implementation, tests, tracker | Centralizes Assessment invariants while keeping transaction and finalization ownership explicit | Valid interactive creates and imports remain exact; malformed internal imports fail before effects | Defaults and validation diverge and malformed data becomes omissions or wrong values | Cross-path parity, strict field/kind matrix, effect order, rollback, borrowed transaction, revision, publication, and projection pass |
+| G5: dead DTO state, false extension points, and inaccurate API guard | Contract DTOs and helpers, privatize implementation-only methods/builders, remove unread fields, and make the AST guard count methods only on exported receivers | Implementation, tests, tracker | Shrinks the supported surface and avoids freezing accidents as compatibility duties | Atomic internal migration; no aliases, deprecation window, or public protocol change | False APIs allow invalid combinations and obstruct future refactors | Exact root/admission/workbook-projection exports, synthetic guard cases, boundary checks, compilation, and empty symbol searches pass |
+| G6: typed-nil dependencies fail late | Reject nil and typed-nil owner and assembly dependencies and propagate contextual constructor errors through production composition | Implementation, tests, tracker | Makes startup deterministic and safer as the graph grows | Internal constructor signatures change; valid startup and stored/public data remain unchanged | A partially initialized runtime can panic or fail after accepting work | Nil/typed-nil/valid matrices, real Workbook/Imports/Timeline/server composition, lint, and boundaries pass |
+
+### 27.2 Specification and interface decisions
+
+- Core 01 and `contracts/imports/schemas.v1.json` must define
+  `normalized_value` as exactly one of `null`, `text`, `timestamp`, `uuid`,
+  `number`, `bool`, or `collection_token`. A non-null variant carries exactly
+  one matching payload. `field_values` keys are non-empty and unique.
+- The contract keeps its v1 identity because the newly rejected shapes were
+  never valid owner-create values. No v2 adapter or compatibility alias is
+  introduced.
+- `ownerfacade.ImportScalarValue` becomes opaque, with typed kinds, one
+  constructor per variant, `(value, ok)` accessors, and `IsValid`.
+  `ValuesByField` is replaced by checked `IndexImportFieldValues`.
+- Bound owner dispatch rejects an empty key, duplicate key, or invalid scalar
+  before invoking the owner. These structural failures translate only to
+  `owner_create_validation_failed`, without raw values, an `owner_error`, or a
+  wrapped cause. Existing Assessment field-specific safe reasons remain.
+- `CreateCommand.Idempotency` and exported
+  `admission.CreateRequestHash` are removed. The storage-port
+  `CreateIdempotencyKey` remains and is populated only inside Assessments.
+- Invariant envelope and revision fields, unread
+  `workbookprojection.Envelope.RecordID`, the exported source insertion/import
+  callback, and exported descriptor/intent builders are removed or made
+  private without aliases.
+- Dependency-bearing Assessment assembly constructors return `(port, error)`.
+  `NewSupportLinkApplier` stays infallible because it has no dependency.
+- `docs/domain.md` does not change: its compromise-assessment vocabulary and
+  owner navigation are already correct, and the shared Imports scalar is not
+  domain language.
+
+### 27.3 Amended workstream ledger
+
+| Slice | Purpose | Dependency | Status | Authorization |
+| --- | --- | --- | --- | --- |
+| ALR-S00 | Rebaseline and implementation amendment | Original ALR-S00 | COMPLETE | Completed by this preparation checkpoint |
+| ALR-S01 | Owner-derived identity and admission | ALR-S00 checkpoint | COMPLETE | Authorized and completed |
+| ALR-S02A | Shared Imports scalar contract | ALR-S01 checkpoint | COMPLETE | Authorized and completed |
+| ALR-S02B | Shared Assessment creation mechanics | ALR-S02A checkpoint | COMPLETE | Authorized and completed |
+| ALR-S03 | Dead and false surface contraction | ALR-S02B checkpoint | COMPLETE | Authorized and completed |
+| ALR-S04 | Fail-fast construction | ALR-S03 checkpoint | COMPLETE | Authorized and completed |
+| ALR-S05 | Production validation and handoff | ALR-S04 checkpoint | COMPLETE | Authorized and completed |
+
+### 27.4 Preparation checkpoint
+
+| Field | Preparation record |
+| --- | --- |
+| Slice and status | Amended ALR-S00 preparation `COMPLETE`, 2026-08-27 |
+| Baseline and worktree | `ac610e028d9676929836e5a56bd65fdcc02a61c8`; the original staged tracker amendment was the only pre-existing change and remains preserved as the index layer |
+| Live routing | `module.assessments`: 21 rows, 12 service-backed; browser 3, frontend 6, store 11, unit 1; runners Go 12, Playwright 3, Vitest 6 |
+| Migration and generated policy | Migration 35 remains present; migrations currently extend through 40; generated roots and files were re-read from `tools/generated_artifact_policy.json` |
+| Authored changes | This tracker only: opening ALR authority posture and Section 27 amendment |
+| Requirements and gaps | G0 closed for execution; G1-G6 assigned to their serial slices |
+| Product and compatibility | None in preparation; Core 01/Imports v1 tightening is authorized for S02A; public surfaces and valid behavior remain out of scope |
+| Verification | Task guide and owner explanation passed; `make lint-markdown` passed at `.cartulary/test-results/20260827T122252Z-p3544732`; `git diff --cached --check` and `git diff --check` passed; exact status is `MM` for this tracker only, preserving the user's staged layer and adding the implementation amendment unstaged |
+| Residual risk | Broad shared scalar migration is intentionally atomic and begins only after S01 closes |
+| Next slice | ALR-S01 is eligible and authorized after this tracker amendment passes |
+
+### 27.5 Implementation checkpoint protocol
+
+Immediately after each slice, update the ledger row and append a checkpoint
+with status; closed requirements and gaps; every authored, generated, moved,
+or deleted path; exact commands, results, counts, roots, retries, failures, and
+skips; compatibility and migration effects; retired and retained symbols;
+residual risks; and successor eligibility. Run `make lint-markdown`,
+`git diff --cached --check`, and `git diff --check` after that update and before
+touching successor code.
+
+Do not advance past an unexplained failure, stale generated output, incomplete
+checkpoint, unintended public diff, or conflict with unrelated changes. No
+database migration, dependency or lockfile change, public route, OpenAPI,
+view-schema, bundle-version, dual-hash reader, compatibility alias, or parallel
+scalar contract is authorized.
+
+## 28. ALR-S01 Checkpoint
+
+### 28.1 Status and closure
+
+ALR-S01 is `COMPLETE` on 2026-08-27. It closes G1, G2,
+ALR-REQ-003 through ALR-REQ-005, and the S01 portions of ALR-REQ-012 and
+ALR-REQ-014. ALR-S02A is eligible and authorized.
+
+### 28.2 Change inventory
+
+| Change | Paths and purpose |
+| --- | --- |
+| Added | `internal/modules/assessments/create_identity.go` privately owns the route, scope, and canonical hash; `internal/modules/assessments/create_identity_test.go` owns the byte-compatible golden and support-order evidence |
+| Assessment owner | `internal/modules/assessments/api.go`, `facade.go`, `facade_contract_test.go`, `export_surface_test.go`, and `internal/policy/assessment.go` remove caller identity, derive the storage key after validation, and define one Assessment-private support limit |
+| Admission | `internal/modules/assessments/admission/create.go` and `create_test.go` replace allowlist-plus-branches with decoder dispatch, remove exported hashing, and cover normalization, closed fields, and 64/65 limits |
+| Callers and integration tests | `internal/app/workbookassembly/assessment_adapter.go`, `internal/app/importassembly/assessment_membership_integration_test.go`, `internal/modules/assessments/assessment_contract_test.go`, `internal/modules/workbook/notes_indicators_test.go`, and `internal/modules/projections/internal/runtime/query_store_test.go` stop constructing owner identity |
+| Authored routing | `tools/test_families/module.assessments.json` moves hash evidence to the existing root-package row and retains admission evidence in the existing admission row; no row was added |
+| Generated topology | `make generate` updated only `tools/execution_topology_render_index.json` for the authored selector digest |
+
+### 28.3 Verification and compatibility
+
+| Field | S01 evidence |
+| --- | --- |
+| Format and generation | First `make format` failed because the edited selector list was not ASCII-sorted; the list was corrected. Retry passed at `.cartulary/test-results/20260827T122852Z-p3549260`. `make generate` passed at `.cartulary/test-results/20260827T122900Z-p3553275` |
+| Assessment focused | 27/27 passed at `.cartulary/test-results/20260827T122920Z-p3556296` |
+| Workbook focused | 66/66 passed at `.cartulary/test-results/20260827T123032Z-p3601820`; live Workbook routing is 93 rows and 57 service-backed |
+| Assessment service-backed | 18/18 passed at `.cartulary/test-results/20260827T123250Z-p3660363` |
+| Workbook service-backed | 37/37 passed at `.cartulary/test-results/20260827T123351Z-p3703188` |
+| Harness and drift | `make harness-contract` passed 2/2 at `.cartulary/test-results/20260827T123610Z-p3761367`; `make generate-drift` passed 4/4 at `.cartulary/test-results/20260827T123623Z-p3761869`; `make migration-drift` passed 5/5 at `.cartulary/test-results/20260827T123631Z-p3764785` |
+| Routing | Assessment routing remains 21 total and 12 service-backed, with the same family and runner counts |
+| Retired symbols | Exact searches found no Assessment `CreateCommand.Idempotency`, `admission.CreateRequestHash`, Workbook Assessment route constant, independent `maxSupportActions`, or `createFields` definition |
+| Persisted compatibility | Route `assessments.rows.create`, incident/view scope, actor and client transaction inputs, canonical golden `6406c647a1b4e4adc65a4161ac1b168775e88376860a1e0bcd6d3f9e699055fb`, replay-before-effects, conflict behavior, idempotency v1, and migration 35 remain exact |
+| Public and data impact | No HTTP, OpenAPI, view schema, bundle, database, migration, dependency, or lockfile change. The Go break is repository-internal and migrated atomically |
+| Failures and skips | The selector-order format failure was slice-related and fixed before validation. No applicable S01 check was skipped or left failing |
+| Residual risk | Shared Imports scalar validity remains permissive until the now-eligible S02A atomic migration |
+
+### 28.4 Checkpoint validation
+
+The S01 tracker update must pass `make lint-markdown`,
+`git diff --cached --check`, and `git diff --check` before S02A implementation
+begins. The user's pre-existing staged tracker layer remains preserved; all ALR
+implementation changes remain unstaged.
+
+## 29. ALR-S02A Checkpoint
+
+### 29.1 Status and closure
+
+ALR-S02A is `COMPLETE` on 2026-08-27. It closes G3 and the shared-contract
+portions of ALR-REQ-007 and ALR-REQ-012 through ALR-REQ-014.
+ALR-S02B is eligible and authorized.
+
+### 29.2 Change inventory
+
+| Change | Paths and purpose |
+| --- | --- |
+| Adopted owner and typed contract | `docs/spec/01_architecture_storage_and_view_contracts.md` and `contracts/imports/schemas.v1.json` define the closed seven-kind scalar union, exactly one matching payload, and unique non-empty field keys while retaining the v1 schema identity |
+| Shared Imports facade | `internal/modules/imports/ownerfacade/owner_create.go`, `registry.go`, and `finalize.go` make the scalar opaque and constructor-only, add checked accessors and indexing, reject invalid values and keys before callbacks, and remove unchecked `ValuesByField` |
+| Shared contract evidence | `internal/modules/imports/ownerfacade/scalar_contract_test.go` and `characterization_test.go` cover every valid variant, corrupt/zero states, duplicate and empty keys, callback non-invocation, and generic value-free failure behavior |
+| Owner migrations | `internal/modules/entities/hostidentity/import_create.go`, `internal/modules/indicators/import_create.go`, `internal/modules/evidence/import_create.go`, `internal/modules/artifacts/import_create.go`, `internal/modules/tasksdecisions/import_create.go`, `internal/modules/parties/import_create.go`, `internal/modules/timeline/import_create.go`, and `internal/modules/assessments/import_create.go` consume the opaque shared union and checked index |
+| Fixture migrations | `internal/app/importassembly/assessment_integration_test.go`, `assessment_membership_integration_test.go`, and `tasksdecisions_integration_test.go`; Artifact, Party, Timeline, Projection, and Workbook tests listed in the worktree diff now construct values through the new closed API |
+| Authored routing | `tools/test_families/module.imports.json` adds scalar-contract selectors to existing Imports rows; no owner row or target identity was added |
+| Generated projections | `make generate` updated `internal/gen/contractimports/artifacts_gen.go`, `internal/gen/importtargetregistry/registry_gen.go`, `packages/protocol-ts/src/generated/import-target-registry.ts`, and `tools/execution_topology_render_index.json` from the contract and test-family inputs |
+
+### 29.3 Verification and compatibility
+
+| Field | S02A evidence |
+| --- | --- |
+| Format, shape, and generation | `make format` passed at `.cartulary/test-results/20260827T132012Z-p429678`. Initial `make json-shape-check` failed at `.cartulary/test-results/20260827T124553Z-p3821490` because the authored Imports selector change required topology regeneration. `make generate` passed at `.cartulary/test-results/20260827T124555Z-p3821895`; final JSON shape passed at `.cartulary/test-results/20260827T132037Z-p435610` and generation drift 4/4 passed at `.cartulary/test-results/20260827T132037Z-p435604` |
+| Focused owner matrix | Imports 23/23 at `.cartulary/test-results/20260827T124648Z-p3828599`; Entities 40/40 at `.cartulary/test-results/20260827T124830Z-p3875500`; Indicators 20/20 at `.cartulary/test-results/20260827T125023Z-p3930792`; Timeline 52/52 at `.cartulary/test-results/20260827T125721Z-p4009282`; Evidence 35/35 at `.cartulary/test-results/20260827T130205Z-p4068310`; Artifacts 7/7 at `.cartulary/test-results/20260827T130327Z-p4119285`; Tasks/Decisions 20/20 at `.cartulary/test-results/20260827T130408Z-p4135978`; Parties 20/20 at `.cartulary/test-results/20260827T130459Z-p4176948`; Assessments 27/27 at `.cartulary/test-results/20260827T130553Z-p24001` |
+| Service-backed owner matrix | Imports 14/14 at `.cartulary/test-results/20260827T130658Z-p67912`; Entities 31/31 at `.cartulary/test-results/20260827T130810Z-p110548`; Indicators 8/8 at `.cartulary/test-results/20260827T131002Z-p165088`; Timeline 29/29 at `.cartulary/test-results/20260827T131048Z-p181721`; Evidence 25/25 at `.cartulary/test-results/20260827T131528Z-p239826`; Artifacts 3/3 at `.cartulary/test-results/20260827T131644Z-p289703`; Tasks/Decisions 15/15 at `.cartulary/test-results/20260827T131724Z-p306042`; Parties 17/17 at `.cartulary/test-results/20260827T131814Z-p346394`; Assessments 18/18 at `.cartulary/test-results/20260827T131905Z-p386845` |
+| Live owner routing | Imports 29/17, Entities 38/25, Indicators 39/13, Timeline 71/40, Evidence 53/35, Artifacts 13/6, Tasks/Decisions 13/6, Parties 11/7, and Assessments 21/12 total/service-backed rows |
+| Generated and frontend policy | Generated artifact policy passed 3/3 at `.cartulary/test-results/20260827T132021Z-p433714`; frontend typecheck passed 2/2 at `.cartulary/test-results/20260827T132021Z-p433894` |
+| Target stability | Exact generated diffs show unchanged import target identities, order, availability, and facade bindings. Only source/registry digests changed, from `93e00b31...`/`ba38be12...` to `bbde4ab...`/`3272038e...`, plus the embedded contract and authored-selector projections |
+| Retired and retained symbols | Exact searches found no `ValuesByField`, public scalar field initialization, or reads of the retired scalar payload fields. All seven kinds and constructors remain covered. `cartulary.imports.owner_create_request.v1`, current import targets, facade bindings, valid import behavior, and Assessment-specific safe reasons remain |
+| Public and migration impact | Malformed internal states now fail before owner effects. Valid imports, HTTP/OpenAPI, databases, migration 35, target rows, view schema, bundle v3, dependencies, and lockfiles do not change; there is no v2 adapter, compatibility alias, or parallel scalar contract |
+| Failures and retries | The stale-topology JSON failure was corrected by the required generator. The first Timeline focused run failed at `.cartulary/test-results/20260827T125113Z-p3948520`: the harness labeled missing selectors as infrastructure, while package stderr exposed four stale direct field assertions. They were migrated to the opaque accessor and the full 52/52 rerun passed. No failure remains unexplained |
+| Residual risk | Assessment-specific field/kind admission and shared creation mechanics intentionally remain for S02B; shared structural corruption is already rejected before Assessment dispatch |
+
+### 29.4 Checkpoint validation
+
+The S02A tracker update must pass `make lint-markdown`,
+`git diff --cached --check`, and `git diff --check` before S02B implementation
+begins. The user's pre-existing staged tracker layer remains preserved; all ALR
+implementation changes remain unstaged.
+
+## 30. ALR-S02B Checkpoint
+
+### 30.1 Status and closure
+
+ALR-S02B is `COMPLETE` on 2026-08-27. It closes G4, ALR-REQ-006,
+the remaining Assessment-specific portion of ALR-REQ-007, and the S02B
+portions of ALR-REQ-012 through ALR-REQ-014. ALR-S03 is eligible and
+authorized.
+
+### 30.2 Change inventory
+
+| Change | Paths and purpose |
+| --- | --- |
+| Private staged creator | Added `internal/modules/assessments/create_service.go` to own shared input validation, subject validation, assessor default and validation, assessed-time default, fixed envelope/source insertion, and projection refresh through narrow private stages |
+| Interactive coordinator | `internal/modules/assessments/facade.go` retains replay, transaction ownership, support validation/deduplication, links, revision, idempotency store, and commit while delegating only shared creation stages |
+| Import coordinator and classifier | `internal/modules/assessments/import_create.go` retains the borrowed transaction and `FinalizeLiveRecordTx`, admits exactly seven field/kind pairs, and returns closed safe errors for null, wrong-kind, collection, support, and unknown fields |
+| Private persistence | `internal/modules/assessments/source_repository.go` changes the source insertion method to private spelling and leaves its single production caller behind the staged creator |
+| Root unit and order evidence | Added `internal/modules/assessments/import_create_test.go`; updated `facade_contract_test.go` and `export_surface_test.go` for exact kind/null/structural matrices, safe detail without a cause, participant order, rollback, replay, and the private source method |
+| Cross-path integration evidence | `internal/app/importassembly/assessment_integration_test.go` adds 0/39/40/69/70/100 score boundaries, equivalent interactive/import row and envelope parity, safe malformed-field rejection before effects, revision/publication/projection evidence, and caller rollback |
+| Routing and generated topology | `tools/test_families/module.assessments.json` adds the private classifier and order tests to the existing facade row; `make generate` updates only the corresponding selector digest in `tools/execution_topology_render_index.json` |
+
+### 30.3 Verification and compatibility
+
+| Field | S02B evidence |
+| --- | --- |
+| Format and generation | `make format` passed at `.cartulary/test-results/20260827T133132Z-p444124`; `make generate` passed at `.cartulary/test-results/20260827T133144Z-p448149` |
+| Focused owner matrix | Assessments 27/27 at `.cartulary/test-results/20260827T133323Z-p496548`; Imports 23/23 at `.cartulary/test-results/20260827T133427Z-p539970`; Workbook 66/66 at `.cartulary/test-results/20260827T133543Z-p583016`; Projections 15/15 at `.cartulary/test-results/20260827T133805Z-p644231`; Revisions 27/27 at `.cartulary/test-results/20260827T133805Z-p644241`; Collaboration 32/32 at `.cartulary/test-results/20260827T133805Z-p644249` |
+| Service-backed owner matrix | Assessments 18/18 at `.cartulary/test-results/20260827T133946Z-p757319`; Imports 14/14 at `.cartulary/test-results/20260827T134045Z-p800117`; Workbook 37/37 at `.cartulary/test-results/20260827T134210Z-p842796`; Projections 11/11 at `.cartulary/test-results/20260827T134426Z-p900971`; Revisions 20/20 at `.cartulary/test-results/20260827T134426Z-p900981`; Collaboration 23/23 at `.cartulary/test-results/20260827T134426Z-p900991` |
+| Harness and drift | `make harness-contract` passed 2/2 at `.cartulary/test-results/20260827T134609Z-p1010798`; `make generate-drift` passed 4/4 at `.cartulary/test-results/20260827T134609Z-p1010645` |
+| Routing | Assessment routing remains 21 total and 12 service-backed, with unchanged family and runner counts; classifier selectors were added to an existing owner row |
+| Ordering and ownership | Tests prove interactive order remains replay, transaction, subject, deduplicated support targets, assessor, envelope/source, links, projection, revision, idempotency, and commit. Imports performs strict admission, subject, assessor, envelope/source, projection, and shared finalization without committing or rolling back the caller transaction |
+| Parity and strictness | Equivalent valid paths produce the same subject, state, confidence band, rationale, assessor, assessed time, fixed assessment envelope, row version, source facts, and projection facts. Every admitted field has one exact kind; unknown, null, wrong-kind, collection, support, duplicate, empty-key, and corrupt shared states fail before effects with either the closed safe owner detail or the S02A generic structural failure |
+| Retired and retained symbols | Exact searches find no exported `assessmentSourceRepository.InsertTx` or duplicate coordinator calls to subject, assessor, envelope, source, or projection ports. Interactive support links/idempotency/revisions and Imports `FinalizeLiveRecordTx`/Collaboration publication remain distinct and covered |
+| Public and migration impact | Valid interactive and import behavior remains exact. No HTTP, OpenAPI, view schema, bundle, database, migration, target registry, dependency, or lockfile change; no generic cross-owner creator, mode flag, alias, or parallel import path was introduced |
+| Failure and retry | The first Assessment focused run failed 26/27 at `.cartulary/test-results/20260827T133158Z-p451088` because the exact export allowlist still expected the newly private source method. The stale expectation was removed and the full rerun passed. No failure or skip remains unexplained |
+| Residual risk | Dead DTO fields, private-receiver export spelling, and the guard's receiver-type bug remain intentionally scoped to the now-eligible S03 contraction |
+
+### 30.4 Checkpoint validation
+
+The S02B tracker update must pass `make lint-markdown`,
+`git diff --cached --check`, and `git diff --check` before S03 implementation
+begins. The user's pre-existing staged tracker layer remains preserved; all ALR
+implementation changes remain unstaged.
+
+## 31. ALR-S03 Checkpoint
+
+### 31.1 Status and closure
+
+ALR-S03 is `COMPLETE` on 2026-08-27. It closes G5,
+ALR-REQ-008 through ALR-REQ-010, and the S03 portions of ALR-REQ-012 through
+ALR-REQ-014. ALR-S04 is eligible and authorized.
+
+### 31.2 Change inventory
+
+| Change | Paths and purpose |
+| --- | --- |
+| Private owner mechanics | `internal/modules/assessments/import_create.go` makes the import callback private; `workbookprojection/contribution.go` makes descriptor and surface-intent construction private while retaining `NewContribution` and `ProjectionContribution` |
+| Contracted DTOs | `internal/modules/assessments/facade.go` and `create_service.go` remove configurable record type/initial row version and derived target kind/operation/after-version fields; `workbookprojection/model.go` removes unread `Envelope.RecordID` |
+| Owning adapters | `internal/app/assessmentassembly/adapters.go` derives record type `assessment` and row version 1; `internal/app/workbookassembly/assessment_facade.go` derives target `assessment`, operation `create`, and `assessment:<record>:<version>`; `internal/app/assessmentassembly/projection_source.go` stops assigning the unread envelope field |
+| Contribution consumers | `internal/modules/assessments/workbookprojection/contribution_test.go`, `projection_provider_contribution_test.go`, and `internal/modules/projections/internal/runtime/query_plans_test.go` inspect `ProjectionContribution().Descriptors()` and `.SurfaceIntents()` rather than construction helpers |
+| Exact API guard | `internal/modules/assessments/export_surface_test.go` now counts exported methods only on exported receiver types, covers the root, `admission`, and `workbookprojection` packages, and proves exported-receiver inclusion plus private-receiver exclusion, unexpected-export detection, and missing-export detection |
+| Supporting evidence | `internal/modules/assessments/facade_contract_test.go` derives fixed envelope values in its adapter; `tools/test_families/module.assessments.json` adds the receiver fixture to the existing facade row; `make generate` updates only the selector digest in `tools/execution_topology_render_index.json` |
+
+### 31.3 Verification and compatibility
+
+| Field | S03 evidence |
+| --- | --- |
+| Format and generation | Final `make format` passed at `.cartulary/test-results/20260827T135712Z-p1234112`; `make generate` passed at `.cartulary/test-results/20260827T135052Z-p1021155` |
+| Focused owner matrix | Assessments 27/27 at `.cartulary/test-results/20260827T135106Z-p1024106`; Imports 23/23 at `.cartulary/test-results/20260827T135211Z-p1069190`; Workbook 66/66 at `.cartulary/test-results/20260827T135329Z-p1112434`; Projections 15/15 at `.cartulary/test-results/20260827T135721Z-p1238097`; Revisions 27/27 at `.cartulary/test-results/20260827T135544Z-p1170992` |
+| Service-backed owner matrix | Assessments 18/18 at `.cartulary/test-results/20260827T135815Z-p1255381`; Imports 14/14 at `.cartulary/test-results/20260827T135914Z-p1298265`; Workbook 37/37 at `.cartulary/test-results/20260827T140029Z-p1340949`; Projections 11/11 at `.cartulary/test-results/20260827T140246Z-p1398976`; Revisions 20/20 at `.cartulary/test-results/20260827T140246Z-p1398979` |
+| Boundary, harness, and drift | Backend module boundary passed 3/3 at `.cartulary/test-results/20260827T140359Z-p1460818`; harness contract passed 2/2 at `.cartulary/test-results/20260827T140415Z-p1461400`; generation drift passed 4/4 at `.cartulary/test-results/20260827T140415Z-p1461250` |
+| Exact exports | Root, admission, and workbook-projection surfaces match the contracted allowlists. The synthetic guard includes `ExportedReceiver.ExportedMethod`, excludes a same-spelled method on `privateReceiver`, and reports both unexpected and missing declarations |
+| Retired and retained symbols | Exact searches find no exported Assessment import callback definition, public Assessment `Descriptor` or `SurfaceIntent`, removed DTO field declarations/usages, `Envelope.RecordID`, or stale allowlist entries. `NewImportCreateFacade`, the bound facade interface, `NewContribution`, `ProjectionContribution`, narrow ports, and fixed revision values remain |
+| Public and migration impact | The contraction is repository-internal and atomically migrated. Public HTTP/OpenAPI/view schema, projection facts, revision values, Collaboration publication, persisted idempotency, bundle v3, databases, migrations, dependencies, and lockfiles remain unchanged; no aliases or deprecation copies were added |
+| Failure and retry | The first parallel Projections run failed 10/15 at `.cartulary/test-results/20260827T135544Z-p1170989`; package stderr exposed one stale direct call to the retired Assessment `SurfaceIntent` in `query_plans_test.go`. It was migrated to the contribution facade, formatted, and the independent full rerun passed. No failure remains unexplained |
+| Residual risk | Constructor checks still accept typed-nil interfaces and some assembly constructors cannot report invalid dependencies; these are exclusively the now-eligible S04 scope |
+
+### 31.4 Checkpoint validation
+
+The S03 tracker update must pass `make lint-markdown`,
+`git diff --cached --check`, and `git diff --check` before S04 implementation
+begins. The user's pre-existing staged tracker layer remains preserved; all ALR
+implementation changes remain unstaged.
+
+## 32. ALR-S04 Checkpoint
+
+### 32.1 Status and closure
+
+ALR-S04 is `COMPLETE` on 2026-08-27. It closes G6, ALR-REQ-011,
+and the S04 portions of ALR-REQ-012 through ALR-REQ-014. ALR-S05 is eligible
+and authorized.
+
+### 32.2 Change inventory
+
+| Change | Paths and purpose |
+| --- | --- |
+| Owner nil guards | Added `internal/modules/assessments/dependencies.go`; `facade.go`, `import_create.go`, `projection_provider_contribution.go`, and `merge_effects.go` reject nil and typed-nil values for every interface dependency, including `postgres.DB`, before creating a wrapper |
+| Projection contribution guard | `internal/modules/assessments/workbookprojection/contribution.go` safely checks only nil-capable reflection kinds and rejects a typed-nil `SourceReader` |
+| Error-returning assembly | `internal/app/assessmentassembly/adapters.go` changes Subject, Assessor, Support Target, Record Envelope, and Projection constructors to return `(port, error)` and validates every dependency; `dependencies.go` owns the private reflection guard; merge assembly validates both projection rows and snapshots |
+| Production propagation | `internal/app/workbookassembly/assessment_facade.go` and `internal/app/importassembly/assessment_facade.go` assemble each port serially and return contextual errors; `internal/app/importassembly/owner_registry.go`, `internal/app/timelineassembly/assembly.go`, and `internal/app/projectionassembly/build.go` reject typed-nil dependencies; server runtime wrappers use lower-case contextual composition errors |
+| Constructor evidence | Added `internal/modules/assessments/constructor_contract_test.go` and `assembly_constructor_test.go`; expanded `merge_effects_constructor_test.go` and `workbookprojection/contribution_test.go` to cover every nil, typed-nil, and valid owner/assembly dependency |
+| Caller and routing updates | `internal/app/importassembly/assessment_membership_integration_test.go` consumes the error-returning Assessor constructor; `tools/test_families/module.assessments.json` adds constructor tests to the existing facade row; generated topology updates only that selector digest |
+
+### 32.3 Verification and compatibility
+
+| Field | S04 evidence |
+| --- | --- |
+| Format and generation | `make format` passed at `.cartulary/test-results/20260827T141655Z-p1470998`; `make generate` passed at `.cartulary/test-results/20260827T141709Z-p1475070` |
+| Focused owner and composition matrix | Assessments 27/27 at `.cartulary/test-results/20260827T141723Z-p1478088`; Imports 23/23 at `.cartulary/test-results/20260827T141835Z-p1523443`; Workbook 66/66 at `.cartulary/test-results/20260827T141951Z-p1566761`; Timeline 52/52 at `.cartulary/test-results/20260827T142206Z-p1625088`; app-server 24/24 at `.cartulary/test-results/20260827T142655Z-p1684052`; Projections 15/15 at `.cartulary/test-results/20260827T142756Z-p1725658` |
+| Service-backed owner and composition matrix | Assessments 18/18 at `.cartulary/test-results/20260827T142910Z-p1760254`; Imports 14/14 at `.cartulary/test-results/20260827T143011Z-p1803129`; Workbook 37/37 at `.cartulary/test-results/20260827T143128Z-p1845898`; Timeline 29/29 at `.cartulary/test-results/20260827T143344Z-p1903996`; app-server 17/17 at `.cartulary/test-results/20260827T143826Z-p1962332`; Projections 11/11 at `.cartulary/test-results/20260827T143926Z-p2003157` |
+| Lint, boundary, harness, and drift | `make lint-go` passed with no result root emitted; backend module boundary passed 3/3 at `.cartulary/test-results/20260827T142840Z-p1742997`; harness contract passed 2/2 at `.cartulary/test-results/20260827T144014Z-p2020125`; generation drift passed 4/4 at `.cartulary/test-results/20260827T144014Z-p2019975` |
+| Constructor matrix | Every dependency of `NewFacade`, `NewImportCreateFacade`, `NewProjectionContribution`, `NewMergeEffects`, and `workbookprojection.NewContribution` has nil, typed-nil, and valid evidence. Assembly coverage includes database, entity facts, projection rows, and both merge dependencies; `NewSupportLinkApplier` remains infallible because it injects nothing |
+| Real composition | Valid Workbook, Imports, Timeline, Projections, and app-server focused and service-backed runs prove the new error-returning chain reaches production startup without panics, `Must` helpers, or partial wrappers |
+| Error behavior | Invalid dependencies fail during construction with stable, lower-case contextual error chains. Reflection calls `IsNil` only for channel, function, interface, map, pointer, or slice kinds, so non-nilable values cannot panic the guard |
+| Public and migration impact | Valid startup and runtime behavior remain unchanged. No HTTP/OpenAPI/view schema, bundle, database, migration, idempotency, dependency, or lockfile change; the constructor signature break is repository-internal and every caller migrated atomically |
+| Failures and skips | No S04 implementation or validation command failed. No applicable gate was skipped |
+| Residual risk | Only broad production validation, security/release evidence, final traceability, and handoff reconciliation remain in S05 |
+
+### 32.4 Checkpoint validation
+
+The S04 tracker update must pass `make lint-markdown`,
+`git diff --cached --check`, and `git diff --check` before S05 validation
+begins. The user's pre-existing staged tracker layer remains preserved; all ALR
+implementation changes remain unstaged.
+
+## 33. ALR-S05 Production Validation and Final Handoff
+
+### 33.1 Status and complete closure
+
+ALR-S05 and the amended ALR iteration are `COMPLETE` on 2026-08-27. S05
+closes ALR-REQ-015 and supplies final evidence for G0 through G6 and
+ALR-REQ-001 through ALR-REQ-014. Every authorized slice ran serially, each
+predecessor tracker checkpoint passed before its successor began, and no
+applicable product, security, compatibility, or release failure is waived.
+
+The repository remains at baseline commit
+`ac610e028d9676929836e5a56bd65fdcc02a61c8` with an intentionally dirty
+worktree containing this iteration. The user's original staged tracker layer
+remains the only index change. All implementation work and later tracker
+evidence remain unstaged, so final status continues to show `MM` for this
+tracker without overwriting or restaging the user's work.
+
+### 33.2 Final change inventory
+
+Final status contains 67 paths: 56 modified tracked paths, 11 new authored
+paths, and no deletion. S05 itself adds only this tracker handoff; `make
+format` produced no new scope beyond the source changes already recorded by
+S01 through S04.
+
+| Scope | Final authored or generated paths |
+| --- | --- |
+| Specification and typed contract | `docs/spec/01_architecture_storage_and_view_contracts.md`; `contracts/imports/schemas.v1.json` |
+| Controlling tracker | `docs/handoffs/assessments-module-refactor-tracker.md`; the staged historical layer is preserved and the implementation amendment/checkpoints are unstaged |
+| Assessment owner | `internal/modules/assessments/api.go`, `facade.go`, `import_create.go`, `source_repository.go`, `merge_effects.go`, `projection_provider_contribution.go`, `admission/create.go`, `internal/policy/assessment.go`, and `workbookprojection/contribution.go` plus `model.go` |
+| New Assessment owner source | `internal/modules/assessments/create_identity.go`, `create_service.go`, and `dependencies.go` |
+| Assessment tests | `assessment_contract_test.go`, `export_surface_test.go`, `facade_contract_test.go`, `merge_effects_constructor_test.go`, `admission/create_test.go`, and `workbookprojection/contribution_test.go` |
+| New Assessment tests | `assembly_constructor_test.go`, `constructor_contract_test.go`, `create_identity_test.go`, and `import_create_test.go` |
+| Shared Imports owner | `internal/modules/imports/ownerfacade/owner_create.go`, `registry.go`, `finalize.go`, and `characterization_test.go`; new `scalar_contract_test.go` |
+| Application assembly | `internal/app/assessmentassembly/adapters.go` and `projection_source.go`; `internal/app/importassembly/assessment_facade.go`, `assessment_integration_test.go`, `assessment_membership_integration_test.go`, `owner_registry.go`, and `tasksdecisions_integration_test.go`; `internal/app/projectionassembly/build.go`; `internal/app/server/runtime_assembly.go`; `internal/app/timelineassembly/assembly.go`; `internal/app/workbookassembly/assessment_adapter.go` and `assessment_facade.go` |
+| New assembly guards | `internal/app/assessmentassembly/dependencies.go`, `internal/app/importassembly/dependencies.go`, and `internal/app/projectionassembly/dependencies.go` |
+| Import-owner migrations | `internal/modules/artifacts/import_create.go`, `artifact_contract_support_test.go`, and `artifact_import_integration_test.go`; `internal/modules/entities/hostidentity/import_create.go`; `internal/modules/evidence/import_create.go`; `internal/modules/indicators/import_create.go`; `internal/modules/parties/import_create.go` and `create_shared_test.go`; `internal/modules/tasksdecisions/import_create.go`; `internal/modules/timeline/import_create.go`, `import_create_test.go`, and `resolution_integration_test.go` |
+| Other regression consumers | `internal/modules/projections/internal/runtime/query_plans_test.go` and `query_store_test.go`; `internal/modules/workbook/notes_indicators_test.go` |
+| Authored harness inputs | `tools/test_families/module.assessments.json` and `tools/test_families/module.imports.json` |
+| Generator-owned outputs | `internal/gen/contractimports/artifacts_gen.go`, `internal/gen/importtargetregistry/registry_gen.go`, `packages/protocol-ts/src/generated/import-target-registry.ts`, and `tools/execution_topology_render_index.json`; all were produced through `make generate` and pass drift and generated-policy checks |
+
+No file under `db/migrations`, no OpenAPI or view-schema file, no
+`docs/domain.md`, no dependency manifest, and no lockfile changed. The only
+generated protocol diff is the expected import-target registry source and
+registry digest projection; import target identities, order, availability,
+and facade bindings remain exact.
+
+### 33.3 Gap and requirement reconciliation
+
+| Gap or requirements | Final remediation and evidence | Status |
+| --- | --- | --- |
+| G0; ALR-REQ-001, ALR-REQ-002, ALR-REQ-015 | Sections 1-21 remain unchanged historical evidence; Section 27 records complete authority and sequencing; Sections 28-33 contain validated serial checkpoints, failures, compatibility decisions, and final evidence | COMPLETE |
+| G1; ALR-REQ-003, ALR-REQ-004 | Assessment-private identity derives the fixed route, actor, incident/view scope, transaction ID, and exact canonical hash. Golden, replay-before-effects, divergent conflict, malformed persisted-v1, and migration evidence pass. `CreateCommand.Idempotency` and Assessment `admission.CreateRequestHash` have no definitions, references, or aliases | COMPLETE |
+| G2; ALR-REQ-005 | One field-to-decoder dispatch owns admission and `internal/policy.MaxInitialSupportReferences` is the sole 64-reference policy. Known, omitted, null, invalid, unknown, and 64/65 matrices pass | COMPLETE |
+| G3; Assessment-independent portion of ALR-REQ-007 | Core 01 and Imports v1 project a closed seven-kind scalar union. The opaque value, constructors/accessors, validity checks, checked indexing, empty/duplicate-key rejection, callback non-invocation, generic safe failure, and every current owner pass focused and service-backed regression | COMPLETE |
+| G4; ALR-REQ-006 and remaining ALR-REQ-007 | The private staged creator centralizes validation, defaults, envelope/source insertion, and refresh while each coordinator retains transaction/finalization ownership. Exact Assessment field/kind, parity, order, rollback, revision, Collaboration, and projection tests pass | COMPLETE |
+| G5; ALR-REQ-008 through ALR-REQ-010, ALR-REQ-014 | Dead/invariant DTO fields and false builders are removed, implementation methods are private, and the three-package AST guard models only exported-receiver methods with positive and negative fixtures. No compatibility alias or parallel path remains | COMPLETE |
+| G6; ALR-REQ-011 | Every owner and assembly interface dependency has nil, typed-nil, and valid constructor evidence. Workbook, Imports, Timeline, Projections, and server production composition fail contextually at startup and pass with valid dependencies | COMPLETE |
+| ALR-REQ-012, ALR-REQ-013 | HTTP/OpenAPI/view schema, valid import/create behavior, support links, revisions, Collaboration publication, Incident Bundle v3, persisted idempotency v1, migration 35, narrow ports, contribution facades, `workbookprojection`, and dual-driver evidence remain; broad frontend, browser, migration, compatibility, security, check, and release gates pass | COMPLETE |
+
+### 33.4 Live routing and owner validation
+
+The literal ladder command `make task-guide ROLE=module-author` failed before
+execution because the public target requires `OWNER`. This was an invocation
+shape error, not a product failure. It was replaced with successful public
+per-owner task-guide calls for every owner below. `make explain-test-owner`
+also passed for each owner and established this final live routing truth:
+
+| Owner | Total rows | Service-backed rows |
+| --- | ---: | ---: |
+| Assessments | 21 | 12 |
+| Imports | 29 | 17 |
+| Workbook | 93 | 57 |
+| Projections | 16 | 12 |
+| Revisions | 47 | 30 |
+| Collaboration | 32 | 20 |
+| Entities | 38 | 25 |
+| Timeline | 71 | 40 |
+| Artifacts | 13 | 6 |
+| Evidence | 53 | 35 |
+| Indicators | 39 | 13 |
+| Parties | 11 | 7 |
+| Tasks/Decisions | 13 | 6 |
+| app.server | 34 | 22 |
+
+Final Assessment owner routing therefore remains the planned 21 total and 12
+service-backed rows. The package now contains 38 Go files versus the 31-file
+ALR planning baseline; the seven additions are the three private
+implementation sources and four focused test files listed in Section 33.2.
+
+### 33.5 Final focused and service-backed evidence
+
+| Owner | Final focused result and root | Final service-backed result and root |
+| --- | --- | --- |
+| Assessments | 27/27, `.cartulary/test-results/20260827T144337Z-p2032618` | 18/18, `.cartulary/test-results/20260827T145652Z-p2607149` |
+| Imports | 23/23, `.cartulary/test-results/20260827T144337Z-p2032613` | 14/14, `.cartulary/test-results/20260827T145652Z-p2607153` |
+| Workbook | 66/66, `.cartulary/test-results/20260827T144457Z-p2117947` | 37/37, `.cartulary/test-results/20260827T145652Z-p2607162` |
+| Projections | 15/15, `.cartulary/test-results/20260827T144713Z-p2176193` | 11/11, `.cartulary/test-results/20260827T145917Z-p2750583` |
+| Revisions | 27/27, `.cartulary/test-results/20260827T144713Z-p2176178` | 20/20, `.cartulary/test-results/20260827T145917Z-p2750587` |
+| Collaboration | 32/32, `.cartulary/test-results/20260827T144713Z-p2176183` | 23/23, `.cartulary/test-results/20260827T145917Z-p2750594` |
+| Entities | 40/40, `.cartulary/test-results/20260827T144937Z-p2287959` | 31/31, `.cartulary/test-results/20260827T150054Z-p2860458` |
+| Timeline | 52/52, `.cartulary/test-results/20260827T144937Z-p2287968` | 29/29, `.cartulary/test-results/20260827T150054Z-p2860463` |
+| Artifacts | 7/7, `.cartulary/test-results/20260827T144937Z-p2287970` | 3/3, `.cartulary/test-results/20260827T150054Z-p2860477` |
+| Evidence | 35/35, `.cartulary/test-results/20260827T145425Z-p2417582` | 25/25, `.cartulary/test-results/20260827T150540Z-p2989373` |
+| Indicators | 20/20, `.cartulary/test-results/20260827T145425Z-p2417589` | 8/8, `.cartulary/test-results/20260827T150540Z-p2989377` |
+| Parties | 20/20, `.cartulary/test-results/20260827T145425Z-p2417583` | 17/17, `.cartulary/test-results/20260827T150540Z-p2989380` |
+| Tasks/Decisions | 20/20, `.cartulary/test-results/20260827T145552Z-p2525685` | 15/15, `.cartulary/test-results/20260827T150704Z-p3096186` |
+| app.server | 24/24, `.cartulary/test-results/20260827T145552Z-p2525686` | 17/17, `.cartulary/test-results/20260827T150704Z-p3096187` |
+
+All 28 final owner targets passed on their first S05 invocation. Longer
+Timeline selections completed normally through their measurement browser
+groups; they were not retried or substituted.
+
+### 33.6 Final repository validation ladder
+
+| Gate | Final result and retained root |
+| --- | --- |
+| Formatting | `make format` passed 2/2 at `.cartulary/test-results/20260827T150805Z-p3177292` |
+| Go and architecture | `make lint-go` passed without emitting a graph root; `make backend-module-boundary-check` passed 3/3 at `.cartulary/test-results/20260827T150813Z-p3181539`; `make harness-contract` passed 2/2 at `.cartulary/test-results/20260827T150813Z-p3181572` |
+| Shape, generation, and compatibility | `make json-shape-check` passed 3/3 at `.cartulary/test-results/20260827T150831Z-p3187129`; `make generate-drift` passed 4/4 at `.cartulary/test-results/20260827T150831Z-p3187133`; generated-artifact policy passed 3/3 at `.cartulary/test-results/20260827T150831Z-p3187191`; migration drift passed 5/5 at `.cartulary/test-results/20260827T150831Z-p3187192`; OpenAPI compatibility passed 4/4 at `.cartulary/test-results/20260827T150831Z-p3187173` |
+| Security | Targeted gosec passed 4/4 at `.cartulary/test-results/20260827T150845Z-p3194423`; Go vulnerability checking passed 4/4 at `.cartulary/test-results/20260827T150845Z-p3194424`; no advisory or environment exception occurred |
+| Frontend | Typecheck passed 2/2 at `.cartulary/test-results/20260827T150901Z-p3225502`; unit tests passed 390/390 at `.cartulary/test-results/20260827T150901Z-p3225510`; import boundaries passed 2/2 at `.cartulary/test-results/20260827T150901Z-p3225521`; webserver-backed browser tests passed 58/58 at `.cartulary/test-results/20260827T151032Z-p3260757` |
+| First finalization | `make agent-finalize` passed 1/1 at `.cartulary/test-results/20260827T151437Z-p3314833` |
+| Broad regression | `make test-fast` passed 433/433 at `.cartulary/test-results/20260827T151455Z-p3317737`; `make check` passed 659/659 at `.cartulary/test-results/20260827T151533Z-p3322676`; `make release-check` passed 819/819 at `.cartulary/test-results/20260827T152008Z-p3434843` |
+| Retained-run maintenance | `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260827T151533Z-p3322676` passed 1/1 at `.cartulary/test-results/20260827T153317Z-p3650553`; no unset `RESULTS_DIR` skip was necessary |
+
+### 33.7 Retired, retained, compatibility, and risk proof
+
+Final exact searches find no Assessment admission `CreateRequestHash`, no
+`CreateCommand.Idempotency`, no `ValuesByField`, no exported Assessment source
+insert or import callback, no exported workbook-projection descriptor or
+surface-intent builder, no externally field-initialized scalar payload, and no
+compatibility alias for a retired surface. Package export tests independently
+freeze the exact supported Assessment root, admission, and
+workbook-projection APIs.
+
+The owner-private `CreateIdempotencyKey`, Imports
+`FinalizeLiveRecordTx`, `workbookprojection.NewContribution` and
+`ProjectionContribution`, narrow ports, revision and Collaboration paths, and
+valid target bindings remain. Migration 35 remains byte-present at
+`db/migrations/00035_assessment_create_idempotency_v1.sql` with SHA-256
+`f5800e4d9b733a279d93743506d6e12ca86f9b2d8a3637161c4b6072678dfacb`.
+The Revisions contract still admits only Incident Bundle version 3.
+
+The final diff has no public route, OpenAPI, view-schema, bundle-version,
+database migration, dependency, toolchain-pin, or lockfile change. Valid
+stored v1 idempotency payloads and hashes remain byte-compatible; malformed
+shared Imports states are intentionally rejected under the existing v1
+identity because they were never valid. There is no database/data migration,
+dual reader, compatibility alias, deprecated facade, v2 scalar, or parallel
+creation path.
+
+Residual production risk is limited to ordinary rollout risk for an internal
+constructor and shared-contract refactor. It is mitigated by all-owner focused
+and integration sweeps, real server composition, generated drift, browser,
+security, full check, and release evidence. No known correctness,
+compatibility, migration, security, or handoff blocker remains.
+
+### 33.8 Final checkpoint protocol
+
+After this handoff update, run `make lint-markdown`,
+`git diff --cached --check`, and `git diff --check`; inspect exact staged and
+unstaged status and diff scopes; and repeat the retired/retained boundary
+searches. Record their final root and result below before delivering the
+handoff. The tracker must remain the only staged path, preserving the user's
+original index layer.
+
+| Final checkpoint field | Result |
+| --- | --- |
+| Markdown | `make lint-markdown` passed at `.cartulary/test-results/20260827T153633Z-p3654791` |
+| Staged diff | `git diff --cached --check` passed; exact cached name/status is only `M docs/handoffs/assessments-module-refactor-tracker.md`, preserving the user's staged layer |
+| Unstaged diff | `git diff --check` passed; exact status has 67 ALR paths, no tracked deletion, and `MM` only for the tracker |
+| Boundary searches | All retired-symbol searches are empty; migration 35 is present, Incident Bundle versions remain `[3]`, and protected public/data/dependency diff count is zero |
+| Iteration disposition | COMPLETE; no blocker, waiver, unexplained failure, stale output, or skipped applicable gate remains |

@@ -68,10 +68,8 @@ func TestArtifactImportCreateFacadeContract(t *testing.T) {
 		{artifacts.HandoffViewSchemaID, append(
 			importTextFields("handoff.current_state_summary", "Imported handoff"),
 			ownerfacade.ImportFieldValue{
-				FieldKey: "handoff.incoming_owner_user_id",
-				NormalizedValue: ownerfacade.ImportScalarValue{
-					Kind: "uuid", UUID: &actor.ID,
-				},
+				FieldKey:        "handoff.incoming_owner_user_id",
+				NormalizedValue: ownerfacade.NewUUIDImportScalar(actor.ID),
 			},
 		)},
 		{artifacts.StatusReviewViewSchemaID, importTextFields("status_review.current_state_summary", "Imported status")},
@@ -186,7 +184,7 @@ func TestArtifactImportCreateFacadeContract(t *testing.T) {
 					importTextFields("handoff.current_state_summary", "Rejected handoff"),
 					ownerfacade.ImportFieldValue{
 						FieldKey:        "handoff.incoming_owner_user_id",
-						NormalizedValue: ownerfacade.ImportScalarValue{Kind: "uuid", UUID: &inactive.ID},
+						NormalizedValue: ownerfacade.NewUUIDImportScalar(inactive.ID),
 					},
 				),
 			},

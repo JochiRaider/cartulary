@@ -2,6 +2,7 @@ package timelineassembly
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
 	"github.com/JochiRaider/cartulary/internal/app/entitymergeassembly"
@@ -69,28 +70,41 @@ func NewBundle(dependencies Dependencies) (*Bundle, error) {
 }
 
 func validateDependencies(dependencies Dependencies) error {
-	if dependencies.Postgres == nil {
+	if isNilDependency(dependencies.Postgres) {
 		return fmt.Errorf("compose Timeline bundle: Postgres is required")
 	}
-	if dependencies.Revisions == nil {
+	if isNilDependency(dependencies.Revisions) {
 		return fmt.Errorf("compose Timeline bundle: Revisions appender is required")
 	}
-	if dependencies.Collaboration == nil {
+	if isNilDependency(dependencies.Collaboration) {
 		return fmt.Errorf("compose Timeline bundle: Collaboration intent appender is required")
 	}
-	if dependencies.EvidenceAttachments == nil {
+	if isNilDependency(dependencies.EvidenceAttachments) {
 		return fmt.Errorf("compose Timeline bundle: Evidence attachment contribution is required")
 	}
-	if dependencies.TimelineProjection == nil {
+	if isNilDependency(dependencies.TimelineProjection) {
 		return fmt.Errorf("compose Timeline bundle: Timeline projection writer is required")
 	}
-	if dependencies.EntityProjection == nil {
+	if isNilDependency(dependencies.EntityProjection) {
 		return fmt.Errorf("compose Timeline bundle: Entities projection writer is required")
 	}
-	if dependencies.AssessmentRows == nil {
+	if isNilDependency(dependencies.AssessmentRows) {
 		return fmt.Errorf("compose Timeline bundle: Assessment projection rows are required")
 	}
 	return nil
+}
+
+func isNilDependency(dependency any) bool {
+	if dependency == nil {
+		return true
+	}
+	value := reflect.ValueOf(dependency)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }
 
 // NewCollaborators composes Timeline's typed application boundary for focused

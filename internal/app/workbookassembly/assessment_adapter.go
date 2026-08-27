@@ -14,8 +14,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 )
 
-const assessmentCreateRouteKey = "assessments.rows.create"
-
 func newAssessmentCreateProvider(owner *assessments.Facade) (workbook.CreateProvider, error) {
 	if owner == nil {
 		return nil, fmt.Errorf("compose Assessment Workbook adapter: owner is required")
@@ -39,15 +37,8 @@ func newAssessmentCreateProvider(owner *assessments.Facade) (workbook.CreateProv
 				ActorUserID: command.Actor.ID,
 				IncidentID:  command.IncidentID,
 				Input:       input,
-				Idempotency: assessments.CreateIdempotencyKey{
-					RouteKey:    assessmentCreateRouteKey,
-					ActorUserID: command.Actor.ID,
-					ScopeKey:    command.IncidentID.String() + ":" + assessments.AssessmentsViewSchemaID,
-					ClientTxnID: input.ClientTxnID,
-					RequestHash: assessmentadmission.CreateRequestHash(input),
-				},
-				RequestID: command.RequestID,
-				Now:       command.Now,
+				RequestID:   command.RequestID,
+				Now:         command.Now,
 			})
 			if failure, safe := assessmentCreateFailure(err, input.ClientTxnID); safe {
 				return workbook.RejectedMutation(failure), nil

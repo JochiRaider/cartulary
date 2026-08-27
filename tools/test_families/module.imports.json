@@ -749,6 +749,8 @@
       "selector": {
         "package": "./internal/modules/imports/ownerfacade",
         "tests": [
+          "TestImportScalarValueClosedUnion",
+          "TestIndexImportFieldValuesRejectsInvalidStructure",
           "TestNormalizeImportScalarRejectsNullForNonNullableCreateField",
           "TestNormalizeImportScalarUsesCanonicalEmptyValuePolicy"
         ]
@@ -774,6 +776,7 @@
       "selector": {
         "package": "./internal/modules/imports/ownerfacade",
         "tests": [
+          "TestBoundImportOwnerCreateFacadeRejectsInvalidFieldsBeforeOwner",
           "TestBoundImportOwnerCreateFacadeRejectsWrongTarget",
           "TestImportMutationSequencerAllocatesContiguousOwnerEffects",
           "TestImportOwnerCreateRegistryFailsClosed",

@@ -14,19 +14,126 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
+type ImportScalarKind string
+
+const (
+	ImportScalarNull            ImportScalarKind = "null"
+	ImportScalarText            ImportScalarKind = "text"
+	ImportScalarTimestamp       ImportScalarKind = "timestamp"
+	ImportScalarUUID            ImportScalarKind = "uuid"
+	ImportScalarNumber          ImportScalarKind = "number"
+	ImportScalarBool            ImportScalarKind = "bool"
+	ImportScalarCollectionToken ImportScalarKind = "collection_token"
+)
+
 type ImportScalarValue struct {
-	Kind            string
-	Text            *string
-	Timestamp       *time.Time
-	UUID            *uuid.UUID
-	Number          *int64
-	Bool            *bool
-	CollectionToken *ImportCollectionToken
+	kind            ImportScalarKind
+	valid           bool
+	text            string
+	timestamp       time.Time
+	uuid            uuid.UUID
+	number          int64
+	boolean         bool
+	collectionToken ImportCollectionToken
 }
 
 type ImportCollectionToken struct {
 	RawText        string
 	NormalizedText string
+}
+
+func NewNullImportScalar() ImportScalarValue {
+	return ImportScalarValue{kind: ImportScalarNull, valid: true}
+}
+
+func NewTextImportScalar(value string) ImportScalarValue {
+	return ImportScalarValue{kind: ImportScalarText, valid: true, text: value}
+}
+
+func NewTimestampImportScalar(value time.Time) ImportScalarValue {
+	return ImportScalarValue{kind: ImportScalarTimestamp, valid: true, timestamp: value}
+}
+
+func NewUUIDImportScalar(value uuid.UUID) ImportScalarValue {
+	return ImportScalarValue{kind: ImportScalarUUID, valid: true, uuid: value}
+}
+
+func NewNumberImportScalar(value int64) ImportScalarValue {
+	return ImportScalarValue{kind: ImportScalarNumber, valid: true, number: value}
+}
+
+func NewBoolImportScalar(value bool) ImportScalarValue {
+	return ImportScalarValue{kind: ImportScalarBool, valid: true, boolean: value}
+}
+
+func NewCollectionTokenImportScalar(value ImportCollectionToken) ImportScalarValue {
+	return ImportScalarValue{
+		kind:            ImportScalarCollectionToken,
+		valid:           true,
+		collectionToken: value,
+	}
+}
+
+func (v ImportScalarValue) Kind() ImportScalarKind {
+	return v.kind
+}
+
+func (v ImportScalarValue) IsValid() bool {
+	if !v.valid {
+		return false
+	}
+	switch v.kind {
+	case ImportScalarNull,
+		ImportScalarText,
+		ImportScalarTimestamp,
+		ImportScalarUUID,
+		ImportScalarNumber,
+		ImportScalarBool,
+		ImportScalarCollectionToken:
+		return true
+	default:
+		return false
+	}
+}
+
+func (v ImportScalarValue) Text() (string, bool) {
+	return v.text, v.IsValid() && v.kind == ImportScalarText
+}
+
+func (v ImportScalarValue) Timestamp() (time.Time, bool) {
+	return v.timestamp, v.IsValid() && v.kind == ImportScalarTimestamp
+}
+
+func (v ImportScalarValue) UUID() (uuid.UUID, bool) {
+	return v.uuid, v.IsValid() && v.kind == ImportScalarUUID
+}
+
+func (v ImportScalarValue) Number() (int64, bool) {
+	return v.number, v.IsValid() && v.kind == ImportScalarNumber
+}
+
+func (v ImportScalarValue) Bool() (bool, bool) {
+	return v.boolean, v.IsValid() && v.kind == ImportScalarBool
+}
+
+func (v ImportScalarValue) CollectionToken() (ImportCollectionToken, bool) {
+	return v.collectionToken, v.IsValid() && v.kind == ImportScalarCollectionToken
+}
+
+var errInvalidImportFieldValues = errors.New("invalid import field values")
+
+func IndexImportFieldValues(fields []ImportFieldValue) (map[string]ImportScalarValue, error) {
+	values := make(map[string]ImportScalarValue, len(fields))
+	for _, field := range fields {
+		if strings.TrimSpace(field.FieldKey) == "" || !field.NormalizedValue.IsValid() {
+			return nil, errInvalidImportFieldValues
+		}
+		if _, duplicate := values[field.FieldKey]; duplicate {
+			return nil, errInvalidImportFieldValues
+		}
+		values[field.FieldKey] = field.NormalizedValue
+	}
+	return values, nil
 }
 
 type ImportFieldValue struct {
@@ -214,7 +321,7 @@ func NormalizeImportScalar(viewSchemaID string, fieldKey string, raw string, emp
 					fmt.Errorf("field %q is not nullable", fieldKey),
 				)
 			}
-			return ImportScalarValue{Kind: "null"}, true, nil
+			return NewNullImportScalar(), true, nil
 		default:
 			return ImportScalarValue{}, false, NewImportOwnerCreateValidationError(
 				"invalid_empty_value_policy",
@@ -233,7 +340,7 @@ func NormalizeImportScalar(viewSchemaID string, fieldKey string, raw string, emp
 				"timestamp_instant_v1",
 			)
 		}
-		return ImportScalarValue{Kind: "timestamp", Timestamp: &utc}, true, nil
+		return NewTimestampImportScalar(utc), true, nil
 	}
 	if field.DirectReferenceContractID != nil || isUUIDImportField(fieldKey, field) {
 		parsed, err := uuid.Parse(strings.TrimSpace(raw))
@@ -251,7 +358,7 @@ func NormalizeImportScalar(viewSchemaID string, fieldKey string, raw string, emp
 				*field.DirectReferenceContractID,
 			)
 		}
-		return ImportScalarValue{Kind: "uuid", UUID: &parsed}, true, nil
+		return NewUUIDImportScalar(parsed), true, nil
 	}
 	if field.ReadKind == "number" {
 		parsed, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
@@ -262,7 +369,7 @@ func NormalizeImportScalar(viewSchemaID string, fieldKey string, raw string, emp
 				"number",
 			)
 		}
-		return ImportScalarValue{Kind: "number", Number: &parsed}, true, nil
+		return NewNumberImportScalar(parsed), true, nil
 	}
 	if field.ReadKind == "boolean" {
 		parsed, err := strconv.ParseBool(strings.TrimSpace(raw))
@@ -273,7 +380,7 @@ func NormalizeImportScalar(viewSchemaID string, fieldKey string, raw string, emp
 				"boolean",
 			)
 		}
-		return ImportScalarValue{Kind: "bool", Bool: &parsed}, true, nil
+		return NewBoolImportScalar(parsed), true, nil
 	}
 	normalized, ok := normalizeStringContract(field, raw)
 	if !ok {
@@ -283,7 +390,7 @@ func NormalizeImportScalar(viewSchemaID string, fieldKey string, raw string, emp
 		}
 		return ImportScalarValue{}, false, importValueError("invalid_text", fieldKey, guard)
 	}
-	return ImportScalarValue{Kind: "text", Text: &normalized}, true, nil
+	return NewTextImportScalar(normalized), true, nil
 }
 
 func importValueError(reasonCode string, fieldKey string, guard string) error {

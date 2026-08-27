@@ -1,33 +1,32 @@
 package admission
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"io"
 	"net/http"
-	"slices"
+	"sort"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	assessmentpolicy "github.com/JochiRaider/cartulary/internal/modules/assessments/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
-const maxSupportActions = 64
+type createFieldDecoder func(json.RawMessage, *assessments.CreateInput) *httpapi.APIError
 
-var createFields = map[string]struct{}{
-	"client_txn_id":               {},
-	"assessment.subject_ref":      {},
-	"assessment.subject_type":     {},
-	"assessment.assessment_state": {},
-	"assessment.confidence_score": {},
-	"assessment.rationale":        {},
-	"assessment.assessor":         {},
-	"assessment.assessed_at":      {},
-	"assessment.support_refs":     {},
+var createFieldDecoders = map[string]createFieldDecoder{
+	"client_txn_id":               decodeClientTxnID,
+	"assessment.subject_ref":      decodeSubjectRef,
+	"assessment.subject_type":     decodeSubjectType,
+	"assessment.assessment_state": decodeAssessmentState,
+	"assessment.confidence_score": decodeConfidenceScore,
+	"assessment.rationale":        decodeRationale,
+	"assessment.assessor":         decodeAssessor,
+	"assessment.assessed_at":      decodeAssessedAt,
+	"assessment.support_refs":     decodeSupportReferences,
 }
 
 // DecodeCreateRequest admits the public create body into Assessment-owned
@@ -38,129 +37,128 @@ func DecodeCreateRequest(reader io.Reader) (assessments.CreateInput, *httpapi.AP
 	if err != nil {
 		return assessments.CreateInput{}, invalidMutationPayload("", "request_not_object")
 	}
+	keys := make([]string, 0, len(raw))
 	for key := range raw {
-		if _, ok := createFields[key]; !ok {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if _, ok := createFieldDecoders[key]; !ok {
 			return assessments.CreateInput{}, invalidMutationPayload(key, "unknown_field")
 		}
 	}
 
 	var input assessments.CreateInput
-	if value, ok := raw["client_txn_id"]; !ok {
+	clientTxnID, ok := raw["client_txn_id"]
+	if !ok {
 		return assessments.CreateInput{}, invalidMutationPayload("client_txn_id", "missing_required_field")
-	} else if json.Unmarshal(value, &input.ClientTxnID) != nil || strings.TrimSpace(input.ClientTxnID) == "" {
-		return assessments.CreateInput{}, invalidMutationPayload("client_txn_id", "missing_required_field")
 	}
-
-	if value, ok := raw["assessment.subject_ref"]; ok {
-		parsed, valid := decodeCanonicalUUID(value)
-		if !valid {
-			return assessments.CreateInput{}, invalidMutationPayload("assessment.subject_ref", "invalid_value")
-		}
-		input.SubjectRef = parsed
+	if apiErr := createFieldDecoders["client_txn_id"](clientTxnID, &input); apiErr != nil {
+		return assessments.CreateInput{}, apiErr
 	}
-	if value, ok := raw["assessment.subject_type"]; ok {
-		normalized, valid := decodeNormalizedLine(value)
-		if !valid {
-			return assessments.CreateInput{}, invalidMutationPayload("assessment.subject_type", "invalid_value")
+	for _, key := range keys {
+		if key == "client_txn_id" {
+			continue
 		}
-		input.SubjectType = normalized
-	}
-	if value, ok := raw["assessment.assessment_state"]; ok {
-		normalized, valid := decodeNormalizedLine(value)
-		if !valid {
-			return assessments.CreateInput{}, invalidMutationPayload("assessment.assessment_state", "invalid_value")
-		}
-		input.AssessmentState = normalized
-	}
-	if value, ok := raw["assessment.confidence_score"]; ok && string(value) != "null" {
-		var score int
-		if json.Unmarshal(value, &score) != nil {
-			return assessments.CreateInput{}, invalidMutationPayload("assessment.confidence_score", "invalid_value")
-		}
-		input.ConfidenceScore = &score
-	}
-	if value, ok := raw["assessment.rationale"]; ok {
-		if string(value) == "null" {
-			return assessments.CreateInput{}, invalidMutationPayload("assessment.rationale", "invalid_value")
-		} else {
-			var rawText string
-			if json.Unmarshal(value, &rawText) != nil {
-				return assessments.CreateInput{}, invalidMutationPayload("assessment.rationale", "invalid_value")
-			}
-			normalized, valid := fieldnorm.NormalizeNote(rawText)
-			if !valid {
-				return assessments.CreateInput{}, invalidMutationPayload("assessment.rationale", "invalid_value")
-			}
-			input.Rationale = normalized
-		}
-	}
-	if value, ok := raw["assessment.assessor"]; ok {
-		parsed, valid := decodeCanonicalUUID(value)
-		if !valid {
-			return assessments.CreateInput{}, invalidMutationPayload("assessment.assessor", "invalid_value")
-		}
-		input.Assessor = &parsed
-	}
-	if value, ok := raw["assessment.assessed_at"]; ok {
-		var rawTime string
-		if string(value) == "null" || json.Unmarshal(value, &rawTime) != nil {
-			return assessments.CreateInput{}, invalidMutationPayload("assessment.assessed_at", "invalid_value")
-		}
-		assessedAt, valid := fieldnorm.NormalizeTimestampInstant(rawTime)
-		if !valid {
-			return assessments.CreateInput{}, invalidMutationPayload("assessment.assessed_at", "invalid_value")
-		}
-		input.AssessedAt = &assessedAt
-	}
-	if value, ok := raw["assessment.support_refs"]; ok {
-		refs, apiErr := decodeSupportRefs(value)
+		apiErr := createFieldDecoders[key](raw[key], &input)
 		if apiErr != nil {
 			return assessments.CreateInput{}, apiErr
 		}
-		input.SupportRefs = refs
 	}
 	return input, nil
 }
 
-// CreateRequestHash returns the established canonical Assessment replay
-// identity. Collection order is intentionally normalized for replay.
-func CreateRequestHash(input assessments.CreateInput) []byte {
-	payload := map[string]any{
-		"view_schema_id": assessments.AssessmentsViewSchemaID,
-		"client_txn_id":  input.ClientTxnID,
+func decodeClientTxnID(raw json.RawMessage, input *assessments.CreateInput) *httpapi.APIError {
+	if json.Unmarshal(raw, &input.ClientTxnID) != nil || strings.TrimSpace(input.ClientTxnID) == "" {
+		return invalidMutationPayload("client_txn_id", "missing_required_field")
 	}
-	if input.SubjectRef != uuid.Nil {
-		payload["assessment.subject_ref"] = input.SubjectRef.String()
+	return nil
+}
+
+func decodeSubjectRef(raw json.RawMessage, input *assessments.CreateInput) *httpapi.APIError {
+	parsed, valid := decodeCanonicalUUID(raw)
+	if !valid {
+		return invalidMutationPayload("assessment.subject_ref", "invalid_value")
 	}
-	if input.SubjectType != "" {
-		payload["assessment.subject_type"] = input.SubjectType
+	input.SubjectRef = parsed
+	return nil
+}
+
+func decodeSubjectType(raw json.RawMessage, input *assessments.CreateInput) *httpapi.APIError {
+	normalized, valid := decodeNormalizedLine(raw)
+	if !valid {
+		return invalidMutationPayload("assessment.subject_type", "invalid_value")
 	}
-	if input.AssessmentState != "" {
-		payload["assessment.assessment_state"] = input.AssessmentState
+	input.SubjectType = normalized
+	return nil
+}
+
+func decodeAssessmentState(raw json.RawMessage, input *assessments.CreateInput) *httpapi.APIError {
+	normalized, valid := decodeNormalizedLine(raw)
+	if !valid {
+		return invalidMutationPayload("assessment.assessment_state", "invalid_value")
 	}
-	if input.ConfidenceScore != nil {
-		payload["assessment.confidence_score"] = *input.ConfidenceScore
+	input.AssessmentState = normalized
+	return nil
+}
+
+func decodeConfidenceScore(raw json.RawMessage, input *assessments.CreateInput) *httpapi.APIError {
+	if string(raw) == "null" {
+		return nil
 	}
-	if input.Rationale != "" {
-		payload["assessment.rationale"] = input.Rationale
+	var score int
+	if json.Unmarshal(raw, &score) != nil {
+		return invalidMutationPayload("assessment.confidence_score", "invalid_value")
 	}
-	if input.Assessor != nil {
-		payload["assessment.assessor"] = input.Assessor.String()
+	input.ConfidenceScore = &score
+	return nil
+}
+
+func decodeRationale(raw json.RawMessage, input *assessments.CreateInput) *httpapi.APIError {
+	if string(raw) == "null" {
+		return invalidMutationPayload("assessment.rationale", "invalid_value")
 	}
-	if input.AssessedAt != nil {
-		payload["assessment.assessed_at"] = input.AssessedAt.UTC().Format(time.RFC3339Nano)
+	var rawText string
+	if json.Unmarshal(raw, &rawText) != nil {
+		return invalidMutationPayload("assessment.rationale", "invalid_value")
 	}
-	if len(input.SupportRefs) > 0 {
-		refs := make([]string, 0, len(input.SupportRefs))
-		for _, ref := range input.SupportRefs {
-			refs = append(refs, ref.String())
-		}
-		slices.Sort(refs)
-		payload["assessment.support_refs"] = refs
+	normalized, valid := fieldnorm.NormalizeNote(rawText)
+	if !valid {
+		return invalidMutationPayload("assessment.rationale", "invalid_value")
 	}
-	data, _ := json.Marshal(payload)
-	sum := sha256.Sum256(data)
-	return append([]byte(nil), sum[:]...)
+	input.Rationale = normalized
+	return nil
+}
+
+func decodeAssessor(raw json.RawMessage, input *assessments.CreateInput) *httpapi.APIError {
+	parsed, valid := decodeCanonicalUUID(raw)
+	if !valid {
+		return invalidMutationPayload("assessment.assessor", "invalid_value")
+	}
+	input.Assessor = &parsed
+	return nil
+}
+
+func decodeAssessedAt(raw json.RawMessage, input *assessments.CreateInput) *httpapi.APIError {
+	var rawTime string
+	if string(raw) == "null" || json.Unmarshal(raw, &rawTime) != nil {
+		return invalidMutationPayload("assessment.assessed_at", "invalid_value")
+	}
+	assessedAt, valid := fieldnorm.NormalizeTimestampInstant(rawTime)
+	if !valid {
+		return invalidMutationPayload("assessment.assessed_at", "invalid_value")
+	}
+	input.AssessedAt = &assessedAt
+	return nil
+}
+
+func decodeSupportReferences(raw json.RawMessage, input *assessments.CreateInput) *httpapi.APIError {
+	refs, apiErr := decodeSupportRefs(raw)
+	if apiErr != nil {
+		return apiErr
+	}
+	input.SupportRefs = refs
+	return nil
 }
 
 func decodeNormalizedLine(raw json.RawMessage) (string, bool) {
@@ -206,14 +204,14 @@ func decodeSupportRefs(raw json.RawMessage) ([]uuid.UUID, *httpapi.APIError) {
 			map[string]any{"field_key": "assessment.support_refs"},
 		)
 	}
-	if len(actions) > maxSupportActions {
+	if len(actions) > assessmentpolicy.MaxInitialSupportReferences {
 		return nil, invalidMutationPayloadWithDetails(
 			"assessment.support_refs.actions",
 			"collection_action_count_exceeded",
 			map[string]any{
 				"field_key":       "assessment.support_refs",
 				"requested_count": len(actions),
-				"max_count":       maxSupportActions,
+				"max_count":       assessmentpolicy.MaxInitialSupportReferences,
 			},
 		)
 	}
