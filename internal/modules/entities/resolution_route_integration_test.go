@@ -131,7 +131,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE host_grid_projection SET linked_event_count = 0 WHERE record_id = $1`, entitytest.CanonicalHostRecordID); err != nil {
 			t.Fatalf("corrupt resolved host linked-event count: %v", err)
 		}
-		if err := harness.Projections.RebuildHosts(context.Background(), incidentID); err != nil {
+		if err := harness.Projections.RebuildIncident(context.Background(), incidentID); err != nil {
 			t.Fatalf("rebuild resolved host projection: %v", err)
 		}
 		rebuiltHostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.HostsViewSchemaID, viewLogin), entitytest.CanonicalHostRecordID.String())

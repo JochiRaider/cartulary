@@ -8,8 +8,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	entityprovider "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/projectionprovider"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	evidenceprovider "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
 	indicatorowner "github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -47,7 +49,7 @@ func Build(db postgres.DB) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("assemble Artifacts projection contribution: %w", err)
 	}
-	evidenceContribution, err := newEvidenceContribution()
+	evidenceContribution, err := evidenceprovider.NewContribution()
 	if err != nil {
 		return nil, fmt.Errorf("assemble Evidence projection contribution: %w", err)
 	}
@@ -59,21 +61,21 @@ func Build(db postgres.DB) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("assemble Tasks/Decisions projection contribution: %w", err)
 	}
-	runtime, err := buildRuntime(
-		db,
-		timelineContribution,
-		entitiesContribution,
-		indicatorsContribution,
-		assessmentsContribution,
-		artifactsContribution,
-		evidenceContribution,
-		partiesContribution,
-		taskDecisionContribution,
-	)
+	ports, err := projectionadapters.New(projectionadapters.Dependencies{
+		Postgres:       db,
+		Timeline:       timelineContribution,
+		Entities:       entitiesContribution,
+		Indicators:     indicatorsContribution,
+		Assessments:    assessmentsContribution,
+		Artifacts:      artifactsContribution,
+		Evidence:       evidenceContribution,
+		Parties:        partiesContribution,
+		TasksDecisions: taskDecisionContribution,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("assemble Projections runtime: %w", err)
 	}
-	return runtime, nil
+	return &Runtime{ports: ports}, nil
 }
 
 func NewRecoveryServices(db postgres.DB) (
@@ -86,9 +88,6 @@ func NewRecoveryServices(db postgres.DB) (
 		return nil, nil, err
 	}
 	recovery := runtime.RecoveryPorts()
-	if !recovery.Ready() {
-		return nil, nil, fmt.Errorf("assemble Projections recovery services: incomplete recovery ports")
-	}
 	registry, err := workbookrestoreprobe.NewRegistry(
 		runtime.RestoreProbeQuery(),
 		timeline.RestoreWorkbookProbeRegistration(),

@@ -470,10 +470,10 @@ SELECT COUNT(*)
 			t.Fatalf("clear identity projection rows: %v", err)
 		}
 		projectionRebuild := harness.Projections
-		if err := projectionRebuild.RebuildHosts(context.Background(), incidentID); err != nil {
+		if err := projectionRebuild.RebuildIncident(context.Background(), incidentID); err != nil {
 			t.Fatalf("rebuild host projections: %v", err)
 		}
-		if err := projectionRebuild.RebuildIdentities(context.Background(), incidentID); err != nil {
+		if err := projectionRebuild.RebuildIncident(context.Background(), incidentID); err != nil {
 			t.Fatalf("rebuild identity projections: %v", err)
 		}
 		hostProjectionAfter := lookupHostProjectionSnapshot(t, harness.DB, hostRecordID)

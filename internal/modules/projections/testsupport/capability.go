@@ -12,12 +12,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	projectionstorage "github.com/JochiRaider/cartulary/internal/modules/projections/internal/storage"
-	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -106,61 +106,30 @@ SET incident_id = EXCLUDED.incident_id,
     supporting_link_count = EXCLUDED.supporting_link_count
 `
 
-type Dependencies struct {
-	TimelineRebuilder  timelineprojection.Rebuilder
-	EntityRebuilder    entityprojection.Rebuilder
-	IndicatorRebuilder indicatorprojection.Rebuilder
-	IndicatorRows      indicatorprojection.Rows
-	EvidenceRows       evidenceprojection.Rows
-	EvidenceEffects    evidenceprojection.SupportProjectionEffectsTx
-}
-
 type Capability struct {
-	timelineRebuilder  timelineprojection.Rebuilder
-	entityRebuilder    entityprojection.Rebuilder
-	indicatorRebuilder indicatorprojection.Rebuilder
-	indicatorRows      indicatorprojection.Rows
-	evidenceRows       evidenceprojection.Rows
-	evidenceEffects    evidenceprojection.SupportProjectionEffectsTx
+	maintenanceRebuilder projectionadapters.MaintenanceRebuilder
+	indicatorRows        indicatorprojection.Rows
+	evidenceRows         evidenceprojection.Rows
+	evidenceEffects      evidenceprojection.SupportProjectionEffectsTx
 }
 
-func New(dependencies Dependencies) *Capability {
+func New(runtime *projectionassembly.Runtime) *Capability {
+	if runtime == nil {
+		return &Capability{}
+	}
 	return &Capability{
-		timelineRebuilder:  dependencies.TimelineRebuilder,
-		entityRebuilder:    dependencies.EntityRebuilder,
-		indicatorRebuilder: dependencies.IndicatorRebuilder,
-		indicatorRows:      dependencies.IndicatorRows,
-		evidenceRows:       dependencies.EvidenceRows,
-		evidenceEffects:    dependencies.EvidenceEffects,
+		maintenanceRebuilder: runtime.MaintenanceRebuilder(),
+		indicatorRows:        runtime.IndicatorPorts().Rows,
+		evidenceRows:         runtime.EvidencePorts().Rows,
+		evidenceEffects:      runtime.EvidencePorts().SupportEffects,
 	}
 }
 
-func (capability *Capability) RebuildTimeline(ctx context.Context, incidentID uuid.UUID) error {
-	if capability == nil || capability.timelineRebuilder == nil {
-		return errors.New("timeline projection rebuild capability is unavailable")
+func (capability *Capability) RebuildIncident(ctx context.Context, incidentID uuid.UUID) error {
+	if capability == nil || capability.maintenanceRebuilder == nil {
+		return errors.New("projection maintenance rebuild capability is unavailable")
 	}
-	return capability.timelineRebuilder.RebuildTimeline(ctx, incidentID)
-}
-
-func (capability *Capability) RebuildHosts(ctx context.Context, incidentID uuid.UUID) error {
-	if capability == nil || capability.entityRebuilder == nil {
-		return errors.New("host projection rebuild capability is unavailable")
-	}
-	return capability.entityRebuilder.RebuildHosts(ctx, incidentID)
-}
-
-func (capability *Capability) RebuildIdentities(ctx context.Context, incidentID uuid.UUID) error {
-	if capability == nil || capability.entityRebuilder == nil {
-		return errors.New("identity projection rebuild capability is unavailable")
-	}
-	return capability.entityRebuilder.RebuildIdentities(ctx, incidentID)
-}
-
-func (capability *Capability) RebuildIndicators(ctx context.Context, incidentID uuid.UUID) error {
-	if capability == nil || capability.indicatorRebuilder == nil {
-		return errors.New("indicator projection rebuild capability is unavailable")
-	}
-	return capability.indicatorRebuilder.RebuildIndicators(ctx, incidentID)
+	return capability.maintenanceRebuilder.RebuildIncident(ctx, incidentID)
 }
 
 func (capability *Capability) IndicatorProjectionPort() indicatorprojection.Rows {

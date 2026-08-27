@@ -166,14 +166,6 @@ func (failingIndicatorProjectionPort) LoadIndicatorTx(context.Context, pgx.Tx, u
 	panic("LoadIndicatorTx must not follow a failed projection refresh")
 }
 
-func (failingIndicatorProjectionPort) DeleteIndicatorTx(context.Context, pgx.Tx, uuid.UUID) error {
-	panic("unexpected DeleteIndicatorTx")
-}
-
-func (failingIndicatorProjectionPort) RebuildIndicatorsTx(context.Context, pgx.Tx, uuid.UUID) error {
-	panic("unexpected RebuildIndicatorsTx")
-}
-
 type transactionTestSourceTextPort struct{}
 
 func (transactionTestSourceTextPort) LoadTextTx(context.Context, pgx.Tx, uuid.UUID, string, string) (SourceTextValue, error) {

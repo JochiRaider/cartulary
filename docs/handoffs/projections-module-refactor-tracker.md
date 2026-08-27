@@ -4,8 +4,8 @@
 
 - **Target:** `internal/modules/projections` and its application, owner, contract,
   policy, test, and documentation seams.
-- **Status:** Iteration 1 is complete; Iteration 2 is planned. This
-  documentation-only update starts no implementation workstream.
+- **Status:** Iterations 1 through 3 are complete. P3-01 through P3-05 and
+  P3-AC-001 through P3-AC-010 have passed.
 - **Behavioral authority:** Core 00 through Core 04 and any explicitly adopted
   owner artifact for its named scope.
 - **Tracker effect:** sequencing, evidence, rollback, and handoff control only.
@@ -27,10 +27,12 @@ and are no longer blockers. The prior planning analysis remains historical
 evidence; it does not preserve an obsolete implementation surface.
 
 Sections 1 through 10 retain the completed Iteration 1 plan, evidence, and
-Definition of Done. Their completion claims apply to Iteration 1 only.
-Sections 11 through 15 are the current execution controller for Iteration 2.
-They add no tracker-local authorization gate and do not make this Markdown a
-product, runtime, test-routing, conformance, or release authority.
+Definition of Done. Sections 11 through 15 retain the completed Iteration 2
+plan, evidence, and handoff. Sections 16 through 20 control Iteration 3. They
+add no tracker-local authorization gate and do not make this Markdown a
+product, runtime, test-routing, conformance, or release authority. The current
+implementation request authorizes P3-01 through P3-05 in strict checkpoint
+order.
 
 ## 2. Initial grounded state
 
@@ -1761,3 +1763,340 @@ unexplained residue remains.
 after its authored family input changed. No generated file was hand-edited.
 `db/migrations`, `internal/gen`, `packages/protocol-ts/src/generated`, and
 `packages/ui-contracts/src/generated` have no diff; no migration was edited.
+
+## 16. Iteration 3 Scope and Planning Posture
+
+### 16.1 Current task and execution state
+
+Iteration 3 removes false compatibility surfaces, duplicate internal models,
+forwarding-only wrappers, and test-only production APIs left after the first
+two structural iterations. Its target is a smaller production Projections
+module with one query-plan representation, one complete-catalog maintenance
+rebuild, production-equivalent test assembly, fail-closed construction, and an
+explicitly bounded exported surface.
+
+The 2026-08-27 implementation request authorizes P3-01 through P3-05 in the
+strict checkpoint order in section 19. P3-00 remains the completed planning
+baseline. P3-05 is complete; the final implementation handoff is recorded in
+section 20.
+
+The later implementation has these fixed postures:
+
+- Prefer structural contraction over adapters, aliases, deprecation windows,
+  or tactical forwarding layers.
+- Treat a future provider as a first-class design constraint: adding one
+  provider must extend declarative catalog facts without adding another query
+  representation or owner-specific maintenance facade.
+- Retain behavior only when it is Core-owned, actively consumed, or material
+  to production, recovery, or test confidence.
+- Make runtime construction fail before an incomplete or typed-nil executable
+  registry escapes.
+- Keep each code-changing workstream atomic and independently revertible.
+
+### 16.2 Authority and specification disposition
+
+- Adopted Core requirements and the adopted Projections boundary ADR remain
+  authoritative for their named scopes. The ADR MUST be amended in P3-01
+  before implementation contradicts its current owner-specific rebuild and
+  deletion topology.
+- `docs/domain.md` supplies vocabulary and owner navigation. It defines a
+  workbook projection as derived, non-authoritative state and distinguishes it
+  from graph projections. It does not instruct this refactor and needs no
+  change for package, helper, or interface terminology.
+- `docs/research/nlspec-spec.md` is NLSpec authoring guidance, not Projections
+  behavioral authority and not an execution instruction. Its economy and
+  testability guidance supports removing duplicate facts; it does not require
+  a new Projections NLSpec.
+- This tracker owns no product requirement. Tests, generators, runtime code,
+  conformance, and release evidence MUST NOT read, stat, hash, or otherwise
+  depend on it.
+- If P3-01 finds a real conflict with an adopted owner, work stops at that
+  checkpoint and repairs the owner before implementation. No owner edit is
+  inferred merely from an internal cleanup opportunity.
+
+### 16.3 Grounded planning baseline
+
+Planning inspection used clean commit
+`e83aab53753a65e9d0aaa06992bcae8836e138c0`. The Projections tree contains 66
+Go files: 50 production files and 16 test files. The root is not a Go package.
+The public task catalog reports 16 `module.projections` rows, including 12
+service-backed rows; those routing counts are distinct from the selected rows
+reported by each execution result.
+
+| Command | Result | Run root | Planning use |
+| --- | --- | --- | --- |
+| `make test-slice OWNER=module.projections` | PASS, 15/15 | `.cartulary/test-results/20260827T155850Z-p3672499` | Focused implementation baseline. |
+| `make service-backed-test-slice OWNER=module.projections` | PASS, 11/11 | `.cartulary/test-results/20260827T155936Z-p3689273` | Database-backed baseline. |
+| `make backend-module-boundary-check` | PASS, 3/3 | `.cartulary/test-results/20260827T160017Z-p3706077` | Current import-policy baseline. |
+| `make lint-markdown` | PASS | `.cartulary/test-results/20260827T160023Z-p3706507` | Pre-edit documentation baseline. |
+| `make test-fast` | PASS, 433/433 | `.cartulary/test-results/20260827T160321Z-p3709289` | Broad pre-implementation baseline. |
+
+These green checks characterize the current topology. They do not prove that
+the legacy interfaces are necessary or that the export surface is minimal.
+
+### 16.4 Retained and deferred scope
+
+Iteration 3 retains descriptor v3, manifest v4, all ten providers, source-owner
+derivation, deterministic catalog order, recovery participation states,
+Core-owned status values, view/query behavior, physical projection ownership,
+and existing migrations. It also retains Timeline typed mutation and deletion,
+Host and Identity typed deletion, refresh/load operations, generic Revisions,
+Imports, and Recovery rebuild behavior, and active performance fixtures.
+
+The following are out of scope:
+
+- public HTTP, WebSocket, authorization, cursor, saved-view, telemetry, schema,
+  or wire-shape changes;
+- database schema, authored SQL, migration, dependency, or lockfile changes;
+- descriptor or manifest version changes, new providers, and new product
+  features;
+- graph projections and unrelated source-owner refactors;
+- removal of Core-required enum values or active test fixture capabilities;
+- direct edits to generated artifacts.
+
+## 17. Iteration 3 Findings and Remediation Decisions
+
+| ID | Grounded finding | Iteration 3 decision | Binary closure |
+| --- | --- | --- | --- |
+| P3-GAP-001 | Runtime mirrors `queryengine.Surface` and `queryengine.Field` through `genericSurface`, `genericField`, and `fieldKind`, then converts in both directions. | Keep the queryengine types as the only compiled plan and move validation plus defensive cloning into queryengine. | The parallel types, converters, and forwarding query files are absent. |
+| P3-GAP-002 | Declarative descriptor checks and executable binding checks are interleaved. | `providercontract.NewDescriptorSet` owns descriptor-only validation; runtime owns executable binding and capability validation. | Each invalid fact fails in exactly one owning layer. |
+| P3-GAP-003 | Required providers and owners are repeated across a map, a slice, and provider identifiers. | Use one ordered `{providerID, owner}` table to derive exact sets and diagnostics. | Completeness and diagnostic-order tests derive from one table. |
+| P3-GAP-004 | Six owner contributions expose rebuild ports while production rebuild coordination is already catalog-driven. | Replace every owner rebuild facade with one complete-catalog maintenance rebuild. | No owner `Rebuilder` or owner-specific rebuild method remains. |
+| P3-GAP-005 | `DeleteIndicatorTx` and several `Rebuild*Tx` methods have no production caller. | Remove them directly; add no alias or fallback. | Scoped Go residue scans return no matches. |
+| P3-GAP-006 | Tests can assemble all contributions separately from production composition. | Make Projections testsupport consume `projectionassembly.Build` output. | Test assembly cannot construct a second provider graph. |
+| P3-GAP-007 | Evidence, projection assembly, recovery, and import seams contain forwarding or duplicate interfaces. | Delete forwarding-only layers and return consumer-owned interfaces. | No duplicate declaration or pass-through wrapper remains. |
+| P3-GAP-008 | Nil validation is not uniform for all source contributions. | Centralize typed-nil rejection at catalog construction before ports escape. | Nil and typed-nil cases for every source dependency fail construction. |
+| P3-GAP-009 | Runtime-private constructors and Store helpers are exported without cross-package consumers. | Unexport them and enforce exact production export allowlists with AST tests. | Missing and unexpected exports both fail the guard. |
+| P3-GAP-010 | Per-view rebuild telemetry survives primarily for owner-specific test paths. | Use one bounded maintenance-rebuild operation without dynamic incident, provider, or user attributes. | Telemetry tests prove fixed operation naming and bounded attributes. |
+
+The removal set is intentionally compatibility-breaking inside the repository.
+All repository callers migrate in the same workstream as the removed symbol.
+No compatibility alias, deprecated wrapper, variadic fallback, or optional
+owner-specific rebuild path is permitted.
+
+## 18. Planned Internal Interfaces and Target State
+
+### 18.1 Canonical query and provider model
+
+`internal/queryengine` will own the only executable query representation:
+
+```go
+func CompileSurface(surface Surface) (Surface, error)
+```
+
+`CompileSurface` validates the existing SQL-fragment policy, field-kind and
+schema completeness, duplicate fields, grouping, and other compiled-plan
+invariants, then returns a defensive deep copy. It adds no new query feature.
+Runtime stores `map[string]queryengine.Surface` and calls queryengine directly
+for SQL construction, page conversion, and row conversion. The conversion-only
+`query_types.go`, `query_sql.go`, and `query_row.go` files are deleted.
+
+`providercontract.NewDescriptorSet` validates immutable descriptor facts,
+including provider identity, versioned shape, declared capabilities, duplicate
+rejection, and the rebuild dependency graph. Its immutable `RebuildOrder`
+projection supplies descriptor-ordered coordination without a second graph
+algorithm. Runtime validates only that an executable provider is present and
+implements the capabilities declared by its descriptor. One ordered
+required-provider table supplies provider IDs, source owners, completeness
+checks, deterministic errors, and private factory bindings.
+
+### 18.2 Generic maintenance rebuild
+
+Adapters will own the sole maintenance interface:
+
+```go
+type MaintenanceRebuilder interface {
+    RebuildIncident(context.Context, uuid.UUID) error
+}
+```
+
+`adapters.Ports.MaintenanceRebuilder()` and
+`projectionassembly.Runtime.MaintenanceRebuilder()` expose that port. Its
+implementation starts one transaction, invokes the existing catalog-ordered
+`Store.RebuildIncidentTx`, commits once, and returns contextual begin, rebuild,
+or commit errors. It always rebuilds the complete catalog; it accepts no owner,
+provider, or partial-selection argument.
+
+The following surfaces are removed atomically with their callers:
+
+- Timeline, Entities, Indicators, Assessments, Artifacts, and Evidence owner
+  `Rebuilder` types and contribution fields;
+- `RebuildParties`, owner `RebuildAssessments`, `RebuildArtifacts`, and
+  `RebuildEvidence` methods;
+- `RebuildHostsTx`, `RebuildIdentitiesTx`, `RebuildIndicatorsTx`,
+  `RebuildAssessmentsTx`, `RebuildArtifactsTx`, and `RebuildEvidenceTx`;
+- standalone `RebuildTimeline`, `RebuildHosts`, `RebuildIdentities`, and
+  `RebuildIndicators` wrappers;
+- `RebuildIncidentViewsTx`, per-view rebuild dispatch, `DeleteIndicatorTx`, and
+  `rebuildIncidentHotProjection`.
+
+The maintenance operation has one fixed telemetry name and bounded attributes.
+It does not retain a view-ID allowlist solely for deleted test-only paths.
+Production restore behavior and its Core-owned telemetry remain unchanged.
+
+### 18.3 Composition and testsupport contraction
+
+- `testsupport.MustBuild` delegates to `projectionassembly.Build` and returns a
+  production `*projectionassembly.Runtime`.
+- `testsupport.New` accepts that runtime and derives validated maintenance,
+  Indicator, and Evidence capabilities from it. Named owner rebuild dependency
+  fields and methods are deleted.
+- `MustAssessmentSource` remains because it supplies focused, active source
+  enumeration evidence. Performance, Timeline batch, assessment dual-driver,
+  and Indicator fixture capabilities also remain.
+- The forwarding `adapters.evidencePort` is removed because runtime Evidence
+  rows already implement the owner interface. The one-line
+  `newEvidenceContribution` assembly wrapper is inlined.
+- `NewRecoveryServices` stops repeating a readiness check already enforced by
+  `Build`; it continues to propagate construction errors.
+- The direct `Ports.RecoveryStateContribution()` accessor is removed.
+  `RecoveryPorts` retains the immutable contribution needed by Recovery.
+- Adapter and application composition return the consumer-owned
+  `incidentbundles.ImportProjectionRebuilder`; their duplicate interfaces are
+  deleted.
+
+Catalog construction applies one private typed-nil check to Timeline,
+Entities, Indicators, Assessments, Artifacts, Evidence, Parties, Task Requests,
+and Decisions source dependencies. Validation occurs before a usable adapter
+port bundle or projection runtime is returned.
+
+Runtime provider factories and Store helpers with no external production
+consumer become private. Standard-library AST tests maintain exact allowlists
+for `adapters`, `providercontract`, `internal/runtime`, `internal/queryengine`,
+and `internal/storage`. The guard includes positive repository coverage plus
+synthetic unexpected-export and missing-export cases. It does not freeze
+test-only performance-fixture APIs as production API.
+
+### 18.4 Public and versioned contract impact
+
+There is no public API or versioned contract change. Descriptor v3, manifest
+v4, provider IDs, view IDs, field and capability semantics, recovery table IDs,
+query output, SQL policy, source-owner mapping, and generated projections stay
+byte- and behavior-compatible where their owners require it. Existing
+deprecated or experimental descriptor statuses and unsupported or
+nonparticipating recovery states remain because Core owns their vocabulary.
+
+## 19. Iteration 3 Sequential Workstreams
+
+### 19.1 Checkpoint protocol
+
+P3-01 through P3-05 execute strictly in order. Before each workstream, inspect
+the current worktree and the preceding checkpoint. Each completed checkpoint
+records:
+
+- authorized scope and exact files changed;
+- substantive additions, contractions, and retained behavior;
+- Make targets, result counts, and run roots;
+- failure ownership, corrections, reruns, rollback, and skipped checks;
+- generated outputs and confirmation that their owner inputs changed first;
+- remaining risk and the next eligible workstream.
+
+Unexpected owner, public-behavior, schema, migration, or dependency changes
+stop the current workstream. Unrelated user changes are preserved. A failing
+check is never weakened to make a structural change pass.
+
+### 19.2 Workstream ledger
+
+| ID | Status | Work | Required exit |
+| --- | --- | --- | --- |
+| P3-00 | COMPLETE | Rebaseline this tracker and record the Iteration 3 decision-complete plan. | Only this tracker changes; section 20.4 passes. |
+| P3-01 | COMPLETE | Amended the adopted internal ADR, added production-caller characterization for removals, and re-audited Core Appendix I and domain vocabulary. | The ADR now permits one query model and one complete-catalog maintenance rebuild; Appendix I is reconciled; Core and domain require no change. |
+| P3-02 | COMPLETE | Canonicalized query compilation and descriptor/provider registry validation, consolidated required-provider facts, and unexported provider factories. | Query, catalog, construction, Workbook, shape, and boundary evidence passes with no parallel plan representation. |
+| P3-03 | COMPLETE | Added the maintenance rebuilder, migrated callers, removed owner rebuild and Indicator-deletion surfaces, and contracted telemetry. | One atomic catalog rebuild remains; removal residue is zero; changed owner slices pass. |
+| P3-04 | COMPLETE | Made testsupport use production assembly; deleted dead wrappers, duplicate ports, redundant checks, and false exports; added typed-nil and export guards. | Production and test graphs share assembly; construction and export guards fail closed. |
+| P3-05 | COMPLETE | Ran final residue scans, changed-owner checks, broad validation, and final handoff. | Every P3 acceptance row is complete with no compatibility scaffolding or unexplained failure. |
+
+### 19.3 Workstream-specific verification
+
+- P3-01 runs the Projections architecture, construction, and provider rows plus
+  Markdown lint for the ADR. It stops if characterization reveals a behavior
+  decision not already owned.
+- P3-02 runs Projections query, provider, construction, and service-backed rows;
+  Workbook coverage; backend boundary checks; and JSON shape validation.
+- P3-03 runs Projections and the Timeline, Entities, Indicators, Assessments,
+  Artifacts, Evidence, Revisions, and shared HTTP-test-support slices, including
+  service-backed atomicity and failure-path coverage where routed.
+- P3-04 runs Projections, app server composition, Incident Bundles, Recovery,
+  Revisions, Workbook, Indicators, boundary, and harness-contract coverage.
+- P3-05 reruns every changed-owner route before the ordered final ladder in
+  section 20.2.
+
+If an authored test-family or execution-topology input changes, the owning
+workstream runs `make generate` and accepts only tool-produced generated
+outputs. No generated root or tool-managed dependency file is hand-edited.
+
+## 20. Iteration 3 Validation, Acceptance, and Handoff
+
+### 20.1 Binary acceptance criteria
+
+| ID | Requirement | Binary acceptance | Status |
+| --- | --- | --- | --- |
+| P3-AC-001 | One compiled query model | Runtime registry values are `queryengine.Surface`; no parallel field/surface type or round-trip converter exists. | COMPLETE |
+| P3-AC-002 | Owned validation | Descriptor-only failures originate in `providercontract`; executable binding and capability failures originate in runtime. | COMPLETE |
+| P3-AC-003 | One provider fact | A single ordered table drives exact provider/owner membership and deterministic diagnostics for all ten providers. | COMPLETE |
+| P3-AC-004 | One maintenance rebuild | `MaintenanceRebuilder.RebuildIncident` rebuilds the complete catalog in one transaction and commits once. | COMPLETE |
+| P3-AC-005 | Legacy removal | Owner rebuild ports, unused `Rebuild*Tx` methods, `DeleteIndicatorTx`, standalone wrappers, and compatibility aliases are absent. | COMPLETE |
+| P3-AC-006 | Production-equivalent tests | Projections testsupport delegates to production assembly and exposes only retained typed capabilities plus generic maintenance rebuild. | COMPLETE |
+| P3-AC-007 | Fail-closed construction | Nil and typed-nil cases for all nine source dependencies fail before any usable runtime or ports escape. | COMPLETE |
+| P3-AC-008 | Minimal composition surface | Forwarding Evidence/assembly wrappers, duplicate import interfaces, redundant readiness, direct recovery-state access, and false exports are absent. | COMPLETE |
+| P3-AC-009 | Export control | Exact AST allowlists pass and their unexpected-extra and missing-symbol fixtures fail for the intended reason. | COMPLETE |
+| P3-AC-010 | Contract preservation | Descriptor v3, manifest v4, ten-provider parity, recovery states, source ownership, migrations, generated policy, and public behavior evidence pass unchanged. | COMPLETE |
+
+Final residue scans cover owning Go paths, not this historical tracker. They
+search for `genericSurface`, `genericField`, `fieldKind`, conversion helpers,
+`RebuildParties`, every removed owner rebuild symbol, `DeleteIndicatorTx`,
+`evidencePort`, `newEvidenceContribution`, and duplicate
+`ImportProjectionRebuilder` declarations. Any match must be an active retained
+owner definition identified in section 18 or be removed before P3-05 closes.
+
+### 20.2 Later implementation validation order
+
+After all changed-owner slices pass, P3-05 runs these targets in order and
+records every run root:
+
+1. `make test-slice OWNER=module.projections`
+2. `make service-backed-test-slice OWNER=module.projections`
+3. `make backend-module-boundary-check`
+4. `make json-shape-check`
+5. `make generate-drift`
+6. `make generated-artifact-policy-check`
+7. `make migration-drift`
+8. `make harness-contract`
+9. `make agent-finalize`
+10. `make test-fast`
+11. `make browser-e2e-webserver-backed`
+12. `make browser-e2e-stateful`
+13. `make build`
+14. `make check`
+15. `make release-check`
+16. `make lint-markdown`
+
+`make agent-finalize` receives `RESULTS_DIR` only when a successful full warm
+check root exists. Otherwise the checkpoint records that retained-run
+maintenance was skipped because `RESULTS_DIR` was unset. A failure record names
+the target, relevant result root or summary, relation to the workstream, fix or
+rollback, and successful rerun when applicable.
+
+### 20.3 Implementation checkpoint template
+
+P3-01 through P3-05 append one row when completed; none is pre-authorized by
+this planning update.
+
+| Date | Checkpoint | Files and substantive edits | Verification and run roots | Failure, skip, risk, and next eligible work |
+| --- | --- | --- | --- | --- |
+| 2026-08-27 | P3-01 | Amended `docs/decisions/projections-module-boundary.md`; reconciled non-normative Appendix I; added the routed production-caller guard; updated the authored Projections family and generated topology index; re-audited Core and `docs/domain.md` with no owner or vocabulary edit. | `make format` PASS at `.cartulary/test-results/20260827T173909Z-p3734159`; `make generate` PASS at `.cartulary/test-results/20260827T173916Z-p3738163`; Projections focused 15/15 PASS at `.cartulary/test-results/20260827T173937Z-p3741255`; checkpoint Markdown PASS at `.cartulary/test-results/20260827T174019Z-p3758513`; `git diff --check` PASS. | No owner conflict or public-behavior decision was found. Generated topology changed only after its authored family input. P3-02 becomes eligible after this checkpoint lint. |
+| 2026-08-27 | P3-02 | Deleted the runtime `genericSurface`/`genericField`/`fieldKind` model and forwarding row/SQL files; made `queryengine.CompileSurface`, `Surface`, row loading, paging, and row shaping canonical; moved descriptor shape, enum, uniqueness, ownership, restore, facade, dependency, and cycle validation plus immutable rebuild order into `providercontract`; replaced the owner map, owner slice, repeated IDs, and exported factories with one ordered ten-provider private binding table; added owning queryengine/providercontract tests and routed family rows; updated the Workbook descriptor fixture to valid v3 facts. | Final `make format` PASS at `.cartulary/test-results/20260827T175547Z-p3856856`; `make generate` PASS at `.cartulary/test-results/20260827T175551Z-p3860806`; Projections focused 17/17 PASS at `.cartulary/test-results/20260827T175604Z-p3863796`; Projections service-backed 11/11 PASS at `.cartulary/test-results/20260827T175649Z-p3881973`; Workbook focused 66/66 PASS at `.cartulary/test-results/20260827T180041Z-p3963206`; Workbook service-backed 37/37 PASS at `.cartulary/test-results/20260827T180257Z-p4022008`; boundary PASS at `.cartulary/test-results/20260827T180513Z-p4080467`; JSON shape PASS at `.cartulary/test-results/20260827T180523Z-p4080842`; generation drift PASS at `.cartulary/test-results/20260827T180530Z-p4081286`; generated-artifact policy PASS at `.cartulary/test-results/20260827T180541Z-p4084235`. | Failed Projections runs `.cartulary/test-results/20260827T174706Z-p3767050`, `.cartulary/test-results/20260827T174932Z-p3791375`, and `.cartulary/test-results/20260827T175317Z-p3816987` were workstream-owned test migration/earlier-validation assertion defects and were corrected before the final green pair. Workbook run `.cartulary/test-results/20260827T175734Z-p3898820` exposed a stale synthetic descriptor fixture; the fixture now supplies complete descriptor-v3 facts and the full rerun passes. Generated topology changed only after authored family input. No public, schema, migration, descriptor-version, or manifest-version change occurred. P3-03 is now eligible and activated; P3-04 remains ineligible. |
+| 2026-08-27 | P3-03 | Added `MaintenanceRebuilder` through adapters and production assembly; implemented one begin/catalog-rebuild/commit maintenance transaction with unconditional deferred rollback; migrated testsupport and HTTP fixtures to whole-catalog rebuilding; removed Timeline, Entities, Indicators, Assessments, Artifacts, and Evidence rebuild ports plus dead per-owner wrappers, transaction helpers, dispatch, Indicator deletion, and obsolete fakes; replaced per-view rebuild telemetry with one bounded maintenance span; added exact failure, ordering, stale-state, atomicity, cancellation, and telemetry tests plus an authored Projections family row and generated topology update. | Final `make format` PASS at `.cartulary/test-results/20260827T185150Z-p833891`; `make generate` PASS at `.cartulary/test-results/20260827T181742Z-p4140094`; Projections focused 18/18 PASS at `.cartulary/test-results/20260827T183713Z-p434852`; focused owner PASS roots: Indicators 20/20 `.cartulary/test-results/20260827T182127Z-p7739`, Timeline 52/52 `.cartulary/test-results/20260827T182218Z-p25257`, Entities 40/40 `.cartulary/test-results/20260827T183520Z-p379939`, Assessments 27/27 `.cartulary/test-results/20260827T182916Z-p140079`, Artifacts 7/7 `.cartulary/test-results/20260827T183016Z-p183684`, Evidence 35/35 `.cartulary/test-results/20260827T183101Z-p200416`, Parties 20/20 `.cartulary/test-results/20260827T183222Z-p250927`, Tasks/Decisions 20/20 `.cartulary/test-results/20260827T183316Z-p292039`, and Revisions 27/27 `.cartulary/test-results/20260827T183406Z-p332728`; Projections service-backed 12/12 PASS at `.cartulary/test-results/20260827T183759Z-p452045`; service-backed owner PASS roots: Timeline 29/29 `.cartulary/test-results/20260827T183836Z-p468841`, Entities 31/31 `.cartulary/test-results/20260827T184314Z-p526964`, Indicators 8/8 `.cartulary/test-results/20260827T184507Z-p581594`, Assessments 18/18 `.cartulary/test-results/20260827T184550Z-p598200`, Artifacts 3/3 `.cartulary/test-results/20260827T184646Z-p641013`, Evidence 25/25 `.cartulary/test-results/20260827T184723Z-p657429`, Parties 17/17 `.cartulary/test-results/20260827T184837Z-p707302`, Tasks/Decisions 15/15 `.cartulary/test-results/20260827T184925Z-p747819`, and Revisions 20/20 `.cartulary/test-results/20260827T185012Z-p788258`; atomic-catalog routed row 3/3 PASS at `.cartulary/test-results/20260827T182041Z-p4185136`; boundary PASS at `.cartulary/test-results/20260827T185158Z-p837962`; JSON shape PASS at `.cartulary/test-results/20260827T185159Z-p838296`; generation drift PASS at `.cartulary/test-results/20260827T185203Z-p838700`; generated-artifact policy PASS at `.cartulary/test-results/20260827T185211Z-p841615`; exact owning-path residue scans returned no removed symbol. | Atomic-row run `.cartulary/test-results/20260827T181755Z-p4143049` exposed the wrong service fixture profile and `.cartulary/test-results/20260827T181918Z-p4164109` exposed a test-only application import cycle; the row now uses the template-clone fixture and interface-backed unit transaction evidence, with database-backed stale-state replacement retained. Entities run `.cartulary/test-results/20260827T182703Z-p84254` exposed a stale export expectation; the boundary guard was contracted and the full rerun passes. No public, schema, migration, descriptor-version, manifest-version, or Recovery behavior changed. P3-04 is now eligible and activated; P3-05 remains ineligible. |
+| 2026-08-27 | P3-04 | Changed `testsupport.MustBuild` to delegate to `projectionassembly.Build` and return its runtime; changed `testsupport.New` and HTTP testsupport to derive only retained capabilities from that runtime; migrated direct test callers and production-assembly characterization to the same graph; removed the Evidence adapter, one-line Evidence assembly wrapper, duplicate adapter/application import-rebuilder interfaces, direct Recovery-state accessor, duplicate readiness check, and the now-single-use application build wrapper; returned the Incident Bundles-owned import interface and updated its exact boundary allowance; centralized nine-source nil/typed-nil rejection in catalog construction; privatized unused Store mutation helpers; added production/test-fixture-partitioned exact AST export allowlists with synthetic extra/missing cases and a static testsupport assembly guard; updated the authored Projections family, generated topology, and harness fixture-count contract. | Final `make format` PASS at `.cartulary/test-results/20260827T195139Z-p2129800`; final `make generate` PASS at `.cartulary/test-results/20260827T190720Z-p925826`; focused PASS roots: Projections 18/18 `.cartulary/test-results/20260827T191025Z-p975589`, app server 24/24 `.cartulary/test-results/20260827T191106Z-p993111`, Incident Bundles 8/8 `.cartulary/test-results/20260827T191202Z-p1034904`, Recovery 24/24 `.cartulary/test-results/20260827T191258Z-p1051743`, Revisions 27/27 `.cartulary/test-results/20260827T191752Z-p1152185`, Workbook 66/66 `.cartulary/test-results/20260827T191902Z-p1197737`, Indicators 20/20 `.cartulary/test-results/20260827T192115Z-p1256270`, Timeline 52/52 `.cartulary/test-results/20260827T192158Z-p1273447`, Entities 40/40 `.cartulary/test-results/20260827T192633Z-p1332103`, Assessments 27/27 `.cartulary/test-results/20260827T192826Z-p1387294`, Artifacts 7/7 `.cartulary/test-results/20260827T192922Z-p1430566`, Evidence 35/35 `.cartulary/test-results/20260827T192959Z-p1447210`, Parties 20/20 `.cartulary/test-results/20260827T193113Z-p1497362`, and Tasks/Decisions 20/20 `.cartulary/test-results/20260827T193201Z-p1538192`; service-backed PASS roots: Projections 12/12 `.cartulary/test-results/20260827T193302Z-p1579042`, app server 17/17 `.cartulary/test-results/20260827T193340Z-p1595847`, Incident Bundles 6/6 `.cartulary/test-results/20260827T193434Z-p1636628`, Recovery 19/19 `.cartulary/test-results/20260827T193529Z-p1653254`, Revisions 20/20 `.cartulary/test-results/20260827T193643Z-p1706441`, Workbook 37/37 `.cartulary/test-results/20260827T193746Z-p1751718`, Indicators 8/8 `.cartulary/test-results/20260827T193958Z-p1809877`, Timeline 29/29 `.cartulary/test-results/20260827T194041Z-p1826509`, Entities 31/31 `.cartulary/test-results/20260827T194517Z-p1884807`, Assessments 18/18 `.cartulary/test-results/20260827T194711Z-p1939469`, Artifacts 3/3 `.cartulary/test-results/20260827T194806Z-p1982340`, Evidence 25/25 `.cartulary/test-results/20260827T194843Z-p1998725`, Parties 17/17 `.cartulary/test-results/20260827T194957Z-p2048662`, and Tasks/Decisions 15/15 `.cartulary/test-results/20260827T195045Z-p2089241`; boundary PASS at `.cartulary/test-results/20260827T195241Z-p2134871`; JSON shape PASS at `.cartulary/test-results/20260827T195243Z-p2135204`; generation drift PASS at `.cartulary/test-results/20260827T195247Z-p2135602`; harness contract PASS at `.cartulary/test-results/20260827T195318Z-p2139292`; Go-only residue scan and `git diff --check` PASS. | Projections run `.cartulary/test-results/20260827T185759Z-p854213` exposed an invalid shared typed-nil fake; per-interface typed-nil fixtures replaced it and the full rerun passed. Generate run `.cartulary/test-results/20260827T190356Z-p895626` rejected a non-ASCII-sorted selector; the authored family was sorted before successful regeneration. Projections run `.cartulary/test-results/20260827T190737Z-p932794` exposed two remaining assembly tests using deleted graph helpers; both now call production `Build`. Revisions run `.cartulary/test-results/20260827T191413Z-p1105639` was an unrelated browser service readiness timeout at 26/27 with no product failure; the unchanged full rerun passed. Boundary run `.cartulary/test-results/20260827T195143Z-p2133809` exposed the stale Incident Bundles facade allowlist and harness run `.cartulary/test-results/20260827T195255Z-p2138580` exposed the new dedicated-row count; both authored policies now describe the intended topology and their full reruns pass. No public, schema, migration, descriptor-version, manifest-version, or generated protocol change occurred. P3-05 is now eligible and activated. |
+| 2026-08-27 | P3-05 | Completed repository-wide scoped Go residue scans; confirmed the sole consumer-owned import-rebuilder declaration and sole production adapter graph; reran every changed owner’s focused and service-backed pair; executed the final validation ladder in the required order; audited descriptor v3, manifest v4, ten-provider order, Recovery state, source ownership, migrations, generated policy, public behavior, and the absence of compatibility scaffolding. | Focused rerun PASS roots: Projections 18/18 `.cartulary/test-results/20260827T195550Z-p2142613`, app server 24/24 `.cartulary/test-results/20260827T195627Z-p2159796`, Incident Bundles 8/8 `.cartulary/test-results/20260827T195721Z-p2201021`, Recovery 24/24 `.cartulary/test-results/20260827T195817Z-p2217760`, Revisions 27/27 `.cartulary/test-results/20260827T195934Z-p2271208`, Workbook 66/66 `.cartulary/test-results/20260827T200037Z-p2316938`, Indicators 20/20 `.cartulary/test-results/20260827T200255Z-p2377939`, Timeline 52/52 `.cartulary/test-results/20260827T200339Z-p2395487`, Entities 40/40 `.cartulary/test-results/20260827T200817Z-p2455815`, Assessments 27/27 `.cartulary/test-results/20260827T201011Z-p2511197`, Artifacts 7/7 `.cartulary/test-results/20260827T201108Z-p2554846`, Evidence 35/35 `.cartulary/test-results/20260827T201146Z-p2571517`, Parties 20/20 `.cartulary/test-results/20260827T201301Z-p2622311`, and Tasks/Decisions 20/20 `.cartulary/test-results/20260827T201350Z-p2663071`; service-backed rerun PASS roots: Projections 12/12 `.cartulary/test-results/20260827T201441Z-p2703939`, app server 17/17 `.cartulary/test-results/20260827T201519Z-p2720725`, Incident Bundles 6/6 `.cartulary/test-results/20260827T201612Z-p2761505`, Recovery 19/19 `.cartulary/test-results/20260827T201708Z-p2778104`, Revisions 20/20 `.cartulary/test-results/20260827T201822Z-p2831104`, Workbook 37/37 `.cartulary/test-results/20260827T201926Z-p2876377`, Indicators 8/8 `.cartulary/test-results/20260827T202138Z-p2934497`, Timeline 29/29 `.cartulary/test-results/20260827T202221Z-p2951134`, Entities 31/31 `.cartulary/test-results/20260827T202656Z-p3009435`, Assessments 18/18 `.cartulary/test-results/20260827T202845Z-p3064099`, Artifacts 3/3 `.cartulary/test-results/20260827T202940Z-p3106957`, Evidence 25/25 `.cartulary/test-results/20260827T203018Z-p3123344`, Parties 17/17 `.cartulary/test-results/20260827T203131Z-p3173253`, and Tasks/Decisions 15/15 `.cartulary/test-results/20260827T203221Z-p3213807`. Final ladder PASS roots in order: Projections focused 18/18 `.cartulary/test-results/20260827T203317Z-p3254346`; Projections service-backed 12/12 `.cartulary/test-results/20260827T203354Z-p3271136`; boundary `.cartulary/test-results/20260827T203433Z-p3287964`; JSON shape `.cartulary/test-results/20260827T203435Z-p3288297`; generation drift `.cartulary/test-results/20260827T203439Z-p3288695`; generated-artifact policy `.cartulary/test-results/20260827T203447Z-p3291608`; migration drift `.cartulary/test-results/20260827T203448Z-p3292022`; harness contract `.cartulary/test-results/20260827T203456Z-p3294949`; agent finalize `.cartulary/test-results/20260827T203513Z-p3295517`; test-fast 433/433 `.cartulary/test-results/20260827T203532Z-p3298642`; webserver-backed browser 58/58 `.cartulary/test-results/20260827T203722Z-p3333229`; stateful browser 34/34 `.cartulary/test-results/20260827T204130Z-p3387264`; build 7/7 `.cartulary/test-results/20260827T204345Z-p3432611`; check 662/662 `.cartulary/test-results/20260827T204409Z-p3466633`; release-check 822/822 `.cartulary/test-results/20260827T204909Z-p3598828`; Markdown lint PASS at `.cartulary/test-results/20260827T210255Z-p3815158`. | No P3-05 validation failure occurred. `make agent-finalize` ran with `RESULTS_DIR` unset because no prior successful full warm-check root existed, so retained-run maintenance was intentionally skipped. No source, schema, migration, dependency-lock, descriptor-version, manifest-version, generated protocol, HTTP, WebSocket, authorization, cursor, saved-view, or public error behavior changed. Final status/name-status and whitespace audits pass. |
+
+### 20.4 Document-only planning handoff
+
+The P3-00 edit runs only `make lint-markdown`, `git diff --check`, and a final
+status/diff audit. It does not run implementation, generation, service, build,
+browser, conformance, or release targets because no executable artifact
+changes. The final audit MUST show this tracker as the only changed file.
+
+| Date | Scope | Files changed | Verification | Outcome |
+| --- | --- | --- | --- | --- |
+| 2026-08-27 | P3-00 Iteration 3 document-only planning | `docs/handoffs/projections-module-refactor-tracker.md` only | Post-edit `make lint-markdown` PASS at `.cartulary/test-results/20260827T161741Z-p3713442`; `git diff --check`; final diff/status audit | Iterations 1 and 2 remain complete history; P3-00 is complete; P3-01 through P3-05 and P3-AC-001 through P3-AC-010 remain pending; no implementation or owner artifact changed. |

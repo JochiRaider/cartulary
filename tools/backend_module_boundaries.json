@@ -270,6 +270,7 @@
       "allowed_importers": [
         "internal/app/extensionassembly/**",
         "internal/app/incidentportabilityassembly/**",
+        "internal/app/projectionassembly/**",
         "internal/app/recoveryassembly/state_catalog.go",
         "internal/app/server/extensions_publication_characterization_test.go",
         "internal/app/server/module_settings.go",
@@ -303,6 +304,7 @@
         "internal/modules/links/internal/incidentbundle/source_port.go",
         "internal/modules/parties/internal/providers/incidentbundle/**",
         "internal/modules/parties/provider_contributions.go",
+        "internal/modules/projections/adapters/adapters.go",
         "internal/modules/records/incident_bundle_source_port.go",
         "internal/modules/records/incident_bundle_source_port_test.go",
         "internal/modules/revisions/incident_bundle_apply.go",

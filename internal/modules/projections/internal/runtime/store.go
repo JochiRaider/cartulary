@@ -42,20 +42,20 @@ func NewStore(
 	return &Store{pool: pool, registry: catalog.registry, physical: physical}, nil
 }
 
-func (s *Store) UpsertTimelineRowTx(ctx context.Context, tx pgx.Tx, input timelineprojection.ProjectionInput) error {
+func (s *Store) upsertTimelineRowTx(ctx context.Context, tx pgx.Tx, input timelineprojection.ProjectionInput) error {
 	if s == nil || s.physical == nil {
 		return errors.New("projection storage is required")
 	}
 	return s.physical.UpsertTimelineRowTx(ctx, tx, input)
 }
 
-func (s *Store) ApplyTimelineMutationTx(ctx context.Context, tx pgx.Tx, mutation timelineprojection.ProjectionMutation) error {
+func (s *Store) applyTimelineMutationTx(ctx context.Context, tx pgx.Tx, mutation timelineprojection.ProjectionMutation) error {
 	if err := mutation.Validate(); err != nil {
 		return err
 	}
 	switch mutation.Kind {
 	case timelineprojection.ProjectionMutationUpsert:
-		return s.UpsertTimelineRowTx(ctx, tx, mutation.Input)
+		return s.upsertTimelineRowTx(ctx, tx, mutation.Input)
 	case timelineprojection.ProjectionMutationDelete:
 		if s == nil || s.physical == nil {
 			return errors.New("projection storage is required")
@@ -66,7 +66,7 @@ func (s *Store) ApplyTimelineMutationTx(ctx context.Context, tx pgx.Tx, mutation
 	}
 }
 
-func (s *Store) ApplyTimelineFixtureBatchTx(ctx context.Context, tx pgx.Tx, inputs []timelineprojection.ProjectionInput) error {
+func (s *Store) applyTimelineFixtureBatchTx(ctx context.Context, tx pgx.Tx, inputs []timelineprojection.ProjectionInput) error {
 	if s == nil || s.physical == nil {
 		return errors.New("projection storage is required")
 	}
@@ -81,14 +81,14 @@ func (s *Store) ApplyTimelineFixtureBatchTx(ctx context.Context, tx pgx.Tx, inpu
 	return s.physical.InsertTimelineFixtureBatchTx(ctx, tx, inputs)
 }
 
-func (s *Store) CountTimelineFixtureRows(ctx context.Context, incidentID uuid.UUID) (int, error) {
+func (s *Store) countTimelineFixtureRows(ctx context.Context, incidentID uuid.UUID) (int, error) {
 	if s == nil || s.physical == nil {
 		return 0, errors.New("projection storage is required")
 	}
 	return s.physical.CountTimelineFixtureRows(ctx, incidentID)
 }
 
-func (s *Store) CountTimelineFixtureRowsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (int, error) {
+func (s *Store) countTimelineFixtureRowsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (int, error) {
 	if s == nil || s.physical == nil {
 		return 0, errors.New("projection storage is required")
 	}
@@ -103,32 +103,7 @@ func (s *Store) refreshTimelineTxCore(ctx context.Context, tx pgx.Tx, recordID u
 	if err != nil {
 		return err
 	}
-	return s.ApplyTimelineMutationTx(ctx, tx, mutation)
-}
-
-func (s *Store) RebuildTimeline(ctx context.Context, incidentID uuid.UUID) (err error) {
-	ctx, finishTelemetry := s.startProjectionSpan(ctx, timelineViewSchemaID)
-	defer func() { finishTelemetry(err) }()
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return fmt.Errorf("begin timeline projection rebuild: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-
-	if err := s.RebuildIncidentTimelineTx(ctx, tx, incidentID); err != nil {
-		return err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit timeline projection rebuild: %w", err)
-	}
-	return nil
-}
-
-func (s *Store) RebuildIncidentTimelineTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return s.rebuildProjectionIncidentTx(ctx, tx, timelineViewSchemaID, incidentID)
+	return s.applyTimelineMutationTx(ctx, tx, mutation)
 }
 
 func (s *Store) rebuildIncidentTimelineTxCore(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, source TimelineSource) error {
@@ -148,7 +123,7 @@ func (s *Store) rebuildIncidentTimelineTxCore(ctx context.Context, tx pgx.Tx, in
 			return err
 		}
 		for _, input := range page.Inputs {
-			if err := s.ApplyTimelineMutationTx(ctx, tx, timelineprojection.ProjectionMutation{
+			if err := s.applyTimelineMutationTx(ctx, tx, timelineprojection.ProjectionMutation{
 				Kind:     timelineprojection.ProjectionMutationUpsert,
 				RecordID: input.RecordID,
 				Input:    input,

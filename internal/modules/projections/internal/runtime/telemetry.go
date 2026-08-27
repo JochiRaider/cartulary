@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"context"
-	"strings"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -24,8 +23,8 @@ const (
 	decisionsViewSchemaID    = "cartulary.view.decisions.v1"
 )
 
-func (s *Store) startProjectionSpan(ctx context.Context, viewSchemaID string) (context.Context, func(error)) {
-	viewSchemaID = safeProjectionViewSchemaID(viewSchemaID)
+func (s *Store) startProjectionSpan(ctx context.Context) (context.Context, func(error)) {
+	const viewSchemaID = "unknown"
 	ctx, span := telemetry.Tracer(telemetry.ScopeWorkbook, s.telemetryServiceVersion()).Start(
 		ctx,
 		"cartulary.workbook.projection",
@@ -52,29 +51,4 @@ func (s *Store) startProjectionSpan(ctx context.Context, viewSchemaID string) (c
 
 func (s *Store) telemetryServiceVersion() string {
 	return telemetry.VersionUnknown
-}
-
-func safeProjectionViewSchemaID(viewSchemaID string) string {
-	switch strings.TrimSpace(viewSchemaID) {
-	case timelineViewSchemaID,
-		hostsViewSchemaID,
-		identitiesViewSchemaID,
-		indicatorsViewSchemaID,
-		assessmentsViewSchemaID,
-		evidenceViewSchemaID,
-		notesViewSchemaID,
-		partiesViewSchemaID,
-		taskRequestsViewSchemaID,
-		decisionsViewSchemaID,
-		commLogViewSchemaID,
-		findingsViewSchemaID,
-		forensicKeywordsViewSchemaID,
-		handoffViewSchemaID,
-		investigativeQueriesViewSchemaID,
-		lessonViewSchemaID,
-		statusReviewViewSchemaID:
-		return strings.TrimSpace(viewSchemaID)
-	default:
-		return "unknown"
-	}
 }

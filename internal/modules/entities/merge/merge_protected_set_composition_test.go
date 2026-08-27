@@ -204,14 +204,6 @@ func (composedMergeWorkbookProjection) DeleteIdentityTx(context.Context, pgx.Tx,
 	return nil
 }
 
-func (composedMergeWorkbookProjection) RebuildHostsTx(context.Context, pgx.Tx, uuid.UUID) error {
-	return nil
-}
-
-func (composedMergeWorkbookProjection) RebuildIdentitiesTx(context.Context, pgx.Tx, uuid.UUID) error {
-	return nil
-}
-
 type composedMergeTimelineEffects struct{}
 
 func (composedMergeTimelineEffects) LoadTimelineInvalidationsTx(context.Context, pgx.Tx, map[uuid.UUID][]string) ([]mentioneffects.TimelineInvalidation, error) {

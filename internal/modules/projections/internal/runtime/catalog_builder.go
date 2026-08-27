@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"reflect"
 
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
@@ -23,6 +24,45 @@ type ProviderSources struct {
 	Parties      partyprojection.SourceReader
 	TaskRequests taskdecisionprojection.TaskRequestSourceReader
 	Decisions    taskdecisionprojection.DecisionSourceReader
+}
+
+type requiredProviderBinding struct {
+	providerID string
+	owner      string
+	factory    func(providercontract.ProviderDescriptor, ProviderSources) Provider
+}
+
+var requiredProviderCatalog = []requiredProviderBinding{
+	{providerID: "timeline", owner: "timeline", factory: func(descriptor providercontract.ProviderDescriptor, sources ProviderSources) Provider {
+		return newTimelineProvider(descriptor, sources.Timeline)
+	}},
+	{providerID: "host", owner: "entities", factory: func(descriptor providercontract.ProviderDescriptor, sources ProviderSources) Provider {
+		return newHostProvider(descriptor, sources.Entities)
+	}},
+	{providerID: "identity", owner: "entities", factory: func(descriptor providercontract.ProviderDescriptor, sources ProviderSources) Provider {
+		return newIdentityProvider(descriptor, sources.Entities)
+	}},
+	{providerID: "indicator", owner: "indicators", factory: func(descriptor providercontract.ProviderDescriptor, sources ProviderSources) Provider {
+		return newIndicatorProvider(descriptor, sources.Indicators)
+	}},
+	{providerID: "assessment", owner: "assessments", factory: func(descriptor providercontract.ProviderDescriptor, sources ProviderSources) Provider {
+		return newAssessmentProvider(descriptor, sources.Assessments)
+	}},
+	{providerID: "artifact", owner: "artifacts", factory: func(descriptor providercontract.ProviderDescriptor, sources ProviderSources) Provider {
+		return newArtifactProvider(descriptor, sources.Artifacts)
+	}},
+	{providerID: "evidence", owner: "evidence", factory: func(descriptor providercontract.ProviderDescriptor, sources ProviderSources) Provider {
+		return newEvidenceProvider(descriptor, sources.Evidence)
+	}},
+	{providerID: "party", owner: "parties", factory: func(descriptor providercontract.ProviderDescriptor, sources ProviderSources) Provider {
+		return newPartyProvider(descriptor, sources.Parties)
+	}},
+	{providerID: "task_request", owner: "tasksdecisions", factory: func(descriptor providercontract.ProviderDescriptor, sources ProviderSources) Provider {
+		return newTaskRequestProvider(descriptor, sources.TaskRequests)
+	}},
+	{providerID: "decision", owner: "tasksdecisions", factory: func(descriptor providercontract.ProviderDescriptor, sources ProviderSources) Provider {
+		return newDecisionProvider(descriptor, sources.Decisions)
+	}},
 }
 
 func NewCatalog(
@@ -48,35 +88,20 @@ func NewCatalog(
 		{name: "Decisions", source: sources.Decisions},
 	}
 	for _, required := range requiredSources {
-		if required.source == nil {
+		if isNilSource(required.source) {
 			return nil, fmt.Errorf("projection %s source is required", required.name)
 		}
 	}
 
-	providerIDs := []string{
-		"timeline", "host", "identity", "indicator", "assessment",
-		"artifact", "evidence", "party", "task_request", "decision",
-	}
-	descriptors := make(map[string]providercontract.ProviderDescriptor, len(providerIDs))
-	for _, providerID := range providerIDs {
-		descriptor, ok := facts.descriptors.Lookup(providerID)
+	providers := make([]Provider, 0, len(requiredProviderCatalog))
+	for _, required := range requiredProviderCatalog {
+		descriptor, ok := facts.descriptors.Lookup(required.providerID)
 		if !ok {
-			return nil, fmt.Errorf("missing active projection provider %q", providerID)
+			return nil, fmt.Errorf("missing active projection provider %q", required.providerID)
 		}
-		descriptors[providerID] = descriptor
+		providers = append(providers, required.factory(descriptor, sources))
 	}
-	catalog, err := newCatalog(facts.descriptors, []Provider{
-		NewTimelineProvider(descriptors["timeline"], sources.Timeline),
-		NewHostProvider(descriptors["host"], sources.Entities),
-		NewIdentityProvider(descriptors["identity"], sources.Entities),
-		NewIndicatorProvider(descriptors["indicator"], sources.Indicators),
-		NewAssessmentProvider(descriptors["assessment"], sources.Assessments),
-		NewArtifactProvider(descriptors["artifact"], sources.Artifacts),
-		NewEvidenceProvider(descriptors["evidence"], sources.Evidence),
-		NewPartyProvider(descriptors["party"], sources.Parties),
-		NewTaskRequestProvider(descriptors["task_request"], sources.TaskRequests),
-		NewDecisionProvider(descriptors["decision"], sources.Decisions),
-	})
+	catalog, err := newCatalog(facts.descriptors, providers)
 	if err != nil {
 		return nil, err
 	}
@@ -84,4 +109,17 @@ func NewCatalog(
 		return nil, err
 	}
 	return catalog, nil
+}
+
+func isNilSource(source any) bool {
+	if source == nil {
+		return true
+	}
+	value := reflect.ValueOf(source)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }

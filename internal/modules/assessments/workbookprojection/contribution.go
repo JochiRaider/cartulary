@@ -22,16 +22,10 @@ type Rows interface {
 	ApplyAssessmentMutationTx(context.Context, pgx.Tx, ProjectionMutation) error
 	RefreshAssessmentTx(context.Context, pgx.Tx, uuid.UUID) error
 	LoadAssessmentTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-	RebuildAssessmentsTx(context.Context, pgx.Tx, uuid.UUID) error
-}
-
-type Rebuilder interface {
-	RebuildAssessments(context.Context, uuid.UUID) error
 }
 
 type Ports struct {
-	Rows      Rows
-	Rebuilder Rebuilder
+	Rows Rows
 }
 
 type Contribution struct {

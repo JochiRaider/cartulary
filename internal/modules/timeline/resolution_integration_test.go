@@ -1138,7 +1138,7 @@ SELECT row_version
 		entitytest.SeedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "host", "VPN Gateway")
 
 		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
-		if err := harness.Projections.RebuildTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
+		if err := harness.Projections.RebuildIncident(context.Background(), mustUUID(t, incidentID)); err != nil {
 			t.Fatalf("rebuild incident timeline: %v", err)
 		}
 		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)

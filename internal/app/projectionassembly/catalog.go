@@ -1,29 +1,21 @@
 package projectionassembly
 
 import (
-	"context"
-	"fmt"
-
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-
 	artifactcontract "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentcontract "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	entitycontract "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
 	evidencecontract "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	indicatorcontract "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	partycontract "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	taskdecisioncontract "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
 	taskdecisionports "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	workbookrestoreprobe "github.com/JochiRaider/cartulary/internal/modules/workbook/restoreprobe"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 // Runtime is the application-composition view of the sole Projections adapter.
@@ -31,38 +23,6 @@ import (
 // boundary.
 type Runtime struct {
 	ports projectionadapters.Ports
-}
-
-type ImportRebuilder interface {
-	RebuildImportedIncidentTx(context.Context, pgx.Tx, uuid.UUID) error
-}
-
-func buildRuntime(
-	pool postgres.DB,
-	timelineContribution timelineprojection.Contribution,
-	entitiesContribution entitycontract.Contribution,
-	indicatorsContribution indicatorcontract.Contribution,
-	assessmentsContribution assessmentcontract.Contribution,
-	artifactsContribution artifactcontract.Contribution,
-	evidenceContribution evidencecontract.Contribution,
-	partiesContribution partycontract.Contribution,
-	taskDecisionContribution taskdecisioncontract.Contribution,
-) (*Runtime, error) {
-	ports, err := projectionadapters.New(projectionadapters.Dependencies{
-		Postgres:       pool,
-		Timeline:       timelineContribution,
-		Entities:       entitiesContribution,
-		Indicators:     indicatorsContribution,
-		Assessments:    assessmentsContribution,
-		Artifacts:      artifactsContribution,
-		Evidence:       evidenceContribution,
-		Parties:        partiesContribution,
-		TasksDecisions: taskDecisionContribution,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("assemble projection adapter: %w", err)
-	}
-	return &Runtime{ports: ports}, nil
 }
 
 func (runtime *Runtime) DescriptorSet() providercontract.DescriptorSet {
@@ -84,6 +44,13 @@ func (runtime *Runtime) RecoveryPorts() restorecontract.ProjectionPorts {
 		return restorecontract.ProjectionPorts{}
 	}
 	return runtime.ports.RecoveryPorts()
+}
+
+func (runtime *Runtime) MaintenanceRebuilder() projectionadapters.MaintenanceRebuilder {
+	if runtime == nil {
+		return nil
+	}
+	return runtime.ports.MaintenanceRebuilder()
 }
 
 func (runtime *Runtime) RestoreProbeQuery() workbookrestoreprobe.ProjectionQuery {
@@ -114,7 +81,7 @@ func (runtime *Runtime) SourceTextRows() projectionadapters.SourceTextRows {
 	return runtime.ports.SourceTextRows()
 }
 
-func (runtime *Runtime) ImportRebuilder() ImportRebuilder {
+func (runtime *Runtime) ImportRebuilder() incidentbundles.ImportProjectionRebuilder {
 	if runtime == nil {
 		return nil
 	}
@@ -182,10 +149,4 @@ func (runtime *Runtime) TaskDecisionReportingReader() taskdecisionports.Reportin
 		return nil
 	}
 	return runtime.ports.TaskDecisionReportingReader()
-}
-
-// NewEvidenceContribution keeps executable Evidence source construction at
-// application composition while returning only the owner facade contract.
-func newEvidenceContribution() (evidencecontract.Contribution, error) {
-	return evidenceprojection.NewContribution()
 }

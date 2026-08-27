@@ -53,17 +53,7 @@ var migrationCreateTablePattern = regexp.MustCompile(`(?im)\bCREATE\s+TABLE(?:\s
 
 func TestProjectionTableOwnershipSetsAreExactlyEqual(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
-	bundle, err := buildRuntime(
-		&projectionManifestDB{},
-		projectionManifestTimelineContribution(t),
-		projectionManifestEntitiesContribution(t),
-		projectionManifestIndicatorsContribution(t),
-		projectionManifestAssessmentsContribution(t),
-		projectionManifestArtifactsContribution(t),
-		projectionManifestEvidenceContribution(t),
-		projectionManifestPartiesContribution(t),
-		projectionManifestTaskDecisionContribution(t),
-	)
+	bundle, err := Build(&projectionManifestDB{})
 	if err != nil {
 		t.Fatalf("assemble projection adapter: %v", err)
 	}
@@ -127,17 +117,7 @@ func TestProjectionTableOwnershipSetsAreExactlyEqual(t *testing.T) {
 func TestProjectionProviderSQLSourceOwnership(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
 	ownerPatterns := loadSchemaOwnerPatterns(t, root)
-	bundle, err := buildRuntime(
-		&projectionManifestDB{},
-		projectionManifestTimelineContribution(t),
-		projectionManifestEntitiesContribution(t),
-		projectionManifestIndicatorsContribution(t),
-		projectionManifestAssessmentsContribution(t),
-		projectionManifestArtifactsContribution(t),
-		projectionManifestEvidenceContribution(t),
-		projectionManifestPartiesContribution(t),
-		projectionManifestTaskDecisionContribution(t),
-	)
+	bundle, err := Build(&projectionManifestDB{})
 	if err != nil {
 		t.Fatalf("assemble projection adapter: %v", err)
 	}

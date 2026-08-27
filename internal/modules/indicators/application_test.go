@@ -211,22 +211,6 @@ func (inertIndicatorProjectionPort) LoadIndicatorTx(context.Context, pgx.Tx, uui
 	panic("unexpected LoadIndicatorTx")
 }
 
-func (inertIndicatorProjectionPort) DeleteIndicatorTx(context.Context, pgx.Tx, uuid.UUID) error {
-	panic("unexpected DeleteIndicatorTx")
-}
-
-func (inertIndicatorProjectionPort) RebuildIndicatorsTx(context.Context, pgx.Tx, uuid.UUID) error {
-	panic("unexpected RebuildIndicatorsTx")
-}
-
-func (port *recordingIndicatorProjectionPort) DeleteIndicatorTx(context.Context, pgx.Tx, uuid.UUID) error {
-	panic("unexpected DeleteIndicatorTx")
-}
-
-func (port *recordingIndicatorProjectionPort) RebuildIndicatorsTx(context.Context, pgx.Tx, uuid.UUID) error {
-	panic("unexpected RebuildIndicatorsTx")
-}
-
 func (inertIndicatorSourceTextPort) LoadTextTx(context.Context, pgx.Tx, uuid.UUID, string, string) (SourceTextValue, error) {
 	panic("unexpected LoadTextTx")
 }

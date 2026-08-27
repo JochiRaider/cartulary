@@ -18,7 +18,6 @@ const evidenceViewSchemaID = "cartulary.view.evidence.v1"
 type Rows interface {
 	RefreshEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error
 	LoadEvidenceTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-	RebuildEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
 type ProjectionInput struct {
@@ -100,13 +99,8 @@ type SourceReader interface {
 	ListProjectionInputsTx(context.Context, pgx.Tx, uuid.UUID, *uuid.UUID, int) (ProjectionInputPage, error)
 }
 
-type Rebuilder interface {
-	RebuildEvidence(context.Context, uuid.UUID) error
-}
-
 type Ports struct {
 	Rows           Rows
-	Rebuilder      Rebuilder
 	SupportEffects SupportProjectionEffectsTx
 }
 

@@ -74,29 +74,3 @@ func (fixture *indicatorRows) LoadIndicatorTx(ctx context.Context, tx pgx.Tx, re
 	}
 	return queryengine.BuildRow(plan, values)
 }
-
-func (fixture *indicatorRows) DeleteIndicatorTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return fixture.storage.DeleteIndicatorRowTx(ctx, tx, recordID)
-}
-
-func (fixture *indicatorRows) RebuildIndicatorsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	if err := fixture.storage.DeleteIndicatorIncidentTx(ctx, tx, incidentID); err != nil {
-		return err
-	}
-	var afterRecordID *uuid.UUID
-	for {
-		page, err := fixture.source.ListProjectionInputsTx(ctx, tx, incidentID, afterRecordID, 1000)
-		if err != nil {
-			return err
-		}
-		for _, input := range page.Inputs {
-			if err := fixture.storage.UpsertIndicatorTx(ctx, tx, input); err != nil {
-				return err
-			}
-		}
-		if page.NextRecordID == nil {
-			return nil
-		}
-		afterRecordID = page.NextRecordID
-	}
-}

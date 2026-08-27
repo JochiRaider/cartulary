@@ -30,13 +30,8 @@ type FixtureBatchPort interface {
 	CountTimelineFixtureRowsTx(context.Context, pgx.Tx, uuid.UUID) (int, error)
 }
 
-type Rebuilder interface {
-	RebuildTimeline(context.Context, uuid.UUID) error
-}
-
 type Ports struct {
-	Writer    Writer
-	Rebuilder Rebuilder
+	Writer Writer
 }
 
 type Contribution struct {

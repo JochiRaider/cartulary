@@ -222,14 +222,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 			}
 		},
 		ObserveProjections: func(runtime *projectionassembly.Runtime) {
-			projectionCapability = projectiontestsupport.New(projectiontestsupport.Dependencies{
-				TimelineRebuilder:  runtime.TimelinePorts().Rebuilder,
-				EntityRebuilder:    runtime.EntityPorts().Rebuilder,
-				IndicatorRebuilder: runtime.IndicatorPorts().Rebuilder,
-				IndicatorRows:      runtime.IndicatorPorts().Rows,
-				EvidenceRows:       runtime.EvidencePorts().Rows,
-				EvidenceEffects:    runtime.EvidencePorts().SupportEffects,
-			})
+			projectionCapability = projectiontestsupport.New(runtime)
 			indicatorSourceText = indicatorassembly.NewSourceTextPort(runtime.SourceTextRows())
 		},
 		ObserveRevisions: func(runtime *revisionassembly.Runtime) {

@@ -16,7 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-func contractPlansForTest() map[string]genericSurface {
+func contractPlansForTest() map[string]queryengine.Surface {
 	plans := make([]queryengine.Surface, 0)
 	plans = append(plans, queryengine.TimelinePlans()...)
 	plans = append(plans, queryengine.IndicatorPlans()...)
@@ -26,16 +26,16 @@ func contractPlansForTest() map[string]genericSurface {
 	plans = append(plans, queryengine.PartyPlans()...)
 	plans = append(plans, queryengine.TaskRequestPlans()...)
 	plans = append(plans, queryengine.DecisionPlans()...)
-	surfaces := make(map[string]genericSurface, len(plans))
+	surfaces := make(map[string]queryengine.Surface, len(plans))
 	for _, plan := range plans {
-		surface, err := genericSurfaceFromPlan(plan)
+		surface, err := queryengine.CompileSurface(plan)
 		if err != nil {
 			panic(err)
 		}
-		if _, exists := surfaces[surface.viewSchemaID]; exists {
-			panic("duplicate query surface " + surface.viewSchemaID)
+		if _, exists := surfaces[surface.ViewSchemaID]; exists {
+			panic("duplicate query surface " + surface.ViewSchemaID)
 		}
-		surfaces[surface.viewSchemaID] = surface
+		surfaces[surface.ViewSchemaID] = surface
 	}
 	return surfaces
 }
@@ -99,9 +99,9 @@ func TestPrivateCompiledPlansExactlyMatchSemanticIntentsAndViewSchemas(t *testin
 			t.Errorf("semantic intent %s has no private compiled plan", viewSchemaID)
 			continue
 		}
-		planFields := make([]string, 0, len(plan.fields))
-		for _, field := range plan.fields {
-			planFields = append(planFields, field.key)
+		planFields := make([]string, 0, len(plan.Fields))
+		for _, field := range plan.Fields {
+			planFields = append(planFields, field.Key)
 		}
 		slices.Sort(planFields)
 		intentFields := slices.Clone(intent.FieldKeys)

@@ -149,7 +149,7 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 		t,
 		ctx,
 		harness.DB,
-		projectionCatalog.Assessments().Rows,
+		projectionCatalog.AssessmentPorts().Rows,
 		actor,
 		incident.ID,
 		hostID,

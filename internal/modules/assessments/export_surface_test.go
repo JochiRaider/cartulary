@@ -376,7 +376,6 @@ field:Envelope.DeletedAt
 field:Envelope.IncidentID
 field:Envelope.RecordType
 field:Envelope.RowVersion
-field:Ports.Rebuilder
 field:Ports.Rows
 field:ProjectionInput.AssessedAt
 field:ProjectionInput.AssessmentState
@@ -398,10 +397,8 @@ field:ProjectionMutation.RecordID
 field:SupportFacts.ActiveTargetCount
 func:NewContribution
 interface:EnvelopeReader.LoadAssessmentProjectionEnvelopeTx
-interface:Rebuilder.RebuildAssessments
 interface:Rows.ApplyAssessmentMutationTx
 interface:Rows.LoadAssessmentTx
-interface:Rows.RebuildAssessmentsTx
 interface:Rows.RefreshAssessmentTx
 interface:SourceReader.BuildProjectionMutationTx
 interface:SourceReader.ListProjectionInputsTx
@@ -419,7 +416,6 @@ type:ProjectionInput
 type:ProjectionInputPage
 type:ProjectionMutation
 type:ProjectionMutationKind
-type:Rebuilder
 type:Rows
 type:SourceReader
 type:SupportFactReader

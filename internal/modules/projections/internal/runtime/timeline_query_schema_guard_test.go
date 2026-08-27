@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/projections/internal/queryengine"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -38,10 +39,10 @@ func TestUnit_TimelineQuerySchemaMappingGuard(t *testing.T) {
 		}
 	}
 	for _, fieldKey := range wantSortFields {
-		if _, ok := surface.field(fieldKey); !ok {
+		if _, ok := surface.Field(fieldKey); !ok {
 			t.Fatalf("timeline sort field %s is not mapped", fieldKey)
 		}
-		_, _, err := buildGenericQueryPageSQL(uuid.Nil, surface, viewschema.QueryMeta{
+		_, _, err := queryengine.BuildQueryPageSQL(uuid.Nil, surface, viewschema.QueryMeta{
 			Sort: []viewschema.SortEntry{{FieldKey: fieldKey, Direction: "asc"}},
 		}, querypage.Window{Limit: 100})
 		if err != nil {
@@ -50,7 +51,7 @@ func TestUnit_TimelineQuerySchemaMappingGuard(t *testing.T) {
 	}
 
 	for _, fieldKey := range schema.FilterFields() {
-		_, _, err := buildGenericQueryPageSQL(uuid.Nil, surface, viewschema.QueryMeta{
+		_, _, err := queryengine.BuildQueryPageSQL(uuid.Nil, surface, viewschema.QueryMeta{
 			Filters: []viewschema.Filter{sampleTimelineFilter(fieldKey)},
 			Sort:    schema.DefaultSort(),
 		}, querypage.Window{Limit: 100})
@@ -58,8 +59,8 @@ func TestUnit_TimelineQuerySchemaMappingGuard(t *testing.T) {
 			t.Fatalf("timeline filter field %s from schema is not mapped: %v", fieldKey, err)
 		}
 	}
-	if !sameTimelineStrings(surface.groupingFields, schema.GroupingFields()) {
-		t.Fatalf("timeline grouping mapping drifted from schema: got %v want %v", surface.groupingFields, schema.GroupingFields())
+	if !sameTimelineStrings(surface.GroupingFields, schema.GroupingFields()) {
+		t.Fatalf("timeline grouping mapping drifted from schema: got %v want %v", surface.GroupingFields, schema.GroupingFields())
 	}
 }
 

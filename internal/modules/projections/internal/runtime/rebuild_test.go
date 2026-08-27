@@ -438,6 +438,32 @@ SELECT activity_synopsis_text
 	}
 }
 
+func TestMaintenanceRebuildReplacesStaleRowsAcrossCompleteCatalog(t *testing.T) {
+	ctx := context.Background()
+	harness := appsupport.StartStore(t, "projection-maintenance-rebuild-result")
+	maintenance := projectiontestsupport.MustBuild(t, harness.DB).MaintenanceRebuilder()
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "projection-maintenance@example.test", "Projection Maintenance", "ProjectionMaintenance1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-maintenance-incident", "IR-PROJECTION-MAINTENANCE", "Projection maintenance")
+	timelineRecordID := uuid.New()
+	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelineRecordID)
+	insertStaleTimelineProjectionRow(t, harness.DB, incident.ID, timelineRecordID)
+
+	if err := maintenance.RebuildIncident(ctx, incident.ID); err != nil {
+		t.Fatalf("maintenance rebuild: %v", err)
+	}
+	var synopsis string
+	if err := harness.DB.QueryRow(ctx, `
+SELECT activity_synopsis_text
+  FROM timeline_grid_projection
+ WHERE record_id = $1
+`, timelineRecordID).Scan(&synopsis); err != nil {
+		t.Fatalf("load maintenance-rebuilt Timeline row: %v", err)
+	}
+	if synopsis != "record-support-source-row" {
+		t.Fatalf("maintenance rebuild retained stale Timeline row %q", synopsis)
+	}
+}
+
 func validProjectionRebuildRequest() restorecontract.ProjectionRebuildRequest {
 	return restorecontract.ProjectionRebuildRequest{
 		RestoreOperationID:     uuid.New(),

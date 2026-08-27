@@ -16,7 +16,7 @@ import (
 )
 
 func TestProjectionProviderRegistryOrdersAndIndexesContributions(t *testing.T) {
-	registry, err := newProviderRegistry(registryValidationProviders())
+	registry, err := newValidationRegistry(registryValidationProviders())
 	if err != nil {
 		t.Fatalf("provider registry: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestProjectionProviderRegistryOrdersAndIndexesContributions(t *testing.T) {
 
 	multiViewProviders := registryValidationProviders()
 	multiViewProviders[1].descriptor.SourceRecordTypes = []string{"host"}
-	multiViewRegistry, err := newProviderRegistry(multiViewProviders)
+	multiViewRegistry, err := newValidationRegistry(multiViewProviders)
 	if err != nil {
 		t.Fatalf("multi-view provider registry: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestProjectionProviderRegistryOrdersAndIndexesContributions(t *testing.T) {
 				return nil
 			}
 		}
-		registry, err := newProviderRegistry(providers)
+		registry, err := newValidationRegistry(providers)
 		if err != nil {
 			t.Fatalf("generic rebuild registry: %v", err)
 		}
@@ -71,14 +71,6 @@ func TestProjectionProviderRegistryOrdersAndIndexesContributions(t *testing.T) {
 			},
 			"import": func() error {
 				return store.RebuildImportedIncidentTx(t.Context(), nil, incidentID)
-			},
-			"selected views": func() error {
-				return store.RebuildIncidentViewsTx(
-					t.Context(),
-					nil,
-					incidentID,
-					[]string{identitiesViewSchemaID, hostsViewSchemaID},
-				)
 			},
 		} {
 			t.Run(name, func(t *testing.T) {
@@ -106,88 +98,11 @@ func TestProjectionProviderRegistryOrdersAndIndexesContributions(t *testing.T) {
 	})
 }
 
-func TestProjectionProviderRegistryRejectsInvalidContributions(t *testing.T) {
+func TestProjectionProviderRegistryRejectsInvalidExecutableBindings(t *testing.T) {
 	tests := map[string]struct {
 		mutate func([]Provider) []Provider
 		want   string
 	}{
-		"unsupported schema version": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.SchemaVersion = "projection_provider_descriptor.v1"
-				return providers
-			},
-			want: "unsupported schema_version",
-		},
-		"unsupported status": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.Status = providercontract.ProviderStatus("retired")
-				return providers
-			},
-			want: "unsupported status",
-		},
-		"missing source record types": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.SourceRecordTypes = nil
-				return providers
-			},
-			want: "no source_record_types",
-		},
-		"duplicate source record type": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.SourceRecordTypes = []string{"host", "host"}
-				return providers
-			},
-			want: "duplicate source_record_types",
-		},
-		"missing source authority modules": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.SourceAuthorityModules = nil
-				return providers
-			},
-			want: "no source_authority_modules",
-		},
-		"duplicate source authority module": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.SourceAuthorityModules = []string{"entities", "entities"}
-				return providers
-			},
-			want: "duplicate source_authority_modules",
-		},
-		"source authority modules omit source owner": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.SourceAuthorityModules = []string{"links"}
-				return providers
-			},
-			want: "omit source_owner_module",
-		},
-		"duplicate provider key": {
-			mutate: func(providers []Provider) []Provider {
-				providers[1].descriptor.ProviderID = providers[0].descriptor.ProviderID
-				return providers
-			},
-			want: "duplicate projection provider_id",
-		},
-		"duplicate view ownership": {
-			mutate: func(providers []Provider) []Provider {
-				providers[1].descriptor.ViewSchemaIDs = []string{hostsViewSchemaID}
-				return providers
-			},
-			want: "duplicate projection view ownership",
-		},
-		"duplicate projection table family": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.ProjectionTableIDs = []string{"host_grid_projection", "host_grid_projection"}
-				return providers
-			},
-			want: "duplicate projection_table_ids",
-		},
-		"projection storage owner mismatch": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.ProjectionStorageOwnerModule = "entities"
-				return providers
-			},
-			want: "must be projections",
-		},
 		"query capability mismatch": {
 			mutate: func(providers []Provider) []Provider {
 				providers[0].descriptor.Capabilities.Query = false
@@ -239,64 +154,38 @@ func TestProjectionProviderRegistryRejectsInvalidContributions(t *testing.T) {
 			},
 			want: "Evidence association effects require a state loader",
 		},
-		"restore rebuild required without capability": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.Capabilities.RestoreRebuild = false
-				return providers
-			},
-			want: "required restore rebuild without capability",
-		},
-		"active unsupported restore rebuild": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.RestoreRebuild = providercontract.RestoreRebuildUnsupported
-				providers[0].descriptor.Capabilities.RestoreRebuild = false
-				return providers
-			},
-			want: "active but declares unsupported restore rebuild",
-		},
-		"missing facade packages": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.FacadePackages = nil
-				return providers
-			},
-			want: "declares no facade_packages",
-		},
-		"duplicate facade package": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.FacadePackages = []string{"internal/modules/entities", "internal/modules/entities"}
-				return providers
-			},
-			want: "duplicate facade package",
-		},
-		"projection internal facade package": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.FacadePackages = []string{"internal/modules/projections"}
-				return providers
-			},
-			want: "must not expose projection internals",
-		},
-		"missing rebuild dependency": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.RebuildAfter = []string{"missing"}
-				return providers
-			},
-			want: "references unknown provider",
-		},
-		"rebuild cycle": {
-			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.RebuildAfter = []string{"identity"}
-				return providers
-			},
-			want: "cycle",
-		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			_, err := newProviderRegistry(test.mutate(cloneProjectionProviders(registryValidationProviders())))
+			_, err := newValidationRegistry(test.mutate(cloneProjectionProviders(registryValidationProviders())))
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("newProviderRegistry error = %v, want containing %q", err, test.want)
 			}
 		})
+	}
+}
+
+func TestProjectionProviderRegistryRequiresExactExecutableMembership(t *testing.T) {
+	providers := registryValidationProviders()
+	descriptorSet, err := providercontract.NewDescriptorSet([]providercontract.ProviderDescriptor{
+		providers[0].descriptor,
+		providers[1].descriptor,
+	})
+	if err != nil {
+		t.Fatalf("descriptor set: %v", err)
+	}
+	if _, err := newProviderRegistry(descriptorSet, providers[:1]); err == nil || !strings.Contains(err.Error(), `projection provider "identity" has no executable binding`) {
+		t.Fatalf("missing executable binding error = %v", err)
+	}
+	mismatched := cloneProjectionProviders(providers)
+	mismatched[0].descriptor.FacadePackages = []string{"internal/modules/entities/alternate"}
+	if _, err := newProviderRegistry(descriptorSet, mismatched); err == nil || !strings.Contains(err.Error(), "does not match declarative descriptor") {
+		t.Fatalf("mismatched executable binding error = %v", err)
+	}
+	extra := cloneProjectionProviders(providers)
+	extra[1].descriptor.ProviderID = "extra"
+	if _, err := newProviderRegistry(descriptorSet, extra); err == nil || !strings.Contains(err.Error(), `projection provider "extra" has no declarative descriptor`) {
+		t.Fatalf("extra executable binding error = %v", err)
 	}
 }
 
@@ -324,9 +213,21 @@ func registryValidationProviders() []Provider {
 		}
 	}
 	return []Provider{
-		NewHostProvider(base("host", hostsViewSchemaID, "host", "host_grid_projection", nil), &registryEntitySource{}),
-		NewIdentityProvider(base("identity", identitiesViewSchemaID, "identity", "identity_grid_projection", []string{"host"}), &registryEntitySource{}),
+		newHostProvider(base("host", hostsViewSchemaID, "host", "host_grid_projection", nil), &registryEntitySource{}),
+		newIdentityProvider(base("identity", identitiesViewSchemaID, "identity", "identity_grid_projection", []string{"host"}), &registryEntitySource{}),
 	}
+}
+
+func newValidationRegistry(providers []Provider) (*providerRegistry, error) {
+	descriptors := make([]providercontract.ProviderDescriptor, 0, len(providers))
+	for _, provider := range providers {
+		descriptors = append(descriptors, provider.descriptor)
+	}
+	descriptorSet, err := providercontract.NewDescriptorSet(descriptors)
+	if err != nil {
+		return nil, err
+	}
+	return newProviderRegistry(descriptorSet, providers)
 }
 
 type registryEntitySource struct{ entityprojection.SourceReader }

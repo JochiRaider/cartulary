@@ -173,7 +173,7 @@ func TestCanonicalCatalogRejectsInvalidContractFacts(t *testing.T) {
 					descriptor.SourceOwnerModule = "timeline"
 				})
 			},
-			want: "source owner",
+			want: "source_authority_modules omit source_owner_module",
 		},
 		"storage ownership mismatch": {
 			mutate: func(fixture *canonicalCatalogFixture) {
@@ -205,32 +205,94 @@ func TestCanonicalCatalogRejectsInvalidContractFacts(t *testing.T) {
 	}
 }
 
-func TestCanonicalCatalogRejectsMissingProviderSources(t *testing.T) {
+func TestCanonicalCatalogRejectsNilAndTypedNilProviderSources(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name   string
-		mutate func(*ProviderSources)
+		mutate func(*ProviderSources, bool)
 	}{
-		{name: "Timeline", mutate: func(sources *ProviderSources) { sources.Timeline = nil }},
-		{name: "Entities", mutate: func(sources *ProviderSources) { sources.Entities = nil }},
-		{name: "Indicators", mutate: func(sources *ProviderSources) { sources.Indicators = nil }},
-		{name: "Assessments", mutate: func(sources *ProviderSources) { sources.Assessments = nil }},
-		{name: "Artifacts", mutate: func(sources *ProviderSources) { sources.Artifacts = nil }},
-		{name: "Evidence", mutate: func(sources *ProviderSources) { sources.Evidence = nil }},
-		{name: "Parties", mutate: func(sources *ProviderSources) { sources.Parties = nil }},
-		{name: "Task requests", mutate: func(sources *ProviderSources) { sources.TaskRequests = nil }},
-		{name: "Decisions", mutate: func(sources *ProviderSources) { sources.Decisions = nil }},
+		{name: "Timeline", mutate: func(sources *ProviderSources, typed bool) {
+			if typed {
+				sources.Timeline = (*catalogTimelineSource)(nil)
+			} else {
+				sources.Timeline = nil
+			}
+		}},
+		{name: "Entities", mutate: func(sources *ProviderSources, typed bool) {
+			if typed {
+				sources.Entities = (*catalogEntitySource)(nil)
+			} else {
+				sources.Entities = nil
+			}
+		}},
+		{name: "Indicators", mutate: func(sources *ProviderSources, typed bool) {
+			if typed {
+				sources.Indicators = (*catalogIndicatorSource)(nil)
+			} else {
+				sources.Indicators = nil
+			}
+		}},
+		{name: "Assessments", mutate: func(sources *ProviderSources, typed bool) {
+			if typed {
+				sources.Assessments = (*catalogAssessmentSource)(nil)
+			} else {
+				sources.Assessments = nil
+			}
+		}},
+		{name: "Artifacts", mutate: func(sources *ProviderSources, typed bool) {
+			if typed {
+				sources.Artifacts = (*catalogArtifactSource)(nil)
+			} else {
+				sources.Artifacts = nil
+			}
+		}},
+		{name: "Evidence", mutate: func(sources *ProviderSources, typed bool) {
+			if typed {
+				sources.Evidence = (*catalogEvidenceSource)(nil)
+			} else {
+				sources.Evidence = nil
+			}
+		}},
+		{name: "Parties", mutate: func(sources *ProviderSources, typed bool) {
+			if typed {
+				sources.Parties = (*catalogPartySource)(nil)
+			} else {
+				sources.Parties = nil
+			}
+		}},
+		{name: "Task requests", mutate: func(sources *ProviderSources, typed bool) {
+			if typed {
+				sources.TaskRequests = (*catalogTaskRequestSource)(nil)
+			} else {
+				sources.TaskRequests = nil
+			}
+		}},
+		{name: "Decisions", mutate: func(sources *ProviderSources, typed bool) {
+			if typed {
+				sources.Decisions = (*catalogDecisionSource)(nil)
+			} else {
+				sources.Decisions = nil
+			}
+		}},
 	}
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			sources := validCatalogSources()
-			test.mutate(&sources)
-			_, err := NewCatalog(validCanonicalCatalogFixture().contributions(t), sources)
-			if err == nil || !strings.Contains(err.Error(), "projection "+test.name+" source is required") {
-				t.Fatalf("NewCatalog error = %v", err)
-			}
-		})
+		for _, kind := range []struct {
+			name  string
+			typed bool
+		}{{name: "literal_nil"}, {name: "typed_nil", typed: true}} {
+			t.Run(test.name+"/"+kind.name, func(t *testing.T) {
+				t.Parallel()
+				sources := validCatalogSources()
+				test.mutate(&sources, kind.typed)
+				catalog, err := NewCatalog(validCanonicalCatalogFixture().contributions(t), sources)
+				if err == nil || !strings.Contains(err.Error(), "projection "+test.name+" source is required") {
+					t.Fatalf("NewCatalog error = %v", err)
+				}
+				if catalog != nil {
+					t.Fatalf("NewCatalog returned unusable catalog after %s rejection", kind.name)
+				}
+			})
+		}
 	}
 }
 

@@ -255,10 +255,10 @@ INSERT INTO record_links (
 		t.Fatalf("corrupt identity evidence count: %v", err)
 	}
 	projectionRebuild := harness.Projections
-	if err := projectionRebuild.RebuildHosts(context.Background(), incidentID); err != nil {
+	if err := projectionRebuild.RebuildIncident(context.Background(), incidentID); err != nil {
 		t.Fatalf("rebuild host evidence projection: %v", err)
 	}
-	if err := projectionRebuild.RebuildIdentities(context.Background(), incidentID); err != nil {
+	if err := projectionRebuild.RebuildIncident(context.Background(), incidentID); err != nil {
 		t.Fatalf("rebuild identity evidence projection: %v", err)
 	}
 	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.hosts.v1", hostRecordID, "host.evidence_count", 1)

@@ -11,7 +11,7 @@ import (
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 )
 
-func (s *Store) ApplyAssessmentMutationTx(
+func (s *Store) applyAssessmentMutationTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	mutation assessmentprojection.ProjectionMutation,
@@ -45,21 +45,7 @@ func (s *Store) refreshAssessmentTxCore(
 	if err != nil {
 		return err
 	}
-	return s.ApplyAssessmentMutationTx(ctx, tx, mutation)
-}
-
-func (s *Store) RebuildIncidentAssessmentsTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-) error {
-	return s.rebuildProjectionIncidentTx(ctx, tx, assessmentsViewSchemaID, incidentID)
-}
-
-func (s *Store) RebuildAssessments(ctx context.Context, incidentID uuid.UUID) error {
-	return s.rebuildIncidentHotProjection(ctx, assessmentsViewSchemaID, func(ctx context.Context, tx pgx.Tx) error {
-		return s.RebuildIncidentAssessmentsTx(ctx, tx, incidentID)
-	})
+	return s.applyAssessmentMutationTx(ctx, tx, mutation)
 }
 
 func (s *Store) rebuildIncidentAssessmentsTxCore(
@@ -90,7 +76,7 @@ func (s *Store) rebuildIncidentAssessmentsTxCore(
 			return err
 		}
 		for _, input := range page.Inputs {
-			if err := s.ApplyAssessmentMutationTx(
+			if err := s.applyAssessmentMutationTx(
 				ctx,
 				tx,
 				assessmentprojection.ProjectionMutation{

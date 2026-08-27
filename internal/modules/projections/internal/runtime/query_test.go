@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/projections/internal/queryengine"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -19,7 +20,7 @@ func TestGenericProjectionPageSQLIsKeysetBounded(t *testing.T) {
 		t.Run(viewSchemaID, func(t *testing.T) {
 			surface := querySurfacesForTest()[viewSchemaID]
 			positionID := "00000000-0000-0000-0000-000000000901"
-			sqlText, args, err := buildGenericQueryPageSQL(
+			sqlText, args, err := queryengine.BuildQueryPageSQL(
 				uuid.MustParse("00000000-0000-0000-0000-000000000900"),
 				surface,
 				viewschema.QueryMeta{Sort: []viewschema.SortEntry{{FieldKey: "record_id", Direction: "asc"}}},
@@ -66,12 +67,12 @@ func TestGenericProjectionSurfaceMatrixCoversRegisteredViews(t *testing.T) {
 			t.Fatalf("generic projection surface %s has no registered view schema", viewSchemaID)
 		}
 		fields := schema.Fields()
-		for _, field := range surface.fields {
-			if _, ok := fields[field.key]; !ok {
-				t.Fatalf("generic projection surface %s maps unknown field %s", viewSchemaID, field.key)
+		for _, field := range surface.Fields {
+			if _, ok := fields[field.Key]; !ok {
+				t.Fatalf("generic projection surface %s maps unknown field %s", viewSchemaID, field.Key)
 			}
 		}
-		gotFieldKeys := genericSurfaceFieldKeys(surface)
+		gotFieldKeys := surfaceFieldKeys(surface)
 		wantFieldKeys := schemaFieldKeys(fields)
 		if !reflect.DeepEqual(gotFieldKeys, wantFieldKeys) {
 			t.Fatalf("%s generic projection fields drifted from schema registry:\ngot  %#v\nwant %#v", viewSchemaID, gotFieldKeys, wantFieldKeys)
@@ -87,12 +88,12 @@ func TestGenericProjectionContractQueryFieldsAreMapped(t *testing.T) {
 				t.Fatalf("generic projection surface %s has no registered view schema", viewSchemaID)
 			}
 			for _, entry := range schema.DefaultSort() {
-				if _, ok := surface.field(entry.FieldKey); !ok {
+				if _, ok := surface.Field(entry.FieldKey); !ok {
 					t.Fatalf("%s default sort field %s is not mapped", viewSchemaID, entry.FieldKey)
 				}
 			}
 			for _, fieldKey := range schema.SortFields() {
-				if _, ok := surface.field(fieldKey); !ok {
+				if _, ok := surface.Field(fieldKey); !ok {
 					t.Fatalf("%s sort field %s is not mapped", viewSchemaID, fieldKey)
 				}
 			}
@@ -100,12 +101,12 @@ func TestGenericProjectionContractQueryFieldsAreMapped(t *testing.T) {
 				if fieldKey == "note.full_text" {
 					continue
 				}
-				if _, ok := surface.field(fieldKey); !ok {
+				if _, ok := surface.Field(fieldKey); !ok {
 					t.Fatalf("%s filter field %s is not mapped", viewSchemaID, fieldKey)
 				}
 			}
 			for _, fieldKey := range schema.GroupingFields() {
-				if _, ok := surface.field(fieldKey); !ok {
+				if _, ok := surface.Field(fieldKey); !ok {
 					t.Fatalf("%s grouping field %s is not mapped", viewSchemaID, fieldKey)
 				}
 			}
@@ -121,12 +122,12 @@ func TestGenericProjectionRowShapeForEverySurface(t *testing.T) {
 			if !schemaOK {
 				t.Fatalf("missing registered view schema %s", viewSchemaID)
 			}
-			values := make([]any, 0, len(surface.fields)+2)
+			values := make([]any, 0, len(surface.Fields)+2)
 			values = append(values, recordID, int64(7))
-			for _, field := range surface.fields {
+			for _, field := range surface.Fields {
 				values = append(values, sampleProjectionValue(field))
 			}
-			row, err := buildGenericRow(surface, values)
+			row, err := queryengine.BuildRow(surface, values)
 			if err != nil {
 				t.Fatalf("build generic row: %v", err)
 			}
@@ -144,13 +145,13 @@ func TestGenericProjectionRowShapeForEverySurface(t *testing.T) {
 			if !cellsOK || len(cells) != len(schema.Fields()) {
 				t.Fatalf("%s cells changed: %#v", viewSchemaID, row["cells"])
 			}
-			for _, field := range surface.fields {
-				cell, ok := cells[field.key].(map[string]any)
+			for _, field := range surface.Fields {
+				cell, ok := cells[field.Key].(map[string]any)
 				if !ok {
-					t.Fatalf("%s field %s cell shape changed: %#v", viewSchemaID, field.key, cells[field.key])
+					t.Fatalf("%s field %s cell shape changed: %#v", viewSchemaID, field.Key, cells[field.Key])
 				}
 				if _, ok := cell["value"]; !ok {
-					t.Fatalf("%s field %s missing value wrapper: %#v", viewSchemaID, field.key, cell)
+					t.Fatalf("%s field %s missing value wrapper: %#v", viewSchemaID, field.Key, cell)
 				}
 			}
 			groupingFields := schema.GroupingFields()
@@ -177,36 +178,36 @@ func TestGenericProjectionNullAndCollectionCellShape(t *testing.T) {
 	recordID := uuid.MustParse("00000000-0000-0000-0000-000000000902")
 	for viewSchemaID, surface := range querySurfacesForTest() {
 		t.Run(viewSchemaID, func(t *testing.T) {
-			for fieldIndex, field := range surface.fields {
-				values := make([]any, 0, len(surface.fields)+2)
+			for fieldIndex, field := range surface.Fields {
+				values := make([]any, 0, len(surface.Fields)+2)
 				values = append(values, recordID, int64(9))
-				for index, candidate := range surface.fields {
+				for index, candidate := range surface.Fields {
 					if index == fieldIndex {
 						values = append(values, nil)
 						continue
 					}
 					values = append(values, sampleProjectionValue(candidate))
 				}
-				row, err := buildGenericRow(surface, values)
+				row, err := queryengine.BuildRow(surface, values)
 				if err != nil {
-					t.Fatalf("build generic row with null %s: %v", field.key, err)
+					t.Fatalf("build generic row with null %s: %v", field.Key, err)
 				}
 				cells := row["cells"].(map[string]any)
-				cell := cells[field.key].(map[string]any)
+				cell := cells[field.Key].(map[string]any)
 				got := cell["value"]
-				if field.kind == fieldKindCollection {
+				if field.Kind == queryengine.FieldKindCollection {
 					want := map[string]any{
 						"kind":    "collection_value_v1",
-						"ordered": field.ordered,
+						"ordered": field.Ordered,
 						"items":   []map[string]any{},
 					}
 					if !reflect.DeepEqual(got, want) {
-						t.Fatalf("%s collection null shape for %s changed:\ngot  %#v\nwant %#v", viewSchemaID, field.key, got, want)
+						t.Fatalf("%s collection null shape for %s changed:\ngot  %#v\nwant %#v", viewSchemaID, field.Key, got, want)
 					}
 					continue
 				}
 				if got != nil {
-					t.Fatalf("%s scalar null shape for %s changed: %#v", viewSchemaID, field.key, got)
+					t.Fatalf("%s scalar null shape for %s changed: %#v", viewSchemaID, field.Key, got)
 				}
 			}
 		})
@@ -239,22 +240,22 @@ func TestArtifactProjectionSurfacesUseContractFilters(t *testing.T) {
 			if !ok || filter.Kind != "artifact_type" || filter.Field != "artifact_type" || filter.Value != artifactType {
 				t.Fatalf("%s canonical artifact filter got %#v want artifact_type=%q", viewSchemaID, filter, artifactType)
 			}
-			if !strings.Contains(surface.whereSQL, "p.artifact_type = '"+artifactType+"'") {
-				t.Fatalf("%s whereSQL does not use contract artifact filter: %q", viewSchemaID, surface.whereSQL)
+			if !strings.Contains(surface.WhereSQL, "p.artifact_type = '"+artifactType+"'") {
+				t.Fatalf("%s whereSQL does not use contract artifact filter: %q", viewSchemaID, surface.WhereSQL)
 			}
 		})
 	}
 }
 
-func sampleProjectionValue(field genericField) any {
-	switch field.kind {
-	case fieldKindTimestamp, fieldKindDate:
+func sampleProjectionValue(field queryengine.Field) any {
+	switch field.Kind {
+	case queryengine.FieldKindTimestamp, queryengine.FieldKindDate:
 		return time.Date(2026, 7, 1, 10, 15, 0, 123, time.UTC)
-	case fieldKindBool:
+	case queryengine.FieldKindBool:
 		return true
-	case fieldKindNumber:
+	case queryengine.FieldKindNumber:
 		return int64(42)
-	case fieldKindCollection:
+	case queryengine.FieldKindCollection:
 		items := []map[string]any{{
 			"item_ref":         "record_ref:00000000-0000-0000-0000-000000000903",
 			"item_kind":        "record_ref",
@@ -267,22 +268,22 @@ func sampleProjectionValue(field genericField) any {
 		}
 		return string(payload)
 	default:
-		return "sample " + field.key
+		return "sample " + field.Key
 	}
 }
 
 func TestGenericProjectionGroupedRowIsFullViewRow(t *testing.T) {
 	recordID := uuid.MustParse("00000000-0000-0000-0000-000000000807")
 	groupBy := "host.host_state"
-	row, err := buildGenericRow(genericSurface{
-		viewSchemaID:   "cartulary.view.hosts.v1",
-		recordExpr:     "h.record_id",
-		groupingFields: []string{"host.host_state", "host.criticality"},
-		fields: []genericField{
-			{key: "host.display_name", kind: fieldKindText},
-			{key: "host.host_state", kind: fieldKindText},
-			{key: "host.criticality", kind: fieldKindText},
-			{key: "host.edited_at", kind: fieldKindTimestamp},
+	row, err := queryengine.BuildRow(queryengine.Surface{
+		ViewSchemaID:   "cartulary.view.hosts.v1",
+		RecordExpr:     "h.record_id",
+		GroupingFields: []string{"host.host_state", "host.criticality"},
+		Fields: []queryengine.Field{
+			{Key: "host.display_name", Kind: queryengine.FieldKindText},
+			{Key: "host.host_state", Kind: queryengine.FieldKindText},
+			{Key: "host.criticality", Kind: queryengine.FieldKindText},
+			{Key: "host.edited_at", Kind: queryengine.FieldKindTimestamp},
 		},
 	}, []any{
 		recordID,
@@ -339,13 +340,13 @@ func TestGenericProjectionCollectionAcceptsDecodedJSONB(t *testing.T) {
 		"item_kind":    "unresolved_mention",
 		"display_text": "WS-023",
 	}}
-	row, err := buildGenericRow(genericSurface{
-		viewSchemaID: "cartulary.view.timeline.v2",
-		recordExpr:   "t.record_id",
-		fields: []genericField{{
-			key:     "timeline.host_refs",
-			kind:    fieldKindCollection,
-			ordered: true,
+	row, err := queryengine.BuildRow(queryengine.Surface{
+		ViewSchemaID: "cartulary.view.timeline.v2",
+		RecordExpr:   "t.record_id",
+		Fields: []queryengine.Field{{
+			Key:     "timeline.host_refs",
+			Kind:    queryengine.FieldKindCollection,
+			Ordered: true,
 		}},
 	}, []any{recordID, int64(4), items})
 	if err != nil {
@@ -361,7 +362,7 @@ func TestGenericProjectionCollectionAcceptsDecodedJSONB(t *testing.T) {
 	}
 }
 
-func surfaceKeySet(surfaces map[string]genericSurface) map[string]bool {
+func surfaceKeySet(surfaces map[string]queryengine.Surface) map[string]bool {
 	keys := make(map[string]bool, len(surfaces))
 	for key := range surfaces {
 		keys[key] = true
@@ -369,20 +370,20 @@ func surfaceKeySet(surfaces map[string]genericSurface) map[string]bool {
 	return keys
 }
 
-func querySurfacesForTest() map[string]genericSurface {
+func querySurfacesForTest() map[string]queryengine.Surface {
 	return contractPlansForTest()
 }
 
-func genericSurfaceFieldKeys(surface genericSurface) []string {
-	keys := make([]string, 0, len(surface.fields))
+func surfaceFieldKeys(surface queryengine.Surface) []string {
+	keys := make([]string, 0, len(surface.Fields))
 	seen := map[string]struct{}{}
-	for _, field := range surface.fields {
-		if _, ok := seen[field.key]; ok {
-			keys = append(keys, "DUPLICATE:"+field.key)
+	for _, field := range surface.Fields {
+		if _, ok := seen[field.Key]; ok {
+			keys = append(keys, "DUPLICATE:"+field.Key)
 			continue
 		}
-		seen[field.key] = struct{}{}
-		keys = append(keys, field.key)
+		seen[field.Key] = struct{}{}
+		keys = append(keys, field.Key)
 	}
 	slices.Sort(keys)
 	return keys

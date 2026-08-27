@@ -191,7 +191,7 @@ var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition
 	"workbookprojection": entitiesExportInventory(`
 		Contribution Contribution.ProjectionContribution Contribution.Source DerivedFact Descriptors HostProjectionInput HostProjectionPage
 		HostQueryProjection HostSurfaceIntent IdentityProjectionInput IdentityProjectionPage IdentityQueryProjection IdentitySurfaceIntent
-		NewContribution Ports Reader Rebuilder SourceReader Writer
+		NewContribution Ports Reader SourceReader Writer
 	`),
 }
 

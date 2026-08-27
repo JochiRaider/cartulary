@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -34,7 +35,7 @@ type Provider struct {
 type providerRegistry struct {
 	providers     []*Provider
 	byViewSchema  map[string]*Provider
-	querySurfaces map[string]genericSurface
+	querySurfaces map[string]queryengine.Surface
 	bySourceType  map[string][]*Provider
 	rebuildOrder  []*Provider
 }
@@ -45,7 +46,7 @@ type Catalog struct {
 }
 
 func newCatalog(descriptors providercontract.DescriptorSet, providers []Provider) (*Catalog, error) {
-	registry, err := newProviderRegistry(providers)
+	registry, err := newProviderRegistry(descriptors, providers)
 	if err != nil {
 		return nil, err
 	}
@@ -66,20 +67,29 @@ func (s *Store) providerRegistry() (*providerRegistry, error) {
 	return s.registry, nil
 }
 
-func newProviderRegistry(providers []Provider) (*providerRegistry, error) {
+func newProviderRegistry(
+	descriptors providercontract.DescriptorSet,
+	providers []Provider,
+) (*providerRegistry, error) {
 	if len(providers) == 0 {
 		return nil, fmt.Errorf("projection provider registry is empty")
 	}
 	registry := &providerRegistry{
 		providers:     make([]*Provider, 0, len(providers)),
 		byViewSchema:  map[string]*Provider{},
-		querySurfaces: map[string]genericSurface{},
+		querySurfaces: map[string]queryengine.Surface{},
 		bySourceType:  map[string][]*Provider{},
 	}
 	byProviderID := map[string]*Provider{}
-	tableOwners := map[string]string{}
 	for index := range providers {
 		provider := providers[index]
+		declarativeDescriptor, exists := descriptors.Lookup(provider.descriptor.ProviderID)
+		if !exists {
+			return nil, fmt.Errorf("projection provider %q has no declarative descriptor", provider.descriptor.ProviderID)
+		}
+		if !reflect.DeepEqual(declarativeDescriptor, provider.descriptor) {
+			return nil, fmt.Errorf("projection provider %q executable binding descriptor does not match declarative descriptor", provider.descriptor.ProviderID)
+		}
 		if err := validateProvider(provider); err != nil {
 			return nil, err
 		}
@@ -101,23 +111,7 @@ func newProviderRegistry(providers []Provider) (*providerRegistry, error) {
 				registry.bySourceType[recordType] = append(registry.bySourceType[recordType], providerPointer)
 			}
 		}
-		for _, tableID := range provider.descriptor.ProjectionTableIDs {
-			if existing := tableOwners[tableID]; existing != "" {
-				return nil, fmt.Errorf(
-					"duplicate projection table ownership for %q: %q and %q",
-					tableID,
-					existing,
-					provider.descriptor.ProviderID,
-				)
-			}
-			tableOwners[tableID] = provider.descriptor.ProviderID
-		}
-		seenViews := map[string]struct{}{}
 		for _, viewSchemaID := range provider.descriptor.ViewSchemaIDs {
-			if _, exists := seenViews[viewSchemaID]; exists {
-				return nil, fmt.Errorf("projection provider %q declares duplicate view_schema_id %q", provider.descriptor.ProviderID, viewSchemaID)
-			}
-			seenViews[viewSchemaID] = struct{}{}
 			if existing := registry.byViewSchema[viewSchemaID]; existing != nil {
 				return nil, fmt.Errorf("duplicate projection view ownership for %q: %q and %q", viewSchemaID, existing.descriptor.ProviderID, provider.descriptor.ProviderID)
 			}
@@ -128,17 +122,19 @@ func newProviderRegistry(providers []Provider) (*providerRegistry, error) {
 			return nil, err
 		}
 		for _, surface := range querySurfaces {
-			if existing, exists := registry.querySurfaces[surface.viewSchemaID]; exists {
-				return nil, fmt.Errorf("duplicate projection query surface ownership for %q: %q and %q", surface.viewSchemaID, existing.viewSchemaID, provider.descriptor.ProviderID)
+			if existing, exists := registry.querySurfaces[surface.ViewSchemaID]; exists {
+				return nil, fmt.Errorf("duplicate projection query surface ownership for %q: %q and %q", surface.ViewSchemaID, existing.ViewSchemaID, provider.descriptor.ProviderID)
 			}
-			registry.querySurfaces[surface.viewSchemaID] = surface
+			registry.querySurfaces[surface.ViewSchemaID] = surface
 		}
 	}
-	rebuildOrder, err := topologicalProviderOrder(registry.providers, byProviderID)
-	if err != nil {
-		return nil, err
+	for _, descriptor := range descriptors.RebuildOrder() {
+		provider := byProviderID[descriptor.ProviderID]
+		if provider == nil {
+			return nil, fmt.Errorf("projection provider %q has no executable binding", descriptor.ProviderID)
+		}
+		registry.rebuildOrder = append(registry.rebuildOrder, provider)
 	}
-	registry.rebuildOrder = rebuildOrder
 	for recordType := range registry.bySourceType {
 		slices.SortFunc(registry.bySourceType[recordType], func(left *Provider, right *Provider) int {
 			return strings.Compare(left.descriptor.ViewSchemaIDs[0], right.descriptor.ViewSchemaIDs[0])
@@ -155,9 +151,9 @@ func (r *providerRegistry) providerForView(viewSchemaID string) (*Provider, bool
 	return provider, provider != nil
 }
 
-func (r *providerRegistry) querySurfaceForView(viewSchemaID string) (genericSurface, bool) {
+func (r *providerRegistry) querySurfaceForView(viewSchemaID string) (queryengine.Surface, bool) {
 	if r == nil {
-		return genericSurface{}, false
+		return queryengine.Surface{}, false
 	}
 	surface, ok := r.querySurfaces[viewSchemaID]
 	return surface, ok
@@ -184,52 +180,6 @@ func (s *Store) refreshProjectionRowTx(ctx context.Context, tx pgx.Tx, viewSchem
 
 func (s *Store) RefreshRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
 	return s.refreshProjectionRowTx(ctx, tx, viewSchemaID, recordID)
-}
-
-func (s *Store) rebuildProjectionIncidentTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, incidentID uuid.UUID) error {
-	registry, err := s.providerRegistry()
-	if err != nil {
-		return err
-	}
-	provider, ok := registry.providerForView(viewSchemaID)
-	if !ok || !provider.descriptor.Capabilities.IncidentRebuild || provider.rebuildIncidentTx == nil {
-		return fmt.Errorf("projection rebuild surface %q not mapped", viewSchemaID)
-	}
-	return provider.rebuildIncidentTx(ctx, s, tx, incidentID)
-}
-
-func (s *Store) RebuildIncidentViewsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, viewSchemaIDs []string) error {
-	registry, err := s.providerRegistry()
-	if err != nil {
-		return err
-	}
-	selectedViews := make(map[string]struct{}, len(viewSchemaIDs))
-	selectedProviders := make(map[string]struct{}, len(viewSchemaIDs))
-	for _, viewSchemaID := range viewSchemaIDs {
-		provider, ok := registry.providerForView(viewSchemaID)
-		if !ok || !provider.descriptor.Capabilities.IncidentRebuild || provider.rebuildIncidentTx == nil {
-			return fmt.Errorf("projection rebuild surface %q not mapped", viewSchemaID)
-		}
-		selectedViews[viewSchemaID] = struct{}{}
-		selectedProviders[provider.descriptor.ProviderID] = struct{}{}
-	}
-	for _, provider := range registry.rebuildOrder {
-		if _, ok := selectedProviders[provider.descriptor.ProviderID]; !ok {
-			continue
-		}
-		if err := provider.rebuildIncidentTx(ctx, s, tx, incidentID); err != nil {
-			return err
-		}
-		for _, viewSchemaID := range provider.descriptor.ViewSchemaIDs {
-			delete(selectedViews, viewSchemaID)
-		}
-	}
-	if len(selectedViews) > 0 {
-		for viewSchemaID := range selectedViews {
-			return fmt.Errorf("projection rebuild surface %q not reached by registry order", viewSchemaID)
-		}
-	}
-	return nil
 }
 
 func (s *Store) RebuildIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {

@@ -25,13 +25,6 @@ type Writer interface {
 	RefreshIdentityTx(context.Context, pgx.Tx, uuid.UUID) error
 	DeleteHostTx(context.Context, pgx.Tx, uuid.UUID) error
 	DeleteIdentityTx(context.Context, pgx.Tx, uuid.UUID) error
-	RebuildHostsTx(context.Context, pgx.Tx, uuid.UUID) error
-	RebuildIdentitiesTx(context.Context, pgx.Tx, uuid.UUID) error
-}
-
-type Rebuilder interface {
-	RebuildHosts(context.Context, uuid.UUID) error
-	RebuildIdentities(context.Context, uuid.UUID) error
 }
 
 // HostProjectionInput is the source-owned, typed materialization input for one
@@ -127,9 +120,8 @@ type Reader interface {
 }
 
 type Ports struct {
-	Writer    Writer
-	Rebuilder Rebuilder
-	Reader    Reader
+	Writer Writer
+	Reader Reader
 }
 
 type Contribution struct {

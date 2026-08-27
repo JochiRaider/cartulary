@@ -117,7 +117,7 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 	if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM indicator_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
 		t.Fatalf("clear indicator projections: %v", err)
 	}
-	if err := harness.Projections.RebuildIndicators(context.Background(), incidentID); err != nil {
+	if err := harness.Projections.RebuildIncident(context.Background(), incidentID); err != nil {
 		t.Fatalf("rebuild indicator projections: %v", err)
 	}
 	rowAfterRebuild := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.IndicatorsViewSchemaID, login), recordID.String())

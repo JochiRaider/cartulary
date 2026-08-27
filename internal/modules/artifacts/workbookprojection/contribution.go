@@ -17,7 +17,6 @@ import (
 type Rows interface {
 	RefreshArtifactTx(context.Context, pgx.Tx, uuid.UUID) error
 	LoadArtifactTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error)
-	RebuildArtifactsTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
 type SourceReader interface {
@@ -102,14 +101,9 @@ type Reader interface {
 	CollectDerivedFactsTx(context.Context, pgx.Tx, uuid.UUID) ([]DerivedFact, error)
 }
 
-type Rebuilder interface {
-	RebuildArtifacts(context.Context, uuid.UUID) error
-}
-
 type Ports struct {
-	Rows      Rows
-	Rebuilder Rebuilder
-	Reader    Reader
+	Rows   Rows
+	Reader Reader
 }
 
 type Contribution struct {

@@ -1108,7 +1108,7 @@ func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 		t.Fatalf("query route must read projection rows, got %#v", emptyRows)
 	}
 
-	if err := harness.Projections.RebuildTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
+	if err := harness.Projections.RebuildIncident(context.Background(), mustUUID(t, incidentID)); err != nil {
 		t.Fatalf("rebuild timeline projection: %v", err)
 	}
 	rebuiltEnvelope := queryTimelineEnvelope(t, server, incidentID, adminLogin)

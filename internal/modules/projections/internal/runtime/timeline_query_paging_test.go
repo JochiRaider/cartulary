@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/projections/internal/queryengine"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -16,7 +17,7 @@ func TestTimelinePageSQLIsKeysetBounded(t *testing.T) {
 		t.Fatal("timeline projection query surface is not registered")
 	}
 	positionID := "00000000-0000-0000-0000-000000000931"
-	sqlText, args, err := buildGenericQueryPageSQL(
+	sqlText, args, err := queryengine.BuildQueryPageSQL(
 		uuid.MustParse("00000000-0000-0000-0000-000000000930"),
 		surface,
 		viewschema.QueryMeta{Sort: []viewschema.SortEntry{{FieldKey: "record_id", Direction: "asc"}}},

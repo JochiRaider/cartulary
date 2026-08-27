@@ -1,6 +1,7 @@
 package queryengine
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -42,6 +43,103 @@ type Surface struct {
 	GroupingFields []string
 }
 
+// CompileSurface validates one private executable plan and returns a defensive
+// copy whose grouping fields are derived from the canonical view schema.
+func CompileSurface(surface Surface) (Surface, error) {
+	if strings.TrimSpace(surface.ViewSchemaID) == "" {
+		return Surface{}, fmt.Errorf("empty view_schema_id")
+	}
+	for member, fragment := range map[string]string{
+		"from_sql":      surface.FromSQL,
+		"record_expr":   surface.RecordExpr,
+		"incident_expr": surface.IncidentExpr,
+		"where_sql":     surface.WhereSQL,
+	} {
+		if err := validateCompiledSQLFragment(surface.ViewSchemaID, member, fragment, member == "where_sql"); err != nil {
+			return Surface{}, err
+		}
+	}
+	fields := make([]Field, 0, len(surface.Fields))
+	seenFieldKeys := make(map[string]struct{}, len(surface.Fields))
+	for _, field := range surface.Fields {
+		if strings.TrimSpace(field.Key) == "" {
+			return Surface{}, fmt.Errorf("%s declares query field with empty key", surface.ViewSchemaID)
+		}
+		if err := validateCompiledSQLFragment(surface.ViewSchemaID, "field "+field.Key+" expr", field.Expr, false); err != nil {
+			return Surface{}, err
+		}
+		if err := validateCompiledSQLFragment(surface.ViewSchemaID, "field "+field.Key+" sort_expr", field.SortExpr, true); err != nil {
+			return Surface{}, err
+		}
+		if err := validateFieldKind(field.Kind); err != nil {
+			return Surface{}, fmt.Errorf("%s query field %s: %w", surface.ViewSchemaID, field.Key, err)
+		}
+		if _, exists := seenFieldKeys[field.Key]; exists {
+			return Surface{}, fmt.Errorf("%s declares duplicate query field %s", surface.ViewSchemaID, field.Key)
+		}
+		seenFieldKeys[field.Key] = struct{}{}
+		fields = append(fields, field)
+	}
+	if len(fields) == 0 {
+		return Surface{}, fmt.Errorf("%s has no query fields", surface.ViewSchemaID)
+	}
+	schema, ok := viewschema.Lookup(surface.ViewSchemaID)
+	if !ok {
+		return Surface{}, fmt.Errorf("%s has no registered view schema", surface.ViewSchemaID)
+	}
+	schemaFields := schema.Fields()
+	for fieldKey := range seenFieldKeys {
+		if _, exists := schemaFields[fieldKey]; !exists {
+			return Surface{}, fmt.Errorf("%s maps unknown schema field %s", surface.ViewSchemaID, fieldKey)
+		}
+	}
+	for fieldKey := range schemaFields {
+		if _, exists := seenFieldKeys[fieldKey]; !exists {
+			return Surface{}, fmt.Errorf("%s does not map schema field %s", surface.ViewSchemaID, fieldKey)
+		}
+	}
+	groupingFields := schema.GroupingFields()
+	for _, fieldKey := range groupingFields {
+		if _, exists := seenFieldKeys[fieldKey]; !exists {
+			return Surface{}, fmt.Errorf("%s grouping field %s is not mapped", surface.ViewSchemaID, fieldKey)
+		}
+	}
+	return Surface{
+		ViewSchemaID:   surface.ViewSchemaID,
+		FromSQL:        surface.FromSQL,
+		RecordExpr:     surface.RecordExpr,
+		IncidentExpr:   surface.IncidentExpr,
+		WhereSQL:       surface.WhereSQL,
+		Fields:         fields,
+		GroupingFields: append([]string(nil), groupingFields...),
+	}, nil
+}
+
+func validateCompiledSQLFragment(viewSchemaID string, member string, value string, allowEmpty bool) error {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		if allowEmpty {
+			return nil
+		}
+		return fmt.Errorf("%s has empty %s", viewSchemaID, member)
+	}
+	for _, forbidden := range []string{"\x00", ";", "--", "/*", "*/", "$"} {
+		if strings.Contains(trimmed, forbidden) {
+			return fmt.Errorf("%s %s contains forbidden SQL token %q", viewSchemaID, member, forbidden)
+		}
+	}
+	return nil
+}
+
+func validateFieldKind(kind FieldKind) error {
+	switch kind {
+	case FieldKindText, FieldKindTimestamp, FieldKindDate, FieldKindBool, FieldKindNumber, FieldKindCollection:
+		return nil
+	default:
+		return fmt.Errorf("unsupported field kind %q", kind)
+	}
+}
+
 func (d Surface) Field(key string) (Field, bool) {
 	if key == "record_id" {
 		return Field{Key: "record_id", Expr: d.RecordExpr, Kind: FieldKindText}, true
@@ -81,6 +179,41 @@ func ScanRows(rows pgx.Rows, definition Surface) ([]map[string]any, error) {
 		return nil, fmt.Errorf("iterate workbook rows: %w", err)
 	}
 	return result, nil
+}
+
+func LoadRowTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	definition Surface,
+	recordID uuid.UUID,
+) (map[string]any, error) {
+	var builder strings.Builder
+	builder.WriteString("SELECT ")
+	builder.WriteString(definition.RecordExpr)
+	builder.WriteString(", r.row_version")
+	for _, field := range definition.Fields {
+		builder.WriteString(", ")
+		builder.WriteString(field.Expr)
+	}
+	builder.WriteString(" ")
+	builder.WriteString(definition.FromSQL)
+	builder.WriteString(" WHERE ")
+	builder.WriteString(definition.RecordExpr)
+	builder.WriteString(" = $1 AND r.deleted_at IS NULL")
+	if definition.WhereSQL != "" {
+		builder.WriteString(" AND ")
+		builder.WriteString(definition.WhereSQL)
+	}
+	row := tx.QueryRow(ctx, builder.String(), recordID)
+	values := make([]any, len(definition.Fields)+2)
+	scanTargets := make([]any, len(values))
+	for index := range values {
+		scanTargets[index] = &values[index]
+	}
+	if err := row.Scan(scanTargets...); err != nil {
+		return nil, err
+	}
+	return BuildRow(definition, values)
 }
 
 func BuildQueryPageSQL(incidentID uuid.UUID, definition Surface, query viewschema.QueryMeta, window querypage.Window) (string, []any, error) {

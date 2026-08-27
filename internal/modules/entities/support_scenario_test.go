@@ -417,13 +417,13 @@ func (s *SupportScenario) rebuildBaseProjections(t *testing.T) {
 	t.Helper()
 
 	rebuild := s.harness.Projections
-	if err := rebuild.RebuildTimeline(context.Background(), s.IncidentID); err != nil {
+	if err := rebuild.RebuildIncident(context.Background(), s.IncidentID); err != nil {
 		t.Fatalf("rebuild timeline projections: %v", err)
 	}
-	if err := rebuild.RebuildHosts(context.Background(), s.IncidentID); err != nil {
+	if err := rebuild.RebuildIncident(context.Background(), s.IncidentID); err != nil {
 		t.Fatalf("rebuild host projections: %v", err)
 	}
-	if err := rebuild.RebuildIdentities(context.Background(), s.IncidentID); err != nil {
+	if err := rebuild.RebuildIncident(context.Background(), s.IncidentID); err != nil {
 		t.Fatalf("rebuild identity projections: %v", err)
 	}
 }
@@ -537,13 +537,13 @@ func (s *SupportScenario) rebuildProjection(t *testing.T, route workbookscenario
 	var err error
 	switch route.ProjectionTarget {
 	case workbookscenariotest.RouteProjectionHosts:
-		err = rebuild.RebuildHosts(context.Background(), s.IncidentID)
+		err = rebuild.RebuildIncident(context.Background(), s.IncidentID)
 	case workbookscenariotest.RouteProjectionIdentities:
-		err = rebuild.RebuildIdentities(context.Background(), s.IncidentID)
+		err = rebuild.RebuildIncident(context.Background(), s.IncidentID)
 	case workbookscenariotest.RouteProjectionIndicators:
-		err = rebuild.RebuildIndicators(context.Background(), s.IncidentID)
+		err = rebuild.RebuildIncident(context.Background(), s.IncidentID)
 	case workbookscenariotest.RouteProjectionTimeline:
-		err = rebuild.RebuildTimeline(context.Background(), s.IncidentID)
+		err = rebuild.RebuildIncident(context.Background(), s.IncidentID)
 	case workbookscenariotest.RouteProjectionNotApplicable:
 		return
 	default:

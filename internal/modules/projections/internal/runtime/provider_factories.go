@@ -16,7 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 )
 
-func NewTimelineProvider(descriptor providercontract.ProviderDescriptor, source TimelineSource) Provider {
+func newTimelineProvider(descriptor providercontract.ProviderDescriptor, source TimelineSource) Provider {
 	return Provider{
 		descriptor:                      descriptor,
 		queryStrategy:                   queryStrategyCompiledPlan,
@@ -34,7 +34,7 @@ func NewTimelineProvider(descriptor providercontract.ProviderDescriptor, source 
 	}
 }
 
-func NewHostProvider(descriptor providercontract.ProviderDescriptor, source entityprojection.SourceReader) Provider {
+func newHostProvider(descriptor providercontract.ProviderDescriptor, source entityprojection.SourceReader) Provider {
 	return Provider{
 		descriptor:                      descriptor,
 		queryStrategy:                   queryStrategySourceOwnerHydration,
@@ -51,7 +51,7 @@ func NewHostProvider(descriptor providercontract.ProviderDescriptor, source enti
 	}
 }
 
-func NewIdentityProvider(descriptor providercontract.ProviderDescriptor, source entityprojection.SourceReader) Provider {
+func newIdentityProvider(descriptor providercontract.ProviderDescriptor, source entityprojection.SourceReader) Provider {
 	return Provider{
 		descriptor:                      descriptor,
 		queryStrategy:                   queryStrategySourceOwnerHydration,
@@ -68,7 +68,7 @@ func NewIdentityProvider(descriptor providercontract.ProviderDescriptor, source 
 	}
 }
 
-func NewIndicatorProvider(descriptor providercontract.ProviderDescriptor, source indicatorprojection.SourceReader) Provider {
+func newIndicatorProvider(descriptor providercontract.ProviderDescriptor, source indicatorprojection.SourceReader) Provider {
 	return Provider{
 		descriptor:    descriptor,
 		queryStrategy: queryStrategyCompiledPlan,
@@ -82,7 +82,7 @@ func NewIndicatorProvider(descriptor providercontract.ProviderDescriptor, source
 	}
 }
 
-func NewAssessmentProvider(descriptor providercontract.ProviderDescriptor, source assessmentprojection.SourceReader) Provider {
+func newAssessmentProvider(descriptor providercontract.ProviderDescriptor, source assessmentprojection.SourceReader) Provider {
 	return Provider{
 		descriptor:    descriptor,
 		queryStrategy: queryStrategyCompiledPlan,
@@ -96,7 +96,7 @@ func NewAssessmentProvider(descriptor providercontract.ProviderDescriptor, sourc
 	}
 }
 
-func NewArtifactProvider(descriptor providercontract.ProviderDescriptor, source artifactprojection.SourceReader) Provider {
+func newArtifactProvider(descriptor providercontract.ProviderDescriptor, source artifactprojection.SourceReader) Provider {
 	return Provider{
 		descriptor:    descriptor,
 		queryStrategy: queryStrategyCompiledPlan,
@@ -110,7 +110,7 @@ func NewArtifactProvider(descriptor providercontract.ProviderDescriptor, source 
 	}
 }
 
-func NewEvidenceProvider(descriptor providercontract.ProviderDescriptor, source evidenceprojection.SourceReader) Provider {
+func newEvidenceProvider(descriptor providercontract.ProviderDescriptor, source evidenceprojection.SourceReader) Provider {
 	return Provider{
 		descriptor:    descriptor,
 		queryStrategy: queryStrategyCompiledPlan,
@@ -124,7 +124,7 @@ func NewEvidenceProvider(descriptor providercontract.ProviderDescriptor, source 
 	}
 }
 
-func NewPartyProvider(descriptor providercontract.ProviderDescriptor, source partyprojection.SourceReader) Provider {
+func newPartyProvider(descriptor providercontract.ProviderDescriptor, source partyprojection.SourceReader) Provider {
 	return Provider{
 		descriptor:    descriptor,
 		queryStrategy: queryStrategyCompiledPlan,
@@ -138,7 +138,7 @@ func NewPartyProvider(descriptor providercontract.ProviderDescriptor, source par
 	}
 }
 
-func NewTaskRequestProvider(descriptor providercontract.ProviderDescriptor, source TaskRequestSource) Provider {
+func newTaskRequestProvider(descriptor providercontract.ProviderDescriptor, source TaskRequestSource) Provider {
 	return Provider{
 		descriptor:    descriptor,
 		queryStrategy: queryStrategyCompiledPlan,
@@ -152,7 +152,7 @@ func NewTaskRequestProvider(descriptor providercontract.ProviderDescriptor, sour
 	}
 }
 
-func NewDecisionProvider(descriptor providercontract.ProviderDescriptor, source DecisionSource) Provider {
+func newDecisionProvider(descriptor providercontract.ProviderDescriptor, source DecisionSource) Provider {
 	return Provider{
 		descriptor:    descriptor,
 		queryStrategy: queryStrategyCompiledPlan,

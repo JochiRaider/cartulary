@@ -79,7 +79,3 @@ func (noopProjectionWriter) RefreshHostTx(context.Context, pgx.Tx, uuid.UUID) er
 func (noopProjectionWriter) RefreshIdentityTx(context.Context, pgx.Tx, uuid.UUID) error { return nil }
 func (noopProjectionWriter) DeleteHostTx(context.Context, pgx.Tx, uuid.UUID) error      { return nil }
 func (noopProjectionWriter) DeleteIdentityTx(context.Context, pgx.Tx, uuid.UUID) error  { return nil }
-func (noopProjectionWriter) RebuildHostsTx(context.Context, pgx.Tx, uuid.UUID) error    { return nil }
-func (noopProjectionWriter) RebuildIdentitiesTx(context.Context, pgx.Tx, uuid.UUID) error {
-	return nil
-}

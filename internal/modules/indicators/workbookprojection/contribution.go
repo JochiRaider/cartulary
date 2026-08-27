@@ -50,17 +50,10 @@ type ProjectionInputPage struct {
 type Rows interface {
 	RefreshIndicatorTx(context.Context, pgx.Tx, uuid.UUID) error
 	LoadIndicatorTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-	DeleteIndicatorTx(context.Context, pgx.Tx, uuid.UUID) error
-	RebuildIndicatorsTx(context.Context, pgx.Tx, uuid.UUID) error
-}
-
-type Rebuilder interface {
-	RebuildIndicators(context.Context, uuid.UUID) error
 }
 
 type Ports struct {
-	Rows      Rows
-	Rebuilder Rebuilder
+	Rows Rows
 }
 
 type Contribution struct {

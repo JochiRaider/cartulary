@@ -3,7 +3,6 @@ package runtime
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
@@ -35,16 +34,6 @@ func (s *Store) refreshArtifactTxCore(
 		return nil
 	}
 	return s.physical.InsertArtifactTx(ctx, tx, input)
-}
-
-func (s *Store) RebuildArtifacts(ctx context.Context, incidentID uuid.UUID) error {
-	return s.rebuildIncidentHotProjection(ctx, notesViewSchemaID, func(ctx context.Context, tx pgx.Tx) error {
-		return s.RebuildIncidentArtifactsTx(ctx, tx, incidentID)
-	})
-}
-
-func (s *Store) RebuildIncidentArtifactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return s.rebuildProjectionIncidentTx(ctx, tx, notesViewSchemaID, incidentID)
 }
 
 func (s *Store) rebuildIncidentArtifactsTxCore(
@@ -105,16 +94,6 @@ func (s *Store) refreshEvidenceTxCore(
 	return s.physical.InsertEvidenceTx(ctx, tx, input)
 }
 
-func (s *Store) RebuildEvidence(ctx context.Context, incidentID uuid.UUID) error {
-	return s.rebuildIncidentHotProjection(ctx, evidenceViewSchemaID, func(ctx context.Context, tx pgx.Tx) error {
-		return s.RebuildIncidentEvidenceTx(ctx, tx, incidentID)
-	})
-}
-
-func (s *Store) RebuildIncidentEvidenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return s.rebuildProjectionIncidentTx(ctx, tx, evidenceViewSchemaID, incidentID)
-}
-
 func (s *Store) rebuildIncidentEvidenceTxCore(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -173,16 +152,6 @@ func (s *Store) refreshPartyTxCore(
 	return s.physical.InsertPartyTx(ctx, tx, input)
 }
 
-func (s *Store) RebuildParties(ctx context.Context, incidentID uuid.UUID) error {
-	return s.rebuildIncidentHotProjection(ctx, partiesViewSchemaID, func(ctx context.Context, tx pgx.Tx) error {
-		return s.RebuildIncidentPartiesTx(ctx, tx, incidentID)
-	})
-}
-
-func (s *Store) RebuildIncidentPartiesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return s.rebuildProjectionIncidentTx(ctx, tx, partiesViewSchemaID, incidentID)
-}
-
 func (s *Store) rebuildIncidentPartiesTxCore(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -214,27 +183,4 @@ func (s *Store) rebuildIncidentPartiesTxCore(
 		}
 		afterRecordID = page.NextRecordID
 	}
-}
-
-func (s *Store) rebuildIncidentHotProjection(ctx context.Context, viewSchemaID string, rebuild func(context.Context, pgx.Tx) error) (err error) {
-	ctx, finishTelemetry := s.startProjectionSpan(ctx, viewSchemaID)
-	defer func() { finishTelemetry(err) }()
-
-	if s == nil || s.pool == nil {
-		return fmt.Errorf("rebuild hot projection: projection store is required")
-	}
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return fmt.Errorf("begin hot projection rebuild: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-	if err := rebuild(ctx, tx); err != nil {
-		return err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit hot projection rebuild: %w", err)
-	}
-	return nil
 }

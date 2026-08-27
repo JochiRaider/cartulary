@@ -2,8 +2,8 @@
 
 ## Status and scope
 
-Status: Adopted through Core 00 REQ-00-070; Tasks/Decisions port topology
-amended 2026-08-25.
+Status: Adopted through Core 00 REQ-00-070; maintenance, query-model, and
+source-owner port topology amended 2026-08-27.
 
 This decision owns only the repository-internal Go topology and transition for
 the workbook-grid Projections module. Core 01 owns projection behavior and Core
@@ -59,23 +59,26 @@ required successful port is non-nil.
 - Workbook's consumer-owned query provider;
 - Recovery's consumer-owned projection rebuilder;
 - Revisions' consumer-owned projection services;
-- the immutable Projections recovery-state contribution;
+- one complete-catalog maintenance rebuilder;
+- the immutable Projections recovery-state contribution only through the
+  Recovery-owned port aggregate;
 - typed Timeline, Entities, Indicators, Assessments, Artifacts, Evidence,
-  and Parties writer/rebuild/reader ports;
+  and Parties mutation and reader ports with no source-owner rebuild facade;
 - a four-method Tasks/Decisions mutation-row port and a separate two-method
   Tasks/Decisions Reporting reader; and
 - typed artifact, host/identity, and task/decision derived-fact readers used by
   source-owner Reporting providers.
 
-Tasks/Decisions exposes no source-owner-specific rebuild port. Its task-request
-and decision providers remain required, ordered members of the same immutable
-provider catalog as every other workbook projection provider. Generic
-catalog-driven Projections coordination exclusively performs their incident,
-import, Revisions, and restore rebuilds. The mutation-row port contains only
-typed refresh and load operations for task requests and decisions. The
-Reporting reader contains only the two derived-fact collection operations.
-Neither port can begin or commit a transaction, select rebuild scope, or invoke
-provider-catalog coordination.
+No source owner exposes a source-owner-specific rebuild port. Every provider
+remains a required, ordered member of the same immutable provider catalog.
+Generic catalog-driven Projections coordination exclusively performs
+maintenance, incident, import, Revisions, and restore rebuilds. Maintenance
+rebuild accepts only an incident identifier, owns exactly one transaction, and
+always rebuilds the complete catalog; it exposes no provider, owner, view, or
+partial-selection argument. Tasks/Decisions mutation rows contain only typed
+refresh and load operations, and its Reporting reader contains only the two
+derived-fact collection operations. No source-owner port can begin or commit a
+transaction, select rebuild scope, or invoke provider-catalog coordination.
 
 Projections does not import Reporting. Source owners retain
 `exportprovider.FieldProvider` implementations, content class, source family,
@@ -87,12 +90,16 @@ intent. Their query intent contains stable view/field identities, kinds,
 collection ordering, grouping eligibility, and semantic discriminator tokens;
 it contains no projection table, SQL join, expression, predicate, or alias.
 Private Projections plans bind that intent to physical SQL and validate it
-against view schemas and descriptors.
+against view schemas and descriptors. `internal/queryengine.Surface` is the
+only compiled query-plan representation; runtime does not mirror or translate
+it through a parallel surface, field, or field-kind model.
 
 Projection writers accept `context.Context`, caller-owned `pgx.Tx`, and typed
-owner inputs. Generic `viewSchemaID`/`any` mutation dispatch and generic deletion
-are removed. Only Timeline mutation deletion and typed host, identity, and
-indicator deletion remain. No new deletion behavior is created.
+owner inputs. Generic `viewSchemaID`/`any` mutation dispatch and generic
+deletion are removed. Only Timeline mutation deletion and typed host and
+identity deletion remain. Indicator absence is reconciled through its retained
+typed refresh path; there is no separate Indicator deletion port. No new
+deletion behavior is created.
 
 ## Transition and compatibility
 
@@ -106,6 +113,13 @@ independently green validation boundary. Temporary delegation may exist only
 inside an active slice and is deleted when its last caller migrates. There is
 no deprecation or release compatibility window for the repository-internal
 root API, and no forwarding package or compatibility alias is retained.
+
+The 2026-08-27 contraction additionally replaces every remaining owner rebuild
+facade and partial-view rebuild helper with one complete-catalog maintenance
+operation, makes the query-engine surface canonical, makes descriptor-only
+validation provider-contract-owned, and makes test assembly delegate to the
+production constructor. Dead internal methods are removed with their final
+caller; they receive no deprecation period or test-only production alias.
 
 Descriptor schema v3 and validation manifest v4 remain current unless their
 serialized shapes change. Host and identity become query-capable projection
@@ -125,9 +139,16 @@ The decision is implemented only when:
 - exact ten-table SQL ownership and four-way set equality pass;
 - Tasks/Decisions has separate source-contribution, mutation-row, and Reporting
   contracts, with no owner-specific rebuild interface or adapter/runtime method;
-- generic catalog-driven incident, import, Revisions, and restore rebuild
+- no source owner has a rebuild interface, partial-view rebuild method, or dead
+  Indicator deletion method;
+- generic catalog-driven maintenance, incident, import, Revisions, and restore rebuild
   evidence includes the task-request and decision providers in descriptor
   order;
+- runtime stores one compiled query-engine surface representation and
+  descriptor-only failures originate in the provider contract;
+- production and Projections tests share the same application assembly path,
+  typed-nil source dependencies fail before ports escape, and exact export
+  allowlists fail closed;
 - constructor, transaction, deletion, query, Reporting, restore, rebuild,
   telemetry, and test-capability matrices pass before and after migration;
 - generated and migration drift checks pass; and

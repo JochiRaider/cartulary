@@ -147,10 +147,6 @@ func (port coordinatorProjectionRows) LoadEvidenceTx(context.Context, pgx.Tx, uu
 	}, nil
 }
 
-func (coordinatorProjectionRows) RebuildEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error {
-	return errors.New("unexpected RebuildEvidenceTx")
-}
-
 type coordinatorRevisions struct {
 	events      *[]string
 	changeSetID uuid.UUID

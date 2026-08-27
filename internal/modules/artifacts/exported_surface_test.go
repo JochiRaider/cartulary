@@ -123,7 +123,6 @@ var workbookProjectionExportClassifications = map[string]exportDisposition{
 	"ProjectionInput":                     exportRetain,
 	"ProjectionInputPage":                 exportRetain,
 	"Reader":                              exportRetain,
-	"Rebuilder":                           exportRetain,
 	"Rows":                                exportRetain,
 	"SourceReader":                        exportRetain,
 }

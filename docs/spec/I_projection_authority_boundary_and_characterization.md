@@ -77,8 +77,11 @@ every multi-provider rebuild entry point. Incident creation or repair,
 Incident Bundle import, generic Revisions reconstruction, and Recovery restore
 delegate to that catalog-driven Projections coordination. Task-request and
 decision rebuild callbacks remain private provider implementation details; no
-Tasks/Decisions mutation or Reporting port exposes them. This keeps the four
-caller contexts behaviorally distinct while giving them one provider
+source-owner mutation, reader, or Reporting port exposes rebuild. The explicit
+maintenance operation accepts one incident identifier, owns one transaction,
+and always selects the complete catalog; it has no owner, provider, view, or
+partial-selection argument. This keeps maintenance, import, Revisions, and
+Recovery caller contexts behaviorally distinct while giving them one provider
 selection, ordering, capability-validation, and failure boundary.
 
 | Restore condition | Characterized default | Evidence to preserve |

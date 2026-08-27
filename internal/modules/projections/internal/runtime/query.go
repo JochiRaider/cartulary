@@ -3,7 +3,6 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -45,7 +44,7 @@ func (s *Store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, viewSch
 	if !ok {
 		return querypage.Result{}, fmt.Errorf("projection query surface %q not mapped", viewSchemaID)
 	}
-	sqlText, args, err := buildGenericQueryPageSQL(incidentID, definition, query, window)
+	sqlText, args, err := queryengine.BuildQueryPageSQL(incidentID, definition, query, window)
 	if err != nil {
 		return querypage.Result{}, err
 	}
@@ -55,7 +54,7 @@ func (s *Store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, viewSch
 	}
 	defer rows.Close()
 
-	result, err := queryengine.ScanRows(rows, definition.queryEngineSurface())
+	result, err := queryengine.ScanRows(rows, definition)
 	if err != nil {
 		return querypage.Result{}, err
 	}
@@ -71,35 +70,5 @@ func (s *Store) LoadRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, r
 	if !ok {
 		return nil, fmt.Errorf("projection query surface %q not mapped", viewSchemaID)
 	}
-	return loadRowTx(ctx, tx, definition, recordID)
-}
-
-func loadRowTx(ctx context.Context, tx pgx.Tx, definition genericSurface, recordID uuid.UUID) (map[string]any, error) {
-	var builder strings.Builder
-	builder.WriteString("SELECT ")
-	builder.WriteString(definition.recordExpr)
-	builder.WriteString(", r.row_version")
-	for _, field := range definition.fields {
-		builder.WriteString(", ")
-		builder.WriteString(field.expr)
-	}
-	builder.WriteString(" ")
-	builder.WriteString(definition.fromSQL)
-	builder.WriteString(" WHERE ")
-	builder.WriteString(definition.recordExpr)
-	builder.WriteString(" = $1 AND r.deleted_at IS NULL")
-	if definition.whereSQL != "" {
-		builder.WriteString(" AND ")
-		builder.WriteString(definition.whereSQL)
-	}
-	row := tx.QueryRow(ctx, builder.String(), recordID)
-	values := make([]any, len(definition.fields)+2)
-	scanTargets := make([]any, len(values))
-	for index := range values {
-		scanTargets[index] = &values[index]
-	}
-	if err := row.Scan(scanTargets...); err != nil {
-		return nil, err
-	}
-	return buildGenericRow(definition, values)
+	return queryengine.LoadRowTx(ctx, tx, definition, recordID)
 }

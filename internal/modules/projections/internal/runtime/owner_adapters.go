@@ -30,19 +30,19 @@ func NewTimelineRowsFromStore(store *Store) *TimelineRows {
 }
 
 func (r *TimelineRows) ApplyTimelineMutationTx(ctx context.Context, tx pgx.Tx, mutation timelineprojection.ProjectionMutation) error {
-	return r.store.ApplyTimelineMutationTx(ctx, tx, mutation)
+	return r.store.applyTimelineMutationTx(ctx, tx, mutation)
 }
 
 func (r *TimelineRows) ApplyTimelineFixtureBatchTx(ctx context.Context, tx pgx.Tx, inputs []timelineprojection.ProjectionInput) error {
-	return r.store.ApplyTimelineFixtureBatchTx(ctx, tx, inputs)
+	return r.store.applyTimelineFixtureBatchTx(ctx, tx, inputs)
 }
 
 func (r *TimelineRows) CountTimelineFixtureRows(ctx context.Context, incidentID uuid.UUID) (int, error) {
-	return r.store.CountTimelineFixtureRows(ctx, incidentID)
+	return r.store.countTimelineFixtureRows(ctx, incidentID)
 }
 
 func (r *TimelineRows) CountTimelineFixtureRowsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (int, error) {
-	return r.store.CountTimelineFixtureRowsTx(ctx, tx, incidentID)
+	return r.store.countTimelineFixtureRowsTx(ctx, tx, incidentID)
 }
 
 type EntityRows struct {
@@ -83,25 +83,6 @@ func (r *IndicatorRows) LoadIndicatorTx(
 	return loadProviderRowTx(ctx, tx, r.store, indicatorsViewSchemaID, recordID)
 }
 
-func (r *IndicatorRows) DeleteIndicatorTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	recordID uuid.UUID,
-) error {
-	if r == nil || r.store == nil || r.store.physical == nil {
-		return errors.New("projection storage is required")
-	}
-	return r.store.physical.DeleteIndicatorRowTx(ctx, tx, recordID)
-}
-
-func (r *IndicatorRows) RebuildIndicatorsTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-) error {
-	return r.store.rebuildIncidentIndicatorsTxCore(ctx, tx, incidentID, r.source)
-}
-
 func NewEntityRowsFromStore(store *Store, source entityprojection.SourceReader) *EntityRows {
 	return &EntityRows{
 		store:          store,
@@ -133,10 +114,6 @@ func (r *EntityRows) DeleteIdentityTx(ctx context.Context, tx pgx.Tx, recordID u
 	return r.store.physical.DeleteIdentityRowTx(ctx, tx, recordID)
 }
 
-func (r *EntityRows) RebuildHostsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return r.store.rebuildIncidentHostsTxCore(ctx, tx, incidentID, r.source)
-}
-
 func (r *EntityRows) SelectHostQueryProjections(
 	ctx context.Context,
 	incidentID uuid.UUID,
@@ -158,10 +135,6 @@ func (r *EntityRows) CollectHostDerivedFactsTx(
 		return nil, fmt.Errorf("host projection reader is required")
 	}
 	return r.hostReader.CollectHostDerivedFactsTx(ctx, tx, incidentID)
-}
-
-func (r *EntityRows) RebuildIdentitiesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return r.store.rebuildIncidentIdentitiesTxCore(ctx, tx, incidentID, r.source)
 }
 
 func (r *EntityRows) SelectIdentityQueryProjections(
@@ -211,19 +184,11 @@ func (r *AssessmentRows) ApplyAssessmentMutationTx(
 	tx pgx.Tx,
 	mutation assessmentprojection.ProjectionMutation,
 ) error {
-	return r.store.ApplyAssessmentMutationTx(ctx, tx, mutation)
+	return r.store.applyAssessmentMutationTx(ctx, tx, mutation)
 }
 
 func (r *AssessmentRows) LoadAssessmentTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
 	return r.loadTx(ctx, tx, assessmentsViewSchemaID, recordID)
-}
-
-func (r *AssessmentRows) RebuildAssessmentsTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-) error {
-	return r.store.rebuildIncidentAssessmentsTxCore(ctx, tx, incidentID, r.source)
 }
 
 type ArtifactRows struct {
@@ -248,14 +213,6 @@ func (r *ArtifactRows) LoadArtifactTx(ctx context.Context, tx pgx.Tx, viewSchema
 	return r.loadTx(ctx, tx, viewSchemaID, recordID)
 }
 
-func (r *ArtifactRows) RebuildArtifactsTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-) error {
-	return r.store.rebuildIncidentArtifactsTxCore(ctx, tx, incidentID, r.source)
-}
-
 func (r *ArtifactRows) CollectDerivedFactsTx(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -268,7 +225,6 @@ func (r *ArtifactRows) CollectDerivedFactsTx(
 }
 
 var _ artifactprojection.Rows = (*ArtifactRows)(nil)
-var _ artifactprojection.Rebuilder = (*Store)(nil)
 var _ artifactprojection.Reader = (*ArtifactRows)(nil)
 
 type EvidenceRows struct {
@@ -300,16 +256,6 @@ func (r *EvidenceRows) LoadEvidenceTx(ctx context.Context, tx pgx.Tx, recordID u
 	}
 	return evidenceprojection.ViewRow(input), nil
 }
-
-func (r *EvidenceRows) RebuildEvidenceTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-) error {
-	return r.store.rebuildIncidentEvidenceTxCore(ctx, tx, incidentID, r.source)
-}
-
-var _ evidenceprojection.Rebuilder = (*Store)(nil)
 
 type PartyRows struct {
 	store  *Store

@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"encoding/json"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
@@ -10,6 +11,109 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestLegacyProjectionMaintenanceHasNoProductionCallerOutsideProjections(t *testing.T) {
+	repoRoot := filepath.Clean(filepath.Join("..", "..", "..", ".."))
+	legacySelectors := map[string]struct{}{
+		"Delete" + "IndicatorTx":      {},
+		"Rebuild" + "Artifacts":       {},
+		"Rebuild" + "ArtifactsTx":     {},
+		"Rebuild" + "Assessments":     {},
+		"Rebuild" + "AssessmentsTx":   {},
+		"Rebuild" + "Evidence":        {},
+		"Rebuild" + "EvidenceTx":      {},
+		"Rebuild" + "Hosts":           {},
+		"Rebuild" + "HostsTx":         {},
+		"Rebuild" + "Identities":      {},
+		"Rebuild" + "IdentitiesTx":    {},
+		"Rebuild" + "Indicators":      {},
+		"Rebuild" + "IndicatorsTx":    {},
+		"Rebuild" + "Parties":         {},
+		"Rebuild" + "Timeline":        {},
+		"Rebuild" + "IncidentViewsTx": {},
+	}
+	for _, root := range []string{filepath.Join(repoRoot, "cmd"), filepath.Join(repoRoot, "internal")} {
+		err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			relative, err := filepath.Rel(repoRoot, path)
+			if err != nil {
+				return err
+			}
+			if strings.HasPrefix(filepath.ToSlash(relative), "internal/modules/projections/") {
+				return nil
+			}
+			parsed, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+			if err != nil {
+				return err
+			}
+			ast.Inspect(parsed, func(node ast.Node) bool {
+				selector, ok := node.(*ast.SelectorExpr)
+				if !ok {
+					return true
+				}
+				if _, legacy := legacySelectors[selector.Sel.Name]; legacy {
+					t.Errorf("%s retains production call to legacy projection maintenance selector %s", filepath.ToSlash(relative), selector.Sel.Name)
+				}
+				return true
+			})
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("scan production maintenance callers under %s: %v", root, err)
+		}
+	}
+}
+
+func TestProjectionTestsupportUsesProductionAssembly(t *testing.T) {
+	path := filepath.Clean(filepath.Join("..", "testsupport", "build.go"))
+	parsed, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse Projections testsupport build: %v", err)
+	}
+	assemblyAlias := ""
+	for _, spec := range parsed.Imports {
+		importPath, err := strconv.Unquote(spec.Path.Value)
+		if err != nil {
+			t.Fatalf("unquote testsupport import: %v", err)
+		}
+		if importPath == cartularyImportPrefix+"internal/app/projectionassembly" {
+			assemblyAlias = filepath.Base(importPath)
+			if spec.Name != nil {
+				assemblyAlias = spec.Name.Name
+			}
+		}
+		if importPath == projectionAdaptersPath || strings.Contains(importPath, "/projectionprovider") {
+			t.Fatalf("testsupport reconstructs the projection graph through %s", importPath)
+		}
+	}
+	if assemblyAlias == "" {
+		t.Fatal("testsupport does not import production projection assembly")
+	}
+	buildCalls := 0
+	ast.Inspect(parsed, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		selector, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok || selector.Sel.Name != "Build" {
+			return true
+		}
+		qualifier, ok := selector.X.(*ast.Ident)
+		if ok && qualifier.Name == assemblyAlias {
+			buildCalls++
+		}
+		return true
+	})
+	if buildCalls != 1 {
+		t.Fatalf("testsupport production projection assembly Build calls = %d, want one", buildCalls)
+	}
+}
 
 const (
 	cartularyImportPrefix      = "github.com/JochiRaider/cartulary/"

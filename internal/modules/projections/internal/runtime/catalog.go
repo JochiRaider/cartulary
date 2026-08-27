@@ -2,33 +2,10 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 )
-
-var requiredProviderOwners = map[string]string{
-	"timeline":     "timeline",
-	"host":         "entities",
-	"identity":     "entities",
-	"indicator":    "indicators",
-	"assessment":   "assessments",
-	"artifact":     "artifacts",
-	"evidence":     "evidence",
-	"party":        "parties",
-	"task_request": "tasksdecisions",
-	"decision":     "tasksdecisions",
-}
-
-var requiredContributionOwners = []string{
-	"artifacts",
-	"assessments",
-	"entities",
-	"evidence",
-	"indicators",
-	"parties",
-	"tasksdecisions",
-	"timeline",
-}
 
 type contractFacts struct {
 	descriptors  providercontract.DescriptorSet
@@ -38,7 +15,7 @@ type contractFacts struct {
 
 func collectContractFacts(contributions []providercontract.Contribution) (contractFacts, error) {
 	contributionsByOwner := make(map[string]providercontract.Contribution, len(contributions))
-	descriptors := make([]providercontract.ProviderDescriptor, 0, len(requiredProviderOwners))
+	descriptors := make([]providercontract.ProviderDescriptor, 0, len(requiredProviderCatalog))
 	intents := make([]providercontract.SurfaceIntent, 0)
 	for _, contribution := range contributions {
 		if contribution.IsZero() {
@@ -52,49 +29,65 @@ func collectContractFacts(contributions []providercontract.Contribution) (contra
 		descriptors = append(descriptors, contribution.Descriptors()...)
 		intents = append(intents, contribution.SurfaceIntents()...)
 	}
-	for _, owner := range requiredContributionOwners {
+	requiredOwners := requiredContributionOwners()
+	for _, owner := range requiredOwners {
 		if _, exists := contributionsByOwner[owner]; !exists {
 			return contractFacts{}, fmt.Errorf("missing projection contribution owner %q", owner)
 		}
 	}
-	if len(contributionsByOwner) != len(requiredContributionOwners) {
+	if len(contributionsByOwner) != len(requiredOwners) {
 		return contractFacts{}, fmt.Errorf(
 			"projection contribution owner set has %d entries, want %d",
 			len(contributionsByOwner),
-			len(requiredContributionOwners),
+			len(requiredOwners),
 		)
 	}
 
+	declaredProviderIDs := make(map[string]int, len(descriptors))
+	hasDuplicateProviderID := false
+	for _, descriptor := range descriptors {
+		declaredProviderIDs[descriptor.ProviderID]++
+		if declaredProviderIDs[descriptor.ProviderID] > 1 {
+			hasDuplicateProviderID = true
+		}
+	}
+	if !hasDuplicateProviderID {
+		for _, required := range requiredProviderCatalog {
+			if declaredProviderIDs[required.providerID] == 0 {
+				return contractFacts{}, fmt.Errorf("missing active projection provider %q", required.providerID)
+			}
+		}
+	}
 	descriptorSet, err := providercontract.NewDescriptorSet(descriptors)
 	if err != nil {
 		return contractFacts{}, err
 	}
-	for providerID, expectedOwner := range requiredProviderOwners {
-		descriptor, exists := descriptorSet.Lookup(providerID)
+	for _, required := range requiredProviderCatalog {
+		descriptor, exists := descriptorSet.Lookup(required.providerID)
 		if !exists {
-			return contractFacts{}, fmt.Errorf("missing active projection provider %q", providerID)
+			return contractFacts{}, fmt.Errorf("missing active projection provider %q", required.providerID)
 		}
-		if descriptor.SourceOwnerModule != expectedOwner {
+		if descriptor.SourceOwnerModule != required.owner {
 			return contractFacts{}, fmt.Errorf(
 				"projection provider %q source owner %q, want %q",
-				providerID,
+				required.providerID,
 				descriptor.SourceOwnerModule,
-				expectedOwner,
+				required.owner,
 			)
 		}
-		if !contributionDeclaresProvider(contributionsByOwner[expectedOwner], providerID) {
+		if !contributionDeclaresProvider(contributionsByOwner[required.owner], required.providerID) {
 			return contractFacts{}, fmt.Errorf(
 				"projection provider %q is not supplied by source owner %q",
-				providerID,
-				expectedOwner,
+				required.providerID,
+				required.owner,
 			)
 		}
 	}
-	if descriptorSet.Len() != len(requiredProviderOwners) {
+	if descriptorSet.Len() != len(requiredProviderCatalog) {
 		return contractFacts{}, fmt.Errorf(
 			"active projection provider set has %d entries, want %d",
 			descriptorSet.Len(),
-			len(requiredProviderOwners),
+			len(requiredProviderCatalog),
 		)
 	}
 	intentOwners := make(map[string]string, len(intents))
@@ -111,6 +104,20 @@ func collectContractFacts(contributions []providercontract.Contribution) (contra
 		intents:      cloneIntents(intents),
 		intentOwners: intentOwners,
 	}, nil
+}
+
+func requiredContributionOwners() []string {
+	seen := make(map[string]struct{}, len(requiredProviderCatalog))
+	owners := make([]string, 0, len(requiredProviderCatalog))
+	for _, required := range requiredProviderCatalog {
+		if _, exists := seen[required.owner]; exists {
+			continue
+		}
+		seen[required.owner] = struct{}{}
+		owners = append(owners, required.owner)
+	}
+	slices.Sort(owners)
+	return owners
 }
 
 func contributionDeclaresProvider(contribution providercontract.Contribution, providerID string) bool {

@@ -29,7 +29,7 @@ func (r *RestoreRebuilder) RebuildRestoreProjections(ctx context.Context, reques
 }
 
 func rebuildRestoreProjections(ctx context.Context, s *Store, request restorecontract.ProjectionRebuildRequest) (result restorecontract.ProjectionRebuildResult, err error) {
-	ctx, finishTelemetry := s.startProjectionSpan(ctx, "unknown")
+	ctx, finishTelemetry := s.startProjectionSpan(ctx)
 	defer func() { finishTelemetry(err) }()
 
 	result = restorecontract.ProjectionRebuildResult{

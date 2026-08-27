@@ -122,15 +122,6 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 			want: "do not match projection descriptor",
 		},
 		{
-			name: "duplicate descriptor view",
-			edit: func(descriptors []providercontract.ProviderDescriptor, contributions []QueryContribution) ([]providercontract.ProviderDescriptor, []QueryContribution) {
-				duplicate := descriptors[0]
-				duplicate.ProviderID += "-duplicate"
-				return append(descriptors, duplicate), contributions
-			},
-			want: "duplicate active projection descriptor ownership",
-		},
-		{
 			name: "missing descriptor",
 			edit: func(descriptors []providercontract.ProviderDescriptor, contributions []QueryContribution) ([]providercontract.ProviderDescriptor, []QueryContribution) {
 				return descriptors[1:], contributions
@@ -1095,12 +1086,18 @@ func validCatalogInputs(t testing.TB) (
 	for _, resource := range resources {
 		ownerKey := "owner:" + resource.ViewSchemaID
 		descriptors = append(descriptors, providercontract.ProviderDescriptor{
-			Status:            providercontract.ProviderStatusActive,
-			ProviderID:        "provider:" + resource.ViewSchemaID,
-			SourceOwnerModule: ownerKey,
-			ViewSchemaIDs:     []string{resource.ViewSchemaID},
-			SourceRecordTypes: append([]string(nil), resource.SourceRecordTypes...),
-			Capabilities:      providercontract.ProviderCapabilities{Query: true},
+			SchemaVersion:                providercontract.DescriptorSchemaVersion,
+			Status:                       providercontract.ProviderStatusActive,
+			ProviderID:                   "provider:" + resource.ViewSchemaID,
+			SourceOwnerModule:            ownerKey,
+			ViewSchemaIDs:                []string{resource.ViewSchemaID},
+			SourceRecordTypes:            append([]string(nil), resource.SourceRecordTypes...),
+			SourceAuthorityModules:       []string{ownerKey},
+			ProjectionTableIDs:           []string{"test:" + resource.ViewSchemaID},
+			ProjectionStorageOwnerModule: "projections",
+			Capabilities:                 providercontract.ProviderCapabilities{Query: true},
+			RestoreRebuild:               providercontract.RestoreRebuildNonparticipating,
+			FacadePackages:               []string{"internal/modules/workbook"},
 		})
 		queryProvider, err := NewQueryProvider(
 			func(context.Context, QueryCommand) (querypage.Result, error) {

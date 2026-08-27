@@ -209,7 +209,6 @@ var evidenceExportClassifications = map[string]map[string]exportDisposition{
 		"Ports":                               exportRetain,
 		"ProjectionInput":                     exportRetain,
 		"ProjectionInputPage":                 exportRetain,
-		"Rebuilder":                           exportRetain,
 		"Rows":                                exportRetain,
 		"SourceReader":                        exportRetain,
 		"SupportChangeInvalidate":             exportRetain,

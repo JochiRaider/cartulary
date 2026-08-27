@@ -26,12 +26,13 @@ func TestProjectionCapabilityCallerMatrix(t *testing.T) {
 		"ProjectionCapability{bundle:",
 		"ProjectionCatalog",
 		"EvidenceProjectionPortFor",
+		"projectiontestsupport.Dependencies",
 	} {
 		if bytes.Contains(harnessSource, []byte(forbidden)) {
 			t.Fatalf("httptestx retains forbidden Timeline-owned projection capability %q", forbidden)
 		}
 	}
-	if !bytes.Contains(harnessSource, []byte("projectiontestsupport.New(")) {
+	if !bytes.Contains(harnessSource, []byte("projectiontestsupport.New(runtime)")) {
 		t.Fatal("httptestx does not construct the typed Projections-owned test capability")
 	}
 
@@ -44,25 +45,25 @@ func TestProjectionCapabilityCallerMatrix(t *testing.T) {
 
 	want := map[string][]string{
 		"internal/modules/entities/resolution_route_integration_test.go": {
-			".Projections.RebuildHosts(",
+			".Projections.RebuildIncident(",
 		},
 		"internal/modules/evidence/lifecycle_integration_test.go": {
 			".Projections.EvidencePort(",
 		},
 		"internal/modules/evidence/projection_collaboration_integration_test.go": {
-			".Projections.RebuildTimeline(",
+			".Projections.RebuildIncident(",
 		},
 		"internal/modules/indicators/resolution_integration_test.go": {
-			".Projections.RebuildIndicators(",
+			".Projections.RebuildIncident(",
 		},
 		"internal/modules/revisions/indicator_children_test.go": {
 			".Projections.IndicatorProjectionPort(",
 		},
 		"internal/modules/timeline/resolution_integration_test.go": {
-			".Projections.RebuildTimeline(",
+			".Projections.RebuildIncident(",
 		},
 		"internal/modules/timeline/timeline_event_integration_test.go": {
-			".Projections.RebuildTimeline(",
+			".Projections.RebuildIncident(",
 		},
 		"internal/testutil/appsupport/runtime.go": {
 			"server.ProjectionCapability()",
@@ -90,10 +91,7 @@ func TestProjectionCapabilityCallerMatrix(t *testing.T) {
 			return nil
 		}
 		for _, marker := range []string{
-			".Projections.RebuildHosts(",
-			".Projections.RebuildIdentities(",
-			".Projections.RebuildIndicators(",
-			".Projections.RebuildTimeline(",
+			".Projections.RebuildIncident(",
 			".Projections.IndicatorProjectionPort(",
 			".Projections.EvidencePort(",
 			"server.ProjectionCapability()",

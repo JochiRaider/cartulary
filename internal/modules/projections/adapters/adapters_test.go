@@ -98,12 +98,13 @@ func TestNewReturnsReadyPortsAndImmutableDescriptorSet(t *testing.T) {
 		t.Fatalf("compose projection foundation: %v", err)
 	}
 	if ports.DescriptorSet().Len() != 10 || !ports.RecoveryPorts().Ready() ||
-		ports.Timeline().Writer == nil || ports.Timeline().Rebuilder == nil ||
-		ports.Entities().Writer == nil || ports.Entities().Rebuilder == nil || ports.Entities().Reader == nil ||
-		ports.Indicators().Rows == nil || ports.Indicators().Rebuilder == nil ||
-		ports.Assessments().Rows == nil || ports.Assessments().Rebuilder == nil ||
-		ports.Artifacts().Rows == nil || ports.Artifacts().Rebuilder == nil || ports.Artifacts().Reader == nil ||
-		ports.Evidence().Rows == nil || ports.Evidence().Rebuilder == nil ||
+		ports.MaintenanceRebuilder() == nil ||
+		ports.Timeline().Writer == nil ||
+		ports.Entities().Writer == nil || ports.Entities().Reader == nil ||
+		ports.Indicators().Rows == nil ||
+		ports.Assessments().Rows == nil ||
+		ports.Artifacts().Rows == nil || ports.Artifacts().Reader == nil ||
+		ports.Evidence().Rows == nil ||
 		ports.Parties().Rows == nil || ports.TaskDecisionMutationRows() == nil ||
 		ports.TaskDecisionReportingReader() == nil {
 		t.Fatalf("projection ports are incomplete: %#v", ports)
@@ -125,7 +126,7 @@ func TestNewReturnsReadyPortsAndImmutableDescriptorSet(t *testing.T) {
 		t.Fatalf("descriptor lookup exposed mutable state: %#v", again)
 	}
 
-	recoveryState := ports.RecoveryStateContribution()
+	recoveryState := ports.RecoveryPorts().StateContribution
 	tableIDs := make([]string, 0, len(recoveryState.Tables))
 	for _, table := range recoveryState.Tables {
 		tableIDs = append(tableIDs, table.TableName)
@@ -135,7 +136,7 @@ func TestNewReturnsReadyPortsAndImmutableDescriptorSet(t *testing.T) {
 		t.Fatalf("recovery state tables = %v", tableIDs)
 	}
 	recoveryState.Tables[0].TableName = "mutated_grid_projection"
-	if ports.RecoveryStateContribution().Tables[0].TableName == "mutated_grid_projection" {
+	if ports.RecoveryPorts().StateContribution.Tables[0].TableName == "mutated_grid_projection" {
 		t.Fatalf("recovery state contribution exposed mutable adapter state")
 	}
 }

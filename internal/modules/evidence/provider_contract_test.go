@@ -257,10 +257,6 @@ func (constructionProjectionRows) LoadEvidenceTx(context.Context, pgx.Tx, uuid.U
 	return nil, nil
 }
 
-func (constructionProjectionRows) RebuildEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error {
-	return nil
-}
-
 type constructionSupportEffects struct{}
 
 func (constructionSupportEffects) RefreshEvidenceAssociationEffects(

@@ -242,7 +242,7 @@ UPDATE timeline_grid_projection
 	requireTimelineProjectionStorage(t, harness, timelineRecordID, 0, false)
 	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
 
-	if err := harness.Projections.RebuildTimeline(context.Background(), incidentID); err != nil {
+	if err := harness.Projections.RebuildIncident(context.Background(), incidentID); err != nil {
 		t.Fatalf("rebuild timeline projection: %v", err)
 	}
 	requireTimelineProjectionStorage(t, harness, timelineRecordID, 1, true)
