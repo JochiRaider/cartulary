@@ -553,6 +553,7 @@ export function productionFixtureProviders({
           ...selectionEnvironment,
           ...stackEnvironment,
           CARTULARY_BROWSER_SESSION_GROUP: browserSessionID,
+          CARTULARY_WEB_E2E_SESSION_LEASE_FILE: leaseFile,
         };
         const close = () =>
           run(lifecycle, ["--session-stop", "--lease-file", leaseFile], {

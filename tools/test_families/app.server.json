@@ -623,7 +623,7 @@
         "tests": [
           "TestHarnessRuntimeRoutesEnableOnlyForExactOneInServerProcess",
           "TestHarnessRuntimeRoutesFailClosedDuringServerStartup",
-          "TestHarnessRuntimeRoutesPreserveServerProcessSecurityAndReset"
+          "TestHarnessRuntimeRoutesPreserveServerProcessSecurityWithoutResetEndpoint"
         ]
       },
       "evidence_class": "integration",

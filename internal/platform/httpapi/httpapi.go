@@ -39,7 +39,6 @@ type DependencySet struct {
 	PublicErrorFaults   PublicErrorFaultStore
 	PublicRoutes        *RouteRegistry
 	TestResetBootstrap  func(context.Context, pgx.Tx) error
-	TestResetDatabase   func(context.Context) error
 	ModuleOverrides     map[string]any
 	Now                 func() time.Time
 }

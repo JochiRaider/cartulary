@@ -15,6 +15,7 @@ import (
 	dockercontainer "github.com/moby/moby/api/types/container"
 	dockerclient "github.com/moby/moby/client"
 
+	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
@@ -1213,14 +1214,20 @@ func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
 func TestResetWebE2ERequiresActiveSuiteAndUsesOnlyPaths(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	called := false
-	deps.resetWebE2EDB = func(_ context.Context, credentialRoot string, bootstrapManifest string) error {
+	deps.resetWebE2EDB = func(_ context.Context, credentialRoot string, bootstrapManifest string) (harnessruntime.DatabaseResetResult, error) {
 		called = true
 		if credentialRoot != "/runtime/credentials" || bootstrapManifest != "/config/bootstrap.json" {
 			t.Fatalf("unexpected reset paths: credential_root=%q bootstrap_manifest=%q", credentialRoot, bootstrapManifest)
 		}
-		return nil
+		return harnessruntime.DatabaseResetResult{MigrationMetadataPreserved: true, BootstrapAdminRestored: true}, nil
 	}
-	args := []string{"reset-web-e2e", "--credential-root", "/runtime/credentials", "--bootstrap-manifest", "/config/bootstrap.json"}
+	resultFile := filepath.Join(t.TempDir(), "database-reset.json")
+	metadataFile := filepath.Join(t.TempDir(), "metadata.json")
+	if err := writeWebE2EMetadata(metadataFile, webE2EMetadata{DatabaseName: "database", Bucket: "bucket"}); err != nil {
+		t.Fatalf("write reset metadata: %v", err)
+	}
+	deps.resetWebE2EBucket = func(context.Context, webE2EMetadata, map[string]string) error { return nil }
+	args := []string{"reset-web-e2e", "--credential-root", "/runtime/credentials", "--bootstrap-manifest", "/config/bootstrap.json", "--metadata-file", metadataFile, "--reset-id", "reset-001", "--result-file", resultFile}
 	if status := run(args, deps.env, deps.dependencies); status != 1 {
 		t.Fatalf("inactive suite reset status: got %d want 1", status)
 	}
@@ -1239,86 +1246,10 @@ func TestResetWebE2ERequiresActiveSuiteAndUsesOnlyPaths(t *testing.T) {
 	}
 }
 
-func TestRenewWebE2ERequiresOwnedOrdinaryFixtureAndExactGeneration(t *testing.T) {
+func TestRenewWebE2EIsRetired(t *testing.T) {
 	deps := defaultTestDependencies(t)
-	metadataFile := filepath.Join(t.TempDir(), "browser.json")
-	metadata := webE2EMetadata{
-		DatabaseName: "ct_deadbeef_cafe0001_000001_web_e2e",
-		Bucket:       "ct-deadbeef-cafe0001-000001-web-e2e",
-		Target:       "browser-e2e-webserver-backed",
-	}
-	if err := writeWebE2EMetadata(metadataFile, metadata); err != nil {
-		t.Fatalf("write metadata: %v", err)
-	}
-	called := false
-	deps.renewWebE2E = func(
-		_ context.Context,
-		_ map[string]string,
-		got webE2EMetadata,
-		credentialRoot string,
-		bootstrapManifest string,
-	) error {
-		called = true
-		if got != metadata || credentialRoot != "/runtime/credentials" ||
-			bootstrapManifest != "/config/bootstrap.json" {
-			t.Fatalf(
-				"unexpected renewal input: metadata=%#v credential_root=%q bootstrap_manifest=%q",
-				got,
-				credentialRoot,
-				bootstrapManifest,
-			)
-		}
-		return nil
-	}
-	args := []string{
-		"renew-web-e2e",
-		"--credential-root", "/runtime/credentials",
-		"--bootstrap-manifest", "/config/bootstrap.json",
-		"--metadata-file", metadataFile,
-		"--generation", "2",
-	}
-	if status := run(args, deps.env, deps.dependencies); status != 1 {
-		t.Fatalf("inactive suite renewal status: got %d want 1", status)
-	}
-	if called {
-		t.Fatal("renewal must not run outside an active suite")
-	}
-
-	activeEnv := cloneEnv(deps.env)
-	authorizeSuiteEnv(activeEnv)
-	activeEnv[suiteservices.SuiteIDEnv] = "suite-renew"
-	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
-	if status := run(args, activeEnv, deps.dependencies); status != 0 {
-		t.Fatalf("active suite renewal status: got %d want 0", status)
-	}
-	if !called {
-		t.Fatal("expected active suite renewal")
-	}
-	requireTimingEvent(
-		t,
-		loadTestEventsForEnv(t, activeEnv),
-		bucketMigration,
-		"test-services renew browser e2e generation 2",
-	)
-
-	for _, generation := range []string{"0", "-1", "wrong"} {
-		invalid := append([]string(nil), args...)
-		invalid[len(invalid)-1] = generation
-		if status := run(invalid, activeEnv, deps.dependencies); status != 2 {
-			t.Fatalf("invalid generation %q status: got %d want 2", generation, status)
-		}
-	}
-
-	profiledFile := filepath.Join(t.TempDir(), "profiled.json")
-	profiled := metadata
-	profiled.FixtureProfileID = "ac043_large_grid_snapshot_v1"
-	if err := writeWebE2EMetadata(profiledFile, profiled); err != nil {
-		t.Fatalf("write profiled metadata: %v", err)
-	}
-	profiledArgs := append([]string(nil), args...)
-	profiledArgs[len(profiledArgs)-3] = profiledFile
-	if status := run(profiledArgs, activeEnv, deps.dependencies); status != 1 {
-		t.Fatalf("profiled renewal status: got %d want 1", status)
+	if status := run([]string{"renew-web-e2e"}, deps.env, deps.dependencies); status != 2 {
+		t.Fatalf("retired renewal command status: got %d want 2", status)
 	}
 }
 
@@ -2107,10 +2038,12 @@ func defaultTestDependencies(t testing.TB) testDeps {
 			preflightSuite: func(context.Context, map[string]string) (suitePreflightResult, error) {
 				return suitePreflightResult{DockerEndpoint: "unix:///var/run/docker.sock", DockerOK: true, ReaperReady: true}, nil
 			},
-			createTemplate:        func(context.Context, string, string) error { return nil },
-			prepareWebE2E:         func(context.Context, map[string]string) (webE2EFixture, error) { return webE2EFixture{}, nil },
-			resetWebE2EDB:         func(context.Context, string, string) error { return nil },
-			renewWebE2E:           func(context.Context, map[string]string, webE2EMetadata, string, string) error { return nil },
+			createTemplate: func(context.Context, string, string) error { return nil },
+			prepareWebE2E:  func(context.Context, map[string]string) (webE2EFixture, error) { return webE2EFixture{}, nil },
+			resetWebE2EDB: func(context.Context, string, string) (harnessruntime.DatabaseResetResult, error) {
+				return harnessruntime.DatabaseResetResult{}, nil
+			},
+			resetWebE2EBucket:     func(context.Context, webE2EMetadata, map[string]string) error { return nil },
 			cleanupWebE2EDB:       func(context.Context, webE2EMetadata, map[string]string) error { return nil },
 			cleanupWebE2EBucket:   func(context.Context, webE2EMetadata, map[string]string) error { return nil },
 			cleanupWebE2ESessions: func(context.Context, map[string]string, string) error { return nil },

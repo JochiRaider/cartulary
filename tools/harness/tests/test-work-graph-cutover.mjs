@@ -389,7 +389,30 @@ async function assertFixtures() {
   await transaction.release();
   const failedDedicated = await broker.acquire("postgres_dedicated", { unitID: "row-failed" });
   await failedDedicated.quarantine();
-  assert.equal(failedDedicated.record.state, "quarantined");
+  assert.equal(failedDedicated.record.state, "destroyed");
+  assert.equal(failedDedicated.record.cleanup_outcome, "completed");
+	const cleanupRecords = [];
+	const failingCleanupBroker = new FixtureBroker({
+		providers: {
+			postgres_dedicated: {
+				acquire: async () => ({
+					ownership: "owned",
+					resource_ids: ["postgres:cleanup-failure"],
+					resource: {},
+					quarantine: async () => { throw new Error("cleanup failed"); },
+				}),
+			},
+		},
+		recordSink: async (record) => cleanupRecords.push(structuredClone(record)),
+	});
+	const cleanupFailure = await failingCleanupBroker.acquire("postgres_dedicated");
+	await assert.rejects(cleanupFailure.quarantine(), /cleanup failed/u);
+	assert.deepEqual(
+		cleanupRecords.slice(-2).map((record) => [record.state, record.cleanup_outcome]),
+		[["quarantined", "pending"], ["quarantined", "failed"]],
+		"quarantine must be durable before cleanup and terminal after cleanup failure",
+	);
+	assert.equal(cleanupFailure.record.cleanup_failure_reason, "cleanup_error");
   const first = await broker.acquire("browser_stack", { unitID: "group-a", affinityKey: "chain-a" });
   const second = await broker.acquire("browser_stack", { unitID: "group-b", affinityKey: "chain-a" });
   assert.equal(first.resource, second.resource, "browser affinity must reuse one stack lease");

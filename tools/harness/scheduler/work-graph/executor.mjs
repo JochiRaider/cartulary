@@ -1,5 +1,8 @@
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import path from "node:path";
+
+import { validateSchemaSync } from "../../contract/index.mjs";
 
 const failureClasses = new Set([
   "artifact",
@@ -10,6 +13,7 @@ const failureClasses = new Set([
   "product",
   "security",
   "timing",
+  "unknown",
 ]);
 
 function retainedFailureMarker(stdout, stderr) {
@@ -22,7 +26,7 @@ function retainedFailureMarker(stdout, stderr) {
   if (classes.length === 0) return null;
   return {
     failure_class: classes.at(-1),
-    failure_reason: reasons.at(-1) ?? "execution_failure",
+    failure_reason: reasons.at(-1) ?? "unknown_failure",
   };
 }
 
@@ -34,13 +38,46 @@ function classifyFailure(unit, code, stdout, stderr, { timedOut, cancelled }) {
   if (code === 2 && path.basename(unit.command.executable) !== "make") {
     return { failure_class: "config", failure_reason: "configuration_error" };
   }
-  if (code === 3) return { failure_class: "infra", failure_reason: "infrastructure_error" };
+  if (code === 3) return { failure_class: "infra", failure_reason: "preflight_error" };
   if (code === 10) return { failure_class: "product", failure_reason: "test_assertion_failure" };
-  if (code === 11) return { failure_class: "harness", failure_reason: "execution_failure" };
+  if (code === 11) return { failure_class: "artifact", failure_reason: "artifact_error" };
   if (code === 13) return { failure_class: "timing", failure_reason: "timeout_failure" };
+  if (unit.kind === "lifecycle") {
+    return { failure_class: "harness", failure_reason: "fixture_error" };
+  }
   return path.basename(unit.command.executable) === "make"
-    ? { failure_class: "harness", failure_reason: "execution_failure" }
+    ? { failure_class: "harness", failure_reason: "child_target_failure" }
     : { failure_class: "product", failure_reason: "test_assertion_failure" };
+}
+
+function retainedLifecycleFailure(unit, cwd, environment) {
+  if (unit.kind !== "lifecycle") return null;
+  const output = unit.current_run_evidence_outputs.find((candidate) =>
+    candidate.endsWith(".attempt.json")
+  );
+  const resultsRoot = environment.CARTULARY_TEST_RESULTS_DIR;
+  const runID = environment.CARTULARY_TEST_RUN_ID;
+  if (!output || !resultsRoot || !runID) {
+    return { failure_class: "artifact", failure_reason: "artifact_error" };
+  }
+  try {
+    const runRoot = path.resolve(cwd, resultsRoot, runID);
+    const artifact = path.resolve(runRoot, output);
+    if (!artifact.startsWith(`${runRoot}${path.sep}`)) {
+      throw new Error("attempt path escapes run root");
+    }
+    const attempt = JSON.parse(readFileSync(artifact, "utf8"));
+    validateSchemaSync(attempt.schema_id, attempt);
+    if (attempt.schema_id !== "cartulary.browser_reset_attempt.v1" || attempt.status !== "fail") {
+      throw new Error("lifecycle attempt is not a terminal failure");
+    }
+    return {
+      failure_class: attempt.failure_class,
+      failure_reason: attempt.failure_reason,
+    };
+  } catch {
+    return { failure_class: "artifact", failure_reason: "artifact_error" };
+  }
 }
 
 function terminateOwnedProcess(child, signal) {
@@ -69,15 +106,16 @@ export function executeUnitProcess(
   } = {},
 ) {
   return new Promise((resolve) => {
+    const childEnvironment = {
+      ...(inheritProcessEnvironment ? process.env : {}),
+      ...environment,
+      ...(fixtureLease?.allocation?.environment ?? {}),
+      ...(fixtureLease?.resource?.environment ?? {}),
+      ...unit.command.environment,
+    };
     const child = spawn(unit.command.executable, unit.command.args, {
       cwd,
-      env: {
-        ...(inheritProcessEnvironment ? process.env : {}),
-        ...environment,
-        ...(fixtureLease?.allocation?.environment ?? {}),
-        ...(fixtureLease?.resource?.environment ?? {}),
-        ...unit.command.environment,
-      },
+      env: childEnvironment,
       detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -109,7 +147,7 @@ export function executeUnitProcess(
       resolve({
         status: "failed",
         failure_class: "infra",
-        failure_reason: "process_start_error",
+        failure_reason: "service_start_error",
         error,
         stdout,
         stderr,
@@ -118,9 +156,12 @@ export function executeUnitProcess(
     child.on("close", (code, closeSignal) => {
       clearTimeout(timeout);
       signal?.removeEventListener("abort", onAbort);
-      const failure = code === 0 && !cancelled
+      let failure = code === 0 && !cancelled
         ? {}
         : classifyFailure(unit, code, stdout, stderr, { timedOut, cancelled });
+      if (code !== 0 && !timedOut && !cancelled && unit.kind === "lifecycle") {
+        failure = retainedLifecycleFailure(unit, cwd, childEnvironment);
+      }
       resolve({
         status: cancelled ? "cancelled" : code === 0 ? "passed" : "failed",
         ...failure,

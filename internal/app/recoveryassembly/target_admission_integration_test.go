@@ -31,7 +31,7 @@ func TestTargetServingAdmissionCancelsOnLeaseLoss_Integration(t *testing.T) {
 		t.Fatalf("acquire target serving admission: %v", err)
 	}
 	concreteAdmission := admission.(*targetServingAdmission)
-	backendPID, err := strconv.ParseInt(concreteAdmission.lease.SessionIdentity(), 10, 64)
+	backendPID, err := strconv.ParseInt(concreteAdmission.admission.SessionIdentity(), 10, 64)
 	if err != nil {
 		t.Fatalf("parse serving lease backend identity: %v", err)
 	}

@@ -554,82 +554,24 @@ assert_json "$failed_session_root/startup-diagnostics.json" \
   'value.schema_id === "cartulary.browser_startup_diagnostics.v2" && value.status === "failed"' \
   "failed v2 terminal diagnostic"
 
-# The reset entrypoint owns every retained reset-boundary writer. Prove a
-# caller's ambient 022 cannot weaken response, normalized-data, status, or
-# Playwright-state evidence.
-reset_fake_bin="$tmp_dir/reset-fake-bin"
-reset_results_root="$tmp_dir/reset-results"
-reset_runtime_root="$tmp_dir/reset-runtime"
-reset_state_root="$tmp_dir/reset-state"
-mkdir -p "$reset_fake_bin" "$reset_runtime_root" "$reset_state_root"
-cat >"$reset_fake_bin/testservices" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-if [[ -n "${CARTULARY_RESET_FAKE_ARGS:-}" ]]; then
-  printf '%s\n' "$@" >"$CARTULARY_RESET_FAKE_ARGS"
-fi
-exit 0
-EOF
-cat >"$reset_fake_bin/curl" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-output_file=""
-while [[ "$#" -gt 0 ]]; do
-  if [[ "$1" == "-o" ]]; then
-    output_file="$2"
-    shift 2
-    continue
-  fi
-  shift
-done
-[[ -n "$output_file" ]]
-printf '%s\n' '{"data":{"schema_id":"cartulary.test.runtime_reset.v1","reset_id":"ambient-022","tables_reset":["records"],"mutable_table_count":1,"object_count_removed":0,"object_count_after":0,"migration_metadata_preserved":true,"bootstrap_admin_restored":true,"partial_failure":false,"post_reset_counts":{"active_deployment_admins":1,"bootstrap_markers":1,"incidents":0,"records":0,"user_sessions":0,"route_idempotency":0}}}' >"$output_file"
-printf '200'
-EOF
-chmod 700 "$reset_fake_bin/testservices" "$reset_fake_bin/curl"
-(
-  umask 022
-  unset CARTULARY_HARNESS_IDENTITY_PREPARED
-  CARTULARY_TEST_TARGET=adhoc \
-    CARTULARY_TEST_RESULTS_DIR="$reset_results_root" \
-    CARTULARY_TEST_RUN_ID=ambient-reset \
-    CARTULARY_TEST_ROUTE_TOKEN=opaque-reset-token \
-    CARTULARY_TEST_SERVICES_BIN="$reset_fake_bin/testservices" \
-    CARTULARY_WEB_E2E_RUNTIME_ROOT="$reset_runtime_root" \
-    CARTULARY_PLAYWRIGHT_STATE_DIR="$reset_state_root" \
-    NODE_BIN="$NODE_BIN" \
-    PATH="$reset_fake_bin:$PATH" \
-    "$RESET_SCRIPT" --label ambient-022
-)
-reset_support_root="$reset_results_root/ambient-reset/adhoc/reset-boundary"
-for reset_artifact in \
-  "$reset_support_root/ambient-022.json" \
-  "$reset_support_root/ambient-022.data.json" \
-  "$reset_support_root/ambient-022.status" \
-  "$reset_support_root/ambient-022.state-reset"; do
-  [[ -f "$reset_artifact" ]] || fail "reset ambient-022 artifact missing: $reset_artifact"
-  [[ "$(stat -c '%a' "$reset_artifact")" == "600" ]] ||
-    fail "reset ambient-022 artifact must be 0600: $reset_artifact"
-done
-
-reset_args_file="$tmp_dir/reset-renew-args"
-reset_metadata_file="$reset_runtime_root/test-services-web-e2e.json"
-printf '%s\n' '{}' >"$reset_metadata_file"
-CARTULARY_RESET_FAKE_ARGS="$reset_args_file" \
-  CARTULARY_TEST_TARGET=adhoc \
-  CARTULARY_TEST_RESULTS_DIR="$reset_results_root" \
-  CARTULARY_TEST_RUN_ID=ambient-reset \
-  CARTULARY_TEST_ROUTE_TOKEN=opaque-reset-token \
-  CARTULARY_TEST_SERVICES_BIN="$reset_fake_bin/testservices" \
-  CARTULARY_WEB_E2E_RUNTIME_ROOT="$reset_runtime_root" \
-  CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE="$reset_metadata_file" \
-  CARTULARY_PLAYWRIGHT_STATE_DIR="$reset_state_root" \
+# Browser reset is a process-replacement lifecycle, not a live HTTP route or
+# generation-renewal compatibility path.
+if CARTULARY_TEST_TARGET=adhoc \
+  CARTULARY_TEST_RESULTS_DIR="$tmp_dir/reset-results" \
+  CARTULARY_TEST_RUN_ID=missing-lease \
   NODE_BIN="$NODE_BIN" \
-  PATH="$reset_fake_bin:$PATH" \
-  "$RESET_SCRIPT" --label functional-generation-2 --renew-generation 2
-if [[ "$(tr '\n' ' ' <"$reset_args_file")" != \
-  "renew-web-e2e --credential-root $reset_runtime_root --bootstrap-manifest $ROOT_DIR/configs/dev/bootstrap-admin.json --metadata-file $reset_metadata_file --generation 2 " ]]; then
-  fail "functional renewal did not pass exact owned resource identity"
+  "$RESET_SCRIPT" --label missing-lease >/dev/null 2>&1; then
+  fail "browser reset without the scheduler-owned session lease must fail"
 fi
+if "$RESET_SCRIPT" --label retired-renew --renew-generation 2 >/dev/null 2>&1; then
+  fail "retired functional renewal option must fail"
+fi
+if grep -Fq '/api/v1/test/runtime/reset' "$ROOT_DIR/tools/harness/browser/lifecycle/reset-route.sh"; then
+  fail "browser reset lifecycle must not call the retired runtime reset route"
+fi
+grep -Fq -- '--session-reset-backend' "$ROOT_DIR/tools/harness/browser/lifecycle/reset-route.sh" ||
+  fail "browser reset wrapper must delegate to backend replacement"
+grep -Fq -- '--database-result-file' "$ROOT_DIR/tools/harness/browser/lifecycle/reset-route.sh" ||
+  fail "browser reset wrapper must retain the database diagnostic"
 
 printf '%s\n' "test-web-e2e-lifecycle: pass"

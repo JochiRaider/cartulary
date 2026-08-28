@@ -74,13 +74,6 @@ func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	exclusiveBackend := PostgresBackend{
-		Pool:        pool,
-		AdvisoryKey: ServingAdvisoryKey,
-		Purpose:     "restore target",
-		Mode:        LockExclusive,
-	}
-
 	firstShared, err := AcquireApplicationRecoveryServing(context.Background(), pool, 5*time.Second, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("acquire first shared serving lease: %v", err)
@@ -94,14 +87,14 @@ func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
 	if err := secondShared.Release(context.Background()); err != nil {
 		t.Fatalf("release second shared serving lease: %v", err)
 	}
-	if _, err := Acquire(context.Background(), exclusiveBackend, 20*time.Millisecond, 40*time.Millisecond); !errors.Is(err, ErrApplicationProcessActive) {
+	if _, err := AcquireRecoveryTargetLease(context.Background(), pool, 20*time.Millisecond, 40*time.Millisecond); !errors.Is(err, ErrApplicationProcessActive) {
 		t.Fatalf("exclusive lease while a server is active = %v", err)
 	}
 	if err := firstShared.Release(context.Background()); err != nil {
 		t.Fatalf("release first shared serving lease: %v", err)
 	}
 
-	exclusive, err := Acquire(context.Background(), exclusiveBackend, 5*time.Second, 40*time.Millisecond)
+	exclusive, err := AcquireRecoveryTargetLease(context.Background(), pool, 5*time.Second, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("acquire exclusive restore lease: %v", err)
 	}

@@ -27,7 +27,7 @@ const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const identityPattern = /^[a-zA-Z0-9_.-]+$/u;
 
 function usage() {
-  return "usage: browser-session-evidence.mjs event <state> <message> [failure-class failure-reason] | terminal <ready|failed> <message> [failure-class failure-reason] | write-service-admission | lease | stack | attach <stack-v6.json> | attach-json <stack-v6.json>";
+  return "usage: browser-session-evidence.mjs event <state> <message> [failure-class failure-reason] | terminal <ready|failed> <message> [failure-class failure-reason] | write-service-admission | lease | stack | backend-generation <reset-id> <generation> | attach <stack-v6.json> | attach-json <stack-v6.json>";
 }
 
 function requiredEnv(name) {
@@ -572,6 +572,99 @@ function writeStack() {
   return output;
 }
 
+function writeBackendGeneration(resetID, generationText) {
+  if (!identityPattern.test(resetID)) throw new Error("backend generation reset ID is unsafe");
+  const generation = Number.parseInt(generationText, 10);
+  if (!Number.isSafeInteger(generation) || generation < 2) {
+    throw new Error("backend generation must be an integer greater than one");
+  }
+  const stackPath = path.resolve(requiredEnv("CARTULARY_WEB_E2E_STACK_JSON_FILE"));
+  requireOwnerOnlyRegular(stackPath, "base browser stack");
+  const stack = JSON.parse(readFileSync(stackPath, "utf8"));
+  validateSchemaSync(stack.schema_id, stack);
+  if (stack.performance_fixture) {
+    throw new Error("immutable performance fixture stacks cannot publish reset generations");
+  }
+  const payload = {
+    schema_id: "cartulary.web_e2e_backend_generation.v1",
+    reset_id: resetID,
+    generation,
+    suite_id: identityEnv("CARTULARY_TEST_SUITE_ID"),
+    browser_session_id: identityEnv("CARTULARY_BROWSER_SESSION_GROUP"),
+    runtime_profile_id: identityEnv("CARTULARY_BROWSER_RUNTIME_PROFILE_ID"),
+    configuration_fingerprint: stack.configuration_fingerprint,
+    base_stack_ref: relativeToRun(stackPath),
+    base_stack_sha256: sha256File(stackPath),
+    backend: {
+      ...processProof(
+        requiredEnv("CARTULARY_WEB_E2E_BACKEND_IDENTITY_SERVER_PID"),
+        requiredEnv("CARTULARY_WEB_E2E_SERVER_PGID"),
+      ),
+      origin: requiredEnv("CARTULARY_WEB_E2E_API_ORIGIN"),
+      port: Number.parseInt(requiredEnv("CARTULARY_WEB_E2E_BACKEND_PORT"), 10),
+      ready_at: requiredEnv("CARTULARY_WEB_E2E_BACKEND_READY_AT"),
+    },
+    created_at: new Date().toISOString(),
+  };
+  if (
+    payload.suite_id !== stack.suite_id ||
+    payload.browser_session_id !== stack.browser_session_id ||
+    payload.runtime_profile_id !== stack.runtime_profile_id
+  ) {
+    throw new Error("backend generation identity does not match its base stack");
+  }
+  validateSchemaSync(payload.schema_id, payload);
+  const directory = path.join(sessionRoot(), "backend-generations");
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const output = path.join(directory, `${resetID}.json`);
+  if (existsSync(output)) throw new Error("backend generation evidence is immutable");
+  atomicWrite(output, `${JSON.stringify(payload, null, 2)}\n`);
+
+  const headPath = path.resolve(requiredEnv("CARTULARY_WEB_E2E_BACKEND_GENERATION_HEAD"));
+  const runtimeRoot = path.resolve(requiredEnv("CARTULARY_WEB_E2E_RUNTIME_ROOT"));
+  if (!headPath.startsWith(`${runtimeRoot}${path.sep}`)) {
+    throw new Error("backend generation head must be beneath the private runtime root");
+  }
+  atomicWrite(headPath, `${JSON.stringify({
+    artifact_ref: relativeToRun(output),
+    artifact_sha256: sha256File(output),
+    generation,
+  }, null, 2)}\n`);
+  return output;
+}
+
+function activeBackend(stack, stackPath) {
+  const configuredHead = (process.env.CARTULARY_WEB_E2E_BACKEND_GENERATION_HEAD ?? "").trim();
+  if (!configuredHead || !existsSync(configuredHead)) return { backend: stack.backend, reference: "" };
+  const headPath = path.resolve(configuredHead);
+  const runtimeRoot = path.resolve(requiredEnv("CARTULARY_WEB_E2E_RUNTIME_ROOT"));
+  if (!headPath.startsWith(`${runtimeRoot}${path.sep}`)) {
+    throw new Error("backend generation head escapes the private runtime root");
+  }
+  requireOwnerOnlyRegular(headPath, "backend generation head");
+  const head = JSON.parse(readFileSync(headPath, "utf8"));
+  const artifact = resolveRunArtifact(String(head.artifact_ref ?? ""));
+  requireOwnerOnlyRegular(artifact, "backend generation evidence");
+  if (sha256File(artifact) !== head.artifact_sha256) {
+    throw new Error("backend generation head digest mismatch");
+  }
+  const generation = JSON.parse(readFileSync(artifact, "utf8"));
+  validateSchemaSync(generation.schema_id, generation);
+  if (
+    generation.schema_id !== "cartulary.web_e2e_backend_generation.v1" ||
+    generation.base_stack_ref !== relativeToRun(stackPath) ||
+    generation.base_stack_sha256 !== sha256File(stackPath) ||
+    generation.suite_id !== stack.suite_id ||
+    generation.browser_session_id !== stack.browser_session_id ||
+    generation.runtime_profile_id !== stack.runtime_profile_id ||
+    generation.configuration_fingerprint !== stack.configuration_fingerprint ||
+    generation.generation !== head.generation
+  ) {
+    throw new Error("backend generation does not match its base stack");
+  }
+  return { backend: generation.backend, reference: head.artifact_ref };
+}
+
 function verifyProcessProof(proof, label) {
   const current = processProof(proof.pid, proof.process_group_id);
   for (const key of [
@@ -620,6 +713,7 @@ export function attachmentAssignments(stackPath) {
   requireRegularNoSymlink(resolvedStack, "v6 browser stack");
   const stack = JSON.parse(readFileSync(resolvedStack, "utf8"));
   validateSchemaSync(stack.schema_id, stack);
+  const currentBackend = activeBackend(stack, resolvedStack);
   const expected = {
     suite_id: identityEnv("CARTULARY_TEST_SUITE_ID"),
     browser_session_id: identityEnv("CARTULARY_BROWSER_SESSION_GROUP"),
@@ -735,7 +829,7 @@ export function attachmentAssignments(stackPath) {
   ) {
     throw new Error("browser v6 attachment frontend build digest mismatch");
   }
-  verifyProcessProof(stack.backend, "backend");
+  verifyProcessProof(currentBackend.backend, "backend");
   verifyProcessProof(stack.frontend, "frontend");
   mkdirSync(playwrightStateDir, { recursive: true, mode: 0o700 });
   const stateDirInfo = lstatSync(playwrightStateDir);
@@ -749,11 +843,14 @@ export function attachmentAssignments(stackPath) {
     CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER: "1",
     CARTULARY_PLAYWRIGHT_STATE_DIR: playwrightStateDir,
     CARTULARY_WEB_E2E_STACK_JSON_FILE: resolvedStack,
-    CARTULARY_WEB_E2E_API_ORIGIN: stack.backend.origin,
+    CARTULARY_WEB_E2E_API_ORIGIN: currentBackend.backend.origin,
     CARTULARY_WEB_E2E_PUBLIC_ORIGIN: stack.frontend.origin,
     CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID: stack.runtime_profile_id,
     CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT:
       process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT ?? "",
+    ...(currentBackend.reference
+      ? { CARTULARY_WEB_E2E_BACKEND_GENERATION_REF: currentBackend.reference }
+      : {}),
     CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS: resolveRunArtifact(
       stack.startup_diagnostics_ref,
     ),
@@ -807,6 +904,10 @@ function main(argv) {
   }
   if (command === "stack" && args.length === 0) {
     process.stdout.write(`${writeStack()}\n`);
+    return;
+  }
+  if (command === "backend-generation" && args.length === 2) {
+    process.stdout.write(`${writeBackendGeneration(args[0], args[1])}\n`);
     return;
   }
   if (command === "attach" && args.length === 1) {

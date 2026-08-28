@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.web_e2e_backend_generation.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "reset_id", "generation", "suite_id", "browser_session_id", "runtime_profile_id", "configuration_fingerprint", "base_stack_ref", "base_stack_sha256", "backend", "created_at"],
+  "properties": {
+    "schema_id": { "const": "cartulary.web_e2e_backend_generation.v1" },
+    "reset_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "generation": { "type": "integer", "minimum": 2 },
+    "suite_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "browser_session_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "runtime_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "configuration_fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "base_stack_ref": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+    "base_stack_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "backend": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "cartulary.web_e2e_stack.v6#/$defs/process_proof" },
+        {
+          "type": "object",
+          "required": ["origin", "port", "ready_at"],
+          "properties": {
+            "origin": { "type": "string", "pattern": "^http://127\\.0\\.0\\.1:[0-9]+$" },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "ready_at": { "type": "string", "format": "date-time" }
+          }
+        }
+      ]
+    },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

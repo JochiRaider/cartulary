@@ -146,10 +146,7 @@ class FixtureLease {
   }
 
   async quarantine() {
-    this.record.state = "quarantined";
-    validateSchemaSync(this.record.schema_id, this.record);
-    await this.broker.recordSink(this.record);
-    await this.release({ healthy: false });
+    return this.release({ healthy: false });
   }
 }
 
@@ -225,11 +222,13 @@ export class FixtureBroker {
       }
     }
     const record = {
-      schema_id: "cartulary.harness_fixture_lease.v3",
+      schema_id: "cartulary.harness_fixture_lease.v4",
       lease_id: leaseID,
       capability,
       ownership: allocation.ownership,
       state: "leased",
+      cleanup_outcome: "not_required",
+      cleanup_failure_reason: null,
       resource_ids: allocation.resource_ids,
       ...(affinityKey ? { affinity_key: affinityKey } : {}),
       ...(allocation.fixture_profile_id
@@ -277,20 +276,35 @@ export class FixtureBroker {
         }
       }
     }
-    if (releaseAllocation && lease.record.capability !== "none") {
-      if (lease.allocation.ownership === "borrowed") {
-        await lease.allocation.detach?.();
-      } else if (healthy) {
-        await lease.allocation.release?.();
-      } else {
-        await (lease.allocation.quarantine?.() ?? lease.allocation.destroy?.());
+    const cleanupRequired = releaseAllocation && lease.record.capability !== "none";
+    if (!healthy) {
+      lease.record.state = "quarantined";
+      lease.record.cleanup_outcome = cleanupRequired ? "pending" : "not_required";
+      lease.record.cleanup_failure_reason = null;
+      validateSchemaSync(lease.record.schema_id, lease.record);
+      await this.recordSink(lease.record);
+    }
+    if (cleanupRequired) {
+      try {
+        if (lease.allocation.ownership === "borrowed") {
+          await lease.allocation.detach?.();
+        } else if (healthy) {
+          await lease.allocation.release?.();
+        } else {
+          await (lease.allocation.quarantine?.() ?? lease.allocation.destroy?.());
+        }
+      } catch (error) {
+        lease.record.state = healthy ? "failed" : "quarantined";
+        lease.record.cleanup_outcome = "failed";
+        lease.record.cleanup_failure_reason = "cleanup_error";
+        validateSchemaSync(lease.record.schema_id, lease.record);
+        await this.recordSink(lease.record);
+        throw error;
       }
     }
-    lease.record.state = healthy
-      ? "released"
-      : lease.record.state === "quarantined"
-        ? "quarantined"
-        : "destroyed";
+    lease.record.state = healthy ? "released" : cleanupRequired ? "destroyed" : "quarantined";
+    lease.record.cleanup_outcome = cleanupRequired ? "completed" : "not_required";
+    lease.record.cleanup_failure_reason = null;
     validateSchemaSync(lease.record.schema_id, lease.record);
     await this.recordSink(lease.record);
     return { retained };

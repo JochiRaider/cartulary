@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.browser_e2e_batch_manifest.v10",
+  "$id": "cartulary.browser_e2e_batch_manifest.v11",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_id", "runtime_profiles", "stages"],
   "properties": {
-    "schema_id": { "const": "cartulary.browser_e2e_batch_manifest.v10" },
+    "schema_id": { "const": "cartulary.browser_e2e_batch_manifest.v11" },
     "runtime_profiles": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/record" } },
     "stages": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/stage" } }
   },

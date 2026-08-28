@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.browser_e2e_batch_manifest.v10",
+  "schema_id": "cartulary.browser_e2e_batch_manifest.v11",
   "runtime_profiles": [
     {
       "id": "default",
@@ -1473,8 +1473,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-clock"
+          ]
         },
         {
           "name": "stateful-default-collaboration",
@@ -1496,8 +1495,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-collaboration"
+          ]
         },
         {
           "name": "stateful-default-coordination-public-route",
@@ -1519,8 +1517,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-coordination-public-route"
+          ]
         },
         {
           "name": "stateful-default-evidence-integration",
@@ -1542,8 +1539,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-evidence-integration"
+          ]
         },
         {
           "name": "stateful-default-inspector-actions",
@@ -1566,8 +1562,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-inspector-actions"
+          ]
         },
         {
           "name": "stateful-default-mention-lifecycle",
@@ -1589,8 +1584,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-mention-lifecycle"
+          ]
         },
         {
           "name": "stateful-default-sentinel",
@@ -1612,8 +1606,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-sentinel"
+          ]
         },
         {
           "name": "stateful-default-session-recovery",
@@ -1635,8 +1628,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-session-recovery"
+          ]
         },
         {
           "name": "stateful-default-timeline-public-route",
@@ -1658,8 +1650,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-timeline-public-route"
+          ]
         },
         {
           "name": "stateful-default-workbook",
@@ -1681,8 +1672,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-workbook"
+          ]
         },
         {
           "name": "stateful-network-flow-claimed-extensions-stateful",
@@ -1729,8 +1719,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-network-flow-claimed-before-network-flow"
+          ]
         }
       ]
     },
@@ -2225,7 +2214,6 @@
           "coverage": "authoritative",
           "execution_dependency": "browser_visual",
           "workers": "1",
-          "reset_before": "measurement-to-visual",
           "selected_row_ids": [
             "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99",
             "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1",
@@ -2317,8 +2305,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-clock"
+          ]
         },
         {
           "name": "stateful-default-collaboration",
@@ -2340,8 +2327,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-collaboration"
+          ]
         },
         {
           "name": "stateful-default-coordination-public-route",
@@ -2363,8 +2349,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-coordination-public-route"
+          ]
         },
         {
           "name": "stateful-default-evidence-integration",
@@ -2386,8 +2371,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-evidence-integration"
+          ]
         },
         {
           "name": "stateful-default-inspector-actions",
@@ -2410,8 +2394,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-inspector-actions"
+          ]
         },
         {
           "name": "stateful-default-mention-lifecycle",
@@ -2433,8 +2416,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-mention-lifecycle"
+          ]
         },
         {
           "name": "stateful-default-sentinel",
@@ -2456,8 +2438,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-sentinel"
+          ]
         },
         {
           "name": "stateful-default-session-recovery",
@@ -2479,8 +2460,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-session-recovery"
+          ]
         },
         {
           "name": "stateful-default-timeline-public-route",
@@ -2502,8 +2482,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-timeline-public-route"
+          ]
         },
         {
           "name": "stateful-default-workbook",
@@ -2525,8 +2504,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-default-before-workbook"
+          ]
         },
         {
           "name": "stateful-network-flow-claimed-extensions-stateful",
@@ -2573,8 +2551,7 @@
           "service_dependencies": [
             "object_store",
             "postgres"
-          ],
-          "reset_before": "stateful-network-flow-claimed-before-network-flow"
+          ]
         },
         {
           "name": "measurement-measurement-timeline-grid-b615aabfe6",
@@ -2744,7 +2721,6 @@
           "coverage": "authoritative",
           "execution_dependency": "browser_a11y",
           "workers": "1",
-          "reset_before": "measurement-to-a11y",
           "selected_row_ids": [
             "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9",
             "module.collaboration.accessibility.verify_conflict_state_resolver_controls_presence_2ec686e8dd",
@@ -2778,7 +2754,6 @@
           "coverage": "supplemental",
           "execution_dependency": "browser_a11y",
           "workers": "1",
-          "reset_before": "a11y-to-network-flow-claimed",
           "runtime_profile_id": "network_flow_claimed",
           "browser_session_group": "browser-a11y-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration",
@@ -2802,7 +2777,6 @@
           "coverage": "authoritative",
           "execution_dependency": "browser_visual",
           "workers": "1",
-          "reset_before": "a11y-to-visual",
           "selected_row_ids": [
             "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99",
             "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1",
@@ -2847,7 +2821,6 @@
           "coverage": "supplemental",
           "execution_dependency": "browser_visual",
           "workers": "1",
-          "reset_before": "visual-to-network-flow-claimed",
           "runtime_profile_id": "network_flow_claimed",
           "browser_session_group": "browser-visual-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow visual evidence requires immutable startup-only extension configuration",

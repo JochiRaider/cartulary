@@ -707,7 +707,7 @@ export async function runWorkGraph({
         state.set(unitID, "failed");
         await emit("failed", unit, "failed", {
           failure_class: result.failure_class ?? "harness",
-          failure_reason: result.failure_reason ?? "execution_failure",
+			failure_reason: result.failure_reason ?? "unknown_failure",
         });
       }
       await settleSuccessors(unitID);

@@ -1013,12 +1013,12 @@
       "selector": {
         "package": "./internal/modules/networkflow/harnesscontrol",
         "tests": [
+			"TestNetworkFlowAuditAssertionRegistryClearRemovesArmedAssertions",
           "TestNetworkFlowAuditAssertionRouteArmsExactCountAssertion",
           "TestNetworkFlowAuditAssertionRouteDisabledByDefault",
           "TestNetworkFlowAuditAssertionRouteRejectsInvalidRequests",
           "TestNetworkFlowAuditAssertionRouteRequiresHarnessAuthorization",
-          "TestNetworkFlowAuditAssertionRouteSupportsNoAuditReplayAndDuplicateProtection",
-          "TestTestRuntimeResetClearsNetworkFlowAuditAssertions"
+			"TestNetworkFlowAuditAssertionRouteSupportsNoAuditReplayAndDuplicateProtection"
         ]
       },
       "evidence_class": "integration",
@@ -1026,12 +1026,9 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "none",
       "minimum_tier": "full",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+		"service_dependencies": []
     },
     {
       "row_id": "module.networkflow.support_integration.network_flow_auth_transition_route_disabled_by_d_07779f71d9",
@@ -1045,12 +1042,12 @@
       "selector": {
         "package": "./internal/modules/networkflow/harnesscontrol",
         "tests": [
+			"TestNetworkFlowAuthTransitionRegistryClearRemovesArmedTransitions",
           "TestNetworkFlowAuthTransitionRouteAllowsIndependentKeysAndRejectsDuplicate",
           "TestNetworkFlowAuthTransitionRouteArmsExactHiddenResourceTransition",
           "TestNetworkFlowAuthTransitionRouteDisabledByDefault",
-          "TestNetworkFlowAuthTransitionRouteRejectsInvalidRequests",
-          "TestNetworkFlowAuthTransitionRouteRequiresHarnessAuthorization",
-          "TestTestRuntimeResetClearsNetworkFlowAuthTransitions"
+			"TestNetworkFlowAuthTransitionRouteRejectsInvalidRequests",
+			"TestNetworkFlowAuthTransitionRouteRequiresHarnessAuthorization"
         ]
       },
       "evidence_class": "integration",
@@ -1058,12 +1055,9 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "none",
       "minimum_tier": "full",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+		"service_dependencies": []
     },
     {
       "row_id": "module.networkflow.support_integration.network_flow_fault_route_disabled_by_default_8b0741837f",
@@ -1077,12 +1071,12 @@
       "selector": {
         "package": "./internal/modules/networkflow/harnesscontrol",
         "tests": [
+			"TestNetworkFlowFaultRegistryClearRemovesArmedFaults",
           "TestNetworkFlowFaultRouteArmsOneShotBoundaryFault",
           "TestNetworkFlowFaultRouteDisabledByDefault",
           "TestNetworkFlowFaultRouteRejectsInvalidRequests",
-          "TestNetworkFlowFaultRouteRejectsSecondArmWhilePending",
-          "TestNetworkFlowFaultRouteRequiresHarnessAuthorization",
-          "TestTestRuntimeResetClearsNetworkFlowFaults"
+			"TestNetworkFlowFaultRouteRejectsSecondArmWhilePending",
+			"TestNetworkFlowFaultRouteRequiresHarnessAuthorization"
         ]
       },
       "evidence_class": "integration",
@@ -1090,12 +1084,9 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "none",
       "minimum_tier": "full",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+		"service_dependencies": []
     },
     {
       "row_id": "module.networkflow.support_integration.network_flow_randomness_route_disabled_by_defaul_a63c6ef32a",
@@ -1109,14 +1100,14 @@
       "selector": {
         "package": "./internal/modules/networkflow/harnesscontrol",
         "tests": [
+			"TestNetworkFlowRandomnessRegistryClearRemovesArmedRandomness",
           "TestNetworkFlowRandomnessRouteArmsDeterministicCollisionStream",
           "TestNetworkFlowRandomnessRouteConsumesHexBytes",
           "TestNetworkFlowRandomnessRouteDisabledByDefault",
           "TestNetworkFlowRandomnessRouteRejectsInvalidRequests",
           "TestNetworkFlowRandomnessRouteRejectsSecondArmWhileStreamRegistered",
-          "TestNetworkFlowRandomnessRouteRequiresHarnessAuthorization",
-          "TestNetworkFlowRandomnessValueValidationDoesNotAcceptBinaryBodies",
-          "TestTestRuntimeResetClearsNetworkFlowRandomness"
+			"TestNetworkFlowRandomnessRouteRequiresHarnessAuthorization",
+			"TestNetworkFlowRandomnessValueValidationDoesNotAcceptBinaryBodies"
         ]
       },
       "evidence_class": "integration",
@@ -1124,12 +1115,9 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "none",
       "minimum_tier": "full",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+		"service_dependencies": []
     },
     {
       "row_id": "module.networkflow.unit.bounded_graph_aggregation_and_selectors",

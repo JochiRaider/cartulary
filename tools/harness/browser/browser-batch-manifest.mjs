@@ -11,7 +11,7 @@ import {
   validateObjectShape,
 } from "../contract/json-shape.mjs";
 
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v10";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v11";
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const browserBatchKeys = new Set(["schema_id", "runtime_profiles", "stages"]);
@@ -34,7 +34,6 @@ const browserGroupKeys = new Set([
   "coverage",
   "execution_dependency",
   "dependency_target",
-  "reset_before",
   "selected_row_ids",
   "browser_session_group",
   "browser_session_isolation_reason",
@@ -353,7 +352,6 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
     executionDependency:
       group.execution_dependency === undefined ? "" : String(group.execution_dependency).trim(),
     workers: group.workers === undefined ? "default" : String(group.workers),
-    resetBefore: group.reset_before === undefined ? "" : String(group.reset_before),
     selectedRowIDs: normalizeSelectedRowIDs(group),
     specs: normalizeSpecs(group),
     browserSessionGroup,
@@ -435,7 +433,6 @@ function printRunnerMetadata(stage) {
         group.target,
         group.kind,
         group.workers,
-        group.resetBefore,
         group.coverage,
         group.executionDependency,
         stage.scheduleTags.join(","),

@@ -50,6 +50,5 @@ func (c *Controls) Contribution() harnessruntime.ControlContribution {
 			RegisterNetworkFlowAuthTransitionRoutes(c.Transitions),
 			RegisterNetworkFlowAuditAssertionRoutes(c.AuditAssertions),
 		},
-		ResetHooks: []func(){c.Clear},
 	}
 }

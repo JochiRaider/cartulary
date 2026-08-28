@@ -2,68 +2,53 @@ package harnessruntime
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/platform/harnessredact"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 )
 
 const (
-	testRuntimeResetSchemaID    = "cartulary.test.runtime_reset.v1"
 	testRuntimeIdentitySchemaID = "cartulary.test.runtime_identity.v1"
-	testClockModuleOverrideKey  = "test_clock"
 	testRoutesEnabledEnv        = httpapi.TestRoutesEnabledEnv
 	testRouteTokenEnv           = httpapi.TestRouteTokenEnv
 	testRuntimeMarkerEnv        = httpapi.TestRuntimeMarkerEnv
 	testRuntimeMarkerValue      = httpapi.TestRuntimeMarkerValue
 	testRouteTokenHeader        = httpapi.TestRouteTokenHeader
 	testRuntimeResetTimeout     = 30 * time.Second
+	recoveryLeaseLossDetection  = 5 * time.Second
 )
 
-type testRuntimeResetService struct {
-	resetDatabase func(context.Context) error
-	postgres      *pgxpool.Pool
-	objectStore   objectstore.Store
-	guard         httpapi.TestRouteGuard
-	resetHooks    []func()
-	resetMu       sync.Mutex
+type DatabaseResetResult struct {
+	TablesReset                []string
+	TableCounts                []DatabaseResetTableCount
+	MutableTableCount          int
+	MigrationMetadataPreserved bool
+	BootstrapAdminRestored     bool
+	PostResetCounts            DatabaseResetCounts
 }
 
-type testRuntimeResetResult struct {
-	SchemaID                   string            `json:"schema_id"`
-	ResetID                    string            `json:"reset_id"`
-	TablesReset                []string          `json:"tables_reset"`
-	MutableTableCount          int               `json:"mutable_table_count"`
-	ObjectCountRemoved         int               `json:"object_count_removed"`
-	ObjectCountAfter           int               `json:"object_count_after"`
-	MigrationMetadataPreserved bool              `json:"migration_metadata_preserved"`
-	BootstrapAdminRestored     bool              `json:"bootstrap_admin_restored"`
-	PartialFailure             bool              `json:"partial_failure"`
-	PartialFailureDetails      map[string]any    `json:"partial_failure_details,omitempty"`
-	PostResetCounts            testRuntimeCounts `json:"post_reset_counts"`
+type DatabaseResetTableCount struct {
+	Table string
+	Rows  int
 }
 
-type testRuntimeCounts struct {
-	ActiveDeploymentAdmins int `json:"active_deployment_admins"`
-	BootstrapMarkers       int `json:"bootstrap_markers"`
-	Incidents              int `json:"incidents"`
-	Records                int `json:"records"`
-	UserSessions           int `json:"user_sessions"`
-	RouteIdempotency       int `json:"route_idempotency"`
+type DatabaseResetCounts struct {
+	ActiveDeploymentAdmins int
+	BootstrapMarkers       int
+	Incidents              int
+	Records                int
+	UserSessions           int
+	RouteIdempotency       int
 }
 
 type testRuntimeIdentityResult struct {
@@ -73,45 +58,24 @@ type testRuntimeIdentityResult struct {
 	TestRoutes    bool   `json:"test_routes_enabled"`
 }
 
-func RegisterTestRuntimeResetRoute(resetHooks ...func()) httpapi.RouteRegistrar {
+func RegisterTestRuntimeIdentityRoute() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		if !httpapi.TestRoutesEnabled(deps.Env) {
 			return nil
 		}
 		guard, err := httpapi.NewTestRouteGuard(deps.Env)
 		if err != nil {
-			return fmt.Errorf("register test runtime reset route: %w", err)
+			return fmt.Errorf("register test runtime identity route: %w", err)
 		}
-		if deps.Postgres == nil {
-			return fmt.Errorf("register test runtime reset route: postgres dependency is required")
-		}
-		if deps.ObjectStore == nil {
-			return fmt.Errorf("register test runtime reset route: object store dependency is required")
-		}
-		effectiveResetHooks := append([]func(){}, resetHooks...)
-		if clearable, ok := deps.PublicErrorFaults.(interface{ Clear() }); ok {
-			effectiveResetHooks = append(effectiveResetHooks, clearable.Clear)
-		}
-		if resettable, ok := deps.ModuleOverrides[testClockModuleOverrideKey].(interface{ Reset() time.Time }); ok {
-			effectiveResetHooks = append(effectiveResetHooks, func() {
-				_ = resettable.Reset()
-			})
-		}
-		service := &testRuntimeResetService{
-			resetDatabase: deps.TestResetDatabase,
-			postgres:      deps.Postgres,
-			objectStore:   deps.ObjectStore,
-			guard:         guard,
-			resetHooks:    effectiveResetHooks,
-		}
-		mux.HandleFunc("GET /api/v1/test/runtime/identity", service.handleIdentity)
-		mux.HandleFunc("POST /api/v1/test/runtime/reset", service.handleReset)
+		mux.HandleFunc("GET /api/v1/test/runtime/identity", func(w http.ResponseWriter, r *http.Request) {
+			handleTestRuntimeIdentity(w, r, guard)
+		})
 		return nil
 	}
 }
 
-func (s *testRuntimeResetService) handleIdentity(w http.ResponseWriter, r *http.Request) {
-	if !s.guard.Authorize(w, r) {
+func handleTestRuntimeIdentity(w http.ResponseWriter, r *http.Request, guard httpapi.TestRouteGuard) {
+	if !guard.Authorize(w, r) {
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, testRuntimeIdentityResult{
@@ -122,217 +86,113 @@ func (s *testRuntimeResetService) handleIdentity(w http.ResponseWriter, r *http.
 	})
 }
 
-func (s *testRuntimeResetService) handleReset(w http.ResponseWriter, r *http.Request) {
-	if !s.guard.Authorize(w, r) {
-		return
-	}
-	if err := validateTestRuntimeResetBody(r); err != nil {
-		_ = httpapi.WriteError(w, r, http.StatusBadRequest, "invalid_test_reset_request", "invalid test runtime reset request", map[string]any{
-			"reason": err.Error(),
-		})
-		return
-	}
-	if !s.resetMu.TryLock() {
-		_ = httpapi.WriteError(w, r, http.StatusConflict, "test_runtime_reset_in_progress", "test runtime reset already in progress", map[string]any{})
-		return
-	}
-	defer s.resetMu.Unlock()
-	for _, resetHook := range s.resetHooks {
-		if resetHook != nil {
-			resetHook()
-		}
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), testRuntimeResetTimeout)
-	defer cancel()
-
-	beforeGooseVersions, err := countTableRows(ctx, s.postgres, "goose_db_version")
-	if err != nil {
-		writeTestRuntimeResetError(w, r, "count migration metadata before reset", err, false, nil)
-		return
-	}
-	beforeLineageRows, err := countTableRows(ctx, s.postgres, "schema_migration_lineage")
-	if err != nil {
-		writeTestRuntimeResetError(w, r, "count migration lineage before reset", err, false, nil)
-		return
-	}
-
-	tables, err := listMutablePublicTables(ctx, s.postgres)
-	if err != nil {
-		writeTestRuntimeResetError(w, r, "list mutable tables", err, false, nil)
-		return
-	}
-	if s.resetDatabase != nil {
-		if err := s.resetDatabase(ctx); err != nil {
-			writeTestRuntimeResetError(w, r, "reset database through Recovery adapter", err, false, map[string]any{
-				"tables_reset": tables,
-			})
-			return
-		}
-	}
-	afterGooseVersions, err := countTableRows(ctx, s.postgres, "goose_db_version")
-	if err != nil {
-		writeTestRuntimeResetError(w, r, "count migration metadata after reset", err, false, map[string]any{
-			"tables_reset": tables,
-		})
-		return
-	}
-	afterLineageRows, err := countTableRows(ctx, s.postgres, "schema_migration_lineage")
-	if err != nil {
-		writeTestRuntimeResetError(w, r, "count migration lineage after reset", err, false, map[string]any{
-			"tables_reset": tables,
-		})
-		return
-	}
-	counts, err := readPostResetCounts(ctx, s.postgres)
-	if err != nil {
-		writeTestRuntimeResetError(w, r, "read post-reset counts", err, false, map[string]any{
-			"tables_reset": tables,
-		})
-		return
-	}
-	if beforeGooseVersions != afterGooseVersions || afterGooseVersions == 0 || beforeLineageRows != afterLineageRows || afterLineageRows != 1 {
-		writeTestRuntimeResetError(w, r, "verify migration metadata preservation", errors.New("migration metadata was not preserved"), false, map[string]any{
-			"tables_reset": tables,
-		})
-		return
-	}
-	if counts.ActiveDeploymentAdmins != 1 || counts.BootstrapMarkers != 1 {
-		writeTestRuntimeResetError(w, r, "verify bootstrap admin restored", errors.New("bootstrap admin was not restored"), false, map[string]any{
-			"tables_reset": tables,
-		})
-		return
-	}
-	objectsRemoved, err := clearConfiguredObjectBucket(ctx, s.objectStore)
-	if err != nil {
-		details := map[string]any{
-			"tables_reset":         tables,
-			"object_count_removed": objectsRemoved,
-		}
-		if objectsAfter, countErr := countConfiguredObjectBucket(context.Background(), s.objectStore); countErr == nil {
-			details["object_count_after"] = objectsAfter
-		}
-		writeTestRuntimeResetError(w, r, "clear object store bucket", err, true, details)
-		return
-	}
-	objectsAfter, err := countConfiguredObjectBucket(ctx, s.objectStore)
-	if err != nil {
-		writeTestRuntimeResetError(w, r, "count object store bucket after reset", err, true, map[string]any{
-			"tables_reset":         tables,
-			"object_count_removed": objectsRemoved,
-		})
-		return
-	}
-	if objectsAfter != 0 {
-		writeTestRuntimeResetError(w, r, "verify object store bucket empty", errors.New("object store bucket was not empty after reset"), true, map[string]any{
-			"tables_reset":         tables,
-			"object_count_removed": objectsRemoved,
-			"object_count_after":   objectsAfter,
-		})
-		return
-	}
-
-	result := testRuntimeResetResult{
-		SchemaID:                   testRuntimeResetSchemaID,
-		ResetID:                    uuid.NewString(),
-		TablesReset:                tables,
-		MutableTableCount:          len(tables),
-		ObjectCountRemoved:         objectsRemoved,
-		ObjectCountAfter:           objectsAfter,
-		MigrationMetadataPreserved: beforeGooseVersions == afterGooseVersions && afterGooseVersions > 0 && beforeLineageRows == afterLineageRows && afterLineageRows == 1,
-		BootstrapAdminRestored:     counts.ActiveDeploymentAdmins == 1 && counts.BootstrapMarkers == 1,
-		PartialFailure:             false,
-		PostResetCounts:            counts,
-	}
-
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result)
-}
-
 // ResetDatabase performs the destructive database portion of a harness reset
 // through a caller-supplied Recovery pool. Product server composition never
 // supplies this capability; browser and service fixtures invoke it out of
-// process before calling the route that clears runtime-local state.
-func ResetDatabase(ctx context.Context, recovery *pgxpool.Pool, restoreBootstrap func(context.Context, pgx.Tx) error) error {
+// process. Backend replacement clears all runtime-local state before the
+// replacement process reacquires ordinary serving admission.
+func ResetDatabase(ctx context.Context, recovery *pgxpool.Pool, restoreBootstrap func(context.Context, pgx.Tx) error) (DatabaseResetResult, error) {
 	if recovery == nil || restoreBootstrap == nil {
-		return errors.New("recovery reset dependencies are required")
+		return DatabaseResetResult{}, newResetFailure("recovery_reset_dependencies_invalid", errors.New("recovery reset dependencies are required"))
+	}
+	admission, err := processlease.AcquireRecoveryTarget(
+		ctx,
+		recovery,
+		testRuntimeResetTimeout,
+		recoveryLeaseLossDetection,
+	)
+	if err != nil {
+		return DatabaseResetResult{}, newResetFailure("recovery_reset_target_admission_failed", err)
+	}
+	result, resetErr := resetAdmittedDatabase(admission.Context(), recovery, restoreBootstrap, admission.AssertHeld)
+	releaseCtx, cancelRelease := context.WithTimeout(context.Background(), recoveryLeaseLossDetection)
+	releaseErr := admission.Release(releaseCtx)
+	cancelRelease()
+	if resetErr != nil {
+		return result, resetErr
+	}
+	if releaseErr != nil {
+		return result, newResetFailure("recovery_reset_target_release_failed", releaseErr)
+	}
+	return result, nil
+}
+
+func resetAdmittedDatabase(
+	ctx context.Context,
+	recovery *pgxpool.Pool,
+	restoreBootstrap func(context.Context, pgx.Tx) error,
+	assertAdmission func() error,
+) (DatabaseResetResult, error) {
+	var result DatabaseResetResult
+	if err := assertAdmission(); err != nil {
+		return result, newResetFailure("recovery_reset_target_admission_failed", err)
 	}
 	tx, err := recovery.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return newResetFailure("recovery_reset_begin_failed", err)
+		return result, newResetFailure("recovery_reset_begin_failed", err)
 	}
 	defer func() {
 		_ = tx.Rollback(context.Background())
 	}()
+	beforeGooseVersions, err := countTableRows(ctx, tx, "goose_db_version")
+	if err != nil {
+		return result, newResetFailure("recovery_reset_metadata_inventory_failed", err)
+	}
+	beforeLineageRows, err := countTableRows(ctx, tx, "schema_migration_lineage")
+	if err != nil {
+		return result, newResetFailure("recovery_reset_metadata_inventory_failed", err)
+	}
 	tables, err := listMutablePublicTables(ctx, tx)
 	if err != nil {
-		return newResetFailure("recovery_reset_inventory_failed", err)
+		return result, newResetFailure("recovery_reset_inventory_failed", err)
 	}
+	result.TablesReset = append([]string(nil), tables...)
+	result.MutableTableCount = len(tables)
 	if err := truncateTables(ctx, tx, tables); err != nil {
-		return newResetFailure("recovery_reset_truncate_failed", err)
+		return result, newResetFailure("recovery_reset_truncate_failed", err)
 	}
 	if err := resetTableSequences(ctx, tx, tables); err != nil {
-		return newResetFailure("recovery_reset_sequence_failed", err)
+		return result, newResetFailure("recovery_reset_sequence_failed", err)
 	}
 	if err := restoreBootstrap(ctx, tx); err != nil {
-		return newResetFailure("recovery_reset_bootstrap_failed", err)
+		return result, newResetFailure("recovery_reset_bootstrap_failed", err)
+	}
+	afterGooseVersions, err := countTableRows(ctx, tx, "goose_db_version")
+	if err != nil {
+		return result, newResetFailure("recovery_reset_metadata_verification_failed", err)
+	}
+	afterLineageRows, err := countTableRows(ctx, tx, "schema_migration_lineage")
+	if err != nil {
+		return result, newResetFailure("recovery_reset_metadata_verification_failed", err)
+	}
+	counts, err := readDatabaseResetCounts(ctx, tx)
+	if err != nil {
+		return result, newResetFailure("recovery_reset_state_verification_failed", err)
+	}
+	tableCounts, err := readMutableTableCounts(ctx, tx, tables)
+	if err != nil {
+		return result, newResetFailure("recovery_reset_state_verification_failed", err)
+	}
+	result.TableCounts = tableCounts
+	result.MigrationMetadataPreserved = beforeGooseVersions == afterGooseVersions && afterGooseVersions > 0 && beforeLineageRows == afterLineageRows && afterLineageRows == 1
+	result.BootstrapAdminRestored = counts.ActiveDeploymentAdmins == 1 && counts.BootstrapMarkers == 1
+	result.PostResetCounts = counts
+	if !result.MigrationMetadataPreserved {
+		return result, newResetFailure("recovery_reset_metadata_verification_failed", errors.New("migration metadata was not preserved"))
+	}
+	if !result.BootstrapAdminRestored {
+		return result, newResetFailure("recovery_reset_bootstrap_verification_failed", errors.New("bootstrap state was not restored"))
+	}
+	if counts.RouteIdempotency != 0 {
+		return result, newResetFailure("recovery_reset_state_verification_failed", errors.New("route idempotency state was not cleared"))
+	}
+	if err := assertAdmission(); err != nil {
+		return result, newResetFailure("recovery_reset_target_admission_lost", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return newResetFailure("recovery_reset_commit_failed", err)
+		return result, newResetFailure("recovery_reset_commit_failed", err)
 	}
-	return nil
-}
-
-func validateTestRuntimeResetBody(r *http.Request) error {
-	if r.Body == nil {
-		return nil
-	}
-	defer r.Body.Close()
-	raw, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
-	if err != nil {
-		return fmt.Errorf("read body: %w", err)
-	}
-	trimmed := strings.TrimSpace(string(raw))
-	if trimmed == "" {
-		return nil
-	}
-	if !strings.HasPrefix(trimmed, "{") {
-		return errors.New("body must be an empty JSON object")
-	}
-	var payload map[string]json.RawMessage
-	decoder := json.NewDecoder(strings.NewReader(trimmed))
-	if err := decoder.Decode(&payload); err != nil {
-		return fmt.Errorf("body must be an empty JSON object: %w", err)
-	}
-	var extra any
-	if err := decoder.Decode(&extra); err != io.EOF {
-		return errors.New("body must contain one JSON value")
-	}
-	if len(payload) > 0 {
-		return errors.New("body object must not contain members")
-	}
-	return nil
-}
-
-func writeTestRuntimeResetError(w http.ResponseWriter, r *http.Request, action string, err error, partialFailure bool, details map[string]any) {
-	status := http.StatusInternalServerError
-	code := "test_runtime_reset_failed"
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(r.Context().Err(), context.DeadlineExceeded) {
-		status = http.StatusServiceUnavailable
-		code = "test_runtime_reset_timeout"
-	}
-	responseDetails := map[string]any{
-		"failed_action":           action,
-		"partial_failure":         partialFailure,
-		"partial_failure_details": map[string]any{},
-		"error":                   harnessredact.String(err.Error()),
-	}
-	for key, value := range details {
-		responseDetails["partial_failure_details"].(map[string]any)[key] = value
-		if key == "object_count_after" {
-			responseDetails[key] = value
-		}
-	}
-	_ = httpapi.WriteError(w, r, status, code, action, responseDetails)
+	return result, nil
 }
 
 type resetDB interface {
@@ -341,21 +201,59 @@ type resetDB interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-type resetFailure struct {
+type DatabaseResetFailure struct {
 	reason string
 	cause  error
 }
 
-func (failure *resetFailure) Error() string {
+func (failure *DatabaseResetFailure) Error() string {
 	return failure.reason
 }
 
-func (failure *resetFailure) Unwrap() error {
+func (failure *DatabaseResetFailure) Unwrap() error {
 	return failure.cause
 }
 
+func (failure *DatabaseResetFailure) Stage() string {
+	if failure == nil {
+		return ""
+	}
+	return failure.reason
+}
+
+func (failure *DatabaseResetFailure) SQLState() string {
+	if failure == nil {
+		return ""
+	}
+	var postgresError *pgconn.PgError
+	if !errors.As(failure.cause, &postgresError) || !validSQLState(postgresError.Code) {
+		return ""
+	}
+	return postgresError.Code
+}
+
+func (failure *DatabaseResetFailure) TimedOut() bool {
+	return failure != nil && errors.Is(failure.cause, context.DeadlineExceeded)
+}
+
+func validSQLState(value string) bool {
+	if len(value) != 5 {
+		return false
+	}
+	for _, character := range value {
+		if (character < '0' || character > '9') && (character < 'A' || character > 'Z') {
+			return false
+		}
+	}
+	return true
+}
+
 func newResetFailure(reason string, cause error) error {
-	return &resetFailure{reason: reason, cause: cause}
+	return &DatabaseResetFailure{reason: reason, cause: cause}
+}
+
+func NewDatabaseResetFailure(stage string, cause error) *DatabaseResetFailure {
+	return &DatabaseResetFailure{reason: stage, cause: cause}
 }
 
 func listMutablePublicTables(ctx context.Context, db resetDB) ([]string, error) {
@@ -438,37 +336,26 @@ ORDER BY ordinal_position`, table)
 	return nil
 }
 
-func clearConfiguredObjectBucket(ctx context.Context, client objectstore.Store) (int, error) {
-	removed := 0
-	objects, err := client.ListObjects(ctx, "")
-	if err != nil {
-		return 0, err
-	}
-	for _, objectInfo := range objects {
-		if err := client.DeleteObject(ctx, objectInfo.Key); err != nil {
-			return removed, err
-		}
-		removed++
-	}
-	return removed, nil
-}
-
-func countConfiguredObjectBucket(ctx context.Context, client objectstore.Store) (int, error) {
-	objects, err := client.ListObjects(ctx, "")
-	if err != nil {
-		return 0, err
-	}
-	return len(objects), nil
-}
-
 func countTableRows(ctx context.Context, db resetDB, table string) (int, error) {
 	var count int
 	err := db.QueryRow(ctx, "SELECT COUNT(*) FROM "+pgx.Identifier{"public", table}.Sanitize()).Scan(&count)
 	return count, err
 }
 
-func readPostResetCounts(ctx context.Context, db resetDB) (testRuntimeCounts, error) {
-	var counts testRuntimeCounts
+func readMutableTableCounts(ctx context.Context, db resetDB, tables []string) ([]DatabaseResetTableCount, error) {
+	counts := make([]DatabaseResetTableCount, 0, len(tables))
+	for _, table := range tables {
+		count, err := countTableRows(ctx, db, table)
+		if err != nil {
+			return nil, err
+		}
+		counts = append(counts, DatabaseResetTableCount{Table: table, Rows: count})
+	}
+	return counts, nil
+}
+
+func readDatabaseResetCounts(ctx context.Context, db resetDB) (DatabaseResetCounts, error) {
+	var counts DatabaseResetCounts
 	err := db.QueryRow(ctx, `
 		SELECT
 			(SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true),

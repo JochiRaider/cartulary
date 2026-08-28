@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.execution_topology.v7",
+  "schema_id": "cartulary.execution_topology.v8",
   "runtime_profiles": [
     {
       "id": "default",
@@ -123,6 +123,13 @@
       }
     }
   ],
+  "browser_reset_policy": {
+    "max_attempts": 1,
+    "backend_drain_timeout_ms": 30000,
+    "database_reset_timeout_ms": 30000,
+    "backend_readiness_timeout_ms": 120000,
+    "evidence_overhead_timeout_ms": 30000
+  },
   "service_resource_minimums": {
     "object_store": {
       "object_store": 1
@@ -682,8 +689,7 @@
             "kind": "visual",
             "coverage": "authoritative",
             "execution_dependency": "browser_visual",
-            "workers": "1",
-            "reset_before": "measurement-to-visual"
+            "workers": "1"
           }
         ]
       },
@@ -743,8 +749,7 @@
             "kind": "a11y",
             "coverage": "authoritative",
             "execution_dependency": "browser_a11y",
-            "workers": "1",
-            "reset_before": "measurement-to-a11y"
+            "workers": "1"
           },
           {
             "name": "a11y-network-flow-claimed",
@@ -753,7 +758,6 @@
             "coverage": "supplemental",
             "execution_dependency": "browser_a11y",
             "workers": "1",
-            "reset_before": "a11y-to-network-flow-claimed",
             "runtime_profile_id": "network_flow_claimed",
             "browser_session_group": "browser-a11y-network-flow-claimed",
             "browser_session_isolation_reason": "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration"
@@ -764,8 +768,7 @@
             "kind": "visual",
             "coverage": "authoritative",
             "execution_dependency": "browser_visual",
-            "workers": "1",
-            "reset_before": "a11y-to-visual"
+            "workers": "1"
           },
           {
             "name": "visual-network-flow-claimed",
@@ -774,7 +777,6 @@
             "coverage": "supplemental",
             "execution_dependency": "browser_visual",
             "workers": "1",
-            "reset_before": "visual-to-network-flow-claimed",
             "runtime_profile_id": "network_flow_claimed",
             "browser_session_group": "browser-visual-network-flow-claimed",
             "browser_session_isolation_reason": "claimed Network Flow visual evidence requires immutable startup-only extension configuration"

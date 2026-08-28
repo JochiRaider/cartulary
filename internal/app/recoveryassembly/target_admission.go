@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -14,13 +13,9 @@ import (
 )
 
 type targetServingAdmission struct {
-	lease       *processlease.Lease
-	ctx         context.Context
-	cancel      context.CancelCauseFunc
-	watchCancel context.CancelFunc
-	watchDone   chan struct{}
-	releaseOnce sync.Once
-	releaseErr  error
+	admission *processlease.RecoveryTargetAdmission
+	ctx       context.Context
+	cancel    context.CancelCauseFunc
 }
 
 func AcquireTargetServingAdmission(
@@ -33,14 +28,9 @@ func AcquireTargetServingAdmission(
 	if !ok || concretePool == nil {
 		return nil, fmt.Errorf("restore target serving lease requires a concrete PostgreSQL pool")
 	}
-	lease, err := processlease.Acquire(
+	admission, err := processlease.AcquireRecoveryTarget(
 		ctx,
-		processlease.PostgresBackend{
-			Pool:        concretePool,
-			AdvisoryKey: processlease.ServingAdvisoryKey,
-			Purpose:     "restore target",
-			Mode:        processlease.LockExclusive,
-		},
+		concretePool,
 		acquireTimeout,
 		lossDetection,
 	)
@@ -48,17 +38,13 @@ func AcquireTargetServingAdmission(
 		return nil, err
 	}
 	admissionCtx, cancel := context.WithCancelCause(ctx)
-	monitorCtx, watchCancel := context.WithCancel(context.Background())
-	admission := &targetServingAdmission{
-		lease:       lease,
-		ctx:         admissionCtx,
-		cancel:      cancel,
-		watchCancel: watchCancel,
-		watchDone:   make(chan struct{}),
+	target := &targetServingAdmission{
+		admission: admission,
+		ctx:       admissionCtx,
+		cancel:    cancel,
 	}
-	lease.StartMonitor(monitorCtx)
-	go admission.watch(monitorCtx)
-	return admission, nil
+	go target.propagateCancellation()
+	return target, nil
 }
 
 func (admission *targetServingAdmission) Context() context.Context {
@@ -69,7 +55,10 @@ func (admission *targetServingAdmission) Context() context.Context {
 }
 
 func (admission *targetServingAdmission) AssertHeld() error {
-	if admission == nil || admission.lease == nil || admission.lease.State() != processlease.StateHeld {
+	if admission == nil || admission.admission == nil {
+		return application.ErrTargetServingLeaseLost
+	}
+	if err := admission.admission.AssertHeld(); err != nil {
 		return application.ErrTargetServingLeaseLost
 	}
 	if errors.Is(context.Cause(admission.ctx), application.ErrTargetServingLeaseLost) {
@@ -79,36 +68,19 @@ func (admission *targetServingAdmission) AssertHeld() error {
 }
 
 func (admission *targetServingAdmission) Release(ctx context.Context) error {
-	if admission == nil {
+	if admission == nil || admission.admission == nil {
 		return nil
 	}
-	admission.releaseOnce.Do(func() {
-		admission.watchCancel()
-		<-admission.watchDone
-		if admission.lease.State() == processlease.StateHeld {
-			admission.releaseErr = admission.lease.Release(ctx)
-		} else {
-			admission.lease.Close()
-		}
-		admission.cancel(context.Canceled)
-	})
-	return admission.releaseErr
+	err := admission.admission.Release(ctx)
+	admission.cancel(context.Canceled)
+	return err
 }
 
-func (admission *targetServingAdmission) watch(ctx context.Context) {
-	defer close(admission.watchDone)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case event := <-admission.lease.Events():
-			switch event.State {
-			case processlease.StateUncertain, processlease.StateLost:
-				admission.cancel(application.ErrTargetServingLeaseLost)
-				if event.State == processlease.StateLost {
-					return
-				}
-			}
-		}
+func (admission *targetServingAdmission) propagateCancellation() {
+	<-admission.admission.Context().Done()
+	cause := context.Cause(admission.admission.Context())
+	if errors.Is(cause, processlease.ErrRecoveryTargetLeaseLost) {
+		cause = application.ErrTargetServingLeaseLost
 	}
+	admission.cancel(cause)
 }

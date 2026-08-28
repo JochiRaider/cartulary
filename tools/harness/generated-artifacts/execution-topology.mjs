@@ -7,11 +7,11 @@ import { loadTestCatalog } from "../test-catalog/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const executionTopologySchemaID = "cartulary.execution_topology.v7";
+export const executionTopologySchemaID = "cartulary.execution_topology.v8";
 export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v2";
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
 export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v3";
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v10";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v11";
 export const defaultExecutionTopologyManifestPath = path.join(
   repoRoot,
   "tools",
@@ -181,7 +181,7 @@ export function loadExecutionTopology(options = {}) {
   const raw = readJSON(manifestPath);
   requireSchema(raw, executionTopologySchemaID, manifestPath);
   const allowedKeys = new Set([
-    "schema_id", "runtime_profiles", "resource_profiles", "service_resource_minimums", "generated_outputs",
+    "schema_id", "runtime_profiles", "resource_profiles", "browser_reset_policy", "service_resource_minimums", "generated_outputs",
     "runtime_binaries", "execution_dependencies", "go_targets", "browser_e2e_batch",
     "task_surface_owner",
   ]);
@@ -319,11 +319,6 @@ export function renderBrowserBatchManifest(topology) {
             };
             if (fixtureProfileID) {
               group.fixture_profile_id = fixtureProfileID;
-            }
-            if (resourceProfileID === "browser_measurement_quiet" && group.reset_before) {
-              group.reset_before = `${group.reset_before}-${quietIdentity}`;
-            } else if (selectorStage === "stateful" && fileIndex > 0 && !group.reset_before) {
-              group.reset_before = `${policyGroup.name}-before-${fileIdentity}`;
             }
             return group;
           });

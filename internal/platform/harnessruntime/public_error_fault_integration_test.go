@@ -6,9 +6,6 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
-	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
 func TestPublicErrorFaultRouteDisabledByDefault(t *testing.T) {
@@ -137,32 +134,19 @@ func TestPublicErrorFaultRouteRejectsInvalidTargets(t *testing.T) {
 	}
 }
 
-func TestTestRuntimeResetClearsPublicErrorFaults(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "test-public-error-fault-reset")
-	s3Harness := s3test.Start(t)
-	bucket := prepareTestRuntimeResetBucket(t, s3Harness, "test-public-error-fault-reset")
-
-	env := testDB.Env()
-	for key, value := range s3Harness.Env(bucket) {
-		env[key] = value
-	}
-	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
-
+func TestPublicErrorFaultRegistryClearRemovesArmedFaults(t *testing.T) {
 	faults := NewPublicErrorFaultRegistry()
-	_, server := startTestRuntimeResetServerWithHTTPDeps(t, env, []httpapi.RouteRegistrar{
-		RegisterTestRuntimeResetRoute(),
-		RegisterPublicErrorFaultRoutes(faults),
-	}, httpapi.DependencySet{PublicErrorFaults: faults})
-
-	arm := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/public-error-faults", publicErrorFaultBody()))
-	requireTestRuntimeResetSuccessEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), arm), http.StatusCreated)
-
-	reset := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/reset", nil))
-	requireTestRuntimeResetSuccessEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), reset), http.StatusOK)
-
+	service := &publicErrorFaultService{
+		guard:  httpapi.TestRouteGuard{Token: testRuntimeResetToken},
+		faults: faults,
+	}
+	req := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, "/api/v1/test/runtime/public-error-faults", publicErrorFaultBody()))
+	recorder := httptest.NewRecorder()
+	service.handleArm(recorder, req)
+	requireTestRuntimeResetSuccessEnvelope(t, recorder.Result(), http.StatusCreated)
+	faults.Clear()
 	if _, ok := faults.ConsumePublicErrorFault("PATCH", "/api/v1/records/record-1"); ok {
-		t.Fatal("runtime reset must clear armed public error faults")
+		t.Fatal("clear must remove armed public error faults")
 	}
 }
 
@@ -199,13 +183,5 @@ func publicErrorFaultBody() map[string]any {
 		"code":         "unknown_public_error_probe",
 		"message":      "unexpected public error",
 		"consume_once": true,
-	}
-}
-
-func testRuntimeEnabledEnv() map[string]string {
-	return map[string]string{
-		testRoutesEnabledEnv: "1",
-		testRuntimeMarkerEnv: testRuntimeMarkerValue,
-		testRouteTokenEnv:    testRuntimeResetToken,
 	}
 }

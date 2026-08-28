@@ -80,7 +80,7 @@ func TestHarnessRuntimeRoutesFailClosedDuringServerStartup(t *testing.T) {
 	}
 }
 
-func TestHarnessRuntimeRoutesPreserveServerProcessSecurityAndReset(t *testing.T) {
+func TestHarnessRuntimeRoutesPreserveServerProcessSecurityWithoutResetEndpoint(t *testing.T) {
 	publicOrigin := "http://127.0.0.1:4173"
 	server := startHarnessRuntimeServerProcess(t, "test-runtime-security", map[string]string{
 		"CARTULARY_ENABLE_TEST_ROUTES":    "1",
@@ -112,19 +112,16 @@ func TestHarnessRuntimeRoutesPreserveServerProcessSecurityAndReset(t *testing.T)
 	httptestx.RequireSuccessEnvelope(t, setClock, http.StatusOK)
 
 	reset := doHarnessRuntimeJSON(t, server, http.MethodPost, "/api/v1/test/runtime/reset", nil, httptestx.TestRouteToken, publicOrigin, "")
-	httptestx.RequireSuccessEnvelope(t, reset, http.StatusOK)
+	if reset.StatusCode != http.StatusNotFound {
+		t.Fatalf("runtime reset route must be absent: got %d", reset.StatusCode)
+	}
+	reset.Body.Close()
 
 	clockState := doHarnessRuntimeJSON(t, server, http.MethodGet, "/api/v1/test/clock/state", nil, httptestx.TestRouteToken, publicOrigin, "")
 	stateBody := httptestx.RequireSuccessEnvelope(t, clockState, http.StatusOK)
 	state := stateBody["data"].(map[string]any)
-	if state["mode"] != "wall" {
-		t.Fatalf("runtime reset must restore wall clock mode, got %#v", state)
-	}
-	if state["offset_seconds"] != float64(0) {
-		t.Fatalf("runtime reset must clear clock offset, got %#v", state)
-	}
-	if _, ok := state["fixed_now"]; ok {
-		t.Fatalf("runtime reset must clear fixed clock, got %#v", state)
+	if state["mode"] != "fixed" || state["fixed_now"] != "2035-01-01T00:00:00Z" {
+		t.Fatalf("missing reset endpoint must not mutate in-process controls, got %#v", state)
 	}
 }
 

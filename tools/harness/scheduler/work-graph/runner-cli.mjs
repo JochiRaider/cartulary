@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   canonicalJSONString,
+  publicExitCodeForFailure,
   semanticJSONDigest,
   validateSchemaSync,
 } from "../../contract/index.mjs";
@@ -969,16 +970,7 @@ async function main() {
   }
   if (summary.status === "pass") return 0;
   if (summary.status === "cancelled") return 130;
-  return {
-    config: 2,
-    infra: 3,
-    product: 10,
-    artifact: 11,
-    harness: 11,
-    security: 11,
-    timing: 13,
-    interrupted: 130,
-  }[summary.failure_class] ?? 11;
+  return publicExitCodeForFailure(summary);
   } catch (error) {
     primaryError = error;
     throw error;

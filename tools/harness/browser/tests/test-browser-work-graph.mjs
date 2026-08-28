@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
   closeSync,
+  mkdirSync,
   mkdtempSync,
   openSync,
   readFileSync,
@@ -28,12 +29,81 @@ import {
   activePerformanceFixtureProfile,
   loadPerformanceFixtureSnapshotRegistry,
 } from "../../performance-fixture/index.mjs";
-import { WorkGraphCompiler } from "../../scheduler/work-graph/index.mjs";
+import { publicExitCodeForFailure } from "../../contract/index.mjs";
+import {
+  executeUnitProcess,
+  WorkGraphCompiler,
+} from "../../scheduler/work-graph/index.mjs";
 import { planBrowserFunctionalLanes } from "../../scheduler/work-graph/browser-functional-lanes.mjs";
 import { simulateWorkGraph } from "../../scheduler/work-graph/scheduler.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const compiler = new WorkGraphCompiler(root);
+
+const lifecycleFailureRoot = mkdtempSync(
+  path.join(os.tmpdir(), "cartulary-browser-reset-failure."),
+);
+try {
+  const runRoot = path.join(lifecycleFailureRoot, "run");
+  mkdirSync(runRoot);
+  writeFileSync(
+    path.join(runRoot, "reset.attempt.json"),
+    `${JSON.stringify({
+      schema_id: "cartulary.browser_reset_attempt.v1",
+      reset_id: "predecessor--before-successor",
+      status: "fail",
+      attempt: 1,
+      duration_ms: 5,
+      runtime_profile_id: "default",
+      stages: [
+        { stage: "allocation_validated", status: "pass" },
+        { stage: "backend_stopped", status: "fail" },
+        { stage: "database_reset", status: "skipped" },
+        { stage: "object_store_reset", status: "skipped" },
+        { stage: "browser_state_cleared", status: "skipped" },
+        { stage: "replacement_backend_ready", status: "skipped" },
+        { stage: "generation_published", status: "skipped" },
+      ],
+      backend_generation_before: 1,
+      backend_generation_after: 1,
+      failure_stage: "backend_stop_or_preflight",
+      database_diagnostic_ref: null,
+      database_stage: null,
+      database_sqlstate: null,
+      persistent_state_reset: false,
+      browser_state_cleared: false,
+      backend_ready: false,
+      backend_generation_ref: null,
+      tainted: true,
+      failure_class: "harness",
+      failure_reason: "fixture_error",
+    }, null, 2)}\n`,
+  );
+  const failure = await executeUnitProcess(
+    {
+      kind: "lifecycle",
+      command: {
+        executable: process.execPath,
+        args: ["--eval", "process.exit(1)"],
+        environment: {},
+      },
+      current_run_evidence_outputs: ["reset.attempt.json"],
+      timeout_ms: 1000,
+    },
+    {
+      cwd: lifecycleFailureRoot,
+      environment: {
+        CARTULARY_TEST_RESULTS_DIR: ".",
+        CARTULARY_TEST_RUN_ID: "run",
+      },
+    },
+  );
+  assert.equal(failure.failure_class, "harness");
+  assert.equal(failure.failure_reason, "fixture_error");
+  assert.equal(publicExitCodeForFailure(failure), 3);
+} finally {
+  rmSync(lifecycleFailureRoot, { recursive: true, force: true });
+}
 const fixtureProfile = activePerformanceFixtureProfile(
   loadPerformanceFixtureSnapshotRegistry(root),
   "ac043_large_grid_snapshot_v1",
@@ -597,6 +667,59 @@ assert.ok(
 );
 const stateful = compiler.compile({ kind: "target", target: "browser-e2e-stateful" });
 assert.ok(stateful.units.some((unit) => unit.unit_id.startsWith("browser_reset:")), "stateful browser work must expose resets");
+
+const networkFlowStatefulOwner = compiler.compile({
+  kind: "owner",
+  owner_id: "module.networkflow",
+});
+const selectedNetworkFlowGroup = networkFlowStatefulOwner.units.find((unit) =>
+  unit.unit_id === "browser_group:stateful:stateful-network-flow-claimed-network-flow"
+);
+assert.ok(selectedNetworkFlowGroup, "Network Flow owner selection must contain its stateful group");
+assert.equal(
+  networkFlowStatefulOwner.units.some((unit) => unit.unit_id.startsWith("browser_reset:stateful:")),
+  false,
+  "a first selected stateful group must not receive a reset inherited from the unfiltered graph",
+);
+
+const claimedStatefulChain = compiler.compile({
+  kind: "rows",
+  row_ids: [
+    "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
+    "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
+    "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",
+  ],
+});
+const claimedPredecessor = claimedStatefulChain.units.find((unit) =>
+  unit.unit_id === "browser_group:stateful:stateful-network-flow-claimed-extensions-stateful"
+);
+const claimedSuccessor = claimedStatefulChain.units.find((unit) =>
+  unit.unit_id === "browser_group:stateful:stateful-network-flow-claimed-network-flow"
+);
+const claimedResets = claimedStatefulChain.units.filter((unit) =>
+  unit.unit_id.startsWith("browser_reset:stateful:")
+);
+assert.ok(claimedPredecessor && claimedSuccessor);
+assert.equal(claimedResets.length, 1, "one selected affinity predecessor requires one reset");
+assert.deepEqual(claimedResets[0].needs, [claimedPredecessor.unit_id]);
+assert.deepEqual(claimedSuccessor.needs, [claimedResets[0].unit_id]);
+assert.match(
+  claimedResets[0].unit_id,
+  /extensions-stateful--before-stateful-network-flow-claimed-network-flow/u,
+);
+
+const incompatibleStatefulSelection = compiler.compile({
+  kind: "rows",
+  row_ids: [
+    "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
+    "module.savedviews.browser_stateful.browser_saved_view_query_layout_state_user_home_cb9c681674",
+  ],
+});
+assert.equal(
+  incompatibleStatefulSelection.units.some((unit) => unit.unit_id.startsWith("browser_reset:stateful:")),
+  false,
+  "incompatible stateful affinities must never share a reset",
+);
 for (const unit of stateful.units.filter((entry) => entry.fixture_lease === "browser_stack")) {
   assert.equal(unit.resource_claims.postgres, 4, `${unit.unit_id} must reserve a safe browser Postgres connection budget`);
   assert.equal(unit.resource_claims.object_store, 1, `${unit.unit_id} must reserve object-store capacity`);
@@ -611,6 +734,15 @@ for (const [affinity, units] of byAffinity) {
     unit.command.environment.CARTULARY_BROWSER_RELEASE_AFFINITY === "1",
   );
   assert.equal(terminal.length, 1, `${affinity} must have one terminal stack releaser`);
+  const resets = units.filter((unit) => unit.unit_id.startsWith("browser_reset:"));
+  const chainedResets = resets.filter((unit) =>
+    unit.needs.some((dependency) => dependency.startsWith("browser_reset:")),
+  );
+  assert.equal(
+    chainedResets.length,
+    Math.max(resets.length - 1, 0),
+    `${affinity} must propagate a reset failure across the remaining lifecycle chain`,
+  );
 }
 
 const syntheticFunctionalGroups = [
@@ -682,14 +814,14 @@ assert.equal(
   "functional lane graph must preserve the exact current row closure",
 );
 assert.equal(
-	new Set(functionalGroups.map((unit) => unit.affinity_key)).size,
-  4,
-  "functional groups must use exactly four lane affinities",
+  new Set(functionalGroups.map((unit) => unit.affinity_key)).size,
+  2,
+  "functional groups must derive affinity from their two declared browser-session/runtime tuples",
 );
 assert.equal(
-	functionalResets.length,
-	functionalGroups.length - 4,
-	"each lane must have one reset between adjacent groups",
+  functionalResets.length,
+  functionalGroups.length - 2,
+  "each selected browser affinity must reset only between adjacent groups",
 );
 for (const unit of [...functionalResets, ...functionalGroups]) {
   assert.equal(unit.resource_claims.postgres, 2, `${unit.unit_id} must claim two PostgreSQL tokens`);
@@ -713,8 +845,8 @@ for (const unit of functionalGroups) {
   assert.match(unit.command.environment.CARTULARY_BROWSER_GROUP_GENERATION, /^[1-9][0-9]*$/u);
 }
 for (const reset of functionalResets) {
-  assert.equal(reset.failure_policy.block_descendants, false);
-  assert.ok(reset.command.args.includes("--renew-generation"));
+  assert.equal(reset.failure_policy.block_descendants, true);
+  assert.equal(reset.command.args.includes("--renew-generation"), false);
   assert.match(reset.command.environment.CARTULARY_BROWSER_FUNCTIONAL_LANE_ID, /^webserver-backed-/u);
 }
 const functionalTargetFinalizer = webserverBacked.units.find(

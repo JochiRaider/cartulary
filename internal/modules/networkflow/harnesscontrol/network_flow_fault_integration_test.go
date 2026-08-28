@@ -5,11 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
-	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
 func TestNetworkFlowFaultRouteDisabledByDefault(t *testing.T) {
@@ -146,32 +142,16 @@ func TestNetworkFlowFaultRouteRejectsInvalidRequests(t *testing.T) {
 	}
 }
 
-func TestTestRuntimeResetClearsNetworkFlowFaults(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "test-network-flow-fault-reset")
-	s3Harness := s3test.Start(t)
-	bucket := prepareTestRuntimeResetBucket(t, s3Harness, "test-network-flow-fault-reset")
-
-	env := testDB.Env()
-	for key, value := range s3Harness.Env(bucket) {
-		env[key] = value
-	}
-	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
-
+func TestNetworkFlowFaultRegistryClearRemovesArmedFaults(t *testing.T) {
 	faults := NewNetworkFlowFaultRegistry()
-	server := startTestRuntimeResetServerWithHTTPDeps(t, env, []httpapi.RouteRegistrar{
-		harnessruntime.RegisterTestRuntimeResetRoute(faults.Clear),
-		RegisterNetworkFlowFaultRoutes(faults),
-	}, httpapi.DependencySet{})
+	server := startNetworkFlowFaultHTTPServer(t, testRuntimeEnabledEnv(), faults)
 
 	arm := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/network-flow-faults", networkFlowFaultBody()))
 	requireTestRuntimeResetSuccessEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), arm), http.StatusCreated)
 
-	reset := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/reset", nil))
-	requireTestRuntimeResetSuccessEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), reset), http.StatusOK)
-
+	faults.Clear()
 	if _, ok := faults.ConsumeNetworkFlowFault(NetworkFlowFaultBoundaryImportBeforeTransactionCommit); ok {
-		t.Fatal("runtime reset must clear armed Network Flow faults")
+		t.Fatal("clear must remove armed Network Flow faults")
 	}
 }
 

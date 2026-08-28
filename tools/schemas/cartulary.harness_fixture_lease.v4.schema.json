@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_fixture_lease.v4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "lease_id", "capability", "ownership", "state", "cleanup_outcome", "cleanup_failure_reason", "resource_ids", "created_at"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_fixture_lease.v4" },
+    "lease_id": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "capability": { "enum": ["none", "postgres_transaction", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"] },
+    "ownership": { "enum": ["owned", "borrowed"] },
+    "state": { "enum": ["created", "ready", "leased", "quarantined", "released", "destroyed", "failed"] },
+    "cleanup_outcome": { "enum": ["not_required", "pending", "completed", "failed"] },
+    "cleanup_failure_reason": { "enum": [null, "cleanup_error"] },
+    "resource_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 255 } },
+    "fixture_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*_v[1-9][0-9]*$" },
+    "snapshot_key": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "builder_unit_id": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "clone_ordinal": { "type": "integer", "minimum": 1 },
+    "affinity_key": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "cleanup_outcome": { "const": "failed" } }, "required": ["cleanup_outcome"] },
+      "then": { "properties": { "cleanup_failure_reason": { "const": "cleanup_error" } } },
+      "else": { "properties": { "cleanup_failure_reason": { "type": "null" } } }
+    }
+  ]
+}

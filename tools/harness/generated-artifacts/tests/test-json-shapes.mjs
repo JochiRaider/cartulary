@@ -14,9 +14,9 @@ const result = spawnSync(process.execPath, ["tools/harness/generated-artifacts/c
 });
 assert.equal(result.status, 0, result.stderr || result.stdout);
 for (const [file, schemaID] of [
-  ["tools/execution_topology_manifest.json", "cartulary.execution_topology.v7"],
+  ["tools/execution_topology_manifest.json", "cartulary.execution_topology.v8"],
   ["tools/scheduler_manifest.json", "cartulary.scheduler_manifest.v3"],
-  ["tools/browser_e2e_batch_manifest.json", "cartulary.browser_e2e_batch_manifest.v10"],
+  ["tools/browser_e2e_batch_manifest.json", "cartulary.browser_e2e_batch_manifest.v11"],
   ["tools/harness_work_graph_owner.json", "cartulary.harness_work_graph_owner.v2"],
 ]) {
   const value = JSON.parse(readFileSync(path.join(root, file), "utf8"));

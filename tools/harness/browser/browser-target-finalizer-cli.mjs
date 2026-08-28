@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -32,7 +32,7 @@ function parse(argv) {
     groups: [],
     groupTargets: new Map(),
     children: [],
-    resets: [],
+    resetPrefix: "",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -46,10 +46,15 @@ function parse(argv) {
       }
     }
     else if (arg === "--children") options.children = (argv[++index] ?? "").split(",").filter(Boolean);
-    else if (arg === "--resets") options.resets = (argv[++index] ?? "").split(",").filter(Boolean);
+    else if (arg === "--reset-prefix") options.resetPrefix = argv[++index] ?? "";
     else throw new Error("invalid browser target finalizer arguments");
   }
-  if (!options.target || options.groups.length === 0 || options.groupTargets.size !== options.groups.length) {
+  if (
+    !options.target ||
+    options.groups.length === 0 ||
+    options.groupTargets.size !== options.groups.length ||
+    !/^browser_reset:[A-Za-z0-9_.+-]+:$/u.test(options.resetPrefix)
+  ) {
     throw new Error("browser target finalizer requires target and exact group targets");
   }
   return options;
@@ -98,6 +103,27 @@ function resetResult(base, unitID) {
     throw new Error(`browser target reset result identity mismatch: ${unitID}`);
   }
   return result;
+}
+
+function resetResults(base, prefix) {
+  const directory = path.join(base, "unit-results");
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => path.join(directory, file))
+    .filter((file) => {
+      const stat = lstatSync(file);
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 1024 * 1024) {
+        throw new Error(`browser target reset result exceeds its bounded JSON contract: ${file}`);
+      }
+      const result = JSON.parse(readFileSync(file, "utf8"));
+      return typeof result.unit_id === "string" && result.unit_id.startsWith(prefix);
+    })
+    .map((file) => {
+      const result = JSON.parse(readFileSync(file, "utf8"));
+      return resetResult(base, result.unit_id);
+    })
+    .sort((left, right) => left.unit_id.localeCompare(right.unit_id));
 }
 
 function sha256(bytes) {
@@ -366,7 +392,7 @@ const groups = options.groups
     groupResult(base, group, options.groupTargets.get(group)),
   )
   .filter((group) => group !== null);
-const resets = options.resets.map((unitID) => resetResult(base, unitID));
+const resets = resetResults(base, options.resetPrefix);
 const complete = groups.length === options.groups.length;
 const targetResult = complete
   ? await writeTargetResult(base, options, groups, resets)

@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test.database_reset_diagnostic.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "reset_id",
+    "status",
+    "attempt",
+    "stage",
+    "sqlstate",
+    "timed_out",
+    "duration_ms",
+    "tables_reset",
+    "table_counts",
+    "mutable_table_count",
+    "migration_metadata_preserved",
+    "bootstrap_admin_restored",
+    "post_reset_counts",
+    "failure_class",
+    "failure_reason"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test.database_reset_diagnostic.v1" },
+    "reset_id": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "status": { "enum": ["pass", "fail"] },
+    "attempt": { "const": 1 },
+    "stage": {
+      "enum": [
+        "complete",
+        "unknown",
+        "recovery_settings_invalid",
+        "recovery_connection_failed",
+        "recovery_reset_dependencies_invalid",
+        "recovery_reset_target_admission_failed",
+        "recovery_reset_target_admission_lost",
+        "recovery_reset_begin_failed",
+        "recovery_reset_metadata_inventory_failed",
+        "recovery_reset_inventory_failed",
+        "recovery_reset_truncate_failed",
+        "recovery_reset_sequence_failed",
+        "recovery_reset_bootstrap_failed",
+        "recovery_reset_metadata_verification_failed",
+        "recovery_reset_bootstrap_verification_failed",
+        "recovery_reset_state_verification_failed",
+        "recovery_reset_commit_failed",
+        "recovery_reset_target_release_failed"
+      ]
+    },
+    "sqlstate": { "type": ["string", "null"], "pattern": "^[0-9A-Z]{5}$" },
+    "timed_out": { "type": "boolean" },
+    "duration_ms": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+    "tables_reset": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "table_counts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["table", "rows"],
+        "properties": {
+          "table": { "type": "string", "minLength": 1 },
+          "rows": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" }
+        }
+      }
+    },
+    "mutable_table_count": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+    "migration_metadata_preserved": { "type": "boolean" },
+    "bootstrap_admin_restored": { "type": "boolean" },
+    "post_reset_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["active_deployment_admins", "bootstrap_markers", "incidents", "records", "user_sessions", "route_idempotency"],
+      "properties": {
+        "active_deployment_admins": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "bootstrap_markers": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "incidents": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "records": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "user_sessions": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "route_idempotency": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" }
+      }
+    },
+    "failure_class": { "$ref": "cartulary.harness.defs.v1#/$defs/failure_class" },
+    "failure_reason": { "$ref": "cartulary.harness.defs.v1#/$defs/failure_reason" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "stage": { "const": "complete" },
+          "sqlstate": { "type": "null" },
+          "timed_out": { "const": false },
+          "failure_class": { "type": "null" },
+          "failure_reason": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": {
+          "failure_class": { "type": "string" },
+          "failure_reason": { "type": "string" }
+        }
+      }
+    }
+  ]
+}

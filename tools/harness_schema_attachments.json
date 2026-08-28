@@ -23,8 +23,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.browser_e2e_batch_manifest.v10",
-      "path": "tools/schemas/cartulary.browser_e2e_batch_manifest.v10.schema.json",
+      "schema_id": "cartulary.browser_e2e_batch_manifest.v11",
+      "path": "tools/schemas/cartulary.browser_e2e_batch_manifest.v11.schema.json",
       "classification": "public_contract",
       "producer": "execution topology generator",
       "validation": "json-shape-check"
@@ -34,6 +34,13 @@
       "path": "tools/schemas/cartulary.browser_group_result.v5.schema.json",
       "classification": "public_contract",
       "producer": "browser evidence adapter",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.browser_reset_attempt.v1",
+      "path": "tools/schemas/cartulary.browser_reset_attempt.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "browser reset lifecycle",
       "validation": "json-shape-check"
     },
     {
@@ -93,8 +100,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.execution_topology.v7",
-      "path": "tools/schemas/cartulary.execution_topology.v7.schema.json",
+      "schema_id": "cartulary.execution_topology.v8",
+      "path": "tools/schemas/cartulary.execution_topology.v8.schema.json",
       "classification": "owner_input",
       "producer": "execution topology owner",
       "validation": "json-shape-check"
@@ -240,8 +247,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_fixture_lease.v3",
-      "path": "tools/schemas/cartulary.harness_fixture_lease.v3.schema.json",
+      "schema_id": "cartulary.harness_fixture_lease.v4",
+      "path": "tools/schemas/cartulary.harness_fixture_lease.v4.schema.json",
       "classification": "public_contract",
       "producer": "harness fixture broker",
       "validation": "json-shape-check"
@@ -716,6 +723,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.test.database_reset_diagnostic.v1",
+      "path": "tools/schemas/cartulary.test.database_reset_diagnostic.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "browser database reset controller",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.test.network_flow_audit_assertion_control.v1",
       "path": "tools/schemas/cartulary.test.network_flow_audit_assertion_control.v1.schema.json",
       "classification": "public_contract",
@@ -755,13 +769,6 @@
       "path": "tools/schemas/cartulary.test.runtime_identity.v1.schema.json",
       "classification": "public_contract",
       "producer": "runtime identity route",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.test.runtime_reset.v1",
-      "path": "tools/schemas/cartulary.test.runtime_reset.v1.schema.json",
-      "classification": "public_contract",
-      "producer": "runtime reset route",
       "validation": "json-shape-check"
     },
     {
@@ -959,6 +966,13 @@
       "path": "tools/schemas/cartulary.vitest_failure_details.v1.schema.json",
       "classification": "public_contract",
       "producer": "Vitest wrapper",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.web_e2e_backend_generation.v1",
+      "path": "tools/schemas/cartulary.web_e2e_backend_generation.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "browser reset lifecycle",
       "validation": "json-shape-check"
     },
     {

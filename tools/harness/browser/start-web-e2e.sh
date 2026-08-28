@@ -61,11 +61,20 @@ RUNTIME_PROFILE_KEY_RING_MANIFEST=""
 RUNTIME_PROFILE_CURSOR_SECRET=""
 RUNTIME_PROFILE_SAFE_DIGEST_SECRET=""
 REVISIONS_CONFLICT_TOKEN_SECRET=""
+BACKEND_GENERATION_HEAD=""
+BACKEND_RESTART_SECRET_FILE=""
+EXPECTED_RUNTIME_PROFILE_FINGERPRINT=""
+RESET_LABEL=""
+RESET_DATABASE_DIAGNOSTIC_FILE=""
+RESET_OBJECT_STORE_MARKER_FILE=""
+RESET_STATE_MARKER_FILE=""
+RESET_BACKEND_READY_MARKER_FILE=""
 
 usage() {
   echo "usage: start-web-e2e.sh [-- <command...>]" >&2
   echo "       start-web-e2e.sh --session-start --env-file <path> --lease-file <path>" >&2
   echo "       start-web-e2e.sh --session-stop --lease-file <path>" >&2
+  echo "       start-web-e2e.sh --session-reset-backend --lease-file <path> --label <label> --database-result-file <path> --object-store-marker-file <path> --state-marker-file <path> --backend-ready-marker-file <path>" >&2
 }
 
 parse_child_command() {
@@ -117,6 +126,47 @@ parse_child_command() {
         esac
       done
       if [[ -z "${SESSION_LEASE_FILE}" ]]; then
+        usage
+        return 2
+      fi
+      return 0
+      ;;
+    --session-reset-backend)
+      SESSION_MODE="reset"
+      shift
+      while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+          --lease-file)
+            SESSION_LEASE_FILE="${2:-}"
+            shift 2
+            ;;
+          --label)
+            RESET_LABEL="${2:-}"
+            shift 2
+            ;;
+          --database-result-file)
+            RESET_DATABASE_DIAGNOSTIC_FILE="${2:-}"
+            shift 2
+            ;;
+          --object-store-marker-file)
+            RESET_OBJECT_STORE_MARKER_FILE="${2:-}"
+            shift 2
+            ;;
+          --state-marker-file)
+            RESET_STATE_MARKER_FILE="${2:-}"
+            shift 2
+            ;;
+          --backend-ready-marker-file)
+            RESET_BACKEND_READY_MARKER_FILE="${2:-}"
+            shift 2
+            ;;
+          *)
+            usage
+            return 2
+            ;;
+        esac
+      done
+      if [[ -z "${SESSION_LEASE_FILE}" || ! "${RESET_LABEL}" =~ ^[A-Za-z0-9_.-]+$ || -z "${RESET_DATABASE_DIAGNOSTIC_FILE}" || -z "${RESET_OBJECT_STORE_MARKER_FILE}" || -z "${RESET_STATE_MARKER_FILE}" || -z "${RESET_BACKEND_READY_MARKER_FILE}" ]]; then
         usage
         return 2
       fi
@@ -234,6 +284,8 @@ prepare_runtime_root() {
   TEST_SERVICES_ENV_FILE="${RUNTIME_ROOT_BASE}/test-services-web-e2e.env"
   TEST_SERVICES_METADATA_FILE="${RUNTIME_ROOT_BASE}/test-services-web-e2e.json"
   TEST_ROUTE_TOKEN_FILE="${RUNTIME_ROOT_BASE}/test-route-token"
+  BACKEND_GENERATION_HEAD="${RUNTIME_ROOT_BASE}/backend-generation-head.json"
+  BACKEND_RESTART_SECRET_FILE="${RUNTIME_ROOT_BASE}/backend-restart-secrets.json"
 
   step_secure_mkdir \
     "${RUNTIME_ROOT_BASE}/database-storage" \
@@ -279,6 +331,57 @@ prepare_runtime_profile() {
   export CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT="${RUNTIME_PROFILE_FINGERPRINT}"
 }
 
+write_backend_restart_secrets() {
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+  CARTULARY_BACKEND_RESTART_SECRET_FILE="${BACKEND_RESTART_SECRET_FILE}" \
+  CARTULARY_BACKEND_RESTART_DSN="${E2E_DSN}" \
+  CARTULARY_BACKEND_RESTART_REVISIONS_SECRET="${REVISIONS_CONFLICT_TOKEN_SECRET}" \
+  CARTULARY_BACKEND_RESTART_CURSOR_SECRET="${RUNTIME_PROFILE_CURSOR_SECRET}" \
+  CARTULARY_BACKEND_RESTART_SAFE_DIGEST_SECRET="${RUNTIME_PROFILE_SAFE_DIGEST_SECRET}" \
+  CARTULARY_BACKEND_RESTART_S3_ACCESS_KEY_ID="${CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID}" \
+  CARTULARY_BACKEND_RESTART_S3_SECRET_ACCESS_KEY="${CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY}" \
+    "${node_bin}" <<'EOF'
+const fs = require("node:fs");
+const path = require("node:path");
+const destination = process.env.CARTULARY_BACKEND_RESTART_SECRET_FILE;
+const temporary = `${destination}.tmp-${process.pid}`;
+const payload = {
+  dsn: process.env.CARTULARY_BACKEND_RESTART_DSN,
+  revisions_secret: process.env.CARTULARY_BACKEND_RESTART_REVISIONS_SECRET,
+  cursor_secret: process.env.CARTULARY_BACKEND_RESTART_CURSOR_SECRET,
+  safe_digest_secret: process.env.CARTULARY_BACKEND_RESTART_SAFE_DIGEST_SECRET,
+  s3_access_key_id: process.env.CARTULARY_BACKEND_RESTART_S3_ACCESS_KEY_ID,
+  s3_secret_access_key: process.env.CARTULARY_BACKEND_RESTART_S3_SECRET_ACCESS_KEY,
+};
+fs.mkdirSync(path.dirname(destination), { recursive: true, mode: 0o700 });
+fs.writeFileSync(temporary, `${JSON.stringify(payload)}\n`, { mode: 0o600 });
+fs.renameSync(temporary, destination);
+fs.chmodSync(destination, 0o600);
+EOF
+}
+
+load_backend_restart_secrets() {
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+  eval "$("${node_bin}" - "${BACKEND_RESTART_SECRET_FILE}" <<'EOF'
+const fs = require("node:fs");
+const value = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const q = (input) => JSON.stringify(String(input ?? ""));
+console.log(`E2E_DSN=${q(value.dsn)}`);
+console.log(`REVISIONS_CONFLICT_TOKEN_SECRET=${q(value.revisions_secret)}`);
+console.log(`RUNTIME_PROFILE_CURSOR_SECRET=${q(value.cursor_secret)}`);
+console.log(`RUNTIME_PROFILE_SAFE_DIGEST_SECRET=${q(value.safe_digest_secret)}`);
+console.log(`CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID=${q(value.s3_access_key_id)}`);
+console.log(`CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY=${q(value.s3_secret_access_key)}`);
+EOF
+  )"
+}
+
 write_stack_metadata() {
   local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
 
@@ -301,6 +404,8 @@ write_stack_metadata() {
   export CARTULARY_WEB_E2E_FRONTEND_READY_AT="${FRONTEND_READY_AT}"
   export CARTULARY_WEB_E2E_BACKEND_IDENTITY_SERVER_PID="${BACKEND_IDENTITY_SERVER_PID}"
   export CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE="${TEST_SERVICES_METADATA_FILE}"
+  export CARTULARY_WEB_E2E_BACKEND_GENERATION_HEAD="${BACKEND_GENERATION_HEAD}"
+  export CARTULARY_WEB_E2E_BACKEND_RESTART_SECRET_FILE="${BACKEND_RESTART_SECRET_FILE}"
   "${node_bin}" "${SESSION_EVIDENCE_HELPER}" lease || return $?
   "${node_bin}" "${SESSION_EVIDENCE_HELPER}" stack >/dev/null || return $?
   export CARTULARY_WEB_E2E_STACK_JSON_FILE="${STACK_JSON_FILE}"
@@ -320,6 +425,8 @@ CARTULARY_WEB_E2E_FRONTEND_MODE=${FRONTEND_MODE}
 CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND=${FRONTEND_COMMAND_KIND}
 CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID=${RUNTIME_PROFILE_ID}
 CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT=${RUNTIME_PROFILE_FINGERPRINT}
+CARTULARY_WEB_E2E_BACKEND_GENERATION_HEAD=${BACKEND_GENERATION_HEAD}
+CARTULARY_WEB_E2E_BACKEND_RESTART_SECRET_FILE=${BACKEND_RESTART_SECRET_FILE}
 EOF
   chmod 600 "${STACK_ENV_FILE}" 2>/dev/null || true
   verify_stack_publication
@@ -348,6 +455,9 @@ verify_stack_publication() {
 }
 
 write_startup_diagnostics() {
+  if [[ "${SESSION_MODE}" == "reset" ]]; then
+    return 0
+  fi
   local status="$1"
   local step="$2"
   local failure_class="${3:-}"
@@ -764,6 +874,8 @@ const env = {
   CARTULARY_TEST_ROUTE_TOKEN_FILE: process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE,
   CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID,
   CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT,
+  CARTULARY_WEB_E2E_BACKEND_GENERATION_HEAD: process.env.CARTULARY_WEB_E2E_BACKEND_GENERATION_HEAD,
+  CARTULARY_WEB_E2E_BACKEND_RESTART_SECRET_FILE: process.env.CARTULARY_WEB_E2E_BACKEND_RESTART_SECRET_FILE,
   CARTULARY_PGTEST_SCHEMA_HASH: process.env.CARTULARY_WEB_E2E_PGTEST_SCHEMA_HASH,
   CARTULARY_PGTEST_TEMPLATE_DB: process.env.CARTULARY_WEB_E2E_PGTEST_TEMPLATE_DB,
   CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT: process.env.CARTULARY_WEB_E2E_S3_ENDPOINT,
@@ -800,6 +912,9 @@ const lease = {
   test_services_metadata_file: process.env.CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE,
   runtime_profile_id: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID,
   runtime_profile_fingerprint: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT,
+  backend_generation_head: process.env.CARTULARY_WEB_E2E_BACKEND_GENERATION_HEAD,
+  backend_restart_secret_file: process.env.CARTULARY_WEB_E2E_BACKEND_RESTART_SECRET_FILE,
+  backend_generation: 1,
 };
 
 fs.writeFileSync(process.env.CARTULARY_WEB_E2E_SESSION_ENV_FILE, `${JSON.stringify(env, null, 2)}\n`, { mode: 0o600 });
@@ -839,6 +954,15 @@ console.log(`SESSION_ENV_FILE=${q(lease.session_env_file)}`);
 console.log(`KEEP_RUNTIME_ROOT=${lease.keep_runtime_root ? "1" : "0"}`);
 console.log(`E2E_DB=${q(lease.e2e_db)}`);
 console.log(`TEST_SERVICES_METADATA_FILE=${q(lease.test_services_metadata_file)}`);
+console.log(`API_ORIGIN=${q(lease.env?.CARTULARY_WEB_E2E_API_ORIGIN)}`);
+console.log(`PUBLIC_ORIGIN=${q(lease.env?.CARTULARY_WEB_E2E_PUBLIC_ORIGIN)}`);
+console.log(`STARTUP_DIAGNOSTIC_FILE=${q(lease.startup_diagnostics)}`);
+console.log(`STACK_JSON_FILE=${q(lease.env?.CARTULARY_WEB_E2E_STACK_JSON_FILE)}`);
+console.log(`TARGET_ARTIFACT_DIR=${q(lease.env?.CARTULARY_WEB_E2E_SESSION_ARTIFACT_DIR)}`);
+console.log(`RUNTIME_PROFILE_ID=${q(lease.runtime_profile_id)}`);
+console.log(`EXPECTED_RUNTIME_PROFILE_FINGERPRINT=${q(lease.runtime_profile_fingerprint)}`);
+console.log(`BACKEND_GENERATION_HEAD=${q(lease.backend_generation_head)}`);
+console.log(`BACKEND_RESTART_SECRET_FILE=${q(lease.backend_restart_secret_file)}`);
 EOF
   )"
   CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}"
@@ -1208,109 +1332,7 @@ browser_verify_frontend_ready() {
   return 1
 }
 
-wait_for_process_status() {
-  local group_id="$1"
-
-  if wait "${group_id}"; then
-    return 0
-  else
-    return $?
-  fi
-}
-
-supervise_stack() {
-  local child_status=0
-  local shutdown_status=0
-  local server_status=0
-  local vite_status=0
-
-  while true; do
-    if exit_for_requested_shutdown "browser e2e supervision"; then
-      :
-    else
-      shutdown_status=$?
-      return "${shutdown_status}"
-    fi
-
-    if ! process_group_running "${SERVER_PGID}"; then
-      if wait_for_process_status "${SERVER_PGID}"; then
-        server_status=0
-      else
-        server_status=$?
-      fi
-      echo "backend exited unexpectedly during browser e2e supervision (status=${server_status})" >&2
-      cat "${SERVER_LOG}" >&2 || true
-      if [[ -n "${CHILD_PGID:-}" ]]; then
-        stop_process_group "${CHILD_PGID}" || true
-      fi
-      return 1
-    fi
-
-    if ! process_group_running "${VITE_PGID}"; then
-      if wait_for_process_status "${VITE_PGID}"; then
-        vite_status=0
-      else
-        vite_status=$?
-      fi
-      echo "frontend exited unexpectedly during browser e2e supervision (status=${vite_status})" >&2
-      cat "${WEB_LOG}" >&2 || true
-      if [[ -n "${CHILD_PGID:-}" ]]; then
-        stop_process_group "${CHILD_PGID}" || true
-      fi
-      return 1
-    fi
-
-    if [[ -n "${CHILD_PGID:-}" ]] && ! process_group_running "${CHILD_PGID}"; then
-      if wait_for_process_status "${CHILD_PGID}"; then
-        child_status=0
-      else
-        child_status=$?
-      fi
-      return "${child_status}"
-    fi
-
-    sleep 1
-  done
-}
-
-main() {
-  parse_child_command "$@"
-
-  prepare_runtime_profile
-
-  if [[ "${SESSION_MODE}" == "stop" ]]; then
-    stop_session
-    return $?
-  fi
-
-  # Establish the complete artifact identity in this shell before helper
-  # functions are invoked through command substitutions. Exports performed
-  # inside those substitutions cannot update the parent shell.
-  ensure_harness_artifact_identity
-  prepare_runtime_root
-
-  trap on_exit EXIT
-  lifecycle_reset_shutdown_state
-  lifecycle_install_signal_traps
-  record_startup_event "initializing" \
-    "initializing browser session ${BROWSER_SESSION_ID} for runtime profile ${RUNTIME_PROFILE_ID}"
-
-  run_timing_span "setup" "browser-e2e frontend toolchain" \
-    browser_prepare_frontend_toolchain
-  local pnpm_bin="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
-  if [[ ! -x "${pnpm_bin}" ]]; then
-    echo "repo-local pnpm was not found at ${pnpm_bin}; run make frontend-toolchain" >&2
-    return 1
-  fi
-
-  CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e allocate ports" resolve_owned_stack_ports
-  CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e prepare test route token" prepare_test_route_token
-	REVISIONS_CONFLICT_TOKEN_SECRET="$(dd if=/dev/urandom bs=32 count=1 status=none | base64 | tr '+/' '-_' | tr -d '=\n')"
-  CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts
-
-  CARTULARY_STEP_TIMING_BUCKET=service_wait run_step_command "browser-e2e startup services" browser_start_services
-  CARTULARY_STEP_TIMING_BUCKET=migration run_step_command "browser-e2e startup database" browser_prepare_database
-
+start_backend_ready() {
   local backend_input_error=""
   backend_input_error="$(backend_start_input_failure)"
   if [[ -n "${backend_input_error}" ]]; then
@@ -1384,7 +1406,241 @@ main() {
 
   CARTULARY_STEP_TIMING_BUCKET=server_startup run_step_command "browser-e2e startup backend ready" browser_wait_backend_ready
   BACKEND_READY_AT="$(step_now_utc)"
-  record_startup_event "backend_ready" "backend ready at ${API_ORIGIN}"
+  if [[ "${SESSION_MODE}" != "reset" ]]; then
+    record_startup_event "backend_ready" "backend ready at ${API_ORIGIN}"
+  fi
+}
+
+wait_for_process_status() {
+  local group_id="$1"
+
+  if wait "${group_id}"; then
+    return 0
+  else
+    return $?
+  fi
+}
+
+supervise_stack() {
+  local child_status=0
+  local shutdown_status=0
+  local server_status=0
+  local vite_status=0
+
+  while true; do
+    if exit_for_requested_shutdown "browser e2e supervision"; then
+      :
+    else
+      shutdown_status=$?
+      return "${shutdown_status}"
+    fi
+
+    if ! process_group_running "${SERVER_PGID}"; then
+      if wait_for_process_status "${SERVER_PGID}"; then
+        server_status=0
+      else
+        server_status=$?
+      fi
+      echo "backend exited unexpectedly during browser e2e supervision (status=${server_status})" >&2
+      cat "${SERVER_LOG}" >&2 || true
+      if [[ -n "${CHILD_PGID:-}" ]]; then
+        stop_process_group "${CHILD_PGID}" || true
+      fi
+      return 1
+    fi
+
+    if ! process_group_running "${VITE_PGID}"; then
+      if wait_for_process_status "${VITE_PGID}"; then
+        vite_status=0
+      else
+        vite_status=$?
+      fi
+      echo "frontend exited unexpectedly during browser e2e supervision (status=${vite_status})" >&2
+      cat "${WEB_LOG}" >&2 || true
+      if [[ -n "${CHILD_PGID:-}" ]]; then
+        stop_process_group "${CHILD_PGID}" || true
+      fi
+      return 1
+    fi
+
+    if [[ -n "${CHILD_PGID:-}" ]] && ! process_group_running "${CHILD_PGID}"; then
+      if wait_for_process_status "${CHILD_PGID}"; then
+        child_status=0
+      else
+        child_status=$?
+      fi
+      return "${child_status}"
+    fi
+
+    sleep 1
+  done
+}
+
+stop_backend_for_reset() {
+  local drain_timeout_ms="${CARTULARY_BROWSER_RESET_DRAIN_TIMEOUT_MS:-}"
+  local poll_count=""
+  if [[ -z "${SERVER_PGID}" ]] || ! process_group_running "${SERVER_PGID}"; then
+    echo "failure_class=harness reason=fixture_error browser reset backend is not running" >&2
+    return 1
+  fi
+  if [[ ! "${drain_timeout_ms}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "failure_class=config reason=configuration_error browser reset drain deadline is invalid" >&2
+    return 2
+  fi
+  poll_count="$(((drain_timeout_ms + 199) / 200))"
+  kill -TERM -- "-${SERVER_PGID}" >/dev/null 2>&1 || true
+  for _ in $(seq 1 "${poll_count}"); do
+    if ! process_group_running "${SERVER_PGID}" && ! port_in_use "${BACKEND_PORT}"; then
+      return 0
+    fi
+    sleep 0.2
+  done
+  echo "failure_class=timing reason=timeout_failure browser reset backend did not drain or release its listener" >&2
+  return 13
+}
+
+next_backend_generation() {
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+  "${node_bin}" - "${SESSION_LEASE_FILE}" <<'EOF'
+const fs = require("node:fs");
+const lease = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const current = Number.isSafeInteger(lease.backend_generation) ? lease.backend_generation : 1;
+process.stdout.write(String(current + 1));
+EOF
+}
+
+update_session_backend_lease() {
+  local generation="$1"
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+  CARTULARY_RESET_SERVER_PGID="${SERVER_PGID}" \
+  CARTULARY_RESET_BACKEND_GENERATION="${generation}" \
+  CARTULARY_RESET_BACKEND_GENERATION_HEAD="${BACKEND_GENERATION_HEAD}" \
+    "${node_bin}" - "${SESSION_LEASE_FILE}" <<'EOF'
+const fs = require("node:fs");
+const file = process.argv[2];
+const lease = JSON.parse(fs.readFileSync(file, "utf8"));
+lease.server_pgid = process.env.CARTULARY_RESET_SERVER_PGID;
+lease.backend_generation = Number.parseInt(process.env.CARTULARY_RESET_BACKEND_GENERATION, 10);
+lease.backend_generation_head = process.env.CARTULARY_RESET_BACKEND_GENERATION_HEAD;
+lease.env.CARTULARY_WEB_E2E_BACKEND_GENERATION_HEAD = process.env.CARTULARY_RESET_BACKEND_GENERATION_HEAD;
+const temporary = `${file}.tmp-${process.pid}`;
+fs.writeFileSync(temporary, `${JSON.stringify(lease, null, 2)}\n`, { mode: 0o600 });
+fs.renameSync(temporary, file);
+fs.chmodSync(file, 0o600);
+EOF
+}
+
+reset_backend_failure_cleanup() {
+  local status=$?
+  trap - EXIT
+  if [[ "${status}" -ne 0 && -n "${SERVER_PGID}" ]] && process_group_running "${SERVER_PGID}"; then
+    stop_process_group "${SERVER_PGID}" || true
+  fi
+  exit "${status}"
+}
+
+reset_session_backend() {
+  local generation=""
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  local previous_server_pgid=""
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+  load_session_lease "${SESSION_LEASE_FILE}"
+  if [[ -z "${BACKEND_GENERATION_HEAD}" || -z "${BACKEND_RESTART_SECRET_FILE}" || -z "${STACK_JSON_FILE}" ]]; then
+    echo "failure_class=config reason=configuration_error browser reset lease omits restart inputs" >&2
+    return 2
+  fi
+  if [[ -n "${CARTULARY_FIXTURE_PROFILE_ID:-}" ]]; then
+    echo "failure_class=config reason=configuration_error immutable performance fixture stacks cannot reset" >&2
+    return 2
+  fi
+  TEST_ROUTE_TOKEN="$(tr -d '\r\n' <"${TEST_ROUTE_TOKEN_FILE}")"
+  prepare_runtime_profile
+  if [[ "${RUNTIME_PROFILE_FINGERPRINT}" != "${EXPECTED_RUNTIME_PROFILE_FINGERPRINT}" ]]; then
+    echo "failure_class=config reason=configuration_error browser reset runtime profile fingerprint changed" >&2
+    return 2
+  fi
+  load_backend_restart_secrets
+  generation="$(next_backend_generation)"
+
+  trap reset_backend_failure_cleanup EXIT
+  previous_server_pgid="${SERVER_PGID}"
+  stop_backend_for_reset
+  release_process_group_monitor "${previous_server_pgid}"
+  reclaim_port_lease_for_replacement "${BACKEND_PORT}" "${previous_server_pgid}"
+  SERVER_PGID=""
+  web_e2e_reset_database \
+    "${ROOT_DIR}" \
+    "${RESET_LABEL}" \
+    "${RESET_DATABASE_DIAGNOSTIC_FILE}"
+  printf '%s\n' "cleared" >"${RESET_OBJECT_STORE_MARKER_FILE}"
+  web_e2e_reset_clear_playwright_state "${RESET_STATE_MARKER_FILE}"
+  start_backend_ready
+  printf '%s\n' "ready" >"${RESET_BACKEND_READY_MARKER_FILE}"
+  transfer_port_lease_for_port "${BACKEND_PORT}" "${SERVER_PGID}"
+  export CARTULARY_WEB_E2E_SERVER_PGID="${SERVER_PGID}"
+  export CARTULARY_WEB_E2E_BACKEND_READY_AT="${BACKEND_READY_AT}"
+  export CARTULARY_WEB_E2E_BACKEND_IDENTITY_SERVER_PID="${BACKEND_IDENTITY_SERVER_PID}"
+  export CARTULARY_WEB_E2E_BACKEND_GENERATION_HEAD="${BACKEND_GENERATION_HEAD}"
+  export CARTULARY_WEB_E2E_STACK_JSON_FILE="${STACK_JSON_FILE}"
+  export CARTULARY_WEB_E2E_SESSION_ARTIFACT_DIR="${TARGET_ARTIFACT_DIR}"
+  "${node_bin}" "${SESSION_EVIDENCE_HELPER}" \
+    backend-generation "${RESET_LABEL}" "${generation}" >/dev/null
+  update_session_backend_lease "${generation}"
+  release_process_group_monitor "${SERVER_PGID}"
+  trap - EXIT
+}
+
+main() {
+  parse_child_command "$@"
+
+  if [[ "${SESSION_MODE}" == "stop" ]]; then
+    stop_session
+    return $?
+  fi
+  if [[ "${SESSION_MODE}" == "reset" ]]; then
+    reset_session_backend
+    return $?
+  fi
+
+  prepare_runtime_profile
+
+  # Establish the complete artifact identity in this shell before helper
+  # functions are invoked through command substitutions. Exports performed
+  # inside those substitutions cannot update the parent shell.
+  ensure_harness_artifact_identity
+  prepare_runtime_root
+
+  trap on_exit EXIT
+  lifecycle_reset_shutdown_state
+  lifecycle_install_signal_traps
+  record_startup_event "initializing" \
+    "initializing browser session ${BROWSER_SESSION_ID} for runtime profile ${RUNTIME_PROFILE_ID}"
+
+  run_timing_span "setup" "browser-e2e frontend toolchain" \
+    browser_prepare_frontend_toolchain
+  local pnpm_bin="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
+  if [[ ! -x "${pnpm_bin}" ]]; then
+    echo "repo-local pnpm was not found at ${pnpm_bin}; run make frontend-toolchain" >&2
+    return 1
+  fi
+
+  CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e allocate ports" resolve_owned_stack_ports
+  CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e prepare test route token" prepare_test_route_token
+	REVISIONS_CONFLICT_TOKEN_SECRET="$(dd if=/dev/urandom bs=32 count=1 status=none | base64 | tr '+/' '-_' | tr -d '=\n')"
+  CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts
+
+  CARTULARY_STEP_TIMING_BUCKET=service_wait run_step_command "browser-e2e startup services" browser_start_services
+  CARTULARY_STEP_TIMING_BUCKET=migration run_step_command "browser-e2e startup database" browser_prepare_database
+  write_backend_restart_secrets
+  start_backend_ready
   CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e startup frontend ready" start_frontend_preview_ready "${pnpm_bin}"
   FRONTEND_READY_AT="$(step_now_utc)"
   record_startup_event "frontend_ready" "frontend ready at ${PUBLIC_ORIGIN}"

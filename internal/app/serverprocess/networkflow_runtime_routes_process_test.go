@@ -31,10 +31,13 @@ func TestNetworkFlowHarnessRuntimeRouteServerProcessContribution(t *testing.T) {
 	httptestx.RequireSuccessEnvelope(t, armFault, http.StatusCreated)
 
 	reset := doHarnessRuntimeJSON(t, server, http.MethodPost, "/api/v1/test/runtime/reset", nil, httptestx.TestRouteToken, publicOrigin, "")
-	httptestx.RequireSuccessEnvelope(t, reset, http.StatusOK)
+	if reset.StatusCode != http.StatusNotFound {
+		t.Fatalf("runtime reset route must be absent: got %d", reset.StatusCode)
+	}
+	reset.Body.Close()
 
 	rearmFault := doHarnessRuntimeJSON(t, server, http.MethodPost, "/api/v1/test/runtime/network-flow-faults", networkFlowFaultProcessBody(), httptestx.TestRouteToken, publicOrigin, "")
-	httptestx.RequireSuccessEnvelope(t, rearmFault, http.StatusCreated)
+	httptestx.RequireErrorEnvelope(t, rearmFault, http.StatusConflict, "test_network_flow_fault_already_armed")
 }
 
 func networkFlowFaultProcessBody() map[string]any {

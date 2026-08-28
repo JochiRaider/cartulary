@@ -562,13 +562,13 @@
       "selector": {
         "package": "./internal/platform/harnessruntime",
         "tests": [
+			"TestDatabaseResetFailurePreservesCauseAndExposesOnlyStageAndSQLState",
+			"TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata",
+			"TestTestRuntimeIdentityRouteDisabledByDefault",
+			"TestTestRuntimeIdentityRouteRejectsInvalidHarnessPredicates",
+			"TestTestRuntimeIdentityRouteRejectsNonHarnessOriginAndHost",
           "TestTestRuntimeIdentityRouteRequiresHarnessAuthorization",
-          "TestTestRuntimeResetRouteClearsRegisteredTestClock",
-          "TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap",
-          "TestTestRuntimeResetRouteDisabledByDefault",
-          "TestTestRuntimeResetRouteRejectsConcurrentReset",
-          "TestTestRuntimeResetRouteRejectsInvalidHarnessPredicates",
-          "TestTestRuntimeRoutesRejectNonHarnessOriginAndHost"
+			"TestTestRuntimeResetRouteIsRetired"
         ]
       },
       "evidence_class": "integration",
@@ -579,7 +579,6 @@
       "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard",
       "service_dependencies": [
-        "object_store",
         "postgres"
       ]
     },

@@ -118,6 +118,30 @@ adopt_port_lease_for_cleanup() {
   fi
 }
 
+reclaim_port_lease_for_replacement() {
+	local port="$1"
+	local previous_owner="$2"
+	local lease_dir
+	local lease_pid=""
+	local next_pid_file
+
+	lease_dir="$(port_lease_dir "${port}")"
+	if [[ ! -f "${lease_dir}/pid" ]]; then
+		echo "cannot reclaim missing port ${port} lease" >&2
+		return 1
+	fi
+	IFS= read -r lease_pid <"${lease_dir}/pid" || true
+	if [[ "${lease_pid}" != "${previous_owner}" ]] || kill -0 "${lease_pid}" 2>/dev/null; then
+		echo "cannot reclaim port ${port} lease from active or mismatched owner ${lease_pid:-unknown}" >&2
+		return 1
+	fi
+	next_pid_file="${lease_dir}/pid.next.$$"
+	printf '%s\n' "$$" >"${next_pid_file}"
+	mv -f "${next_pid_file}" "${lease_dir}/pid"
+	printf 'replacement_controller_pid=%s\n' "$$" >>"${lease_dir}/metadata"
+	track_port_lease_dir "${lease_dir}"
+}
+
 remove_stale_port_lease() {
   local lease_dir="$1"
   local lease_pid=""

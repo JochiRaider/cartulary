@@ -86,7 +86,7 @@ assert.deepEqual(
   ["ac043_large_grid_snapshot_v1"],
 );
 assert.deepEqual(catalog.postgresFixturePolicy.counts, {
-  postgres_dedicated: 262,
+  postgres_dedicated: 258,
   postgres_migration: 11,
   postgres_transaction: 87,
 });
@@ -431,7 +431,7 @@ const generalCases = [
     acceptance_ids: ["TH-HARNESS-AC-082"],
     run() {
       assert.equal(taskSurface.schema_id, "cartulary.task_surface_owner.v2");
-      assert.equal(topology.schema_id, "cartulary.execution_topology.v7");
+      assert.equal(topology.schema_id, "cartulary.execution_topology.v8");
     },
   },
   {

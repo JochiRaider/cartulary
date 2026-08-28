@@ -180,17 +180,35 @@ function snapshotBuilderUnit(root, group, fixture, owner) {
 }
 
 function lifecycleKey(stage, group) {
-  if (group.functionalLaneID) return group.functionalLaneID;
-  if (group.kind === "stateful_partition") {
-    return `${stage.name}-${group.browserSessionGroup}-${group.runtimeProfileID}`;
-  }
-  return `${stage.name}-${group.name}-${group.runtimeProfileID}`;
+  return [
+    stage.name,
+    group.browserSessionGroup,
+    group.runtimeProfileID,
+    group.resourceProfileID,
+    group.fixtureProfileID ?? "mutable",
+  ].join("-");
 }
 
-function resetUnit(root, stage, group, dependencies, owner, fixture, resetLabel) {
+function resetPolicy(root) {
+  const policy = topology(root).browser_reset_policy;
+  if (
+    policy?.max_attempts !== 1 ||
+    ![
+      policy.backend_drain_timeout_ms,
+      policy.database_reset_timeout_ms,
+      policy.backend_readiness_timeout_ms,
+      policy.evidence_overhead_timeout_ms,
+    ].every((value) => Number.isSafeInteger(value) && value > 0)
+  ) {
+    throw new Error("browser reset policy must declare one attempt and positive stage deadlines");
+  }
+  return policy;
+}
+
+function resetUnit(root, stage, group, dependencies, fixture, resetLabel) {
   const key = safeID(lifecycleKey(stage, group));
   const locks = hostLocks(group);
-  const functionalGeneration = group.functionalGeneration ?? 0;
+  const policy = resetPolicy(root);
   return {
     unit_id: `browser_reset:${safeID(stage.name)}:${safeID(resetLabel)}`,
     owner_id: "harness.browser",
@@ -198,21 +216,19 @@ function resetUnit(root, stage, group, dependencies, owner, fixture, resetLabel)
     command: command("tools/harness/browser/reset-web-e2e-stack.sh", [
       "--label",
       resetLabel,
-      ...(functionalGeneration > 1
-        ? ["--renew-generation", String(functionalGeneration)]
-        : []),
     ], {
       CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
       CARTULARY_BROWSER_RESOURCE_PROFILE_ID: group.resourceProfileID,
       ...(group.functionalLaneID
         ? {
             CARTULARY_BROWSER_FUNCTIONAL_LANE_ID: group.functionalLaneID,
-            CARTULARY_BROWSER_GROUP_GENERATION: String(functionalGeneration),
+            CARTULARY_BROWSER_GROUP_GENERATION: String(group.functionalGeneration ?? 1),
           }
         : {}),
       CARTULARY_BROWSER_SERVICE_REQUIREMENT: group.serviceRequirement,
       CARTULARY_HARNESS_SERVICE_DEPENDENCIES: group.serviceDependencies.join(","),
       CARTULARY_BROWSER_SESSION_CONTRACT: group.browserSessionGroup,
+      CARTULARY_BROWSER_RESET_DRAIN_TIMEOUT_MS: String(policy.backend_drain_timeout_ms),
       ...(fixture
         ? {
             CARTULARY_FIXTURE_PROFILE_ID: group.fixtureProfileID,
@@ -223,7 +239,7 @@ function resetUnit(root, stage, group, dependencies, owner, fixture, resetLabel)
           }
         : {}),
     }),
-		needs: dependencies,
+    needs: dependencies,
     resource_claims: resourceClaims(root, group),
     shared_locks: locks.shared,
     exclusive_locks: [...locks.exclusive, `browser_session:${key}`].sort(compareASCII),
@@ -237,11 +253,15 @@ function resetUnit(root, stage, group, dependencies, owner, fixture, resetLabel)
     fixture_lease: "browser_stack",
     service_dependencies: group.serviceDependencies,
     cache_policy: "none",
-    timeout_ms: owner.default_timeout_ms,
-    current_run_evidence_outputs: [],
-    failure_policy: group.functionalLaneID
-      ? finalizableFailurePolicy()
-      : requiredFailurePolicy(),
+    timeout_ms:
+      policy.backend_drain_timeout_ms +
+      policy.database_reset_timeout_ms +
+      policy.backend_readiness_timeout_ms +
+      policy.evidence_overhead_timeout_ms,
+    current_run_evidence_outputs: [
+      `${group.target}/reset-boundary/${safeID(resetLabel)}.attempt.json`,
+    ],
+    failure_policy: requiredFailurePolicy(),
     estimated_work_ms: 1000,
   };
 }
@@ -314,7 +334,7 @@ function groupUnit(root, stage, group, dependencies, owner, mode, fixture) {
           : {}),
       },
     ),
-		needs: dependencies,
+    needs: dependencies,
     resource_claims: resourceClaims(root, group),
     shared_locks: locks.shared,
     exclusive_locks: [...locks.exclusive, `browser_session:${key}`].sort(compareASCII),
@@ -410,8 +430,8 @@ function targetFinalizer(root, stage, target, groupUnits, resetUnits, needs, own
         groupTargets.join(","),
         "--children",
         target === stage.target ? stage.summaryChildren.join(",") : "",
-        "--resets",
-        resetUnits.map((unit) => unit.unit_id).sort(compareASCII).join(","),
+        "--reset-prefix",
+        `browser_reset:${safeID(stage.name)}:`,
       ],
       { CARTULARY_DEFER_OBSERVABILITY_FINALIZE: "1" },
     ),
@@ -455,8 +475,10 @@ export function browserTargetStage(root, target) {
 }
 
 export function compileBrowserStageGraph(root, owner, stage, { mode = "validation" } = {}) {
-	const units = [];
-	const previousByLifecycle = new Map();
+  const units = [];
+  const previousByLifecycle = new Map();
+  const previousGroupByLifecycle = new Map();
+  const previousResetByLifecycle = new Map();
   const snapshotBuilderIDs = new Set();
   const groupUnits = [];
   const resetUnits = [];
@@ -499,35 +521,38 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
   for (const group of scheduledGroups) {
     const fixture = resolvedFixtureProfile(root, group);
     if (fixture && !snapshotBuilderIDs.has(fixture.builderUnitID)) {
-			units.push(snapshotBuilderUnit(root, group, fixture, owner));
-			snapshotBuilderIDs.add(fixture.builderUnitID);
-		}
-		const key = safeID(lifecycleKey(stage, group));
-		const previousID = previousByLifecycle.get(key);
-		let dependencies = previousID
-			? [previousID]
-			: fixture
-				? [fixture.builderUnitID]
-				: [];
-		const resetLabel = group.resetBefore ||
-			(group.functionalGeneration > 1
-				? `${group.functionalLaneID}-before-${group.name}`
-        : "");
-    if (resetLabel) {
+      units.push(snapshotBuilderUnit(root, group, fixture, owner));
+      snapshotBuilderIDs.add(fixture.builderUnitID);
+    }
+    const key = safeID(lifecycleKey(stage, group));
+    const previousID = previousByLifecycle.get(key);
+    const previousGroupID = previousGroupByLifecycle.get(key);
+    let dependencies = previousID
+      ? [previousID]
+      : fixture
+        ? [fixture.builderUnitID]
+        : [];
+    const resetLabel = previousID
+      ? `${safeID(previousGroupID)}--before-${safeID(group.name)}`
+      : "";
+    if (previousID) {
+      const previousResetID = previousResetByLifecycle.get(key);
+      const resetDependencies = [previousID, ...(previousResetID ? [previousResetID] : [])]
+        .sort(compareASCII);
       const reset = resetUnit(
-				root,
-				stage,
-				group,
-				dependencies,
-				owner,
-				fixture,
+        root,
+        stage,
+        group,
+        resetDependencies,
+        fixture,
         resetLabel,
       );
-			units.push(reset);
-			resetUnits.push(reset);
-			dependencies = [reset.unit_id];
-		}
-		const runner = groupUnit(root, stage, group, dependencies, owner, mode, fixture);
+      units.push(reset);
+      resetUnits.push(reset);
+      previousResetByLifecycle.set(key, reset.unit_id);
+      dependencies = [reset.unit_id];
+    }
+    const runner = groupUnit(root, stage, group, dependencies, owner, mode, fixture);
     units.push(runner);
     groupUnits.push(runner);
     if (fixture) {
@@ -544,6 +569,7 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
       measurementSummaryUnits.push(summary);
     }
     previousByLifecycle.set(key, runner.unit_id);
+    previousGroupByLifecycle.set(key, group.name);
   }
 
   for (const terminalUnitID of previousByLifecycle.values()) {

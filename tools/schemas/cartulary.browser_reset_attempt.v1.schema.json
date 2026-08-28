@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.browser_reset_attempt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "reset_id", "status", "attempt", "duration_ms", "runtime_profile_id", "stages", "backend_generation_before", "backend_generation_after", "failure_stage", "database_diagnostic_ref", "database_stage", "database_sqlstate", "persistent_state_reset", "browser_state_cleared", "backend_ready", "backend_generation_ref", "tainted", "failure_class", "failure_reason"],
+  "properties": {
+    "schema_id": { "const": "cartulary.browser_reset_attempt.v1" },
+    "reset_id": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+    "status": { "enum": ["pass", "fail"] },
+    "attempt": { "const": 1 },
+    "duration_ms": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+    "runtime_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "stages": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "prefixItems": [
+        { "$ref": "#/$defs/allocation_validated" },
+        { "$ref": "#/$defs/backend_stopped" },
+        { "$ref": "#/$defs/database_reset" },
+        { "$ref": "#/$defs/object_store_reset" },
+        { "$ref": "#/$defs/browser_state_cleared" },
+        { "$ref": "#/$defs/replacement_backend_ready" },
+        { "$ref": "#/$defs/generation_published" }
+      ],
+      "items": false
+    },
+    "backend_generation_before": { "type": "integer", "minimum": 1 },
+    "backend_generation_after": { "type": "integer", "minimum": 1 },
+    "failure_stage": { "enum": [null, "backend_stop_or_preflight", "database", "object_store", "browser_state", "replacement_backend", "generation_publication"] },
+    "database_diagnostic_ref": { "type": ["string", "null"], "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+    "database_stage": { "type": ["string", "null"], "minLength": 1 },
+    "database_sqlstate": { "type": ["string", "null"], "pattern": "^[0-9A-Z]{5}$" },
+    "persistent_state_reset": { "type": "boolean" },
+    "browser_state_cleared": { "type": "boolean" },
+    "backend_ready": { "type": "boolean" },
+    "backend_generation_ref": { "type": ["string", "null"], "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+    "tainted": { "type": "boolean" },
+    "failure_class": { "$ref": "cartulary.harness.defs.v1#/$defs/failure_class" },
+    "failure_reason": { "$ref": "cartulary.harness.defs.v1#/$defs/failure_reason" }
+  },
+  "$defs": {
+    "stage_status": { "enum": ["pass", "fail", "skipped"] },
+    "allocation_validated": { "$ref": "#/$defs/stage", "properties": { "stage": { "const": "allocation_validated" } } },
+    "backend_stopped": { "$ref": "#/$defs/stage", "properties": { "stage": { "const": "backend_stopped" } } },
+    "database_reset": { "$ref": "#/$defs/stage", "properties": { "stage": { "const": "database_reset" } } },
+    "object_store_reset": { "$ref": "#/$defs/stage", "properties": { "stage": { "const": "object_store_reset" } } },
+    "browser_state_cleared": { "$ref": "#/$defs/stage", "properties": { "stage": { "const": "browser_state_cleared" } } },
+    "replacement_backend_ready": { "$ref": "#/$defs/stage", "properties": { "stage": { "const": "replacement_backend_ready" } } },
+    "generation_published": { "$ref": "#/$defs/stage", "properties": { "stage": { "const": "generation_published" } } },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "status"],
+      "properties": {
+        "stage": { "type": "string" },
+        "status": { "$ref": "#/$defs/stage_status" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "failure_stage": { "type": "null" },
+          "persistent_state_reset": { "const": true },
+          "browser_state_cleared": { "const": true },
+          "backend_ready": { "const": true },
+          "tainted": { "const": false },
+          "failure_class": { "type": "null" },
+          "failure_reason": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": {
+          "failure_stage": { "type": "string" },
+          "tainted": { "const": true },
+          "failure_class": { "type": "string" },
+          "failure_reason": { "type": "string" }
+        }
+      }
+    }
+  ]
+}

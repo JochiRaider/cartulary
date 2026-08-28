@@ -42,6 +42,12 @@ type ApplicationRecoveryServingLease struct {
 	*Lease
 }
 
+// RecoveryTargetLease is the Recovery side of the serving exclusion. It is
+// exclusive with every ApplicationRecoveryServingLease for the same database.
+type RecoveryTargetLease struct {
+	*Lease
+}
+
 func AcquireApplicationProcess(
 	ctx context.Context,
 	pool *pgxpool.Pool,
@@ -84,6 +90,29 @@ func AcquireApplicationRecoveryServing(
 		return nil, err
 	}
 	return &ApplicationRecoveryServingLease{Lease: lease}, nil
+}
+
+func AcquireRecoveryTargetLease(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	acquireTimeout time.Duration,
+	lossDetection time.Duration,
+) (*RecoveryTargetLease, error) {
+	lease, err := Acquire(
+		ctx,
+		PostgresBackend{
+			Pool:        pool,
+			AdvisoryKey: ServingAdvisoryKey,
+			Purpose:     "recovery target",
+			Mode:        LockExclusive,
+		},
+		acquireTimeout,
+		lossDetection,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &RecoveryTargetLease{Lease: lease}, nil
 }
 
 func (b PostgresBackend) Open(ctx context.Context) (Session, error) {

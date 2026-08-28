@@ -259,8 +259,8 @@ type dependencies struct {
 	preflightSuite        func(context.Context, map[string]string) (suitePreflightResult, error)
 	createTemplate        func(context.Context, string, string) error
 	prepareWebE2E         func(context.Context, map[string]string) (webE2EFixture, error)
-	resetWebE2EDB         func(context.Context, string, string) error
-	renewWebE2E           func(context.Context, map[string]string, webE2EMetadata, string, string) error
+	resetWebE2EDB         func(context.Context, string, string) (harnessruntime.DatabaseResetResult, error)
+	resetWebE2EBucket     func(context.Context, webE2EMetadata, map[string]string) error
 	cleanupWebE2EDB       func(context.Context, webE2EMetadata, map[string]string) error
 	cleanupWebE2EBucket   func(context.Context, webE2EMetadata, map[string]string) error
 	cleanupWebE2ESessions func(context.Context, map[string]string, string) error
@@ -279,7 +279,7 @@ func main() {
 
 func run(args []string, env map[string]string, deps dependencies) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> --result-file <path> | schema-hash | build-performance-fixture <flags> | record-lifecycle --env-file <path> --event <event> [--child-key <key>] | prepare-web-e2e --env-file <path> --metadata-file <path> | reset-web-e2e --credential-root <path> --bootstrap-manifest <path> | renew-web-e2e --credential-root <path> --bootstrap-manifest <path> --metadata-file <path> --generation <positive-integer> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | images | warm-images")
+		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> --result-file <path> | schema-hash | build-performance-fixture <flags> | record-lifecycle --env-file <path> --event <event> [--child-key <key>] | prepare-web-e2e --env-file <path> --metadata-file <path> | reset-web-e2e --credential-root <path> --bootstrap-manifest <path> --metadata-file <path> --reset-id <id> --result-file <path> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | images | warm-images")
 		return 2
 	}
 
@@ -298,8 +298,6 @@ func run(args []string, env map[string]string, deps dependencies) int {
 		return runPrepareWebE2E(args[1:], env, deps)
 	case "reset-web-e2e":
 		return runResetWebE2E(args[1:], env, deps)
-	case "renew-web-e2e":
-		return runRenewWebE2E(args[1:], env, deps)
 	case "cleanup-web-e2e":
 		return runCleanupWebE2E(args[1:], env, deps)
 	case "terminate-suite":
@@ -823,7 +821,7 @@ func runPrepareWebE2E(args []string, env map[string]string, deps dependencies) i
 }
 
 func runResetWebE2E(args []string, env map[string]string, deps dependencies) int {
-	credentialRoot, bootstrapManifest, err := parseResetWebE2EArgs(args)
+	credentialRoot, bootstrapManifest, metadataFile, resetID, resultFile, err := parseResetWebE2EArgs(args)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
@@ -835,51 +833,30 @@ func runResetWebE2E(args []string, env map[string]string, deps dependencies) int
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := deps.resetWebE2EDB(ctx, credentialRoot, bootstrapManifest); err != nil {
-		fmt.Fprintf(os.Stderr, "reset browser database through Recovery purpose: %s\n", err)
+	started := time.Now()
+	result, resetErr := deps.resetWebE2EDB(ctx, credentialRoot, bootstrapManifest)
+	diagnostic := newDatabaseResetDiagnostic(resetID, result, resetErr, time.Since(started))
+	if writeErr := writeDatabaseResetDiagnostic(resultFile, diagnostic); writeErr != nil {
+		fmt.Fprintf(os.Stderr, "failure_class=artifact reason=artifact_error write database reset diagnostic: %v\n", writeErr)
+		return 11
+	}
+	if resetErr != nil {
+		if diagnostic.TimedOut {
+			fmt.Fprintf(os.Stderr, "failure_class=timing reason=timeout_failure reset browser database stage=%s\n", diagnostic.Stage)
+			return 13
+		}
+		fmt.Fprintf(os.Stderr, "failure_class=harness reason=fixture_error reset browser database stage=%s\n", diagnostic.Stage)
 		return 1
 	}
-	return 0
-}
-
-func runRenewWebE2E(args []string, env map[string]string, deps dependencies) int {
-	credentialRoot, bootstrapManifest, metadataFile, generation, err := parseRenewWebE2EArgs(args)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 2
-	}
-	if !suiteservices.SuiteAuthorized(env) {
-		fmt.Fprintln(os.Stderr, "renew-web-e2e requires authenticated suite runtime proof")
+	metadata, metadataErr := readWebE2EMetadata(metadataFile)
+	if metadataErr != nil {
+		fmt.Fprintln(os.Stderr, "failure_class=harness reason=fixture_error read browser reset metadata")
 		return 1
 	}
-	metadata, err := readWebE2EMetadata(metadataFile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "read browser e2e metadata: %v\n", err)
+	if bucketErr := deps.resetWebE2EBucket(ctx, metadata, env); bucketErr != nil {
+		fmt.Fprintln(os.Stderr, "failure_class=harness reason=fixture_error reset browser object-store bucket")
 		return 1
 	}
-	if !generatedWebE2EFixture(metadata) || metadata.FixtureProfileID != "" {
-		fmt.Fprintln(os.Stderr, "renew-web-e2e refuses unproved or profiled browser resources")
-		return 1
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-	defer cancel()
-	started := time.Now().UTC()
-	err = deps.renewWebE2E(ctx, env, metadata, credentialRoot, bootstrapManifest)
-	recordTimingSpanStatus(
-		deps,
-		env,
-		bucketMigration,
-		fmt.Sprintf("test-services renew browser e2e generation %d", generation),
-		started,
-		err,
-	)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "renew browser e2e fixture: %v\n", err)
-		deps.refreshSummary(env)
-		return 1
-	}
-	deps.refreshSummary(env)
 	return 0
 }
 
@@ -1106,41 +1083,26 @@ func parsePrepareWebE2EArgs(args []string) (string, string, error) {
 	return envFile, metadataFile, nil
 }
 
-func parseResetWebE2EArgs(args []string) (string, string, error) {
-	values, err := parseFlagPairs(args, map[string]struct{}{
-		"--credential-root":    {},
-		"--bootstrap-manifest": {},
-	})
-	if err != nil {
-		return "", "", err
-	}
-	credentialRoot := strings.TrimSpace(values["--credential-root"])
-	bootstrapManifest := strings.TrimSpace(values["--bootstrap-manifest"])
-	if credentialRoot == "" || bootstrapManifest == "" {
-		return "", "", errors.New("usage: testservices reset-web-e2e --credential-root <path> --bootstrap-manifest <path>")
-	}
-	return credentialRoot, bootstrapManifest, nil
-}
-
-func parseRenewWebE2EArgs(args []string) (string, string, string, int, error) {
+func parseResetWebE2EArgs(args []string) (string, string, string, string, string, error) {
 	values, err := parseFlagPairs(args, map[string]struct{}{
 		"--credential-root":    {},
 		"--bootstrap-manifest": {},
 		"--metadata-file":      {},
-		"--generation":         {},
+		"--reset-id":           {},
+		"--result-file":        {},
 	})
 	if err != nil {
-		return "", "", "", 0, err
+		return "", "", "", "", "", err
 	}
 	credentialRoot := strings.TrimSpace(values["--credential-root"])
 	bootstrapManifest := strings.TrimSpace(values["--bootstrap-manifest"])
 	metadataFile := strings.TrimSpace(values["--metadata-file"])
-	generation, generationErr := strconv.Atoi(strings.TrimSpace(values["--generation"]))
-	if credentialRoot == "" || bootstrapManifest == "" || metadataFile == "" ||
-		generationErr != nil || generation < 1 {
-		return "", "", "", 0, errors.New("usage: testservices renew-web-e2e --credential-root <path> --bootstrap-manifest <path> --metadata-file <path> --generation <positive-integer>")
+	resetID := strings.TrimSpace(values["--reset-id"])
+	resultFile := strings.TrimSpace(values["--result-file"])
+	if credentialRoot == "" || bootstrapManifest == "" || metadataFile == "" || resetID == "" || resultFile == "" {
+		return "", "", "", "", "", errors.New("usage: testservices reset-web-e2e --credential-root <path> --bootstrap-manifest <path> --metadata-file <path> --reset-id <id> --result-file <path>")
 	}
-	return credentialRoot, bootstrapManifest, metadataFile, generation, nil
+	return credentialRoot, bootstrapManifest, metadataFile, resetID, resultFile, nil
 }
 
 func parseRecordLifecycleArgs(args []string) (string, string, string, error) {
@@ -1297,7 +1259,7 @@ func defaultDependencies() dependencies {
 		createTemplate:        createTemplateDatabase,
 		prepareWebE2E:         prepareWebE2EFixture,
 		resetWebE2EDB:         resetWebE2EDatabase,
-		renewWebE2E:           renewWebE2EFixture,
+		resetWebE2EBucket:     resetWebE2EBucket,
 		cleanupWebE2EDB:       cleanupWebE2EDatabase,
 		cleanupWebE2EBucket:   cleanupWebE2EBucket,
 		cleanupWebE2ESessions: revokePerformanceFixtureSessions,
@@ -1928,17 +1890,17 @@ func prepareWebE2EFixture(ctx context.Context, env map[string]string) (webE2EFix
 	}, nil
 }
 
-func resetWebE2EDatabase(ctx context.Context, credentialRoot string, bootstrapManifest string) error {
+func resetWebE2EDatabase(ctx context.Context, credentialRoot string, bootstrapManifest string) (harnessruntime.DatabaseResetResult, error) {
 	settings, err := postgres.ResolveSettings(postgres.Binding{
 		BindingKind: "filesystem_root",
 		RootPath:    credentialRoot,
 	}, postgres.PurposeRecovery, map[string]string{})
 	if err != nil {
-		return errors.New("recovery_settings_invalid")
+		return harnessruntime.DatabaseResetResult{}, harnessruntime.NewDatabaseResetFailure("recovery_settings_invalid", err)
 	}
 	pool, err := postgres.Setup(ctx, settings)
 	if err != nil {
-		return errors.New("recovery_connection_failed")
+		return harnessruntime.DatabaseResetResult{}, harnessruntime.NewDatabaseResetFailure("recovery_connection_failed", err)
 	}
 	defer pool.Close()
 
@@ -1948,18 +1910,9 @@ func resetWebE2EDatabase(ctx context.Context, credentialRoot string, bootstrapMa
 	})
 }
 
-func renewWebE2EFixture(
-	ctx context.Context,
-	env map[string]string,
-	metadata webE2EMetadata,
-	credentialRoot string,
-	bootstrapManifest string,
-) error {
+func resetWebE2EBucket(ctx context.Context, metadata webE2EMetadata, _ map[string]string) error {
 	if !generatedWebE2EFixture(metadata) || metadata.FixtureProfileID != "" {
 		return errors.New("unproved_browser_fixture")
-	}
-	if err := resetWebE2EDatabase(ctx, credentialRoot, bootstrapManifest); err != nil {
-		return err
 	}
 	s3Harness, err := s3test.StartShared(ctx)
 	if err != nil {
