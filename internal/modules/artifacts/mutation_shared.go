@@ -54,7 +54,7 @@ type RevisionCapability interface {
 
 type artifactSourceMutationPort interface {
 	insertRowTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, createParams, time.Time) error
-	applyDirectChangeTx(context.Context, pgx.Tx, uuid.UUID, string, FieldValue, time.Time) (bool, error)
+	applyDirectChangeTx(context.Context, pgx.Tx, uuid.UUID, string, fieldValue, time.Time) (bool, error)
 	applyHandoffRiskRefPayloadTx(context.Context, pgx.Tx, RecordEnvelopeCapability, uuid.UUID, uuid.UUID, uuid.UUID, riskRefActionPayload, time.Time) (bool, error)
 	normalizeFindingLifecycleTx(context.Context, pgx.Tx, uuid.UUID, time.Time) (bool, error)
 	touchRowTx(context.Context, pgx.Tx, uuid.UUID, time.Time) error
@@ -92,11 +92,51 @@ func (d MutationDependencies) validate() error {
 		{name: "Collaboration publication", value: d.Collaboration},
 	}
 	for _, dependency := range required {
-		if dependency.value == nil {
+		if isNilCapability(dependency.value) {
 			return fmt.Errorf("artifacts mutation dependencies: %s is required", dependency.name)
 		}
 	}
 	return nil
+}
+
+func isNilCapability(value any) bool {
+	if value == nil {
+		return true
+	}
+	candidate := reflect.ValueOf(value)
+	switch candidate.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return candidate.IsNil()
+	default:
+		return false
+	}
+}
+
+func uuidPointer(value uuid.UUID) *uuid.UUID {
+	result := value
+	return &result
+}
+
+func cloneUUIDPointer(value *uuid.UUID) *uuid.UUID {
+	if value == nil {
+		return nil
+	}
+	return uuidPointer(*value)
+}
+
+func cloneContextualLink(value *ContextualLink) *ContextualLink {
+	if value == nil {
+		return nil
+	}
+	result := *value
+	return &result
+}
+
+func artifactCreateOperation(contextualSourceRecordID *uuid.UUID) OperationID {
+	if contextualSourceRecordID != nil {
+		return OperationLinkedNoteCreate
+	}
+	return OperationCreate
 }
 
 type memberReferenceValidator struct{}
@@ -180,7 +220,7 @@ SELECT EXISTS (
 	return nil
 }
 
-func touchesArtifactField(changes []PatchChange, field string) bool {
+func touchesArtifactField(changes []patchChange, field string) bool {
 	for _, change := range changes {
 		if change.FieldKey == field {
 			return true
@@ -207,19 +247,6 @@ func changedFieldKeys(before map[string]any, after map[string]any) []string {
 
 func workbookVersionID(recordID uuid.UUID, rowVersion int64) string {
 	return fmt.Sprintf("record:%s:%d", recordID.String(), rowVersion)
-}
-
-func rowVersionFromCanonicalRow(row map[string]any) int64 {
-	switch value := row["row_version"].(type) {
-	case int64:
-		return value
-	case int:
-		return int64(value)
-	case float64:
-		return int64(value)
-	default:
-		return 0
-	}
 }
 
 func contextualLinkFacts(sourceRecordID *uuid.UUID) *ContextualLink {

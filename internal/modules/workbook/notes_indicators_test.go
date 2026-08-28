@@ -1,7 +1,9 @@
 package workbook_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"testing"
@@ -57,19 +59,22 @@ func TestLinkedNotesCreateContextualArtifactLinks_Unit(t *testing.T) {
 
 	title := "Workbook inspector linked note"
 	body := "Linked through references_artifact"
-	linkedRequest := artifacts.ContextualNoteCreateRequest{
-		ClientTxnID: "txn-workbook_interaction-u-9-03-linked-note",
-		Values: map[string]artifacts.FieldValue{
-			"note.title": {Text: &title},
-			"note.body":  {Text: &body},
-		},
+	linkedPayload, err := json.Marshal(map[string]any{
+		"client_txn_id": "txn-workbook_interaction-u-9-03-linked-note",
+		"note.title":    title,
+		"note.body":     body,
+	})
+	if err != nil {
+		t.Fatalf("encode linked note admission: %v", err)
+	}
+	linkedAdmission, admissionErr := artifacts.AdmitContextualNote(bytes.NewReader(linkedPayload))
+	if admissionErr != nil {
+		t.Fatalf("admit linked note: %v", admissionErr)
 	}
 	linked, err := artifactOwner.CreateContextualNote(context.Background(), artifacts.ContextualNoteCreateCommand{
-		ActorUserID: actor.ID, SourceRecordID: sourceRecordID, Request: linkedRequest,
-		RequestHash: artifacts.ContextualNoteCreateRequestHash(sourceRecordID, linkedRequest),
-		RequestID:   "req-workbook_interaction-u-9-03-linked-note",
-		OperationID: artifacts.OperationLinkedNoteCreate,
-		Now:         time.Date(2026, 5, 17, 15, 5, 0, 0, time.UTC),
+		ActorUserID: actor.ID, SourceRecordID: sourceRecordID, Admission: linkedAdmission,
+		RequestID: "req-workbook_interaction-u-9-03-linked-note",
+		Now:       time.Date(2026, 5, 17, 15, 5, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatalf("create linked note: %v", err)

@@ -14,7 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
-func validateArtifactReferencesTx(ctx context.Context, tx pgx.Tx, members MemberReferenceCapability, linkStore LinkCapability, incidentID uuid.UUID, viewSchemaID string, values map[string]FieldValue, collections map[string]CollectionActionPayload) error {
+func validateArtifactReferencesTx(ctx context.Context, tx pgx.Tx, members MemberReferenceCapability, linkStore LinkCapability, incidentID uuid.UUID, viewSchemaID string, values map[string]fieldValue, collections map[string]collectionActionPayload) error {
 	for fieldKey, value := range values {
 		if value.UUID != nil && strings.HasSuffix(fieldKey, "_user_id") {
 			if err := members.ValidateIncidentMemberUserTx(ctx, tx, incidentID, *value.UUID, fieldKey); err != nil {
@@ -30,7 +30,7 @@ func validateArtifactReferencesTx(ctx context.Context, tx pgx.Tx, members Member
 	return nil
 }
 
-func validateArtifactPatchReferencesTx(ctx context.Context, tx pgx.Tx, members MemberReferenceCapability, linkStore LinkCapability, incidentID uuid.UUID, request PatchRequest) error {
+func validateArtifactPatchReferencesTx(ctx context.Context, tx pgx.Tx, members MemberReferenceCapability, linkStore LinkCapability, incidentID uuid.UUID, request patchRequest) error {
 	for _, change := range request.Changes {
 		if change.Value != nil && change.Value.UUID != nil && strings.HasSuffix(change.FieldKey, "_user_id") {
 			if err := members.ValidateIncidentMemberUserTx(ctx, tx, incidentID, *change.Value.UUID, change.FieldKey); err != nil {
@@ -46,7 +46,7 @@ func validateArtifactPatchReferencesTx(ctx context.Context, tx pgx.Tx, members M
 	return nil
 }
 
-func validateArtifactCollectionPayloadTx(ctx context.Context, tx pgx.Tx, linkStore LinkCapability, incidentID uuid.UUID, viewSchemaID string, fieldKey string, payload CollectionActionPayload) error {
+func validateArtifactCollectionPayloadTx(ctx context.Context, tx pgx.Tx, linkStore LinkCapability, incidentID uuid.UUID, viewSchemaID string, fieldKey string, payload collectionActionPayload) error {
 	sourcePolicy, ok := lookupArtifactSourceField(fieldKey)
 	if !ok || sourcePolicy.ViewSchemaID != viewSchemaID ||
 		sourcePolicy.Kind != sourcecatalog.FieldKindCollection || (!sourcePolicy.View.Writable && !sourcePolicy.View.CreateWritable) {
@@ -80,7 +80,7 @@ func validateArtifactCollectionPayloadTx(ctx context.Context, tx pgx.Tx, linkSto
 	}
 }
 
-func (f *MutationFacade) applyCollectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, collections map[string]CollectionActionPayload, now time.Time) (links.CollectionMutationResult, error) {
+func (f *MutationFacade) applyCollectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, collections map[string]collectionActionPayload, now time.Time) (links.CollectionMutationResult, error) {
 	fieldKeys := make([]string, 0, len(collections))
 	for fieldKey := range collections {
 		fieldKeys = append(fieldKeys, fieldKey)
@@ -98,7 +98,7 @@ func (f *MutationFacade) applyCollectionsTx(ctx context.Context, tx pgx.Tx, inci
 	return mutations, nil
 }
 
-func (f *MutationFacade) applyCollectionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, fieldKey string, payload CollectionActionPayload, now time.Time) (bool, links.CollectionMutationResult, error) {
+func (f *MutationFacade) applyCollectionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, fieldKey string, payload collectionActionPayload, now time.Time) (bool, links.CollectionMutationResult, error) {
 	sourcePolicy, ok := lookupArtifactSourceField(fieldKey)
 	if !ok || sourcePolicy.ViewSchemaID != viewSchemaID ||
 		sourcePolicy.Kind != sourcecatalog.FieldKindCollection || (!sourcePolicy.View.Writable && !sourcePolicy.View.CreateWritable) {
@@ -161,17 +161,17 @@ func (f *MutationFacade) appendCollectionMutationsTx(ctx context.Context, tx pgx
 	return sequence, nil
 }
 
-func artifactRecordRefValidation(incidentID uuid.UUID, policy collectionPolicy, payload CollectionActionPayload) (links.RecordRefCollectionValidation, error) {
+func artifactRecordRefValidation(incidentID uuid.UUID, policy collectionPolicy, payload collectionActionPayload) (links.RecordRefCollectionValidation, error) {
 	adds, removes, err := artifactRecordRefActions(policy, payload)
 	return links.RecordRefCollectionValidation{IncidentID: incidentID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddRecordIDs: adds, RemoveRecordIDs: removes}, err
 }
 
-func artifactRecordRefCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionPolicy, payload CollectionActionPayload, now time.Time) (links.RecordRefCollectionCommand, error) {
+func artifactRecordRefCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionPolicy, payload collectionActionPayload, now time.Time) (links.RecordRefCollectionCommand, error) {
 	adds, removes, err := artifactRecordRefActions(policy, payload)
 	return links.RecordRefCollectionCommand{IncidentID: incidentID, SourceRecordID: recordID, ActorUserID: actorID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddRecordIDs: adds, RemoveRecordIDs: removes, Now: now}, err
 }
 
-func artifactRecordRefActions(policy collectionPolicy, payload CollectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {
+func artifactRecordRefActions(policy collectionPolicy, payload collectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {
 	adds := make([]uuid.UUID, 0)
 	removes := make([]uuid.UUID, 0)
 	for _, action := range payload.Actions {
@@ -197,17 +197,17 @@ func artifactRecordRefActions(policy collectionPolicy, payload CollectionActionP
 	return adds, removes, nil
 }
 
-func artifactPartyRefValidation(incidentID uuid.UUID, policy collectionPolicy, payload CollectionActionPayload) (links.PartyRefCollectionValidation, error) {
+func artifactPartyRefValidation(incidentID uuid.UUID, policy collectionPolicy, payload collectionActionPayload) (links.PartyRefCollectionValidation, error) {
 	adds, removes, err := artifactPartyRefActions(policy, payload)
 	return links.PartyRefCollectionValidation{IncidentID: incidentID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddPartyIDs: adds, RemovePartyIDs: removes}, err
 }
 
-func artifactPartyRefCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionPolicy, payload CollectionActionPayload, now time.Time) (links.PartyRefCollectionCommand, error) {
+func artifactPartyRefCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionPolicy, payload collectionActionPayload, now time.Time) (links.PartyRefCollectionCommand, error) {
 	adds, removes, err := artifactPartyRefActions(policy, payload)
 	return links.PartyRefCollectionCommand{IncidentID: incidentID, SourceRecordID: recordID, ActorUserID: actorID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddPartyIDs: adds, RemovePartyIDs: removes, Now: now}, err
 }
 
-func artifactPartyRefActions(policy collectionPolicy, payload CollectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {
+func artifactPartyRefActions(policy collectionPolicy, payload collectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {
 	adds := make([]uuid.UUID, 0)
 	removes := make([]uuid.UUID, 0)
 	for _, action := range payload.Actions {
@@ -233,17 +233,17 @@ func artifactPartyRefActions(policy collectionPolicy, payload CollectionActionPa
 	return adds, removes, nil
 }
 
-func artifactTagValidation(policy collectionPolicy, payload CollectionActionPayload) (links.TagCollectionValidation, error) {
+func artifactTagValidation(policy collectionPolicy, payload collectionActionPayload) (links.TagCollectionValidation, error) {
 	adds, removes, err := artifactTagActions(policy, payload)
 	return links.TagCollectionValidation{FieldKey: policy.FieldKey, AddTags: adds, RemoveTags: removes}, err
 }
 
-func artifactTagCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionPolicy, payload CollectionActionPayload, now time.Time) (links.TagCollectionCommand, error) {
+func artifactTagCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionPolicy, payload collectionActionPayload, now time.Time) (links.TagCollectionCommand, error) {
 	adds, removes, err := artifactTagActions(policy, payload)
 	return links.TagCollectionCommand{IncidentID: incidentID, RecordID: recordID, ActorUserID: actorID, FieldKey: policy.FieldKey, AddTags: adds, RemoveTags: removes, Now: now}, err
 }
 
-func artifactTagActions(policy collectionPolicy, payload CollectionActionPayload) ([]links.TagCollectionAdd, []links.RecordTagRef, error) {
+func artifactTagActions(policy collectionPolicy, payload collectionActionPayload) ([]links.TagCollectionAdd, []links.RecordTagRef, error) {
 	adds := make([]links.TagCollectionAdd, 0)
 	removes := make([]links.RecordTagRef, 0)
 	for _, action := range payload.Actions {
@@ -266,7 +266,7 @@ func artifactTagActions(policy collectionPolicy, payload CollectionActionPayload
 	return adds, removes, nil
 }
 
-func riskRefPayloadFromWorkbook(payload CollectionActionPayload) riskRefActionPayload {
+func riskRefPayloadFromWorkbook(payload collectionActionPayload) riskRefActionPayload {
 	actions := make([]riskRefAction, 0, len(payload.Actions))
 	for _, action := range payload.Actions {
 		actions = append(actions, riskRefAction{

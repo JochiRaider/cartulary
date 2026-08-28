@@ -13,39 +13,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
 
-type ContextualNoteCreateRequest struct {
-	ClientTxnID string
-	Values      map[string]FieldValue
-	Collections map[string]CollectionActionPayload
-}
-
 type ContextualNoteCreateCommand struct {
 	ActorUserID    uuid.UUID
 	SourceRecordID uuid.UUID
-	Request        ContextualNoteCreateRequest
-	RequestHash    []byte
+	Admission      ContextualNoteAdmission
 	RequestID      string
-	OperationID    OperationID
 	Now            time.Time
-}
-
-func (f *MutationFacade) SourceIncident(
-	ctx context.Context,
-	sourceRecordID uuid.UUID,
-) (uuid.UUID, error) {
-	tx, err := f.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return uuid.UUID{}, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	incidentID, err := f.contextIncidentTx(ctx, tx, sourceRecordID)
-	if err != nil {
-		return uuid.UUID{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return uuid.UUID{}, err
-	}
-	return incidentID, nil
 }
 
 func (f *MutationFacade) CreateContextualNote(
@@ -55,18 +28,16 @@ func (f *MutationFacade) CreateContextualNote(
 	if f == nil {
 		return MutationResult{}, fmt.Errorf("artifacts: mutation facade is not configured")
 	}
-	request := CreateRequest{
-		ViewSchemaID: NotesViewSchemaID,
-		ClientTxnID:  command.Request.ClientTxnID,
-		Values:       command.Request.Values,
-		Collections:  command.Request.Collections,
+	if !command.Admission.valid() {
+		return MutationResult{}, &ValidationError{Field: "payload", ReasonCode: "invalid_value"}
 	}
+	request := command.Admission.requestValue()
+	admission := CreateAdmission{request: request, admitted: true}
+	copy(admission.hash[:], command.Admission.requestHash(command.SourceRecordID))
 	return f.create(ctx, CreateCommand{
 		ActorUserID: command.ActorUserID,
-		Request:     request,
-		RequestHash: command.RequestHash,
+		Admission:   admission,
 		RequestID:   command.RequestID,
-		OperationID: command.OperationID,
 		Now:         command.Now,
 	}, &command.SourceRecordID)
 }

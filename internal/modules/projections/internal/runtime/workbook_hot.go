@@ -57,15 +57,16 @@ func (s *Store) rebuildIncidentArtifactsTxCore(
 		if err != nil {
 			return err
 		}
-		for _, input := range page.Inputs {
+		for _, input := range page.Inputs() {
 			if err := s.physical.InsertArtifactTx(ctx, tx, input); err != nil {
 				return err
 			}
 		}
-		if page.NextRecordID == nil {
+		nextRecordID := page.NextRecordID()
+		if nextRecordID == nil {
 			return nil
 		}
-		afterRecordID = page.NextRecordID
+		afterRecordID = nextRecordID
 	}
 }
 

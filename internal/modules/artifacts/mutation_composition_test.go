@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -20,6 +21,9 @@ type artifactProjectionRowsStub struct{ artifactprojection.Rows }
 type artifactRevisionsStub struct{ RevisionCapability }
 type artifactConflictFieldsStub struct{ conflicttokens.FieldResolver }
 type artifactKeepSavedStub struct{ conflicttokens.IdempotencyPort }
+type artifactCollaborationStub struct {
+	collaboration.RecordChangedAppender
+}
 type artifactImportRecordStub struct{ recordEnvelopeInserter }
 type artifactImportActiveUserStub struct{ activeUserLookup }
 type artifactImportProjectionStub struct{ artifactProjectionRows }
@@ -38,6 +42,7 @@ func completeArtifactMutationDependencies() MutationDependencies {
 		Revisions:            artifactRevisionsStub{},
 		ConflictFields:       artifactConflictFieldsStub{},
 		KeepSavedIdempotency: artifactKeepSavedStub{},
+		Collaboration:        artifactCollaborationStub{},
 	}
 }
 
@@ -69,6 +74,7 @@ func TestArtifactMutationContributionRejectsMissingDependencies(t *testing.T) {
 		{name: "revisions", want: "Revisions/history", drop: func(d *MutationDependencies) { d.Revisions = nil }},
 		{name: "conflict fields", want: "Conflict fields", drop: func(d *MutationDependencies) { d.ConflictFields = nil }},
 		{name: "keep saved", want: "Keep-saved idempotency", drop: func(d *MutationDependencies) { d.KeepSavedIdempotency = nil }},
+		{name: "collaboration", want: "Collaboration publication", drop: func(d *MutationDependencies) { d.Collaboration = nil }},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -76,6 +82,37 @@ func TestArtifactMutationContributionRejectsMissingDependencies(t *testing.T) {
 			tc.drop(&dependencies)
 			if _, err := NewMutationContribution(&artifactCompositionDB{}, conflicttokens.ConflictTokenCodec{}, dependencies); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("missing %s error = %v", tc.name, err)
+			}
+		})
+	}
+	t.Run("typed nil Postgres", func(t *testing.T) {
+		var pool *artifactCompositionDB
+		if _, err := NewMutationContribution(pool, conflicttokens.ConflictTokenCodec{}, completeArtifactMutationDependencies()); err == nil || !strings.Contains(err.Error(), "Postgres is required") {
+			t.Fatalf("typed nil Postgres error = %v", err)
+		}
+	})
+	typedNilTests := []struct {
+		name string
+		want string
+		drop func(*MutationDependencies)
+	}{
+		{name: "incident state", want: "Incident admission", drop: func(d *MutationDependencies) { d.IncidentState = (*artifactIncidentStateStub)(nil) }},
+		{name: "member references", want: "Member validation", drop: func(d *MutationDependencies) { d.MemberReferences = (*artifactMemberReferencesStub)(nil) }},
+		{name: "idempotency", want: "Route idempotency", drop: func(d *MutationDependencies) { d.Idempotency = (*artifactIdempotencyStub)(nil) }},
+		{name: "records", want: "Record envelopes", drop: func(d *MutationDependencies) { d.RecordEnvelopes = (*artifactRecordEnvelopesStub)(nil) }},
+		{name: "links", want: "Links", drop: func(d *MutationDependencies) { d.Links = (*artifactLinksStub)(nil) }},
+		{name: "projections", want: "Projections", drop: func(d *MutationDependencies) { d.Projections = (*artifactProjectionRowsStub)(nil) }},
+		{name: "revisions", want: "Revisions/history", drop: func(d *MutationDependencies) { d.Revisions = (*artifactRevisionsStub)(nil) }},
+		{name: "conflict fields", want: "Conflict fields", drop: func(d *MutationDependencies) { d.ConflictFields = (*artifactConflictFieldsStub)(nil) }},
+		{name: "keep saved", want: "Keep-saved idempotency", drop: func(d *MutationDependencies) { d.KeepSavedIdempotency = (*artifactKeepSavedStub)(nil) }},
+		{name: "collaboration", want: "Collaboration publication", drop: func(d *MutationDependencies) { d.Collaboration = (*artifactCollaborationStub)(nil) }},
+	}
+	for _, tc := range typedNilTests {
+		t.Run("typed nil "+tc.name, func(t *testing.T) {
+			dependencies := completeArtifactMutationDependencies()
+			tc.drop(&dependencies)
+			if _, err := NewMutationContribution(&artifactCompositionDB{}, conflicttokens.ConflictTokenCodec{}, dependencies); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("typed nil %s error = %v", tc.name, err)
 			}
 		})
 	}

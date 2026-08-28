@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -181,20 +182,112 @@ func requireCount(
 	}
 }
 
-func artifactTextValues(entries ...string) map[string]artifacts.FieldValue {
-	values := make(map[string]artifacts.FieldValue, len(entries)/2)
+func artifactTextValues(entries ...string) map[string]any {
+	values := make(map[string]any, len(entries)/2)
 	for index := 0; index < len(entries); index += 2 {
-		values[entries[index]] = artifactTextValue(entries[index+1])
+		values[entries[index]] = entries[index+1]
 	}
 	return values
 }
 
-func artifactTextValue(value string) artifacts.FieldValue {
-	return artifacts.FieldValue{Text: &value}
+func mustArtifactCreateAdmission(
+	t testing.TB,
+	viewSchemaID string,
+	clientTxnID string,
+	values map[string]any,
+	collections map[string]any,
+) artifacts.CreateAdmission {
+	t.Helper()
+	payload := map[string]any{"client_txn_id": clientTxnID}
+	for fieldKey, value := range values {
+		payload[fieldKey] = value
+	}
+	for fieldKey, value := range collections {
+		payload[fieldKey] = value
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("encode Artifact create admission: %v", err)
+	}
+	admission, admissionErr := artifacts.AdmitCreate(viewSchemaID, strings.NewReader(string(encoded)))
+	if admissionErr != nil {
+		t.Fatalf("admit Artifact create: %v (%s)", admissionErr, admissionErr.ReasonCode())
+	}
+	return admission
 }
 
-func artifactFieldValuePtr(value artifacts.FieldValue) *artifacts.FieldValue {
-	return &value
+func mustArtifactPatchAdmission(
+	t testing.TB,
+	viewSchemaID string,
+	baseRowVersion int64,
+	clientTxnID string,
+	changes []map[string]any,
+) artifacts.PatchAdmission {
+	t.Helper()
+	encoded, err := json.Marshal(map[string]any{
+		"view_schema_id": viewSchemaID, "base_row_version": baseRowVersion,
+		"client_txn_id": clientTxnID, "changes": changes,
+	})
+	if err != nil {
+		t.Fatalf("encode Artifact patch admission: %v", err)
+	}
+	admission, admissionErr := artifacts.AdmitPatch(strings.NewReader(string(encoded)))
+	if admissionErr != nil {
+		t.Fatalf("admit Artifact patch: %v (%s)", admissionErr, admissionErr.ReasonCode())
+	}
+	return admission
+}
+
+func mustArtifactContextualNoteAdmission(
+	t testing.TB,
+	clientTxnID string,
+	values map[string]any,
+	collections map[string]any,
+) artifacts.ContextualNoteAdmission {
+	t.Helper()
+	payload := map[string]any{"client_txn_id": clientTxnID}
+	for fieldKey, value := range values {
+		payload[fieldKey] = value
+	}
+	for fieldKey, value := range collections {
+		payload[fieldKey] = value
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("encode contextual note admission: %v", err)
+	}
+	admission, admissionErr := artifacts.AdmitContextualNote(strings.NewReader(string(encoded)))
+	if admissionErr != nil {
+		t.Fatalf("admit contextual note: %v (%s)", admissionErr, admissionErr.ReasonCode())
+	}
+	return admission
+}
+
+func artifactValueChange(fieldKey string, value any) map[string]any {
+	return map[string]any{"field_key": fieldKey, "value": value}
+}
+
+func artifactCollectionPayload(actions ...map[string]any) map[string]any {
+	return map[string]any{"kind": "collection_actions_v1", "actions": actions}
+}
+
+func duplicateFirstCollectionAction(t testing.TB, collections map[string]any) map[string]any {
+	t.Helper()
+	encoded, err := json.Marshal(collections)
+	if err != nil {
+		t.Fatalf("clone Artifact collection fixture: %v", err)
+	}
+	var cloned map[string]any
+	if err := json.Unmarshal(encoded, &cloned); err != nil {
+		t.Fatalf("decode cloned Artifact collection fixture: %v", err)
+	}
+	for _, rawPayload := range cloned {
+		payload := rawPayload.(map[string]any)
+		actions := payload["actions"].([]any)
+		payload["actions"] = append(actions, actions[0])
+		break
+	}
+	return cloned
 }
 
 type artifactImportActiveUserLookup struct{}

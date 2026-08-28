@@ -1,9 +1,7 @@
 package artifacts
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -11,9 +9,8 @@ import (
 )
 
 var (
-	ErrIdempotencyNotFound        = errors.New("artifacts: idempotency result not found")
-	ErrClientTxnConflict          = errors.New("artifacts: client transaction conflict")
-	ErrStoredMutationKindMismatch = errors.New("artifacts: stored mutation kind mismatch")
+	ErrClientTxnConflict          = fmt.Errorf("artifacts: client transaction conflict")
+	ErrStoredMutationKindMismatch = fmt.Errorf("artifacts: stored mutation kind mismatch")
 )
 
 // OperationID is the closed set of Workbook-coordinated operations implemented
@@ -34,11 +31,6 @@ type IdempotencyKey struct {
 	ClientTxnID string
 }
 
-type IdempotencyRecord struct {
-	RequestHash []byte
-	Result      StoredMutationResult
-}
-
 type StoredMutationKind string
 
 const (
@@ -49,11 +41,12 @@ const (
 
 type StoredMutationPayload struct {
 	ViewSchemaID   string
+	IncidentID     uuid.UUID
 	RecordID       uuid.UUID
-	ChangeSetID    uuid.UUID
+	RowVersion     int64
+	ChangeSetID    *uuid.UUID
 	Row            map[string]any
-	SourceRecordID *uuid.UUID
-	LinkType       string
+	ContextualLink *ContextualLink
 }
 
 // StoredMutationResult is a closed operation-tagged union used by the
@@ -65,15 +58,15 @@ type StoredMutationResult struct {
 }
 
 func NewStoredCreateResult(result StoredMutationPayload) StoredMutationResult {
-	return StoredMutationResult{kind: StoredMutationCreate, workbook: result}
+	return StoredMutationResult{kind: StoredMutationCreate, workbook: cloneStoredMutationPayload(result)}
 }
 
 func NewStoredPatchResult(result StoredMutationPayload) StoredMutationResult {
-	return StoredMutationResult{kind: StoredMutationPatch, workbook: result}
+	return StoredMutationResult{kind: StoredMutationPatch, workbook: cloneStoredMutationPayload(result)}
 }
 
 func NewStoredLinkedNoteResult(result StoredMutationPayload) StoredMutationResult {
-	return StoredMutationResult{kind: StoredMutationLinkedNote, workbook: result}
+	return StoredMutationResult{kind: StoredMutationLinkedNote, workbook: cloneStoredMutationPayload(result)}
 }
 
 func (r StoredMutationResult) Kind() StoredMutationKind { return r.kind }
@@ -81,14 +74,14 @@ func (r StoredMutationResult) Kind() StoredMutationKind { return r.kind }
 func (r StoredMutationResult) Payload() (StoredMutationPayload, bool) {
 	switch r.kind {
 	case StoredMutationCreate, StoredMutationPatch, StoredMutationLinkedNote:
-		return r.workbook, true
+		return cloneStoredMutationPayload(r.workbook), true
 	default:
 		return StoredMutationPayload{}, false
 	}
 }
 
 type IdempotencyCapability interface {
-	Get(context.Context, IdempotencyKey, []byte) (IdempotencyRecord, error)
+	Get(context.Context, IdempotencyKey, []byte) (StoredMutationResult, bool, error)
 	PutTx(context.Context, pgx.Tx, IdempotencyKey, []byte, StoredMutationResult) error
 }
 
@@ -105,23 +98,45 @@ func (f *MutationFacade) replayStoredMutation(
 	operation string,
 	expectation storedMutationExpectation,
 ) (StoredMutationPayload, bool, error) {
-	existing, err := f.idempotency.Get(ctx, key, requestHash)
-	if errors.Is(err, ErrIdempotencyNotFound) {
-		return StoredMutationPayload{}, false, nil
-	}
+	existing, found, err := f.idempotency.Get(ctx, key, requestHash)
 	if err != nil {
 		return StoredMutationPayload{}, false, fmt.Errorf("query artifact %s idempotency: %w", operation, err)
 	}
-	if !bytes.Equal(existing.RequestHash, requestHash) {
-		return StoredMutationPayload{}, false, ErrClientTxnConflict
+	if !found {
+		return StoredMutationPayload{}, false, nil
 	}
-	if existing.Result.Kind() != expectation.kind {
+	if existing.Kind() != expectation.kind {
 		return StoredMutationPayload{}, false, ErrStoredMutationKindMismatch
 	}
-	stored, ok := existing.Result.Payload()
-	if !ok || stored.ViewSchemaID != expectation.viewSchemaID ||
+	stored, ok := existing.Payload()
+	if !ok || !validStoredMutationPayload(existing.Kind(), stored) || stored.ViewSchemaID != expectation.viewSchemaID ||
 		(expectation.recordID != nil && stored.RecordID != *expectation.recordID) {
 		return StoredMutationPayload{}, false, ErrStoredMutationKindMismatch
 	}
 	return stored, true, nil
+}
+
+func validStoredMutationPayload(kind StoredMutationKind, stored StoredMutationPayload) bool {
+	if stored.ViewSchemaID == "" || stored.IncidentID == uuid.Nil || stored.RecordID == uuid.Nil ||
+		stored.RowVersion < 1 || stored.ChangeSetID == nil || *stored.ChangeSetID == uuid.Nil || stored.Row == nil {
+		return false
+	}
+	switch kind {
+	case StoredMutationCreate, StoredMutationPatch:
+		return stored.ContextualLink == nil
+	case StoredMutationLinkedNote:
+		return stored.ContextualLink != nil && stored.ContextualLink.SourceRecordID != uuid.Nil &&
+			stored.ContextualLink.LinkType == "references_artifact"
+	default:
+		return false
+	}
+}
+
+func cloneStoredMutationPayload(stored StoredMutationPayload) StoredMutationPayload {
+	stored.ChangeSetID = cloneUUIDPointer(stored.ChangeSetID)
+	stored.ContextualLink = cloneContextualLink(stored.ContextualLink)
+	if stored.Row != nil {
+		stored.Row = cloneMap(stored.Row)
+	}
+	return stored
 }

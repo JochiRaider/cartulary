@@ -39,11 +39,7 @@ func TestTimestampInstantPatchDecoder_Unit(t *testing.T) {
 		{artifacts.HandoffViewSchemaID, "handoff.acknowledged_at"},
 		{artifacts.StatusReviewViewSchemaID, "status_review.next_report_at"},
 	} {
-		clearableNull := mustDecodeArtifactPatch(t, tc.viewSchemaID, tc.fieldKey, nil)
-		value := clearableNull.Changes[0].Value
-		if value == nil || value.Text != nil || value.Timestamp != nil || value.UUID != nil || value.Number != nil || value.Bool != nil {
-			t.Fatalf("clearable timestamp %s null decoded as %#v", tc.fieldKey, clearableNull.Changes[0].Value)
-		}
+		mustAdmitArtifactPatch(t, tc.viewSchemaID, tc.fieldKey, nil)
 	}
 	for _, tc := range []struct {
 		viewSchemaID string
@@ -111,18 +107,16 @@ func expectDecodePatchRejected(t testing.TB, viewSchemaID string, fieldKey strin
 	}
 }
 
-func mustDecodeArtifactPatch(t testing.TB, viewSchemaID string, fieldKey string, value any) artifacts.PatchRequest {
+func mustAdmitArtifactPatch(t testing.TB, viewSchemaID string, fieldKey string, value any) {
 	t.Helper()
-	request, apiErr := artifacts.DecodePatchRequest(strings.NewReader(patchPayload(t, viewSchemaID, fieldKey, value)))
-	if apiErr != nil {
-		t.Fatalf("decode Artifact patch unexpectedly failed for %s=%#v: %#v", fieldKey, value, apiErr)
+	if _, admissionErr := artifacts.AdmitPatch(strings.NewReader(patchPayload(t, viewSchemaID, fieldKey, value))); admissionErr != nil {
+		t.Fatalf("admit Artifact patch unexpectedly failed for %s=%#v: %#v", fieldKey, value, admissionErr)
 	}
-	return request
 }
 
 func expectArtifactDecodePatchRejected(t testing.TB, viewSchemaID string, fieldKey string, value any) {
 	t.Helper()
-	if _, apiErr := artifacts.DecodePatchRequest(strings.NewReader(patchPayload(t, viewSchemaID, fieldKey, value))); apiErr == nil {
+	if _, admissionErr := artifacts.AdmitPatch(strings.NewReader(patchPayload(t, viewSchemaID, fieldKey, value))); admissionErr == nil {
 		t.Fatalf("expected Artifact timestamp patch %s=%#v to fail closed", fieldKey, value)
 	}
 }

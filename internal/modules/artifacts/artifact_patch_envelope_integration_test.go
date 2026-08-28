@@ -48,15 +48,12 @@ func TestArtifactPatchEnvelopeOutcomes(t *testing.T) {
 		t.Helper()
 		result, err := facade.Create(ctx, artifacts.CreateCommand{
 			ActorUserID: actor.ID, IncidentID: incident.ID,
-			Request: artifacts.CreateRequest{
-				ViewSchemaID: artifacts.NotesViewSchemaID,
-				ClientTxnID:  "txn-artifacts-envelope-create-" + suffix,
-				Values:       artifactTextValues("note.title", "Envelope "+suffix),
-			},
-			RequestHash: []byte("hash-artifacts-envelope-create-" + suffix),
-			RequestID:   "req-artifacts-envelope-create-" + suffix,
-			OperationID: artifacts.OperationCreate,
-			Now:         now,
+			Admission: mustArtifactCreateAdmission(
+				t, artifacts.NotesViewSchemaID, "txn-artifacts-envelope-create-"+suffix,
+				artifactTextValues("note.title", "Envelope "+suffix), nil,
+			),
+			RequestID: "req-artifacts-envelope-create-" + suffix,
+			Now:       now,
 		})
 		if err != nil {
 			t.Fatalf("create %s envelope fixture: %v", suffix, err)
@@ -64,22 +61,14 @@ func TestArtifactPatchEnvelopeOutcomes(t *testing.T) {
 		return result
 	}
 	patch := func(recordID uuid.UUID, baseVersion int64, suffix string) (artifacts.MutationResult, error) {
-		value := artifactTextValue("Patched " + suffix)
 		return facade.Patch(ctx, artifacts.PatchCommand{
 			ActorUserID: actor.ID, RecordID: recordID,
-			Request: artifacts.PatchRequest{
-				ViewSchemaID:   artifacts.NotesViewSchemaID,
-				BaseRowVersion: baseVersion,
-				ClientTxnID:    "txn-artifacts-envelope-patch-" + suffix,
-				Changes: []artifacts.PatchChange{{
-					FieldKey: "note.title", Value: &value,
-				}},
-			},
-			RequestHash:         []byte("hash-artifacts-envelope-patch-" + suffix),
-			RequestID:           "req-artifacts-envelope-patch-" + suffix,
-			OperationID:         artifacts.OperationPatch,
-			ConflictOperationID: artifacts.OperationConflictResolve,
-			Now:                 now.Add(time.Minute),
+			Admission: mustArtifactPatchAdmission(
+				t, artifacts.NotesViewSchemaID, baseVersion, "txn-artifacts-envelope-patch-"+suffix,
+				[]map[string]any{artifactValueChange("note.title", "Patched "+suffix)},
+			),
+			RequestID: "req-artifacts-envelope-patch-" + suffix,
+			Now:       now.Add(time.Minute),
 		})
 	}
 

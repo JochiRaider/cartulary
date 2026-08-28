@@ -809,44 +809,19 @@
       "production_only": true
     },
     {
-      "id": "artifact-source-kernel-no-consumer-orchestration",
-      "match_kind": "subtree",
-      "imports": [
-        "github.com/JochiRaider/cartulary/internal/modules/collaboration",
-        "github.com/JochiRaider/cartulary/internal/modules/imports",
-        "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
-        "github.com/JochiRaider/cartulary/internal/modules/projections",
-        "github.com/JochiRaider/cartulary/internal/modules/reporting",
-        "github.com/JochiRaider/cartulary/internal/modules/workbook",
-        "github.com/JochiRaider/cartulary/internal/platform/httpapi"
-      ],
-      "scan_paths": [
-        "internal/modules/artifacts/mutation_create.go",
-        "internal/modules/artifacts/source_kernel.go"
-      ],
-      "allowed_paths": [],
-      "production_only": true
-    },
-    {
-      "id": "artifact-mutation-no-http-or-auth-transport",
+      "id": "artifact-subtree-no-http-or-auth-transport",
       "match_kind": "subtree",
       "imports": [
         "net/http",
         "github.com/JochiRaider/cartulary/internal/platform/authn",
         "github.com/JochiRaider/cartulary/internal/platform/httpapi"
       ],
-      "scan_paths": [
-        "internal/modules/artifacts/contextual_notes.go",
-        "internal/modules/artifacts/import_create.go",
-        "internal/modules/artifacts/mutation_*.go",
-        "internal/modules/artifacts/source_kernel.go",
-        "internal/modules/artifacts/handoff_risk_refs.go"
-      ],
+      "scan_paths": ["internal/modules/artifacts/**"],
       "allowed_paths": [],
       "production_only": true
     },
     {
-      "id": "artifact-mutation-no-consumer-implementations",
+      "id": "artifact-subtree-no-consumer-implementations",
       "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/collaboration",
@@ -857,13 +832,18 @@
         "github.com/JochiRaider/cartulary/internal/modules/timeline",
         "github.com/JochiRaider/cartulary/internal/modules/workbook"
       ],
-      "scan_paths": [
-        "internal/modules/artifacts/contextual_notes.go",
-        "internal/modules/artifacts/mutation_*.go",
-        "internal/modules/artifacts/source_kernel.go",
-        "internal/modules/artifacts/handoff_risk_refs.go"
+      "scan_paths": ["internal/modules/artifacts/**"],
+      "allowed_paths": [
+        "internal/modules/artifacts/import_create.go",
+        "internal/modules/artifacts/incident_bundle_source_port.go",
+        "internal/modules/artifacts/internal/providers/reporting/provider.go",
+        "internal/modules/artifacts/mutation_facade.go",
+        "internal/modules/artifacts/mutation_shared.go",
+        "internal/modules/artifacts/provider_contributions.go",
+        "internal/modules/artifacts/publication.go",
+        "internal/modules/artifacts/source_state_manifest.go",
+        "internal/modules/artifacts/workbookprojection/contribution.go"
       ],
-      "allowed_paths": [],
       "production_only": true
     },
     {
@@ -2000,8 +1980,8 @@
     },
     {
       "id": "artifact-mutation-idempotency-lookup-is-centralized",
-      "tokens": ["f.idempotency.Get("],
-      "scan_paths": ["internal/modules/artifacts/mutation_*.go"],
+      "tokens": ["idempotency.Get("],
+      "scan_paths": ["internal/modules/artifacts/**"],
       "allowed_paths": ["internal/modules/artifacts/mutation_idempotency.go"],
       "production_only": true
     },

@@ -15,7 +15,7 @@ type sourceStore struct {
 	catalog *sourcecatalog.Catalog
 }
 
-type FieldValue struct {
+type fieldValue struct {
 	Text      *string
 	Timestamp *time.Time
 	UUID      *uuid.UUID
@@ -25,7 +25,7 @@ type FieldValue struct {
 
 type createParams struct {
 	ViewSchemaID string
-	Values       map[string]FieldValue
+	Values       map[string]fieldValue
 }
 
 func newSourceStore(catalog *sourcecatalog.Catalog) *sourceStore {
@@ -203,7 +203,7 @@ INSERT INTO artifact_forensic_keywords (
 	return nil
 }
 
-func (s *sourceStore) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string, value FieldValue, now time.Time) (bool, error) {
+func (s *sourceStore) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string, value fieldValue, now time.Time) (bool, error) {
 	table, column := s.tableColumnForField(fieldKey)
 	if table == "" || column == "" {
 		return false, fmt.Errorf("artifacts: unsupported field key %q", fieldKey)
@@ -267,7 +267,7 @@ func tableColumnForCatalogField(catalog *sourcecatalog.Catalog, fieldKey string)
 	return policy.Storage.Table, policy.Storage.Column
 }
 
-func directDBValue(value FieldValue) any {
+func directDBValue(value fieldValue) any {
 	switch {
 	case value.Text != nil:
 		return *value.Text
@@ -284,42 +284,42 @@ func directDBValue(value FieldValue) any {
 	}
 }
 
-func textValue(values map[string]FieldValue, field string) string {
+func textValue(values map[string]fieldValue, field string) string {
 	if value, ok := values[field]; ok && value.Text != nil {
 		return *value.Text
 	}
 	return ""
 }
 
-func nullableTextValue(values map[string]FieldValue, field string) any {
+func nullableTextValue(values map[string]fieldValue, field string) any {
 	if value, ok := values[field]; ok && value.Text != nil {
 		return *value.Text
 	}
 	return nil
 }
 
-func nullableUUIDValue(values map[string]FieldValue, field string) any {
+func nullableUUIDValue(values map[string]fieldValue, field string) any {
 	if value, ok := values[field]; ok && value.UUID != nil {
 		return *value.UUID
 	}
 	return nil
 }
 
-func nullableTimestampValue(values map[string]FieldValue, field string) any {
+func nullableTimestampValue(values map[string]fieldValue, field string) any {
 	if value, ok := values[field]; ok && value.Timestamp != nil {
 		return value.Timestamp.UTC()
 	}
 	return nil
 }
 
-func nullableNumberValue(values map[string]FieldValue, field string) any {
+func nullableNumberValue(values map[string]fieldValue, field string) any {
 	if value, ok := values[field]; ok && value.Number != nil {
 		return *value.Number
 	}
 	return nil
 }
 
-func nullableBoolValue(values map[string]FieldValue, field string) any {
+func nullableBoolValue(values map[string]fieldValue, field string) any {
 	if value, ok := values[field]; ok && value.Bool != nil {
 		return *value.Bool
 	}

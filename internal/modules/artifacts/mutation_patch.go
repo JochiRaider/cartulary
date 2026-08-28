@@ -16,20 +16,25 @@ import (
 )
 
 func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (MutationResult, error) {
-	request := command.Request
-	if command.OperationID != OperationPatch && command.OperationID != OperationConflictResolve {
-		return MutationResult{}, ErrStoredMutationKindMismatch
+	return f.patch(ctx, command, OperationPatch)
+}
+
+func (f *MutationFacade) patch(ctx context.Context, command PatchCommand, operationID OperationID) (MutationResult, error) {
+	if !command.Admission.valid() {
+		return MutationResult{}, &ValidationError{Field: "payload", ReasonCode: "invalid_value"}
 	}
-	if command.ConflictOperationID != OperationConflictResolve {
+	request := command.Admission.requestValue()
+	requestHash := command.Admission.requestHash()
+	if operationID != OperationPatch && operationID != OperationConflictResolve {
 		return MutationResult{}, ErrStoredMutationKindMismatch
 	}
 	idempotencyKey := IdempotencyKey{
-		OperationID: command.OperationID,
+		OperationID: operationID,
 		ActorUserID: command.ActorUserID,
 		ScopeKey:    command.RecordID.String(),
 		ClientTxnID: request.ClientTxnID,
 	}
-	stored, replayed, err := f.replayStoredMutation(ctx, idempotencyKey, command.RequestHash, "patch", storedMutationExpectation{
+	stored, replayed, err := f.replayStoredMutation(ctx, idempotencyKey, requestHash, "patch", storedMutationExpectation{
 		kind: StoredMutationPatch, viewSchemaID: request.ViewSchemaID, recordID: &command.RecordID,
 	})
 	if err != nil {
@@ -37,9 +42,10 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	}
 	if replayed {
 		return MutationResult{
-			Row: stored.Row, Replayed: true, RecordID: command.RecordID,
-			ChangeSetID: stored.ChangeSetID, ViewSchemaID: request.ViewSchemaID,
-			ClientTxnID: request.ClientTxnID, RowVersion: rowVersionFromCanonicalRow(stored.Row),
+			Row: stored.Row, Outcome: MutationOutcomeReplayed, IncidentID: stored.IncidentID,
+			RecordID: command.RecordID, ChangeSetID: cloneUUIDPointer(stored.ChangeSetID),
+			ViewSchemaID: request.ViewSchemaID, ClientTxnID: request.ClientTxnID,
+			RowVersion: stored.RowVersion,
 		}, nil
 	}
 
@@ -85,12 +91,12 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 				return MutationResult{}, err
 			}
 			conflictPayload, err := buildArtifactSameFieldConflict(artifactSameFieldConflictParams{
-				RouteKey:          string(command.ConflictOperationID),
+				RouteKey:          string(OperationConflictResolve),
 				RecordID:          command.RecordID,
 				ViewSchemaID:      request.ViewSchemaID,
 				BaseRowVersion:    request.BaseRowVersion,
 				CurrentRowVersion: meta.RowVersion,
-				RequestHash:       command.RequestHash,
+				RequestHash:       requestHash,
 				Window:            window,
 				Change:            change,
 				Changed:           changed,
@@ -144,7 +150,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	changeSetID, err := f.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  meta.IncidentID,
 		ActorUserID: command.ActorUserID,
-		Source:      string(command.OperationID),
+		Source:      string(operationID),
 		ClientTxnID: &request.ClientTxnID,
 		RequestID:   &command.RequestID,
 		CreatedAt:   command.Now.UTC(),
@@ -188,10 +194,10 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 		return MutationResult{}, err
 	}
 	storedResult := NewStoredPatchResult(StoredMutationPayload{
-		ViewSchemaID: request.ViewSchemaID, RecordID: command.RecordID,
-		ChangeSetID: changeSetID, Row: afterRow,
+		ViewSchemaID: request.ViewSchemaID, IncidentID: meta.IncidentID, RecordID: command.RecordID,
+		RowVersion: rowVersion, ChangeSetID: uuidPointer(changeSetID), Row: afterRow,
 	})
-	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, command.RequestHash, storedResult); err != nil {
+	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, requestHash, storedResult); err != nil {
 		return MutationResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -199,9 +205,10 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	}
 	return MutationResult{
 		Row:              afterRow,
+		Outcome:          MutationOutcomeUpdated,
 		IncidentID:       meta.IncidentID,
 		RecordID:         command.RecordID,
-		ChangeSetID:      changeSetID,
+		ChangeSetID:      uuidPointer(changeSetID),
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       rowVersion,
 		ViewSchemaID:     request.ViewSchemaID,
@@ -209,7 +216,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	}, nil
 }
 
-func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, request PatchRequest, now time.Time) (bool, links.CollectionMutationResult, error) {
+func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, request patchRequest, now time.Time) (bool, links.CollectionMutationResult, error) {
 	changed := false
 	mutations := links.CollectionMutationResult{}
 	for _, change := range request.Changes {

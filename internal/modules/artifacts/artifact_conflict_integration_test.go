@@ -41,60 +41,41 @@ func TestArtifactConflictSourceRevalidation(t *testing.T) {
 	now := time.Date(2026, 7, 30, 18, 0, 0, 0, time.UTC)
 	created, err := facade.Create(ctx, artifacts.CreateCommand{
 		ActorUserID: actor.ID, IncidentID: incident.ID,
-		Request: artifacts.CreateRequest{
-			ViewSchemaID: artifacts.NotesViewSchemaID,
-			ClientTxnID:  "txn-artifacts-conflict-create",
-			Values: artifactTextValues(
+		Admission: mustArtifactCreateAdmission(
+			t, artifacts.NotesViewSchemaID, "txn-artifacts-conflict-create",
+			artifactTextValues(
 				"note.title", "Conflict title",
 				"note.body", "Base body",
-			),
-		},
-		RequestHash: []byte("hash-artifacts-conflict-create"),
-		RequestID:   "req-artifacts-conflict-create",
-		OperationID: artifacts.OperationCreate,
-		Now:         now,
+			), nil,
+		),
+		RequestID: "req-artifacts-conflict-create",
+		Now:       now,
 	})
 	if err != nil {
 		t.Fatalf("create conflict source: %v", err)
 	}
 
-	serverBody := artifactTextValue("Server body")
 	serverPatch := artifacts.PatchCommand{
 		ActorUserID: actor.ID, RecordID: created.RecordID,
-		Request: artifacts.PatchRequest{
-			ViewSchemaID:   artifacts.NotesViewSchemaID,
-			BaseRowVersion: 1,
-			ClientTxnID:    "txn-artifacts-conflict-server",
-			Changes: []artifacts.PatchChange{{
-				FieldKey: "note.body", Value: &serverBody,
-			}},
-		},
-		RequestHash:         []byte("hash-artifacts-conflict-server"),
-		RequestID:           "req-artifacts-conflict-server",
-		OperationID:         artifacts.OperationPatch,
-		ConflictOperationID: artifacts.OperationConflictResolve,
-		Now:                 now.Add(time.Minute),
+		Admission: mustArtifactPatchAdmission(
+			t, artifacts.NotesViewSchemaID, 1, "txn-artifacts-conflict-server",
+			[]map[string]any{artifactValueChange("note.body", "Server body")},
+		),
+		RequestID: "req-artifacts-conflict-server",
+		Now:       now.Add(time.Minute),
 	}
 	if result, err := facade.Patch(ctx, serverPatch); err != nil || result.RowVersion != 2 {
 		t.Fatalf("server-side patch = %#v, %v; want row version 2", result, err)
 	}
 
-	clientBody := artifactTextValue("Client body")
 	stalePatch := artifacts.PatchCommand{
 		ActorUserID: actor.ID, RecordID: created.RecordID,
-		Request: artifacts.PatchRequest{
-			ViewSchemaID:   artifacts.NotesViewSchemaID,
-			BaseRowVersion: 1,
-			ClientTxnID:    "txn-artifacts-conflict-stale",
-			Changes: []artifacts.PatchChange{{
-				FieldKey: "note.body", Value: &clientBody,
-			}},
-		},
-		RequestHash:         []byte("hash-artifacts-conflict-stale"),
-		RequestID:           "req-artifacts-conflict-stale",
-		OperationID:         artifacts.OperationPatch,
-		ConflictOperationID: artifacts.OperationConflictResolve,
-		Now:                 now.Add(2 * time.Minute),
+		Admission: mustArtifactPatchAdmission(
+			t, artifacts.NotesViewSchemaID, 1, "txn-artifacts-conflict-stale",
+			[]map[string]any{artifactValueChange("note.body", "Client body")},
+		),
+		RequestID: "req-artifacts-conflict-stale",
+		Now:       now.Add(2 * time.Minute),
 	}
 	beforeChangeSets := artifactContractCount(t, harness, `SELECT count(*) FROM change_sets WHERE incident_id = $1`, incident.ID)
 	_, err = facade.Patch(ctx, stalePatch)
@@ -113,31 +94,24 @@ func TestArtifactConflictSourceRevalidation(t *testing.T) {
 		t.Fatalf("stale conflict changed change-set count: got %d want %d", got, beforeChangeSets)
 	}
 
-	title := artifactTextValue("Rebased title")
 	rebased, err := facade.Patch(ctx, artifacts.PatchCommand{
 		ActorUserID: actor.ID, RecordID: created.RecordID,
-		Request: artifacts.PatchRequest{
-			ViewSchemaID:   artifacts.NotesViewSchemaID,
-			BaseRowVersion: 1,
-			ClientTxnID:    "txn-artifacts-conflict-rebase",
-			Changes: []artifacts.PatchChange{{
-				FieldKey: "note.title", Value: &title,
-			}},
-		},
-		RequestHash:         []byte("hash-artifacts-conflict-rebase"),
-		RequestID:           "req-artifacts-conflict-rebase",
-		OperationID:         artifacts.OperationPatch,
-		ConflictOperationID: artifacts.OperationConflictResolve,
-		Now:                 now.Add(3 * time.Minute),
+		Admission: mustArtifactPatchAdmission(
+			t, artifacts.NotesViewSchemaID, 1, "txn-artifacts-conflict-rebase",
+			[]map[string]any{artifactValueChange("note.title", "Rebased title")},
+		),
+		RequestID: "req-artifacts-conflict-rebase",
+		Now:       now.Add(3 * time.Minute),
 	})
 	if err != nil || rebased.RowVersion != 3 {
 		t.Fatalf("different-field stale patch = %#v, %v; want row version 3", rebased, err)
 	}
 
 	wrongView := stalePatch
-	wrongView.Request.ViewSchemaID = artifacts.FindingsViewSchemaID
-	wrongView.Request.ClientTxnID = "txn-artifacts-conflict-wrong-view"
-	wrongView.RequestHash = []byte("hash-artifacts-conflict-wrong-view")
+	wrongView.Admission = mustArtifactPatchAdmission(
+		t, artifacts.FindingsViewSchemaID, 1, "txn-artifacts-conflict-wrong-view",
+		[]map[string]any{artifactValueChange("finding.statement", "Mismatched view")},
+	)
 	if _, err := facade.Patch(ctx, wrongView); err == nil {
 		t.Fatal("conflict source revalidation admitted a mismatched artifact view")
 	}

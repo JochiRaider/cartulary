@@ -34,7 +34,7 @@ func validateHandoffRiskRefPayload(payload riskRefActionPayload) error {
 				return riskRefValidationError()
 			}
 		case "remove_risk_ref":
-			if _, err := ParseRiskRefItemRef(action.ItemRef); err != nil {
+			if _, err := parseRiskRefItemRef(action.ItemRef); err != nil {
 				return riskRefValidationError()
 			}
 		default:
@@ -61,7 +61,7 @@ func (s *sourceStore) applyHandoffRiskRefPayloadTx(ctx context.Context, tx pgx.T
 			}
 			changed = changed || applied
 		case "remove_risk_ref":
-			riskRefID, err := ParseRiskRefItemRef(action.ItemRef)
+			riskRefID, err := parseRiskRefItemRef(action.ItemRef)
 			if err != nil {
 				return false, riskRefValidationError()
 			}
@@ -143,7 +143,7 @@ func riskRefItemRef(riskRefID uuid.UUID) string {
 	return "risk_ref:" + riskRefID.String()
 }
 
-func ParseRiskRefItemRef(itemRef string) (uuid.UUID, error) {
+func parseRiskRefItemRef(itemRef string) (uuid.UUID, error) {
 	if !strings.HasPrefix(itemRef, "risk_ref:") {
 		return uuid.UUID{}, fmt.Errorf("invalid risk ref item ref")
 	}

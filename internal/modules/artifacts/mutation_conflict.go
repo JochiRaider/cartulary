@@ -19,40 +19,38 @@ import (
 )
 
 type ConflictCommand struct {
-	Mechanics      conflicts.Command
-	ActorUserID    uuid.UUID
-	OperationID    OperationID
-	ResolutionKind string
-	Patch          *PatchRequest
-	Now            time.Time
+	ActorUserID uuid.UUID
+	Admission   ConflictResolveAdmission
+	RequestID   string
+	Now         time.Time
 }
 
 func (f *MutationFacade) ResolveConflict(
 	ctx context.Context,
 	command ConflictCommand,
 ) (MutationResult, error) {
-	if command.OperationID != OperationConflictResolve {
-		return MutationResult{}, ErrStoredMutationKindMismatch
+	if !command.Admission.valid() {
+		return MutationResult{}, &ValidationError{Field: "conflict_token", ReasonCode: "invalid_value"}
 	}
-	command.Mechanics.ActorUserID = command.ActorUserID
-	command.Mechanics.RouteKey = string(command.OperationID)
-	if command.ResolutionKind != "keep_saved" {
-		return f.Patch(ctx, PatchCommand{
-			ActorUserID:         command.ActorUserID,
-			RecordID:            command.Mechanics.RecordID,
-			Request:             *command.Patch,
-			RequestHash:         command.Mechanics.RequestHash,
-			RequestID:           command.Mechanics.RequestID,
-			OperationID:         command.OperationID,
-			ConflictOperationID: command.OperationID,
-			Now:                 command.Now,
-		})
+	request := command.Admission.requestValue()
+	context := command.Admission.contextValue()
+	mechanics := conflicts.Command{
+		ActorUserID: command.ActorUserID, RecordID: context.RecordID,
+		Claims: conflictTokenClaims(context), ClientTxnID: request.ClientTxnID,
+		RequestHash: command.Admission.requestHash(), RequestID: command.RequestID,
+		RouteKey: string(OperationConflictResolve),
+	}
+	if request.ResolutionKind != "keep_saved" {
+		return f.patch(ctx, PatchCommand{
+			ActorUserID: command.ActorUserID, RecordID: context.RecordID,
+			Admission: command.Admission.patchAdmission(), RequestID: command.RequestID, Now: command.Now,
+		}, OperationConflictResolve)
 	}
 	result, err := conflicts.KeepSaved(
 		ctx,
 		f.pool,
 		f.keepSaved,
-		command.Mechanics,
+		mechanics,
 		f.loadConflictTarget,
 	)
 	if err != nil {
@@ -60,13 +58,30 @@ func (f *MutationFacade) ResolveConflict(
 	}
 	return MutationResult{
 		Row:          conflictResultRow(result.Payload),
-		Replayed:     result.Replayed,
+		Outcome:      conflictMutationOutcome(result.Replayed),
 		IncidentID:   result.IncidentID,
 		RecordID:     result.RecordID,
 		ClientTxnID:  result.ClientTxnID,
 		RowVersion:   result.RowVersion,
 		ViewSchemaID: result.ViewSchemaID,
 	}, nil
+}
+
+func conflictMutationOutcome(replayed bool) MutationOutcome {
+	if replayed {
+		return MutationOutcomeReplayed
+	}
+	return MutationOutcomeKeptSaved
+}
+
+func conflictTokenClaims(context ConflictAdmissionContext) conflicts.ConflictTokenClaims {
+	return conflicts.ConflictTokenClaims{
+		Version: context.Version, RecordID: context.RecordID.String(), ViewSchemaID: context.ViewSchemaID,
+		RouteKey: context.RouteKey, FieldKey: context.FieldKey,
+		ConflictResolutionClass: context.ConflictResolutionClass,
+		BaseRowVersion:          context.BaseRowVersion, CurrentRowVersion: context.CurrentRowVersion,
+		RequestHash: context.OriginalRequestHash, IssuedAt: context.IssuedAt, ExpiresAt: context.ExpiresAt,
+	}
 }
 
 func (f *MutationFacade) loadConflictTarget(
@@ -132,21 +147,21 @@ type artifactSameFieldConflictParams struct {
 	CurrentRowVersion int64
 	RequestHash       []byte
 	Window            conflicts.PatchConflictWindow
-	Change            PatchChange
+	Change            patchChange
 	Changed           conflicts.PatchChangedField
 	CurrentRow        map[string]any
 	FieldDescriptors  conflicts.FieldDescriptorSet
 	Codec             conflicts.ConflictTokenCodec
 }
 
-func overlappingArtifactPatchChange(changes []PatchChange, changedFields map[string]conflicts.PatchChangedField) (PatchChange, conflicts.PatchChangedField, bool) {
+func overlappingArtifactPatchChange(changes []patchChange, changedFields map[string]conflicts.PatchChangedField) (patchChange, conflicts.PatchChangedField, bool) {
 	for _, change := range changes {
 		changed, ok := changedFields[change.FieldKey]
 		if ok {
 			return change, changed, true
 		}
 	}
-	return PatchChange{}, conflicts.PatchChangedField{}, false
+	return patchChange{}, conflicts.PatchChangedField{}, false
 }
 
 func buildArtifactSameFieldConflict(params artifactSameFieldConflictParams) (SameFieldConflict, error) {
@@ -201,14 +216,14 @@ func rowCellValue(row map[string]any, fieldKey string) (any, bool) {
 	return value, ok
 }
 
-func artifactPatchClientConflictValue(recordID uuid.UUID, change PatchChange, baseValue any, requestHash []byte) (any, error) {
+func artifactPatchClientConflictValue(recordID uuid.UUID, change patchChange, baseValue any, requestHash []byte) (any, error) {
 	if change.Collection == nil {
 		return change.CanonicalValue, nil
 	}
 	return applyCollectionConflictActions(recordID, change.FieldKey, baseValue, *change.Collection, requestHash)
 }
 
-func applyCollectionConflictActions(recordID uuid.UUID, fieldKey string, baseValue any, payload CollectionActionPayload, requestHash []byte) (map[string]any, error) {
+func applyCollectionConflictActions(recordID uuid.UUID, fieldKey string, baseValue any, payload collectionActionPayload, requestHash []byte) (map[string]any, error) {
 	ordered, items, ok := cloneCollectionConflictValue(baseValue)
 	if !ok {
 		return nil, fmt.Errorf("invalid base collection value for %s", fieldKey)
@@ -260,7 +275,7 @@ func cloneCollectionConflictValue(value any) (bool, []map[string]any, bool) {
 	return ordered, items, true
 }
 
-func newClientCollectionItem(recordID uuid.UUID, fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) map[string]any {
+func newClientCollectionItem(recordID uuid.UUID, fieldKey string, action collectionAction, requestHash []byte, actionIndex int) map[string]any {
 	switch action.Op {
 	case "add_record_ref":
 		linkedID := action.LinkedRecordID.String()
@@ -304,7 +319,7 @@ func newClientCollectionItem(recordID uuid.UUID, fieldKey string, action Collect
 	}
 }
 
-func conflictLocalUUID(recordID uuid.UUID, fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) uuid.UUID {
+func conflictLocalUUID(recordID uuid.UUID, fieldKey string, action collectionAction, requestHash []byte, actionIndex int) uuid.UUID {
 	seed, _ := json.Marshal(map[string]any{
 		"record_id":     recordID.String(),
 		"field_key":     fieldKey,

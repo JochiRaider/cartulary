@@ -11,7 +11,7 @@ func TestRiskRefItemRefIsCanonical(t *testing.T) {
 	if got := riskRefItemRef(riskRefID); got != "risk_ref:10000000-0000-4000-8000-000000000010" {
 		t.Fatalf("risk ref = %q", got)
 	}
-	parsed, err := ParseRiskRefItemRef(riskRefItemRef(riskRefID))
+	parsed, err := parseRiskRefItemRef(riskRefItemRef(riskRefID))
 	if err != nil {
 		t.Fatalf("parse risk ref: %v", err)
 	}
@@ -28,8 +28,8 @@ func TestRiskRefItemRefParsingIsStrict(t *testing.T) {
 		"risk_ref:" + riskRefID.String() + ":extra",
 		"risk_ref:" + riskRefID.String() + " ",
 	} {
-		if _, err := ParseRiskRefItemRef(itemRef); err == nil {
-			t.Fatalf("ParseRiskRefItemRef(%q) succeeded", itemRef)
+		if _, err := parseRiskRefItemRef(itemRef); err == nil {
+			t.Fatalf("parseRiskRefItemRef(%q) succeeded", itemRef)
 		}
 	}
 }

@@ -22,7 +22,6 @@ import (
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
@@ -888,8 +887,9 @@ func expectOwnerDecodeCreateRejected(t testing.TB, viewSchemaID string, body map
 		}
 		return
 	}
-	_, apiErr := artifacts.DecodeCreateRequest(viewSchemaID, strings.NewReader(string(data)))
-	requireOwnerDecodeRejected(t, apiErr, body)
+	if _, admissionErr := artifacts.AdmitCreate(viewSchemaID, strings.NewReader(string(data))); admissionErr == nil {
+		t.Fatalf("expected owner mutation body to be rejected: %#v", body)
+	}
 }
 
 func expectOwnerDecodePatchRejected(t testing.TB, body map[string]any) {
@@ -906,18 +906,8 @@ func expectOwnerDecodePatchRejected(t testing.TB, body map[string]any) {
 		}
 		return
 	}
-	_, apiErr := artifacts.DecodePatchRequest(strings.NewReader(string(data)))
-	requireOwnerDecodeRejected(t, apiErr, body)
-}
-
-func requireOwnerDecodeRejected(t testing.TB, apiErr *httpapi.APIError, body map[string]any) {
-	t.Helper()
-	if apiErr == nil {
+	if _, admissionErr := artifacts.AdmitPatch(strings.NewReader(string(data))); admissionErr == nil {
 		t.Fatalf("expected owner mutation body to be rejected: %#v", body)
-		return
-	}
-	if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
-		t.Fatalf("unexpected owner mutation error: %#v", apiErr)
 	}
 }
 

@@ -10,7 +10,7 @@ import (
 // NewProjectionContribution constructs the Artifacts source contribution while
 // leaving projection storage and coordination in Projections.
 func NewProjectionContribution() (workbookprojection.Contribution, error) {
-	return artifactprojectionprovider.NewContribution()
+	return workbookprojection.NewContribution(artifactprojectionprovider.NewSource())
 }
 
 // NewReportingContribution constructs the Artifacts field provider while

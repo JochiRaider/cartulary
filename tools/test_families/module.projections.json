@@ -68,7 +68,7 @@
       ]
     },
     {
-      "row_id": "module.projections.construction.artifact_intent_errors_iteration2",
+      "row_id": "module.projections.construction.artifact_typed_variants_iteration3",
       "owner_id": "module.projections",
       "family_id": "module.projections.construction",
       "collaborator_ids": [
@@ -81,7 +81,11 @@
       "selector": {
         "package": "./internal/modules/artifacts/workbookprojection",
         "tests": [
-          "TestArtifactProjectionIntentRejectsUnknownViewSchema"
+          "TestArtifactProjectionContractOwnsEightSemanticSurfaces",
+          "TestArtifactProjectionContributionDefensivelyCopiesFacts",
+          "TestArtifactProjectionInputClosedVariantMatrix",
+          "TestArtifactProjectionIntentRejectsUnknownViewSchema",
+          "TestNewContributionRequiresSource"
         ]
       },
       "evidence_class": "unit",
@@ -495,6 +499,32 @@
       "service_dependencies": [
         "postgres"
       ]
+    },
+    {
+      "row_id": "module.projections.storage.artifact_physical_binding_parity_iteration3",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.storage",
+      "collaborator_ids": [
+        "module.artifacts"
+      ],
+      "verification_ids": [
+        "module.projections.verification.query_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections/internal/storage",
+        "tests": [
+          "TestArtifactPhysicalRowBindingPreservesClosedVariantMatrix"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
     },
     {
       "row_id": "module.projections.storage.query_row_parity_157462a15a",

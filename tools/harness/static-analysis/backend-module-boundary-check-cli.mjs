@@ -847,6 +847,8 @@ function sqlTableReferences(content) {
 }
 
 function assertBoundaryFixtures(manifest) {
+  assertArtifactBoundaryFixtures(manifest);
+
   const recordsRule = manifest.sqlTableAccess.find(
     (rule) => rule.id === "records-current-envelope-access",
   );
@@ -1406,6 +1408,117 @@ function assertBoundaryFixtures(manifest) {
   );
   if (supportedConfigViolations.length !== 0) {
     throw new Error("supported config seams must remain accepted by contracted boundary rules");
+  }
+}
+
+function assertArtifactBoundaryFixtures(manifest) {
+  const httpRule = manifest.forbiddenGoImports.find(
+    (rule) => rule.id === "artifact-subtree-no-http-or-auth-transport",
+  );
+  const consumerRule = manifest.forbiddenGoImports.find(
+    (rule) => rule.id === "artifact-subtree-no-consumer-implementations",
+  );
+  const idempotencyRule = manifest.forbiddenSourceTokens.find(
+    (rule) => rule.id === "artifact-mutation-idempotency-lookup-is-centralized",
+  );
+  if (!httpRule || !consumerRule || !idempotencyRule) {
+    throw new Error("Artifact subtree boundary rules are required");
+  }
+
+  const httpFixtures = [
+    {
+      label: "Artifact transport-neutral source",
+      file: { relative: "internal/modules/artifacts/future_surface.go", content: "package artifacts" },
+      wantViolation: false,
+    },
+    {
+      label: "Artifact future HTTP import",
+      file: {
+        relative: "internal/modules/artifacts/future_surface.go",
+        content: 'package artifacts\nimport "net/http"',
+      },
+      wantViolation: true,
+    },
+  ];
+  for (const fixture of httpFixtures) {
+    const violations = checkForbiddenGoImports([fixture.file], [httpRule]);
+    if ((violations.length > 0) !== fixture.wantViolation) {
+      throw new Error(`${fixture.label} boundary fixture produced an unexpected result`);
+    }
+    if (
+      fixture.wantViolation &&
+      (violations.length !== 1 ||
+        violations[0].code !== "forbidden_go_import" ||
+        violations[0].rule_id !== httpRule.id)
+    ) {
+      throw new Error(`${fixture.label} boundary fixture must fail with ${httpRule.id}`);
+    }
+  }
+
+  const consumerFixtures = [
+    {
+      label: "Artifact published projection contribution contract",
+      file: {
+        relative: "internal/modules/artifacts/workbookprojection/contribution.go",
+        content:
+          'package workbookprojection\nimport "github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"',
+      },
+      wantViolation: false,
+    },
+    {
+      label: "Artifact future Workbook implementation import",
+      file: {
+        relative: "internal/modules/artifacts/future_surface.go",
+        content:
+          'package artifacts\nimport "github.com/JochiRaider/cartulary/internal/modules/workbook"',
+      },
+      wantViolation: true,
+    },
+  ];
+  for (const fixture of consumerFixtures) {
+    const violations = checkForbiddenGoImports([fixture.file], [consumerRule]);
+    if ((violations.length > 0) !== fixture.wantViolation) {
+      throw new Error(`${fixture.label} boundary fixture produced an unexpected result`);
+    }
+    if (
+      fixture.wantViolation &&
+      (violations.length !== 1 ||
+        violations[0].code !== "forbidden_go_import" ||
+        violations[0].rule_id !== consumerRule.id)
+    ) {
+      throw new Error(`${fixture.label} boundary fixture must fail with ${consumerRule.id}`);
+    }
+  }
+
+  const idempotencyFixtures = [
+    {
+      label: "Artifact centralized idempotency lookup",
+      file: {
+        relative: "internal/modules/artifacts/mutation_idempotency.go",
+        content: "package artifacts\nfunc lookup() { f.idempotency.Get(ctx, key, hash) }",
+      },
+      wantViolation: false,
+    },
+    {
+      label: "Artifact future direct idempotency lookup",
+      file: {
+        relative: "internal/modules/artifacts/future_surface.go",
+        content: "package artifacts\nfunc lookup() { f.idempotency.Get(ctx, key, hash) }",
+      },
+      wantViolation: true,
+    },
+  ];
+  for (const fixture of idempotencyFixtures) {
+    const violations = checkForbiddenSourceTokens([fixture.file], [idempotencyRule]);
+    if ((violations.length > 0) !== fixture.wantViolation) {
+      throw new Error(`${fixture.label} boundary fixture produced an unexpected result`);
+    }
+    if (
+      fixture.wantViolation &&
+      (violations.length !== 1 || violations[0].code !== "forbidden_source_token")
+    ) {
+      throw new Error(`${fixture.label} boundary fixture must fail with ${idempotencyRule.id}`);
+    }
   }
 }
 

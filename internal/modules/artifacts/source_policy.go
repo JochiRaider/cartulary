@@ -18,7 +18,7 @@ func lookupArtifactSourceField(fieldKey string) (sourcecatalog.Field, bool) {
 	return catalog.Field(fieldKey)
 }
 
-func validateArtifactDirectValue(policy sourcecatalog.Field, value FieldValue) error {
+func validateArtifactDirectValue(policy sourcecatalog.Field, value fieldValue) error {
 	count := 0
 	if value.Text != nil {
 		count++

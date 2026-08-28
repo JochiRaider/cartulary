@@ -31,6 +31,36 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sourcecatalog.Load() error = %v", err)
 	}
+	if got := len(catalog.WritableDirectStorageMappings()); got != 36 {
+		t.Fatalf("direct source fields = %d, want 36", got)
+	}
+	collectionFields := make([]string, 0, 15)
+	for fieldKey, field := range catalog.Fields() {
+		if field.Kind == sourcecatalog.FieldKindCollection {
+			collectionFields = append(collectionFields, fieldKey)
+		}
+	}
+	slices.Sort(collectionFields)
+	wantCollectionFields := []string{
+		"comm_log.action_task_ids",
+		"comm_log.attendee_party_ids",
+		"comm_log.audience_party_ids",
+		"comm_log.decision_ids",
+		"finding.contradictory_refs",
+		"finding.supporting_refs",
+		"handoff.open_decision_ids",
+		"handoff.open_risk_refs",
+		"handoff.open_task_ids",
+		"lesson.evidence_refs",
+		"lesson.follow_up_task_ids",
+		"note.tags",
+		"status_review.blocked_task_ids",
+		"status_review.open_decision_ids",
+		"status_review.pending_evidence_ids",
+	}
+	if !slices.Equal(collectionFields, wantCollectionFields) {
+		t.Fatalf("collection source fields = %#v, want %#v", collectionFields, wantCollectionFields)
+	}
 	surfaces := catalog.Surfaces()
 	if len(surfaces) != len(want) {
 		t.Fatalf("surface catalog has %d entries, want %d", len(surfaces), len(want))
@@ -183,46 +213,46 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 		for name, params := range map[string]createParams{
 			"unknown_view": {
 				ViewSchemaID: "cartulary.view.unknown.v1",
-				Values:       map[string]FieldValue{"note.body": {Text: &body}},
+				Values:       map[string]fieldValue{"note.body": {Text: &body}},
 			},
 			"unknown_prefixed_field": {
 				ViewSchemaID: NotesViewSchemaID,
-				Values: map[string]FieldValue{
+				Values: map[string]fieldValue{
 					"note.body":       {Text: &body},
 					"note.unreviewed": {Text: &body},
 				},
 			},
 			"read_only_field": {
 				ViewSchemaID: NotesViewSchemaID,
-				Values: map[string]FieldValue{
+				Values: map[string]fieldValue{
 					"note.body":       {Text: &body},
 					"note.updated_at": {Text: &body},
 				},
 			},
 			"cross_surface_field": {
 				ViewSchemaID: NotesViewSchemaID,
-				Values: map[string]FieldValue{
+				Values: map[string]fieldValue{
 					"note.body":        {Text: &body},
 					"comm_log.summary": {Text: &body},
 				},
 			},
 			"collection_as_scalar": {
 				ViewSchemaID: NotesViewSchemaID,
-				Values: map[string]FieldValue{
+				Values: map[string]fieldValue{
 					"note.body": {Text: &body},
 					"note.tags": {Text: &body},
 				},
 			},
 			"wrong_value_kind": {
 				ViewSchemaID: NotesViewSchemaID,
-				Values: map[string]FieldValue{
+				Values: map[string]fieldValue{
 					"note.body":  {Text: &body},
 					"note.title": {Number: &number},
 				},
 			},
 			"non_nullable_null": {
 				ViewSchemaID: NotesViewSchemaID,
-				Values: map[string]FieldValue{
+				Values: map[string]fieldValue{
 					"note.body":  {Text: &body},
 					"note.title": {},
 				},

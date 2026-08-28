@@ -143,10 +143,10 @@ func (a *artifactImportCreateAdapter) createImportRowTx(
 	})
 }
 
-func artifactValuesFromImport(values map[string]ownerfacade.ImportScalarValue) map[string]FieldValue {
-	result := make(map[string]FieldValue, len(values))
+func artifactValuesFromImport(values map[string]ownerfacade.ImportScalarValue) map[string]fieldValue {
+	result := make(map[string]fieldValue, len(values))
 	for field, value := range values {
-		converted := FieldValue{}
+		converted := fieldValue{}
 		if scalar, ok := value.Text(); ok {
 			converted.Text = &scalar
 		}

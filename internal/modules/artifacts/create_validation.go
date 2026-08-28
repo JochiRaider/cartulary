@@ -92,7 +92,7 @@ func validateCreateParams(params createParams) error {
 	return nil
 }
 
-func validateDirectPatchChange(fieldKey string, value FieldValue) error {
+func validateDirectPatchChange(fieldKey string, value fieldValue) error {
 	policy, ok := lookupArtifactSourceField(fieldKey)
 	if !ok || policy.Kind != sourcecatalog.FieldKindDirect || (!policy.View.Writable && !policy.View.CreateWritable) {
 		return &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
@@ -180,17 +180,17 @@ func validConfidenceScore(value int64) bool {
 	return value >= 0 && value <= 100
 }
 
-func hasText(values map[string]FieldValue, field string) bool {
+func hasText(values map[string]fieldValue, field string) bool {
 	value, ok := values[field]
 	return ok && value.Text != nil && strings.TrimSpace(*value.Text) != ""
 }
 
-func hasUUID(values map[string]FieldValue, field string) bool {
+func hasUUID(values map[string]fieldValue, field string) bool {
 	value, ok := values[field]
 	return ok && value.UUID != nil
 }
 
-func validText(values map[string]FieldValue, field string, predicate func(string) bool) bool {
+func validText(values map[string]fieldValue, field string, predicate func(string) bool) bool {
 	value, ok := values[field]
 	if !ok || value.Text == nil {
 		return false

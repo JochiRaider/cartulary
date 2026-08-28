@@ -62,26 +62,24 @@ func newArtifactCreateProvider(viewSchemaID string, owner *artifacts.MutationFac
 		return nil, fmt.Errorf("compose Artifact create adapter: owner is required")
 	}
 	return workbook.NewCreateProvider(
-		func(reader io.Reader) (artifacts.CreateRequest, bool, *workbook.MutationFailure, error) {
-			request, apiErr := artifacts.DecodeCreateRequest(viewSchemaID, reader)
-			if apiErr != nil {
-				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return artifacts.CreateRequest{}, false, failure, err
+		func(reader io.Reader) (artifacts.CreateAdmission, bool, *workbook.MutationFailure, error) {
+			admission, admissionErr := artifacts.AdmitCreate(viewSchemaID, reader)
+			if admissionErr != nil {
+				return artifacts.CreateAdmission{}, false, artifactAdmissionFailure(admissionErr), nil
 			}
-			return request, true, nil, nil
+			return admission, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.CreateCommand, request artifacts.CreateRequest) (workbook.MutationOutcome, error) {
-			if command.ViewSchemaID != viewSchemaID || request.ViewSchemaID != viewSchemaID {
+		func(ctx context.Context, command workbook.CreateCommand, admission artifacts.CreateAdmission) (workbook.MutationOutcome, error) {
+			if command.ViewSchemaID != viewSchemaID || admission.ViewSchemaID() != viewSchemaID {
 				return workbook.RejectedMutation(
 					workbook.InvalidPayloadFailure("view_schema_id", "invalid_view_schema_id"),
 				), nil
 			}
 			result, err := owner.Create(ctx, artifacts.CreateCommand{
-				ActorUserID: command.Actor.ID, IncidentID: command.IncidentID, Request: request,
-				RequestHash: artifacts.CreateRequestHash(request),
-				RequestID:   command.RequestID, OperationID: artifacts.OperationCreate, Now: command.Now,
+				ActorUserID: command.Actor.ID, IncidentID: command.IncidentID, Admission: admission,
+				RequestID: command.RequestID, Now: command.Now,
 			})
-			if failure, safe := artifactMutationFailure(err, request.ClientTxnID); safe {
+			if failure, safe := artifactMutationFailure(err, admission.ClientTxnID()); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -97,26 +95,23 @@ func newArtifactPatchProvider(owner *artifacts.MutationFacade) (workbook.PatchPr
 		return nil, fmt.Errorf("compose Artifact patch adapter: owner is required")
 	}
 	return workbook.NewPatchProvider(
-		func(reader io.Reader) (artifacts.PatchRequest, bool, *workbook.MutationFailure, error) {
-			request, apiErr := artifacts.DecodePatchRequest(reader)
-			if apiErr != nil {
-				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return artifacts.PatchRequest{}, false, failure, err
+		func(reader io.Reader) (artifacts.PatchAdmission, bool, *workbook.MutationFailure, error) {
+			admission, admissionErr := artifacts.AdmitPatch(reader)
+			if admissionErr != nil {
+				return artifacts.PatchAdmission{}, false, artifactAdmissionFailure(admissionErr), nil
 			}
-			return request, true, nil, nil
+			return admission, true, nil, nil
 		},
-		func(request artifacts.PatchRequest) string { return request.ViewSchemaID },
-		func(ctx context.Context, command workbook.PatchCommand, request artifacts.PatchRequest) (workbook.MutationOutcome, error) {
+		func(admission artifacts.PatchAdmission) string { return admission.ViewSchemaID() },
+		func(ctx context.Context, command workbook.PatchCommand, admission artifacts.PatchAdmission) (workbook.MutationOutcome, error) {
 			if command.AuthoritativeRecordType != "artifact" {
 				return workbook.RejectedMutation(workbook.TargetNotFoundFailure()), nil
 			}
 			result, err := owner.Patch(ctx, artifacts.PatchCommand{
-				ActorUserID: command.Actor.ID, RecordID: command.RecordID, Request: request,
-				RequestHash: artifacts.PatchRequestHash(request),
-				RequestID:   command.RequestID, OperationID: artifacts.OperationPatch,
-				ConflictOperationID: artifacts.OperationConflictResolve, Now: command.Now,
+				ActorUserID: command.Actor.ID, RecordID: command.RecordID, Admission: admission,
+				RequestID: command.RequestID, Now: command.Now,
 			})
-			if failure, safe := artifactMutationFailure(err, request.ClientTxnID); safe {
+			if failure, safe := artifactMutationFailure(err, admission.ClientTxnID()); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -128,8 +123,7 @@ func newArtifactPatchProvider(owner *artifacts.MutationFacade) (workbook.PatchPr
 }
 
 type artifactConflictValue struct {
-	request artifacts.ConflictResolveRequest
-	claims  artifacts.ConflictClaims
+	admission artifacts.ConflictResolveAdmission
 }
 
 func newArtifactConflictProvider(owner *artifacts.MutationFacade) (workbook.ConflictProvider, error) {
@@ -145,33 +139,29 @@ func newArtifactConflictProvider(owner *artifacts.MutationFacade) (workbook.Conf
 			if claims.RouteKey != workbookConflictResolveOperation || !artifactViewSchemaID(claims.ViewSchemaID) {
 				return artifactConflictValue{}, false, workbook.InvalidPayloadFailure("conflict_token", "invalid_value"), nil
 			}
-			ownerClaims := artifacts.ConflictClaims{
-				RecordID: claims.RecordID, ViewSchemaID: claims.ViewSchemaID,
-				FieldKey: claims.FieldKey, CurrentRowVersion: claims.CurrentRowVersion,
+			ownerContext := artifacts.ConflictAdmissionContext{
+				Version: claims.Version, RecordID: claims.RecordID, ViewSchemaID: claims.ViewSchemaID,
+				RouteKey: claims.RouteKey, FieldKey: claims.FieldKey,
+				ConflictResolutionClass: claims.ConflictResolutionClass,
+				BaseRowVersion:          claims.BaseRowVersion, CurrentRowVersion: claims.CurrentRowVersion,
+				OriginalRequestHash: claims.RequestHash, IssuedAt: claims.IssuedAt, ExpiresAt: claims.ExpiresAt,
 			}
-			request, apiErr := artifacts.DecodeConflictResolveRequest(reader, token, ownerClaims)
-			if apiErr != nil {
-				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return artifactConflictValue{}, false, failure, err
+			admission, admissionErr := artifacts.AdmitConflictResolution(reader, token, ownerContext)
+			if admissionErr != nil {
+				return artifactConflictValue{}, false, artifactAdmissionFailure(admissionErr), nil
 			}
-			return artifactConflictValue{request: request, claims: ownerClaims}, true, nil, nil
+			return artifactConflictValue{admission: admission}, true, nil, nil
 		},
 		func(ctx context.Context, command workbook.ConflictCommand, admitted artifactConflictValue) (workbook.MutationOutcome, error) {
 			if command.AuthoritativeRecordType != "artifact" || command.RecordID != command.Claims.RecordID ||
 				command.Claims.RouteKey != workbookConflictResolveOperation || !artifactViewSchemaID(command.Claims.ViewSchemaID) {
 				return workbook.RejectedMutation(workbook.TargetNotFoundFailure()), nil
 			}
-			requestHash := artifacts.ConflictResolveRequestHash(admitted.claims, admitted.request)
 			result, err := owner.ResolveConflict(ctx, artifacts.ConflictCommand{
-				Mechanics: conflicttokens.Command{
-					ActorUserID: command.Actor.ID, RecordID: command.RecordID,
-					Claims: artifactConflictTokenClaims(command.Claims), ClientTxnID: admitted.request.ClientTxnID,
-					RequestHash: requestHash, RequestID: command.RequestID, RouteKey: command.Claims.RouteKey,
-				},
-				ActorUserID: command.Actor.ID, OperationID: artifacts.OperationConflictResolve,
-				ResolutionKind: admitted.request.ResolutionKind, Patch: admitted.request.Patch, Now: command.Now,
+				ActorUserID: command.Actor.ID, RequestID: command.RequestID,
+				Admission: admitted.admission, Now: command.Now,
 			})
-			if failure, safe := artifactMutationFailure(err, admitted.request.ClientTxnID); safe {
+			if failure, safe := artifactMutationFailure(err, admitted.admission.ClientTxnID()); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -180,6 +170,24 @@ func newArtifactConflictProvider(owner *artifacts.MutationFacade) (workbook.Conf
 			return workbook.SuccessfulRowMutation(artifactMutationResult(result)), nil
 		},
 	)
+}
+
+func artifactAdmissionFailure(admissionErr *artifacts.AdmissionError) *workbook.MutationFailure {
+	if admissionErr == nil {
+		return nil
+	}
+	field, _ := admissionErr.Field()
+	reason := string(admissionErr.ReasonCode())
+	collectionField, hasCollectionField := admissionErr.CollectionField()
+	requested, hasRequested := admissionErr.RequestedCount()
+	maximum, hasMaximum := admissionErr.MaximumCount()
+	if hasRequested || hasMaximum {
+		return workbook.InvalidPayloadLimitFailure(field, reason, requested, maximum, collectionField)
+	}
+	if hasCollectionField {
+		return workbook.InvalidPayloadCollectionFailure(field, reason, collectionField)
+	}
+	return workbook.InvalidPayloadFailure(field, reason)
 }
 
 func artifactViewSchemaID(viewSchemaID string) bool {
@@ -245,14 +253,4 @@ func artifactMutationFailure(err error, clientTxnID string) (*workbook.MutationF
 		return failure, conversionErr == nil
 	}
 	return nil, false
-}
-
-func artifactConflictTokenClaims(claims workbook.ConflictClaims) conflicttokens.ConflictTokenClaims {
-	return conflicttokens.ConflictTokenClaims{
-		Version: claims.Version, RecordID: claims.RecordID.String(), ViewSchemaID: claims.ViewSchemaID,
-		RouteKey: claims.RouteKey, FieldKey: claims.FieldKey,
-		ConflictResolutionClass: claims.ConflictResolutionClass,
-		BaseRowVersion:          claims.BaseRowVersion, CurrentRowVersion: claims.CurrentRowVersion,
-		RequestHash: claims.RequestHash, IssuedAt: claims.IssuedAt, ExpiresAt: claims.ExpiresAt,
-	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -68,27 +69,18 @@ func TestArtifactLinkedNoteAtomicity(t *testing.T) {
 			command := artifacts.ContextualNoteCreateCommand{
 				ActorUserID:    actor.ID,
 				SourceRecordID: sourceRecordID,
-				Request: artifacts.ContextualNoteCreateRequest{
-					ClientTxnID: clientTxnID,
-					Values: map[string]artifacts.FieldValue{
-						"note.title": {Text: &title},
-					},
-					Collections: map[string]artifacts.CollectionActionPayload{
-						"note.tags": {Actions: []artifacts.CollectionAction{{
-							Op: "add_tag", RawText: "synthetic", NormalizedText: "synthetic",
-						}}},
-					},
-				},
-				RequestHash: []byte("hash-" + clientTxnID),
-				RequestID:   "req-" + clientTxnID,
-				OperationID: artifacts.OperationLinkedNoteCreate,
-				Now:         now.Add(time.Duration(index) * time.Minute),
+				Admission: mustArtifactContextualNoteAdmission(
+					t, clientTxnID, map[string]any{"note.title": title},
+					map[string]any{"note.tags": artifactCollectionPayload(map[string]any{"op": "add_tag", "tag_name": "synthetic"})},
+				),
+				RequestID: "req-" + clientTxnID,
+				Now:       now.Add(time.Duration(index) * time.Minute),
 			}
 			result, err := facade.CreateContextualNote(ctx, command)
 			if err != nil {
 				t.Fatalf("create linked note for %s: %v", recordType, err)
 			}
-			if result.RecordID == uuid.Nil || result.ChangeSetID == uuid.Nil || result.RowVersion != 1 {
+			if result.RecordID == uuid.Nil || result.ChangeSetID == nil || result.RowVersion != 1 {
 				t.Fatalf("linked note result is incomplete: %#v", result)
 			}
 			requireLinkedNoteCount(t, harness, `
@@ -119,31 +111,26 @@ SELECT count(*)
 			if err != nil {
 				t.Fatalf("replay linked note for %s: %v", recordType, err)
 			}
-			if !replayed.Replayed || replayed.RecordID != result.RecordID {
+			if replayed.Outcome != artifacts.MutationOutcomeReplayed || replayed.RecordID != result.RecordID {
 				t.Fatalf("linked note replay = %#v, want original record %s", replayed, result.RecordID)
 			}
 			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM artifacts WHERE record_id = $1`, result.RecordID, 1)
 			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM record_links WHERE src_record_id = $1 AND dst_record_id = $2 AND deleted_at IS NULL`, sourceRecordID, result.RecordID, 1)
 
 			conflicting := command
-			conflicting.RequestHash = []byte("changed-" + clientTxnID)
+			conflicting.Admission = mustArtifactContextualNoteAdmission(
+				t, clientTxnID, map[string]any{"note.title": title + " divergent"},
+				map[string]any{"note.tags": artifactCollectionPayload(map[string]any{"op": "add_tag", "tag_name": "synthetic"})},
+			)
 			if _, err := facade.CreateContextualNote(ctx, conflicting); !errors.Is(err, artifacts.ErrClientTxnConflict) {
 				t.Fatalf("changed linked-note replay error = %v, want client transaction conflict", err)
 			}
 		})
 	}
 
-	sourceRecordID := seedLinkedNoteSource(t, harness, incident.ID, actor.ID, "timeline_event", now.Add(time.Hour))
 	before := linkedNoteCount(t, harness, `SELECT count(*) FROM records WHERE incident_id = $1`, incident.ID)
-	_, err = facade.CreateContextualNote(ctx, artifacts.ContextualNoteCreateCommand{
-		ActorUserID: actor.ID, SourceRecordID: sourceRecordID,
-		Request:     artifacts.ContextualNoteCreateRequest{ClientTxnID: "txn-artifacts-linked-note-no-signal"},
-		RequestHash: []byte("hash-artifacts-linked-note-no-signal"),
-		RequestID:   "req-artifacts-linked-note-no-signal",
-		OperationID: artifacts.OperationLinkedNoteCreate,
-		Now:         now.Add(2 * time.Hour),
-	})
-	if err == nil {
+	_, admissionErr := artifacts.AdmitContextualNote(strings.NewReader(`{"client_txn_id":"txn-artifacts-linked-note-no-signal"}`))
+	if admissionErr == nil {
 		t.Fatal("linked note without title or body unexpectedly succeeded")
 	}
 	if got := linkedNoteCount(t, harness, `SELECT count(*) FROM records WHERE incident_id = $1`, incident.ID); got != before {
@@ -181,16 +168,9 @@ SELECT count(*)
 			_, err := facade.CreateContextualNote(ctx, artifacts.ContextualNoteCreateCommand{
 				ActorUserID:    actor.ID,
 				SourceRecordID: sourceRecordID,
-				Request: artifacts.ContextualNoteCreateRequest{
-					ClientTxnID: clientTxnID,
-					Values: map[string]artifacts.FieldValue{
-						"note.title": {Text: &title},
-					},
-				},
-				RequestHash: []byte("hash-" + clientTxnID),
-				RequestID:   "req-" + clientTxnID,
-				OperationID: artifacts.OperationLinkedNoteCreate,
-				Now:         now.Add(time.Duration(index+3) * time.Hour),
+				Admission:      mustArtifactContextualNoteAdmission(t, clientTxnID, map[string]any{"note.title": title}, nil),
+				RequestID:      "req-" + clientTxnID,
+				Now:            now.Add(time.Duration(index+3) * time.Hour),
 			})
 			if err == nil {
 				t.Fatalf("linked note with forced %s failure unexpectedly succeeded", fault.name)

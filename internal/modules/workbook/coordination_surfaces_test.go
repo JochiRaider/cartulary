@@ -1221,7 +1221,7 @@ func expectDecodePatchRejected(t testing.TB, viewSchemaID string, fieldKey strin
 	if err != nil {
 		t.Fatalf("marshal patch payload: %v", err)
 	}
-	if _, apiErr := artifacts.DecodePatchRequest(strings.NewReader(string(payload))); apiErr == nil {
+	if _, admissionErr := artifacts.AdmitPatch(strings.NewReader(string(payload))); admissionErr == nil {
 		t.Fatalf("expected patch decode to reject %s", fieldKey)
 	}
 }

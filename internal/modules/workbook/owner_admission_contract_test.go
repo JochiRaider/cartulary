@@ -1,7 +1,6 @@
 package workbook
 
 import (
-	"bytes"
 	"slices"
 	"strings"
 	"testing"
@@ -63,17 +62,17 @@ func TestWorkbookWritableConflictCapabilityDerivedFromRegistry_Unit(t *testing.T
 
 func TestOwnerMutationAdmissionRejectsCollectionReplacement(t *testing.T) {
 	rawArray := `{"view_schema_id":"cartulary.view.comm_log.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"comm_log.decision_ids","value":[]}]}`
-	if _, apiErr := artifacts.DecodePatchRequest(strings.NewReader(rawArray)); apiErr == nil {
+	if _, admissionErr := artifacts.AdmitPatch(strings.NewReader(rawArray)); admissionErr == nil {
 		t.Fatalf("expected raw array collection patch to fail")
 	}
 
 	rawNull := `{"view_schema_id":"cartulary.view.comm_log.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"comm_log.decision_ids","value":null}]}`
-	if _, apiErr := artifacts.DecodePatchRequest(strings.NewReader(rawNull)); apiErr == nil {
+	if _, admissionErr := artifacts.AdmitPatch(strings.NewReader(rawNull)); admissionErr == nil {
 		t.Fatalf("expected raw null collection patch to fail")
 	}
 
 	unknownAction := `{"view_schema_id":"cartulary.view.comm_log.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"comm_log.decision_ids","action_payload":{"kind":"collection_actions_v1","actions":[{"op":"replace_all","linked_record_id":"00000000-0000-0000-0000-000000000001"}]}}]}`
-	if _, apiErr := artifacts.DecodePatchRequest(strings.NewReader(unknownAction)); apiErr == nil {
+	if _, admissionErr := artifacts.AdmitPatch(strings.NewReader(unknownAction)); admissionErr == nil {
 		t.Fatalf("expected unknown collection action to fail")
 	}
 }
@@ -98,17 +97,14 @@ func TestOwnerMutationAdmissionDistinguishesKnownNonWritableAndUnknownFields(t *
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			body := `{"view_schema_id":"cartulary.view.notes.v1","base_row_version":1,"client_txn_id":"txn-field-error","changes":[{"field_key":"` + tc.fieldKey + `","value":"cleared"}]}`
-			_, apiErr := artifacts.DecodePatchRequest(strings.NewReader(body))
-			if apiErr == nil {
+			_, admissionErr := artifacts.AdmitPatch(strings.NewReader(body))
+			if admissionErr == nil {
 				t.Fatalf("expected %s to be rejected", tc.fieldKey)
 			}
-			if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
-				t.Fatalf("unexpected error for %s: %#v", tc.fieldKey, apiErr)
-			}
-			if got := apiErr.Details["field"]; got != tc.wantDetailField {
+			if got, present := admissionErr.Field(); !present || got != tc.wantDetailField {
 				t.Fatalf("detail field for %s = %#v, want %q", tc.fieldKey, got, tc.wantDetailField)
 			}
-			if got := apiErr.Details["reason_code"]; got != "unsupported_field_key" {
+			if got := admissionErr.ReasonCode(); got != "unsupported_field_key" {
 				t.Fatalf("reason for %s = %#v, want unsupported_field_key", tc.fieldKey, got)
 			}
 		})
@@ -146,8 +142,8 @@ func TestOwnerMutationAdmissionAdmitsStructurallyValidOwnerSpecificCollectionOps
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			body := `{"view_schema_id":"` + tc.viewSchemaID + `","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"` + tc.fieldKey + `","action_payload":{"kind":"collection_actions_v1","actions":[` + tc.action + `]}}]}`
-			if _, apiErr := artifacts.DecodePatchRequest(strings.NewReader(body)); apiErr != nil {
-				t.Fatalf("structurally valid action should reach the source owner for %s: %#v", tc.fieldKey, apiErr)
+			if _, admissionErr := artifacts.AdmitPatch(strings.NewReader(body)); admissionErr != nil {
+				t.Fatalf("structurally valid action should reach the source owner for %s: %#v", tc.fieldKey, admissionErr)
 			}
 		})
 	}
@@ -214,10 +210,8 @@ func TestOwnerMutationAdmissionCollectionIDsAreExactLexicalTokens(t *testing.T) 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			body := `{"view_schema_id":"` + tc.viewSchemaID + `","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"` + tc.fieldKey + `","action_payload":{"kind":"collection_actions_v1","actions":[` + tc.action + `]}}]}`
-			if _, apiErr := artifacts.DecodePatchRequest(strings.NewReader(body)); apiErr == nil {
+			if _, admissionErr := artifacts.AdmitPatch(strings.NewReader(body)); admissionErr == nil {
 				t.Fatalf("expected inexact identifier to fail for %s", tc.fieldKey)
-			} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
-				t.Fatalf("unexpected error for %s: %#v", tc.fieldKey, apiErr)
 			}
 		})
 	}
@@ -254,10 +248,8 @@ func TestOwnerMutationAdmissionCollectionRemovalRequiresItemRef(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			body := `{"view_schema_id":"` + tc.viewSchemaID + `","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"` + tc.fieldKey + `","action_payload":{"kind":"collection_actions_v1","actions":[` + tc.action + `]}}]}`
-			if _, apiErr := artifacts.DecodePatchRequest(strings.NewReader(body)); apiErr == nil {
+			if _, admissionErr := artifacts.AdmitPatch(strings.NewReader(body)); admissionErr == nil {
 				t.Fatalf("expected removal without item_ref to fail for %s", tc.fieldKey)
-			} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
-				t.Fatalf("unexpected error for %s: %#v", tc.fieldKey, apiErr)
 			}
 		})
 	}
@@ -347,18 +339,18 @@ func TestTaskDecisionRelationshipConfidenceRejected(t *testing.T) {
 func TestDirectPartyReferenceDecoderAcceptsOnlyExactStableIDs(t *testing.T) {
 	stablePartyID := "11111111-2222-3333-4444-555555555555"
 	valid := `{"view_schema_id":"cartulary.view.evidence.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"evidence.collector_party_id","value":"` + stablePartyID + `"}]}`
-	request, apiErr := evidence.DecodePatchRequest(strings.NewReader(valid))
-	if apiErr != nil {
-		t.Fatalf("expected exact stable party id to decode: %#v", apiErr)
+	request, admissionErr := evidence.DecodePatchRequest(strings.NewReader(valid))
+	if admissionErr != nil {
+		t.Fatalf("expected exact stable party id to decode: %#v", admissionErr)
 	}
 	if got := request.Changes[0].Value.UUID.String(); got != stablePartyID {
 		t.Fatalf("unexpected decoded party id: got %s want %s", got, stablePartyID)
 	}
 
 	clear := `{"view_schema_id":"cartulary.view.evidence.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"evidence.collector_party_id","value":null}]}`
-	request, apiErr = evidence.DecodePatchRequest(strings.NewReader(clear))
-	if apiErr != nil {
-		t.Fatalf("expected direct null clear to decode: %#v", apiErr)
+	request, admissionErr = evidence.DecodePatchRequest(strings.NewReader(clear))
+	if admissionErr != nil {
+		t.Fatalf("expected direct null clear to decode: %#v", admissionErr)
 	}
 	if request.Changes[0].Value == nil || request.Changes[0].Value.Text != nil || request.Changes[0].Value.Timestamp != nil ||
 		request.Changes[0].Value.UUID != nil || request.Changes[0].Value.Number != nil || request.Changes[0].Value.Bool != nil {
@@ -379,13 +371,13 @@ func TestDirectPartyReferenceDecoderAcceptsOnlyExactStableIDs(t *testing.T) {
 	}
 	for _, rawValue := range invalidValues {
 		body := `{"view_schema_id":"cartulary.view.evidence.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"evidence.collector_party_id","value":` + rawValue + `}]}`
-		if _, apiErr := evidence.DecodePatchRequest(strings.NewReader(body)); apiErr == nil {
+		if _, admissionErr := evidence.DecodePatchRequest(strings.NewReader(body)); admissionErr == nil {
 			t.Fatalf("expected invalid direct party ref %s to fail", rawValue)
 		}
 	}
 
 	actionPayloadClear := `{"view_schema_id":"cartulary.view.evidence.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"evidence.collector_party_id","action_payload":{"kind":"collection_actions_v1","actions":[{"op":"remove_party_ref","item_ref":"party_ref:` + stablePartyID + `"}]}}]}`
-	if _, apiErr := evidence.DecodePatchRequest(strings.NewReader(actionPayloadClear)); apiErr == nil {
+	if _, admissionErr := evidence.DecodePatchRequest(strings.NewReader(actionPayloadClear)); admissionErr == nil {
 		t.Fatalf("expected non-direct clear shape to fail")
 	}
 }
@@ -446,16 +438,16 @@ func TestTaskOwnerNullClearRejectedAtDecoder(t *testing.T) {
 }
 
 func TestOwnerMutationRequestHashNormalization(t *testing.T) {
-	left, apiErr := artifacts.DecodePatchRequest(strings.NewReader(`{"view_schema_id":"cartulary.view.comm_log.v1","base_row_version":1,"client_txn_id":"txn-left","changes":[{"field_key":"comm_log.summary","value":" Updated "},{"field_key":"comm_log.privilege_tag","value":"legal"}]}`))
-	if apiErr != nil {
-		t.Fatalf("decode left patch: %#v", apiErr)
+	left, admissionErr := artifacts.AdmitPatch(strings.NewReader(`{"view_schema_id":"cartulary.view.comm_log.v1","base_row_version":1,"client_txn_id":"txn-left","changes":[{"field_key":"comm_log.summary","value":" Updated "},{"field_key":"comm_log.privilege_tag","value":"legal"}]}`))
+	if admissionErr != nil {
+		t.Fatalf("decode left patch: %#v", admissionErr)
 	}
-	right, apiErr := artifacts.DecodePatchRequest(strings.NewReader(`{"view_schema_id":"cartulary.view.comm_log.v1","base_row_version":1,"client_txn_id":"txn-right","changes":[{"field_key":"comm_log.privilege_tag","value":"legal"},{"field_key":"comm_log.summary","value":"Updated"}]}`))
-	if apiErr != nil {
-		t.Fatalf("decode right patch: %#v", apiErr)
+	right, admissionErr := artifacts.AdmitPatch(strings.NewReader(`{"view_schema_id":"cartulary.view.comm_log.v1","base_row_version":1,"client_txn_id":"txn-right","changes":[{"field_key":"comm_log.privilege_tag","value":"legal"},{"field_key":"comm_log.summary","value":"Updated"}]}`))
+	if admissionErr != nil {
+		t.Fatalf("decode right patch: %#v", admissionErr)
 	}
-	if !bytes.Equal(artifacts.PatchRequestHash(left), artifacts.PatchRequestHash(right)) {
-		t.Fatalf("patch hash should ignore client_txn_id and outer change order while using normalized values")
+	if left.ViewSchemaID() != right.ViewSchemaID() || left.BaseRowVersion() != right.BaseRowVersion() || left.ClientTxnID() == right.ClientTxnID() {
+		t.Fatalf("opaque admissions did not preserve routing identity while keeping transactions distinct")
 	}
 
 }

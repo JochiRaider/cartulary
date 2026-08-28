@@ -28,32 +28,32 @@ type MutationFacade struct {
 	publications      collaboration.RecordChangedAppender
 }
 
-type CreateRequest struct {
+type createRequest struct {
 	ViewSchemaID string
 	ClientTxnID  string
-	Values       map[string]FieldValue
-	Collections  map[string]CollectionActionPayload
+	Values       map[string]fieldValue
+	Collections  map[string]collectionActionPayload
 }
 
-type PatchRequest struct {
+type patchRequest struct {
 	ViewSchemaID   string
 	BaseRowVersion int64
 	ClientTxnID    string
-	Changes        []PatchChange
+	Changes        []patchChange
 }
 
-type PatchChange struct {
+type patchChange struct {
 	FieldKey       string
-	Value          *FieldValue
-	Collection     *CollectionActionPayload
+	Value          *fieldValue
+	Collection     *collectionActionPayload
 	CanonicalValue any
 }
 
-type CollectionActionPayload struct {
-	Actions []CollectionAction
+type collectionActionPayload struct {
+	Actions []collectionAction
 }
 
-type CollectionAction struct {
+type collectionAction struct {
 	Op             string
 	RawText        string
 	LinkedRecordID *uuid.UUID
@@ -66,31 +66,34 @@ type CollectionAction struct {
 type CreateCommand struct {
 	ActorUserID uuid.UUID
 	IncidentID  uuid.UUID
-	Request     CreateRequest
-	RequestHash []byte
+	Admission   CreateAdmission
 	RequestID   string
-	OperationID OperationID
 	Now         time.Time
 }
 
 type PatchCommand struct {
-	ActorUserID         uuid.UUID
-	RecordID            uuid.UUID
-	Request             PatchRequest
-	RequestHash         []byte
-	RequestID           string
-	OperationID         OperationID
-	ConflictOperationID OperationID
-	Now                 time.Time
+	ActorUserID uuid.UUID
+	RecordID    uuid.UUID
+	Admission   PatchAdmission
+	RequestID   string
+	Now         time.Time
 }
+
+type MutationOutcome string
+
+const (
+	MutationOutcomeCreated   MutationOutcome = "created"
+	MutationOutcomeUpdated   MutationOutcome = "updated"
+	MutationOutcomeKeptSaved MutationOutcome = "kept_saved"
+	MutationOutcomeReplayed  MutationOutcome = "replayed"
+)
 
 type MutationResult struct {
 	Row              map[string]any
-	Created          bool
-	Replayed         bool
+	Outcome          MutationOutcome
 	IncidentID       uuid.UUID
 	RecordID         uuid.UUID
-	ChangeSetID      uuid.UUID
+	ChangeSetID      *uuid.UUID
 	ClientTxnID      string
 	RowVersion       int64
 	ViewSchemaID     string
@@ -146,7 +149,7 @@ func NewMutationContribution(
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	dependencies MutationDependencies,
 ) (*MutationFacade, error) {
-	if pool == nil {
+	if isNilCapability(pool) {
 		return nil, fmt.Errorf("artifacts mutation composition: Postgres is required")
 	}
 	if err := dependencies.validate(); err != nil {

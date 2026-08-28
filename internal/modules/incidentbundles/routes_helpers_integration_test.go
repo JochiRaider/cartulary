@@ -315,6 +315,17 @@ VALUES ($1, $2, 'portable-keyword-1', 'PortableKeyword', 'Portable keyword reaso
 	}
 	seedPortableArtifactRecord(t, harness.DB, incidentUUID, handoffArtifactID, actorUUID, "handoff", "Portable handoff")
 	if _, err := harness.DB.Exec(`
+UPDATE artifacts
+   SET handoff_id = 'portable-handoff-1',
+       outgoing_owner_user_id = $3,
+       incoming_owner_user_id = $3,
+       current_state_summary = 'Portable handoff state'
+ WHERE record_id = $1
+   AND incident_id = $2
+`, handoffArtifactID, incidentUUID, actorUUID); err != nil {
+		t.Fatalf("seed artifact handoff facts: %v", err)
+	}
+	if _, err := harness.DB.Exec(`
 INSERT INTO handoff_risk_refs (
     incident_id, handoff_record_id, risk_ref_text, normalized_risk_ref_text, created_by_user_id
 )

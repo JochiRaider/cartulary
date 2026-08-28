@@ -106,22 +106,20 @@ func newTimelineBulkProvider(owner TimelineOperations) (workbook.BulkProvider, e
 
 func newLinkedNoteProvider(owner *artifacts.MutationFacade) (workbook.LinkedNoteProvider, error) {
 	return workbook.NewLinkedNoteProvider(
-		func(reader io.Reader) (artifacts.ContextualNoteCreateRequest, bool, *workbook.MutationFailure, error) {
-			request, apiErr := artifacts.DecodeContextualNoteCreateRequest(reader)
-			if apiErr != nil {
-				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return artifacts.ContextualNoteCreateRequest{}, false, failure, err
+		func(reader io.Reader) (artifacts.ContextualNoteAdmission, bool, *workbook.MutationFailure, error) {
+			admission, admissionErr := artifacts.AdmitContextualNote(reader)
+			if admissionErr != nil {
+				return artifacts.ContextualNoteAdmission{}, false, artifactAdmissionFailure(admissionErr), nil
 			}
-			return request, true, nil, nil
+			return admission, true, nil, nil
 		},
-		func(ctx context.Context, command workbook.LinkedNoteCommand, request artifacts.ContextualNoteCreateRequest) (workbook.MutationOutcome, error) {
+		func(ctx context.Context, command workbook.LinkedNoteCommand, admission artifacts.ContextualNoteAdmission) (workbook.MutationOutcome, error) {
 			result, err := owner.CreateContextualNote(ctx, artifacts.ContextualNoteCreateCommand{
 				ActorUserID: command.Actor.ID, SourceRecordID: command.Target.RecordID,
-				Request:     request,
-				RequestHash: artifacts.ContextualNoteCreateRequestHash(command.Target.RecordID, request),
-				RequestID:   command.RequestID, OperationID: artifacts.OperationLinkedNoteCreate, Now: command.Now,
+				Admission: admission, RequestID: command.RequestID,
+				Now: command.Now,
 			})
-			if failure, safe := artifactMutationFailure(err, request.ClientTxnID); safe {
+			if failure, safe := artifactMutationFailure(err, admission.ClientTxnID()); safe {
 				return workbook.RejectedMutation(failure), nil
 			}
 			if err != nil {
@@ -220,7 +218,9 @@ func timelineMutationResult(result timeline.MutationResult, viewSchemaID string)
 
 func artifactMutationResult(result artifacts.MutationResult) workbook.MutationResult {
 	payload := map[string]any{"view_schema_id": result.ViewSchemaID, "row": result.Row}
-	if result.ChangeSetID != uuid.Nil {
+	changeSetID := uuid.Nil
+	if result.ChangeSetID != nil {
+		changeSetID = *result.ChangeSetID
 		payload["change_set_id"] = result.ChangeSetID.String()
 	}
 	if result.ContextualLink != nil {
@@ -228,12 +228,12 @@ func artifactMutationResult(result artifacts.MutationResult) workbook.MutationRe
 		payload["link_type"] = result.ContextualLink.LinkType
 	}
 	statusCode := 200
-	if result.Created {
+	if result.Outcome == artifacts.MutationOutcomeCreated {
 		statusCode = 201
 	}
 	return workbook.MutationResult{
-		Payload: payload, StatusCode: statusCode, Replayed: result.Replayed,
-		IncidentID: result.IncidentID, RecordID: result.RecordID, ChangeSetID: result.ChangeSetID,
+		Payload: payload, StatusCode: statusCode, Replayed: result.Outcome == artifacts.MutationOutcomeReplayed,
+		IncidentID: result.IncidentID, RecordID: result.RecordID, ChangeSetID: changeSetID,
 		ClientTxnID: result.ClientTxnID, RowVersion: result.RowVersion, ViewSchemaID: result.ViewSchemaID,
 		ChangedFieldKeys: append([]string(nil), result.ChangedFieldKeys...),
 	}
