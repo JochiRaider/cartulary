@@ -51,6 +51,7 @@ func TestTypedLinksAndTags_Unit(t *testing.T) {
 	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            harness.DB,
 		ConflictTokens:      conflictTokens,
+		ConflictFields:      revisionComposition.Runtime.ConflictFieldResolver(),
 		Revisions:           revisionComposition.Runtime.Appender(),
 		Collaboration:       revisionComposition.Publications,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),

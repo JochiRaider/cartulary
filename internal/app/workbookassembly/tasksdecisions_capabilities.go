@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/tasksdecisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -298,6 +299,7 @@ func newTaskDecisionMutationDependencies(
 		Idempotency:          taskDecisionIdempotency{store: authStore},
 		RecordEnvelopes:      records.NewStore(),
 		Links:                links.NewStore(),
+		LinkFacts:            tasksdecisionassembly.NewLinkFactsCapability(),
 		Projections:          projectionRows,
 		Revisions:            taskDecisionRevisions{appender: appender, history: conflicttokens.NewRevisionWindowReader()},
 		ConflictFields:       conflictFields,

@@ -73,7 +73,7 @@ func (f *MutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 	if err != nil {
 		return MutationResult{}, err
 	}
-	directLinkMutations := make([]links.RecordLinkMutation, 0)
+	directLinkMutations := make([]links.Mutation, 0)
 	switch request.ViewSchemaID {
 	case TaskRequestsViewSchemaID:
 		if err := tasksource.InsertTaskRequestTx(ctx, tx, recordID, command.IncidentID, command.ActorUserID, policy.TaskCreateParams{Values: request.Values}, now); err != nil {

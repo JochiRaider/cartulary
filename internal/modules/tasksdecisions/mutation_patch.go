@@ -240,9 +240,9 @@ func validatePatchReferencesTx(
 	return nil
 }
 
-func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, request PatchRequest, now time.Time) (bool, []links.RecordLinkMutation, error) {
+func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, request PatchRequest, now time.Time) (bool, []links.Mutation, error) {
 	changed := false
-	collectionMutations := make([]links.RecordLinkMutation, 0)
+	collectionMutations := make([]links.Mutation, 0)
 	var beforeTask policy.TaskLifecycleState
 	var beforeDecisionStatus string
 	var err error
@@ -253,7 +253,7 @@ func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID
 		}
 	}
 	if request.ViewSchemaID == DecisionsViewSchemaID {
-		if err := validateDecisionMachineConsistentTx(ctx, tx, recordID); err != nil {
+		if err := validateDecisionMachineConsistentTx(ctx, tx, f.linkFacts, recordID); err != nil {
 			return false, nil, err
 		}
 		if touchesField(request.Changes, "decision.status") {
@@ -297,14 +297,14 @@ func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID
 		if err := policy.ValidateDecisionStatusTransition(beforeDecisionStatus, afterDecisionStatus); err != nil {
 			return false, nil, err
 		}
-		if err := validateDecisionMachineConsistentTx(ctx, tx, recordID); err != nil {
+		if err := validateDecisionMachineConsistentTx(ctx, tx, f.linkFacts, recordID); err != nil {
 			return false, nil, err
 		}
 	}
 	return changed, collectionMutations, nil
 }
 
-func (f *MutationFacade) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, change PatchChange, now time.Time) (bool, []links.RecordLinkMutation, error) {
+func (f *MutationFacade) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, change PatchChange, now time.Time) (bool, []links.Mutation, error) {
 	if err := validateDirectPatchChange(f.catalog, viewSchemaID, change.FieldKey, *change.Value); err != nil {
 		return false, nil, err
 	}

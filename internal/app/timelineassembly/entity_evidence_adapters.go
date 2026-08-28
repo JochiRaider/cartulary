@@ -63,10 +63,6 @@ func (a mentionAdapter) InsertTx(ctx context.Context, tx pgx.Tx, params timeline
 	return a.store.InsertTx(ctx, tx, mentions.CreateParams(params))
 }
 
-func (a mentionAdapter) LoadTimelineCollectionFieldsChangedTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, changedAt time.Time) ([]string, error) {
-	return a.store.LoadTimelineCollectionFieldsChangedTx(ctx, tx, recordID, changedAt)
-}
-
 type entityAdapter struct {
 	store *hostidentity.SourceFacts
 }

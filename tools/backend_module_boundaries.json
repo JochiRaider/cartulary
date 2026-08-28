@@ -163,6 +163,7 @@
           "AssessmentFactReader",
           "AssessmentSupportFacts",
           "AutoMatchExpectation",
+          "CollectionChangeFacts",
           "ErrFieldReferenceNotFound",
           "ErrInvalidRecordLink",
           "ErrInvalidTag",
@@ -174,10 +175,14 @@
           "LinkExpectation",
           "LoadRecordLinkValueTx",
           "LoadRecordTagValueTx",
+          "LoadCollectionChangesTx",
           "ManualLinkExpectation",
           "NewTagStore",
           "RecordFactReader",
           "RecordLink",
+          "RecordLinkMutation",
+          "RecordTagMutation",
+          "MergeMutation",
           "SupersedesLink",
           "SyncFieldReferenceCommandTx",
           "TagStore",
@@ -195,6 +200,66 @@
         ],
         "scan_paths": [
           "internal/modules/links/*.go"
+        ],
+        "allowed_paths": [],
+        "production_only": false
+      },
+      {
+        "id": "links-iteration3-retired-conflict-declarations",
+        "symbols": [
+          "LoadCollectionFieldsChangedTx",
+          "LoadTimelineCollectionFieldsChangedTx",
+          "RecordRevisionWindowEntry"
+        ],
+        "scan_paths": [
+          "internal/app/**",
+          "internal/modules/entities/**",
+          "internal/modules/timeline/**"
+        ],
+        "allowed_paths": [],
+        "production_only": false
+      },
+      {
+        "id": "links-iteration3-retired-codec-declarations",
+        "symbols": [
+          "DecodeMutationValue",
+          "DecodeRecordLinkRestorePlan",
+          "DecodeRecordTagRestorePlan",
+          "LoadRecordLinkMutationValueTx",
+          "LoadRecordTagMutationValueTx",
+          "RecordLinkRestorePlan",
+          "RecordTagRestorePlan",
+          "UUIDFromMap"
+        ],
+        "scan_paths": [
+          "internal/modules/links/internal/valuecodec/**"
+        ],
+        "allowed_paths": [],
+        "production_only": false
+      },
+      {
+        "id": "links-iteration3-retired-provider-wrappers",
+        "symbols": [
+          "ParseRecordTagIdentity",
+          "RecordTagIdentity",
+          "ValidateRecordLinkValue"
+        ],
+        "scan_paths": [
+          "internal/modules/links/internal/revisionprovider/**"
+        ],
+        "allowed_paths": [],
+        "production_only": false
+      },
+      {
+        "id": "links-iteration3-retired-source-state-helpers",
+        "symbols": [
+          "ExportIncidentBundleFiles",
+          "ImportIncidentBundleFilesTx",
+          "linksIncidentBundleDescriptor",
+          "validateTagCatalog"
+        ],
+        "scan_paths": [
+          "internal/modules/links/**"
         ],
         "allowed_paths": [],
         "production_only": false
@@ -301,7 +366,9 @@
         "internal/modules/indicators/portability_final_state_test.go",
         "internal/modules/indicators/portability_invariants_test.go",
         "internal/modules/links/incident_bundle_source_port.go",
-        "internal/modules/links/internal/incidentbundle/source_port.go",
+        "internal/modules/links/internal/sourcestate/**",
+        "internal/modules/links/portability_test.go",
+        "internal/modules/links/source_state_portability_integration_test.go",
         "internal/modules/parties/internal/providers/incidentbundle/**",
         "internal/modules/parties/provider_contributions.go",
         "internal/modules/projections/adapters/adapters.go",
@@ -530,6 +597,30 @@
     }
   ],
   "forbidden_go_imports": [
+    {
+      "id": "links-valuecodec-no-postgres-dependency",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/jackc/pgx"
+      ],
+      "scan_paths": [
+        "internal/modules/links/internal/valuecodec/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "links-retired-incidentbundle-package-import",
+      "match_kind": "exact",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/links/internal/incidentbundle"
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
     {
       "id": "entities-root-direct-consumers",
       "match_kind": "exact",
@@ -1270,6 +1361,7 @@
         "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport",
         "github.com/JochiRaider/cartulary/internal/modules/incidentportability",
         "github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
       ]
@@ -1281,6 +1373,7 @@
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/sourcecatalog"
       ]
@@ -1483,9 +1576,7 @@
       "id": "links-source-tables",
       "tables": ["record_links", "record_tags"],
       "allowed_paths": [
-        "internal/modules/links/**",
-        "internal/modules/tasksdecisions/internal/providers/incidentbundle/source_port.go",
-        "internal/modules/tasksdecisions/internal/source/facts.go"
+        "internal/modules/links/**"
       ]
     },
     {
@@ -1863,7 +1954,7 @@
         "internal/modules/indicators/source_repository.go",
         "internal/modules/links/collection_actions.go",
         "internal/modules/links/field_refs.go",
-        "internal/modules/links/internal/incidentbundle/source_port.go",
+        "internal/modules/links/internal/sourcestate/**",
         "internal/modules/links/internal/revisionprovider/provider.go",
         "internal/modules/links/store.go",
         "internal/modules/parties/internal/providers/deleterestore/provider.go",
@@ -1894,6 +1985,31 @@
     }
   ],
   "forbidden_go_calls": [
+    {
+      "id": "links-iteration3-retired-conflict-calls",
+      "symbols": [
+        ".LoadCollectionChangesTx(",
+        ".LoadCollectionFieldsChangedTx(",
+        ".LoadTimelineCollectionFieldsChangedTx("
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "links-iteration3-no-open-vocabulary-construction",
+      "symbols": [
+        "links.LinkProvenance(",
+        "links.LinkType("
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
     {
       "id": "links-retired-string-mutators",
       "symbols": [

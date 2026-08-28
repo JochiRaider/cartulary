@@ -912,6 +912,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            postgresHandle,
 		ConflictTokens:      workbookConflictTokens,
+		ConflictFields:      revisionRuntime.ConflictFieldResolver(),
 		Revisions:           revisionRuntime.Appender(),
 		Collaboration:       publicationAppender,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),

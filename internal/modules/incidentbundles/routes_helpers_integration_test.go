@@ -87,7 +87,7 @@ func seedIncidentBundlePortableState(t testing.TB, harness *appsupport.ServerHar
 	actorUUID := uuid.MustParse(actorUserID)
 	if _, err := harness.DB.Exec(`
 INSERT INTO record_tags (incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id)
-VALUES ($1, $2, 'ExtensionProfile Portability', 'extension_profile-portability', $3)
+VALUES ($1, $2, 'ExtensionProfile Portability', 'extensionprofile portability', $3)
 `, incidentID, timelineRecordID, actorUserID); err != nil {
 		t.Fatalf("seed record tag: %v", err)
 	}
@@ -555,13 +555,13 @@ func seedPortableRecordTagCreateHistory(t testing.TB, db *sql.DB, incidentID uui
 	afterValue := map[string]any{
 		"record_tag_id": recordTagID.String(), "incident_id": incidentID.String(),
 		"record_id": recordID.String(), "tag_name": "ExtensionProfile History",
-		"normalized_tag_name": "extension_profile-history", "created_by_user_id": actorID.String(),
+		"normalized_tag_name": "extensionprofile history", "created_by_user_id": actorID.String(),
 		"created_at": createdAt.UTC().Format(time.RFC3339Nano), "updated_at": createdAt.UTC().Format(time.RFC3339Nano),
 		"deleted_at": nil, "deleted_by_user_id": nil,
 	}
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO record_tags (record_tag_id, incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id, created_at, updated_at)
-VALUES ($1, $2, $3, 'ExtensionProfile History', 'extension_profile-history', $4, $5, $5)
+VALUES ($1, $2, $3, 'ExtensionProfile History', 'extensionprofile history', $4, $5, $5)
 `, recordTagID, incidentID, recordID, actorID, createdAt); err != nil {
 		t.Fatalf("seed portable history record tag: %v", err)
 	}

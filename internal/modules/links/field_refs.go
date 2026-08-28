@@ -44,7 +44,7 @@ SELECT
 }
 
 func upsertFieldReferenceStateTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, fieldKey string, linkType LinkType, actorUserID uuid.UUID, now time.Time) (recordLinkState, bool, error) {
-	if err := validateRecordLinkCommand(linkType.String(), LinkProvenanceManual, nil, srcRecordID, dstRecordID); err != nil {
+	if err := validateRecordLinkCommand(linkType, LinkProvenanceManual, nil, srcRecordID, dstRecordID); err != nil {
 		return recordLinkState{}, false, err
 	}
 	if err := validateActiveLinkEndpointsTx(ctx, tx, incidentID, srcRecordID, dstRecordID); err != nil {

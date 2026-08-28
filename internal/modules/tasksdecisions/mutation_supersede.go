@@ -80,11 +80,11 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 		return SupersedeMutationResult{}, policy.DecisionSupersedeValidationError("superseding_decision_must_be_active_same_incident_decision")
 	}
 
-	targetState, err := tasksource.LoadDecisionMachineStateForUpdateTx(ctx, tx, command.TargetRecordID)
+	targetState, err := tasksource.LoadDecisionMachineStateForUpdateTx(ctx, tx, f.linkFacts, command.TargetRecordID)
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	sourceState, err := tasksource.LoadDecisionMachineStateForUpdateTx(ctx, tx, sourceRecordID)
+	sourceState, err := tasksource.LoadDecisionMachineStateForUpdateTx(ctx, tx, f.linkFacts, sourceRecordID)
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
@@ -141,7 +141,8 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 		}
 		return SupersedeMutationResult{}, err
 	}
-	if link.Mutation == nil {
+	linkMutation, ok := link.Mutation()
+	if !ok {
 		return SupersedeMutationResult{}, errors.New("supersede decision: Links returned no create mutation")
 	}
 
@@ -226,11 +227,11 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 	if err := f.revisions.AppendMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
 		ChangeSetID:   changeSetID,
 		SequenceNo:    3,
-		TargetKind:    "record_link",
-		TargetID:      link.Mutation.RecordLinkID.String(),
-		OperationKind: link.Mutation.Operation,
-		BeforeValue:   link.Mutation.BeforeValue,
-		AfterValue:    link.Mutation.AfterValue,
+		TargetKind:    linkMutation.TargetKind(),
+		TargetID:      linkMutation.TargetID(),
+		OperationKind: linkMutation.OperationKind(),
+		BeforeValue:   linkMutation.BeforeValue(),
+		AfterValue:    linkMutation.AfterValue(),
 	}); err != nil {
 		return SupersedeMutationResult{}, err
 	}

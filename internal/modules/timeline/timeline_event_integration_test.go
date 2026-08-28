@@ -1965,6 +1965,7 @@ func timelineFacadeWithCollaboratorMutation(t testing.TB, harness *scenariotest.
 	collaborators, err := timelineassembly.NewCollaborators(timelineassembly.Dependencies{
 		Postgres:            harness.Pool,
 		ConflictTokens:      conflictTokens,
+		ConflictFields:      harness.Revisions.ConflictFieldResolver(),
 		Revisions:           harness.Revisions.Appender(),
 		Collaboration:       harness.Collaboration.Publications(),
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),

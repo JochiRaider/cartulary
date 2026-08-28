@@ -947,6 +947,7 @@ func newEventTimelineCommandsWithProjectionFailure(t testing.TB, pool postgres.D
 	collaborators, err := timelineassembly.NewCollaborators(timelineassembly.Dependencies{
 		Postgres:            pool,
 		ConflictTokens:      conflictTokens,
+		ConflictFields:      revisionComposition.Runtime.ConflictFieldResolver(),
 		Revisions:           appender,
 		Collaboration:       revisionComposition.Publications,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),

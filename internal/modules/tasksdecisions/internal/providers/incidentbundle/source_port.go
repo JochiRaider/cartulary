@@ -2,17 +2,22 @@ package incidentbundle
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
 )
 
-func NewSourcePort() sourceport.Port {
+func NewSourcePort(linkFacts linkfacts.Capability) (sourceport.Port, error) {
+	if linkFacts == nil {
+		return nil, fmt.Errorf("tasks/decisions incident bundle source: Links facts are required")
+	}
 	descriptor := tasksDecisionsSourceDescriptor()
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor, Export: sourceport.QueryExport(exportIncidentBundleFiles),
@@ -31,9 +36,9 @@ func NewSourcePort() sourceport.Port {
 			if !ok {
 				return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
 			}
-			return validatePreparedTasksDecisionsImportTx(ctx, tx, prepared, importContext)
+			return validatePreparedTasksDecisionsImportTx(ctx, tx, linkFacts, prepared, importContext)
 		},
-	})
+	}), nil
 }
 
 func tasksDecisionsSourceDescriptor() sourceport.Descriptor {
@@ -57,6 +62,7 @@ type portableSourceIdentity struct {
 func validatePreparedTasksDecisionsImportTx(
 	ctx context.Context,
 	tx pgx.Tx,
+	linkFacts linkfacts.Capability,
 	prepared preparedTasksDecisionsImport,
 	importContext sourceport.ImportContext,
 ) error {
@@ -82,14 +88,14 @@ func validatePreparedTasksDecisionsImportTx(
 
 	decisionIDs := sortedPortableDecisionIDs(prepared.decisions)
 	for _, recordID := range decisionIDs {
-		state, err := tasksource.LoadDecisionMachineStateForUpdateTx(ctx, tx, recordID)
+		state, err := tasksource.LoadDecisionMachineStateForUpdateTx(ctx, tx, linkFacts, recordID)
 		if err != nil {
 			return err
 		}
 		if err := policy.ValidateDecisionMachineState(state); err != nil {
 			return tasksDecisionsInvariantFailure("tasks_decisions.lifecycle_legal")
 		}
-		valid, err := tasksource.SupersessionRelationsValidTx(ctx, tx, recordID, importContext.IncidentID)
+		valid, err := tasksource.SupersessionRelationsValidTx(ctx, tx, linkFacts, recordID, importContext.IncidentID)
 		if err != nil {
 			return err
 		}
@@ -113,7 +119,7 @@ func validatePreparedTasksDecisionsImportTx(
 	}
 
 	for _, row := range sortedPortableTasks(prepared.tasks) {
-		valid, err := portableTaskReferencesValidTx(ctx, tx, row, importContext.IncidentID)
+		valid, err := portableTaskReferencesValidTx(ctx, tx, linkFacts, row, importContext.IncidentID)
 		if err != nil {
 			return err
 		}
@@ -122,7 +128,7 @@ func validatePreparedTasksDecisionsImportTx(
 		}
 	}
 	for _, row := range sortedPortableDecisions(prepared.decisions) {
-		valid, err := tasksource.OwnedLinksValidTx(ctx, tx, row.RecordID, importContext.IncidentID, "decision")
+		valid, err := tasksource.OwnedLinksValidTx(ctx, tx, linkFacts, row.RecordID, importContext.IncidentID, "decision")
 		if err != nil {
 			return err
 		}
@@ -136,6 +142,7 @@ func validatePreparedTasksDecisionsImportTx(
 func portableTaskReferencesValidTx(
 	ctx context.Context,
 	tx pgx.Tx,
+	linkFacts linkfacts.Capability,
 	row portableTaskRequest,
 	incidentID uuid.UUID,
 ) (bool, error) {
@@ -150,12 +157,12 @@ func portableTaskReferencesValidTx(
 		if err != nil || !valid {
 			return valid, err
 		}
-		valid, err = tasksource.TaskDecisionFieldLinkValidTx(ctx, tx, row.RecordID, *row.DecisionRecordID, incidentID)
+		valid, err = tasksource.TaskDecisionFieldLinkValidTx(ctx, tx, linkFacts, row.RecordID, *row.DecisionRecordID, incidentID)
 		if err != nil || !valid {
 			return valid, err
 		}
 	}
-	return tasksource.OwnedLinksValidTx(ctx, tx, row.RecordID, incidentID, "task_request")
+	return tasksource.OwnedLinksValidTx(ctx, tx, linkFacts, row.RecordID, incidentID, "task_request")
 }
 
 func sortedPortableTaskIDs(rows []portableTaskRequest) []uuid.UUID {

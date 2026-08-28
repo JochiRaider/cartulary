@@ -53,11 +53,6 @@ func (e *FactReadError) Unwrap() error {
 	return e.err
 }
 
-type CollectionChangeFacts struct {
-	LinkFieldKeys []string
-	TagsChanged   bool
-}
-
 type FactReader struct{}
 
 func (FactReader) LoadIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (ActiveFacts, error) {
@@ -132,8 +127,18 @@ SELECT
 			rows.Close()
 			return ActiveFacts{}, &FactReadError{err: err}
 		}
-		fact.LinkType = LinkType(linkType)
-		fact.Provenance = LinkProvenance(provenance)
+		parsedLinkType, err := ParseLinkType(linkType)
+		if err != nil {
+			rows.Close()
+			return ActiveFacts{}, &FactReadError{err: err}
+		}
+		parsedProvenance, err := ParseLinkProvenance(provenance)
+		if err != nil {
+			rows.Close()
+			return ActiveFacts{}, &FactReadError{err: err}
+		}
+		fact.LinkType = parsedLinkType
+		fact.Provenance = parsedProvenance
 		if fieldKey.Valid {
 			value := fieldKey.String
 			fact.FieldKey = &value
@@ -201,52 +206,5 @@ SELECT
 		return ActiveFacts{}, &FactReadError{err: err}
 	}
 	tagRows.Close()
-	return facts, nil
-}
-
-func (FactReader) LoadCollectionChangesTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-	recordID uuid.UUID,
-	changedAt time.Time,
-) (CollectionChangeFacts, error) {
-	facts := CollectionChangeFacts{LinkFieldKeys: []string{}}
-	rows, err := tx.Query(ctx, `
-SELECT DISTINCT field_key
-  FROM record_links
- WHERE incident_id = $1
-   AND src_record_id = $2
-   AND field_key IS NOT NULL
-   AND (created_at = $3 OR deleted_at = $3)
- ORDER BY field_key
-`, incidentID, recordID, changedAt.UTC())
-	if err != nil {
-		return CollectionChangeFacts{}, &FactReadError{err: err}
-	}
-	for rows.Next() {
-		var fieldKey string
-		if err := rows.Scan(&fieldKey); err != nil {
-			rows.Close()
-			return CollectionChangeFacts{}, &FactReadError{err: err}
-		}
-		facts.LinkFieldKeys = append(facts.LinkFieldKeys, fieldKey)
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return CollectionChangeFacts{}, &FactReadError{err: err}
-	}
-	rows.Close()
-	if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM record_tags
-     WHERE incident_id = $1
-       AND record_id = $2
-       AND (created_at = $3 OR deleted_at = $3)
-)
-`, incidentID, recordID, changedAt.UTC()).Scan(&facts.TagsChanged); err != nil {
-		return CollectionChangeFacts{}, &FactReadError{err: err}
-	}
 	return facts, nil
 }

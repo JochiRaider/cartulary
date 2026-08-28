@@ -51,6 +51,7 @@ func NewOwners(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCode
 	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            pool,
 		ConflictTokens:      conflictTokens,
+		ConflictFields:      conflictFields,
 		Revisions:           appender,
 		Collaboration:       intents,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),

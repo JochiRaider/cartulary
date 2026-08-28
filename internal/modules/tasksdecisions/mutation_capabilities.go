@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts"
 	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 )
 
@@ -127,6 +128,10 @@ type LinkCapability interface {
 	InsertSupersedesCommandTx(context.Context, pgx.Tx, links.InsertSupersedesCommand) (links.RecordLinkCommandResult, error)
 }
 
+type LinkFact = linkfacts.Fact
+
+type LinkFactsCapability = linkfacts.Capability
+
 // RevisionCapability is the exact revision append/history surface consumed by
 // Task/Decision mutations. It does not publish, retry, or commit.
 type RevisionCapability interface {
@@ -145,6 +150,7 @@ type MutationDependencies struct {
 	Idempotency          IdempotencyCapability
 	RecordEnvelopes      RecordEnvelopeCapability
 	Links                LinkCapability
+	LinkFacts            LinkFactsCapability
 	Projections          taskdecisionprojection.MutationRows
 	Revisions            RevisionCapability
 	ConflictFields       conflicts.FieldResolver
@@ -161,6 +167,7 @@ func (d MutationDependencies) validate() error {
 		{name: "Route idempotency", value: d.Idempotency},
 		{name: "Record envelopes", value: d.RecordEnvelopes},
 		{name: "Links", value: d.Links},
+		{name: "Links facts", value: d.LinkFacts},
 		{name: "Projections", value: d.Projections},
 		{name: "Revisions/history", value: d.Revisions},
 		{name: "Conflict fields", value: d.ConflictFields},

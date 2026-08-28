@@ -211,6 +211,7 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            storeHarness.DB,
 		ConflictTokens:      conflictTokens,
+		ConflictFields:      revisionComposition.Runtime.ConflictFieldResolver(),
 		Revisions:           appender,
 		Collaboration:       intents,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),

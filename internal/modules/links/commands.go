@@ -4,18 +4,23 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/links/internal/mutationvalue"
+	"github.com/JochiRaider/cartulary/internal/modules/links/internal/vocabulary"
 )
 
-type LinkType string
+type LinkType = vocabulary.LinkType
 
-func (t LinkType) String() string {
-	return string(t)
+type LinkProvenance = vocabulary.LinkProvenance
+
+type Mutation = mutationvalue.Value
+
+func ParseLinkType(value string) (LinkType, error) {
+	return vocabulary.ParseLinkType(value)
 }
 
-type LinkProvenance string
-
-func (p LinkProvenance) String() string {
-	return string(p)
+func ParseLinkProvenance(value string) (LinkProvenance, error) {
+	return vocabulary.ParseLinkProvenance(value)
 }
 
 type UpsertLinkCommand struct {
@@ -61,5 +66,13 @@ type RecordLinkCommandResult struct {
 	SrcRecordID  uuid.UUID
 	DstRecordID  uuid.UUID
 	LinkType     LinkType
-	Mutation     *RecordLinkMutation
+	mutation     *Mutation
+}
+
+func (result RecordLinkCommandResult) Mutation() (Mutation, bool) {
+	if result.mutation == nil {
+		return Mutation{}, false
+	}
+	copy := mutationvalue.Copy([]Mutation{*result.mutation})
+	return copy[0], true
 }

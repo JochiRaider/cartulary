@@ -171,7 +171,7 @@ var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition
 		MentionTransitionError.MutationTransitionDetails MergeMutation NewStore
 		RepointMergedMentionsCommand RepointMergedMentionsResult
 		Store Store.ApplyMentionAction Store.ApplyMentionLifecycleTx Store.GetMentionActionAccess Store.InsertTx
-		Store.LoadTimelineCollectionFieldsChangedTx Store.NextOrdinalTx Store.RepointMergedMentionsTx Store.ResolveExistingFromMentionTx
+		Store.NextOrdinalTx Store.RepointMergedMentionsTx Store.ResolveExistingFromMentionTx
 		StoreDependencies TimelineEffectsPort TombstoneLinkCommand
 	`),
 	"mentions/reportingprovider": entitiesExportInventory(`CollectFactsTx CollectFieldsTx`),

@@ -3,7 +3,6 @@ package entitymergeassembly
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	entitymerge "github.com/JochiRaider/cartulary/internal/modules/entities/merge"
@@ -34,10 +33,10 @@ func (effects linkEffects) RepointLinksTx(
 		return entitymerge.RepointLinksResult{}, err
 	}
 	return entitymerge.RepointLinksResult{
-		Mutations:                 linkMutations(result.Mutations),
+		Mutations:                 linkMutations(result.Mutations()),
 		RepointedCount:            result.RepointedCount,
 		DedupedCount:              result.DedupedCount,
-		LinkTypesBySourceRecordID: cloneLinkTypeMap(result.LinkTypesBySourceRecordID),
+		LinkTypesBySourceRecordID: result.LinkTypesBySourceRecordID(),
 	}, nil
 }
 
@@ -57,32 +56,22 @@ func (effects linkEffects) RepointTagsTx(
 		return entitymerge.RepointTagsResult{}, err
 	}
 	return entitymerge.RepointTagsResult{
-		Mutations:      linkMutations(result.Mutations),
+		Mutations:      linkMutations(result.Mutations()),
 		RepointedCount: result.RepointedCount,
 		DedupedCount:   result.DedupedCount,
 	}, nil
 }
 
-func linkMutations(mutations []links.MergeMutation) []entitymerge.LinkEffectMutation {
+func linkMutations(mutations []links.Mutation) []entitymerge.LinkEffectMutation {
 	result := make([]entitymerge.LinkEffectMutation, len(mutations))
 	for index, mutation := range mutations {
 		result[index] = entitymerge.LinkEffectMutation{
-			TargetKind:      mutation.TargetKind,
-			TargetID:        mutation.TargetID,
-			OperationKind:   mutation.OperationKind,
-			BeforeVersionID: mutation.BeforeVersionID,
-			AfterVersionID:  mutation.AfterVersionID,
-			BeforeValue:     mutation.BeforeValue,
-			AfterValue:      mutation.AfterValue,
+			TargetKind:    mutation.TargetKind(),
+			TargetID:      mutation.TargetID(),
+			OperationKind: mutation.OperationKind(),
+			BeforeValue:   mutation.BeforeValue(),
+			AfterValue:    mutation.AfterValue(),
 		}
-	}
-	return result
-}
-
-func cloneLinkTypeMap(source map[uuid.UUID][]string) map[uuid.UUID][]string {
-	result := make(map[uuid.UUID][]string, len(source))
-	for recordID, linkTypes := range source {
-		result[recordID] = append([]string(nil), linkTypes...)
 	}
 	return result
 }

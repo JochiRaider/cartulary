@@ -12,15 +12,19 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 )
 
 func TestLinksIncidentBundleRejectsUnknownLinkMembersBeforeMutation(t *testing.T) {
-	descriptor := links.NewIncidentBundleSourcePort().Descriptor()
+	port, err := links.NewIncidentBundleSourcePort()
+	if err != nil {
+		t.Fatalf("construct Links source port: %v", err)
+	}
+	descriptor := port.Descriptor()
 	if !slices.Contains(descriptor.InvariantIDs, "links_tags.link_tuple_legal") {
 		t.Fatalf("Links source descriptor omits link-tuple invariant: %#v", descriptor.InvariantIDs)
 	}
@@ -56,13 +60,17 @@ func TestLinksIncidentBundleRejectsUnknownLinkMembersBeforeMutation(t *testing.T
 				t.Fatalf("encode unknown-member link row: %v", err)
 			}
 			attributions := &countingLinkAttributions{}
-			err = linktest.ImportIncidentBundleFilesTx(context.Background(), tx, map[string][]byte{
+			_, err = port.PrepareImport(context.Background(), sourceport.MapBundle{
 				"data/record_links.ndjson": append(payload, '\n'),
+				"data/tags.ndjson":         {},
 				"data/record_tags.ndjson":  {},
-			}, actor.ID, attributions)
-			var unexpectedColumns *incidentportability.UnexpectedColumnsError
-			if !errors.As(err, &unexpectedColumns) {
-				t.Fatalf("unknown member error = %T %[1]v, want UnexpectedColumnsError", err)
+			}, sourceport.ImportContext{
+				IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 3,
+				OperationID: "unknown-member-" + member, Attributions: attributions,
+			})
+			var failure *sourceport.Failure
+			if !errors.As(err, &failure) || failure.InvariantID() != "links_tags.source_identity_admitted" {
+				t.Fatalf("unknown member error = %T %[1]v, want source-identity failure", err)
 			}
 			if attributions.calls != 0 {
 				t.Fatalf("unknown member recorded %d attributions before rejection", attributions.calls)
@@ -103,11 +111,6 @@ func TestLinksIncidentBundleRejectsUnknownLinkMembersBeforeMutation(t *testing.T
 	readFailure = nil
 	if !errors.As(err, &readFailure) || closedRecordFacts.RecordLinks != nil || closedRecordFacts.RecordTags != nil {
 		t.Fatalf("record fact failure = (%#v, %T %[2]v), want FactReadError without partial facts", closedRecordFacts, err)
-	}
-	closedChanges, err := reader.LoadCollectionChangesTx(context.Background(), tx, incident.ID, src, now)
-	readFailure = nil
-	if !errors.As(err, &readFailure) || closedChanges.LinkFieldKeys != nil || closedChanges.TagsChanged {
-		t.Fatalf("collection-change failure = (%#v, %T %[2]v), want FactReadError without partial facts", closedChanges, err)
 	}
 }
 

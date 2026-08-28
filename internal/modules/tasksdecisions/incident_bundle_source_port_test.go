@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/tasksdecisionassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
@@ -67,7 +68,7 @@ INSERT INTO task_requests (
 		t.Fatalf("seed portable canceled task: %v", err)
 	}
 
-	port := tasksdecisions.NewIncidentBundleSourcePort()
+	port := newTaskDecisionIncidentBundleSourcePort(t)
 	exported, err := port.Export(ctx, sourceport.ExportContext{
 		Query: harness.db, IncidentID: harness.incidentID,
 	})
@@ -232,7 +233,7 @@ func TestIncidentBundleTasksDecisionsDiagnosticsAreSafe(t *testing.T) {
 		recordID := uuid.New()
 		row := validPortableTask(harness, recordID, now)
 		row["hostile_unknown_member"] = "secret-value-should-never-escape"
-		_, err := tasksdecisions.NewIncidentBundleSourcePort().PrepareImport(
+		_, err := newTaskDecisionIncidentBundleSourcePort(t).PrepareImport(
 			context.Background(),
 			taskDecisionBundle([]map[string]any{row}, nil),
 			taskDecisionImportContext(harness, "strict-prepare"),
@@ -363,7 +364,7 @@ func filesToTaskDecisionBundle(t testing.TB, files []incidentportability.File) s
 func applyAndValidateTaskDecisionBundle(t testing.TB, harness tasksDecisionsPortabilityHarness, bundle sourceport.MapBundle, operationID string) error {
 	t.Helper()
 	ctx := context.Background()
-	port := tasksdecisions.NewIncidentBundleSourcePort()
+	port := newTaskDecisionIncidentBundleSourcePort(t)
 	importContext := taskDecisionImportContext(harness, operationID)
 	prepared, err := port.PrepareImport(ctx, bundle, importContext)
 	if err != nil {
@@ -382,6 +383,15 @@ func applyAndValidateTaskDecisionBundle(t testing.TB, harness tasksDecisionsPort
 		t.Fatalf("roll back tasks/decisions portability transaction: %v", rollbackErr)
 	}
 	return err
+}
+
+func newTaskDecisionIncidentBundleSourcePort(t testing.TB) sourceport.Port {
+	t.Helper()
+	port, err := tasksdecisions.NewIncidentBundleSourcePort(tasksdecisionassembly.NewLinkFactsCapability())
+	if err != nil {
+		t.Fatalf("compose Tasks/Decisions source port: %v", err)
+	}
+	return port
 }
 
 func requireTasksDecisionsPortabilityFailure(t testing.TB, err error, invariantID string) {

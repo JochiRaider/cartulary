@@ -13,13 +13,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/sourcecatalog"
 )
 
-func (f *MutationFacade) applyCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, collections map[string]CollectionActionPayload, now time.Time) ([]links.RecordLinkMutation, error) {
+func (f *MutationFacade) applyCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, collections map[string]CollectionActionPayload, now time.Time) ([]links.Mutation, error) {
 	fieldKeys := make([]string, 0, len(collections))
 	for fieldKey := range collections {
 		fieldKeys = append(fieldKeys, fieldKey)
 	}
 	slices.Sort(fieldKeys)
-	mutations := make([]links.RecordLinkMutation, 0)
+	mutations := make([]links.Mutation, 0)
 	for _, fieldKey := range fieldKeys {
 		_, applied, err := f.applyCollectionPayloadTx(ctx, tx, viewSchemaID, incidentID, recordID, actorID, fieldKey, collections[fieldKey], now)
 		if err != nil {
@@ -42,7 +42,7 @@ func validateCollectionPayloadTx(ctx context.Context, tx pgx.Tx, linkStore LinkC
 	return linkStore.ValidateRecordRefCollectionTx(ctx, tx, command)
 }
 
-func (f *MutationFacade) applyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, fieldKey string, payload CollectionActionPayload, now time.Time) (bool, []links.RecordLinkMutation, error) {
+func (f *MutationFacade) applyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, fieldKey string, payload CollectionActionPayload, now time.Time) (bool, []links.Mutation, error) {
 	descriptor, ok := lookupCollectionDescriptor(fieldKey)
 	if !ok || descriptor.ViewSchemaID != viewSchemaID {
 		return false, nil, &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
@@ -51,12 +51,16 @@ func (f *MutationFacade) applyCollectionPayloadTx(ctx context.Context, tx pgx.Tx
 	if err != nil {
 		return false, nil, err
 	}
+	linkType, err := links.ParseLinkType(descriptor.LinkType)
+	if err != nil {
+		return false, nil, err
+	}
 	result, err := f.linkStore.ApplyRecordRefCollectionWithMutationValuesTx(ctx, tx, links.RecordRefCollectionCommand{
 		IncidentID:         incidentID,
 		SourceRecordID:     recordID,
 		ActorUserID:        actorID,
 		FieldKey:           descriptor.FieldKey,
-		LinkType:           links.LinkType(descriptor.LinkType),
+		LinkType:           linkType,
 		ExpectedTargetType: descriptor.ExpectedTargetType,
 		AddRecordIDs:       adds,
 		RemoveRecordIDs:    removes,
@@ -65,19 +69,19 @@ func (f *MutationFacade) applyCollectionPayloadTx(ctx context.Context, tx pgx.Tx
 	if err != nil {
 		return false, nil, err
 	}
-	return len(result.RecordLinks) > 0, result.RecordLinks, nil
+	return len(result.Mutations()) > 0, result.Mutations(), nil
 }
 
-func (f *MutationFacade) appendRecordLinkMutationsTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, startSequence int, mutations []links.RecordLinkMutation) error {
+func (f *MutationFacade) appendRecordLinkMutationsTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, startSequence int, mutations []links.Mutation) error {
 	for index, mutation := range mutations {
 		if err := f.revisions.AppendMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
 			ChangeSetID:   changeSetID,
 			SequenceNo:    startSequence + index,
-			TargetKind:    "record_link",
-			TargetID:      mutation.RecordLinkID.String(),
-			OperationKind: mutation.Operation,
-			BeforeValue:   mutation.BeforeValue,
-			AfterValue:    mutation.AfterValue,
+			TargetKind:    mutation.TargetKind(),
+			TargetID:      mutation.TargetID(),
+			OperationKind: mutation.OperationKind(),
+			BeforeValue:   mutation.BeforeValue(),
+			AfterValue:    mutation.AfterValue(),
 		}); err != nil {
 			return err
 		}
@@ -124,7 +128,14 @@ func lookupCollectionDescriptor(fieldKey string) (collectionDescriptor, bool) {
 
 func recordRefValidation(incidentID uuid.UUID, descriptor collectionDescriptor, payload CollectionActionPayload) (links.RecordRefCollectionValidation, error) {
 	adds, removes, err := recordRefActions(descriptor, payload)
-	return links.RecordRefCollectionValidation{IncidentID: incidentID, FieldKey: descriptor.FieldKey, LinkType: links.LinkType(descriptor.LinkType), ExpectedTargetType: descriptor.ExpectedTargetType, AddRecordIDs: adds, RemoveRecordIDs: removes}, err
+	if err != nil {
+		return links.RecordRefCollectionValidation{}, err
+	}
+	linkType, err := links.ParseLinkType(descriptor.LinkType)
+	if err != nil {
+		return links.RecordRefCollectionValidation{}, err
+	}
+	return links.RecordRefCollectionValidation{IncidentID: incidentID, FieldKey: descriptor.FieldKey, LinkType: linkType, ExpectedTargetType: descriptor.ExpectedTargetType, AddRecordIDs: adds, RemoveRecordIDs: removes}, nil
 }
 
 func recordRefActions(descriptor collectionDescriptor, payload CollectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {

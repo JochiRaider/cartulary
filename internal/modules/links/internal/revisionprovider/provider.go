@@ -24,30 +24,12 @@ type Provider struct{}
 
 var _ rollbackcontract.NonRowTargetProvider = Provider{}
 
-type RecordTagIdentity = valuecodec.RecordTagIdentity
-
 func NewProvider() Provider {
 	return Provider{}
 }
 
-func (Provider) ValidateRecordLinkValue(value map[string]any) error {
-	_, err := valuecodec.DecodeRecordLinkMutationValue(value)
-	if err != nil {
-		return ErrTargetNotReversible
-	}
-	return nil
-}
-
-func (Provider) ParseRecordTagIdentity(value map[string]any) (RecordTagIdentity, error) {
-	parsed, err := valuecodec.DecodeRecordTagMutationValue(value)
-	if err != nil {
-		return RecordTagIdentity{}, ErrTargetNotReversible
-	}
-	return RecordTagIdentity{RecordTagID: parsed.RecordTagID, IncidentID: parsed.IncidentID, RecordID: parsed.RecordID}, nil
-}
-
 func (Provider) loadRecordLinkValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (map[string]any, error) {
-	value, err := valuecodec.LoadRecordLinkMutationValueTx(ctx, tx, recordLinkID)
+	value, err := loadRecordLinkMutationValueTx(ctx, tx, recordLinkID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTargetNotFound
 	}
@@ -76,12 +58,11 @@ UPDATE record_links
 }
 
 func (Provider) restoreRecordLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordLinkID uuid.UUID, value map[string]any) error {
-	plan, err := valuecodec.DecodeRecordLinkRestorePlan(value)
+	decoded, err := valuecodec.DecodeRecordLinkMutationValue(value)
 	if err != nil {
 		return ErrTargetNotReversible
 	}
-	identity := plan.Identity
-	if identity.IncidentID != incidentID || identity.RecordLinkID != recordLinkID {
+	if decoded.IncidentID != incidentID || decoded.RecordLinkID != recordLinkID {
 		return ErrTargetNotFound
 	}
 	tag, err := tx.Exec(ctx, `
@@ -100,7 +81,7 @@ UPDATE record_links
 	       deleted_by_user_id = $14
  WHERE record_link_id = $1
    AND incident_id = $2
-`, recordLinkID, incidentID, identity.SrcRecordID, identity.DstRecordID, identity.LinkType, plan.FieldKeyValue(), plan.Provenance, plan.Confidence, plan.OwnerUserID, plan.CreatedByUserID, plan.DecidedAt, plan.CreatedAt, plan.DeletedAt, plan.DeletedByUserID)
+`, recordLinkID, incidentID, decoded.SrcRecordID, decoded.DstRecordID, decoded.LinkType, decoded.FieldKey, decoded.Provenance, decoded.Confidence, decoded.OwnerUserID, decoded.CreatedByUserID, decoded.DecidedAt, decoded.CreatedAt, decoded.DeletedAt, decoded.DeletedByUserID)
 	if err != nil {
 		return err
 	}
@@ -113,12 +94,12 @@ INSERT INTO record_links (
     provenance, confidence, owner_user_id, created_by_user_id, decided_at, created_at,
     deleted_at, deleted_by_user_id
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-`, recordLinkID, incidentID, identity.SrcRecordID, identity.DstRecordID, identity.LinkType, plan.FieldKeyValue(), plan.Provenance, plan.Confidence, plan.OwnerUserID, plan.CreatedByUserID, plan.DecidedAt, plan.CreatedAt, plan.DeletedAt, plan.DeletedByUserID)
+`, recordLinkID, incidentID, decoded.SrcRecordID, decoded.DstRecordID, decoded.LinkType, decoded.FieldKey, decoded.Provenance, decoded.Confidence, decoded.OwnerUserID, decoded.CreatedByUserID, decoded.DecidedAt, decoded.CreatedAt, decoded.DeletedAt, decoded.DeletedByUserID)
 	return err
 }
 
 func (Provider) loadRecordTagValueTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID) (map[string]any, error) {
-	value, err := valuecodec.LoadRecordTagMutationValueTx(ctx, tx, recordTagID)
+	value, err := loadRecordTagMutationValueTx(ctx, tx, recordTagID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTargetNotFound
 	}
@@ -129,12 +110,11 @@ func (Provider) loadRecordTagValueTx(ctx context.Context, tx pgx.Tx, recordTagID
 }
 
 func (Provider) restoreRecordTagTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID, value map[string]any) error {
-	plan, err := valuecodec.DecodeRecordTagRestorePlan(value)
+	decoded, err := valuecodec.DecodeRecordTagMutationValue(value)
 	if err != nil {
 		return ErrTargetNotReversible
 	}
-	identity := plan.Identity
-	if identity.RecordTagID != recordTagID {
+	if decoded.RecordTagID != recordTagID {
 		return ErrTargetNotFound
 	}
 	tag, err := tx.Exec(ctx, `
@@ -149,7 +129,7 @@ UPDATE record_tags
 	       deleted_by_user_id = $9
  WHERE record_tag_id = $1
 	AND incident_id = $10
-`, recordTagID, identity.RecordID, plan.TagName, plan.NormalizedTagName, plan.CreatedByUserID, plan.CreatedAt, plan.UpdatedAt, plan.DeletedAt, plan.DeletedByUserID, identity.IncidentID)
+`, recordTagID, decoded.RecordID, decoded.TagName, decoded.NormalizedTagName, decoded.CreatedByUserID, decoded.CreatedAt, decoded.UpdatedAt, decoded.DeletedAt, decoded.DeletedByUserID, decoded.IncidentID)
 	if err != nil {
 		return err
 	}
@@ -161,7 +141,7 @@ INSERT INTO record_tags (
     record_tag_id, incident_id, record_id, tag_name, normalized_tag_name,
     created_by_user_id, created_at, updated_at, deleted_at, deleted_by_user_id
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-`, recordTagID, identity.IncidentID, identity.RecordID, plan.TagName, plan.NormalizedTagName, plan.CreatedByUserID, plan.CreatedAt, plan.UpdatedAt, plan.DeletedAt, plan.DeletedByUserID)
+`, recordTagID, decoded.IncidentID, decoded.RecordID, decoded.TagName, decoded.NormalizedTagName, decoded.CreatedByUserID, decoded.CreatedAt, decoded.UpdatedAt, decoded.DeletedAt, decoded.DeletedByUserID)
 	return err
 }
 

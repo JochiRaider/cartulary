@@ -24,6 +24,14 @@ func TestMutationContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
 	if _, err := NewMutationContribution(compositionDB{}, conflicttokens.ConflictTokenCodec{}, MutationDependencies{}); err == nil || !strings.Contains(err.Error(), "Incident admission is required") {
 		t.Fatalf("incomplete dependency error = %v", err)
 	}
+	missingLinkFacts := completeMutationDependencies()
+	missingLinkFacts.LinkFacts = nil
+	if _, err := NewMutationContribution(compositionDB{}, conflicttokens.ConflictTokenCodec{}, missingLinkFacts); err == nil || !strings.Contains(err.Error(), "Links facts is required") {
+		t.Fatalf("missing Links facts error = %v", err)
+	}
+	if _, err := NewIncidentBundleSourcePort(nil); err == nil || !strings.Contains(err.Error(), "Links facts are required") {
+		t.Fatalf("missing incident-bundle Links facts error = %v", err)
+	}
 }
 
 func TestMutationContributionSharesOneFacade_Unit(t *testing.T) {
@@ -82,6 +90,7 @@ func completeMutationDependencies() MutationDependencies {
 		Idempotency:          compositionIdempotency{},
 		RecordEnvelopes:      records.NewStore(),
 		Links:                links.NewStore(),
+		LinkFacts:            operations,
 		Projections:          operations,
 		Revisions:            operations,
 		ConflictFields:       fieldResolver,
@@ -131,6 +140,10 @@ func (compositionKeepSavedIdempotency) PutTx(context.Context, pgx.Tx, conflictto
 }
 
 type compositionOperations struct{}
+
+func (compositionOperations) LoadRecordLinkFactsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) ([]LinkFact, error) {
+	return []LinkFact{}, nil
+}
 
 func (compositionOperations) RequireOpenTx(context.Context, pgx.Tx, uuid.UUID) error { return nil }
 

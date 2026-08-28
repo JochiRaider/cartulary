@@ -80,79 +80,68 @@ func validateArtifactCollectionPayloadTx(ctx context.Context, tx pgx.Tx, linkSto
 	}
 }
 
-func (f *MutationFacade) applyCollectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, collections map[string]collectionActionPayload, now time.Time) (links.CollectionMutationResult, error) {
+func (f *MutationFacade) applyCollectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, collections map[string]collectionActionPayload, now time.Time) ([]links.Mutation, error) {
 	fieldKeys := make([]string, 0, len(collections))
 	for fieldKey := range collections {
 		fieldKeys = append(fieldKeys, fieldKey)
 	}
 	slices.Sort(fieldKeys)
-	mutations := links.CollectionMutationResult{}
+	mutations := make([]links.Mutation, 0)
 	for _, fieldKey := range fieldKeys {
 		_, collectionResult, err := f.applyCollectionTx(ctx, tx, incidentID, recordID, actorID, viewSchemaID, fieldKey, collections[fieldKey], now)
 		if err != nil {
-			return links.CollectionMutationResult{}, err
+			return nil, err
 		}
-		mutations.RecordLinks = append(mutations.RecordLinks, collectionResult.RecordLinks...)
-		mutations.RecordTags = append(mutations.RecordTags, collectionResult.RecordTags...)
+		mutations = append(mutations, collectionResult...)
 	}
 	return mutations, nil
 }
 
-func (f *MutationFacade) applyCollectionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, fieldKey string, payload collectionActionPayload, now time.Time) (bool, links.CollectionMutationResult, error) {
+func (f *MutationFacade) applyCollectionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, fieldKey string, payload collectionActionPayload, now time.Time) (bool, []links.Mutation, error) {
 	sourcePolicy, ok := lookupArtifactSourceField(fieldKey)
 	if !ok || sourcePolicy.ViewSchemaID != viewSchemaID ||
 		sourcePolicy.Kind != sourcecatalog.FieldKindCollection || (!sourcePolicy.View.Writable && !sourcePolicy.View.CreateWritable) {
-		return false, links.CollectionMutationResult{}, collectionValidationError(fieldKey)
+		return false, nil, collectionValidationError(fieldKey)
 	}
 	policy := collectionPolicyFromCatalogField(sourcePolicy)
 	if policy.allowsRiskRefs() {
 		changed, err := f.source.rows.applyHandoffRiskRefPayloadTx(ctx, tx, f.recordEnvelopes, incidentID, recordID, actorID, riskRefPayloadFromWorkbook(payload), now)
-		return changed, links.CollectionMutationResult{}, err
+		return changed, nil, err
 	}
 	switch {
 	case policy.allowsRecordRefs():
 		command, err := artifactRecordRefCommand(incidentID, recordID, actorID, policy, payload, now)
 		if err != nil {
-			return false, links.CollectionMutationResult{}, err
+			return false, nil, err
 		}
 		result, err := f.linkStore.ApplyRecordRefCollectionWithMutationValuesTx(ctx, tx, command)
-		return len(result.RecordLinks) > 0, result, err
+		return len(result.Mutations()) > 0, result.Mutations(), err
 	case policy.allowsPartyRefs():
 		command, err := artifactPartyRefCommand(incidentID, recordID, actorID, policy, payload, now)
 		if err != nil {
-			return false, links.CollectionMutationResult{}, err
+			return false, nil, err
 		}
 		result, err := f.linkStore.ApplyPartyRefCollectionWithMutationValuesTx(ctx, tx, command)
-		return len(result.RecordLinks) > 0, result, err
+		return len(result.Mutations()) > 0, result.Mutations(), err
 	case policy.allowsTags():
 		command, err := artifactTagCommand(incidentID, recordID, actorID, policy, payload, now)
 		if err != nil {
-			return false, links.CollectionMutationResult{}, err
+			return false, nil, err
 		}
 		result, err := f.linkStore.ApplyTagCollectionWithMutationValuesTx(ctx, tx, command)
-		return len(result.RecordTags) > 0, result, err
+		return len(result.Mutations()) > 0, result.Mutations(), err
 	default:
-		return false, links.CollectionMutationResult{}, collectionValidationError(fieldKey)
+		return false, nil, collectionValidationError(fieldKey)
 	}
 }
 
-func (f *MutationFacade) appendCollectionMutationsTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, startSequence int, mutations links.CollectionMutationResult) (int, error) {
+func (f *MutationFacade) appendCollectionMutationsTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, startSequence int, mutations []links.Mutation) (int, error) {
 	sequence := startSequence
-	for _, mutation := range mutations.RecordLinks {
+	for _, mutation := range mutations {
 		if err := f.revisions.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
-			ChangeSetID: changeSetID, SequenceNo: sequence, TargetKind: "record_link",
-			TargetID: mutation.RecordLinkID.String(), OperationKind: mutation.Operation,
-			BeforeValue: mutation.BeforeValue, AfterValue: mutation.AfterValue,
-		}); err != nil {
-			return sequence, err
-		}
-		sequence++
-	}
-	for _, mutation := range mutations.RecordTags {
-		if err := f.revisions.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
-			ChangeSetID: changeSetID, SequenceNo: sequence, TargetKind: "record_tag",
-			TargetID: links.RecordTagItemRef(mutation.RecordID, mutation.RecordTagID), OperationKind: mutation.Operation,
-			BeforeValue: mutation.BeforeValue, AfterValue: mutation.AfterValue,
+			ChangeSetID: changeSetID, SequenceNo: sequence, TargetKind: mutation.TargetKind(),
+			TargetID: mutation.TargetID(), OperationKind: mutation.OperationKind(),
+			BeforeValue: mutation.BeforeValue(), AfterValue: mutation.AfterValue(),
 		}); err != nil {
 			return sequence, err
 		}
@@ -163,12 +152,26 @@ func (f *MutationFacade) appendCollectionMutationsTx(ctx context.Context, tx pgx
 
 func artifactRecordRefValidation(incidentID uuid.UUID, policy collectionPolicy, payload collectionActionPayload) (links.RecordRefCollectionValidation, error) {
 	adds, removes, err := artifactRecordRefActions(policy, payload)
-	return links.RecordRefCollectionValidation{IncidentID: incidentID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddRecordIDs: adds, RemoveRecordIDs: removes}, err
+	if err != nil {
+		return links.RecordRefCollectionValidation{}, err
+	}
+	linkType, err := links.ParseLinkType(policy.LinkType)
+	if err != nil {
+		return links.RecordRefCollectionValidation{}, err
+	}
+	return links.RecordRefCollectionValidation{IncidentID: incidentID, FieldKey: policy.FieldKey, LinkType: linkType, ExpectedTargetType: policy.ExpectedTargetType, AddRecordIDs: adds, RemoveRecordIDs: removes}, nil
 }
 
 func artifactRecordRefCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionPolicy, payload collectionActionPayload, now time.Time) (links.RecordRefCollectionCommand, error) {
 	adds, removes, err := artifactRecordRefActions(policy, payload)
-	return links.RecordRefCollectionCommand{IncidentID: incidentID, SourceRecordID: recordID, ActorUserID: actorID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddRecordIDs: adds, RemoveRecordIDs: removes, Now: now}, err
+	if err != nil {
+		return links.RecordRefCollectionCommand{}, err
+	}
+	linkType, err := links.ParseLinkType(policy.LinkType)
+	if err != nil {
+		return links.RecordRefCollectionCommand{}, err
+	}
+	return links.RecordRefCollectionCommand{IncidentID: incidentID, SourceRecordID: recordID, ActorUserID: actorID, FieldKey: policy.FieldKey, LinkType: linkType, ExpectedTargetType: policy.ExpectedTargetType, AddRecordIDs: adds, RemoveRecordIDs: removes, Now: now}, nil
 }
 
 func artifactRecordRefActions(policy collectionPolicy, payload collectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {
@@ -199,12 +202,26 @@ func artifactRecordRefActions(policy collectionPolicy, payload collectionActionP
 
 func artifactPartyRefValidation(incidentID uuid.UUID, policy collectionPolicy, payload collectionActionPayload) (links.PartyRefCollectionValidation, error) {
 	adds, removes, err := artifactPartyRefActions(policy, payload)
-	return links.PartyRefCollectionValidation{IncidentID: incidentID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddPartyIDs: adds, RemovePartyIDs: removes}, err
+	if err != nil {
+		return links.PartyRefCollectionValidation{}, err
+	}
+	linkType, err := links.ParseLinkType(policy.LinkType)
+	if err != nil {
+		return links.PartyRefCollectionValidation{}, err
+	}
+	return links.PartyRefCollectionValidation{IncidentID: incidentID, FieldKey: policy.FieldKey, LinkType: linkType, ExpectedTargetType: policy.ExpectedTargetType, AddPartyIDs: adds, RemovePartyIDs: removes}, nil
 }
 
 func artifactPartyRefCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionPolicy, payload collectionActionPayload, now time.Time) (links.PartyRefCollectionCommand, error) {
 	adds, removes, err := artifactPartyRefActions(policy, payload)
-	return links.PartyRefCollectionCommand{IncidentID: incidentID, SourceRecordID: recordID, ActorUserID: actorID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddPartyIDs: adds, RemovePartyIDs: removes, Now: now}, err
+	if err != nil {
+		return links.PartyRefCollectionCommand{}, err
+	}
+	linkType, err := links.ParseLinkType(policy.LinkType)
+	if err != nil {
+		return links.PartyRefCollectionCommand{}, err
+	}
+	return links.PartyRefCollectionCommand{IncidentID: incidentID, SourceRecordID: recordID, ActorUserID: actorID, FieldKey: policy.FieldKey, LinkType: linkType, ExpectedTargetType: policy.ExpectedTargetType, AddPartyIDs: adds, RemovePartyIDs: removes, Now: now}, nil
 }
 
 func artifactPartyRefActions(policy collectionPolicy, payload collectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {

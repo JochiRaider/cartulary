@@ -6,8 +6,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/incidentbundle"
 )
 
-func NewIncidentBundleSourcePort() sourceport.Port {
-	return incidentbundle.NewSourcePort()
+func NewIncidentBundleSourcePort(linkFacts LinkFactsCapability) (sourceport.Port, error) {
+	return incidentbundle.NewSourcePort(linkFacts)
 }
 
 func IncidentBundleSubtypeContribution() subtypepresence.Contribution {

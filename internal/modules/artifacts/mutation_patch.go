@@ -216,25 +216,25 @@ func (f *MutationFacade) patch(ctx context.Context, command PatchCommand, operat
 	}, nil
 }
 
-func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, request patchRequest, now time.Time) (bool, links.CollectionMutationResult, error) {
+func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, request patchRequest, now time.Time) (bool, []links.Mutation, error) {
 	changed := false
-	mutations := links.CollectionMutationResult{}
+	mutations := make([]links.Mutation, 0)
 	for _, change := range request.Changes {
 		if change.Value != nil {
 			policy, ok := lookupArtifactSourceField(change.FieldKey)
 			if !ok || policy.ViewSchemaID != request.ViewSchemaID ||
 				policy.Kind != sourcecatalog.FieldKindDirect || (!policy.View.Writable && !policy.View.CreateWritable) {
-				return false, links.CollectionMutationResult{}, &ValidationError{Field: change.FieldKey, ReasonCode: "unsupported_field_key"}
+				return false, nil, &ValidationError{Field: change.FieldKey, ReasonCode: "unsupported_field_key"}
 			}
 			if err := validateDirectPatchChange(change.FieldKey, *change.Value); err != nil {
-				return false, links.CollectionMutationResult{}, err
+				return false, nil, err
 			}
 			applied, err := f.source.rows.applyDirectChangeTx(ctx, tx, recordID, change.FieldKey, *change.Value, now)
 			if err != nil && strings.Contains(err.Error(), "unsupported field key") {
-				return false, links.CollectionMutationResult{}, &ValidationError{Field: change.FieldKey, ReasonCode: "unsupported_field_key"}
+				return false, nil, &ValidationError{Field: change.FieldKey, ReasonCode: "unsupported_field_key"}
 			}
 			if err != nil {
-				return false, links.CollectionMutationResult{}, err
+				return false, nil, err
 			}
 			changed = changed || applied
 			continue
@@ -242,17 +242,16 @@ func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID
 		if change.Collection != nil {
 			applied, collectionResult, err := f.applyCollectionTx(ctx, tx, incidentID, recordID, actorID, request.ViewSchemaID, change.FieldKey, *change.Collection, now)
 			if err != nil {
-				return false, links.CollectionMutationResult{}, err
+				return false, nil, err
 			}
 			changed = changed || applied
-			mutations.RecordLinks = append(mutations.RecordLinks, collectionResult.RecordLinks...)
-			mutations.RecordTags = append(mutations.RecordTags, collectionResult.RecordTags...)
+			mutations = append(mutations, collectionResult...)
 		}
 	}
 	if request.ViewSchemaID == FindingsViewSchemaID && touchesArtifactField(request.Changes, "finding.state") {
 		applied, err := f.source.rows.normalizeFindingLifecycleTx(ctx, tx, recordID, now)
 		if err != nil {
-			return false, links.CollectionMutationResult{}, err
+			return false, nil, err
 		}
 		changed = changed || applied
 	}

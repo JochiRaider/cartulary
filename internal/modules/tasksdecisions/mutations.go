@@ -30,7 +30,7 @@ func applyTaskDirectChangeTx(
 	fieldKey string,
 	value FieldValue,
 	now time.Time,
-) (bool, []links.RecordLinkMutation, error) {
+) (bool, []links.Mutation, error) {
 	scalarChanged, err := tasksource.ApplyTaskDirectChangeTx(ctx, tx, catalog, recordID, fieldKey, value, now)
 	if err != nil {
 		return false, nil, err
@@ -57,28 +57,32 @@ func syncTaskDecisionReferenceTx(
 	actorID uuid.UUID,
 	targetID *uuid.UUID,
 	now time.Time,
-) ([]links.RecordLinkMutation, error) {
+) ([]links.Mutation, error) {
 	field, ok := catalog.Field(taskDecisionRecordFieldKey)
 	if !ok || field.Reference.MirrorLinkType == "" {
 		return nil, &ValidationError{Field: taskDecisionRecordFieldKey, ReasonCode: "unsupported_field_key"}
+	}
+	linkType, err := links.ParseLinkType(field.Reference.MirrorLinkType)
+	if err != nil {
+		return nil, err
 	}
 	result, err := linkStore.SyncFieldReferenceWithMutationValuesTx(ctx, tx, links.SyncFieldReferenceCommand{
 		IncidentID:  incidentID,
 		SrcRecordID: recordID,
 		TargetID:    targetID,
 		FieldKey:    taskDecisionRecordFieldKey,
-		LinkType:    links.LinkType(field.Reference.MirrorLinkType),
+		LinkType:    linkType,
 		ActorUserID: actorID,
 		Now:         now,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return result.RecordLinks, nil
+	return result.Mutations(), nil
 }
 
-func validateDecisionMachineConsistentTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	state, err := tasksource.LoadDecisionMachineStateForUpdateTx(ctx, tx, recordID)
+func validateDecisionMachineConsistentTx(ctx context.Context, tx pgx.Tx, linkFacts LinkFactsCapability, recordID uuid.UUID) error {
+	state, err := tasksource.LoadDecisionMachineStateForUpdateTx(ctx, tx, linkFacts, recordID)
 	if err != nil {
 		return err
 	}

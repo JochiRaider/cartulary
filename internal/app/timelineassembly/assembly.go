@@ -31,6 +31,7 @@ import (
 type Dependencies struct {
 	Postgres            postgres.DB
 	ConflictTokens      conflicttokens.ConflictTokenCodec
+	ConflictFields      conflicttokens.FieldResolver
 	Revisions           *revisions.Appender
 	Collaboration       collaboration.RecordChangedAppender
 	EvidenceAttachments evidence.TimelineAttachmentContribution
@@ -75,6 +76,9 @@ func validateDependencies(dependencies Dependencies) error {
 	}
 	if isNilDependency(dependencies.Revisions) {
 		return fmt.Errorf("compose Timeline bundle: Revisions appender is required")
+	}
+	if isNilDependency(dependencies.ConflictFields) {
+		return fmt.Errorf("compose Timeline bundle: Revisions conflict field resolver is required")
 	}
 	if isNilDependency(dependencies.Collaboration) {
 		return fmt.Errorf("compose Timeline bundle: Collaboration intent appender is required")
@@ -121,6 +125,10 @@ func NewCollaborators(dependencies Dependencies) (timeline.Collaborators, error)
 }
 
 func compose(dependencies Dependencies) (composition, error) {
+	conflictFields, err := dependencies.ConflictFields.ResolveViewSchema(timeline.TimelineViewSchemaID)
+	if err != nil {
+		return composition{}, fmt.Errorf("compose Timeline bundle: resolve Timeline conflict fields: %w", err)
+	}
 	recordsPort := recordAdapter{
 		store:   records.NewStore(),
 		targets: records.NewRouteTargetResolver(dependencies.Postgres),
@@ -147,13 +155,14 @@ func compose(dependencies Dependencies) (composition, error) {
 	}
 	collaborators := timeline.Collaborators{
 		Core: timeline.CoreCollaborators{
-			Idempotency: idempotencyAdapter{store: authn.NewStore(dependencies.Postgres)},
-			Incidents:   incidentAdapter{access: admission.NewChecker(dependencies.Postgres)},
-			Records:     recordsPort,
-			Revisions:   revisionAdapter{appender: dependencies.Revisions, reader: conflicttokens.NewRevisionWindowReader()},
+			Idempotency:    idempotencyAdapter{store: authn.NewStore(dependencies.Postgres)},
+			Incidents:      incidentAdapter{access: admission.NewChecker(dependencies.Postgres)},
+			Records:        recordsPort,
+			Revisions:      revisionAdapter{appender: dependencies.Revisions, reader: conflicttokens.NewRevisionWindowReader()},
+			ConflictFields: conflictFields,
 		},
 		Collections: timeline.CollectionCollaborators{
-			Links:    linkAdapter{store: linkStore, facts: links.FactReader{}},
+			Links:    linkAdapter{store: linkStore},
 			Mentions: mentionAdapter{store: entityMentionStore},
 			Entities: entityAdapter{store: hostidentity.NewSourceFacts()},
 			Evidence: evidenceAdapter{attachments: dependencies.EvidenceAttachments},

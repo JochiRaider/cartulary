@@ -69,6 +69,7 @@ type store struct {
 	sourceRepository  *sourcerepository.Repository
 	conflictTokens    conflicttokens.ConflictTokenCodec
 	conflictSnapshots conflicttokens.RevisionSnapshotProjector
+	conflictFields    conflicttokens.FieldDescriptorSet
 }
 
 type attachedEvidenceMutation struct {
@@ -114,6 +115,7 @@ func newStore(pool postgres.DB, collaborators Collaborators, conflictTokens conf
 		sourceRepository:  sourcerepository.New(collaborators.Core.Records),
 		conflictTokens:    conflictTokens,
 		conflictSnapshots: newTimelineConflictSnapshotProjector(),
+		conflictFields:    collaborators.Core.ConflictFields,
 	}
 }
 

@@ -1,10 +1,10 @@
 package links
 
-import recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
+import (
+	"github.com/JochiRaider/cartulary/internal/modules/links/internal/sourcestate"
+	recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
+)
 
-func RecoveryStateContribution() recoverystate.Contribution {
-	return recoverystate.NewContribution(
-		"module.links",
-		recoverystate.AuthoritativeTables("record_links", "record_tags"),
-	)
+func RecoveryStateContribution() (recoverystate.Contribution, error) {
+	return sourcestate.RecoveryStateContribution()
 }

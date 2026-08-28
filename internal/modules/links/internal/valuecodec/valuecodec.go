@@ -1,7 +1,6 @@
 package valuecodec
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -10,8 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/JochiRaider/cartulary/internal/modules/links/internal/vocabulary"
 )
 
 type RecordLinkMutationValue struct {
@@ -58,30 +57,6 @@ type RecordTagIdentity struct {
 	RecordTagID uuid.UUID
 	IncidentID  uuid.UUID
 	RecordID    uuid.UUID
-}
-
-type RecordLinkRestorePlan struct {
-	Identity        RecordLinkIdentity
-	FieldKey        *string
-	Provenance      string
-	Confidence      *int
-	OwnerUserID     uuid.UUID
-	CreatedByUserID uuid.UUID
-	DecidedAt       time.Time
-	CreatedAt       time.Time
-	DeletedAt       *time.Time
-	DeletedByUserID *uuid.UUID
-}
-
-type RecordTagRestorePlan struct {
-	Identity          RecordTagIdentity
-	TagName           string
-	NormalizedTagName string
-	CreatedByUserID   uuid.UUID
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	DeletedAt         *time.Time
-	DeletedByUserID   *uuid.UUID
 }
 
 type RecordLinkMutationInput struct {
@@ -236,94 +211,6 @@ func validateRecordTagHistoryMutation(targetID string, operationKind string, bef
 	return nil
 }
 
-func LoadRecordLinkMutationValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (RecordLinkMutationValue, error) {
-	var (
-		input           RecordLinkMutationInput
-		fieldKey        pgtype.Text
-		confidence      pgtype.Int4
-		deletedAt       pgtype.Timestamptz
-		deletedByUserID pgtype.UUID
-	)
-	if err := tx.QueryRow(ctx, `
-SELECT
-    record_link_id, incident_id, src_record_id, dst_record_id, link_type,
-    field_key, provenance, confidence, owner_user_id, created_by_user_id,
-    decided_at, created_at, deleted_at, deleted_by_user_id
-  FROM record_links
- WHERE record_link_id = $1
-`, recordLinkID).Scan(
-		&input.RecordLinkID,
-		&input.IncidentID,
-		&input.SrcRecordID,
-		&input.DstRecordID,
-		&input.LinkType,
-		&fieldKey,
-		&input.Provenance,
-		&confidence,
-		&input.OwnerUserID,
-		&input.CreatedByUserID,
-		&input.DecidedAt,
-		&input.CreatedAt,
-		&deletedAt,
-		&deletedByUserID,
-	); err != nil {
-		return RecordLinkMutationValue{}, err
-	}
-	if fieldKey.Valid {
-		input.FieldKey = &fieldKey.String
-	}
-	if confidence.Valid {
-		value := int(confidence.Int32)
-		input.Confidence = &value
-	}
-	if deletedAt.Valid {
-		value := deletedAt.Time.UTC()
-		input.DeletedAt = &value
-	}
-	if deletedByUserID.Valid {
-		value := uuid.UUID(deletedByUserID.Bytes)
-		input.DeletedByUserID = &value
-	}
-	return BuildRecordLinkMutationValue(input), nil
-}
-
-func LoadRecordTagMutationValueTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID) (RecordTagMutationValue, error) {
-	var (
-		input           RecordTagMutationInput
-		deletedAt       pgtype.Timestamptz
-		deletedByUserID pgtype.UUID
-	)
-	if err := tx.QueryRow(ctx, `
-SELECT
-    record_tag_id, incident_id, record_id, tag_name, normalized_tag_name,
-    created_by_user_id, created_at, updated_at, deleted_at, deleted_by_user_id
-  FROM record_tags
- WHERE record_tag_id = $1
-`, recordTagID).Scan(
-		&input.RecordTagID,
-		&input.IncidentID,
-		&input.RecordID,
-		&input.TagName,
-		&input.NormalizedTagName,
-		&input.CreatedByUserID,
-		&input.CreatedAt,
-		&input.UpdatedAt,
-		&deletedAt,
-		&deletedByUserID,
-	); err != nil {
-		return RecordTagMutationValue{}, err
-	}
-	if deletedAt.Valid {
-		value := deletedAt.Time.UTC()
-		input.DeletedAt = &value
-	}
-	if deletedByUserID.Valid {
-		value := uuid.UUID(deletedByUserID.Bytes)
-		input.DeletedByUserID = &value
-	}
-	return BuildRecordTagMutationValue(input), nil
-}
-
 func DecodeRecordLinkMutationValue(value map[string]any) (RecordLinkMutationValue, error) {
 	if err := exactMembers(value, recordLinkMembers); err != nil {
 		return RecordLinkMutationValue{}, err
@@ -451,52 +338,6 @@ func DecodeRecordTagMutationValue(value map[string]any) (RecordTagMutationValue,
 	}, nil
 }
 
-func DecodeRecordLinkRestorePlan(value map[string]any) (RecordLinkRestorePlan, error) {
-	typedValue, err := DecodeRecordLinkMutationValue(value)
-	if err != nil {
-		return RecordLinkRestorePlan{}, err
-	}
-	return RecordLinkRestorePlan{
-		Identity: RecordLinkIdentity{
-			RecordLinkID: typedValue.RecordLinkID,
-			IncidentID:   typedValue.IncidentID,
-			SrcRecordID:  typedValue.SrcRecordID,
-			DstRecordID:  typedValue.DstRecordID,
-			LinkType:     typedValue.LinkType,
-		},
-		FieldKey:        copyStringPointer(typedValue.FieldKey),
-		Provenance:      typedValue.Provenance,
-		Confidence:      copyIntPointer(typedValue.Confidence),
-		OwnerUserID:     typedValue.OwnerUserID,
-		CreatedByUserID: typedValue.CreatedByUserID,
-		DecidedAt:       typedValue.DecidedAt,
-		CreatedAt:       typedValue.CreatedAt,
-		DeletedAt:       copyTimePointer(typedValue.DeletedAt),
-		DeletedByUserID: copyUUIDPointer(typedValue.DeletedByUserID),
-	}, nil
-}
-
-func DecodeRecordTagRestorePlan(value map[string]any) (RecordTagRestorePlan, error) {
-	typedValue, err := DecodeRecordTagMutationValue(value)
-	if err != nil {
-		return RecordTagRestorePlan{}, err
-	}
-	return RecordTagRestorePlan{
-		Identity: RecordTagIdentity{
-			RecordTagID: typedValue.RecordTagID,
-			IncidentID:  typedValue.IncidentID,
-			RecordID:    typedValue.RecordID,
-		},
-		TagName:           typedValue.TagName,
-		NormalizedTagName: typedValue.NormalizedTagName,
-		CreatedByUserID:   typedValue.CreatedByUserID,
-		CreatedAt:         typedValue.CreatedAt,
-		UpdatedAt:         typedValue.UpdatedAt,
-		DeletedAt:         copyTimePointer(typedValue.DeletedAt),
-		DeletedByUserID:   copyUUIDPointer(typedValue.DeletedByUserID),
-	}, nil
-}
-
 func BuildRecordLinkMutationValue(input RecordLinkMutationInput) RecordLinkMutationValue {
 	value := map[string]any{
 		"record_link_id":     input.RecordLinkID.String(),
@@ -572,13 +413,6 @@ func (v RecordTagMutationValue) Map() map[string]any {
 	return cloneMap(v.fields)
 }
 
-func (p RecordLinkRestorePlan) FieldKeyValue() any {
-	if p.FieldKey == nil {
-		return nil
-	}
-	return *p.FieldKey
-}
-
 func ParseRecordLinkIdentity(value map[string]any) (RecordLinkIdentity, error) {
 	var identity RecordLinkIdentity
 	var err error
@@ -624,18 +458,6 @@ func ParseRecordTagIdentity(value map[string]any) (RecordTagIdentity, error) {
 		return identity, fmt.Errorf("missing normalized_tag_name")
 	}
 	return identity, nil
-}
-
-func DecodeMutationValue(raw []byte) (map[string]any, error) {
-	var value map[string]any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, err
-	}
-	return value, nil
-}
-
-func UUIDFromMap(value map[string]any, key string) (uuid.UUID, error) {
-	return canonicalUUID(value, key)
 }
 
 func StringFromMap(value map[string]any, key string) (string, bool) {
@@ -777,23 +599,13 @@ func nullableInteger(value map[string]any, key string) (*int, error) {
 }
 
 func isKnownLinkType(value string) bool {
-	switch value {
-	case "observed_on_host", "observed_as_identity", "references_indicator",
-		"attached_evidence", "references_artifact", "derived_from", "merged_into",
-		"supported_by", "references_record", "supersedes":
-		return true
-	default:
-		return false
-	}
+	_, err := vocabulary.ParseLinkType(value)
+	return err == nil
 }
 
 func isKnownProvenance(value string) bool {
-	switch value {
-	case "manual", "auto_match", "import", "rollback", "system":
-		return true
-	default:
-		return false
-	}
+	_, err := vocabulary.ParseLinkProvenance(value)
+	return err == nil
 }
 
 func recordTagTargetID(recordID uuid.UUID, recordTagID uuid.UUID) string {

@@ -197,20 +197,26 @@ func (a supportLinkApplier) ApplyInitialAssessmentSupportLinksTx(
 			IncidentID:  incidentID,
 			SrcRecordID: assessmentID,
 			DstRecordID: supportRecordID,
-			LinkType:    links.LinkType(links.LinkTypeSupportedBy),
-			Provenance:  links.LinkProvenance(links.LinkProvenanceManual),
+			LinkType:    links.LinkTypeSupportedBy,
+			Provenance:  links.LinkProvenanceManual,
 			OwnerUserID: actorUserID,
 			Now:         now,
 		})
 		if err != nil {
 			return nil, err
 		}
-		if result.Mutation != nil {
+		if mutation, ok := result.Mutation(); ok {
+			beforeValue, _ := mutation.BeforeValue().(map[string]any)
+			afterValue, _ := mutation.AfterValue().(map[string]any)
+			recordLinkID, err := uuid.Parse(mutation.TargetID())
+			if err != nil {
+				return nil, err
+			}
 			mutations = append(mutations, assessments.SupportLinkMutation{
-				RecordLinkID: result.Mutation.RecordLinkID,
-				Operation:    result.Mutation.Operation,
-				BeforeValue:  cloneMutationMap(result.Mutation.BeforeValue),
-				AfterValue:   cloneMutationMap(result.Mutation.AfterValue),
+				RecordLinkID: recordLinkID,
+				Operation:    mutation.OperationKind(),
+				BeforeValue:  cloneMutationMap(beforeValue),
+				AfterValue:   cloneMutationMap(afterValue),
 			})
 		}
 	}

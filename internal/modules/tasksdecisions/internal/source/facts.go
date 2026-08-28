@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 )
 
@@ -25,7 +26,7 @@ SELECT status, NULLIF(blocked_reason, ''), completed_at, owner_user_id::text, cr
 	return state, nil
 }
 
-func LoadDecisionMachineStateForUpdateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (policy.DecisionMachineState, error) {
+func LoadDecisionMachineStateForUpdateTx(ctx context.Context, tx pgx.Tx, facts linkfacts.Capability, recordID uuid.UUID) (policy.DecisionMachineState, error) {
 	var state policy.DecisionMachineState
 	if err := tx.QueryRow(ctx, `
 SELECT record_id, incident_id, status, owner_user_id::text, decided_at
@@ -35,23 +36,22 @@ SELECT record_id, incident_id, status, owner_user_id::text, decided_at
 `, recordID).Scan(&state.RecordID, &state.IncidentID, &state.Status, &state.OwnerUserID, &state.DecidedAt); err != nil {
 		return policy.DecisionMachineState{}, &Error{Operation: "load decision machine state", Err: err}
 	}
-	if err := tx.QueryRow(ctx, `
-SELECT COUNT(*), MIN(src_record_id::text)
-  FROM active_record_links_v1
- WHERE incident_id = $1
-   AND dst_record_id = $2
-   AND link_type = 'supersedes'
-`, state.IncidentID, recordID).Scan(&state.IncomingSupersedes, &state.IncomingSupersederID); err != nil {
-		return policy.DecisionMachineState{}, &Error{Operation: "load decision incoming supersedes", Err: err}
+	links, err := loadRecordLinkFactsTx(ctx, tx, facts, state.IncidentID, recordID)
+	if err != nil {
+		return policy.DecisionMachineState{}, err
 	}
-	if err := tx.QueryRow(ctx, `
-SELECT COUNT(*), MIN(dst_record_id::text)
-  FROM active_record_links_v1
- WHERE incident_id = $1
-   AND src_record_id = $2
-   AND link_type = 'supersedes'
-`, state.IncidentID, recordID).Scan(&state.OutgoingSupersedes, &state.OutgoingTargetID); err != nil {
-		return policy.DecisionMachineState{}, &Error{Operation: "load decision outgoing supersedes", Err: err}
+	for _, fact := range links {
+		if fact.LinkType != "supersedes" {
+			continue
+		}
+		if fact.DestinationRecordID == recordID {
+			state.IncomingSupersedes++
+			state.IncomingSupersederID = minimumUUIDText(state.IncomingSupersederID, fact.SourceRecordID)
+		}
+		if fact.SourceRecordID == recordID {
+			state.OutgoingSupersedes++
+			state.OutgoingTargetID = minimumUUIDText(state.OutgoingTargetID, fact.DestinationRecordID)
+		}
 	}
 	return state, nil
 }
@@ -74,40 +74,24 @@ SELECT incident_id, record_type, deleted_at IS NULL
 	return actualIncidentID == incidentID && actualType == recordType && active, nil
 }
 
-func SupersessionRelationsValidTx(ctx context.Context, tx pgx.Tx, recordID, incidentID uuid.UUID) (bool, error) {
-	var invalid bool
-	err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM record_links link
-      LEFT JOIN records source_record ON source_record.record_id = link.src_record_id
-      LEFT JOIN records target_record ON target_record.record_id = link.dst_record_id
-      LEFT JOIN decisions source_decision ON source_decision.record_id = link.src_record_id
-      LEFT JOIN decisions target_decision ON target_decision.record_id = link.dst_record_id
-     WHERE link.link_type = 'supersedes'
-       AND link.deleted_at IS NULL
-       AND (link.src_record_id = $1 OR link.dst_record_id = $1)
-       AND (
-           link.incident_id <> $2
-           OR source_record.record_id IS NULL
-           OR target_record.record_id IS NULL
-           OR source_decision.record_id IS NULL
-           OR target_decision.record_id IS NULL
-           OR source_record.incident_id <> $2
-           OR target_record.incident_id <> $2
-           OR source_record.deleted_at IS NOT NULL
-           OR target_record.deleted_at IS NOT NULL
-           OR source_record.record_type <> 'decision'
-           OR target_record.record_type <> 'decision'
-           OR source_decision.status NOT IN ('approved', 'executed')
-           OR target_decision.status NOT IN ('superseded', 'executed')
-       )
-)
-`, recordID, incidentID).Scan(&invalid)
+func SupersessionRelationsValidTx(ctx context.Context, tx pgx.Tx, facts linkfacts.Capability, recordID, incidentID uuid.UUID) (bool, error) {
+	links, err := loadRecordLinkFactsTx(ctx, tx, facts, incidentID, recordID)
 	if err != nil {
-		return false, &Error{Operation: "load supersession relation facts", Err: err}
+		return false, err
 	}
-	return !invalid, nil
+	for _, fact := range links {
+		if fact.LinkType != "supersedes" || (fact.SourceRecordID != recordID && fact.DestinationRecordID != recordID) {
+			continue
+		}
+		valid, err := decisionSupersessionEndpointsValidTx(ctx, tx, fact, incidentID)
+		if err != nil {
+			return false, err
+		}
+		if !valid {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func TargetValidTx(ctx context.Context, tx pgx.Tx, recordID, incidentID uuid.UUID, recordType string) (bool, error) {
@@ -127,58 +111,131 @@ SELECT EXISTS (
 	return valid, nil
 }
 
-func TaskDecisionFieldLinkValidTx(ctx context.Context, tx pgx.Tx, taskID, decisionID, incidentID uuid.UUID) (bool, error) {
-	var count int
-	var linkedTarget sql.NullString
-	if err := tx.QueryRow(ctx, `
-SELECT count(*), min(dst_record_id::text)
-  FROM active_record_links_v1
- WHERE incident_id = $1
-   AND src_record_id = $2
-   AND field_key = 'task.decision_record_id'
-   AND link_type = 'references_record'
-`, incidentID, taskID).Scan(&count, &linkedTarget); err != nil {
-		return false, &Error{Operation: "load task decision link fact", Err: err}
+func TaskDecisionFieldLinkValidTx(ctx context.Context, tx pgx.Tx, facts linkfacts.Capability, taskID, decisionID, incidentID uuid.UUID) (bool, error) {
+	links, err := loadRecordLinkFactsTx(ctx, tx, facts, incidentID, taskID)
+	if err != nil {
+		return false, err
 	}
-	if count == 0 {
-		return true, nil
+	count := 0
+	var linkedTarget uuid.UUID
+	for _, fact := range links {
+		if fact.SourceRecordID == taskID && fact.HasFieldKey && fact.FieldKey == policy.TaskDecisionRecordField && fact.LinkType == "references_record" {
+			count++
+			linkedTarget = fact.DestinationRecordID
+		}
 	}
-	parsed, err := uuid.Parse(linkedTarget.String)
-	return count == 1 && linkedTarget.Valid && err == nil && parsed == decisionID, nil
+	return count == 0 || (count == 1 && linkedTarget == decisionID), nil
 }
 
-func OwnedLinksValidTx(ctx context.Context, tx pgx.Tx, sourceRecordID, incidentID uuid.UUID, recordType string) (bool, error) {
-	var invalid bool
+func OwnedLinksValidTx(ctx context.Context, tx pgx.Tx, facts linkfacts.Capability, sourceRecordID, incidentID uuid.UUID, recordType string) (bool, error) {
+	links, err := loadRecordLinkFactsTx(ctx, tx, facts, incidentID, sourceRecordID)
+	if err != nil {
+		return false, err
+	}
+	for _, fact := range links {
+		expectedType, owned := ownedLinkType(fact)
+		if !owned || fact.SourceRecordID != sourceRecordID {
+			continue
+		}
+		if fact.LinkType != expectedType {
+			return false, nil
+		}
+		valid, err := ownedLinkEndpointsValidTx(ctx, tx, fact, incidentID, recordType)
+		if err != nil {
+			return false, err
+		}
+		if !valid {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func loadRecordLinkFactsTx(ctx context.Context, tx pgx.Tx, facts linkfacts.Capability, incidentID, recordID uuid.UUID) ([]linkfacts.Fact, error) {
+	if facts == nil {
+		return nil, &Error{Operation: "load Links facts", Err: errors.New("links fact capability is required")}
+	}
+	values, err := facts.LoadRecordLinkFactsTx(ctx, tx, incidentID, recordID)
+	if err != nil {
+		return nil, &Error{Operation: "load Links facts", Err: err}
+	}
+	if values == nil {
+		return []linkfacts.Fact{}, nil
+	}
+	return values, nil
+}
+
+func minimumUUIDText(current sql.NullString, candidate uuid.UUID) sql.NullString {
+	text := candidate.String()
+	if !current.Valid || text < current.String {
+		return sql.NullString{String: text, Valid: true}
+	}
+	return current
+}
+
+func decisionSupersessionEndpointsValidTx(ctx context.Context, tx pgx.Tx, fact linkfacts.Fact, incidentID uuid.UUID) (bool, error) {
+	var sourceIncidentID, targetIncidentID uuid.UUID
+	var sourceType, targetType, sourceStatus, targetStatus string
+	var sourceActive, targetActive bool
 	err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM record_links link
-      LEFT JOIN records source_record ON source_record.record_id = link.src_record_id
-      LEFT JOIN records target_record ON target_record.record_id = link.dst_record_id
-     WHERE link.src_record_id = $1
-       AND link.deleted_at IS NULL
-       AND link.field_key IN (
-           'task.linked_record_ids',
-           'decision.support_refs',
-           'decision.affected_record_ids'
-       )
-       AND (
-           (link.field_key = 'task.linked_record_ids' AND link.link_type <> 'references_record')
-           OR (link.field_key = 'decision.support_refs' AND link.link_type <> 'supported_by')
-           OR (link.field_key = 'decision.affected_record_ids' AND link.link_type <> 'references_record')
-           OR link.incident_id <> $2
-           OR source_record.record_id IS NULL
-           OR target_record.record_id IS NULL
-           OR source_record.incident_id <> $2
-           OR source_record.record_type <> $3
-           OR source_record.deleted_at IS NOT NULL
-           OR target_record.incident_id <> $2
-           OR target_record.deleted_at IS NOT NULL
-       )
-)
-`, sourceRecordID, incidentID, recordType).Scan(&invalid)
+SELECT source_record.incident_id, source_record.record_type, source_record.deleted_at IS NULL,
+       target_record.incident_id, target_record.record_type, target_record.deleted_at IS NULL,
+       source_decision.status, target_decision.status
+  FROM records source_record
+  JOIN records target_record ON target_record.record_id = $2
+  JOIN decisions source_decision ON source_decision.record_id = source_record.record_id
+  JOIN decisions target_decision ON target_decision.record_id = target_record.record_id
+ WHERE source_record.record_id = $1
+`, fact.SourceRecordID, fact.DestinationRecordID).Scan(
+		&sourceIncidentID, &sourceType, &sourceActive,
+		&targetIncidentID, &targetType, &targetActive,
+		&sourceStatus, &targetStatus,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, &Error{Operation: "load supersession relation facts", Err: err}
+	}
+	return sourceIncidentID == incidentID && targetIncidentID == incidentID &&
+		sourceType == "decision" && targetType == "decision" && sourceActive && targetActive &&
+		(sourceStatus == "approved" || sourceStatus == "executed") &&
+		(targetStatus == "superseded" || targetStatus == "executed"), nil
+}
+
+func ownedLinkType(fact linkfacts.Fact) (string, bool) {
+	if !fact.HasFieldKey {
+		return "", false
+	}
+	switch fact.FieldKey {
+	case "task.linked_record_ids", "decision.affected_record_ids":
+		return "references_record", true
+	case "decision.support_refs":
+		return "supported_by", true
+	default:
+		return "", false
+	}
+}
+
+func ownedLinkEndpointsValidTx(ctx context.Context, tx pgx.Tx, fact linkfacts.Fact, incidentID uuid.UUID, recordType string) (bool, error) {
+	var sourceIncidentID, targetIncidentID uuid.UUID
+	var sourceType string
+	var sourceActive, targetActive bool
+	err := tx.QueryRow(ctx, `
+SELECT source_record.incident_id, source_record.record_type, source_record.deleted_at IS NULL,
+       target_record.incident_id, target_record.deleted_at IS NULL
+  FROM records source_record
+  JOIN records target_record ON target_record.record_id = $2
+ WHERE source_record.record_id = $1
+`, fact.SourceRecordID, fact.DestinationRecordID).Scan(
+		&sourceIncidentID, &sourceType, &sourceActive, &targetIncidentID, &targetActive,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
 	if err != nil {
 		return false, &Error{Operation: fmt.Sprintf("load %s owned-link facts", recordType), Err: err}
 	}
-	return !invalid, nil
+	return sourceIncidentID == incidentID && targetIncidentID == incidentID &&
+		sourceType == recordType && sourceActive && targetActive, nil
 }

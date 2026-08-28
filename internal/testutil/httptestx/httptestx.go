@@ -24,6 +24,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -107,6 +108,13 @@ func (capability *RevisionsCapability) Appender() *revisions.Appender {
 		return nil
 	}
 	return capability.runtime.Appender()
+}
+
+func (capability *RevisionsCapability) ConflictFieldResolver() conflicts.FieldResolver {
+	if capability == nil || capability.runtime == nil {
+		return nil
+	}
+	return capability.runtime.ConflictFieldResolver()
 }
 
 type ProjectionCapability = projectiontestsupport.Capability

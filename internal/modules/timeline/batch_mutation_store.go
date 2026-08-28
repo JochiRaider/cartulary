@@ -438,7 +438,7 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 	acceptedCells := append([]ownerBatchCellV1{}, rowPlan.Cells...)
 	conflicts := make([]map[string]any, 0)
 	if current.RowVersion > baseRowVersion && len(rowPlan.Cells) > 0 {
-		window, err := s.loadPatchConflictWindowTx(ctx, tx, current.IncidentID, recordID, baseRowVersion, current.RowVersion)
+		window, err := s.loadPatchConflictWindowTx(ctx, tx, recordID, baseRowVersion, current.RowVersion)
 		if err != nil {
 			return batchAppliedRow{}, nil, err
 		}

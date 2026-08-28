@@ -64,6 +64,32 @@
       ]
     },
     {
+      "row_id": "module.tasksdecisions.composition.link_facts_adapter_is_copy_safe_3f86c2a1d4",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.composition",
+      "collaborator_ids": [
+        "module.links"
+      ],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/tasksdecisionassembly",
+        "tests": [
+          "TestLinkFactsAdapterCopiesScalarFactsAndFailsWithoutPartialResults_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.tasksdecisions.composition.mutation_and_import_composition_fails_closed_and_9add8849f4",
       "owner_id": "module.tasksdecisions",
       "family_id": "module.tasksdecisions.composition",

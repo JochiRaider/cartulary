@@ -44,6 +44,10 @@ func CurrentRecoveryStateContributions() ([]recoverystate.Contribution, error) {
 	if err != nil {
 		return nil, fmt.Errorf("recovery assembly: Indicators state contribution: %w", err)
 	}
+	linksContribution, err := links.RecoveryStateContribution()
+	if err != nil {
+		return nil, fmt.Errorf("recovery assembly: Links state contribution: %w", err)
+	}
 	return []recoverystate.Contribution{
 		artifactsContribution,
 		assessments.RecoveryStateContribution(),
@@ -60,7 +64,7 @@ func CurrentRecoveryStateContributions() ([]recoverystate.Contribution, error) {
 		incidentbundles.RecoveryStateContribution(),
 		incidents.RecoveryStateContribution(),
 		indicatorsContribution,
-		links.RecoveryStateContribution(),
+		linksContribution,
 		networkflow.RecoveryStateContribution(),
 		parties.RecoveryStateContribution(),
 		jobs.RecoveryStateContribution(),

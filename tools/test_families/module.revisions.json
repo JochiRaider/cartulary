@@ -1169,6 +1169,8 @@
       "selector": {
         "package": "./internal/modules/revisions/conflicts",
         "tests": [
+          "TestCanonicalConflictWindowRejectsMissingBaseBeforeReadingFacts_Unit",
+          "TestCanonicalConflictWindowUsesRetainedFactsWithoutTimestampInference_Unit",
           "TestConflictWindowProductionSourcesDoNotReadGlobalViewSchemaRegistry",
           "TestFieldResolverCatalogIsImmutableAndFailClosed",
           "TestFieldResolverCatalogRejectsDuplicateMissingAndInvalidProviders"

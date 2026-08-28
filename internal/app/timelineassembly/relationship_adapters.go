@@ -2,7 +2,7 @@ package timelineassembly
 
 import (
 	"context"
-	"time"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -14,7 +14,6 @@ import (
 
 type linkAdapter struct {
 	store *links.Store
-	facts links.FactReader
 }
 
 type mentionLinkAdapter struct {
@@ -22,12 +21,16 @@ type mentionLinkAdapter struct {
 }
 
 func (a mentionLinkAdapter) UpsertMentionLinkTx(ctx context.Context, tx pgx.Tx, command mentions.LinkCommand) (mentions.LinkCommandResult, error) {
+	linkType, err := links.ParseLinkType(string(command.LinkType))
+	if err != nil {
+		return mentions.LinkCommandResult{}, err
+	}
 	result, err := a.store.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
 		IncidentID:  command.IncidentID,
 		SrcRecordID: command.SrcRecordID,
 		DstRecordID: command.DstRecordID,
-		LinkType:    links.LinkType(command.LinkType),
-		Provenance:  links.LinkProvenance(links.LinkProvenanceManual),
+		LinkType:    linkType,
+		Provenance:  links.LinkProvenanceManual,
 		OwnerUserID: command.ActorUserID,
 		Now:         command.Now,
 	})
@@ -38,11 +41,15 @@ func (a mentionLinkAdapter) UpsertMentionLinkTx(ctx context.Context, tx pgx.Tx, 
 }
 
 func (a mentionLinkAdapter) TombstoneActiveMentionLinkTx(ctx context.Context, tx pgx.Tx, command mentions.TombstoneLinkCommand) (mentions.LinkCommandResult, bool, error) {
+	linkType, err := links.ParseLinkType(string(command.LinkType))
+	if err != nil {
+		return mentions.LinkCommandResult{}, false, err
+	}
 	result, found, err := a.store.TombstoneActiveLinkCommandTx(ctx, tx, links.TombstoneActiveLinkCommand{
 		IncidentID:  command.IncidentID,
 		SrcRecordID: command.SrcRecordID,
 		DstRecordID: command.DstRecordID,
-		LinkType:    links.LinkType(command.LinkType),
+		LinkType:    linkType,
 		ActorUserID: command.ActorUserID,
 		Now:         command.Now,
 	})
@@ -60,14 +67,16 @@ func mentionLinkResult(result links.RecordLinkCommandResult) mentions.LinkComman
 		RecordLinkID: result.RecordLinkID,
 		SrcRecordID:  result.SrcRecordID,
 		DstRecordID:  result.DstRecordID,
-		LinkType:     mentions.LinkType(result.LinkType),
+		LinkType:     mentions.LinkType(result.LinkType.String()),
 	}
-	if result.Mutation != nil {
+	if mutation, ok := result.Mutation(); ok {
+		beforeValue, _ := mutation.BeforeValue().(map[string]any)
+		afterValue, _ := mutation.AfterValue().(map[string]any)
 		converted.Mutation = &mentions.LinkMutation{
-			RecordLinkID: result.Mutation.RecordLinkID,
-			Operation:    result.Mutation.Operation,
-			BeforeValue:  cloneLinkMutationMap(result.Mutation.BeforeValue),
-			AfterValue:   cloneLinkMutationMap(result.Mutation.AfterValue),
+			RecordLinkID: result.RecordLinkID,
+			Operation:    mutation.OperationKind(),
+			BeforeValue:  cloneLinkMutationMap(beforeValue),
+			AfterValue:   cloneLinkMutationMap(afterValue),
 		}
 	}
 	return converted
@@ -93,12 +102,20 @@ func (a linkAdapter) InsertSupersedesCommandTx(ctx context.Context, tx pgx.Tx, c
 }
 
 func (a linkAdapter) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command timeline.UpsertLinkCommand) (timeline.RecordLinkCommandResult, error) {
+	linkType, err := links.ParseLinkType(command.LinkType)
+	if err != nil {
+		return timeline.RecordLinkCommandResult{}, err
+	}
+	provenance, err := links.ParseLinkProvenance(command.Provenance)
+	if err != nil {
+		return timeline.RecordLinkCommandResult{}, err
+	}
 	result, err := a.store.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
 		IncidentID:  command.IncidentID,
 		SrcRecordID: command.SrcRecordID,
 		DstRecordID: command.DstRecordID,
-		LinkType:    links.LinkType(command.LinkType),
-		Provenance:  links.LinkProvenance(command.Provenance),
+		LinkType:    linkType,
+		Provenance:  provenance,
 		Confidence:  command.Confidence,
 		OwnerUserID: command.OwnerUserID,
 		Now:         command.Now,
@@ -114,18 +131,25 @@ func (a linkAdapter) HasActiveIncomingSupersedesLinkForUpdateTx(ctx context.Cont
 }
 
 func (a linkAdapter) ApplyRecordRefCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command timeline.RecordRefCollectionCommand) (timeline.CollectionMutationResult, error) {
+	linkType, err := links.ParseLinkType(command.LinkType)
+	if err != nil {
+		return timeline.CollectionMutationResult{}, err
+	}
 	result, err := a.store.ApplyRecordRefCollectionWithMutationValuesTx(ctx, tx, links.RecordRefCollectionCommand{
 		IncidentID:         command.IncidentID,
 		SourceRecordID:     command.SourceRecordID,
 		ActorUserID:        command.ActorUserID,
 		FieldKey:           command.FieldKey,
-		LinkType:           links.LinkType(command.LinkType),
+		LinkType:           linkType,
 		ExpectedTargetType: command.ExpectedTargetType,
 		AddRecordIDs:       command.AddRecordIDs,
 		RemoveRecordIDs:    command.RemoveRecordIDs,
 		Now:                command.Now,
 	})
-	return collectionResult(result), err
+	if err != nil {
+		return timeline.CollectionMutationResult{}, err
+	}
+	return collectionResult(result)
 }
 
 func timelineLinkResult(result links.RecordLinkCommandResult) timeline.RecordLinkCommandResult {
@@ -135,12 +159,14 @@ func timelineLinkResult(result links.RecordLinkCommandResult) timeline.RecordLin
 		DstRecordID:  result.DstRecordID,
 		LinkType:     result.LinkType.String(),
 	}
-	if result.Mutation != nil {
+	if mutation, ok := result.Mutation(); ok {
+		beforeValue, _ := mutation.BeforeValue().(map[string]any)
+		afterValue, _ := mutation.AfterValue().(map[string]any)
 		converted.Mutation = &timeline.RecordLinkMutation{
-			RecordLinkID: result.Mutation.RecordLinkID,
-			Operation:    result.Mutation.Operation,
-			BeforeValue:  cloneLinkMutationMap(result.Mutation.BeforeValue),
-			AfterValue:   cloneLinkMutationMap(result.Mutation.AfterValue),
+			RecordLinkID: result.RecordLinkID,
+			Operation:    mutation.OperationKind(),
+			BeforeValue:  cloneLinkMutationMap(beforeValue),
+			AfterValue:   cloneLinkMutationMap(afterValue),
 		}
 	}
 	return converted
@@ -164,31 +190,47 @@ func (a linkAdapter) ApplyTagCollectionWithMutationValuesTx(ctx context.Context,
 		RemoveTags:  removes,
 		Now:         command.Now,
 	})
-	return collectionResult(result), err
-}
-
-func (a linkAdapter) LoadCollectionFieldsChangedTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, changedAt time.Time) ([]string, error) {
-	facts, err := a.facts.LoadCollectionChangesTx(ctx, tx, incidentID, recordID, changedAt)
 	if err != nil {
-		return nil, err
+		return timeline.CollectionMutationResult{}, err
 	}
-	fields := append([]string(nil), facts.LinkFieldKeys...)
-	if facts.TagsChanged {
-		fields = append(fields, "timeline.tags")
-	}
-	return fields, nil
+	return collectionResult(result)
 }
 
-func collectionResult(result links.CollectionMutationResult) timeline.CollectionMutationResult {
+func collectionResult(result links.CollectionMutationResult) (timeline.CollectionMutationResult, error) {
 	converted := timeline.CollectionMutationResult{
-		RecordLinks: make([]timeline.RecordLinkMutation, 0, len(result.RecordLinks)),
-		RecordTags:  make([]timeline.RecordTagMutation, 0, len(result.RecordTags)),
+		RecordLinks: make([]timeline.RecordLinkMutation, 0),
+		RecordTags:  make([]timeline.RecordTagMutation, 0),
 	}
-	for _, mutation := range result.RecordLinks {
-		converted.RecordLinks = append(converted.RecordLinks, timeline.RecordLinkMutation(mutation))
+	for _, mutation := range result.Mutations() {
+		beforeValue, _ := mutation.BeforeValue().(map[string]any)
+		afterValue, _ := mutation.AfterValue().(map[string]any)
+		switch mutation.TargetKind() {
+		case "record_link":
+			recordLinkID, err := uuid.Parse(mutation.TargetID())
+			if err != nil {
+				return timeline.CollectionMutationResult{}, err
+			}
+			converted.RecordLinks = append(converted.RecordLinks, timeline.RecordLinkMutation{
+				RecordLinkID: recordLinkID,
+				Operation:    mutation.OperationKind(),
+				BeforeValue:  beforeValue,
+				AfterValue:   afterValue,
+			})
+		case "record_tag":
+			recordID, recordTagID, err := links.ParseRecordTagItemRef(mutation.TargetID())
+			if err != nil {
+				return timeline.CollectionMutationResult{}, err
+			}
+			converted.RecordTags = append(converted.RecordTags, timeline.RecordTagMutation{
+				RecordTagID: recordTagID,
+				RecordID:    recordID,
+				Operation:   mutation.OperationKind(),
+				BeforeValue: beforeValue,
+				AfterValue:  afterValue,
+			})
+		default:
+			return timeline.CollectionMutationResult{}, fmt.Errorf("timeline assembly: unsupported Links mutation target %q", mutation.TargetKind())
+		}
 	}
-	for _, mutation := range result.RecordTags {
-		converted.RecordTags = append(converted.RecordTags, timeline.RecordTagMutation(mutation))
-	}
-	return converted
+	return converted, nil
 }

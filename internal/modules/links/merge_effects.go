@@ -8,17 +8,8 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links/internal/mergeeffects"
+	"github.com/JochiRaider/cartulary/internal/modules/links/internal/mutationvalue"
 )
-
-type MergeMutation struct {
-	TargetKind      string
-	TargetID        string
-	OperationKind   string
-	BeforeVersionID *string
-	AfterVersionID  *string
-	BeforeValue     any
-	AfterValue      any
-}
 
 type RepointMergedLinksCommand struct {
 	IncidentID       uuid.UUID
@@ -29,10 +20,18 @@ type RepointMergedLinksCommand struct {
 }
 
 type RepointMergedLinksResult struct {
-	Mutations                 []MergeMutation
+	mutations                 []Mutation
 	RepointedCount            int
 	DedupedCount              int
-	LinkTypesBySourceRecordID map[uuid.UUID][]string
+	linkTypesBySourceRecordID map[uuid.UUID][]string
+}
+
+func (result RepointMergedLinksResult) Mutations() []Mutation {
+	return mutationvalue.Copy(result.mutations)
+}
+
+func (result RepointMergedLinksResult) LinkTypesBySourceRecordID() map[uuid.UUID][]string {
+	return cloneLinkTypeInvalidations(result.linkTypesBySourceRecordID)
 }
 
 type RepointMergedTagsCommand struct {
@@ -44,9 +43,13 @@ type RepointMergedTagsCommand struct {
 }
 
 type RepointMergedTagsResult struct {
-	Mutations      []MergeMutation
+	mutations      []Mutation
 	RepointedCount int
 	DedupedCount   int
+}
+
+func (result RepointMergedTagsResult) Mutations() []Mutation {
+	return mutationvalue.Copy(result.mutations)
 }
 
 func (s *Store) RepointMergedLinksTx(
@@ -55,7 +58,7 @@ func (s *Store) RepointMergedLinksTx(
 	command RepointMergedLinksCommand,
 ) (RepointMergedLinksResult, error) {
 	result, err := mergeeffects.RepointLinksTx(ctx, tx, mergeeffects.RepointLinksCommand(command), mergeeffects.LinkDependencies{
-		Validate: func(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType string, provenance string, confidence *int) error {
+		Validate: func(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType LinkType, provenance LinkProvenance, confidence *int) error {
 			if err := validateRecordLinkCommand(linkType, provenance, confidence, srcRecordID, dstRecordID); err != nil {
 				return err
 			}
@@ -70,10 +73,10 @@ func (s *Store) RepointMergedLinksTx(
 		return RepointMergedLinksResult{}, err
 	}
 	return RepointMergedLinksResult{
-		Mutations:                 mergeMutations(result.Mutations),
+		mutations:                 mutationvalue.Copy(result.Mutations),
 		RepointedCount:            result.RepointedCount,
 		DedupedCount:              result.DedupedCount,
-		LinkTypesBySourceRecordID: result.LinkTypesBySourceRecordID,
+		linkTypesBySourceRecordID: cloneLinkTypeInvalidations(result.LinkTypesBySourceRecordID),
 	}, nil
 }
 
@@ -87,16 +90,19 @@ func (s *Store) RepointMergedTagsTx(
 		return RepointMergedTagsResult{}, err
 	}
 	return RepointMergedTagsResult{
-		Mutations:      mergeMutations(result.Mutations),
+		mutations:      mutationvalue.Copy(result.Mutations),
 		RepointedCount: result.RepointedCount,
 		DedupedCount:   result.DedupedCount,
 	}, nil
 }
 
-func mergeMutations(mutations []mergeeffects.Mutation) []MergeMutation {
-	result := make([]MergeMutation, len(mutations))
-	for index, mutation := range mutations {
-		result[index] = MergeMutation(mutation)
+func cloneLinkTypeInvalidations(source map[uuid.UUID][]string) map[uuid.UUID][]string {
+	if source == nil {
+		return nil
+	}
+	result := make(map[uuid.UUID][]string, len(source))
+	for recordID, linkTypes := range source {
+		result[recordID] = append([]string(nil), linkTypes...)
 	}
 	return result
 }

@@ -75,7 +75,7 @@ func buildPatchConflictWindow(recordID uuid.UUID, baseRowVersion int64, currentR
 		}
 		beforeRow, beforeOK := decode(row.BeforeJSON)
 		afterRow, afterOK := decode(row.AfterJSON)
-		if !beforeOK || !afterOK {
+		if window.BaseRow == nil || !beforeOK || !afterOK {
 			return PatchConflictWindow{}, &RevisionWindowError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
 		}
 		for _, fieldKey := range changedRevisionWritableFieldKeys(descriptors, beforeRow, afterRow) {

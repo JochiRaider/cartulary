@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -25,10 +26,11 @@ type Collaborators struct {
 }
 
 type CoreCollaborators struct {
-	Idempotency IdempotencyPort
-	Incidents   IncidentPort
-	Records     RecordPort
-	Revisions   RevisionPort
+	Idempotency    IdempotencyPort
+	Incidents      IncidentPort
+	Records        RecordPort
+	Revisions      RevisionPort
+	ConflictFields conflicts.FieldDescriptorSet
 }
 
 type CollectionCollaborators struct {
@@ -80,7 +82,7 @@ type RevisionPort interface {
 	AppendMutationTx(context.Context, pgx.Tx, MutationParams) error
 	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
 	AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error
-	ListRecordRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]RecordRevisionWindowEntry, error)
+	ListRecordRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]conflicts.RevisionWindowRow, error)
 }
 
 type ChangeSetParams struct {
@@ -106,15 +108,6 @@ type MutationParams struct {
 	AfterValue      any
 }
 
-type RecordRevisionWindowEntry struct {
-	ChangeSetID uuid.UUID
-	RowVersion  int64
-	BeforeJSON  []byte
-	AfterJSON   []byte
-	ActorUserID uuid.UUID
-	CreatedAt   time.Time
-}
-
 type EntityProjectionPort interface {
 	RefreshHostTx(context.Context, pgx.Tx, uuid.UUID) error
 	RefreshIdentityTx(context.Context, pgx.Tx, uuid.UUID) error
@@ -126,7 +119,6 @@ type LinkPort interface {
 	HasActiveIncomingSupersedesLinkForUpdateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (bool, error)
 	ApplyRecordRefCollectionWithMutationValuesTx(context.Context, pgx.Tx, RecordRefCollectionCommand) (CollectionMutationResult, error)
 	ApplyTagCollectionWithMutationValuesTx(context.Context, pgx.Tx, TagCollectionCommand) (CollectionMutationResult, error)
-	LoadCollectionFieldsChangedTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) ([]string, error)
 }
 
 type InsertSupersedesCommand struct {
@@ -213,7 +205,6 @@ type MentionPort interface {
 	ApplyMentionLifecycleTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, string, *uuid.UUID, time.Time) ([]RecordLinkMutation, error)
 	NextOrdinalTx(context.Context, pgx.Tx, uuid.UUID, string) (int, error)
 	InsertTx(context.Context, pgx.Tx, MentionCreateParams) error
-	LoadTimelineCollectionFieldsChangedTx(context.Context, pgx.Tx, uuid.UUID, time.Time) ([]string, error)
 }
 
 type MentionCreateParams struct {

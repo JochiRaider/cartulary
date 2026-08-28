@@ -17,6 +17,7 @@ type MutationFacade struct {
 	incidentAccess IncidentStateCapability
 	recordStore    RecordEnvelopeCapability
 	linkStore      LinkCapability
+	linkFacts      LinkFactsCapability
 	projectionRows taskdecisionprojection.MutationRows
 	revisions      RevisionCapability
 	conflictTokens conflicttokens.ConflictTokenCodec
@@ -47,6 +48,7 @@ func NewMutationContribution(
 		incidentAccess: dependencies.IncidentState,
 		recordStore:    dependencies.RecordEnvelopes,
 		linkStore:      dependencies.Links,
+		linkFacts:      dependencies.LinkFacts,
 		projectionRows: dependencies.Projections,
 		revisions:      dependencies.Revisions,
 		conflictTokens: conflictTokens,

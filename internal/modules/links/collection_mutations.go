@@ -10,27 +10,16 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/links/internal/mutationvalue"
 	"github.com/JochiRaider/cartulary/internal/modules/links/internal/valuecodec"
 )
 
 type CollectionMutationResult struct {
-	RecordLinks []RecordLinkMutation
-	RecordTags  []RecordTagMutation
+	mutations []Mutation
 }
 
-type RecordLinkMutation struct {
-	RecordLinkID uuid.UUID
-	Operation    string
-	BeforeValue  map[string]any
-	AfterValue   map[string]any
-}
-
-type RecordTagMutation struct {
-	RecordTagID uuid.UUID
-	RecordID    uuid.UUID
-	Operation   string
-	BeforeValue map[string]any
-	AfterValue  map[string]any
+func (result CollectionMutationResult) Mutations() []Mutation {
+	return mutationvalue.Copy(result.mutations)
 }
 
 func (s *Store) SyncFieldReferenceWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command SyncFieldReferenceCommand) (CollectionMutationResult, error) {
@@ -41,7 +30,7 @@ func (s *Store) SyncFieldReferenceWithMutationValuesTx(ctx context.Context, tx p
 		return CollectionMutationResult{}, collectionValidationError(command.FieldKey)
 	}
 	if command.TargetID != nil {
-		if err := validateRecordLinkCommand(command.LinkType.String(), LinkProvenanceManual, nil, command.SrcRecordID, *command.TargetID); err != nil {
+		if err := validateRecordLinkCommand(command.LinkType, LinkProvenanceManual, nil, command.SrcRecordID, *command.TargetID); err != nil {
 			return CollectionMutationResult{}, err
 		}
 		if err := validateActiveLinkEndpointsTx(ctx, tx, command.IncidentID, command.SrcRecordID, *command.TargetID); err != nil {
@@ -64,7 +53,11 @@ func (s *Store) SyncFieldReferenceWithMutationValuesTx(ctx context.Context, tx p
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
-		result.RecordLinks = append(result.RecordLinks, newRecordLinkMutation("delete", &state, &after))
+		mutation, err := newRecordLinkMutation("delete", &state, &after)
+		if err != nil {
+			return CollectionMutationResult{}, err
+		}
+		result.mutations = append(result.mutations, mutation)
 	}
 	if command.TargetID == nil || retainedTarget {
 		return result, nil
@@ -74,7 +67,11 @@ func (s *Store) SyncFieldReferenceWithMutationValuesTx(ctx context.Context, tx p
 		return CollectionMutationResult{}, err
 	}
 	if inserted {
-		result.RecordLinks = append(result.RecordLinks, newRecordLinkMutation("create", nil, &created))
+		mutation, err := newRecordLinkMutation("create", nil, &created)
+		if err != nil {
+			return CollectionMutationResult{}, err
+		}
+		result.mutations = append(result.mutations, mutation)
 	}
 	return result, nil
 }
@@ -150,7 +147,11 @@ func (s *Store) applyReferenceCollectionWithMutationValuesTx(ctx context.Context
 			return CollectionMutationResult{}, err
 		}
 		if inserted {
-			result.RecordLinks = append(result.RecordLinks, newRecordLinkMutation("create", nil, &state))
+			mutation, err := newRecordLinkMutation("create", nil, &state)
+			if err != nil {
+				return CollectionMutationResult{}, err
+			}
+			result.mutations = append(result.mutations, mutation)
 		}
 	}
 	for _, recordID := range command.removeRecordIDs {
@@ -168,7 +169,11 @@ func (s *Store) applyReferenceCollectionWithMutationValuesTx(ctx context.Context
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
-		result.RecordLinks = append(result.RecordLinks, newRecordLinkMutation("delete", &before, &after))
+		mutation, err := newRecordLinkMutation("delete", &before, &after)
+		if err != nil {
+			return CollectionMutationResult{}, err
+		}
+		result.mutations = append(result.mutations, mutation)
 	}
 	return result, nil
 }
@@ -194,7 +199,11 @@ func (s *Store) ApplyTagCollectionWithMutationValuesTx(ctx context.Context, tx p
 			return CollectionMutationResult{}, err
 		}
 		if inserted {
-			result.RecordTags = append(result.RecordTags, newRecordTagMutation("create", nil, &state))
+			mutation, err := newRecordTagMutation("create", nil, &state)
+			if err != nil {
+				return CollectionMutationResult{}, err
+			}
+			result.mutations = append(result.mutations, mutation)
 		}
 	}
 	for _, tag := range command.RemoveTags {
@@ -215,16 +224,17 @@ func (s *Store) ApplyTagCollectionWithMutationValuesTx(ctx context.Context, tx p
 		if err != nil {
 			return CollectionMutationResult{}, err
 		}
-		result.RecordTags = append(result.RecordTags, newRecordTagMutation("delete", &before, &after))
+		mutation, err := newRecordTagMutation("delete", &before, &after)
+		if err != nil {
+			return CollectionMutationResult{}, err
+		}
+		result.mutations = append(result.mutations, mutation)
 	}
 	return result, nil
 }
 
 func newCollectionMutationResult() CollectionMutationResult {
-	return CollectionMutationResult{
-		RecordLinks: make([]RecordLinkMutation, 0),
-		RecordTags:  make([]RecordTagMutation, 0),
-	}
+	return CollectionMutationResult{mutations: make([]Mutation, 0)}
 }
 
 type recordTagState struct {
@@ -361,17 +371,26 @@ func (s recordTagState) mutationValue() valuecodec.RecordTagMutationValue {
 	})
 }
 
-func newRecordTagMutation(operation string, before *recordTagState, after *recordTagState) RecordTagMutation {
-	mutation := RecordTagMutation{Operation: operation}
+func newRecordTagMutation(operation string, before *recordTagState, after *recordTagState) (Mutation, error) {
+	var recordID uuid.UUID
+	var recordTagID uuid.UUID
+	var beforeValue map[string]any
+	var afterValue map[string]any
 	if before != nil {
-		mutation.RecordTagID = before.recordTagID
-		mutation.RecordID = before.recordID
-		mutation.BeforeValue = before.mutationValue().Map()
+		recordTagID = before.recordTagID
+		recordID = before.recordID
+		beforeValue = before.mutationValue().Map()
 	}
 	if after != nil {
-		mutation.RecordTagID = after.recordTagID
-		mutation.RecordID = after.recordID
-		mutation.AfterValue = after.mutationValue().Map()
+		recordTagID = after.recordTagID
+		recordID = after.recordID
+		afterValue = after.mutationValue().Map()
 	}
-	return mutation
+	return mutationvalue.New(
+		mutationvalue.TargetRecordTag,
+		"record_tag:"+recordID.String()+":"+recordTagID.String(),
+		operation,
+		beforeValue,
+		afterValue,
+	)
 }

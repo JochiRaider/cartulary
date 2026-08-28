@@ -182,7 +182,7 @@ func validateImportedOwnerShape(catalog *sourcecatalog.Catalog, request ownerfac
 	return nil
 }
 
-func (o *importOwner) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, command ownerfacade.ImportOwnerCreateCommand, recordID uuid.UUID, linkMutations []links.RecordLinkMutation) (ownerfacade.ImportOwnerCreateResponse, error) {
+func (o *importOwner) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, command ownerfacade.ImportOwnerCreateCommand, recordID uuid.UUID, linkMutations []links.Mutation) (ownerfacade.ImportOwnerCreateResponse, error) {
 	row, err := o.refreshImportRowTx(ctx, tx, command.Request.TargetViewSchemaID, recordID)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
@@ -208,8 +208,8 @@ func (o *importOwner) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, comman
 	for index, mutation := range linkMutations {
 		if err := o.dependencies.Revisions.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
 			ChangeSetID: command.ChangeSetID, SequenceNo: firstSequence + index + 1,
-			TargetKind: "record_link", TargetID: mutation.RecordLinkID.String(), OperationKind: mutation.Operation,
-			BeforeValue: mutation.BeforeValue, AfterValue: mutation.AfterValue,
+			TargetKind: mutation.TargetKind(), TargetID: mutation.TargetID(), OperationKind: mutation.OperationKind(),
+			BeforeValue: mutation.BeforeValue(), AfterValue: mutation.AfterValue(),
 		}); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}

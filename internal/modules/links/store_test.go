@@ -229,10 +229,11 @@ func TestRecordLinkOwnerValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("valid timeline supersedes rejected: %v", err)
 	}
-	if supersedesResult.Mutation == nil || supersedesResult.Mutation.Operation != "create" || supersedesResult.LinkType != links.LinkTypeSupersedes {
+	supersedesMutation, ok := supersedesResult.Mutation()
+	if !ok || supersedesMutation.OperationKind() != "create" || supersedesResult.LinkType != links.LinkTypeSupersedes {
 		t.Fatalf("supersedes result missing canonical create mutation: %#v", supersedesResult)
 	}
-	requireCanonicalRecordLinkMutationValue(t, supersedesResult.Mutation.AfterValue)
+	requireCanonicalRecordLinkMutationValue(t, mutationMap(t, supersedesMutation.AfterValue()))
 	if _, err := store.InsertSupersedesCommandTx(context.Background(), tx, links.InsertSupersedesCommand{
 		IncidentID:          incident.ID,
 		ReplacementRecordID: replacement,
@@ -285,16 +286,16 @@ func TestFieldAwareLinkIdentityAndMergeCharacterization(t *testing.T) {
 		FieldKey: fieldA, LinkType: links.LinkType(links.LinkTypeReferencesRecord), ExpectedTargetType: "timeline_event",
 		AddRecordIDs: []uuid.UUID{dst}, Now: now,
 	})
-	if err != nil || len(fieldAResult.RecordLinks) != 1 {
+	if err != nil || len(fieldAResult.Mutations()) != 1 {
 		t.Fatalf("insert field A link: result=%#v err=%v", fieldAResult, err)
 	}
-	linkAID := fieldAResult.RecordLinks[0].RecordLinkID
+	linkAID := mutationTargetUUID(t, fieldAResult.Mutations()[0])
 	replayedA, err := store.ApplyRecordRefCollectionWithMutationValuesTx(ctx, tx, links.RecordRefCollectionCommand{
 		IncidentID: incident.ID, SourceRecordID: src, ActorUserID: actor.ID,
 		FieldKey: fieldA, LinkType: links.LinkType(links.LinkTypeReferencesRecord), ExpectedTargetType: "timeline_event",
 		AddRecordIDs: []uuid.UUID{dst}, Now: now.Add(time.Second),
 	})
-	if err != nil || len(replayedA.RecordLinks) != 0 {
+	if err != nil || len(replayedA.Mutations()) != 0 {
 		t.Fatalf("same-field replay = (%#v, %v), want no mutation for %s", replayedA, err, linkAID)
 	}
 	fieldBResult, err := store.ApplyRecordRefCollectionWithMutationValuesTx(ctx, tx, links.RecordRefCollectionCommand{
@@ -302,7 +303,7 @@ func TestFieldAwareLinkIdentityAndMergeCharacterization(t *testing.T) {
 		FieldKey: fieldB, LinkType: links.LinkType(links.LinkTypeReferencesRecord), ExpectedTargetType: "timeline_event",
 		AddRecordIDs: []uuid.UUID{dst}, Now: now,
 	})
-	if err != nil || len(fieldBResult.RecordLinks) != 1 || fieldBResult.RecordLinks[0].RecordLinkID == linkAID {
+	if err != nil || len(fieldBResult.Mutations()) != 1 || mutationTargetUUID(t, fieldBResult.Mutations()[0]) == linkAID {
 		t.Fatalf("different-field insert = (%#v, %v), want distinct active binding", fieldBResult, err)
 	}
 	unfielded, err := store.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
@@ -310,7 +311,8 @@ func TestFieldAwareLinkIdentityAndMergeCharacterization(t *testing.T) {
 		LinkType: links.LinkType(links.LinkTypeReferencesRecord), Provenance: links.LinkProvenance(links.LinkProvenanceManual),
 		OwnerUserID: actor.ID, Now: now,
 	})
-	if err != nil || unfielded.Mutation == nil || unfielded.Mutation.Operation != "create" {
+	unfieldedMutation, unfieldedChanged := unfielded.Mutation()
+	if err != nil || !unfieldedChanged || unfieldedMutation.OperationKind() != "create" {
 		t.Fatalf("insert null-field link: result=%#v err=%v", unfielded, err)
 	}
 	replayedUnfielded, err := store.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
@@ -318,12 +320,14 @@ func TestFieldAwareLinkIdentityAndMergeCharacterization(t *testing.T) {
 		LinkType: links.LinkType(links.LinkTypeReferencesRecord), Provenance: links.LinkProvenance(links.LinkProvenanceManual),
 		OwnerUserID: actor.ID, Now: now.Add(time.Second),
 	})
-	if err != nil || replayedUnfielded.Mutation != nil || replayedUnfielded.RecordLinkID != unfielded.RecordLinkID {
+	_, replayedUnfieldedChanged := replayedUnfielded.Mutation()
+	if err != nil || replayedUnfieldedChanged || replayedUnfielded.RecordLinkID != unfielded.RecordLinkID {
 		t.Fatalf("null-field replay = (%#v, %v), want original %s without mutation", replayedUnfielded, err, unfielded.RecordLinkID)
 	}
-	requireCanonicalRecordLinkMutationValue(t, unfielded.Mutation.AfterValue)
-	if unfielded.Mutation.BeforeValue != nil || unfielded.Mutation.AfterValue["field_key"] != nil || unfielded.Mutation.AfterValue["confidence"] != nil {
-		t.Fatalf("unexpected manual create mutation: %#v", unfielded.Mutation)
+	unfieldedAfter := mutationMap(t, unfieldedMutation.AfterValue())
+	requireCanonicalRecordLinkMutationValue(t, unfieldedAfter)
+	if unfieldedMutation.BeforeValue() != nil || unfieldedAfter["field_key"] != nil || unfieldedAfter["confidence"] != nil {
+		t.Fatalf("unexpected manual create mutation: %#v", unfieldedMutation)
 	}
 
 	metadataCreate, err := store.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
@@ -331,42 +335,50 @@ func TestFieldAwareLinkIdentityAndMergeCharacterization(t *testing.T) {
 		LinkType: links.LinkType(links.LinkTypeObservedOnHost), Provenance: links.LinkProvenance(links.LinkProvenanceManual),
 		OwnerUserID: actor.ID, Now: now,
 	})
-	if err != nil || metadataCreate.Mutation == nil || metadataCreate.Mutation.Operation != "create" {
+	metadataCreateMutation, metadataCreated := metadataCreate.Mutation()
+	if err != nil || !metadataCreated || metadataCreateMutation.OperationKind() != "create" {
 		t.Fatalf("create metadata-test link: result=%#v err=%v", metadataCreate, err)
 	}
-	metadataCreate.Mutation.AfterValue["provenance"] = "caller_corruption"
+	mutationMap(t, metadataCreateMutation.AfterValue())["provenance"] = "caller_corruption"
 	autoConfidence := 100
 	metadataPatch, err := store.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
 		IncidentID: incident.ID, SrcRecordID: src, DstRecordID: host,
 		LinkType: links.LinkType(links.LinkTypeObservedOnHost), Provenance: links.LinkProvenance(links.LinkProvenanceAutoMatch),
 		Confidence: &autoConfidence, OwnerUserID: actor.ID, Now: now.Add(time.Second),
 	})
-	if err != nil || metadataPatch.Mutation == nil || metadataPatch.Mutation.Operation != "patch" {
+	metadataPatchMutation, metadataPatched := metadataPatch.Mutation()
+	if err != nil || !metadataPatched || metadataPatchMutation.OperationKind() != "patch" {
 		t.Fatalf("patch link metadata: result=%#v err=%v", metadataPatch, err)
 	}
-	requireCanonicalRecordLinkMutationValue(t, metadataPatch.Mutation.BeforeValue)
-	requireCanonicalRecordLinkMutationValue(t, metadataPatch.Mutation.AfterValue)
-	if metadataPatch.Mutation.BeforeValue["provenance"] != links.LinkProvenanceManual || metadataPatch.Mutation.AfterValue["provenance"] != links.LinkProvenanceAutoMatch || metadataPatch.Mutation.AfterValue["confidence"] != 100 {
-		t.Fatalf("unexpected metadata patch mutation: %#v", metadataPatch.Mutation)
+	metadataPatchBefore := mutationMap(t, metadataPatchMutation.BeforeValue())
+	metadataPatchAfter := mutationMap(t, metadataPatchMutation.AfterValue())
+	requireCanonicalRecordLinkMutationValue(t, metadataPatchBefore)
+	requireCanonicalRecordLinkMutationValue(t, metadataPatchAfter)
+	if metadataPatchBefore["provenance"] != links.LinkProvenanceManual.String() || metadataPatchAfter["provenance"] != links.LinkProvenanceAutoMatch.String() || metadataPatchAfter["confidence"] != 100 {
+		t.Fatalf("unexpected metadata patch mutation: %#v", metadataPatchMutation)
 	}
-	metadataPatch.Mutation.AfterValue["provenance"] = "caller_corruption"
+	metadataPatchAfter["provenance"] = "caller_corruption"
 	tombstoned, found, err := store.TombstoneActiveLinkCommandTx(ctx, tx, links.TombstoneActiveLinkCommand{
 		IncidentID: incident.ID, SrcRecordID: src, DstRecordID: host,
 		LinkType: links.LinkType(links.LinkTypeObservedOnHost), ActorUserID: actor.ID, Now: now.Add(2 * time.Second),
 	})
-	if err != nil || !found || tombstoned.Mutation == nil || tombstoned.Mutation.Operation != "delete" {
+	tombstoneMutation, tombstoneChanged := tombstoned.Mutation()
+	if err != nil || !found || !tombstoneChanged || tombstoneMutation.OperationKind() != "delete" {
 		t.Fatalf("tombstone active link: result=%#v found=%t err=%v", tombstoned, found, err)
 	}
-	requireCanonicalRecordLinkMutationValue(t, tombstoned.Mutation.BeforeValue)
-	requireCanonicalRecordLinkMutationValue(t, tombstoned.Mutation.AfterValue)
-	if tombstoned.Mutation.BeforeValue["provenance"] != links.LinkProvenanceAutoMatch || tombstoned.Mutation.AfterValue["deleted_by_user_id"] != actor.ID.String() {
-		t.Fatalf("tombstone did not preserve canonical before/after state: %#v", tombstoned.Mutation)
+	tombstoneBefore := mutationMap(t, tombstoneMutation.BeforeValue())
+	tombstoneAfter := mutationMap(t, tombstoneMutation.AfterValue())
+	requireCanonicalRecordLinkMutationValue(t, tombstoneBefore)
+	requireCanonicalRecordLinkMutationValue(t, tombstoneAfter)
+	if tombstoneBefore["provenance"] != links.LinkProvenanceAutoMatch.String() || tombstoneAfter["deleted_by_user_id"] != actor.ID.String() {
+		t.Fatalf("tombstone did not preserve canonical before/after state: %#v", tombstoneMutation)
 	}
 	absent, found, err := store.TombstoneActiveLinkCommandTx(ctx, tx, links.TombstoneActiveLinkCommand{
 		IncidentID: incident.ID, SrcRecordID: src, DstRecordID: host,
 		LinkType: links.LinkType(links.LinkTypeObservedOnHost), ActorUserID: actor.ID, Now: now.Add(3 * time.Second),
 	})
-	if err != nil || found || absent.Mutation != nil {
+	_, absentChanged := absent.Mutation()
+	if err != nil || found || absentChanged {
 		t.Fatalf("second tuple tombstone = (%#v, %t, %v), want absent no-op", absent, found, err)
 	}
 
@@ -376,41 +388,48 @@ func TestFieldAwareLinkIdentityAndMergeCharacterization(t *testing.T) {
 		FieldKey: collectionField, LinkType: links.LinkType(links.LinkTypeReferencesRecord), ExpectedTargetType: "timeline_event",
 		AddRecordIDs: []uuid.UUID{dst}, Now: now.Add(4 * time.Second),
 	})
-	if err != nil || len(collectionCreate.RecordLinks) != 1 || collectionCreate.RecordTags == nil {
+	collectionCreateMutations := collectionCreate.Mutations()
+	if err != nil || len(collectionCreateMutations) != 1 {
 		t.Fatalf("create collection mutation: result=%#v err=%v", collectionCreate, err)
 	}
-	requireCanonicalRecordLinkMutationValue(t, collectionCreate.RecordLinks[0].AfterValue)
-	collectionCreate.RecordLinks[0].AfterValue["field_key"] = "caller_corruption"
+	requireCanonicalRecordLinkMutationValue(t, mutationMap(t, collectionCreateMutations[0].AfterValue()))
+	mutationMap(t, collectionCreateMutations[0].AfterValue())["field_key"] = "caller_corruption"
 	collectionDelete, err := store.ApplyRecordRefCollectionWithMutationValuesTx(ctx, tx, links.RecordRefCollectionCommand{
 		IncidentID: incident.ID, SourceRecordID: src, ActorUserID: actor.ID,
 		FieldKey: collectionField, LinkType: links.LinkType(links.LinkTypeReferencesRecord), ExpectedTargetType: "timeline_event",
 		RemoveRecordIDs: []uuid.UUID{dst}, Now: now.Add(5 * time.Second),
 	})
-	if err != nil || len(collectionDelete.RecordLinks) != 1 || collectionDelete.RecordLinks[0].BeforeValue["field_key"] != collectionField {
+	collectionDeleteMutations := collectionDelete.Mutations()
+	if err != nil || len(collectionDeleteMutations) != 1 || mutationMap(t, collectionDeleteMutations[0].BeforeValue())["field_key"] != collectionField {
 		t.Fatalf("delete collection mutation: result=%#v err=%v", collectionDelete, err)
 	}
-	requireCanonicalRecordLinkMutationValue(t, collectionDelete.RecordLinks[0].BeforeValue)
-	requireCanonicalRecordLinkMutationValue(t, collectionDelete.RecordLinks[0].AfterValue)
+	requireCanonicalRecordLinkMutationValue(t, mutationMap(t, collectionDeleteMutations[0].BeforeValue()))
+	requireCanonicalRecordLinkMutationValue(t, mutationMap(t, collectionDeleteMutations[0].AfterValue()))
 
 	tagCreate, err := store.ApplyTagCollectionWithMutationValuesTx(ctx, tx, links.TagCollectionCommand{
 		IncidentID: incident.ID, RecordID: src, ActorUserID: actor.ID, FieldKey: "timeline.tags",
 		AddTags: []links.TagCollectionAdd{{RawText: "Durable", NormalizedText: "durable"}}, Now: now.Add(6 * time.Second),
 	})
-	if err != nil || len(tagCreate.RecordTags) != 1 || tagCreate.RecordLinks == nil {
+	tagCreateMutations := tagCreate.Mutations()
+	if err != nil || len(tagCreateMutations) != 1 {
 		t.Fatalf("create tag mutation: result=%#v err=%v", tagCreate, err)
 	}
-	requireCanonicalRecordTagMutationValue(t, tagCreate.RecordTags[0].AfterValue)
-	tagID := tagCreate.RecordTags[0].RecordTagID
-	tagCreate.RecordTags[0].AfterValue["tag_name"] = "caller_corruption"
+	requireCanonicalRecordTagMutationValue(t, mutationMap(t, tagCreateMutations[0].AfterValue()))
+	_, tagID, err := links.ParseRecordTagItemRef(tagCreateMutations[0].TargetID())
+	if err != nil {
+		t.Fatalf("parse tag mutation target: %v", err)
+	}
+	mutationMap(t, tagCreateMutations[0].AfterValue())["tag_name"] = "caller_corruption"
 	tagDelete, err := store.ApplyTagCollectionWithMutationValuesTx(ctx, tx, links.TagCollectionCommand{
 		IncidentID: incident.ID, RecordID: src, ActorUserID: actor.ID, FieldKey: "timeline.tags",
 		RemoveTags: []links.RecordTagRef{{RecordID: src, RecordTagID: tagID}}, Now: now.Add(7 * time.Second),
 	})
-	if err != nil || len(tagDelete.RecordTags) != 1 || tagDelete.RecordTags[0].BeforeValue["tag_name"] != "Durable" {
+	tagDeleteMutations := tagDelete.Mutations()
+	if err != nil || len(tagDeleteMutations) != 1 || mutationMap(t, tagDeleteMutations[0].BeforeValue())["tag_name"] != "Durable" {
 		t.Fatalf("delete tag mutation: result=%#v err=%v", tagDelete, err)
 	}
-	requireCanonicalRecordTagMutationValue(t, tagDelete.RecordTags[0].BeforeValue)
-	requireCanonicalRecordTagMutationValue(t, tagDelete.RecordTags[0].AfterValue)
+	requireCanonicalRecordTagMutationValue(t, mutationMap(t, tagDeleteMutations[0].BeforeValue()))
+	requireCanonicalRecordTagMutationValue(t, mutationMap(t, tagDeleteMutations[0].AfterValue()))
 
 	factReader := links.FactReader{}
 	recordFacts, err := factReader.LoadRecordTx(ctx, tx, incident.ID, src)
@@ -421,38 +440,16 @@ func TestFieldAwareLinkIdentityAndMergeCharacterization(t *testing.T) {
 		t.Fatalf("record-scoped facts = %#v, want three active outbound links and non-nil empty tags", recordFacts)
 	}
 	for _, fact := range recordFacts.RecordLinks {
-		if fact.LinkType.String() != links.LinkTypeReferencesRecord || fact.Provenance.String() != links.LinkProvenanceManual {
+		if fact.LinkType != links.LinkTypeReferencesRecord || fact.Provenance != links.LinkProvenanceManual {
 			t.Fatalf("record fact lost typed link vocabulary: %#v", fact)
 		}
 	}
-	linkChanges, err := factReader.LoadCollectionChangesTx(ctx, tx, incident.ID, src, now)
-	if err != nil {
-		t.Fatalf("load link collection changes: %v", err)
-	}
-	if !slices.Equal(linkChanges.LinkFieldKeys, []string{fieldA, fieldB}) || linkChanges.TagsChanged {
-		t.Fatalf("link collection changes = %#v, want sorted unique field keys without tags", linkChanges)
-	}
-	tagChanges, err := factReader.LoadCollectionChangesTx(ctx, tx, incident.ID, src, now.Add(6*time.Second))
-	if err != nil {
-		t.Fatalf("load tag collection changes: %v", err)
-	}
-	if tagChanges.LinkFieldKeys == nil || len(tagChanges.LinkFieldKeys) != 0 || !tagChanges.TagsChanged {
-		t.Fatalf("tag collection changes = %#v, want non-nil empty link fields and TagsChanged", tagChanges)
-	}
-	foreignIncidentChanges, err := factReader.LoadCollectionChangesTx(ctx, tx, uuid.New(), src, now)
-	if err != nil {
-		t.Fatalf("load foreign-incident collection changes: %v", err)
-	}
-	if foreignIncidentChanges.LinkFieldKeys == nil || len(foreignIncidentChanges.LinkFieldKeys) != 0 || foreignIncidentChanges.TagsChanged {
-		t.Fatalf("foreign incident leaked collection changes: %#v", foreignIncidentChanges)
-	}
-
 	fieldADelete, err := store.ApplyRecordRefCollectionWithMutationValuesTx(ctx, tx, links.RecordRefCollectionCommand{
 		IncidentID: incident.ID, SourceRecordID: src, ActorUserID: actor.ID,
 		FieldKey: fieldA, LinkType: links.LinkType(links.LinkTypeReferencesRecord), ExpectedTargetType: "timeline_event",
 		RemoveRecordIDs: []uuid.UUID{dst}, Now: now.Add(2 * time.Second),
 	})
-	if err != nil || len(fieldADelete.RecordLinks) != 1 || fieldADelete.RecordLinks[0].RecordLinkID != linkAID {
+	if err != nil || len(fieldADelete.Mutations()) != 1 || mutationTargetUUID(t, fieldADelete.Mutations()[0]) != linkAID {
 		t.Fatalf("tombstone exact field A binding: result=%#v err=%v", fieldADelete, err)
 	}
 	if _, err := store.ApplyRecordRefCollectionWithMutationValuesTx(ctx, tx, links.RecordRefCollectionCommand{
@@ -477,4 +474,25 @@ SELECT
 	if activeA != 0 || activeB != 1 || activeNull != 1 {
 		t.Fatalf("active field counts = A:%d B:%d null:%d, want 0/1/1", activeA, activeB, activeNull)
 	}
+}
+
+func mutationMap(t testing.TB, value any) map[string]any {
+	t.Helper()
+	if value == nil {
+		return nil
+	}
+	result, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("mutation value type = %T, want map[string]any", value)
+	}
+	return result
+}
+
+func mutationTargetUUID(t testing.TB, mutation links.Mutation) uuid.UUID {
+	t.Helper()
+	result, err := uuid.Parse(mutation.TargetID())
+	if err != nil {
+		t.Fatalf("parse mutation target %q: %v", mutation.TargetID(), err)
+	}
+	return result
 }

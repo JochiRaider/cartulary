@@ -39,6 +39,7 @@ func newTestTimelineComposition(
 	bundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            pool,
 		ConflictTokens:      conflictTokens,
+		ConflictFields:      revisionComposition.Runtime.ConflictFieldResolver(),
 		Revisions:           revisionComposition.Runtime.Appender(),
 		Collaboration:       revisionComposition.Publications,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),

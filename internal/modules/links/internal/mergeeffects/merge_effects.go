@@ -10,18 +10,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/links/internal/mutationvalue"
 	"github.com/JochiRaider/cartulary/internal/modules/links/internal/valuecodec"
+	"github.com/JochiRaider/cartulary/internal/modules/links/internal/vocabulary"
 )
-
-type Mutation struct {
-	TargetKind      string
-	TargetID        string
-	OperationKind   string
-	BeforeVersionID *string
-	AfterVersionID  *string
-	BeforeValue     any
-	AfterValue      any
-}
 
 type RepointLinksCommand struct {
 	IncidentID       uuid.UUID
@@ -32,7 +24,7 @@ type RepointLinksCommand struct {
 }
 
 type RepointLinksResult struct {
-	Mutations                 []Mutation
+	Mutations                 []mutationvalue.Value
 	RepointedCount            int
 	DedupedCount              int
 	LinkTypesBySourceRecordID map[uuid.UUID][]string
@@ -47,7 +39,7 @@ type RepointTagsCommand struct {
 }
 
 type RepointTagsResult struct {
-	Mutations      []Mutation
+	Mutations      []mutationvalue.Value
 	RepointedCount int
 	DedupedCount   int
 }
@@ -70,9 +62,9 @@ type mergeLinkRecord struct {
 	IncidentID      uuid.UUID
 	SrcRecordID     uuid.UUID
 	DstRecordID     uuid.UUID
-	LinkType        string
+	LinkType        vocabulary.LinkType
 	FieldKey        *string
-	Provenance      string
+	Provenance      vocabulary.LinkProvenance
 	Confidence      *int
 	OwnerUserID     uuid.UUID
 	CreatedByUserID uuid.UUID
@@ -83,7 +75,7 @@ type mergeLinkRecord struct {
 }
 
 type LinkDependencies struct {
-	Validate  func(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string, string, *int) error
+	Validate  func(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, vocabulary.LinkType, vocabulary.LinkProvenance, *int) error
 	Tombstone func(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (*time.Time, error)
 }
 
@@ -130,7 +122,7 @@ SELECT
 	rows.Close()
 
 	result := RepointLinksResult{
-		Mutations:                 make([]Mutation, 0),
+		Mutations:                 make([]mutationvalue.Value, 0),
 		LinkTypesBySourceRecordID: make(map[uuid.UUID][]string),
 	}
 	for _, record := range records {
@@ -146,9 +138,9 @@ SELECT
 		if nextDst == command.LoserRecordID {
 			nextDst = command.SurvivorRecordID
 		}
-		addMergeLinkInvalidation(&result, record.SrcRecordID, record.LinkType)
+		addMergeLinkInvalidation(&result, record.SrcRecordID, record.LinkType.String())
 		if nextSrc != record.SrcRecordID {
-			addMergeLinkInvalidation(&result, nextSrc, record.LinkType)
+			addMergeLinkInvalidation(&result, nextSrc, record.LinkType.String())
 		}
 		if nextSrc == nextDst {
 			deletedAt, err := dependencies.Tombstone(ctx, tx, record.RecordLinkID, command.ActorUserID, command.Now.UTC())
@@ -157,13 +149,9 @@ SELECT
 			}
 			record.DeletedAt = deletedAt
 			record.DeletedByUserID = &command.ActorUserID
-			result.Mutations = append(result.Mutations, Mutation{
-				TargetKind:    "record_link",
-				TargetID:      record.RecordLinkID.String(),
-				OperationKind: "delete",
-				BeforeValue:   before,
-				AfterValue:    buildMergeLinkValue(record),
-			})
+			if err := appendMutation(&result.Mutations, mutationvalue.TargetRecordLink, record.RecordLinkID.String(), mutationvalue.OperationDelete, before, buildMergeLinkValue(record)); err != nil {
+				return RepointLinksResult{}, err
+			}
 			result.DedupedCount++
 			continue
 		}
@@ -176,23 +164,16 @@ SELECT
 			}
 			record.DeletedAt = deletedAt
 			record.DeletedByUserID = &command.ActorUserID
-			result.Mutations = append(result.Mutations, Mutation{
-				TargetKind:    "record_link",
-				TargetID:      record.RecordLinkID.String(),
-				OperationKind: "delete",
-				BeforeValue:   before,
-				AfterValue:    buildMergeLinkValue(record),
-			})
+			if err := appendMutation(&result.Mutations, mutationvalue.TargetRecordLink, record.RecordLinkID.String(), mutationvalue.OperationDelete, before, buildMergeLinkValue(record)); err != nil {
+				return RepointLinksResult{}, err
+			}
 			created, err := insertRepointedMergeLinkTx(ctx, tx, record, nextSrc, nextDst, dependencies.Validate)
 			if err != nil {
 				return RepointLinksResult{}, fmt.Errorf("create repointed merged link: %w", err)
 			}
-			result.Mutations = append(result.Mutations, Mutation{
-				TargetKind:    "record_link",
-				TargetID:      created.RecordLinkID.String(),
-				OperationKind: "create",
-				AfterValue:    buildMergeLinkValue(created),
-			})
+			if err := appendMutation(&result.Mutations, mutationvalue.TargetRecordLink, created.RecordLinkID.String(), mutationvalue.OperationCreate, nil, buildMergeLinkValue(created)); err != nil {
+				return RepointLinksResult{}, err
+			}
 			result.RepointedCount++
 		case err != nil:
 			return RepointLinksResult{}, err
@@ -203,20 +184,16 @@ SELECT
 			}
 			deletedRecord := mergeLinkRecordWithDeletedAt(record, deletedAt)
 			deletedRecord.DeletedByUserID = &command.ActorUserID
-			result.Mutations = append(result.Mutations, Mutation{
-				TargetKind:    "record_link",
-				TargetID:      record.RecordLinkID.String(),
-				OperationKind: "delete",
-				BeforeValue:   before,
-				AfterValue:    buildMergeLinkValue(deletedRecord),
-			})
+			if err := appendMutation(&result.Mutations, mutationvalue.TargetRecordLink, record.RecordLinkID.String(), mutationvalue.OperationDelete, before, buildMergeLinkValue(deletedRecord)); err != nil {
+				return RepointLinksResult{}, err
+			}
 			result.DedupedCount++
 		}
 	}
 	return result, nil
 }
 
-func activeMergeLinkExistsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, linkType string, fieldKey *string) (bool, error) {
+func activeMergeLinkExistsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, linkType vocabulary.LinkType, fieldKey *string) (bool, error) {
 	var linkID uuid.UUID
 	if err := tx.QueryRow(ctx, `
 SELECT record_link_id
@@ -230,7 +207,7 @@ SELECT record_link_id
  ORDER BY created_at DESC, record_link_id DESC
  LIMIT 1
  FOR UPDATE
-`, incidentID, src, dst, linkType, fieldKey).Scan(&linkID); err != nil {
+`, incidentID, src, dst, linkType.String(), fieldKey).Scan(&linkID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return false, nil
 		}
@@ -245,7 +222,7 @@ func insertRepointedMergeLinkTx(
 	record mergeLinkRecord,
 	src uuid.UUID,
 	dst uuid.UUID,
-	validate func(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string, string, *int) error,
+	validate func(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, vocabulary.LinkType, vocabulary.LinkProvenance, *int) error,
 ) (mergeLinkRecord, error) {
 	if err := validate(ctx, tx, record.IncidentID, src, dst, record.LinkType, record.Provenance, record.Confidence); err != nil {
 		return mergeLinkRecord{}, err
@@ -280,7 +257,7 @@ RETURNING
     created_at,
     deleted_at,
     deleted_by_user_id
-`, record.IncidentID, src, dst, record.LinkType, record.FieldKey, record.Provenance, record.Confidence, record.OwnerUserID, record.DecidedAt)
+`, record.IncidentID, src, dst, record.LinkType.String(), record.FieldKey, record.Provenance.String(), record.Confidence, record.OwnerUserID, record.DecidedAt)
 	created, err := scanMergeLinkRecord(row)
 	if err != nil {
 		return mergeLinkRecord{}, err
@@ -330,7 +307,7 @@ SELECT
 	}
 	rows.Close()
 
-	result := RepointTagsResult{Mutations: make([]Mutation, 0)}
+	result := RepointTagsResult{Mutations: make([]mutationvalue.Value, 0)}
 	for _, record := range records {
 		before := buildMergeTagValue(record)
 		var existingID uuid.UUID
@@ -356,13 +333,9 @@ UPDATE record_tags
 			}
 			record.RecordID = command.SurvivorRecordID
 			record.UpdatedAt = command.Now.UTC()
-			result.Mutations = append(result.Mutations, Mutation{
-				TargetKind:    "record_tag",
-				TargetID:      targetID,
-				OperationKind: "patch",
-				BeforeValue:   before,
-				AfterValue:    buildMergeTagValue(record),
-			})
+			if err := appendMutation(&result.Mutations, mutationvalue.TargetRecordTag, targetID, mutationvalue.OperationPatch, before, buildMergeTagValue(record)); err != nil {
+				return RepointTagsResult{}, err
+			}
 			result.RepointedCount++
 		case err != nil:
 			return RepointTagsResult{}, fmt.Errorf("lookup survivor tag collision: %w", err)
@@ -380,13 +353,9 @@ UPDATE record_tags
 			record.DeletedAt = timePointer(command.Now.UTC())
 			record.DeletedByUserID = &command.ActorUserID
 			record.UpdatedAt = command.Now.UTC()
-			result.Mutations = append(result.Mutations, Mutation{
-				TargetKind:    "record_tag",
-				TargetID:      targetID,
-				OperationKind: "delete",
-				BeforeValue:   before,
-				AfterValue:    buildMergeTagValue(record),
-			})
+			if err := appendMutation(&result.Mutations, mutationvalue.TargetRecordTag, targetID, mutationvalue.OperationDelete, before, buildMergeTagValue(record)); err != nil {
+				return RepointTagsResult{}, err
+			}
 			result.DedupedCount++
 			_ = existingID
 		}
@@ -427,7 +396,9 @@ func scanMergeTagRecord(row pgx.Row) (mergeTagRecord, error) {
 func scanMergeLinkRecord(row pgx.Row) (mergeLinkRecord, error) {
 	var (
 		record          mergeLinkRecord
+		linkType        string
 		fieldKey        pgtype.Text
+		provenance      string
 		confidence      pgtype.Int4
 		deletedAt       pgtype.Timestamptz
 		deletedByUserID pgtype.UUID
@@ -437,9 +408,9 @@ func scanMergeLinkRecord(row pgx.Row) (mergeLinkRecord, error) {
 		&record.IncidentID,
 		&record.SrcRecordID,
 		&record.DstRecordID,
-		&record.LinkType,
+		&linkType,
 		&fieldKey,
-		&record.Provenance,
+		&provenance,
 		&confidence,
 		&record.OwnerUserID,
 		&record.CreatedByUserID,
@@ -450,6 +421,16 @@ func scanMergeLinkRecord(row pgx.Row) (mergeLinkRecord, error) {
 	); err != nil {
 		return mergeLinkRecord{}, err
 	}
+	parsedLinkType, err := vocabulary.ParseLinkType(linkType)
+	if err != nil {
+		return mergeLinkRecord{}, fmt.Errorf("scan merge link record: %w", err)
+	}
+	parsedProvenance, err := vocabulary.ParseLinkProvenance(provenance)
+	if err != nil {
+		return mergeLinkRecord{}, fmt.Errorf("scan merge link record: %w", err)
+	}
+	record.LinkType = parsedLinkType
+	record.Provenance = parsedProvenance
 	if fieldKey.Valid {
 		value := fieldKey.String
 		record.FieldKey = &value
@@ -474,9 +455,9 @@ func buildMergeLinkValue(record mergeLinkRecord) map[string]any {
 		IncidentID:      record.IncidentID,
 		SrcRecordID:     record.SrcRecordID,
 		DstRecordID:     record.DstRecordID,
-		LinkType:        record.LinkType,
+		LinkType:        record.LinkType.String(),
 		FieldKey:        record.FieldKey,
-		Provenance:      record.Provenance,
+		Provenance:      record.Provenance.String(),
 		Confidence:      record.Confidence,
 		OwnerUserID:     record.OwnerUserID,
 		CreatedByUserID: record.CreatedByUserID,
@@ -510,6 +491,15 @@ func buildMergeTagValue(record mergeTagRecord) map[string]any {
 func timePointer(value time.Time) *time.Time {
 	copy := value.UTC()
 	return &copy
+}
+
+func appendMutation(result *[]mutationvalue.Value, targetKind string, targetID string, operationKind string, beforeValue any, afterValue any) error {
+	mutation, err := mutationvalue.New(targetKind, targetID, operationKind, beforeValue, afterValue)
+	if err != nil {
+		return err
+	}
+	*result = append(*result, mutation)
+	return nil
 }
 
 func recordTagTargetID(recordID uuid.UUID, recordTagID uuid.UUID) string {

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -154,7 +153,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 		}
 	}
 	if current.RowVersion > request.BaseRowVersion {
-		window, err := s.loadPatchConflictWindowTx(ctx, tx, current.IncidentID, recordID, request.BaseRowVersion, current.RowVersion)
+		window, err := s.loadPatchConflictWindowTx(ctx, tx, recordID, request.BaseRowVersion, current.RowVersion)
 		if err != nil {
 			return MutationResult{}, err
 		}
@@ -408,50 +407,33 @@ RETURNING recorded_at
 	}, nil
 }
 
-func (s *store) loadPatchConflictWindowTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64) (patchConflictWindow, error) {
+func (s *store) loadPatchConflictWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64) (patchConflictWindow, error) {
 	rows, err := s.revisionsStore.ListRecordRevisionWindowTx(ctx, tx, recordID, baseRowVersion, currentRowVersion)
 	if err != nil {
 		return patchConflictWindow{}, fmt.Errorf("query timeline patch conflict window: %w", err)
 	}
-
-	window := patchConflictWindow{
-		ChangedFields: make(map[string]patchChangedField),
-	}
-	for _, entry := range rows {
-		if entry.RowVersion == baseRowVersion {
-			baseRow, ok := s.conflictSnapshots.Project(entry.AfterJSON)
-			if !ok {
-				return patchConflictWindow{}, newRowVersionConflict(recordID, baseRowVersion, currentRowVersion)
-			}
-			ensureEmptyTimelineCollectionCells(baseRow)
-			window.BaseRow = baseRow
-			continue
-		}
-
-		beforeRow, beforeOK := s.conflictSnapshots.Project(entry.BeforeJSON)
-		afterRow, afterOK := s.conflictSnapshots.Project(entry.AfterJSON)
-		if !beforeOK || !afterOK {
-			return patchConflictWindow{}, newRowVersionConflict(recordID, baseRowVersion, currentRowVersion)
-		}
-		for _, fieldKey := range changedRevisionWritableFieldKeys(beforeRow, afterRow) {
-			window.ChangedFields[fieldKey] = patchChangedField{
-				FieldKey:        fieldKey,
-				ServerUpdatedBy: entry.ActorUserID,
-				ServerUpdatedAt: entry.CreatedAt.UTC(),
-			}
-		}
-		collectionFields, err := s.timelineCollectionFieldsChangedTx(ctx, tx, incidentID, recordID, entry.CreatedAt)
-		if err != nil {
-			return patchConflictWindow{}, err
-		}
-		for _, fieldKey := range collectionFields {
-			window.ChangedFields[fieldKey] = patchChangedField{
-				FieldKey: fieldKey, ServerUpdatedBy: entry.ActorUserID, ServerUpdatedAt: entry.CreatedAt.UTC(),
-			}
-		}
-	}
-	if window.BaseRow == nil {
+	generic, err := conflicttokens.BuildCanonicalPatchConflictWindow(
+		recordID,
+		baseRowVersion,
+		currentRowVersion,
+		rows,
+		s.conflictFields,
+		s.conflictSnapshots,
+	)
+	if err != nil {
 		return patchConflictWindow{}, newRowVersionConflict(recordID, baseRowVersion, currentRowVersion)
+	}
+	ensureEmptyTimelineCollectionCells(generic.BaseRow)
+	window := patchConflictWindow{
+		BaseRow:       generic.BaseRow,
+		ChangedFields: make(map[string]patchChangedField, len(generic.ChangedFields)),
+	}
+	for fieldKey, changed := range generic.ChangedFields {
+		window.ChangedFields[fieldKey] = patchChangedField{
+			FieldKey:        fieldKey,
+			ServerUpdatedBy: changed.ServerUpdatedBy,
+			ServerUpdatedAt: changed.ServerUpdatedAt.UTC(),
+		}
 	}
 	return window, nil
 }
@@ -464,33 +446,4 @@ func ensureEmptyTimelineCollectionCells(row map[string]any) {
 			cells[fieldKey] = map[string]any{"value": valuecodec.Collection(policy.Ordered, nil)}
 		}
 	}
-}
-
-func (s *store) timelineCollectionFieldsChangedTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, createdAt time.Time) ([]string, error) {
-	linkFields, err := s.linkStore.LoadCollectionFieldsChangedTx(ctx, tx, incidentID, recordID, createdAt)
-	if err != nil {
-		return nil, err
-	}
-	mentionFields, err := s.mentionStore.LoadTimelineCollectionFieldsChangedTx(ctx, tx, recordID, createdAt)
-	if err != nil {
-		return nil, err
-	}
-	allowed := map[string]struct{}{
-		"timeline.host_refs":             {},
-		"timeline.identity_refs":         {},
-		"timeline.tags":                  {},
-		"timeline.attached_evidence_ids": {},
-	}
-	set := make(map[string]struct{}, len(linkFields)+len(mentionFields))
-	for _, field := range append(linkFields, mentionFields...) {
-		if _, ok := allowed[field]; ok {
-			set[field] = struct{}{}
-		}
-	}
-	result := make([]string, 0, len(set))
-	for field := range set {
-		result = append(result, field)
-	}
-	sort.Strings(result)
-	return result, nil
 }

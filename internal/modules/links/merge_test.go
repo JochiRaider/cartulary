@@ -49,8 +49,8 @@ INSERT INTO record_links (
 	if err != nil {
 		t.Fatalf("repoint merged links: %v", err)
 	}
-	if result.DedupedCount != 1 || result.RepointedCount != 1 || len(result.Mutations) != 3 {
-		t.Fatalf("merge result = deduped:%d repointed:%d mutations:%d, want 1/1/3", result.DedupedCount, result.RepointedCount, len(result.Mutations))
+	if result.DedupedCount != 1 || result.RepointedCount != 1 || len(result.Mutations()) != 3 {
+		t.Fatalf("merge result = deduped:%d repointed:%d mutations:%d, want 1/1/3", result.DedupedCount, result.RepointedCount, len(result.Mutations()))
 	}
 	var activeA, activeB, loserActive int
 	if err := tx.QueryRow(ctx, `

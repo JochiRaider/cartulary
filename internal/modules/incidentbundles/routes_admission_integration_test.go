@@ -568,7 +568,7 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	) {
 		t.Fatal("re-export changed portable Records source attribution or envelope fields")
 	}
-	if countRows(t, targetHarness.DB, `SELECT count(*) FROM record_tags WHERE incident_id = $1 AND record_id = $2 AND normalized_tag_name = 'extension_profile-portability'`, incidentID, recordID) != 1 {
+	if countRows(t, targetHarness.DB, `SELECT count(*) FROM record_tags WHERE incident_id = $1 AND record_id = $2 AND normalized_tag_name = 'extensionprofile portability'`, incidentID, recordID) != 1 {
 		t.Fatalf("import must preserve record tag attachments")
 	}
 	if countRows(t, targetHarness.DB, `SELECT count(*) FROM evidence_custody_events WHERE incident_id = $1 AND evidence_record_id = $2`, incidentID, seededState.EvidenceRecordID) != 1 {

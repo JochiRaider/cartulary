@@ -3,7 +3,6 @@ package timeline
 import (
 	"encoding/base64"
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
@@ -82,23 +81,6 @@ func newRowVersionConflict(recordID uuid.UUID, baseRowVersion int64, currentRowV
 		BaseRowVersion:    baseRowVersion,
 		CurrentRowVersion: currentRowVersion,
 	}
-}
-
-func changedRevisionWritableFieldKeys(beforeRow map[string]any, afterRow map[string]any) []string {
-	beforeCells, _ := beforeRow["cells"].(map[string]any)
-	afterCells, _ := afterRow["cells"].(map[string]any)
-	changed := make([]string, 0)
-	for fieldKey, afterCell := range afterCells {
-		field, ok := viewschema.LookupField(TimelineViewSchemaID, fieldKey)
-		if !ok || !field.Writable {
-			continue
-		}
-		if !reflect.DeepEqual(beforeCells[fieldKey], afterCell) {
-			changed = append(changed, fieldKey)
-		}
-	}
-	sort.Strings(changed)
-	return changed
 }
 
 func overlappingPatchChange(changes []PatchChange, changedFields map[string]patchChangedField) (PatchChange, patchChangedField, bool) {

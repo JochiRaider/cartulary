@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/tasksdecisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
@@ -64,6 +65,14 @@ func NewCatalog() (*sourceport.Catalog, error) {
 	if err != nil {
 		return nil, fmt.Errorf("incident portability assembly: Artifacts source port: %w", err)
 	}
+	tasksDecisionsSourcePort, err := tasksdecisions.NewIncidentBundleSourcePort(tasksdecisionassembly.NewLinkFactsCapability())
+	if err != nil {
+		return nil, fmt.Errorf("incident portability assembly: Tasks/Decisions source port: %w", err)
+	}
+	linksSourcePort, err := links.NewIncidentBundleSourcePort()
+	if err != nil {
+		return nil, fmt.Errorf("incident portability assembly: Links source port: %w", err)
+	}
 	v3 := []string{
 		"data/incident.json", "data/actors.ndjson", "data/records.ndjson",
 		"data/timeline_time_profiles.ndjson", "data/timeline_records.ndjson",
@@ -95,10 +104,10 @@ func NewCatalog() (*sourceport.Catalog, error) {
 			entities.NewIncidentBundleSourcePort(),
 			indicatorContribution.SourcePort,
 			artifactsSourcePort,
-			tasksdecisions.NewIncidentBundleSourcePort(),
+			tasksDecisionsSourcePort,
 			evidence.NewIncidentBundleSourcePort(),
 			assessments.NewIncidentBundleSourcePort(),
-			links.NewIncidentBundleSourcePort(),
+			linksSourcePort,
 			revisions.NewIncidentBundleSourcePort(revisionsValidation),
 			savedviews.NewIncidentBundleSourcePort(),
 		},

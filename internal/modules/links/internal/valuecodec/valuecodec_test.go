@@ -159,25 +159,25 @@ func TestHistoryMutationOperationMatrix(t *testing.T) {
 	}
 }
 
-func TestRestorePlansRetainEveryCanonicalField(t *testing.T) {
-	link, err := DecodeRecordLinkRestorePlan(canonicalLinkValue())
+func TestDecodedMutationValuesRetainEveryCanonicalField(t *testing.T) {
+	link, err := DecodeRecordLinkMutationValue(canonicalLinkValue())
 	if err != nil {
 		t.Fatalf("decode link restore plan: %v", err)
 	}
-	if link.Identity.RecordLinkID != testLinkID || link.OwnerUserID != testActorID || link.CreatedByUserID != testActorID ||
+	if link.RecordLinkID != testLinkID || link.OwnerUserID != testActorID || link.CreatedByUserID != testActorID ||
 		!link.DecidedAt.Equal(testCreatedAt) || !link.CreatedAt.Equal(testCreatedAt) || link.Provenance != "manual" ||
 		link.FieldKey != nil || link.Confidence != nil || link.DeletedAt != nil || link.DeletedByUserID != nil {
-		t.Fatalf("link restore plan lost canonical state: %#v", link)
+		t.Fatalf("decoded link value lost canonical state: %#v", link)
 	}
 
-	tag, err := DecodeRecordTagRestorePlan(canonicalTagValue())
+	tag, err := DecodeRecordTagMutationValue(canonicalTagValue())
 	if err != nil {
 		t.Fatalf("decode tag restore plan: %v", err)
 	}
-	if tag.Identity.RecordTagID != testTagID || tag.Identity.RecordID != testSourceID || tag.CreatedByUserID != testActorID ||
+	if tag.RecordTagID != testTagID || tag.RecordID != testSourceID || tag.CreatedByUserID != testActorID ||
 		tag.TagName != "Urgent" || tag.NormalizedTagName != "urgent" || !tag.CreatedAt.Equal(testCreatedAt) ||
 		!tag.UpdatedAt.Equal(testCreatedAt) || tag.DeletedAt != nil || tag.DeletedByUserID != nil {
-		t.Fatalf("tag restore plan lost canonical state: %#v", tag)
+		t.Fatalf("decoded tag value lost canonical state: %#v", tag)
 	}
 }
 

@@ -190,6 +190,7 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            pool,
 		ConflictTokens:      conflictTokens,
+		ConflictFields:      conflictFields,
 		Revisions:           appender,
 		Collaboration:       intents,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),

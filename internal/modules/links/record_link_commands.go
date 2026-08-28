@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/links/internal/mutationvalue"
 	"github.com/JochiRaider/cartulary/internal/modules/links/internal/valuecodec"
 )
 
@@ -31,10 +32,8 @@ type recordLinkState struct {
 }
 
 func (s *Store) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command UpsertLinkCommand) (RecordLinkCommandResult, error) {
-	linkType := command.LinkType.String()
-	provenance := command.Provenance.String()
 	now := command.Now.UTC()
-	if err := validateRecordLinkCommand(linkType, provenance, command.Confidence, command.SrcRecordID, command.DstRecordID); err != nil {
+	if err := validateRecordLinkCommand(command.LinkType, command.Provenance, command.Confidence, command.SrcRecordID, command.DstRecordID); err != nil {
 		return RecordLinkCommandResult{}, err
 	}
 	if command.IncidentID == uuid.Nil || command.OwnerUserID == uuid.Nil || command.Now.IsZero() {
@@ -53,7 +52,10 @@ func (s *Store) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command Upse
 		if err != nil {
 			return RecordLinkCommandResult{}, err
 		}
-		mutation := newRecordLinkMutation("patch", &existing, &updated)
+		mutation, err := newRecordLinkMutation("patch", &existing, &updated)
+		if err != nil {
+			return RecordLinkCommandResult{}, err
+		}
 		return newRecordLinkCommandResult(updated, &mutation), nil
 	}
 	if !errors.Is(err, errRecordLinkNotFound) {
@@ -75,7 +77,10 @@ func (s *Store) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command Upse
 	if err != nil {
 		return RecordLinkCommandResult{}, fmt.Errorf("insert link: %w", err)
 	}
-	mutation := newRecordLinkMutation("create", nil, &created)
+	mutation, err := newRecordLinkMutation("create", nil, &created)
+	if err != nil {
+		return RecordLinkCommandResult{}, err
+	}
 	return newRecordLinkCommandResult(created, &mutation), nil
 }
 
@@ -94,8 +99,8 @@ func (s *Store) InsertSupersedesCommandTx(ctx context.Context, tx pgx.Tx, comman
 		incidentID:      command.IncidentID,
 		srcRecordID:     command.ReplacementRecordID,
 		dstRecordID:     command.SupersededRecordID,
-		linkType:        LinkType(LinkTypeSupersedes),
-		provenance:      LinkProvenance(LinkProvenanceManual),
+		linkType:        LinkTypeSupersedes,
+		provenance:      LinkProvenanceManual,
 		ownerUserID:     command.OwnerUserID,
 		createdByUserID: command.OwnerUserID,
 		decidedAt:       now,
@@ -104,7 +109,10 @@ func (s *Store) InsertSupersedesCommandTx(ctx context.Context, tx pgx.Tx, comman
 	if err != nil {
 		return RecordLinkCommandResult{}, fmt.Errorf("insert supersedes link: %w", err)
 	}
-	mutation := newRecordLinkMutation("create", nil, &created)
+	mutation, err := newRecordLinkMutation("create", nil, &created)
+	if err != nil {
+		return RecordLinkCommandResult{}, err
+	}
 	return newRecordLinkCommandResult(created, &mutation), nil
 }
 
@@ -112,7 +120,7 @@ func (s *Store) TombstoneActiveLinkCommandTx(ctx context.Context, tx pgx.Tx, com
 	if command.IncidentID == uuid.Nil || command.ActorUserID == uuid.Nil || command.Now.IsZero() {
 		return RecordLinkCommandResult{}, false, fmt.Errorf("%w: missing command identity or time", errInvalidRecordLink)
 	}
-	if !isKnownLinkType(command.LinkType.String()) || command.SrcRecordID == uuid.Nil || command.DstRecordID == uuid.Nil || command.SrcRecordID == command.DstRecordID {
+	if command.LinkType.String() == "" || command.SrcRecordID == uuid.Nil || command.DstRecordID == uuid.Nil || command.SrcRecordID == command.DstRecordID {
 		return RecordLinkCommandResult{}, false, fmt.Errorf("%w: invalid link tuple", errInvalidRecordLink)
 	}
 	existing, err := getActiveRecordLinkStateTx(ctx, tx, command.IncidentID, command.SrcRecordID, command.DstRecordID, command.LinkType)
@@ -126,7 +134,10 @@ func (s *Store) TombstoneActiveLinkCommandTx(ctx context.Context, tx pgx.Tx, com
 	if err != nil {
 		return RecordLinkCommandResult{}, false, err
 	}
-	mutation := newRecordLinkMutation("delete", &existing, &updated)
+	mutation, err := newRecordLinkMutation("delete", &existing, &updated)
+	if err != nil {
+		return RecordLinkCommandResult{}, false, err
+	}
 	return newRecordLinkCommandResult(updated, &mutation), true, nil
 }
 
@@ -259,8 +270,16 @@ func scanRecordLinkState(row pgx.Row) (recordLinkState, error) {
 	); err != nil {
 		return recordLinkState{}, err
 	}
-	state.linkType = LinkType(linkType)
-	state.provenance = LinkProvenance(provenance)
+	parsedLinkType, err := ParseLinkType(linkType)
+	if err != nil {
+		return recordLinkState{}, fmt.Errorf("scan record link state: %w", err)
+	}
+	parsedProvenance, err := ParseLinkProvenance(provenance)
+	if err != nil {
+		return recordLinkState{}, fmt.Errorf("scan record link state: %w", err)
+	}
+	state.linkType = parsedLinkType
+	state.provenance = parsedProvenance
 	if fieldKey.Valid {
 		value := fieldKey.String
 		state.fieldKey = &value
@@ -301,20 +320,22 @@ func (s recordLinkState) mutationValue() valuecodec.RecordLinkMutationValue {
 	})
 }
 
-func newRecordLinkMutation(operation string, before *recordLinkState, after *recordLinkState) RecordLinkMutation {
-	mutation := RecordLinkMutation{Operation: operation}
+func newRecordLinkMutation(operation string, before *recordLinkState, after *recordLinkState) (Mutation, error) {
+	var recordLinkID uuid.UUID
+	var beforeValue map[string]any
+	var afterValue map[string]any
 	if before != nil {
-		mutation.RecordLinkID = before.recordLinkID
-		mutation.BeforeValue = before.mutationValue().Map()
+		recordLinkID = before.recordLinkID
+		beforeValue = before.mutationValue().Map()
 	}
 	if after != nil {
-		mutation.RecordLinkID = after.recordLinkID
-		mutation.AfterValue = after.mutationValue().Map()
+		recordLinkID = after.recordLinkID
+		afterValue = after.mutationValue().Map()
 	}
-	return mutation
+	return mutationvalue.New(mutationvalue.TargetRecordLink, recordLinkID.String(), operation, beforeValue, afterValue)
 }
 
-func newRecordLinkCommandResult(state recordLinkState, mutation *RecordLinkMutation) RecordLinkCommandResult {
+func newRecordLinkCommandResult(state recordLinkState, mutation *Mutation) RecordLinkCommandResult {
 	result := RecordLinkCommandResult{
 		RecordLinkID: state.recordLinkID,
 		SrcRecordID:  state.srcRecordID,
@@ -322,45 +343,10 @@ func newRecordLinkCommandResult(state recordLinkState, mutation *RecordLinkMutat
 		LinkType:     state.linkType,
 	}
 	if mutation != nil {
-		cloned := cloneRecordLinkMutation(*mutation)
-		result.Mutation = &cloned
+		cloned := mutationvalue.Copy([]Mutation{*mutation})
+		result.mutation = &cloned[0]
 	}
 	return result
-}
-
-func cloneRecordLinkMutation(mutation RecordLinkMutation) RecordLinkMutation {
-	return RecordLinkMutation{
-		RecordLinkID: mutation.RecordLinkID,
-		Operation:    mutation.Operation,
-		BeforeValue:  cloneMutationMap(mutation.BeforeValue),
-		AfterValue:   cloneMutationMap(mutation.AfterValue),
-	}
-}
-
-func cloneMutationMap(value map[string]any) map[string]any {
-	if value == nil {
-		return nil
-	}
-	cloned := make(map[string]any, len(value))
-	for key, item := range value {
-		switch typed := item.(type) {
-		case map[string]any:
-			cloned[key] = cloneMutationMap(typed)
-		case []any:
-			items := make([]any, len(typed))
-			for index, nested := range typed {
-				if nestedMap, ok := nested.(map[string]any); ok {
-					items[index] = cloneMutationMap(nestedMap)
-				} else {
-					items[index] = nested
-				}
-			}
-			cloned[key] = items
-		default:
-			cloned[key] = item
-		}
-	}
-	return cloned
 }
 
 func copyStringPointer(value *string) *string {

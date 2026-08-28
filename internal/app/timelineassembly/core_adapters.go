@@ -163,21 +163,6 @@ func (a revisionAdapter) AppendLiveRevisionTx(ctx context.Context, tx pgx.Tx, in
 	return a.appender.AppendLiveRevisionTx(ctx, tx, input)
 }
 
-func (a revisionAdapter) ListRecordRevisionWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, firstVersion int64, lastVersion int64) ([]timeline.RecordRevisionWindowEntry, error) {
-	entries, err := a.reader.LoadRevisionWindowTx(ctx, tx, recordID, firstVersion, lastVersion)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]timeline.RecordRevisionWindowEntry, 0, len(entries))
-	for _, entry := range entries {
-		result = append(result, timeline.RecordRevisionWindowEntry{
-			ChangeSetID: entry.ChangeSetID,
-			RowVersion:  entry.RowVersion,
-			BeforeJSON:  entry.BeforeJSON,
-			AfterJSON:   entry.AfterJSON,
-			ActorUserID: entry.ActorUserID,
-			CreatedAt:   entry.CreatedAt,
-		})
-	}
-	return result, nil
+func (a revisionAdapter) ListRecordRevisionWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, firstVersion int64, lastVersion int64) ([]conflicttokens.RevisionWindowRow, error) {
+	return a.reader.LoadRevisionWindowTx(ctx, tx, recordID, firstVersion, lastVersion)
 }

@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/links/internal/vocabulary"
 )
 
 type Store struct{}
@@ -18,19 +20,24 @@ var errInvalidTag = errors.New("links: invalid tag")
 var errInvalidRecordLink = errors.New("links: invalid record link")
 
 const (
-	LinkTypeObservedOnHost      = "observed_on_host"
-	LinkTypeObservedAsIdentity  = "observed_as_identity"
-	LinkTypeReferencesIndicator = "references_indicator"
-	LinkTypeAttachedEvidence    = "attached_evidence"
-	LinkTypeReferencesArtifact  = "references_artifact"
-	LinkTypeDerivedFrom         = "derived_from"
-	LinkTypeMergedInto          = "merged_into"
-	LinkTypeSupportedBy         = "supported_by"
-	LinkTypeReferencesRecord    = "references_record"
-	LinkTypeSupersedes          = "supersedes"
+	LinkTypeInvalid             = vocabulary.LinkTypeInvalid
+	LinkTypeObservedOnHost      = vocabulary.LinkTypeObservedOnHost
+	LinkTypeObservedAsIdentity  = vocabulary.LinkTypeObservedAsIdentity
+	LinkTypeReferencesIndicator = vocabulary.LinkTypeReferencesIndicator
+	LinkTypeAttachedEvidence    = vocabulary.LinkTypeAttachedEvidence
+	LinkTypeReferencesArtifact  = vocabulary.LinkTypeReferencesArtifact
+	LinkTypeDerivedFrom         = vocabulary.LinkTypeDerivedFrom
+	LinkTypeMergedInto          = vocabulary.LinkTypeMergedInto
+	LinkTypeSupportedBy         = vocabulary.LinkTypeSupportedBy
+	LinkTypeReferencesRecord    = vocabulary.LinkTypeReferencesRecord
+	LinkTypeSupersedes          = vocabulary.LinkTypeSupersedes
 
-	LinkProvenanceManual    = "manual"
-	LinkProvenanceAutoMatch = "auto_match"
+	LinkProvenanceInvalid   = vocabulary.LinkProvenanceInvalid
+	LinkProvenanceManual    = vocabulary.LinkProvenanceManual
+	LinkProvenanceAutoMatch = vocabulary.LinkProvenanceAutoMatch
+	LinkProvenanceImport    = vocabulary.LinkProvenanceImport
+	LinkProvenanceRollback  = vocabulary.LinkProvenanceRollback
+	LinkProvenanceSystem    = vocabulary.LinkProvenanceSystem
 )
 
 func NewStore() *Store {
@@ -58,12 +65,12 @@ SELECT record_link_id
 	return true, nil
 }
 
-func validateRecordLinkCommand(linkType string, provenance string, confidence *int, srcRecordID uuid.UUID, dstRecordID uuid.UUID) error {
+func validateRecordLinkCommand(linkType LinkType, provenance LinkProvenance, confidence *int, srcRecordID uuid.UUID, dstRecordID uuid.UUID) error {
 	if srcRecordID == uuid.Nil || dstRecordID == uuid.Nil || srcRecordID == dstRecordID {
 		return fmt.Errorf("%w: invalid endpoints", errInvalidRecordLink)
 	}
-	if !isKnownLinkType(linkType) {
-		return fmt.Errorf("%w: unsupported link type %q", errInvalidRecordLink, linkType)
+	if linkType.String() == "" {
+		return fmt.Errorf("%w: unsupported link type", errInvalidRecordLink)
 	}
 	switch provenance {
 	case LinkProvenanceManual:
@@ -78,27 +85,9 @@ func validateRecordLinkCommand(linkType string, provenance string, confidence *i
 			return fmt.Errorf("%w: auto_match confidence must be exactly 100", errInvalidRecordLink)
 		}
 	default:
-		return fmt.Errorf("%w: unsupported provenance %q", errInvalidRecordLink, provenance)
+		return fmt.Errorf("%w: unsupported provenance %q", errInvalidRecordLink, provenance.String())
 	}
 	return nil
-}
-
-func isKnownLinkType(linkType string) bool {
-	switch linkType {
-	case LinkTypeObservedOnHost,
-		LinkTypeObservedAsIdentity,
-		LinkTypeReferencesIndicator,
-		LinkTypeAttachedEvidence,
-		LinkTypeReferencesArtifact,
-		LinkTypeDerivedFrom,
-		LinkTypeMergedInto,
-		LinkTypeSupportedBy,
-		LinkTypeReferencesRecord,
-		LinkTypeSupersedes:
-		return true
-	default:
-		return false
-	}
 }
 
 func validateActiveLinkEndpointsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID) error {
