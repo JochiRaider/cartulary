@@ -15,6 +15,7 @@ import (
 func TestNewApplicationValidatesDependenciesInOrder_Unit(t *testing.T) {
 	validPostgres := &pgxpool.Pool{}
 	validBootstrap := workbookstartuppostgres.NewWriter()
+	validNow := time.Now
 	var typedNilPostgres *pgxpool.Pool
 	var typedNilBootstrap *workbookstartuppostgres.Writer
 
@@ -27,7 +28,8 @@ func TestNewApplicationValidatesDependenciesInOrder_Unit(t *testing.T) {
 		{name: "typed nil Postgres", dependencies: ApplicationDependencies{Postgres: typedNilPostgres, PreferenceBootstrap: validBootstrap}, wantError: "Postgres dependency is required"},
 		{name: "missing bootstrap", dependencies: ApplicationDependencies{Postgres: validPostgres}, wantError: "workbook preference bootstrap dependency is required"},
 		{name: "typed nil bootstrap", dependencies: ApplicationDependencies{Postgres: validPostgres, PreferenceBootstrap: typedNilBootstrap}, wantError: "workbook preference bootstrap dependency is required"},
-		{name: "valid", dependencies: ApplicationDependencies{Postgres: validPostgres, PreferenceBootstrap: validBootstrap}},
+		{name: "missing mutation clock", dependencies: ApplicationDependencies{Postgres: validPostgres, PreferenceBootstrap: validBootstrap}, wantError: "mutation clock dependency is required"},
+		{name: "valid", dependencies: ApplicationDependencies{Postgres: validPostgres, PreferenceBootstrap: validBootstrap, Now: validNow}},
 	}
 
 	for _, test := range tests {
@@ -58,16 +60,18 @@ func TestIncidentPatchKeepsNoOpStableAndAdvancesMaterialChange_Unit(t *testing.T
 	actorID := uuid.MustParse("00000000-0000-0000-0000-000000000777")
 	updatedAt := time.Date(2026, 4, 17, 13, 0, 0, 0, time.UTC)
 
-	noOp, changed := applyIncidentPatch(current, IncidentPatchRequest{BaseIncidentVersion: 7}, actorID, updatedAt)
+	noOpRequest := mustIncidentPatchAdmission(t, `{"base_incident_version":7}`)
+	noOp, changed := applyIncidentPatch(current, noOpRequest, actorID, updatedAt)
 	if changed || noOp.IncidentVersion != current.IncidentVersion || !noOp.UpdatedAt.Equal(current.UpdatedAt) {
 		t.Fatalf("no-op patch changed stable state: before=%#v after=%#v changed=%t", current, noOp, changed)
 	}
 
-	material, changed := applyIncidentPatch(current, IncidentPatchRequest{
-		BaseIncidentVersion:    7,
-		TLP:                    OptionalNullableString{Present: true, Value: stringPointerForTest("TLP:GREEN")},
-		PrimaryExternalCaseRef: OptionalNullableString{Present: true},
-	}, actorID, updatedAt)
+	materialRequest := mustIncidentPatchAdmission(t, `{
+		"base_incident_version":7,
+		"tlp":"TLP:GREEN",
+		"primary_external_case_ref":null
+	}`)
+	material, changed := applyIncidentPatch(current, materialRequest, actorID, updatedAt)
 	if !changed || material.IncidentVersion != 8 || material.TLP == nil || *material.TLP != "TLP:GREEN" ||
 		material.PrimaryExternalCaseRef != nil || material.UpdatedByUserID == nil || *material.UpdatedByUserID != actorID ||
 		!material.UpdatedAt.Equal(updatedAt) {
@@ -90,24 +94,41 @@ func TestLastAdminGuardDetectsSoleAdministrator_Unit(t *testing.T) {
 
 func TestValidateMembershipCreateTarget_Unit(t *testing.T) {
 	targetID := uuid.MustParse("00000000-0000-0000-0000-000000000707")
-	otherID := uuid.MustParse("00000000-0000-0000-0000-000000000708")
-	email := "Analyst@Example.Test"
 	target := authn.UserRecord{ID: targetID, Email: "analyst@example.test"}
 
-	if err := validateMembershipCreateTarget(MembershipCreateRequest{UserID: &targetID}, target); err != nil {
+	byUserID := mustMembershipCreateAdmission(t, `{
+		"client_txn_id":"target-user-id",
+		"user_id":"00000000-0000-0000-0000-000000000707",
+		"role":"viewer"
+	}`)
+	if err := validateMembershipCreateTarget(byUserID, target); err != nil {
 		t.Fatalf("matching user_id target failed: %v", err)
 	}
-	if err := validateMembershipCreateTarget(MembershipCreateRequest{Email: &email}, target); err != nil {
+	byEmail := mustMembershipCreateAdmission(t, `{
+		"client_txn_id":"target-email",
+		"email":"Analyst@Example.Test",
+		"role":"viewer"
+	}`)
+	if err := validateMembershipCreateTarget(byEmail, target); err != nil {
 		t.Fatalf("matching normalized email target failed: %v", err)
 	}
-	if err := validateMembershipCreateTarget(MembershipCreateRequest{UserID: &otherID}, target); err == nil {
+	otherUserID := mustMembershipCreateAdmission(t, `{
+		"client_txn_id":"other-user-id",
+		"user_id":"00000000-0000-0000-0000-000000000708",
+		"role":"viewer"
+	}`)
+	if err := validateMembershipCreateTarget(otherUserID, target); err == nil {
 		t.Fatal("mismatched user_id target was admitted")
 	}
-	otherEmail := "other@example.test"
-	if err := validateMembershipCreateTarget(MembershipCreateRequest{Email: &otherEmail}, target); err == nil {
+	otherEmail := mustMembershipCreateAdmission(t, `{
+		"client_txn_id":"other-email",
+		"email":"other@example.test",
+		"role":"viewer"
+	}`)
+	if err := validateMembershipCreateTarget(otherEmail, target); err == nil {
 		t.Fatal("mismatched email target was admitted")
 	}
-	if err := validateMembershipCreateTarget(MembershipCreateRequest{}, target); err == nil {
+	if err := validateMembershipCreateTarget(MembershipCreateAdmission{}, target); err == nil {
 		t.Fatal("missing selector was admitted")
 	}
 }

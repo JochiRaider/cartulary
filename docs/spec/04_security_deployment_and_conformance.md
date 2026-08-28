@@ -1085,6 +1085,25 @@ frontend, projection-storage, authorization, or database-schema change.
 Profiles: base
 Verified by: AC-545, AC-546, AC-547, AC-548, AC-549, AC-551
 
+**REQ-04-161**
+An Incidents mutation command MUST sample exactly one recorded mutation time in
+UTC immediately before transactional execution. If and only if that transaction
+commits, every incident or membership source row, raw Incidents administrative-
+audit row, public administrative-audit projection, and command-owned bootstrap
+row created or updated by that command MUST use that same recorded time wherever
+the applicable owner exposes an occurrence, creation, update, join, close, or
+publication timestamp for the command. Incident Bundle import finalization uses
+its already-admitted `published_at` as the recorded mutation time.
+
+The recorded time becomes observable only through commit. Admission failure,
+authorization denial, conflict, no-op, idempotent replay, transaction rollback,
+and commit failure MUST NOT create a new audit occurrence or post-commit effect.
+Raw and projected audit rows for one occurrence MUST retain the same audit-event
+identity and recorded time. Implementations MUST NOT obtain a second hidden clock
+value while constructing Incidents audit facts or projections.
+Profiles: base
+Verified by: AC-567
+
 ### 9.0 Profile claim manifests
 
 The manifests below define implementation claim boundaries without restating requirement prose. Each manifest selects implementation requirements through the `Profiles:` trailers carried by Core 00 through Core 04 and pairs that selector with the acceptance criteria that complete the claim. Appendix F expands every selector into explicit navigation tables.
@@ -1096,7 +1115,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-474`, `AC-480..AC-486`, `AC-545..AC-549`, `AC-551`, `AC-554..AC-556`, `AC-558..AC-562`, `AC-564..AC-565`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-474`, `AC-480..AC-486`, `AC-545..AC-549`, `AC-551`, `AC-554..AC-556`, `AC-558..AC-562`, `AC-564..AC-565`, `AC-567`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -1160,7 +1179,8 @@ Definition of Done:
 - additional requirement selector: `profile:incident_portability`
 - additional acceptance criteria: `AC-164..AC-169`, `AC-236`,
   `AC-273..AC-276`, `AC-327..AC-328`, `AC-332`, `AC-386`, `AC-409`,
-  `AC-440`, `AC-442`, `AC-487..AC-508`, `AC-550`, `AC-557`, `AC-563`
+  `AC-440`, `AC-442`, `AC-487..AC-508`, `AC-550`, `AC-557`, `AC-563`,
+  `AC-566`
 - **AC-236**: An Incident Portability claim is conformant only when a Base claim passes, every requirement selected by `profile:incident_portability` is implemented, and every additional acceptance criterion listed in this manifest passes.
   - Verifies: `profile:incident_portability`
 
@@ -1813,6 +1833,29 @@ These criteria provide direct runtime-family verification for substantive base-p
   public shapes, lifecycle, authorization, transaction atomicity, persisted
   data, and effect ordering across the catalog cutover.
   - Verifies: REQ-01-336..REQ-01-341, REQ-01-671
+
+- **AC-566**: Incident source-family evidence proves that the version-3 singleton
+  file has exactly the 16 REQ-01-673 members and canonical scalar forms. Negative
+  fixtures independently cover malformed or multivalue documents, duplicate,
+  missing, unknown, aliased, wrongly typed, noncanonical, and incoherent members,
+  actor-catalog failures, prepared-value binding, and affected-row mismatch.
+  Multi-defect fixtures select the fixed Incident invariant precedence without
+  exposing hostile values or database details. Valid export/import/export remains
+  byte-deterministic; import preserves both source actor attributions, stores the
+  importing actor, compares exact post-remap transaction state, and leaves no
+  visible state after prepare, apply, validation, publication, or commit failure.
+  - Verifies: REQ-01-639..REQ-01-642, REQ-01-673
+
+- **AC-567**: For incident create, metadata patch, close, reopen, membership create,
+  membership role patch, membership deletion, and Incident Bundle finalization,
+  successful transaction evidence proves one exact UTC recorded mutation time is
+  shared by every applicable source, raw audit, projected audit, bootstrap, and
+  publication timestamp. The raw and projected occurrence share one audit-event
+  identity. Admission failure, denial, conflict, no-op, replay, rollback, commit
+  failure, and post-commit dispatcher/response failure prove that no second audit
+  occurrence or duplicate effect is committed; static evidence rejects a hidden
+  audit clock.
+  - Verifies: REQ-04-161
 
 ### 9.1B Network Flow Activity Extension Profile criteria
 

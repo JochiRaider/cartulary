@@ -424,11 +424,12 @@ func startNetworkFlowStoreTest(t testing.TB, prefix string) (*storetest.StoreHar
 		false,
 		true,
 	)
-	result := storetest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-" + prefix,
-		IncidentKey: "IR-" + strings.ToUpper(strings.ReplaceAll(prefix, "-", "")),
-		Title:       "Network Flow " + prefix,
-	})
+	result := storetest.CreateIncidentInStore(
+		t, harness.Incidents, actor,
+		"txn-"+prefix,
+		"IR-"+strings.ToUpper(strings.ReplaceAll(prefix, "-", "")),
+		"Network Flow "+prefix,
+	)
 
 	return harness, actor, result.Incident.ID
 }

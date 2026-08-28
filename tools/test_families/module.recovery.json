@@ -589,6 +589,7 @@
       "selector": {
         "package": "./internal/app/recoveryassembly",
         "tests": [
+          "TestIncidentsRecoveryContributionFailureHasOwnerContext_Unit",
           "TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit"
         ]
       },

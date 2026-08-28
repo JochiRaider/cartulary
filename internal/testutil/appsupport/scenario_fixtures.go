@@ -12,6 +12,7 @@ import (
 	"github.com/pquerna/otp/totp"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -85,15 +86,17 @@ func CreateIncidentInStore(t testing.TB, pool postgres.DB, actor authn.UserRecor
 	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            pool,
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+		Now:                 time.Now,
 	})
 	if err != nil {
 		t.Fatalf("construct Incidents application: %v", err)
 	}
-	result, err := store.CreateIncident(context.Background(), actor, incidents.CreateIncidentRequest{
+	request := admissiontest.IncidentCreate(t, admissiontest.IncidentCreateInput{
 		ClientTxnID: clientTxnID,
 		IncidentKey: incidentKey,
 		Title:       title,
-	}, "req-"+clientTxnID, time.Now().UTC())
+	})
+	result, err := store.CreateIncident(context.Background(), actor, request, "req-"+clientTxnID)
 	if err != nil {
 		t.Fatalf("create incident in store: %v", err)
 	}

@@ -3,6 +3,7 @@ package recoveryassembly
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
@@ -169,6 +170,17 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 	external.Tables[0].TableName = "mutated"
 	if err := catalog.ValidateFrozen(); err != nil {
 		t.Fatalf("caller mutated frozen catalog through a cloned view: %v", err)
+	}
+}
+
+func TestIncidentsRecoveryContributionFailureHasOwnerContext_Unit(t *testing.T) {
+	sentinel := errors.New("invalid manifest")
+	contribution, err := constructIncidentsStateContribution(func() (recoverystate.Contribution, error) {
+		return recoverystate.Contribution{}, sentinel
+	})
+	if contribution.OwnerID != "" || !errors.Is(err, sentinel) ||
+		!strings.Contains(err.Error(), "recovery assembly: Incidents state contribution") {
+		t.Fatalf("contextual Incidents Recovery failure = contribution %#v, error %v", contribution, err)
 	}
 }
 

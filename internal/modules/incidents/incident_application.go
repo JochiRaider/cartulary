@@ -85,12 +85,14 @@ func (a *Application) GetVisibleIncident(
 func (a *Application) CreateIncident(
 	ctx context.Context,
 	actor authn.UserRecord,
-	request CreateIncidentRequest,
+	request IncidentCreateAdmission,
 	requestID string,
-	now time.Time,
 ) (CreateIncidentResult, error) {
-	requestHash := incidentCreateRequestHash(request)
-	key := authn.ActorOnlyRouteIdempotencyKey("incidents.create", actor.ID, request.ClientTxnID)
+	if !request.admitted {
+		return CreateIncidentResult{}, errInvalidMutationAdmission
+	}
+	requestHash := request.requestHash[:]
+	key := authn.ActorOnlyRouteIdempotencyKey("incidents.create", actor.ID, request.clientTxnID)
 	if existing, err := a.authStore.GetRouteIdempotency(ctx, key); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
 			return CreateIncidentResult{}, authn.ErrClientTxnConflict
@@ -110,6 +112,10 @@ func (a *Application) CreateIncident(
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return CreateIncidentResult{}, fmt.Errorf("query incident create idempotency: %w", err)
 	}
+	mutationTime, err := a.recordedMutationTime()
+	if err != nil {
+		return CreateIncidentResult{}, err
+	}
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return CreateIncidentResult{}, fmt.Errorf("begin incident create transaction: %w", err)
@@ -120,16 +126,19 @@ func (a *Application) CreateIncident(
 
 	txRepository := newRepository(tx)
 	incident, err := txRepository.createIncident(ctx, createIncidentPersistenceParams{
-		IncidentKey:            request.IncidentKey,
-		Title:                  request.Title,
-		Description:            request.Description,
-		Severity:               request.Severity,
-		TLP:                    request.TLP,
-		CurrentPhase:           request.CurrentPhase,
-		PrimaryExternalCaseRef: request.PrimaryExternalCaseRef,
+		IncidentKey:            request.incidentKey,
+		Title:                  request.title,
+		Description:            request.description,
+		Severity:               request.severity,
+		TLP:                    request.tlp,
+		CurrentPhase:           request.currentPhase,
+		PrimaryExternalCaseRef: request.primaryExternalCaseRef,
 		CreatedByUserID:        actor.ID,
-		CreatedAt:              now,
+		CreatedAt:              mutationTime,
 	})
+	if errors.Is(err, ErrIncidentKeyConflict) {
+		return CreateIncidentResult{}, &IncidentKeyConflictError{incidentKeyCanonical: request.incidentKey}
+	}
 	if err != nil {
 		return CreateIncidentResult{}, err
 	}
@@ -137,7 +146,7 @@ func (a *Application) CreateIncident(
 	membership, err := txRepository.createBootstrapMembership(ctx, createBootstrapMembershipPersistenceParams{
 		IncidentID:  incident.ID,
 		UserID:      actor.ID,
-		JoinedAt:    now,
+		JoinedAt:    mutationTime,
 		Role:        "admin",
 		DisplayName: actor.DisplayName,
 	})
@@ -148,7 +157,7 @@ func (a *Application) CreateIncident(
 	if err := a.preferenceBootstrap.InsertInitialTx(ctx, tx, bootstrapport.InitialPreferenceInput{
 		IncidentID:      incident.ID,
 		UserID:          actor.ID,
-		CommitTimestamp: now,
+		CommitTimestamp: mutationTime,
 	}); err != nil {
 		return CreateIncidentResult{}, err
 	}
@@ -156,26 +165,29 @@ func (a *Application) CreateIncident(
 	incidentPayload := BuildIncidentResource(incident)
 	membershipPayload := BuildMembershipResource(membership)
 	if _, err := insertAuditEvent(ctx, tx, auditEvent{
-		ActorUserID:  &actor.ID,
-		TargetUserID: &actor.ID,
-		IncidentID:   &incident.ID,
-		EventSource:  "incidents",
-		EventKind:    "incident_created",
-		ClientTxnID:  &request.ClientTxnID,
-		RequestID:    &requestID,
-		AfterJSON:    incidentPayload,
+		actorUserID:  &actor.ID,
+		targetUserID: &actor.ID,
+		incidentID:   &incident.ID,
+		kind:         auditIncidentCreated,
+		source:       auditSourceAPI,
+		clientTxnID:  &request.clientTxnID,
+		requestID:    &requestID,
+		afterJSON:    incidentPayload,
+		occurredAt:   mutationTime,
 	}); err != nil {
 		return CreateIncidentResult{}, err
 	}
 	if _, err := insertAuditEvent(ctx, tx, auditEvent{
-		ActorUserID:  &actor.ID,
-		TargetUserID: &actor.ID,
-		IncidentID:   &incident.ID,
-		EventSource:  "incidents",
-		EventKind:    "incident_membership_created",
-		ClientTxnID:  &request.ClientTxnID,
-		RequestID:    &requestID,
-		AfterJSON:    membershipPayload,
+		actorUserID:  &actor.ID,
+		targetUserID: &actor.ID,
+		incidentID:   &incident.ID,
+		kind:         auditMembershipCreated,
+		source:       auditSourceAPI,
+		clientTxnID:  &request.clientTxnID,
+		requestID:    &requestID,
+		afterJSON:    membershipPayload,
+		roles:        auditRoleFacts{after: auditRole(membership.Role)},
+		occurredAt:   mutationTime,
 	}); err != nil {
 		return CreateIncidentResult{}, err
 	}
@@ -213,10 +225,16 @@ func (a *Application) UpdateIncident(
 	ctx context.Context,
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
-	request IncidentPatchRequest,
+	request IncidentPatchAdmission,
 	requestID string,
-	now time.Time,
 ) (IncidentRecord, bool, error) {
+	if !request.admitted {
+		return IncidentRecord{}, false, errInvalidMutationAdmission
+	}
+	mutationTime, err := a.recordedMutationTime()
+	if err != nil {
+		return IncidentRecord{}, false, err
+	}
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return IncidentRecord{}, false, fmt.Errorf("begin incident patch transaction: %w", err)
@@ -236,14 +254,14 @@ func (a *Application) UpdateIncident(
 	}); err != nil {
 		return IncidentRecord{}, false, err
 	}
-	if current.IncidentVersion != request.BaseIncidentVersion {
+	if current.IncidentVersion != request.baseIncidentVersion {
 		return IncidentRecord{}, false, &IncidentVersionConflictError{
 			IncidentID:             incidentID,
-			BaseIncidentVersion:    request.BaseIncidentVersion,
+			BaseIncidentVersion:    request.baseIncidentVersion,
 			CurrentIncidentVersion: current.IncidentVersion,
 		}
 	}
-	next, changed := applyIncidentPatch(current, request, actor.ID, now)
+	next, changed := applyIncidentPatch(current, request, actor.ID, mutationTime)
 	if !changed {
 		if err := tx.Commit(ctx); err != nil {
 			return IncidentRecord{}, false, fmt.Errorf("commit incident no-op patch transaction: %w", err)
@@ -256,14 +274,15 @@ func (a *Application) UpdateIncident(
 		return IncidentRecord{}, false, err
 	}
 	if _, err := insertAuditEvent(ctx, tx, auditEvent{
-		ActorUserID:  &actor.ID,
-		TargetUserID: &actor.ID,
-		IncidentID:   &incidentID,
-		EventSource:  "incidents",
-		EventKind:    "incident_updated",
-		RequestID:    &requestID,
-		BeforeJSON:   BuildIncidentResource(current),
-		AfterJSON:    BuildIncidentResource(updated),
+		actorUserID:  &actor.ID,
+		targetUserID: &actor.ID,
+		incidentID:   &incidentID,
+		kind:         auditIncidentUpdated,
+		source:       auditSourceAPI,
+		requestID:    &requestID,
+		beforeJSON:   BuildIncidentResource(current),
+		afterJSON:    BuildIncidentResource(updated),
+		occurredAt:   mutationTime,
 	}); err != nil {
 		return IncidentRecord{}, false, err
 	}
@@ -278,17 +297,19 @@ func (a *Application) TransitionIncidentLifecycle(
 	ctx context.Context,
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
-	action string,
-	request IncidentLifecycleRequest,
+	request IncidentLifecycleAdmission,
 	requestID string,
-	now time.Time,
 ) (IncidentLifecycleResult, error) {
-	requestHash := incidentLifecycleRequestHash(action, request)
+	if !request.admitted || request.action.String() == "" {
+		return IncidentLifecycleResult{}, errInvalidMutationAdmission
+	}
+	action := request.action.String()
+	requestHash := request.requestHash[:]
 	key := authn.RouteIdempotencyKey{
 		RouteKey:    "incidents." + action,
 		ActorUserID: actor.ID,
 		ScopeKey:    incidentID.String(),
-		ClientTxnID: request.ClientTxnID,
+		ClientTxnID: request.clientTxnID,
 	}
 	if existing, err := a.authStore.GetRouteIdempotency(ctx, key); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
@@ -304,6 +325,10 @@ func (a *Application) TransitionIncidentLifecycle(
 		}, nil
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return IncidentLifecycleResult{}, fmt.Errorf("query incident lifecycle idempotency: %w", err)
+	}
+	mutationTime, err := a.recordedMutationTime()
+	if err != nil {
+		return IncidentLifecycleResult{}, err
 	}
 
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -325,10 +350,10 @@ func (a *Application) TransitionIncidentLifecycle(
 	}); err != nil {
 		return IncidentLifecycleResult{}, err
 	}
-	if current.IncidentVersion != request.BaseIncidentVersion {
+	if current.IncidentVersion != request.baseIncidentVersion {
 		return IncidentLifecycleResult{}, &IncidentVersionConflictError{
 			IncidentID:             incidentID,
-			BaseIncidentVersion:    request.BaseIncidentVersion,
+			BaseIncidentVersion:    request.baseIncidentVersion,
 			CurrentIncidentVersion: current.IncidentVersion,
 		}
 	}
@@ -341,7 +366,7 @@ func (a *Application) TransitionIncidentLifecycle(
 			return IncidentLifecycleResult{}, ErrIncidentIllegalTransition
 		}
 		nextStatus = "closed"
-		closedAt := now
+		closedAt := mutationTime
 		nextClosedAt = &closedAt
 	case "reopen":
 		if current.Status != "closed" {
@@ -356,7 +381,7 @@ func (a *Application) TransitionIncidentLifecycle(
 		IncidentID:      incidentID,
 		Status:          nextStatus,
 		ClosedAt:        nextClosedAt,
-		UpdatedAt:       now,
+		UpdatedAt:       mutationTime,
 		UpdatedByUserID: actor.ID,
 	})
 	if err != nil {
@@ -364,17 +389,22 @@ func (a *Application) TransitionIncidentLifecycle(
 	}
 
 	payload := BuildIncidentResource(updated)
+	auditKind := auditIncidentClosed
+	if request.action == LifecycleActionReopen {
+		auditKind = auditIncidentReopened
+	}
 	auditEventID, err := insertAuditEvent(ctx, tx, auditEvent{
-		ActorUserID:  &actor.ID,
-		TargetUserID: &actor.ID,
-		IncidentID:   &incidentID,
-		EventSource:  "incidents",
-		EventKind:    "incident_" + action,
-		ReasonCode:   &request.Reason,
-		ClientTxnID:  &request.ClientTxnID,
-		RequestID:    &requestID,
-		BeforeJSON:   BuildIncidentResource(current),
-		AfterJSON:    payload,
+		actorUserID:  &actor.ID,
+		targetUserID: &actor.ID,
+		incidentID:   &incidentID,
+		kind:         auditKind,
+		source:       auditSourceAPI,
+		reasonCode:   &request.reason,
+		clientTxnID:  &request.clientTxnID,
+		requestID:    &requestID,
+		beforeJSON:   BuildIncidentResource(current),
+		afterJSON:    payload,
+		occurredAt:   mutationTime,
 	})
 	if err != nil {
 		return IncidentLifecycleResult{}, err
@@ -398,6 +428,10 @@ func (a *Application) TransitionIncidentLifecycle(
 		}
 		return IncidentLifecycleResult{}, fmt.Errorf("insert incident lifecycle idempotency: %w", err)
 	}
+	commit, err := NewTerminalMutationCommit(auditEventID)
+	if err != nil {
+		return IncidentLifecycleResult{}, err
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return IncidentLifecycleResult{}, fmt.Errorf("commit incident lifecycle transaction: %w", err)
@@ -405,31 +439,31 @@ func (a *Application) TransitionIncidentLifecycle(
 	return IncidentLifecycleResult{
 		Incident: updated,
 		Payload:  payload,
-		Commit:   NewTerminalMutationCommit(auditEventID),
+		Commit:   commit,
 	}, nil
 }
 
 func applyIncidentPatch(
 	current IncidentRecord,
-	request IncidentPatchRequest,
+	request IncidentPatchAdmission,
 	actorUserID uuid.UUID,
 	updatedAt time.Time,
 ) (IncidentRecord, bool) {
 	next := current
-	if request.Description.Present {
-		next.Description = request.Description.Value
+	if request.description.present {
+		next.Description = request.description.value
 	}
-	if request.Severity.Present {
-		next.Severity = request.Severity.Value
+	if request.severity.present {
+		next.Severity = request.severity.value
 	}
-	if request.TLP.Present {
-		next.TLP = request.TLP.Value
+	if request.tlp.present {
+		next.TLP = request.tlp.value
 	}
-	if request.CurrentPhase.Present {
-		next.CurrentPhase = request.CurrentPhase.Value
+	if request.currentPhase.present {
+		next.CurrentPhase = request.currentPhase.value
 	}
-	if request.PrimaryExternalCaseRef.Present {
-		next.PrimaryExternalCaseRef = request.PrimaryExternalCaseRef.Value
+	if request.primaryExternalCaseRef.present {
+		next.PrimaryExternalCaseRef = request.primaryExternalCaseRef.value
 	}
 
 	if stringPointersEqual(current.Description, next.Description) &&

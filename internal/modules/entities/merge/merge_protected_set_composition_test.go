@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	entitymerge "github.com/JochiRaider/cartulary/internal/modules/entities/merge"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -251,6 +252,7 @@ func createComposedMergeIncident(t testing.TB, db postgres.DB, actor authn.UserR
 	application, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            db,
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+		Now:                 time.Now,
 	})
 	if err != nil {
 		t.Fatalf("construct Incidents application: %v", err)
@@ -258,13 +260,12 @@ func createComposedMergeIncident(t testing.TB, db postgres.DB, actor authn.UserR
 	result, err := application.CreateIncident(
 		context.Background(),
 		actor,
-		incidents.CreateIncidentRequest{
+		admissiontest.IncidentCreate(t, admissiontest.IncidentCreateInput{
 			ClientTxnID: "txn-merge-protected-incident-composition",
 			IncidentKey: "IR-MERGE-PROTECTED-COMPOSITION",
 			Title:       "Merge protected set composition",
-		},
+		}),
 		"req-merge-protected-incident-composition",
-		time.Now().UTC(),
 	)
 	if err != nil {
 		t.Fatalf("create merge protected-set incident: %v", err)

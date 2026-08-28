@@ -839,6 +839,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	incidentApplication, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            postgresHandle,
 		PreferenceBootstrap: workbookPreferenceBootstrap,
+		Now:                 now,
 	})
 	if err != nil {
 		runtime.Close()

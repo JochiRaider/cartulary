@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/mutationtest"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -63,16 +65,22 @@ func CreateIncidentInStore(
 	t testing.TB,
 	store *incidents.Application,
 	actor authn.UserRecord,
-	request incidents.CreateIncidentRequest,
+	clientTxnID string,
+	incidentKey string,
+	title string,
 ) incidents.CreateIncidentResult {
 	t.Helper()
+	request := admissiontest.IncidentCreate(t, admissiontest.IncidentCreateInput{
+		ClientTxnID: clientTxnID,
+		IncidentKey: incidentKey,
+		Title:       title,
+	})
 
 	result, err := store.CreateIncident(
 		context.Background(),
 		actor,
 		request,
-		"req-"+request.ClientTxnID,
-		time.Now().UTC(),
+		"req-"+clientTxnID,
 	)
 	if err != nil {
 		t.Fatalf("create incident in store: %v", err)
@@ -86,13 +94,20 @@ func CreateMembershipInStore(
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
 	targetUser authn.UserRecord,
-	request incidents.MembershipCreateRequest,
+	clientTxnID string,
+	role string,
 ) incidents.MembershipCreateResult {
 	t.Helper()
+	request := admissiontest.MembershipCreate(t, admissiontest.MembershipCreateInput{
+		ClientTxnID: clientTxnID,
+		UserID:      &targetUser.ID,
+		Role:        role,
+	})
 
 	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            pool,
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+		Now:                 time.Now,
 	})
 	if err != nil {
 		t.Fatalf("construct Incidents application: %v", err)
@@ -103,8 +118,7 @@ func CreateMembershipInStore(
 		incidentID,
 		targetUser,
 		request,
-		"req-"+request.ClientTxnID,
-		time.Now().UTC(),
+		"req-"+clientTxnID,
 	)
 	if err != nil {
 		t.Fatalf("create membership in store: %v", err)
@@ -119,6 +133,73 @@ func LookupUserByID(t testing.TB, pool postgres.DB, userID uuid.UUID) authn.User
 	record, err := store.GetUserByID(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("lookup user by id %s: %v", userID, err)
+	}
+	return record
+}
+
+func GetMembership(
+	t testing.TB,
+	db postgres.DB,
+	incidentID uuid.UUID,
+	userID uuid.UUID,
+) incidents.MembershipRecord {
+	t.Helper()
+
+	var (
+		rowIncidentID   pgtype.UUID
+		rowUserID       pgtype.UUID
+		displayName     string
+		role            string
+		joinedAt        pgtype.Timestamptz
+		addedByUserID   pgtype.UUID
+		updatedAt       pgtype.Timestamptz
+		updatedByUserID pgtype.UUID
+		version         int64
+	)
+	err := db.QueryRow(context.Background(), `
+SELECT
+    m.incident_id,
+    m.user_id,
+    u.display_name,
+    m.role,
+    m.joined_at,
+    m.added_by_user_id,
+    m.updated_at,
+    m.updated_by_user_id,
+    m.membership_version
+FROM incident_memberships m
+JOIN users u ON u.id = m.user_id
+WHERE m.incident_id = $1 AND m.user_id = $2`, incidentID, userID).Scan(
+		&rowIncidentID,
+		&rowUserID,
+		&displayName,
+		&role,
+		&joinedAt,
+		&addedByUserID,
+		&updatedAt,
+		&updatedByUserID,
+		&version,
+	)
+	if err != nil {
+		t.Fatalf("get incident membership: %v", err)
+	}
+	if !rowIncidentID.Valid || !rowUserID.Valid || !joinedAt.Valid || !addedByUserID.Valid || !updatedAt.Valid {
+		t.Fatal("get incident membership returned invalid required values")
+	}
+
+	record := incidents.MembershipRecord{
+		IncidentID:        uuid.UUID(rowIncidentID.Bytes),
+		UserID:            uuid.UUID(rowUserID.Bytes),
+		DisplayName:       displayName,
+		Role:              role,
+		JoinedAt:          joinedAt.Time,
+		AddedByUserID:     uuid.UUID(addedByUserID.Bytes),
+		UpdatedAt:         updatedAt.Time,
+		MembershipVersion: version,
+	}
+	if updatedByUserID.Valid {
+		value := uuid.UUID(updatedByUserID.Bytes)
+		record.UpdatedByUserID = &value
 	}
 	return record
 }

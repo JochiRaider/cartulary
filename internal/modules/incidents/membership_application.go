@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -25,19 +24,21 @@ func (a *Application) CreateMembership(
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
 	targetUser authn.UserRecord,
-	request MembershipCreateRequest,
+	request MembershipCreateAdmission,
 	requestID string,
-	now time.Time,
 ) (MembershipCreateResult, error) {
+	if !request.admitted {
+		return MembershipCreateResult{}, errInvalidMutationAdmission
+	}
 	if err := validateMembershipCreateTarget(request, targetUser); err != nil {
 		return MembershipCreateResult{}, err
 	}
-	requestHash := membershipCreateRequestHash(request)
+	requestHash := request.requestHash[:]
 	key := authn.RouteIdempotencyKey{
 		RouteKey:    "incident.memberships.create",
 		ActorUserID: actor.ID,
 		ScopeKey:    incidentID.String(),
-		ClientTxnID: request.ClientTxnID,
+		ClientTxnID: request.clientTxnID,
 	}
 	if existing, err := a.authStore.GetRouteIdempotency(ctx, key); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
@@ -47,7 +48,7 @@ func (a *Application) CreateMembership(
 		if err != nil {
 			return MembershipCreateResult{}, fmt.Errorf("decode replayed membership payload: %w", err)
 		}
-		record, err := a.GetMembership(ctx, incidentID, targetUser.ID)
+		record, err := a.repository.getMembership(ctx, incidentID, targetUser.ID)
 		if err != nil {
 			return MembershipCreateResult{}, err
 		}
@@ -57,6 +58,10 @@ func (a *Application) CreateMembership(
 		}, nil
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return MembershipCreateResult{}, fmt.Errorf("query membership create idempotency: %w", err)
+	}
+	mutationTime, err := a.recordedMutationTime()
+	if err != nil {
+		return MembershipCreateResult{}, err
 	}
 
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -83,7 +88,7 @@ func (a *Application) CreateMembership(
 	case err != nil:
 		return MembershipCreateResult{}, err
 	default:
-		if current.Role != request.Role {
+		if current.Role != request.role {
 			return MembershipCreateResult{}, ErrMembershipExistsUsePatch
 		}
 		payload := BuildMembershipResource(current)
@@ -113,8 +118,8 @@ func (a *Application) CreateMembership(
 	created, err := txRepository.createMembership(ctx, createMembershipPersistenceParams{
 		IncidentID:    incidentID,
 		UserID:        targetUser.ID,
-		Role:          request.Role,
-		JoinedAt:      now,
+		Role:          request.role,
+		JoinedAt:      mutationTime,
 		AddedByUserID: actor.ID,
 		DisplayName:   targetUser.DisplayName,
 	})
@@ -124,14 +129,16 @@ func (a *Application) CreateMembership(
 
 	payload := BuildMembershipResource(created)
 	if _, err := insertAuditEvent(ctx, tx, auditEvent{
-		ActorUserID:  &actor.ID,
-		TargetUserID: &targetUser.ID,
-		IncidentID:   &incidentID,
-		EventSource:  "incidents",
-		EventKind:    "incident_membership_created",
-		ClientTxnID:  &request.ClientTxnID,
-		RequestID:    &requestID,
-		AfterJSON:    payload,
+		actorUserID:  &actor.ID,
+		targetUserID: &targetUser.ID,
+		incidentID:   &incidentID,
+		kind:         auditMembershipCreated,
+		source:       auditSourceAPI,
+		clientTxnID:  &request.clientTxnID,
+		requestID:    &requestID,
+		afterJSON:    payload,
+		roles:        auditRoleFacts{after: auditRole(created.Role)},
+		occurredAt:   mutationTime,
 	}); err != nil {
 		return MembershipCreateResult{}, err
 	}
@@ -160,23 +167,21 @@ func (a *Application) CreateMembership(
 	}, nil
 }
 
-func (a *Application) GetMembership(
-	ctx context.Context,
-	incidentID uuid.UUID,
-	userID uuid.UUID,
-) (MembershipRecord, error) {
-	return a.repository.getMembership(ctx, incidentID, userID)
-}
-
 func (a *Application) UpdateMembership(
 	ctx context.Context,
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
 	userID uuid.UUID,
-	request MembershipPatchRequest,
+	request MembershipPatchAdmission,
 	requestID string,
-	now time.Time,
 ) (MembershipRecord, bool, error) {
+	if !request.admitted {
+		return MembershipRecord{}, false, errInvalidMutationAdmission
+	}
+	mutationTime, err := a.recordedMutationTime()
+	if err != nil {
+		return MembershipRecord{}, false, err
+	}
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return MembershipRecord{}, false, fmt.Errorf("begin membership patch transaction: %w", err)
@@ -199,10 +204,10 @@ func (a *Application) UpdateMembership(
 	if err != nil {
 		return MembershipRecord{}, false, err
 	}
-	if current.MembershipVersion != request.BaseMembershipVersion {
+	if current.MembershipVersion != request.baseMembershipVersion {
 		return MembershipRecord{}, false, ErrMembershipVersionConflict
 	}
-	if current.Role == request.Role {
+	if current.Role == request.role {
 		if err := tx.Commit(ctx); err != nil {
 			return MembershipRecord{}, false, fmt.Errorf("commit membership no-op patch transaction: %w", err)
 		}
@@ -213,15 +218,15 @@ func (a *Application) UpdateMembership(
 	if err != nil {
 		return MembershipRecord{}, false, fmt.Errorf("count incident admins: %w", err)
 	}
-	if wouldLeaveNoIncidentAdmins(current.Role, adminCount, &request.Role, false) {
+	if wouldLeaveNoIncidentAdmins(current.Role, adminCount, &request.role, false) {
 		return MembershipRecord{}, false, ErrLastIncidentAdmin
 	}
 
 	updated, err := txRepository.updateMembership(ctx, updateMembershipPersistenceParams{
 		IncidentID:      incidentID,
 		UserID:          userID,
-		Role:            request.Role,
-		UpdatedAt:       now,
+		Role:            request.role,
+		UpdatedAt:       mutationTime,
 		UpdatedByUserID: actor.ID,
 		DisplayName:     current.DisplayName,
 	})
@@ -230,14 +235,19 @@ func (a *Application) UpdateMembership(
 	}
 
 	if _, err := insertAuditEvent(ctx, tx, auditEvent{
-		ActorUserID:  &actor.ID,
-		TargetUserID: &userID,
-		IncidentID:   &incidentID,
-		EventSource:  "incidents",
-		EventKind:    "incident_membership_updated",
-		RequestID:    &requestID,
-		BeforeJSON:   BuildMembershipResource(current),
-		AfterJSON:    BuildMembershipResource(updated),
+		actorUserID:  &actor.ID,
+		targetUserID: &userID,
+		incidentID:   &incidentID,
+		kind:         auditMembershipUpdated,
+		source:       auditSourceAPI,
+		requestID:    &requestID,
+		beforeJSON:   BuildMembershipResource(current),
+		afterJSON:    BuildMembershipResource(updated),
+		roles: auditRoleFacts{
+			before: auditRole(current.Role),
+			after:  auditRole(updated.Role),
+		},
+		occurredAt: mutationTime,
 	}); err != nil {
 		return MembershipRecord{}, false, err
 	}
@@ -253,9 +263,16 @@ func (a *Application) DeleteMembership(
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
 	userID uuid.UUID,
-	request MembershipDeleteRequest,
+	request MembershipDeleteAdmission,
 	requestID string,
 ) (MembershipDeleteResult, error) {
+	if !request.admitted {
+		return MembershipDeleteResult{}, errInvalidMutationAdmission
+	}
+	mutationTime, err := a.recordedMutationTime()
+	if err != nil {
+		return MembershipDeleteResult{}, err
+	}
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return MembershipDeleteResult{}, fmt.Errorf("begin membership delete transaction: %w", err)
@@ -278,7 +295,7 @@ func (a *Application) DeleteMembership(
 	if err != nil {
 		return MembershipDeleteResult{}, err
 	}
-	if current.MembershipVersion != request.BaseMembershipVersion {
+	if current.MembershipVersion != request.baseMembershipVersion {
 		return MembershipDeleteResult{}, ErrMembershipVersionConflict
 	}
 
@@ -295,15 +312,21 @@ func (a *Application) DeleteMembership(
 	}
 
 	auditEventID, err := insertAuditEvent(ctx, tx, auditEvent{
-		ActorUserID:  &actor.ID,
-		TargetUserID: &userID,
-		IncidentID:   &incidentID,
-		EventSource:  "incidents",
-		EventKind:    "incident_membership_deleted",
-		RequestID:    &requestID,
-		BeforeJSON:   BuildMembershipResource(current),
-		AfterJSON:    map[string]any{"deleted": true},
+		actorUserID:  &actor.ID,
+		targetUserID: &userID,
+		incidentID:   &incidentID,
+		kind:         auditMembershipDeleted,
+		source:       auditSourceAPI,
+		requestID:    &requestID,
+		beforeJSON:   BuildMembershipResource(current),
+		afterJSON:    map[string]any{"deleted": true},
+		roles:        auditRoleFacts{before: auditRole(current.Role)},
+		occurredAt:   mutationTime,
 	})
+	if err != nil {
+		return MembershipDeleteResult{}, err
+	}
+	commit, err := NewTerminalMutationCommit(auditEventID)
 	if err != nil {
 		return MembershipDeleteResult{}, err
 	}
@@ -311,20 +334,20 @@ func (a *Application) DeleteMembership(
 	if err := tx.Commit(ctx); err != nil {
 		return MembershipDeleteResult{}, fmt.Errorf("commit membership delete transaction: %w", err)
 	}
-	return MembershipDeleteResult{Commit: NewTerminalMutationCommit(auditEventID)}, nil
+	return MembershipDeleteResult{Commit: commit}, nil
 }
 
-func validateMembershipCreateTarget(request MembershipCreateRequest, targetUser authn.UserRecord) error {
-	if request.UserID != nil {
-		if request.Email != nil || targetUser.ID == uuid.Nil || *request.UserID != targetUser.ID {
+func validateMembershipCreateTarget(request MembershipCreateAdmission, targetUser authn.UserRecord) error {
+	if request.userID != nil {
+		if request.email != nil || targetUser.ID == uuid.Nil || *request.userID != targetUser.ID {
 			return errors.New("incidents: resolved membership target does not match user_id selector")
 		}
 		return nil
 	}
-	if request.Email == nil || targetUser.ID == uuid.Nil {
+	if request.email == nil || targetUser.ID == uuid.Nil {
 		return errors.New("incidents: resolved membership target requires exactly one selector")
 	}
-	_, requestComparison, requestOK := authn.NormalizeEmailAddress(*request.Email)
+	_, requestComparison, requestOK := authn.NormalizeEmailAddress(*request.email)
 	_, targetComparison, targetOK := authn.NormalizeEmailAddress(targetUser.Email)
 	if !requestOK || !targetOK || requestComparison != targetComparison {
 		return errors.New("incidents: resolved membership target does not match email selector")

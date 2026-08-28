@@ -7857,6 +7857,52 @@ archive order, and database error text MUST NOT select it.
 | Revisions | Referenced change sets, mutations, revisions, records, and actors exist; mutation sequence is contiguous; `(record_id, row_version)` is unique; before/after history reconstructs imported current state; sequence repair runs only after validation. |
 | Saved Views | Every bounded logical row has the exact adopted shape and types; UUIDs, incident/schema references, scope/owner tuple, display name, query, layout, version, and timestamps are valid; transaction state equals admitted input; absent optional Reference Packs degrade only admitted overlays. |
 
+**REQ-01-673**
+For Incident Bundle version `3`, source family `incident`, contract major `2`,
+`data/incident.json` MUST contain exactly one JSON object with exactly these 16
+members. Every member is required, including members whose value may be JSON
+`null`. Unknown, missing, duplicate, aliased, wrongly typed, noncanonical,
+multivalue, or trailing-content input fails admission. Import MUST NOT repair,
+skip, merge, default, or normalize input.
+
+| Member | Required form |
+| --- | --- |
+| `id` | Canonical lowercase hyphenated nonzero UUID string equal to the immutable import context and manifest incident. |
+| `incident_key` | Non-empty NFC single-line text without control characters and at most 128 UTF-8 bytes. |
+| `incident_key_canonical` | Exact canonical Incident-key text equal to `incident_key`; import does not derive or repair it. |
+| `title` | Non-empty NFC single-line text without control characters and at most 512 Unicode scalar values. |
+| `description` | JSON `null` or non-empty NFC text of at most 16,384 Unicode scalar values; line feeds and tabs are admitted, carriage returns and other control characters are not. |
+| `status` | Exactly `active` or `closed`. |
+| `severity`, `current_phase`, `primary_external_case_ref` | Each is JSON `null` or non-empty NFC single-line text without control characters and at most 128 Unicode scalar values. |
+| `tlp` | JSON `null` or exactly `TLP:CLEAR`, `TLP:GREEN`, `TLP:AMBER`, `TLP:AMBER+STRICT`, or `TLP:RED`. |
+| `created_by_user_id`, `updated_by_user_id` | Canonical UUID strings, each resolving exactly once through the admitted actor catalog. |
+| `created_at`, `updated_at` | Canonical UTC RFC3339Nano strings using `+00:00`, with at most six fractional digits, where `created_at <= updated_at`. |
+| `incident_version` | Canonical positive JSON integer greater than or equal to `1`. |
+| `closed_at` | JSON `null` when status is `active`; for status `closed`, a canonical timestamp satisfying `created_at <= closed_at <= updated_at`. |
+
+Internal catalog, path/version, operation, port-binding, and prepared-value
+defects are typed internal failures and MUST NOT be reported as source
+invariants. Source defects use this exclusive precedence:
+
+| Precedence | Invariant ID | Exclusive acceptance rule |
+| ---: | --- | --- |
+| 1 | `incident.source_identity_admitted` | The singleton object contains exactly one canonical nonzero `id`, and it equals the immutable import and manifest incident identity. |
+| 2 | `incident.exact_shape` | The remaining exact 16-member shape, JSON types, required nullable members, and single-value document boundary are admitted. |
+| 3 | `incident.identity_key_lifecycle` | Incident key/canonical equality, title and metadata stored forms, closed status vocabulary, and status/`closed_at` tuple are legal. |
+| 4 | `incident.attribution_version` | Both actor identities are admitted, timestamp forms and ordering are legal, and `incident_version` is a positive canonical integer. |
+
+Prepare performs bounded exact decoding and row-local checks without database
+mutation and binds its private prepared value to the same port, operation,
+incident, bundle version, and contract major. Apply remaps both actor fields to
+the importing actor while retaining both original attributions, uses explicit
+fixed-column parameterized SQL, and requires one affected row. Validate compares
+all 16 admitted values with transaction state after the actor remap. Export names
+all 16 wire members explicitly and produces the current canonical version-3 bytes;
+physical relation column order, `SELECT *`, whole-row `to_jsonb`, and database
+record-population functions are not portable-shape authority.
+Profiles: incident_portability
+Verified by: AC-566
+
 **REQ-01-666**
 For Incident Bundle version `3`, source family `entities`, contract major `2`,
 each non-empty row of the five Entities files MUST be one exact JSON object.

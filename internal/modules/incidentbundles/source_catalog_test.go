@@ -20,7 +20,10 @@ import (
 )
 
 func TestIncidentsSourcePortRejectsWrongPreparedTypeWithoutPanic_Unit(t *testing.T) {
-	port := incidents.NewIncidentBundleSourcePort()
+	port, err := incidents.NewIncidentBundleSourcePort()
+	if err != nil {
+		t.Fatalf("construct Incidents source port: %v", err)
+	}
 	importContext := sourceport.ImportContext{OperationID: "wrong-prepared-type"}
 	prepared := sourceport.NewPrepared(
 		"module.incidents:incident",

@@ -11,7 +11,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
-	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -23,12 +22,11 @@ import (
 type Application interface {
 	ListVisibleIncidents(context.Context, uuid.UUID, incidents.IncidentListPageRequest) ([]incidents.IncidentRecord, error)
 	GetVisibleIncident(context.Context, uuid.UUID, uuid.UUID) (incidents.IncidentRecord, error)
-	CreateIncident(context.Context, authn.UserRecord, incidents.CreateIncidentRequest, string, time.Time) (incidents.CreateIncidentResult, error)
-	UpdateIncident(context.Context, authn.UserRecord, uuid.UUID, incidents.IncidentPatchRequest, string, time.Time) (incidents.IncidentRecord, bool, error)
+	CreateIncident(context.Context, authn.UserRecord, incidents.IncidentCreateAdmission, string) (incidents.CreateIncidentResult, error)
+	UpdateIncident(context.Context, authn.UserRecord, uuid.UUID, incidents.IncidentPatchAdmission, string) (incidents.IncidentRecord, bool, error)
 	ListMemberships(context.Context, uuid.UUID) ([]incidents.MembershipRecord, error)
-	CreateMembership(context.Context, authn.UserRecord, uuid.UUID, authn.UserRecord, incidents.MembershipCreateRequest, string, time.Time) (incidents.MembershipCreateResult, error)
-	UpdateMembership(context.Context, authn.UserRecord, uuid.UUID, uuid.UUID, incidents.MembershipPatchRequest, string, time.Time) (incidents.MembershipRecord, bool, error)
-	ListAdministrativeAuditEvents(context.Context, administrativeaudit.ListFilter) ([]administrativeaudit.Record, error)
+	CreateMembership(context.Context, authn.UserRecord, uuid.UUID, authn.UserRecord, incidents.MembershipCreateAdmission, string) (incidents.MembershipCreateResult, error)
+	UpdateMembership(context.Context, authn.UserRecord, uuid.UUID, uuid.UUID, incidents.MembershipPatchAdmission, string) (incidents.MembershipRecord, bool, error)
 }
 
 type AdmissionChecker interface {
@@ -36,8 +34,8 @@ type AdmissionChecker interface {
 }
 
 type TerminalMutationCoordinator interface {
-	CoordinateIncidentLifecycle(context.Context, authn.UserRecord, uuid.UUID, string, incidents.IncidentLifecycleRequest, string, time.Time) (incidents.IncidentLifecycleResult, error)
-	CoordinateMembershipDeletion(context.Context, authn.UserRecord, uuid.UUID, uuid.UUID, incidents.MembershipDeleteRequest, string) (incidents.MembershipDeleteResult, error)
+	CoordinateIncidentLifecycle(context.Context, authn.UserRecord, uuid.UUID, incidents.IncidentLifecycleAdmission, string) (incidents.IncidentLifecycleResult, error)
+	CoordinateMembershipDeletion(context.Context, authn.UserRecord, uuid.UUID, uuid.UUID, incidents.MembershipDeleteAdmission, string) (incidents.MembershipDeleteResult, error)
 }
 
 type Dependencies struct {
@@ -48,6 +46,7 @@ type Dependencies struct {
 
 type service struct {
 	application       Application
+	membershipAudit   *membershipAuditReader
 	terminalMutations TerminalMutationCoordinator
 	incidentAdmission AdmissionChecker
 	authStore         *authn.Store
@@ -93,6 +92,10 @@ func newService(deps platformhttpapi.DependencySet, dependencies Dependencies) (
 	if isNilRouteDependency(dependencies.TerminalMutationCoordinator) {
 		return nil, errors.New("incidents: terminal mutation coordinator is required for route registration")
 	}
+	membershipAudit, err := newMembershipAuditReader(deps.PostgresHandle())
+	if err != nil {
+		return nil, err
+	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
@@ -108,6 +111,7 @@ func newService(deps platformhttpapi.DependencySet, dependencies Dependencies) (
 	}
 	return &service{
 		application:       dependencies.Application,
+		membershipAudit:   membershipAudit,
 		terminalMutations: dependencies.TerminalMutationCoordinator,
 		incidentAdmission: dependencies.AdmissionChecker,
 		authStore:         authn.NewStore(deps.PostgresHandle()),
@@ -282,19 +286,24 @@ func (s *service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		request, apiErr := decodeIncidentCreateRequest(r.Body)
+		request, apiErr := admitIncidentCreateJSON(r.Body)
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
 
-		result, err := s.application.CreateIncident(r.Context(), principal.User, request, platformhttpapi.RequestIDFromContext(r.Context()), s.now())
+		result, err := s.application.CreateIncident(r.Context(), principal.User, request, platformhttpapi.RequestIDFromContext(r.Context()))
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
-			writeAPIError(w, r, platformhttpapi.ClientTxnConflictError(request.ClientTxnID))
+			writeAPIError(w, r, platformhttpapi.ClientTxnConflictError(request.ClientTxnID()))
 			return
 		case errors.Is(err, incidents.ErrIncidentKeyConflict):
-			writeAPIError(w, r, incidentKeyConflictError(request.IncidentKey))
+			var conflict *incidents.IncidentKeyConflictError
+			if !errors.As(err, &conflict) {
+				writeAPIError(w, r, internalAPIError(err))
+				return
+			}
+			writeAPIError(w, r, incidentKeyConflictError(conflict))
 			return
 		case err != nil:
 			writeAPIError(w, r, internalAPIError(err))
@@ -373,12 +382,12 @@ func (s *service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 			_ = membership
-			request, apiErr := decodeIncidentPatchRequest(r.Body)
+			request, apiErr := admitIncidentPatchJSON(r.Body)
 			if apiErr != nil {
 				writeAPIError(w, r, apiErr)
 				return
 			}
-			record, _, err := s.application.UpdateIncident(r.Context(), principal.User, incidentID, request, platformhttpapi.RequestIDFromContext(r.Context()), s.now())
+			record, _, err := s.application.UpdateIncident(r.Context(), principal.User, incidentID, request, platformhttpapi.RequestIDFromContext(r.Context()))
 			var versionConflict *incidents.IncidentVersionConflictError
 			switch {
 			case admission.IsDenied(err, admission.DenialNotVisible):
@@ -412,9 +421,15 @@ func (s *service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if len(segments) == 2 && (segments[1] == "close" || segments[1] == "reopen") {
-		s.handleIncidentLifecycle(w, r, incidentID, segments[1])
-		return
+	if len(segments) == 2 {
+		switch segments[1] {
+		case "close":
+			s.handleIncidentLifecycle(w, r, incidentID, incidents.LifecycleActionClose)
+			return
+		case "reopen":
+			s.handleIncidentLifecycle(w, r, incidentID, incidents.LifecycleActionReopen)
+			return
+		}
 	}
 	if len(segments) == 2 && segments[1] == "membership-audit-events" {
 		s.handleMembershipAuditEvents(w, r, incidentID)
@@ -440,7 +455,12 @@ func (s *service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 	http.NotFound(w, r)
 }
 
-func (s *service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, action string) {
+func (s *service) handleIncidentLifecycle(
+	w http.ResponseWriter,
+	r *http.Request,
+	incidentID uuid.UUID,
+	action incidents.LifecycleAction,
+) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -454,7 +474,7 @@ func (s *service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := decodeIncidentLifecycleRequest(r.Body)
+	request, apiErr := admitIncidentLifecycleJSON(action, r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -463,15 +483,13 @@ func (s *service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request
 		r.Context(),
 		principal.User,
 		incidentID,
-		action,
 		request,
 		platformhttpapi.RequestIDFromContext(r.Context()),
-		s.now(),
 	)
 	var versionConflict *incidents.IncidentVersionConflictError
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, platformhttpapi.ClientTxnConflictError(request.ClientTxnID))
+		writeAPIError(w, r, platformhttpapi.ClientTxnConflictError(request.ClientTxnID()))
 		return
 	case admission.IsDenied(err, admission.DenialNotVisible):
 		writeAPIError(w, r, incidentNotFoundError())
@@ -570,7 +588,7 @@ func (s *service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		request, apiErr := decodeMembershipCreateRequest(r.Body)
+		request, apiErr := admitMembershipCreateJSON(r.Body)
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -581,10 +599,10 @@ func (s *service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		result, err := s.application.CreateMembership(r.Context(), principal.User, incidentID, targetUser, request, platformhttpapi.RequestIDFromContext(r.Context()), s.now())
+		result, err := s.application.CreateMembership(r.Context(), principal.User, incidentID, targetUser, request, platformhttpapi.RequestIDFromContext(r.Context()))
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
-			writeAPIError(w, r, platformhttpapi.ClientTxnConflictError(request.ClientTxnID))
+			writeAPIError(w, r, platformhttpapi.ClientTxnConflictError(request.ClientTxnID()))
 			return
 		case admission.IsDenied(err, admission.DenialNotVisible):
 			writeAPIError(w, r, incidentNotFoundError())
@@ -626,12 +644,12 @@ func (s *service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		request, apiErr := decodeMembershipPatchRequest(r.Body)
+		request, apiErr := admitMembershipPatchJSON(r.Body)
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		record, _, err := s.application.UpdateMembership(r.Context(), principal.User, incidentID, userID, request, platformhttpapi.RequestIDFromContext(r.Context()), s.now())
+		record, _, err := s.application.UpdateMembership(r.Context(), principal.User, incidentID, userID, request, platformhttpapi.RequestIDFromContext(r.Context()))
 		switch {
 		case admission.IsDenied(err, admission.DenialNotVisible):
 			writeAPIError(w, r, incidentNotFoundError())
@@ -668,7 +686,7 @@ func (s *service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		request, apiErr := decodeMembershipDeleteRequest(r.Body)
+		request, apiErr := admitMembershipDeleteJSON(r.Body)
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -728,19 +746,21 @@ func incidentAdmissionResult(grant admission.Grant, err error, requiredRole stri
 	}
 }
 
-func (s *service) resolveMembershipTarget(ctx context.Context, request incidents.MembershipCreateRequest) (authn.UserRecord, *platformhttpapi.APIError) {
+func (s *service) resolveMembershipTarget(ctx context.Context, request incidents.MembershipCreateAdmission) (authn.UserRecord, *platformhttpapi.APIError) {
 	return resolveMembershipTarget(ctx, s.authStore, request)
 }
 
-func resolveMembershipTarget(ctx context.Context, lookup membershipTargetLookup, request incidents.MembershipCreateRequest) (authn.UserRecord, *platformhttpapi.APIError) {
+func resolveMembershipTarget(ctx context.Context, lookup membershipTargetLookup, request incidents.MembershipCreateAdmission) (authn.UserRecord, *platformhttpapi.APIError) {
 	var (
 		user authn.UserRecord
 		err  error
 	)
-	if request.UserID != nil {
-		user, err = lookup.GetUserByID(ctx, *request.UserID)
+	if userID, ok := request.TargetUserID(); ok {
+		user, err = lookup.GetUserByID(ctx, userID)
+	} else if email, ok := request.TargetEmail(); ok {
+		user, err = lookup.GetUserByNormalizedEmail(ctx, email)
 	} else {
-		user, err = lookup.GetUserByNormalizedEmail(ctx, *request.Email)
+		return authn.UserRecord{}, internalAPIError(errors.New("incidents HTTP: invalid admitted membership target"))
 	}
 	if errors.Is(err, authn.ErrNotFound) {
 		return authn.UserRecord{}, userNotFoundError()

@@ -28,9 +28,8 @@ type IncidentCreateCommitFaultCapability struct {
 func (c *IncidentCreateCommitFaultCapability) Create(
 	ctx context.Context,
 	actor authn.UserRecord,
-	request incidents.CreateIncidentRequest,
+	request incidents.IncidentCreateAdmission,
 	requestID string,
-	now time.Time,
 ) error {
 	if c == nil || c.application == nil {
 		return errors.New("incident create commit-fault capability is not installed")
@@ -40,7 +39,6 @@ func (c *IncidentCreateCommitFaultCapability) Create(
 		actor,
 		request,
 		requestID,
-		now,
 	)
 	return err
 }
@@ -92,6 +90,7 @@ func newIncidentCreateCommitFaultCapability(
 	application, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            incidentCreateCommitFaultDB{DB: db},
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+		Now:                 time.Now,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("construct incident create commit-fault application: %w", err)

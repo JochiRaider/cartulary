@@ -31,42 +31,9 @@ type membershipCreateIdempotencyPayload struct {
 	UserID      *uuid.UUID `json:"user_id"`
 }
 
-func incidentCreateRequestHash(request CreateIncidentRequest) []byte {
-	return hashRequestPayload(incidentCreateIdempotencyPayload{
-		ClientTxnID:            request.ClientTxnID,
-		CurrentPhase:           request.CurrentPhase,
-		Description:            request.Description,
-		IncidentKey:            request.IncidentKey,
-		PrimaryExternalCaseRef: request.PrimaryExternalCaseRef,
-		Severity:               request.Severity,
-		Title:                  request.Title,
-		TLP:                    request.TLP,
-	})
-}
-
-func incidentLifecycleRequestHash(action string, request IncidentLifecycleRequest) []byte {
-	return hashRequestPayload(incidentLifecycleIdempotencyPayload{
-		ActionRoute:         action,
-		BaseIncidentVersion: request.BaseIncidentVersion,
-		Reason:              request.Reason,
-	})
-}
-
-func membershipCreateRequestHash(request MembershipCreateRequest) []byte {
-	return hashRequestPayload(membershipCreateIdempotencyPayload{
-		ClientTxnID: request.ClientTxnID,
-		Email:       request.Email,
-		Role:        request.Role,
-		UserID:      request.UserID,
-	})
-}
-
-func hashRequestPayload(payload any) []byte {
+func hashRequestPayload(payload any) [sha256.Size]byte {
 	data, _ := json.Marshal(payload)
-	sum := sha256.Sum256(data)
-	hash := make([]byte, len(sum))
-	copy(hash, sum[:])
-	return hash
+	return sha256.Sum256(data)
 }
 
 func hashesEqual(left []byte, right []byte) bool {

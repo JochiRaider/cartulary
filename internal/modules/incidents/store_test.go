@@ -17,6 +17,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/mutationtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
@@ -27,7 +28,6 @@ import (
 
 func TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-u-2-02")
-	store := harness.Incidents
 	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
@@ -39,20 +39,16 @@ func TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit(t *
 		true,
 	)
 
-	result := storetest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-incident_membership-u-2-02-create",
-		IncidentKey: "IR-U202",
-		Title:       "Incident administration incident-storage",
-	})
+	result := storetest.CreateIncidentInStore(
+		t, harness.Incidents, actor,
+		"txn-incident_membership-u-2-02-create", "IR-U202", "Incident administration incident-storage",
+	)
 
 	if !result.Created {
 		t.Fatalf("fresh incident create must be marked created: %#v", result)
 	}
 
-	membership, err := store.GetMembership(context.Background(), result.Incident.ID, actor.ID)
-	if err != nil {
-		t.Fatalf("lookup bootstrap membership: %v", err)
-	}
+	membership := storetest.GetMembership(t, harness.DB, result.Incident.ID, actor.ID)
 	if membership.Role != "admin" || membership.UserID != actor.ID || membership.AddedByUserID != actor.ID {
 		t.Fatalf("unexpected bootstrap membership: %#v", membership)
 	}
@@ -87,6 +83,216 @@ func TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit(t *
 	}
 }
 
+func TestMutationCommandTimeIsSharedAcrossDomainRawAndProjectedAuditRows_Unit(t *testing.T) {
+	location := time.FixedZone("command-input", -5*60*60)
+	createTime := time.Date(2026, 8, 28, 8, 0, 0, 0, location)
+	currentTime := createTime
+	clockCalls := 0
+	harness := storetest.StartStoreWithClock(t, "incident-command-time", func() time.Time {
+		clockCalls++
+		return currentTime
+	})
+	ctx := context.Background()
+	admin := authstoretest.SeedLocalUserRecord(
+		t, harness.DB, "incident-command-time-admin@example.test", "Incident command time admin",
+		"IncidentCommandTimeAdmin1!", false, false, true,
+	)
+	member := authstoretest.SeedLocalUserRecord(
+		t, harness.DB, "incident-command-time-member@example.test", "Incident command time member",
+		"IncidentCommandTimeMember1!", false, false, true,
+	)
+	createRequestID := "req-command-time-create"
+	createRequest := admissiontest.IncidentCreate(t, admissiontest.IncidentCreateInput{
+		ClientTxnID: "txn-command-time-create",
+		IncidentKey: "IR-COMMAND-TIME",
+		Title:       "Shared command time",
+	})
+	created, err := harness.Incidents.CreateIncident(ctx, admin, createRequest, createRequestID)
+	if err != nil {
+		t.Fatalf("create command-time incident: %v", err)
+	}
+	requireMutationClockCalls(t, clockCalls, 1)
+	wantCreateTime := createTime.UTC()
+	if !created.Incident.CreatedAt.Equal(wantCreateTime) || !created.Incident.UpdatedAt.Equal(wantCreateTime) {
+		t.Fatalf("incident create timestamps = (%s, %s), want %s", created.Incident.CreatedAt, created.Incident.UpdatedAt, wantCreateTime)
+	}
+	if got := storetest.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM incident_memberships
+ WHERE incident_id = $1 AND user_id = $2 AND joined_at = $3 AND updated_at = $3
+`, created.Incident.ID, admin.ID, wantCreateTime); got != 1 {
+		t.Fatalf("bootstrap membership command-time rows = %d, want 1", got)
+	}
+	if got := storetest.QueryCount(t, harness.DB, `
+SELECT (SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id = $1 AND created_at = $3 AND updated_at = $3)
+     + (SELECT COUNT(*) FROM user_workbook_preferences WHERE incident_id = $1 AND user_id = $2 AND created_at = $3 AND updated_at = $3)
+`, created.Incident.ID, admin.ID, wantCreateTime); got != 2 {
+		t.Fatalf("workbook preference command-time rows = %d, want 2", got)
+	}
+	requireMutationAuditTime(t, harness, createRequestID, wantCreateTime, 2, 1)
+
+	membershipTime := createTime.Add(time.Minute)
+	currentTime = membershipTime
+	membershipRequestID := "req-command-time-membership-create"
+	membershipRequest := admissiontest.MembershipCreate(t, admissiontest.MembershipCreateInput{
+		ClientTxnID: "txn-command-time-membership-create",
+		UserID:      &member.ID,
+		Role:        "viewer",
+	})
+	membershipResult, err := harness.Incidents.CreateMembership(
+		ctx, admin, created.Incident.ID, member, membershipRequest, membershipRequestID,
+	)
+	if err != nil {
+		t.Fatalf("create command-time membership: %v", err)
+	}
+	requireMutationClockCalls(t, clockCalls, 2)
+	wantMembershipTime := membershipTime.UTC()
+	if !membershipResult.Membership.JoinedAt.Equal(wantMembershipTime) || !membershipResult.Membership.UpdatedAt.Equal(wantMembershipTime) {
+		t.Fatalf("membership create timestamps = (%s, %s), want %s", membershipResult.Membership.JoinedAt, membershipResult.Membership.UpdatedAt, wantMembershipTime)
+	}
+	requireMutationAuditTime(t, harness, membershipRequestID, wantMembershipTime, 1, 1)
+
+	incidentPatchTime := createTime.Add(2 * time.Minute)
+	currentTime = incidentPatchTime
+	incidentPatchRequestID := "req-command-time-incident-patch"
+	severity := "high"
+	updatedIncident, changed, err := harness.Incidents.UpdateIncident(
+		ctx,
+		admin,
+		created.Incident.ID,
+		admissiontest.IncidentPatch(t, admissiontest.IncidentPatchInput{
+			BaseIncidentVersion: created.Incident.IncidentVersion,
+			Severity:            admissiontest.OptionalStringInput{Present: true, Value: &severity},
+		}),
+		incidentPatchRequestID,
+	)
+	if err != nil || !changed {
+		t.Fatalf("patch command-time incident: changed=%t err=%v", changed, err)
+	}
+	requireMutationClockCalls(t, clockCalls, 3)
+	if !updatedIncident.UpdatedAt.Equal(incidentPatchTime.UTC()) {
+		t.Fatalf("incident patch timestamp = %s, want %s", updatedIncident.UpdatedAt, incidentPatchTime.UTC())
+	}
+	requireMutationAuditTime(t, harness, incidentPatchRequestID, incidentPatchTime.UTC(), 1, 0)
+
+	membershipPatchTime := createTime.Add(3 * time.Minute)
+	currentTime = membershipPatchTime
+	membershipPatchRequestID := "req-command-time-membership-patch"
+	updatedMembership, changed, err := harness.Incidents.UpdateMembership(
+		ctx,
+		admin,
+		created.Incident.ID,
+		member.ID,
+		admissiontest.MembershipPatch(t, admissiontest.MembershipPatchInput{
+			BaseMembershipVersion: membershipResult.Membership.MembershipVersion,
+			Role:                  "reviewer",
+		}),
+		membershipPatchRequestID,
+	)
+	if err != nil || !changed {
+		t.Fatalf("patch command-time membership: changed=%t err=%v", changed, err)
+	}
+	requireMutationClockCalls(t, clockCalls, 4)
+	if !updatedMembership.UpdatedAt.Equal(membershipPatchTime.UTC()) {
+		t.Fatalf("membership patch timestamp = %s, want %s", updatedMembership.UpdatedAt, membershipPatchTime.UTC())
+	}
+	requireMutationAuditTime(t, harness, membershipPatchRequestID, membershipPatchTime.UTC(), 1, 1)
+
+	lifecycleTime := createTime.Add(4 * time.Minute)
+	currentTime = lifecycleTime
+	lifecycleRequestID := "req-command-time-lifecycle"
+	lifecycle, err := harness.Incidents.TransitionIncidentLifecycle(
+		ctx,
+		admin,
+		created.Incident.ID,
+		admissiontest.IncidentLifecycle(t, incidents.LifecycleActionClose, admissiontest.IncidentLifecycleInput{
+			BaseIncidentVersion: updatedIncident.IncidentVersion,
+			ClientTxnID:         "txn-command-time-lifecycle",
+			Reason:              "resolved",
+		}),
+		lifecycleRequestID,
+	)
+	if err != nil {
+		t.Fatalf("close command-time incident: %v", err)
+	}
+	requireMutationClockCalls(t, clockCalls, 5)
+	if lifecycle.Incident.ClosedAt == nil || !lifecycle.Incident.ClosedAt.Equal(lifecycleTime.UTC()) || !lifecycle.Incident.UpdatedAt.Equal(lifecycleTime.UTC()) {
+		t.Fatalf("lifecycle timestamps = closed=%v updated=%s, want %s", lifecycle.Incident.ClosedAt, lifecycle.Incident.UpdatedAt, lifecycleTime.UTC())
+	}
+	requireMutationAuditTime(t, harness, lifecycleRequestID, lifecycleTime.UTC(), 1, 0)
+	if replay, err := harness.Incidents.TransitionIncidentLifecycle(
+		ctx,
+		admin,
+		created.Incident.ID,
+		admissiontest.IncidentLifecycle(t, incidents.LifecycleActionClose, admissiontest.IncidentLifecycleInput{
+			BaseIncidentVersion: updatedIncident.IncidentVersion,
+			ClientTxnID:         "txn-command-time-lifecycle",
+			Reason:              "resolved",
+		}),
+		"req-command-time-lifecycle-replay",
+	); err != nil || !replay.Commit.IsReplay() {
+		t.Fatalf("replay command-time lifecycle: replay=%#v err=%v", replay, err)
+	}
+	requireMutationClockCalls(t, clockCalls, 5)
+	if got := mutationtest.CountMutationArtifacts(
+		t,
+		mutationtest.PostgresDatabase(harness.DB),
+		mutationtest.MutationSelector{IncidentID: created.Incident.ID.String()},
+		mutationtest.MutationOwnerIncidentResource,
+	); got != 3 {
+		t.Fatalf("lifecycle replay changed incident audit count: got %d want 3", got)
+	}
+
+	deleteTime := createTime.Add(5 * time.Minute)
+	currentTime = deleteTime
+	deleteRequestID := "req-command-time-membership-delete"
+	if _, err := harness.Incidents.DeleteMembership(
+		ctx,
+		admin,
+		created.Incident.ID,
+		member.ID,
+		admissiontest.MembershipDelete(t, updatedMembership.MembershipVersion),
+		deleteRequestID,
+	); err != nil {
+		t.Fatalf("delete command-time membership: %v", err)
+	}
+	requireMutationClockCalls(t, clockCalls, 6)
+	requireMutationAuditTime(t, harness, deleteRequestID, deleteTime.UTC(), 1, 1)
+}
+
+func requireMutationClockCalls(t testing.TB, got int, want int) {
+	t.Helper()
+	if got != want {
+		t.Fatalf("mutation clock calls = %d, want %d", got, want)
+	}
+}
+
+func requireMutationAuditTime(
+	t testing.TB,
+	harness *storetest.StoreHarness,
+	requestID string,
+	want time.Time,
+	wantRaw int,
+	wantProjected int,
+) {
+	t.Helper()
+	if got := storetest.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM deployment_admin_audit_events
+ WHERE request_id = $1 AND created_at = $2
+`, requestID, want); got != wantRaw {
+		t.Fatalf("raw audit rows at command time for %s = %d, want %d", requestID, got, wantRaw)
+	}
+	if got := storetest.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM administrative_audit_projections projection
+  JOIN deployment_admin_audit_events raw ON raw.id = projection.audit_event_id
+ WHERE raw.request_id = $1 AND raw.created_at = $2 AND projection.occurred_at = $2
+`, requestID, want); got != wantProjected {
+		t.Fatalf("projected audit rows at command time for %s = %d, want %d", requestID, got, wantProjected)
+	}
+}
+
 func TestStoreCreateIncidentPreferenceBootstrapFailureRollsBack(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-support-bootstrap-port-rollback")
 	actor := authstoretest.SeedLocalUserRecord(
@@ -103,26 +309,27 @@ func TestStoreCreateIncidentPreferenceBootstrapFailureRollsBack(t *testing.T) {
 	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            harness.DB,
 		PreferenceBootstrap: failingPreferenceBootstrap{err: bootstrapErr},
+		Now:                 time.Now,
 	})
 	if err != nil {
 		t.Fatalf("construct Incidents application: %v", err)
 	}
-	request := incidents.CreateIncidentRequest{
+	input := admissiontest.IncidentCreateInput{
 		ClientTxnID: "txn-incident_membership-support-bootstrap-port-rollback",
 		IncidentKey: "IR-SUPPORT-BOOTSTRAP-PORT-ROLLBACK",
 		Title:       "Incident administration support bootstrap port rollback",
 	}
+	request := admissiontest.IncidentCreate(t, input)
 	_, err = store.CreateIncident(
 		context.Background(),
 		actor,
 		request,
-		"req-"+request.ClientTxnID,
-		time.Now().UTC(),
+		"req-"+input.ClientTxnID,
 	)
 	if !errors.Is(err, bootstrapErr) {
 		t.Fatalf("expected bootstrap port failure, got %T %[1]v", err)
 	}
-	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, request.IncidentKey); got != 0 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, input.IncidentKey); got != 0 {
 		t.Fatalf("bootstrap failure must leave no incident row, got %d", got)
 	}
 	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE user_id = $1`, actor.ID); got != 0 {
@@ -137,7 +344,7 @@ func TestStoreCreateIncidentPreferenceBootstrapFailureRollsBack(t *testing.T) {
 	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'incidents.create' AND actor_user_id = $1`, actor.ID); got != 0 {
 		t.Fatalf("bootstrap failure must leave no idempotency commit, got %d", got)
 	}
-	if got := mutationtest.CountMutationArtifacts(t, mutationtest.PostgresDatabase(harness.DB), mutationtest.MutationSelector{ClientTxnID: request.ClientTxnID}); got != 0 {
+	if got := mutationtest.CountMutationArtifacts(t, mutationtest.PostgresDatabase(harness.DB), mutationtest.MutationSelector{ClientTxnID: input.ClientTxnID}); got != 0 {
 		t.Fatalf("bootstrap failure must leave no mutation artifacts, got %d", got)
 	}
 }
@@ -165,37 +372,31 @@ func TestTerminalMutationCommitResultsUseCommittedAuditEventIdentity_Unit(t *tes
 		false,
 		true,
 	)
-	incident := storetest.CreateIncidentInStore(t, harness.Incidents, admin, incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-terminal-effect-create",
-		IncidentKey: "IR-TERMINAL-EFFECT",
-		Title:       "Terminal effect identity",
-	}).Incident
+	incident := storetest.CreateIncidentInStore(
+		t, harness.Incidents, admin,
+		"txn-terminal-effect-create", "IR-TERMINAL-EFFECT", "Terminal effect identity",
+	).Incident
 	membership := storetest.CreateMembershipInStore(
 		t,
 		harness.DB,
 		admin,
 		incident.ID,
 		member,
-		incidents.MembershipCreateRequest{
-			ClientTxnID: "txn-terminal-effect-membership",
-			UserID:      &member.ID,
-			Role:        "viewer",
-		},
+		"txn-terminal-effect-membership",
+		"viewer",
 	).Membership
 
-	closeRequest := incidents.IncidentLifecycleRequest{
+	closeRequest := admissiontest.IncidentLifecycle(t, incidents.LifecycleActionClose, admissiontest.IncidentLifecycleInput{
 		BaseIncidentVersion: incident.IncidentVersion,
 		ClientTxnID:         "txn-terminal-effect-close",
 		Reason:              "Terminal effect identity validation.",
-	}
+	})
 	closeResult, err := harness.Incidents.TransitionIncidentLifecycle(
 		ctx,
 		admin,
 		incident.ID,
-		"close",
 		closeRequest,
 		"req-terminal-effect-close",
-		time.Now().UTC(),
 	)
 	if err != nil {
 		t.Fatalf("close incident: %v", err)
@@ -206,19 +407,17 @@ func TestTerminalMutationCommitResultsUseCommittedAuditEventIdentity_Unit(t *tes
 		ctx,
 		admin,
 		incident.ID,
-		"close",
 		closeRequest,
 		"req-terminal-effect-close-replay",
-		time.Now().UTC(),
 	)
 	if err != nil {
 		t.Fatalf("replay close incident: %v", err)
 	}
-	if replay.Commit.Disposition != incidents.TerminalMutationReplay || replay.Commit.EffectKey != uuid.Nil {
+	if !replay.Commit.IsReplay() {
 		t.Fatalf("close replay commit = %#v, want replay without effect key", replay.Commit)
 	}
-	if err := replay.Commit.Validate(); err != nil {
-		t.Fatalf("validate replay commit: %v", err)
+	if _, present := replay.Commit.EffectKey(); present {
+		t.Fatalf("close replay exposed an effect key: %#v", replay.Commit)
 	}
 
 	deleteResult, err := harness.Incidents.DeleteMembership(
@@ -226,7 +425,7 @@ func TestTerminalMutationCommitResultsUseCommittedAuditEventIdentity_Unit(t *tes
 		admin,
 		incident.ID,
 		member.ID,
-		incidents.MembershipDeleteRequest{BaseMembershipVersion: membership.MembershipVersion},
+		admissiontest.MembershipDelete(t, membership.MembershipVersion),
 		"req-terminal-effect-membership-delete",
 	)
 	if err != nil {
@@ -242,11 +441,12 @@ func requireCommittedAuditIdentity(
 	requestID string,
 ) {
 	t.Helper()
-	if err := commit.Validate(); err != nil {
-		t.Fatalf("validate terminal mutation commit: %v", err)
+	if !commit.IsNewCommit() {
+		t.Fatalf("terminal mutation commit = %#v, want new commit", commit)
 	}
-	if commit.Disposition != incidents.TerminalMutationNewCommit {
-		t.Fatalf("terminal mutation disposition = %q, want new_commit", commit.Disposition)
+	effectKey, present := commit.EffectKey()
+	if !present {
+		t.Fatal("new terminal mutation commit omitted effect key")
 	}
 	var auditEventID uuid.UUID
 	if err := harness.DB.QueryRow(context.Background(), `
@@ -256,8 +456,8 @@ SELECT id
 `, requestID).Scan(&auditEventID); err != nil {
 		t.Fatalf("query committed audit identity for %s: %v", requestID, err)
 	}
-	if commit.EffectKey != auditEventID {
-		t.Fatalf("effect key = %s, want committed audit event %s", commit.EffectKey, auditEventID)
+	if effectKey != auditEventID {
+		t.Fatalf("effect key = %s, want committed audit event %s", effectKey, auditEventID)
 	}
 }
 
@@ -327,6 +527,7 @@ func TestIncidentBundleImportFinalizationCommitsBootstrapState(t *testing.T) {
 	if event.RequestID != requestID || event.ClientTxnID != "" {
 		t.Fatalf("unexpected import finalization audit attribution: %#v", event)
 	}
+	requireMutationAuditTime(t, harness, requestID, publishedAt, 1, 1)
 }
 
 func TestIncidentBundleImportFinalizationRejectsMissingSubmitter(t *testing.T) {
@@ -466,18 +667,18 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 		true,
 	)
 
-	firstRequest := incidents.CreateIncidentRequest{
+	firstInput := admissiontest.IncidentCreateInput{
 		ClientTxnID: "txn-u-2-04",
 		IncidentKey: "IR-U204",
 		Title:       "Replay Incident",
 	}
+	firstRequest := admissiontest.IncidentCreate(t, firstInput)
 
 	firstResult, err := store.CreateIncident(
 		context.Background(),
 		actor,
 		firstRequest,
 		"req-txn-u-2-04-create",
-		time.Now().UTC(),
 	)
 	if err != nil {
 		t.Fatalf("create first incident: %v", err)
@@ -488,18 +689,17 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 
 	selector := storetest.IncidentCreateReplaySelector{
 		ActorUserID: actor.ID,
-		ClientTxnID: firstRequest.ClientTxnID,
+		ClientTxnID: firstInput.ClientTxnID,
 		IncidentID:  firstResult.Incident.ID,
 	}
 	stableBefore := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.PostgresReplayDatabase(harness.DB), selector)
 
-	replayRequest := firstRequest
+	replayRequest := admissiontest.IncidentCreate(t, firstInput)
 	replayResult, err := store.CreateIncident(
 		context.Background(),
 		actor,
 		replayRequest,
 		"req-txn-u-2-04-replay",
-		time.Now().UTC(),
 	)
 	if err != nil {
 		t.Fatalf("replay incident create: %v", err)
@@ -514,14 +714,14 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 		t.Fatalf("replay must keep durable side effects stable: before=%+v after=%+v", stableBefore, stableAfter)
 	}
 
-	divergentRequest := firstRequest
-	divergentRequest.Title = "Different title"
+	divergentInput := firstInput
+	divergentInput.Title = "Different title"
+	divergentRequest := admissiontest.IncidentCreate(t, divergentInput)
 	if _, err := store.CreateIncident(
 		context.Background(),
 		actor,
 		divergentRequest,
 		"req-txn-u-2-04-divergent",
-		time.Now().UTC(),
 	); !errors.Is(err, authn.ErrClientTxnConflict) {
 		t.Fatalf("divergent replay must return client transaction conflict: %v", err)
 	}
@@ -529,17 +729,17 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 		t.Fatalf("divergent replay must not change durable side effects: before=%+v after=%+v", stableBefore, stableAfterConflict)
 	}
 
-	secondActorRequest := incidents.CreateIncidentRequest{
-		ClientTxnID: firstRequest.ClientTxnID,
+	secondActorInput := admissiontest.IncidentCreateInput{
+		ClientTxnID: firstInput.ClientTxnID,
 		IncidentKey: "IR-U204-ACTOR2",
 		Title:       "Second Actor Incident",
 	}
+	secondActorRequest := admissiontest.IncidentCreate(t, secondActorInput)
 	secondActorResult, err := store.CreateIncident(
 		context.Background(),
 		secondActor,
 		secondActorRequest,
 		"req-txn-u-2-04-actor-two",
-		time.Now().UTC(),
 	)
 	if err != nil {
 		t.Fatalf("create second-actor incident: %v", err)
@@ -558,7 +758,7 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 	}
 	if got := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.PostgresReplayDatabase(harness.DB), storetest.IncidentCreateReplaySelector{
 		ActorUserID: secondActor.ID,
-		ClientTxnID: secondActorRequest.ClientTxnID,
+		ClientTxnID: secondActorInput.ClientTxnID,
 		IncidentID:  secondActorResult.Incident.ID,
 	}); got != wantSecondActorSideEffects {
 		t.Fatalf("unexpected second-actor durable side effects: got=%+v want=%+v", got, wantSecondActorSideEffects)
@@ -570,6 +770,7 @@ func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T)
 	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            harness.DB,
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+		Now:                 time.Now,
 	})
 	if err != nil {
 		t.Fatalf("construct Incidents application: %v", err)
@@ -585,11 +786,10 @@ func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T)
 		true,
 	)
 
-	incidentResult := storetest.CreateIncidentInStore(t, harness.Incidents, admin, incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-incident_membership-u-2-14-incident",
-		IncidentKey: "IR-U214",
-		Title:       "Incident administration incident-storage",
-	})
+	incidentResult := storetest.CreateIncidentInStore(
+		t, harness.Incidents, admin,
+		"txn-incident_membership-u-2-14-incident", "IR-U214", "Incident administration incident-storage",
+	)
 
 	ctx := context.Background()
 	tlp := "TLP:AMBER"
@@ -597,12 +797,11 @@ func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T)
 		ctx,
 		admin,
 		incidentResult.Incident.ID,
-		incidents.IncidentPatchRequest{
+		admissiontest.IncidentPatch(t, admissiontest.IncidentPatchInput{
 			BaseIncidentVersion: incidentResult.Incident.IncidentVersion,
-			TLP:                 incidents.OptionalNullableString{Present: true, Value: &tlp},
-		},
+			TLP:                 admissiontest.OptionalStringInput{Present: true, Value: &tlp},
+		}),
 		"req-incident_membership-u-2-14-update",
-		time.Now().UTC(),
 	)
 	if err != nil {
 		t.Fatalf("update incident before stale patch: %v", err)
@@ -616,12 +815,11 @@ func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T)
 		ctx,
 		admin,
 		incidentResult.Incident.ID,
-		incidents.IncidentPatchRequest{
+		admissiontest.IncidentPatch(t, admissiontest.IncidentPatchInput{
 			BaseIncidentVersion: incidentResult.Incident.IncidentVersion,
-			TLP:                 incidents.OptionalNullableString{Present: true, Value: &staleTLP},
-		},
+			TLP:                 admissiontest.OptionalStringInput{Present: true, Value: &staleTLP},
+		}),
 		"req-incident_membership-u-2-14-stale",
-		time.Now().UTC(),
 	)
 	if !errors.Is(err, incidents.ErrIncidentVersionConflict) {
 		t.Fatalf("stale incident patch must reject with version conflict: %v", err)
@@ -656,6 +854,7 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            harness.DB,
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+		Now:                 time.Now,
 	})
 	if err != nil {
 		t.Fatalf("construct Incidents application: %v", err)
@@ -681,11 +880,10 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 		true,
 	)
 
-	incidentResult := storetest.CreateIncidentInStore(t, harness.Incidents, admin, incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-incident_membership-u-2-07-incident",
-		IncidentKey: "IR-U207",
-		Title:       "Incident administration incident-storage",
-	})
+	incidentResult := storetest.CreateIncidentInStore(
+		t, harness.Incidents, admin,
+		"txn-incident_membership-u-2-07-incident", "IR-U207", "Incident administration incident-storage",
+	)
 
 	membershipResult := storetest.CreateMembershipInStore(
 		t,
@@ -693,11 +891,8 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 		admin,
 		incidentResult.Incident.ID,
 		target,
-		incidents.MembershipCreateRequest{
-			ClientTxnID: "txn-incident_membership-u-2-07-membership",
-			UserID:      &target.ID,
-			Role:        "viewer",
-		},
+		"txn-incident_membership-u-2-07-membership",
+		"viewer",
 	)
 	staleVersion := membershipResult.Membership.MembershipVersion + 1
 
@@ -706,20 +901,16 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 		admin,
 		incidentResult.Incident.ID,
 		target.ID,
-		incidents.MembershipPatchRequest{
+		admissiontest.MembershipPatch(t, admissiontest.MembershipPatchInput{
 			BaseMembershipVersion: staleVersion,
 			Role:                  "reviewer",
-		},
+		}),
 		"req-incident_membership-u-2-07-patch",
-		time.Now().UTC(),
 	); !errors.Is(err, incidents.ErrMembershipVersionConflict) {
 		t.Fatalf("stale membership patch must reject with version conflict: %v", err)
 	}
 
-	current, err := store.GetMembership(context.Background(), incidentResult.Incident.ID, target.ID)
-	if err != nil {
-		t.Fatalf("lookup membership after stale patch: %v", err)
-	}
+	current := storetest.GetMembership(t, harness.DB, incidentResult.Incident.ID, target.ID)
 	if current.Role != membershipResult.Membership.Role || current.MembershipVersion != membershipResult.Membership.MembershipVersion {
 		t.Fatalf("stale membership patch must not mutate membership state: before=%#v after=%#v", membershipResult.Membership, current)
 	}
@@ -729,12 +920,11 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 		admin,
 		incidentResult.Incident.ID,
 		target.ID,
-		incidents.MembershipPatchRequest{
+		admissiontest.MembershipPatch(t, admissiontest.MembershipPatchInput{
 			BaseMembershipVersion: membershipResult.Membership.MembershipVersion,
 			Role:                  membershipResult.Membership.Role,
-		},
+		}),
 		"req-incident_membership-u-2-07-no-op",
-		time.Now().UTC(),
 	)
 	if err != nil {
 		t.Fatalf("same-role membership patch must succeed: %v", err)
@@ -746,10 +936,7 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 		t.Fatalf("same-role membership patch must keep role and version stable: before=%#v after=%#v", membershipResult.Membership, noOp)
 	}
 
-	current, err = store.GetMembership(context.Background(), incidentResult.Incident.ID, target.ID)
-	if err != nil {
-		t.Fatalf("lookup membership after same-role patch: %v", err)
-	}
+	current = storetest.GetMembership(t, harness.DB, incidentResult.Incident.ID, target.ID)
 	if current.Role != membershipResult.Membership.Role || current.MembershipVersion != membershipResult.Membership.MembershipVersion {
 		t.Fatalf("same-role membership patch must not mutate durable state: before=%#v after=%#v", membershipResult.Membership, current)
 	}
@@ -759,16 +946,13 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 		admin,
 		incidentResult.Incident.ID,
 		target.ID,
-		incidents.MembershipDeleteRequest{BaseMembershipVersion: staleVersion},
+		admissiontest.MembershipDelete(t, staleVersion),
 		"req-incident_membership-u-2-07-delete",
 	); !errors.Is(err, incidents.ErrMembershipVersionConflict) {
 		t.Fatalf("stale membership delete must reject with version conflict: %v", err)
 	}
 
-	current, err = store.GetMembership(context.Background(), incidentResult.Incident.ID, target.ID)
-	if err != nil {
-		t.Fatalf("lookup membership after stale delete: %v", err)
-	}
+	current = storetest.GetMembership(t, harness.DB, incidentResult.Incident.ID, target.ID)
 	if current.Role != membershipResult.Membership.Role || current.MembershipVersion != membershipResult.Membership.MembershipVersion {
 		t.Fatalf("stale membership delete must not mutate membership state: before=%#v after=%#v", membershipResult.Membership, current)
 	}

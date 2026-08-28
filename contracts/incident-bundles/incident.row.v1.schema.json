@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.incident_bundle.incident.row.v1",
+  "title": "Incident Bundle incident row",
+  "description": "Exact canonical Incidents singleton row used by Incident Bundle version 3.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "incident_key",
+    "incident_key_canonical",
+    "title",
+    "description",
+    "status",
+    "severity",
+    "tlp",
+    "current_phase",
+    "primary_external_case_ref",
+    "created_by_user_id",
+    "created_at",
+    "updated_at",
+    "updated_by_user_id",
+    "incident_version",
+    "closed_at"
+  ],
+  "properties": {
+    "id": { "$ref": "#/$defs/uuid" },
+    "incident_key": { "$ref": "#/$defs/incident_key" },
+    "incident_key_canonical": { "$ref": "#/$defs/incident_key" },
+    "title": { "$ref": "#/$defs/title" },
+    "description": { "$ref": "#/$defs/nullable_description" },
+    "status": { "enum": ["active", "closed"] },
+    "severity": { "$ref": "#/$defs/nullable_metadata" },
+    "tlp": {
+      "oneOf": [
+        { "enum": ["TLP:CLEAR", "TLP:GREEN", "TLP:AMBER", "TLP:AMBER+STRICT", "TLP:RED"] },
+        { "type": "null" }
+      ]
+    },
+    "current_phase": { "$ref": "#/$defs/nullable_metadata" },
+    "primary_external_case_ref": { "$ref": "#/$defs/nullable_metadata" },
+    "created_by_user_id": { "$ref": "#/$defs/uuid" },
+    "created_at": { "$ref": "#/$defs/timestamp" },
+    "updated_at": { "$ref": "#/$defs/timestamp" },
+    "updated_by_user_id": { "$ref": "#/$defs/uuid" },
+    "incident_version": { "type": "integer", "minimum": 1 },
+    "closed_at": { "$ref": "#/$defs/nullable_timestamp" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "active" } },
+        "required": ["status"]
+      },
+      "then": { "properties": { "closed_at": { "type": "null" } } }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "closed" } },
+        "required": ["status"]
+      },
+      "then": { "properties": { "closed_at": { "$ref": "#/$defs/timestamp" } } }
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "incident_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "metadata": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "nullable_metadata": {
+      "oneOf": [
+        { "$ref": "#/$defs/metadata" },
+        { "type": "null" }
+      ]
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384,
+      "pattern": "^[^\\u0000-\\u0008\\u000b-\\u001f\\u007f]*$"
+    },
+    "nullable_description": {
+      "oneOf": [
+        { "$ref": "#/$defs/description" },
+        { "type": "null" }
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?\\+00:00$"
+    },
+    "nullable_timestamp": {
+      "oneOf": [
+        { "$ref": "#/$defs/timestamp" },
+        { "type": "null" }
+      ]
+    }
+  }
+}

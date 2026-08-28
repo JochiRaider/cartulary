@@ -16,6 +16,7 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -196,15 +197,17 @@ func TestHistoryQueryRepositoryMapsPersistenceRows_Integration(t *testing.T) {
 	incidentApplication, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            database,
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+		Now:                 func() time.Time { return now },
 	})
 	if err != nil {
 		t.Fatalf("construct Incidents application: %v", err)
 	}
-	incidentResult, err := incidentApplication.CreateIncident(context.Background(), actor, incidents.CreateIncidentRequest{
+	incidentRequest := admissiontest.IncidentCreate(t, admissiontest.IncidentCreateInput{
 		ClientTxnID: "history-repository-incident",
 		IncidentKey: "IR-HISTORY-REPOSITORY",
 		Title:       "History repository component",
-	}, "req-history-repository-incident", now)
+	})
+	incidentResult, err := incidentApplication.CreateIncident(context.Background(), actor, incidentRequest, "req-history-repository-incident")
 	if err != nil {
 		t.Fatalf("create incident: %v", err)
 	}

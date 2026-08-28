@@ -3,9 +3,7 @@ package incidenteffects
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -18,17 +16,15 @@ type Application interface {
 		context.Context,
 		authn.UserRecord,
 		uuid.UUID,
+		incidents.IncidentLifecycleAdmission,
 		string,
-		incidents.IncidentLifecycleRequest,
-		string,
-		time.Time,
 	) (incidents.IncidentLifecycleResult, error)
 	DeleteMembership(
 		context.Context,
 		authn.UserRecord,
 		uuid.UUID,
 		uuid.UUID,
-		incidents.MembershipDeleteRequest,
+		incidents.MembershipDeleteAdmission,
 		string,
 	) (incidents.MembershipDeleteResult, error)
 }
@@ -60,28 +56,28 @@ func (c *Coordinator) CoordinateIncidentLifecycle(
 	ctx context.Context,
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
-	action string,
-	request incidents.IncidentLifecycleRequest,
+	request incidents.IncidentLifecycleAdmission,
 	requestID string,
-	now time.Time,
 ) (incidents.IncidentLifecycleResult, error) {
 	result, err := c.application.TransitionIncidentLifecycle(
 		ctx,
 		actor,
 		incidentID,
-		action,
 		request,
 		requestID,
-		now,
 	)
 	if err != nil {
 		return incidents.IncidentLifecycleResult{}, err
 	}
-	if err := result.Commit.Validate(); err != nil {
-		return incidents.IncidentLifecycleResult{}, fmt.Errorf("incident effects: invalid lifecycle commit result: %w", err)
+	if result.Commit.IsReplay() {
+		return result, nil
 	}
-	if action == "close" && result.Commit.Disposition == incidents.TerminalMutationNewCommit {
-		c.notifier.NotifyIncidentClosed(ctx, result.Commit.EffectKey, incidentID)
+	effectKey, isNewCommit := result.Commit.EffectKey()
+	if !isNewCommit {
+		return incidents.IncidentLifecycleResult{}, errors.New("incident effects: invalid lifecycle commit result")
+	}
+	if request.Action() == incidents.LifecycleActionClose {
+		c.notifier.NotifyIncidentClosed(ctx, effectKey, incidentID)
 	}
 	return result, nil
 }
@@ -91,20 +87,18 @@ func (c *Coordinator) CoordinateMembershipDeletion(
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
 	userID uuid.UUID,
-	request incidents.MembershipDeleteRequest,
+	request incidents.MembershipDeleteAdmission,
 	requestID string,
 ) (incidents.MembershipDeleteResult, error) {
 	result, err := c.application.DeleteMembership(ctx, actor, incidentID, userID, request, requestID)
 	if err != nil {
 		return incidents.MembershipDeleteResult{}, err
 	}
-	if err := result.Commit.Validate(); err != nil {
-		return incidents.MembershipDeleteResult{}, fmt.Errorf("incident effects: invalid membership delete commit result: %w", err)
-	}
-	if result.Commit.Disposition != incidents.TerminalMutationNewCommit {
+	effectKey, isNewCommit := result.Commit.EffectKey()
+	if !isNewCommit {
 		return incidents.MembershipDeleteResult{}, errors.New("incident effects: membership delete cannot replay")
 	}
-	c.notifier.NotifyIncidentMembershipRevoked(ctx, result.Commit.EffectKey, incidentID, userID)
+	c.notifier.NotifyIncidentMembershipRevoked(ctx, effectKey, incidentID, userID)
 	return result, nil
 }
 

@@ -1,54 +1,5 @@
 package incidents
 
-import "github.com/google/uuid"
-
-type CreateIncidentRequest struct {
-	ClientTxnID            string
-	IncidentKey            string
-	Title                  string
-	Description            *string
-	Severity               *string
-	TLP                    *string
-	CurrentPhase           *string
-	PrimaryExternalCaseRef *string
-}
-
-type MembershipCreateRequest struct {
-	ClientTxnID string
-	UserID      *uuid.UUID
-	Email       *string
-	Role        string
-}
-
-type MembershipPatchRequest struct {
-	BaseMembershipVersion int64
-	Role                  string
-}
-
-type MembershipDeleteRequest struct {
-	BaseMembershipVersion int64
-}
-
-type OptionalNullableString struct {
-	Present bool
-	Value   *string
-}
-
-type IncidentPatchRequest struct {
-	BaseIncidentVersion    int64
-	Description            OptionalNullableString
-	Severity               OptionalNullableString
-	TLP                    OptionalNullableString
-	CurrentPhase           OptionalNullableString
-	PrimaryExternalCaseRef OptionalNullableString
-}
-
-type IncidentLifecycleRequest struct {
-	BaseIncidentVersion int64
-	ClientTxnID         string
-	Reason              string
-}
-
 func BuildIncidentResource(record IncidentRecord) map[string]any {
 	return map[string]any{
 		"incident_id":               record.ID,

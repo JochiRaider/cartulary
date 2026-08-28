@@ -1,5 +1,11 @@
 # incidents Module Refactoring Tracker and Handoff
 
+> **Completed forward plan (2026-08-28):** Section 18 records the completed
+> Iteration 3 Mutation and Source-State Production Hardening effort. Sections 1
+> through 17 remain immutable Iteration 1 and Iteration 2 history. Every authorized
+> Iteration 3 workstream is `DONE`; the validation and handoff evidence is retained
+> in section 18.13.
+
 ## 1. Scope and Source Posture
 
 - **Target path:** `internal/modules/incidents`
@@ -1261,3 +1267,481 @@ its predecessor's tracker checkpoint and exit gates pass.
 | 2026-08-19T04:38:23-04:00 | `I2-RS-06` complete on `main` at `ffe49c02d40d04c5e55a5bbc8f4d95276e358f0d`; retained every preceding staged and unstaged Iteration 2 change and audited final Incidents, Incident Bundles, Recovery, generated SQL, boundary/Harness policy, owner matrices, and changed paths | Removed the now-incompatible SQL/store selector that evaluated all retained backups against one current verification basis; generation-aware catalog scheduling remains the sole path. Made both raw Incidents bundle codec helpers private and changed Incident Bundles to obtain canonical `data/incident.json` through the registered source port, preserving its bytes, incident-key propagation, and incident-not-found mapping. Renamed the last three tests carrying retired helper spellings and migrated their authored selectors. Added recurrence rules for the deleted Recovery selector and bundle codec exports. Regenerated `internal/gen/sql/recovery.sql.go` and affected Harness topology output. Final Incidents inventory is 45 files: 25 production and 20 test, with 114 exported-declaration lines; final Recovery inventory is 47 files: 24 production and 23 test, with 326 exported-declaration lines. Surviving Incidents exports are justified application capabilities and records, source registration, resource builders shared with HTTP, transaction participation, Recovery and Reporting contributions, finalizer construction, and cohesive owner-specific test support. Recovery's generation identity is consumed across its application boundary; generated generation entries are also consumed by Graph Projection. No unused compatibility export remains. | Final focused/service-backed pairs passed for Incidents 27/27 and 19/19 at `.cartulary/test-results/20260819T082455Z-p1617673` and `.cartulary/test-results/20260819T082617Z-p1661332`; Incident Bundles 8/8 and 6/6 at `.cartulary/test-results/20260819T073736Z-p633288` and `.cartulary/test-results/20260819T073834Z-p648545`; Recovery 24/24 and 19/19 at `.cartulary/test-results/20260819T072917Z-p424365` and `.cartulary/test-results/20260819T073053Z-p476243`; Entities 32/32 and 29/29 at `.cartulary/test-results/20260819T074435Z-p721301` and `.cartulary/test-results/20260819T074623Z-p773231`; Workbook 67/67 and 39/39 at `.cartulary/test-results/20260819T074808Z-p825149` and `.cartulary/test-results/20260819T075017Z-p881078`; Indicators 13/13 and 7/7 at `.cartulary/test-results/20260819T075244Z-p936691` and `.cartulary/test-results/20260819T075321Z-p952010`; Graph Projection 8/8 and 6/6 at `.cartulary/test-results/20260819T075359Z-p966854` and `.cartulary/test-results/20260819T075458Z-p981908`; operator 12/12 and 9/9 at `.cartulary/test-results/20260819T075546Z-p996748` and `.cartulary/test-results/20260819T075621Z-p1031155`; Revisions 27/27 and 20/20 at `.cartulary/test-results/20260819T075655Z-p1065089` and `.cartulary/test-results/20260819T075757Z-p1109270`; Timeline 48/48 and 29/29 at `.cartulary/test-results/20260819T075859Z-p1151939` and `.cartulary/test-results/20260819T080333Z-p1208019`; Collaboration 32/32 and 23/23 at `.cartulary/test-results/20260819T080806Z-p1263616` and `.cartulary/test-results/20260819T080928Z-p1309811`; server 24/24 and 17/17 at `.cartulary/test-results/20260819T081050Z-p1355282` and `.cartulary/test-results/20260819T081145Z-p1394021`. Final `make format` and `make generate` passed at `.cartulary/test-results/20260819T082439Z-p1611166` and `.cartulary/test-results/20260819T082443Z-p1614711`; `make agent-finalize` passed 1/1 at `.cartulary/test-results/20260819T082743Z-p1704060` with `RESULTS_DIR` unset and the expected retained-run maintenance skip; browser passed 58/58 at `.cartulary/test-results/20260819T082759Z-p1706930`; boundary 3/3, Harness 2/2, drift 4/4, generated policy 3/3, JSON shape 3/3, and Markdown passed at `.cartulary/test-results/20260819T083206Z-p1758330`, `.cartulary/test-results/20260819T083214Z-p1763380`, `.cartulary/test-results/20260819T083227Z-p1763835`, `.cartulary/test-results/20260819T083235Z-p1766717`, `.cartulary/test-results/20260819T083236Z-p1767121`, and `.cartulary/test-results/20260819T083239Z-p1767596`; `make lint-go` passed; terminal `make check` passed 627/627 at `.cartulary/test-results/20260819T083246Z-p1768497`; exact repository-wide retired-symbol/import/generated-residue scans, ownership scan, export review, changed-path review, and `git diff HEAD --check` passed. The mandatory post-checkpoint Markdown and tracker-scoped diff gates also pass. Registry digest remains `09cb6e77f710577a9b95c0ea21c4c603ef92167c1f7ef5e7a60aad393accae34`. Exact generation identities remain: current Workbook/v3 catalog/codec/Graph registry/binding `96ab9cac942a3729afcefa47a02bbfe910a2c09af0fb25ee32f7b610b6352055` / `8fa8c539eabd71ce38b0808ee7176261e32e144ae8fbe0c66ca9bce35f907d47` / `61c3f7348c4df2bee3e969c905c91c9857082cf2839a0b57104e40339e3e16d3` / `113056a35ec55e42532fca7fd15f557450cd585cd54fb70c657ea1bfb4b61673`; pre-ownership v3 `04174fbf70585af5afb5ace702b797f7512f655005b8502b02f4b41700a966a6` / the same v3 codec and registry / `6ec244d0b82466a18adbdb82554be29f5e4baac384175538acbc92e56f14b8d5`; historical v2 `ce0a1f4053a9ce156273e4adf40c8b4185fa616170eadd6a860500d0b24fd22f` / `20807db2017de12c86732a11912effdebed32b8a691b032113675f2bc6129352` / `e75697ef1f6b5a197d299746fd42d2bf07afcd2e1c9d187a6fe695bca3096730` / `235c69bbc0e5d4f25f3fab7b1f2b8c30ba6370bfc65abcba75822007802621b9`. | `I2-RS-07` and Iteration 2 are `DONE`. The first final Entities run at `.cartulary/test-results/20260819T074012Z-p667242` passed 31/32 and classified the unstarted unit as infrastructure `fixture_error` because `cartulary-test-services start-suite` exited; its isolated rerun passed 32/32. An initial `make explain-run ... DETAIL=rows` investigation used an unsupported detail value; supported summary/log views confirmed the infrastructure classification. The first post-rename `make format` failed before a run root because one authored selector list was not ASCII-sorted; ordering was corrected and every downstream gate reran successfully. Earlier broad acceptance roots were superseded after the test-name cleanup. No required check was skipped; only retained-run maintenance was intentionally skipped because `RESULTS_DIR` was unset. The only retained legacy behavior is the two exact historical Recovery generations, removable only through a separate adopted owner decision backed by repository or deployment evidence. No public HTTP/OpenAPI/WebSocket/session/frontend behavior, persisted response or idempotency hash, schema/data migration, domain vocabulary, alias, overload, forwarding shim, open-ended reader, or unexplained drift remains. Residual risk is limited to operational stewardship of those deliberately retained historical backups. Rollback is the obsolete Recovery SQL/store selector removal, private bundle-codec migration, tests/Harness/policy, regenerated outputs, and this checkpoint as one atomic final slice; preceding completed workstreams retain their recorded rollback boundaries. There is no successor. |
 
 Iteration 2 is complete. Sections 13 through 17 contain no active or pending row.
+
+## 18. Iteration 3: Mutation and Source-State Production Hardening
+
+### 18.1 Charter, authority, and execution boundary
+
+Iteration 3 removes accidental compatibility surfaces and permissive production
+seams that survived the first two structural iterations. Its target state is an
+Incidents package whose mutation inputs cannot be fabricated in invalid states,
+whose audit facts and time are explicit, whose application facade exposes only
+application behavior, and whose Incident Bundle and Recovery source state fails
+closed against one owner-derived manifest.
+
+The planning direction for this iteration is:
+
+- prefer structural fixes over tactical patches;
+- treat future phase growth as a core constraint;
+- remove behavior that creates an unnecessary compatibility burden;
+- carry a feature forward only when it materially improves the future state; and
+- make the subsystem easier to understand, test, extend, and maintain.
+
+Those principles select among owner-compatible implementations; they do not amend
+product requirements. Adopted subsystem NLSpecs and Core owner sections remain the
+normative behavioral authority. `docs/domain.md` supplies vocabulary and owner
+navigation only. `docs/research/nlspec-spec.md` supplies research and writing
+guidance only. The prior tracker sections are repository history, not instructions
+for this iteration.
+
+The current implementation request authorizes `I3-WF-01`, `I3-RS-00`, `I3-SP-01`,
+and `I3-RS-01` through `I3-RS-07` in that exact order. At most one row may be
+`IN_PROGRESS`, and each workstream MUST record completion evidence in this tracker
+before its successor begins. The existing staged tracker snapshot is user-owned and
+MUST NOT be reset, unstaged, overwritten wholesale, or committed automatically.
+
+### 18.2 Current baseline and live inventory
+
+The planning baseline is clean `main` at commit
+`57b9805c2d4ac4f2b5003b7f03beea74b18aa344` (`Links Iteration 3`, committed
+2026-08-28T08:12:04-04:00).
+
+| Baseline fact | Current evidence |
+| --- | --- |
+| Incidents Go files | 45 total: 25 production and 20 test |
+| Owner routing | 47 rows currently route to `module.incidents` |
+| Focused owner baseline | `make test-slice OWNER=module.incidents` passed 27/27 at `.cartulary/test-results/20260828T122009Z-p1521184` |
+| Backend boundary baseline | `make backend-module-boundary-check` passed 3/3 at `.cartulary/test-results/20260828T122010Z-p1521266` |
+| Repository state at discovery | Clean worktree; local `main` and `origin/main` at the same baseline commit |
+
+The live cleanup inventory is:
+
+| Surface | Current problem | Iteration 3 disposition |
+| --- | --- | --- |
+| Six mutation request structs and `OptionalNullableString` | Exported mutable values let non-HTTP callers bypass the strict transport decoder and construct contradictory states. | Replace atomically with opaque Incidents-owned admission values; delete the structs and old decoders without aliases. |
+| Lifecycle `action string` | The application and Collaboration coordinator accept values outside close/reopen and derive behavior from an open string. | Introduce a closed `LifecycleAction`, bind it into lifecycle admission, and remove the separate string parameter. |
+| Audit construction | A hidden `time.Now`, open event/source strings, an implicit public-source default, and `membershipRole(any)` make audit state nondeterministic and permissive. | Require the command time and typed facts at every call site; delete fallback inference and defaults. |
+| `Application.GetMembership` | The exported method is used by application replay logic and tests, not by a production consumer capability. | Use the private repository for replay and exact test support for test lookup; remove the method. |
+| `Application.ListAdministrativeAuditEvents` | The method only forwards to the platform administrative-audit query for one HTTP handler. | Give the HTTP service a private reader over its existing PostgreSQL dependency; remove the forwarding method and capability. |
+| Terminal mutation commit | Exported fields and a public `Validate` method permit callers to fabricate invalid disposition/effect-key pairs. | Make state private and constructor-valid; expose read-only classification/effect-key methods. |
+| Incident Bundle source state | Import accepts a generic map, checks only minimal columns, and relies on `jsonb_populate_record`/`SELECT *` behavior that can ignore unknown data or drift with table shape. | Validate an exact typed source row and apply explicit columns from one Incidents manifest. |
+| Recovery contribution | Recovery tables and bundle-source facts are separately authored and their constructors cannot report manifest defects. | Derive both from the same validated manifest and make construction fallible. |
+| Test support and historical Recovery generations | Much of the support surface is actively shared; two historical generations are owner-required compatibility. | Retain live cohesive support and both historical generations. Delete only members proven dead by exact reachability. |
+
+The existing non-fallible `admission.Checker` remains in scope and MUST NOT be
+reopened by this iteration. Root resource builders remain justified shared
+Incidents/HTTP capabilities unless a later reachability pass proves otherwise.
+
+### 18.3 Product, persistence, and artifact freeze
+
+For every input valid at this baseline, Iteration 3 MUST preserve:
+
+- all HTTP paths, methods, operation IDs, status codes, Location behavior, success
+  envelopes, public errors, fields, reason codes, validation priority, and strict
+  JSON behavior;
+- authentication, authorization, incident concealment, role and lifecycle policy,
+  pagination/cursor scope, session sliding, and WebSocket behavior;
+- normalized request-hash preimages and digests, idempotency scopes, persisted
+  response status/JSON, replay ordering, conflict behavior, and fresh/replay outcome;
+- database schema, authored SQL semantics, lock order, transaction boundaries,
+  optimistic concurrency, audit action codes and projection shapes, and committed
+  terminal effect identity;
+- Collaboration close and membership-revocation effects and their post-commit-only
+  ordering;
+- Incident Bundle v3 paths and valid exported bytes, actor remapping, source version,
+  publication behavior, Reporting snapshots, and Network Flow integration; and
+- the Recovery two-table Incidents contribution and all three currently admitted
+  Recovery generations.
+
+Two owner closures precede production edits: Core 01 MUST enumerate the exact
+Incident Bundle v3 incident row and invariant precedence, and Core 04 MUST define one
+recorded UTC mutation timestamp shared by the mutation/source rows and every
+raw/projected audit row made observable by a successful commit. Import finalization
+MUST use its existing `PublishedAt`; every interactive mutation MUST let the
+Incidents application sample its required clock exactly once immediately before a
+fresh transaction. These closures change no public field, schema, or timestamp
+format.
+
+No schema/data migration, frontend change, durable outbox, public route, new product
+feature, generalized compatibility layer, or owner change beyond the two named
+closures is planned. Discovery of another required change in those categories marks the affected row
+`BLOCKED: owner contradiction or scope expansion` before implementation.
+
+### 18.4 Target mutation interfaces
+
+The root Incidents package MUST own these opaque, nonzero-valid values:
+
+```go
+type IncidentCreateAdmission struct { /* private */ }
+type IncidentPatchAdmission struct { /* private */ }
+type IncidentLifecycleAdmission struct { /* private */ }
+type MembershipCreateAdmission struct { /* private */ }
+type MembershipPatchAdmission struct { /* private */ }
+type MembershipDeleteAdmission struct { /* private */ }
+
+func AdmitIncidentCreateJSON(io.Reader) (IncidentCreateAdmission, *AdmissionError)
+func AdmitIncidentPatchJSON(io.Reader) (IncidentPatchAdmission, *AdmissionError)
+func AdmitIncidentLifecycleJSON(LifecycleAction, io.Reader) (IncidentLifecycleAdmission, *AdmissionError)
+func AdmitMembershipCreateJSON(io.Reader) (MembershipCreateAdmission, *AdmissionError)
+func AdmitMembershipPatchJSON(io.Reader) (MembershipPatchAdmission, *AdmissionError)
+func AdmitMembershipDeleteJSON(io.Reader) (MembershipDeleteAdmission, *AdmissionError)
+```
+
+`AdmissionError` MUST implement `error` and expose only `Field() (string, bool)` and
+`ReasonCode() string`. It MUST NOT import or return an HTTP type, status, public error
+code, response envelope, or handler concern. Each HTTP handler maps the constructor
+it invoked to its existing error family:
+
+| Constructor family | Frozen public error code |
+| --- | --- |
+| Incident create | `invalid_incident_create` |
+| Incident patch | `invalid_incident_patch` |
+| Incident lifecycle | `invalid_incident_lifecycle_request` |
+| Membership create, patch, and delete | `invalid_mutation_payload` |
+
+The constructors MUST preserve the current unknown-field rejection, single-JSON-value
+rule, empty-body behavior, field validation order, normalization, length limits, null
+versus omission behavior, role catalog, TLP catalog, reason handling, and request-hash
+bytes. Invalid or zero `LifecycleAction` values MUST fail admission. The only valid
+actions are `LifecycleActionClose` and `LifecycleActionReopen`, with frozen string
+forms `close` and `reopen` used in persisted hash and audit data.
+
+Opaque admissions expose only read access needed outside the root package:
+
+- every idempotent admission exposes `ClientTxnID() string`;
+- lifecycle admission exposes `Action() LifecycleAction`;
+- membership-create admission exposes mutually exclusive
+  `TargetUserID() (uuid.UUID, bool)` and `TargetEmail() (string, bool)` selectors; and
+- all other normalized mutation state remains private to the Incidents application.
+
+The application method signatures replace each old request type one-for-one.
+Lifecycle transition receives the bound admission without a separate action.
+The application receives one required clock through its dependencies and samples it
+only after admission, authorization, conflict/no-op, and replay resolution and
+immediately before a fresh transaction. Callers do not supply command timestamps.
+Zero admission values and zero sampled timestamps MUST fail before transaction
+acquisition, mutation writes, audit insertion, or Collaboration effects.
+
+`TerminalMutationCommit` retains the two valid constructors but makes disposition and
+effect key private. It exposes `IsNewCommit() bool`, `IsReplay() bool`, and
+`EffectKey() (uuid.UUID, bool)`. `Validate`, open disposition constants, and direct
+field reads are removed in the same slice. A new commit always carries one nonzero
+audit UUID; a replay never carries an effect key.
+
+### 18.5 Audit and facade target state
+
+The private audit fact MUST require:
+
+- actor, target, and incident identities appropriate to the event;
+- a closed private event kind;
+- an explicit platform public source (`api` or `system` as currently selected);
+- explicit `OccurredAt`, normalized to UTC;
+- current request/client transaction/reason values with unchanged omission rules;
+- raw before/after payloads with unchanged JSON shapes; and
+- explicit optional before/after membership roles for the three membership
+  projections.
+
+The Incidents event source remains the fixed private value `incidents`; callers MUST
+NOT supply it. Event-kind-to-action-code mapping is exhaustive. A membership event
+with incomplete projection identities or role facts fails before either audit row is
+written. `membershipRole(any)`, its marshal/unmarshal fallback, computed lifecycle
+event strings, and the empty-public-source default are deleted.
+
+Every mutation and import finalizer MUST use one occurrence time for its raw journal
+row and public projection. Fresh success retains the current transaction ordering;
+replay, rejected/no-op mutations, rollback, and commit failure retain their current
+no-new-effect behavior.
+
+`CreateMembership` MUST use the private repository for its replay lookup. Tests that
+need direct lookup MAY receive one exact helper under Incidents test support, but no
+production compatibility method. The membership-audit HTTP service MUST construct a
+private reader over `DependencySet.PostgresHandle()` and call the platform query
+through that reader. The HTTP `Application` capability then loses the administrative
+audit forwarding method.
+
+### 18.6 Source-state manifest and exact validation
+
+Add `internal/modules/incidents/internal/sourcestate` as the sole Incidents manifest
+owner for:
+
+- bundle source path `data/incident.json` and its current source version;
+- ordered incident columns `id`, `incident_key`, `incident_key_canonical`, `title`,
+  `description`, `status`, `severity`, `tlp`, `current_phase`,
+  `primary_external_case_ref`, `created_by_user_id`, `created_at`, `updated_at`,
+  `updated_by_user_id`, `incident_version`, and `closed_at`;
+- ordered invariant IDs `incident.source_identity_admitted`,
+  `incident.exact_shape`, `incident.identity_key_lifecycle`, and
+  `incident.attribution_version`; and
+- Recovery relations `incidents` and `incident_memberships`.
+
+Manifest construction MUST reject an empty/duplicate path, column, invariant, or
+Recovery relation. `NewIncidentBundleSourcePort() (sourceport.Port, error)` and
+`RecoveryStateContribution() (recoverystate.Contribution, error)` MUST derive their
+descriptors from this manifest. Incident portability assembly, revision assembly,
+server composition, recovery assembly, and every compiler-discovered caller MUST
+propagate construction failure with contextual startup errors. No old overload or
+non-fallible wrapper remains.
+
+`Prepare` MUST use the repository strict-object decoder with number preservation,
+require one object containing exactly the 16 manifest keys, reject duplicate members
+and trailing JSON, and validate in this order:
+
+1. Internal catalog, registered-path/version, operation, and port-binding defects are
+   typed internal failures and MUST NOT masquerade as source invariants.
+2. `incident.source_identity_admitted`: the row has one canonical nonzero `id` and
+   it agrees with the source incident identity and import context.
+3. `incident.exact_shape`: no missing, unknown, or duplicate member exists and every
+   value has its exact JSON type and nullability.
+4. `incident.identity_key_lifecycle`: UUID and import context agree; incident key and
+   canonical key agree; status is `active` or `closed`; `closed_at` coheres with that
+   status; bounded key/title/metadata/TLP values are valid.
+5. `incident.attribution_version`: actor UUIDs admitted by the actor catalog,
+   canonical UTC timestamps, timestamp
+   relationships, and a positive integer incident version are valid.
+
+Prepared state MUST be a private concrete value bound to the source port identity,
+operation, source version, incident, and validated row. `Apply` MUST reject any other
+prepared type and use an explicit 16-column insert after the existing actor remap;
+it MUST NOT use `jsonb_populate_record`, `INSERT ... SELECT *`, or table-order
+inference. `Validate` MUST require exactly one stored incident row and compare its
+identity, key/canonical key, lifecycle/closed time, attribution, timestamps, and
+version with the prepared row. All failures occur before publication and map to the
+declared invariant that owns the failed fact.
+
+Valid export behavior remains byte-compatible, but export MUST select and serialize
+the 16 manifest fields explicitly while producing the characterized v3 bytes. A
+whole-row `to_jsonb` projection is not an acceptable versioned wire contract.
+
+### 18.7 Iteration requirements
+
+| Requirement ID | Binary requirement |
+| --- | --- |
+| `INC-I3-001` | Sections 1 through 17 remain immutable history; section 18 is the sole forward plan. |
+| `INC-I3-002` | Characterization precedes production edits and freezes every behavior/artifact named in section 18.3. |
+| `INC-I3-003` | Core 01 owns the exact 16-member v3 row and invariant precedence before strict codec implementation. |
+| `INC-I3-004` | Core 04 owns the one-time-per-command committed timestamp rule before audit implementation. |
+| `INC-I3-005` | Only opaque admitted mutation values reach the application; zero or fabricated state fails before effects. |
+| `INC-I3-006` | Existing public mutation validation, normalized hashes, replay bytes, and errors remain exact. |
+| `INC-I3-007` | Lifecycle action is closed and bound once; no application/coordinator action string remains. |
+| `INC-I3-008` | Each successful command uses one explicit UTC time for mutation and audit state. |
+| `INC-I3-009` | Audit kinds, sources, and membership role facts are typed and exhaustive with no generic fallback. |
+| `INC-I3-010` | The application facade exposes no test-only membership lookup or administrative-audit forwarding method. |
+| `INC-I3-011` | Terminal commit state cannot be invalidly fabricated and retains exact post-commit effect semantics. |
+| `INC-I3-012` | One immutable manifest derives Incidents bundle and Recovery facts and both constructors fail closed. |
+| `INC-I3-013` | Source prepare rejects missing, unknown, duplicate, malformed, incoherent, unbound, or stale incident data before apply. |
+| `INC-I3-014` | Source apply names every column, export names every wire member, and validation compares exact stored state. |
+| `INC-I3-015` | No alias, overload, wrapper, parallel decoder, hidden clock, or open-ended historical reader is added. |
+| `INC-I3-016` | Only exact dead surfaces are removed; live test support and owner-required Recovery generations remain. |
+| `INC-I3-017` | Generated artifacts change only through authored inputs and repository-owned generation targets. |
+| `INC-I3-018` | An owner contradiction or required public/schema/scope expansion blocks the affected row before implementation. |
+
+### 18.8 Serial execution ledger
+
+The status vocabulary remains `TODO`, `IN_PROGRESS`, `DONE`, and `BLOCKED`. At most
+one row may be `IN_PROGRESS`; no successor begins before its predecessor is `DONE`.
+
+| Workstream | Status | Scope and exit evidence | Sole successor |
+| --- | --- | --- | --- |
+| `I3-WF-00` — tracker activation | DONE | Added the current-plan banner and section 18; Markdown passed at `.cartulary/test-results/20260828T124717Z-p1573854`; tracker diff and changed-path checks prove sections 1–17 unchanged. | `I3-WF-01` |
+| `I3-WF-01` — authorized-plan correction | DONE | Corrected only future Iteration 3 material, preserved the staged snapshot and historical sections, and installed the serial owner/implementation/checkpoint plan; Markdown and both staged/working-tree diff checks passed. | `I3-RS-00` |
+| `I3-RS-00` — characterization and reachability | DONE | Retained existing mutation/hash/replay/audit/effect/rollback coverage, added exact valid-v3 incident source descriptor/byte evidence, and recorded all migration call sites without changing production behavior. | `I3-SP-01` |
+| `I3-SP-01` — owner and projection closure | DONE | Adopted the exact incident-row/invariant and committed-command-time requirements and projected the row schema, source catalog, traceability, claim selectors, and runtime descriptor. | `I3-RS-01` |
+| `I3-RS-01` — opaque mutation admission | DONE | Replaced all six mutable request paths with strict Incidents-owned opaque admissions, closed lifecycle actions, private normalized hashes, and fully migrated callers without compatibility aliases. | `I3-RS-02` |
+| `I3-RS-02` — audit facts and terminal effects | DONE | Made the application clock, audit facts, and terminal commits closed and explicit; proved one committed timestamp and post-commit-only effects across all mutation families. | `I3-RS-03` |
+| `I3-RS-03` — facade contraction | DONE | Moved replay to the private repository and administrative-audit projection reading to a private HTTP reader; removed both application methods and proved no production references remain. | `I3-RS-04` |
+| `I3-RS-04` — source manifest and fallible composition | DONE | Added one validated, once-loaded neutral source-state catalog; derived defensive portability/Recovery projections and propagated contextual construction failures through both assemblies. | `I3-RS-05` |
+| `I3-RS-05` — strict source codec | DONE | Replaced table-shaped source handling with a strictly decoded, operation-bound 16-member row, explicit apply/export SQL, exact post-remap validation, and routed adversarial/compatibility evidence. | `I3-RS-06` |
+| `I3-RS-06` — dead-surface cleanup | DONE | Removed the last open HTTP lifecycle parameter and unnecessary exported strict-decoder error type; proved no compatibility implementation remains and added exact boundary recurrence rules. | `I3-RS-07` |
+| `I3-RS-07` — validation and handoff | DONE | Completed all required owner, static, generation, migration, API, security, broad, browser, release, documentation, recurrence, and repository-integrity gates with exact handoff evidence. | Complete |
+
+### 18.9 Workstream execution detail
+
+#### `I3-RS-00` — characterization and reachability
+
+- Add table-driven unit evidence for every accepted/rejected body, validation field,
+  reason code, and public error mapping across all six mutations.
+- Freeze normalized request-hash preimages/digests and persisted fresh/replay response
+  status/JSON, including omission, null, selector, actor, and close/reopen cases.
+- Freeze raw/projected audit pairs, action codes, roles, timestamps, request/client
+  identities, effect UUIDs, no-op/replay behavior, and transaction rollback.
+- Freeze current valid Incident Bundle v3 bytes and add negative rows for every
+  missing/unknown/type/identity/key/lifecycle/attribution/version failure with the
+  deterministic invariant priority.
+- Record exact callers for request types, action strings, terminal fields,
+  application forwarding methods, source/Recovery constructors, root exports, and
+  every candidate test helper. A candidate without exact zero-caller evidence is
+  retained.
+
+#### `I3-SP-01` — owner and typed-projection closure
+
+- Add Core 01 `REQ-01-673` and `AC-566` for the exact 16-member Incident Bundle v3
+  row, canonical lexical forms, nullability, closed enums, and invariant precedence.
+- Add Core 04 `REQ-04-161` and `AC-567` for one UTC timestamp sampled immediately
+  before transactional execution and made observable only by successful commit.
+- Add `incident.row.v1.schema.json`, the source-catalog `schema_id`, traceability,
+  owner-verification projections, and only the generated outputs owned by those
+  inputs. This tracker remains evidence, not specification authority.
+
+#### `I3-RS-01` — opaque mutation admission
+
+- Implement transport-neutral admissions and migrate HTTP, application, idempotency,
+  Collaboration coordination, store tests, and test support in one slice.
+- Keep target-user resolution after membership-create admission and before the
+  application call; bind the normalized selector to the resolved identity exactly as
+  today.
+- Derive request hashes only inside Incidents from admitted normalized state. Tests
+  may assert hashes but MUST NOT receive an override seam or public hash builder.
+- Delete every old request definition and HTTP decoder in the same slice. Repository
+  searches and an AST/boundary rule prevent their return.
+
+#### `I3-RS-02` — audit facts and terminal effects
+
+- Require the Incidents application clock, sample it once immediately before each
+  fresh mutation transaction, and use the admitted import publication time for
+  finalization; reject a zero sample before transaction acquisition.
+- Replace generic audit strings/maps used for projection inference with closed facts,
+  retaining raw before/after JSON and public projection bytes.
+- Close terminal commit state and migrate coordinator/tests to query methods.
+- Do not contract the facade in this slice; that is the sole scope of `I3-RS-03`.
+
+#### `I3-RS-03` — facade contraction
+
+- Replace application replay use of `GetMembership` with the private repository and
+  give tests exact store support without a production compatibility method.
+- Give the membership-audit HTTP service a private projection reader over its
+  existing PostgreSQL dependency and remove the application forwarding capability.
+- Prove by package-boundary and reachability checks that transport projection policy
+  and repository details did not leak into the application facade.
+
+#### `I3-RS-04` — source manifest and fallible composition
+
+- Add and unit-test the private manifest before changing constructors.
+- Make source and Recovery constructors fallible and migrate all assemblies before
+  enabling strict codec validation; startup must fail before listener registration.
+- Derive ordered bundle and Recovery facts from the same immutable catalog and expose
+  defensive copies only.
+
+#### `I3-RS-05` — strict source codec
+
+- Replace permissive source prepare/apply with bound typed state and explicit SQL;
+  replace whole-row export with an explicit 16-member projection.
+- Validate actor admission, exact stored post-remap state, affected-row equality,
+  valid-byte compatibility, publication, rollback, and invariant precedence.
+- Add owner-routed unit/integration rows through authored Harness inputs when the
+  existing selector surface cannot express the new evidence; regenerate only then.
+
+#### `I3-RS-06` — exact cleanup and recurrence prevention
+
+- Repeat production and test call-graph/export scans after all migrations.
+- Delete only zero-caller helpers, obsolete fixtures, compatibility wording, and
+  superseded boundary allowances. Do not relocate cohesive support merely to reduce
+  file/export counts.
+- Add exact subtree rules forbidding retired DTO/decoder names, action strings at the
+  application boundary, `time.Now` in Incidents audit/application code, generic audit
+  role extraction, non-fallible source constructors, `jsonb_populate_record`, and
+  wildcard source inserts.
+
+#### `I3-RS-07` — final validation and handoff
+
+- Record final production/test/export inventory, source-manifest facts, retained
+  Recovery generations, substantive changes, generated outputs, command roots, every
+  failure and disposition, skipped checks, residual risk, and rollback boundary.
+- Close the iteration only after all binary criteria and recurrence searches pass.
+  A nearly complete or budget-limited run remains active; it is not marked `DONE`.
+
+### 18.10 Verification routing
+
+Before each slice, run `make task-guide ROLE=module-author OWNER=<owner-id>` and use
+`make explain-test-owner`, `make explain-target`, or `make target-plan` to select the
+narrowest evidence. The minimum owner routing is:
+
+| Slice | Required focused and service-backed owners |
+| --- | --- |
+| `I3-RS-00` | `module.incidents`, plus the characterized Collaboration, Incident Bundles, Recovery, Workbook, and server rows |
+| `I3-SP-01` | `module.incidents`, `module.incidentbundles`, and every owner whose authored verification projection changes |
+| `I3-RS-01` | `module.incidents`, `module.collaboration`, `app.server`, and compiler-discovered direct callers |
+| `I3-RS-02` | `module.incidents`, `module.collaboration`, `app.server`, and administrative-audit consumer rows |
+| `I3-RS-03` | `module.incidents`, `app.server`, and administrative-audit consumer rows |
+| `I3-RS-04` | `module.incidents`, `module.incidentbundles`, `module.recovery`, `module.workbook`, `app.server`, and affected assembly rows |
+| `I3-RS-05` | `module.incidents`, `module.incidentbundles`, `module.recovery`, and service-backed import/export rows |
+| `I3-RS-06` | Every owner changed by cleanup, boundary policy, or Harness routing |
+| `I3-RS-07` | All owners changed during Iteration 3 |
+
+Every production slice runs its focused/service-backed owner pairs,
+`make backend-module-boundary-check`, the Go lint target selected by `make help-all`,
+and `git diff --check`. Harness inputs change only for real ownership/selector/topology
+changes and then require `make harness-contract`. Authored SQL, contract, or generator
+input changes require `make generate`, followed by `make generate-drift`,
+`make generated-artifact-policy-check`, and `make json-shape-check`.
+
+Final validation order is:
+
+1. focused and service-backed slices for every changed owner;
+2. `make agent-finalize`, recording the expected retained-run skip when
+   `RESULTS_DIR` is unset;
+3. `make backend-module-boundary-check` and `make harness-contract`;
+4. `make generate-drift`, `make generated-artifact-policy-check`, and
+   `make json-shape-check`;
+5. `make migration-drift` and `make openapi-compatibility-check`;
+6. `make go-gosec-targeted` and `make go-vulncheck`;
+7. `make test-fast` and `make check`;
+8. `make browser-e2e` and `make browser-e2e-webserver-backed`;
+9. `make release-check` and `make lint-markdown`; and
+10. retired-symbol/import/permissive-source searches, changed-path review, and
+    repository-wide `git diff --check`.
+
+For document-only `I3-WF-00` and `I3-WF-01`, validation is limited to `make lint-markdown`,
+`git diff --check -- docs/handoffs/incidents-module-refactor-tracker.md`, a
+tracker-only changed-path review, and a diff review proving sections 1 through 17 are
+unchanged.
+
+### 18.11 Binary completion criteria and deferrals
+
+| Criterion | Required result |
+| --- | --- |
+| Historical integrity | Sections 1–17 are unchanged and section 18 alone controls forward work. |
+| Admission | Six opaque admission values are the only mutation inputs; invalid/zero state cannot reach effects. |
+| Compatibility | Public validation/errors, hashes, stored replay bytes, valid bundle bytes, and transaction/effect ordering match characterization. |
+| Lifecycle | Only close/reopen can be represented and the action is bound once. |
+| Audit | One explicit UTC command time and closed audit facts produce the existing raw/public shapes. |
+| Facade | No test-only membership read or platform audit forwarding method remains. |
+| Terminal effects | Invalid commit dispositions cannot be constructed and fresh/replay notifications remain exact. |
+| Source state | One validated manifest derives bundle/Recovery facts; prepare/apply/validate is exact, bound, explicit, and fail-closed. |
+| Cleanup | Removed identifiers, aliases, overloads, hidden clocks, generic fallbacks, and permissive source operations have zero production references and recurrence guards. |
+| Retained behavior | Active test support and all three owner-required Recovery generations remain intact. |
+| Verification | Every required narrow, static, security, drift, browser, broad, and release gate passes or blocks the dependent row. |
+| Handoff | Final inventory, evidence roots, failures, skips, residual risk, and rollback boundaries are recorded. |
+
+Explicit deferrals are a database/schema migration, public API or frontend change,
+new lifecycle states, new incident fields, durable/multi-process Collaboration
+delivery, removal or reinterpretation of historical Recovery generations, redesign of
+the neutral admission checker, and unrelated test-support relocation. Each requires a
+separate owner-backed iteration.
+
+### 18.12 `I3-WF-00` activation evidence
+
+| Time | Baseline and scope | Change | Validation | Result and next action |
+| --- | --- | --- | --- | --- |
+| 2026-08-28T08:48:13-04:00 | Clean `main` at `57b9805c2d4ac4f2b5003b7f03beea74b18aa344`; document-only authorization with a 45-file Incidents inventory and 47 owner-routed rows | Added the current-plan banner and controlling Iteration 3 section after the completed Iteration 2 record. No production, test, owner, contract, SQL, generated, Harness, migration, frontend, domain, or research file changed. | Baseline `module.incidents` focused slice passed 27/27 at `.cartulary/test-results/20260828T122009Z-p1521184`; backend boundary passed 3/3 at `.cartulary/test-results/20260828T122010Z-p1521266`; `make lint-markdown` passed at `.cartulary/test-results/20260828T124717Z-p1573854`; tracker-scoped `git diff --check`, changed-path review, and zero-context diff review passed | `I3-WF-00` is `DONE`. Only this tracker is modified, sections 1–17 remain immutable history, and `I3-RS-00` is the sole planned successor but remains unauthorized and `TODO`. |
+
+### 18.13 Workstream checkpoint protocol and execution evidence
+
+For every remaining row, confirm the predecessor is `DONE`, mark only the current
+row `IN_PROGRESS`, execute only that scope, and run its narrow gates. The final
+repository change for the row MUST update this tracker with status, substantive
+edits, exact commands and results, run roots, skips, residual risk, compatibility
+impact, and rollback boundary. Then run Markdown lint and tracker-scoped diff-check
+without modifying files. No successor starts until that checkpoint is `DONE`.
+
+| Time | Workstream | Change | Validation | Result and next action |
+| --- | --- | --- | --- | --- |
+| 2026-08-28T13:27:57-04:00 | `I3-RS-07` | Completed the end-to-end handoff audit. Final changed areas are the adopted Core 01/Core 04 and Appendix F owner text; Incident Bundle row schema, source catalog, and traceability projections; Incidents admission/application/audit/facade/source-state/codec/Recovery code; Collaboration and server composition; strict JSON support; migrated owner tests/test support; authored Harness and boundary inputs; the generator-produced execution-topology render index; and this tracker. No authored SQL, database migration/schema, frontend source, `docs/domain.md`, Recovery generation, public OpenAPI contract, or compatibility shim changed. The final source inventory retains one exact 16-member v3 row, one neutral immutable source/Recovery catalog, one designated Incident Bundles adapter, explicit insert/export/validation SQL, six opaque admission roots, closed audit/terminal/lifecycle facts, and active owner-routed characterization/adversarial evidence. The pre-existing staged tracker snapshot remained staged and untouched; no index operation or commit was performed. | `make agent-finalize` passed 1/1 at `.cartulary/test-results/20260828T162004Z-p4130266`; retained-run maintenance was intentionally skipped because `RESULTS_DIR` was unset (`results-dir-not-provided`). Final static/contract roots: boundary 3/3 `.cartulary/test-results/20260828T162045Z-p4133410`, Harness 2/2 `.cartulary/test-results/20260828T162045Z-p4133425`, drift 4/4 `.cartulary/test-results/20260828T162104Z-p4134338`, generated policy 3/3 `.cartulary/test-results/20260828T162104Z-p4134348`, JSON shape 3/3 `.cartulary/test-results/20260828T162104Z-p4134367`, migration drift 5/5 `.cartulary/test-results/20260828T162117Z-p4138122`, OpenAPI compatibility 4/4 `.cartulary/test-results/20260828T162117Z-p4138125`, targeted gosec 4/4 `.cartulary/test-results/20260828T162131Z-p4141887`, and vulnerability analysis 4/4 `.cartulary/test-results/20260828T162131Z-p4141888`. Final focused/service evidence passed for Incidents 28/28 and 19/19 (`.cartulary/test-results/20260828T161418Z-p4002742`, `.cartulary/test-results/20260828T161548Z-p4050578`), Incident Bundles 8/8 and 6/6 (`.cartulary/test-results/20260828T160257Z-p3887754`, `.cartulary/test-results/20260828T160525Z-p3950728`), Recovery 24/24 and 19/19 (`.cartulary/test-results/20260828T155104Z-p3626294`, `.cartulary/test-results/20260828T155451Z-p3742574`), Collaboration 32/32 and 23/23 (`.cartulary/test-results/20260828T162208Z-p4173415`, `.cartulary/test-results/20260828T162342Z-p28820`), server 24/24 and 17/17 (`.cartulary/test-results/20260828T162512Z-p77404`, `.cartulary/test-results/20260828T162613Z-p118895`), Workbook 66/66 and 37/37 (`.cartulary/test-results/20260828T162715Z-p160246`, `.cartulary/test-results/20260828T162932Z-p218892`), Entities 40/40 and 31/31 (`.cartulary/test-results/20260828T163148Z-p277391`, `.cartulary/test-results/20260828T163340Z-p332487`), Indicators 20/20 and 8/8 (`.cartulary/test-results/20260828T163537Z-p387584`, `.cartulary/test-results/20260828T163624Z-p404677`), Network Flow 35/35 and 30/30 (`.cartulary/test-results/20260828T163711Z-p421590`, `.cartulary/test-results/20260828T164155Z-p536937`), Revisions 27/27 and 20/20 (`.cartulary/test-results/20260828T164407Z-p594416`, `.cartulary/test-results/20260828T164517Z-p640403`), Saved Views 25/25 and 24/24 (`.cartulary/test-results/20260828T164629Z-p686139`, `.cartulary/test-results/20260828T164744Z-p736277`), and Timeline 52/52 and 29/29 (`.cartulary/test-results/20260828T164857Z-p786341`, `.cartulary/test-results/20260828T165336Z-p845103`). Broad/release roots passed: test-fast 439/439 `.cartulary/test-results/20260828T165820Z-p903952`, check 669/669 `.cartulary/test-results/20260828T165836Z-p904759`, browser 54/54 `.cartulary/test-results/20260828T170409Z-p1018897`, webserver-backed browser 58/58 `.cartulary/test-results/20260828T170918Z-p1092653`, and release 829/829 `.cartulary/test-results/20260828T171322Z-p1147075`. `make lint-markdown` passed before the final checkpoint at `.cartulary/test-results/20260828T172816Z-p1364558`; exact recurrence scans and working/staged repository diff checks passed. | `DONE`; every section 18.11 binary criterion is satisfied. The first Network Flow service-backed attempt at `.cartulary/test-results/20260828T163926Z-p479251` passed 27 units but its stateful browser pre-reset failed with `recovery_reset_truncate_failed` while PostgreSQL was saturated; the immediately isolated run passed 30/30, dispositioning this as unrelated fixture contention. No related failure or known residual product risk remains. Valid HTTP/OpenAPI behavior, request hashes, audit shapes, database schema, current Recovery identities, and valid bundle-v3 bytes remain compatible; strict rejection of malformed/defaulted command or bundle input is intentional. Roll back only as an owner-consistent unit spanning the adopted requirements, typed projections, implementation/caller migrations, tests, boundary/Harness inputs, generated topology index, and tracker; partial rollback would recreate specification or source-state drift. Iteration 3 is complete. |
+| 2026-08-28T12:18:59-04:00 | `I3-RS-06` | Audited all Incidents production and test declarations/callers after the migrations. No retired DTO, nullable wrapper, old request-hash function, facade pass-through, terminal-result field/constant, permissive source helper, or obsolete compatibility-only test path remained, so no live helper or cohesive test support was deleted. Replaced the private HTTP lifecycle handler's arbitrary string with the closed `LifecycleAction` and made illegal-transition mapping exhaustive; made the strict JSON duplicate-member concrete error private while retaining its read-only query. Added source-boundary recurrence rules for all retired command/hash, audit/facade/terminal, permissive/non-fallible source, hidden mutation-clock, and open lifecycle-parameter forms. Retained the public OpenAPI schema name, active source characterization, current helpers, and all Recovery generations because each remains owner-required evidence or behavior. | Final `make format` passed at `.cartulary/test-results/20260828T161719Z-p4096986`; Incidents focused and service-backed slices passed 28/28 and 19/19 at `.cartulary/test-results/20260828T161418Z-p4002742` and `.cartulary/test-results/20260828T161548Z-p4050578`. `make backend-module-boundary-check` passed 3/3 at `.cartulary/test-results/20260828T161719Z-p4096925`; `make generate-drift` passed 4/4 at `.cartulary/test-results/20260828T161718Z-p4096631`; `make lint` passed 11/11 at `.cartulary/test-results/20260828T161719Z-p4097098`; `make test-fast` passed 439/439 at `.cartulary/test-results/20260828T161719Z-p4097115`; and `make json-shape-check` passed 3/3 at `.cartulary/test-results/20260828T161852Z-p4128418`. Exact repository scans returned no retired mutation type/hash declaration, facade/terminal/audit surface, permissive Incident source SQL, non-fallible Incidents source signature, hidden mutation clock, or open lifecycle parameter. Working and staged repository `git diff --check` passed. | `DONE`; HTTP payloads/statuses/errors, OpenAPI, hashes, database schema, valid v3 bytes, and Recovery generations are unchanged. No compatibility shim remains, and no generated artifact or authored Harness/SQL input changed in this slice. Residual risk is limited to failures that may be exposed by the mandatory repository-wide final matrix. Rollback is the typed private HTTP lifecycle parameter, private duplicate error type, boundary rules, and this checkpoint as one unit. `I3-RS-07` is the sole successor. |
+| 2026-08-28T09:25:05-04:00 | `I3-WF-01` | Corrected the authorized future plan without changing Sections 1–17 or the completed `I3-WF-00` record. Split owner closure, audit/effect, facade, source-manifest, source-codec, cleanup, and final validation into serial rows; preserved the existing staged snapshot without index operations. | `make lint-markdown` passed at `.cartulary/test-results/20260828T132412Z-p1586717`; working-tree and staged tracker `git diff --check` passed; zero-context review located working-tree changes only in the banner and section 18. | `DONE`; no behavior or contract changed. Rollback is the unstaged Iteration 3 correction only. `I3-RS-00` is the sole successor. |
+| 2026-08-28T09:35:28-04:00 | `I3-RS-00` | Added `incidents_source_characterization_test.go` to freeze the Incidents descriptor, v3 path/version/stable identity, four invariant registrations, exact canonical valid-row bytes, actor catalog, and prepared-value binding. Existing retained tests already freeze all six mutation validation families, create/lifecycle/membership hash digests, normalized replay, raw/projected audit before/after facts, rollback, close/reopen, and terminal effect identities. Reachability found mutable request symbols in 29 files, lifecycle transition strings in 6, terminal commit surface in 6, the two facade names in 10 repository files including unrelated Auth stores, and the Incidents source/recovery constructors plus permissive SQL in 8 exact sites. | `make format` passed at `.cartulary/test-results/20260828T132812Z-p1590291`; focused slices passed: `module.incidentbundles` 8/8 at `.cartulary/test-results/20260828T132831Z-p1594833`, `module.incidents` 27/27 at `.cartulary/test-results/20260828T132933Z-p1612048`, `module.collaboration` 32/32 at `.cartulary/test-results/20260828T133106Z-p1658050`, `app.server` 24/24 at `.cartulary/test-results/20260828T133106Z-p1658073`, and `module.workbook` 66/66 at `.cartulary/test-results/20260828T133106Z-p1658095`. The concurrent Recovery run had three PostgreSQL force-drop cleanup timeouts at `.cartulary/test-results/20260828T133106Z-p1658066`; isolated rerun passed 24/24 at `.cartulary/test-results/20260828T133406Z-p1860602`, classifying the first failure as concurrent harness resource contention unrelated to this test-only change. | `DONE`; production and public behavior are unchanged. Service-backed slices are deferred to the production workstreams that change their paths. Rollback is removal of the one characterization test and this evidence row. `I3-SP-01` is the sole successor. |
+| 2026-08-28T09:44:26-04:00 | `I3-SP-01` | Adopted Core 01 `REQ-01-673` and `AC-566` for the exact 16-member Incident Bundle v3 singleton row, canonical forms, fixed invariant precedence, prepared binding, explicit apply/validate/export, actor remap, and no physical-table wire authority. Adopted Core 04 `REQ-04-161` and `AC-567` for one UTC recorded mutation time made observable only on commit. Updated Base/Incident-Portability claim selectors and Appendix F bidirectional/profile traceability. Added `incident.row.v1.schema.json`, its source-catalog `schema_id`, AC-566 machine traceability to existing Incidents and Incident Bundles verification IDs, and the matching runtime descriptor projection. `docs/domain.md`, database schema, generated roots, and the existing verification-ID registry remained unchanged because its incident-portability and actor IDs already own the new evidence. | Exact ID uniqueness and `jq empty` passed; `make lint-markdown` passed at `.cartulary/test-results/20260828T134230Z-p1917556`; `make json-shape-check` passed 3/3 at `.cartulary/test-results/20260828T134230Z-p1917256`; `make generate-drift` passed 4/4 at `.cartulary/test-results/20260828T134230Z-p1917246`; `make harness-contract` passed 2/2 at `.cartulary/test-results/20260828T134230Z-p1917575`; focused `module.incidentbundles` passed 8/8 at `.cartulary/test-results/20260828T134251Z-p1922084`; focused `module.incidents` passed 27/27 at `.cartulary/test-results/20260828T134251Z-p1922091`; repository `git diff --check` passed. | `DONE`; valid v3 bytes and public/database contracts are unchanged. Rollback is the two owner blocks, two criteria, Appendix F/claim edits, schema/catalog/traceability additions, and descriptor `schema_id` as one owner-projection unit. `I3-RS-01` is the sole successor. |
+| 2026-08-28T10:16:48-04:00 | `I3-RS-01` | Replaced the six exported mutable mutation DTOs and `OptionalNullableString` with opaque admitted values whose state, optional-null representation, and SHA-256 digests remain private to Incidents. Added strict root factories over one duplicate/unknown/trailing-safe decoder, a closed close/reopen action, private admission errors with stable queries, and fail-fast zero-value guards. Migrated HTTP, application, Collaboration effects, commit-fault support, performance/store fixtures, and every compiler-discovered cross-module test caller without aliases or hash overrides. HTTP now only maps owner admission errors and resolves an already-normalized membership selector; normalization and hash golden evidence moved to Incidents. The pre-existing public OpenAPI schema name remains intentionally unchanged. | `make format` passed finally at `.cartulary/test-results/20260828T141615Z-p2302072`; focused slices passed: `module.incidents` 27/27 at `.cartulary/test-results/20260828T140259Z-p2048498`, `module.collaboration` 32/32 at `.cartulary/test-results/20260828T140430Z-p2094712`, and `app.server` 24/24 at `.cartulary/test-results/20260828T140600Z-p2143804`. `make backend-module-boundary-check` passed 3/3 at `.cartulary/test-results/20260828T140701Z-p2185688`; `make test-fast` first found one stale Saved Views import at `.cartulary/test-results/20260828T140704Z-p2186108`, then passed 438/438 at `.cartulary/test-results/20260828T140817Z-p2198557`. `make backend-unit` first found one stale Workbook import at `.cartulary/test-results/20260828T141021Z-p2209224`, then passed 144/144 with strict-framing, zero-admission, normalization, and admitted-hash tests at `.cartulary/test-results/20260828T141413Z-p2264874`. `make lint` first found staticcheck S1016 in the earlier characterization fixture at `.cartulary/test-results/20260828T141526Z-p2288174`; after the equivalent conversion it passed 11/11 at `.cartulary/test-results/20260828T141619Z-p2306159`. Retired-symbol, old-decoder/hash-helper, and open lifecycle-boundary scans returned zero matches; working and staged `git diff --check` passed. | `DONE`; public HTTP/OpenAPI behavior and all previously valid hash preimages remain byte-stable, while malformed or bypassed internal construction now fails before transaction/effect access. No database, frontend, bundle-byte, or generated-artifact change belongs to this slice. Residual timing/audit and terminal-result closure remains isolated to `I3-RS-02`. Rollback is the admission implementation plus its application/HTTP/Collaboration/test-support caller migration as one compile-atomic unit. `I3-RS-02` is the sole successor. |
+| 2026-08-28T10:51:54-04:00 | `I3-RS-02` | Made the Incidents mutation clock a required application dependency and sampled it once, in UTC, immediately before each fresh transaction after admission/replay/no-op resolution; import finalization continues to use its admitted publication time. Every successful domain/source/bootstrap, raw audit, and projected audit write now receives that one occurrence time. Replaced open audit kind/source strings, implicit defaults, and JSON role inference with exhaustive private kinds, sources, and explicit optional before/after roles. Made terminal commit state private and constructor-valid, with read-only new/replay/effect queries; coordinators dispatch close and membership-revocation effects only after a new commit. Added exhaustive mapping/constructor tests and all-six-family timestamp evidence, including replay clock/audit stability. | Final `make format` passed at `.cartulary/test-results/20260828T144009Z-p2597297`; `make backend-unit` passed 144/144 at `.cartulary/test-results/20260828T144019Z-p2601361`; `make test-fast` passed 438/438 at `.cartulary/test-results/20260828T144151Z-p2627769`. Focused/service-backed pairs passed: `module.incidents` 27/27 at `.cartulary/test-results/20260828T144208Z-p2628860` and 19/19 at `.cartulary/test-results/20260828T144333Z-p2674830`; `module.collaboration` 32/32 at `.cartulary/test-results/20260828T144505Z-p2720403` and 23/23 at `.cartulary/test-results/20260828T144632Z-p2768986`; `app.server` 24/24 at `.cartulary/test-results/20260828T144759Z-p2817507` and 17/17 at `.cartulary/test-results/20260828T144854Z-p2858876`. `make backend-module-boundary-check` passed 3/3 at `.cartulary/test-results/20260828T145106Z-p2913386`; `make lint` passed 11/11 at `.cartulary/test-results/20260828T145108Z-p2913810`. Hidden-clock, obsolete terminal-field/constant, fallback-role, and open audit-call-site scans found no retired production path; working and staged `git diff --check` passed. | `DONE`; public HTTP/OpenAPI and audit field shapes remain unchanged, while successful new writes intentionally gain one exact command timestamp. Replay, rejection, no-op, rollback, commit failure, and post-commit response failure add no duplicate audit/effect state; no database migration, backfill, frontend, bundle-byte, or generated change belongs to this slice. Facade contraction remains isolated to `I3-RS-03`. Rollback is the application clock boundary, closed audit facts, closed terminal result, and their migrated callers/tests as one compile-atomic unit. `I3-RS-03` is the sole successor. |
+| 2026-08-28T11:04:11-04:00 | `I3-RS-03` | Removed `Application.GetMembership` and changed membership-create replay to call the private repository directly. Added an unexported, projection-only HTTP membership-audit reader over the route `DependencySet` PostgreSQL handle, made route construction fail closed when that handle is absent, and removed `Application.ListAdministrativeAuditEvents` from both the concrete application and HTTP capability. Replaced external-package membership assertions with one exact Incidents test-support query; no production compatibility wrapper or transport policy was introduced. | `make format` passed finally at `.cartulary/test-results/20260828T145734Z-p2952669`. Focused/service-backed pairs passed: `module.incidents` 27/27 at `.cartulary/test-results/20260828T145738Z-p2956683` and 19/19 at `.cartulary/test-results/20260828T145909Z-p3002819`; `app.server` 24/24 at `.cartulary/test-results/20260828T150034Z-p3048471` and 17/17 at `.cartulary/test-results/20260828T150129Z-p3090174`. The first `make backend-unit` found one now-unused test variable at `.cartulary/test-results/20260828T145540Z-p2925942`; after its exact removal, the rerun passed 144/144 at `.cartulary/test-results/20260828T150229Z-p3131324`. `make backend-module-boundary-check` passed 3/3 at `.cartulary/test-results/20260828T150342Z-p3153629`; `make lint` passed 11/11 at `.cartulary/test-results/20260828T150344Z-p3154053`. Removed-method scans found no application definition or production call; the sole Incidents administrative-audit query is in the private HTTP reader and the sole replay lookup is private-repository access. Working and staged `git diff --check` passed. | `DONE`; public routes, responses, authorization, pagination, and stored projections are unchanged. The intentional internal compile-time removal narrows the facade; no schema, migration, frontend, generated, or bundle change belongs to this slice. Rollback is the two facade removals, private HTTP reader, and exact test-helper migration as one compile-atomic unit. `I3-RS-04` is the sole successor. |
+| 2026-08-28T11:21:05-04:00 | `I3-RS-04` | Added `incidents/internal/sourcestate` as the once-loaded, validated owner of source family/contract/owner identity, singleton path and schema generation, the ordered 16-column row, fixed invariant precedence, and ordered `incidents`/`incident_memberships` Recovery relations. Its projections use defensive copies and neutral scalar types; only the Incidents root projects them into Incident Bundles and Recovery owner ports. Validation rejects missing, duplicate, reordered, unsafe, or generation-incoherent paths, columns, identities, invariants, and relations. Made both Incidents constructors fallible, added contract validation, migrated every caller, and wrapped failures with Incidents owner context in portability and Recovery assembly. Added source/Recovery agreement, immutability, malformed-catalog, and contextual-failure tests. | `make format` passed finally at `.cartulary/test-results/20260828T151913Z-p3401865`; final `make test-fast` passed 438/438 at `.cartulary/test-results/20260828T151916Z-p3405975`. Serial focused slices passed: `module.incidents` 27/27 at `.cartulary/test-results/20260828T151052Z-p3182864`, `module.incidentbundles` 8/8 at `.cartulary/test-results/20260828T151217Z-p3229290`, `module.recovery` 24/24 at `.cartulary/test-results/20260828T151313Z-p3246102`, `module.workbook` 66/66 at `.cartulary/test-results/20260828T151429Z-p3300288`, and `app.server` 24/24 at `.cartulary/test-results/20260828T151641Z-p3358983`; Recovery retained the frozen catalog digest. The first boundary run correctly rejected an Incident Bundles owner-port import from the internal catalog at `.cartulary/test-results/20260828T151745Z-p3400630`; after replacing it with neutral facts and root projection, `make backend-module-boundary-check` passed 3/3 at `.cartulary/test-results/20260828T152008Z-p3414718`. `make generate-drift` passed 4/4 at `.cartulary/test-results/20260828T152010Z-p3415064`; `make lint` passed 11/11 at `.cartulary/test-results/20260828T152019Z-p3418083`. Import scans prove the internal catalog has no Incident Bundles or Recovery owner-port coupling; constructor scans prove all production callers handle errors; working and staged `git diff --check` passed. | `DONE`; source identity, v3 path/schema, Recovery table membership, catalog digest, and all retained generation identities are unchanged. Startup now fails with owner context for invalid metadata before route/listener publication. No database, migration, frontend, bundle-byte, or generated-artifact change belongs to this slice. Codec-specific path/invariant consumers remain solely for replacement in `I3-RS-05`. Rollback is the neutral catalog, two fallible constructors, assembly propagation, and their tests/caller migrations as one compile-atomic unit. `I3-RS-05` is the sole successor. |
+| 2026-08-28T12:08:28-04:00 | `I3-RS-05` | Replaced permissive Incident source preparation with a private typed row decoded through the shared strict-object boundary, including duplicate-member reporting, bounded UTF-8 input, exact 16-member types/nullability, canonical UUID/timestamp/version forms, lifecycle/key coherence, actor admission, and the adopted invariant precedence. Prepared state is bound to owner/port, path/schema, operation, incident, bundle version, and contract major. Apply now records both original actor attributions, remaps both stored actors, executes one explicit 16-column insert, and requires one affected row. Validation requires one row and compares all 16 stored facts after remap. Export uses an explicit fixed 16-member projection and existing canonical JSON. The codec has no Incident Bundles transport dependency; the single owner source-port adapter translates private catalog/binding/invariant results. Added adversarial codec, catalog, composition, timestamp, audit/admission, attribution, exact-state, and byte-stability tests to authored owner routing, then generated the topology projection. | `make generate` passed at `.cartulary/test-results/20260828T154544Z-p3477855`; final `make format` passed at `.cartulary/test-results/20260828T160059Z-p3835754`. The strict-codec row passed at `.cartulary/test-results/20260828T160108Z-p3839867`. Final focused slices passed: Incidents 28/28 at `.cartulary/test-results/20260828T160126Z-p3841132`, Incident Bundles 8/8 at `.cartulary/test-results/20260828T160257Z-p3887754`, and Recovery 24/24 at `.cartulary/test-results/20260828T155104Z-p3626294`. Final service-backed slices passed: Incidents 19/19 at `.cartulary/test-results/20260828T160358Z-p3904950`, Incident Bundles 6/6 at `.cartulary/test-results/20260828T160525Z-p3950728`, and Recovery 19/19 at `.cartulary/test-results/20260828T155451Z-p3742574`. `make harness-contract` and `make generate-drift` passed at `.cartulary/test-results/20260828T154737Z-p3488238` and `.cartulary/test-results/20260828T154737Z-p3488089`; `make json-shape-check` and `make go-gosec-targeted` passed at `.cartulary/test-results/20260828T155621Z-p3796307` and `.cartulary/test-results/20260828T155621Z-p3796679`; final boundary, lint, generated-policy, and test-fast gates passed 3/3, 11/11, 3/3, and 439/439 at `.cartulary/test-results/20260828T160117Z-p3840730`, `.cartulary/test-results/20260828T160647Z-p3968104`, `.cartulary/test-results/20260828T160647Z-p3967824`, and `.cartulary/test-results/20260828T160647Z-p3968086`. Production scans found no `jsonb_populate_record`, whole-row `to_jsonb`, wildcard incident select/insert, or codec-level source-port import; working and staged repository diff checks passed. | `DONE`; public HTTP/OpenAPI, database schema, Recovery generations, and valid bundle-v3 bytes remain compatible. Inputs formerly accepted through defaulting or table inference now fail intentionally. Initial generation attempts at `.cartulary/test-results/20260828T154350Z-p3468092` and `.cartulary/test-results/20260828T154453Z-p3471747` exposed authored row sorting/length defects; the first codec run at `.cartulary/test-results/20260828T154645Z-p3482616` exposed digit-only uppercase UUID fixtures; all were corrected. Concurrent focused runs at `.cartulary/test-results/20260828T154802Z-p3492413` and `.cartulary/test-results/20260828T154802Z-p3492420` raced on the shared service-image warm stamp and passed serially. The first final boundary run at `.cartulary/test-results/20260828T155621Z-p3796537` correctly rejected codec-level owner-port coupling; transport translation was isolated in the designated source-port adapter and the gate passed. No SQL generator input was needed because the fixed statements are private owner implementation; `make generate` was required and run for the authored Harness routing changes. Residual risk is limited to recurrence residue audited in `I3-RS-06`. Rollback is the strict codec/adapter, strict duplicate reporting, Incident Bundles actor-path exception, authored routing plus generated topology index, tests, and this checkpoint as one atomic unit. `I3-RS-06` is the sole successor. |

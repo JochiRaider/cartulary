@@ -729,6 +729,7 @@
           "TestIncidentBundleImportFinalizationCommitsBootstrapState",
           "TestIncidentBundleImportFinalizationRejectsMissingSubmitter",
           "TestIncidentBundleImportFinalizerRejectsInvalidDependenciesAndParamsBeforeDatabaseAccess",
+          "TestMutationCommandTimeIsSharedAcrossDomainRawAndProjectedAuditRows_Unit",
           "TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit",
           "TestStoreCreateIncidentPreferenceBootstrapFailureRollsBack"
         ]
@@ -1058,10 +1059,80 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
+          "TestAdmissionErrorsExposeOnlyStableQueries_Unit",
+          "TestIncidentAuditKindAndSourceMappingsAreClosedAndExhaustive_Unit",
           "TestIncidentIdempotencyHashCompatibility_Unit",
           "TestIncidentPatchKeepsNoOpStableAndAdvancesMaterialChange_Unit",
           "TestLastAdminGuardDetectsSoleAdministrator_Unit",
+          "TestMembershipAuditRoleFactsAreExplicitAndValidated_Unit",
+          "TestMutationAdmissionNormalizesAtTheOwnerBoundary_Unit",
+          "TestMutationAdmissionsShareStrictRootJSONFraming_Unit",
+          "TestOpaqueMutationAdmissionZeroValuesFailBeforeDependencies_Unit",
+          "TestTerminalMutationCommitConstructorsAndQueriesFailClosed_Unit",
           "TestValidateMembershipCreateTarget_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.incidents.unit.incident_16_source_catalog_i3",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.incident_portability",
+        "module.incidents.verification.incident_portability_actors"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents/internal/sourcestate",
+        "tests": [
+          "TestLoadedCatalogReturnsFreshProjectionCopies",
+          "TestManifestProjectsDefensiveSourceAndRecoveryFacts",
+          "TestManifestRejectsMalformedAuthoringMatrix"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.incidents.unit.incident_16_source_codec_i3",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.incident_portability",
+        "module.incidents.verification.incident_portability_actors"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentSourceApplyUsesExplicitColumnsAndPreservesBothAttributions_Unit",
+          "TestIncidentSourceExportNamesFixedProjectionAndPreservesV3Bytes_Unit",
+          "TestIncidentSourcePrepareBindsPortOperationIncidentVersionAndContract_Unit",
+          "TestIncidentSourcePrepareEnforcesExclusiveInvariantPrecedence_Unit",
+          "TestIncidentSourcePrepareRejectsEveryDocumentAndScalarDefect_Unit",
+          "TestIncidentSourceValidateComparesEveryStoredColumnAfterActorRemap_Unit",
+          "TestSourcePortAndRecoveryContributionShareOneCatalog_Unit"
         ]
       },
       "evidence_class": "unit",

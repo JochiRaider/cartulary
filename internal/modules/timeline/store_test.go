@@ -842,11 +842,7 @@ func TestQuerySortsByEvidenceCount_Unit(t *testing.T) {
 func createIncidentInStore(t testing.TB, harness *storetest.StoreHarness, actor authn.UserRecord, clientTxnID string, incidentKey string, title string) incidents.IncidentRecord {
 	t.Helper()
 
-	result := incidentstoretest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
-		ClientTxnID: clientTxnID,
-		IncidentKey: incidentKey,
-		Title:       title,
-	})
+	result := incidentstoretest.CreateIncidentInStore(t, harness.Incidents, actor, clientTxnID, incidentKey, title)
 	return result.Incident
 }
 

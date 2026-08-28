@@ -12,6 +12,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	indicatorcontract "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	projectionfixture "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport/fixturewriter"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -58,15 +59,17 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	incidentApplication, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            db,
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+		Now:                 func() time.Time { return now },
 	})
 	if err != nil {
 		t.Fatalf("construct Incidents application: %v", err)
 	}
-	incidentResult, err := incidentApplication.CreateIncident(ctx, actor, incidents.CreateIncidentRequest{
+	incidentRequest := admissiontest.IncidentCreate(t, admissiontest.IncidentCreateInput{
 		ClientTxnID: "txn-indicator-atomicity-incident",
 		IncidentKey: "IR-IND-ATOMICITY",
 		Title:       "Indicator repository atomicity",
-	}, "request-indicator-atomicity-incident", now)
+	})
+	incidentResult, err := incidentApplication.CreateIncident(ctx, actor, incidentRequest, "request-indicator-atomicity-incident")
 	if err != nil {
 		t.Fatalf("create incident: %v", err)
 	}

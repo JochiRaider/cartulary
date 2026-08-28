@@ -8,7 +8,7 @@
       "owner_relation_ids": ["incident-core"],
       "dependencies": [],
       "paths": [
-        {"logical_path": "data/incident.json", "content_role": "singleton_json", "versions": [3], "stable_identity": ["id"], "stable_identity_invariant_id": "incident.source_identity_admitted"}
+        {"logical_path": "data/incident.json", "content_role": "singleton_json", "schema_id": "cartulary.incident_bundle.incident.row.v1", "versions": [3], "stable_identity": ["id"], "stable_identity_invariant_id": "incident.source_identity_admitted"}
       ],
       "invariant_ids": ["incident.exact_shape", "incident.identity_key_lifecycle", "incident.attribution_version", "incident.source_identity_admitted"]
     },

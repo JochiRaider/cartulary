@@ -10,7 +10,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -67,11 +66,10 @@ func TestWorkbookStartupPreferencesBootstrapAndUpsert(t *testing.T) {
 		true,
 	)
 
-	result := storetest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-workbook-startup-prefs-create",
-		IncidentKey: "IR-WORKBOOK-PREFS",
-		Title:       "Workbook startup preferences",
-	})
+	result := storetest.CreateIncidentInStore(
+		t, harness.Incidents, actor,
+		"txn-workbook-startup-prefs-create", "IR-WORKBOOK-PREFS", "Workbook startup preferences",
+	)
 
 	defaultPrefs, err := store.GetDefaultPreferences(context.Background(), result.Incident.ID)
 	if err != nil {
@@ -189,11 +187,10 @@ func TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
 		false,
 		true,
 	)
-	result := storetest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-workbook-startup-extension-create",
-		IncidentKey: "IR-WORKBOOK-EXTENSION",
-		Title:       "Workbook startup extension workspace",
-	})
+	result := storetest.CreateIncidentInStore(
+		t, harness.Incidents, actor,
+		"txn-workbook-startup-extension-create", "IR-WORKBOOK-EXTENSION", "Workbook startup extension workspace",
+	)
 
 	claimedWorkspaces := []httpapi.ExtensionWorkspacePublication{
 		{

@@ -2,6 +2,7 @@ package storetest
 
 import (
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
@@ -22,6 +23,7 @@ func StartStore(t testing.TB, prefix string) *StoreHarness {
 	application, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            db,
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+		Now:                 time.Now,
 	})
 	if err != nil {
 		t.Fatalf("construct Incidents application: %v", err)

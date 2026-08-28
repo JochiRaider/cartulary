@@ -403,10 +403,38 @@
         "tests": [
           "TestIncidentBundleImportDescriptorIsClosed_Unit",
           "TestIncidentsSourcePortRejectsWrongPreparedTypeWithoutPanic_Unit",
+          "TestIncidentsSourcePortV3Characterization_Unit",
           "TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit",
           "TestSourcePortCatalogRejectsInvalidDescriptors_Unit",
           "TestSourcePortDescriptorsAreImmutableAndPreparedValuesAreOperationBound_Unit",
           "TestSourcePortFailuresRequireDeclaredFamilyAndInvariant"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.incidentbundles.unit.incident_assembly_source_composition_is_fallible_i3",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.unit",
+      "collaborator_ids": [
+        "app.server",
+        "module.incidents"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.source_catalog"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/incidentportabilityassembly",
+        "tests": [
+          "TestIncidentsSourcePortConstructionFailureHasOwnerContext_Unit"
         ]
       },
       "evidence_class": "unit",

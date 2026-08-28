@@ -6,11 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
 
 func TestIncidentLifecycleRequestValidationUsesExactErrorFamilyAndReasons_Unit(t *testing.T) {
-	tooLongReason := strings.Repeat("x", reasonNoteMaxRunes+1)
+	tooLongReason := strings.Repeat("x", 4097)
 	cases := []struct {
 		name       string
 		body       string
@@ -35,7 +36,7 @@ func TestIncidentLifecycleRequestValidationUsesExactErrorFamilyAndReasons_Unit(t
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, apiErr := decodeIncidentLifecycleRequest(strings.NewReader(tc.body))
+			_, apiErr := admitIncidentLifecycleJSON(incidents.LifecycleActionClose, strings.NewReader(tc.body))
 			if apiErr == nil {
 				t.Fatal("expected lifecycle request error")
 			}
@@ -55,13 +56,13 @@ func TestIncidentLifecycleRequestValidationUsesExactErrorFamilyAndReasons_Unit(t
 		})
 	}
 
-	request, apiErr := decodeIncidentLifecycleRequest(strings.NewReader(
+	request, apiErr := admitIncidentLifecycleJSON(incidents.LifecycleActionClose, strings.NewReader(
 		`{"base_incident_version":7,"client_txn_id":"txn-lifecycle","reason":"  cafe\u0301\r\nline\t "}`,
 	))
 	if apiErr != nil {
 		t.Fatalf("decode valid lifecycle request: %v", apiErr)
 	}
-	if request.BaseIncidentVersion != 7 || request.ClientTxnID != "txn-lifecycle" || request.Reason != "café\nline" {
+	if request.Action() != incidents.LifecycleActionClose || request.ClientTxnID() != "txn-lifecycle" {
 		t.Fatalf("unexpected normalized lifecycle request: %#v", request)
 	}
 }

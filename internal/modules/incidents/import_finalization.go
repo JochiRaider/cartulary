@@ -80,15 +80,16 @@ func (f *incidentBundleImportFinalizer) FinalizeIncidentBundleImportTx(
 	}
 
 	if _, err := insertAuditEvent(ctx, tx, auditEvent{
-		ActorUserID:  &params.SubmittedByUserID,
-		TargetUserID: &params.SubmittedByUserID,
-		IncidentID:   &params.IncidentID,
-		EventSource:  "incidents",
-		EventKind:    "incident_membership_created",
-		ClientTxnID:  params.ClientTxnID,
-		RequestID:    params.RequestID,
-		AfterJSON:    BuildMembershipResource(membership),
-		PublicSource: "system",
+		actorUserID:  &params.SubmittedByUserID,
+		targetUserID: &params.SubmittedByUserID,
+		incidentID:   &params.IncidentID,
+		kind:         auditMembershipCreated,
+		source:       auditSourceSystem,
+		clientTxnID:  params.ClientTxnID,
+		requestID:    params.RequestID,
+		afterJSON:    BuildMembershipResource(membership),
+		roles:        auditRoleFacts{after: auditRole(membership.Role)},
+		occurredAt:   publishedAt,
 	}); err != nil {
 		return err
 	}

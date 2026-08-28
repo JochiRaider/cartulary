@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"context"
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -10,7 +12,26 @@ import (
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
+
+type membershipAuditReader struct {
+	db postgres.DB
+}
+
+func newMembershipAuditReader(db postgres.DB) (*membershipAuditReader, error) {
+	if isNilRouteDependency(db) {
+		return nil, errors.New("incidents: PostgreSQL dependency is required for membership audit reading")
+	}
+	return &membershipAuditReader{db: db}, nil
+}
+
+func (r *membershipAuditReader) list(
+	ctx context.Context,
+	filter administrativeaudit.ListFilter,
+) ([]administrativeaudit.Record, error) {
+	return administrativeaudit.List(ctx, r.db, filter)
+}
 
 func parseMembershipAuditScope(rawQuery string) (listquery.Result, *platformhttpapi.APIError) {
 	result, queryErr := administrativeaudit.ParseListScope(rawQuery, administrativeaudit.ScopeIncident)
@@ -68,7 +89,7 @@ func (s *service) handleMembershipAuditEvents(w http.ResponseWriter, r *http.Req
 		writeAPIError(w, r, invalidPaginationRequest(reasonCode))
 		return
 	}
-	records, err := s.application.ListAdministrativeAuditEvents(r.Context(), pageRequest)
+	records, err := s.membershipAudit.list(r.Context(), pageRequest)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return

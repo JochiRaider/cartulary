@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -51,6 +50,7 @@ func TestRegisterRoutesRequiresExactDependencies(t *testing.T) {
 		{name: "typed nil admission", dependencies: Dependencies{Application: validApplication, AdmissionChecker: typedNilAdmission}, wantError: "admission checker is required"},
 		{name: "missing coordinator", dependencies: Dependencies{Application: validApplication, AdmissionChecker: validAdmission}, wantError: "terminal mutation coordinator is required"},
 		{name: "typed nil coordinator", dependencies: Dependencies{Application: validApplication, AdmissionChecker: validAdmission, TerminalMutationCoordinator: typedNilCoordinator}, wantError: "terminal mutation coordinator is required"},
+		{name: "missing PostgreSQL", dependencies: Dependencies{Application: validApplication, AdmissionChecker: validAdmission, TerminalMutationCoordinator: &terminalMutationCoordinatorStub{}}, wantError: "PostgreSQL dependency is required for membership audit reading"},
 	}
 
 	for _, test := range tests {
@@ -69,10 +69,8 @@ func (*terminalMutationCoordinatorStub) CoordinateIncidentLifecycle(
 	context.Context,
 	authn.UserRecord,
 	uuid.UUID,
+	incidents.IncidentLifecycleAdmission,
 	string,
-	incidents.IncidentLifecycleRequest,
-	string,
-	time.Time,
 ) (incidents.IncidentLifecycleResult, error) {
 	return incidents.IncidentLifecycleResult{}, nil
 }
@@ -82,7 +80,7 @@ func (*terminalMutationCoordinatorStub) CoordinateMembershipDeletion(
 	authn.UserRecord,
 	uuid.UUID,
 	uuid.UUID,
-	incidents.MembershipDeleteRequest,
+	incidents.MembershipDeleteAdmission,
 	string,
 ) (incidents.MembershipDeleteResult, error) {
 	return incidents.MembershipDeleteResult{}, nil

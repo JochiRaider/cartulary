@@ -48,6 +48,10 @@ func CurrentRecoveryStateContributions() ([]recoverystate.Contribution, error) {
 	if err != nil {
 		return nil, fmt.Errorf("recovery assembly: Links state contribution: %w", err)
 	}
+	incidentsContribution, err := constructIncidentsStateContribution(incidents.RecoveryStateContribution)
+	if err != nil {
+		return nil, err
+	}
 	return []recoverystate.Contribution{
 		artifactsContribution,
 		assessments.RecoveryStateContribution(),
@@ -62,7 +66,7 @@ func CurrentRecoveryStateContributions() ([]recoverystate.Contribution, error) {
 		graphprojection.RecoveryStateContribution(),
 		imports.RecoveryStateContribution(),
 		incidentbundles.RecoveryStateContribution(),
-		incidents.RecoveryStateContribution(),
+		incidentsContribution,
 		indicatorsContribution,
 		linksContribution,
 		networkflow.RecoveryStateContribution(),
@@ -80,6 +84,16 @@ func CurrentRecoveryStateContributions() ([]recoverystate.Contribution, error) {
 		timeline.RecoveryStateContribution(),
 		workbook.RecoveryStateContribution(),
 	}, nil
+}
+
+func constructIncidentsStateContribution(
+	constructor func() (recoverystate.Contribution, error),
+) (recoverystate.Contribution, error) {
+	contribution, err := constructor()
+	if err != nil {
+		return recoverystate.Contribution{}, fmt.Errorf("recovery assembly: Incidents state contribution: %w", err)
+	}
+	return contribution, nil
 }
 
 func CurrentRecoveryStateCatalog() (*recoverystate.Catalog, error) {

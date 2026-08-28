@@ -73,6 +73,10 @@ func NewCatalog() (*sourceport.Catalog, error) {
 	if err != nil {
 		return nil, fmt.Errorf("incident portability assembly: Links source port: %w", err)
 	}
+	incidentsSourcePort, err := constructIncidentsSourcePort(incidents.NewIncidentBundleSourcePort)
+	if err != nil {
+		return nil, err
+	}
 	v3 := []string{
 		"data/incident.json", "data/actors.ndjson", "data/records.ndjson",
 		"data/timeline_time_profiles.ndjson", "data/timeline_records.ndjson",
@@ -97,7 +101,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 	}
 	return sourceport.NewCatalog(sourceport.CatalogOptions{
 		Ports: []sourceport.Port{
-			incidents.NewIncidentBundleSourcePort(),
+			incidentsSourcePort,
 			records.NewIncidentBundleSourcePort(recordSubtypeCatalog),
 			timeline.NewIncidentBundleSourcePort(),
 			parties.NewIncidentBundleContribution(),
@@ -122,6 +126,16 @@ func NewCatalog() (*sourceport.Catalog, error) {
 		},
 		SpecialConsumers: map[int]map[string]string{3: special},
 	})
+}
+
+func constructIncidentsSourcePort(
+	constructor func() (sourceport.Port, error),
+) (sourceport.Port, error) {
+	port, err := constructor()
+	if err != nil {
+		return nil, fmt.Errorf("incident portability assembly: Incidents source port: %w", err)
+	}
+	return port, nil
 }
 
 type incidentBundleRecordEnvelopeReader struct {

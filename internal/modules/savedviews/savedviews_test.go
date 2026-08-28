@@ -18,7 +18,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
@@ -543,19 +542,17 @@ func TestSavedViewScopeVocabulary_Unit(t *testing.T) {
 func TestSavedViewPatchContract_Unit(t *testing.T) {
 	harness := storetest.StartStore(t, "saved_view_query-savedviews-u-8-04")
 	admin := authstoretest.SeedLocalUserRecord(t, harness.DB, "saved_view_query-u804-admin@example.test", "SavedViewQuery U804 Admin", "SavedViewQueryU804Admin1!", false, false, true)
-	incident := storetest.CreateIncidentInStore(t, harness.Incidents, admin, incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-saved_view_query-u-8-04-incident",
-		IncidentKey: "IR-U804",
-		Title:       "Workbook query saved-view patch",
-	})
+	incident := storetest.CreateIncidentInStore(
+		t, harness.Incidents, admin,
+		"txn-saved_view_query-u-8-04-incident", "IR-U804", "Workbook query saved-view patch",
+	)
 
 	incidentID := incident.Incident.ID
 	owner := authstoretest.SeedLocalUserRecord(t, harness.DB, "saved_view_query-u804-owner@example.test", "SavedViewQuery U804 Owner", "SavedViewQueryU804Owner1!", false, false, true)
-	storetest.CreateMembershipInStore(t, harness.DB, admin, incidentID, owner, incidents.MembershipCreateRequest{
-		ClientTxnID: "txn-saved_view_query-u-8-04-owner-membership",
-		UserID:      &owner.ID,
-		Role:        "viewer",
-	})
+	storetest.CreateMembershipInStore(
+		t, harness.DB, admin, incidentID, owner,
+		"txn-saved_view_query-u-8-04-owner-membership", "viewer",
+	)
 
 	createRequest, apiErr := savedviews.DecodeCreateRequest(strings.NewReader(`{
 		"view_schema_id":"cartulary.view.timeline.v2",

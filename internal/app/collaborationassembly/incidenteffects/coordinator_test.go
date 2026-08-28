@@ -5,11 +5,11 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -25,10 +25,8 @@ func (stub *applicationStub) TransitionIncidentLifecycle(
 	context.Context,
 	authn.UserRecord,
 	uuid.UUID,
+	incidents.IncidentLifecycleAdmission,
 	string,
-	incidents.IncidentLifecycleRequest,
-	string,
-	time.Time,
 ) (incidents.IncidentLifecycleResult, error) {
 	if stub.sequence != nil {
 		*stub.sequence = append(*stub.sequence, "commit")
@@ -41,7 +39,7 @@ func (stub *applicationStub) DeleteMembership(
 	authn.UserRecord,
 	uuid.UUID,
 	uuid.UUID,
-	incidents.MembershipDeleteRequest,
+	incidents.MembershipDeleteAdmission,
 	string,
 ) (incidents.MembershipDeleteResult, error) {
 	if stub.sequence != nil {
@@ -96,16 +94,22 @@ func TestCoordinatorEmitsOnlyAfterFreshTerminalCommit(t *testing.T) {
 	sequence := make([]string, 0, 2)
 	notifier := &notifierStub{sequence: &sequence}
 	application := &applicationStub{
-		lifecycleResult: incidents.IncidentLifecycleResult{Commit: incidents.NewTerminalMutationCommit(effectKey)},
+		lifecycleResult: incidents.IncidentLifecycleResult{Commit: requireNewCommit(t, effectKey)},
 		sequence:        &sequence,
 	}
 	coordinator, err := New(application, notifier)
 	if err != nil {
 		t.Fatalf("compose coordinator: %v", err)
 	}
+	closeRequest := admissiontest.IncidentLifecycle(t, incidents.LifecycleActionClose, admissiontest.IncidentLifecycleInput{
+		BaseIncidentVersion: 1, ClientTxnID: "txn-close", Reason: "closed",
+	})
+	reopenRequest := admissiontest.IncidentLifecycle(t, incidents.LifecycleActionReopen, admissiontest.IncidentLifecycleInput{
+		BaseIncidentVersion: 2, ClientTxnID: "txn-reopen", Reason: "reopened",
+	})
 	if _, err := coordinator.CoordinateIncidentLifecycle(
-		context.Background(), authn.UserRecord{}, incidentID, "close",
-		incidents.IncidentLifecycleRequest{}, "request", time.Now(),
+		context.Background(), authn.UserRecord{}, incidentID,
+		closeRequest, "request",
 	); err != nil {
 		t.Fatalf("coordinate close: %v", err)
 	}
@@ -119,15 +123,15 @@ func TestCoordinatorEmitsOnlyAfterFreshTerminalCommit(t *testing.T) {
 
 	application.lifecycleResult.Commit = incidents.ReplayTerminalMutationCommit()
 	if _, err := coordinator.CoordinateIncidentLifecycle(
-		context.Background(), authn.UserRecord{}, incidentID, "close",
-		incidents.IncidentLifecycleRequest{}, "request", time.Now(),
+		context.Background(), authn.UserRecord{}, incidentID,
+		closeRequest, "request",
 	); err != nil {
 		t.Fatalf("coordinate close replay: %v", err)
 	}
-	application.lifecycleResult.Commit = incidents.NewTerminalMutationCommit(uuid.New())
+	application.lifecycleResult.Commit = requireNewCommit(t, uuid.New())
 	if _, err := coordinator.CoordinateIncidentLifecycle(
-		context.Background(), authn.UserRecord{}, incidentID, "reopen",
-		incidents.IncidentLifecycleRequest{}, "request", time.Now(),
+		context.Background(), authn.UserRecord{}, incidentID,
+		reopenRequest, "request",
 	); err != nil {
 		t.Fatalf("coordinate reopen: %v", err)
 	}
@@ -143,9 +147,12 @@ func TestCoordinatorSuppressesEffectsForFailureAndInvalidResults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compose coordinator: %v", err)
 	}
+	closeRequest := admissiontest.IncidentLifecycle(t, incidents.LifecycleActionClose, admissiontest.IncidentLifecycleInput{
+		BaseIncidentVersion: 1, ClientTxnID: "txn-failure", Reason: "closed",
+	})
 	if _, err := coordinator.CoordinateIncidentLifecycle(
-		context.Background(), authn.UserRecord{}, uuid.New(), "close",
-		incidents.IncidentLifecycleRequest{}, "request", time.Now(),
+		context.Background(), authn.UserRecord{}, uuid.New(),
+		closeRequest, "request",
 	); err == nil {
 		t.Fatal("application failure must be returned")
 	}
@@ -156,8 +163,8 @@ func TestCoordinatorSuppressesEffectsForFailureAndInvalidResults(t *testing.T) {
 	application.lifecycleErr = nil
 	application.lifecycleResult = incidents.IncidentLifecycleResult{}
 	if _, err := coordinator.CoordinateIncidentLifecycle(
-		context.Background(), authn.UserRecord{}, uuid.New(), "close",
-		incidents.IncidentLifecycleRequest{}, "request", time.Now(),
+		context.Background(), authn.UserRecord{}, uuid.New(),
+		closeRequest, "request",
 	); err == nil {
 		t.Fatal("unknown disposition must fail closed")
 	}
@@ -171,16 +178,17 @@ func TestCoordinatorTargetsOnlyDeletedMembership(t *testing.T) {
 	userID := uuid.New()
 	effectKey := uuid.New()
 	application := &applicationStub{
-		deleteResult: incidents.MembershipDeleteResult{Commit: incidents.NewTerminalMutationCommit(effectKey)},
+		deleteResult: incidents.MembershipDeleteResult{Commit: requireNewCommit(t, effectKey)},
 	}
 	notifier := &notifierStub{}
 	coordinator, err := New(application, notifier)
 	if err != nil {
 		t.Fatalf("compose coordinator: %v", err)
 	}
+	deleteRequest := admissiontest.MembershipDelete(t, 1)
 	if _, err := coordinator.CoordinateMembershipDeletion(
 		context.Background(), authn.UserRecord{}, incidentID, userID,
-		incidents.MembershipDeleteRequest{}, "request",
+		deleteRequest, "request",
 	); err != nil {
 		t.Fatalf("coordinate membership delete: %v", err)
 	}
@@ -192,11 +200,20 @@ func TestCoordinatorTargetsOnlyDeletedMembership(t *testing.T) {
 	application.deleteResult.Commit = incidents.ReplayTerminalMutationCommit()
 	if _, err := coordinator.CoordinateMembershipDeletion(
 		context.Background(), authn.UserRecord{}, incidentID, userID,
-		incidents.MembershipDeleteRequest{}, "request",
+		deleteRequest, "request",
 	); err == nil {
 		t.Fatal("membership delete replay must fail closed")
 	}
 	if len(notifier.notifications) != 1 {
 		t.Fatalf("invalid delete result emitted effects: %#v", notifier.notifications)
 	}
+}
+
+func requireNewCommit(t testing.TB, effectKey uuid.UUID) incidents.TerminalMutationCommit {
+	t.Helper()
+	commit, err := incidents.NewTerminalMutationCommit(effectKey)
+	if err != nil {
+		t.Fatalf("construct terminal mutation commit: %v", err)
+	}
+	return commit
 }

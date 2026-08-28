@@ -15,6 +15,26 @@ var (
 	ErrMalformed       = errors.New("strict json: malformed json")
 )
 
+type duplicateMemberError struct {
+	member string
+}
+
+func (e *duplicateMemberError) Error() string {
+	return ErrDuplicateMember.Error()
+}
+
+func (e *duplicateMemberError) Unwrap() error {
+	return ErrDuplicateMember
+}
+
+func DuplicateMember(err error) (string, bool) {
+	var duplicate *duplicateMemberError
+	if !errors.As(err, &duplicate) || duplicate.member == "" {
+		return "", false
+	}
+	return duplicate.member, true
+}
+
 func ValidateObject(data []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
@@ -72,7 +92,7 @@ func consumeObject(decoder *json.Decoder) error {
 			return ErrMalformed
 		}
 		if _, duplicate := seen[key]; duplicate {
-			return ErrDuplicateMember
+			return &duplicateMemberError{member: key}
 		}
 		seen[key] = struct{}{}
 		if err := consumeValue(decoder); err != nil {

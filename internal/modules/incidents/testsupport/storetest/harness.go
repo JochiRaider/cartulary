@@ -2,6 +2,7 @@ package storetest
 
 import (
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
@@ -15,6 +16,10 @@ type StoreHarness struct {
 }
 
 func StartStore(t testing.TB, prefix string) *StoreHarness {
+	return StartStoreWithClock(t, prefix, time.Now)
+}
+
+func StartStoreWithClock(t testing.TB, prefix string, now func() time.Time) *StoreHarness {
 	t.Helper()
 
 	postgresHarness := pgtest.Start(t)
@@ -22,6 +27,7 @@ func StartStore(t testing.TB, prefix string) *StoreHarness {
 	application, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            db,
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+		Now:                 now,
 	})
 	if err != nil {
 		t.Fatalf("construct Incidents application: %v", err)

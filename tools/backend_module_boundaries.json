@@ -2572,6 +2572,97 @@
       "production_only": false
     },
     {
+      "id": "retired-incidents-iteration3-command-and-hash-surfaces",
+      "tokens": [
+        "type CreateIncidentRequest struct",
+        "type IncidentCreateRequest struct",
+        "type IncidentPatchRequest struct",
+        "type IncidentLifecycleRequest struct",
+        "type MembershipCreateRequest struct",
+        "type MembershipPatchRequest struct",
+        "type MembershipDeleteRequest struct",
+        "type OptionalNullableString struct",
+        "func incidentCreateRequestHash(",
+        "func incidentLifecycleRequestHash(",
+        "func membershipCreateRequestHash("
+      ],
+      "scan_paths": [
+        "internal/modules/incidents/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-incidents-iteration3-audit-terminal-and-facade-surfaces",
+      "tokens": [
+        "func (a *Application) GetMembership(",
+        "func (a *Application) ListAdministrativeAuditEvents(",
+        "func (commit TerminalMutationCommit) Validate(",
+        "func membershipRole(",
+        "TerminalMutationDisposition",
+        "TerminalMutationNewCommit",
+        "TerminalMutationReplay",
+        "PublicSource string"
+      ],
+      "scan_paths": [
+        "internal/modules/incidents/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "incidents-iteration3-source-codec-remains-explicit-and-fallible",
+      "tokens": [
+        "jsonb_populate_record",
+        "to_jsonb(i)",
+        "SELECT * FROM incidents",
+        "INSERT INTO incidents SELECT",
+        "func importIncidentBundleIncidentTx(",
+        "func NewIncidentBundleSourcePort() sourceport.Port",
+        "func RecoveryStateContribution() recoverystate.Contribution"
+      ],
+      "scan_paths": [
+        "internal/modules/incidents/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/incidents/incident_bundle_source_codec_test.go"
+      ],
+      "production_only": false
+    },
+    {
+      "id": "incidents-iteration3-no-hidden-mutation-clock",
+      "tokens": [
+        "time.Now("
+      ],
+      "scan_paths": [
+        "internal/app/collaborationassembly/incidenteffects/coordinator.go",
+        "internal/modules/incidents/application.go",
+        "internal/modules/incidents/audit.go",
+        "internal/modules/incidents/import_finalization.go",
+        "internal/modules/incidents/incident_application.go",
+        "internal/modules/incidents/membership_application.go"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "incidents-iteration3-no-open-lifecycle-action-boundary",
+      "tokens": [
+        "action string"
+      ],
+      "scan_paths": [
+        "internal/app/collaborationassembly/incidenteffects/coordinator.go",
+        "internal/modules/incidents/application.go",
+        "internal/modules/incidents/audit.go",
+        "internal/modules/incidents/httpapi/api.go",
+        "internal/modules/incidents/httpapi/routes.go",
+        "internal/modules/incidents/incident_application.go",
+        "internal/modules/incidents/membership_application.go"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "retired-incidents-effect-routing-api",
       "tokens": [
         "CollaborationSessionPort",

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -12,6 +13,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -38,27 +40,20 @@ func TestConcurrentCrossAdminDeletionPreservesAnIncidentAdmin_Integration(t *tes
 	application, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            pool,
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
+		Now:                 time.Now,
 	})
 	if err != nil {
 		t.Fatalf("construct Incidents application: %v", err)
 	}
-	incident := storetest.CreateIncidentInStore(t, application, firstAdmin, incidents.CreateIncidentRequest{
-		ClientTxnID: "txn-incident-admin-concurrency-create",
-		IncidentKey: "IR-ADMIN-CONCURRENCY",
-		Title:       "Concurrent incident administration",
-	}).Incident
+	incident := storetest.CreateIncidentInStore(
+		t, application, firstAdmin,
+		"txn-incident-admin-concurrency-create", "IR-ADMIN-CONCURRENCY", "Concurrent incident administration",
+	).Incident
 	secondMembership := storetest.CreateMembershipInStore(
 		t, pool, firstAdmin, incident.ID, secondAdmin,
-		incidents.MembershipCreateRequest{
-			ClientTxnID: "txn-incident-admin-concurrency-second",
-			UserID:      &secondAdmin.ID,
-			Role:        "admin",
-		},
+		"txn-incident-admin-concurrency-second", "admin",
 	).Membership
-	firstMembership, err := application.GetMembership(ctx, incident.ID, firstAdmin.ID)
-	if err != nil {
-		t.Fatalf("load first concurrent admin membership: %v", err)
-	}
+	firstMembership := storetest.GetMembership(t, pool, incident.ID, firstAdmin.ID)
 
 	start := make(chan struct{})
 	results := make(chan error, 2)
@@ -71,7 +66,7 @@ func TestConcurrentCrossAdminDeletionPreservesAnIncidentAdmin_Integration(t *tes
 			actor,
 			incident.ID,
 			targetID,
-			incidents.MembershipDeleteRequest{BaseMembershipVersion: version},
+			admissiontest.MembershipDelete(t, version),
 			requestID,
 		)
 		results <- err

@@ -12,7 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	hostroutetest "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/testsupport/routetest"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/mutationtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
@@ -130,17 +130,16 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 
 		_, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 		actor := storetest.LookupUserByID(t, harness.Pool, uuid.MustParse(adminID))
-		request := incidents.CreateIncidentRequest{
+		request := admissiontest.IncidentCreate(t, admissiontest.IncidentCreateInput{
 			ClientTxnID: "txn-i-2-01-rollback",
 			IncidentKey: "IR-I201R",
 			Title:       "Rollback Incident",
-		}
+		})
 		err := harness.IncidentCreateCommitFault.Create(
 			context.Background(),
 			actor,
 			request,
 			"req-i-2-01-rollback",
-			harness.Server.Clock.Now(),
 		)
 		if !errors.Is(err, appsupport.ErrIncidentCreateCommitFault) {
 			t.Fatalf("incident create error = %v, want typed final commit fault", err)

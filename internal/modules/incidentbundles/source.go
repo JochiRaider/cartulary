@@ -566,24 +566,17 @@ func validateImportedActors(files map[string][]byte, incidentID uuid.UUID) (sour
 	}
 	referenced := map[string]struct{}{}
 	for filePath, payload := range files {
-		if filePath == "data/actors.ndjson" || filePath == "data/reference_pack_refs.json" ||
+		if filePath == "data/actors.ndjson" || filePath == "data/incident.json" ||
+			filePath == "data/reference_pack_refs.json" ||
 			!strings.HasPrefix(filePath, "data/") {
 			continue
 		}
 		var sourceRows []map[string]any
-		if filePath == "data/incident.json" {
-			var row map[string]any
-			if err := json.Unmarshal(bytes.TrimSpace(payload), &row); err != nil {
-				return sourceport.ActorCatalog{}, &verificationError{ReasonCode: "source_family_invalid", SourceFamilyID: "incident", InvariantID: "incident.exact_shape"}
-			}
-			sourceRows = []map[string]any{row}
-		} else {
-			decoded, err := incidentportability.DecodeNDJSON(payload)
-			if err != nil {
-				continue
-			}
-			sourceRows = decoded
+		decoded, err := incidentportability.DecodeNDJSON(payload)
+		if err != nil {
+			continue
 		}
+		sourceRows = decoded
 		for _, row := range sourceRows {
 			for key, value := range row {
 				if !strings.HasSuffix(key, "_user_id") || value == nil {
