@@ -2437,6 +2437,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.workbook.unit.entity_semantic_failure_translation_4f73a8d120",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [
+        "module.entities"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/workbookassembly",
+        "tests": [
+          "TestEntityAdmissionFailuresHaveOneWorkbookTranslation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.workbook.unit.indicator_semantic_failure_translation",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.unit",

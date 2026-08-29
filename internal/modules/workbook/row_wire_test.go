@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -391,7 +391,7 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 	seedHostForPaging(t, harness, incidentID, adminUserID, hostA, "Alpha")
 	seedHostForPaging(t, harness, incidentID, adminUserID, hostC, "Charlie")
 
-	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + hostidentity.HostsViewSchemaID + "/query"
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entitycontract.HostsViewSchemaID + "/query"
 	sortByName := []map[string]any{{"field_key": "host.display_name", "direction": "asc"}}
 	pageOne := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{"limit": 1, "sort": sortByName})
 	cursor := responsePaging(pageOne)["next_cursor"].(string)
@@ -438,7 +438,7 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 		"title":         "Workbook query cursor other",
 	})
 	otherIncidentID := appsupport.MustUUID(t, otherIncident["incident_id"].(string))
-	otherRoute := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID.String()+"/views/"+hostidentity.HostsViewSchemaID+"/query", map[string]any{
+	otherRoute := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID.String()+"/views/"+entitycontract.HostsViewSchemaID+"/query", map[string]any{
 		"cursor_token": cursor,
 		"sort":         sortByName,
 	}, appsupport.WithCookies(adminLogin.SessionCookie))
@@ -460,7 +460,7 @@ func TestCursorContinuationRechecksAuthorization_Integration(t *testing.T) {
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Alpha")
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Bravo")
 
-	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + hostidentity.HostsViewSchemaID + "/query"
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entitycontract.HostsViewSchemaID + "/query"
 	sortByName := []map[string]any{{"field_key": "host.display_name", "direction": "asc"}}
 	pageOne := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{"limit": 1, "sort": sortByName})
 	cursor := responsePaging(pageOne)["next_cursor"].(string)
@@ -492,7 +492,7 @@ func TestCursorContinuationRechecksMembership_Integration(t *testing.T) {
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Alpha")
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Bravo")
 
-	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + hostidentity.HostsViewSchemaID + "/query"
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entitycontract.HostsViewSchemaID + "/query"
 	sortByName := []map[string]any{{"field_key": "host.display_name", "direction": "asc"}}
 	pageOne := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{"limit": 1, "sort": sortByName})
 	cursor := responsePaging(pageOne)["next_cursor"].(string)
@@ -601,7 +601,7 @@ UPDATE host_grid_projection
  WHERE record_id IN ($1, $2, $3, $4)
 `, alpha, infix, wildcard, nullHost)
 
-	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + hostidentity.HostsViewSchemaID + "/query"
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entitycontract.HostsViewSchemaID + "/query"
 	prefix := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
 		"sort":    []map[string]any{{"field_key": "host.display_name", "direction": "asc"}},
 		"filters": []map[string]any{{"field_key": "host.location", "op": "prefix", "arg": map[string]any{"value": "al"}}},

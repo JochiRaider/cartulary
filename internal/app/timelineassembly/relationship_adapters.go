@@ -40,7 +40,7 @@ func (a mentionLinkAdapter) UpsertMentionLinkTx(ctx context.Context, tx pgx.Tx, 
 	return mentionLinkResult(result), nil
 }
 
-func (a mentionLinkAdapter) TombstoneActiveMentionLinkTx(ctx context.Context, tx pgx.Tx, command mentions.TombstoneLinkCommand) (mentions.LinkCommandResult, bool, error) {
+func (a mentionLinkAdapter) TombstoneActiveMentionLinkTx(ctx context.Context, tx pgx.Tx, command mentions.LinkCommand) (mentions.LinkCommandResult, bool, error) {
 	linkType, err := links.ParseLinkType(string(command.LinkType))
 	if err != nil {
 		return mentions.LinkCommandResult{}, false, err

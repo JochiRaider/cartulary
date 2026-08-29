@@ -9,16 +9,17 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 type ImportDependencies struct {
-	Revisions        *revisions.Appender
-	ProjectionWriter workbookprojection.Writer
-	Collaboration    collaboration.RecordChangedAppender
+	Revisions              *revisions.Appender
+	ProjectionMutationRows projectionports.MutationRows
+	Collaboration          collaboration.RecordChangedAppender
 }
 
 type importOwner struct {
@@ -30,7 +31,7 @@ func NewImportCreateFacade(
 	facadeID string,
 	dependencies ImportDependencies,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
-	if targetViewSchemaID != HostsViewSchemaID && targetViewSchemaID != IdentitiesViewSchemaID {
+	if targetViewSchemaID != entitycontract.HostsViewSchemaID && targetViewSchemaID != entitycontract.IdentitiesViewSchemaID {
 		return nil, fmt.Errorf("entity import surface %q not mapped", targetViewSchemaID)
 	}
 	for _, dependency := range []struct {
@@ -38,14 +39,14 @@ func NewImportCreateFacade(
 		value any
 	}{
 		{name: "Revisions", value: dependencies.Revisions},
-		{name: "ProjectionWriter", value: dependencies.ProjectionWriter},
+		{name: "ProjectionMutationRows", value: dependencies.ProjectionMutationRows},
 		{name: "Collaboration", value: dependencies.Collaboration},
 	} {
 		if isNilStoreDependency(dependency.value) {
 			return nil, fmt.Errorf("compose Host/Identity import create facade: %s is required", dependency.name)
 		}
 	}
-	owner := &importOwner{mutationCore: newMutationCore(dependencies.Revisions, dependencies.ProjectionWriter, dependencies.Collaboration)}
+	owner := &importOwner{mutationCore: newMutationCore(dependencies.Revisions, dependencies.ProjectionMutationRows, dependencies.Collaboration)}
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
 			TargetViewSchemaID: targetViewSchemaID,
@@ -71,7 +72,7 @@ func (s *importOwner) createImportRowTx(ctx context.Context, tx pgx.Tx, command 
 		beforeSnapshot *revisions.RecordSnapshot
 	)
 	switch request.TargetViewSchemaID {
-	case HostsViewSchemaID:
+	case entitycontract.HostsViewSchemaID:
 		record, before, operation, _, snapshot, err := s.upsertHostTx(ctx, tx, actor, request.IncidentID, createRequest, now)
 		if err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
@@ -86,7 +87,7 @@ func (s *importOwner) createImportRowTx(ctx context.Context, tx pgx.Tx, command 
 		afterRow = buildHostRow(record)
 		operationKind = operation
 		entityType = "host"
-	case IdentitiesViewSchemaID:
+	case entitycontract.IdentitiesViewSchemaID:
 		record, before, operation, _, snapshot, err := s.upsertIdentityTx(ctx, tx, actor, request.IncidentID, createRequest, now)
 		if err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err

@@ -1639,10 +1639,21 @@ These criteria provide direct runtime-family verification for substantive base-p
   dependencies; and every caller-supplied transaction is borrowed without
   begin, commit, rollback, nesting, or detachment. Timeline retains automatic-
   resolution policy and transaction ownership while Entities supplies typed
-  source facts and write operations. Workbook alone receives the complete
-  Host/Identity store; Timeline and Assessments receive stateless borrowed-
-  transaction source facts; Imports receives its import-create capability; and
-  merge receives one immutable owner-local merge capability. Operational
+  source facts and write operations. Entities projection source contribution,
+  mutation, query, and reporting use separate directional contracts;
+  Projections exposes `EntityMutationRows`, `EntityQueryReader`, and
+  `EntityReportingReader` interface views over one private implementation and
+  exposes no aggregate or public concrete runtime. Workbook receives
+  separately named Host/Identity mutation and query dependencies; Timeline
+  and Assessments receive stateless borrowed-transaction source facts; Imports
+  receives its import-create capability; and merge receives one immutable
+  owner-local merge capability. Entities child admission returns immutable
+  semantic failures with a closed reason vocabulary, and only the Entities
+  HTTP root or Workbook application assembly translates them to its wire
+  failure. All six Entities admission entries accept exactly one duplicate-
+  free JSON object with no trailing value; malformed, scalar, top-level-null,
+  duplicate-member, and trailing-value bodies fail without effects as `400
+  invalid_mutation_payload` with `reason_code=request_not_object`. Operational
   constructors accept explicit dependency structs, reject nil and typed-nil
   required dependencies without panic, return a nil capability and
   deterministic declaration-ordered error on failure, and admit no partial,

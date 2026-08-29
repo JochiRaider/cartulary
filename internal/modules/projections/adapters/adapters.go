@@ -9,7 +9,8 @@ import (
 
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	entitycontract "github.com/JochiRaider/cartulary/internal/modules/entities/projectioncontract"
+	entityports "github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	evidencecontract "github.com/JochiRaider/cartulary/internal/modules/evidence/projectioncontract"
 	evidenceports "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
@@ -32,7 +33,7 @@ import (
 type Dependencies struct {
 	Postgres       postgres.DB
 	Timeline       timelineprojection.Contribution
-	Entities       entityprojection.Contribution
+	Entities       entitycontract.Contribution
 	Indicators     indicatorprojection.Contribution
 	Assessments    assessmentprojection.Contribution
 	Artifacts      artifactprojection.Contribution
@@ -55,7 +56,9 @@ type Ports struct {
 	maintenance                 MaintenanceRebuilder
 	workbookQueries             map[string]workbook.QueryProvider
 	timeline                    timelineprojection.Ports
-	entities                    entityprojection.Ports
+	entityMutationRows          entityports.MutationRows
+	entityQueryReader           entityports.QueryReader
+	entityReportingReader       entityports.ReportingReader
 	indicators                  indicatorprojection.Ports
 	assessments                 assessmentprojection.Ports
 	artifacts                   artifactprojection.Ports
@@ -121,7 +124,8 @@ func New(dependencies Dependencies) (Ports, error) {
 		return Ports{}, fmt.Errorf("compose Projections Workbook query providers: %w", err)
 	}
 	restoreRebuilder := projectionruntime.NewRestoreRebuilderFromStore(store)
-	entityRows := projectionruntime.NewEntityRowsFromStore(store, dependencies.Entities.Source())
+	entityMutationRows, entityQueryReader, entityReportingReader :=
+		projectionruntime.NewEntityPortViewsFromStore(store, dependencies.Entities.Source())
 	artifactRows := projectionruntime.NewArtifactRowsFromStore(store, dependencies.Artifacts.Source())
 	taskDecisionMutationRows := projectionruntime.NewTaskDecisionMutationRowsFromStore(
 		store,
@@ -139,10 +143,9 @@ func New(dependencies Dependencies) (Ports, error) {
 		timeline: timelineprojection.Ports{
 			Writer: projectionruntime.NewTimelineRowsFromStore(store),
 		},
-		entities: entityprojection.Ports{
-			Writer: entityRows,
-			Reader: entityRows,
-		},
+		entityMutationRows:    entityMutationRows,
+		entityQueryReader:     entityQueryReader,
+		entityReportingReader: entityReportingReader,
 		indicators: indicatorprojection.Ports{
 			Rows: projectionruntime.NewIndicatorRowsFromStore(
 				store,
@@ -241,7 +244,17 @@ func (ports Ports) ImportRebuilder() incidentbundles.ImportProjectionRebuilder {
 
 func (ports Ports) Timeline() timelineprojection.Ports { return ports.timeline }
 
-func (ports Ports) Entities() entityprojection.Ports { return ports.entities }
+func (ports Ports) EntityMutationRows() entityports.MutationRows {
+	return ports.entityMutationRows
+}
+
+func (ports Ports) EntityQueryReader() entityports.QueryReader {
+	return ports.entityQueryReader
+}
+
+func (ports Ports) EntityReportingReader() entityports.ReportingReader {
+	return ports.entityReportingReader
+}
 
 func (ports Ports) Indicators() indicatorprojection.Ports { return ports.indicators }
 
@@ -288,7 +301,7 @@ func (ports Ports) validate() error {
 		ready bool
 	}{
 		{name: "Timeline", ready: ports.timeline.Writer != nil},
-		{name: "Entities", ready: ports.entities.Writer != nil && ports.entities.Reader != nil},
+		{name: "Entities", ready: ports.entityMutationRows != nil && ports.entityQueryReader != nil && ports.entityReportingReader != nil},
 		{name: "Indicators", ready: ports.indicators.Rows != nil},
 		{name: "Assessments", ready: ports.assessments.Rows != nil},
 		{name: "Artifacts", ready: ports.artifacts.Rows != nil && ports.artifacts.Reader != nil},

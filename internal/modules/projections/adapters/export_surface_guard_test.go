@@ -23,7 +23,8 @@ var projectionExportAllowlists = map[string]exportAllowance{
 		Ports.DescriptorSet Ports.WorkbookQueryProvider Ports.RecoveryPorts
 		Ports.MaintenanceRebuilder Ports.RestoreProbeQuery Ports.RevisionRebuilder
 		Ports.RevisionLiveRecords Ports.SourceTextRows Ports.ImportRebuilder
-		Ports.Timeline Ports.Entities Ports.Indicators Ports.Assessments
+		Ports.Timeline Ports.EntityMutationRows Ports.EntityQueryReader
+		Ports.EntityReportingReader Ports.Indicators Ports.Assessments
 		Ports.Artifacts Ports.EvidenceMutationRows Ports.EvidenceAssociationEffects
 		Ports.Parties Ports.TaskDecisionMutationRows
 		Ports.TaskDecisionReportingReader
@@ -48,12 +49,9 @@ var projectionExportAllowlists = map[string]exportAllowance{
 		EvidenceAssociationEffects NewEvidenceAssociationEffectsFromStore
 		EvidenceAssociationEffects.RefreshEvidenceAssociationEffects TimelineSource
 		NewStore TimelineRows NewTimelineRowsFromStore TimelineRows.ApplyTimelineMutationTx
-		EntityRows IndicatorRows NewIndicatorRowsFromStore NewEntityRowsFromStore
+		NewEntityPortViewsFromStore IndicatorRows NewIndicatorRowsFromStore
 		IndicatorRows.RefreshIndicatorTx IndicatorRows.LoadIndicatorTx
-		EntityRows.RefreshHostTx EntityRows.RefreshIdentityTx EntityRows.DeleteHostTx
-		EntityRows.DeleteIdentityTx EntityRows.SelectHostQueryProjections
-		EntityRows.CollectHostDerivedFactsTx EntityRows.SelectIdentityQueryProjections
-		EntityRows.CollectIdentityDerivedFactsTx AssessmentRows NewAssessmentRowsFromStore
+		AssessmentRows NewAssessmentRowsFromStore
 		AssessmentRows.RefreshAssessmentTx AssessmentRows.ApplyAssessmentMutationTx
 		AssessmentRows.LoadAssessmentTx ArtifactRows NewArtifactRowsFromStore
 		ArtifactRows.RefreshArtifactTx ArtifactRows.LoadArtifactTx

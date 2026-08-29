@@ -61,7 +61,8 @@ The production import and composition topology has these properties:
   contracts needed to publish its source contributions, but it does not import
   concrete coordinating stores;
 - `hostidentity` publishes separate capabilities for its materially distinct
-  consumers: Workbook receives the complete mutation and query store;
+  consumers: Workbook receives separately named mutation and query
+  dependencies and never an aggregate projection store;
   Timeline and Assessments receive stateless source facts whose operations
   borrow the caller transaction; Imports receives an import-create facade over
   the owner-private mutation core; and merge receives one immutable
@@ -72,8 +73,21 @@ The production import and composition topology has these properties:
   facade, with every cross-owner effect injected;
 - `timelinefacts` is consumed only by Timeline projection composition and
   returns Entities-owned facts rather than Timeline presentation policy;
-- `workbookprojection` is consumed by Projections, Workbook, Imports, and
-  Timeline composition and does not own physical projection storage; and
+- `projectioncontract` publishes only the source-facing Host/Identity
+  projection inputs, pages, descriptors, contribution, and source reader;
+  surface-intent construction remains package-private;
+- `projectionports` publishes separate `MutationRows`, `QueryReader`, and
+  `ReportingReader` capabilities; application assembly and every downstream
+  consumer receive only the capability used by that role, while Projections
+  retains physical projection storage and one private implementation;
+- `mutationadmission` publishes immutable semantic admission failures with a
+  closed reason vocabulary and optional typed detail facts; child decoders do
+  not choose HTTP status, wire error code, message, or arbitrary detail-map
+  shape, and translation occurs only in the Entities HTTP root or Workbook
+  application assembly;
+- application assembly may import the narrow owner-local `entitycontract`
+  solely for canonical Host and Identity schema IDs; forwarding schema-ID
+  constants in feature packages are prohibited; and
 - the root itself is consumed directly only by Server, Revision, Recovery, and
   Incident Portability assembly.
 
@@ -131,10 +145,15 @@ helpers remain owner-package-local rather than creating a generic cross-module
 construction abstraction.
 
 There is no internal deprecation window, forwarding package, alias, dual
-dispatch, fallback, or compatibility shim for this decision. No public HTTP or
-WebSocket operation, OpenAPI identity, schema ID, field key, database schema,
-Incident Bundle shape, generated contract, authorization rule, or source
-behavior changes merely because this boundary is adopted.
+dispatch, fallback, or compatibility shim for this decision. Public Entities
+JSON admission accepts exactly one duplicate-free object and rejects a scalar,
+top-level `null`, duplicate member at any nesting level, or trailing JSON value
+with `400 invalid_mutation_payload` and
+`error.details.reason_code=request_not_object`. This is an intentional
+tightening for previously ambiguous invalid forms. Valid requests, normalized
+request hashes, idempotent replay, successful response bytes, routes, OpenAPI
+identities, schema IDs, field keys, database schema, Incident Bundle shape,
+authorization and concealment order, and source behavior remain unchanged.
 
 ## Acceptance
 
@@ -155,6 +174,12 @@ The decision is implemented only when:
   `Must`, or fallback construction path exists;
 - Workbook, Timeline, Assessments, Imports, and merge consume only their
   declared Host/Identity capability;
+- projection source contribution, mutation, query, and reporting compile
+  against their separate directional contracts, with no aggregate port or
+  forwarding package;
+- every Entities JSON decoder returns only semantic admission facts, and the
+  HTTP root or Workbook application assembly performs the one applicable wire
+  translation;
 - consumer-owned ports cross owner boundaries and concrete translation remains
   in application assembly;
 - no generic facade, private cross-owner SQL/event construction, package-init

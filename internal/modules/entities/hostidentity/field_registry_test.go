@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -27,7 +28,7 @@ func TestEntityFieldRegistryMatchesOwnerProjection_Unit(t *testing.T) {
 		rowHash      string
 	}{
 		{
-			viewSchemaID: HostsViewSchemaID,
+			viewSchemaID: entitycontract.HostsViewSchemaID,
 			createOnly:   []string{"host.aad_device_id", "host.fqdn"},
 			row: buildHostRow(HostRecord{
 				RecordID:         uuid.MustParse("21000000-0000-4000-8000-000000000000"),
@@ -58,7 +59,7 @@ func TestEntityFieldRegistryMatchesOwnerProjection_Unit(t *testing.T) {
 			rowHash: "5d233b139a0a5ca826540c2c0909f7ee79cfa65610684bbd8157eb1893452fb4",
 		},
 		{
-			viewSchemaID: IdentitiesViewSchemaID,
+			viewSchemaID: entitycontract.IdentitiesViewSchemaID,
 			createOnly:   []string{"identity.aad_object_id", "identity.sid"},
 			row: buildIdentityRow(IdentityRecord{
 				RecordID:              uuid.MustParse("22000000-0000-4000-8000-000000000000"),

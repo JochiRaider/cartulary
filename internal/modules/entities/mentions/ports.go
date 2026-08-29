@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"reflect"
 	"time"
 
@@ -14,14 +13,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	mentioneffects "github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 )
 
 type Store struct {
@@ -35,7 +35,7 @@ type StoreDependencies struct {
 	Postgres      postgres.DB
 	Revisions     *revisions.Appender
 	Links         LinkOperationsPort
-	Projections   workbookprojection.Writer
+	Projections   projectionports.MutationRows
 	Timeline      TimelineEffectsPort
 	Collaboration collaboration.RecordChangedAppender
 }
@@ -87,7 +87,7 @@ type storePorts struct {
 	records       recordPort
 	revisions     revisionPort
 	links         LinkOperationsPort
-	projections   workbookprojection.Writer
+	projections   projectionports.MutationRows
 	timeline      TimelineEffectsPort
 	collaboration collaboration.RecordChangedAppender
 }
@@ -106,7 +106,7 @@ type revisionPort interface {
 
 type LinkOperationsPort interface {
 	UpsertMentionLinkTx(context.Context, pgx.Tx, LinkCommand) (LinkCommandResult, error)
-	TombstoneActiveMentionLinkTx(context.Context, pgx.Tx, TombstoneLinkCommand) (LinkCommandResult, bool, error)
+	TombstoneActiveMentionLinkTx(context.Context, pgx.Tx, LinkCommand) (LinkCommandResult, bool, error)
 }
 
 type LinkType string
@@ -124,8 +124,6 @@ type LinkCommand struct {
 	ActorUserID uuid.UUID
 	Now         time.Time
 }
-
-type TombstoneLinkCommand = LinkCommand
 
 type LinkCommandResult struct {
 	RecordLinkID uuid.UUID
@@ -216,26 +214,13 @@ func decodeStoredResponse(data []byte) (map[string]any, error) {
 	return payload, nil
 }
 
-func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
-	details := map[string]any{}
-	if field != "" {
-		details["field"] = field
-	}
-	if reasonCode != "" {
-		details["reason_code"] = reasonCode
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusBadRequest,
-		Code:    "invalid_mutation_payload",
-		Message: "invalid mutation payload",
-		Details: details,
-	}
+func invalidMutationPayload(field string, reasonCode mutationadmission.ReasonCode) *mutationadmission.Failure {
+	return mutationadmission.New(field, reasonCode)
 }
 
-func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
-	var raw map[string]json.RawMessage
-	decoder := json.NewDecoder(reader)
-	if err := decoder.Decode(&raw); err != nil {
+func decodeObject(reader io.Reader) (map[string]json.RawMessage, *mutationadmission.Failure) {
+	raw, err := strictjson.DecodeObject(reader)
+	if err != nil {
 		return nil, invalidMutationPayload("", "request_not_object")
 	}
 	return raw, nil

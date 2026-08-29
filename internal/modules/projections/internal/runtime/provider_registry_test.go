@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	entitycontract "github.com/JochiRaider/cartulary/internal/modules/entities/projectioncontract"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/internal/queryengine"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 )
@@ -230,7 +230,7 @@ func newValidationRegistry(providers []Provider) (*providerRegistry, error) {
 	return newProviderRegistry(descriptorSet, providers)
 }
 
-type registryEntitySource struct{ entityprojection.SourceReader }
+type registryEntitySource struct{ entitycontract.SourceReader }
 
 func cloneProjectionProviders(providers []Provider) []Provider {
 	cloned := make([]Provider, len(providers))

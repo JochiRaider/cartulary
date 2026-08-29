@@ -7,17 +7,18 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 const maxPatchChanges = 32
 
-func DecodePatchRequest(reader io.Reader) (PatchRequest, *httpapi.APIError) {
-	raw, apiErr := decodePatchObject(reader)
-	if apiErr != nil {
-		return PatchRequest{}, apiErr
+func DecodePatchRequest(reader io.Reader) (PatchRequest, *mutationadmission.Failure) {
+	raw, failure := decodeObject(reader)
+	if failure != nil {
+		return PatchRequest{}, failure
 	}
 	allowed := map[string]struct{}{
 		"view_schema_id":   {},
@@ -59,10 +60,13 @@ func DecodePatchRequest(reader io.Reader) (PatchRequest, *httpapi.APIError) {
 		return PatchRequest{}, invalidMutationPayload("changes", "empty_changes")
 	}
 	if len(rawChanges) > maxPatchChanges {
-		return PatchRequest{}, invalidMutationPayloadWithDetails("changes", "change_count_exceeded", map[string]any{
-			"requested_count": len(rawChanges),
-			"max_count":       maxPatchChanges,
-		})
+		return PatchRequest{}, mutationadmission.NewLimit(
+			"changes",
+			mutationadmission.ReasonChangeCountExceeded,
+			len(rawChanges),
+			maxPatchChanges,
+			"",
+		)
 	}
 	seen := map[string]struct{}{}
 	for _, rawChange := range rawChanges {
@@ -104,7 +108,7 @@ func PatchRequestHash(request PatchRequest) []byte {
 	return hash
 }
 
-func decodeEntityPatchChange(viewSchemaID string, raw json.RawMessage) (PatchChange, *httpapi.APIError) {
+func decodeEntityPatchChange(viewSchemaID string, raw json.RawMessage) (PatchChange, *mutationadmission.Failure) {
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil {
 		return PatchChange{}, invalidMutationPayload("changes", "invalid_change")
@@ -218,7 +222,7 @@ func canonicalAliasActions(actions []CollectionAction) map[string]any {
 	return map[string]any{"kind": "collection_actions_v1", "actions": values}
 }
 
-func decodeEntityPatchValue(fieldKey string, field viewschema.Field, value json.RawMessage) (*string, *httpapi.APIError) {
+func decodeEntityPatchValue(fieldKey string, field viewschema.Field, value json.RawMessage) (*string, *mutationadmission.Failure) {
 	if string(value) == "null" {
 		if field.Clearable {
 			return nil, nil
@@ -244,21 +248,5 @@ func canonicalPatchValue(value *string) any {
 }
 
 func isEntityPatchSurface(viewSchemaID string) bool {
-	return viewSchemaID == HostsViewSchemaID || viewSchemaID == IdentitiesViewSchemaID
-}
-
-func decodePatchObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
-	raw, err := httpapi.DecodeStrictJSONObject(reader)
-	if err != nil {
-		return nil, invalidMutationPayload("", "request_not_object")
-	}
-	return raw, nil
-}
-
-func invalidMutationPayloadWithDetails(field string, reasonCode string, extra map[string]any) *httpapi.APIError {
-	apiErr := invalidMutationPayload(field, reasonCode)
-	for key, value := range extra {
-		apiErr.Details[key] = value
-	}
-	return apiErr
+	return viewSchemaID == entitycontract.HostsViewSchemaID || viewSchemaID == entitycontract.IdentitiesViewSchemaID
 }

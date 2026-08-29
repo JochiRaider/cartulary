@@ -35,7 +35,7 @@ func TestTypedEntityProjectionDeletionUsesCallerTransaction(t *testing.T) {
 		"IR-PROJECTION-DELETE",
 		"Projection delete transaction ownership",
 	)
-	rows := projectiontestsupport.MustBuild(t, harness.DB).EntityPorts().Writer
+	rows := projectiontestsupport.MustBuild(t, harness.DB).EntityMutationRows()
 
 	tests := []struct {
 		name        string

@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	entityports "github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -29,7 +29,7 @@ func (reader *IdentityReader) SelectIdentityQueryProjections(
 	incidentID uuid.UUID,
 	query viewschema.QueryMeta,
 	window querypage.Window,
-) ([]entityprojection.IdentityQueryProjection, error) {
+) ([]entityports.IdentityQueryProjection, error) {
 	if reader == nil || reader.db == nil {
 		return nil, fmt.Errorf("query identity projections: database is required")
 	}
@@ -43,7 +43,7 @@ func (reader *IdentityReader) SelectIdentityQueryProjections(
 	}
 	defer rows.Close()
 
-	result := make([]entityprojection.IdentityQueryProjection, 0)
+	result := make([]entityports.IdentityQueryProjection, 0)
 	for rows.Next() {
 		row, scanErr := scanIdentityQueryProjection(rows)
 		if scanErr != nil {
@@ -61,7 +61,7 @@ func (reader *IdentityReader) CollectIdentityDerivedFactsTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
-) ([]entityprojection.DerivedFact, error) {
+) ([]entityports.DerivedFact, error) {
 	rows, err := tx.Query(ctx, `
 SELECT i.record_id, to_jsonb(i) - 'incident_id'
   FROM identity_grid_projection i
@@ -77,7 +77,7 @@ SELECT i.record_id, to_jsonb(i) - 'incident_id'
 	}
 	defer rows.Close()
 
-	facts := make([]entityprojection.DerivedFact, 0)
+	facts := make([]entityports.DerivedFact, 0)
 	for rows.Next() {
 		var (
 			recordID uuid.UUID
@@ -90,7 +90,7 @@ SELECT i.record_id, to_jsonb(i) - 'incident_id'
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, fmt.Errorf("decode identity projection fact: %w", err)
 		}
-		facts = append(facts, entityprojection.DerivedFact{
+		facts = append(facts, entityports.DerivedFact{
 			RecordID:     recordID,
 			RecordType:   "identity",
 			ContentClass: "derived_analytic",
@@ -179,9 +179,9 @@ SELECT
 	return builder.String(), args, nil
 }
 
-func scanIdentityQueryProjection(scanner interface{ Scan(...any) error }) (entityprojection.IdentityQueryProjection, error) {
+func scanIdentityQueryProjection(scanner interface{ Scan(...any) error }) (entityports.IdentityQueryProjection, error) {
 	var (
-		row              entityprojection.IdentityQueryProjection
+		row              entityports.IdentityQueryProjection
 		privilegeLevel   pgtype.Text
 		mfaState         pgtype.Text
 		resetStatus      pgtype.Text
@@ -197,7 +197,7 @@ func scanIdentityQueryProjection(scanner interface{ Scan(...any) error }) (entit
 		&mfaState,
 		&resetStatus,
 	); err != nil {
-		return entityprojection.IdentityQueryProjection{}, fmt.Errorf("scan identity projection query row: %w", err)
+		return entityports.IdentityQueryProjection{}, fmt.Errorf("scan identity projection query row: %w", err)
 	}
 	row.LinkedEventCount = int(linkedEventCount)
 	row.EvidenceCount = int(evidenceCount)

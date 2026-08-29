@@ -10,7 +10,8 @@ import (
 
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	entitycontract "github.com/JochiRaider/cartulary/internal/modules/entities/projectioncontract"
+	entityports "github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectioncontract"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
@@ -45,9 +46,9 @@ func (r *TimelineRows) CountTimelineFixtureRowsTx(ctx context.Context, tx pgx.Tx
 	return r.store.countTimelineFixtureRowsTx(ctx, tx, incidentID)
 }
 
-type EntityRows struct {
+type entityRows struct {
 	store          *Store
-	source         entityprojection.SourceReader
+	source         entitycontract.SourceReader
 	hostReader     *queryengine.HostReader
 	identityReader *queryengine.IdentityReader
 }
@@ -83,77 +84,81 @@ func (r *IndicatorRows) LoadIndicatorTx(
 	return loadProviderRowTx(ctx, tx, r.store, indicatorsViewSchemaID, recordID)
 }
 
-func NewEntityRowsFromStore(store *Store, source entityprojection.SourceReader) *EntityRows {
-	return &EntityRows{
+func NewEntityPortViewsFromStore(
+	store *Store,
+	source entitycontract.SourceReader,
+) (entityports.MutationRows, entityports.QueryReader, entityports.ReportingReader) {
+	rows := &entityRows{
 		store:          store,
 		source:         source,
 		hostReader:     queryengine.NewHostReader(store.pool),
 		identityReader: queryengine.NewIdentityReader(store.pool),
 	}
+	return rows, rows, rows
 }
 
-func (r *EntityRows) RefreshHostTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+func (r *entityRows) RefreshHostTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
 	return r.store.refreshHostTxCore(ctx, tx, recordID, r.source)
 }
 
-func (r *EntityRows) RefreshIdentityTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+func (r *entityRows) RefreshIdentityTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
 	return r.store.refreshIdentityTxCore(ctx, tx, recordID, r.source)
 }
 
-func (r *EntityRows) DeleteHostTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+func (r *entityRows) DeleteHostTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
 	if r == nil || r.store == nil || r.store.physical == nil {
 		return fmt.Errorf("projection storage is required")
 	}
 	return r.store.physical.DeleteHostRowTx(ctx, tx, recordID)
 }
 
-func (r *EntityRows) DeleteIdentityTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+func (r *entityRows) DeleteIdentityTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
 	if r == nil || r.store == nil || r.store.physical == nil {
 		return fmt.Errorf("projection storage is required")
 	}
 	return r.store.physical.DeleteIdentityRowTx(ctx, tx, recordID)
 }
 
-func (r *EntityRows) SelectHostQueryProjections(
+func (r *entityRows) SelectHostQueryProjections(
 	ctx context.Context,
 	incidentID uuid.UUID,
 	query viewschema.QueryMeta,
 	window querypage.Window,
-) ([]entityprojection.HostQueryProjection, error) {
+) ([]entityports.HostQueryProjection, error) {
 	if r == nil || r.hostReader == nil {
 		return nil, fmt.Errorf("host projection reader is required")
 	}
 	return r.hostReader.SelectHostQueryProjections(ctx, incidentID, query, window)
 }
 
-func (r *EntityRows) CollectHostDerivedFactsTx(
+func (r *entityRows) CollectHostDerivedFactsTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
-) ([]entityprojection.DerivedFact, error) {
+) ([]entityports.DerivedFact, error) {
 	if r == nil || r.hostReader == nil {
 		return nil, fmt.Errorf("host projection reader is required")
 	}
 	return r.hostReader.CollectHostDerivedFactsTx(ctx, tx, incidentID)
 }
 
-func (r *EntityRows) SelectIdentityQueryProjections(
+func (r *entityRows) SelectIdentityQueryProjections(
 	ctx context.Context,
 	incidentID uuid.UUID,
 	query viewschema.QueryMeta,
 	window querypage.Window,
-) ([]entityprojection.IdentityQueryProjection, error) {
+) ([]entityports.IdentityQueryProjection, error) {
 	if r == nil || r.identityReader == nil {
 		return nil, fmt.Errorf("identity projection reader is required")
 	}
 	return r.identityReader.SelectIdentityQueryProjections(ctx, incidentID, query, window)
 }
 
-func (r *EntityRows) CollectIdentityDerivedFactsTx(
+func (r *entityRows) CollectIdentityDerivedFactsTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
-) ([]entityprojection.DerivedFact, error) {
+) ([]entityports.DerivedFact, error) {
 	if r == nil || r.identityReader == nil {
 		return nil, fmt.Errorf("identity projection reader is required")
 	}

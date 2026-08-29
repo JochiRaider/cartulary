@@ -205,7 +205,7 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 		Collaboration:       intents,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projectionRuntime.TimelinePorts().Writer,
-		EntityProjection:    projectionRuntime.EntityPorts().Writer,
+		EntityProjection:    projectionRuntime.EntityMutationRows(),
 		AssessmentRows:      projectionRuntime.AssessmentPorts().Rows,
 	})
 	if err != nil {
@@ -252,7 +252,8 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 			Postgres:              pool,
 			ProjectionDescriptors: projectionRuntime.DescriptorSet(),
 			ProjectionQueries:     projectionRuntime,
-			EntityProjections:     projectionRuntime.EntityPorts(),
+			EntityMutationRows:    projectionRuntime.EntityMutationRows(),
+			EntityQueryReader:     projectionRuntime.EntityQueryReader(),
 			AssessmentProjections: projectionRuntime.AssessmentPorts().Rows,
 			PartyProjections:      projectionRuntime.PartyPorts().Rows,
 			IndicatorOwner:        indicatorOwner,

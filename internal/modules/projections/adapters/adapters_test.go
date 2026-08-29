@@ -8,7 +8,7 @@ import (
 
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	entitycontract "github.com/JochiRaider/cartulary/internal/modules/entities/projectioncontract"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectioncontract"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
@@ -26,7 +26,7 @@ type inertDB struct {
 type inertTimelineSource struct {
 	timelineprojection.SourceReader
 }
-type inertEntitySource struct{ entityprojection.SourceReader }
+type inertEntitySource struct{ entitycontract.SourceReader }
 type inertIndicatorSource struct {
 	indicatorprojection.SourceReader
 }
@@ -61,7 +61,7 @@ func TestNewRejectsMissingDependencies(t *testing.T) {
 			dependencies.Timeline = timelineprojection.Contribution{}
 		},
 		"Entities": func(dependencies *adapters.Dependencies) {
-			dependencies.Entities = entityprojection.Contribution{}
+			dependencies.Entities = entitycontract.Contribution{}
 		},
 		"Indicators": func(dependencies *adapters.Dependencies) {
 			dependencies.Indicators = indicatorprojection.Contribution{}
@@ -100,7 +100,8 @@ func TestNewReturnsReadyPortsAndImmutableDescriptorSet(t *testing.T) {
 	if ports.DescriptorSet().Len() != 10 || !ports.RecoveryPorts().Ready() ||
 		ports.MaintenanceRebuilder() == nil ||
 		ports.Timeline().Writer == nil ||
-		ports.Entities().Writer == nil || ports.Entities().Reader == nil ||
+		ports.EntityMutationRows() == nil || ports.EntityQueryReader() == nil ||
+		ports.EntityReportingReader() == nil ||
 		ports.Indicators().Rows == nil ||
 		ports.Assessments().Rows == nil ||
 		ports.Artifacts().Rows == nil || ports.Artifacts().Reader == nil ||
@@ -206,9 +207,9 @@ func mustTimelineContribution(t testing.TB) timelineprojection.Contribution {
 	return contribution
 }
 
-func mustEntitiesContribution(t testing.TB) entityprojection.Contribution {
+func mustEntitiesContribution(t testing.TB) entitycontract.Contribution {
 	t.Helper()
-	contribution, err := entityprojection.NewContribution(&inertEntitySource{})
+	contribution, err := entitycontract.NewContribution(&inertEntitySource{})
 	if err != nil {
 		t.Fatalf("entities contribution: %v", err)
 	}

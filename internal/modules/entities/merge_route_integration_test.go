@@ -85,6 +85,25 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 		}
 		for _, url := range []string{mergeURL, mentionURL} {
 			appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusBadRequest, "invalid_mutation_payload")
+			for _, body := range []string{
+				`null`,
+				`{"member":1,"member":2}`,
+				`{} {}`,
+			} {
+				appsupport.RequireErrorBody(
+					t,
+					doEntitiesRawJSON(
+						t,
+						http.MethodPost,
+						url,
+						body,
+						withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+						withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+					),
+					http.StatusBadRequest,
+					"invalid_mutation_payload",
+				)
+			}
 		}
 
 		otherActor := authflowtest.SeedLocalUserRecord(t, harness.DB, "entity_linking-route-precedence-other@example.test", "EntityLinking Route Other", "EntityLinkingRouteOtherPass1!", false, false, true)

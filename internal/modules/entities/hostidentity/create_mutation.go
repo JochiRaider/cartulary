@@ -14,12 +14,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	scopeKey := incidentID.String() + ":" + HostsViewSchemaID
+	scopeKey := incidentID.String() + ":" + entitycontract.HostsViewSchemaID
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    hostCreateRouteKey,
 		ActorUserID: actor.ID,
@@ -122,12 +123,12 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 		}); err != nil {
 			return MutationResult{}, err
 		}
-		if err := s.appendRecordChangedTx(ctx, tx, incidentID, actor.ID, request.ClientTxnID, changeSetID, record.RecordID, record.RowVersion, 0, now, HostsViewSchemaID, afterRow, changedFields); err != nil {
+		if err := s.appendRecordChangedTx(ctx, tx, incidentID, actor.ID, request.ClientTxnID, changeSetID, record.RecordID, record.RowVersion, 0, now, entitycontract.HostsViewSchemaID, afterRow, changedFields); err != nil {
 			return MutationResult{}, err
 		}
 	}
 
-	payload := buildMutationPayload(HostsViewSchemaID, changeSetID, afterRow)
+	payload := buildMutationPayload(entitycontract.HostsViewSchemaID, changeSetID, afterRow)
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, statusCode, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MutationResult{}, authn.ErrClientTxnConflict
@@ -148,7 +149,7 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 }
 
 func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	scopeKey := incidentID.String() + ":" + IdentitiesViewSchemaID
+	scopeKey := incidentID.String() + ":" + entitycontract.IdentitiesViewSchemaID
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    identityCreateRouteKey,
 		ActorUserID: actor.ID,
@@ -251,12 +252,12 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		}); err != nil {
 			return MutationResult{}, err
 		}
-		if err := s.appendRecordChangedTx(ctx, tx, incidentID, actor.ID, request.ClientTxnID, changeSetID, record.RecordID, record.RowVersion, 0, now, IdentitiesViewSchemaID, afterRow, changedFields); err != nil {
+		if err := s.appendRecordChangedTx(ctx, tx, incidentID, actor.ID, request.ClientTxnID, changeSetID, record.RecordID, record.RowVersion, 0, now, entitycontract.IdentitiesViewSchemaID, afterRow, changedFields); err != nil {
 			return MutationResult{}, err
 		}
 	}
 
-	payload := buildMutationPayload(IdentitiesViewSchemaID, changeSetID, afterRow)
+	payload := buildMutationPayload(entitycontract.IdentitiesViewSchemaID, changeSetID, afterRow)
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, statusCode, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MutationResult{}, authn.ErrClientTxnConflict

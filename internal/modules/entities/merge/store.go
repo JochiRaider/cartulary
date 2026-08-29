@@ -11,7 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
@@ -45,7 +45,7 @@ type StoreDependencies struct {
 	Mentions      MentionEffectsPort
 	Links         LinkEffectsPort
 	Timeline      TimelineEffectsPort
-	Projections   workbookprojection.Writer
+	Projections   projectionports.MutationRows
 	Collaboration collaboration.RecordChangedAppender
 }
 

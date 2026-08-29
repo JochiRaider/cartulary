@@ -8,7 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
+	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 )
 
 type WorkbookConflictClaims struct {
@@ -30,12 +31,12 @@ func DecodeWorkbookConflictResolveRequest(
 	reader io.Reader,
 	token string,
 	claims WorkbookConflictClaims,
-) (WorkbookConflictResolveRequest, *httpapi.APIError) {
+) (WorkbookConflictResolveRequest, *mutationadmission.Failure) {
 	if claims.RecordID == uuid.Nil || !isEntityPatchSurface(claims.ViewSchemaID) ||
 		claims.CurrentRowVersion < 1 {
 		return WorkbookConflictResolveRequest{}, invalidMutationPayload("conflict_token", "invalid_value")
 	}
-	raw, err := httpapi.DecodeStrictJSONObject(reader)
+	raw, err := strictjson.DecodeObject(reader)
 	if err != nil {
 		return WorkbookConflictResolveRequest{}, invalidMutationPayload("", "request_not_object")
 	}

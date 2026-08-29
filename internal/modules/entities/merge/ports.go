@@ -10,7 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -22,7 +22,7 @@ type entityStorePorts struct {
 	records       entityRecordPort
 	revisions     entityRevisionPort
 	links         LinkEffectsPort
-	projections   workbookprojection.Writer
+	projections   projectionports.MutationRows
 	timeline      TimelineEffectsPort
 	collaboration collaboration.RecordChangedAppender
 }
@@ -138,12 +138,12 @@ func (e *entityRecordLockedError) Error() string {
 func newEntityStorePorts(
 	pool postgres.DB,
 	appender *revisions.Appender,
-	projectionWriter workbookprojection.Writer,
+	projectionRows projectionports.MutationRows,
 ) entityStorePorts {
 	return entityStorePorts{
 		records:     entityRecordAdapter{store: records.NewStore()},
 		revisions:   entityRevisionAdapter{appender: appender},
-		projections: projectionWriter,
+		projections: projectionRows,
 	}
 }
 

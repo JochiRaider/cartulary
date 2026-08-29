@@ -49,7 +49,7 @@ func newEntityTestTimelineComposition(t testing.TB, pool postgres.DB) (*timeline
 		Collaboration:       revisionComposition.RecordChanges,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
-		EntityProjection:    projections.EntityPorts().Writer,
+		EntityProjection:    projections.EntityMutationRows(),
 		AssessmentRows:      projections.AssessmentPorts().Rows,
 	})
 	if err != nil {
@@ -66,12 +66,12 @@ func newEntityTestStore(t testing.TB, pool postgres.DB) *hostidentity.Store {
 		t.Fatalf("compose Projections: %v", err)
 	}
 	store, err := hostidentity.NewStore(hostidentity.StoreDependencies{
-		Postgres:             pool,
-		Revisions:            revisionComposition.Runtime.Appender(),
-		ProjectionWriter:     projection.EntityPorts().Writer,
-		ProjectionReader:     projection.EntityPorts().Reader,
-		KeepSavedIdempotency: workbookassembly.NewConflictIdempotencyPort(pool),
-		Collaboration:        revisionComposition.RecordChanges,
+		Postgres:               pool,
+		Revisions:              revisionComposition.Runtime.Appender(),
+		ProjectionMutationRows: projection.EntityMutationRows(),
+		ProjectionQueryReader:  projection.EntityQueryReader(),
+		KeepSavedIdempotency:   workbookassembly.NewConflictIdempotencyPort(pool),
+		Collaboration:          revisionComposition.RecordChanges,
 	})
 	if err != nil {
 		t.Fatalf("compose Host/Identity store: %v", err)

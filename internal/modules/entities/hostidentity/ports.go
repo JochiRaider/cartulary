@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
@@ -15,7 +15,7 @@ import (
 type entityStorePorts struct {
 	records     entityRecordPort
 	revisions   entityRevisionPort
-	projections workbookprojection.Writer
+	projections projectionports.MutationRows
 }
 
 type entityRecordPort interface {
@@ -68,12 +68,12 @@ type entityMutationParams struct {
 
 func newEntityStorePorts(
 	appender *revisions.Appender,
-	projectionWriter workbookprojection.Writer,
+	projectionRows projectionports.MutationRows,
 ) entityStorePorts {
 	return entityStorePorts{
 		records:     entityRecordAdapter{store: records.NewStore()},
 		revisions:   entityRevisionAdapter{appender: appender},
-		projections: projectionWriter,
+		projections: projectionRows,
 	}
 }
 

@@ -6,7 +6,7 @@ import (
 	"reflect"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
@@ -25,7 +25,7 @@ type Store struct {
 	authStore        *authn.Store
 	incidentAccess   *admission.Checker
 	keepSaved        conflicts.IdempotencyPort
-	projectionReader workbookprojection.Reader
+	projectionReader projectionports.QueryReader
 }
 
 type mutationCore struct {
@@ -35,12 +35,12 @@ type mutationCore struct {
 }
 
 type StoreDependencies struct {
-	Postgres             postgres.DB
-	Revisions            *revisions.Appender
-	ProjectionWriter     workbookprojection.Writer
-	ProjectionReader     workbookprojection.Reader
-	KeepSavedIdempotency conflicts.IdempotencyPort
-	Collaboration        collaboration.RecordChangedAppender
+	Postgres               postgres.DB
+	Revisions              *revisions.Appender
+	ProjectionMutationRows projectionports.MutationRows
+	ProjectionQueryReader  projectionports.QueryReader
+	KeepSavedIdempotency   conflicts.IdempotencyPort
+	Collaboration          collaboration.RecordChangedAppender
 }
 
 func NewStore(dependencies StoreDependencies) (*Store, error) {
@@ -50,8 +50,8 @@ func NewStore(dependencies StoreDependencies) (*Store, error) {
 	}{
 		{name: "Postgres", value: dependencies.Postgres},
 		{name: "Revisions", value: dependencies.Revisions},
-		{name: "ProjectionWriter", value: dependencies.ProjectionWriter},
-		{name: "ProjectionReader", value: dependencies.ProjectionReader},
+		{name: "ProjectionMutationRows", value: dependencies.ProjectionMutationRows},
+		{name: "ProjectionQueryReader", value: dependencies.ProjectionQueryReader},
 		{name: "KeepSavedIdempotency", value: dependencies.KeepSavedIdempotency},
 		{name: "Collaboration", value: dependencies.Collaboration},
 	} {
@@ -60,19 +60,19 @@ func NewStore(dependencies StoreDependencies) (*Store, error) {
 		}
 	}
 	return &Store{
-		mutationCore:     newMutationCore(dependencies.Revisions, dependencies.ProjectionWriter, dependencies.Collaboration),
+		mutationCore:     newMutationCore(dependencies.Revisions, dependencies.ProjectionMutationRows, dependencies.Collaboration),
 		pool:             dependencies.Postgres,
 		authStore:        authn.NewStore(dependencies.Postgres),
 		incidentAccess:   admission.NewChecker(dependencies.Postgres),
 		keepSaved:        dependencies.KeepSavedIdempotency,
-		projectionReader: dependencies.ProjectionReader,
+		projectionReader: dependencies.ProjectionQueryReader,
 	}, nil
 }
 
-func newMutationCore(appender *revisions.Appender, projectionWriter workbookprojection.Writer, publications collaboration.RecordChangedAppender) *mutationCore {
+func newMutationCore(appender *revisions.Appender, projectionRows projectionports.MutationRows, publications collaboration.RecordChangedAppender) *mutationCore {
 	return &mutationCore{
 		revisionAppender: appender,
-		ports:            newEntityStorePorts(appender, projectionWriter),
+		ports:            newEntityStorePorts(appender, projectionRows),
 		publications:     publications,
 	}
 }

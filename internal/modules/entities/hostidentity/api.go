@@ -5,23 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 const (
-	HostsViewSchemaID      = entitycontract.HostsViewSchemaID
-	IdentitiesViewSchemaID = entitycontract.IdentitiesViewSchemaID
-
 	hostCreateRouteKey     = "entities.hosts.rows.create"
 	identityCreateRouteKey = "entities.identities.rows.create"
 	maxCollectionActions   = 64
@@ -136,8 +132,6 @@ type AliasSyncResult struct {
 	DuplicateNoopCount int
 }
 
-func (result AliasSyncResult) Changed() bool { return len(result.Added) > 0 }
-
 type AliasAppliedMutation struct {
 	OperationKind string
 	TargetID      string
@@ -174,7 +168,7 @@ func parseEntityAliasItemRef(itemRef string) (uuid.UUID, error) {
 	return aliasID, nil
 }
 
-func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, *httpapi.APIError) {
+func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, *mutationadmission.Failure) {
 	schema, ok := viewschema.Lookup(viewSchemaID)
 	if !ok {
 		return CreateRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
@@ -320,26 +314,13 @@ func buildMutationPayload(viewSchemaID string, changeSetID uuid.UUID, row map[st
 	}
 }
 
-func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
-	details := map[string]any{}
-	if field != "" {
-		details["field"] = field
-	}
-	if reasonCode != "" {
-		details["reason_code"] = reasonCode
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusBadRequest,
-		Code:    "invalid_mutation_payload",
-		Message: "invalid mutation payload",
-		Details: details,
-	}
+func invalidMutationPayload(field string, reasonCode mutationadmission.ReasonCode) *mutationadmission.Failure {
+	return mutationadmission.New(field, reasonCode)
 }
 
-func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
-	var raw map[string]json.RawMessage
-	decoder := json.NewDecoder(reader)
-	if err := decoder.Decode(&raw); err != nil {
+func decodeObject(reader io.Reader) (map[string]json.RawMessage, *mutationadmission.Failure) {
+	raw, err := strictjson.DecodeObject(reader)
+	if err != nil {
 		return nil, invalidMutationPayload("", "request_not_object")
 	}
 	return raw, nil

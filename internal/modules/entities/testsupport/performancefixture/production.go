@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -33,7 +34,7 @@ func (a *ProductionApplication) CreateFixtureHosts(ctx context.Context, incident
 	for index, host := range hosts {
 		rows[index] = []string{host.DisplayName, host.Hostname, host.Hostname}
 	}
-	return a.apply(ctx, incidentID, hostidentity.HostsViewSchemaID, "host.display_name", []string{"host.display_name", "host.hostname", "host.aliases"}, rows)
+	return a.apply(ctx, incidentID, entitycontract.HostsViewSchemaID, "host.display_name", []string{"host.display_name", "host.hostname", "host.aliases"}, rows)
 }
 
 func (a *ProductionApplication) CreateFixtureIdentities(ctx context.Context, incidentID string, identities []Identity) error {
@@ -41,7 +42,7 @@ func (a *ProductionApplication) CreateFixtureIdentities(ctx context.Context, inc
 	for index, identity := range identities {
 		rows[index] = []string{identity.DisplayName, identity.UPN, identity.UPN}
 	}
-	return a.apply(ctx, incidentID, hostidentity.IdentitiesViewSchemaID, "identity.display_name", []string{"identity.display_name", "identity.upn", "identity.aliases"}, rows)
+	return a.apply(ctx, incidentID, entitycontract.IdentitiesViewSchemaID, "identity.display_name", []string{"identity.display_name", "identity.upn", "identity.aliases"}, rows)
 }
 
 func (a *ProductionApplication) apply(ctx context.Context, incidentID string, viewSchemaID string, startField string, columns []string, rows [][]string) error {

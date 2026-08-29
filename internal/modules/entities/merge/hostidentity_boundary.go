@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
+	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 )
 
 func decodeStoredResponse(data []byte) (map[string]any, error) {
@@ -19,29 +19,16 @@ func decodeStoredResponse(data []byte) (map[string]any, error) {
 	return payload, nil
 }
 
-func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
-	var raw map[string]json.RawMessage
-	decoder := json.NewDecoder(reader)
-	if err := decoder.Decode(&raw); err != nil {
+func decodeObject(reader io.Reader) (map[string]json.RawMessage, *mutationadmission.Failure) {
+	raw, err := strictjson.DecodeObject(reader)
+	if err != nil {
 		return nil, invalidMutationPayload("", "request_not_object")
 	}
 	return raw, nil
 }
 
-func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
-	details := map[string]any{}
-	if field != "" {
-		details["field"] = field
-	}
-	if reasonCode != "" {
-		details["reason_code"] = reasonCode
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusBadRequest,
-		Code:    "invalid_mutation_payload",
-		Message: "invalid mutation payload",
-		Details: details,
-	}
+func invalidMutationPayload(field string, reasonCode mutationadmission.ReasonCode) *mutationadmission.Failure {
+	return mutationadmission.New(field, reasonCode)
 }
 
 func entityVersionID(prefix string, recordID uuid.UUID, rowVersion int64) string {

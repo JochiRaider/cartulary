@@ -10,11 +10,12 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
-	left, apiErr := DecodeCreateRequest(HostsViewSchemaID, strings.NewReader(`{
+	left, apiErr := DecodeCreateRequest(entitycontract.HostsViewSchemaID, strings.NewReader(`{
 		"client_txn_id":"txn-host",
 		"host.display_name":" Gateway ",
 		"host.hostname":"gateway"
@@ -22,7 +23,7 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 	if apiErr != nil {
 		t.Fatalf("decode Host create: %#v", apiErr)
 	}
-	right, apiErr := DecodeCreateRequest(HostsViewSchemaID, strings.NewReader(`{
+	right, apiErr := DecodeCreateRequest(entitycontract.HostsViewSchemaID, strings.NewReader(`{
 		"host.hostname":"gateway",
 		"host.display_name":"Gateway",
 		"client_txn_id":"txn-host"
@@ -30,8 +31,8 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 	if apiErr != nil {
 		t.Fatalf("decode reordered Host create: %#v", apiErr)
 	}
-	leftHash := CreateRequestHash(HostsViewSchemaID, left)
-	if !bytes.Equal(leftHash, CreateRequestHash(HostsViewSchemaID, right)) {
+	leftHash := CreateRequestHash(entitycontract.HostsViewSchemaID, left)
+	if !bytes.Equal(leftHash, CreateRequestHash(entitycontract.HostsViewSchemaID, right)) {
 		t.Fatal("member order changed Entity create replay hash")
 	}
 	want, err := hex.DecodeString("a2152bd8e7195652b82d4667706f01db5dd24c81be4f82963d4ff06621aea9ce")
@@ -43,7 +44,7 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 	}
 
 	t.Run("create-only identifiers remain admitted on Host and Identity create", func(t *testing.T) {
-		host, apiErr := DecodeCreateRequest(HostsViewSchemaID, strings.NewReader(`{
+		host, apiErr := DecodeCreateRequest(entitycontract.HostsViewSchemaID, strings.NewReader(`{
 			"client_txn_id":"txn-host-create-only",
 			"host.aad_device_id":"AAD-DEVICE-CREATE",
 			"host.fqdn":"host.example.test"
@@ -51,7 +52,7 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 		if apiErr != nil || host.Values["host.aad_device_id"] != "AAD-DEVICE-CREATE" || host.Values["host.fqdn"] != "host.example.test" {
 			t.Fatalf("Host create-only admission mismatch: request=%#v error=%#v", host, apiErr)
 		}
-		identity, apiErr := DecodeCreateRequest(IdentitiesViewSchemaID, strings.NewReader(`{
+		identity, apiErr := DecodeCreateRequest(entitycontract.IdentitiesViewSchemaID, strings.NewReader(`{
 			"client_txn_id":"txn-identity-create-only",
 			"identity.aad_object_id":"AAD-OBJECT-CREATE",
 			"identity.sid":"S-1-5-21-100"
@@ -69,7 +70,7 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 			buildRow     func() map[string]any
 		}{
 			{
-				viewSchemaID: HostsViewSchemaID,
+				viewSchemaID: entitycontract.HostsViewSchemaID,
 				createOnly:   []string{"host.aad_device_id", "host.fqdn"},
 				patchable: []string{
 					"host.aliases", "host.business_owner", "host.containment_status", "host.criticality",
@@ -85,7 +86,7 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 				},
 			},
 			{
-				viewSchemaID: IdentitiesViewSchemaID,
+				viewSchemaID: entitycontract.IdentitiesViewSchemaID,
 				createOnly:   []string{"identity.aad_object_id", "identity.sid"},
 				patchable: []string{
 					"identity.aliases", "identity.display_name", "identity.email", "identity.mfa_state",
@@ -148,7 +149,7 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 					}
 				}
 				prefix := "host"
-				if tc.viewSchemaID == IdentitiesViewSchemaID {
+				if tc.viewSchemaID == entitycontract.IdentitiesViewSchemaID {
 					prefix = "identity"
 				}
 				for _, key := range []string{prefix + ".aliases", prefix + ".reusable_identifiers"} {
@@ -167,7 +168,7 @@ func testStringPointer(value string) *string { return &value }
 func TestWorkbookConflictResolveAdmissionAndHashCompatibility(t *testing.T) {
 	claims := WorkbookConflictClaims{
 		RecordID:     uuid.MustParse("00000000-0000-4000-8000-000000000001"),
-		ViewSchemaID: HostsViewSchemaID, FieldKey: "host.display_name", CurrentRowVersion: 3,
+		ViewSchemaID: entitycontract.HostsViewSchemaID, FieldKey: "host.display_name", CurrentRowVersion: 3,
 	}
 	request, apiErr := DecodeWorkbookConflictResolveRequest(strings.NewReader(`{
 		"conflict_token":"opaque",
@@ -213,7 +214,7 @@ func TestWorkbookConflictResolveAdmissionAndHashCompatibility(t *testing.T) {
 func TestWorkbookConflictResolveAdmissionRejectsInvalidEntityValues(t *testing.T) {
 	claims := WorkbookConflictClaims{
 		RecordID:     uuid.MustParse("00000000-0000-4000-8000-000000000001"),
-		ViewSchemaID: HostsViewSchemaID, FieldKey: "host.aliases", CurrentRowVersion: 3,
+		ViewSchemaID: entitycontract.HostsViewSchemaID, FieldKey: "host.aliases", CurrentRowVersion: 3,
 	}
 	tests := []struct {
 		name   string
@@ -238,10 +239,10 @@ func TestWorkbookConflictResolveAdmissionRejectsInvalidEntityValues(t *testing.T
 		viewSchemaID string
 		fieldKey     string
 	}{
-		{viewSchemaID: HostsViewSchemaID, fieldKey: "host.aad_device_id"},
-		{viewSchemaID: HostsViewSchemaID, fieldKey: "host.fqdn"},
-		{viewSchemaID: IdentitiesViewSchemaID, fieldKey: "identity.aad_object_id"},
-		{viewSchemaID: IdentitiesViewSchemaID, fieldKey: "identity.sid"},
+		{viewSchemaID: entitycontract.HostsViewSchemaID, fieldKey: "host.aad_device_id"},
+		{viewSchemaID: entitycontract.HostsViewSchemaID, fieldKey: "host.fqdn"},
+		{viewSchemaID: entitycontract.IdentitiesViewSchemaID, fieldKey: "identity.aad_object_id"},
+		{viewSchemaID: entitycontract.IdentitiesViewSchemaID, fieldKey: "identity.sid"},
 	} {
 		createOnlyClaims := claims
 		createOnlyClaims.ViewSchemaID = createOnly.viewSchemaID
@@ -260,9 +261,10 @@ func TestWorkbookConflictResolveAdmissionRejectsInvalidEntityValues(t *testing.T
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, apiErr := DecodeWorkbookConflictResolveRequest(strings.NewReader(test.body), "opaque", test.claims)
-			if apiErr == nil || apiErr.Code != "invalid_mutation_payload" || apiErr.Details["field"] != test.field {
-				t.Fatalf("API error = %#v", apiErr)
+			_, failure := DecodeWorkbookConflictResolveRequest(strings.NewReader(test.body), "opaque", test.claims)
+			failureField, _ := failure.Field()
+			if failure == nil || failureField != test.field {
+				t.Fatalf("admission failure = %#v", failure)
 			}
 		})
 	}

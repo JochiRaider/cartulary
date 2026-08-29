@@ -3,7 +3,7 @@ package projectionassembly
 import (
 	artifactcontract "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentcontract "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
-	entitycontract "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	entityports "github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	evidenceports "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	indicatorcontract "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
@@ -95,11 +95,25 @@ func (runtime *Runtime) TimelinePorts() timelineprojection.Ports {
 	return runtime.ports.Timeline()
 }
 
-func (runtime *Runtime) EntityPorts() entitycontract.Ports {
+func (runtime *Runtime) EntityMutationRows() entityports.MutationRows {
 	if runtime == nil {
-		return entitycontract.Ports{}
+		return nil
 	}
-	return runtime.ports.Entities()
+	return runtime.ports.EntityMutationRows()
+}
+
+func (runtime *Runtime) EntityQueryReader() entityports.QueryReader {
+	if runtime == nil {
+		return nil
+	}
+	return runtime.ports.EntityQueryReader()
+}
+
+func (runtime *Runtime) EntityReportingReader() entityports.ReportingReader {
+	if runtime == nil {
+		return nil
+	}
+	return runtime.ports.EntityReportingReader()
 }
 
 func (runtime *Runtime) IndicatorPorts() indicatorcontract.Ports {

@@ -34,16 +34,6 @@ func (e *ExactMatchConflictError) Error() string {
 	return fmt.Sprintf("%s exact match conflict on %s", e.EntityType, e.IdentifierClass)
 }
 
-// EntityMatchConflictDetails exposes only the closed, client-safe conflict
-// facts needed by application adapters. The returned IDs are owned by the
-// caller so an adapter cannot mutate the owner's error after construction.
-func (e *ExactMatchConflictError) EntityMatchConflictDetails() (string, string, []uuid.UUID) {
-	if e == nil {
-		return "", "", nil
-	}
-	return e.EntityType, e.IdentifierClass, append([]uuid.UUID(nil), e.CandidateRecords...)
-}
-
 type identifierSeed struct {
 	IdentifierType string
 	RawValue       string

@@ -37,10 +37,6 @@ func (e *invalidMutationTargetError) Error() string {
 	return e.message
 }
 
-func (e *invalidMutationTargetError) InvalidMutationTarget() bool {
-	return true
-}
-
 type MentionTransitionError struct {
 	FromStatus     string
 	ToStatus       string
@@ -49,10 +45,6 @@ type MentionTransitionError struct {
 
 func (e *MentionTransitionError) Error() string {
 	return fmt.Sprintf("entities: illegal mention transition %s -> %s", e.FromStatus, e.ToStatus)
-}
-
-func (e *MentionTransitionError) MutationTransitionDetails() (string, string, []string) {
-	return e.FromStatus, e.ToStatus, append([]string(nil), e.ViolatedGuards...)
 }
 
 type MentionRowVersionConflictError struct {
@@ -72,10 +64,6 @@ type MentionTargetValidationError struct {
 
 func (e *MentionTargetValidationError) Error() string {
 	return fmt.Sprintf("entities: invalid resolved target: %s", e.Reason)
-}
-
-func (e *MentionTargetValidationError) InvalidMutationTarget() bool {
-	return true
 }
 
 type mentionActionRecord struct {
@@ -448,7 +436,7 @@ UPDATE entity_mentions
 			return mentionMutationResult{}, err
 		}
 		if removeOldLink {
-			tombstoned, found, err := s.ports.links.TombstoneActiveMentionLinkTx(ctx, tx, TombstoneLinkCommand{
+			tombstoned, found, err := s.ports.links.TombstoneActiveMentionLinkTx(ctx, tx, LinkCommand{
 				IncidentID:  before.IncidentID,
 				SrcRecordID: before.SourceRecordID,
 				DstRecordID: *before.ResolvedRecordID,

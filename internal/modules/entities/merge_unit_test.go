@@ -11,6 +11,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
@@ -232,7 +233,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 			t.Fatalf("merge host reusable identifiers: %v", err)
 		}
 
-		page, err := store.QueryHostRowsPage(context.Background(), incident.ID, mustDefaultQueryMeta(t, hostidentity.HostsViewSchemaID), querypage.Window{Limit: 100})
+		page, err := store.QueryHostRowsPage(context.Background(), incident.ID, mustDefaultQueryMeta(t, entitycontract.HostsViewSchemaID), querypage.Window{Limit: 100})
 		if err != nil {
 			t.Fatalf("query host rows after reusable merge: %v", err)
 		}
@@ -276,7 +277,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 			t.Fatalf("merge identity reusable identifiers: %v", err)
 		}
 
-		page, err := store.QueryIdentityRowsPage(context.Background(), incident.ID, mustDefaultQueryMeta(t, hostidentity.IdentitiesViewSchemaID), querypage.Window{Limit: 100})
+		page, err := store.QueryIdentityRowsPage(context.Background(), incident.ID, mustDefaultQueryMeta(t, entitycontract.IdentitiesViewSchemaID), querypage.Window{Limit: 100})
 		if err != nil {
 			t.Fatalf("query identity rows after reusable merge: %v", err)
 		}

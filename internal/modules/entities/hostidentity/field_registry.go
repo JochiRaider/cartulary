@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -85,7 +86,7 @@ func newEntityFieldRegistry(descriptors []entityFieldDescriptor) (entityFieldReg
 		ordered: make(map[string][]entityFieldDescriptor, 2),
 	}
 	for index, descriptor := range descriptors {
-		if descriptor.viewSchemaID != HostsViewSchemaID && descriptor.viewSchemaID != IdentitiesViewSchemaID {
+		if descriptor.viewSchemaID != entitycontract.HostsViewSchemaID && descriptor.viewSchemaID != entitycontract.IdentitiesViewSchemaID {
 			return entityFieldRegistry{}, fmt.Errorf("descriptor %d has unknown view schema %q", index, descriptor.viewSchemaID)
 		}
 		field, ok := viewschema.LookupField(descriptor.viewSchemaID, descriptor.fieldKey)
@@ -104,7 +105,7 @@ func newEntityFieldRegistry(descriptors []entityFieldDescriptor) (entityFieldReg
 		registry.ordered[descriptor.viewSchemaID] = append(registry.ordered[descriptor.viewSchemaID], descriptor)
 	}
 
-	for _, viewSchemaID := range []string{HostsViewSchemaID, IdentitiesViewSchemaID} {
+	for _, viewSchemaID := range []string{entitycontract.HostsViewSchemaID, entitycontract.IdentitiesViewSchemaID} {
 		resource, ok := viewschema.LookupPublicResource(viewSchemaID)
 		if !ok {
 			return entityFieldRegistry{}, fmt.Errorf("owner projection %s is missing", viewSchemaID)
@@ -134,7 +135,7 @@ func validateEntityFieldDescriptor(descriptor entityFieldDescriptor, owner views
 		return fmt.Errorf("patch strategy %q does not match owner strategy %q", descriptor.patch, expectedPatch)
 	}
 
-	host := descriptor.viewSchemaID == HostsViewSchemaID
+	host := descriptor.viewSchemaID == entitycontract.HostsViewSchemaID
 	if host {
 		if descriptor.materializeHost == nil || descriptor.materializeIdentity != nil {
 			return fmt.Errorf("host descriptor must have exactly one host materializer")
@@ -191,9 +192,9 @@ func (registry entityFieldRegistry) descriptors(viewSchemaID string) []entityFie
 }
 
 func (registry entityFieldRegistry) buildHostRow(record HostRecord) map[string]any {
-	cells := make(map[string]any, len(registry.ordered[HostsViewSchemaID]))
+	cells := make(map[string]any, len(registry.ordered[entitycontract.HostsViewSchemaID]))
 	groupValues := make(map[string]any)
-	for _, descriptor := range registry.ordered[HostsViewSchemaID] {
+	for _, descriptor := range registry.ordered[entitycontract.HostsViewSchemaID] {
 		value := descriptor.materializeHost(record)
 		cells[descriptor.fieldKey] = map[string]any{"value": value}
 		if descriptor.supportsGrouping() {
@@ -209,9 +210,9 @@ func (registry entityFieldRegistry) buildHostRow(record HostRecord) map[string]a
 }
 
 func (registry entityFieldRegistry) buildIdentityRow(record IdentityRecord) map[string]any {
-	cells := make(map[string]any, len(registry.ordered[IdentitiesViewSchemaID]))
+	cells := make(map[string]any, len(registry.ordered[entitycontract.IdentitiesViewSchemaID]))
 	groupValues := make(map[string]any)
-	for _, descriptor := range registry.ordered[IdentitiesViewSchemaID] {
+	for _, descriptor := range registry.ordered[entitycontract.IdentitiesViewSchemaID] {
 		value := descriptor.materializeIdentity(record)
 		cells[descriptor.fieldKey] = map[string]any{"value": value}
 		if descriptor.supportsGrouping() {
@@ -236,7 +237,7 @@ func (registry entityFieldRegistry) applyHostPatch(
 	record *HostRecord,
 	change PatchChange,
 ) (bool, []AliasAppliedMutation, error) {
-	descriptor, ok := registry.lookup(HostsViewSchemaID, change.FieldKey)
+	descriptor, ok := registry.lookup(entitycontract.HostsViewSchemaID, change.FieldKey)
 	if !ok {
 		return false, nil, ErrNoEffectivePatchChange
 	}
@@ -268,7 +269,7 @@ func (registry entityFieldRegistry) applyIdentityPatch(
 	record *IdentityRecord,
 	change PatchChange,
 ) (bool, []AliasAppliedMutation, error) {
-	descriptor, ok := registry.lookup(IdentitiesViewSchemaID, change.FieldKey)
+	descriptor, ok := registry.lookup(entitycontract.IdentitiesViewSchemaID, change.FieldKey)
 	if !ok {
 		return false, nil, ErrNoEffectivePatchChange
 	}
@@ -340,19 +341,19 @@ func entityFieldDescriptors() []entityFieldDescriptor {
 }
 
 func hostField(fieldKey string, patch entityFieldPatchStrategy, materialize hostFieldMaterializer, apply hostFieldPatchApplier) entityFieldDescriptor {
-	return entityFieldDescriptor{viewSchemaID: HostsViewSchemaID, fieldKey: fieldKey, patch: patch, materializeHost: materialize, patchHost: apply}
+	return entityFieldDescriptor{viewSchemaID: entitycontract.HostsViewSchemaID, fieldKey: fieldKey, patch: patch, materializeHost: materialize, patchHost: apply}
 }
 
 func identityField(fieldKey string, patch entityFieldPatchStrategy, materialize identityFieldMaterializer, apply identityFieldPatchApplier) entityFieldDescriptor {
-	return entityFieldDescriptor{viewSchemaID: IdentitiesViewSchemaID, fieldKey: fieldKey, patch: patch, materializeIdentity: materialize, patchIdentity: apply}
+	return entityFieldDescriptor{viewSchemaID: entitycontract.IdentitiesViewSchemaID, fieldKey: fieldKey, patch: patch, materializeIdentity: materialize, patchIdentity: apply}
 }
 
 func hostCollectionField(fieldKey string, materialize hostFieldMaterializer, apply collectionFieldPatchApplier) entityFieldDescriptor {
-	return entityFieldDescriptor{viewSchemaID: HostsViewSchemaID, fieldKey: fieldKey, patch: entityFieldPatchCollection, materializeHost: materialize, patchCollection: apply}
+	return entityFieldDescriptor{viewSchemaID: entitycontract.HostsViewSchemaID, fieldKey: fieldKey, patch: entityFieldPatchCollection, materializeHost: materialize, patchCollection: apply}
 }
 
 func identityCollectionField(fieldKey string, materialize identityFieldMaterializer, apply collectionFieldPatchApplier) entityFieldDescriptor {
-	return entityFieldDescriptor{viewSchemaID: IdentitiesViewSchemaID, fieldKey: fieldKey, patch: entityFieldPatchCollection, materializeIdentity: materialize, patchCollection: apply}
+	return entityFieldDescriptor{viewSchemaID: entitycontract.IdentitiesViewSchemaID, fieldKey: fieldKey, patch: entityFieldPatchCollection, materializeIdentity: materialize, patchCollection: apply}
 }
 
 func patchRequiredHostString(target func(*HostRecord) *string) hostFieldPatchApplier {

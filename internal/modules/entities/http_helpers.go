@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -20,6 +21,33 @@ func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_mutation_payload",
 		Message: "invalid mutation payload",
+		Details: details,
+	}
+}
+
+func mutationAdmissionAPIError(failure *mutationadmission.Failure) *httpapi.APIError {
+	if failure == nil {
+		return nil
+	}
+	details := map[string]any{
+		"reason_code": string(failure.ReasonCode()),
+	}
+	if field, ok := failure.Field(); ok {
+		details["field"] = field
+	}
+	if field, ok := failure.CollectionField(); ok {
+		details["field_key"] = field
+	}
+	if count, ok := failure.RequestedCount(); ok {
+		details["requested_count"] = count
+	}
+	if count, ok := failure.MaximumCount(); ok {
+		details["max_count"] = count
+	}
+	return &httpapi.APIError{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_mutation_payload",
+		Message: failure.Error(),
 		Details: details,
 	}
 }

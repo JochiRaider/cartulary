@@ -63,7 +63,7 @@ func newReportingExportMaterializer(
 		reportingExportFieldProviderFunc{key: "records", collect: recordreporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "timeline", collect: timelinereporting.CollectFactsTx},
 		parties.NewReportingContribution(),
-		reportingExportFieldProviderFunc{key: "entities.mentions", collect: entityreporting.CollectFactsTx},
+		entityreporting.New(),
 	}
 	fieldProviders = append(fieldProviders, contributions...)
 	seen := make(map[string]struct{}, len(fieldProviders))

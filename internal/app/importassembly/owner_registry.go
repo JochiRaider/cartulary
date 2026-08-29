@@ -9,7 +9,7 @@ import (
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	entityports "github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
@@ -29,7 +29,7 @@ type OwnerRegistryDependencies struct {
 	RevisionAppender        *revisions.Appender
 	Collaboration           collaboration.RecordChangedAppender
 	Timeline                ownerfacade.ImportOwnerCreateTx
-	EntityProjections       entityprojection.Writer
+	EntityProjections       entityports.MutationRows
 	AssessmentProjections   assessmentprojection.Rows
 	ArtifactProjections     artifactprojection.Rows
 	Evidence                ownerfacade.ImportOwnerCreateFacade
@@ -175,9 +175,9 @@ func newOwnerCreateFacade(
 			targetViewSchemaID,
 			facadeID,
 			hostidentity.ImportDependencies{
-				Revisions:        dependencies.RevisionAppender,
-				ProjectionWriter: dependencies.EntityProjections,
-				Collaboration:    dependencies.Collaboration,
+				Revisions:              dependencies.RevisionAppender,
+				ProjectionMutationRows: dependencies.EntityProjections,
+				Collaboration:          dependencies.Collaboration,
 			},
 		)
 	case "module.evidence@1":

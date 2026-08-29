@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 const mergeRouteKey = "entities.records.merge"
@@ -62,7 +62,7 @@ type MergeResult struct {
 	TimelineInvalidations []mentioneffects.TimelineInvalidation
 }
 
-func DecodeMergeRequest(reader io.Reader) (MergeRequest, *httpapi.APIError) {
+func DecodeMergeRequest(reader io.Reader) (MergeRequest, *mutationadmission.Failure) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return MergeRequest{}, apiErr

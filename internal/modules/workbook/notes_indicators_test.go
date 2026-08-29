@@ -602,7 +602,8 @@ func newCatalogBackedWorkbookCatalog(
 		Postgres:              pool,
 		ProjectionDescriptors: projections.DescriptorSet(),
 		ProjectionQueries:     projections,
-		EntityProjections:     projections.EntityPorts(),
+		EntityMutationRows:    projections.EntityMutationRows(),
+		EntityQueryReader:     projections.EntityQueryReader(),
 		AssessmentProjections: projections.AssessmentPorts().Rows,
 		PartyProjections:      projections.PartyPorts().Rows,
 		IndicatorOwner:        indicatorOwner,
@@ -641,8 +642,8 @@ func requireContributionDependenciesFailClosed(
 			var typedNil *typedNilProjectionQueryCatalog
 			input.ProjectionQueries = typedNil
 		}},
-		{name: "Entity writer", edit: func(input *workbookassembly.ContributionDependencies) { input.EntityProjections.Writer = nil }},
-		{name: "Entity reader", edit: func(input *workbookassembly.ContributionDependencies) { input.EntityProjections.Reader = nil }},
+		{name: "Entity mutation rows", edit: func(input *workbookassembly.ContributionDependencies) { input.EntityMutationRows = nil }},
+		{name: "Entity query reader", edit: func(input *workbookassembly.ContributionDependencies) { input.EntityQueryReader = nil }},
 		{name: "Assessment rows", edit: func(input *workbookassembly.ContributionDependencies) { input.AssessmentProjections = nil }},
 		{name: "Party rows", edit: func(input *workbookassembly.ContributionDependencies) { input.PartyProjections = nil }},
 		{name: "Indicator owner", edit: func(input *workbookassembly.ContributionDependencies) { input.IndicatorOwner = nil }},
@@ -694,7 +695,7 @@ func newWorkbookTimelineComposition(
 		Collaboration:       intents,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
-		EntityProjection:    projections.EntityPorts().Writer,
+		EntityProjection:    projections.EntityMutationRows(),
 		AssessmentRows:      projections.AssessmentPorts().Rows,
 	})
 	if err != nil {

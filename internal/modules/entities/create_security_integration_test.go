@@ -61,6 +61,22 @@ func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T
 	)
 	appsupport.RequireErrorBody(t, invalidCSRF, http.StatusForbidden, "csrf_verification_failed")
 
+	for _, body := range []string{
+		`null`,
+		`{"client_txn_id":"first","client_txn_id":"second"}`,
+		`{"client_txn_id":"txn-trailing","host.display_name":"Host"} {}`,
+	} {
+		response := doEntitiesRawJSON(
+			t,
+			http.MethodPost,
+			url,
+			body,
+			withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		appsupport.RequireErrorBody(t, response, http.StatusBadRequest, "invalid_mutation_payload")
+	}
+
 	if after := counts(); after != before {
 		t.Fatalf("auth/csrf failures must not mutate entity state: before=%#v after=%#v", before, after)
 	}

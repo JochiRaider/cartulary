@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 const mentionActionRouteKey = "entities.entity_mentions.resolve"
@@ -42,7 +42,7 @@ type MentionEntityInvalidation struct {
 	ChangedFieldKeys []string
 }
 
-func DecodeMentionActionRequest(reader io.Reader) (MentionActionRequest, *httpapi.APIError) {
+func DecodeMentionActionRequest(reader io.Reader) (MentionActionRequest, *mutationadmission.Failure) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return MentionActionRequest{}, apiErr

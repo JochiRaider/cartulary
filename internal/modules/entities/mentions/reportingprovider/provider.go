@@ -9,16 +9,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
 )
 
-func CollectFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) ([]exportprovider.Field, error) {
-	output, err := CollectFactsTx(ctx, tx, incidentID, supportRefs)
-	if err != nil {
-		return nil, err
-	}
-	return output.Fields(), nil
-}
+type provider struct{}
 
-func CollectFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) (exportprovider.ProviderOutput, error) {
-	return exportprovider.CollectQueryProviderOutputTx(ctx, tx, incidentID, "entities.mentions", supportRefs, []exportprovider.FieldQuery{{
+func New() exportprovider.FieldProvider { return provider{} }
+
+func (provider) ProviderKey() string { return "entities.mentions" }
+
+func (p provider) CollectFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) (exportprovider.ProviderOutput, error) {
+	return exportprovider.CollectQueryProviderOutputTx(ctx, tx, incidentID, p.ProviderKey(), supportRefs, []exportprovider.FieldQuery{{
 		Prefix: "entity_mentions",
 		SQL: `SELECT em.entity_mention_id::text, 'entity_mention'::text, 'source_evidence'::text, to_jsonb(em)
   FROM entity_mentions em

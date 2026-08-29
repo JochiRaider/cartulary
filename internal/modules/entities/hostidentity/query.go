@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -133,7 +133,7 @@ func scanHostSourceRecord(scanner interface{ Scan(...any) error }) (HostRecord, 
 	return record, nil
 }
 
-func applyHostProjection(record *HostRecord, projection workbookprojection.HostQueryProjection) {
+func applyHostProjection(record *HostRecord, projection projectionports.HostQueryProjection) {
 	record.HostState = projection.HostState
 	record.LinkedEventCount = projection.LinkedEventCount
 	record.EvidenceCount = projection.EvidenceCount
@@ -273,7 +273,7 @@ func scanIdentitySourceRecord(scanner interface{ Scan(...any) error }) (Identity
 	return record, nil
 }
 
-func applyIdentityProjection(record *IdentityRecord, projection workbookprojection.IdentityQueryProjection) {
+func applyIdentityProjection(record *IdentityRecord, projection projectionports.IdentityQueryProjection) {
 	record.IdentityState = projection.IdentityState
 	record.LinkedEventCount = projection.LinkedEventCount
 	record.EvidenceCount = projection.EvidenceCount

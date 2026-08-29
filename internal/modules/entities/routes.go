@@ -9,6 +9,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -98,13 +99,13 @@ func (s *service) handleMerge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	request, apiErr := merge.DecodeMergeRequest(r.Body)
-	if apiErr != nil {
-		if invalidAPIErrorField(apiErr, "loser_record_id", "invalid_value") {
+	request, failure := merge.DecodeMergeRequest(r.Body)
+	if failure != nil {
+		if mutationAdmissionFailureField(failure, "loser_record_id", mutationadmission.ReasonInvalidValue) {
 			writeAPIError(w, r, incidentNotFoundError())
 			return
 		}
-		writeAPIError(w, r, apiErr)
+		writeAPIError(w, r, mutationAdmissionAPIError(failure))
 		return
 	}
 
@@ -171,9 +172,9 @@ func (s *service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	request, apiErr := mentions.DecodeMentionActionRequest(r.Body)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	request, failure := mentions.DecodeMentionActionRequest(r.Body)
+	if failure != nil {
+		writeAPIError(w, r, mutationAdmissionAPIError(failure))
 		return
 	}
 
@@ -250,11 +251,16 @@ func parsePathUUID(r *http.Request, key string) (uuid.UUID, error) {
 	return uuid.Parse(r.PathValue(key))
 }
 
-func invalidAPIErrorField(apiErr *httpapi.APIError, field string, reasonCode string) bool {
-	if apiErr == nil || apiErr.Code != "invalid_mutation_payload" {
+func mutationAdmissionFailureField(
+	failure *mutationadmission.Failure,
+	field string,
+	reasonCode mutationadmission.ReasonCode,
+) bool {
+	if failure == nil || failure.ReasonCode() != reasonCode {
 		return false
 	}
-	return apiErr.Details["field"] == field && apiErr.Details["reason_code"] == reasonCode
+	failureField, ok := failure.Field()
+	return ok && failureField == field
 }
 
 func incidentClosedError() *httpapi.APIError {

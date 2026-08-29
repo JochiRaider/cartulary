@@ -3,11 +3,11 @@ package hostidentity
 import (
 	"encoding/json"
 	"io"
-	"net/http"
 	"strings"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -21,10 +21,10 @@ type ClipboardPasteRequest struct {
 	CreateOnlyRows int
 }
 
-func DecodeClipboardPasteRequest(reader io.Reader, pathViewSchemaID string) (ClipboardPasteRequest, *httpapi.APIError) {
-	raw, apiErr := decodeClipboardPasteObject(reader)
-	if apiErr != nil {
-		return ClipboardPasteRequest{}, apiErr
+func DecodeClipboardPasteRequest(reader io.Reader, pathViewSchemaID string) (ClipboardPasteRequest, *mutationadmission.Failure) {
+	raw, failure := decodeObject(reader)
+	if failure != nil {
+		return ClipboardPasteRequest{}, failure
 	}
 	allowed := map[string]struct{}{
 		"view_schema_id":  {},
@@ -50,7 +50,7 @@ func DecodeClipboardPasteRequest(reader io.Reader, pathViewSchemaID string) (Cli
 	if _, ok := viewschema.Lookup(request.ViewSchemaID); !ok {
 		return ClipboardPasteRequest{}, invalidClipboardPastePayload("view_schema_id", "unknown_view_schema")
 	}
-	if request.ViewSchemaID != HostsViewSchemaID && request.ViewSchemaID != IdentitiesViewSchemaID {
+	if request.ViewSchemaID != entitycontract.HostsViewSchemaID && request.ViewSchemaID != entitycontract.IdentitiesViewSchemaID {
 		return ClipboardPasteRequest{}, invalidClipboardPastePayload("view_schema_id", "unsupported_view_schema")
 	}
 	if value, ok := raw["client_txn_id"]; !ok {
@@ -136,23 +136,8 @@ func (request ClipboardPasteRequest) mappingRequest() tabularingest.MappingReque
 	}
 }
 
-func decodeClipboardPasteObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
-	raw, err := httpapi.DecodeStrictJSONObject(reader)
-	if err != nil {
-		return nil, invalidClipboardPastePayload("", "request_not_object")
-	}
-	return raw, nil
-}
-
-func invalidClipboardPastePayload(field string, reasonCode string) *httpapi.APIError {
-	details := map[string]any{}
-	if field != "" {
-		details["field"] = field
-	}
-	if reasonCode != "" {
-		details["reason_code"] = reasonCode
-	}
-	return &httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_mutation_payload", Message: "invalid mutation payload", Details: details}
+func invalidClipboardPastePayload(field string, reasonCode mutationadmission.ReasonCode) *mutationadmission.Failure {
+	return mutationadmission.New(field, reasonCode)
 }
 
 func clipboardPasteObjectHasOnlyFields(object map[string]json.RawMessage, fields ...string) bool {

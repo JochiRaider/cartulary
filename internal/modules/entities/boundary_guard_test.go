@@ -32,6 +32,10 @@ func TestEntitiesProductionImportBoundaries(t *testing.T) {
 		entitiesRepoImportPrefix + "internal/modules/entities/mentions": {
 			"routes.go": true,
 		},
+		entitiesRepoImportPrefix + "internal/modules/entities/mutationadmission": {
+			"http_helpers.go": true,
+			"routes.go":       true,
+		},
 		entitiesRepoImportPrefix + "internal/modules/entities/mentions/rollbackprovider": {
 			"revision_provider_contribution.go": true,
 		},
@@ -123,17 +127,17 @@ var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition
 		RegisterRoutes RevisionProviderContribution RouteOptions
 	`),
 	"entitycontract": entitiesExportInventory(`
-		EntityTypeHost EntityTypeIdentity HostsViewSchemaID IdentitiesViewSchemaID
+		HostsViewSchemaID IdentitiesViewSchemaID
 	`),
 	"hostidentity": entitiesExportInventory(`
-		AliasAppliedMutation AliasMutationValue AliasMutationValue.MutationValue AliasSyncResult AliasSyncResult.Changed AliasValue
+		AliasAppliedMutation AliasMutationValue AliasMutationValue.MutationValue AliasSyncResult AliasValue
 		BuildClipboardPastePlan
 		ClipboardPasteRequest ClipboardPasteRequest.RequestHash ClipboardPasteResult ClipboardPasteRowResult CollectionAction
 		ConflictCommand CreateRequest CreateRequestHash DecodeClipboardPasteRequest DecodeCreateRequest DecodePatchRequest
 		DecodeWorkbookConflictResolveRequest EligibleAlias
 		ErrHostIdentityRecordNotFound ErrInvalidAliasReference ErrInvalidCreateRequest ErrNoEffectivePatchChange
-		ActiveIdentifierTransitionConflict ExactMatchConflictError ExactMatchConflictError.EntityMatchConflictDetails ExactMatchConflictError.Error
-		HostRecord HostsViewSchemaID IdentitiesViewSchemaID IdentityRecord ImportDependencies MergeCapability
+		ActiveIdentifierTransitionConflict ExactMatchConflictError ExactMatchConflictError.Error
+		HostRecord IdentityRecord ImportDependencies MergeCapability
 		MergeCapability.HostCanonicalNormalized MergeCapability.HostExactMatchPrecedence MergeCapability.HostRevisionConflictFacts MergeCapability.IdentityCanonicalNormalized
 		MergeCapability.IdentityExactMatchPrecedence MergeCapability.IdentityRevisionConflictFacts MergeCapability.LoadHostTx MergeCapability.LoadIdentityTx MergeCapability.PrepareIdentifierClaimsTx MergeCapability.SyncAliasesTx
 		MergeCapability.SyncPreservedIdentifierTx MergeCapability.UpdateHostTx MergeCapability.UpdateIdentityTx MutationResult
@@ -150,10 +154,10 @@ var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition
 		NewHostSource NewIdentitySource
 	`),
 	"hostidentity/projectionprovider": entitiesExportInventory(`
-		NewSource Source Source.ListHostProjectionInputsTx Source.ListIdentityProjectionInputsTx Source.LoadHostProjectionInputTx Source.LoadIdentityProjectionInputTx
+		NewSource
 	`),
 	"hostidentity/reportingprovider": entitiesExportInventory(`
-		New Provider Provider.CollectFactsTx Provider.CollectFieldsTx Provider.ProviderKey
+		New
 	`),
 	"hostidentity/rollbackprovider": entitiesExportInventory(`
 		CollectionProvider CollectionProvider.ApplyInverseTx CollectionProvider.DescribeTx CollectionProvider.IdentifierClaimRecordTx
@@ -167,14 +171,13 @@ var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition
 		LinkCommand LinkCommandResult LinkMutation LinkOperationsPort LinkType LinkTypeObservedAsIdentity LinkTypeObservedOnHost
 		MentionActionAccess MentionActionRequest MentionActionRequestHash MentionActionResult MentionEntityInvalidation MentionResolutionResult
 		MentionRowVersionConflictError MentionRowVersionConflictError.Error MentionTargetValidationError MentionTargetValidationError.Error
-		MentionTargetValidationError.InvalidMutationTarget MentionTransitionError MentionTransitionError.Error
-		MentionTransitionError.MutationTransitionDetails MergeMutation NewStore
+		MentionTransitionError MentionTransitionError.Error MergeMutation NewStore
 		RepointMergedMentionsCommand RepointMergedMentionsResult
 		Store Store.ApplyMentionAction Store.ApplyMentionLifecycleTx Store.GetMentionActionAccess Store.InsertTx
 		Store.NextOrdinalTx Store.RepointMergedMentionsTx Store.ResolveExistingFromMentionTx
-		StoreDependencies TimelineEffectsPort TombstoneLinkCommand
+		StoreDependencies TimelineEffectsPort
 	`),
-	"mentions/reportingprovider": entitiesExportInventory(`CollectFactsTx CollectFieldsTx`),
+	"mentions/reportingprovider": entitiesExportInventory(`New`),
 	"mentions/rollbackprovider": entitiesExportInventory(`
 		MentionProvider MentionProvider.ApplyInverseTx MentionProvider.DescribeTx NewMentionProvider
 	`),
@@ -187,11 +190,23 @@ var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition
 		RepointLinksResult RepointTagsCommand RepointTagsResult Store Store.GetMergeRouteIncident Store.MergeEntity StoreDependencies
 		TimelineEffectsPort
 	`),
+	"mutationadmission": entitiesExportInventory(`
+		Failure Failure.CollectionField Failure.Error Failure.Field Failure.MaximumCount
+		Failure.ReasonCode Failure.RequestedCount New NewLimit ReasonCode
+		ReasonAtLeastOneValueRequired ReasonChangeCountExceeded ReasonDuplicateFieldKey
+		ReasonEmptyChanges ReasonFieldForbidden ReasonFieldNotNullable ReasonForbiddenField
+		ReasonInvalidBaseRowVersion ReasonInvalidChange ReasonInvalidValue ReasonInvalidViewSchemaID
+		ReasonMissingFieldKey ReasonMissingRequiredField ReasonReadonlyField ReasonRequestNotObject
+		ReasonUnknownField ReasonUnknownViewSchema ReasonUnsupportedFieldKey ReasonUnsupportedViewSchema
+	`),
 	"timelinefacts": entitiesExportInventory(`Reader Reader.LoadMentionsTx`),
-	"workbookprojection": entitiesExportInventory(`
-		Contribution Contribution.ProjectionContribution Contribution.Source DerivedFact Descriptors HostProjectionInput HostProjectionPage
-		HostQueryProjection HostSurfaceIntent IdentityProjectionInput IdentityProjectionPage IdentityQueryProjection IdentitySurfaceIntent
-		NewContribution Ports Reader SourceReader Writer
+	"projectioncontract": entitiesExportInventory(`
+		Contribution Contribution.ProjectionContribution Contribution.Source Descriptors
+		HostProjectionInput HostProjectionPage IdentityProjectionInput IdentityProjectionPage
+		NewContribution SourceReader
+	`),
+	"projectionports": entitiesExportInventory(`
+		DerivedFact HostQueryProjection IdentityQueryProjection MutationRows QueryReader ReportingReader
 	`),
 }
 
@@ -207,8 +222,10 @@ var entitiesExportRoles = map[string]string{
 	"mentions/reportingprovider":      "Reporting source contribution",
 	"mentions/rollbackprovider":       "Revisions rollback source contribution",
 	"merge":                           "merge application operation and consumer-owned effects",
+	"mutationadmission":               "transport-neutral mutation admission failure facts",
+	"projectioncontract":              "Entities source-facing projection contribution",
+	"projectionports":                 "consumer-facing directional projection capabilities",
 	"timelinefacts":                   "Entities-owned Timeline source facts",
-	"workbookprojection":              "Entities and Projections typed projection contract",
 }
 
 func entitiesExportInventory(entries string) map[string]entitiesExportDisposition {

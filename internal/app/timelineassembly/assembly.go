@@ -12,8 +12,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
+	entityports "github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	entityfacts "github.com/JochiRaider/cartulary/internal/modules/entities/timelinefacts"
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -36,7 +36,7 @@ type Dependencies struct {
 	Collaboration       collaboration.RecordChangedAppender
 	EvidenceAttachments evidence.TimelineAttachmentContribution
 	TimelineProjection  workbookprojection.Writer
-	EntityProjection    entityprojection.Writer
+	EntityProjection    entityports.MutationRows
 	AssessmentRows      assessmentprojection.Rows
 }
 

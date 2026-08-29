@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -111,9 +112,9 @@ func (s *Store) PatchEntityRow(ctx context.Context, actor authn.UserRecord, reco
 		return PatchMutationResult{}, err
 	}
 	switch request.ViewSchemaID {
-	case HostsViewSchemaID:
+	case entitycontract.HostsViewSchemaID:
 		identifierTuples = mergeNormalizedIdentifierTuples(identifierTuples, hostPatchIdentifierTuples(request.Changes))
-	case IdentitiesViewSchemaID:
+	case entitycontract.IdentitiesViewSchemaID:
 		identifierTuples = mergeNormalizedIdentifierTuples(identifierTuples, identityPatchIdentifierTuples(request.Changes))
 	}
 	if err := prepareIdentifierMutationTx(ctx, tx, meta.IncidentID, meta.RecordType, recordID, identifierTuples); err != nil {
@@ -136,9 +137,9 @@ func (s *Store) PatchEntityRow(ctx context.Context, actor authn.UserRecord, reco
 	meta = lockedMeta
 
 	switch request.ViewSchemaID {
-	case HostsViewSchemaID:
+	case entitycontract.HostsViewSchemaID:
 		return s.patchHostRowTx(ctx, tx, actor, meta, recordID, request, idempotencyKey, requestHash, requestID, now.UTC())
-	case IdentitiesViewSchemaID:
+	case entitycontract.IdentitiesViewSchemaID:
 		return s.patchIdentityRowTx(ctx, tx, actor, meta, recordID, request, idempotencyKey, requestHash, requestID, now.UTC())
 	default:
 		return PatchMutationResult{}, pgx.ErrNoRows
@@ -361,9 +362,9 @@ SELECT incident_id, record_type, row_version, deleted_at
 
 func entityRecordTypeMatchesView(recordType string, viewSchemaID string) bool {
 	switch viewSchemaID {
-	case HostsViewSchemaID:
+	case entitycontract.HostsViewSchemaID:
 		return recordType == "host"
-	case IdentitiesViewSchemaID:
+	case entitycontract.IdentitiesViewSchemaID:
 		return recordType == "identity"
 	default:
 		return false

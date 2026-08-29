@@ -817,7 +817,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/entities/workbookprojection",
+        "package": "./internal/modules/entities/projectioncontract",
         "tests": [
           "TestNewContributionRequiresSource",
           "TestRuntimeContributionOwnsTypedEntityDescriptorFacts"
@@ -962,7 +962,8 @@
           "TestEntitiesRootDoesNotImportHostIdentity",
           "TestEntitiesRoutesUseCollaborationPublisher",
           "TestMentionsUseCommandLevelTimelineEffectsPort",
-          "TestMergeDoesNotWriteMentionOrProjectionTablesDirectly"
+          "TestMergeDoesNotWriteMentionOrProjectionTablesDirectly",
+          "TestMutationAdmissionContractAndHTTPTranslation"
         ]
       },
       "evidence_class": "unit",

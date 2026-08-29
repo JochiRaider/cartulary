@@ -216,7 +216,7 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 		Collaboration:       intents,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
-		EntityProjection:    projections.EntityPorts().Writer,
+		EntityProjection:    projections.EntityMutationRows(),
 		AssessmentRows:      projections.AssessmentPorts().Rows,
 	})
 	if err != nil {
@@ -241,7 +241,7 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 		RevisionAppender:        appender,
 		Collaboration:           intents,
 		Timeline:                timelineBundle.Facade,
-		EntityProjections:       projections.EntityPorts().Writer,
+		EntityProjections:       projections.EntityMutationRows(),
 		AssessmentProjections:   projections.AssessmentPorts().Rows,
 		ArtifactProjections:     projections.ArtifactPorts().Rows,
 		Evidence:                inertEvidenceImportFacade(t),

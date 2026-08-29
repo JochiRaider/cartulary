@@ -7,32 +7,24 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	entityports "github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
 )
 
-type Provider struct {
-	derived entityprojection.Reader
+type provider struct {
+	derived entityports.ReportingReader
 }
 
-func New(derived entityprojection.Reader) (*Provider, error) {
+func New(derived entityports.ReportingReader) (exportprovider.FieldProvider, error) {
 	if derived == nil {
 		return nil, fmt.Errorf("compose Entities reporting provider: projection derived-fact reader is required")
 	}
-	return &Provider{derived: derived}, nil
+	return &provider{derived: derived}, nil
 }
 
-func (*Provider) ProviderKey() string { return "entities.hostidentity" }
+func (*provider) ProviderKey() string { return "entities.hostidentity" }
 
-func (provider *Provider) CollectFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) ([]exportprovider.Field, error) {
-	output, err := provider.CollectFactsTx(ctx, tx, incidentID, supportRefs)
-	if err != nil {
-		return nil, err
-	}
-	return output.Fields(), nil
-}
-
-func (provider *Provider) CollectFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) (exportprovider.ProviderOutput, error) {
+func (provider *provider) CollectFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) (exportprovider.ProviderOutput, error) {
 	if provider == nil || provider.derived == nil {
 		return exportprovider.ProviderOutput{}, fmt.Errorf("collect Entities reporting facts: projection derived-fact reader is required")
 	}
@@ -53,7 +45,7 @@ func (provider *Provider) CollectFactsTx(ctx context.Context, tx pgx.Tx, inciden
 func appendDerivedFacts(
 	fields []exportprovider.FieldFact,
 	prefix string,
-	facts []entityprojection.DerivedFact,
+	facts []entityports.DerivedFact,
 	supportRefs map[string][]string,
 ) []exportprovider.FieldFact {
 	for _, fact := range facts {

@@ -79,7 +79,7 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/entities/workbookprojection"
+        "internal/modules/entities/projectioncontract"
       ],
       "rebuild_after": [
         "timeline"
@@ -118,7 +118,7 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/entities/workbookprojection"
+        "internal/modules/entities/projectioncontract"
       ],
       "rebuild_after": [
         "host"

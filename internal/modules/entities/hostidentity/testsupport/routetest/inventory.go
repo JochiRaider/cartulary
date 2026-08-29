@@ -3,14 +3,14 @@ package routetest
 import (
 	"net/http"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/testutil/routeinventory"
 )
 
 func ControlQueries() []routeinventory.Entry {
 	return []routeinventory.Entry{
-		query("hosts query", hostidentity.HostsViewSchemaID),
-		query("identities query", hostidentity.IdentitiesViewSchemaID),
+		query("hosts query", entitycontract.HostsViewSchemaID),
+		query("identities query", entitycontract.IdentitiesViewSchemaID),
 	}
 }
 

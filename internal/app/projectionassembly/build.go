@@ -7,7 +7,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/timelinefactassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	entityprovider "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/projectionprovider"
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	entitycontract "github.com/JochiRaider/cartulary/internal/modules/entities/projectioncontract"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	indicatorowner "github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
@@ -33,7 +33,7 @@ func Build(db postgres.DB) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("assemble Timeline projection contribution: %w", err)
 	}
-	entitiesContribution, err := entityprojection.NewContribution(entityprovider.NewSource())
+	entitiesContribution, err := entitycontract.NewContribution(entityprovider.NewSource())
 	if err != nil {
 		return nil, fmt.Errorf("assemble Entities projection contribution: %w", err)
 	}

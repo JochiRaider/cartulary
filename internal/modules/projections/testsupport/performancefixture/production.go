@@ -38,7 +38,7 @@ func (a *ProductionApplication) ValidateFixtureProjectionSets(ctx context.Contex
 		window := querypage.Window{Limit: want + 1}
 		switch viewSchemaID {
 		case "cartulary.view.hosts.v1":
-			reader := a.runtime.EntityPorts().Reader
+			reader := a.runtime.EntityQueryReader()
 			if reader == nil {
 				return fmt.Errorf("fixture projection provider %s is unavailable", viewSchemaID)
 			}
@@ -50,7 +50,7 @@ func (a *ProductionApplication) ValidateFixtureProjectionSets(ctx context.Contex
 				return fmt.Errorf("fixture projection %s rows=%d want=%d", viewSchemaID, len(rows), want)
 			}
 		case "cartulary.view.identities.v1":
-			reader := a.runtime.EntityPorts().Reader
+			reader := a.runtime.EntityQueryReader()
 			if reader == nil {
 				return fmt.Errorf("fixture projection provider %s is unavailable", viewSchemaID)
 			}

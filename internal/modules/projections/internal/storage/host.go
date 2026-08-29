@@ -7,13 +7,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	entitycontract "github.com/JochiRaider/cartulary/internal/modules/entities/projectioncontract"
 )
 
 func (store *Store) UpsertHostTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	input entityprojection.HostProjectionInput,
+	input entitycontract.HostProjectionInput,
 ) error {
 	if _, err := tx.Exec(ctx, `
 INSERT INTO host_grid_projection (

@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -112,7 +113,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			beforeSnapshot *revisions.RecordSnapshot
 		)
 		switch viewSchemaID {
-		case HostsViewSchemaID:
+		case entitycontract.HostsViewSchemaID:
 			record, before, operation, _, snapshot, err := s.upsertHostTx(ctx, tx, actor, incidentID, request, now.UTC())
 			if err != nil {
 				return ClipboardPasteResult{}, err
@@ -127,7 +128,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			afterRow = buildHostRow(record)
 			operationKind = operation
 			aliasMutations = record.AliasMutations
-		case IdentitiesViewSchemaID:
+		case entitycontract.IdentitiesViewSchemaID:
 			record, before, operation, _, snapshot, err := s.upsertIdentityTx(ctx, tx, actor, incidentID, request, now.UTC())
 			if err != nil {
 				return ClipboardPasteResult{}, err
@@ -228,9 +229,9 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 
 func entityClipboardRoute(viewSchemaID string) (string, string, error) {
 	switch viewSchemaID {
-	case HostsViewSchemaID:
+	case entitycontract.HostsViewSchemaID:
 		return hostClipboardPasteRouteKey, "host", nil
-	case IdentitiesViewSchemaID:
+	case entitycontract.IdentitiesViewSchemaID:
 		return identityClipboardPasteRouteKey, "identity", nil
 	default:
 		return "", "", fmt.Errorf("unsupported entity clipboard paste view %q", viewSchemaID)

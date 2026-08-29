@@ -14,7 +14,7 @@ import (
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	entityports "github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
@@ -303,7 +303,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 }
 
 type inertEntityProjectionWriter struct {
-	entityprojection.Writer
+	entityports.MutationRows
 }
 
 type inertAssessmentProjectionRows struct {

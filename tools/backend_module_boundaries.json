@@ -680,8 +680,10 @@
         "internal/modules/entities/hostidentity/**",
         "internal/modules/entities/mentions/**",
         "internal/modules/entities/merge/**",
+        "internal/modules/entities/mutationadmission/**",
         "internal/modules/entities/timelinefacts/**",
-        "internal/modules/entities/workbookprojection/**"
+        "internal/modules/entities/projectioncontract/**",
+        "internal/modules/entities/projectionports/**"
       ],
       "allowed_paths": [],
       "production_only": true
@@ -697,8 +699,10 @@
         "internal/modules/entities/hostidentity/**",
         "internal/modules/entities/mentions/**",
         "internal/modules/entities/merge/**",
+        "internal/modules/entities/mutationadmission/**",
         "internal/modules/entities/timelinefacts/**",
-        "internal/modules/entities/workbookprojection/**"
+        "internal/modules/entities/projectioncontract/**",
+        "internal/modules/entities/projectionports/**"
       ],
       "allowed_paths": [],
       "production_only": true
@@ -790,22 +794,81 @@
       "production_only": true
     },
     {
-      "id": "entities-workbookprojection-direct-consumers",
+      "id": "entities-mutationadmission-direct-consumers",
       "match_kind": "subtree",
       "imports": [
-        "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+        "github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
       ],
       "scan_paths": [
         "internal/app/**",
         "internal/modules/**"
       ],
       "allowed_paths": [
-        "internal/app/importassembly/**",
-        "internal/app/projectionassembly/**",
-        "internal/app/timelineassembly/**",
-        "internal/app/workbookassembly/**",
-        "internal/modules/entities/**",
-        "internal/modules/projections/**"
+        "internal/app/workbookassembly/entity_adapters.go",
+        "internal/modules/entities/hostidentity/api.go",
+        "internal/modules/entities/hostidentity/clipboard_paste_api.go",
+        "internal/modules/entities/hostidentity/patch_api.go",
+        "internal/modules/entities/hostidentity/workbook_conflict_admission.go",
+        "internal/modules/entities/http_helpers.go",
+        "internal/modules/entities/mentions/mention_api.go",
+        "internal/modules/entities/mentions/ports.go",
+        "internal/modules/entities/merge/hostidentity_boundary.go",
+        "internal/modules/entities/merge/merge_api.go",
+        "internal/modules/entities/routes.go"
+      ],
+      "production_only": true
+    },
+    {
+      "id": "entities-projectioncontract-direct-consumers",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/entities/projectioncontract"
+      ],
+      "scan_paths": [
+        "internal/app/**",
+        "internal/modules/**"
+      ],
+      "allowed_paths": [
+        "internal/app/projectionassembly/build.go",
+        "internal/modules/entities/hostidentity/projectionprovider/host_source.go",
+        "internal/modules/entities/hostidentity/projectionprovider/identity_source.go",
+        "internal/modules/projections/adapters/adapters.go",
+        "internal/modules/projections/internal/runtime/catalog_builder.go",
+        "internal/modules/projections/internal/runtime/entity_grids.go",
+        "internal/modules/projections/internal/runtime/owner_adapters.go",
+        "internal/modules/projections/internal/runtime/provider_factories.go",
+        "internal/modules/projections/internal/storage/host.go",
+        "internal/modules/projections/internal/storage/identity.go"
+      ],
+      "production_only": true
+    },
+    {
+      "id": "entities-projectionports-direct-consumers",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
+      ],
+      "scan_paths": [
+        "internal/app/**",
+        "internal/modules/**"
+      ],
+      "allowed_paths": [
+        "internal/app/importassembly/owner_registry.go",
+        "internal/app/projectionassembly/catalog.go",
+        "internal/app/timelineassembly/assembly.go",
+        "internal/app/workbookassembly/catalog.go",
+        "internal/modules/entities/hostidentity/construction.go",
+        "internal/modules/entities/hostidentity/import_create.go",
+        "internal/modules/entities/hostidentity/ports.go",
+        "internal/modules/entities/hostidentity/query.go",
+        "internal/modules/entities/hostidentity/reportingprovider/provider.go",
+        "internal/modules/entities/mentions/ports.go",
+        "internal/modules/entities/merge/ports.go",
+        "internal/modules/entities/merge/store.go",
+        "internal/modules/projections/adapters/adapters.go",
+        "internal/modules/projections/internal/queryengine/host.go",
+        "internal/modules/projections/internal/queryengine/identity.go",
+        "internal/modules/projections/internal/runtime/owner_adapters.go"
       ],
       "production_only": true
     },
@@ -820,7 +883,19 @@
         "internal/modules/**"
       ],
       "allowed_paths": [
-        "internal/modules/entities/**"
+        "internal/app/workbookassembly/catalog.go",
+        "internal/app/workbookassembly/entity_adapters.go",
+        "internal/modules/entities/hostidentity/clipboard_paste_api.go",
+        "internal/modules/entities/hostidentity/clipboard_paste_store.go",
+        "internal/modules/entities/hostidentity/create_mutation.go",
+        "internal/modules/entities/hostidentity/field_registry.go",
+        "internal/modules/entities/hostidentity/import_create.go",
+        "internal/modules/entities/hostidentity/patch_api.go",
+        "internal/modules/entities/hostidentity/patch_store.go",
+        "internal/modules/entities/hostidentity/testsupport/routetest/inventory.go",
+        "internal/modules/entities/mentions/mention_lifecycle.go",
+        "internal/modules/entities/merge/collaboration_intents.go",
+        "internal/modules/entities/testsupport/performancefixture/production.go"
       ],
       "production_only": true
     },
@@ -3353,6 +3428,81 @@
         "internal/modules/evidence/**",
         "internal/modules/imports/boundary_guard_test.go"
       ],
+      "production_only": true
+    },
+    {
+      "id": "entities-obsolete-workbookprojection-path-remains-retired",
+      "tokens": [
+        "package "
+      ],
+      "scan_paths": [
+        "internal/modules/entities/workbookprojection/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "entities-obsolete-projection-aggregate-accessors-remain-retired",
+      "tokens": [
+        "type EntityPorts struct",
+        "func (ports Ports) EntityPorts(",
+        "func (ports Ports) Entities(",
+        "func (runtime *Runtime) EntityPorts(",
+        "func (runtime *Runtime) Entities("
+      ],
+      "scan_paths": [
+        "internal/app/projectionassembly/**",
+        "internal/modules/projections/adapters/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "entities-retired-schema-forwarders",
+      "tokens": [
+        "hostidentity.HostsViewSchemaID",
+        "hostidentity.IdentitiesViewSchemaID"
+      ],
+      "scan_paths": [
+        "internal/app/**",
+        "internal/modules/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "entities-retired-dead-and-compatibility-declarations",
+      "tokens": [
+        "EntityTypeHost",
+        "EntityTypeIdentity",
+        "AliasSyncResult) Changed(",
+        "EntityMatchConflictDetails(",
+        "InvalidMutationTarget()",
+        "MutationTransitionDetails()",
+        "TombstoneLinkCommand"
+      ],
+      "scan_paths": [
+        "internal/modules/entities/entitycontract/contract.go",
+        "internal/modules/entities/hostidentity/api.go",
+        "internal/modules/entities/hostidentity/exact_match.go",
+        "internal/modules/entities/mentions/**",
+        "internal/app/timelineassembly/relationship_adapters.go"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "entities-retired-reporting-wrappers-and-concrete-provider",
+      "tokens": [
+        "CollectFieldsTx(",
+        "type Provider struct",
+        "func CollectFactsTx("
+      ],
+      "scan_paths": [
+        "internal/modules/entities/hostidentity/reportingprovider/**",
+        "internal/modules/entities/mentions/reportingprovider/**"
+      ],
+      "allowed_paths": [],
       "production_only": true
     },
     {

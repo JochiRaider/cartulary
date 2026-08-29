@@ -28,15 +28,15 @@ import (
 func TestBindingMode_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "entity_linking-u-4-01")
 	timelineStore := newResolutionTimelineCommands(t, harness.DB)
-	entityPorts := mustBuildProjectionRuntime(t, harness.DB).EntityPorts()
+	projectionRuntime := mustBuildProjectionRuntime(t, harness.DB)
 	revisionComposition := revisionsupport.MustComposition(t)
 	entityStore, err := hostidentity.NewStore(hostidentity.StoreDependencies{
-		Postgres:             harness.DB,
-		Revisions:            revisionComposition.Runtime.Appender(),
-		ProjectionWriter:     entityPorts.Writer,
-		ProjectionReader:     entityPorts.Reader,
-		KeepSavedIdempotency: workbookassembly.NewConflictIdempotencyPort(harness.DB),
-		Collaboration:        revisionComposition.RecordChanges,
+		Postgres:               harness.DB,
+		Revisions:              revisionComposition.Runtime.Appender(),
+		ProjectionMutationRows: projectionRuntime.EntityMutationRows(),
+		ProjectionQueryReader:  projectionRuntime.EntityQueryReader(),
+		KeepSavedIdempotency:   workbookassembly.NewConflictIdempotencyPort(harness.DB),
+		Collaboration:          revisionComposition.RecordChanges,
 	})
 	if err != nil {
 		t.Fatalf("compose Host/Identity store: %v", err)

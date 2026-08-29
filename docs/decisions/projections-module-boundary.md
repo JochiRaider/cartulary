@@ -64,6 +64,10 @@ required successful port is non-nil.
   Recovery-owned port aggregate;
 - typed Timeline, Entities, Indicators, Assessments, Artifacts, Evidence,
   and Parties mutation and reader ports with no source-owner rebuild facade;
+- separate Entities `MutationRows`, `QueryReader`, and `ReportingReader`
+  interface views, exposed through `EntityMutationRows`, `EntityQueryReader`,
+  and `EntityReportingReader`, with no `Entities`, `EntityPorts`, aggregate
+  value, or public concrete runtime;
 - a four-method Tasks/Decisions mutation-row port and a separate two-method
   Tasks/Decisions Reporting reader; and
 - typed artifact, host/identity, and task/decision derived-fact readers used by
@@ -114,6 +118,13 @@ inside an active slice and is deleted when its last caller migrates. There is
 no deprecation or release compatibility window for the repository-internal
 root API, and no forwarding package or compatibility alias is retained.
 
+The Entities amendment likewise replaces the mixed source-contribution and
+consumer aggregate atomically. Entities source contribution is owned by its
+source-facing `projectioncontract`; consumer-facing projection operations are
+owned by its `projectionports`; one private Projections implementation may
+implement all three consumer interfaces, but callers receive only their named
+interface view.
+
 The 2026-08-27 contraction additionally replaces every remaining owner rebuild
 facade and partial-view rebuild helper with one complete-catalog maintenance
 operation, makes the query-engine surface canonical, makes descriptor-only
@@ -139,6 +150,9 @@ The decision is implemented only when:
 - exact ten-table SQL ownership and four-way set equality pass;
 - Tasks/Decisions has separate source-contribution, mutation-row, and Reporting
   contracts, with no owner-specific rebuild interface or adapter/runtime method;
+- Entities has separate source-contribution, mutation-row, query, and Reporting
+  contracts, three role-specific adapter/runtime accessors, and no aggregate
+  port, forwarding package, or public concrete runtime;
 - no source owner has a rebuild interface, partial-view rebuild method, or dead
   Indicator deletion method;
 - generic catalog-driven maintenance, incident, import, Revisions, and restore rebuild

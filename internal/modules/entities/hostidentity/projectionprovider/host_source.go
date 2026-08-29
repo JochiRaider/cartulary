@@ -9,41 +9,41 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/projectioncontract"
 )
 
-type Source struct{}
+type source struct{}
 
-func NewSource() *Source { return &Source{} }
+func NewSource() projectioncontract.SourceReader { return &source{} }
 
-func (*Source) LoadHostProjectionInputTx(
+func (*source) LoadHostProjectionInputTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	recordID uuid.UUID,
-) (workbookprojection.HostProjectionInput, bool, error) {
+) (projectioncontract.HostProjectionInput, bool, error) {
 	input, err := scanHostProjectionInput(tx.QueryRow(ctx, hostProjectionSourceSQL+`
  WHERE h.record_id = $1
    AND r.deleted_at IS NULL
    AND h.host_state IN ('stub', 'canonical')
 `, recordID))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return workbookprojection.HostProjectionInput{}, false, nil
+		return projectioncontract.HostProjectionInput{}, false, nil
 	}
 	if err != nil {
-		return workbookprojection.HostProjectionInput{}, false, fmt.Errorf("load host projection input: %w", err)
+		return projectioncontract.HostProjectionInput{}, false, fmt.Errorf("load host projection input: %w", err)
 	}
 	return input, true, nil
 }
 
-func (*Source) ListHostProjectionInputsTx(
+func (*source) ListHostProjectionInputsTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
 	afterRecordID *uuid.UUID,
 	limit int,
-) (workbookprojection.HostProjectionPage, error) {
+) (projectioncontract.HostProjectionPage, error) {
 	if limit < 1 || limit > 1000 {
-		return workbookprojection.HostProjectionPage{}, fmt.Errorf("host projection source page limit %d is outside 1..1000", limit)
+		return projectioncontract.HostProjectionPage{}, fmt.Errorf("host projection source page limit %d is outside 1..1000", limit)
 	}
 	rows, err := tx.Query(ctx, hostProjectionSourceSQL+`
  WHERE h.incident_id = $1
@@ -54,23 +54,23 @@ func (*Source) ListHostProjectionInputsTx(
  LIMIT $3
 `, incidentID, afterRecordID, limit+1)
 	if err != nil {
-		return workbookprojection.HostProjectionPage{}, fmt.Errorf("list host projection inputs: %w", err)
+		return projectioncontract.HostProjectionPage{}, fmt.Errorf("list host projection inputs: %w", err)
 	}
 	defer rows.Close()
 
-	inputs := make([]workbookprojection.HostProjectionInput, 0, limit+1)
+	inputs := make([]projectioncontract.HostProjectionInput, 0, limit+1)
 	for rows.Next() {
 		input, scanErr := scanHostProjectionInput(rows)
 		if scanErr != nil {
-			return workbookprojection.HostProjectionPage{}, fmt.Errorf("scan host projection input: %w", scanErr)
+			return projectioncontract.HostProjectionPage{}, fmt.Errorf("scan host projection input: %w", scanErr)
 		}
 		inputs = append(inputs, input)
 	}
 	if err := rows.Err(); err != nil {
-		return workbookprojection.HostProjectionPage{}, fmt.Errorf("iterate host projection inputs: %w", err)
+		return projectioncontract.HostProjectionPage{}, fmt.Errorf("iterate host projection inputs: %w", err)
 	}
 
-	page := workbookprojection.HostProjectionPage{Inputs: inputs}
+	page := projectioncontract.HostProjectionPage{Inputs: inputs}
 	if len(inputs) > limit {
 		page.Inputs = inputs[:limit]
 		next := page.Inputs[len(page.Inputs)-1].RecordID
@@ -79,9 +79,9 @@ func (*Source) ListHostProjectionInputsTx(
 	return page, nil
 }
 
-func scanHostProjectionInput(scanner interface{ Scan(...any) error }) (workbookprojection.HostProjectionInput, error) {
+func scanHostProjectionInput(scanner interface{ Scan(...any) error }) (projectioncontract.HostProjectionInput, error) {
 	var (
-		input             workbookprojection.HostProjectionInput
+		input             projectioncontract.HostProjectionInput
 		hostname          pgtype.Text
 		location          pgtype.Text
 		osPlatform        pgtype.Text
@@ -107,7 +107,7 @@ func scanHostProjectionInput(scanner interface{ Scan(...any) error }) (workbookp
 		&containmentStatus,
 		&input.EditedAt,
 	); err != nil {
-		return workbookprojection.HostProjectionInput{}, err
+		return projectioncontract.HostProjectionInput{}, err
 	}
 	input.Hostname = textPointer(hostname)
 	input.LinkedEventCount = int(linkedEventCount)

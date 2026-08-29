@@ -4,15 +4,16 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type storePostgresStub struct{ postgres.DB }
-type storeProjectionWriterStub struct{ workbookprojection.Writer }
-type storeProjectionReaderStub struct{ workbookprojection.Reader }
+type storeProjectionMutationRowsStub struct{ projectionports.MutationRows }
+type storeProjectionQueryReaderStub struct{ projectionports.QueryReader }
 type storeIdempotencyStub struct{ conflicts.IdempotencyPort }
 type storePublicationStub struct {
 	collaboration.RecordChangedAppender
@@ -21,12 +22,12 @@ type storePublicationStub struct {
 func TestHostIdentityStoreCompositionRequiresCompleteDependencies_Unit(t *testing.T) {
 	valid := func() StoreDependencies {
 		return StoreDependencies{
-			Postgres:             storePostgresStub{},
-			Revisions:            &revisions.Appender{},
-			ProjectionWriter:     storeProjectionWriterStub{},
-			ProjectionReader:     storeProjectionReaderStub{},
-			KeepSavedIdempotency: storeIdempotencyStub{},
-			Collaboration:        storePublicationStub{},
+			Postgres:               storePostgresStub{},
+			Revisions:              &revisions.Appender{},
+			ProjectionMutationRows: storeProjectionMutationRowsStub{},
+			ProjectionQueryReader:  storeProjectionQueryReaderStub{},
+			KeepSavedIdempotency:   storeIdempotencyStub{},
+			Collaboration:          storePublicationStub{},
 		}
 	}
 	tests := []struct {
@@ -38,13 +39,13 @@ func TestHostIdentityStoreCompositionRequiresCompleteDependencies_Unit(t *testin
 		{name: "typed-nil Postgres", dependency: "Postgres", mutate: func(dependencies *StoreDependencies) { dependencies.Postgres = (*storePostgresStub)(nil) }},
 		{name: "missing Revisions", dependency: "Revisions", mutate: func(dependencies *StoreDependencies) { dependencies.Revisions = nil }},
 		{name: "typed-nil Revisions", dependency: "Revisions", mutate: func(dependencies *StoreDependencies) { dependencies.Revisions = (*revisions.Appender)(nil) }},
-		{name: "missing ProjectionWriter", dependency: "ProjectionWriter", mutate: func(dependencies *StoreDependencies) { dependencies.ProjectionWriter = nil }},
-		{name: "typed-nil ProjectionWriter", dependency: "ProjectionWriter", mutate: func(dependencies *StoreDependencies) {
-			dependencies.ProjectionWriter = (*storeProjectionWriterStub)(nil)
+		{name: "missing ProjectionMutationRows", dependency: "ProjectionMutationRows", mutate: func(dependencies *StoreDependencies) { dependencies.ProjectionMutationRows = nil }},
+		{name: "typed-nil ProjectionMutationRows", dependency: "ProjectionMutationRows", mutate: func(dependencies *StoreDependencies) {
+			dependencies.ProjectionMutationRows = (*storeProjectionMutationRowsStub)(nil)
 		}},
-		{name: "missing ProjectionReader", dependency: "ProjectionReader", mutate: func(dependencies *StoreDependencies) { dependencies.ProjectionReader = nil }},
-		{name: "typed-nil ProjectionReader", dependency: "ProjectionReader", mutate: func(dependencies *StoreDependencies) {
-			dependencies.ProjectionReader = (*storeProjectionReaderStub)(nil)
+		{name: "missing ProjectionQueryReader", dependency: "ProjectionQueryReader", mutate: func(dependencies *StoreDependencies) { dependencies.ProjectionQueryReader = nil }},
+		{name: "typed-nil ProjectionQueryReader", dependency: "ProjectionQueryReader", mutate: func(dependencies *StoreDependencies) {
+			dependencies.ProjectionQueryReader = (*storeProjectionQueryReaderStub)(nil)
 		}},
 		{name: "missing KeepSavedIdempotency", dependency: "KeepSavedIdempotency", mutate: func(dependencies *StoreDependencies) { dependencies.KeepSavedIdempotency = nil }},
 		{name: "typed-nil KeepSavedIdempotency", dependency: "KeepSavedIdempotency", mutate: func(dependencies *StoreDependencies) {
@@ -85,9 +86,9 @@ func TestHostIdentityStoreCompositionRequiresCompleteDependencies_Unit(t *testin
 	t.Run("import create facade dependencies", func(t *testing.T) {
 		validImport := func() ImportDependencies {
 			return ImportDependencies{
-				Revisions:        &revisions.Appender{},
-				ProjectionWriter: storeProjectionWriterStub{},
-				Collaboration:    storePublicationStub{},
+				Revisions:              &revisions.Appender{},
+				ProjectionMutationRows: storeProjectionMutationRowsStub{},
+				Collaboration:          storePublicationStub{},
 			}
 		}
 		importTests := []struct {
@@ -97,9 +98,9 @@ func TestHostIdentityStoreCompositionRequiresCompleteDependencies_Unit(t *testin
 		}{
 			{name: "missing Revisions", dependency: "Revisions", mutate: func(dependencies *ImportDependencies) { dependencies.Revisions = nil }},
 			{name: "typed-nil Revisions", dependency: "Revisions", mutate: func(dependencies *ImportDependencies) { dependencies.Revisions = (*revisions.Appender)(nil) }},
-			{name: "missing ProjectionWriter", dependency: "ProjectionWriter", mutate: func(dependencies *ImportDependencies) { dependencies.ProjectionWriter = nil }},
-			{name: "typed-nil ProjectionWriter", dependency: "ProjectionWriter", mutate: func(dependencies *ImportDependencies) {
-				dependencies.ProjectionWriter = (*storeProjectionWriterStub)(nil)
+			{name: "missing ProjectionMutationRows", dependency: "ProjectionMutationRows", mutate: func(dependencies *ImportDependencies) { dependencies.ProjectionMutationRows = nil }},
+			{name: "typed-nil ProjectionMutationRows", dependency: "ProjectionMutationRows", mutate: func(dependencies *ImportDependencies) {
+				dependencies.ProjectionMutationRows = (*storeProjectionMutationRowsStub)(nil)
 			}},
 			{name: "missing Collaboration", dependency: "Collaboration", mutate: func(dependencies *ImportDependencies) { dependencies.Collaboration = nil }},
 			{name: "typed-nil Collaboration", dependency: "Collaboration", mutate: func(dependencies *ImportDependencies) {
@@ -110,7 +111,7 @@ func TestHostIdentityStoreCompositionRequiresCompleteDependencies_Unit(t *testin
 			t.Run(test.name, func(t *testing.T) {
 				dependencies := validImport()
 				test.mutate(&dependencies)
-				facade, err := NewImportCreateFacade(HostsViewSchemaID, "entities.hosts", dependencies)
+				facade, err := NewImportCreateFacade(entitycontract.HostsViewSchemaID, "entities.hosts", dependencies)
 				if facade != nil {
 					t.Fatalf("NewImportCreateFacade result = %#v, want nil", facade)
 				}
@@ -120,7 +121,7 @@ func TestHostIdentityStoreCompositionRequiresCompleteDependencies_Unit(t *testin
 				}
 			})
 		}
-		facade, err := NewImportCreateFacade(HostsViewSchemaID, "entities.hosts", validImport())
+		facade, err := NewImportCreateFacade(entitycontract.HostsViewSchemaID, "entities.hosts", validImport())
 		if err != nil || facade == nil {
 			t.Fatalf("valid NewImportCreateFacade result = %#v, %v", facade, err)
 		}

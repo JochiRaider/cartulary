@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 )
 
 func TestPatchRequestDecodeSortsAndHashesEntityChanges(t *testing.T) {
@@ -20,7 +22,7 @@ func TestPatchRequestDecodeSortsAndHashesEntityChanges(t *testing.T) {
 	if apiErr != nil {
 		t.Fatalf("decode patch request: %#v", apiErr)
 	}
-	if request.ViewSchemaID != HostsViewSchemaID || request.BaseRowVersion != 3 || request.ClientTxnID != "txn-host-patch" {
+	if request.ViewSchemaID != entitycontract.HostsViewSchemaID || request.BaseRowVersion != 3 || request.ClientTxnID != "txn-host-patch" {
 		t.Fatalf("unexpected request identity: %#v", request)
 	}
 	if len(request.Changes) != 2 || request.Changes[0].FieldKey != "host.display_name" || request.Changes[1].FieldKey != "host.location" {
@@ -42,14 +44,14 @@ func TestPatchRequestDecodeSortsAndHashesEntityChanges(t *testing.T) {
 			fields       []string
 		}{
 			{
-				viewSchemaID: HostsViewSchemaID,
+				viewSchemaID: entitycontract.HostsViewSchemaID,
 				fields: []string{
 					"host.aliases", "host.business_owner", "host.containment_status", "host.criticality",
 					"host.display_name", "host.hostname", "host.location", "host.os_platform",
 				},
 			},
 			{
-				viewSchemaID: IdentitiesViewSchemaID,
+				viewSchemaID: entitycontract.IdentitiesViewSchemaID,
 				fields: []string{
 					"identity.aliases", "identity.display_name", "identity.email", "identity.mfa_state",
 					"identity.privilege_level", "identity.reset_status", "identity.sam_account_name", "identity.upn",
@@ -112,11 +114,11 @@ func TestPatchRequestDecodeSortsAndHashesEntityChanges(t *testing.T) {
 
 func TestPatchRequestDecodeRejectsUnsupportedEntityChanges(t *testing.T) {
 	nonpatchable := map[string][]string{
-		HostsViewSchemaID: {
+		entitycontract.HostsViewSchemaID: {
 			"host.aad_device_id", "host.edited_at", "host.evidence_count", "host.fqdn",
 			"host.host_state", "host.linked_event_count", "host.reusable_identifiers",
 		},
-		IdentitiesViewSchemaID: {
+		entitycontract.IdentitiesViewSchemaID: {
 			"identity.aad_object_id", "identity.edited_at", "identity.evidence_count", "identity.identity_state",
 			"identity.linked_event_count", "identity.reusable_identifiers", "identity.sid",
 		},
@@ -140,9 +142,10 @@ func TestPatchRequestDecodeRejectsUnsupportedEntityChanges(t *testing.T) {
 				if err != nil {
 					t.Fatalf("marshal nonpatchable field: %v", err)
 				}
-				_, apiErr := DecodePatchRequest(strings.NewReader(string(data)))
-				if apiErr == nil || apiErr.Code != "invalid_mutation_payload" || apiErr.Details["field"] != "field_key" || apiErr.Details["reason_code"] != "unsupported_field_key" {
-					t.Fatalf("nonpatchable field must reject before value interpretation, got %#v", apiErr)
+				_, failure := DecodePatchRequest(strings.NewReader(string(data)))
+				failureField, _ := failure.Field()
+				if failure == nil || failureField != "field_key" || string(failure.ReasonCode()) != "unsupported_field_key" {
+					t.Fatalf("nonpatchable field must reject before value interpretation, got %#v", failure)
 				}
 			})
 		}
@@ -183,15 +186,13 @@ func TestPatchRequestDecodeRejectsUnsupportedEntityChanges(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, apiErr := DecodePatchRequest(strings.NewReader(tc.body))
-			if apiErr == nil {
-				t.Fatalf("expected api error")
+			_, failure := DecodePatchRequest(strings.NewReader(tc.body))
+			if failure == nil {
+				t.Fatalf("expected admission failure")
 			}
-			if apiErr.Code != "invalid_mutation_payload" {
-				t.Fatalf("unexpected code: %s", apiErr.Code)
-			}
-			if apiErr.Details["field"] != tc.field || apiErr.Details["reason_code"] != tc.reasonCode {
-				t.Fatalf("unexpected details: %#v", apiErr.Details)
+			failureField, _ := failure.Field()
+			if failureField != tc.field || string(failure.ReasonCode()) != tc.reasonCode {
+				t.Fatalf("unexpected failure: %#v", failure)
 			}
 		})
 	}

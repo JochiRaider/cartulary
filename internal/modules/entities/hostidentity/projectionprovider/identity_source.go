@@ -9,37 +9,37 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/projectioncontract"
 )
 
-func (*Source) LoadIdentityProjectionInputTx(
+func (*source) LoadIdentityProjectionInputTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	recordID uuid.UUID,
-) (workbookprojection.IdentityProjectionInput, bool, error) {
+) (projectioncontract.IdentityProjectionInput, bool, error) {
 	input, err := scanIdentityProjectionInput(tx.QueryRow(ctx, identityProjectionSourceSQL+`
  WHERE i.record_id = $1
    AND r.deleted_at IS NULL
    AND i.identity_state IN ('stub', 'canonical')
 `, recordID))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return workbookprojection.IdentityProjectionInput{}, false, nil
+		return projectioncontract.IdentityProjectionInput{}, false, nil
 	}
 	if err != nil {
-		return workbookprojection.IdentityProjectionInput{}, false, fmt.Errorf("load identity projection input: %w", err)
+		return projectioncontract.IdentityProjectionInput{}, false, fmt.Errorf("load identity projection input: %w", err)
 	}
 	return input, true, nil
 }
 
-func (*Source) ListIdentityProjectionInputsTx(
+func (*source) ListIdentityProjectionInputsTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
 	afterRecordID *uuid.UUID,
 	limit int,
-) (workbookprojection.IdentityProjectionPage, error) {
+) (projectioncontract.IdentityProjectionPage, error) {
 	if limit < 1 || limit > 1000 {
-		return workbookprojection.IdentityProjectionPage{}, fmt.Errorf("identity projection source page limit %d is outside 1..1000", limit)
+		return projectioncontract.IdentityProjectionPage{}, fmt.Errorf("identity projection source page limit %d is outside 1..1000", limit)
 	}
 	rows, err := tx.Query(ctx, identityProjectionSourceSQL+`
  WHERE i.incident_id = $1
@@ -50,23 +50,23 @@ func (*Source) ListIdentityProjectionInputsTx(
  LIMIT $3
 `, incidentID, afterRecordID, limit+1)
 	if err != nil {
-		return workbookprojection.IdentityProjectionPage{}, fmt.Errorf("list identity projection inputs: %w", err)
+		return projectioncontract.IdentityProjectionPage{}, fmt.Errorf("list identity projection inputs: %w", err)
 	}
 	defer rows.Close()
 
-	inputs := make([]workbookprojection.IdentityProjectionInput, 0, limit+1)
+	inputs := make([]projectioncontract.IdentityProjectionInput, 0, limit+1)
 	for rows.Next() {
 		input, scanErr := scanIdentityProjectionInput(rows)
 		if scanErr != nil {
-			return workbookprojection.IdentityProjectionPage{}, fmt.Errorf("scan identity projection input: %w", scanErr)
+			return projectioncontract.IdentityProjectionPage{}, fmt.Errorf("scan identity projection input: %w", scanErr)
 		}
 		inputs = append(inputs, input)
 	}
 	if err := rows.Err(); err != nil {
-		return workbookprojection.IdentityProjectionPage{}, fmt.Errorf("iterate identity projection inputs: %w", err)
+		return projectioncontract.IdentityProjectionPage{}, fmt.Errorf("iterate identity projection inputs: %w", err)
 	}
 
-	page := workbookprojection.IdentityProjectionPage{Inputs: inputs}
+	page := projectioncontract.IdentityProjectionPage{Inputs: inputs}
 	if len(inputs) > limit {
 		page.Inputs = inputs[:limit]
 		next := page.Inputs[len(page.Inputs)-1].RecordID
@@ -75,9 +75,9 @@ func (*Source) ListIdentityProjectionInputsTx(
 	return page, nil
 }
 
-func scanIdentityProjectionInput(scanner interface{ Scan(...any) error }) (workbookprojection.IdentityProjectionInput, error) {
+func scanIdentityProjectionInput(scanner interface{ Scan(...any) error }) (projectioncontract.IdentityProjectionInput, error) {
 	var (
-		input            workbookprojection.IdentityProjectionInput
+		input            projectioncontract.IdentityProjectionInput
 		upn              pgtype.Text
 		email            pgtype.Text
 		samAccountName   pgtype.Text
@@ -103,7 +103,7 @@ func scanIdentityProjectionInput(scanner interface{ Scan(...any) error }) (workb
 		&resetStatus,
 		&input.EditedAt,
 	); err != nil {
-		return workbookprojection.IdentityProjectionInput{}, err
+		return projectioncontract.IdentityProjectionInput{}, err
 	}
 	input.UPN = textPointer(upn)
 	input.Email = textPointer(email)

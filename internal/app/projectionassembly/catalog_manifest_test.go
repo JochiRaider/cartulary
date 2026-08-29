@@ -131,7 +131,8 @@ func TestProjectionAssemblyPortsAreCompleteAndDescriptorsImmutable(t *testing.T)
 	if !bundle.RecoveryPorts().Ready() ||
 		bundle.MaintenanceRebuilder() == nil ||
 		bundle.TimelinePorts().Writer == nil ||
-		bundle.EntityPorts().Writer == nil || bundle.EntityPorts().Reader == nil ||
+		bundle.EntityMutationRows() == nil || bundle.EntityQueryReader() == nil ||
+		bundle.EntityReportingReader() == nil ||
 		bundle.IndicatorPorts().Rows == nil ||
 		bundle.AssessmentPorts().Rows == nil ||
 		bundle.ArtifactPorts().Rows == nil || bundle.ArtifactPorts().Reader == nil ||

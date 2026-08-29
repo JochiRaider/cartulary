@@ -1,4 +1,4 @@
-package workbookprojection
+package projectioncontract
 
 import (
 	"context"
@@ -9,8 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
-	"github.com/JochiRaider/cartulary/internal/platform/querypage"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 const (
@@ -18,18 +16,8 @@ const (
 	identityViewSchemaID = "cartulary.view.identities.v1"
 )
 
-// Writer is the complete typed Entities mutation boundary for derived workbook
-// rows. Transactions remain owned by the caller.
-type Writer interface {
-	RefreshHostTx(context.Context, pgx.Tx, uuid.UUID) error
-	RefreshIdentityTx(context.Context, pgx.Tx, uuid.UUID) error
-	DeleteHostTx(context.Context, pgx.Tx, uuid.UUID) error
-	DeleteIdentityTx(context.Context, pgx.Tx, uuid.UUID) error
-}
-
-// HostProjectionInput is the source-owned, typed materialization input for one
-// host projection row. It contains semantic values and no physical table or
-// query-plan details.
+// HostProjectionInput is the source-owned materialization input for one host
+// projection row. It contains semantic values and no storage-plan details.
 type HostProjectionInput struct {
 	RecordID          uuid.UUID
 	IncidentID        uuid.UUID
@@ -81,49 +69,6 @@ type SourceReader interface {
 	ListIdentityProjectionInputsTx(context.Context, pgx.Tx, uuid.UUID, *uuid.UUID, int) (IdentityProjectionPage, error)
 }
 
-// HostQueryProjection is the bounded derived-state selection returned before
-// the Entities owner hydrates authoritative host and record facts by exact ID.
-type HostQueryProjection struct {
-	RecordID          uuid.UUID
-	HostState         string
-	LinkedEventCount  int
-	EvidenceCount     int
-	Location          *string
-	OSPlatform        *string
-	BusinessOwner     *string
-	Criticality       *string
-	ContainmentStatus *string
-}
-
-type IdentityQueryProjection struct {
-	RecordID         uuid.UUID
-	IdentityState    string
-	LinkedEventCount int
-	EvidenceCount    int
-	PrivilegeLevel   *string
-	MFAState         *string
-	ResetStatus      *string
-}
-
-type DerivedFact struct {
-	RecordID     uuid.UUID
-	RecordType   string
-	ContentClass string
-	Value        map[string]any
-}
-
-type Reader interface {
-	SelectHostQueryProjections(context.Context, uuid.UUID, viewschema.QueryMeta, querypage.Window) ([]HostQueryProjection, error)
-	SelectIdentityQueryProjections(context.Context, uuid.UUID, viewschema.QueryMeta, querypage.Window) ([]IdentityQueryProjection, error)
-	CollectHostDerivedFactsTx(context.Context, pgx.Tx, uuid.UUID) ([]DerivedFact, error)
-	CollectIdentityDerivedFactsTx(context.Context, pgx.Tx, uuid.UUID) ([]DerivedFact, error)
-}
-
-type Ports struct {
-	Writer Writer
-	Reader Reader
-}
-
 type Contribution struct {
 	contract providercontract.Contribution
 	source   SourceReader
@@ -136,7 +81,7 @@ func NewContribution(source SourceReader) (Contribution, error) {
 	contract, err := providercontract.NewContribution(
 		"entities",
 		Descriptors(),
-		[]providercontract.SurfaceIntent{HostSurfaceIntent(), IdentitySurfaceIntent()},
+		[]providercontract.SurfaceIntent{hostSurfaceIntent(), identitySurfaceIntent()},
 	)
 	if err != nil {
 		return Contribution{}, err
@@ -169,13 +114,10 @@ func Descriptors() []providercontract.ProviderDescriptor {
 		[]string{"host"},
 	)
 	identity.Capabilities.Query = true
-	return []providercontract.ProviderDescriptor{
-		host,
-		identity,
-	}
+	return []providercontract.ProviderDescriptor{host, identity}
 }
 
-func IdentitySurfaceIntent() providercontract.SurfaceIntent {
+func identitySurfaceIntent() providercontract.SurfaceIntent {
 	return providercontract.SurfaceIntent{
 		ViewSchemaID: identityViewSchemaID,
 		FieldKeys: []string{
@@ -198,7 +140,7 @@ func IdentitySurfaceIntent() providercontract.SurfaceIntent {
 	}
 }
 
-func HostSurfaceIntent() providercontract.SurfaceIntent {
+func hostSurfaceIntent() providercontract.SurfaceIntent {
 	return providercontract.SurfaceIntent{
 		ViewSchemaID: hostViewSchemaID,
 		FieldKeys: []string{
@@ -244,7 +186,7 @@ func descriptor(
 			IncidentRebuild: true,
 		},
 		RestoreRebuild: providercontract.RestoreRebuildRequired,
-		FacadePackages: []string{"internal/modules/entities/workbookprojection"},
+		FacadePackages: []string{"internal/modules/entities/projectioncontract"},
 		RebuildAfter:   rebuildAfter,
 		CharacterizationRefs: []string{
 			"internal/modules/entities/origin_upsert_integration_test.go",

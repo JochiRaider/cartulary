@@ -936,7 +936,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		Collaboration:       recordChanges,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projectionRuntime.TimelinePorts().Writer,
-		EntityProjection:    projectionRuntime.EntityPorts().Writer,
+		EntityProjection:    projectionRuntime.EntityMutationRows(),
 		AssessmentRows:      projectionRuntime.AssessmentPorts().Rows,
 	})
 	if err != nil {
@@ -1113,7 +1113,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			RevisionAppender:        revisionRuntime.Appender(),
 			Collaboration:           recordChanges,
 			Timeline:                timelineFacade,
-			EntityProjections:       projectionRuntime.EntityPorts().Writer,
+			EntityProjections:       projectionRuntime.EntityMutationRows(),
 			AssessmentProjections:   projectionRuntime.AssessmentPorts().Rows,
 			ArtifactProjections:     projectionRuntime.ArtifactPorts().Rows,
 			Evidence:                evidenceOwner.ImportCreateFacade(),
@@ -1161,7 +1161,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("compose Snapshot/Reporting participant: %w", err)
 		}
 	}
-	hostIdentityReporting, err := hostidentityreporting.New(projectionRuntime.EntityPorts().Reader)
+	hostIdentityReporting, err := hostidentityreporting.New(projectionRuntime.EntityReportingReader())
 	if err != nil {
 		runtime.Close()
 		return nil, err
@@ -1249,7 +1249,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			Postgres:              postgresHandle,
 			ProjectionDescriptors: projectionRuntime.DescriptorSet(),
 			ProjectionQueries:     projectionRuntime,
-			EntityProjections:     projectionRuntime.EntityPorts(),
+			EntityMutationRows:    projectionRuntime.EntityMutationRows(),
+			EntityQueryReader:     projectionRuntime.EntityQueryReader(),
 			AssessmentProjections: projectionRuntime.AssessmentPorts().Rows,
 			PartyProjections:      projectionRuntime.PartyPorts().Rows,
 			IndicatorOwner:        indicatorOwner,

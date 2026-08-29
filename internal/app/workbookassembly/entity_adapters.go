@@ -10,7 +10,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
 	incidentadmission "github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
@@ -39,32 +41,32 @@ func newEntityProviderSet(owner *hostidentity.Store) (entityProviderSet, error) 
 		return entityProviderSet{}, fmt.Errorf("compose Entity Workbook adapters: owner is required")
 	}
 	hostCreate, err := newEntityCreateProvider(
-		hostidentity.HostsViewSchemaID,
+		entitycontract.HostsViewSchemaID,
 		owner.CreateHostRow,
 	)
 	if err != nil {
 		return entityProviderSet{}, err
 	}
 	identityCreate, err := newEntityCreateProvider(
-		hostidentity.IdentitiesViewSchemaID,
+		entitycontract.IdentitiesViewSchemaID,
 		owner.CreateIdentityRow,
 	)
 	if err != nil {
 		return entityProviderSet{}, err
 	}
-	hostPatch, err := newEntityPatchProvider("host", hostidentity.HostsViewSchemaID, owner)
+	hostPatch, err := newEntityPatchProvider("host", entitycontract.HostsViewSchemaID, owner)
 	if err != nil {
 		return entityProviderSet{}, err
 	}
-	identityPatch, err := newEntityPatchProvider("identity", hostidentity.IdentitiesViewSchemaID, owner)
+	identityPatch, err := newEntityPatchProvider("identity", entitycontract.IdentitiesViewSchemaID, owner)
 	if err != nil {
 		return entityProviderSet{}, err
 	}
-	hostConflict, err := newEntityConflictProvider("host", hostidentity.HostsViewSchemaID, owner)
+	hostConflict, err := newEntityConflictProvider("host", entitycontract.HostsViewSchemaID, owner)
 	if err != nil {
 		return entityProviderSet{}, err
 	}
-	identityConflict, err := newEntityConflictProvider("identity", hostidentity.IdentitiesViewSchemaID, owner)
+	identityConflict, err := newEntityConflictProvider("identity", entitycontract.IdentitiesViewSchemaID, owner)
 	if err != nil {
 		return entityProviderSet{}, err
 	}
@@ -91,10 +93,9 @@ func newEntityCreateProvider(viewSchemaID string, create entityCreateFunc) (work
 	}
 	return workbook.NewCreateProvider(
 		func(reader io.Reader) (hostidentity.CreateRequest, bool, *workbook.MutationFailure, error) {
-			request, apiErr := hostidentity.DecodeCreateRequest(viewSchemaID, reader)
-			if apiErr != nil {
-				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return hostidentity.CreateRequest{}, false, failure, err
+			request, failure := hostidentity.DecodeCreateRequest(viewSchemaID, reader)
+			if failure != nil {
+				return hostidentity.CreateRequest{}, false, entityAdmissionFailure(failure), nil
 			}
 			return request, true, nil, nil
 		},
@@ -139,10 +140,9 @@ func newEntityPatchProvider(
 	}
 	return workbook.NewPatchProvider(
 		func(reader io.Reader) (hostidentity.PatchRequest, bool, *workbook.MutationFailure, error) {
-			request, apiErr := hostidentity.DecodePatchRequest(reader)
-			if apiErr != nil {
-				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return hostidentity.PatchRequest{}, false, failure, err
+			request, failure := hostidentity.DecodePatchRequest(reader)
+			if failure != nil {
+				return hostidentity.PatchRequest{}, false, entityAdmissionFailure(failure), nil
 			}
 			return request, true, nil, nil
 		},
@@ -199,10 +199,9 @@ func newEntityConflictProvider(
 				RecordID: claims.RecordID, ViewSchemaID: claims.ViewSchemaID,
 				FieldKey: claims.FieldKey, CurrentRowVersion: claims.CurrentRowVersion,
 			}
-			request, apiErr := hostidentity.DecodeWorkbookConflictResolveRequest(reader, token, ownerClaims)
-			if apiErr != nil {
-				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return entityConflictValue{}, false, failure, err
+			request, failure := hostidentity.DecodeWorkbookConflictResolveRequest(reader, token, ownerClaims)
+			if failure != nil {
+				return entityConflictValue{}, false, entityAdmissionFailure(failure), nil
 			}
 			return entityConflictValue{request: request, claims: ownerClaims}, true, nil, nil
 		},
@@ -251,10 +250,9 @@ func newEntityClipboardProvider(viewSchemaID string, owner *hostidentity.Store) 
 	}
 	return workbook.NewClipboardProvider(
 		func(reader io.Reader) (entityClipboardValue, bool, *workbook.MutationFailure, error) {
-			request, apiErr := hostidentity.DecodeClipboardPasteRequest(reader, viewSchemaID)
-			if apiErr != nil {
-				failure, err := workbook.DecodeMutationFailure(apiErr)
-				return entityClipboardValue{}, false, failure, err
+			request, failure := hostidentity.DecodeClipboardPasteRequest(reader, viewSchemaID)
+			if failure != nil {
+				return entityClipboardValue{}, false, entityAdmissionFailure(failure), nil
 			}
 			plan, err := hostidentity.BuildClipboardPastePlan(request)
 			if err != nil {
@@ -333,6 +331,30 @@ func entityMutationFailure(err error, clientTxnID string) (*workbook.MutationFai
 	return nil, false
 }
 
+func entityAdmissionFailure(failure *mutationadmission.Failure) *workbook.MutationFailure {
+	if failure == nil {
+		return nil
+	}
+	field, _ := failure.Field()
+	collectionField, hasCollectionField := failure.CollectionField()
+	requestedCount, hasRequestedCount := failure.RequestedCount()
+	maximumCount, hasMaximumCount := failure.MaximumCount()
+	reason := string(failure.ReasonCode())
+	if hasRequestedCount || hasMaximumCount {
+		return workbook.InvalidPayloadLimitFailure(
+			field,
+			reason,
+			requestedCount,
+			maximumCount,
+			collectionField,
+		)
+	}
+	if hasCollectionField {
+		return workbook.InvalidPayloadCollectionFailure(field, reason, collectionField)
+	}
+	return workbook.InvalidPayloadFailure(field, reason)
+}
+
 func entityCreateResult(
 	result hostidentity.MutationResult,
 	viewSchemaID string,
@@ -373,11 +395,11 @@ func entityConflictClaims(claims workbook.ConflictClaims) conflicttokens.Conflic
 }
 
 func validEntityBinding(recordType string, viewSchemaID string) bool {
-	return (recordType == "host" && viewSchemaID == hostidentity.HostsViewSchemaID) ||
-		(recordType == "identity" && viewSchemaID == hostidentity.IdentitiesViewSchemaID)
+	return (recordType == "host" && viewSchemaID == entitycontract.HostsViewSchemaID) ||
+		(recordType == "identity" && viewSchemaID == entitycontract.IdentitiesViewSchemaID)
 }
 
 func isEntityViewSchema(viewSchemaID string) bool {
-	return viewSchemaID == hostidentity.HostsViewSchemaID ||
-		viewSchemaID == hostidentity.IdentitiesViewSchemaID
+	return viewSchemaID == entitycontract.HostsViewSchemaID ||
+		viewSchemaID == entitycontract.IdentitiesViewSchemaID
 }

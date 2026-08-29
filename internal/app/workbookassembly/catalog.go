@@ -9,8 +9,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	entityports "github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
@@ -34,7 +35,8 @@ type ContributionDependencies struct {
 	Postgres              postgres.DB
 	ProjectionDescriptors providercontract.DescriptorSet
 	ProjectionQueries     projectionQueryCatalog
-	EntityProjections     entityprojection.Ports
+	EntityMutationRows    entityports.MutationRows
+	EntityQueryReader     entityports.QueryReader
 	AssessmentProjections assessmentprojection.Rows
 	PartyProjections      partyprojection.Rows
 	IndicatorOwner        *indicators.Application
@@ -55,7 +57,8 @@ func NewContributionCatalog(input ContributionDependencies) (*workbook.WorkbookC
 	pool := input.Postgres
 	projectionDescriptors := input.ProjectionDescriptors
 	projectionQueries := input.ProjectionQueries
-	entityProjections := input.EntityProjections
+	entityMutationRows := input.EntityMutationRows
+	entityQueryReader := input.EntityQueryReader
 	assessmentProjections := input.AssessmentProjections
 	partyProjections := input.PartyProjections
 	indicatorOwner := input.IndicatorOwner
@@ -70,12 +73,12 @@ func NewContributionCatalog(input ContributionDependencies) (*workbook.WorkbookC
 	keepSaved := NewConflictIdempotencyPort(pool)
 
 	entityStore, err := hostidentity.NewStore(hostidentity.StoreDependencies{
-		Postgres:             pool,
-		Revisions:            appender,
-		ProjectionWriter:     entityProjections.Writer,
-		ProjectionReader:     entityProjections.Reader,
-		KeepSavedIdempotency: keepSaved,
-		Collaboration:        input.CollaborationIntents,
+		Postgres:               pool,
+		Revisions:              appender,
+		ProjectionMutationRows: entityMutationRows,
+		ProjectionQueryReader:  entityQueryReader,
+		KeepSavedIdempotency:   keepSaved,
+		Collaboration:          input.CollaborationIntents,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
@@ -109,9 +112,9 @@ func validateContributionDependencies(input ContributionDependencies) error {
 	if isNilDependency(input.ProjectionQueries) {
 		return fmt.Errorf("compose workbook contribution catalog: projection queries are required")
 	}
-	if isNilDependency(input.EntityProjections.Writer) ||
-		isNilDependency(input.EntityProjections.Reader) {
-		return fmt.Errorf("compose workbook contribution catalog: Entities projection ports are required")
+	if isNilDependency(input.EntityMutationRows) ||
+		isNilDependency(input.EntityQueryReader) {
+		return fmt.Errorf("compose workbook contribution catalog: Entities projection dependencies are required")
 	}
 	if isNilDependency(input.AssessmentProjections) {
 		return fmt.Errorf("compose workbook contribution catalog: Assessments projection rows are required")
@@ -251,7 +254,7 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 	}
 	hostQueryProvider, err := workbook.NewQueryProvider(
 		func(ctx context.Context, command workbook.QueryCommand) (querypage.Result, error) {
-			if command.ViewSchemaID != hostidentity.HostsViewSchemaID {
+			if command.ViewSchemaID != entitycontract.HostsViewSchemaID {
 				return querypage.Result{}, fmt.Errorf(
 					"host query contribution received view schema %q",
 					command.ViewSchemaID,
@@ -265,7 +268,7 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 	}
 	identityQueryProvider, err := workbook.NewQueryProvider(
 		func(ctx context.Context, command workbook.QueryCommand) (querypage.Result, error) {
-			if command.ViewSchemaID != hostidentity.IdentitiesViewSchemaID {
+			if command.ViewSchemaID != entitycontract.IdentitiesViewSchemaID {
 				return querypage.Result{}, fmt.Errorf(
 					"identity query contribution received view schema %q",
 					command.ViewSchemaID,
@@ -278,13 +281,13 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 		return nil, fmt.Errorf("compose workbook Identities query provider: %w", err)
 	}
 	sourceQueries := map[string]workbook.QueryProvider{
-		hostidentity.HostsViewSchemaID:      hostQueryProvider,
-		hostidentity.IdentitiesViewSchemaID: identityQueryProvider,
+		entitycontract.HostsViewSchemaID:      hostQueryProvider,
+		entitycontract.IdentitiesViewSchemaID: identityQueryProvider,
 	}
 	createProviders := map[string]workbook.CreateProvider{
 		timeline.TimelineViewSchemaID:              timelineProviders.create,
-		hostidentity.HostsViewSchemaID:             entityProviders.hostCreate,
-		hostidentity.IdentitiesViewSchemaID:        entityProviders.identityCreate,
+		entitycontract.HostsViewSchemaID:           entityProviders.hostCreate,
+		entitycontract.IdentitiesViewSchemaID:      entityProviders.identityCreate,
 		indicators.ViewSchemaID:                    indicatorCreateProvider,
 		assessments.AssessmentsViewSchemaID:        assessmentCreateProvider,
 		artifacts.NotesViewSchemaID:                artifactProviders.creates[artifacts.NotesViewSchemaID],
@@ -356,12 +359,12 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 		},
 		{
 			RecordType:    "host",
-			ViewSchemaIDs: []string{hostidentity.HostsViewSchemaID},
+			ViewSchemaIDs: []string{entitycontract.HostsViewSchemaID},
 			Provider:      entityProviders.hostPatch,
 		},
 		{
 			RecordType:    "identity",
-			ViewSchemaIDs: []string{hostidentity.IdentitiesViewSchemaID},
+			ViewSchemaIDs: []string{entitycontract.IdentitiesViewSchemaID},
 			Provider:      entityProviders.identityPatch,
 		},
 		{
@@ -398,12 +401,12 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 		},
 		{
 			RecordType:    "host",
-			ViewSchemaIDs: []string{hostidentity.HostsViewSchemaID},
+			ViewSchemaIDs: []string{entitycontract.HostsViewSchemaID},
 			Provider:      entityProviders.hostConflict,
 		},
 		{
 			RecordType:    "identity",
-			ViewSchemaIDs: []string{hostidentity.IdentitiesViewSchemaID},
+			ViewSchemaIDs: []string{entitycontract.IdentitiesViewSchemaID},
 			Provider:      entityProviders.identityConflict,
 		},
 		{
@@ -436,11 +439,11 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook Timeline clipboard provider: %w", err)
 	}
-	hostClipboardProvider, err := newEntityClipboardProvider(hostidentity.HostsViewSchemaID, entityStore)
+	hostClipboardProvider, err := newEntityClipboardProvider(entitycontract.HostsViewSchemaID, entityStore)
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook Hosts clipboard provider: %w", err)
 	}
-	identityClipboardProvider, err := newEntityClipboardProvider(hostidentity.IdentitiesViewSchemaID, entityStore)
+	identityClipboardProvider, err := newEntityClipboardProvider(entitycontract.IdentitiesViewSchemaID, entityStore)
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook Identities clipboard provider: %w", err)
 	}
@@ -467,11 +470,11 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 				Provider:     timelineClipboardProvider,
 			},
 			{
-				ViewSchemaID: hostidentity.HostsViewSchemaID,
+				ViewSchemaID: entitycontract.HostsViewSchemaID,
 				Provider:     hostClipboardProvider,
 			},
 			{
-				ViewSchemaID: hostidentity.IdentitiesViewSchemaID,
+				ViewSchemaID: entitycontract.IdentitiesViewSchemaID,
 				Provider:     identityClipboardProvider,
 			},
 		},
@@ -506,8 +509,8 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 		Conflicts:             conflictContributions,
 		ActionRequirements: workbook.ActionCapabilityRequirements{
 			ClipboardViewSchemaIDs: []string{
-				hostidentity.HostsViewSchemaID,
-				hostidentity.IdentitiesViewSchemaID,
+				entitycontract.HostsViewSchemaID,
+				entitycontract.IdentitiesViewSchemaID,
 				timeline.TimelineViewSchemaID,
 			},
 			BulkViewSchemaIDs: []string{timeline.TimelineViewSchemaID},

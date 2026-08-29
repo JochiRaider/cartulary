@@ -7,13 +7,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	entitycontract "github.com/JochiRaider/cartulary/internal/modules/entities/projectioncontract"
 )
 
 func (store *Store) UpsertIdentityTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	input entityprojection.IdentityProjectionInput,
+	input entitycontract.IdentityProjectionInput,
 ) error {
 	if _, err := tx.Exec(ctx, `
 INSERT INTO identity_grid_projection (

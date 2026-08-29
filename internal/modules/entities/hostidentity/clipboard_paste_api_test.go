@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 )
 
 func TestClipboardPasteRequestDecodePlanAndHash(t *testing.T) {
@@ -17,7 +19,7 @@ func TestClipboardPasteRequestDecodePlanAndHash(t *testing.T) {
 		"targets":[{"kind":"create"},{"kind":"create"}]
 	}`)
 
-	request, apiErr := DecodeClipboardPasteRequest(body, HostsViewSchemaID)
+	request, apiErr := DecodeClipboardPasteRequest(body, entitycontract.HostsViewSchemaID)
 	if apiErr != nil {
 		t.Fatalf("decode clipboard paste request: %#v", apiErr)
 	}
@@ -25,13 +27,13 @@ func TestClipboardPasteRequestDecodePlanAndHash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build clipboard paste plan: %v", err)
 	}
-	if plan.ViewSchemaID != HostsViewSchemaID || plan.ClientTxnID != "txn-host-paste" || len(plan.Rows) != 2 {
+	if plan.ViewSchemaID != entitycontract.HostsViewSchemaID || plan.ClientTxnID != "txn-host-paste" || len(plan.Rows) != 2 {
 		t.Fatalf("unexpected plan identity: %#v", plan)
 	}
 	if len(plan.Rows[0].Cells) != 2 || plan.Rows[0].Cells[0].FieldKey != "host.display_name" || plan.Rows[0].Cells[1].FieldKey != "host.hostname" {
 		t.Fatalf("unexpected row cells: %#v", plan.Rows[0].Cells)
 	}
-	expectedHash := entityClipboardPasteRequestHash(HostsViewSchemaID, "txn-host-paste", "Gateway One\tgateway-one\nGateway Two\tgateway-two", "tsv", "host.display_name", []string{"host.display_name", "host.hostname"})
+	expectedHash := entityClipboardPasteRequestHash(entitycontract.HostsViewSchemaID, "txn-host-paste", "Gateway One\tgateway-one\nGateway Two\tgateway-two", "tsv", "host.display_name", []string{"host.display_name", "host.hostname"})
 	if !bytes.Equal(request.RequestHash(), expectedHash) {
 		t.Fatalf("request hash changed")
 	}
@@ -74,15 +76,13 @@ func TestClipboardPasteRequestDecodeRejectsWorkbookInvalidPayloads(t *testing.T)
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, apiErr := DecodeClipboardPasteRequest(strings.NewReader(tc.body), HostsViewSchemaID)
-			if apiErr == nil {
-				t.Fatalf("expected api error")
+			_, failure := DecodeClipboardPasteRequest(strings.NewReader(tc.body), entitycontract.HostsViewSchemaID)
+			if failure == nil {
+				t.Fatalf("expected admission failure")
 			}
-			if apiErr.Code != "invalid_mutation_payload" {
-				t.Fatalf("unexpected code: %s", apiErr.Code)
-			}
-			if apiErr.Details["field"] != tc.field || apiErr.Details["reason_code"] != tc.reasonCode {
-				t.Fatalf("unexpected details: %#v", apiErr.Details)
+			failureField, _ := failure.Field()
+			if failureField != tc.field || string(failure.ReasonCode()) != tc.reasonCode {
+				t.Fatalf("unexpected failure: %#v", failure)
 			}
 		})
 	}

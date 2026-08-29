@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	entitycontract "github.com/JochiRaider/cartulary/internal/modules/entities/projectioncontract"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 )
 
@@ -15,7 +15,7 @@ func (s *Store) refreshHostTxCore(
 	ctx context.Context,
 	tx pgx.Tx,
 	recordID uuid.UUID,
-	source entityprojection.SourceReader,
+	source entitycontract.SourceReader,
 ) error {
 	if s == nil || s.physical == nil {
 		return errors.New("projection storage is required")
@@ -37,7 +37,7 @@ func (s *Store) rebuildIncidentHostsTxCore(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
-	source entityprojection.SourceReader,
+	source entitycontract.SourceReader,
 ) error {
 	if s == nil || s.physical == nil {
 		return errors.New("projection storage is required")
@@ -70,7 +70,7 @@ func (s *Store) refreshIdentityTxCore(
 	ctx context.Context,
 	tx pgx.Tx,
 	recordID uuid.UUID,
-	source entityprojection.SourceReader,
+	source entitycontract.SourceReader,
 ) error {
 	if s == nil || s.physical == nil {
 		return errors.New("projection storage is required")
@@ -92,7 +92,7 @@ func (s *Store) rebuildIncidentIdentitiesTxCore(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
-	source entityprojection.SourceReader,
+	source entitycontract.SourceReader,
 ) error {
 	if s == nil || s.physical == nil {
 		return errors.New("projection storage is required")

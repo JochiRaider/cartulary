@@ -948,7 +948,7 @@ func newEventTimelineCommandsWithProjectionFailure(t testing.TB, pool postgres.D
 		Collaboration:       revisionComposition.RecordChanges,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
-		EntityProjection:    projections.EntityPorts().Writer,
+		EntityProjection:    projections.EntityMutationRows(),
 		AssessmentRows:      projections.AssessmentPorts().Rows,
 	})
 	if err != nil {
