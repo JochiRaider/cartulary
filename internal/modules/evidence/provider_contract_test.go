@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
@@ -22,8 +22,26 @@ import (
 func TestModuleEvidenceProviderContributionClosure(t *testing.T) {
 	t.Parallel()
 
+	t.Run("projection", func(t *testing.T) {
+		t.Parallel()
+		contribution, err := NewProjectionContribution()
+		if err != nil {
+			t.Fatalf("construct Evidence projection contribution: %v", err)
+		}
+		descriptors := contribution.ProjectionContribution().Descriptors()
+		if len(descriptors) != 1 || descriptors[0].ProviderID != "evidence" ||
+			!slices.Equal(descriptors[0].FacadePackages, []string{"internal/modules/evidence/projectioncontract"}) ||
+			contribution.Source() == nil {
+			t.Fatalf("unexpected Evidence projection contribution: %#v", contribution)
+		}
+	})
+
 	t.Run("incident_bundle", func(t *testing.T) {
 		t.Parallel()
+		var typedNilStore *constructionObjectStore
+		if _, err := NewIncidentBundleBlobPortability(typedNilStore); err == nil {
+			t.Fatal("Evidence incident-bundle contribution accepted a typed-nil object store")
+		}
 		descriptor := NewIncidentBundleSourcePort().Descriptor()
 		if descriptor.FamilyID != "evidence" ||
 			descriptor.ContractMajor != 2 ||
@@ -46,6 +64,10 @@ func TestModuleEvidenceProviderContributionClosure(t *testing.T) {
 
 	t.Run("recovery", func(t *testing.T) {
 		t.Parallel()
+		var typedNilDatabase *constructionDB
+		if _, err := NewRecoveryProvider(typedNilDatabase).CountRecoveryRows(t.Context()); err == nil {
+			t.Fatal("Evidence recovery contribution accepted a typed-nil database")
+		}
 		contribution := RecoveryStateContribution()
 		if contribution.SchemaID != recoverystate.ContributionSchemaID ||
 			contribution.OwnerID != "module.evidence" {
@@ -106,12 +128,16 @@ func TestModuleEvidenceProviderContributionClosure(t *testing.T) {
 func TestEvidenceServiceConstructionRejectsIncompleteDependencies(t *testing.T) {
 	t.Parallel()
 
+	appender := &revisions.Appender{}
 	valid := blobLifecycleDependencies{
-		Postgres:       constructionDB{},
-		Revisions:      &revisions.Appender{},
-		Projections:    constructionProjectionRows{},
-		SupportEffects: constructionSupportEffects{},
-		Collaboration:  collaborationsupport.NewRecordChangedAppender(),
+		Postgres:        constructionDB{},
+		Revisions:       newRevisionAppendAdapter(appender),
+		Projections:     constructionProjectionRows{},
+		SupportEffects:  constructionSupportEffects{},
+		Collaboration:   collaborationsupport.NewRecordChangedAppender(),
+		IncidentState:   constructionIncidentState{},
+		RecordEnvelopes: constructionRecordEnvelopes{},
+		Idempotency:     constructionLifecycleIdempotency{},
 	}
 	tests := []struct {
 		name   string
@@ -122,6 +148,9 @@ func TestEvidenceServiceConstructionRejectsIncompleteDependencies(t *testing.T) 
 		{name: "projections", mutate: func(dependencies *blobLifecycleDependencies) { dependencies.Projections = nil }},
 		{name: "support effects", mutate: func(dependencies *blobLifecycleDependencies) { dependencies.SupportEffects = nil }},
 		{name: "collaboration", mutate: func(dependencies *blobLifecycleDependencies) { dependencies.Collaboration = nil }},
+		{name: "incident state", mutate: func(dependencies *blobLifecycleDependencies) { dependencies.IncidentState = nil }},
+		{name: "record envelopes", mutate: func(dependencies *blobLifecycleDependencies) { dependencies.RecordEnvelopes = nil }},
+		{name: "idempotency", mutate: func(dependencies *blobLifecycleDependencies) { dependencies.Idempotency = nil }},
 	}
 	for _, test := range tests {
 		t.Run("blob lifecycle requires "+test.name, func(t *testing.T) {
@@ -153,17 +182,23 @@ func TestEvidenceServiceConstructionRejectsIncompleteDependencies(t *testing.T) 
 	if _, err := newRouteOperations(blobs, nil); err == nil {
 		t.Fatal("newRouteOperations() accepted a missing access-handle capability")
 	}
-	if _, err := newSourceMutationService(constructionDB{}, nil, valid.Revisions, valid.Collaboration); err == nil {
+	if _, err := newSourceMutationService(constructionDB{}, nil, appender, valid.Collaboration, constructionIncidentState{}, constructionRecordEnvelopes{}); err == nil {
 		t.Fatal("newSourceMutationService() accepted a missing Projections dependency")
 	}
-	if _, err := newSourceMutationService(constructionDB{}, valid.Projections, nil, valid.Collaboration); err == nil {
+	if _, err := newSourceMutationService(constructionDB{}, valid.Projections, nil, valid.Collaboration, constructionIncidentState{}, constructionRecordEnvelopes{}); err == nil {
 		t.Fatal("newSourceMutationService() accepted a missing Revisions dependency")
 	}
-	if _, err := newSourceMutationService(nil, valid.Projections, valid.Revisions, valid.Collaboration); err == nil {
+	if _, err := newSourceMutationService(nil, valid.Projections, appender, valid.Collaboration, constructionIncidentState{}, constructionRecordEnvelopes{}); err == nil {
 		t.Fatal("newSourceMutationService() accepted a missing Postgres dependency")
 	}
-	if _, err := newSourceMutationService(constructionDB{}, valid.Projections, valid.Revisions, nil); err == nil {
+	if _, err := newSourceMutationService(constructionDB{}, valid.Projections, appender, nil, constructionIncidentState{}, constructionRecordEnvelopes{}); err == nil {
 		t.Fatal("newSourceMutationService() accepted a missing Collaboration dependency")
+	}
+	if _, err := newSourceMutationService(constructionDB{}, valid.Projections, appender, valid.Collaboration, nil, constructionRecordEnvelopes{}); err == nil {
+		t.Fatal("newSourceMutationService() accepted a missing incident-state dependency")
+	}
+	if _, err := newSourceMutationService(constructionDB{}, valid.Projections, appender, valid.Collaboration, constructionIncidentState{}, nil); err == nil {
+		t.Fatal("newSourceMutationService() accepted missing record envelopes")
 	}
 }
 
@@ -172,18 +207,20 @@ func TestEvidenceOwnerRuntimeRejectsIncompleteDependencies(t *testing.T) {
 
 	codec := conflicttokens.ConflictTokenCodec{}
 	valid := OwnerRuntimeDependencies{
-		Postgres:            constructionDB{},
-		ConflictTokens:      &codec,
-		Revisions:           &revisions.Appender{},
-		Collaboration:       collaborationsupport.NewRecordChangedAppender(),
-		ObjectStore:         constructionObjectStore{},
-		ConflictFields:      constructionConflictFields{},
-		ConflictIdempotency: constructionConflictIdempotency{},
-		CleanupObserver:     &dispatcherTestObserver{},
-		Now:                 time.Now,
-		Projections: evidenceprojection.Ports{
-			Rows:           constructionProjectionRows{},
-			SupportEffects: constructionSupportEffects{},
+		Postgres:        constructionDB{},
+		ConflictTokens:  &codec,
+		Revisions:       &revisions.Appender{},
+		Collaboration:   collaborationsupport.NewRecordChangedAppender(),
+		ObjectStore:     constructionObjectStore{},
+		CleanupObserver: &dispatcherTestObserver{},
+		Now:             time.Now,
+		Mutation: MutationDependencies{
+			IncidentState: constructionIncidentState{}, Idempotency: constructionIdempotency{},
+			LifecycleIdempotency: constructionLifecycleIdempotency{},
+			RecordEnvelopes:      constructionRecordEnvelopes{}, Revisions: constructionRevisions{},
+			ProjectionRows: constructionProjectionRows{}, AssociationEffects: constructionSupportEffects{},
+			ConflictFields: constructionConflictFields{}, KeepSavedIdempotency: constructionConflictIdempotency{},
+			Collaboration: collaborationsupport.NewRecordChangedAppender(),
 		},
 	}
 	tests := []struct {
@@ -195,10 +232,7 @@ func TestEvidenceOwnerRuntimeRejectsIncompleteDependencies(t *testing.T) {
 		{name: "revisions", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Revisions = nil }},
 		{name: "collaboration", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Collaboration = nil }},
 		{name: "object store", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.ObjectStore = nil }},
-		{name: "conflict fields", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.ConflictFields = nil }},
-		{name: "conflict idempotency", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.ConflictIdempotency = nil }},
-		{name: "projection rows", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Projections.Rows = nil }},
-		{name: "support effects", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Projections.SupportEffects = nil }},
+		{name: "mutation dependencies", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Mutation = MutationDependencies{} }},
 		{name: "cleanup observer", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.CleanupObserver = nil }},
 		{name: "clock", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Now = nil }},
 	}
@@ -226,6 +260,47 @@ func TestEvidenceOwnerRuntimeRejectsIncompleteDependencies(t *testing.T) {
 	binding := runtime.ImportCreateFacade().ImportOwnerCreateBinding()
 	if binding.TargetViewSchemaID != ViewSchemaID || binding.FacadeID != "evidence.import_create" {
 		t.Fatalf("Evidence import binding = %#v", binding)
+	}
+}
+
+func TestEvidenceMutationDependenciesRejectIncompleteAndTypedNilCapabilities(t *testing.T) {
+	valid := MutationDependencies{
+		IncidentState: constructionIncidentState{}, Idempotency: constructionIdempotency{},
+		LifecycleIdempotency: constructionLifecycleIdempotency{},
+		RecordEnvelopes:      constructionRecordEnvelopes{}, Revisions: constructionRevisions{},
+		ProjectionRows: constructionProjectionRows{}, AssociationEffects: constructionSupportEffects{},
+		ConflictFields: constructionConflictFields{}, KeepSavedIdempotency: constructionConflictIdempotency{},
+		Collaboration: collaborationsupport.NewRecordChangedAppender(),
+	}
+	tests := []struct {
+		name   string
+		mutate func(*MutationDependencies)
+	}{
+		{name: "incident state", mutate: func(value *MutationDependencies) { value.IncidentState = nil }},
+		{name: "idempotency", mutate: func(value *MutationDependencies) { value.Idempotency = nil }},
+		{name: "lifecycle idempotency", mutate: func(value *MutationDependencies) { value.LifecycleIdempotency = nil }},
+		{name: "record envelopes", mutate: func(value *MutationDependencies) { value.RecordEnvelopes = nil }},
+		{name: "revisions", mutate: func(value *MutationDependencies) { value.Revisions = nil }},
+		{name: "projection rows", mutate: func(value *MutationDependencies) { value.ProjectionRows = nil }},
+		{name: "association effects", mutate: func(value *MutationDependencies) { value.AssociationEffects = nil }},
+		{name: "conflict fields", mutate: func(value *MutationDependencies) { value.ConflictFields = nil }},
+		{name: "keep saved", mutate: func(value *MutationDependencies) { value.KeepSavedIdempotency = nil }},
+		{name: "collaboration", mutate: func(value *MutationDependencies) { value.Collaboration = nil }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dependencies := valid
+			test.mutate(&dependencies)
+			if err := dependencies.validate(); err == nil {
+				t.Fatalf("mutation dependencies accepted missing %s", test.name)
+			}
+		})
+	}
+	var typedNilRows *constructionProjectionRows
+	dependencies := valid
+	dependencies.ProjectionRows = typedNilRows
+	if err := dependencies.validate(); err == nil {
+		t.Fatal("mutation dependencies accepted typed-nil projection rows")
 	}
 }
 
@@ -279,3 +354,10 @@ type constructionConflictFields struct {
 type constructionConflictIdempotency struct {
 	conflicttokens.IdempotencyPort
 }
+
+type constructionIncidentState struct{ IncidentStateCapability }
+type constructionIdempotency struct{ IdempotencyCapability }
+type constructionRecordEnvelopes struct{ RecordEnvelopeCapability }
+
+type constructionLifecycleIdempotency struct{ LifecycleIdempotencyCapability }
+type constructionRevisions struct{ RevisionCapability }

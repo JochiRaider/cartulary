@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -17,7 +16,7 @@ func translateAttachError(err error, clientTxnID string) *httpapi.APIError {
 	var rowConflict *rowVersionConflictError
 	var attachRejected AttachRejectedError
 	switch {
-	case errors.Is(err, authn.ErrClientTxnConflict):
+	case errors.Is(err, ErrClientTxnConflict):
 		return clientTxnConflict(clientTxnID)
 	case admission.IsDenied(err, admission.DenialIncidentClosed):
 		return incidentClosedError()
@@ -29,10 +28,10 @@ func translateAttachError(err error, clientTxnID string) *httpapi.APIError {
 		return evidenceAttachRejected(attachRejected.ReasonCode)
 	case errors.Is(err, ErrBlobNotFound), errors.Is(err, ErrIncidentMismatch):
 		return evidenceAttachRejected(AttachReasonBlobNotVisible)
-	case errors.Is(err, ErrEvidenceQuarantined):
-		return evidenceAttachRejected(AttachReasonEvidenceQuarantined)
-	case errors.Is(err, ErrBlobNotAttachable):
-		return evidenceAttachRejected(AttachReasonEvidenceInconsistent)
+	case errors.Is(err, errEvidenceQuarantined):
+		return evidenceAttachRejected(attachReasonEvidenceQuarantined)
+	case errors.Is(err, errBlobNotAttachable):
+		return evidenceAttachRejected(attachReasonEvidenceInconsistent)
 	default:
 		return internalAPIError(err)
 	}

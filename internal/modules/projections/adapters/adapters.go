@@ -10,7 +10,8 @@ import (
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	evidencecontract "github.com/JochiRaider/cartulary/internal/modules/evidence/projectioncontract"
+	evidenceports "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
@@ -35,7 +36,7 @@ type Dependencies struct {
 	Indicators     indicatorprojection.Contribution
 	Assessments    assessmentprojection.Contribution
 	Artifacts      artifactprojection.Contribution
-	Evidence       evidenceprojection.Contribution
+	Evidence       evidencecontract.Contribution
 	Parties        partyprojection.Contribution
 	TasksDecisions taskdecisioncontract.Contribution
 }
@@ -58,7 +59,8 @@ type Ports struct {
 	indicators                  indicatorprojection.Ports
 	assessments                 assessmentprojection.Ports
 	artifacts                   artifactprojection.Ports
-	evidence                    evidenceprojection.Ports
+	evidenceMutationRows        evidenceports.MutationRows
+	evidenceAssociationEffects  evidenceports.AssociationEffects
 	parties                     partyprojection.Ports
 	taskDecisionMutationRows    taskdecisionports.MutationRows
 	taskDecisionReportingReader taskdecisionports.ReportingReader
@@ -157,10 +159,8 @@ func New(dependencies Dependencies) (Ports, error) {
 			Rows:   artifactRows,
 			Reader: artifactRows,
 		},
-		evidence: evidenceprojection.Ports{
-			Rows:           evidenceRows,
-			SupportEffects: projectionruntime.NewEvidenceAssociationEffectsFromStore(store),
-		},
+		evidenceMutationRows:       evidenceRows,
+		evidenceAssociationEffects: projectionruntime.NewEvidenceAssociationEffectsFromStore(store),
 		parties: partyprojection.Ports{
 			Rows: projectionruntime.NewPartyRowsFromStore(store, dependencies.Parties.Source()),
 		},
@@ -249,7 +249,13 @@ func (ports Ports) Assessments() assessmentprojection.Ports { return ports.asses
 
 func (ports Ports) Artifacts() artifactprojection.Ports { return ports.artifacts }
 
-func (ports Ports) Evidence() evidenceprojection.Ports { return ports.evidence }
+func (ports Ports) EvidenceMutationRows() evidenceports.MutationRows {
+	return ports.evidenceMutationRows
+}
+
+func (ports Ports) EvidenceAssociationEffects() evidenceports.AssociationEffects {
+	return ports.evidenceAssociationEffects
+}
 
 func (ports Ports) Parties() partyprojection.Ports { return ports.parties }
 
@@ -286,7 +292,7 @@ func (ports Ports) validate() error {
 		{name: "Indicators", ready: ports.indicators.Rows != nil},
 		{name: "Assessments", ready: ports.assessments.Rows != nil},
 		{name: "Artifacts", ready: ports.artifacts.Rows != nil && ports.artifacts.Reader != nil},
-		{name: "Evidence", ready: ports.evidence.Rows != nil && ports.evidence.SupportEffects != nil},
+		{name: "Evidence", ready: ports.evidenceMutationRows != nil && ports.evidenceAssociationEffects != nil},
 		{name: "Parties", ready: ports.parties.Rows != nil},
 		{name: "Tasks/Decisions", ready: ports.taskDecisionMutationRows != nil && ports.taskDecisionReportingReader != nil},
 	}

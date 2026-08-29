@@ -1,4 +1,4 @@
-package workbookprojection
+package projectionports
 
 import (
 	"context"
@@ -7,12 +7,17 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type SupportProjectionEffectsTx interface {
+type AssociationEffects interface {
 	RefreshEvidenceAssociationEffects(
 		context.Context,
 		pgx.Tx,
 		EvidenceAssociationEffectsInput,
 	) (EvidenceAssociationEffectsResult, error)
+}
+
+type MutationRows interface {
+	RefreshEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error
+	LoadEvidenceTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
 }
 
 type EvidenceAssociationEffectsInput struct {

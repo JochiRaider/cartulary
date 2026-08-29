@@ -4,9 +4,7 @@ import (
 	"errors"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -18,9 +16,11 @@ type sourceMutationService struct {
 
 func newSourceMutationService(
 	pool postgres.DB,
-	projectionRows evidenceprojection.Rows,
+	projectionRows evidenceprojection.MutationRows,
 	appender *revisions.Appender,
 	intents collaboration.RecordChangedAppender,
+	incidentState evidenceIncidentAdmissionPort,
+	recordEnvelopes evidenceRecordEnvelopePort,
 ) (*sourceMutationService, error) {
 	if pool == nil {
 		return nil, errors.New("compose Evidence source mutations: Postgres is required")
@@ -34,14 +34,20 @@ func newSourceMutationService(
 	if intents == nil {
 		return nil, errors.New("compose Evidence source mutations: Collaboration is required")
 	}
+	if isNilMutationCapability(incidentState) {
+		return nil, errors.New("compose Evidence source mutations: incident state is required")
+	}
+	if isNilMutationCapability(recordEnvelopes) {
+		return nil, errors.New("compose Evidence source mutations: record envelopes are required")
+	}
 	service := &sourceMutationService{}
 	service.source = evidenceSourceKernel{
-		records:     records.NewStore(),
+		records:     recordEnvelopes,
 		rows:        service,
 		projections: projectionRows,
 	}
 	service.mutations = evidenceSourceMutationKernel{
-		incidents:     admission.NewChecker(pool),
+		incidents:     incidentState,
 		source:        service.source,
 		revisions:     newRevisionAppendAdapter(appender),
 		collaboration: intents,

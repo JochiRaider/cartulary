@@ -16,7 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
@@ -37,8 +37,8 @@ func ArtifactProjectionRows(pool postgres.DB) artifactprojection.Rows {
 	return mustBuildProjectionRuntime(pool).ArtifactPorts().Rows
 }
 
-func EvidenceProjectionRows(pool postgres.DB) evidenceprojection.Rows {
-	return mustBuildProjectionRuntime(pool).EvidencePorts().Rows
+func EvidenceProjectionRows(pool postgres.DB) evidenceprojection.MutationRows {
+	return mustBuildProjectionRuntime(pool).EvidenceMutationRows()
 }
 
 func NewEvidenceOwnerRuntime(
@@ -51,17 +51,27 @@ func NewEvidenceOwnerRuntime(
 	keepSaved conflicttokens.IdempotencyPort,
 	projectionRuntime *projectionassembly.Runtime,
 ) *evidence.OwnerRuntime {
+	mutationDependencies, err := workbookassembly.NewEvidenceMutationDependencies(
+		pool,
+		appender,
+		conflictFields,
+		keepSaved,
+		projectionRuntime.EvidenceMutationRows(),
+		projectionRuntime.EvidenceAssociationEffects(),
+		intents,
+	)
+	if err != nil {
+		panic(err)
+	}
 	runtime, err := evidence.NewOwnerRuntime(evidence.OwnerRuntimeDependencies{
-		Postgres:            pool,
-		ConflictTokens:      &conflictTokens,
-		Revisions:           appender,
-		Collaboration:       intents,
-		ObjectStore:         objects,
-		ConflictFields:      conflictFields,
-		ConflictIdempotency: keepSaved,
-		Projections:         projectionRuntime.EvidencePorts(),
-		CleanupObserver:     evidenceCleanupObserver{},
-		Now:                 time.Now,
+		Postgres:        pool,
+		ConflictTokens:  &conflictTokens,
+		Revisions:       appender,
+		Collaboration:   intents,
+		ObjectStore:     objects,
+		Mutation:        mutationDependencies,
+		CleanupObserver: evidenceCleanupObserver{},
+		Now:             time.Now,
 	})
 	if err != nil {
 		panic(err)

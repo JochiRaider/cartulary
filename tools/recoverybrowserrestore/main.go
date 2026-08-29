@@ -31,7 +31,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -182,7 +182,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("capture source postgres artifact: %w", err)
 	}
-	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, recoveryprovider.New(sourcePool))
+	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, evidence.NewRecoveryProvider(sourcePool))
 	if err != nil {
 		return fmt.Errorf("index source blob storage refs: %w", err)
 	}
@@ -251,7 +251,7 @@ func run() error {
 	result, err := recovery.NewRestoreRunner(sourceStore, backupStorage, extensionBackups).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
 		Postgres:        targetPool,
 		ObjectStore:     targetObjectStore,
-		EvidenceObjects: recoveryprovider.New(targetPool),
+		EvidenceObjects: evidence.NewRecoveryProvider(targetPool),
 		Projections:     projectionRebuilder,
 	}, now.Add(time.Second))
 	if err != nil {

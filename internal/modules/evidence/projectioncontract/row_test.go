@@ -1,4 +1,4 @@
-package workbookprojection
+package projectioncontract
 
 import (
 	"testing"

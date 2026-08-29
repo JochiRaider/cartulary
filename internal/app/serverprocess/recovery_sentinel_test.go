@@ -13,7 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
+	evidencemodule "github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	recoverytestsupport "github.com/JochiRaider/cartulary/internal/modules/recovery/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -41,7 +41,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 		recovery.RestoreTarget{
 			Postgres:        target.Postgres,
 			ObjectStore:     target.ObjectStore,
-			EvidenceObjects: recoveryprovider.New(target.Postgres),
+			EvidenceObjects: evidencemodule.NewRecoveryProvider(target.Postgres),
 			Projections:     projectionRuntime.RecoveryPorts().Rebuilder,
 		}, fixture.AsOf, recoverytestsupport.RestoreExpectation{
 			BackupSetID:             fixture.LatestBackupSetID,
@@ -76,7 +76,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 		RestoreTarget: recovery.RestoreTarget{
 			Postgres:        verificationTarget.Postgres,
 			ObjectStore:     verificationTarget.ObjectStore,
-			EvidenceObjects: recoveryprovider.New(verificationTarget.Postgres),
+			EvidenceObjects: evidencemodule.NewRecoveryProvider(verificationTarget.Postgres),
 			Projections:     verificationRebuilder,
 		},
 		Probe: recovery.RestoreVerificationWorkbookProbe{Executor: verificationQuery},
@@ -247,7 +247,7 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 		ObjectStore:             sourceObjectStore,
 		ObjectStoreBucket:       bucket,
 		Store:                   sourceRecoveryStore,
-		EvidenceObjects:         recoveryprovider.New(sourcePool),
+		EvidenceObjects:         evidencemodule.NewRecoveryProvider(sourcePool),
 		BackupStorage:           backupStorage,
 		BackupStorageRoot:       backupRoot,
 		ExtensionCatalog:        recoveryExtensionCatalog(t),

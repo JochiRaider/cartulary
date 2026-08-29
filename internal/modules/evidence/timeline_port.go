@@ -9,11 +9,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 )
 
 type timelineAttachmentReader struct {
-	projections evidenceprojection.Rows
+	projections evidenceprojection.MutationRows
 }
 
 func (timelineAttachmentReader) ValidateTimelineAttachmentsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) error {

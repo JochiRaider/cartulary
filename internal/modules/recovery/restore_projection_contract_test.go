@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -178,7 +178,7 @@ func newRestoreProjectionContractFixture(t *testing.T, ctx context.Context, pref
 		Target: recovery.RestoreTarget{
 			Postgres:        targetPool,
 			ObjectStore:     targetObjectStore,
-			EvidenceObjects: recoveryprovider.New(targetPool),
+			EvidenceObjects: evidence.NewRecoveryProvider(targetPool),
 		},
 	}
 }

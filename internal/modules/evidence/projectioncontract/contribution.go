@@ -1,4 +1,4 @@
-package workbookprojection
+package projectioncontract
 
 import (
 	"context"
@@ -14,11 +14,6 @@ import (
 )
 
 const evidenceViewSchemaID = "cartulary.view.evidence.v1"
-
-type Rows interface {
-	RefreshEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error
-	LoadEvidenceTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-}
 
 type ProjectionInput struct {
 	RecordID           uuid.UUID
@@ -99,11 +94,6 @@ type SourceReader interface {
 	ListProjectionInputsTx(context.Context, pgx.Tx, uuid.UUID, *uuid.UUID, int) (ProjectionInputPage, error)
 }
 
-type Ports struct {
-	Rows           Rows
-	SupportEffects SupportProjectionEffectsTx
-}
-
 type Contribution struct {
 	contract providercontract.Contribution
 	source   SourceReader
@@ -154,7 +144,7 @@ func Descriptor() providercontract.ProviderDescriptor {
 			IncidentRebuild: true,
 		},
 		RestoreRebuild: providercontract.RestoreRebuildRequired,
-		FacadePackages: []string{"internal/modules/evidence/workbookprojection"},
+		FacadePackages: []string{"internal/modules/evidence/projectioncontract"},
 		RebuildAfter:   []string{"artifact"},
 		CharacterizationRefs: []string{
 			"internal/modules/evidence/projection_collaboration_integration_test.go",

@@ -9,7 +9,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/operator/internal/recoverycli"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
@@ -70,7 +70,7 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 			},
 			NewGraphProjectionRestore: recoveryassembly.NewGraphProjectionRestoreParticipant,
 			NewEvidenceProvider: func(db postgres.DB) recovery.EvidenceRecoveryProvider {
-				return recoveryprovider.New(db)
+				return evidence.NewRecoveryProvider(db)
 			},
 			NewEvidenceRepository: func(pool application.PostgresPool) (application.RecoveryEvidenceRepository, error) {
 				return recoveryassembly.NewRecoveryEvidenceRepository(pool, func() (recovery.RecoveryEncryptionKey, error) {

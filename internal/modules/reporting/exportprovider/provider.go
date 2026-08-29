@@ -61,6 +61,14 @@ type SupportReferenceProvider interface {
 	CollectSupportRefsTx(context.Context, pgx.Tx, uuid.UUID) (map[string][]string, error)
 }
 
+// LogicalSupportTargetProvider contributes source-owned logical paths that
+// Reporting uses when materializing support references. Implementations run
+// inside the caller's transaction and never coordinate or commit it.
+type LogicalSupportTargetProvider interface {
+	ProviderKey() string
+	CollectLogicalSupportTargetsTx(context.Context, pgx.Tx, uuid.UUID) (map[string]string, error)
+}
+
 type FieldFact struct {
 	SchemaID                string `json:"schema_id"`
 	Path                    string

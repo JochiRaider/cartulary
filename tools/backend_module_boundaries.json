@@ -440,18 +440,42 @@
     {
       "id": "evidence-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/deleterestore",
-      "allowed_importers": ["internal/modules/evidence/**"]
+      "allowed_importers": []
     },
     {
       "id": "evidence-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/rollbackprovider",
-      "allowed_importers": ["internal/modules/evidence/**"]
+      "allowed_importers": []
     },
     {
-      "id": "evidence-projection-provider-import",
-      "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider",
+      "id": "evidence-private-delete-restore-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/deleterestore",
+      "allowed_importers": ["internal/modules/evidence/revision_provider_contribution.go"]
+    },
+    {
+      "id": "evidence-private-incident-bundle-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/incidentbundle",
+      "allowed_importers": ["internal/modules/evidence/incident_bundle_blob_portability.go"]
+    },
+    {
+      "id": "evidence-private-projection-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/projection",
+      "allowed_importers": ["internal/modules/evidence/projection_contribution.go"]
+    },
+    {
+      "id": "evidence-projection-contract-direct-consumers",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/projectioncontract",
+      "allowed_importers": [
+        "internal/modules/evidence/**",
+        "internal/modules/projections/**"
+      ]
+    },
+    {
+      "id": "evidence-projection-ports-direct-consumers",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports",
       "allowed_importers": [
         "internal/app/projectionassembly/**",
+        "internal/app/workbookassembly/**",
         "internal/modules/evidence/**",
         "internal/modules/projections/**"
       ]
@@ -459,21 +483,27 @@
     {
       "id": "evidence-recovery-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider",
-      "allowed_importers": [
-        "internal/app/operator/operator_recovery.go",
-        "internal/app/serverprocess/recovery_sentinel_test.go",
-        "internal/modules/evidence/**",
-        "internal/modules/recovery/**"
-      ]
+      "allowed_importers": []
     },
     {
       "id": "evidence-reporting-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/reportingprovider",
-      "allowed_importers": [
-        "internal/app/reportingassembly/**",
-        "internal/modules/evidence/**",
-        "internal/modules/reporting/**"
-      ]
+      "allowed_importers": []
+    },
+    {
+      "id": "evidence-private-recovery-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/recovery",
+      "allowed_importers": ["internal/modules/evidence/recovery_contribution.go"]
+    },
+    {
+      "id": "evidence-private-reporting-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/reporting",
+      "allowed_importers": ["internal/modules/evidence/reporting_contributions.go"]
+    },
+    {
+      "id": "evidence-private-rollback-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/rollback",
+      "allowed_importers": ["internal/modules/evidence/revision_provider_contribution.go"]
     },
     {
       "id": "indicator-delete-restore-provider-import",
@@ -579,7 +609,7 @@
         "internal/modules/artifacts/internal/providers/deleterestore/provider.go",
         "internal/modules/assessments/internal/providers/deleterestore/provider.go",
         "internal/modules/entities/hostidentity/deleterestore/provider.go",
-        "internal/modules/evidence/deleterestore/provider.go",
+        "internal/modules/evidence/internal/providers/deleterestore/provider.go",
         "internal/modules/indicators/internal/providers/deleterestore/provider.go",
         "internal/modules/parties/internal/providers/deleterestore/provider.go",
         "internal/modules/revisions/**",
@@ -1936,10 +1966,12 @@
         "internal/modules/entities/merge/transaction.go",
         "internal/modules/evidence/access_repository.go",
         "internal/modules/evidence/incident_bundle_source_port.go",
-        "internal/modules/evidence/deleterestore/provider.go",
-        "internal/modules/evidence/projectionprovider/source.go",
-        "internal/modules/evidence/reportingprovider/provider.go",
-        "internal/modules/evidence/blob_lifecycle.go",
+		"internal/modules/evidence/internal/providers/deleterestore/provider.go",
+		"internal/modules/evidence/internal/providers/projection/source.go",
+		"internal/modules/evidence/internal/providers/reporting/provider.go",
+		"internal/modules/evidence/blob_persistence.go",
+		"internal/modules/evidence/blob_projection_effects.go",
+		"internal/modules/evidence/blob_quarantine.go",
         "internal/modules/evidence/timeline_port.go",
         "internal/modules/evidence/mutation_create.go",
         "internal/modules/evidence/mutation_patch.go",
@@ -3288,7 +3320,7 @@
 		"internal/modules/artifacts/internal/providers/deleterestore/**",
 		"internal/modules/assessments/internal/providers/deleterestore/**",
         "internal/modules/entities/hostidentity/deleterestore/**",
-        "internal/modules/evidence/deleterestore/**",
+		"internal/modules/evidence/internal/providers/deleterestore/**",
         "internal/modules/indicators/internal/providers/deleterestore/**",
 		"internal/modules/parties/internal/providers/deleterestore/**",
         "internal/modules/tasksdecisions/internal/providers/deleterestore/**",

@@ -419,34 +419,30 @@ SELECT count(*) FROM route_idempotency
 	}
 	requirePartyCount(t, harness, incident.ID, "lower(trim(external_ref)) = lower('deleted-ext-42')", 1)
 
-	evidenceResult, err := createEvidenceRow(context.Background(), evidenceOwner, actor, incident.ID, evidence.CreateRequest{
-		ViewSchemaID: evidence.ViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-05-evidence-text",
-		Values: map[string]evidence.FieldValue{
-			"evidence.title":                evidenceTextChange("Collector source text"),
-			"evidence.collector_party_text": evidenceTextChange("IR Vendor <vendor@example.test>"),
-		},
-	}, "req-workbook_interaction-u-9-05-evidence-text", time.Date(2026, 5, 18, 12, 5, 0, 0, time.UTC))
+	evidenceResult, err := createEvidenceRow(
+		context.Background(), evidenceOwner, actor, incident.ID,
+		"txn-workbook_interaction-u-9-05-evidence-text", "Collector source text",
+		"IR Vendor <vendor@example.test>", "req-workbook_interaction-u-9-05-evidence-text",
+		time.Date(2026, 5, 18, 12, 5, 0, 0, time.UTC),
+	)
 	if err != nil {
 		t.Fatalf("create evidence with party text: %v", err)
 	}
-	requireCellValue(t, evidenceResult.Payload["row"].(map[string]any), "evidence.collector_party_text", "IR Vendor <vendor@example.test>")
-	requireCellValue(t, evidenceResult.Payload["row"].(map[string]any), "evidence.collector_party_id", nil)
+	requireCellValue(t, evidenceResult.Row, "evidence.collector_party_text", "IR Vendor <vendor@example.test>")
+	requireCellValue(t, evidenceResult.Row, "evidence.collector_party_id", nil)
 	requirePartyCount(t, harness, incident.ID, "display_name = 'IR Vendor <vendor@example.test>'", 0)
 
-	phoneTextEvidence, err := createEvidenceRow(context.Background(), evidenceOwner, actor, incident.ID, evidence.CreateRequest{
-		ViewSchemaID: evidence.ViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-05-evidence-phone-text",
-		Values: map[string]evidence.FieldValue{
-			"evidence.title":                evidenceTextChange("Collector phone-like source text"),
-			"evidence.collector_party_text": evidenceTextChange("+1 555 0100"),
-		},
-	}, "req-workbook_interaction-u-9-05-evidence-phone-text", time.Date(2026, 5, 18, 12, 5, 30, 0, time.UTC))
+	phoneTextEvidence, err := createEvidenceRow(
+		context.Background(), evidenceOwner, actor, incident.ID,
+		"txn-workbook_interaction-u-9-05-evidence-phone-text", "Collector phone-like source text",
+		"+1 555 0100", "req-workbook_interaction-u-9-05-evidence-phone-text",
+		time.Date(2026, 5, 18, 12, 5, 30, 0, time.UTC),
+	)
 	if err != nil {
 		t.Fatalf("create evidence with phone-like party text: %v", err)
 	}
-	requireCellValue(t, phoneTextEvidence.Payload["row"].(map[string]any), "evidence.collector_party_text", "+1 555 0100")
-	requireCellValue(t, phoneTextEvidence.Payload["row"].(map[string]any), "evidence.collector_party_id", nil)
+	requireCellValue(t, phoneTextEvidence.Row, "evidence.collector_party_text", "+1 555 0100")
+	requireCellValue(t, phoneTextEvidence.Row, "evidence.collector_party_id", nil)
 }
 
 func textChange(value string) partyFieldValue {
@@ -455,23 +451,27 @@ func textChange(value string) partyFieldValue {
 
 func fieldValuePointer(value partyFieldValue) *partyFieldValue { return &value }
 
-func evidenceTextChange(value string) evidence.FieldValue {
-	return evidence.FieldValue{Text: &value}
-}
-
 func createEvidenceRow(
 	ctx context.Context,
 	owner evidence.MutationContribution,
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
-	request evidence.CreateRequest,
+	clientTxnID string,
+	title string,
+	collectorText string,
 	requestID string,
 	now time.Time,
 ) (evidence.MutationResult, error) {
+	request, admissionFailure := evidence.AdmitCreateJSON(strings.NewReader(fmt.Sprintf(
+		`{"client_txn_id":%q,"evidence.title":%q,"evidence.collector_party_text":%q}`,
+		clientTxnID, title, collectorText,
+	)))
+	if admissionFailure != nil {
+		return evidence.MutationResult{}, admissionFailure
+	}
 	return owner.Create(ctx, evidence.CreateCommand{
-		Actor: actor, IncidentID: incidentID, Request: request,
-		RequestHash: evidence.CreateRequestHash(request), RequestID: requestID,
-		RouteKey: "workbook.rows.create", Now: now,
+		ActorUserID: actor.ID, IncidentID: incidentID, Admission: request,
+		RequestID: requestID, Now: now,
 	})
 }
 

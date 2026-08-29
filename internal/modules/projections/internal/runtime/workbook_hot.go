@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectioncontract"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"

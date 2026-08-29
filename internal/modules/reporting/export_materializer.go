@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	entityreporting "github.com/JochiRaider/cartulary/internal/modules/entities/mentions/reportingprovider"
-	evidencereporting "github.com/JochiRaider/cartulary/internal/modules/evidence/reportingprovider"
 	incidentreporting "github.com/JochiRaider/cartulary/internal/modules/incidents/reportingprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	recordreporting "github.com/JochiRaider/cartulary/internal/modules/records/reportingprovider"
@@ -64,7 +63,6 @@ func newReportingExportMaterializer(
 		reportingExportFieldProviderFunc{key: "records", collect: recordreporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "timeline", collect: timelinereporting.CollectFactsTx},
 		parties.NewReportingContribution(),
-		reportingExportFieldProviderFunc{key: "evidence", collect: evidencereporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "entities.mentions", collect: entityreporting.CollectFactsTx},
 	}
 	fieldProviders = append(fieldProviders, contributions...)

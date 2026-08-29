@@ -12,7 +12,6 @@ import (
 )
 
 type evidenceCreateTxResult struct {
-	payload          map[string]any
 	row              map[string]any
 	recordID         uuid.UUID
 	changeSetID      uuid.UUID
@@ -152,7 +151,6 @@ func (coordinator evidenceSourceMutationKernel) createTx(
 		return evidenceCreateTxResult{}, err
 	}
 	return evidenceCreateTxResult{
-		payload:          buildMutationPayload(command.ViewSchemaID, changeSetID, row),
 		row:              row,
 		recordID:         recordID,
 		changeSetID:      changeSetID,

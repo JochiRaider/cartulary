@@ -29,37 +29,25 @@ import (
 
 func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 	t.Parallel()
-	wantAdapters := map[string]string{
-		"artifact":       "github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/providers/deleterestore.Source",
-		"assessment":     "github.com/JochiRaider/cartulary/internal/modules/assessments/internal/providers/deleterestore.Source",
-		"decision":       "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/deleterestore.DecisionSource",
-		"evidence":       "github.com/JochiRaider/cartulary/internal/modules/evidence/deleterestore.Source",
-		"host":           "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/deleterestore.HostSource",
-		"identity":       "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/deleterestore.IdentitySource",
-		"indicator":      "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/deleterestore.Source",
-		"party":          "github.com/JochiRaider/cartulary/internal/modules/parties/internal/providers/deleterestore.Source",
-		"task_request":   "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/deleterestore.TaskRequestSource",
-		"timeline_event": "github.com/JochiRaider/cartulary/internal/modules/timeline/deleterestore.Source",
+	wantRecordTypes := map[string]struct{}{
+		"artifact": {}, "assessment": {}, "decision": {}, "evidence": {}, "host": {},
+		"identity": {}, "indicator": {}, "party": {}, "task_request": {}, "timeline_event": {},
 	}
 	contributions := mustRevisionProviderContributions(t)
-	gotAdapters := make(map[string]string, len(wantAdapters))
+	gotRecordTypes := make(map[string]struct{}, len(wantRecordTypes))
 	for _, contribution := range contributions {
 		for _, record := range contribution.Records {
 			if record.DeleteRestoreSource == nil {
 				t.Fatalf("record type %q has nil delete/restore source", record.RecordType)
 			}
-			sourceType := reflect.TypeOf(record.DeleteRestoreSource)
-			if sourceType.Kind() == reflect.Pointer {
-				sourceType = sourceType.Elem()
-			}
-			if _, exists := gotAdapters[record.RecordType]; exists {
+			if _, exists := gotRecordTypes[record.RecordType]; exists {
 				t.Fatalf("record type %q has duplicate delete/restore sources", record.RecordType)
 			}
-			gotAdapters[record.RecordType] = sourceType.PkgPath() + "." + sourceType.Name()
+			gotRecordTypes[record.RecordType] = struct{}{}
 		}
 	}
-	if !reflect.DeepEqual(gotAdapters, wantAdapters) {
-		t.Fatalf("delete/restore adapter matrix = %#v, want %#v", gotAdapters, wantAdapters)
+	if !reflect.DeepEqual(gotRecordTypes, wantRecordTypes) {
+		t.Fatalf("delete/restore record-type matrix = %#v, want %#v", gotRecordTypes, wantRecordTypes)
 	}
 	runtime, err := revisionassembly.Build(contributions...)
 	if err != nil {

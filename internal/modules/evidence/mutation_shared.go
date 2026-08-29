@@ -3,22 +3,21 @@ package evidence
 // Shared Evidence mutation validation and conflict helpers.
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"reflect"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 )
 
-func (f *mutationFacade) validateLifecyclePatchTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, request PatchRequest) error {
+func (f *mutationFacade) validateLifecyclePatchTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, request patchRequest) error {
 	changes := make([]lifecyclePatchChange, 0, len(request.Changes))
 	for _, change := range request.Changes {
 		var text *string
@@ -30,7 +29,7 @@ func (f *mutationFacade) validateLifecyclePatchTx(ctx context.Context, tx pgx.Tx
 	return f.sourceMutations.validateLifecyclePatchTx(ctx, tx, recordID, changes)
 }
 
-func (f *mutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, request PatchRequest, now time.Time) (bool, error) {
+func (f *mutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, request patchRequest, now time.Time) (bool, error) {
 	changed := false
 	for _, change := range request.Changes {
 		if change.Value == nil {
@@ -63,7 +62,7 @@ func validateEvidenceReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uui
 	return nil
 }
 
-func validateEvidencePatchReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request PatchRequest) error {
+func validateEvidencePatchReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request patchRequest) error {
 	for _, change := range request.Changes {
 		if change.Value == nil || change.Value.UUID == nil {
 			continue
@@ -104,22 +103,18 @@ type evidenceRecordMeta struct {
 	RowVersion int64
 }
 
-func loadEvidenceRecordMetaForUpdateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (evidenceRecordMeta, error) {
-	var meta evidenceRecordMeta
-	var deletedAt sql.NullTime
-	err := tx.QueryRow(ctx, `
-SELECT incident_id, record_type, row_version, deleted_at
-  FROM records
- WHERE record_id = $1
- FOR UPDATE
-`, recordID).Scan(&meta.IncidentID, &meta.RecordType, &meta.RowVersion, &deletedAt)
+func (f *mutationFacade) loadEvidenceRecordMetaForUpdateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (evidenceRecordMeta, error) {
+	envelope, err := f.recordEnvelopes.LoadEnvelopeTx(ctx, tx, recordID, true)
+	if errors.Is(err, records.ErrEnvelopeNotFound) {
+		return evidenceRecordMeta{}, pgx.ErrNoRows
+	}
 	if err != nil {
 		return evidenceRecordMeta{}, err
 	}
-	if deletedAt.Valid {
+	if envelope.DeletedAt != nil {
 		return evidenceRecordMeta{}, revisions.ErrRecordDeletedUseRestore
 	}
-	return meta, nil
+	return evidenceRecordMeta{IncidentID: envelope.IncidentID, RecordType: envelope.RecordType, RowVersion: envelope.RowVersion}, nil
 }
 
 func changedFieldKeys(before map[string]any, after map[string]any) []string {
@@ -142,30 +137,6 @@ func workbookVersionID(recordID uuid.UUID, rowVersion int64) string {
 	return fmt.Sprintf("record:%s:%d", recordID.String(), rowVersion)
 }
 
-func buildMutationPayload(viewSchemaID string, changeSetID uuid.UUID, row map[string]any) map[string]any {
-	return map[string]any{"view_schema_id": viewSchemaID, "change_set_id": changeSetID.String(), "row": row}
-}
-
-func extractPayloadUUID(payload map[string]any, path ...string) (uuid.UUID, error) {
-	current := any(payload)
-	for _, segment := range path {
-		object, ok := current.(map[string]any)
-		if !ok {
-			return uuid.UUID{}, fmt.Errorf("decode payload path %q", strings.Join(path, "."))
-		}
-		current = object[segment]
-	}
-	text, ok := current.(string)
-	if !ok {
-		return uuid.UUID{}, fmt.Errorf("decode payload path %q", strings.Join(path, "."))
-	}
-	parsed, err := uuid.Parse(text)
-	if err != nil {
-		return uuid.UUID{}, err
-	}
-	return parsed, nil
-}
-
 func adaptRevisionWindowError(recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64, err error) error {
 	if err == nil {
 		return nil
@@ -185,21 +156,21 @@ type evidenceSameFieldConflictParams struct {
 	CurrentRowVersion int64
 	RequestHash       []byte
 	Window            conflicttokens.PatchConflictWindow
-	Change            PatchChange
+	Change            patchChange
 	Changed           conflicttokens.PatchChangedField
 	CurrentRow        map[string]any
 	FieldDescriptors  conflicttokens.FieldDescriptorSet
 	Codec             conflicttokens.ConflictTokenCodec
 }
 
-func overlappingEvidencePatchChange(changes []PatchChange, changedFields map[string]conflicttokens.PatchChangedField) (PatchChange, conflicttokens.PatchChangedField, bool) {
+func overlappingEvidencePatchChange(changes []patchChange, changedFields map[string]conflicttokens.PatchChangedField) (patchChange, conflicttokens.PatchChangedField, bool) {
 	for _, change := range changes {
 		changed, ok := changedFields[change.FieldKey]
 		if ok {
 			return change, changed, true
 		}
 	}
-	return PatchChange{}, conflicttokens.PatchChangedField{}, false
+	return patchChange{}, conflicttokens.PatchChangedField{}, false
 }
 
 func buildEvidenceSameFieldConflict(params evidenceSameFieldConflictParams) (SameFieldConflict, error) {

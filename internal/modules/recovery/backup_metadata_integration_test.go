@@ -17,7 +17,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -82,7 +82,7 @@ INSERT INTO object_blobs (
 	if !bytes.Contains(postgresArtifact, []byte("backup_restore-i-10-01")) {
 		t.Fatalf("postgres snapshot artifact does not contain seeded incident data: %s", postgresArtifact)
 	}
-	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, recoveryprovider.New(harness.Pool))
+	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, evidence.NewRecoveryProvider(harness.Pool))
 	if err != nil {
 		t.Fatalf("index source blob storage refs: %v", err)
 	}
@@ -188,7 +188,7 @@ INSERT INTO object_blobs (
 	serviceBackedRestore, err := recovery.NewRestoreRunner(reopenedStore, backupStorage, testExtensionBackupCatalog(t)).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
 		Postgres:        targetPool,
 		ObjectStore:     targetObjectStore,
-		EvidenceObjects: recoveryprovider.New(targetPool),
+		EvidenceObjects: evidence.NewRecoveryProvider(targetPool),
 		Projections:     projectionRuntime.RecoveryPorts().Rebuilder,
 	}, asOf)
 	if err != nil {

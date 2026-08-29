@@ -1,26 +1,27 @@
-package recoveryprovider
+package recovery
 
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	recoverycontract "github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-type Provider struct {
+type provider struct {
 	db postgres.DB
 }
 
-func New(db postgres.DB) *Provider {
-	return &Provider{db: db}
+func New(db postgres.DB) recoverycontract.EvidenceRecoveryProvider {
+	return &provider{db: db}
 }
 
-func (provider *Provider) ListAvailableRecoveryObjects(ctx context.Context) ([]recovery.EvidenceObjectState, error) {
-	if provider == nil || provider.db == nil {
+func (provider *provider) ListAvailableRecoveryObjects(ctx context.Context) ([]recoverycontract.EvidenceObjectState, error) {
+	if provider == nil || nilDatabase(provider.db) {
 		return nil, fmt.Errorf("evidence recovery provider requires database")
 	}
 	rows, err := provider.db.Query(ctx, `
@@ -42,7 +43,7 @@ SELECT b.object_blob_id,
 	}
 	defer rows.Close()
 
-	objects := make([]recovery.EvidenceObjectState, 0)
+	objects := make([]recoverycontract.EvidenceObjectState, 0)
 	for rows.Next() {
 		var objectBlobID uuid.UUID
 		var storageKey string
@@ -62,7 +63,7 @@ SELECT b.object_blob_id,
 		); err != nil {
 			return nil, fmt.Errorf("scan available Evidence recovery object: %w", err)
 		}
-		objects = append(objects, recovery.EvidenceObjectState{
+		objects = append(objects, recoverycontract.EvidenceObjectState{
 			ObjectBlobID:      objectBlobID,
 			StorageKey:        storageKey,
 			ByteSize:          byteSize,
@@ -78,8 +79,8 @@ SELECT b.object_blob_id,
 	return objects, nil
 }
 
-func (provider *Provider) CountRecoveryRows(ctx context.Context) (int64, error) {
-	if provider == nil || provider.db == nil {
+func (provider *provider) CountRecoveryRows(ctx context.Context) (int64, error) {
+	if provider == nil || nilDatabase(provider.db) {
 		return 0, fmt.Errorf("evidence recovery provider requires database")
 	}
 	var count int64
@@ -87,6 +88,19 @@ func (provider *Provider) CountRecoveryRows(ctx context.Context) (int64, error) 
 		return 0, fmt.Errorf("count Evidence recovery rows: %w", err)
 	}
 	return count, nil
+}
+
+func nilDatabase(database postgres.DB) bool {
+	if database == nil {
+		return true
+	}
+	value := reflect.ValueOf(database)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }
 
 func int64Pointer(value pgtype.Int8) *int64 {

@@ -2,22 +2,60 @@ package reportingassembly
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"reflect"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	evidencereporting "github.com/JochiRaider/cartulary/internal/modules/evidence/reportingprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
 )
 
 type LinksProvider struct {
-	reader links.FactReader
+	reader                 links.FactReader
+	logicalTargetProviders []exportprovider.LogicalSupportTargetProvider
 }
 
-func NewLinksProvider() LinksProvider {
-	return LinksProvider{reader: links.FactReader{}}
+func NewLinksProvider(logicalTargetProviders ...exportprovider.LogicalSupportTargetProvider) (LinksProvider, error) {
+	providers := append([]exportprovider.LogicalSupportTargetProvider(nil), logicalTargetProviders...)
+	seen := make(map[string]struct{}, len(providers))
+	for _, provider := range providers {
+		if nilLogicalSupportTargetProvider(provider) {
+			return LinksProvider{}, errors.New("reporting logical support target provider is required")
+		}
+		key := provider.ProviderKey()
+		if key == "" {
+			return LinksProvider{}, errors.New("reporting logical support target provider key is required")
+		}
+		if _, exists := seen[key]; exists {
+			return LinksProvider{}, fmt.Errorf("duplicate Reporting logical support target provider %q", key)
+		}
+		seen[key] = struct{}{}
+	}
+	sort.Slice(providers, func(i, j int) bool {
+		return providers[i].ProviderKey() < providers[j].ProviderKey()
+	})
+	return LinksProvider{
+		reader:                 links.FactReader{},
+		logicalTargetProviders: providers,
+	}, nil
+}
+
+func nilLogicalSupportTargetProvider(provider exportprovider.LogicalSupportTargetProvider) bool {
+	if provider == nil {
+		return true
+	}
+	value := reflect.ValueOf(provider)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }
 
 func (LinksProvider) ProviderKey() string {
@@ -29,7 +67,7 @@ func (provider LinksProvider) CollectSupportRefsTx(
 	tx pgx.Tx,
 	incidentID uuid.UUID,
 ) (map[string][]string, error) {
-	targets, err := evidencereporting.CollectLogicalSupportTargetsTx(ctx, tx, incidentID)
+	targets, err := provider.collectLogicalSupportTargetsTx(ctx, tx, incidentID)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +90,40 @@ func (provider LinksProvider) CollectSupportRefsTx(
 		result[sourceID] = append(result[sourceID], target)
 	}
 	return result, nil
+}
+
+func (provider LinksProvider) collectLogicalSupportTargetsTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+) (map[string]string, error) {
+	targets := map[string]string{}
+	targetOwners := map[string]string{}
+	for _, targetProvider := range provider.logicalTargetProviders {
+		contribution, err := targetProvider.CollectLogicalSupportTargetsTx(ctx, tx, incidentID)
+		if err != nil {
+			return nil, fmt.Errorf("collect Reporting logical support targets from %s: %w", targetProvider.ProviderKey(), err)
+		}
+		keys := make([]string, 0, len(contribution))
+		for recordID := range contribution {
+			keys = append(keys, recordID)
+		}
+		sort.Strings(keys)
+		for _, recordID := range keys {
+			target := contribution[recordID]
+			if existing, exists := targets[recordID]; exists && existing != target {
+				return nil, fmt.Errorf(
+					"conflicting Reporting logical support target %q from providers %s and %s",
+					recordID,
+					targetOwners[recordID],
+					targetProvider.ProviderKey(),
+				)
+			}
+			targets[recordID] = target
+			targetOwners[recordID] = targetProvider.ProviderKey()
+		}
+	}
+	return targets, nil
 }
 
 func (provider LinksProvider) CollectFactsTx(

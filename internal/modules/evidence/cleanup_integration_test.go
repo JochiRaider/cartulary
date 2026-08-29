@@ -1,30 +1,27 @@
-package evidence_test
+package evidence
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 func TestEvidenceDurableCleanupClaimEngine_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "evidence-durable-cleanup-claims")
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-evidence-durable-cleanup-claims-incident",
-		"incident_key":  "evidence-durable-cleanup-claims",
-		"title":         "Evidence durable cleanup claims",
-	})
-	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
-	cleanup, err := evidence.NewCleanupService(harness.Pool)
+	database := newTestStore(t, "evidence-durable-cleanup-claims")
+	actor := authstoretest.SeedLocalUserRecord(t, database, "evidence-cleanup@example.test", "Evidence Cleanup", "EvidenceCleanup1!", false, false, true)
+	incident := createTestIncident(t, database, actor, "txn-evidence-durable-cleanup-claims-incident", "evidence-durable-cleanup-claims", "Evidence durable cleanup claims")
+	adminID := actor.ID
+	incidentID := incident.ID
+	cleanup, err := newCleanupService(database)
 	if err != nil {
 		t.Fatalf("compose cleanup service: %v", err)
 	}
@@ -32,9 +29,9 @@ func TestEvidenceDurableCleanupClaimEngine_Integration(t *testing.T) {
 
 	t.Run("production remains inert before dispatcher activation", func(t *testing.T) {
 		blobID := uuid.New()
-		insertFailedCleanupBlob(t, harness, incidentID, adminID, blobID, cleanupKey("inert", blobID), base)
+		insertFailedCleanupBlob(t, database, incidentID, adminID, blobID, cleanupKey("inert", blobID), base)
 		var count int
-		if err := harness.DB.QueryRowContext(context.Background(), `
+		if err := database.QueryRow(context.Background(), `
 SELECT COUNT(*) FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 `, blobID).Scan(&count); err != nil {
 			t.Fatalf("count inert cleanup claims: %v", err)
@@ -42,14 +39,14 @@ SELECT COUNT(*) FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 		if count != 0 {
 			t.Fatalf("server created %d cleanup claims before readiness-gated dispatcher activation", count)
 		}
-		deleteCleanupFixture(t, harness, blobID)
+		deleteCleanupFixture(t, database, blobID)
 	})
 
 	t.Run("multi instance claim has one deletion owner", func(t *testing.T) {
 		blobID := uuid.New()
-		insertFailedCleanupBlob(t, harness, incidentID, adminID, blobID, cleanupKey("concurrent", blobID), base)
+		insertFailedCleanupBlob(t, database, incidentID, adminID, blobID, cleanupKey("concurrent", blobID), base)
 		deleter := newBlockingCleanupDeleter()
-		firstResult := make(chan evidence.CleanupSweepResult, 1)
+		firstResult := make(chan cleanupSweepResult, 1)
 		firstErr := make(chan error, 1)
 		go func() {
 			result, sweepErr := cleanup.SweepFailedUnattachedBlobs(context.Background(), deleter, base)
@@ -80,19 +77,19 @@ SELECT COUNT(*) FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 
 	t.Run("multi instance dispatchers retain one deletion owner", func(t *testing.T) {
 		blobID := uuid.New()
-		insertFailedCleanupBlob(t, harness, incidentID, adminID, blobID, cleanupKey("dispatcher-concurrent", blobID), base)
-		secondCleanup, err := evidence.NewCleanupService(harness.Pool)
+		insertFailedCleanupBlob(t, database, incidentID, adminID, blobID, cleanupKey("dispatcher-concurrent", blobID), base)
+		secondCleanup, err := newCleanupService(database)
 		if err != nil {
 			t.Fatalf("compose second cleanup service: %v", err)
 		}
 		deleter := newBlockingCleanupDeleter()
-		firstObserver := &integrationCleanupObserver{observed: make(chan evidence.CleanupSweepObservation, 1)}
-		secondObserver := &integrationCleanupObserver{observed: make(chan evidence.CleanupSweepObservation, 1)}
-		firstDispatcher, err := evidence.NewCleanupDispatcher(cleanup, deleter, firstObserver, func() time.Time { return base })
+		firstObserver := &integrationCleanupObserver{observed: make(chan CleanupSweepObservation, 1)}
+		secondObserver := &integrationCleanupObserver{observed: make(chan CleanupSweepObservation, 1)}
+		firstDispatcher, err := newCleanupDispatcher(cleanup, deleter, firstObserver, func() time.Time { return base })
 		if err != nil {
 			t.Fatal(err)
 		}
-		secondDispatcher, err := evidence.NewCleanupDispatcher(secondCleanup, deleter, secondObserver, func() time.Time { return base })
+		secondDispatcher, err := newCleanupDispatcher(secondCleanup, deleter, secondObserver, func() time.Time { return base })
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -133,9 +130,8 @@ SELECT COUNT(*) FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 
 	t.Run("claimed rows block lifecycle and association races", func(t *testing.T) {
 		blobID := uuid.New()
-		recordID := uuid.New()
-		seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
-		insertFailedCleanupBlob(t, harness, incidentID, adminID, blobID, cleanupKey("race", blobID), base)
+		recordID := seedEvidenceAttachmentRecord(t, database, incidentID, adminID, "requested")
+		insertFailedCleanupBlob(t, database, incidentID, adminID, blobID, cleanupKey("race", blobID), base)
 		deleter := newBlockingCleanupDeleter()
 		done := make(chan error, 1)
 		go func() {
@@ -147,7 +143,7 @@ SELECT COUNT(*) FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 		case <-time.After(10 * time.Second):
 			t.Fatal("cleanup race fixture did not reach deletion")
 		}
-		_, lifecycleErr := harness.DB.ExecContext(context.Background(), `
+		_, lifecycleErr := database.Exec(context.Background(), `
 UPDATE object_blobs
    SET upload_state = 'available', terminal_reason = NULL, failed_at = NULL,
        finalized_at = now(), updated_at = now()
@@ -156,7 +152,7 @@ UPDATE object_blobs
 		if lifecycleErr == nil {
 			t.Fatal("claimed blob admitted a finalization/quarantine/restore state mutation")
 		}
-		_, associationErr := harness.DB.ExecContext(context.Background(), `
+		_, associationErr := database.Exec(context.Background(), `
 UPDATE evidence SET object_blob_id = $2, updated_at = now() WHERE record_id = $1
 `, recordID, blobID)
 		if associationErr == nil {
@@ -170,9 +166,9 @@ UPDATE evidence SET object_blob_id = $2, updated_at = now() WHERE record_id = $1
 
 	t.Run("expired lease is restart reclaimable", func(t *testing.T) {
 		blobID := uuid.New()
-		insertFailedCleanupBlob(t, harness, incidentID, adminID, blobID, cleanupKey("restart", blobID), base)
-		insertClaim(t, harness, blobID, "claimed", 1, base.Add(-10*time.Minute), base.Add(-5*time.Minute), nil, nil)
-		restarted, err := evidence.NewCleanupService(harness.Pool)
+		insertFailedCleanupBlob(t, database, incidentID, adminID, blobID, cleanupKey("restart", blobID), base)
+		insertClaim(t, database, blobID, "claimed", 1, base.Add(-10*time.Minute), base.Add(-5*time.Minute), nil, nil)
+		restarted, err := newCleanupService(database)
 		if err != nil {
 			t.Fatalf("recompose cleanup after simulated restart: %v", err)
 		}
@@ -184,13 +180,13 @@ UPDATE evidence SET object_blob_id = $2, updated_at = now() WHERE record_id = $1
 		if result.ClaimedBlobCount != 1 || result.CleanedBlobCount != 1 || deleter.calls != 1 {
 			t.Fatalf("restart result=%#v calls=%d, want reclaimed once", result, deleter.calls)
 		}
-		requireCleanupAttemptCount(t, harness, blobID, 2)
+		requireCleanupAttemptCount(t, database, blobID, 2)
 	})
 
 	t.Run("batch stays bounded and drains more than one hundred", func(t *testing.T) {
 		for index := 0; index < 101; index++ {
 			blobID := uuid.New()
-			insertFailedCleanupBlob(t, harness, incidentID, adminID, blobID, cleanupKey(fmt.Sprintf("batch-%03d", index), blobID), base)
+			insertFailedCleanupBlob(t, database, incidentID, adminID, blobID, cleanupKey(fmt.Sprintf("batch-%03d", index), blobID), base)
 		}
 		deleter := &scriptedCleanupDeleter{}
 		first, err := cleanup.SweepFailedUnattachedBlobs(context.Background(), deleter, base)
@@ -208,7 +204,7 @@ UPDATE evidence SET object_blob_id = $2, updated_at = now() WHERE record_id = $1
 
 	t.Run("retry schedule is deterministic and never terminally exhausts", func(t *testing.T) {
 		blobID := uuid.New()
-		insertFailedCleanupBlob(t, harness, incidentID, adminID, blobID, cleanupKey("retry", blobID), base)
+		insertFailedCleanupBlob(t, database, incidentID, adminID, blobID, cleanupKey("retry", blobID), base)
 		deleter := &scriptedCleanupDeleter{errors: []error{
 			errors.New("transient-1"),
 			errors.New("transient-2"),
@@ -238,17 +234,17 @@ UPDATE evidence SET object_blob_id = $2, updated_at = now() WHERE record_id = $1
 				if result.RetryScheduledCount != 1 || result.CleanedBlobCount != 0 {
 					t.Fatalf("retry attempt %d result=%#v", index+1, result)
 				}
-				requireCleanupNextAttempt(t, harness, blobID, wantNext[index])
+				requireCleanupNextAttempt(t, database, blobID, wantNext[index])
 			} else if result.CleanedBlobCount != 1 {
 				t.Fatalf("successful retry result=%#v", result)
 			}
 		}
-		requireCleanupAttemptCount(t, harness, blobID, 5)
+		requireCleanupAttemptCount(t, database, blobID, 5)
 	})
 
 	t.Run("not found and deadline failures are classified safely", func(t *testing.T) {
 		notFoundBlobID := uuid.New()
-		insertFailedCleanupBlob(t, harness, incidentID, adminID, notFoundBlobID, cleanupKey("not-found", notFoundBlobID), base)
+		insertFailedCleanupBlob(t, database, incidentID, adminID, notFoundBlobID, cleanupKey("not-found", notFoundBlobID), base)
 		notFound := &scriptedCleanupDeleter{errors: []error{&objectstore.AdapterError{
 			Code: objectstore.ErrorCodeObjectNotFound,
 		}}}
@@ -258,7 +254,7 @@ UPDATE evidence SET object_blob_id = $2, updated_at = now() WHERE record_id = $1
 		}
 
 		timeoutBlobID := uuid.New()
-		insertFailedCleanupBlob(t, harness, incidentID, adminID, timeoutBlobID, cleanupKey("timeout", timeoutBlobID), base)
+		insertFailedCleanupBlob(t, database, incidentID, adminID, timeoutBlobID, cleanupKey("timeout", timeoutBlobID), base)
 		deadline := &deadlineInspectingDeleter{}
 		result, err = cleanup.SweepFailedUnattachedBlobs(context.Background(), deadline, base)
 		if err != nil || result.RetryScheduledCount != 1 || result.CleanedBlobCount != 0 {
@@ -267,13 +263,13 @@ UPDATE evidence SET object_blob_id = $2, updated_at = now() WHERE record_id = $1
 		if deadline.remaining < 59*time.Second || deadline.remaining > time.Minute {
 			t.Fatalf("delete timeout window=%s, want one minute", deadline.remaining)
 		}
-		requireCleanupFailureClass(t, harness, timeoutBlobID, "delete_timeout")
-		deleteCleanupFixture(t, harness, timeoutBlobID)
+		requireCleanupFailureClass(t, database, timeoutBlobID, "delete_timeout")
+		deleteCleanupFixture(t, database, timeoutBlobID)
 	})
 
 	t.Run("pending timeout meets one hour deletion bound", func(t *testing.T) {
 		blobID := uuid.New()
-		insertExpiredPendingBlob(t, harness, incidentID, adminID, blobID, cleanupKey("pending", blobID), base)
+		insertExpiredPendingBlob(t, database, incidentID, adminID, blobID, cleanupKey("pending", blobID), base)
 		deleter := &scriptedCleanupDeleter{}
 		first, err := cleanup.SweepFailedUnattachedBlobs(context.Background(), deleter, base)
 		if err != nil {
@@ -282,7 +278,7 @@ UPDATE evidence SET object_blob_id = $2, updated_at = now() WHERE record_id = $1
 		if first.ExpiredPendingCount != 1 || first.ClaimedBlobCount != 0 {
 			t.Fatalf("pending first stage=%#v, want expired without premature deletion", first)
 		}
-		requireCleanupDueAt(t, harness, blobID, base.Add(45*time.Minute))
+		requireCleanupDueAt(t, database, blobID, base.Add(45*time.Minute))
 		second, err := cleanup.SweepFailedUnattachedBlobs(context.Background(), deleter, base.Add(45*time.Minute))
 		if err != nil || second.CleanedBlobCount != 1 {
 			t.Fatalf("pending deadline cleanup result=%#v err=%v", second, err)
@@ -291,11 +287,11 @@ UPDATE evidence SET object_blob_id = $2, updated_at = now() WHERE record_id = $1
 
 	t.Run("metadata survives seven days then is hard deleted", func(t *testing.T) {
 		retainedID := uuid.New()
-		insertFailedCleanupBlob(t, harness, incidentID, adminID, retainedID, cleanupKey("retained", retainedID), base)
-		markCompletedCleanup(t, harness, retainedID, base.Add(-7*24*time.Hour).Add(time.Second))
+		insertFailedCleanupBlob(t, database, incidentID, adminID, retainedID, cleanupKey("retained", retainedID), base)
+		markCompletedCleanup(t, database, retainedID, base.Add(-7*24*time.Hour).Add(time.Second))
 		deletedID := uuid.New()
-		insertFailedCleanupBlob(t, harness, incidentID, adminID, deletedID, cleanupKey("deleted", deletedID), base)
-		markCompletedCleanup(t, harness, deletedID, base.Add(-7*24*time.Hour).Add(-time.Second))
+		insertFailedCleanupBlob(t, database, incidentID, adminID, deletedID, cleanupKey("deleted", deletedID), base)
+		markCompletedCleanup(t, database, deletedID, base.Add(-7*24*time.Hour).Add(-time.Second))
 		result, err := cleanup.SweepFailedUnattachedBlobs(context.Background(), &scriptedCleanupDeleter{}, base)
 		if err != nil {
 			t.Fatalf("apply cleanup metadata retention: %v", err)
@@ -303,8 +299,8 @@ UPDATE evidence SET object_blob_id = $2, updated_at = now() WHERE record_id = $1
 		if result.DeletedMetadataCount != 1 {
 			t.Fatalf("deleted metadata count=%d, want 1", result.DeletedMetadataCount)
 		}
-		requireObjectBlobExists(t, harness, retainedID, true)
-		requireObjectBlobExists(t, harness, deletedID, false)
+		requireObjectBlobExists(t, database, retainedID, true)
+		requireObjectBlobExists(t, database, deletedID, false)
 	})
 }
 
@@ -358,10 +354,10 @@ type deadlineInspectingDeleter struct {
 }
 
 type integrationCleanupObserver struct {
-	observed chan evidence.CleanupSweepObservation
+	observed chan CleanupSweepObservation
 }
 
-func (observer *integrationCleanupObserver) ObserveCleanupSweep(_ context.Context, observation evidence.CleanupSweepObservation) {
+func (observer *integrationCleanupObserver) ObserveCleanupSweep(_ context.Context, observation CleanupSweepObservation) {
 	observer.observed <- observation
 }
 
@@ -378,16 +374,16 @@ func cleanupKey(label string, blobID uuid.UUID) string {
 	return "evidence_cleanup_claims/" + label + "/" + blobID.String()
 }
 
-func deleteCleanupFixture(t testing.TB, harness *appsupport.ServerHarness, blobID uuid.UUID) {
+func deleteCleanupFixture(t testing.TB, database postgres.DB, blobID uuid.UUID) {
 	t.Helper()
-	if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM object_blobs WHERE object_blob_id = $1`, blobID); err != nil {
+	if _, err := database.Exec(context.Background(), `DELETE FROM object_blobs WHERE object_blob_id = $1`, blobID); err != nil {
 		t.Fatalf("delete cleanup fixture: %v", err)
 	}
 }
 
 func insertClaim(
 	t testing.TB,
-	harness *appsupport.ServerHarness,
+	database postgres.DB,
 	blobID uuid.UUID,
 	state string,
 	attempt int,
@@ -406,7 +402,7 @@ func insertClaim(
 	if state == "completed" {
 		lastAttempt = completedAt
 	}
-	if _, err := harness.DB.ExecContext(context.Background(), `
+	if _, err := database.Exec(context.Background(), `
 INSERT INTO evidence_blob_cleanup_claims (
     object_blob_id, claim_token, claim_state, attempt_count, claimed_at,
     claim_expires_at, next_attempt_at, last_attempt_at, completed_at,
@@ -422,20 +418,20 @@ INSERT INTO evidence_blob_cleanup_claims (
 	}
 }
 
-func markCompletedCleanup(t testing.TB, harness *appsupport.ServerHarness, blobID uuid.UUID, completedAt time.Time) {
+func markCompletedCleanup(t testing.TB, database postgres.DB, blobID uuid.UUID, completedAt time.Time) {
 	t.Helper()
-	insertClaim(t, harness, blobID, "completed", 1, completedAt.Add(-time.Minute), nil, nil, completedAt)
-	if _, err := harness.DB.ExecContext(context.Background(), `
+	insertClaim(t, database, blobID, "completed", 1, completedAt.Add(-time.Minute), nil, nil, completedAt)
+	if _, err := database.Exec(context.Background(), `
 UPDATE object_blobs SET cleaned_up_at = $2, updated_at = $2 WHERE object_blob_id = $1
 `, blobID, completedAt.UTC()); err != nil {
 		t.Fatalf("mark completed cleanup metadata: %v", err)
 	}
 }
 
-func requireCleanupAttemptCount(t testing.TB, harness *appsupport.ServerHarness, blobID uuid.UUID, want int) {
+func requireCleanupAttemptCount(t testing.TB, database postgres.DB, blobID uuid.UUID, want int) {
 	t.Helper()
 	var got int
-	if err := harness.DB.QueryRowContext(context.Background(), `
+	if err := database.QueryRow(context.Background(), `
 SELECT attempt_count FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 `, blobID).Scan(&got); err != nil {
 		t.Fatalf("load cleanup attempt count: %v", err)
@@ -445,10 +441,10 @@ SELECT attempt_count FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 	}
 }
 
-func requireCleanupNextAttempt(t testing.TB, harness *appsupport.ServerHarness, blobID uuid.UUID, want time.Time) {
+func requireCleanupNextAttempt(t testing.TB, database postgres.DB, blobID uuid.UUID, want time.Time) {
 	t.Helper()
 	var got time.Time
-	if err := harness.DB.QueryRowContext(context.Background(), `
+	if err := database.QueryRow(context.Background(), `
 SELECT next_attempt_at FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 `, blobID).Scan(&got); err != nil {
 		t.Fatalf("load cleanup next attempt: %v", err)
@@ -458,10 +454,10 @@ SELECT next_attempt_at FROM evidence_blob_cleanup_claims WHERE object_blob_id = 
 	}
 }
 
-func requireCleanupFailureClass(t testing.TB, harness *appsupport.ServerHarness, blobID uuid.UUID, want string) {
+func requireCleanupFailureClass(t testing.TB, database postgres.DB, blobID uuid.UUID, want string) {
 	t.Helper()
 	var got string
-	if err := harness.DB.QueryRowContext(context.Background(), `
+	if err := database.QueryRow(context.Background(), `
 SELECT last_failure_class FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 `, blobID).Scan(&got); err != nil {
 		t.Fatalf("load cleanup failure class: %v", err)
@@ -471,10 +467,10 @@ SELECT last_failure_class FROM evidence_blob_cleanup_claims WHERE object_blob_id
 	}
 }
 
-func requireCleanupDueAt(t testing.TB, harness *appsupport.ServerHarness, blobID uuid.UUID, want time.Time) {
+func requireCleanupDueAt(t testing.TB, database postgres.DB, blobID uuid.UUID, want time.Time) {
 	t.Helper()
 	var got time.Time
-	if err := harness.DB.QueryRowContext(context.Background(), `
+	if err := database.QueryRow(context.Background(), `
 SELECT cleanup_due_at FROM object_blobs WHERE object_blob_id = $1
 `, blobID).Scan(&got); err != nil {
 		t.Fatalf("load cleanup due time: %v", err)
@@ -484,15 +480,54 @@ SELECT cleanup_due_at FROM object_blobs WHERE object_blob_id = $1
 	}
 }
 
-func requireObjectBlobExists(t testing.TB, harness *appsupport.ServerHarness, blobID uuid.UUID, want bool) {
+func requireObjectBlobExists(t testing.TB, database postgres.DB, blobID uuid.UUID, want bool) {
 	t.Helper()
 	var got bool
-	if err := harness.DB.QueryRowContext(context.Background(), `
+	if err := database.QueryRow(context.Background(), `
 SELECT EXISTS (SELECT 1 FROM object_blobs WHERE object_blob_id = $1)
 `, blobID).Scan(&got); err != nil {
 		t.Fatalf("load object blob existence: %v", err)
 	}
 	if got != want {
 		t.Fatalf("object blob exists=%v, want %v", got, want)
+	}
+}
+
+func insertFailedCleanupBlob(t testing.TB, database postgres.DB, incidentID uuid.UUID, actorID uuid.UUID, objectBlobID uuid.UUID, storageKey string, now time.Time) {
+	t.Helper()
+	if _, err := database.Exec(context.Background(), `
+INSERT INTO object_blobs (
+    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
+    byte_size, filename_hint, content_type_hint, observed_size, observed_content_type,
+    observed_sha256_hex, target_expires_at, pending_expires_at, finalized_at,
+    terminal_reason, failed_at, cleanup_due_at, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, 'failed',
+    27, 'cleanup.txt', 'text/plain', 27, 'text/plain',
+    '0000000000000000000000000000000000000000000000000000000000000000',
+    $5::timestamptz - interval '3 hours', $5::timestamptz - interval '2 hours', NULL,
+    'pending_timeout', $5::timestamptz - interval '2 hours', $5::timestamptz - interval '1 hour',
+    $5::timestamptz - interval '3 hours', $5::timestamptz - interval '2 hours'
+)
+`, objectBlobID, incidentID, actorID, storageKey, now.UTC()); err != nil {
+		t.Fatalf("insert failed cleanup blob: %v", err)
+	}
+}
+
+func insertExpiredPendingBlob(t testing.TB, database postgres.DB, incidentID uuid.UUID, actorID uuid.UUID, objectBlobID uuid.UUID, storageKey string, now time.Time) {
+	t.Helper()
+	if _, err := database.Exec(context.Background(), `
+INSERT INTO object_blobs (
+    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
+    byte_size, filename_hint, content_type_hint,
+    target_expires_at, pending_expires_at, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, 'pending',
+    10, 'expired.txt', 'text/plain',
+    $5::timestamptz - interval '2 hours', $5::timestamptz - interval '1 hour',
+    $5::timestamptz - interval '25 hours', $5::timestamptz - interval '25 hours'
+)
+`, objectBlobID, incidentID, actorID, storageKey, now.UTC()); err != nil {
+		t.Fatalf("insert expired pending blob: %v", err)
 	}
 }

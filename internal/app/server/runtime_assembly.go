@@ -894,17 +894,28 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Evidence cleanup telemetry: %w", err)
 	}
+	evidenceMutationDependencies, err := workbookassembly.NewEvidenceMutationDependencies(
+		postgresHandle,
+		revisionRuntime.Appender(),
+		revisionRuntime.ConflictFieldResolver(),
+		workbookassembly.NewConflictIdempotencyPort(postgresHandle),
+		projectionRuntime.EvidenceMutationRows(),
+		projectionRuntime.EvidenceAssociationEffects(),
+		recordChanges,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Evidence mutation dependencies: %w", err)
+	}
 	evidenceOwner, err := evidence.NewOwnerRuntime(evidence.OwnerRuntimeDependencies{
-		Postgres:            postgresHandle,
-		ConflictTokens:      &workbookConflictTokens,
-		Revisions:           revisionRuntime.Appender(),
-		Collaboration:       recordChanges,
-		ObjectStore:         typedObjectStore,
-		ConflictFields:      revisionRuntime.ConflictFieldResolver(),
-		ConflictIdempotency: workbookassembly.NewConflictIdempotencyPort(postgresHandle),
-		Projections:         projectionRuntime.EvidencePorts(),
-		CleanupObserver:     cleanupObserver,
-		Now:                 now,
+		Postgres:        postgresHandle,
+		ConflictTokens:  &workbookConflictTokens,
+		Revisions:       revisionRuntime.Appender(),
+		Collaboration:   recordChanges,
+		ObjectStore:     typedObjectStore,
+		Mutation:        evidenceMutationDependencies,
+		CleanupObserver: cleanupObserver,
+		Now:             now,
 	})
 	if err != nil {
 		runtime.Close()
@@ -1165,7 +1176,11 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, err
 	}
-	linksReporting := reportingassembly.NewLinksProvider()
+	linksReporting, err := reportingassembly.NewLinksProvider(evidence.NewReportingLogicalTargetContribution())
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
 	reportingRouteOptions := reporting.WithJobs(reporting.RouteOptions{
 		JobSuccessFinalizer: extensionassembly.NewReportingJobSuccessFinalizer(extensionJobFinalizer),
 		RenderExportInvoker: renderExportInvoker,
@@ -1176,6 +1191,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		},
 		ExportFieldProviders: []exportprovider.FieldProvider{
 			artifactReporting,
+			evidence.NewReportingFieldContribution(),
 			hostIdentityReporting,
 			linksReporting,
 			taskDecisionReporting,

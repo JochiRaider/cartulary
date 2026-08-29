@@ -1,4 +1,4 @@
-package projectionprovider
+package projection
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectioncontract"
 )
 
 type Source struct{}

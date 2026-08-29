@@ -24,7 +24,8 @@ var projectionExportAllowlists = map[string]exportAllowance{
 		Ports.MaintenanceRebuilder Ports.RestoreProbeQuery Ports.RevisionRebuilder
 		Ports.RevisionLiveRecords Ports.SourceTextRows Ports.ImportRebuilder
 		Ports.Timeline Ports.Entities Ports.Indicators Ports.Assessments
-		Ports.Artifacts Ports.Evidence Ports.Parties Ports.TaskDecisionMutationRows
+		Ports.Artifacts Ports.EvidenceMutationRows Ports.EvidenceAssociationEffects
+		Ports.Parties Ports.TaskDecisionMutationRows
 		Ports.TaskDecisionReportingReader
 	`, ``),
 	"../providercontract": newExportAllowance(`

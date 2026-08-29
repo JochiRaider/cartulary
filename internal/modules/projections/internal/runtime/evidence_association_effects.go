@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 )
 
 type EvidenceAssociationEffects struct {
@@ -151,4 +151,4 @@ func projectionRowVersion(value any) (int64, error) {
 	}
 }
 
-var _ evidenceprojection.SupportProjectionEffectsTx = (*EvidenceAssociationEffects)(nil)
+var _ evidenceprojection.AssociationEffects = (*EvidenceAssociationEffects)(nil)

@@ -155,17 +155,18 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 		hostID,
 	)
 
-	evidenceTitle := "Projection parity evidence"
-	evidenceRequest := evidence.CreateRequest{
-		ViewSchemaID: evidence.ViewSchemaID, ClientTxnID: "txn-projection-parity-evidence",
-		Values: map[string]evidence.FieldValue{"evidence.title": {Text: &evidenceTitle}},
+	evidenceRequest, admissionFailure := evidence.AdmitCreateJSON(strings.NewReader(`{
+		"client_txn_id":"txn-projection-parity-evidence",
+		"evidence.title":"Projection parity evidence"
+	}`))
+	if admissionFailure != nil {
+		t.Fatalf("admit Evidence projection parity row: %#v", admissionFailure)
 	}
 	evidenceResult, err := appsupport.NewEvidenceMutationOwner(harness.DB, conflicttest.NewCodec("workbook")).Create(
 		ctx,
 		evidence.CreateCommand{
-			Actor: actor, IncidentID: incident.ID, Request: evidenceRequest,
-			RequestHash: evidence.CreateRequestHash(evidenceRequest), RequestID: "req-txn-projection-parity-evidence",
-			RouteKey: "workbook.rows.create", Now: time.Date(2026, 7, 1, 13, 1, 0, 0, time.UTC),
+			ActorUserID: actor.ID, IncidentID: incident.ID, Admission: evidenceRequest,
+			RequestID: "req-txn-projection-parity-evidence", Now: time.Date(2026, 7, 1, 13, 1, 0, 0, time.UTC),
 		},
 	)
 	if err != nil {

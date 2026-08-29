@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
 
@@ -16,7 +16,7 @@ import (
 type evidenceSourceKernel struct {
 	records     evidenceRecordEnvelopePort
 	rows        evidenceSourceMutationPort
-	projections evidenceprojection.Rows
+	projections evidenceprojection.MutationRows
 }
 
 func (kernel evidenceSourceKernel) createRecordTx(

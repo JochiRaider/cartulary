@@ -229,6 +229,9 @@ func projectionProviderAssemblyImportAllowed(relPath string, importPath string) 
 		"internal/modules/assessments": {
 			cartularyImportPrefix + "internal/modules/assessments/internal/providers/projection": {},
 		},
+		"internal/modules/evidence": {
+			cartularyImportPrefix + "internal/modules/evidence/internal/providers/projection": {},
+		},
 		"internal/modules/indicators": {
 			cartularyImportPrefix + "internal/modules/indicators/internal/providers/projection": {},
 		},
@@ -240,7 +243,7 @@ func projectionProviderAssemblyImportAllowed(relPath string, importPath string) 
 		},
 		"internal/app/projectionassembly": {
 			cartularyImportPrefix + "internal/modules/entities/hostidentity/projectionprovider": {},
-			cartularyImportPrefix + "internal/modules/evidence/projectionprovider":              {},
+			cartularyImportPrefix + "internal/modules/evidence":                                 {},
 			cartularyImportPrefix + "internal/modules/indicators":                               {},
 			cartularyImportPrefix + "internal/modules/parties":                                  {},
 			cartularyImportPrefix + "internal/modules/tasksdecisions":                           {},
@@ -267,6 +270,21 @@ func TestProjectionProviderAssemblyAllowlistMatchesFinalTopology(t *testing.T) {
 			path:       "internal/modules/assessments/projection_provider_contribution.go",
 			importPath: cartularyImportPrefix + "internal/modules/assessments/internal/providers/projection",
 			want:       true,
+		},
+		"evidence root contribution": {
+			path:       "internal/modules/evidence/projection_contribution.go",
+			importPath: cartularyImportPrefix + "internal/modules/evidence/internal/providers/projection",
+			want:       true,
+		},
+		"projection assembly consumes Evidence root": {
+			path:       "internal/app/projectionassembly/build.go",
+			importPath: cartularyImportPrefix + "internal/modules/evidence",
+			want:       true,
+		},
+		"projection assembly cannot bypass Evidence root": {
+			path:       "internal/app/projectionassembly/build.go",
+			importPath: cartularyImportPrefix + "internal/modules/evidence/internal/providers/projection",
+			want:       false,
 		},
 		"party root contribution": {
 			path:       "internal/modules/parties/provider_contributions.go",

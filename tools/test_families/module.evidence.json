@@ -793,7 +793,9 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestQuarantineBoundaryPreservesTwoStepAttach_Integration"
+          "TestEvidenceObjectBoundaryAndActiveContent_Integration",
+          "TestQuarantineBoundaryPreservesTwoStepAttach_Integration",
+          "TestQuarantineLifecycleService_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -807,6 +809,32 @@
         "object_store",
         "postgres"
       ]
+    },
+    {
+      "row_id": "module.evidence.source_mutations.application_idempotency_adapter_preserves_stored_payloads",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.source_mutations",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/workbookassembly",
+        "tests": [
+          "TestEvidenceStoredIdempotencyPayloadCompatibility"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.evidence.store.attached_evidence_create_and_patch_aa33ea0168",
@@ -1077,7 +1105,7 @@
       ]
     },
     {
-      "row_id": "module.evidence.surface.iteration2_exported_surface_reachability",
+      "row_id": "module.evidence.surface.exported_surface_reachability",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.surface",
       "collaborator_ids": [],
@@ -1112,7 +1140,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/evidence/workbookprojection",
+        "package": "./internal/modules/evidence/projectioncontract",
         "tests": [
           "TestViewRowMapsRichProjectionInput",
           "TestViewRowPreservesLifecycleAndBlobStates",
@@ -1323,7 +1351,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/evidence/rollbackprovider",
+		"package": "./internal/modules/evidence/internal/providers/rollback",
         "tests": [
           "TestProviderRejectsInvalidLifecycleAndReferences",
           "TestSourceForRollbackValuePreservesPresenceAndAssociations"
@@ -1386,6 +1414,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
+          "TestEvidenceMutationDependenciesRejectIncompleteAndTypedNilCapabilities",
           "TestEvidenceOwnerRuntimeRejectsIncompleteDependencies",
           "TestEvidenceServiceConstructionRejectsIncompleteDependencies",
           "TestModuleEvidenceProviderContributionClosure"

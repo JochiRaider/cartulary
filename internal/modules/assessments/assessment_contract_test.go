@@ -608,18 +608,17 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	if err != nil {
 		t.Fatalf("create coordination decision target: %v", err)
 	}
-	coordEvidenceRequest := evidence.CreateRequest{
-		ViewSchemaID: evidence.ViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-12-coord-evidence",
-		Values: map[string]evidence.FieldValue{
-			"evidence.title": {Text: textPtr("Coordination evidence confidence remains null")},
-		},
+	coordEvidenceRequest, admissionFailure := evidence.AdmitCreateJSON(strings.NewReader(`{
+		"client_txn_id":"txn-workbook_interaction-u-9-12-coord-evidence",
+		"evidence.title":"Coordination evidence confidence remains null"
+	}`))
+	if admissionFailure != nil {
+		t.Fatalf("admit coordination evidence target: %#v", admissionFailure)
 	}
 	coordEvidence, err := evidenceOwner.Create(ctx, evidence.CreateCommand{
-		Actor: actor, IncidentID: incident.ID, Request: coordEvidenceRequest,
-		RequestHash: evidence.CreateRequestHash(coordEvidenceRequest),
-		RequestID:   "req-workbook_interaction-u-9-12-coord-evidence",
-		RouteKey:    "workbook.rows.create", Now: time.Date(2026, 5, 17, 18, 53, 0, 0, time.UTC),
+		ActorUserID: actor.ID, IncidentID: incident.ID, Admission: coordEvidenceRequest,
+		RequestID: "req-workbook_interaction-u-9-12-coord-evidence",
+		Now:       time.Date(2026, 5, 17, 18, 53, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatalf("create coordination evidence target: %v", err)

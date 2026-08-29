@@ -43,12 +43,12 @@ func TestReasonCodeRegistryConformance_Unit(t *testing.T) {
 	attachReasons := ReasonCodes(registry, "evidence_attach_rejected")
 	wantAttachReasons := []string{
 		evidence.AttachReasonBlobNotVisible,
-		evidence.AttachReasonBlobPending,
-		evidence.AttachReasonBlobFailed,
-		evidence.AttachReasonBlobQuarantined,
-		evidence.AttachReasonAcceptedContractMismatch,
-		evidence.AttachReasonEvidenceQuarantined,
-		evidence.AttachReasonEvidenceInconsistent,
+		"blob_pending",
+		"blob_failed",
+		"blob_quarantined",
+		"accepted_contract_mismatch",
+		"evidence_quarantined",
+		"evidence_inconsistent",
 	}
 	if !reflect.DeepEqual(attachReasons, wantAttachReasons) {
 		t.Fatalf("attach reason registry got %v want %v", attachReasons, wantAttachReasons)

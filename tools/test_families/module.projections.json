@@ -98,7 +98,7 @@
       "service_dependencies": []
     },
     {
-      "row_id": "module.projections.construction.evidence_intent_errors_iteration2",
+      "row_id": "module.projections.construction.evidence_projection_contract",
       "owner_id": "module.projections",
       "family_id": "module.projections.construction",
       "collaborator_ids": [
@@ -109,9 +109,12 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/evidence/workbookprojection",
+        "package": "./internal/modules/evidence/projectioncontract",
         "tests": [
-          "TestEvidenceProjectionIntentRejectsUnknownViewSchema"
+          "TestEvidenceProjectionContractOwnsSemanticSurface",
+          "TestEvidenceProjectionContributionDefensivelyCopiesFacts",
+          "TestEvidenceProjectionIntentRejectsUnknownViewSchema",
+          "TestNewContributionRequiresSource"
         ]
       },
       "evidence_class": "unit",

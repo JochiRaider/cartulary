@@ -148,7 +148,7 @@ func TestProjectionProviderSQLSourceOwnership(t *testing.T) {
 		{path: "internal/modules/artifacts/internal/providers/projection/source.go", provider: "artifact"},
 		{path: "internal/modules/projections/internal/storage/artifact.go", provider: "artifact"},
 		{path: "internal/modules/projections/internal/queryengine/artifact.go", provider: "artifact"},
-		{path: "internal/modules/evidence/projectionprovider/source.go", provider: "evidence"},
+		{path: "internal/modules/evidence/internal/providers/projection/source.go", provider: "evidence"},
 		{path: "internal/modules/projections/internal/storage/evidence.go", provider: "evidence"},
 		{path: "internal/modules/projections/internal/queryengine/evidence.go", provider: "evidence"},
 		{path: "internal/modules/parties/internal/providers/projection/source.go", provider: "party"},

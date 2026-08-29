@@ -9,11 +9,11 @@
 | Target path | `internal/modules/evidence` |
 | Target label | `evidence`, derived from the final path segment and normalized to lowercase kebab case |
 | Output path | `docs/handoffs/evidence-module-refactor-tracker.md` |
-| Status | Iteration 1 S00-S10 and Iteration 2 S11-S17 complete |
-| Gap closure | Iteration 1 G01-G11 and Iteration 2 G12-G18 closed |
-| Implementation sequence | S00-S10 are the completed Iteration 1 record; S11-S17 are the controlling serial Iteration 2 sequence |
-| Compatibility posture | Preserve normative behavior and data; remove obsolete internal Go surfaces, untyped Evidence storage fallbacks, and transitional structure without shims |
-| Permitted writes | S11 changes only this tracker; later authorized slices may change internal implementation, tests, authored verification inputs, generated outputs through Make, and required callers |
+| Status | Iteration 1 S00-S10, Iteration 2 S11-S17, and Iteration 3 S18-S24 complete |
+| Gap closure | Iteration 1 G01-G11, Iteration 2 G12-G18, and Iteration 3 G19-G24 closed |
+| Implementation sequence | S00-S17 are completed history; S18-S24 are the controlling serial Iteration 3 sequence |
+| Compatibility posture | Preserve normative behavior and data; remove obsolete internal Go surfaces, mixed-direction contracts, provider reach-through, and test compatibility scaffolding without shims |
+| Permitted writes | S18 changes only this tracker; later explicitly authorized slices may change internal implementation, tests, authored verification inputs, generated outputs through Make, and required callers |
 | Prohibited writes | Hand edits to generated roots, dependency lock files, and test/runtime dependencies on Markdown |
 
 `MUST`, `MUST NOT`, `SHALL`, and `REQUIRED` in this tracker govern only the
@@ -27,15 +27,22 @@ Iteration 1 implementation was explicitly authorized on 2026-08-11 and is
 complete. Iteration 2 implementation was explicitly authorized on 2026-08-12;
 S11 through S17 are complete. Each slice updated this tracker and passed
 `make lint-markdown` before its successor began.
+Iteration 3 planning was explicitly authorized on 2026-08-28. S18 was limited
+to this tracker. Implementation was explicitly authorized on 2026-08-28;
+S19 through S24 are complete and passed every serial tracker gate.
+The Iteration 3 sequence applies the user's structural
+cleanup principles: prefer durable boundaries, remove unnecessary internal
+compatibility, and retain only behavior that improves the subsystem's future
+state.
 A slice that cannot satisfy its exit criteria MUST be marked `BLOCKED`; later
 slices MUST NOT begin. Tests, generators, conformance, and runtime code MUST
 NOT read this tracker or any other Markdown.
 
 Sections 2 through 12 preserve the completed Iteration 1 inventory, decisions,
-execution evidence, and handoff. Sections 13 through 22 are the controlling
-Iteration 2 production-readiness plan. A historical finding is not open work
-unless the Iteration 2 delta inventory or gap matrix explicitly carries it
-forward.
+execution evidence, and handoff. Sections 13 through 22 preserve the completed
+Iteration 2 production-readiness plan and ledger. Sections 23 through 32 are
+the controlling Iteration 3 plan. A historical finding is not open work unless
+the Iteration 3 delta inventory or gap matrix explicitly carries it forward.
 
 ### 1.2 Source hierarchy and evidence inspected
 
@@ -1649,3 +1656,625 @@ an implementation cleanup.
 - [x] G12-G18 are closed, no required blocker remains, and the final tracker,
   implementation, verification routing, evidence roots, handoff, and checklist
   agree.
+
+## 23. Iteration 3 Delta Inventory
+
+Iteration 3 begins from the clean repository state below. It does not reopen a
+completed Iteration 1 or Iteration 2 finding unless this section or Section 25
+explicitly carries that work forward.
+
+| Baseline item | Iteration 3 value |
+| --- | --- |
+| Source commit | `cee1a9b81adc` (`Collaboration Contract Closure and Runtime Hardening`) |
+| Baseline time | 2026-08-28 |
+| Worktree | Clean before the S18 tracker edit |
+| Evidence Go inventory | 92 files: 60 production and 32 test files |
+| Evidence size | 8,367 production Go lines and 7,719 test Go lines |
+| Change since Iteration 2 handoff | 12 later commits touched `internal/modules/evidence`; the Iteration 2 inventory and export label are historical rather than current-state evidence |
+| Owner guidance | `make task-guide ROLE=module-author OWNER=module.evidence` |
+| Owner routing | 53 rows, including 35 service-backed rows, from `make explain-test-owner OWNER=module.evidence` |
+| Baseline boundary evidence | `make backend-module-boundary-check` passed 3/3 at `.cartulary/test-results/20260829T014857Z-p2272001` |
+| Baseline owner diagnostic | `make test-slice OWNER=module.evidence` reached 34/35 at `.cartulary/test-results/20260829T014758Z-p2225607`; the remaining Go service row reported an object-store capability/readiness fixture error before a product assertion |
+
+The following current-state findings control this iteration:
+
+| Area | Current evidence | Iteration 3 disposition |
+| --- | --- | --- |
+| Export accounting | `exported_surface_test.go` still describes the final Iteration 2 boundary, and the authored row remains `module.evidence.surface.iteration2_exported_surface_reachability`. | Replace the phase label with a steady-state exact surface contract and classify every surviving export by a real production consumer or contribution role. |
+| Mutation admission | Evidence exposes `DecodeCreateRequest`, `DecodePatchRequest`, `DecodeConflictResolveRequest`, mutable request DTOs, and separate hash functions returning transport `APIError` values. | Adopt opaque owner admissions and a transport-neutral failure contract; Workbook performs HTTP failure translation. |
+| Mutation composition | The mutation facade constructs peer-owner auth, incident-admission, Records, and revision-history implementations internally and carries complete `authn.UserRecord` values although it uses only the actor ID. | Inject narrow consumer-owned capabilities at application composition and carry only `uuid.UUID` actor identity. |
+| Mutation outcome | `MutationResult` publishes `Payload`, `StatusCode`, and `Replayed`, mixing Evidence facts with Workbook transport representation. | Return semantic row facts and a closed outcome; Workbook reconstructs the byte-compatible response. |
+| Projection boundary | `workbookprojection` combines source contribution inputs, Projections-owned mutation rows, association effects, descriptor helpers, and an aggregate `Ports` object. | Replace it atomically with source-owned `projectioncontract` and consumer-facing `projectionports`; no forwarding package remains. |
+| Provider topology | Projections, Reporting, Recovery, operator code, and tools import public-looking Evidence provider packages directly. Delete/restore and rollback packages are imported only through the Evidence root. | Construct source-owner contributions at the Evidence root and move concrete providers under `internal/providers`. |
+| Dead surface | The Reporting `CollectFieldsTx` wrapper has no production caller. Bundle helpers, a bundle concrete type, projection helpers, `blobref.MaxStorageKeyBytes`, and multiple lifecycle error/reason exports have no external production role. | Delete true dead code and privatize live owner-local behavior after the exact S19 caller ledger proves each disposition. |
+| Cohesion | `blob_lifecycle.go` is 1,120 lines, `request_decoding.go` is 532 lines, and `lifecycle_integration_test.go` is 1,131 lines. | Split by semantic responsibility after the interface cutovers so structure follows the final design rather than the transitional API. |
+| Test compatibility | `service_test_bridge_test.go` publishes more than 30 aliases, constructors, and helpers solely from package `evidence` to package `evidence_test`. | Remove the bridge; private service tests use owner-package fixtures and external suites exercise production contributions or routes. |
+
+S19 fixed the following complete current-surface caller ledger. The exact AST
+keys remain executable in `exported_surface_test.go`; this table gives every
+key a disposition without treating the current package shape as compatibility:
+
+| Current surface | Production role and fixed disposition |
+| --- | --- |
+| Evidence root runtime, cleanup, timeline, recovery-state, revision contribution, settings, view-schema, lifecycle/error contracts, and `NewIncidentBundleSourcePort` | Retain because application composition, Timeline, Workbook error translation, Recovery, Revisions, or Incident Bundles has a production consumer. Method sets may narrow only with their consuming contract. |
+| Evidence root request DTOs, decoders, request hashes, conflict claims/value, commands, and `MutationResult` | Replace atomically in S20 with opaque admissions, semantic commands/results, and owner-owned durability types. `MutationContribution` remains the semantic root contribution but changes contract. |
+| Root `ExportIncidentBundleFiles`, `ImportIncidentBundleFilesTx`, and concrete `IncidentBundleBlobPortability` | Privatize in S22 behind the root source-port and a source-owned interface. |
+| `blobref` | Retain the typed reference/key/parser contract used by Evidence policy and storage; privatize `MaxStorageKeyBytes` in S22 because it has no external production caller. |
+| `internal/policy` | Retain as the owner-private cross-package policy contract; it is not a consumer API. |
+| `workbookprojection` | Replace and delete in S21; source contribution types move to `projectioncontract`, consumer mutation/effect types move to `projectionports`, and no forwarding package remains. |
+| `projectionprovider` | Replace with root construction plus a private S21 provider. |
+| `reportingprovider`, `recoveryprovider`, `deleterestore`, and `rollbackprovider` | Replace with root contributions/private providers in S22. Delete the zero-caller Reporting `CollectFieldsTx` wrapper. |
+
+Searches covered production, application, command/tool, reusable test-support,
+and test roots. The ledger is deliberately grouped by current package because
+the AST allowlist supplies the exhaustive symbol list and rejects an unlisted
+addition.
+
+`docs/domain.md` remains vocabulary and owner-navigation authority within its
+stated boundary; this iteration adds no Domain term. The research document
+`docs/research/nlspec-spec.md` supplies non-authoritative planning guidance and
+does not authorize product behavior. The user's request and cleanup principles
+define this refactoring task, subject to the adopted owners listed in Section
+1.2.
+
+## 24. Iteration 3 Compatibility and Deletion Posture
+
+Iteration 3 is an internal structural refactor. The following observable and
+persisted behavior is frozen:
+
+| Contract | Required compatibility |
+| --- | --- |
+| Public HTTP and OpenAPI | Preserve the six Evidence operations, request/response bodies, status codes, error codes and details, route precedence, and generated frontend protocol. |
+| Authorization and security | Preserve Core 04 roles, incident-state rechecks, concealment, failure precedence, upload capability v2, token lifetimes and consumption, and continuing rejection of legacy version-1 upload tokens. |
+| Mutation durability | Preserve operation strings, request hashes, stored JSON, lookup-before-validation, idempotency conflicts and replay, transaction/effect ordering, row versions, change-set facts, and Collaboration publication order. |
+| Evidence lifecycle | Preserve upload, attachment, quarantine, custody, access-handle, cleanup, and deletion/restore state machines and failure behavior. |
+| Projection behavior | Preserve descriptors except the intentional facade package path, surface field sets, canonical rows, refresh/query/rebuild results, association effects, and ordering. |
+| Reporting | Preserve the adopted 12-member Evidence allowlist, omission and redaction rules, logical support paths, support-reference behavior, and exclusion of physical/storage/capability values. |
+| Portability and recovery | Preserve Incident Bundle paths and bytes, rollback behavior, recovery object identities, ordering, row counts, and object-store semantics. |
+| Data and owners | No schema, migration, stored-data rewrite, lifecycle value, telemetry vocabulary, Reporting field, route, OpenAPI, generated protocol, or Domain vocabulary change. |
+
+Internal Go compatibility is intentionally not frozen. Each cutover MUST be
+atomic across its in-repository callers. A removed identifier or package MUST
+have no alias, forwarding package, deprecated wrapper, fallback, dual-write,
+or parallel implementation. Durable strings and stored representations are
+retained because they are data contracts, not Go compatibility scaffolding.
+
+Features are carried forward only when they preserve an adopted behavior or
+provide a deliberate future-facing owner seam. Zero-production-caller helpers,
+phase labels, broad aggregate ports, transport-shaped owner types, public
+concrete providers, and test-only compatibility exports do not meet that bar.
+
+## 25. Iteration 3 Gap Matrix
+
+| ID | Gap and evidence | Remediation | Benefit | Compatibility and risk | Binary validation | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| G19 | The exact export lock, file inventory, and routed row still represent Iteration 2 although 12 later commits changed Evidence. | Built the current AST/caller ledger, renamed the routed surface identity to steady-state language, and re-ran the frozen owner behavior before removal. | Makes deletion decisions executable and prevents both accidental retention and accidental API loss. | Test-only and authored/generated verification changes; product behavior is unchanged. Caller discovery covered app, tool, support, and test roots. | Exact surface and characterization passed; Evidence passed 35/35 and service-backed Evidence passed 25/25. | CLOSED S19 |
+| G20 | Mutation admission returned HTTP errors, commands carried a full user and route strings, results carried HTTP payload/status, and services constructed peer-owner stores. | Added opaque admissions, semantic failures/outcomes, closed stored mutation results, actor IDs, and injected narrow capabilities used by mutation and attachment flows. Workbook now owns HTTP translation and application composition owns peer adapters. | Separates Evidence policy from transport and composition, makes dependencies testable, and permits future owner growth without embedding peer implementations. | Exact wire, hashes, persisted JSON, errors, lifecycle replay route/status identities, and transaction ordering remain fixed. No schema, migration, stored-data, owner-specification, or Domain change occurred. | Admission/hash and stored-byte parity, replay/conflict, 201/200 mapping, rollback, ordering, typed-nil rejection, all Evidence/Workbook and affected owner rows, security, frontend, and browser checks passed. | CLOSED S20 |
+| G21 | `workbookprojection` mixed source contribution and consumer-owned mutation/effect directions behind an aggregate port. | Created `projectioncontract` and `projectionports`, added the root contribution constructor, internalized the source provider, and exposed explicit mutation-row and association-effect capabilities from Projections and application composition. | Clarifies direction, removes Workbook naming from a Projections contract, and scales without another aggregate facade. | The descriptor facade path changed internally; all provider IDs, field sets, SQL, canonical rows, ordering, refresh, effect, and rebuild behavior remained exact. No compatibility package or alias remains. | The old packages and aggregate port are absent; descriptor, row, query, refresh, effects, restore, owner/consumer slices, boundaries, harness, generated state, and JSON shape passed. | CLOSED S21 |
+| G22 | Consumers reached through Evidence into five provider packages, and several exported wrappers/constants/types had no production caller. | Added root contribution constructors, injected a narrow logical-target provider, moved concrete providers under `internal/providers`, deleted dead wrappers, and privatized live owner-local symbols. | Restores source-owner construction, reduces the supported surface, and removes compatibility burden. | Provider outputs, bundle bytes, recovery order, and revision behavior remain exact. Typed-nil providers now fail closed before use. | Root constructors and typed-nil guards pass; direct provider imports, retired packages, dead wrappers, and owner-local exports are absent; affected owner and build matrices pass. | CLOSED S22 |
+| G23 | Large mixed-responsibility files and the test bridge obscured lifecycle ownership and forced private services through exported test aliases. | Split lifecycle and admission production code by responsibility, moved private tests to the owner package with owner-neutral fixtures, retained route/contribution tests externally, split integration coverage by concern, and deleted the bridge. | Improves comprehension, focused testing, and extension without creating a second production path. | Structural only. Semantic test identities, routes, durable behavior, and full-stack coverage remain unchanged. | The bridge and private-provider test imports are absent; declarations remain routed; Evidence unit/service suites, boundaries, harness contracts, generated drift, and fast checks pass. | CLOSED S23 |
+| G24 | Iteration 2 closing evidence predated the final implementation and the prior owner baseline contained one fixture/readiness diagnostic. | Reconciled fresh owner and service-backed graphs, cross-owner integrations, generated state, security/browser checks, broad repository gates, final paths, exports, routing, and retained evidence. | Provides production-readiness evidence for the actual final source rather than a historical snapshot. | S24 introduced no behavior, schema, data, vocabulary, or specification change. One unrelated browser timeout was explicitly infrastructure-classified and passed alone. | Required narrow and broad commands pass; final exports, topology, routing, generated outputs, deferrals, retained roots, and checklist agree. | CLOSED S24 |
+
+## 26. Iteration 3 Execution Policy and Tracker Gate
+
+S18 through S24 are strictly serial. The user authorized their implementation
+on 2026-08-28. S19 through S24 passed their tracker gates and are complete.
+A session MUST activate one slice at a time and
+MUST NOT begin a successor until the current slice meets its exit criteria and
+records its checkpoint in Sections 29 and 30.
+
+Every implementation slice MUST:
+
+1. Re-read its adopted owners and the current affected interfaces before edit.
+2. Use `make task-guide ROLE=module-author OWNER=<owner-id>` and the narrowest
+   owner rows before broader verification.
+3. Preserve the Section 24 freeze and use an atomic internal cutover without a
+   compatibility facade.
+4. Run formatting only for implementation files, update authored routing or
+   policy inputs when topology changes, and generate outputs only through Make.
+5. Run the required slice gates, update the gap and checkpoint ledgers, then
+   pass `git diff --check` for touched files and `make lint-markdown` for this
+   tracker.
+
+If an adopted owner contradicts the plan, record `BLOCKED: owner
+contradiction`. If implementation requires a route, schema, migration,
+lifecycle, telemetry, Reporting-field, stored-data, or Domain change, stop and
+return to planning. Such a change is not an incidental cleanup. A transient
+service fixture failure is retained with its run root, exact row, and ownership
+evidence; a reproducible owner fixture defect is repaired in the owning slice.
+
+The rollback boundary is the active slice. Do not retain old and new package
+paths or APIs simultaneously as a rollback mechanism. Restore the slice to its
+pre-slice implementation if its invariants cannot be met, while preserving the
+diagnostic evidence in this tracker.
+
+## 27. Iteration 3 Serial Workstreams
+
+### S18 — Iteration 3 tracker rebaseline
+
+- **Status:** DONE. The Section 28 document gates passed; no implementation
+  slice was activated.
+- **Areas:** This tracker only.
+- **Remediation:** Update Section 1, record the current commit, inventory,
+  authority posture, baseline diagnostics, gaps, compatibility freeze, serial
+  workstreams, validation, deferrals, and binary exit criteria. Preserve
+  Sections 2 through 22 as completed history.
+- **Decisions:** Activate prior DEF-02 only for the S21 projection cutover and
+  prior DEF-03 only for the S21/S22 source-owner construction cutovers. Continue
+  deferring project-wide `objectstore.Store` retirement and every feature or
+  public-contract change.
+- **Exit evidence:** Only this file changed. `git diff --check --
+  docs/handoffs/evidence-module-refactor-tracker.md` passed and
+  `make lint-markdown` passed at
+  `.cartulary/test-results/20260829T021259Z-p2282284`. S19 is ready but inactive
+  and no implementation began.
+
+### S19 — Characterization and steady-state surface lock
+
+- **Status:** DONE. The phase-neutral authored row and generated topology agree,
+  current exports have fixed dispositions, and the prior readiness diagnostic
+  cleared on a complete service-backed rerun.
+- **Areas:** Evidence surface tests, characterization, authored Evidence test
+  routing, generated topology through Make when the row identity changes, and
+  tracker checkpoints.
+- **Remediation:** Replace the Iteration-2-named export row with a steady-state
+  exact AST surface contract. Inventory root, `blobref`, projection contracts,
+  and provider packages. Give every export one fixed disposition: retained
+  consumer contract, retained root contribution constructor, privatize, or
+  delete. Add or tighten characterization for admission failures and hashes,
+  typed-nil dependency rejection, stored replay bytes and operation tags,
+  projection descriptors/rows/effects, Reporting fields and logical targets,
+  recovery inventory, bundle portability, and lifecycle transaction order.
+- **Baseline diagnostic:** Re-run the failed Evidence row from
+  `20260829T014758Z-p2225607`. Repair it only if a reproducible owner fixture
+  defect is proven; otherwise retain the precise external readiness diagnosis
+  and demonstrate the affected exact product rows.
+- **Compatibility:** Characterization and verification identity only; no
+  production behavior changes.
+- **Exit:** G19 is closed, every later removal has executable before-state
+  evidence, the renamed row and generated topology agree, and S20 is ready.
+- **Exit evidence:** Targeted surface/admission/effect-order/provider rows passed
+  at `.cartulary/test-results/20260829T025727Z-p2299703`; service-backed Evidence
+  passed 25/25 at `.cartulary/test-results/20260829T025738Z-p2300161`; complete
+  Evidence passed 35/35 at `.cartulary/test-results/20260829T025853Z-p2349069`;
+  boundary passed 3/3 at `.cartulary/test-results/20260829T030003Z-p2398696`;
+  generation drift passed 4/4 at
+  `.cartulary/test-results/20260829T030007Z-p2399491`; the tracker diff check
+  and Markdown lint passed at
+  `.cartulary/test-results/20260829T030140Z-p2403131`.
+
+### S20 — Semantic mutation and lifecycle boundary
+
+- **Status:** DONE. S20 closed G20 with one atomic internal cutover; S21 is now
+  active.
+- **Areas:** Evidence admission, commands/results, idempotency, mutation and
+  attachment services, Workbook adapters, server/test composition, and exact
+  surface accounting.
+- **Admission contract:** Replace exported mutable request/hash mechanics with
+  immutable `CreateAdmission`, `PatchAdmission`, and
+  `ConflictResolveAdmission` values. `AdmitCreateJSON`, `AdmitPatchJSON`, and
+  `AdmitConflictResolveJSON` return those values plus an Evidence-owned
+  `AdmissionFailure`. The failure publishes only field, reason, collection,
+  and count accessors required for Workbook translation. Zero-value admissions
+  fail before persistence.
+- **Command and result contract:** Commands carry `ActorUserID`, the admission,
+  request ID, and time. Evidence owns its durable operation selection. Results
+  carry the row, closed outcome (`created`, `updated`, `kept_saved`, or
+  `replayed`), semantic IDs, row version, view schema, and changed field keys;
+  they do not carry HTTP status or a prebuilt payload. Workbook recreates the
+  exact existing response, including 201 create, 200 patch/conflict, change-set
+  omission, and replay signaling.
+- **Capabilities:** Add `MutationDependencies` with the minimum methods
+  Evidence currently uses for incident-state admission, route idempotency,
+  record-envelope insert/load/version advance, revision append/window,
+  projection mutation rows, association effects, conflict fields and
+  keep-saved idempotency, and Collaboration publication. Application
+  composition supplies adapters. Mutation and attachment services do not
+  construct `authn.Store`, incident admission, Records, or revision-history
+  implementations.
+- **Durability:** Introduce a closed operation-tagged stored-mutation result and
+  typed idempotency key/record. Preserve the exact database JSON, operation
+  strings, request hashes, lookup-before-validation, replay, conflict, commit,
+  and publication order.
+- **Compatibility:** Intentional internal Go break without aliases; public,
+  persisted, lifecycle, authorization, and projection behavior remains exact.
+- **Exit:** G20 is closed; the old decoders, hash helpers, full-user commands,
+  transport-shaped results, and internal peer-store construction are absent;
+  Evidence, Workbook, server, Records, Revisions, Collaboration, and affected
+  Projections checks pass.
+- **Completed surface:** `CreateAdmission`, `PatchAdmission`, and
+  `ConflictResolveAdmission` now retain owner-validated immutable request and
+  hash state. `AdmissionFailure`, `OperationID`, `MutationOutcome`,
+  `MutationResult`, typed stored mutation records, and narrow mutation and
+  lifecycle idempotency capabilities replace the former public DTO/hash/HTTP
+  surface. Workbook application adapters construct incident, auth
+  idempotency, Records, revision-history, projection, conflict, and
+  Collaboration capabilities and reconstruct the unchanged HTTP response.
+  Blob create/attach likewise consume injected incident, record-envelope, and
+  lifecycle idempotency capabilities rather than constructing peer stores.
+- **Compatibility result:** The durable operation strings
+  `workbook.rows.create`, `workbook.records.patch`,
+  `workbook.records.conflicts.resolve`, `object_blobs.create`, and
+  `evidence.attach_blob`, their existing request hashes, response JSON/status
+  records, external statuses/envelopes, lifecycle effects, and ordering were
+  preserved. The old Go APIs were removed without aliases or dual paths.
+- **Exit evidence:** Complete Evidence passed 36/36 at
+  `.cartulary/test-results/20260829T033828Z-p2602015`; service-backed Evidence
+  passed 25/25 at `.cartulary/test-results/20260829T033947Z-p2652666`;
+  Workbook passed 68/68 at
+  `.cartulary/test-results/20260829T034101Z-p2701491`; Projections passed 19/19
+  at `.cartulary/test-results/20260829T034317Z-p2756463`; Revisions passed
+  27/27 at `.cartulary/test-results/20260829T034401Z-p2774220`; Records passed
+  8/8 at `.cartulary/test-results/20260829T035011Z-p2939335`; Collaboration
+  passed 31/31 at `.cartulary/test-results/20260829T034659Z-p2841343`;
+  `build-server`, boundary 3/3, generation drift 4/4, and targeted gosec 4/4
+  passed at `20260829T034834Z-p2891263`, `20260829T034644Z-p2840878`,
+  `20260829T034848Z-p2903751`, and `20260829T034859Z-p2906809`. Frontend
+  typecheck and 390/390 unit checks passed at `20260829T034913Z-p2937101` and
+  `20260829T034928Z-p2937660`; browser webserver-backed 60/60 and stateful
+  34/34 passed at `20260829T035101Z-p2956380` and
+  `20260829T035647Z-p3012807`. The tracker diff check passed and Markdown lint
+  passed at `20260829T040011Z-p3061534`. The first Records run exposed only the related
+  lexical boundary-token collision `EvidenceStored` at
+  `20260829T034518Z-p2819242`; helper renaming fixed it before the clean rerun.
+
+### S21 — Projection contract and port cutover
+
+- **Status:** DONE. S21 closed G21 atomically; S22 is now active.
+- **Areas:** Evidence projection language and provider, Projections adapters and
+  runtime, projection assembly, server, Imports, Timeline, Recovery, tests,
+  boundary policy, routing, and tracker.
+- **Source contract:** Move projection inputs, paging, source reader,
+  contribution, descriptor construction, surface intent, and canonical row
+  mapping to `internal/modules/evidence/projectioncontract`. Add root
+  `evidence.NewProjectionContribution`; its concrete source moves to
+  `internal/modules/evidence/internal/providers/projection`.
+- **Consumer ports:** Move row refresh/load and Evidence association-effect
+  interfaces and DTOs to `internal/modules/evidence/projectionports`. Remove
+  the aggregate `Ports`; Projections and projection assembly expose explicit
+  Evidence mutation-row and association-effect capabilities.
+- **Deletion:** Delete `internal/modules/evidence/workbookprojection` in the
+  same cutover. Update the descriptor facade package, all imports, boundary
+  allowlists, provider manifests, authored tests, and generated topology. Do
+  not add a forwarding package or type aliases.
+- **Compatibility:** Projection field sets, canonical rows, query/refresh,
+  association effects, provider ordering, restore rebuild, and incident
+  rebuild remain exact.
+- **Exit:** G21 is closed; the old path and aggregate port are absent; Evidence,
+  Projections, server, Workbook, Imports, Timeline, and Recovery gates pass.
+- **Completed surface:** `projectioncontract` owns `ProjectionInput`, paging,
+  `SourceReader`, `Contribution`, descriptor/surface intent, and canonical
+  `ViewRow`. `projectionports` owns the explicit `MutationRows` and
+  `AssociationEffects` capabilities and effect DTOs. Root
+  `evidence.NewProjectionContribution` is the only production construction
+  entry point; its concrete SQL source is private under
+  `internal/providers/projection`. Projections/application composition now
+  publish two named capabilities and no aggregate Evidence projection port.
+- **Compatibility result:** The descriptor facade package intentionally moved
+  to `internal/modules/evidence/projectioncontract`. The authored provider
+  manifest and generated topology digest were updated; provider identity,
+  authority modules, table, order, capabilities, canonical rows, SQL,
+  transaction boundaries, association effects, and rebuild behavior are
+  unchanged. `workbookprojection` and `projectionprovider` are absent without
+  a forwarder, alias, or fallback.
+- **Exit evidence:** Projections passed 19/19 at
+  `.cartulary/test-results/20260829T041313Z-p3154408` and service-backed 12/12
+  at `.cartulary/test-results/20260829T041357Z-p3171847`; Evidence passed 36/36
+  at `.cartulary/test-results/20260829T041442Z-p3189127` and service-backed
+  25/25 at `.cartulary/test-results/20260829T041603Z-p3239147`; Imports passed
+  23/23 at `.cartulary/test-results/20260829T041717Z-p3287898`; Timeline passed
+  53/53 at `.cartulary/test-results/20260829T041833Z-p3331927`; Workbook passed
+  68/68 at `.cartulary/test-results/20260829T042413Z-p3406369`; Recovery passed
+  24/24 at `.cartulary/test-results/20260829T042655Z-p3461310`; and
+  `build-server` passed at `20260829T042311Z-p3389401`. Boundary 3/3,
+  generation drift 4/4, JSON shape 3/3, harness contract 2/2, and generated
+  artifact policy 3/3 passed at `20260829T041121Z-p3131277`,
+  `20260829T042331Z-p3401934`, `20260829T042342Z-p3404870`,
+  `20260829T042350Z-p3405379`, and `20260829T042407Z-p3405911`. Transitional
+  runs `20260829T040716Z-p3075020`, `20260829T040835Z-p3105515`,
+  `20260829T041052Z-p3130703`, and `20260829T041131Z-p3131671` exposed only
+  related incomplete-cutover references or allowlists; each was fixed before
+  its clean rerun.
+
+### S22 — Provider and dead-surface cleanup
+
+- **Areas:** Evidence root/provider topology, Reporting and reporting assembly,
+  Recovery/operator/tool composition, Revisions, Incident Bundles, `blobref`,
+  boundary policy, tests, and tracker.
+- **Reporting contributions:** Add
+  `NewReportingFieldContribution() exportprovider.FieldProvider` and
+  `NewReportingLogicalTargetContribution()` returning a new narrow
+  `exportprovider.LogicalSupportTargetProvider`. Change
+  `reportingassembly.NewLinksProvider` to validate, sort, and merge providers
+  while failing closed for nil, typed-nil, empty-key, duplicate-key, and
+  conflicting-target inputs; Reporting and reporting assembly no longer
+  import an Evidence provider package directly.
+- **Recovery and revision contributions:** Add
+  `NewRecoveryProvider(postgres.DB) recovery.EvidenceRecoveryProvider`. Keep the
+  existing root revision contribution. Move delete/restore, rollback,
+  projection, reporting, and recovery concrete implementations below
+  `internal/providers` and update server, operator, tools, tests, and boundary
+  policy atomically.
+- **Deletions:** Remove the unused Reporting `CollectFieldsTx` wrapper. Make the
+  Incident Bundle export/import functions and concrete blob-port type private.
+  Unexport `blobref.MaxStorageKeyBytes` and live owner-local lifecycle
+  errors/reason constants. Delete any zero-reachability symbol proven dead in
+  S19; retain cross-owner errors such as blob visibility and object-store
+  translation only where a production consumer remains.
+- **Compatibility:** Reporting output, logical paths, provider keys, bundle
+  bytes, recovery order/counts, revision behavior, and construction failures
+  remain exact. No compatibility packages or deprecated wrappers remain.
+- **Exit:** G22 is closed; all surviving exports have a production role; direct
+  provider-package imports and retired names are absent; affected owner and
+  tool/build checks pass.
+- **Completed surface:** Root Evidence now constructs Reporting field and
+  logical-target contributions, Recovery's `EvidenceRecoveryProvider`, the
+  existing Revisions contribution, projection contribution, and the
+  source-owned Incident Bundle portability interface. Concrete Reporting,
+  Recovery, delete/restore, rollback, projection, and Incident Bundle
+  providers are private under `internal/providers`; only their root files may
+  import them. Reporting's narrow `exportprovider` package owns the logical
+  target interface. Reporting assembly accepts any number of providers, sorts
+  by stable key, merges deterministically, and rejects nil, typed-nil,
+  empty-key, duplicate-key, and conflicting-target contributions. Server,
+  operator, recovery tool, Reporting, Recovery tests, Revisions, and Incident
+  Bundles use only root Evidence constructors or consumer interfaces.
+- **Deleted/private surface:** Public `reportingprovider`, `recoveryprovider`,
+  `deleterestore`, and `rollbackprovider` packages are gone. The unused
+  Evidence Reporting `CollectFieldsTx`, exported Incident Bundle export/import
+  helpers, public bundle concrete type, `blobref.MaxStorageKeyBytes`, six
+  owner-local attachment reason constants, and four owner-local lifecycle
+  sentinels are removed or private. The permanent surface test also requires
+  the S21 `projectionprovider` and `workbookprojection` paths and all four S22
+  provider paths to be physically absent.
+- **Compatibility result:** Reporting still emits exactly the adopted twelve
+  Evidence members and no forbidden storage/private fields; provider key
+  `evidence`, logical `/evidence/<record-id>` targets, fallback behavior,
+  recovery inventory order/count, revision snapshot/rollback behavior,
+  Incident Bundle paths/bytes/staging/cleanup, HTTP behavior, SQL, data, and
+  transaction ordering are unchanged. No schema, migration, stored-data,
+  telemetry, owner specification, Domain, forwarding package, alias,
+  deprecated wrapper, or dual path was added.
+- **Exit evidence:** Evidence passed 36/36 at
+  `.cartulary/test-results/20260829T044445Z-p3534112`, service-backed Evidence
+  passed 25/25 at `.cartulary/test-results/20260829T045324Z-p3792687`, the final
+  provider/typed-nil row passed at `20260829T050704Z-p4076962`, and the final
+  absence row passed at `20260829T045930Z-p3962815`. Reporting passed 6/6 at
+  `20260829T044610Z-p3585244`, service-backed 4/4 at
+  `20260829T045239Z-p3775736`, and its final exact Evidence/provider subset
+  passed 3/3 at `20260829T050352Z-p4053376`. Recovery passed 24/24 at
+  `20260829T050043Z-p3988951` and service-backed 19/19 at
+  `20260829T045544Z-p3858648`; Revisions passed 27/27 at
+  `20260829T044953Z-p3711969` and service-backed 20/20 at
+  `20260829T045716Z-p3912864`; Incident Bundles passed 8/8 at
+  `20260829T045124Z-p3757917` and service-backed 6/6 at
+  `20260829T045441Z-p3841494`. Server and operator builds passed at
+  `20260829T045954Z-p3963443` and `20260829T050012Z-p3976158`. Final format,
+  boundary, generation drift, generated policy, and JSON shape passed at
+  `20260829T050655Z-p4072837`, `20260829T050342Z-p4052947`,
+  `20260829T050205Z-p4043471`, `20260829T050219Z-p4046458`, and
+  `20260829T050225Z-p4046914`; the tracker Markdown gate passed at
+  `20260829T050943Z-p4079083`. Transitional Recovery run
+  `20260829T044658Z-p3602747` exposed a related test import shadow and the
+  first absence run `20260829T045904Z-p3961543` exposed retained empty S21
+  directories; both were corrected before clean reruns. The first format
+  graph classified an unsorted authored Reporting row as `artifact_error`;
+  the row was sorted before the clean final format run.
+
+### S23 — Cohesion and test-boundary cleanup
+
+- **Areas:** Evidence lifecycle/admission implementation layout, integration
+  suites, private fixtures, authored test routing, generated topology, exact
+  surface/boundary guards, and tracker.
+- **Production cohesion:** `blob_lifecycle.go` is now the 231-line dependency
+  and type core; slot/lease, attachment, quarantine, custody, persistence, and
+  projection-effect behavior live in cohesive files of 330 lines or fewer.
+  Common mutation admission values remain centralized while create, patch,
+  conflict, and failure behavior live in separate files. The lifecycle
+  revision dependency was tightened to the existing narrow append port so
+  owner tests do not construct a peer application.
+- **Test boundary:** Deleted `service_test_bridge_test.go` and its more than 30
+  aliases/helpers. Attachment, blob idempotency, handle-state, cleanup,
+  quarantine-service, validation, and direct-decoding white-box coverage now
+  uses package `evidence` with owner-neutral PostgreSQL fixtures and narrow
+  local capability adapters. Genuine root-contribution, HTTP, authorization,
+  projection, and composition coverage remains in package `evidence_test`.
+  The local test projection source is obtained through
+  `NewProjectionContribution`; no test imports the private provider.
+- **Suite cohesion:** Full-stack test bodies are separated into boundary,
+  projection/Collaboration, authorization, cleanup, and quarantine files.
+  Shared fixtures are explicitly named `lifecycle_test_support_test.go` and
+  contain no test body. The quarantine row gained the owner-private lifecycle
+  test while retaining the two full-stack scenarios; generated topology was
+  refreshed through `make generate`.
+- **Boundary and compatibility result:** The authored Records-envelope policy
+  now names the three split files that retain the pre-existing reads. The old
+  bridge, direct private-provider test import, stale integration filename, and
+  replacement aliases are absent. HTTP/OpenAPI, stored strings and JSON,
+  hashing, replay, transaction ordering, SQL/schema/data, projection and
+  Collaboration effects, lifecycle behavior, owner specifications, Domain,
+  telemetry, and frontend behavior are unchanged.
+- **Exit evidence:** Final formatting passed at
+  `.cartulary/test-results/20260829T055125Z-p287959`; Evidence passed 36/36 at
+  `.cartulary/test-results/20260829T055133Z-p292114`; service-backed Evidence
+  passed 25/25 at `.cartulary/test-results/20260829T054726Z-p220410`; and the
+  isolated quarantine row passed 3/3 at
+  `.cartulary/test-results/20260829T054523Z-p153975`. Boundary, harness,
+  generated drift, and JSON shape passed at
+  `.cartulary/test-results/20260829T055252Z-p341877`,
+  `.cartulary/test-results/20260829T055252Z-p341903`,
+  `.cartulary/test-results/20260829T055252Z-p341627`, and
+  `.cartulary/test-results/20260829T055252Z-p341657`. Generated-artifact policy
+  passed at `.cartulary/test-results/20260829T055327Z-p346081`, the
+  Evidence-specific harness contract exited zero, and `make test-fast` passed
+  441/441 at `.cartulary/test-results/20260829T055327Z-p346344`. The tracker
+  diff check passed and Markdown lint passed at
+  `.cartulary/test-results/20260829T055550Z-p357820`.
+- **Exit:** G23 is closed. No product or specification repair was required;
+  S24 may begin after this tracker passes its diff and Markdown gate.
+
+### S24 — Final validation and handoff
+
+- **Areas:** Final source and export inventory, provider and dependency
+  topology, behavior freeze, verification routing, generated state, security,
+  browser behavior, build/release evidence, tracker, and handoff.
+- **Final inventory:** Evidence contains 115 Go files: 82 production and 33
+  test files, totaling 9,033 production and 7,803 test lines. Six private
+  provider imports exist only in their matching Evidence root construction
+  files. The permanent surface row is
+  `module.evidence.surface.exported_surface_reachability`. The bridge and the
+  `workbookprojection`, public projection, Reporting, Recovery,
+  delete/restore, and rollback provider directories are physically absent.
+- **Owner evidence:** Evidence, server, Workbook, Projections, Reporting,
+  Recovery, Revisions, Incident Bundles, Records, Collaboration, Imports,
+  Timeline, object storage, and telemetry passed 36/36, 24/24, 68/68, 19/19,
+  6/6, 24/24, 27/27, 8/8, 8/8, 31/31, 23/23, 53/53, 6/6, and 2/2. The roots,
+  in that order, are `20260829T063618Z-p1675040`,
+  `20260829T055651Z-p360257`, `20260829T055651Z-p360246`,
+  `20260829T055941Z-p527800`, `20260829T063618Z-p1675045`,
+  `20260829T060025Z-p546088`, `20260829T060025Z-p546076`,
+  `20260829T060025Z-p546085`, `20260829T060221Z-p679286`,
+  `20260829T060221Z-p679290`, `20260829T060221Z-p679307`,
+  `20260829T060221Z-p679320`, `20260829T060703Z-p846517`, and
+  `20260829T060703Z-p846523` under `.cartulary/test-results/`.
+- **Service-backed evidence:** The same owners through object storage passed
+  25/25, 17/17, 39/39, 12/12, 4/4, 19/19, 20/20, 6/6, 5/5, 22/22,
+  14/14, and 5/5 at roots `20260829T060748Z-p864203`,
+  `20260829T060748Z-p864189`, `20260829T060748Z-p864199`,
+  `20260829T060748Z-p864194`, `20260829T061017Z-p1026133`,
+  `20260829T061017Z-p1026147`, `20260829T061017Z-p1026164`,
+  `20260829T061017Z-p1026170`, `20260829T061207Z-p1158178`,
+  `20260829T061207Z-p1158176`, `20260829T061207Z-p1158194`, and
+  `20260829T061810Z-p1367848`. Timeline reached 28/30 at
+  `20260829T061207Z-p1158182` solely because one pre-existing browser support
+  row received an infrastructure timeout; that row passed alone 11/11 at
+  `20260829T061714Z-p1326661`, and all later broad browser/release graphs
+  passed. Telemetry has no authored service-backed row.
+- **Architecture, security, and browser evidence:** Generation drift,
+  generated-artifact policy, JSON shape, migration drift, and backend
+  boundaries passed at `20260829T061907Z-p1385294`,
+  `20260829T061907Z-p1385374`, `20260829T061907Z-p1385331`,
+  `20260829T061907Z-p1385380`, and `20260829T061907Z-p1385714`. Harness,
+  targeted gosec, frontend unit, and frontend typecheck passed at
+  `20260829T061921Z-p1392815`, `20260829T061921Z-p1392940`,
+  `20260829T061921Z-p1392760`, and `20260829T061921Z-p1392742`;
+  `make harness-evidence-contract` also exited zero. Webserver-backed and
+  stateful browser graphs passed 60/60 and 34/34 at
+  `20260829T061948Z-p1425261` and `20260829T062557Z-p1481865`.
+- **Broad and retained evidence:** `make test-fast` passed 441/441 at
+  `20260829T062847Z-p1533416`; the corrected `make check` passed 671/671 at
+  `20260829T063734Z-p1741972`; retained-root `make agent-finalize` passed at
+  `20260829T064232Z-p1862244`; build passed 7/7 at
+  `20260829T064252Z-p1865301`; and release passed 837/837 at
+  `20260829T064312Z-p1899899`. The final tracker diff/Markdown gate passed at
+  `20260829T065852Z-p2117282`, and documentation-compatible retained-root
+  finalization passed at `20260829T065910Z-p2118309`.
+- **Compatibility and exit:** S24 added no product behavior. Public HTTP and
+  OpenAPI, authorization/concealment, durable mutation strings/hashes/JSON,
+  transaction ordering, SQL/schema/data, lifecycle, projection, Reporting's
+  exact twelve members, recovery, revision, bundle, telemetry, owner
+  specifications, and Domain remain unchanged. G19-G24 are closed; no retired
+  API/path has a caller, alias, forwarder, fallback, or dual implementation.
+
+## 28. Iteration 3 Validation Matrix
+
+| Layer | Command or scenario | Required point |
+| --- | --- | --- |
+| Document-only gate | `git diff --check -- docs/handoffs/evidence-module-refactor-tracker.md`; `make lint-markdown`; status review | S18 and every later tracker checkpoint. |
+| Owner guidance | `make task-guide ROLE=module-author OWNER=<owner-id>`; `make explain-test-owner OWNER=<owner-id>` | Before selecting verification for an affected owner. |
+| Formatting | `make format` | S19-S23 when authored Go or frontend source changes; never for S18. |
+| Evidence owner | `make test-slice OWNER=module.evidence`; `make service-backed-test-slice OWNER=module.evidence` | S19-S24. |
+| Mutation boundary | Malformed/unknown/limited and zero-value admissions; request-hash parity; stored JSON/operation parity; replay/conflict; 201/200 mapping; attachment rollback; lifecycle and transaction ordering | S19 characterization, S20 cutover, and S24. |
+| Mutation consumers | Unit and service-backed slices for Workbook, server, Records, Revisions, Collaboration, Imports, Timeline, and Projections as affected | S20-S24. |
+| Projection boundary | Descriptor/intent, canonical row, query, refresh, association effects, provider order, restore and incident rebuild; zero old import/path | S19, S21, and S24. |
+| Provider boundary | Reporting 12-member allowlist and forbidden-value absence; logical support paths/fallback; bundle byte/path parity; recovery inventory/order; revision closure | S19, S22, and S24. |
+| Export and absence | Exact AST allowlist; no retired symbol, direct provider import, aggregate projection port, test bridge, alias, forwarder, or deprecated wrapper | S19-S24. |
+| Boundaries and harness | `make backend-module-boundary-check`; `make harness-evidence-contract`; `make harness-contract` | Every topology/routing slice and S24. |
+| Generated state | `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check`; `make migration-drift` | Changed-input slices and S24. |
+| Frontend and browser | `make frontend-unit`; `make frontend-typecheck`; affected stateful and webserver-backed browser targets | S20 when adapter behavior changes and S24. |
+| Security | `make go-gosec-targeted`; upload-capability, concealment, authorization, and failure-precedence scenarios | S20 and S24. |
+| Final repository | `make agent-finalize`; `make test-fast`; `make check`; `make build`; `make release-check` | S24. |
+
+S24 MUST rerun the unit and available service-backed owner graphs for Evidence,
+server, Workbook, Projections, Reporting, Recovery, Revisions, Incident Bundles,
+Records, Collaboration, Imports, Timeline, object store, and telemetry when
+affected by the final dependency graph. `make agent-finalize` uses a retained
+successful `RESULTS_DIR` when a source-digest-compatible full check exists;
+otherwise the tracker records why retained-run maintenance was skipped.
+
+## 29. Iteration 3 Slice Checkpoint Ledger
+
+| Slice | Status | Intended or completed change | Required evidence | Blocker and next action |
+| --- | --- | --- | --- | --- |
+| S18 | DONE | This tracker only: Section 1 update and Sections 23-32 addition; no implementation, generated, contract, or other documentation change. | Tracker-only diff check passed; `make lint-markdown` passed at `20260829T021259Z-p2282284`; worktree review found only this tracker changed. | No blocker. S19 remains inactive pending later implementation authorization. |
+| S19 | DONE | Renamed the permanent surface row, regenerated topology, fixed the caller/disposition ledger, and revalidated current behavior. | Targeted rows passed; service-backed Evidence 25/25; full Evidence 35/35; boundary 3/3; generation drift 4/4; tracker diff and Markdown lint passed. | No blocker. The former object-store readiness diagnostic did not reproduce. |
+| S20 | DONE | Replaced mutable request/hash/HTTP mutation APIs with opaque admissions and semantic results; injected peer-owner mutation and lifecycle capabilities; moved exact HTTP and durable idempotency adaptation to application composition. | Evidence 36/36 and service-backed 25/25; Workbook 68/68; Projections 19/19; Revisions 27/27; Records 8/8; Collaboration 31/31; server build, boundary, drift, gosec, frontend, and browser checks passed. | No blocker. No specification, Domain, schema, migration, stored-data, telemetry, or external compatibility change. |
+| S21 | DONE | Split source contribution language from consumer mutation/effect ports; added root construction/private source provider; removed aggregate ports and obsolete packages; updated descriptor, manifest, boundaries, routing, topology, and all callers. | Evidence and Projections unit/service graphs; Workbook, Imports, Timeline, Recovery; server build; boundary, harness, generated/drift, JSON, and absence checks passed. | No blocker. No specification, Domain, schema, SQL, stored-data, or external behavior change. |
+| S22 | DONE | Added root Reporting/Recovery/provider construction, deterministic logical-target composition, private concrete providers, a source-owned bundle interface, typed-nil guards, and exact dead-package/symbol removal. | Evidence, Reporting, Recovery, Revisions, and Incident Bundle unit/service graphs; server/operator builds; format, surface, boundary, generation drift, generated policy, and JSON shape passed. | No blocker. Provider output, portability, recovery, revisions, HTTP, SQL, and data behavior remain exact. |
+| S23 | DONE | Split lifecycle/admission code and lifecycle integration coverage by responsibility; removed the alias bridge; moved private tests to owner-neutral white-box fixtures; refreshed routing and boundary policy. | Evidence 36/36, service-backed 25/25, boundary 3/3, harness 2/2, drift 4/4, JSON 3/3, generated policy 3/3, and fast checks 441/441 passed. | No blocker. G23 is closed with structural-only compatibility. |
+| S24 | DONE | Reconciled final source/export/provider inventory, every requested owner and service-backed graph, security/browser/drift evidence, retained full-check evidence, build, release, compatibility, and handoff. | Section 28 passed; `check` 671/671, build 7/7, and release 837/837 are retained with exact roots. | No blocker. Three discovered test/lint defects returned to S22/S23 and passed affected and broad reruns. Iteration 3 is complete. |
+
+## 30. Iteration 3 Session Handoff
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands and evidence | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-08-28T22:09:48-04:00 | Codex / Iteration 3 planning and S18 document update | S18 done; S19 ready but inactive | Inspected the completed tracker, Domain and NLSpec research posture, live Evidence exports/callers, mutation/lifecycle composition, projection/provider/reporting/recovery seams, verification routing, and current git state; touched only this tracker | Read-only inventory and caller searches; `make task-guide ROLE=module-author OWNER=module.evidence`; `make explain-test-owner OWNER=module.evidence`; Evidence baseline 34/35 at `20260829T014758Z-p2225607`; boundary 3/3 at `20260829T014857Z-p2272001`; tracker diff passed; Markdown lint passed at `20260829T021259Z-p2282284` | Iteration 3 is bounded to current surface accounting, semantic mutation dependencies, projection direction, source-owner provider construction, dead code, cohesion, and final evidence; S18 passed with no product/specification/data change or implementation | No stable blocker. One baseline service row reached an object-store readiness fixture error before product assertions. | Leave S19 inactive. A later authorized implementation session may activate S19 only, reconcile the baseline diagnostic, install characterization, and update this tracker before S20. |
+| 2026-08-28T23:00:50-04:00 | Codex / S19 characterization and surface lock | S19 done; S20 ready | Updated the steady-state surface test, authored Evidence row, generated topology index, and this tracker; inspected all direct provider imports and mutation/error consumers | Targeted characterization `20260829T025727Z-p2299703`; service-backed Evidence 25/25 `20260829T025738Z-p2300161`; full Evidence 35/35 `20260829T025853Z-p2349069`; boundary 3/3 `20260829T030003Z-p2398696`; generation drift 4/4 `20260829T030007Z-p2399491` | G19 closed with exhaustive AST accounting and grouped caller dispositions; no product behavior or normative owner changed | None. The prior object-store readiness failure did not reproduce. | Pass the tracker diff/Markdown gate, then activate S20 only. |
+| 2026-08-29T00:00:00-04:00 | Codex / S20 semantic mutation and lifecycle boundary | S20 done; S21 active | Replaced the Evidence mutation admission, commands/results, idempotency, composition, Workbook adapters, and affected tests; injected lifecycle incident/record/idempotency capabilities; updated the authored Evidence row, generated topology, surface lock, and this tracker | Evidence 36/36 `20260829T033828Z-p2602015`; service-backed Evidence 25/25 `20260829T033947Z-p2652666`; Workbook 68/68 `20260829T034101Z-p2701491`; Projections 19/19 `20260829T034317Z-p2756463`; Revisions 27/27 `20260829T034401Z-p2774220`; Records 8/8 `20260829T035011Z-p2939335`; Collaboration 31/31 `20260829T034659Z-p2841343`; boundary/drift/gosec/frontend/browser roots recorded in S20 exit evidence | G20 closed. External HTTP, durable hashes/JSON/operation strings, data, lifecycle, projection, revision, and publication behavior are unchanged; old internal mutation APIs and peer construction are absent | None. One related lexical boundary-policy failure was fixed and cleanly rerun. | Pass the tracker diff/Markdown gate, then execute S21 only. |
+| 2026-08-29T00:27:00-04:00 | Codex / S21 projection contract and port cutover | S21 done; S22 active | Added Evidence `projectioncontract`, `projectionports`, root contribution, and private projection source; removed `workbookprojection`, public `projectionprovider`, and aggregate ports; updated Projections/application/test composition, provider manifest, boundary policy, authored rows, generated topology, surface locks, and this tracker | Evidence/Projections unit and service-backed roots plus Workbook, Imports, Timeline, Recovery, server, boundary, harness, drift, JSON, and generated-policy roots are recorded in S21 exit evidence | G21 closed. Directional ownership is explicit, the old packages have zero references, and projection/data behavior is unchanged | None. Four related transitional compile/allowlist/policy failures were fixed before clean reruns. | Pass the tracker diff/Markdown gate, then execute S22 only. |
+| 2026-08-29T01:07:52-04:00 | Codex / S22 provider and dead-surface cleanup | S22 done; S23 active | Added root Reporting and Recovery constructors, Reporting logical-target composition and its authored row, private Reporting/Recovery/delete-restore/rollback/bundle providers, typed-nil guards, and bundle source interface; removed public providers, dead wrapper/helpers/constants/errors; updated server/operator/tool/tests/boundaries/topology/surface and this tracker | Evidence/Reporting/Recovery/Revisions/Incident Bundle unit and service roots, exact provider/absence rows, server/operator builds, format, boundary, drift, generated policy, and JSON roots are recorded in S22 exit evidence | G22 closed. Provider reach-through and dead surfaces are absent; Reporting, recovery, revisions, bundle, HTTP, SQL, and data compatibility remain exact | None. One related Recovery test import shadow, two retained empty package directories, and one authored-row ordering diagnostic were corrected before clean reruns. | Pass the tracker diff/Markdown gate, then execute S23 only. |
+| 2026-08-29T01:54:31-04:00 | Codex / S23 cohesion and test-boundary cleanup | S23 done; S24 active | Split lifecycle/admission production files and lifecycle integration bodies, renamed the shared support-only fixture file, removed the alias bridge, relocated owner-private tests, added narrow owner-local fixtures/adapters, updated the quarantine row, Records-envelope boundary paths, generated topology, and this tracker | Exact run roots are recorded in S23 exit evidence; final Evidence 36/36, service-backed 25/25, boundary, both harness contracts, generation drift, JSON shape, generated policy, and fast 441/441 checks passed | G23 closed. No alias bridge, private-provider test reach-through, duplicate implementation, route/data/specification change, or lost routed scenario remains | None. The initial import cycle, local SQL parameter mismatch, scheduler fixture-policy mismatch, and expired service-session diagnostic were corrected or owner-classified before clean reruns. | Pass the tracker diff/Markdown gate, then continue S24 validation only. |
+| 2026-08-29T02:58:32-04:00 | Codex / S24 final validation and handoff | Iteration 3 done | Reconciled the final 115-file Evidence inventory, root/private provider topology, permanent surface/routing, all requested owner and service-backed graphs, drift/security/frontend/browser/broad/release evidence, compatibility conclusions, diagnostics, checklist, and this tracker | Exact roots are recorded in S24 exit evidence; final check passed 671/671, retained-root finalization passed, build passed 7/7, and release passed 837/837 | G24 and G19-G24 closed. No Evidence-owned failure, stale generated output, retired path/caller, compatibility shim, specification/data change, or unclassified diagnostic remains | None. A stale S23 test caller expectation and six dead helpers plus two S22 lint strings were corrected and broadly revalidated; one unrelated Timeline browser timeout passed in isolation and in later broad browser/release graphs. | Pass the final tracker diff/Markdown gate; hand off the completed Iteration 3 baseline. |
+
+## 31. Iteration 3 Deferrals and Blockers
+
+| ID | Decision or blocker | Iteration 3 treatment | Status |
+| --- | --- | --- | --- |
+| I3-DEF-01 | Project-wide retirement of `objectstore.Store` affects owners outside Evidence. | Keep Evidence typed-only and leave the platform-wide migration to a separate platform-owned plan. | DEFERRED |
+| I3-DEF-02 | Prior DEF-02 deferred redesign of `workbookprojection`. | Completed as the internal S21 directional split supported by the adopted Projections boundary; no projection behavior or product language changed. | CLOSED S21 |
+| I3-DEF-03 | Prior DEF-03 deferred provider relocation without ownership evidence. | Completed where live caller evidence showed consumer reach-through or root-only construction; S21/S22 provide atomic root constructors and private implementations. | CLOSED S22 |
+| I3-DEF-04 | New routes, schemas, migrations, lifecycle values, upload tokens, telemetry vocabulary, Reporting fields, generated protocol, or Domain terms. | Excluded. Any such need blocks the affected slice and requires an adopted-owner amendment and new plan. | DEFERRED |
+| I3-DIAG-01 | The S18 baseline Evidence slice reached 34/35 because one Go service row reported object-store capability/readiness fixture failure. | S19 reran the complete service-backed graph successfully at `20260829T025738Z-p2300161` and the full Evidence graph at `20260829T025853Z-p2349069`; no fixture or product repair was warranted. | CLOSED S19, TRANSIENT NOT REPRODUCED |
+| I3-DIAG-02 | The first S23 Evidence graph failed 30/36 because same-package tests still imported downstream application composition, creating an Evidence import cycle. | Replaced downstream composition with owner-neutral database fixtures and narrow local capability adapters; the final graph passed 36/36 at `20260829T055133Z-p292114`. | CLOSED S23, TEST-BOUNDARY DEFECT |
+| I3-DIAG-03 | Transitional S23 graphs exposed a local revision-adapter SQL parameter used as both text and UUID, a transaction fixture hardwired into a template-clone row, and an expired reusable test-service descriptor. | Gave the UUID array its own typed SQL parameter, made the local store honor the authored fixture policy, and refreshed the zero-borrower test-service session. Product assertions then passed; the readiness-only run remains `.cartulary/test-results/20260829T054012Z-p88011`. | CLOSED S23, FIXTURE DEFECTS; INFRA SESSION REFRESHED |
+| I3-DIAG-04 | The first S24 Projections graph reached 18/19 because its caller matrix still expected the removed `EvidenceMutationRows()` use in the split lifecycle test. | Returned the stale expectation to S23, removed it after a repository-wide zero-caller scan, and passed Projections 19/19 plus harness 2/2 at `20260829T055941Z-p527800` and `20260829T055941Z-p527902`. | CLOSED S23 DURING S24, ROUTING ASSERTION |
+| I3-DIAG-05 | Timeline service-backed validation reached 28/30 because the pre-existing full keyboard/clipboard browser row exceeded its 60-second limit under the aggregate load. | The harness classified the row as infrastructure timeout. It passed alone 11/11 at `20260829T061714Z-p1326661`; later webserver-backed 60/60, stateful 34/34, check 671/671, and release 837/837 graphs passed. | CLOSED S24, TRANSIENT INFRA TIMEOUT |
+| I3-DIAG-06 | The first S24 `make check` reached 670/671 because staticcheck found two capitalized S22 Reporting error strings and six S23 helpers left unused after test relocation. | Returned the defects to S22/S23, normalized the internal strings, deleted the zero-caller helpers, passed affected Evidence/Reporting graphs, and passed the corrected check 671/671 at `20260829T063734Z-p1741972`. | CLOSED S22/S23 DURING S24, LINT CLEANUP |
+
+No adopted-owner contradiction or stable implementation blocker remains.
+Iteration 3 is complete.
+
+## 32. Iteration 3 Binary Completion Criteria
+
+- [x] Sections 2-12 remain the completed Iteration 1 record and Sections 13-22
+  remain the completed Iteration 2 record.
+- [x] Section 1 identifies Sections 23-32 and S18-S24 as the controlling
+  Iteration 3 plan.
+- [x] The baseline records commit `cee1a9b81adc`, the clean pre-edit worktree,
+  the 92/60/32 file inventory, later Evidence changes, and exact diagnostic
+  roots.
+- [x] Domain vocabulary is unchanged; NLSpec research is explicitly
+  non-authoritative; the user's request is distinguished from document
+  content.
+- [x] G19-G24 state remediation, benefit, compatibility risk, and binary
+  validation.
+- [x] The plan freezes public and persisted behavior and rejects internal
+  aliases, forwarders, dual paths, deprecated wrappers, and fallbacks.
+- [x] S18 changes only this tracker and passes its diff and Markdown gates.
+- [x] S19 installs current characterization and steady-state surface/routing
+  accounting and closes G19.
+- [x] S20 installs semantic admission/results and injected narrow mutation and
+  lifecycle capabilities and closes G20.
+- [x] S21 replaces `workbookprojection` with directional contracts/ports and
+  closes G21 without a forwarding package.
+- [x] S22 constructs providers at the Evidence root, removes consumer
+  reach-through and dead surface, and closes G22.
+- [x] S23 removes the test bridge and mixed-responsibility layout while
+  retaining one routed test for every frozen behavior and closes G23.
+- [x] S24 records passing narrow and broad evidence, reconciles the final
+  repository and tracker, and closes G24.
+- [x] Every removed identifier and package has zero callers and no compatibility
+  replacement; all retained exports have a deliberate production role.
+- [x] G19-G24 are closed, no required blocker remains, and the final source,
+  verification routing, generated outputs, evidence roots, deferrals, handoff,
+  and checklist agree.

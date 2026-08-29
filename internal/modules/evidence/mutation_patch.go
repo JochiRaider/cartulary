@@ -2,39 +2,43 @@ package evidence
 
 // Evidence patch and idempotent replay orchestration.
 import (
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 	"slices"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (MutationResult, error) {
-	request := command.Request
-	idempotencyKey := authn.RouteIdempotencyKey{
-		RouteKey:    command.RouteKey,
-		ActorUserID: command.Actor.ID,
+	if !command.Admission.valid() || command.ActorUserID == uuid.Nil || command.RecordID == uuid.Nil {
+		return MutationResult{}, &ValidationError{Field: "payload", ReasonCode: "invalid_value"}
+	}
+	request := command.Admission.requestValue()
+	requestHash := command.Admission.requestHash()
+	operation := command.operation
+	if operation == "" {
+		operation = OperationPatch
+	}
+	if operation != OperationPatch && operation != OperationConflictResolve {
+		return MutationResult{}, &ValidationError{Field: "payload", ReasonCode: "invalid_value"}
+	}
+	idempotencyKey := IdempotencyKey{
+		OperationID: operation,
+		ActorUserID: command.ActorUserID,
 		ScopeKey:    command.RecordID.String(),
 		ClientTxnID: request.ClientTxnID,
 	}
-	if existing, err := f.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
-		if !bytes.Equal(existing.RequestHash, command.RequestHash) {
-			return MutationResult{}, authn.ErrClientTxnConflict
+	if stored, found, err := f.replayStoredMutation(ctx, idempotencyKey, requestHash, StoredMutationPatch); err != nil {
+		return MutationResult{}, err
+	} else if found {
+		if stored.RecordID != command.RecordID {
+			return MutationResult{}, ErrStoredMutationKindMismatch
 		}
-		payload, err := decodeStoredPayload(existing.ResponseJSON)
-		if err != nil {
-			return MutationResult{}, fmt.Errorf("decode replayed evidence patch payload: %w", err)
-		}
-		return MutationResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: command.RecordID, ViewSchemaID: request.ViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
-	} else if !errors.Is(err, authn.ErrNotFound) {
-		return MutationResult{}, fmt.Errorf("query evidence patch idempotency: %w", err)
+		return mutationResultFromStored(stored, request.ClientTxnID), nil
 	}
 
 	tx, err := f.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -43,7 +47,7 @@ func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	meta, err := loadEvidenceRecordMetaForUpdateTx(ctx, tx, command.RecordID)
+	meta, err := f.loadEvidenceRecordMetaForUpdateTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return MutationResult{}, err
 	}
@@ -58,7 +62,7 @@ func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 		if meta.RowVersion < request.BaseRowVersion {
 			return MutationResult{}, &RowVersionConflictError{RecordID: command.RecordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: meta.RowVersion}
 		}
-		windowRows, err := f.revisionHistory.LoadRevisionWindowTx(ctx, tx, command.RecordID, request.BaseRowVersion, meta.RowVersion)
+		windowRows, err := f.revisions.LoadRevisionWindowTx(ctx, tx, command.RecordID, request.BaseRowVersion, meta.RowVersion)
 		if err != nil {
 			return MutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
@@ -76,12 +80,12 @@ func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 				return MutationResult{}, err
 			}
 			conflictPayload, err := buildEvidenceSameFieldConflict(evidenceSameFieldConflictParams{
-				RouteKey:          command.ConflictRouteKey,
+				RouteKey:          string(OperationConflictResolve),
 				RecordID:          command.RecordID,
 				ViewSchemaID:      request.ViewSchemaID,
 				BaseRowVersion:    request.BaseRowVersion,
 				CurrentRowVersion: meta.RowVersion,
-				RequestHash:       command.RequestHash,
+				RequestHash:       requestHash,
 				Window:            window,
 				Change:            change,
 				Changed:           changed,
@@ -100,7 +104,7 @@ func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	if err != nil {
 		return MutationResult{}, err
 	}
-	beforeSnapshot, err := f.revisionAppender.CaptureRecordSnapshotTx(ctx, tx, command.RecordID)
+	beforeSnapshot, err := f.revisions.CaptureRecordSnapshotTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return MutationResult{}, err
 	}
@@ -117,7 +121,7 @@ func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	if !changed {
 		return MutationResult{}, &ValidationError{Field: "changes", ReasonCode: "no_effective_change"}
 	}
-	rowVersion, err := f.recordStore.AdvanceVersionTx(ctx, tx, command.RecordID, command.Actor.ID, command.Now.UTC())
+	rowVersion, err := f.recordEnvelopes.AdvanceVersionTx(ctx, tx, command.RecordID, command.ActorUserID, command.Now.UTC())
 	if err != nil {
 		return MutationResult{}, err
 	}
@@ -131,14 +135,14 @@ func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	if err != nil {
 		return MutationResult{}, err
 	}
-	afterSnapshot, err := f.revisionAppender.CaptureRecordSnapshotTx(ctx, tx, command.RecordID)
+	afterSnapshot, err := f.revisions.CaptureRecordSnapshotTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return MutationResult{}, err
 	}
-	changeSetID, err := f.revisionAppender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
+	changeSetID, err := f.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  meta.IncidentID,
-		ActorUserID: command.Actor.ID,
-		Source:      command.RouteKey,
+		ActorUserID: command.ActorUserID,
+		Source:      string(operation),
 		ClientTxnID: &request.ClientTxnID,
 		RequestID:   &command.RequestID,
 		CreatedAt:   command.Now.UTC(),
@@ -151,7 +155,7 @@ func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 		beforeVersionID = workbookVersionID(command.RecordID, effectiveBeforeVersion)
 	}
 	afterVersionID := workbookVersionID(command.RecordID, rowVersion)
-	if err := f.revisionAppender.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
+	if err := f.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "record",
@@ -165,7 +169,7 @@ func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 		return MutationResult{}, err
 	}
 	patchChangedFieldKeys := changedFieldKeys(beforeRow, afterRow)
-	if err := f.revisionAppender.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
+	if err := f.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
 		ChangeSetID:    changeSetID,
 		RecordID:       command.RecordID,
 		RowVersion:     rowVersion,
@@ -193,7 +197,7 @@ func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 		tx,
 		f.collaboration,
 		meta.IncidentID,
-		command.Actor.ID,
+		command.ActorUserID,
 		request.ClientTxnID,
 		changeSetID,
 		attachRecordChange{
@@ -208,22 +212,22 @@ func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	); err != nil {
 		return MutationResult{}, err
 	}
-	payload := buildMutationPayload(request.ViewSchemaID, changeSetID, afterRow)
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, command.RequestHash, http.StatusOK, payload); err != nil {
-		if authn.IsUniqueViolation(err) {
-			return MutationResult{}, authn.ErrClientTxnConflict
-		}
+	stored := NewStoredPatchResult(StoredMutationPayload{
+		ViewSchemaID: request.ViewSchemaID, IncidentID: meta.IncidentID,
+		RecordID: command.RecordID, RowVersion: rowVersion, ChangeSetID: uuidPointer(changeSetID), Row: afterRow,
+	})
+	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, requestHash, stored); err != nil {
 		return MutationResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return MutationResult{}, fmt.Errorf("commit evidence patch transaction: %w", err)
 	}
 	return MutationResult{
-		Payload:          payload,
-		StatusCode:       http.StatusOK,
+		Row:              cloneStringAnyMap(afterRow),
+		Outcome:          MutationOutcomeUpdated,
 		IncidentID:       meta.IncidentID,
 		RecordID:         command.RecordID,
-		ChangeSetID:      changeSetID,
+		ChangeSetID:      uuidPointer(changeSetID),
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       rowVersion,
 		ViewSchemaID:     request.ViewSchemaID,

@@ -14,7 +14,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
@@ -107,7 +106,7 @@ INSERT INTO evidence (
 		t.Fatalf("unexpected Evidence recovery object-family posture: %#v", family)
 	}
 
-	provider := recoveryprovider.New(harness.Pool)
+	provider := evidence.NewRecoveryProvider(harness.Pool)
 	objects, err := provider.ListAvailableRecoveryObjects(ctx)
 	if err != nil {
 		t.Fatalf("list Evidence recovery objects: %v", err)

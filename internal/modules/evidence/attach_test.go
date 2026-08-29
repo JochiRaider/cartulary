@@ -1,9 +1,8 @@
-package evidence_test
+package evidence
 
 import (
 	"context"
 	"errors"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"net/http"
 	"strings"
 	"testing"
@@ -14,11 +13,8 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestAttachBlobValidation_Unit(t *testing.T) {
@@ -36,7 +32,7 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 			{name: "unknown member", body: `{"object_blob_id":"` + uuid.NewString() + `","base_row_version":1,"client_txn_id":"txn","extra":true}`},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
-				_, apiErr := evidence.DecodeAttachBlobRequest(strings.NewReader(tc.body))
+				_, apiErr := decodeAttachBlobRequest(strings.NewReader(tc.body))
 				if apiErr == nil || apiErr.Status != http.StatusBadRequest || apiErr.Code != "invalid_mutation_payload" {
 					t.Fatalf("expected invalid_mutation_payload, got %#v", apiErr)
 				}
@@ -44,153 +40,152 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 		}
 	})
 
-	harness := appsupport.StartStore(t, "evidence_lifecycle-attach-validation")
-	revisionComposition := revisionsupport.MustComposition(t)
-	store := newTestBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.RecordChanges)
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-attach@example.test", "EvidenceLifecycle Attach", "EvidenceLifecycleAttach1!", false, false, true)
-	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attach-incident", "IR-P5-ATTACH", "Evidence attach")
-	otherIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attach-other", "IR-P5-ATTACH-OTHER", "Evidence attach other")
+	harness := newTestStore(t, "evidence_lifecycle-attach-validation")
+	store := newTestBlobLifecycleService(t, harness)
+	actor := authstoretest.SeedLocalUserRecord(t, harness, "evidence_lifecycle-attach@example.test", "EvidenceLifecycle Attach", "EvidenceLifecycleAttach1!", false, false, true)
+	incident := createTestIncident(t, harness, actor, "txn-evidence_lifecycle-attach-incident", "IR-P5-ATTACH", "Evidence attach")
+	otherIncident := createTestIncident(t, harness, actor, "txn-evidence_lifecycle-attach-other", "IR-P5-ATTACH-OTHER", "Evidence attach other")
 
 	t.Run("success and replay are stable", func(t *testing.T) {
-		recordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received")
-		blobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{
+		recordID := seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "received")
+		blobID := seedBlob(t, harness, incident.ID, actor.ID, "available", BlobOptions{
 			ByteSize: 4, ObservedSize: ptrInt64(4), ObservedSHA: ptrString(strings.Repeat("a", 64)), ObservedContentType: ptrString("text/plain"),
 		})
-		request := evidence.AttachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-attach-success"}
-		result, err := store.AttachBlob(context.Background(), actor, recordID, request, evidence.AttachBlobRequestHash(request), nil, "req-success", time.Now().UTC())
+		request := attachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-attach-success"}
+		result, err := store.AttachBlob(context.Background(), actor, recordID, request, attachBlobRequestHash(request), nil, "req-success", time.Now().UTC())
 		if err != nil {
 			t.Fatalf("attach available blob: %v", err)
 		}
 		if result.StatusCode != http.StatusOK || result.Replayed {
 			t.Fatalf("unexpected attach result: %#v", result)
 		}
-		requireEvidenceState(t, harness.DB, recordID, "received", "available", blobID)
+		requireEvidenceState(t, harness, recordID, "received", "available", blobID)
 		changeSet := result.Payload["change_set_id"]
 
-		replay, err := store.AttachBlob(context.Background(), actor, recordID, request, evidence.AttachBlobRequestHash(request), nil, "req-replay", time.Now().UTC())
+		replay, err := store.AttachBlob(context.Background(), actor, recordID, request, attachBlobRequestHash(request), nil, "req-replay", time.Now().UTC())
 		if err != nil {
 			t.Fatalf("replay attach: %v", err)
 		}
 		if !replay.Replayed || replay.StatusCode != http.StatusOK || replay.Payload["change_set_id"] != changeSet {
 			t.Fatalf("replay did not return original payload: %#v want change_set_id %#v", replay, changeSet)
 		}
-		requireChangeSetCount(t, harness.DB, recordID, 1)
+		requireChangeSetCount(t, harness, recordID, 1)
 	})
 
 	t.Run("divergent replay is rejected without durable side effects", func(t *testing.T) {
-		recordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received")
-		blobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{
+		recordID := seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "received")
+		blobID := seedBlob(t, harness, incident.ID, actor.ID, "available", BlobOptions{
 			ByteSize: 4, ObservedSize: ptrInt64(4), ObservedSHA: ptrString(strings.Repeat("a", 64)), ObservedContentType: ptrString("text/plain"),
 		})
-		request := evidence.AttachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-attach-divergent"}
-		if _, err := store.AttachBlob(context.Background(), actor, recordID, request, evidence.AttachBlobRequestHash(request), nil, "req-divergent-first", time.Now().UTC()); err != nil {
+		request := attachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-attach-divergent"}
+		if _, err := store.AttachBlob(context.Background(), actor, recordID, request, attachBlobRequestHash(request), nil, "req-divergent-first", time.Now().UTC()); err != nil {
 			t.Fatalf("attach available blob: %v", err)
 		}
-		before := DurableAttachCounts(t, harness.DB, recordID)
+		before := DurableAttachCounts(t, harness, recordID)
 
-		otherBlobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{
+		otherBlobID := seedBlob(t, harness, incident.ID, actor.ID, "available", BlobOptions{
 			ByteSize: 4, ObservedSize: ptrInt64(4), ObservedSHA: ptrString(strings.Repeat("b", 64)), ObservedContentType: ptrString("text/plain"),
 		})
-		divergent := evidence.AttachBlobRequest{ObjectBlobID: otherBlobID, BaseRowVersion: 2, ClientTxnID: request.ClientTxnID}
-		if _, err := store.AttachBlob(context.Background(), actor, recordID, divergent, evidence.AttachBlobRequestHash(divergent), nil, "req-divergent-second", time.Now().UTC()); !errors.Is(err, authn.ErrClientTxnConflict) {
-			t.Fatalf("divergent replay got %v want authn.ErrClientTxnConflict", err)
+		divergent := attachBlobRequest{ObjectBlobID: otherBlobID, BaseRowVersion: 2, ClientTxnID: request.ClientTxnID}
+		if _, err := store.AttachBlob(context.Background(), actor, recordID, divergent, attachBlobRequestHash(divergent), nil, "req-divergent-second", time.Now().UTC()); !errors.Is(err, ErrClientTxnConflict) {
+			t.Fatalf("divergent replay got %v want ErrClientTxnConflict", err)
 		}
-		after := DurableAttachCounts(t, harness.DB, recordID)
+		after := DurableAttachCounts(t, harness, recordID)
 		if after != before {
 			t.Fatalf("divergent replay changed durable counts: before=%+v after=%+v", before, after)
 		}
-		requireEvidenceState(t, harness.DB, recordID, "received", "available", blobID)
+		requireEvidenceState(t, harness, recordID, "received", "available", blobID)
 	})
 
 	t.Run("conflict and lifecycle failures leave evidence unchanged", func(t *testing.T) {
-		recordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received")
-		blobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{ByteSize: 1, ObservedSize: ptrInt64(1)})
-		request := evidence.AttachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 2, ClientTxnID: "txn-row-conflict"}
-		if _, err := store.AttachBlob(context.Background(), actor, recordID, request, evidence.AttachBlobRequestHash(request), nil, "req-conflict", time.Now().UTC()); !errors.Is(err, evidence.ErrRowVersionConflict) {
+		recordID := seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "received")
+		blobID := seedBlob(t, harness, incident.ID, actor.ID, "available", BlobOptions{ByteSize: 1, ObservedSize: ptrInt64(1)})
+		request := attachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 2, ClientTxnID: "txn-row-conflict"}
+		if _, err := store.AttachBlob(context.Background(), actor, recordID, request, attachBlobRequestHash(request), nil, "req-conflict", time.Now().UTC()); err == nil || err.Error() != "evidence: row version conflict" {
 			t.Fatalf("row-version conflict got %v", err)
 		}
-		requireEvidenceState(t, harness.DB, recordID, "received", "pending", uuid.Nil)
+		requireEvidenceState(t, harness, recordID, "received", "pending", uuid.Nil)
 
-		missing := evidence.AttachBlobRequest{ObjectBlobID: uuid.New(), BaseRowVersion: 1, ClientTxnID: "txn-missing"}
-		if _, err := store.AttachBlob(context.Background(), actor, recordID, missing, evidence.AttachBlobRequestHash(missing), nil, "req-missing", time.Now().UTC()); !errors.Is(err, evidence.ErrBlobNotFound) {
+		missing := attachBlobRequest{ObjectBlobID: uuid.New(), BaseRowVersion: 1, ClientTxnID: "txn-missing"}
+		if _, err := store.AttachBlob(context.Background(), actor, recordID, missing, attachBlobRequestHash(missing), nil, "req-missing", time.Now().UTC()); !errors.Is(err, ErrBlobNotFound) {
 			t.Fatalf("missing blob got %v", err)
 		}
-		requireEvidenceState(t, harness.DB, recordID, "received", "pending", uuid.Nil)
+		requireEvidenceState(t, harness, recordID, "received", "pending", uuid.Nil)
 
-		foreignBlob := seedBlob(t, harness.DB, otherIncident.ID, actor.ID, "available", BlobOptions{ByteSize: 1, ObservedSize: ptrInt64(1)})
-		foreign := evidence.AttachBlobRequest{ObjectBlobID: foreignBlob, BaseRowVersion: 1, ClientTxnID: "txn-foreign"}
-		if _, err := store.AttachBlob(context.Background(), actor, recordID, foreign, evidence.AttachBlobRequestHash(foreign), nil, "req-foreign", time.Now().UTC()); !errors.Is(err, evidence.ErrIncidentMismatch) {
+		foreignBlob := seedBlob(t, harness, otherIncident.ID, actor.ID, "available", BlobOptions{ByteSize: 1, ObservedSize: ptrInt64(1)})
+		foreign := attachBlobRequest{ObjectBlobID: foreignBlob, BaseRowVersion: 1, ClientTxnID: "txn-foreign"}
+		if _, err := store.AttachBlob(context.Background(), actor, recordID, foreign, attachBlobRequestHash(foreign), nil, "req-foreign", time.Now().UTC()); !errors.Is(err, ErrIncidentMismatch) {
 			t.Fatalf("incident mismatch got %v", err)
 		} else {
-			requireAttachRejectedReason(t, err, evidence.AttachReasonBlobNotVisible)
+			requireAttachRejectedReason(t, err, AttachReasonBlobNotVisible)
 		}
-		requireEvidenceState(t, harness.DB, recordID, "received", "pending", uuid.Nil)
+		requireEvidenceState(t, harness, recordID, "received", "pending", uuid.Nil)
 
 		for _, state := range []string{"failed", "quarantined"} {
-			blockedBlob := seedBlob(t, harness.DB, incident.ID, actor.ID, state, BlobOptions{ByteSize: 1})
-			blocked := evidence.AttachBlobRequest{ObjectBlobID: blockedBlob, BaseRowVersion: 1, ClientTxnID: "txn-" + state}
-			if _, err := store.AttachBlob(context.Background(), actor, recordID, blocked, evidence.AttachBlobRequestHash(blocked), nil, "req-"+state, time.Now().UTC()); !errors.Is(err, evidence.ErrBlobNotAttachable) {
+			blockedBlob := seedBlob(t, harness, incident.ID, actor.ID, state, BlobOptions{ByteSize: 1})
+			blocked := attachBlobRequest{ObjectBlobID: blockedBlob, BaseRowVersion: 1, ClientTxnID: "txn-" + state}
+			if _, err := store.AttachBlob(context.Background(), actor, recordID, blocked, attachBlobRequestHash(blocked), nil, "req-"+state, time.Now().UTC()); err == nil {
 				t.Fatalf("%s blob got %v", state, err)
 			} else {
-				wantReason := evidence.AttachReasonBlobFailed
+				wantReason := "blob_failed"
 				if state == "quarantined" {
-					wantReason = evidence.AttachReasonBlobQuarantined
+					wantReason = "blob_quarantined"
 				}
 				requireAttachRejectedReason(t, err, wantReason)
 			}
-			requireEvidenceState(t, harness.DB, recordID, "received", "pending", uuid.Nil)
+			requireEvidenceState(t, harness, recordID, "received", "pending", uuid.Nil)
 		}
 	})
 
 	t.Run("terminal finalization failures persist on blob only", func(t *testing.T) {
-		recordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received")
-		expiredBlob := seedBlob(t, harness.DB, incident.ID, actor.ID, "pending", BlobOptions{ByteSize: 1, PendingExpiresAt: time.Now().UTC().Add(-time.Minute)})
-		expired := evidence.AttachBlobRequest{ObjectBlobID: expiredBlob, BaseRowVersion: 1, ClientTxnID: "txn-expired"}
-		if _, err := store.AttachBlob(context.Background(), actor, recordID, expired, evidence.AttachBlobRequestHash(expired), nil, "req-expired", time.Now().UTC()); !errors.Is(err, evidence.ErrBlobNotAttachable) {
+		recordID := seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "received")
+		expiredBlob := seedBlob(t, harness, incident.ID, actor.ID, "pending", BlobOptions{ByteSize: 1, PendingExpiresAt: time.Now().UTC().Add(-time.Minute)})
+		expired := attachBlobRequest{ObjectBlobID: expiredBlob, BaseRowVersion: 1, ClientTxnID: "txn-expired"}
+		if _, err := store.AttachBlob(context.Background(), actor, recordID, expired, attachBlobRequestHash(expired), nil, "req-expired", time.Now().UTC()); err == nil {
 			t.Fatalf("expired blob got %v", err)
 		} else {
-			requireAttachRejectedReason(t, err, evidence.AttachReasonBlobFailed)
+			requireAttachRejectedReason(t, err, "blob_failed")
 		}
-		requireBlobFailure(t, harness.DB, expiredBlob, "pending_timeout", 0)
+		requireBlobFailure(t, harness, expiredBlob, "pending_timeout", 0)
 
-		sizeBlob := seedBlob(t, harness.DB, incident.ID, actor.ID, "pending", BlobOptions{ByteSize: 5})
-		sizeMismatch := evidence.AttachBlobRequest{ObjectBlobID: sizeBlob, BaseRowVersion: 1, ClientTxnID: "txn-size"}
-		if _, err := store.AttachBlob(context.Background(), actor, recordID, sizeMismatch, evidence.AttachBlobRequestHash(sizeMismatch), &evidence.ObservedObject{Size: 4, ContentType: "text/plain", SHA256Hex: "size"}, "req-size", time.Now().UTC()); !errors.Is(err, evidence.ErrBlobNotAttachable) {
+		sizeBlob := seedBlob(t, harness, incident.ID, actor.ID, "pending", BlobOptions{ByteSize: 5})
+		sizeMismatch := attachBlobRequest{ObjectBlobID: sizeBlob, BaseRowVersion: 1, ClientTxnID: "txn-size"}
+		if _, err := store.AttachBlob(context.Background(), actor, recordID, sizeMismatch, attachBlobRequestHash(sizeMismatch), &observedObject{Size: 4, ContentType: "text/plain", SHA256Hex: "size"}, "req-size", time.Now().UTC()); err == nil {
 			t.Fatalf("size mismatch got %v", err)
 		} else {
-			requireAttachRejectedReason(t, err, evidence.AttachReasonAcceptedContractMismatch)
+			requireAttachRejectedReason(t, err, "accepted_contract_mismatch")
 		}
-		requireBlobFailure(t, harness.DB, sizeBlob, "declared_size_mismatch", 0)
+		requireBlobFailure(t, harness, sizeBlob, "declared_size_mismatch", 0)
 
-		hashBlob := seedBlob(t, harness.DB, incident.ID, actor.ID, "pending", BlobOptions{ByteSize: 4, ExpectedSHA: ptrString(strings.Repeat("e", 64))})
-		hashMismatch := evidence.AttachBlobRequest{ObjectBlobID: hashBlob, BaseRowVersion: 1, ClientTxnID: "txn-hash"}
-		if _, err := store.AttachBlob(context.Background(), actor, recordID, hashMismatch, evidence.AttachBlobRequestHash(hashMismatch), &evidence.ObservedObject{Size: 4, ContentType: "text/plain", SHA256Hex: strings.Repeat("a", 64)}, "req-hash", time.Now().UTC()); !errors.Is(err, evidence.ErrBlobNotAttachable) {
+		hashBlob := seedBlob(t, harness, incident.ID, actor.ID, "pending", BlobOptions{ByteSize: 4, ExpectedSHA: ptrString(strings.Repeat("e", 64))})
+		hashMismatch := attachBlobRequest{ObjectBlobID: hashBlob, BaseRowVersion: 1, ClientTxnID: "txn-hash"}
+		if _, err := store.AttachBlob(context.Background(), actor, recordID, hashMismatch, attachBlobRequestHash(hashMismatch), &observedObject{Size: 4, ContentType: "text/plain", SHA256Hex: strings.Repeat("a", 64)}, "req-hash", time.Now().UTC()); err == nil {
 			t.Fatalf("hash mismatch got %v", err)
 		} else {
-			requireAttachRejectedReason(t, err, evidence.AttachReasonAcceptedContractMismatch)
+			requireAttachRejectedReason(t, err, "accepted_contract_mismatch")
 		}
-		requireBlobFailure(t, harness.DB, hashBlob, "expected_sha256_mismatch", 0)
-		requireEvidenceState(t, harness.DB, recordID, "received", "pending", uuid.Nil)
+		requireBlobFailure(t, harness, hashBlob, "expected_sha256_mismatch", 0)
+		requireEvidenceState(t, harness, recordID, "received", "pending", uuid.Nil)
 	})
 
 	t.Run("non-terminal finalization retry budget fails on fourth attempt", func(t *testing.T) {
-		recordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received")
-		blobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "pending", BlobOptions{ByteSize: 1})
+		recordID := seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "received")
+		blobID := seedBlob(t, harness, incident.ID, actor.ID, "pending", BlobOptions{ByteSize: 1})
 		for attempt := 1; attempt <= 4; attempt++ {
-			request := evidence.AttachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-retry"}
-			if _, err := store.AttachBlob(context.Background(), actor, recordID, request, evidence.AttachBlobRequestHash(request), nil, "req-retry", time.Now().UTC()); !errors.Is(err, evidence.ErrBlobNotAttachable) {
+			request := attachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-retry"}
+			if _, err := store.AttachBlob(context.Background(), actor, recordID, request, attachBlobRequestHash(request), nil, "req-retry", time.Now().UTC()); err == nil {
 				t.Fatalf("attempt %d got %v", attempt, err)
 			} else if attempt < 4 {
-				requireAttachRejectedReason(t, err, evidence.AttachReasonBlobPending)
+				requireAttachRejectedReason(t, err, "blob_pending")
 			} else {
-				requireAttachRejectedReason(t, err, evidence.AttachReasonBlobFailed)
+				requireAttachRejectedReason(t, err, "blob_failed")
 			}
 			if attempt < 4 {
-				requirePendingAttemptCount(t, harness.DB, blobID, attempt)
+				requirePendingAttemptCount(t, harness, blobID, attempt)
 			}
 		}
-		requireBlobFailure(t, harness.DB, blobID, "finalize_retry_exhausted", 4)
-		requireEvidenceState(t, harness.DB, recordID, "received", "pending", uuid.Nil)
+		requireBlobFailure(t, harness, blobID, "finalize_retry_exhausted", 4)
+		requireEvidenceState(t, harness, recordID, "received", "pending", uuid.Nil)
 	})
 }
 
@@ -333,7 +328,7 @@ SELECT upload_state, terminal_reason, finalize_attempt_count
 
 func requireAttachRejectedReason(t testing.TB, err error, want string) {
 	t.Helper()
-	var rejected evidence.AttachRejectedError
+	var rejected AttachRejectedError
 	if !errors.As(err, &rejected) {
 		t.Fatalf("attach error %v does not expose AttachRejectedError", err)
 	}
@@ -358,14 +353,13 @@ SELECT COUNT(*)
 }
 
 func TestBlobAssociation_RejectsReuseWithConcealment(t *testing.T) {
-	harness := appsupport.StartStore(t, "evidence-blob-association-contract")
-	revisionComposition := revisionsupport.MustComposition(t)
-	store := newTestBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.RecordChanges)
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence-association@example.test", "Evidence Association", "EvidenceAssociation1!", false, false, true)
-	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence-association-incident", "IR-EVIDENCE-ASSOCIATION", "Evidence association")
-	firstRecordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received")
-	secondRecordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received")
-	blobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{
+	harness := newTestStore(t, "evidence-blob-association-contract")
+	store := newTestBlobLifecycleService(t, harness)
+	actor := authstoretest.SeedLocalUserRecord(t, harness, "evidence-association@example.test", "Evidence Association", "EvidenceAssociation1!", false, false, true)
+	incident := createTestIncident(t, harness, actor, "txn-evidence-association-incident", "IR-EVIDENCE-ASSOCIATION", "Evidence association")
+	firstRecordID := seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "received")
+	secondRecordID := seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "received")
+	blobID := seedBlob(t, harness, incident.ID, actor.ID, "available", BlobOptions{
 		ByteSize:            4,
 		ObservedSize:        ptrInt64(4),
 		ObservedSHA:         ptrString(strings.Repeat("a", 64)),
@@ -373,23 +367,20 @@ func TestBlobAssociation_RejectsReuseWithConcealment(t *testing.T) {
 	})
 	now := time.Date(2026, time.July, 30, 18, 0, 0, 0, time.UTC)
 
-	firstRequest := evidence.AttachBlobRequest{
+	firstRequest := attachBlobRequest{
 		ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-association-first",
 	}
-	if _, err := store.AttachBlob(context.Background(), actor, firstRecordID, firstRequest, evidence.AttachBlobRequestHash(firstRequest), nil, "req-association-first", now); err != nil {
+	if _, err := store.AttachBlob(context.Background(), actor, firstRecordID, firstRequest, attachBlobRequestHash(firstRequest), nil, "req-association-first", now); err != nil {
 		t.Fatalf("attach shared blob to first record: %v", err)
 	}
-	secondRequest := evidence.AttachBlobRequest{
+	secondRequest := attachBlobRequest{
 		ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-association-second",
 	}
-	_, err := store.AttachBlob(context.Background(), actor, secondRecordID, secondRequest, evidence.AttachBlobRequestHash(secondRequest), nil, "req-association-second", now)
-	requireAttachRejectedReason(t, err, evidence.AttachReasonBlobNotVisible)
-	if !errors.Is(err, evidence.ErrBlobNotAttachable) {
-		t.Fatalf("second association error = %v, want concealed blob rejection", err)
-	}
+	_, err := store.AttachBlob(context.Background(), actor, secondRecordID, secondRequest, attachBlobRequestHash(secondRequest), nil, "req-association-second", now)
+	requireAttachRejectedReason(t, err, AttachReasonBlobNotVisible)
 
 	var associationCount int
-	if err := harness.DB.QueryRow(context.Background(), `
+	if err := harness.QueryRow(context.Background(), `
 SELECT count(*)
   FROM evidence
  WHERE object_blob_id = $1
@@ -399,7 +390,7 @@ SELECT count(*)
 	if associationCount != 1 {
 		t.Fatalf("association count = %d, want 1", associationCount)
 	}
-	requireChangeSetCount(t, harness.DB, secondRecordID, 0)
+	requireChangeSetCount(t, harness, secondRecordID, 0)
 }
 
 func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
@@ -410,16 +401,15 @@ func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
 		t.Fatalf("open concurrent association pool: %v", err)
 	}
 	t.Cleanup(pool.Close)
-	harness := &appsupport.StoreHarness{DB: pool}
-	revisionComposition := revisionsupport.MustComposition(t)
-	store := newTestBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.RecordChanges)
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence-association-race@example.test", "Evidence Association Race", "EvidenceAssociationRace1!", false, false, true)
-	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence-association-race-incident", "IR-EVIDENCE-ASSOCIATION-RACE", "Evidence association race")
+	var harness postgres.DB = pool
+	store := newTestBlobLifecycleService(t, harness)
+	actor := authstoretest.SeedLocalUserRecord(t, harness, "evidence-association-race@example.test", "Evidence Association Race", "EvidenceAssociationRace1!", false, false, true)
+	incident := createTestIncident(t, harness, actor, "txn-evidence-association-race-incident", "IR-EVIDENCE-ASSOCIATION-RACE", "Evidence association race")
 	recordIDs := []uuid.UUID{
-		seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received"),
-		seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received"),
+		seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "received"),
+		seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "received"),
 	}
-	blobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{
+	blobID := seedBlob(t, harness, incident.ID, actor.ID, "available", BlobOptions{
 		ByteSize:            4,
 		ObservedSize:        ptrInt64(4),
 		ObservedSHA:         ptrString(strings.Repeat("a", 64)),
@@ -430,12 +420,12 @@ func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
 	for index, recordID := range recordIDs {
 		go func(index int, recordID uuid.UUID) {
 			<-start
-			request := evidence.AttachBlobRequest{
+			request := attachBlobRequest{
 				ObjectBlobID:   blobID,
 				BaseRowVersion: 1,
 				ClientTxnID:    "txn-association-race-" + string(rune('1'+index)),
 			}
-			_, err := store.AttachBlob(context.Background(), actor, recordID, request, evidence.AttachBlobRequestHash(request), nil, "req-association-race", time.Now().UTC())
+			_, err := store.AttachBlob(context.Background(), actor, recordID, request, attachBlobRequestHash(request), nil, "req-association-race", time.Now().UTC())
 			results <- err
 		}(index, recordID)
 	}
@@ -449,8 +439,8 @@ func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
 			successes++
 			continue
 		}
-		var rejected evidence.AttachRejectedError
-		if errors.As(err, &rejected) && rejected.ReasonCode == evidence.AttachReasonBlobNotVisible {
+		var rejected AttachRejectedError
+		if errors.As(err, &rejected) && rejected.ReasonCode == AttachReasonBlobNotVisible {
 			rejections++
 			continue
 		}
@@ -460,7 +450,7 @@ func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
 		t.Fatalf("race results successes=%d rejections=%d, want 1 and 1", successes, rejections)
 	}
 	var associations int
-	if err := harness.DB.QueryRow(context.Background(), `SELECT count(*) FROM evidence WHERE object_blob_id = $1`, blobID).Scan(&associations); err != nil {
+	if err := harness.QueryRow(context.Background(), `SELECT count(*) FROM evidence WHERE object_blob_id = $1`, blobID).Scan(&associations); err != nil {
 		t.Fatalf("count race associations: %v", err)
 	}
 	if associations != 1 {

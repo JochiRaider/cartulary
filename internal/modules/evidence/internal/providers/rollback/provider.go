@@ -1,4 +1,4 @@
-package rollbackprovider
+package rollback
 
 import (
 	"context"
@@ -11,13 +11,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
-type Provider struct{}
+type provider struct{}
 
-var _ rollbackcontract.RowSourceProvider = Provider{}
+var _ rollbackcontract.RowSourceProvider = provider{}
 
-func NewProvider() Provider { return Provider{} }
+func NewProvider() rollbackcontract.RowSourceProvider { return provider{} }
 
-func (Provider) ValidateRollbackValue(value map[string]any) error {
+func (provider) ValidateRollbackValue(value map[string]any) error {
 	source, ok := sourceForRollbackValue(value)
 	if !ok {
 		return rollbackcontract.ErrTargetNotReversible
@@ -70,12 +70,12 @@ func (Provider) ValidateRollbackValue(value map[string]any) error {
 	return nil
 }
 
-func (Provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest) error {
+func (provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest) error {
 	source, ok := sourceForRollbackValue(request.RetainedValue)
 	if !ok {
 		return rollbackcontract.ErrTargetNotReversible
 	}
-	if err := (Provider{}).ValidateRollbackValue(request.RetainedValue); err != nil {
+	if err := (provider{}).ValidateRollbackValue(request.RetainedValue); err != nil {
 		return err
 	}
 	values := make([]any, 0, 24)

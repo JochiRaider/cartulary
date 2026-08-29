@@ -231,6 +231,35 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.reporting.unit.logical_support_target_provider_composition_62b6d3190a",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.links"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/reportingassembly",
+        "tests": [
+          "TestLogicalSupportTargetComposition",
+          "TestLogicalSupportTargetCompositionRejectsConflictsAndWrapsProviderFailures",
+          "TestLogicalSupportTargetCompositionRejectsInvalidProviders"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.reporting.unit.snapshot_reporting_open_api_uses_reusable_closed_0d1a4531ba",
       "owner_id": "module.reporting",
       "family_id": "module.reporting.unit",

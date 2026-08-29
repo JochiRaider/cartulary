@@ -8,25 +8,20 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type mutationFacade struct {
 	pool              postgres.DB
-	authStore         *authn.Store
-	incidentAccess    *admission.Checker
-	recordStore       *records.Store
-	projectionRows    evidenceprojection.Rows
-	supportEffects    evidenceprojection.SupportProjectionEffectsTx
-	revisionHistory   conflicttokens.RevisionWindowReader
-	revisionAppender  *revisions.Appender
+	idempotency       IdempotencyCapability
+	incidentAccess    IncidentStateCapability
+	recordEnvelopes   RecordEnvelopeCapability
+	projectionRows    evidenceprojection.MutationRows
+	supportEffects    evidenceprojection.AssociationEffects
+	revisions         RevisionCapability
 	sourceMutations   *sourceMutationService
 	blobs             blobRepository
 	blobLifecycle     blobLifecycleRepository
@@ -39,54 +34,58 @@ type mutationFacade struct {
 	objects           objectstore.TypedStore
 }
 
-type CreateRequest struct {
+type createRequest struct {
 	ViewSchemaID        string
 	ClientTxnID         string
 	Values              map[string]FieldValue
 	InitialObjectBlobID *uuid.UUID
 }
 
-type PatchRequest struct {
+type patchRequest struct {
 	ViewSchemaID   string
 	BaseRowVersion int64
 	ClientTxnID    string
-	Changes        []PatchChange
+	Changes        []patchChange
 }
 
-type PatchChange struct {
+type patchChange struct {
 	FieldKey       string
 	Value          *FieldValue
 	CanonicalValue any
 }
 
 type CreateCommand struct {
-	Actor       authn.UserRecord
+	ActorUserID uuid.UUID
 	IncidentID  uuid.UUID
-	Request     CreateRequest
-	RequestHash []byte
+	Admission   CreateAdmission
 	RequestID   string
-	RouteKey    string
 	Now         time.Time
 }
 
 type PatchCommand struct {
-	Actor            authn.UserRecord
-	RecordID         uuid.UUID
-	Request          PatchRequest
-	RequestHash      []byte
-	RequestID        string
-	RouteKey         string
-	ConflictRouteKey string
-	Now              time.Time
+	ActorUserID uuid.UUID
+	RecordID    uuid.UUID
+	Admission   PatchAdmission
+	RequestID   string
+	Now         time.Time
+	operation   OperationID
 }
 
+type MutationOutcome string
+
+const (
+	MutationOutcomeCreated   MutationOutcome = "created"
+	MutationOutcomeUpdated   MutationOutcome = "updated"
+	MutationOutcomeKeptSaved MutationOutcome = "kept_saved"
+	MutationOutcomeReplayed  MutationOutcome = "replayed"
+)
+
 type MutationResult struct {
-	Payload          map[string]any
-	StatusCode       int
-	Replayed         bool
+	Row              map[string]any
+	Outcome          MutationOutcome
 	IncidentID       uuid.UUID
 	RecordID         uuid.UUID
-	ChangeSetID      uuid.UUID
+	ChangeSetID      *uuid.UUID
 	ClientTxnID      string
 	RowVersion       int64
 	ViewSchemaID     string
@@ -134,54 +133,37 @@ type SameFieldConflict struct {
 func newMutationFacade(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
-	appender *revisions.Appender,
-	intents collaboration.RecordChangedAppender,
 	sourceMutations *sourceMutationService,
 	objects objectstore.TypedStore,
-	conflictFields conflicttokens.FieldResolver,
-	keepSaved conflicttokens.IdempotencyPort,
-	projectionRows evidenceprojection.Rows,
-	supportEffects evidenceprojection.SupportProjectionEffectsTx,
+	dependencies MutationDependencies,
 ) (*mutationFacade, error) {
 	switch {
-	case pool == nil:
+	case isNilMutationCapability(pool):
 		return nil, fmt.Errorf("compose Evidence workbook facade: Postgres is required")
-	case appender == nil:
-		return nil, fmt.Errorf("compose Evidence workbook facade: Revisions is required")
-	case intents == nil:
-		return nil, fmt.Errorf("compose Evidence workbook facade: Collaboration is required")
 	case sourceMutations == nil:
 		return nil, fmt.Errorf("compose Evidence workbook facade: source mutations are required")
-	case objects == nil:
+	case isNilMutationCapability(objects):
 		return nil, fmt.Errorf("compose Evidence workbook facade: object store is required")
-	case conflictFields == nil:
-		return nil, fmt.Errorf("compose Evidence workbook facade: conflict fields are required")
-	case keepSaved == nil:
-		return nil, fmt.Errorf("compose Evidence workbook facade: conflict idempotency is required")
-	case projectionRows == nil:
-		return nil, fmt.Errorf("compose Evidence workbook facade: projection rows are required")
-	case supportEffects == nil:
-		return nil, fmt.Errorf("compose Evidence workbook facade: support projection effects are required")
 	}
-	recordStore := records.NewStore()
-	incidentAccess := admission.NewChecker(pool)
+	if err := dependencies.validate(); err != nil {
+		return nil, err
+	}
 	return &mutationFacade{
 		pool:              pool,
-		authStore:         authn.NewStore(pool),
-		incidentAccess:    incidentAccess,
-		recordStore:       recordStore,
-		projectionRows:    projectionRows,
-		supportEffects:    supportEffects,
-		revisionHistory:   conflicttokens.NewRevisionWindowReader(),
-		revisionAppender:  appender,
+		idempotency:       dependencies.Idempotency,
+		incidentAccess:    dependencies.IncidentState,
+		recordEnvelopes:   dependencies.RecordEnvelopes,
+		projectionRows:    dependencies.ProjectionRows,
+		supportEffects:    dependencies.AssociationEffects,
+		revisions:         dependencies.Revisions,
 		sourceMutations:   sourceMutations,
 		blobs:             blobRepository{db: pool},
 		blobLifecycle:     blobLifecycleRepository{db: pool},
 		conflictTokens:    conflictTokens,
-		conflictFields:    conflictFields,
+		conflictFields:    dependencies.ConflictFields,
 		conflictSnapshots: newEvidenceConflictSnapshotProjector(),
-		keepSaved:         keepSaved,
-		collaboration:     intents,
+		keepSaved:         dependencies.KeepSavedIdempotency,
+		collaboration:     dependencies.Collaboration,
 		objects:           objects,
 		mutations:         sourceMutations.mutations,
 	}, nil

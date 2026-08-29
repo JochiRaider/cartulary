@@ -4,7 +4,7 @@ import (
 	artifactcontract "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentcontract "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	entitycontract "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
-	evidencecontract "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	evidenceports "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	indicatorcontract "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	partycontract "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
@@ -123,11 +123,18 @@ func (runtime *Runtime) ArtifactPorts() artifactcontract.Ports {
 	return runtime.ports.Artifacts()
 }
 
-func (runtime *Runtime) EvidencePorts() evidencecontract.Ports {
+func (runtime *Runtime) EvidenceMutationRows() evidenceports.MutationRows {
 	if runtime == nil {
-		return evidencecontract.Ports{}
+		return nil
 	}
-	return runtime.ports.Evidence()
+	return runtime.ports.EvidenceMutationRows()
+}
+
+func (runtime *Runtime) EvidenceAssociationEffects() evidenceports.AssociationEffects {
+	if runtime == nil {
+		return nil
+	}
+	return runtime.ports.EvidenceAssociationEffects()
 }
 
 func (runtime *Runtime) PartyPorts() partycontract.Ports {

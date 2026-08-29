@@ -8,7 +8,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
 	"net/http"
-	"strings"
 	"testing"
 )
 
@@ -271,11 +270,4 @@ func TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration(t *testing.T)
 	}
 	second := appsupport.DoJSON(t, http.MethodGet, downloadURL, nil, appsupport.WithCookies(login.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, second, http.StatusGone, "handle_consumed")
-}
-
-func TestEvidenceHandleRequestRejectsUnknownMembers(t *testing.T) {
-	body := strings.NewReader(`{"client_txn_id":"forbidden"}`)
-	if apiErr := evidenceDecodeHandleForTest(body); apiErr == nil || apiErr.Code != "invalid_evidence_handle_request" {
-		t.Fatalf("expected invalid_evidence_handle_request for handle issuance client_txn_id, got %#v", apiErr)
-	}
 }

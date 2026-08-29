@@ -9,7 +9,7 @@ import (
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectioncontract"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
@@ -104,7 +104,7 @@ func TestNewReturnsReadyPortsAndImmutableDescriptorSet(t *testing.T) {
 		ports.Indicators().Rows == nil ||
 		ports.Assessments().Rows == nil ||
 		ports.Artifacts().Rows == nil || ports.Artifacts().Reader == nil ||
-		ports.Evidence().Rows == nil ||
+		ports.EvidenceMutationRows() == nil || ports.EvidenceAssociationEffects() == nil ||
 		ports.Parties().Rows == nil || ports.TaskDecisionMutationRows() == nil ||
 		ports.TaskDecisionReportingReader() == nil {
 		t.Fatalf("projection ports are incomplete: %#v", ports)

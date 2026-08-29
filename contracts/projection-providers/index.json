@@ -277,7 +277,7 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/evidence/workbookprojection"
+        "internal/modules/evidence/projectioncontract"
       ],
       "rebuild_after": [
         "artifact"

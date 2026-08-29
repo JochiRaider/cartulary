@@ -10,7 +10,7 @@ import (
 
 const (
 	StorageRefScheme      = "object://"
-	MaxStorageKeyBytes    = 1024
+	maxStorageKeyBytes    = 1024
 	storageKeyIncidentSeg = "incidents"
 	storageKeyBlobSeg     = "object-blobs"
 )
@@ -67,8 +67,8 @@ func validateStorageKeySyntax(key string) error {
 	if key == "" {
 		return fmt.Errorf("object blob storage key is required")
 	}
-	if len([]byte(key)) > MaxStorageKeyBytes {
-		return fmt.Errorf("object blob storage key exceeds %d bytes", MaxStorageKeyBytes)
+	if len([]byte(key)) > maxStorageKeyBytes {
+		return fmt.Errorf("object blob storage key exceeds %d bytes", maxStorageKeyBytes)
 	}
 	if strings.ContainsRune(key, '\x00') || strings.ContainsAny(key, "\r\n") {
 		return fmt.Errorf("object blob storage key contains invalid control characters")

@@ -16,9 +16,6 @@ func TestReportingProductionImportBoundaries(t *testing.T) {
 		reportingRepoImportPrefix + "internal/modules/entities/mentions/reportingprovider": {
 			"export_materializer.go": true,
 		},
-		reportingRepoImportPrefix + "internal/modules/evidence/reportingprovider": {
-			"export_materializer.go": true,
-		},
 		reportingRepoImportPrefix + "internal/modules/graphprojection": {
 			"store.go": true,
 		},
@@ -151,7 +148,7 @@ func TestReportingProviderPackagesExposeTypedFacts(t *testing.T) {
 		"../artifacts/internal/providers/reporting/provider.go",
 		"../entities/hostidentity/reportingprovider/provider.go",
 		"../entities/mentions/reportingprovider/provider.go",
-		"../evidence/reportingprovider/provider.go",
+		"../evidence/internal/providers/reporting/provider.go",
 		"../parties/internal/providers/reporting/provider.go",
 		"../records/reportingprovider/provider.go",
 		"../tasksdecisions/internal/providers/reporting/provider.go",
@@ -178,7 +175,6 @@ func TestReportingProviderPackagesExposeTypedFacts(t *testing.T) {
 		"recordreporting.CollectFieldsTx",
 		"hostidentityreporting.CollectFieldsTx",
 		"parties.CollectFieldsTx",
-		"evidencereporting.CollectFieldsTx",
 		"taskdecisionreporting.CollectFieldsTx",
 		"artifactreporting.CollectFieldsTx",
 		"entityreporting.CollectFieldsTx",

@@ -45,18 +45,19 @@ func mustCreatePartyFor(t testing.TB, pool postgres.DB, actor authn.UserRecord, 
 
 func mustCreateEvidenceFor(t testing.TB, pool postgres.DB, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
 	t.Helper()
-	request := evidence.CreateRequest{
-		ViewSchemaID: evidence.ViewSchemaID, ClientTxnID: clientTxnID,
-		Values: map[string]evidence.FieldValue{
-			"evidence.title": {Text: &title},
-		},
+	request, admissionFailure := evidence.AdmitCreateJSON(strings.NewReader(fmt.Sprintf(
+		`{"client_txn_id":%q,"evidence.title":%q}`,
+		clientTxnID,
+		title,
+	)))
+	if admissionFailure != nil {
+		t.Fatalf("admit evidence %s: %#v", clientTxnID, admissionFailure)
 	}
 	result, err := appsupport.NewEvidenceMutationOwner(pool, workbookTestConflictTokens()).Create(
 		context.Background(),
 		evidence.CreateCommand{
-			Actor: actor, IncidentID: incidentID, Request: request,
-			RequestHash: evidence.CreateRequestHash(request), RequestID: "req-" + clientTxnID,
-			RouteKey: "workbook.rows.create", Now: time.Date(2026, 5, 18, 12, 1, 0, 0, time.UTC),
+			ActorUserID: actor.ID, IncidentID: incidentID, Admission: request,
+			RequestID: "req-" + clientTxnID, Now: time.Date(2026, 5, 18, 12, 1, 0, 0, time.UTC),
 		},
 	)
 	if err != nil {

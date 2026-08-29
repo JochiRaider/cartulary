@@ -265,9 +265,9 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 			{name: "row version conflict", blobID: availableBlobID, base: 9, wantStatus: http.StatusConflict, wantCode: "row_version_conflict"},
 			{name: "missing blob", blobID: uuid.New(), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_attach_rejected", wantReason: evidence.AttachReasonBlobNotVisible},
 			{name: "foreign blob", blobID: insertRouteBlob(t, harness, otherIncidentID, adminID, "available"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_attach_rejected", wantReason: evidence.AttachReasonBlobNotVisible},
-			{name: "pending blob", blobID: insertRouteBlob(t, harness, incidentID, adminID, "pending"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_attach_rejected", wantReason: evidence.AttachReasonBlobPending},
-			{name: "failed blob", blobID: insertRouteBlob(t, harness, incidentID, adminID, "failed"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_attach_rejected", wantReason: evidence.AttachReasonBlobFailed},
-			{name: "quarantined blob", blobID: insertRouteBlob(t, harness, incidentID, adminID, "quarantined"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_attach_rejected", wantReason: evidence.AttachReasonBlobQuarantined},
+			{name: "pending blob", blobID: insertRouteBlob(t, harness, incidentID, adminID, "pending"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_attach_rejected", wantReason: "blob_pending"},
+			{name: "failed blob", blobID: insertRouteBlob(t, harness, incidentID, adminID, "failed"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_attach_rejected", wantReason: "blob_failed"},
+			{name: "quarantined blob", blobID: insertRouteBlob(t, harness, incidentID, adminID, "quarantined"), base: 1, wantStatus: http.StatusConflict, wantCode: "evidence_attach_rejected", wantReason: "blob_quarantined"},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {

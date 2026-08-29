@@ -2,40 +2,29 @@ package evidence
 
 // Evidence create orchestration.
 import (
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 func (f *mutationFacade) Create(ctx context.Context, command CreateCommand) (MutationResult, error) {
-	request := command.Request
-	idempotencyKey := authn.RouteIdempotencyKey{
-		RouteKey:    command.RouteKey,
-		ActorUserID: command.Actor.ID,
+	if !command.Admission.valid() || command.ActorUserID == uuid.Nil || command.IncidentID == uuid.Nil {
+		return MutationResult{}, &ValidationError{Field: "payload", ReasonCode: "invalid_value"}
+	}
+	request := command.Admission.requestValue()
+	requestHash := command.Admission.requestHash()
+	idempotencyKey := IdempotencyKey{
+		OperationID: OperationCreate,
+		ActorUserID: command.ActorUserID,
 		ScopeKey:    command.IncidentID.String() + ":" + request.ViewSchemaID,
 		ClientTxnID: request.ClientTxnID,
 	}
-	if existing, err := f.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
-		if !bytes.Equal(existing.RequestHash, command.RequestHash) {
-			return MutationResult{}, authn.ErrClientTxnConflict
-		}
-		payload, err := decodeStoredPayload(existing.ResponseJSON)
-		if err != nil {
-			return MutationResult{}, fmt.Errorf("decode replayed evidence create payload: %w", err)
-		}
-		recordID, err := extractPayloadUUID(payload, "row", "record_id")
-		if err != nil {
-			return MutationResult{}, err
-		}
-		return MutationResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, IncidentID: command.IncidentID, RecordID: recordID, ViewSchemaID: request.ViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
-	} else if !errors.Is(err, authn.ErrNotFound) {
-		return MutationResult{}, fmt.Errorf("query evidence create idempotency: %w", err)
+	if stored, found, err := f.replayStoredMutation(ctx, idempotencyKey, requestHash, StoredMutationCreate); err != nil {
+		return MutationResult{}, err
+	} else if found {
+		return mutationResultFromStored(stored, request.ClientTxnID), nil
 	}
 	createParams := createParams{
 		Values:                 request.Values,
@@ -87,39 +76,60 @@ func (f *mutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 	}
 	result, err := f.mutations.createTx(ctx, tx, evidenceCreateTxCommand{
 		IncidentID:    command.IncidentID,
-		ActorUserID:   command.Actor.ID,
+		ActorUserID:   command.ActorUserID,
 		ViewSchemaID:  request.ViewSchemaID,
 		ClientTxnID:   request.ClientTxnID,
 		RequestID:     command.RequestID,
-		Source:        command.RouteKey,
+		Source:        string(OperationCreate),
 		MutationOrder: 1,
 		Values:        request.Values,
 		Now:           command.Now,
 	}, createParams)
 	if err != nil {
 		if request.InitialObjectBlobID != nil && isEvidenceBlobUniqueViolation(err) {
-			return MutationResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotAttachable}
+			return MutationResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: errBlobNotAttachable}
 		}
 		return MutationResult{}, err
 	}
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, command.RequestHash, http.StatusCreated, result.payload); err != nil {
-		if authn.IsUniqueViolation(err) {
-			return MutationResult{}, authn.ErrClientTxnConflict
-		}
+	stored := NewStoredCreateResult(StoredMutationPayload{
+		ViewSchemaID: request.ViewSchemaID, IncidentID: command.IncidentID,
+		RecordID: result.recordID, RowVersion: 1, ChangeSetID: uuidPointer(result.changeSetID), Row: result.row,
+	})
+	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, requestHash, stored); err != nil {
 		return MutationResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return MutationResult{}, fmt.Errorf("commit evidence create transaction: %w", err)
 	}
 	return MutationResult{
-		Payload:          result.payload,
-		StatusCode:       http.StatusCreated,
+		Row:              cloneStringAnyMap(result.row),
+		Outcome:          MutationOutcomeCreated,
 		IncidentID:       command.IncidentID,
 		RecordID:         result.recordID,
-		ChangeSetID:      result.changeSetID,
+		ChangeSetID:      uuidPointer(result.changeSetID),
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       1,
 		ViewSchemaID:     request.ViewSchemaID,
 		ChangedFieldKeys: result.changedFieldKeys,
 	}, nil
+}
+
+func mutationResultFromStored(stored StoredMutationPayload, clientTxnID string) MutationResult {
+	return MutationResult{
+		Row: cloneStringAnyMap(stored.Row), Outcome: MutationOutcomeReplayed,
+		IncidentID: stored.IncidentID, RecordID: stored.RecordID, ChangeSetID: cloneUUIDPointer(stored.ChangeSetID),
+		ClientTxnID: clientTxnID, RowVersion: stored.RowVersion, ViewSchemaID: stored.ViewSchemaID,
+	}
+}
+
+func uuidPointer(value uuid.UUID) *uuid.UUID {
+	result := value
+	return &result
+}
+
+func cloneUUIDPointer(value *uuid.UUID) *uuid.UUID {
+	if value == nil {
+		return nil
+	}
+	return uuidPointer(*value)
 }

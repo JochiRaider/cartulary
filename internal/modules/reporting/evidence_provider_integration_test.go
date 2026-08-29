@@ -13,7 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/reportingassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	evidencereporting "github.com/JochiRaider/cartulary/internal/modules/evidence/reportingprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -102,7 +102,10 @@ INSERT INTO record_tags (
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	linksProvider := reportingassembly.NewLinksProvider()
+	linksProvider, err := reportingassembly.NewLinksProvider(evidence.NewReportingLogicalTargetContribution())
+	if err != nil {
+		t.Fatalf("compose Reporting logical targets: %v", err)
+	}
 	supportRefs, err := linksProvider.CollectSupportRefsTx(ctx, tx, incidentID)
 	if err != nil {
 		t.Fatalf("collect adapted Reporting support refs: %v", err)
@@ -165,11 +168,12 @@ INSERT INTO record_tags (
 			t.Fatalf("field-aware Links Reporting value = %#v", value)
 		}
 	}
-	first, err := evidencereporting.CollectFactsTx(ctx, tx, incidentID, supportRefs)
+	evidenceProvider := evidence.NewReportingFieldContribution()
+	first, err := evidenceProvider.CollectFactsTx(ctx, tx, incidentID, supportRefs)
 	if err != nil {
 		t.Fatalf("collect Evidence Reporting facts: %v", err)
 	}
-	second, err := evidencereporting.CollectFactsTx(ctx, tx, incidentID, supportRefs)
+	second, err := evidenceProvider.CollectFactsTx(ctx, tx, incidentID, supportRefs)
 	if err != nil {
 		t.Fatalf("collect Evidence Reporting facts again: %v", err)
 	}

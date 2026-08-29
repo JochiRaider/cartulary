@@ -8,7 +8,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	entityprovider "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/projectionprovider"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
-	evidenceprovider "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	indicatorowner "github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
@@ -49,7 +49,7 @@ func Build(db postgres.DB) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("assemble Artifacts projection contribution: %w", err)
 	}
-	evidenceContribution, err := evidenceprovider.NewContribution()
+	evidenceContribution, err := evidence.NewProjectionContribution()
 	if err != nil {
 		return nil, fmt.Errorf("assemble Evidence projection contribution: %w", err)
 	}

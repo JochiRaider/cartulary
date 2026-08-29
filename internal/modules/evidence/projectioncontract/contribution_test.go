@@ -1,4 +1,4 @@
-package workbookprojection
+package projectioncontract
 
 import "testing"
 
@@ -17,7 +17,7 @@ func TestEvidenceProjectionContractOwnsSemanticSurface(t *testing.T) {
 		len(descriptor.ViewSchemaIDs) != 1 ||
 		descriptor.ViewSchemaIDs[0] != evidenceViewSchemaID ||
 		len(descriptor.FacadePackages) != 1 ||
-		descriptor.FacadePackages[0] != "internal/modules/evidence/workbookprojection" {
+		descriptor.FacadePackages[0] != "internal/modules/evidence/projectioncontract" {
 		t.Fatalf("unexpected Evidence descriptor: %#v", descriptor)
 	}
 	intent, err := SurfaceIntent()
@@ -46,7 +46,7 @@ func TestEvidenceProjectionContributionDefensivelyCopiesFacts(t *testing.T) {
 	intents := contribution.ProjectionContribution().SurfaceIntents()
 	intents[0].FieldKeys[0] = "mutated"
 	again := contribution.ProjectionContribution()
-	if got := again.Descriptors()[0].FacadePackages[0]; got != "internal/modules/evidence/workbookprojection" {
+	if got := again.Descriptors()[0].FacadePackages[0]; got != "internal/modules/evidence/projectioncontract" {
 		t.Fatalf("descriptor mutation escaped contribution: %q", got)
 	}
 	if got := again.SurfaceIntents()[0].FieldKeys[0]; got == "mutated" {

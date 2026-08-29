@@ -1,8 +1,8 @@
 package evidence
 
 import (
-	"github.com/JochiRaider/cartulary/internal/modules/evidence/deleterestore"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence/rollbackprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/deleterestore"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/rollback"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
@@ -15,7 +15,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			SnapshotSchemaID:    "cartulary.revisions.snapshot.evidence.v1",
 			HistoryTargetKinds:  []string{"evidence"},
 			DeleteRestoreSource: deleterestore.NewSource(),
-			RowRollbackProvider: rollbackprovider.NewProvider(),
+			RowRollbackProvider: rollback.NewProvider(),
 			RecordViewRoutes: []revisions.RecordViewRouteContribution{{
 				ContributionID: "evidence.evidence",
 				ViewSchemaIDs:  []string{ViewSchemaID},

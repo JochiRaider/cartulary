@@ -126,16 +126,17 @@ func mustCreatePartyFor(t testing.TB, owner *parties.MutationFacade, actor authn
 
 func mustCreateEvidenceFor(t testing.TB, owner evidence.MutationContribution, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
 	t.Helper()
-	request := evidence.CreateRequest{
-		ViewSchemaID: evidence.ViewSchemaID, ClientTxnID: clientTxnID,
-		Values: map[string]evidence.FieldValue{
-			"evidence.title": {Text: &title},
-		},
+	request, admissionFailure := evidence.AdmitCreateJSON(strings.NewReader(fmt.Sprintf(
+		`{"client_txn_id":%q,"evidence.title":%q}`,
+		clientTxnID,
+		title,
+	)))
+	if admissionFailure != nil {
+		t.Fatalf("admit evidence %s: %#v", clientTxnID, admissionFailure)
 	}
 	result, err := owner.Create(context.Background(), evidence.CreateCommand{
-		Actor: actor, IncidentID: incidentID, Request: request,
-		RequestHash: evidence.CreateRequestHash(request), RequestID: "req-" + clientTxnID,
-		RouteKey: "workbook.rows.create", Now: time.Date(2026, 5, 18, 12, 1, 0, 0, time.UTC),
+		ActorUserID: actor.ID, IncidentID: incidentID, Admission: request,
+		RequestID: "req-" + clientTxnID, Now: time.Date(2026, 5, 18, 12, 1, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatalf("create evidence %s: %v", clientTxnID, err)
@@ -175,21 +176,22 @@ func patchPartyRefFor(store *workbook.WorkbookContributionCatalog, evidenceOwner
 
 func patchPartyRefResultFor(store *workbook.WorkbookContributionCatalog, evidenceOwner evidence.MutationContribution, actor authn.UserRecord, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, fieldKey string, partyID *uuid.UUID, clientTxnID string) (workbook.MutationResult, error) {
 	if viewSchemaID == evidence.ViewSchemaID {
-		value := evidence.FieldValue{UUID: partyID}
-		request := evidence.PatchRequest{
-			ViewSchemaID: viewSchemaID, BaseRowVersion: baseRowVersion, ClientTxnID: clientTxnID,
-			Changes: []evidence.PatchChange{{FieldKey: fieldKey, Value: &value, CanonicalValue: partyID}},
-		}
+		value := "null"
 		if partyID != nil {
-			request.Changes[0].CanonicalValue = partyID.String()
+			value = fmt.Sprintf("%q", partyID.String())
+		}
+		request, admissionFailure := evidence.AdmitPatchJSON(strings.NewReader(fmt.Sprintf(
+			`{"view_schema_id":%q,"base_row_version":%d,"client_txn_id":%q,"changes":[{"field_key":%q,"value":%s}]}`,
+			viewSchemaID, baseRowVersion, clientTxnID, fieldKey, value,
+		)))
+		if admissionFailure != nil {
+			return workbook.MutationResult{}, admissionFailure
 		}
 		result, err := evidenceOwner.Patch(context.Background(), evidence.PatchCommand{
-			Actor: actor, RecordID: recordID, Request: request,
-			RequestHash: evidence.PatchRequestHash(request), RequestID: "req-" + clientTxnID,
-			RouteKey: "workbook.records.patch", ConflictRouteKey: "workbook.records.conflicts.resolve",
-			Now: time.Date(2026, 5, 18, 12, 3, 0, 0, time.UTC),
+			ActorUserID: actor.ID, RecordID: recordID, Admission: request,
+			RequestID: "req-" + clientTxnID, Now: time.Date(2026, 5, 18, 12, 3, 0, 0, time.UTC),
 		})
-		return workbook.MutationResult{Payload: result.Payload, RecordID: result.RecordID}, err
+		return workbook.MutationResult{Payload: map[string]any{"row": result.Row}, RecordID: result.RecordID}, err
 	}
 	value := workbookroutetest.ValueChange{Kind: "null"}
 	if partyID != nil {

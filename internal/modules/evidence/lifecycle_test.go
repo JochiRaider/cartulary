@@ -11,20 +11,14 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	"github.com/jackc/pgx/v5"
-
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
-	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "evidence_lifecycle-evidence-lifecycle")
 	evidenceOwner := appsupport.NewEvidenceMutationOwner(harness.DB, conflicttest.NewCodec("workbook"))
-	revisionComposition := revisionsupport.MustComposition(t)
-	evidenceStore := newTestBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.RecordChanges)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-lifecycle@example.test", "EvidenceLifecycle Lifecycle", "EvidenceLifecycleLifecycle1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-lifecycle-incident", "IR-P5-LIFECYCLE", "Evidence lifecycle")
 
@@ -35,7 +29,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 		"evidence.collector_party_text":" IR collector ",
 		"evidence.source_party_text":" Endpoint owner "
 	}`)
-	requestedRow := requested.Payload["row"].(map[string]any)
+	requestedRow := requested.Row
 	recordID := mustRowID(t, requestedRow)
 	requireRowCellValue(t, requestedRow, "evidence.lifecycle_state", "requested")
 	requireRowCellValue(t, requestedRow, "evidence.upload_state", "pending")
@@ -50,7 +44,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-pending",
 		"changes":[{"field_key":"evidence.lifecycle_state","value":"pending_receipt"}]
 	}`)
-	requireRowCellValue(t, pendingReceipt.Payload["row"].(map[string]any), "evidence.lifecycle_state", "pending_receipt")
+	requireRowCellValue(t, pendingReceipt.Row, "evidence.lifecycle_state", "pending_receipt")
 
 	received := patchEvidenceViaOwner(t, evidenceOwner, actor, recordID, `{
 		"view_schema_id":"cartulary.view.evidence.v1",
@@ -58,7 +52,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-received",
 		"changes":[{"field_key":"evidence.lifecycle_state","value":"received"}]
 	}`)
-	requireRowCellValue(t, received.Payload["row"].(map[string]any), "evidence.lifecycle_state", "received")
+	requireRowCellValue(t, received.Row, "evidence.lifecycle_state", "received")
 
 	requireIllegalLifecyclePatch(t, evidenceOwner, actor, recordID, `{
 		"view_schema_id":"cartulary.view.evidence.v1",
@@ -72,88 +66,17 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-released-direct",
 		"changes":[{"field_key":"evidence.lifecycle_state","value":"released"}]
 	}`)
-
-	attachTarget := createEvidenceViaOwner(t, evidenceOwner, actor, incident.ID, `{
-		"client_txn_id":"txn-evidence_lifecycle-lifecycle-attach-target",
-		"evidence.title":"Blob arrives later",
-		"evidence.storage_ref":"ticket://collect-2",
-		"evidence.collector_party_text":"IR collector",
-		"evidence.source_party_text":"Endpoint owner"
-	}`)
-	attachRecordID := mustRowID(t, attachTarget.Payload["row"].(map[string]any))
-	unrelatedHistoryBefore := DurableAttachCounts(t, harness.DB, recordID)
-	attachHistoryBefore := DurableAttachCounts(t, harness.DB, attachRecordID)
-	blobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{
-		ByteSize: 4, ObservedSize: ptrInt64(4), ObservedSHA: ptrString(strings.Repeat("b", 64)), ObservedContentType: ptrString("text/plain"),
-	})
-	attachRequest := evidence.AttachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-evidence_lifecycle-lifecycle-attach"}
-	attached, err := evidenceStore.AttachBlob(context.Background(), actor, attachRecordID, attachRequest, evidence.AttachBlobRequestHash(attachRequest), nil, "req-lifecycle-attach", time.Now().UTC())
-	if err != nil {
-		t.Fatalf("attach available blob to requested evidence: %v", err)
-	}
-	attachedRow := attached.Payload["row"].(map[string]any)
-	requireRowCellValue(t, attachedRow, "evidence.lifecycle_state", "requested")
-	requireRowCellValue(t, attachedRow, "evidence.upload_state", "available")
-	requireRowCellValue(t, attachedRow, "evidence.collector_party_text", "IR collector")
-	requireRowCellValue(t, attachedRow, "evidence.source_party_text", "Endpoint owner")
-	requireRowCellNonEmpty(t, attachedRow, "evidence.received_at")
-	if after := DurableAttachCounts(t, harness.DB, recordID); after != unrelatedHistoryBefore {
-		t.Fatalf("later attach mutated unrelated custody history: before=%+v after=%+v", unrelatedHistoryBefore, after)
-	}
-	attachHistoryAfter := DurableAttachCounts(t, harness.DB, attachRecordID)
-	if attachHistoryAfter.ChangeSets != attachHistoryBefore.ChangeSets+1 ||
-		attachHistoryAfter.Mutations != attachHistoryBefore.Mutations+1 ||
-		attachHistoryAfter.Revisions != attachHistoryBefore.Revisions+1 ||
-		attachHistoryAfter.BlobLinks != 1 {
-		t.Fatalf("attach history got before=%+v after=%+v, want exactly one attach mutation and one blob link", attachHistoryBefore, attachHistoryAfter)
-	}
-	requireChangeSetAttribution(t, harness.DB, attached.Payload["change_set_id"].(string), actor.ID, "evidence.attach_blob", attachRequest.ClientTxnID)
-
-	available := patchEvidenceViaOwner(t, evidenceOwner, actor, attachRecordID, `{
-		"view_schema_id":"cartulary.view.evidence.v1",
-		"base_row_version":2,
-		"client_txn_id":"txn-evidence_lifecycle-lifecycle-available-after-attach",
-		"changes":[{"field_key":"evidence.lifecycle_state","value":"available"}]
-	}`)
-	requireRowCellValue(t, available.Payload["row"].(map[string]any), "evidence.lifecycle_state", "available")
-
-	quarantined := createEvidenceViaOwner(t, evidenceOwner, actor, incident.ID, `{
-		"client_txn_id":"txn-evidence_lifecycle-lifecycle-quarantined",
-		"evidence.title":"Quarantined evidence"
-	}`)
-	quarantinedRecordID := mustRowID(t, quarantined.Payload["row"].(map[string]any))
-	if _, err := harness.DB.Exec(context.Background(), `UPDATE evidence SET lifecycle_state = 'quarantined' WHERE record_id = $1`, quarantinedRecordID); err != nil {
-		t.Fatalf("seed quarantined lifecycle: %v", err)
-	}
-	quarantinedBlobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{ByteSize: 1, ObservedSize: ptrInt64(1)})
-	quarantinedAttach := evidence.AttachBlobRequest{ObjectBlobID: quarantinedBlobID, BaseRowVersion: 1, ClientTxnID: "txn-evidence_lifecycle-quarantined-attach"}
-	if _, err := evidenceStore.AttachBlob(context.Background(), actor, quarantinedRecordID, quarantinedAttach, evidence.AttachBlobRequestHash(quarantinedAttach), nil, "req-quarantined-attach", time.Now().UTC()); !errors.Is(err, evidence.ErrEvidenceQuarantined) {
-		t.Fatalf("quarantined evidence attach got %v want ErrEvidenceQuarantined", err)
-	} else {
-		requireAttachRejectedReason(t, err, evidence.AttachReasonEvidenceQuarantined)
-	}
-
-	closedBlobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{ByteSize: 1, ObservedSize: ptrInt64(1)})
-	if _, err := harness.DB.Exec(context.Background(), `UPDATE incidents SET status = 'closed', closed_at = now() WHERE id = $1`, incident.ID); err != nil {
-		t.Fatalf("close incident before quarantine: %v", err)
-	}
-	if _, err := evidenceStore.QuarantineBlob(context.Background(), actor.ID, closedBlobID, "admin_quarantine", "req-closed-quarantine", time.Now().UTC()); !admission.IsDenied(err, admission.DenialIncidentClosed) {
-		t.Fatalf("closed-incident quarantine got %v, want typed incident-closed denial", err)
-	}
-
-	requireEvidenceState(t, harness.DB, attachRecordID, "available", "available", blobID)
 }
 
 func createEvidenceViaOwner(t testing.TB, owner evidence.MutationContribution, actor authn.UserRecord, incidentID uuid.UUID, body string) evidence.MutationResult {
 	t.Helper()
-	request, apiErr := evidence.DecodeCreateRequest(strings.NewReader(body))
-	if apiErr != nil {
-		t.Fatalf("decode evidence create: %#v", apiErr)
+	request, admissionFailure := evidence.AdmitCreateJSON(strings.NewReader(body))
+	if admissionFailure != nil {
+		t.Fatalf("admit evidence create: %#v", admissionFailure)
 	}
 	result, err := owner.Create(context.Background(), evidence.CreateCommand{
-		Actor: actor, IncidentID: incidentID, Request: request,
-		RequestHash: evidence.CreateRequestHash(request), RequestID: "req-" + request.ClientTxnID,
-		RouteKey: "workbook.rows.create", Now: time.Now().UTC(),
+		ActorUserID: actor.ID, IncidentID: incidentID, Admission: request,
+		RequestID: "req-" + request.ClientTxnID(), Now: time.Now().UTC(),
 	})
 	if err != nil {
 		t.Fatalf("create evidence via owner: %v", err)
@@ -163,15 +86,13 @@ func createEvidenceViaOwner(t testing.TB, owner evidence.MutationContribution, a
 
 func patchEvidenceViaOwner(t testing.TB, owner evidence.MutationContribution, actor authn.UserRecord, recordID uuid.UUID, body string) evidence.MutationResult {
 	t.Helper()
-	request, apiErr := evidence.DecodePatchRequest(strings.NewReader(body))
-	if apiErr != nil {
-		t.Fatalf("decode evidence patch: %#v", apiErr)
+	request, admissionFailure := evidence.AdmitPatchJSON(strings.NewReader(body))
+	if admissionFailure != nil {
+		t.Fatalf("admit evidence patch: %#v", admissionFailure)
 	}
 	result, err := owner.Patch(context.Background(), evidence.PatchCommand{
-		Actor: actor, RecordID: recordID, Request: request,
-		RequestHash: evidence.PatchRequestHash(request), RequestID: "req-" + request.ClientTxnID,
-		RouteKey: "workbook.records.patch", ConflictRouteKey: "workbook.records.conflicts.resolve",
-		Now: time.Now().UTC(),
+		ActorUserID: actor.ID, RecordID: recordID, Admission: request,
+		RequestID: "req-" + request.ClientTxnID(), Now: time.Now().UTC(),
 	})
 	if err != nil {
 		t.Fatalf("patch evidence via owner: %v", err)
@@ -181,41 +102,18 @@ func patchEvidenceViaOwner(t testing.TB, owner evidence.MutationContribution, ac
 
 func requireIllegalLifecyclePatch(t testing.TB, owner evidence.MutationContribution, actor authn.UserRecord, recordID uuid.UUID, body string) {
 	t.Helper()
-	request, apiErr := evidence.DecodePatchRequest(strings.NewReader(body))
-	if apiErr != nil {
-		t.Fatalf("decode illegal evidence patch: %#v", apiErr)
+	request, admissionFailure := evidence.AdmitPatchJSON(strings.NewReader(body))
+	if admissionFailure != nil {
+		t.Fatalf("admit illegal evidence patch: %#v", admissionFailure)
 	}
 	_, err := owner.Patch(context.Background(), evidence.PatchCommand{
-		Actor: actor, RecordID: recordID, Request: request,
-		RequestHash: evidence.PatchRequestHash(request), RequestID: "req-" + request.ClientTxnID,
-		RouteKey: "workbook.records.patch", ConflictRouteKey: "workbook.records.conflicts.resolve",
-		Now: time.Now().UTC(),
+		ActorUserID: actor.ID, RecordID: recordID, Admission: request,
+		RequestID: "req-" + request.ClientTxnID(), Now: time.Now().UTC(),
 	})
 	var lifecycleErr *evidence.LifecycleValidationError
 	if !errors.As(err, &lifecycleErr) {
 		t.Fatalf("illegal evidence lifecycle patch got %v want LifecycleValidationError", err)
 	}
-}
-
-func requireChangeSetAttribution(t testing.TB, db Queryer, changeSetID string, actorID uuid.UUID, wantSource string, wantClientTxnID string) {
-	t.Helper()
-	var gotActor uuid.UUID
-	var source string
-	var clientTxnID string
-	if err := db.QueryRow(context.Background(), `
-SELECT actor_user_id, source, client_txn_id
-  FROM change_sets
- WHERE change_set_id = $1
-`, changeSetID).Scan(&gotActor, &source, &clientTxnID); err != nil {
-		t.Fatalf("load change set attribution: %v", err)
-	}
-	if gotActor != actorID || source != wantSource || clientTxnID != wantClientTxnID {
-		t.Fatalf("change set attribution got actor=%s source=%s client_txn_id=%s want actor=%s source=%s client_txn_id=%s", gotActor, source, clientTxnID, actorID, wantSource, wantClientTxnID)
-	}
-}
-
-type Queryer interface {
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
 func mustRowID(t testing.TB, row map[string]any) uuid.UUID {

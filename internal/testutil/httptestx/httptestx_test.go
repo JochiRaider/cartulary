@@ -47,8 +47,8 @@ func TestProjectionCapabilityCallerMatrix(t *testing.T) {
 		"internal/modules/entities/resolution_route_integration_test.go": {
 			".Projections.RebuildIncident(",
 		},
-		"internal/modules/evidence/lifecycle_integration_test.go": {
-			".Projections.EvidencePort(",
+		"internal/modules/evidence/lifecycle_projection_collaboration_integration_test.go": {
+			".Projections.EvidenceAssociationEffects(",
 		},
 		"internal/modules/evidence/projection_collaboration_integration_test.go": {
 			".Projections.RebuildIncident(",
@@ -93,7 +93,8 @@ func TestProjectionCapabilityCallerMatrix(t *testing.T) {
 		for _, marker := range []string{
 			".Projections.RebuildIncident(",
 			".Projections.IndicatorProjectionPort(",
-			".Projections.EvidencePort(",
+			".Projections.EvidenceAssociationEffects(",
+			".Projections.EvidenceMutationRows(",
 			"server.ProjectionCapability()",
 		} {
 			if bytes.Contains(content, []byte(marker)) {

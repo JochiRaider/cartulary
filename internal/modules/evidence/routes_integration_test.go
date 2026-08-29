@@ -7,10 +7,8 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
@@ -302,10 +300,6 @@ func redeemHandle(t *testing.T, href string, login appsupport.LoginResult) []byt
 		t.Fatalf("read handle response: %v", err)
 	}
 	return data
-}
-
-func evidenceDecodeHandleForTest(reader io.Reader) *httpapi.APIError {
-	return evidence.DecodeHandleIssueRequest(reader)
 }
 
 func repoRoot() string {

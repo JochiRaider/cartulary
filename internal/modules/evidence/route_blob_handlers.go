@@ -12,7 +12,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/google/uuid"
@@ -125,7 +124,7 @@ func (s *service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	switch {
-	case errors.Is(err, authn.ErrClientTxnConflict):
+	case errors.Is(err, ErrClientTxnConflict):
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
 		return
 	case errors.Is(err, pgx.ErrNoRows):
@@ -384,7 +383,7 @@ func (s *service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 				writeAPIError(w, r, apiErr)
 				return
 			}
-			writeAPIError(w, r, evidenceAttachRejected(AttachReasonBlobFailed))
+			writeAPIError(w, r, evidenceAttachRejected(attachReasonBlobFailed))
 			return
 		}
 	}

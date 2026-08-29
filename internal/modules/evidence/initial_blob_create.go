@@ -33,25 +33,25 @@ func (f *mutationFacade) observeInitialBlob(
 		return nil, err
 	}
 	if associated {
-		return nil, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotAttachable}
+		return nil, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: errBlobNotAttachable}
 	}
 	switch blob.UploadState {
 	case "failed":
-		return nil, AttachRejectedError{ReasonCode: AttachReasonBlobFailed, Cause: ErrBlobNotAttachable}
+		return nil, AttachRejectedError{ReasonCode: attachReasonBlobFailed, Cause: errBlobNotAttachable}
 	case "quarantined":
-		return nil, AttachRejectedError{ReasonCode: AttachReasonBlobQuarantined, Cause: ErrBlobNotAttachable}
+		return nil, AttachRejectedError{ReasonCode: attachReasonBlobQuarantined, Cause: errBlobNotAttachable}
 	case "available":
 		return nil, nil
 	case "pending":
 	default:
-		return nil, AttachRejectedError{ReasonCode: AttachReasonEvidenceInconsistent, Cause: ErrBlobNotAttachable}
+		return nil, AttachRejectedError{ReasonCode: attachReasonEvidenceInconsistent, Cause: errBlobNotAttachable}
 	}
 	if f.objects == nil {
 		return nil, ErrObjectStoreUnavailable
 	}
 	observed, err := (routeObjectStoreAdapter{store: f.objects}).observeUploadedObject(ctx, blob)
 	if objectstore.IsObjectNotFound(err) {
-		return nil, AttachRejectedError{ReasonCode: AttachReasonBlobPending, Cause: ErrBlobNotAttachable}
+		return nil, AttachRejectedError{ReasonCode: attachReasonBlobPending, Cause: errBlobNotAttachable}
 	}
 	if err != nil {
 		return nil, err
@@ -85,34 +85,34 @@ func (f *mutationFacade) finalizeInitialBlobTx(
 		return nil, false, err
 	}
 	if associated {
-		return nil, false, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotAttachable}
+		return nil, false, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: errBlobNotAttachable}
 	}
 	switch blob.UploadState {
 	case "failed":
-		return nil, false, AttachRejectedError{ReasonCode: AttachReasonBlobFailed, Cause: ErrBlobNotAttachable}
+		return nil, false, AttachRejectedError{ReasonCode: attachReasonBlobFailed, Cause: errBlobNotAttachable}
 	case "quarantined":
-		return nil, false, AttachRejectedError{ReasonCode: AttachReasonBlobQuarantined, Cause: ErrBlobNotAttachable}
+		return nil, false, AttachRejectedError{ReasonCode: attachReasonBlobQuarantined, Cause: errBlobNotAttachable}
 	case "pending":
 		if !blob.PendingExpiresAt.After(now) {
 			if err := f.blobLifecycle.failTx(ctx, tx, objectBlobID, "pending_timeout", now); err != nil {
 				return nil, false, err
 			}
-			return nil, true, AttachRejectedError{ReasonCode: AttachReasonBlobFailed, Cause: ErrBlobNotAttachable}
+			return nil, true, AttachRejectedError{ReasonCode: attachReasonBlobFailed, Cause: errBlobNotAttachable}
 		}
 		if observed == nil {
-			return nil, false, AttachRejectedError{ReasonCode: AttachReasonBlobPending, Cause: ErrBlobNotAttachable}
+			return nil, false, AttachRejectedError{ReasonCode: attachReasonBlobPending, Cause: errBlobNotAttachable}
 		}
 		if observed.Size != blob.ByteSize {
 			if err := f.blobLifecycle.failTx(ctx, tx, objectBlobID, "declared_size_mismatch", now); err != nil {
 				return nil, false, err
 			}
-			return nil, true, AttachRejectedError{ReasonCode: AttachReasonAcceptedContractMismatch, Cause: ErrBlobNotAttachable}
+			return nil, true, AttachRejectedError{ReasonCode: attachReasonAcceptedContractMismatch, Cause: errBlobNotAttachable}
 		}
 		if blob.ExpectedSHA256Hex != nil && observed.SHA256Hex != *blob.ExpectedSHA256Hex {
 			if err := f.blobLifecycle.failTx(ctx, tx, objectBlobID, "expected_sha256_mismatch", now); err != nil {
 				return nil, false, err
 			}
-			return nil, true, AttachRejectedError{ReasonCode: AttachReasonAcceptedContractMismatch, Cause: ErrBlobNotAttachable}
+			return nil, true, AttachRejectedError{ReasonCode: attachReasonAcceptedContractMismatch, Cause: errBlobNotAttachable}
 		}
 		if err := f.blobLifecycle.markAvailableTx(ctx, tx, objectBlobID, observed, now); err != nil {
 			return nil, false, err
@@ -121,7 +121,7 @@ func (f *mutationFacade) finalizeInitialBlobTx(
 		blob.ObservedSHA256Hex = &observed.SHA256Hex
 	case "available":
 	default:
-		return nil, false, AttachRejectedError{ReasonCode: AttachReasonEvidenceInconsistent, Cause: ErrBlobNotAttachable}
+		return nil, false, AttachRejectedError{ReasonCode: attachReasonEvidenceInconsistent, Cause: errBlobNotAttachable}
 	}
 	storageRef, err := blobref.ObjectBlobStorageRef(objectBlobID)
 	if err != nil {

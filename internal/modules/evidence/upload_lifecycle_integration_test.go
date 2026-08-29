@@ -44,7 +44,7 @@ func TestObjectUploadAtomicEvidenceCreate_Integration(t *testing.T) {
 		"evidence.initial_object_blob_id": pending["object_blob_id"],
 	}, authOptions(login)...)
 	pendingError := httptestx.RequireErrorEnvelope(t, pendingCreate, http.StatusConflict, "evidence_attach_rejected")
-	httptestx.RequireErrorDetail(t, pendingError, "reason_code", evidence.AttachReasonBlobPending)
+	httptestx.RequireErrorDetail(t, pendingError, "reason_code", "blob_pending")
 
 	slot := createSlot("txn-evidence-atomic-create-slot")
 	target := slot["upload_target"].(map[string]any)

@@ -14,7 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	projectionstorage "github.com/JochiRaider/cartulary/internal/modules/projections/internal/storage"
@@ -109,8 +109,8 @@ SET incident_id = EXCLUDED.incident_id,
 type Capability struct {
 	maintenanceRebuilder projectionadapters.MaintenanceRebuilder
 	indicatorRows        indicatorprojection.Rows
-	evidenceRows         evidenceprojection.Rows
-	evidenceEffects      evidenceprojection.SupportProjectionEffectsTx
+	evidenceRows         evidenceprojection.MutationRows
+	evidenceEffects      evidenceprojection.AssociationEffects
 }
 
 func New(runtime *projectionassembly.Runtime) *Capability {
@@ -120,8 +120,8 @@ func New(runtime *projectionassembly.Runtime) *Capability {
 	return &Capability{
 		maintenanceRebuilder: runtime.MaintenanceRebuilder(),
 		indicatorRows:        runtime.IndicatorPorts().Rows,
-		evidenceRows:         runtime.EvidencePorts().Rows,
-		evidenceEffects:      runtime.EvidencePorts().SupportEffects,
+		evidenceRows:         runtime.EvidenceMutationRows(),
+		evidenceEffects:      runtime.EvidenceAssociationEffects(),
 	}
 }
 
@@ -139,14 +139,14 @@ func (capability *Capability) IndicatorProjectionPort() indicatorprojection.Rows
 	return capability.indicatorRows
 }
 
-func (capability *Capability) EvidencePort() evidenceprojection.Rows {
+func (capability *Capability) EvidenceMutationRows() evidenceprojection.MutationRows {
 	if capability == nil {
 		return nil
 	}
 	return capability.evidenceRows
 }
 
-func (capability *Capability) EvidenceSupportEffects() evidenceprojection.SupportProjectionEffectsTx {
+func (capability *Capability) EvidenceAssociationEffects() evidenceprojection.AssociationEffects {
 	if capability == nil {
 		return nil
 	}

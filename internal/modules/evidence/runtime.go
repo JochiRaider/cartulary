@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -51,16 +50,14 @@ type OwnerRuntime struct {
 }
 
 type OwnerRuntimeDependencies struct {
-	Postgres            postgres.DB
-	ConflictTokens      *conflicttokens.ConflictTokenCodec
-	Revisions           *revisions.Appender
-	Collaboration       collaboration.RecordChangedAppender
-	ObjectStore         objectstore.TypedStore
-	ConflictFields      conflicttokens.FieldResolver
-	ConflictIdempotency conflicttokens.IdempotencyPort
-	Projections         evidenceprojection.Ports
-	CleanupObserver     CleanupObserver
-	Now                 func() time.Time
+	Postgres        postgres.DB
+	ConflictTokens  *conflicttokens.ConflictTokenCodec
+	Revisions       *revisions.Appender
+	Collaboration   collaboration.RecordChangedAppender
+	ObjectStore     objectstore.TypedStore
+	Mutation        MutationDependencies
+	CleanupObserver CleanupObserver
+	Now             func() time.Time
 }
 
 func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, error) {
@@ -75,34 +72,34 @@ func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, erro
 		return nil, fmt.Errorf("compose Evidence owner runtime: Collaboration intent appender is required")
 	case dependencies.ObjectStore == nil:
 		return nil, fmt.Errorf("compose Evidence owner runtime: object store is required")
-	case dependencies.ConflictFields == nil:
-		return nil, fmt.Errorf("compose Evidence owner runtime: conflict field resolver is required")
-	case dependencies.ConflictIdempotency == nil:
-		return nil, fmt.Errorf("compose Evidence owner runtime: conflict idempotency is required")
-	case dependencies.Projections.Rows == nil:
-		return nil, fmt.Errorf("compose Evidence owner runtime: projection rows are required")
-	case dependencies.Projections.SupportEffects == nil:
-		return nil, fmt.Errorf("compose Evidence owner runtime: support projection effects are required")
 	case dependencies.CleanupObserver == nil:
 		return nil, fmt.Errorf("compose Evidence owner runtime: cleanup observer is required")
 	case dependencies.Now == nil:
 		return nil, fmt.Errorf("compose Evidence owner runtime: clock is required")
 	}
+	if err := dependencies.Mutation.validate(); err != nil {
+		return nil, fmt.Errorf("compose Evidence owner runtime: %w", err)
+	}
 	sourceMutations, err := newSourceMutationService(
 		dependencies.Postgres,
-		dependencies.Projections.Rows,
+		dependencies.Mutation.ProjectionRows,
 		dependencies.Revisions,
 		dependencies.Collaboration,
+		dependencies.Mutation.IncidentState,
+		dependencies.Mutation.RecordEnvelopes,
 	)
 	if err != nil {
 		return nil, err
 	}
 	blobs, err := newBlobLifecycleService(blobLifecycleDependencies{
-		Postgres:       dependencies.Postgres,
-		Revisions:      dependencies.Revisions,
-		Projections:    dependencies.Projections.Rows,
-		SupportEffects: dependencies.Projections.SupportEffects,
-		Collaboration:  dependencies.Collaboration,
+		Postgres:        dependencies.Postgres,
+		Revisions:       newRevisionAppendAdapter(dependencies.Revisions),
+		Projections:     dependencies.Mutation.ProjectionRows,
+		SupportEffects:  dependencies.Mutation.AssociationEffects,
+		Collaboration:   dependencies.Collaboration,
+		IncidentState:   dependencies.Mutation.IncidentState,
+		RecordEnvelopes: dependencies.Mutation.RecordEnvelopes,
+		Idempotency:     dependencies.Mutation.LifecycleIdempotency,
 	})
 	if err != nil {
 		return nil, err
@@ -118,14 +115,9 @@ func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, erro
 	workbook, err := newMutationFacade(
 		dependencies.Postgres,
 		*dependencies.ConflictTokens,
-		dependencies.Revisions,
-		dependencies.Collaboration,
 		sourceMutations,
 		dependencies.ObjectStore,
-		dependencies.ConflictFields,
-		dependencies.ConflictIdempotency,
-		dependencies.Projections.Rows,
-		dependencies.Projections.SupportEffects,
+		dependencies.Mutation,
 	)
 	if err != nil {
 		return nil, err
@@ -157,7 +149,7 @@ func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, erro
 		now:          dependencies.Now,
 		routes:       routes,
 		workbook:     workbook,
-		attachments:  timelineAttachmentReader{projections: dependencies.Projections.Rows},
+		attachments:  timelineAttachmentReader{projections: dependencies.Mutation.ProjectionRows},
 		importCreate: importCreate,
 		cleanup:      cleanup,
 	}, nil

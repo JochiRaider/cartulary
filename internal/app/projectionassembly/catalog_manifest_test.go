@@ -135,7 +135,7 @@ func TestProjectionAssemblyPortsAreCompleteAndDescriptorsImmutable(t *testing.T)
 		bundle.IndicatorPorts().Rows == nil ||
 		bundle.AssessmentPorts().Rows == nil ||
 		bundle.ArtifactPorts().Rows == nil || bundle.ArtifactPorts().Reader == nil ||
-		bundle.EvidencePorts().Rows == nil ||
+		bundle.EvidenceMutationRows() == nil || bundle.EvidenceAssociationEffects() == nil ||
 		bundle.PartyPorts().Rows == nil ||
 		bundle.TaskDecisionMutationRows() == nil || bundle.TaskDecisionReportingReader() == nil ||
 		bundle.RestoreProbeQuery() == nil || bundle.RevisionRebuilder() == nil || bundle.RevisionLiveRecords() == nil || bundle.SourceTextRows() == nil {
