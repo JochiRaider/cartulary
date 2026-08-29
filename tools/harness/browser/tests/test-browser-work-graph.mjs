@@ -668,6 +668,37 @@ assert.ok(
 const stateful = compiler.compile({ kind: "target", target: "browser-e2e-stateful" });
 assert.ok(stateful.units.some((unit) => unit.unit_id.startsWith("browser_reset:")), "stateful browser work must expose resets");
 
+function assertResetTargetMatchesEvidence(graph, label) {
+  const resets = graph.units.filter((unit) => unit.unit_id.startsWith("browser_reset:"));
+  assert.ok(resets.length > 0, `${label} must contain a reset unit`);
+  for (const reset of resets) {
+    assert.equal(reset.current_run_evidence_outputs.length, 1);
+    assert.equal(
+      reset.command.environment.CARTULARY_TEST_TARGET,
+      reset.current_run_evidence_outputs[0].split("/", 1)[0],
+      `${reset.unit_id} must write evidence beneath its declared target`,
+    );
+    assert.equal(reset.command.environment.OWNER, "", `${reset.unit_id} must clear OWNER`);
+    assert.equal(reset.command.environment.ROWS, "", `${reset.unit_id} must clear ROWS`);
+    assert.equal(
+      reset.command.environment.SERVICE_BACKED_ONLY,
+      "",
+      `${reset.unit_id} must clear SERVICE_BACKED_ONLY`,
+    );
+    assert.equal(
+      reset.command.environment.CARTULARY_MAKE_INPUT_SOURCES,
+      "",
+      `${reset.unit_id} must clear inherited public input provenance`,
+    );
+  }
+}
+
+const collaborationStatefulOwner = compiler.compile({
+  kind: "owner",
+  owner_id: "module.collaboration",
+});
+assertResetTargetMatchesEvidence(collaborationStatefulOwner, "Collaboration owner selection");
+
 const networkFlowStatefulOwner = compiler.compile({
   kind: "owner",
   owner_id: "module.networkflow",
@@ -707,6 +738,7 @@ assert.match(
   claimedResets[0].unit_id,
   /extensions-stateful--before-stateful-network-flow-claimed-network-flow/u,
 );
+assertResetTargetMatchesEvidence(claimedStatefulChain, "explicit row selection");
 
 const incompatibleStatefulSelection = compiler.compile({
   kind: "rows",

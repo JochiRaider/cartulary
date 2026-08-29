@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -127,7 +127,7 @@ SELECT intent_id, intent_key, incident_id, event_family, canonical_payload
 	}
 	rows.Close()
 	for _, intent := range pending {
-		if err := privatestream.ValidateEventFamilyPayload(intent.IncidentID, intent.Family, intent.Payload); err != nil {
+		if err := protocol.ValidateReplayablePayload(intent.IncidentID, intent.Family, intent.Payload); err != nil {
 			return Result{}, newFailure(FailureRepairNotVerified, err)
 		}
 	}

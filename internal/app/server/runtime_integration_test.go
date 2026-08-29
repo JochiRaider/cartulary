@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -256,6 +257,81 @@ func TestAllOptionalProfilesUnclaimedPublishesQuiescentJobs_Integration(t *testi
 		JobKind: "import.discovery_v1",
 	}, time.Now().UTC()); !errors.Is(err, jobs.ErrInvalidJobDefinition) {
 		t.Fatalf("all-unclaimed Jobs admission error = %v", err)
+	}
+}
+
+type collaborationSeedFailureDB struct {
+	postgres.DB
+}
+
+func (collaborationSeedFailureDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return nil, errors.New("injected Collaboration seed failure")
+}
+
+func TestCollaborationDispatcherStartupLossUsesWebSocketLifecycle_Integration(t *testing.T) {
+	ctx := context.Background()
+	postgresHarness := pgtest.Start(t)
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "collaboration-dispatcher-startup-loss")
+	pool, err := pgxpool.New(ctx, testDB.DSN)
+	if err != nil {
+		t.Fatalf("open dispatcher-loss postgres pool: %v", err)
+	}
+	defer pool.Close()
+	store, err := objectstore.NewFilesystemStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("open dispatcher-loss object store: %v", err)
+	}
+	defer store.Close()
+
+	cfg := BindPostgres(t, RuntimeConfigWithOverlays(t, configtest.Overlay(
+		"CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH", fixtures.Path("bootstrap-admin", "canonical.json"),
+		"CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED", "false",
+		"CARTULARY__IMPORT__CLAIMED", "false",
+		"CARTULARY__INCIDENT_PORTABILITY__CLAIMED", "false",
+		"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED", "false",
+		"CARTULARY__REFERENCE_PACK__CLAIMED", "false",
+		"CARTULARY__SNAPSHOT_REPORTING__CLAIMED", "false",
+	)), testDB.Env())
+
+	dependencies := productionRuntimeDependencies()
+	newCollaborationRuntime := dependencies.newCollaborationRuntime
+	var collaborationRuntime *collaboration.Runtime
+	dependencies.newCollaborationRuntime = func(options collaboration.Options) (*collaboration.Runtime, error) {
+		options.Postgres = collaborationSeedFailureDB{DB: options.Postgres}
+		collaborationRuntime, err = newCollaborationRuntime(options)
+		return collaborationRuntime, err
+	}
+	runtime, err := newRuntimeWithTestDependencies(ctx, cfg, Options{Postgres: pool, ObjectStore: store}, dependencies)
+	if err != nil {
+		t.Fatalf("compose dispatcher-loss runtime: %v", err)
+	}
+	defer runtime.Close()
+	if collaborationRuntime == nil {
+		t.Fatal("Collaboration runtime was not composed")
+	}
+
+	err = runtime.ActivatePublication()
+	if err == nil || !strings.Contains(err.Error(), "activate collaboration dispatcher") {
+		t.Fatalf("activation error = %v", err)
+	}
+	select {
+	case signal := <-runtime.lifecycle.FatalEvents():
+		if signal.ExitCode != 70 || signal.ReasonCode != "published_component_lost" {
+			t.Fatalf("dispatcher-loss fatal signal = %#v", signal)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("dispatcher startup loss did not report the websocket component")
+	}
+	if runtime.publication.currentState() != publicationFailed || runtime.lifecycle.AdmissionOpen() {
+		t.Fatalf("dispatcher-loss lifecycle = %s/%t", runtime.publication.currentState(), runtime.lifecycle.AdmissionOpen())
+	}
+	if err := collaborationRuntime.Start(ctx); err == nil || !strings.Contains(err.Error(), "terminal") {
+		t.Fatalf("dispatcher restarted after fatal startup loss: %v", err)
+	}
+	select {
+	case signal := <-runtime.lifecycle.FatalEvents():
+		t.Fatalf("dispatcher loss reported more than once: %#v", signal)
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 

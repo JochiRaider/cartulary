@@ -11,9 +11,11 @@
 | Planning session | `2026-08-24T17:26:00-04:00` |
 | NLSpec-style revision session | `2026-08-24T18:22:06-04:00`; the tracker was already staged as a new file and no other tracked change was present. |
 | Execution session | Authorized `2026-08-24T19:09:01-04:00` from commit `169ba53197681aa45767914b70cd86d8759d0d3f`; the tracker remained the only staged path and no index change was authorized. |
-| Status | Iterations 1 and 2 are complete. `PR2-PLAN-00` and `PR2-WF-00` through `PR2-WF-07` are `DONE`; all final exact and broad validation gates passed. |
+| Status | Iterations 1 and 2 are complete historical evidence. Iteration 3 planning `PR3-PLAN-00` is `DONE`; `PR3-WF-00` through `PR3-WF-05` are `PLANNED` and implementation is not authorized. |
 | Iteration 2 planning baseline | Clean `main` at commit `9e933f7bd1189f7492fec86acb468c99b0ad7513` on `2026-08-25`; `docs/domain.md` was consulted as terminology authority and remains unchanged. |
-| Allowed change | The specification, authored contract, implementation, test, test-support, harness-policy, generated projection, and handoff paths required by `WF-EXEC-00` through `WF-SL-08`. Generated roots may change only through their Make-owned generators. |
+| Iteration 3 planning baseline | Clean `main` at `88c1d16a33219c791ff67e7c5d4625c64bf798f8`, two commits ahead of `origin/main`, on `2026-08-28`. |
+| Current forward authority | Section 14 is the sole forward plan. This document-only step may change only this tracker; no Iteration 3 implementation workstream is authorized. |
+| Iteration 1 allowed change (historical) | The specification, authored contract, implementation, test, test-support, harness-policy, generated projection, and handoff paths required by `WF-EXEC-00` through `WF-SL-08`. Generated roots may change only through their Make-owned generators. |
 | Non-goals | No public route, message family, CLI grammar, database schema, Incident Bundle version, authorization precedence, or telemetry-vocabulary change; no compatibility alias, dual path, feature flag, backfill, or production-data migration; no agent-created commit, staging change, or index reset. |
 | Deployment posture | Pre-production. Incompatible disposable state uses the adopted reset-only profile; this posture does not weaken any public or security contract. |
 
@@ -1965,3 +1967,1328 @@ At the end of every implementation workstream, before its successor starts:
   corrected non-passes are classified in their originating workstreams.
 - [x] Every Iteration 2 workstream is `DONE`, with a linted checkpoint and a
   complete handoff row.
+
+## 14. Iteration 3: Contract Closure and Runtime Hardening
+
+This section is the sole forward plan after the completed Iteration 1 and
+Iteration 2 records above. It plans a structural removal and hardening
+iteration. `PR3-PLAN-01` supersedes the unexecuted `PR3-PLAN-00` sequence and
+authorizes the strictly ordered workstreams below. Sections 1 through 13
+remain historical evidence and must not be reinterpreted as open work.
+
+The iteration favors one strict internal path over compatibility layers,
+construction-time completeness over mutable runtime repair, and family-specific
+ports over broad convenience surfaces. Future replayable families must be able
+to reuse the same validation and lifecycle boundaries without expanding a
+generic public mutation API.
+
+### 14.1 Current planning baseline
+
+| Evidence | Recorded baseline |
+| --- | --- |
+| Source | Clean `main` at `88c1d16a33219c791ff67e7c5d4625c64bf798f8`, two commits ahead of `origin/main`, on `2026-08-28`. |
+| Collaboration inventory | 41 files and 7,703 Go lines under `internal/modules/collaboration`; 3,869 lines are non-test production Go. |
+| Owner routing | `module.collaboration` owns 32 verification rows, of which 20 are service-backed. |
+| Boundary baseline | `make backend-module-boundary-check` passed `3/3` at `.cartulary/test-results/20260828T210328Z-p2491078`. |
+| Focused owner baseline | `make test-slice OWNER=module.collaboration` reached `28/31` units at `.cartulary/test-results/20260828T210140Z-p2441067`, then failed on the pre-existing artifact-path mismatch described below. |
+| Planning authority | Adopted Collaboration and Core owner requirements control behavior. `docs/domain.md` supplies vocabulary and owner navigation and remains unchanged. |
+| Document scope | This tracker is the only authorized changed path for `PR3-PLAN-00`. |
+
+The focused owner failure is harness evidence, not a Collaboration product
+assertion failure. The reset unit passed and wrote
+`test-slice/reset-boundary/stateful-default-collaboration--before-stateful-default-session-recovery.attempt.json`,
+while its manifest expected
+`browser-e2e-stateful/reset-boundary/stateful-default-collaboration--before-stateful-default-session-recovery.attempt.json`.
+The run therefore reports 28 passed units, one artifact failure, and two
+dependent skips. `PR3-WF-00` must reproduce and resolve that declaration or
+collection mismatch before product edits.
+
+These numbers and run roots are planning evidence only. They do not claim a
+green Iteration 3 implementation baseline or authorize correction of the
+harness in this document step.
+
+`PR3-PLAN-01` opened at `2026-08-28T18:14:35-04:00` on unchanged HEAD
+`88c1d16a33219c791ff67e7c5d4625c64bf798f8`. The exact opening status was
+`M  docs/handoffs/collaboration-module-refactor-tracker.md`: the tracker update
+was already staged by the user. Execution must preserve that index entry and
+must not stage, reset, commit, or otherwise rewrite it. Worktree tracker edits
+therefore intentionally produce an `MM` status until handoff.
+
+### 14.2 Live inventory and disposition
+
+| Area | Live state and maintenance burden | Iteration 3 disposition |
+| --- | --- | --- |
+| Publication catalog | `PublicationContribution.RecordTypes` is contribution-wide, while each `ViewPublicationContribution` lacks its exact record-type claim. Runtime `publicationView` retains `ownerID` and `recordTypes` even though admission uses only public and patch keys. | Compile exact source-owner, record-type, and view-schema relationships before runtime construction; retain only the key policy needed during append admission. |
+| Publication port | `PublicationAppender` and `Runtime.Publications()` expose all three append families to any consumer, and shared tests reproduce that broad surface. | Delete the broad interface, constructor, and accessor. Expose one narrow port per replayable family and bind consumers only to their required capability. |
+| Event intent | `stream.EventIntent` has public fields and `NewEventIntent` accepts a free-form family string. Record-change code constructs an intent and mutates identity fields afterward. | Make the value closed and construct each family atomically through a named constructor. Persisted-corruption tests use SQL fixtures rather than mutation of production values. |
+| Replay validation | Record-change validation is duplicated in `protocol.RecordChangeFromSequencedMessage` and the hub; durable Job and Extension messages do not share the same admission-to-delivery validation path. | Establish two protocol validators as the only replay-family validation boundary at append, sequencing, recovery proof, durable tailing, authenticated replay reads, and hub delivery. |
+| Protocol helpers | `RawPayload`, incident-specific Job construction, Extension canonicalization, record-change semantic carriers, and record-change decoding are exported primarily to build fixtures. `protocol.Codec` is stateless. | Move fixture construction and test decoding to `internal/testutil/collaborationsupport`, retire the production-only test exports, and replace the codec carrier with functions. |
+| Runtime construction | `Options` does not require the fatal dispatcher-loss callback; hub telemetry is configured after construction; dispatcher telemetry does not receive the resolved version; stream and dispatcher constructors cannot report invalid inputs. | Make construction complete, immutable, version-aware, and fallible before a runtime can escape. |
+| Dispatcher loss | App Server reports `collaboration_dispatcher` to a publication component registry whose adopted Collaboration component is `websocket`, so the intended fatal transition is not routed. | Route startup failure and unexpected post-start loop loss to `websocket` exactly once, while excluding graceful shutdown and retryable failures. |
+| Dead runtime state | `PostgresStream.now` and its constructor clock, the route codec field, an unused client-instance parameter, and `hub.ConfigureTelemetry` add state or mutation without owned behavior. | Delete each dead field, parameter, and mutable configuration path; guard against reintroduction. |
+| Test support | Production protocol exports and broad appenders make fixture code easy at the cost of a wider production API. | Give `internal/testutil/collaborationsupport` explicit builders, decoders, narrow fake ports, and SQL corruption fixtures. |
+
+No listed surface is carried forward merely because it exists today. A surface
+survives only if it preserves required behavior or materially improves the
+future owner boundary.
+
+### 14.3 Behavior and artifact freeze
+
+Iteration 3 is an internal Go cutover. The following outcomes are frozen:
+
+| Surface | Frozen outcome |
+| --- | --- |
+| Public transport | All public routes, WebSocket message families, JSON members, canonical bytes, size limits, close codes, decoder outcomes, and client-visible sequencing remain byte-compatible. |
+| Authorization | Authentication, Origin handling, incident authorization, membership revocation, terminal handling, and authorization precedence remain unchanged. |
+| Replay | Durable ordering, cursor semantics, reconnect replay, sequencing, recovery, tailing, retry, retention, and no-gap behavior remain unchanged for valid messages. |
+| Publication identity | Intent keys, source identity meaning, mutation ordinals, record-change identity metadata, idempotency, and collision behavior remain unchanged. |
+| Storage | Database schema, authored SQL meaning, transaction ownership, and durable rows remain unchanged. No migration, backfill, or production-data rewrite is permitted. |
+| Operator | Recovery and operator command grammar, validation, exit behavior, and evidence remain unchanged. |
+| Incident Bundle | Incident Bundle behavior, contents, versions, and conformance outcomes remain unchanged. |
+| Telemetry | Existing instrument names, span names, attribute names and values, component vocabulary, and failure taxonomy remain unchanged; missing resolved service-version attribution is repaired without vocabulary expansion. |
+| Generated artifacts | Product contracts, generated protocol code, generated UI contracts, and lockfiles remain unchanged. Verification topology may change later only through its authored owner input and Make-owned generator. |
+
+There will be no compatibility aliases, deprecated wrappers, dual paths,
+feature flags, schema migrations, data backfills, or state reset. A proposed
+cutover that requires one of those mechanisms is outside this plan and blocks
+its workstream pending owner review.
+
+### 14.4 Gap decisions
+
+| ID | Decision | Structural rationale | Compatibility and unresolved risk |
+| --- | --- | --- | --- |
+| `PR3-G-00` | Set `CARTULARY_TEST_TARGET` on browser reset work-graph units to the target owning their declared evidence path and add an owner-selection regression. | Producer and collector use one target identity, so successful browser work cannot be misclassified as missing evidence. | Harness artifact placement only. Without the fix, green browser work can continue to fail and obscure product regressions. |
+| `PR3-G-01` | Remove contribution-wide record types, add exact record types to every view contribution, and compile the complete publication catalog against active projection descriptors and canonical view-schema resources. Reject unknown, duplicate, incomplete, cross-owner, record/view-mismatched, or contradictory declarations before runtime construction. | A single composition-time compiler makes source-owner disclosure explicit and prevents a future view or owner from silently inheriting a broad assumption. Runtime policy becomes smaller and easier to test. | Public behavior is frozen. A real contradiction between adopted owners blocks `PR3-WF-02` rather than weakening validation. |
+| `PR3-G-02` | Replace the broad publication appender with `RecordChangedAppender`, `JobProgressAppender`, and `ExtensionResourceChangedAppender` and matching Runtime accessors. | Capability-specific ports prevent accidental cross-family dependency growth and let future families add ports without widening every consumer. | Atomic caller migration is required; no broad alias or temporary adapter may remain. |
+| `PR3-G-03` | Close `stream.EventIntent` and replace the string-family constructor with three family constructors. | Construction becomes the only way to form valid production intent state, including record identity metadata. This removes mutation-based invariants and free-form family selection. | Intent keys and persisted representation are frozen. Corruption tests must move to SQL fixtures before the public fields disappear. |
+| `PR3-G-04` | Make `protocol.ValidateReplayablePayload` and `protocol.ValidateSequencedReplayableMessage` the only replay-family validators at append, sequencing, recovery proof, durable tailing, authenticated replay reads, and hub delivery. | An exhaustive protocol boundary scales to future families and removes stage-specific drift from both live and reconnect paths. | All three current families retain valid bytes; malformed durable messages fail closed without advancing the tail cursor, skipping a row, or reordering later delivery. |
+| `PR3-G-05` | Move test-only message construction and semantic decoding to `internal/testutil/collaborationsupport`; retire fixture-only protocol exports and the stateless codec type. | Production protocol APIs describe production behavior only. Test ergonomics no longer determine owner exports, and function-based encode/decode has no meaningless carrier state. | Test and source-owner fixtures require an atomic migration. No wire behavior may change. |
+| `PR3-G-06` | Require the dispatcher-loss callback, pass the resolved service version to dispatcher telemetry, construct hub telemetry immutably, and make store and dispatcher constructors fallible. | A Runtime either owns a complete valid graph or construction fails. Later phases can add dependencies without post-construction mutation. | Constructor call sites must change together. Metric names and attributes remain frozen. |
+| `PR3-G-07` | Report dispatcher startup failure and unexpected post-start loop loss through publication component `websocket` exactly once. Do not report graceful shutdown or retryable listener/dispatch failures as fatal. | The fix uses the already adopted process-lifecycle component rather than inventing a Collaboration-only compatibility identifier. Exactly-once loss ownership prevents duplicate shutdown publication. | Panic and unexpected-return boundaries need deterministic tests. A new component ID is forbidden. |
+| `PR3-G-08` | Remove the unused stream clock, route codec field, unused client-instance argument, and mutable hub telemetry configurator. | Deleting unowned state makes construction and source layout state the actual lifecycle design. | Internal compile-time cutover only; no observable compatibility effect is permitted. |
+
+### 14.5 Target interfaces and construction boundaries
+
+#### 14.5.1 Publication catalog compiler
+
+`PublicationContribution` becomes
+`{ContributionID, SourceOwnerID, AffectedViews}` and no longer declares a
+contribution-wide record set. `ViewPublicationContribution` becomes
+`{ViewSchemaID, RecordTypes, PublicFieldKeys, PatchFieldKeys}`, and the
+independent canonical input is
+`CanonicalPublicationView{ViewSchemaID, SourceOwnerID, RecordTypes}`.
+`NewPublicationCatalog(contributions, canonicalViews)` must compare, as one
+closed operation:
+
+1. the contributing source owner;
+2. every declared source record type;
+3. every declared view schema;
+4. that view schema's canonical source owner and source record types; and
+5. the public-field and patch-field disclosure policy.
+
+Compilation fails before Runtime construction when any contribution or
+canonical relationship is unknown, empty, duplicated, incomplete,
+cross-owned, mismatched, or contradictory. Complete means that the contribution
+set has exactly the required source-owner/record/view relationships; an
+undeclared required relationship and an extra relationship both fail.
+Active projection descriptors provide canonical owner/view relationships;
+canonical view-schema resources independently provide record types and public
+fields. Application composition joins both sources and fails before Runtime
+construction on disagreement. Collaboration does not add another handwritten
+registry.
+
+Inputs are copied during compilation. Mutation of the contribution slices or
+canonical metadata after construction cannot change catalog behavior.
+`publicationView` retains only `publicKeys` and `patchKeys` after successful
+validation; `ownerID` and `recordTypes` are deleted because they have no
+runtime admission role.
+
+#### 14.5.2 Narrow publication ports
+
+The retained and new repository-internal Go ports are:
+
+- `RecordChangedAppender` with `AppendRecordChangedTx`;
+- `JobProgressAppender` with `AppendJobProgressTx`; and
+- `ExtensionResourceChangedAppender` with
+  `AppendExtensionResourceChangedTx`.
+
+`PublicationAppender`, `NewPublicationAppender`, and
+`Runtime.Publications()` are deleted. Runtime exposes exactly:
+
+- `Runtime.RecordChanges() RecordChangedAppender`;
+- `Runtime.JobProgress() JobProgressAppender`; and
+- `Runtime.ExtensionResourceChanges() ExtensionResourceChangedAppender`.
+
+App Server, Jobs, Network Flow, each source owner, and shared test composition
+receive only the narrow port consumed by that field or constructor. No
+consumer-owned aggregate, embedding interface, compatibility constructor, or
+temporary broad adapter is permitted.
+
+#### 14.5.3 Closed event intents
+
+All fields of `stream.EventIntent` become private. The generic string-family
+`NewEventIntent` constructor is deleted and replaced by:
+
+- `NewRecordChangedIntent`;
+- `NewJobProgressIntent`; and
+- `NewExtensionResourceChangedIntent`.
+
+Each constructor accepts only its family's required identity and payload data,
+canonicalizes and validates the payload, and returns a fully valid immutable
+intent. `NewRecordChangedIntent` receives change-set ID, record ID, and row
+version as one construction input; no caller may assign those values after
+construction. `IntentWriter` may read private intent state but remains unable
+to accept an arbitrary family.
+
+Tests of corrupt persisted state insert explicit invalid rows through
+service-backed SQL fixtures owned by
+`internal/testutil/collaborationsupport`. They must not regain mutation through
+test setters, exported fields, reflection, or unsafe construction.
+
+#### 14.5.4 Replay validation and protocol surface
+
+`protocol.ValidateReplayablePayload` validates a family and its canonical
+payload before append admission. `protocol.ValidateSequencedReplayableMessage`
+validates the full durable message envelope, identity, sequence metadata, and
+family payload after sequencing. The same validators are called by:
+
+1. append admission;
+2. sequencing;
+3. recovery verification;
+4. durable tail reads;
+5. authenticated replay reads; and
+6. hub delivery.
+
+The validators cover `record_changed`, `job_progress`, and
+`extension_resource_changed` exhaustively. Unknown replayable families fail
+closed. The duplicate stream record validator is deleted. Hub delivery must
+reject a malformed durable message before fan-out and before advancing a
+subscriber cursor; a later valid message cannot conceal or skip the corrupt
+sequence.
+Reconnect replay validates each row before adding it to the authenticated
+result and fails the complete read closed at the first invalid sequence.
+
+Test-only construction and decoding moves to
+`internal/testutil/collaborationsupport`. The following production protocol
+exports are deleted:
+
+- `RawPayload`;
+- `NewIncidentJobProgressPayload`;
+- `CanonicalExtensionResourceChangePayload`;
+- `RecordChangePayload`;
+- `RecordChangeFromSequencedMessage`;
+- `RecordChangedEvent`; and
+- `RecordChangedView`.
+
+The stateless `protocol.Codec` type is deleted. Production callers use
+`protocol.DecodeMessage` and `protocol.EncodeMessage` functions with the same
+decoder failures, size limits, and encoded bytes.
+
+#### 14.5.5 Runtime, dispatcher, and telemetry
+
+`Options.OnUnexpectedDispatcherLoss` is required. Nil is a construction error.
+Runtime resolves the service version once and passes it into immutable hub and
+dispatcher telemetry construction. The hub has no
+`ConfigureTelemetry` mutation path. Store and dispatcher constructors return
+errors for missing or contradictory dependencies so Runtime cannot retain a
+partly configured component.
+
+Dispatcher startup failure and a post-start loop panic or unexpected return
+invoke the required callback exactly once with the already adopted publication
+component `websocket`. Normal context cancellation, idempotent close, and
+retryable dispatch, listener, notification, or fallback failures do not invoke
+the fatal callback. App Server retains ownership of translating that callback
+into the existing Core lifecycle publication and exit behavior.
+
+`PostgresStream.now` and its clock constructor parameter, the route codec
+field, the unused `handleClientMessage` client-instance parameter, and
+`hub.ConfigureTelemetry` are deleted. Time dependencies remain only where
+owned behavior actually reads them.
+
+### 14.6 Binary acceptance criteria
+
+| ID | Acceptance condition |
+| --- | --- |
+| `PR3-AC-00` | Reset-unit `CARTULARY_TEST_TARGET` equals the evidence-path target under owner and row selection; harness-browser tests, harness contract, backend boundary, and the focused Collaboration slice pass without artifact copying, selector suppression, or relaxed evidence requirements. |
+| `PR3-AC-01` | Unknown, duplicate, incomplete, cross-owner, record/view-mismatched, contradictory, and mutation-after-construction catalog cases fail deterministically; the complete canonical catalog constructs. |
+| `PR3-AC-02` | Exact symbol and compile-time guards prove `PublicationAppender`, `NewPublicationAppender`, `Runtime.Publications()`, broad consumer fields, and broad shared-test adapters are absent. |
+| `PR3-AC-03` | `EventIntent` exposes no fields, the generic `NewEventIntent` is absent, only the three named family constructors can form intents, and record identity is atomic. |
+| `PR3-AC-04` | All replay families pass valid append, sequencing, recovery, tail, authenticated replay, and hub-delivery tests; malformed durable messages never enter replay results or fan out, never advance the tail cursor, and block later sequence delivery until repaired without reordering. |
+| `PR3-AC-05` | The duplicate validator, seven retired protocol helpers/types, and `protocol.Codec` are absent; fixtures and semantic decoding live under `internal/testutil/collaborationsupport`. |
+| `PR3-AC-06` | Missing Runtime dependencies, store dependencies, or dispatcher dependencies fail construction; no telemetry or lifecycle dependency is installed through later mutation. |
+| `PR3-AC-07` | Startup failure and unexpected loop panic/return report `websocket` loss exactly once. Graceful shutdown and retryable dispatch/listener failures never report fatal loss. |
+| `PR3-AC-08` | Collaboration hub, route, and dispatcher instruments use the resolved service version while all existing metric names and attributes remain unchanged. |
+| `PR3-AC-09` | `PostgresStream.now`, its clock parameter, the route codec field, the unused client-instance parameter, `hub.ConfigureTelemetry`, and invalid component ID `collaboration_dispatcher` are absent and mechanically guarded. |
+| `PR3-AC-10` | Public routes, WebSocket families and bytes, authorization, replay order, intent keys, schema, operator grammar, Incident Bundle behavior, and telemetry vocabulary match the freeze; no alias, dual path, flag, migration, backfill, or reset is introduced. |
+| `PR3-AC-11` | The Collaboration baseline, affected owner matrices, final repository gates, tracker checkpoints, and retained-run finalization all pass on the exact completed source. |
+
+Any acceptance condition that cannot be made binary is incomplete and must be
+refined before its workstream starts. A product assertion failure, adopted
+owner contradiction, or required compatibility mechanism blocks the affected
+workstream; it is not permission to add a tactical bypass.
+
+### 14.7 Strictly sequenced workstreams
+
+| Sequence | Workstream | Scope and binary exit | Status |
+| --- | --- | --- | --- |
+| 0 | `PR3-WF-00` — Repair evidence routing and establish the green baseline | Correct browser reset-unit target identity and add owner-selection coverage. Run narrow harness-browser coverage, harness contract, backend boundary, and the focused Collaboration slice. Exit: `PR3-G-00` and `PR3-AC-00` pass without copied artifacts or skipped evidence. | `DONE` |
+| 1 | `PR3-WF-01` — Close specification authority | Amend the adopted Collaboration decision and AC-564 for exact per-view catalog facts, family-specific ports, closed intents, unified live and reconnect validation, immutable construction, fatal-loss ownership, and test-support placement. Core 00 and `docs/domain.md` remain unchanged. Exit: owners and tracker agree, Markdown lint and diff check pass, and no owner contradiction remains. | `DONE` |
+| 2 | `PR3-WF-02` — Compile the exact publication catalog | Make projection descriptors available before Collaboration composition; join descriptors with view-schema resources; compare exact Revisions/source-owner publication declarations; remove broad record facts and runtime maps; add the complete negative and mutation matrix. Exit: `PR3-G-01` and `PR3-AC-01` pass. | `DONE` |
+| 3 | `PR3-WF-03` — Centralize protocol validation and test support | Install validators at append, sequencing, recovery, tail, authenticated replay, and hub boundaries; relocate fixture construction and semantic decoding; remove the duplicate validator, fixture-only exports, and codec carrier. Exit: `PR3-G-04`, `PR3-G-05`, `PR3-AC-04`, and `PR3-AC-05` pass, including corrupt-row no-skip/no-reorder proof. | `DONE` |
+| 4 | `PR3-WF-04` — Narrow publication ports and close intents | Add three distinct appenders and Runtime accessors, split App Server translators, migrate every consumer, close `EventIntent`, add named family constructors using the shared validator, and delete broad and mutation-based surfaces. Exit: `PR3-G-02`, `PR3-G-03`, `PR3-AC-02`, and `PR3-AC-03` pass with no adapter or alias. | `DONE` |
+| 5 | `PR3-WF-05` — Harden Runtime lifecycle and telemetry | Complete immutable Runtime, stream, dispatcher, and hub construction; propagate service version; supervise dispatcher loss through `websocket` once; preserve graceful and retryable behavior; remove dead state and the invalid component ID. Exit: `PR3-G-06` through `PR3-G-08` and `PR3-AC-06` through `PR3-AC-09` pass. | `DONE` |
+| 6 | `PR3-WF-06` — Permanent guards, exact-source validation, and handoff | Add exact boundary and dead-symbol guards; change authored routing only if required; run all focused, service-backed, browser, repository, retained-run, tracker, diff, and status gates in the prescribed order. Exit: `PR3-AC-10` and `PR3-AC-11` pass with every predecessor retained and no handoff obligation open. | `DONE` |
+
+Workstreams may not overlap. Each starts only after its predecessor is `DONE`
+with a linted checkpoint. The user's implementation request authorizes the
+sequence, but it does not authorize a successor to begin early.
+
+Every workstream checkpoint must record:
+
+- source SHA, branch relationship, start/end time, and exact `git status`;
+- changed areas and the acceptance and gap IDs closed;
+- exact Make commands, row selections, stable run IDs, and run roots;
+- every non-pass and whether it is change-related, pre-existing, corrected, or
+  unrelated;
+- frozen compatibility and migration result;
+- rollback scope that does not disturb prior or user-owned changes;
+- remaining risk and next authorized workstream; and
+- a passing `make lint-markdown` before transition to `DONE`.
+
+### 14.8 Validation plan
+
+#### 14.8.1 Workstream-specific evidence
+
+`PR3-WF-00` must run the focused owner slice and retain the failed or passing
+reset artifact under the single producer-and-manifest target as evidence. A
+repeated mismatch is corrected at the harness owner, not hidden by copying
+artifacts after execution.
+
+`PR3-WF-01` must align the adopted Collaboration boundary decision and AC-564
+with every accepted gap decision. Core 00 remains unchanged because
+`REQ-00-075` already adopts the decision and its topology. `docs/domain.md`
+remains unchanged because Collaboration is still an implementation-support
+capability rather than a bounded context.
+
+`PR3-WF-02` must add catalog matrices for:
+
+- unknown owner, record type, and view schema;
+- duplicate contribution, record, and view declarations;
+- cross-owner declarations;
+- record/view metadata mismatch;
+- incomplete or extra relationships;
+- contradictory public and patch disclosure; and
+- mutation of inputs after construction.
+
+`PR3-WF-03` must exercise all three replayable families at append admission,
+sequencing, recovery verification, durable tailing, authenticated replay, and
+hub delivery. Coverage includes explicit SQL corruption fixtures, unknown
+families, invalid envelopes, invalid payloads, rejected replay and fan-out, no
+tail-cursor advancement after rejected delivery, and successful delivery after
+correction without skipping or reordering.
+
+`PR3-WF-04` must cover:
+
+- compile-time capability checks and exact absence guards for the broad
+  appender and generic intent constructor;
+- all three family constructors;
+- duplicate and collision behavior;
+- atomic record identity; and
+- every migrated consumer.
+
+`PR3-WF-05` must cover:
+
+- synchronous startup failure;
+- post-start panic and unexpected return;
+- exactly-once fatal callback;
+- retryable dispatch and listener failures;
+- notification fallback;
+- idempotent `Start` and `Close` behavior;
+- normal context-driven shutdown; and
+- hub, route, and dispatcher telemetry carrying the resolved service version
+  without metric-name or attribute drift.
+
+`PR3-WF-06` must prove by permanent boundary or exact dead-symbol guards that
+the broad appender, generic intent constructor, duplicate validator, retired
+protocol helpers, codec carrier, dead clock, mutable telemetry, and invalid
+component ID cannot return.
+
+#### 14.8.2 Owner and integration matrices
+
+After the narrow local tests for each slice, select exact rows through
+`make task-guide ROLE=module-author OWNER=<owner-id>` and
+`make explain-test-owner OWNER=<owner-id>`. Required affected coverage includes:
+
+- focused and service-backed `module.collaboration`;
+- App Server composition and lifecycle;
+- Jobs and Network Flow;
+- Revisions and source-owner publication providers;
+- Recovery and Operator;
+- Workbook;
+- every source owner whose publication port or fixture changes; and
+- the backend module boundary and harness contract.
+
+Use `make test-slice OWNER=<owner-id> [ROWS=<row-id,...>]` and
+`make service-backed-test-slice OWNER=<owner-id> [ROWS=<row-id,...>]` for
+narrow verification. Broaden only when the change or owner routing requires
+it. Direct `go`, `pnpm`, Vitest, or Playwright invocations are not completion
+evidence.
+
+#### 14.8.3 Final exact-source validation
+
+The final workstream runs, in dependency order:
+
+1. focused and service-backed Collaboration and affected-owner slices;
+2. `make generate-drift`;
+3. `make generated-artifact-policy-check`;
+4. `make json-shape-check`;
+5. `make harness-contract`;
+6. `make backend-module-boundary-check`;
+7. `make migration-drift`;
+8. `make agent-finalize` without `RESULTS_DIR` unless a successful exact-source
+   full warm-check root already exists;
+9. `make test-fast`;
+10. all browser families required by the affected owner rows, including
+    webserver-backed, stateful, measurement, accessibility, and visual where
+    routed;
+11. `make check`;
+12. `make agent-finalize RESULTS_DIR=<successful-full-check-root>`; and
+13. `make lint-markdown` and `git diff --check` after the final tracker
+    checkpoint.
+
+Generated topology may change only when authored verification routing changes.
+The authored owner input is changed first, the relevant Make generator is run,
+and both generated drift and harness contract must pass. Generated product
+contracts and lockfiles remain outside this iteration.
+
+### 14.9 Handoff and authorization
+
+| ID | State | Authorization and evidence |
+| --- | --- | --- |
+| `PR3-PLAN-00` | `DONE` | Tracker-only plan. The document diff was reviewed, `git diff --check` and the single-path audit passed, preliminary Markdown lint passed at `.cartulary/test-results/20260828T211400Z-pr3-plan-00-preliminary`, and final Markdown lint passed at `.cartulary/test-results/20260828T211600Z-pr3-plan-00-final`. |
+| `PR3-PLAN-01` | `DONE` | Corrected controlling plan activated; preliminary lint passed at `.cartulary/test-results/20260828T221500Z-pr3-plan-01-preliminary` and exact checkpoint lint passed at `.cartulary/test-results/20260828T221900Z-pr3-plan-01-final`. |
+| `PR3-WF-00` | `DONE` | `PR3-G-00` and `PR3-AC-00` closed with green harness, boundary, and 31/31 Collaboration evidence. |
+| `PR3-WF-01` | `DONE` | Adopted decision and AC-564 aligned; Core 00 and `docs/domain.md` remained unchanged; owner diff and Markdown lint passed. |
+| `PR3-WF-02` | `DONE` | Exact descriptor/resource/contribution catalog compiled; negative and mutation matrices plus all owning slices passed. |
+| `PR3-WF-03` | `DONE` | Unified validators cover live and reconnect paths; fixture-only exports and codec carrier are absent; corrupt-row order proofs passed. |
+| `PR3-WF-04` | `DONE` | Three non-widenable appenders, closed family intents, exact dead-symbol guards, and all migrated owners passed. |
+| `PR3-WF-05` | `DONE` | Fallible immutable construction, resolved-version telemetry, `websocket` fatal-loss supervision, and dead lifecycle removal passed focused and service-backed validation. |
+| `PR3-WF-06` | `DONE` | Permanent guards, the complete affected-owner/browser matrix, 669/669 warm check, retained-run finalization, and final handoff gates passed. |
+
+Planning handoff assumptions:
+
+- `docs/domain.md` remains unchanged because it already classifies
+  Collaboration as a supporting capability rather than a bounded context.
+- `docs/research/nlspec-spec.md` is writing guidance, not behavioral authority.
+- The adopted Collaboration decision and AC-564 require the specification
+  closure in `PR3-WF-01`; Core 00 remains unchanged because `REQ-00-075`
+  already adopts the decision and its topology. A newly discovered owner
+  contradiction blocks only the affected workstream pending owner resolution.
+- Generated product contracts and lockfiles remain unchanged. Only
+  Make-generated verification topology may change in a later implementation
+  workstream, and only when its authored routing changes.
+- The focused baseline artifact mismatch is not permission for a product
+  change, artifact copy shim, skipped row, or relaxed evidence requirement.
+
+Historical `PR3-PLAN-00` completion checklist:
+
+- [x] Iterations 1 and 2 remain intact as historical evidence.
+- [x] Section 14 is the sole forward plan and lists the current source,
+  inventory, owner-routing, focused-slice, and boundary baselines.
+- [x] The behavior freeze and prohibited compatibility mechanisms are
+  explicit.
+- [x] Every gap has one structural cutover and binary acceptance criteria.
+- [x] Target internal interfaces, removals, validation boundaries, lifecycle
+  behavior, and telemetry construction are explicit.
+- [x] `PR3-WF-00` through `PR3-WF-05` are strictly sequenced, `PLANNED`, and
+  unauthorized.
+- [x] The final diff changes only this tracker and passes `git diff --check`.
+- [x] Final `make lint-markdown` passes and its exact run root is recorded.
+- [x] `PR3-PLAN-00` alone is `DONE`; no implementation or product-validation
+  completion is claimed.
+
+Planning handoff record: `PR3-PLAN-00` ran from
+`2026-08-28T17:09:38-04:00` through `2026-08-28T17:14:28-04:00` at unchanged
+HEAD `88c1d16a33219c791ff67e7c5d4625c64bf798f8`. The starting worktree was
+clean and the final tracked diff contains only this tracker. Read-only source
+inspection confirmed the live inventory and target symbols. The document diff,
+`git diff --check`, and the single-path audit passed. Preliminary Markdown lint
+passed at `.cartulary/test-results/20260828T211400Z-pr3-plan-00-preliminary`;
+final Markdown lint passed at
+`.cartulary/test-results/20260828T211600Z-pr3-plan-00-final`. Compatibility is
+documentation-only with no product, schema, generated, migration, or runtime
+effect. Rollback is this tracker diff. The focused owner artifact mismatch is
+the only retained non-pass and is classified in Section 14.1 as pre-existing
+harness evidence. Implementation remains unauthorized; `PR3-WF-00` is the
+next workstream only after an explicit later request.
+
+`PR3-PLAN-01` activation scope is documentation-only and preserves Sections 1
+through 13 plus the complete `PR3-PLAN-00` historical record. It adds
+`PR3-G-00`, removes the redundant contribution-wide record declaration from
+the target catalog, sources canonical relationships from projection
+descriptors plus view-schema resources, validates authenticated replay
+directly, moves specification closure ahead of implementation, and sequences
+protocol validation before closed-intent construction. Compatibility and
+migration impact are nil. Rollback is limited to the unstaged `PR3-PLAN-01`
+tracker additions and must preserve the user's staged tracker state. The next
+eligible slice after a passing checkpoint is `PR3-WF-00`; no successor may
+overlap it.
+
+`PR3-PLAN-01` completed at `2026-08-28T18:18:03-04:00` on unchanged HEAD
+`88c1d16a33219c791ff67e7c5d4625c64bf798f8`, two commits ahead of
+`origin/main`. Exact closing status was
+`MM docs/handoffs/collaboration-module-refactor-tracker.md`; the index remains
+the user's original staged `PR3-PLAN-00` version. Changed area was this tracker
+only. No product gap or acceptance ID was claimed closed. Commands were
+`CARTULARY_TEST_RUN_ID=20260828T221500Z-pr3-plan-01-preliminary make
+lint-markdown`, `git diff --check`, the exact status and branch audit, and
+`CARTULARY_TEST_RUN_ID=20260828T221900Z-pr3-plan-01-final make lint-markdown`.
+Both lint runs and the diff check passed. The retained focused-slice artifact
+mismatch is the only non-pass and remains classified as pre-existing
+diagnostic evidence for `PR3-WF-00`. Compatibility and migration effects are
+nil. Slice rollback is the unstaged activation delta only. Residual risk is
+limited to the identified harness producer/collector mismatch; `PR3-WF-00` is
+now `IN_PROGRESS` and is the only eligible implementation slice.
+
+### 14.10 Execution checkpoints
+
+#### 14.10.1 `PR3-WF-00` — `DONE`
+
+The slice ran from the linted `PR3-PLAN-01` transition through
+`2026-08-28T18:22:49-04:00` on unchanged HEAD
+`88c1d16a33219c791ff67e7c5d4625c64bf798f8`, two commits ahead of
+`origin/main`. Exact pre-checkpoint status was:
+
+```text
+MM docs/handoffs/collaboration-module-refactor-tracker.md
+ M tools/harness/browser/tests/test-browser-work-graph.mjs
+ M tools/harness/scheduler/work-graph/browser.mjs
+```
+
+The scheduler now injects each reset unit's `group.target` as
+`CARTULARY_TEST_TARGET`. The work-graph regression proves that target equals
+the declared evidence-path prefix for both Collaboration owner selection and
+explicit row selection. This closes `PR3-G-00` and `PR3-AC-00`.
+
+Evidence:
+
+- `make harness-smoke-browser-work-graph` was attempted once and rejected by
+  Make because the manifest-internal unit is not a public target. This was a
+  command-selection error before test execution, not a product or assertion
+  non-pass; the same smoke ran successfully through `make harness-contract`.
+- `CARTULARY_TEST_RUN_ID=20260828T222100Z-pr3-wf-00-harness-contract make
+  harness-contract` passed 2/2 at
+  `.cartulary/test-results/20260828T222100Z-pr3-wf-00-harness-contract`.
+- `CARTULARY_TEST_RUN_ID=20260828T222200Z-pr3-wf-00-harness-browser make
+  test-slice OWNER=harness.browser` passed 28/28 at
+  `.cartulary/test-results/20260828T222200Z-pr3-wf-00-harness-browser`.
+- `CARTULARY_TEST_RUN_ID=20260828T222300Z-pr3-wf-00-backend-boundary make
+  backend-module-boundary-check` passed 3/3 at
+  `.cartulary/test-results/20260828T222300Z-pr3-wf-00-backend-boundary`.
+- `CARTULARY_TEST_RUN_ID=20260828T222400Z-pr3-wf-00-collaboration make
+  test-slice OWNER=module.collaboration` passed 31/31 at
+  `.cartulary/test-results/20260828T222400Z-pr3-wf-00-collaboration`.
+- `git diff --check` passed. Exact checkpoint Markdown lint passed at
+  `.cartulary/test-results/20260828T222500Z-pr3-wf-00-checkpoint`.
+
+No artifact was copied, no selector was suppressed, and no evidence
+requirement was relaxed. The prior 28/31 run remains retained diagnostic
+evidence and is classified as corrected by this harness-owned change. Public
+product behavior, wire and storage contracts, migrations, generated product
+artifacts, and lockfiles are unchanged. Slice-local rollback is limited to the
+two harness files and this unstaged checkpoint, preserving the user's staged
+tracker state and all earlier work. No unexplained non-pass remains.
+`PR3-WF-01` is now `IN_PROGRESS` and is the only eligible successor.
+
+#### 14.10.2 `PR3-WF-01` — `DONE`
+
+The specification slice completed at `2026-08-28T18:25:49-04:00` on unchanged
+HEAD `88c1d16a33219c791ff67e7c5d4625c64bf798f8`, two commits ahead of
+`origin/main`. Exact pre-checkpoint status was:
+
+```text
+ M docs/decisions/collaboration-module-boundary.md
+MM docs/handoffs/collaboration-module-refactor-tracker.md
+ M docs/spec/04_security_deployment_and_conformance.md
+ M tools/harness/browser/tests/test-browser-work-graph.mjs
+ M tools/harness/scheduler/work-graph/browser.mjs
+```
+
+The adopted Collaboration boundary decision now owns exact per-view catalog
+facts sourced from projection descriptors and view-schema resources,
+family-specific least-capability ports, closed family intents, exhaustive live
+and authenticated-replay validation, immutable fallible construction,
+`websocket` fatal-loss ownership, and test-support placement. AC-564 now
+requires the same binary evidence. These changes close the specification
+facets of `PR3-G-01` through `PR3-G-07`; implementation acceptance remains open
+for the owning later slices. Core 00 was not changed because `REQ-00-075`
+already adopts this decision and topology. `docs/domain.md` was not changed
+because Collaboration remains an implementation-support capability.
+
+`CARTULARY_TEST_RUN_ID=20260828T222600Z-pr3-wf-01-preliminary make
+lint-markdown` passed at
+`.cartulary/test-results/20260828T222600Z-pr3-wf-01-preliminary`, and `git diff
+--check` passed. Exact checkpoint lint passed at
+`.cartulary/test-results/20260828T222700Z-pr3-wf-01-checkpoint`. There were no
+non-passes and no behavioral-owner contradiction. Public behavior, storage,
+generated artifacts, migrations, lockfiles, and compatibility remain
+unchanged. Slice rollback is limited to the two owner-text edits and this
+unstaged checkpoint, preserving the user's staged tracker plus `PR3-WF-00`.
+The exact catalog implementation is the remaining risk; `PR3-WF-02` is now
+`IN_PROGRESS` and is the only eligible successor.
+
+#### 14.10.3 `PR3-WF-02` — `DONE`
+
+The catalog slice completed at `2026-08-28T18:36:17-04:00` on unchanged HEAD
+`88c1d16a33219c791ff67e7c5d4625c64bf798f8`, two commits ahead of
+`origin/main`. The exact status is the cumulative status listed below; the
+user's tracker entry remains the only staged path:
+
+```text
+ M docs/decisions/collaboration-module-boundary.md
+MM docs/handoffs/collaboration-module-refactor-tracker.md
+ M docs/spec/04_security_deployment_and_conformance.md
+ M internal/app/server/collaboration_publication.go
+ M internal/app/server/runtime_assembly.go
+ M internal/modules/collaboration/publication.go
+ M internal/modules/collaboration/publication_catalog_test.go
+ M internal/modules/collaboration/record_change_intent_test.go
+ M internal/testutil/collaborationsupport/intents.go
+ M tools/harness/browser/tests/test-browser-work-graph.mjs
+ M tools/harness/scheduler/work-graph/browser.mjs
+?? internal/app/server/collaboration_publication_test.go
+```
+
+Application composition now constructs Projections before Collaboration,
+derives canonical owner/view relationships only from active descriptors,
+independently verifies descriptor record types against view-schema resources,
+and compares that complete set with Revisions/source-owner routes. The public
+catalog types now place record facts on each view, accept independent canonical
+views, defensively copy inputs, and retain only public and patch key policy.
+The negative matrix covers empty, missing, extra/unknown, duplicate,
+cross-owner, record/view-mismatched, contradictory, inactive, and
+mutation-after-construction cases. This closes `PR3-G-01` and `PR3-AC-01`.
+
+Evidence:
+
+- `make format` passed 2/2 at
+  `.cartulary/test-results/20260828T223113Z-p2590970`.
+- `CARTULARY_TEST_RUN_ID=20260828T223300Z-pr3-wf-02-collaboration make
+  test-slice OWNER=module.collaboration` passed 31/31 at
+  `.cartulary/test-results/20260828T223300Z-pr3-wf-02-collaboration`.
+- `CARTULARY_TEST_RUN_ID=20260828T223500Z-pr3-wf-02-app-server make test-slice
+  OWNER=app.server` passed 24/24 at
+  `.cartulary/test-results/20260828T223500Z-pr3-wf-02-app-server`.
+- `CARTULARY_TEST_RUN_ID=20260828T223600Z-pr3-wf-02-projections make
+  test-slice OWNER=module.projections` passed 19/19 at
+  `.cartulary/test-results/20260828T223600Z-pr3-wf-02-projections`.
+- `CARTULARY_TEST_RUN_ID=20260828T223700Z-pr3-wf-02-revisions make test-slice
+  OWNER=module.revisions` passed 27/27 at
+  `.cartulary/test-results/20260828T223700Z-pr3-wf-02-revisions`.
+- `CARTULARY_TEST_RUN_ID=20260828T223800Z-pr3-wf-02-boundary make
+  backend-module-boundary-check` passed 3/3 at
+  `.cartulary/test-results/20260828T223800Z-pr3-wf-02-boundary`.
+- `git diff --check` and the retired-field source audit passed. Exact
+  checkpoint Markdown lint passed at
+  `.cartulary/test-results/20260828T224000Z-pr3-wf-02-checkpoint`.
+
+There were no non-passes. Public routes, bytes, authorization, valid replay,
+intent identity, storage, Operator behavior, Incident Bundle behavior, and
+telemetry are unchanged; no migration or compatibility mechanism was added.
+Slice-local rollback is limited to the catalog/composition/test-support files,
+their tests, and this unstaged checkpoint while preserving prior slices and the
+user's index. Central replay validation and fixture placement remain open;
+`PR3-WF-03` is now `IN_PROGRESS` and is the only eligible successor.
+
+#### 14.10.4 `PR3-WF-03` — `DONE`
+
+The protocol slice completed at `2026-08-28T18:59:08-04:00` on unchanged HEAD
+`88c1d16a33219c791ff67e7c5d4625c64bf798f8`, two commits ahead of
+`origin/main`. The exact cumulative status is:
+
+```text
+ M docs/decisions/collaboration-module-boundary.md
+MM docs/handoffs/collaboration-module-refactor-tracker.md
+ M docs/spec/04_security_deployment_and_conformance.md
+ M internal/app/server/collaboration_publication.go
+ M internal/app/server/runtime_assembly.go
+ M internal/modules/auth/testsupport/flowtest/flow_test.go
+ M internal/modules/collaboration/codec_test.go
+ M internal/modules/collaboration/hub.go
+ M internal/modules/collaboration/hub_state_test.go
+ M internal/modules/collaboration/hub_test.go
+ M internal/modules/collaboration/integration_test.go
+ M internal/modules/collaboration/internal/recovery/adapter.go
+ M internal/modules/collaboration/internal/stream/intent_writer.go
+ D internal/modules/collaboration/internal/stream/record_payload.go
+ M internal/modules/collaboration/internal/stream/replay.go
+ M internal/modules/collaboration/internal/stream/sequencing.go
+ M internal/modules/collaboration/internal/stream/tailing.go
+ M internal/modules/collaboration/protocol/codec.go
+ M internal/modules/collaboration/protocol/contracts.go
+ M internal/modules/collaboration/protocol/record_changed.go
+ M internal/modules/collaboration/publication.go
+ M internal/modules/collaboration/publication_catalog_test.go
+ M internal/modules/collaboration/record_change_intent_test.go
+ M internal/modules/collaboration/routes.go
+ M internal/modules/collaboration/socket_session_test.go
+ M internal/modules/collaboration/socket_transport.go
+ M internal/modules/collaboration/socket_transport_test.go
+ M internal/modules/collaboration/stream_integration_support_test.go
+ M internal/modules/collaboration/stream_recovery_integration_test.go
+ M internal/modules/collaboration/stream_retention_integration_test.go
+ M internal/modules/collaboration/stream_tailing_integration_test.go
+ M internal/modules/recovery/operatortest/operator_process_test.go
+ M internal/modules/revisions/integration_test.go
+ M internal/modules/workbook/row_wire_test.go
+ M internal/testutil/collaborationsupport/incidentwstest/incidentwstest.go
+ M internal/testutil/collaborationsupport/incidentwstest/view_events.go
+ M internal/testutil/collaborationsupport/intents.go
+ M internal/testutil/collaborationsupport/intenttest/intents.go
+ M internal/testutil/httptestx/routes.go
+ M internal/testutil/wstest/wstest.go
+ M tools/harness/browser/tests/test-browser-work-graph.mjs
+ M tools/harness/scheduler/work-graph/browser.mjs
+?? internal/app/server/collaboration_publication_test.go
+?? internal/modules/collaboration/protocol/replay_validation.go
+?? internal/modules/collaboration/protocol/replay_validation_test.go
+?? internal/testutil/collaborationsupport/protocoltest/
+```
+
+`ValidateReplayablePayload` and `ValidateSequencedReplayableMessage` now form
+one exhaustive three-family boundary at append admission, sequencing, recovery
+proof, durable tailing, authenticated replay reads, and hub delivery. Opaque
+event identity, positive sequence, UTC RFC 3339 time, object payload, incident
+identity, and family semantics are enforced while additive members remain
+accepted. Tail and replay rows are validated before cursor or result mutation;
+service-backed corruption proves no partial fan-out or replay, no skip, and
+ordered delivery after repair.
+
+The stateless codec is now `DecodeMessage`/`EncodeMessage`. The duplicate
+stream validator and the seven fixture-only protocol exports are absent.
+Message/payload builders, semantic record decoding, and generic persisted
+intent/replay corruption fixtures now live under
+`internal/testutil/collaborationsupport`. This closes `PR3-G-04`, `PR3-G-05`,
+`PR3-AC-04`, and `PR3-AC-05`.
+
+Evidence:
+
+- `make format` passed 2/2 at
+  `.cartulary/test-results/20260828T224716Z-p2758978`.
+- Focused Collaboration passed 31/31 at
+  `.cartulary/test-results/20260828T225500Z-pr3-wf-03-collaboration`.
+- Service-backed Collaboration passed 22/22 at
+  `.cartulary/test-results/20260828T225700Z-pr3-wf-03-collaboration-service`.
+- Recovery passed 24/24 at
+  `.cartulary/test-results/20260828T225900Z-pr3-wf-03-recovery`; Operator passed
+  12/12 at `.cartulary/test-results/20260828T230000Z-pr3-wf-03-operator`.
+- Jobs passed 6/6 at
+  `.cartulary/test-results/20260828T230200Z-pr3-wf-03-jobs`; Network Flow
+  passed 34/34 at
+  `.cartulary/test-results/20260828T230300Z-pr3-wf-03-networkflow`.
+- Workbook passed 68/68 at
+  `.cartulary/test-results/20260828T230600Z-pr3-wf-03-workbook`; Revisions
+  passed 27/27 at
+  `.cartulary/test-results/20260828T230700Z-pr3-wf-03-revisions`.
+- The exact retired-symbol audit and `git diff --check` passed. Checkpoint
+  Markdown lint passed at
+  `.cartulary/test-results/20260828T230900Z-pr3-wf-03-checkpoint`.
+
+Every Make graph passed and there were no non-passes. Valid message bytes,
+additive-member behavior, public routes, authorization, replay ordering,
+intent identity, storage, Operator grammar, Incident Bundle behavior, and
+telemetry vocabulary remain compatible. Invalid durable rows now fail closed
+as specified; no migration, backfill, reset, alias, or dual path was added.
+Slice rollback is limited to the protocol/stream/hub/test-support migrations,
+tests, and this checkpoint while preserving all prior slices and the user's
+index. Narrow publication ports and closed intents remain open; `PR3-WF-04` is
+now `IN_PROGRESS` and is the only eligible successor.
+
+#### 14.10.5 `PR3-WF-04` — `DONE`
+
+The capability and intent slice completed at `2026-08-28T19:39:46-04:00` on
+unchanged HEAD `88c1d16a33219c791ff67e7c5d4625c64bf798f8`, two commits ahead
+of `origin/main`. The final focused source digest was
+`sha256:182fccb1199942ed6445eba9def3e09618fcbf4fe0b96304b4c9b367a785bf7f`.
+The user's tracker entry remains the only staged path; exact cumulative status
+before this checkpoint was:
+
+```text
+ M docs/decisions/collaboration-module-boundary.md
+MM docs/handoffs/collaboration-module-refactor-tracker.md
+ M docs/spec/04_security_deployment_and_conformance.md
+ M internal/app/importassembly/tasksdecisions_integration_test.go
+ M internal/app/server/collaboration_intents.go
+ M internal/app/server/collaboration_publication.go
+ M internal/app/server/runtime_assembly.go
+ M internal/modules/artifacts/artifact_contract_support_test.go
+ M internal/modules/artifacts/linked_notes_integration_test.go
+ M internal/modules/auth/testsupport/flowtest/flow_test.go
+ M internal/modules/collaboration/codec_test.go
+ M internal/modules/collaboration/hub.go
+ M internal/modules/collaboration/hub_state_test.go
+ M internal/modules/collaboration/hub_test.go
+ M internal/modules/collaboration/integration_test.go
+ M internal/modules/collaboration/intent_validation_test.go
+ M internal/modules/collaboration/internal/recovery/adapter.go
+ M internal/modules/collaboration/internal/stream/intent_writer.go
+ D internal/modules/collaboration/internal/stream/record_payload.go
+ M internal/modules/collaboration/internal/stream/replay.go
+ M internal/modules/collaboration/internal/stream/sequencing.go
+ M internal/modules/collaboration/internal/stream/tailing.go
+ M internal/modules/collaboration/protocol/codec.go
+ M internal/modules/collaboration/protocol/contracts.go
+ M internal/modules/collaboration/protocol/record_changed.go
+ M internal/modules/collaboration/publication.go
+ M internal/modules/collaboration/publication_catalog_test.go
+ M internal/modules/collaboration/record_change_intent_test.go
+ M internal/modules/collaboration/routes.go
+ M internal/modules/collaboration/runtime.go
+ M internal/modules/collaboration/socket_session_test.go
+ M internal/modules/collaboration/socket_transport.go
+ M internal/modules/collaboration/socket_transport_test.go
+ M internal/modules/collaboration/stream_integration_support_test.go
+ M internal/modules/collaboration/stream_intent_integration_test.go
+ M internal/modules/collaboration/stream_recovery_integration_test.go
+ M internal/modules/collaboration/stream_retention_integration_test.go
+ M internal/modules/collaboration/stream_tailing_integration_test.go
+ M internal/modules/entities/merge/merge_protected_set_composition_test.go
+ M internal/modules/entities/unit_support_test.go
+ M internal/modules/evidence/attach_test.go
+ M internal/modules/evidence/blob_create_test.go
+ M internal/modules/evidence/blob_lifecycle.go
+ M internal/modules/evidence/handles_test.go
+ M internal/modules/evidence/lifecycle_integration_test.go
+ M internal/modules/evidence/lifecycle_test.go
+ M internal/modules/evidence/provider_contract_test.go
+ M internal/modules/indicators/application_test_helpers_test.go
+ M internal/modules/indicators/transaction_atomicity_test.go
+ M internal/modules/links/route_projection_history_test.go
+ M internal/modules/networkflow/store_test.go
+ M internal/modules/parties/parties_test.go
+ M internal/modules/recovery/operatortest/operator_process_test.go
+ M internal/modules/revisions/indicator_children_test.go
+ M internal/modules/revisions/integration_test.go
+ M internal/modules/tasksdecisions/decision_supersession_store_test.go
+ M internal/modules/timeline/store_test.go
+ M internal/modules/timeline/test_composition_test.go
+ M internal/modules/timeline/timeline_event_integration_test.go
+ M internal/modules/timeline/unit_test.go
+ M internal/modules/workbook/notes_indicators_test.go
+ M internal/modules/workbook/row_wire_test.go
+ M internal/testutil/appsupport/performancefixture/owners.go
+ M internal/testutil/appsupport/workbook.go
+ M internal/testutil/collaborationsupport/incidentwstest/incidentwstest.go
+ M internal/testutil/collaborationsupport/incidentwstest/view_events.go
+ M internal/testutil/collaborationsupport/intents.go
+ M internal/testutil/collaborationsupport/intenttest/intents.go
+ M internal/testutil/httptestx/httptestx.go
+ M internal/testutil/httptestx/routes.go
+ M internal/testutil/networkflowsupport/intents.go
+ M internal/testutil/revisionsupport/revisionsupport.go
+ M internal/testutil/wstest/wstest.go
+ M tools/backend_module_boundaries.json
+ M tools/harness/browser/tests/test-browser-work-graph.mjs
+ M tools/harness/scheduler/work-graph/browser.mjs
+?? internal/app/server/collaboration_publication_test.go
+?? internal/modules/collaboration/protocol/replay_validation.go
+?? internal/modules/collaboration/protocol/replay_validation_test.go
+?? internal/testutil/collaborationsupport/protocoltest/
+```
+
+Collaboration now exposes distinct `RecordChangedAppender`,
+`JobProgressAppender`, and `ExtensionResourceChangedAppender` ports backed by
+three unexported concrete types. Runtime and App Server expose and translate
+only the family each consumer requires. Production and test composition no
+longer contain a broad publication aggregate, adapter, accessor, or alias.
+Pairwise type-assertion tests prove none of the narrow ports can be widened to
+another family.
+
+`stream.EventIntent` now has only private fields. The free-form constructor is
+gone; named record-change, job-progress, and extension-resource-change
+constructors select their family and invoke the shared validator. Record
+change-set, record, and row-version identity is supplied in the constructor,
+not installed by later mutation. Corruption remains SQL-fixture owned. Exact
+boundary tokens permanently reject the retired broad and generic surfaces.
+This closes `PR3-G-02`, `PR3-G-03`, `PR3-AC-02`, and `PR3-AC-03`.
+
+Evidence:
+
+- `make format` passed at
+  `.cartulary/test-results/20260828T230858Z-p3136593`,
+  `.cartulary/test-results/20260828T231155Z-p3192294`,
+  `.cartulary/test-results/20260828T232726Z-p3621100`, and
+  `.cartulary/test-results/20260828T232819Z-p3626165`.
+- `CARTULARY_RUN_ID=pr3-wf-04-boundary make
+  backend-module-boundary-check` passed 3/3 at
+  `.cartulary/test-results/20260828T231159Z-p3196372`.
+- Final Collaboration passed 31/31 at
+  `.cartulary/test-results/20260828T233758Z-p3882118`; App Server passed 24/24
+  at `.cartulary/test-results/20260828T231210Z-p3196767`.
+- Jobs passed 6/6 at `.cartulary/test-results/20260828T231317Z-p3240185`;
+  Network Flow passed 34/34 at
+  `.cartulary/test-results/20260828T231403Z-p3257124`.
+- Revisions passed 27/27 at
+  `.cartulary/test-results/20260828T231616Z-p3315513`; Workbook passed 68/68
+  at `.cartulary/test-results/20260828T231731Z-p3361075`; Imports passed 23/23
+  at `.cartulary/test-results/20260828T231946Z-p3415644`.
+- Direct and migrated source-owner slices passed: Artifacts 7/7 at
+  `.cartulary/test-results/20260828T232119Z-p3460234`, Assessments 28/28 at
+  `.cartulary/test-results/20260828T232201Z-p3477356`, Entities 42/42 at
+  `.cartulary/test-results/20260828T232303Z-p3520017`, Evidence 35/35 at
+  `.cartulary/test-results/20260828T232823Z-p3630196`, Indicators 20/20 at
+  `.cartulary/test-results/20260828T232938Z-p3680279`, Parties 20/20 at
+  `.cartulary/test-results/20260828T233027Z-p3698394`, Tasks/Decisions 21/21
+  at `.cartulary/test-results/20260828T233120Z-p3740056`, Timeline 53/53 at
+  `.cartulary/test-results/20260828T233222Z-p3781737`, and Links 18/18 at
+  `.cartulary/test-results/20260828T233706Z-p3840781`.
+- The corrective `make harness-contract` passed 2/2 at
+  `.cartulary/test-results/20260828T232730Z-p3625183`. The exact retired-symbol
+  audit and `git diff --check` passed. Preliminary checkpoint Markdown lint
+  passed at `.cartulary/test-results/20260828T234100Z-pr3-wf-04-checkpoint`;
+  exact final checkpoint lint passed at
+  `.cartulary/test-results/20260828T234300Z-pr3-wf-04-final`.
+
+The first Evidence owner run failed at
+`.cartulary/test-results/20260828T232455Z-p3570696`. It retained 34/35 graph
+units and exposed two related, fully explained defects: a reset lifecycle unit
+inherited public `OWNER` selection while writing under the browser target, and
+two Evidence quarantine assertions rejected an empty required
+`client_txn_id`. Reset units now clear `OWNER`, `ROWS`,
+`SERVICE_BACKED_ONLY`, and inherited public-input provenance; their regression
+covers target/path agreement and selector isolation. Evidence lifecycle
+publication now uses its existing change-set ID as the stable non-client
+mutation identity. The corrected harness contract and 35/35 Evidence rerun
+prove both fixes. No non-pass remains unexplained.
+
+Public routes, message schemas and valid framing, authorization, replay order,
+intent keys, persistence schema, Operator grammar, Incident Bundle behavior,
+and telemetry vocabulary remain compatible. Previously invalid empty-identity
+quarantine messages now carry their change-set identity; no stored state,
+migration, backfill, reset, feature flag, compatibility wrapper, or dual path
+was introduced. Slice-local rollback is limited to the family port, closed
+intent, application/test composition, boundary guard, Evidence identity, and
+reset-isolation edits plus this checkpoint, preserving all predecessor and
+user-owned changes. Runtime lifecycle hardening remains; `PR3-WF-05` is now
+`IN_PROGRESS` and is the only eligible successor.
+
+#### 14.10.6 `PR3-WF-05` — `DONE`
+
+The Runtime lifecycle and telemetry slice completed at
+`2026-08-28T20:00:55-04:00` on unchanged HEAD
+`88c1d16a33219c791ff67e7c5d4625c64bf798f8`, two commits ahead of
+`origin/main`. The final focused source digest was
+`sha256:b37eb0238f728a2a984f5eba89813ab8a9d324deef181528b67fbdf93366d8b2`.
+The user's tracker entry remains the only staged path; exact cumulative status
+before this checkpoint was:
+
+```text
+ M docs/decisions/collaboration-module-boundary.md
+MM docs/handoffs/collaboration-module-refactor-tracker.md
+ M docs/spec/04_security_deployment_and_conformance.md
+ M internal/app/importassembly/tasksdecisions_integration_test.go
+ M internal/app/server/collaboration_intents.go
+ M internal/app/server/collaboration_publication.go
+ M internal/app/server/extensions_publication_characterization_test.go
+ M internal/app/server/runtime_assembly.go
+ M internal/app/server/runtime_integration_test.go
+ M internal/modules/artifacts/artifact_contract_support_test.go
+ M internal/modules/artifacts/linked_notes_integration_test.go
+ M internal/modules/auth/testsupport/flowtest/flow_test.go
+ M internal/modules/collaboration/codec_test.go
+ M internal/modules/collaboration/hub.go
+ M internal/modules/collaboration/hub_state_test.go
+ M internal/modules/collaboration/hub_telemetry.go
+ M internal/modules/collaboration/hub_telemetry_test.go
+ M internal/modules/collaboration/hub_test.go
+ M internal/modules/collaboration/integration_test.go
+ M internal/modules/collaboration/intent_validation_test.go
+ M internal/modules/collaboration/internal/recovery/adapter.go
+ M internal/modules/collaboration/internal/stream/dispatcher.go
+ M internal/modules/collaboration/internal/stream/dispatcher_telemetry.go
+ M internal/modules/collaboration/internal/stream/intent_writer.go
+ D internal/modules/collaboration/internal/stream/record_payload.go
+ M internal/modules/collaboration/internal/stream/replay.go
+ M internal/modules/collaboration/internal/stream/sequencing.go
+ M internal/modules/collaboration/internal/stream/store.go
+ M internal/modules/collaboration/internal/stream/tailing.go
+ M internal/modules/collaboration/protocol/codec.go
+ M internal/modules/collaboration/protocol/contracts.go
+ M internal/modules/collaboration/protocol/record_changed.go
+ M internal/modules/collaboration/publication.go
+ M internal/modules/collaboration/publication_catalog_test.go
+ M internal/modules/collaboration/record_change_intent_test.go
+ M internal/modules/collaboration/routes.go
+ M internal/modules/collaboration/runtime.go
+ M internal/modules/collaboration/socket_session.go
+ M internal/modules/collaboration/socket_session_test.go
+ M internal/modules/collaboration/socket_transport.go
+ M internal/modules/collaboration/socket_transport_test.go
+ M internal/modules/collaboration/stream_integration_entrypoint_test.go
+ M internal/modules/collaboration/stream_integration_support_test.go
+ M internal/modules/collaboration/stream_intent_integration_test.go
+ M internal/modules/collaboration/stream_recovery_integration_test.go
+ M internal/modules/collaboration/stream_retention_integration_test.go
+ M internal/modules/collaboration/stream_tailing_integration_test.go
+ M internal/modules/entities/merge/merge_protected_set_composition_test.go
+ M internal/modules/entities/unit_support_test.go
+ M internal/modules/evidence/attach_test.go
+ M internal/modules/evidence/blob_create_test.go
+ M internal/modules/evidence/blob_lifecycle.go
+ M internal/modules/evidence/handles_test.go
+ M internal/modules/evidence/lifecycle_integration_test.go
+ M internal/modules/evidence/lifecycle_test.go
+ M internal/modules/evidence/provider_contract_test.go
+ M internal/modules/indicators/application_test_helpers_test.go
+ M internal/modules/indicators/transaction_atomicity_test.go
+ M internal/modules/links/route_projection_history_test.go
+ M internal/modules/networkflow/store_test.go
+ M internal/modules/parties/parties_test.go
+ M internal/modules/recovery/operatortest/operator_process_test.go
+ M internal/modules/revisions/indicator_children_test.go
+ M internal/modules/revisions/integration_test.go
+ M internal/modules/tasksdecisions/decision_supersession_store_test.go
+ M internal/modules/timeline/store_test.go
+ M internal/modules/timeline/test_composition_test.go
+ M internal/modules/timeline/timeline_event_integration_test.go
+ M internal/modules/timeline/unit_test.go
+ M internal/modules/workbook/notes_indicators_test.go
+ M internal/modules/workbook/row_wire_test.go
+ M internal/testutil/appsupport/performancefixture/owners.go
+ M internal/testutil/appsupport/workbook.go
+ M internal/testutil/collaborationsupport/incidentwstest/incidentwstest.go
+ M internal/testutil/collaborationsupport/incidentwstest/view_events.go
+ M internal/testutil/collaborationsupport/intents.go
+ M internal/testutil/collaborationsupport/intenttest/intents.go
+ M internal/testutil/httptestx/httptestx.go
+ M internal/testutil/httptestx/routes.go
+ M internal/testutil/networkflowsupport/intents.go
+ M internal/testutil/revisionsupport/revisionsupport.go
+ M internal/testutil/wstest/wstest.go
+ M tools/backend_module_boundaries.json
+ M tools/harness/browser/tests/test-browser-work-graph.mjs
+ M tools/harness/scheduler/work-graph/browser.mjs
+?? internal/app/server/collaboration_publication_test.go
+?? internal/modules/collaboration/internal/stream/dispatcher_lifecycle_test.go
+?? internal/modules/collaboration/protocol/replay_validation.go
+?? internal/modules/collaboration/protocol/replay_validation_test.go
+?? internal/modules/collaboration/runtime_construction_test.go
+?? internal/testutil/collaborationsupport/protocoltest/
+```
+
+Runtime now validates all mandatory dependencies before escape and constructs
+its store, dispatcher, route, and hub as one immutable graph. The resolved
+service version is installed in hub, route, and dispatcher instrumentation at
+construction. The mutable hub telemetry configurator, stream clock, route
+codec state, and unused session-handler parameter are absent.
+
+The dispatcher now supervises startup failure, post-start panic, and
+unexpected loop return. App Server closes over the adopted
+`componentLost("websocket")` path, and Runtime's lifetime guard reports it at
+most once before terminalizing the dispatcher. Graceful cancellation,
+idempotent close, retryable dispatch errors, listener loss, and polling
+fallback retain their existing nonfatal behavior. This closes `PR3-G-06`
+through `PR3-G-08` and `PR3-AC-06` through `PR3-AC-09`.
+
+Evidence:
+
+- `make format` passed at
+  `.cartulary/test-results/20260828T234803Z-p3936985`,
+  `.cartulary/test-results/20260828T235101Z-p3992394`,
+  `.cartulary/test-results/20260828T235247Z-p4039828`, and
+  `.cartulary/test-results/20260828T235406Z-p4044981`.
+- Final Collaboration passed 31/31 at
+  `.cartulary/test-results/20260829T000400Z-pr3-wf-05-collaboration-final`;
+  its service-backed slice passed 22/22 at
+  `.cartulary/test-results/20260829T000000Z-pr3-wf-05-collaboration-service`.
+- Final App Server passed 24/24 at
+  `.cartulary/test-results/20260829T000700Z-pr3-wf-05-app-server-final`.
+  Extensions passed 24/24 at
+  `.cartulary/test-results/20260829T000200Z-pr3-wf-05-extensions`.
+- The backend boundary passed 3/3 at
+  `.cartulary/test-results/20260828T235600Z-pr3-wf-05-boundary-rerun`.
+- Exact dead-symbol and constructor-call audits plus `git diff --check`
+  passed. Preliminary checkpoint Markdown lint passed at
+  `.cartulary/test-results/20260829T001100Z-pr3-wf-05-checkpoint`; exact final
+  checkpoint lint passed at
+  `.cartulary/test-results/20260829T001300Z-pr3-wf-05-final`.
+
+The first backend boundary run failed at
+`.cartulary/test-results/20260828T235400Z-pr3-wf-05-boundary` because the new
+App Server failure-injection test named Collaboration's physical table
+outside its owning module. The fixture now fails all query starts without
+encoding that owner-private SQL token, and the unchanged boundary rule passes.
+This was a corrected test-fixture ownership defect; no product assertion or
+unexplained non-pass remains.
+
+Public routes, valid WebSocket bytes and additive-member handling,
+authorization, replay order, intent identity, persistence schema, Operator
+grammar, Incident Bundle behavior, and telemetry vocabulary remain compatible.
+No migration, backfill, reset, feature flag, alias, adapter, or dual path was
+introduced. Slice-local rollback is limited to Runtime, hub, dispatcher,
+stream, App Server lifecycle composition, characterization tests, and exact
+boundary guards plus this checkpoint, preserving prior slices and the user's
+index. Permanent guards and exact-source repository validation remain;
+`PR3-WF-06` is now `IN_PROGRESS` and is the only eligible successor.
+
+#### 14.10.7 `PR3-WF-06` — `DONE`
+
+The permanent-guard, exact-source validation, and handoff slice ran from the
+linted `PR3-WF-05` transition through `2026-08-28T21:33:56-04:00` on
+unchanged HEAD `88c1d16a33219c791ff67e7c5d4625c64bf798f8`, two commits ahead
+of `origin/main`. The successful full-check source digest was
+`sha256:1bade740fe1facf42d413016ec2718e54e29158b9b8648cc8f36cf8a3335ad75`.
+The user's tracker entry remains the only staged path; exact cumulative status
+before this checkpoint was:
+
+```text
+ M docs/decisions/collaboration-module-boundary.md
+MM docs/handoffs/collaboration-module-refactor-tracker.md
+ M docs/spec/04_security_deployment_and_conformance.md
+ M internal/app/importassembly/tasksdecisions_integration_test.go
+ M internal/app/server/collaboration_intents.go
+ M internal/app/server/collaboration_publication.go
+ M internal/app/server/extensions_publication_characterization_test.go
+ M internal/app/server/runtime_assembly.go
+ M internal/app/server/runtime_integration_test.go
+ M internal/modules/artifacts/artifact_contract_support_test.go
+ M internal/modules/artifacts/linked_notes_integration_test.go
+ M internal/modules/auth/testsupport/flowtest/flow_test.go
+ M internal/modules/collaboration/codec_test.go
+ M internal/modules/collaboration/hub.go
+ M internal/modules/collaboration/hub_state_test.go
+ M internal/modules/collaboration/hub_telemetry.go
+ M internal/modules/collaboration/hub_telemetry_test.go
+ M internal/modules/collaboration/hub_test.go
+ M internal/modules/collaboration/integration_test.go
+ M internal/modules/collaboration/intent_validation_test.go
+ M internal/modules/collaboration/internal/recovery/adapter.go
+ M internal/modules/collaboration/internal/stream/dispatcher.go
+ M internal/modules/collaboration/internal/stream/dispatcher_telemetry.go
+ M internal/modules/collaboration/internal/stream/intent_writer.go
+ D internal/modules/collaboration/internal/stream/record_payload.go
+ M internal/modules/collaboration/internal/stream/replay.go
+ M internal/modules/collaboration/internal/stream/sequencing.go
+ M internal/modules/collaboration/internal/stream/store.go
+ M internal/modules/collaboration/internal/stream/tailing.go
+ M internal/modules/collaboration/protocol/codec.go
+ M internal/modules/collaboration/protocol/contracts.go
+ M internal/modules/collaboration/protocol/record_changed.go
+ M internal/modules/collaboration/publication.go
+ M internal/modules/collaboration/publication_catalog_test.go
+ M internal/modules/collaboration/record_change_intent_test.go
+ M internal/modules/collaboration/routes.go
+ M internal/modules/collaboration/runtime.go
+ M internal/modules/collaboration/socket_session.go
+ M internal/modules/collaboration/socket_session_test.go
+ M internal/modules/collaboration/socket_transport.go
+ M internal/modules/collaboration/socket_transport_test.go
+ M internal/modules/collaboration/stream_integration_entrypoint_test.go
+ M internal/modules/collaboration/stream_integration_support_test.go
+ M internal/modules/collaboration/stream_intent_integration_test.go
+ M internal/modules/collaboration/stream_recovery_integration_test.go
+ M internal/modules/collaboration/stream_retention_integration_test.go
+ M internal/modules/collaboration/stream_tailing_integration_test.go
+ M internal/modules/entities/merge/merge_protected_set_composition_test.go
+ M internal/modules/entities/unit_support_test.go
+ M internal/modules/evidence/attach_test.go
+ M internal/modules/evidence/blob_create_test.go
+ M internal/modules/evidence/blob_lifecycle.go
+ M internal/modules/evidence/handles_test.go
+ M internal/modules/evidence/lifecycle_integration_test.go
+ M internal/modules/evidence/lifecycle_test.go
+ M internal/modules/evidence/provider_contract_test.go
+ M internal/modules/indicators/application_test_helpers_test.go
+ M internal/modules/indicators/transaction_atomicity_test.go
+ M internal/modules/links/route_projection_history_test.go
+ M internal/modules/networkflow/store_test.go
+ M internal/modules/parties/parties_test.go
+ M internal/modules/recovery/operatortest/operator_process_test.go
+ M internal/modules/revisions/indicator_children_test.go
+ M internal/modules/revisions/integration_test.go
+ M internal/modules/tasksdecisions/decision_supersession_store_test.go
+ M internal/modules/timeline/store_test.go
+ M internal/modules/timeline/test_composition_test.go
+ M internal/modules/timeline/timeline_event_integration_test.go
+ M internal/modules/timeline/unit_test.go
+ M internal/modules/workbook/notes_indicators_test.go
+ M internal/modules/workbook/row_wire_test.go
+ M internal/platform/jobs/telemetry_integration_test.go
+ M internal/testutil/appsupport/performancefixture/owners.go
+ M internal/testutil/appsupport/workbook.go
+ M internal/testutil/collaborationsupport/incidentwstest/incidentwstest.go
+ M internal/testutil/collaborationsupport/incidentwstest/view_events.go
+ M internal/testutil/collaborationsupport/intents.go
+ M internal/testutil/collaborationsupport/intenttest/intents.go
+ M internal/testutil/httptestx/httptestx.go
+ M internal/testutil/httptestx/routes.go
+ M internal/testutil/networkflowsupport/intents.go
+ M internal/testutil/revisionsupport/revisionsupport.go
+ M internal/testutil/wstest/wstest.go
+ M tools/backend_module_boundaries.json
+ M tools/execution_topology_render_index.json
+ M tools/harness/browser/tests/test-browser-work-graph.mjs
+ M tools/harness/scheduler/work-graph/browser.mjs
+?? internal/app/server/collaboration_publication_test.go
+?? internal/modules/collaboration/internal/stream/dispatcher_lifecycle_test.go
+?? internal/modules/collaboration/protocol/replay_validation.go
+?? internal/modules/collaboration/protocol/replay_validation_test.go
+?? internal/modules/collaboration/runtime_construction_test.go
+?? internal/testutil/collaborationsupport/protocoltest/
+```
+
+The permanent boundary manifest now rejects the retired broad appender and
+Runtime accessor, generic intent constructors and builders, broad application
+and shared-test translators, mutable telemetry and invalid component ID,
+fixture-only protocol exports, codec carrier, and deleted duplicate-validator
+source path. The existing reflection test is the exact exported-field guard
+for `EventIntent`; unlike the boundary token scanner, it distinguishes private
+from exported Go fields. The final audit found and removed the remaining
+unexported free-family intent constructor so each family is formed only by its
+named constructor.
+
+No authored owner routing changed. `make generate` refreshed only
+`tools/execution_topology_render_index.json`, whose renderer-source hash tracks
+the authored browser work-graph repair. Product generated roots and lockfiles
+remain unchanged. These results close `PR3-AC-10` and `PR3-AC-11`; all gaps
+`PR3-G-00` through `PR3-G-08` and all acceptance conditions are complete.
+
+Affected-owner evidence used exact commands of the form `make test-slice
+OWNER=<owner>` and `make service-backed-test-slice OWNER=<owner>` with the
+following stable run roots and work-unit results:
+
+- `harness.browser`: 28/28 at
+  `.cartulary/test-results/20260829T001700Z-pr3-wf-06-harness-browser` and 6/6
+  at `.cartulary/test-results/20260829T001900Z-pr3-wf-06-harness-browser-service`.
+- Final `module.collaboration`: 31/31 at
+  `.cartulary/test-results/20260829T014800Z-pr3-wf-06-collaboration-guard-final`
+  and 22/22 at
+  `.cartulary/test-results/20260829T015000Z-pr3-wf-06-collaboration-guard-service-final`.
+- `app.server`: 24/24 at
+  `.cartulary/test-results/20260829T002500Z-pr3-wf-06-app-server` and 17/17 at
+  `.cartulary/test-results/20260829T002700Z-pr3-wf-06-app-server-service`.
+- `platform.jobs`: 6/6 at
+  `.cartulary/test-results/20260829T003500Z-pr3-wf-06-jobs-rerun` and 5/5 at
+  `.cartulary/test-results/20260829T003700Z-pr3-wf-06-jobs-service`.
+- `module.networkflow`: 34/34 at
+  `.cartulary/test-results/20260829T003900Z-pr3-wf-06-networkflow` and 28/28 at
+  `.cartulary/test-results/20260829T004100Z-pr3-wf-06-networkflow-service`.
+- `module.revisions`: 27/27 at
+  `.cartulary/test-results/20260829T004300Z-pr3-wf-06-revisions` and 20/20 at
+  `.cartulary/test-results/20260829T004500Z-pr3-wf-06-revisions-service`.
+- `module.recovery`: 24/24 at
+  `.cartulary/test-results/20260829T004700Z-pr3-wf-06-recovery` and 19/19 at
+  `.cartulary/test-results/20260829T004900Z-pr3-wf-06-recovery-service`;
+  `app.operator`: 12/12 at
+  `.cartulary/test-results/20260829T005100Z-pr3-wf-06-operator` and 9/9 at
+  `.cartulary/test-results/20260829T005300Z-pr3-wf-06-operator-service`.
+- `module.workbook`: 68/68 at
+  `.cartulary/test-results/20260829T005500Z-pr3-wf-06-workbook` and 39/39 at
+  `.cartulary/test-results/20260829T005700Z-pr3-wf-06-workbook-service`.
+- `module.artifacts`: 7/7 and 3/3 at the
+  `20260829T010000Z-pr3-wf-06-artifacts` and
+  `20260829T010200Z-pr3-wf-06-artifacts-service` roots; `module.assessments`:
+  28/28 and 19/19 at the `20260829T010400Z-pr3-wf-06-assessments` and
+  `20260829T010600Z-pr3-wf-06-assessments-service` roots.
+- `module.entities`: 42/42 and 33/33 at the
+  `20260829T010800Z-pr3-wf-06-entities` and
+  `20260829T011000Z-pr3-wf-06-entities-service` roots; `module.evidence`: 35/35
+  and 25/25 at the `20260829T011200Z-pr3-wf-06-evidence` and
+  `20260829T011400Z-pr3-wf-06-evidence-service` roots.
+- `module.indicators`: 20/20 and 8/8 at the
+  `20260829T011600Z-pr3-wf-06-indicators` and
+  `20260829T011800Z-pr3-wf-06-indicators-service` roots; `module.parties`:
+  20/20 and 17/17 at the `20260829T012000Z-pr3-wf-06-parties` and
+  `20260829T012200Z-pr3-wf-06-parties-service` roots.
+- `module.tasksdecisions`: 21/21 and 15/15 at the
+  `20260829T012400Z-pr3-wf-06-tasksdecisions` and
+  `20260829T012600Z-pr3-wf-06-tasksdecisions-service` roots;
+  `module.timeline`: 53/53 and 30/30 at the
+  `20260829T012800Z-pr3-wf-06-timeline` and
+  `20260829T013000Z-pr3-wf-06-timeline-service` roots.
+- `module.links`: 18/18 and 13/13 at the
+  `20260829T013200Z-pr3-wf-06-links` and
+  `20260829T013400Z-pr3-wf-06-links-service` roots; `module.imports`: 23/23 and
+  14/14 at the `20260829T013600Z-pr3-wf-06-imports` and
+  `20260829T013800Z-pr3-wf-06-imports-service` roots.
+
+The union of affected-owner routing selected every browser family below; each
+was run directly through its public Make target:
+
+- `make browser-e2e-support` passed 19/19 at
+  `.cartulary/test-results/20260829T021200Z-pr3-wf-06-browser-support`.
+- `make browser-e2e-webserver-backed` passed 60/60 at
+  `.cartulary/test-results/20260829T021400Z-pr3-wf-06-browser-webserver`.
+- `make browser-e2e-stateful` passed 34/34 at
+  `.cartulary/test-results/20260829T022000Z-pr3-wf-06-browser-stateful`.
+- `make browser-e2e-measurement` passed 22/22 at
+  `.cartulary/test-results/20260829T022300Z-pr3-wf-06-browser-measurement`.
+- `make browser-e2e-a11y` passed 12/12 at
+  `.cartulary/test-results/20260829T022800Z-pr3-wf-06-browser-a11y`.
+- `make browser-e2e-visual` passed 12/12 at
+  `.cartulary/test-results/20260829T023000Z-pr3-wf-06-browser-visual`.
+
+Final prescribed repository evidence, in order:
+
+1. `make generate-drift` passed 4/4 at
+   `.cartulary/test-results/20260829T015600Z-pr3-wf-06-generate-drift-rerun`.
+2. `make generated-artifact-policy-check` passed 3/3 at
+   `.cartulary/test-results/20260829T015800Z-pr3-wf-06-generated-policy`.
+3. `make json-shape-check` passed 3/3 at
+   `.cartulary/test-results/20260829T020000Z-pr3-wf-06-json-shape`.
+4. `make harness-contract` passed 2/2 at
+   `.cartulary/test-results/20260829T020200Z-pr3-wf-06-harness-contract`.
+5. `make backend-module-boundary-check` passed 3/3 at
+   `.cartulary/test-results/20260829T020400Z-pr3-wf-06-backend-boundary`.
+6. `make migration-drift` passed 5/5 at
+   `.cartulary/test-results/20260829T020600Z-pr3-wf-06-migration-drift`.
+7. `make agent-finalize` passed 1/1 at
+   `.cartulary/test-results/20260829T020800Z-pr3-wf-06-agent-finalize-pre`;
+   retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+8. `make test-fast` passed 439/439 at
+   `.cartulary/test-results/20260829T021000Z-pr3-wf-06-test-fast`.
+9. The six routed browser targets passed at the roots listed above.
+10. `make check` passed 669/669 at
+    `.cartulary/test-results/20260829T023200Z-pr3-wf-06-check`.
+11. `make agent-finalize
+    RESULTS_DIR=.cartulary/test-results/20260829T023200Z-pr3-wf-06-check`
+    passed 1/1 at
+    `.cartulary/test-results/20260829T023800Z-pr3-wf-06-agent-finalize-retained`.
+12. Exact dead-symbol audits and `git diff --check` passed. Preliminary and
+    final checkpoint Markdown lint roots are recorded below.
+
+All WF06 non-passes are explained and corrected:
+
+- The first Jobs graph failed 5/6 at
+  `.cartulary/test-results/20260829T002900Z-pr3-wf-06-jobs` because its expiry
+  telemetry test observed the committed row in the interval before the metric
+  recorder completed. The test now awaits both durable expiry and the positive
+  metric. The exact row passed 3/3 at
+  `.cartulary/test-results/20260829T003300Z-pr3-wf-06-jobs-telemetry-rerun`,
+  followed by the green complete Jobs matrices.
+- The first expanded boundary run failed 2/3 at
+  `.cartulary/test-results/20260829T014000Z-pr3-wf-06-boundary-guards` because
+  its proposed source-token field rule was case-insensitive and matched valid
+  private identifiers. The unsuitable token rule was removed while the exact
+  reflection guard remained; all other new guards passed 3/3 at
+  `.cartulary/test-results/20260829T014600Z-pr3-wf-06-boundary-guards-rerun`.
+- The first `make generate-drift` failed 3/4 at
+  `.cartulary/test-results/20260829T015200Z-pr3-wf-06-generate-drift` because
+  the browser renderer-source hash was stale after WF00. `make generate`
+  passed at
+  `.cartulary/test-results/20260829T015400Z-pr3-wf-06-generate-after-boundary`
+  and changed only the declared render index; the restarted prescribed gate
+  sequence passed.
+
+Public routes, valid WebSocket bytes and additive-member behavior,
+authorization, replay ordering, intent identity, storage schema, Operator
+grammar, Incident Bundle behavior, and telemetry vocabulary are compatible.
+No migration, backfill, reset, flag, alias, compatibility adapter, dual path,
+commit, reset, or staging/index change was introduced. Slice-local rollback is
+limited to the permanent guards, removal of the free-family helper, the Jobs
+test synchronization, the Make-generated render index, and this checkpoint;
+it preserves all predecessor slices and the user's staged tracker version.
+There is no residual implementation, validation, cleanup, or handoff risk and
+no successor workstream. Exact checkpoint Markdown lint passed preliminarily
+at `.cartulary/test-results/20260829T024000Z-pr3-wf-06-checkpoint`; final lint
+passed at `.cartulary/test-results/20260829T024200Z-pr3-wf-06-final`.

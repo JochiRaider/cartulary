@@ -11,6 +11,7 @@ import (
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
@@ -130,7 +131,7 @@ func connectRawHello(
 	}
 	hello, err := json.Marshal(platformws.Message{
 		Type: "hello",
-		Payload: platformws.RawPayload(map[string]any{
+		Payload: collabtestprotocol.RawPayload(map[string]any{
 			"client_instance_id": "strict-frame-client",
 			"presence":           timelinePresence(),
 		}),

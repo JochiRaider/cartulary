@@ -10,12 +10,12 @@ import (
 )
 
 type Composition struct {
-	Runtime      *revisionassembly.Runtime
-	Publications collaboration.PublicationAppender
+	Runtime       *revisionassembly.Runtime
+	RecordChanges collaboration.RecordChangedAppender
 }
 
 func NewComposition() (Composition, error) {
-	publications := collaborationsupport.NewPublicationAppender()
+	recordChanges := collaborationsupport.NewRecordChangedAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
 		return Composition{}, err
@@ -24,7 +24,7 @@ func NewComposition() (Composition, error) {
 	if err != nil {
 		return Composition{}, err
 	}
-	return Composition{Runtime: runtime, Publications: publications}, nil
+	return Composition{Runtime: runtime, RecordChanges: recordChanges}, nil
 }
 
 func NewRuntime() (*revisionassembly.Runtime, error) {

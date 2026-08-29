@@ -58,9 +58,7 @@ func (failure *DecodeFailure) Unwrap() error {
 	return failure.err
 }
 
-type Codec struct{}
-
-func (Codec) Decode(kind MessageKind, data []byte) (Message, error) {
+func DecodeMessage(kind MessageKind, data []byte) (Message, error) {
 	if kind == MessageBinary {
 		return Message{}, &DecodeFailure{Kind: DecodeFailureBinaryMessage, err: errors.New("binary application messages are unsupported")}
 	}
@@ -84,7 +82,7 @@ func (Codec) Decode(kind MessageKind, data []byte) (Message, error) {
 	return message, nil
 }
 
-func (Codec) Encode(message Message) ([]byte, error) {
+func EncodeMessage(message Message) ([]byte, error) {
 	if !IsServerMessageType(message.Type) {
 		return nil, fmt.Errorf("unsupported Collaboration server message type %q", message.Type)
 	}

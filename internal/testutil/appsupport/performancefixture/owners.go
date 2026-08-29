@@ -23,7 +23,7 @@ type Owners struct {
 // database through the same revision, projection, and conflict boundaries as
 // production application assembly, without starting HTTP transport.
 func NewOwners(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) (*Owners, error) {
-	intents := collaborationsupport.NewPublicationAppender()
+	intents := collaborationsupport.NewRecordChangedAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
 		return nil, err

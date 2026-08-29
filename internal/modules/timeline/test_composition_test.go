@@ -33,7 +33,7 @@ func newTestTimelineComposition(
 		pool,
 		conflictTokens,
 		revisionComposition.Runtime.Appender(),
-		revisionComposition.Publications,
+		revisionComposition.RecordChanges,
 		projections,
 	)
 	bundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
@@ -41,7 +41,7 @@ func newTestTimelineComposition(
 		ConflictTokens:      conflictTokens,
 		ConflictFields:      revisionComposition.Runtime.ConflictFieldResolver(),
 		Revisions:           revisionComposition.Runtime.Appender(),
-		Collaboration:       revisionComposition.Publications,
+		Collaboration:       revisionComposition.RecordChanges,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,

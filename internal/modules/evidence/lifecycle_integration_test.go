@@ -369,7 +369,7 @@ func newEvidenceLifecycleTestService(harness *appsupport.ServerHarness) *evidenc
 		Revisions:      harness.Revisions.Appender(),
 		Projections:    harness.Projections.EvidencePort(),
 		SupportEffects: harness.Projections.EvidenceSupportEffects(),
-		Collaboration:  harness.Collaboration.Publications(),
+		Collaboration:  harness.Collaboration.RecordChanges(),
 	})
 	if err != nil {
 		panic(err)

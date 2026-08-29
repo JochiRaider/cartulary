@@ -98,7 +98,7 @@ func NewEvidenceMutationOwner(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 ) evidence.MutationContribution {
-	intents := collaborationsupport.NewPublicationAppender()
+	intents := collaborationsupport.NewRecordChangedAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
 		panic(err)
@@ -128,7 +128,7 @@ func UnavailableEvidenceObjectStore() objectstore.TypedStore {
 // NewTaskDecisionOwner composes the source-owner mutation facade for tests
 // that verify Task/Decision lifecycle behavior directly.
 func NewTaskDecisionOwner(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *tasksdecisions.MutationFacade {
-	intents := collaborationsupport.NewPublicationAppender()
+	intents := collaborationsupport.NewRecordChangedAppender()
 	return NewTaskDecisionOwnerWithPublications(pool, conflictTokens, intents)
 }
 
@@ -165,7 +165,7 @@ func NewTaskDecisionOwnerWithPublications(
 // NewWorkbookCatalog composes the same immutable provider catalog used by the
 // server for focused generic coordination tests.
 func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *workbook.WorkbookContributionCatalog {
-	intents := collaborationsupport.NewPublicationAppender()
+	intents := collaborationsupport.NewRecordChangedAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
 		panic(err)
@@ -265,7 +265,7 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 // NewAssessmentOwner composes the Assessment owner for tests that exercise
 // source semantics through its owner facade.
 func NewAssessmentOwner(pool postgres.DB) *assessments.Facade {
-	intents := collaborationsupport.NewPublicationAppender()
+	intents := collaborationsupport.NewRecordChangedAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
 		panic(err)
@@ -294,7 +294,7 @@ func NewPartyOwner(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 ) *parties.MutationFacade {
-	intents := collaborationsupport.NewPublicationAppender()
+	intents := collaborationsupport.NewRecordChangedAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions()
 	if err != nil {
 		panic(err)

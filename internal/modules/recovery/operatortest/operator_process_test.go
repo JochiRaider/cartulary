@@ -32,6 +32,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -180,8 +181,8 @@ INSERT INTO incidents (
 `, incidentID, "operator-collaboration-"+incidentID.String(), actorID, seededAt); err != nil {
 		t.Fatalf("insert collaboration operator incident: %v", err)
 	}
-	intentPayload := collabprotocol.RawPayload(
-		collabprotocol.NewIncidentJobProgressPayload(
+	intentPayload := collabtestprotocol.RawPayload(
+		collabtestprotocol.NewIncidentJobProgressPayload(
 			"operator-collaboration-requeue",
 			incidentID,
 			collabprotocol.JobStatusQueued,

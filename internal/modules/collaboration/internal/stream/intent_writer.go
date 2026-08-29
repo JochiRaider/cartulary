@@ -28,16 +28,16 @@ const (
 var errIntentKeyCollision = errors.New("collaboration intent key collision")
 
 type EventIntent struct {
-	IntentKey         string
-	IncidentID        uuid.UUID
-	EventFamily       string
-	CanonicalPayload  json.RawMessage
-	SourceChangeSetID *uuid.UUID
-	SourceRecordID    *uuid.UUID
-	SourceRowVersion  *int64
-	SourceIdentity    string
-	MutationOrdinal   int
-	CreatedAt         time.Time
+	intentKey         string
+	incidentID        uuid.UUID
+	eventFamily       string
+	canonicalPayload  json.RawMessage
+	sourceChangeSetID *uuid.UUID
+	sourceRecordID    *uuid.UUID
+	sourceRowVersion  *int64
+	sourceIdentity    string
+	mutationOrdinal   int
+	createdAt         time.Time
 }
 
 // IntentWriter appends canonical event intents through transactions borrowed
@@ -45,13 +45,41 @@ type EventIntent struct {
 // clock, replay, dispatcher, or lifecycle state.
 type IntentWriter struct{}
 
-func NewEventIntent(
+func NewRecordChangedIntent(
 	intentKey string,
 	incidentID uuid.UUID,
-	eventFamily string,
 	payload any,
+	sourceChangeSetID uuid.UUID,
+	sourceRecordID uuid.UUID,
+	sourceRowVersion int64,
 	sourceIdentity string,
 	mutationOrdinal int,
+	createdAt time.Time,
+) (EventIntent, error) {
+	if sourceChangeSetID == uuid.Nil || sourceRecordID == uuid.Nil || sourceRowVersion < 1 {
+		return EventIntent{}, errors.New("collaboration record-change identity is invalid")
+	}
+	canonicalPayload, err := canonicalObject(payload)
+	if err != nil {
+		return EventIntent{}, err
+	}
+	intent := EventIntent{
+		intentKey: intentKey, incidentID: incidentID, eventFamily: EventFamilyRecordChanged,
+		canonicalPayload: canonicalPayload, sourceChangeSetID: &sourceChangeSetID,
+		sourceRecordID: &sourceRecordID, sourceRowVersion: &sourceRowVersion,
+		sourceIdentity: sourceIdentity, mutationOrdinal: mutationOrdinal, createdAt: createdAt.UTC(),
+	}
+	if err := validateEventIntent(intent); err != nil {
+		return EventIntent{}, err
+	}
+	return intent, nil
+}
+
+func NewJobProgressIntent(
+	intentKey string,
+	incidentID uuid.UUID,
+	payload any,
+	sourceIdentity string,
 	createdAt time.Time,
 ) (EventIntent, error) {
 	canonicalPayload, err := canonicalObject(payload)
@@ -59,13 +87,29 @@ func NewEventIntent(
 		return EventIntent{}, err
 	}
 	intent := EventIntent{
-		IntentKey:        intentKey,
-		IncidentID:       incidentID,
-		EventFamily:      eventFamily,
-		CanonicalPayload: canonicalPayload,
-		SourceIdentity:   sourceIdentity,
-		MutationOrdinal:  mutationOrdinal,
-		CreatedAt:        createdAt.UTC(),
+		intentKey: intentKey, incidentID: incidentID, eventFamily: EventFamilyJobProgress,
+		canonicalPayload: canonicalPayload, sourceIdentity: sourceIdentity, createdAt: createdAt.UTC(),
+	}
+	if err := validateEventIntent(intent); err != nil {
+		return EventIntent{}, err
+	}
+	return intent, nil
+}
+
+func NewExtensionResourceChangedIntent(
+	intentKey string,
+	incidentID uuid.UUID,
+	payload any,
+	sourceIdentity string,
+	createdAt time.Time,
+) (EventIntent, error) {
+	canonicalPayload, err := canonicalObject(payload)
+	if err != nil {
+		return EventIntent{}, err
+	}
+	intent := EventIntent{
+		intentKey: intentKey, incidentID: incidentID, eventFamily: EventFamilyExtensionResourceChange,
+		canonicalPayload: canonicalPayload, sourceIdentity: sourceIdentity, createdAt: createdAt.UTC(),
 	}
 	if err := validateEventIntent(intent); err != nil {
 		return EventIntent{}, err
@@ -81,7 +125,7 @@ func (IntentWriter) AppendTx(ctx context.Context, tx pgx.Tx, intent EventIntent)
 	if err := validateEventIntent(intent); err != nil {
 		return err
 	}
-	createdAt := intent.CreatedAt.UTC()
+	createdAt := intent.createdAt.UTC()
 	tag, err := tx.Exec(ctx, `
 INSERT INTO collaboration_event_intents (
     intent_key,
@@ -98,9 +142,9 @@ INSERT INTO collaboration_event_intents (
     updated_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10)
 ON CONFLICT (intent_key) DO NOTHING
-`, intent.IntentKey, intent.IncidentID, intent.EventFamily, string(intent.CanonicalPayload),
-		intent.SourceChangeSetID, intent.SourceRecordID, intent.SourceRowVersion,
-		intent.SourceIdentity, intent.MutationOrdinal, createdAt)
+`, intent.intentKey, intent.incidentID, intent.eventFamily, string(intent.canonicalPayload),
+		intent.sourceChangeSetID, intent.sourceRecordID, intent.sourceRowVersion,
+		intent.sourceIdentity, intent.mutationOrdinal, createdAt)
 	if err != nil {
 		return fmt.Errorf("append collaboration event intent: %w", err)
 	}
@@ -120,9 +164,9 @@ SELECT incident_id = $2
    AND mutation_ordinal = $9
   FROM collaboration_event_intents
  WHERE intent_key = $1
-`, intent.IntentKey, intent.IncidentID, intent.EventFamily, string(intent.CanonicalPayload),
-		intent.SourceChangeSetID, intent.SourceRecordID, intent.SourceRowVersion,
-		intent.SourceIdentity, intent.MutationOrdinal).Scan(&exactDuplicate); err != nil {
+`, intent.intentKey, intent.incidentID, intent.eventFamily, string(intent.canonicalPayload),
+		intent.sourceChangeSetID, intent.sourceRecordID, intent.sourceRowVersion,
+		intent.sourceIdentity, intent.mutationOrdinal).Scan(&exactDuplicate); err != nil {
 		return fmt.Errorf("verify collaboration event intent replay: %w", err)
 	}
 	if exactDuplicate {
@@ -137,22 +181,22 @@ SELECT incident_id = $2
 SELECT canonical_payload::text, source_identity, mutation_ordinal
   FROM collaboration_event_intents
  WHERE intent_key = $1
-`, intent.IntentKey).Scan(&existingPayload, &existingIdentity, &existingOrdinal); err != nil {
+`, intent.intentKey).Scan(&existingPayload, &existingIdentity, &existingOrdinal); err != nil {
 		return fmt.Errorf("inspect collaboration intent collision: %w", err)
 	}
 	existingDigest := sha256.Sum256(existingPayload)
-	incomingDigest := sha256.Sum256(intent.CanonicalPayload)
+	incomingDigest := sha256.Sum256(intent.canonicalPayload)
 	return fmt.Errorf(
 		"%w: %s existing_payload_sha256=%x incoming_payload_sha256=%x payload_mismatch_keys=%v existing_source_identity=%q incoming_source_identity=%q existing_ordinal=%d incoming_ordinal=%d",
 		errIntentKeyCollision,
-		intent.IntentKey,
+		intent.intentKey,
 		existingDigest,
 		incomingDigest,
-		payloadMismatchKeys(existingPayload, intent.CanonicalPayload),
+		payloadMismatchKeys(existingPayload, intent.canonicalPayload),
 		existingIdentity,
-		intent.SourceIdentity,
+		intent.sourceIdentity,
 		existingOrdinal,
-		intent.MutationOrdinal,
+		intent.mutationOrdinal,
 	)
 }
 
@@ -180,64 +224,37 @@ func payloadMismatchKeys(existing []byte, incoming []byte) []string {
 }
 
 func validateEventIntent(intent EventIntent) error {
-	if strings.TrimSpace(intent.IntentKey) == "" || len(intent.IntentKey) > 512 {
+	if strings.TrimSpace(intent.intentKey) == "" || len(intent.intentKey) > 512 {
 		return errors.New("collaboration event intent key is invalid")
 	}
-	if intent.IncidentID == uuid.Nil || strings.TrimSpace(intent.SourceIdentity) == "" || len(intent.SourceIdentity) > 512 {
+	if intent.incidentID == uuid.Nil || strings.TrimSpace(intent.sourceIdentity) == "" || len(intent.sourceIdentity) > 512 {
 		return errors.New("collaboration event intent source identity is invalid")
 	}
-	switch intent.EventFamily {
-	case EventFamilyRecordChanged, EventFamilyJobProgress, EventFamilyExtensionResourceChange:
+	switch intent.eventFamily {
+	case EventFamilyRecordChanged:
+		if intent.sourceChangeSetID == nil || *intent.sourceChangeSetID == uuid.Nil ||
+			intent.sourceRecordID == nil || *intent.sourceRecordID == uuid.Nil ||
+			intent.sourceRowVersion == nil || *intent.sourceRowVersion < 1 {
+			return errors.New("collaboration record-change identity is invalid")
+		}
+	case EventFamilyJobProgress, EventFamilyExtensionResourceChange:
+		if intent.sourceChangeSetID != nil || intent.sourceRecordID != nil || intent.sourceRowVersion != nil {
+			return errors.New("collaboration non-record intent has record identity")
+		}
 	default:
-		return fmt.Errorf("unsupported collaboration event family %q", intent.EventFamily)
+		return fmt.Errorf("unsupported collaboration event family %q", intent.eventFamily)
 	}
-	if intent.MutationOrdinal < 0 || intent.CreatedAt.IsZero() {
+	if intent.mutationOrdinal < 0 || intent.createdAt.IsZero() {
 		return errors.New("collaboration event intent ordering is invalid")
 	}
 	var payload map[string]any
-	if len(intent.CanonicalPayload) == 0 || json.Unmarshal(intent.CanonicalPayload, &payload) != nil || payload == nil {
+	if len(intent.canonicalPayload) == 0 || json.Unmarshal(intent.canonicalPayload, &payload) != nil || payload == nil {
 		return errors.New("collaboration event intent payload must be a JSON object")
 	}
-	if len(intent.CanonicalPayload) > maxIntentPayload {
+	if len(intent.canonicalPayload) > maxIntentPayload {
 		return fmt.Errorf("collaboration event intent payload exceeds %d bytes", maxIntentPayload)
 	}
-	return ValidateEventFamilyPayload(intent.IncidentID, intent.EventFamily, intent.CanonicalPayload)
-}
-
-func ValidateEventFamilyPayload(incidentID uuid.UUID, family string, payload json.RawMessage) error {
-	switch family {
-	case EventFamilyRecordChanged:
-		message := replayMessage(
-			uuid.MustParse("00000000-0000-4000-8000-000000000001"),
-			incidentID,
-			family,
-			1,
-			payload,
-			time.Unix(0, 0).UTC(),
-		)
-		if err := validateRecordChangeMessage(message); err != nil {
-			return fmt.Errorf("invalid record-change payload: %w", err)
-		}
-	case EventFamilyJobProgress:
-		var progress protocol.JobProgressPayload
-		if err := json.Unmarshal(payload, &progress); err != nil {
-			return fmt.Errorf("invalid job-progress payload: %w", err)
-		}
-		if err := protocol.ValidateIncidentJobProgressPayload(incidentID, progress); err != nil {
-			return fmt.Errorf("invalid job-progress payload: %w", err)
-		}
-	case EventFamilyExtensionResourceChange:
-		var change protocol.ExtensionResourceChangePayload
-		if err := json.Unmarshal(payload, &change); err != nil {
-			return fmt.Errorf("invalid extension-resource-change payload: %w", err)
-		}
-		if err := protocol.ValidateExtensionResourceChangePayload(change); err != nil {
-			return fmt.Errorf("invalid extension-resource-change payload: %w", err)
-		}
-	default:
-		return fmt.Errorf("unsupported collaboration event family %q", family)
-	}
-	return nil
+	return protocol.ValidateReplayablePayload(intent.incidentID, intent.eventFamily, intent.canonicalPayload)
 }
 
 func canonicalObject(payload any) (json.RawMessage, error) {

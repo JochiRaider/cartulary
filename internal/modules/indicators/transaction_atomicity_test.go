@@ -49,7 +49,7 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 		RecordEnvelopes: records.NewStore(db),
 		Projections:     newTransactionTestProjectionPort(t, db),
 		SourceText:      transactionTestSourceTextPort{},
-		Collaboration:   collaborationsupport.NewPublicationAppender(),
+		Collaboration:   collaborationsupport.NewRecordChangedAppender(),
 		Clock:           func() time.Time { return now },
 	})
 	if err != nil {

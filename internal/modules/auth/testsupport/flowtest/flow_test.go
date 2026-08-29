@@ -11,6 +11,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
@@ -35,7 +36,7 @@ func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 		now := time.Now().UTC()
 		if err := wsjson.Write(context.Background(), conn, platformws.Message{
 			Type: "hello_ack",
-			Payload: platformws.RawPayload(map[string]any{
+			Payload: collabtestprotocol.RawPayload(map[string]any{
 				"connection_id":         "20000000-0000-0000-0000-000000000001",
 				"resume_token":          "resume-token",
 				"server_time":           now.Format(time.RFC3339Nano),
@@ -48,7 +49,7 @@ func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 		}
 		if err := wsjson.Write(context.Background(), conn, platformws.Message{
 			Type:    "presence_snapshot",
-			Payload: platformws.RawPayload(map[string]any{"presences": []any{}}),
+			Payload: collabtestprotocol.RawPayload(map[string]any{"presences": []any{}}),
 		}); err != nil {
 			return
 		}
@@ -64,7 +65,7 @@ func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 
 		if err := wsjson.Write(context.Background(), conn, platformws.Message{
 			Type:    "session_revoked",
-			Payload: platformws.RawPayload(map[string]any{"reason_code": "test_reason"}),
+			Payload: collabtestprotocol.RawPayload(map[string]any{"reason_code": "test_reason"}),
 		}); err != nil {
 			return
 		}

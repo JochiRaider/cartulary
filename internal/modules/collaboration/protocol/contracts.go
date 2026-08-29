@@ -6,7 +6,6 @@ package protocol
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -32,7 +31,7 @@ type Message struct {
 	Payload    json.RawMessage `json:"payload"`
 }
 
-func RawPayload(payload any) json.RawMessage {
+func rawPayload(payload any) json.RawMessage {
 	if payload == nil {
 		return nil
 	}
@@ -150,7 +149,7 @@ func EphemeralMessage(incidentID uuid.UUID, messageType string, payload any, now
 		IncidentID: incidentID.String(),
 		EventID:    uuid.New().String(),
 		EmittedAt:  now.UTC().Format(time.RFC3339Nano),
-		Payload:    RawPayload(payload),
+		Payload:    rawPayload(payload),
 	}
 }
 
@@ -159,14 +158,6 @@ func PresenceSnapshotMessage(incidentID uuid.UUID, presences []PresenceRecord, n
 		presences = []PresenceRecord{}
 	}
 	return EphemeralMessage(incidentID, "presence_snapshot", map[string]any{"presences": presences}, now)
-}
-
-func NewIncidentJobProgressPayload(jobID string, incidentID uuid.UUID, status string, progress JobProgress, updatedAt time.Time) JobProgressPayload {
-	return JobProgressPayload{
-		JobID:  jobID,
-		Scope:  JobScope{Kind: JobScopeKindIncident, IncidentID: incidentID.String()},
-		Status: status, Progress: progress, UpdatedAt: updatedAt.UTC(),
-	}
 }
 
 func ValidateIncidentJobProgressPayload(incidentID uuid.UUID, payload JobProgressPayload) error {
@@ -234,25 +225,6 @@ func ValidateExtensionResourceChangePayload(payload ExtensionResourceChangePaylo
 		lastWorkspaceKey = ref.WorkspaceKey
 	}
 	return nil
-}
-
-func CanonicalExtensionResourceChangePayload(payload ExtensionResourceChangePayload) ExtensionResourceChangePayload {
-	payload.ExtensionProfileID = strings.TrimSpace(payload.ExtensionProfileID)
-	payload.ResourceKind = strings.TrimSpace(payload.ResourceKind)
-	payload.ResourceID = strings.TrimSpace(payload.ResourceID)
-	payload.ChangeKind = strings.TrimSpace(payload.ChangeKind)
-	payload.ReasonCode = strings.TrimSpace(payload.ReasonCode)
-	refs := append([]ExtensionWorkspaceRef(nil), payload.WorkspaceRefs...)
-	for index := range refs {
-		refs[index].Kind = strings.TrimSpace(refs[index].Kind)
-		refs[index].ExtensionProfileID = strings.TrimSpace(refs[index].ExtensionProfileID)
-		refs[index].WorkspaceKey = strings.TrimSpace(refs[index].WorkspaceKey)
-	}
-	sort.Slice(refs, func(i, j int) bool { return refs[i].WorkspaceKey < refs[j].WorkspaceKey })
-	if len(refs) > 0 {
-		payload.WorkspaceRefs = refs
-	}
-	return payload
 }
 
 func ValidatePresenceInput(input PresenceInput) error {

@@ -11,6 +11,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 )
 
 type Client struct {
@@ -83,7 +84,7 @@ func (c *Client) ReadJSON(ctx context.Context, value any) error {
 func (c *Client) Handshake(ctx context.Context) (platformws.Message, error) {
 	if err := c.Send(ctx, platformws.Message{
 		Type:    "handshake",
-		Payload: platformws.RawPayload(map[string]any{"mode": "replay"}),
+		Payload: collabtestprotocol.RawPayload(map[string]any{"mode": "replay"}),
 	}); err != nil {
 		return platformws.Message{}, err
 	}

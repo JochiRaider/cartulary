@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,11 +30,13 @@ type notificationConnectionAcquirer interface {
 // Dispatcher owns bounded process orchestration. All durable reads and writes
 // are delegated to PostgresStream.
 type Dispatcher struct {
-	store       *PostgresStream
-	acquirer    notificationConnectionAcquirer
-	broadcaster replayBroadcaster
-	now         func() time.Time
-	interval    time.Duration
+	store            *PostgresStream
+	acquirer         notificationConnectionAcquirer
+	broadcaster      replayBroadcaster
+	now              func() time.Time
+	serviceVersion   string
+	onUnexpectedLoss func()
+	interval         time.Duration
 
 	mu              sync.Mutex
 	runMu           sync.Mutex
@@ -41,23 +44,42 @@ type Dispatcher struct {
 	done            chan struct{}
 	tailCursor      map[uuid.UUID]int64
 	tailInitialized bool
+	terminal        bool
 }
 
-func NewDispatcher(store *PostgresStream, broadcaster replayBroadcaster, now func() time.Time) *Dispatcher {
+func NewDispatcher(
+	store *PostgresStream,
+	broadcaster replayBroadcaster,
+	now func() time.Time,
+	serviceVersion string,
+	onUnexpectedLoss func(),
+) (*Dispatcher, error) {
+	if store == nil || store.db == nil {
+		return nil, errors.New("collaboration dispatcher stream is required")
+	}
+	if broadcaster == nil {
+		return nil, errors.New("collaboration dispatcher broadcaster is required")
+	}
 	if now == nil {
-		now = func() time.Time { return time.Now().UTC() }
+		return nil, errors.New("collaboration dispatcher clock is required")
+	}
+	if strings.TrimSpace(serviceVersion) == "" {
+		return nil, errors.New("collaboration dispatcher service version is required")
+	}
+	if onUnexpectedLoss == nil {
+		return nil, errors.New("collaboration dispatcher loss callback is required")
 	}
 	dispatcher := &Dispatcher{
-		store:       store,
-		broadcaster: broadcaster,
-		now:         now,
-		interval:    dispatchInterval,
-		tailCursor:  make(map[uuid.UUID]int64),
+		store:            store,
+		broadcaster:      broadcaster,
+		now:              now,
+		serviceVersion:   serviceVersion,
+		onUnexpectedLoss: onUnexpectedLoss,
+		interval:         dispatchInterval,
+		tailCursor:       make(map[uuid.UUID]int64),
 	}
-	if store != nil {
-		dispatcher.acquirer, _ = store.db.(notificationConnectionAcquirer)
-	}
-	return dispatcher
+	dispatcher.acquirer, _ = store.db.(notificationConnectionAcquirer)
+	return dispatcher, nil
 }
 
 func (dispatcher *Dispatcher) Start(parent context.Context) error {
@@ -65,14 +87,21 @@ func (dispatcher *Dispatcher) Start(parent context.Context) error {
 		return errors.New("collaboration dispatcher is not configured")
 	}
 	dispatcher.mu.Lock()
-	defer dispatcher.mu.Unlock()
+	if dispatcher.terminal {
+		dispatcher.mu.Unlock()
+		return errors.New("collaboration dispatcher is terminal")
+	}
 	if dispatcher.cancel != nil {
+		dispatcher.mu.Unlock()
 		return nil
 	}
 	dispatcher.runMu.Lock()
 	cursor, err := dispatcher.store.SeedTailCursor(parent)
 	if err != nil {
 		dispatcher.runMu.Unlock()
+		dispatcher.terminal = true
+		dispatcher.mu.Unlock()
+		dispatcher.onUnexpectedLoss()
 		return err
 	}
 	dispatcher.tailCursor = cursor
@@ -81,7 +110,9 @@ func (dispatcher *Dispatcher) Start(parent context.Context) error {
 	ctx, cancel := context.WithCancel(parent)
 	dispatcher.cancel = cancel
 	dispatcher.done = make(chan struct{})
-	go dispatcher.run(ctx, dispatcher.done)
+	done := dispatcher.done
+	dispatcher.mu.Unlock()
+	go dispatcher.supervise(ctx, done, dispatcher.run)
 	return nil
 }
 
@@ -107,8 +138,33 @@ func (dispatcher *Dispatcher) Close(ctx context.Context) error {
 	}
 }
 
-func (dispatcher *Dispatcher) run(ctx context.Context, done chan<- struct{}) {
+func (dispatcher *Dispatcher) supervise(ctx context.Context, done chan<- struct{}, run func(context.Context)) {
 	defer close(done)
+	defer func() {
+		if recovered := recover(); recovered != nil || ctx.Err() == nil {
+			dispatcher.signalUnexpectedLoss()
+		}
+	}()
+	run(ctx)
+}
+
+func (dispatcher *Dispatcher) signalUnexpectedLoss() {
+	dispatcher.mu.Lock()
+	if dispatcher.terminal {
+		dispatcher.mu.Unlock()
+		return
+	}
+	dispatcher.terminal = true
+	cancel := dispatcher.cancel
+	dispatcher.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	dispatcher.onUnexpectedLoss()
+}
+
+func (dispatcher *Dispatcher) run(parent context.Context) {
+	ctx, cancel := context.WithCancel(parent)
 	notifications := make(chan struct{}, 1)
 	listenerDone := make(chan struct{})
 	if dispatcher.acquirer != nil {
@@ -116,6 +172,10 @@ func (dispatcher *Dispatcher) run(ctx context.Context, done chan<- struct{}) {
 	} else {
 		close(listenerDone)
 	}
+	defer func() {
+		cancel()
+		<-listenerDone
+	}()
 	backoff := dispatcher.interval
 	for {
 		_, err := dispatcher.RunOnce(ctx)
@@ -133,7 +193,6 @@ func (dispatcher *Dispatcher) run(ctx context.Context, done chan<- struct{}) {
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			<-listenerDone
 			return
 		case <-notifications:
 			timer.Stop()

@@ -45,7 +45,7 @@ func TestTypedLinksAndTags_Unit(t *testing.T) {
 		harness.DB,
 		conflictTokens,
 		revisionComposition.Runtime.Appender(),
-		revisionComposition.Publications,
+		revisionComposition.RecordChanges,
 		projections,
 	)
 	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
@@ -53,7 +53,7 @@ func TestTypedLinksAndTags_Unit(t *testing.T) {
 		ConflictTokens:      conflictTokens,
 		ConflictFields:      revisionComposition.Runtime.ConflictFieldResolver(),
 		Revisions:           revisionComposition.Runtime.Appender(),
-		Collaboration:       revisionComposition.Publications,
+		Collaboration:       revisionComposition.RecordChanges,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,

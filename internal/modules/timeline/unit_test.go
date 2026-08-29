@@ -36,7 +36,7 @@ func TestBindingMode_Unit(t *testing.T) {
 		ProjectionWriter:     entityPorts.Writer,
 		ProjectionReader:     entityPorts.Reader,
 		KeepSavedIdempotency: workbookassembly.NewConflictIdempotencyPort(harness.DB),
-		Collaboration:        revisionComposition.Publications,
+		Collaboration:        revisionComposition.RecordChanges,
 	})
 	if err != nil {
 		t.Fatalf("compose Host/Identity store: %v", err)

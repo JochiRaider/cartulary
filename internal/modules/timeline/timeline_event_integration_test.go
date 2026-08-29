@@ -1959,7 +1959,7 @@ func timelineFacadeWithCollaboratorMutation(t testing.TB, harness *scenariotest.
 		harness.Pool,
 		conflictTokens,
 		harness.Revisions.Appender(),
-		harness.Collaboration.Publications(),
+		harness.Collaboration.RecordChanges(),
 		projections,
 	)
 	collaborators, err := timelineassembly.NewCollaborators(timelineassembly.Dependencies{
@@ -1967,7 +1967,7 @@ func timelineFacadeWithCollaboratorMutation(t testing.TB, harness *scenariotest.
 		ConflictTokens:      conflictTokens,
 		ConflictFields:      harness.Revisions.ConflictFieldResolver(),
 		Revisions:           harness.Revisions.Appender(),
-		Collaboration:       harness.Collaboration.Publications(),
+		Collaboration:       harness.Collaboration.RecordChanges(),
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,

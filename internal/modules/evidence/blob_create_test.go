@@ -212,7 +212,7 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 func TestBlobCreateIdempotency_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "evidence_lifecycle-blob-idempotency")
 	revisionComposition := revisionsupport.MustComposition(t)
-	store := newTestBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Publications)
+	store := newTestBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.RecordChanges)
 	actorA := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-blob-actor-a@example.test", "EvidenceLifecycle Blob Actor A", "EvidenceLifecycleBlobActorA1!", false, false, true)
 	actorB := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-blob-actor-b@example.test", "EvidenceLifecycle Blob Actor B", "EvidenceLifecycleBlobActorB1!", false, false, true)
 	seedBlobCreateTestSession(t, harness, actorA.ID)

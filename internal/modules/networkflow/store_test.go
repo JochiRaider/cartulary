@@ -54,7 +54,7 @@ func newTestNetworkFlowStore(
 		RecordEnvelopes: records.NewStore(db),
 		Projections:     projection.IndicatorPorts().Rows,
 		SourceText:      indicatorassembly.NewSourceTextPort(projection.SourceTextRows()),
-		Collaboration:   collaborationsupport.NewPublicationAppender(),
+		Collaboration:   collaborationsupport.NewRecordChangedAppender(),
 		Clock:           func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
 	})
 	if err != nil {

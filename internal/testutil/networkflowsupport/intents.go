@@ -11,11 +11,11 @@ import (
 )
 
 type ResourceIntentAppender struct {
-	appender collaboration.PublicationAppender
+	appender collaboration.ExtensionResourceChangedAppender
 }
 
 func NewResourceIntentAppender() ResourceIntentAppender {
-	return ResourceIntentAppender{appender: collaborationsupport.NewPublicationAppender()}
+	return ResourceIntentAppender{appender: collaborationsupport.NewExtensionResourceChangedAppender()}
 }
 
 func (a ResourceIntentAppender) AppendResourceIntentTx(ctx context.Context, tx pgx.Tx, source networkflow.ResourceIntent) error {

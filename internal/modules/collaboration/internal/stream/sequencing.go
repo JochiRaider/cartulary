@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 )
 
 const (
@@ -121,6 +123,10 @@ RETURNING high_water_stream_seq
 			return 0, fmt.Errorf("advance collaboration incident stream: %w", err)
 		}
 		eventID := uuid.New()
+		message := replayMessage(eventID, intent.IncidentID, intent.Family, streamSeq, intent.Payload, now)
+		if err := protocol.ValidateSequencedReplayableMessage(message); err != nil {
+			return 0, fmt.Errorf("validate sequenced collaboration replay event: %w", err)
+		}
 		if _, err := tx.Exec(ctx, `
 INSERT INTO collaboration_replay_events (
     event_id, incident_id, stream_seq, intent_key, event_family, canonical_payload, emitted_at
@@ -154,7 +160,7 @@ SELECT pg_notify('cartulary_collaboration_replay', $1)
 }
 
 func validateReplayPayload(intent pendingIntent) error {
-	return ValidateEventFamilyPayload(intent.IncidentID, intent.Family, intent.Payload)
+	return protocol.ValidateReplayablePayload(intent.IncidentID, intent.Family, intent.Payload)
 }
 
 func (s *PostgresStream) retrySequencingFailure(ctx context.Context, intent pendingIntent, now time.Time) error {

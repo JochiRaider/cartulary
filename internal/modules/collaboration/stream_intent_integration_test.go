@@ -13,10 +13,12 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
+	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	timelinemodule "github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -97,12 +99,29 @@ SELECT count(*)
 	})
 
 	t.Run("intent keys are immutable across exact and divergent replay", func(t *testing.T) {
-		intent := requireJobIntent(t, atomicIncidentUUID, "immutable-intent-key", time.Now().UTC())
+		createdAt := time.Now().UTC()
+		identity := "immutable-intent-key"
+		intentKey := "job_progress:" + identity
+		intent := requireJobIntent(t, atomicIncidentUUID, identity, createdAt)
 		appendCommittedIntent(t, pool, intents, intent)
 		appendCommittedIntent(t, pool, intents, intent)
 
-		divergent := intent
-		divergent.SourceIdentity = divergent.SourceIdentity + ":divergent"
+		divergent, err := privatestream.NewJobProgressIntent(
+			intentKey,
+			atomicIncidentUUID,
+			collabtestprotocol.NewIncidentJobProgressPayload(
+				identity,
+				atomicIncidentUUID,
+				collabprotocol.JobStatusQueued,
+				collabprotocol.JobProgress{Completed: 0},
+				createdAt,
+			),
+			"job:"+identity+":divergent",
+			createdAt,
+		)
+		if err != nil {
+			t.Fatalf("create divergent intent: %v", err)
+		}
 		tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
 			t.Fatalf("begin divergent intent transaction: %v", err)
@@ -121,7 +140,7 @@ SELECT count(*)
 SELECT count(*)
   FROM collaboration_event_intents
  WHERE intent_key = $1
-`, intent.IntentKey).Scan(&count); err != nil {
+`, intentKey).Scan(&count); err != nil {
 			t.Fatalf("count immutable-key intents: %v", err)
 		}
 		if count != 1 {
@@ -130,7 +149,7 @@ SELECT count(*)
 		if _, err := pool.Exec(ctx, `
 DELETE FROM collaboration_event_intents
  WHERE intent_key = $1
-`, intent.IntentKey); err != nil {
+`, intentKey); err != nil {
 			t.Fatalf("clean up immutable-key intent: %v", err)
 		}
 	})

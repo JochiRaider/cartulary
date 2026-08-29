@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/intenttest"
 )
 
 func runSequencingRecoveryScenarios(
@@ -29,7 +30,7 @@ func runSequencingRecoveryScenarios(
 		poisonIncidentID := createDurableStreamIncident(t, harness, admin, "poison")
 		poisonIncidentUUID := uuid.MustParse(poisonIncidentID)
 		quarantineNow := clockNow.Add(2 * time.Second)
-		invalidIntent := privatestream.EventIntent{
+		invalidIntent := intenttest.PersistedIntentFixture{
 			IntentKey:        "record_changed:invalid-payload",
 			IncidentID:       poisonIncidentUUID,
 			EventFamily:      privatestream.EventFamilyRecordChanged,
@@ -37,7 +38,7 @@ func runSequencingRecoveryScenarios(
 			SourceIdentity:   "record:invalid-payload",
 			CreatedAt:        quarantineNow,
 		}
-		insertPersistedIntentFixture(t, pool, invalidIntent)
+		intenttest.InsertPersistedIntentFixture(t, pool, invalidIntent)
 
 		dispatcher := newDispatcherForTest(
 			pool,
@@ -483,7 +484,7 @@ SELECT quarantined_at
 				incidentID := createDurableStreamIncident(t, harness, admin, "invalid-"+testCase.name)
 				incidentUUID := uuid.MustParse(incidentID)
 				attemptedAt := clockNow.Add(time.Duration(20+index) * time.Second)
-				intent := privatestream.EventIntent{
+				intent := intenttest.PersistedIntentFixture{
 					IntentKey:        "persisted-corruption:" + testCase.name,
 					IncidentID:       incidentUUID,
 					EventFamily:      testCase.family,
@@ -491,7 +492,7 @@ SELECT quarantined_at
 					SourceIdentity:   "persisted-corruption:" + testCase.name,
 					CreatedAt:        attemptedAt,
 				}
-				insertPersistedIntentFixture(t, pool, intent)
+				intenttest.InsertPersistedIntentFixture(t, pool, intent)
 				dispatcher := newDispatcherForTest(pool, &recordingBroadcaster{}, func() time.Time { return attemptedAt.Add(time.Second) })
 				if _, err := dispatcher.RunOnce(ctx); err != nil {
 					t.Fatalf("attempt persisted corrupt sequencing: %v", err)

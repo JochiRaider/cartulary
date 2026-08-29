@@ -570,7 +570,7 @@ func softDeletePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor au
 		projections.RevisionRebuilder(),
 		projections.RevisionLiveRecords(),
 		func() time.Time { return time.Date(2026, 5, 18, 12, 4, 0, 0, time.UTC) },
-		revisionComposition.Publications,
+		revisionComposition.RecordChanges,
 	)
 	if err != nil {
 		t.Fatalf("compose revisions command service: %v", err)
@@ -603,7 +603,7 @@ func restorePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor authn
 		projections.RevisionRebuilder(),
 		projections.RevisionLiveRecords(),
 		func() time.Time { return time.Date(2026, 5, 18, 12, 4, 25, 0, time.UTC) },
-		revisionComposition.Publications,
+		revisionComposition.RecordChanges,
 	)
 	if err != nil {
 		t.Fatalf("compose revisions command service: %v", err)

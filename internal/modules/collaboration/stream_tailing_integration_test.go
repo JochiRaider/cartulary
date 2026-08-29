@@ -10,7 +10,10 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
+	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/intenttest"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 )
 
 func runTailingScenarios(
@@ -121,6 +124,55 @@ SELECT dispatch_state = 'sequenced'
 		}
 		if first[0].EventID != second[0].EventID || *first[0].StreamSeq != *second[0].StreamSeq {
 			t.Fatalf("process-local tailers observed different durable events: first=%#v second=%#v", first[0], second[0])
+		}
+	})
+
+	t.Run("corrupt durable tail blocks later sequences without cursor advance or reorder", func(t *testing.T) {
+		incidentID := uuid.MustParse(createDurableStreamIncident(t, harness, admin, "corrupt-tail"))
+		fixtureTime := clockNow.Add(2 * time.Second)
+		validPayload := collabtestprotocol.RawPayload(collabtestprotocol.NewIncidentJobProgressPayload(
+			"tail-validation",
+			incidentID,
+			collabprotocol.JobStatusRunning,
+			collabprotocol.JobProgress{},
+			fixtureTime,
+		))
+		fixtures := make([]intenttest.PersistedReplayEventFixture, 0, 3)
+		for sequence := int64(1); sequence <= 3; sequence++ {
+			payload := validPayload
+			if sequence == 2 {
+				payload = []byte(`{"job_id":"corrupt-tail"}`)
+			}
+			fixtures = append(fixtures, intenttest.PersistedReplayEventFixture{
+				EventID: uuid.New(), IncidentID: incidentID, StreamSeq: sequence,
+				IntentKey:   "corrupt-tail:" + string(rune('0'+sequence)),
+				EventFamily: privatestream.EventFamilyJobProgress, CanonicalPayload: payload,
+				EmittedAt: fixtureTime.Add(time.Duration(sequence) * time.Millisecond),
+			})
+		}
+		intenttest.InsertPersistedReplayEventFixtures(t, pool, fixtures...)
+
+		broadcaster := &recordingBroadcaster{}
+		dispatcher := newDispatcherForTest(pool, broadcaster, func() time.Time { return fixtureTime.Add(time.Second) })
+		if _, err := dispatcher.RunOnce(ctx); err == nil {
+			t.Fatal("corrupt durable tail was accepted")
+		}
+		if messages := messagesForIncident(broadcaster.snapshot(), incidentID.String()); len(messages) != 0 {
+			t.Fatalf("corrupt tail partially fanned out messages: %#v", messages)
+		}
+
+		intenttest.ReplacePersistedReplayPayload(t, pool, fixtures[1].EventID, validPayload)
+		if _, err := dispatcher.RunOnce(ctx); err != nil {
+			t.Fatalf("deliver repaired durable tail: %v", err)
+		}
+		messages := messagesForIncident(broadcaster.snapshot(), incidentID.String())
+		if len(messages) != 3 {
+			t.Fatalf("repaired durable tail delivered %d messages want 3: %#v", len(messages), messages)
+		}
+		for index, message := range messages {
+			if message.StreamSeq == nil || *message.StreamSeq != int64(index+1) {
+				t.Fatalf("repaired durable tail order = %#v", messages)
+			}
 		}
 	})
 	return dispatchIncidentUUID, clockNow

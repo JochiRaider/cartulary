@@ -14,6 +14,8 @@ import (
 	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/intenttest"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 )
 
 func runReplayRetentionScenarios(
@@ -69,7 +71,7 @@ SELECT token_hash
 			t.Fatalf("resume token was not stored exclusively by hash")
 		}
 
-		restartedReplay := privatestream.NewPostgresStream(pool, nil)
+		restartedReplay := newPostgresStreamForTest(t, pool)
 		replay, err := restartedReplay.ReplayMessages(
 			ctx,
 			sessionID,
@@ -88,6 +90,46 @@ SELECT token_hash
 		if replay.Messages[0].StreamSeq == nil || replay.Messages[1].StreamSeq == nil ||
 			*replay.Messages[0].StreamSeq != 1 || *replay.Messages[1].StreamSeq != 2 {
 			t.Fatalf("restart replay order = %#v", replay.Messages)
+		}
+		var (
+			corruptEventID  uuid.UUID
+			originalPayload []byte
+		)
+		if err := pool.QueryRow(ctx, `
+SELECT event_id, canonical_payload
+  FROM collaboration_replay_events
+ WHERE incident_id = $1
+   AND stream_seq = 1
+`, dispatchIncidentUUID).Scan(&corruptEventID, &originalPayload); err != nil {
+			t.Fatalf("load authenticated replay corruption fixture: %v", err)
+		}
+		intenttest.ReplacePersistedReplayPayload(t, pool, corruptEventID, []byte(`{"job_id":"corrupt-replay"}`))
+		corruptReplay, err := restartedReplay.ReplayMessages(
+			ctx,
+			sessionID,
+			dispatchIncidentUUID,
+			"durable-restart-client",
+			token,
+			0,
+			tokenNow,
+		)
+		if err == nil || len(corruptReplay.Messages) != 0 {
+			t.Fatalf("corrupt authenticated replay result = %#v error=%v", corruptReplay, err)
+		}
+		intenttest.ReplacePersistedReplayPayload(t, pool, corruptEventID, originalPayload)
+		repairedReplay, err := restartedReplay.ReplayMessages(
+			ctx,
+			sessionID,
+			dispatchIncidentUUID,
+			"durable-restart-client",
+			token,
+			0,
+			tokenNow,
+		)
+		if err != nil || len(repairedReplay.Messages) != 2 ||
+			repairedReplay.Messages[0].StreamSeq == nil || *repairedReplay.Messages[0].StreamSeq != 1 ||
+			repairedReplay.Messages[1].StreamSeq == nil || *repairedReplay.Messages[1].StreamSeq != 2 {
+			t.Fatalf("repaired authenticated replay result = %#v error=%v", repairedReplay, err)
 		}
 		reset, err := restartedReplay.ReplayMessages(
 			ctx,
@@ -108,6 +150,13 @@ SELECT token_hash
 		retentionIncidentID := createDurableStreamIncident(t, harness, admin, "retention")
 		retentionIncidentUUID := uuid.MustParse(retentionIncidentID)
 		retentionNow := time.Now().UTC().Add(time.Hour)
+		retentionPayload := collabtestprotocol.RawPayload(collabtestprotocol.NewIncidentJobProgressPayload(
+			"retention",
+			retentionIncidentUUID,
+			collabprotocol.JobStatusSucceeded,
+			collabprotocol.JobProgress{},
+			retentionNow,
+		))
 		if _, err := pool.Exec(ctx, `
 INSERT INTO collaboration_incident_stream_cursors (
     incident_id, high_water_stream_seq, updated_at
@@ -124,14 +173,14 @@ SELECT gen_random_uuid(),
        sequence,
        'retention:' || $1::uuid::text || ':' || sequence::text,
        'job_progress',
-       '{}'::jsonb,
+       $3::jsonb,
        CASE
            WHEN sequence = 1 THEN $2::timestamptz - interval '24 hours 1 microsecond'
            WHEN sequence = 2 THEN $2::timestamptz - interval '24 hours'
            ELSE $2::timestamptz
        END
   FROM generate_series(1, 10002) AS sequence
-`, retentionIncidentUUID, retentionNow); err != nil {
+`, retentionIncidentUUID, retentionNow, retentionPayload); err != nil {
 			t.Fatalf("seed retention events: %v", err)
 		}
 		retentionDispatcher := newDispatcherForTest(pool, &recordingBroadcaster{}, func() time.Time { return retentionNow })

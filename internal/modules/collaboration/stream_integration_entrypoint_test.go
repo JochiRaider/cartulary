@@ -27,7 +27,7 @@ func TestDurableIncidentStream_Integration(t *testing.T) {
 	}
 
 	pool := harness.Pool
-	replay := privatestream.NewPostgresStream(pool, nil)
+	replay := newPostgresStreamForTest(t, pool)
 	intents := privatestream.IntentWriter{}
 	recovery := collaboration.NewRecoveryCapability(pool)
 	atomicIncidentUUID := uuid.MustParse(atomicIncidentID)

@@ -22,7 +22,6 @@ type routeService struct {
 	keys           authn.MasterKeys
 	acceptSocket   protocol.AcceptSocket
 	checkOrigin    protocol.CheckBrowserOrigin
-	codec          protocol.Codec
 	serviceVersion string
 	now            func() time.Time
 }

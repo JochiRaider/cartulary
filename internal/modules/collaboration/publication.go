@@ -18,21 +18,25 @@ import (
 type PublicationContribution struct {
 	ContributionID string
 	SourceOwnerID  string
-	RecordTypes    []string
 	AffectedViews  []ViewPublicationContribution
 }
 
 type ViewPublicationContribution struct {
 	ViewSchemaID    string
+	RecordTypes     []string
 	PublicFieldKeys []string
 	PatchFieldKeys  []string
 }
 
+type CanonicalPublicationView struct {
+	ViewSchemaID  string
+	SourceOwnerID string
+	RecordTypes   []string
+}
+
 type publicationView struct {
-	ownerID     string
-	recordTypes map[string]struct{}
-	publicKeys  map[string]struct{}
-	patchKeys   map[string]struct{}
+	publicKeys map[string]struct{}
+	patchKeys  map[string]struct{}
 }
 
 // PublicationCatalog is an immutable, composition-scoped disclosure policy.
@@ -42,26 +46,34 @@ type PublicationCatalog struct {
 	views map[string]publicationView
 }
 
-func NewPublicationCatalog(contributions []PublicationContribution) (*PublicationCatalog, error) {
+func NewPublicationCatalog(
+	contributions []PublicationContribution,
+	canonicalViews []CanonicalPublicationView,
+) (*PublicationCatalog, error) {
 	if len(contributions) == 0 {
 		return nil, errors.New("collaboration publication catalog is empty")
 	}
+	canonical, err := canonicalPublicationViews(canonicalViews)
+	if err != nil {
+		return nil, err
+	}
 	catalog := &PublicationCatalog{views: make(map[string]publicationView)}
 	contributionIDs := make(map[string]struct{}, len(contributions))
+	ownerIDs := make(map[string]struct{}, len(contributions))
 	for _, contribution := range contributions {
 		contributionID := strings.TrimSpace(contribution.ContributionID)
 		ownerID := strings.TrimSpace(contribution.SourceOwnerID)
-		if contributionID == "" || ownerID == "" || len(contribution.RecordTypes) == 0 || len(contribution.AffectedViews) == 0 {
+		if contributionID == "" || ownerID == "" || len(contribution.AffectedViews) == 0 {
 			return nil, fmt.Errorf("collaboration publication contribution %q is incomplete", contributionID)
 		}
 		if _, duplicate := contributionIDs[contributionID]; duplicate {
 			return nil, fmt.Errorf("collaboration publication contribution %q is duplicated", contributionID)
 		}
 		contributionIDs[contributionID] = struct{}{}
-		recordTypes, err := uniqueStrings(contribution.RecordTypes, "record type")
-		if err != nil {
-			return nil, fmt.Errorf("collaboration publication contribution %q: %w", contributionID, err)
+		if _, duplicate := ownerIDs[ownerID]; duplicate {
+			return nil, fmt.Errorf("collaboration publication source owner %q is duplicated", ownerID)
 		}
+		ownerIDs[ownerID] = struct{}{}
 		for _, view := range contribution.AffectedViews {
 			viewSchemaID := strings.TrimSpace(view.ViewSchemaID)
 			if viewSchemaID == "" {
@@ -69,6 +81,25 @@ func NewPublicationCatalog(contributions []PublicationContribution) (*Publicatio
 			}
 			if _, duplicate := catalog.views[viewSchemaID]; duplicate {
 				return nil, fmt.Errorf("collaboration publication view %q is duplicated", viewSchemaID)
+			}
+			canonicalView, known := canonical[viewSchemaID]
+			if !known {
+				return nil, fmt.Errorf("collaboration publication view %q is unknown", viewSchemaID)
+			}
+			if canonicalView.ownerID != ownerID {
+				return nil, fmt.Errorf(
+					"collaboration publication view %q belongs to source owner %q, not %q",
+					viewSchemaID,
+					canonicalView.ownerID,
+					ownerID,
+				)
+			}
+			recordTypes, err := uniqueStrings(view.RecordTypes, "record type")
+			if err != nil {
+				return nil, fmt.Errorf("collaboration publication view %q: %w", viewSchemaID, err)
+			}
+			if !sameStringSet(recordTypes, canonicalView.recordTypes) {
+				return nil, fmt.Errorf("collaboration publication view %q record types do not match canonical metadata", viewSchemaID)
 			}
 			publicKeys, err := uniqueStrings(view.PublicFieldKeys, "public field key")
 			if err != nil {
@@ -83,12 +114,60 @@ func NewPublicationCatalog(contributions []PublicationContribution) (*Publicatio
 					return nil, fmt.Errorf("collaboration publication view %q patch field %q is not public", viewSchemaID, key)
 				}
 			}
-			catalog.views[viewSchemaID] = publicationView{
-				ownerID: ownerID, recordTypes: recordTypes, publicKeys: publicKeys, patchKeys: patchKeys,
-			}
+			catalog.views[viewSchemaID] = publicationView{publicKeys: publicKeys, patchKeys: patchKeys}
 		}
 	}
+	if len(catalog.views) != len(canonical) {
+		missing := make([]string, 0, len(canonical)-len(catalog.views))
+		for viewSchemaID := range canonical {
+			if _, declared := catalog.views[viewSchemaID]; !declared {
+				missing = append(missing, viewSchemaID)
+			}
+		}
+		slices.Sort(missing)
+		return nil, fmt.Errorf("collaboration publication view %q is missing", missing[0])
+	}
 	return catalog, nil
+}
+
+type canonicalPublicationView struct {
+	ownerID     string
+	recordTypes map[string]struct{}
+}
+
+func canonicalPublicationViews(views []CanonicalPublicationView) (map[string]canonicalPublicationView, error) {
+	if len(views) == 0 {
+		return nil, errors.New("collaboration canonical publication views are empty")
+	}
+	result := make(map[string]canonicalPublicationView, len(views))
+	for _, view := range views {
+		viewSchemaID := strings.TrimSpace(view.ViewSchemaID)
+		ownerID := strings.TrimSpace(view.SourceOwnerID)
+		if viewSchemaID == "" || ownerID == "" {
+			return nil, fmt.Errorf("collaboration canonical publication view %q is incomplete", viewSchemaID)
+		}
+		if _, duplicate := result[viewSchemaID]; duplicate {
+			return nil, fmt.Errorf("collaboration canonical publication view %q is duplicated", viewSchemaID)
+		}
+		recordTypes, err := uniqueStrings(view.RecordTypes, "record type")
+		if err != nil {
+			return nil, fmt.Errorf("collaboration canonical publication view %q: %w", viewSchemaID, err)
+		}
+		result[viewSchemaID] = canonicalPublicationView{ownerID: ownerID, recordTypes: recordTypes}
+	}
+	return result, nil
+}
+
+func sameStringSet(left, right map[string]struct{}) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for value := range left {
+		if _, ok := right[value]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func uniqueStrings(values []string, label string) (map[string]struct{}, error) {
@@ -159,69 +238,108 @@ type RecordChangedAppender interface {
 	AppendRecordChangedTx(context.Context, pgx.Tx, RecordChangeIntentInput) error
 }
 
-type PublicationAppender interface {
-	RecordChangedAppender
+type JobProgressAppender interface {
 	AppendJobProgressTx(context.Context, pgx.Tx, JobProgressIntentInput) error
+}
+
+type ExtensionResourceChangedAppender interface {
 	AppendExtensionResourceChangedTx(context.Context, pgx.Tx, ExtensionResourceChangeIntentInput) error
 }
 
-type publicationAppender struct {
+type recordChangedAppender struct {
 	catalog *PublicationCatalog
 	writer  privatestream.IntentWriter
 }
 
-func NewPublicationAppender(catalog *PublicationCatalog) (PublicationAppender, error) {
+type jobProgressAppender struct {
+	writer privatestream.IntentWriter
+}
+
+type extensionResourceChangedAppender struct {
+	writer privatestream.IntentWriter
+}
+
+func NewRecordChangedAppender(catalog *PublicationCatalog) (RecordChangedAppender, error) {
 	if catalog == nil {
 		return nil, errors.New("collaboration publication catalog is required")
 	}
-	return &publicationAppender{catalog: catalog}, nil
+	return &recordChangedAppender{catalog: catalog}, nil
 }
 
-func (appender *publicationAppender) AppendRecordChangedTx(ctx context.Context, tx pgx.Tx, input RecordChangeIntentInput) error {
+func NewJobProgressAppender() JobProgressAppender {
+	return &jobProgressAppender{}
+}
+
+func NewExtensionResourceChangedAppender() ExtensionResourceChangedAppender {
+	return &extensionResourceChangedAppender{}
+}
+
+func (appender *recordChangedAppender) AppendRecordChangedTx(ctx context.Context, tx pgx.Tx, input RecordChangeIntentInput) error {
 	intent, err := appender.recordChangedIntent(input)
 	if err != nil {
 		return err
 	}
-	return appender.appendTx(ctx, tx, intent)
+	return appendPublicationIntent(ctx, tx, appender.writer, intent)
 }
 
-func (appender *publicationAppender) AppendJobProgressTx(ctx context.Context, tx pgx.Tx, input JobProgressIntentInput) error {
-	intent, err := privatestream.NewEventIntent(input.IntentKey, input.IncidentID, privatestream.EventFamilyJobProgress, input.CanonicalPayload, input.SourceIdentity, 0, input.CreatedAt)
+func (appender *jobProgressAppender) AppendJobProgressTx(ctx context.Context, tx pgx.Tx, input JobProgressIntentInput) error {
+	if appender == nil {
+		return errors.New("collaboration job-progress appender is not configured")
+	}
+	intent, err := privatestream.NewJobProgressIntent(input.IntentKey, input.IncidentID, input.CanonicalPayload, input.SourceIdentity, input.CreatedAt)
 	if err != nil {
 		return err
 	}
-	return appender.appendTx(ctx, tx, intent)
+	return appendPublicationIntent(ctx, tx, appender.writer, intent)
 }
 
-func (appender *publicationAppender) AppendExtensionResourceChangedTx(ctx context.Context, tx pgx.Tx, input ExtensionResourceChangeIntentInput) error {
-	intent, err := privatestream.NewEventIntent(input.IntentKey, input.IncidentID, privatestream.EventFamilyExtensionResourceChange, input.CanonicalPayload, input.SourceIdentity, 0, input.CreatedAt)
+func (appender *extensionResourceChangedAppender) AppendExtensionResourceChangedTx(ctx context.Context, tx pgx.Tx, input ExtensionResourceChangeIntentInput) error {
+	if appender == nil {
+		return errors.New("collaboration extension-resource-change appender is not configured")
+	}
+	intent, err := privatestream.NewExtensionResourceChangedIntent(input.IntentKey, input.IncidentID, input.CanonicalPayload, input.SourceIdentity, input.CreatedAt)
 	if err != nil {
 		return err
 	}
-	return appender.appendTx(ctx, tx, intent)
+	return appendPublicationIntent(ctx, tx, appender.writer, intent)
 }
 
-func (appender *publicationAppender) appendTx(ctx context.Context, tx pgx.Tx, intent privatestream.EventIntent) error {
-	if appender == nil || appender.catalog == nil {
-		return errors.New("collaboration publication appender is not configured")
-	}
-	if err := appender.writer.AppendTx(ctx, tx, intent); err != nil {
+func appendPublicationIntent(ctx context.Context, tx pgx.Tx, writer privatestream.IntentWriter, intent privatestream.EventIntent) error {
+	if err := writer.AppendTx(ctx, tx, intent); err != nil {
 		return fmt.Errorf("append collaboration publication intent: %w", err)
 	}
 	return nil
 }
 
-func (appender *publicationAppender) recordChangedIntent(input RecordChangeIntentInput) (privatestream.EventIntent, error) {
+func (appender *recordChangedAppender) recordChangedIntent(input RecordChangeIntentInput) (privatestream.EventIntent, error) {
+	payload, err := appender.validatedRecordChangePayload(input)
+	if err != nil {
+		return privatestream.EventIntent{}, err
+	}
+	return privatestream.NewRecordChangedIntent(
+		fmt.Sprintf("record_changed:%s:%s:%d", input.ChangeSetID, input.RecordID, input.RowVersion),
+		input.IncidentID,
+		payload,
+		input.ChangeSetID,
+		input.RecordID,
+		input.RowVersion,
+		input.ChangeSetID.String()+":"+input.RecordID.String(),
+		input.MutationOrdinal,
+		input.CreatedAt,
+	)
+}
+
+func (appender *recordChangedAppender) validatedRecordChangePayload(input RecordChangeIntentInput) (map[string]any, error) {
 	if appender == nil || appender.catalog == nil || input.RecordID == uuid.Nil || input.ChangeSetID == uuid.Nil ||
 		input.IncidentID == uuid.Nil || input.ActorUserID == uuid.Nil || input.RowVersion < 1 || len(input.AffectedViews) == 0 {
-		return privatestream.EventIntent{}, errors.New("record_change_intent_v1 identity is incomplete")
+		return nil, errors.New("record_change_intent_v1 identity is incomplete")
 	}
 	changedKeys := append([]string(nil), input.PublicFieldKeys...)
 	slices.Sort(changedKeys)
 	changedKeys = slices.Compact(changedKeys)
 	for _, key := range changedKeys {
 		if strings.TrimSpace(key) == "" || key != strings.TrimSpace(key) {
-			return privatestream.EventIntent{}, fmt.Errorf("record_change_intent_v1 field key %q is invalid", key)
+			return nil, fmt.Errorf("record_change_intent_v1 field key %q is invalid", key)
 		}
 	}
 	views := cloneAffectedViewChanges(input.AffectedViews)
@@ -233,42 +351,26 @@ func (appender *publicationAppender) recordChangedIntent(input RecordChangeInten
 		policy, known := appender.catalog.views[view.ViewSchemaID]
 		if !known || view.RecordID != input.RecordID || view.RowVersion != input.RowVersion ||
 			!validAffectedViewChangeKind(view.ChangeKind) || (view.ChangeKind == "patch") != (view.PatchCells != nil) {
-			return privatestream.EventIntent{}, fmt.Errorf("record_change_intent_v1 affected view %q is invalid", view.ViewSchemaID)
+			return nil, fmt.Errorf("record_change_intent_v1 affected view %q is invalid", view.ViewSchemaID)
 		}
 		if index > 0 && views[index-1].ViewSchemaID == view.ViewSchemaID {
-			return privatestream.EventIntent{}, errors.New("record_change_intent_v1 affected views must be unique")
+			return nil, errors.New("record_change_intent_v1 affected views must be unique")
 		}
 		for key := range policy.publicKeys {
 			admittedKeys[key] = struct{}{}
 		}
 		if view.PatchCells != nil {
 			if err := validatePatch(view, policy, input.RecordID, input.RowVersion, changedKeys); err != nil {
-				return privatestream.EventIntent{}, err
+				return nil, err
 			}
 		}
 	}
 	for _, key := range changedKeys {
 		if _, admitted := admittedKeys[key]; !admitted {
-			return privatestream.EventIntent{}, fmt.Errorf("record_change_intent_v1 field key %q is not public for an affected view", key)
+			return nil, fmt.Errorf("record_change_intent_v1 field key %q is not public for an affected view", key)
 		}
 	}
-	payload := recordChangePayload(input, views, changedKeys)
-	intent, err := privatestream.NewEventIntent(
-		fmt.Sprintf("record_changed:%s:%s:%d", input.ChangeSetID, input.RecordID, input.RowVersion),
-		input.IncidentID,
-		privatestream.EventFamilyRecordChanged,
-		payload,
-		input.ChangeSetID.String()+":"+input.RecordID.String(),
-		input.MutationOrdinal,
-		input.CreatedAt,
-	)
-	if err != nil {
-		return privatestream.EventIntent{}, err
-	}
-	intent.SourceChangeSetID = &input.ChangeSetID
-	intent.SourceRecordID = &input.RecordID
-	intent.SourceRowVersion = &input.RowVersion
-	return intent, nil
+	return recordChangePayload(input, views, changedKeys), nil
 }
 
 func validatePatch(view AffectedViewChange, policy publicationView, recordID uuid.UUID, rowVersion int64, changedKeys []string) error {

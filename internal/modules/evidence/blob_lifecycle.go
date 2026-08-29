@@ -814,7 +814,7 @@ UPDATE evidence
 			s.collaboration,
 			blob.IncidentID,
 			actorUserID,
-			"",
+			changeSetID.String(),
 			changeSetID,
 			primaryChange,
 			afterRow,

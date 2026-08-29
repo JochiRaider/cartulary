@@ -11,11 +11,12 @@ import (
 
 	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 )
 
 func TestHubSessionRevocationSubscribers(t *testing.T) {
 	t.Run("revoke notifies each registered listener exactly once", func(t *testing.T) {
-		hub := newHub()
+		hub := newHub("0.0.0+unknown")
 		sessionID := uuid.New()
 
 		first, unregisterFirst := hub.RegisterSession(sessionID)
@@ -36,7 +37,7 @@ func TestHubSessionRevocationSubscribers(t *testing.T) {
 	})
 
 	t.Run("unregister prevents later delivery", func(t *testing.T) {
-		hub := newHub()
+		hub := newHub("0.0.0+unknown")
 		sessionID := uuid.New()
 
 		revocations, unregister := hub.RegisterSession(sessionID)
@@ -53,7 +54,7 @@ func TestHubSessionRevocationSubscribers(t *testing.T) {
 }
 
 func TestHubIncidentTerminalSubscribers(t *testing.T) {
-	hub := newHub()
+	hub := newHub("0.0.0+unknown")
 	incidentID := uuid.New()
 
 	first, unregisterFirst := hub.RegisterIncidentTerminal(incidentID)
@@ -177,7 +178,7 @@ func TestReplayableIntentValidationAdmitsOwnerAdditiveMembers(t *testing.T) {
 	}{
 		"record_changed": {
 			family: privatestream.EventFamilyRecordChanged,
-			payload: collabprotocol.RawPayload(map[string]any{
+			payload: collabtestprotocol.RawPayload(map[string]any{
 				"record_id": recordID.String(), "row_version": 2,
 				"change_set_id": changeSetID.String(), "client_txn_id": "txn-additive",
 				"actor_user_id": actorUserID.String(), "changed_field_keys": []string{"timeline.title"},
@@ -190,7 +191,7 @@ func TestReplayableIntentValidationAdmitsOwnerAdditiveMembers(t *testing.T) {
 		},
 		"job_progress": {
 			family: privatestream.EventFamilyJobProgress,
-			payload: collabprotocol.RawPayload(map[string]any{
+			payload: collabtestprotocol.RawPayload(map[string]any{
 				"job_id":     "job-additive",
 				"scope":      map[string]any{"kind": collabprotocol.JobScopeKindIncident, "incident_id": incidentID.String(), "future_scope": true},
 				"status":     collabprotocol.JobStatusRunning,
@@ -200,15 +201,15 @@ func TestReplayableIntentValidationAdmitsOwnerAdditiveMembers(t *testing.T) {
 		},
 		"extension_resource_changed": {
 			family: privatestream.EventFamilyExtensionResourceChange,
-			payload: collabprotocol.RawPayload(map[string]any{
+			payload: collabtestprotocol.RawPayload(map[string]any{
 				"extension_profile_id": "network_flow_activity", "resource_kind": "network_flow_table",
 				"resource_id": "nft_additive", "change_kind": collabprotocol.ExtensionResourceChangeKindInvalidate,
-				"reason_code": "future_owner_reason", "future_payload": map[string]any{"ignored": true},
+				"reason_code": collabprotocol.ExtensionResourceReasonRenamed, "future_payload": map[string]any{"ignored": true},
 			}),
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if err := privatestream.ValidateEventFamilyPayload(incidentID, testCase.family, testCase.payload); err != nil {
+			if err := collabprotocol.ValidateReplayablePayload(incidentID, testCase.family, testCase.payload); err != nil {
 				t.Fatalf("validate owner-additive payload: %v", err)
 			}
 		})
@@ -217,7 +218,7 @@ func TestReplayableIntentValidationAdmitsOwnerAdditiveMembers(t *testing.T) {
 
 func TestHubDeliverJobProgress(t *testing.T) {
 	t.Run("emits typed incident scoped payload", func(t *testing.T) {
-		hub := newHub()
+		hub := newHub("0.0.0+unknown")
 		incidentID := uuid.New()
 		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
 		defer unsubscribe()
@@ -225,7 +226,7 @@ func TestHubDeliverJobProgress(t *testing.T) {
 		total := int64(4)
 		now := time.Date(2026, 4, 24, 12, 30, 0, 123, time.UTC)
 		cancelable := true
-		payload := collabprotocol.NewIncidentJobProgressPayload("job-1", incidentID, collabprotocol.JobStatusRunning, collabprotocol.JobProgress{
+		payload := collabtestprotocol.NewIncidentJobProgressPayload("job-1", incidentID, collabprotocol.JobStatusRunning, collabprotocol.JobProgress{
 			Completed: 1,
 			Total:     &total,
 		}, now)
@@ -241,7 +242,7 @@ func TestHubDeliverJobProgress(t *testing.T) {
 			EventID:    uuid.NewString(),
 			EmittedAt:  now.Format(time.RFC3339Nano),
 			StreamSeq:  &streamSeq,
-			Payload:    collabprotocol.RawPayload(payload),
+			Payload:    collabtestprotocol.RawPayload(payload),
 		}); err != nil {
 			t.Fatalf("deliver job_progress: %v", err)
 		}
@@ -278,7 +279,7 @@ func TestHubDeliverJobProgress(t *testing.T) {
 	})
 
 	t.Run("disconnects a slow subscriber instead of silently dropping", func(t *testing.T) {
-		hub := newHub()
+		hub := newHub("0.0.0+unknown")
 		incidentID := uuid.New()
 		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
 		defer unsubscribe()
@@ -291,7 +292,9 @@ func TestHubDeliverJobProgress(t *testing.T) {
 			EventID:    uuid.NewString(),
 			EmittedAt:  now.Format(time.RFC3339Nano),
 			StreamSeq:  &firstSequence,
-			Payload:    collabprotocol.RawPayload(map[string]any{"job_id": "first"}),
+			Payload: collabtestprotocol.RawPayload(collabtestprotocol.NewIncidentJobProgressPayload(
+				"first", incidentID, collabprotocol.JobStatusRunning, collabprotocol.JobProgress{}, now,
+			)),
 		}); err != nil {
 			t.Fatalf("deliver first slow-consumer event: %v", err)
 		}
@@ -302,7 +305,9 @@ func TestHubDeliverJobProgress(t *testing.T) {
 			EventID:    uuid.NewString(),
 			EmittedAt:  now.Format(time.RFC3339Nano),
 			StreamSeq:  &secondSequence,
-			Payload:    collabprotocol.RawPayload(map[string]any{"job_id": "second"}),
+			Payload: collabtestprotocol.RawPayload(collabtestprotocol.NewIncidentJobProgressPayload(
+				"second", incidentID, collabprotocol.JobStatusRunning, collabprotocol.JobProgress{}, now,
+			)),
 		}); err != nil {
 			t.Fatalf("deliver second slow-consumer event: %v", err)
 		}
@@ -334,12 +339,12 @@ func TestHubDeliverJobProgress(t *testing.T) {
 
 func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 	t.Run("emits replayable stable network flow invalidation without labels", func(t *testing.T) {
-		hub := newHub()
+		hub := newHub("0.0.0+unknown")
 		incidentID := uuid.New()
 		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
 		defer unsubscribe()
 
-		payload := collabprotocol.CanonicalExtensionResourceChangePayload(collabprotocol.ExtensionResourceChangePayload{
+		payload := collabtestprotocol.CanonicalExtensionResourceChangePayload(collabprotocol.ExtensionResourceChangePayload{
 			ExtensionProfileID: "network_flow_activity",
 			ResourceKind:       "network_flow_table",
 			ResourceID:         "nft_00000000000000000000000001",
@@ -359,7 +364,7 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 			EventID:    uuid.NewString(),
 			EmittedAt:  time.Date(2026, 7, 10, 13, 45, 0, 0, time.UTC).Format(time.RFC3339Nano),
 			StreamSeq:  &streamSeq,
-			Payload:    collabprotocol.RawPayload(payload),
+			Payload:    collabtestprotocol.RawPayload(payload),
 		}); err != nil {
 			t.Fatalf("deliver extension_resource_changed: %v", err)
 		}
@@ -410,12 +415,12 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 	})
 
 	t.Run("emits authorization loss as remove without resource detail", func(t *testing.T) {
-		hub := newHub()
+		hub := newHub("0.0.0+unknown")
 		incidentID := uuid.New()
 		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
 		defer unsubscribe()
 
-		payload := collabprotocol.CanonicalExtensionResourceChangePayload(collabprotocol.ExtensionResourceChangePayload{
+		payload := collabtestprotocol.CanonicalExtensionResourceChangePayload(collabprotocol.ExtensionResourceChangePayload{
 			ExtensionProfileID: "network_flow_activity",
 			ResourceKind:       "network_flow_table",
 			ResourceID:         "nft_00000000000000000000000002",
@@ -436,7 +441,7 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 			EventID:    uuid.NewString(),
 			EmittedAt:  now.Format(time.RFC3339Nano),
 			StreamSeq:  &streamSeq,
-			Payload:    collabprotocol.RawPayload(payload),
+			Payload:    collabtestprotocol.RawPayload(payload),
 		}); err != nil {
 			t.Fatalf("deliver authorization_lost extension_resource_changed: %v", err)
 		}

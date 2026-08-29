@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
@@ -192,7 +193,7 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 		})
 		if err := expirySocket.Send(context.Background(), platformws.Message{
 			Type:    "pong",
-			Payload: platformws.RawPayload(map[string]any{}),
+			Payload: collabtestprotocol.RawPayload(map[string]any{}),
 		}); err != nil {
 			t.Fatalf("send pong before idle expiry: %v", err)
 		}
@@ -240,7 +241,7 @@ func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 		defer cancel()
 		if err := conn.WriteJSON(ctx, platformws.Message{
 			Type: "hello",
-			Payload: platformws.RawPayload(map[string]any{
+			Payload: collabtestprotocol.RawPayload(map[string]any{
 				"client_instance_id": "collaboration-support-closed-socket-hello",
 				"presence":           timelinePresence(),
 			}),
@@ -263,7 +264,7 @@ func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 		defer cancel()
 		if err := conn.WriteJSON(ctx, platformws.Message{
 			Type: "resume",
-			Payload: platformws.RawPayload(map[string]any{
+			Payload: collabtestprotocol.RawPayload(map[string]any{
 				"client_instance_id":   "collaboration-support-closed-socket-source",
 				"resume_token":         resumeToken,
 				"last_seen_stream_seq": 0,

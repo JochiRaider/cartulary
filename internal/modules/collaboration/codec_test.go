@@ -12,21 +12,20 @@ import (
 )
 
 func TestCollaborationCodecSemanticContract(t *testing.T) {
-	codec := collabprotocol.Codec{}
 	incidentID := uuid.MustParse("10000000-0000-4000-8000-000000000001")
 	message := collabprotocol.EphemeralMessage(incidentID, "resume_ack", map[string]any{
 		"status":       collabprotocol.ResumeStatusReplayed,
 		"resume_token": "token",
 	}, time.Date(2026, 7, 27, 12, 0, 0, 0, time.UTC))
 
-	encoded, err := codec.Encode(message)
+	encoded, err := collabprotocol.EncodeMessage(message)
 	if err != nil {
 		t.Fatalf("encode message: %v", err)
 	}
 	if bytes.HasSuffix(encoded, []byte("\n")) {
 		t.Fatalf("encoded message has a trailing LF: %q", encoded)
 	}
-	decoded, err := codec.Decode(collabprotocol.MessageText, appendUnknownMembers(encoded))
+	decoded, err := collabprotocol.DecodeMessage(collabprotocol.MessageText, appendUnknownMembers(encoded))
 	if err != nil {
 		t.Fatalf("decode message with additive members: %v", err)
 	}
@@ -72,7 +71,7 @@ func TestCollaborationCodecSemanticContract(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := codec.Decode(testCase.kind, testCase.payload)
+			_, err := collabprotocol.DecodeMessage(testCase.kind, testCase.payload)
 			if testCase.wantSize {
 				if !errors.Is(err, collabprotocol.ErrMessageTooLarge) {
 					t.Fatalf("error = %v want collabprotocol.ErrMessageTooLarge", err)

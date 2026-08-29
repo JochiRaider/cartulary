@@ -12,19 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 )
 
-func (h *hub) ConfigureTelemetry(serviceVersion string) {
-	if h == nil {
-		return
-	}
-	h.mu.Lock()
-	h.serviceVersion = serviceVersion
-	if h.activeGaugeRegistered {
-		h.mu.Unlock()
-		return
-	}
-	h.activeGaugeRegistered = true
-	h.mu.Unlock()
-
+func (h *hub) registerTelemetry() {
 	_, _ = telemetry.Meter(telemetry.ScopeCollaboration, h.telemetryServiceVersion()).Int64ObservableGauge(
 		"cartulary.collaboration.connections.active",
 		metric.WithUnit("{connection}"),

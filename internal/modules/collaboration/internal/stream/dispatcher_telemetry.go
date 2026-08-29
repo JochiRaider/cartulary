@@ -21,12 +21,12 @@ func (dispatcher *Dispatcher) recordDispatcherRun(ctx context.Context, processed
 		attribute.String("cartulary.result", result),
 		attribute.String("cartulary.error_code", errorCode),
 	)
-	runs, _ := telemetry.Meter(telemetry.ScopeCollaboration, telemetry.VersionUnknown).Int64Counter(
+	runs, _ := telemetry.Meter(telemetry.ScopeCollaboration, dispatcher.serviceVersion).Int64Counter(
 		"cartulary.collaboration.dispatcher.runs",
 		metric.WithUnit("{run}"),
 		metric.WithDescription("Durable Collaboration dispatcher runs."),
 	)
-	events, _ := telemetry.Meter(telemetry.ScopeCollaboration, telemetry.VersionUnknown).Int64Counter(
+	events, _ := telemetry.Meter(telemetry.ScopeCollaboration, dispatcher.serviceVersion).Int64Counter(
 		"cartulary.collaboration.dispatcher.events",
 		metric.WithUnit("{event}"),
 		metric.WithDescription("Durable Collaboration events sequenced or delivered."),

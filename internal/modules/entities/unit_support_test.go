@@ -38,7 +38,7 @@ func newEntityTestTimelineComposition(t testing.TB, pool postgres.DB) (*timeline
 		pool,
 		conflictTokens,
 		revisionComposition.Runtime.Appender(),
-		revisionComposition.Publications,
+		revisionComposition.RecordChanges,
 		projections,
 	)
 	bundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
@@ -46,7 +46,7 @@ func newEntityTestTimelineComposition(t testing.TB, pool postgres.DB) (*timeline
 		ConflictTokens:      conflictTokens,
 		ConflictFields:      revisionComposition.Runtime.ConflictFieldResolver(),
 		Revisions:           revisionComposition.Runtime.Appender(),
-		Collaboration:       revisionComposition.Publications,
+		Collaboration:       revisionComposition.RecordChanges,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,
@@ -71,7 +71,7 @@ func newEntityTestStore(t testing.TB, pool postgres.DB) *hostidentity.Store {
 		ProjectionWriter:     projection.EntityPorts().Writer,
 		ProjectionReader:     projection.EntityPorts().Reader,
 		KeepSavedIdempotency: workbookassembly.NewConflictIdempotencyPort(pool),
-		Collaboration:        revisionComposition.Publications,
+		Collaboration:        revisionComposition.RecordChanges,
 	})
 	if err != nil {
 		t.Fatalf("compose Host/Identity store: %v", err)

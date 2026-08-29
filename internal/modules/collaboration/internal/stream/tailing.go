@@ -74,9 +74,11 @@ SELECT event_id, incident_id, event_family, stream_seq, canonical_payload, emitt
 		if err := rows.Scan(&eventID, &incidentID, &family, &streamSeq, &payload, &emittedAt); err != nil {
 			return nil, fmt.Errorf("scan collaboration replay tail event: %w", err)
 		}
-		messages = append(messages,
-			replayMessage(eventID, incidentID, family, streamSeq, payload, emittedAt),
-		)
+		message := replayMessage(eventID, incidentID, family, streamSeq, payload, emittedAt)
+		if err := protocol.ValidateSequencedReplayableMessage(message); err != nil {
+			return nil, fmt.Errorf("validate collaboration replay tail event: %w", err)
+		}
+		messages = append(messages, message)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate collaboration replay tail events: %w", err)

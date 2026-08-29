@@ -273,7 +273,7 @@ func requireSupersessionPublicationRollback(
 				ReplacementRecordID: &source,
 			}
 			failingPublications := &failNthRecordChangedAppender{
-				delegate: collaborationsupport.NewPublicationAppender(),
+				delegate: collaborationsupport.NewRecordChangedAppender(),
 				failOn:   failOn,
 			}
 			failingOwner := appsupport.NewTaskDecisionOwnerWithPublications(pool, codec, failingPublications)

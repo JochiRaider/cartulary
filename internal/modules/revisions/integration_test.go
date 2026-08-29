@@ -12,13 +12,13 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
-	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -660,7 +660,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 	}
 }
 
-func requireDeleteRestoreRecordChange(t testing.TB, change platformws.RecordChangedEvent, recordID uuid.UUID, rowVersion int64, changeKind string, viewSchemaID string) {
+func requireDeleteRestoreRecordChange(t testing.TB, change collabtestprotocol.RecordChangedEvent, recordID uuid.UUID, rowVersion int64, changeKind string, viewSchemaID string) {
 	t.Helper()
 	view := requireSingleAffectedView(t, change)
 	if change.RecordID != recordID || change.RowVersion != rowVersion || view.ChangeKind != changeKind || view.ViewSchemaID != viewSchemaID {
@@ -669,7 +669,7 @@ func requireDeleteRestoreRecordChange(t testing.TB, change platformws.RecordChan
 	if len(change.ChangedFieldKeys) != 0 {
 		t.Fatalf("delete/restore changed_field_keys must be present and empty, got %#v", change.ChangedFieldKeys)
 	}
-	payload := platformws.RecordChangePayload(change)
+	payload := collabtestprotocol.RecordChangePayload(change)
 	affectedViews, ok := payload["affected_views"].([]map[string]any)
 	if !ok || len(affectedViews) != 1 {
 		t.Fatalf("delete/restore affected_views must be a single view, got %#v", payload["affected_views"])
@@ -679,13 +679,13 @@ func requireDeleteRestoreRecordChange(t testing.TB, change platformws.RecordChan
 	}
 }
 
-func requireRollbackRecordChange(t testing.TB, change platformws.RecordChangedEvent, recordID uuid.UUID, rowVersion int64, viewSchemaID string) {
+func requireRollbackRecordChange(t testing.TB, change collabtestprotocol.RecordChangedEvent, recordID uuid.UUID, rowVersion int64, viewSchemaID string) {
 	t.Helper()
 	view := requireSingleAffectedView(t, change)
 	if change.RecordID != recordID || change.RowVersion != rowVersion || view.ChangeKind != "invalidate" || view.ViewSchemaID != viewSchemaID {
 		t.Fatalf("unexpected rollback record_changed event: %+v", change)
 	}
-	payload := platformws.RecordChangePayload(change)
+	payload := collabtestprotocol.RecordChangePayload(change)
 	affectedViews, ok := payload["affected_views"].([]map[string]any)
 	if !ok || len(affectedViews) != 1 {
 		t.Fatalf("rollback affected_views must be a single view, got %#v", payload["affected_views"])
@@ -695,7 +695,7 @@ func requireRollbackRecordChange(t testing.TB, change platformws.RecordChangedEv
 	}
 }
 
-func requireRollbackRecordChangesAnyOrder(t testing.TB, changes []platformws.RecordChangedEvent, expected map[uuid.UUID]int64, viewSchemaID string) {
+func requireRollbackRecordChangesAnyOrder(t testing.TB, changes []collabtestprotocol.RecordChangedEvent, expected map[uuid.UUID]int64, viewSchemaID string) {
 	t.Helper()
 	seen := map[uuid.UUID]bool{}
 	for _, change := range changes {
@@ -717,7 +717,7 @@ type rollbackRecordChangeExpectation struct {
 	changedFieldKeys []string
 }
 
-func requireRollbackRecordChangesByRecord(t testing.TB, changes []platformws.RecordChangedEvent, expected map[uuid.UUID]rollbackRecordChangeExpectation) {
+func requireRollbackRecordChangesByRecord(t testing.TB, changes []collabtestprotocol.RecordChangedEvent, expected map[uuid.UUID]rollbackRecordChangeExpectation) {
 	t.Helper()
 	seen := map[uuid.UUID]bool{}
 	for _, change := range changes {
@@ -732,7 +732,7 @@ func requireRollbackRecordChangesByRecord(t testing.TB, changes []platformws.Rec
 		if !slices.Equal(change.ChangedFieldKeys, want.changedFieldKeys) {
 			t.Fatalf("rollback changed_field_keys got %v want %v for %s", change.ChangedFieldKeys, want.changedFieldKeys, change.RecordID)
 		}
-		payload := platformws.RecordChangePayload(change)
+		payload := collabtestprotocol.RecordChangePayload(change)
 		affectedViews, ok := payload["affected_views"].([]map[string]any)
 		if !ok || len(affectedViews) != 1 {
 			t.Fatalf("rollback affected_views must be a single view, got %#v", payload["affected_views"])
@@ -747,7 +747,7 @@ func requireRollbackRecordChangesByRecord(t testing.TB, changes []platformws.Rec
 	}
 }
 
-func requireSingleAffectedView(t testing.TB, change platformws.RecordChangedEvent) platformws.RecordChangedView {
+func requireSingleAffectedView(t testing.TB, change collabtestprotocol.RecordChangedEvent) collabtestprotocol.RecordChangedView {
 	t.Helper()
 	if len(change.AffectedViews) != 1 {
 		t.Fatalf("record_changed affected views = %#v, want one", change.AffectedViews)

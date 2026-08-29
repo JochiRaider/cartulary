@@ -10,24 +10,34 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
-// collaborationIntentTranslator is the application-owned translation boundary
-// between source-owned producer contracts and Collaboration persistence.
-type collaborationIntentTranslator struct {
-	appender collaboration.PublicationAppender
+// collaborationJobProgressTranslator is the application-owned translation
+// boundary between the Jobs producer contract and Collaboration persistence.
+type collaborationJobProgressTranslator struct {
+	appender collaboration.JobProgressAppender
 }
 
-func newCollaborationIntentTranslator(appender collaboration.PublicationAppender) collaborationIntentTranslator {
-	return collaborationIntentTranslator{appender: appender}
+func newCollaborationJobProgressTranslator(appender collaboration.JobProgressAppender) collaborationJobProgressTranslator {
+	return collaborationJobProgressTranslator{appender: appender}
 }
 
-func (a collaborationIntentTranslator) AppendProgressIntentTx(ctx context.Context, tx pgx.Tx, source jobs.ProgressIntent) error {
+func (a collaborationJobProgressTranslator) AppendProgressIntentTx(ctx context.Context, tx pgx.Tx, source jobs.ProgressIntent) error {
 	return a.appender.AppendJobProgressTx(ctx, tx, collaboration.JobProgressIntentInput{
 		IntentKey: source.IntentKey, IncidentID: source.IncidentID, CanonicalPayload: source.CanonicalPayload,
 		SourceIdentity: source.SourceIdentity, CreatedAt: source.CreatedAt,
 	})
 }
 
-func (a collaborationIntentTranslator) AppendResourceIntentTx(ctx context.Context, tx pgx.Tx, source networkflow.ResourceIntent) error {
+// collaborationExtensionResourceChangeTranslator is the application-owned
+// translation boundary between Network Flow and Collaboration persistence.
+type collaborationExtensionResourceChangeTranslator struct {
+	appender collaboration.ExtensionResourceChangedAppender
+}
+
+func newCollaborationExtensionResourceChangeTranslator(appender collaboration.ExtensionResourceChangedAppender) collaborationExtensionResourceChangeTranslator {
+	return collaborationExtensionResourceChangeTranslator{appender: appender}
+}
+
+func (a collaborationExtensionResourceChangeTranslator) AppendResourceIntentTx(ctx context.Context, tx pgx.Tx, source networkflow.ResourceIntent) error {
 	return a.appender.AppendExtensionResourceChangedTx(ctx, tx, collaboration.ExtensionResourceChangeIntentInput{
 		IntentKey: source.IntentKey, IncidentID: source.IncidentID, CanonicalPayload: source.CanonicalPayload,
 		SourceIdentity: source.SourceIdentity, CreatedAt: source.CreatedAt,

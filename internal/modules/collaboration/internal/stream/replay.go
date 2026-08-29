@@ -176,6 +176,12 @@ SELECT event_id, event_family, stream_seq, canonical_payload, emitted_at
 				rows.Close()
 				return result, fmt.Errorf("scan collaboration replay event: %w", err)
 			}
+			message := replayMessage(eventID, incidentID, family, streamSeq, payload, emittedAt)
+			if err := protocol.ValidateSequencedReplayableMessage(message); err != nil {
+				rows.Close()
+				result.Messages = []protocol.Message{}
+				return result, fmt.Errorf("validate authenticated collaboration replay event: %w", err)
+			}
 			pageCount++
 			afterStreamSeq = streamSeq
 			replayBytes += len(payload)
@@ -184,7 +190,7 @@ SELECT event_id, event_family, stream_seq, canonical_payload, emitted_at
 				result.Messages = []protocol.Message{}
 				return result, nil
 			}
-			result.Messages = append(result.Messages, replayMessage(eventID, incidentID, family, streamSeq, payload, emittedAt))
+			result.Messages = append(result.Messages, message)
 		}
 		if err := rows.Err(); err != nil {
 			rows.Close()

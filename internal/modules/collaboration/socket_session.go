@@ -182,7 +182,7 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 			lastSent = s.now()
 		case message := <-incoming:
 			lastInbound = s.now()
-			if !s.handleClientMessage(ctx, conn, incidentID, connectionID, messages, principal, handshake.ClientInstanceID, message) {
+			if !s.handleClientMessage(ctx, conn, incidentID, connectionID, messages, principal, message) {
 				lifecycleResult = "rejected"
 				return
 			}
@@ -338,7 +338,7 @@ func (terminalIncidentError) Error() string {
 	return "terminal incident websocket"
 }
 
-func (s *routeService) handleClientMessage(ctx context.Context, conn protocol.Socket, incidentID uuid.UUID, connectionID uuid.UUID, ownMessages <-chan protocol.Message, principal httpauth.Principal, clientInstanceID string, message protocol.Message) bool {
+func (s *routeService) handleClientMessage(ctx context.Context, conn protocol.Socket, incidentID uuid.UUID, connectionID uuid.UUID, ownMessages <-chan protocol.Message, principal httpauth.Principal, message protocol.Message) bool {
 	switch message.Type {
 	case "pong":
 		var payload map[string]any
@@ -364,7 +364,6 @@ func (s *routeService) handleClientMessage(ctx context.Context, conn protocol.So
 		s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now, ownMessages)
 		return true
 	case "resume", "hello":
-		_ = clientInstanceID
 		s.writeInvalidLaterMessage(ctx, conn, incidentID, "session establishment message already processed")
 		return false
 	default:

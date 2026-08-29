@@ -111,7 +111,7 @@ func TestEvidenceServiceConstructionRejectsIncompleteDependencies(t *testing.T) 
 		Revisions:      &revisions.Appender{},
 		Projections:    constructionProjectionRows{},
 		SupportEffects: constructionSupportEffects{},
-		Collaboration:  collaborationsupport.NewPublicationAppender(),
+		Collaboration:  collaborationsupport.NewRecordChangedAppender(),
 	}
 	tests := []struct {
 		name   string
@@ -175,7 +175,7 @@ func TestEvidenceOwnerRuntimeRejectsIncompleteDependencies(t *testing.T) {
 		Postgres:            constructionDB{},
 		ConflictTokens:      &codec,
 		Revisions:           &revisions.Appender{},
-		Collaboration:       collaborationsupport.NewPublicationAppender(),
+		Collaboration:       collaborationsupport.NewRecordChangedAppender(),
 		ObjectStore:         constructionObjectStore{},
 		ConflictFields:      constructionConflictFields{},
 		ConflictIdempotency: constructionConflictIdempotency{},

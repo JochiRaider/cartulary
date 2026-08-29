@@ -314,7 +314,7 @@ func artifactImportDependencies(database postgres.DB, appender *revisions.Append
 		ActiveUsers:     artifactImportActiveUserLookup{},
 		Projections:     appsupport.ArtifactProjectionRows(database),
 		Revisions:       appender,
-		Collaboration:   collaborationsupport.NewPublicationAppender(),
+		Collaboration:   collaborationsupport.NewRecordChangedAppender(),
 	}
 }
 
@@ -353,7 +353,7 @@ func mustArtifactMutationFacade(
 		revisionsupport.MustAppender(t),
 		mustConflictFieldResolver(t),
 		appsupport.ArtifactProjectionRows(pool),
-		collaborationsupport.NewPublicationAppender(),
+		collaborationsupport.NewRecordChangedAppender(),
 	)
 	if err != nil {
 		t.Fatalf("compose Artifacts mutation facade: %v", err)

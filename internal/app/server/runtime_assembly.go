@@ -678,13 +678,24 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Revisions provider contributions: %w", err)
 	}
-	collaborationPublicationCatalog, err := buildCollaborationPublicationCatalog(providerContributions)
+	projectionRuntime, err := projectionassembly.Build(postgresHandle)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose projections runtime: %w", err)
+	}
+	collaborationPublicationCatalog, err := buildCollaborationPublicationCatalog(
+		providerContributions,
+		projectionRuntime.DescriptorSet(),
+	)
 	if err != nil {
 		runtime.Close()
 		return nil, err
 	}
 	collaborationOptions := settingsProjection.Collaboration(postgresHandle, socketTransport, now)
 	collaborationOptions.PublicationCatalog = collaborationPublicationCatalog
+	collaborationOptions.OnUnexpectedDispatcherLoss = func() {
+		runtime.publication.componentLost("websocket")
+	}
 	collaborationRuntime, err := dependencies.newCollaborationRuntime(collaborationOptions)
 	if err != nil {
 		runtime.Close()
@@ -696,8 +707,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		defer cancel()
 		_ = collaborationRuntime.Close(closeCtx)
 	})
-	publicationAppender := collaborationRuntime.Publications()
-	intentAdapters := newCollaborationIntentTranslator(publicationAppender)
+	recordChanges := collaborationRuntime.RecordChanges()
+	jobProgressIntents := newCollaborationJobProgressTranslator(collaborationRuntime.JobProgress())
+	extensionResourceChangeIntents := newCollaborationExtensionResourceChangeTranslator(collaborationRuntime.ExtensionResourceChanges())
 	jobOwnerPorts := jobOwnerTransactionAdapters{}
 	extensionJobDefinitions, err := extensionassembly.JobDefinitions(publicationCatalog)
 	if err != nil {
@@ -724,7 +736,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Jobs runtime selection: %w", err)
 	}
-	jobTransactions, err := jobs.NewTransactionService(intentAdapters, jobs.OwnerTransactionPorts{
+	jobTransactions, err := jobs.NewTransactionService(jobProgressIntents, jobs.OwnerTransactionPorts{
 		RouteIdempotency:      jobOwnerPorts,
 		ExtensionCancellation: jobOwnerPorts,
 	}, jobCatalog, jobSelection)
@@ -877,11 +889,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Revisions conflict-token codec: %w", err)
 	}
-	projectionRuntime, err := projectionassembly.Build(postgresHandle)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("compose projections runtime: %w", err)
-	}
 	cleanupObserver, err := newEvidenceCleanupTelemetryObserver(normalizedCfg.Telemetry.Resource.ServiceVersion)
 	if err != nil {
 		runtime.Close()
@@ -891,7 +898,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		Postgres:            postgresHandle,
 		ConflictTokens:      &workbookConflictTokens,
 		Revisions:           revisionRuntime.Appender(),
-		Collaboration:       publicationAppender,
+		Collaboration:       recordChanges,
 		ObjectStore:         typedObjectStore,
 		ConflictFields:      revisionRuntime.ConflictFieldResolver(),
 		ConflictIdempotency: workbookassembly.NewConflictIdempotencyPort(postgresHandle),
@@ -915,7 +922,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		ConflictTokens:      workbookConflictTokens,
 		ConflictFields:      revisionRuntime.ConflictFieldResolver(),
 		Revisions:           revisionRuntime.Appender(),
-		Collaboration:       publicationAppender,
+		Collaboration:       recordChanges,
 		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projectionRuntime.TimelinePorts().Writer,
 		EntityProjection:    projectionRuntime.EntityPorts().Writer,
@@ -935,7 +942,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		RecordEnvelopes: indicatorRecords,
 		Projections:     projectionRuntime.IndicatorPorts().Rows,
 		SourceText:      indicatorassembly.NewSourceTextPort(projectionRuntime.SourceTextRows()),
-		Collaboration:   publicationAppender,
+		Collaboration:   recordChanges,
 		Clock:           now,
 	})
 	if err != nil {
@@ -948,7 +955,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		projectionRuntime.RevisionRebuilder(),
 		projectionRuntime.RevisionLiveRecords(),
 		now,
-		publicationAppender,
+		recordChanges,
 	)
 	if err != nil {
 		runtime.Close()
@@ -978,7 +985,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		IncidentLocks:   incidentTransactionParticipant,
 		AuditAppender:   authn.NewAdministrativeAuditAppender(),
 		Indicators:      indicatorOwner,
-		ResourceIntents: intentAdapters,
+		ResourceIntents: extensionResourceChangeIntents,
 		GraphViewJobs:   jobTransactions,
 		JobManager:      jobManager,
 		JobRunner:       runtime.jobRunner,
@@ -1093,7 +1100,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		importassembly.OwnerRegistryDependencies{
 			Postgres:                postgresHandle,
 			RevisionAppender:        revisionRuntime.Appender(),
-			Collaboration:           publicationAppender,
+			Collaboration:           recordChanges,
 			Timeline:                timelineFacade,
 			EntityProjections:       projectionRuntime.EntityPorts().Writer,
 			AssessmentProjections:   projectionRuntime.AssessmentPorts().Rows,
@@ -1203,7 +1210,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		revisionRuntime.Appender(),
 		revisionRuntime.ConflictFieldResolver(),
 		projectionRuntime.TaskDecisionMutationRows(),
-		publicationAppender,
+		recordChanges,
 	)
 	if err != nil {
 		runtime.Close()
@@ -1215,7 +1222,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		revisionRuntime.Appender(),
 		revisionRuntime.ConflictFieldResolver(),
 		projectionRuntime.ArtifactPorts().Rows,
-		publicationAppender,
+		recordChanges,
 	)
 	if err != nil {
 		runtime.Close()
@@ -1237,7 +1244,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			ConflictTokens:        workbookConflictTokens,
 			ConflictFields:        revisionRuntime.ConflictFieldResolver(),
 			Revisions:             revisionRuntime.Appender(),
-			CollaborationIntents:  publicationAppender,
+			CollaborationIntents:  recordChanges,
 		},
 	)
 	if err != nil {
@@ -1731,7 +1738,6 @@ func (r *Runtime) ActivatePublication() error {
 	}
 	if r.collaborationRuntime != nil {
 		if err := r.collaborationRuntime.Start(context.Background()); err != nil {
-			r.publication.componentLost("collaboration_dispatcher")
 			return fmt.Errorf("activate collaboration dispatcher: %w", err)
 		}
 	}

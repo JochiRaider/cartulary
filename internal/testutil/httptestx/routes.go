@@ -9,6 +9,7 @@ import (
 
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 )
 
 func RegisterBootstrapRoutes() httpapi.RouteRegistrar {
@@ -45,7 +46,7 @@ func RegisterBootstrapRoutes() httpapi.RouteRegistrar {
 			if first.Type != "handshake" {
 				_ = wsjson.Write(ctx, conn, platformws.Message{
 					Type:    "protocol_error",
-					Payload: platformws.RawPayload(map[string]any{"reason_code": "first_message_must_be_handshake"}),
+					Payload: collabtestprotocol.RawPayload(map[string]any{"reason_code": "first_message_must_be_handshake"}),
 				})
 				_ = conn.Close(websocket.StatusPolicyViolation, "invalid_first_message")
 				return
@@ -53,7 +54,7 @@ func RegisterBootstrapRoutes() httpapi.RouteRegistrar {
 
 			if err := wsjson.Write(ctx, conn, platformws.Message{
 				Type:    "handshake_ack",
-				Payload: platformws.RawPayload(map[string]any{"status": "connected", "boundary": "/ws/v1/bootstrap-harness"}),
+				Payload: collabtestprotocol.RawPayload(map[string]any{"status": "connected", "boundary": "/ws/v1/bootstrap-harness"}),
 			}); err != nil {
 				return
 			}
@@ -72,7 +73,7 @@ func RegisterBootstrapRoutes() httpapi.RouteRegistrar {
 				case "trigger_session_revoked":
 					_ = wsjson.Write(ctx, conn, platformws.Message{
 						Type:    "session_revoked",
-						Payload: platformws.RawPayload(map[string]any{"reason_code": "bootstrap_revoked"}),
+						Payload: collabtestprotocol.RawPayload(map[string]any{"reason_code": "bootstrap_revoked"}),
 					})
 					_ = conn.Close(websocket.StatusPolicyViolation, "session_revoked")
 					return
@@ -82,7 +83,7 @@ func RegisterBootstrapRoutes() httpapi.RouteRegistrar {
 				default:
 					if err := wsjson.Write(ctx, conn, platformws.Message{
 						Type:    "protocol_error",
-						Payload: platformws.RawPayload(map[string]any{"reason_code": "unknown_message"}),
+						Payload: collabtestprotocol.RawPayload(map[string]any{"reason_code": "unknown_message"}),
 					}); err != nil {
 						return
 					}

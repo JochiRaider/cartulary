@@ -1800,22 +1800,53 @@ These criteria provide direct runtime-family verification for substantive base-p
   explicit source-semantic `RevisionConflictFact` values and independently
   derived catalog-admitted public record-change effects through separate
   consumer-owned ports in one borrowed transaction. Historical reconstruction
-  supplies neither live facts nor public effects. The immutable application
-  catalog rejects incomplete, duplicate, unknown, typed-nil, cross-owner, and
-  invalid public field, view, or patch contributions before serving. Failure
-  injection proves source state, current envelope, revision/private facts,
-  projection effects, exactly one record-change intent, and idempotency result
-  are atomic; replay and post-commit dispatcher/response failure do not repeat
-  effects. Static and negative-runtime evidence rejects a Revisions-to-
+  supplies neither live facts nor public effects.
+
+  The immutable application catalog compares the complete per-view publication
+  declarations with active projection owner/view descriptors and independent
+  canonical view-schema record/public-field resources before Runtime
+  construction. It has no contribution-wide record-type default, defensively
+  copies inputs, retains only runtime public/patch key policy, and rejects
+  missing, extra, duplicate, unknown, typed-nil, cross-owner,
+  record/view-mismatched, invalid-field, or contradictory declarations. Exact
+  record-change, job-progress, and extension-resource append capabilities have
+  distinct narrow ports, constructors, unexported implementations, and Runtime
+  accessors; no aggregate surface or type-assertion widening remains.
+
+  Every production event intent has private state and is formed atomically by
+  one named family constructor, including record identity. One exhaustive
+  replayable-payload validator and one sequenced-message validator protect all
+  three families at append, sequencing, recovery proof, durable tailing,
+  authenticated reconnect replay, and hub delivery. Known additive members
+  remain accepted. Malformed durable rows fail closed before replay inclusion,
+  fan-out, or tail-cursor advancement and block later sequences without skip or
+  reorder until repaired.
+
+  Runtime, store, dispatcher, and hub construction is fallible, complete,
+  immutable, and uses the resolved service version before escape. Dispatcher
+  startup failure, unexpected loop return, or panic reports the adopted
+  `websocket` component exactly once per Runtime lifetime; graceful shutdown and
+  retryable listener, notification, dispatch, or polling failures remain
+  nonfatal. Message/payload builders, semantic record-change decoding, narrow
+  fakes, and persisted-corruption fixtures reside only in Collaboration test
+  support; fixture-only protocol exports and mutable configuration do not
+  remain.
+
+  Failure injection proves source state, current envelope, revision/private
+  facts, projection effects, exactly one record-change intent, and idempotency
+  result are atomic; replay and post-commit dispatcher/response failure do not
+  repeat effects. Static and negative-runtime evidence rejects a Revisions-to-
   Collaboration or Collaboration-to-Revisions import/representation path,
-  whole-row diff, projection-as-source inference, broad source-owner event
-  intent, combined revision/publication operation, retired constructor,
-  forwarding alias, direct ordinary cross-owner Collaboration SQL, stale test
-  support path, incomplete catalog, or lifecycle escape. Stream, replay,
-  recovery, Operator, source-owner, application, socket, browser, harness,
-  boundary, generated-state, security, and broad checks preserve every adopted
-  public route, WebSocket family, CLI, storage schema, portability,
-  authorization, and telemetry contract.
+  whole-row diff, projection-as-source inference, broad publication capability,
+  broad event intent, combined revision/publication operation, retired
+  constructor, forwarding alias, direct ordinary cross-owner Collaboration SQL,
+  stale test-support path, incomplete catalog, mutable telemetry or dependency
+  installation, invalid component identifier, or lifecycle escape. Stream,
+  replay, recovery, Operator, source-owner, application, socket, browser,
+  harness, boundary, generated-state, security, and broad checks preserve every
+  adopted public route, WebSocket family and bytes, CLI, storage schema,
+  portability, authorization, replay ordering, intent identity, additive-member
+  behavior, and telemetry vocabulary.
   - Verifies: REQ-00-075, REQ-01-267, REQ-01-271A, REQ-02-204,
     REQ-02-216..REQ-02-218, REQ-03-066, REQ-03-075
 

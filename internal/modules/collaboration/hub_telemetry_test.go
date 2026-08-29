@@ -46,8 +46,7 @@ func TestWebSocketTelemetrySafeVocabulary(t *testing.T) {
 }
 
 func TestWebSocketEventSendTelemetryNoSDK(t *testing.T) {
-	hub := newHub()
-	hub.ConfigureTelemetry("0.0.0+unknown")
+	hub := newHub("0.0.0+unknown")
 	incidentID := uuid.MustParse("10000000-0000-4000-8000-000000000001")
 	hub.BroadcastPresenceDelta(incidentID, "updated", collabprotocol.PresenceRecord{
 		ConnectionID: uuid.NewString(),
@@ -61,9 +60,7 @@ func TestWebSocketEventSendTelemetryNoSDK(t *testing.T) {
 }
 
 func TestActiveConnectionTelemetryGaugeNoSDK(t *testing.T) {
-	hub := newHub()
-	hub.ConfigureTelemetry("0.0.0+unknown")
-	hub.ConfigureTelemetry("0.0.0+unknown")
+	hub := newHub("0.0.0+unknown")
 	if got := hub.ActiveConnections(); got != 0 {
 		t.Fatalf("initial active connections = %d", got)
 	}

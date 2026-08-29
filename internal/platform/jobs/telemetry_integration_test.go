@@ -160,7 +160,15 @@ INSERT INTO jobs (
 	close(releaseComplete)
 
 	deadline := time.Now().Add(3 * time.Second)
-	for (len(capture.EndedSpans()) < 4 || !jobExpired(t, pool, ctx)) && time.Now().Before(deadline) {
+	for time.Now().Before(deadline) {
+		metrics, metricErr := capture.MetricPoints(ctx)
+		if metricErr != nil {
+			t.Fatal(metricErr)
+		}
+		if len(capture.EndedSpans()) >= 4 && jobExpired(t, pool, ctx) &&
+			hasPositiveJobKindMetric(metrics, "cartulary.jobs.expired", testJobKind) {
+			break
+		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	spans := capture.EndedSpans()
@@ -345,6 +353,15 @@ func assertJobTelemetryMetrics(t testing.TB, points []telemetrytest.MetricPoint,
 func containsMetricKind(points []map[string]string, kind string) bool {
 	for _, point := range points {
 		if point["cartulary.job_kind"] == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func hasPositiveJobKindMetric(points []telemetrytest.MetricPoint, name string, kind string) bool {
+	for _, point := range points {
+		if point.Name == name && point.Value > 0 && point.Attributes["cartulary.job_kind"] == kind {
 			return true
 		}
 	}

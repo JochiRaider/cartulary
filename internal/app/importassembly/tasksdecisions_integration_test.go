@@ -195,7 +195,7 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 	)
 	revisionComposition := revisionsupport.MustComposition(t)
 	appender := revisionComposition.Runtime.Appender()
-	intents := revisionComposition.Publications
+	intents := revisionComposition.RecordChanges
 	projections, err := projectionassembly.Build(storeHarness.DB)
 	if err != nil {
 		t.Fatalf("compose Projections: %v", err)

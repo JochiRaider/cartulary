@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -98,10 +99,10 @@ func RequireRecordChangedEvent(
 	client *Client,
 	wantRecordID uuid.UUID,
 	wantRowVersion int64,
-) platformws.RecordChangedEvent {
+) collabtestprotocol.RecordChangedEvent {
 	t.Helper()
 
-	var lastChange *platformws.RecordChangedEvent
+	var lastChange *collabtestprotocol.RecordChangedEvent
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		message, err := client.AwaitNextMessage(time.Until(deadline))
@@ -114,7 +115,7 @@ func RequireRecordChangedEvent(
 		if message.Type != "record_changed" {
 			continue
 		}
-		change, err := platformws.RecordChangeFromSequencedMessage(message)
+		change, err := collabtestprotocol.RecordChangeFromSequencedMessage(message)
 		if err != nil {
 			t.Fatalf("decode record_changed message: %v", err)
 		}
@@ -129,14 +130,14 @@ func RequireRecordChangedEvents(
 	t testing.TB,
 	client *Client,
 	want map[uuid.UUID]int64,
-) []platformws.RecordChangedEvent {
+) []collabtestprotocol.RecordChangedEvent {
 	t.Helper()
 
 	remaining := make(map[uuid.UUID]int64, len(want))
 	for recordID, rowVersion := range want {
 		remaining[recordID] = rowVersion
 	}
-	result := make([]platformws.RecordChangedEvent, 0, len(want))
+	result := make([]collabtestprotocol.RecordChangedEvent, 0, len(want))
 	deadline := time.Now().Add(5 * time.Second)
 	for len(remaining) > 0 {
 		message, err := client.AwaitNextMessage(time.Until(deadline))
@@ -146,7 +147,7 @@ func RequireRecordChangedEvents(
 		if message.Type != "record_changed" {
 			continue
 		}
-		change, err := platformws.RecordChangeFromSequencedMessage(message)
+		change, err := collabtestprotocol.RecordChangeFromSequencedMessage(message)
 		if err != nil {
 			t.Fatalf("decode record_changed message: %v", err)
 		}
@@ -176,7 +177,7 @@ func RequireRecordChanged(
 		t.Fatalf("parse expected record_changed record_id: %v", err)
 	}
 	change := RequireRecordChangedEvent(t, client, recordID, wantRowVersion)
-	payloadJSON, err := json.Marshal(platformws.RecordChangePayload(change))
+	payloadJSON, err := json.Marshal(collabtestprotocol.RecordChangePayload(change))
 	if err != nil {
 		t.Fatalf("encode semantic record_changed payload: %v", err)
 	}
@@ -260,7 +261,7 @@ func ExpectNoRecordChanged(t testing.TB, client *Client, recordID uuid.UUID) {
 		if message.Type != "record_changed" {
 			return false
 		}
-		change, err := platformws.RecordChangeFromSequencedMessage(message)
+		change, err := collabtestprotocol.RecordChangeFromSequencedMessage(message)
 		return err == nil && change.RecordID == recordID
 	})
 }

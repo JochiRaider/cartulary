@@ -63,13 +63,13 @@ func (s *routeService) readMessage(ctx context.Context, conn protocol.Socket) (p
 	if err != nil {
 		return protocol.Message{}, err
 	}
-	return s.codec.Decode(kind, payload)
+	return protocol.DecodeMessage(kind, payload)
 }
 
 func (s *routeService) writeMessage(ctx context.Context, conn protocol.Socket, message protocol.Message) error {
 	writeCtx, cancel := context.WithTimeout(ctx, writeTimeout)
 	defer cancel()
-	encoded, err := s.codec.Encode(message)
+	encoded, err := protocol.EncodeMessage(message)
 	if err != nil {
 		return err
 	}

@@ -102,21 +102,30 @@ func TestWorkerRuntimeContracts(definitions []jobs.Definition) []jobs.WorkerRunt
 	return result
 }
 
-// IntentAdapters supplies the same narrow source-to-Collaboration translation
-// used by application composition to service-backed tests.
-type IntentAdapters struct {
-	appender collaboration.PublicationAppender
+// JobProgressIntentAdapter supplies the same narrow Jobs-to-Collaboration
+// translation used by application composition to service-backed tests.
+type JobProgressIntentAdapter struct {
+	appender collaboration.JobProgressAppender
 }
 
-func NewIntentAdapters() IntentAdapters {
-	return IntentAdapters{appender: NewPublicationAppender()}
+func NewJobProgressIntentAdapter() JobProgressIntentAdapter {
+	return JobProgressIntentAdapter{appender: NewJobProgressAppender()}
 }
 
-// NewPublicationAppender builds the same complete, immutable disclosure
+func NewJobProgressAppender() collaboration.JobProgressAppender {
+	return collaboration.NewJobProgressAppender()
+}
+
+func NewExtensionResourceChangedAppender() collaboration.ExtensionResourceChangedAppender {
+	return collaboration.NewExtensionResourceChangedAppender()
+}
+
+// NewRecordChangedAppender builds the same complete, immutable disclosure
 // catalog used by application composition for service-backed tests.
-func NewPublicationAppender() collaboration.PublicationAppender {
+func NewRecordChangedAppender() collaboration.RecordChangedAppender {
 	resources := viewschema.ListPublicResources()
-	views := make([]collaboration.ViewPublicationContribution, 0, len(resources))
+	contributions := make([]collaboration.PublicationContribution, 0, len(resources))
+	canonicalViews := make([]collaboration.CanonicalPublicationView, 0, len(resources))
 	for _, resource := range resources {
 		fieldKeys := make([]string, 0, len(resource.Fields))
 		for _, field := range resource.Fields {
@@ -126,20 +135,25 @@ func NewPublicationAppender() collaboration.PublicationAppender {
 			continue
 		}
 		slices.Sort(fieldKeys)
-		views = append(views, collaboration.ViewPublicationContribution{
-			ViewSchemaID: resource.ViewSchemaID, PublicFieldKeys: fieldKeys, PatchFieldKeys: slices.Clone(fieldKeys),
+		ownerID := "test." + resource.ViewSchemaID
+		recordTypes := slices.Clone(resource.SourceRecordTypes)
+		slices.Sort(recordTypes)
+		contributions = append(contributions, collaboration.PublicationContribution{
+			ContributionID: ownerID, SourceOwnerID: ownerID,
+			AffectedViews: []collaboration.ViewPublicationContribution{{
+				ViewSchemaID: resource.ViewSchemaID, RecordTypes: recordTypes,
+				PublicFieldKeys: fieldKeys, PatchFieldKeys: slices.Clone(fieldKeys),
+			}},
+		})
+		canonicalViews = append(canonicalViews, collaboration.CanonicalPublicationView{
+			ViewSchemaID: resource.ViewSchemaID, SourceOwnerID: ownerID, RecordTypes: slices.Clone(recordTypes),
 		})
 	}
-	catalog, err := collaboration.NewPublicationCatalog([]collaboration.PublicationContribution{{
-		ContributionID: "test.collaboration.publication.v1",
-		SourceOwnerID:  "test.collaboration",
-		RecordTypes:    []string{"test_record"},
-		AffectedViews:  views,
-	}})
+	catalog, err := collaboration.NewPublicationCatalog(contributions, canonicalViews)
 	if err != nil {
 		panic(err)
 	}
-	appender, err := collaboration.NewPublicationAppender(catalog)
+	appender, err := collaboration.NewRecordChangedAppender(catalog)
 	if err != nil {
 		panic(err)
 	}
@@ -168,7 +182,7 @@ func NewJobTransactionsForCatalog(catalog *jobs.Catalog, workerContractSets ...[
 	if err != nil {
 		panic(err)
 	}
-	service, err := jobs.NewTransactionService(NewIntentAdapters(), jobs.OwnerTransactionPorts{
+	service, err := jobs.NewTransactionService(NewJobProgressIntentAdapter(), jobs.OwnerTransactionPorts{
 		RouteIdempotency:      ownerPorts,
 		ExtensionCancellation: ownerPorts,
 	}, catalog, selection)
@@ -235,7 +249,7 @@ func testAuthRouteKey(key jobs.RouteIdempotencyKey) authn.RouteIdempotencyKey {
 	}
 }
 
-func (a IntentAdapters) AppendProgressIntentTx(ctx context.Context, tx pgx.Tx, source jobs.ProgressIntent) error {
+func (a JobProgressIntentAdapter) AppendProgressIntentTx(ctx context.Context, tx pgx.Tx, source jobs.ProgressIntent) error {
 	return a.appender.AppendJobProgressTx(ctx, tx, collaboration.JobProgressIntentInput{
 		IntentKey: source.IntentKey, IncidentID: source.IncidentID,
 		CanonicalPayload: source.CanonicalPayload, SourceIdentity: source.SourceIdentity,

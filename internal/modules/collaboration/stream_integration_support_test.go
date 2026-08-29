@@ -20,6 +20,8 @@ import (
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/intenttest"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 )
 
 func createDurableStreamIncident(
@@ -48,14 +50,28 @@ func seedCurrentQuarantinedIncident(
 ) (uuid.UUID, string, []byte) {
 	t.Helper()
 	incidentID := uuid.MustParse(createDurableStreamIncident(t, harness, admin, suffix))
-	intent := requireJobIntent(t, incidentID, suffix, seededAt)
+	payload, err := json.Marshal(collabtestprotocol.NewIncidentJobProgressPayload(
+		suffix,
+		incidentID,
+		collabprotocol.JobStatusQueued,
+		collabprotocol.JobProgress{Completed: 0},
+		seededAt,
+	))
+	if err != nil {
+		t.Fatalf("encode quarantined Collaboration intent fixture: %v", err)
+	}
+	intent := intenttest.PersistedIntentFixture{
+		IntentKey: "job_progress:" + suffix, IncidentID: incidentID,
+		EventFamily: privatestream.EventFamilyJobProgress, CanonicalPayload: payload,
+		SourceIdentity: "job:" + suffix, CreatedAt: seededAt,
+	}
 	if invalidPayload {
 		intent.EventFamily = privatestream.EventFamilyRecordChanged
 		intent.CanonicalPayload = json.RawMessage(`{"not":"a record change"}`)
 		intent.IntentKey = "record_changed:" + suffix
 		intent.SourceIdentity = "record:" + suffix
 	}
-	insertPersistedIntentFixture(t, pool, intent)
+	intenttest.InsertPersistedIntentFixture(t, pool, intent)
 	if _, err := pool.Exec(context.Background(), `
 INSERT INTO collaboration_incident_stream_cursors (
     incident_id, high_water_stream_seq, failure_count, quarantined_at,
@@ -135,11 +151,10 @@ func (requeueCommitFailureTx) Commit(context.Context) error {
 
 func requireJobIntent(t testing.TB, incidentID uuid.UUID, identity string, createdAt time.Time) privatestream.EventIntent {
 	t.Helper()
-	intent, err := privatestream.NewEventIntent(
+	intent, err := privatestream.NewJobProgressIntent(
 		"job_progress:"+identity,
 		incidentID,
-		privatestream.EventFamilyJobProgress,
-		collabprotocol.NewIncidentJobProgressPayload(
+		collabtestprotocol.NewIncidentJobProgressPayload(
 			identity,
 			incidentID,
 			collabprotocol.JobStatusQueued,
@@ -147,25 +162,12 @@ func requireJobIntent(t testing.TB, incidentID uuid.UUID, identity string, creat
 			createdAt,
 		),
 		"job:"+identity,
-		0,
 		createdAt,
 	)
 	if err != nil {
 		t.Fatalf("create job intent: %v", err)
 	}
 	return intent
-}
-
-func insertPersistedIntentFixture(t testing.TB, pool *pgxpool.Pool, intent privatestream.EventIntent) {
-	t.Helper()
-	if _, err := pool.Exec(context.Background(), `
-INSERT INTO collaboration_event_intents (
-    intent_key, incident_id, event_family, canonical_payload, source_identity,
-    mutation_ordinal, next_attempt_at, created_at, updated_at
-) VALUES ($1, $2, $3, $4::jsonb, $5, 0, $6, $6, $6)
-`, intent.IntentKey, intent.IncidentID, intent.EventFamily, intent.CanonicalPayload, intent.SourceIdentity, intent.CreatedAt); err != nil {
-		t.Fatalf("insert persisted intent fixture: %v", err)
-	}
 }
 
 func appendCommittedIntent(t testing.TB, pool *pgxpool.Pool, writer privatestream.IntentWriter, intent privatestream.EventIntent) {
@@ -197,7 +199,24 @@ func newDispatcherForTest(
 	},
 	now func() time.Time,
 ) *privatestream.Dispatcher {
-	return privatestream.NewDispatcher(privatestream.NewPostgresStream(db, now), broadcaster, now)
+	store, err := privatestream.NewPostgresStream(db)
+	if err != nil {
+		panic(err)
+	}
+	dispatcher, err := privatestream.NewDispatcher(store, broadcaster, now, "0.0.0+unknown", func() {})
+	if err != nil {
+		panic(err)
+	}
+	return dispatcher
+}
+
+func newPostgresStreamForTest(t testing.TB, db postgres.DB) *privatestream.PostgresStream {
+	t.Helper()
+	store, err := privatestream.NewPostgresStream(db)
+	if err != nil {
+		t.Fatalf("create Collaboration Postgres stream: %v", err)
+	}
+	return store
 }
 
 func (b *recordingBroadcaster) DeliverReplayable(message collabprotocol.Message) error {

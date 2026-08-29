@@ -117,16 +117,60 @@ private field is public.
 ### Publication catalog
 
 Application assembly compiles one immutable publication catalog from
-source-owner contributions. Each contribution declares the owner's admitted
-record types, public field keys, affected `view_schema_id` values, and patchable
-public cell fields. Duplicate, unknown, incomplete, typed-nil, cross-owner, or
-contradictory contributions fail before serving.
+source-owner contributions. A contribution identifies one source owner and its
+affected views; each affected-view declaration carries the exact
+`view_schema_id`, admitted record types, public field keys, and patchable public
+cell fields for that view. There is no contribution-wide record-type default.
+Application assembly obtains canonical owner/view relationships from the
+active projection descriptors and independently obtains canonical record types
+and public fields from the view-schema resources. It joins those sources before
+constructing Collaboration and fails when they disagree.
+
+Catalog construction compares the complete contribution set with those
+canonical views. Missing, extra, duplicate, unknown, typed-nil, cross-owner,
+record/view-mismatched, or contradictory declarations fail before serving.
+Construction defensively copies every admitted input. The resulting runtime
+catalog retains only the public-field and patch-field policy needed for append
+admission; it does not retain a second owner, record-type, or view registry.
 
 The catalog is validation authority for internal publication inputs only. It
 is not a view-schema registry replacement, a runtime callback registry, a
 public discovery contract, or a mechanism for Revisions conflict facts.
 Source owners keep source semantics and exact derivation. Collaboration keeps
 public disclosure validation and wire construction.
+
+### Family-specific publication capabilities
+
+Collaboration exposes three distinct append capabilities: record change, job
+progress, and extension-resource change. Each capability has its own narrow
+consumer port, constructor, unexported implementation, and Runtime accessor.
+There is no aggregate publication appender, aggregate constructor, or aggregate
+Runtime accessor. A value implementing one narrow capability MUST NOT be
+widenable through a type assertion to either other capability.
+
+App Server supplies each source owner, Jobs, Network Flow, and test composition
+only the capability that consumer uses. Adding a future replayable family adds
+a capability for its actual consumers; it does not widen existing ports.
+
+### Closed intents and replay validation
+
+A production event intent has no exported mutable fields and cannot be created
+with a caller-selected family string. Collaboration provides one named
+constructor for each admitted replayable family. Each constructor supplies the
+complete family identity atomically; record-change identity includes change-set
+ID, record ID, and row version at construction. Intent keys, persisted family
+values, source identity, mutation ordinals, and canonical payload bytes remain
+unchanged.
+
+One exhaustive protocol validator owns replayable payload admission, and one
+validator owns the complete sequenced replayable message. The validation path
+covers record change, job progress, and extension-resource change at append,
+sequencing, recovery proof, durable tail reads, authenticated reconnect replay
+reads, and hub delivery. Unknown families fail closed. Known families continue
+to accept allowed additive members. A malformed durable row is not returned in
+replay, fanned out, skipped, or allowed to advance the durable tail cursor;
+later sequences remain blocked until the invalid state is repaired through the
+adopted recovery or Operator boundary.
 
 ### Transaction ownership and sequence
 
@@ -165,6 +209,22 @@ Production import direction is acyclic:
 - Operator consumes only the narrow recovery capability and generated result
   contract.
 
+Runtime construction is a closed, fallible operation. App Server supplies the
+borrowed database, transport admission, publication catalog, resolved service
+version, behavior clock where time is read, and required unexpected-dispatcher-
+loss callback before construction. Collaboration constructs hub and dispatcher
+telemetry with that resolved version and exposes no post-construction dependency
+or telemetry configurator. A Runtime cannot escape with a missing or partially
+installed mandatory dependency.
+
+App Server owns translation of unexpected dispatcher loss into the adopted
+mandatory publication component `websocket`. Dispatcher startup failure,
+unexpected loop return, or loop panic reports that loss once per Runtime
+lifetime and terminalizes the dispatcher. Graceful cancellation and retryable
+run, listener, notification, or polling-fallback failures remain nonfatal and
+do not trigger an in-process restart. No Collaboration-specific component
+identifier is introduced.
+
 Forwarding aliases, deprecated constructors, compatibility packages, dynamic
 global registries, source-owner switches, generic row-diff helpers, generic
 event-intent inputs outside Collaboration, and direct cross-owner Collaboration
@@ -172,10 +232,13 @@ SQL are forbidden in the final topology. Direct Collaboration-table SQL is
 limited to owner storage/recovery tests and PostgreSQL role or physical-schema
 evidence where physical realization is the test subject.
 
-Reusable socket and semantic intent test support belongs under
-`internal/testutil/collaborationsupport`. Reusable application test composition
-belongs under `internal/testutil/appsupport`. A module-local wrapper around the
-generic application scenario runtime is not retained.
+Reusable socket and semantic intent test support, message and payload builders,
+semantic record-change decoding, narrow fakes, and persisted-corruption SQL
+fixtures belong under `internal/testutil/collaborationsupport`. Production
+protocol APIs expose behavior used in production, not fixture-only constructors
+or semantic carrier types. Reusable application test composition belongs under
+`internal/testutil/appsupport`. A module-local wrapper around the generic
+application scenario runtime is not retained.
 
 ## Transition and compatibility
 
@@ -215,13 +278,32 @@ The decision is implemented only when:
   borrowed transaction;
 - historical revision reconstruction has no live conflict or publication
   effect;
-- the immutable publication catalog is complete, unique, owner-derived,
-  fail-closed, and used only to validate public publication inputs;
+- the immutable publication catalog exactly matches active projection
+  owner/view descriptors and independent view-schema record/public-field
+  resources, has exact per-view record facts, defensively copies inputs,
+  rejects every missing, extra, duplicate, unknown, cross-owner, mismatched, or
+  contradictory case, and retains only append-admission key policy;
+- record-change, job-progress, and extension-resource publication use distinct
+  least-capability ports and implementations, with no aggregate appender or
+  widenable narrow value;
+- event intents have private state, one named constructor per admitted family,
+  and atomic record identity, with no caller-selected family string;
+- the exhaustive payload and sequenced-message validators protect append,
+  sequencing, recovery, durable tailing, authenticated replay, and hub
+  delivery for all families without rejecting allowed additive members;
+- malformed durable messages fail closed without replay inclusion, fan-out,
+  cursor advancement, skipping, or reordering;
+- Runtime construction is complete, immutable, fallible, and consistently
+  versioned before escape; unexpected dispatcher startup or loop loss reports
+  the adopted `websocket` component once, while graceful and retryable failures
+  remain nonfatal;
 - Revisions and Collaboration have no production import or representation
   dependency in either direction;
-- no whole-row diff, projection-as-source inference, broad event intent,
-  combined revision/publication operation, retired constructor, forwarding
-  alias, old test-support path, or unauthorized cross-owner SQL remains;
+- no whole-row diff, projection-as-source inference, broad publication
+  capability, broad event intent, combined revision/publication operation,
+  retired constructor, mutable telemetry installation, invalid component ID,
+  fixture-only protocol surface, forwarding alias, old test-support path, or
+  unauthorized cross-owner SQL remains;
 - recovery remains deployment-local and preserves its CLI, result, state,
   audit, concurrency, cancellation, timeout, and commit-unknown contracts;
 - source-owner, application, socket, browser, stream, recovery, boundary,

@@ -330,7 +330,7 @@ func TestRuntime_ExtensionPublication_FailureNoExposure(t *testing.T) {
 }
 
 func TestRuntime_ExtensionPublication_PublishedComponentLoss(t *testing.T) {
-	for _, component := range []string{"http", "job_dequeue"} {
+	for _, component := range []string{"http", "job_dequeue", "websocket"} {
 		t.Run(component, func(t *testing.T) {
 			controller, _, lifecycle := preparedPublicationController(t)
 			if err := controller.commit(); err != nil {

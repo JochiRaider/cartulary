@@ -13,6 +13,7 @@ import (
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -59,7 +60,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 		t.Fatalf("sparse patch must include only changed cells, got %#v", patchCells)
 	}
 	directPatch := platformws.BuildViewRowPatch(rows[0], []string{"note.title", "note.body"})
-	directPayload := platformws.RecordChangePayload(platformws.RecordChangedEvent{
+	directPayload := collabtestprotocol.RecordChangePayload(collabtestprotocol.RecordChangedEvent{
 		IncidentID:       incidentID,
 		RecordID:         recordID,
 		RowVersion:       2,
@@ -67,7 +68,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 		ClientTxnID:      "txn-saved_view_query-u-8-10-patch",
 		ActorUserID:      actorID,
 		ChangedFieldKeys: []string{"note.title", "note.body", "note.title"},
-		AffectedViews: []platformws.RecordChangedView{{
+		AffectedViews: []collabtestprotocol.RecordChangedView{{
 			ViewSchemaID: "cartulary.view.notes.v1", ChangeKind: "patch", PatchCells: directPatch,
 		}},
 	})
@@ -131,7 +132,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 	})
 	patchedRow := patched["row"].(map[string]any)
 	change := incidentwstest.RequireRecordChangedEvent(t, socket, patchEvidenceRecordID, int64(patchedRow["row_version"].(float64)))
-	payload := platformws.RecordChangePayload(change)
+	payload := collabtestprotocol.RecordChangePayload(change)
 	changedKeys := payload["changed_field_keys"].([]string)
 	if !slices.IsSorted(changedKeys) || len(changedKeys) != len(slices.Compact(append([]string(nil), changedKeys...))) || !slices.Contains(changedKeys, "evidence.received_at") {
 		t.Fatalf("route-backed changed_field_keys must be canonical public keys, got %#v", changedKeys)
@@ -270,7 +271,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 		t.Fatalf("grouped sparse patch included unchanged sibling cell: %#v", groupPatchCells)
 	}
 
-	invalidatePayload := platformws.RecordChangePayload(platformws.RecordChangedEvent{
+	invalidatePayload := collabtestprotocol.RecordChangePayload(collabtestprotocol.RecordChangedEvent{
 		IncidentID:       incidentID,
 		RecordID:         uuid.New(),
 		RowVersion:       3,
@@ -278,7 +279,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 		ClientTxnID:      "txn-saved_view_query-ac368-invalidate",
 		ActorUserID:      actorID,
 		ChangedFieldKeys: []string{"note.title"},
-		AffectedViews:    []platformws.RecordChangedView{{ViewSchemaID: "cartulary.view.notes.v1", ChangeKind: "invalidate"}},
+		AffectedViews:    []collabtestprotocol.RecordChangedView{{ViewSchemaID: "cartulary.view.notes.v1", ChangeKind: "invalidate"}},
 	})
 	affectedViews := invalidatePayload["affected_views"].([]map[string]any)
 	if len(affectedViews) != 1 || affectedViews[0]["change_kind"] != "invalidate" {
@@ -305,7 +306,7 @@ func int64Value(value any) int64 {
 func requireSparsePatchForChange(t testing.TB, socket *incidentwstest.Client, recordID uuid.UUID, row map[string]any, viewSchemaID string) map[string]any {
 	t.Helper()
 	change := incidentwstest.RequireRecordChangedEvent(t, socket, recordID, int64Value(row["row_version"]))
-	payload := platformws.RecordChangePayload(change)
+	payload := collabtestprotocol.RecordChangePayload(change)
 	changedKeys := payload["changed_field_keys"].([]string)
 	if !slices.IsSorted(changedKeys) || len(changedKeys) != len(slices.Compact(append([]string(nil), changedKeys...))) {
 		t.Fatalf("changed_field_keys must be canonical, got %#v", changedKeys)

@@ -53,7 +53,7 @@ func TestArtifactLinkedNoteAtomicity(t *testing.T) {
 		revisionsupport.MustAppender(t),
 		conflictFields,
 		appsupport.ArtifactProjectionRows(harness.DB),
-		collaborationsupport.NewPublicationAppender(),
+		collaborationsupport.NewRecordChangedAppender(),
 	)
 	if err != nil {
 		t.Fatalf("compose Artifacts mutation facade: %v", err)

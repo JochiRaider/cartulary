@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
@@ -78,7 +79,7 @@ func ConnectAndHello(t testing.TB, serverURL string, incidentID string, options 
 
 	if err := rawClient.Send(ctx, platformws.Message{
 		Type: "hello",
-		Payload: platformws.RawPayload(map[string]any{
+		Payload: collabtestprotocol.RawPayload(map[string]any{
 			"client_instance_id": options.ClientInstanceID,
 			"presence":           options.Presence,
 		}),
@@ -122,7 +123,7 @@ func ConnectAndResume(t testing.TB, serverURL string, incidentID string, options
 
 	if err := rawClient.Send(ctx, platformws.Message{
 		Type: "resume",
-		Payload: platformws.RawPayload(map[string]any{
+		Payload: collabtestprotocol.RawPayload(map[string]any{
 			"client_instance_id":   options.ClientInstanceID,
 			"resume_token":         resumeToken,
 			"last_seen_stream_seq": lastSeenStreamSeq,

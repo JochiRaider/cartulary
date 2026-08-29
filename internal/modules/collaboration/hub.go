@@ -1,7 +1,6 @@
 package collaboration
 
 import (
-	"encoding/json"
 	"errors"
 	"sort"
 	"sync"
@@ -14,15 +13,14 @@ import (
 )
 
 type hub struct {
-	mu                    sync.Mutex
-	sessions              map[uuid.UUID]map[chan string]struct{}
-	incidentUsers         map[incidentUserKey]map[chan string]struct{}
-	incidentTerminals     map[uuid.UUID]map[chan string]struct{}
-	incidentStreams       map[uuid.UUID]map[chan protocol.Message]struct{}
-	presences             map[uuid.UUID]map[string]protocol.PresenceRecord
-	serviceVersion        string
-	activeConnections     atomic.Int64
-	activeGaugeRegistered bool
+	mu                sync.Mutex
+	sessions          map[uuid.UUID]map[chan string]struct{}
+	incidentUsers     map[incidentUserKey]map[chan string]struct{}
+	incidentTerminals map[uuid.UUID]map[chan string]struct{}
+	incidentStreams   map[uuid.UUID]map[chan protocol.Message]struct{}
+	presences         map[uuid.UUID]map[string]protocol.PresenceRecord
+	serviceVersion    string
+	activeConnections atomic.Int64
 }
 
 type incidentUserKey struct {
@@ -30,14 +28,17 @@ type incidentUserKey struct {
 	UserID     uuid.UUID
 }
 
-func newHub() *hub {
-	return &hub{
+func newHub(serviceVersion string) *hub {
+	liveHub := &hub{
 		sessions:          make(map[uuid.UUID]map[chan string]struct{}),
 		incidentUsers:     make(map[incidentUserKey]map[chan string]struct{}),
 		incidentTerminals: make(map[uuid.UUID]map[chan string]struct{}),
 		incidentStreams:   make(map[uuid.UUID]map[chan protocol.Message]struct{}),
 		presences:         make(map[uuid.UUID]map[string]protocol.PresenceRecord),
+		serviceVersion:    serviceVersion,
 	}
+	liveHub.registerTelemetry()
+	return liveHub
 }
 
 // DeliverReplayable delivers an already sequenced durable event. Collaboration
@@ -47,23 +48,19 @@ func (h *hub) DeliverReplayable(message protocol.Message) error {
 	if h == nil {
 		return errors.New("websocket hub is unavailable")
 	}
-	incidentID, err := uuid.Parse(message.IncidentID)
-	if err != nil || incidentID == uuid.Nil || message.EventID == "" || message.StreamSeq == nil || *message.StreamSeq < 1 {
-		return errors.New("invalid sequenced websocket message")
-	}
-	if !protocol.IsReplayableMessageType(message.Type) || !json.Valid(message.Payload) {
+	if !protocol.IsReplayableMessageType(message.Type) {
 		return errors.New("invalid replayable websocket message")
 	}
 	finishTelemetry := h.startEventSend(message.Type)
-
-	h.mu.Lock()
-	if message.Type == "record_changed" {
-		if _, err := protocol.RecordChangeFromSequencedMessage(message); err != nil {
-			h.mu.Unlock()
-			finishTelemetry("rejected", "")
-			return err
-		}
+	if err := protocol.ValidateSequencedReplayableMessage(message); err != nil {
+		finishTelemetry("rejected", "")
+		return err
 	}
+	incidentID, err := uuid.Parse(message.IncidentID)
+	if err != nil {
+		return errors.New("invalid sequenced websocket message")
+	}
+	h.mu.Lock()
 	droppedSlowConsumer := false
 	for subscriber := range h.incidentStreams[incidentID] {
 		select {

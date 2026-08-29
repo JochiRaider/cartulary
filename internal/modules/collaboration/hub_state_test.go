@@ -9,11 +9,12 @@ import (
 	"github.com/google/uuid"
 
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 )
 
 func TestPresenceReplayRevocationTransport(t *testing.T) {
 	t.Run("presence snapshots are incident scoped sorted and expire", func(t *testing.T) {
-		hub := newHub()
+		hub := newHub("0.0.0+unknown")
 		incidentID := uuid.New()
 		otherIncidentID := uuid.New()
 		userID := uuid.New()
@@ -56,7 +57,7 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 	})
 
 	t.Run("revocation subscribers preserve public reason codes and incident user isolation", func(t *testing.T) {
-		hub := newHub()
+		hub := newHub("0.0.0+unknown")
 		sessionID := uuid.New()
 		incidentID := uuid.New()
 		userID := uuid.New()
@@ -84,7 +85,7 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 	t.Run("subscription teardown is idempotent and safe during publish", func(t *testing.T) {
 		const iterations = 256
 		for iteration := 0; iteration < iterations; iteration++ {
-			hub := newHub()
+			hub := newHub("0.0.0+unknown")
 			incidentID := uuid.New()
 			messages, unsubscribeIncident := hub.SubscribeIncident(incidentID, 1)
 			start := make(chan struct{})
@@ -150,7 +151,7 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			"timeline.activity_synopsis_text",
 			"timeline.capture_state",
 		})
-		payload := collabprotocol.RecordChangePayload(collabprotocol.RecordChangedEvent{
+		payload := collabtestprotocol.RecordChangePayload(collabtestprotocol.RecordChangedEvent{
 			IncidentID:       incidentID,
 			RecordID:         recordID,
 			RowVersion:       7,
@@ -158,7 +159,7 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			ClientTxnID:      "txn-collaboration-patch",
 			ActorUserID:      actorUserID,
 			ChangedFieldKeys: []string{"timeline.activity_synopsis_text", "timeline.capture_state"},
-			AffectedViews: []collabprotocol.RecordChangedView{{
+			AffectedViews: []collabtestprotocol.RecordChangedView{{
 				ViewSchemaID: "cartulary.view.timeline.v2",
 				ChangeKind:   "patch", PatchCells: patch,
 			}},
@@ -185,7 +186,7 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			t.Fatalf("patch group_values = %#v", groupValues)
 		}
 
-		fallback := collabprotocol.RecordChangePayload(collabprotocol.RecordChangedEvent{
+		fallback := collabtestprotocol.RecordChangePayload(collabtestprotocol.RecordChangedEvent{
 			IncidentID:       incidentID,
 			RecordID:         recordID,
 			RowVersion:       8,
@@ -193,7 +194,7 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			ClientTxnID:      "txn-collaboration-invalidate",
 			ActorUserID:      actorUserID,
 			ChangedFieldKeys: []string{"timeline.activity_synopsis_text"},
-			AffectedViews: []collabprotocol.RecordChangedView{{
+			AffectedViews: []collabtestprotocol.RecordChangedView{{
 				ViewSchemaID: "cartulary.view.timeline.v2",
 				ChangeKind:   "invalidate",
 			}},
@@ -213,7 +214,7 @@ func sequencedJobMessage(incidentID uuid.UUID, streamSeq int64) collabprotocol.M
 		EventID:    uuid.NewString(),
 		EmittedAt:  now.Format(time.RFC3339Nano),
 		StreamSeq:  &streamSeq,
-		Payload: collabprotocol.RawPayload(collabprotocol.NewIncidentJobProgressPayload(
+		Payload: collabtestprotocol.RawPayload(collabtestprotocol.NewIncidentJobProgressPayload(
 			"job-subscription-teardown",
 			incidentID,
 			collabprotocol.JobStatusRunning,
@@ -231,14 +232,15 @@ func sequencedRecordMessage(incidentID uuid.UUID, streamSeq int64) collabprotoco
 		EventID:    uuid.NewString(),
 		EmittedAt:  now.Format(time.RFC3339Nano),
 		StreamSeq:  &streamSeq,
-		Payload: collabprotocol.RawPayload(collabprotocol.RecordChangePayload(collabprotocol.RecordChangedEvent{
+		Payload: collabtestprotocol.RawPayload(collabtestprotocol.RecordChangePayload(collabtestprotocol.RecordChangedEvent{
 			IncidentID:       incidentID,
 			RecordID:         uuid.New(),
 			RowVersion:       1,
 			ChangeSetID:      uuid.New(),
+			ClientTxnID:      "txn-subscription-teardown",
 			ActorUserID:      uuid.New(),
 			ChangedFieldKeys: []string{},
-			AffectedViews: []collabprotocol.RecordChangedView{{
+			AffectedViews: []collabtestprotocol.RecordChangedView{{
 				ViewSchemaID: "cartulary.view.timeline.v2", ChangeKind: "invalidate",
 			}},
 		})),

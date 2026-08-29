@@ -74,8 +74,8 @@ func (capability *JobsCapability) Create(ctx context.Context, params jobs.Enqueu
 }
 
 type CollaborationCapability struct {
-	runtime      *collaboration.Runtime
-	publications collaboration.PublicationAppender
+	runtime       *collaboration.Runtime
+	recordChanges collaboration.RecordChangedAppender
 }
 
 func (capability *CollaborationCapability) RevokeSession(sessionID uuid.UUID, reasonCode string) {
@@ -92,11 +92,11 @@ func (capability *CollaborationCapability) CloseDispatcher(ctx context.Context) 
 	return capability.runtime.Close(ctx)
 }
 
-func (capability *CollaborationCapability) Publications() collaboration.PublicationAppender {
+func (capability *CollaborationCapability) RecordChanges() collaboration.RecordChangedAppender {
 	if capability == nil {
 		return nil
 	}
-	return capability.publications
+	return capability.recordChanges
 }
 
 type RevisionsCapability struct {
@@ -225,8 +225,8 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		},
 		ObserveCollaboration: func(runtime *collaboration.Runtime) {
 			collaborationCapability = &CollaborationCapability{
-				runtime:      runtime,
-				publications: runtime.Publications(),
+				runtime:       runtime,
+				recordChanges: runtime.RecordChanges(),
 			}
 		},
 		ObserveProjections: func(runtime *projectionassembly.Runtime) {

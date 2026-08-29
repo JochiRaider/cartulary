@@ -1,6 +1,7 @@
 package collaboration_test
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -9,27 +10,34 @@ import (
 	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
 )
 
+func TestEventIntentExportsNoMutableFields_Unit(t *testing.T) {
+	typeOfIntent := reflect.TypeOf(privatestream.EventIntent{})
+	for index := 0; index < typeOfIntent.NumField(); index++ {
+		field := typeOfIntent.Field(index)
+		if field.IsExported() {
+			t.Fatalf("EventIntent field %q remains exported", field.Name)
+		}
+	}
+}
+
 func TestEventIntentValidatesEveryEventFamily_Unit(t *testing.T) {
 	incidentID := uuid.New()
 	now := time.Date(2026, 7, 28, 5, 0, 0, 0, time.UTC)
 
 	t.Run("job progress", func(t *testing.T) {
-		_, err := privatestream.NewEventIntent(
+		_, err := privatestream.NewJobProgressIntent(
 			"job_progress:invalid",
 			incidentID,
-			privatestream.EventFamilyJobProgress,
 			map[string]any{"job_id": "job-invalid"},
 			"job:job-invalid",
-			0,
 			now,
 		)
 		if err == nil {
 			t.Fatal("invalid job progress payload was admitted")
 		}
-		_, err = privatestream.NewEventIntent(
+		_, err = privatestream.NewJobProgressIntent(
 			"job_progress:valid",
 			incidentID,
-			privatestream.EventFamilyJobProgress,
 			map[string]any{
 				"job_id": "job-valid",
 				"scope": map[string]any{
@@ -42,7 +50,6 @@ func TestEventIntentValidatesEveryEventFamily_Unit(t *testing.T) {
 				"future":     map[string]any{"accepted": true},
 			},
 			"job:job-valid",
-			0,
 			now,
 		)
 		if err != nil {
@@ -51,10 +58,9 @@ func TestEventIntentValidatesEveryEventFamily_Unit(t *testing.T) {
 	})
 
 	t.Run("extension resource change", func(t *testing.T) {
-		_, err := privatestream.NewEventIntent(
+		_, err := privatestream.NewExtensionResourceChangedIntent(
 			"extension_resource_changed:invalid",
 			incidentID,
-			privatestream.EventFamilyExtensionResourceChange,
 			map[string]any{
 				"extension_profile_id": "network_flow_activity",
 				"resource_kind":        "network_flow_table",
@@ -63,16 +69,14 @@ func TestEventIntentValidatesEveryEventFamily_Unit(t *testing.T) {
 				"reason_code":          "renamed",
 			},
 			"network_flow_table:nft_invalid",
-			0,
 			now,
 		)
 		if err == nil {
 			t.Fatal("invalid extension resource payload was admitted")
 		}
-		_, err = privatestream.NewEventIntent(
+		_, err = privatestream.NewExtensionResourceChangedIntent(
 			"extension_resource_changed:valid",
 			incidentID,
-			privatestream.EventFamilyExtensionResourceChange,
 			map[string]any{
 				"extension_profile_id": "network_flow_activity",
 				"resource_kind":        "network_flow_table",
@@ -87,7 +91,6 @@ func TestEventIntentValidatesEveryEventFamily_Unit(t *testing.T) {
 				"future": true,
 			},
 			"network_flow_table:nft_valid",
-			0,
 			now,
 		)
 		if err != nil {
@@ -96,11 +99,13 @@ func TestEventIntentValidatesEveryEventFamily_Unit(t *testing.T) {
 	})
 
 	t.Run("record change", func(t *testing.T) {
-		_, err := privatestream.NewEventIntent(
+		_, err := privatestream.NewRecordChangedIntent(
 			"record_changed:invalid",
 			incidentID,
-			privatestream.EventFamilyRecordChanged,
 			map[string]any{"not": "a record change"},
+			uuid.New(),
+			uuid.New(),
+			1,
 			"record:invalid",
 			0,
 			now,

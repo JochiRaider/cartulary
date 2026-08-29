@@ -2048,9 +2048,11 @@
       ]
     },
     {
-      "id": "collaboration-publication-appender-construction-owned-by-composition",
+      "id": "collaboration-family-appender-construction-owned-by-composition",
       "symbols": [
-        "collaboration.NewPublicationAppender("
+        "collaboration.NewExtensionResourceChangedAppender(",
+        "collaboration.NewJobProgressAppender(",
+        "collaboration.NewRecordChangedAppender("
       ],
       "allowed_paths": [
         "internal/testutil/collaborationsupport/intents.go"
@@ -3334,10 +3336,73 @@
         "IsClientMessageType",
         "AppendIntentTx",
         "NewPostgresStream(nil, nil)",
-        "requireHubRecordChange"
+        "requireHubRecordChange",
+        "collaboration.NewEventIntent(",
+        "collaboration.NewPublicationAppender(",
+        "collaboration.PublicationAppender",
+        ".Publications()",
+        "privatestream.NewEventIntent(",
+        "func newEventIntent(",
+        "func buildEventIntent(",
+        "type IntentAdapters struct",
+        "func NewIntentAdapters(",
+        "type collaborationIntentTranslator struct",
+        "func newCollaborationIntentTranslator("
       ],
       "scan_paths": [
         "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "collaboration-no-retired-mutable-runtime-lifecycle-state",
+      "tokens": [
+        "ConfigureTelemetry(",
+        "collaboration_dispatcher"
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "collaboration-protocol-no-fixture-only-exports-or-codec-carrier",
+      "tokens": [
+        "type Codec struct",
+        "func RawPayload(",
+        "func NewIncidentJobProgressPayload(",
+        "func CanonicalExtensionResourceChangePayload(",
+        "type RecordChangedEvent struct",
+        "type RecordChangedView struct",
+        "func RecordChangeFromSequencedMessage(",
+        "func RecordChangePayload("
+      ],
+      "scan_paths": [
+        "internal/modules/collaboration/protocol/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "collaboration-postgres-stream-has-no-clock",
+      "tokens": [
+        "now func() time.Time"
+      ],
+      "scan_paths": [
+        "internal/modules/collaboration/internal/stream/store.go"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "collaboration-session-handler-has-no-unused-client-instance",
+      "tokens": [
+        "clientInstanceID string"
+      ],
+      "scan_paths": [
+        "internal/modules/collaboration/socket_session.go"
       ],
       "allowed_paths": [],
       "production_only": false
@@ -3369,7 +3434,8 @@
         "internal/modules/collaboration/socket_test.go",
         "internal/modules/collaboration/stream.go",
         "internal/modules/collaboration/stream_integration_test.go",
-        "internal/modules/collaboration/internal/stream/stream.go"
+        "internal/modules/collaboration/internal/stream/stream.go",
+        "internal/modules/collaboration/internal/stream/record_payload.go"
       ],
       "allowed_paths": [],
       "production_only": false
