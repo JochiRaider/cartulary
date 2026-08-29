@@ -26,6 +26,17 @@
       "reason": "The predecessor combined Evidence admission, Tasks and Decisions admission, and Party target-integrity assertions while falsely claiming Party portability; the replacements assign each selector to its normative semantic owner and direct Party portability rows now carry the portability verification."
     },
     {
+      "retired_row_id": "module.timeline.browser_support.verify_full_keyboard_clipboard_contract_one_clic_ec36b90e7b",
+      "replacement_row_ids": [
+        "module.timeline.browser_support.timeline_clipboard_paste_maps_an_exact_rectangle_6dadd393a8",
+        "module.timeline.browser_support.timeline_grid_keyboard_navigation_edit_cancellat_6a838bf56c",
+        "module.timeline.browser_support.timeline_grouping_renders_reviewed_and_unreviewe_9b575f8189",
+        "module.timeline.browser_support.timeline_keyboard_fill_down_preserves_the_select_66fb142159",
+        "module.timeline.browser_support.timeline_virtualization_reaches_off_screen_rows_51067b8ca7"
+      ],
+      "reason": "The retired browser row coupled keyboard editing, clipboard paste, fill-down, grouping, and virtualization behind one large fixture. The replacements preserve each assertion under an independent semantic selector and minimal fixture, and the fill shortcut now dispatches through the proven current focus."
+    },
+    {
       "retired_row_id": "module.timeline.measurement.the_isolated_measurement_suite_proves_one_real_s_6a3649dbd5",
       "replacement_row_ids": [
         "module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",

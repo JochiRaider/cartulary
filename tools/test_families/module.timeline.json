@@ -318,7 +318,7 @@
       ]
     },
     {
-      "row_id": "module.timeline.browser_support.verify_full_keyboard_clipboard_contract_one_clic_ec36b90e7b",
+      "row_id": "module.timeline.browser_support.timeline_clipboard_paste_maps_an_exact_rectangle_6dadd393a8",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser_support",
       "collaborator_ids": [
@@ -334,10 +334,150 @@
         "project_id": "chromium",
         "stage": "support",
         "scenario_ids": [
-          "scenario_620d7dcfdda8"
+          "scenario_timeline_clipboard_paste_persistence"
         ],
         "titles": [
-          "Verify full keyboard/clipboard contract: one-click edit, copy, paste, exact-range fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder."
+          "Timeline clipboard paste maps an exact rectangle and persists the target row"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.browser_support.timeline_grid_keyboard_navigation_edit_cancellat_6a838bf56c",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/keyboard.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_timeline_keyboard_navigation_edit_escape"
+        ],
+        "titles": [
+          "Timeline grid keyboard navigation, edit cancellation, and Esc restore semantic focus"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.browser_support.timeline_grouping_renders_reviewed_and_unreviewe_9b575f8189",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/keyboard.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_timeline_group_rows_presentation"
+        ],
+        "titles": [
+          "Timeline grouping renders reviewed and unreviewed presentation-only rows"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.browser_support.timeline_keyboard_fill_down_preserves_the_select_66fb142159",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/keyboard.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_timeline_keyboard_fill_down_focus"
+        ],
+        "titles": [
+          "Timeline keyboard fill-down preserves the selected range and restores source focus"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.browser_support.timeline_virtualization_reaches_off_screen_rows_51067b8ca7",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/keyboard.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_timeline_virtualization_frozen_gutter"
+        ],
+        "titles": [
+          "Timeline virtualization reaches off-screen rows with a frozen gutter"
         ]
       },
       "evidence_class": "browser",

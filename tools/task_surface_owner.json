@@ -2272,6 +2272,7 @@
       "command": [
         "$(NODE_BIN)",
         "--test",
+        "./tools/harness/browser/tests/test-playwright-row-runner.mjs",
         "./tools/harness/services/tests/test-local-session.mjs",
         "./tools/harness/tests/test-harness-boundary-contracts.mjs",
         "./tools/harness/tests/test-harness-command-surface-contracts.mjs",
@@ -9854,6 +9855,7 @@
     {
       "name": "harness-contract-tests",
       "backing_scripts": [
+        "tools/harness/browser/tests/test-playwright-row-runner.mjs",
         "tools/harness/services/tests/test-local-session.mjs",
         "tools/harness/tests/contract-suite-support.mjs",
         "tools/harness/tests/test-harness-boundary-contracts.mjs",

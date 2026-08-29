@@ -1,3 +1,9 @@
+import {
+  primaryPublicFailure,
+  publicExitCodeForFailure,
+  publicExitCodeForFailures,
+} from "../../contract/failure-taxonomy.mjs";
+
 export const runnerContract = Object.freeze({
   runner: "playwright",
   selector_kind: "playwright_exact_scenarios",
@@ -32,7 +38,7 @@ function resultStatus(test) {
 
 function selectorObservation(spec) {
   const tests = Array.isArray(spec?.tests) ? spec.tests : [];
-  if (tests.length !== 1) return { status: "ambiguous", durationMs: 0, exitCode: 11 };
+  if (tests.length !== 1) return { status: "ambiguous", durationMs: 0 };
   const test = tests[0];
   const statuses = (test.results ?? []).map((result) => result.status);
   const durationMs = (test.results ?? []).reduce(
@@ -40,24 +46,81 @@ function selectorObservation(spec) {
     0,
   );
   const status = resultStatus(test);
-  if (status === "passed") return { status, durationMs, exitCode: 0 };
-  if (status === "failed") return { status, durationMs, exitCode: 10 };
+  if (status === "passed") return { status, durationMs };
+  if (status === "failed") return { status, durationMs };
   if (status === "timedOut" || statuses.includes("timedOut")) {
-    return { status: "timed_out", durationMs, exitCode: 13 };
+    return { status: "timed_out", durationMs };
   }
   if (status === "interrupted" || statuses.includes("interrupted")) {
-    return { status: "interrupted", durationMs, exitCode: 130 };
+    return { status: "interrupted", durationMs };
   }
-  if (status === "skipped") return { status, durationMs, exitCode: 11 };
-  return { status: "missing", durationMs, exitCode: 11 };
+  if (status === "skipped") return { status, durationMs };
+  return { status: "missing", durationMs };
 }
 
-export function adaptPlaywrightReport(rows, report, processStatus = 0) {
+function observationFailure(observation) {
+  if (["failed", "timed_out"].includes(observation.status)) {
+    return {
+      failure_class: "product",
+      failure_reason: "test_assertion_failure",
+    };
+  }
+  if (observation.status === "interrupted") {
+    return {
+      failure_class: "interrupted",
+      failure_reason: "cancelled_or_interrupted",
+    };
+  }
+  if (["missing", "ambiguous", "skipped"].includes(observation.status)) {
+    return {
+      failure_class: "harness",
+      failure_reason: "scheduler_accounting_error",
+    };
+  }
+  return null;
+}
+
+function processFailure(processStatus, processSignal) {
+  if (processSignal) {
+    return {
+      failure_class: "interrupted",
+      failure_reason: "cancelled_or_interrupted",
+    };
+  }
+  if (Number.isInteger(processStatus) && processStatus !== 0) {
+    return {
+      failure_class: "harness",
+      failure_reason: "scheduler_accounting_error",
+    };
+  }
+  return null;
+}
+
+function terminalStateForFailure(failure) {
+  if (failure === null) return "passed";
+  if (failure.failure_class === "interrupted") return "cancelled";
+  if (failure.failure_class === "product") return "failed";
+  return "infrastructure_failed";
+}
+
+function exitContext(processStatus, processSignal) {
+  return {
+    signal: processSignal,
+    status: Number.isInteger(processStatus) ? processStatus : undefined,
+  };
+}
+
+export function adaptPlaywrightReport(
+  rows,
+  report,
+  processStatus = 0,
+  processSignal = null,
+) {
   const specs = flattenSuites(report?.suites).map((spec) => ({
     ...spec,
     normalizedFile: normalizeFile(spec.file),
   }));
-  return [...rows]
+  const selected = [...rows]
     .sort((left, right) => asciiCompare(left.row_id, right.row_id))
     .map((row) => {
       const observations = row.selector.titles.map((title) => {
@@ -66,47 +129,50 @@ export function adaptPlaywrightReport(rows, report, processStatus = 0) {
         );
         return matches.length === 1
           ? selectorObservation(matches[0])
-          : { status: matches.length === 0 ? "missing" : "ambiguous", durationMs: 0, exitCode: 11 };
+          : { status: matches.length === 0 ? "missing" : "ambiguous", durationMs: 0 };
       });
-      const timedOut = observations.some((entry) => entry.status === "timed_out");
-      const interrupted = observations.some((entry) => entry.status === "interrupted");
-      const missing = observations.some((entry) => ["missing", "ambiguous", "skipped"].includes(entry.status));
-      const failed = observations.some((entry) => entry.status === "failed");
-      const terminalState = interrupted || timedOut || missing
-        ? "infrastructure_failed"
-        : failed
-          ? "failed"
-          : "passed";
+      return { observations, row };
+    });
+  const childFailure = selected.every(({ observations }) =>
+    observations.every((observation) => observation.status === "passed")
+  )
+    ? processFailure(processStatus, processSignal)
+    : null;
+  return selected.map(({ observations, row }) => {
+      const failures = observations.map(observationFailure).filter(Boolean);
+      if (childFailure) failures.push(childFailure);
+      const primaryFailure = primaryPublicFailure(failures);
+      const terminalState = terminalStateForFailure(primaryFailure);
       return {
         row_id: row.row_id,
         terminal_state: terminalState,
         duration_ms: observations.reduce((total, entry) => total + entry.durationMs, 0),
-        exit_code: interrupted
-          ? 130
-          : timedOut
-            ? 13
-            : terminalState === "passed"
-              ? 0
-              : terminalState === "failed"
-                ? 10
-                : processStatus || 11,
-        failure_class: interrupted
-          ? "interrupted"
-          : timedOut || missing
-            ? "infra"
-            : failed
-              ? "product"
-              : null,
-        failure_reason: interrupted
-          ? "interrupted"
-          : timedOut
-            ? "timeout"
-            : missing
-              ? "missing_or_ambiguous_selector_result"
-              : failed
-                ? "test_assertion_failure"
-                : null,
+        exit_code: primaryFailure
+          ? publicExitCodeForFailure(
+              primaryFailure,
+              exitContext(processStatus, processSignal),
+            )
+          : 0,
+        failure_class: primaryFailure?.failure_class ?? null,
+        failure_reason: primaryFailure?.failure_reason ?? null,
         failure_diagnostic: null,
       };
     });
+}
+
+export function playwrightGroupExitCode(rowResults, child = {}) {
+  const failures = rowResults
+    .filter((row) => row.terminal_state !== "passed")
+    .map((row) => ({
+      failure_class: row.failure_class,
+      failure_reason: row.failure_reason,
+    }));
+  const childFailure = processFailure(child.status, child.signal);
+  if (childFailure && failures.length === 0) {
+    failures.push(childFailure);
+  }
+  return publicExitCodeForFailures(
+    failures,
+    exitContext(child.status, child.signal),
+  );
 }

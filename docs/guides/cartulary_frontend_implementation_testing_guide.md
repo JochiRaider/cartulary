@@ -77,6 +77,21 @@ Scenario identity is semantic and must not contain a delivery milestone. Runtime
 profile, fixture isolation, service ownership, reset policy, and resource locks come
 from the referenced profiles.
 
+Keyboard scenarios dispatch through the browser's current focus after proving the
+semantic focus anchor and focused target. A locator used before navigation must not
+dispatch a later shortcut because locator actions may refocus that earlier element
+and change the selected range. Mutation scenarios prove application readiness and a
+stable `Saved` state before acting, then prove the semantic focus and persisted data
+postconditions after the response.
+
+Attach one bounded response observer before a mutation and derive its request from
+`response.request()` for payload assertions. A temporary request listener may record
+whether emission occurred for diagnostics, but it must be detached in `finally`.
+Use an operation-specific action boundary with focus, save-state, and request-seen
+diagnostics; do not leave paired request and response promises pending until the
+test-wide timeout. Postcondition helpers observe state without clicking, focusing,
+scrolling, or dispatching input.
+
 ### 3.3 Shell/static evidence
 
 Shell rows name a stable command ID registered by the task surface. They never embed

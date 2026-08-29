@@ -55,7 +55,7 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Locator, Page } from "@playwright/test";
+import type { Locator, Page, Request, Response } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import {
@@ -85,6 +85,95 @@ function stringCell(
 
 function readPostBody(request: { postData: () => string | null }) {
   return JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
+}
+
+const browserMutationActionTimeoutMs = 10_000;
+
+async function observeBoundedPost(options: {
+  action: () => Promise<void>;
+  operation: string;
+  page: Page;
+  pathSuffix: string;
+}): Promise<{
+  request: Request;
+  requestCount: number;
+  response: Response;
+}> {
+  let requestCount = 0;
+  let resolveResponse: (response: Response) => void = () => {};
+  let rejectResponse: (error: Error) => void = () => {};
+  const responsePromise = new Promise<Response>((resolve, reject) => {
+    resolveResponse = resolve;
+    rejectResponse = reject;
+  });
+  const matches = (url: string, method: string) =>
+    method === "POST" && url.endsWith(options.pathSuffix);
+  const onRequest = (request: Request) => {
+    if (matches(request.url(), request.method())) requestCount += 1;
+  };
+  const onResponse = (response: Response) => {
+    if (matches(response.url(), response.request().method())) {
+      resolveResponse(response);
+    }
+  };
+  options.page.on("request", onRequest);
+  options.page.on("response", onResponse);
+  const timeout = setTimeout(
+    () =>
+      rejectResponse(
+        new Error(
+          `${options.operation} response was not observed within ${browserMutationActionTimeoutMs}ms`,
+        ),
+      ),
+    browserMutationActionTimeoutMs,
+  );
+  try {
+    const [, response] = await Promise.all([options.action(), responsePromise]);
+    return {
+      request: response.request(),
+      requestCount,
+      response,
+    };
+  } catch (error) {
+    const focusAnchor = await options.page
+      .getByTestId(workbookFocusAnchorTestId())
+      .textContent()
+      .catch(() => null);
+    const saveState = await options.page
+      .getByTestId(saveStateTestId())
+      .textContent()
+      .catch(() => null);
+    throw new Error(
+      `${options.operation} failed: request_seen=${requestCount > 0}; request_count=${requestCount}; focus_anchor=${focusAnchor ?? "unavailable"}; save_state=${saveState ?? "unavailable"}; ${error instanceof Error ? error.message : String(error)}`,
+    );
+  } finally {
+    clearTimeout(timeout);
+    options.page.off("request", onRequest);
+    options.page.off("response", onResponse);
+  }
+}
+
+async function countPostRequestsDuring(options: {
+  action: () => Promise<void>;
+  page: Page;
+  pathSuffix: string;
+}): Promise<number> {
+  let requestCount = 0;
+  const onRequest = (request: Request) => {
+    if (
+      request.method() === "POST" &&
+      request.url().endsWith(options.pathSuffix)
+    ) {
+      requestCount += 1;
+    }
+  };
+  options.page.on("request", onRequest);
+  try {
+    await options.action();
+    return requestCount;
+  } finally {
+    options.page.off("request", onRequest);
+  }
 }
 
 type SharedGridAnchorOptions = {
@@ -752,7 +841,7 @@ test("keeps the incident workbook inside the browser viewport and delegates over
   ).toBeFocused();
 });
 
-test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exact-range fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.", async ({
+test("Timeline grid keyboard navigation, edit cancellation, and Esc restore semantic focus", async ({
   page,
 }) => {
   const incidentId = await createIncident(
@@ -767,39 +856,6 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     "timeline.raw_activity_text":
       "browser.coordination-review.row-02 Alpha details",
   });
-  const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("browser.coordination-review.row-02-beta"),
-    "timeline.activity_synopsis_text":
-      "browser.coordination-review.row-02 Beta",
-    "timeline.raw_activity_text":
-      "browser.coordination-review.row-02 Beta details",
-  });
-  await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("browser.coordination-review.row-02-gamma"),
-    "timeline.activity_synopsis_text":
-      "browser.coordination-review.row-02 Gamma",
-    "timeline.raw_activity_text":
-      "browser.coordination-review.row-02 Gamma details",
-  });
-  await createTimelineFillers(
-    page,
-    incidentId,
-    "browser.coordination-review.row-02 filler",
-    64,
-  );
-  const virtualTarget = await createViewRow(
-    page,
-    incidentId,
-    timelineViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("browser.coordination-review.row-02-virtual"),
-      "timeline.activity_synopsis_text":
-        "zzz browser.coordination-review.row-02 virtual target",
-      "timeline.raw_activity_text":
-        "browser.coordination-review.row-02 virtual details",
-    },
-  );
-
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
@@ -894,38 +950,45 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
   await alphaSummaryCell.press("Escape");
   await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
   await expect(alphaSummaryCell).toBeFocused();
+});
 
-  const pasteRequest = page.waitForRequest(
-    (request) =>
-      request.method() === "POST" &&
-      request
-        .url()
-        .endsWith(
-          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
-        ),
-  );
-  const pasteResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      response
-        .url()
-        .endsWith(
-          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
-        ),
-  );
-  await pasteGridMatrix({
-    fieldKey: "timeline.activity_synopsis_text",
-    matrix: [
-      [
-        "browser.coordination-review.row-02 pasted Beta",
-        "browser.coordination-review.row-02-host-token",
-      ],
-    ],
+test("Timeline clipboard paste maps an exact rectangle and persists the target row", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
     page,
-    recordId: beta.record_id,
-    surface: timelineViewSchemaId,
+    uniqueIncidentKey("WORKBOOKPASTE"),
+    "Timeline clipboard paste contract",
+  );
+  const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("timeline-clipboard-paste-beta"),
+    "timeline.activity_synopsis_text": "Timeline clipboard paste Beta",
+    "timeline.raw_activity_text": "Timeline clipboard paste Beta details",
   });
-  expect(readPostBody(await pasteRequest)).toMatchObject({
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+
+  const pastePath = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`;
+  const paste = await observeBoundedPost({
+    action: () =>
+      pasteGridMatrix({
+        fieldKey: "timeline.activity_synopsis_text",
+        matrix: [
+          ["Timeline clipboard pasted Beta", "timeline-paste-host-token"],
+        ],
+        page,
+        recordId: beta.record_id,
+        surface: timelineViewSchemaId,
+      }),
+    operation: "Timeline clipboard paste",
+    page,
+    pathSuffix: pastePath,
+  });
+  expect(paste.requestCount).toBe(1);
+  expect(readPostBody(paste.request)).toMatchObject({
     columns: ["timeline.activity_synopsis_text", "timeline.data_source_text"],
     start_field_key: "timeline.activity_synopsis_text",
     targets: [
@@ -936,12 +999,13 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     ],
     view_schema_id: timelineViewSchemaId,
   });
-  await expect((await pasteResponse).ok()).toBeTruthy();
+  expect(paste.response.ok()).toBeTruthy();
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   await expect(
     page.getByTestId(
       rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
     ),
-  ).toHaveText("browser.coordination-review.row-02 pasted Beta");
+  ).toHaveText("Timeline clipboard pasted Beta");
   const betaAfterPaste = await waitForViewRow(
     page,
     incidentId,
@@ -949,47 +1013,45 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     beta.record_id,
   );
   expect(stringCell(betaAfterPaste, "timeline.activity_synopsis_text")).toBe(
-    "browser.coordination-review.row-02 pasted Beta",
+    "Timeline clipboard pasted Beta",
   );
+});
 
-  await scrollGridCellIntoView({
-    cellKey: "timeline.raw_activity_text",
+test("Timeline keyboard fill-down preserves the selected range and restores source focus", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
     page,
-    recordId: beta.record_id,
-    surface: timelineViewSchemaId,
-  });
-  const fillSourceRawCellLocator = page.getByTestId(
-    rowCellTestId(beta.record_id, "timeline.raw_activity_text"),
+    uniqueIncidentKey("WORKBOOKFILL"),
+    "Timeline keyboard fill-down contract",
   );
-  await fillSourceRawCellLocator.evaluate((cell) => {
-    cell.scrollIntoView({ block: "center", inline: "nearest" });
+  await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("timeline-keyboard-fill-one"),
+    "timeline.activity_synopsis_text": "Timeline fill row one",
+    "timeline.raw_activity_text": "Timeline fill details one",
   });
-  await expect(fillSourceRawCellLocator).toBeVisible();
+  await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("timeline-keyboard-fill-two"),
+    "timeline.activity_synopsis_text": "Timeline fill row two",
+    "timeline.raw_activity_text": "Timeline fill details two",
+  });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+
+  const committedRows = page
+    .getByTestId(gridShellTestId(timelineViewSchemaId))
+    .locator('[role="row"][data-grid-record-id]');
+  await expect(committedRows).toHaveCount(2);
   const [fillSourceRecordId, fillTargetRecordId] =
-    await fillSourceRawCellLocator.evaluate((cell) => {
-      const sourceRow = cell.closest<HTMLElement>(
-        '[role="row"][data-grid-record-id]',
-      );
-      const mountedRows = Array.from(
-        sourceRow?.parentElement?.querySelectorAll<HTMLElement>(
-          '[role="row"][data-grid-record-id]',
-        ) ?? [],
-      );
-      const sourceIndex =
-        sourceRow === null ? -1 : mountedRows.indexOf(sourceRow);
-      const targetRow =
-        sourceIndex < 0
-          ? undefined
-          : (mountedRows[sourceIndex + 1] ?? mountedRows[sourceIndex - 1]);
-      const sourceRecordId = sourceRow?.dataset.gridRecordId;
-      const targetRecordId = targetRow?.dataset.gridRecordId;
-      if (sourceRecordId === undefined || targetRecordId === undefined) {
-        throw new Error(
-          "Expected the centered non-empty source to have a committed fill target",
-        );
-      }
-      return [sourceRecordId, targetRecordId] as [string, string];
-    });
+    await committedRows.evaluateAll((rows) =>
+      rows.map((row) => (row as HTMLElement).dataset.gridRecordId ?? ""),
+    );
+  if (!fillSourceRecordId || !fillTargetRecordId) {
+    throw new Error("Expected two adjacent committed Timeline rows");
+  }
   const fillSource = await waitForViewRow(
     page,
     incidentId,
@@ -1003,61 +1065,58 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     fillTargetRecordId,
   );
   const fillSourceValue = stringCell(fillSource, "timeline.raw_activity_text");
+  await scrollGridCellIntoView({
+    cellKey: "timeline.raw_activity_text",
+    page,
+    recordId: fillSourceRecordId,
+    surface: timelineViewSchemaId,
+  });
   const fillSourceDisplay = page.getByTestId(
     rowCellTestId(fillSourceRecordId, "timeline.raw_activity_text"),
   );
+  await expect(fillSourceDisplay).toBeVisible();
   const fillSourceCell = await activateSemanticGridCell(fillSourceDisplay);
-  const fillRequests: string[] = [];
-  page.on("request", (request) => {
-    if (
-      request.method() === "POST" &&
-      request
-        .url()
-        .endsWith(
-          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`,
-        )
-    ) {
-      fillRequests.push(request.postData() ?? "");
-    }
-  });
+  const fillPath = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`;
   const fillHandle = page.locator(gridFillHandleSelector());
   await expect(fillHandle).toHaveAttribute(
     "aria-label",
     "Drag to fill this value",
   );
-  await fillHandle.evaluate((handle) => {
-    handle.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  const doubleClickRequests = await countPostRequestsDuring({
+    action: async () => {
+      await fillHandle.evaluate((handle) => {
+        handle.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+      });
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+    },
+    page,
+    pathSuffix: fillPath,
   });
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-      ),
-  );
-  expect(fillRequests).toHaveLength(0);
+  expect(doubleClickRequests).toBe(0);
 
   await fillSourceCell.press("Shift+ArrowDown");
-  const fillRequest = page.waitForRequest(
-    (request) =>
-      request.method() === "POST" &&
-      request
-        .url()
-        .endsWith(
-          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`,
-        ),
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
+    `${timelineViewSchemaId}:${fillTargetRecordId}:timeline.raw_activity_text`,
   );
-  const fillResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      response
-        .url()
-        .endsWith(
-          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`,
-        ),
+  const fillTargetDisplay = page.getByTestId(
+    rowCellTestId(fillTargetRecordId, "timeline.raw_activity_text"),
   );
-  await fillSourceCell.press("Control+d");
-  expect((await fillResponse).ok()).toBeTruthy();
-  expect(readPostBody(await fillRequest)).toMatchObject({
+  await expect(semanticGridCell(fillTargetDisplay)).toBeFocused();
+
+  const fill = await observeBoundedPost({
+    action: () => page.keyboard.press("Control+d"),
+    operation: "Timeline keyboard fill-down",
+    page,
+    pathSuffix: fillPath,
+  });
+  expect(fill.requestCount).toBe(1);
+  expect(fill.response.ok()).toBeTruthy();
+  expect(readPostBody(fill.request)).toMatchObject({
     field_key: "timeline.raw_activity_text",
     kind: "fill_down_v1",
     targets: [
@@ -1069,6 +1128,50 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     value: fillSourceValue,
     view_schema_id: timelineViewSchemaId,
   });
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+  await expect(fillTargetDisplay).toHaveText(fillSourceValue);
+  await expect
+    .poll(async () => {
+      const rows = await queryViewRows(page, incidentId, timelineViewSchemaId);
+      const target = rows.find((row) => row.record_id === fillTarget.record_id);
+      return target === undefined
+        ? "missing"
+        : stringCell(target, "timeline.raw_activity_text");
+    })
+    .toBe(fillSourceValue);
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
+    `${timelineViewSchemaId}:${fillSourceRecordId}:timeline.raw_activity_text`,
+  );
+  await expect(fillSourceCell).toBeFocused();
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: "Select a writable one-column range before using fill down.",
+    }),
+  ).toHaveCount(0);
+});
+
+test("Timeline grouping renders reviewed and unreviewed presentation-only rows", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("WORKBOOKGROUPS"),
+    "Timeline grouping presentation contract",
+  );
+  const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("timeline-grouping-reviewed"),
+    "timeline.activity_synopsis_text": "Timeline grouping reviewed row",
+  });
+  await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("timeline-grouping-unreviewed"),
+    "timeline.activity_synopsis_text": "Timeline grouping unreviewed row",
+  });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+
   const betaBeforeReview = await waitForViewRow(
     page,
     incidentId,
@@ -1122,8 +1225,50 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     page,
     surface: timelineViewSchemaId,
   });
+  const unreviewedGroupTestId = gridGroupRowTestId(
+    timelineViewSchemaId,
+    "timeline.capture_state",
+    "rough",
+  );
+  await expect(page.getByTestId(unreviewedGroupTestId)).toBeVisible();
+  await assertGroupRowPresentationOnly({
+    groupTestId: unreviewedGroupTestId,
+    page,
+    surface: timelineViewSchemaId,
+  });
   await changeGrouping(page, timelineViewSchemaId, "");
   await expect(page.getByTestId(reviewedGroupTestId)).not.toBeVisible();
+  await expect(page.getByTestId(unreviewedGroupTestId)).not.toBeVisible();
+});
+
+test("Timeline virtualization reaches off-screen rows with a frozen gutter", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("WORKBOOKVIRTUAL"),
+    "Timeline virtualization and frozen gutter contract",
+  );
+  await createTimelineFillers(
+    page,
+    incidentId,
+    "Timeline virtualization filler",
+    48,
+  );
+  const virtualTarget = await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("timeline-virtualization-target"),
+      "timeline.activity_synopsis_text": "zzz Timeline virtualization target",
+      "timeline.raw_activity_text": "Timeline virtualization details",
+    },
+  );
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
 
   await sortByHeader(
     page,

@@ -12,7 +12,10 @@ import {
   secureWriteFile,
   validateSchemaSync,
 } from "../contract/index.mjs";
-import { adaptPlaywrightReport } from "../execution/runners/playwright.mjs";
+import {
+  adaptPlaywrightReport,
+  playwrightGroupExitCode,
+} from "../execution/runners/playwright.mjs";
 import { groupRowsByPerformanceFixture } from "../performance-fixture/index.mjs";
 import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs";
 import { enforcePrivateProcessUmask } from "../runtime/private-process.mjs";
@@ -198,14 +201,6 @@ function commandForGroup(rows, group, artifactRoot) {
   return { command: pnpm, args };
 }
 
-function exitCodeForRows(rowResults, child) {
-  if (child.signal === "SIGINT" || child.signal === "SIGTERM") return 130;
-  if (rowResults.some((row) => row.exit_code === 13)) return 13;
-  if (rowResults.some((row) => row.terminal_state === "infrastructure_failed")) return 11;
-  if (rowResults.some((row) => row.terminal_state === "failed")) return 10;
-  return child.status === 0 ? 0 : 11;
-}
-
 async function main() {
   enforcePrivateProcessUmask();
   const options = parseArgs(process.argv.slice(2));
@@ -282,7 +277,12 @@ async function main() {
   } catch {
     report = null;
   }
-  const rowResults = adaptPlaywrightReport(rows, report, child.status ?? 11);
+  const rowResults = adaptPlaywrightReport(
+    rows,
+    report,
+    child.status,
+    child.signal,
+  );
   let measurementEvidenceError = null;
   const fixtureGroups = groupRowsByPerformanceFixture(root, rows);
   if (fixtureGroups.length > 0) {
@@ -304,7 +304,7 @@ async function main() {
     }
   }
   const exitCode = measurementEvidenceError === null
-    ? exitCodeForRows(rowResults, child)
+    ? playwrightGroupExitCode(rowResults, child)
     : 11;
   const finishedAt = new Date().toISOString();
   const wallDurationMs = Date.now() - started;
